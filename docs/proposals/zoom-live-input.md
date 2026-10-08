@@ -30,3 +30,10 @@ Before code, add Verify cases for separate mouse objects, zero-scale pinch
 begin, a 56 pixel inset, competing native wheel writes and ancestor restore.
 Sample focus and direct position before the next frame. Keep the existing
 live pointer and gamepad checks. Native hit order still needs Studio.
+
+Native E3 also showed an exhausted wheel edge still held the page. Record the
+last wheel direction. Use the native canvas extent and viewport to test that
+direction with the same half-pixel edge rule as scroll_chain. Release the hold
+at that edge. Reclaim it when the pointer moves or the wheel reverses. The
+ancestor keeps native wheel handling. Prove both directions with Verify and
+with a nested native ScrollingFrame.

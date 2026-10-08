@@ -1159,7 +1159,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				}
 			end, label)
 			runtime.connect(label, "ChildAdded", function(child: Instance)
-				if child ~= floor and child:IsA("UISizeConstraint") then
+				if child ~= (floor :: UISizeConstraint) and child:IsA("UISizeConstraint") then
 					stopFloor()
 				end
 			end)
@@ -1666,7 +1666,8 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					else binding
 				for _, direction in { "Up", "Down", "Left", "Right" } do
 					local keys = (Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode }
-					if code == keys[direction] or code == keys["DPad" .. direction] then
+					local letter = ({ Up = "W", Down = "S", Left = "A", Right = "D" })[direction]
+					if code == keys[direction] or code == keys["DPad" .. direction] or code == keys[letter] then
 						steering[(code :: Enum.KeyCode).Name] = direction
 					end
 				end

@@ -110,3 +110,4 @@ artifacts/interaction-2-case-ids.md
 artifacts/interaction-2.patch
 
 artifacts/lab-mount-report.md
+docs/proposals/travel-lifetime.md

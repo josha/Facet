@@ -33,6 +33,7 @@ return function(ctx: Shared.Context, options: Options): Handle
 		service = { entries = {}, carriers = {} }
 		services[ctx.runtime] = service
 	end
+	local owner = assert(ctx.Compose.currentOwner())
 	local shared = service
 	local state = ctx.Compose.createSpringState(options.initial, #options.initial)
 	local reference = table.clone(options.initial)
@@ -49,10 +50,18 @@ return function(ctx: Shared.Context, options: Options): Handle
 		depth += 1
 	end
 	local entry: Entry = { active = true, tick = function() end, depth = depth }
+	local stopped = false
+	local hadParent = options.carrier ~= nil and options.carrier.Parent ~= nil
+	local stop: () -> ()
+	local function alive(): boolean
+		return not stopped
+			and not owner.isDisposed()
+			and not (hadParent and options.carrier and options.carrier.Parent == nil)
+	end
 	local waiting = 0
 	local started = true
 	local function start()
-		if not started then
+		if alive() and not started then
 			started = true
 			if options.start then
 				options.start()
@@ -60,20 +69,33 @@ return function(ctx: Shared.Context, options: Options): Handle
 		end
 	end
 	local function finish(target: { number })
+		if not alive() then
+			return
+		end
 		for index, value in target do
 			state.position[index], state.velocity[index] = value, 0
 		end
 		entry.active = false
 		options.sample(state.position)
-		if options.complete then
+		if alive() and options.complete then
 			options.complete()
 		end
 	end
 	entry.tick = function(delta: number)
+		if options.carrier and options.carrier.Parent ~= nil then
+			hadParent = true
+		end
+		if not alive() then
+			stop()
+			return
+		end
 		if not entry.active then
 			return
 		end
 		local target = options.target()
+		if not alive() then
+			return
+		end
 		if options.reduced() then
 			start()
 			finish(target)
@@ -88,6 +110,9 @@ return function(ctx: Shared.Context, options: Options): Handle
 			end
 		end
 		start()
+		if not alive() then
+			return
+		end
 		if options.motion == "spring" then
 			ctx.Compose.stepSpring(state, target, delta, options.spring.period, options.spring.damping)
 			options.sample(state.position)
@@ -120,8 +145,7 @@ return function(ctx: Shared.Context, options: Options): Handle
 			end
 		end)
 	end
-	local stopped = false
-	local function stop()
+	stop = function()
 		if stopped then
 			return
 		end
@@ -139,23 +163,38 @@ return function(ctx: Shared.Context, options: Options): Handle
 			shared.disconnect = nil
 		end
 	end
+	if options.carrier then
+		ctx.runtime.connect(options.carrier, "Destroying", stop)
+	end
 	ctx.Compose.cleanup(stop)
 	return {
 		depth = depth,
 		rebase = function(values: { number })
+			if not alive() then
+				return
+			end
 			for index, value in values do
 				state.position[index] = value
 			end
 		end,
 		snap = function(values: { number })
+			if not alive() then
+				return
+			end
 			for index, value in values do
 				state.position[index], state.velocity[index] = value, 0
 			end
 			reference = table.clone(values)
 			entry.active = false
 			options.sample(state.position)
+			if options.carrier and options.carrier.Parent ~= nil then
+				hadParent = true
+			end
 		end,
 		retarget = function()
+			if not alive() then
+				return
+			end
 			local interrupted = entry.active and started
 			reference = table.clone(state.position)
 			waiting = if interrupted or options.delay == nil then 0 else options.delay()

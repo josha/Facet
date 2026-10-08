@@ -5902,19 +5902,24 @@ PAGE_DATA.ZoomView = {
 	alternatives = "Use ScrollView for content that only scrolls.",
 	snippet = "UI.ZoomView { contentSize = Vector2.new(780, 780), zoom = zoom, content = Board }",
 	base = function()
-		return { maxZoom = 4, enabled = true, captureCamera = false }
+		return { maxZoom = 4, enabled = true, captureCamera = false, collectionCapture = false }
 	end,
 	axes = {
 		{ key = "captureCamera", values = { false, true } } :: Axis,
+		{ key = "collectionCapture", values = { false, true } } :: Axis,
 		{ key = "maxZoom", values = { 1, 2, 4 } } :: Axis,
 		{ key = "enabled", values = { true, false } } :: Axis,
 	},
 	states = {
 		{ name = "zoom at capture", props = { captureCamera = true } } :: State,
+		{ name = "collection pickup camera", props = { collectionCapture = true } } :: State,
 		{ name = "disabled", props = { enabled = false } } :: State,
 		{ name = "fit limit", props = { maxZoom = 1 } } :: State,
 	},
 	make = function(UI: FacetControls, p: Properties, c: Context): Instance
+		if p.collectionCapture then
+			return require("./zoom_collection_demo")(UI, c.Host, c.Compose)
+		end
 		return require("./zoom_travel_demo").zoom(
 			UI,
 			c.Host,
@@ -5932,20 +5937,25 @@ PAGE_DATA.Travel = {
 	alternatives = "Use Travel for every item slot change.",
 	snippet = 'UI.Travel { destination = destination, path = "arc", content = Tile }',
 	base = function()
-		return { path = "arc", many = false, shuffle = false }
+		return { path = "arc", many = false, shuffle = false, recycle = false }
 	end,
 	axes = {
 		{ key = "path", values = { "straight", "arc" } } :: Axis,
 		{ key = "many", values = { false, true } } :: Axis,
 		{ key = "shuffle", values = { false, true } } :: Axis,
+		{ key = "recycle", values = { false, true } } :: Axis,
 	},
 	states = {
+		{ name = "recycled destinations", props = { recycle = true } } :: State,
 		{ name = "shuffle a row", props = { shuffle = true } } :: State,
 		{ name = "many items, same container", props = { many = true } } :: State,
 		{ name = "straight", props = { path = "straight" } } :: State,
 		{ name = "arc", props = { path = "arc" } } :: State,
 	},
 	make = function(UI: FacetControls, p: Properties, c: Context): Instance
+		if p.recycle then
+			return require("./travel_recycle_demo")(UI, c.Host, c.Compose)
+		end
 		if p.shuffle then
 			return require("./zoom_travel_demo").shuffle(UI, c.Host, c.Compose)
 		end

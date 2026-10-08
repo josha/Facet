@@ -2,9 +2,10 @@
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type DraggableSpec = typeof(require("@repo/tools/typecheck/aliases").DraggableSpec)
 type DestinationCell = typeof(require("@repo/tools/typecheck/aliases").ZoomDestinationCell)
 type Live = {
-	mount: ((Controls, Host, ComposeModule) -> Instance, { frames: number }?) -> GuiObject,
+	mount: ((Controls, Host, ComposeModule) -> Instance, { frames: number, motionLevel: "normal"? }?) -> GuiObject,
 	find: (Instance, string) -> GuiObject?,
 	check: (string, boolean, unknown?) -> (),
 	note: (string, unknown) -> (),
@@ -18,11 +19,13 @@ type ZoomState = {
 	removals: number,
 	scale: number,
 	pan: Vector2,
+	captured: boolean?,
+	contactError: number?,
 }
 type TravelState = {
 	source: Frame,
 	target: Frame,
-	content: TextButton,
+	content: GuiObject,
 	destination: DestinationCell,
 	samples: { Vector2 },
 	additions: number,
@@ -99,11 +102,88 @@ local function zoomSetup(t: Live, captureCamera: boolean?): ZoomState
 			sample:Disconnect()
 		end)
 		return view
-	end, { frames = 12 })
+	end, { frames = 12, motionLevel = "normal" })
 	state.view = assert(t.find(stage, "LiveZoom")) :: ScrollingFrame
 	state.additions, state.removals = 0, 0
 	state.scale, state.pan = state.view:GetAttribute("FacetZoom") :: number, state.view.CanvasPosition
 	GuiService.SelectedObject = state.view
+	return state
+end
+
+local function collectionCameraSetup(t: Live): ZoomState
+	local state: ZoomState
+	t.mount(function(UI: Controls, Host: Host, C: ComposeModule): Instance
+		local camera: {
+			zoomTo: (({ x: number, y: number, w: number, h: number }) -> boolean)?,
+			fit: (() -> boolean)?,
+			zoomAt: ((number, Vector2?) -> boolean)?,
+		} =
+			{}
+		local view = UI.ZoomView {
+			Name = "CollectionCamera",
+			Size = UDim2.fromOffset(360, 320),
+			contentSize = Vector2.new(900, 900),
+			controls = camera,
+			content = function(): GuiObject
+				return Host.Frame { BackgroundColor3 = Color3.fromRGB(45, 70, 90) }
+			end,
+		}
+		local tile: TextButton
+		local rack = UI.VirtualGrid {
+			Name = "ExternalCameraRack",
+			from = { 1 },
+			key = function(id: number): number
+				return id
+			end,
+			columns = 1,
+			itemSize = 60,
+			mode = "all" :: "all",
+			Position = UDim2.fromOffset(0, 340),
+			Size = UDim2.fromOffset(360, 80),
+			drag = function(_items: { number }, _keys: { number }): DraggableSpec
+				return {
+					payload = "collection tile",
+					touchPickup = "immediate",
+					statusLabels = false,
+					onStart = function()
+						state.captured = true
+						t.check(
+							"external collection receives pickup camera",
+							assert(camera.zoomAt)(2, view.AbsolutePosition + view.AbsoluteWindowSize / 2)
+						)
+						t.check("second capture request is rejected", not assert(camera.fit)())
+					end,
+					onEnd = function()
+						state.captured = false
+						t.check("release permits fit", assert(camera.fit)())
+					end,
+				}
+			end,
+			render = function(): GuiObject
+				tile = UI.Button { Name = "CollectionTile", label = "A", Size = UDim2.fromScale(1, 1) }
+				return tile
+			end,
+		}
+		state = { view = view, tile = tile, samples = {}, additions = 0, removals = 0, scale = 1, pan = Vector2.zero }
+		local sample = RunService.PreRender:Connect(function()
+			local layer = view:FindFirstAncestorWhichIsA("ScreenGui")
+			local ghost = if layer then layer:FindFirstChild("DragGhost", true) else nil
+			if state.captured and ghost and ghost:IsA("GuiObject") then
+				local pointer = game:GetService("UserInputService"):GetMouseLocation() - GuiService:GetGuiInset()
+				local contact = ghost.AbsolutePosition + ghost.AbsoluteSize * ghost.AnchorPoint
+				state.contactError = math.max(state.contactError or 0, (contact - pointer).Magnitude)
+			end
+			table.insert(state.samples, {
+				scale = view:GetAttribute("FacetZoom") :: number,
+				pan = view.CanvasPosition,
+				held = state.captured == true,
+			})
+		end)
+		C.cleanup(function()
+			sample:Disconnect()
+		end)
+		return Host.Frame { Size = UDim2.fromScale(1, 1), view :: unknown, rack :: unknown }
+	end, { frames = 12, motionLevel = "normal" })
 	return state
 end
 
@@ -151,6 +231,9 @@ local function travelSetup(t: Live): TravelState
 			Size = UDim2.fromOffset(60, 60),
 			Position = UDim2.fromOffset(20, 80),
 			ClipsDescendants = true,
+			Host.UIPadding { PaddingLeft = UDim.new(0, 12), PaddingTop = UDim.new(0, 1) } :: unknown,
+			Host.UIStroke { Thickness = 3 } :: unknown,
+			UI.Button { Name = "SlotButton", label = "slot", Size = UDim2.fromScale(1, 1) } :: unknown,
 		}
 		local target = Host.Frame {
 			Name = "TravelTarget",
@@ -158,15 +241,27 @@ local function travelSetup(t: Live): TravelState
 			Position = UDim2.fromOffset(300, 260),
 			ClipsDescendants = true,
 		}
+		Host.Frame {
+			Name = "LandingContentBox",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Parent = C.static(source),
+		}
+		Host.Frame {
+			Name = "LandingContentBox",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Parent = C.static(target),
+		}
 		local destination = C.cell(source :: GuiObject)
-		local content: TextButton
+		local content: GuiObject
 		local travel = UI.Travel {
 			destination = destination,
 			path = "arc" :: "arc",
 			content = function(): GuiObject
-				content = UI.Button {
+				content = UI.Text {
 					Name = "LiveTravellingTile",
-					label = "A",
+					text = "A",
 					Size = UDim2.fromScale(1, 1),
 					AutomaticSize = Enum.AutomaticSize.None,
 				}
@@ -213,7 +308,7 @@ local function travelSetup(t: Live): TravelState
 				end,
 			} :: unknown,
 		}
-	end, { frames = 12 })
+	end, { frames = 12, motionLevel = "normal" })
 	table.clear(state.samples)
 	return state
 end
@@ -221,6 +316,20 @@ end
 local function afterLanding(t: Live, state: TravelState)
 	local carrier = state.content :: GuiObject
 	t.check("carrier lands in destination", carrier.Parent == state.destination:peek())
+	t.check(
+		"handoff keeps the slot screen rectangle",
+		(
+			carrier.AbsolutePosition
+			- (state.destination:peek():FindFirstChild("LandingContentBox") :: GuiObject).AbsolutePosition
+		).Magnitude <= 1
+	)
+	local paint = state.destination:peek():FindFirstChild("SlotButton") :: GuiObject?
+	if paint then
+		t.check(
+			"landed letter stays above the cell button",
+			(carrier:GetStyled("ZIndex") :: number) > (paint:GetStyled("ZIndex") :: number)
+		)
+	end
 	t.check("content remains visible at hand-off", carrier.Visible and state.content.Visible)
 	t.check("travel has rendered samples", #state.samples >= 3, #state.samples)
 	local maximum = 0
@@ -230,6 +339,65 @@ local function afterLanding(t: Live, state: TravelState)
 	t.check("no whole-route jump", maximum < 100, maximum)
 	t.note("travel render samples", state.samples)
 	table.clear(state.samples)
+end
+
+type RecycleState = {
+	replace: () -> (),
+	remove: () -> (),
+	destination: DestinationCell,
+	targets: { [number]: GuiObject },
+	content: GuiObject,
+}
+local function recycleSetup(t: Live): RecycleState
+	local state: RecycleState
+	t.mount(function(UI: Controls, Host: Host, C: ComposeModule): Instance
+		local rows = C.cell({ 1, 2 })
+		local targets: { [number]: GuiObject } = {}
+		local park = Host.Frame { Name = "Park", Size = UDim2.fromOffset(60, 60), ClipsDescendants = true }
+		local destination = C.cell(park :: GuiObject)
+		local grid = UI.VirtualGrid {
+			from = rows,
+			key = function(value: number): number
+				return value
+			end,
+			columns = 2,
+			itemSize = 64,
+			mode = "all" :: "all",
+			Size = UDim2.fromOffset(240, 100),
+			Position = UDim2.fromOffset(160, 160),
+			render = function(current): GuiObject
+				local slot = UI.Button { Name = `Target{current:peek()}`, label = "Slot", ClipsDescendants = true }
+				targets[current:peek()] = slot
+				return slot
+			end,
+		}
+		local content: GuiObject
+		local travel = UI.Travel {
+			destination = destination,
+			content = function(): GuiObject
+				content = UI.Text { Name = "Tile40", text = "A" }
+				return content
+			end,
+		}
+		state = {
+			replace = function()
+				rows:set({ 3, 4 })
+				destination:set(assert(targets[3]))
+			end,
+			remove = function()
+				rows:set({})
+			end,
+			destination = destination,
+			targets = targets,
+			content = content,
+		}
+		return Host.Frame { Size = UDim2.fromScale(1, 1), park :: unknown, grid :: unknown, travel :: unknown }
+	end, { frames = 12, motionLevel = "normal" })
+	return state
+end
+local function afterRecycle(t: Live, state: RecycleState)
+	t.check("removed destination ends its carrier", state.content.Parent == nil)
+	t.note("carrier parent after destination destruction", tostring(state.content.Parent))
 end
 
 type ShuffleState = {
@@ -308,7 +476,7 @@ local function shuffleSetup(t: Live): ShuffleState
 			sample:Disconnect()
 		end)
 		return Host.Frame { Size = UDim2.fromScale(1, 1), row :: unknown, button :: unknown }
-	end, { frames = 12 })
+	end, { frames = 12, motionLevel = "normal" })
 	return state
 end
 local function afterShuffle(t: Live, state: ShuffleState)
@@ -343,7 +511,51 @@ type TravelCase = {
 	setup: (Live) -> TravelState,
 	steps: { [string]: (Live, TravelState) -> () },
 }
-local cases: { ZoomCase | TravelCase | ShuffleCase } = {
+type RecycleCase = {
+	id: string,
+	contracts: { string },
+	setup: (Live) -> RecycleState,
+	steps: { [string]: (Live, RecycleState) -> () },
+}
+local cases: { ZoomCase | TravelCase | ShuffleCase | RecycleCase } = {
+	{
+		id = "travel-recycled-destination",
+		contracts = { "UI.Travel", "UI.VirtualGrid" },
+		setup = recycleSetup,
+		steps = {
+			afterReplace = function(t: Live, state: RecycleState)
+				t.check(
+					"recycled destination cancels or lands in the new slot",
+					state.content.Parent == nil or state.content.Parent == state.targets[3]
+				)
+			end,
+			afterRemove = afterRecycle,
+		},
+	},
+	{
+		id = "zoom-collection-capture-camera",
+		contracts = { "UI.ZoomView", "UI.VirtualGrid" },
+		setup = collectionCameraSetup,
+		steps = {
+			whileLifted = function(t: Live, state: ZoomState)
+				t.check(
+					"collection capture reaches zoom level",
+					math.abs((state.view:GetAttribute("FacetZoom") :: number) - 2) < 0.001
+				)
+				t.check("collection stays captured", state.captured == true)
+				t.check(
+					"collection preview follows the pointer",
+					state.contactError ~= nil and state.contactError <= 1,
+					state.contactError
+				)
+				t.note("collection camera samples", state.samples)
+			end,
+			afterRelease = function(t: Live, state: ZoomState)
+				t.check("collection release returns fit", (state.view:GetAttribute("FacetZoom") :: number) < 1)
+				t.check("collection capture ends", state.captured == false)
+			end,
+		},
+	},
 	{
 		id = "zoom-capture-camera",
 		contracts = { "UI.ZoomView", "UI.draggable" },

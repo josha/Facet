@@ -115,13 +115,14 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		end
 		return io
 	end
-	local function press(t: any, names: { string })
-		local result = HttpService:JSONDecode(live.press(names))
+	local function press(t: any, names: { string }, frames: number?)
+		local result = HttpService:JSONDecode(live.press(names, frames))
 		for _, name in names do
 			if string.sub(name, 1, 5) == "Stick" then
 				local delivered = false
 				for _, entry in result.input do
-					delivered = delivered or string.find(entry, "Gamepad1:Thumbstick1:", 1, true) ~= nil
+					local stick = if string.sub(name, 1, 6) == "Stick2" then "Thumbstick2" else "Thumbstick1"
+					delivered = delivered or string.find(entry, "Gamepad1:" .. stick .. ":", 1, true) ~= nil
 				end
 				t.check("native gamepad stick input delivered " .. name, delivered, result.input)
 			elseif string.sub(name, 1, 4) == "DPad" or string.sub(name, 1, 6) == "Button" then
@@ -393,6 +394,12 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		io.heldDrag(contact, contact + Vector2.new(20, 20))
 		live.step("afterChildDrag")
 		io.up(contact + Vector2.new(20, 20))
+	end
+	local travelDrivers = require(script.Parent.zoom_travel_drivers)(live.step, press, settle, function(node)
+		GuiService.SelectedObject = node
+	end)
+	for id, driver in travelDrivers do
+		drivers[id] = driver
 	end
 	local gamepad = {
 		["zoom-gamepad"] = true,

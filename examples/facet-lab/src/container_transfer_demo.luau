@@ -323,9 +323,6 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 						end
 					end
 					flights:set(nextFlights)
-					for _, flight in nextFlights do
-						flight.destination:set(assert(slotControls.nodeOfKey)(flight.id) :: GuiObject)
-					end
 				end,
 			},
 			UI.Button {
@@ -349,12 +346,17 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 				end,
 				render = function(current: FacetReadable<Flight>): GuiObject
 					local flight = current:peek()
-					return UI.Travel {
+					local travel = UI.Travel {
 						destination = flight.destination,
 						content = function(): GuiObject
 							return UI.Button { label = flight.tile.letter }
 						end,
-						onLanded = function()
+						onLanded = function(destination: GuiObject)
+							local target = assert(slotControls.nodeOfKey)(flight.id) :: GuiObject
+							if destination ~= target then
+								flight.destination:set(target)
+								return
+							end
 							transfer({ collection = "board", items = { flight.tile }, keys = { flight.id } }, nil, nil)
 							flights:update(function(values)
 								local next: { Flight } = {}
@@ -367,6 +369,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 							end)
 						end,
 					}
+					return travel
 				end,
 			},
 		},

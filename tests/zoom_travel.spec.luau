@@ -340,6 +340,25 @@ return function(harness: Verify.Harness)
 			t:expect(w.outer.ScrollingEnabled):toBe(true)
 		end)
 
+		harness:case("wheel hands the scroll chain to the page only at the board edge", function(t)
+			local w = inputWorld()
+			t:defer(w.stop)
+			local E, V2, V3 = w.engine.types.Enum, w.engine.types.Vector2, w.engine.types.Vector3
+			local wheel = w.event(E.UserInputType.MouseWheel, V2.zero, E.UserInputState.Change)
+			wheel.Position = V3.new(0, 0, -100)
+			w.input.InputChanged:Fire(wheel, true)
+			t:expect(w.view.CanvasPosition.Y):toBe(1600)
+			w.engine.heartbeat:Fire(1 / 60)
+			t:expect(w.outer.ScrollingEnabled):toBe(true)
+			wheel.Position = V3.new(0, 0, -1)
+			w.input.InputChanged:Fire(wheel, true)
+			t:expect(w.outer.ScrollingEnabled):toBe(true)
+			wheel.Position = V3.new(0, 0, 1)
+			w.input.InputChanged:Fire(wheel, true)
+			t:expect(w.view.CanvasPosition.Y < 1600):toBe(true)
+			t:expect(w.outer.ScrollingEnabled):toBe(false)
+		end)
+
 		harness:case("releases wheel ownership for overlays focus loss disable and disposal", function(t)
 			local w = inputWorld()
 			t:defer(w.stop)
@@ -588,6 +607,93 @@ return function(harness: Verify.Harness)
 			for _ = 1, math.ceil(duration * 120) + 2 do
 				engine.heartbeat:Fire(1 / 120)
 				run.PreRender:Fire(1 / 120)
+			end
+			t:expect(scale.Scale):toBe(0.4)
+		end)
+
+		harness:case("F-028 external collection grants one pickup camera and holds it until release", function(t)
+			local native = engineLib.new({ lenientProperties = true })
+			local C = Facet.Compose
+			local runtime = Facet.Roblox.createRuntime(native)
+			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local input = native.new("UserInputService")
+			local V2 = native.types.Vector2
+			local screen = native.new("ScreenGui")
+			local UI = Facet.controls(runtime, { types = native.types, userInputService = input })
+			local camera: Facet.ZoomControls = {}
+			local view: ScrollingFrame
+			local rack: ScrollingFrame
+			local started, ended = false, false
+			local stop = runtime.mount(function()
+				view = UI.ZoomView {
+					controls = camera,
+					contentSize = V2.new(1000, 1000),
+					content = function(): GuiObject
+						return Host.Frame {}
+					end,
+				}
+				rack = UI.VirtualGrid {
+					from = { 1, 2 },
+					key = function(id: number): number
+						return id
+					end,
+					columns = 2,
+					itemSize = 60,
+					mode = "all" :: "all",
+					drag = function(_items: { number }, _keys: { number }): Facet.DraggableSpec
+						return {
+							payload = "collection tile",
+							onStart = function()
+								started = true
+								t:expect(assert(camera.zoomAt)(2, V2.new(200, 200))):toBe(true)
+								t:expect(assert(camera.fit)()):toBe(false)
+							end,
+							onEnd = function()
+								ended = true
+								t:expect(assert(camera.fit)()):toBe(true)
+							end,
+						}
+					end,
+					render = function(): GuiObject
+						return Host.Frame { Name = "RackTile" }
+					end,
+				}
+				return Host.Frame { view :: unknown, rack :: unknown }
+			end, screen)
+			t:defer(function()
+				stop()
+				runtime:dispose()
+			end)
+			view.AbsoluteWindowSize = V2.new(400, 400)
+			local viewMethods = (view :: unknown) :: { ResetScrollVelocity: () -> () }
+			viewMethods.ResetScrollVelocity = function() end
+			rack.AbsoluteWindowSize = V2.new(400, 60)
+			local row = assert(rack:FindFirstChild("RackTile", true)) :: GuiObject
+			row.AbsolutePosition, row.AbsoluteSize = V2.new(20, 440), V2.new(60, 60)
+			local detector = assert(row:FindFirstChildWhichIsA("UIDragDetector"))
+			local signals = (detector :: unknown) :: {
+				DragStart: engineLib.Signal<Vector2>,
+				DragContinue: engineLib.Signal<Vector2>,
+				DragEnd: engineLib.Signal<Vector2>,
+			}
+			native.heartbeat:Fire(1 / 60)
+			signals.DragStart:Fire(V2.new(50, 470))
+			signals.DragContinue:Fire(V2.new(80, 470))
+			t:expect(started):toBe(true)
+			t:expect(assert(camera.fit)()):toBe(false)
+			local ghost = assert(screen:FindFirstChild("DragGhost")) :: GuiObject
+			local scale = assert(view:FindFirstChild("ZoomScale", true)) :: UIScale
+			for _ = 1, 60 do
+				native.heartbeat:Fire(1 / 120)
+				t:expect(ghost.Parent):toBe(screen)
+				t:expect((V2.new(ghost.Position.X.Offset, ghost.Position.Y.Offset) - V2.new(80, 470)).Magnitude <= 1)
+					:toBe(true)
+			end
+			t:expect(scale.Scale):toBe(2)
+			signals.DragEnd:Fire(V2.new(80, 470))
+			t:expect(ended):toBe(true)
+			for _ = 1, 60 do
+				native.heartbeat:Fire(1 / 120)
 			end
 			t:expect(scale.Scale):toBe(0.4)
 		end)

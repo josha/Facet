@@ -675,10 +675,10 @@ return function(ctx: Types.Context): Drag.Service
 		end
 		session.pending = true
 		session.pendingTarget = destination
-		updateStatus(session)
-		state:set(table.clone(session))
-		destination:SetAttribute("FacetDropState", "pending")
 		session.executing = true
+		updateStatus(session)
+		state:set(session)
+		destination:SetAttribute("FacetDropState", "pending")
 		local ok, result =
 			pcall(spec.onDrop :: (unknown, Env.DropInfo) -> (boolean | "pending")?, session.payload, proposal)
 		session.executing = false

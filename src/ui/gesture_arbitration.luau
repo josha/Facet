@@ -107,7 +107,7 @@ function arbitration.new(): Arbiter
 	end
 	function arbiter.claimCamera(surface: GuiObject): boolean
 		local owner = captureOwner
-		if not owner or cameras[surface] or (owner ~= surface and not owner:IsDescendantOf(surface)) then
+		if not owner or cameras[surface] then
 			return false
 		end
 		cameras[surface] = true

@@ -256,6 +256,9 @@ local function new(options: any?): Engine
 			environment.poke(object, "CurrentPage", page)
 		end,
 	}
+	if settings.getStyled then
+		methods["Instance.GetStyled"] = settings.getStyled
+	end
 	if settings.styleOnlySignals then
 		methods["GuiObject.GetStyledPropertyChangedSignal"] = function()
 			return environment.newSignal()

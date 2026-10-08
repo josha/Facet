@@ -208,7 +208,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 				if key ~= nil and (not input or not input:GetFocusedTextBox()) then
 					command.onInvoke(key)
 				end
-			end, { group = "Commands", priority = 1500, sink = true })
+			end, { group = "Commands", priority = 1500, sink = true, capture = true })
 		end
 
 		return {

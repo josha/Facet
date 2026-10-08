@@ -17,3 +17,11 @@ Re-hit-test once more at release. Do not add a second input or motion engine.
 Measure every frame from fit to 2, the fixed content focus, preview contact
 error, changed drawn targets and release selection. Prove reverse after
 release. Native input, layout order and the feel of zoom need a phone check.
+
+F-028 includes a collection outside the view. VirtualGrid.drag supplies the
+onStart and onEnd callbacks. A capture callback can grant any requested
+camera once. The camera records that source and holds until release. It
+uses the same arbiter and measured targets as a child source. For an external
+rack, the consumer can pass a board screen point to zoomAt, or use zoomTo.
+Native InputObject, UIDragDetector and ScrollingFrame supply input and layout;
+Compose supplies ownership and the ramp. No consumer frame loop is needed.

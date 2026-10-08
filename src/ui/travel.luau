@@ -8,7 +8,7 @@ local reducedMotion = require("./motion").reduced
 return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local D2, V2 = ctx.types.UDim2, ctx.types.Vector2
-	UI.Travel = ctx.construct("Travel", function(spec: Types.TravelProps): Frame
+	local function build(spec: Types.TravelProps): Frame
 		assert(type(spec.content) == "function", "Facet UI.Travel: content is required")
 		local anchor = Host.Frame(ctx.props(spec, {
 			"destination",
@@ -41,6 +41,15 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 		local reduce = reducedMotion(ctx)
 		local owner = assert(Compose.currentOwner())
 		local destination: GuiObject = ctx.read(spec.destination)
+		local watchedDestination: GuiObject? = nil
+		local releaseDestination: (() -> ())? = nil
+		Compose.cleanup(function()
+			if releaseDestination then
+				releaseDestination()
+			end
+		end)
+		runtime.connect(node, "Destroying", owner.dispose)
+		runtime.connect(anchor, "Destroying", owner.dispose)
 		local previous: GuiObject? = nil
 		local parent: GuiBase2d? = nil
 		local overlay: GuiBase2d? = nil
@@ -50,13 +59,48 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 		local moving = false
 		local motion: engine.Handle
 		local units: { [GuiBase2d]: Shared.Readable<number> } = {}
+		local function contentInsets(slot: GuiObject): (number, number, number, number)
+			local unit = 1
+			local at: Instance? = slot
+			while at do
+				local scale = at:FindFirstChildWhichIsA("UIScale") :: UIScale?
+				if scale then
+					unit *= scale:GetStyled("Scale") :: number
+				end
+				at = at.Parent
+			end
+			local border = if (slot:GetStyled("BorderMode") :: Enum.BorderMode) == ctx.types.Enum.BorderMode.Inset
+				then (slot:GetStyled("BorderSizePixel") :: number) * unit
+				else 0
+			local left, top, right, bottom = border, border, border, border
+			local padding = slot:FindFirstChildWhichIsA("UIPadding") :: UIPadding?
+			if padding then
+				local size = slot.AbsoluteSize
+				local function pixels(property: string, dimension: number): number
+					local value = padding:GetStyled(property) :: UDim
+					return value.Scale * math.max(0, dimension - border * 2) + value.Offset * unit
+				end
+				left += pixels("PaddingLeft", size.X)
+				right += pixels("PaddingRight", size.X)
+				top += pixels("PaddingTop", size.Y)
+				bottom += pixels("PaddingBottom", size.Y)
+			end
+			return left, top, right, bottom
+		end
 		local function bounds(slot: GuiObject): { number }
 			local point, size = slot.AbsolutePosition, slot.AbsoluteSize
 			if size.X <= 0 or size.Y <= 0 then
 				point = V2.new(slot.Position.X.Offset, slot.Position.Y.Offset)
 				size = V2.new(slot.Size.X.Offset, slot.Size.Y.Offset)
 			end
-			return { point.X, point.Y, size.X, size.Y, 1 }
+			local left, top, right, bottom = contentInsets(slot)
+			return {
+				point.X + left,
+				point.Y + top,
+				math.max(0, size.X - left - right),
+				math.max(0, size.Y - top - bottom),
+				1,
+			}
 		end
 		local function common(a: GuiObject, b: GuiObject): GuiBase2d?
 			local ancestors: { Instance } = {}
@@ -95,6 +139,10 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 			if owner.isDisposed() then
 				return
 			end
+			if previous and (destination.Parent == nil or node.Parent == nil) then
+				owner.dispose()
+				return
+			end
 			values = table.clone(sample)
 			local container = parent
 			if not container then
@@ -114,19 +162,41 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 				then -4 * ctx.metric("motion.distances.travelArc") * sample[5] * (1 - sample[5])
 				else 0
 			values[2] += arc * unit
+			local origin = container.AbsolutePosition
+			if container:IsA("GuiObject") then
+				local left, top = contentInsets(container :: GuiObject)
+				origin += V2.new(left, top)
+			end
 			node.Position = D2.fromOffset(
-				(sample[1] - container.AbsolutePosition.X - sample[3] * (lifted - 1) / 2) / unit,
-				(sample[2] - container.AbsolutePosition.Y - sample[4] * (lifted - 1) / 2) / unit + arc
+				(sample[1] - origin.X - sample[3] * (lifted - 1) / 2) / unit,
+				(sample[2] - origin.Y - sample[4] * (lifted - 1) / 2) / unit + arc
 			)
 			node.Size = D2.fromOffset(sample[3] / unit, sample[4] / unit)
-			node.Visible = destination.Parent ~= nil
+			node.Visible = true
 			if node.Parent ~= container then
 				node.Parent = container
 			end
 		end
 		local function land()
+			if owner.isDisposed() or destination.Parent == nil then
+				owner.dispose()
+				return
+			end
 			moving = false
-			node.ZIndex = restingDepth
+			local depth = restingDepth
+			local ownDepth = destination:GetStyled("ZIndex") :: number
+			if ownDepth > restingDepth or destination:IsA("GuiButton") then
+				depth = math.max(depth, ownDepth + 1)
+			end
+			for _, child in destination:GetDescendants() do
+				if child:IsA("GuiObject") and child ~= node and not child:IsDescendantOf(node) then
+					local paintDepth = child:GetStyled("ZIndex") :: number
+					if paintDepth >= restingDepth then
+						depth = math.max(depth, paintDepth + 1)
+					end
+				end
+			end
+			node.ZIndex = depth
 			liftStart, lifted = 1, 1
 			if not inPlace then
 				parent = destination
@@ -182,11 +252,20 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 			ease = ctx.motionEase("travel"),
 			spring = ctx.motionSpring("travel"),
 		})
+		motion.snap(values)
 		local function retarget()
 			if owner.isDisposed() then
 				return
 			end
+			if previous and node.Parent == nil then
+				owner.dispose()
+				return
+			end
 			if not destination.Parent then
+				if previous then
+					owner.dispose()
+					return
+				end
 				node.Visible = false
 				return
 			end
@@ -245,6 +324,7 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 					end)
 				end
 			end)
+			retarget()
 			return holder
 		end)
 		runtime.mountFragment(function()
@@ -256,6 +336,15 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 			ctx.read(ctx.observe.AbsolutePosition(next), use)
 			ctx.read(ctx.observe.AbsoluteSize(next), use)
 			ctx.read(ctx.observe.Position(next), use)
+			if watchedDestination ~= next then
+				if releaseDestination then
+					releaseDestination()
+				end
+				watchedDestination = next
+				Compose.withOwner(owner, function()
+					releaseDestination = runtime.connect(next, "Destroying", owner.dispose)
+				end)
+			end
 			destination = next
 			retarget()
 		end)
@@ -280,5 +369,11 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 			end)
 		end
 		return anchor
+	end
+	UI.Travel = ctx.construct("Travel", function(spec: Types.TravelProps): Frame
+		local owner = assert(Compose.currentOwner()).createChild()
+		return Compose.withOwner(owner, function(): Frame
+			return build(spec)
+		end)
 	end)
 end

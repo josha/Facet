@@ -4,7 +4,10 @@ type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Compose = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Live = {
-	mount: ((Controls, Host, Compose) -> GuiObject, { size: Vector2, frames: number }) -> Instance,
+	mount: (
+		(Controls, Host, Compose) -> GuiObject,
+		{ size: Vector2, frames: number, motionLevel: "normal" }
+	) -> Instance,
 	find: (Instance, string) -> GuiObject,
 	check: (string, boolean, unknown?) -> (),
 	note: (string, unknown) -> (),
@@ -121,6 +124,14 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 				at = Vector2.new(input.Position.X, input.Position.Y)
 			end
 		end)
+		local pointerEnded = Input.InputEnded:Connect(function(input)
+			if
+				input.UserInputType == Enum.UserInputType.Touch
+				or input.UserInputType == Enum.UserInputType.MouseButton1
+			then
+				at = nil
+			end
+		end)
 		local frames = RunService.RenderStepped:Connect(function()
 			if not value then
 				return
@@ -134,13 +145,14 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 				and (value.source:GetAttribute("FacetDragHeld") or value.source:GetAttribute("FacetDragging"))
 			then
 				local contact = ghost.AbsolutePosition + ghost.AnchorPoint * ghost.AbsoluteSize
-				value.maxError = math.max(value.maxError, (contact - at).Magnitude)
+				value.maxError = math.max(value.maxError, math.abs(contact.X - at.X), math.abs(contact.Y - at.Y))
 				value.frames += 1
 			end
 		end)
 		C.cleanup(function()
 			sourceInput:Disconnect()
 			pointerInput:Disconnect()
+			pointerEnded:Disconnect()
 			frames:Disconnect()
 		end)
 		local body = UI.ScrollView "ScrolledParent" {
@@ -157,7 +169,7 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 		}
 		scroll = body
 		return body
-	end, { size = Vector2.new(480, 400), frames = 20 })
+	end, { size = Vector2.new(480, 400), frames = 20, motionLevel = "normal" })
 	if collection then
 		source = assert(stage:FindFirstChild("Reorderable", true)) :: GuiObject
 	end

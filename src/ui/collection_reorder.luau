@@ -185,6 +185,9 @@ return function<V, K>(
 	stopLocal = clearMove
 	local function cancel()
 		local session = drag.state:peek()
+		if session and session.executing then
+			return
+		end
 		if session and session.source == bodyOf() then
 			drag.finish(false, "Cancelled")
 		end
@@ -1557,7 +1560,6 @@ return function<V, K>(
 				end
 				if
 					captured
-					and (pluginGui ~= nil or recycled or selectedPickup or captured.UserInputType == E.UserInputType.Touch)
 					and (
 						value == captured
 						or (

@@ -4761,6 +4761,10 @@ arrow keys and D-pad keep native selection. Child controls keep activation.
 A pending child drag or a captured child drag holds the camera. An external
 zoom write waits until release. One camera request from the captured child's
 `onStart` can finish its motion. Later requests and pan wait until release.
+The same grant works for an external collection source. In VirtualGrid.drag,
+set onStart to call camera.zoomAt(2, boardScreenPoint) or camera.zoomTo(rect).
+Set onEnd to call camera.fit(). The granted camera holds until that source
+releases, even when the rack is outside the view.
 Targets are hit-tested again after each camera write. Native scrolling clamps each edge and has no
 elastic overscroll. Fit centres margins on an axis smaller than the viewport.
 
@@ -4794,7 +4798,10 @@ Travel measures the shared container, clipping and scale boundaries at the
 change. With a safe common container, it moves in place. The parent stays the
 same. A clip, scale or native layout boundary routes through the overlay,
 then lands in the new slot. The consumer sets no route flag. Keep slots mounted.
-Slots are borrowed. Compose owns the visual and the anchor.
+Slots are borrowed. Compose owns the visual and the anchor in one child owner.
+Destroying the current slot, visual or anchor ends Travel and releases its
+frame lease. Later destination changes cannot restart that destroyed visual.
+Keep the current slot mounted for an item that must remain available.
 
 - `destination`: a GuiObject, readable or body. The first placement is immediate.
 - `content`: a factory that returns a GuiObject. It runs once. The visual is
@@ -4816,7 +4823,12 @@ Slots are borrowed. Compose owns the visual and the anchor.
 - `onLanded(destination)`: reports placement. It does not change game state.
 
 Moving carriers have distinct native ZIndex values above resting siblings.
-Travel restores their resting ZIndex and scale on landing. Use native
+Travel restores scale on landing. Its landing depth stays above the slot's
+child controls, so a cell button cannot cover the item. Travel subtracts
+effective native UIPadding and inset borders from the slot geometry. The
+flight targets the content box that a native fill child occupies at rest.
+An outline UIStroke does not change that box. The hand-off keeps the same
+screen rectangle. Use native
 `ZIndexBehavior = Sibling` for the game root. A rack shuffle changes seven
 keyed items' destination slots; it needs no consumer frame loop.
 
@@ -4908,6 +4920,9 @@ screen rectangle includes its leading edges and excludes its trailing edges.
 Use the cell's fixed hit node when tile paint grows on hover. The contact keeps
 one source through release, even when the pointer passes another tile.
 A captured draggable holds all scroll ancestors until the session ends.
+Inside `onStart`, an external rack can call `ZoomControls.zoomAt` for its board.
+The capture scope grants one request per camera. Later requests and pan stay
+locked until release. The rack does not need to be a child of ZoomView.
 Set source `returnTravel = true` to keep its recess through a cancelled return.
 Return travel uses the shared Travel engine, `motion.durations.travel` and
 `motion.easing.travel`. Without this
@@ -5021,7 +5036,10 @@ can be used with ShortcutHint. `focus` selects an available native target.
 It returns false if the key is absent, disabled or unmounted. `clear` clears
 native selection only when this scope owns it. Mouse and touch select their
 target. Keyboard and gamepad use native selection and the same commands.
-The scope does not bind directional navigation.
+The scope does not bind directional navigation. Bound W, A, S and D commands
+hold the current native selection in their direction while the command is
+active. Unbound navigation stays native. Text entry and disposal restore the
+previous selection links.
 
 TextInput text entry wins. Commands are disabled while any TextBox is focused.
 Existing control actions and modal availability win next. Among scopes that

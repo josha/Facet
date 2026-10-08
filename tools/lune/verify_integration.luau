@@ -12,7 +12,7 @@ local harness = Verify.createHarness({ source = "facet-verify-integration", now 
 fs.writeDir("artifacts/verify")
 local scratch = process.exec("python3", {
 	"-c",
-	"import tempfile; print(tempfile.mkdtemp(prefix='integration-', dir='artifacts/verify'))",
+	"import os, tempfile; print(os.path.relpath(tempfile.mkdtemp(prefix='integration-', dir='artifacts/verify')))",
 })
 assert(scratch.ok, scratch.stderr)
 local directory = string.gsub(scratch.stdout, "%s+$", "")

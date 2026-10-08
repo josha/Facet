@@ -199,6 +199,7 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 			return if input then input:GetMouseLocation() - inset() else V2.zero
 		end
 		local releaseMouseScrollers: (() -> ())? = nil
+		local wheelDirection: Vector2? = nil
 		local focused = true
 		local refreshMouse: () -> () = function() end
 		local function releaseMouse()
@@ -215,7 +216,14 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 			if ctx.read(spec.enabled) == false or not root.Visible then
 				return false
 			end
-			return not blocked() or arbiter.claimCamera(root)
+			if arbiter.claimCamera(root) then
+				local held = drag.state:peek()
+				if held then
+					capturedSource = held.source
+				end
+				return true
+			end
+			return not blocked()
 		end
 		local function request(value: number, direct: boolean?, allowed: boolean?): boolean
 			assert(positive(value), "Facet UI.ZoomView: zoom must be positive and finite")
@@ -456,8 +464,16 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 			end
 			return true
 		end
+		local function canWheelPan(delta: Vector2): boolean
+			local size, area, position = extent() * applied, window(), root.CanvasPosition
+			local limit = V2.new(math.max(0, size.X - area.X), math.max(0, size.Y - area.Y))
+			return (delta.X < 0 and position.X > 0.5)
+				or (delta.X > 0 and position.X < limit.X - 0.5)
+				or (delta.Y < 0 and position.Y > 0.5)
+				or (delta.Y > 0 and position.Y < limit.Y - 0.5)
+		end
 		refreshMouse = function()
-			if overMouse() then
+			if overMouse() and (wheelDirection == nil or canWheelPan(wheelDirection)) then
 				if not releaseMouseScrollers then
 					releaseMouseScrollers = scrollLock.holdAncestors(canvas)
 					root:ResetScrollVelocity()
@@ -537,6 +553,7 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 					moved, lastTap = true, nil
 				end
 				if event.UserInputType == E.UserInputType.MouseMovement then
+					wheelDirection = nil
 					refreshMouse()
 					local pointer = press
 					if pointer and pointer.UserInputType == E.UserInputType.MouseButton1 then
@@ -549,17 +566,20 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 						end
 					end
 				elseif event.UserInputType == E.UserInputType.MouseWheel then
+					local control = input:IsKeyDown(E.KeyCode.LeftControl) or input:IsKeyDown(E.KeyCode.RightControl)
+					local distance = -event.Position.Z * ctx.metric("controls.zoom.panStep")
+					local horizontal = input:IsKeyDown(E.KeyCode.LeftShift) or input:IsKeyDown(E.KeyCode.RightShift)
+					wheelDirection = if control
+						then nil
+						else (if horizontal then V2.new(distance, 0) else V2.new(0, distance))
 					refreshMouse()
 					if overMouse() and enabled() then
-						if input:IsKeyDown(E.KeyCode.LeftControl) or input:IsKeyDown(E.KeyCode.RightControl) then
+						if control then
 							capture(localPoint(mousePoint()))
 							request(zoom:peek() * ctx.metric("controls.zoom.stepRatio") ^ event.Position.Z)
-						else
+						elseif wheelDirection and canWheelPan(wheelDirection) then
 							ramp.retarget(applied, 0)
-							local distance = -event.Position.Z * ctx.metric("controls.zoom.panStep")
-							local horizontal = input:IsKeyDown(E.KeyCode.LeftShift)
-								or input:IsKeyDown(E.KeyCode.RightShift)
-							pan(if horizontal then V2.new(distance, 0) else V2.new(0, distance))
+							pan(wheelDirection)
 							render(0)
 						end
 					end

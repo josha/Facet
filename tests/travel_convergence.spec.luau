@@ -243,4 +243,348 @@ return function(harness: Verify.Harness)
 			t:expect(nodes[index].Position.X.Offset):toBe(slots[index].AbsolutePosition.X)
 		end
 	end)
+	harness:case("landed content stays above the slot button", function(t)
+		local native = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(native)
+		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local screen, board, slot = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
+		screen.Parent, board.Parent, slot.Parent = native.new("Folder"), screen, board
+		slot.AbsoluteSize = native.types.Vector2.new(44, 44)
+		local button = native.new("TextButton")
+		button.Parent, button.ZIndex = slot, 2
+		local node: TextLabel
+		local stop = runtime.mount(function()
+			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
+			return UI.Travel {
+				destination = slot,
+				content = function(): GuiObject
+					node = Host.TextLabel { Text = "E", ZIndex = 1 }
+					return node
+				end,
+			}
+		end, board)
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		t:expect(node.Parent == board):toBe(true)
+		t:expect(node.ZIndex > button.ZIndex):toBe(true)
+	end)
+	harness:case("cross-container handoff compensates effective slot padding", function(t)
+		local native = engineLib.new({
+			getStyled = function(node: Instance, property: string): unknown
+				if node:IsA("UIPadding") and property == "PaddingLeft" then
+					return require("@lune/roblox").UDim.new(0, 12)
+				end
+				if node:IsA("UIPadding") and property == "PaddingTop" then
+					return require("@lune/roblox").UDim.new(0, 1)
+				end
+				return ((node :: unknown) :: { [string]: unknown })[property]
+			end,
+		})
+		local C = Facet.Compose
+		local runtime = Facet.Roblox.createRuntime(native)
+		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local screen, source, target = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
+		screen.Parent, source.Parent, target.Parent = native.new("Folder"), screen, screen
+		source.ClipsDescendants, target.ClipsDescendants = true, true
+		source.AbsolutePosition, target.AbsolutePosition =
+			native.types.Vector2.new(20, 30), native.types.Vector2.new(143, 539)
+		source.AbsoluteSize, target.AbsoluteSize = native.types.Vector2.new(44, 44), native.types.Vector2.new(44, 44)
+		local padding = native.new("UIPadding")
+		padding.Parent = target
+		local stroke = native.new("UIStroke")
+		stroke.Parent, stroke.Thickness = target, 3
+		padding.PaddingLeft, padding.PaddingTop = native.types.UDim.new(0, 0), native.types.UDim.new(0, 0)
+		local destination: Facet.Cell<GuiObject>
+		local node: Frame
+		local stop = runtime.mount(function()
+			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
+			destination = C.cell(source :: GuiObject)
+			return UI.Travel {
+				destination = destination,
+				content = function(): GuiObject
+					node = Host.Frame {}
+					return node
+				end,
+			}
+		end, screen)
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		destination:set(target)
+		local previous: Vector2? = nil
+		local contentPoint = target.AbsolutePosition + native.types.Vector2.new(12, 1)
+		local lastOverlayPoint = source.AbsolutePosition
+		local observation = native.onWrite(function(object: unknown, property: string, _value: unknown)
+			if object == (node :: unknown) and property == "Size" and node.Parent ~= target then
+				local container = node.Parent :: GuiBase2d
+				local point = container.AbsolutePosition
+					+ native.types.Vector2.new(node.Position.X.Offset, node.Position.Y.Offset)
+				if point.X >= source.AbsolutePosition.X and point.Y >= source.AbsolutePosition.Y then
+					lastOverlayPoint = point
+				end
+			end
+		end)
+		t:defer(function()
+			observation:Disconnect()
+		end)
+		local handoff = 0
+		for _ = 1, 3000 do
+			local oldParent = node.Parent
+			native.heartbeat:Fire(1 / 6000)
+			local container = node.Parent :: GuiBase2d
+			local inset = if container == target then native.types.Vector2.new(12, 1) else native.types.Vector2.zero
+			local screenPoint = container.AbsolutePosition
+				+ inset
+				+ native.types.Vector2.new(node.Position.X.Offset, node.Position.Y.Offset)
+			if previous then
+				t:expect(screenPoint.X >= previous.X and screenPoint.X <= contentPoint.X)
+					:toBeTrueWith(`X {screenPoint.X}, previous {previous.X}, target {contentPoint.X}`)
+				t:expect(screenPoint.Y >= previous.Y and screenPoint.Y <= contentPoint.Y)
+					:toBeTrueWith(`Y {screenPoint.Y}, previous {previous.Y}, target {contentPoint.Y}`)
+			end
+			if previous and oldParent ~= node.Parent then
+				handoff = (screenPoint - lastOverlayPoint).Magnitude
+			end
+			previous = screenPoint
+		end
+		t:expect(handoff <= 1):toBeTrueWith(`handoff {handoff}`)
+		t:expect(node.Size.X.Offset):toBe(32)
+		t:expect(node.Size.Y.Offset):toBe(43)
+		t:expect(node.Parent == target):toBe(true)
+		t:expect(target.AbsolutePosition.X + 12 + node.Position.X.Offset):toBe(155)
+		t:expect(target.AbsolutePosition.Y + 1 + node.Position.Y.Offset):toBe(540)
+	end)
+	harness:case("native gamepad drivers select controls and run every required checkpoint", function(t)
+		local native = engineLib.new()
+		local root, slot, tile = native.new("Frame"), native.new("Frame"), native.new("TextButton")
+		slot.Parent, tile.Parent = root, slot
+		local send, back, view = native.new("TextButton"), native.new("TextButton"), native.new("ScrollingFrame")
+		send.Name, back.Name, send.Parent, back.Parent = "Send", "Return", root, root
+		local selected: GuiObject? = nil
+		local events: { string } = {}
+		local drivers = require("../tools/studio/live/zoom_travel_drivers")(function(name)
+			table.insert(events, name)
+		end, function(_, keys, frames)
+			t:expect(selected ~= nil):toBe(true)
+			table.insert(events, keys[1])
+			if keys[1] == "Stick2Right" then
+				t:expect(frames):toBe(30)
+			end
+		end, function(frames)
+			t:expect(frames >= 30):toBe(true)
+		end, function(node)
+			selected = node
+		end)
+		drivers["zoom-gamepad"](nil, { view = view })
+		t:expect(table.concat(events, ",")):toBe("ButtonR2,afterTrigger,Stick2Right,afterStick,ButtonY,afterFit")
+		table.clear(events)
+		drivers["travel-gamepad"](nil, { content = tile })
+		t:expect(selected == back):toBe(true)
+		t:expect(table.concat(events, ",")):toBe("ButtonA,afterSend,ButtonA,afterReturn")
+	end)
+	harness:case("F-030 virtual target replacement and removal end Travel ownership", function(t)
+		local native = engineLib.new()
+		local C = Facet.Compose
+		local runtime = Facet.Roblox.createRuntime(native)
+		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local screen = native.new("ScreenGui")
+		screen.Parent = native.new("Folder")
+		local slots: { [number]: GuiObject } = {}
+		local rows: Facet.Cell<{ number }>
+		local destination: Facet.Cell<GuiObject>
+		local node: Frame
+		local root: Frame
+		local stop = runtime.mount(function()
+			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
+			rows = C.cell({ 1, 2 })
+			local grid = UI.VirtualGrid {
+				from = rows,
+				key = function(value: number): number
+					return value
+				end,
+				columns = 2,
+				itemSize = 60,
+				mode = "all" :: "all",
+				render = function(current: Shared.Readable<number>): GuiObject
+					local id = current:peek()
+					local slot = Host.Frame { Name = `Target{id}`, ClipsDescendants = true }
+					slot.AbsolutePosition = native.types.Vector2.new(id * 60, 60)
+					slot.AbsoluteSize = native.types.Vector2.new(44, 44)
+					slots[id] = slot
+					return slot
+				end,
+			}
+			destination = C.cell(assert(slots[1]))
+			local travel = UI.Travel {
+				destination = destination,
+				content = function(): GuiObject
+					node = Host.Frame { Name = "Tile40" }
+					return node
+				end,
+			}
+			root = Host.Frame { grid :: unknown, travel :: unknown }
+			return root
+		end, screen)
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		for _ = 1, 20 do
+			native.heartbeat:Fire(1 / 60)
+		end
+		t:expect(node.Parent == slots[1]):toBe(true)
+		rows:set({ 3, 4 })
+		destination:set(assert(slots[3]))
+		for _ = 1, 5 do
+			native.heartbeat:Fire(1 / 60)
+		end
+		rows:set({})
+		for _ = 1, 30 do
+			native.heartbeat:Fire(1 / 60)
+		end
+		t:expect(node.Parent == nil):toBe(true)
+		stop()
+		t:expect(engineLib.connections(native.heartbeat)):toBe(0)
+	end)
+	harness:case("F-030 shared stepper drops externally destroyed carriers", function(t)
+		local native = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(native)
+		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local node: Frame
+		local handle: travelEngine.Handle
+		local samples = 0
+		local stop = runtime.mount(function()
+			local ctx = context(Facet.Compose, runtime, { types = native.types })
+			node = Host.Frame {}
+			handle = travelEngine(ctx, {
+				initial = { 0 },
+				carrier = node,
+				target = function()
+					return { 100 }
+				end,
+				sample = function()
+					samples += 1
+					node.Parent = native.new("Folder")
+				end,
+				reduced = function()
+					return false
+				end,
+				motion = "ease" :: "ease",
+				duration = ctx.metric("motion.durations.travel"),
+				ease = ctx.motionEase("travel"),
+				spring = ctx.motionSpring("travel"),
+			})
+			return node
+		end, native.new("Folder"))
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		handle.retarget()
+		native.heartbeat:Fire(1 / 120)
+		node:Destroy()
+		local count = samples
+		for _ = 1, 30 do
+			native.heartbeat:Fire(1 / 120)
+		end
+		t:expect(samples):toBe(count)
+		t:expect(engineLib.connections(native.heartbeat)):toBe(0)
+		handle.retarget()
+		handle.snap({ 100 })
+		t:expect(samples):toBe(count)
+	end)
+	harness:case("F-030 removal cancels an overlay carrier before it lands", function(t)
+		local native = engineLib.new()
+		local C = Facet.Compose
+		local runtime = Facet.Roblox.createRuntime(native)
+		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local screen, source, target = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
+		screen.Parent, source.Parent, target.Parent = native.new("Folder"), screen, screen
+		source.ClipsDescendants, target.ClipsDescendants = true, true
+		source.AbsoluteSize, target.AbsoluteSize = native.types.Vector2.new(44, 44), native.types.Vector2.new(44, 44)
+		target.AbsolutePosition = native.types.Vector2.new(200, 200)
+		local destination: Facet.Cell<GuiObject>
+		local node: Frame
+		local stop = runtime.mount(function()
+			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
+			destination = C.cell(source :: GuiObject)
+			return UI.Travel {
+				destination = destination,
+				content = function(): GuiObject
+					node = Host.Frame {}
+					return node
+				end,
+			}
+		end, screen)
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		destination:set(target)
+		native.heartbeat:Fire(1 / 120)
+		t:expect(node.Parent ~= target):toBe(true)
+		target:Destroy()
+		for _ = 1, 30 do
+			native.heartbeat:Fire(1 / 120)
+		end
+		t:expect(node.Parent == nil):toBe(true)
+		t:expect(engineLib.connections(native.heartbeat)):toBe(0)
+	end)
+	harness:case("onLanded can request the next slot during initial placement", function(t)
+		local native = engineLib.new({ lenientProperties = true })
+		local C = Facet.Compose
+		local runtime = Facet.Roblox.createRuntime(native)
+		local Host = (runtime.constructors :: unknown) :: Shared.Host
+		local screen = native.new("ScreenGui")
+		local a, b = native.new("Frame"), native.new("Frame")
+		a.Parent, b.Parent = screen, screen
+		a.AbsolutePosition, b.AbsolutePosition = native.types.Vector2.new(100, 50), native.types.Vector2.new(20, 200)
+		a.AbsoluteSize, b.AbsoluteSize = native.types.Vector2.new(52, 52), native.types.Vector2.new(52, 52)
+		a.ClipsDescendants, b.ClipsDescendants = true, true
+		local destination = C.cell(a :: GuiObject)
+		local anchor: Frame
+		local items = C.cell({} :: { number })
+		local visits: { GuiObject } = {}
+		local stop = runtime.mount(function()
+			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
+			return Host.Frame {
+				C.keyed {
+					from = items,
+					key = function(id: number): number
+						return id
+					end,
+					render = function()
+						anchor = UI.Travel {
+							destination = destination,
+							content = function(): GuiObject
+								return Host.Frame {}
+							end,
+							onLanded = function(slot: GuiObject)
+								table.insert(visits, slot)
+								if slot == a then
+									destination:set(b)
+								end
+							end,
+						}
+						return anchor
+					end,
+				} :: unknown,
+			}
+		end, screen)
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		items:set({ 1 })
+		t:expect(anchor:GetAttribute("FacetTravelMoving") == true)
+			:toBeTrueWith(`parent={tostring(anchor.Parent)}, visits={#visits}`)
+		t:expect(#visits):toBe(1)
+		for _ = 1, 60 do
+			native.heartbeat:Fire(1 / 120)
+		end
+		t:expect(visits):toEqual({ a, b })
+	end)
 end

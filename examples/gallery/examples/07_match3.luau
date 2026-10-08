@@ -497,6 +497,7 @@ local function build(ctx: any)
 			end
 		end
 		local node = UI.ZStack "board" {
+			ClipsDescendants = true,
 			width = COLS * 48,
 			height = ROWS * 48,
 			Host.Frame {

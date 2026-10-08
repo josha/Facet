@@ -120,6 +120,25 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native text layout", function()
+		verifyHarness:case("yields the automatic glyph floor to a later wrapping constraint", {
+			id = "native_layout::native text layout::yields the automatic glyph floor to a later wrapping constraint",
+			run = function()
+				local root, engine, stop = build(nil, function(UI: FacetControls)
+					return UI.Text { text = "A long label" }
+				end)
+				root.TextBounds = engine.types.Vector2.new(300, 18)
+				Verify.expect(root:FindFirstChild("TextBoundsFloor").MinSize.X):toBe(300)
+				local cap = engine.new("UISizeConstraint")
+				cap.MaxSize = engine.types.Vector2.new(100, math.huge)
+				cap.Parent = root
+				root.TextWrapped = true
+				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBeNil()
+				Verify.expect(root:FindFirstChildWhichIsA("UISizeConstraint")):toBe(cap)
+				Verify.expect(cap.MaxSize.X):toBe(100)
+				stop()
+			end,
+		})
+
 		verifyHarness:case("reflows a late clipped automatic box after styled metrics have settled", {
 			id = "native_layout::native text layout::reflows a late clipped automatic box after styled metrics have settled",
 			run = function()

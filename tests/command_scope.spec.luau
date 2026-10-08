@@ -93,6 +93,62 @@ return function(harness: Verify.Harness)
 			Verify.expect(commands.focus(1)):toBe(false)
 			runtime:dispose()
 		end)
+		harness:case("typing commands retain native focus for bound WASD and restore navigation during chat", function()
+			local engine = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local input, gui = engine.new("UserInputService"), engine.new("GuiService")
+			local chat: TextBox? = nil
+			input.GetFocusedTextBox = function()
+				return chat
+			end
+			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input, guiService = gui })
+			local Host = (runtime.constructors :: unknown) :: typeof(require("../tools/typecheck/aliases").RobloxHost)
+			local scope: Scope?
+			local target: GuiObject?
+			local outside = engine.new("TextButton")
+			local calls = 0
+			local stop = runtime.mount(function()
+				local cell = UI.Button "Cell" { label = "Cell", NextSelectionLeft = outside }
+				target = cell
+				local root = Host.Frame { cell }
+				local targets: { Facet.CommandTarget<number> } = { { key = 1, node = cell } }
+				scope = UI.commandScope(root, {
+					targets = targets,
+					commands = {
+						{
+							id = "Letter",
+							keys = { "A" },
+							onInvoke = function()
+								calls += 1
+							end,
+						},
+					},
+				})
+				return root
+			end, engine.new("ScreenGui"))
+			local commands, cell = assert(scope), assert(target)
+			Verify.expect(commands.focus(1)):toBe(true)
+			Verify.expect(cell.NextSelectionLeft):toBe(cell)
+			Verify.expect(cell.NextSelectionRight == cell):toBe(false)
+			local event =
+				{ KeyCode = engine.types.Enum.KeyCode.A, UserInputType = engine.types.Enum.UserInputType.Keyboard }
+			input.InputBegan:Fire(event)
+			local pressed = (commands.actions.Letter.Pressed :: unknown) :: { Fire: (unknown) -> () }
+			pressed:Fire()
+			Verify.expect(calls):toBe(1)
+			input.InputEnded:Fire(event)
+			chat = engine.new("TextBox")
+			input.TextBoxFocused:Fire(chat)
+			Verify.expect(cell.NextSelectionLeft):toBe(outside)
+			input.InputBegan:Fire(event)
+			Verify.expect(calls):toBe(1)
+			chat = nil
+			input.TextBoxFocusReleased:Fire(nil)
+			Verify.expect(cell.NextSelectionLeft):toBe(cell)
+			stop()
+			Verify.expect(cell.NextSelectionLeft):toBe(outside)
+			runtime:dispose()
+		end)
 		harness:case("F-024 nested scope wins, pointer focus follows targets and disposal releases commands", function()
 			local engine = engineLib.new()
 			local runtime = Facet.Roblox.createRuntime(engine)
