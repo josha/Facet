@@ -567,10 +567,14 @@ add("playlist-320x640-edit-mode-cells", {}, function(t)
 		end
 	end
 	t.note("320x640 edit mode first row", measures)
-	t.near("name cell keeps its 90 px minimum width", measures.name and measures.name.cell or 0, 90, 0.5)
 	t.check(
-		"only the Artist column, which has a priority, collapses",
-		shown.name and shown.rating and not shown.artist,
+		"Name keeps its minimum and readable full text",
+		measures.name ~= nil and measures.name.cell >= 90 and measures.name.fits,
+		measures.name
+	)
+	t.check(
+		"secondary Artist and Rating fold while Name remains visible",
+		shown.name and not shown.rating and not shown.artist,
 		shown
 	)
 	local collapsed = not shown.artist or not shown.rating

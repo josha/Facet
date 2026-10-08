@@ -7,6 +7,8 @@ contract.
 
 ## Rules for code
 
+- Do not use the `any` type in `src` outside `src/vendor`. Use concrete types or narrow `unknown`. The `any` budgets for examples, tools, tests and bench can only decrease. Run `python3 tools/check_type_policy.py` to check this rule.
+
 - Get controls with `Facet.controls(runtime)`. Name the runtime's constructor
   table `Host` (`local Host = runtime.constructors`) and use it for Roblox
   objects.

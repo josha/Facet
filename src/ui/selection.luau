@@ -613,7 +613,7 @@ return function(ctx: Shared.Context): Selection
 	local function responder(root: Instance, options: Env.ResponderOptions?): Env.Responder
 		assert(Compose.currentOwner() ~= nil, "Facet UI.responder must run inside a component or Compose owner")
 		assert(
-			(root :: any) ~= nil and (root :: any).IsA ~= nil and (root:IsA("GuiObject") or root:IsA("LayerCollector")),
+			(root :: Instance?) ~= nil and root.IsA ~= nil and (root:IsA("GuiObject") or root:IsA("LayerCollector")),
 			"Facet UI.responder expects a GuiObject or a LayerCollector"
 		)
 		local settings: Env.ResponderOptions = options or {}
@@ -677,11 +677,11 @@ return function(ctx: Shared.Context): Selection
 						return
 					end
 					local collector = if root:IsA("LayerCollector") then root else collectorOf(root)
-					local host = if collector then collector.Parent else nil
-					if host == nil or (host :: any).GetGuiObjectsAtPosition == nil then
+					local host = (if collector then collector.Parent else nil) :: BasePlayerGui?
+					if host == nil or host.GetGuiObjectsAtPosition == nil then
 						return
 					end
-					local hits = (host :: any):GetGuiObjectsAtPosition(event.Position.X, event.Position.Y)
+					local hits = host:GetGuiObjectsAtPosition(event.Position.X, event.Position.Y)
 					for _, hit in hits do
 						if inside(hit) then
 							engaged:set(true)

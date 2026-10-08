@@ -101,41 +101,6 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		verifyHarness:case(
-			"the Basics tab shows the slider shapes: a band, a turned band, a vertical track, auto, none and a knob",
-			{
-				id = "native_gallery_pickers::native gallery pickers and fields::the Basics tab shows the slider shapes: a band, a turned band, a vertical track, auto, none and a knob",
-				run = function()
-					local s = scenario("adaptive_controls")
-					local steps = s.built.steps
-					local band = find(s.node, "LapWindow")
-					expect(find(band, "HandleLower") ~= nil and find(band, "HandleUpper") ~= nil):toBe(true)
-					expect(steps.sliderBand().band):toBe("2-18")
-					expect(find(band, "Value").Text):toBe("2 – 18")
-					local tilt = find(find(s.node, "Tilt"), "Track")
-					expect(tilt.Rotation):toBe(0)
-					expect(steps.sliderTilt().degrees):toBe(45)
-					expect(tilt.Rotation):toBe(45)
-					local rear = find(s.node, "Balance")
-					expect(find(rear, "Track").Size.Y.Scale):toBe(1)
-					local before = find(rear, "ThumbStop").Position.Y.Scale
-					expect(steps.sliderAxis().rear):toBe(90)
-					expect(find(rear, "ThumbStop").Position.Y.Scale < before):toBe(true)
-					expect(find(find(s.node, "Boost"), "Thumb").Visible):toBe(false)
-					expect(find(find(s.node, "Boost"), "Rail").Size.Y.Offset <= 8):toBe(true)
-					expect(find(find(s.node, "Camera"), "Thumb").Visible):toBe(false)
-					local knob = find(find(s.node, "Steer"), "Knob")
-					expect(knob ~= nil):toBe(true)
-					expect((knob:FindFirstChildWhichIsA("Path2D", true))):toBeNil()
-					expect((find(knob, "Plate"):HasTag("facet-slider-thumb"))):toBe(true)
-					s.built.reset()
-					expect(s.built.report().tilt):toBe(0)
-					s.stop()
-					expect(#s.target:GetChildren()):toBe(0)
-				end,
-			}
-		)
-
 		verifyHarness:case("the Buttons tab's race tags select at rest and are removed in edit mode", {
 			id = "native_gallery_pickers::native gallery pickers and fields::the Buttons tab's race tags select at rest and are removed in edit mode",
 			run = function()

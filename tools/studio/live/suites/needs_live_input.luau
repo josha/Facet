@@ -419,13 +419,11 @@ end, {
 		t.note("Down stops without scroll containers", stops)
 		local handle = value.panel and value.panel:FindFirstChild("DragHandle", true)
 		t.check("the drag handle is a passive frame", handle ~= nil and handle:IsA("Frame") and not handle.Selectable)
-		t.check(
-			"the default sheet has no close button",
-			value.panel ~= nil and value.panel:FindFirstChild("Close", true) == nil
-		)
+		local close = value.panel and value.panel:FindFirstChild("Close", true)
+		t.check("the default sheet shows its Close command", close ~= nil and t_visible(close))
 		t.check(
 			"Down walks the sheet controls in document order",
-			table.concat(stops, ",") == "First,Second,Third",
+			table.concat(stops, ",") == "Close,First,Second,Third",
 			value.visited
 		)
 		t.check("Down stops at Third", selectedName() == "Third", selectedName())

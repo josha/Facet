@@ -61,9 +61,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local E, D2, V2, UD = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local frames = runtime.host.frames
 	local gui = surfaces.service("GuiService")
-	local stacks: { [Instance]: { [string]: Stack } } = setmetatable({} :: any, { __mode = "k" })
-	local actionRows: { [GuiObject]: boolean } = setmetatable({} :: any, { __mode = "k" })
-	local actionTokens: { [unknown]: boolean } = setmetatable({} :: any, { __mode = "k" })
+	local stacks = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [string]: Stack } }
+	local actionRows = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: boolean }
+	local actionTokens = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [unknown]: boolean }
 	local returnTo: GuiObject? = nil
 
 	local function wanted(record: Record): boolean
@@ -691,7 +691,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			raiser.NextSelectionDown = target
 			local function unlink()
 				if raiser.NextSelectionDown == target then
-					raiser.NextSelectionDown = nil :: any
+					((raiser :: unknown) :: { NextSelectionDown: GuiObject? }).NextSelectionDown = nil
 				end
 			end
 			Compose.watch(function(use: ComposeTypes.Use)

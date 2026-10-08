@@ -89,6 +89,56 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native overlay bodies: long wrapped text measures outside the scroll window", function()
+		verifyHarness:case("Sheet keeps a fill-height child scroll window inside its body", {
+			id = "native_scroll_measure::native overlay bodies: long wrapped text measures outside the scroll window::Sheet keeps a fill-height child scroll window inside its body",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet "Nested" {
+						isPresented = Compose.cell(true),
+						detent = Compose.cell("large"),
+						content = function(): Instance
+							return Host.ScrollingFrame "Page" {
+								Size = UDim2.fromScale(1, 1),
+								AutomaticCanvasSize = Enum.AutomaticSize.Y,
+							}
+						end,
+					}
+				end)
+				w.advance(1 / 60, 4)
+				local body, page = w.find("SheetContent"), w.find("Page")
+				body.AbsoluteWindowSize = Vector2.new(400, 500)
+				Verify.expect(page.Size.Y.Scale):toBe(1)
+				Verify.expect(w.find("SheetScrollViewport").Size.Y.Offset):toBe(484)
+				body.AbsoluteWindowSize = Vector2.new(300, 250)
+				Verify.expect(w.find("SheetScrollViewport").Size.Y.Offset):toBe(234)
+				Verify.expect(page.AutomaticCanvasSize):toBe(Enum.AutomaticSize.Y)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("Sheet preserves authored reactive scroll dimensions after viewport changes", {
+			id = "native_scroll_measure::native overlay bodies: long wrapped text measures outside the scroll window::Sheet preserves authored reactive scroll dimensions after viewport changes",
+			run = function()
+				local authored = Compose.cell(UDim2.fromScale(1, 1))
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet {
+						isPresented = Compose.cell(true),
+						detent = Compose.cell("large"),
+						content = function(): Instance
+							return Host.ScrollingFrame "ReactivePage" { Size = authored }
+						end,
+					}
+				end)
+				w.advance(1 / 60, 4)
+				local body, page = w.find("SheetContent"), w.find("ReactivePage")
+				body.AbsoluteWindowSize = Vector2.new(400, 500)
+				local nextSize = UDim2.new(0.5, 12, 0.75, -20)
+				authored:set(nextSize)
+				body.AbsoluteWindowSize = Vector2.new(300, 250)
+				Verify.expect(page.Size):toBe(nextSize)
+				w.stop()
+			end,
+		})
+
 		for _, name in { "Dialog", "Sheet", "Popover", "Alert" } do
 			verifyHarness:case(
 				`{name}: the nearest fixed ancestor of the copy is taller than any text, and the canvas follows it`,

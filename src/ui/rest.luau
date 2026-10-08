@@ -5,7 +5,8 @@ local Types = require("./types")
 return function(
 	ctx: Types.Context,
 	sample: () -> (string, boolean, boolean?),
-	restart: ((ComposeTypes.Use) -> string)?
+	restart: ((ComposeTypes.Use) -> string)?,
+	stableOnly: boolean?
 ): ComposeTypes.Readable<boolean>
 	local Compose = ctx.Compose
 	local frames: { onFrame: ((number) -> ()) -> () -> () }? = ctx.runtime.host.frames
@@ -46,7 +47,7 @@ return function(
 			end
 			local now, filled, allowed = sample()
 			waited = if allowed ~= false then waited + delta else 0
-			if allowed ~= false and ((filled and now == last) or waited > limit) then
+			if allowed ~= false and ((filled and now == last) or (not stableOnly and waited > limit)) then
 				halt()
 				rested:set(true)
 			end

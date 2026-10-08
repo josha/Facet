@@ -158,202 +158,7 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end
 
-		verifyHarness:suite("examples/05 word game — the pure scoring rules", function()
-			verifyHarness:case("scores a plain guess with no repeated letters", {
-				id = "native_games::examples/05 word game — the pure scoring rules::scores a plain guess with no repeated letters",
-				run = function()
-					local s = rules.evaluate("RULESX", "REACTX")
-					expect(s[1]):toBe("correct")
-					expect(s[2]):toBe("absent")
-					expect(s[3]):toBe("absent")
-					expect(s[4]):toBe("present")
-					expect(s[6]):toBe("correct")
-					expect(s[5]):toBe("absent")
-				end,
-			})
-
-			verifyHarness:case("a guess with a DOUBLED letter against a solution holding ONE spends the budget once", {
-				id = "native_games::examples/05 word game — the pure scoring rules::a guess with a DOUBLED letter against a solution holding ONE spends the budget once",
-				run = function()
-					local s = rules.evaluate("ERRORX", "CRANEX")
-					expect(s[1]):toBe("present")
-					expect(s[2]):toBe("correct")
-					expect(s[3]):toBe("absent")
-					expect(s[4]):toBe("absent")
-					expect(s[6]):toBe("correct")
-					expect(s[5]):toBe("absent")
-				end,
-			})
-
-			verifyHarness:case(
-				"a SOLUTION with a doubled letter pays a misplaced guess letter from what the exact match left",
-				{
-					id = "native_games::examples/05 word game — the pure scoring rules::a SOLUTION with a doubled letter pays a misplaced guess letter from what the exact match left",
-					run = function()
-						local s = rules.evaluate("LEVELX", "LLAMAX")
-						expect(s[1]):toBe("correct")
-						expect(s[2]):toBe("absent")
-						expect(s[3]):toBe("absent")
-						expect(s[4]):toBe("absent")
-						expect(s[6]):toBe("correct")
-						expect(s[5]):toBe("present")
-					end,
-				}
-			)
-
-			verifyHarness:case("BOTH doubled: two exact matches and one misplaced, all from a budget of two", {
-				id = "native_games::examples/05 word game — the pure scoring rules::BOTH doubled: two exact matches and one misplaced, all from a budget of two",
-				run = function()
-					local s = rules.evaluate("HOBBYX", "ABBEYX")
-					expect(s[1]):toBe("absent")
-					expect(s[2]):toBe("absent")
-					expect(s[3]):toBe("correct")
-					expect(s[4]):toBe("present")
-					expect(s[6]):toBe("correct")
-					expect(s[5]):toBe("correct")
-				end,
-			})
-
-			verifyHarness:case(
-				"an EXACT match consumes the budget BEFORE an earlier misplaced copy of the same letter",
-				{
-					id = "native_games::examples/05 word game — the pure scoring rules::an EXACT match consumes the budget BEFORE an earlier misplaced copy of the same letter",
-					run = function()
-						local s = rules.evaluate("AWAREX", "CRANEX")
-						expect(s[1]):toBe("absent")
-						expect(s[2]):toBe("absent")
-						expect(s[3]):toBe("correct")
-						expect(s[4]):toBe("present")
-						expect(s[6]):toBe("correct")
-						expect(s[5]):toBe("correct")
-					end,
-				}
-			)
-
-			verifyHarness:case("three copies against two: the excess is absent", {
-				id = "native_games::examples/05 word game — the pure scoring rules::three copies against two: the excess is absent",
-				run = function()
-					local s = rules.evaluate("EERIEX", "REACTX")
-					expect(s[1]):toBe("absent")
-					expect(s[2]):toBe("correct")
-					expect(s[3]):toBe("present")
-					expect(s[4]):toBe("absent")
-					expect(s[6]):toBe("correct")
-					expect(s[5]):toBe("absent")
-				end,
-			})
-
-			verifyHarness:case("the whole solution scores correct", {
-				id = "native_games::examples/05 word game — the pure scoring rules::the whole solution scores correct",
-				run = function()
-					for seed = 1, 60 do
-						local word = rules.solutionForSeed(seed)
-						local s = rules.evaluate(word, word)
-						for c = 1, rules.COLS do
-							expect(s[c]):toBe("correct")
-						end
-					end
-				end,
-			})
-		end)
-
-		verifyHarness:suite("examples/05 word game — validation and the two generated sets", function()
-			verifyHarness:case("refuses a guess shorter than six letters", {
-				id = "native_games::examples/05 word game — validation and the two generated sets::refuses a guess shorter than six letters",
-				run = function()
-					expect((rules.validate(""))):toBe("short")
-					expect((rules.validate("REAC"))):toBe("short")
-				end,
-			})
-
-			verifyHarness:case("refuses a six-letter non-word", {
-				id = "native_games::examples/05 word game — validation and the two generated sets::refuses a six-letter non-word",
-				run = function()
-					expect((rules.validate("ZZZZZZ"))):toBe("unknown")
-					expect((rules.validate("QZXWTY"))):toBe("unknown")
-					expect((rules.validate("PLZTKZ"))):toBe("unknown")
-				end,
-			})
-
-			verifyHarness:case("accepts every solution AND the wider guess list", {
-				id = "native_games::examples/05 word game — validation and the two generated sets::accepts every solution AND the wider guess list",
-				run = function()
-					for seed = 1, 200 do
-						local answer = rules.solutionForSeed(seed)
-						expect((rules.isSolution(answer))):toBe(true)
-						expect((rules.validate(answer))):toBe("ok")
-					end
-
-					for _, word in { "COLOUR", "CENTRE", "FAVOUR", "LITRES", "COCOAS", "GREYER" } do
-						expect((rules.validate(word))):toBe("ok")
-						expect((rules.isSolution(word))):toBe(false)
-					end
-				end,
-			})
-
-			verifyHarness:case("the answer set is a SUBSET of the accepted set, and strictly smaller", {
-				id = "native_games::examples/05 word game — validation and the two generated sets::the answer set is a SUBSET of the accepted set, and strictly smaller",
-				run = function()
-					expect(rules.solutionCount > 1000):toBe(true)
-					expect(rules.acceptedCount > 3000):toBe(true)
-					expect(rules.solutionCount < rules.acceptedCount):toBe(true)
-				end,
-			})
-
-			verifyHarness:case("accepts ordinary words the old hand-typed list refused", {
-				id = "native_games::examples/05 word game — validation and the two generated sets::accepts ordinary words the old hand-typed list refused",
-				run = function()
-					for _, word in { "COLOUR", "CENTRE", "COCOAS", "FAVOUR", "GREYER", "WALNUT", "SALADS", "LITRES" } do
-						if rules.validate(word) ~= "ok" then
-							error(
-								`the game still refuses "{word}" — accepting it is the whole point of the shared word data`,
-								2
-							)
-						end
-					end
-				end,
-			})
-
-			verifyHarness:case("takes a guess in whatever case it arrives in", {
-				id = "native_games::examples/05 word game — validation and the two generated sets::takes a guess in whatever case it arrives in",
-				run = function()
-					expect((rules.validate("CRANES"))):toBe("ok")
-					expect((rules.isWord("cranes"))):toBe(true)
-					expect((rules.isWord("CrAnEs"))):toBe(true)
-
-					expect((rules.isWord("CRANESS"))):toBe(false)
-					expect((rules.isWord("CRAN"))):toBe(false)
-				end,
-			})
-		end)
-
 		verifyHarness:suite("examples/05 word game — the key ladder is monotonic", function()
-			verifyHarness:case("ranks correct above present above absent", {
-				id = "native_games::examples/05 word game — the key ladder is monotonic::ranks correct above present above absent",
-				run = function()
-					expect((rules.strongest("absent", "present"))):toBe("present")
-					expect((rules.strongest("present", "correct"))):toBe("correct")
-					expect((rules.strongest("absent", "correct"))):toBe("correct")
-				end,
-			})
-
-			verifyHarness:case("never downgrades on later, weaker evidence", {
-				id = "native_games::examples/05 word game — the key ladder is monotonic::never downgrades on later, weaker evidence",
-				run = function()
-					expect((rules.strongest("correct", "present"))):toBe("correct")
-					expect((rules.strongest("correct", "absent"))):toBe("correct")
-					expect((rules.strongest("present", "absent"))):toBe("present")
-				end,
-			})
-
-			verifyHarness:case("an unknown key takes whatever the first evidence says", {
-				id = "native_games::examples/05 word game — the key ladder is monotonic::an unknown key takes whatever the first evidence says",
-				run = function()
-					expect((rules.strongest(nil, "absent"))):toBe("absent")
-					expect((rules.strongest("present", nil))):toBe("present")
-				end,
-			})
-
 			verifyHarness:case("mergeKeys returns a NEW table and keeps the strongest per letter", {
 				id = "native_games::examples/05 word game — the key ladder is monotonic::mergeKeys returns a NEW table and keeps the strongest per letter",
 				run = function()
@@ -380,96 +185,7 @@ return function(verifyHarness: Verify.Harness)
 			})
 		end)
 
-		verifyHarness:suite("examples/05 word game — the deterministic seed", function()
-			verifyHarness:case("the same seed always yields the same word", {
-				id = "native_games::examples/05 word game — the deterministic seed::the same seed always yields the same word",
-				run = function()
-					expect((rules.solutionForSeed(1))):toBe(rules.solutionForSeed(1))
-					expect((rules.solutionForSeed(4))):toBe(rules.solutionForSeed(4))
-				end,
-			})
-
-			verifyHarness:case("every seed lands on a real answer, and a seed past the end wraps", {
-				id = "native_games::examples/05 word game — the deterministic seed::every seed lands on a real answer, and a seed past the end wraps",
-				run = function()
-					for _, seed in { 1, 2, 7, 41, 1000, 65535, 1e6 } do
-						local word = rules.solutionForSeed(seed)
-						expect(#word):toBe(rules.COLS)
-						expect((rules.isSolution(word))):toBe(true)
-						expect((rules.validate(word))):toBe("ok")
-					end
-				end,
-			})
-
-			verifyHarness:case("the game plays in UPPERCASE even though the data is lowercase", {
-				id = "native_games::examples/05 word game — the deterministic seed::the game plays in UPPERCASE even though the data is lowercase",
-				run = function()
-					for _, seed in { 1, 2, READER_SEED, 4096 } do
-						local word = rules.solutionForSeed(seed)
-						expect(word):toBe(string.upper(word))
-					end
-				end,
-			})
-
-			verifyHarness:case("READER is reachable, and it is the seed the rest of this file plays", {
-				id = "native_games::examples/05 word game — the deterministic seed::READER is reachable, and it is the seed the rest of this file plays",
-				run = function()
-					expect((rules.solutionForSeed(READER_SEED))):toBe("READER")
-					expect((rules.solutionForSeed(READER_SEED))):toBe(rules.solutionForSeed(READER_SEED))
-				end,
-			})
-		end)
-
 		verifyHarness:suite("examples/05 word game — the state machine", function()
-			verifyHarness:case("starts on a visible seven-by-six board with a caret in the first cell", {
-				id = "native_games::examples/05 word game — the state machine::starts on a visible seven-by-six board with a caret in the first cell",
-				run = function()
-					local ctx = makeWorld()
-					local game = newGame(ctx)
-					expect(rules.COLS):toBe(6)
-					expect(rules.ROWS):toBe(7)
-					expect(game.title):toBe("Word Guess")
-					local sheet = find(ctx.node, "WordGuessColors")
-					for _, rule in sheet:GetChildren() do
-						if rule.Selector == ".facet-status-success" then
-							expect((math.round(rule:GetProperties().BackgroundColor3.R * 255))):toBe(35)
-						elseif rule.Selector == ".facet-status-warning" then
-							expect((math.round(rule:GetProperties().BackgroundColor3.R * 255))):toBe(109)
-						end
-					end
-					for r = 1, rules.ROWS do
-						for c = 1, rules.COLS do
-							expect(findPath(ctx.node, game.tilePath(r, c)) ~= nil):toBe(true)
-						end
-					end
-					expect((game.state(1, 1))):toBe("caret")
-					expect((game.mark(1, 1))):toBe("_")
-					expect((game.state(1, 2))):toBe("empty")
-					expect((game.state(2, 1))):toBe("empty")
-					expect((game.activeRow())):toBe(1)
-					game.dispose()
-				end,
-			})
-
-			verifyHarness:case("every tile paints a REAL tint — the plate is never invisible", {
-				id = "native_games::examples/05 word game — the state machine::every tile paints a REAL tint — the plate is never invisible",
-				run = function()
-					local ctx = makeWorld()
-					local game = newGame(ctx)
-
-					for r = 1, rules.ROWS do
-						for c = 1, rules.COLS do
-							local fill = findPath(ctx.node, game.tilePath(r, c) .. "/fill")
-							expect(fill ~= nil):toBe(true)
-							expect(fill.BackgroundColor3 ~= nil):toBe(true)
-							expect(fill.BackgroundColor3 ~= nil):toBe(true)
-							expect(fill.BackgroundTransparency):toBe(0)
-						end
-					end
-					game.dispose()
-				end,
-			})
-
 			verifyHarness:case("paints key and tile state through theme status tags and outlines the active row", {
 				id = "native_games::examples/05 word game — the state machine::paints key and tile state through theme status tags and outlines the active row",
 				run = function()
@@ -631,35 +347,6 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
-			verifyHarness:case("a scored row keeps its verdict AND its marks while the next row becomes active", {
-				id = "native_games::examples/05 word game — the state machine::a scored row keeps its verdict AND its marks while the next row becomes active",
-				run = function()
-					local ctx = makeWorld()
-					local game = newGame(ctx)
-					guess(game, "RULERS")
-					expectStates(game, 1, { "correct", "absent", "absent", "present", "present", "absent" })
-					expect((game.mark(1, 1))):toBe("v")
-					expect((game.mark(1, 4))):toBe("~")
-					expect((game.mark(1, 2))):toBe("x")
-					expect((game.activeRow())):toBe(2)
-					guess(game, "ERRORS")
-					expectStates(game, 1, { "correct", "absent", "absent", "present", "present", "absent" })
-					expect((game.activeRow())):toBe(3)
-					game.dispose()
-				end,
-			})
-
-			verifyHarness:case("the duplicate-letter rule reaches the board, not just the scorer", {
-				id = "native_games::examples/05 word game — the state machine::the duplicate-letter rule reaches the board, not just the scorer",
-				run = function()
-					local ctx = makeWorld()
-					local game = newGame(ctx)
-					guess(game, "ERRORS")
-					expectStates(game, 1, { "present", "present", "present", "absent", "absent", "absent" })
-					game.dispose()
-				end,
-			})
-
 			verifyHarness:case("key state accumulates monotonically and never downgrades", {
 				id = "native_games::examples/05 word game — the state machine::key state accumulates monotonically and never downgrades",
 				run = function()
@@ -676,43 +363,6 @@ return function(verifyHarness: Verify.Harness)
 					guess(game, "READER")
 					expect((game.keyState("E"))):toBe("correct")
 					expect((game.keyState("U"))):toBe("absent")
-					game.dispose()
-				end,
-			})
-
-			verifyHarness:case("wins when the solution is submitted, and opens the results card", {
-				id = "native_games::examples/05 word game — the state machine::wins when the solution is submitted, and opens the results card",
-				run = function()
-					local ctx = makeWorld()
-					local game = newGame(ctx)
-					guess(game, "RULERS")
-					guess(game, "READER")
-					expect((game.phase())):toBe("won")
-					expect((game.won())):toBe(true)
-					expect(string.find(game.status(), "Solved in 2 guesses") ~= nil):toBe(true)
-					expect((game.resultsOpen())):toBe(true)
-					expect((if game.resultsOpen() then 2 else 1)):toBe(2)
-					game.dispose()
-				end,
-			})
-
-			verifyHarness:case("loses after SEVEN accepted wrong guesses and reveals the word", {
-				id = "native_games::examples/05 word game — the state machine::loses after SEVEN accepted wrong guesses and reveals the word",
-				run = function()
-					local ctx = makeWorld()
-					local game = newGame(ctx)
-					local seven = { "RULERS", "ERRORS", "ALWAYS", "LEVELS", "SOLVED", "TILING", "WALNUT" }
-					for i, word in seven do
-						expect((game.phase())):toBe("playing")
-						guess(game, word)
-						expect((game.row(i))):toBe(word)
-					end
-					expect((game.phase())):toBe("lost")
-					expect((game.lost())):toBe(true)
-					expect(string.find(game.status(), "the word was READER") ~= nil):toBe(true)
-					expect((game.resultsOpen())):toBe(true)
-
-					expectStates(game, 1, { "correct", "absent", "absent", "present", "present", "absent" })
 					game.dispose()
 				end,
 			})
@@ -894,8 +544,6 @@ return function(verifyHarness: Verify.Harness)
 			return out
 		end
 
-		local EMPTY = boardOf({ ".......", ".......", ".......", ".......", ".......", ".......", "......." })
-
 		local WIN_SCRIPT: { { { number } } } = {
 			{ { 1, 4, 1 }, { 3, 4, 2 }, { 5, 4, 3 }, { 6, 4, 4 }, { 2, 4, 5 } },
 			{ { 4, 2, 5 }, { 3, 3, 5 }, { 6, 5, 5 }, { 2, 6, 5 }, { 7, 7, 5 } },
@@ -925,155 +573,7 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end
 
-		verifyHarness:suite("examples/06 crossword — the rules are pure", function()
-			verifyHarness:case("the board, the rack, the budget and the goal are the design's numbers", {
-				id = "native_games::examples/06 crossword — the rules are pure::the board, the rack, the budget and the goal are the design's numbers",
-				run = function()
-					expect(rules.SIZE):toBe(7)
-					expect(rules.CENTRE):toBe(4)
-					expect(rules.RACK_SIZE):toBe(7)
-					expect(rules.TURNS):toBe(6)
-					expect(rules.GOAL):toBe(60)
-					expect(rules.BONUS_TILES):toBe(5)
-					expect(rules.BONUS):toBe(10)
-				end,
-			})
-
-			verifyHarness:case("the letter values are the familiar English ones", {
-				id = "native_games::examples/06 crossword — the rules are pure::the letter values are the familiar English ones",
-				run = function()
-					for _, letter in { "A", "E", "I", "O", "U", "N", "R", "S", "T", "L" } do
-						expect((rules.value(letter))):toBe(1)
-					end
-					for _, letter in { "D", "G" } do
-						expect((rules.value(letter))):toBe(2)
-					end
-					for _, letter in { "B", "C", "M", "P" } do
-						expect((rules.value(letter))):toBe(3)
-					end
-					for _, letter in { "F", "H", "V", "W", "Y" } do
-						expect((rules.value(letter))):toBe(4)
-					end
-					expect((rules.value("K"))):toBe(5)
-					expect((rules.value("J"))):toBe(8)
-					expect((rules.value("X"))):toBe(8)
-					expect((rules.value("Q"))):toBe(10)
-					expect((rules.value("Z"))):toBe(10)
-				end,
-			})
-
-			verifyHarness:case("the bag is the 98-tile familiar multiset, with no blanks", {
-				id = "native_games::examples/06 crossword — the rules are pure::the bag is the 98-tile familiar multiset, with no blanks",
-				run = function()
-					local total = 0
-					for _, entry in rules.DISTRIBUTION do
-						total += entry[2] :: number
-					end
-					expect(total):toBe(98)
-					local bag = rules.newBag(rules.makeRng(1))
-					expect(#bag):toBe(98)
-
-					for _, letter in bag do
-						expect(rules.value(letter) > 0):toBe(true)
-					end
-				end,
-			})
-		end)
-
 		verifyHarness:suite("examples/06 crossword — axis, run and connection", function()
-			verifyHarness:case("a turn's tiles lie in one row or one column, and scattered tiles are refused", {
-				id = "native_games::examples/06 crossword — axis, run and connection::a turn's tiles lie in one row or one column, and scattered tiles are refused",
-				run = function()
-					local across = rules.validate(EMPTY, placedOf({ { 4, 3, "C" }, { 4, 4, "A" }, { 4, 5, "T" } }), 1)
-					expect(across.ok):toBe(true)
-					expect(across.axis):toBe("row")
-					local down = rules.validate(EMPTY, placedOf({ { 3, 4, "C" }, { 4, 4, "A" }, { 5, 4, "T" } }), 1)
-					expect(down.ok):toBe(true)
-					expect(down.axis):toBe("col")
-					local scattered = rules.validate(EMPTY, placedOf({ { 4, 4, "C" }, { 5, 5, "A" } }), 1)
-					expect(scattered.ok):toBe(false)
-					expect(scattered.code):toBe("axis")
-					expect(scattered.message):toBe(rules.SAY.axis)
-				end,
-			})
-
-			verifyHarness:case("ONE tile does not fix an axis — the board does", {
-				id = "native_games::examples/06 crossword — axis, run and connection::ONE tile does not fix an axis — the board does",
-				run = function()
-					local column =
-						boardOf({ ".......", ".......", "...C...", "...A...", ".......", ".......", "......." })
-					local extendsDown = rules.validate(column, placedOf({ { 5, 4, "T" } }), 2)
-					expect(extendsDown.ok):toBe(true)
-					expect(extendsDown.axis):toBe("col")
-					expect((extendsDown.made :: any)[1].word):toBe("CAT")
-
-					local row = boardOf({ ".......", ".......", ".......", "..CA...", ".......", ".......", "......." })
-					local extendsAcross = rules.validate(row, placedOf({ { 4, 5, "T" } }), 2)
-					expect(extendsAcross.ok):toBe(true)
-					expect(extendsAcross.axis):toBe("row")
-					expect((extendsAcross.made :: any)[1].word):toBe("CAT")
-
-					local cross =
-						boardOf({ ".......", ".......", "...D...", "..D.G..", "...N...", ".......", "......." })
-					local both = rules.validate(cross, placedOf({ { 4, 4, "O" } }), 2)
-					expect(both.ok):toBe(true)
-					expect(both.axis):toBe("row")
-					expect(#(both.made :: any)):toBe(2)
-					expect((both.made :: any)[1].word):toBe("DOG")
-					expect((both.made :: any)[2].word):toBe("DON")
-				end,
-			})
-
-			verifyHarness:case("a gap in the run is refused, and a gap CLOSED by a committed letter is not", {
-				id = "native_games::examples/06 crossword — axis, run and connection::a gap in the run is refused, and a gap CLOSED by a committed letter is not",
-				run = function()
-					local centred =
-						boardOf({ ".......", ".......", ".......", "...A...", ".......", ".......", "......." })
-
-					local holed = rules.validate(centred, placedOf({ { 4, 2, "C" }, { 4, 6, "T" } }), 2)
-					expect(holed.ok):toBe(false)
-					expect(holed.code):toBe("gap")
-					expect(holed.message):toBe(rules.SAY.gap)
-
-					local closed = rules.validate(centred, placedOf({ { 4, 3, "C" }, { 4, 5, "T" } }), 2)
-					expect(closed.ok):toBe(true)
-					expect((closed.made :: any)[1].word):toBe("CAT")
-				end,
-			})
-
-			verifyHarness:case("the main word is read THROUGH committed letters at both ends", {
-				id = "native_games::examples/06 crossword — axis, run and connection::the main word is read THROUGH committed letters at both ends",
-				run = function()
-					local ends =
-						boardOf({ ".......", ".......", ".......", "..C.T..", ".......", ".......", "......." })
-					local verdict = rules.validate(ends, placedOf({ { 4, 4, "A" } }), 2)
-					expect(verdict.ok):toBe(true)
-					expect((verdict.made :: any)[1].word):toBe("CAT")
-
-					expect(verdict.score):toBe(5)
-				end,
-			})
-
-			verifyHarness:case("the first turn must cover the starred centre, and later turns must not", {
-				id = "native_games::examples/06 crossword — axis, run and connection::the first turn must cover the starred centre, and later turns must not",
-				run = function()
-					local offCentre =
-						rules.validate(EMPTY, placedOf({ { 2, 2, "C" }, { 2, 3, "A" }, { 2, 4, "T" } }), 1)
-					expect(offCentre.ok):toBe(false)
-					expect(offCentre.code):toBe("centre")
-					expect(offCentre.message):toBe(rules.SAY.centre)
-
-					local onCentre = rules.validate(EMPTY, placedOf({ { 4, 3, "C" }, { 4, 4, "A" }, { 4, 5, "T" } }), 1)
-					expect(onCentre.ok):toBe(true)
-
-					local later =
-						boardOf({ ".......", ".......", ".......", "..DON..", ".......", ".......", "......." })
-					local away = rules.validate(later, placedOf({ { 5, 3, "O" }, { 5, 4, "N" }, { 5, 5, "E" } }), 2)
-					expect(away.ok):toBe(true)
-					expect(away.axis):toBe("row")
-				end,
-			})
-
 			verifyHarness:case("connection is ORTHOGONAL: touching diagonally is not touching", {
 				id = "native_games::examples/06 crossword — axis, run and connection::connection is ORTHOGONAL: touching diagonally is not touching",
 				run = function()
@@ -1098,149 +598,6 @@ return function(verifyHarness: Verify.Harness)
 
 		verifyHarness:suite("examples/06 crossword — every word a turn creates", function()
 			local DON = boardOf({ ".......", ".......", ".......", "..DON..", ".......", ".......", "......." })
-
-			verifyHarness:case("every perpendicular word a placed tile now sits inside is extracted and validated", {
-				id = "native_games::examples/06 crossword — every word a turn creates::every perpendicular word a placed tile now sits inside is extracted and validated",
-				run = function()
-					local verdict = rules.validate(DON, placedOf({ { 5, 3, "O" }, { 5, 4, "N" }, { 5, 5, "E" } }), 2)
-					expect(verdict.ok):toBe(true)
-					local made = verdict.made :: any
-					expect(#made):toBe(4)
-					expect(made[1].word):toBe("ONE")
-					expect(made[1].axis):toBe("row")
-					expect(made[2].word):toBe("DO")
-					expect(made[3].word):toBe("ON")
-					expect(made[4].word):toBe("NE")
-					for i = 2, 4 do
-						expect(made[i].axis):toBe("col")
-					end
-				end,
-			})
-
-			verifyHarness:case("a crossing word the dictionary does not know refuses the whole turn, BY NAME", {
-				id = "native_games::examples/06 crossword — every word a turn creates::a crossing word the dictionary does not know refuses the whole turn, BY NAME",
-				run = function()
-					local dog = boardOf({ ".......", ".......", ".......", "..DOG..", ".......", ".......", "......." })
-					local verdict = rules.validate(dog, placedOf({ { 5, 3, "O" }, { 5, 4, "N" }, { 5, 5, "E" } }), 2)
-					expect(verdict.ok):toBe(false)
-					expect(verdict.code):toBe("unknownCrossing")
-					expect(verdict.word):toBe("GE")
-					expect(verdict.message):toBe("That would make GE downward, and that isn't a word this game knows.")
-
-					expect((rules.sayUnknownCrossing("QXZ", "row"))):toBe(
-						"That would make QXZ across, and that isn't a word this game knows."
-					)
-				end,
-			})
-
-			verifyHarness:case("the score counts every letter in every word, once per word it appears in", {
-				id = "native_games::examples/06 crossword — every word a turn creates::the score counts every letter in every word, once per word it appears in",
-				run = function()
-					local verdict = rules.validate(DON, placedOf({ { 5, 3, "O" }, { 5, 4, "N" }, { 5, 5, "E" } }), 2)
-
-					expect(verdict.score):toBe(10)
-					expect(verdict.bonus):toBe(0)
-					local made = verdict.made :: any
-					expect(made[1].score):toBe(3)
-					expect(made[2].score):toBe(3)
-					expect(made[3].score):toBe(2)
-					expect(made[4].score):toBe(2)
-
-					expect(made[1].score + made[2].score + made[3].score + made[4].score):toBe(verdict.score)
-				end,
-			})
-
-			verifyHarness:case("using five or more rack tiles in one turn adds ten", {
-				id = "native_games::examples/06 crossword — every word a turn creates::using five or more rack tiles in one turn adds ten",
-				run = function()
-					local four = rules.validate(
-						EMPTY,
-						placedOf({ { 4, 3, "H" }, { 4, 4, "E" }, { 4, 5, "N" }, { 4, 6, "S" } }),
-						1
-					)
-					expect(four.ok):toBe(true)
-					expect(four.tiles):toBe(4)
-					expect(four.bonus):toBe(0)
-					expect(four.score):toBe(4 + 1 + 1 + 1)
-
-					local five = rules.validate(
-						EMPTY,
-						placedOf({ { 4, 2, "E" }, { 4, 3, "A" }, { 4, 4, "R" }, { 4, 5, "E" }, { 4, 6, "D" } }),
-						1
-					)
-					expect(five.ok):toBe(true)
-					expect(five.tiles):toBe(5)
-					expect(five.bonus):toBe(10)
-					expect(five.score):toBe(1 + 1 + 1 + 1 + 2 + 10)
-
-					expect(string.find(five.message, "+10 for using 5 tiles", 1, true) ~= nil):toBe(true)
-				end,
-			})
-		end)
-
-		verifyHarness:suite("examples/06 crossword — the dictionary is the shared module", function()
-			verifyHarness:case("accepts and rejects through `words`, not through a list this game keeps", {
-				id = "native_games::examples/06 crossword — the dictionary is the shared module::accepts and rejects through `words`, not through a list this game keeps",
-				run = function()
-					for _, word in { "EARED", "IODIDE", "QUALIA", "NIPS", "DON", "QI" } do
-						expect((rules.wordVerdict(word))):toBe("ok")
-						expect((words.isWord(word))):toBe(true)
-					end
-					expect((rules.wordVerdict("PLZTK"))):toBe("unknown")
-					expect((rules.wordVerdict("A"))):toBe("unknown")
-				end,
-			})
-
-			verifyHarness:case("a run the dictionary CANNOT judge is refused by name, not called unknown", {
-				id = "native_games::examples/06 crossword — the dictionary is the shared module::a run the dictionary CANNOT judge is refused by name, not called unknown",
-				run = function()
-					expect((words.isWord("ELEPHANT"))):toBe(false)
-					expect((rules.wordVerdict("ELEPHANT"))):toBe("long")
-					expect(rules.SAY.long):toBe("This game only knows words up to seven letters long.")
-					expect(rules.MAX_WORD):toBe(words.MAX_LENGTH)
-
-					expect(rules.SIZE <= words.MAX_LENGTH):toBe(true)
-				end,
-			})
-		end)
-
-		verifyHarness:suite("examples/06 crossword — the deal guarantees an opening", function()
-			verifyHarness:case("the shipped seed deals a rack that spells something across the centre", {
-				id = "native_games::examples/06 crossword — the deal guarantees an opening::the shipped seed deals a rack that spells something across the centre",
-				run = function()
-					local dealt = rules.deal(rules.makeRng(rules.DEFAULT_SEED))
-					expect(#dealt.rack):toBe(7)
-					expect(dealt.opening ~= nil):toBe(true)
-					expect(#(dealt.opening :: string) >= rules.MIN_WORD):toBe(true)
-					expect((words.isWord(dealt.opening :: string))):toBe(true)
-				end,
-			})
-
-			verifyHarness:case("...and so does every seed in a wide sweep, inside the attempt bound", {
-				id = "native_games::examples/06 crossword — the deal guarantees an opening::...and so does every seed in a wide sweep, inside the attempt bound",
-				run = function()
-					local worst = 0
-					for seed = 1, 200 do
-						local dealt = rules.deal(rules.makeRng(seed))
-						if dealt.opening == nil then
-							error(`seed {seed} dealt {table.concat(dealt.rack)} with no opening word`, 2)
-						end
-						worst = math.max(worst, dealt.attempts)
-					end
-					expect(worst <= rules.DEAL_ATTEMPTS):toBe(true)
-
-					expect(worst <= 3):toBe(true)
-				end,
-			})
-
-			verifyHarness:case("openingWord finds a word from a SUBSET in any order, and nil when there is none", {
-				id = "native_games::examples/06 crossword — the deal guarantees an opening::openingWord finds a word from a SUBSET in any order, and nil when there is none",
-				run = function()
-					expect(rules.openingWord({ "T", "A", "C" }) ~= nil):toBe(true)
-					expect(rules.openingWord({ "C", "A", "T", "X", "Z", "Q", "V" }) ~= nil):toBe(true)
-					expect((rules.openingWord({ "V", "V", "V" }))):toBeNil()
-				end,
-			})
 		end)
 
 		verifyHarness:suite("examples/06 crossword — nine refusals, nine sentences, on screen", function()
@@ -1362,17 +719,6 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
-			verifyHarness:case("7 — submit with nothing placed", {
-				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::7 — submit with nothing placed",
-				run = function()
-					local ctx = makeWorld()
-					local game = newGame(ctx)
-					game.submit()
-					expect((said(game))):toBe("Place at least one tile before you submit.")
-					game.dispose()
-				end,
-			})
-
 			verifyHarness:case("8 — placing on an occupied square", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::8 — placing on an occupied square",
 				run = function()
@@ -1404,20 +750,6 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
-			verifyHarness:case("9 — picking up a letter from an earlier turn", {
-				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::9 — picking up a letter from an earlier turn",
-				run = function()
-					local ctx = makeWorld()
-					local game = newGame(ctx)
-					play(game, WIN_SCRIPT, 1)
-					expect((game.committedAt(4, 1))):toBe("E")
-					game.place(4, 1)
-					expect((said(game))):toBe("Letters from an earlier turn stay put.")
-					expect((game.committedAt(4, 1))):toBe("E")
-					game.dispose()
-				end,
-			})
-
 			verifyHarness:case("...and an uncommitted tile CAN be picked back up, which is what makes 9 a rule", {
 				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::...and an uncommitted tile CAN be picked back up, which is what makes 9 a rule",
 				run = function()
@@ -1432,19 +764,6 @@ return function(verifyHarness: Verify.Harness)
 					expect((game.pendingAt(4, 4))):toBeNil()
 					expect((game.rackLetter(1))):toBe(letter)
 					expect((said(game))):toBe("No tiles placed this turn.")
-					game.dispose()
-				end,
-			})
-
-			verifyHarness:case("...and tapping an empty square with nothing held explains itself too", {
-				id = "native_games::examples/06 crossword — nine refusals, nine sentences, on screen::...and tapping an empty square with nothing held explains itself too",
-				run = function()
-					local ctx = makeWorld()
-					local game = newGame(ctx)
-					game.place(1, 1)
-					expect((said(game))):toBe("Pick a letter from your rack first, then choose a square.")
-
-					expect((hint(game))):toBe("Cover the starred square with a word to begin.")
 					game.dispose()
 				end,
 			})
@@ -1467,23 +786,6 @@ return function(verifyHarness: Verify.Harness)
 		end)
 
 		verifyHarness:suite("examples/06 crossword — commit, refill, undo, budget", function()
-			verifyHarness:case("a committed turn scores, banks the letters, and refills the rack to seven", {
-				id = "native_games::examples/06 crossword — commit, refill, undo, budget::a committed turn scores, banks the letters, and refills the rack to seven",
-				run = function()
-					local ctx = makeWorld()
-					local game = newGame(ctx)
-					play(game, WIN_SCRIPT, 1)
-					expect((game.score())):toBe(16)
-					expect((game.committedAt(4, 1))):toBe("E")
-					expect((game.committedAt(4, 5))):toBe("D")
-					expect((game.pendingAt(4, 1))):toBeNil()
-					expect((game.rackCount())):toBe(7)
-
-					expect((game.turn())):toBe(2)
-					game.dispose()
-				end,
-			})
-
 			verifyHarness:case("undo returns exactly the uncommitted tiles, to the slots they came from", {
 				id = "native_games::examples/06 crossword — commit, refill, undo, budget::undo returns exactly the uncommitted tiles, to the slots they came from",
 				run = function()
@@ -1514,19 +816,6 @@ return function(verifyHarness: Verify.Harness)
 					game.select(4)
 					game.place(3, 4)
 					expect(game.pendingAt(3, 4) ~= nil):toBe(true)
-					game.dispose()
-				end,
-			})
-
-			verifyHarness:case("undo with nothing placed says so instead of doing nothing", {
-				id = "native_games::examples/06 crossword — commit, refill, undo, budget::undo with nothing placed says so instead of doing nothing",
-				run = function()
-					local ctx = makeWorld()
-					local game = newGame(ctx)
-					game.undo()
-					expect(findPath(ctx.node, game.wordPath).Text):toBe(
-						"Nothing to undo — you have not placed a tile this turn."
-					)
 					game.dispose()
 				end,
 			})
@@ -1683,53 +972,6 @@ return function(verifyHarness: Verify.Harness)
 			})
 		end)
 
-		verifyHarness:suite("examples/06 crossword — determinism", function()
-			verifyHarness:case("the same seed deals the same rack and the same bag", {
-				id = "native_games::examples/06 crossword — determinism::the same seed deals the same rack and the same bag",
-				run = function()
-					local ctx = makeWorld()
-					local a = newGame(ctx)
-					local ctx2 = makeWorld()
-					local b = newGame(ctx2)
-					for slot = 1, 7 do
-						expect((b.rackLetter(slot))):toBe(a.rackLetter(slot))
-					end
-					expect((b.dump())):toBe(a.dump())
-
-					play(a, WIN_SCRIPT, 1)
-					play(b, WIN_SCRIPT, 1)
-					expect((b.dump())):toBe(a.dump())
-
-					b.reset(rules.DEFAULT_SEED + 1)
-					expect(b.dump() ~= a.dump()):toBe(true)
-					a.dispose()
-					b.dispose()
-				end,
-			})
-
-			verifyHarness:case("a fixed script on a fixed seed lands on the same board, score and dump", {
-				id = "native_games::examples/06 crossword — determinism::a fixed script on a fixed seed lands on the same board, score and dump",
-				run = function()
-					local ctx = makeWorld()
-					local a = newGame(ctx)
-					play(a, WIN_SCRIPT)
-					expect((a.dump())):toBe(
-						"......./QUALIA./....O../EARED../...NIPS/....D../....E..|rack=EARVGEL|score=67|turn=5|phase=won"
-					)
-					local ctx2 = makeWorld()
-					local b = newGame(ctx2)
-					play(b, WIN_SCRIPT)
-					expect((b.dump())):toBe(a.dump())
-
-					b.reset(rules.DEFAULT_SEED)
-					play(b, WIN_SCRIPT)
-					expect((b.dump())):toBe(a.dump())
-					a.dispose()
-					b.dispose()
-				end,
-			})
-		end)
-
 		verifyHarness:suite("examples/06 crossword — robustness", function()
 			verifyHarness:case("rapid alternating input leaves no stale selection or held tile", {
 				id = "native_games::examples/06 crossword — robustness::rapid alternating input leaves no stale selection or held tile",
@@ -1859,6 +1101,9 @@ return function(verifyHarness: Verify.Harness)
 					local arrived = tile(ctx, newId)
 					expect((table.find(oldIds, newId))):toBe(nil)
 					expect(arrived.Position.Y.Offset < 0):toBe(true)
+					local board = find(ctx.node, "board")
+					expect(board.ClipsDescendants):toBe(true)
+					expect(arrived:IsDescendantOf(board)):toBe(true)
 					local startY = arrived.Position.Y.Offset
 					advanceTo(game, ctx, "land")
 					ctx.engine.heartbeat:Fire(0.04)

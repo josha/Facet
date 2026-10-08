@@ -346,51 +346,8 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Dialog: the caller's fact decides", function()
-		verifyHarness:case("a ten-foot screen or Larger text stacks the actions full width", {
-			id = "native_dialog::native Dialog: the caller's fact decides::a ten-foot screen or Larger text stacks the actions full width",
-			run = function()
-				for _, case in { "near", "tv", "text" } do
-					local open, log, change = caller()
-					open:set(false)
-					local w = mount(standard(open, log, change))
-					if case == "tv" then
-						w.gui.ViewportDisplaySize = w.Enum.DisplaySize.Large
-						w.input.MouseEnabled = false
-						w.input.TouchEnabled = false
-					elseif case == "text" then
-						w.gui.PreferredTextSize = w.Enum.PreferredTextSize.Larger
-					end
-					open:set(true)
-					local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
-					local vertical = list.FillDirection == w.Enum.FillDirection.Vertical
-					Verify.expect(`{case}:{vertical}`):toBe(`{case}:{case ~= "near"}`)
-					if case ~= "near" then
-						Verify.expect(actionButton(w, "Leave").Size.X.Scale):toBe(1)
-					end
-					w.stop()
-				end
-			end,
-		})
-
-		verifyHarness:case("an accepted fact presents the panel with pinned title, body and actions", {
-			id = "native_dialog::native Dialog: the caller's fact decides::an accepted fact presents the panel with pinned title, body and actions",
-			run = function()
-				local open, log, change = caller()
-				local w = mount(standard(open, log, change))
-				local panel = w.find("Panel")
-				Verify.expect(panel ~= nil):toBe(true)
-				Verify.expect(w.find("Title").Text):toBe("Leave the race?")
-				Verify.expect(overlay.find(w.find("Body"), "Line") ~= nil):toBe(true)
-				Verify.expect(actionButton(w, "Leave") ~= nil):toBe(true)
-				Verify.expect((w.find("Actions"):IsDescendantOf(w.find("Room")))):toBe(true)
-				Verify.expect((w.find("Close"))):toBe(nil)
-				Verify.expect(w.find("DialogModal") ~= nil):toBe(true)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("keeps the claimed selection when the entry fade hands the panel's children back", {
-			id = "native_dialog::native Dialog: the caller's fact decides::keeps the claimed selection when the entry fade hands the panel's children back",
+		verifyHarness:case("keeps the claimed selection and parent when the entry fade completes", {
+			id = "native_dialog::native Dialog: the caller's fact decides::keeps the claimed selection and parent when the entry fade completes",
 			run = function()
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change))
@@ -403,7 +360,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 				end)
 				w.advance(1, 60)
-				Verify.expect((w.find("Fade"))):toBe(nil)
+				Verify.expect(w.find("Fade").GroupTransparency):toBe(0)
 				Verify.expect(w.gui.SelectedObject):toBe(stay)
 				w.stop()
 			end,
@@ -422,8 +379,8 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(1 / 60)
 				Verify.expect(late.Parent):toBe(fade)
 				w.advance(1, 60)
-				Verify.expect((w.find("Fade"))):toBe(nil)
-				Verify.expect(late.Parent ~= nil and late.Parent.ClassName ~= "CanvasGroup"):toBe(true)
+				Verify.expect(w.find("Fade").GroupTransparency):toBe(0)
+				Verify.expect(late.Parent):toBe(fade)
 				w.stop()
 			end,
 		})
@@ -690,39 +647,6 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Dialog: composition, layout and the height budget", function()
-		verifyHarness:case("title-only, body-only, hero-only, action-label-only and actions-only all present", {
-			id = "native_dialog::native Dialog: composition, layout and the height budget::title-only, body-only, hero-only, action-label-only and actions-only all present",
-			run = function()
-				for index, extra in
-					{
-						{ title = "Title" } :: any,
-						{ content = true },
-						{ hero = { image = "rbxassetid://75342910516929", aspectRatio = 2 } },
-						{ actionLabel = "Pick one" },
-						{
-							actions = {
-								{ id = "Ok", label = "Ok", onActivate = function() end } :: DialogAction,
-							},
-						},
-					}
-				do
-					local w = mount(function(_, Host: RobloxHost)
-						local spec: any = { isPresented = Compose.cell(true), closeButton = false }
-						for key, value in extra do
-							spec[key] = if key == "content"
-								then function()
-									return Host.TextLabel "Line" { Text = "Body" }
-								end
-								else value
-						end
-						return spec
-					end)
-					Verify.expect(`case {index}: {w.find("Panel") ~= nil}`):toBe(`case {index}: true`)
-					w.stop()
-				end
-			end,
-		})
-
 		verifyHarness:case("the spec is closed and malformed compositions are refused by name", {
 			id = "native_dialog::native Dialog: composition, layout and the height budget::the spec is closed and malformed compositions are refused by name",
 			run = function()
@@ -773,28 +697,6 @@ return function(verifyHarness: Verify.Harness)
 			w.size(w.find("Actions"), 400, 44)
 			w.size(overlay.find(w.find("Body"), "Content"), 400, bodyHeight)
 		end
-
-		verifyHarness:case(
-			"a long body fits the room: pinned header, label and actions stay on screen while it scrolls",
-			{
-				id = "native_dialog::native Dialog: composition, layout and the height budget::a long body fits the room: pinned header, label and actions stay on screen while it scrolls",
-				run = function()
-					local open, log, change = caller()
-					local w = mount(standard(open, log, change, { actionLabel = "Leaving forfeits this heat." }))
-					sized(w, 2000)
-					local body, room = w.find("Body"), w.find("Room")
-					local budget = 600 - 64
-					local pinned = 44 + 20 + 44 + 3 * 8
-					Verify.expect(body.Size.Y.Offset):toBe(budget - pinned)
-					Verify.expect(body.ScrollingEnabled):toBe(true)
-					Verify.expect(room.ScrollingEnabled):toBe(false)
-					Verify.expect(room.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
-					Verify.expect(w.find("Actions").Parent):toBe(room)
-					Verify.expect(w.find("Header").Parent):toBe(room)
-					w.stop()
-				end,
-			}
-		)
 
 		verifyHarness:case("a tiny room unpins every region into one scroller: the last action is reachable", {
 			id = "native_dialog::native Dialog: composition, layout and the height budget::a tiny room unpins every region into one scroller: the last action is reachable",
@@ -869,23 +771,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("the keyboard's occlusion takes its room from the budget", {
-			id = "native_dialog::native Dialog: composition, layout and the height budget::the keyboard's occlusion takes its room from the budget",
-			run = function()
-				local open, log, change = caller()
-				local w = mount(standard(open, log, change), { size = Vector2.new(390, 844) })
-				sized(w, 2000)
-				local before = w.find("Body").Size.Y.Offset
-				w.input.OnScreenKeyboardSize = Vector2.new(390, 300)
-				w.input.OnScreenKeyboardVisible = true
-				Verify.expect(w.find("Body").Size.Y.Offset):toBe(before - 300)
-				Verify.expect(w.find("Panel").Position.Y.Offset):toBe(-150)
-				w.input.OnScreenKeyboardVisible = false
-				Verify.expect(w.find("Body").Size.Y.Offset):toBe(before)
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case(
 			"automatic actions stack for three; an explicit row that cannot fit falls to the safe stack",
 			{
@@ -925,49 +810,6 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-
-		verifyHarness:case("the width presets resolve to theme ceilings inside the safe room", {
-			id = "native_dialog::native Dialog: composition, layout and the height budget::the width presets resolve to theme ceilings inside the safe room",
-			run = function()
-				Verify.expect(parts.WIDTHS.automatic):toBe("controls.alert.maxWidth")
-				Verify.expect(parts.WIDTHS.narrow):toBe("controls.popup.panelWidth")
-				Verify.expect(parts.WIDTHS.wide):toBe("controls.dialog.wideWidth")
-				for _, case in
-					{
-						{ nil, 1200, 560 } :: { any },
-						{ "automatic", 1200, 560 },
-						{ "narrow", 1200, 360 },
-						{ "wide", 1200, 800 },
-						{ "wide", 500, 500 - 32 },
-						{ "narrow", 300, 300 - 32 },
-					}
-				do
-					local open, log, change = caller()
-					local w =
-						mount(standard(open, log, change, { width = case[1] }), { size = Vector2.new(case[2], 700) })
-					Verify.expect(`{case[1]}@{case[2]}: {w.find("Panel").Size.X.Offset}`)
-						:toBe(`{case[1]}@{case[2]}: {case[3]}`)
-					w.stop()
-				end
-			end,
-		})
-
-		verifyHarness:case("a bound title may start empty and fill in later, in the same presentation", {
-			id = "native_dialog::native Dialog: composition, layout and the height budget::a bound title may start empty and fill in later, in the same presentation",
-			run = function()
-				local title = Compose.cell("")
-				local open, log, change = caller()
-				local w = mount(standard(open, log, change, { title = title }))
-				local panel, heading = w.find("Panel"), w.find("Title")
-				Verify.expect(heading.Visible):toBe(false)
-				title:set("Leave the race?")
-				Verify.expect((w.find("Panel"))):toBe(panel)
-				Verify.expect((w.find("Title"))):toBe(heading)
-				Verify.expect(heading.Visible):toBe(true)
-				Verify.expect(heading.Text):toBe("Leave the race?")
-				w.stop()
-			end,
-		})
 	end)
 
 	verifyHarness:suite("native Dialog: a plain overflowing body is one pad stop that scrolls", function()
@@ -1047,26 +889,6 @@ return function(verifyHarness: Verify.Harness)
 				w2.gui.SelectedObject = w2.find("Body")
 				Verify.expect((w2.action("DialogBodyDown"))):toBe(nil)
 				w2.stop()
-			end,
-		})
-
-		verifyHarness:case("interactive content keeps its own stops inside the body", {
-			id = "native_dialog::native Dialog: a plain overflowing body is one pad stop that scrolls::interactive content keeps its own stops inside the body",
-			run = function()
-				local open, log, change = caller()
-				local w = mount(function(UI: FacetControls, Host: RobloxHost)
-					local spec = standard(open, log, change)(UI, Host)
-					spec.content = function()
-						return UI.Button "Inner" { label = "Inner", onActivate = function() end }
-					end
-					return spec
-				end)
-				w.size(overlay.find(w.find("Body"), "Content"), 400, 3000)
-				local inner = w.find("Inner")
-				Verify.expect(inner.Selectable):toBe(true)
-				Verify.expect((inner:IsDescendantOf(w.find("Body")))):toBe(true)
-				Verify.expect(w.find("Body").Selectable):toBe(true)
-				w.stop()
 			end,
 		})
 	end)

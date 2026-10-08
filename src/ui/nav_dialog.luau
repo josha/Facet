@@ -356,7 +356,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					ctx.padding(16, 16),
 					ctx.corner(),
 				}
-				local panel = ctx.styled(ctx.fade(panelProps), "dialog")
+				local panel = ctx.styled(ctx.fade(panelProps, true), "dialog")
 				ctx.styled(panel, "panel")
 				materialize(ctx, panel, panelProps, function(use: ComposeTypes.Use)
 					local rest = ctx.metric("motion.materialize.modal", use)

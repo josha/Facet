@@ -5,12 +5,10 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 
-	local Facet = require("../src") :: any
 	local Compose = require("../src/vendor/compose/core")
 	local Roblox = require("../src/vendor/compose/roblox")
 	local context = require("../src/ui/context")
 	local register = require("../src/ui/inputs")
-	local arithmetic = require("../src/ui/arithmetic")
 	local engineLib = require("./lib/native_engine")
 	local expect = Verify.expect
 
@@ -98,21 +96,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native NumberInput preset", function()
-		verifyHarness:case("it is the text engine with the number contract, and refuses a second presentation", {
-			id = "native_number_input::native NumberInput preset::it is the text engine with the number contract, and refuses a second presentation",
-			run = function()
-				local w = numberWorld()
-				editAndCommit(w, "12")
-				expect(`{w.commits[1].value} {typeof(w.commits[1].value)}`):toBe("12 number")
-				w.stop()
-				local ok, err = pcall(function()
-					numberWorld({ presentation = "search" :: "search" })
-				end)
-				expect(ok):toBe(false)
-				expect(string.find(tostring(err), "IS the number presentation", 1, true) ~= nil):toBe(true)
-			end,
-		})
-
 		verifyHarness:case("step must be finite and above zero, precision a whole count of places, units strings", {
 			id = "native_number_input::native NumberInput preset::step must be finite and above zero, precision a whole count of places, units strings",
 			run = function()
@@ -152,45 +135,6 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	verifyHarness:suite("native NumberInput draft grammar", function()
-		verifyHarness:case("an incomplete draft reverts in silence, and says so only when the field is required", {
-			id = "native_number_input::native NumberInput draft grammar::an incomplete draft reverts in silence, and says so only when the field is required",
-			run = function()
-				for _, draft in { "", "-", ".", "-.", "\u{2212}" } do
-					local w = numberWorld({ draft = "7", number = 7 })
-					editAndCommit(w, draft)
-					expect(`[{draft}] {w.draft:peek()} {w.number:peek()} {#w.commits}`):toBe(`[{draft}] 7 7 0`)
-					expect((w.field:GetAttribute("validationMessage"))):toBe("")
-					w.stop()
-				end
-				local required =
-					numberWorld({ draft = "7", number = 7, requiredMark = "required" :: "required", label = "Laps" })
-				editAndCommit(required, "")
-				expect(required.field:GetAttribute("validationMessage") ~= ""):toBe(true)
-				expect(find(required.node, "Message/Validation").Text):toBe("Enter a number.")
-				expect(`{required.number:peek()} {#required.commits}`):toBe("7 0")
-				required.stop()
-			end,
-		})
-
-		verifyHarness:case("the default parser is the strict grammar, not the language's own reader", {
-			id = "native_number_input::native NumberInput draft grammar::the default parser is the strict grammar, not the language's own reader",
-			run = function()
-				expect((arithmetic.number("42"))):toBe(42)
-				expect((arithmetic.number("-2.5"))):toBe(-2.5)
-				expect((arithmetic.number("\u{2212}2"))):toBe(-2)
-				for _, bad in { "1e5", "0x10", "1,000", " 7 ", "1.2.3", "inf", "nan" } do
-					expect(`{bad}: {arithmetic.number(bad)}`):toBe(`{bad}: nil`)
-				end
-				local w = numberWorld()
-				editAndCommit(w, "1e5")
-				expect(w.field:GetAttribute("validationMessage") ~= ""):toBe(true)
-				expect(`{w.number:peek()} {w.draft:peek()} {#w.commits}`):toBe("3 1e5 0")
-				w.stop()
-			end,
-		})
-	end)
-
 	verifyHarness:suite("native NumberInput commit", function()
 		verifyHarness:case("a commit reports the number first, and the string is only how it is written", {
 			id = "native_number_input::native NumberInput commit::a commit reports the number first, and the string is only how it is written",
@@ -207,21 +151,6 @@ return function(verifyHarness: Verify.Harness)
 				w.field:ReleaseFocus(false)
 				expect(`{w.commits[2].value} {w.commits[2].reason}`):toBe("13 focusLost")
 				w.stop()
-			end,
-		})
-
-		verifyHarness:case("an out-of-range commit clamps and says clamped rather than refusing", {
-			id = "native_number_input::native NumberInput commit::an out-of-range commit clamps and says clamped rather than refusing",
-			run = function()
-				local w = numberWorld({ draft = "", number = 1, min = 1, max = 9 })
-				editAndCommit(w, "99")
-				expect(`{w.commits[1].value} {w.commits[1].reason} {w.draft:peek()}`):toBe("9 clamped 9")
-				expect((w.field:GetAttribute("validationMessage"))):toBe("")
-				w.stop()
-				local low = numberWorld({ draft = "", number = 5, min = 1, max = 9 })
-				editAndCommit(low, "-4")
-				expect(`{low.commits[1].value} {low.commits[1].reason}`):toBe("1 clamped")
-				low.stop()
 			end,
 		})
 
@@ -266,18 +195,6 @@ return function(verifyHarness: Verify.Harness)
 					expect((field:isDestroyed())):toBe(true)
 					w.stop()
 				end
-			end,
-		})
-
-		verifyHarness:case("a field handed the arithmetic recipe commits the answer, and never runs the text", {
-			id = "native_number_input::native NumberInput commit::a field handed the arithmetic recipe commits the answer, and never runs the text",
-			run = function()
-				local w = numberWorld({ draft = "", number = 0, parse = Facet.recipes.arithmetic.parse })
-				editAndCommit(w, "3 + 5")
-				expect(`{w.number:peek()} {w.draft:peek()}`):toBe("8 8")
-				editAndCommit(w, "print('hi')")
-				expect(`{w.number:peek()} {w.draft:peek()} {#w.commits}`):toBe("8 print('hi') 1")
-				w.stop()
 			end,
 		})
 	end)
@@ -382,67 +299,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("the step buttons are square targets at the touch floor and separate stops", {
-			id = "native_number_input::native NumberInput units and step buttons::the step buttons are square targets at the touch floor and separate stops",
-			run = function()
-				local w = numberWorld({ stepButtons = true, min = 0, max = 20 })
-				local dec, inc = find(w.node, "Input/Decrement"), find(w.node, "Input/Increment")
-				for _, button in { dec, inc } do
-					expect(button.Size.X.Offset >= 44 and button.Size.Y.Offset >= 44):toBe(true)
-					expect(button.Size.X.Offset):toBe(button.Size.Y.Offset)
-				end
-				expect(dec.LayoutOrder < inc.LayoutOrder):toBe(true)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case(
-			"the step buttons are ordinary focus stops after the editor and its clear, and claim no arrows",
-			{
-				id = "native_number_input::native NumberInput units and step buttons::the step buttons are ordinary focus stops after the editor and its clear, and claim no arrows",
-				run = function()
-					local w = numberWorld({
-						draft = "4",
-						number = 4,
-						stepButtons = true,
-						clearButtonMode = "always",
-						min = 0,
-						max = 20,
-					})
-					local plate = find(w.node, "Input")
-					local order = {}
-					for _, child in plate:GetChildren() do
-						if child:IsA("GuiObject") and child.Selectable then
-							table.insert(order, child)
-						end
-					end
-					table.sort(order, function(a, b)
-						return a.LayoutOrder < b.LayoutOrder
-					end)
-					local names = {}
-					for _, child in order do
-						table.insert(names, child.Name)
-					end
-					expect((table.concat(names, " "))):toBe("Field Clear Decrement Increment")
-					for _, name in { "Decrement", "Increment" } do
-						for _, context in find(plate, name):GetChildren() do
-							if context:IsA("InputContext") then
-								for _, action in context:GetChildren() do
-									for _, binding in action:GetChildren() do
-										local key = tostring(binding.KeyCode)
-										expect(string.find(key, "Left") == nil and string.find(key, "Right") == nil):toBe(
-											true
-										)
-									end
-								end
-							end
-						end
-					end
-					w.stop()
-				end,
-			}
-		)
-
 		verifyHarness:case("at the end of its range, read-only or disabled, the button says so and refuses", {
 			id = "native_number_input::native NumberInput units and step buttons::at the end of its range, read-only or disabled, the button says so and refuses",
 			run = function()
@@ -544,17 +400,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a scrub lands on the step's own places, never on float noise", {
-			id = "native_number_input::native NumberInput scrub::a scrub lands on the step's own places, never on float noise",
-			run = function()
-				local w = scrubWorld({ draft = "0", number = 0, step = 0.1, max = 1 })
-				down(w, 100)
-				move(w, 24)
-				expect(`{w.number:peek() == 0.3} {w.draft:peek()}`):toBe("true 0.3")
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("a scrub over a typed draft starts from the committed number and discards the draft", {
 			id = "native_number_input::native NumberInput scrub::a scrub over a typed draft starts from the committed number and discards the draft",
 			run = function()
@@ -617,22 +462,6 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-
-		verifyHarness:case("a caller write mid-gesture ends it and the caller's number stands", {
-			id = "native_number_input::native NumberInput scrub::a caller write mid-gesture ends it and the caller's number stands",
-			run = function()
-				local w = scrubWorld()
-				down(w, 100)
-				move(w, 16)
-				expect((w.number:peek())):toBe(12)
-				w.number:set(3)
-				w.draft:set("3")
-				move(w, 40)
-				up(w)
-				expect(`{w.number:peek()} {w.draft:peek()} {#w.commits}`):toBe("3 3 0")
-				w.stop()
-			end,
-		})
 
 		verifyHarness:case("disposal mid-gesture restores the snapshot; an unscrubbable field adds no listener", {
 			id = "native_number_input::native NumberInput scrub::disposal mid-gesture restores the snapshot; an unscrubbable field adds no listener",

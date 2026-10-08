@@ -53,6 +53,25 @@ return function(verifyHarness: Verify.Harness)
 			return w
 		end
 
+		verifyHarness:case("keeps Help text at its rest origin through the whole entrance", {
+			id = "native_motion_rest::present at rest: help tooltip::keeps Help text at its rest origin through the whole entrance",
+			run = function()
+				local w = hovered()
+				local panel = w.find("Help")
+				w.size(panel, 170, 64)
+				local painted = 0
+				for _ = 1, 30 do
+					w.advance(FRAME)
+					if fadeKit.of(panel) < 1 then
+						Verify.expect(materialize.of(panel).Scale):toBe(1)
+						Verify.expect(panel:FindFirstChild("PresentationContent", true)):toBe(nil)
+						painted += 1
+					end
+				end
+				Verify.expect(painted > 0):toBe(true)
+				w.stop()
+			end,
+		})
 		verifyHarness:case("holds scale 1 and stays transparent until the plate has rested one frame", {
 			id = "native_motion_rest::present at rest: help tooltip::holds scale 1 and stays transparent until the plate has rested one frame",
 			run = function()
@@ -65,7 +84,8 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(FRAME)
 				w.advance(FRAME)
 				w.advance(FRAME)
-				Verify.expect(scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
 				w.stop()
 			end,
 		})
@@ -101,7 +121,8 @@ return function(verifyHarness: Verify.Harness)
 				local ax, ay = panel.AnchorPoint.X, panel.AnchorPoint.Y
 				panel.AbsoluteSize = Vector2.new(120 * scale.Scale, 30 * scale.Scale)
 				w.advance(FRAME, 1)
-				Verify.expect(scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
 				Verify.expect(panel.Position.X.Offset):toBe(x)
 				Verify.expect(panel.Position.Y.Offset):toBe(y)
 				Verify.expect(panel.AnchorPoint.X):toBe(ax)
@@ -111,8 +132,8 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("holds content at its rested size while the surrounding plate grows", {
-			id = "native_motion_rest::present at rest: help tooltip::holds content at its rested size while the surrounding plate grows",
+		verifyHarness:case("holds the complete tooltip at its rested size while opacity changes", {
+			id = "native_motion_rest::present at rest: help tooltip::holds the complete tooltip at its rested size while opacity changes",
 			run = function()
 				local w = hovered()
 				local panel = w.find("Help")
@@ -121,10 +142,12 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(FRAME)
 				w.advance(FRAME)
 				w.advance(FRAME)
-				Verify.expect(scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
 				Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
-				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.X.Offset):toBe(121)
-				Verify.expect(panel:FindFirstChild("PresentationContent", true).Size.Y.Offset):toBe(51)
+				Verify.expect(panel:FindFirstChild("PresentationContent", true)):toBe(nil)
+				Verify.expect(panel.Size.X.Offset):toBe(138)
+				Verify.expect(panel.Size.Y.Offset):toBe(64)
 				w.advance(1, 30)
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
@@ -254,22 +277,15 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(tipY):toBeCloseTo(y + tip.Y.Scale * border.Size.Y.Offset, 1.5)
 						Verify.expect((fadeKit.of(borderFade))):toBe(fadeKit.of(panel))
 						local group = panel:FindFirstChild("Fade")
-						if scale < 1 and group then
-							local fixed = panel:FindFirstChild("PresentationContent", true)
-							Verify.expect(fixed.Size):toBe(w.engine.types.UDim2.fromOffset(184, 84))
-							Verify.expect(fixed.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
-							Verify.expect(panel.Size):toBe(w.engine.types.UDim2.fromOffset(200, 100))
-							Verify.expect(panel:FindFirstChild("PresentationPaint", true).ClipsDescendants):toBe(false)
-							local borderGroup = borderFade:FindFirstChild("Fade")
-							Verify.expect((outline:IsDescendantOf(borderGroup)))
-								:toBe(panel:FindFirstChild("PresentationContent", true):IsDescendantOf(group))
-						end
+						Verify.expect(scale):toBe(1)
+						Verify.expect(group.Parent):toBe(panel)
+						Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBeNil()
 					end
 					Verify.expect((fadeKit.of(borderFade))):toBe(1)
 					Verify.expect((outline:IsDescendantOf(borderFade:FindFirstChild("Fade")))):toBe(true)
 					w.advance(FRAME, 3)
 					check()
-					Verify.expect(materialize.of(panel).Scale < 1):toBe(true)
+					Verify.expect(materialize.of(panel).Scale):toBe(1)
 					for _ = 1, 12 do
 						w.advance(FRAME)
 						check()
@@ -279,7 +295,7 @@ return function(verifyHarness: Verify.Harness)
 					check()
 					w.advance(FRAME)
 					check()
-					Verify.expect(materialize.of(panel).Scale < 1):toBe(true)
+					Verify.expect(materialize.of(panel).Scale):toBe(1)
 					Verify.expect((panel:isDestroyed())):toBe(false)
 					Verify.expect(fadeKit.of(borderFade) > 0):toBe(true)
 					w.advance(0.2, 12)
@@ -305,19 +321,22 @@ return function(verifyHarness: Verify.Harness)
 				w.find("Panel").AbsoluteSize = Vector2.new(200, 100.95)
 				w.find("Flow").AbsoluteSize = Vector2.new(184, 84.95)
 				w.advance(FRAME, 3)
-				local panelBounds = w.find("PresentationSlotBounds")
-				Verify.expect(panelBounds.MinSize.Y / panelBounds.MinSize.X):toBeCloseTo(100.95 / 200, 1e-6)
-				Verify.expect(panelBounds.MaxSize):toBe(panelBounds.MinSize)
-				local content = w.find("PresentationContent")
-				local constraint = content:FindFirstChildWhichIsA("UISizeConstraint")
-				Verify.expect(constraint.MinSize):toBe(Vector2.new(184, 84.95))
-				Verify.expect(constraint.MaxSize):toBe(constraint.MinSize)
+				local panel, flow = w.find("Panel"), w.find("Flow")
+				local position = panel.Position
+				for _ = 1, 24 do
+					w.advance(FRAME)
+					Verify.expect(panel.AbsoluteSize):toBe(Vector2.new(200, 100.95))
+					Verify.expect(flow.AbsoluteSize):toBe(Vector2.new(184, 84.95))
+					Verify.expect(panel.Position):toBe(position)
+					Verify.expect(materialize.of(panel).Scale):toBe(1)
+				end
+				Verify.expect(w.find("PresentationSlotBounds")):toBeNil()
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("placement reads the rested size while the panel scales in", {
-			id = "native_motion_rest::present at rest: anchored popover::placement reads the rested size while the panel scales in",
+		verifyHarness:case("placement reads the rested size while the panel fades in", {
+			id = "native_motion_rest::present at rest: anchored popover::placement reads the rested size while the panel fades in",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return UI.Popover "Pop" {
@@ -337,7 +356,7 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(FRAME, 1)
 				w.advance(FRAME, 1)
 				local scale = materialize.of(panel)
-				Verify.expect(scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
 				local x, y = panel.Position.X.Offset, panel.Position.Y.Offset
 				panel.AbsoluteSize = Vector2.new(200 * scale.Scale, 100 * scale.Scale)
 				Verify.expect(panel.Position.X.Offset):toBe(x)
@@ -537,7 +556,8 @@ return function(verifyHarness: Verify.Harness)
 				end
 				w.advance(FRAME)
 				w.advance(FRAME)
-				Verify.expect(scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
 				w.stop()
 			end,
 		})
@@ -610,12 +630,12 @@ return function(verifyHarness: Verify.Harness)
 				end
 				Verify.expect(panel.Size.X.Offset):toBe(220)
 				Verify.expect(panel.Size.Y.Offset):toBe(200)
-				Verify.expect(materialize.of(panel).Scale < 1):toBe(true)
+				Verify.expect(materialize.of(panel).Scale):toBe(1)
 				world.stop()
 			end,
 		})
-		verifyHarness:case("waits for rest at scale 1, then scales about the rested corner", {
-			id = "native_motion_rest::present at rest: menu::waits for rest at scale 1, then scales about the rested corner",
+		verifyHarness:case("waits for rest at scale 1 then fades at the final anchor", {
+			id = "native_motion_rest::present at rest: menu::waits for rest at scale 1 then fades at the final anchor",
 			run = function()
 				local world = menu({
 					edge = "top" :: "top",
@@ -631,7 +651,7 @@ return function(verifyHarness: Verify.Harness)
 				world.engine.heartbeat:Fire(FRAME)
 				world.engine.heartbeat:Fire(FRAME)
 				world.engine.heartbeat:Fire(FRAME)
-				Verify.expect(scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
 				local shrink = 1 - scale.Scale
 				panel.AbsoluteSize = Vector2.new(220 * scale.Scale, 200 * scale.Scale)
 				Verify.expect(materialize.position(panel).X.Offset):toBeCloseTo(280 + 220 * shrink, 1)
@@ -677,49 +697,19 @@ return function(verifyHarness: Verify.Harness)
 				world.engine.heartbeat:Fire(FRAME)
 				world.engine.heartbeat:Fire(FRAME)
 				world.engine.heartbeat:Fire(FRAME)
-				Verify.expect(scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect(panel.Size.Y.Offset):toBe(90)
-				Verify.expect(panel:FindFirstChild("PresentationPaint", true).Size.Y.Offset):toBe(90)
+				Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBeNil()
 				panel.AbsoluteSize = Vector2.new(220 * scale.Scale, 90 * scale.Scale)
 				world.find("MenuRows", panel).AbsoluteSize = Vector2.new(220 * scale.Scale, 90 * scale.Scale)
 				Verify.expect(panel.Size.Y.Offset):toBe(90)
-				Verify.expect(panel:FindFirstChild("PresentationPaint", true).Size.Y.Offset):toBe(90)
+				Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBeNil()
 				world.stop()
 			end,
 		})
 	end)
 
 	verifyHarness:suite("present at rest: mobile controls", function()
-		verifyHarness:case("keeps segmented choices transparent until their text and native bounds settle", {
-			id = "native_motion_rest::present at rest: mobile controls::keeps segmented choices transparent until their text and native bounds settle",
-			run = function()
-				local w = overlay.new(function(UI: FacetControls)
-					return UI.Picker "Motion" {
-						label = "Motion",
-						style = "segmented" :: "segmented",
-						selected = Compose.cell("device"),
-						options = {
-							{ value = "device", label = "Device" },
-							{ value = "game", label = "Game: Normal" },
-						},
-					}
-				end, { runService = true })
-				local picker = w.find("Options")
-				w.size(picker, 360, 44)
-				w.size(w.find("device"), 110, 44)
-				w.size(w.find("game"), 240, 44)
-				Verify.expect((fadeKit.of(picker))):toBe(1)
-				w.advance(FRAME)
-				w.size(w.find("device"), 130, 44)
-				w.advance(FRAME)
-				Verify.expect((fadeKit.of(picker))):toBe(1)
-				w.advance(FRAME)
-				Verify.expect((fadeKit.of(picker))):toBe(0)
-				Verify.expect((picker:FindFirstChild("Fade"))):toBeNil()
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("keeps the colour panel transparent while its swatches reflow", {
 			id = "native_motion_rest::present at rest: mobile controls::keeps the colour panel transparent while its swatches reflow",
 			run = function()

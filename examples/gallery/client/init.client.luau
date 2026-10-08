@@ -23,13 +23,14 @@ local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 local Host = (runtime.constructors :: unknown) :: RobloxHost
 local owner = Compose.createRootOwner(function()
 	local viewport = Facet.Roblox.createViewport(workspace.CurrentCamera)
-	local demos = gallery.list()
+	local example = workspace:GetAttribute("Facet_Example")
+	local demos = gallery.list(if type(example) == "number" then example else nil)
 	local initial, booted = gallery.boot(
 		workspace:GetAttribute("Facet_Demo"),
 		workspace:GetAttribute("Facet_Scenario"),
 		workspace:GetAttribute("Facet_Example")
 	)
-	if booted then
+	if booted and type(example) ~= "number" then
 		table.insert(
 			demos,
 			{ id = booted.id, kind = booted.kind, module = booted.module, title = booted.title, blurb = nil }

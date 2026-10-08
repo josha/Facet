@@ -407,4 +407,50 @@ add("range-knobs-flush", {}, function(t: any)
 	t.check("a lower drag past the upper knob stops at minGap", band.lower == 90 and band.upper == 100, band)
 end)
 
+add("radial-tool-captions-near-phone-edge", {}, function(t: any)
+	t.device({ device = "iphone_14", orientation = "Portrait", frames = 30 })
+	local mouse = pointer(t)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			UI.RadialMenu "Tools" {
+				Position = UDim2.fromOffset(16, 300),
+				label = "Tools",
+				items = {
+					{ id = "plant", label = "Plant", onSelect = function() end },
+					{ id = "harvest", label = "Harvest", onSelect = function() end },
+					{ id = "plow", label = "Plow", onSelect = function() end },
+				},
+			},
+		}
+	end, { size = Vector2.new(390, 844), motionLevel = "normal" })
+	local launcher = t.find(stage, "Launcher")
+	mouse.click(centre(launcher))
+	t.settle(40)
+	local panel = t.find(stage, "RadialPanel")
+	t.check("real touch opens the Tools menu", panel ~= nil and t.visible(panel))
+	if not panel then
+		return
+	end
+	t.note("caption presentation", panel:GetAttribute("Presentation"))
+	t.check("the launcher caption is hidden below Close", not launcher.Visible)
+	for _, entry in { { "plant", "Plant" }, { "harvest", "Harvest" }, { "plow", "Plow" } } do
+		local button = t.find(stage, entry[1])
+		t.check(entry[2] .. " action mounts", button ~= nil and t.visible(button))
+		if button then
+			local caption = button:FindFirstChild("Title", true) or button
+			t.check(
+				entry[2] .. " caption is complete and fits",
+				caption.ContentText == entry[2] and t.fits(caption),
+				{ caption.ContentText, caption.TextBounds, caption.AbsoluteSize }
+			)
+			t.inside(entry[2] .. " caption stays in its action", caption, button, 1)
+		end
+	end
+	mouse.click(centre(t.find(stage, "Center")))
+	t.settle(40)
+	t.check("Close restores the launcher", launcher.Visible and t.find(stage, "RadialPanel") == nil)
+end)
+
 return cases

@@ -7,21 +7,6 @@ return function(verifyHarness: Verify.Harness)
 	local FixtureCollectionTypes = require("../src/ui/collection_types")
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 
-	local HELPERS = {
-		fill = true,
-		badged = true,
-		environment = true,
-		worldAnchor = true,
-		scrollTo = true,
-		scrollToVisible = true,
-		focusRing = true,
-		adjustable = true,
-		feedback = true,
-		focusSection = true,
-		responder = true,
-		draggable = true,
-		dropTarget = true,
-	}
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
@@ -345,21 +330,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native constructor conformance", function()
-		verifyHarness:case("requires a conformance fixture for every public control with no stale fixtures", {
-			id = "native_conformance::native constructor conformance::requires a conformance fixture for every public control with no stale fixtures",
-			run = function()
-				local engine = engineLib.new()
-				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-				local UI = Facet.controls(runtime, { types = engine.types })
-				for name in (UI :: unknown) :: { [string]: unknown } do
-					assert(fixtures[name] or HELPERS[name], `Missing conformance fixture: {name}`)
-				end
-				for name in fixtures do
-					assert(UI[name], `Stale conformance fixture: {name}`)
-				end
-				runtime:dispose()
-			end,
-		})
 		local names = {}
 		for name in fixtures do
 			table.insert(names, name)

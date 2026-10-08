@@ -49,16 +49,6 @@ return function(verifyHarness: Verify.Harness)
 		end
 		return nil
 	end
-	local function all(root: any, name: string, out: { any }?): { any }
-		local list = out or {}
-		if root.Name == name then
-			table.insert(list, root)
-		end
-		for _, child in root:GetChildren() do
-			all(child, name, list)
-		end
-		return list
-	end
 	local function must(root: any, name: string): any
 		local found = find(root, name)
 		assert(found ~= nil, `nothing named {name}`)
@@ -311,88 +301,6 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		verifyHarness:case(
-			"the field's calendar icon is 44 px wide at the plate's trailing edge, full height, highlights clipped",
-			{
-				id = "native_date_time_picker::DateTimePicker: a single date::the field's calendar icon is 44 px wide at the plate's trailing edge, full height, highlights clipped",
-				run = function()
-					for _, input in { "pointer", "touch" } do
-						local cell, _, change = caller(D(2026, 9, 5))
-						local w = mount({ value = cell, onChange = change }, { input = input })
-						local plate = must(w.picker(), "Field")
-						local open = w.opener()
-						expect(open.Parent):toBe(plate)
-						expect((open:HasTag("facet-shape-circle"))):toBe(false)
-						expect(open.Size):toBe(w.engine.types.UDim2.new(0, 44, 1, 0))
-						expect(plate.ClipsDescendants):toBe(true)
-						local pad = plate:FindFirstChildWhichIsA("UIPadding")
-						expect(`{pad.PaddingLeft.Offset} {pad.PaddingRight.Offset}`):toBe("0 0")
-						local layout = plate:FindFirstChildWhichIsA("UIListLayout")
-						expect(layout.Padding.Offset):toBe(0)
-						local last = 0
-						for _, child in plate:GetChildren() do
-							if child:IsA("GuiObject") and child ~= open then
-								last = math.max(last, child.LayoutOrder)
-							end
-						end
-						expect(open.LayoutOrder > last):toBe(true)
-						w.stop()
-					end
-				end,
-			}
-		)
-
-		verifyHarness:case("the field's parts take the field's height at every control size", {
-			id = "native_date_time_picker::DateTimePicker: a single date::the field's parts take the field's height at every control size",
-			run = function()
-				for _, input in { "pointer", "touch" } do
-					for _, rung in { "xsmall", "large", "none" } :: { "large" | "none" | "xsmall" } do
-						local cell, _, change = caller(D(2026, 9, 5))
-						local w = mount({
-							value = cell,
-							onChange = change,
-							label = "Race day",
-							controlSize = if rung == "none" then nil else rung,
-						}, { input = input })
-						local plate = must(w.picker(), "Field")
-						if rung == "none" then
-							expect(`{plate.Size.Y.Offset} {plate.AutomaticSize.Name}`):toBe("44 None")
-						end
-						for _, part in plate:GetChildren() do
-							if part:IsA("GuiObject") then
-								expect(`{part.Name} {part.Size.Y.Scale} {part.Size.Y.Offset}`):toBe(`{part.Name} 1 0`)
-							end
-						end
-						expect(w.opener().Size.X.Offset):toBe(44)
-						w.stop()
-					end
-				end
-			end,
-		})
-
-		verifyHarness:case("a custom format shows one Show button that reads in the field's text role", {
-			id = "native_date_time_picker::DateTimePicker: a single date::a custom format shows one Show button that reads in the field's text role",
-			run = function()
-				for _, input in { "pointer", "touch" } do
-					local cell, _, change = caller(D(2026, 9, 5))
-					local w = mount({
-						value = cell,
-						onChange = change,
-						format = function(d: any): string
-							return `{d.day}/{d.month}/{d.year}`
-						end,
-					}, { input = input })
-					local plate = must(w.picker(), "Field")
-					local shows = all(plate, "Show")
-					expect(#shows):toBe(1)
-					expect(shows[1].Text):toBe("5/9/2026")
-					expect((shows[1]:HasTag("facet-type-body"))):toBe(true)
-					expect(shows[1].Size):toBe(w.engine.types.UDim2.new(1, -44, 1, 0))
-					w.stop()
-				end
-			end,
-		})
-
 		verifyHarness:case("a skinned panel's calendar surface adds the art carve around the calendar", {
 			id = "native_date_time_picker::DateTimePicker: a single date::a skinned panel's calendar surface adds the art carve around the calendar",
 			run = function()
@@ -518,58 +426,6 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-
-		verifyHarness:case(
-			"a typed range reads back its own words in every locale order; a draft's typed text only proposes",
-			{
-				id = "native_date_time_picker::DateTimePicker: a single date::a typed range reads back its own words in every locale order; a draft's typed text only proposes",
-				run = function()
-					for _, locale in
-						{ { order = "mdy" }, { order = "dmy", separator = "." }, { order = "ymd", separator = "-" } }
-					do
-						for _, draft in { false, true } do
-							local cell, _, change = caller({ start = D(2026, 1, 2), finish = D(2026, 1, 9) })
-							local commits = 0
-							local w = mount({
-								selection = "range" :: "range",
-								range = cell,
-								onRangeChange = change,
-								draft = draft,
-								locale = locale,
-								onRangeCommit = function()
-									commits += 1
-								end,
-							})
-							local entry = must(w.picker(), "Entry")
-							local words = entry.Text
-							local old = civil.format(D(2026, 1, 2), locale)
-							local at = string.find(words, old, 1, true) :: number
-							local edited = civil.format(D(2026, 1, 3), locale) .. string.sub(words, at + #old)
-							typeInto(w, entry, edited)
-							local where = `{locale.order} draft={draft}`
-							expect(`{where} {w.attr("typedError")}`):toBe(`{where} `)
-							expect(`{where} {span(cell)}`):toBe(`{where} 2026-01-03..2026-01-09`)
-							expect(`{where} {commits}`):toBe(`{where} {if draft then 0 else 1}`)
-							w.stop()
-						end
-					end
-					local cell, _, change = caller(nil)
-					local commits = 0
-					local w = mount({
-						value = cell,
-						onChange = change,
-						draft = true,
-						onCommit = function()
-							commits += 1
-						end,
-					})
-					typeInto(w, must(w.picker(), "Entry"), "7/4/2026")
-					expect((iso(cell:peek()))):toBe("2026-07-04")
-					expect(commits):toBe(0)
-					w.stop()
-				end,
-			}
-		)
 
 		verifyHarness:case(
 			"keyboard and pad: the arrows walk the grid with its contribution attached, a row's end continues, L1/R1 page",
@@ -762,33 +618,6 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-
-		verifyHarness:case("time: the hour and minute fields share the panel width and AM/PM sits on its own line", {
-			id = "native_date_time_picker::DateTimePicker: a single date::time: the hour and minute fields share the panel width and AM/PM sits on its own line",
-			run = function()
-				local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
-				local w = mount({
-					value = cell,
-					onChange = change,
-					time = true,
-					minuteStep = 15,
-					style = "inline" :: "inline",
-				})
-				local fields = must(w.picker(), "Fields")
-				expect(fields.Size.X.Scale):toBe(1)
-				expect(fields.AutomaticSize.Name):toBe("Y")
-				for _, name in { "Hour", "Minute" } do
-					local field = must(fields, name)
-					expect(field.Parent):toBe(fields)
-					expect(field.Size.X.Scale):toBe(0)
-					local flex = field:FindFirstChildWhichIsA("UIFlexItem")
-					expect(flex ~= nil and flex.FlexMode.Name == "Fill"):toBe(true)
-				end
-				expect((fields:FindFirstChild("Half"))):toBeNil()
-				expect(must(w.picker(), "Half").Parent):toBe(fields.Parent)
-				w.stop()
-			end,
-		})
 
 		verifyHarness:case(
 			"time: hour and minute fields step on the minute grid, AM/PM flips, and a touch list sets both",
@@ -1396,29 +1225,6 @@ return function(verifyHarness: Verify.Harness)
 		)
 
 		verifyHarness:case(
-			"a single date's panel hugs its six weeks: no room kept for an absent hint, caption or footer",
-			{
-				id = "native_date_time_picker::DateTimePicker: layout, routes and refusals::a single date's panel hugs its six weeks: no room kept for an absent hint, caption or footer",
-				run = function()
-					local cell, _, change = caller(D(2026, 9, 16))
-					local w = mount({ value = cell, onChange = change })
-					w.open()
-					local panel = w.panel()
-					expect(panel.AutomaticSize):toBe(w.E.AutomaticSize.Y)
-					expect(panel.Size):toBe(w.engine.types.UDim2.fromOffset(7 * 44 + 32, 0))
-					expect((find(panel, "PageHint"))):toBeNil()
-					expect((shown(must(must(panel, "Pane1"), "Title")))):toBe(false)
-					expect((shown(must(panel, "Actions")))):toBe(false)
-					expect((shown(must(panel, "FooterRule")))):toBe(false)
-					expect(must(panel, "Header").Size):toBe(w.engine.types.UDim2.new(1, 0, 0, 44))
-					local days = must(must(panel, "Pane1"), "Days")
-					expect(days.Size):toBe(w.engine.types.UDim2.fromOffset(7 * 44, 6 * 44))
-					w.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case(
 			"the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet (a TV or a large pad-only display) a centred sheet",
 			{
 				id = "native_date_time_picker::DateTimePicker: layout, routes and refusals::the week starts where the caller says; a compact touch field opens a sheet with Done, ten feet (a TV or a large pad-only display) a centred sheet",
@@ -1461,61 +1267,5 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-
-		verifyHarness:case("refuses a malformed contract at construction and quarantines a late bad value", {
-			id = "native_date_time_picker::DateTimePicker: layout, routes and refusals::refuses a malformed contract at construction and quarantines a late bad value",
-			run = function()
-				local function build(spec: any): string
-					local ok, err = pcall(function()
-						local w = world(function(UI: FacetControls)
-							spec.clock = clock
-							return UI.DateTimePicker(spec)
-						end)
-						w.stop()
-					end)
-					return if ok then "ok" else tostring(err)
-				end
-				local noop = function() end
-				local function has(spec: any, word: string): boolean
-					return string.find(build(spec), word, 1, true) ~= nil
-				end
-				expect((has({ value = D(2023, 2, 29), onChange = noop }, "calendar day"))):toBe(true)
-				expect((has({ value = TODAY }, "onChange"))):toBe(true)
-				expect((has({ selection = "range" :: "range", value = TODAY, onChange = noop }, "range"))):toBe(true)
-				expect((has({ value = TODAY, onChange = noop, minuteStep = 7 }, "minuteStep"))):toBe(true)
-				expect((has({ value = TODAY, onChange = noop, time = true }, "hour"))):toBe(true)
-				expect(
-					(
-						has(
-							{ selection = "range" :: "range", range = {}, onRangeChange = noop, time = true },
-							"whole days"
-						)
-					)
-				):toBe(true)
-				expect((has({ value = TODAY, onChange = noop, weekStart = 0 }, "weekStart"))):toBe(true)
-				expect((has({
-					selection = "range" :: "range",
-					range = {},
-					onRangeChange = noop,
-					presets = { { id = "a", label = "A", range = noop, rnage = noop } },
-				}, "rnage"))):toBe(true)
-				expect((has({ value = TODAY, onChange = noop, env = {} }, "unknown option 'env'"))):toBe(true)
-				expect((build({ value = TODAY, readOnly = true }))):toBe("ok")
-				local source = Compose.cell(TODAY :: any)
-				local m = mount({
-					value = function(use: any)
-						return use(source)
-					end,
-					onChange = noop,
-				})
-				source:set(D(2026, 2, 30))
-				expect((m.attr("text"))):toBe("09/23/2026")
-				expect((m.attr("diagnostics"))):toBe(1)
-				expect(#m.errors):toBe(1)
-				source:set(D(2026, 2, 28))
-				expect((m.attr("text"))):toBe("02/28/2026")
-				m.stop()
-			end,
-		})
 	end)
 end

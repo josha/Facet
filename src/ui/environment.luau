@@ -33,7 +33,7 @@ local function enumName(value: unknown, fallback: string): string
 end
 
 type SelectionOwner = { prior: GuiObject?, rings: { GuiObject } }
-local selectionOwners: { [Instance]: SelectionOwner } = setmetatable({} :: any, { __mode = "k" })
+local selectionOwners = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: SelectionOwner }
 
 return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	local Compose = ctx.Compose
@@ -396,15 +396,16 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			selectionOwners[playerGui] = owner
 		end
 		local held = owner :: SelectionOwner
+		local selectionHost = (playerGui :: unknown) :: { SelectionImageObject: GuiObject? }
 		table.insert(held.rings, ring)
-		playerGui.SelectionImageObject = ring
+		selectionHost.SelectionImageObject = ring
 		Compose.cleanup(function()
 			local index = table.find(held.rings, ring)
 			if index then
 				table.remove(held.rings, index)
 			end
-			if playerGui.SelectionImageObject == ring then
-				(playerGui :: any).SelectionImageObject = held.rings[#held.rings] or held.prior
+			if selectionHost.SelectionImageObject == ring then
+				selectionHost.SelectionImageObject = held.rings[#held.rings] or held.prior
 			end
 			if #held.rings == 0 then
 				selectionOwners[playerGui] = nil
@@ -625,7 +626,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 	UI.focusSection = function(group: GuiObject, options: Env.FocusSectionOptions?)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.focusSection must run inside a component or Compose owner")
 		assert(
-			(group :: any) ~= nil and (group :: any).IsA ~= nil and group:IsA("GuiObject"),
+			(group :: GuiObject?) ~= nil and group.IsA ~= nil and group:IsA("GuiObject"),
 			"Facet UI.focusSection expects a GuiObject"
 		)
 		local settings: Env.FocusSectionOptions = options or {}

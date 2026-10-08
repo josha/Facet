@@ -47,7 +47,11 @@ game screens and Studio plugin interfaces.
 | Show large scrolling data | VirtualList or VirtualGrid. |
 | Show a browsable item with a picture and actions | Card, in a VirtualGrid for many items. |
 | Add operations for one row | RowActions. |
+| Type a game command at a focused cell | commandScope. TextInput takes keys while it edits text. |
 | Drag data between separate controls or targets | draggable and dropTarget; use collection reordering for row order. |
+| Present an ordered reward | sequence with Travel, countUp and Flash. The game supplies callbacks and data. |
+| Inspect a large board at different scales | ZoomView. |
+| Moving items within or between containers | Travel. Set each item's destination slot. For a rack shuffle, use arc, lift and stagger. |
 
 ## Compose in the existing screen
 
@@ -82,6 +86,19 @@ Use the same path in wide and compact layouts.
 Let NavigationStack control the page history, motion, and Back command.
 Do not replace it with keyed content and a separate Back button.
 Do not show a disabled Back command on the root page.
+
+When a child page owns its header, set its NavigationStack destination to
+`chrome = "hidden"`. The page uses the full rectangle. Keep its visible Back
+command connected to the same `path`. The stack still owns history, motion,
+selection restoration, Escape and gamepad B. A touch player can also swipe
+right from the leading edge. The root has no Back command.
+
+For a floating phone tab track, use TabView with `track = "floating"`,
+`indicator = "mark"` and `labelPlacement = "belowIcon"`. Set the geometry in
+the theme's `controls.tabBottomTrack` and `controls.tabMark` metrics. A sidebar
+uses `controls.tabRailTrack` and an inset `controls.tabRailSelection`. Keep the
+native TabView for selection, focus and page motion; do not build another tab
+bar only to get these shapes.
 
 ## Small tasks and secondary content
 
@@ -217,3 +234,37 @@ motion.
 
 World-fixed and billboard surfaces also contain flat UI. Facet does not supply
 3D layout or ray, hand or gaze input.
+
+## Tiles between containers
+
+Use `UI.draggable` and `UI.dropTarget` for an item that moves between containers.
+For a phone rack, return `touchPickup = "immediate"` from the collection
+drag factory. Movement of six pixels uses the same recess, preview and
+insertion session. Use `touchDragAxis` when a scroll direction must stay free.
+Use VirtualList or VirtualGrid when the target must open an insertion slot and
+reflow its other items. Use `rowDrop` for a fixed board cell. Give each tile a
+bounded `hitArea`, and use `contentOverflow = "clip"` on its collection. Keep
+paint growth inside a separate visual node.
+
+Set target `travel = true` to carry the preview to the target before the model
+changes. Supply `landing(info)` for the measured insertion rectangle. Keep the
+source and target nodes mounted through travel. The game owns validation and
+updates the source and destination models together.
+
+Use `UI.gestureArbiter(surface)` when a pan or zoom surface shares contacts with
+draggable children. Read its decision before pan or double-tap. A pending child
+contact freezes the camera. A captured drag holds the scroll ancestors. Early
+movement before long press belongs to scrolling for the complete contact.
+Keep native selection and the pickup, place and cancel commands available.
+
+Use `VirtualGrid.slots` for rack keys that must stay in place after a transfer.
+Keep the absent key in this ordered list to reserve a recess. Recall can add
+the item to `from` at any index. It still uses its key's slot. Remove the key
+from `slots` when Play releases the space. Use `drop.travel = true` for return
+travel and let the collection supply the landing rectangle.
+
+Use `UI.commandScope` when one handler must choose one matching item for a
+focused cell. Supply the native target nodes and their game keys. The handle
+reports the current key and can focus the next key. Bind letters and Backspace
+there. Keep item matching and placement in the game handler. TextInput edits
+text before any scope command. The most specific focused scope owns a command.

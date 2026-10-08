@@ -804,6 +804,11 @@ local PAD_KEYS: { [string]: Enum.KeyCode } = {
 	ButtonL1 = Enum.KeyCode.R,
 	ButtonR1 = Enum.KeyCode.O,
 	ButtonL2 = Enum.KeyCode.E,
+	ButtonR2 = Enum.KeyCode.P,
+	Stick2Up = Enum.KeyCode.I,
+	Stick2Left = Enum.KeyCode.J,
+	Stick2Down = Enum.KeyCode.K,
+	Stick2Right = Enum.KeyCode.L,
 	StickUp = Enum.KeyCode.W,
 	StickLeft = Enum.KeyCode.A,
 	StickDown = Enum.KeyCode.S,
@@ -818,7 +823,10 @@ function live.press(names: { string }, frames: number?): string
 		table.insert(seen, `{input.UserInputType.Name}:{input.KeyCode.Name}`)
 	end)
 	local moved = UserInputService.InputChanged:Connect(function(input)
-		if input.KeyCode == Enum.KeyCode.Thumbstick1 and input.Position.Magnitude > 0.5 then
+		if
+			(input.KeyCode == Enum.KeyCode.Thumbstick1 or input.KeyCode == Enum.KeyCode.Thumbstick2)
+			and input.Position.Magnitude > 0.5
+		then
 			table.insert(seen, `{input.UserInputType.Name}:{input.KeyCode.Name}:{input.Position.X},{input.Position.Y}`)
 		end
 	end)
@@ -826,7 +834,7 @@ function live.press(names: { string }, frames: number?): string
 	for _, name in names do
 		local key = PAD_KEYS[name] or (Enum.KeyCode :: any)[name]
 		virtual:SendKey(true, key, false)
-		for _ = 1, 3 do
+		for _ = 1, frames or 3 do
 			RunService.RenderStepped:Wait()
 		end
 		virtual:SendKey(false, key, false)

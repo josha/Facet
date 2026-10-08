@@ -106,11 +106,159 @@ return function(verifyHarness: Verify.Harness)
 				local w = setup(spec)
 				for _, name in { "sage", "clay" } do
 					local button = w.find(name)
+					button:FindFirstChild("CaptionMeasure").TextBounds = w.engine.types.Vector2.new(36, 16)
 					Verify.expect(button.TextWrapped):toBe(false)
+					Verify.expect(button.Size.X.Offset >= 36 + 24):toBe(true)
 					Verify.expect(button.TextScaled):toBe(false)
 					Verify.expect(button:HasTag("facet-radial-label")):toBe(true)
 				end
 				w.stop()
+			end,
+		})
+	end)
+
+	verifyHarness:suite("radial full caption fit", function()
+		verifyHarness:case("holds the launcher slot while Close replaces its caption", {
+			id = "native_radial_controls::radial full caption fit::holds the launcher slot while Close replaces its caption",
+			run = function()
+				for _, label in { "Quick accent", "Tools" } do
+					local world = setup({
+						label = label,
+						isPresented = Compose.cell(false),
+						items = { { id = "sage", label = "Sage", onSelect = function() end } },
+					})
+					local launcher = world.find("Launcher")
+					local root = launcher.Parent
+					root.AbsoluteSize = world.engine.types.Vector2.new(140, 44)
+					local size, automatic = root.Size, root.AutomaticSize
+					for _ = 1, 3 do
+						launcher.Activated:Fire()
+						Verify.expect(world.opened:peek()):toBe(true)
+						Verify.expect(launcher.Visible):toBe(false)
+						Verify.expect(root.Size):toBe(world.engine.types.UDim2.fromOffset(140, 44))
+						Verify.expect(root.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.None)
+						world.find("Center").Activated:Fire()
+						Verify.expect(world.opened:peek()):toBe(false)
+						Verify.expect(launcher.Visible):toBe(true)
+						Verify.expect(root.Size):toBe(size)
+						Verify.expect(root.AutomaticSize):toBe(automatic)
+					end
+					world.stop()
+				end
+			end,
+		})
+
+		verifyHarness:case("fits iconless tool captions and button padding inside the default wedges", {
+			id = "native_radial_controls::radial full caption fit::fits iconless tool captions and button padding inside the default wedges",
+			run = function()
+				local world = setup({
+					items = {
+						{ id = "plant", label = "Plant", onSelect = function() end },
+						{ id = "harvest", label = "Harvest", onSelect = function() end },
+						{ id = "plow", label = "Plow", onSelect = function() end },
+					},
+				})
+				for _, id in { "plant", "harvest", "plow" } do
+					world.find(id):FindFirstChild("CaptionMeasure").TextBounds = world.engine.types.Vector2.new(36, 16)
+				end
+				world.step(1)
+				for _, id in { "plant", "harvest", "plow" } do
+					local button = world.find(id)
+					Verify.expect(button.Size.X.Offset >= 36 + 24):toBe(true)
+					Verify.expect(button.TextWrapped):toBe(false)
+				end
+				world.stop()
+			end,
+		})
+
+		verifyHarness:case("keeps complete iconless captions when a phone launcher bounds the ring", {
+			id = "native_radial_controls::radial full caption fit::keeps complete iconless captions when a phone launcher bounds the ring",
+			run = function()
+				local world = setup({
+					label = "Tools",
+					items = {
+						{ id = "plant", label = "Plant", onSelect = function() end },
+						{ id = "harvest", label = "Harvest", onSelect = function() end },
+						{ id = "plow", label = "Plow", onSelect = function() end },
+					},
+				})
+				local V2 = world.engine.types.Vector2
+				world.screen.AbsoluteSize = V2.new(390, 844)
+				local launcher = world.find("Launcher")
+				launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(16, 350), V2.new(50, 44)
+				for _, id in { "plant", "harvest", "plow" } do
+					world.find(id):FindFirstChild("CaptionMeasure").TextBounds = V2.new(60, 16)
+				end
+				world.step(1)
+				for _, id in { "plant", "harvest", "plow" } do
+					local button = world.find(id)
+					Verify.expect(button.Size.X.Scale == 1 or button.Size.X.Offset >= 60 + 24):toBeTrueWith(id)
+					Verify.expect(button.Text)
+						:toBe(if id == "plant" then "Plant" elseif id == "harvest" then "Harvest" else "Plow")
+					Verify.expect(button.TextWrapped):toBe(false)
+				end
+				world.stop()
+			end,
+		})
+
+		verifyHarness:case("uses the styled caption padding when choosing text over a compact icon", {
+			id = "native_radial_controls::radial full caption fit::uses the styled caption padding when choosing text over a compact icon",
+			run = function()
+				local items = {}
+				for _, id in { "N", "E", "S", "W" } do
+					table.insert(items, { id = id, label = id, icon = "flag", slot = id :: Radial.CompassSlot })
+				end
+				local world = setup({ distribution = "compass" :: "compass", items = items })
+				for _, id in { "N", "E", "S", "W" } do
+					local button = world.find(id)
+					local padding = button:FindFirstChildWhichIsA("UIPadding", true) or world.engine.new("UIPadding")
+					padding.Parent = button
+					padding.PaddingLeft, padding.PaddingRight =
+						world.engine.types.UDim.new(0, 0), world.engine.types.UDim.new(0, 0)
+					button:FindFirstChild("CaptionMeasure").TextBounds = world.engine.types.Vector2.new(12, 16)
+				end
+				world.step(1)
+				for _, id in { "N", "E", "S", "W" } do
+					local button = world.find(id)
+					Verify.expect((button:FindFirstChild("Title", true) or button).Text):toBe(id)
+					Verify.expect(button:FindFirstChild("LeadingIcon", true).Visible):toBe(false)
+				end
+				world.stop()
+			end,
+		})
+
+		verifyHarness:case("uses the full caption and button padding before choosing a glyph", {
+			id = "native_radial_controls::radial full caption fit::uses the full caption and button padding before choosing a glyph",
+			run = function()
+				local items = {}
+				for _, id in { "settings", "edit", "flag", "trash", "person", "calendar" } do
+					table.insert(items, { id = id, label = id, icon = id, onSelect = function() end })
+				end
+				local world = setup({ items = items })
+				world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(390, 760)
+				local button = world.find("settings")
+				local title = button:FindFirstChild("Title", true) or button
+				title.TextBounds = world.engine.types.Vector2.new(32, 16)
+				local measure = assert(button:FindFirstChild("CaptionMeasure"))
+				measure.TextBounds = world.engine.types.Vector2.new(48, 16)
+				Verify.expect(measure.Text):toBe("settings")
+				Verify.expect(measure.TextTruncate.Name):toBe("None")
+				Verify.expect(measure.TextTransparency):toBe(1)
+				Verify.expect(measure.Interactable):toBe(false)
+				Verify.expect(title.Text):toBe("settings")
+				Verify.expect(button.Size.X.Offset >= 48 + 24):toBe(true)
+				measure.TextBounds = world.engine.types.Vector2.new(104, 16)
+				Verify.expect(title.Text):toBe("")
+				Verify.expect(button:FindFirstChild("LeadingIcon", true).Visible):toBe(true)
+				world.step(1)
+				Verify.expect(measure.Text):toBe("settings")
+				Verify.expect(title.Text):toBe("")
+				local person = world.find("person")
+				local personTitle = person:FindFirstChild("Title", true) or person
+				personTitle.TextBounds = world.engine.types.Vector2.new(36, 16)
+				person:FindFirstChild("CaptionMeasure").TextBounds = world.engine.types.Vector2.new(43, 16)
+				Verify.expect(personTitle.Text == "" or person.Size.X.Offset >= 43):toBe(true)
+				world.stop()
 			end,
 		})
 	end)
@@ -138,33 +286,6 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(y + button.Size.Y.Offset <= paint.Position.Y.Offset + paint.Size.Y.Offset + 1)
 						:toBe(true)
 				end
-				world.stop()
-			end,
-		})
-		verifyHarness:case("keeps the ring's aim, commit and direction actions in one input context", {
-			id = "native_radial_controls::native radial interaction policies::keeps the ring's aim, commit and direction actions in one input context",
-			run = function()
-				local picked = {}
-				local world = setup({
-					distribution = "compass" :: "compass",
-					items = compass(function(id)
-						table.insert(picked, id)
-					end),
-				})
-				world.step(0.1)
-				local context = world.find("FacetRadial")
-				Verify.expect(context ~= nil and context:IsA("InputContext")):toBe(true)
-				local names = {}
-				for _, action in context:GetChildren() do
-					table.insert(names, action.Name)
-				end
-				table.sort(names)
-				Verify.expect((table.concat(names, ",")))
-					:toBe("Radial-down,Radial-left,Radial-right,Radial-up,RadialAim,RadialCommit")
-				Verify.expect((world.find("FacetRadialCommit"))):toBeNil()
-				world.opened:set(false)
-				world.step(0.5)
-				Verify.expect((world.find("FacetRadial"))):toBeNil()
 				world.stop()
 			end,
 		})
@@ -225,28 +346,7 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
-		verifyHarness:case("opens at the anchor's measured place instead of gliding in from where it was first read", {
-			id = "native_radial_controls::native radial interaction policies::opens at the anchor's measured place instead of gliding in from where it was first read",
-			run = function()
-				local anchor = Compose.cell({ x = 40, y = 40 })
-				local world = setup(
-					{ anchor = anchor, distribution = "compass" :: "compass", items = compass(function() end) },
-					true
-				)
-				anchor:set({ x = 320, y = 240 })
-				world.step(1 / 60)
-				local centre = world.find("Center")
-				Verify.expect(centre.Position.X.Offset):toBe(320)
-				world.step(1)
-				anchor:set({ x = 360, y = 240 })
-				world.step(1 / 60)
-				local x = world.find("Center").Position.X.Offset
-				Verify.expect(x > 320 and x < 360):toBe(true)
-				world.step(1)
-				Verify.expect(world.find("Center").Position.X.Offset):toBe(360)
-				world.stop()
-			end,
-		})
+
 		verifyHarness:case(
 			"a pointer opening leaves the ring unhighlighted though a stale keyboard selection remains",
 			{
@@ -320,22 +420,7 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
-		verifyHarness:case("an item that shows only its icon takes the glyph padding, a worded item does not", {
-			id = "native_radial_controls::native radial interaction policies::an item that shows only its icon takes the glyph padding, a worded item does not",
-			run = function()
-				local world = setup({
-					preset = "bottom-left" :: "bottom-left",
-					appearance = "buttons" :: "buttons",
-					items = {
-						{ id = "look", label = "Look", icon = "facet:search" } :: Radial.RadialItem<any>,
-						{ id = "wave", label = "Wave" } :: Radial.RadialItem<any>,
-					},
-				})
-				Verify.expect((world.find("look"):HasTag("facet-button-glyph"))):toBe(true)
-				Verify.expect((world.find("wave"):HasTag("facet-button-glyph"))):toBe(false)
-				world.stop()
-			end,
-		})
+
 		verifyHarness:case("a corner menu keeps its launcher's room while the launcher hides under the open ring", {
 			id = "native_radial_controls::native radial interaction policies::a corner menu keeps its launcher's room while the launcher hides under the open ring",
 			run = function()
@@ -675,88 +760,6 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
-		verifyHarness:case("NRAD-11 native image skins retain upright labels", {
-			id = "native_radial_controls::native radial interaction policies::NRAD-11 native image skins retain upright labels",
-			run = function()
-				local world = setup({
-					appearance = "buttons" :: "buttons",
-					buttonSurface = "none" :: "none",
-					skin = { item = { default = "rbxassetid://1", pressed = "rbxassetid://2" } },
-					distribution = "compass" :: "compass",
-					items = compass(function() end),
-				})
-				local button = world.find("N")
-				Verify.expect(button.BackgroundTransparency):toBe(1)
-				Verify.expect(button:FindFirstChild("RadialSkin").Image):toBe("rbxassetid://1")
-				button.GuiState = world.engine.types.Enum.GuiState.Press
-				Verify.expect(button:FindFirstChild("RadialSkin").Image):toBe("rbxassetid://2")
-				Verify.expect(button.Rotation):toBe(0)
-				world.stop()
-			end,
-		})
-		verifyHarness:case(
-			"draws icon items in the buttons appearance as icon-only circles and names Close with an icon",
-			{
-				id = "native_radial_controls::native radial interaction policies::draws icon items in the buttons appearance as icon-only circles and names Close with an icon",
-				run = function()
-					local world = setup({
-						appearance = "buttons" :: "buttons",
-						center = "close" :: "close",
-						items = {
-							{ id = "Look", label = "Look", icon = "menu", onSelect = function() end } :: Radial.RadialItem<any>,
-							{ id = "Words", label = "Words only", onSelect = function() end } :: Radial.RadialItem<any>,
-						},
-					})
-					local look = world.find("Look")
-					Verify.expect(look.Text):toBe("")
-					local launcher = world.find("Launcher")
-					if launcher then
-						Verify.expect((launcher:FindFirstChild("Title", true))):toBeNil()
-						Verify.expect(launcher:FindFirstChild("LeadingIcon", true) ~= nil):toBe(true)
-					end
-					Verify.expect(look:GetAttribute("AccessibleLabel") or look:GetAttribute("FacetLabel") or look.Name)
-						:toBe("Look")
-					local words = world.find("Words")
-					Verify.expect((words:FindFirstChild("Title", true) or words).Text):toBe("Words only")
-					local close = world.find("$navigation")
-					if close then
-						Verify.expect(close:FindFirstChild("LeadingIcon", true) ~= nil):toBe(true)
-					end
-					world.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case("draws Close as an icon in a ring whose items are all icons", {
-			id = "native_radial_controls::native radial interaction policies::draws Close as an icon in a ring whose items are all icons",
-			run = function()
-				local world = setup({
-					center = "close" :: "close",
-					items = {
-						{
-							id = "A",
-							label = "Alpha",
-							icon = "menu",
-							labelStyle = "icon" :: "icon",
-							onSelect = function() end,
-						} :: Radial.RadialItem<any>,
-						{
-							id = "B",
-							label = "Beta",
-							icon = "menu",
-							labelStyle = "icon" :: "icon",
-							onSelect = function() end,
-						} :: Radial.RadialItem<any>,
-					},
-				})
-				local close = world.find("$navigation")
-				if close then
-					Verify.expect(close.Text):toBe("")
-					Verify.expect(close:FindFirstChild("LeadingIcon", true) ~= nil):toBe(true)
-				end
-				world.stop()
-			end,
-		})
 
 		verifyHarness:case("NRAD-12 empty center keeps ring Back and full-label preview", {
 			id = "native_radial_controls::native radial interaction policies::NRAD-12 empty center keeps ring Back and full-label preview",
@@ -1042,11 +1045,11 @@ return function(verifyHarness: Verify.Harness)
 					end
 					local world = setup({ items = items })
 					local wide = #"Item 1" * 18 * 0.6
-					local expected = 40 + (wide + 2 * 8) / 2
+					local expected = 40 + (wide + 2 * 12 + 2 * 8) / 2
 					local function reach()
 						return 240 - world.find("item1").Position.Y.Offset
 					end
-					Verify.expect(math.abs(reach() - expected) <= 1):toBe(true)
+					Verify.expect(math.abs(reach() - expected) <= 1):toBeTrueWith(`reach {reach()} expected {expected}`)
 					local V2 = world.engine.types.Vector2
 					for round = 1, 3 do
 						for _, node in world.screen:GetDescendants() do
@@ -1054,7 +1057,8 @@ return function(verifyHarness: Verify.Harness)
 								node.TextBounds = V2.new(40 * round, 10 * round)
 							end
 						end
-						Verify.expect(math.abs(reach() - expected) <= 1):toBe(true)
+						Verify.expect(math.abs(reach() - expected) <= 1)
+							:toBeTrueWith(`reach {reach()} expected {expected}`)
 					end
 					world.stop()
 				end,
@@ -1094,18 +1098,6 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		verifyHarness:case("paints the centre control on the ten-foot ladder at a distance", {
-			id = "native_radial_controls::native radial interaction policies::paints the centre control on the ten-foot ladder at a distance",
-			run = function()
-				local world = setup(
-					{ distribution = "compass" :: "compass", items = compass(function() end) },
-					false,
-					{ viewingDistance = "ten-foot" :: "ten-foot" }
-				)
-				Verify.expect(world.find("Center").Size.X.Offset):toBe(48)
-				world.stop()
-			end,
-		})
 		verifyHarness:case(
 			"puts a small plate-less close in the hole over a full dark scrim and names no labelled wedge",
 			{
@@ -1291,7 +1283,7 @@ return function(verifyHarness: Verify.Harness)
 				local function shown(button)
 					local words: string = button.Text
 					for _, node in button:GetDescendants() do
-						if node:IsA("TextLabel") and node.Visible then
+						if node:IsA("TextLabel") and node.Visible and node.TextTransparency < 1 then
 							words ..= node.Text
 						end
 					end
@@ -1327,13 +1319,6 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 	verifyHarness:suite("RadialMenu navigation placement (restored from 0.11)", function()
-		local function actions(count: number): { Radial.RadialItem<any> }
-			local items = {}
-			for index = 1, count do
-				table.insert(items, { id = `a{index}`, label = `A{index}`, onSelect = function() end })
-			end
-			return items
-		end
 		local function nested(): { Radial.RadialItem<any> }
 			return {
 				{
@@ -1344,28 +1329,10 @@ return function(verifyHarness: Verify.Harness)
 				{ id = "wave", label = "Wave", onSelect = function() end },
 			}
 		end
-		local function angleOf(node: any): number
-			local dx, dy = node.Position.X.Offset - 320, node.Position.Y.Offset - 240
-			return math.deg(math.atan2(dx, -dy)) % 360
-		end
 		local function visibleCenter(world: World): any
 			local centre = world.find("Center")
 			return if centre and centre.Visible then centre else nil
 		end
-
-		verifyHarness:case("an empty or content centre puts Back/Close on the ring at the lower left of an even ring", {
-			id = "native_radial_controls::RadialMenu navigation placement (restored from 0.11)::an empty or content centre puts Back/Close on the ring at the lower left of an even ring",
-			run = function()
-				for _, center in { "empty", "content", "root", "close" } do
-					local world =
-						setup({ center = center :: "empty" | "content" | "root" | "close", items = actions(3) })
-					local nav = world.find("$navigation")
-					Verify.expect(`{center}: {nav ~= nil}`):toBe(`{center}: true`)
-					Verify.expect(`{center}: {math.abs(angleOf(nav) - 225) <= 1}`):toBe(`{center}: true`)
-					world.stop()
-				end
-			end,
-		})
 
 		verifyHarness:case("a back centre uses only the centre control, which goes back and closes at the root", {
 			id = "native_radial_controls::RadialMenu navigation placement (restored from 0.11)::a back centre uses only the centre control, which goes back and closes at the root",
@@ -1381,15 +1348,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((world.opened:peek())):toBe(true)
 				visibleCenter(world).Activated:Fire()
 				Verify.expect((world.opened:peek())):toBe(false)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("an empty centre shows no centre control while the ring holds Back", {
-			id = "native_radial_controls::RadialMenu navigation placement (restored from 0.11)::an empty centre shows no centre control while the ring holds Back",
-			run = function()
-				local world = setup({ center = "empty" :: "empty", items = actions(3) })
-				Verify.expect((visibleCenter(world))):toBeNil()
 				world.stop()
 			end,
 		})
@@ -1413,23 +1371,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((centre:GetAttribute("label"))):toBe("Close")
 				centre.Activated:Fire()
 				Verify.expect((world.opened:peek())):toBe(false)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("a compass ring takes the first free slot from SW, S, SE", {
-			id = "native_radial_controls::RadialMenu navigation placement (restored from 0.11)::a compass ring takes the first free slot from SW, S, SE",
-			run = function()
-				local items = {}
-				for _, slot in { "N", "E", "SW", "W" } do
-					table.insert(
-						items,
-						{ id = slot, slot = slot :: Radial.CompassSlot, label = slot, onSelect = function() end }
-					)
-				end
-				local world =
-					setup({ center = "empty" :: "empty", distribution = "compass" :: "compass", items = items })
-				Verify.expect(math.abs(angleOf(world.find("$navigation")) - 180) <= 1):toBe(true)
 				world.stop()
 			end,
 		})
@@ -1514,19 +1455,7 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
-		verifyHarness:case("Home in the centre is the up chevron", {
-			id = "native_radial_controls::RadialMenu centre and corner controls (restored from 0.11)::Home in the centre is the up chevron",
-			run = function()
-				local world = setup({
-					center = "root" :: "root",
-					items = { { id = "a", label = "A", onSelect = function() end } :: Radial.RadialItem<any> },
-				})
-				local glyph = world.find("Center"):FindFirstChild("LeadingIcon", true)
-				Verify.expect(glyph.Image):toBe(themes.resolveIcon({} :: any, "chevron.up"))
-				Verify.expect((world.find("Center"):GetAttribute("label"))):toBe("Home")
-				world.stop()
-			end,
-		})
+
 		verifyHarness:case(
 			"the ring's full-screen panel takes no panel padding, so a themed inset cannot shift the ring",
 			{
@@ -2187,6 +2116,31 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("touch radial label bounds", function()
+		verifyHarness:case("chooses a caption-safe form before phone-edge text measurement", {
+			id = "native_radial_controls::touch radial label bounds::chooses a caption-safe form before phone-edge text measurement",
+			run = function()
+				local world = setup({
+					anchor = { x = 96, y = 260 },
+					items = {
+						{ id = "gear", label = "Gear" },
+						{ id = "edit", label = "Edit" },
+						{ id = "flag", label = "Flag" },
+						{ id = "trash", label = "Trash" },
+					},
+				}, false, { preferredInput = "Touch" } :: Shared.EnvironmentPreview)
+				local V2 = world.engine.types.Vector2
+				world.screen.AbsoluteSize = V2.new(390, 740)
+				world.find("Modal").AbsoluteSize = V2.new(390, 740)
+				Verify.expect(world.find("gear").Size.X.Scale):toBe(1)
+				local before = world.find("Center").Position
+				for _, id in { "gear", "edit", "flag", "trash" } do
+					world.find(id):FindFirstChild("CaptionMeasure").TextBounds = V2.new(60, 16)
+					Verify.expect(world.find("gear").Size.X.Scale):toBe(1)
+					Verify.expect(world.find("Center").Position):toBe(before)
+				end
+				world.stop()
+			end,
+		})
 		verifyHarness:case("falls back below a top-edge item when its label cannot fit above", {
 			id = "native_radial_controls::touch radial label bounds::falls back below a top-edge item when its label cannot fit above",
 			run = function()

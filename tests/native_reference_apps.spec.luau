@@ -64,108 +64,236 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((root:isDestroyed())):toBe(true)
 			end,
 		})
-		verifyHarness:case("keeps Cartwheel brew commands, rejected purchase retry and guild validation", {
-			id = "native_reference_apps::native reference applications::keeps Cartwheel brew commands, rejected purchase retry and guild validation",
-			run = function()
-				local built, root, stop = world(cartwheel)
-				local brew = built.model.orders.brews:peek()[1]
-				Verify.expect((built.steps.collect(brew.id))):toBe(true)
-				built.steps.advance(0.3)
-				Verify.expect((built.model.orders.statusOf(brew.id))):toBe("done")
-				Verify.expect(built.model.stats.collectedBottles() > 0):toBe(true)
-				built.steps.purchase("ledger")
-				built.steps.advance(0.3)
-				Verify.expect((built.model.entitlement.fullLedger:peek())):toBe(false)
-				built.steps.purchase("ledger")
-				built.steps.advance(0.3)
-				Verify.expect((built.model.entitlement.fullLedger:peek())):toBe(true)
-				built.steps.signup("NewKeepers", "test")
-				built.steps.advance(0.3)
-				Verify.expect((built.model.identity.signedIn:peek())):toBe(true)
-				for _, id in { "brews", "workbench", "ledger", "chatter", "plazas" } do
-					built.model.section:set(id)
+	end);
+	(function(verifyHarness: Verify.Harness)
+		type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+		type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+		type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+
+		local Facet = require("../src")
+		local engineLib = require("./lib/native_engine")
+		local glade = require("../examples/reference/p1_glade")
+		local cartwheel = require("../examples/reference/p2_cartwheel")
+		local sipworks = require("../examples/reference/p3_sipworks")
+		local foyer = require("../examples/reference/p4_foyer")
+		local luau = require("@lune/luau")
+		local Compose: ComposeModule = Facet.Compose
+
+		type World = {
+			built: any,
+			root: any,
+			screen: any,
+			engine: any,
+			input: any,
+			baseline: any,
+			stop: () -> (),
+		}
+
+		local function world(module: any): World
+			local engine: any = engineLib.new()
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local input = engine.new("UserInputService")
+			input.GetFocusedTextBox = function()
+				return nil
+			end
+			local screen = engine.new("ScreenGui")
+			local baseline = engine.census()
+			local built
+			local stop, root: any = runtime.mount(function()
+				built = module.build({
+					Facet = Facet,
+					Compose = Compose,
+					runtime = runtime,
+					Host = (runtime.constructors :: unknown) :: RobloxHost,
+					UI = Facet.controls(
+						runtime,
+						{
+							types = engine.types,
+							guiService = gui,
+							services = { GuiService = gui, UserInputService = input },
+						} :: any
+					),
+					types = engine.types,
+					viewport = Compose.cell({ width = 1000, height = 720 }),
+					heartbeat = engine.heartbeat,
+				})
+				return built.screen()
+			end, screen)
+			return {
+				built = built,
+				root = root,
+				screen = screen,
+				engine = engine,
+				input = input,
+				baseline = baseline,
+				stop = function()
+					stop()
+					runtime:dispose()
+				end,
+			}
+		end
+
+		local function find(node: any, name: string): any
+			if node.Name == name then
+				return node
+			end
+			for _, child in node:GetChildren() do
+				local found = find(child, name)
+				if found then
+					return found
 				end
-				built.steps.openBrew(brew.id)
-				Verify.expect(find(root, "BrewDetail") ~= nil):toBe(true)
-				stop()
-			end,
-		})
-		verifyHarness:case("keeps Sipworks rejection, stamp earning, free pour and Blend Book unlock", {
-			id = "native_reference_apps::native reference applications::keeps Sipworks rejection, stamp earning, free pour and Blend Book unlock",
-			run = function()
-				local built, root, stop = world(sipworks)
-				built.steps.order("amber-harvest", "paid")
-				built.steps.advance(0.7)
-				Verify.expect((built.model.task.phase:peek())):toBe("rejected")
-				Verify.expect((built.model.rewards.unspent())):toBe(9)
-				built.steps.order("amber-harvest", "paid")
-				built.steps.advance(0.7)
-				Verify.expect((built.model.task.phase:peek())):toBe("redeem")
-				built.steps.redeem()
-				built.steps.advance(0.7)
-				Verify.expect((built.model.task.phase:peek())):toBe("done")
-				Verify.expect((built.model.rewards.unspent())):toBe(0)
-				built.steps.buyBook()
-				built.steps.advance(0.7)
-				Verify.expect((built.model.unlock.unlocked:peek())):toBe(false)
-				built.steps.buyBook()
-				built.steps.advance(0.7)
-				Verify.expect((built.model.unlock.unlocked:peek())):toBe(true)
-				for _, id in { "favorites", "rewards", "book" } do
-					built.model.section:set(id)
+			end
+			return nil
+		end
+
+		local function within(node: any, ...: string): any
+			local at = node
+			for _, name in { ... } do
+				at = find(at, name)
+				if at == nil then
+					return nil
 				end
-				built.steps.open("lantern-oolong")
-				Verify.expect(find(root, "Blend") ~= nil):toBe(true)
-				stop()
-			end,
-		})
-		verifyHarness:case("keeps Foyer search, pending/rejected refresh, visit history and navigation", {
-			id = "native_reference_apps::native reference applications::keeps Foyer search, pending/rejected refresh, visit history and navigation",
-			run = function()
-				local built, root, stop = world(foyer)
-				built.steps.search("moss")
-				Verify.expect(find(root, "SearchResults") ~= nil):toBe(true)
-				built.steps.reject("refresh", "err.feed.refresh.offline")
-				built.steps.refresh()
-				Verify.expect((built.model.services.refreshStatus:peek())):toBe("pending")
-				built.steps.settle()
-				Verify.expect((built.model.services.refreshStatus:peek())):toBe("rejected")
-				built.steps.refresh()
-				built.steps.settle()
-				Verify.expect(built.report().page):toBe(1)
-				built.steps.open("moss-kingdom")
-				built.steps.visit("moss-kingdom")
-				built.steps.settle()
-				Verify.expect(built.report().continued["moss-kingdom"]):toBe(true)
-				for _, id in { "crews", "forge", "mail", "you" } do
-					built.model.destination:set(id)
-				end
-				stop()
-			end,
-		})
-		verifyHarness:case("keeps each notice line inside the screen width with a fixed box", {
-			id = "native_reference_apps::native reference applications::keeps each notice line inside the screen width with a fixed box",
-			run = function()
-				local modules: { any } = { glade, cartwheel, sipworks, foyer }
-				for _, module in modules do
-					local _, root, stop = world(module)
-					local notice
-					for _, node in root:GetDescendants() do
-						if
-							node.ClassName == "TextLabel"
-							and node.Position.Y.Offset == -60
-							and node.Position.X.Offset == 16
-						then
-							notice = node
+			end
+			return at
+		end
+
+		local function press(node: any, ...: string)
+			local target = assert(within(node, ...), `no {table.concat({ ... }, "/")}`)
+			target.Activated:Fire()
+		end
+
+		local function pages(w: World): any
+			return assert(within(w.root, "Destinations", "Content"))
+		end
+
+		verifyHarness:suite("Foyer", function()
+			verifyHarness:case("section cards fit the local window and grow to their content", {
+				id = "native_reference_apps::Foyer::section cards fit the local window and grow to their content",
+				run = function()
+					local w = world(foyer)
+					press(pages(w), "home", "Sections", "picked", "SeeAll")
+					local grid = assert(find(w.screen, "Worlds"))
+					grid.AbsoluteWindowSize = w.engine.types.Vector2.new(500, 400)
+					local items = assert(find(grid, "Items"))
+					local row
+					for _, child in items:GetChildren() do
+						if child:IsA("Frame") and child.Name ~= "LayoutUnit" then
+							row = child
+							break
 						end
 					end
-					Verify.expect(notice ~= nil):toBe(true)
-					Verify.expect(notice.Size.X.Scale):toBe(1)
-					Verify.expect(notice.Size.X.Offset):toBe(-32)
-					Verify.expect(notice.AutomaticSize.Name):toBe("None")
-					stop()
+					Verify.expect(row ~= nil):toBe(true)
+					Verify.expect(row.Size.X.Offset >= 232):toBe(true)
+					local card = assert(row:FindFirstChild(row.Name, true))
+					card.AbsoluteSize = w.engine.types.Vector2.new(row.Size.X.Offset, 360)
+					Verify.expect(row.Size.Y.Offset):toBe(360)
+					grid.AbsoluteWindowSize = w.engine.types.Vector2.new(340, 400)
+					Verify.expect(row.Size.X.Offset >= 232 and row.Size.X.Offset <= 340):toBe(true)
+					w.stop()
+				end,
+			})
+			verifyHarness:case("reference columns keep dynamic content after their commands", {
+				id = "native_reference_apps::Foyer::reference columns keep dynamic content after their commands",
+				run = function()
+					local shown = Compose.cell(true)
+					local w = world({
+						build = function(ctx)
+							local view = require("../examples/reference/view")(ctx)
+							return {
+								screen = function()
+									return view.column("Commands", {
+										ctx.Host.TextLabel "Title" {},
+										ctx.Host.TextButton "Search" {},
+										Compose.show(shown, function()
+											return ctx.Host.Frame "Collection" {}
+										end),
+									})
+								end,
+							}
+						end,
+					})
+					local title, search = find(w.root, "Title"), find(w.root, "Search")
+					Verify.expect(title.LayoutOrder < search.LayoutOrder):toBe(true)
+					Verify.expect(search.LayoutOrder < find(w.root, "Collection").LayoutOrder):toBe(true)
+					shown:set(false)
+					shown:set(true)
+					Verify.expect(search.LayoutOrder < find(w.root, "Collection").LayoutOrder):toBe(true)
+					w.stop()
+				end,
+			})
+		end)
+
+		verifyHarness:suite("Documentation and tooling", function()
+			local function run(code: string, suffix: string): (any, any, any, any, any)
+				local engine: any = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local facade = table.clone(Facet) :: any
+				facade.Roblox = table.clone(Facet.Roblox)
+				facade.themes = table.clone(Facet.themes)
+				facade.Roblox.createRuntime = function()
+					return runtime
 				end
-			end,
-		})
-	end)
+				facade.controls = function(rt, options)
+					local settings = table.clone(options or {})
+					settings.types = engine.types
+					return Facet.controls(rt, settings)
+				end
+				local sheets = {}
+				facade.themes.createStyleSheet = function(rt, package, options)
+					local settings = table.clone(options or {})
+					settings.types = engine.types
+					local sheet = Facet.themes.createStyleSheet(rt, package, settings)
+					table.insert(sheets, sheet)
+					return sheet
+				end
+				local playerGui = engine.new("PlayerGui")
+				facade.app = function(options)
+					local settings = table.clone(options or {})
+					settings.types = engine.types
+					settings.parent = settings.parent or playerGui
+					return Facet.bind(Facet.Compose, facade.Roblox).app(settings)
+				end
+				local host = engine.new("ScreenGui")
+				local scripts = engineLib.new()
+				local destroying = scripts.heartbeat
+				local env = table.clone(engine.types) :: any
+				env.Facet = facade
+				env.Compose = Compose
+				env.Host = runtime.constructors
+				env.UI = facade.controls(runtime)
+				env.script = { Destroying = destroying, engine = scripts }
+				env.require = function()
+					return facade
+				end
+				env.game = {
+					ReplicatedStorage = {
+						WaitForChild = function()
+							return "Facet"
+						end,
+					},
+					Players = {
+						LocalPlayer = {
+							WaitForChild = function()
+								return playerGui
+							end,
+						},
+					},
+				}
+				local bindings = {}
+				for key in env do
+					table.insert(bindings, `local {key}=env[{string.format("%q", key)}]`)
+				end
+				local baseline = engine.census()
+				local factory = luau.load(
+					"return function(env)\n" .. table.concat(bindings, "\n") .. "\n" .. code .. suffix .. "\nend"
+				)()
+				return factory,
+					env,
+					engine,
+					runtime,
+					{ baseline = baseline, playerGui = playerGui, host = host, sheets = sheets }
+			end
+		end)
+	end)(verifyHarness)
 end

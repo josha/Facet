@@ -404,8 +404,9 @@ local cases: { any } = {
 							other:dispose()
 						end)
 						t.check(
-							"initial geometry waits for construction",
-							(firstSize:peek() :: Vector2) == Vector2.zero
+							"initial geometry uses the native snapshot",
+							(firstSize:peek() :: Vector2) == first.AbsoluteSize
+								and (secondSize:peek() :: Vector2) == second.AbsoluteSize
 						)
 						Compose.watch(function(use: any)
 							runs += 1

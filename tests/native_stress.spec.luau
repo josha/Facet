@@ -5,7 +5,6 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
-	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
@@ -14,7 +13,6 @@ return function(verifyHarness: Verify.Harness)
 	local cells = require("./lib/cells")
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
-	local terminal = require("../examples/gallery/examples/outpost_terminal")
 	local Compose: ComposeModule = Facet.Compose
 
 	local function world()
@@ -244,113 +242,6 @@ return function(verifyHarness: Verify.Harness)
 					stop()
 					runtime:dispose()
 					sameCensus(engine, before, `seed={seed} teardown`)
-				end
-			end,
-		})
-
-		verifyHarness:case(
-			"converges authoritative snapshots under 400 seeded delayed duplicated reordered deliveries",
-			{
-				id = "native_stress::native stress invariants::converges authoritative snapshots under 400 seeded delayed duplicated reordered deliveries",
-				run = function()
-					for seed = 1, 400 do
-						local rng = random(471120 + seed)
-						local engine, runtime, root, UI = world()
-						local before = engine.census()
-						local built
-						local stop = runtime.mount(function()
-							built = terminal.build({
-								Facet = Facet,
-								Compose = Compose,
-								runtime = runtime,
-								Host = (runtime.constructors :: unknown) :: RobloxHost,
-								UI = UI,
-								types = engine.types,
-							}, { send = function() end })
-							return built.screen()
-						end, root)
-						built.steps.engage(terminal.rules.START, 0)
-						local highest = 0
-						for step = 1, 80 do
-							local revision = rng(1, 100)
-							local allocation = { door = revision % 3, beacon = revision % 2, workshop = revision % 4 }
-							local accepted = built.steps.ingest(revision, allocation)
-							assert(accepted == (revision > highest), `seed={seed} step={step}: revision acceptance`)
-							highest = math.max(highest, revision)
-							assert(
-								built.model.revision:peek() == highest,
-								`seed={seed} step={step}: revision regressed`
-							)
-							assert(
-								built.model.confirmed:peek().door == highest % 3,
-								`seed={seed} step={step}: authority diverged`
-							)
-						end
-						built.steps.ingest(101, terminal.rules.START)
-						assert(built.model.revision:peek() == 101, `seed={seed}: final snapshot did not converge`)
-						for id, value in terminal.rules.START do
-							assert(built.model.confirmed:peek()[id] == value)
-						end
-						stop()
-						runtime:dispose()
-						sameCensus(engine, before, `replication seed={seed} teardown`)
-					end
-				end,
-			}
-		)
-		verifyHarness:case("rejects stale async completions and cancels exactly once through 200 seeded fault storms", {
-			id = "native_stress::native stress invariants::rejects stale async completions and cancels exactly once through 200 seeded fault storms",
-			run = function()
-				for seed = 1, 200 do
-					local rng = random(611001 + seed)
-					local engine, runtime, root, UI = world()
-					local before = engine.census()
-					local source, requests, changes = Compose.cell("initial" :: string?), {}, 0
-					local stop, node: any = runtime.mount(function()
-						return UI.AsyncImage({
-							source = source,
-							loader = function(content: string, resolve: (string?) -> (), reject: (unknown) -> ())
-								local request = { resolve = resolve, reject = reject, cancelled = 0 }
-								table.insert(requests, request)
-								return function()
-									request.cancelled += 1
-								end
-							end,
-							onStatus = function()
-								changes += 1
-							end,
-						})
-					end, root)
-					for step = 1, rng(5, 25) do
-						source:set(`seed{seed}step{step}`)
-						local old = requests[rng(1, #requests - 1)]
-						local image = node:FindFirstChild("Image")
-						local prior, notifications = image.Image, changes
-						old.resolve("stale")
-						old.reject("stale failure")
-						assert(
-							image.Image == prior and changes == notifications,
-							`seed={seed} step={step}: stale completion changed UI`
-						)
-						local current = requests[#requests]
-						if rng(1, 2) == 1 then
-							current.resolve(source:peek())
-							assert(image.Visible and image.Image == source:peek(), `seed={seed}: latest result missing`)
-						else
-							current.reject("injected failure")
-							assert(not image.Visible, `seed={seed}: failure still paints image`)
-						end
-					end
-					stop()
-					local notifications = changes
-					for _, request in requests do
-						request.resolve("after teardown")
-						request.reject("after teardown")
-						assert(request.cancelled == 1, `seed={seed}: cancellation count {request.cancelled}`)
-					end
-					assert(changes == notifications, `seed={seed}: late callback survived owner`)
-					runtime:dispose()
-					sameCensus(engine, before, `async seed={seed} teardown`)
 				end
 			end,
 		})

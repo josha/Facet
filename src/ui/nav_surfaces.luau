@@ -758,13 +758,13 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					)
 				end
 				local panel = ctx.styled(
-					ctx.fade {
+					ctx.fade({
 						Name = "AlertPanel",
 						BackgroundTransparency = 0,
 						BorderSizePixel = 0,
 						Size = D2.fromScale(1, 1),
 						layout,
-					},
+					}, true),
 					"alert"
 				)
 				if not fullScreen then
@@ -1436,8 +1436,15 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					local linked: string? = nil
 					local linkedTarget: GuiObject? = nil
 					local function unlink()
-						if linked and (anchor :: any)["NextSelection" .. linked] == linkedTarget then
-							(anchor :: any)["NextSelection" .. linked] = nil
+						if
+							linked
+							and (
+									(anchor :: unknown) :: { NextSelectionDown: GuiObject?, NextSelectionUp: GuiObject? }
+								)["NextSelection" .. linked]
+								== linkedTarget
+						then
+							((anchor :: unknown) :: { NextSelectionDown: GuiObject?, NextSelectionUp: GuiObject? })["NextSelection" .. linked] =
+								nil
 						end
 						linked, linkedTarget = nil, nil
 					end
@@ -1461,8 +1468,17 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 						local target = if found == leaving then nil else found
 						if linked ~= direction or linkedTarget ~= target then
 							unlink()
-							if target and (anchor :: any)["NextSelection" .. direction] == nil then
-								(anchor :: any)["NextSelection" .. direction] = target
+							if
+								target
+								and (
+										(
+											anchor :: unknown
+										) :: { NextSelectionDown: GuiObject?, NextSelectionUp: GuiObject? }
+									)["NextSelection" .. direction]
+									== nil
+							then
+								((anchor :: unknown) :: { NextSelectionDown: GuiObject?, NextSelectionUp: GuiObject? })["NextSelection" .. direction] =
+									target
 								linked, linkedTarget = direction, target
 							end
 						end

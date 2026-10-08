@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+- Lab page contexts forward native types to demos. Reserved slot teardown
+  uses Host ownership, and transfer live fixtures disconnect native resources.
+
+- commandScope exposes native focus keys and owned InputActions for game
+  commands. One handler receives the focused key. Text entry, modal controls
+  and existing control actions have priority over these commands.
+
+- VirtualList and VirtualGrid accept ordered slot keys. Missing items keep
+  recesses until the consumer releases their keys. slotControls exposes native
+  slot anchors for Recall with Travel. Collection drag factories honour their
+  immediate touch pickup policy.
+
+- Travel supports a theme-timed shuffle ripple, lift and start callbacks.
+  ZoomControls.zoomAt permits one capture-time camera request at the pointer.
+- sequence orders theme-timed steps and parallel groups. countUp supplies a
+  numeric readable. Flash paints a transient GUI target through the overlay.
+  All use Compose ownership and honour reduced motion.
+
+- Breaking types: drag payload callbacks now receive `unknown`. Check the payload
+  before you read its fields. `DraggableSpec.onStart` and all payload callbacks
+  in `DropTargetSpec` use this type. Runtime behavior does not change.
+- The Slider and TextInput implementation callback types specify number, range
+  and string values. `SliderOptions.onCommit` specifies number or `SliderRange`.
+  The public range and presentation bindings remain unchanged.
+- The native `Host` type now includes the existing `Highlight` constructor and
+  its native property types.
+- `gamepadContention.cameraKeysContended` and `freedJumpAction` now type action
+  records with an optional `inputTypes: { EnumItem }` field.
+- Facet source outside `src/vendor` must not use the `any` type. The fast type
+  policy check also enforces decreasing budgets for non-vendored examples,
+  tools, tests and bench.
+
 - Breaking: `UI.focusQuery` and the types `FocusQuery`, `FocusMove` and
   `FocusDirection` are removed. The engine makes each gamepad and arrow move.
   A value control keeps the selection on its axis only while its value can
@@ -496,7 +528,7 @@
 - **`UI.ColorPicker`.** A colour well over your Color3, ported from `main` onto native Instances. It opens an anchored panel (below, else above, else beside, else shrunk and scrolled; a sheet on a narrow touch screen; a centred sheet at ten feet) or shows the panel inline. The panel has Swatches, Spectrum (a two-layer UIGradient plane with a UIDragDetector, and a rainbow hue strip), Sliders and Bricks techniques, an RGB/HSV/Hex readout, optional opacity (`alpha`), saved colours (`onSaveSwatch`, `onRemoveSwatch`), `draft` with Apply and Cancel, right-stick steering, and a colour bubble above the finger on touch. `ref` receives the root Frame, and its attributes replace main's `dump()`.
 - `UI.Card` takes `artwork`, a factory for live artwork such as a Stage preview, in place of `image` or over it. The body `onActivate(input)` receives the native input of the activation.
 - A Button whose activation removes the Button no longer reads released state after `onActivate` returns. Before this change, a Menu row that closed its menu raised a disposed-formula error.
-- Virtual Monitors uses every public Facet field, control and theme function: the layout constructors, `Card`, `NavBar`, `Notice`, `Snackbar`, `Dialog`, `Popover`, `Vote`, `StepIndicator`, `Pagination`, `badged`, `DateTimePicker`, `NumberInput`, field chrome, `ErrorBoundary`, `civilDate`, `recipes.arithmetic`, `bind` and the theme package functions. `tests/native_virtual_monitors_coverage.spec.luau` fails with the names of any unused ones. `VirtualMonitorsAPI` also takes `tab`, `open`, `close` and `chat`.
+- Virtual Monitors uses every public Facet field, control and theme function: the layout constructors, `Card`, `NavBar`, `Notice`, `Snackbar`, `Dialog`, `Popover`, `Vote`, `StepIndicator`, `Pagination`, `badged`, `DateTimePicker`, `NumberInput`, field chrome, `ErrorBoundary`, `civilDate`, `recipes.arithmetic`, `bind` and the theme package functions. `VirtualMonitorsAPI` also takes `tab`, `open`, `close` and `chat`.
 - A Sheet stays off screen until its room, width, text and height are stable for two frames, then slides. The text has its final size and wrap before the sheet shows, and the height does not animate during the entrance. The `hug` detent measures the body content instead of the scroll canvas, which was never smaller than the window and made a hug sheet grow on each frame. A full-screen Alert keeps its content at the destination size while it grows from its source, so its text does not wrap again.
 - A Card does not lift when `PreferredInput` is `Touch`. A tap on its body, primary action or More shows only the press paint of that control. The artwork height uses the width without the lift, so a lifted card no longer changes its own size. `controls.lifting` and the `FacetLifting` attribute report the lift.
 - Stage passes a `live` readable to `content(runtime, world, live)`. It is false while the nearest ScrollingFrame scrolls, for 0.15 seconds after, and while less than half of the stage shows. `lazy = true` builds the content only when the stage is first live, one stage per frame. The Virtual Monitors game grid builds its card scenes lazily and pauses their animation while the grid scrolls.

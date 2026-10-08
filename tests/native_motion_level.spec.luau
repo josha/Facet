@@ -34,21 +34,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("motion levels", function()
-		verifyHarness:case("follows the device: normal, and limited under the engine's Reduce Motion", {
-			id = "native_motion_level::motion levels::follows the device: normal, and limited under the engine's Reduce Motion",
-			run = function()
-				local w, env = levelWorld()
-				Verify.expect((env.motionLevel:peek())):toBe("normal")
-				Verify.expect((env.reducedMotion:peek())):toBe(false)
-				w.gui.ReducedMotionEnabled = true
-				Verify.expect((env.motionLevel:peek())):toBe("limited")
-				Verify.expect((env.reducedMotion:peek())):toBe(true)
-				w.gui.ReducedMotionEnabled = false
-				Verify.expect((env.motionLevel:peek())):toBe("normal")
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case(
 			"the stronger of the game's level and the device's wins; a game adds reduction, never removes it",
 			{
@@ -75,70 +60,8 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		verifyHarness:case("a live unknown level falls back to the device's with one warning instead of throwing", {
-			id = "native_motion_level::motion levels::a live unknown level falls back to the device's with one warning instead of throwing",
-			run = function()
-				local chosen = Compose.cell("normal")
-				local w, env = levelWorld({ motionLevel = chosen })
-				local warnings = {}
-				local previous = warn
-				getfenv(0).warn = function(...)
-					table.insert(warnings, table.concat({ ... }, " "))
-				end
-				local ok = pcall(function()
-					chosen:set("slow-mo" :: any)
-				end)
-				Verify.expect(ok):toBe(true)
-				Verify.expect((env.motionLevel:peek())):toBe("normal")
-				w.gui.ReducedMotionEnabled = true
-				Verify.expect((env.motionLevel:peek())):toBe("limited")
-				env.motionLevel:peek()
-				getfenv(0).warn = previous
-				Verify.expect(#warnings):toBe(1)
-				Verify.expect(string.find(warnings[1], "motionLevel", 1, true) ~= nil):toBe(true)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case(
-			"a theme sheet on the same runtime zeroes paint under the controls' none, even beside controls with no level",
-			{
-				id = "native_motion_level::motion levels::a theme sheet on the same runtime zeroes paint under the controls' none, even beside controls with no level",
-				run = function()
-					local themes = require("../src").themes
-					local transition = require("./lib/transition")
-					local sheet
-					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine, _, runtime)
-						require("../src").controls(runtime, { types = engine.types } :: any)
-						sheet = themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
-						return Host.Frame({ sheet :: unknown })
-					end, { motionLevel = "none" })
-					local rule
-					for _, child in sheet:GetChildren() do
-						if child.ClassName == "StyleRule" and (child :: StyleRule).Selector == ".facet-text" then
-							rule = child
-						end
-					end
-					Verify.expect(transition(rule, "TextColor3").Time):toBe(0)
-					w.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case("refuses the removed reducedMotion option and an unknown level", {
-			id = "native_motion_level::motion levels::refuses the removed reducedMotion option and an unknown level",
-			run = function()
-				local ok, message = pcall(levelWorld, { reducedMotion = true })
-				Verify.expect(ok):toBe(false)
-				Verify.expect(string.find(tostring(message), "motionLevel", 1, true) ~= nil):toBe(true)
-				local bad, why = pcall(levelWorld, { motionLevel = "reduced" })
-				Verify.expect(bad):toBe(false)
-				Verify.expect(string.find(tostring(why), "motionLevel", 1, true) ~= nil):toBe(true)
-			end,
-		})
-
-		verifyHarness:case("an alert is whole once it has rested under none and scales the whole panel under normal", {
-			id = "native_motion_level::motion levels::an alert is whole once it has rested under none and scales the whole panel under normal",
+		verifyHarness:case("an alert is whole after rest under none and cross-fades in place under normal", {
+			id = "native_motion_level::motion levels::an alert is whole after rest under none and cross-fades in place under normal",
 			run = function()
 				local w, shown = alertWorld({ motionLevel = "none" })
 				shown:set(true)
@@ -154,12 +77,200 @@ return function(verifyHarness: Verify.Harness)
 				panel2.AbsoluteSize = w2.Vector2.new(440, 176)
 				w2.find("AlertContent").Parent.AbsoluteSize = w2.Vector2.new(300, 60)
 				w2.advance(1 / 60, 3)
-				Verify.expect(panel2.Size.X.Offset):toBe(440)
-				Verify.expect(w2.find("PresentationPaint").Size.X.Offset):toBe(440)
-				Verify.expect(w2.find("PresentationScale").Scale < 1):toBe(true)
-				Verify.expect(panel2:FindFirstChild("PresentationContent", true) ~= nil):toBe(true)
+				Verify.expect(panel2.AbsoluteSize):toBe(w2.Vector2.new(440, 176))
+				Verify.expect(w2.find("PresentationPaint")):toBeNil()
+				Verify.expect(w2.find("PresentationScale")):toBeNil()
+				Verify.expect(fadeKit.of(panel2) > 0 and fadeKit.of(panel2) < 1):toBe(true)
+				Verify.expect(w2.find("AlertContent"):IsDescendantOf(panel2:FindFirstChild("Fade"))):toBe(true)
 				w2.stop()
 			end,
 		})
-	end)
+	end);
+	(function(verifyHarness: Verify.Harness)
+		type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+		type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+		type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+		type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+		local FixtureNavigationTypes = require("../src/ui/navigation_types")
+
+		local fadeKit = require("./lib/fade")
+		local Facet = require("../src")
+		local icons = require("../src/ui/icons")
+		local engineLib = require("./lib/native_engine")
+		local Compose: ComposeModule = Facet.Compose
+
+		local function mount(engine: any, runtime: any, build: () -> any): (() -> (), any)
+			local stop, root: any = runtime.mount(build, engine.new("ScreenGui"))
+			return stop, root
+		end
+
+		verifyHarness:suite("native parity media", function()
+			verifyHarness:suite("controls", function()
+				local function session(build: (any, any) -> any, prepare: ((any, any) -> ())?): { [string]: any }
+					local engine: any = engineLib.new()
+					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+					local gui = engine.new("GuiService")
+					local input = engine.new("UserInputService")
+					input.GetFocusedTextBox = function()
+						return nil
+					end
+					input.IsKeyDown = function()
+						return false
+					end
+					if prepare then
+						prepare(gui, input)
+					end
+					local UI = Facet.controls(
+						runtime,
+						{
+							types = engine.types,
+							guiService = gui,
+							services = { GuiService = gui, UserInputService = input },
+						} :: any
+					)
+					local Host = (runtime.constructors :: unknown) :: RobloxHost
+					local stop, screen: any = runtime.mount(function()
+						return Host.ScreenGui({ build(UI, Host) })
+					end, engine.new("Folder"))
+					return {
+						engine = engine,
+						runtime = runtime,
+						gui = gui,
+						input = input,
+						screen = screen,
+						find = function(name: string): any
+							return screen:FindFirstChild(name, true)
+						end,
+						stop = function()
+							stop()
+							runtime:dispose()
+						end,
+					}
+				end
+
+				local function press(engine: any, node: any)
+					local Enum = engine.types.Enum
+					node.InputBegan:Fire({
+						UserInputType = Enum.UserInputType.MouseButton1,
+						KeyCode = Enum.KeyCode:FromValue(0),
+					})
+				end
+
+				local function release(engine: any, node: any)
+					local Enum = engine.types.Enum
+					node.InputEnded:Fire({
+						UserInputType = Enum.UserInputType.MouseButton1,
+						KeyCode = Enum.KeyCode:FromValue(0),
+					})
+				end
+
+				verifyHarness:case("adds no pop scale without pop and does not re-kick pop on held repeats", {
+					id = "native_motion_level::controls::adds no pop scale without pop and does not re-kick pop on held repeats",
+					run = function()
+						local activations = 0
+						local w = session(function(UI: FacetControls, Host: RobloxHost)
+							return Host.Frame({
+								UI.Button "Plain" { label = "x", onActivate = function() end } :: unknown,
+								UI.Button "Held" {
+									label = "x",
+									pop = true,
+									repeatInterval = 0.1,
+									onActivate = function()
+										activations += 1
+									end,
+								},
+							})
+						end)
+						Verify.expect((w.find("Plain"):FindFirstChild("Pop", true))):toBeNil()
+						Verify.expect((w.find("Plain"):FindFirstChildWhichIsA("UIScale"))):toBeNil()
+						local held = w.find("Held")
+						local pop = held:FindFirstChild("Pop", true)
+						Verify.expect(pop.ClassName):toBe("UIScale")
+						Verify.expect(pop.Scale):toBe(1)
+						press(w.engine, held)
+						w.engine.heartbeat:Fire(0.4)
+						Verify.expect(activations):toBe(1)
+						Verify.expect(pop.Scale):toBe(1)
+						w.engine.heartbeat:Fire(0.1)
+						Verify.expect(activations):toBe(2)
+						Verify.expect(pop.Scale):toBe(1)
+						w.engine.heartbeat:Fire(0.1)
+						Verify.expect(activations):toBe(3)
+						Verify.expect(pop.Scale):toBe(1)
+						release(w.engine, held)
+						held.Activated:Fire()
+						Verify.expect(activations):toBe(3)
+						held.Activated:Fire()
+						Verify.expect(activations):toBe(4)
+						w.engine.heartbeat:Fire(0.1)
+						Verify.expect(pop.Scale):toBeGreaterThan(1)
+						w.stop()
+					end,
+				})
+
+				verifyHarness:case("follows GuiService reduced motion for button pop, validation pulse and busy dots", {
+					id = "native_motion_level::controls::follows GuiService reduced motion for button pop, validation pulse and busy dots",
+					run = function()
+						local function run(reduced: boolean): { [string]: any }
+							local value, number = Compose.cell("2"), Compose.cell(2)
+							local w = session(function(UI: FacetControls, Host: RobloxHost)
+								return Host.Frame({
+									UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end } :: unknown,
+									UI.Button "Busy" { label = "Save", busy = true },
+									UI.TextInput "Field" {
+										value = value,
+										numericValue = number,
+										presentation = "number" :: "number",
+										min = 1,
+										max = 10,
+									},
+								})
+							end, function(gui)
+								gui.ReducedMotionEnabled = reduced
+							end)
+							local button = w.find("Pop")
+							button.Activated:Fire()
+							local field = w.find("Field")
+							field:CaptureFocus()
+							field.Text = "1.2.3"
+							field:ReleaseFocus(true)
+							local dot = w.find("Busy"):FindFirstChild("Dot1", true)
+							local before = dot.BackgroundTransparency
+							w.engine.heartbeat:Fire(0.1)
+							return {
+								pop = button:FindFirstChild("Pop", true).Scale,
+								pulse = field:FindFirstChild("ValidationPulse", true).Scale,
+								dotBefore = before,
+								dotAfter = dot.BackgroundTransparency,
+								invalid = field:GetAttribute("invalid"),
+								w = w,
+							}
+						end
+						local full = run(false)
+						Verify.expect(full.invalid):toBe(true)
+						Verify.expect(full.pop):toBeGreaterThan(1)
+						Verify.expect(full.pulse):toBeLessThan(1)
+						Verify.expect(full.dotBefore > 0):toBe(true)
+						Verify.expect(full.dotAfter ~= full.dotBefore):toBe(true)
+						full.w.gui.ReducedMotionEnabled = true
+						Verify.expect(full.w.find("Pop"):FindFirstChild("Pop", true).Scale):toBe(1)
+						Verify.expect(full.w.find("Field"):FindFirstChild("ValidationPulse", true).Scale):toBe(1)
+						Verify.expect(full.w.find("Busy"):FindFirstChild("Dot1", true).BackgroundTransparency):toBe(0)
+						full.w.stop()
+						local reduced = run(true)
+						Verify.expect(reduced.invalid):toBe(true)
+						Verify.expect(reduced.pop):toBe(1)
+						Verify.expect(reduced.pulse):toBe(1)
+						Verify.expect(reduced.dotBefore):toBe(0)
+						Verify.expect(reduced.dotAfter):toBe(0)
+						reduced.w.gui.ReducedMotionEnabled = false
+						reduced.w.find("Pop").Activated:Fire()
+						reduced.w.engine.heartbeat:Fire(0.1)
+						Verify.expect(reduced.w.find("Pop"):FindFirstChild("Pop", true).Scale):toBeGreaterThan(1)
+						reduced.w.stop()
+					end,
+				})
+			end)
+		end)
+	end)(verifyHarness)
 end

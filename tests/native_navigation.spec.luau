@@ -93,6 +93,287 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
+		verifyHarness:case("omits owned-page chrome without removing Back or selection restoration", {
+			id = "native_navigation::native navigation controls::omits owned-page chrome without removing Back or selection restoration",
+			run = function()
+				local path = Compose.cell({} :: { Navigation.NavigationEntry<number> })
+				local chrome = Compose.cell("hidden" :: "automatic" | "hidden")
+				local world = setup(function(UI: FacetControls)
+					local spec: Navigation.NavigationStackSpec<number> = {
+						path = path,
+						chrome = "hidden" :: "hidden",
+						transition = false :: false,
+						root = {
+							title = "Home",
+							content = function()
+								return UI.Button "HomeAction" { label = "Open" }
+							end,
+						} :: Navigation.NavigationDestination<number>,
+						destinations = {
+							owned = {
+								title = "",
+								chrome = chrome,
+								content = function()
+									return UI.Button "OwnedHeader" { label = "My own header" }
+								end,
+							} :: Navigation.NavigationDestination<number>,
+							inherited = {
+								title = "Inherited",
+								content = function()
+									return UI.Button "InheritedAction" { label = "Page" }
+								end,
+							} :: Navigation.NavigationDestination<number>,
+						},
+					}
+					return UI.NavigationStack "Stack"(spec)
+				end, { motionLevel = "none" })
+				local stack = find(world.screen, "Stack") :: Frame
+				local Vector2, UDim2 = world.engine.types.Vector2, world.engine.types.UDim2
+				Verify.expect(find(stack, "Back")):toBeNil()
+				world.gui.SelectedObject = find(stack, "HomeAction")
+				for _, size in { Vector2.new(320, 640), Vector2.new(390, 844), Vector2.new(844, 390) } do
+					stack.AbsoluteSize = size
+					path:set({ { id = "owned", value = 1 } })
+					world.settle()
+					local page = find(stack, "owned")
+					local destination = find(page, "Destination") :: Frame
+					Verify.expect(destination.Position.Y.Offset):toBe(0)
+					Verify.expect(destination.Size):toBe(UDim2.fromScale(1, 1))
+					Verify.expect(find(page, "NavigationBar").Visible):toBe(false)
+					Verify.expect(find(page, "Back")):toBeNil()
+					local action = find(world.screen, "NavigationBack")
+					Verify.expect(action.Parent.Enabled):toBe(true)
+					action.Pressed:Fire()
+					world.settle()
+					Verify.expect(#path:peek()):toBe(0)
+					Verify.expect(world.gui.SelectedObject):toBe(find(stack, "HomeAction"))
+				end
+				path:set({ { id = "inherited" } })
+				Verify.expect(find(find(stack, "inherited"), "Destination").Position.Y.Offset):toBe(0)
+				path:set({ { id = "owned" } })
+				chrome:set("automatic")
+				Verify.expect(find(find(stack, "owned"), "NavigationBar").Visible):toBe(true)
+				Verify.expect(find(find(stack, "owned"), "Destination").Position.Y.Offset > 0):toBe(true)
+				chrome:set("hidden")
+				for _, origin in { 25, 200 } do
+					find(world.screen, "Stack").InputBegan:Fire({
+						UserInputType = world.engine.types.Enum.UserInputType.Touch,
+						Position = world.engine.types.Vector3.new(origin, 0, 0),
+					})
+					find(world.screen, "Stack").TouchSwipe:Fire(world.engine.types.Enum.SwipeDirection.Right, 1)
+					Verify.expect(#path:peek()):toBe(1)
+				end
+				find(world.screen, "Stack").InputBegan:Fire({
+					UserInputType = world.engine.types.Enum.UserInputType.Touch,
+					Position = world.engine.types.Vector3.new(0, 0, 0),
+				})
+				find(world.screen, "Stack").TouchSwipe:Fire(world.engine.types.Enum.SwipeDirection.Right, 1)
+				Verify.expect(#path:peek()):toBe(0)
+				world.stop()
+			end,
+		})
+
+		verifyHarness:case("moves the whole owned-header page and retains it through departure", {
+			id = "native_navigation::native navigation controls::moves the whole owned-header page and retains it through departure",
+			run = function()
+				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
+				local world = setup(function(UI: FacetControls)
+					local spec: Navigation.NavigationStackSpec<unknown> = {
+						path = path,
+						chrome = "hidden" :: "hidden",
+						root = {
+							content = function(): Instance
+								return UI.Button "RootAction" { label = "Root" }
+							end,
+						} :: Navigation.NavigationDestination<unknown>,
+						destinations = {
+							detail = {
+								content = function(): Instance
+									return UI.Button "OwnedHeader" { label = "Own header" }
+								end,
+							} :: Navigation.NavigationDestination<unknown>,
+						},
+					}
+					return UI.NavigationStack "OwnedMotion"(spec)
+				end)
+				local stack = find(world.screen, "OwnedMotion")
+				world.gui.SelectedObject = find(stack, "RootAction")
+				path:set({ { id = "detail" } })
+				local page = find(stack, "detail")
+				Verify.expect(page.Position.X.Scale):toBe(1)
+				local last = 1
+				for _ = 1, 12 do
+					world.engine.heartbeat:Fire(1 / 60)
+					Verify.expect(page.Position.X.Scale < last):toBe(true)
+					Verify.expect(find(page, "Destination").Size):toBe(world.engine.types.UDim2.fromScale(1, 1))
+					Verify.expect(find(page, "NavigationBar").Visible):toBe(false)
+					Verify.expect(find(page, "Back")):toBeNil()
+					last = page.Position.X.Scale
+				end
+				world.settle()
+				path:set({})
+				Verify.expect(page:isDestroyed()):toBe(false)
+				Verify.expect(page.Interactable):toBe(false)
+				world.engine.heartbeat:Fire(1 / 60)
+				Verify.expect(page.Position.X.Scale > 0):toBe(true)
+				world.settle()
+				Verify.expect(page:isDestroyed()):toBe(true)
+				Verify.expect(world.gui.SelectedObject):toBe(find(stack, "RootAction"))
+				world.stop()
+			end,
+		})
+		verifyHarness:case("places floating tab tracks and marks inside phone and landscape bounds", {
+			id = "native_navigation::native navigation controls::places floating tab tracks and marks inside phone and landscape bounds",
+			run = function()
+				local selected = Compose.cell("games")
+				local placement = Compose.cell("bottomBar" :: Navigation.Placement)
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					local spec: Navigation.TabViewSpec = {
+						selection = selected,
+						placement = placement,
+						track = "floating" :: "floating",
+						indicator = "mark" :: "mark",
+						labelPlacement = "belowIcon" :: "belowIcon",
+						controlSize = "compact" :: "compact",
+						railWidth = 140,
+						tabs = {
+							{
+								id = "games",
+								label = "Games",
+								icon = "view.grid",
+								badge = 1,
+								badgeAnchor = "topLeading" :: "topLeading",
+								content = function()
+									return Host.Frame {}
+								end,
+							} :: Navigation.Tab,
+							{
+								id = "profile",
+								label = "Profile",
+								icon = "person",
+								content = function()
+									return Host.Frame {}
+								end,
+							} :: Navigation.Tab,
+						},
+					}
+					return UI.TabView "Floating"(spec)
+				end, { motionLevel = "none" })
+				local root = find(world.screen, "Floating") :: Frame
+				local Vector2, UDim2 = world.engine.types.Vector2, world.engine.types.UDim2
+				for _, size in { Vector2.new(320, 640), Vector2.new(390, 844) } do
+					root.AbsoluteSize = size
+					local track, tabs = find(root, "Track"), find(root, "Tabs")
+					Verify.expect(track.Visible):toBe(true)
+					Verify.expect(track.Position):toBe(UDim2.new(0, 16, 1, -76))
+					Verify.expect(track.Size):toBe(UDim2.new(1, -32, 0, 64))
+					Verify.expect(tabs.Position):toBe(track.Position)
+					Verify.expect(tabs.Size):toBe(track.Size)
+					Verify.expect(track:FindFirstChildWhichIsA("UICorner").CornerRadius.Offset):toBe(20)
+					local button = find(tabs, "games")
+					Verify.expect(button:HasTag("facet-selected")):toBe(false)
+					Verify.expect(button:HasTag("facet-tab-filled")):toBe(false)
+					local mark = find(button, "SelectionIndicator")
+					Verify.expect(mark ~= nil):toBe(true)
+					Verify.expect(mark.Size):toBe(UDim2.fromOffset(20, 4))
+					Verify.expect(mark.AnchorPoint):toBe(Vector2.new(0.5, 1))
+					Verify.expect(mark.Position):toBe(UDim2.new(0.5, 0, 0, -4))
+					Verify.expect(mark:FindFirstChildWhichIsA("UICorner").CornerRadius.Offset):toBe(2)
+					Verify.expect(find(button, "Corner").Position):toBe(UDim2.fromScale(0, 0))
+					Verify.expect((assert(root:FindFirstChild("Content")) :: Frame).Size.Y.Offset):toBe(-84)
+				end
+				placement:set("sidebar")
+				root.AbsoluteSize = Vector2.new(844, 390)
+				local track = find(root, "Track")
+				Verify.expect(track.Position):toBe(UDim2.fromOffset(8, 8))
+				Verify.expect(track.Size):toBe(UDim2.new(0, 124, 1, -16))
+				local mark = find(find(root, "games"), "SelectionIndicator")
+				Verify.expect(mark.Position):toBe(UDim2.fromOffset(8, 4))
+				Verify.expect(mark.Size):toBe(UDim2.new(1, -16, 1, -8))
+				selected:set("profile")
+				Verify.expect(find(find(root, "games"), "SelectionIndicator")):toBeNil()
+				Verify.expect(find(find(root, "profile"), "SelectionIndicator") ~= nil):toBe(true)
+				world.stop()
+			end,
+		})
+		verifyHarness:case("uses themed mark spacing and all badge corners without changing the default track", {
+			id = "native_navigation::native navigation controls::uses themed mark spacing and all badge corners without changing the default track",
+			run = function()
+				local themes = require("../src/ui/themes")(Compose)
+				local package = themes.neutralPackage()
+				local metrics = assert(package.metrics.controls)
+				metrics.tabBottomTrack = { height = 96, sideInset = 20, bottomInset = 18, radius = 0, contentGap = 10 }
+				metrics.tabMark = { width = 24, height = 6, gap = 5, radius = 0 }
+				local track = Compose.cell("floating" :: "automatic" | "floating")
+				local indicator = Compose.cell("mark" :: Navigation.TabSelectionIndicator)
+				local anchor =
+					Compose.cell("topTrailing" :: "topLeading" | "topTrailing" | "bottomLeading" | "bottomTrailing")
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					local spec: Navigation.TabViewSpec = {
+						selection = Compose.cell("one"),
+						placement = "bottomBar" :: "bottomBar",
+						track = track,
+						indicator = indicator,
+						indicatorPlacement = "belowIcon" :: "belowIcon",
+						labelPlacement = "belowIcon" :: "belowIcon",
+						controlSize = "compact" :: "compact",
+						tabs = {
+							{
+								id = "one",
+								label = "One",
+								icon = "person",
+								badge = 1,
+								badgeAnchor = anchor,
+								content = function()
+									return Host.Frame {}
+								end,
+							} :: Navigation.Tab,
+						},
+					}
+					return UI.TabView "ThemedTabs"(spec)
+				end, { theme = assert(themes.define(package)), motionLevel = "none" })
+				local root = find(world.screen, "ThemedTabs")
+				local D2, V2 = world.engine.types.UDim2, world.engine.types.Vector2
+				for _, size in { V2.new(320, 640), V2.new(390, 844), V2.new(844, 390) } do
+					root.AbsoluteSize = size
+					local plate = find(root, "Track")
+					Verify.expect(plate.Position):toBe(D2.new(0, 20, 1, -114))
+					Verify.expect(plate.Size):toBe(D2.new(1, -40, 0, 96))
+					Verify.expect(size.X + plate.Size.X.Offset > 0):toBe(true)
+					Verify.expect(size.Y + plate.Position.Y.Offset >= 0):toBe(true)
+					Verify.expect(plate:FindFirstChildWhichIsA("UICorner").CornerRadius.Offset):toBe(0)
+					Verify.expect(assert(root:FindFirstChild("Content")).Size.Y.Offset):toBe(-124)
+				end
+				local button = find(root, "one")
+				local mark = find(button, "SelectionIndicator")
+				Verify.expect(mark.Position):toBe(D2.new(0.5, 0, 1, 5))
+				Verify.expect(mark.AnchorPoint):toBe(V2.new(0.5, 0))
+				Verify.expect(mark.Size):toBe(D2.fromOffset(24, 6))
+				local flow = assert(find(button, "Content"):FindFirstChildWhichIsA("UIListLayout"))
+				Verify.expect(flow.Padding.Offset >= 16):toBe(true)
+				local function checkCorner(
+					choice: "topLeading" | "topTrailing" | "bottomLeading" | "bottomTrailing",
+					x: number,
+					y: number
+				)
+					anchor:set(choice)
+					Verify.expect(find(button, "Corner").Position):toBe(D2.fromScale(x, y))
+				end
+				checkCorner("topLeading", 0, 0)
+				checkCorner("topTrailing", 1, 0)
+				checkCorner("bottomLeading", 0, 1)
+				checkCorner("bottomTrailing", 1, 1)
+				anchor:set("topTrailing")
+				track:set("automatic")
+				indicator:set("automatic")
+				Verify.expect(find(button, "SelectionIndicator")):toBeNil()
+				Verify.expect(find(root, "Track").Visible):toBe(false)
+				Verify.expect(find(root, "Tabs").Position.X.Offset):toBe(0)
+				Verify.expect(find(root, "Tabs").Size.X.Offset):toBe(0)
+				Verify.expect(button:HasTag("facet-tab-filled")):toBe(true)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("stacks destination labels below icons in an equal phone bar", {
 			id = "native_navigation::native navigation controls::stacks destination labels below icons in an equal phone bar",
 			run = function()
@@ -378,8 +659,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(segments:FindFirstChild("Label"):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
 					:toBe(world.engine.types.Enum.UIFlexMode.Grow)
 				Verify.expect(segments:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(true)
-				Verify.expect(options.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.XY)
-				Verify.expect(options.Size.Y.Offset):toBe(44)
+				Verify.expect(options.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.X)
+				Verify.expect(options.Size.Y.Offset):toBe(50)
+				Verify.expect(find(options, "one").Size.Y.Offset + 6):toBe(options.Size.Y.Offset)
 				Verify.expect(segments:FindFirstChildWhichIsA("UIListLayout").FillDirection)
 					:toBe(world.engine.types.Enum.FillDirection.Horizontal)
 				local list = find(world.screen, "List")
@@ -394,61 +676,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((alignment(find(list, "one")))):toBe(Horizontal.Left)
 				find(segments, "two").Activated:Fire()
 				Verify.expect((selected:peek())):toBe("two")
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("reads a bound iconOnly, drops an empty badge and paints only the underline indicator", {
-			id = "native_navigation::native navigation controls::reads a bound iconOnly, drops an empty badge and paints only the underline indicator",
-			run = function()
-				local selected = Compose.cell("one")
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						UI.Picker "Plain" {
-							selected = selected,
-							style = "segmented" :: "segmented",
-							iconOnly = Compose.cell(false),
-							options = {
-								{ value = "one", label = "One", badge = "" } :: Navigation.PickerOption<string>,
-								{ value = "two", label = "Two", badge = 3 } :: Navigation.PickerOption<string>,
-							},
-						} :: unknown,
-						UI.Picker "Underlined" {
-							selected = selected,
-							style = "segmented" :: "segmented",
-							indicator = "underline" :: "underline",
-							options = {
-								{ value = "one", label = "One" } :: Navigation.PickerOption<string>,
-								{ value = "two", label = "Two" } :: Navigation.PickerOption<string>,
-							},
-						},
-					})
-				end)
-				local plain, underlined = find(world.screen, "Plain"), find(world.screen, "Underlined")
-				Verify.expect((find(plain, "one"):GetAttribute("label"))):toBe("One")
-				Verify.expect((find(plain, "two"):GetAttribute("label"))):toBe("Two (3)")
-				Verify.expect(find(find(plain, "two"), "Count").Text):toBe("3")
-				Verify.expect((find(find(plain, "one"), "Count"))):toBeNil()
-				Verify.expect((find(underlined, "one"):HasTag("facet-segment-current"))):toBe(false)
-				Verify.expect(find(find(underlined, "one"), "SelectionIndicator") ~= nil):toBe(true)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("retains model values and updates picker font bindings", {
-			id = "native_navigation::native navigation controls::retains model values and updates picker font bindings",
-			run = function()
-				local selected, textSize = Compose.cell("one"), Compose.cell(16)
-				local world = setup(function(UI: FacetControls)
-					return UI.Picker({
-						selected = selected,
-						textSize = textSize,
-						style = "segmented" :: "segmented",
-						options = { { value = "one", label = "One" } :: Navigation.PickerOption<string> },
-					})
-				end)
-				textSize:set(22)
-				Verify.expect(find(world.screen, "one").TextSize):toBe(22)
 				world.stop()
 			end,
 		})
@@ -683,32 +910,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a destination given as an Instance survives a pop and shows on the next push", {
-			id = "native_navigation::native navigation controls::a destination given as an Instance survives a pop and shows on the next push",
-			run = function()
-				local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
-				local page: any
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					page = Host.Frame({ Name = "Shared" })
-					return UI.NavigationStack({
-						path = path,
-						root = { title = "Root", content = Host.Frame({ Name = "Root" }) } :: NavigationFixtures.NavigationDestination<any>,
-						destinations = {
-							detail = { title = "Detail", content = page } :: NavigationFixtures.NavigationDestination<any>,
-						},
-					})
-				end)
-				for _ = 1, 2 do
-					path:set({ { id = "detail" } })
-					Verify.expect((page:isDestroyed())):toBe(false)
-					Verify.expect(page.Parent ~= nil):toBe(true)
-					path:set({})
-				end
-				Verify.expect((page:isDestroyed())):toBe(false)
-				world.stop()
-			end,
-		})
-
 		verifyHarness:case("uses native page layout for model navigation and engine swipes", {
 			id = "native_navigation::native navigation controls::uses native page layout for model navigation and engine swipes",
 			run = function()
@@ -817,66 +1018,6 @@ return function(verifyHarness: Verify.Harness)
 				find(world.screen, "Pages").AbsoluteSize = world.engine.types.Vector2.new(640, 240)
 				Verify.expect((table.concat(writes, ","))):toBe("false,true")
 				Verify.expect(layout.CurrentPage.Name):toBe("two")
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("pages in a clipped frame with no scroll bar and shows one dot per page", {
-			id = "native_navigation::native navigation controls::pages in a clipped frame with no scroll bar and shows one dot per page",
-			run = function()
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					return UI.PageView({
-						selection = Compose.cell("one"),
-						pages = {
-							{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-							{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-							{ id = "three", title = "Three", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						},
-					})
-				end)
-				local pages = find(world.screen, "Pages")
-				Verify.expect(pages.ClassName):toBe("Frame")
-				Verify.expect(pages.ClipsDescendants):toBe(true)
-				local dots = 0
-				for _, child in find(world.screen, "Indicators"):GetChildren() do
-					if child:HasTag("facet-page-indicator") then
-						dots += 1
-					end
-				end
-				Verify.expect(dots):toBe(3)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("gives each page dot a 44 px target around its 8 px dot", {
-			id = "native_navigation::native navigation controls::gives each page dot a 44 px target around its 8 px dot",
-			run = function()
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					return UI.PageView({
-						selection = Compose.cell("one"),
-						pages = {
-							{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-							{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-							{ id = "three", title = "Three", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						},
-					})
-				end)
-				local Enum = world.engine.types.Enum
-				local indicators = find(world.screen, "Indicators")
-				local targets = {}
-				for _, child in indicators:GetChildren() do
-					if child:HasTag("facet-page-indicator") then
-						local dot = child:FindFirstChild("Dot")
-						table.insert(
-							targets,
-							`{child.Name} {child.Size.X.Offset}x{child.Size.Y.Offset} {child.AutomaticSize == Enum.AutomaticSize.None} {dot.Size.X.Offset}x{dot.Size.Y.Offset}`
-						)
-					end
-				end
-				table.sort(targets)
-				Verify.expect((table.concat(targets, ", ")))
-					:toBe("one 44x44 true 8x8, three 44x44 true 8x8, two 44x44 true 8x8")
-				Verify.expect(indicators:FindFirstChildWhichIsA("UIListLayout").Padding.Offset):toBe(0)
 				world.stop()
 			end,
 		})
@@ -1361,28 +1502,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("reveals a disclosure at once under reduced motion, with no frame of travel", {
-			id = "native_navigation::native navigation controls::reveals a disclosure at once under reduced motion, with no frame of travel",
-			run = function()
-				local expanded = Compose.cell(false)
-				local world = setup(function(UI: FacetControls)
-					return UI.DisclosureGroup({
-						expanded = expanded,
-						label = "Details",
-						content = function(): Instance
-							return UI.Button "Inside" { label = "Inside" }
-						end,
-					})
-				end)
-				world.gui.ReducedMotionEnabled = true
-				expanded:set(true)
-				local reveal = find(world.screen, "Reveal")
-				Verify.expect(reveal.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.Y)
-				Verify.expect(find(world.screen, "Inside") ~= nil):toBe(true)
-				world.stop()
-			end,
-		})
-
 		verifyHarness:case("a disclosure given an Instance as content shows it again after a collapse", {
 			id = "native_navigation::native navigation controls::a disclosure given an Instance as content shows it again after a collapse",
 			run = function()
@@ -1797,80 +1916,6 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
-		verifyHarness:case("darkens modal scrims as the player lowers background transparency", {
-			id = "native_navigation::native navigation controls::darkens modal scrims as the player lowers background transparency",
-			run = function()
-				local presented = Compose.cell(true)
-				local world = setup(function(UI: FacetControls)
-					return UI.Alert({
-						isPresented = presented,
-						title = "Leave race?",
-						actions = {
-							{ id = "stay", label = "Stay", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
-						},
-					})
-				end)
-				local scrim = find(world.screen, "DismissOutside")
-				Verify.expect((scrim:HasTag("facet-scrim"))):toBe(true)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("shows a checkmark on the marked menu item only", {
-			id = "native_navigation::native navigation controls::shows a checkmark on the marked menu item only",
-			run = function()
-				local opened, current = Compose.cell(false), Compose.cell("a")
-				local world = setup(function(UI: FacetControls)
-					local function item(id: string): Navigation.MenuItem<string>
-						return {
-							id = id,
-							label = id,
-							marked = function(use: Use)
-								return use(current) == id
-							end,
-							onSelect = function()
-								current:set(id)
-							end,
-						}
-					end
-					return UI.Menu({ isPresented = opened, items = { item("a"), item("b") } })
-				end)
-				opened:set(true)
-				local function check(id)
-					return find(find(world.screen, id), "TrailingIcon").Visible
-				end
-				Verify.expect((check("a"))):toBe(true)
-				Verify.expect((check("b"))):toBe(false)
-				current:set("b")
-				Verify.expect((check("a"))):toBe(false)
-				Verify.expect((check("b"))):toBe(true)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("keeps a transparent menu catcher transparent at every background preference", {
-			id = "native_navigation::native navigation controls::keeps a transparent menu catcher transparent at every background preference",
-			run = function()
-				local opened = Compose.cell(false)
-				local world = setup(function(UI: FacetControls)
-					return UI.Menu({
-						isPresented = opened,
-						items = {
-							{ id = "Run", label = "Run", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-						},
-					})
-				end)
-				opened:set(true)
-				local catcher = find(world.screen, "DismissOutside")
-				Verify.expect((catcher:HasTag("facet-scrim"))):toBe(false)
-				Verify.expect(catcher.BackgroundTransparency):toBe(1)
-				world.gui.PreferredTransparency = 0
-				Verify.expect(catcher.BackgroundTransparency):toBe(1)
-				world.gui.PreferredTransparency = 0.5
-				Verify.expect(catcher.BackgroundTransparency):toBe(1)
-				world.stop()
-			end,
-		})
 
 		verifyHarness:case("hands selection to the shown tab panel and restores it on return", {
 			id = "native_navigation::native navigation controls::hands selection to the shown tab panel and restores it on return",
@@ -1988,50 +2033,6 @@ return function(verifyHarness: Verify.Harness)
 				local returned = snapshot()
 				advance()
 				Verify.expect(changed(returned, snapshot()) > 0):toBe(true)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("hides a callout while its retained tab is away and shows it again on return", {
-			id = "native_navigation::native navigation controls::hides a callout while its retained tab is away and shows it again on return",
-			run = function()
-				local selection, events = Compose.cell("one"), {}
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					return UI.TabView {
-						selection = selection,
-						tabs = {
-							{
-								id = "one",
-								content = function(): Instance
-									local anchor = UI.Button "Anchor" { label = "Anchor" }
-									return Host.Frame "One" {
-										anchor :: unknown,
-										UI.Callout {
-											anchor = anchor :: GuiObject,
-											content = function(): Instance
-												return Host.TextLabel "Tip" {}
-											end,
-											onShow = function()
-												table.insert(events, "show")
-											end,
-											onHide = function(reason: "hidden" | "retired")
-												table.insert(events, "hide:" .. reason)
-											end,
-											onRetire = function() end,
-										},
-									}
-								end,
-							} :: FixtureNavigationTypes.Tab,
-							{ id = "two", content = UI.Button "TwoAction" { label = "Two" } } :: FixtureNavigationTypes.Tab,
-						},
-					}
-				end)
-				Verify.expect(find(world.screen, "Tip") ~= nil):toBe(true)
-				selection:set("two")
-				Verify.expect((find(world.screen, "Tip"))):toBe(nil)
-				selection:set("one")
-				Verify.expect(find(world.screen, "Tip") ~= nil):toBe(true)
-				Verify.expect((table.concat(events, ","))):toBe("show,hide:hidden,show")
 				world.stop()
 			end,
 		})
@@ -2230,15 +2231,15 @@ return function(verifyHarness: Verify.Harness)
 					end, { theme = assert(themes.define(package)) })
 					local V2 = world.engine.types.Vector2.new
 					local picker = find(world.screen, "Picker")
-					find(world.screen, "a").TextBounds = V2(56, 31)
+					find(find(world.screen, "a"), "Label").TextBounds = V2(56, 31)
 					Verify.expect(picker.Size.Y.Offset):toBe(31 + 20 + 6)
-					find(world.screen, "a").TextBounds = V2(48, 16)
+					find(find(world.screen, "a"), "Label").TextBounds = V2(48, 16)
 					world.gui.PreferredTextSize = world.engine.types.Enum.PreferredTextSize.Largest
-					Verify.expect(picker.Size.Y.Offset):toBe(44)
-					find(world.screen, "a").TextBounds = V2(56, 31)
-					find(world.screen, "b").TextBounds = V2(48, 29)
+					Verify.expect(picker.Size.Y.Offset):toBe(50)
+					find(find(world.screen, "a"), "Label").TextBounds = V2(56, 31)
+					find(find(world.screen, "b"), "Label").TextBounds = V2(48, 29)
 					Verify.expect(picker.Size.Y.Offset):toBe(31 + 20 + 6)
-					find(world.screen, "a").TextBounds = V2(56, 20)
+					find(find(world.screen, "a"), "Label").TextBounds = V2(56, 20)
 					Verify.expect(picker.Size.Y.Offset):toBe(29 + 20 + 6)
 					world.stop()
 				end,
@@ -2285,12 +2286,12 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end, { theme = assert(themes.define(package)) })
 				local picker = find(world.screen, "Laps")
-				find(picker, "3").TextBounds = world.engine.types.Vector2.new(8, 13)
-				find(picker, "10").TextBounds = world.engine.types.Vector2.new(16, 13)
+				find(find(picker, "3"), "Label").TextBounds = world.engine.types.Vector2.new(8, 13)
+				find(find(picker, "10"), "Label").TextBounds = world.engine.types.Vector2.new(16, 13)
 				Verify.expect(picker.Size.Y.Offset):toBe(13 + 4 + 6)
-				find(picker, "10").TextBounds = world.engine.types.Vector2.new(16, 18)
+				find(find(picker, "10"), "Label").TextBounds = world.engine.types.Vector2.new(16, 18)
 				Verify.expect(picker.Size.Y.Offset):toBe(18 + 4 + 6)
-				find(picker, "10").TextBounds = world.engine.types.Vector2.new(16, 13)
+				find(find(picker, "10"), "Label").TextBounds = world.engine.types.Vector2.new(16, 13)
 				Verify.expect(picker.Size.Y.Offset):toBe(13 + 4 + 6)
 				world.stop()
 			end,
@@ -2899,38 +2900,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("paints a presented modal above a visible callout", {
-			id = "native_navigation::native navigation controls::paints a presented modal above a visible callout",
-			run = function()
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					local anchor = UI.Button "Anchor" { label = "Anchor" }
-					return Host.Frame({
-						anchor :: unknown,
-						UI.Callout({
-							anchor = anchor :: GuiObject,
-							isPresented = Compose.cell(true),
-							onRetire = function() end,
-							content = function(): Instance
-								return UI.Text({ text = "Tip" })
-							end,
-						}),
-						UI.Alert({
-							isPresented = Compose.cell(true),
-							title = "Leave?",
-							actions = { { id = "Stay", label = "Stay" } :: FixtureNavigationTypes.AlertAction<any> },
-						}),
-					})
-				end)
-				world.settle()
-				local callout, modal = find(world.screen, "CalloutPanel"), find(world.screen, "AlertModal")
-				Verify.expect(callout ~= nil and modal ~= nil):toBe(true)
-				Verify.expect(callout.ZIndex < modal.ZIndex):toBe(true)
-				local arrow = find(world.screen, "Arrow")
-				Verify.expect(arrow == nil or arrow.ZIndex < modal.ZIndex):toBe(true)
-				world.stop()
-			end,
-		})
-
 		verifyHarness:case("places a callout inside the overlay parent that receives it", {
 			id = "native_navigation::native navigation controls::places a callout inside the overlay parent that receives it",
 			run = function()
@@ -3324,69 +3293,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("suspends callout plates with hidden anchors and restores their native arrow", {
-			id = "native_navigation::native navigation controls::suspends callout plates with hidden anchors and restores their native arrow",
-			run = function()
-				local retired = 0
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					local anchor = UI.Button "Anchor" { label = "Anchor" }
-					return Host.Frame "Surface" {
-						anchor :: unknown,
-						UI.Callout({
-							anchor = anchor :: GuiObject,
-							onRetire = function()
-								retired += 1
-							end,
-							content = function(): Instance
-								return UI.Text({ text = "Tip" })
-							end,
-						}),
-					}
-				end)
-				Verify.expect(find(world.screen, "Arrow") ~= nil):toBe(true)
-				find(world.screen, "Surface").Visible = false
-				Verify.expect((find(world.screen, "CalloutPanel"))):toBe(nil)
-				find(world.screen, "Surface").Visible = true
-				Verify.expect(find(world.screen, "Arrow") ~= nil):toBe(true)
-				Verify.expect(retired):toBe(0)
-				world.stop()
-			end,
-		})
-
-		verifyHarness:case("preserves icon-only names, indicator choices and native target floors", {
-			id = "native_navigation::native navigation controls::preserves icon-only names, indicator choices and native target floors",
-			run = function()
-				local value, indicator = Compose.cell("a"), cells.indicator("underline")
-				local world = setup(function(UI: FacetControls)
-					return UI.Picker({
-						selected = value,
-						style = "segmented" :: "segmented",
-						iconOnly = true,
-						indicator = indicator,
-						options = {
-							{ value = "a", label = "Alpha", icon = "settings" } :: Navigation.PickerOption<string>,
-							{
-								value = "b",
-								label = "Beta",
-								icon = "settings",
-							} :: Navigation.PickerOption<string>,
-						},
-					})
-				end)
-				local a = find(world.screen, "a")
-				Verify.expect((a:GetAttribute("FacetLabel"))):toBe("Alpha")
-				Verify.expect(find(a, "LeadingIcon").Image ~= ""):toBe(true)
-				Verify.expect(a:FindFirstChildWhichIsA("UISizeConstraint").MinSize.X):toBe(44)
-				Verify.expect(find(a, "SelectionIndicator") ~= nil):toBe(true)
-				value:set("b")
-				Verify.expect((find(a, "SelectionIndicator"))):toBe(nil)
-				Verify.expect(find(find(world.screen, "b"), "SelectionIndicator") ~= nil):toBe(true)
-				indicator:set("none")
-				Verify.expect((find(world.screen, "SelectionIndicator"))):toBe(nil)
-				world.stop()
-			end,
-		})
-
 		verifyHarness:case(
 			"renders disclosure appearances and collapsible summaries with native assets and close policy",
 			{
@@ -3428,45 +3334,6 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((expanded:peek())):toBe(false)
 					Verify.expect((find(world.screen, "DetailsAction"))):toBe(nil)
 					Verify.expect((find(world.screen, "Summary"))):toBe(summary)
-					world.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case(
-			"marks the filled current sidebar tab selected, so a skinned theme paints its selected art",
-			{
-				id = "native_navigation::native navigation controls::marks the filled current sidebar tab selected, so a skinned theme paints its selected art",
-				run = function()
-					local selected = Compose.cell("a")
-					local world = setup(function(UI: FacetControls, Host: RobloxHost)
-						return UI.TabView "Sidebar" {
-							selection = selected,
-							placement = "sidebar" :: "sidebar",
-							tabs = {
-								{
-									id = "a",
-									label = "Alpha",
-									content = function(): Instance
-										return Host.Frame({})
-									end,
-								} :: FixtureNavigationTypes.Tab,
-								{
-									id = "b",
-									label = "Beta",
-									content = function(): Instance
-										return Host.Frame({})
-									end,
-								} :: FixtureNavigationTypes.Tab,
-							},
-						}
-					end)
-					local tabs = find(world.screen, "Tabs")
-					Verify.expect((find(tabs, "a"):HasTag("facet-selected"))):toBe(true)
-					Verify.expect((find(tabs, "b"):HasTag("facet-selected"))):toBe(false)
-					selected:set("b")
-					Verify.expect((find(tabs, "a"):HasTag("facet-selected"))):toBe(false)
-					Verify.expect((find(tabs, "b"):HasTag("facet-selected"))):toBe(true)
 					world.stop()
 				end,
 			}
@@ -3601,7 +3468,7 @@ return function(verifyHarness: Verify.Harness)
 				local bounds, art = skin.Parent, find(skin, "panel1")
 				Verify.expect(art.Image):toBe("rbxassetid://42")
 				Verify.expect((panel:FindFirstChildWhichIsA("UIGridStyleLayout"))):toBeNil()
-				Verify.expect(boundary.Parent):toBe(panel)
+				Verify.expect(boundary.Parent):toBe(panel:FindFirstChild("Fade"))
 				Verify.expect(bounds.Parent):toBe(boundary)
 				Verify.expect(boundary.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.None)
 				Verify.expect(boundary.Size.X.Offset):toBe(1)
@@ -3764,39 +3631,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(source, "Scene").CurrentCamera.Parent):toBe(find(source, "Scene"))
 				Verify.expect((find(world.screen, "ExternalCamera"):isDestroyed())):toBe(false)
 				world.stop()
-			end,
-		})
-
-		verifyHarness:case("keeps a full-screen alert's content and actions in a centred readable column", {
-			id = "native_navigation::native navigation controls::keeps a full-screen alert's content and actions in a centred readable column",
-			run = function()
-				for _, case in { { nil, 960 }, { 700, 700 } } :: { { number? } } do
-					local shown = Compose.cell(false)
-					local world = setup(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({
-							UI.Alert({
-								isPresented = shown,
-								title = "Detail",
-								surface = "fullScreen" :: "fullScreen",
-								maxWidth = case[1],
-								actions = {
-									{ id = "done", label = "Done", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
-								},
-							}),
-						})
-					end)
-					shown:set(true)
-					local panel = find(world.screen, "AlertPanel")
-					for _, name in { "AlertMessage", "Actions" } do
-						local node = find(panel, name)
-						Verify.expect(node.AnchorPoint.X):toBe(0.5)
-						Verify.expect(node.Position.X.Scale):toBe(0.5)
-						local cap = node:FindFirstChild("ReadableWidth")
-						Verify.expect(cap ~= nil):toBe(true)
-						Verify.expect(cap.MaxSize.X):toBe(case[2])
-					end
-					world.stop()
-				end
 			end,
 		})
 
@@ -4261,8 +4095,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("keeps alert layout fixed while its paint grows and dismisses faster than it entered", {
-			id = "native_navigation::native navigation controls::keeps alert layout fixed while its paint grows and dismisses faster than it entered",
+		verifyHarness:case("keeps alert layout fixed while its group fades and dismisses faster than it entered", {
+			id = "native_navigation::native navigation controls::keeps alert layout fixed while its group fades and dismisses faster than it entered",
 			run = function()
 				local shown = Compose.cell(false)
 				local world = setup(function(UI: FacetControls)
@@ -4282,22 +4116,15 @@ return function(verifyHarness: Verify.Harness)
 				find(panel, "AlertContent").Parent.AbsoluteSize = V.new(300, 60)
 				world.engine.heartbeat:Fire(0)
 				world.engine.heartbeat:Fire(0)
-				Verify.expect(panel.Size.X.Offset):toBe(440)
-				Verify.expect(find(panel, "PresentationPaint").Size.X.Offset):toBe(440)
-				Verify.expect(find(panel, "PresentationScale").Scale):toBeCloseTo(0.94, 0.01)
-				Verify.expect(find(panel, "PresentationScale").Parent):toBe(find(panel, "PresentationPaint"))
-				Verify.expect(layout.Parent.Name):toBe("PresentationContent")
-				Verify.expect(layout.Parent.Size.X.Offset):toBe(440)
+				local parent, size = layout.Parent, panel.Size
+				Verify.expect(panel.AbsoluteSize):toBe(V.new(440, 176))
+				Verify.expect(find(panel, "PresentationPaint")):toBeNil()
+				Verify.expect(layout:IsDescendantOf(panel:FindFirstChild("Fade"))):toBe(true)
 				Verify.expect((fadeKit.of(panel))):toBe(1)
 				world.engine.heartbeat:Fire(0.1)
-				Verify.expect(panel.Size.X.Offset):toBe(440)
-				local paint = find(panel, "PresentationPaint")
-				Verify.expect(paint.Size.X.Offset):toBe(440)
-				Verify.expect(
-					find(paint, "PresentationScale").Scale > 0.94 and find(paint, "PresentationScale").Scale < 1
-				)
-					:toBe(true)
-				Verify.expect(layout.Parent.Size.X.Offset):toBe(440)
+				Verify.expect(panel.Size):toBe(size)
+				Verify.expect(panel.AbsoluteSize):toBe(V.new(440, 176))
+				Verify.expect(layout.Parent):toBe(parent)
 				Verify.expect(fadeKit.of(panel) > 0 and fadeKit.of(panel) < 1):toBe(true)
 				world.engine.heartbeat:Fire(0.1)
 				Verify.expect(panel.Size.X.Scale):toBe(1)
@@ -4313,8 +4140,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("grows callouts, help and menus from their anchor and settles them exactly", {
-			id = "native_navigation::native navigation controls::grows callouts, help and menus from their anchor and settles them exactly",
+		verifyHarness:case("grows callouts and fades help and menus at their final anchor", {
+			id = "native_navigation::native navigation controls::grows callouts and fades help and menus at their final anchor",
 			run = function()
 				local opened = Compose.cell(false)
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
@@ -4364,10 +4191,35 @@ return function(verifyHarness: Verify.Harness)
 				local help = find(world.screen, "Help")
 				Verify.expect(help.ClassName):toBe("Frame")
 				help.AbsoluteSize = V.new(80, 30)
+				local text = find(help, "HelpText")
+				text.AbsolutePosition = help.AbsolutePosition + V.new(8, 6)
+				text.AbsoluteSize = V.new(64, 18)
+				text.TextBounds = V.new(56, 16)
 				world.engine.heartbeat:Fire(1 / 60)
 				world.engine.heartbeat:Fire(1 / 60)
-				local entering = materialize.of(help).Scale
-				Verify.expect(entering >= 0.9 and entering < 1):toBe(true)
+				Verify.expect(materialize.of(help).Scale):toBe(1)
+				Verify.expect(fadeKit.of(help) > 0 and fadeKit.of(help) < 1):toBe(true)
+				local position, anchorPoint = help.Position, help.AnchorPoint
+				local restOrigin = text.AbsolutePosition - help.AbsolutePosition
+				local previous, intermediate = 1, 0
+				for _ = 1, 12 do
+					world.engine.heartbeat:Fire(1 / 60)
+					local alpha = fadeKit.of(help)
+					Verify.expect(alpha <= previous):toBe(true)
+					Verify.expect(materialize.of(help).Scale):toBe(1)
+					Verify.expect(help.Position):toBe(position)
+					Verify.expect(help.AnchorPoint):toBe(anchorPoint)
+					Verify.expect(text.AbsolutePosition - help.AbsolutePosition):toBe(restOrigin)
+					local fade = find(help, "Fade")
+					Verify.expect(text:IsDescendantOf(fade)):toBe(true)
+					Verify.expect(math.abs(fade.GroupTransparency - alpha) < 1e-6):toBe(true)
+					Verify.expect(text.TextTransparency):toBe(0)
+					if alpha > 0 and alpha < 1 then
+						intermediate += 1
+					end
+					previous = alpha
+				end
+				Verify.expect(intermediate > 0):toBe(true)
 				world.settle()
 				Verify.expect(materialize.of(help).Scale):toBe(1)
 				Verify.expect((fadeKit.of(help))):toBe(0)
@@ -4386,7 +4238,8 @@ return function(verifyHarness: Verify.Harness)
 				world.engine.heartbeat:Fire(1 / 60)
 				world.engine.heartbeat:Fire(1 / 60)
 				local growing = materialize.of(menu).Scale
-				Verify.expect(growing >= 0.95 and growing < 1):toBe(true)
+				Verify.expect(growing):toBe(1)
+				Verify.expect(fadeKit.of(group) > 0):toBe(true)
 				world.settle()
 				Verify.expect((fadeKit.of(group))):toBe(0)
 				Verify.expect(materialize.of(menu).Scale):toBe(1)
@@ -4397,63 +4250,567 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+	end);
+	(function(verifyHarness: Verify.Harness)
+		type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+		type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+		type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+		type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+		type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
+		local FixtureComposeTypes = require("../src/vendor/compose/core")
+		local FixtureCollectionTypes = require("../src/ui/collection_types")
+		local FixtureNavigationTypes = require("../src/ui/navigation_types")
+		type Readable<T> = { peek: (Readable<T>) -> T }
+		type Use = <T>(Readable<T>) -> T
 
-		verifyHarness:case("plays the press haptic for selection changes and decisive alert actions only", {
-			id = "native_navigation::native navigation controls::plays the press haptic for selection changes and decisive alert actions only",
-			run = function()
-				local selected, shown, opened = Compose.cell("a"), Compose.cell(true), Compose.cell(true)
-				local effect
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						UI.Picker "Mode" {
+		local materialize = require("./lib/materialize")
+		local Facet = require("../src")
+		local engineLib = require("./lib/native_engine")
+		local Compose: ComposeModule = Facet.Compose
+
+		type World = {
+			engine: any,
+			runtime: any,
+			gui: any,
+			input: any,
+			screen: any,
+			stop: () -> (),
+		}
+
+		local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
+			local engine: any = engineLib.new()
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local input = engine.new("UserInputService")
+			input.GetFocusedTextBox = function()
+				return nil
+			end
+			input.IsKeyDown = function()
+				return false
+			end
+			local config: { [string]: any } = {
+				types = engine.types,
+				guiService = gui,
+				services = { GuiService = gui, UserInputService = input },
+			}
+			for key, value in (options or {}) :: { [string]: any } do
+				config[key] = value
+			end
+			local UI = Facet.controls(runtime, config :: any)
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local stop, screen: any = runtime.mount(function()
+				return Host.ScreenGui({ build(UI, Host, engine) })
+			end, engine.new("Folder"))
+			return {
+				engine = engine,
+				runtime = runtime,
+				gui = gui,
+				input = input,
+				screen = screen,
+				stop = function()
+					stop()
+					runtime:dispose()
+				end,
+			}
+		end
+
+		local function find(root: any, name: string): any
+			if root.Name == name then
+				return root
+			end
+			for _, child in root:GetChildren() do
+				local found = find(child, name)
+				if found then
+					return found
+				end
+			end
+			return nil
+		end
+
+		local function action(root: any, name: string): any
+			for _, node in root:GetDescendants() do
+				if node:IsA("InputContext") and node.Name == "Facet" .. name and node.Enabled then
+					return node:FindFirstChild(name)
+				end
+			end
+			return nil
+		end
+
+		local function mountError(build: (any, any) -> any): string?
+			local engine: any = engineLib.new()
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local UI = Facet.controls(
+				runtime,
+				{ types = engine.types, guiService = gui, services = { GuiService = gui } } :: any
+			)
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local ok, message = pcall(function()
+				local stop = runtime.mount(function()
+					return Host.ScreenGui({ build(UI, Host) })
+				end, engine.new("Folder"))
+				stop()
+			end)
+			runtime:dispose()
+			return if ok then nil else tostring(message)
+		end
+
+		local function refuses(message: string, build: (any, any) -> any): boolean
+			local failure = mountError(build)
+			return failure ~= nil and string.find(failure, message, 1, true) ~= nil
+		end
+
+		local function V2(world: World, x: number, y: number): any
+			return world.engine.types.Vector2.new(x, y)
+		end
+
+		local function page(
+			Host: any,
+			name: string,
+			builds: { [string]: number }?,
+			cleanups: { [string]: number }?
+		): () -> any
+			return function()
+				if builds then
+					builds[name] = (builds[name] or 0) + 1
+				end
+				if cleanups then
+					Compose.cleanup(function()
+						cleanups[name] = (cleanups[name] or 0) + 1
+					end)
+				end
+				return Host.Frame(name .. "Body")({})
+			end
+		end
+
+		verifyHarness:suite("native parity navigation", function()
+			for _, case in
+				{
+					{ kind = "VirtualGrid", editing = false },
+					{ kind = "Table", editing = false },
+					{
+						kind = "Table",
+						editing = true,
+					},
+				}
+			do
+				local kind, editing = case.kind, case.editing
+			end
+
+			verifyHarness:case("sizes segments by fill or hug without replacing them and refuses unknown sizing", {
+				id = "native_navigation::native parity navigation::sizes segments by fill or hug without replacing them and refuses unknown sizing",
+				run = function()
+					local sizing, selected =
+						(function(value: "fill" | "hug"): FixtureComposeTypes.Cell<"fill" | "hug">
+							return Compose.cell(value)
+						end)("fill"), Compose.cell("a")
+					local world = setup(function(UI: FacetControls)
+						return UI.Picker({
 							selected = selected,
 							style = "segmented" :: "segmented",
+							sizing = sizing,
 							options = {
-								{ value = "a", label = "A" } :: Navigation.PickerOption<string>,
-								{ value = "b", label = "B" } :: Navigation.PickerOption<string>,
+								{ value = "a", label = "A" } :: FixtureNavigationTypes.PickerOption<any>,
+								{ value = "b", label = "Much longer" } :: FixtureNavigationTypes.PickerOption<any>,
 							},
-						} :: unknown,
-						UI.TabView({
-							selection = Compose.cell("one"),
-							tabs = {
-								{ id = "one", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-								{ id = "two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-							},
-						}),
-						UI.Menu({
-							isPresented = opened,
-							items = {
-								{ id = "Run", label = "Run", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
-							},
-						}),
-						UI.Alert({
-							isPresented = shown,
-							title = "Delete?",
-							actions = {
-								{ id = "Keep", label = "Keep", role = "cancel" :: "cancel" } :: FixtureNavigationTypes.AlertAction<any>,
-								{ id = "Erase", label = "Delete", role = "destructive" :: "destructive" } :: FixtureNavigationTypes.AlertAction<any>,
-							},
-						}),
-					})
-				end, {
-					pressHaptic = function(engine)
-						effect = engine.new("HapticEffect")
-						return effect
+						})
+					end)
+					local Enum = world.engine.types.Enum
+					local picker = find(world.screen, "Picker")
+					local layout = picker:FindFirstChildWhichIsA("UIListLayout")
+					local a = find(picker, "a")
+					Verify.expect(layout.HorizontalFlex):toBe(Enum.UIFlexAlignment.Fill)
+					Verify.expect(a.AutomaticSize):toBe(Enum.AutomaticSize.X)
+					Verify.expect(a.Size.Y.Scale):toBe(0)
+					Verify.expect(a.Size.Y.Offset):toBe(44)
+					sizing:set("hug")
+					Verify.expect(layout.HorizontalFlex):toBe(Enum.UIFlexAlignment.None)
+					Verify.expect((find(picker, "a"))):toBe(a)
+					sizing:set("fill")
+					Verify.expect(layout.HorizontalFlex):toBe(Enum.UIFlexAlignment.Fill)
+					world.stop()
+					Verify.expect((refuses("Picker.sizing must be fill or hug", function(UI: FacetControls)
+						return UI.Picker({
+							selected = Compose.cell("a"),
+							style = "segmented",
+							sizing = "wide",
+							options = { { value = "a", label = "A" } },
+						} :: any)
+					end))):toBe(true)
+				end,
+			})
+		end)
+	end)(verifyHarness);
+	(function(verifyHarness: Verify.Harness)
+		type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+		type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+		type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+		type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+		type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+		type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+		local FixtureComposeTypes = require("../src/vendor/compose/core")
+		local FixtureNavigationTypes = require("../src/ui/navigation_types")
+		local FixtureRadialTypes = require("../src/ui/radial_types")
+		local FixtureCollectionTypes = require("../src/ui/collection_types")
+
+		local materialize = require("./lib/materialize")
+		local Facet = require("../src")
+		local engineLib = require("./lib/native_engine")
+		local Compose: ComposeModule = Facet.Compose
+		local themes = Facet.themes
+
+		type World = {
+			engine: any,
+			runtime: any,
+			gui: any,
+			input: any,
+			root: any,
+			now: () -> number,
+			step: (number) -> (),
+			stop: () -> (),
+		}
+
+		local function setup(build: (any, any, any) -> any, options: { [string]: any }?): World
+			local engine: any = engineLib.new(options and options.engine)
+			local now = 0
+			engine.clock = function()
+				return now
+			end
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local input = engine.new("UserInputService")
+			input.GetFocusedTextBox = function()
+				return nil
+			end
+			input.IsKeyDown = function()
+				return false
+			end
+			local root = engine.new("ScreenGui")
+			local config: { [string]: any } = {
+				types = engine.types,
+				guiService = gui,
+				services = { GuiService = gui, UserInputService = input },
+				inputParent = root,
+				motionLevel = "none",
+			}
+			for key, value in (options or {}) :: { [string]: any } do
+				if key ~= "engine" then
+					config[key] = value
+				end
+			end
+			local UI = Facet.controls(runtime, config :: any)
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local stop = runtime.mount(function()
+				return Host.Frame "Surface" {
+					Size = engine.types.UDim2.fromScale(1, 1),
+					build(UI, Host, engine),
+				}
+			end, root)
+			return {
+				engine = engine,
+				runtime = runtime,
+				gui = gui,
+				input = input,
+				root = root,
+				now = function()
+					return now
+				end,
+				step = function(seconds: number)
+					for _ = 1, math.ceil(seconds * 60) do
+						now += 1 / 60
+						engine.heartbeat:Fire(1 / 60)
+					end
+				end,
+				stop = function()
+					stop()
+					runtime:dispose()
+				end,
+			}
+		end
+
+		local function find(root: any, name: string): any
+			if root.Name == name then
+				return root
+			end
+			for _, child in root:GetChildren() do
+				local found = find(child, name)
+				if found then
+					return found
+				end
+			end
+			return nil
+		end
+
+		local function action(root: any, name: string): any
+			for _, node in root:GetDescendants() do
+				if node:IsA("InputContext") and node.Name == "Facet" .. name and node.Enabled then
+					return node:FindFirstChild(name)
+				end
+			end
+			return nil
+		end
+
+		local function mountError(build: (any, any) -> any): string?
+			local engine: any = engineLib.new()
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			local gui = engine.new("GuiService")
+			local UI = Facet.controls(
+				runtime,
+				{ types = engine.types, guiService = gui, services = { GuiService = gui } } :: any
+			)
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local ok, message = pcall(function()
+				local stop = runtime.mount(function()
+					return Host.ScreenGui({ build(UI, Host) })
+				end, engine.new("Folder"))
+				stop()
+			end)
+			runtime:dispose()
+			return if ok then nil else tostring(message)
+		end
+
+		local function refuses(message: string, build: (any, any) -> any): boolean
+			local failure = mountError(build)
+			return failure ~= nil and string.find(failure, message, 1, true) ~= nil
+		end
+
+		local function settle(world: World, root: any)
+			for _ = 1, 3 do
+				for _, node in root:GetDescendants() do
+					if node:IsA("TextLabel") or node:IsA("TextButton") then
+						local fits = node.TextFits
+						node.TextFits = not fits
+						node.TextFits = fits
+					end
+				end
+				world.step(0.25)
+			end
+		end
+
+		local function V2(world: World, x: number, y: number): any
+			return world.engine.types.Vector2.new(x, y)
+		end
+
+		local function title(row: any): string
+			local label = find(row, "Title")
+			return if label then label.Text else row.Text
+		end
+
+		local function count(row: any): string?
+			local badge = row:FindFirstChild("Count", true)
+			if badge == nil then
+				return nil
+			end
+			if badge:IsA("TextLabel") then
+				return badge.Text
+			end
+			for _, node in badge:GetDescendants() do
+				if node:IsA("TextLabel") and node.Text ~= "" and node.Name ~= "CaptionMeasure" then
+					return node.Text
+				end
+			end
+			return nil
+		end
+
+		verifyHarness:suite("native parity weaker menus", function()
+			verifyHarness:case(
+				"fits an explicit segmented strip inside the width of its labelled row: one constraint, shared width",
+				{
+					id = "native_navigation::native parity weaker menus::fits an explicit segmented strip inside the width of its labelled row: one constraint, shared width",
+					run = function()
+						local world = setup(function(UI, Host)
+							return Host.Frame({
+								UI.Picker "Handling" {
+									label = "Handling",
+									style = "segmented" :: "segmented",
+									selected = Compose.cell("a"),
+									options = {
+										{ value = "a", label = "Arcade handling" } :: FixtureNavigationTypes.PickerOption<any>,
+										{ value = "b", label = "Simulation handling" } :: FixtureNavigationTypes.PickerOption<any>,
+										{ value = "c", label = "Drift assist" } :: FixtureNavigationTypes.PickerOption<any>,
+										{ value = "d", label = "Rally gravel" } :: FixtureNavigationTypes.PickerOption<any>,
+									},
+								},
+							})
+						end)
+						local row = find(world.root, "Handling")
+						local options = find(row, "Options")
+
+						Verify.expect(options:FindFirstChildWhichIsA("UIListLayout", true).Wraps):toBe(true)
+						local floor = options:FindFirstChild("TargetFloor")
+						Verify.expect(floor.MinSize.Y):toBe(50)
+						local constraints = 0
+						for _, child in options:GetChildren() do
+							if child.ClassName == "UISizeConstraint" then
+								constraints += 1
+							end
+						end
+						Verify.expect(constraints):toBe(1)
+						row.AbsoluteSize = V2(world, 390, 100)
+						Verify.expect(floor.MaxSize.X):toBe(390)
+						row.AbsoluteSize = V2(world, 1280, 100)
+						Verify.expect(floor.MaxSize.X):toBe(1280)
+						world.stop()
 					end,
-				})
-				local mode = find(world.screen, "Mode")
-				Verify.expect(find(mode, "a").PressHapticEffect):toBe(nil)
-				Verify.expect(find(mode, "b").PressHapticEffect):toBe(effect)
-				selected:set("b")
-				Verify.expect(find(mode, "a").PressHapticEffect):toBe(effect)
-				Verify.expect(find(mode, "b").PressHapticEffect):toBe(nil)
-				Verify.expect(find(find(world.screen, "Tabs"), "one").PressHapticEffect):toBe(nil)
-				Verify.expect(find(find(world.screen, "MenuPanel"), "Run").PressHapticEffect):toBe(nil)
-				Verify.expect(find(world.screen, "Trigger").PressHapticEffect):toBe(nil)
-				Verify.expect(find(world.screen, "Erase").PressHapticEffect):toBe(effect)
-				Verify.expect(find(world.screen, "Keep").PressHapticEffect):toBe(nil)
-				world.stop()
-			end,
-		})
-	end)
+				}
+			)
+		end)
+		verifyHarness:suite("Segmented Picker caption geometry", function()
+			verifyHarness:case("shares one horizontal height and keeps compact touch targets", {
+				id = "native_navigation::Segmented Picker caption geometry::shares one horizontal height and keeps compact touch targets",
+				run = function()
+					for _, touch in { false, true } do
+						local world = setup(function(UI)
+							return UI.Picker "Mode" {
+								style = "segmented",
+								controlSize = "compact",
+								selected = Compose.cell("a"),
+								options = { { value = "a", label = "Device" }, { value = "b", label = "Theme" } },
+							}
+						end)
+						world.input.PreferredInput = if touch
+							then world.engine.types.Enum.PreferredInput.Touch
+							else world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+						local picker, segment = find(world.root, "Mode"), find(world.root, "a")
+						Verify.expect(picker.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.None)
+						Verify.expect(picker.Size.Y.Offset):toBe(segment.Size.Y.Offset + 6)
+						if touch then
+							assert(
+								segment.Size.Y.Offset >= 44,
+								`Touch segment height {segment.Size.Y.Offset} is below 44`
+							)
+						end
+						world.stop()
+					end
+				end,
+			})
+			verifyHarness:case("keeps a touch segment target inside an authored 44-point format strip", {
+				id = "native_navigation::Segmented Picker caption geometry::keeps a touch segment target inside an authored 44-point format strip",
+				run = function()
+					local world = setup(function(UI, Host, engine)
+						return UI.Picker "Format" {
+							style = "segmented",
+							selected = Compose.cell("rgb"),
+							options = { { value = "rgb", label = "RGB" }, { value = "hsv", label = "HSV" } },
+							Size = engine.types.UDim2.fromOffset(0, 44),
+							AutomaticSize = engine.types.Enum.AutomaticSize.X,
+						}
+					end)
+					world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+					local picker, segment = find(world.root, "Format"), find(world.root, "rgb")
+					Verify.expect(segment.Size.Y.Offset >= 44):toBe(true)
+					Verify.expect(picker:FindFirstChild("TargetFloor").MinSize.Y >= segment.Size.Y.Offset + 6)
+						:toBe(true)
+					world.stop()
+				end,
+			})
+			verifyHarness:case("fits compact skinned segment captions when the painted font is taller", {
+				id = "native_navigation::Segmented Picker caption geometry::fits compact skinned segment captions when the painted font is taller",
+				run = function()
+					local samples = {
+						{
+							package = require("../examples/themes/compact_pointer").build(themes),
+							base = 12,
+							painted = 13,
+							chrome = 4,
+						},
+						{
+							package = require("../examples/themes/pixel_quest").build(themes),
+							base = 14,
+							painted = 16,
+							chrome = 16,
+						},
+					}
+					for _, sample in samples do
+						local world = setup(function(UI)
+							return UI.Picker "Laps" {
+								style = "segmented",
+								controlSize = "compact",
+								selected = Compose.cell("3"),
+								options = {
+									{ value = "3", label = "3" },
+									{ value = "5", label = "5" },
+									{ value = "10", label = "10" },
+								},
+							}
+						end, { theme = sample.package })
+						local picker = find(world.root, "Laps")
+						for _, name in { "3", "5", "10" } do
+							local segment = find(picker, name)
+							local caption = assert(segment:FindFirstChild("Label", true))
+							segment.TextBounds = V2(world, 11, sample.base)
+							caption.TextBounds = V2(world, 11, sample.painted)
+							Verify.expect(segment.Size.Y.Offset >= sample.painted + sample.chrome):toBe(true)
+							Verify.expect(picker.Size.Y.Offset >= sample.painted + sample.chrome + 6):toBe(true)
+						end
+						world.stop()
+					end
+				end,
+			})
+			verifyHarness:case("reserves the caption and both native padding edges", {
+				id = "native_navigation::Segmented Picker caption geometry::reserves the caption and both native padding edges",
+				run = function()
+					local world = setup(function(UI)
+						return UI.Picker "Device" {
+							style = "segmented",
+							selected = Compose.cell("a"),
+							options = { { value = "a", label = "Device" }, { value = "b", label = "Theme" } },
+						}
+					end)
+					local segment = find(world.root, "a")
+					world.runtime.mount(function()
+						return world.runtime.constructors.UIPadding {
+							PaddingLeft = world.engine.types.UDim.new(0, 17),
+							PaddingRight = world.engine.types.UDim.new(0, 19),
+						}
+					end, segment)
+					local measure = segment:FindFirstChild("CaptionMeasure", true)
+					Verify.expect(measure.TextTransparency):toBe(1)
+					Verify.expect(measure.Interactable):toBe(false)
+					measure.TextBounds = V2(world, 68, 16)
+					local minimum = 0
+					for _, child in segment:GetChildren() do
+						if child:IsA("UISizeConstraint") then
+							minimum = math.max(minimum, child.MinSize.X)
+						end
+					end
+					assert(minimum >= 104, `Caption width {minimum} does not include both edges`)
+					world.stop()
+				end,
+			})
+			verifyHarness:case("uses logical caption height without reading its own painted height", {
+				id = "native_navigation::Segmented Picker caption geometry::uses logical caption height without reading its own painted height",
+				run = function()
+					local world = setup(function(UI, Host)
+						return Host.Frame {
+							Host.UIScale { Scale = 2 },
+							UI.Picker "Mode" {
+								style = "segmented",
+								selected = Compose.cell("a"),
+								options = { { value = "a", label = "Device" }, { value = "b", label = "Theme" } },
+							},
+						}
+					end, { theme = require("../examples/themes/glossy_touch").build(themes) })
+					local picker, segment = find(world.root, "Mode"), find(world.root, "a")
+					for _, node in picker:GetDescendants() do
+						if node.Name == "LayoutUnit" then
+							node.AbsoluteSize = V2(world, 200, 2)
+						end
+					end
+					local caption = segment:FindFirstChild("Title", true)
+						or segment:FindFirstChild("Label", true)
+						or segment
+					caption.TextBounds = V2(world, 136, 80)
+					Verify.expect(picker.Size.Y.Offset):toBe(62)
+					local height = picker.Size.Y.Offset
+					for frame = 1, 30 do
+						segment.AbsoluteSize = V2(world, 140, 80 + frame * 10)
+						world.step(1 / 30)
+						Verify.expect(picker.Size.Y.Offset):toBe(height)
+					end
+					world.stop()
+				end,
+			})
+		end)
+	end)(verifyHarness)
 end

@@ -35,8 +35,6 @@ FENCE_END = re.compile(r"^\s*```\s*$")
 HOST_CREATE = re.compile(r"Roblox\.createHost\s*\(")
 
 ALLOWLIST = [
-    ("tests/native_parity_apps.spec.luau", re.compile(r"Facet\.nonexistentExport"),
-     "the apps spec feeds a made-up export to its own missing-export scanner"),
     ("tools/check_call_shape_drift.py", re.compile(r"."),
      "the guard's own match data and planted selftest calls"),
     ("tests/native_public_surface.spec.luau", re.compile(r"toBeNil\(\)"),

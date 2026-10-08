@@ -601,6 +601,9 @@ return function(ctx: Types.Context, UI: Controls): ()
 			tray("leading") :: ComposeTypes.Child,
 			tray("trailing"),
 			Host.Frame "Content" {
+				Visible = function(use: ComposeTypes.Use): boolean
+					return use(committing) == nil or (not reduced(use) and use(departure.progress) < 0.7)
+				end,
 				Size = function(use: ComposeTypes.Use)
 					return D2.new(
 						1,
@@ -707,6 +710,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 		}))
 		local menuSpec: NavigationTypes.MenuSpec<string> = {
 			trigger = root,
+			closeButton = true,
 			items = menuItems,
 			isPresented = menuOpen,
 			triggers = { "secondary" :: "secondary" },
@@ -775,7 +779,12 @@ return function(ctx: Types.Context, UI: Controls): ()
 			dimensions:set(use(measured))
 		end)
 		function reveal()
-			if read(spec.enabled) ~= false and committing:peek() == nil and #menuItems:peek() > 0 then
+			if
+				read(spec.enabled) ~= false
+				and committing:peek() == nil
+				and ctx.available(root)
+				and #menuItems:peek() > 0
+			then
 				setOpen(nil)
 				if spec.coordinator then
 					spec.coordinator:set(rowToken)

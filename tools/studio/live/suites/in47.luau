@@ -1079,20 +1079,27 @@ add("radial-icons-centred-on-paint", {}, function(t: any)
 						continue
 					end
 					t.inside(`{where} {id} button on its painted surface`, button, paint, 1)
-					if not iconOnly then
-						t.check(`{where} {id} shows its label and no icon`, not (icon and t.visible(icon)))
-						t.check(`{where} {id} has a label`, title ~= nil and title.ContentText ~= "")
-						if title then
-							local words = t.rect(title)
-							t.check(`{where} {id} label fits`, t.fits(title), { title.TextBounds, title.AbsoluteSize })
-							t.near(`{where} {id} label centred horizontally`, words.x + words.w / 2, middle.X, 1.5)
-							t.near(`{where} {id} label centred vertically`, words.y + words.h / 2, middle.Y, 1.5)
-						end
+					local wordsVisible = title ~= nil and title.ContentText ~= "" and t.visible(title)
+					if not iconOnly and wordsVisible then
+						t.check(
+							`{where} {id} shows its complete label and no icon`,
+							title.ContentText == id and not (icon and t.visible(icon))
+						)
+						local words = t.rect(title)
+						t.check(`{where} {id} label fits`, t.fits(title), { title.TextBounds, title.AbsoluteSize })
+						t.near(`{where} {id} label centred horizontally`, words.x + words.w / 2, middle.X, 1.5)
+						t.near(`{where} {id} label centred vertically`, words.y + words.h / 2, middle.Y, 1.5)
 						continue
 					end
+					t.check(`{where} {id} compact form has no painted caption`, not wordsVisible)
+					local caption = button:FindFirstChild("CaptionMeasure")
+					t.check(
+						`{where} {id} compact form retains its complete action name`,
+						caption ~= nil and caption.ContentText == id and caption.TextTruncate == Enum.TextTruncate.None
+					)
 					t.check(
 						`{where} {id} has an image icon`,
-						icon ~= nil and icon:IsA("ImageLabel") and icon.Image ~= ""
+						icon ~= nil and icon:IsA("ImageLabel") and icon.Image ~= "" and t.visible(icon)
 					)
 					if not icon then
 						continue

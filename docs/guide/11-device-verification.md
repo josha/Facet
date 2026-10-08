@@ -26,6 +26,22 @@ For the virtual monitors, also exercise:
 - Avatar scene controls,
 - streaming Chat while you scroll.
 
+## Run a corrected live case
+
+An attached Studio keeps the Facet and example modules from its open place.
+A change to those modules needs a rebuilt place. To check a corrected case
+against that same built control, add `--cases-from-tree` to the live runner:
+
+```sh
+lute run tools/lute/studio_live.luau classb_collections --studio STUDIO_ID --device none --tag review --cases-from-tree --only fill-column-floors-and-hit-order
+```
+
+This option loads the suite cases from the working tree into the existing
+live Verify harness. It does not replace Facet or example modules. The report
+sets `environment.caseSource` to `working-tree`. Without this option, the
+runner uses the cases in the place and records `place`. The option requires
+an attached Studio. For a gamepad Studio, use `--device keep`.
+
 ## What to record
 
 Record the build revision, the scenario, the observed interactions and the
@@ -311,6 +327,22 @@ available: send Down, call `live.step("afterDown")`, send DPadDown, call
 `live.step("afterDpad")`, send six more DPadDown inputs, then call
 `live.step("afterPast")` and `live.finish()`.
 
+### Check collection controls with gamepad input
+
+The `gamepad_walk` suite includes these control cases:
+
+- `pad-table-edit-checkbox-reorder-done`: enter Edit, select and clear a row,
+  move to its reorder handle, reorder the row, then press Done.
+- `pad-radial-complete-labels-at-each-level`: check each root and child label,
+  then activate a child action.
+- `pad-rating-bounded-marks-and-all-values`: keep ten marks inside the control
+  and reach each value from zero through ten.
+- `pad-row-actions-menu-open-close-and-command`: open with ButtonX, close with
+  ButtonB, then activate a command with ButtonA.
+
+Each case requires real Gamepad1 delivery. The Table checkbox uses the row's
+selection target. Its decorative mark is not a separate selection stop.
+
 ### Run the focus walk
 
 The `focus_walk` live suite opens every Showcase page (and every tab of a
@@ -319,14 +351,29 @@ atlas: each stop's rectangle, links, value-control axis, and the chain of
 SelectionGroups and ScrollingFrames around it. It then selects each stop and
 presses DPadDown, DPadLeft and DPadRight, and the stick in four directions,
 recording where the engine moved the selection and the scroll offsets at the
-moment of the press. It also records the scene of the move: each stop that
-moved, went away or appeared after the atlas was made. A press can change the
+moment of the press. The walk waits for geometry, visibility and transparency
+to reach rest before it records a scene. It adds stops that become visible
+later to its work list. When selection reveals commands, the walk selects the
+same row again to restore those commands before it visits them. For an
+adjustable control, it repeats input along the value axis until selection
+moves or the value stops changing. This records navigation past the first and
+last values. The atlas includes a trace of these presses and value changes.
+Scene fields `goneStopIndices` and `rectStopIndices` refer to the one-based
+indices in `stops`. `containerRects` uses container paths. These references
+keep large virtual collection recordings within the attachment limit.
+It also records the scene of the move: each stop that moved, went away or
+appeared after the atlas was made. A press can change the
 page, for example when Left on a column grip makes the column narrower. When
 a press changes the page and the selection does not move, the walk shows the
 page again before the next press. Options go in `shared.FacetFocusWalk`. Set
 them with `--shared 'FacetFocusWalk={"up":3}'`:
 
 - `only`: a substring of the page name;
+- `pages`: a list of exact page names, for example `all-controls/actions/buttons`;
+- `resumePaths`: stop paths to record again in `shared.FacetFocusAtlas`. The
+  atlas must be from the same page and built controls. The walk retains its
+  other recorded moves. Use this to complete a recording without repeating
+  its whole virtual collection;
 - `up`: seconds to wait for D-pad Up per stop. The wait is the Verify step
   `focus-upstream`. Before the run, start
   `lute run tools/lute/focus_up.luau PROGRESS_FILE STUDIO_PID`. It reads the
@@ -340,12 +387,14 @@ them with `--shared 'FacetFocusWalk={"up":3}'`:
 
 Each atlas is an attachment with the directory `atlas`, and the command
 writes it in `tests/fixtures/focus_atlas`. The headless spec
-`native_focus_walk` reads the moves that the engine made in each atlas. It
+`native_focus_walk` is in the Verify plan. It reads the recorded moves in each atlas. It
 fails when a stop cannot be reached from the first stop, when a move lands on
 a control that the atlas does not know, or when a move did not settle. It
 does the reach check only for an atlas that has the scene of each move.
 `FACET_FOCUS_ATLAS` points the spec at another atlas directory, and
 `FACET_FOCUS_WALK_REPORT` names a directory for a JSON report per failing page.
+This checks the saved recording. It does not drive input on the current build.
+Record a new atlas in Studio to check a changed control.
 
 ### Walk opened controls
 

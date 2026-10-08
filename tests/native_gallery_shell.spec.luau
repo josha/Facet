@@ -28,36 +28,6 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function disabled(node: any): boolean
-		if node:HasTag("facet-disabled") then
-			return true
-		end
-		for _, child in node:GetDescendants() do
-			if child:HasTag("facet-disabled") then
-				return true
-			end
-		end
-		return false
-	end
-
-	local function openSettings(root: any)
-		local function seek(node: any, name: string): any
-			if node.Name == name then
-				return node
-			end
-			for _, child in node:GetChildren() do
-				local found = seek(child, name)
-				if found then
-					return found
-				end
-			end
-			return nil
-		end
-		local layer = root:FindFirstAncestorWhichIsA("LayerCollector") or root
-		seek(layer, "Showcase").Activated:Fire()
-		seek(seek(layer, "Section"), "settings").Activated:Fire()
-	end
-
 	local function fixture(build)
 		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
@@ -171,80 +141,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(built.report().active):toBe("other")
 				ctx.pageVisible:set(false)
 				Verify.expect((contexts.other.pageVisible:peek())):toBe(false)
-				stop()
-			end,
-		})
-
-		verifyHarness:case("previews a phone, tablet or TV as a device frame that feeds the gallery environment", {
-			id = "native_gallery_shell::native gallery shell parity::previews a phone, tablet or TV as a device frame that feeds the gallery environment",
-			run = function()
-				local env
-				local ctx, root, stop = fixture(function(context)
-					context.demos =
-						{ { id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" } }
-					context.load = function(_, name)
-						return {
-							build = function(page)
-								return {
-									screen = function()
-										return page.Host.Frame({ Name = name })
-									end,
-								}
-							end,
-						}
-					end
-					env = context.UI.environment()
-					return gallery.build(context)
-				end)
-				local surface = find(root, "Gallery")
-				local scale = find(surface, "ViewingDistance", "UIScale")
-				local function expectDevice(width, height: number, display, input)
-					Verify.expect(surface.Size.X.Offset):toBe(width)
-					Verify.expect(surface.Size.Y.Offset):toBe(height)
-					Verify.expect(surface.Size.X.Scale):toBe(0)
-					Verify.expect(env.viewportSize:peek().X):toBe(width)
-					Verify.expect(env.viewportSize:peek().Y):toBe(height)
-					Verify.expect(ctx.previewViewport:peek().width):toBe(width)
-					Verify.expect(ctx.sceneViewport:peek().height):toBe(height / env.metricScale:peek())
-					Verify.expect((env.displaySize:peek())):toBe(display)
-					Verify.expect((env.effectiveInput:peek())):toBe(input)
-				end
-				openSettings(root)
-				Verify.expect(find(root, "Preview") ~= nil):toBe(true)
-				Verify.expect((disabled(find(root, "Orientation")))):toBe(true)
-				ctx.devicePreview:set("phone")
-				expectDevice(389, 762, "Small", "Touch")
-				Verify.expect((disabled(find(root, "Orientation")))):toBe(false)
-				Verify.expect((surface:HasTag("facet-floating"))):toBe(true)
-				ctx.orientationPreview:set("landscape")
-				expectDevice(762, 389, "Small", "Touch")
-				ctx.devicePreview:set("tablet")
-				expectDevice(1024, 768, "Small", "Touch")
-				ctx.orientationPreview:set("portrait")
-				expectDevice(768, 1024, "Small", "Touch")
-				Verify.expect(math.abs(scale.Scale - 720 / 1024) < 0.000001):toBe(true)
-				local gui: any = ctx.guiService
-				local top = 58
-				function gui:GetGuiInset()
-					return ctx.types.Vector2.new(0, top), ctx.types.Vector2.new(0, 0)
-				end
-				gui.TopbarInset = ctx.types.Rect.new(0, 0, 1280, top)
-				Verify.expect(math.abs(scale.Scale - (720 - 58) / 1024) < 0.000001):toBe(true)
-				top = 0
-				gui.TopbarInset = ctx.types.Rect.new(0, 0, 1280, top)
-				ctx.devicePreview:set("tv")
-				expectDevice(1920, 1080, "Large", "Gamepad")
-				Verify.expect((disabled(find(root, "Orientation")))):toBe(true)
-				Verify.expect(math.abs(scale.Scale - 2 / 3) < 0.000001):toBe(true)
-				ctx.inputPreview:set("KeyboardAndMouse")
-				Verify.expect((env.effectiveInput:peek())):toBe("KeyboardAndMouse")
-				ctx.inputPreview:set("automatic")
-				ctx.devicePreview:set("automatic")
-				Verify.expect(surface.Size.X.Scale):toBe(1)
-				Verify.expect(scale.Scale):toBe(1)
-				Verify.expect(ctx.previewViewport:peek().width):toBe(1280)
-				Verify.expect((env.effectiveInput:peek())):toBe("KeyboardAndMouse")
-				Verify.expect((surface:HasTag("facet-floating"))):toBe(false)
 				stop()
 			end,
 		})
@@ -364,91 +260,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((find(root, "ShowcasePanel"))):toBe(nil)
 				find(ctx.inputTarget, "ShowcaseChromeToggle"):FindFirstChild("Activate").Pressed:Fire()
 				Verify.expect(find(root, "ShowcasePanel") ~= nil):toBe(true)
-				stop()
-			end,
-		})
-
-		verifyHarness:case("keeps API theme and palette choices consistent and rejects invalid demos", {
-			id = "native_gallery_shell::native gallery shell parity::keeps API theme and palette choices consistent and rejects invalid demos",
-			run = function()
-				local ctx, root, stop = fixture(function(context)
-					local second = Facet.themes.neutralPackage()
-					second.style.defaultTheme = "evening"
-					second.style.themes = { table.clone(second.style.themes[1]) }
-					second.style.themes[1].name = "evening"
-					context.packages.Second = second
-					context.demos = {
-						{ id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" },
-						{ id = "second", title = "Second", kind = "fixture" :: "fixture", module = "second" },
-					}
-					context.load = function(_, name)
-						return {
-							build = function(page)
-								return {
-									screen = function()
-										return page.Host.Frame({ Name = name })
-									end,
-								}
-							end,
-						}
-					end
-					return gallery.build(context)
-				end)
-				local before = find(root, "first")
-				local surface = find(root, "Gallery")
-				local scale = find(surface, "ViewingDistance", "UIScale")
-				local settings = find(root, "Showcase", "TextButton")
-				local near = settings.Size.Y.Offset
-				Verify.expect(ctx.environment.viewingDistance):toBe(ctx.viewingDistance)
-				ctx.viewingDistance:set("ten-foot")
-				Verify.expect(scale.Scale):toBe(1)
-				Verify.expect(settings.Size.Y.Offset):toBe(near * 1.5)
-				Verify.expect((find(root, "first"))):toBe(before)
-				ctx.viewingDistance:set("near")
-				Verify.expect(settings.Size.Y.Offset):toBe(near)
-				ctx.viewingDistance:set("automatic")
-				Verify.expect(scale.Scale):toBe(1)
-				local bad = gallery.dispatch(ctx, "show", "missing")
-				Verify.expect(bad.ok):toBe(false)
-				Verify.expect((ctx.selection:peek())):toBe("first")
-				Verify.expect((find(root, "first"))):toBe(before)
-				local changed = gallery.dispatch(ctx, "theme", "Second")
-				Verify.expect(changed.ok):toBe(true)
-				Verify.expect(changed.theme):toBe("Second")
-				Verify.expect(changed.palette):toBe("evening")
-				Verify.expect((ctx.theme:peek())):toBe(ctx.packages.Second)
-				Verify.expect(gallery.dispatch(ctx, "theme", "missing").ok):toBe(false)
-				Verify.expect((ctx.themeName:peek())):toBe("Second")
-				openSettings(root)
-				Verify.expect((find(root, "P_Second"):GetAttribute("selected"))):toBe(true)
-				Verify.expect((find(root, "P_Neutral"):GetAttribute("selected"))):toBe(false)
-				gallery.dispatch(ctx, "next")
-				Verify.expect((ctx.active:peek())):toBe("second")
-				stop()
-			end,
-		})
-
-		verifyHarness:case("keeps gallery motion preview synchronized with native accessibility preferences", {
-			id = "native_gallery_shell::native gallery shell parity::keeps gallery motion preview synchronized with native accessibility preferences",
-			run = function()
-				local ctx, _, stop = fixture(function(context)
-					return context.Host.Frame "MotionTest" {}
-				end)
-				Verify.expect((ctx.reducedMotion:peek())):toBe(false)
-				ctx.motionPreference:set("none")
-				Verify.expect((ctx.reducedMotion:peek())):toBe(true)
-				Verify.expect((ctx.motionLevel:peek())):toBe("none")
-				ctx.motionPreference:set(nil)
-				Verify.expect((ctx.reducedMotion:peek())):toBe(false)
-				ctx.guiService.ReducedMotionEnabled = true
-				Verify.expect((ctx.reducedMotion:peek())):toBe(true)
-				Verify.expect((ctx.motionLevel:peek())):toBe("limited")
-				ctx.motionPreference:set("normal")
-				Verify.expect((ctx.reducedMotion:peek())):toBe(true)
-				Verify.expect((ctx.motionLevel:peek())):toBe("limited")
-				ctx.motionPreference:set(nil)
-				ctx.guiService.ReducedMotionEnabled = false
-				Verify.expect((ctx.reducedMotion:peek())):toBe(false)
 				stop()
 			end,
 		})

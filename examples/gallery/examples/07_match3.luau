@@ -313,6 +313,7 @@ local function build(ctx: any)
 			end
 		end
 	end
+	local slots: { [string]: GuiObject } = {}
 	local function TileView(item: any)
 		local tile = tilesById[item:peek().id]
 		local kind = Compose.cell(tile.kind)
@@ -362,28 +363,12 @@ local function build(ctx: any)
 			local at = use(position)
 			return sel ~= nil and sel[1] == at.row and sel[2] == at.col
 		end)
-		local targetPosition = Compose.formula(function(use: Use)
-			local at = use(position)
-			return UDim2.fromOffset((at.col - 1) * 48, (at.row - 1) * 48)
-		end)
 		local targetTransparency = Compose.formula(function(use: Use)
 			return if use(isLeaving) then 1 else 0
 		end)
-		local movingPosition = ctx.runtime.spring(function(use: Use)
-			return use(targetPosition)
-		end, { period = 0.18, damping = 1 })
-		local fading = ctx.runtime.tween(function(use: Use)
-			return use(targetTransparency)
-		end, { seconds = 0.16 })
 		local plate = Host.CanvasGroup({
 			Name = `tile{tile.id}`,
-			GroupTransparency = function(use: Use)
-				return if use(reducedMotion) then use(targetTransparency) else use(fading)
-			end,
 			Size = UDim2.fromOffset(44, 44),
-			Position = function(use: Use)
-				return if use(reducedMotion) then use(targetPosition) else use(movingPosition)
-			end,
 			(function()
 				local art = Host.ImageLabel "img" {
 					BackgroundTransparency = 1,
@@ -485,12 +470,42 @@ local function build(ctx: any)
 			},
 		})
 		plate:AddTag("facet-control")
-		return plate
+		return UI.Travel {
+			motion = "spring",
+			transparency = targetTransparency,
+			destination = function(use: Use): GuiObject
+				local at = use(position)
+				return assert(slots[`{at.row},{at.col}`])
+			end,
+			content = function(): GuiObject
+				return plate
+			end,
+		}
 	end
 	local function boardView()
+		local children: { unknown } = {}
+		for row = -ROWS, ROWS do
+			for col = 1, COLS do
+				local slot = Host.Frame {
+					Name = `slot{row}_{col}`,
+					BackgroundTransparency = 1,
+					Size = UDim2.fromOffset(44, 44),
+					Position = UDim2.fromOffset((col - 1) * 48, (row - 1) * 48),
+				}
+				slots[`{row},{col}`] = slot
+				table.insert(children, slot)
+			end
+		end
 		local node = UI.ZStack "board" {
+			ClipsDescendants = true,
 			width = COLS * 48,
 			height = ROWS * 48,
+			Host.Frame {
+				Name = "slots",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				table.unpack(children),
+			},
 			Compose.OrderedCollection({
 				from = items,
 				key = function(item: { id: number })

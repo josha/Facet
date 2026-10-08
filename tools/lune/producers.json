@@ -35,6 +35,8 @@
     {"id": "theme-drift-selftest", "tier": "full", "run": "python3 tools/check_theme_drift.py --selftest"},
     {"id": "source-size", "tier": "full", "run": "python3 tools/check_source_size.py", "replaces": ["check_source_size"]},
     {"id": "types", "tier": "full", "run": "python3 tools/check_types.py", "replaces": ["check_types"]},
+    {"id": "type-policy", "tier": "fast", "run": "python3 tools/check_type_policy.py"},
+    {"id": "type-policy-selftest", "tier": "fast", "run": "python3 tools/check_type_policy.py --selftest"},
     {"id": "types-selftest", "tier": "full", "run": "python3 tools/check_types.py --selftest", "replaces": ["check_types-selftest"]},
     {"id": "package-selftest", "tier": "full", "environment": "package", "run": "python3 tools/package.py --selftest", "replaces": ["package-selftest"]},
     {"id": "word-data", "tier": "full", "run": "python3 tools/build_word_lists.py --check", "replaces": ["build_word_lists-check"]},

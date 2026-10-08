@@ -49,14 +49,18 @@ table.insert(cases, {
 	contracts = {},
 	run = function(t: any)
 		local live = (require :: any)(storage.FacetLive)
-		local focus = (require :: any)(storage.FacetLive.focus)
+		local focus = shared.FacetFocusRecorder or (require :: any)(storage.FacetLive.focus)
 		local layer = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery")
 		local options = shared.FacetFocusWalk or {}
 		local prefix = if options.device then `{options.device}--` else ""
 		api("device", options.device or "automatic")
 		for index, page in pages() do
 			local name = if page.tab then `{page.id}/{page.tab}` else page.id
-			if (options.only and not string.find(name, options.only, 1, true)) or index < (options.start or 1) then
+			if
+				(options.only and not string.find(name, options.only, 1, true))
+				or (options.pages and not table.find(options.pages, name))
+				or index < (options.start or 1)
+			then
 				continue
 			end
 			local function open()
@@ -70,6 +74,7 @@ table.insert(cases, {
 					t.settle(30)
 				end
 				focus.rest(layer)
+				focus.settle(layer)
 			end
 			local function restore()
 				game:GetService("GuiService").SelectedObject = nil
@@ -82,7 +87,11 @@ table.insert(cases, {
 			t.check(`{name} lint`, #lint == 0, lint)
 			local stops = focus.stops(layer)
 			local paths = focus.paths(layer, stops)
-			local atlas = focus.atlas(layer, name, stops, paths)
+			local atlas = if options.resumePaths then shared.FacetFocusAtlas else focus.atlas(layer, name, stops, paths)
+			if options.resumePaths then
+				assert(atlas and atlas.page == name, "focus walk resume atlas does not match the page")
+				focus.adopt(layer, atlas)
+			end
 			local file = prefix .. string.gsub(name, "[^%w%-]", "_")
 			local function merge(family: string, moves: any, offsets: any, scenes: any)
 				atlas.moves[family] = atlas.moves[family] or {}
@@ -95,10 +104,32 @@ table.insert(cases, {
 				end
 			end
 			if options.keys then
-				merge("keys", focus.walk(layer, stops, paths, { "Up", "Down", "Left", "Right" }, atlas, restore))
+				merge(
+					"keys",
+					focus.walk(
+						layer,
+						stops,
+						paths,
+						{ "Up", "Down", "Left", "Right" },
+						atlas,
+						restore,
+						options.resumePaths
+					)
+				)
 				file ..= "--keys"
 			else
-				merge("dpad", focus.walk(layer, stops, paths, { "DPadDown", "DPadLeft", "DPadRight" }, atlas, restore))
+				merge(
+					"dpad",
+					focus.walk(
+						layer,
+						stops,
+						paths,
+						{ "DPadDown", "DPadLeft", "DPadRight" },
+						atlas,
+						restore,
+						options.resumePaths
+					)
+				)
 				if options.stick ~= false then
 					merge(
 						"stick",
@@ -108,7 +139,8 @@ table.insert(cases, {
 							paths,
 							{ "StickUp", "StickDown", "StickLeft", "StickRight" },
 							atlas,
-							restore
+							restore,
+							options.resumePaths
 						)
 					)
 				end
@@ -128,7 +160,7 @@ table.insert(cases, {
 				end
 			end
 			live.save(file, HttpService:JSONEncode(atlas), "atlas")
-			t.note(`{name} stops`, #stops)
+			t.note(`{name} stops`, #atlas.stops)
 		end
 	end,
 })

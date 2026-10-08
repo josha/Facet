@@ -182,7 +182,34 @@ add("fill-column-floors-and-hit-order", {}, function(t)
 		header.AbsoluteSize.X,
 		0.5
 	)
-	t.near("the fills grow equally from their floors", width(mixed, "artist") - width(mixed, "name"), 200 - 48, 1)
+	local primaryFloor = 48
+	local textInsets = t.find(mixed, "CellTextInsets")
+	t.check("the primary column has its native inset probe", textInsets ~= nil)
+	local firstRow = nil
+	for _, node in t.find(mixed, "Body"):GetDescendants() do
+		if node.Name == "Row" and node:IsA("GuiObject") and t.visible(node) then
+			local cell = node:FindFirstChild("name", true)
+			local natural = cell and cell:FindFirstChild("Undisclosed", true)
+			local value = cell and cell:FindFirstChild("Value", true)
+			if natural and value then
+				local padding = value:FindFirstChildWhichIsA("UIPadding")
+				local inset = if padding
+					then padding:GetStyled("PaddingLeft").Offset + padding:GetStyled("PaddingRight").Offset
+					else math.max(16, if textInsets then textInsets.AbsoluteSize.X else 0)
+				primaryFloor = math.max(primaryFloor, math.ceil(natural.TextBounds.X) + inset)
+				t.check("primary row text fits before the remaining width is shared", value.TextFits)
+				firstRow = node
+			end
+		end
+	end
+	t.note("measured primary floor", primaryFloor)
+	t.check("the primary column has measured row text", firstRow ~= nil)
+	t.near(
+		"the fills share growth after reserving primary text",
+		width(mixed, "artist") - width(mixed, "name"),
+		200 - primaryFloor,
+		1
+	)
 	local wide = mount(900, {
 		{ id = "name", label = "Name", minWidth = 120, priority = "always" },
 		{ id = "artist", label = "Artist", minWidth = 100, priority = "always" },

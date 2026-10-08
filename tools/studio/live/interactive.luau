@@ -85,6 +85,26 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			virtual:SendKey(false, key, false)
 			settle(12)
 		end
+		function io.doubleClick(at: Vector2)
+			io.move(at)
+			for count = 0, 1 do
+				virtual:SendMouseButton(at + inset, Enum.UserInputType.MouseButton1, true, count)
+				settle(1)
+				virtual:SendMouseButton(at + inset, Enum.UserInputType.MouseButton1, false, count)
+				settle(1)
+			end
+		end
+		function io.pointerAction(at: Vector2, action: { Wheel: number?, Pan: Vector2?, Pinch: number? })
+			io.move(at)
+			virtual:SendPointerAction(at + inset, action)
+			settle(30)
+		end
+		function io.controlWheel(at: Vector2, wheel: number)
+			virtual:SendKey(true, Enum.KeyCode.LeftControl, false)
+			io.pointerAction(at, { Wheel = wheel })
+			virtual:SendKey(false, Enum.KeyCode.LeftControl, false)
+			settle(30)
+		end
 		function io.shiftReturn()
 			virtual:SendKey(true, Enum.KeyCode.LeftShift, false)
 			virtual:SendKey(true, Enum.KeyCode.Return, false)
@@ -95,13 +115,14 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		end
 		return io
 	end
-	local function press(t: any, names: { string })
-		local result = HttpService:JSONDecode(live.press(names))
+	local function press(t: any, names: { string }, frames: number?)
+		local result = HttpService:JSONDecode(live.press(names, frames))
 		for _, name in names do
 			if string.sub(name, 1, 5) == "Stick" then
 				local delivered = false
 				for _, entry in result.input do
-					delivered = delivered or string.find(entry, "Gamepad1:Thumbstick1:", 1, true) ~= nil
+					local stick = if string.sub(name, 1, 6) == "Stick2" then "Thumbstick2" else "Thumbstick1"
+					delivered = delivered or string.find(entry, "Gamepad1:" .. stick .. ":", 1, true) ~= nil
 				end
 				t.check("native gamepad stick input delivered " .. name, delivered, result.input)
 			elseif string.sub(name, 1, 4) == "DPad" or string.sub(name, 1, 6) == "Button" then
@@ -297,7 +318,96 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		press(t, { "ButtonB" })
 		live.step("afterBack")
 	end
+	drivers["vote-pad-reaches-and-proposes"] = function(t)
+		press(t, { "DPadRight" })
+		live.step("afterRight")
+		press(t, { "ButtonA" })
+		live.step("afterReturn")
+	end
+	drivers["radial-list-scrolls-selection-into-view"] = function(t)
+		for _ = 1, 12 do
+			press(t, { "DPadDown" })
+		end
+		live.step("afterDown")
+	end
+	drivers["category-strip-dpad-keeps-page"] = function(t)
+		press(t, { "DPadRight" })
+		live.step("afterBasicsRight")
+		press(t, { "DPadRight" })
+		live.step("afterInputsRight")
+	end
+	drivers["grabber-activation-cycles-detents"] = function(t)
+		press(t, { "ButtonA" })
+		live.step("afterFirst")
+		press(t, { "DPadLeft" })
+		live.step("afterLower")
+		press(t, { "DPadLeft" })
+		live.step("afterShortest")
+		for _, step in { "afterGrow", "afterLargest", "afterClose" } do
+			press(t, { "ButtonA" })
+			live.step(step)
+		end
+	end
+	drivers["pointer-contact-scroll-and-travel"] = function(_, value, io)
+		local source, target = centre(value.source), centre(value.target)
+		io.click(source)
+		live.step("afterTap")
+		io.heldDrag(source, target)
+		live.step("whileDragging")
+		io.up(target)
+		live.step("afterDrop")
+	end
+	drivers["keyboard-gamepad-place-and-cancel"] = function(_, _, io)
+		io.hold(Enum.KeyCode.Return, 3)
+		live.step("afterPickUp")
+		io.hold(Enum.KeyCode.Tab, 3)
+		live.step("afterTarget")
+		io.hold(Enum.KeyCode.Return, 3)
+		live.step("afterPlace")
+		io.hold(Enum.KeyCode.Return, 3)
+		io.hold(Enum.KeyCode.Escape, 3)
+		live.step("afterCancel")
+	end
+	drivers["travel-pointer"] = function(_, value, io)
+		local stage = assert(value.source.Parent)
+		io.click(centre(assert(stage:FindFirstChild("Send", true))))
+		settle(120)
+		live.step("afterSend")
+		io.click(centre(assert(stage:FindFirstChild("Return", true))))
+		settle(120)
+		live.step("afterReverse")
+	end
+	drivers["zoom-pointer"] = function(_, value, io)
+		local at = value.view.AbsolutePosition + Vector2.new(value.view.AbsoluteSize.X - 80, 80)
+		io.pointerAction(at, { Pinch = 0.5 })
+		live.step("afterPinch")
+		io.doubleClick(at)
+		settle(60)
+		live.step("afterDoubleTap")
+		io.controlWheel(at, 2)
+		live.step("afterWheelZoom")
+		io.pointerAction(at, { Wheel = 2 })
+		live.step("afterWheelPan")
+		io.drag(at, at + Vector2.new(0, 40))
+		live.step("afterMousePan")
+		local contact = centre(value.tile)
+		io.heldDrag(contact, contact + Vector2.new(20, 20))
+		live.step("afterChildDrag")
+		io.up(contact + Vector2.new(20, 20))
+	end
+	local travelDrivers = require(script.Parent.zoom_travel_drivers)(live.step, press, settle, function(node)
+		GuiService.SelectedObject = node
+	end)
+	for id, driver in travelDrivers do
+		drivers[id] = driver
+	end
 	local gamepad = {
+		["zoom-gamepad"] = true,
+		["travel-gamepad"] = true,
+		["vote-pad-reaches-and-proposes"] = true,
+		["radial-list-scrolls-selection-into-view"] = true,
+		["category-strip-dpad-keeps-page"] = true,
+		["grabber-activation-cycles-detents"] = true,
 		["list-keyboard-and-dpad"] = true,
 		["scroll-into-view-by-gamepad"] = true,
 		["sidebar-dpad-to-collections"] = true,

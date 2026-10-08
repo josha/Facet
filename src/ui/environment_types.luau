@@ -1,6 +1,7 @@
 --!strict
 local Types = require("./types")
 local Adaptive = require("./adaptive")
+local Gesture = require("./gesture_arbitration")
 
 export type SizeClass = Adaptive.SizeClass
 export type HeightClass = Adaptive.HeightClass
@@ -85,22 +86,26 @@ export type DraggableSpec = {
 	touchPickup: ("longPress" | "immediate")?,
 	touchDragAxis: ("X" | "Y" | "XY")?,
 	statusLabels: boolean?,
+	hitArea: GuiObject?,
+	returnTravel: boolean?,
 	operations: { DropOperation }?,
 	valid: (() -> boolean)?,
-	onStart: ((payload: any, mode: "pointer" | "armed") -> ())?,
+	onStart: ((payload: unknown, mode: "pointer" | "armed") -> ())?,
 	onEnd: ((accepted: boolean, reason: string?) -> ())?,
 }
 export type DropTargetSpec = {
+	travel: boolean?,
+	landing: ((info: DropInfo) -> ScrollRect)?,
 	label: Types.ValueString?,
-	onDrop: ((payload: any, info: DropInfo) -> ()) | ((payload: any, info: DropInfo) -> boolean | "pending"),
+	onDrop: ((payload: unknown, info: DropInfo) -> ()) | ((payload: unknown, info: DropInfo) -> boolean | "pending"),
 	operation: Types.Value<DropOperation>?,
-	passThrough: ((payload: any) -> boolean)?,
+	passThrough: ((payload: unknown) -> boolean)?,
 	focusTarget: GuiObject?,
-	accepts: ((payload: any, info: DropInfo) -> (boolean, string?))?,
-	onReject: ((payload: any, reason: string?) -> ())?,
-	onEnter: ((payload: any) -> ())?,
-	onLeave: ((payload: any) -> ())?,
-	onUpdate: ((payload: any, info: DropInfo, accepted: boolean, reason: string?) -> ())?,
+	accepts: ((payload: unknown, info: DropInfo) -> (boolean, string?))?,
+	onReject: ((payload: unknown, reason: string?) -> ())?,
+	onEnter: ((payload: unknown) -> ())?,
+	onLeave: ((payload: unknown) -> ())?,
+	onUpdate: ((payload: unknown, info: DropInfo, accepted: boolean, reason: string?) -> ())?,
 }
 export type FocusSectionOptions = {
 	entry: ("restore" | "first" | "nearest")?,
@@ -116,6 +121,7 @@ export type EnvironmentControls = {
 	focusRing: (playerGui: PlayerGui) -> Frame,
 	focusSection: (group: GuiObject, options: FocusSectionOptions?) -> (),
 	responder: (root: Instance, options: ResponderOptions?) -> Responder,
+	gestureArbiter: (surface: GuiObject) -> Gesture.Binding,
 	draggable: (source: GuiObject, spec: DraggableSpec) -> (),
 	dropTarget: (target: DropDestination, spec: DropTargetSpec) -> (),
 	worldAnchor: (options: WorldAnchorOptions) -> WorldAnchor,

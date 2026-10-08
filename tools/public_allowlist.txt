@@ -62,3 +62,52 @@ package/
 
 # Native-cutover evidence linked by PR22; retained for verification review.
 artifacts/gamepad/
+
+# Zoom and travel design and evidence requested for the control review.
+docs/proposals/zoom-travel.md
+artifacts/zoom-travel-report.md
+docs/proposals/compose-render-clock.md
+artifacts/inter-e-files.txt
+
+docs/proposals/gesture-arbitration.md
+artifacts/gesture-arbitration-report.md
+
+# Slot-motion convergence design and port evidence.
+docs/proposals/travel-convergence.md
+artifacts/converge-request-to-d.md
+artifacts/inter-e-converge-files.txt
+artifacts/interaction-converge.patch
+artifacts/travel-convergence-report.md
+
+artifacts/converge-response-from-d.md
+artifacts/inter-d-files.txt
+artifacts/interaction-port-notes.md
+artifacts/interaction.patch
+artifacts/interaction-cases.md
+
+docs/proposals/travel-shuffle.md
+artifacts/inter-e-2-status.md
+artifacts/inter-e-2-files.txt
+artifacts/inter-e-2-done.txt
+
+docs/proposals/collection-touch-pickup.md
+artifacts/inter-d-2-status.md
+artifacts/inter-d-2-files.txt
+artifacts/interaction-2-report.md
+
+docs/proposals/zoom-capture-camera.md
+docs/proposals/reward-sequence.md
+
+docs/proposals/collection-reserved-slots.md
+
+docs/proposals/focus-command-scope.md
+docs/proposals/zoom-live-input.md
+
+artifacts/zoom-live-fix-report.md
+artifacts/zoom-live-fix-to-d.md
+artifacts/interaction-2-port-notes.md
+artifacts/interaction-2-case-ids.md
+artifacts/interaction-2.patch
+
+artifacts/lab-mount-report.md
+docs/proposals/travel-lifetime.md

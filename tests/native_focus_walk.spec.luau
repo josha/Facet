@@ -43,6 +43,41 @@ return function(verifyHarness: Verify.Harness)
 		for _, stop in atlas.stops do
 			known[stop.path] = true
 		end
+		for _, family in FAMILIES do
+			for from, row in (atlas.scenes or {})[family] or {} do
+				for key, scene in row do
+					local function check(index: unknown)
+						if
+							type(index) ~= "number"
+							or index < 1
+							or index > #atlas.stops
+							or math.floor(index) ~= index
+						then
+							table.insert(problems, `unknown scene stop: {from} {key} {tostring(index)}`)
+						end
+					end
+					for _, index in scene.goneStopIndices or {} do
+						check(index)
+					end
+					for index in scene.rectStopIndices or {} do
+						check(tonumber(index))
+					end
+				end
+			end
+		end
+
+		if type(atlas.traces) == "table" then
+			local pressed: { [string]: boolean } = {}
+			for _, trace in atlas.traces do
+				pressed[trace.from] = true
+			end
+			for _, stop in atlas.stops do
+				if not pressed[stop.path] then
+					table.insert(problems, `unvisited: {stop.path}`)
+				end
+			end
+		end
+
 		local recorded = type(atlas.scenes) == "table"
 		local edges: { [string]: { string } } = {}
 		for _, family in FAMILIES do
@@ -109,6 +144,46 @@ return function(verifyHarness: Verify.Harness)
 		table.sort(problems)
 		return problems
 	end
+
+	verifyHarness:suite("focus recording scenes", function()
+		verifyHarness:case("records past the boundary of a 360-step slider", {
+			id = "native_focus_walk::focus recording scenes::records past the boundary of a 360-step slider",
+			run = function()
+				local budget = require("../tools/studio/live/focus_boundary")
+				Verify.expect(budget(-180, 180, 0, -1)):toEqual(362)
+				Verify.expect(budget(0, 1, 0.5, 0.51)):toEqual(128)
+				Verify.expect(budget(nil, nil, 0, 1)):toEqual(128)
+				Verify.expect(budget(-180, 180, 0, 0)):toEqual(128)
+			end,
+		})
+		verifyHarness:case("rejects an unknown compact scene stop", {
+			id = "native_focus_walk::focus recording scenes::rejects an unknown compact scene stop",
+			run = function()
+				local atlas = {
+					stops = { { path = "Start", chain = {} } },
+					containers = {},
+					moves = { dpad = {} },
+					scenes = { dpad = { Start = { DPadDown = { goneStopIndices = { 2 } } } } },
+				}
+				Verify.expect(problemsOf(atlas)):toEqual({ "unknown scene stop: Start DPadDown 2" })
+			end,
+		})
+		verifyHarness:case("requires a route to a later visible stop", {
+			id = "native_focus_walk::focus recording scenes::requires a route to a later visible stop",
+			run = function()
+				local rows: { [string]: { [string]: string } } = { Start = {}, Later = { DPadLeft = "Start" } }
+				local atlas = {
+					stops = { { path = "Start", chain = {} }, { path = "Later", chain = {} } },
+					containers = {},
+					moves = { dpad = rows },
+					scenes = { dpad = {} },
+				}
+				Verify.expect(problemsOf(atlas)):toEqual({ "unreachable: Later" })
+				rows.Start.DPadDown = "Later"
+				Verify.expect(problemsOf(atlas)):toEqual({})
+			end,
+		})
+	end)
 
 	for _, file in fs.readDir(DIR) do
 		if string.sub(file, -5) ~= ".json" or string.find(file, "--keys.json", 1, true) then

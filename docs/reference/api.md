@@ -59,6 +59,22 @@ Literal options can need singleton annotations, such as
 `presentation = "number" :: "number"`. These annotations keep the contract
 without `any`.
 
+Drag callbacks receive an `unknown` payload. This includes
+`DraggableSpec.onStart` and the payload argument of every `DropTargetSpec`
+callback. Check the payload type before you read its fields. A game must check
+its own payload schema and server rules.
+
+`SliderOptions.onCommit` accepts a number callback or a `SliderRange` callback.
+The range callback also receives `SliderChange`. `SliderImplementationProps`
+uses the same two value types for `onChange`. `TextInputImplementationProps`
+uses a string callback with `TextCommitReason`, or a number callback with
+`CommitReason`. The public `TextInputProps` and `SliderProps` retain their
+presentation and range bindings.
+
+The native `Host` type includes `Highlight`. Its props use the pinned Roblox
+property types, including `Adornee`, `Enabled`, `DepthMode`, fill and outline
+colors, and transparency. This adds a type for the existing native constructor.
+
 Native Instance properties accept reactive `nil` values to clear the property.
 They also accept `Compose.static(instance)`. The pinned
 Compose release types the payload of this marker as `unknown`. Thus Luau cannot
@@ -300,11 +316,11 @@ easing, spring, scale and distance below is a token in the theme package's
 | NavigationStack push | The new page slides in from the trailing edge. The old page moves 30 percent (`distances.parallax`) to the leading edge and dims by 0.1 (`distances.dim`). Critically damped spring with a 0.3 second period (`springs.move`), visually complete in approximately 0.35 seconds. | Pop is the reverse. |
 | TabView page change | Crossfade, 0.2 seconds (`durations.tabFade`), Quad Out (`easing.fade`). | The same. |
 | Sheet | Slides up from the bottom, 0.3 seconds (`sheet.enter`), Cubic Out (`easing.present`). A side sheet slides in from its edge. The scrim fades in. A detent change, a released drag and a side sheet's released pull settle on one critically damped spring (`springs.sheet`, a 0.4 second period, visually complete in about 0.45 seconds) that starts from the finger's release velocity; a detent change retargeted mid-flight keeps its velocity. A release faster than 800 pixels per second (`fling.bounceSpeed`) settles on `springs.flick` (0.3 second period, damping 0.8), so it passes its detent by under 2 percent once and comes back. While you drag or pull a sheet that can be dismissed, the scrim lightens in proportion to how far the sheet has moved toward dismissal. | Slides down, or toward its edge, 0.2 seconds (`sheet.exit`). |
-| Alert, Dialog | The panel grows from 0.94 (`materialize.modal`) to 1 and fades in, 0.2 seconds (`dialog.enter`), Cubic Out. The scrim fades in. | The reverse, 0.15 seconds (`dialog.exit`). |
-| Popover | The panel grows from 0.9 (`materialize.anchored`) to 1 from the edge nearest to the anchor, and fades in, 0.15 seconds (`popover.enter`), Cubic Out. | The reverse, 0.1 seconds (`popover.exit`). |
+| Alert, Dialog | The complete panel fades in without a scale change, 0.2 seconds (`dialog.enter`), Cubic Out. The scrim fades in. | The reverse, 0.15 seconds (`dialog.exit`). |
+| Popover | The complete panel fades in at its final position and size, 0.15 seconds (`popover.enter`), Cubic Out. | The reverse, 0.1 seconds (`popover.exit`). |
 | Callout | The panel grows from 0.9 to 1 about its tail point, and fades in, over the theme's `motion.fast` (0.12 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over the same time. |
 | Button `help` | The panel grows from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |
-| Menu, Picker menu | The panel scales from 0.96 (`materialize.menu`) to 1 from the corner where it hangs; a pointer submenu grows from the chosen row (about that row's top edge, on the side facing the parent), and Back grows the parent from the side that faced the child; and fades in, 0.15 seconds (`popover.enter`), Cubic Out. As a sheet (touch, gamepad, narrow window), the panel slides up from the bottom edge and fades in with the Sheet timing (`sheet.enter` 0.3 seconds, `sheet.exit` 0.2 seconds) and never scales. A sheet level change slides the rows 32 pixels (`distances.menuSlide`) in from the trailing side (Back: from the leading side) and cross-fades them over `popover.enter`. | The reverse, 0.1 seconds (`popover.exit`); a sheet slides back down over `sheet.exit`. |
+| Menu, Picker menu | The complete panel fades in at its final position and size, 0.15 seconds (`popover.enter`), Cubic Out. As a sheet (touch, gamepad, narrow window), the panel slides up from the bottom edge and fades in with the Sheet timing (`sheet.enter` 0.3 seconds, `sheet.exit` 0.2 seconds) and never scales. A sheet level change slides the rows 32 pixels (`distances.menuSlide`) in from the trailing side (Back: from the leading side) and cross-fades them over `popover.enter`. | The reverse, 0.1 seconds (`popover.exit`); a sheet slides back down over `sheet.exit`. |
 | Popover compact sheet | The Sheet motion. | The Sheet motion. |
 | Toast | Slides in from its edge, 0.2 seconds (`toast.enter`), Cubic Out, and fades in over the same time on the linear `easing.trail`, so the fade is still running once the row is in view. `fade = false` only slides. | Slides out toward its edge and fades out, 0.2 seconds (`toast.exit`), the fade on `easing.trail`. |
 | Toast with an action | Slides up from below the layer, 0.2 seconds (`toast.enter`), Cubic Out, and fades in over the same time on `easing.trail`. | Slides down and fades out, 0.2 seconds (`toast.exit`), the fade on `easing.trail`. |
@@ -315,7 +331,11 @@ easing, spring, scale and distance below is a token in the theme package's
 | RadialMenu slot | A slot that enters an open ring fades in, 0.16 seconds (`radial.slot`). A slot of a submenu unfolds from the chosen item: it starts at that item's angle and ring band and sweeps along the ring to its own angle, its wedge growing from the theme's `motion.unfoldStart` of its arc (a quarter by default, Cubic Out). Other slots move from 30 percent (`materialize.branch`) of the distance toward the center to their positions. Back folds the level into its item and re-opens the parent around it: each parent slot starts at that item's angle and band and sweeps to its place. A ring that opens again starts from the centre. Reduced motion places the slot at once. | The slot fades out, 0.12 seconds (`radial.exit`). A submenu slot left by Back folds along the ring into the item it came from as it fades. |
 | NavBar | No motion. | No motion. |
 
-- A fade uses a CanvasGroup named `Fade` only while it runs. The group holds
+- A modal panel keeps its CanvasGroup named `Fade` for its complete lifetime.
+  Its children do not change parent at the end of an entrance. Alert, Dialog,
+  Popover and floating Menu use a cross-fade at their final size. This avoids
+  live text measurement changes from UIScale. Sheet keeps its travel.
+- Other fades use a CanvasGroup named `Fade` only while they run. The group holds
   the faded node's children. When the fade ends, the children move back and
   the group is removed, so settled text and art are never rasterised. A
   `UIGradient` named `FadePaint` fades the node's own paint. A new group
@@ -1707,7 +1727,10 @@ Both take a numeric `value`, a positive integer `count` (default `5`),
 `value` and `semanticValue` attributes stay in the range from the minimum to
 `count`, also when the model holds a value outside it.
 
-- Rating supports `glyphs = { filled, empty }` and `starSize`.
+- Rating supports `glyphs = { filled, empty }` and `starSize`. The mark size
+  is the preferred size. In a bounded slot, the control first reduces spacing.
+  If the marks still do not fit, it reduces their size together. Pointer input
+  follows the displayed marks. Selection input can reach every value.
 - LevelPicker supports `segment` (`bar`, `glyph` or `image`), `segmentSize`,
   `glyphs`, `images` and `tint` filled and empty Color3 pairs. A bar segment has
   the `facet-level-segment` tag, and a filled bar also has `facet-level-on`.
@@ -1840,11 +1863,10 @@ menus keep the control-specific navigation of the menu.
   enabled item. If an enabled selected item holds the value of its group, the
   menu selects that item instead. Back and Left close one level and return the selection to the
   item that opened it.
-- Each level of a floating menu scales from 0.96 to 1 and fades in. It grows
-  from the corner where it hangs on its trigger or on its parent row. On
-  dismiss it scales and fades out, faster than it came in. In a sheet, a
+- Each level of a floating menu fades in at its final position and size. On
+  dismiss it fades out, faster than it came in. In a sheet, a
   submenu slides in from the trailing side, and Back slides the parent level in
-  from the leading side. Reduced motion removes the scale and the slide. See
+  from the leading side. Reduced motion removes the slide. See
   [Motion](#motion).
 - `edge` (`top`, `bottom`, `leading` or `trailing`) and `align` (`start`,
   `center` or `end`) place the root panel against its trigger. The default is
@@ -1939,7 +1961,9 @@ measured width and the native PreferredInput:
 A `label` shows on the leading edge of a horizontal segmented row, with the
 control at its natural width on the trailing edge. With `sizing = "fill"` (the
 default) each segment starts at its label's width, at least a 44 pixel target,
-and the segments share the space that is left. A strip that does not fit in the
+and the segments share the space that is left. With touch input, each horizontal
+segment is at least 44 pixels high. The strip includes its top and bottom
+padding outside that target, also when you supply a strip height. A strip that does not fit in the
 width of the row stays one line: its segments shrink in proportion, a label
 wraps between words, and a word that cannot fit its line ends in "…". With
 `hug` the segments keep their natural widths. A segment is never wider than the
@@ -2090,6 +2114,55 @@ Tabs keep equal targets and the badge stays at the icon's corner. The default,
 `"besideIcon"`, keeps the horizontal presentation. A sidebar or top bar keeps
 its horizontal presentation. Use `belowIcon` for phone destination tabs.
 
+`track = "floating"` gives a bottom bar side and bottom margins, an opaque
+track and its own corner radius. In a sidebar it gives the rail side, top and
+bottom margins. The tabs use the track's rectangle. Page content and bottom
+Toast reservations include the bottom margin. `track = "automatic"` or an
+absent option keeps the existing layout. The floating track height is a minimum:
+larger text can increase it so the icon and label fit.
+
+`indicator = "mark"` removes the selected button fill. In a bottom bar it
+shows a small mark above the icon. `indicatorPlacement = "belowIcon"` moves
+it below the icon; `"aboveIcon"` is the default. `"inset"` puts the selection
+inside the tab target. A sidebar always uses an inset selection. A tab without
+an icon also uses the inset selection. Top bars keep their underline.
+`indicator = "none"` still hides the selection paint.
+
+The following numeric theme metrics are in `metrics.controls`. Lengths are
+layout units. A radius of zero gives square corners.
+
+| Group | Fields and neutral values |
+| --- | --- |
+| `tabBottomTrack` | `height = 64`, `sideInset = 16`, `bottomInset = 12`, `radius = 20`, `contentGap = 8` |
+| `tabRailTrack` | `sideInset = 8`, `topInset = 8`, `bottomInset = 8`, `radius = 16` |
+| `tabMark` | `width = 20`, `height = 4`, `gap = 4`, `radius = 2` |
+| `tabRailSelection` | `insetX = 8`, `insetY = 4`, `radius = 8` |
+
+These metrics only change the floating track or mark options. The existing
+track and selection defaults keep their geometry. Colours use the existing
+`facet-tab-plate` and `facet-selection-indicator` StyleSheet roles.
+
+A tab's `badgeAnchor` can be `"topLeading"`, `"topTrailing"`,
+`"bottomLeading"` or `"bottomTrailing"`. It positions the badge on the icon.
+The default is `"topTrailing"`. Without an icon the count stays beside the
+label. The anchor can be a readable.
+
+```lua
+UI.TabView {
+    selection = selected,
+    placement = "bottomBar",
+    track = "floating",
+    indicator = "mark",
+    labelPlacement = "belowIcon",
+    controlSize = "compact",
+    tabs = {
+        { id = "games", label = "Games", icon = "view.grid", badge = 1,
+          badgeAnchor = "topLeading", content = gamesPage },
+        { id = "profile", label = "Profile", icon = "person", content = profilePage },
+    },
+}
+```
+
 `controlSize` (`xsmall`, `compact`, `regular` or `large`, or a readable) is the
 size step of the tabs. Each tab is `controlSizes.<step>.height` high and has the
 `controlSize` attribute. The strip stays `targetSizes.minimum` high (44
@@ -2189,6 +2262,29 @@ is an array of `{ id, value }` entries. `root` and each `destinations[id]` are
 
 `backLabel` sets the text of the native Back chrome. Compose `LayerStack` owns
 the retained pages and their disposal.
+
+Set `chrome = "hidden"` on a destination when that page owns its header.
+The page uses the full stack rectangle, with no stack title or Back bar.
+Set it on the stack to use this default for all pages, including the root.
+A destination's `chrome = "automatic"` overrides the stack default.
+Both settings can be readables. An absent option keeps the current behaviour,
+including the Back bar above an untitled child page. The root never has a
+stack Back command.
+
+Hidden chrome keeps route history, page motion, Escape, gamepad B and selection
+restoration. On touch, a one-finger right swipe from the left edge goes
+Back. The edge is `metrics.controls.navigationBack.swipeEdge` (24 layout units
+in the neutral theme). A captured drag does not trigger this Back gesture.
+Give the page a visible Back button that removes the last entry from `path`,
+so mouse and touch players also have a clear command. Do not replace the stack
+with a separate route or transition owner.
+
+```lua
+destinations.match = {
+    chrome = "hidden",
+    content = matchPage,
+}
+```
 
 The navigation bar title is inset on both sides by the control's horizontal
 padding (`controlSizes.regular.paddingX`), so a root page's leading title
@@ -2367,8 +2463,11 @@ and clipped to it.
 
 An item on the ring shows its icon or its label, never both. It shows the
 icon when its `labelStyle` is `icon`, its `compactLabel.prefer` is set, or it
-is a `buttons` item with an `icon`. Otherwise it shows the label. The list
-fallback shows both.
+is a `buttons` item with an `icon`. It also uses an available icon when the
+complete label and its padding do not fit the content box after `contentFit`.
+Otherwise it shows the label. Hold a touch on an icon, or point at it with
+the mouse, to show the complete label. The list fallback shows both. A ring also uses the list form when it cannot
+fit the complete caption of an action that has no icon.
 
 `contentFit` defaults to `"radial"`. It fits the ring thickness to the content
 and keeps the full angular span of each sector. Use `"both"` to fit both the
@@ -2496,7 +2595,7 @@ Motion options:
   it still exists. Compose owns the snapshot and the departing presentation.
   The source stays mounted.
 - Native reduced motion makes the handoff immediate.
-- Without `transition`, the alert scales from 0.94 to 1 and fades in. See
+- Without `transition`, the complete alert fades in at its final size. See
   [Motion](#motion).
 - `transition = false` makes the presentation immediate.
 
@@ -2756,8 +2855,8 @@ Other options:
 A dialog needs a title, content, a hero, an action label or actions. The
 height is the layer height less the keyboard height and the margins. When the
 pinned regions and a short body do not fit, every region moves into one
-scrolling column named `Room`. The panel is a Frame. It scales from
-0.94 and fades in with its scrim. See [Motion](#motion).
+scrolling column named `Room`. The panel is a Frame. The complete panel
+fades in at its final size with its scrim. See [Motion](#motion).
 
 ### Popover
 
@@ -3112,6 +3211,19 @@ render owner.
 | `controls` | An optional table that the control fills with the Compose `indexOfKey`, `placementOf` and `offsetOf`. |
 | `maxRetained` | The pool keeps at most `32` row hosts by default. |
 
+Rows prepare inside a native CanvasGroup. A new row stays transparent until
+its visible text has positive native bounds and its layout is stable. A filter
+or data replacement keeps removed painted rows until the replacement rows
+in the viewport are ready. Equal keys retain their native instances. An empty
+result removes the old rows. Offscreen overscan does not delay visible rows.
+Use `ZIndexBehavior = Enum.ZIndexBehavior.Sibling` on the ScreenGui or SurfaceGui.
+
+An Image waits for native `IsLoaded`. A Stage waits for its scene to be built
+and for its media rectangle to be stable. Media fades in over a placeholder
+of the surface colour with `reveal.enter` and `easing.fade`. Keep a fixed
+media size or use UIAspectRatioConstraint to reserve its slot. Scene creation
+does not report when the GPU has completed its first ViewportFrame render.
+
 For a bounded tile, set `contentOverflow = "clip"`. Give rendered content
 `Size = UDim2.fromScale(1, 1)` and `AutomaticSize = Enum.AutomaticSize.None`.
 A larger child keeps its authored size but native clipping limits its paint
@@ -3294,16 +3406,24 @@ VirtualList. A column has:
 - `align = "start"`, `"center"` or `"end"` for the heading and value text,
 - `minWidth` (48) and `maxWidth` (1e6),
 - `resizable` and `sortable` (both true),
-- `value(item)` or `render(current, placement, key)`.
+- `value(item)` or `render(current, placement, key)`,
+- `wrap = false` to truncate, or `wrap = true` to allow wrapping. Without
+  `wrap`, the input policy selects wrapping,
+- `detailRender(current, placement, key)` for an interactive value in Details.
 
 A column collapses only when it has a numeric `priority`. Larger values
-collapse first. The first column always stays visible. The other columns
-keep their `minWidth` and truncate their text, so a narrow table scrolls
-sideways and never loses a column. This minimum also applies under touch and
+collapse first. The first column always stays visible. A flexible first
+column gets space for its full text before other flexible columns get extra
+space. Selection, reorder and row action columns keep their fixed widths.
+The other columns keep their `minWidth`. Columns without a numeric priority stay visible; a narrow table
+can scroll sideways. This minimum also applies under touch and
 gamepad input. A Popover shows collapsed and natively truncated values through
 the row's icon-only `status.info` button, named "Show details". Row commands
 keep their separate `more` (…) button. The cell
-state stays retained. The header band spans the whole row, edit controls
+state stays retained. `detailRender` receives the same item, placement and key
+as `render`. Keep durable value state in the model and share it between the
+cell and Details. Without `detailRender`, Details shows the full text value.
+The header band spans the whole row, edit controls
 included, and shows a hairline divider between headings; the headings sit over
 their columns. With a persistent vertical scrollbar, the header background
 continues over the scrollbar gutter to align the outside edges. Resize
@@ -4140,6 +4260,10 @@ a doctor check or when an input looks dead.
 | `freedJumpAction(before, after)` | The pure verdict of an unbind: `jumpAction` was bound before and is gone after. |
 | `describeContention()` | The whole explanation as one string, for a log line. |
 
+`cameraKeysContended` and `freedJumpAction` accept a map from action names to
+records. Each record has an optional `inputTypes: { EnumItem }` field. Use the
+records returned by `ContextActionService:GetAllBoundActionInfo()`.
+
 The fix for a game with an avatar is `Workspace.PlayerScriptsUseInputActionSystem`.
 No script can read or set it, but a Rojo project file can declare it. No
 `InputContext` priority outranks a sinking ContextActionService binding.
@@ -4336,8 +4460,12 @@ stays as the empty slot until the drop lands or the source goes back.
 ```lua
 UI.draggable(card, { payload = { kind = "sponsor", id = 7 } })
 UI.dropTarget(slot, {
-	accepts = function(payload)
-		if payload.kind ~= "sponsor" then
+	accepts = function(payload: unknown)
+		if type(payload) ~= "table" then
+			return false, "WRONG_KIND"
+		end
+		local data = payload :: { kind: unknown, id: unknown }
+		if data.kind ~= "sponsor" or type(data.id) ~= "number" then
 			return false, "WRONG_KIND"
 		end
 		return true
@@ -4359,6 +4487,11 @@ UI.dropTarget(slot, {
   scroller. `"immediate"` picks the source up when the finger moves 6 pixels
   after touch-down. A shorter movement remains a tap. The preview keeps the
   original contact point under the finger.
+  Collection drag factories use the same touch policy. Facet calls the factory
+  on touch-down and keeps its returned spec, payload and selected keys for
+  pickup. Immediate movement starts the existing collection transfer session,
+  including the recess, preview and insertion slot. An omitted policy keeps
+  native long-press pickup.
 - `touchDragAxis`: `"XY"` (default), `"X"`, or `"Y"`. With immediate pickup,
   the first movement of 6 pixels chooses the gesture. Movement mainly along
   the selected axis starts a drag and stops the enclosing ScrollingFrame until
@@ -4383,7 +4516,7 @@ Keyboard and gamepad pickup also shows an inert carried-item preview. During a
 collection reorder it follows the insertion point, and the original cells stay
 empty until the move ends. Edit controls are excluded from the preview.
 Failed drops return the preview to
-the source with a theme-timed native tween. Accepted drops shrink the preview at the drop position. Both use native TweenService and skip animation under reduced motion.
+the source with theme-timed travel. Accepted drops shrink the preview at the drop position. Both use the shared Travel engine and skip animation under reduced motion.
 Only accepted destinations show the native drop highlight; source-only
 collections show no insertion marker.
 A shared status label shows Copy or Apply for an accepted target, the
@@ -4581,6 +4714,131 @@ local function CrateActions(crate, prompt, actions)
 end
 ```
 
+## Zoom and travel
+
+### ZoomView
+
+`UI.ZoomView(spec) -> ScrollingFrame` wraps one stable content tree. Required:
+`contentSize` (a Vector2 in layout pixels, or a readable) and `content()` (a
+factory that returns a GuiObject). The factory runs once. Native `Size` sets
+the viewport. The control uses one UIScale and native scrolling.
+
+- `zoom`: an optional writable number cell. Scale 1 is the authored size.
+  Without it, the view starts at fit. A zoom must be positive and finite.
+- `focus`: an optional content point, or a readable. A change centres that
+  point. Zoom keeps the current point fixed on screen until an edge stops it.
+- `minZoom`: a positive finite scale. Without it, the minimum is fit.
+  `maxZoom` is 4 by default. `minZoom` cannot exceed `maxZoom`.
+- `doubleTapZoom`: the closer scale for a double tap. The default is twice
+  fit, bounded by `maxZoom`. Double tap toggles fit and that scale around the
+  contact point.
+- `enabled`: a boolean or readable, default true.
+- `controls`: an optional `ZoomControls` table. The control sets `fit()` and
+  `zoomTo({ x, y, w, h })` and `zoomAt(scale, screenPoint?)`. These calls return false while disabled or locked
+  by a child drag, except for one call inside its `onStart` capture scope.
+  The rectangle uses content pixels. `zoomAt` holds a point in screen pixels.
+  Without a point, it uses the captured pointer or armed source centre; outside
+  capture it uses the viewport centre. Call `zoomAt(2)` in `onStart` to zoom at
+  pickup, and `fit()` in `onEnd` to reverse after release. The functions are
+  cleared when the owner ends.
+
+Mouse pan follows native MouseMovement events while the original button is
+held. Pointer pan and wheel pan apply in that input callback. Ctrl-wheel uses
+the pointer in the inset viewport; ZoomView converts GetMouseLocation with
+GuiService.GetGuiInset. Pinch Begin captures the focus without changing scale.
+A positive Change scale updates the complete content transform at once.
+
+While the pointer is over the visible board, ZoomView holds native wheel
+scroll on its own ScrollingFrame and its scroll ancestors. Plain wheel pans
+the board vertically; Shift-wheel pans horizontally. Ctrl-wheel zooms.
+Pointer exit, focus loss, disable and disposal release these holds. A clipped
+board, an overlaid control or a nested scroller does not claim this wheel.
+
+Pinch zooms around the contact centre. Wheel pans; Ctrl-wheel zooms around the
+pointer. Select the view itself for keyboard and gamepad input: Plus and Minus
+or the triggers zoom, WASD or the right stick pan, and Home or Y fits. The
+arrow keys and D-pad keep native selection. Child controls keep activation.
+A pending child drag or a captured child drag holds the camera. An external
+zoom write waits until release. One camera request from the captured child's
+`onStart` can finish its motion. Later requests and pan wait until release.
+The same grant works for an external collection source. In VirtualGrid.drag,
+set onStart to call camera.zoomAt(2, boardScreenPoint) or camera.zoomTo(rect).
+Set onEnd to call camera.fit(). The granted camera holds until that source
+releases, even when the rack is outside the view.
+Targets are hit-tested again after each camera write. Native scrolling clamps each edge and has no
+elastic overscroll. Fit centres margins on an axis smaller than the viewport.
+
+Zoom uses `motion.durations.zoom` and `motion.easing.zoom`. Reduced motion
+removes interpolation. Content instances stay mounted at every scale.
+Text stays in ordinary native Frames under UIScale. It is not captured in a
+CanvasGroup texture. Roblox draws text at its native scaled size.
+Fractional-scale text and phone frame timing need native verification.
+
+```luau
+local zoom = Compose.cell(0.5)
+local camera: Facet.ZoomControls = {}
+local function Board(): GuiObject
+    return Host.Frame { Size = UDim2.fromOffset(780, 780) }
+end
+UI.ZoomView {
+    contentSize = Vector2.new(780, 780),
+    zoom = zoom,
+    controls = camera,
+    content = Board,
+}
+```
+
+### Travel
+
+`UI.Travel(spec) -> Frame` uses one model: an item has a slot. When its
+`destination` changes, the same visual moves to that slot. `content()` returns
+the visual once. The return value is an empty ownership anchor.
+
+Travel measures the shared container, clipping and scale boundaries at the
+change. With a safe common container, it moves in place. The parent stays the
+same. A clip, scale or native layout boundary routes through the overlay,
+then lands in the new slot. The consumer sets no route flag. Keep slots mounted.
+Slots are borrowed. Compose owns the visual and the anchor in one child owner.
+Destroying the current slot, visual or anchor ends Travel and releases its
+frame lease. Later destination changes cannot restart that destroyed visual.
+Keep the current slot mounted for an item that must remain available.
+
+- `destination`: a GuiObject, readable or body. The first placement is immediate.
+- `content`: a factory that returns a GuiObject. It runs once. The visual is
+  the reusable carrier. There is no clone or new instance per move.
+- `path`: `straight` (default) or `arc`.
+- `motion`: `ease` (default) or `spring`. Timed motion uses
+  `motion.durations.travel` and `motion.easing.travel`. Spring motion uses
+  `motion.springs.travel`, with the same period and damping shape as navigation.
+  A spring interrupt keeps its position and velocity.
+- `transparency`: an optional number or readable for CanvasGroup content.
+  It uses `motion.durations.travelFade`. This supports retiring items.
+- `stagger`: a nonnegative zero-based ripple index, or a function that returns
+  it at each slot change. Delay is that index times `motion.durations.travelStagger`.
+  An interrupted flight retargets at once. Reduced motion ignores the delay.
+- `lift`: true scales the whole visual around its centre during flight. The
+  peak is `motion.scales.travelLift`. Use it with `path = "arc"` for a shuffle.
+- `onStarted(destination)`: reports the start after the delay. On interruption
+  it reports the new destination. The game can play its own sound here.
+- `onLanded(destination)`: reports placement. It does not change game state.
+
+Moving carriers have distinct native ZIndex values above resting siblings.
+Travel restores scale on landing. Its landing depth stays above the slot's
+child controls, so a cell button cannot cover the item. Travel subtracts
+effective native UIPadding and inset borders from the slot geometry. The
+flight targets the content box that a native fill child occupies at rest.
+An outline UIStroke does not change that box. The hand-off keeps the same
+screen rectangle. Use native
+`ZIndexBehavior = Sibling` for the game root. A rack shuffle changes seven
+keyed items' destination slots; it needs no consumer frame loop.
+
+Arc height uses `motion.distances.travelArc`. Reduced motion places and fades
+at once. All active items use one shared Compose host-frame stepper. Keyed
+items retain their carriers across moves. The root's `FacetTravelMoving`
+attribute reports motion. Buttons, gamepad commands and drag callbacks all
+change the same destination model. Native bounds, selection, clipping and
+paint continuity still need live verification.
+
 ## Recipes
 
 `Facet.recipes.arithmetic.parse(text)` returns a finite number or `nil` for
@@ -4626,3 +4884,185 @@ The supported import boundary is the Facet root table and the Compose exports
 that you can reach from it. Control implementation modules are private. The
 vendored Compose tree is a generated, read-only snapshot. Make changes upstream
 and synchronize them through the repository tooling.
+
+### gestureArbiter
+
+`UI.gestureArbiter(surface) -> GestureBinding` shares the pointer decision with
+`UI.draggable`, collection drags and ScrollView. Call it inside a Compose owner.
+The binding stops its contacts when that owner ends. Control factories on the
+same UserInputService share one arbiter.
+
+- `begin(pointer, position, options)` captures `surface` and the screen point.
+  It returns false when another surface already owns that InputObject.
+- `options` contains `pickup` (`immediate` or `longPress`, absent for pan),
+  `axis` (`X`, `Y` or `XY`), `scroll` and `threshold` (default 6 screen pixels).
+- `move(pointer, position)` returns the final gesture after the threshold.
+  Immediate pickup wins on its axis. Across the axis, or before long press,
+  movement wins as `scroll` when `scroll` is true, otherwise `pan`.
+- `claim(pointer, kind)` accepts a native long-press `drag` only while pending.
+  It cannot change a final decision. Pan and scroll must pass through `move`.
+- `get(pointer)` returns `{ owner, origin, kind }` or nil. The copy cannot
+  change the arbiter. `kind` is `pending`, `drag`, `pan`, `scroll`, `press`,
+  `doubleTap` or `cancelled`.
+- `finish(pointer, cancelled?)` releases only this surface's contact. It returns
+  `press` for a pending contact, or `cancelled` when requested.
+
+A zoom surface must read the decision before starting pan or double-tap. Keep
+its camera fixed while a child source is pending or dragging. Drop targets are measured
+and hit-tested each frame and again at release through a moving camera. Use native
+activation click counts for double-tap. A moved or cancelled contact cannot
+supply a double-tap. The arbiter creates no input connection or Instance.
+
+### Container transfer travel
+
+`DraggableSpec.hitArea` is an optional GuiObject for bounded pickup. Its measured
+screen rectangle includes its leading edges and excludes its trailing edges.
+Use the cell's fixed hit node when tile paint grows on hover. The contact keeps
+one source through release, even when the pointer passes another tile.
+A captured draggable holds all scroll ancestors until the session ends.
+Inside `onStart`, an external rack can call `ZoomControls.zoomAt` for its board.
+The capture scope grants one request per camera. Later requests and pan stay
+locked until release. The rack does not need to be a child of ZoomView.
+Set source `returnTravel = true` to keep its recess through a cancelled return.
+Return travel uses the shared Travel engine, `motion.durations.travel` and
+`motion.easing.travel`. Without this
+option, return feedback keeps its positional return and accepted shrink, driven by
+the shared Travel engine. The recess clears immediately without returnTravel.
+
+`DropTargetSpec.travel = true` moves the preview to the destination before
+calling `onDrop`. `landing(info)` can return `{ x, y, w, h }` in screen pixels
+for an insertion slot. Without it, a GUI target uses its own measured rectangle.
+Travel uses the shared Travel engine, `motion.durations.travel` and
+`motion.easing.travel`. Reduced motion
+commits immediately. The preview follows the pointer directly while captured;
+travel begins only after release. The source stays an empty slot during travel.
+The destination is revalidated at arrival. Cancellation or a removed destination
+prevents the drop handler. Existing targets without `travel` keep their immediate
+drop contract. A world target needs `landing` for screen travel.
+
+Use `contentOverflow = "clip"` for bounded collection cells. Existing collection
+`drop`, `rowDrop`, `onReorder` and insertion metadata support linked containers.
+The game updates both models together in `onDrop`. Return or A picks up and
+places, Tab or native directional selection chooses a destination, Y changes
+between collection insertion and destination navigation, and Escape or B cancels.
+
+### Reserved collection slots
+
+VirtualList and VirtualGrid accept `slots: Value<{ K }>` with unique item keys.
+The keys define the slot order. A key absent from `from` shows a non-selectable
+recess. When that item returns to `from`, it uses its reserved slot. Items not
+listed in `slots` follow the listed keys in source order. Remove a key from
+`slots` to release its slot. Remaining items reflow with the theme travel spring.
+Without `slots`, collections keep their compact layout. Field-name keys use
+strings. A key function can return another key type.
+
+`slotControls: SlotControls<K>` receives `nodeOfKey(key) -> GuiObject?`.
+It returns the native slot anchor while that slot is retained. Pass that node
+to `UI.Travel.destination` for a programmatic Recall. Use `mode = "all"` when
+every reserved slot must have an anchor. The function clears on disposal.
+
+```luau
+local slots = Compose.cell({ "A", "M", "I", "G", "O", "S", "E" })
+local rack = Compose.cell({ { id = "A" }, { id = "M" }, { id = "I" } })
+local function renderTile(current)
+    return UI.Button { label = function(use) return use(current).id end }
+end
+UI.VirtualGrid {
+    from = rack,
+    key = "id",
+    slots = slots,
+    columns = 7,
+    itemSize = 52,
+    render = renderTile,
+}
+```
+
+Keep a transferred key in `slots` until Play or Recall releases it. The
+consumer owns both lists. The collection owns recesses, placement and reflow.
+A collection drop target supplies the reserved key's landing rectangle when
+its payload has `keys`, unless `drop.landing` supplies another rectangle.
+Use `drop.travel = true` for the shared Travel engine to return to that slot.
+
+## Effect sequences
+
+`UI.sequence(spec) -> Sequence` owns an ordered effect sequence. It creates
+no GUI. `steps` is an array of `SequenceStep`. A step accepts:
+
+- `delay` and `duration`: names in `motion.durations`. Omit either for zero.
+- `easing`: a name in `motion.easing`, default `sequence`.
+- `onStart()` and `onEnd()`: callbacks for the step boundaries.
+- `sample(progress)`: eased progress from zero to one on the Compose clock.
+- `parallel`: child steps that start from the same point. The group ends
+  after its longest child. Its end callback follows all child ends.
+
+The handle has `play()`, `cancel()`, `finish()`, and readable `running` and
+`completed` values. `play()` interrupts the previous run at its current
+sample and starts a new run. `cancel()` stops sequence samples and suppresses later callbacks.
+Motion already started by a callback remains owned by that control. `finish()` applies every remaining end state.
+`onCompleted()` on the spec runs after all steps. Compose owns callbacks and
+cleanup. Reduced motion runs start, final sample and end in order without
+waiting. A game owns durable state and validation in its callbacks.
+
+`UI.countUp(value) -> Readable<number>` interpolates a finite number or
+readable using `motion.durations.countUp` and `motion.easing.countUp`. Feed
+it to a `UI.Text` formula to format a total. Retargeting starts at the current
+number. Reduced motion applies the new number at once.
+
+`UI.Flash { target, progress, color?, mode? } -> Frame` paints a transient
+overlay for a GuiObject or readable target. The ownership anchor is empty.
+`progress` is a number or readable from zero to one, supplied by a sequence
+sample. `mode` is `pulse` (default) or `sweep`. Sweep reveals across the
+measured target. Colour defaults to the theme accent. The paint hides at
+both ends and under reduced motion. It does not change target paint, parent
+or input. Compose owns its portal, observation and paint.
+
+Use `travelStagger` between lock callbacks, a parallel sweep and flash, then
+an `onStart` that changes a Travel destination. Use `travel` for that step,
+`countUp` for the total and a final refill callback. Use Travel's `onLanded`
+when the game must wait for actual placement. The consumer needs no frame loop.
+
+## Focus and command scopes
+
+`UI.commandScope(root, spec) -> CommandScope<K>` attaches commands to an
+existing GuiObject. `targets` is a value or readable array of `{ key, node }`.
+Each key and node must be unique. A node can contain native selection targets.
+`commands` is an array of `{ id, keys, enabled?, onInvoke(key) }`. Each id is
+unique. `keys` contains KeyCode names. One key belongs to one command in the
+scope. `enabled` on the spec or command is a boolean or readable.
+
+The returned handle has `current: Readable<K?>`, `focus(key) -> boolean`,
+`clear()`, and `actions` by command id. Actions are native InputActions and
+can be used with ShortcutHint. `focus` selects an available native target.
+It returns false if the key is absent, disabled or unmounted. `clear` clears
+native selection only when this scope owns it. Mouse and touch select their
+target. Keyboard and gamepad use native selection and the same commands.
+The scope does not bind directional navigation. Bound W, A, S and D commands
+hold the current native selection in their direction while the command is
+active. Unbound navigation stays native. Text entry and disposal restore the
+previous selection links.
+
+TextInput text entry wins. Commands are disabled while any TextBox is focused.
+Existing control actions and modal availability win next. Among scopes that
+contain native selection, the most specific enabled scope wins. A scope uses
+InputContext priority 1500, below existing Facet control actions. Tab and
+Escape use the shared reserved-key dispatcher with the same precedence.
+One handler receives the current key. The game chooses the matching item and
+owns placement, validation and cursor advance. Compose owns actions and
+connections. Disposal clears current and makes focus return false.
+
+```luau
+local cell = UI.Button { label = "Board cell" }
+local board = UI.Grid { columns = 1, cell }
+local scope = UI.commandScope(board, {
+    targets = { { key = "centre", node = cell } },
+    commands = {
+        { id = "PlaceA", keys = { "A", "ButtonX" }, onInvoke = function(key)
+            print("Place one A at", key)
+        end },
+        { id = "Recall", keys = { "Backspace", "ButtonY" }, onInvoke = function(key)
+            print("Recall from", key)
+        end },
+    },
+})
+scope.focus("centre")
+```

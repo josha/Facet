@@ -439,7 +439,7 @@ add("panel-insets-reserve-native-padding", {}, function(t)
 			math.max(spacing, inset.bottom or 0),
 			0.5
 		)
-		local layout = panel:FindFirstChild("AlertLayout")
+		local layout = panel:FindFirstChild("AlertLayout", true)
 		if layout then
 			local r = t.rect(panel)
 			t.inside(

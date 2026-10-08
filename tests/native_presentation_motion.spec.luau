@@ -123,8 +123,43 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("presentation motion: Dialog and CollapsibleView", function()
-		verifyHarness:case("a dialog scales from 0.94 and fades in with its scrim, frame by frame, in 0.2 seconds", {
-			id = "native_presentation_motion::presentation motion: Dialog and CollapsibleView::a dialog scales from 0.94 and fades in with its scrim, frame by frame, in 0.2 seconds",
+		verifyHarness:case("keeps native surface style roles on the stationary alert group", {
+			id = "native_presentation_motion::presentation motion: Dialog and CollapsibleView::keeps native surface style roles on the stationary alert group",
+			run = function()
+				local open = Compose.cell(false)
+				local w = overlay.new(function(UI: FacetControls)
+					return UI.Alert "Reset" {
+						isPresented = open,
+						title = "Reset look?",
+						actions = { { id = "cancel", label = "Cancel" } },
+					}
+				end)
+				open:set(true)
+				local panel = w.find("AlertPanel")
+				Verify.expect("panel role " .. tostring(panel:HasTag("facet-panel"))):toBe("panel role true")
+				Verify.expect(panel:FindFirstChildWhichIsA("UICorner")):toBe(nil)
+				w.size(panel, 357, 243)
+				w.size(w.find("AlertContent").Parent, 293, 60)
+				w.advance(FRAME * 3, 3)
+				local parent = w.find("AlertContent").Parent
+				for _ = 1, 30 do
+					Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBeNil()
+					Verify.expect(panel:HasTag("facet-panel")):toBe(true)
+					Verify.expect(panel:HasTag("facet-alert")):toBe(true)
+					Verify.expect(materialize.of(panel).Scale):toBe(1)
+					Verify.expect(w.find("AlertContent").Parent):toBe(parent)
+					w.advance(FRAME)
+				end
+				open:set(false)
+				w.advance(FRAME)
+				Verify.expect(panel:HasTag("facet-panel")):toBe(true)
+				Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBeNil()
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("a dialog cross-fades in place with its scrim without changing live content geometry", {
+			id = "native_presentation_motion::presentation motion: Dialog and CollapsibleView::a dialog cross-fades in place with its scrim without changing live content geometry",
 			run = function()
 				local w, open = dialogWorld()
 				open:set(true)
@@ -135,35 +170,69 @@ return function(verifyHarness: Verify.Harness)
 				panel.AbsoluteSize = Vector2.new(560, 300)
 				w.advance(FRAME)
 				w.advance(FRAME)
-				Verify.expect(scale.Scale >= 0.93 and scale.Scale < 1):toBe(true)
+				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect(fadeKit.of(panel) > 0.5):toBe(true)
 				Verify.expect((fadeOf(w))):toBeCloseTo(fadeKit.of(panel), 1e-6)
-				local lastScale, lastFade, clearedEarly = scale.Scale, fadeKit.of(panel), false
+				local parent = w.find("Line").Parent
+				local lastFade = fadeKit.of(panel)
 				for _ = 1, 11 do
 					w.advance(FRAME)
-					Verify.expect(scale.Scale >= lastScale):toBe(true)
-					local paint = panel:FindFirstChild("PresentationPaint", true)
-					if paint then
-						local content = paint:FindFirstChild("PresentationContent")
-						Verify.expect(paint.AnchorPoint):toBe(Vector2.new(0.5, 0.5))
-						Verify.expect(paint.Position):toBe(w.engine.types.UDim2.fromScale(0.5, 0.5))
-						Verify.expect(paint.ClipsDescendants):toBe(false)
-						Verify.expect(content.Size):toBe(w.engine.types.UDim2.fromOffset(528, 268))
-						Verify.expect(content.Size.X.Offset + 32):toBe(paint.Size.X.Offset)
-						Verify.expect(content.Size.Y.Offset + 32):toBe(paint.Size.Y.Offset)
-						Verify.expect(paint:FindFirstChild("PresentationScale").Scale):toBe(scale.Scale)
-						Verify.expect(w.find("Line"):IsDescendantOf(content)):toBe(true)
-					end
+					Verify.expect(scale.Scale):toBe(1)
+					Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBeNil()
+					Verify.expect(w.find("Line").Parent):toBe(parent)
 					Verify.expect(fadeKit.of(panel) <= lastFade):toBe(true)
 					Verify.expect((fadeOf(w))):toBeCloseTo(fadeKit.of(panel), 1e-6)
-					clearedEarly = clearedEarly or (fadeKit.of(panel) == 0 and scale.Scale < 1)
-					lastScale, lastFade = scale.Scale, fadeKit.of(panel)
+					lastFade = fadeKit.of(panel)
 				end
-				Verify.expect(clearedEarly):toBe(true)
 				w.advance(0.05, 3)
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect((fadeKit.of(panel))):toBe(0)
 				Verify.expect((fadeOf(w))):toBe(0)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("clears background selection while a modal prepares for pointer input", {
+			id = "native_presentation_motion::presentation motion: Dialog and CollapsibleView::clears background selection while a modal prepares for pointer input",
+			run = function()
+				local w, open = dialogWorld()
+				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				w.input.GetLastInputType = function()
+					return w.Enum.UserInputType.Touch
+				end
+				open:set(true)
+				Verify.expect(w.gui.SelectedObject == nil or within(w.gui.SelectedObject, w.find("DialogModal")))
+					:toBe(true)
+				w.gui.SelectedObject = w.find("Opener")
+				Verify.expect(w.gui.SelectedObject == nil or within(w.gui.SelectedObject, w.find("DialogModal")))
+					:toBe(true)
+				w.advance(0.3, 18)
+				w.gui.SelectedObject = w.find("Opener")
+				Verify.expect(w.gui.SelectedObject == nil or within(w.gui.SelectedObject, w.find("DialogModal")))
+					:toBe(true)
+				open:set(false)
+				w.advance(0.3, 18)
+				Verify.expect(w.gui.SelectedObject):toBe(w.find("Opener"))
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("updates modal focus ownership when keyboard input changes to a pointer", {
+			id = "native_presentation_motion::presentation motion: Dialog and CollapsibleView::updates modal focus ownership when keyboard input changes to a pointer",
+			run = function()
+				local w, open = dialogWorld()
+				w.input.GetLastInputType = function()
+					return w.Enum.UserInputType.Keyboard
+				end
+				open:set(true)
+				w.advance(0.3, 18)
+				Verify.expect(within(w.gui.SelectedObject, w.find("DialogModal"))):toBe(true)
+				w.input.LastInputTypeChanged:Fire(w.Enum.UserInputType.MouseMovement)
+				w.gui.SelectedObject = w.find("Opener")
+				Verify.expect(w.gui.SelectedObject):toBe(nil)
+				open:set(false)
+				w.advance(0.3, 18)
+				Verify.expect(w.gui.SelectedObject):toBe(w.find("Opener"))
 				w.stop()
 			end,
 		})
@@ -249,21 +318,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(fadeKit.of(fade) > 0):toBe(true)
 				w.advance(0.15, 9)
 				Verify.expect((fadeKit.of(fade))):toBe(0)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("collapsed shows a one-line clamped summary with a More chevron", {
-			id = "native_presentation_motion::CollapsibleView in place::collapsed shows a one-line clamped summary with a More chevron",
-			run = function()
-				local w = tipsWorld()
-				local trigger = w.find("Tips")
-				local title = overlay.find(trigger, "Title")
-				Verify.expect(title.TextTruncate):toBe(w.Enum.TextTruncate.AtEnd)
-				Verify.expect(title.TextWrapped):toBe(false)
-				Verify.expect(title:FindFirstChildWhichIsA("UIFlexItem").FlexMode):toBe(w.Enum.UIFlexMode.Shrink)
-				Verify.expect(overlay.find(trigger, "TrailingIcon") ~= nil):toBe(true)
-				Verify.expect((w.find("Expanded"))):toBeNil()
 				w.stop()
 			end,
 		})
@@ -391,29 +445,6 @@ return function(verifyHarness: Verify.Harness)
 		end
 
 		verifyHarness:case(
-			"keeps a fade node's outline stroke painted out whenever no fade runs, from its first frame",
-			{
-				id = "native_presentation_motion::presentation motion: DisclosureGroup::keeps a fade node's outline stroke painted out whenever no fade runs, from its first frame",
-				run = function()
-					local w = overlay.new(function(UI: FacetControls)
-						return UI.DisclosureGroup "Settings" {
-							label = "Appearance",
-							expanded = Compose.cell(true),
-							content = function(): Instance
-								return UI.Button "Palette" { label = "Palette" }
-							end,
-						}
-					end, { runService = true })
-					local paint = w.find("RevealFade"):FindFirstChild("FadeStroke"):FindFirstChild("FadePaint")
-					Verify.expect(paint.Transparency.Keypoints[1].Value):toBe(1)
-					w.advance(FRAME)
-					Verify.expect(paint.Transparency.Keypoints[1].Value):toBe(1)
-					w.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case(
 			"reveals the height, fades the content in its first half and turns the chevron, frame by frame",
 			{
 				id = "native_presentation_motion::presentation motion: DisclosureGroup::reveals the height, fades the content in its first half and turns the chevron, frame by frame",
@@ -474,39 +505,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((palette:isDestroyed())):toBe(true)
 				Verify.expect((w.find("Reveal"))):toBeNil()
 				Verify.expect(w.gui.SelectedObject):toBe(w.find("Header"))
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("expanding again during the collapse keeps the same content", {
-			id = "native_presentation_motion::presentation motion: DisclosureGroup::expanding again during the collapse keeps the same content",
-			run = function()
-				local w, expanded = disclosureWorld()
-				expanded:set(true)
-				w.advance(0.3, 18)
-				local palette = w.find("Palette")
-				expanded:set(false)
-				w.advance(0.05, 3)
-				expanded:set(true)
-				Verify.expect((w.find("Palette"))):toBe(palette)
-				Verify.expect(w.find("Reveal").Interactable):toBe(true)
-				w.advance(0.3, 18)
-				Verify.expect((fadeKit.of(w.find("RevealFade")))):toBe(0)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("reduced motion expands and collapses at once", {
-			id = "native_presentation_motion::presentation motion: DisclosureGroup::reduced motion expands and collapses at once",
-			run = function()
-				local w, expanded = disclosureWorld({ motionLevel = "none" })
-				expanded:set(true)
-				local reveal = w.find("Reveal")
-				Verify.expect(reveal.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
-				Verify.expect((fadeKit.of(w.find("RevealFade")))):toBe(0)
-				Verify.expect(overlay.find(w.find("Header"), "LeadingIcon").Rotation):toBe(0)
-				expanded:set(false)
-				Verify.expect((reveal:isDestroyed())):toBe(true)
 				w.stop()
 			end,
 		})
@@ -803,6 +801,40 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(group.GroupTransparency):toBe(0.9)
 				stop()
 				runtime:dispose()
+			end,
+		})
+	end)
+	verifyHarness:suite("presentation motion: Menu measurement", function()
+		verifyHarness:case("holds panel height through a one-frame row measurement handoff and accepts stable reflow", {
+			id = "native_presentation_motion::presentation motion: Menu measurement::holds panel height through a one-frame row measurement handoff and accepts stable reflow",
+			run = function()
+				local w = overlay.new(function(UI, Host)
+					return Host.Frame {
+						UI.Menu "Commands" {
+							label = "Actions",
+							items = { { id = "save", label = "Save", onSelect = function() end } },
+						},
+					}
+				end)
+				w.find("Trigger").Activated:Fire()
+				local panel, rows = w.find("MenuPanel"), w.find("MenuRows")
+				w.size(w.find("Modal"), 800, 600)
+				w.size(panel, 220, 104)
+				w.size(rows, 220, 104)
+				w.advance(1, 60)
+				local height = panel.Size.Y.Offset
+				w.size(rows, 220, 103)
+				w.advance(FRAME)
+				Verify.expect(panel.Size.Y.Offset):toBe(height)
+				w.size(rows, 220, 104)
+				w.advance(FRAME)
+				Verify.expect(panel.Size.Y.Offset):toBe(height)
+				w.size(rows, 220, 140)
+				w.advance(FRAME)
+				Verify.expect(panel.Size.Y.Offset):toBe(height)
+				w.advance(FRAME)
+				Verify.expect(panel.Size.Y.Offset):toBe(height + 36)
+				w.stop()
 			end,
 		})
 	end)

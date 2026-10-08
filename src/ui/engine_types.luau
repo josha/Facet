@@ -48,6 +48,7 @@ export type ValueEnumFrameStyle = Value<Enum.FrameStyle>
 export type ValueEnumGradientTileMode = Value<Enum.GradientTileMode>
 export type ValueEnumGradientType = Value<Enum.GradientType>
 export type ValueEnumHapticEffectType = Value<Enum.HapticEffectType>
+export type ValueEnumHighlightDepthMode = Value<Enum.HighlightDepthMode>
 export type ValueEnumHorizontalAlignment = Value<Enum.HorizontalAlignment>
 export type ValueEnumInputActionType = Value<Enum.InputActionType>
 export type ValueEnumInputBindingType = Value<Enum.InputBindingType>
@@ -1014,6 +1015,58 @@ export type HapticEffectProps = {
 	Type: ValueEnumHapticEffectType?,
 	[number | EventKey]: Compose.Child,
 	ref: ((HapticEffect) -> ())?,
+}
+
+export type HighlightNativeProps = {
+	Changed: ((string) -> ())?,
+	Attributes: Attributes?,
+	AncestryChanged: ((Instance, Instance?) -> ())?,
+	Archivable: ValueBoolean?,
+	AttributeChanged: ((string) -> ())?,
+	Capabilities: ValueSecurityCapabilities?,
+	ChildAdded: ((Instance) -> ())?,
+	ChildRemoved: ((Instance) -> ())?,
+	DescendantAdded: ((Instance) -> ())?,
+	DescendantRemoving: ((Instance) -> ())?,
+	Destroying: (() -> ())?,
+	Name: ValueString?,
+	Parent: (ValueInstanceOptional | StaticValue)?,
+	Sandboxed: ValueBoolean?,
+	StyledPropertiesChanged: (() -> ())?,
+	Adornee: (ValueInstanceOptional | StaticValue)?,
+	DepthMode: ValueEnumHighlightDepthMode?,
+	Enabled: ValueBoolean?,
+	FillColor: ValueColor3?,
+	FillTransparency: ValueNumber?,
+	OutlineColor: ValueColor3?,
+	OutlineTransparency: ValueNumber?,
+	[number | EventKey]: Compose.Child,
+}
+export type HighlightProps = {
+	Changed: ((string) -> ())?,
+	Attributes: Attributes?,
+	AncestryChanged: ((Instance, Instance?) -> ())?,
+	Archivable: ValueBoolean?,
+	AttributeChanged: ((string) -> ())?,
+	Capabilities: ValueSecurityCapabilities?,
+	ChildAdded: ((Instance) -> ())?,
+	ChildRemoved: ((Instance) -> ())?,
+	DescendantAdded: ((Instance) -> ())?,
+	DescendantRemoving: ((Instance) -> ())?,
+	Destroying: (() -> ())?,
+	Name: ValueString?,
+	Parent: (ValueInstanceOptional | StaticValue)?,
+	Sandboxed: ValueBoolean?,
+	StyledPropertiesChanged: (() -> ())?,
+	Adornee: (ValueInstanceOptional | StaticValue)?,
+	DepthMode: ValueEnumHighlightDepthMode?,
+	Enabled: ValueBoolean?,
+	FillColor: ValueColor3?,
+	FillTransparency: ValueNumber?,
+	OutlineColor: ValueColor3?,
+	OutlineTransparency: ValueNumber?,
+	[number | EventKey]: Compose.Child,
+	ref: ((Highlight) -> ())?,
 }
 
 export type ImageButtonNativeProps = {
@@ -4074,6 +4127,7 @@ export type Host = {
 	Folder: Constructor<FolderNativeProps, Folder>,
 	Frame: Constructor<FrameNativeProps, Frame>,
 	HapticEffect: Constructor<HapticEffectNativeProps, HapticEffect>,
+	Highlight: Constructor<HighlightNativeProps, Highlight>,
 	ImageButton: Constructor<ImageButtonNativeProps, ImageButton>,
 	ImageLabel: Constructor<ImageLabelNativeProps, ImageLabel>,
 	InputAction: Constructor<InputActionNativeProps, InputAction>,

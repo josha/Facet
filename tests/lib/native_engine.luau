@@ -33,6 +33,10 @@ local eventNames = {
 	"StateChanged",
 	"TouchLongPress",
 	"TouchPan",
+	"TouchSwipe",
+	"TouchPinch",
+	"TextBoxFocused",
+	"TextBoxFocusReleased",
 	"FocusLost",
 	"InputBegan",
 	"InputChanged",
@@ -80,6 +84,18 @@ local doubles: { [string]: any } = {
 	end,
 	Stop = function(object)
 		object.StopCount = (object.StopCount or 0) + 1
+	end,
+	GetMouseLocation = function()
+		return Roblox.Vector2.new(-1, -1)
+	end,
+	GetGuiInset = function()
+		return Roblox.Vector2.zero, Roblox.Vector2.zero
+	end,
+	IsKeyDown = function()
+		return false
+	end,
+	GetGuiObjectsAtPosition = function()
+		return {}
 	end,
 	SetWaveformKeys = function(object, keys)
 		object.WaveformKeys = keys
@@ -240,6 +256,9 @@ local function new(options: any?): Engine
 			environment.poke(object, "CurrentPage", page)
 		end,
 	}
+	if settings.getStyled then
+		methods["Instance.GetStyled"] = settings.getStyled
+	end
 	if settings.styleOnlySignals then
 		methods["GuiObject.GetStyledPropertyChangedSignal"] = function()
 			return environment.newSignal()

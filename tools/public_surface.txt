@@ -162,6 +162,7 @@ controls(runtime).Dialog : function
 controls(runtime).DisclosureGroup : function
 controls(runtime).Divider : function
 controls(runtime).ErrorBoundary : function
+controls(runtime).Flash : function
 controls(runtime).Grid : function
 controls(runtime).HStack : function
 controls(runtime).Image : function
@@ -202,14 +203,18 @@ controls(runtime).Text : function
 controls(runtime).TextInput : function
 controls(runtime).Toast : function
 controls(runtime).Toggle : function
+controls(runtime).Travel : function
 controls(runtime).VStack : function
 controls(runtime).ViewThatFits : function
 controls(runtime).VirtualGrid : function
 controls(runtime).VirtualList : function
 controls(runtime).Vote : function
 controls(runtime).ZStack : function
+controls(runtime).ZoomView : function
 controls(runtime).adjustable : function
 controls(runtime).badged : function
+controls(runtime).commandScope : function
+controls(runtime).countUp : function
 controls(runtime).draggable : function
 controls(runtime).dropTarget : function
 controls(runtime).environment : function
@@ -217,9 +222,11 @@ controls(runtime).feedback : function
 controls(runtime).fill : function
 controls(runtime).focusRing : function
 controls(runtime).focusSection : function
+controls(runtime).gestureArbiter : function
 controls(runtime).responder : function
 controls(runtime).scrollTo : function
 controls(runtime).scrollToVisible : function
+controls(runtime).sequence : function
 controls(runtime).worldAnchor : function
 type Adaptive
 type AdaptiveStackProps
@@ -251,6 +258,10 @@ type CollapsibleViewSpec
 type CollectionSpec
 type ColorPickerProps
 type ComboBoxSpec
+type Command
+type CommandScope
+type CommandSpec
+type CommandTarget
 type Component
 type ComposeModule
 type ComposeRobloxModule
@@ -271,6 +282,11 @@ type Environment
 type ErrorBoundaryProps
 type Extent
 type Facet
+type FlashProps
+type GestureBinding
+type GestureDecision
+type GestureKind
+type GestureOptions
 type GridProps
 type HapticKind
 type HierarchyOptions
@@ -319,11 +335,15 @@ type SafeInsets
 type ScreenProps
 type ScrollOptions
 type ScrollViewProps
+type Sequence
+type SequenceSpec
+type SequenceStep
 type SheetDetent
 type SheetSpec
 type ShortcutHintProps
 type SkeletonProps
 type SliderProps
+type SlotControls
 type Space
 type SpacerProps
 type SplitButtonSpec
@@ -343,6 +363,7 @@ type ThemePackage
 type ToastOptions
 type ToastSpec
 type ToggleProps
+type TravelProps
 type Use
 type ViewThatFitsProps
 type VoteSpec
@@ -350,3 +371,6 @@ type WorldAnchor
 type WorldAnchorOptions
 type ZStackProps
 type Zone
+type ZoomControls
+type ZoomRect
+type ZoomViewProps

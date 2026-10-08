@@ -98,8 +98,11 @@ return function<V, K>(
 		return if weights[key] ~= nil then weights[key] else destination
 	end
 	local initialized = false
+	local priorExpanded = expanded:peek()
 	C.watch(function(use: ComposeTypes.Use)
 		local open = use(expanded)
+		local expansionChanged = initialized and open ~= priorExpanded
+		priorExpanded = open
 		local nodes: { Node<V, K> }, byKey: { [K]: Node<V, K> } = {}, {}
 		local function visit(items: { V }, parent: K?, depth: number, visible: boolean)
 			local ordered: { V } = if order then order(items, use) else items
@@ -132,7 +135,9 @@ return function<V, K>(
 		local groups: { { Node<V, K> } } = {}
 		local group: { Node<V, K> }? = nil
 		for _, node in nodes do
-			weights[node.key] = if initialized then weight(node.key) else if node.visible then 1 else 0
+			weights[node.key] = if expansionChanged and data:peek().byKey[node.key] ~= nil
+				then weight(node.key)
+				else if node.visible then 1 else 0
 			if weights[node.key] ~= (if node.visible then 1 else 0) then
 				table.insert(changing, node)
 				if group == nil or group[1].visible ~= node.visible then
@@ -427,7 +432,7 @@ return function<V, K>(
 					and selected:IsDescendantOf(root)
 					and (selected.Name == "RowHit" or selected.Name == "Disclosure")
 			end
-			local function current(use: ComposeTypes.Use): any
+			local function current(use: ComposeTypes.Use): Node<V, K>?
 				local key = if controls.current then use(controls.current) else nil
 				return if key ~= nil then use(data).byKey[key] else nil
 			end

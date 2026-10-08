@@ -119,10 +119,4 @@ Select `"Flap"` with tab or focus, then use `Invoke("flap")` to start/flap/retry
 or `Invoke("flapPause")` to pause.
 
 Automated behavior coverage lives in `tests/native_virtual_monitors.spec.luau`.
-`tests/native_virtual_monitors_coverage.spec.luau` mounts the four apps and the
-screen mode, tours them, and fails with the names of each public Facet field,
-control and theme function that the showcase does not use.
-Studio evidence must exercise both presentations, Discover filtering, sorting,
-card actions and details, saved notes, Avatar settings, streaming Chat,
-appearance changes and teardown. A successful build or headless test is not a
-substitute for that check.
+

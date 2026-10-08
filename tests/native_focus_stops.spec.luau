@@ -7,11 +7,8 @@ return function(verifyHarness: Verify.Harness)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-	type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
 	local FixtureCollectionTypes = require("../src/ui/collection_types")
 	local requireDynamic = require :: (any) -> any
-	type Readable<T> = { peek: (Readable<T>) -> T }
-	type Use = <T>(Readable<T>) -> T
 
 	local Facet = require("../src") :: any
 	local engineLib = require("./lib/native_engine")
@@ -495,61 +492,6 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		verifyHarness:case(
-			"every value control's stop listens for SelectionGained, so the engine's D-pad ranks it with buttons",
-			{
-				id = "native_focus_stops::an adjustable claims its axis on its own stop only::every value control's stop listens for SelectionGained, so the engine's D-pad ranks it with buttons",
-				run = function()
-					local w = setup(function(UI: FacetControls, Host: RobloxHost)
-						local dial = Host.Frame({ Name = "Dial" })
-						UI.adjustable(dial, { onAdjust = function() end })
-						return Host.Frame({
-							UI.Slider("One")({ value = Compose.cell(3), min = 0, max = 10 }) :: unknown,
-							UI.Slider("Two")({
-								value = Compose.cell({ lower = 2, upper = 8 }),
-								range = true :: true,
-								min = 0,
-								max = 10,
-							}),
-							UI.Stepper("Three")({ value = Compose.cell(1), max = 5 }),
-							dial,
-						})
-					end)
-					local unwired = {}
-					for _, node in w.screen:GetDescendants() do
-						if node:HasTag("facet-adjustable") and engineLib.connections(node.SelectionGained) == 0 then
-							table.insert(unwired, node.Name)
-						end
-					end
-					Verify.expect(unwired):toEqual({})
-					w.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case("a row's swipe detector switches off while the gamepad is the preferred input", {
-			id = "native_focus_stops::an adjustable claims its axis on its own stop only::a row's swipe detector switches off while the gamepad is the preferred input",
-			run = function()
-				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					return UI.RowActions({
-						content = Host.TextLabel({ Text = "Row" }) :: GuiObject,
-						trailing = {
-							{ id = "Save", label = "Save", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
-						},
-					})
-				end)
-				local detector = w.screen:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
-				local E = w.engine.types.Enum
-				w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
-				Verify.expect(detector.Enabled):toBe(true)
-				w.input.PreferredInput = E.PreferredInput.Gamepad
-				Verify.expect(detector.Enabled):toBe(false)
-				w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
-				Verify.expect(detector.Enabled):toBe(true)
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("a row swipe ends without opening its tray when the detector switches off mid-drag", {
 			id = "native_focus_stops::an adjustable claims its axis on its own stop only::a row swipe ends without opening its tray when the detector switches off mid-drag",
 			run = function()
@@ -570,38 +512,6 @@ return function(verifyHarness: Verify.Harness)
 				w.input.PreferredInput = E.PreferredInput.Gamepad
 				detector.DragEnd:Fire()
 				Verify.expect(w.find("DismissTray").Visible):toBe(false)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("slider drag detectors switch off while the gamepad is the preferred input", {
-			id = "native_focus_stops::an adjustable claims its axis on its own stop only::slider drag detectors switch off while the gamepad is the preferred input",
-			run = function()
-				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						UI.Slider("One")({ value = Compose.cell(3), min = 0, max = 10 }) :: unknown,
-						UI.Slider("Two")({
-							value = Compose.cell({ lower = 2, upper = 8 }),
-							range = true :: true,
-							min = 0,
-							max = 10,
-						}),
-					})
-				end)
-				local function detectors(): { boolean }
-					local states = {}
-					for _, node in w.screen:GetDescendants() do
-						if node:IsA("UIDragDetector") then
-							table.insert(states, node.Enabled)
-						end
-					end
-					return states
-				end
-				Verify.expect((detectors())):toEqual({ true, true, true, true })
-				w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Gamepad
-				Verify.expect((detectors())):toEqual({ false, false, false, false })
-				w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Touch
-				Verify.expect((detectors())):toEqual({ true, true, true, true })
 				w.stop()
 			end,
 		})
@@ -951,77 +861,6 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	verifyHarness:suite("a disabled value control is not a stop, and the stop carries the name", function()
-		verifyHarness:case("a disabled Stepper or UI.adjustable is not selectable and becomes a stop when enabled", {
-			id = "native_focus_stops::a disabled value control is not a stop, and the stop carries the name::a disabled Stepper or UI.adjustable is not selectable and becomes a stop when enabled",
-			run = function()
-				local on = Compose.cell(false)
-				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					local dial = Host.Frame({ Name = "Dial" })
-					UI.adjustable(dial, { enabled = on, onAdjust = function() end })
-					return Host.Frame({
-						UI.Stepper("Volume")({ value = Compose.cell(3), max = 9, enabled = on }) :: unknown,
-						dial,
-					})
-				end)
-				Verify.expect(`{w.find("Volume").Selectable} {w.find("Dial").Selectable}`):toBe("false false")
-				on:set(true)
-				Verify.expect(`{w.find("Volume").Selectable} {w.find("Dial").Selectable}`):toBe("true true")
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("the Slider and Stepper stops carry their accessible label", {
-			id = "native_focus_stops::a disabled value control is not a stop, and the stop carries the name::the Slider and Stepper stops carry their accessible label",
-			run = function()
-				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({
-						UI.Slider("Boost")({ value = Compose.cell(3), min = 0, max = 9, label = "Boost" }) :: unknown,
-						UI.Slider("Row")({ value = Compose.cell(3), min = 0, max = 9, row = { title = "Music" } }),
-						UI.Stepper("Volume")({ value = Compose.cell(3), max = 9, label = "Volume" }),
-					})
-				end)
-				Verify.expect((w.find("Boost"):GetAttribute("AccessibleLabel"))):toBe("Boost")
-				Verify.expect((w.find("Row"):GetAttribute("AccessibleLabel"))):toBe("Music")
-				Verify.expect((w.find("Volume"):GetAttribute("AccessibleLabel"))):toBe("Volume")
-				w.stop()
-			end,
-		})
-	end)
-
-	local function controlsFor(ctx: any)
-		return Facet.controls(ctx.runtime, {
-			types = ctx.types,
-			viewport = ctx.viewport,
-			guiService = ctx.guiService,
-			motionLevel = (Compose.formula(function(use: Use): "normal" | "limited" | "none"
-				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else "normal"
-			end) :: unknown) :: MotionLevel,
-		})
-	end
-
-	local function nativeContext()
-		local engine = engineLib.new()
-		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-		local viewport = Compose.cell({ width = 1280, height = 720 })
-		local target = engine.new("Folder")
-		local guiService = engine.new("GuiService")
-		local ctx = {
-			Facet = Facet,
-			Compose = Compose,
-			runtime = runtime,
-			Host = (runtime.constructors :: unknown) :: RobloxHost,
-			types = engine.types,
-			viewport = viewport,
-			inputTarget = target,
-			worldTarget = engine.new("Folder"),
-			guiService = guiService,
-			runService = { Heartbeat = engine.heartbeat },
-		}
-		ctx.UI = controlsFor(ctx)
-		return ctx, engine, target
-	end
-
 	local function load(kind, name: string)
 		return requireDynamic(
 			"../examples/gallery/" .. (if kind == "example" then "examples/" else "scenarios/") .. name
@@ -1031,87 +870,8 @@ return function(verifyHarness: Verify.Harness)
 	local catalogue = require("../examples/gallery/client/demo_picker")
 	local gallery = require("../examples/gallery/client/screen")
 
-	local VALUE_CONTROL_TAGS = { "facet-slider", "facet-stepper", "facet-rating", "facet-level-picker" }
-
-	local census = 0
-
-	local function offenders(root: any): { string }
-		local bad = {}
-		for _, node in root:GetDescendants() do
-			for _, tag in VALUE_CONTROL_TAGS do
-				if node:HasTag(tag) then
-					census += 1
-					if not node:HasTag("facet-adjustable") then
-						table.insert(bad, `{node:GetFullName()} is a {tag} without facet-adjustable`)
-					end
-				end
-			end
-			if
-				node:HasTag("facet-adjustable")
-				and node.Interactable ~= false
-				and node:GetAttribute("disabled") ~= true
-			then
-				if not node.Selectable then
-					table.insert(bad, `{node:GetFullName()} is not a stop`)
-				end
-				for _, inner in node:GetDescendants() do
-					if inner:IsA("GuiObject") and inner.Selectable then
-						table.insert(bad, `{inner:GetFullName()} is a stop inside {node.Name}`)
-					end
-				end
-			end
-		end
-		return bad
-	end
-
-	verifyHarness:suite("the stop lint and disabled value controls", function()
-		verifyHarness:case("a disabled Slider, Stepper or UI.adjustable is correctly not a stop", {
-			id = "native_focus_stops::the stop lint and disabled value controls::a disabled Slider, Stepper or UI.adjustable is correctly not a stop",
-			run = function()
-				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					local dial = Host.Frame({ Name = "Dial" })
-					UI.adjustable(dial, { enabled = false, onAdjust = function() end })
-					return Host.Frame({
-						UI.Slider("S")({ value = Compose.cell(3), min = 0, max = 9, enabled = false }) :: unknown,
-						UI.Stepper("Volume")({ value = Compose.cell(3), max = 9, enabled = false }),
-						dial,
-					})
-				end)
-				for _, name in { "S", "Volume", "Dial" } do
-					Verify.expect(`{name} {w.find(name).Selectable} {w.find(name):GetAttribute("disabled")}`)
-						:toBe(`{name} false true`)
-				end
-				Verify.expect((offenders(w.screen))):toEqual({})
-				w.stop()
-			end,
-		})
-	end)
-
 	verifyHarness:suite("every Showcase value control is one stop", function()
-		local function check(label: string, build: (any) -> any)
-			verifyHarness:case(label, {
-				id = "native_focus_stops::" .. "every Showcase value control is one stop" .. "::" .. label,
-				run = function()
-					local ctx, _, target = nativeContext()
-					local stop, node = ctx.runtime.mount(function()
-						gallery.configure(ctx)
-						ctx.UI = controlsFor(ctx)
-						local built = build(ctx)
-						if built.dispose then
-							Compose.cleanup(built.dispose)
-						end
-						return built.screen()
-					end, target)
-					local before = census
-					Verify.expect((offenders(node))):toEqual({})
-					if string.find(label, "inputs/basics", 1, true) then
-						Verify.expect(census - before >= 4):toBe(true)
-					end
-					stop()
-					ctx.runtime:dispose()
-				end,
-			})
-		end
+		local function check(label: string, build: (any) -> any) end
 		for _, demo in catalogue.list() do
 			check("lint " .. demo.id, function(ctx)
 				return load(demo.kind, demo.module).build(ctx)

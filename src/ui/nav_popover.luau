@@ -373,7 +373,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 			end)
 			local panel = ctx.styled(
-				ctx.fade {
+				ctx.fade({
 					Name = "Panel",
 					GroupTransparency = function(use: ComposeTypes.Use)
 						return 1 - presence.opacity(use)
@@ -386,7 +386,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					body :: Instance,
 					ctx.padding(PADDING, PADDING),
 					ctx.corner(),
-				},
+				}, true),
 				"popover"
 			)
 			ctx.styled(panel, "panel")

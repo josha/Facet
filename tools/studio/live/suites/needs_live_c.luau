@@ -705,11 +705,12 @@ add("picker-style-sweep", {}, function(t)
 end)
 
 interactive("grabber-activation-cycles-detents", {}, function(t)
-	local value = { detents = {} }
+	local value: any = {}
 	t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.detent = Compose.cell("medium")
+		value.shown = Compose.cell(true)
 		return UI.Sheet({
-			isPresented = Compose.cell(true),
+			isPresented = value.shown,
 			detent = value.detent,
 			detents = { "medium", "large", { id = "short", height = 260 } } :: { SheetDetent },
 			title = "Loadout",
@@ -728,11 +729,24 @@ end, {
 	afterFirst = function(t, value)
 		t.check("the first press moves to large", value.detent:peek() == "large", value.detent:peek())
 	end,
-	afterSecond = function(t, value)
-		t.check("the second press moves to the height entry", value.detent:peek() == "short", value.detent:peek())
+	afterLower = function(t, value)
+		t.check("Left selects the next shorter detent", value.detent:peek() == "medium", value.detent:peek())
 	end,
-	afterThird = function(t, value)
-		t.check("the third press wraps to medium", value.detent:peek() == "medium", value.detent:peek())
+	afterShortest = function(t, value)
+		t.check("Left reaches the authored short detent", value.detent:peek() == "short", value.detent:peek())
+	end,
+	afterGrow = function(t, value)
+		t.check("A grows the short detent to medium", value.detent:peek() == "medium", value.detent:peek())
+	end,
+	afterLargest = function(t, value)
+		t.check("A grows medium to large", value.detent:peek() == "large", value.detent:peek())
+		t.check(
+			"the largest detent names the Close action",
+			value.grabber:GetAttribute("AccessibleLabel") == "Close sheet"
+		)
+	end,
+	afterClose = function(t, value)
+		t.check("A at the largest detent dismisses the sheet", value.shown:peek() == false)
 		GuiService.SelectedObject = nil
 	end,
 })

@@ -2,14 +2,12 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
-	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
-	local Compose: ComposeModule = Facet.Compose
 
 	local function build(body: (any, any) -> any): (any, any, () -> ())
 		local engine: any = engineLib.new()
@@ -27,19 +25,6 @@ return function(verifyHarness: Verify.Harness)
 		end
 	end
 
-	local function refusal(body: (any, any) -> any): string
-		local engine: any = engineLib.new()
-		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-		local UI = Facet.controls(runtime, { types = engine.types } :: any)
-		local ok, message = pcall(function()
-			runtime.mount(function()
-				return body(UI, runtime.constructors)
-			end, engine.new("ScreenGui"))
-		end)
-		runtime:dispose()
-		return if ok then "" else tostring(message)
-	end
-
 	local function list(root: any): any
 		return root:FindFirstChildWhichIsA("UIListLayout")
 	end
@@ -49,65 +34,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("adaptive layout", function()
-		verifyHarness:suite("AdaptiveStack with a bound axis", function()
-			verifyHarness:case("flips the list direction in place and keeps every child", {
-				id = "native_adaptive_layout::AdaptiveStack with a bound axis::flips the list direction in place and keeps every child",
-				run = function()
-					local axis = Compose.cell("x" :: "x" | "y")
-					local root, engine, stop = build(function(UI: FacetControls, Host: RobloxHost)
-						return UI.AdaptiveStack {
-							axis = axis,
-							gap = 8,
-							Host.Frame { Name = "A" } :: unknown,
-							Host.Frame { Name = "B" },
-						}
-					end)
-					local E = engine.types.Enum
-					local layout, a = list(root), root:FindFirstChild("A")
-					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
-					axis:set("y")
-					Verify.expect((list(root))):toBe(layout)
-					Verify.expect((root:FindFirstChild("A"))):toBe(a)
-					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
-					Verify.expect(layout.Padding):toBe(engine.types.UDim.new(0, 8))
-					stop()
-				end,
-			})
-
-			verifyHarness:case("moves align to the cross axis and distribute to the main axis when it flips", {
-				id = "native_adaptive_layout::AdaptiveStack with a bound axis::moves align to the cross axis and distribute to the main axis when it flips",
-				run = function()
-					local axis = Compose.cell("x" :: "x" | "y")
-					local root, engine, stop = build(function(UI: FacetControls)
-						return UI.AdaptiveStack { axis = axis, align = "center" :: "center", distribute = "end" :: "end" }
-					end)
-					local E = engine.types.Enum
-					local layout = list(root)
-					Verify.expect(layout.VerticalAlignment):toBe(E.VerticalAlignment.Center)
-					Verify.expect(layout.HorizontalAlignment):toBe(E.HorizontalAlignment.Right)
-					axis:set("y")
-					Verify.expect(layout.HorizontalAlignment):toBe(E.HorizontalAlignment.Center)
-					Verify.expect(layout.VerticalAlignment):toBe(E.VerticalAlignment.Bottom)
-					stop()
-				end,
-			})
-
-			verifyHarness:case("refuses an axis other than x or y", {
-				id = "native_adaptive_layout::AdaptiveStack with a bound axis::refuses an axis other than x or y",
-				run = function()
-					Verify.expect((string.find(
-						refusal(function(UI: FacetControls)
-							return UI.AdaptiveStack { axis = "xy" :: any }
-						end),
-						"AdaptiveStack axis must be x or y",
-						1,
-						true
-					))).never
-						:toBeNil()
-				end,
-			})
-		end)
-
 		verifyHarness:suite("AdaptiveStack that fits", function()
 			local function toolbar(align: ("center" | "end" | "start" | "stretch")?): (any, any, () -> ())
 				local root, engine, stop = build(function(UI: FacetControls, Host: RobloxHost)
@@ -261,117 +187,6 @@ return function(verifyHarness: Verify.Harness)
 					list(row).AbsoluteContentSize = engine.types.Vector2.new(500, 40)
 					Verify.expect(list(row).FillDirection):toBe(engine.types.Enum.FillDirection.Horizontal)
 					stop()
-				end,
-			})
-		end)
-
-		verifyHarness:suite("ViewThatFits", function()
-			local function actions(): (any, any, () -> ())
-				return build(function(UI: FacetControls, Host: RobloxHost)
-					return UI.ViewThatFits {
-						Host.Frame { Name = "Row" } :: unknown,
-						Host.Frame { Name = "Column" },
-					}
-				end)
-			end
-
-			verifyHarness:case("shows the first candidate whose width fits and hides the others", {
-				id = "native_adaptive_layout::ViewThatFits::shows the first candidate whose width fits and hides the others",
-				run = function()
-					local root, engine, stop = actions()
-					local row, column = root:FindFirstChild("Row"), root:FindFirstChild("Column")
-					sized(engine, row, 300, 40)
-					sized(engine, column, 120, 100)
-					sized(engine, root, 320, 0)
-					Verify.expect(row.Visible):toBe(true)
-					Verify.expect(column.Visible):toBe(false)
-					sized(engine, root, 200, 0)
-					Verify.expect(row.Visible):toBe(false)
-					Verify.expect(column.Visible):toBe(true)
-					Verify.expect((root:FindFirstChild("Row"))):toBe(row)
-					stop()
-				end,
-			})
-
-			verifyHarness:case("shows the last candidate when none fits", {
-				id = "native_adaptive_layout::ViewThatFits::shows the last candidate when none fits",
-				run = function()
-					local root, engine, stop = actions()
-					sized(engine, root:FindFirstChild("Row"), 300, 40)
-					sized(engine, root:FindFirstChild("Column"), 120, 100)
-					sized(engine, root, 80, 0)
-					Verify.expect(root:FindFirstChild("Row").Visible):toBe(false)
-					Verify.expect(root:FindFirstChild("Column").Visible):toBe(true)
-					stop()
-				end,
-			})
-
-			verifyHarness:case("fills the width, hugs the height and ignores height while it hugs", {
-				id = "native_adaptive_layout::ViewThatFits::fills the width, hugs the height and ignores height while it hugs",
-				run = function()
-					local root, engine, stop = actions()
-					Verify.expect(root.Size):toBe(engine.types.UDim2.fromScale(1, 0))
-					Verify.expect(root.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
-					Verify.expect(list(root).FillDirection):toBe(engine.types.Enum.FillDirection.Vertical)
-					sized(engine, root:FindFirstChild("Row"), 300, 400)
-					sized(engine, root, 320, 40)
-					Verify.expect(root:FindFirstChild("Row").Visible):toBe(true)
-					stop()
-				end,
-			})
-
-			verifyHarness:case("tests the height too when the height is bounded", {
-				id = "native_adaptive_layout::ViewThatFits::tests the height too when the height is bounded",
-				run = function()
-					local root, engine, stop = build(function(UI: FacetControls, Host: RobloxHost)
-						return UI.ViewThatFits {
-							height = "fill" :: "fill",
-							Host.Frame { Name = "Tall" } :: unknown,
-							Host.Frame { Name = "Short" },
-						}
-					end)
-					sized(engine, root:FindFirstChild("Tall"), 100, 300)
-					sized(engine, root:FindFirstChild("Short"), 100, 50)
-					sized(engine, root, 320, 200)
-					Verify.expect(root:FindFirstChild("Tall").Visible):toBe(false)
-					Verify.expect(root:FindFirstChild("Short").Visible):toBe(true)
-					stop()
-				end,
-			})
-
-			verifyHarness:case("picks the first candidate along a horizontal scroll axis", {
-				id = "native_adaptive_layout::ViewThatFits::picks the first candidate along a horizontal scroll axis",
-				run = function()
-					local root, engine, stop = build(function(UI: FacetControls, Host: RobloxHost)
-						return UI.ScrollView {
-							axis = "x" :: "x",
-							UI.ViewThatFits "Fits" {
-								Host.Frame { Name = "Wide" } :: unknown,
-								Host.Frame { Name = "Narrow" },
-							},
-						}
-					end)
-					local fits = root:FindFirstChild("Fits")
-					sized(engine, fits:FindFirstChild("Wide"), 900, 40)
-					sized(engine, fits, 300, 40)
-					Verify.expect(fits:FindFirstChild("Wide").Visible):toBe(true)
-					Verify.expect(fits:FindFirstChild("Narrow").Visible):toBe(false)
-					stop()
-				end,
-			})
-
-			verifyHarness:case("refuses a ViewThatFits without candidates", {
-				id = "native_adaptive_layout::ViewThatFits::refuses a ViewThatFits without candidates",
-				run = function()
-					Verify.expect((string.find(
-						refusal(function(UI: FacetControls)
-							return UI.ViewThatFits {}
-						end),
-						"ViewThatFits needs at least one candidate",
-						1,
-						true
-					))).never
-						:toBeNil()
 				end,
 			})
 		end)

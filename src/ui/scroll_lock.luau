@@ -168,11 +168,11 @@ function scrollLock.own(frame: ScrollingFrame, ctx: Types.Context?)
 	end
 end
 
-function scrollLock.holdOwnedAncestors(node: Instance): () -> ()
+local function holdAncestors(node: Instance, ownedOnly: boolean): () -> ()
 	local held: { ScrollingFrame } = {}
 	local at = node.Parent
 	while at do
-		if at:IsA("ScrollingFrame") and owned[at] then
+		if at:IsA("ScrollingFrame") and (not ownedOnly or owned[at]) then
 			take(at)
 			table.insert(held, at)
 		end
@@ -184,6 +184,14 @@ function scrollLock.holdOwnedAncestors(node: Instance): () -> ()
 		end
 		table.clear(held)
 	end
+end
+
+function scrollLock.holdOwnedAncestors(node: Instance): () -> ()
+	return holdAncestors(node, true)
+end
+
+function scrollLock.holdAncestors(node: Instance): () -> ()
+	return holdAncestors(node, false)
 end
 
 return scrollLock

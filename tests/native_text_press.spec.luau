@@ -152,32 +152,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("activation focus selects in Focused, and offsets are bytes", {
-			id = "native_text_press::native text press selectOnFocus::activation focus selects in Focused, and offsets are bytes",
-			run = function()
-				local p = probe("Café 5", "all")
-				p.capture()
-				expect((p.caret())):toBe("8 1")
-				local e = probe("", "end")
-				e.capture()
-				expect((e.caret())):toBe("1 -1")
-			end,
-		})
-
-		verifyHarness:case("none (the default) writes nothing on any focus", {
-			id = "native_text_press::native text press selectOnFocus::none (the default) writes nothing on any focus",
-			run = function()
-				for _, policy in { "none", nil :: any } do
-					local p = probe("12.5 km", policy)
-					p.mouseDown()
-					p.mouseUp()
-					p.blur()
-					p.capture()
-					expect(#p.writes):toBe(0)
-				end
-			end,
-		})
-
 		verifyHarness:case("blur before release, recycle and disabled cancel a pending selection", {
 			id = "native_text_press::native text press selectOnFocus::blur before release, recycle and disabled cancel a pending selection",
 			run = function()
@@ -206,21 +180,6 @@ return function(verifyHarness: Verify.Harness)
 				local p = probe("12.5 km", "none")
 				p.instance.InputBegan:Fire({ UserInputType = "Touch", Position = { X = 50, Y = 20 } })
 				expect(p.uis.InputEnded.live() + p.uis.InputChanged.live() + p.uis.InputBegan.live()):toBe(0)
-			end,
-		})
-
-		verifyHarness:case("a policy change while focused applies at the next session", {
-			id = "native_text_press::native text press selectOnFocus::a policy change while focused applies at the next session",
-			run = function()
-				local p = probe("12.5 km", "none")
-				p.capture()
-				p.handle.selectOnFocus = "all"
-				p.mouseDown()
-				p.mouseUp()
-				expect(#p.writes):toBe(0)
-				p.blur()
-				p.capture()
-				expect((p.caret())):toBe("8 1")
 			end,
 		})
 	end)

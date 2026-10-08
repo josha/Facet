@@ -206,11 +206,19 @@ table.insert(cases, {
 		t.settle(2)
 		virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
 		local frames = {}
+		local samples = {}
 		for index = 1, 40 do
 			RunService.RenderStepped:Wait()
 			local center = t.find(stage, "Center")
 			if center then
-				table.insert(frames, center.AbsolutePosition + center.AbsoluteSize / 2)
+				local at = center.AbsolutePosition + center.AbsoluteSize / 2
+				table.insert(frames, at)
+				local gear = t.find(stage, "gear")
+				table.insert(samples, {
+					frame = index,
+					center = { at.X, at.Y },
+					form = if gear and gear.Size.X.Scale == 1 then "list" else "ring",
+				})
 			end
 			if index == 5 then
 				virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
@@ -221,6 +229,7 @@ table.insert(cases, {
 		for _, at in frames do
 			shift = math.max(shift, (at - frames[#frames]).Magnitude)
 		end
+		t.note("radial center frames", samples)
 		t.check("center stays fixed through press and release", shift <= 1, shift)
 	end,
 })

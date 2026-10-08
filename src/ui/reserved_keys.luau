@@ -23,7 +23,7 @@ local MODIFIERS = table.freeze({
 	"RightSuper",
 })
 
-local dispatchers: { [UserInputService]: Dispatcher } = setmetatable({}, { __mode = "k" }) :: any
+local dispatchers = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [UserInputService]: Dispatcher }
 
 local function holds(handler: Handler, selected: Instance?): boolean
 	local node = handler.node
@@ -81,7 +81,7 @@ local function dispatch(input: UserInputService, dispatcher: Dispatcher, event: 
 	end)
 	for _, handler in ordered do
 		local gui = handler.gui
-		local menuOpen = name == "Escape" and gui ~= nil and (gui :: any).MenuIsOpen == true
+		local menuOpen = name == "Escape" and gui ~= nil and gui.MenuIsOpen == true
 		local typing = box ~= nil and not (handler.editing ~= nil and handler.editing(box))
 		if handler.keys[name] and not menuOpen and not typing and handler.enabled() then
 			handler.press()

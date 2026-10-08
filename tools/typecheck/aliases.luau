@@ -12,6 +12,9 @@ local Dataset = require("../../examples/performance/lab/dataset")
 local Runtime = require("../../src/vendor/compose/core/runtime")
 
 return (nil :: unknown) :: {
+	SlotControls: Facet.SlotControls<string>,
+	CommandScope: Facet.CommandScope<number>,
+	Command: Facet.Command<number>,
 	AlertAction: Facet.AlertAction<any>,
 	BooleanCell: Facet.Cell<boolean>,
 	CellFactory: <T>(string, T) -> Facet.Cell<T>,
@@ -19,6 +22,8 @@ return (nil :: unknown) :: {
 	CivilRange: Civil.Range,
 	CivilRangeCell: Facet.Cell<Civil.Range>,
 	CollectionStatusCell: Facet.Cell<Compose.OrderedCollectionStatus>,
+	SequenceSpec: Facet.SequenceSpec,
+	SequenceStep: Facet.SequenceStep,
 	ComposeModule: Facet.ComposeModule,
 	ComposeRuntime: Facet.Runtime,
 	ControlSizeValue: Shared.ControlSize,
@@ -36,6 +41,9 @@ return (nil :: unknown) :: {
 	DimCell: Facet.Cell<"none" | "dark" | "light">,
 	EdgePicker: Facet.PickerSpec<"top" | "bottom">,
 	FacetControls: Facet.Controls,
+	ZoomDestinationCell: Facet.Cell<GuiObject>,
+	DraggableSpec: Facet.DraggableSpec,
+	DropInfo: Facet.DropInfo,
 	FolderConstructor: Engine.Constructor<Engine.FolderNativeProps, Folder>,
 	FrameConstructor: Engine.Constructor<Engine.FrameNativeProps, Frame>,
 	FrameProps: Engine.FrameProps,

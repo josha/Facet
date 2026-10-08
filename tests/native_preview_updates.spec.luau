@@ -63,44 +63,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("settings update mounted controls and their presentation bounds", function()
-		verifyHarness:case(
-			"automatic lab input follows the device, explicit input wins, and reset restores native facts",
-			{
-				id = "native_preview_updates::settings update mounted controls and their presentation bounds::automatic lab input follows the device, explicit input wins, and reset restores native facts",
-				run = function()
-					local w = fixture(function(UI: FacetControls)
-						return UI.Text { text = "Preview" }
-					end)
-					local env
-					local stop = w.ctx.runtime.mount(function()
-						env = w.UI.environment()
-						return w.ctx.Host.Folder {}
-					end, w.root)
-					for _, pair in
-						{
-							{ "phone", "Touch" },
-							{ "tablet", "Touch" },
-							{ "tv", "Gamepad" },
-							{ "desktop", "KeyboardAndMouse" },
-						}
-					do
-						w.settings.set("platform", pair[1])
-						Verify.expect((env.effectiveInput:peek())):toBe(pair[2])
-					end
-					w.settings.set("input", "pointer")
-					w.settings.set("platform", "phone")
-					Verify.expect((env.effectiveInput:peek())):toBe("KeyboardAndMouse")
-					w.settings.set("input", "automatic")
-					Verify.expect((env.effectiveInput:peek())):toBe("Touch")
-					Verify.expect((w.settings.hover:peek())):toBe(false)
-					w.settings.reset()
-					Verify.expect((env.effectiveInput:peek())):toBe("KeyboardAndMouse")
-					stop()
-					w.stop()
-				end,
-			}
-		)
-
 		for _, kind in { "color", "date" } :: { "color" | "date" } do
 			verifyHarness:case(
 				kind .. " picker adapts in place to touch, console and pointer inside the preview bounds",

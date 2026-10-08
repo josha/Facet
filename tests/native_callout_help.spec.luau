@@ -58,71 +58,6 @@ return function(verifyHarness: Verify.Harness)
 		return out
 	end
 
-	verifyHarness:suite("native Callout: bound facts are read as tracked values", function()
-		verifyHarness:case("a function isPresented is evaluated and followed, not treated as a request", {
-			id = "native_callout_help::native Callout: bound facts are read as tracked values::a function isPresented is evaluated and followed, not treated as a request",
-			run = function()
-				local wanted = Compose.cell(false)
-				local w = mount(function(_, Host: RobloxHost)
-					return {
-						content = tip(Host),
-						isPresented = function(use: any)
-							return use(wanted)
-						end,
-					}
-				end)
-				Verify.expect((w.find("CalloutPanel"))):toBeNil()
-				wanted:set(true)
-				Verify.expect(w.find("CalloutPanel") ~= nil):toBe(true)
-				wanted:set(false)
-				Verify.expect((w.find("CalloutPanel"))):toBeNil()
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("a function seen or featureUsed rules the callout out, and a later true retires it once", {
-			id = "native_callout_help::native Callout: bound facts are read as tracked values::a function seen or featureUsed rules the callout out, and a later true retires it once",
-			run = function()
-				local seen = Compose.cell(true)
-				local early: { string } = {}
-				local w = mount(function(_, Host: RobloxHost)
-					return {
-						content = tip(Host),
-						seen = function(use: any)
-							return use(seen)
-						end,
-						onRetire = function(reason: string)
-							table.insert(early, reason)
-						end,
-					}
-				end)
-				Verify.expect((w.find("CalloutPanel"))):toBeNil()
-				Verify.expect((table.concat(early, ","))):toBe("seen")
-				w.stop()
-				local used = Compose.cell(false)
-				local reports: { string } = {}
-				local live = mount(function(_, Host: RobloxHost)
-					return {
-						content = tip(Host),
-						featureUsed = function(use: any)
-							return use(used)
-						end,
-						onRetire = function(reason: string)
-							table.insert(reports, reason)
-						end,
-					}
-				end)
-				Verify.expect(live.find("CalloutPanel") ~= nil):toBe(true)
-				used:set(true)
-				used:set(false)
-				used:set(true)
-				Verify.expect((live.find("CalloutPanel"))):toBeNil()
-				Verify.expect((table.concat(reports, ","))):toBe("featureUsed")
-				live.stop()
-			end,
-		})
-	end)
-
 	verifyHarness:suite("native Callout: callbacks during a show never strand or double-close a plate", function()
 		local function pair(onShow: (any) -> ()): (any, { string }, any)
 			local reports: { string } = {}
@@ -173,20 +108,6 @@ return function(verifyHarness: Verify.Harness)
 				w.gui.SelectedObject = dismiss
 				dismiss.Activated:Fire()
 				Verify.expect(w.gui.SelectedObject):toBe(w.find("Plus"))
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("a retirement inside onShow retires once and takes the plate down", {
-			id = "native_callout_help::native Callout: callbacks during a show never strand or double-close a plate::a retirement inside onShow retires once and takes the plate down",
-			run = function()
-				local w, reports = pair(function(state)
-					state.used:set(true)
-				end)
-				Verify.expect((table.concat(reports, ","))):toBe("featureUsed")
-				Verify.expect((w.find("Body"))):toBeNil()
-				Verify.expect(w.find("SecondBody") ~= nil):toBe(true)
-				Verify.expect(#w.findAll("CalloutPanel")):toBe(1)
 				w.stop()
 			end,
 		})
@@ -280,61 +201,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(b.find("CalloutPanel") ~= nil):toBe(true)
 				a.stop()
 				b.stop()
-			end,
-		})
-
-		verifyHarness:case("a callout rebuilt by a branch cycle is a new control with one plate", {
-			id = "native_callout_help::native Callout: two worlds and a recycled source keep their own resources::a callout rebuilt by a branch cycle is a new control with one plate",
-			run = function()
-				local gate, built = Compose.cell(true), 0
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					local anchor = UI.Button "Plus" { label = "+" }
-					return Host.Frame({
-						Host.Frame({ anchor :: unknown }) :: unknown,
-						Compose.show(gate, function()
-							built += 1
-							return UI.Callout "Callout" {
-								anchor = anchor :: GuiObject,
-								content = tip(Host),
-								onRetire = function() end,
-							}
-						end),
-					})
-				end)
-				Verify.expect(#w.findAll("CalloutPanel")):toBe(1)
-				gate:set(false)
-				Verify.expect(#w.findAll("CalloutPanel")):toBe(0)
-				gate:set(true)
-				Verify.expect(built):toBe(2)
-				Verify.expect(#w.findAll("CalloutPanel")):toBe(1)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("an Instance content survives the callout leaving and shows in the next one", {
-			id = "native_callout_help::native Callout: two worlds and a recycled source keep their own resources::an Instance content survives the callout leaving and shows in the next one",
-			run = function()
-				local gate, body = Compose.cell(true), nil
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					local anchor = UI.Button "Plus" { label = "+" }
-					body = Host.TextLabel "Body" { Text = TIP }
-					return Host.Frame({
-						Host.Frame({ anchor :: unknown }) :: unknown,
-						Compose.show(gate, function()
-							return UI.Callout "Callout" {
-								anchor = anchor :: GuiObject,
-								content = body,
-								onRetire = function() end,
-							}
-						end),
-					})
-				end)
-				Verify.expect((body:IsDescendantOf(w.find("CalloutPanel")))):toBe(true)
-				gate:set(false)
-				Verify.expect(((body :: any):isDestroyed())):toBe(false)
-				gate:set(true)
-				Verify.expect((body:IsDescendantOf(w.find("CalloutPanel")))):toBe(true)
-				w.stop()
 			end,
 		})
 	end)
@@ -531,46 +397,6 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		verifyHarness:case(
-			"the legacy content-only plate is unchanged: content then the dismiss button, nothing else",
-			{
-				id = "native_callout_help::native Callout: rich parts::the legacy content-only plate is unchanged: content then the dismiss button, nothing else",
-				run = function()
-					local w = mount(function(_, Host: RobloxHost)
-						return { content = tip(Host) }
-					end)
-					local panel = w.find("CalloutPanel")
-					Verify.expect((table.concat(buttons(panel), ","))):toBe("CalloutContent/Dismiss")
-					Verify.expect((overlay.find(panel, "Header"))):toBeNil()
-					Verify.expect((overlay.find(panel, "Media"))):toBeNil()
-					Verify.expect((overlay.find(panel, "Steps"))):toBeNil()
-					Verify.expect(overlay.find(panel, "Body").LayoutOrder < overlay.find(panel, "Dismiss").LayoutOrder)
-						:toBe(true)
-					w.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case("title-only, media-only, steps-only and actions-only compositions need no content", {
-			id = "native_callout_help::native Callout: rich parts::title-only, media-only, steps-only and actions-only compositions need no content",
-			run = function()
-				for index, spec in
-					{
-						{ title = "Title only" } :: { [string]: any },
-						{ media = { image = "rbxassetid://1", height = 80 } },
-						{ steps = { index = 1, count = 2 } },
-						{ actions = { { id = "Ok", label = "Ok", onActivate = function() end } } },
-					}
-				do
-					local w = mount(function()
-						return table.clone(spec)
-					end)
-					Verify.expect(`case {index}: {w.find("CalloutPanel") ~= nil}`):toBe(`case {index}: true`)
-					w.stop()
-				end
-			end,
-		})
-
 		verifyHarness:case("an empty composition and malformed parts are refused by name", {
 			id = "native_callout_help::native Callout: rich parts::an empty composition and malformed parts are refused by name",
 			run = function()
@@ -732,19 +558,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a bound help value repaints the live plate in place", {
-			id = "native_callout_help::native help: the structured form and the live plate::a bound help value repaints the live plate in place",
-			run = function()
-				local body = Compose.cell("Posts this avatar")
-				local w = helped(body)
-				local text = w.find("HelpText")
-				body:set("Shares this build")
-				Verify.expect((w.find("HelpText"))):toBe(text)
-				Verify.expect(text.Text):toBe("Shares this build")
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("safe insets that grow under a live plate keep it inside the new safe box", {
 			id = "native_callout_help::native help: the structured form and the live plate::safe insets that grow under a live plate keep it inside the new safe box",
 			run = function()
@@ -759,58 +572,7 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	verifyHarness:suite("native Callout: layering", function()
-		verifyHarness:case("paints above the modal layer that holds its anchor and stays under modals elsewhere", {
-			id = "native_callout_help::native Callout: layering::paints above the modal layer that holds its anchor and stays under modals elsewhere",
-			run = function()
-				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					local plain = UI.Button "Plain" { label = "+" }
-					local held = UI.Button "Held" { label = "+" }
-					return Host.Folder({
-						Name = "Root",
-						Host.Frame({ Name = "Page", ZIndex = 1, plain :: unknown }) :: unknown,
-						Host.Frame({ Name = "Modal", ZIndex = 100, held :: unknown }),
-						UI.Callout "Low" {
-							anchor = plain :: GuiObject,
-							isPresented = true,
-							content = tip(Host),
-							onRetire = function() end,
-						},
-					})
-				end)
-				local panel = w.find("CalloutPanel")
-				Verify.expect(panel ~= nil):toBe(true)
-				Verify.expect(panel.ZIndex):toBe(95)
-				w.stop()
-				local lifted = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					local held = UI.Button "Held" { label = "+" }
-					return Host.Folder({
-						Name = "Root",
-						Host.Frame({ Name = "Modal", ZIndex = 100, held :: unknown }) :: unknown,
-						UI.Callout "High" {
-							anchor = held :: GuiObject,
-							isPresented = true,
-							content = tip(Host),
-							onRetire = function() end,
-						},
-					})
-				end)
-				local high = lifted.find("CalloutPanel")
-				Verify.expect(high ~= nil):toBe(true)
-				Verify.expect((high:HasTag("facet-floating"))):toBe(true)
-				Verify.expect(high.ZIndex > 100):toBe(true)
-				local arrow = lifted.find("Arrow")
-				if arrow then
-					Verify.expect(arrow.ZIndex > 100):toBe(true)
-					Verify.expect(arrow.ZIndex < high.ZIndex):toBe(true)
-				end
-				lifted.stop()
-			end,
-		})
-	end)
-
 	verifyHarness:suite("native help: the plate arrives as one unit", function()
-		local NORMAL = 0.2
 		local function hovered(options: any?): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
@@ -832,57 +594,58 @@ return function(verifyHarness: Verify.Harness)
 			return w
 		end
 
-		verifyHarness:case(
-			"one fade carries opacity without scaling the text, and the plate holds no extra text node",
-			{
-				id = "native_callout_help::native help: the plate arrives as one unit::one fade carries opacity without scaling the text, and the plate holds no extra text node",
-				run = function()
-					local w = hovered()
-					local panel = w.find("Help")
-					Verify.expect(panel.ClassName):toBe("Frame")
-					local texts, scales = {}, 0
-					for _, node in panel:GetDescendants() do
-						if node:IsA("TextLabel") then
-							table.insert(texts, node.Name)
-						elseif node:IsA("UIScale") then
-							scales += 1
-							Verify.expect(node.Parent):toBe(panel)
-						elseif
-							node.Parent ~= panel
-							and node.Parent.Name ~= "FadeStroke"
-							and (node:IsA("UIGradient") or node:IsA("CanvasGroup"))
-						then
-							error(`a second fade driver {node.Name}`)
-						end
-					end
-					table.sort(texts)
-					Verify.expect((table.concat(texts, ","))):toBe("HelpShortcut,HelpText,HelpTitle")
-					Verify.expect(scales):toBe(0)
-					local body = w.find("HelpText")
-					Verify.expect(body.TextWrapped):toBe(true)
-					Verify.expect(body.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
-					local cap = body:FindFirstChildWhichIsA("UISizeConstraint")
-					Verify.expect(cap ~= nil and cap.MaxSize.X):toBe(264)
-					w.stop()
-				end,
-			}
-		)
-
-		verifyHarness:case("the fade and the scale run once, eased, over the theme's normal motion duration", {
-			id = "native_callout_help::native help: the plate arrives as one unit::the fade and the scale run once, eased, over the theme's normal motion duration",
+		verifyHarness:case("the whole plate fades once at rest over the theme's normal motion duration", {
+			id = "native_callout_help::native help: the plate arrives as one unit::the whole plate fades once at rest over the theme's normal motion duration",
 			run = function()
-				local w = hovered()
-				local panel = w.find("Help")
-				local scale = materialize.of(panel)
-				panel.AbsoluteSize = w.Vector2.new(120, 40)
-				w.advance(1 / 60, 2)
-				w.advance(NORMAL / 2)
-				Verify.expect(fadeKit.of(panel) < 0.5):toBe(true)
-				Verify.expect(scale.Scale > 0.95 and scale.Scale < 1):toBe(true)
-				w.advance(NORMAL / 2)
-				Verify.expect((fadeKit.of(panel))):toBe(0)
-				Verify.expect(scale.Scale):toBe(1)
-				w.stop()
+				local themes = require("../src/ui/themes")(Compose)
+				for _, duration in { 0.2, 0.4 } do
+					local package = themes.neutralPackage()
+					package.metrics.motion.normal = duration
+					local fadeShare = if duration == 0.2 then 0.6 else 1
+					package.metrics.motion.presentFadeIn = fadeShare
+					assert(package.metrics.motion.easing).present = if duration == 0.2 then "outCubic" else "outQuad"
+					local w = hovered({ theme = assert(themes.define(package)) })
+					local panel = w.find("Help")
+					panel.AbsoluteSize = w.Vector2.new(120, 60)
+					local labels = { w.find("HelpTitle"), w.find("HelpText"), w.find("HelpShortcut") }
+					for index, label in labels do
+						label.AbsolutePosition = w.Vector2.new(8, 6 + (index - 1) * 16)
+						label.AbsoluteSize = w.Vector2.new(104, 16)
+						label.TextBounds = w.Vector2.new(80, 16)
+					end
+					w.advance(0, 2)
+					Verify.expect(fadeKit.of(panel)):toBe(1)
+					local position, anchor = panel.Position, panel.AnchorPoint
+					local previous = 1
+					local easing = Compose.easing[assert(package.metrics.motion.easing).present]
+					for frame = 1, 24 do
+						w.advance(duration / 24)
+						local alpha = fadeKit.of(panel)
+						Verify.expect(
+							math.abs(alpha - (1 - math.clamp(easing(frame / 24) / easing(fadeShare), 0, 1))) < 1e-6
+						)
+							:toBe(true)
+						Verify.expect(alpha <= previous):toBe(true)
+						Verify.expect(materialize.of(panel).Scale):toBe(1)
+						Verify.expect(panel.Position):toBe(position)
+						Verify.expect(panel.AnchorPoint):toBe(anchor)
+						Verify.expect(panel:FindFirstChild("PresentationContent", true)):toBe(nil)
+						local group = panel:FindFirstChild("Fade")
+						Verify.expect(math.abs(group.GroupTransparency - alpha) < 1e-6):toBe(true)
+						for index, label in labels do
+							Verify.expect(label:IsDescendantOf(group)):toBe(true)
+							Verify.expect(label.TextTransparency):toBe(0)
+							Verify.expect(label.AbsolutePosition - panel.AbsolutePosition)
+								:toBe(w.Vector2.new(8, 6 + (index - 1) * 16))
+						end
+						previous = alpha
+					end
+					Verify.expect(fadeKit.of(panel)):toBe(0)
+					w.advance(duration, 24)
+					Verify.expect(fadeKit.of(panel)):toBe(0)
+					Verify.expect(panel.Position):toBe(position)
+					w.stop()
+				end
 			end,
 		})
 

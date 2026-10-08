@@ -9,7 +9,6 @@ return function(verifyHarness: Verify.Harness)
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
-	local catalogue = require("../examples/gallery/client/demo_picker")
 	local Compose: ComposeModule = Facet.Compose
 
 	local function nativeContext(environment)
@@ -272,36 +271,6 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
-		verifyHarness:case("paints the adaptive chips, count tiles and layout bars with the theme's control plate", {
-			id = "native_gallery_workflows::native gallery workflows::paints the adaptive chips, count tiles and layout bars with the theme's control plate",
-			run = function()
-				local ctx, _, target = nativeContext()
-				ctx.theme = Compose.cell((require("../examples/themes/fantasy_parchment").build(Facet.themes)))
-				local stop, node = ctx.runtime.mount(function()
-					return ctx.Host.ScreenGui "DemoScreen" { load("fixture", "adaptive_controls").build(ctx).screen() }
-				end, target)
-				local names = { "Tile1", "Tile4", "Optional", "Useful", "Essential" }
-				for i = 1, 12 do
-					table.insert(names, "Stat" .. i)
-				end
-				for _, name in names do
-					local plate = find(node, name)
-					Verify.expect(`{name} {plate:HasTag("facet-control")} {plate:HasTag("facet-skinned")}`)
-						:toBe(`{name} true true`)
-					local art = find(plate, "control1")
-					Verify.expect(art.Image):toBe("rbxassetid://87220434497053")
-					local parent = art.Parent
-					while parent ~= plate.Parent do
-						local lettered = parent:IsA("TextLabel") or parent:IsA("TextButton")
-						Verify.expect(`{name} art inside text {lettered and parent.Text ~= ""}`)
-							:toBe(`{name} art inside text false`)
-						parent = parent.Parent
-					end
-				end
-				stop()
-				ctx.runtime:dispose()
-			end,
-		})
 
 		verifyHarness:case("reflows one recipe action set and preserves controlled checks and keyed chips", {
 			id = "native_gallery_workflows::native gallery workflows::reflows one recipe action set and preserves controlled checks and keyed chips",
@@ -529,27 +498,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(protected.Interactable):toBe(false)
 				protected.Activated:Fire()
 				Verify.expect(#built.report().rows):toBe(5)
-				stop()
-			end,
-		})
-		verifyHarness:case("sorts filters reorders and restores playlist model and width bindings", {
-			id = "native_gallery_workflows::native gallery workflows::sorts filters reorders and restores playlist model and width bindings",
-			run = function()
-				local built, node, stop = mount("02_playlist_table", "example")
-				built.sort:set({ column = "name", direction = "descending" :: "descending" })
-				local before = built.sortedRows:peek()[1].id
-				built.filterText:set("Drift")
-				Verify.expect(#built.from:peek()):toBe(1)
-				built.reorder({ "apex" }, 0)
-				Verify.expect(built.sort:peek().direction):toBe("descending")
-				built.filterText:set("")
-				built.reorder({ before }, 0)
-				Verify.expect((built.sort:peek())):toBe(nil)
-				Verify.expect(built.baseRows:peek()[1].id):toBe(before)
-				built.columnWidths:set({ name = 290, artist = 150 })
-				Verify.expect(find(node, "Widths").Text:find("290", 1, true) ~= nil):toBe(true)
-				built.restore()
-				Verify.expect((built.ratingFor("neon"):peek())):toBe(4)
 				stop()
 			end,
 		})

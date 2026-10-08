@@ -12,7 +12,7 @@ local ComposeTypes = require("../vendor/compose/core")
 
 type NavigationHold = { count: number, saved: boolean, changed: boolean, watch: RBXScriptConnection? }
 local HOLD = 0.4
-local navigationHolds: { [Instance]: NavigationHold } = setmetatable({} :: any, { __mode = "k" })
+local navigationHolds = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: NavigationHold }
 local function holdNavigation(gui: GuiService): () -> ()
 	local hold = navigationHolds[gui]
 	if hold == nil then
@@ -322,7 +322,7 @@ return function(
 			activate(sector)
 		end
 		local function pointing(): boolean
-			local input = surfaces.service("UserInputService") :: any
+			local input = surfaces.service("UserInputService") :: UserInputService?
 			return touchPoint:peek() == nil
 				and (preferred == nil or preferred:peek() ~= E.PreferredInput.Touch)
 				and input ~= nil
@@ -553,6 +553,16 @@ return function(
 				freezeCenter = function()
 					frozenCenter:set(center:peek())
 				end
+				local function captionPadding(use: ComposeTypes.Use): number
+					local package = read(ctx.config.theme, use)
+					local skin = package and package.chrome and package.chrome.control
+					local insets = skin and skin.contentInsets
+					return 2 * ctx.controlSize(nil, "paddingX", use)
+						+ (if insets then insets.left or 0 else 0)
+						+ (if insets then insets.right or 0 else 0)
+				end
+
+				local wordWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 				local function solve(use: ComposeTypes.Use, flatten: boolean): Radial.Layout<V>
 					local size, at, inner = use(viewport), use(centerTarget), use(innerTarget)
 					local start, sweep = geometry.arc(spec.preset or "donut")
@@ -588,7 +598,7 @@ return function(
 							return iconSize, iconSize
 						end
 						local label = read(item.label, use) or ""
-						return (utf8.len(label) or #label) * textSize * 0.6, textSize
+						return (utf8.len(label) or #label) * textSize * 0.6 + captionPadding(use), textSize
 					end
 					local navigation, expansion = spec.navigation or "replace", spec.expansion or "fan"
 					local currentStart, currentSweep = start, sweep
@@ -666,7 +676,7 @@ return function(
 									end
 								end
 								local chord = 2 * math.sin(math.rad(math.min(probe.span, 180) / 2)) * 0.86
-								target = math.max(target, 2 * (minimum / chord - ri))
+								target = math.max(target, 2 * (math.max(minimum, width, height) / chord - ri))
 							end
 							local wanted = 2 * math.ceil(math.max(extent, target) / 2)
 							levelBand = math.clamp(math.max(wanted, replaced), floor, band)
@@ -720,6 +730,19 @@ return function(
 						for sectorIndex = 1, #level do
 							local sector = level[sectorIndex]
 							list = list or sector.size < 44 or sector.outer > room
+							if
+								appearance == "wedges"
+								and not sector.item.icon
+								and not glyphOnly(sector.item)
+								and contentFit ~= "none"
+							then
+								local width, height = estimate(sector.item)
+								local bounds = geometry.labelBounds(sector, height)
+								local captionReady = (use(wordWidths)[sector.key] or 0) > 0
+								list = list
+									or room - inner < width
+									or (captionReady and (bounds.w < width or bounds.h < height))
+							end
 							table.insert(result, sector)
 						end
 					end
@@ -789,7 +812,7 @@ return function(
 				local buttons: { [string]: TextButton } = {}
 				local ringFits: ComposeTypes.Cell<{ [string]: { ring: number, inner: number, outer: number } }> =
 					Compose.cell({})
-				local wordWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
+				local fittedWidths: ComposeTypes.Cell<{ [string]: number }> = Compose.cell({})
 				local function iconic(use: ComposeTypes.Use, live: Radial.Sector<V>): boolean
 					if live.list then
 						return false
@@ -799,7 +822,16 @@ return function(
 					end
 					local item = live.item
 					local icon = item.icon ~= nil or (item.compactLabel ~= nil and item.compactLabel.icon ~= nil)
-					return icon and (use(wordWidths)[live.key] or 0) > geometry.labelBounds(live, 40).w
+					local padding = captionPadding(use)
+					local button = buttons[live.key]
+					local inset = button and button:FindFirstChildWhichIsA("UIPadding")
+					if inset then
+						local left = inset:GetStyled("PaddingLeft") :: UDim
+						local right = inset:GetStyled("PaddingRight") :: UDim
+						padding = left.Offset + right.Offset
+					end
+					local width = math.min(geometry.labelBounds(live, 40).w, use(fittedWidths)[live.key] or math.huge)
+					return icon and (use(wordWidths)[live.key] or 0) + padding > width
 				end
 				local focus = Compose.createFocusScope({
 					from = sectors,
@@ -1038,7 +1070,13 @@ return function(
 												return D2.new(1, -8, 0, 44)
 											end
 											if appearance == "buttons" then
-												local diameter = math.max(44, live.size)
+												local diameter = math.max(
+													44,
+													live.size,
+													if iconic(use, live)
+														then 0
+														else (use(wordWidths)[live.key] or 0) + captionPadding(use)
+												)
 												return D2.fromOffset(diameter, diameter)
 											end
 											local bounds = geometry.labelBounds(use(fittedShape) or live, 40)
@@ -1094,9 +1132,29 @@ return function(
 										return use(candidate) == currentSector(use).key
 									end)
 									local caption = button:FindFirstChild("Title", true)
-									local measured = ctx.observe.TextBounds(
-										if caption and caption:IsA("TextLabel") then caption else button
-									)
+									local textNode = if caption and caption:IsA("TextLabel") then caption else button
+									local natural = ctx.text({
+										Name = "CaptionMeasure",
+										Text = function(use: ComposeTypes.Use): string
+											return read(currentSector(use).item.label, use) or ""
+										end,
+										FontFace = ctx.observeStyled.FontFace(textNode),
+										TextSize = ctx.observeStyled.TextSize(textNode),
+										TextWrapped = false,
+										TextTruncate = E.TextTruncate.None,
+										TextTransparency = 1,
+										Interactable = false,
+										Size = D2.fromOffset(0, 0),
+										AutomaticSize = E.AutomaticSize.XY,
+									})
+									surfaces.attach(button, { natural })
+									local unit = ctx.layoutUnit(button)
+									local fullBounds, paintedBounds =
+										ctx.layoutBounds(natural, unit), ctx.layoutBounds(textNode, unit)
+									local measured = Compose.formula(function(use: ComposeTypes.Use): Vector2
+										local full, painted = use(fullBounds), use(paintedBounds)
+										return V2.new(math.max(full.X, painted.X), math.max(full.Y, painted.Y))
+									end)
 									Compose.watch(function(use: ComposeTypes.Use)
 										local width = use(measured).X
 										if width > 0 and wordWidths:peek()[sector.key] ~= width then
@@ -1160,8 +1218,17 @@ return function(
 										local iconSize = ctx.controlSize(nil, "iconSize", use)
 										local fitted = geometry.fitContent(
 											live,
-											if iconOnly then iconSize elseif text.X > 0 then text.X else label.w,
-											if iconOnly then iconSize elseif text.Y > 0 then text.Y else label.h,
+											if iconOnly
+												then iconSize
+												elseif text.X > 0 then text.X + captionPadding(use)
+												else label.w,
+											if iconOnly
+												then iconSize
+												elseif text.Y > 0 then math.max(
+													text.Y,
+													ctx.controlSize(nil, "height", use)
+												)
+												else label.h,
 											6,
 											contentFit
 										)
@@ -1207,6 +1274,12 @@ return function(
 											shaped:set(true)
 										end
 										fittedShape:set(fitted)
+										local width = geometry.labelBounds(fitted, 40).w
+										if fittedWidths:peek()[live.key] ~= width then
+											local widths = table.clone(fittedWidths:peek())
+											widths[live.key] = width
+											fittedWidths:set(widths)
+										end
 										local bounds = geometry.paint(
 											if branch and moving(use, live) then unfold(use, fitted) else fitted
 										)
@@ -1355,7 +1428,7 @@ return function(
 					ZIndex = 104,
 					Activated = centerAction,
 				}
-				if corner and launcher and launcher:IsA("GuiObject") then
+				if launcher and launcher:IsA("GuiObject") then
 					local hidden = launcher :: GuiObject
 
 					hideLauncher = function()
@@ -1372,7 +1445,7 @@ return function(
 							root.AutomaticSize, root.Size = E.AutomaticSize.None, D2.fromOffset(extent.X, extent.Y)
 						end
 						hidden.Visible = false
-						if phase then
+						if phase and corner then
 							Compose.watch(function(use: ComposeTypes.Use)
 								if use(phase.exiting) then
 									show()
@@ -1381,6 +1454,8 @@ return function(
 						end
 						Compose.cleanup(show)
 					end
+				end
+				if corner and launcher and launcher:IsA("GuiObject") then
 					local glyph = centerNode:FindFirstChild("LeadingIcon", true)
 					if glyph then
 						runtime.decorate(glyph, {

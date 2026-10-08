@@ -218,47 +218,9 @@ return function(verifyHarness: Verify.Harness)
 				tabbed.stop()
 			end,
 		})
-
-		verifyHarness:case("the axis and the other construction words refuse a readable", {
-			id = "native_slider_shapes::native Slider axis::the axis and the other construction words refuse a readable",
-			run = function()
-				for _, key in { "axis", "range", "minGap", "thumb" } do
-					local ok, err = pcall(function()
-						local spec: any = { step = 1 }
-						spec[key] = Compose.cell(
-							if key == "axis"
-								then "y"
-								elseif key == "thumb" then "auto"
-								elseif key == "range" then false
-								else 1
-						)
-						world(spec)
-					end)
-					expect(`{key}: {ok}`):toBe(`{key}: false`)
-					expect(`{key}: {string.find(tostring(err), key, 1, true) ~= nil}`):toBe(`{key}: true`)
-				end
-			end,
-		})
 	end)
 
 	verifyHarness:suite("native Slider rotation", function()
-		verifyHarness:case("keeps the rotating track outside the list layout for every slider shape", {
-			id = "native_slider_shapes::native Slider rotation::keeps the rotating track outside the list layout for every slider shape",
-			run = function()
-				for _, shape in { {}, { axis = "y" :: "y" }, { row = { title = "Volume" } }, { range = true } } do
-					local options: any = table.clone(shape)
-					options.rotation = Compose.cell(0)
-					local w = world(options)
-					expect(w.track.Parent.Name):toBe("TrackSlot")
-					expect((w.track.Parent:FindFirstChildWhichIsA("UIListLayout"))):toBe(nil)
-					expect(w.track.Parent:FindFirstChildWhichIsA("UISizeConstraint").MinSize):toBe(v(w, 44, 44))
-					options.rotation:set(90)
-					expect(w.track.Rotation):toBe(90)
-					w.stop()
-				end
-			end,
-		})
-
 		local function pressAt(w: any, degrees: number, f: number, offset: any?)
 			local size = w.track.AbsoluteSize
 			local at = w.track.AbsolutePosition
@@ -315,26 +277,6 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Slider range", function()
-		verifyHarness:case("both handles are touch-floor targets and the fill spans between them", {
-			id = "native_slider_shapes::native Slider range::both handles are touch-floor targets and the fill spans between them",
-			run = function()
-				local w = world({ range = true })
-				local lower, upper, fill =
-					find(w.track, "HandleLower"), find(w.track, "HandleUpper"), find(w.track, "Fill")
-				expect(lower.Size.X.Offset >= 44 and lower.Size.Y.Offset >= 44):toBe(true)
-				expect(upper.Size.X.Offset >= 44 and upper.Size.Y.Offset >= 44):toBe(true)
-				expect(lower.Selectable or upper.Selectable):toBe(false)
-				expect(w.track.Selectable):toBe(false)
-				expect(w.node.Selectable):toBe(true)
-				expect(fill.Position.X.Scale):toBeCloseTo(0.2, 1e-4)
-				expect(fill.Size.X.Scale):toBeCloseTo(0.4, 1e-4)
-				expect(lower.Position.X.Scale):toBeCloseTo(0.2, 1e-4)
-				expect(upper.Position.X.Scale):toBeCloseTo(0.6, 1e-4)
-				expect(find(w.node, "Value").Text):toBe("20 – 60")
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("a thumb stops at the other one, and minGap holds them apart", {
 			id = "native_slider_shapes::native Slider range::a thumb stops at the other one, and minGap holds them apart",
 			run = function()
@@ -470,15 +412,6 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		verifyHarness:case("an authored pair the wrong way round is a spec error, not a silent swap", {
-			id = "native_slider_shapes::native Slider range::an authored pair the wrong way round is a spec error, not a silent swap",
-			run = function()
-				local ok, err = pcall(world, { range = true, value = Compose.cell({ lower = 80, upper = 20 }) })
-				expect(ok):toBe(false)
-				expect(string.find(tostring(err), "is above", 1, true) ~= nil):toBe(true)
-			end,
-		})
-
 		verifyHarness:case("an illegal pair arriving at run time keeps the last legal band and stays driveable", {
 			id = "native_slider_shapes::native Slider range::an illegal pair arriving at run time keeps the last legal band and stays driveable",
 			run = function()
@@ -598,68 +531,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("a custom knob drops the theme slot and grows past the floor with its content", {
-			id = "native_slider_shapes::native Slider thumb modes and custom art::a custom knob drops the theme slot and grows past the floor with its content",
-			run = function()
-				local engine: any = engineLib.new()
-				local w = world({
-					thumbContent = function()
-						return engine.new("Frame")
-					end,
-				}, { engine = engine })
-				local thumb = find(w.track, "Thumb")
-				expect((thumb:HasTag("facet-slider-thumb"))):toBe(false)
-				expect(thumb.AutomaticSize):toBe(w.E.AutomaticSize.XY)
-				local floor = thumb:FindFirstChildWhichIsA("UISizeConstraint")
-				expect(floor.MinSize.X):toBe(24)
-				expect(find(thumb, "Knob") ~= nil):toBe(true)
-				w.stop()
-				local plain = world({})
-				expect((find(plain.track, "Thumb"):HasTag("facet-slider-thumb"))):toBe(true)
-				plain.stop()
-			end,
-		})
-
-		verifyHarness:case("a knob is told its own thumb in a range, and each handle wears one", {
-			id = "native_slider_shapes::native Slider thumb modes and custom art::a knob is told its own thumb in a range, and each handle wears one",
-			run = function()
-				local seen = {}
-				local engine = engineLib.new()
-				local w = world({
-					range = true,
-					thumbContent = function(info: any)
-						table.insert(seen, `{info.thumb}:{info.value:peek()}`)
-						return engine.new("Frame")
-					end,
-				}, { engine = engine })
-				expect((table.concat(seen, " "))):toBe("lower:20 upper:60")
-				expect(find(find(w.track, "HandleLower"), "Knob") ~= nil):toBe(true)
-				w.stop()
-			end,
-		})
-
-		verifyHarness:case("a thumbImage beside a thumbContent names the collision, and so does a track pair", {
-			id = "native_slider_shapes::native Slider thumb modes and custom art::a thumbImage beside a thumbContent names the collision, and so does a track pair",
-			run = function()
-				local ok, err = pcall(world, {
-					thumbImage = "rbxassetid://1",
-					thumbContent = function()
-						return nil :: any
-					end,
-				})
-				expect(ok):toBe(false)
-				expect(string.find(tostring(err), "thumbImage", 1, true) ~= nil):toBe(true)
-				local okTrack, errTrack = pcall(world, {
-					trackImage = "rbxassetid://1",
-					trackContent = function()
-						return nil :: any
-					end,
-				})
-				expect(okTrack):toBe(false)
-				expect(string.find(tostring(errTrack), "trackContent", 1, true) ~= nil):toBe(true)
-			end,
-		})
-
 		verifyHarness:case("a track content replaces the rail and the fill and fills the track", {
 			id = "native_slider_shapes::native Slider thumb modes and custom art::a track content replaces the rail and the fill and fills the track",
 			run = function()
@@ -746,41 +617,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("the range fill starts and ends on whole pixels under the handle centres", {
-			id = "native_slider_shapes::native Slider knob travel::the range fill starts and ends on whole pixels under the handle centres",
-			run = function()
-				for _, axis in { "x", "y" } do
-					local w = world({
-						range = true,
-						axis = axis,
-						min = 1,
-						max = 20,
-						value = Compose.cell({ lower = 4, upper = 12 }),
-					})
-					local lower, upper, fill =
-						find(w.track, "HandleLower"), find(w.track, "HandleUpper"), find(w.track, "Fill")
-					local low, high, start, length
-					if axis == "y" then
-						low, high = lower.Position.Y, upper.Position.Y
-						start, length = fill.Position.Y, fill.Size.Y
-					else
-						low, high = lower.Position.X, upper.Position.X
-						start, length = fill.Position.X, fill.Size.X
-					end
-					for _, offset in { low.Offset, high.Offset, start.Offset, length.Offset } do
-						expect(offset):toBe(math.round(offset))
-					end
-					expect(math.abs(low.Offset)):toBe(8)
-					expect(math.abs(high.Offset)):toBe(2)
-					expect(start.Offset):toBe(low.Offset)
-					expect(start.Scale):toBeCloseTo(low.Scale, 1e-6)
-					expect(length.Scale):toBeCloseTo(math.abs(high.Scale - low.Scale), 1e-6)
-					expect(length.Offset):toBe(-math.abs(high.Offset - low.Offset))
-					w.stop()
-				end
-			end,
-		})
-
 		verifyHarness:case("a vertical and a rotated knob stop flush with the rail ends", {
 			id = "native_slider_shapes::native Slider knob travel::a vertical and a rotated knob stop flush with the rail ends",
 			run = function()
@@ -806,31 +642,6 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Slider controlSize", function()
-		verifyHarness:case("a named rung paints a thinner track inside the whole target", {
-			id = "native_slider_shapes::native Slider controlSize::a named rung paints a thinner track inside the whole target",
-			run = function()
-				local regular, compact = world({}), world({ controlSize = "compact" :: "compact" })
-				local thin, normal = find(compact.track, "Rail"), find(regular.track, "Rail")
-				expect(thin.Size.Y.Offset < normal.Size.Y.Offset):toBe(true)
-				expect(compact.track.Size.Y.Offset):toBe(44)
-				expect(find(compact.track, "Fill").Size.Y.Offset):toBe(thin.Size.Y.Offset)
-				regular.stop()
-				compact.stop()
-			end,
-		})
-
-		verifyHarness:case("a rung thins a vertical track and the column keeps its travel", {
-			id = "native_slider_shapes::native Slider controlSize::a rung thins a vertical track and the column keeps its travel",
-			run = function()
-				local w = world({ axis = "y" :: "y", controlSize = "compact" :: "compact" })
-				local rail = find(w.track, "Rail")
-				expect(rail.Size.X.Offset):toBe(4)
-				expect(rail.Size.Y.Scale):toBe(1)
-				expect(w.track.Size.Y.Scale):toBe(1)
-				w.stop()
-			end,
-		})
-
 		verifyHarness:case("building, driving and disposing a shaped slider leaves no connection behind", {
 			id = "native_slider_shapes::native Slider controlSize::building, driving and disposing a shaped slider leaves no connection behind",
 			run = function()

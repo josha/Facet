@@ -190,6 +190,12 @@ local neutral: ThemeTypes.ThemePackage = {
 			toast = { enter = 0.2, exit = 0.2 },
 			radial = { enter = 0.2, exit = 0.12, slot = 0.16 },
 			durations = {
+				zoom = 0.22,
+				travel = 0.3,
+				travelFade = 0.16,
+				travelStagger = 0.045,
+				sequence = 0.3,
+				countUp = 0.3,
 				tabFade = 0.2,
 				pageTurn = 0.3,
 				popoverSheetExit = 0.2,
@@ -210,6 +216,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			springs = {
 				snappy = { period = 0.2, damping = 1 },
 				quick = { period = 0.18, damping = 1 },
+				travel = { period = 0.18, damping = 1 },
 				control = { period = 0.25, damping = 1 },
 				move = { period = 0.3, damping = 1 },
 				sheet = { period = 0.4, damping = 1 },
@@ -225,13 +232,28 @@ local neutral: ThemeTypes.ThemePackage = {
 				popOvershoot = 0.25,
 				popDecay = 3,
 			},
-			distances = { menuSlide = 32, parallax = 0.3, dim = 0.1 },
-			easing = { present = "outCubic", fade = "outQuad", trail = "linear" },
+			scales = { travelLift = 1.08 },
+			distances = { menuSlide = 32, parallax = 0.3, dim = 0.1, travelArc = 48 },
+			easing = {
+				present = "outCubic",
+				fade = "outQuad",
+				trail = "linear",
+				zoom = "outCubic",
+				travel = "outCubic",
+				sequence = "outCubic",
+				countUp = "outCubic",
+			},
 			styles = { paint = "Quad", scroll = "Quad", page = "Cubic", fling = "Quint", pulse = "Sine" },
 			fling = { friction = 3, maxSpeed = 4000, projection = 0.08, bounceSpeed = 800 },
 		},
 		iconSizes = { small = 16, medium = 20, large = 24 },
 		controls = {
+			navigationBack = { swipeEdge = 24 },
+			tabBottomTrack = { height = 64, sideInset = 16, bottomInset = 12, radius = 20, contentGap = 8 },
+			tabRailTrack = { sideInset = 8, topInset = 8, bottomInset = 8, radius = 16 },
+			tabMark = { width = 20, height = 4, gap = 4, radius = 2 },
+			tabRailSelection = { insetX = 8, insetY = 4, radius = 8 },
+			zoom = { stepRatio = 1.25, panSpeed = 480, panStep = 48, doubleTapSeconds = 0.35, doubleTapDistance = 12 },
 			progress = { trackHeight = 6, circularSize = 32, circularThickness = 3, spinnerDotSize = 4 },
 			image = { defaultSize = 48 },
 			alert = { maxWidth = 560 },
@@ -509,7 +531,7 @@ function themes.define(
 			number(path, value, 0, 100000, path ~= "fling.projection")
 		end)
 		each("easing", function(path: string, value: unknown)
-			if type(value) ~= "string" or (ComposeTypes :: any).easing[value] == nil then
+			if type(value) ~= "string" or ComposeTypes.easing[value] == nil then
 				issue(path, "must name a Compose.easing function")
 			end
 		end)
@@ -848,6 +870,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-validation", { TextColor3 = c("danger"), TextSize = package.metrics.typography.caption.size })
 	rule(".facet-secondary", { TextColor3 = c("contentSecondary") })
 	rule("TextBox.facet-text", { PlaceholderColor3 = c("contentSecondary") })
+	rule(".facet-flash", { BackgroundColor3 = c("accent") })
 	rule(".facet-accent-text", { TextColor3 = c("accent") })
 	rule(".facet-strong", { TextColor3 = c("contentStrong") })
 	for _, role in
@@ -931,6 +954,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local buttonInsets: ThemeTypes.Insets = if ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 		then ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control.contentInsets or {}
 		else {}
+
+	rule(".facet-panel.facet-card-body::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, 0),
+	})
 
 	for _, pair in
 		{ { "tablehead", "tableHeader" }, { "tablerow", "tableRow" }, { "tablerow-alternate", "tableRowAlternate" } }
@@ -1547,7 +1577,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local selectedLink: { asset: string, rotation: number?, tint: ThemeTypes.RGB? }? = if type(selectedArt)
 			== "string"
 		then { asset = selectedArt }
-		else selectedArt :: any
+		else selectedArt :: { asset: string, rotation: number?, tint: ThemeTypes.RGB? }?
 	local white, black = types.Color3.new(1, 1, 1), types.Color3.new(0, 0, 0)
 	local art = if selectedLink then (package.assets or {})[selectedLink.asset] else nil
 	local pressedEmphasis = false
@@ -1677,8 +1707,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
 		local properties: ThemeTypes.RuleProperties = {}
 		for key, value in (definition.properties or definition.props or {}) :: ThemeTypes.AuthoredRuleProperties do
-			if type(value) == "table" and type((value :: any).role) == "string" then
-				properties[key] = c((value :: any).role)
+			if type(value) == "table" and type((value :: { role: string }).role) == "string" then
+				properties[key] = c((value :: { role: string }).role)
 			else
 				properties[key] = value :: ThemeTypes.StyleValue?
 			end
@@ -1768,7 +1798,7 @@ local function createStyleSheet(
 			then { settings.motionLevel }
 			else motionLevels.published(runtime)
 		for _, source in sources do
-			local chosen = read(source :: any, use)
+			local chosen = read(source :: Engine.Value<"normal" | "limited" | "none">, use)
 			if chosen ~= nil and motionLevels.resolve(chosen, false) == "none" then
 				return true
 			end
@@ -1795,7 +1825,9 @@ local function createStyleSheet(
 		local name = if typeof(value) == "EnumItem" then (value :: EnumItem).Name else value
 		return ({ Medium = 0, Large = 1, Larger = 2, Largest = 3 } :: { [unknown]: number })[name] or 0
 	end
-	local textRules: { [NativeRule]: { offset: number, rule: NativeRule } } = setmetatable({}, { __mode = "k" }) :: any
+	local textRules = (
+		setmetatable({}, { __mode = "k" }) :: unknown
+	) :: { [NativeRule]: { offset: number, rule: NativeRule } }
 	local function withTextSize(definition: NativeRule, offset: number): NativeRule
 		local size = definition.properties.TextSize
 		if offset == 0 or type(size) ~= "number" then
@@ -1902,7 +1934,7 @@ local function createStyleSheet(
 			end)
 		end
 	end
-	local hoverless: { [{ NativeRule }]: { NativeRule } } = setmetatable({}, { __mode = "k" }) :: any
+	local hoverless = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [{ NativeRule }]: { NativeRule } }
 	local function withoutHover(rules: { NativeRule }): { NativeRule }
 		local cached = hoverless[rules]
 		if cached then
@@ -1935,8 +1967,8 @@ local function createStyleSheet(
 		elseif role == "normal" then
 			seconds = normal
 		else
-			local authored = if motion then (motion :: any)[role] else nil
-			seconds = math.min(authored or (neutral.metrics.motion :: any)[role], normal)
+			local authored = if motion then motion[role] else nil
+			seconds = math.min(authored or neutral.metrics.motion[role], normal)
 		end
 		local style = (motion and motion.styles and motion.styles.paint)
 			or (neutral.metrics.motion.styles :: { [string]: string }).paint
@@ -1945,8 +1977,11 @@ local function createStyleSheet(
 		if cached then
 			return cached
 		end
-		local timing =
-			types.TweenInfo.new(seconds, (types.Enum.EasingStyle :: any)[style], types.Enum.EasingDirection.Out)
+		local timing = types.TweenInfo.new(
+			seconds,
+			((types.Enum.EasingStyle :: unknown) :: { [string]: Enum.EasingStyle })[style],
+			types.Enum.EasingDirection.Out
+		)
 		defaultTimings[key] = timing
 		return timing
 	end
@@ -2137,7 +2172,7 @@ local function createStyleSheet(
 		end
 		local preference = preferenceFor(use)
 		local typography = package.metrics.controls.typography or neutral.metrics.controls.typography
-		local textChoice = read(preferredTextSize :: any, use)
+		local textChoice = read(preferredTextSize :: Engine.Value<Enum.PreferredTextSize | string>?, use)
 		local textOffset = if textChoice ~= nil
 			then (textRank(textChoice) - textRank(read(nativeTextSize, use))) * typography.preferredSizeStep
 			else 0
@@ -2174,7 +2209,7 @@ local function createStyleSheet(
 			connection:Disconnect()
 		end)
 	end
-	local warmed: { [ThemeTypes.ThemePackage]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+	local warmed = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.ThemePackage]: boolean }
 	Compose.watch(function(use: ComposeTypes.Use)
 		local package = read(packageOrReadable, use)
 		if package == nil or warmed[package] then
@@ -2217,7 +2252,7 @@ local function variantAsset(
 	end
 	local linked = ((value :: unknown) :: { asset: unknown }).asset
 	if linked ~= nil then
-		return linked :: string, value :: any
+		return linked :: string, value :: { asset: string, rotation: number?, tint: ThemeTypes.RGB? }
 	end
 	local variants = value :: ThemeTypes.AssetVariants
 	local chosen = (

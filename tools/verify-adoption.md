@@ -99,15 +99,6 @@ The topbar change of `UI.Composition` has live evidence. The case
 `topbar-regions-side-by-side` of `mobile_regressions` fails without the change
 and passes with it in a Studio that Verify started.
 
-The fixture clock removed the load-dependent failure of the two swipe cases in
-`native_parity_weaker_rows`. The source passed 48 of 48 parallel runs.
-
-The release tier is not proven. The release-only source
-`native_parity_weak3_rows` did not finish in its 600 second deadline on a
-host with no free swap. It also did not finish in 25 minutes on main before
-the cutover. The other release producers gave 74 passes and 4 timing
-deferrals.
-
 Live results come from Verify reports for the build and device that ran.
 The gamepad suites need the Controller Emulator. Use `--studio ID` to attach
 to a Studio with the emulator on. See

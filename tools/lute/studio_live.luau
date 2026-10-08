@@ -14,6 +14,7 @@ local tag = "launched"
 local deadline = 600
 local placeOnly = false
 local interactive = false
+local casesFromTree = false
 local studio: string? = nil
 local device = "none"
 local sharedValues: { string } = {}
@@ -42,6 +43,8 @@ while index <= #process.args do
 		studio = process.args[index]
 	elseif argument == "--place" then
 		placeOnly = true
+	elseif argument == "--cases-from-tree" then
+		casesFromTree = true
 	elseif argument == "--interactive" then
 		interactive = true
 	elseif argument == "--deadline" then
@@ -54,7 +57,7 @@ while index <= #process.args do
 end
 if #suites == 0 and not placeOnly then
 	print(
-		"usage: lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME] [--deadline SECONDS] [--studio ID] [--device NAME] [--interactive] [--shared NAME=JSON]"
+		"usage: lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME] [--deadline SECONDS] [--studio ID] [--device NAME] [--interactive] [--cases-from-tree] [--shared NAME=JSON]"
 	)
 	print("       lute run tools/lute/studio_live.luau --place")
 	process.exit(2)
@@ -85,7 +88,7 @@ if not built.ok then
 	process.exit(1)
 end
 
-local LIMITS = { maxBytes = 4194304, maxCount = 512, maxTotalBytes = 33554432 }
+local LIMITS: Verify.AttachmentLimits = { maxBytes = 4194304, maxCount = 512, maxTotalBytes = 33554432 }
 
 local function write(path: string, text: string)
 	local directory = string.match(path, "^(.*)/[^/]+$")
@@ -114,6 +117,7 @@ end
 
 local failed = false
 assert(not interactive or studio ~= nil, "--interactive requires --studio ID")
+assert(not casesFromTree or studio ~= nil, "--cases-from-tree requires --studio ID")
 for _, suite in suites do
 	local options =
 		`\{ runId = runId, progressToken = progressToken, device = {string.format("%q", device)}, only = {if only
@@ -124,10 +128,27 @@ for _, suite in suites do
 		"local storage = game:GetService('ReplicatedStorage')",
 		"local live = require(storage:WaitForChild('FacetLive'))",
 		"local channel = require(storage:WaitForChild('FacetVerify'):WaitForChild('roblox'):WaitForChild('report-channel'))",
+		if casesFromTree
+			then table.concat({
+				`local caseModule = storage:WaitForChild('FacetLive'):WaitForChild('suites'):WaitForChild({string.format(
+					"%q",
+					suite
+				)})`,
+				`local currentCases = (function(script)\n{fs.readFileToString(
+					"tools/studio/live/suites/" .. suite .. ".luau"
+				)}\nend)(caseModule)`,
+				`local placedCases = live.cases({string.format("%q", suite)})`,
+				"table.clear(placedCases)",
+				"table.move(currentCases, 1, #currentCases, 1, placedCases)",
+			}, "\n")
+			else "",
 		if interactive
 			then `local drive = (function()\n{fs.readFileToString("tools/studio/live/interactive.luau")}\nend)()`
 			else "",
 		`local report = {if interactive then "drive(live, " else "live.report("}{string.format("%q", suite)}, {options})`,
+		`report.environment.caseSource = {string.format("%q", if casesFromTree then "working-tree" else "place")}`,
+		"for _, source in report.sources or {} do if source.environment then source.environment.caseSource = report.environment.caseSource end end",
+		"for _, case in report.results do if case.origin and case.origin.environment then case.origin.environment.caseSource = report.environment.caseSource end end",
 		"return game:GetService('HttpService'):JSONEncode(channel.envelope(runId, report))",
 	}, "\n")
 	local outcome = if studio
