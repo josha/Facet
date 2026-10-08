@@ -1142,7 +1142,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		if label:FindFirstChildWhichIsA("UISizeConstraint") == nil then
 			local glyphs = ctx.layoutBounds(label, ctx.layoutUnit(label, "TextBoundsUnit"))
 			local wrapped, truncated = ctx.observeStyled.TextWrapped(label), ctx.observeStyled.TextTruncate(label)
-			runtime.mount(function()
+			local stopFloor, floor = runtime.mount(function()
 				return Host.UISizeConstraint "TextBoundsFloor" {
 					MinSize = function(use: ComposeTypes.Use): Vector2
 						local mode, glyph = use(automatic), use(glyphs)
@@ -1158,6 +1158,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					end,
 				}
 			end, label)
+			runtime.connect(label, "ChildAdded", function(child: Instance)
+				if child ~= floor and child:IsA("UISizeConstraint") then
+					stopFloor()
+				end
+			end)
 		end
 		Compose.cleanup(function()
 			alive = false
