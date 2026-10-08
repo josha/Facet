@@ -16,6 +16,7 @@ local collectionEditing = require(script.Parent.collection_editing)
 local dragDropDemo = require(script.Parent.drag_drop_demo)
 local variantCell = require(script.Parent.variant_cell)
 local matrixRow = require(script.Parent.matrix_row)
+local matrixWidth = require(script.Parent.matrix_width)
 
 local SIZE_KEYS = { controlSize = true, starSize = true, segmentSize = true }
 
@@ -312,7 +313,8 @@ function browser.mount(opts: MountOpts): any
 			if not isValid(page, entry.axis or {}, states, entry.context) then
 				continue
 			end
-			local overrides = configure(page, c, entry.axis or {}, states, entry.context)
+			local overrides =
+				matrixWidth(Compose, configure(page, c, entry.axis or {}, states, entry.context), available)
 			local height = if entry.state and entry.state.cellHeight then entry.state.cellHeight else data.cellHeight
 			table.insert(
 				row,

@@ -58,6 +58,74 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native lab audit: drag and drop", function()
+		verifyHarness:case("fixed width matrix controls use the offered phone width", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::fixed width matrix controls use the offered phone width",
+			run = function()
+				local available = Compose.cell(353)
+				local w = worlds.new(function(UI)
+					local props = require("../examples/facet-lab/src/matrix_width")(Compose, {
+						Name = "FixedMatrixControl",
+						width = 460,
+						maxWidth = 280,
+					}, available)
+					return UI.AdaptiveStack(props)
+				end)
+				local node = w.find("FixedMatrixControl")
+				Verify.expect(node.Size.X.Offset):toBe(353)
+				available:set(807)
+				Verify.expect(node.Size.X.Offset):toBe(460)
+				Verify.expect(node:FindFirstChildWhichIsA("UISizeConstraint").MaxSize.X):toBe(280)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("audit checks text only inside its visible clipping window", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::audit checks text only inside its visible clipping window",
+			run = function()
+				local visible = require("../examples/facet-lab/src/audit_visible")
+				local engine: any = engineLib.new()
+				local screen = engine.new("ScreenGui")
+				local clip = engine.new("ScrollingFrame")
+				clip.Parent = screen
+				clip.ClipsDescendants = true
+				clip.AbsolutePosition = engine.types.Vector2.new(0, 0)
+				clip.AbsoluteSize = engine.types.Vector2.new(300, 200)
+				local label = engine.new("TextLabel")
+				label.Parent = clip
+				label.AbsoluteSize = engine.types.Vector2.new(100, 20)
+				label.AbsolutePosition = engine.types.Vector2.new(20, 220)
+				Verify.expect(visible(label)):toBe(false)
+				label.AbsolutePosition = engine.types.Vector2.new(20, 190)
+				Verify.expect(visible(label)):toBe(true)
+				label.AbsoluteSize = engine.types.Vector2.new(0, 20)
+				Verify.expect(visible(label)):toBe(true)
+				screen.Enabled = false
+				Verify.expect(visible(label)):toBe(false)
+			end,
+		})
+
+		verifyHarness:case("AdaptiveStack matrix cells contain the fixed width variants", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::AdaptiveStack matrix cells contain the fixed width variants",
+			run = function()
+				local engine: any = engineLib.new()
+				local fs = require("@lune/fs")
+				local luau = require("@lune/luau")
+				local catalog = luau.load(fs.readFile("examples/facet-lab/src/catalog.luau"), {
+					environment = engine.types,
+				})()
+				local data = catalog.PAGE_DATA.AdaptiveStack
+				for _, axis in data.axes do
+					if axis.key == "width" then
+						for _, width in axis.values do
+							if type(width) == "number" then
+								Verify.expect(data.cellWidth >= width):toBe(true)
+							end
+						end
+					end
+				end
+			end,
+		})
+
 		verifyHarness:case("matrix pages display with native Vector2 viewport facts", {
 			id = "native_lab_audit_parity::native lab audit: drag and drop::matrix pages display with native Vector2 viewport facts",
 			run = function()
@@ -76,6 +144,33 @@ return function(verifyHarness: Verify.Harness)
 				w.resize(row, 340, 400)
 				Verify.expect(available:peek()):toBe(340)
 				w.stop()
+			end,
+		})
+
+		verifyHarness:case("Sheet lab keeps a Close command when interactive dismissal is disabled", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::Sheet lab keeps a Close command when interactive dismissal is disabled",
+			run = function()
+				local engine: any = engineLib.new()
+				local fs = require("@lune/fs")
+				local luau = require("@lune/luau")
+				local catalog = luau.load(fs.readFile("examples/facet-lab/src/catalog.luau"), {
+					environment = engine.types,
+				})()
+				local data = catalog.PAGE_DATA.Sheet
+				local spec = data.base({
+					cell = function(_, value)
+						return Compose.cell(value)
+					end,
+				})
+				for _, state in data.states do
+					if state.name == "no interactive dismiss" then
+						for key, value in state.props do
+							spec[key] = value
+						end
+					end
+				end
+				Verify.expect(spec.interactiveDismissDisabled):toBe(true)
+				Verify.expect(spec.closeButton):toBe(true)
 			end,
 		})
 

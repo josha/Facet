@@ -2425,7 +2425,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "dragIndicator", values = { "automatic", "visible", "hidden" } } :: Axis,
 		},
 		states = {
-			{ name = "no interactive dismiss", props = { interactiveDismissDisabled = true } } :: State,
+			{ name = "no interactive dismiss", props = { interactiveDismissDisabled = true, closeButton = true } } :: State,
 			{
 				name = "stacked actions",
 				props = function(c: Context)
@@ -4659,7 +4659,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		alternatives = "ViewThatFits to swap whole layouts; HStack wrap to flow onto more lines.",
 		scenarios = { "hud" },
 		snippet = 'UI.AdaptiveStack { gap = "s", start, garage, leaderboard }',
-		cellWidth = 380,
+		cellWidth = 460,
 		base = function(c: Context)
 			return {
 				width = "fill" :: "fill",
