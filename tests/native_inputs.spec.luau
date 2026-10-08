@@ -817,6 +817,29 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("recovers an automatic compact caption when its parent width returns", {
+			id = "native_inputs::native input controls::recovers an automatic compact caption when its parent width returns",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
+					return runtime.constructors.Frame {
+						Name = "Row",
+						UI.Button "Sort" { label = "Sorting", compactLabel = "Srt" },
+					}
+				end)
+				local sort = find(node, "Sort")
+				local measure = find(sort, "FullLabelMeasure")
+				measure.TextBounds = engine.types.Vector2.new(45, 18)
+				sort.AbsoluteSize = engine.types.Vector2.new(43, 44)
+				for _ = 1, 3 do
+					node.AbsoluteSize = engine.types.Vector2.new(60, 44)
+					Verify.expect(sort.Text):toBe("Srt")
+					node.AbsoluteSize = engine.types.Vector2.new(300, 44)
+					Verify.expect(sort.Text):toBe("Sorting")
+					Verify.expect(sort.AbsoluteSize.X):toBe(43)
+				end
+				stop()
+			end,
+		})
 		verifyHarness:case("chooses compact button text from native measurements and restores the full caption", {
 			id = "native_inputs::native input controls::chooses compact button text from native measurements and restores the full caption",
 			run = function()

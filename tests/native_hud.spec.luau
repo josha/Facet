@@ -152,6 +152,26 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		verifyHarness:case("reserves the settled Ranger rifle glyph rectangle on both sweep viewports", {
+			id = "native_hud::native HUD::reserves the settled Ranger rifle glyph rectangle on both sweep viewports",
+			run = function()
+				for _, size in { { 1079, 809 }, { 390, 844 } } do
+					local _, root, stop, _, engine = mount(size[1], size[2])
+					local label = find(root, "WeaponText")
+					label.AbsoluteSize = engine.types.Vector2.new(52, 11)
+					label.TextBounds = engine.types.Vector2.new(55, 12)
+					local floor = label:FindFirstChild("TextBoundsFloor")
+					Verify.expect(floor ~= nil):toBe(true)
+					Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(55, 12))
+					label.TextBounds = engine.types.Vector2.new(41, 12)
+					Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(41, 12))
+					label:FindFirstChild("TextBoundsUnit").AbsoluteSize = engine.types.Vector2.new(50, 0.5)
+					label.TextBounds = engine.types.Vector2.new(27.5, 6)
+					Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(55, 12))
+					stop()
+				end
+			end,
+		})
 		verifyHarness:case("restores every resolution after repeated rotations and URL bar episodes", {
 			id = "native_hud::native HUD::restores every resolution after repeated rotations and URL bar episodes",
 			run = function()

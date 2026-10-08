@@ -92,7 +92,7 @@ return function(
 				type(child) ~= "string" and type(child.IsA) == "function" and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first"
 			)
-			local observed, settled = ctx.observe.AbsoluteSize(child), Compose.cell(V2.zero)
+			local observed, settled = ctx.layoutSize(child), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size = use(observed)
 				if use(scale) == 1 and not (index == 1 and use(hosted)) then
@@ -542,10 +542,9 @@ return function(
 			local list: { resolver.Declared } = {}
 			for index, region in regions do
 				local entry = declared[region]
-				local unit = use(if rides and entry.zone == "topbar" and stripUnit then stripUnit else safeUnit)
 				local measured = {}
 				for form, observed in entry.sizes do
-					local value = use(observed) / unit
+					local value = use(observed)
 					measured[form] = { x = value.X, y = value.Y }
 				end
 				list[index] = { zone = entry.zone, rank = entry.rank, mayDrop = entry.mayDrop, sizes = measured }

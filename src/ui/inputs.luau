@@ -1360,10 +1360,44 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				})
 				return measure
 			end, node)
-			local bounds = ctx.observe.TextBounds(measure)
+			local unit = ctx.layoutUnit(node)
+			local bounds = ctx.layoutBounds(measure, unit)
+			local automatic = ctx.observe.AutomaticSize(node)
+			local parent = ctx.observe.Parent(node)
+			local available = Compose.cell(0)
+			local stopParent: (() -> ())? = nil
+			local observation = assert(runtime.host.observation)
+			Compose.watch(function(use: ComposeTypes.Use)
+				if stopParent then
+					stopParent()
+					stopParent = nil
+				end
+				local holder = use(parent)
+				if holder and (holder:IsA("GuiObject") or holder:IsA("ScreenGui")) then
+					local function refresh()
+						local box = observation.readProperty(holder, "AbsoluteSize") :: Vector2
+						available:set(box.X)
+					end
+					stopParent = observation.observeProperty(holder, "AbsoluteSize", refresh)
+					refresh()
+				else
+					available:set(0)
+				end
+			end)
+			Compose.cleanup(function()
+				if stopParent then
+					stopParent()
+				end
+			end)
 			runtime.decorate(node, {
 				Text = function(use: ComposeTypes.Use)
-					local compact = use(size).X > 0 and use(bounds).X > use(size).X - 24
+					local mode, scale = use(automatic), use(unit)
+					local automaticWidth = mode == E.AutomaticSize.X or mode == E.AutomaticSize.XY
+					local width = if automaticWidth and use(available) > 0
+						then use(available) / scale
+						else use(size).X / scale
+					local compact = width > 0
+						and use(bounds).X > width - 2 * ctx.controlSize(spec.controlSize, "paddingX", use)
 					return read(if compact then spec.compactLabel else spec.label, use)
 				end,
 			})

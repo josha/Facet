@@ -1029,6 +1029,31 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			end,
 		})
 	end
+	function ctx.layoutUnit(parent: GuiBase2d, name: string?): ComposeTypes.Readable<number>
+		local _, probe = runtime.mount(function()
+			return Host.Frame(name or "LayoutUnit")({ Size = types.UDim2.fromOffset(100, 1), Visible = false })
+		end, parent)
+		local size = ctx.observe.AbsoluteSize(probe :: GuiObject)
+		return Compose.formula(function(use: ComposeTypes.Use): number
+			local unit = (use(size) :: Vector2).X / 100
+			return if unit > 0 then unit else 1
+		end)
+	end
+	function ctx.layoutSize(node: GuiBase2d, unit: ComposeTypes.Readable<number>?): ComposeTypes.Readable<Vector2>
+		local size, unit = ctx.observe.AbsoluteSize(node), unit or ctx.layoutUnit(node)
+		return Compose.formula(function(use: ComposeTypes.Use): Vector2
+			return (use(size) :: Vector2) / use(unit)
+		end)
+	end
+	function ctx.layoutBounds(
+		label: TextLabel | TextButton | TextBox,
+		unit: ComposeTypes.Readable<number>?
+	): ComposeTypes.Readable<Vector2>
+		local bounds, unit = ctx.observe.TextBounds(label), unit or ctx.layoutUnit(label)
+		return Compose.formula(function(use: ComposeTypes.Use): Vector2
+			return (use(bounds) :: Vector2) / use(unit)
+		end)
+	end
 	function ctx.text(properties: Shared.TextLabelNativeProps?): TextLabel
 		local native: Shared.TextLabelNativeProps = {
 			BackgroundTransparency = 1,
@@ -1114,6 +1139,26 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 				deferReflow()
 			end
 		end)
+		if label:FindFirstChildWhichIsA("UISizeConstraint") == nil then
+			local glyphs = ctx.layoutBounds(label, ctx.layoutUnit(label, "TextBoundsUnit"))
+			local wrapped, truncated = ctx.observeStyled.TextWrapped(label), ctx.observeStyled.TextTruncate(label)
+			runtime.mount(function()
+				return Host.UISizeConstraint "TextBoundsFloor" {
+					MinSize = function(use: ComposeTypes.Use): Vector2
+						local mode, glyph = use(automatic), use(glyphs)
+						local free = use(wrapped) == false and use(truncated) == Enum.TextTruncate.None
+						return types.Vector2.new(
+							if free and (mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY)
+								then math.ceil(glyph.X)
+								else 0,
+							if free and (mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY)
+								then math.ceil(glyph.Y)
+								else 0
+						)
+					end,
+				}
+			end, label)
+		end
 		Compose.cleanup(function()
 			alive = false
 			if pending then
@@ -1122,31 +1167,6 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			end
 		end)
 		return label
-	end
-	function ctx.layoutUnit(parent: GuiBase2d, name: string?): ComposeTypes.Readable<number>
-		local _, probe = runtime.mount(function()
-			return Host.Frame(name or "LayoutUnit")({ Size = types.UDim2.fromOffset(100, 1), Visible = false })
-		end, parent)
-		local size = ctx.observe.AbsoluteSize(probe :: GuiObject)
-		return Compose.formula(function(use: ComposeTypes.Use): number
-			local unit = (use(size) :: Vector2).X / 100
-			return if unit > 0 then unit else 1
-		end)
-	end
-	function ctx.layoutSize(node: GuiBase2d, unit: ComposeTypes.Readable<number>?): ComposeTypes.Readable<Vector2>
-		local size, unit = ctx.observe.AbsoluteSize(node), unit or ctx.layoutUnit(node)
-		return Compose.formula(function(use: ComposeTypes.Use): Vector2
-			return (use(size) :: Vector2) / use(unit)
-		end)
-	end
-	function ctx.layoutBounds(
-		label: TextLabel | TextButton | TextBox,
-		unit: ComposeTypes.Readable<number>?
-	): ComposeTypes.Readable<Vector2>
-		local bounds, unit = ctx.observe.TextBounds(label), unit or ctx.layoutUnit(label)
-		return Compose.formula(function(use: ComposeTypes.Use): Vector2
-			return (use(bounds) :: Vector2) / use(unit)
-		end)
 	end
 	function ctx.row(children: { ComposeTypes.Child }, properties: Shared.FrameNativeProps?): Frame
 		return layout.stack(children, properties, { gap = 8 }, false)

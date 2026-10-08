@@ -78,6 +78,47 @@ return function(verifyHarness: Verify.Harness)
 		return message ~= nil and string.find(message, fragment, 1, true) ~= nil
 	end
 
+	verifyHarness:suite("native composition rest measurements", function()
+		verifyHarness:case("keeps a simplified Region rectangle after a scaled viewport round trip", {
+			id = "native_layout::native composition rest measurements::keeps a simplified Region rectangle after a scaled viewport round trip",
+			run = function()
+				local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+					return UI.Composition {
+						UI.Region "Health" {
+							zone = "bottomLeft" :: "bottomLeft",
+							rank = 1,
+							Host.Frame "Full" {} :: unknown,
+							Host.Frame "Compact" {},
+						},
+					}
+				end)
+				local region = root:FindFirstChild("Health", true)
+				local full, compact = region:FindFirstChild("Full", true), region:FindFirstChild("Compact", true)
+				local V2 = engine.types.Vector2
+				root:FindFirstChild("Zones"):FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(100, 1)
+				full.AbsoluteSize, compact.AbsoluteSize = V2.new(90, 35), V2.new(41.5, 35)
+				root:FindFirstChild("Zones").AbsoluteSize = V2.new(166, 200)
+				Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
+				local trigger = region:FindFirstChildWhichIsA("TextButton", true)
+				local initial = trigger.Size
+				for _, unit in { 0.94, 0.5, 1 } do
+					local a, b = full:FindFirstChild("LayoutUnit"), compact:FindFirstChild("LayoutUnit")
+					if a then
+						a.AbsoluteSize = V2.new(100 * unit, unit)
+					end
+					if b then
+						b.AbsoluteSize = V2.new(100 * unit, unit)
+					end
+					full.AbsoluteSize = V2.new(90 * unit, 35 * unit)
+					compact.AbsoluteSize = V2.new(41.5 * unit, 35 * unit)
+					Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
+					Verify.expect(trigger.Size):toBe(initial)
+				end
+				stop()
+			end,
+		})
+	end)
+
 	verifyHarness:suite("native text layout", function()
 		verifyHarness:case("reflows a late clipped automatic box after styled metrics have settled", {
 			id = "native_layout::native text layout::reflows a late clipped automatic box after styled metrics have settled",
