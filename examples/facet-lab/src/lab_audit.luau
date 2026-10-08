@@ -2,11 +2,14 @@
 
 local visible = require("./audit_visible")
 
-return function(lab: any, playerGui: PlayerGui, ids: { string }): string
+return function(lab: any, playerGui: PlayerGui, ids: { string }, options: any?): string
+	local opts = options or {}
 	local out = {}
 	for _, id in ids do
-		lab.open(id)
-		task.wait(0.3)
+		if not opts.current then
+			lab.open(id)
+		end
+		task.wait(if opts.visibleOnly then 0.02 else 0.3)
 		local root = playerGui:FindFirstChild("Facet_Lab")
 		local page = root and root:FindFirstChild(`Page_{id}`, true)
 		if page == nil then
@@ -15,9 +18,10 @@ return function(lab: any, playerGui: PlayerGui, ids: { string }): string
 		end
 		local lines = {}
 		local seen = {}
+		local scope = opts.node or page
 		local function scan()
 			local before = #lines
-			for _, node in page:GetDescendants() do
+			for _, node in scope:GetDescendants() do
 				if (node:IsA("TextLabel") or node:IsA("TextButton")) and visible(node) then
 					local label = node :: TextLabel
 					if label.Text ~= "" and label.TextTransparency < 1 then
@@ -79,7 +83,7 @@ return function(lab: any, playerGui: PlayerGui, ids: { string }): string
 				end
 			end
 		end
-		if page:IsA("ScrollingFrame") then
+		if page:IsA("ScrollingFrame") and not opts.visibleOnly then
 			local scroll = page :: ScrollingFrame
 			local original = scroll.CanvasPosition
 			local offset = 0

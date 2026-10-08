@@ -58,6 +58,145 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native lab audit: drag and drop", function()
+		verifyHarness:case("matrix bounds intrinsic buttons without changing pure helper arguments", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::matrix bounds intrinsic buttons without changing pure helper arguments",
+			run = function()
+				local available = Compose.cell(353)
+				local w = worlds.new(function(UI, Host, engine)
+					local props = require("../examples/facet-lab/src/matrix_width")(Compose, {
+						Name = "LongMatrixButton",
+						label = string.rep("Long label ", 12),
+					}, available, true)
+					local node = UI.Button(props)
+					require("../examples/facet-lab/src/matrix_limit")(
+						Compose,
+						Host,
+						node,
+						available,
+						engine.types.Vector2
+					)
+					return node
+				end)
+				local limit = w.find("MatrixLimit")
+				Verify.expect(limit.MaxSize.X):toBe(353)
+				available:set(280)
+				Verify.expect(limit.MaxSize.X):toBe(280)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("Lab successful render clears only its prior refusal", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab successful render clears only its prior refusal",
+			run = function()
+				local render = require("../examples/facet-lab/src/render_result")
+				local errors = { Picker = { playground = "old refusal", S1 = "other refusal" } }
+				Verify.expect(render(errors, "Picker", "playground", function()
+					return "mounted"
+				end)):toBe("mounted")
+				Verify.expect(errors.Picker.playground):toBe(nil)
+				Verify.expect(errors.Picker.S1):toBe("other refusal")
+			end,
+		})
+		verifyHarness:case("Lab Reset remounts control local state", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab Reset remounts control local state",
+			run = function()
+				local items = Compose.cell({ { id = "Rating", revision = 0 } })
+				local w = worlds.new(function(UI)
+					return UI.VStack({
+						Compose.keyed({
+							from = items,
+							key = require("../examples/facet-lab/src/page_key"),
+							render = function()
+								return UI.Text({ Name = "ResetValue", text = "Before" })
+							end,
+						}),
+					})
+				end)
+				local old = w.find("ResetValue")
+				old.Text = "After"
+				items:set({ { id = "Rating", revision = 1 } })
+				Verify.expect(w.find("ResetValue").Text):toBe("Before")
+				Verify.expect(old.Parent):toBe(nil)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("LevelPicker disables custom glyph state for bar segments", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::LevelPicker disables custom glyph state for bar segments",
+			run = function()
+				local data = require("@lune/luau").load(
+					require("@lune/fs").readFile("examples/facet-lab/src/catalog.luau"),
+					{ environment = engineLib.new().types }
+				)().PAGE_DATA.LevelPicker
+				Verify.expect(data.valid({ segment = "bar", glyphs = { filled = "●", empty = "○" } })):toBe(false)
+				Verify.expect(data.valid({ segment = "glyph", glyphs = { filled = "●", empty = "○" } })):toBe(true)
+			end,
+		})
+
+		verifyHarness:case("Lab long label preview gives text a bounded native width", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab long label preview gives text a bounded native width",
+			run = function()
+				local available = Compose.cell(353)
+				local w = worlds.new(function(UI, Host, engine)
+					local props = require("../examples/facet-lab/src/matrix_width")(
+						Compose,
+						{ Name = "BoundedLongLabel", label = string.rep("Long label ", 12) },
+						available,
+						true,
+						engine.types,
+						true
+					)
+					return UI.Button(props)
+				end)
+				Verify.expect(w.find("BoundedLongLabel").TextTruncate):toBe(w.engine.types.Enum.TextTruncate.AtEnd)
+				Verify.expect(w.find("BoundedLongLabel").Size.X.Offset):toBe(353)
+				available:set(280)
+				Verify.expect(w.find("BoundedLongLabel").Size.X.Offset):toBe(280)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("Lab sweep restores options and detects reset and stale focus faults", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::Lab sweep restores options and detects reset and stale focus faults",
+			run = function()
+				local sweep = require("../examples/facet-lab/src/lab_sweep")
+				Verify.expect(sweep.options({
+					axes = { { key = "style", values = { "first", "second" } } },
+					states = { { name = "disabled" }, { name = "matrix", matrixOnly = true } },
+				})):toEqual({ "style=first", "style=second", "style=first", "+disabled", "-disabled" })
+				local engine: any = engineLib.new()
+				local screen = engine.new("ScreenGui")
+				local root = engine.new("Frame")
+				root.Parent = screen
+				local button = engine.new("TextButton")
+				button.Parent = root
+				button.Text = "Before"
+				local before = sweep.snapshot(root)
+				button.AbsolutePosition = engine.types.Vector2.new(200, 500)
+				Verify.expect(sweep.same(before, sweep.snapshot(root))):toBe(true)
+				button.Text = "After"
+				Verify.expect(sweep.same(before, sweep.snapshot(root))):toBe(false)
+				Verify.expect(sweep.detached(button, screen)):toBe(false)
+				button.Parent = nil
+				Verify.expect(sweep.detached(button, screen)):toBe(true)
+				Verify.expect(sweep.same(before, sweep.snapshot(root))):toBe(false)
+			end,
+		})
+
+		verifyHarness:case("pure adaptive matrix decisions keep numeric arguments", {
+			id = "native_lab_audit_parity::native lab audit: drag and drop::pure adaptive matrix decisions keep numeric arguments",
+			run = function()
+				local bounded = (require("../examples/facet-lab/src/matrix_width") :: any)(
+					Compose,
+					{ width = 360 },
+					Compose.cell(300),
+					false
+				)
+				Verify.expect(bounded.width):toBe(360)
+				Verify.expect(Facet.adaptive.sizeClass(bounded.width)):toBe("compact")
+			end,
+		})
+
 		verifyHarness:case("fixed width matrix controls use the offered phone width", {
 			id = "native_lab_audit_parity::native lab audit: drag and drop::fixed width matrix controls use the offered phone width",
 			run = function()

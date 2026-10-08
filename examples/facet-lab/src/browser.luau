@@ -17,6 +17,9 @@ local dragDropDemo = require(script.Parent.drag_drop_demo)
 local variantCell = require(script.Parent.variant_cell)
 local matrixRow = require(script.Parent.matrix_row)
 local matrixWidth = require(script.Parent.matrix_width)
+local matrixLimit = require(script.Parent.matrix_limit)
+local renderResult = require(script.Parent.render_result)
+local pageKey = require(script.Parent.page_key)
 
 local SIZE_KEYS = { controlSize = true, starSize = true, segmentSize = true }
 
@@ -131,6 +134,7 @@ function browser.mount(opts: MountOpts): any
 			flags = {},
 			values = {},
 			version = Compose.cell(0),
+			revision = Compose.cell(0),
 			log = Compose.cell({}),
 		}
 		for _, axis in data.axes or {} do
@@ -270,7 +274,14 @@ function browser.mount(opts: MountOpts): any
 		state.errors[pageId][where] = string.sub(tostring(err), 1, 240)
 	end
 
-	local function render(page: any, c: any, overrides: { [string]: any }, where: string, tall: boolean?): any
+	local function render(
+		page: any,
+		c: any,
+		overrides: { [string]: any },
+		where: string,
+		tall: boolean?,
+		available: any?
+	): any
 		local data = page.data
 		return UI.ErrorBoundary({
 			Name = "Live",
@@ -278,10 +289,13 @@ function browser.mount(opts: MountOpts): any
 			height = if tall then "fill" else "hug",
 			view = function()
 				local props = finalProps(page, c, overrides)
-				if data.make then
-					return data.make(UI, props, c)
+				local node = renderResult(state.errors, page.id, where, function()
+					return if data.make then data.make(UI, props, c) else UI[page.id](props)
+				end)
+				if available and page.kind == "control" and node:IsA("GuiObject") then
+					matrixLimit(Compose, Host, node, available)
 				end
-				return UI[page.id](props)
+				return node
 			end,
 			fallback = function(failure)
 				recordError(page.id, where, failure)
@@ -313,8 +327,14 @@ function browser.mount(opts: MountOpts): any
 			if not isValid(page, entry.axis or {}, states, entry.context) then
 				continue
 			end
-			local overrides =
-				matrixWidth(Compose, configure(page, c, entry.axis or {}, states, entry.context), available)
+			local overrides = matrixWidth(
+				Compose,
+				configure(page, c, entry.axis or {}, states, entry.context),
+				available,
+				page.kind == "control",
+				ctx.types,
+				entry.state ~= nil and entry.state.name == "long text"
+			)
 			local height = if entry.state and entry.state.cellHeight then entry.state.cellHeight else data.cellHeight
 			table.insert(
 				row,
@@ -324,7 +344,7 @@ function browser.mount(opts: MountOpts): any
 					width = (entry.state and entry.state.cellWidth) or data.cellWidth or "hug",
 					height = height or "hug",
 					UI.Text({ Name = "Label", text = entry.label, textRole = "caption" :: "caption" }) :: unknown,
-					render(page, c, overrides, `{id}C{i}`, height ~= nil),
+					render(page, c, overrides, `{id}C{i}`, height ~= nil, available),
 				}, available)
 			)
 		end
@@ -428,6 +448,7 @@ function browser.mount(opts: MountOpts): any
 							ps.flags[st.name]:set(false)
 						end
 						ps.values = {}
+						ps.revision:set(ps.revision:peek() + 1)
 						ps.version:set(ps.version:peek() + 1)
 						ps.log:set({})
 					end)
@@ -476,10 +497,11 @@ function browser.mount(opts: MountOpts): any
 			end
 			return data.cellHeight or "hug"
 		end)
+		local available = Compose.cell(0)
 		local liveControl = UI.VStack({
 			Name = "Live",
 
-			width = if data.fills or data.cellWidth then "fill" else "hug",
+			width = "fill",
 			maxWidth = if data.cellWidth and not data.fills then data.cellWidth * 2 else nil,
 			height = cellHeight,
 			padding = { top = "l", bottom = "l", left = "m", right = "m" },
@@ -498,11 +520,23 @@ function browser.mount(opts: MountOpts): any
 							table.insert(list, st)
 						end
 					end
-					return render(page, c, configure(page, c, values, list), "playground", cellHeight:peek() ~= "hug")
+					local props = matrixWidth(
+						Compose,
+						configure(page, c, values, list),
+						available,
+						page.kind == "control",
+						ctx.types,
+						ps.flags["long text"] ~= nil and ps.flags["long text"]:peek()
+					)
+					return render(page, c, props, "playground", cellHeight:peek() ~= "hug", available)
 				end,
 			}),
 		})
 
+		local room = UI.environment(liveControl)
+		Compose.watch(function(use: Use)
+			available:set(use(room.viewportSize).X)
+		end)
 		local seen: { [string]: string } = {}
 		Compose.watch(function(use: Use)
 			use(ps.version)
@@ -951,7 +985,9 @@ function browser.mount(opts: MountOpts): any
 	local function Detail(): any
 		local current = Compose.formula(function(use: Use)
 			local top = use(state.top)
-			return { { id = if top == "catalog" then use(state.selected) else "@" .. top } }
+			local id = if top == "catalog" then use(state.selected) else "@" .. top
+			local revision = if top == "catalog" then use(pageState(cat.pages[id]).revision) else 0
+			return { { id = id, revision = revision } }
 		end)
 		local detail: { any } = { Name = "Detail", width = "fill" :: "fill", height = "fill" :: "fill" }
 		table.insert(
@@ -963,9 +999,7 @@ function browser.mount(opts: MountOpts): any
 				UI.fill() :: unknown,
 				Compose.keyed({
 					from = current,
-					key = function(item: any): string
-						return item.id
-					end,
+					key = pageKey,
 					render = function(item: any): GuiObject
 						local id = item:peek().id
 						if id == "@style" then
@@ -1429,6 +1463,19 @@ function browser.mount(opts: MountOpts): any
 		configure = function(command: string): any
 			local page = cat.pages[state.selected:peek()]
 			local ps = pageState(page)
+			local function allowed(key: string?, value: any, flag: string?): boolean
+				local axes, active = {}, {}
+				for name, cell in ps.axis do
+					axes[name] = if name == key then value else cell:peek()
+				end
+				for _, st in page.data.states or {} do
+					if (st.name == flag and value == true) or (st.name ~= flag and ps.flags[st.name]:peek()) then
+						table.insert(active, st)
+					end
+				end
+				return isValid(page, axes, active)
+			end
+
 			local name, json = string.match(command, "^value:([^=]+)=(.*)$")
 			if name then
 				local cell = ps.values[name]
@@ -1440,6 +1487,9 @@ function browser.mount(opts: MountOpts): any
 			end
 			local sign, flag = string.match(command, "^([%+%-])(.+)$")
 			if sign and ps.flags[flag] then
+				if sign == "+" and not allowed(nil, true, flag) then
+					return { ok = false, reason = "disabled configuration" }
+				end
 				ps.flags[flag]:set(sign == "+")
 				return { ok = true }
 			end
@@ -1448,13 +1498,15 @@ function browser.mount(opts: MountOpts): any
 				for _, axis in page.data.axes or {} do
 					for _, v in if axis.key == key then axis.values else {} do
 						if tostring(v) == value then
+							if not allowed(key, v, nil) then
+								return { ok = false, reason = "disabled configuration" }
+							end
 							ps.axis[key]:set(v)
 							return { ok = true }
 						end
 					end
 				end
-				ps.axis[key]:set(value)
-				return { ok = true }
+				return { ok = false, reason = "unknown option" }
 			end
 			return { ok = false, reason = "unknown command" }
 		end,

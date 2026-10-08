@@ -1695,7 +1695,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			} :: State,
 		},
 		valid = function(p: Properties)
-			return (p.images == nil or p.segment == "image") and not (p.segment == "image" and p.images == nil)
+			local glyphs = p.glyphs == nil or p.segment == "glyph"
+			local images = (p.images == nil or p.segment == "image") and not (p.segment == "image" and p.images == nil)
+			return glyphs and images
 		end,
 	},
 

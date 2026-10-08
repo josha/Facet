@@ -21,6 +21,7 @@ local lab_settings = require(assert(script.Parent).lab_settings) :: any
 local catalog = require(assert(script.Parent).catalog) :: any
 local browser = require(assert(script.Parent).browser) :: any
 local lab_audit = require(assert(script.Parent).lab_audit) :: any
+local lab_sweep = require(assert(script.Parent).lab_sweep) :: any
 local Compose: ComposeModule = Facet.Compose
 
 pcall(function()
@@ -131,6 +132,7 @@ end, runtime.reactor)
 
 local api = Instance.new("Folder")
 api.Name = "FacetLabAPI"
+local sweepJob: any = nil
 local function answer(value: any): string
 	return HttpService:JSONEncode(value)
 end
@@ -192,7 +194,7 @@ local handlers: { [string]: (string?) -> string } = {
 		return answer(lab.settings.status())
 	end,
 
-	sweep = function(arg)
+	mountSweep = function(arg)
 		local out = {}
 		local current: any = nil
 		local logged = game:GetService("LogService").MessageOut:Connect(function(message, kind)
@@ -228,6 +230,39 @@ local handlers: { [string]: (string?) -> string } = {
 		task.wait(0.2)
 		logged:Disconnect()
 		return answer(out)
+	end,
+	sweep = function(arg)
+		if sweepJob and sweepJob.running then
+			return answer({ running = true, pages = sweepJob.completed })
+		end
+		local ids = if arg ~= nil and arg ~= "" then string.split(arg, ",") else lab.pageIds()
+		sweepJob = { running = true, completed = {}, current = nil }
+		local job = sweepJob
+		task.spawn(function()
+			local ok, result = pcall(lab_sweep.run, lab, playerGui, ids, {
+				progress = function(row, complete)
+					job.current = row.id
+					if complete then
+						job.completed[row.id] = row
+					end
+				end,
+			})
+			job.running = false
+			if ok then
+				job.result = result
+			else
+				job.error = tostring(result)
+			end
+		end)
+		return answer({ running = true, ids = ids })
+	end,
+	sweepReport = function(arg)
+		local job = sweepJob or { running = false, completed = {} }
+		local rows = {}
+		for _, id in if arg ~= nil and arg ~= "" then string.split(arg, ",") else lab.pageIds() do
+			rows[id] = job.completed[id]
+		end
+		return answer({ running = job.running, current = job.current, completed = rows, error = job.error })
 	end,
 
 	probe = function(arg)
