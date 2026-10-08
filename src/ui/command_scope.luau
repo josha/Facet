@@ -164,6 +164,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 						end
 						if
 							gui
+							and ctx.effectiveInput()() ~= "Touch"
 							and ctx.read(spec.enabled) ~= false
 							and available(target.node)
 							and (

@@ -301,12 +301,28 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			end
 			local entry = byProperty[property]
 			if entry == nil then
-				local cell = Compose.cell(observation.readProperty(node, property))
+				local initial = observation.readProperty(node, property)
+				if property == "SelectedObject" and config.userInputService
+					and config.userInputService.PreferredInput == Enum.PreferredInput.Touch then
+					(config.guiService :: GuiService).SelectedObject = nil
+					initial = nil
+				end
+				local cell = Compose.cell(initial)
 				local selection = property == "SelectedObject"
 				local preferred = property == "PreferredInput" and node == config.userInputService
 				local stopNudges: (() -> ())? = nil
 				local function publish()
 					local current = observation.readProperty(node, property)
+					local keys = config.userInputService
+					local gui = config.guiService
+					if selection and gui and keys and keys.PreferredInput == Enum.PreferredInput.Touch
+						and current ~= nil then
+						gui.SelectedObject = nil
+						current = nil
+					elseif preferred and gui and current == Enum.PreferredInput.Touch
+						and gui.SelectedObject ~= nil then
+						gui.SelectedObject = nil
+					end
 					if
 						preferred
 						and preferredInput.withheld(

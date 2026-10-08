@@ -40,6 +40,9 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		return function(use: ComposeTypes.Use): boolean
 			local preference = if preferred then use(preferred) else nil
+			if preference == E.PreferredInput.Touch then
+				return false
+			end
 			if preference == E.PreferredInput.Gamepad then
 				return true
 			end

@@ -93,6 +93,40 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
+		verifyHarness:case("touch never retains selection through command scopes or focus restoration", {
+			id = "native_navigation::native navigation controls::touch never retains selection through command scopes or focus restoration",
+			run = function()
+				local world = setup(function(UI: FacetControls)
+					local Commands = require("../src/ui/command_types")
+					local primary = UI.Button "Primary" { label = "Rematch" }
+					local targets: { Commands.CommandTarget<string> } = { { key = "primary", node = primary } }
+					UI.commandScope(primary, { targets = targets, commands = {} })
+					return primary
+				end)
+				local primary = find(world.screen, "Primary")
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				local touch = world.engine.new("InputObject")
+				touch.UserInputType = world.engine.types.Enum.UserInputType.Touch
+				primary.InputBegan:Fire(touch)
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(nil)
+				world.gui.SelectedObject = primary
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(nil)
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+				world.gui.SelectedObject = primary
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(primary)
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(nil)
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+				world.gui.SelectedObject = primary
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(primary)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("omits owned-page chrome without removing Back or selection restoration", {
 			id = "native_navigation::native navigation controls::omits owned-page chrome without removing Back or selection restoration",
 			run = function()
