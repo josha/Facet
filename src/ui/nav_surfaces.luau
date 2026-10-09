@@ -301,12 +301,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			expanded: ComposeTypes.Cell<boolean>?,
 			initialFocus: string?,
 			dismissButton: Nav.Value<boolean>?,
+			outsideDismiss: Nav.Value<boolean>?,
 		} =
 			table.clone(spec)
 		buttonSpec.content = nil
 		buttonSpec.expanded = nil
 		buttonSpec.initialFocus = nil
 		buttonSpec.dismissButton = nil
+		buttonSpec.outsideDismiss = nil
 		buttonSpec.ref = nil
 		buttonSpec.trailingIcon = spec.trailingIcon or "chevron.down"
 		buttonSpec.corners = spec.corners or "pill"
@@ -460,6 +462,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					collapse,
 					{
 						Name = "CollapsibleModal",
+						outsideMargin = 0,
+						outsideDismiss = spec.outsideDismiss,
 						backgroundTransparency = 1,
 						initialFocus = spec.initialFocus,
 						exiting = if phase then phase.exiting else nil,

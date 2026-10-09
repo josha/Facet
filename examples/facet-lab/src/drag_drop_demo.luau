@@ -3,6 +3,16 @@ return function(ctx: any)
 	local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 	local D2, V2, V3, CF, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Vector3, ctx.types.CFrame, ctx.types.Enum
 	local C3 = ctx.types.Color3
+	local env = UI.environment()
+	local short = C.formula(function(use)
+		return use(env.heightClass) == "short"
+	end)
+	local function roomy(use)
+		return not use(short)
+	end
+	local function panelPadding(use)
+		return if use(short) then "xs" else "m"
+	end
 	local palette = {
 		Red = C3.fromRGB(245, 92, 97),
 		Green = C3.fromRGB(85, 194, 109),
@@ -23,13 +33,16 @@ return function(ctx: any)
 			itemSize = 112,
 			columns = 4,
 			gap = 8,
-			Size = D2.new(1, 0, 0, 120),
+			Size = function(use)
+				return D2.new(1, 0, 0, if use(short) then 96 else 120)
+			end,
 			Host.UISizeConstraint { MaxSize = ctx.types.Vector2.new(480, math.huge) },
 			drag = function(items)
 				return {
 					payload = items[1],
 					operations = { "copy", "apply" },
 					armOnTap = true,
+					touchPickup = "immediate",
 					onStart = onStart,
 					onEnd = onEnd,
 				}
@@ -55,7 +68,6 @@ return function(ctx: any)
 		}
 	end
 
-	local env = UI.environment()
 	local notice = C.cell("Choose an asset above, then drag it onto an object below.")
 	local picked, keyboard = C.cell(nil), C.cell(false)
 	local texture, undo = C.cell(""), C.cell(nil)
@@ -185,7 +197,9 @@ return function(ctx: any)
 	local function destination(target, name, title, hint)
 		local choice = UI.Button {
 			Name = name,
-			label = "Apply here",
+			label = function(use)
+				return if use(short) then "Apply to " .. string.lower(title) else "Apply here"
+			end,
 			Visible = showDestinations,
 			enabled = function(use)
 				return use(picked) ~= nil
@@ -198,9 +212,10 @@ return function(ctx: any)
 			align = "center",
 			BackgroundTransparency = 1,
 			UI.fill(),
-			UI.Text { text = title, textRole = "title" },
+			UI.Text { text = title, textRole = "title", Visible = roomy },
 			UI.Text {
 				text = hint,
+				Visible = roomy,
 				textRole = "caption",
 				wrap = true,
 				Size = D2.new(1, 0, 0, 0),
@@ -217,9 +232,12 @@ return function(ctx: any)
 		width = "fill",
 		height = "fill",
 		gap = "s",
-		padding = "m",
+		padding = function(use)
+			return if use(short) then "s" else "m"
+		end,
 		UI.VStack {
 			Name = "WorldTools",
+			padding = panelPadding,
 			BackgroundTransparency = 0,
 			width = "fill",
 			gap = "s",
@@ -228,15 +246,17 @@ return function(ctx: any)
 			end,
 			UI.Text {
 				text = "Drag and drop demo",
+				Visible = roomy,
 				textRole = "title",
 				wrap = true,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 			},
 			UI.Text {
+				Visible = roomy,
 				text = function(use)
 					if use(env.effectiveInput) == "Touch" then
-						return "Tap an asset, then tap Apply here. You can also hold and drag it onto an object."
+						return "Drag an asset onto an object, or tap an asset then tap Apply here."
 					end
 					if showDestinations(use) then
 						return "Pick up an asset with Enter or A, then choose Apply here. Escape or B cancels."
@@ -271,6 +291,10 @@ return function(ctx: any)
 		bounds,
 		UI.HStack {
 			Name = "WorldDestinations",
+			padding = panelPadding,
+			Visible = function(use)
+				return roomy(use) or showDestinations(use)
+			end,
 			ref = function(node)
 				node:AddTag("facet-panel")
 			end,
@@ -283,6 +307,7 @@ return function(ctx: any)
 		},
 		UI.HStack {
 			Name = "WorldStatus",
+			padding = panelPadding,
 			ref = function(node)
 				node:AddTag("facet-panel")
 			end,
@@ -290,7 +315,7 @@ return function(ctx: any)
 			width = "fill",
 			gap = "s",
 			align = "center",
-			wrap = true,
+			wrap = roomy,
 			UI.Text {
 				Name = "DropStatus",
 				text = notice,

@@ -506,4 +506,78 @@ end, {
 	end,
 })
 
+add("showcase-outside-dismiss", {}, function(t)
+	local api = workspace:WaitForChild("FacetShowcaseAPI") :: BindableFunction
+	local playerGui = game:GetService("Players").LocalPlayer.PlayerGui
+	local input = game:GetService("UserInputService")
+	local virtual = input:CreateVirtualInput()
+	local inset = GuiService:GetGuiInset()
+	if input.TouchEnabled and not input.MouseEnabled then
+		local shield = Instance.new("ScreenGui")
+		shield.DisplayOrder, shield.IgnoreGuiInset = 10000, true
+		local pad = Instance.new("TextButton")
+		pad.Size, pad.BackgroundTransparency, pad.Text = UDim2.fromScale(1, 1), 1, ""
+		pad.Parent, shield.Parent = shield, playerGui
+		t.settle(2)
+		local seen: Vector3? = nil
+		local connection = input.InputBegan:Connect(function(event)
+			if event.UserInputType == Enum.UserInputType.Touch then
+				seen = event.Position
+			end
+		end)
+		local probe = workspace.CurrentCamera.ViewportSize / 2 + inset
+		virtual:SendMousePosition(probe)
+		virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, true)
+		t.settle(2)
+		virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, false)
+		t.settle(2)
+		connection:Disconnect()
+		shield:Destroy()
+		local observed = assert(seen, "Touch calibration needs a native Touch event")
+		inset = probe - Vector2.new(observed.X, observed.Y)
+		t.note("touch calibration inset", inset)
+	end
+	local function click(point: Vector2)
+		local at = point + inset
+		local delivered = ""
+		local connection = input.InputBegan:Connect(function(event)
+			delivered = event.UserInputType.Name
+		end)
+		virtual:SendMousePosition(at)
+		t.settle(2)
+		virtual:SendMouseButton(at, Enum.UserInputType.MouseButton1, true)
+		t.settle(2)
+		virtual:SendMouseButton(at, Enum.UserInputType.MouseButton1, false)
+		t.settle(30)
+		connection:Disconnect()
+		t.note("delivered input", delivered)
+	end
+	for _, section in { "demos", "settings" } do
+		api:Invoke("panel", section)
+		t.settle(40)
+		local panel = t.find(playerGui, "Expanded")
+		t.check(section .. " opens", panel ~= nil)
+		if not panel then
+			continue
+		end
+		local at, size = panel.AbsolutePosition, panel.AbsoluteSize
+		click(Vector2.new(at.X + size.X - 4, at.Y + size.Y / 2))
+		t.check(section .. " stays open inside", t.find(playerGui, "Expanded") == panel)
+		local outside = Vector2.new(at.X + size.X + 1, at.Y + math.min(100, size.Y / 2))
+		local hits = playerGui:GetGuiObjectsAtPosition(outside.X, outside.Y)
+		local names = {}
+		for _, hit in hits do
+			table.insert(names, hit:GetFullName())
+		end
+		t.note(section .. " outside hit targets", names)
+		click(outside)
+		t.check(section .. " closes outside", t.find(playerGui, "Expanded") == nil)
+		if api:Invoke("report").panel then
+			api:Invoke("panel")
+		end
+		t.settle(30)
+	end
+end)
+cases[#cases].keepGallery = true
+
 return cases

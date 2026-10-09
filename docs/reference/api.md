@@ -2737,10 +2737,12 @@ you pass `corners`).
 - The trigger (A, Return or a tap), a tap outside the panel, the Close button
   and Cancel (Escape or ButtonB) collapse it. The selection goes back to the
   trigger.
+- `outsideDismiss` defaults to `true`. Set it to `false` to ignore outside
+  clicks and taps. It accepts a boolean, cell or formula. Close and Cancel
+  still collapse the panel.
 - `dismissButton = false` hides Close unless the preferred input is a gamepad.
 - Reduced motion opens and closes the plate at once.
-- The plate is inside the trigger. An ancestor with `ClipsDescendants`, such
-  as a ScrollingFrame, clips it. Give the trigger room below it.
+- The panel is on the modal layer and is not clipped by the trigger’s ancestors.
 
 DisclosureGroup `appearance` is `plain` (the default), `contained`, `divided`
 or `outline`. The root has the `facet-disclosure-<appearance>` tag. `outline`

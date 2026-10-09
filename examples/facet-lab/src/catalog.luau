@@ -3072,7 +3072,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		purpose = "Shows and hides a section of content under a labelled header.",
 		alternatives = "CollapsibleView for a single expandable panel with its own chrome.",
 		scenarios = { "containers", "collapsible_view" },
-		snippet = 'UI.DisclosureGroup { label = "Race rules", expanded = open, content = body }',
+		snippet = 'UI.DisclosureGroup { label = "Race rules", expanded = open, outsideDismiss = true, content = body }',
 
 		base = function(c: Context)
 			return {
@@ -3185,6 +3185,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			DISABLED :: State,
 			{ name = "icon", props = { icon = "settings" } } :: State,
 			{ name = "dismiss button", props = { dismissButton = true } } :: State,
+			{ name = "outside dismissal disabled", props = { outsideDismiss = false } } :: State,
 			{ name = "selected", props = { selected = true } } :: State,
 			{ name = "initial focus: Apply", props = { initialFocus = "Apply" } } :: State,
 			{
