@@ -789,6 +789,44 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps split panes mounted with independent folder histories", {
+			id = "native_gallery_collections::file library workbench::keeps split panes mounted with independent folder histories",
+			run = function()
+				for _, width in { 1280, 390 } do
+					local built, node, stop, engine = mount("collection_workbench", { width = width, height = 844 })
+					local model = built.model
+					model.linked:set(true)
+					model.transfers:set(true)
+					local views, primary = find(node, "Views"), find(node, "PrimaryViews")
+					local linked, inbox = find(node, "LinkedView"), find(node, "InboxView")
+					local linkedTable = find(linked, "linked")
+					local body = find(linkedTable, "Body")
+					viewport(body, engine, 440, 200)
+					body.CanvasPosition = engine.types.Vector2.new(0, 80)
+					local scroll = body.CanvasPosition
+					model.openFolder(file(model, "environments"))
+					Verify.expect(find(node, "Views")):toBe(views)
+					Verify.expect(find(node, "PrimaryViews")):toBe(primary)
+					Verify.expect(find(node, "InboxView")):toBe(inbox)
+					Verify.expect(find(node, "LinkedView")):toBe(linked)
+					Verify.expect(find(linked, "linked")):toBe(linkedTable)
+					Verify.expect(body.CanvasPosition):toBe(scroll)
+					Verify.expect(#model.linkedPath:peek()):toBe(0)
+					Verify.expect(find(node, "Folders"):IsDescendantOf(primary)):toBe(true)
+					Verify.expect(find(node, "LinkedFolders"):IsDescendantOf(linked)):toBe(true)
+					model.openFolder(file(model, "materials"), "linked")
+					Verify.expect(model.path:peek()[1].value):toBe("environments")
+					Verify.expect(model.linkedPath:peek()[1].value):toBe("materials")
+					model.path:set({})
+					Verify.expect(model.linkedPath:peek()[1].value):toBe("materials")
+					model.remove({ "materials" })
+					Verify.expect(#model.linkedPath:peek()):toBe(0)
+					Verify.expect(find(node, "Views")):toBe(views)
+					stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("splits Files Inbox and Linked independently and navigates all three when compact", {
 			id = "native_gallery_collections::file library workbench::splits Files Inbox and Linked independently and navigates all three when compact",
 			run = function()
@@ -860,6 +898,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					Verify.expect(model.path:peek()[1].value):toBe("environments")
 					Verify.expect((next(model.selection:peek()))):toBeNil()
+					world.gui.SelectedObject = find(find(node, "Folders"), "Back")
 					local back = action(world.target, "NavigationBack")
 					Verify.expect(back ~= nil):toBe(true)
 					back.Pressed:Fire()

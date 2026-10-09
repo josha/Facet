@@ -6,6 +6,7 @@ return {
 		local D2, E, C3 = ctx.types.UDim2, ctx.types.Enum, ctx.types.Color3
 		local rows, selection = Compose.cell({}), Compose.cell({})
 		local path, expanded = Compose.cell({}), Compose.cell({})
+		local paths: { [string]: typeof(path) } = { primary = path, linked = Compose.cell({}) }
 		local creatingFolder = Compose.cell(false)
 		local inbox, inboxSelection = Compose.cell({}), Compose.cell({})
 		local transfers, operation = Compose.cell(false), Compose.cell("move")
@@ -84,7 +85,8 @@ return {
 			end
 			return included
 		end
-		local function openFolder(item)
+		local function openFolder(item, pane)
+			local navigation = paths[pane or "primary"]
 			if item.kind ~= "Folder" then
 				message:set(`Opened {item.name}.`)
 				return
@@ -101,22 +103,24 @@ return {
 			selection:set({})
 			query:set("")
 			editing:set(false)
-			path:set(entries)
+			navigation:set(entries)
 		end
 		Compose.watch(function(use)
 			local valid = {}
 			for _, item in use(rows) do
 				valid[item.id] = true
 			end
-			local entries = path:peek()
-			for index, entry in entries do
-				if not valid[entry.value] then
-					local kept = table.clone(entries)
-					for i = #kept, index, -1 do
-						table.remove(kept, i)
+			for _, navigation in paths do
+				local entries = navigation:peek()
+				for index, entry in entries do
+					if not valid[entry.value] then
+						local kept = table.clone(entries)
+						for i = #kept, index, -1 do
+							table.remove(kept, i)
+						end
+						navigation:set(kept)
+						break
 					end
-					path:set(kept)
-					break
 				end
 			end
 		end)
@@ -156,6 +160,7 @@ return {
 			end
 			nextRows = ordered
 			path:set({})
+			paths.linked:set({})
 			expanded:set({})
 			serial = count
 			drafts = {}
@@ -717,7 +722,9 @@ return {
 				onDelete = remove,
 				maxRetained = 120,
 				Size = D2.fromScale(1, 1),
-				onActivate = openFolder,
+				onActivate = function(item)
+					openFolder(item, id)
+				end,
 				rowActions = function(_, key)
 					return {
 						swipeEnabled = coarse,
@@ -890,7 +897,58 @@ return {
 				splitColumn:set("sidebar")
 			end
 		end)
-		local function folderViews(folder)
+		local function folderNavigation(id)
+			local navigation = paths[id]
+			local function content(folder)
+				if id == "linked" then
+					return view("details", id, folder)
+				end
+				return UI.VStack {
+					Name = "PrimaryView",
+					width = "fill",
+					height = "fill",
+					UI.fill(),
+					Compose.keyed {
+						from = function(use)
+							return { use(mode) }
+						end,
+						render = function(current)
+							return view(current:peek(), id, folder)
+						end,
+					},
+				}
+			end
+			return UI.NavigationStack {
+				Name = if id == "primary" then "Folders" else "LinkedFolders",
+				Size = D2.fromScale(1, 1),
+				UI.fill(),
+				path = navigation,
+				root = {
+					title = "Files",
+					content = function()
+						return content(nil)
+					end,
+				},
+				destinations = {
+					folder = {
+						title = function(use)
+							local entries = use(navigation)
+							local entry = entries[#entries]
+							for _, item in use(rows) do
+								if entry and item.id == entry.value then
+									return item.name
+								end
+							end
+							return "Folder"
+						end,
+						content = function(entry)
+							return content(assert(entry).value)
+						end,
+					},
+				},
+			}
+		end
+		local function folderViews()
 			return UI.NavigationSplitView {
 				Name = "Views",
 				alwaysShowResizeHandle = true,
@@ -911,20 +969,7 @@ return {
 						backLabel = "Back to Files",
 						detailLabel = "Open Inbox",
 						sidebar = function()
-							return UI.VStack {
-								Name = "PrimaryView",
-								width = "fill",
-								height = "fill",
-								UI.fill(),
-								Compose.keyed {
-									from = function(use)
-										return { use(mode) }
-									end,
-									render = function(current)
-										return view(current:peek(), "primary", folder)
-									end,
-								},
-							}
+							return folderNavigation("primary")
 						end,
 						detail = function()
 							return UI.VStack {
@@ -944,7 +989,7 @@ return {
 						width = "fill",
 						height = "fill",
 						UI.Text { text = "Linked view · independent sort", textRole = "caption" },
-						view("details", "linked", folder),
+						folderNavigation("linked"),
 					}
 				end,
 			}
@@ -1296,33 +1341,7 @@ return {
 					Compose.show(function(use)
 						return use(state) == "ready"
 					end, function()
-						return UI.NavigationStack {
-							Name = "Folders",
-							Size = D2.fromScale(1, 1),
-							path = path,
-							root = {
-								title = "Files",
-								content = function()
-									return folderViews(nil)
-								end,
-							},
-							destinations = {
-								folder = {
-									title = function(use: any)
-										local id = folderNow(use)
-										for _, item in use(rows) do
-											if item.id == id then
-												return item.name
-											end
-										end
-										return "Folder"
-									end,
-									content = function(entry)
-										return folderViews(assert(entry).value)
-									end,
-								},
-							},
-						}
+						return folderViews()
 					end, function()
 						return UI.VStack {
 							width = "fill",
@@ -1366,6 +1385,7 @@ return {
 			model = {
 				rows = rows,
 				path = path,
+				linkedPath = paths.linked,
 				expanded = expanded,
 				openFolder = openFolder,
 				receive = receive,

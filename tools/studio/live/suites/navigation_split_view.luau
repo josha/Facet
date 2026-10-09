@@ -6,6 +6,58 @@ local function api(command: string, argument: any?): any
 end
 local cases: { any } = {
 	{
+		id = "files-pane-navigation",
+		contracts = {},
+		run = function(t)
+			for _, width in { 1000, 390 } do
+				local built
+				local stage = t.mount(function(UI, Host, C, env)
+					built = require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(
+						t.context(UI, Host, C, env)
+					)
+					built.model.linked:set(true)
+					return built.screen()
+				end, { size = Vector2.new(width, 700), frames = 30 })
+				local views = t.find(stage, "Views")
+				local linked = t.find(stage, "LinkedView")
+				local linkedTable = t.find(linked, "linked")
+				local folders = t.find(stage, "Folders")
+				local at, size = linked.AbsolutePosition, linked.AbsoluteSize
+				local divider = views:FindFirstChild("Resize")
+				local dividerAt = divider.AbsolutePosition
+				local primary = t.find(stage, "primary")
+				local row = t.find(primary, "environments")
+				local hit = (t.find(row, "RowHit") :: unknown) :: GuiObject
+				t.check(width .. " folder is visible", t.visible(hit) and t.clipped(hit) ~= nil)
+				local point = hit.AbsolutePosition + hit.AbsoluteSize / 2 + GuiService:GetGuiInset()
+				local virtual = game:GetService("UserInputService"):CreateVirtualInput()
+				virtual:SendMousePosition(point)
+				for _ = 1, 2 do
+					virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
+					t.settle(1)
+					virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
+					t.settle(1)
+				end
+				local steady = true
+				for _ = 1, 45 do
+					t.settle(1)
+					steady = steady
+						and t.find(stage, "Views") == views
+						and t.find(stage, "LinkedView") == linked
+						and t.find(linked, "linked") == linkedTable
+						and linked.AbsolutePosition == at
+						and linked.AbsoluteSize == size
+						and divider.AbsolutePosition == dividerAt
+				end
+				t.check(width .. " opens primary folder", #built.model.path:peek() == 1)
+				t.check(width .. " linked history stays at root", #built.model.linkedPath:peek() == 0)
+				t.check(width .. " split and linked pane stay still throughout motion", steady)
+				t.check(width .. " stack belongs to primary pane", folders:IsDescendantOf(views.Sidebar))
+				t.cleanup()
+			end
+		end,
+	},
+	{
 		id = "files-grid-action-bounds",
 		contracts = {},
 		run = function(t: any)

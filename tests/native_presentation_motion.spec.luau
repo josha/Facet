@@ -285,12 +285,13 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("CollapsibleView in place", function()
-		local function tipsWorld(options: any?): (any, any)
+		local function tipsWorld(options: any?, outsideDismiss: boolean | Compose.Readable<boolean>?): (any, any)
 			local expanded = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 				local view = UI.CollapsibleView "Tips" {
 					label = "Turn step sets the increment for Rotation and both Turn buttons.",
 					expanded = expanded,
+					outsideDismiss = outsideDismiss,
 					content = function(): Instance
 						return UI.Button "Detail" { label = "Detail" }
 					end,
@@ -369,6 +370,61 @@ return function(verifyHarness: Verify.Harness)
 				w.find("Close").Activated:Fire()
 				Verify.expect((expanded:peek())):toBe(false)
 				w.stop()
+			end,
+		})
+
+		verifyHarness:case("dismisses just outside the panel while keeping inside clicks open", {
+			id = "native_presentation_motion::CollapsibleView in place::dismisses just outside the panel while keeping inside clicks open",
+			run = function()
+				for _, kind in { "MouseButton1", "Touch" } do
+					local w, expanded = tipsWorld({ motionLevel = "none" })
+					w.find("Tips").Activated:Fire()
+					local plate = w.find("Expanded")
+					plate.AbsolutePosition = w.Vector2.new(100, 100)
+					plate.AbsoluteSize = w.Vector2.new(360, 200)
+					local catcher = w.find("DismissOutside")
+					catcher.Activated:Fire({
+						UserInputType = w.engine.types.Enum.UserInputType[kind],
+						Position = w.Vector2.new(450, 150),
+					})
+					Verify.expect(expanded:peek()):toBe(true)
+					catcher.Activated:Fire({
+						UserInputType = w.engine.types.Enum.UserInputType[kind],
+						Position = w.Vector2.new(461, 150),
+					})
+					Verify.expect(expanded:peek()):toBe(false)
+					w.stop()
+				end
+			end,
+		})
+
+		verifyHarness:case("outside dismissal can change while open without disabling Close or Cancel", {
+			id = "native_presentation_motion::CollapsibleView in place::outside dismissal can change while open without disabling Close or Cancel",
+			run = function()
+				for _, value in { false, Compose.cell(false) } :: { boolean | Compose.Cell<boolean> } do
+					local w, expanded = tipsWorld({ motionLevel = "none" }, value)
+					local function outside()
+						w.find("DismissOutside").Activated:Fire({
+							UserInputType = w.Enum.UserInputType.MouseButton1,
+							Position = w.Vector2.new(10000, 10000),
+						})
+					end
+					expanded:set(true)
+					outside()
+					Verify.expect(expanded:peek()):toBe(true)
+					w.find("Close").Activated:Fire()
+					Verify.expect(expanded:peek()):toBe(false)
+					expanded:set(true)
+					w.action("ModalBack").Pressed:Fire()
+					Verify.expect(expanded:peek()):toBe(false)
+					if type(value) == "table" then
+						expanded:set(true)
+						value:set(true)
+						outside()
+						Verify.expect(expanded:peek()):toBe(false)
+					end
+					w.stop()
+				end
 			end,
 		})
 

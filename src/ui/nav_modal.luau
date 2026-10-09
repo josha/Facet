@@ -438,6 +438,7 @@ return function(ctx: Types.Context): Nav.Surfaces
 		})
 		local root: Frame
 		local function near(point: Vector2): boolean
+			local margin = spec.outsideMargin or 24
 			local boxes: { GuiObject } = { panel }
 			if root and root.AbsoluteSize.X > 0 then
 				local full = panel.AbsoluteSize.X >= root.AbsoluteSize.X - 1
@@ -456,10 +457,10 @@ return function(ctx: Types.Context): Nav.Surfaces
 				if
 					size.X > 0
 					and size.Y > 0
-					and point.X >= at.X - 24
-					and point.X <= at.X + size.X + 24
-					and point.Y >= at.Y - 24
-					and point.Y <= at.Y + size.Y + 24
+					and point.X >= at.X - margin
+					and point.X <= at.X + size.X + margin
+					and point.Y >= at.Y - margin
+					and point.Y <= at.Y + size.Y + margin
 				then
 					return true
 				end

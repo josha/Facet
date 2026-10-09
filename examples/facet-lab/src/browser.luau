@@ -1133,6 +1133,9 @@ function browser.mount(opts: MountOpts): any
 				end,
 				pick = function()
 					state.top:set(entry.id)
+					if onPick then
+						onPick()
+					end
 				end,
 			})
 		end

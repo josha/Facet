@@ -183,6 +183,7 @@ export type CollapsibleViewSpec = Types.TextButtonProps & Inputs.ButtonVisualOpt
 	content: Content,
 	initialFocus: string?,
 	dismissButton: Types.ValueBoolean?,
+	outsideDismiss: Types.ValueBoolean?,
 	selected: Types.ValueBoolean?,
 	onActivate: ((InputObject?, number?) -> ())?,
 }
@@ -353,6 +354,7 @@ export type ModalOptions = {
 	initialFocus: string?,
 	backgroundTransparency: Types.ValueNumber?,
 	outsideDismiss: Types.ValueBoolean?,
+	outsideMargin: number?,
 	canDismiss: Types.ValueBoolean?,
 	onOutside: (() -> ())?,
 }
