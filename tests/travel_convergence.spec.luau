@@ -441,7 +441,7 @@ return function(harness: Verify.Harness)
 			selected = node
 		end)
 		drivers["zoom-gamepad"](nil, { view = view })
-		t:expect(table.concat(events, ",")):toBe("ButtonR2,afterTrigger,Stick2Right,afterStick,ButtonY,afterFit")
+		t:expect(table.concat(events, ",")):toBe("ButtonR1,afterTrigger,Stick2Right,afterStick,ButtonY,afterFit")
 		table.clear(events)
 		drivers["travel-gamepad"](nil, { content = tile })
 		t:expect(selected == back):toBe(true)

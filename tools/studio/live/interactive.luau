@@ -374,20 +374,16 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			live.step(step)
 		end
 	end
-	drivers["reserved-slots-pointer-and-gamepad-recall"] = function(t, value, io)
-		if keyboardInput then
-			io.drag(centre(value.source), centre(value.target))
-		else
-			GuiService.SelectedObject = value.source:FindFirstChild("Move", true) or value.source
-			press(t, { "ButtonA" })
-			press(t, { "ButtonY" })
-			press(t, { "DPadDown" })
-			press(t, { "ButtonA" })
-		end
+	drivers["reserved-slots-pointer-and-gamepad-recall"] = function(_, value, io)
+		io.drag(centre(value.source), centre(value.target))
 		live.step("afterStage")
-		press(t, { "ButtonA" })
-		press(t, { "StickUp" })
-		press(t, { "ButtonA" })
+		local slot: GuiObject = value.stage
+		for _, child in value.stage:GetDescendants() do
+			if child:IsA("GuiObject") and child:GetAttribute("FacetReservedKey") == "A" then
+				slot = child
+			end
+		end
+		io.drag(centre(value.target), centre(slot))
 		live.step("afterRecall")
 		live.step("afterRelease")
 	end
@@ -600,7 +596,6 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		["board-command-gamepad"] = true,
 		["reward-gamepad"] = true,
 		["keyboard-gamepad-place-and-cancel"] = true,
-		["reserved-slots-pointer-and-gamepad-recall"] = true,
 		["zoom-gamepad"] = true,
 		["travel-gamepad"] = true,
 		["vote-pad-reaches-and-proposes"] = true,

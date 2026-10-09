@@ -52,7 +52,7 @@ return function(harness: Verify.Harness)
 			press = function(names: { string }, frames: number?): string
 				local input: { string } = {}
 				for _, name in names do
-					if name == "ButtonR2" then
+					if name == "ButtonR1" then
 						t:expect((frames or 3) >= 30):toBe(true)
 					end
 					table.insert(buttons, name)
@@ -105,8 +105,7 @@ return function(harness: Verify.Harness)
 		}
 		local expected: { [string]: string } = {
 			["keyboard-gamepad-place-and-cancel"] = "ButtonA,DPadDown,ButtonA,ButtonA,ButtonB",
-			["reserved-slots-pointer-and-gamepad-recall"] = "ButtonA,ButtonY,DPadDown,ButtonA,ButtonA,StickUp,ButtonA",
-			["zoom-gamepad"] = "ButtonR2,Stick2Right,ButtonY",
+			["zoom-gamepad"] = "ButtonR1,Stick2Right,ButtonY",
 			["travel-gamepad"] = "ButtonA,ButtonA",
 			["shuffle-gamepad"] = "ButtonA,ButtonA,ButtonA",
 		}
@@ -239,6 +238,6 @@ return function(harness: Verify.Harness)
 		t:expect(count > 0):toBe(true)
 		t:expect(catalogs[1].requirements["collection-immediate-touch-transfer"]):toBe("input-native-touch")
 		t:expect(catalogs[1].requirements["keyboard-gamepad-place-and-cancel"]):toBe("input-gamepad")
-		t:expect(catalogs[1].requirements["reserved-slots-pointer-and-gamepad-recall"]):toBe("input-gamepad")
+		t:expect(catalogs[1].requirements["reserved-slots-pointer-and-gamepad-recall"]):toBeNil()
 	end)
 end

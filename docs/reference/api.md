@@ -4780,8 +4780,10 @@ board, an overlaid control or a nested scroller does not claim this wheel.
 
 Pinch zooms around the contact centre. Wheel pans; Ctrl-wheel zooms around the
 pointer. Select the view itself for keyboard and gamepad input: Plus and Minus
-or the triggers zoom, WASD or the right stick pan, and Home or Y fits. The
-arrow keys and D-pad keep native selection. Child controls keep activation.
+or the bumpers zoom, WASD or the right stick pan, and Home or Y fits. The
+engine uses the right trigger to start a drag detector, so the triggers do not
+zoom. The arrow keys and D-pad keep native selection. Child controls keep
+activation.
 A pending child drag or a captured child drag holds the camera. An external
 zoom write waits until release. One camera request from the captured child's
 `onStart` can finish its motion. Later requests and pan wait until release.
