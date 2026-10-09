@@ -267,42 +267,6 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native ColorPicker well and panel", function()
-		verifyHarness:case("waits for painted captions as well as technique geometry before opening", {
-			id = "native_color_picker::native ColorPicker well and panel::waits for painted captions as well as technique geometry before opening",
-			run = function()
-				local value, _, change = caller(Color3.fromRGB(255, 0, 0))
-				local w = world({ value = value, onChange = change })
-				w.size(w.screen, 390, 740)
-				w.open()
-				local panel = w.find("Panel")
-				w.size(w.find("Technique"), 300, 250)
-				local caption = panel:FindFirstChildWhichIsA("TextLabel", true)
-				caption.Text = "Hue"
-				caption.TextTransparency = 0
-				w.size(caption, 34, 12)
-				caption.TextBounds = V2(44, 16)
-				local paint = panel:FindFirstChild("FadePaint")
-				for _ = 1, 3 do
-					w.engine.heartbeat:Fire(1 / 60)
-				end
-				expect(paint.Transparency.Keypoints[1].Value):toBe(1)
-				for _, node in panel:GetDescendants() do
-					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-						w.size(node, 80, 44)
-						node.TextBounds = V2(40, 16)
-					end
-				end
-				w.size(caption, 44, 16)
-				caption.TextBounds = V2(44, 16)
-				w.engine.heartbeat:Fire(1 / 60)
-				expect(paint.Transparency.Keypoints[1].Value):toBe(1)
-				for _ = 1, 4 do
-					w.engine.heartbeat:Fire(1 / 60)
-				end
-				expect(paint.Transparency.Keypoints[1].Value):toBe(0)
-				w.stop()
-			end,
-		})
 		verifyHarness:case(
 			"the well opens an anchored panel on a roomy pointer screen; a refused swatch never paints",
 			{

@@ -247,6 +247,7 @@ return {
 			local mark = Host.Frame({
 				Name = "Mark" .. index,
 				Size = D2.fromOffset(8, 8),
+				BorderSizePixel = 0,
 				Host.UICorner({ CornerRadius = D.new(1, 0) }),
 			})
 			mark:AddTag("facet-accent")

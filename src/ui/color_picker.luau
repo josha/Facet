@@ -7,7 +7,6 @@ local Types = require("./color_picker_types")
 local colorValue = require("./color_value")
 local fieldChrome = require("./field_chrome")
 local rest = require("./rest")
-local STEADY_SAMPLES = 3
 
 type Use = ComposeTypes.Use
 type Hsv = colorValue.Hsv
@@ -1950,46 +1949,12 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							end,
 						} :: Shared.Attributes,
 					})
-					local steady, previous = 0, ""
 					local settled = rest(ctx, function(): (string, boolean)
 						local spot = where:peek()
 						local technique = view.panel:FindFirstChild("Technique", true) :: GuiObject
 						local size = technique.AbsoluteSize
-						local parts = { `{spot.x}:{spot.y}:{spot.w}:{spot.h}:{columns:peek()}:{size}` }
-						local filled = size.X > 0 and size.Y > 0 and spot.w > 0 and spot.h > 0
-						for _, node in view.panel:GetDescendants() do
-							if
-								(node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
-								and node.Text ~= ""
-								and node.TextTransparency < 1
-							then
-								local visible = true
-								local ancestor: Instance? = node
-								while ancestor and ancestor ~= view.panel do
-									if ancestor:IsA("GuiObject") and not ancestor.Visible then
-										visible = false
-										break
-									end
-									ancestor = ancestor.Parent
-								end
-								if visible then
-									local box, glyph, mode = node.AbsoluteSize, node.TextBounds, node.AutomaticSize
-									table.insert(parts, `{node.AbsolutePosition}:{box}:{glyph}`)
-									filled = filled
-										and box.X > 0
-										and box.Y > 0
-										and (mode ~= E.AutomaticSize.X and mode ~= E.AutomaticSize.XY or glyph.X <= box.X)
-										and (
-											mode ~= E.AutomaticSize.Y and mode ~= E.AutomaticSize.XY
-											or glyph.Y <= box.Y
-										)
-								end
-							end
-						end
-						local signature = table.concat(parts, ";")
-						steady = if signature == previous then steady + 1 else 0
-						previous = signature
-						return signature, filled and steady >= STEADY_SAMPLES
+						return `{spot.w}:{spot.h}:{columns:peek()}:{size}`,
+							size.X > 0 and size.Y > 0 and spot.w > 0 and spot.h > 0
 					end)
 					ctx.fadeTo(view.panel, function(use: Use): number
 						return if use(settled) then 0 else 1
