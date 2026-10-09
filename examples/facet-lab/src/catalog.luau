@@ -5851,7 +5851,7 @@ for _, name in { "VirtualList", "VirtualGrid", "Outline" } do
 		assert(PAGE_DATA[name].axes),
 		{
 			key = "scrollReset",
-			values = { "initial", "reset 1", "reset 2" },
+			values = { "start", "once", "twice" },
 			matrix = false,
 		} :: Axis
 	)
