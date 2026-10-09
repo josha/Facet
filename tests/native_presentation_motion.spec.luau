@@ -15,6 +15,30 @@ return function(verifyHarness: Verify.Harness)
 	local overlay = require("./lib/overlay_world")
 	local Vector2 = require("@lune/roblox").Vector2
 
+	verifyHarness:suite("native fade ownership", function()
+		verifyHarness:case("collects late Picker paint after the parent assignment finishes", {
+			id = "native_presentation_motion::native fade ownership::collects late Picker paint after the parent assignment finishes",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls)
+					return UI.Picker "Modes" {
+						label = "Mode",
+						style = "segmented" :: "segmented",
+						selected = Compose.cell("a"),
+						options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
+					}
+				end, { runService = true })
+				local picker = w.find("Fade").Parent
+				local late = w.engine.new("Folder")
+				late.Name = "LateSlide"
+				late.Parent = picker
+				Verify.expect(late.Parent):toBe(picker)
+				w.advance(1 / 60)
+				Verify.expect(late.Parent):toBe(picker:FindFirstChild("Fade"))
+				w.stop()
+			end,
+		})
+	end)
+
 	local FRAME = 1 / 60
 
 	local function within(node: any, ancestor: any): boolean
@@ -201,18 +225,15 @@ return function(verifyHarness: Verify.Harness)
 					return w.Enum.UserInputType.Touch
 				end
 				open:set(true)
-				Verify.expect(w.gui.SelectedObject == nil or within(w.gui.SelectedObject, w.find("DialogModal")))
-					:toBe(true)
+				Verify.expect(w.gui.SelectedObject):toBeNil()
 				w.gui.SelectedObject = w.find("Opener")
-				Verify.expect(w.gui.SelectedObject == nil or within(w.gui.SelectedObject, w.find("DialogModal")))
-					:toBe(true)
+				Verify.expect(w.gui.SelectedObject):toBeNil()
 				w.advance(0.3, 18)
 				w.gui.SelectedObject = w.find("Opener")
-				Verify.expect(w.gui.SelectedObject == nil or within(w.gui.SelectedObject, w.find("DialogModal")))
-					:toBe(true)
+				Verify.expect(w.gui.SelectedObject):toBeNil()
 				open:set(false)
 				w.advance(0.3, 18)
-				Verify.expect(w.gui.SelectedObject):toBe(w.find("Opener"))
+				Verify.expect(w.gui.SelectedObject):toBeNil()
 				w.stop()
 			end,
 		})
@@ -837,6 +858,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(group.GroupTransparency):toBe(0.1)
 				local late = engine.new("TextLabel")
 				late.Parent = node
+				Verify.expect(late.Parent):toBe(node)
+				engine.heartbeat:Fire(0)
 				Verify.expect(late.Parent):toBe(group)
 				Verify.expect(fadeKit.of(node)):toBeCloseTo(group.GroupTransparency, 1e-6)
 				engine.heartbeat:Fire(1 / 60)
@@ -925,6 +948,35 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(w.find("DismissOutside").BackgroundTransparency > 0.5):toBe(true)
 				w.advance(0.3, 18)
 				Verify.expect(panel:isDestroyed()):toBe(true)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("clips a SurfaceGui to its canvas while a presentation is on it", {
+			id = "native_presentation_motion::presentation motion: disabled modal opener::clips a SurfaceGui to its canvas while a presentation is on it",
+			run = function()
+				local w = overlay.new(function(UI, Host)
+					return Host.SurfaceGui "WorldUI" {
+						ClipsDescendants = false,
+						UI.Menu "Commands" {
+							label = "Actions",
+							presentation = "sheet",
+							items = { { id = "save", label = "Save", onSelect = function() end } },
+						},
+					}
+				end)
+				local layer = w.find("WorldUI")
+				w.size(layer, 390, 271)
+				w.find("Trigger").Activated:Fire()
+				local panel, modal = w.find("MenuPanel"), w.find("Modal")
+				w.size(modal, 390, 271)
+				w.size(panel, 366, 140)
+				w.advance(1, 60)
+				Verify.expect(layer.ClipsDescendants):toBe(true)
+				w.find("DismissOutside").Activated:Fire()
+				local resting = panel.Position.Y.Offset
+				w.advance(0.05, 3)
+				Verify.expect(panel.Position.Y.Offset > resting):toBe(true)
+				Verify.expect(layer.ClipsDescendants):toBe(true)
 				w.stop()
 			end,
 		})

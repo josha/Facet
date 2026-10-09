@@ -56,6 +56,7 @@ local lifetime = Compose.createRootOwner(function()
 	local cameraGoal = Compose.cell(CFrame.lookAt(Vector3.new(0, 7.6, -29), Vector3.new(0, 7, 0)))
 	local cameraMotion, modeMotion
 	local camera = assert(workspace.CurrentCamera)
+	local viewport = Facet.Roblox.createViewport(camera)
 	local originalCameraType, originalCameraFrame, originalFieldOfView =
 		camera.CameraType, camera.CFrame, camera.FieldOfView
 	camera.CameraType = Enum.CameraType.Scriptable
@@ -368,7 +369,6 @@ local lifetime = Compose.createRootOwner(function()
 			player = players.LocalPlayer,
 		})()
 	end)
-	local viewport = Facet.Roblox.createViewport(camera)
 	Compose.watch(function(use: Use)
 		if (use(viewport).width < 700 or guiService:IsTenFootInterface()) and not model.modeChosen then
 			model.focused:set(model.selectedTab:peek())

@@ -687,7 +687,12 @@ return function(ctx: Shared.Context): Selection
 							engaged:set(true)
 							local at: Instance? = hit
 							while at and at ~= root.Parent do
-								if at:IsA("GuiObject") and at.Selectable then
+								if
+									kind ~= E.UserInputType.Touch
+									and input.PreferredInput ~= E.PreferredInput.Touch
+									and at:IsA("GuiObject")
+									and at.Selectable
+								then
 									gui.SelectedObject = at
 									break
 								end

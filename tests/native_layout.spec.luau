@@ -79,6 +79,37 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native composition rest measurements", function()
+		verifyHarness:case("sizes a simplified Region without an automatic parent and hit target feedback loop", {
+			id = "native_layout::native composition rest measurements::sizes a simplified Region without an automatic parent and hit target feedback loop",
+			run = function()
+				local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
+					return UI.Composition {
+						UI.Region "Health" {
+							zone = "bottomLeft" :: "bottomLeft",
+							rank = 1,
+							Host.Frame "Full" {} :: unknown,
+							Host.Frame "Compact" {},
+						},
+					}
+				end)
+				local region = root:FindFirstChild("Health", true)
+				local full, compact = region:FindFirstChild("Full", true), region:FindFirstChild("Compact", true)
+				local V2 = engine.types.Vector2
+				full.AbsoluteSize = V2.new(147, 26)
+				compact.AbsoluteSize = V2.new(32, 20)
+				root:FindFirstChild("Zones").AbsoluteSize = V2.new(166, 200)
+				Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
+				compact.AbsoluteSize = V2.new(39, 26)
+				Verify.expect(region.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
+				Verify.expect(region.Size):toBe(engine.types.UDim2.fromOffset(44, 44))
+				local trigger = region:FindFirstChildWhichIsA("TextButton", true)
+				Verify.expect(trigger.Size):toBe(engine.types.UDim2.fromScale(1, 1))
+				root:FindFirstChild("Zones").AbsoluteSize = V2.new(1079, 745)
+				root:FindFirstChild("Zones").AbsoluteSize = V2.new(166, 200)
+				Verify.expect(region.Size):toBe(engine.types.UDim2.fromOffset(44, 44))
+				stop()
+			end,
+		})
 		verifyHarness:case("keeps a simplified Region rectangle after a scaled viewport round trip", {
 			id = "native_layout::native composition rest measurements::keeps a simplified Region rectangle after a scaled viewport round trip",
 			run = function()
@@ -119,7 +150,132 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("phone layout policy", function()
+		verifyHarness:case("reserves a visible horizontal scroll hint below overflowing genre chips", {
+			id = "native_layout::phone layout policy::reserves a visible horizontal scroll hint below overflowing genre chips",
+			run = function()
+				for _, width in { 320, 360, 375, 389, 430 } do
+					local root, engine, stop = build(nil, function(UI: FacetControls)
+						return UI.ScrollView {
+							axis = "x" :: "x",
+							ScrollBarThickness = 2,
+							UI.Chip { label = "Adventure", selected = Compose.cell(false) },
+						}
+					end)
+					root.AbsoluteWindowSize = engine.types.Vector2.new(width, 36)
+					root:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = engine.types.Vector2.new(750, 36)
+					local hint = root:FindFirstChild("ScrollBarRoom")
+					Verify.expect(hint ~= nil):toBe(true)
+					Verify.expect(hint.MinSize.Y):toBe(38)
+					Verify.expect(root.HorizontalScrollBarInset):toBe(engine.types.Enum.ScrollBarInset.ScrollBar)
+					Verify.expect(root.CanvasSize.X.Offset):toBe(750)
+					Verify.expect(root.ScrollBarThickness):toBe(2)
+					stop()
+				end
+			end,
+		})
+
+		verifyHarness:case("a single fitting candidate keeps its authored visibility on phone widths", {
+			id = "native_layout::phone layout policy::a single fitting candidate keeps its authored visibility on phone widths",
+			run = function()
+				local outcomes: { string } = {}
+				for _, width in { 320, 360, 375, 389, 430 } do
+					local visible = Compose.cell(false)
+					local root, engine, stop = build(nil, function(UI: FacetControls)
+						return UI.ViewThatFits {
+							width = "hug" :: "hug",
+							UI.HStack { Visible = visible, UI.Button { label = "Spatial mode" } },
+						}
+					end)
+					root.AbsoluteSize = engine.types.Vector2.new(width, 44)
+					local candidate = root:FindFirstChildWhichIsA("Frame")
+					local initiallyHidden = candidate.Visible == false
+					visible:set(true)
+					Verify.expect(candidate.Visible):toBe(true)
+					visible:set(false)
+					root.AbsoluteSize = engine.types.Vector2.new(width - 1, 44)
+					table.insert(outcomes, `{width}:{initiallyHidden and candidate.Visible == false}`)
+					stop()
+				end
+				Verify.expect(table.concat(outcomes, ",")):toBe("320:true,360:true,375:true,389:true,430:true")
+			end,
+		})
+	end)
+
 	verifyHarness:suite("native text layout", function()
+		verifyHarness:case("keeps the Slider readout reservation across drag values", {
+			id = "native_layout::native text layout::keeps the Slider readout reservation across drag values",
+			run = function()
+				local value = Compose.cell(0)
+				local root, engine, stop = build(nil, function(UI)
+					return UI.Slider { value = value, min = 0, max = 100 }
+				end)
+				local label = root:FindFirstChild("Value", true)
+				local floor = label:FindFirstChild("TextBoundsFloor")
+				for _, sample in { { 0, 8 }, { 50, 16 }, { 55.08, 36 }, { 100, 24 } } do
+					value:set(sample[1])
+					label.TextBounds = engine.types.Vector2.new(sample[2], 16)
+					Verify.expect(floor.MaxSize.X):toBe(44)
+				end
+				label.Size = engine.types.UDim2.fromOffset(60, 0)
+				Verify.expect(floor.MaxSize.X):toBe(60)
+				label.Size = engine.types.UDim2.new(1, 0, 0, 0)
+				Verify.expect(floor.MaxSize.X):toBe(math.huge)
+				stop()
+			end,
+		})
+		verifyHarness:case("keeps the Stepper readout reservation when a digit is added", {
+			id = "native_layout::native text layout::keeps the Stepper readout reservation when a digit is added",
+			run = function()
+				local value = Compose.cell(9)
+				local root, engine, stop = build(nil, function(UI)
+					return UI.Stepper { value = value, max = 100 }
+				end)
+				local label = root:FindFirstChild("Value", true)
+				local floor = label:FindFirstChild("TextBoundsFloor")
+				label.TextBounds = engine.types.Vector2.new(8, 16)
+				Verify.expect(floor.MaxSize.X):toBe(40)
+				value:set(10)
+				label.TextBounds = engine.types.Vector2.new(13, 16)
+				Verify.expect(floor.MaxSize.X):toBe(40)
+				stop()
+			end,
+		})
+		verifyHarness:case("grows both ShortcutHint axes with a taller painted key", {
+			id = "native_layout::native text layout::grows both ShortcutHint axes with a taller painted key",
+			run = function()
+				local root, engine, stop = build(nil, function(UI)
+					return UI.ShortcutHint { keys = { { "K" } } }
+				end)
+				root.TextBounds = engine.types.Vector2.new(6, 12)
+				local before = root.Size.Y.Offset
+				root.TextBounds = engine.types.Vector2.new(13, 26)
+				Verify.expect(root.Size.Y.Offset > before):toBe(true)
+				Verify.expect(root.Size.X.Offset):toBe(root.Size.Y.Offset)
+				Verify.expect(root.Size.Y.Offset >= 34):toBe(true)
+				Verify.expect(root.Size.Y.Offset < 44):toBe(true)
+				root:FindFirstChild("TextBoundsUnit").AbsoluteSize = engine.types.Vector2.new(50, 0.5)
+				root:FindFirstChild("CapUnit").AbsoluteSize = engine.types.Vector2.new(50, 0.5)
+				root.TextBounds = engine.types.Vector2.new(6.5, 13)
+				Verify.expect(root.Size.Y.Offset):toBe(34)
+				stop()
+			end,
+		})
+		verifyHarness:case("keeps a ShortcutHint square while allowing a longer chord", {
+			id = "native_layout::native text layout::keeps a ShortcutHint square while allowing a longer chord",
+			run = function()
+				local root, engine, stop = build(nil, function(UI)
+					return UI.ShortcutHint { keys = { { "K" } } }
+				end)
+				local floor = root:FindFirstChild("TextBoundsFloor")
+				root.TextBounds = engine.types.Vector2.new(6, 12)
+				Verify.expect(floor.MaxSize):toBe(engine.types.Vector2.new(root.Size.X.Offset, root.Size.Y.Offset))
+				root.TextBounds = engine.types.Vector2.new(60, 26)
+				Verify.expect(floor.MaxSize.X):toBe(60)
+				Verify.expect(floor.MaxSize.Y):toBe(math.max(26, root.Size.Y.Offset))
+				stop()
+			end,
+		})
 		verifyHarness:case("yields the automatic glyph floor to a later wrapping constraint", {
 			id = "native_layout::native text layout::yields the automatic glyph floor to a later wrapping constraint",
 			run = function()

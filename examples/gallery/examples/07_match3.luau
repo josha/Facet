@@ -794,7 +794,7 @@ local function build(ctx: any)
 			return `Score {use(score)}`
 		end)
 		local movesText = Compose.formula(function(use: Use)
-			return `{use(moves)} swaps`
+			return if use(moves) == 1 then "1 swap" else `{use(moves)} swaps`
 		end)
 		return UI.Screen "Match3" {
 			UI.ScrollView "Page" {

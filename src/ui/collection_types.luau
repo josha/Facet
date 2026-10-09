@@ -81,6 +81,7 @@ export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions
 	controls: ComposeTypes.OrderedCollectionControls<K>?,
 	follow: Types.Value<Follow>?,
 	followThreshold: number?,
+	scrollReset: Types.Value<string>?,
 	maxRetained: number?,
 	focus: FocusControls<K>?,
 	focusPolicy: ("key" | "index")?,

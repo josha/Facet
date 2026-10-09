@@ -306,6 +306,12 @@ local stop = runtime.mount(function()
 	local panelFrame = panel :: Frame
 	panelFrame:AddTag("facet-panel")
 	Compose.watch(function(use: Use)
+		game:GetService("GuiService").TouchControlsEnabled = not use(panelOpen)
+	end)
+	Compose.cleanup(function()
+		game:GetService("GuiService").TouchControlsEnabled = true
+	end)
+	Compose.watch(function(use: Use)
 		local camera = workspace.CurrentCamera
 		if camera then
 			camera.CameraType = if use(immersive) then Enum.CameraType.Custom else Enum.CameraType.Scriptable

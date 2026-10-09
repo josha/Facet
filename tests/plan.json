@@ -698,6 +698,20 @@
       "requires": [
         "local-luau"
       ]
+    },
+    {
+      "id": "live_drivers",
+      "locator": "tests/live_drivers.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "virtual_monitors_smoke",
+      "locator": "tests/virtual_monitors_smoke.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
     }
   ]
 }

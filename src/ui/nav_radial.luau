@@ -1032,7 +1032,9 @@ return function(
 										end,
 										BackgroundTransparency = if appearance == "wedges"
 												or spec.buttonSurface == "none"
-											then 1
+											then function(use: ComposeTypes.Use): number
+												return if use(fallback) then 0 else 1
+											end
 											else nil,
 										LayoutOrder = function(use: ComposeTypes.Use)
 											return currentSector(use).index
@@ -1100,6 +1102,13 @@ return function(
 										ZIndex = 105,
 									})
 									button:AddTag("facet-radial-label")
+									Compose.watch(function(use: ComposeTypes.Use)
+										if use(fallback) then
+											button:AddTag("facet-radial-row")
+										elseif button:HasTag("facet-radial-row") then
+											button:RemoveTag("facet-radial-row")
+										end
+									end)
 									buttons[sector.key] = button
 									local floor = button:FindFirstChildWhichIsA("UISizeConstraint")
 									if floor then

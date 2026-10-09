@@ -315,7 +315,7 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 					function(use: Use)
 						return tostring(use(model).palette) .. " ▾"
 					end,
-					82,
+					100,
 					function()
 						actions.settingMenu("palette")
 					end

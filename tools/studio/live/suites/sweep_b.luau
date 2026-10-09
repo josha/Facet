@@ -82,7 +82,14 @@ local function sweep(t: any, where: string)
 				GuiService.SelectedObject = node
 				t.settle(1)
 				local took = GuiService.SelectedObject == (node :: GuiObject)
-				if blocked(node) then
+				if
+					game:GetService("UserInputService").PreferredInput == Enum.PreferredInput.Touch
+					and not blocked(node)
+				then
+					totals.selectable += 1
+					totals.accepted += if took then 0 else 1
+					t.check(`{where} {id} {node.Name} holds no selection on touch`, not took)
+				elseif blocked(node) then
 					totals.refused += if took then 0 else 1
 					t.check(`{where} {id} {node.Name} refuses selection under a blocked ancestor`, not took)
 				else

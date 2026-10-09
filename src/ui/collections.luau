@@ -73,6 +73,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		"controls",
 		"follow",
 		"followThreshold",
+		"scrollReset",
 		"maxRetained",
 		"focus",
 		"initialFocus",
@@ -335,10 +336,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			if edge > 0 then
 				local current, box = status:peek(), viewport:peek()
 				local last = if current and current.extent then current.extent - box.size else math.huge
-				offset = if requested <= 0
-					then 0
-					elseif requested >= last then math.max(0, last + 2 * edge)
-					else requested + edge
+				offset = if requested <= 0 then 0 elseif requested >= last then math.max(0, last) else requested + edge
 			end
 			local position = root.CanvasPosition
 			local nextPosition = if horizontal then V2.new(offset, position.Y) else V2.new(position.X, offset)
@@ -598,10 +596,20 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 						crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
 					}
 				end,
-				render = withSlots(function(current, placement, key)
+				render = withSlots(function(rowItem, rowPlacement, key)
 					local lease = pool.acquire()
 					local node = runtime.borrow(lease.value.node) :: Frame
 					local contentOwner = poolOwner.createChild()
+					local function retained<T>(row: ComposeTypes.Readable<T>): ComposeTypes.Readable<T>
+						local held = Compose.withOwner(contentOwner, function(): ComposeTypes.Cell<T>
+							return Compose.cell(row:peek())
+						end)
+						Compose.watch(function(use: ComposeTypes.Use)
+							held:set(use(row))
+						end)
+						return held
+					end
+					local current, placement = retained(rowItem), retained(rowPlacement)
 					local glide = Compose.cell(0)
 					local stopGlide: (() -> ())? = nil
 					local function halt()
@@ -614,12 +622,17 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 					local function shift(use: ComposeTypes.Use?): number
 						return if use then use(glide) else glide:peek()
 					end
+					local paintPlacement = Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.Placement
+						local at = use(placement)
+						return if editor and (spec.drag or spec.drop) then editor.placement(key, at, use) else at
+					end)
 					local reservedPosition = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
-					if spec.slots then
+					local springPlacement = spec.slots ~= nil or spec.drag ~= nil or spec.drop ~= nil
+					if springPlacement then
 						local engine = travelEngine(ctx, {
 							initial = { placement:peek().crossOffset, placement:peek().offset },
 							target = function()
-								local at = placement:peek()
+								local at = paintPlacement:peek()
 								return { at.crossOffset, at.offset }
 							end,
 							sample = function(values)
@@ -632,7 +645,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 							spring = ctx.motionSpring("travel"),
 						})
 						Compose.watch(function(use: ComposeTypes.Use)
-							use(placement)
+							use(paintPlacement)
 							engine.retarget()
 						end)
 					end
@@ -643,7 +656,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 						local moved = at.index ~= previous.index
 						previous = at
 						if
-							spec.slots
+							springPlacement
 							or tree
 							or not moved
 							or kind ~= "list"
@@ -678,7 +691,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 							end,
 							Position = function(use: ComposeTypes.Use)
 								local at = use(placement)
-								if spec.slots then
+								if springPlacement then
 									local position = use(reservedPosition)
 									return if horizontal
 										then D2.fromOffset(position.Y, position.X)
@@ -1212,14 +1225,18 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 				dimensions /= scale
 			end
 			local offset = math.max(0, (if horizontal then at.X else at.Y) - mainEdge(use))
-			local extent = if horizontal then dimensions.X else dimensions.Y
+			local extent = math.max(0, (if horizontal then dimensions.X else dimensions.Y) - 2 * mainEdge(use))
 			cross:set(if horizontal then dimensions.Y else dimensions.X)
 			local previous = viewport:peek()
 			if previous.offset ~= offset or previous.size ~= extent then
 				viewport:set({ offset = offset, size = extent })
 			end
 		end)
+		local resetKey: string? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
+			local requestedReset = if spec.scrollReset ~= nil then read(spec.scrollReset, use) :: string else nil
+			local reset = resetKey ~= nil and requestedReset ~= resetKey
+			resetKey = requestedReset
 			local current = use(status)
 			local desired = if current then current.desiredOffset else nil
 			local box = viewport:peek()
@@ -1229,6 +1246,9 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			end
 			if desired ~= nil then
 				setOffset(desired)
+			end
+			if reset then
+				setOffset(0)
 			end
 		end)
 		local focusGeometry = Compose.formula(function(use: ComposeTypes.Use)
@@ -1393,6 +1413,8 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			tree.bind(root, focusScope)
 		end
 		local parent = observe.Parent(root)
+		local focusPosition = observe.AbsolutePosition(root)
+		local focusSize = observe.AbsoluteSize(root)
 		local function restoreFocus(key: K?): ()
 			if
 				gui == nil
@@ -1405,7 +1427,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 				return
 			end
 			local node = findSelectable(assert(mounted[key]), focusedPath, 1)
-			if node then
+			if node and policy.selectionVisible(node) then
 				restoring = true
 				pcall(function()
 					gui.SelectedObject = node
@@ -1439,6 +1461,8 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(mountedVersion)
 			use(parent)
+			use(focusPosition)
+			use(focusSize)
 			restoreFocus(focusScope.current:peek())
 		end)
 		local selected: ComposeTypes.Cell<GuiObject?> = if gui
@@ -1559,7 +1583,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 					end
 				end
 			end
-			if target then
+			if target and policy.selectionVisible(target) then
 				gui.SelectedObject = target
 			end
 		end)

@@ -2736,7 +2736,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 				)
 			end
 			if spec.keys then
-				return ctx.styled(
+				local cap = ctx.styled(
 					ctx.text(props(spec, semantic, {
 						Text = function(use: ComposeTypes.Use)
 							local chords: { { string } } = read(assert(spec.keys), use)
@@ -2778,6 +2778,16 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					})),
 					"shortcut-hint"
 				)
+				if spec.Size == nil then
+					local bounds = ctx.layoutBounds(cap, ctx.layoutUnit(cap, "CapUnit"))
+					runtime.decorate(cap, {
+						Size = function(use: ComposeTypes.Use): UDim2
+							local side = math.max(ctx.controlSize(spec.controlSize, "iconSize", use), use(bounds).Y) + 8
+							return D2.fromOffset(side, side)
+						end,
+					})
+				end
+				return cap
 			end
 			local action = spec.action
 			assert(

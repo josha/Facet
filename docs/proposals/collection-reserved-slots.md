@@ -24,3 +24,17 @@ is not selectable. Returning the same key uses its reservation. Other drops
 keep insertion policy. First fail a case that removes a middle item and keeps
 the next item at its slot. Then check recall, release, windowed extent, sampled
 reflow and travel landing. Extend the board-and-rack Lab and native live suite.
+
+## Hover slot proof
+
+The player points a carried item at a collection slot. The collection opens
+that slot before release. Neighbours move on theme springs. Leave restores
+their positions. The model does not change before placement.
+
+UIGridLayout owns native positions but cannot represent a temporary virtual
+slot without changing collection children. Compose.collection placementOf
+already measures virtual slots. Use those measured slots and the shared Travel
+spring engine for paint. Keep hit tests on the stable slot geometry. A return
+to its reserved key fills the existing gap and does not shift neighbours.
+Local reorder uses the same preview placement. Verify samples each frame and
+checks that leave restores the model's placement. Studio proves visible motion.

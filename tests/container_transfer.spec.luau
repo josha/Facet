@@ -94,6 +94,87 @@ return function(harness: Verify.Harness)
 		}
 	end
 	harness:suite("container travel", function()
+		harness:case("hover opens a collection slot with sampled spring reflow and restores it on leave", function()
+			local engine = engineLib.new()
+			local C, V2 = Facet.Compose, engine.types.Vector2
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local screen, playerGui = engine.new("ScreenGui"), engine.new("PlayerGui")
+			screen.Parent = playerGui
+			local rows = C.cell({ { id = 1 }, { id = 2 }, { id = 3 } })
+			local controls: ComposeTypes.OrderedCollectionControls<number> = {}
+			local UI = table.clone(Facet.controls(runtime, { types = engine.types }))
+			local ctx = context(C, runtime, { types = engine.types })
+			require("../src/ui/collections")(ctx, UI)
+			local stop, mounted = runtime.mount(function()
+				return UI.VirtualGrid {
+					from = rows,
+					key = function(item: { id: number }): number
+						return item.id
+					end,
+					mode = "all" :: "all",
+					columns = 3,
+					itemSize = 40,
+					controls = controls,
+					drop = {
+						onDrop = function()
+							return true
+						end,
+					},
+					render = function(current: Facet.Readable<{ id: number }>): GuiObject
+						return UI.Button { label = tostring(current:peek().id) }
+					end,
+				}
+			end, screen)
+			local rack = mounted :: ScrollingFrame
+			rack.AbsoluteSize, rack.AbsoluteWindowSize = V2.new(300, 80), V2.new(300, 80)
+			local second = assert(rack:FindFirstChild("2", true)) :: GuiObject
+			for _ = 1, 240 do
+				engine.heartbeat:Fire(1 / 60)
+			end
+			local initial = second.Position.X.Offset
+			local source = engine.new("TextButton")
+			source.Parent, source.AbsolutePosition, source.AbsoluteSize = screen, V2.new(400, 100), V2.new(40, 40)
+			playerGui.GetGuiObjectsAtPosition = function()
+				return { rack }
+			end
+			local session = sessionOf(ctx)
+			session.begin(
+				source,
+				{ payload = { collection = "other", keys = { 9 } } },
+				"pointer",
+				nil,
+				nil,
+				{ position = V2.new(420, 120), source = source }
+			)
+			local at = assert(controls.placementOf)(2)
+			session.update(V2.new(at.crossOffset + 1, at.offset + 1))
+			session.hover(rack, nil)
+			assert(assert(session.state:peek()).accepted == true, "hover target must accept")
+			local moved = false
+			local samples: { number } = {}
+			for _ = 1, 30 do
+				engine.heartbeat:Fire(1 / 60)
+				table.insert(samples, second.Position.X.Offset)
+				moved = moved or second.Position.X.Offset ~= initial
+			end
+			assert(moved, "hover neighbour did not move: " .. tostring(initial) .. " -> " .. tostring(samples[30]))
+			assert(samples[1] ~= samples[30], "hover must move over multiple frames")
+			Verify.expect(#rows:peek()):toBe(3)
+			playerGui.GetGuiObjectsAtPosition = function()
+				return {}
+			end
+			session.update(V2.new(420, 120))
+			session.hover(nil, nil)
+			for _ = 1, 240 do
+				engine.heartbeat:Fire(1 / 60)
+			end
+			assert(
+				math.abs(second.Position.X.Offset - initial) < 0.001,
+				"leave restores placement: " .. tostring(initial) .. " -> " .. tostring(second.Position.X.Offset)
+			)
+			stop()
+			runtime:dispose()
+		end)
 		harness:case("F-026 reserved collection keys retain gaps, recall and release", function()
 			local engine = engineLib.new()
 			local C = Facet.Compose
@@ -862,6 +943,44 @@ return function(harness: Verify.Harness)
 			detector.DragStart:Fire(at)
 			detector.DragContinue:Fire(at + w.engine.types.Vector2.new(30, 0))
 			Verify.expect(w.service.state:peek()):toBeNil()
+			w.stop()
+		end)
+		harness:case("scaled scroll parent mouse capture does not require native detector continuation", function()
+			local w = fixture()
+			local E, V3 = w.engine.types.Enum, w.engine.types.Vector3
+			local ended = 0
+			w.bind({
+				payload = "tile",
+				hitArea = w.source,
+				onEnd = function(accepted)
+					if accepted then
+						ended += 1
+					end
+				end,
+			})
+			w.register({
+				onDrop = function()
+					return true
+				end,
+			})
+			local pointer = (
+				{
+					UserInputType = E.UserInputType.MouseButton1,
+					UserInputState = E.UserInputState.Begin,
+					Position = V3.new(30, 70, 0),
+				} :: unknown
+			) :: InputObject
+			local event = (w.source.InputBegan :: unknown) :: { Fire: (unknown, InputObject) -> () }
+			event:Fire(pointer)
+			w.input.InputChanged:Fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(40, 70, 0) })
+			Verify.expect(w.service.state:peek() ~= nil):toBe(true)
+			w.input.InputChanged:Fire({ UserInputType = E.UserInputType.MouseMovement, Position = V3.new(260, 180, 0) })
+			pointer.UserInputState = E.UserInputState.End
+			w.input.InputEnded:Fire(pointer)
+			for _ = 1, 240 do
+				w.engine.heartbeat:Fire(1 / 60)
+			end
+			Verify.expect(ended):toBe(1)
 			w.stop()
 		end)
 		harness:case("a mouse tap calls the source press once without a drag", function()

@@ -301,12 +301,35 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			end
 			local entry = byProperty[property]
 			if entry == nil then
-				local cell = Compose.cell(observation.readProperty(node, property))
+				local initial = observation.readProperty(node, property)
+				if
+					property == "SelectedObject"
+					and config.userInputService
+					and config.userInputService.PreferredInput == Enum.PreferredInput.Touch
+				then
+					(config.guiService :: GuiService).SelectedObject = nil
+					initial = nil
+				end
+				local cell = Compose.cell(initial)
 				local selection = property == "SelectedObject"
 				local preferred = property == "PreferredInput" and node == config.userInputService
 				local stopNudges: (() -> ())? = nil
 				local function publish()
 					local current = observation.readProperty(node, property)
+					local keys = config.userInputService
+					local gui = config.guiService
+					if
+						selection
+						and gui
+						and keys
+						and keys.PreferredInput == Enum.PreferredInput.Touch
+						and current ~= nil
+					then
+						gui.SelectedObject = nil
+						current = nil
+					elseif preferred and gui and current == Enum.PreferredInput.Touch and gui.SelectedObject ~= nil then
+						gui.SelectedObject = nil
+					end
 					if
 						preferred
 						and preferredInput.withheld(
@@ -987,15 +1010,50 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					end
 					assert(gather)()
 					local collecting = true
+					local delayed = if task == nil and frames == nil then runtime.scheduler() else nil
+					local pending: { [thread]: boolean } = {}
+					local waiting: { [RBXScriptConnection]: boolean } = {}
 					runtime.connect(node, "ChildAdded", function(child: Instance)
 						if collecting and carried(child) then
-							keepSelection(function()
-								child.Parent = group
-							end)
+							local function collect()
+								if collecting and child.Parent == node then
+									keepSelection(function()
+										child.Parent = group
+									end)
+								end
+							end
+							if delayed then
+								delayed.after(0, collect)
+							elseif task == nil and frames then
+								local held: RBXScriptConnection? = nil
+								held = frames.Heartbeat:Connect(function()
+									if held then
+										held:Disconnect()
+										waiting[held] = nil
+									end
+									collect()
+								end)
+								waiting[held :: RBXScriptConnection] = true
+							else
+								local held: thread? = nil
+								held = task.defer(function()
+									if held then
+										pending[held] = nil
+									end
+									collect()
+								end)
+								pending[held :: thread] = true
+							end
 						end
 					end)
 					Compose.cleanup(function()
 						collecting = false
+						for held in waiting do
+							held:Disconnect()
+						end
+						for held in pending do
+							task.cancel(held)
+						end
 						keepSelection(function()
 							for _, child in group:GetChildren() do
 								child.Parent = node
@@ -1142,8 +1200,27 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		if label:FindFirstChildWhichIsA("UISizeConstraint") == nil then
 			local glyphs = ctx.layoutBounds(label, ctx.layoutUnit(label, "TextBoundsUnit"))
 			local wrapped, truncated = ctx.observeStyled.TextWrapped(label), ctx.observeStyled.TextTruncate(label)
+			local authored = ctx.observe.Size(label)
 			local stopFloor, floor = runtime.mount(function()
 				return Host.UISizeConstraint "TextBoundsFloor" {
+					MaxSize = function(use: ComposeTypes.Use): Vector2
+						local mode, glyph, authoredSize = use(automatic), use(glyphs), use(authored)
+						local free = use(wrapped) == false and use(truncated) == Enum.TextTruncate.None
+						return types.Vector2.new(
+							if free
+									and glyph.X > 0
+									and authoredSize.X.Scale == 0
+									and (mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY)
+								then math.max(math.ceil(glyph.X), authoredSize.X.Offset)
+								else math.huge,
+							if free
+									and glyph.Y > 0
+									and authoredSize.Y.Scale == 0
+									and (mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY)
+								then math.max(math.ceil(glyph.Y), authoredSize.Y.Offset)
+								else math.huge
+						)
+					end,
 					MinSize = function(use: ComposeTypes.Use): Vector2
 						local mode, glyph = use(automatic), use(glyphs)
 						local free = use(wrapped) == false and use(truncated) == Enum.TextTruncate.None

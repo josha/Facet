@@ -1039,10 +1039,15 @@ return function(
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
+		local surface = ctx.observe.Parent(modal)
 		local asSheet = Compose.formula(function(use: ComposeTypes.Use)
 			local presentation = read(spec.presentation, use)
 			if presentation and presentation ~= "automatic" then
 				return presentation == "sheet"
+			end
+			local layer = use(surface)
+			if layer and layer:IsA("SurfaceGui") then
+				return false
 			end
 			return (use(extent).X > 0 and use(extent).X < math.max(600, #use(path) * 288 + panelWidth(use) + 16))
 				or use(preferred) == E.PreferredInput.Touch
@@ -1148,6 +1153,9 @@ return function(
 				left = if depth > 0
 					then math.clamp(x, low.X, math.max(low.X, high.X - panelSize.X - depth * 288)) + depth * 288
 					else math.clamp(left, low.X, math.max(low.X, high.X - panelSize.X))
+			end
+			if offer.Y > 0 then
+				top = math.clamp(top, low.Y, math.max(low.Y, high.Y - panelSize.Y))
 			end
 			top = math.max(low.Y, top)
 			local pivot: Vector2
@@ -3345,6 +3353,7 @@ return function(
 			table.insert((p :: unknown) :: { unknown }, child)
 		end
 		local ready = Compose.cell(false)
+		local fieldLabel: TextLabel? = nil
 		local picker: Frame
 		if style == "segmented" and labelled then
 			local fading = (p :: unknown) :: Types.CanvasGroupNativeProps
@@ -3355,6 +3364,15 @@ return function(
 			local settled = rest(ctx, function(): (string, boolean)
 				local parts = { tostring(picker.AbsoluteSize) }
 				local filled = picker.AbsoluteSize.X > 0 and picker.AbsoluteSize.Y > 0
+				local caption = fieldLabel
+				if caption then
+					table.insert(parts, `{caption.AbsolutePosition}:{caption.AbsoluteSize}:{caption.TextBounds}`)
+					filled = filled
+						and caption.AbsoluteSize.X > 0
+						and caption.AbsoluteSize.Y > 0
+						and caption.TextBounds.X <= caption.AbsoluteSize.X
+						and caption.TextBounds.Y <= caption.AbsoluteSize.Y
+				end
 				for button in segmentBoxes do
 					table.insert(
 						parts,
@@ -3369,6 +3387,28 @@ return function(
 			end)
 		else
 			picker = Host.Frame(p)
+		end
+		if style == "segmented" and not vertical then
+			local layout = assert(picker:FindFirstChildWhichIsA("UIListLayout", true))
+			local extent = ctx.observe.AbsoluteContentSize(layout)
+			local unit = ctx.layoutUnit(picker)
+			local base = p.Size
+			runtime.decorate(picker, {
+				Size = function(use: ComposeTypes.Use): UDim2
+					local size = read(base, use) or D2.new(1, 0, 0, stripHeight(use))
+					if not across(use) then
+						return size
+					end
+					local scale = use(unit)
+					local height = use(extent).Y / (if scale > 0 then scale else 1)
+					return D2.new(
+						size.X.Scale,
+						size.X.Offset,
+						size.Y.Scale,
+						math.max(size.Y.Offset, height + 2 * segmentMetrics.inset)
+					)
+				end,
+			})
 		end
 		if not labelled then
 			local width = layoutWidth(picker)
@@ -3446,6 +3486,16 @@ return function(
 		})
 		if vertical then
 			return ctx.column({ label, picker }, outer)
+		end
+		fieldLabel = label
+		if style == "segmented" then
+			runtime.mount(function()
+				return Host.UIGradient "FadePaint" {
+					Transparency = function(use: ComposeTypes.Use): NumberSequence
+						return ctx.types.NumberSequence.new(if use(ready) then 0 else 1)
+					end,
+				}
+			end, label)
 		end
 		runtime.mount(function()
 			return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Grow })

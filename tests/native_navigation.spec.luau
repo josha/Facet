@@ -93,6 +93,40 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
+		verifyHarness:case("touch never retains selection through command scopes or focus restoration", {
+			id = "native_navigation::native navigation controls::touch never retains selection through command scopes or focus restoration",
+			run = function()
+				local world = setup(function(UI: FacetControls)
+					local Commands = require("../src/ui/command_types")
+					local primary = UI.Button "Primary" { label = "Rematch" }
+					local targets: { Commands.CommandTarget<string> } = { { key = "primary", node = primary } }
+					UI.commandScope(primary, { targets = targets, commands = {} })
+					return primary
+				end)
+				local primary = find(world.screen, "Primary")
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				local touch = world.engine.new("InputObject")
+				touch.UserInputType = world.engine.types.Enum.UserInputType.Touch
+				primary.InputBegan:Fire(touch)
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(nil)
+				world.gui.SelectedObject = primary
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(nil)
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+				world.gui.SelectedObject = primary
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(primary)
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(nil)
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+				world.gui.SelectedObject = primary
+				world.settle()
+				Verify.expect(world.gui.SelectedObject):toBe(primary)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("omits owned-page chrome without removing Back or selection restoration", {
 			id = "native_navigation::native navigation controls::omits owned-page chrome without removing Back or selection restoration",
 			run = function()
@@ -374,6 +408,42 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+		verifyHarness:case("bounds bottom tab captions and ellipsizes them inside every phone slot", {
+			id = "native_navigation::native navigation controls::bounds bottom tab captions and ellipsizes them inside every phone slot",
+			run = function()
+				for _, width in { 320, 360, 375, 389, 430 } do
+					local world = setup(function(UI: FacetControls, Host: RobloxHost)
+						local tabs: { Navigation.Tab } = {}
+						for _, label in { "Discover", "Avatar", "Chat", "Flap" } do
+							table.insert(tabs, {
+								id = label,
+								label = label,
+								icon = "person",
+								content = function()
+									return Host.Frame {}
+								end,
+							})
+						end
+						return UI.TabView {
+							selection = Compose.cell("Discover"),
+							placement = "bottomBar" :: "bottomBar",
+							tabs = tabs,
+						}
+					end)
+					local bar = find(world.screen, "Tabs")
+					bar.AbsoluteSize = world.engine.types.Vector2.new(width, 70)
+					local button = bar:FindFirstChild("Discover")
+					button.AbsoluteSize = world.engine.types.Vector2.new(width / 4 - 4, 44)
+					local title = find(button, "Title")
+					Verify.expect(title.Size.X.Scale):toBe(1)
+					Verify.expect(title.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.None)
+					Verify.expect(title.TextTruncate):toBe(world.engine.types.Enum.TextTruncate.AtEnd)
+					Verify.expect(width / 4 - 4 + title.Size.X.Offset > 0):toBe(true)
+					world.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("stacks destination labels below icons in an equal phone bar", {
 			id = "native_navigation::native navigation controls::stacks destination labels below icons in an equal phone bar",
 			run = function()
@@ -4682,6 +4752,42 @@ return function(verifyHarness: Verify.Harness)
 						end
 						world.stop()
 					end
+				end,
+			})
+			verifyHarness:case("paints a segmented field label only with its settled options", {
+				id = "native_navigation::Segmented Picker caption geometry::paints a segmented field label only with its settled options",
+				run = function()
+					local world = setup(function(UI)
+						return UI.Picker "Motion" {
+							label = "Motion",
+							style = "segmented",
+							selected = Compose.cell("device"),
+							options = { { value = "device", label = "Device" }, { value = "none", label = "None" } },
+						}
+					end)
+					local paint = find(world.root, "Motion"):FindFirstChild("Label")
+					Verify.expect(paint:FindFirstChild("FadePaint") ~= nil):toBe(true)
+					local options = find(world.root, "Options")
+					local function opacity(node)
+						local gradient = node:FindFirstChild("FadePaint")
+						return gradient.Transparency.Keypoints[1].Value
+					end
+					Verify.expect(opacity(paint)):toBe(opacity(options))
+					Verify.expect(opacity(paint)):toBe(1)
+					for _, node in options:GetDescendants() do
+						if node:IsA("GuiObject") then
+							node.AbsoluteSize = V2(world, 70, 44)
+						end
+					end
+					options.AbsoluteSize = V2(world, 160, 50)
+					world.step(0.05)
+					Verify.expect(opacity(paint)):toBe(1)
+					paint.AbsoluteSize = V2(world, 44, 16)
+					paint.TextBounds = V2(world, 44, 16)
+					world.step(0.1)
+					Verify.expect(opacity(paint)):toBe(opacity(options))
+					Verify.expect(opacity(paint)):toBe(0)
+					world.stop()
 				end,
 			})
 			verifyHarness:case("keeps a touch segment target inside an authored 44-point format strip", {

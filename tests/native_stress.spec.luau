@@ -354,7 +354,14 @@ return function(verifyHarness: Verify.Harness)
 					end
 					assert(activations == pressed, `seed={seed}: {pressed} presses produced {activations} activations`)
 					gui.SelectedObject = b
-					assert(gui.SelectedObject == b, `seed={seed}: selection is lost after the storm`)
+					if input.PreferredInput == engine.types.Enum.PreferredInput.Touch then
+						assert(gui.SelectedObject == nil, `seed={seed}: touch retains selection after the storm`)
+					else
+						assert(gui.SelectedObject == b, `seed={seed}: selection is lost after the storm`)
+					end
+					input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+					gui.SelectedObject = b
+					assert(gui.SelectedObject == b, `seed={seed}: keyboard selection is lost after the storm`)
 					stop()
 					runtime:dispose()
 					sameCensus(engine, before, `input switch seed={seed} teardown`)

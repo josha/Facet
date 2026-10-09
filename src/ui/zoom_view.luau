@@ -544,6 +544,15 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 					contacts[event] = true
 					if event.UserInputType == E.UserInputType.MouseButton1 and overMouse() then
 						beginPointer(event)
+					elseif
+						event.UserInputType == E.UserInputType.Touch
+						and not pinchActive
+						and ctx.read(spec.enabled) ~= false
+						and root.Visible
+						and root.Interactable
+						and inside(V2.new(event.Position.X, event.Position.Y))
+					then
+						beginPointer(event)
 					end
 				end
 			end)
@@ -653,8 +662,8 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 		runtime.connect(root, "SelectionGained", function() end)
 		for _, entry in
 			{
-				{ name = "ZoomIn", key = E.KeyCode.Equals, pad = E.KeyCode.ButtonR2, direction = 1 },
-				{ name = "ZoomOut", key = E.KeyCode.Minus, pad = E.KeyCode.ButtonL2, direction = -1 },
+				{ name = "ZoomIn", key = E.KeyCode.Equals, pad = E.KeyCode.ButtonR1, direction = 1 },
+				{ name = "ZoomOut", key = E.KeyCode.Minus, pad = E.KeyCode.ButtonL1, direction = -1 },
 			}
 		do
 			ctx.action(root, entry.name, { entry.key, entry.pad }, active, function()

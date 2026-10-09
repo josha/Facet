@@ -858,6 +858,61 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("reveals a focused field when its sheet viewport shrinks above the keyboard", {
+			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::reveals a focused field when its sheet viewport shrinks above the keyboard",
+			run = function()
+				local worlds = require("./lib/content_world")
+				local w = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+					return Host.ScrollingFrame "SheetContent" {
+						UI.TextInput "Filter" { value = Compose.cell("zzzz") },
+					}
+				end)
+				local V2 = w.engine.types.Vector2
+				local page, field = w.find("SheetContent"), w.find("Filter")
+				page.AbsolutePosition = V2.new(0, 181)
+				page.AbsoluteWindowSize, page.AbsoluteCanvasSize = V2.new(320, 280), V2.new(320, 600)
+				field.AbsolutePosition, field.AbsoluteSize = V2.new(20, 350), V2.new(180, 44)
+				w.input.OnScreenKeyboardPosition = V2.new(0, 500)
+				field.Focused:Fire()
+				w.input.OnScreenKeyboardVisible = true
+				expect(page.CanvasPosition.Y):toBe(0)
+				page.AbsoluteWindowSize = V2.new(320, 232)
+				field.AbsolutePosition = V2.new(20, 395)
+				expect(page.CanvasPosition.Y):toBe(26)
+				field.AbsolutePosition = V2.new(20, 369)
+				expect(page.CanvasPosition.Y):toBe(26)
+				w.input.OnScreenKeyboardPosition = V2.new(0, 400)
+				expect(page.CanvasPosition.Y):toBe(47)
+				field.AbsolutePosition = V2.new(20, 348)
+				expect(page.CanvasPosition.Y):toBe(47)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("does not count viewport reveal twice when the keyboard also covers the field", {
+			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::does not count viewport reveal twice when the keyboard also covers the field",
+			run = function()
+				local worlds = require("./lib/content_world")
+				local w = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+					return Host.ScrollingFrame "SheetContent" {
+						UI.TextInput "Filter" { value = Compose.cell("zzzz") },
+					}
+				end)
+				local V2 = w.engine.types.Vector2
+				local page, field = w.find("SheetContent"), w.find("Filter")
+				page.AbsolutePosition = V2.new(0, 181)
+				page.AbsoluteWindowSize, page.AbsoluteCanvasSize = V2.new(320, 232), V2.new(320, 600)
+				field.AbsolutePosition, field.AbsoluteSize = V2.new(20, 395), V2.new(180, 44)
+				w.input.OnScreenKeyboardPosition = V2.new(0, 400)
+				field.Focused:Fire()
+				w.input.OnScreenKeyboardVisible = true
+				expect(page.CanvasPosition.Y):toBe(47)
+				field.AbsolutePosition = V2.new(20, 348)
+				expect(page.CanvasPosition.Y):toBe(47)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("a focused field scrolls its page up out from under the touch keyboard", {
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::a focused field scrolls its page up out from under the touch keyboard",
 			run = function()

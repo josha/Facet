@@ -4,6 +4,8 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+	type Readable<T> = { peek: (Readable<T>) -> T }
+	type Use = <T>(Readable<T>) -> T
 
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
@@ -90,6 +92,44 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Toast with an action: presentation", function()
+		verifyHarness:case(
+			"does not read a disposed presentation formula after its timeout callback removes the page",
+			{
+				id = "native_toast_action::native Toast with an action: presentation::does not read a disposed presentation formula after its timeout callback removes the page",
+				run = function()
+					local page, asked, dismissed = Compose.cell(true), 0, 0
+					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+						return Host.Frame {
+							Compose.show(page, function()
+								local presented = Compose.formula(function(use: Use)
+									return use(page)
+								end)
+								return UI.Toast {
+									message = "Saved",
+									isPresented = presented,
+									duration = 0.1,
+									onPresentedChange = function(value: boolean)
+										Verify.expect(value):toBe(false)
+										asked += 1
+										page:set(false)
+									end,
+									onDismiss = function()
+										dismissed += 1
+									end,
+								}
+							end),
+						}
+					end)
+					frames(w, 1)
+					Verify.expect(asked):toBe(1)
+					Verify.expect(dismissed):toBe(1)
+					frames(w, 1)
+					Verify.expect(asked):toBe(1)
+					w.stop()
+				end,
+			}
+		)
+
 		verifyHarness:case("excludes its placeholder from layout and preserves caller and ancestor availability", {
 			id = "native_toast_action::native Toast with an action: presentation::excludes its placeholder from layout and preserves caller and ancestor availability",
 			run = function()

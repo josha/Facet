@@ -185,6 +185,7 @@ return function(harness: Verify.Harness)
 			end
 			local pointer = engine.new("InputObject")
 			pointer.UserInputType = engine.types.Enum.UserInputType.Touch
+			pointer.Position = engine.types.Vector3.new(10, 10, 0)
 			input.InputBegan:Fire(pointer, false)
 			local owner = C.createRootOwner(function() end, runtime.reactor)
 			local arbiter
@@ -206,6 +207,7 @@ return function(harness: Verify.Harness)
 			end
 			tile.Parent = canvas
 			arbiter.finish(pointer)
+			input.InputEnded:Fire(pointer, false)
 			for _ = 1, 20 do
 				engine.heartbeat:Fire(0.016)
 			end
@@ -423,6 +425,109 @@ return function(harness: Verify.Harness)
 			w.input.TouchPinch:Fire({}, 0, 0, E.UserInputState.End, true)
 			t:expect(w.view.ScrollingEnabled):toBe(true)
 			t:expect(w.outer.ScrollingEnabled):toBe(true)
+		end)
+
+		harness:case("a touch double tap that lands on a child control toggles the zoom", function(t)
+			local w = inputWorld()
+			t:defer(w.stop)
+			local V2, E = w.engine.types.Vector2, w.engine.types.Enum
+			w.input.PreferredInput = E.PreferredInput.Touch
+			local before = w.scale.Scale
+			for _ = 1, 2 do
+				local touch = w.event(E.UserInputType.Touch, V2.new(220, 236), E.UserInputState.Begin)
+				w.input.InputBegan:Fire(touch, true)
+				touch.UserInputState = E.UserInputState.End
+				w.input.InputEnded:Fire(touch, true)
+			end
+			for _ = 1, 40 do
+				w.engine.heartbeat:Fire(0.016)
+			end
+			t:expect(w.scale.Scale ~= before):toBe(true)
+			local outside = w.scale.Scale
+			for _ = 1, 2 do
+				local touch = w.event(E.UserInputType.Touch, V2.new(560, 560), E.UserInputState.Begin)
+				w.input.InputBegan:Fire(touch, true)
+				touch.UserInputState = E.UserInputState.End
+				w.input.InputEnded:Fire(touch, true)
+			end
+			for _ = 1, 40 do
+				w.engine.heartbeat:Fire(0.016)
+			end
+			t:expect(w.scale.Scale):toBe(outside)
+		end)
+
+		harness:case("native detector release clears child capture before the camera end callback", function(t)
+			local engine = engineLib.new({ lenientProperties = true })
+			local C = Facet.Compose
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local input = engine.new("UserInputService")
+			local UI = Facet.controls(runtime, { types = engine.types, userInputService = input })
+			local camera: Facet.ZoomControls = {}
+			local tile: TextButton
+			local view: ScrollingFrame
+			local fitted = false
+			local stop = runtime.mount(function()
+				view = UI.ZoomView {
+					zoom = C.cell(1),
+					controls = camera,
+					contentSize = engine.types.Vector2.new(900, 900),
+					content = function(): GuiObject
+						tile = Host.TextButton { Size = engine.types.UDim2.fromOffset(60, 60) }
+						UI.draggable(tile, {
+							payload = "A",
+							touchPickup = "immediate",
+							onStart = function()
+								t:expect(assert(camera.zoomAt)(2)):toBe(true)
+							end,
+							onEnd = function()
+								fitted = assert(camera.fit)()
+							end,
+						})
+						return tile
+					end,
+				}
+				return Host.ScreenGui { view }
+			end, engine.new("Folder"))
+			t:defer(function()
+				stop()
+				runtime:dispose()
+			end)
+			local V2, E = engine.types.Vector2, engine.types.Enum
+			view.AbsoluteWindowSize = V2.new(360, 320)
+			view.ResetScrollVelocity = function() end
+			tile.AbsolutePosition, tile.AbsoluteSize = V2.new(150, 130), V2.new(60, 60)
+			engine.heartbeat:Fire(1 / 60)
+			local pointer = engine.new("InputObject")
+			pointer.UserInputType, pointer.UserInputState = E.UserInputType.MouseButton1, E.UserInputState.Begin
+			pointer.Position = engine.types.Vector3.new(180, 160, 0)
+			local began = (tile.InputBegan :: unknown) :: engineLib.Signal<InputObject>
+			began:Fire(pointer)
+			input.InputBegan:Fire(pointer)
+			local detector = (tile:FindFirstChild("FacetDragDetector") :: unknown) :: {
+				DragStart: engineLib.Signal<Vector2>,
+				DragContinue: engineLib.Signal<Vector2>,
+				DragEnd: engineLib.Signal<Vector2>,
+			}
+			detector.DragStart:Fire(V2.new(180, 160))
+			detector.DragContinue:Fire(V2.new(200, 180))
+			for _ = 1, 120 do
+				engine.heartbeat:Fire(1 / 60)
+			end
+			t:expect(view:GetAttribute("FacetZoom")):toBe(2)
+			t:expect(assert(camera.fit)()):toBe(false)
+			pointer.UserInputState = E.UserInputState.End
+			detector.DragEnd:Fire(V2.new(200, 180))
+			t:expect(fitted):toBe(true)
+			local previous = 2
+			for _ = 1, 125 do
+				engine.heartbeat:Fire(1 / 60)
+				local value = view:GetAttribute("FacetZoom") :: number
+				t:expect(value <= previous):toBe(true)
+				previous = value
+			end
+			t:expect(math.abs(previous - 320 / 900) < 0.001):toBe(true)
+			input.InputEnded:Fire(pointer)
 		end)
 
 		harness:case("permits one capture-time camera request and defers later zoom", function(t)

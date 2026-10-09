@@ -40,6 +40,9 @@ return function(ctx: Types.Context): Nav.Surfaces
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		return function(use: ComposeTypes.Use): boolean
 			local preference = if preferred then use(preferred) else nil
+			if preference == E.PreferredInput.Touch then
+				return false
+			end
 			if preference == E.PreferredInput.Gamepad then
 				return true
 			end
@@ -856,7 +859,11 @@ return function(ctx: Types.Context): Nav.Surfaces
 		return node
 	end
 	local function parent(anchor: Instance): GuiBase2d?
-		return (ctx.config.overlayParent or anchor:FindFirstAncestorWhichIsA("LayerCollector")) :: GuiBase2d?
+		local layer = (ctx.config.overlayParent or anchor:FindFirstAncestorWhichIsA("LayerCollector")) :: GuiBase2d?
+		if layer and layer:IsA("SurfaceGui") and not layer.ClipsDescendants then
+			layer.ClipsDescendants = true
+		end
+		return layer
 	end
 	local function overlay(
 		anchor: GuiObject,

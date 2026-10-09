@@ -112,6 +112,7 @@ return function(
 			})
 		end
 		assert(#sizes > 0, "Facet Region needs at least one form")
+		local floor = ctx.hitFloor()
 		properties[#properties + 1] = Host.UIScale "Pop" { Scale = scale }
 		local owner = assert(Compose.currentOwner())
 		local home = properties[1] :: Instance
@@ -145,7 +146,6 @@ return function(
 					Compose.cleanup(returnHome)
 					return holder
 				end
-			local floor = ctx.hitFloor()
 			local cell = resolver.CELLS[zone]
 			local edge: Overlay.Edge = if cell[1] == 2 and cell[2] == 3 then "top" else EXPAND_EDGE[cell[1]]
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -167,16 +167,26 @@ return function(
 					ZIndex = -1,
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
-					Size = function(use: ComposeTypes.Use): UDim2
-						local shown = sizes[use(form)]
-						local size = if shown then use(shown) else V2.zero
-						return D2.new(1, math.max(0, floor(use) - size.X), 1, math.max(0, floor(use) - size.Y))
-					end,
+					Size = D2.fromScale(1, 1),
 					Visible = function(use: ComposeTypes.Use): boolean
 						return use(form) > 1
 					end,
 				},
 			}
+		end
+		if spec.Size == nil and spec.AutomaticSize == nil then
+			properties.AutomaticSize = E.AutomaticSize.None
+			properties.Size = function(use: ComposeTypes.Use): UDim2
+				local index = use(form)
+				local shown = sizes[index]
+				local size = if shown then use(shown) else V2.zero
+				local minimum = if index > 1
+						and spec.reveal ~= false
+						and (#sizes > 1 or spec.expand)
+					then floor(use)
+					else 0
+				return D2.fromOffset(math.max(size.X, minimum), math.max(size.Y, minimum))
+			end
 		end
 		local node = kit.plain(Host.Frame(properties), spec)
 		local shown: number? = nil

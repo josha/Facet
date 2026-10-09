@@ -81,7 +81,7 @@ return function(ctx: Context)
 		end)
 		return if ok then service else nil
 	end)()
-	local function measuredHeight(label: TextLabel)
+	local function measuredHeight(label: TextLabel, hug: (() -> number)?)
 		if textService == nil then
 			return label
 		end
@@ -89,7 +89,7 @@ return function(ctx: Context)
 		local serial = 0
 		local function refresh()
 			local text = label.ContentText
-			local widthNow = label.AbsoluteSize.X
+			local widthNow = if hug then hug() else label.AbsoluteSize.X
 			if text == "" or widthNow <= 0 then
 				return
 			end
@@ -112,7 +112,9 @@ return function(ctx: Context)
 				local height = size + (lines - 1) * size * label:GetStyled("LineHeight")
 				if height > 0 then
 					label.AutomaticSize = E.AutomaticSize.None
-					label.Size = D2.new(1, 0, 0, math.round(height))
+					label.Size = if hug
+						then D2.fromOffset(math.min(widthNow, math.ceil(bounds.X) + 1), math.round(height))
+						else D2.new(1, 0, 0, math.round(height))
 				end
 			end)
 		end
@@ -140,15 +142,20 @@ return function(ctx: Context)
 			local card = UI.VStack("Message_" .. id)({
 				padding = 14,
 				ctx.rounded(18) :: unknown,
-				content({
-					Size = D2.new(0, 0, 0, 0),
-					AutomaticSize = E.AutomaticSize.XY,
-					Host.UISizeConstraint({
-						MaxSize = function(use: Use)
-							return V2.new(math.max(96, math.floor(use(width) * 0.78) - 32), math.huge)
-						end,
+				measuredHeight(
+					content({
+						Size = D2.new(0, 0, 0, 0),
+						AutomaticSize = E.AutomaticSize.XY,
+						Host.UISizeConstraint({
+							MaxSize = function(use: Use)
+								return V2.new(math.max(96, math.floor(use(width) * 0.78) - 32), math.huge)
+							end,
+						}),
 					}),
-				}),
+					function(): number
+						return math.max(96, math.floor(width:peek() * 0.78) - 32)
+					end
+				),
 			})
 			card:AddTag("facet-track")
 			rowFrame =

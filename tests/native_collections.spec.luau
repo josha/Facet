@@ -82,6 +82,81 @@ return function(verifyHarness: Verify.Harness)
 		return values
 	end
 	verifyHarness:suite("collection geometry publication", function()
+		verifyHarness:case("does not correct a native end scroll into the reserved Card lift gutter", {
+			id = "native_collections::collection geometry publication::does not correct a native end scroll into the reserved Card lift gutter",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local Host = (
+					runtime.constructors :: unknown
+				) :: typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+				local status = Compose.cell(nil :: FixtureComposeTypes.OrderedCollectionStatus?)
+				local corrections = 0
+				local checking = false
+				local stop, mounted = runtime.mount(function()
+					Compose.watch(function(use)
+						local current = use(status)
+						if checking and current and current.desiredOffset ~= nil then
+							corrections += 1
+						end
+					end)
+					return UI.VirtualGrid({
+						from = records(60),
+						key = "id",
+						columns = 4,
+						itemSize = 268,
+						gap = 16,
+						status = status,
+						render = function(): GuiObject
+							return Host.Frame({
+								Name = "Card",
+								Size = engine.types.UDim2.fromScale(1, 1),
+								Attributes = { FacetBody = "button" },
+							})
+						end,
+					})
+				end, target)
+				local grid = (mounted :: unknown) :: ScrollingFrame
+				local geometry = (grid :: unknown) :: { AbsoluteWindowSize: Vector2 }
+				geometry.AbsoluteWindowSize = engine.types.Vector2.new(1242, 648)
+				checking = true
+				grid.CanvasPosition = engine.types.Vector2.new(0, grid.CanvasSize.Y.Offset - 648)
+				Verify.expect(corrections):toBe(0)
+				stop()
+			end,
+		})
+		verifyHarness:case("reads derived glyph and form geometry even when native styling emits no property signal", {
+			id = "native_collections::collection geometry publication::reads derived glyph and form geometry even when native styling emits no property signal",
+			run = function()
+				local engine, runtime, _, target = setup()
+				local node = engine.new("TextLabel")
+				local V2 = engine.types.Vector2
+				local derived = { TextBounds = V2.new(97, 12), AbsoluteSize = V2.new(43, 20) }
+				local observation = assert(runtime.host.observation)
+				local readProperty = observation.readProperty
+				observation.readProperty = function(instance, property)
+					if instance == node and derived[property] then
+						return derived[property]
+					end
+					return readProperty(instance, property)
+				end
+				local observe = require("../src/ui/geometry_observation")
+				local glyphs: FixtureComposeTypes.Cell<unknown>? = nil
+				local box: FixtureComposeTypes.Cell<unknown>? = nil
+				local stop = runtime.mount(function()
+					local frame = (engine.heartbeat :: unknown) :: RBXScriptSignal
+					glyphs = observe(Compose, runtime, node, "TextBounds", frame)
+					box = observe(Compose, runtime, node, "AbsoluteSize", frame)
+					return nil
+				end, target)
+				engine.heartbeat:Fire(0)
+				derived.TextBounds = V2.new(87, 12)
+				derived.AbsoluteSize = V2.new(40, 20)
+				engine.heartbeat:Fire(0)
+				Verify.expect(assert(glyphs):peek()):toBe(V2.new(87, 12))
+				Verify.expect(assert(box):peek()):toBe(V2.new(40, 20))
+				stop()
+			end,
+		})
 		verifyHarness:case("publishes the complete native geometry snapshot before paint", {
 			id = "native_collections::collection geometry publication::publishes the complete native geometry snapshot before paint",
 			run = function()
@@ -506,6 +581,69 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect((assert(kept:FindFirstChild("Content")) :: CanvasGroup).GroupTransparency):toBe(0)
 						engine.heartbeat:Fire(1 / 60)
 					end
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
+	end)
+	verifyHarness:suite("collection retired content", function()
+		verifyHarness:case("keeps the last item readable while replaced rows wait for the new paint", {
+			id = "native_collections::collection retired content::keeps the last item readable while replaced rows wait for the new paint",
+			run = function()
+				type Row = { id: string, title: string }
+				for _, kind in { "list", "grid" } do
+					local engine, runtime, UI, target = setup()
+					local Host = (runtime.constructors :: unknown) :: FixtureEngineTypes.Host
+					local rows =
+						Compose.cell({ { id = "A", title = "Alpha" }, { id = "B", title = "Beta" } } :: { Row })
+					local revision = Compose.cell(1)
+					local stop, mountedRoot = runtime.mount(function(): GuiObject
+						local spec: FixtureCollectionTypes.KeyedCollectionSpec<Row, string> = {
+							from = rows,
+							key = "id",
+							mode = "all" :: "all",
+							itemSize = 44,
+							render = function(current: FixtureComposeTypes.Readable<Row>): GuiObject
+								return Host.TextLabel "Caption" {
+									Text = function(use: FixtureComposeTypes.Use): string
+										return `{use(current).title} {use(revision)}`
+									end,
+								}
+							end,
+						}
+						return if kind == "grid" then UI.VirtualGrid(spec) else UI.VirtualList(spec)
+					end, target)
+					local root = (mountedRoot :: unknown) :: GuiObject
+					local V2 = engine.types.Vector2
+					local function size()
+						for _, node in root:GetDescendants() do
+							if node:IsA("GuiObject") then
+								local geometry = (node :: unknown) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
+								geometry.AbsoluteSize = V2.new(100, 44)
+								if node:IsA("TextLabel") then
+									geometry.TextBounds = V2.new(60, 20)
+								end
+							end
+						end
+					end
+					size()
+					for _ = 1, 4 do
+						engine.heartbeat:Fire(1 / 60)
+					end
+					local items = assert(root:FindFirstChild("Items", true))
+					local retired = assert(items:FindFirstChild("A"))
+					local caption = assert(retired:FindFirstChild("Caption", true)) :: TextLabel
+					rows:set({ { id = "C", title = "Gamma" }, { id = "D", title = "Delta" } })
+					Verify.expect(retired.Parent ~= nil):toBe(true)
+					revision:set(2)
+					Verify.expect(caption.Text):toBe("Alpha 2")
+					for _ = 1, 12 do
+						size()
+						engine.heartbeat:Fire(1 / 60)
+					end
+					Verify.expect(items:FindFirstChild("A")):toBeNil()
+					Verify.expect(items:FindFirstChild("C") ~= nil):toBe(true)
 					stop()
 					runtime:dispose()
 				end
@@ -1565,6 +1703,9 @@ return function(verifyHarness: Verify.Harness)
 					end
 				end
 				Verify.expect(grid.CanvasSize.Y.Offset):toBe(4412 - 16 + 2 * padding.PaddingTop.Offset)
+				local endOffset = grid.CanvasSize.Y.Offset - 648
+				grid.CanvasPosition = engine.types.Vector2.new(0, endOffset)
+				Verify.expect(grid.CanvasPosition.Y):toBe(endOffset)
 				for _, index in { 1, 4, 57, 60 } do
 					local slot = assert(items:FindFirstChild(tostring(index))) :: Frame
 					local scroll = if index > 4 then grid.CanvasSize.Y.Offset - 648 else 0
@@ -1715,6 +1856,52 @@ return function(verifyHarness: Verify.Harness)
 				source:set(records(12))
 				Verify.expect(node.CanvasPosition.Y):toBe(0)
 				Verify.expect(status:peek().following):toBe(false)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("defers keyed selection while its row is outside an ancestor clipping window", {
+			id = "native_collections::Compose native collections::defers keyed selection while its row is outside an ancestor clipping window",
+			run = function()
+				local engine, runtime, UI, target, gui = setup()
+				local clip = engine.new("Frame")
+				clip.Parent = target
+				clip.ClipsDescendants = true
+				clip.AbsolutePosition = engine.types.Vector2.zero
+				clip.AbsoluteSize = engine.types.Vector2.new(430, 874)
+				local focus: FixtureCollectionTypes.FocusControls<number> = {}
+				local stop, mounted = runtime.mount(function()
+					return UI.VirtualList({
+						from = records(10),
+						key = key,
+						itemSize = 44,
+						focus = focus,
+						render = function(current): GuiObject
+							return button(UI, current)
+						end,
+					})
+				end, clip)
+				local node = mounted :: ScrollingFrame
+				node.AbsoluteWindowSize = engine.types.Vector2.new(280, 204)
+				node.AbsoluteSize = engine.types.Vector2.new(280, 204)
+				assert(focus.focus)(2)
+				local row = assert(gui.SelectedObject)
+				assert(focus.clear)()
+				gui.SelectedObject = nil
+				row.AbsolutePosition = engine.types.Vector2.new(-113, 5873.6)
+				row.AbsoluteSize = engine.types.Vector2.new(61, 44)
+				assert(focus.focus)(2)
+				Verify.expect(gui.SelectedObject):toBeNil()
+				Verify.expect(assert(focus.current):peek()):toBe(2)
+				row.AbsolutePosition = engine.types.Vector2.new(32, 100)
+				node.AbsoluteSize = engine.types.Vector2.zero
+				node.AbsolutePosition = engine.types.Vector2.new(16, 80)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(gui.SelectedObject):toBeNil()
+				node.AbsoluteSize = engine.types.Vector2.new(280, 204)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(gui.SelectedObject):toBe(row)
 				stop()
 				runtime:dispose()
 			end,
@@ -5110,10 +5297,14 @@ return function(verifyHarness: Verify.Harness)
 					local delete = w.node:FindFirstChild("DeleteSelected", true)
 					local hit = w.row(2):FindFirstChild("RowHit", true) or w.row(2)
 					w.gui.SelectedObject = if hit.Selectable then hit else hit:FindFirstChildWhichIsA("GuiButton", true)
-					Verify.expect(w.gui.SelectedObject ~= nil):toBe(true)
+					Verify.expect(w.gui.SelectedObject):toBeNil()
 					Verify.expect(delete.Interactable):toBe(false)
 					delete.Activated:Fire({ UserInputType = w.engine.types.Enum.UserInputType.Touch })
 					Verify.expect(w.deletes):toEqual({})
+					w.service.PreferredInput = w.engine.types.Enum.PreferredInput.KeyboardAndMouse
+					w.gui.SelectedObject = if hit.Selectable then hit else hit:FindFirstChildWhichIsA("GuiButton", true)
+					Verify.expect(w.gui.SelectedObject ~= nil):toBe(true)
+					Verify.expect(delete.Interactable):toBe(false)
 					w.pressed("DeleteRows")
 					Verify.expect(w.deletes):toEqual({ { 2 } })
 					w.stop()
@@ -5495,6 +5686,53 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((value:peek())):toBe("Saved")
 				Verify.expect((draft:peek())):toBe(nil)
 				stop()
+			end,
+		})
+
+		verifyHarness:case("does not focus an editing field outside its ancestor clipping window", {
+			id = "native_collections::shared container editing::does not focus an editing field outside its ancestor clipping window",
+			run = function()
+				local engine, runtime, UI, target, gui = setup()
+				local clip = engine.new("Frame")
+				clip.Parent = target
+				clip.ClipsDescendants = true
+				clip.AbsolutePosition = engine.types.Vector2.zero
+				clip.AbsoluteSize = engine.types.Vector2.new(430, 874)
+				local editing = Compose.cell(false)
+				local stop, mounted = runtime.mount(function()
+					return UI.CellEditor({
+						editor = "text" :: "text",
+						value = "Coast",
+						editing = editing,
+						onChange = function() end,
+					})
+				end, clip)
+				local node = mounted :: Frame
+				editing:set(true)
+				local field = assert(node:FindFirstChildWhichIsA("TextBox", true)) :: TextBox
+				editing:set(false)
+				gui.SelectedObject = nil
+				field.AbsolutePosition = engine.types.Vector2.new(-121.67, 837)
+				field.AbsoluteSize = engine.types.Vector2.new(20, 30)
+				editing:set(true)
+				Verify.expect(field:IsFocused()):toBe(false)
+				Verify.expect(gui.SelectedObject):toBeNil()
+				field.AbsolutePosition = engine.types.Vector2.new(32, 100)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(field:IsFocused()):toBe(true)
+				Verify.expect(gui.SelectedObject):toBe(field)
+				local hit = assert(node:FindFirstChild("EditLabel", true)) :: TextButton
+				hit.AbsolutePosition = engine.types.Vector2.new(32, 100)
+				hit.AbsoluteSize = engine.types.Vector2.new(61, 44)
+				editing:set(false)
+				Verify.expect(gui.SelectedObject):toBe(hit)
+				editing:set(true)
+				field.AbsolutePosition = engine.types.Vector2.new(-121.67, 837)
+				hit.AbsolutePosition = engine.types.Vector2.new(-121.67, 837)
+				editing:set(false)
+				Verify.expect(gui.SelectedObject):toBeNil()
+				stop()
+				runtime:dispose()
 			end,
 		})
 
@@ -6471,10 +6709,20 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((editing:peek())):toBe(false)
 					Verify.expect(gui.SelectedObject):toBe(row:FindFirstChild("RowHit", true))
 					assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
+					local assigned = 0
+					engine.onWrite(function(node, property, value)
+						if node == gui and property == "SelectedObject" and value ~= nil then
+							assigned += 1
+						end
+					end)
 					edits[1].onActivate()
-					Verify.expect(gui.SelectedObject):toBe(field)
+					Verify.expect(assigned):toBe(0)
+					Verify.expect((editing:peek())):toBe(true)
+					Verify.expect(field:IsFocused()):toBe(true)
+					Verify.expect(gui.SelectedObject):toBeNil()
 					field.FocusLost:Fire(false, { KeyCode = E.KeyCode.ButtonB })
-					Verify.expect(gui.SelectedObject):toBe(row:FindFirstChild("RowHit", true))
+					Verify.expect((editing:peek())):toBe(false)
+					Verify.expect(gui.SelectedObject):toBeNil()
 					allowed:set(false)
 					edits[1].onActivate()
 					Verify.expect((editing:peek())):toBe(false)

@@ -146,6 +146,18 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("focus recording scenes", function()
+		verifyHarness:case("keeps discovery on the recorded page after a sibling tab receives focus", {
+			id = "native_focus_walk::focus recording scenes::keeps discovery on the recorded page after a sibling tab receives focus",
+			run = function()
+				local identity = require("../tools/studio/live/focus_page")
+				local before = identity({ current = "all-controls", demo = { active = "shortcuts" } })
+				Verify.expect(identity({ current = "all-controls", demo = { active = "menus" } }) == before)
+					:toEqual(false)
+				Verify.expect(identity({ current = "all-controls", demo = { active = "shortcuts" } }) == before)
+					:toEqual(true)
+				Verify.expect(identity({ current = "hud" }) == before):toEqual(false)
+			end,
+		})
 		verifyHarness:case("records past the boundary of a 360-step slider", {
 			id = "native_focus_walk::focus recording scenes::records past the boundary of a 360-step slider",
 			run = function()

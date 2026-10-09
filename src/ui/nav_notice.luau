@@ -634,9 +634,26 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		})
 		local stacked = Compose.cell(false)
 		local rootChildren: { Types.Child } = { primaryFrame }
-		local trailingFrame: Frame? = nil
+		local trailingFrame: GuiObject? = nil
 		if spec.trailing then
-			local trailing = ctx.row({ spec.trailing }, { Name = "Trailing" })
+			local trailing = Host.ScrollingFrame "Trailing" {
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Size = D2.fromOffset(0, 0),
+				AutomaticSize = E.AutomaticSize.XY,
+				AutomaticCanvasSize = E.AutomaticSize.X,
+				CanvasSize = D2.fromOffset(0, 0),
+				CanvasPosition = ctx.types.Vector2.zero,
+				ScrollingDirection = E.ScrollingDirection.X,
+				ScrollBarThickness = 0,
+				ClipsDescendants = true,
+				Host.UIListLayout {
+					FillDirection = E.FillDirection.Horizontal,
+					HorizontalAlignment = E.HorizontalAlignment.Left,
+					SortOrder = E.SortOrder.LayoutOrder,
+				},
+				spec.trailing,
+			}
 			trailingFrame = trailing
 			table.insert(rootChildren, trailing)
 		end
@@ -664,7 +681,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end,
 			})
 		end
-		local rows: { Frame } = { primaryFrame }
+		local rows: { GuiObject } = { primaryFrame }
 		if trailingFrame then
 			table.insert(rows, trailingFrame)
 		end
@@ -694,6 +711,34 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			surfaces.attach(root, { ctx.padding(space(spec.padding, "s"), space(spec.padding, "s")) })
 		end
 		if trailingFrame then
+			local available = ctx.layoutSize(root)
+			local unit = ctx.layoutUnit(root :: GuiObject)
+			local trailingLayout = assert(trailingFrame:FindFirstChildWhichIsA("UIListLayout")) :: UIListLayout
+			local content = ctx.observe.AbsoluteContentSize(trailingLayout)
+			local scrollStyle = (ctx.observeStyled :: unknown) :: {
+				ScrollBarThickness: (ScrollingFrame) -> ComposeTypes.Cell<number>,
+			}
+			local thickness = scrollStyle.ScrollBarThickness(trailingFrame :: ScrollingFrame)
+			local function offered(use: ComposeTypes.Use): number
+				local width = use(available).X
+				return if width > 0
+					then math.max(0, width - (if spec.padding ~= nil then 2 * space(spec.padding, "s", use) else 0))
+					else math.huge
+			end
+			runtime.decorate(trailingFrame, {
+				AutomaticSize = E.AutomaticSize.None,
+				Size = function(use: ComposeTypes.Use): UDim2
+					local size = use(content) / use(unit)
+					return D2.fromOffset(size.X, size.Y + (if size.X > offered(use) then use(thickness) else 0))
+				end,
+			})
+			runtime.mount(function()
+				return Host.UISizeConstraint "ViewportBounds" {
+					MaxSize = function(use: ComposeTypes.Use): Vector2
+						return ctx.types.Vector2.new(offered(use), math.huge)
+					end,
+				}
+			end, trailingFrame)
 			local box = ctx.observe.AbsoluteSize(root)
 			local sides = ctx.observe.AbsoluteSize(trailingFrame)
 			local before: { ComposeTypes.Readable<Vector2> } = {}
@@ -703,7 +748,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 			end
 			local natural = if titleMeasure then ctx.observe.TextBounds(titleMeasure) else nil
-			local unit = ctx.layoutUnit(root :: GuiObject)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local scale = use(unit)
 				local width = use(box).X / scale

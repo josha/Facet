@@ -41,7 +41,43 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("Facet Home visual source", function()
-		for _, name in { "Home", "Furnish", "Activities", "People", "Settings", "Wall" } do
-		end
+		verifyHarness:case("mounts every authored page at the smoke viewports", {
+			id = "facet_home::Facet Home visual source::mounts every authored page at the smoke viewports",
+			run = function()
+				local Facet = require("../src")
+				local engines = require("./lib/native_engine")
+				local session = require("../tools/designer/modules/session")
+				local render = require("../tools/designer/modules/design_render")
+				for _, name in { "Home", "Furnish", "Activities", "People", "Settings", "Wall" } do
+					local value = source.parse(fs.readFile(`examples/facet_home/designs/{name}.luau`), name)
+					for _, size in { { 389, 762 }, { 430, 932 }, { 1280, 720 } } do
+						local engine = engines.new()
+						local mounted = session.mount(Facet, engine.new("ScreenGui"), {
+							name = name,
+							render = function(ctx)
+								return render.build(value, ctx)
+							end,
+						}, {
+							engine = engine,
+							types = engine.types,
+							config = {
+								width = size[1],
+								height = size[2],
+								input = "Touch",
+								display = "Small",
+								distance = "near",
+								palette = "Dark",
+								textSize = "Medium",
+								motionLevel = "none",
+							},
+						})
+						Verify.expect(mounted.root.Size.X.Offset):toBe(size[1])
+						Verify.expect(mounted.root.Size.Y.Offset):toBe(size[2])
+						Verify.expect(#mounted.content:GetChildren() > 0):toBe(true)
+						mounted.dispose()
+					end
+				end
+			end,
+		})
 	end)
 end

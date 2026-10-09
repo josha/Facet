@@ -289,7 +289,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			defaults.AutomaticSize = E.AutomaticSize.Y
 			defaults.TextWrapped = false
 			defaults.TextTruncate = E.TextTruncate.None
-		elseif truncate == "end" or spec.reveal then
+		elseif
+			truncate == "end"
+			or spec.reveal
+			or (spec.disclose == true and spec.wrap ~= true and spec.TextWrapped ~= true)
+		then
 			defaults.TextTruncate = E.TextTruncate.AtEnd
 		end
 		if lines then
@@ -2099,8 +2103,20 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 	local frames = runtime.host.frames
 	local pending: { () -> () } = {}
 	local stopQueue: (() -> ())? = nil
-	local function enqueue(job: () -> ())
+	local function enqueue(job: () -> (), owner: ComposeTypes.Owner)
 		table.insert(pending, job)
+		Compose.withOwner(owner, function()
+			Compose.cleanup(function()
+				local index = table.find(pending, job)
+				if index then
+					table.remove(pending, index)
+				end
+				if #pending == 0 and stopQueue then
+					stopQueue()
+					stopQueue = nil
+				end
+			end)
+		end)
 		if stopQueue == nil and frames then
 			stopQueue = frames.onFrame(function()
 				local next = table.remove(pending, 1)
@@ -2288,7 +2304,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				Compose.watch(function(use: ComposeTypes.Use)
 					if use(shown) and not built and not queued then
 						queued = true
-						enqueue(attempt)
+						enqueue(attempt, owner)
 					end
 				end)
 			end

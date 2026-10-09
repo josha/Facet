@@ -14,6 +14,7 @@ local Env = require("./environment_types")
 local pointerOf = require("./drag_pointer")
 local reducedMotion = require("./motion").reduced
 export type Editor<V, K> = {
+	placement: (K, ComposeTypes.Placement, ComposeTypes.Use) -> ComposeTypes.Placement,
 	wrap: (GuiObject, ComposeTypes.Readable<V>, K, boolean?) -> Frame,
 	overlay: (boolean?) -> Frame,
 	leading: ComposeTypes.Readable<number>,
@@ -60,6 +61,7 @@ return function<V, K>(
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local moving: ComposeTypes.Cell<Move<V, K>?> = Compose.cell(nil :: Move<V, K>?)
 	local choosingDestination = Compose.cell(false)
+	local incoming: ComposeTypes.Cell<Env.DropInsertion?> = Compose.cell(nil :: Env.DropInsertion?)
 	local TAP = 3
 	local STACK = 6
 	local FEEDBACK_Z = 1000
@@ -1142,7 +1144,6 @@ return function<V, K>(
 	end
 	local function overlay(insideBody: boolean?): Frame
 		local body = bodyOf()
-		local incoming: ComposeTypes.Cell<Env.DropInsertion?> = Compose.cell(nil :: Env.DropInsertion?)
 		local destination = (if spec.drop then table.clone(spec.drop) else {}) :: DragTypes.TargetSpec
 		local accept, drop, update = destination.accepts, destination.onDrop, destination.onUpdate
 		if reservedSlots and destination.landing == nil then
@@ -1918,6 +1919,50 @@ return function<V, K>(
 		return root
 	end
 	return {
+		placement = function(key: K, at: ComposeTypes.Placement, use: ComposeTypes.Use): ComposeTypes.Placement
+			local move, proposal = use(moving), use(incoming)
+			local session = use(drag.state)
+			if session == nil or session.target ~= bodyOf() or session.accepted ~= true then
+				return at
+			end
+			if move then
+				local ordered = table.clone(move.remaining)
+				for index, carried in move.keys do
+					table.insert(ordered, move.slot + index, carried)
+				end
+				local index = table.find(ordered, key)
+				if index and reservedSlots then
+					local live: { [K]: boolean } = {}
+					for row, item in read(source, use) do
+						live[keyOf(item, row)] = true
+					end
+					local occupied = 0
+					for slot, candidate in read(reservedSlots, use) do
+						if live[candidate] then
+							occupied += 1
+							if occupied == index then
+								return assert(controls.placementOf)(slot)
+							end
+						end
+					end
+				end
+				return if index then assert(controls.placementOf)(index) else at
+			end
+			if proposal then
+				local data = if type(session.payload) == "table" then session.payload :: { keys: { K }? } else nil
+				local keys = if data then data.keys else nil
+				if reservedSlots and keys and table.find(read(reservedSlots, use), keys[1]) then
+					return at
+				end
+				local index = assert(controls.indexOfKey)(key)
+				local before = proposal.beforeKey
+				local start = if before ~= nil then assert(controls.indexOfKey)(before :: K) else nil
+				if index and start and index >= start then
+					return assert(controls.placementOf)(index + (if keys then math.max(1, #keys) else 1))
+				end
+			end
+			return at
+		end,
 		pickUp = function(key: K, input: InputObject?): boolean
 			if not spec.drag or input == nil or input.UserInputType == E.UserInputType.MouseButton1 then
 				return false

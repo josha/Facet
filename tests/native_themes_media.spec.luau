@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local Shared = require("../src/ui/types")
 
 return function(verifyHarness: Verify.Harness)
 	verifyHarness:suite("sound icon catalog", function()
@@ -63,6 +64,118 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native themes and media", function()
+		verifyHarness:case(
+			"uses an end ellipsis for bounded disclosure text without changing wrap or authored truncation",
+			{
+				id = "native_themes_media::native themes and media::uses an end ellipsis for bounded disclosure text without changing wrap or authored truncation",
+				run = function()
+					local engine, runtime, UI = setup()
+					local labels: { TextLabel } = {}
+					local stop = runtime.mount(function()
+						local text = "A deliberately long label that has to wrap or truncate honestly in every theme"
+						local specs: { FixtureMediaTypes.TextProps } = {
+							{ text = text, disclose = true },
+							{ text = text, disclose = true, wrap = true },
+							{ text = text, disclose = true, TextTruncate = engine.types.Enum.TextTruncate.None },
+							{ text = text, disclose = true, truncate = "middle" :: "middle" },
+						}
+						for index, spec in specs do
+							local props = table.clone(spec)
+							props.Size = engine.types.UDim2.fromOffset(200, 24)
+							labels[index] = (UI.Text(props) :: unknown) :: TextLabel
+						end
+						return labels
+					end, engine.new("Frame"))
+					Verify.expect(labels[1].TextTruncate):toBe(engine.types.Enum.TextTruncate.AtEnd)
+					Verify.expect(labels[2].TextWrapped):toBe(true)
+					Verify.expect(labels[2].TextTruncate):toBe(engine.types.Enum.TextTruncate.None)
+					Verify.expect(labels[3].TextTruncate):toBe(engine.types.Enum.TextTruncate.None)
+					Verify.expect(labels[4].TextTruncate):toBe(engine.types.Enum.TextTruncate.None)
+					stop()
+					runtime:dispose()
+				end,
+			}
+		)
+
+		verifyHarness:case("reveals a fetched collection image when native IsLoaded stays false", function(t)
+			local prepare = require("../src/ui/media_readiness")
+			local environment = getfenv(prepare)
+			local originalTask = environment.task
+			local pending: { thread } = {}
+			environment.task = {
+				defer = function(callback: () -> ()): thread
+					local thread = coroutine.create(callback)
+					table.insert(pending, thread)
+					return thread
+				end,
+				cancel = function(thread: thread)
+					coroutine.close(thread)
+				end,
+			}
+			t:defer(function()
+				environment.task = originalTask
+			end)
+			local native = engineLib.new()
+			local now = 0
+			native.clock = function()
+				return now
+			end
+			local runtime = Roblox.createRuntime(native)
+			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local fetched: Instance? = nil
+			local provider = {
+				PreloadAsync = function(
+					_self: unknown,
+					instances: { Instance },
+					callback: (string, Enum.AssetFetchStatus) -> ()
+				)
+					fetched = instances[1]
+					callback("rbxassetid://10", native.types.Enum.AssetFetchStatus.Success)
+				end,
+			}
+			local image: ImageLabel? = nil
+			local stop = runtime.mount(function()
+				local ctx = context(Compose, runtime, {
+					types = native.types,
+					motionLevel = "none",
+					services = { ContentProvider = (provider :: unknown) :: ContentProvider },
+				})
+				local row = Host.Frame {}
+				row:SetAttribute("FacetCollectionRow", true)
+				local artwork = Host.ImageLabel { Image = "rbxassetid://10" }
+				image = artwork
+				local loading = (artwork :: unknown) :: { IsLoaded: boolean }
+				loading.IsLoaded = false
+				prepare(ctx, artwork)
+				artwork.Parent = row
+				return row
+			end, native.new("ScreenGui"))
+			t:defer(function()
+				stop()
+				runtime:dispose()
+			end)
+			local artwork = assert(image)
+			local geometry = (artwork :: unknown) :: { AbsoluteSize: Vector2 }
+			geometry.AbsoluteSize = native.types.Vector2.new(240, 180)
+			t:expect(#pending > 0):toBe(true)
+			local function flush()
+				for _, queued in pending do
+					if coroutine.status(queued) == "suspended" then
+						t:expect(coroutine.resume(queued)):toBe(true)
+					end
+				end
+			end
+			flush()
+			t:expect(fetched):toBe(artwork)
+			for _ = 1, 30 do
+				now += 1 / 60
+				native.heartbeat:Fire(1 / 60)
+				flush()
+			end
+			t:expect(artwork.IsLoaded):toBe(false)
+			t:expect(artwork:GetAttribute("FacetMediaReady")):toBe(true)
+			t:expect(artwork.ImageTransparency):toBe(0)
+		end)
 		verifyHarness:case("keeps a newly materialized stage on its current styled colour throughout media reveal", {
 			id = "native_themes_media::native themes and media::keeps a newly materialized stage on its current styled colour throughout media reveal",
 			run = function()

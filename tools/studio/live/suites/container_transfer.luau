@@ -13,6 +13,9 @@ type Live = {
 	note: (string, unknown) -> (),
 	settle: (number) -> (),
 }
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Item = { id: string }
+type PreviewSample = { pointer: Vector2, contact: Vector2, rect: { number }, error: number }
 type State = {
 	stage: Instance,
 	source: GuiObject,
@@ -22,8 +25,10 @@ type State = {
 	presses: number,
 	frames: number,
 	maxError: number,
+	previewSamples: { PreviewSample }?,
 	canvas: Vector2,
 	secondPosition: Vector2?,
+	reflowSamples: { number }?,
 	releaseSlots: (() -> ())?,
 }
 type Case = {
@@ -35,6 +40,12 @@ type Case = {
 local GuiService = game:GetService("GuiService")
 local Input = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+
+local function preview(stage: Instance): GuiObject?
+	local layer = stage:FindFirstAncestorWhichIsA("LayerCollector")
+	local ghost = if layer then layer:FindFirstChild("DragGhost", true) else nil
+	return if ghost and ghost:IsA("GuiObject") then ghost else nil
+end
 
 local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 	local source: GuiObject?, target: GuiObject?, scroll: ScrollingFrame?
@@ -137,7 +148,7 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 				return
 			end
 			value.commits, value.presses = commits, presses
-			local ghost = value.stage:FindFirstChild("DragGhost", true)
+			local ghost = preview(value.stage)
 			if
 				ghost
 				and ghost:IsA("GuiObject")
@@ -147,6 +158,17 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 				local contact = ghost.AbsolutePosition + ghost.AnchorPoint * ghost.AbsoluteSize
 				value.maxError = math.max(value.maxError, math.abs(contact.X - at.X), math.abs(contact.Y - at.Y))
 				value.frames += 1
+				table.insert(assert(value.previewSamples), {
+					pointer = at,
+					contact = contact,
+					rect = {
+						ghost.AbsolutePosition.X,
+						ghost.AbsolutePosition.Y,
+						ghost.AbsoluteSize.X,
+						ghost.AbsoluteSize.Y,
+					},
+					error = math.max(math.abs(contact.X - at.X), math.abs(contact.Y - at.Y)),
+				})
 			end
 		end)
 		C.cleanup(function()
@@ -182,6 +204,7 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 		presses = presses,
 		frames = 0,
 		maxError = 0,
+		previewSamples = {},
 		canvas = assert(scroll).CanvasPosition,
 		releaseSlots = releaseSlots,
 		secondPosition = if reserved then (t.find(stage, "B")).AbsolutePosition else nil,
@@ -194,7 +217,95 @@ end
 
 local cases: { Case } = {
 	{
-		id = "reserved-slots-pointer-and-gamepad-recall",
+		id = "hover-slot-reflow",
+		contracts = { "UI.draggable", "UI.VirtualGrid", "UI.dropTarget" },
+		setup = function(t)
+			local source: GuiObject?, target: GuiObject?, neighbour: GuiObject?
+			local value: State?
+			local stage = t.mount(function(UI, Host, C)
+				local button = UI.Button "Source" {
+					label = "A",
+					Position = UDim2.fromOffset(20, 20),
+					Size = UDim2.fromOffset(64, 64),
+					AutomaticSize = Enum.AutomaticSize.None,
+				}
+				source = button
+				UI.draggable(button, {
+					payload = { collection = "source", keys = { "A" } },
+					touchPickup = "immediate",
+					returnTravel = true,
+				})
+				local items: { Item } = { { id = "B" }, { id = "C" } }
+				local rack = UI.VirtualGrid "TargetRack" {
+					from = items,
+					key = "id",
+					columns = 3,
+					itemSize = 64,
+					mode = "all" :: "all",
+					Position = UDim2.fromOffset(160, 120),
+					Size = UDim2.fromOffset(240, 88),
+					drop = {
+						onDrop = function()
+							return true
+						end,
+					},
+					render = function(current: Readable<Item>): GuiObject
+						return UI.Button { label = current:peek().id }
+					end,
+				}
+				target = rack
+				local connection = RunService.RenderStepped:Connect(function()
+					local state = value
+					if state and neighbour and state.target:GetAttribute("FacetDropState") == "accepted" then
+						table.insert(assert(state.reflowSamples), neighbour.AbsolutePosition.X)
+					end
+				end)
+				C.cleanup(function()
+					connection:Disconnect()
+				end)
+				return Host.Frame { Size = UDim2.fromOffset(440, 320), button :: unknown, rack :: unknown }
+			end, { size = Vector2.new(480, 400), frames = 30, motionLevel = "normal" })
+			neighbour = t.find(stage, "B")
+			value = {
+				stage = stage,
+				source = assert(source),
+				target = assert(target),
+				scroll = assert(target) :: ScrollingFrame,
+				commits = 0,
+				presses = 0,
+				frames = 0,
+				maxError = 0,
+				canvas = Vector2.zero,
+				secondPosition = assert(neighbour).AbsolutePosition,
+				reflowSamples = {},
+			}
+			return assert(value)
+		end,
+		steps = {
+			whileHovering = function(t, value)
+				t.settle(40)
+				local samples = assert(value.reflowSamples)
+				local initial = assert(value.secondPosition).X
+				local final = t.find(value.stage, "B").AbsolutePosition.X
+				local intermediate = false
+				for _, x in samples do
+					intermediate = intermediate or (x > initial + 1 and x < final - 1)
+				end
+				t.check("hover opens a slot before release", final > initial + 1)
+				t.check("neighbours reflow on real intermediate frames", intermediate, samples)
+				t.note("hover reflow frames", samples)
+			end,
+			afterLeave = function(t, value)
+				t.settle(80)
+				t.check(
+					"leave restores the original slot",
+					(t.find(value.stage, "B").AbsolutePosition - assert(value.secondPosition)).Magnitude <= 1
+				)
+			end,
+		},
+	},
+	{
+		id = "reserved-slots-pointer-recall",
 		contracts = { "UI.VirtualGrid", "UI.draggable", "UI.dropTarget" },
 		setup = function(t)
 			local value = setup(t, true, true)
@@ -242,6 +353,7 @@ local cases: { Case } = {
 				t.check("a tap delivers one press", value.presses == 1, value.presses)
 			end,
 			whileDragging = function(t, value)
+				t.note("preview render samples", value.previewSamples)
 				t.check("a preview was sampled on real frames", value.frames >= 10, value.frames)
 				t.check("preview contact stays within one pixel", value.maxError <= 1, value.maxError)
 				t.check("the parent does not pan under a drag", value.scroll.CanvasPosition == value.canvas)
@@ -251,7 +363,7 @@ local cases: { Case } = {
 				t.settle(60)
 				t.check("one drop commits after travel", value.commits == 1, value.commits)
 				t.check("the source capture ends", value.source:GetAttribute("FacetDragHeld") == nil)
-				t.check("travel removes its preview", value.stage:FindFirstChild("DragGhost", true) == nil)
+				t.check("travel removes its preview", preview(value.stage) == nil)
 			end,
 		},
 	},

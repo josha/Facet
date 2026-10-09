@@ -744,22 +744,35 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					if fit then
 						local natural = ctx.observe.TextBounds(button:FindFirstChild("LabelMeasure") :: TextLabel)
 						local room = ctx.observe.AbsoluteSize(button)
-						local target = Compose.formula(function(use: ComposeTypes.Use): number?
+						local function budget(use: ComposeTypes.Use): (number, number, number, boolean)
 							local width = use(natural).X
 							local unit = use(layoutUnit)
 							local glyphWidth = if not stacked(use) and use(current).icon
 								then (ctx.controlSize(spec.controlSize, "iconSize", use) + ctx.metric("space.xs", use))
 									* unit
 								else 0
-							local available = use(room).X
+							local padded = use(room).X
 								- 2 * ctx.controlSize(spec.controlSize, "paddingX", use) * unit
 								- glyphWidth
-							if
-								string.find(use(placement), "bottom") == nil
-								or use(crowded)
-								or width <= 0
-								or available <= 0
-							then
+							local snug = use(room).X - glyphWidth - 2 * ctx.metric("space.xs", use) * unit
+							local fitting = string.find(use(placement), "bottom") ~= nil and not use(crowded)
+							return width, padded, snug, fitting
+						end
+						local tight = Compose.formula(function(use: ComposeTypes.Use): boolean
+							local width, padded, _, fitting = budget(use)
+							return fitting and width > 0 and padded > 0 and width > padded
+						end)
+						Compose.watch(function(use: ComposeTypes.Use)
+							if use(tight) then
+								button:AddTag("facet-button-tight")
+							elseif button:HasTag("facet-button-tight") then
+								button:RemoveTag("facet-button-tight")
+							end
+						end)
+						local target = Compose.formula(function(use: ComposeTypes.Use): number?
+							local width, padded, snug, fitting = budget(use)
+							local available = if use(tight) then snug else padded
+							if not fitting or width <= 0 or available <= 0 then
 								return nil
 							end
 							local largest = ctx.metric("typography.control.size", use)
@@ -771,16 +784,25 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							use(target)
 							drop:set(0)
 						end)
+						local caption = button:FindFirstChild("Title", true)
+						local title: TextLabel? = if caption and caption:IsA("TextLabel") then caption else nil
 						Compose.watch(function(use: ComposeTypes.Use)
 							local size = use(target)
 							if size == nil then
 								button:ResetPropertyToDefault("TextSize")
+								if title then
+									title:ResetPropertyToDefault("TextSize")
+								end
 								return
 							end
 							local smallest = ctx.metric("typography.caption.size", use)
 							button.TextSize = math.max(smallest, size - use(drop))
+							if title then
+								title.TextSize = button.TextSize
+							end
 						end)
-						local fits, drawn = ctx.observe.TextFits(button), ctx.observe.TextBounds(button)
+						local fits, drawn =
+							ctx.observe.TextFits(title or button), ctx.observe.TextBounds(title or button)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local whole, bounds = use(fits), use(drawn)
 							local smallest = ctx.metric("typography.caption.size", use)
@@ -805,13 +827,29 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							end,
 						})
 						runtime.decorate(title, {
-							Size = function(use)
-								return if stacked(use) then D2.new(1, 0, 0, labelLine(use)) else D2.fromOffset(0, 0)
+							Size = function(use: ComposeTypes.Use)
+								if stacked(use) then
+									return D2.new(1, 0, 0, labelLine(use))
+								end
+								if string.find(use(placement), "bottom") then
+									return D2.new(
+										1,
+										-ctx.controlSize(spec.controlSize, "iconSize", use)
+											- (flow:GetStyled("Padding") :: UDim).Offset,
+										0,
+										labelLine(use)
+									)
+								end
+								return D2.fromOffset(0, 0)
 							end,
-							AutomaticSize = function(use)
-								return if stacked(use) then E.AutomaticSize.None else E.AutomaticSize.XY
+							AutomaticSize = function(use: ComposeTypes.Use)
+								return if string.find(use(placement), "bottom")
+									then E.AutomaticSize.None
+									else E.AutomaticSize.XY
 							end,
 							TextXAlignment = E.TextXAlignment.Center,
+							TextWrapped = false,
+							TextTruncate = E.TextTruncate.AtEnd,
 						})
 					end
 					local function badgeOf(use: ComposeTypes.Use): string?

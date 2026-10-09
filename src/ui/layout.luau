@@ -251,6 +251,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		end
 		local size, automatic = kit.extent(spec, "fill", if axis == "x" and not scaled then "hug" else "fill")
 		local native: Engine.ScrollingFrameNativeProps = {
+			Active = true,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,
@@ -285,6 +286,30 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			}
 			local left = if insets then observe.PaddingLeft(insets) else nil
 			local right = if insets then observe.PaddingRight(insets) else nil
+			local mode = ctx.observe.AutomaticSize(frame)
+			local scrollStyle = (
+				ctx.observeStyled :: unknown
+			) :: { ScrollBarThickness: (ScrollingFrame) -> ComposeTypes.Cell<number> }
+			local thickness = scrollStyle.ScrollBarThickness(frame)
+			if frame:FindFirstChildWhichIsA("UISizeConstraint") == nil then
+				runtime.mount(function()
+					return Host.UISizeConstraint "ScrollBarRoom" {
+						MinSize = function(use: ComposeTypes.Use): Vector2
+							local free = use(mode) == E.AutomaticSize.Y or use(mode) == E.AutomaticSize.XY
+							local scale = use(unit)
+							local extent, viewport = use(content), use(window)
+							return V2.new(
+								0,
+								if free
+										and extent.X > viewport.X
+										and viewport.X > 0
+									then math.ceil(extent.Y / scale) + use(thickness)
+									else 0
+							)
+						end,
+					}
+				end, frame)
+			end
 			runtime.decorate(frame, {
 				CanvasSize = function(use: ComposeTypes.Use): UDim2
 					local scale = use(unit)
@@ -671,6 +696,9 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 			end)),
 			properties
 		)
+		if #children == 1 then
+			return node
+		end
 		local offered, holder = ctx.observe.AbsoluteSize(node), ctx.observe.Parent(node)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(members)

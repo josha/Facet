@@ -316,13 +316,15 @@ return function(ctx: Types.Context, UI: Controls)
 						) :: TextBox
 						local function focus()
 							if
-								editing:peek()
+								alive
+								and editing:peek()
 								and enabled()
 								and field:FindFirstAncestorWhichIsA("LayerCollector")
+								and policy.selectionVisible(field)
 								and not field:IsFocused()
 							then
-								local gui = ctx.config.guiService
-								if gui then
+								local gui, input = ctx.config.guiService, ctx.config.userInputService
+								if gui and (input == nil or input.PreferredInput ~= E.PreferredInput.Touch) then
 									gui.SelectedObject = field
 								end
 								field:CaptureFocus()
@@ -351,12 +353,24 @@ return function(ctx: Types.Context, UI: Controls)
 							if wasEditing and not active and gui then
 								local selected = gui.SelectedObject
 								if selected and (selected == field or selected:IsDescendantOf(editor)) then
-									gui.SelectedObject = rowHit() or hit
+									local target = rowHit() or hit
+									gui.SelectedObject = if target.Selectable and policy.selectionVisible(target)
+										then target
+										else nil
 								end
 							end
 							wasEditing = active
 						end)
 						ctx.runtime.connect(field, "AncestryChanged", requestFocus)
+						local position = ctx.observe.AbsolutePosition(field)
+						local size = ctx.observe.AbsoluteSize(field)
+						Compose.watch(function(use: ComposeTypes.Use)
+							use(position)
+							use(size)
+							if editing:peek() then
+								requestFocus()
+							end
+						end)
 						return editor
 					end),
 				}

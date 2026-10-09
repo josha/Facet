@@ -93,6 +93,36 @@ return function(verifyHarness: Verify.Harness)
 		}
 	end
 	verifyHarness:suite("radial label fit", function()
+		verifyHarness:case("keeps selected tool surfaces visible in the native list fallback", {
+			id = "native_radial_controls::radial label fit::keeps selected tool surfaces visible in the native list fallback",
+			run = function()
+				local selected = Compose.cell("plant")
+				local world = setup({
+					items = {
+						{ id = "plow", label = "Plow", selected = selected, value = "plow" },
+						{ id = "plant", label = "Plant", selected = selected, value = "plant" },
+						{ id = "harvest", label = "Harvest", selected = selected, value = "harvest" },
+					},
+				})
+				world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(180, 180)
+				Verify.expect(world.find("RadialPanel"):GetAttribute("Presentation")):toBe("list")
+				for _, name in { "plow", "plant", "harvest" } do
+					Verify.expect(world.find(name).BackgroundTransparency):toBe(0)
+					Verify.expect(world.find(name):HasTag("facet-radial-row")):toBe(true)
+				end
+				world.find("plow").Activated:Fire()
+				Verify.expect(selected:peek()):toBe("plow")
+				for _ = 1, 10 do
+					world.step(1 / 60)
+					Verify.expect(world.find("plow").BackgroundTransparency):toBe(0)
+				end
+				world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(1280, 720)
+				Verify.expect(world.find("RadialPanel"):GetAttribute("Presentation")):toBe("radial")
+				Verify.expect(world.find("plow").BackgroundTransparency):toBe(1)
+				Verify.expect(world.find("plow"):HasTag("facet-radial-row")):toBe(false)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("keeps short names on one line inside round item targets", {
 			id = "native_radial_controls::radial label fit::keeps short names on one line inside round item targets",
 			run = function()

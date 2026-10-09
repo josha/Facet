@@ -26,6 +26,7 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 			Size = D2.fromOffset(0, 0),
 		}))
 		local node = spec.content()
+		runtime.decorate(node, { AutomaticSize = ctx.types.Enum.AutomaticSize.None })
 		local restingDepth = node.ZIndex
 		local liftScale: UIScale? = nil
 		if spec.lift then
@@ -48,8 +49,15 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 				releaseDestination()
 			end
 		end)
-		runtime.connect(node, "Destroying", owner.dispose)
-		runtime.connect(anchor, "Destroying", owner.dispose)
+		local function retire()
+			if task and task.defer then
+				task.defer(owner.dispose)
+			else
+				owner.dispose()
+			end
+		end
+		runtime.connect(node, "Destroying", retire)
+		runtime.connect(anchor, "Destroying", retire)
 		local previous: GuiObject? = nil
 		local parent: GuiBase2d? = nil
 		local overlay: GuiBase2d? = nil
@@ -342,7 +350,7 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 				end
 				watchedDestination = next
 				Compose.withOwner(owner, function()
-					releaseDestination = runtime.connect(next, "Destroying", owner.dispose)
+					releaseDestination = runtime.connect(next, "Destroying", retire)
 				end)
 			end
 			destination = next
