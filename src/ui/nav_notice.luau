@@ -645,7 +645,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				CanvasSize = D2.fromOffset(0, 0),
 				CanvasPosition = ctx.types.Vector2.zero,
 				ScrollingDirection = E.ScrollingDirection.X,
-				HorizontalScrollBarInset = E.ScrollBarInset.ScrollBar,
+				ScrollBarThickness = 0,
 				ClipsDescendants = true,
 				Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,

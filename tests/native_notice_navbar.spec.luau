@@ -71,7 +71,7 @@ return function(verifyHarness: Verify.Harness)
 					local content = trailing:FindFirstChildWhichIsA("UIListLayout")
 					content.AbsoluteContentSize = Vector2.new(720, 36)
 					Verify.expect(trailing.Size.Y.Offset):toBe(36 + trailing.ScrollBarThickness)
-					Verify.expect(trailing.HorizontalScrollBarInset):toBe(w.engine.types.Enum.ScrollBarInset.ScrollBar)
+					Verify.expect(trailing.ScrollBarThickness):toBe(0)
 
 					Verify.expect(trailing:FindFirstChild("ViewportBounds").MaxSize.X):toBe(width - 32)
 					Verify.expect(trailing.CanvasPosition.X):toBe(0)

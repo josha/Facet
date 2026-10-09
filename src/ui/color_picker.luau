@@ -177,7 +177,14 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		return ctx.styled(
 			Host.Frame(name)({
 				Size = edge,
-				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				BackgroundColor3 = function(use: Use)
+					return paint(use).color or WHITE
+				end,
+				BackgroundTransparency = function(use: Use)
+					local p = paint(use)
+					return if p.color ~= nil and p.alpha >= 1 then 0 else 1
+				end,
 				ctx.corner() :: Shared.Child,
 				Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
 				Compose.keyed({
