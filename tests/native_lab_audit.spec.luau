@@ -187,9 +187,6 @@ return function(verifyHarness: Verify.Harness)
 						`{size[1]}x{size[2]}: {count} catalog control mounts; native text and layout unmeasured`
 					)
 				end
-				local evidence = "artifacts/place-review/a3-catalog-smoke.txt"
-				fs.writeFile(evidence, table.concat(rows, "\n"))
-				context:artifact("catalog-smoke", evidence, "text/plain")
 			end,
 		})
 

@@ -181,9 +181,6 @@ return function(verifyHarness: Verify.Harness)
 					)
 					view.dispose()
 				end
-				local evidence = "artifacts/place-review/a3-editor-smoke.txt"
-				fs.writeFile(evidence, table.concat(rows, "\n"))
-				context:artifact("editor-smoke", evidence, "text/plain")
 			end,
 		})
 
