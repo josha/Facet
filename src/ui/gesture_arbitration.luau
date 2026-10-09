@@ -33,8 +33,9 @@ function arbitration.new(): Arbiter
 	local captureOwner: GuiObject? = nil
 	local cameras: { [GuiObject]: boolean } = {}
 	function arbiter.begin(pointer: InputObject, owner: GuiObject, origin: Vector2, options: Options): boolean
-		if contacts[pointer] then
-			return contacts[pointer].owner == owner
+		local held = contacts[pointer]
+		if held and (held.owner == owner or held.kind ~= "pending" or not owner:IsDescendantOf(held.owner)) then
+			return held.owner == owner
 		end
 		local threshold = options.threshold or 6
 		assert(threshold > 0 and threshold < math.huge, "Facet gesture threshold must be finite and positive")

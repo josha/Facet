@@ -185,6 +185,7 @@ return function(harness: Verify.Harness)
 			end
 			local pointer = engine.new("InputObject")
 			pointer.UserInputType = engine.types.Enum.UserInputType.Touch
+			pointer.Position = engine.types.Vector3.new(10, 10, 0)
 			input.InputBegan:Fire(pointer, false)
 			local owner = C.createRootOwner(function() end, runtime.reactor)
 			local arbiter
@@ -206,6 +207,7 @@ return function(harness: Verify.Harness)
 			end
 			tile.Parent = canvas
 			arbiter.finish(pointer)
+			input.InputEnded:Fire(pointer, false)
 			for _ = 1, 20 do
 				engine.heartbeat:Fire(0.016)
 			end
@@ -423,6 +425,35 @@ return function(harness: Verify.Harness)
 			w.input.TouchPinch:Fire({}, 0, 0, E.UserInputState.End, true)
 			t:expect(w.view.ScrollingEnabled):toBe(true)
 			t:expect(w.outer.ScrollingEnabled):toBe(true)
+		end)
+
+		harness:case("a touch double tap that lands on a child control toggles the zoom", function(t)
+			local w = inputWorld()
+			t:defer(w.stop)
+			local V2, E = w.engine.types.Vector2, w.engine.types.Enum
+			w.input.PreferredInput = E.PreferredInput.Touch
+			local before = w.scale.Scale
+			for _ = 1, 2 do
+				local touch = w.event(E.UserInputType.Touch, V2.new(220, 236), E.UserInputState.Begin)
+				w.input.InputBegan:Fire(touch, true)
+				touch.UserInputState = E.UserInputState.End
+				w.input.InputEnded:Fire(touch, true)
+			end
+			for _ = 1, 40 do
+				w.engine.heartbeat:Fire(0.016)
+			end
+			t:expect(w.scale.Scale ~= before):toBe(true)
+			local outside = w.scale.Scale
+			for _ = 1, 2 do
+				local touch = w.event(E.UserInputType.Touch, V2.new(560, 560), E.UserInputState.Begin)
+				w.input.InputBegan:Fire(touch, true)
+				touch.UserInputState = E.UserInputState.End
+				w.input.InputEnded:Fire(touch, true)
+			end
+			for _ = 1, 40 do
+				w.engine.heartbeat:Fire(0.016)
+			end
+			t:expect(w.scale.Scale):toBe(outside)
 		end)
 
 		harness:case("native detector release clears child capture before the camera end callback", function(t)

@@ -544,6 +544,15 @@ return function(ctx: Shared.Context, UI: Types.Controls)
 					contacts[event] = true
 					if event.UserInputType == E.UserInputType.MouseButton1 and overMouse() then
 						beginPointer(event)
+					elseif
+						event.UserInputType == E.UserInputType.Touch
+						and not pinchActive
+						and ctx.read(spec.enabled) ~= false
+						and root.Visible
+						and root.Interactable
+						and inside(V2.new(event.Position.X, event.Position.Y))
+					then
+						beginPointer(event)
 					end
 				end
 			end)
