@@ -3965,7 +3965,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		host = "TabView",
 		family = "navigation",
 		alias = "Focus ring",
-		purpose = "One theme focus ring in place of the engine selection glow; it shows after keyboard or gamepad input. app.mount installs it, so press Tab here.",
+		purpose = "One theme focus ring replaces the engine selection glow after keyboard or gamepad input. Press Tab here.",
 		snippet = "UI.focusRing(playerGui)",
 		base = function()
 			return {}
@@ -5091,7 +5091,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		host = "Screen",
 		family = "facet",
 		alias = "Environment (size class, input, safe area)",
-		purpose = "Live readables of the engine facts a screen adapts to: viewport, size/height class, orientation, input classes, display size, safe insets, text size, reduced motion.",
+		purpose = "Readables of the engine facts a screen adapts to: viewport, size and height class, orientation, input, display size, safe insets, text size, reduced motion.",
 		alternatives = "Observe one container's AbsoluteSize for a local decision.",
 		snippet = "local env = UI.environment(); env.sizeClass, env.interactionClasses, …",
 		base = function()
@@ -5197,7 +5197,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		facet = true,
 		family = "facet",
 		alias = "Structure (show · switch · keyed · presence)",
-		purpose = "Compose's structural operations mount and unmount parts of the tree: a condition, a keyed branch, a keyed list, and an exit phase for leaving nodes.",
+		purpose = "Compose mounts and unmounts parts of the tree: a condition, a keyed branch, a keyed list, and an exit phase.",
 		alternatives = "Visible = false when the node must keep its place.",
 		snippet = "Compose.show(loaded, content, placeholder) · Compose.switch(mode, { a = …, b = … }) · Compose.keyed { from, key, render } · Compose.presence(open, build, { exit })",
 		surface = "Facet.Compose",
@@ -5303,7 +5303,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		facet = true,
 		family = "facet",
 		alias = "Motion (runtime.tween · runtime.spring)",
-		purpose = "Compose motion on any bound property: a tween with easing, or a spring with period and damping; reduced motion is an option.",
+		purpose = "Compose motion on any bound property: a tween with easing or a spring; reduced motion is an option.",
 		alternatives = "The controls' own motion needs nothing.",
 		scenarios = { "component_motion", "with_animation", "time_curves" },
 		snippet = "Size = runtime.spring(function(use) return use(open) and 1 or 0 end, { period = 0.3 })",
