@@ -5848,6 +5848,14 @@ PAGE_DATA.Outline = {
 
 for _, name in { "VirtualList", "VirtualGrid", "Outline" } do
 	table.insert(
+		assert(PAGE_DATA[name].axes),
+		{
+			key = "scrollReset",
+			values = { "initial", "reset 1", "reset 2" },
+			matrix = false,
+		} :: Axis
+	)
+	table.insert(
 		assert(PAGE_DATA[name].states),
 		{
 			name = "reserved key slot",

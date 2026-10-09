@@ -225,18 +225,15 @@ return function(verifyHarness: Verify.Harness)
 					return w.Enum.UserInputType.Touch
 				end
 				open:set(true)
-				Verify.expect(w.gui.SelectedObject == nil or within(w.gui.SelectedObject, w.find("DialogModal")))
-					:toBe(true)
+				Verify.expect(w.gui.SelectedObject):toBeNil()
 				w.gui.SelectedObject = w.find("Opener")
-				Verify.expect(w.gui.SelectedObject == nil or within(w.gui.SelectedObject, w.find("DialogModal")))
-					:toBe(true)
+				Verify.expect(w.gui.SelectedObject):toBeNil()
 				w.advance(0.3, 18)
 				w.gui.SelectedObject = w.find("Opener")
-				Verify.expect(w.gui.SelectedObject == nil or within(w.gui.SelectedObject, w.find("DialogModal")))
-					:toBe(true)
+				Verify.expect(w.gui.SelectedObject):toBeNil()
 				open:set(false)
 				w.advance(0.3, 18)
-				Verify.expect(w.gui.SelectedObject):toBe(w.find("Opener"))
+				Verify.expect(w.gui.SelectedObject):toBeNil()
 				w.stop()
 			end,
 		})
@@ -895,6 +892,35 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(w.find("DismissOutside").BackgroundTransparency > 0.5):toBe(true)
 				w.advance(0.3, 18)
 				Verify.expect(panel:isDestroyed()):toBe(true)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("clips a SurfaceGui to its canvas while a presentation is on it", {
+			id = "native_presentation_motion::presentation motion: disabled modal opener::clips a SurfaceGui to its canvas while a presentation is on it",
+			run = function()
+				local w = overlay.new(function(UI, Host)
+					return Host.SurfaceGui "WorldUI" {
+						ClipsDescendants = false,
+						UI.Menu "Commands" {
+							label = "Actions",
+							presentation = "sheet",
+							items = { { id = "save", label = "Save", onSelect = function() end } },
+						},
+					}
+				end)
+				local layer = w.find("WorldUI")
+				w.size(layer, 390, 271)
+				w.find("Trigger").Activated:Fire()
+				local panel, modal = w.find("MenuPanel"), w.find("Modal")
+				w.size(modal, 390, 271)
+				w.size(panel, 366, 140)
+				w.advance(1, 60)
+				Verify.expect(layer.ClipsDescendants):toBe(true)
+				w.find("DismissOutside").Activated:Fire()
+				local resting = panel.Position.Y.Offset
+				w.advance(0.05, 3)
+				Verify.expect(panel.Position.Y.Offset > resting):toBe(true)
+				Verify.expect(layer.ClipsDescendants):toBe(true)
 				w.stop()
 			end,
 		})

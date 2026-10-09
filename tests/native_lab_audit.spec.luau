@@ -58,6 +58,141 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native lab audit: drag and drop", function()
+		verifyHarness:case("Travel rows use the theme surface and its changing readout wraps at each smoke width", {
+			id = "native_lab_audit::native lab audit: drag and drop::Travel rows use the theme surface and its changing readout wraps at each smoke width",
+			run = function()
+				local fs, luau = require("@lune/fs"), require("@lune/luau")
+				type Demo = {
+					travel: (FacetControls, RobloxHost, ComposeModule, "straight" | "arc") -> Frame,
+					shuffle: (FacetControls, RobloxHost, ComposeModule) -> Frame,
+				}
+				for _, width in { 389, 430, 1280 } do
+					for _, mode in { "foundation-dark", "foundation-light" } do
+						local foundation = require("../examples/facet-lab/themes/foundation")
+						local theme = assert(foundation.build(themes, mode))
+						local w = worlds.new(function(UI, Host, engine)
+							local environment: { [string]: unknown } = {}
+							for key, value in engine.types do
+								environment[key] = value
+							end
+							local loaded = luau.load(fs.readFile("examples/facet-lab/src/zoom_travel_demo.luau"), {
+								environment = environment,
+							})() :: Demo
+							return Host.Frame {
+								loaded.travel(UI, Host, Compose, "straight"),
+								loaded.shuffle(UI, Host, Compose),
+							}
+						end, { theme = theme })
+						for _, name in { "SourceRow", "DestinationRow" } do
+							Verify.expect(w.find(name):HasTag("facet-surface")):toBe(true)
+						end
+						local readout = w.find("TravelReadout")
+						Verify.expect(readout ~= nil):toBe(true)
+						Verify.expect(readout.TextWrapped):toBe(true)
+						Verify.expect(readout.Size.X.Scale):toBe(1)
+						Verify.expect(readout.AutomaticSize):toBe(w.engine.types.Enum.AutomaticSize.Y)
+						w.bounds(readout, width - 80, 24)
+						local sheet, stopSheet = sheetFor(theme)
+						local paint = assert(rule(sheet, ".facet-surface")):GetProperties().BackgroundColor3
+						local palette = theme.style.themes[if mode == "foundation-dark" then 1 else 2].colors.surface
+						Verify.expect(paint):toBe(w.engine.types.Color3.new(palette.r, palette.g, palette.b))
+						stopSheet()
+						w.stop()
+					end
+				end
+			end,
+		})
+		verifyHarness:case("mounts catalog controls at the smoke viewports", {
+			id = "native_lab_audit::native lab audit: drag and drop::mounts catalog controls at the smoke viewports",
+			run = function(context)
+				type Props = { [string | number]: unknown }
+				type PageContext = {
+					UI: FacetControls,
+					Host: RobloxHost,
+					Compose: ComposeModule,
+					[string]: unknown,
+				}
+				type Page = {
+					base: ((PageContext) -> Props)?,
+					make: ((FacetControls, Props, PageContext) -> Instance)?,
+				}
+				local fs, luau = require("@lune/fs"), require("@lune/luau")
+				local rows: { string } = {}
+				for _, size in { { 389, 762 }, { 430, 932 }, { 1280, 720 } } do
+					local initial = engineLib.new()
+					local runService = { Heartbeat = initial.heartbeat }
+					local environment: { [string]: unknown } = {}
+					for key, value in initial.types do
+						if type(key) == "string" then
+							environment[key] = value
+						end
+					end
+					environment.game = {
+						GetService = function(_self: unknown, name: string)
+							assert(name == "RunService")
+							return runService
+						end,
+					}
+					environment.require = function(path: string): unknown
+						local name = assert(string.match(path, "^%./([%w_]+)$"))
+						return luau.load(fs.readFile(`examples/facet-lab/src/{name}.luau`), {
+							environment = environment,
+						})()
+					end
+					local catalog = luau.load(fs.readFile("examples/facet-lab/src/catalog.luau"), {
+						environment = environment,
+					})() :: { PAGE_DATA: { [string]: Page } }
+					local count = 0
+					for id, data in catalog.PAGE_DATA do
+						if not string.match(id, "^[A-Z]") or data.base == nil then
+							continue
+						end
+						local mounted = false
+						local w = worlds.new(function(UI: FacetControls, Host: RobloxHost, engine: engineLib.Engine)
+							runService.Heartbeat = engine.heartbeat
+							local constructor = ((UI :: unknown) :: { [string]: (Props) -> Instance })[id]
+							if constructor == nil then
+								return Host.Folder {}
+							end
+							local c: PageContext = {
+								UI = UI,
+								Host = Host,
+								Compose = Compose,
+								Facet = Facet,
+								types = engine.types,
+								logical = Compose.cell({ width = size[1], height = size[2] }),
+								cell = function<T>(_name: string, initial: T)
+									return Compose.cell(initial)
+								end,
+								log = function(_name: string)
+									return function(...: unknown) end
+								end,
+							}
+							local props = assert(data.base)(c)
+							local node = if data.make then data.make(UI, props, c) else constructor(props)
+							mounted = true
+							return node
+						end, {
+							environment = { viewportSize = initial.types.Vector2.new(size[1], size[2]) },
+							motionLevel = "none",
+						})
+						if mounted then
+							count += 1
+						end
+						w.stop()
+					end
+					Verify.expect(count > 0):toBe(true)
+					table.insert(
+						rows,
+						`{size[1]}x{size[2]}: {count} catalog control mounts; native text and layout unmeasured`
+					)
+				end
+				local evidence = "artifacts/place-review/a3-catalog-smoke.txt"
+				fs.writeFile(evidence, table.concat(rows, "\n"))
+				context:artifact("catalog-smoke", evidence, "text/plain")
+			end,
+		})
+
 		verifyHarness:case("matrix bounds intrinsic buttons without changing pure helper arguments", {
 			id = "native_lab_audit::native lab audit: drag and drop::matrix bounds intrinsic buttons without changing pure helper arguments",
 			run = function()

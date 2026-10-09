@@ -48,27 +48,44 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			inset = probe - Vector2.new(observed.X, observed.Y)
 			t.note("touch calibration inset", inset)
 		end
+		local function screenPoint(at: Vector2): Vector2
+			local pixel = at + inset
+			return Vector2.new(math.floor(pixel.X + 0.5), math.floor(pixel.Y + 0.5))
+		end
+		local held = false
+		local last: Vector2? = nil
+		local function moveTo(at: Vector2)
+			virtual:SendMousePosition(screenPoint(at))
+			last = at
+		end
 		local io: any = {}
 		function io.move(at: Vector2)
-			virtual:SendMousePosition(at + inset)
+			moveTo(at)
 			settle(2)
 		end
 		function io.down(at: Vector2)
 			io.move(at)
-			virtual:SendMouseButton(at + inset, Enum.UserInputType.MouseButton1, true)
+			virtual:SendMouseButton(screenPoint(at), Enum.UserInputType.MouseButton1, true)
+			held = true
 			settle(3)
 		end
 		function io.up(at: Vector2)
-			virtual:SendMouseButton(at + inset, Enum.UserInputType.MouseButton1, false)
+			virtual:SendMouseButton(screenPoint(at), Enum.UserInputType.MouseButton1, false)
+			held = false
 			settle(6)
 		end
 		function io.heldDrag(from: Vector2, to: Vector2)
 			io.down(from)
 			for index = 1, 16 do
-				virtual:SendMousePosition(from:Lerp(to, index / 16) + inset)
+				moveTo(from:Lerp(to, index / 16))
 				settle(1)
 			end
 			settle(3)
+		end
+		function io.cleanup()
+			if held and last then
+				io.up(last)
+			end
 		end
 		function io.drag(from: Vector2, to: Vector2, pause: number?)
 			io.heldDrag(from, to)
@@ -92,9 +109,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		function io.doubleClick(at: Vector2)
 			io.move(at)
 			for count = 0, 1 do
-				virtual:SendMouseButton(at + inset, Enum.UserInputType.MouseButton1, true, count)
+				virtual:SendMouseButton(screenPoint(at), Enum.UserInputType.MouseButton1, true, count)
 				settle(1)
-				virtual:SendMouseButton(at + inset, Enum.UserInputType.MouseButton1, false, count)
+				virtual:SendMouseButton(screenPoint(at), Enum.UserInputType.MouseButton1, false, count)
 				settle(1)
 			end
 		end
@@ -120,7 +137,10 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		return io
 	end
 	local function press(t: any, names: { string }, frames: number?)
-		local result = HttpService:JSONDecode(live.press(names, frames))
+		local hold = if frames == nil and (table.find(names, "ButtonR2") or table.find(names, "ButtonL2"))
+			then 30
+			else frames
+		local result = HttpService:JSONDecode(live.press(names, hold))
 		for _, name in names do
 			if string.sub(name, 1, 5) == "Stick" then
 				local delivered = false
@@ -235,7 +255,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 	drivers["touch-drag-scrolls-reorderable-list"] = function(t, value, io)
 		local cell = t.find(value.list, "Cell3")
 		local from = centre(cell)
-		io.drag(from, from - Vector2.new(0, 160))
+		local distance = math.min(160, from.Y - value.list.AbsolutePosition.Y - 8)
+		t.note("native scroll drag", { from = from, to = from - Vector2.new(0, distance) })
+		io.drag(from, from - Vector2.new(0, distance))
 		live.step("afterDrag")
 	end
 	drivers["mail-swipe-and-tap"] = function(t, value, io)
@@ -352,6 +374,78 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			live.step(step)
 		end
 	end
+	drivers["reserved-slots-pointer-and-gamepad-recall"] = function(t, value, io)
+		if keyboardInput then
+			io.drag(centre(value.source), centre(value.target))
+		else
+			GuiService.SelectedObject = value.source:FindFirstChild("Move", true) or value.source
+			press(t, { "ButtonA" })
+			press(t, { "ButtonY" })
+			press(t, { "DPadDown" })
+			press(t, { "ButtonA" })
+		end
+		live.step("afterStage")
+		press(t, { "ButtonA" })
+		press(t, { "StickUp" })
+		press(t, { "ButtonA" })
+		live.step("afterRecall")
+		live.step("afterRelease")
+	end
+	drivers["collection-immediate-touch-transfer"] = function(_, value, io)
+		local from, to = centre(value.source), centre(value.target)
+		io.down(from)
+		io.move(from + Vector2.new(8, 0))
+		live.step("afterEightPixels")
+		for index = 1, 16 do
+			io.move((from + Vector2.new(8, 0)):Lerp(to, index / 16))
+		end
+		live.step("whileDragging")
+		io.up(to)
+		live.step("afterDrop")
+	end
+	drivers["travel-recycled-destination"] = function(_, value)
+		value.destination:set(assert(value.targets[1]))
+		settle(2)
+		value.replace()
+		settle(120)
+		live.step("afterReplace")
+		value.remove()
+		settle(120)
+		live.step("afterRemove")
+	end
+	for _, id in { "zoom-capture-camera", "zoom-collection-capture-camera" } do
+		drivers[id] = function(_, value, io)
+			local at = centre(value.tile)
+			io.heldDrag(at, at + Vector2.new(20, 20))
+			settle(120)
+			live.step("whileLifted")
+			io.up(at + Vector2.new(20, 20))
+			settle(120)
+			live.step("afterRelease")
+		end
+	end
+	drivers["shuffle-pointer"] = function(_, value, io)
+		local button = assert(value.row.Parent:FindFirstChild("Shuffle", true))
+		io.click(centre(button))
+		settle(240)
+		live.step("afterShuffle")
+		io.click(centre(button))
+		settle(8)
+		io.click(centre(button))
+		settle(240)
+		live.step("afterInterrupt")
+	end
+	drivers["shuffle-gamepad"] = function(t, value)
+		GuiService.SelectedObject = assert(value.row.Parent:FindFirstChild("Shuffle", true))
+		press(t, { "ButtonA" })
+		settle(240)
+		live.step("afterShuffle")
+		press(t, { "ButtonA" })
+		settle(8)
+		press(t, { "ButtonA" })
+		settle(240)
+		live.step("afterInterrupt")
+	end
 	drivers["hover-slot-reflow"] = function(_, value, io)
 		local source = centre(value.source)
 		local node = assert(value.stage:FindFirstChild("B", true)) :: GuiObject
@@ -405,8 +499,8 @@ return function(live: any, suite: string, options: { [string]: any }): any
 	end
 	drivers["zoom-pointer"] = function(_, value, io)
 		local at = value.view.AbsolutePosition + Vector2.new(value.view.AbsoluteSize.X - 80, 80)
-		io.pointerAction(at, { Pinch = 0.5 })
-		live.step("afterPinch")
+		io.controlWheel(at, 1)
+		live.step("afterFocusZoom")
 		io.doubleClick(at)
 		settle(60)
 		live.step("afterDoubleTap")
@@ -414,14 +508,14 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		live.step("afterWheelZoom")
 		io.pointerAction(at, { Wheel = 2 })
 		live.step("afterWheelPan")
-		io.drag(at, at + Vector2.new(0, 40))
+		io.drag(at, at - Vector2.new(0, 40))
 		live.step("afterMousePan")
 		local contact = centre(value.tile)
 		io.heldDrag(contact, contact + Vector2.new(20, 20))
 		live.step("afterChildDrag")
 		io.up(contact + Vector2.new(20, 20))
 	end
-	if options.device == "keep" and UserInputService.GamepadEnabled then
+	do
 		local travelDrivers = require(game.ReplicatedStorage.FacetLive.zoom_travel_drivers)(
 			live.step,
 			press,
@@ -472,11 +566,41 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		settle(60)
 		live.step("afterFinish")
 	end
+	drivers["board-command-gamepad"] = function(t, value)
+		GuiService.SelectedObject = value.first
+		press(t, { "ButtonX" })
+		live.step("afterPlace")
+		press(t, { "DPadRight" })
+		press(t, { "ButtonY" })
+		live.step("afterRecall")
+	end
+	drivers["reward-gamepad"] = function(t, value)
+		local root = assert(value.target.Parent)
+		local play = assert(root:FindFirstChild("Play", true))
+		local finish = assert(root:FindFirstChild("Finish", true))
+		GuiService.SelectedObject = play
+		press(t, { "ButtonA" })
+		settle(180)
+		live.step("afterReward")
+		GuiService.SelectedObject = play
+		press(t, { "ButtonA" })
+		GuiService.SelectedObject = finish
+		press(t, { "ButtonA" })
+		settle(60)
+		live.step("afterFinish")
+	end
+	drivers["tray-grows-with-text-size"] = function()
+		assert(type(options.changeNativeTextSize) == "function", "native text-size setting requires an external driver")
+		options.changeNativeTextSize()
+		settle(60)
+		live.step("afterChange")
+	end
 	local gamepad = {
 		["shuffle-gamepad"] = true,
 		["board-command-gamepad"] = true,
 		["reward-gamepad"] = true,
 		["keyboard-gamepad-place-and-cancel"] = true,
+		["reserved-slots-pointer-and-gamepad-recall"] = true,
 		["zoom-gamepad"] = true,
 		["travel-gamepad"] = true,
 		["vote-pad-reaches-and-proposes"] = true,
@@ -491,7 +615,23 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		["alert-selection-stays-inside"] = true,
 		["confirm-dialog-left-right"] = true,
 	}
+	local requirements = {
+		["collection-immediate-touch-transfer"] = "input-native-touch",
+		["tray-grows-with-text-size"] = "input-native-settings",
+	}
+	for id in gamepad do
+		requirements[id] = "input-gamepad"
+	end
+	if options.registerOnly then
+		return { drivers = drivers, requirements = requirements, pointer = pointer }
+	end
 	local capabilities = { "roblox-client", "input-pointer" }
+	if type(options.changeNativeTextSize) == "function" then
+		table.insert(capabilities, "input-native-settings")
+	end
+	if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+		table.insert(capabilities, "input-native-touch")
+	end
 	if keyboardInput then
 		table.insert(capabilities, "input-keyboard")
 	end
@@ -534,10 +674,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			continue
 		end
 		selected += 1
-		local required = if case.id == "tray-grows-with-text-size"
-			then "input-native-settings"
-			elseif gamepad[case.id] then "input-gamepad"
-			else nil
+		local required = requirements[case.id]
 		if required and not table.find(capabilities, required) then
 			unavailable:case(case.id, {
 				id = case.id,
@@ -548,7 +685,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			})
 			continue
 		end
-		local touch = case.id == "touch-drag-scrolls-reorderable-list" or case.id == "mail-swipe-and-tap"
+		local touch = case.id == "touch-drag-scrolls-reorderable-list"
+			or case.id == "mail-swipe-and-tap"
+			or case.id == "collection-immediate-touch-transfer"
 		if options.device ~= "keep" then
 			local simulator = game:GetService("StudioDeviceSimulatorService") :: any
 			if touch then
@@ -579,10 +718,20 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			continue
 		end
 		local session = shared.FacetLiveSession
+		local cleanInput: (() -> ())? = nil
 		local ran, errorMessage = xpcall(function()
 			local driver = assert(drivers[case.id], "no native input driver for " .. case.id)
-			driver(session.t, session.value, pointer(session.t))
+			local io = pointer(session.t)
+			cleanInput = io.cleanup
+			driver(session.t, session.value, io)
 		end, debug.traceback)
+		if cleanInput then
+			local released, releaseError = pcall(function(): unknown
+				assert(cleanInput)()
+				return nil
+			end)
+			session.t.check("native input released after driver", released, releaseError)
+		end
 		if not ran then
 			session.t.check("native input driver completed", false, errorMessage)
 		end

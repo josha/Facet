@@ -1338,6 +1338,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingTop = types.UDim.new(0, 0),
 		PaddingBottom = types.UDim.new(0, 0),
 	})
+	rule(".facet-button.facet-radial-row", { BackgroundTransparency = 0 })
 	rule(".facet-page-indicator", { BackgroundTransparency = 1 })
 	rule(".facet-page-indicator:Hover", { BackgroundTransparency = 1 })
 	rule(".facet-page-indicator:Press", { BackgroundTransparency = 1 })
@@ -1413,6 +1414,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local segmentInk = if contrast(quiet, track) >= 4.5 or contrast(quiet, track) >= contrast(loud, track)
 		then quiet
 		else loud
+	rule(".facet-tab-item.facet-button-tight::UIPadding", {
+		PaddingLeft = types.UDim.new(0, rowGap + (buttonInsets.left or 0)),
+		PaddingRight = types.UDim.new(0, rowGap + (buttonInsets.right or 0)),
+	})
 	rule(".facet-tab-item", { BackgroundTransparency = 1, TextColor3 = c("contentSecondary") })
 	rule(".facet-tab-item >> .facet-button-caption", { TextColor3 = c("contentSecondary") })
 	rule(".facet-tab-item.facet-skinned", { TextColor3 = segmentInk })

@@ -167,9 +167,7 @@ return function(
 					ZIndex = -1,
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
-					Size = function(use: ComposeTypes.Use): UDim2
-						return D2.fromScale(1, 1)
-					end,
+					Size = D2.fromScale(1, 1),
 					Visible = function(use: ComposeTypes.Use): boolean
 						return use(form) > 1
 					end,

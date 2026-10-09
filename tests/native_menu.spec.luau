@@ -689,6 +689,23 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps a tall centered calendar menu inside the viewport when neither anchor side fits", {
+			id = "native_menu::native menu parity with main::keeps a tall centered calendar menu inside the viewport when neither anchor side fits",
+			run = function()
+				for _, align in { "center", "end" } do
+					local world = labelled({ edge = "bottom", align = align, items = items(12) })
+					local panel = open(world)
+					lay(world, panel, Vector2.new(496, 187), Vector2.new(220, 40), Vector2.new(220, 536))
+					modalOf(world, panel).AbsoluteSize = Vector2.new(1914, 701)
+					local position = materialize.position(panel)
+					Verify.expect(position.Y.Offset >= 8):toBe(true)
+					Verify.expect(position.Y.Offset + 536 <= 701 - 8):toBe(true)
+					Verify.expect(position.Y.Offset):toBe(157)
+					world.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("clamps the panel inside the GuiService inset when its screen ignores the inset", {
 			id = "native_menu::native menu parity with main::clamps the panel inside the GuiService inset when its screen ignores the inset",
 			run = function()

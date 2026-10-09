@@ -10,7 +10,7 @@ return function(
 	return {
 		["zoom-gamepad"] = function(t, state)
 			select(assert(state.view))
-			press(t, { "ButtonR2" })
+			press(t, { "ButtonR2" }, 30)
 			settle(30)
 			step("afterTrigger")
 			press(t, { "Stick2Right" }, 30)

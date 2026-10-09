@@ -10,7 +10,7 @@ type Live = {
 	check: (string, boolean, unknown?) -> (),
 	note: (string, unknown) -> (),
 }
-type Sample = { scale: number, pan: Vector2, held: boolean }
+type Sample = { scale: number, pan: Vector2, held: boolean, contact: Vector2?, pointer: Vector2?, error: number? }
 type ZoomState = {
 	view: ScrollingFrame,
 	tile: TextButton,
@@ -168,15 +168,23 @@ local function collectionCameraSetup(t: Live): ZoomState
 		local sample = RunService.PreRender:Connect(function()
 			local layer = view:FindFirstAncestorWhichIsA("ScreenGui")
 			local ghost = if layer then layer:FindFirstChild("DragGhost", true) else nil
+			local pointer: Vector2?
+			local contact: Vector2?
+			local error: number?
 			if state.captured and ghost and ghost:IsA("GuiObject") then
-				local pointer = game:GetService("UserInputService"):GetMouseLocation() - GuiService:GetGuiInset()
-				local contact = ghost.AbsolutePosition + ghost.AbsoluteSize * ghost.AnchorPoint
-				state.contactError = math.max(state.contactError or 0, (contact - pointer).Magnitude)
+				local currentPointer = game:GetService("UserInputService"):GetMouseLocation() - GuiService:GetGuiInset()
+				local currentContact = ghost.AbsolutePosition + ghost.AbsoluteSize * ghost.AnchorPoint
+				local currentError = (currentContact - currentPointer).Magnitude
+				pointer, contact, error = currentPointer, currentContact, currentError
+				state.contactError = math.max(state.contactError or 0, currentError)
 			end
 			table.insert(state.samples, {
 				scale = view:GetAttribute("FacetZoom") :: number,
 				pan = view.CanvasPosition,
 				held = state.captured == true,
+				contact = contact,
+				pointer = pointer,
+				error = error,
 			})
 		end)
 		C.cleanup(function()
@@ -572,6 +580,15 @@ local cases: { ZoomCase | TravelCase | ShuffleCase | RecycleCase } = {
 				t.note("capture-camera render samples", state.samples)
 			end,
 			afterRelease = function(t: Live, state: ZoomState)
+				t.note("camera release samples", state.samples)
+				t.note("camera view parent after release", tostring(state.view.Parent))
+				t.note("camera zoom after release", state.view:GetAttribute("FacetZoom"))
+				t.note("camera rectangle after release", {
+					state.view.AbsolutePosition.X,
+					state.view.AbsolutePosition.Y,
+					state.view.AbsoluteSize.X,
+					state.view.AbsoluteSize.Y,
+				})
 				t.check("release returns to fit", (state.view:GetAttribute("FacetZoom") :: number) < 1)
 				t.check("capture ends", state.tile:GetAttribute("FacetDragHeld") ~= true)
 			end,
@@ -594,7 +611,7 @@ local cases: { ZoomCase | TravelCase | ShuffleCase | RecycleCase } = {
 		contracts = {},
 		setup = zoomSetup,
 		steps = {
-			afterPinch = afterZoom,
+			afterFocusZoom = afterZoom,
 			afterDoubleTap = afterZoom,
 			afterWheelZoom = afterZoom,
 			afterWheelPan = afterPan,

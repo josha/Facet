@@ -8,6 +8,7 @@ local measuredScroll = require("./measured_scroll")
 local InputTypes = require("./input_types")
 local Shared = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
+local Environment = require("./environment_types")
 
 type Spec = InputTypes.TextInputImplementationProps
 type Scrub = {
@@ -634,18 +635,38 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		if not framed then
 			ctx.styled(ctx.styled(node, "field"), "text-input")
 		end
+		local root: TextBox | Frame = node
 		local keyboard = ctx.config.userInputService
 		if keyboard then
-			local scrolling = (UI :: unknown) :: { scrollTo: ((ScrollingFrame, Vector2) -> boolean)? }
+			local scrolling = (UI :: unknown) :: {
+				scrollTo: ((ScrollingFrame, Vector2) -> boolean)?,
+				scrollToVisible: ((GuiObject, Environment.ScrollRect?, Environment.ScrollOptions?) -> boolean)?,
+			}
 			local shown = ctx.observe.OnScreenKeyboardVisible(keyboard)
+			local positionObserver = (ctx.observe :: unknown) :: {
+				OnScreenKeyboardPosition: (UserInputService) -> ComposeTypes.Cell<Vector2>,
+			}
+			local keyboardPosition = positionObserver.OnScreenKeyboardPosition(keyboard)
+			local fieldPosition, fieldSize = ctx.observe.AbsolutePosition(node), ctx.observe.AbsoluteSize(node)
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(shown) ~= true or not use(editing) then
 					return
 				end
-				local top = keyboard.OnScreenKeyboardPosition.Y
-				local extent = node.AbsoluteSize
-				local overlap = node.AbsolutePosition.Y + extent.Y + 8 - top
+				use(fieldPosition)
+				use(fieldSize)
 				local page = node:FindFirstAncestorWhichIsA("ScrollingFrame")
+				if page then
+					use(ctx.observe.AbsoluteWindowSize(page))
+				end
+				local reveal = scrolling.scrollToVisible
+				local prior = if page then page.CanvasPosition.Y else 0
+				if reveal then
+					reveal(root, nil, { animated = false })
+				end
+				local revealed = if page then page.CanvasPosition.Y - prior else 0
+				local top = use(keyboardPosition).Y
+				local extent = node.AbsoluteSize
+				local overlap = node.AbsolutePosition.Y + extent.Y + 8 - top - revealed
 				local scroll = scrolling.scrollTo
 				if scroll and page and top > 0 and overlap > 0 then
 					scroll(page, page.CanvasPosition + V2.new(0, overlap))
@@ -653,7 +674,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end)
 		end
 
-		local root: TextBox | Frame = node
 		if framed then
 			local parts: { ComposeTypes.Child } = {}
 			local function slot(name: string, order: number, content: Instance)

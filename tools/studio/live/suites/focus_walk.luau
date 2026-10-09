@@ -2,6 +2,9 @@
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
+type PageReport = { current: string?, demo: { active: string? }? }
+type PageIdentity = (PageReport) -> string
+local pageIdentity = (require :: (ModuleScript) -> PageIdentity)(storage.FacetLive.focus_page :: ModuleScript)
 
 type Case = {
 	id: string,
@@ -13,8 +16,8 @@ type Case = {
 }
 local cases: { Case } = {}
 
-local function api(command: string, argument: any): any
-	return (workspace:WaitForChild("FacetShowcaseAPI") :: any):Invoke(command, argument)
+local function api(command: string, argument: unknown): PageReport
+	return (workspace:WaitForChild("FacetShowcaseAPI") :: BindableFunction):Invoke(command, argument)
 end
 
 local function pages(): { { id: string, tab: string? } }
@@ -83,6 +86,10 @@ table.insert(cases, {
 				open()
 			end
 			open()
+			local identity = pageIdentity(api("report", nil))
+			local function onPage(): boolean
+				return pageIdentity(api("report", nil)) == identity
+			end
 			local lint = focus.lint(layer)
 			t.check(`{name} lint`, #lint == 0, lint)
 			local stops = focus.stops(layer)
@@ -113,7 +120,8 @@ table.insert(cases, {
 						{ "Up", "Down", "Left", "Right" },
 						atlas,
 						restore,
-						options.resumePaths
+						options.resumePaths,
+						onPage
 					)
 				)
 				file ..= "--keys"
@@ -127,7 +135,8 @@ table.insert(cases, {
 						{ "DPadDown", "DPadLeft", "DPadRight" },
 						atlas,
 						restore,
-						options.resumePaths
+						options.resumePaths,
+						onPage
 					)
 				)
 				if options.stick ~= false then
@@ -140,7 +149,8 @@ table.insert(cases, {
 							{ "StickUp", "StickDown", "StickLeft", "StickRight" },
 							atlas,
 							restore,
-							options.resumePaths
+							options.resumePaths,
+							onPage
 						)
 					)
 				end

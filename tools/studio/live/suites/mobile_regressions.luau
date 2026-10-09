@@ -54,6 +54,23 @@ local function sample(t: any, root: Instance, name: string)
 		end
 		table.insert(frames, frame)
 	end
+	if name == "Motion picker" or name == "Colour picker" then
+		local notes = {}
+		for index, frame in frames do
+			local paintedText = {}
+			for node, bounds in frame do
+				table.insert(paintedText, {
+					path = node:GetFullName(),
+					text = node.Text,
+					position = bounds[1],
+					size = bounds[2],
+					textBounds = bounds[3],
+				})
+			end
+			table.insert(notes, { frame = index, text = paintedText })
+		end
+		t.note(if name == "Motion picker" then "segmented opening frames" else "colour opening frames", notes)
+	end
 	local last = frames[#frames]
 	local largest, measured = 0, 0
 	for _, frame in frames do

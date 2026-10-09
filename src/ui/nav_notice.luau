@@ -645,6 +645,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				CanvasSize = D2.fromOffset(0, 0),
 				CanvasPosition = ctx.types.Vector2.zero,
 				ScrollingDirection = E.ScrollingDirection.X,
+				HorizontalScrollBarInset = E.ScrollBarInset.ScrollBar,
 				ClipsDescendants = true,
 				Host.UIListLayout {
 					FillDirection = E.FillDirection.Horizontal,
@@ -711,19 +712,30 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		if trailingFrame then
 			local available = ctx.layoutSize(root)
+			local unit = ctx.layoutUnit(root :: GuiObject)
+			local trailingLayout = assert(trailingFrame:FindFirstChildWhichIsA("UIListLayout")) :: UIListLayout
+			local content = ctx.observe.AbsoluteContentSize(trailingLayout)
+			local scrollStyle = (ctx.observeStyled :: unknown) :: {
+				ScrollBarThickness: (ScrollingFrame) -> ComposeTypes.Cell<number>,
+			}
+			local thickness = scrollStyle.ScrollBarThickness(trailingFrame :: ScrollingFrame)
+			local function offered(use: ComposeTypes.Use): number
+				local width = use(available).X
+				return if width > 0
+					then math.max(0, width - (if spec.padding ~= nil then 2 * space(spec.padding, "s", use) else 0))
+					else math.huge
+			end
+			runtime.decorate(trailingFrame, {
+				AutomaticSize = E.AutomaticSize.None,
+				Size = function(use: ComposeTypes.Use): UDim2
+					local size = use(content) / use(unit)
+					return D2.fromOffset(size.X, size.Y + (if size.X > offered(use) then use(thickness) else 0))
+				end,
+			})
 			runtime.mount(function()
 				return Host.UISizeConstraint "ViewportBounds" {
 					MaxSize = function(use: ComposeTypes.Use): Vector2
-						local width = use(available).X
-						return ctx.types.Vector2.new(
-							if width > 0
-								then math.max(
-									0,
-									width - (if spec.padding ~= nil then 2 * space(spec.padding, "s", use) else 0)
-								)
-								else math.huge,
-							math.huge
-						)
+						return ctx.types.Vector2.new(offered(use), math.huge)
 					end,
 				}
 			end, trailingFrame)
@@ -736,7 +748,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 			end
 			local natural = if titleMeasure then ctx.observe.TextBounds(titleMeasure) else nil
-			local unit = ctx.layoutUnit(root :: GuiObject)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local scale = use(unit)
 				local width = use(box).X / scale

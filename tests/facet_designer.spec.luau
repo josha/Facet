@@ -31,15 +31,18 @@ return function(verifyHarness: Verify.Harness)
 		}
 	end
 
-	local function fixture(render)
+	local function fixture(render, width: number?, height: number?)
 		local engine = engines.new()
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
 		input.GetFocusedTextBox = function()
 			return nil
 		end
+		local previewConfig = config()
+		previewConfig.width = width or previewConfig.width
+		previewConfig.height = height or previewConfig.height
 		local options = {
-			config = config(),
+			config = previewConfig,
 			engine = engine,
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
@@ -47,6 +50,160 @@ return function(verifyHarness: Verify.Harness)
 		local parent = engine.new("ScreenGui")
 		return session.mount(Facet, parent, { name = "Populated", render = render }, options), engine, parent
 	end
+
+	verifyHarness:suite("Facet Design smoke mounts", function()
+		verifyHarness:case("mounts the shipped editor shell at the smoke viewports", {
+			id = "facet_designer::Facet Design smoke mounts::mounts the shipped editor shell at the smoke viewports",
+			run = function(context)
+				local fs, luau = require("@lune/fs"), require("@lune/luau")
+				local Theme = require("../src/ui/theme_types")
+				local Engine = require("../src/ui/engine_types")
+				local rows: { string } = {}
+				for _, size in { { 389, 762 }, { 430, 932 }, { 1280, 720 } } do
+					local engine = engines.new()
+					local runtime = Facet.Roblox.createRuntime(engine)
+					local gui, input = engine.new("GuiService"), engine.new("UserInputService")
+					local environment: { [string]: unknown } = {}
+					for key, value in engine.types do
+						if type(key) == "string" then
+							environment[key] = value
+						end
+					end
+					environment.game = {
+						GetService = function(_self: unknown, name: string)
+							assert(name == "GuiService")
+							return gui
+						end,
+					}
+					environment.require = function(path: string): unknown
+						local name = assert(string.match(path, "^%./([%w_]+)$"))
+						return luau.load(
+							fs.readFile(`tools/designer/modules/{name}.luau`),
+							{ environment = environment }
+						)()
+					end
+					local shell = luau.load(fs.readFile("tools/designer/modules/design_shell.luau"), {
+						environment = environment,
+					})() :: {
+						mount: (
+							unknown,
+							Instance,
+							unknown,
+							unknown,
+							unknown
+						) -> { root: Frame, canvas: Frame, dispose: () -> () },
+					}
+					local facade = {
+						Compose = Facet.Compose,
+						themes = {
+							define = Facet.themes.define,
+							neutralPackage = Facet.themes.neutralPackage,
+							createStyleSheet = function(
+								target: typeof(runtime),
+								package: Engine.Value<Theme.ThemePackage>?,
+								options: Theme.ThemeOptions?
+							)
+								local config = table.clone(options or {})
+								config.types = engine.types
+								return Facet.themes.createStyleSheet(target, package, config)
+							end,
+						},
+						Roblox = {
+							createRuntime = function()
+								return runtime
+							end,
+						},
+						controls = function(target: typeof(runtime), options: Facet.ControlOptions)
+							local config = table.clone(options)
+							config.types = engine.types
+							config.services = { GuiService = gui, UserInputService = input }
+							config.environment = { viewportSize = engine.types.Vector2.new(size[1], size[2]) }
+							return Facet.controls(target, config)
+						end,
+					}
+					local model = Facet.Compose.cell({
+						compact = size[1] < 980,
+						pane = "Canvas",
+						name = "Smoke",
+						selected = "Root",
+						selectedKind = "Screen",
+						rows = {},
+						fields = {},
+						status = "Smoke mount",
+						code = "",
+						showCode = false,
+						device = "Phone",
+						palette = "Light",
+						textSize = "Medium",
+						comparison = "Single",
+						zoom = "Fit",
+						canUndo = false,
+						canRedo = false,
+						canEditLayer = false,
+						interactive = false,
+						menu = {},
+						menuTitle = "",
+						menuQuery = "",
+						dataTitle = "",
+						dataFields = {},
+						dataArray = false,
+						galleryTitle = "",
+						galleryEntries = {},
+						galleryQuery = "",
+						galleryPage = 1,
+						transferTitle = "",
+						transferText = "",
+						transferEditable = false,
+					})
+					local function action(...: unknown) end
+					local actions: { [string]: (...unknown) -> () } = {}
+					setmetatable(actions, {
+						__index = function()
+							return action
+						end,
+					})
+					local parent = engine.new("ScreenGui")
+					local view = shell.mount(
+						facade,
+						parent,
+						model,
+						actions,
+						{ inputParent = parent, keyboardNavigation = false, guiService = gui, types = engine.types }
+					)
+					view.root.AbsoluteSize = engine.types.Vector2.new(size[1], size[2])
+					Verify.expect(view.root.Name):toBe("FacetDesign")
+					Verify.expect(model:peek().compact):toBe(size[1] < 980)
+					local offered = size[1] * view.canvas.Size.X.Scale + view.canvas.Size.X.Offset
+					Verify.expect(offered > 0):toBe(true)
+					table.insert(
+						rows,
+						`{size[1]}x{size[2]}: shipped editor shell mounted, canvas authored width {offered}; native text and layout unmeasured`
+					)
+					view.dispose()
+				end
+				local evidence = "artifacts/place-review/a3-editor-smoke.txt"
+				fs.writeFile(evidence, table.concat(rows, "\n"))
+				context:artifact("editor-smoke", evidence, "text/plain")
+			end,
+		})
+
+		verifyHarness:case("mounts every preview template at the smoke viewports", {
+			id = "facet_designer::Facet Design smoke mounts::mounts every preview template at the smoke viewports",
+			run = function()
+				for _, size in { { 389, 762 }, { 430, 932 }, { 1280, 720 } } do
+					for _, value in templates do
+						local mounted = fixture(function(ctx)
+							return render.build(value, ctx)
+						end, size[1], size[2])
+						Verify.expect(mounted.root.Size.X.Offset):toBe(size[1])
+						Verify.expect(mounted.root.Size.Y.Offset):toBe(size[2])
+						Verify.expect(#mounted.content:GetChildren() > 0):toBe(true)
+						mounted.dispose()
+					end
+				end
+			end,
+		})
+	end)
 
 	verifyHarness:suite("Facet Design editor overlays", function()
 		verifyHarness:case("covers native insets and moves selection into the active custom panel", {

@@ -28,10 +28,10 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end
 
-	local function nativeContext()
+	local function nativeContext(width: number?, height: number?)
 		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-		local viewport = Compose.cell({ width = 1280, height = 720 })
+		local viewport = Compose.cell({ width = width or 1280, height = height or 720 })
 		local target = engine.new("Folder")
 		local guiService = engine.new("GuiService")
 		local ctx: ExampleContext = {
@@ -86,6 +86,32 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native gallery", function()
+		verifyHarness:case("recreates Sipworks ingredients after collapse without losing gathered state", function(t)
+			local built, root, stop, ctx, engine = mountExample("14_sipworks")
+			t:defer(function()
+				stop()
+				ctx.runtime:dispose()
+			end)
+			built.open("lantern-oolong")
+			for _ = 1, 60 do
+				engine.heartbeat:Fire(1 / 60)
+			end
+			local original = assert(find(root, "Gather_oolong"))
+			local header = assert(find(find(root, "Ingredients"), "Header"))
+			original.Activated:Fire()
+			header.Activated:Fire()
+			for _ = 1, 60 do
+				engine.heartbeat:Fire(1 / 60)
+			end
+			header.Activated:Fire()
+			for _ = 1, 60 do
+				engine.heartbeat:Fire(1 / 60)
+			end
+			local replacement = assert(find(root, "Gather_oolong"))
+			t:expect(replacement == original):toBe(false)
+			t:expect(find(root, "FacetError")):toBe(nil)
+			t:expect(replacement:GetAttribute("selected")):toBe(true)
+		end)
 		verifyHarness:case("styles a route load failure with the theme text role", {
 			id = "native_gallery::native gallery::styles a route load failure with the theme text role",
 			run = function()
@@ -128,64 +154,66 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("switches the entire gallery catalogue through one native root", {
 			id = "native_gallery::native gallery::switches the entire gallery catalogue through one native root",
 			run = function()
-				local ctx, engine, target = nativeContext()
-				ctx.selection = Compose.cell("garage")
-				ctx.themeMode = Compose.cell("light")
-				ctx.theme = Compose.cell(Facet.themes.neutralPackage())
-				ctx.packages = { Neutral = ctx.theme:peek() }
-				ctx.load = load
-				local sheet
-				local stop, gui = ctx.runtime.mount(function()
-					sheet = Facet.themes.createStyleSheet(
-						ctx.runtime,
-						ctx.theme,
-						{ types = ctx.types, theme = ctx.themeMode }
-					)
-					return ctx.Host.ScreenGui "FacetGallery" {
-						sheet :: unknown,
-						ctx.Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
-						require("../examples/gallery/client/screen").build(ctx),
-					}
-				end, target)
-				local root = find(gui, "Gallery")
-				Verify.expect(sheet.Parent):toBe(gui)
-				Verify.expect(find(gui, "StyleLink").StyleSheet):toBe(sheet)
-				local navigation = find(root, "Demos")
-				Verify.expect(find(navigation, "Tabs").Visible):toBe(false)
-				local button = find(find(root, "Toolbar"), "Showcase")
-				for _, node in find(root, "Toolbar"):GetDescendants() do
-					Verify.expect(node:IsA("TextLabel") and node.Text == "Facet gallery"):toBe(false)
-				end
-				local function pick(id)
-					button.Activated:Fire()
-					local row = find(gui, "Demo-" .. id)
-					if row == nil then
-						error("no demo row " .. id)
+				for _, size in { { 389, 762 }, { 430, 932 }, { 1280, 720 } } do
+					local ctx, engine, target = nativeContext(size[1], size[2])
+					ctx.selection = Compose.cell("garage")
+					ctx.themeMode = Compose.cell("light")
+					ctx.theme = Compose.cell(Facet.themes.neutralPackage())
+					ctx.packages = { Neutral = ctx.theme:peek() }
+					ctx.load = load
+					local sheet
+					local stop, gui = ctx.runtime.mount(function()
+						sheet = Facet.themes.createStyleSheet(
+							ctx.runtime,
+							ctx.theme,
+							{ types = ctx.types, theme = ctx.themeMode }
+						)
+						return ctx.Host.ScreenGui "FacetGallery" {
+							sheet :: unknown,
+							ctx.Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
+							require("../examples/gallery/client/screen").build(ctx),
+						}
+					end, target)
+					local root = find(gui, "Gallery")
+					Verify.expect(sheet.Parent):toBe(gui)
+					Verify.expect(find(gui, "StyleLink").StyleSheet):toBe(sheet)
+					local navigation = find(root, "Demos")
+					Verify.expect(find(navigation, "Tabs").Visible):toBe(false)
+					local button = find(find(root, "Toolbar"), "Showcase")
+					for _, node in find(root, "Toolbar"):GetDescendants() do
+						Verify.expect(node:IsA("TextLabel") and node.Text == "Facet gallery"):toBe(false)
 					end
-					row.Activated:Fire()
+					local function pick(id)
+						button.Activated:Fire()
+						local row = find(gui, "Demo-" .. id)
+						if row == nil then
+							error("no demo row " .. id)
+						end
+						row.Activated:Fire()
+					end
+					for _, demo in catalogue.list() do
+						pick(demo.id)
+						engine.heartbeat:Fire(1 / 60)
+						Verify.expect((ctx.selection:peek())):toBe(demo.id)
+						Verify.expect((ctx.active:peek())):toBe(demo.id)
+						Verify.expect((ctx.errorMessage:peek())):toBe(nil)
+					end
+					pick("garage")
+					Verify.expect((ctx.active:peek())):toBe("garage")
+					button.Activated:Fire()
+					Verify.expect(find(gui, "Section") ~= nil):toBe(true)
+					Verify.expect(find(gui, "DemoList") ~= nil):toBe(true)
+					find(find(gui, "Section"), "settings").Activated:Fire()
+					Verify.expect(find(gui, "Packages") ~= nil):toBe(true)
+					Verify.expect((find(gui, "DemoList"))):toBe(nil)
+					find(find(gui, "Section"), "demos").Activated:Fire()
+					Verify.expect(#find(gui, "DemoList"):GetChildren() > #catalogue.list()):toBe(true)
+					Verify.expect(find(gui, "Demo-garage").Parent):toBe(find(gui, "DemoList"))
+					Verify.expect((find(gui, "SectionTitle"))):toBe(nil)
+					stop()
+					Verify.expect(#target:GetChildren()):toBe(0)
+					ctx.runtime:dispose()
 				end
-				for _, demo in catalogue.list() do
-					pick(demo.id)
-					engine.heartbeat:Fire(1 / 60)
-					Verify.expect((ctx.selection:peek())):toBe(demo.id)
-					Verify.expect((ctx.active:peek())):toBe(demo.id)
-					Verify.expect((ctx.errorMessage:peek())):toBe(nil)
-				end
-				pick("garage")
-				Verify.expect((ctx.active:peek())):toBe("garage")
-				button.Activated:Fire()
-				Verify.expect(find(gui, "Section") ~= nil):toBe(true)
-				Verify.expect(find(gui, "DemoList") ~= nil):toBe(true)
-				find(find(gui, "Section"), "settings").Activated:Fire()
-				Verify.expect(find(gui, "Packages") ~= nil):toBe(true)
-				Verify.expect((find(gui, "DemoList"))):toBe(nil)
-				find(find(gui, "Section"), "demos").Activated:Fire()
-				Verify.expect(#find(gui, "DemoList"):GetChildren() > #catalogue.list()):toBe(true)
-				Verify.expect(find(gui, "Demo-garage").Parent):toBe(find(gui, "DemoList"))
-				Verify.expect((find(gui, "SectionTitle"))):toBe(nil)
-				stop()
-				Verify.expect(#target:GetChildren()):toBe(0)
-				ctx.runtime:dispose()
 			end,
 		})
 		verifyHarness:case("types, submits and restarts the retained word game through native input", {

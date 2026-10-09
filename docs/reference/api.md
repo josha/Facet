@@ -705,6 +705,9 @@ scrolling uses the native engine behavior.
 Options: `axis`, `gap`, `padding`,
 `align`, `distribute`, `width` and `height`.
 
+The native `Active` property defaults to true, so scrolling input does not
+reach 3D controls behind a SurfaceGui. An authored `Active` value takes priority.
+
 An authored initial `CanvasPosition` is retried when native canvas and window
 bounds arrive. This also applies to virtual collections. After the engine
 accepts the requested offset, later layout changes do not restore it. Touch,
@@ -1969,8 +1972,10 @@ default) each segment starts at its label's width, at least a 44 pixel target,
 and the segments share the space that is left. With touch input, each horizontal
 segment is at least 44 pixels high. The strip includes its top and bottom
 padding outside that target, also when you supply a strip height. A strip that does not fit in the
-width of the row stays one line: its segments shrink in proportion, a label
-wraps between words, and a word that cannot fit its line ends in "…". With
+width of the row can wrap through native `UIListLayout.Wraps`. The strip
+reserves the full native `AbsoluteContentSize` height, including all lines and
+its padding. A label wraps between words, and a word that cannot fit its line
+ends in "…". With
 `hug` the segments keep their natural widths. A segment is never wider than the
 strip, or than the row of a labelled strip. A radio group or card label that does not
 fit wraps inside its row. A segmented picker
@@ -3226,7 +3231,8 @@ in the viewport are ready. Equal keys retain their native instances. An empty
 result removes the old rows. Offscreen overscan does not delay visible rows.
 Use `ZIndexBehavior = Enum.ZIndexBehavior.Sibling` on the ScreenGui or SurfaceGui.
 
-An Image waits for native `IsLoaded`. A Stage waits for its scene to be built
+A collection Image preloads its native ImageLabel with `ContentProvider:PreloadAsync`.
+A successful fetch or native `IsLoaded` permits reveal. A Stage waits for its scene to be built
 and for its media rectangle to be stable. Media fades in over a placeholder
 of the surface colour with `reveal.enter` and `easing.fade`. Keep a fixed
 media size or use UIAspectRatioConstraint to reserve its slot. Scene creation
@@ -3241,6 +3247,14 @@ The returned root is a ScrollingFrame. Compose `OrderedCollection` owns
 indexing, window selection, anchor preservation and placement. The control
 applies its desired offset to `CanvasPosition`. Sorting keeps the native anchor.
 It does not force the first item to the top.
+
+Use a fixed `CanvasPosition` for the initial offset. A reactive binding can
+restore an offset when the presentation changes. Do not bind each scroll
+observation back to `CanvasPosition`: this can compete with anchor retention.
+For VirtualList, VirtualGrid and Outline, `scrollReset` is a string source. Change
+its value to return to the top after a sort or filter change. The initial value
+does not reset a restored offset. The native root and retained rows stay mounted.
+Without `scrollReset`, the collection keeps its visible anchor.
 
 `snap = "item"` settles scrolling to the Compose placement boundaries. The
 default is `none`. With `follow = "end"`, the list follows appended rows while
@@ -3797,7 +3811,9 @@ or `textRole` instead.
   be bound. `wrap` sets `TextWrapped`. `rich = true` sets `RichText`.
 - `direction` is `auto`, `ltr` or `rtl` and sets `TextDirection`.
 - `tint` sets `TextColor3` for a colour that no role gives.
-- `disclose = true` keeps a truncated value readable. While the engine
+- `disclose = true` keeps a truncated value readable. Unwrapped text uses an
+  end ellipsis by default. An explicit `truncate` or native `TextTruncate`
+  keeps its authored rule. While the engine
   reports that the text does not fit (`TextFits`), or a middle cut shortens
   it, the whole value shows in a panel named `Disclosure` beside the label:
   after a pointer rests on the label for 0.45 seconds, after a keyboard or
@@ -4800,7 +4816,8 @@ UI.ZoomView {
 
 `UI.Travel(spec) -> Frame` uses one model: an item has a slot. When its
 `destination` changes, the same visual moves to that slot. `content()` returns
-the visual once. The return value is an empty ownership anchor.
+the visual once. Travel owns its position and size and sets `AutomaticSize` to
+`None`, including text content. The return value is an empty ownership anchor.
 
 Travel measures the shared container, clipping and scale boundaries at the
 change. With a safe common container, it moves in place. The parent stays the

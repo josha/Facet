@@ -17,6 +17,40 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native NavBar overflow", function()
+		verifyHarness:case("sizes the wrapped filter viewport from its native list instead of the automatic canvas", {
+			id = "native_notice_navbar::native NavBar overflow::sizes the wrapped filter viewport from its native list instead of the automatic canvas",
+			run = function()
+				for _, width in { 320, 360, 375, 389, 390, 430 } do
+					local w = mount(function(UI: FacetControls)
+						return UI.NavBar "Header" {
+							padding = 8,
+							center = UI.TextInput "Search" { value = Compose.cell("Coastal") },
+							trailing = UI.Button "Filter" { label = "Filter", icon = "menu" },
+						}
+					end)
+					local header, trailing = w.find("Header"), w.find("Trailing")
+					local layout = trailing:FindFirstChildWhichIsA("UIListLayout")
+					local padding = header:FindFirstChildWhichIsA("UIPadding").PaddingRight.Offset
+					for _, offered in { 1280, width, 1280, width } do
+						header.AbsoluteSize = Vector2.new(offered - 38, 116)
+						trailing.AbsoluteSize = Vector2.new(4, 48)
+						trailing.AbsoluteCanvasSize = Vector2.new(87, 44)
+						layout.AbsoluteContentSize = Vector2.new(83, 44)
+						Verify.expect(trailing.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
+						Verify.expect(trailing.Size.X.Scale):toBe(0)
+						Verify.expect(trailing.Size.X.Offset):toBe(83)
+						Verify.expect(trailing.Size.Y.Offset):toBe(44)
+						local bounds = trailing:FindFirstChild("ViewportBounds").MaxSize.X
+						Verify.expect(bounds):toBe(offered - 38 - 2 * padding)
+						local right = 16 + offered - 38 - padding
+						local left = right - math.min(trailing.Size.X.Offset, bounds)
+						Verify.expect(left >= 16 and left + 83 <= offered):toBe(true)
+					end
+					w.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("keeps the leading action inside a bounded scrolling row at phone widths", {
 			id = "native_notice_navbar::native NavBar overflow::keeps the leading action inside a bounded scrolling row at phone widths",
 			run = function()
@@ -34,6 +68,11 @@ return function(verifyHarness: Verify.Harness)
 					local header, trailing = w.find("Header"), w.find("Trailing")
 					header.AbsoluteSize = Vector2.new(width - 32, 80)
 					Verify.expect(trailing:IsA("ScrollingFrame")):toBe(true)
+					local content = trailing:FindFirstChildWhichIsA("UIListLayout")
+					content.AbsoluteContentSize = Vector2.new(720, 36)
+					Verify.expect(trailing.Size.Y.Offset):toBe(36 + trailing.ScrollBarThickness)
+					Verify.expect(trailing.HorizontalScrollBarInset):toBe(w.engine.types.Enum.ScrollBarInset.ScrollBar)
+
 					Verify.expect(trailing:FindFirstChild("ViewportBounds").MaxSize.X):toBe(width - 32)
 					Verify.expect(trailing.CanvasPosition.X):toBe(0)
 					Verify.expect(trailing:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment)
@@ -345,8 +384,15 @@ return function(verifyHarness: Verify.Harness)
 				w.input.PreferredInput = w.Enum.PreferredInput.Touch
 				back.Activated:Fire()
 				w.gui.SelectedObject = back
+				Verify.expect(w.gui.SelectedObject):toBeNil()
+				w.input.PreferredInput = w.Enum.PreferredInput.KeyboardAndMouse
+				w.gui.SelectedObject = back
 				w.action("Activate").Pressed:Fire()
 				Verify.expect(backs):toBe(3)
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.gui.SelectedObject = back
+				w.action("Activate").Pressed:Fire()
+				Verify.expect(backs):toBe(4)
 				Verify.expect(overlay.find(back, "LeadingIcon") ~= nil):toBe(true)
 				w.stop()
 			end,

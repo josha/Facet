@@ -858,7 +858,11 @@ return function(ctx: Types.Context): Nav.Surfaces
 		return node
 	end
 	local function parent(anchor: Instance): GuiBase2d?
-		return (ctx.config.overlayParent or anchor:FindFirstAncestorWhichIsA("LayerCollector")) :: GuiBase2d?
+		local layer = (ctx.config.overlayParent or anchor:FindFirstAncestorWhichIsA("LayerCollector")) :: GuiBase2d?
+		if layer and layer:IsA("SurfaceGui") and not layer.ClipsDescendants then
+			layer.ClipsDescendants = true
+		end
+		return layer
 	end
 	local function overlay(
 		anchor: GuiObject,

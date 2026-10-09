@@ -366,7 +366,8 @@ function focus.walk(
 	keys: { string },
 	atlas: any?,
 	restore: (() -> ())?,
-	resumePaths: { string }?
+	resumePaths: { string }?,
+	onPage: (() -> boolean)?
 ): ({ [string]: { [string]: string? } }, { [string]: { [string]: any } }, {
 	[string]: { [string]: any },
 })
@@ -393,7 +394,7 @@ function focus.walk(
 		end
 	end
 	local function discover(source: string?)
-		if atlas == nil then
+		if atlas == nil or (onPage and not onPage()) then
 			return
 		end
 		local byPath = current(root)
@@ -490,6 +491,11 @@ function focus.walk(
 						afterValue = node:GetAttribute("value"),
 						target = target,
 					})
+				end
+				if onPage and not onPage() and restore then
+					restore()
+					settle(root)
+					break
 				end
 				if target or now ~= node then
 					break

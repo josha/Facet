@@ -50,21 +50,12 @@ return {
 		end
 		local function recipe(entry: any)
 			local blend = catalog.blend(entry.value)
-			local ingredientRows, related = {}, {}
+			local related = {}
 			for _, measure in catalog.recipeMeasures(blend.id) do
 				local ingredient = catalog.botanical(measure.botanicalId)
 				local key = blend.id .. "/" .. ingredient.id
 				gathered[key] = gathered[key] or C.cell(false)
-				table.insert(
-					ingredientRows,
-					UI.Toggle("Gather_" .. ingredient.id) {
-						value = gathered[key],
-						presentation = "checkbox" :: "checkbox",
-						label = function(use: any)
-							return `{measure.value * use(servings)} {measure.unit} · {ingredient.name}`
-						end,
-					}
-				)
+
 				if not ingredient.water then
 					table.insert(
 						related,
@@ -119,6 +110,21 @@ return {
 					label = "Gather your ingredients",
 					expanded = C.cell(true),
 					content = function(): Instance
+						local ingredientRows = {}
+						for _, measure in catalog.recipeMeasures(blend.id) do
+							local ingredient = catalog.botanical(measure.botanicalId)
+							local key = blend.id .. "/" .. ingredient.id
+							table.insert(
+								ingredientRows,
+								UI.Toggle("Gather_" .. ingredient.id) {
+									value = gathered[key],
+									presentation = "checkbox" :: "checkbox",
+									label = function(use: any)
+										return `{measure.value * use(servings)} {measure.unit} · {ingredient.name}`
+									end,
+								}
+							)
+						end
 						return UI.VStack {
 							width = "fill" :: "fill",
 							gap = "s",

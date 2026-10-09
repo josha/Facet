@@ -117,12 +117,14 @@ function demo.travel(UI: Controls, Host: Host, Compose: ComposeModule, path: "st
 		BackgroundTransparency = 0.7,
 		ClipsDescendants = true,
 	}
+	first:AddTag("facet-surface")
 	local second = Host.Frame {
 		Name = "DestinationRow",
 		Size = UDim2.new(1, 0, 0, 64),
 		BackgroundTransparency = 0.7,
 		ClipsDescendants = true,
 	}
+	second:AddTag("facet-surface")
 	local start = Host.Frame {
 		Name = "SourceSlot",
 		Size = UDim2.fromOffset(60, 60),
@@ -273,9 +275,13 @@ function demo.shuffle(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 		} :: unknown,
 		row :: unknown,
 		UI.Text {
+			Name = "TravelReadout",
 			text = Compose.formula(function(use)
 				return `Started {use(started)}, landed {use(landed)}. Shuffle again during flight.`
 			end),
+			Size = UDim2.fromScale(1, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			wrap = true,
 		} :: unknown,
 	} :: unknown) :: StackProps)
 end

@@ -73,6 +73,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		"controls",
 		"follow",
 		"followThreshold",
+		"scrollReset",
 		"maxRetained",
 		"focus",
 		"initialFocus",
@@ -595,10 +596,20 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 						crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
 					}
 				end,
-				render = withSlots(function(current, placement, key)
+				render = withSlots(function(rowItem, rowPlacement, key)
 					local lease = pool.acquire()
 					local node = runtime.borrow(lease.value.node) :: Frame
 					local contentOwner = poolOwner.createChild()
+					local function retained<T>(row: ComposeTypes.Readable<T>): ComposeTypes.Readable<T>
+						local held = Compose.withOwner(contentOwner, function(): ComposeTypes.Cell<T>
+							return Compose.cell(row:peek())
+						end)
+						Compose.watch(function(use: ComposeTypes.Use)
+							held:set(use(row))
+						end)
+						return held
+					end
+					local current, placement = retained(rowItem), retained(rowPlacement)
 					local glide = Compose.cell(0)
 					local stopGlide: (() -> ())? = nil
 					local function halt()
@@ -1221,7 +1232,11 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 				viewport:set({ offset = offset, size = extent })
 			end
 		end)
+		local resetKey: string? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
+			local requestedReset = if spec.scrollReset ~= nil then read(spec.scrollReset, use) :: string else nil
+			local reset = resetKey ~= nil and requestedReset ~= resetKey
+			resetKey = requestedReset
 			local current = use(status)
 			local desired = if current then current.desiredOffset else nil
 			local box = viewport:peek()
@@ -1231,6 +1246,9 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			end
 			if desired ~= nil then
 				setOffset(desired)
+			end
+			if reset then
+				setOffset(0)
 			end
 		end)
 		local focusGeometry = Compose.formula(function(use: ComposeTypes.Use)
@@ -1395,6 +1413,8 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 			tree.bind(root, focusScope)
 		end
 		local parent = observe.Parent(root)
+		local focusPosition = observe.AbsolutePosition(root)
+		local focusSize = observe.AbsoluteSize(root)
 		local function restoreFocus(key: K?): ()
 			if
 				gui == nil
@@ -1407,7 +1427,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 				return
 			end
 			local node = findSelectable(assert(mounted[key]), focusedPath, 1)
-			if node then
+			if node and policy.selectionVisible(node) then
 				restoring = true
 				pcall(function()
 					gui.SelectedObject = node
@@ -1441,6 +1461,8 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(mountedVersion)
 			use(parent)
+			use(focusPosition)
+			use(focusSize)
 			restoreFocus(focusScope.current:peek())
 		end)
 		local selected: ComposeTypes.Cell<GuiObject?> = if gui
@@ -1561,7 +1583,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 					end
 				end
 			end
-			if target then
+			if target and policy.selectionVisible(target) then
 				gui.SelectedObject = target
 			end
 		end)

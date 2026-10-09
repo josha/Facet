@@ -56,6 +56,7 @@ local lifetime = Compose.createRootOwner(function()
 	local cameraGoal = Compose.cell(CFrame.lookAt(Vector3.new(0, 7.6, -29), Vector3.new(0, 7, 0)))
 	local cameraMotion, modeMotion
 	local camera = assert(workspace.CurrentCamera)
+	local viewport = Facet.Roblox.createViewport(camera)
 	local originalCameraType, originalCameraFrame, originalFieldOfView =
 		camera.CameraType, camera.CFrame, camera.FieldOfView
 	camera.CameraType = Enum.CameraType.Scriptable
@@ -290,12 +291,16 @@ local lifetime = Compose.createRootOwner(function()
 				end,
 			})
 			local views = screens.create(Facet, runtime, sceneActions(true, package))
+			local UI = Facet.controls(runtime, { theme = package, motionLevel = motionLevel })
 			return Host.SurfaceGui({
 				Name = name .. "Monitor",
 				Adornee = Compose.static(parts[name]),
 				Face = Enum.NormalId.Front,
 				SizingMode = Enum.SurfaceGuiSizingMode.FixedSize,
-				CanvasSize = Vector2.new(screens.CANVAS.w, screens.CANVAS.h),
+				CanvasSize = function(use: Use)
+					local width, height = spatial.canvasSize(use(viewport).width)
+					return Vector2.new(width, height)
+				end,
 				LightInfluence = 0,
 				Brightness = function(use: Use)
 					return if use(dark) then 1.3 else 1.1
@@ -307,7 +312,19 @@ local lifetime = Compose.createRootOwner(function()
 				end,
 				sheet :: unknown,
 				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
-				views[name](),
+				UI.ScrollView {
+					Name = "MonitorViewport",
+					axis = "y" :: "y",
+					Host.Frame {
+						Name = "MonitorPage",
+						BackgroundTransparency = 1,
+						Size = function(use: Use)
+							local box = use(viewport)
+							return UDim2.new(1, 0, 0, spatial.contentHeight(box.width, box.height))
+						end,
+						views[name](),
+					},
+				},
 			})
 		end, players.LocalPlayer:WaitForChild("PlayerGui"))
 	end
@@ -368,7 +385,6 @@ local lifetime = Compose.createRootOwner(function()
 			player = players.LocalPlayer,
 		})()
 	end)
-	local viewport = Facet.Roblox.createViewport(camera)
 	Compose.watch(function(use: Use)
 		if (use(viewport).width < 700 or guiService:IsTenFootInterface()) and not model.modeChosen then
 			model.focused:set(model.selectedTab:peek())

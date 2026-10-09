@@ -15,6 +15,7 @@ type Live = {
 }
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Item = { id: string }
+type PreviewSample = { pointer: Vector2, contact: Vector2, rect: { number }, error: number }
 type State = {
 	stage: Instance,
 	source: GuiObject,
@@ -24,6 +25,7 @@ type State = {
 	presses: number,
 	frames: number,
 	maxError: number,
+	previewSamples: { PreviewSample }?,
 	canvas: Vector2,
 	secondPosition: Vector2?,
 	reflowSamples: { number }?,
@@ -38,6 +40,12 @@ type Case = {
 local GuiService = game:GetService("GuiService")
 local Input = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+
+local function preview(stage: Instance): GuiObject?
+	local layer = stage:FindFirstAncestorWhichIsA("LayerCollector")
+	local ghost = if layer then layer:FindFirstChild("DragGhost", true) else nil
+	return if ghost and ghost:IsA("GuiObject") then ghost else nil
+end
 
 local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 	local source: GuiObject?, target: GuiObject?, scroll: ScrollingFrame?
@@ -140,7 +148,7 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 				return
 			end
 			value.commits, value.presses = commits, presses
-			local ghost = value.stage:FindFirstChild("DragGhost", true)
+			local ghost = preview(value.stage)
 			if
 				ghost
 				and ghost:IsA("GuiObject")
@@ -150,6 +158,17 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 				local contact = ghost.AbsolutePosition + ghost.AnchorPoint * ghost.AbsoluteSize
 				value.maxError = math.max(value.maxError, math.abs(contact.X - at.X), math.abs(contact.Y - at.Y))
 				value.frames += 1
+				table.insert(assert(value.previewSamples), {
+					pointer = at,
+					contact = contact,
+					rect = {
+						ghost.AbsolutePosition.X,
+						ghost.AbsolutePosition.Y,
+						ghost.AbsoluteSize.X,
+						ghost.AbsoluteSize.Y,
+					},
+					error = math.max(math.abs(contact.X - at.X), math.abs(contact.Y - at.Y)),
+				})
 			end
 		end)
 		C.cleanup(function()
@@ -185,6 +204,7 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 		presses = presses,
 		frames = 0,
 		maxError = 0,
+		previewSamples = {},
 		canvas = assert(scroll).CanvasPosition,
 		releaseSlots = releaseSlots,
 		secondPosition = if reserved then (t.find(stage, "B")).AbsolutePosition else nil,
@@ -333,6 +353,7 @@ local cases: { Case } = {
 				t.check("a tap delivers one press", value.presses == 1, value.presses)
 			end,
 			whileDragging = function(t, value)
+				t.note("preview render samples", value.previewSamples)
 				t.check("a preview was sampled on real frames", value.frames >= 10, value.frames)
 				t.check("preview contact stays within one pixel", value.maxError <= 1, value.maxError)
 				t.check("the parent does not pan under a drag", value.scroll.CanvasPosition == value.canvas)
@@ -342,7 +363,7 @@ local cases: { Case } = {
 				t.settle(60)
 				t.check("one drop commits after travel", value.commits == 1, value.commits)
 				t.check("the source capture ends", value.source:GetAttribute("FacetDragHeld") == nil)
-				t.check("travel removes its preview", value.stage:FindFirstChild("DragGhost", true) == nil)
+				t.check("travel removes its preview", preview(value.stage) == nil)
 			end,
 		},
 	},

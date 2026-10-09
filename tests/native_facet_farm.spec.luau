@@ -22,7 +22,7 @@ return function(verifyHarness: Verify.Harness)
 		end
 	end
 
-	local function mount()
+	local function mount(width: number?, height: number?)
 		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
@@ -34,6 +34,7 @@ return function(verifyHarness: Verify.Harness)
 			runtime,
 			{
 				types = engine.types,
+				environment = { viewportSize = engine.types.Vector2.new(width or 1280, height or 720) },
 				theme = theme.create(Facet),
 				motionLevel = "none",
 				services = { GuiService = gui, UserInputService = input },
@@ -70,6 +71,23 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Facet Farm", function()
+		verifyHarness:case("mounts both farm views and the market at the smoke viewports", {
+			id = "native_facet_farm::Facet Farm::mounts both farm views and the market at the smoke viewports",
+			run = function()
+				for _, size in { { 389, 762 }, { 430, 932 }, { 1280, 720 } } do
+					local world = mount(size[1], size[2])
+					Verify.expect(world.find("Plot1") ~= nil):toBe(true)
+					world.find("View").Activated:Fire()
+					world.step(2)
+					Verify.expect(world.find("Plot1") ~= nil):toBe(true)
+					world.find("Market").Activated:Fire()
+					world.step(40)
+					Verify.expect(world.find("Seed_wheat") ~= nil):toBe(true)
+					world.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("reserves both view labels before toggling the hugging controls", {
 			id = "native_facet_farm::Facet Farm::reserves both view labels before toggling the hugging controls",
 			run = function()

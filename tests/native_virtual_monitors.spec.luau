@@ -71,6 +71,7 @@ return function(verifyHarness: Verify.Harness)
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
+		local size = if options then options.smokeSize else nil
 		input.GetFocusedTextBox = function()
 			return nil
 		end
@@ -86,6 +87,12 @@ return function(verifyHarness: Verify.Harness)
 				services = { GuiService = gui, UserInputService = input },
 				motionLevel = "none",
 			}
+			if size then
+				local workspace, camera = engine.new("Workspace"), engine.new("Camera")
+				camera.ViewportSize = engine.types.Vector2.new(size[1], size[2])
+				workspace.CurrentCamera = camera
+				config.services.Workspace = workspace
+			end
 			for key, value in (options or {}) :: { [string]: any } do
 				config[key] = value
 			end
@@ -114,6 +121,23 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native virtual monitors", function()
+		verifyHarness:case("mounts every app at the smoke viewports", {
+			id = "native_virtual_monitors::native virtual monitors::mounts every app at the smoke viewports",
+			run = function()
+				for _, size in { { 389, 762 }, { 430, 932 }, { 1280, 720 } } do
+					withScreens(function(world)
+						world.model.mode:set("Screen")
+						for _, name in screens.APPS do
+							world.model.selectedTab:set(name)
+							world.engine.heartbeat:Fire(1 / 60)
+							Verify.expect(world[name].Parent):toBe(world.target)
+							Verify.expect(#world[name]:GetDescendants() > 0):toBe(true)
+						end
+					end, { smokeSize = size })
+				end
+			end,
+		})
+
 		verifyHarness:case("retains overlapping flight tiles and bounds an endless scrolling world", {
 			id = "native_virtual_monitors::native virtual monitors::retains overlapping flight tiles and bounds an endless scrolling world",
 			run = function()
@@ -1400,7 +1424,10 @@ return function(verifyHarness: Verify.Harness)
 						for _ = 1, 12 do
 							for _, node in world.Discover:GetDescendants() do
 								if node:IsA("GuiObject") then
-									node.AbsoluteSize = world.types.Vector2.new(100, 44)
+									node.AbsoluteSize = if node.Name == "LayoutUnit"
+											or node.Name == "MeasurementUnit"
+										then world.types.Vector2.new(1, 1)
+										else world.types.Vector2.new(100, 44)
 									if node:IsA("ScrollingFrame") then
 										node.AbsoluteWindowSize = world.types.Vector2.new(390, 500)
 									end
@@ -1429,11 +1456,15 @@ return function(verifyHarness: Verify.Harness)
 											`decoration {genre} {node.Name} ready {find(node, "LiveDot") ~= nil}`
 										)
 											:toBe(`decoration {genre} {node.Name} ready true`)
-										Verify.expect(find(node, "Preview").AbsoluteSize.X > 0):toBe(true)
+										Verify.expect(
+											`preview {genre} {node.Name} {find(node, "Preview").AbsoluteSize.X > 0}`
+										)
+											:toBe(`preview {genre} {node.Name} true`)
 									end
 								end
 							end
-							Verify.expect(candidates > 0):toBe(true)
+							Verify.expect(`genre {genre} candidates {candidates > 0}`)
+								:toBe(`genre {genre} candidates true`)
 						end
 						local pending = {}
 						for _, child in if exposed == 0 then grid:GetDescendants() else {} do

@@ -7,6 +7,68 @@ local travelEngine = require("../src/ui/travel_engine")
 local context = require("../src/ui/context")
 
 return function(harness: Verify.Harness)
+	harness:case("Travel keeps automatic text at the slot size throughout motion", function(t)
+		local native = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(native)
+		local screen = native.new("ScreenGui")
+		local first, second = native.new("Frame"), native.new("Frame")
+		first.Parent, second.Parent = screen, screen
+		first.AbsoluteSize, second.AbsoluteSize = native.types.Vector2.new(48, 48), native.types.Vector2.new(64, 64)
+		second.AbsolutePosition = native.types.Vector2.new(200, 100)
+		local destination = Facet.Compose.cell(first :: GuiObject)
+		local visual: GuiObject? = nil
+		local stop = runtime.mount(function()
+			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
+			return UI.Travel {
+				destination = destination,
+				content = function(): GuiObject
+					local text = UI.Text { text = "E" }
+					visual = text
+					return text
+				end,
+			}
+		end, screen)
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		destination:set(second)
+		for _ = 1, 60 do
+			native.heartbeat:Fire(1 / 60)
+			t:expect(assert(visual).AutomaticSize):toBe(native.types.Enum.AutomaticSize.None)
+			t:expect(assert(visual).Size.Y.Offset >= 48):toBe(true)
+		end
+	end)
+	harness:case("segmented controls reserve the native wrapped line extent", function(t)
+		local native = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(native)
+		local stop, root = runtime.mount(function()
+			local UI = Facet.controls(runtime, { types = native.types })
+			return UI.Picker {
+				style = "segmented" :: "segmented",
+				selected = Facet.Compose.cell("a"),
+				Size = native.types.UDim2.fromOffset(341, 44),
+				options = {
+					{ value = "a", label = "Swatches" },
+					{ value = "b", label = "Spectrum" },
+					{ value = "c", label = "Sliders" },
+					{ value = "d", label = "Bricks" },
+				},
+			}
+		end, native.new("ScreenGui"))
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		local picker = root :: Frame
+		local layout = assert(picker:FindFirstChildWhichIsA("UIListLayout")) :: UIListLayout
+		local measured = (layout :: unknown) :: { AbsoluteContentSize: Vector2 }
+		for _, height in { 92, 140, 44 } do
+			measured.AbsoluteContentSize = native.types.Vector2.new(341, height)
+			t:expect(picker.Size.Y.Offset >= height):toBe(true)
+			t:expect(picker.Size.Y.Offset < height + 20):toBe(true)
+		end
+	end)
 	harness:case("64 spring carriers share one clock and preserve interruption velocity", function(t)
 		local native = engineLib.new()
 		local C = Facet.Compose

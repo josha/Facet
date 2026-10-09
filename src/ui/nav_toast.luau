@@ -67,7 +67,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	local returnTo: GuiObject? = nil
 
 	local function wanted(record: Record): boolean
-		return record.spec.isPresented == nil or read(record.spec.isPresented) == true
+		return not record.torn and (record.spec.isPresented == nil or read(record.spec.isPresented) == true)
 	end
 
 	local function retire(record: Record, reason: Reason)
@@ -104,7 +104,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 	end
 
 	local function finish(record: Record, reason: Reason)
-		if record.id == nil then
+		if record.torn or record.id == nil then
 			return
 		end
 		local change = record.spec.onPresentedChange

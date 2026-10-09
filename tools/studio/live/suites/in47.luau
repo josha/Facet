@@ -2006,8 +2006,31 @@ local function sliderDrag(t: any, io: any, stage: any, value: any, where: string
 	t.inside(`{where}: the track is inside the test stage`, track, stage)
 	local r = t.rect(track)
 	local y = r.y + r.h / 2
+	local samples = {}
+	local watches = {}
+	for _, detector in track:GetDescendants() do
+		if detector:IsA("UIDragDetector") then
+			table.insert(
+				watches,
+				detector.DragContinue:Connect(function(position)
+					table.insert(samples, {
+						detector = detector.Parent.Name,
+						pointer = position,
+						track = t.rect(track),
+						value = value:peek(),
+					})
+				end)
+			)
+		end
+	end
+	t.note(`{where} track before`, r)
 	io.drag(Vector2.new(r.x + 1, y), Vector2.new(r.x + r.w / 2, y), 16)
 	t.settle(10)
+	for _, watch in watches do
+		watch:Disconnect()
+	end
+	t.note(`{where} track after`, t.rect(track))
+	t.note(`{where} native drag samples`, samples)
 	t.note(`{where} value`, value:peek())
 	t.near(`{where}: a drag to the middle of the track sets the middle value`, value:peek(), 50, 3)
 end

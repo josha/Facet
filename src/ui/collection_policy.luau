@@ -20,6 +20,32 @@ function policy.disabled<V>(predicate: ((V) -> boolean)?, item: V): boolean
 	local ok, disabled = pcall(predicate, item)
 	return not ok or disabled == true
 end
+function policy.selectionVisible(node: GuiObject): boolean
+	local position, size = node.AbsolutePosition, node.AbsoluteSize
+	local left, top = position.X, position.Y
+	local right, bottom = left + size.X, top + size.Y
+	local measured = size.X > 0 and size.Y > 0
+	local ancestor: Instance? = node
+	while ancestor do
+		if ancestor:IsA("GuiObject") then
+			if not ancestor.Visible or not ancestor.Interactable then
+				return false
+			end
+			if measured and ancestor.ClipsDescendants then
+				local p, s = ancestor.AbsolutePosition, ancestor.AbsoluteSize
+				left, top = math.max(left, p.X), math.max(top, p.Y)
+				right, bottom = math.min(right, p.X + s.X), math.min(bottom, p.Y + s.Y)
+				if right <= left or bottom <= top then
+					return false
+				end
+			end
+		elseif ancestor:IsA("LayerCollector") and not ancestor.Enabled then
+			return false
+		end
+		ancestor = ancestor.Parent
+	end
+	return true
+end
 function policy.actions<V, K>(
 	ctx: Types.Context,
 	spec: {

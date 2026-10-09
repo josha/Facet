@@ -71,6 +71,19 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			local current = service.state:peek()
 			return current ~= nil and current.source == source
 		end
+		local function activateTap(): boolean
+			local target: Instance? = source
+			while target and target:IsA("GuiObject") do
+				if activation.trigger(target, pressed, 1) then
+					return true
+				end
+				if target:IsA("GuiButton") then
+					return false
+				end
+				target = target.Parent
+			end
+			return false
+		end
 		local function enabled(use: Shared.Use?): boolean
 			return spec.enabled == nil or ctx.read(spec.enabled, use) == true
 		end
@@ -141,6 +154,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end
 			end,
 			DragEnd = function(position)
+				if pressed then
+					arbiter.finish(pressed, source, pressed.UserInputState == E.UserInputState.Cancel)
+				end
 				position = pointerOf(ctx, position)
 				local tap = origin ~= nil and not dragged and (position - origin).Magnitude < 6
 				origin = nil
@@ -148,7 +164,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					service.update(position)
 					service.commit(nil)
 				elseif tap and enabled(nil) then
-					if activation.trigger(source, pressed, 1) then
+					if activateTap() then
 						activation.consume(pressed)
 					end
 				end
@@ -199,6 +215,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end
 		end)
 		if input then
+			ctx.runtime.connect(input, "InputBegan", activation.release)
 			ctx.runtime.connect(input, "InputChanged", function(value: InputObject)
 				local touch = value == pressed and value.UserInputType == E.UserInputType.Touch
 				local mouse = pressed ~= nil

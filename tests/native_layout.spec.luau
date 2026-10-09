@@ -203,6 +203,79 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native text layout", function()
+		verifyHarness:case("keeps the Slider readout reservation across drag values", {
+			id = "native_layout::native text layout::keeps the Slider readout reservation across drag values",
+			run = function()
+				local value = Compose.cell(0)
+				local root, engine, stop = build(nil, function(UI)
+					return UI.Slider { value = value, min = 0, max = 100 }
+				end)
+				local label = root:FindFirstChild("Value", true)
+				local floor = label:FindFirstChild("TextBoundsFloor")
+				for _, sample in { { 0, 8 }, { 50, 16 }, { 55.08, 36 }, { 100, 24 } } do
+					value:set(sample[1])
+					label.TextBounds = engine.types.Vector2.new(sample[2], 16)
+					Verify.expect(floor.MaxSize.X):toBe(44)
+				end
+				label.Size = engine.types.UDim2.fromOffset(60, 0)
+				Verify.expect(floor.MaxSize.X):toBe(60)
+				label.Size = engine.types.UDim2.new(1, 0, 0, 0)
+				Verify.expect(floor.MaxSize.X):toBe(math.huge)
+				stop()
+			end,
+		})
+		verifyHarness:case("keeps the Stepper readout reservation when a digit is added", {
+			id = "native_layout::native text layout::keeps the Stepper readout reservation when a digit is added",
+			run = function()
+				local value = Compose.cell(9)
+				local root, engine, stop = build(nil, function(UI)
+					return UI.Stepper { value = value, max = 100 }
+				end)
+				local label = root:FindFirstChild("Value", true)
+				local floor = label:FindFirstChild("TextBoundsFloor")
+				label.TextBounds = engine.types.Vector2.new(8, 16)
+				Verify.expect(floor.MaxSize.X):toBe(40)
+				value:set(10)
+				label.TextBounds = engine.types.Vector2.new(13, 16)
+				Verify.expect(floor.MaxSize.X):toBe(40)
+				stop()
+			end,
+		})
+		verifyHarness:case("grows both ShortcutHint axes with a taller painted key", {
+			id = "native_layout::native text layout::grows both ShortcutHint axes with a taller painted key",
+			run = function()
+				local root, engine, stop = build(nil, function(UI)
+					return UI.ShortcutHint { keys = { { "K" } } }
+				end)
+				root.TextBounds = engine.types.Vector2.new(6, 12)
+				local before = root.Size.Y.Offset
+				root.TextBounds = engine.types.Vector2.new(13, 26)
+				Verify.expect(root.Size.Y.Offset > before):toBe(true)
+				Verify.expect(root.Size.X.Offset):toBe(root.Size.Y.Offset)
+				Verify.expect(root.Size.Y.Offset >= 34):toBe(true)
+				Verify.expect(root.Size.Y.Offset < 44):toBe(true)
+				root:FindFirstChild("TextBoundsUnit").AbsoluteSize = engine.types.Vector2.new(50, 0.5)
+				root:FindFirstChild("CapUnit").AbsoluteSize = engine.types.Vector2.new(50, 0.5)
+				root.TextBounds = engine.types.Vector2.new(6.5, 13)
+				Verify.expect(root.Size.Y.Offset):toBe(34)
+				stop()
+			end,
+		})
+		verifyHarness:case("keeps a ShortcutHint square while allowing a longer chord", {
+			id = "native_layout::native text layout::keeps a ShortcutHint square while allowing a longer chord",
+			run = function()
+				local root, engine, stop = build(nil, function(UI)
+					return UI.ShortcutHint { keys = { { "K" } } }
+				end)
+				local floor = root:FindFirstChild("TextBoundsFloor")
+				root.TextBounds = engine.types.Vector2.new(6, 12)
+				Verify.expect(floor.MaxSize):toBe(engine.types.Vector2.new(root.Size.X.Offset, root.Size.Y.Offset))
+				root.TextBounds = engine.types.Vector2.new(60, 26)
+				Verify.expect(floor.MaxSize.X):toBe(60)
+				Verify.expect(floor.MaxSize.Y):toBe(math.max(26, root.Size.Y.Offset))
+				stop()
+			end,
+		})
 		verifyHarness:case("yields the automatic glyph floor to a later wrapping constraint", {
 			id = "native_layout::native text layout::yields the automatic glyph floor to a later wrapping constraint",
 			run = function()

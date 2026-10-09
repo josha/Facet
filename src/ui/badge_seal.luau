@@ -58,7 +58,7 @@ return function(
 					return UI.Badge({
 						Name = "CornerBadge",
 						label = text,
-						AnchorPoint = V2.new(0.5, 0.5),
+						AnchorPoint = V2.new(0.5, 0),
 						Position = D2.fromScale(0, 0),
 						ZIndex = host.ZIndex + 2,
 					})

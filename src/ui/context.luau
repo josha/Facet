@@ -302,8 +302,11 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			local entry = byProperty[property]
 			if entry == nil then
 				local initial = observation.readProperty(node, property)
-				if property == "SelectedObject" and config.userInputService
-					and config.userInputService.PreferredInput == Enum.PreferredInput.Touch then
+				if
+					property == "SelectedObject"
+					and config.userInputService
+					and config.userInputService.PreferredInput == Enum.PreferredInput.Touch
+				then
 					(config.guiService :: GuiService).SelectedObject = nil
 					initial = nil
 				end
@@ -315,12 +318,16 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 					local current = observation.readProperty(node, property)
 					local keys = config.userInputService
 					local gui = config.guiService
-					if selection and gui and keys and keys.PreferredInput == Enum.PreferredInput.Touch
-						and current ~= nil then
+					if
+						selection
+						and gui
+						and keys
+						and keys.PreferredInput == Enum.PreferredInput.Touch
+						and current ~= nil
+					then
 						gui.SelectedObject = nil
 						current = nil
-					elseif preferred and gui and current == Enum.PreferredInput.Touch
-						and gui.SelectedObject ~= nil then
+					elseif preferred and gui and current == Enum.PreferredInput.Touch and gui.SelectedObject ~= nil then
 						gui.SelectedObject = nil
 					end
 					if
@@ -1193,21 +1200,24 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		if label:FindFirstChildWhichIsA("UISizeConstraint") == nil then
 			local glyphs = ctx.layoutBounds(label, ctx.layoutUnit(label, "TextBoundsUnit"))
 			local wrapped, truncated = ctx.observeStyled.TextWrapped(label), ctx.observeStyled.TextTruncate(label)
+			local authored = ctx.observe.Size(label)
 			local stopFloor, floor = runtime.mount(function()
 				return Host.UISizeConstraint "TextBoundsFloor" {
 					MaxSize = function(use: ComposeTypes.Use): Vector2
-						local mode, glyph = use(automatic), use(glyphs)
+						local mode, glyph, authoredSize = use(automatic), use(glyphs), use(authored)
 						local free = use(wrapped) == false and use(truncated) == Enum.TextTruncate.None
 						return types.Vector2.new(
 							if free
 									and glyph.X > 0
+									and authoredSize.X.Scale == 0
 									and (mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY)
-								then math.ceil(glyph.X)
+								then math.max(math.ceil(glyph.X), authoredSize.X.Offset)
 								else math.huge,
 							if free
 									and glyph.Y > 0
+									and authoredSize.Y.Scale == 0
 									and (mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY)
-								then math.ceil(glyph.Y)
+								then math.max(math.ceil(glyph.Y), authoredSize.Y.Offset)
 								else math.huge
 						)
 					end,

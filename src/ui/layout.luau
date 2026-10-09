@@ -251,6 +251,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		end
 		local size, automatic = kit.extent(spec, "fill", if axis == "x" and not scaled then "hug" else "fill")
 		local native: Engine.ScrollingFrameNativeProps = {
+			Active = true,
 			BorderSizePixel = 0,
 			Size = size,
 			AutomaticSize = automatic,

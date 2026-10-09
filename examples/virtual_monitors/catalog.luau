@@ -92,8 +92,9 @@ function catalog.new(Compose: any)
 	step()
 	return {
 		items = items,
-		seen = function(index)
-			if index >= #items:peek() - 12 then
+		seen = function(index, resultCount: number?)
+			local count = resultCount or #items:peek()
+			if count > 0 and index >= math.max(1, count - 12) then
 				pending = true
 			end
 		end,

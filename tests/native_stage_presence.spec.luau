@@ -125,6 +125,52 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Stage presence", function()
+		verifyHarness:case("cancels retired lazy scenes before the replacement uses the next frame budget", {
+			id = "native_stage_presence::native Stage presence::cancels retired lazy scenes before the replacement uses the next frame budget",
+			run = function()
+				local original = Compose.cell(true)
+				local retired, replacement = 0, 0
+				local w = overlay.new(function(UI, Host)
+					return Host.Frame {
+						Compose.show(original, function()
+							local stages = {}
+							for index = 1, 8 do
+								table.insert(
+									stages,
+									UI.Stage({
+										Name = "Retired" .. index,
+										lazy = true,
+										content = function()
+											retired += 1
+										end,
+									})
+								)
+							end
+							return Host.Frame { table.unpack(stages) }
+						end),
+						Compose.show(function(use: Use)
+							return not use(original)
+						end, function()
+							return UI.Stage "Replacement" {
+								lazy = true,
+								content = function()
+									replacement += 1
+								end,
+							}
+						end),
+					}
+				end)
+				original:set(false)
+				Verify.expect(retired):toBe(0)
+				Verify.expect(replacement):toBe(0)
+				w.advance(1 / 60)
+				Verify.expect(retired):toBe(0)
+				Verify.expect(replacement):toBe(1)
+				Verify.expect(w.find("Replacement"):GetAttribute("FacetBuilt")):toBe(true)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("is not live while less than half of it shows in the scroll window", {
 			id = "native_stage_presence::native Stage presence::is not live while less than half of it shows in the scroll window",
 			run = function()

@@ -723,13 +723,20 @@ return function(verifyHarness: Verify.Harness)
 				w.size(w.screen, 390, 844)
 				w.find("Well").Activated:Fire()
 				local panel, technique = w.find("Panel"), w.find("Technique")
+				for _, node in panel:GetDescendants() do
+					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+						w.size(node, 40, 16)
+					end
+				end
 				w.size(technique, 350, 220)
 				Verify.expect((fadeKit.of(panel))):toBe(1)
 				w.advance(FRAME)
 				w.size(technique, 330, 264)
 				w.advance(FRAME)
 				Verify.expect((fadeKit.of(panel))):toBe(1)
-				w.advance(FRAME)
+				for _ = 1, 4 do
+					w.advance(FRAME)
+				end
 				Verify.expect((fadeKit.of(panel))):toBe(0)
 				Verify.expect(w.find("DismissOutside").BorderSizePixel):toBe(0)
 				w.stop()

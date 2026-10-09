@@ -89,7 +89,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		if source:peek() ~= nil then
 			spec.CanvasPosition = function(use: Use)
 				use(model.mode)
-				return V2.new(0, source:peek())
+				return V2.new(0, source:peek() or 0)
 			end
 		end
 		local node = UI[kind](spec)
@@ -248,7 +248,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					title = if name == "Chat" then "Assistant" elseif name == "Flap" then "Facet Flap" else name,
 					titleSize = "heading",
 					Visible = function(use: Use)
-						return use(menuShown) or not (collapsed and use(collapsed))
+						return actions.spatial == true or use(menuShown) or not (collapsed and use(collapsed))
 					end,
 					trailing = UI.AdaptiveStack "HeaderActions" {
 						axis = "x" :: "x",
@@ -324,7 +324,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 								extra,
 							}
 						end,
-						fallback = function(_, retry)
+						fallback = function(failure, retry)
+							warn(`{name} stopped: {failure}`)
 							return UI.VStack "AppFailure" {
 								width = "fill" :: "fill",
 								gap = "s",
@@ -486,7 +487,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			},
 		}
 	end
-	local function gameCard(current)
+	local function gameCard(current, placement)
 		local item = current:peek()
 		local card, preview
 		local function openCard()
@@ -547,7 +548,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			primaryAction = saveAction(current),
 			menu = gameMenu(current),
 		})
-		model.catalog.seen(item.index)
+		model.catalog.seen(placement:peek().index, #model.visibleGames:peek())
 		return card
 	end
 	local launchSteps = {
@@ -1134,6 +1135,9 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			end, function()
 				return feedFrame(collection("VirtualGrid", {
 					Name = "Games",
+					scrollReset = function(use: Use)
+						return use(model.sort) .. "\0" .. use(model.genre) .. "\0" .. use(model.query)
+					end,
 					from = model.visibleGames,
 					key = "id",
 					columns = function(use: Use)

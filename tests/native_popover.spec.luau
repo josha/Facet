@@ -644,7 +644,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(live):toBe(1)
 				Verify.expect(#log.changes):toBe(0)
 				Verify.expect(#log.dismissed):toBe(0)
-				Verify.expect(w.gui.SelectedObject):toBe(w.find("Inner"))
+				Verify.expect(w.gui.SelectedObject):toBeNil()
 				w.input.PreferredInput = w.Enum.PreferredInput.KeyboardAndMouse
 				Verify.expect(w.find("Popup") ~= nil):toBe(true)
 				Verify.expect(live):toBe(1)

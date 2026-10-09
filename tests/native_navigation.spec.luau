@@ -4754,6 +4754,42 @@ return function(verifyHarness: Verify.Harness)
 					end
 				end,
 			})
+			verifyHarness:case("paints a segmented field label only with its settled options", {
+				id = "native_navigation::Segmented Picker caption geometry::paints a segmented field label only with its settled options",
+				run = function()
+					local world = setup(function(UI)
+						return UI.Picker "Motion" {
+							label = "Motion",
+							style = "segmented",
+							selected = Compose.cell("device"),
+							options = { { value = "device", label = "Device" }, { value = "none", label = "None" } },
+						}
+					end)
+					local paint = find(world.root, "Motion"):FindFirstChild("Label")
+					Verify.expect(paint:FindFirstChild("FadePaint") ~= nil):toBe(true)
+					local options = find(world.root, "Options")
+					local function opacity(node)
+						local gradient = node:FindFirstChild("FadePaint")
+						return gradient.Transparency.Keypoints[1].Value
+					end
+					Verify.expect(opacity(paint)):toBe(opacity(options))
+					Verify.expect(opacity(paint)):toBe(1)
+					for _, node in options:GetDescendants() do
+						if node:IsA("GuiObject") then
+							node.AbsoluteSize = V2(world, 70, 44)
+						end
+					end
+					options.AbsoluteSize = V2(world, 160, 50)
+					world.step(0.05)
+					Verify.expect(opacity(paint)):toBe(1)
+					paint.AbsoluteSize = V2(world, 44, 16)
+					paint.TextBounds = V2(world, 44, 16)
+					world.step(0.1)
+					Verify.expect(opacity(paint)):toBe(opacity(options))
+					Verify.expect(opacity(paint)):toBe(0)
+					world.stop()
+				end,
+			})
 			verifyHarness:case("keeps a touch segment target inside an authored 44-point format strip", {
 				id = "native_navigation::Segmented Picker caption geometry::keeps a touch segment target inside an authored 44-point format strip",
 				run = function()

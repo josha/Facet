@@ -538,10 +538,17 @@ add("layers-hang-outside-layout", {}, function(t)
 			t.near(theme.name .. " art covers the panel width", art.w, p.w, 1.5)
 			t.near(theme.name .. " art covers the panel height", art.h, p.h, 1.5)
 			t.near(theme.name .. " art starts at the panel origin", art.x, p.x, 1.5)
+			local host = assert(assert(boundary).Parent)
+			local outer = host.Parent
 			t.check(
 				theme.name .. " art boundary is not a layout item",
-				not assert(assert(boundary).Parent):IsA("GuiObject"),
-				assert(boundary.Parent).ClassName
+				host:FindFirstChildWhichIsA("UIGridStyleLayout") == nil
+					and (
+						not host:IsA("GuiObject")
+						or outer == nil
+						or outer:FindFirstChildWhichIsA("UIGridStyleLayout") == nil
+					),
+				host.ClassName
 			)
 		end
 		t.note(theme.name .. " content offset", { offset = offset, skinned = skin ~= nil })

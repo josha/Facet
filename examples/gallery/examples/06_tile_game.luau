@@ -959,14 +959,18 @@ function example.build(ctx: any)
 								return assert(rackSlots[tile.slot :: number])
 							end,
 							content = function(): GuiObject
-								return UI.Text {
-									Name = `movingTile{item:peek().id}`,
-									text = item:peek().letter,
-									TextXAlignment = Enum.TextXAlignment.Center,
-									TextYAlignment = Enum.TextYAlignment.Center,
+								return Host.Frame {
+									Name = `movingTileBox{item:peek().id}`,
 									BackgroundTransparency = 1,
-									TextSize = 16,
 									Size = UDim2.fromScale(1, 1),
+									UI.Text {
+										Name = `movingTile{item:peek().id}`,
+										text = item:peek().letter,
+										BackgroundTransparency = 1,
+										TextSize = 16,
+										AnchorPoint = Vector2.new(0.5, 0.5),
+										Position = UDim2.fromScale(0.5, 0.5),
+									},
 								}
 							end,
 						}

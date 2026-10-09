@@ -1114,6 +1114,12 @@ add("shortcut-hint-key-cap-anatomy", {}, function(t)
 			local cap = t.find(stage, "Hint")
 			t.settle(4)
 			local size = cap.AbsoluteSize
+			local constraint = cap:FindFirstChildWhichIsA("UISizeConstraint")
+			t.note(`{where} native cap geometry`, {
+				authored = cap.Size,
+				actual = size,
+				floor = if constraint then { minimum = constraint.MinSize, maximum = constraint.MaxSize } else nil,
+			})
 			t.check(`{where} the cap shows its key`, t.fits(cap), { bounds = cap.TextBounds, size = size })
 			t.check(`{where} the cap is painted`, cap:GetStyled("BackgroundTransparency") < 1)
 			t.check(`{where} the cap is a key, not a button`, size.Y < 44 and not cap.Selectable, size)
@@ -1242,8 +1248,10 @@ add("slider-rest-idle-resize-clearance", {}, function(t)
 		tostring(readout.TextXAlignment)
 	)
 	local incX, readW = increase.AbsolutePosition.X, readout.AbsoluteSize.X
+	t.note("stepper readout before", { rect = t.rect(readout), authored = readout.Size, increase = t.rect(increase) })
 	steps:set(10)
 	t.settle(6)
+	t.note("stepper readout after", { rect = t.rect(readout), authored = readout.Size, increase = t.rect(increase) })
 	t.near("a wider number keeps the readout width", readout.AbsoluteSize.X, readW, 0.5)
 	t.near("a wider number does not move the increase button", increase.AbsolutePosition.X, incX, 0.5)
 	for _, name in { "Decrease", "Increase" } do

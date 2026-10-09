@@ -26,6 +26,7 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 			Size = D2.fromOffset(0, 0),
 		}))
 		local node = spec.content()
+		runtime.decorate(node, { AutomaticSize = ctx.types.Enum.AutomaticSize.None })
 		local restingDepth = node.ZIndex
 		local liftScale: UIScale? = nil
 		if spec.lift then

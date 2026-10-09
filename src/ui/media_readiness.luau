@@ -61,13 +61,42 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 				local asset = nextScope.createChild()
 				assetOwner = asset
 				Compose.withOwner(asset, function()
+					local fetched = Compose.cell(false)
+					local provider = ctx.config.services and ctx.config.services.ContentProvider
+					if provider and node:IsA("ImageLabel") and node.Image ~= "" and task then
+						local thread = task.defer(function()
+							pcall(function()
+								provider:PreloadAsync(
+									{ node },
+									function(_content: string, status: Enum.AssetFetchStatus)
+										if
+											not asset.isDisposed()
+											and status == ctx.types.Enum.AssetFetchStatus.Success
+										then
+											fetched:set(true)
+										end
+									end
+								)
+							end)
+						end)
+						Compose.cleanup(function()
+							if coroutine.status(thread) ~= "dead" then
+								task.cancel(thread)
+							end
+						end)
+					end
 					node:SetAttribute("FacetMediaReady", false)
 					local ready = rest(ctx, function(): (string, boolean, boolean?)
 						local box = size:peek()
 						local filled = box.X > 0
 							and box.Y > 0
 							and node:GetAttribute("FacetBuilt") ~= false
-							and (loaded == nil or (image ~= nil and image:peek() == "") or loaded:peek() == true)
+							and (
+								loaded == nil
+								or (image ~= nil and image:peek() == "")
+								or loaded:peek() == true
+								or fetched:peek()
+							)
 						return tostring(box), filled, filled
 					end, function(use: ComposeTypes.Use): string
 						return if image then tostring(use(image)) else tostring(use(size))
