@@ -652,4 +652,169 @@ add("image-button-caption-clear-of-artwork", {}, function(t)
 	end
 end)
 
+add("image-button-wrapped-cells-reserve-full-height", {}, function(t)
+	for _, ratio in { 1, 16 / 9 } do
+		for _, scale in { 0.75, 1, 1.5 } do
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+				local cells: { unknown } = {}
+				for i, appearance in { "standard", "emphasis", "soft", "utility", "link", "inverse" } do
+					cells[i] = UI.VStack({
+						Name = `Cell{i}`,
+						gap = "xs",
+						UI.Text { text = appearance, textRole = "caption" :: "caption" },
+						UI.ErrorBoundary {
+							view = function()
+								return UI.Button {
+									label = "Button",
+									subtitle = "12 playing",
+									appearance = appearance,
+									image = "rbxasset://textures/ui/GuiImagePlaceholder.png",
+									imageAspectRatio = ratio,
+								}
+							end,
+							fallback = function(message)
+								error(message)
+							end,
+						},
+					})
+				end
+				local row = UI.HStack "Cards" { width = "fill" :: "fill", wrap = true, gap = "m", table.unpack(cells) }
+				return UI.ScrollView {
+					UI.VStack "Page" {
+						width = "fill" :: "fill",
+						gap = "m",
+						row :: unknown,
+						UI.Text "NextSection" { text = "Settings row" },
+					} :: unknown,
+					Host.UIScale { Scale = scale } :: unknown,
+				}
+			end, { size = Vector2.new(1100, 800) })
+			local row = t.find(stage, "Cards")
+			for _, width in { 1040, 280, 520 } do
+				row.Size = UDim2.fromOffset(width, 0)
+				t.settle(15)
+				local where = `{ratio} ratio {scale} scale {width}px`
+				for i = 1, 6 do
+					local cell = t.find(row, `Cell{i}`)
+					local button = cell:FindFirstChildWhichIsA("TextButton", true)
+					local media = t.find(button, "Media")
+					t.near(where .. ` image {i} aspect`, media.AbsoluteSize.X / media.AbsoluteSize.Y, ratio, 0.02)
+					t.inside(where .. ` button {i} inside its cell`, t.rect(button), cell, 1)
+					t.inside(where .. ` cell {i} inside its row`, t.rect(cell), row, 1)
+					if i > 1 then
+						local previous = t.rect(t.find(row, `Cell{i - 1}`))
+						local current = t.rect(cell)
+						t.check(
+							where .. ` cell {i} clear of previous`,
+							current.x >= previous.r or current.y >= previous.b - 1
+						)
+					end
+				end
+				t.check(where .. " next section below row", t.rect(t.find(stage, "NextSection")).y >= t.rect(row).b)
+			end
+			t.cleanup()
+		end
+	end
+end)
+
+add("travel-scroll-keeps-the-current-destination", { "UI.Travel" }, function(t)
+	for _, clipped in { false, true } do
+		for _, motion in { "ease", "spring" } do
+			local destination: typeof(require("@repo/tools/typecheck/aliases").ZoomDestinationCell)
+			local source: Frame
+			local target: Frame
+			local carrier: Frame
+			local anchor: Frame
+			local starts, lands = 0, 0
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, C: ComposeModule)
+				source = Host.Frame {
+					Position = UDim2.fromOffset(20, 140),
+					Size = UDim2.fromOffset(48, 48),
+					ClipsDescendants = clipped,
+				}
+				target = Host.Frame {
+					Position = UDim2.fromOffset(260, 300),
+					Size = UDim2.fromOffset(60, 60),
+					ClipsDescendants = clipped,
+				}
+				destination = C.cell(source :: GuiObject)
+				anchor = UI.Travel {
+					destination = destination,
+					path = "arc" :: "arc",
+					motion = motion :: "ease" | "spring",
+					lift = true,
+					onStarted = function()
+						starts += 1
+					end,
+					onLanded = function()
+						lands += 1
+					end,
+					content = function(): GuiObject
+						carrier = Host.Frame {}
+						return carrier
+					end,
+				}
+				return Host.ScrollingFrame {
+					Name = "TravelScroll",
+					Size = UDim2.fromOffset(400, 320),
+					CanvasSize = UDim2.fromOffset(400, 900),
+					BorderSizePixel = 0,
+					source :: unknown,
+					target,
+					anchor,
+					Host.UIScale { Scale = 1.25 },
+				}
+			end, { motionLevel = "normal", frames = 15 })
+			local scroll = t.find(stage, "TravelScroll") :: ScrollingFrame
+			local where = `{motion} clipped={clipped}`
+			local function resting(slot: Frame)
+				t.check(
+					where .. " carrier stays at its slot",
+					(carrier.AbsolutePosition - slot.AbsolutePosition).Magnitude <= 1
+				)
+				t.check(where .. " carrier keeps slot size", (carrier.AbsoluteSize - slot.AbsoluteSize).Magnitude <= 1)
+				t.check(where .. " no resting flight", anchor:GetAttribute("FacetTravelMoving") == false)
+				t.near(where .. " no resting lift", (carrier:FindFirstChild("TravelLift") :: UIScale).Scale, 1, 0.001)
+			end
+			for _, offset in { 40, 80, 20 } do
+				scroll.CanvasPosition = Vector2.new(0, offset)
+				t.settle(3)
+				resting(source)
+			end
+			source.Position = UDim2.fromOffset(40, 160)
+			source.Size = UDim2.fromOffset(64, 56)
+			t.settle(3)
+			resting(source)
+			t.check(
+				where .. " resting geometry starts no trips",
+				starts == 0 and lands == 1,
+				{ starts = starts, lands = lands }
+			)
+			destination:set(target)
+			for offset = 21, 60 do
+				scroll.CanvasPosition = Vector2.new(0, offset)
+				t.settle(1)
+			end
+			t.settle(90)
+			resting(target)
+			t.check(
+				where .. " scrolling does not restart the trip",
+				starts == 1 and lands == 2,
+				{ starts = starts, lands = lands }
+			)
+			destination:set(source)
+			t.settle(3)
+			destination:set(target)
+			t.settle(90)
+			resting(target)
+			t.check(
+				where .. " explicit interruption still starts a trip",
+				starts == 3 and lands == 3,
+				{ starts = starts, lands = lands }
+			)
+			t.cleanup()
+		end
+	end
+end)
+
 return cases

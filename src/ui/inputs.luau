@@ -925,13 +925,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						ClipsDescendants = true,
-						Size = if hugs then D2.new(1, 0, 0, 100000) else D2.fromScale(1, 0),
-						if hugs
-							then Host.UIAspectRatioConstraint({
-								AspectRatio = spec.imageAspectRatio or 16 / 9,
-								DominantAxis = E.DominantAxis.Width,
-							})
-							else Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+						Size = D2.fromScale(1, 0),
 						Host.ImageLabel "Image" {
 							Image = spec.image,
 							BackgroundTransparency = 1,
@@ -958,8 +952,18 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 									AspectType = E.AspectType.FitWithinMaxSize,
 								}),
 						},
+						if hugs then nil else Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 					}
 				)
+				if hugs then
+					local media = content[1] :: Frame
+					local size = ctx.layoutSize(media)
+					runtime.decorate(media, {
+						Size = function(use: ComposeTypes.Use): UDim2
+							return D2.new(1, 0, 0, use(size).X / (spec.imageAspectRatio or 16 / 9))
+						end,
+					})
+				end
 			end
 			local row: InputTypes.Row = spec.row or {}
 			local leading = spec.icon or row.icon

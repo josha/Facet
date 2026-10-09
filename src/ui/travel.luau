@@ -171,6 +171,9 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 				else 0
 			values[2] += arc * unit
 			local origin = container.AbsolutePosition
+			if container:IsA("ScrollingFrame") then
+				origin -= (container :: ScrollingFrame).CanvasPosition
+			end
 			if container:IsA("GuiObject") then
 				local left, top = contentInsets(container :: GuiObject)
 				origin += V2.new(left, top)
@@ -279,14 +282,8 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 			end
 			target = bounds(destination)
 			if previous == destination and not moving then
-				local unchanged = true
-				for index = 1, 4 do
-					unchanged = unchanged and target[index] == values[index]
-				end
-				if unchanged then
-					paint(target)
-					return
-				end
+				motion.snap(target)
+				return
 			end
 			if not moving and previous and node.AbsoluteSize.X > 0 and node.AbsoluteSize.Y > 0 then
 				values =
@@ -353,8 +350,13 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 					releaseDestination = runtime.connect(next, "Destroying", retire)
 				end)
 			end
+			local changed = destination ~= next
 			destination = next
-			retarget()
+			if moving and not changed then
+				target = bounds(destination)
+			else
+				retarget()
+			end
 		end)
 		runtime.connect(anchor, "AncestryChanged", retarget)
 		Compose.watch(function(use: Shared.Use)
