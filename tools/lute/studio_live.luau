@@ -69,6 +69,15 @@ project.tree.Workspace["$attributes"] = { Facet_Demos = fs.readFileToString("too
 project.tree.ReplicatedStorage.FacetLive = { ["$path"] = "../tools/studio/live" }
 project.tree.ReplicatedStorage.FacetVerify = { ["$path"] = "../tools/vendor/verify/src" }
 project.tree.ReplicatedStorage.FacetConsumerScreen = { ["$path"] = "consumer/src/screen.luau" }
+if table.find(suites, "lab") then
+	project.tree.ReplicatedStorage.Lab = { ["$path"] = "facet-lab/src" }
+	project.tree.ReplicatedStorage.LabThemes = { ["$path"] = "facet-lab/themes" }
+	project.tree.ReplicatedStorage.FacetShowcase = {
+		["$className"] = "Folder",
+		screen = { ["$path"] = "gallery/client/screen.luau" },
+		demo_picker = { ["$path"] = "gallery/client/demo_picker.luau" },
+	}
+end
 local monitors: { [string]: any } = { ["$className"] = "Folder" }
 for _, entry in fs.listDirectory("examples/virtual_monitors") do
 	local name = string.match(entry.name, "^(.+)%.luau$")

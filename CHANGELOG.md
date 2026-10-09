@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- CollapsibleView accepts reactive `outsideDismiss`, enabled by default.
+  Outside clicks and taps close at the panel edge. Close and Cancel still
+  work when outside dismissal is disabled. The Lab demonstrates both modes.
+- File library splits contain independent folder navigation stacks. Opening
+  a folder keeps the other panes and split dividers still.
+- The Lab asset palette supports immediate touch dragging. Short layouts
+  keep room for the 3D canvas, and compact Lab entries open their detail pages.
+
 - Lab page contexts forward native types to demos. Reserved slot teardown
   uses Host ownership, and transfer live fixtures disconnect native resources.
 

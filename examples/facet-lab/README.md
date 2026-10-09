@@ -6,11 +6,12 @@ text-size and theme previews. The control list uses larger text and taller rows.
 ## Build and run
 
 From the repository root, run `lune run tools/lune/build lab`, then open
-`build/Facet-Lab.rbxl` in Roblox Studio and start Play.
-The build checks catalog coverage and keeps all generated outputs in `build/`.
+`examples/facet-lab/build/Facet-Lab.rbxl` in Roblox Studio and start Play.
+The build checks catalog coverage and keeps all generated outputs in
+`examples/facet-lab/build/`.
 
-The build also creates `build/Foundation-Light.rbxm` and
-`build/Foundation-Dark.rbxm`. These themes are optional. The Facet runtime
+The build also creates `Foundation-Light.rbxm` and `Foundation-Dark.rbxm`
+in the same directory. These themes are optional. The Facet runtime
 package does not install them; import a standalone model or copy the
 `themes/foundation.luau` package when a game chooses to use Foundation.
 The standalone entries expose `build(Facet.themes)` for `Facet.app`'s `theme` option.
@@ -28,7 +29,12 @@ open the control list through Browse and Back.
 
 Choose **Navigation → NavigationSplitView** (or search for it) to resize related
 panes and try compact navigation. The File library showcase combines two
-splits for Files, Inbox and Linked view.
+splits for Files, Inbox and Linked view. Each file pane has its own folder
+history, so opening a folder does not move the other panes.
+
+Choose **Layout → ZoomView** to try pointer-centered zoom and camera capture
+when picking up collection items. **Layout → Travel** includes straight and
+arc paths, row shuffles, multiple items, and recycled destinations.
 
 Table, VirtualList, and VirtualGrid start with a working **Editing** section.
 Rename items, create an item, select several items, reorder them, delete the
@@ -40,7 +46,9 @@ Choose **Lab → Drag and drop demo** (or search for it) to drag a portrait onto
 a 3D canvas or a color onto the canvas or block. This demo was moved from
 Showcase's File library. The draggable and dropTarget pages also link to it.
 The demo includes legal-target feedback, return/completion motion, Undo, Reset,
-and keyboard/gamepad destination actions. The camera and objects are restored
+and keyboard/gamepad destination actions. Touch dragging starts when the
+finger moves; a tap offers destination buttons. Short layouts keep space for
+the canvas. The camera and objects are restored
 or removed when you leave the demo.
 
 The previews use Facet's environment options. Automatic input follows the
