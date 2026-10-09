@@ -291,16 +291,12 @@ local lifetime = Compose.createRootOwner(function()
 				end,
 			})
 			local views = screens.create(Facet, runtime, sceneActions(true, package))
-			local UI = Facet.controls(runtime, { theme = package, motionLevel = motionLevel })
 			return Host.SurfaceGui({
 				Name = name .. "Monitor",
 				Adornee = Compose.static(parts[name]),
 				Face = Enum.NormalId.Front,
 				SizingMode = Enum.SurfaceGuiSizingMode.FixedSize,
-				CanvasSize = function(use: Use)
-					local width, height = spatial.canvasSize(use(viewport).width)
-					return Vector2.new(width, height)
-				end,
+				CanvasSize = Vector2.new(screens.CANVAS.w, screens.CANVAS.h),
 				LightInfluence = 0,
 				Brightness = function(use: Use)
 					return if use(dark) then 1.3 else 1.1
@@ -312,19 +308,7 @@ local lifetime = Compose.createRootOwner(function()
 				end,
 				sheet :: unknown,
 				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
-				UI.ScrollView {
-					Name = "MonitorViewport",
-					axis = "y" :: "y",
-					Host.Frame {
-						Name = "MonitorPage",
-						BackgroundTransparency = 1,
-						Size = function(use: Use)
-							local box = use(viewport)
-							return UDim2.new(1, 0, 0, spatial.contentHeight(box.width, box.height))
-						end,
-						views[name](),
-					},
-				},
+				views[name](),
 			})
 		end, players.LocalPlayer:WaitForChild("PlayerGui"))
 	end

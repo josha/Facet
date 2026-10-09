@@ -1039,10 +1039,15 @@ return function(
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
+		local surface = ctx.observe.Parent(modal)
 		local asSheet = Compose.formula(function(use: ComposeTypes.Use)
 			local presentation = read(spec.presentation, use)
 			if presentation and presentation ~= "automatic" then
 				return presentation == "sheet"
+			end
+			local layer = use(surface)
+			if layer and layer:IsA("SurfaceGui") then
+				return false
 			end
 			return (use(extent).X > 0 and use(extent).X < math.max(600, #use(path) * 288 + panelWidth(use) + 16))
 				or use(preferred) == E.PreferredInput.Touch

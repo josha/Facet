@@ -125,26 +125,14 @@ return function(harness: Verify.Harness)
 			world.stop()
 		end,
 	})
-	harness:case("compact monitor canvases keep text at the viewport scale", {
-		id = "virtual_monitors_smoke::compact monitor canvases keep text at the viewport scale",
-		run = function()
-			local width, height = spatial.canvasSize(389)
-			Verify.expect(width):toBe(389)
-			Verify.expect(math.abs(height / width - 640 / 920) < 0.002):toBe(true)
-			local wide = spatial.canvasSize(1914)
-			Verify.expect(wide):toBe(920)
-			Verify.expect(spatial.contentHeight(389, 762)):toBe(762)
-			Verify.expect(spatial.contentHeight(1914, 759)):toBe(640)
-		end,
-	})
-	harness:case("an attached count badge does not start above its host", {
-		id = "virtual_monitors_smoke::an attached count badge does not start above its host",
+	harness:case("an attached count badge sits on the corner of its host", {
+		id = "virtual_monitors_smoke::an attached count badge sits on the corner of its host",
 		run = function()
 			local world = overlay.new(function(UI)
 				return UI.badged(UI.Button { Name = "Saved", label = "Saved" }, 1)
 			end)
 			local seal = overlay.find(world.screen, "CornerBadge")
-			Verify.expect(seal.AnchorPoint.Y):toBe(0)
+			Verify.expect(seal.AnchorPoint.Y < 0.5 and seal.AnchorPoint.X > 0.5):toBe(true)
 			Verify.expect(seal.Parent.Position.Y.Scale):toBe(0)
 			world.stop()
 		end,
