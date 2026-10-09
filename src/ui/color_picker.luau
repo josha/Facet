@@ -1949,7 +1949,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							end,
 						} :: Shared.Attributes,
 					})
-					local settled = rest(ctx, function(): (string, boolean)
+					local settled = rest(ctx, function(): (string, boolean, boolean?)
 						local spot = where:peek()
 						local technique = view.panel:FindFirstChild("Technique", true) :: GuiObject
 						local size = technique.AbsoluteSize
@@ -1964,7 +1964,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							rows = `{strip.AbsoluteContentSize.Y}:{held}`
 						end
 						return `{spot.x}:{spot.y}:{spot.w}:{spot.h}:{columns:peek()}:{size}:{rows}`,
-							wrapped and size.X > 0 and size.Y > 0 and spot.w > 0 and spot.h > 0
+							wrapped and size.X > 0 and size.Y > 0 and spot.w > 0 and spot.h > 0,
+							wrapped
 					end)
 					ctx.fadeTo(view.panel, function(use: Use): number
 						return if use(settled) then 0 else 1
