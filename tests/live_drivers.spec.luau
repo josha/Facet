@@ -238,6 +238,6 @@ return function(harness: Verify.Harness)
 		t:expect(count > 0):toBe(true)
 		t:expect(catalogs[1].requirements["collection-immediate-touch-transfer"]):toBe("input-native-touch")
 		t:expect(catalogs[1].requirements["keyboard-gamepad-place-and-cancel"]):toBe("input-gamepad")
-		t:expect(catalogs[1].requirements["reserved-slots-pointer-and-gamepad-recall"]):toBeNil()
+		t:expect(catalogs[1].requirements["reserved-slots-pointer-recall"]):toBeNil()
 	end)
 end

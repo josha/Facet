@@ -305,7 +305,7 @@ local cases: { Case } = {
 		},
 	},
 	{
-		id = "reserved-slots-pointer-and-gamepad-recall",
+		id = "reserved-slots-pointer-recall",
 		contracts = { "UI.VirtualGrid", "UI.draggable", "UI.dropTarget" },
 		setup = function(t)
 			local value = setup(t, true, true)

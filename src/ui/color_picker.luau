@@ -1953,8 +1953,18 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						local spot = where:peek()
 						local technique = view.panel:FindFirstChild("Technique", true) :: GuiObject
 						local size = technique.AbsoluteSize
-						return `{spot.w}:{spot.h}:{columns:peek()}:{size}`,
-							size.X > 0 and size.Y > 0 and spot.w > 0 and spot.h > 0
+						local modes = view.panel:FindFirstChild("Modes", true)
+						local strip = if modes then modes:FindFirstChildWhichIsA("UIListLayout", true) else nil
+						local wrapped = true
+						local rows = ""
+						if modes and modes:IsA("GuiObject") and strip then
+							local picker = strip.Parent
+							local held = if picker and picker:IsA("GuiObject") then picker.AbsoluteSize.Y else 0
+							wrapped = strip.AbsoluteContentSize.Y <= held + 1
+							rows = `{strip.AbsoluteContentSize.Y}:{held}`
+						end
+						return `{spot.x}:{spot.y}:{spot.w}:{spot.h}:{columns:peek()}:{size}:{rows}`,
+							wrapped and size.X > 0 and size.Y > 0 and spot.w > 0 and spot.h > 0
 					end)
 					ctx.fadeTo(view.panel, function(use: Use): number
 						return if use(settled) then 0 else 1

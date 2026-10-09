@@ -374,7 +374,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			live.step(step)
 		end
 	end
-	drivers["reserved-slots-pointer-and-gamepad-recall"] = function(_, value, io)
+	drivers["reserved-slots-pointer-recall"] = function(_, value, io)
 		io.drag(centre(value.source), centre(value.target))
 		live.step("afterStage")
 		local slot: GuiObject = value.stage
