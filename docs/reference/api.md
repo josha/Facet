@@ -81,7 +81,7 @@ Compose release types the payload of this marker as `unknown`. Thus Luau cannot
 check the class of the wrapped Instance. Ordinary property values and reactive
 sources keep their native types.
 
-Run `python3 tools/check_types.py` to check every Luau file in the repository and
+Run `lute run tools/facet types` to check every Luau file in the repository and
 the public API witnesses. The checker compiles each file with the pinned runtime,
 then checks strict types with pinned Roblox and Lune declarations. It uses the old
 Luau solver by default. `--solver new` and `--solver both` select other solver runs.

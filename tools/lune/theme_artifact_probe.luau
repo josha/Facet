@@ -19,7 +19,7 @@ local function check(ok, message)
 	end
 end
 if not fs.isFile("installed/expected.json") then
-	print("theme_artifact_probe requires the isolated tree from tools/check_theme_artifacts.py")
+	print("theme_artifact_probe requires the isolated tree from lute run tools/facet check theme-artifacts")
 	process.exit(2)
 end
 local expected = serde.decode("json", fs.readFile("installed/expected.json"))

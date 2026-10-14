@@ -66,7 +66,8 @@ third-party asset, and no trade dress.
 
 **Origin.** SCOWL (Spell Checker Oriented Word Lists) 2020.12.07,
 <http://wordlist.aspell.net/>. The generator
-[`tools/build_word_lists.py`](tools/build_word_lists.py) reads a pinned archive
+[`tools/facet/commands/words.luau`](tools/facet/commands/words.luau)
+(`lute run tools/facet words`) reads a pinned archive
 (SHA-256 `5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba23fb859cc`) and
 writes the word lists under `examples/gallery/examples/words/`.
 
@@ -374,4 +375,4 @@ The development tree includes Verify from
 [voidmeld/verify](https://github.com/voidmeld/verify), commit
 `ffff3ac8ce0df72b5669657fdf293f60cbab5933`, under the MIT License.
 Its license is in `tools/vendor/verify/LICENSE`. The generated snapshot is
-checked by `tools/sync_verify.py`. Verify is not included in the Facet model.
+checked by `lute run tools/facet sync verify --check`. Verify is not included in the Facet model.

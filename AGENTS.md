@@ -7,7 +7,12 @@ contract.
 
 ## Rules for code
 
-- Do not use the `any` type in `src` outside `src/vendor`. Use concrete types or narrow `unknown`. The `any` budgets for examples, tools, tests and bench can only decrease. Run `python3 tools/check_type_policy.py` to check this rule.
+- Do not use the `any` type in `src` outside `src/vendor`. Use concrete types or narrow `unknown`. The `any` budgets for examples, tools, tests and bench can only decrease. Run `lute run tools/facet check type-policy` to check this rule.
+- Write maintainer tooling in strict Luau. Put each command in
+  `tools/facet/commands` and each repository check in `tools/facet/checks`, and
+  run them with `lute run tools/facet <command>`. Do not add Python. Only the
+  Verify gate runner and the workloads that need the Lune engine double stay in
+  `tools/lune`.
 
 - Get controls with `Facet.controls(runtime)`. Name the runtime's constructor
   table `Host` (`local Host = runtime.constructors`) and use it for Roblox
@@ -25,7 +30,7 @@ contract.
   2. Compose (`src/vendor/compose` and its `references/api.md`). Use what it
      already provides. When Compose is the right home for a missing general
      mechanism, add it upstream in [Compose](https://github.com/voidmeld/compose)
-     with a pull request, then re-pin with `tools/sync_compose.py`.
+     with a pull request, then re-pin with `lute run tools/facet sync compose`.
   3. Only when neither fits, write custom code in Facet.
   Name the Roblox and Compose APIs you checked and why they did not fit in the
   commit message or receipt.
@@ -45,7 +50,7 @@ contract.
   There are no deprecated aliases and no compatibility runtime.
 - `src/vendor/compose` is a generated, read-only snapshot. Do not edit it.
   Change Compose upstream and re-pin instead.
-  `python3 tools/sync_compose.py --check` verifies the pin and the file hashes.
+  `lute run tools/facet sync compose --check` verifies the pin and the file hashes.
 - `Facet.VERSION` is set only in `src/init.luau`. Package publication is a
   separate maintainer release operation. A local build does not publish.
 
@@ -56,7 +61,7 @@ contract.
   assertions, fixtures, execution and reports. Do not add a Facet test harness.
 - Before writing custom testing infrastructure, check Verify's public API and
   consumer skill. If a capability is missing, add it upstream in Verify and
-  re-pin with `tools/sync_verify.py` before using it here. Keep only
+  re-pin with `lute run tools/facet sync verify` before using it here. Keep only
   Facet-specific cases and integration policy in this repository.
 - Declare each producer in `tools/lune/producers.json`. The Verify gate in
   `tools/lune/gate.luau` runs it. Do not add a Facet runner, receipt or verdict.
@@ -66,12 +71,12 @@ contract.
   committed plan. A focused run is not full evidence.
 - `tools/vendor/verify` is a generated, read-only test dependency. Change shared
   testing mechanisms upstream in `voidmeld/verify`, then re-pin with
-  `tools/sync_verify.py`. Keep Verify out of the consumer model.
+  `lute run tools/facet sync verify`. Keep Verify out of the consumer model.
 
 - Verify behavior with meaningful tests. Geometry and input also need live
   Studio evidence. A native engine double does not prove engine behavior.
 - Before you propose a completed change, run `lune run tools/lune/verify full`,
-  `lune run tools/lune/bench`, `python3 tools/package.py build` and `python3 tools/package.py status`.
+  `lune run tools/lune/bench`, `lute run tools/facet package build` and `lute run tools/facet package status`.
 - Report baseline failures separately from regressions. Do not call a targeted
   run full evidence.
 - The current suite is the evidence. It does not claim to equal the tests that

@@ -32,7 +32,7 @@ observation, styles and input actions. It does not own another scene.
 
 ## Scaffolding
 
-1. Run `lune run tools/lune/scaffold_cli control lower_snake_name`. The
+1. Run `lute run tools/facet scaffold control lower_snake_name`. The
    scaffold does these steps:
    - It makes a strict native Frame control.
    - It registers the direct and named constructors before the registry
@@ -42,7 +42,7 @@ observation, styles and input actions. It does not own another scene.
 2. Extend the generated `Props` contract together with the implementation. If
    the control returns a different class, change its native root type.
 3. Check the generated module and the public facade:
-   `python3 tools/check_types.py --files src/ui/lower_snake_name.luau src/ui/control_types.luau src/ui/init.luau src/init.luau`.
+   `lute run tools/facet types --files src/ui/lower_snake_name.luau src/ui/control_types.luau src/ui/init.luau src/init.luau`.
 
 A control consumes only its own lower-case behavioral options. Keep native
 property names. Do not silently accept unsupported options. Do not add aliases

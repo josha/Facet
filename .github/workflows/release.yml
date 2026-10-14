@@ -2,9 +2,10 @@
 #
 # THIS WORKFLOW NEVER RUNS ON A PUSH. It has one trigger, `workflow_dispatch`,
 # and a human supplies the version and the commit. It is the CI wrapper around
-# `lune run tools/lune/release`, which is itself the wrapper around `python3 tools/package.py
-# publish --confirm` — every guard in `tools/package.py` still applies here, and
-# a guard that refuses stops the job.
+# `lute run tools/facet release`, which is itself the wrapper around
+# `lute run tools/facet package publish --confirm` — every guard of
+# `tools/facet/commands/package.luau` still applies here, and a guard that
+# refuses stops the job.
 #
 # Three separate things stop an untrusted run: the `release` environment (whose
 # required reviewers and secret live in repository settings, not in this file),
@@ -80,8 +81,8 @@ jobs:
           set -euo pipefail
           rojo --version
           lune --version
+          lute --version
           stylua --version
-          python3 --version
 
       # EVERY INPUT ARRIVES AS AN ENVIRONMENT VARIABLE, never as `${{ }}` inside
       # the script. GitHub substitutes those expressions into the shell source
@@ -93,7 +94,7 @@ jobs:
           ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
           VERSION: ${{ inputs.version }}
           COMMIT: ${{ inputs.commit }}
-        run: lune run tools/lune/release "$VERSION" "$COMMIT"
+        run: lute run tools/facet release "$VERSION" "$COMMIT"
 
       - name: Upload the receipt
         if: always()

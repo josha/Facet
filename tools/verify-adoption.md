@@ -19,7 +19,7 @@ policy and small bindings.
 - A case with the tag `tier:release` runs only in the release tier. Below that
   tier, Verify records the case as deselected, and the run is not complete.
 - The gate outcome carries the build binding: commit, tree, clean state and
-  package source hash. `tools/package.py` reads
+  package source hash. `lute run tools/facet package publish` reads
   `artifacts/verify/native/gate/latest.json`.
 - `Roblox.fixtureBridge` is the test fixture. The specs use its simulated
   instances directly. `tests/lib/native_engine.luau` holds only the Facet
@@ -39,7 +39,8 @@ policy and small bindings.
 ## What Facet keeps and why
 
 - Architecture and source plan checks are project policy. They are
-  `tools/check_architecture.py` and `tools/check_plan.py`. The gate runs them
+  `tools/facet/checks/architecture.luau` and `tools/facet/checks/plan.luau`.
+  The gate runs them
   as producers. The plan check compares the declared sources with the spec
   files on disk.
 - `tools/lune/bench.luau` maps each row of `bench/baseline.json` to a Verify

@@ -7,7 +7,7 @@ local artifact = require("./artifact")
 local Benchmark = require("../vendor/verify/src/benchmark")
 local Verify = require("../vendor/verify/src/core")
 
-if not process.exec("python3", { "tools/sync_compose.py", "--check" }, { stdio = "inherit" }).ok then
+if not process.exec("lute", { "run", "tools/facet", "sync", "compose", "--check" }, { stdio = "inherit" }).ok then
 	process.exit(1)
 end
 

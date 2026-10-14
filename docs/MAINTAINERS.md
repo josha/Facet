@@ -52,14 +52,14 @@ The same areas, in the same order. The **Tests** column names entry specs. It
 does not name each spec. A spec covers an area when one of its own `require`
 calls names a module of that area. A spec that requires only `src` or `src/ui`
 covers the library root. To see the number of specs for each area, run
-`lune run tools/lune/check_maintainer_map_cli --counts`.
+`lute run tools/facet check maintainer-map --counts`.
 
 <!-- maintainer-map:proof -->
 
 | Area | Tests | Studio scenario | Extend via |
 |---|---|---|---|
 | **library root** | `tests/lab_loader.spec.luau`, `tests/native_public_surface.spec.luau`, `tests/native_compose_contract.spec.luau`, `tests/native_compose_binding.spec.luau`, `tests/native_navigation.spec.luau`, `tests/native_radial_controls.spec.luau` | `all_controls` | [Adding a control](extending/new-control.md) |
-| **Compose snapshot** | `tests/native_themes_media.spec.luau`, `tests/native_perf_runner.spec.luau` | `component_motion` | [Adopting an engine feature](extending/new-engine-feature.md). Change Compose upstream. Then run `python3 tools/sync_compose.py`. |
+| **Compose snapshot** | `tests/native_themes_media.spec.luau`, `tests/native_perf_runner.spec.luau` | `component_motion` | [Adopting an engine feature](extending/new-engine-feature.md). Change Compose upstream. Then run `lute run tools/facet sync compose`. |
 | **control context** | `tests/native_registration.spec.luau`, `tests/native_inputs.spec.luau`, `tests/gesture_arbitration.spec.luau`, `tests/container_transfer.spec.luau` | `all_controls` | [Native primitives](extending/new-primitive.md) |
 | **inputs** | `tests/command_scope.spec.luau`, `tests/native_inputs.spec.luau`, `tests/native_collections.spec.luau` | `action_controls`, `text_controls` | [Adding a control](extending/new-control.md) |
 | **navigation** | `tests/native_collections.spec.luau` | `menu`, `navigation_stack`, `sheet`, `alert` | [Adapting to another platform context](extending/new-platform-mode.md) |
@@ -83,12 +83,12 @@ directories that `.gitignore` excludes.
 |---|---|---|
 | `src/` | The library. See [Areas](#areas). | `lune run tools/lune/verify full` |
 | `tests/` | The behavioral specs, the native engine double and the type witnesses. | `lune run tools/lune/verify spec <spec-name>` |
-| `examples/` | The gallery, the Facet Lab, the consumer project, the reference apps, the virtual monitors, the example themes and the performance lab. | `lune run tools/lune/check_scenario_requires_cli` |
+| `examples/` | The gallery, the Facet Lab, the consumer project, the reference apps, the virtual monitors, the example themes and the performance lab. | `lute run tools/facet check scenario-requires` |
 | `bench/` | The benchmark scenes, profiles and baselines. | `lune run tools/lune/bench` |
-| `tools/` | The verification runner, the checkers, the build scripts and the Studio tools. | `python3 tools/strip_comments.py --check` |
-| `docs/` | The guide, the extension playbooks, the reference, this map and the historical plans. | `python3 tools/check_doc_style.py` |
-| `assets/` | The icon images and the theme art. The package build includes them. | `python3 tools/package.py build` |
-| `package/` | The Roblox Package configuration and the publish receipts. See [the package interface](../package/README.md). | `python3 tools/package.py status` |
+| `tools/` | The Verify gate runner, the Lute maintainer commands and checks, the Lune engine double workloads and the Studio tools. | `lute run tools/facet check --all` |
+| `docs/` | The guide, the extension playbooks, the reference, this map and the historical plans. | `lute run tools/facet check doc-style` |
+| `assets/` | The icon images and the theme art. The package build includes them. | `lute run tools/facet package build` |
+| `package/` | The Roblox Package configuration and the publish receipts. See [the package interface](../package/README.md). | `lute run tools/facet package status` |
 | `skills/` | The agent skills for Compose and for Facet. | None. A reviewer reads them with the guide. |
 
 ## Quick answers
@@ -135,6 +135,6 @@ Read the [contributor workflow](../CONTRIBUTING.md), the
 
 ## How this page stays true
 
-Run `lune run tools/lune/check_maintainer_map_cli`. It reads the tree and this
-page, and it fails when they disagree. Run it with `--list` to see each rule.
+Run `lute run tools/facet check maintainer-map`. It reads the tree and this
+page, and it fails when they disagree. Run it with `--rules` to see each rule.
 Run it with `--selftest` to see each rule fail on a planted fault.

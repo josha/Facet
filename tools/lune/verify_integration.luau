@@ -10,12 +10,9 @@ local gate = require("./gate")
 
 local harness = Verify.createHarness({ source = "facet-verify-integration", now = os.clock })
 fs.writeDir("artifacts/verify")
-local scratch = process.exec("python3", {
-	"-c",
-	"import os, tempfile; print(os.path.relpath(tempfile.mkdtemp(prefix='integration-', dir='artifacts/verify')))",
-})
-assert(scratch.ok, scratch.stderr)
-local directory = string.gsub(scratch.stdout, "%s+$", "")
+local directory = `artifacts/verify/integration-{os.time()}-{math.random(1, 1e9)}`
+assert(not fs.isDir(directory), "the integration scratch directory already exists: " .. directory)
+fs.writeDir(directory)
 local VERIFY = "../../../tools/vendor/verify/src"
 
 local function source(name: string, text: string): string
@@ -394,16 +391,23 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 19, full = 48, release = 1 })
+		context:expect(tiers):toEqual({ fast = 12, full = 35, release = 1 })
 		context:expect(seen["perf"].tier):toBe("full")
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
 		local plan = serde.decode("json", fs.readFile("tests/plan.json"))
 		local locators = {}
+		local toolLocators = {}
 		for _, unit in plan.units do
-			table.insert(locators, unit.locator)
+			local lute = unit.requires ~= nil and table.find(unit.requires, "lute") ~= nil
+			table.insert(if lute then toolLocators else locators, unit.locator)
 		end
 		context:expect(#locators > 0):toBe(true)
+		context:expect(#toolLocators > 0):toBe(true)
 		context:expect(seen["suite"].locators):toEqual(locators)
+		context:expect(seen["suite"].worker):toBe("tests/worker.luau")
+		context:expect(seen["tool-specs"].locators):toEqual(toolLocators)
+		context:expect(seen["tool-specs"].worker):toBe("tests/tools/worker.luau")
+		context:expect(seen["tool-specs"].command):toEqual({ "lute", "run" })
 		context:expect(seen["suite"].cases):toBeNil()
 		context:expect(seen["suite"].isolate):toBe(true)
 		context:expect(seen["suite"].sourceDeadlineSeconds):toBe(600)
@@ -416,7 +420,10 @@ harness:suite("Facet gate through Verify", function()
 		for index, producer in definition.producers do
 			order[producer.id] = index
 		end
-		context:expect(seen["plan"].argv):toEqual({ "python3", "tools/check_plan.py" })
+		context:expect(seen["plan"].argv):toEqual({ "lute", "run", "tools/facet", "check", "plan" })
+		for _, producer in definition.producers do
+			context:expect(table.find(producer.argv or {}, "python3")):toBeNil()
+		end
 		for _, reader in { "perf-budgets", "perf-metrics", "perf-scenes" } do
 			context:expect(order["perf"] < order[reader]):toBe(true)
 		end
