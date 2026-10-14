@@ -1,6 +1,6 @@
 # Installing without Rojo
 
-1. Run `python3 tools/package.py build` to build the local distributable.
+1. Run `lute run tools/facet package build` to build the local distributable.
 2. In Studio, insert `build/Facet.rbxm` into ReplicatedStorage.
 3. Set `Workspace.PlayerScriptsUseInputActionSystem` to true. The native action
    controls need it.

@@ -92,12 +92,12 @@ procedural and R15 scene content.
 Build from the repository root:
 
 ```sh
-lune run tools/lune/build places
+lute run tools/facet build places
 open -a RobloxStudio examples/places/Facet-VirtualMonitors.rbxl
 ```
 
 The checked-in [Virtual Monitors build](../places/Facet-VirtualMonitors.rbxl)
-contains all four apps, including Facet Flap. `lune run tools/lune/build places` rebuilds
+contains all four apps, including Facet Flap. `lute run tools/facet build places` rebuilds
 it with the other examples.
 
 Press Play in Studio. The showcase needs no character and stays local and

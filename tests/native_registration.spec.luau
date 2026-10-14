@@ -9,7 +9,7 @@ return function(verifyHarness: Verify.Harness)
 	local luau = require("@lune/luau")
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
-	local scaffold = require("../tools/lune/scaffold")
+	local scaffold = require("../tools/facet/lib/scaffold")
 
 	verifyHarness:suite("native registration and package contract", function()
 		verifyHarness:case("scaffolds a typed native control with idempotent runtime and public type registration", {

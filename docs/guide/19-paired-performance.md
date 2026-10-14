@@ -46,7 +46,7 @@ property.
    setup. A new process for each scene isolates that failure. All commits use
    the same method.
 4. After the scenes, the round runs the `lune run tools/lune/bench` of the commit.
-5. `tools/perf_paired.py report` calculates these values:
+5. `lute run tools/facet perf paired report` calculates these values:
    - `p50` and `p95`: the median over the rounds of the p50 and p95 of each run,
      in ms.
    - `ratio`: the median of the second commit divided by the median of the first
@@ -249,7 +249,7 @@ than in the tables above. Read the ratios and the paired ranges.
 `nocopy` is `cand` with one change in `tests/lib/native_engine.luau`:
 `SetProperties` and `SetPropertyTransitions` keep the table that they get and
 do not copy it. The paired run has 6 rounds and the order base, cand, nocopy
-in each round (`tools/perf_paired.py run --skip-bench`).
+in each round (`lute run tools/facet perf paired run --skip-bench`).
 
 | Scene | cand / base p50 | paired range | nocopy / base p50 | paired range | nocopy / cand p50 | paired range |
 |---|---:|---|---:|---|---:|---|
@@ -389,9 +389,9 @@ This benchmark does not call Facet code.
 rokit install
 git worktree add --detach ../facet-base a8c8895673c0745506908b66dc89f8cead6b66f3
 git worktree add --detach ../facet-cand 6789e3b1
-python3 tools/perf_paired.py run --out /tmp/paired --rounds 8 \
+lute run tools/facet perf paired run --out /tmp/paired --rounds 8 \
   base=../facet-base cand=../facet-cand
-python3 tools/perf_paired.py report /tmp/paired base cand
+lute run tools/facet perf paired report /tmp/paired base cand
 ```
 
 `run` copies `tools/lune/perf_paired_scene.luau` into each worktree as an

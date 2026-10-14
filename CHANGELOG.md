@@ -11,6 +11,10 @@
   `ROBLOX_API_KEY`, and `--dry-run` prints the requests. The Python
   generators, `tools/sample_plates.py` and `tools/upload_icons.py` are
   removed. The committed package PNGs and asset IDs did not change.
+- The maintainer tools are strict Luau programs that run on Lute.
+  `lute run tools/facet <command>` replaces the Python tools and the Lune
+  maintenance scripts. The Verify gate runner and the workloads that need the
+  Lune engine double stay in `tools/lune`.
 
 - ColorPicker opens with fewer native objects and mounts Bricks on its first
   visit. Spectrum dragging keeps the hue gradient unchanged when only

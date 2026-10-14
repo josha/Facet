@@ -24,17 +24,22 @@ fully implemented. Until then, they refuse to run.
 ## The commands
 
 ```
-python3 tools/package.py build      rebuild build/Facet.rbxm + build/Facet.manifest.json
-python3 tools/package.py status     this tree against the last receipt
-python3 tools/package.py verify     build + tree inspection + purity + packaged canary
-python3 tools/package.py create     mint the asset       (DRY RUN unless --confirm)
-python3 tools/package.py publish    push a new revision  (DRY RUN unless --confirm)
-python3 tools/package.py rollback   print both rollback procedures; never uploads
-python3 tools/package.py stamp      record a Studio verification on a receipt
+lute run tools/facet package build        rebuild build/Facet.rbxm + build/Facet.manifest.json
+lute run tools/facet package status       this tree against the last receipt
+lute run tools/facet package verify       build + tree inspection + purity + packaged canary
+lute run tools/facet package create       mint the asset       (DRY RUN unless --confirm)
+lute run tools/facet package publish      push a new revision  (DRY RUN unless --confirm)
+lute run tools/facet package rollback     print both rollback procedures; never uploads
+lute run tools/facet package stamp        record a Studio verification on a receipt
+lute run tools/facet package source-hash  print the source hash that the gate binds
 ```
 
-`python3 tools/package.py` is a wrapper. The program is `tools/package.py`. It uses only
-the Python standard library.
+The program is `tools/facet/commands/package.luau`. It runs on Lute. The model
+build is `tools/facet/lib/model.luau`. The Assets API client is
+`tools/facet/lib/assets.luau`. Its only network call is `@std/net`
+`net.request`. The source hash hashes each `src/**/*.luau` path with `/`
+separators and the file text with LF line endings, so every operating system
+gets the same value.
 
 **`build`, `status` and `verify` are offline.** They are the everyday commands.
 They contact nothing and need no credential.
@@ -58,7 +63,7 @@ with 0 and does not use the network. Only `--confirm` sends a request, and
 
 ### build
 
-`build` runs `lune run tools/lune/build model`. This script is the **only** Rojo mapping for
+`build` runs `lute run tools/facet build model`. This build is the **only** Rojo mapping for
 the distribution. Keep it the only one. It makes these files:
 
 - `build/Facet.rbxm`: the artifact. It is one `ModuleScript` named `Facet`
@@ -71,7 +76,7 @@ the distribution. Keep it the only one. It makes these files:
 
 `build/` is in `.gitignore`. Nothing in it is committed.
 
-`lune run tools/lune/build model --publisher` also builds `build/FacetPublisher.rbxl`, the
+`lute run tools/facet build model --publisher` also builds `build/FacetPublisher.rbxl`, the
 canonical publisher place. In this place, `ReplicatedStorage.Facet` is the
 artifact that the same build made. The script uses the built model. It does not
 map `src/` a second time.
@@ -157,7 +162,7 @@ artifact hash with the newest receipt. It reports:
    fails by name.
 2. **Distribution notices.** The check reports if `LICENSE` or
    `THIRD_PARTY_NOTICES` fell back to placeholder text.
-3. **`tools/check_library_purity.py`.** The shipped library must not name a
+3. **`lute run tools/facet check library-purity`.** The shipped library must not name a
    reference theme package in code.
 4. **The packaged-consumer canary** (`tools/lune/package_canary.luau`). The
    canary extracts every ModuleScript from `build/Facet.rbxmx` into a directory
@@ -197,8 +202,8 @@ call.**
 
 The configured route is a recorded decision, not a default. `--route` can
 override it for one invocation, but only together with `--allow-route-override`.
-Otherwise the run refuses with `route-override`. `lune run tools/lune/release` forwards its
-trailing arguments to `package.py`. Without that guard, a bare
+Otherwise the run refuses with `route-override`. `lute run tools/facet release` forwards its
+trailing arguments to `lute run tools/facet package publish`. Without that guard, a bare
 `--route open-cloud` could arrive from two layers away and change an approved
 Studio release into an unapproved `PATCH`.
 
@@ -227,7 +232,7 @@ answers that question, roll back on the route that published the version.
 ### stamp
 
 ```
-python3 tools/package.py stamp --receipt package/receipts/<file>.json \
+lute run tools/facet package stamp --receipt package/receipts/<file>.json \
     --studio-verified --by "<who>" --notes "<what you saw>"
 ```
 
@@ -242,7 +247,7 @@ receipt. Nothing automates this step, because no automation can do it.
 Each refusal below is a case in `decide(facts)`. This is one pure function. It
 reads no file, makes no call and prints nothing. Thus a test proves each
 refusal in milliseconds, without the network
-(`python3 tools/package.py --selftest`).
+(`lute run tools/facet package --selftest`).
 
 | Code | Refuses when |
 |---|---|
@@ -350,7 +355,7 @@ opening the receipts directory. The receipts stay the authority.
 ## The release procedure
 
 ```
-lune run tools/lune/release <version> <commit>
+lute run tools/facet release <version> <commit>
 ```
 
 The script does these steps:
@@ -362,7 +367,7 @@ The script does these steps:
    `lune run tools/lune/verify release`.
 4. It builds in the worktree, so that the drift guard has a recorded manifest
    to compare against.
-5. It runs `python3 tools/package.py publish --confirm` with every guard still active.
+5. It runs `lute run tools/facet package publish --confirm` with every guard still active.
 6. It polls and reads back.
 7. It copies the new receipt and `package/facet-package.json` into the main
    tree.

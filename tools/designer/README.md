@@ -26,7 +26,7 @@ callbacks and external expressions pause visual source writes to protect the cod
 
 ## Build
 
-Run `lune run tools/lune/build designer` from the repository root.
+Run `lute run tools/facet build designer` from the repository root.
 
 - `build/Facet-Design.rbxm` is the Studio plugin.
 - `build/Facet-Design-Playground.rbxl` is the companion experience.

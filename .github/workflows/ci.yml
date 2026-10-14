@@ -24,11 +24,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install Rokit
         env:
           GITHUB_PAT: ${{ github.token }}
@@ -56,8 +51,9 @@ jobs:
         run: |
           rojo --version
           lune --version
+          lute --version
+          luau-lsp --version
           stylua --version
-          python3 --version
 
       - name: Formatting
         run: stylua --check src tests tools bench examples
@@ -88,7 +84,7 @@ jobs:
           retention-days: 7
 
       - name: Build the distributable model
-        run: lune run tools/lune/build model
+        run: lute run tools/facet build model
 
       - name: The model is the library alone
-        run: python3 tools/check_library_purity.py
+        run: lute run tools/facet check library-purity

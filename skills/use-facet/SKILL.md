@@ -138,7 +138,7 @@ See [custom themes](../../docs/guide/09-custom-themes.md),
    the historical coverage on main. See the
    [verification scope](../../docs/guide/18-verification-scope.md).
 3. After runtime changes, rebuild and examine the distributable with
-   `python3 tools/package.py build` and `python3 tools/package.py status`. Package publication
+   `lute run tools/facet package build` and `lute run tools/facet package status`. Package publication
    is a separate maintainer task.
 
 In Studio, exercise changed screens at compact and wide sizes with the

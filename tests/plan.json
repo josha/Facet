@@ -733,6 +733,22 @@
       "requires": [
         "local-luau"
       ]
+    },
+    {
+      "id": "tools/rules",
+      "locator": "tests/tools/rules.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
+    },
+    {
+      "id": "tools/commands",
+      "locator": "tests/tools/commands.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
     }
   ]
 }

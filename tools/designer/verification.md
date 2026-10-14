@@ -186,8 +186,8 @@ was removed after the rendering checks.
 
 Final full verification ran against c870895b with these edits: 3,613 tests
 passed, none failed, and one was deferred. Of 74 producers, 66 passed. Five
-legacy brand/API scans failed on RascalRally files or cached logs outside this
-change. The capture check found six older performance captures with obsolete
+legacy brand/API scans failed on files outside this repository or cached logs
+outside this change. The capture check found six older performance captures with obsolete
 scenario versions. The performance gate and its evidence check reported three
 host timing violations. These broader failures leave the full command red.
 The separate benchmark passed. Package build, status, tree verification,

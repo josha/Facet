@@ -1,7 +1,7 @@
 # Verify test dependency
 
 This generated snapshot comes from `voidmeld/verify` at the commit in
-`UPSTREAM.lock`. `tools/sync_verify.py --check` checks every source and guide
+`UPSTREAM.lock`. `lute run tools/facet sync verify --check` checks every source and guide
 against that pin. Do not edit the snapshot.
 
 Use the public package roots in `src`. Read `docs/api.md`, `docs/execution.md`,
