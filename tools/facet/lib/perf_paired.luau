@@ -1,0 +1,347 @@
+--!strict
+
+local Json = require("./json")
+
+export type Rounds = { [number]: Json.Object }
+
+export type Bench = { path: string, round: number, document: Json.Object }
+
+type Cell = { first: number?, second: number?, ratio: number?, paired: { number } }
+
+local Paired = {}
+
+Paired.SCENES = {
+	"hud-binding-storm",
+	"settings-churn",
+	"scroll-focus-traversal",
+	"collection-mutation",
+	"animation-interruption",
+	"locale-textsize-change",
+	"async-image-burst",
+	"shadow-storm",
+	"virtual-list-scroll",
+	"native-scroll-drag",
+	"dense-hud",
+	"stylesheet-state-churn",
+	"async-image-grid",
+	"screen-lifecycle-churn",
+	"theme-swap-flat",
+	"theme-swap-metrics",
+	"dense-motion",
+	"control-motion",
+	"theme-swap-assets",
+	"lab-dense-scroll",
+	"lab-collection-churn",
+	"adaptive-navigation-images",
+	"navigation-customization",
+	"alert-present-dismiss",
+	"picker-menu-open-close",
+	"picker-segmented-textsize",
+	"radial-menu-open-close",
+}
+
+function Paired.median(values: { number }): number?
+	if #values == 0 then
+		return nil
+	end
+	local sorted = table.clone(values)
+	table.sort(sorted)
+	local middle = #sorted // 2
+	if #sorted % 2 == 1 then
+		return sorted[middle + 1]
+	end
+	return (sorted[middle] + sorted[middle + 1]) / 2
+end
+
+function Paired.number(value: number?, digits: number?): string
+	if value == nil then
+		return "n/a"
+	end
+	return ("%." .. tostring(digits or 4) .. "f"):format(value)
+end
+
+function Paired.consistentSlower(ratio: number?, paired: { number }): boolean
+	if ratio == nil or ratio <= 1.05 or #paired == 0 then
+		return false
+	end
+	for _, value in paired do
+		if value <= 1 then
+			return false
+		end
+	end
+	return true
+end
+
+function Paired.sceneRow(output: string): Json.Object?
+	local normalized = string.gsub(output, "\r\n", "\n")
+	for _, text in string.split(normalized, "\n") do
+		if string.sub(text, 1, 2) == "@@" then
+			return Json.asObject(Json.decode(string.sub(text, 3)))
+		end
+	end
+	return nil
+end
+
+local function numeric(value: unknown): number
+	return if type(value) == "number" then value else 0
+end
+
+local function sortedRounds(rounds: Rounds): { number }
+	local list: { number } = {}
+	for round in rounds do
+		table.insert(list, round)
+	end
+	table.sort(list)
+	return list
+end
+
+local function values(rounds: Rounds, field: string): { number }
+	local list: { number } = {}
+	for _, round in sortedRounds(rounds) do
+		table.insert(list, numeric(rounds[round][field]))
+	end
+	return list
+end
+
+local function cell(left: Rounds, right: Rounds, field: string): Cell
+	local first = Paired.median(values(left, field))
+	local second = Paired.median(values(right, field))
+	local ratio = if first ~= nil and first ~= 0 and second ~= nil then second / first else nil
+	local paired: { number } = {}
+	for _, round in sortedRounds(left) do
+		local other = right[round]
+		local base = numeric(left[round][field])
+		if other ~= nil and base > 0 then
+			table.insert(paired, numeric(other[field]) / base)
+		end
+	end
+	return { first = first, second = second, ratio = ratio, paired = paired }
+end
+
+local function range(list: { number }, digits: number): string
+	if #list == 0 then
+		return "n/a"
+	end
+	local low, high = math.huge, -math.huge
+	for _, value in list do
+		low = math.min(low, value)
+		high = math.max(high, value)
+	end
+	return ("%." .. digits .. "f-%." .. digits .. "f"):format(low, high)
+end
+
+local function okRounds(rounds: { [number]: Json.Object }?): Rounds
+	local kept: Rounds = {}
+	if rounds == nil then
+		return kept
+	end
+	for round, row in rounds do
+		if Json.field(row, "status") == "ok" then
+			kept[round] = row
+		end
+	end
+	return kept
+end
+
+local function isEmpty(rounds: Rounds): boolean
+	return next(rounds) == nil
+end
+
+function Paired.sceneTable(entries: { Json.Object }, first: string, second: string): { string }
+	local data: { [string]: { [string]: { [number]: Json.Object } } } = {}
+	local order: { string } = {}
+	for _, entry in entries do
+		local row = Json.asObject(entry.row) or Json.object()
+		local scene = tostring(Json.field(row, "scene"))
+		if data[scene] == nil then
+			data[scene] = {}
+			table.insert(order, scene)
+		end
+		local label = tostring(Json.field(entry, "label"))
+		local byLabel = data[scene][label]
+		if byLabel == nil then
+			byLabel = {}
+			data[scene][label] = byLabel
+		end
+		byLabel[numeric(Json.field(entry, "round"))] = row
+	end
+	local lines: { string } = {
+		("| Scene | %s p50 | %s p50 | p50 ratio | p50 paired range | %s p95 | %s p95 | p95 ratio | p95 paired range | %s p95 spread | %s p95 spread | Flag |"):format(
+			first,
+			second,
+			first,
+			second,
+			first,
+			second
+		),
+		"|---|---:|---:|---:|---|---:|---:|---:|---|---|---|---|",
+	}
+	for _, scene in order do
+		local left = okRounds(data[scene][first])
+		local right = okRounds(data[scene][second])
+		local p50 = cell(left, right, "p50")
+		local p95 = cell(left, right, "p95")
+		local flag = ""
+		if isEmpty(left) then
+			local statuses: { [string]: boolean } = {}
+			local firstRows: { [number]: Json.Object } = data[scene][first] or {}
+			for _, row in firstRows do
+				local status = Json.field(row, "status")
+				statuses[if status == nil then "?" else tostring(status)] = true
+			end
+			local list: { string } = {}
+			for status in statuses do
+				table.insert(list, status)
+			end
+			table.sort(list)
+			flag = ("%s unavailable (%s)"):format(first, table.concat(list, "/"))
+		elseif isEmpty(right) then
+			flag = ("%s unavailable"):format(second)
+		else
+			local slower: { string } = {}
+			if Paired.consistentSlower(p50.ratio, p50.paired) then
+				table.insert(slower, "p50")
+			end
+			if Paired.consistentSlower(p95.ratio, p95.paired) then
+				table.insert(slower, "p95")
+			end
+			if #slower > 0 then
+				flag = ("%s slower (%s)"):format(second, table.concat(slower, ", "))
+			end
+		end
+		table.insert(
+			lines,
+			("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |"):format(
+				scene,
+				Paired.number(p50.first),
+				Paired.number(p50.second),
+				Paired.number(p50.ratio, 3),
+				range(p50.paired, 2),
+				Paired.number(p95.first),
+				Paired.number(p95.second),
+				Paired.number(p95.ratio, 3),
+				range(p95.paired, 2),
+				range(values(left, "p95"), 4),
+				range(values(right, "p95"), 4),
+				flag
+			)
+		)
+	end
+	return lines
+end
+
+local function benchResults(benches: { Bench }): { [string]: Rounds }
+	local results: { [string]: Rounds } = {}
+	for _, bench in benches do
+		local entries: Json.Array = Json.arrayField(bench.document, "results") or Json.array()
+		for _, entry in entries do
+			local object = Json.asObject(entry)
+			if object ~= nil and Json.field(object, "p50_ms") ~= nil then
+				local name = tostring(Json.field(object, "name"))
+				local rounds = results[name]
+				if rounds == nil then
+					rounds = {}
+					results[name] = rounds
+				end
+				rounds[bench.round] = object
+			end
+		end
+	end
+	return results
+end
+
+function Paired.benchTables(
+	firstBenches: { Bench },
+	secondBenches: { Bench },
+	first: string,
+	second: string
+): { string }
+	local left = benchResults(firstBenches)
+	local right = benchResults(secondBenches)
+	if next(left) == nil and next(right) == nil then
+		return {}
+	end
+	local lines: { string } = {
+		"",
+		("| Microbenchmark | %s p50 | %s p50 | p50 ratio | p50 paired range | %s p95 | %s p95 | p95 ratio | Flag |"):format(
+			first,
+			second,
+			first,
+			second
+		),
+		"|---|---:|---:|---:|---|---:|---:|---:|---|",
+	}
+	local names: { [string]: boolean } = {}
+	for name in left do
+		names[name] = true
+	end
+	for name in right do
+		names[name] = true
+	end
+	local sorted: { string } = {}
+	for name in names do
+		table.insert(sorted, name)
+	end
+	table.sort(sorted)
+	for _, name in sorted do
+		local leftRounds = left[name] or {}
+		local rightRounds = right[name] or {}
+		local p50 = cell(leftRounds, rightRounds, "p50_ms")
+		local p95 = cell(leftRounds, rightRounds, "p95_ms")
+		local slower: { string } = {}
+		if Paired.consistentSlower(p50.ratio, p50.paired) then
+			table.insert(slower, "p50")
+		end
+		if Paired.consistentSlower(p95.ratio, p95.paired) then
+			table.insert(slower, "p95")
+		end
+		local flag = if #slower > 0 and string.sub(name, 1, 3) ~= "zz-"
+			then ("%s slower (%s)"):format(second, table.concat(slower, ", "))
+			else ""
+		table.insert(
+			lines,
+			("| %s | %s | %s | %s | %s | %s | %s | %s | %s |"):format(
+				name,
+				Paired.number(p50.first),
+				Paired.number(p50.second),
+				Paired.number(p50.ratio, 3),
+				range(p50.paired, 2),
+				Paired.number(p95.first),
+				Paired.number(p95.second),
+				Paired.number(p95.ratio, 3),
+				flag
+			)
+		)
+	end
+	table.insert(lines, "")
+	table.insert(lines, "| Bench run | Yardstick p95 ms | Yardstick drift % |")
+	table.insert(lines, "|---|---:|---:|")
+	for _, benches in { firstBenches, secondBenches } do
+		local ordered = table.clone(benches)
+		table.sort(ordered, function(a: Bench, b: Bench): boolean
+			return a.round < b.round
+		end)
+		for _, bench in ordered do
+			local stem = string.match(bench.path, "([^/\\]+)%.json$") or bench.path
+			table.insert(
+				lines,
+				("| %s | %.4f | %.1f |"):format(
+					string.sub(stem, 7),
+					numeric(Json.field(bench.document, "yardstickP95Ms")),
+					numeric(Json.field(bench.document, "yardstickDriftPct"))
+				)
+			)
+		end
+	end
+	return lines
+end
+
+function Paired.benchRound(name: string, label: string): number?
+	if string.sub(name, 1, #label + 7) ~= "bench-" .. label .. "-" or string.sub(name, -5) ~= ".json" then
+		return nil
+	end
+	local digits = string.match(name, "%-(%d+)%.json$")
+	return if digits ~= nil then tonumber(digits) else nil
+end
+
+return table.freeze(Paired)
