@@ -391,7 +391,7 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 12, full = 35, release = 1 })
+		context:expect(tiers):toEqual({ fast = 12, full = 36, release = 1 })
 		context:expect(seen["perf"].tier):toBe("full")
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
 		local plan = serde.decode("json", fs.readFile("tests/plan.json"))
