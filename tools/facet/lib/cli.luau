@@ -8,29 +8,57 @@ export type Invocation = {
 	command: string,
 	positional: { string },
 	flags: Flags,
+	repeated: { [string]: { string } },
 }
 
 export type Command = {
 	name: string,
 	summary: string,
 	usage: string,
+	values: { string }?,
 	run: (Invocation) -> number,
 }
 
 local Cli = {}
 
-function Cli.parse(arguments: { string }): Invocation
+function Cli.parse(arguments: { string }, values: { string }?): Invocation
 	local positional: { string } = {}
 	local flags: Flags = {}
+	local repeated: { [string]: { string } } = {}
+	local takes: { [string]: boolean } = {}
+	if values ~= nil then
+		for _, name in values do
+			takes[name] = true
+		end
+	end
+	local function record(name: string, value: string)
+		flags[name] = value
+		local list = repeated[name]
+		if list == nil then
+			list = {}
+			repeated[name] = list
+		end
+		table.insert(list, value)
+	end
 	local command = "help"
 	local first = true
-	for _, argument in arguments do
+	local literal = false
+	local index = 1
+	while index <= #arguments do
+		local argument = arguments[index]
 		local name, value = string.match(argument, "^%-%-([%w%-]+)=(.*)$")
-		if name ~= nil and value ~= nil then
-			flags[name] = value
+		if literal then
+			table.insert(positional, argument)
+		elseif argument == "--" then
+			literal = true
+		elseif name ~= nil and value ~= nil then
+			record(name, value)
 		else
 			local switch = string.match(argument, "^%-%-([%w%-]+)$")
-			if switch ~= nil then
+			if switch ~= nil and takes[switch] and arguments[index + 1] ~= nil then
+				record(switch, arguments[index + 1])
+				index += 1
+			elseif switch ~= nil then
 				flags[switch] = true
 			elseif first then
 				command = argument
@@ -39,8 +67,9 @@ function Cli.parse(arguments: { string }): Invocation
 				table.insert(positional, argument)
 			end
 		end
+		index += 1
 	end
-	return { command = command, positional = positional, flags = flags }
+	return { command = command, positional = positional, flags = flags, repeated = repeated }
 end
 
 function Cli.flag(invocation: Invocation, name: string): string?
@@ -63,6 +92,24 @@ function Cli.emit(invocation: Invocation, value: json.Value, text: string)
 	end
 end
 
+function Cli.unknownFlags(invocation: Invocation, known: { string }): string?
+	local allowed: { [string]: boolean } = { json = true }
+	for _, name in known do
+		allowed[name] = true
+	end
+	local unknown: { string } = {}
+	for name in invocation.flags do
+		if not allowed[name] then
+			table.insert(unknown, "--" .. name)
+		end
+	end
+	table.sort(unknown)
+	if #unknown == 0 then
+		return nil
+	end
+	return table.concat(unknown, ", ")
+end
+
 local function helpText(commands: { Command }): string
 	local lines = { "usage: lute run tools/facet <command> [arguments] [--json]", "", "commands:" }
 	local width = 0
@@ -79,9 +126,13 @@ local function helpText(commands: { Command }): string
 end
 
 function Cli.main(commands: { Command }, arguments: { string }): number
-	local invocation = Cli.parse(arguments)
-	if invocation.command == "help" then
-		local target = invocation.positional[1]
+	local name: string = arguments[1] or "help"
+	local rest: { string } = {}
+	for index = 2, #arguments do
+		table.insert(rest, arguments[index])
+	end
+	if name == "help" or name == "--help" or name == "-h" then
+		local target = rest[1]
 		for _, command in commands do
 			if command.name == target then
 				print(command.usage)
@@ -92,11 +143,20 @@ function Cli.main(commands: { Command }, arguments: { string }): number
 		return if target == nil then 0 else 2
 	end
 	for _, command in commands do
-		if command.name == invocation.command then
+		if command.name == name then
+			if table.find(rest, "--help") ~= nil then
+				print(command.usage)
+				return 0
+			end
+			local forwarded: { string } = { name }
+			for _, argument in rest do
+				table.insert(forwarded, argument)
+			end
+			local invocation = Cli.parse(forwarded, command.values)
 			return command.run(invocation)
 		end
 	end
-	print(("facet: unknown command '%s'\n\n%s"):format(invocation.command, helpText(commands)))
+	print(("facet: unknown command '%s'\n\n%s"):format(name, helpText(commands)))
 	return 2
 end
 

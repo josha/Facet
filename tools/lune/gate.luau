@@ -19,18 +19,45 @@ local DEFERRAL = {
 }
 local DIRECTORY = "artifacts/verify/native/gate"
 local CATALOG = "tools/lune/producers.json"
+local PLAN = "tests/plan.json"
 
-local function tests(id: string, names: { string }): Gate.ProducerDraft
+local WORKERS = {
+	lune = { worker = "tests/worker.luau", command = nil :: { string }? },
+	lute = { worker = "tests/tools/worker.luau", command = { "lute", "run" } :: { string }? },
+}
+
+local function runtimeOf(unit: { requires: { string }? }): string
+	return if unit.requires and table.find(unit.requires, "lute") then "lute" else "lune"
+end
+
+local function planned(): { [string]: string }
+	local runtimes = {}
+	for _, unit in serde.decode("json", fs.readFile(PLAN)).units do
+		runtimes[unit.id] = runtimeOf(unit)
+	end
+	return runtimes
+end
+
+local function tests(id: string, names: { string }, runtime: string?): Gate.ProducerDraft
 	local locators = {}
+	local selected = runtime
+	local runtimes = if runtime == nil then planned() else {}
 	for _, name in names do
 		assert(fs.isFile(`tests/{name}.spec.luau`), "unknown spec: " .. name)
 		table.insert(locators, `tests/{name}.spec.luau`)
+		if runtime == nil then
+			local inferred = runtimes[name] or "lune"
+			assert(selected == nil or selected == inferred, "a focused run cannot mix Lune and Lute specs: " .. name)
+			selected = inferred
+		end
 	end
+	local launcher = WORKERS[selected or "lune"]
 	return {
 		id = id,
 		kind = "tests",
 		tier = "fast",
-		worker = "tests/worker.luau",
+		worker = launcher.worker,
+		command = launcher.command,
 		locators = locators,
 		isolate = true,
 		workers = 4,
@@ -46,6 +73,7 @@ export type Entry = {
 	kind: string?,
 	run: string?,
 	plan: string?,
+	runtime: string?,
 	after: { string }?,
 	replaces: { string }?,
 	producer: Gate.ProducerDraft?,
@@ -67,11 +95,14 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?): 
 			producer = entry.producer
 		elseif entry.plan then
 			local names = {}
+			local runtime = entry.runtime or "lune"
 			for _, unit in serde.decode("json", fs.readFile(entry.plan)).units do
 				assert(unit.locator == `tests/{unit.id}.spec.luau`, "plan locator differs from its source: " .. unit.id)
-				table.insert(names, unit.id)
+				if runtimeOf(unit) == runtime then
+					table.insert(names, unit.id)
+				end
 			end
-			producer = tests(entry.id, names)
+			producer = tests(entry.id, names, runtime)
 		else
 			producer = {
 				id = entry.id,
@@ -118,10 +149,7 @@ local function build(): Verify.EvidenceBuild
 		commit = output("git", { "rev-parse", "HEAD" }),
 		tree = output("git", { "rev-parse", "HEAD^{tree}" }),
 		clean = output("git", { "status", "--porcelain" }) == "",
-		digest = output("python3", {
-			"-c",
-			"import sys; sys.path.insert(0, 'tools'); import package; print(package.source_hash())",
-		}),
+		digest = output("lute", { "run", "tools/facet", "package", "source-hash" }),
 	}
 end
 
