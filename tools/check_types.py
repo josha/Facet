@@ -19,7 +19,7 @@ PLUGIN_LOCK = ROOT / "tools/typecheck/roblox-plugin.lock.json"
 SOLVERS = {"old": [], "new": ["LuauSolverV2=true"]}
 DEFAULT_FLAGS = ["LuauTarjanChildLimit=100000"]
 FLAGS = list(DEFAULT_FLAGS)
-LUTE_RUNTIME = ("tools/lute/", "tools/vendor/verify/src/lute/", "tools/vendor/verify/tools/")
+LUTE_RUNTIME = ("tools/lute/", "tools/facet/", "tests/lute/", "tools/vendor/verify/src/lute/", "tools/vendor/verify/tools/")
 DIAGNOSTIC = re.compile(r"^(.+?\.lua(?:u)?)(?: \[[^\]]*\])?\((\d+),(\d+)\): (\w+): (.*)$", re.M)
 
 

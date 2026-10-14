@@ -20,7 +20,7 @@ local DEFERRAL = {
 local DIRECTORY = "artifacts/verify/native/gate"
 local CATALOG = "tools/lune/producers.json"
 
-local function tests(id: string, names: { string }): Gate.ProducerDraft
+local function tests(id: string, names: { string }, worker: string?, command: { string }?): Gate.ProducerDraft
 	local locators = {}
 	for _, name in names do
 		assert(fs.isFile(`tests/{name}.spec.luau`), "unknown spec: " .. name)
@@ -30,7 +30,8 @@ local function tests(id: string, names: { string }): Gate.ProducerDraft
 		id = id,
 		kind = "tests",
 		tier = "fast",
-		worker = "tests/worker.luau",
+		worker = worker or "tests/worker.luau",
+		command = command,
 		locators = locators,
 		isolate = true,
 		workers = 4,
@@ -50,11 +51,36 @@ export type Entry = {
 	replaces: { string }?,
 	producer: Gate.ProducerDraft?,
 	deadlineSeconds: number?,
+	requires: string?,
+	worker: string?,
+	command: string?,
 }
+
+export type PlanUnit = { id: string, locator: string, requires: { string }? }
+
+local function claimed(entries: { Entry }): { [string]: Entry }
+	local result: { [string]: Entry } = {}
+	for _, entry in entries do
+		if entry.plan and entry.requires then
+			result[entry.requires :: string] = entry
+		end
+	end
+	return result
+end
+
+local function owner(unit: PlanUnit, claims: { [string]: Entry }): string?
+	for _, capability in unit.requires or {} do
+		if claims[capability] then
+			return capability
+		end
+	end
+	return nil
+end
 
 local function define(entries: { Entry }, referenceHost: boolean, id: string?): Gate.Draft
 	local producers: { Gate.ProducerDraft } = {}
 	local deferrals: { [string]: string } = {}
+	local claims = claimed(entries)
 	for _, entry in entries do
 		local environment = entry.environment or "deterministic"
 		local reason = DEFERRAL[environment]
@@ -69,9 +95,12 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?): 
 			local names = {}
 			for _, unit in serde.decode("json", fs.readFile(entry.plan)).units do
 				assert(unit.locator == `tests/{unit.id}.spec.luau`, "plan locator differs from its source: " .. unit.id)
-				table.insert(names, unit.id)
+				if owner(unit, claims) == entry.requires then
+					table.insert(names, unit.id)
+				end
 			end
-			producer = tests(entry.id, names)
+			local command = if entry.command then string.split(entry.command :: string, " ") else nil
+			producer = tests(entry.id, names, entry.worker, command)
 		else
 			producer = {
 				id = entry.id,
@@ -98,6 +127,41 @@ end
 
 local function draft(referenceHost: boolean): Gate.Draft
 	return define(serde.decode("json", fs.readFile(CATALOG)).producers, referenceHost)
+end
+
+local function focusedDraft(names: { string }): Gate.Draft
+	local entries: { Entry } = serde.decode("json", fs.readFile(CATALOG)).producers
+	local claims = claimed(entries)
+	local units: { [string]: PlanUnit } = {}
+	for _, entry in entries do
+		if entry.plan then
+			for _, unit in serde.decode("json", fs.readFile(entry.plan)).units do
+				units[unit.id] = unit
+			end
+		end
+	end
+	local groups: { [string]: { string } } = {}
+	local order: { string } = {}
+	for _, name in names do
+		local unit = units[name]
+		local key = if unit then owner(unit, claims) or "" else ""
+		if groups[key] == nil then
+			groups[key] = {}
+			table.insert(order, key)
+		end
+		table.insert(groups[key], name)
+	end
+	local producers: { Gate.ProducerDraft } = {}
+	for _, key in order do
+		local entry = claims[key]
+		if entry then
+			local command = if entry.command then string.split(entry.command :: string, " ") else nil
+			table.insert(producers, tests("specs-" .. key, groups[key], entry.worker, command))
+		else
+			table.insert(producers, tests("specs", groups[key]))
+		end
+	end
+	return { id = "facet-specs", producers = producers }
 end
 
 local function releasable(code: number, tier: string, outcome: Gate.Outcome?): number
@@ -154,9 +218,7 @@ local function main()
 		table.insert(flags, "--tier")
 		table.insert(flags, name)
 	end
-	local gate: Gate.Draft = if focused
-		then { id = "facet-specs", producers = { tests("specs", names) } }
-		else draft(referenceHost)
+	local gate: Gate.Draft = if focused then focusedDraft(names) else draft(referenceHost)
 	local options = {
 		directory = if focused then DIRECTORY .. "-specs" else DIRECTORY,
 		build = build(),
