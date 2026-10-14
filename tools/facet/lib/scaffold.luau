@@ -1,11 +1,22 @@
 --!strict
-local scaffold = {}
+
+export type File = { path: string, content: string }
 export type Edit = { path: string, before: string, insert: string, replace: boolean? }
-export type Plan = { files: { { path: string, content: string } }, edits: { Edit } }
-function scaffold.plan(kind: string, name: string): Plan
-	assert(kind == "control", "Only control scaffolding belongs to Facet; construct native hosts with Compose")
-	assert(string.match(name, "^[a-z][a-z0-9_]*$"), "Use a lower_snake_case control name")
+export type Plan = { files: { File }, edits: { Edit } }
+
+local Scaffold = {}
+
+Scaffold.NAME_PATTERN = "^[a-z][a-z0-9_]*$"
+
+function Scaffold.display(name: string): string
 	local display = string.gsub("_" .. name, "_(%l)", string.upper)
+	return display
+end
+
+function Scaffold.plan(kind: string, name: string): Plan
+	assert(kind == "control", "Only control scaffolding belongs to Facet; construct native hosts with Compose")
+	assert(string.match(name, Scaffold.NAME_PATTERN), "Use a lower_snake_case control name")
+	local display = Scaffold.display(name)
 	return {
 		files = {
 			{
@@ -33,7 +44,8 @@ function scaffold.plan(kind: string, name: string): Plan
 		},
 	}
 end
-function scaffold.applyEdit(source: string, edit: Edit): string
+
+function Scaffold.applyEdit(source: string, edit: Edit): string
 	if string.find(source, edit.insert, 1, true) then
 		return source
 	end
@@ -43,4 +55,5 @@ function scaffold.applyEdit(source: string, edit: Edit): string
 		.. edit.insert
 		.. string.sub(source, at + (if edit.replace then #edit.before else 0))
 end
-return scaffold
+
+return table.freeze(Scaffold)

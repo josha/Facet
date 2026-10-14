@@ -1,6 +1,7 @@
 --!strict
 
 local Files = require("../lib/files")
+local LabBoundary = require("../lib/lab_boundary")
 local Luau = require("../lib/luau")
 local Rule = require("../lib/rule")
 local Run = require("../lib/run")
@@ -358,6 +359,11 @@ local function check(context: Rule.Context): { string }
 	for _, directory in vendorDirectories(context) do
 		failures[directory .. ": unexpected vendor directory"] = true
 	end
+	if Files.isDirectory(context.path(LabBoundary.LAB)) then
+		for _, problem in LabBoundary.check(context.root, {}) do
+			failures["lab boundary: " .. problem] = true
+		end
+	end
 	local sorted: { string } = {}
 	for finding in failures do
 		table.insert(sorted, finding)
@@ -638,6 +644,22 @@ local function cases(): { Rule.Case }
 							not Rule.contains(findings, "artifacts/verify/tmp")
 								and not Rule.contains(findings, "tools/vendor:"),
 							Rule.describe(findings)
+						)
+					end
+				)
+			end,
+		},
+		{
+			name = "a lab project that maps a source outside Facet is a finding",
+			run = function()
+				return Rule.within(
+					tree({
+						["examples/facet-lab/default.project.json"] = '{"name": "Lab", "tree": {"$path": "../../../outside"}}',
+					}),
+					function(context)
+						return Rule.expect(
+							Rule.contains(check(context), "lab boundary: "),
+							Rule.describe(check(context))
 						)
 					end
 				)
