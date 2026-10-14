@@ -1,21 +1,21 @@
 --!strict
 local NativeEngine = require("../tests/lib/native_engine")
 
-local process = require("@lune/process")
+local system = require("@std/system")
 local Verify = require("../tools/vendor/verify/src/core")
 
 local perf_runner = {}
 
-local ENGINE = "lune 0.10.4 (Luau)"
+local ENGINE = "lute 1.0.1 (Luau)"
 local QUALITY = "headless (no engine render; property writes only)"
-local HEADLESS_NOTE = "Headless Lune timing is trend screening only — NOT an authoritative device result (§14.3). "
+local HEADLESS_NOTE = "Headless Lute timing is trend screening only — NOT an authoritative device result (§14.3). "
 	.. "deviceMeasurement is the empty slot a real on-device capture fills."
 
 perf_runner.EVIDENCE_CLASSES = {
 	{
-		id = "lune",
+		id = "lute",
 		level = "E1",
-		instrument = "headless Lune on the development host",
+		instrument = "headless Lute on the development host",
 		proves = "deterministic regressions in Facet's own decision/commit cost",
 		cannotProve = "engine frame work, GPU/paint cost, or any device performance claim",
 	},
@@ -56,7 +56,7 @@ local DEVICE_CLASSES: { [string]: boolean } = {
 }
 perf_runner.DEVICE_CLASSES = DEVICE_CLASSES
 
-perf_runner.CLASS = "lune"
+perf_runner.CLASS = "lute"
 perf_runner.LEVEL = "E1"
 
 local PHYSICAL_REQUIRED_METRICS = {
@@ -176,7 +176,7 @@ local function nowIso(): string
 end
 
 local function hostOs(): string
-	return `{process.os}/{process.arch}`
+	return `{system.os}/{system.arch}`
 end
 
 local function slope(ys: { number }): number
@@ -281,7 +281,7 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 		local summary = Verify.performance.summarize({
 			samples = bucket,
 			unit = "ms",
-			context = { environment = "facet-lune", signal = name, timing = "observed" },
+			context = { environment = "facet-lute", signal = name, timing = "observed" },
 		})
 		phases[name] = {
 			p50_ms = summary.p50 or 0,
@@ -332,7 +332,7 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 		phases = phases,
 
 		metrics = {
-			frameWorkMs = blind("headless Lune renders no frame; M1 requires an engine session"),
+			frameWorkMs = blind("headless Lute renders no frame; M1 requires an engine session"),
 			updateMs = {
 				measured = true,
 				p50_ms = phases.total.p50_ms,

@@ -1,6 +1,7 @@
 --!strict
 
-local fs, serde = require("@lune/fs"), require("@lune/serde")
+local fs = require("@std/fs")
+local Json = require("../../tools/facet/lib/json")
 local document = require("../../tools/designer/modules/document")
 local exporter = require("../../tools/designer/modules/export")
 local agent = require("../../tools/designer/modules/agent")
@@ -73,13 +74,19 @@ local function design(name: string, title: string, subtitle: string, sections: {
 		},
 	}
 	local code, authored = agent.patch(exporter.component(value), operations, name)
-	fs.writeFile(output .. name .. ".luau", code)
-	fs.writeFile(
+	fs.writeStringToFile(output .. name .. ".luau", code)
+	fs.writeStringToFile(
 		output .. name .. ".design.json",
-		serde.encode("json", { format = "facet-design-file/1", design = authored })
+		Json.encode(
+			{ format = "facet-design-file/1", design = authored },
+			{ sortKeys = true, compact = true, ascii = false }
+		)
 	)
-	fs.writeFile(output .. name .. ".operations.json", serde.encode("json", operations))
-	fs.writeFile(output .. name .. ".preview.luau", exporter.preview(name, name))
+	fs.writeStringToFile(
+		output .. name .. ".operations.json",
+		Json.encode(operations, { sortKeys = true, compact = true, ascii = false })
+	)
+	fs.writeStringToFile(output .. name .. ".preview.luau", exporter.preview(name, name))
 end
 local slots = {}
 for index = 1, model.SLOTS do

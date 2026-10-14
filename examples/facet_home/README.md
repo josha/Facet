@@ -14,7 +14,7 @@ It does not replace Roblox discovery, accounts, chat, or moderation.
 From the repository root:
 
 ```sh
-lune run tools/lune/build home
+lute run tools/facet build home
 ```
 
 Open `build/Facet-Home.rbxl` in Studio and start Play. Each player gets a room.
@@ -60,7 +60,7 @@ Do not run `author.luau` after editing a design unless you intend to regenerate
 all seed designs. To regenerate the checked-in seeds:
 
 ```sh
-lune run examples/facet_home/author
+lute run examples/facet_home/author.luau
 stylua examples/facet_home/designs
 ```
 

@@ -73,8 +73,8 @@ cannot be won and neither list can see the problem on its own.
 ## Regenerating
 
 ```sh
-python3 tools/build_word_lists.py            # generate (downloads the archive once)
-python3 tools/build_word_lists.py --check    # verify the checked-in files; no network
+lute run tools/facet words            # generate (downloads the archive once)
+lute run tools/facet words --check    # verify the checked-in files; no network
 ```
 
 `--check` is the half that runs anywhere: it re-hashes the generated files

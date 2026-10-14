@@ -1,5 +1,5 @@
 {
-  "note": "Alpha-weighted mean of each asset's nine-slice CENTRE rect \u2014 the pixels a lifted label is read against. Regenerate with tools/sample_plates.py whenever the art is re-cut; tests/theme_reference_packages.spec.luau re-hashes every file and fails if a sample is stale.",
+  "note": "Alpha-weighted mean of each asset's nine-slice CENTRE rect \u2014 the pixels a lifted label is read against. Regenerate with `lute run tools/facet art sample` whenever the art is re-cut; `lute run tools/facet art sample --check` re-hashes every file and fails if a sample is stale.",
   "samples": {
     "compact-pointer": {
       "control": {

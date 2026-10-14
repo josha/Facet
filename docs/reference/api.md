@@ -28,7 +28,7 @@ The pinned Compose includes `Compose.createSlot` for owned native instances and
 `Compose.geometry` for geometry calculations. It includes `Compose.focusNeighbor` for directional selection over
 rectangles and `Compose.TileCollection` for camera-windowed tile scenes. Facet
 uses `focusNeighbor` for its directional focus queries. See the
-[upstream Compose API](https://github.com/voidmeld/compose/blob/49668e8cb27d5e2b273be8fe057145a44ffde562/docs/api.md)
+[upstream Compose API](https://github.com/voidmeld/compose/blob/1836eaaa4da1e39046d9a3176be768890cf50731/docs/api.md)
 for these Compose contracts.
 
 ### Types
@@ -81,9 +81,9 @@ Compose release types the payload of this marker as `unknown`. Thus Luau cannot
 check the class of the wrapped Instance. Ordinary property values and reactive
 sources keep their native types.
 
-Run `python3 tools/check_types.py` to check every Luau file in the repository and
+Run `lute run tools/facet types` to check every Luau file in the repository and
 the public API witnesses. The checker compiles each file with the pinned runtime,
-then checks strict types with pinned Roblox and Lune declarations. It uses the old
+then checks strict types with pinned Roblox and Lute declarations. It uses the old
 Luau solver by default. `--solver new` and `--solver both` select other solver runs.
 Every selected solver must report zero type errors. Each invalid public probe must
 be rejected. The checker increases the analyzer graph limit to check the complete

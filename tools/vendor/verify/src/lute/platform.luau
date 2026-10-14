@@ -1,7 +1,6 @@
 --!strict
 
 local fs = require "@std/fs"
-local process = require "@std/process"
 local Core = require "../core"
 local Entry = require "../roblox/case-entry"
 local Attachments = require "./attachments"
@@ -51,9 +50,7 @@ export type Result = {
 	cloud: OpenCloud.Outcome?,
 }
 
-local function absolute(path: string): string
-	return if path:sub(1, 1) == "/" then path else tostring(process.cwd()) .. "/" .. path
-end
+local absolute = Files.absolute
 
 local function literalIds(ids: { string }?): string
 	if ids == nil then
@@ -122,6 +119,7 @@ local function run(options: Options): Result
 	local seconds = options.deadlineSeconds or 90
 	local outcome: Core.BatchOutcome
 	local cloud: OpenCloud.Outcome? = nil
+	local unsupported: string? = nil
 	local progressPath: string? = nil
 	local ok, thrown = pcall(function()
 		assert(seconds > 0 and seconds < math.huge, "deadline must be finite and positive")
@@ -161,12 +159,10 @@ local function run(options: Options): Result
 			for _, id in options.caseIds or ({} :: { string }) do
 				table.insert(command, id)
 			end
-			if progressPath ~= nil then
-				table.insert(command, 1, "VERIFY_PROGRESS_RUN=" .. directory)
-				table.insert(command, 1, "VERIFY_PROGRESS_FILE=" .. absolute(progressPath))
-				table.insert(command, 1, "/usr/bin/env")
-			end
-			local result = Bounded.run(command, seconds)
+			local environment: { [string]: string }? = if progressPath ~= nil
+				then { VERIFY_PROGRESS_FILE = absolute(progressPath), VERIFY_PROGRESS_RUN = directory }
+				else nil
+			local result = Bounded.run(command, seconds, nil, { env = environment })
 			fs.writeStringToFile(directory .. "/host.log", result.stdout .. result.stderr)
 			if result.timedOut then
 				outcome = { status = "timed_out", detail = "simulator process exceeded deadline" }
@@ -238,14 +234,20 @@ local function run(options: Options): Result
 					detail = OpenCloud.describe(finished),
 				}
 		else
-			outcome = Player.run {
-				placeId = assert(options.placeId, "Player requires --place-id"),
-				runId = directory,
-				logPath = directory .. "/host.log",
-				entry = options.entry,
-				caseIds = options.caseIds,
-				deadlineSeconds = seconds,
-			}
+			local able, reason = Player.supported()
+			if not able then
+				unsupported = reason
+				outcome = { status = "faulted", detail = reason }
+			else
+				outcome = Player.run {
+					placeId = assert(options.placeId, "Player requires --place-id"),
+					runId = directory,
+					logPath = directory .. "/host.log",
+					entry = options.entry,
+					caseIds = options.caseIds,
+					deadlineSeconds = seconds,
+				}
+			end
 		end
 	end)
 	local diagnostics: string? = nil
@@ -295,6 +297,16 @@ local function run(options: Options): Result
 			else
 				report = failure(options, "failed", tostring(value))
 			end
+		elseif unsupported ~= nil then
+			report = Core.syntheticReport {
+				executor = "verify-run",
+				environment = { host = options.host :: string, entry = options.entry },
+				id = "verify:execution",
+				name = "host execution",
+				status = "unsupported",
+				missingCapabilities = { "roblox-player-launcher" },
+				limitations = { unsupported :: string },
+			}
 		else
 			report = failure(
 				options,

@@ -6,14 +6,20 @@ Verify is licensed under the MIT License in [`LICENSE`](LICENSE). It is distribu
 ## Source and tools
 
 - Do not commit, vendor, generate or run third-party source as a Verify dependency.
-- Lute, Lune, Luau-LSP and StyLua are pinned development tools. Rokit fetches them. Verify does not distribute them.
+- Lute, Luau-LSP and StyLua are pinned development tools. Rokit fetches them. Verify does not distribute them.
 - This repository contains no implementation from another test framework.
 - Comparisons with other frameworks and their measurements stay outside this release tree.
 - The public adapters in the [README](README.md#packages) belong to Verify.
 
-## Generated fixture
+## Generated fixtures
 
-`tests/fixtures/reflection-snapshot.json` is generated. It is not authored.
-`tools/export-reflection.luau` exports it from the reflection database of the pinned Lune runtime.
-It holds class names, property names, datatypes and defaults for the classes that the Lune tests name.
-The Lune gate compares the committed file with a fresh export, so the file cannot drift.
+These files are generated. They are not authored.
+
+| File | Source | Command |
+| --- | --- | --- |
+| `tests/fixtures/reflection-snapshot.json` | The reflection database of Lune 0.10.5 for the classes `Part`, `TextLabel`, `Frame`, `Model` and `Folder`. It is frozen. Verify no longer runs Lune. | None. Export the same classes from Studio to replace it. |
+| `tests/fixtures/studio-reflection.json` | Roblox Studio through its official MCP: reflection, defaults of new instances, enums, brick colors and fonts. | `lute run tools/export-studio-reflection.luau tests/fixtures/studio-reflection.json --studio-name <place> --classes Folder,Model,Part,Frame,TextLabel,TextButton,ScrollingFrame,UICorner,UIListLayout,ScreenGui,GuiService --enums NormalId,Axis` |
+| `tests/fixtures/datatype-probes.json` | The results of the probes in `tests/fixtures/datatype-probes.luau`, run in Roblox Studio. | `lute run tools/export-studio-probes.luau tests/fixtures/datatype-probes.json --studio-name <place>` |
+
+The Lune fixture does not change. The tests use it as a second, smaller database.
+The Studio files record the engine version that wrote them. Regenerate them after a Roblox update and review the difference.

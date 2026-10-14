@@ -5,6 +5,7 @@ local task = require "@std/task"
 local Core = require "../core"
 local Detached = require "./studio-detached"
 local Files = require "./files"
+local Install = require "./studio-install"
 local Mcp = require "./studio-mcp"
 local Progress = require "./studio-progress"
 local Reply = require "./studio-reply"
@@ -104,7 +105,6 @@ local PLAY = "start_stop_play"
 local CAPTURE = "screen_capture"
 local CONSOLE_READ = "get_console_output"
 local DATAMODELS: { [string]: boolean } = { Edit = true, Server = true, Client = true }
-local DEFAULT_EXECUTABLE = "/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP"
 
 local digest = Detached.digest
 
@@ -231,10 +231,18 @@ local function attach(options: Options): (Session?, Refusal?)
 		end
 	end
 	local priorMode: "edit" | "play" = options.mode or "edit"
+	local executable = options.mcpExecutable
+	if options.transport == nil and executable == nil then
+		local installed, missing = Install.locate()
+		if installed == nil then
+			return nil, refusalOf("failed", "the Studio MCP executable was not found: " .. tostring(missing))
+		end
+		executable = installed.mcp
+	end
 	local transport = options.transport
 		or mcpTransport(
-			options.mcpExecutable or DEFAULT_EXECUTABLE,
-			options.directory or Files.claimDirectory "/tmp/verify-attach"
+			executable :: string,
+			options.directory or Files.claimDirectory(Files.temporary "verify-attach")
 		)
 	local runDeadline = os.clock() + runSeconds
 	local studio: StudioInfo? = nil
@@ -531,7 +539,7 @@ local function run(options: RunOptions): Core.BatchOutcome
 	if not (seconds > 0 and seconds < math.huge) then
 		return { status = "faulted", detail = "Studio deadline must be finite and positive" }
 	end
-	local directory = Files.claimDirectory(options.directory or "/tmp/verify-studio-attach")
+	local directory = Files.claimDirectory(options.directory or Files.temporary "verify-studio-attach")
 	local settings = table.clone(options.attach)
 	settings.runSeconds = seconds
 	settings.directory = settings.directory or directory

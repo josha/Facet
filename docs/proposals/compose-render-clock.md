@@ -11,7 +11,7 @@ Do not connect each control to a second animation scheduler.
 ## Measurement
 
 The Verify case `measures the render sample before and after the Compose
-clock step` in `tests/zoom_travel.spec.luau` controls the two event signals.
+clock step` in `tests/zoom_travel.verify.luau` controls the two event signals.
 It requests scale 2 from scale 1. At PreRender N, before any Heartbeat step,
 the scale is still 1. It then advances Heartbeat by 1/60 second. At PreRender
 N+1 the scale is greater than 1. This is one rendered sample of difference,

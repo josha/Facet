@@ -9,7 +9,7 @@ copy.
 ## Compose
 
 **Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
-`49668e8cb27d5e2b273be8fe057145a44ffde562` on the official `main` branch,
+`1836eaaa4da1e39046d9a3176be768890cf50731` on the official `main` branch,
 `src/core` and `src/roblox`.
 
 **Distribution.** `src/vendor/compose` is a generated, read-only snapshot of that
@@ -47,8 +47,8 @@ SOFTWARE.
 ## 1. Facet's own art: icons and reference theme packages
 
 **Origin.** Generated in this repository by checked-in scripts:
-`assets/icons/source/generate_icons.py` and each
-`assets/themes/<package>/source/generate_art.py`.
+`tools/facet/art/icons.luau` and one module per
+package in `tools/facet/art/`.
 
 **License.** MIT, the same as the rest of Facet. No notice from anyone else is
 required.
@@ -56,7 +56,7 @@ required.
 **Why it is listed anyway.** A reader auditing an image set is entitled to know
 where the pixels came from, and "we drew it" is a claim that should be checkable.
 Every folder carries a `provenance.md` that names the generator, the fixed seed,
-and the fact that re-running reproduces the files byte for byte:
+and the fact that re-running reproduces the files pixel for pixel:
 [`assets/icons/provenance.md`](assets/icons/provenance.md) for the standard icon
 set, and `assets/themes/<package>/provenance.md` for each reference theme package.
 Each of those documents states that the art contains no external imagery, no
@@ -66,7 +66,8 @@ third-party asset, and no trade dress.
 
 **Origin.** SCOWL (Spell Checker Oriented Word Lists) 2020.12.07,
 <http://wordlist.aspell.net/>. The generator
-[`tools/build_word_lists.py`](tools/build_word_lists.py) reads a pinned archive
+[`tools/facet/commands/words.luau`](tools/facet/commands/words.luau)
+(`lute run tools/facet words`) reads a pinned archive
 (SHA-256 `5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba23fb859cc`) and
 writes the word lists under `examples/gallery/examples/words/`.
 
@@ -359,7 +360,114 @@ Facet's development toolchain is pinned in [`rokit.toml`](rokit.toml) and
 installed by each contributor. None of it is copied into this repository or into
 any Facet artifact, so none of it is redistributed and none of it needs a notice
 here. It is listed so that a reader knows what the build depends on: Rojo,
-luau-lsp, Lune, and StyLua, each under its own license from its own project.
+luau-lsp, Lute, and StyLua, each under its own license from its own project.
+
+## 6. Algorithms ported into the development tools
+
+**Origin.** The raster library in `tools/facet/lib/raster/` ports the drawing,
+resampling, blur and filter algorithms of Pillow 12.3.0
+(<https://github.com/python-pillow/Pillow>) to Luau, so that the art generators
+make the same pixels as the Python generators did. `tools/facet/lib/raster/random.luau`
+ports the NumPy `SeedSequence` and `PCG64` bit generator
+(<https://github.com/numpy/numpy>), which itself carries the PCG reference
+implementation by Melissa O'Neill.
+
+**Distribution.** These files are development tools. They are not in the Facet model.
+
+**License and notices.** Pillow is under the MIT-CMU License. NumPy is under the
+BSD 3-Clause License. The PCG64 code is under the MIT License. The notices follow
+exactly as each project states them.
+
+Pillow:
+
+    The Python Imaging Library (PIL) is
+
+        Copyright © 1997-2011 by Secret Labs AB
+        Copyright © 1995-2011 by Fredrik Lundh and contributors
+
+    Pillow is the friendly PIL fork. It is
+
+        Copyright © 2010 by Jeffrey 'Alex' Clark and contributors
+
+    Like PIL, Pillow is licensed under the open source MIT-CMU License:
+
+    By obtaining, using, and/or copying this software and/or its associated
+    documentation, you agree that you have read, understood, and will comply
+    with the following terms and conditions:
+
+    Permission to use, copy, modify and distribute this software and its
+    documentation for any purpose and without fee is hereby granted,
+    provided that the above copyright notice appears in all copies, and that
+    both that copyright notice and this permission notice appear in supporting
+    documentation, and that the name of Secret Labs AB or the author not be
+    used in advertising or publicity pertaining to distribution of the software
+    without specific, written prior permission.
+
+    SECRET LABS AB AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+    SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS.
+    IN NO EVENT SHALL SECRET LABS AB OR THE AUTHOR BE LIABLE FOR ANY SPECIAL,
+    INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+    LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+    OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+    PERFORMANCE OF THIS SOFTWARE.
+
+NumPy:
+
+    Copyright (c) 2005-2025, NumPy Developers.
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are
+    met:
+
+        * Redistributions of source code must retain the above copyright
+           notice, this list of conditions and the following disclaimer.
+
+        * Redistributions in binary form must reproduce the above
+           copyright notice, this list of conditions and the following
+           disclaimer in the documentation and/or other materials provided
+           with the distribution.
+
+        * Neither the name of the NumPy Developers nor the names of any
+           contributors may be used to endorse or promote products derived
+           from this software without specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+    A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+    OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+    SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+    LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+    DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+PCG64 (as distributed with NumPy):
+
+    # PCG64
+
+    ## The MIT License
+
+    PCG Random Number Generation for C.
+
+    Copyright 2014 Melissa O'Neill <oneill@pcg-random.org>
+
+    Permission is hereby granted, free of charge, to any person obtaining 
+    a copy of this software and associated documentation files (the "Software"), 
+    to deal in the Software without restriction, including without limitation 
+    the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in 
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS 
+    FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
+    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
+    IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## How this file is kept true
 
@@ -372,6 +480,6 @@ does not belong in the repository.
 
 The development tree includes Verify from
 [voidmeld/verify](https://github.com/voidmeld/verify), commit
-`ffff3ac8ce0df72b5669657fdf293f60cbab5933`, under the MIT License.
+`b12761601b87164cbc05e843d51fb3290e4967db`, under the MIT License.
 Its license is in `tools/vendor/verify/LICENSE`. The generated snapshot is
-checked by `tools/sync_verify.py`. Verify is not included in the Facet model.
+checked by `lute run tools/facet sync verify --check`. Verify is not included in the Facet model.

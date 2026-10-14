@@ -6,3 +6,7 @@ skills/compose/** linguist-generated=true
 tools/vendor/verify/** linguist-generated=true
 tools/vendor/verify/UPSTREAM.lock linguist-generated=false
 tools/vendor/verify/README.md linguist-generated=false
+src/vendor/compose/** text eol=lf
+skills/compose/** text eol=lf
+tools/vendor/verify/** text eol=lf
+*.luau text eol=lf

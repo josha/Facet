@@ -11,6 +11,19 @@
   Close. Before, the title reached only the compact Sheet, and Close sat alone
   in its own row above the content, which left an empty band at the top.
 
+- Luau generators in `tools/facet/art/` make the standard icons and the
+  procedural reference theme art. `lute run tools/facet art <target>` writes
+  each PNG whose pixels changed, and `--check` compares every pixel with the
+  committed files. `lute run tools/facet art sample` writes
+  `assets/themes/plate-samples.json`. `lute run tools/facet icons upload`
+  uploads icons through Open Cloud. It reads the API key only from
+  `ROBLOX_API_KEY`, and `--dry-run` prints the requests. The Python
+  generators, `tools/sample_plates.py` and `tools/upload_icons.py` are
+  removed. The committed package PNGs and asset IDs did not change.
+- The maintainer tools are strict Luau programs that run on Lute.
+  `lute run tools/facet <command>` replaces the Python tools and the Lune
+  maintenance scripts. The Verify gate runner and the workloads that need the
+  Lune engine double stay in `tools/lune`.
 - Skinned Button captions reduce their padding when the visible text does not
   fit. Pixel Quest word-game keys keep their letters visible on narrow screens.
 - ColorPicker keeps the RGB, HSV and Hex fields mounted and reserves their

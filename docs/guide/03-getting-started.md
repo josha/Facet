@@ -49,7 +49,7 @@ StyleLink. When you need a different root, use these pieces directly. See
 
 ## Test a screen without Studio
 
-You can mount a screen headlessly with Lune. This path needs a clone of this
+You can mount a screen headlessly with Lute. This path needs a clone of this
 repository and the pinned toolchain. Run `rokit install` from the repository
 root.
 
@@ -59,7 +59,9 @@ objects that act like Roblox Instances: properties, children, `FindFirstChild`
 and events that a test can fire. It is not part of the Roblox package.
 
 Save this script as `tests/counter.luau` and run
-`lune run tests/counter.luau` from the repository root.
+`lute run tools/engine/headless.luau tests/counter.luau` from the repository root.
+The runner loads the script the way the specs load code under test, with the
+Roblox globals `warn` and `getfenv` that Lute does not have.
 
 ```luau
 local Facet = require("../src")
@@ -102,9 +104,9 @@ app.runtime:dispose()
 
 - `engineLib.new()` makes the fake engine. Give it to
   `Facet.Roblox.createRuntime`, and give that runtime to `Facet.app`.
-- The app needs `types = engine.types`, because Lune does not have the Roblox
+- The app needs `types = engine.types`, because Lute does not have the Roblox
   datatypes as globals.
-- Lune has no PlayerGui. Give a `parent`.
+- Lute has no PlayerGui. Give a `parent`.
 - `app.mount` returns the stop function and the ScreenGui.
 - The app does not dispose a runtime that you give. Call `runtime:dispose()`
   after `app.dispose()`.
@@ -113,7 +115,7 @@ app.runtime:dispose()
   with an error.
 - `Activated:Fire()` sends the event that a click or a gamepad press sends.
 
-The [standalone consumer test](../../tests/native_gallery.spec.luau) mounts the
+The [standalone consumer test](../../tests/native_gallery.verify.luau) mounts the
 screen module of `examples/consumer` in the same way.
 
 A headless test proves state, events, structure and cleanup. It does not prove
@@ -121,7 +123,7 @@ native layout, `StyleSheet` paint, text measurement, device input or engine
 performance. Those need a Studio check.
 
 Inside this repository, put a spec under `tests/` and run it with
-`lune run tools/lune/verify spec <name>`.
+`lute run tools/facet gate spec <name>`.
 
 ## Using Facet in a game that already uses Compose
 

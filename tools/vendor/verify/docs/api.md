@@ -12,9 +12,10 @@ Use sessions, plans and host adapters when you coordinate several sources or col
 | Schedule work across hosts | [Execution plans](#execution-plans) |
 | Judge observations that a host collected | [Host observations](#host-observations) |
 | Prove that evidence is current, intact, reviewed and complete | [Evidence provenance](#evidence-provenance) |
-| Plan captures, classify console output or capture a window | [Host adapters](#host-adapters) |
+| Plan captures or move reports from a native host | [Host adapters](#host-adapters) |
 | Test engine-facing logic without Roblox | [Simulated environment](#simulated-environment) |
 | Compose reflection, UI fakes and the engine seam | [Reflection and explicit UI fakes](#reflection-and-explicit-ui-fakes) |
+| Score a Roblox interface or evaluate coding agents | [Agent evaluation](agent-eval.md) |
 
 Examples use these package names. Replace the paths with the locations of your mounted packages:
 
@@ -25,9 +26,9 @@ local Bdd = require(path.to.verify.bdd)
 
 The optional packages are:
 
-- [`Lute`](../src/lute/init.luau), [`Lune`](../src/lune/init.luau) and [`Roblox`](../src/roblox/init.luau).
+- [`Lute`](../src/lute/init.luau) and [`Roblox`](../src/roblox/init.luau).
 - [`Gate`](../src/gate/init.luau), [`Evidence`](../src/evidence/init.luau) and [`Benchmark`](../src/benchmark.luau). They run on the host side. A place mounts only core.
-- [`Host`](../src/host/init.luau) and [`Consumer`](../src/consumer/init.luau).
+- [`Consumer`](../src/consumer/init.luau).
 
 Each entry point exports its public functions and types.
 The [working example](../examples/basic.luau) is a case and report that you can run directly.
@@ -164,7 +165,7 @@ Limits fail closed. A broken limit raises an error from `attach`, the step fails
 | Bytes in one report | 4194304 | `maxTotalBytes` |
 
 Set the limits with `attachments` in `Core.createHarness` or in the run options. The run options win.
-`Core.attachmentDefaults` holds the defaults.
+
 
 `Lute.attachments.materialize(report, { directory, sink?, limits?, supported?, host? }) -> report, issues` is the host step.
 It checks the limits again and writes `<directory>/attachments/<case id>/<name>`.
@@ -334,8 +335,6 @@ The counts must agree with the result rows.
 | `Core.compose(payloads, executor, environment)` | Account for every expected shard, including missing, malformed and duplicate outcomes. |
 | `Core.syntheticReport(options)` | Record work that a host could not reach. |
 | `Core.format(report)` | Produce readable output. Each case that carries measurements adds one line for each measurement: name, unit, sample count, `p50`, `p95`, declared extra percentiles and the evaluation reason. |
-| `Core.canonical(value)` | Produce a deterministic representation. |
-| `Core.verdictDigest(report)` / `Core.verdictDifferences(left, right)` | Compare verdicts without treating timings as deterministic. |
 
 ```luau
 local combined = Core.compose({
@@ -357,7 +356,10 @@ If you omit an unsuccessful worker from the input, the result cannot establish t
 | `Core.segment`, `reassembleSegments` | Bounded payload arrays. |
 | `Lute.encode`, `parse` | Any JSON value to text, and JSON text to a plain value. |
 | `Lute.decode` | JSON text to a validated report. |
-| `Lute.segmentReport`, `reassembleReport` | Reports carried in bounded segments. |
+
+`Core.reassembleSegments(segments: { unknown })` validates decoded rows before using their segment
+fields. It also accepts arrays produced by `Core.segment`. Invalid fields, missing segments and
+digest disagreements return `nil` and a reason; reassembly never changes the supplied rows.
 
 Missing, conflicting and mixed chunks fail.
 **JSON decoding is not report validation.** Validate each received report with `Core.decode`.
@@ -371,16 +373,12 @@ The consumer supplies discovery, the meaning of each locator and an authorized h
 
 | API | Responsibility |
 | --- | --- |
-| `Core.validateManifest`, `planFromManifest` | Validate a manifest, then derive a plan from it. |
-| `Core.validatePlan`, `selectPlan`, `partitionPlan` | Normalize, select and divide planned work deterministically. |
-| `Core.planDigest`, `caseId` | Bind the meaning of a plan and compose case identities. |
-| `Core.negotiate`, `explainCapabilities` | Determine and explain capability support. |
-| `Core.execute(plan, host, options?)` | Execute batches with lifecycle and failure accounting. |
-| `Gate.define`, `run`, `format`, `shard`, `testCases`, `rerun`, `explain`, `list` (package `src/gate`); `Lute.gate` and `Lune.gate` (`run`, `last`, `cli`, `writeReport`) | Declare producers and execute them as one accounted plan with an acceptance verdict. See [declarative gates](execution.md#declarative-gates). |
+| `Core.execute(plan, host, options?)` | Validate, select and batch the plan, then execute the batches with lifecycle, capability and failure accounting. |
+| `Gate.define`, `run`, `format`, `testCases`, `rerun`, `explain`, `list` (package `src/gate`); `Lute.gate` (`run`, `last`, `cli`, `writeReport`) | Declare producers and execute them as one accounted plan with an acceptance verdict. See [declarative gates](execution.md#declarative-gates). |
 | `Benchmark.case`, `run`, `collection`, `collect`, `store`, `storeReport`, `decode`, `compare`, `spread` (`src/benchmark.luau`) | Warm up, sample and check baselines and stability. Report the result as an ordinary case. Store, compare and summarize runs. See [benchmarks](experience.md#benchmarks). |
 
 [Execution](execution.md) describes fixtures, deadlines, retries and Lute workers.
-[`Host.fake`](../src/host/init.luau) injects missing, duplicate, reordered, failed and cancelled deliveries without external effects.
+The [fake host](../tests/fake-host.luau) of the tests injects missing, duplicate, reordered, failed and cancelled deliveries without external effects.
 
 ---
 
@@ -442,13 +440,11 @@ The caller supplies it.
 - `Lute.evidenceStore.localDirectory(path)` is the content-addressed reference sink.
 - `Core.memorySink(hash)` is a portable sink.
 - `Lute.evidenceStore.validate(report, { from, required })` fills in the store, hash and clock.
-- Lune has no local store binding. Pass `hash`, `read` and a sink to `Evidence`.
 
-Validation needs only `get`, `stat`, a hasher and a clock, so it runs unchanged under Lute and Lune:
+Validation needs only `get`, `stat`, a hasher and a clock. Pass `hash`, `read` and a sink to `Evidence` on another host:
 
 ```sh
-lute run examples/evidence-provenance/lute.luau
-lune run examples/evidence-provenance/lune.luau
+lute run examples/evidence-provenance.luau
 ```
 
 Metadata and a saved screenshot do not establish visual quality, audio quality or physical-device use.
@@ -481,47 +477,27 @@ Coverage lives in the ordinary case and in evidence.
 
 The consumer owns tool execution, request digests, storage paths, authorization and the meaning of each checkpoint.
 
-### Console classification
+### Model files
 
-`Core.classifyConsole(lines, options)` and `classifyConsoleText(text, options)` return the lines that match `options.errorPatterns`.
-`splitConsoleLines(text)` splits text into lines.
-The caller must supply the error patterns. Core has no default patterns.
+`Lute.model` reads a Roblox XML model (`.rbxmx`) or place (`.rbxlx`) so that a case can assert on a built file.
 
-Options also accept `ignorePatterns`, `ignore`, `caseInsensitive` and a pair of `blockBeginPatterns` and `blockEndPatterns`.
-An ignored line removes a block that follows it.
-`Roblox.consolePatterns` holds `errors`, `blockBegin` and `blockEnd` for the Roblox output log.
+- `read(text)` returns the root instances. Each instance is `{ className, name, path, properties, children }`.
+  `name` is the `Name` property, or the class name when the file stores no name or an empty name, so that each path segment is not empty. `path` joins the names from the root with `/`.
+  `properties[name]` is `{ type, value }`: the XML tag of the value, such as `string`, `ProtectedString` or `bool`, and its decoded text.
+- `descendants(roots)` lists every instance in document order.
+- `find(roots, path)` returns the first instance with that path, or `nil`.
 
-### Window capture (macOS reference)
+`read` raises for malformed XML and for a document whose root is not `roblox`.
+It reads a binary file (`.rbxm`, `.rbxl`) as malformed. Build the XML format to assert on it.
+`Lute.place.build` merges into a base place with the same XML codec.
 
-`Lute.windowCapture` is the reference adapter that captures a Studio or Player window on macOS.
-It runs no command. It decides from facts that you inject.
+### Codecs
 
-- `parseWindowRows` reads rows of `pid`, `id`, `layer`, `width`, `height` and `owner`, separated by tabs.
-- `selectWindow` and `documentWindowSize` choose the largest document window of one process.
-- `captureFrame` captures that window with your `deps` and crops it to a viewport.
-  It checks that the file is a PNG of sufficient size.
-- `checkpointFrames` checks that each checkpoint has one distinct frame that is not the whole window.
-- `recordCapture` returns a capture record. The record binds kind, target, source commit, console hash, console error lines, image hash and byte count.
-- `decodeCapture` accepts only a record of the expected kind and target.
-- `checkCapture` accepts a record only when the source is unchanged or an ancestor, the image is not empty and the console has no error line.
+`src/codec` holds portable leaves that the hosts and the judge share. They need no host services.
 
-A capture record is not the run-bound worker receipt. It claims no judgment.
-The consumer owns run freshness, image custody and clean-image coverage.
-
-### Observation sinks and place fixtures
-
-`Roblox.observationSink` provides these parts:
-
-- Escaped and chunked wire data, and bounded values.
-- Markers, tallies and reference pooling.
-- Owned observation seams, arming, and publication into an injected node tree.
-
-It must not replace or destroy state that the host owns.
-In-engine adapters can import this leaf directly.
-
-`placeBoot`, `bootPlace`, `buildPlaceTree`, `createPlaceCache` and `createPlaceRuntime` build and run injected place fixtures over an engine that the consumer supplies.
-Their reports test the declared boot phases and ownership.
-They do not simulate all engine behavior.
+- `codec/base64.luau`: `encode(bytes)` returns standard base64 with padding. `decode(text)` returns the bytes, or `nil` when the text is not padded base64. `AgentEval.base64` is the same module.
+- `codec/xml.luau`: `parse(text)` returns the root element `{ tag, attributes, children, text, openEnd, closeStart }`. `text` is the decoded text before the first child element. `openEnd` is the offset of the `>` that ends the start tag. `closeStart` is the offset of the `<` that starts the end tag, or `nil` for a self-closing element. `children(element, tag)` and `first(element, tag)` select child elements.
+- `codec/image.luau`: `mediaType(bytes)` returns `image/png`, `image/jpeg`, `image/gif`, `image/webp` or `nil` from the file signature. `pngSize(bytes)` returns the width and height from the PNG `IHDR` chunk, or `nil` when the bytes are not a PNG.
 
 ---
 
@@ -540,8 +516,7 @@ Check a supported behavior against the real engine before you rely on it.
 | --- | --- | --- |
 | `Roblox.testEnvironment` | Built-in and declared classes, and the explicit fakes that you supply. | None. A method that is declared but not implemented raises `unsupported_method`. |
 | `Roblox.reflection` and `Roblox.fixtureBridge` | Class defaults and property types from a reflection database. Events, methods, layout, rendering, input and physics exist only where you declare or inject them. | None. The database supplies metadata only. |
-| `Lute.fixture.bridge` | A serialized reflection snapshot. It needs no Lune runtime. | None. A Lune test compares it with the native bridge. |
-| `Lune.fixture` | The real database and datatypes of `@lune/roblox`. | Metadata from the engine. Behavior stays simulated. |
+| `Lute.fixture.bridge` | A serialized reflection snapshot, exported from Studio, and the datatype library bound to it. | Metadata, defaults, enums, brick colors and fonts from the engine that exported it. Behavior stays simulated. |
 | Native Studio or Player host | The engine. | The engine. See [execution](execution.md#native-studio-execution). |
 
 ### Defaults and opt-in conveniences
@@ -554,7 +529,7 @@ Check a supported behavior against the real engine before you rely on it.
 | A write that targets a rejected selection is ignored | `"raise"` is a test convenience. | `ui.selection = "ignore"` is engine-true. |
 | A selection outside a `PlayerGui` is allowed | Engine-true. | `ui.requirePlayerGui = true` is a test convenience. |
 | `TweenInfo`, `FloatCurveKey` and `Path2DControlPoint` fields | Engine-true values and defaults. | None. |
-| A property with no stored default reads `nil` | Engine metadata only. | `defaultProperty` and the `Lune.fixture` native read give the engine value. |
+| A property with no stored default reads `nil` | Engine metadata only. | `defaultProperty` gives the engine value. |
 | A derived property such as `TextBounds` | Reads as stored. | `computed` is a test convenience. A computed property is read-only unless it declares `writable = true`. |
 | An undeclared write raises | Engine-true. | `undeclaredWrites = true` is a test convenience. |
 | An undeclared read raises | Engine-true. | `undeclaredReads = "nil"` is a test convenience. |
@@ -566,7 +541,7 @@ Check a supported behavior against the real engine before you rely on it.
 
 - `classes`: a table of `{super?, creatable?, properties = {name = default}, events = {names}, methods = {name = function | true}}`.
   The built-in classes are `Instance`, `Folder`, `Model`, parts, `GuiObject` (size, position, color, anchor), `Frame`, `CanvasGroup`, `ScrollingFrame`, `TextLabel`, `TextBox`, buttons, `UIListLayout`, `UIPadding`, `ScreenGui`, `Humanoid`, `Animation`, `Animator` and `AnimationTrack`.
-- `builtins = false` omits `Roblox.BASIC_ENVIRONMENT_CLASSES`.
+- `builtins = false` omits the built-in classes.
 - `fakes`.
 - `limits`: `attributeNameLength` (default 100) and `attributeStringLength` (unbounded unless set).
 - `handlerErrors`: `"collect"` (default) or `"raise"`. See [handler errors](#handler-errors).
@@ -588,7 +563,6 @@ The result has these members:
 
 `createInstance` takes children in the array part: `createInstance("Model", {Name = "m", childA, childB, Parent = root})`.
 `Roblox.isInstance(value)` and `Roblox.typeName(value)` identify instances and datatypes.
-`Roblox.virtualScheduler()` is the scheduler alone.
 
 The package exports the types `Environment`, `EnvironmentOptions`, `EnvironmentDefineOptions`, `EnvironmentSnapshot`, `EnvironmentMethod`, `Signal`, `Connection`, `VirtualScheduler`, `VirtualTask` and `VirtualCallback`.
 Instance properties and per-class methods are dynamic schema boundaries.
@@ -597,25 +571,53 @@ Assigning a method dictionary does not prove its signatures.
 
 ### Datatypes
 
-`Roblox.datatypes` holds these members:
+`Roblox.datatypes` is a pure Luau copy of the Roblox datatypes. It needs no engine.
+Each value is a userdata, as in the engine. `type(value)` is `"userdata"`, and table functions refuse it.
+Values are read-only, compare by value and print with the engine format.
+Components are rounded to 32-bit floats, and `UDim` offsets are truncated to 32-bit integers, as in the engine.
+Arithmetic and member errors use the engine messages.
 
-- Constructors for `Vector2`, `Vector3`, `Color3`, `UDim`, `UDim2` and `CFrame`, with value equality.
-- `TweenInfo.new(time, style, direction, repeatCount, reverses, delay)`.
-  It has the fields `Time`, `EasingStyle`, `EasingDirection`, `RepeatCount`, `Reverses` and `DelayTime`.
-  The defaults are 1, `Enum.EasingStyle.Quad`, `Enum.EasingDirection.Out`, 0, false and 0.
-  It is an attribute value. Two values with equal fields are equal.
-- `FloatCurveKey.new(time, value, interpolation)` has the fields `Time`, `Value` and `Interpolation`.
-- `Path2DControlPoint.new(position, leftTangent?, rightTangent?)` has the fields `Position`, `LeftTangent` and `RightTangent`.
-  Each tangent defaults to `UDim2.new(0, 0, 0, 0)`.
-  `FloatCurveKey` and `Path2DControlPoint` are not attribute values, as in the engine.
-  Both have value equality.
-- The other constructor shells, each typed by `typeName`.
-- A permissive `Enum`, `typeName(value)` and `readCFrame(cframe) -> (x, y, z, {nine rotation numbers})`.
+| Datatype | Members |
+| --- | --- |
+| `Vector2`, `Vector3` | `new`, `zero`, `one`, the axis constants, `X`, `Y`, `Z`, `Magnitude`, `Unit`, `Lerp`, `Dot`, `Cross`, `Abs`, `Ceil`, `Floor`, `Sign`, `Max`, `Min`, `Angle`, `FuzzyEq`, `+`, `-`, `*`, `/`, `//` and unary `-`. `Vector3.FromNormalId` and `Vector3.FromAxis`. |
+| `Vector2int16`, `Vector3int16` | `new`, `X`, `Y`, `Z`, `+`, `-`, `*`, `/` and unary `-`. Components wrap to 16 bits. |
+| `CFrame` | `new` (position, look-at, quaternion and 12-number forms), `identity`, `Angles`, `fromEulerAnglesXYZ`, `fromEulerAnglesYXZ`, `fromOrientation`, `fromAxisAngle`, `fromMatrix`, `lookAt`, `lookAlong`, the position and vector members, `Rotation`, `GetComponents`, `Inverse`, `Lerp`, `Orthonormalize`, the `ToWorldSpace`, `ToObjectSpace`, `PointTo...` and `VectorTo...` methods, `ToEulerAnglesXYZ`, `ToEulerAnglesYXZ`, `ToOrientation`, `ToAxisAngle`, `FuzzyEq`, `*`, `+` and `-`. |
+| `Color3` | `new`, `fromRGB`, `fromHSV`, `fromHex`, `toHSV`, `R`, `G`, `B`, `Lerp`, `ToHSV` and `ToHex`. |
+| `UDim`, `UDim2` | `new`, `fromScale`, `fromOffset`, `Scale`, `Offset`, `X`, `Y`, `Width`, `Height`, `UDim2:Lerp`, `+`, `-` and unary `-`. |
+| `Rect` | `new` with four numbers or two `Vector2` values, `Min`, `Max`, `Width` and `Height`. |
+| `NumberRange`, `NumberSequence`, `ColorSequence` and their keypoints | `new` in each engine form, `Min`, `Max`, `Keypoints`, `Time`, `Value` and `Envelope`. The engine rules for keypoints apply. |
+| `BrickColor` | `new` with a number, a name, a `Color3` or three numbers, `palette` (0 to 127), `random`, the named constructors, `Number`, `Name`, `Color`, `r`, `g` and `b`. |
+| `Font` | `new`, `fromName`, `fromId`, `fromEnum`, `Family`, `Weight`, `Style` and `Bold`. `Family`, `Weight`, `Style` and `Bold` are writable, as in the engine. |
+| `TweenInfo`, `Content`, `FloatCurveKey`, `Path2DControlPoint` | The engine constructors and fields. `Content` has `fromUri`, `fromAssetId`, `fromObject` and `none`. |
+| `Enum` | Families, items, `Name`, `Value`, `EnumType`, `IsA`, `GetEnumItems`, `FromName`, `FromValue` and `Enum:GetEnums()`. |
+
+The library also has these functions:
+
+- `typeName(value)` returns the datatype name, or nil for other values.
+- `typeof(value)` returns the datatype name, or the result of the builtin `typeof`.
+  Luau gives no other way to name a userdata, so code under test must call this function instead of the builtin.
+  `Roblox.typeName(value)` also names simulated instances.
+- `enumType(item)` returns the family name of an enum item.
+- `readCFrame(cframe)` returns `x, y, z` and the nine rotation numbers.
+- `create(catalog)` returns a new library bound to `{ enums?, brickColors?, fonts? }`.
+
+The default library has no catalog. Its `Enum` is permissive: any family and any item name exist, and items have no `Value`.
+`BrickColor`, `Font.fromEnum` and `Font.Bold` need a catalog.
+A library from `create` or from a [reflection snapshot](#reflection-snapshots) is strict.
+An unknown family or item raises the engine error.
+Values from different libraries interoperate. Enum items of the same family and name are equal.
+
+`TweenInfo.new` defaults to 1, `Enum.EasingStyle.Quad`, `Enum.EasingDirection.Out`, 0, false and 0.
+`FloatCurveKey` tangents default to nil and are writable. `Path2DControlPoint` tangents default to `UDim2.new(0, 0, 0, 0)`.
+
+`tests/datatypes.lute.verify.luau` compares more than 100 probes with results that Studio recorded.
+A probe that declares a tolerance compares its numbers with that relative tolerance.
+These probes need a tolerance: `CFrame:Lerp` and `CFrame:ToAxisAngle`. All other probes match exactly.
 
 `Animator:LoadAnimation` returns a track.
 `Play`, `Stop` and `AdjustSpeed` change `IsPlaying` and `Speed` and fire `Stopped` and `Ended`. The simulator blends no frames.
-The package exports `DatatypeVector2`, `DatatypeVector3`, `DatatypeCFrame`, `DatatypeColor3`, `DatatypeUDim`, `DatatypeUDim2` and `DatatypeEnum` for supported values.
-These types describe the simulated surface, not every native Roblox member.
+The package exports a `Datatype...` type for each datatype, and `DatatypeLibrary` and `DatatypeCatalog`.
+These types describe the values for the type checker. At run time each value is a userdata.
 
 ### Instance behavior
 
@@ -734,17 +736,15 @@ Validators still run. The reflection adapter still checks every declared propert
 
 ### Reflection
 
-`Roblox.reflection.create { database, typeName, enumType?, classes?, referenceClass?, validateProperty? }` builds an environment from a Lune-compatible reflection database.
-Pass `roblox.getReflectionDatabase()` and the `typeof` function of the runtime.
+`Roblox.reflection.create { database, typeName, enumType?, classes?, referenceClass?, validateProperty? }` builds an environment from a reflection database.
+Pass `Roblox.reflectionSnapshot.database(snapshot)` and `Roblox.typeName`.
 
 - `enumType(value)` returns the enum family name, with or without the `Enum.` prefix.
 - The adapter inherits class defaults, rejects unknown and read-only writes, and validates native datatypes.
-- `referenceClass(className, property)` narrows reference properties. The `Ref` metadata of Lune does not include the target class.
+- `referenceClass(className, property)` narrows reference properties. The `Ref` metadata of the database does not include the target class.
 - `classes` overlays explicit events and methods.
 - `validateProperty` adds fixture restrictions.
 
-The portable package imports no Lune runtime.
-`lune run tools/check-reflection.luau` checks the real integration.
 
 ### Fixture bridge
 
@@ -759,7 +759,7 @@ The portable package imports no Lune runtime.
 - `ui.requirePlayerGui = true` requires the target to descend from a `PlayerGui`.
 
 The options `defaultProperty`, `computed`, `handlerErrors`, `undeclaredWrites` and `functionDoubles` pass to the environment.
-`Lute.fixture.bridge` and `Lune.fixture` accept the same options.
+`Lute.fixture.bridge` accepts the same options.
 
 The bridge returns `{ environment, engine, ui, unavailable, faults, hasClass, observe, track, record, instanceHost, accounting, close }`.
 
@@ -769,8 +769,6 @@ The bridge returns `{ environment, engine, ui, unavailable, faults, hasClass, ob
 - `accounting` and `close` return the live objects, the live connections and the pending faults.
 - `instanceHost(actor)` reuses the same environment.
 
-`Lune.fixture(options?)` in `src/lune` binds the real database and datatypes of `@lune/roblox` to the bridge.
-`lune run examples/lune-fixture.luau` shows a consumer.
 Application-specific UI expectations stay with the consumer.
 
 This is simulated behavior that is validated against engine metadata. It is not engine parity.
@@ -787,28 +785,121 @@ A declaration is never a default. Without a hook such a property reads `nil`.
 It does not validate, because the value comes from the environment. It raises for an undeclared property.
 It also works on `Roblox.testEnvironment`, where the default is the declared value.
 
-`Lune.fixture` and `Lune.fixtureFrom` supply this hook from a real `Instance.new(className)` of `@lune/roblox`.
-The database omits some properties of a class that you cannot create, such as `FormFactor` on a `Part`. The native instance supplies them.
-They read the property from that instance and return `nil` for a class that `Instance.new` refuses, an unreadable property or an instance value.
-Pass your own `defaultProperty` to replace it.
-`fixtureFrom` uses the hook only when its native table has an `Instance` constructor.
-This is engine metadata.
 
 ### Reflection snapshots
 
-Under Lute, a serialized reflection snapshot replaces the Lune database at test time.
+Under Lute, a serialized reflection snapshot supplies the reflection database at test time.
+A snapshot is a JSON file with schema version 2. A loader refuses every other version.
 
-`lune run tools/export-reflection.luau <out.json> [--classes=A,B,...]` writes a deterministic, compact snapshot.
-The snapshot holds the named classes and their superclasses. It records property types, scriptability, tags and defaults.
-It records defaults only for Vector3, Vector2, Color3, UDim, UDim2, CFrame, EnumItem, string, number and boolean values.
-It omits other default types. Without `--classes`, it exports every class.
+| Field | Content |
+| --- | --- |
+| `classes` | For each class: `superclass`, `tags`, `properties` with `datatype`, `scriptability` and `tags`, and tagged `defaults`. |
+| `enums` | For each family: the items in engine order, each `{ name, value }`. |
+| `brickColors` | `colors`, each `{ number, name, color }`, and the 128 `palette` numbers. |
+| `fonts` | For each `Enum.Font` item that `Font.fromEnum` accepts: `{ family, weight, style }`. |
+| `engineVersion` | The Studio version that wrote the file. |
 
-- `Lute.fixture.bridge(path | snapshot, options?)` builds the same bridge from that file with no Lune runtime.
-- `Roblox.reflectionSnapshot.database(snapshot)` and `.bridge(snapshot, options?)` are the portable forms.
-- Values are Verify datatypes. Enum items carry their family (`Enum.Material.Plastic`). Verify checks them against the enum of the property.
+#### Export from Studio
 
-A Lune test compares the snapshot path with the native bridge for classes, properties, defaults and accepted and refused writes.
-After a Roblox API update, regenerate a committed snapshot. The Lune test fails when a fixture is stale.
+```sh
+lute run tools/export-studio-reflection.luau <out.json> (--studio-id <id> | --studio-name <name>) [--classes A,B,...]... [--enums A,B,...]... [--services] [--mcp <StudioMCP>] [--framework <directory>]
+```
+
+The command uses an open Studio through the official Studio MCP. See [attached Studio](execution.md#attached-studio).
+Its `authorize` hook permits only the Studio listing and `execute_luau` in the `Edit` data model.
+The capture reads `ReflectionService`, `Enum`, `BrickColor` and `Font`, and it creates instances that it never parents.
+It lists classes with the current security capabilities and the `Plugin` capability, so the export includes plugin classes such as `PluginGui` and `DockWidgetPluginGui`.
+It reads the members of a plugin class with the same capabilities, and the members of every other class with the current capabilities only.
+It does not change, save or publish the place. The default transport of `Lute.studio.attach` must work on the host. See [platform support](running.md#platform-support).
+
+- Without `--classes`, the command exports every class. With `--classes`, it exports the named classes and their superclasses.
+- Without `--classes` and `--enums`, it exports every enum.
+  Otherwise it exports the enums that the exported properties and defaults name, the enums in `--enums`, and the enums that the datatypes need.
+  The datatypes need ContentSourceType, EasingDirection, EasingStyle, Font, FontStyle, FontWeight and KeyInterpolationMode.
+- Datatypes use the database names `Bool`, `Float32`, `Float64`, `Int32`, `Int64`, `String`, `CFrame`, `OptionalCFrame`, `Rect`, `Ref` and `Enum.<family>`. Other types keep the engine name.
+- Scriptability comes from the read and write permits. A property that scripts can read but not write has the tag `ReadOnly`.
+  A property with no permit has the scriptability `None` and the tag `NotScriptable`. A deprecated member has the tag `Deprecated`.
+- A class without a `New` permit has the tag `NotCreatable`. A class with a `GetService` permit also has the tag `Service`.
+- The defaults are the readable property values of `Instance.new(className)`, inherited properties included, for each creatable class.
+  A service has no defaults. `--services` records the values of the open place instead. Those values describe that place, not the engine.
+- A superclass that Studio does not list as a class, such as `Object` above `Instance`, is omitted.
+- The full export of Studio 0.742 has 681 classes and 648 enums in about 600 KB.
+
+From code, `Lute.fixture.exportStudio(execute, options?)` returns the snapshot.
+`execute(code)` runs the code in the `Edit` data model and returns its text, for example through `session.execute("Edit", code)`.
+`options` is `{ classes?, enums?, services?, batchSize?, framework? }`. `batchSize` (default 25) bounds the classes for each request.
+`framework` is the Verify checkout that holds `src/roblox/reflection-capture.luau`.
+`Lute.fixture.save(path, snapshot)` writes the file with sorted keys.
+
+
+#### Use a snapshot
+
+- `Lute.fixture.load(path)` reads a snapshot file.
+- `Roblox.reflectionSnapshot.library(snapshot)` returns the [datatype library](#datatypes) bound to the enums, brick colors and fonts of the snapshot. It returns the same library for the same snapshot table.
+- `Roblox.reflectionSnapshot.database(snapshot)` returns `{ GetClassNames, GetClass }`, the database shape that `Roblox.fixtureBridge` and `Roblox.reflection.create` take. Its defaults are values of the bound library.
+- `Roblox.reflectionSnapshot.engineLibrary(library)` returns the `library` option of `Roblox.fixtureBridge`, so the engine seam constructs values of that library.
+- `Roblox.reflectionSnapshot.bridge(snapshot, options?)` and `Lute.fixture.bridge(path | snapshot, options?)` compose these parts.
+
+```luau
+local snapshot = Lute.fixture.load "tests/fixtures/roblox-reflection.json"
+local types = Roblox.reflectionSnapshot.library(snapshot)
+local bridge = Roblox.fixtureBridge {
+	database = Roblox.reflectionSnapshot.database(snapshot),
+	typeName = Roblox.typeName,
+	enumType = types.enumType,
+	library = Roblox.reflectionSnapshot.engineLibrary(types),
+}
+local label = bridge.environment.createInstance "TextLabel"
+label.Size = types.UDim2.fromOffset(10, 20) + types.UDim2.fromScale(0.5, 0)
+label.TextXAlignment = types.Enum.TextXAlignment.Left
+```
+
+`tests/reflection-snapshot.lute.verify.luau` builds bridges from both fixture files.
+`tests/studio-reflection.lute.verify.luau` runs the generated Studio code against a fake engine.
+After a Roblox API update, regenerate a committed snapshot.
+
+#### Run code under test with the library
+
+`Lute.chunk.load(source, { name?, environment?, injectGlobals? })` compiles `source` and returns the chunk function.
+A global read looks in `environment` first and then in the Lute globals. `injectGlobals = false` uses `environment` alone.
+A global write stays in the chunk. `environment` does not change.
+`Lute.chunk.check(source, name?)` returns `true`, or `false` and the syntax error, and runs nothing.
+Put the library members and `typeof = types.typeof` in `environment`, so the code under test sees datatype globals with engine names.
+
+#### Load a module tree under the library
+
+`Lute.loader.new(options?)` returns `{ require(path) }`. It loads Roblox-targeted modules under Lute.
+`require(path)` takes a path relative to the working directory, with or without `.luau`. A directory path loads its `init.luau`.
+
+Each module runs in its own environment:
+
+- `typeof` is the datatype `typeof`, so a datatype value reports its engine name.
+- `warn(...)` prints the arguments with the prefix `[warn]`.
+- `getfenv(0)` returns the environment of the module. `getfenv(f)` returns the environment of a function that a module returned.
+- `require` resolves `./` and `../` paths, `@self/` children and the aliases in `options.aliases`. `@std/` and `@lute/` load from the runtime.
+
+The loader loads each file once and keeps the resolved paths. A require cycle, a missing module and an unknown alias raise with the module named.
+A file under a prefix in `options.hostPaths` loads with `options.requireHost(module)` instead, as an ordinary host module.
+`module` is the path without `.luau` or `/init.luau`.
+
+```luau
+local loader = Lute.loader.new {
+	aliases = { repo = "" },
+	hostPaths = { "tools/vendor/" },
+	requireHost = function(module: string): unknown
+		return (require :: (string) -> unknown)("../../" .. module)
+	end,
+}
+local Package = loader.require "src"
+```
+
+#### Studio probes
+
+`Lute.fixture.probeStudio(execute, probes)` runs each `{ name, source, tolerance? }` probe in Studio and returns `{ engineVersion, results }`.
+`Lute.fixture.probeLocal(environment, probes)` runs the same probes with `Lute.chunk.load`.
+Each result is `ok: ` and the `tostring` of the returned value, or `error: ` and the message without its location.
+Record the Studio results in a file. Compare the local results with that file in a test.
+A probe proves only the expression that it runs.
 
 ### UI fakes
 

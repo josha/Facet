@@ -1,0 +1,595 @@
+--!strict
+
+local Case = require("../lib/case")
+local Cli = require("../lib/cli")
+local Files = require("../lib/files")
+local Hash = require("../lib/hash")
+local Json = require("../lib/json")
+local LabBoundary = require("../lib/lab_boundary")
+local Model = require("../lib/model")
+local PlaceChecks = require("../lib/place_checks")
+local Rojo = require("../lib/rojo")
+local Rule = require("../lib/rule")
+local Run = require("../lib/run")
+local Snapshot = require("../lib/snapshot")
+local ThemeBuilds = require("../lib/theme_builds")
+
+local USAGE = [[usage: lute run tools/facet build <target> [arguments]
+
+targets:
+  places                           examples/places/*.rbxl, then the bootstrap and app place checks
+  reference                        artifacts/verify/reference-places/*.rbxl
+  themes                           build/themes/<Name>.rbxm and build/themes/manifest.json
+  themes --one <source> <Name> <output>
+                                   one theme module as one model file
+  model [output] [--publisher]     build/Facet.rbxm, its .rbxmx twin and its manifest
+  lab                              examples/facet-lab/build/*
+  home                             build/Facet-Home.rbxl
+  designer                         build/Facet-Design.rbxm and build/Facet-Design-Playground.rbxl
+  doctor                           the toolchain and the library invariants (artifacts/doctor.json)]]
+
+local EXAMPLES = {
+	{ "Facet-SettingsDemo", "00_settings_demo" },
+	{ "Facet-Ex01-TemperatureConverter", "01_temperature_converter" },
+	{ "Facet-Ex02-PlaylistTable", "02_playlist_table" },
+	{ "Facet-Ex03-SettingsSync", "03_settings_sync" },
+	{ "Facet-Ex04-ConfirmDialog", "04_confirm_dialog" },
+	{ "Facet-Ex05-WordGame", "05_word_game" },
+	{ "Facet-Ex06-TileGame", "06_tile_game" },
+	{ "Facet-Ex07-Match3", "07_match3" },
+}
+
+local GALLERY: { [string]: string } = {
+	Gallery = "gallery/client",
+	Facet = "../src",
+	FacetExamples = "gallery/examples",
+}
+
+local SHOWCASE: { [string]: string } = {
+	Gallery = "gallery/client",
+	Facet = "../src",
+	FacetExamples = "gallery/examples",
+	FacetReference = "reference",
+	FacetScenarios = "gallery/scenarios",
+	FacetThemes = "themes",
+}
+
+local REFERENCE = {
+	{ "ref_glade", "Facet-Ref-Glade" },
+	{ "ref_cartwheel", "Facet-Ref-Cartwheel" },
+	{ "ref_sipworks", "Facet-Ref-Sipworks" },
+	{ "ref_foyer", "Facet-Ref-Foyer" },
+}
+
+local PLACE_PROJECT = "examples/.place_build.project.json"
+local PLACE_CHECKS = "artifacts/verify/places"
+local REFERENCE_PROJECT = "examples/.reference_place_build.project.json"
+local LAB = "examples/facet-lab"
+local LAB_OUTPUTS = { "build/Facet-Lab.rbxl", "build/Foundation-Light.rbxm", "build/Foundation-Dark.rbxm" }
+local LAB_CONTENT = {
+	`{LAB}/src`,
+	`{LAB}/themes`,
+	`{LAB}/default.project.json`,
+	"src",
+	"examples/themes",
+	"examples/gallery",
+	"tools/studio/live",
+}
+local PLACE_CONTENT = { "src", "examples/gallery", "examples/reference", "examples/themes" }
+
+local function world(
+	name: string,
+	attributes: Json.Object,
+	replicated: { [string]: string },
+	server: boolean?
+): Json.Object
+	local storage = Json.object()
+	local keys: { string } = {}
+	for key in replicated do
+		table.insert(keys, key)
+	end
+	table.sort(keys)
+	for _, key in keys do
+		Json.set(storage, key, { ["$path"] = replicated[key] })
+	end
+	local tree: Json.Object = {
+		["$className"] = "DataModel",
+		Lighting = {
+			["$properties"] = { Technology = "Unified", LightingStyle = "Soft", PrioritizeLightingQuality = false },
+		},
+		Workspace = {
+			["$attributes"] = attributes,
+			["$properties"] = { FilteringEnabled = true, PlayerScriptsUseInputActionSystem = "Enabled" },
+			Baseplate = {
+				["$className"] = "Part",
+				["$properties"] = {
+					Anchored = true,
+					Locked = true,
+					Size = { 512, 20, 512 },
+					Position = { 0, -10, 0 },
+					Color = { 0.35, 0.37, 0.39 },
+					TopSurface = "Smooth",
+					BottomSurface = "Smooth",
+				},
+			},
+			SpawnLocation = {
+				["$className"] = "SpawnLocation",
+				["$properties"] = {
+					Anchored = true,
+					Size = { 12, 1, 12 },
+					Position = { 0, 0.5, 0 },
+					Duration = 0,
+					Neutral = true,
+				},
+			},
+		},
+		Players = { ["$properties"] = { CharacterAutoLoads = false } },
+		ReplicatedStorage = storage,
+		StarterGui = { ["$properties"] = { ScreenOrientation = "Sensor" } },
+		StarterPlayer = Json.object(),
+	}
+	if server then
+		tree.ServerScriptService = { Outpost = { ["$path"] = "gallery/server" } }
+	end
+	return {
+		name = name,
+		emitLegacyScripts = false,
+		globIgnorePaths = { "**/*.verify.luau" },
+		tree = tree,
+	}
+end
+
+local function report(outcome: Rojo.Outcome): number
+	if outcome.message ~= "" then
+		print((string.gsub(outcome.message, "%s+$", "")))
+	end
+	return if outcome.ok then 0 else outcome.code
+end
+
+local function step(argv: { string }, cwd: string?): number
+	local outcome = Rojo.run(argv, { cwd = cwd })
+	if outcome.ok then
+		return 0
+	end
+	return report(outcome)
+end
+
+local function rojo(project: Rojo.Project, output: string, scratch: string?, cwd: string?): number
+	local outcome = Rojo.build(project, output, { scratch = scratch, cwd = cwd })
+	if outcome.ok then
+		return 0
+	end
+	return report(outcome)
+end
+
+local function snapshot(name: Snapshot.Name): number
+	local ok, message = Snapshot.check(".", name)
+	if message ~= "" then
+		print(message)
+	end
+	return if ok then 0 else 1
+end
+
+local function places(): number
+	local stamp = "content " .. Rojo.contentHash(".", PLACE_CONTENT, 12)
+	local function inspected(project: Rojo.Project, name: string, scratch: string?, check: (string) -> string?): number
+		local xml = `{PLACE_CHECKS}/{name}.rbxlx`
+		local code = rojo(project, xml, scratch)
+		if code ~= 0 then
+			return code
+		end
+		local problem = check(xml)
+		if problem ~= nil then
+			print("FAIL " .. problem)
+			return 1
+		end
+		print(`ok   {name}: the XML build passes its place check`)
+		return 0
+	end
+	for index, example in EXAMPLES do
+		local output = `examples/places/{example[2]}.rbxl`
+		local project = world(example[1], { Facet_Example = index - 1 }, GALLERY)
+		local code = rojo(project, output, PLACE_PROJECT)
+		if code ~= 0 then
+			return code
+		end
+		print(`built {output} ({example[1]})`)
+		code = inspected(project, example[2], PLACE_PROJECT, PlaceChecks.bootstrap)
+		if code ~= 0 then
+			return code
+		end
+	end
+	local showcase = "examples/places/Facet-Showcase.rbxl"
+	local attributes: Json.Object = { Facet_Showcase = true, Facet_NativeStyle = true, Facet_Build = stamp }
+	local showcaseProject = world("Facet-Showcase", attributes, SHOWCASE, true)
+	local code = rojo(showcaseProject, showcase, PLACE_PROJECT)
+	if code ~= 0 then
+		return code
+	end
+	print(`built {showcase} (Facet-Showcase — in-game demo + theme switching)`)
+	code = inspected(showcaseProject, "Facet-Showcase", PLACE_PROJECT, PlaceChecks.bootstrap)
+	if code ~= 0 then
+		return code
+	end
+	code = rojo("examples/performance.project.json", "examples/places/Facet-PerformanceLab.rbxl")
+	if code ~= 0 then
+		return code
+	end
+	print("built examples/places/Facet-PerformanceLab.rbxl (Facet-PerformanceLab — Step 9 performance lab)")
+	for _, app in
+		{
+			{ name = "Facet-VirtualMonitors", folder = "virtual_monitors", root = "VirtualMonitors" },
+			{ name = "Facet-Farm", folder = "facet_farm", root = "FacetFarm" },
+		}
+	do
+		local project = `examples/{app.folder}/default.project.json`
+		code = rojo(project, `examples/places/{app.name}.rbxl`)
+		if code ~= 0 then
+			return code
+		end
+		code = inspected(project, app.name, nil, function(xml: string): string?
+			return PlaceChecks.app(xml, app.folder, app.root)
+		end)
+		if code ~= 0 then
+			return code
+		end
+	end
+	local count = 0
+	for _, entry in Files.list("examples/places") do
+		count += if string.match(entry.name, "%.rbxl$") then 1 else 0
+	end
+	print(`done: {count} place files in examples/places/`)
+	return 0
+end
+
+local function reference(): number
+	for _, proof in REFERENCE do
+		local output = `artifacts/verify/reference-places/{proof[2]}.rbxl`
+		local code = rojo(world(proof[2], { Facet_Scenario = proof[1] }, SHOWCASE), output, REFERENCE_PROJECT)
+		if code ~= 0 then
+			return code
+		end
+		print(`built {output} ({proof[1]})`)
+	end
+	return 0
+end
+
+local function themes(invocation: Cli.Invocation): number
+	local arguments = invocation.positional
+	if Cli.switch(invocation, "one") then
+		local outcome = ThemeBuilds.one(".", arguments[2], arguments[3], arguments[4])
+		if not outcome.ok then
+			return report(outcome)
+		end
+		print(`built {arguments[4]}`)
+		return 0
+	end
+	return report(ThemeBuilds.all("."))
+end
+
+local function model(invocation: Cli.Invocation): number
+	local output = invocation.positional[2]
+	local ok, message = Model.build({ output = output, publisher = Cli.switch(invocation, "publisher") })
+	if message ~= "" then
+		print(message)
+	end
+	return if ok then 0 else 1
+end
+
+local function lab(): number
+	local problems = LabBoundary.check(".", LAB_OUTPUTS)
+	if #problems > 0 then
+		print("BOUNDARY FAIL\n  " .. table.concat(problems, "\n  "))
+		return 1
+	end
+	print("boundary ok: repository sources, outputs in the lab build directory")
+	local code = step({ Run.lute(), "run", "tools/coverage.luau", "check" }, LAB)
+	if code ~= 0 then
+		return code
+	end
+	code = step({ Run.lute(), "run", "tools/check_themes.luau" }, LAB)
+	if code ~= 0 then
+		return code
+	end
+	local revision = Run.gitOutput({ "rev-parse", "--short=8", "HEAD" }) or ""
+	local clean = Run.git({ "diff", "--quiet", "HEAD", "--", "src", "examples", "tests" }).ok
+	local hash = Rojo.contentHash(".", LAB_CONTENT, 10)
+	local stamp = `lab {hash} / facet {revision}{if clean then "" else "+dirty"}`
+	local project, problem = Json.tryDecode(Files.read(`{LAB}/default.project.json`))
+	local workspace = Json.objectField(Json.field(project, "tree"), "Workspace")
+	if problem ~= nil or workspace == nil then
+		print(`build lab: {LAB}/default.project.json has no tree.Workspace{if problem then ": " .. problem else ""}`)
+		return 1
+	end
+	local attributes = Json.object()
+	Json.set(attributes, "Facet_Build", stamp)
+	Json.set(attributes, "FacetLab", true)
+	Json.set(workspace, "$attributes", attributes)
+	code = rojo(Json.asObject(project) or {}, LAB_OUTPUTS[1], ".stamped.project.json", LAB)
+	if code ~= 0 then
+		return code
+	end
+	code = rojo("theme-light.project.json", LAB_OUTPUTS[2], nil, LAB)
+	if code ~= 0 then
+		return code
+	end
+	code = rojo("theme-dark.project.json", LAB_OUTPUTS[3], nil, LAB)
+	if code ~= 0 then
+		return code
+	end
+	print("built: " .. table.concat(LAB_OUTPUTS, " "))
+	print("stamp: " .. stamp)
+	return 0
+end
+
+local function designer(): number
+	local code = rojo("tools/designer/default.project.json", "build/Facet-Design.rbxm")
+	if code ~= 0 then
+		return code
+	end
+	return rojo("tools/designer/smoke.project.json", "build/Facet-Design-Playground.rbxl")
+end
+
+local function home(): number
+	local code = snapshot("compose")
+	if code ~= 0 then
+		return code
+	end
+	return rojo("examples/facet_home/default.project.json", "build/Facet-Home.rbxl")
+end
+
+local function version(argv: { string }): (boolean, string)
+	local result = Run.capture(argv)
+	return result.ok, (string.gsub(result.stdout, "%s+$", ""))
+end
+
+local function doctor(): number
+	local code = snapshot("compose")
+	if code ~= 0 then
+		return code
+	end
+	code = snapshot("verify")
+	if code ~= 0 then
+		return code
+	end
+	Files.makeDirectory("artifacts")
+	Files.makeDirectory("build")
+	local checks: { unknown } = {}
+	local failed = false
+	local function check(name: string, passed: boolean, detail: string, missing: string)
+		failed = failed or not passed
+		local entry = Json.object()
+		Json.set(entry, "name", name)
+		Json.set(entry, "status", if passed then "OK" else "FAIL")
+		Json.set(entry, "detail", if passed then detail else missing)
+		Json.set(entry, "required", true)
+		table.insert(checks, entry)
+	end
+	local hasLute, luteVersion = version({ "lute", "--version" })
+	local hasRojo, rojoVersion = version({ "rojo", "--version" })
+	check(
+		"lute",
+		hasLute,
+		if string.match(luteVersion, "^lute") then luteVersion else "lute " .. luteVersion,
+		"lute not on PATH"
+	)
+	check("rojo", hasRojo, rojoVersion, "rojo not on PATH")
+	check("corpus", Files.isFile("tests/plan.json"), "committed Verify plan present", "tests/plan.json missing")
+	check("library", Files.isFile("src/init.luau"), "native Facet entry point present", "src/init.luau missing")
+	check(
+		"verification",
+		Files.isFile("tools/facet/lib/gate.luau") and Files.isFile("tools/facet/producers.json"),
+		"Verify gate definition present",
+		"tools/facet/lib/gate.luau or tools/facet/producers.json missing"
+	)
+	check(
+		"maintainer-tools",
+		Files.isFile("tools/facet/init.luau"),
+		"Lute maintainer command line present",
+		"tools/facet/init.luau missing"
+	)
+	check(
+		"rojo-build",
+		Run.capture({ "rojo", "build", "examples/gallery.project.json", "-o", "build/Facet-Gallery.rbxl" }).ok,
+		"gallery place builds",
+		"rojo build examples/gallery.project.json failed"
+	)
+	local studio = Json.object()
+	Json.set(studio, "name", "studio-mcp")
+	Json.set(studio, "status", "ENV")
+	Json.set(studio, "detail", "verified per-session via Studio MCP, not from shell")
+	Json.set(studio, "required", false)
+	table.insert(checks, studio)
+	local status = if failed then "FAIL" else "PASS"
+	local document = Json.object()
+	Json.set(document, "schema", "facet-doctor/1")
+	Json.set(document, "status", status)
+	Json.set(document, "requirement", "UI-AGENT-001")
+	Json.set(document, "checks", Json.array(checks))
+	Files.write("artifacts/doctor.json", Json.pretty(document))
+	print(`doctor: {status} (artifacts/doctor.json)`)
+	return if failed then 1 else 0
+end
+
+local FLAGS: { [string]: { string } } = {
+	themes = { "one" },
+	model = { "publisher" },
+}
+
+local TARGETS: { [string]: (Cli.Invocation) -> number } = {
+	places = places,
+	reference = reference,
+	themes = themes,
+	model = model,
+	lab = lab,
+	home = home,
+	designer = designer,
+	doctor = doctor,
+}
+
+local function refusal(invocation: Cli.Invocation): string?
+	local target = invocation.positional[1]
+	if target == nil or TARGETS[target] == nil then
+		return USAGE
+	end
+	local arguments = invocation.positional
+	local unknown = Cli.unknownFlags(invocation, FLAGS[target] or {})
+	if unknown ~= nil then
+		return `build {target}: unknown flags {unknown}`
+	elseif target == "themes" and Cli.switch(invocation, "one") then
+		if #arguments ~= 4 then
+			return "usage: lute run tools/facet build themes --one <source.luau> <Name> <output.rbxm>"
+		end
+	elseif target == "themes" and #arguments ~= 1 then
+		return `build themes: unexpected argument '{arguments[2]}' (expected no arguments, or --one)`
+	elseif target == "model" then
+		local output = arguments[2]
+		if #arguments > 2 then
+			return "usage: lute run tools/facet build model [output] [--publisher]"
+		elseif output ~= nil and string.match(output, "^(.*)%.(rbxmx?)$") == nil then
+			return `build model: output '{output}' must end in .rbxm or .rbxmx (rojo decides the format from the name)`
+		end
+	elseif FLAGS[target] == nil and #arguments > 1 then
+		return `build {target}: unexpected argument '{arguments[2]}'`
+	end
+	return nil
+end
+
+local function run(invocation: Cli.Invocation): number
+	local refused = refusal(invocation)
+	if refused ~= nil then
+		print(refused)
+		return 2
+	end
+	return TARGETS[invocation.positional[1]](invocation)
+end
+
+local function invocation(arguments: { string }): Cli.Invocation
+	local forwarded = { "build" }
+	table.move(arguments, 1, #arguments, 2, forwarded)
+	return Cli.parse(forwarded)
+end
+
+local function cases(): { Case.Case }
+	local list: { Case.Case } = {
+		{
+			name = "the content hash lists sorted slash paths with their sha256",
+			run = function()
+				return Rule.within({
+					["b/z.luau"] = "z",
+					["b/a/y.luau"] = "y\r\n",
+					["a.json"] = "{}",
+				}, function(context: Rule.Context): string?
+					local lines = {
+						`{Hash.sha256("{}")}  a.json`,
+						`{Hash.sha256("y\r\n")}  b/a/y.luau`,
+						`{Hash.sha256("z")}  b/z.luau`,
+					}
+					local expected = string.sub(Hash.sha256(table.concat(lines, "\n") .. "\n"), 1, 12)
+					return Case.first(
+						Case.same(
+							Rojo.contentFiles(context.root, { "b", "a.json", "missing" }),
+							{ "a.json", "b/a/y.luau", "b/z.luau" }
+						),
+						Case.equal(Rojo.contentHash(context.root, { "b", "a.json" }, 12), expected, "hash")
+					)
+				end)
+			end,
+		},
+		{
+			name = "a generated place keeps StarterPlayer an object and maps the server only for the showcase",
+			run = function()
+				local plain = Json.encode(world("Plain", { Facet_Example = 0 }, GALLERY))
+				local showcase = Json.encode(world("Showcase", { Facet_Showcase = true }, SHOWCASE, true))
+				return Case.first(
+					Case.expect(string.find(plain, '"StarterPlayer": {}', 1, true) ~= nil, "StarterPlayer is not {}"),
+					Case.expect(
+						string.find(plain, "ServerScriptService", 1, true) == nil,
+						"a plain place maps a server"
+					),
+					Case.expect(
+						string.find(showcase, '"Outpost": {"$path": "gallery/server"}', 1, true) ~= nil,
+						"the showcase does not map gallery/server"
+					),
+					Case.expect(
+						string.find(plain, '"Facet": {"$path": "../src"}', 1, true) ~= nil,
+						"the gallery does not map the library"
+					)
+				)
+			end,
+		},
+		{
+			name = "an unknown target, a stray flag and a malformed --one are usage errors",
+			run = function()
+				local function refuses(arguments: { string }, fragment: string): string?
+					local refused = refusal(invocation(arguments))
+					if refused == nil then
+						return `build {table.concat(arguments, " ")} was accepted`
+					end
+					return Case.expect(
+						string.find(refused, fragment, 1, true) ~= nil,
+						`build {table.concat(arguments, " ")} refused with '{refused}'`
+					)
+				end
+				local function accepts(arguments: { string }): string?
+					local refused = refusal(invocation(arguments))
+					return Case.expect(refused == nil, `build {table.concat(arguments, " ")} was refused: {refused}`)
+				end
+				return Case.first(
+					refuses({}, "usage: lute run tools/facet build <target>"),
+					refuses({ "everything" }, "usage: lute run tools/facet build <target>"),
+					refuses({ "lab", "--publisher" }, "unknown flags --publisher"),
+					refuses({ "home", "extra" }, "unexpected argument 'extra'"),
+					refuses({ "themes", "--one", "a.luau" }, "--one <source.luau> <Name> <output.rbxm>"),
+					refuses({ "themes", "extra" }, "expected no arguments, or --one"),
+					refuses({ "model", "build/Facet.zip" }, "must end in .rbxm or .rbxmx"),
+					refuses({ "model", "a.rbxm", "b.rbxm" }, "build model [output] [--publisher]"),
+					accepts({ "themes" }),
+					accepts({ "themes", "--one", "a.luau", "A", "a.rbxm" }),
+					accepts({ "model" }),
+					accepts({ "model", "build/Other.rbxmx", "--publisher" }),
+					accepts({ "doctor" })
+				)
+			end,
+		},
+		{
+			name = "a missing theme module is refused before rojo runs",
+			run = function()
+				local outcome = ThemeBuilds.one(".", "examples/themes/does_not_exist.luau", "Missing", "build/x.rbxm")
+				return Case.first(
+					Case.expect(not outcome.ok, "the missing module was accepted"),
+					Case.expect(
+						string.find(outcome.message, "no such theme module", 1, true) ~= nil,
+						"the refusal does not name the module"
+					)
+				)
+			end,
+		},
+		{
+			name = "the theme enumerator listing parses module and artifact columns",
+			run = function()
+				local listed =
+					ThemeBuilds.parseListing("classic_desktop\tClassicDesktop\r\nnoise\n\nscifi_hud\tScifiHud\n")
+				return Case.first(
+					Case.equal(#listed, 2, "entries"),
+					Case.equal(listed[1] and listed[1].artifact, "ClassicDesktop", "first"),
+					Case.equal(listed[2] and listed[2].module, "scifi_hud", "second")
+				)
+			end,
+		},
+	}
+	for _, case in LabBoundary.cases() do
+		table.insert(list, { name = "lab boundary: " .. case.name, run = case.run })
+	end
+	return list
+end
+
+local command: Cli.Command = {
+	name = "build",
+	summary = "Build places, reference places, themes, the model, the lab, home, the designer, or run doctor.",
+	usage = USAGE,
+	cases = cases,
+	run = run,
+}
+
+return command
