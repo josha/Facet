@@ -28,6 +28,9 @@
   TextInput and Chip `leading` and `trailing` accept any child.
 - `Facet.host(runtime)` returns the runtime constructors with the `Host` type.
   The root exports the `Host`, `Child` and `DialogAction` types.
+- `app.construct(control, spec)` calls a constructor that data names, and
+  `app.controlNames()` returns the sorted member names of `app.UI`. Data-driven
+  tools, such as the Lab, use them in place of a cast to an untyped table.
 - Sheet `detent` accepts a detent id. With an id or without `detent`, the sheet
   keeps the selected detent and starts at that id or at its first detent.
 - Luau generators in `tools/facet/art/` make the standard icons and the

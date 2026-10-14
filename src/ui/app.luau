@@ -60,6 +60,8 @@ export type App = {
 	UI: ControlTypes.Controls,
 	mount: (component: Component, parent: Instance?) -> (() -> (), ScreenGui),
 	refusal: (control: string, spec: unknown) -> string?,
+	construct: (control: string, spec: unknown) -> Instance,
+	controlNames: () -> { string },
 	presentAnchored: (
 		component: (ControlTypes.Controls) -> Instance,
 		options: AnchoredOptions
@@ -146,6 +148,7 @@ return function(
 		table.insert(stops, release)
 		return release, (root :: unknown) :: ScreenGui
 	end
+	local members = (UI :: unknown) :: { [string]: unknown }
 	local function refusal(control: string, spec: unknown): string?
 		assert(not disposed, "Facet app.refusal: the app is disposed")
 		local construct = ((UI :: unknown) :: { [string]: (unknown) -> Instance })[control]
@@ -162,6 +165,24 @@ return function(
 		end
 		local text = tostring(failure)
 		return string.match(text, "^[^\n]-:%d+: (.*)$") or text
+	end
+	local function construct(control: string, spec: unknown): Instance
+		assert(not disposed, "Facet app.construct: the app is disposed")
+		local member = if type(control) == "string" and string.match(control, "^%u") ~= nil
+			then members[control]
+			else nil
+		if type(member) ~= "function" then
+			error(`Facet app.construct: there is no control named '{tostring(control)}'`, 2)
+		end
+		return (member :: (unknown) -> Instance)(spec)
+	end
+	local function controlNames(): { string }
+		local names: { string } = {}
+		for name in members do
+			table.insert(names, name)
+		end
+		table.sort(names)
+		return names
 	end
 	local function presentAnchored(
 		component: (ControlTypes.Controls) -> Instance,
@@ -276,6 +297,8 @@ return function(
 		UI = UI,
 		mount = mount,
 		refusal = refusal,
+		construct = construct,
+		controlNames = controlNames,
 		presentAnchored = presentAnchored,
 		presentToast = presentToast,
 		dispose = dispose,
