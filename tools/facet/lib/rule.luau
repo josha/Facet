@@ -25,8 +25,6 @@ export type Rule = {
 	values: { string }?,
 }
 
-export type CaseResult = Case.Result
-
 local Rule = {}
 
 function Rule.context(root: string?): Context
@@ -82,10 +80,6 @@ function Rule.describe(findings: { string }): string
 		return "no findings"
 	end
 	return table.concat(findings, "; ")
-end
-
-function Rule.runCases(rule: Rule): { CaseResult }
-	return Case.run(rule.cases)
 end
 
 function Rule.report(rule: Rule, findings: { string }): number

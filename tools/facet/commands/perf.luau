@@ -2,7 +2,7 @@
 
 local fs = require("@std/fs")
 local system = require("@std/system")
-local Base64 = require("../lib/base64")
+local Base64 = require("../../vendor/verify/src/codec/base64")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Evidence = require("../lib/perf_evidence")
@@ -13,14 +13,6 @@ local Paired = require("../lib/perf_paired")
 local Place = require("../lib/perf_place")
 local Run = require("../lib/run")
 local Xml = require("../lib/xml")
-
-local function stringArray(list: { string }): Json.Array
-	local array = Json.array()
-	for _, item in list do
-		table.insert(array, item)
-	end
-	return array
-end
 
 local USAGE = [[usage: lute run tools/facet perf <subcommand> [options]
 
@@ -234,8 +226,8 @@ local function place(invocation: Cli.Invocation): number
 	Json.set(result, "rebuiltFromSource", build)
 	Json.set(result, "requiredInstances", #Place.REQUIRED)
 	Json.set(result, "versionMarkers", #Place.VERSION_MARKERS)
-	Json.set(result, "problems", stringArray(problems))
-	Json.set(result, "notes", stringArray(notes))
+	Json.set(result, "problems", Json.array(problems))
+	Json.set(result, "notes", Json.array(notes))
 	Files.write(Place.ARTIFACT, Json.pretty(result))
 	if #problems > 0 then
 		print(("perf place: FAIL - %d problem(s)"):format(#problems))
@@ -1065,18 +1057,14 @@ end
 CASES.aggregate = function(): { Case.Case }
 	return {
 		{
-			name = "aggregate: base64 round trips every padding length",
+			name = "aggregate: a dump whose base64 wraps across lines still loads",
 			run = function(): string?
-				for _, text in { "", "f", "fo", "foo", "foob", "fooba", "foobar", "\0\255\128" } do
-					local encoded = Base64.encode(text)
-					if Base64.decode(encoded) ~= text then
-						return ("base64 lost %q via %s"):format(text, encoded)
-					end
-				end
-				return Case.first(
-					Case.equal(Base64.encode("foobar"), "Zm9vYmFy", "encode"),
-					Case.equal(Base64.decode("Zm9v\nYmE=\n"), "fooba", "whitespace is discarded")
-				)
+				local packed = Microprofiler.pack("payload")
+				local close = string.find(packed, "-->", 5, true) :: number
+				local encoded = string.sub(packed, 5, close - 1)
+				local wrapped = string.gsub(encoded, "(" .. string.rep(".", 8) .. ")", "%1\r\n")
+				local raw = "<!--" .. wrapped .. string.sub(packed, close)
+				return Case.equal(Microprofiler.load("wrapped.html", raw), "payload", "wrapped dump")
 			end,
 		},
 		{

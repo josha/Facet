@@ -4,6 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	local expect = Verify.expect
 	local Raster = require("../tools/facet/lib/raster")
+	local Zlib = require("../tools/facet/lib/zlib")
 	local vectors = require("./fixtures/raster_vectors")
 
 	local Blur = Raster.Blur
@@ -169,7 +170,7 @@ return function(verifyHarness: Verify.Harness)
 			Draw.line(target, { 5.5, 60.2, 30.1, 4.9, 55.7, 50.3, 90.2, 8.8 }, { 255 }, 13, "curve")
 			Draw.pieslice(target, { 10, 10, 80, 60 }, -30, 120.5, { 128 })
 			Draw.roundedRectangle(target, { 40.2, 2.8, 93.3, 30.6 }, 9.6, nil, { 77 }, 5)
-			expect(string.format("%08x", Raster.Checksum.crc32(target.data))):toBe(vectors.drawCompositeDigest)
+			expect(string.format("%08x", Zlib.crc32(target.data))):toBe(vectors.drawCompositeDigest)
 		end)
 	end)
 

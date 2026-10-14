@@ -5,14 +5,6 @@ local Hash = require("./hash")
 local Json = require("./json")
 local Run = require("./run")
 
-local function stringArray(list: { string }): Json.Array
-	local array = Json.array()
-	for _, item in list do
-		table.insert(array, item)
-	end
-	return array
-end
-
 export type Record = {
 	parent: string?,
 	keys: { string },
@@ -64,7 +56,6 @@ Generator.OBSERVED_CLASSES = words(
 
 Generator.SCHEMA = "tools/typecheck/engine_members.json"
 Generator.OUTPUT = "src/ui/engine_types.luau"
-Generator.DEFINITIONS = "artifacts/verify/types/roblox.d.luau"
 
 local function set(list: { string }): { [string]: boolean }
 	local result: { [string]: boolean } = {}
@@ -444,7 +435,7 @@ function Generator.metadata(root: string, classes: { string }): Json.Object
 		table.sort(writable)
 		local record = Json.object()
 		Json.set(record, "sha256", Hash.sha256(raw))
-		Json.set(record, "writable", stringArray(writable))
+		Json.set(record, "writable", Json.array(writable))
 		Json.set(result, name, record)
 	end
 	return result

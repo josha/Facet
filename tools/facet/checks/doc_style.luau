@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
@@ -181,10 +182,6 @@ local function countWords(text: string): number
 	return count
 end
 
-local function trim(text: string): string
-	return string.match(text, "^%s*(.-)%s*$") or text
-end
-
 local function boundedAt(text: string, start: number, finish: number): boolean
 	return not isWordByte(string.byte(text, start - 1)) and not isWordByte(string.byte(text, finish + 1))
 end
@@ -333,7 +330,7 @@ local function shorthands(prose: string): { Shorthand }
 end
 
 local function sentences(prose: string): { string }
-	local text = trim(prose)
+	local text = stringext.trim(prose)
 	local found: { string } = {}
 	local start = 1
 	local cursor = 1
@@ -429,7 +426,7 @@ local function checkDocument(path: string, text: string, report: Report)
 	local reported: { [string]: boolean } = {}
 	local guide = string.sub(path, 1, #GUIDE) == GUIDE and not ARCHAEOLOGY_EXEMPT[path]
 	for line, prose in readable do
-		if trim(prose) == "" then
+		if stringext.trim(prose) == "" then
 			continue
 		end
 		for _, token in acronyms(prose) do

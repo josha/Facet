@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local process = require("@std/process")
 local Files = require("./files")
 local Hash = require("./hash")
@@ -58,10 +59,6 @@ local NOTICES: { { string } } = {
 
 local sequence = 0
 
-local function trimmed(text: string): string
-	return string.match(text, "^%s*(.-)%s*$") or ""
-end
-
 function Model.readVersion(root: string?): string
 	local path = Files.join(root or ".", "src/init.luau")
 	for _, line in Files.lines(Files.read(path)) do
@@ -101,7 +98,7 @@ function Model.headCommit(root: string?): string?
 	if commit == nil then
 		return nil
 	end
-	return trimmed(commit)
+	return stringext.trim(commit)
 end
 
 function Model.sourceCommit(root: string?): string
@@ -111,11 +108,11 @@ function Model.sourceCommit(root: string?): string
 		return "unversioned-source"
 	end
 	local dirty = Run.gitOutput({ "status", "--porcelain", "--", "src" }, base) or ""
-	return if trimmed(dirty) ~= "" then commit .. "-dirty" else commit
+	return if stringext.trim(dirty) ~= "" then commit .. "-dirty" else commit
 end
 
 function Model.repositoryUrl(root: string?): string
-	local url = trimmed(Run.gitOutput({ "remote", "get-url", "origin" }, root or ".") or "")
+	local url = stringext.trim(Run.gitOutput({ "remote", "get-url", "origin" }, root or ".") or "")
 	url = string.gsub(url, "^git@([^:]+):", "https://%1/")
 	url = string.gsub(url, "^https://[^@/]+@", "https://")
 	url = string.gsub(url, "%.git$", "")
@@ -305,7 +302,7 @@ local function rojo(project: unknown, output: string, projectPath: string): stri
 	local result = Run.capture({ "rojo", "build", Files.absolute(projectPath), "-o", Files.absolute(output) })
 	Files.remove(projectPath)
 	if not result.ok then
-		local detail = trimmed(result.stdout .. "\n" .. result.stderr)
+		local detail = stringext.trim(result.stdout .. "\n" .. result.stderr)
 		return ("rojo build %s failed (exit %d)%s"):format(
 			output,
 			result.code,

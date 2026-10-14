@@ -5,7 +5,7 @@ local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Hash = require("../lib/hash")
-local Inflate = require("../lib/inflate")
+local Zlib = require("../lib/zlib")
 local Tar = require("../lib/tar")
 local WordLists = require("../lib/word_lists")
 
@@ -380,7 +380,9 @@ local function fetchSource(root: string, offline: boolean, say: (string) -> ()):
 end
 
 local function readSource(archive: string): (Source?, string?)
-	local inflated, tarball = pcall(Inflate.gunzip, archive)
+	local inflated, tarball = pcall(function(): string
+		return buffer.tostring(Zlib.gunzip(buffer.fromstring(archive)))
+	end)
 	if not inflated then
 		return nil, ("%s: could not decompress the source archive: %s"):format(PREFIX, tostring(tarball))
 	end
@@ -837,7 +839,7 @@ local function archiveOf(files: { { name: string, data: string } }): string
 	end
 	table.insert(parts, string.rep("\0", 1024))
 	local tarball = table.concat(parts)
-	return Inflate.gzipMember(Inflate.stored(tarball), tarball)
+	return buffer.tostring(Zlib.gzip(buffer.fromstring(tarball), { stored = true }))
 end
 
 local function refusal(failure: string?, fragment: string): string?
@@ -992,9 +994,6 @@ local function cases(): { Case.Case }
 		},
 	}
 	for _, case in WordLists.cases() do
-		table.insert(list, case)
-	end
-	for _, case in Inflate.cases() do
 		table.insert(list, case)
 	end
 	return list

@@ -1,7 +1,7 @@
 --!strict
 
-local Base64 = require("./base64")
-local Inflate = require("./inflate")
+local Base64 = require("../../vendor/verify/src/codec/base64")
+local Zlib = require("./zlib")
 
 export type Row = {
 	total: number,
@@ -38,67 +38,6 @@ local Microprofiler = {}
 Microprofiler.FRAMEWORK_PREFIXES = { "Facet/", "LuauUI/" }
 Microprofiler.LEGACY_PREFIX = "LuauUI/"
 
-local function adler32(data: buffer, length: number): number
-	local low = 1
-	local high = 0
-	local index = 0
-	while index < length do
-		local stop = math.min(index + 5552, length)
-		for position = index, stop - 1 do
-			low += buffer.readu8(data, position)
-			high += low
-		end
-		low %= 65521
-		high %= 65521
-		index = stop
-	end
-	return high * 65536 + low
-end
-
-function Microprofiler.zlib(data: string): string
-	local input = buffer.fromstring(data)
-	local length = buffer.len(input)
-	if length < 2 then
-		error("zlib: the stream ends early", 0)
-	end
-	local method = buffer.readu8(input, 0)
-	local flags = buffer.readu8(input, 1)
-	if bit32.band(method, 0x0F) ~= 8 or (method * 256 + flags) % 31 ~= 0 then
-		error("zlib: incorrect header check", 0)
-	end
-	if bit32.band(flags, 0x20) ~= 0 then
-		error("zlib: a preset dictionary is not supported", 0)
-	end
-	local output, written, after = Inflate.rawBuffer(input, 2, length * 4)
-	if after + 4 > length then
-		error("zlib: the Adler-32 trailer ends early", 0)
-	end
-	local recorded = bit32.bor(
-		bit32.lshift(buffer.readu8(input, after), 24),
-		bit32.lshift(buffer.readu8(input, after + 1), 16),
-		bit32.lshift(buffer.readu8(input, after + 2), 8),
-		buffer.readu8(input, after + 3)
-	)
-	if adler32(output, written) ~= recorded then
-		error("zlib: the Adler-32 checksum does not match", 0)
-	end
-	return buffer.readstring(output, 0, written)
-end
-
-local function adlerBytes(data: string): string
-	local value = adler32(buffer.fromstring(data), #data)
-	return string.char(
-		bit32.band(bit32.rshift(value, 24), 0xFF),
-		bit32.band(bit32.rshift(value, 16), 0xFF),
-		bit32.band(bit32.rshift(value, 8), 0xFF),
-		bit32.band(value, 0xFF)
-	)
-end
-
-function Microprofiler.zlibStored(plain: string): string
-	return "\x78\x01" .. Inflate.stored(plain) .. adlerBytes(plain)
-end
-
 local function u32(data: buffer, offset: number): number
 	return buffer.readu32(data, offset)
 end
@@ -124,7 +63,10 @@ function Microprofiler.load(path: string, raw: string): string
 	if close == nil then
 		error(("%s: no leading HTML comment - not a MicroProfiler dump"):format(path), 0)
 	end
-	local blob = Base64.decode(string.sub(raw, 5, close - 1))
+	local blob = Base64.decode((string.gsub(string.sub(raw, 5, close - 1), "%s", "")))
+	if blob == nil then
+		error(("%s: the leading HTML comment is not base64"):format(path), 0)
+	end
 	if string.sub(blob, 1, 3) ~= "GAK" then
 		error(("%s: bad magic %q, expected GAK"):format(path, string.sub(blob, 1, 3)), 0)
 	end
@@ -132,7 +74,7 @@ function Microprofiler.load(path: string, raw: string): string
 		error(("%s: the container header ends early"):format(path), 0)
 	end
 	local size = buffer.readu32(buffer.fromstring(string.sub(blob, 4, 7)), 0)
-	local body = Microprofiler.zlib(string.sub(blob, 12))
+	local body = buffer.tostring(Zlib.decompress(buffer.fromstring(string.sub(blob, 12))))
 	if #body ~= size then
 		error(("%s: size mismatch %d != %d"):format(path, #body, size), 0)
 	end
@@ -140,7 +82,8 @@ function Microprofiler.load(path: string, raw: string): string
 end
 
 function Microprofiler.pack(body: string): string
-	local container = "GAK" .. littleEndian(#body) .. littleEndian(0) .. Microprofiler.zlibStored(body)
+	local stored = buffer.tostring(Zlib.compress(buffer.fromstring(body), { stored = true }))
+	local container = "GAK" .. littleEndian(#body) .. littleEndian(0) .. stored
 	return "<!--" .. Base64.encode(container) .. "-->\n<html></html>"
 end
 

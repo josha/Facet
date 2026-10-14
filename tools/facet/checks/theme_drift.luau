@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local Case = require("../lib/case")
 local Files = require("../lib/files")
 local Json = require("../lib/json")
@@ -58,10 +59,6 @@ local ORDER: { [string]: number } = {
 	stroke = 7,
 	reactive = 8,
 }
-
-local function trim(text: string): string
-	return string.match(text, "^%s*(.-)%s*$") or text
-end
 
 local function decimal(text: string): boolean
 	return string.find(text, "^%d+$") ~= nil or string.find(text, "^%d+%.%d+$") ~= nil
@@ -250,7 +247,7 @@ local function scanSource(relative: string, source: string, parsed: Luau.Parsed,
 			path = relative,
 			line = line,
 			rule = rule,
-			text = trim(lines[line] or ""),
+			text = stringext.trim(lines[line] or ""),
 			hint = table.concat(hints, "; "),
 			order = order,
 		})

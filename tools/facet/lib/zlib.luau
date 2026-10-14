@@ -1,7 +1,52 @@
 --!strict
 --!native
 
-local Checksum = require("./checksum")
+export type Options = { chain: number?, nice: number?, stored: boolean? }
+
+local CRC_TABLE = buffer.create(1024)
+for value = 0, 255 do
+	local crc = value
+	for _ = 1, 8 do
+		if bit32.band(crc, 1) ~= 0 then
+			crc = bit32.bxor(0xEDB88320, bit32.rshift(crc, 1))
+		else
+			crc = bit32.rshift(crc, 1)
+		end
+	end
+	buffer.writeu32(CRC_TABLE, value * 4, crc)
+end
+
+local function crc32(data: buffer, offset: number?, length: number?, previous: number?): number
+	local start = offset or 0
+	local stop = start + (length or (buffer.len(data) - start)) - 1
+	local crc = bit32.bnot(previous or 0)
+	for index = start, stop do
+		local slot = bit32.band(bit32.bxor(crc, buffer.readu8(data, index)), 0xFF)
+		crc = bit32.bxor(buffer.readu32(CRC_TABLE, slot * 4), bit32.rshift(crc, 8))
+	end
+	return bit32.bnot(crc)
+end
+
+local function adler32(data: buffer, offset: number?, length: number?, previous: number?): number
+	local start = offset or 0
+	local remaining = length or (buffer.len(data) - start)
+	local seed = previous or 1
+	local a = seed % 65536
+	local b = seed // 65536
+	local index = start
+	while remaining > 0 do
+		local chunk = math.min(remaining, 5552)
+		for position = index, index + chunk - 1 do
+			a += buffer.readu8(data, position)
+			b += a
+		end
+		a %= 65521
+		b %= 65521
+		index += chunk
+		remaining -= chunk
+	end
+	return b * 65536 + a
+end
 
 local LENGTH_BASE = {
 	3,
@@ -89,7 +134,7 @@ for code = 1, 30 do
 	end
 end
 
-type Table = { entries: buffer, bits: number }
+type Table = { entries: buffer, bits: number, mask: number }
 
 local function reverseBits(code: number, length: number): number
 	local reversed = 0
@@ -113,13 +158,13 @@ local function buildTable(lengths: { number }, first: number, count: number): Ta
 		end
 	end
 	if maxBits == 0 then
-		return { entries = buffer.create(4), bits = 0 }
+		return { entries = buffer.create(4), bits = 0, mask = 0 }
 	end
 	local left = 1
 	for length = 1, 15 do
 		left = left * 2 - counts[length]
 		if left < 0 then
-			error("deflate: over-subscribed Huffman code", 0)
+			error("deflate: an over-subscribed Huffman code", 0)
 		end
 	end
 	local nextCode = table.create(16, 0)
@@ -135,17 +180,16 @@ local function buildTable(lengths: { number }, first: number, count: number): Ta
 		if length > 0 then
 			local assigned = nextCode[length]
 			nextCode[length] = assigned + 1
-			local reversed = reverseBits(assigned, length)
 			local step = 2 ^ length
 			local value = symbol * 16 + length
-			local slot = reversed
+			local slot = reverseBits(assigned, length)
 			while slot < size do
 				buffer.writeu32(entries, slot * 4, value)
 				slot += step
 			end
 		end
 	end
-	return { entries = entries, bits = maxBits }
+	return { entries = entries, bits = maxBits, mask = size - 1 }
 end
 
 local FIXED_LITERAL: Table
@@ -159,11 +203,8 @@ do
 	FIXED_DISTANCE = buildTable(table.create(30, 5), 1, 30)
 end
 
-local Deflate = {}
-
-function Deflate.inflateRaw(data: buffer, offset: number?, expected: number?): (buffer, number)
-	local source = data
-	local length = buffer.len(source)
+local function inflate(data: buffer, offset: number?, expected: number?): (buffer, number)
+	local length = buffer.len(data)
 	local position = offset or 0
 	local bits = 0
 	local count = 0
@@ -171,22 +212,21 @@ function Deflate.inflateRaw(data: buffer, offset: number?, expected: number?): (
 	local out = buffer.create(capacity)
 	local written = 0
 
-	local function need(width: number)
-		while count < width do
-			if position < length then
-				bits += bit32.lshift(buffer.readu8(source, position), count)
-				position += 1
-			elseif position < length + 8 then
-				position += 1
-			else
-				error("deflate: unexpected end of stream", 0)
-			end
+	local function fill(width: number)
+		while count < width and position < length do
+			bits += bit32.lshift(buffer.readu8(data, position), count)
+			position += 1
 			count += 8
 		end
 	end
 
 	local function take(width: number): number
-		need(width)
+		if count < width then
+			fill(width)
+			if count < width then
+				error("deflate: the stream ends early", 0)
+			end
+		end
 		local value = bit32.band(bits, 2 ^ width - 1)
 		bits = bit32.rshift(bits, width)
 		count -= width
@@ -207,13 +247,17 @@ function Deflate.inflateRaw(data: buffer, offset: number?, expected: number?): (
 	local function decode(huffman: Table): number
 		local width = huffman.bits
 		if width == 0 then
-			error("deflate: empty Huffman code used", 0)
+			error("deflate: an empty Huffman code is used", 0)
 		end
-		need(width)
-		local entry = buffer.readu32(huffman.entries, bit32.band(bits, 2 ^ width - 1) * 4)
+		if count < width then
+			fill(width)
+		end
+		local entry = buffer.readu32(huffman.entries, bit32.band(bits, huffman.mask) * 4)
 		local used = bit32.band(entry, 15)
 		if used == 0 then
-			error("deflate: invalid Huffman code", 0)
+			error("deflate: an invalid Huffman code", 0)
+		elseif used > count then
+			error("deflate: the stream ends early", 0)
 		end
 		bits = bit32.rshift(bits, used)
 		count -= used
@@ -229,19 +273,18 @@ function Deflate.inflateRaw(data: buffer, offset: number?, expected: number?): (
 			bits = 0
 			count = 0
 			if position + 4 > length then
-				error("deflate: truncated stored block", 0)
+				error("deflate: the stream ends early", 0)
 			end
-			local size = buffer.readu16(source, position)
-			local complement = buffer.readu16(source, position + 2)
-			if bit32.bxor(size, complement) ~= 0xFFFF then
-				error("deflate: stored block length mismatch", 0)
+			local size = buffer.readu16(data, position)
+			if bit32.bxor(size, buffer.readu16(data, position + 2)) ~= 0xFFFF then
+				error("deflate: a stored block length does not match its complement", 0)
 			end
 			position += 4
 			if position + size > length then
-				error("deflate: truncated stored block", 0)
+				error("deflate: the stream ends early", 0)
 			end
 			reserve(size)
-			buffer.copy(out, written, source, position, size)
+			buffer.copy(out, written, data, position, size)
 			written += size
 			position += size
 		elseif kind == 1 or kind == 2 then
@@ -251,6 +294,9 @@ function Deflate.inflateRaw(data: buffer, offset: number?, expected: number?): (
 				local literalCount = take(5) + 257
 				local distanceCount = take(5) + 1
 				local codeCount = take(4) + 4
+				if literalCount > 286 or distanceCount > 30 then
+					error("deflate: too many length or distance symbols", 0)
+				end
 				local codeLengths = table.create(19, 0)
 				for index = 1, codeCount do
 					codeLengths[CODE_LENGTH_ORDER[index] + 1] = take(3)
@@ -269,7 +315,7 @@ function Deflate.inflateRaw(data: buffer, offset: number?, expected: number?): (
 						local repeatCount
 						if symbol == 16 then
 							if index == 1 then
-								error("deflate: repeat with no previous length", 0)
+								error("deflate: a repeat code has no previous length", 0)
 							end
 							repeatValue = lengths[index - 1]
 							repeatCount = 3 + take(2)
@@ -279,7 +325,7 @@ function Deflate.inflateRaw(data: buffer, offset: number?, expected: number?): (
 							repeatCount = 11 + take(7)
 						end
 						if index + repeatCount - 1 > total then
-							error("deflate: code lengths overflow", 0)
+							error("deflate: the code lengths overrun their count", 0)
 						end
 						for _ = 1, repeatCount do
 							lengths[index] = repeatValue
@@ -288,7 +334,7 @@ function Deflate.inflateRaw(data: buffer, offset: number?, expected: number?): (
 					end
 				end
 				if lengths[257] == 0 then
-					error("deflate: missing end-of-block code", 0)
+					error("deflate: the literal code has no end-of-block symbol", 0)
 				end
 				literalTable = buildTable(lengths, 1, literalCount)
 				distanceTable = buildTable(lengths, literalCount + 1, distanceCount)
@@ -306,19 +352,19 @@ function Deflate.inflateRaw(data: buffer, offset: number?, expected: number?): (
 				else
 					local code = symbol - 256
 					if code > 29 then
-						error("deflate: invalid length code", 0)
+						error("deflate: an invalid length symbol", 0)
 					end
 					local extra = LENGTH_EXTRA[code]
 					local size = LENGTH_BASE[code] + (if extra > 0 then take(extra) else 0)
 					local distanceSymbol = decode(distanceTable) + 1
 					if distanceSymbol > 30 then
-						error("deflate: invalid distance code", 0)
+						error("deflate: an invalid distance symbol", 0)
 					end
 					local distanceExtra = DISTANCE_EXTRA[distanceSymbol]
 					local distance = DISTANCE_BASE[distanceSymbol]
 						+ (if distanceExtra > 0 then take(distanceExtra) else 0)
 					if distance > written then
-						error("deflate: distance beyond output", 0)
+						error("deflate: a distance reaches before the start of the output", 0)
 					end
 					reserve(size)
 					if distance >= size then
@@ -333,7 +379,7 @@ function Deflate.inflateRaw(data: buffer, offset: number?, expected: number?): (
 				end
 			end
 		else
-			error("deflate: invalid block type", 0)
+			error("deflate: an invalid block type", 0)
 		end
 	end
 	local consumed = position - count // 8
@@ -784,9 +830,7 @@ local MAX_MATCH = 258
 local MIN_MATCH = 3
 local BLOCK_SYMBOLS = 32768
 
-export type Options = { chain: number?, nice: number? }
-
-function Deflate.deflateRaw(input: buffer, options: Options?): buffer
+local function deflateRaw(input: buffer, options: Options?): buffer
 	local size = buffer.len(input)
 	local chainLimit = if options and options.chain then options.chain else 256
 	local niceLength = if options and options.nice then options.nice else 258
@@ -915,45 +959,186 @@ function Deflate.deflateRaw(input: buffer, options: Options?): buffer
 	return result
 end
 
-function Deflate.compress(input: buffer, options: Options?): buffer
-	local raw = Deflate.deflateRaw(input, options)
-	local result = buffer.create(buffer.len(raw) + 6)
-	buffer.writeu8(result, 0, 0x78)
-	buffer.writeu8(result, 1, 0xDA)
-	buffer.copy(result, 2, raw, 0, buffer.len(raw))
-	local adler = Checksum.adler32(input)
-	local tail = buffer.len(raw) + 2
-	buffer.writeu8(result, tail, bit32.rshift(adler, 24))
-	buffer.writeu8(result, tail + 1, bit32.band(bit32.rshift(adler, 16), 0xFF))
-	buffer.writeu8(result, tail + 2, bit32.band(bit32.rshift(adler, 8), 0xFF))
-	buffer.writeu8(result, tail + 3, bit32.band(adler, 0xFF))
-	return result
-end
-
-function Deflate.decompress(input: buffer, expected: number?): buffer
-	if buffer.len(input) < 6 then
-		error("zlib: stream is too short", 0)
-	end
-	local cmf = buffer.readu8(input, 0)
-	local flg = buffer.readu8(input, 1)
-	if bit32.band(cmf, 0x0F) ~= 8 or (cmf * 256 + flg) % 31 ~= 0 then
-		error("zlib: invalid stream header", 0)
-	end
-	if bit32.band(flg, 0x20) ~= 0 then
-		error("zlib: preset dictionaries are not supported", 0)
-	end
-	local out, consumed = Deflate.inflateRaw(input, 2, expected)
-	if consumed + 4 > buffer.len(input) then
-		error("zlib: missing Adler-32 checksum", 0)
-	end
-	local stored = buffer.readu8(input, consumed) * 16777216
-		+ buffer.readu8(input, consumed + 1) * 65536
-		+ buffer.readu8(input, consumed + 2) * 256
-		+ buffer.readu8(input, consumed + 3)
-	if stored ~= Checksum.adler32(out) then
-		error("zlib: Adler-32 checksum mismatch", 0)
+local function store(input: buffer): buffer
+	local size = buffer.len(input)
+	local blocks = math.max(1, math.ceil(size / 65535))
+	local out = buffer.create(size + blocks * 5)
+	local cursor = 0
+	local offset = 0
+	for block = 1, blocks do
+		local piece = math.min(65535, size - offset)
+		buffer.writeu8(out, cursor, if block == blocks then 1 else 0)
+		buffer.writeu16(out, cursor + 1, piece)
+		buffer.writeu16(out, cursor + 3, bit32.bxor(piece, 0xFFFF))
+		buffer.copy(out, cursor + 5, input, offset, piece)
+		cursor += 5 + piece
+		offset += piece
 	end
 	return out
 end
 
-return table.freeze(Deflate)
+local function deflate(input: buffer, options: Options?): buffer
+	if options ~= nil and options.stored == true then
+		return store(input)
+	end
+	return deflateRaw(input, options)
+end
+
+local function compress(input: buffer, options: Options?): buffer
+	local raw = deflate(input, options)
+	local size = buffer.len(raw)
+	local result = buffer.create(size + 6)
+	buffer.writeu8(result, 0, 0x78)
+	buffer.writeu8(result, 1, if options ~= nil and options.stored == true then 0x01 else 0xDA)
+	buffer.copy(result, 2, raw, 0, size)
+	local adler = adler32(input)
+	buffer.writeu8(result, size + 2, bit32.rshift(adler, 24))
+	buffer.writeu8(result, size + 3, bit32.band(bit32.rshift(adler, 16), 0xFF))
+	buffer.writeu8(result, size + 4, bit32.band(bit32.rshift(adler, 8), 0xFF))
+	buffer.writeu8(result, size + 5, bit32.band(adler, 0xFF))
+	return result
+end
+
+local function decompress(input: buffer, expected: number?): buffer
+	local length = buffer.len(input)
+	if length < 2 then
+		error("zlib: the stream ends early", 0)
+	end
+	local method = buffer.readu8(input, 0)
+	local flags = buffer.readu8(input, 1)
+	if bit32.band(method, 0x0F) ~= 8 or (method * 256 + flags) % 31 ~= 0 then
+		error("zlib: incorrect header check", 0)
+	end
+	if bit32.band(flags, 0x20) ~= 0 then
+		error("zlib: a preset dictionary is not supported", 0)
+	end
+	local out, consumed = inflate(input, 2, expected or length * 4)
+	if consumed + 4 > length then
+		error("zlib: the Adler-32 trailer ends early", 0)
+	end
+	local recorded = buffer.readu8(input, consumed) * 16777216
+		+ buffer.readu8(input, consumed + 1) * 65536
+		+ buffer.readu8(input, consumed + 2) * 256
+		+ buffer.readu8(input, consumed + 3)
+	if recorded ~= adler32(out) then
+		error("zlib: the Adler-32 checksum does not match", 0)
+	end
+	return out
+end
+
+local GZIP_HEADER = "\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff"
+local GZIP_HEADER_CRC = 2
+local GZIP_EXTRA = 4
+local GZIP_NAME = 8
+local GZIP_COMMENT = 16
+
+local function gzip(input: buffer, options: Options?): buffer
+	local raw = deflate(input, options)
+	local size = buffer.len(raw)
+	local result = buffer.create(size + 18)
+	buffer.writestring(result, 0, GZIP_HEADER)
+	buffer.copy(result, 10, raw, 0, size)
+	buffer.writeu32(result, size + 10, crc32(input))
+	buffer.writeu32(result, size + 14, buffer.len(input) % 0x100000000)
+	return result
+end
+
+local function skipText(input: buffer, position: number): number
+	local length = buffer.len(input)
+	while position < length and buffer.readu8(input, position) ~= 0 do
+		position += 1
+	end
+	if position >= length then
+		error("gzip: the header ends early", 0)
+	end
+	return position + 1
+end
+
+local function gunzip(input: buffer): buffer
+	local length = buffer.len(input)
+	local parts: { buffer } = {}
+	local total = 0
+	local offset = 0
+	while offset < length do
+		if #parts > 0 and buffer.readu8(input, offset) == 0 then
+			offset += 1
+			continue
+		end
+		if offset + 2 > length or buffer.readu8(input, offset) ~= 0x1F or buffer.readu8(input, offset + 1) ~= 0x8B then
+			error(("gzip: no gzip magic at byte %d"):format(offset), 0)
+		end
+		if offset + 10 > length then
+			error("gzip: the header ends early", 0)
+		end
+		if buffer.readu8(input, offset + 2) ~= 8 then
+			error("gzip: the compression method is not deflate", 0)
+		end
+		local flags = buffer.readu8(input, offset + 3)
+		if bit32.band(flags, 0xE0) ~= 0 then
+			error("gzip: reserved header flags are set", 0)
+		end
+		local position = offset + 10
+		if bit32.band(flags, GZIP_EXTRA) ~= 0 then
+			if position + 2 > length then
+				error("gzip: the header ends early", 0)
+			end
+			position += 2 + buffer.readu16(input, position)
+		end
+		if bit32.band(flags, GZIP_NAME) ~= 0 then
+			position = skipText(input, position)
+		end
+		if bit32.band(flags, GZIP_COMMENT) ~= 0 then
+			position = skipText(input, position)
+		end
+		if bit32.band(flags, GZIP_HEADER_CRC) ~= 0 then
+			if position + 2 > length then
+				error("gzip: the header ends early", 0)
+			end
+			if bit32.band(crc32(input, offset, position - offset), 0xFFFF) ~= buffer.readu16(input, position) then
+				error("gzip: the header CRC does not match", 0)
+			end
+			position += 2
+		end
+		if position > length then
+			error("gzip: the header ends early", 0)
+		end
+		local hint = if #parts == 0 then math.min(buffer.readu32(input, length - 4), length * 8, 0x10000000) else 0
+		local output, after = inflate(input, position, hint)
+		if after + 8 > length then
+			error("gzip: the trailer ends early", 0)
+		end
+		if crc32(output) ~= buffer.readu32(input, after) then
+			error("gzip: the CRC-32 does not match", 0)
+		end
+		if buffer.len(output) % 0x100000000 ~= buffer.readu32(input, after + 4) then
+			error("gzip: the recorded length does not match", 0)
+		end
+		table.insert(parts, output)
+		total += buffer.len(output)
+		offset = after + 8
+	end
+	if #parts == 0 then
+		error("gzip: no gzip member", 0)
+	end
+	if #parts == 1 then
+		return parts[1]
+	end
+	local joined = buffer.create(total)
+	local cursor = 0
+	for _, part in parts do
+		buffer.copy(joined, cursor, part, 0, buffer.len(part))
+		cursor += buffer.len(part)
+	end
+	return joined
+end
+
+return table.freeze({
+	crc32 = crc32,
+	adler32 = adler32,
+	inflate = inflate,
+	deflate = deflate,
+	compress = compress,
+	decompress = decompress,
+	gzip = gzip,
+	gunzip = gunzip,
+})

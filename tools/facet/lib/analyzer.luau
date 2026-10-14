@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local Files = require("./files")
 
 export type Diagnostic = {
@@ -48,13 +49,9 @@ Analyzer.VENDOR = { "src/vendor/", "tools/vendor/" }
 
 Analyzer.KINDS = { TypeError = true, SyntaxError = true }
 
-local function startsWith(text: string, prefix: string): boolean
-	return string.sub(text, 1, #prefix) == prefix
-end
-
 function Analyzer.isLute(path: string): boolean
 	for _, prefix in Analyzer.LUTE_RUNTIME do
-		if startsWith(path, prefix) then
+		if stringext.hasPrefix(path, prefix) then
 			return true
 		end
 	end
@@ -62,15 +59,19 @@ function Analyzer.isLute(path: string): boolean
 end
 
 function Analyzer.isOwnedSource(path: string): boolean
-	return startsWith(path, "src/") and not startsWith(path, "src/vendor/")
+	return stringext.hasPrefix(path, "src/") and not stringext.hasPrefix(path, "src/vendor/")
 end
 
 function Analyzer.isPlugin(path: string): boolean
-	return startsWith(path, "tools/designer/")
+	return stringext.hasPrefix(path, "tools/designer/")
 end
 
 function Analyzer.isRepository(path: string): boolean
-	return not (startsWith(path, "/") or startsWith(path, "../") or string.match(path, "^%a:/") ~= nil)
+	return not (
+		stringext.hasPrefix(path, "/")
+		or stringext.hasPrefix(path, "../")
+		or string.match(path, "^%a:/") ~= nil
+	)
 end
 
 function Analyzer.isFirstParty(path: string): boolean
@@ -78,7 +79,7 @@ function Analyzer.isFirstParty(path: string): boolean
 		return false
 	end
 	for _, prefix in Analyzer.VENDOR do
-		if startsWith(path, prefix) then
+		if stringext.hasPrefix(path, prefix) then
 			return false
 		end
 	end
@@ -94,7 +95,7 @@ end
 
 function Analyzer.relative(path: string, root: string): string
 	local normalized = Files.normalize(Analyzer.withoutVerbatimPrefix(path))
-	local absolute = startsWith(normalized, "/") or string.match(normalized, "^%a:/") ~= nil
+	local absolute = stringext.hasPrefix(normalized, "/") or string.match(normalized, "^%a:/") ~= nil
 	local resolved = Files.collapse(if absolute then normalized else Files.normalize(root) .. "/" .. normalized)
 	local base = Files.collapse(root)
 	local caseless = string.match(base, "^%a:/") ~= nil

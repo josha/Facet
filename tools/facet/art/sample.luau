@@ -1,12 +1,10 @@
 --!strict
 
-local crypto = require("@lute/crypto")
 local fs = require("@std/fs")
 local Cli = require("../lib/cli")
-local OrderedJson = require("../lib/ordered-json")
+local Hash = require("../lib/hash")
+local Json = require("../lib/json")
 local Raster = require("../lib/raster")
-
-type Value = OrderedJson.Value
 
 local OUT = "assets/themes/plate-samples.json"
 local NOTE = "Alpha-weighted mean of each asset's nine-slice CENTRE rect \u{2014} the pixels a lifted label is read against. "
@@ -119,15 +117,15 @@ function Sample.measure(image: Raster.Image, rect: { number }?): (number, number
 	return sums[1] / total, sums[2] / total, sums[3] / total, total / count
 end
 
-local function roundTo4(value: number): Value
-	return OrderedJson.float(tonumber(string.format("%.4f", value)) :: number)
+local function roundTo4(value: number): unknown
+	return Json.float(tonumber(string.format("%.4f", value)) :: number)
 end
 
 function Sample.build(): (string, { string })
-	local samples = OrderedJson.object()
+	local samples = Json.object()
 	local lines: { string } = {}
 	for _, target in TARGETS do
-		local bySlot = OrderedJson.object()
+		local bySlot = Json.object()
 		for _, slot in target.slots do
 			local name, asset = slot[1], slot[2]
 			local relative = ("assets/themes/%s/%s.png"):format(target.folder, asset)
@@ -138,30 +136,26 @@ function Sample.build(): (string, { string })
 			local rect = sliceCenter(target.module, asset)
 			local image = Raster.Png.decode(buffer.fromstring(bytes))
 			local r, g, b, alpha = Sample.measure(image, rect)
-			local entry = OrderedJson.object()
-			OrderedJson.set(entry, "r", OrderedJson.int(Raster.Numeric.roundHalfEven(r)))
-			OrderedJson.set(entry, "g", OrderedJson.int(Raster.Numeric.roundHalfEven(g)))
-			OrderedJson.set(entry, "b", OrderedJson.int(Raster.Numeric.roundHalfEven(b)))
-			OrderedJson.set(entry, "alpha", roundTo4(alpha))
-			OrderedJson.set(entry, "size", OrderedJson.string(("%dx%d"):format(image.width, image.height)))
-			OrderedJson.set(entry, "asset", OrderedJson.string(asset))
-			OrderedJson.set(entry, "file", OrderedJson.string(relative))
-			OrderedJson.set(
-				entry,
-				"sha256",
-				OrderedJson.string(Raster.Checksum.hex(crypto.digest(crypto.hash.sha256, bytes)))
-			)
+			local entry = Json.object()
+			Json.set(entry, "r", Raster.Numeric.roundHalfEven(r))
+			Json.set(entry, "g", Raster.Numeric.roundHalfEven(g))
+			Json.set(entry, "b", Raster.Numeric.roundHalfEven(b))
+			Json.set(entry, "alpha", roundTo4(alpha))
+			Json.set(entry, "size", ("%dx%d"):format(image.width, image.height))
+			Json.set(entry, "asset", asset)
+			Json.set(entry, "file", relative)
+			Json.set(entry, "sha256", Hash.sha256(bytes))
 			if rect == nil then
-				OrderedJson.set(entry, "sliceCenter", OrderedJson.null)
+				Json.set(entry, "sliceCenter", Json.null)
 			else
-				local center = OrderedJson.object()
-				OrderedJson.set(center, "x0", OrderedJson.int(rect[1]))
-				OrderedJson.set(center, "y0", OrderedJson.int(rect[2]))
-				OrderedJson.set(center, "x1", OrderedJson.int(rect[3]))
-				OrderedJson.set(center, "y1", OrderedJson.int(rect[4]))
-				OrderedJson.set(entry, "sliceCenter", center)
+				local center = Json.object()
+				Json.set(center, "x0", rect[1])
+				Json.set(center, "y0", rect[2])
+				Json.set(center, "x1", rect[3])
+				Json.set(center, "y1", rect[4])
+				Json.set(entry, "sliceCenter", center)
 			end
-			OrderedJson.set(bySlot, name, entry)
+			Json.set(bySlot, name, entry)
 			table.insert(
 				lines,
 				("%-16s %-9s %-28s rgb(%d, %d, %d)  alpha=%s"):format(
@@ -171,18 +165,18 @@ function Sample.build(): (string, { string })
 					Raster.Numeric.roundHalfEven(r),
 					Raster.Numeric.roundHalfEven(g),
 					Raster.Numeric.roundHalfEven(b),
-					OrderedJson.compact(roundTo4(alpha))
+					Json.encode(roundTo4(alpha))
 				)
 			)
 		end
-		OrderedJson.set(samples, target.package, bySlot)
+		Json.set(samples, target.package, bySlot)
 	end
 	table.sort(lines)
-	local root = OrderedJson.object()
-	OrderedJson.set(root, "schema", OrderedJson.string("facet-art-plate-samples/1"))
-	OrderedJson.set(root, "note", OrderedJson.string(NOTE))
-	OrderedJson.set(root, "samples", samples)
-	return OrderedJson.dumps(root, true) .. "\n", lines
+	local root = Json.object()
+	Json.set(root, "schema", "facet-art-plate-samples/1")
+	Json.set(root, "note", NOTE)
+	Json.set(root, "samples", samples)
+	return Json.encode(root, { indent = 2, sortKeys = true }) .. "\n", lines
 end
 
 function Sample.run(invocation: Cli.Invocation): number

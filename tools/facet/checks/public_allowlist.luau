@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local fs = require("@std/fs")
 local Allowlist = require("../lib/allowlist")
 local Case = require("../lib/case")
@@ -12,13 +13,9 @@ local LIST = "tools/public_allowlist.txt"
 local PRIVATE = { "docs/plans/", "docs/superpowers/", "artifacts/distribution-readiness/" }
 local REPORT_LIMIT = 12
 
-local function startsWith(text: string, prefix: string): boolean
-	return string.sub(text, 1, #prefix) == prefix
-end
-
 local function private(path: string): boolean
 	for _, prefix in PRIVATE do
-		if startsWith(path, prefix) then
+		if stringext.hasPrefix(path, prefix) then
 			return true
 		end
 	end

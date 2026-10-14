@@ -100,12 +100,6 @@ function Field.scale(field: Field, factor: number): Field
 	end)
 end
 
-function Field.clip(field: Field, low: number, high: number): Field
-	return Field.map(field, function(value: number): number
-		return Numeric.clamp(value, low, high)
-	end)
-end
-
 function Field.difference(left: Field, right: Field): Field
 	return Field.zip(left, right, function(a: number, b: number): number
 		return Numeric.clamp(a - b, 0, 1)

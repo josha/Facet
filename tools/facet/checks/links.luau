@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local Allowlist = require("../lib/allowlist")
 local Case = require("../lib/case")
 local Files = require("../lib/files")
@@ -35,19 +36,15 @@ local PUBLIC_REFERENCE: { [string]: boolean } = {
 
 export type Counts = { documents: number, links: number, anchors: number }
 
-local function startsWith(text: string, prefix: string): boolean
-	return string.sub(text, 1, #prefix) == prefix
-end
-
 local function isArchived(path: string): boolean
 	if ARCHIVED_FILES[path] then
 		return true
 	end
-	if startsWith(path, REFERENCE) and not PUBLIC_REFERENCE[path] then
+	if stringext.hasPrefix(path, REFERENCE) and not PUBLIC_REFERENCE[path] then
 		return true
 	end
 	for _, prefix in ARCHIVED_PREFIXES do
-		if startsWith(path, prefix) then
+		if stringext.hasPrefix(path, prefix) then
 			return true
 		end
 	end
@@ -58,7 +55,7 @@ local function documents(context: Rule.Context, list: Allowlist.Allowlist): { st
 	local seen: { [string]: boolean } = {}
 	local found: { string } = {}
 	local function consider(path: string)
-		if seen[path] or isArchived(path) or not Allowlist.public(list, path) or startsWith(path, VENDOR) then
+		if seen[path] or isArchived(path) or not Allowlist.public(list, path) or stringext.hasPrefix(path, VENDOR) then
 			return
 		end
 		seen[path] = true

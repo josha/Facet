@@ -79,8 +79,6 @@ local TOKEN_ALIASES: { [string]: string } = {
 	Status = "status",
 }
 
-Schema.TOKEN_ALIASES = table.freeze(TOKEN_ALIASES)
-
 local BUILTIN: { [string]: ShapeKind } = {
 	string = "string",
 	number = "number",
@@ -734,13 +732,6 @@ end
 
 function Schema.field(control: Control, name: string): Field?
 	return control.byName[name]
-end
-
-function Schema.unwrap(value: Shape): (Shape, boolean)
-	if value.kind == "value" and value.inner then
-		return value.inner, true
-	end
-	return value, false
 end
 
 function Schema.options(value: Shape): { Shape }

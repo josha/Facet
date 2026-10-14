@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local Assets = require("../lib/assets")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
@@ -7,7 +8,6 @@ local Files = require("../lib/files")
 local Hash = require("../lib/hash")
 local Json = require("../lib/json")
 local Model = require("../lib/model")
-local Multipart = require("../lib/multipart")
 local Rule = require("../lib/rule")
 local Run = require("../lib/run")
 local Snapshot = require("../lib/snapshot")
@@ -196,10 +196,6 @@ local function guarded(say: (string) -> (), body: () -> number): number
 	return stopCode
 end
 
-local function trimmed(text: string): string
-	return string.match(text, "^%s*(.-)%s*$") or ""
-end
-
 local function nullable(value: unknown): unknown
 	if value == nil then
 		return Json.null
@@ -334,9 +330,9 @@ end
 local function git(root: string, arguments: { string }): string
 	local result = Run.git(arguments, root)
 	if not result.ok then
-		stop(1, ("package: git %s failed: %s"):format(table.concat(arguments, " "), trimmed(result.stderr)))
+		stop(1, ("package: git %s failed: %s"):format(table.concat(arguments, " "), stringext.trim(result.stderr)))
 	end
-	return trimmed(result.stdout)
+	return stringext.trim(result.stdout)
 end
 
 local function porcelain(root: string, paths: { string }?): string
@@ -352,11 +348,11 @@ end
 
 local function versionOf(tool: string): string
 	local result = Run.capture({ tool, "--version" })
-	local out = trimmed(result.stdout)
+	local out = stringext.trim(result.stdout)
 	if out ~= "" then
 		return out
 	end
-	local err = trimmed(result.stderr)
+	local err = stringext.trim(result.stderr)
 	if err ~= "" and string.sub(err, 1, 16) ~= "could not start " then
 		return err
 	end
@@ -1132,7 +1128,7 @@ local function cmdStatus(env: Environment): number
 	if dirty ~= "" then
 		local lines = Files.lines(dirty)
 		for index = 1, math.min(#lines, 10) do
-			say("                   " .. trimmed(lines[index]))
+			say("                   " .. stringext.trim(lines[index]))
 		end
 	end
 	if receipt == nil then
@@ -1211,7 +1207,7 @@ local function cmdStatus(env: Environment): number
 end
 
 local function indented(say: (string) -> (), text: string)
-	local stripped = trimmed(text)
+	local stripped = stringext.trim(text)
 	if stripped == "" then
 		return
 	end
@@ -1358,7 +1354,7 @@ local function excerpt(payload: unknown, length: number): string
 end
 
 local function modelPart(env: Environment, request: Json.Object): (string, string)
-	return Multipart.encode({
+	return Assets.form({
 		{ name = "request", value = Json.encode(request) },
 		{
 			name = "fileContent",
@@ -1393,7 +1389,7 @@ end
 local function integer(value: unknown): number?
 	local number = if type(value) == "number"
 		then value
-		elseif type(value) == "string" then tonumber(trimmed(value))
+		elseif type(value) == "string" then tonumber(stringext.trim(value))
 		else nil
 	if number == nil or number ~= math.floor(number) then
 		return nil
@@ -1755,10 +1751,10 @@ local function environment(invocation: Cli.Invocation): Environment
 		decide = decide,
 		apiKey = function(): string?
 			local key = Run.env("ROBLOX_API_KEY")
-			if key == nil or trimmed(key) == "" then
+			if key == nil or stringext.trim(key) == "" then
 				return nil
 			end
-			return trimmed(key)
+			return stringext.trim(key)
 		end,
 		build = realBuild(root, model, xml, manifest),
 		toolchain = toolchain,
@@ -2814,7 +2810,7 @@ cases = function(): { Case.Case }
 		name = "the multipart body carries the model bytes unchanged",
 		run = function(): string?
 			local payload = "\0\1\2\255\r\n--not-a-boundary\r\n"
-			local body, contentType = Multipart.encode({
+			local body, contentType = Assets.form({
 				{ name = "request", value = '{"assetType": "Model"}' },
 				{ name = "fileContent", value = payload, filename = "Facet.rbxm", contentType = RBXM_CONTENT_TYPE },
 			}, "B")
