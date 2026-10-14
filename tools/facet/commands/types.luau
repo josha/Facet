@@ -46,38 +46,12 @@ and tools/typecheck/engine_members.json; --creator-docs refreshes that metadata.
 local ARTIFACTS = "artifacts/verify/types"
 local LOCK = "tools/typecheck/roblox.lock.json"
 local PLUGIN_LOCK = "tools/typecheck/roblox-plugin.lock.json"
-local LUNE_LOCK = "tools/typecheck/lune.lock.json"
 local DEFAULT_FLAGS = { "LuauTarjanChildLimit=100000" }
 local SOLVER_FLAGS: { [string]: { string } } = { old = {}, new = { "LuauSolverV2=true" } }
 local ANALYZER_TIMEOUT = 600
 local ARGUMENT_BUDGET = if system.win32 then 24000 else 1000000
 local INVENTORY = { "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.luau" }
 local PROJECTS = { "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*project.json" }
-local LUNE_ROBLOX_EXPORTS = {
-	"Axes",
-	"BrickColor",
-	"CFrame",
-	"Color3",
-	"ColorSequence",
-	"ColorSequenceKeypoint",
-	"Enum",
-	"Faces",
-	"Font",
-	"NumberRange",
-	"NumberSequence",
-	"NumberSequenceKeypoint",
-	"PhysicalProperties",
-	"Ray",
-	"Rect",
-	"Region3",
-	"Region3int16",
-	"UDim",
-	"UDim2",
-	"Vector2",
-	"Vector2int16",
-	"Vector3",
-	"Vector3int16",
-}
 
 type Context = {
 	run: Analyzer.Run,
@@ -186,50 +160,6 @@ local function scratchDirectory(): string
 	local directory = Files.join(ARTIFACTS, uniqueName("setup-"))
 	Files.makeDirectory(directory)
 	return directory
-end
-
-local function prepareLuneTypes()
-	local lock = decodeFile(LUNE_LOCK)
-	local version = Json.stringField(lock, "version") or fail("lune.lock.json has no version")
-	local reported = Run.capture({ "lune", "--version" })
-	if not reported.ok then
-		fail("Pinned Lune is missing; run rokit install")
-	end
-	if trim(reported.stdout) ~= "lune " .. version then
-		fail(("Lune %s differs from the pinned definitions; run rokit install"):format(trim(reported.stdout)))
-	end
-	local scratch = scratchDirectory()
-	Files.write(Files.join(scratch, "rokit.toml"), Files.read("rokit.toml"))
-	local setup = Run.capture({ "lune", "setup" }, { cwd = scratch, timeout = 120 })
-	Files.remove(scratch)
-	if not setup.ok then
-		fail("lune setup failed: " .. trim(setup.stdout .. setup.stderr))
-	end
-	local source = Files.join(home(), ".lune/.typedefs", version)
-	local destination = Files.join(ARTIFACTS, "lune")
-	local digests = Json.objectField(lock, "sha256") or fail("lune.lock.json has no sha256 map")
-	for _, name in Json.keys(digests) do
-		local file = Files.join(source, name)
-		if not Files.isFile(file) then
-			fail(("Lune definition %s is missing from %s"):format(name, source))
-		end
-		local body = Files.read(file)
-		if Hash.sha256(body) ~= digests[name] then
-			fail(("Lune definition %s differs from its pinned SHA-256"):format(name))
-		end
-		local content = body
-		if name == "roblox.luau" then
-			local exports: { string } = {}
-			for _, export in LUNE_ROBLOX_EXPORTS do
-				table.insert(exports, ("roblox.%s = (nil :: unknown) :: typeof(%s)"):format(export, export))
-			end
-			local replacement = table.concat(exports, "\n") .. "\nreturn roblox"
-			content = string.gsub(content, "return roblox", function(): string
-				return replacement
-			end)
-		end
-		Files.write(Files.join(destination, name), content)
-	end
 end
 
 local function lutePin(rokit: string): (string?, string?)
@@ -668,7 +598,6 @@ local function assemble(
 		{ "contexts", encodedContexts },
 		{ "definitions", locks.game },
 		{ "pluginDefinitions", locks.plugin },
-		{ "luneDefinitions", locks.lune },
 		{ "luteDefinitions", locks.lute },
 	})
 	return { ok = ok, owned = merged.owned, external = merged.external, document = document }
@@ -701,7 +630,6 @@ local function loadLocks(lute: LuteTypes?): { [string]: unknown }
 	return {
 		game = decodeFile(LOCK),
 		plugin = decodeFile(PLUGIN_LOCK),
-		lune = decodeFile(LUNE_LOCK),
 		lute = if lute ~= nil
 			then record({ { "version", lute.version }, { "pin", lute.pin }, { "typedefs", lute.typedefs } })
 			else Json.null,
@@ -831,17 +759,10 @@ local function compile(files: { string })
 	local roblox, luteFiles = Analyzer.partition(files)
 	local outputs: { string } = {}
 	local failed = false
-	local base = { "lune", "run", "tools/typecheck/compile" }
-	for _, chunk in Analyzer.chunks(roblox, ARGUMENT_BUDGET - 64) do
-		local argv = table.clone(base)
-		table.move(chunk, 1, #chunk, #argv + 1, argv)
-		local result = Run.capture(argv, { timeout = ANALYZER_TIMEOUT })
-		table.insert(outputs, result.stdout .. result.stderr)
-		if not result.ok then
-			failed = true
-		end
+	local luteProblems = compileLute(roblox)
+	for _, problem in compileLute(luteFiles) do
+		table.insert(luteProblems, problem)
 	end
-	local luteProblems = compileLute(luteFiles)
 	if #luteProblems > 0 then
 		table.insert(outputs, table.concat(luteProblems, "\n") .. "\n")
 		failed = true
@@ -986,7 +907,6 @@ local function selftest(options: Options): number
 	if code ~= 0 then
 		return code
 	end
-	prepareLuneTypes()
 	analyzerVersion()
 	prepareLuteTypes()
 	for _, solver in solversOf(options) do
@@ -996,7 +916,6 @@ local function selftest(options: Options): number
 end
 
 local function full(options: Options): number
-	prepareLuneTypes()
 	analyzerVersion()
 	if options.files == nil then
 		local matches = engineCheck(definitions(LOCK))
@@ -1074,7 +993,6 @@ local FIXTURE_FILES = {
 local FIXTURE_LOCKS: { [string]: unknown } = {
 	game = record({ { "security", "None" } }),
 	plugin = record({ { "security", "PluginSecurity" } }),
-	lune = Json.object(),
 	lute = Json.null,
 }
 
@@ -1267,7 +1185,7 @@ cases = function(): { Case.Case }
 					"tests/lute/worker.luau",
 					"tests/a.spec.luau",
 					"tools/lute/studio_live.luau",
-					"tools/lune/perf.luau",
+					"bench/perf_runner.luau",
 					"tools/vendor/verify/src/lute/host.luau",
 					"tools/vendor/verify/src/core/init.luau",
 					"tools/vendor/verify/tools/studio-worker.luau",
@@ -1276,7 +1194,7 @@ cases = function(): { Case.Case }
 					Case.same(roblox, {
 						"src/a.luau",
 						"tests/a.spec.luau",
-						"tools/lune/perf.luau",
+						"bench/perf_runner.luau",
 						"tools/vendor/verify/src/core/init.luau",
 					}, "roblox"),
 					Case.same(lute, {
@@ -1303,12 +1221,16 @@ cases = function(): { Case.Case }
 				local public = Analyzer.classify(lute, diagnostics, true, {})
 				local focused =
 					Analyzer.classify(lute, diagnostics, false, { ["tools/vendor/verify/src/lute/host.luau"] = true })
-				local robloxPublic = Analyzer.classify(robloxRun({}), { diagnostic("src/vendor/x.luau") }, true, {})
+				local robloxPublic = Analyzer.classify(robloxRun({}), {
+					diagnostic("src/vendor/x.luau"),
+					diagnostic("C:/Users/someone/.lute/typedefs/1.0.1/std/path/win32/init.luau"),
+				}, true, {})
 				return Case.first(
 					Case.same(fileList(public.owned), { "tools/facet/init.luau:2" }, "public owned"),
 					Case.equal(#public.external, 4, "public external"),
 					Case.same(fileList(focused.owned), { "tools/vendor/verify/src/lute/host.luau:2" }, "focused owned"),
-					Case.equal(#robloxPublic.owned, 1, "the Roblox contexts keep the complete policy")
+					Case.equal(#robloxPublic.owned, 1, "the Roblox contexts keep the complete policy"),
+					Case.equal(#robloxPublic.external, 1, "the Roblox contexts do not block the Lute declarations")
 				)
 			end,
 		},

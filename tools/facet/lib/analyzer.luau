@@ -69,8 +69,12 @@ function Analyzer.isPlugin(path: string): boolean
 	return startsWith(path, "tools/designer/")
 end
 
+function Analyzer.isRepository(path: string): boolean
+	return not (startsWith(path, "/") or startsWith(path, "../") or string.match(path, "^%a:/") ~= nil)
+end
+
 function Analyzer.isFirstParty(path: string): boolean
-	if startsWith(path, "/") or startsWith(path, "../") or string.match(path, "^%a:/") ~= nil then
+	if not Analyzer.isRepository(path) then
 		return false
 	end
 	for _, prefix in Analyzer.VENDOR do
@@ -314,7 +318,7 @@ function Analyzer.classify(
 	for _, diagnostic in diagnostics do
 		local blocking = if run.platform == "standard"
 			then (if public then Analyzer.isFirstParty(diagnostic.file) else targets[diagnostic.file] == true)
-			else public or targets[diagnostic.file] == true
+			else (if public then Analyzer.isRepository(diagnostic.file) else targets[diagnostic.file] == true)
 		table.insert(if blocking then owned else external, diagnostic)
 	end
 	return { owned = owned, external = external }
