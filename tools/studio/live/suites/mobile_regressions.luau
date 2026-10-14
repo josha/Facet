@@ -2,9 +2,10 @@
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
+type Live = any
 local cases: { any } = {}
 
-local function pointer(t: any)
+local function pointer(t: Live)
 	local virtual = (UserInputService :: any):CreateVirtualInput()
 	local inset = GuiService:GetGuiInset()
 	local seen
@@ -42,7 +43,7 @@ local function painted(node: GuiObject): boolean
 	return true
 end
 
-local function sample(t: any, root: Instance, name: string)
+local function sample(t: Live, root: Instance, name: string)
 	local frames = {}
 	for _ = 1, 40 do
 		RunService.RenderStepped:Wait()
@@ -90,7 +91,7 @@ end
 
 table.insert(cases, {
 	id = "search-accessory-layout",
-	run = function(t: any)
+	run = function(t: Live)
 		for _, theme in t.themes do
 			local stage = t.mount(function(UI: any, _: any, C: any)
 				return UI.TextInput "Search" {
@@ -110,7 +111,7 @@ table.insert(cases, {
 
 table.insert(cases, {
 	id = "segmented-opening-layout",
-	run = function(t: any)
+	run = function(t: Live)
 		local stage = t.mount(function(UI: any, _: any, C: any)
 			return UI.Picker "Motion" {
 				label = "Motion",
@@ -130,7 +131,7 @@ table.insert(cases, {
 
 table.insert(cases, {
 	id = "colour-opening-layout",
-	run = function(t: any)
+	run = function(t: Live)
 		local open
 		local stage = t.mount(function(UI: any, _: any, C: any)
 			open = C.cell(false)
@@ -151,14 +152,14 @@ table.insert(cases, {
 
 table.insert(cases, {
 	id = "files-auxiliary-panes",
-	run = function(t: any)
+	run = function(t: Live)
 		for _, theme in t.themes do
 			if theme.name ~= "Neutral" and theme.name ~= "pixel_quest" then
 				continue
 			end
 			local model
 			local size = t.Facet.Compose.cell(Vector2.new(390, 740))
-			local stage = t.mount(function(UI: any, Host: any, C: any, env: any)
+			local stage = t.mount(function(UI: any, Host: Live, C: any, env: any)
 				local built = require(game.ReplicatedStorage.FacetScenarios.collection_workbench).build(
 					t.context(UI, Host, C, env)
 				)
@@ -203,7 +204,7 @@ table.insert(cases, {
 
 table.insert(cases, {
 	id = "radial-touch-origin",
-	run = function(t: any)
+	run = function(t: Live)
 		local stage = t.mount(function(UI: any)
 			return UI.RadialMenu "Quick" {
 				label = "Quick actions",
@@ -253,8 +254,8 @@ table.insert(cases, {
 
 table.insert(cases, {
 	id = "hud-collapse-content",
-	run = function(t: any)
-		local stage = t.mount(function(UI: any, Host: any)
+	run = function(t: Live)
+		local stage = t.mount(function(UI: any, Host: Live)
 			return UI.Composition "Hud" {
 				Position = UDim2.fromOffset(0, 200),
 				Size = UDim2.fromOffset(200, 100),
@@ -295,7 +296,7 @@ table.insert(cases, {
 
 table.insert(cases, {
 	id = "swipe-action-stretch",
-	run = function(t: any)
+	run = function(t: Live)
 		t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch })
 		local stage = t.mount(function(UI: any)
 			return UI.RowActions "Row" {
@@ -330,8 +331,8 @@ table.insert(cases, {
 
 table.insert(cases, {
 	id = "topbar-regions-side-by-side",
-	run = function(t: any)
-		t.mount(function(UI: any, Host: any)
+	run = function(t: Live)
+		t.mount(function(UI: any, Host: Live)
 			return UI.Composition "Hud" {
 				gap = 8,
 				padding = 0,
@@ -371,6 +372,126 @@ table.insert(cases, {
 			math.abs(second.x - (first.r + 8)) <= 1,
 			{ first, second }
 		)
+	end,
+})
+
+table.insert(cases, {
+	id = "word-game-pixel-captions",
+	run = function(t: Live)
+		for _, width in { 350, 390, 844 } do
+			local theme = assert(require(game.ReplicatedStorage.FacetThemes.pixel_quest).build(t.Facet.themes))
+			local stage = t.mount(function(UI: Live, Host: Live, C: Live, env: Live)
+				local ctx = t.context(UI, Host, C, env)
+				ctx.theme = env.theme
+				return require(game.ReplicatedStorage.FacetExamples["05_word_game"]).build(ctx).screen()
+			end, { theme = theme, size = Vector2.new(width, 620), frames = 60 })
+			local keys = t.find(stage, "kb")
+			for _, key in keys:GetDescendants() do
+				if key:IsA("TextButton") and string.match(key.Name, "^key_%u$") then
+					local label = t.find(key, "Label")
+					t.check(
+						width .. " " .. key.Name .. " shows its letter",
+						label and label.TextFits and label.TextBounds.X > 0,
+						label and { label.AbsoluteSize, label.TextBounds }
+					)
+				end
+			end
+			local page = t.find(stage, "page")
+			page.CanvasPosition = Vector2.new(0, 10000)
+			t.settle(30)
+			local restart = t.find(stage, "Restart")
+			t.inside(width .. " restart can scroll fully into view", restart, page)
+			t.cleanup()
+		end
+	end,
+})
+
+table.insert(cases, {
+	id = "colour-format-layout",
+	run = function(t: Live)
+		for _, width in { 350, 390, 844 } do
+			local open
+			local stage = t.mount(function(UI: Live, _: Live, C: Live)
+				open = C.cell(false)
+				return UI.ColorPicker "Colour" {
+					value = C.cell(Color3.fromRGB(171, 205, 109)),
+					isPresented = open,
+					modes = { "spectrum", "sliders" },
+				}
+			end, { size = Vector2.new(width, 740), frames = 90, environment = { preferredInput = "Touch" } })
+			local virtual, inset = pointer(t)
+			open:set(true)
+			t.settle(90)
+			local panel, body = t.find(stage, "Panel"), t.find(stage, "Body")
+			local at, size, bodyAt = panel.AbsolutePosition, panel.AbsoluteSize, body.AbsolutePosition
+			for _, format in { "hsv", "hex", "rgb", "hex", "hsv", "rgb" } do
+				local button = t.find(t.find(stage, "Format"), format)
+				local point = button.AbsolutePosition + button.AbsoluteSize / 2 + inset
+				virtual:SendMousePosition(point)
+				virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
+				t.settle(1)
+				virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
+				local shift = 0
+				for _ = 1, 25 do
+					RunService.RenderStepped:Wait()
+					shift = math.max(
+						shift,
+						(panel.AbsolutePosition - at).Magnitude,
+						(panel.AbsoluteSize - size).Magnitude,
+						(body.AbsolutePosition - bodyAt).Magnitude
+					)
+				end
+				t.check(
+					width .. " " .. format .. " selected by pointer",
+					t.find(stage, "Colour"):GetAttribute("format") == format
+				)
+				t.check(width .. " " .. format .. " keeps panel and spectrum still", shift <= 1, shift)
+			end
+			t.cleanup()
+		end
+	end,
+})
+
+table.insert(cases, {
+	id = "drag-demo-status-layout",
+	run = function(t: Live)
+		for _, size in { Vector2.new(390, 740), Vector2.new(844, 390) } do
+			local touch = size.X < 600
+			t.device({
+				device = "iphone_14",
+				orientation = if touch then Enum.ScreenOrientation.Portrait else Enum.ScreenOrientation.LandscapeLeft,
+			})
+			local stage = t.mount(function(UI: Live, Host: Live, C: Live, env: Live)
+				return require(game.ReplicatedStorage.Lab.drag_drop_demo)(t.context(UI, Host, C, env))
+			end, { size = size, frames = 90 })
+			local virtual, inset = pointer(t)
+			local area = t.find(stage, "WorldDropArea")
+			local at, extent = area.AbsolutePosition, area.AbsoluteSize
+			local source = t.find(stage, "AssetRed")
+			local point = source.AbsolutePosition + source.AbsoluteSize / 2 + inset
+			local shift = 0
+			local connection = RunService.RenderStepped:Connect(function()
+				shift = math.max(shift, (area.AbsolutePosition - at).Magnitude, (area.AbsoluteSize - extent).Magnitude)
+			end)
+			virtual:SendMousePosition(point)
+			virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
+			t.settle(2)
+			for index = 1, 12 do
+				virtual:SendMousePosition(point + Vector2.new(0, index * 5))
+				t.settle(1)
+			end
+			t.settle(10)
+			t.check(
+				tostring(size) .. " drag started",
+				string.find(t.find(stage, "DropStatus").Text, "Holding") ~= nil,
+				t.find(stage, "DropStatus").Text
+			)
+			virtual:SendMouseButton(point + Vector2.new(0, 60), Enum.UserInputType.MouseButton1, false)
+			t.settle(45)
+			connection:Disconnect()
+			t.check(tostring(size) .. " status changes keep world framing still", shift <= 1, shift)
+			t.cleanup()
+		end
 	end,
 })
 

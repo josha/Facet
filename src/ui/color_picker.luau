@@ -1430,6 +1430,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			Compose.watch(function(use: Use)
 				use(held)
 				use(alphaHeld)
+				use(formatCell)
 				text:set(formatted())
 				hexError:set("")
 			end)
@@ -1463,18 +1464,36 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		end
 		local function readoutView(): Frame
 			local builders: { [string]: () -> Frame } = { rgb = rgbFields, hsv = hsvFields, hex = hexFields }
+			local heights: { ComposeTypes.Readable<Vector2> } = {}
 			local values: Shared.FrameNativeProps = {
 				Name = "Values",
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
 			}
 			for _, format in FORMATS do
-				values[#values + 1] = Compose.show(function(use: Use)
-					return use(formatCell) == format.value
-				end, builders[format.value])
+				local fields = builders[format.value]()
+				runtime.decorate(fields, {
+					Name = "Fields" .. format.label,
+					Visible = function(use: Use): boolean
+						return use(formatCell) == format.value
+					end,
+				})
+				values[#values + 1] = fields
+				table.insert(heights, ctx.observe.AbsoluteSize(fields))
 			end
+			local valuesNode = Host.Frame(values)
+			local unit = ctx.layoutUnit(valuesNode)
+			runtime.decorate(valuesNode, {
+				AutomaticSize = E.AutomaticSize.None,
+				Size = function(use: Use): UDim2
+					local height = 0
+					for _, size in heights do
+						height = math.max(height, use(size).Y / use(unit))
+					end
+					return D2.new(1, 0, 0, math.ceil(height))
+				end,
+			})
 			local formatProps: Nav.SinglePickerSpec<string> = {
 				selected = formatCell,
 				style = "segmented" :: "segmented",
@@ -1492,7 +1511,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			}, { Name = "Head", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 			assert(head:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Center
 			return ctx.column(
-				{ head, Host.Frame(values) },
+				{ head, valuesNode },
 				{ Name = "Readout", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
 			)
 		end
@@ -1971,7 +1990,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 							wrapped = strip.AbsoluteContentSize.Y <= held + 1
 							rows = `{strip.AbsoluteContentSize.Y}:{held}`
 						end
-						return `{spot.x}:{spot.y}:{spot.w}:{spot.h}:{columns:peek()}:{size}:{rows}`,
+						local position, bounds = view.panel.AbsolutePosition, view.panel.AbsoluteSize
+						return `{spot.x}:{spot.y}:{spot.w}:{spot.h}:{columns:peek()}:{size}:{rows}:{position}:{bounds}`,
 							wrapped and size.X > 0 and size.Y > 0 and spot.w > 0 and spot.h > 0
 					end)
 					ctx.fadeTo(view.panel, function(use: Use): number

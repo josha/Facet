@@ -316,13 +316,20 @@ return function(ctx: any)
 			gap = "s",
 			align = "center",
 			wrap = roomy,
-			UI.Text {
-				Name = "DropStatus",
-				text = notice,
-				wrap = true,
-				Size = D2.new(1, 0, 0, 0),
-				AutomaticSize = E.AutomaticSize.Y,
+			UI.ZStack "DropStatusSpace" {
+				width = "fill",
+				height = "hug",
 				UI.fill(),
+				UI.Text "StatusLines" {
+					text = " \n \n ",
+					TextTransparency = 1,
+				},
+				UI.Text "DropStatus" {
+					text = notice,
+					wrap = true,
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+				},
 			},
 			UI.Button {
 				Name = "UndoAppearance",
