@@ -12,8 +12,9 @@ contract.
 - Get controls with `Facet.controls(runtime)`. Name the runtime's constructor
   table `Host` (`local Host = runtime.constructors`) and use it for Roblox
   objects.
-- Use Compose directly to mount, branch, portal, animate and own resources.
-  Do not create a Facet application or a second scene graph.
+- Mount a screen with `Facet.app` or with Compose directly. Use Compose to
+  branch, portal, animate and own resources. Do not add another application
+  facade or a second scene graph.
 - Use the native engine mechanisms: layout objects, constraints, text editing,
   scrolling, selection, input contexts, drag detectors and StyleSheets. Put only
   control-specific policy in Facet. Do not rebuild a general engine mechanism.
