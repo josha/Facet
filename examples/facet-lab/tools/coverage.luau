@@ -10,6 +10,10 @@ local env = {}
 for key, value in roblox :: any do
 	env[key] = value
 end
+env.require = function(path: string): unknown
+	local name = assert(string.match(path, "^%./([%w_]+)$"))
+	return Lute.chunk.load(fs.readFileToString(`src/{name}.luau`), { name = name, environment = env })()
+end
 local catalog =
 	Lute.chunk.load(fs.readFileToString("src/catalog.luau"), { name = "catalog", environment = env })() :: any
 

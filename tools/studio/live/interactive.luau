@@ -163,6 +163,26 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		return Vector2.new(at[1], at[2])
 	end
 	local drivers: { [string]: (any, any, any) -> () } = {}
+	for _, width in { 390, 1280 } do
+		drivers["hud-settings-nonmodal-" .. width] = function(_, value, io)
+			io.click(centre(value.trigger))
+			settle(30)
+			live.step("afterOpen")
+			io.click(centre(value.outside))
+			settle(30)
+			live.step("afterOutside")
+			io.click(centre(value.close))
+			settle(30)
+			live.step("afterClose")
+		end
+	end
+	drivers["held-button-destruction-cancels"] = function(_, value, io)
+		local at = centre(value.button)
+		io.down(at)
+		live.step("whileHeld")
+		io.up(at)
+		live.step("afterRelease")
+	end
 	drivers["gallery-keyboard-reaches-demos"] = function(t)
 		press(t, { "Down", "Down" })
 		live.step("afterDownDown")

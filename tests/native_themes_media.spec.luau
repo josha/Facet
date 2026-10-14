@@ -53,16 +53,75 @@ return function(verifyHarness: Verify.Harness)
 		return engine, runtime, UI
 	end
 
-	local function style(sheet, selector)
+	local function style(sheet: StyleSheet, selector: string)
 		for _, node in sheet:GetChildren() do
-			if node.Selector == selector then
-				return node:GetProperties()
+			local rule = node :: StyleRule
+			if rule.Selector == selector then
+				return rule:GetProperties()
 			end
 		end
 		error("No rule: " .. selector)
 	end
 
 	verifyHarness:suite("native themes and media", function()
+		verifyHarness:case("resolves authored metric rules through distance and theme changes", {
+			id = "native_themes_media::native themes and media::resolves authored metric rules through distance and theme changes",
+			run = function()
+				local engine, runtime = setup()
+				local definition = themes.neutralPackage()
+				definition.metrics.strokes.outline = 3
+				definition.rules = {
+					{
+						selector = ".toy::UIStroke",
+						properties = { Thickness = { metric = "strokes.outline" } } :: FixtureThemeTypes.AuthoredRuleProperties,
+					} :: FixtureThemeTypes.Rule,
+					{
+						selector = ".toy",
+						properties = { TextSize = { metric = "typography.title.size" }, Rotation = 3 } :: FixtureThemeTypes.AuthoredRuleProperties,
+					} :: FixtureThemeTypes.Rule,
+				}
+				local package = assert(themes.define(definition))
+				local chosen, distant = Compose.cell(package), Compose.cell(false)
+				local stop, mounted = runtime.mount(function()
+					return themes.createStyleSheet(runtime, chosen, { types = engine.types, tenFoot = distant })
+				end, engine.new("ScreenGui"))
+				local sheet = mounted :: StyleSheet
+				Verify.expect(style(sheet, ".toy::UIStroke").Thickness):toBe(3)
+				distant:set(true)
+				Verify.expect(style(sheet, ".toy::UIStroke").Thickness):toBe(4.5)
+				Verify.expect(style(sheet, ".toy").TextSize)
+					:toBe(themes.forDistance(package, "ten-foot").metrics.typography.title.size)
+				Verify.expect(style(sheet, ".toy").Rotation):toBe(3)
+				definition.metrics.strokes.outline = 4
+				chosen:set((assert(themes.define(definition))))
+				Verify.expect(style(sheet, ".toy::UIStroke").Thickness):toBe(6)
+				distant:set(false)
+				Verify.expect(style(sheet, ".toy::UIStroke").Thickness):toBe(4)
+				stop()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("rejects malformed or nonnumeric authored metric references", {
+			id = "native_themes_media::native themes and media::rejects malformed or nonnumeric authored metric references",
+			run = function()
+				for _, path in
+					{ "strokes.missing", "strokes", "strokes..hairline", ".strokes.hairline", "motion.easing.fade" }
+				do
+					local definition = themes.neutralPackage()
+					definition.rules = {
+						{
+							selector = ".toy::UIStroke",
+							properties = { Thickness = { metric = path } } :: FixtureThemeTypes.AuthoredRuleProperties,
+						} :: FixtureThemeTypes.Rule,
+					}
+					local package, report = themes.define(definition)
+					Verify.expect(package):toBe(nil)
+					Verify.expect(report.ok):toBe(false)
+					Verify.expect(report.errors[1].field):toBe("rules.1.properties.Thickness")
+				end
+			end,
+		})
+
 		verifyHarness:case(
 			"uses an end ellipsis for bounded disclosure text without changing wrap or authored truncation",
 			{

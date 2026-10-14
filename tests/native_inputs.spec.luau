@@ -539,6 +539,41 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 			end,
 		})
+		verifyHarness:case("cancels a held Button exactly once on destruction or owner disposal", {
+			id = "native_inputs::native input controls::cancels a held Button exactly once on destruction or owner disposal",
+			run = function()
+				for _, destroy in { false, true } do
+					for _, kind in { "MouseButton1", "Touch" } do
+						local cancels, ups = 0, 0
+						local node, stop, engine = world(function(UI: FacetControls)
+							return UI.Button {
+								label = "Hold",
+								onPointerCancel = function()
+									cancels += 1
+								end,
+								onPointerUp = function()
+									ups += 1
+								end,
+							}
+						end)
+						node.InputBegan:Fire({
+							UserInputType = engine.types.Enum.UserInputType:FromName(kind),
+							KeyCode = engine.types.Enum.KeyCode:FromName("Unknown"),
+						})
+						if destroy then
+							node:Destroy()
+						else
+							stop()
+						end
+						Verify.expect(cancels):toBe(1)
+						Verify.expect(ups):toBe(0)
+						stop()
+						Verify.expect(cancels):toBe(1)
+					end
+				end
+			end,
+		})
+
 		verifyHarness:case("reports a pointer cancel when onPointerCancel is the only pointer option", {
 			id = "native_inputs::native input controls::reports a pointer cancel when onPointerCancel is the only pointer option",
 			run = function()

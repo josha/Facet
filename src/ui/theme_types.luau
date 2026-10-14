@@ -263,7 +263,7 @@ export type StyleValue =
 	| CFrame
 	| NumberRange
 export type RuleProperties = { [string]: StyleValue? }
-export type AuthoredRuleProperties = { [string]: (StyleValue | { role: string })? }
+export type AuthoredRuleProperties = { [string]: (StyleValue | { role: string } | { metric: string })? }
 export type Rule = { selector: string, properties: AuthoredRuleProperties?, props: AuthoredRuleProperties? }
 export type Identity =
 	{ id: string, displayName: string?, version: string?, schemaVersion: string?, rendering: string? }
