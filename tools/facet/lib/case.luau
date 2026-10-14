@@ -3,6 +3,7 @@
 export type Case = {
 	name: string,
 	run: () -> string?,
+	tags: { string }?,
 }
 
 export type Result = { name: string, failure: string? }

@@ -21,6 +21,7 @@ return function(harness: Verify.Harness)
 			for _, case in build() do
 				harness:case(case.name, {
 					id = ("tools/rules::%s::%s"):format(rule.name, case.name),
+					tags = case.tags,
 					run = function()
 						Verify.expect(case.run()):toBe(nil)
 					end,
