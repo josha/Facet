@@ -380,6 +380,17 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			local m = if use then use(viewMonth) else viewMonth:peek()
 			return civil.addMonths(m, k - 1)
 		end
+		local monthGrids: { Readable<{ CivilDate }> } = {}
+		for k = 1, if isRange then 2 else 1 do
+			monthGrids[k] = Compose.formula(function(use: Use): { CivilDate }
+				local m = paneMonth(k, use)
+				return civil.monthGrid(m.year, m.month, weekStart)
+			end)
+		end
+		local function paneGrid(k: number, use: Use?): { CivilDate }
+			local grid = monthGrids[k]
+			return if use then use(grid) else grid:peek()
+		end
 		local room = Compose.cell(0)
 		local dual = Compose.formula(function(use: Use): boolean
 			return isRange and use(room) >= 2 * 7 * CELL + GAP
@@ -671,14 +682,13 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		local cells: { [number]: { [number]: TextButton } } = {}
 		local cellIndex: { [Instance]: { k: number, i: number } } = {}
 		local function gridDate(k: number, i: number): CivilDate
-			local m = paneMonth(k)
-			return civil.monthGrid(m.year, m.month, weekStart)[i]
+			return paneGrid(k)[i]
 		end
 		local function cellFor(d: CivilDate, use: Use?): (number?, number?)
 			for k = 1, panes(use) do
 				local m = paneMonth(k, use)
 				if d.year == m.year and d.month == m.month then
-					for i, g in civil.monthGrid(m.year, m.month, weekStart) do
+					for i, g in paneGrid(k, use) do
 						if civil.compare(g, d) == 0 then
 							return k, i
 						end
@@ -689,7 +699,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		end
 		local function landing(): number
 			local m = peekMonth()
-			local grid = civil.monthGrid(m.year, m.month, weekStart)
+			local grid = paneGrid(1)
 			local want = if isRange then range:peek().start else value:peek()
 			local candidates: { CivilDate } = { today:peek() }
 			if want ~= nil then
@@ -792,16 +802,13 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		local upTarget = Compose.cell(nil :: GuiObject?)
 		local downTarget = Compose.cell(nil :: GuiObject?)
 		local function shownAway(k: number, i: number, step: number, use: Use): boolean
-			use(viewMonth)
-			local m = paneMonth(k, use)
-			local target = civil.addDays(civil.monthGrid(m.year, m.month, weekStart)[i], step)
+			local target = civil.addDays(paneGrid(k, use)[i], step)
 			return cellFor(target, use) ~= nil
 		end
 
 		local function dayCell(k: number, i: number): TextButton
 			local date = Compose.formula(function(use: Use): CivilDate
-				local m = paneMonth(k, use)
-				return civil.monthGrid(m.year, m.month, weekStart)[i]
+				return paneGrid(k, use)[i]
 			end)
 			local outside = Compose.formula(function(use: Use): boolean
 				return use(date).month ~= paneMonth(k, use).month
@@ -1554,8 +1561,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				if k == nil or i == nil then
 					return nil, nil
 				end
-				local m = paneMonth(k, use)
-				local target = civil.addDays(civil.monthGrid(m.year, m.month, weekStart)[i], step)
+				local target = civil.addDays(paneGrid(k, use)[i], step)
 				if cellFor(target, use) ~= nil then
 					return "move", target
 				end

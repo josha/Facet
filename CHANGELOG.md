@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- ColorPicker opens with fewer native objects and mounts Bricks on its first
+  visit. Spectrum dragging keeps the hue gradient unchanged when only
+  saturation and value change. Hidden grids skip selection updates.
+- DateTimePicker reuses each visible month's date grid when cells update.
+
 - CollapsibleView accepts reactive `outsideDismiss`, enabled by default.
   Outside clicks and taps close at the panel edge. Close and Cancel still
   work when outside dismissal is disabled. The Lab demonstrates both modes.
