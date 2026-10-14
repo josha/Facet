@@ -95,6 +95,30 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+		verifyHarness:case("an anchored panel shows its title as a heading in the row with Close, above the content", {
+			id = "native_popover::native Popover: the caller's fact decides, proposals ask::an anchored panel shows its title as a heading in the row with Close, above the content",
+			run = function()
+				local open, log, change = caller()
+				local w = mount(standard(open, log, change, { closeButton = true, title = "Driving options" }))
+				open:set(true)
+				local header = w.find("CloseHeader")
+				local title = header:FindFirstChild("Title")
+				local close = header:FindFirstChild("CloseCommand")
+				Verify.expect(title.Text):toBe("Driving options")
+				Verify.expect(title:HasTag("facet-type-heading")):toBe(true)
+				Verify.expect(close ~= nil):toBe(true)
+				Verify.expect(title.LayoutOrder < close.LayoutOrder):toBe(true)
+				Verify.expect(header.LayoutOrder < w.find("Card").LayoutOrder):toBe(true)
+				w.stop()
+				local open2, log2, change2 = caller()
+				local w2 = mount(standard(open2, log2, change2, { modal = false, title = "Hint" }))
+				open2:set(true)
+				local header2 = w2.find("CloseHeader")
+				Verify.expect(header2:FindFirstChild("Title").Text):toBe("Hint")
+				Verify.expect(header2:FindFirstChild("CloseCommand")):toBe(nil)
+				w2.stop()
+			end,
+		})
 		verifyHarness:case("a trigger press proposes, and an accepted fact presents an anchored panel", {
 			id = "native_popover::native Popover: the caller's fact decides, proposals ask::a trigger press proposes, and an accepted fact presents an anchored panel",
 			run = function()

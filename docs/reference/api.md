@@ -2887,6 +2887,11 @@ Nonmodal panels do not show Close by default. `closeButton = true` or `false`
 decides either way. `cancelPolicy = "none"` hides Close. The compact Sheet
 shows Close by default and follows the same explicit choice.
 
+`title` (a string or a readable string) names the panel.  An anchored panel
+shows it as a heading at the top, in one row with Close (Close at the right
+end).  The compact Sheet shows it in its header.  Without a title and without
+Close, the anchored panel has no header row.
+
 `UI.Popover` returns its `trigger`, or an empty Frame for a `source` popover.
 
 ```luau
@@ -3986,7 +3991,9 @@ weight. The derived role keeps the family, style, size and line height.
   recursively frozen. Callbacks, cycles and malformed definitions are rejected.
   A type role needs a positive size. Each `metrics.space` step needs a pixel
   size of 0 or more. A chrome shadow name must be a
-  package shadow or a preset (`raised` or `overlay`). A chrome art link
+  package shadow or a preset (`raised` or `overlay`). A native chrome shadow
+  keeps the opacity of the fill that casts it. A clear fill casts none, and a
+  tint such as the `soft` appearance casts a lighter one. A chrome art link
   `rotation` must be 0 or 180, and its `tint` needs `r`, `g` and `b` from 0
   to 1. Each palette pair needs a
   contrast of at least 4.5:1, which includes `onSelected` (or `content`) on
