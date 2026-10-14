@@ -11,6 +11,8 @@
     {"id": "comments-selftest", "tier": "fast", "run": "python3 -m unittest discover -s tools/tests -p test_strip_comments.py", "replaces": ["check_comment_codes-selftest"]},
     {"id": "format", "tier": "fast", "run": "stylua --check src tests tools bench examples", "replaces": ["stylua-check-check-src-tests-tools-bench-examples", "stylua-check-check-src-tests-tools-examples"]},
     {"id": "suite", "tier": "fast", "kind": "tests", "worker": "tests/worker.luau", "plan": "tests/plan.json", "workers": 4, "deadlineSeconds": 3600, "sourceDeadlineSeconds": 600, "replaces": ["suite", "check_registration_cli", "corpus_cli"]},
+    {"id": "art", "tier": "fast", "run": "lute run tools/facet art all --check"},
+    {"id": "plate-samples", "tier": "fast", "run": "lute run tools/facet art sample --check"},
     {"id": "no-fusion", "tier": "fast", "run": "python3 tools/check_no_fusion.py", "replaces": ["check_no_fusion"]},
     {"id": "no-fusion-selftest", "tier": "fast", "run": "python3 tools/check_no_fusion.py --selftest", "replaces": ["check_no_fusion-selftest"]},
     {"id": "experiment-markers", "tier": "fast", "run": "lune run tools/lune/check_experiment_markers_cli", "replaces": ["check_experiment_markers"]},

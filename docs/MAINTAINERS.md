@@ -87,7 +87,7 @@ directories that `.gitignore` excludes.
 | `bench/` | The benchmark scenes, profiles and baselines. | `lune run tools/lune/bench` |
 | `tools/` | The verification runner, the checkers, the build scripts and the Studio tools. | `python3 tools/strip_comments.py --check` |
 | `docs/` | The guide, the extension playbooks, the reference, this map and the historical plans. | `python3 tools/check_doc_style.py` |
-| `assets/` | The icon images and the theme art. The package build includes them. | `python3 tools/package.py build` |
+| `assets/` | The icon images and the theme art. The generators in `tools/facet/art/` make them, and the package build includes them. | `lute run tools/facet art all --check` |
 | `package/` | The Roblox Package configuration and the publish receipts. See [the package interface](../package/README.md). | `python3 tools/package.py status` |
 | `skills/` | The agent skills for Compose and for Facet. | None. A reviewer reads them with the guide. |
 
