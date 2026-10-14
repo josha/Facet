@@ -4,7 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	local expect = Verify.expect
 
-	local checker = require("../tools/lune/check_scenario_requires")
+	local checker = require("../tools/facet/lib/scenario_requires").bind(require("@lune/fs"))
 
 	local KNOWN_BAD_FILE = "examples/gallery/scenarios/adaptive_controls.luau"
 
