@@ -9,7 +9,6 @@ local process = require("@std/process")
 local Lute = require("../vendor/verify/src/lute")
 local Base64 = require("../vendor/verify/src/codec/base64")
 local Files = require("../facet/lib/files")
-local Xml = require("../facet/lib/xml")
 local Loader = require("../../tests/lib/loader")
 
 type Node = {
@@ -67,29 +66,21 @@ local function attributes(encoded: string): { [string]: unknown }
 	return values
 end
 
-local function node(item: Xml.Element): Node
+local function node(instance: Lute.ModelInstance): Node
+	local function value(name: string): string?
+		local property = instance.properties[name]
+		return if property ~= nil then property.value else nil
+	end
+	local serialized = value("AttributesSerialize")
 	local built = {
-		Name = "",
-		ClassName = item.attributes.class or "",
-		attributes = {},
+		Name = instance.name,
+		ClassName = instance.className,
+		Source = value("Source"),
+		Value = value("Value"),
+		attributes = if serialized ~= nil and serialized ~= "" then attributes(serialized) else {},
 		children = {},
 	} :: Node
-	local declared = Xml.first(item, "Properties")
-	if declared ~= nil then
-		for _, property in declared.children do
-			local name = property.attributes.name
-			if name == "Name" then
-				built.Name = property.text
-			elseif name == "Source" then
-				built.Source = property.text
-			elseif name == "Value" then
-				built.Value = property.text
-			elseif name == "AttributesSerialize" and property.text ~= "" then
-				built.attributes = attributes(property.text)
-			end
-		end
-	end
-	for _, child in Xml.children(item, "Item") do
+	for _, child in instance.children do
 		table.insert(built.children, node(child))
 	end
 	built.GetChildren = function(self: Node): { Node }
@@ -111,8 +102,8 @@ end
 
 local function deserializeModel(text: string): { Node }
 	local roots: { Node } = {}
-	for _, item in Xml.children(Xml.parse(text), "Item") do
-		table.insert(roots, node(item))
+	for _, instance in Lute.model.read(text) do
+		table.insert(roots, node(instance))
 	end
 	return roots
 end
