@@ -46,6 +46,7 @@ local function tests(id: string, locators: { string }, cases: { string }?, custo
 	return {
 		id = id,
 		tier = "fast",
+		why = "an integration fixture",
 		producer = {
 			id = id,
 			kind = "tests",
@@ -68,6 +69,7 @@ local function command(id: string, code: number, environment: string?, tier: str
 	return {
 		id = id,
 		tier = tier or "fast",
+		why = "an integration fixture",
 		environment = environment,
 		producer = { id = id, kind = "command", argv = exiting(code) },
 	}
@@ -114,6 +116,7 @@ local function reporter(id: string, mode: string, expectation: Gate.ReportExpect
 	return {
 		id = id,
 		tier = "fast",
+		why = "an integration fixture",
 		producer = {
 			id = id,
 			kind = "command",
