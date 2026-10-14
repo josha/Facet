@@ -5,11 +5,11 @@ local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Json = require("../lib/json")
+local Lute = require("../../vendor/verify/src/lute")
 local Rule = require("../lib/rule")
 local Run = require("../lib/run")
 local Strip = require("../lib/strip")
 local ThemeBuilds = require("../lib/theme_builds")
-local Xml = require("../lib/xml")
 
 type Plant = {
 	label: string,
@@ -99,50 +99,41 @@ local function planted(plant: Plant, name: string, source: string): string
 end
 
 local function artifactSource(document: string, name: string, problems: { string }): string?
-	local parsed, root = pcall(Xml.parse, document)
+	local parsed, read: unknown = pcall(Lute.model.read, document)
 	if not parsed then
-		table.insert(problems, `{name}: the artifact is not readable XML: {root}`)
+		table.insert(problems, `{name}: the artifact is not readable XML: {tostring(read)}`)
 		return nil
 	end
-	local items = Xml.children(root, "Item")
+	local items = read :: { Lute.ModelInstance }
 	if #items ~= 1 then
 		table.insert(problems, `{name}: the artifact holds {#items} root objects, expected exactly 1`)
 		return nil
 	end
 	local item = items[1]
-	local class = item.attributes.class
-	if class ~= "ModuleScript" then
-		table.insert(problems, `{name}: the artifact's root is a {tostring(class)}, not a ModuleScript`)
+	if item.className ~= "ModuleScript" then
+		table.insert(problems, `{name}: the artifact's root is a {item.className}, not a ModuleScript`)
 		return nil
 	end
-	local children = Xml.children(item, "Item")
-	if #children > 0 then
+	if #item.children > 0 then
 		table.insert(
 			problems,
-			`{name}: the artifact's ModuleScript has {#children} children — this package grew runtime data and lute run tools/facet build themes has not been taught to map it`
+			`{name}: the artifact's ModuleScript has {#item.children} children — this package grew runtime data and lute run tools/facet build themes has not been taught to map it`
 		)
 		return nil
 	end
-	local named: string? = nil
-	local source: string? = nil
-	local properties = Xml.first(item, "Properties")
-	if properties ~= nil then
-		for _, property in properties.children do
-			if property.attributes.name == "Name" then
-				named = property.text
-			elseif property.attributes.name == "Source" then
-				source = property.text
-			end
-		end
+	local named = item.properties.Name
+	local source = item.properties.Source
+	if named == nil or named.value ~= name then
+		table.insert(
+			problems,
+			`{name}: the artifact's ModuleScript is named '{if named ~= nil then named.value else "nil"}'`
+		)
 	end
-	if named ~= name then
-		table.insert(problems, `{name}: the artifact's ModuleScript is named '{tostring(named)}'`)
-	end
-	if source == nil or string.match(source, "^%s*$") ~= nil then
+	if source == nil or string.match(source.value, "^%s*$") ~= nil then
 		table.insert(problems, `{name}: the artifact carries no Source — a consumer would install an empty module`)
 		return nil
 	end
-	return source
+	return source.value
 end
 
 local function requireLines(code: string): { number }

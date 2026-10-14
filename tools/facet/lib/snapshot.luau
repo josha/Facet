@@ -57,7 +57,6 @@ function Snapshot.config(root: string, name: Name): Config
 		paths = {
 			"src/core",
 			"src/roblox",
-			"src/lune",
 			"src/lute",
 			"tools/studio-worker.luau",
 			"tools/export-studio-reflection.luau",
@@ -69,8 +68,9 @@ function Snapshot.config(root: string, name: Name): Config
 			"src/codec",
 			"tools/agent-eval.luau",
 			"src/benchmark.luau",
+			"src/benchmark-check.luau",
 			"src/benchmark-store.luau",
-			"src/runtime",
+			"src/benchmark-types.luau",
 			"LICENSE",
 			"PROVENANCE.md",
 			"docs",

@@ -1,6 +1,6 @@
 --!strict
 
-local Xml = require("./xml")
+local Lute = require("../../vendor/verify/src/lute")
 
 export type Entry = { class: string, source: string }
 
@@ -53,17 +53,6 @@ Place.FORBIDDEN = {
 	{ needle = "plugin:", why = "a plugin dependency (the place must run without one)" },
 }
 
-local function property(item: Xml.Element, kind: string, name: string): string?
-	for _, properties in Xml.children(item, "Properties") do
-		for _, value in Xml.children(properties, kind) do
-			if value.attributes.name == name then
-				return value.text
-			end
-		end
-	end
-	return nil
-end
-
 function Place.trim(text: string): string
 	local first = string.find(text, "%S")
 	if first == nil then
@@ -76,22 +65,16 @@ function Place.trim(text: string): string
 	return string.sub(text, first, last)
 end
 
-function Place.index(root: Xml.Element): (Tree, { string })
+function Place.index(roots: { Lute.ModelInstance }): (Tree, { string })
 	local tree: Tree = {}
 	local order: { string } = {}
-	local function walk(node: Xml.Element, prefix: string)
-		for _, item in Xml.children(node, "Item") do
-			local name = property(item, "string", "Name") or ""
-			local path = string.gsub(prefix .. "/" .. name, "^/+", "")
-			local source = property(item, "ProtectedString", "Source") or property(item, "string", "Source") or ""
-			if tree[path] == nil then
-				table.insert(order, path)
-			end
-			tree[path] = { class = item.attributes.class or "", source = source }
-			walk(item, path)
+	for _, instance in Lute.model.descendants(roots) do
+		if tree[instance.path] == nil then
+			table.insert(order, instance.path)
 		end
+		local source = instance.properties.Source
+		tree[instance.path] = { class = instance.className, source = if source ~= nil then source.value else "" }
 	end
-	walk(root, "")
 	return tree, order
 end
 

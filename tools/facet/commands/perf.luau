@@ -8,11 +8,11 @@ local Cli = require("../lib/cli")
 local Evidence = require("../lib/perf_evidence")
 local Files = require("../lib/files")
 local Json = require("../lib/json")
+local Lute = require("../../vendor/verify/src/lute")
 local Microprofiler = require("../lib/microprofiler")
 local Paired = require("../lib/perf_paired")
 local Place = require("../lib/perf_place")
 local Run = require("../lib/run")
-local Xml = require("../lib/xml")
 
 local USAGE = [[usage: lute run tools/facet perf <subcommand> [options]
 
@@ -190,7 +190,7 @@ local function place(invocation: Cli.Invocation): number
 		if not xml.ok then
 			table.insert(problems, ("rojo build (.rbxlx) failed: %s"):format(Place.trim(xml.stderr)))
 		else
-			tree, order = Place.index(Xml.parse(Files.read(xmlPath)))
+			tree, order = Place.index(Lute.model.read(Files.read(xmlPath)))
 		end
 	end)
 	Files.remove(scratch)
@@ -904,7 +904,7 @@ CASES.place = function(): { Case.Case }
 		{
 			name = "place: the built place index joins names and reads protected sources",
 			run = function(): string?
-				local tree, order = Place.index(Xml.parse(PLACE_XML))
+				local tree, order = Place.index(Lute.model.read(PLACE_XML))
 				local dataset = tree["ReplicatedStorage/FacetScenarios/dataset"]
 				return Case.first(
 					Case.same(order, {
@@ -925,7 +925,7 @@ CASES.place = function(): { Case.Case }
 		{
 			name = "place: missing instances, wrong classes, drifted workloads and plugin use fail",
 			run = function(): string?
-				local tree, order = Place.index(Xml.parse(PLACE_XML))
+				local tree, order = Place.index(Lute.model.read(PLACE_XML))
 				local problems, notes = Place.inspectTree(tree, order, function(module: string): string?
 					if module == "dataset" then
 						return '\nlocal dataset = {}\ndataset.VERSION = "perf-dataset/3"\nreturn dataset\n\n'

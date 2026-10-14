@@ -1,7 +1,7 @@
 --!strict
 
 local Files = require("./files")
-local Xml = require("./xml")
+local Lute = require("../../vendor/verify/src/lute")
 
 export type Node = { class: string, properties: { [string]: string }, children: { [string]: Node } }
 
@@ -9,34 +9,24 @@ local RUN_CONTEXT_CLIENT = "2"
 
 local PlaceChecks = {}
 
-local function node(item: Xml.Element): Node
+local function node(instance: Lute.ModelInstance): Node
 	local properties: { [string]: string } = {}
-	local declared = Xml.first(item, "Properties")
-	if declared ~= nil then
-		for _, value in declared.children do
-			local name = value.attributes.name
-			if name ~= nil then
-				properties[name] = value.text
-			end
-		end
+	for name, property in instance.properties do
+		properties[name] = property.value
 	end
 	local children: { [string]: Node } = {}
-	for _, child in Xml.children(item, "Item") do
-		local built = node(child)
-		local name = built.properties.Name or ""
-		if children[name] == nil then
-			children[name] = built
+	for _, child in instance.children do
+		if children[child.name] == nil then
+			children[child.name] = node(child)
 		end
 	end
-	return { class = item.attributes.class or "", properties = properties, children = children }
+	return { class = instance.className, properties = properties, children = children }
 end
 
 function PlaceChecks.read(path: string): Node
-	local root = Xml.parse(Files.read(path))
 	local children: { [string]: Node } = {}
-	for _, item in Xml.children(root, "Item") do
-		local built = node(item)
-		children[built.properties.Name or built.class] = built
+	for _, instance in Lute.model.read(Files.read(path)) do
+		children[instance.name] = node(instance)
 	end
 	return { class = "DataModel", properties = {}, children = children }
 end

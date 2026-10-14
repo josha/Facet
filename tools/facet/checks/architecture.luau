@@ -7,7 +7,7 @@ local Luau = require("../lib/luau")
 local Rule = require("../lib/rule")
 local Run = require("../lib/run")
 
-local EXTERNAL = { "@lune/", "@std/", "@lute/" }
+local EXTERNAL = { "@std/", "@lute/" }
 local SCANNED = { "src", "examples", "bench" }
 local PUBLIC = { "examples", "bench" }
 local DEPENDENCY_ROOTS = { "src", "examples", "bench", "tests", "tools" }
@@ -365,7 +365,7 @@ local BASE: { [string]: string } = {
 	["src/ui/.keep"] = "",
 	["examples/.keep"] = "",
 	["bench/.keep"] = "",
-	["tools/lune/.keep"] = "",
+	["tools/facet/.keep"] = "",
 }
 
 local function tree(files: { [string]: string }): { [string]: string }
@@ -588,7 +588,7 @@ local function cases(): { Rule.Case }
 				return Rule.within(
 					tree({
 						["tests/vendored.luau"] = 'local F = require("../../vendor/Fusion")\nreturn F',
-						["tools/lune/shim.luau"] = 'local shim = require("../lib/fusion_shim")\nreturn shim',
+						["tools/facet/shim.luau"] = 'local shim = require("../lib/fusion_shim")\nreturn shim',
 						["examples/value.luau"] = "local value = Fusion.Value(0)\nreturn value",
 						["examples/clean.luau"] = '-- the confusion this fixture does not report\nlocal text = "Fusion"\nreturn text',
 					}),
@@ -597,7 +597,7 @@ local function cases(): { Rule.Case }
 						for _, expected in
 							{
 								"tests/vendored.luau:1: requires ../../vendor/Fusion",
-								"tools/lune/shim.luau:1: requires ../lib/fusion_shim",
+								"tools/facet/shim.luau:1: requires ../lib/fusion_shim",
 								"examples/value.luau:1: names Fusion",
 							}
 						do

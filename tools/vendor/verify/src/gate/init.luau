@@ -1,11 +1,12 @@
 --!strict
 
 local Gate = require "@self/gate"
+local GateDefine = require "@self/gate-define"
+local GateFormat = require "@self/gate-format"
 local GateTypes = require "@self/gate-types"
 
 export type Draft = GateTypes.GateDraft
 export type ProducerDraft = GateTypes.ProducerDraft
-export type ShardOptions = Gate.ShardOptions
 export type PolicyDraft = GateTypes.PolicyDraft
 export type Definition = GateTypes.Gate
 export type Selection = GateTypes.Selection
@@ -23,13 +24,12 @@ export type Scope = GateTypes.Scope
 export type Outcome = GateTypes.Outcome
 
 return {
-	SCHEMA_VERSION = Gate.SCHEMA_VERSION,
-	define = Gate.define,
-	shard = Gate.shard,
+	SCHEMA_VERSION = GateDefine.SCHEMA_VERSION,
+	define = GateDefine.define,
 	testCases = Gate.testCases,
 	run = Gate.run,
-	format = Gate.format,
-	explain = Gate.explain,
-	list = Gate.list,
+	format = GateFormat.format,
+	explain = GateFormat.explain,
+	list = GateFormat.list,
 	rerun = Gate.rerun,
 }

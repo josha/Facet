@@ -5,9 +5,9 @@ local process = require("@std/process")
 local Files = require("./files")
 local Hash = require("./hash")
 local Json = require("./json")
+local Lute = require("../../vendor/verify/src/lute")
 local Run = require("./run")
 local Snapshot = require("./snapshot")
-local Xml = require("./xml")
 
 export type Instance = {
 	path: string,
@@ -161,41 +161,20 @@ function Model.stage(root: string, outRoot: string?, quiet: boolean?): Staged
 	return { path = target, placeholders = placeholders, attributes = attributes }
 end
 
-local function properties(item: Xml.Element): (string, string?)
-	local name = item.attributes.class or ""
-	local source: string? = nil
-	local list = Xml.first(item, "Properties")
-	if list ~= nil then
-		for _, property in list.children do
-			local key = property.attributes.name
-			if key == "Name" then
-				if property.text ~= "" then
-					name = property.text
-				end
-			elseif key == "Source" then
-				source = property.text
-			end
-		end
-	end
-	return name, source
+local function sourceOf(instance: Lute.ModelInstance): string?
+	local source = instance.properties.Source
+	return if source ~= nil then source.value else nil
 end
 
 function Model.walkText(text: string): { Instance }
 	local entries: { Instance } = {}
-	local function visit(item: Xml.Element, prefix: string)
-		local name, source = properties(item)
-		local path = if prefix ~= "" then prefix .. "/" .. name else name
-		local entry: Instance = { path = path, className = item.attributes.class or "" }
+	for _, instance in Lute.model.descendants(Lute.model.read(text)) do
+		local entry: Instance = { path = instance.path, className = instance.className }
+		local source = sourceOf(instance)
 		if source ~= nil then
 			entry.sourceSha256 = Hash.sha256(source)
 		end
 		table.insert(entries, entry)
-		for _, child in Xml.children(item, "Item") do
-			visit(child, path)
-		end
-	end
-	for _, item in Xml.children(Xml.parse(text), "Item") do
-		visit(item, "")
 	end
 	local order: { [Instance]: number } = {}
 	for index, entry in entries do
@@ -216,13 +195,10 @@ end
 
 function Model.scripts(text: string): { Script }
 	local found: { Script } = {}
-	for _, item in Xml.descendants(Xml.parse(text), "Item") do
-		if Xml.first(item, "Properties") == nil then
-			continue
-		end
-		local name, source = properties(item)
+	for _, instance in Lute.model.descendants(Lute.model.read(text)) do
+		local source = sourceOf(instance)
 		if source ~= nil and source ~= "" then
-			table.insert(found, { name = name, source = source })
+			table.insert(found, { name = instance.name, source = source })
 		end
 	end
 	return found

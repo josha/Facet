@@ -83,7 +83,7 @@ sources keep their native types.
 
 Run `lute run tools/facet types` to check every Luau file in the repository and
 the public API witnesses. The checker compiles each file with the pinned runtime,
-then checks strict types with pinned Roblox and Lune declarations. It uses the old
+then checks strict types with pinned Roblox and Lute declarations. It uses the old
 Luau solver by default. `--solver new` and `--solver both` select other solver runs.
 Every selected solver must report zero type errors. Each invalid public probe must
 be rejected. The checker increases the analyzer graph limit to check the complete
