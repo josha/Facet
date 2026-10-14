@@ -52,3 +52,6 @@ artifacts/
 
 
 examples/facet-lab/evidence/
+
+# Lute and Verify scratch output from local runs
+.lute/
