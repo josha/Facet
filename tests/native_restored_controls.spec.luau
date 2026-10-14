@@ -13,7 +13,7 @@ return function(verifyHarness: Verify.Harness)
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
 	local themes = Facet.themes
-	local Roblox = require("@lune/roblox")
+	local Roblox = require("./lib/native_engine").types
 
 	local SHIPPED = {
 		"classic_desktop",

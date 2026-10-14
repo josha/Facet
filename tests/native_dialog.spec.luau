@@ -11,7 +11,7 @@ return function(verifyHarness: Verify.Harness)
 	local overlay = require("./lib/overlay_world")
 	local parts = require("../src/ui/overlay_parts")
 	local controls = require("../src/ui")
-	local Vector2 = require("@lune/roblox").Vector2
+	local Vector2 = require("./lib/native_engine").types.Vector2
 
 	type Log = { changes: { boolean }, dismissed: { string }, pressed: { string } }
 

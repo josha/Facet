@@ -1,8 +1,8 @@
 --!strict
-local fs = require("@lune/fs")
-local process = require("@lune/process")
-local luau = require("@lune/luau")
-local roblox = require("@lune/roblox")
+local fs = require("@std/fs")
+local process = require("@std/process")
+local Lute = require("../../../tools/vendor/verify/src/lute")
+local roblox = require("../../../tools/vendor/verify/src/roblox").datatypes
 
 local FACET = "../../src/ui/"
 
@@ -10,12 +10,14 @@ local env = {}
 for key, value in roblox :: any do
 	env[key] = value
 end
-local catalog = luau.load(fs.readFile("src/catalog.luau"), { debugName = "catalog", environment = env })()
+local catalog =
+	Lute.chunk.load(fs.readFileToString("src/catalog.luau"), { name = "catalog", environment = env })() :: any
 
 local bodies: { [string]: string } = {}
-for _, name in fs.readDir(FACET) do
+for _, entry in fs.listDirectory(FACET) do
+	local name = entry.name
 	if string.match(name, "_types%.luau$") and name ~= "engine_types.luau" then
-		local source = fs.readFile(FACET .. name) .. "\nexport type __END = nil\n"
+		local source = fs.readFileToString(FACET .. name) .. "\nexport type __END = nil\n"
 		for start, typeName in string.gmatch(source, "()export type ([%w_]+)") do
 			local rest = string.sub(source, tonumber(start) :: number)
 
@@ -105,7 +107,7 @@ local specs: { [string]: { [string]: string } } = {}
 local names = {}
 
 local groups: { [string]: boolean } = {}
-for group in string.gmatch(fs.readFile(FACET .. "control_types.luau"), ":: [%w_]+%.([%w_]+Controls)%)") do
+for group in string.gmatch(fs.readFileToString(FACET .. "control_types.luau"), ":: [%w_]+%.([%w_]+Controls)%)") do
 	groups[group] = true
 end
 for typeName, body in bodies do
@@ -180,7 +182,7 @@ local ALLOW: { [string]: { [string]: string } } = {
 	environment = {},
 }
 
-if process.args[1] ~= "check" then
+if process.args[2] ~= "check" then
 	local lines = {
 		"| Family | Page | Kind | Foundation alias | Variant axes | States (+rest) | Matrix cells | Scenarios |",
 		"|---|---|---|---|---|---|---|---|",

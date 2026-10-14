@@ -14,8 +14,8 @@ return function(verifyHarness: Verify.Harness)
 	local worlds = require("./lib/content_world")
 	local Compose: ComposeModule = Facet.Compose
 	local themes = require("../src/ui/themes")(Compose)
-	local lune = require("@lune/roblox")
-	local UDim2, UDim, Vector2 = lune.UDim2, lune.UDim, lune.Vector2
+	local datatypes = require("./lib/native_engine").types
+	local UDim2, UDim, Vector2 = datatypes.UDim2, datatypes.UDim, datatypes.Vector2
 
 	local FRAME = 1 / 60
 

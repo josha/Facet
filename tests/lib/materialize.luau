@@ -25,7 +25,7 @@ end
 function materialize.position(panel: any): any
 	local size = panel.AbsoluteSize
 	if panel:FindFirstChild("PresentationContent", true) then
-		size = require("@lune/roblox").Vector2.new(panel.Size.X.Offset, panel.Size.Y.Offset)
+		size = require("./native_engine").types.Vector2.new(panel.Size.X.Offset, panel.Size.Y.Offset)
 	end
 	local paint = panel:FindFirstChild("PresentationPaint", true)
 	if paint then
@@ -34,7 +34,7 @@ function materialize.position(panel: any): any
 		local pivot = paint.AnchorPoint
 		local uniform = paint:FindFirstChild("PresentationScale")
 		local factor = if uniform then uniform.Scale else 1
-		return require("@lune/roblox").UDim2.new(
+		return require("./native_engine").types.UDim2.new(
 			position.X.Scale,
 			position.X.Offset - anchor.X * rest.X.Offset + pivot.X * (rest.X.Offset - paint.Size.X.Offset * factor),
 			position.Y.Scale,
@@ -42,7 +42,7 @@ function materialize.position(panel: any): any
 		)
 	end
 	local position, anchor = panel.Position, panel.AnchorPoint
-	return require("@lune/roblox").UDim2.new(
+	return require("./native_engine").types.UDim2.new(
 		position.X.Scale,
 		position.X.Offset - anchor.X * size.X,
 		position.Y.Scale,

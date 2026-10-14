@@ -7054,7 +7054,6 @@ return function(verifyHarness: Verify.Harness)
 		local Facet = require("../src")
 		local engineLib = require("./lib/native_engine")
 		local playlistExample = require("../examples/gallery/examples/02_playlist_table")
-		local themePackages = require("../tools/lune/theme_packages")
 		local Compose: ComposeModule = Facet.Compose
 
 		type Stage = {

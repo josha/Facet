@@ -413,7 +413,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("reflows automatic text when font metrics change and preserves fixed text", {
 			id = "native_layout::native text layout::reflows automatic text when font metrics change and preserves fixed text",
 			run = function()
-				local Enum = require("@lune/roblox").Enum
+				local Enum = require("./lib/native_engine").types.Enum
 				local frames = engineLib.new()
 				local root, engine, stop = build(
 					{ services = { RunService = { Heartbeat = frames.heartbeat } } },
@@ -809,7 +809,7 @@ return function(verifyHarness: Verify.Harness)
 					run = function()
 						local frame, engine, stop = build(nil, function(UI)
 							return UI.ScrollView({
-								CanvasPosition = require("@lune/roblox").Vector2.new(130, 0),
+								CanvasPosition = require("./lib/native_engine").types.Vector2.new(130, 0),
 								axis = "x",
 							})
 						end)
@@ -839,7 +839,7 @@ return function(verifyHarness: Verify.Harness)
 			verifyHarness:case("gives a fill-height child the padded window as a floor so its bottom stays reachable", {
 				id = "native_layout::ScrollView::gives a fill-height child the padded window as a floor so its bottom stays reachable",
 				run = function()
-					local roblox = require("@lune/roblox")
+					local roblox = require("./lib/native_engine").types
 					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 						return UI.ScrollView "Page" {
 							padding = 16,
@@ -869,12 +869,14 @@ return function(verifyHarness: Verify.Harness)
 								width = "fill" :: "fill",
 								height = "fill" :: "fill",
 								UI.fill() :: unknown,
-								Host.Frame { Size = require("@lune/roblox").UDim2.new(1, 0, 0, 500) },
+								Host.Frame { Size = require("./lib/native_engine").types.UDim2.new(1, 0, 0, 500) },
 								UI.VStack {
 									Name = "Pane",
 									height = "fill" :: "fill",
 									UI.fill() :: unknown,
-									Host.UISizeConstraint { MinSize = require("@lune/roblox").Vector2.new(0, 320) },
+									Host.UISizeConstraint {
+										MinSize = require("./lib/native_engine").types.Vector2.new(0, 320),
+									},
 								},
 							},
 						}
@@ -892,7 +894,7 @@ return function(verifyHarness: Verify.Harness)
 			verifyHarness:case("lets a grown fill-height child shrink back when the padded window shrinks", {
 				id = "native_layout::ScrollView::lets a grown fill-height child shrink back when the padded window shrinks",
 				run = function()
-					local roblox = require("@lune/roblox")
+					local roblox = require("./lib/native_engine").types
 					local engine: any = engineLib.new()
 					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 					local gui = engine.new("GuiService")
@@ -938,7 +940,7 @@ return function(verifyHarness: Verify.Harness)
 				{
 					id = "native_layout::ScrollView::a fill-height child's shrink keeps the scroll, its own size constraint and a bound size",
 					run = function()
-						local roblox = require("@lune/roblox")
+						local roblox = require("./lib/native_engine").types
 						local height = Compose.cell(0)
 						local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 							return UI.ScrollView "Page" {

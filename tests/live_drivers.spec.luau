@@ -1,8 +1,12 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local fs = require("@lune/fs")
-local luau = require("@lune/luau")
-local Roblox = require("@lune/roblox")
+local fs = require("@std/fs")
+local Lute = require("../tools/vendor/verify/src/lute")
+local Roblox = require("./lib/native_engine").types
+local datatypeName = require("../tools/vendor/verify/src/roblox").datatypes.typeof
+local function scope(fields: { [string]: unknown }): { [string]: unknown }
+	return fields
+end
 type Case = { id: string, setup: unknown? }
 type Pointer = { heldDrag: (Vector2, Vector2) -> (), up: (Vector2) -> (), cleanup: () -> () }
 type Catalog = { pointer: (unknown) -> Pointer, drivers: { [string]: unknown }, requirements: { [string]: string } }
@@ -10,7 +14,7 @@ type Register = (unknown, string, { device: string, registerOnly: boolean }) -> 
 
 return function(harness: Verify.Harness)
 	harness:case("Xbox drivers use native controller input for transfer recall zoom travel and shuffle", function(t)
-		local serde = require("@lune/serde")
+		local json = require("@std/json")
 		local buttons: { string } = {}
 		local steps: { string } = {}
 		local forbidden = 0
@@ -45,7 +49,7 @@ return function(harness: Verify.Harness)
 			MouseEnabled = false,
 			RenderStepped = { Wait = function() end },
 			JSONDecode = function(_self: unknown, value: string): unknown
-				return serde.decode("json", value)
+				return Lute.parse(value)
 			end,
 		}
 		local live = {
@@ -67,15 +71,15 @@ return function(harness: Verify.Harness)
 							)
 					)
 				end
-				return serde.encode("json", { input = input })
+				return json.serialize({ input = input })
 			end,
 			step = function(name: string)
 				table.insert(steps, name)
 			end,
 		}
-		local travelFactory = luau.load(fs.readFile("tools/studio/live/zoom_travel_drivers.luau"))()
-		local register = luau.load(fs.readFile("tools/studio/live/interactive.luau"), {
-			environment = {
+		local travelFactory = Lute.chunk.load(fs.readFileToString("tools/studio/live/zoom_travel_drivers.luau"))()
+		local register = Lute.chunk.load(fs.readFileToString("tools/studio/live/interactive.luau"), {
+			environment = scope({
 				game = {
 					ReplicatedStorage = {
 						FacetLive = { zoom_travel_drivers = "travel" },
@@ -89,10 +93,11 @@ return function(harness: Verify.Harness)
 				},
 				Enum = Roblox.Enum,
 				Vector2 = Roblox.Vector2,
+				typeof = datatypeName,
 				require = function(name: unknown): unknown
 					return if name == "travel" then travelFactory else Verify
 				end,
-			},
+			}),
 		})() :: Register
 		local catalog = register(live, "", { device = "keep", registerOnly = true })
 		local io = {
@@ -162,16 +167,17 @@ return function(harness: Verify.Harness)
 				return service
 			end,
 		}
-		local travelFactory = luau.load(fs.readFile("tools/studio/live/zoom_travel_drivers.luau"))()
-		local register = luau.load(fs.readFile("tools/studio/live/interactive.luau"), {
-			environment = {
+		local travelFactory = Lute.chunk.load(fs.readFileToString("tools/studio/live/zoom_travel_drivers.luau"))()
+		local register = Lute.chunk.load(fs.readFileToString("tools/studio/live/interactive.luau"), {
+			environment = scope({
 				game = gameStub,
 				Enum = Roblox.Enum,
 				Vector2 = Roblox.Vector2,
+				typeof = datatypeName,
 				require = function(name: unknown): unknown
 					return if name == "zoom_travel_drivers" then travelFactory else Verify
 				end,
-			},
+			}),
 		})() :: Register
 		local pointerCatalog = register({}, "", { device = "none", registerOnly = true })
 		service.GamepadEnabled = true
@@ -204,20 +210,21 @@ return function(harness: Verify.Harness)
 			}
 		do
 			local file = name .. ".luau"
-			local source = fs.readFile("tools/studio/live/suites/" .. file)
+			local source = fs.readFileToString("tools/studio/live/suites/" .. file)
 			if not string.find(source, "setup =", 1, true) then
 				continue
 			end
-			local cases = luau.load(source, {
-				environment = {
+			local cases = Lute.chunk.load(source, {
+				environment = scope({
 					game = gameStub,
 					Enum = Roblox.Enum,
 					Vector2 = Roblox.Vector2,
+					typeof = datatypeName,
 					Vector3 = Roblox.Vector3,
 					Color3 = Roblox.Color3,
 					UDim2 = Roblox.UDim2,
 					UDim = Roblox.UDim,
-				},
+				}),
 			})() :: { Case }
 			for _, case in cases do
 				if not case.setup then

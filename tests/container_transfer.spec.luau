@@ -376,8 +376,9 @@ return function(harness: Verify.Harness)
 				motionLevel = "normal",
 			})
 			local Host = (runtime.constructors :: unknown) :: typeof(require("../tools/typecheck/aliases").RobloxHost)
-			local fs, luau = require("@lune/fs"), require("@lune/luau")
-			local demo = luau.load(fs.readFile("examples/facet-lab/src/container_transfer_demo.luau"))() :: (
+			local fs, Lute = require("@std/fs"), require("../tools/vendor/verify/src/lute")
+			local source = "examples/facet-lab/src/container_transfer_demo.luau"
+			local demo = Lute.chunk.load(fs.readFileToString(source), { name = source })() :: (
 				typeof(UI),
 				typeof(Host),
 				typeof(C),

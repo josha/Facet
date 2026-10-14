@@ -10,7 +10,7 @@ return function(verifyHarness: Verify.Harness)
 	local fadeKit = require("./lib/fade")
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
-	local Vector2 = require("@lune/roblox").Vector2
+	local Vector2 = require("./lib/native_engine").types.Vector2
 
 	local FRAME = 1 / 60
 
@@ -583,8 +583,8 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	local worlds = require("./lib/content_world")
-	local lune = require("@lune/roblox")
-	local UDim2 = lune.UDim2
+	local datatypes = require("./lib/native_engine").types
+	local UDim2 = datatypes.UDim2
 
 	local NESTED = {
 		{ id = "plain", label = "Plain", onSelect = function() end } :: MenuItem,
@@ -715,7 +715,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = overlay.new(function(UI: FacetControls)
 					return UI.ColorPicker "Colour" {
-						value = Compose.cell(require("@lune/roblox").Color3.new(1, 0, 0)),
+						value = Compose.cell(require("./lib/native_engine").types.Color3.new(1, 0, 0)),
 						onChange = function() end,
 					}
 				end, { runService = true })

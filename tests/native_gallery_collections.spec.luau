@@ -923,7 +923,7 @@ return function(verifyHarness: Verify.Harness)
 
 		local Facet = require("../src")
 		local engineLib = require("./lib/native_engine")
-		local fs = require("@lune/fs")
+		local fs = require("@std/fs")
 		local gallery = require("../examples/gallery/client/screen")
 		local playlistExample = require("../examples/gallery/examples/02_playlist_table")
 		local Compose: ComposeModule = Facet.Compose
@@ -1082,11 +1082,11 @@ return function(verifyHarness: Verify.Harness)
 
 			verifyHarness:suite("Documentation and tooling", function()
 				local function files(root: string, suffix: string, out: { string }): { string }
-					for _, name in fs.readDir(root) do
-						local path = root .. "/" .. name
-						if fs.isDir(path) then
+					for _, entry in fs.listDirectory(root) do
+						local path = root .. "/" .. entry.name
+						if entry.type == "dir" then
 							files(path, suffix, out)
-						elseif string.sub(name, -#suffix) == suffix then
+						elseif string.sub(entry.name, -#suffix) == suffix then
 							table.insert(out, path)
 						end
 					end

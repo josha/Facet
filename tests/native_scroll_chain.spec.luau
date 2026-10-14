@@ -2,7 +2,7 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
-	local Vector3 = require("@lune/roblox").Vector3
+	local Vector3 = require("./lib/native_engine").types.Vector3
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
 	local scrollLock = require("../src/ui/scroll_lock")

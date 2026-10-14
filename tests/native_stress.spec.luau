@@ -8,7 +8,7 @@ return function(verifyHarness: Verify.Harness)
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
-	local process = require("@lune/process")
+	local process = require("@std/process")
 
 	local cells = require("./lib/cells")
 	local Facet = require("../src")
@@ -94,8 +94,9 @@ return function(verifyHarness: Verify.Harness)
 			{
 				id = "native_stress::native stress invariants::collects disposed runtimes and disposed controls contexts whose reactive motion level closes over them",
 				run = function()
-					local result = process.exec("lune", { "run", "tests/lib/motion_level_leak" })
-					Verify.expect(result.stdout):toBe("retained 0\npublished 0 contexts 0\n")
+					local result = process.run({ "lute", "run", "tests/lib/motion_level_leak.luau" })
+					Verify.expect((string.gsub(result.stdout, "\r\n", "\n")))
+						:toBe("retained 0\npublished 0 contexts 0\n")
 				end,
 			}
 		)
@@ -103,8 +104,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("lets a disposed runtime's engine be collected", {
 			id = "native_stress::native stress invariants::lets a disposed runtime's engine be collected",
 			run = function()
-				local result = process.exec("lune", { "run", "tests/lib/disposed_engine" })
-				Verify.expect(result.stdout):toBe("collected\n")
+				local result = process.run({ "lute", "run", "tests/lib/disposed_engine.luau" })
+				Verify.expect((string.gsub(result.stdout, "\r\n", "\n"))):toBe("collected\n")
 			end,
 		})
 

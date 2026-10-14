@@ -11,7 +11,7 @@ return function(verifyHarness: Verify.Harness)
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 	local placement = require("../src/ui/overlay_placement")
-	local Vector2 = require("@lune/roblox").Vector2
+	local Vector2 = require("./lib/native_engine").types.Vector2
 
 	local TIP = "Post Avatars to Marketplace"
 	local LIFT = 16 * math.sqrt(2) / 2

@@ -13,7 +13,7 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
-	local Vector2 = require("@lune/roblox").Vector2
+	local Vector2 = require("./lib/native_engine").types.Vector2
 
 	verifyHarness:suite("native fade ownership", function()
 		verifyHarness:case("collects late Picker paint after the parent assignment finishes", {

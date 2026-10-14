@@ -9,7 +9,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
-	local Roblox = require("@lune/roblox")
+	local Roblox = require("./lib/native_engine").types
 	local UDim2, Vector2, Enum = Roblox.UDim2, Roblox.Vector2, Roblox.Enum
 
 	local LONG = string.rep("Your lap will not count, and your place in the grid goes to the next driver. ", 40)

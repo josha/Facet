@@ -2,9 +2,9 @@
 local Verify = require("../tools/vendor/verify/src/core")
 local Facet = require("../src")
 local engineLib = require("./lib/native_engine")
-local fs = require("@lune/fs")
-local luau = require("@lune/luau")
-local task = require("@lune/task")
+local fs = require("@std/fs")
+local task = require("@std/task")
+local Lute = require("../tools/vendor/verify/src/lute")
 local gallery = require("../examples/gallery/client/screen")
 type Lab = {
 	state: { errors: { [string]: { [string]: string } } },
@@ -85,8 +85,8 @@ return function(harness: Verify.Harness)
 				end
 				return loadLab((string.gsub(path, "^%./", "")))
 			end
-			local module = luau.load(fs.readFile("examples/facet-lab/src/" .. name .. ".luau"), {
-				debugName = "Lab/" .. name,
+			local module = Lute.chunk.load(fs.readFileToString("examples/facet-lab/src/" .. name .. ".luau"), {
+				name = "Lab/" .. name,
 				environment = environment,
 			})()
 			modules[name] = module

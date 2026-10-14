@@ -12,8 +12,8 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local worlds = require("./lib/content_world")
 	local Compose: ComposeModule = Facet.Compose
-	local UDim2 = require("@lune/roblox").UDim2
-	local Vector2 = require("@lune/roblox").Vector2
+	local UDim2 = require("./lib/native_engine").types.UDim2
+	local Vector2 = require("./lib/native_engine").types.Vector2
 
 	local function menuWorld(spec: { [any]: any }, options: { [string]: any }?): any
 		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)

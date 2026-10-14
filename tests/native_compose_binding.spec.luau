@@ -10,8 +10,9 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 
-	local Core = require("./lib/compose_twin/core")
-	local Roblox = require("./lib/compose_twin/roblox")
+	local twin = require("./lib/compose_twin")
+	local Core = twin.core
+	local Roblox = twin.roblox
 
 	local function find(node: any, name: string): any
 		for _, child in node:GetChildren() do

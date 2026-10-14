@@ -76,7 +76,7 @@ return function(verifyHarness: Verify.Harness)
 		local cartwheel = require("../examples/reference/p2_cartwheel")
 		local sipworks = require("../examples/reference/p3_sipworks")
 		local foyer = require("../examples/reference/p4_foyer")
-		local luau = require("@lune/luau")
+		local Lute = require("../tools/vendor/verify/src/lute")
 		local Compose: ComposeModule = Facet.Compose
 
 		type World = {
@@ -285,7 +285,7 @@ return function(verifyHarness: Verify.Harness)
 					table.insert(bindings, `local {key}=env[{string.format("%q", key)}]`)
 				end
 				local baseline = engine.census()
-				local factory = luau.load(
+				local factory = Lute.chunk.load(
 					"return function(env)\n" .. table.concat(bindings, "\n") .. "\n" .. code .. suffix .. "\nend"
 				)()
 				return factory,

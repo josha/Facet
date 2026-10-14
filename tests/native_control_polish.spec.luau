@@ -10,7 +10,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
-	local Vector2 = require("@lune/roblox").Vector2
+	local Vector2 = require("./lib/native_engine").types.Vector2
 	local Compose: ComposeModule = Facet.Compose
 	local themes = Facet.themes
 	local expect = Verify.expect

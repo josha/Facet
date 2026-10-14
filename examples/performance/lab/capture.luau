@@ -5,7 +5,7 @@ local capture = {}
 capture.SCHEMA = "facet-perf-capture/1"
 
 capture.CLASSES = {
-	lune = { device = false, note = "headless Lune; no engine, no frame, no device" },
+	lute = { device = false, note = "headless Lute; no engine, no frame, no device" },
 	studio = { device = false, note = "the real adapter in a Studio Play session on the development host" },
 	emulator = {
 		device = false,

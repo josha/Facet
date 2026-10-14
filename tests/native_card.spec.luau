@@ -12,7 +12,7 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local worlds = require("./lib/content_world")
 	local Compose: ComposeModule = Facet.Compose
-	local UDim2 = require("@lune/roblox").UDim2
+	local UDim2 = require("./lib/native_engine").types.UDim2
 	local styleRules = require("./lib/style_rules")
 
 	local function cardSpec(log: { string }, extra: { [any]: any }?): { [any]: any }

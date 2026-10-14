@@ -4,7 +4,20 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	local expect = Verify.expect
 
-	local checker = require("../tools/facet/lib/scenario_requires").bind(require("@lune/fs"))
+	local Files = require("../tools/facet/lib/files")
+	local ScenarioRequires = require("../tools/facet/lib/scenario_requires")
+	local checker = ScenarioRequires.bind({
+		isFile = Files.isFile,
+		isDir = Files.isDirectory,
+		readDir = function(path: string): { string }
+			local names: { string } = {}
+			for _, entry in Files.list(path) do
+				table.insert(names, entry.name)
+			end
+			return names
+		end,
+		readFile = Files.read,
+	})
 
 	local KNOWN_BAD_FILE = "examples/gallery/scenarios/adaptive_controls.luau"
 

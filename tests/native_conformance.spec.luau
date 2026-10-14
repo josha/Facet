@@ -73,7 +73,10 @@ return function(verifyHarness: Verify.Harness)
 			return { value = Compose.cell(nil), onChange = function() end }
 		end,
 		ColorPicker = function()
-			return { value = Compose.cell(require("@lune/roblox").Color3.new(1, 0, 0)), onChange = function() end }
+			return {
+				value = Compose.cell(require("./lib/native_engine").types.Color3.new(1, 0, 0)),
+				onChange = function() end,
+			}
 		end,
 		ShortcutHint = function()
 			return { keys = { { "Ctrl", "K" } } }

@@ -499,7 +499,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(`{root.AutomaticSize.Name} {root.Size.X.Offset}x{root.Size.Y.Offset}`):toBe("None 60x44")
 				world.opened:set(false)
 				world.step(0.5)
-				Verify.expect(`{root.AutomaticSize.Name} {root.Size}`):toBe("Y 0, 60, 0, 0")
+				Verify.expect(`{root.AutomaticSize.Name} {root.Size}`):toBe("Y {0, 60}, {0, 0}")
 				world.stop()
 			end,
 		})

@@ -18,7 +18,7 @@ return function(verifyHarness: Verify.Harness)
 		world.heartbeat = world.engine.heartbeat
 		world.captureFacts = function()
 			return {
-				evidenceClass = "lune",
+				evidenceClass = "lute",
 				capturedAtIso = "2026-09-23T00:00:00Z",
 				sourceStamp = "test",
 				placeName = "headless",
@@ -27,7 +27,7 @@ return function(verifyHarness: Verify.Harness)
 				graphicsQualityLevel = "n/a",
 				frameTarget = "n/a",
 				studioVersion = "n/a",
-				deviceLabel = "lune",
+				deviceLabel = "lute",
 				thermalNote = "n/a",
 			}
 		end

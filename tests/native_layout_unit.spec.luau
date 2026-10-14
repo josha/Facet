@@ -12,7 +12,7 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local worlds = require("./lib/content_world")
 	local overlay = require("./lib/overlay_world")
-	local Vector2 = require("@lune/roblox").Vector2
+	local Vector2 = require("./lib/native_engine").types.Vector2
 	local Compose: ComposeModule = Facet.Compose
 
 	local PREVIEW = 0.62

@@ -10,7 +10,7 @@ return function(verifyHarness: Verify.Harness)
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 	local release = require("../src/ui/sheet_release")
-	local Vector2 = require("@lune/roblox").Vector2
+	local Vector2 = require("./lib/native_engine").types.Vector2
 
 	local LONG = string.rep("A long line of body copy that wraps across the sheet. ", 40)
 	local noop = function() end

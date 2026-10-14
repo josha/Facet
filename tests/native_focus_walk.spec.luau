@@ -2,18 +2,19 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
-	local fs = require("@lune/fs")
-	local process = require("@lune/process")
-	local serde = require("@lune/serde")
+	local fs = require("@std/fs")
+	local process = require("@std/process")
+	local json = require("@std/json")
+	local Lute = require("../tools/vendor/verify/src/lute")
 
 	local DIR = process.env.FACET_FOCUS_ATLAS or "tests/fixtures/focus_atlas"
 	local FAMILIES = { "dpad", "stick", "keys" }
 
 	local function load(file: string): any
-		local atlas = serde.decode("json", fs.readFile(`{DIR}/{file}`))
+		local atlas = Lute.parse(fs.readFileToString(`{DIR}/{file}`)) :: any
 		local keys = `{DIR}/{string.sub(file, 1, -6)}--keys.json`
-		if fs.isFile(keys) then
-			local pass = serde.decode("json", fs.readFile(keys))
+		if fs.exists(keys) then
+			local pass = Lute.parse(fs.readFileToString(keys)) :: any
 			atlas.moves.keys = pass.moves.keys
 			if pass.scenes then
 				atlas.scenes = atlas.scenes or {}
@@ -197,7 +198,12 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	for _, file in fs.readDir(DIR) do
+	local atlases: { string } = {}
+	for _, entry in fs.listDirectory(DIR) do
+		table.insert(atlases, entry.name)
+	end
+	table.sort(atlases)
+	for _, file in atlases do
 		if string.sub(file, -5) ~= ".json" or string.find(file, "--keys.json", 1, true) then
 			continue
 		end
@@ -211,7 +217,7 @@ return function(verifyHarness: Verify.Harness)
 					local found = problemsOf(atlas)
 					local report = process.env.FACET_FOCUS_WALK_REPORT
 					if report and #found > 0 then
-						fs.writeFile(`{report}/{file}`, serde.encode("json", { page = atlas.page, problems = found }))
+						fs.writeStringToFile(`{report}/{file}`, json.serialize({ page = atlas.page, problems = found }))
 					end
 					Verify.expect(found):toEqual({})
 				end,

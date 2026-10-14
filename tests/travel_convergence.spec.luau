@@ -336,10 +336,10 @@ return function(harness: Verify.Harness)
 		local native = engineLib.new({
 			getStyled = function(node: Instance, property: string): unknown
 				if node:IsA("UIPadding") and property == "PaddingLeft" then
-					return require("@lune/roblox").UDim.new(0, 12)
+					return require("./lib/native_engine").types.UDim.new(0, 12)
 				end
 				if node:IsA("UIPadding") and property == "PaddingTop" then
-					return require("@lune/roblox").UDim.new(0, 1)
+					return require("./lib/native_engine").types.UDim.new(0, 1)
 				end
 				return ((node :: unknown) :: { [string]: unknown })[property]
 			end,

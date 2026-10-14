@@ -14,7 +14,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local Facet = require("../src") :: any
 	local engineLib = require("./lib/native_engine")
-	local Roblox = require("@lune/roblox")
+	local Roblox = require("./lib/native_engine").types
 	local Compose: ComposeModule = Facet.Compose
 	local adaptive = Facet.adaptive
 

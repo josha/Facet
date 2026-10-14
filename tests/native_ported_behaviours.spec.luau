@@ -12,7 +12,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
-	local Roblox = require("@lune/roblox")
+	local Roblox = require("./lib/native_engine").types
 	local Vector2, UDim2 = Roblox.Vector2, Roblox.UDim2
 	local Compose: ComposeModule = Facet.Compose
 	local themes = Facet.themes

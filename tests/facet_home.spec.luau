@@ -2,7 +2,7 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
-	local fs, serde = require("@lune/fs"), require("@lune/serde")
+	local fs = require("@std/fs")
 	local source = require("../tools/designer/modules/source")
 
 	verifyHarness:suite("Facet Home dock geometry", function()
@@ -49,7 +49,7 @@ return function(verifyHarness: Verify.Harness)
 				local session = require("../tools/designer/modules/session")
 				local render = require("../tools/designer/modules/design_render")
 				for _, name in { "Home", "Furnish", "Activities", "People", "Settings", "Wall" } do
-					local value = source.parse(fs.readFile(`examples/facet_home/designs/{name}.luau`), name)
+					local value = source.parse(fs.readFileToString(`examples/facet_home/designs/{name}.luau`), name)
 					for _, size in { { 389, 762 }, { 430, 932 }, { 1280, 720 } } do
 						local engine = engines.new()
 						local mounted = session.mount(Facet, engine.new("ScreenGui"), {

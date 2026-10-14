@@ -13,6 +13,15 @@ return function(verifyHarness: Verify.Harness)
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
 	local themes = Facet.themes
+	local fs = require("@std/fs")
+	local Lute = require("../tools/vendor/verify/src/lute")
+
+	local function loadSource(path: string, environment: unknown): any
+		return Lute.chunk.load(
+			fs.readFileToString(path),
+			{ name = path, environment = environment :: { [string]: unknown } }
+		)()
+	end
 
 	local function package(name: string): any
 		if name == "neutral" then
@@ -61,7 +70,6 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("Travel rows use the theme surface and its changing readout wraps at each smoke width", {
 			id = "native_lab_audit::native lab audit: drag and drop::Travel rows use the theme surface and its changing readout wraps at each smoke width",
 			run = function()
-				local fs, luau = require("@lune/fs"), require("@lune/luau")
 				type Demo = {
 					travel: (FacetControls, RobloxHost, ComposeModule, "straight" | "arc") -> Frame,
 					shuffle: (FacetControls, RobloxHost, ComposeModule) -> Frame,
@@ -75,9 +83,8 @@ return function(verifyHarness: Verify.Harness)
 							for key, value in engine.types do
 								environment[key] = value
 							end
-							local loaded = luau.load(fs.readFile("examples/facet-lab/src/zoom_travel_demo.luau"), {
-								environment = environment,
-							})() :: Demo
+							local loaded =
+								loadSource("examples/facet-lab/src/zoom_travel_demo.luau", environment) :: Demo
 							return Host.Frame {
 								loaded.travel(UI, Host, Compose, "straight"),
 								loaded.shuffle(UI, Host, Compose),
@@ -116,7 +123,6 @@ return function(verifyHarness: Verify.Harness)
 					base: ((PageContext) -> Props)?,
 					make: ((FacetControls, Props, PageContext) -> Instance)?,
 				}
-				local fs, luau = require("@lune/fs"), require("@lune/luau")
 				local rows: { string } = {}
 				for _, size in { { 389, 762 }, { 430, 932 }, { 1280, 720 } } do
 					local initial = engineLib.new()
@@ -135,13 +141,10 @@ return function(verifyHarness: Verify.Harness)
 					}
 					environment.require = function(path: string): unknown
 						local name = assert(string.match(path, "^%./([%w_]+)$"))
-						return luau.load(fs.readFile(`examples/facet-lab/src/{name}.luau`), {
-							environment = environment,
-						})()
+						return loadSource(`examples/facet-lab/src/{name}.luau`, environment)
 					end
-					local catalog = luau.load(fs.readFile("examples/facet-lab/src/catalog.luau"), {
-						environment = environment,
-					})() :: { PAGE_DATA: { [string]: Page } }
+					local catalog =
+						loadSource("examples/facet-lab/src/catalog.luau", environment) :: { PAGE_DATA: { [string]: Page } }
 					local count = 0
 					for id, data in catalog.PAGE_DATA do
 						if not string.match(id, "^[A-Z]") or data.base == nil then
@@ -256,10 +259,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("LevelPicker disables custom glyph state for bar segments", {
 			id = "native_lab_audit::native lab audit: drag and drop::LevelPicker disables custom glyph state for bar segments",
 			run = function()
-				local data = require("@lune/luau").load(
-					require("@lune/fs").readFile("examples/facet-lab/src/catalog.luau"),
-					{ environment = engineLib.new().types }
-				)().PAGE_DATA.LevelPicker
+				local data =
+					loadSource("examples/facet-lab/src/catalog.luau", engineLib.new().types).PAGE_DATA.LevelPicker
 				Verify.expect(data.valid({ segment = "bar", glyphs = { filled = "●", empty = "○" } })):toBe(false)
 				Verify.expect(data.valid({ segment = "glyph", glyphs = { filled = "●", empty = "○" } })):toBe(true)
 			end,
@@ -648,10 +649,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_lab_audit::native lab audit: drag and drop::Lab Screen body rows wrap inside the scroll window",
 			run = function()
 				local w = worlds.new(function(UI, Host, engine)
-					local data = require("@lune/luau").load(
-						require("@lune/fs").readFile("examples/facet-lab/src/catalog.luau"),
-						{ environment = engine.types }
-					)().PAGE_DATA.Screen
+					local data = loadSource("examples/facet-lab/src/catalog.luau", engine.types).PAGE_DATA.Screen
 					return data.make(UI, {}, { Compose = Compose })
 				end)
 				local rows = 0
@@ -672,10 +670,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_lab_audit::native lab audit: drag and drop::Lab pinned AdaptiveStack keeps all four commands in a native scroll window",
 			run = function()
 				local w = worlds.new(function(UI, Host, engine)
-					local data = require("@lune/luau").load(
-						require("@lune/fs").readFile("examples/facet-lab/src/catalog.luau"),
-						{ environment = engine.types }
-					)().PAGE_DATA.AdaptiveStack
+					local data = loadSource("examples/facet-lab/src/catalog.luau", engine.types).PAGE_DATA.AdaptiveStack
 					local props = data.base({ UI = UI })
 					props.axis = "x"
 					props.width = 240
@@ -700,10 +695,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_lab_audit::native lab audit: drag and drop::pure helper output fills its declared cell without changing decision arguments",
 			run = function()
 				local w = worlds.new(function(UI, Host, engine)
-					local data = require("@lune/luau").load(
-						require("@lune/fs").readFile("examples/facet-lab/src/catalog.luau"),
-						{ environment = engine.types }
-					)().PAGE_DATA
+					local data = loadSource("examples/facet-lab/src/catalog.luau", engine.types).PAGE_DATA
 					local nodes = {}
 					for _, id in { "adaptive", "civilDate" } do
 						Verify.expect(data[id].cellWidth):toBe(360)
@@ -783,11 +775,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_lab_audit::native lab audit: drag and drop::AdaptiveStack matrix cells contain the fixed width variants",
 			run = function()
 				local engine: any = engineLib.new()
-				local fs = require("@lune/fs")
-				local luau = require("@lune/luau")
-				local catalog = luau.load(fs.readFile("examples/facet-lab/src/catalog.luau"), {
-					environment = engine.types,
-				})()
+				local catalog = loadSource("examples/facet-lab/src/catalog.luau", engine.types)
 				local data = catalog.PAGE_DATA.AdaptiveStack
 				for _, axis in data.axes do
 					if axis.key == "width" then
@@ -826,11 +814,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_lab_audit::native lab audit: drag and drop::Sheet lab keeps a Close command when interactive dismissal is disabled",
 			run = function()
 				local engine: any = engineLib.new()
-				local fs = require("@lune/fs")
-				local luau = require("@lune/luau")
-				local catalog = luau.load(fs.readFile("examples/facet-lab/src/catalog.luau"), {
-					environment = engine.types,
-				})()
+				local catalog = loadSource("examples/facet-lab/src/catalog.luau", engine.types)
 				local data = catalog.PAGE_DATA.Sheet
 				local spec = data.base({
 					cell = function(_, value)

@@ -10,18 +10,13 @@ return function(verifyHarness: Verify.Harness)
 	type Use = <T>(Readable<T>) -> T
 
 	local Facet = require("../src")
-	local Roblox = require("@lune/roblox")
+	local Roblox = require("./lib/native_engine").types
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
 	local expect = Verify.expect
 	local Color3 = Roblox.Color3
 	local V2 = Roblox.Vector2.new
-	local BrickShim = {
-		palette = function(index: number): any
-			return Roblox.BrickColor.palette(index + 1)
-		end,
-	}
-	local colorValue = require("../src/ui/color_value")({ Color3 = Color3, BrickColor = BrickShim :: any })
+	local colorValue = require("../src/ui/color_value")({ Color3 = Color3, BrickColor = Roblox.BrickColor })
 
 	local function hex(c: any): string
 		return if c == nil then "nil" else colorValue.hex(c)
@@ -98,8 +93,7 @@ return function(verifyHarness: Verify.Harness)
 				return value
 			end,
 		})
-		local types = table.clone(engine.types)
-		types.BrickColor = BrickShim
+		local types = engine.types
 		local UI: any = Facet.controls(
 			runtime,
 			{
@@ -713,7 +707,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_color_picker::native ColorPicker spectrum plane::a gamepad A on the selected plane is not a drag: the colour stays until the stick steers",
 			run = function()
 				local w, _, commits =
-					spectrum({ preferred = (require("@lune/roblox") :: any).Enum.PreferredInput.Gamepad })
+					spectrum({ preferred = (require("./lib/native_engine").types :: any).Enum.PreferredInput.Gamepad })
 				local before = w.hsv()
 				local surface = w.find("Plane/Surface")
 				w.gui.SelectedObject = surface

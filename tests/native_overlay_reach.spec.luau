@@ -7,8 +7,8 @@ return function(verifyHarness: Verify.Harness)
 
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
-	local lune = require("@lune/roblox")
-	local UDim2, Vector2 = lune.UDim2, lune.Vector2
+	local datatypes = require("./lib/native_engine").types
+	local UDim2, Vector2 = datatypes.UDim2, datatypes.Vector2
 
 	local LONG = "Coastal circuit, reverse layout, lap fourteen"
 

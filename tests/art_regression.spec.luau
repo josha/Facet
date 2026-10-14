@@ -3,7 +3,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	local expect = Verify.expect
-	local fs = require("@lune/fs")
+	local fs = require("@std/fs")
 	local Raster = require("../tools/facet/lib/raster")
 	local targets = require("../tools/facet/art")
 	local Compare = require("../tools/facet/art/compare")
@@ -19,10 +19,10 @@ return function(verifyHarness: Verify.Harness)
 					local outputs = target.generate()
 					expect(#outputs > 0):toBe(true)
 					for _, output in outputs do
-						if not fs.isFile(output.path) then
+						if not fs.exists(output.path) then
 							table.insert(problems, `{output.path}: not committed`)
 						else
-							local committed = Raster.Png.decode(buffer.fromstring(fs.readFile(output.path)))
+							local committed = Raster.Png.decode(buffer.fromstring(fs.readFileToString(output.path)))
 							local metrics = Compare.metrics(committed, output.image)
 							if not Compare.within(metrics, Compare.EXACT) then
 								table.insert(problems, `{output.path}: {Compare.describe(metrics)}`)

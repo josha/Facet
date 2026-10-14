@@ -55,7 +55,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("mounts the shipped editor shell at the smoke viewports", {
 			id = "facet_designer::Facet Design smoke mounts::mounts the shipped editor shell at the smoke viewports",
 			run = function(context)
-				local fs, luau = require("@lune/fs"), require("@lune/luau")
+				local fs, Lute = require("@std/fs"), require("../tools/vendor/verify/src/lute")
 				local Theme = require("../src/ui/theme_types")
 				local Engine = require("../src/ui/engine_types")
 				local rows: { string } = {}
@@ -77,12 +77,15 @@ return function(verifyHarness: Verify.Harness)
 					}
 					environment.require = function(path: string): unknown
 						local name = assert(string.match(path, "^%./([%w_]+)$"))
-						return luau.load(
-							fs.readFile(`tools/designer/modules/{name}.luau`),
-							{ environment = environment }
+						local module = `tools/designer/modules/{name}.luau`
+						return Lute.chunk.load(
+							fs.readFileToString(module),
+							{ name = module, environment = environment }
 						)()
 					end
-					local shell = luau.load(fs.readFile("tools/designer/modules/design_shell.luau"), {
+					local shellSource = "tools/designer/modules/design_shell.luau"
+					local shell = Lute.chunk.load(fs.readFileToString(shellSource), {
+						name = shellSource,
 						environment = environment,
 					})() :: {
 						mount: (

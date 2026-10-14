@@ -47,7 +47,7 @@ return function(harness: Verify.Harness)
 					end,
 					itemSize = 100,
 					CanvasPosition = function()
-						return require("@lune/roblox").Vector2.zero
+						return require("./lib/native_engine").types.Vector2.zero
 					end,
 					render = function(current)
 						return Host.Frame { Name = current:peek() }
@@ -107,7 +107,7 @@ return function(harness: Verify.Harness)
 					itemSize = 100,
 					CanvasPosition = function(use)
 						use(request)
-						return require("@lune/roblox").Vector2.zero
+						return require("./lib/native_engine").types.Vector2.zero
 					end,
 					render = function()
 						return Host.Frame {}

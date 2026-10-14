@@ -3,7 +3,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	local expect = Verify.expect
-	local fs = require("@lune/fs")
+	local fs = require("@std/fs")
 	local Raster = require("../tools/facet/lib/raster")
 	local vectors = require("./fixtures/raster_vectors")
 
@@ -188,11 +188,11 @@ return function(verifyHarness: Verify.Harness)
 		case("png", "decodes every PNG in the repository with all five row filters", function()
 			local files: { string } = {}
 			local function walk(directory: string)
-				for _, name in fs.readDir(directory) do
-					local path = directory .. "/" .. name
-					if fs.isDir(path) then
+				for _, entry in fs.listDirectory(directory) do
+					local path = directory .. "/" .. entry.name
+					if entry.type == "dir" then
 						walk(path)
-					elseif string.lower(string.sub(name, -4)) == ".png" then
+					elseif string.lower(string.sub(entry.name, -4)) == ".png" then
 						table.insert(files, path)
 					end
 				end
@@ -202,7 +202,7 @@ return function(verifyHarness: Verify.Harness)
 			expect(#files >= 140):toBe(true)
 			local filters: { [number]: boolean } = {}
 			for _, path in files do
-				local data = buffer.fromstring(fs.readFile(path))
+				local data = buffer.fromstring(fs.readFileToString(path))
 				local width = buffer.readu8(data, 16) * 16777216
 					+ buffer.readu8(data, 17) * 65536
 					+ buffer.readu8(data, 18) * 256

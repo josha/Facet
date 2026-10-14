@@ -45,7 +45,6 @@ return function(verifyHarness: Verify.Harness)
 	local media = require("../src/ui/media")
 	local themes = require("../src/ui/themes")(Compose)
 	local engineLib = require("./lib/native_engine")
-	local fs = require("@lune/fs")
 
 	local function setup()
 		local engine = engineLib.new()
@@ -395,7 +394,7 @@ return function(verifyHarness: Verify.Harness)
 						end
 					end
 					local timing = transitionOf(textRule, "TextColor3")
-					Verify.expect(timing.Time):toBe(0.32)
+					Verify.expect(timing.Time):toBeFloat32(0.32)
 					Verify.expect(timing.EasingStyle):toBe(engine.types.Enum.EasingStyle.Quad)
 					Verify.expect((transitionOf(surfaceRule, "BackgroundColor3"))):toBe(timing)
 					Verify.expect((transitionOf(surfaceRule, "BackgroundTransparency"))):toBe(timing)
@@ -457,7 +456,7 @@ return function(verifyHarness: Verify.Harness)
 					local added = sheet:GetChildren()[#initial + 1]
 					Verify.expect(added.Selector):toBe(".game-added")
 					Verify.expect(added:GetProperties().BackgroundTransparency):toBe(0.25)
-					Verify.expect(transitionOf(added, "BackgroundTransparency").Time):toBe(0.2)
+					Verify.expect(transitionOf(added, "BackgroundTransparency").Time):toBeFloat32(0.2)
 					contributed.BackgroundTransparency = 0.75
 					revision:set(2)
 					Verify.expect(added:GetProperties().BackgroundTransparency):toBe(0.75)
@@ -1666,7 +1665,6 @@ return function(verifyHarness: Verify.Harness)
 		local ThemeTypes = require("../src/ui/theme_types")
 		local FixtureNavigationTypes = require("../src/ui/navigation_types")
 
-		local fs = require("@lune/fs")
 		local Facet = require("../src")
 		local engineLib = require("./lib/native_engine")
 		local Compose: ComposeModule = Facet.Compose

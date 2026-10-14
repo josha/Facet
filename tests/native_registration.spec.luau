@@ -5,11 +5,12 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	local requireDynamic = require :: (any) -> any
 
-	local fs = require("@lune/fs")
-	local luau = require("@lune/luau")
+	local fs = require("@std/fs")
+	local Lute = require("../tools/vendor/verify/src/lute")
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local scaffold = require("../tools/facet/lib/scaffold")
+	type ProofControls = { ProofControl: (string) -> ({ Size: UDim2 }) -> Instance }
 
 	verifyHarness:suite("native registration and package contract", function()
 		verifyHarness:case("scaffolds a typed native control with idempotent runtime and public type registration", {
@@ -21,27 +22,31 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(plan.files[1].path):toBe("src/ui/proof_control.luau")
 				local edited = {}
 				for _, edit in plan.edits do
-					edited[edit.path] = scaffold.applyEdit(fs.readFile(edit.path), edit)
+					edited[edit.path] = scaffold.applyEdit(fs.readFileToString(edit.path), edit)
 					Verify.expect((scaffold.applyEdit(edited[edit.path], edit))):toBe(edited[edit.path])
-					luau.compile(edited[edit.path])
+					assert(Lute.chunk.check(edited[edit.path], edit.path))
 				end
-				local generated = luau.load(plan.files[1].content, {
-					environment = {
-						require = function(path)
-							Verify.expect(path):toBe("@self/types")
-							return require("../src/ui/types")
-						end,
-					},
-				})()
-				local createControls = luau.load(edited["src/ui/init.luau"], {
-					environment = {
-						require = function(path)
-							return if path == "@self/proof_control"
-								then generated
-								else requireDynamic("../src/ui/" .. string.sub(path, 7))
-						end,
-					},
-				})()
+				local typesEnvironment: { [string]: unknown } = {
+					require = function(path: string): unknown
+						Verify.expect(path):toBe("@self/types")
+						return require("../src/ui/types")
+					end,
+				}
+				local generated = Lute.chunk.load(
+					plan.files[1].content,
+					{ name = plan.files[1].path, environment = typesEnvironment }
+				)()
+				local controlsEnvironment: { [string]: unknown } = {
+					require = function(path: string): unknown
+						return if path == "@self/proof_control"
+							then generated
+							else requireDynamic("../src/ui/" .. string.sub(path, 7))
+					end,
+				}
+				local createControls = Lute.chunk.load(
+					edited["src/ui/init.luau"],
+					{ name = "src/ui/init.luau", environment = controlsEnvironment }
+				)() :: (unknown, unknown, unknown) -> ProofControls
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 				local UI = createControls(Facet.Compose, runtime, { types = engine.types })

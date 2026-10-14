@@ -5,21 +5,22 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 
-	local fs, luau = require("@lune/fs"), require("@lune/luau")
+	local fs, Lute = require("@std/fs"), require("../tools/vendor/verify/src/lute")
 	local Facet, engineLib = require("../src"), require("./lib/native_engine")
 	local entries = {}
 	local files = { "README.md", "docs/reference/api.md" }
 	for _, directory in { "docs/guide", "docs/extending" } do
-		for _, name in fs.readDir(directory) do
-			if string.match(name, "%.md$") then
-				table.insert(files, directory .. "/" .. name)
+		for _, entry in fs.listDirectory(directory) do
+			if string.match(entry.name, "%.md$") then
+				table.insert(files, directory .. "/" .. entry.name)
 			end
 		end
 	end
 	table.sort(files)
 	for _, file in files do
 		local index = 0
-		for code in string.gmatch(fs.readFile(file), "```luau\n(.-)```") do
+		local text = string.gsub(fs.readFileToString(file), "\r\n", "\n")
+		for code in string.gmatch(text, "```luau\n(.-)```") do
 			index += 1
 			table.insert(entries, { file = file, index = index, code = code })
 		end
@@ -33,15 +34,14 @@ return function(verifyHarness: Verify.Harness)
 					.. `executes {entry.file} snippet {entry.index}`,
 				run = function()
 					if string.find(entry.code, 'require("./lib/native_engine")', 1, true) then
-						local modules = { ["../src"] = Facet, ["./lib/native_engine"] = engineLib }
-						luau.load(entry.code, {
-							debugName = entry.file,
-							environment = {
-								require = function(path: string)
-									return assert(modules[path], path)
-								end,
-							},
-						})()
+						local modules: { [string]: unknown } =
+							{ ["../src"] = Facet, ["./lib/native_engine"] = engineLib }
+						local environment: { [string]: unknown } = {
+							require = function(path: string): unknown
+								return assert(modules[path], path)
+							end,
+						}
+						Lute.chunk.load(entry.code, { name = entry.file, environment = environment })()
 						return
 					end
 					local engine = engineLib.new()
@@ -163,18 +163,21 @@ return function(verifyHarness: Verify.Harness)
 						then "\nreturn Screen()"
 						else ""
 					do
-						luau.compile(entry.code)
-						local factory = luau.load(
+						assert(Lute.chunk.check(entry.code, entry.file))
+						local factory = Lute.chunk.load(
 							"return function(env)\n"
 								.. table.concat(bindings, "\n")
 								.. "\n"
 								.. entry.code
 								.. suffix
-								.. "\nend"
-						)()
+								.. "\nend",
+							{ name = entry.file }
+						)() :: (unknown) -> unknown
 						local stop = runtime.mount(function()
 							local node = factory(env)
-							return if type(node) == "table" and node.ClassName then node else Host.Frame({})
+							return if type(node) == "table" and (node :: { [string]: unknown }).ClassName
+								then (node :: unknown) :: Instance
+								else Host.Frame({})
 						end, engine.new("ScreenGui"))
 						for _, sheet in sheets do
 							assert(sheet.Parent ~= nil, "StyleSheet was referenced without parenting")
