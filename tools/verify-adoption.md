@@ -7,12 +7,12 @@ policy and small bindings.
 
 ## What Verify owns
 
-- `Lune.gate.cli` defines and runs the gate from `tools/lune/producers.json`.
+- `Lute.gate.cli` defines and runs the gate from `tools/facet/producers.json`.
   It owns the command line, the selection, process bounds, logs, scope and the
-  verdict. `tools/lune/gate.luau` adds the tier names, the deferral policy and
+  verdict. `tools/facet/lib/gate.luau` adds the tier names, the deferral policy and
   the build identity.
 - The `suite` producer is a `tests` producer. Verify runs each source in its
-  own Lune worker, four at a time, with a deadline for each source and a
+  own Lute worker, four at a time, with a deadline for each source and a
   run-bound receipt. `tests/plan.json` lists the sources. There is no committed
   case list. A source that reports no case or a duplicate case fails the
   producer.
@@ -26,7 +26,7 @@ policy and small bindings.
   configuration: the reshaped class database, the method doubles, the default
   lookup and the datatype table. The instance facade is removed.
 - `Benchmark.collect` owns warmup, sampling, hooks and the shared yardstick
-  for `tools/lune/bench.luau`.
+  for `tools/facet/lib/bench_run.luau`.
 - The fixture uses the virtual clock of Verify. A case controls the time that
   a control reads, and host load does not change a result.
 - `Lute.studio.run` runs the live suites of `tools/studio/live`. It starts a
@@ -43,13 +43,13 @@ policy and small bindings.
   The gate runs them
   as producers. The plan check compares the declared sources with the spec
   files on disk.
-- `tools/lune/bench.luau` maps each row of `bench/baseline.json` to a Verify
+- `tools/facet/lib/bench_run.luau` maps each row of `bench/baseline.json` to a Verify
   `baseline`: the 1.5 factor as a tolerance, the yardstick p95 statistic, the
   p50 metric for the scenes that use it and the 0.05 millisecond floor on p95.
   Verify makes the comparison. The ratios are the same as the removed `judge`
   gave. Facet keeps the drift limit, the heap checkpoints and the report
   rows. The samples, the baseline and the thresholds are unchanged.
-- `tools/lune/perf.luau` and the `lute run tools/facet perf` validators are Facet
+- `tools/facet/lib/perf_run.luau` and the `lute run tools/facet perf` validators are Facet
   workloads and checks of the current run.
 - `lute run tools/facet build` and `lute run tools/facet release` replace the
   shell scripts. `tools/studio/capture_viewport.sh` stays, because it drives the
@@ -79,7 +79,7 @@ never releasable.
 
 ## Failure injection
 
-`tools/lune/verify_integration.luau` runs on the shared path. It covers a
+`tools/engine/verify_integration.luau` runs on the shared path. It covers a
 missing source, a load failure, a registration failure, a value that is not a
 function and an empty source. It covers case and cleanup failures, duplicate
 IDs, an unapproved skip, a declared case list that differs and the release-only tier. It covers a

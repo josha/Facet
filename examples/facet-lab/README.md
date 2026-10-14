@@ -16,8 +16,8 @@ package does not install them; import a standalone model or copy the
 `themes/foundation.luau` package when a game chooses to use Foundation.
 The standalone entries expose `build(Facet.themes)` for `Facet.app`'s `theme` option.
 
-`lune run tools/check_themes.luau` validates both palettes through the public
-theme compiler. `lune run tools/coverage.luau check` checks catalog coverage
+`lute run tools/check_themes.luau` validates both palettes through the public
+theme compiler. `lute run tools/coverage.luau check` checks catalog coverage
 against Facet's exported control types.
 
 ## Browse controls

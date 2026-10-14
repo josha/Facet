@@ -81,11 +81,11 @@ directories that `.gitignore` excludes.
 
 | Directory | Holds | Check |
 |---|---|---|
-| `src/` | The library. See [Areas](#areas). | `lune run tools/lune/verify full` |
-| `tests/` | The behavioral specs, the native engine double and the type witnesses. | `lune run tools/lune/verify spec <spec-name>` |
+| `src/` | The library. See [Areas](#areas). | `lute run tools/facet gate full` |
+| `tests/` | The behavioral specs, the native engine double and the type witnesses. | `lute run tools/facet gate spec <spec-name>` |
 | `examples/` | The gallery, the Facet Lab, the consumer project, the reference apps, the virtual monitors, the example themes and the performance lab. | `lute run tools/facet check scenario-requires` |
-| `bench/` | The benchmark scenes, profiles and baselines. | `lune run tools/lune/bench` |
-| `tools/` | The Verify gate runner, the Lute maintainer commands and checks, the Lune engine double workloads and the Studio tools. | `lute run tools/facet check --all` |
+| `bench/` | The benchmark scenes, profiles and baselines. | `lute run tools/facet bench` |
+| `tools/` | The Verify gate runner, the Lute maintainer commands and checks, the native engine double programs and the Studio tools. | `lute run tools/facet check --all` |
 | `docs/` | The guide, the extension playbooks, the reference, this map and the historical plans. | `lute run tools/facet check doc-style` |
 | `assets/` | The icon images and the theme art. The generators in `tools/facet/art/` make them, and the package build includes them. | `lute run tools/facet art all --check` |
 | `package/` | The Roblox Package configuration and the publish receipts. See [the package interface](../package/README.md). | `lute run tools/facet package status` |

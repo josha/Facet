@@ -10,9 +10,9 @@ contract.
 - Do not use the `any` type in `src` outside `src/vendor`. Use concrete types or narrow `unknown`. The `any` budgets for examples, tools, tests and bench can only decrease. Run `lute run tools/facet check type-policy` to check this rule.
 - Write maintainer tooling in strict Luau. Put each command in
   `tools/facet/commands` and each repository check in `tools/facet/checks`, and
-  run them with `lute run tools/facet <command>`. Do not add Python. Only the
-  Verify gate runner and the workloads that need the Lune engine double stay in
-  `tools/lune`.
+  run them with `lute run tools/facet <command>`. Do not add Python or Lune.
+  Put a standalone program that runs Facet in the native engine double in
+  `tools/engine`, and load Facet there through `tests/lib/loader.luau`.
 
 - Get controls with `Facet.controls(runtime)`. Name the runtime's constructor
   table `Host` (`local Host = runtime.constructors`) and use it for Roblox
@@ -63,8 +63,8 @@ contract.
   consumer skill. If a capability is missing, add it upstream in Verify and
   re-pin with `lute run tools/facet sync verify` before using it here. Keep only
   Facet-specific cases and integration policy in this repository.
-- Declare each producer in `tools/lune/producers.json`. The Verify gate in
-  `tools/lune/gate.luau` runs it. Do not add a Facet runner, receipt or verdict.
+- Declare each producer in `tools/facet/producers.json`. The Verify gate in
+  `tools/facet/lib/gate.luau` runs it. Do not add a Facet runner, receipt or verdict.
 - Keep `tests/plan.json` aligned with the spec files. The plan lists the spec
   sources. Each spec file on disk must appear exactly once. The `plan` producer
   checks this rule. There is no committed case list. The full gate uses the
@@ -75,8 +75,8 @@ contract.
 
 - Verify behavior with meaningful tests. Geometry and input also need live
   Studio evidence. A native engine double does not prove engine behavior.
-- Before you propose a completed change, run `lune run tools/lune/verify full`,
-  `lune run tools/lune/bench`, `lute run tools/facet package build` and `lute run tools/facet package status`.
+- Before you propose a completed change, run `lute run tools/facet gate full`,
+  `lute run tools/facet bench`, `lute run tools/facet package build` and `lute run tools/facet package status`.
 - Report baseline failures separately from regressions. Do not call a targeted
   run full evidence.
 - The current suite is the evidence. It does not claim to equal the tests that

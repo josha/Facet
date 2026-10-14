@@ -164,7 +164,7 @@ artifact hash with the newest receipt. It reports:
    `THIRD_PARTY_NOTICES` fell back to placeholder text.
 3. **`lute run tools/facet check library-purity`.** The shipped library must not name a
    reference theme package in code.
-4. **The packaged-consumer canary** (`tools/lune/package_canary.luau`). The
+4. **The packaged-consumer canary** (`tools/engine/package_canary.luau`). The
    canary extracts every ModuleScript from `build/Facet.rbxmx` into a directory
    tree. It checks these items:
    - The model has one root, a `ModuleScript` named `Facet`.
@@ -283,7 +283,7 @@ the key is set.
 ### The gate evidence file
 
 The release-gate guard reads `artifacts/verify/native/gate/latest.json`. That
-file is the Verify gate outcome that `lune run tools/lune/verify release`
+file is the Verify gate outcome that `lute run tools/facet gate release`
 writes. The guard takes these fields from it:
 
 | Field | Must be |
@@ -364,7 +364,7 @@ The script does these steps:
    an unconfigured asset id.
 2. It checks out the named commit into a temporary git worktree.
 3. It runs the release gate again in that worktree with
-   `lune run tools/lune/verify release`.
+   `lute run tools/facet gate release`.
 4. It builds in the worktree, so that the drift guard has a recorded manifest
    to compare against.
 5. It runs `lute run tools/facet package publish --confirm` with every guard still active.

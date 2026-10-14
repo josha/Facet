@@ -71,7 +71,7 @@ controls create Instances only when a client mounts them.
 
 ## What the evidence covers
 
-- **The headless suite.** Thousands of cases run under Lune with no Roblox
+- **The headless suite.** Thousands of cases run under Lute with no Roblox
   process. They prove Facet's own decisions: control behavior, state, adaptation
   and teardown. They cannot see engine layout, paint or a real device.
 - **Roblox Studio checks.** Play sessions with simulated devices prove the real
@@ -113,7 +113,7 @@ matches its lock. A project file needs two things:
 ### A source copy
 
 Copy `src/` into your own repository and map it the same way. Facet's requires
-are relative, so the same source runs headless under Lune and mounted in Roblox.
+are relative, so the same source runs headless under Lute and mounted in Roblox.
 Record `Facet.VERSION` where you will see it.
 
 ### The built model file
@@ -156,13 +156,13 @@ covers this route.
 ## Development
 
 ```sh
-rokit install                                   # the pinned toolchain: Rojo, luau-lsp, Lune, Lute, StyLua
-lune run tools/lune/verify affected             # the smallest safe set for what you changed
-lune run tools/lune/verify fast                 # the inner-loop tier
-lune run tools/lune/verify full                 # every deterministic check, exactly once
-lune run tools/lune/verify release              # full, plus the build, package and evidence producers
-lune run tools/lune/verify spec <spec-name>     # one spec file
-lune run tools/lune/bench                       # benchmarks
+rokit install                                   # the pinned toolchain: Rojo, luau-lsp, Lute, StyLua
+lute run tools/facet gate affected             # the smallest safe set for what you changed
+lute run tools/facet gate fast                 # the inner-loop tier
+lute run tools/facet gate full                 # every deterministic check, exactly once
+lute run tools/facet gate release              # full, plus the build, package and evidence producers
+lute run tools/facet gate spec <spec-name>     # one spec file
+lute run tools/facet bench                       # benchmarks
 lute run tools/facet check --all                # every repository check
 lute run tools/facet help                       # every maintainer command
 ```

@@ -60,7 +60,7 @@ Do not run `author.luau` after editing a design unless you intend to regenerate
 all seed designs. To regenerate the checked-in seeds:
 
 ```sh
-lune run examples/facet_home/author
+lute run examples/facet_home/author.luau
 stylua examples/facet_home/designs
 ```
 

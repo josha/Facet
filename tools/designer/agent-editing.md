@@ -7,8 +7,8 @@ and enter design history. Visual edits update that same source.
 Run these commands from the repository root:
 
 ```sh
-lune run tools/designer/edit inspect component.luau
-lune run tools/designer/edit edit component.luau operations.json edited.luau
+lute run tools/designer/edit.luau inspect component.luau
+lute run tools/designer/edit.luau edit component.luau operations.json edited.luau
 ```
 
 An operations file contains a JSON array:
