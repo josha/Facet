@@ -1,13 +1,15 @@
 --!strict
 
 local Rule = require("../lib/rule")
+local WordLists = require("../lib/word_lists")
 
 local rule: Rule.Rule = {
 	name = "word-data",
-	summary = "Not ported yet.",
-	check = function(_context: Rule.Context): { string }
-		return { "not ported yet" }
+	summary = "The generated example word data matches the hashes in its manifest.luau.",
+	check = function(context: Rule.Context): { string }
+		return WordLists.findings(context.root)
 	end,
+	cases = WordLists.cases,
 }
 
 return rule
