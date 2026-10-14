@@ -65,6 +65,7 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 		local target = table.clone(values)
 		local inPlace = false
 		local moving = false
+		local landedAt: Vector2? = nil
 		local motion: engine.Handle
 		local units: { [GuiBase2d]: Shared.Readable<number> } = {}
 		local function contentInsets(slot: GuiObject): (number, number, number, number)
@@ -94,6 +95,17 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 				bottom += pixels("PaddingBottom", size.Y)
 			end
 			return left, top, right, bottom
+		end
+		local function contentPoint(slot: GuiObject): Vector2
+			local point = slot.AbsolutePosition
+			local ancestor = slot.Parent
+			while ancestor do
+				if ancestor:IsA("ScrollingFrame") then
+					point += (ancestor :: ScrollingFrame).CanvasPosition
+				end
+				ancestor = ancestor.Parent
+			end
+			return point
 		end
 		local function bounds(slot: GuiObject): { number }
 			local point, size = slot.AbsolutePosition, slot.AbsoluteSize
@@ -219,6 +231,7 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 			end
 			motion.snap(target)
 			previous = destination
+			landedAt = contentPoint(destination)
 			anchor:SetAttribute("FacetTravelMoving", false)
 			if spec.onLanded then
 				spec.onLanded(destination)
@@ -282,8 +295,11 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 			end
 			target = bounds(destination)
 			if previous == destination and not moving then
-				motion.snap(target)
-				return
+				local point = contentPoint(destination)
+				if landedAt == nil or (point - landedAt).Magnitude < 0.5 then
+					motion.snap(target)
+					return
+				end
 			end
 			if not moving and previous and node.AbsoluteSize.X > 0 and node.AbsoluteSize.Y > 0 then
 				values =

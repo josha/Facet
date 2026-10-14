@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Travel moves its content again when the landed slot moves inside its content,
+  for example when a game reorders its slots. A change that only scrolls the
+  container keeps the content in place.
 - A native chrome shadow keeps the opacity of the fill that casts it. Before,
   a translucent Button, such as the `soft` appearance, kept the full shadow.
   A hard plate then showed through the tint as a dark slab, with a bare strip

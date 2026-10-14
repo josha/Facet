@@ -936,5 +936,58 @@ return function(harness: Verify.Harness)
 			t:expect(content == carrier):toBe(true)
 			t:expect(carrier.Parent == second):toBe(true)
 		end)
+
+		harness:case("travels when its landed slot moves and stays put when only the scroll moves", function(t)
+			local engine = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			local V2 = engine.types.Vector2
+			local overlay = engine.new("Frame")
+			local screen = engine.new("ScreenGui")
+			screen.Parent = engine.new("Folder")
+			overlay.Parent = screen
+			overlay.AbsolutePosition, overlay.AbsoluteSize = V2.zero, V2.new(600, 400)
+			local scroller = engine.new("ScrollingFrame")
+			scroller.Parent = overlay
+			scroller.AbsolutePosition, scroller.AbsoluteSize = V2.zero, V2.new(600, 400)
+			local slot = engine.new("Frame")
+			slot.Parent = scroller
+			slot.ClipsDescendants = true
+			slot.AbsolutePosition, slot.AbsoluteSize = V2.new(20, 20), V2.new(60, 60)
+			local landed = 0
+			local travel: GuiObject
+			local stop = runtime.mount(function()
+				local controls = Facet.controls(runtime, { types = engine.types, overlayParent = overlay })
+				travel = controls.Travel {
+					destination = slot :: GuiObject,
+					onLanded = function(_target: GuiObject)
+						landed += 1
+					end,
+					content = function(): GuiObject
+						return Host.Frame { Name = "Tile", Size = engine.types.UDim2.fromScale(1, 1) }
+					end,
+				}
+				return Host.Frame { travel }
+			end, overlay)
+			t:defer(function()
+				stop()
+				runtime:dispose()
+			end)
+			engine.heartbeat:Fire(0.016)
+			t:expect(landed):toBe(1)
+			scroller.CanvasPosition = V2.new(0, 100)
+			slot.AbsolutePosition = V2.new(20, -80)
+			engine.heartbeat:Fire(0.016)
+			t:expect(travel:GetAttribute("FacetTravelMoving")):toBe(false)
+			t:expect(landed):toBe(1)
+			slot.AbsolutePosition = V2.new(20, 220)
+			engine.heartbeat:Fire(0.016)
+			t:expect(travel:GetAttribute("FacetTravelMoving")):toBe(true)
+			for _ = 1, 40 do
+				engine.heartbeat:Fire(0.016)
+			end
+			t:expect(travel:GetAttribute("FacetTravelMoving")):toBe(false)
+			t:expect(landed):toBe(2)
+		end)
 	end)
 end
