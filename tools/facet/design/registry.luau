@@ -415,7 +415,7 @@ add({
 		if not fs.exists(path) then
 			return nil, failure("not_found", "cannot find " .. Registry.DOCS)
 		end
-		local text = fs.readFileToString(path)
+		local text = string.gsub(fs.readFileToString(path), "\r\n", "\n")
 		local headings: { string } = {}
 		local sections: { [string]: { string } } = {}
 		local current = ""
