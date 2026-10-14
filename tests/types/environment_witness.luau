@@ -9,14 +9,17 @@ local function Screen(): Frame
 	local list = Instance.new("ScrollingFrame")
 	local moved: boolean = UI.scrollTo(list, "top", options)
 	local shown: boolean = UI.scrollToVisible(list, nil, options)
-	local ring: Frame = UI.focusRing(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui)
+	local player = assert(game:GetService("Players").LocalPlayer)
+	local playerGui = player:WaitForChild("PlayerGui")
+	assert(playerGui:IsA("PlayerGui"))
+	local ring: Frame = UI.focusRing(playerGui)
 	UI.focusSection(list)
 	local responder = UI.responder(list, { passive = true, gameplayGuard = false, traversalWrap = false })
 	responder.engage()
 	local drag: Facet.DraggableSpec = { payload = "card", armOnTap = true, statusLabels = false }
 	UI.draggable(list, drag)
 	local drop: Facet.DropTargetSpec = {
-		onDrop = function(payload: any, info: Facet.DropInfo)
+		onDrop = function(payload: unknown, info: Facet.DropInfo)
 			print(payload, info.mode)
 		end,
 	}
@@ -25,14 +28,14 @@ local function Screen(): Frame
 		onAdjust = function(direction: number)
 			print(direction)
 		end,
-		axis = "vertical" :: "vertical",
+		axis = "vertical",
 		repeats = true,
 	}
 	UI.adjustable(list, dial)
 	local kind: Facet.HapticKind = "success"
 	UI.feedback(kind)
 	return UI.Screen({
-		ring :: any,
+		ring,
 		UI.Text({
 			text = function(use: Facet.Use): string
 				return `{use(env.sizeClass)} {moved} {shown} {use(anchor.anchor) ~= nil} {use(responder.state)}`

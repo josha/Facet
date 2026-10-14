@@ -2,23 +2,24 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
-type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
 local Facet = require("../../src")
 local Compose: ComposeModule = Facet.Compose
 local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 local UI = Facet.controls(runtime)
-local gap = Compose.cell("s" :: Facet.Space)
-local width: Facet.Cell<Facet.Extent> = Compose.cell("fill" :: Facet.Extent)
+local Host = Facet.host(runtime)
+local small: Facet.Space = "s"
+local fill: Facet.Extent = "fill"
+local gap = Compose.cell(small)
+local width: Facet.Cell<Facet.Extent> = Compose.cell(fill)
 local visible = Compose.cell(true)
 local maximum = Compose.cell(480)
 local stackProps: Facet.StackProps =
-	{ Name = "Toolbar", maxWidth = 480, gap = "m", padding = { left = "xs", top = 4 }, align = "center" :: "center" }
+	{ Name = "Toolbar", maxWidth = 480, gap = "m", padding = { left = "xs", top = 4 }, align = "center" }
 local screen: Frame = UI.Screen({
 	maxWidth = 640,
 	gap = gap,
 	padding = "l",
-	distribute = "spaceBetween" :: "spaceBetween",
+	distribute = "spaceBetween",
 	UI.Text({ text = "Title" }),
 })
 local named: Frame = UI.Screen({ Name = "Home", padding = 0 })
@@ -33,20 +34,18 @@ local column: Frame = UI.VStack({
 	UI.Button({ label = "Save" }),
 })
 local row: Frame = UI.HStack(stackProps)
-local adaptiveProps: Facet.AdaptiveStackProps = { maxWidth = maximum, gap = "s", axis = "x" :: "x" }
+local adaptiveProps: Facet.AdaptiveStackProps = { maxWidth = maximum, gap = "s", axis = "x" }
 local adaptive: Frame = UI.AdaptiveStack(adaptiveProps)
-local fits: Frame =
-	UI.ViewThatFits({ maxWidth = 480, UI.Text({ text = "Wide" }) :: unknown, UI.Text({ text = "Narrow" }) })
-local layers: Frame =
-	UI.ZStack({ maxWidth = maximum, alignH = "center" :: "center", alignV = "end" :: "end", padding = "s" })
+local fits: Frame = UI.ViewThatFits({ maxWidth = 480, UI.Text({ text = "Wide" }), UI.Text({ text = "Narrow" }) })
+local layers: Frame = UI.ZStack({ maxWidth = maximum, alignH = "center", alignV = "end", padding = "s" })
 local page: ScrollingFrame = UI.ScrollView({
 	maxWidth = 640,
-	axis = "y" :: "y",
+	axis = "y",
 	gap = "s",
-	align = "stretch" :: "stretch",
+	align = "stretch",
 	ScrollBarThickness = 6,
 })
-local sideways: ScrollingFrame = UI.ScrollView({ Name = "Rail", axis = "x" :: "x" })
+local sideways: ScrollingFrame = UI.ScrollView({ Name = "Rail", axis = "x" })
 local grid: Frame = UI.Grid({
 	maxWidth = 640,
 	columns = 3,
@@ -54,7 +53,7 @@ local grid: Frame = UI.Grid({
 	rowGap = 4,
 	cellHeight = 60,
 	aspectRatio = 1,
-	align = "center" :: "center",
+	align = "center",
 })
 local guarded: Frame = UI.ErrorBoundary({
 	Name = "Region",
@@ -62,46 +61,45 @@ local guarded: Frame = UI.ErrorBoundary({
 		return use(maximum)
 	end,
 	view = function()
-		return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+		return Host.Frame({})
 	end,
 	fallback = function(failure: unknown, retry: () -> ())
-		return ((runtime.constructors.TextButton :: unknown) :: TextButtonConstructor)({
+		return Host.TextButton({
 			Text = tostring(failure),
 			Activated = retry,
 		})
 	end,
 	onError = function(_failure: unknown) end,
-	width = "fill" :: "fill",
+	width = "fill",
 })
 local flexible: UIFlexItem = UI.fill()
 local weighted: UIFlexItem = UI.fill(2)
 local padding: Facet.Padding = { right = "xl" }
-local extent: Facet.Extent = "hug" :: "hug"
+local extent: Facet.Extent = "hug"
 local props: Facet.ScreenProps = { padding = padding, width = extent }
-local zProps: Facet.ZStackProps = { alignH = "start" :: "start" }
-local scrollProps: Facet.ScrollViewProps = { axis = "xy" :: "xy" }
+local zProps: Facet.ZStackProps = { alignH = "start" }
+local scrollProps: Facet.ScrollViewProps = { axis = "xy" }
 local gridProps: Facet.GridProps = { columns = 2 }
-local dividerProps: Facet.DividerProps =
-	{ axis = "x" :: "x", thickness = "strokes.hairline", appearance = "strong" :: "strong" }
+local dividerProps: Facet.DividerProps = { axis = "x", thickness = "strokes.hairline", appearance = "strong" }
 local divider: Frame = UI.Divider(dividerProps)
 local spacerProps: Facet.SpacerProps = { minLength = "m" }
 local spacer: Frame = UI.Spacer(spacerProps)
-local adaptive: Frame = UI.AdaptiveStack({ axis = "x" :: "x", gap = "s" })
-local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Long" }) :: unknown, UI.Text({ text = "L" }) })
+local adaptive: Frame = UI.AdaptiveStack({ axis = "x", gap = "s" })
+local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Long" }), UI.Text({ text = "L" }) })
 local chosen: Facet.Cell<number> = Compose.cell(1)
 local region: Frame = UI.Region({
 	Name = "Tasks",
-	zone = "left" :: "left",
+	zone = "left",
 	rank = 2,
 	mayDrop = true,
 	form = chosen,
 	expand = function(): Instance
 		return UI.Text({ text = "Win a round" })
 	end,
-	UI.Text({ text = "Tasks" }) :: unknown,
+	UI.Text({ text = "Tasks" }),
 	UI.Text({ text = "1/3" }),
 })
-local hud: Frame = UI.Composition({ Name = "Hud", gap = "s", padding = "m", topbar = visible, region :: unknown })
+local hud: Frame = UI.Composition({ Name = "Hud", gap = "s", padding = "m", topbar = visible, region })
 return {
 	adaptive = adaptive,
 	fits = fits,

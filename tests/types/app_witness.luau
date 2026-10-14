@@ -19,7 +19,7 @@ local function Counter(): Frame
 			text = function(use: Facet.Use): string
 				return `Clicked {use(count)} times`
 			end,
-		}) :: unknown,
+		}),
 		UI.Button({
 			label = "Add one",
 			onActivate = function()

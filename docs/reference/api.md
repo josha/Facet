@@ -1873,8 +1873,8 @@ menus keep the control-specific navigation of the menu.
 - `trigger` attaches the menu to a node that you make. The node can be any
   GuiObject, or a function that returns one. Menu returns that same node, with
   the input actions and the overlay of the menu attached. Menu adds no wrapper,
-  so the layout does not change. The other native properties of the spec, and a
-  constructor name, apply to the trigger node. Give `label` and Menu makes a
+  so the layout does not change. The other native properties of the spec,
+  `Name` included, apply to the trigger node. Give `label` and Menu makes a
   plain Button trigger in a `Menu` frame. `label` and `trigger` together cause
   an error.
 - A secondary-click menu opens at the pointer, clamped to the available screen.
@@ -2240,7 +2240,8 @@ Back and Show detail controls. A gamepad at near viewing distance can use both
 panes.
 
 ```luau
-local column = Compose.cell("sidebar" :: "sidebar" | "detail")
+local first: "sidebar" | "detail" = "sidebar"
+local column = Compose.cell(first)
 local width = Compose.cell(360)
 UI.NavigationSplitView {
     preferredCompactColumn = column,
@@ -4537,14 +4538,13 @@ While the source is held it has the `facet-drag-held` tag and the
 stays as the empty slot until the drop lands or the source goes back.
 
 ```lua
-UI.draggable(card, { payload = { kind = "sponsor", id = 7 } })
+local sponsors: { [unknown]: number } = {}
+local sponsor = { kind = "sponsor", id = 7 }
+sponsors[sponsor] = sponsor.id
+UI.draggable(card, { payload = sponsor })
 UI.dropTarget(slot, {
 	accepts = function(payload: unknown)
-		if type(payload) ~= "table" then
-			return false, "WRONG_KIND"
-		end
-		local data = payload :: { kind: unknown, id: unknown }
-		if data.kind ~= "sponsor" or type(data.id) ~= "number" then
+		if sponsors[payload] == nil then
 			return false, "WRONG_KIND"
 		end
 		return true

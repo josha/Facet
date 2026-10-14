@@ -11,12 +11,14 @@ type Use = <T>(Facet.Readable<T>) -> T
 local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 local UI = Facet.controls(runtime)
 local themeBase = Facet.themes.neutralPackage()
-themeBase.chrome = { control = { kind = "native" } } :: { [string]: FixtureThemeTypes.SkinLayer }
+local chrome: { [string]: FixtureThemeTypes.SkinLayer } = { control = { kind = "native" } }
+themeBase.chrome = chrome
 local themeDefinition: FixtureThemeTypes.ThemeDefinition =
 	{ base = themeBase, chrome = { control = { contentInsets = { left = 8 } } } }
 local theme = assert(Facet.themes.define(themeDefinition))
+local noTransition: (TweenInfo | false)? = nil
 local themeSheet: StyleSheet =
-	Facet.themes.createStyleSheet(runtime, theme, { transition = Compose.cell(nil :: (TweenInfo | false)?) })
+	Facet.themes.createStyleSheet(runtime, theme, { transition = Compose.cell(noTransition) })
 local enabled = Compose.cell(true)
 local text = Compose.cell("Amber")
 local value = Compose.cell(0.5)
@@ -29,11 +31,13 @@ local function guiContent(): GuiObject
 	return UI.Text({ text = "Content" })
 end
 local function nothing() end
+local noAppearance: string? = nil
+local noSize: ("xsmall" | "compact" | "regular" | "large")? = nil
 local button: TextButton = UI.Button({
-	appearance = Compose.cell(nil :: string?),
+	appearance = Compose.cell(noAppearance),
 	label = text,
 	enabled = enabled,
-	controlSize = Compose.cell(nil :: ("xsmall" | "compact" | "regular" | "large")?),
+	controlSize = Compose.cell(noSize),
 	Size = UDim2.fromOffset(200, 44),
 	Visible = function(use: Use): boolean
 		return use(enabled)
@@ -56,10 +60,11 @@ local input: TextBox | Frame = UI.TextInput({
 		text:set(nextValue .. reason)
 	end,
 })
+local noDraft: Facet.CellDraft? = nil
 local cellEditor: Frame = UI.CellEditor({
-	editor = "text" :: "text",
+	editor = "text",
 	value = text,
-	draft = Compose.cell(nil :: Facet.CellDraft?),
+	draft = Compose.cell(noDraft),
 	validate = function(nextValue: unknown): string?
 		return if nextValue == "" then "Required" else nil
 	end,
@@ -81,31 +86,29 @@ local level: TextButton = UI.LevelPicker({ value = value })
 local chip: GuiObject = UI.Chip({ label = "Amber", selected = enabled })
 local shortcut: GuiObject = UI.ShortcutHint({ keys = { { "Ctrl", "K" } } })
 local label: GuiObject = UI.Text({ text = text })
-local textProps: Facet.TextProps =
-	{ text = "Ready", textSize = "caption" :: "caption", role = "secondary" :: "secondary" }
+local textProps: Facet.TextProps = { text = "Ready", textSize = "caption", role = "secondary" }
 local sized: GuiObject = UI.Text(textProps)
-local labelProps: Facet.LabelProps =
-	{ title = text, icon = "checkmark", presentation = "iconOnly" :: "iconOnly", iconSize = 20 }
+local labelProps: Facet.LabelProps = { title = text, icon = "checkmark", presentation = "iconOnly", iconSize = 20 }
 local titled: GuiObject = UI.Label(labelProps)
 local imageProps: Facet.ImageProps = {
 	image = "rbxassetid://1",
-	scaleMode = "tile" :: "tile",
+	scaleMode = "tile",
 	tileSize = { width = 16, height = 16 },
-	resample = "pixelated" :: "pixelated",
+	resample = "pixelated",
 }
 local picture: GuiObject = UI.Image(imageProps)
-local badgeProps: Facet.BadgeProps = { label = "Ready", status = "success" :: "success" }
+local badgeProps: Facet.BadgeProps = { label = "Ready", status = "success" }
 local badge: GuiObject = UI.Badge(badgeProps)
-local statusProps: Facet.StatusIndicatorProps = { status = "success" :: "success" }
+local statusProps: Facet.StatusIndicatorProps = { status = "success" }
 local status: GuiObject = UI.StatusIndicator(statusProps)
-local pathProps: Facet.PathProps = { points = Facet.pathShapes.arc(0, 90), role = "accent" :: "accent", thickness = 2 }
+local pathProps: Facet.PathProps = { points = Facet.pathShapes.arc(0, 90), role = "accent", thickness = 2 }
 local path: Frame = UI.Path(pathProps)
 local escaped: string = Facet.richText.escape("<b>")
 local progress: GuiObject = UI.ProgressView({ value = value, min = 0, max = 1 })
-local skeletonProps: Facet.SkeletonProps = { form = "line" :: "line" }
+local skeletonProps: Facet.SkeletonProps = { form = "line" }
 local skeleton: GuiObject = UI.Skeleton(skeletonProps)
 local image: GuiObject = UI.AsyncImage({ image = "rbxassetid://123" })
-local avatarProps: Facet.AvatarProps = { name = "Alder", presence = "online" :: "online" }
+local avatarProps: Facet.AvatarProps = { name = "Alder", presence = "online" }
 local avatar: GuiObject = UI.Avatar(avatarProps)
 local avatars: GuiObject = UI.AvatarGroup({ items = { { id = "a", name = "Alder" } } })
 local stage: ViewportFrame = UI.Stage({ fieldOfView = 60 })
@@ -113,7 +116,7 @@ local pageCell = Compose.cell(1)
 local paginationProps: Facet.PaginationSpec = {
 	page = pageCell,
 	pageCount = 12,
-	form = "numbers" :: "numbers",
+	form = "numbers",
 	onChange = function(nextPage: number)
 		pageCell:set(nextPage)
 	end,
@@ -154,7 +157,8 @@ local cardProps: Facet.CardSpec = {
 }
 local card: Frame = UI.Card(cardProps)
 local sealed: Frame = UI.badged(UI.Button({ label = "Inbox" }), 3)
-local raceDay = Compose.cell({ year = 2026, month = 10, day = 4 } :: Facet.CivilDate?)
+local firstRace: Facet.CivilDate? = { year = 2026, month = 10, day = 4 }
+local raceDay = Compose.cell(firstRace)
 local datePicker: GuiObject = UI.DateTimePicker({
 	label = "Race day",
 	value = raceDay,
@@ -175,6 +179,8 @@ local colorProps: Facet.ColorPickerProps = {
 local colorPicker: Frame = UI.ColorPicker(colorProps)
 local civilDay: Facet.CivilDate? = Facet.civilDate.parse("09/03/2026")
 local dialogOpen = Compose.cell(false)
+local leaveActions: { Facet.DialogAction } =
+	{ { id = "Leave", label = "Leave", role = "destructive", onActivate = nothing } }
 local dialogProps: Facet.DialogSpec = {
 	isPresented = dialogOpen,
 	onPresentedChange = function(nextValue: boolean)
@@ -182,8 +188,8 @@ local dialogProps: Facet.DialogSpec = {
 	end,
 	title = text,
 	content = content,
-	actions = { { id = "Leave", label = "Leave", role = "destructive" :: "destructive", onActivate = nothing } },
-	width = "narrow" :: "narrow",
+	actions = leaveActions,
+	width = "narrow",
 }
 local dialog: Frame = UI.Dialog(dialogProps)
 local popoverOpen = Compose.cell(false)
@@ -193,14 +199,14 @@ local popoverProps: Facet.PopoverSpec = {
 		popoverOpen:set(nextValue)
 	end,
 	source = { rect = { x = 0, y = 0, w = 40, h = 40 } },
-	edge = "trailing" :: "trailing",
+	edge = "trailing",
 	content = content,
 }
 local popover: GuiObject = UI.Popover(popoverProps)
 local noticeProps: Facet.NoticeSpec = {
 	message = text,
-	severity = "warning" :: "warning",
-	placement = "affixed" :: "affixed",
+	severity = "warning",
+	placement = "affixed",
 	onDismiss = nothing,
 }
 local notice: Frame = UI.Notice(noticeProps)
@@ -220,8 +226,8 @@ local snackbar: Frame = UI.Toast(snackbarProps)
 local toastProps: Facet.ToastSpec = {
 	message = "Saved",
 	key = "save",
-	position = "bottom" :: "bottom",
-	width = "hug" :: "hug",
+	position = "bottom",
+	width = "hug",
 	onDismiss = function(
 		reason: "timeout" | "supersede" | "preempt" | "capacity" | "manual" | "action" | "close" | "cancel"
 	)
@@ -243,8 +249,10 @@ local combo: GuiObject = UI.ComboBox({
 local tabs: GuiObject =
 	UI.TabView({ selection = selected, tabs = { { id = "home", label = "Home", content = content } } })
 local pages: GuiObject = UI.PageView({ selection = selected, pages = { { id = "home", content = content } } })
+local startColumn: "sidebar" | "detail" = "sidebar"
+local entries: Facet.Cell<{ { id: string, value: string? } }> = Compose.cell({})
 local split: GuiObject = UI.NavigationSplitView({
-	axis = "y" :: "y",
+	axis = "y",
 	resizable = Compose.cell(true),
 	alwaysShowResizeHandle = true,
 	sidebarHeight = Compose.cell(240),
@@ -254,54 +262,58 @@ local split: GuiObject = UI.NavigationSplitView({
 	compactHeight = 320,
 	sidebar = content,
 	detail = content,
-	preferredCompactColumn = Compose.cell("sidebar" :: "sidebar" | "detail"),
+	preferredCompactColumn = Compose.cell(startColumn),
 	sidebarWidth = Compose.cell(360),
 })
 local stack: GuiObject = UI.NavigationStack({
-	path = Compose.cell({} :: { { id: string, value: string? } }),
+	path = entries,
 	root = { title = "Home", content = content },
 	destinations = {},
 })
 local radial: GuiObject = UI.RadialMenu({ items = items, holdAction = Instance.new("InputAction") })
 local nestedRadial: GuiObject = UI.RadialMenu({ items = require("./radial_witness") })
+local okActions: { AlertAction } = { { id = "ok", label = "OK" } }
 local alert: GuiObject = UI.Alert({
 	isPresented = expanded,
 	title = Compose.cell("Save"),
 	message = Compose.formula(function()
 		return "Save changes"
 	end),
-	actions = {
-		{ id = "ok", label = "OK" } :: AlertAction,
-	},
+	actions = okActions,
 })
-local sheet: GuiObject = UI.Sheet({ isPresented = expanded, detent = Compose.cell("large"), content = content })
+local sheet: GuiObject = UI.Sheet({ isPresented = expanded, detent = "large", content = content })
 local disclosure: GuiObject = UI.DisclosureGroup({ expanded = expanded, content = content })
 local outline: GuiObject = UI.DisclosureGroup({
 	expanded = expanded,
 	content = content,
-	appearance = "outline" :: "outline",
+	appearance = "outline",
 	textSize = "label",
-	indent = "m" :: "m",
+	indent = "m",
 })
 local sideSheet: GuiObject = UI.Sheet({
 	isPresented = expanded,
 	detent = Compose.cell("large"),
 	content = content,
-	placement = "adaptive" :: "adaptive",
+	placement = "adaptive",
 })
+local noIndicator: ("automatic" | "pill" | "underline" | "none")? = nil
+local noWidth: number? = nil
+local noBadge: (string | number)? = nil
+local compactTabList: { Facet.Tab } =
+	{ { id = "home", label = "Home", content = content, badge = Compose.cell(noBadge) } }
 local compactTabs: GuiObject = UI.TabView({
 	selection = selected,
-	controlSize = "xsmall" :: "xsmall",
-	indicator = Compose.cell(nil :: ("automatic" | "pill" | "underline" | "none")?),
-	railWidth = Compose.cell(nil :: number?),
-	tabs = { { id = "home", label = "Home", content = content, badge = Compose.cell(nil :: (string | number)?) } },
+	controlSize = "xsmall",
+	indicator = Compose.cell(noIndicator),
+	railWidth = Compose.cell(noWidth),
+	tabs = compactTabList,
 })
 local toolbarPicker: GuiObject = UI.Picker({
 	selected = selected,
-	style = "menu" :: "menu",
+	style = "menu",
 	label = "Motion",
-	valueAlignment = "start" :: "start",
-	sizing = "hug" :: "hug",
+	valueAlignment = "start",
+	sizing = "hug",
 	options = { { value = "home", label = "Home" } },
 })
 local collapsible: GuiObject = UI.CollapsibleView({ expanded = expanded, content = content })
@@ -338,8 +350,8 @@ local tableView: GuiObject = UI.Table({
 	},
 })
 type TreeRow = { id: string, title: string, children: { TreeRow }? }
-local treeRows = Compose.cell({} :: { TreeRow })
-local openKeys = Compose.cell({} :: { [string]: boolean })
+local treeRows: Facet.Cell<{ TreeRow }> = Compose.cell({})
+local openKeys: Facet.Cell<{ [string]: boolean }> = Compose.cell({})
 local outline: ScrollingFrame = UI.Outline {
 	from = treeRows,
 	key = "id",
@@ -377,18 +389,19 @@ local fieldTable: GuiObject = UI.Table({
 	},
 })
 local actions: GuiObject = UI.RowActions({
-	actionPlacement = "bottom" :: "bottom",
+	actionPlacement = "bottom",
 	content = guiContent,
 	trailing = { { id = "save", label = "Save", onActivate = nothing } },
 })
 local ownedImage: Frame = UI.AsyncImage({
 	resource = function(): Facet.ImageResource
 		Compose.cleanup(nothing)
-		return { value = text, state = "ready" :: "ready" }
+		return { value = text, state = "ready" }
 	end,
 })
-local clearedAdornee = Compose.cell(nil :: Instance?)
-local Host = (runtime.constructors :: unknown) :: RobloxHost
+local noAdornee: Instance? = nil
+local clearedAdornee = Compose.cell(noAdornee)
+local Host = Facet.host(runtime)
 local surface: SurfaceGui = Host.SurfaceGui({ Adornee = clearedAdornee })
 local mounted: { GuiObject } = {
 	ownedImage,

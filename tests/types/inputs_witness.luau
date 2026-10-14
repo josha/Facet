@@ -25,8 +25,8 @@ return function(UI: InputsControls.Controls, action: InputAction): ()
 	local field: GuiObject = UI.TextInput({
 		value = text,
 		label = "Name",
-		requiredMark = "required" :: "required",
-		selectOnFocus = "all" :: "all",
+		requiredMark = "required",
+		selectOnFocus = "all",
 		onCommit = function(nextText, reason)
 			local commit: Inputs.TextCommitReason = reason
 			if commit == "submit" then
@@ -49,7 +49,7 @@ return function(UI: InputsControls.Controls, action: InputAction): ()
 	})
 	local numeric: GuiObject = UI.TextInput({
 		value = text,
-		presentation = "number" :: "number",
+		presentation = "number",
 		numericValue = laps,
 		onCommit = function(committed, _)
 			laps:set(committed)
@@ -65,8 +65,8 @@ return function(UI: InputsControls.Controls, action: InputAction): ()
 			value:set(nextValue)
 		end,
 	})
-	local rating: TextButton = UI.Rating({ value = 3, readOnly = true :: true })
-	local level: TextButton = UI.LevelPicker({ value = value, segment = "bar" :: "bar" })
+	local rating: TextButton = UI.Rating({ value = 3, readOnly = true })
+	local level: TextButton = UI.LevelPicker({ value = value, segment = "bar" })
 	local chip: GuiObject = UI.Chip({
 		selected = checked,
 		onRemove = function() end,
@@ -84,12 +84,12 @@ return function(UI: InputsControls.Controls, action: InputAction): ()
 		end,
 	})
 	local link: TextButton =
-		UI.Button({ label = "Terms", appearance = "inverse", underline = "hover" :: "hover", textSize = "label" })
+		UI.Button({ label = "Terms", appearance = "inverse", underline = "hover", textSize = "label" })
 	local plain: TextButton = UI.Toggle({
 		value = checked,
-		presentation = "checkbox" :: "checkbox",
+		presentation = "checkbox",
 		appearance = "plain",
-		controlSize = "xsmall" :: "xsmall",
+		controlSize = "xsmall",
 		textSize = 14,
 	})
 	link.Visible = true
