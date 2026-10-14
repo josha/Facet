@@ -1117,6 +1117,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			table.insert(p, contentFrame)
 		end
+		local captionFits = Compose.cell(true)
 		local keyboardAttached = false
 		local function attachKeyboard()
 			ctx.action(
@@ -1183,7 +1184,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							Compose.watch(function(use: ComposeTypes.Use)
 								use(box)
 								use(fits)
-								local width, whole = node.AbsoluteSize.X, node.TextFits
+								local width, whole = node.AbsoluteSize.X, node.TextFits and use(captionFits)
 								local metrics = `{width}|{use(words)}|{use(points)}|{use(face)}`
 								if metrics ~= measured and node:HasTag("facet-button-tight") then
 									measured = metrics
@@ -1316,14 +1317,14 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					TextTruncate = ctx.observeStyled.TextTruncate(node),
 					LineHeight = ctx.observeStyled.LineHeight(node),
 				}
-				local boundary = decoration(
-					Compose,
-					runtime,
-					ctx.types,
-					node,
-					ctx.styled(ctx.text(labelProps), "button-caption"),
-					{ inset = true }
-				)
+				local label = ctx.styled(ctx.text(labelProps), "button-caption")
+				local fits, size = ctx.observe.TextFits(label), ctx.observe.AbsoluteSize(label)
+				Compose.watch(function(use: ComposeTypes.Use)
+					use(size)
+					use(fits)
+					captionFits:set(not needsCaption(use) or label.TextFits)
+				end)
+				local boundary = decoration(Compose, runtime, ctx.types, node, label, { inset = true })
 				Compose.watch(function(use: ComposeTypes.Use)
 					local visible = needsCaption(use)
 					boundary.Visible = visible

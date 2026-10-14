@@ -77,6 +77,18 @@ return function(verifyHarness: Verify.Harness)
 			if node.Parent == nil or node:isDestroyed() then
 				continue
 			end
+			local visible = true
+			local ancestor = node
+			while ancestor do
+				if ancestor:IsA("GuiObject") and not ancestor.Visible then
+					visible = false
+					break
+				end
+				ancestor = ancestor.Parent
+			end
+			if not visible then
+				continue
+			end
 			local ok, problem = pcall(function()
 				if node:IsA("TextBox") then
 					node.Text = "Probe"
