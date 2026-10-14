@@ -92,60 +92,51 @@ local function unfilter(raw: buffer, stride: number, height: number, bpp: number
 	return out
 end
 
-local function residual(
-	pixels: buffer,
-	row: number,
-	x: number,
-	y: number,
-	stride: number,
-	bpp: number,
-	filter: number
-): number
-	local value = buffer.readu8(pixels, row + x)
-	if filter == 0 then
-		return value
-	end
-	local left = if x >= bpp then buffer.readu8(pixels, row + x - bpp) else 0
-	local up = if y > 0 then buffer.readu8(pixels, row - stride + x) else 0
-	local predicted
-	if filter == 1 then
-		predicted = left
-	elseif filter == 2 then
-		predicted = up
-	elseif filter == 3 then
-		predicted = (left + up) // 2
-	else
-		local corner = if x >= bpp and y > 0 then buffer.readu8(pixels, row - stride + x - bpp) else 0
-		predicted = paeth(left, up, corner)
-	end
-	return bit32.band(value - predicted, 0xFF)
-end
-
 local function filterRows(pixels: buffer, width: number, height: number, bpp: number): buffer
 	local stride = width * bpp
 	local out = buffer.create((stride + 1) * height)
+	local candidates = { buffer.create(stride), buffer.create(stride), buffer.create(stride), buffer.create(stride) }
 	for y = 0, height - 1 do
 		local row = y * stride
-		local best = 0
-		local bestCost = math.huge
-		for filter = 0, 4 do
-			local cost = 0
-			for x = 0, stride - 1 do
-				local value = residual(pixels, row, x, y, stride, bpp, filter)
-				cost += if value < 128 then value else 256 - value
-				if cost >= bestCost then
-					break
-				end
-			end
+		local above = row - stride
+		local sub, upLine, average, predictor = candidates[1], candidates[2], candidates[3], candidates[4]
+		local c0, c1, c2, c3, c4 = 0, 0, 0, 0, 0
+		for x = 0, stride - 1 do
+			local value = buffer.readu8(pixels, row + x)
+			local left = if x >= bpp then buffer.readu8(pixels, row + x - bpp) else 0
+			local up = if y > 0 then buffer.readu8(pixels, above + x) else 0
+			local corner = if x >= bpp and y > 0 then buffer.readu8(pixels, above + x - bpp) else 0
+			local p = left + up - corner
+			local pa = math.abs(p - left)
+			local pb = math.abs(p - up)
+			local pc = math.abs(p - corner)
+			local predicted = if pa <= pb and pa <= pc then left elseif pb <= pc then up else corner
+			local r1 = bit32.band(value - left, 0xFF)
+			local r2 = bit32.band(value - up, 0xFF)
+			local r3 = bit32.band(value - (left + up) // 2, 0xFF)
+			local r4 = bit32.band(value - predicted, 0xFF)
+			buffer.writeu8(sub, x, r1)
+			buffer.writeu8(upLine, x, r2)
+			buffer.writeu8(average, x, r3)
+			buffer.writeu8(predictor, x, r4)
+			c0 += if value < 128 then value else 256 - value
+			c1 += if r1 < 128 then r1 else 256 - r1
+			c2 += if r2 < 128 then r2 else 256 - r2
+			c3 += if r3 < 128 then r3 else 256 - r3
+			c4 += if r4 < 128 then r4 else 256 - r4
+		end
+		local best, bestCost = 0, c0
+		for filter, cost in { c1, c2, c3, c4 } do
 			if cost < bestCost then
-				bestCost = cost
-				best = filter
+				best, bestCost = filter, cost
 			end
 		end
 		local target = y * (stride + 1)
 		buffer.writeu8(out, target, best)
-		for x = 0, stride - 1 do
-			buffer.writeu8(out, target + 1 + x, residual(pixels, row, x, y, stride, bpp, best))
+		if best == 0 then
+			buffer.copy(out, target + 1, pixels, row, stride)
+		else
+			buffer.copy(out, target + 1, candidates[best], 0, stride)
 		end
 	end
 	return out
