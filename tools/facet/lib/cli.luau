@@ -1,6 +1,7 @@
 --!strict
 
 local json = require("@std/json")
+local Case = require("./case")
 
 export type Flags = { [string]: string | boolean }
 
@@ -16,6 +17,7 @@ export type Command = {
 	summary: string,
 	usage: string,
 	values: { string }?,
+	cases: (() -> { Case.Case })?,
 	run: (Invocation) -> number,
 }
 
@@ -147,6 +149,9 @@ function Cli.main(commands: { Command }, arguments: { string }): number
 			if table.find(rest, "--help") ~= nil then
 				print(command.usage)
 				return 0
+			end
+			if command.cases ~= nil and #rest == 1 and rest[1] == "--selftest" then
+				return Case.report(command.name, command.cases)
 			end
 			local forwarded: { string } = { name }
 			for _, argument in rest do

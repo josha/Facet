@@ -720,6 +720,14 @@
         "local-luau",
         "lute"
       ]
+    },
+    {
+      "id": "tools/commands",
+      "locator": "tests/tools/commands.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
     }
   ]
 }

@@ -1,5 +1,6 @@
 --!strict
 
+local Case = require("./case")
 local Cli = require("./cli")
 local Files = require("./files")
 
@@ -8,10 +9,7 @@ export type Context = {
 	path: (relative: string) -> string,
 }
 
-export type Case = {
-	name: string,
-	run: () -> string?,
-}
+export type Case = Case.Case
 
 export type Action = {
 	summary: string,
@@ -27,7 +25,7 @@ export type Rule = {
 	values: { string }?,
 }
 
-export type CaseResult = { name: string, failure: string? }
+export type CaseResult = Case.Result
 
 local Rule = {}
 
@@ -87,24 +85,7 @@ function Rule.describe(findings: { string }): string
 end
 
 function Rule.runCases(rule: Rule): { CaseResult }
-	local results: { CaseResult } = {}
-	if rule.cases == nil then
-		return results
-	end
-	local built, cases = pcall(rule.cases)
-	if not built then
-		table.insert(results, { name = "cases", failure = "could not build cases: " .. tostring(cases) })
-		return results
-	end
-	for _, case in cases :: { Case } do
-		local ok, failure = pcall(case.run)
-		if not ok then
-			table.insert(results, { name = case.name, failure = "raised: " .. tostring(failure) })
-		else
-			table.insert(results, { name = case.name, failure = failure })
-		end
-	end
-	return results
+	return Case.run(rule.cases)
 end
 
 function Rule.report(rule: Rule, findings: { string }): number
@@ -116,22 +97,7 @@ function Rule.report(rule: Rule, findings: { string }): number
 end
 
 function Rule.selftest(rule: Rule): number
-	local results = Rule.runCases(rule)
-	local failed = 0
-	for _, result in results do
-		if result.failure ~= nil then
-			failed += 1
-			print(("  [FAIL] %s: %s"):format(result.name, result.failure))
-		else
-			print(("  [ ok ] %s"):format(result.name))
-		end
-	end
-	if #results == 0 then
-		print(("%s selftest: FAIL (no cases)"):format(rule.name))
-		return 1
-	end
-	print(("%s selftest: %s (%d cases)"):format(rule.name, if failed == 0 then "PASS" else "FAIL", #results))
-	return if failed == 0 then 0 else 1
+	return Case.report(rule.name, rule.cases)
 end
 
 function Rule.safeCheck(rule: Rule, context: Context): { string }
