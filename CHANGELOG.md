@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Luau generators in `tools/facet/art/` make the standard icons and the
+  procedural reference theme art. `lute run tools/facet art <target>` writes
+  each PNG whose pixels changed, and `--check` compares every pixel with the
+  committed files. `lute run tools/facet art sample` writes
+  `assets/themes/plate-samples.json`. `lute run tools/facet icons upload`
+  uploads icons through Open Cloud. It reads the API key only from
+  `ROBLOX_API_KEY`, and `--dry-run` prints the requests. The Python
+  generators, `tools/sample_plates.py` and `tools/upload_icons.py` are
+  removed. The committed package PNGs and asset IDs did not change.
+
 - ColorPicker opens with fewer native objects and mounts Bricks on its first
   visit. Spectrum dragging keeps the hue gradient unchanged when only
   saturation and value change. Hidden grids skip selection updates.

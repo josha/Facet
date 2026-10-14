@@ -712,6 +712,27 @@
       "requires": [
         "local-luau"
       ]
+    },
+    {
+      "id": "raster_codec",
+      "locator": "tests/raster_codec.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "raster_primitives",
+      "locator": "tests/raster_primitives.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
+      "id": "art_regression",
+      "locator": "tests/art_regression.spec.luau",
+      "requires": [
+        "local-luau"
+      ]
     }
   ]
 }

@@ -47,8 +47,8 @@ SOFTWARE.
 ## 1. Facet's own art: icons and reference theme packages
 
 **Origin.** Generated in this repository by checked-in scripts:
-`assets/icons/source/generate_icons.py` and each
-`assets/themes/<package>/source/generate_art.py`.
+`tools/facet/art/icons.luau` and one module per
+package in `tools/facet/art/`.
 
 **License.** MIT, the same as the rest of Facet. No notice from anyone else is
 required.
@@ -56,7 +56,7 @@ required.
 **Why it is listed anyway.** A reader auditing an image set is entitled to know
 where the pixels came from, and "we drew it" is a claim that should be checkable.
 Every folder carries a `provenance.md` that names the generator, the fixed seed,
-and the fact that re-running reproduces the files byte for byte:
+and the fact that re-running reproduces the files pixel for pixel:
 [`assets/icons/provenance.md`](assets/icons/provenance.md) for the standard icon
 set, and `assets/themes/<package>/provenance.md` for each reference theme package.
 Each of those documents states that the art contains no external imagery, no
