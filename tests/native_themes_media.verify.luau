@@ -1232,7 +1232,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local environment = getfenv(media)
+				local environment = getfenv(require("../src/ui/media_async_image"))
 				local originalTask = environment.task
 				local pending = {}
 				environment.task = {
