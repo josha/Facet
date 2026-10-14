@@ -20,6 +20,8 @@ if __name__ == "__main__":
             "tools/lib/studio-edit.luau",
             "src/gate",
             "src/evidence",
+            "src/agent-eval",
+            "tools/agent-eval.luau",
             "src/benchmark.luau",
             "src/benchmark-store.luau",
             "src/runtime",
