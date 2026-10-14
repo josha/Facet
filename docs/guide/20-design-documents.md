@@ -9,8 +9,8 @@ Facet Design parses the file with the Lute `@std/syntax` parser. Each edit
 replaces only the bytes of the changed entries. Formatting, comments and other
 code stay unchanged.
 
-Run the commands from the repository root with
-[Lute](https://github.com/luau-lang/lute): `lute run tools/facet <command>`.
+Run the commands from the repository root with Lute:
+`lute run tools/facet <command>`.
 
 ## Files
 
