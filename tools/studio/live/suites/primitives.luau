@@ -42,7 +42,8 @@ end
 
 add("screen-padding-and-gap", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		return UI.Screen "Screen" {
+		return UI.Screen {
+			Name = "Screen",
 			padding = "m",
 			gap = "s",
 			box(Host, "A", 10, 10) :: unknown,
@@ -55,7 +56,8 @@ add("screen-padding-and-gap", {}, function(t)
 	t.near("the screen fills its parent width", screen.AbsoluteSize.X, 400, 0.5)
 	t.cleanup()
 	stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		return UI.VStack "Stack" {
+		return UI.VStack {
+			Name = "Stack",
 			gap = "s",
 			padding = "m",
 			box(Host, "A", 20, 20) :: unknown,
@@ -67,7 +69,8 @@ end)
 
 add("grid-cells-and-gaps", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		return UI.Grid "Grid" {
+		return UI.Grid {
+			Name = "Grid",
 			columns = 2,
 			gap = 4,
 			cellHeight = 30,
@@ -91,7 +94,8 @@ add("grid-cells-and-gaps", {}, function(t)
 		for index = 1, 4 do
 			table.insert(cells, box(Host, "Cell" .. index, 0, 30))
 		end
-		return UI.Grid "Grid" {
+		return UI.Grid {
+			Name = "Grid",
 			columns = 3,
 			gap = 6,
 			cellHeight = 30,
@@ -110,7 +114,8 @@ add("grid-cells-and-gaps", {}, function(t)
 		for index = 1, 6 do
 			table.insert(cells, box(Host, "Cell" .. index, 0, 30))
 		end
-		return UI.Grid "Grid" {
+		return UI.Grid {
+			Name = "Grid",
 			columns = 3,
 			rowGap = "m",
 			padding = { left = "xs" },
@@ -131,14 +136,16 @@ add("zstack-alignment", {}, function(t)
 		return Host.Frame "Pair" {
 			Size = UDim2.fromOffset(200, 100),
 			BackgroundTransparency = 1,
-			UI.ZStack "End" {
+			UI.ZStack {
+				Name = "End",
 				width = 200,
 				height = 100,
 				alignH = "end" :: "end",
 				alignV = "start" :: "start",
 				box(Host, "E", 20, 20),
 			} :: unknown,
-			UI.ZStack "Mid" {
+			UI.ZStack {
+				Name = "Mid",
 				width = 200,
 				height = 100,
 				alignH = "center" :: "center",
@@ -158,7 +165,8 @@ add("stack-distribution", {}, function(t)
 	local expected: { [string]: { number } } = { spaceBetween = { 0, 250, 500 }, spaceEvenly = { 75, 250, 425 } }
 	for mode, xs in expected do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-			return UI.HStack "Row" {
+			return UI.HStack {
+				Name = "Row",
 				width = 600,
 				distribute = mode :: "center" | "end" | "spaceAround" | "spaceBetween" | "spaceEvenly" | "start",
 				box(Host, "A", 100, 20) :: unknown,
@@ -173,7 +181,8 @@ add("stack-distribution", {}, function(t)
 		t.cleanup()
 	end
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		return UI.VStack "Column" {
+		return UI.VStack {
+			Name = "Column",
 			height = 300,
 			distribute = "end" :: "end",
 			box(Host, "A", 20, 20) :: unknown,
@@ -191,7 +200,8 @@ end)
 
 add("fill-and-extents", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		return UI.HStack "Row" {
+		return UI.HStack {
+			Name = "Row",
 			width = 600,
 			box(Host, "Fixed", 100, 20) :: unknown,
 			box(Host, "One", 0, 20, { UI.fill() }),
@@ -208,7 +218,7 @@ add("fill-and-extents", {}, function(t)
 		stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame "Parent" {
 				Size = UDim2.fromOffset(400, 200),
-				UI.VStack "Stack" { width = case.width, box(Host, "A", 50, 20) },
+				UI.VStack { Name = "Stack", width = case.width, box(Host, "A", 50, 20) },
 			}
 		end, { size = Vector2.new(500, 300) })
 		t.near(`width {case.width}`, t.find(stage, "Stack").AbsoluteSize.X, case.expected, 0.5)
@@ -217,7 +227,7 @@ add("fill-and-extents", {}, function(t)
 	stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Parent" {
 			Size = UDim2.fromOffset(400, 200),
-			UI.VStack "Stack" { width = "hug" :: "hug", box(Host, "A", 50, 20) },
+			UI.VStack { Name = "Stack", width = "hug" :: "hug", box(Host, "A", 50, 20) },
 		}
 	end, { size = Vector2.new(500, 300) })
 	t.near("width hug", t.find(stage, "Stack").AbsoluteSize.X, 50, 0.5)
@@ -232,7 +242,8 @@ add("scroll-view-canvas-and-stretch", {}, function(t)
 				UI.Text({ Name = "Line" .. index, text = string.rep("Wrapped text ", 6), TextWrapped = true })
 			)
 		end
-		return UI.ScrollView "Scroll" {
+		return UI.ScrollView {
+			Name = "Scroll",
 			width = 240,
 			height = 200,
 			align = "stretch" :: "stretch",

@@ -62,7 +62,8 @@ function Foyer.build(ctx: ExampleContext)
 		end
 	end)
 	local function image(key: string, size: UDim2?)
-		return UI.AsyncImage "Artwork" {
+		return UI.AsyncImage {
+			Name = "Artwork",
 			source = key,
 			Size = size or D2.new(1, 0, 0, 140),
 			failureLabel = "Artwork unavailable",
@@ -87,7 +88,8 @@ function Foyer.build(ctx: ExampleContext)
 		})
 	end
 	local function tiles(items)
-		return UI.VirtualGrid "Worlds" {
+		return UI.VirtualGrid {
+			Name = "Worlds",
 			from = function()
 				return items
 			end,
@@ -107,7 +109,7 @@ function Foyer.build(ctx: ExampleContext)
 	local function feed()
 		return view.page("Feed", {
 			view.text("Foyer", 30),
-			UI.TextInput "Search" { value = query, placeholder = text("search.ph") },
+			UI.TextInput { Name = "Search", value = query, placeholder = text("search.ph") },
 			view.action("Refresh", text("refresh.label"), services.refresh, function(use: Use)
 				return use(services.refreshStatus) ~= "pending"
 			end),
@@ -117,7 +119,8 @@ function Foyer.build(ctx: ExampleContext)
 				services.clearNotices()
 				notifications:set(true)
 			end),
-			UI.Picker "FeedSelection" {
+			UI.Picker {
+				Name = "FeedSelection",
 				selected = tab,
 				options = {
 					{ value = "forYou", label = "For you" } :: PickerOption,
@@ -207,7 +210,8 @@ function Foyer.build(ctx: ExampleContext)
 		return Host.Frame "Foyer" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
-			UI.TabView "Destinations" {
+			UI.TabView {
+				Name = "Destinations",
 				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				selection = destination,
 				Size = D2.new(1, 0, 1, -64),
@@ -232,7 +236,8 @@ function Foyer.build(ctx: ExampleContext)
 							return view.page("Profile", {
 								view.text(text("profile.label"), 28),
 								view.text(text("profile.caption")),
-								UI.Picker "Locale" {
+								UI.Picker {
+									Name = "Locale",
 									selected = locale,
 									options = {
 										{ value = "en", label = "English" } :: PickerOption,
@@ -251,7 +256,8 @@ function Foyer.build(ctx: ExampleContext)
 				Size = D2.new(1, -32, 0, 56),
 				AutomaticSize = ctx.types.Enum.AutomaticSize.None,
 			}),
-			UI.Sheet "WorldDetail" {
+			UI.Sheet {
+				Name = "WorldDetail",
 				title = "World",
 				isPresented = detailOpen,
 				detent = Compose.cell("large"),
@@ -276,7 +282,8 @@ function Foyer.build(ctx: ExampleContext)
 					})
 				end,
 			},
-			UI.Sheet "Section" {
+			UI.Sheet {
+				Name = "Section",
 				title = "Explore worlds",
 				isPresented = sectionOpen,
 				detent = Compose.cell("large"),
@@ -284,13 +291,15 @@ function Foyer.build(ctx: ExampleContext)
 					return tiles(assert(expanded:peek()).tiles)
 				end,
 			},
-			UI.Sheet "Notifications" {
+			UI.Sheet {
+				Name = "Notifications",
 				title = text("notices.title"),
 				isPresented = notifications,
 				detent = Compose.cell("medium"),
 				content = mailbox,
 			},
-			UI.Alert "Invite" {
+			UI.Alert {
+				Name = "Invite",
 				isPresented = invite,
 				title = Compose.formula(text("invite.label")),
 				message = Compose.formula(text("invite.stub")),

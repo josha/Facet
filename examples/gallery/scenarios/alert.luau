@@ -27,7 +27,8 @@ return {
 			return Host.Frame "Alert" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView "Page" {
+				UI.ScrollView {
+					Name = "Page",
 					padding = 16,
 					gap = 16,
 					BackgroundTransparency = 1,
@@ -81,7 +82,8 @@ return {
 						onActivate = reset,
 					}),
 				} :: unknown,
-				UI.Alert "ReplaceSave" {
+				UI.Alert {
+					Name = "ReplaceSave",
 					title = "Replace this save?",
 					severity = "critical" :: "critical",
 					message = "Your current progress will replace the previous checkpoint.",

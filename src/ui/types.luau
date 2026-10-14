@@ -16,7 +16,7 @@ export type ValueString = Engine.ValueString
 export type ValueBoolean = Engine.ValueBoolean
 export type ValueNumber = Engine.ValueNumber
 
-export type Constructor<P, N> = Engine.Constructor<P, N>
+export type Constructor<P, N> = (P) -> N
 export type Host = Engine.Host
 export type Attributes = Engine.Attributes
 export type AttributeValue = Engine.AttributeValue
@@ -26,7 +26,7 @@ export type Playback = typeof(((nil :: unknown) :: Runtime).timeline())
 export type ControlSize = "xsmall" | "compact" | "regular" | "large"
 export type SpaceStep = "xs" | "s" | "m" | "l" | "xl"
 export type Space = number | SpaceStep | string
-export type Sides = { top: Space?, right: Space?, bottom: Space?, left: Space? }
+export type Sides = { top: Space?, right: Space?, bottom: Space?, left: Space?, [string]: nil }
 export type Padding = Space | Sides
 export type Extent = number | "fill" | "hug"
 export type Align = "start" | "center" | "end" | "stretch"
@@ -233,7 +233,7 @@ export type Context = {
 	shiftActivation: (Instance, InputObject?) -> (() -> ())?,
 	playWhileShown: (Playback, Instance) -> (),
 	props: <P>(P, { string } | { [string]: boolean }?, unknown?) -> P,
-	construct: <F>(string, F) -> F & ((string) -> F),
+	construct: <F>(string, F) -> F,
 	styled: <N>(N & Instance, string) -> N & Instance,
 	padding: (number, number) -> UIPadding,
 	round: (ComposeTypes.Use?, UDim?) -> UDim,

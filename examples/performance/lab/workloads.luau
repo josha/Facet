@@ -124,7 +124,8 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 		detailShown:set(true)
 	end
 	function state.disclosure()
-		return UI.Alert "RowDetail" {
+		return UI.Alert {
+			Name = "RowDetail",
 			isPresented = detailShown,
 			title = Compose.formula(function(use: Use)
 				local item = use(opened)
@@ -633,10 +634,10 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			local sheet =
 				ctx.Facet.themes.createStyleSheet(runtime, state.palette, { types = types, theme = state.themeName })
 			state.themeControls = {
-				themed.Text "Head" { text = "Garage", TextSize = 20 },
-				themed.Button "Go" { label = "Go", onActivate = function() end },
-				themed.Toggle "Flag" { label = "Flag", value = Compose.cell(true) },
-				themed.ProgressView "Bar" { value = 0.6 },
+				themed.Text { Name = "Head", text = "Garage", TextSize = 20 },
+				themed.Button { Name = "Go", label = "Go", onActivate = function() end },
+				themed.Toggle { Name = "Flag", label = "Flag", value = Compose.cell(true) },
+				themed.ProgressView { Name = "Bar", value = 0.6 },
 			}
 			state.themeSheet = sheet
 			return stack({

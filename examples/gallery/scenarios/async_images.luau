@@ -50,7 +50,8 @@ return {
 		end
 		return {
 			screen = function()
-				return UI.ScrollView "AsyncImages" {
+				return UI.ScrollView {
+					Name = "AsyncImages",
 					padding = 16,
 					gap = 12,
 					BackgroundTransparency = 1,

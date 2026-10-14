@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -189,8 +190,8 @@ return function(verifyHarness: Verify.Harness)
 			return Host.Frame({
 				Name = "Col",
 				Host.UIListLayout({}) :: unknown,
-				UI.DateTimePicker("P")(full),
-				UI.Button("Other")({ label = "Other" }),
+				UI.DateTimePicker(named("P", full)),
+				UI.Button({ Name = "Other", label = "Other" }),
 			})
 		end, options)
 		w.weekStart = full.weekStart or 1
@@ -973,19 +974,22 @@ return function(verifyHarness: Verify.Harness)
 						return Host.Frame({
 							Name = "Pickers",
 							Host.UIListLayout({}) :: unknown,
-							UI.Toggle("Refuse")({ label = "Refuse changes", value = refuse }),
-							UI.Text("Committed")({
+							UI.Toggle({ Name = "Refuse", label = "Refuse changes", value = refuse }),
+							UI.Text({
+								Name = "Committed",
 								text = function(use: any): string
 									return `Committed: {use(committed)}`
 								end,
 							}),
-							UI.DateTimePicker("RaceDay")({
+							UI.DateTimePicker({
+								Name = "RaceDay",
 								label = "Race day",
 								value = raceDay,
 								onChange = accept(raceDay),
 								clock = clock,
 							}),
-							UI.DateTimePicker("Window")({
+							UI.DateTimePicker({
+								Name = "Window",
 								label = "Season window",
 								selection = "range" :: "range",
 								range = window,
@@ -1117,7 +1121,8 @@ return function(verifyHarness: Verify.Harness)
 				local w = world(function(UI: FacetControls, Host: RobloxHost)
 					local function picker(id: string): any
 						local cell, _, change = caller({ year = 2026, month = 9, day = 16, hour = 9, minute = 30 })
-						return UI.DateTimePicker(id)({
+						return UI.DateTimePicker({
+							Name = id,
 							value = cell,
 							onChange = change,
 							time = true,

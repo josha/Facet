@@ -244,7 +244,8 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					Compose.show(guide, function()
-						return UI.Text "GuideText" {
+						return UI.Text {
+							Name = "GuideText",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -265,7 +266,8 @@ return {
 				return Host.Frame "ShortcutHint" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					UI.ScrollView "Content" {
+					UI.ScrollView {
+						Name = "Content",
 						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),

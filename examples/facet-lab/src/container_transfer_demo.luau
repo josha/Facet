@@ -100,7 +100,8 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 	local cells: { unknown } = {}
 	for slot = 1, 25 do
 		local aim = C.cell(false)
-		local button = UI.Button("BoardSlot" .. slot) {
+		local button = UI.Button {
+			Name = "BoardSlot" .. slot,
 			label = function(use: Use)
 				local tile = use(model).board[slot]
 				local returning = false
@@ -157,7 +158,8 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 		})
 		table.insert(cells, button)
 	end
-	local rack = UI.VirtualGrid "TransferRack" {
+	local rack = UI.VirtualGrid {
+		Name = "TransferRack",
 		from = C.formula(function(use: Use): { Tile }
 			return use(model).rack
 		end),
@@ -300,7 +302,8 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 			Size = D2.fromOffset(396, 44),
 		}
 		else UI.Text { text = "", Visible = false }
-	local content = UI.VStack "ContainerTransfer" {
+	local content = UI.VStack {
+		Name = "ContainerTransfer",
 		gap = "s",
 		UI.Text { text = notice, wrap = true, Size = D2.fromOffset(396, 0) },
 		chat,
@@ -390,7 +393,8 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 		},
 	}
 	if options.scrolled then
-		return UI.ScrollView "TransferScroll" {
+		return UI.ScrollView {
+			Name = "TransferScroll",
 			Size = D2.fromOffset(420, 320),
 			CanvasSize = D2.fromOffset(420, 520),
 			AutomaticCanvasSize = E.AutomaticSize.None,

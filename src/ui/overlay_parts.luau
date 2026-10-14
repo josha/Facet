@@ -2,12 +2,12 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local Overlay = require("./overlay_types")
-local Inputs = require("./input_types")
 local measuredScroll = require("./measured_scroll")
 local scrollLock = require("./scroll_lock")
 local freeze = require("./freeze")
+local InputProps = require("./input_props")
 
-type ButtonFactory = Types.Constructor<Inputs.ButtonProps, TextButton>
+type ButtonFactory = Types.Constructor<InputProps.ButtonProps, TextButton>
 type UIControls = { Button: ButtonFactory }
 type BackPlace = { AnchorPoint: Vector2?, Position: UDim2?, Size: UDim2?, LayoutOrder: number? }
 
@@ -546,7 +546,7 @@ function parts.back(
 	place: BackPlace?
 ): TextButton
 	local at: BackPlace = place or {}
-	local props: Inputs.ButtonProps = {
+	local props: InputProps.ButtonProps = {
 		Name = "Back",
 		label = label or "Back",
 		icon = "chevron.leading",

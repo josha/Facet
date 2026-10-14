@@ -31,10 +31,15 @@ function render.build(value: document.Document, ctx: any, editing: any?): GuiObj
 				table.insert(props, build(child, scope))
 			end
 		end
-		local instance = ctx.UI[node.kind](node.name)(props)
+		props.Name = node.name
+		local instance = ctx.UI[node.kind](props)
 		if definition.anchor then
-			instance =
-				ctx.UI.VStack("__FacetDesignHost_" .. node.id) { gap = "s", state["anchor_" .. node.id], instance }
+			instance = ctx.UI.VStack {
+				Name = "__FacetDesignHost_" .. node.id,
+				gap = "s",
+				state["anchor_" .. node.id],
+				instance,
+			}
 		end
 		if editing then
 			instance:SetAttribute("FacetDesignNode", node.id)

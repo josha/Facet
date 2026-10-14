@@ -4,43 +4,52 @@ local Facet = require(game.ReplicatedStorage.Facet)
 local Compose = Facet.Compose
 
 return function(UI: Facet.Controls, data: { [string]: any }?): GuiObject
-	return UI.Screen "Screen" {
+	return UI.Screen {
+		Name = "Screen",
 		gap = "m",
-		UI.ScrollView "Content" {
+		UI.ScrollView {
+			Name = "Content",
 			gap = "m",
 			height = "fill" :: "fill",
 			padding = { ["bottom"] = 24, ["left"] = 20, ["right"] = 20, ["top"] = 20 },
 			width = "fill" :: "fill",
-			UI.Text "Eyebrow" {
+			UI.Text {
+				Name = "Eyebrow",
 				role = "secondary" :: "secondary",
 				text = "FACET HOME",
 				textRole = "caption" :: "caption",
 				wrap = true,
 			},
-			UI.Text "Heading" {
+			UI.Text {
+				Name = "Heading",
 				text = "Make yourself comfortable.",
 				textRole = "title" :: "title",
 				wrap = true,
 			},
-			UI.Text "Subtitle" {
+			UI.Text {
+				Name = "Subtitle",
 				role = "secondary" :: "secondary",
 				text = "Presentation settings stay available while you build and play.",
 				textRole = "body" :: "body",
 				wrap = true,
 			},
-			UI.Button "TogglePalette" {
+			UI.Button {
+				Name = "TogglePalette",
 				appearance = "standard" :: "standard",
 				label = "Switch light / dark",
 			},
-			UI.Button "ToggleText" {
+			UI.Button {
+				Name = "ToggleText",
 				appearance = "standard" :: "standard",
 				label = "Switch regular / larger text",
 			},
-			UI.Button "ToggleMode" {
+			UI.Button {
+				Name = "ToggleMode",
 				appearance = "standard" :: "standard",
 				label = "Switch flat / immersive view",
 			},
-			UI.Text "Access" {
+			UI.Text {
+				Name = "Access",
 				text = "Flat mode keeps every room action available. World prompts support keyboard, touch, and controller. Motion follows your device preference.",
 				textRole = "body" :: "body",
 				wrap = true,

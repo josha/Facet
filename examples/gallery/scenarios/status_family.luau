@@ -47,15 +47,13 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					padding :: unknown,
-					UI.ScrollView "Content" {
+					UI.ScrollView {
+						Name = "Content",
 						gap = 24,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),
 						ScrollBarThickness = 6,
-						UI.Button "Reset" {
-							label = "Reset status",
-							onActivate = reset,
-						} :: unknown,
+						UI.Button { Name = "Reset", label = "Reset status", onActivate = reset } :: unknown,
 						notices.section(2),
 						marks.section(),
 						badges.section(),

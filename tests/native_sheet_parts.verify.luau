@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -33,7 +34,7 @@ return function(verifyHarness: Verify.Harness)
 			for key, value in (extra or {} :: { [string]: any }) do
 				spec[key] = if type(value) == "table" and value.__build then value.__build(UI, Host) else value
 			end
-			return UI.Sheet "Sheet"(spec)
+			return UI.Sheet(named("Sheet", spec))
 		end, o)
 		w.detent, w.shown = detent, shown
 		w.builds = function()
@@ -488,7 +489,7 @@ return function(verifyHarness: Verify.Harness)
 					header = false,
 					closeButton = true,
 					hero = built(function(UI: FacetControls)
-						return { height = 200, content = UI.Button "Top" { label = "Top of hero" } }
+						return { height = 200, content = UI.Button { Name = "Top", label = "Top of hero" } }
 					end),
 				})
 				local hero = w.find("Hero")
@@ -813,6 +814,27 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a plain detent id starts the sheet there and the sheet owns later detent changes", {
+			id = "native_sheet_parts::native Sheet: parts::a plain detent id starts the sheet there and the sheet owns later detent changes",
+			run = function()
+				local w = mount({ detent = "large" }, { motionLevel = "none" })
+				local panel = w.find("SheetPanel")
+				Verify.expect(panel.Size.Y.Offset):toBe(570)
+				Verify.expect((w.detent:peek())):toBe("medium")
+				w.stop()
+				local grown = mount({ detent = "medium" }, { motionLevel = "none" })
+				local before = grown.find("SheetPanel").Size.Y.Offset
+				grown.find("Grabber").Activated:Fire()
+				Verify.expect(grown.find("SheetPanel").Size.Y.Offset):toBe(570)
+				Verify.expect(before < 570):toBe(true)
+				Verify.expect((grown.detent:peek())):toBe("medium")
+				grown.stop()
+				local unknown = mount({ detent = "bogus" }, { motionLevel = "none" })
+				Verify.expect(unknown.find("SheetPanel").Size.Y.Offset):toBe(before)
+				unknown.stop()
+			end,
+		})
+
 		verifyHarness:case("refuses a malformed hug entry", {
 			id = "native_sheet_parts::native Sheet: parts::refuses a malformed hug entry",
 			run = function()
@@ -839,7 +861,8 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Compose.show(mounted, function()
-							return UI.Sheet "Sheet" {
+							return UI.Sheet {
+								Name = "Sheet",
 								isPresented = shown,
 								detent = Compose.cell("large"),
 								title = "T",
@@ -899,7 +922,8 @@ return function(verifyHarness: Verify.Harness)
 				local failures = {}
 				local shown = Compose.cell(true)
 				local w = overlay.new(function(UI: FacetControls)
-					return UI.Sheet "Sheet" {
+					return UI.Sheet {
+						Name = "Sheet",
 						isPresented = shown,
 						detent = Compose.cell("medium"),
 						title = "T",
@@ -1120,7 +1144,8 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Compose.show(mounted, function()
-							return UI.Sheet "Sheet" {
+							return UI.Sheet {
+								Name = "Sheet",
 								isPresented = Compose.cell(true),
 								detent = Compose.cell("medium"),
 								title = "T",
@@ -1276,8 +1301,8 @@ return function(verifyHarness: Verify.Harness)
 				do
 					extra.content = built(function(UI: FacetControls)
 						return UI.VStack {
-							UI.Button "First" { label = "First" },
-							UI.Button "Second" { label = "Second" },
+							UI.Button { Name = "First", label = "First" },
+							UI.Button { Name = "Second", label = "Second" },
 						}
 					end)
 					local w = mount(extra, WIDE)
@@ -1525,7 +1550,8 @@ return function(verifyHarness: Verify.Harness)
 				local theme = Compose.cell(fantasy)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Dialog "Confirm" {
+						UI.Dialog {
+							Name = "Confirm",
 							isPresented = Compose.cell(true),
 							onPresentedChange = noop,
 							title = "Leave?",
@@ -1533,10 +1559,11 @@ return function(verifyHarness: Verify.Harness)
 								return Host.TextLabel "Line" { Text = "Body" }
 							end,
 						} :: unknown,
-						UI.Popover "Tip" {
+						UI.Popover {
+							Name = "Tip",
 							isPresented = Compose.cell(true),
 							onPresentedChange = noop,
-							trigger = UI.Button "Open" { label = "Open" },
+							trigger = UI.Button { Name = "Open", label = "Open" },
 							content = function(): Instance
 								return Host.TextLabel "PopLine" { Text = "Body" }
 							end,
@@ -1587,7 +1614,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::native panels: the theme title plaque carries the surface title::a surface without a title draws no plaque",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Dialog "Plain" {
+					return UI.Dialog {
+						Name = "Plain",
 						isPresented = Compose.cell(true),
 						onPresentedChange = noop,
 						content = function(): Instance

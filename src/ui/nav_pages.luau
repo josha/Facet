@@ -1,8 +1,6 @@
 --!strict
 local Types = require("./types")
 local Nav = require("./navigation_types")
-local Inputs = require("./input_types")
-local Media = require("./media_types")
 local Content = require("./content_types")
 local dragSession = require("./drag_session")
 local ComposeTypes = require("../vendor/compose/core")
@@ -12,6 +10,10 @@ local reducedMotion = motion.reduced
 local adaptive = require("./adaptive")
 local segmentMetrics = require("./segment_metrics")
 local reservations = require("./reservations")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
+local MediaProps = require("./media_props")
+local NavigationProps = require("./navigation_props")
 type SelectionLinks = {
 	NextSelectionLeft: GuiObject?,
 	NextSelectionRight: GuiObject?,
@@ -20,14 +22,14 @@ type SelectionLinks = {
 }
 
 type Controls = {
-	TabView: Types.Constructor<Nav.TabViewSpec, Frame>,
-	NavigationStack: Nav.NavigationStackConstructor,
-	PageView: Types.Constructor<Nav.PageViewSpec, Frame>,
-	Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
-	Menu: Nav.MenuConstructor,
-	Picker: Nav.PickerConstructor,
-	StatusIndicator: Types.Constructor<Media.StatusIndicatorProps, TextLabel>,
-	Badge: Types.Constructor<Media.BadgeProps, GuiObject>,
+	TabView: Types.Constructor<NavigationProps.TabViewSpec, Frame>,
+	NavigationStack: ControlTypes.NavigationStackConstructor,
+	PageView: Types.Constructor<NavigationProps.PageViewSpec, Frame>,
+	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
+	Menu: ControlTypes.MenuConstructor,
+	Picker: ControlTypes.PickerConstructor,
+	StatusIndicator: Types.Constructor<MediaProps.StatusIndicatorProps, TextLabel>,
+	Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
 	badged: Content.Badged,
 }
 
@@ -120,7 +122,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return byId
 	end
 
-	UI.TabView = ctx.construct("TabView", function(spec: Nav.TabViewSpec): Frame
+	UI.TabView = ctx.construct("TabView", function(spec: NavigationProps.TabViewSpec): Frame
 		assert(
 			spec.retention == nil or spec.retention == "all" or spec.retention == "top",
 			"TabView.retention uses Compose all or top"
@@ -1477,7 +1479,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		})
 		surfaces.attach(root, {
 			Compose.show(collapsed, function()
-				return UI.Menu "TabsMenu" {
+				return UI.Menu {
+					Name = "TabsMenu",
 					Size = function(use: ComposeTypes.Use)
 						return D2.fromOffset(0, band(use))
 					end,
@@ -1674,7 +1677,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return root
 	end)
 
-	local function navigationStack<P>(spec: Nav.NavigationStackSpec<P>): Frame
+	local function navigationStack<P>(spec: NavigationProps.NavigationStackSpec<P>): Frame
 		local pushSpring = ctx.motionSpring("move")
 		local parallax = ctx.metric("motion.distances.parallax")
 		local dim = ctx.metric("motion.distances.dim")
@@ -2158,7 +2161,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 
 	UI.NavigationStack = ctx.construct("NavigationStack", navigationStack)
 
-	UI.PageView = ctx.construct("PageView", function(spec: Nav.PageViewSpec): Frame
+	UI.PageView = ctx.construct("PageView", function(spec: NavigationProps.PageViewSpec): Frame
 		local byId = checkedSelection(spec.selection, spec.pages, "PageView")
 		local indexById: { [string]: number } = {}
 		for index, page in spec.pages do
@@ -2304,7 +2307,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local dots: { ComposeTypes.Child } = {}
 			for index, page in spec.pages do
 				local id = page.id
-				local dot = UI.Button(id)({
+				local dot = UI.Button({
+					Name = id,
 					name = `Page {index} of {#spec.pages}`,
 					LayoutOrder = index,
 					Size = D2.fromOffset(44, 44),
@@ -2341,7 +2345,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			table.insert(
 				footer,
 				ctx.row({
-					UI.Button "Previous" {
+					UI.Button {
+						Name = "Previous",
 						label = "Previous",
 						enabled = function(use: ComposeTypes.Use)
 							return indexById[use(spec.selection)] > 1
@@ -2350,7 +2355,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							step(-1)
 						end,
 					},
-					UI.Button "Next" {
+					UI.Button {
+						Name = "Next",
 						label = "Next",
 						enabled = function(use: ComposeTypes.Use)
 							return indexById[use(spec.selection)] < #spec.pages

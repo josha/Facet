@@ -254,7 +254,8 @@ end)
 
 add("circular-value-inside-gauge", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.ProgressView "Ring" {
+		return UI.ProgressView {
+			Name = "Ring",
 			value = 0.75,
 			presentation = "circular" :: "circular",
 			diameter = 120,
@@ -280,7 +281,8 @@ end)
 add("large-text-gauge-value-below-ring", {}, function(t)
 	t.note("preferred text size", t.environment.preferredTextSize)
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.ProgressView "Ring" {
+		return UI.ProgressView {
+			Name = "Ring",
 			value = 1,
 			presentation = "circular" :: "circular",
 			diameter = 80,
@@ -362,7 +364,8 @@ add("table-columns-follow-the-header", {}, function(t)
 			local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 				editing = Compose.cell(shape.options.editing == true)
 				rows = Compose.cell(table.clone(LAPS))
-				return UI.Table "Grid" {
+				return UI.Table {
+					Name = "Grid",
 					from = rows,
 					key = function(item)
 						return item.id
@@ -443,7 +446,8 @@ end)
 
 add("collapsed-column-details-target", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.Table "Grid" {
+		return UI.Table {
+			Name = "Grid",
 			from = LAPS,
 			key = function(item)
 				return item.id

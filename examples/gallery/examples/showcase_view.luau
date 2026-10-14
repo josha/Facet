@@ -10,7 +10,8 @@ return function(ctx: any)
 	local D2, V3, CF, C3, E = ctx.types.UDim2, ctx.types.Vector3, ctx.types.CFrame, ctx.types.Color3, ctx.types.Enum
 	local view: any = {}
 	function view.text(name: string, text, role)
-		return UI.Text(name)({
+		return UI.Text({
+			Name = name,
 			text = text,
 			textRole = role or "body",
 			wrap = true,
@@ -19,7 +20,8 @@ return function(ctx: any)
 		})
 	end
 	function view.page(name: string, title, subtitle, children)
-		return UI.ScrollView(name)({
+		return UI.ScrollView({
+			Name = name,
 			padding = "l",
 			gap = "m",
 			view.text("Title", title, "title") :: unknown,
@@ -36,7 +38,7 @@ return function(ctx: any)
 		}
 	end
 	function view.button(name: string, label, action, enabled)
-		return UI.Button(name)({ label = label, onActivate = action, enabled = enabled })
+		return UI.Button({ Name = name, label = label, onActivate = action, enabled = enabled })
 	end
 	function view.part(name: string, size, position, color, extra)
 		local props = {
@@ -53,7 +55,8 @@ return function(ctx: any)
 		return Host.Part(name)(props)
 	end
 	function view.stage(name: string, content, camera, height)
-		return UI.Stage(name)({
+		return UI.Stage({
+			Name = name,
 			Size = D2.new(1, 0, 0, height or 260),
 			BackgroundColor3 = C3.fromRGB(22, 29, 43),
 			BackgroundTransparency = 0,

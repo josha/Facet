@@ -12,7 +12,7 @@ return function(ctx: ExampleContext)
 	function state.build()
 		return Host.Frame({
 			Size = T.UDim2.fromScale(1, 1),
-			UI.Toggle "PerformanceHaptics" { label = "Request native haptics", value = enabled } :: unknown,
+			UI.Toggle { Name = "PerformanceHaptics", label = "Request native haptics", value = enabled } :: unknown,
 			UI.Text({ text = readout, Position = T.UDim2.fromOffset(0, 40), Size = T.UDim2.new(1, 0, 0, 40) }),
 			anchor,
 		})

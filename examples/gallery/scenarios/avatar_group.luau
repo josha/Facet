@@ -88,7 +88,8 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}) :: unknown,
-				UI.Text "Title" {
+				UI.Text {
+					Name = "Title",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -99,7 +100,8 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Text "Note" {
+				UI.Text {
+					Name = "Note",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -118,7 +120,8 @@ return {
 					end,
 					render = function(current, placement, key): GuiObject
 						local value = current:peek()
-						return UI.AvatarGroup "Team" {
+						return UI.AvatarGroup {
+							Name = "Team",
 							items = items,
 							controlSize = size,
 							layout = if value == "spread" then "spread" else "stacked",
@@ -167,7 +170,8 @@ return {
 						onActivate = source,
 					}),
 				},
-				UI.Picker "Layout" {
+				UI.Picker {
+					Name = "Layout",
 					label = "Layout",
 					selected = variant,
 					options = {
@@ -176,7 +180,8 @@ return {
 						{ value = "ellipsis", label = "Ellipsis" } :: PickerOption,
 					},
 				},
-				UI.Picker "Size" {
+				UI.Picker {
+					Name = "Size",
 					label = "Size",
 					selected = size,
 					options = {
@@ -185,7 +190,8 @@ return {
 						{ value = "large", label = "Large" } :: PickerOption,
 					},
 				},
-				UI.Text "Activations" {
+				UI.Text {
+					Name = "Activations",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -207,7 +213,8 @@ return {
 				return Host.Frame "AvatarGroup" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					UI.ScrollView "Content" {
+					UI.ScrollView {
+						Name = "Content",
 						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),

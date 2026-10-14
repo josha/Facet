@@ -11,24 +11,26 @@ local Types = require("./types")
 local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
-local NavigationTypes = require("./navigation_types")
-local OverlayTypes = require("./overlay_types")
 local tableEditors = require("./collection_table_editors")
 local motion = require("./motion")
+local CollectionProps = require("./collection_props")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
+local OverlayProps = require("./overlay_props")
 
 local CELL_PADDING = 16
 
 type Controls = {
-	Table: CollectionTypes.TableConstructor,
-	CellEditor: Types.Constructor<CollectionTypes.CellEditorSpec, Frame>,
-	VirtualList: <V, K>(spec: CollectionTypes.KeyedCollectionSpec<V, K>) -> ScrollingFrame,
-	RowActions: Types.Constructor<CollectionTypes.RowActionsSpec, Frame>,
-	Popover: Types.Constructor<OverlayTypes.PopoverSpec, GuiObject>,
-	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
-	TextInput: Types.Constructor<InputTypes.TextInputProps, TextBox | Frame>,
-	NumberInput: Types.Constructor<InputTypes.NumberInputProps, TextBox | Frame>,
-	Toggle: Types.Constructor<InputTypes.ToggleProps, TextButton>,
-	Picker: NavigationTypes.PickerConstructor,
+	Table: ControlTypes.TableConstructor,
+	CellEditor: Types.Constructor<CollectionProps.CellEditorSpec, Frame>,
+	VirtualList: <V, K>(spec: CollectionProps.KeyedCollectionSpec<V, K>) -> ScrollingFrame,
+	RowActions: Types.Constructor<CollectionProps.RowActionsSpec, Frame>,
+	Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject>,
+	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
+	TextInput: Types.Constructor<InputProps.TextInputProps, TextBox | Frame>,
+	NumberInput: Types.Constructor<InputProps.NumberInputProps, TextBox | Frame>,
+	Toggle: Types.Constructor<InputProps.ToggleProps, TextButton>,
+	Picker: ControlTypes.PickerConstructor,
 }
 return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList): ()
 	local lists = layoutKit.of(ctx)
@@ -96,7 +98,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 		"rowDeletable",
 		"onDelete",
 	}
-	local function create<V, K>(spec: CollectionTypes.TableOptions<V, K>, keyOf: (V, number) -> K): Frame
+	local function create<V, K>(spec: CollectionTypes.TableShape<V, K>, keyOf: (V, number) -> K): Frame
 		assert(spec.columns ~= nil, "Facet.Table requires columns")
 		local manageable = spec.reorderable == true or spec.deletable == true
 		local ownsToggle = manageable and spec.editing == nil and spec.header ~= false
@@ -555,7 +557,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				index: ComposeTypes.Readable<number>
 			)
 				local column = current:peek()
-				local buttonProps: InputTypes.ButtonProps = {
+				local buttonProps: InputProps.ButtonProps = {
 					Name = "Sort",
 					Size = D2.fromScale(1, 1),
 					AutomaticSize = E.AutomaticSize.None,
@@ -790,7 +792,7 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 				return body
 			end, selection, sort, editing, false, if tree then tree.location else nil, true)
 		end
-		local bodySpec: CollectionTypes.KeyedCollectionSpec<V, K> = {
+		local bodySpec: CollectionProps.KeyedCollectionSpec<V, K> = {
 			Name = "Body",
 			Position = function(use: ComposeTypes.Use)
 				return D2.fromOffset(0, use(topHeight))
@@ -1116,7 +1118,8 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 							onPresentedChange = function(value: boolean)
 								open:set(value)
 							end,
-							trigger = UI.Button "Details" {
+							trigger = UI.Button {
+								Name = "Details",
 								icon = "status.info",
 								name = "Show details",
 								appearance = "utility",
@@ -1314,7 +1317,8 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 					local function fraction(use: ComposeTypes.Use): number
 						return math.clamp(use(progress), 0, 1)
 					end
-					local button = UI.Button("Edit")({
+					local button = UI.Button({
+						Name = "Edit",
 						label = function(use: ComposeTypes.Use): string
 							return if read(editing, use) then "Done" else "Edit"
 						end,
@@ -1390,7 +1394,8 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 						return preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Gamepad
 					end
 					local remove = if spec.deletable and editor
-						then UI.Button "DeleteSelected" {
+						then UI.Button {
+							Name = "DeleteSelected",
 							label = "Delete",
 							role = "destructive" :: InputTypes.ButtonRole,
 							Size = D2.new(0, 0, 1, 0),
@@ -1476,23 +1481,23 @@ return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList
 		seedWindow()
 		return root
 	end
-	local function constructor<V, K>(spec: CollectionTypes.TableSpec<V, K>): Frame
+	local function constructor<V, K>(spec: CollectionProps.TableSpec<V, K>): Frame
 		if spec.key == nil then
-			return create(spec, function(item: V, _index: number): V
+			return create((spec :: unknown) :: CollectionTypes.TableShape<V, V>, function(item: V, _index: number): V
 				return item
 			end)
 		end
 		local key: unknown = spec.key
 		if type(key) == "string" then
 			assert(key ~= "", "Facet UI.Table: key field must not be empty")
-			local fieldSpec = (spec :: unknown) :: CollectionTypes.KeyedTableSpec<V, string>
+			local fieldSpec = (spec :: unknown) :: CollectionTypes.TableShape<V, string>
 			return create(fieldSpec, function(item: V, _index: number): string
 				return tostring(((item :: unknown) :: { [string]: unknown })[key])
 			end)
 		end
 		assert(type(key) == "function", "Facet UI.Table: key must be a function or a field name")
-		return create((spec :: unknown) :: CollectionTypes.KeyedTableSpec<V, K>, (key :: unknown) :: (V, number) -> K)
+		return create((spec :: unknown) :: CollectionTypes.TableShape<V, K>, (key :: unknown) :: (V, number) -> K)
 	end
-	local tableConstructor: CollectionTypes.TableConstructor = ctx.construct("Table", constructor)
+	local tableConstructor: ControlTypes.TableConstructor = ctx.construct("Table", constructor)
 	UI.Table = tableConstructor
 end

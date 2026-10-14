@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -16,6 +17,7 @@ return function(verifyHarness: Verify.Harness)
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
 	local Navigation = require("../src/ui/navigation_types")
+	local NavigationProps = require("../src/ui/navigation_props")
 	local SharedTypes = require("../src/ui/control_types")
 	local Shared = require("../src/ui/types")
 
@@ -98,7 +100,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local world = setup(function(UI: FacetControls)
 					local Commands = require("../src/ui/command_types")
-					local primary = UI.Button "Primary" { label = "Rematch" }
+					local primary = UI.Button { Name = "Primary", label = "Rematch" }
 					local targets: { Commands.CommandTarget<string> } = { { key = "primary", node = primary } }
 					UI.commandScope(primary, { targets = targets, commands = {} })
 					return primary
@@ -133,14 +135,14 @@ return function(verifyHarness: Verify.Harness)
 				local path = Compose.cell({} :: { Navigation.NavigationEntry<number> })
 				local chrome = Compose.cell("hidden" :: "automatic" | "hidden")
 				local world = setup(function(UI: FacetControls)
-					local spec: Navigation.NavigationStackSpec<number> = {
+					local spec: NavigationProps.NavigationStackSpec<number> = {
 						path = path,
 						chrome = "hidden" :: "hidden",
 						transition = false :: false,
 						root = {
 							title = "Home",
 							content = function()
-								return UI.Button "HomeAction" { label = "Open" }
+								return UI.Button { Name = "HomeAction", label = "Open" }
 							end,
 						} :: Navigation.NavigationDestination<number>,
 						destinations = {
@@ -148,18 +150,18 @@ return function(verifyHarness: Verify.Harness)
 								title = "",
 								chrome = chrome,
 								content = function()
-									return UI.Button "OwnedHeader" { label = "My own header" }
+									return UI.Button { Name = "OwnedHeader", label = "My own header" }
 								end,
 							} :: Navigation.NavigationDestination<number>,
 							inherited = {
 								title = "Inherited",
 								content = function()
-									return UI.Button "InheritedAction" { label = "Page" }
+									return UI.Button { Name = "InheritedAction", label = "Page" }
 								end,
 							} :: Navigation.NavigationDestination<number>,
 						},
 					}
-					return UI.NavigationStack "Stack"(spec)
+					return UI.NavigationStack(named("Stack", spec))
 				end, { motionLevel = "none" })
 				local stack = find(world.screen, "Stack") :: Frame
 				local Vector2, UDim2 = world.engine.types.Vector2, world.engine.types.UDim2
@@ -212,23 +214,23 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
 				local world = setup(function(UI: FacetControls)
-					local spec: Navigation.NavigationStackSpec<unknown> = {
+					local spec: NavigationProps.NavigationStackSpec<unknown> = {
 						path = path,
 						chrome = "hidden" :: "hidden",
 						root = {
 							content = function(): Instance
-								return UI.Button "RootAction" { label = "Root" }
+								return UI.Button { Name = "RootAction", label = "Root" }
 							end,
 						} :: Navigation.NavigationDestination<unknown>,
 						destinations = {
 							detail = {
 								content = function(): Instance
-									return UI.Button "OwnedHeader" { label = "Own header" }
+									return UI.Button { Name = "OwnedHeader", label = "Own header" }
 								end,
 							} :: Navigation.NavigationDestination<unknown>,
 						},
 					}
-					return UI.NavigationStack "OwnedMotion"(spec)
+					return UI.NavigationStack(named("OwnedMotion", spec))
 				end)
 				local stack = find(world.screen, "OwnedMotion")
 				world.gui.SelectedObject = find(stack, "RootAction")
@@ -262,7 +264,7 @@ return function(verifyHarness: Verify.Harness)
 				local selected = Compose.cell("games")
 				local placement = Compose.cell("bottomBar" :: Navigation.Placement)
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					local spec: Navigation.TabViewSpec = {
+					local spec: NavigationProps.TabViewSpec = {
 						selection = selected,
 						placement = placement,
 						track = "floating" :: "floating",
@@ -291,7 +293,7 @@ return function(verifyHarness: Verify.Harness)
 							} :: Navigation.Tab,
 						},
 					}
-					return UI.TabView "Floating"(spec)
+					return UI.TabView(named("Floating", spec))
 				end, { motionLevel = "none" })
 				local root = find(world.screen, "Floating") :: Frame
 				local Vector2, UDim2 = world.engine.types.Vector2, world.engine.types.UDim2
@@ -343,7 +345,7 @@ return function(verifyHarness: Verify.Harness)
 				local anchor =
 					Compose.cell("topTrailing" :: "topLeading" | "topTrailing" | "bottomLeading" | "bottomTrailing")
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					local spec: Navigation.TabViewSpec = {
+					local spec: NavigationProps.TabViewSpec = {
 						selection = Compose.cell("one"),
 						placement = "bottomBar" :: "bottomBar",
 						track = track,
@@ -364,7 +366,7 @@ return function(verifyHarness: Verify.Harness)
 							} :: Navigation.Tab,
 						},
 					}
-					return UI.TabView "ThemedTabs"(spec)
+					return UI.TabView(named("ThemedTabs", spec))
 				end, { theme = assert(themes.define(package)), motionLevel = "none" })
 				local root = find(world.screen, "ThemedTabs")
 				local D2, V2 = world.engine.types.UDim2, world.engine.types.Vector2
@@ -459,7 +461,7 @@ return function(verifyHarness: Verify.Harness)
 						{ id = "profile", label = "Profile", icon = "person", content = page },
 						{ id = "settings", label = "Settings", icon = "settings", content = page },
 					}
-					local props: Navigation.TabViewSpec = {
+					local props: NavigationProps.TabViewSpec = {
 						selection = selection,
 						labelPlacement = choice,
 						textSize = textSize,
@@ -584,7 +586,7 @@ return function(verifyHarness: Verify.Harness)
 						destinations = {
 							match = {
 								content = function()
-									return UI.Button "Counter" { label = "Counter" }
+									return UI.Button { Name = "Counter", label = "Counter" }
 								end,
 							} :: NavigationFixtures.NavigationDestination<number>,
 						},
@@ -620,11 +622,13 @@ return function(verifyHarness: Verify.Harness)
 				for _, level in { "normal", "limited", "none" } do
 					local expanded = Compose.cell(false)
 					local world = setup(function(UI: FacetControls, _, engine)
-						return UI.CollapsibleView "Summary" {
+						return UI.CollapsibleView {
+							Name = "Summary",
 							expanded = expanded,
 							label = "Summary",
 							content = function(): Instance
-								return UI.Text "Copy" {
+								return UI.Text {
+									Name = "Copy",
 									text = "The copy must keep its final content width.",
 									Size = engine.types.UDim2.new(1, 0, 0, 0),
 									AutomaticSize = engine.types.Enum.AutomaticSize.Y,
@@ -700,7 +704,8 @@ return function(verifyHarness: Verify.Harness)
 				local selected = Compose.cell("one")
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Picker "Segments" {
+						UI.Picker {
+							Name = "Segments",
 							label = "Mode",
 							LayoutOrder = 3,
 							selected = selected,
@@ -710,7 +715,8 @@ return function(verifyHarness: Verify.Harness)
 								{ value = "two", label = "Two", icon = "edit" } :: Navigation.PickerOption<string>,
 							},
 						} :: unknown,
-						UI.Picker "List" {
+						UI.Picker {
+							Name = "List",
 							label = "Group",
 							selected = selected,
 							style = "inline" :: "inline",
@@ -793,7 +799,7 @@ return function(verifyHarness: Verify.Harness)
 				local presented = Compose.cell(false)
 				local cancelled = 0
 				local world = setup(function(UI: FacetControls, Host: RobloxHost, _, gui)
-					local button = UI.Button "Original" { label = "Original" }
+					local button = UI.Button { Name = "Original", label = "Original" }
 					gui.SelectedObject = button
 					return Host.Frame({
 						button :: unknown,
@@ -1103,12 +1109,12 @@ return function(verifyHarness: Verify.Harness)
 							{
 								id = "one",
 								title = "One",
-								content = Host.Frame({ UI.Button "PlayOne" { label = "One" } }),
+								content = Host.Frame({ UI.Button { Name = "PlayOne", label = "One" } }),
 							} :: FixtureNavigationTypes.Tab,
 							{
 								id = "two",
 								title = "Two",
-								content = Host.Frame({ UI.Button "PlayTwo" { label = "Two" } }),
+								content = Host.Frame({ UI.Button { Name = "PlayTwo", label = "Two" } }),
 							} :: FixtureNavigationTypes.Tab,
 						},
 					})
@@ -1199,7 +1205,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local value, text, changes, validations = Compose.cell("a"), Compose.cell("Alpha"), 0, 0
 				local world = setup(function(UI: FacetControls, _, engine)
-					return UI.ComboBox "SearchCombo" {
+					return UI.ComboBox {
+						Name = "SearchCombo",
 						Size = engine.types.UDim2.fromOffset(320, 44),
 						value = value,
 						text = text,
@@ -1347,7 +1354,8 @@ return function(verifyHarness: Verify.Harness)
 					local changes = 0
 					local world = setup(function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame({
-							UI.ComboBox "Search" {
+							UI.ComboBox {
+								Name = "Search",
 								value = value,
 								text = text,
 								options = function(use: Use): { Navigation.PickerOption<string> }
@@ -1373,7 +1381,8 @@ return function(verifyHarness: Verify.Harness)
 									presented:set(true)
 								end,
 							} :: unknown,
-							UI.Alert "Result" {
+							UI.Alert {
+								Name = "Result",
 								isPresented = presented,
 								title = "Selected game",
 								transition = { seconds = 0.1 },
@@ -1482,7 +1491,8 @@ return function(verifyHarness: Verify.Harness)
 				local presented, count = Compose.cell(false), 0
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Button "Background" {
+						UI.Button {
+							Name = "Background",
 							label = "Background",
 							shortcut = { keyCode = "K" },
 							onActivate = function()
@@ -1621,7 +1631,7 @@ return function(verifyHarness: Verify.Harness)
 						expanded = expanded,
 						label = "Details",
 						content = function(): Instance
-							return UI.Button "Inside" { label = "Inside" }
+							return UI.Button { Name = "Inside", label = "Inside" }
 						end,
 					})
 				end)
@@ -1691,9 +1701,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_navigation::native navigation controls::keeps a right-edge cascade inside the room with disjoint ancestor and child columns",
 			run = function()
 				local world = setup(function(UI: FacetControls)
-					return UI.Menu "Cascade" {
+					return UI.Menu {
+						Name = "Cascade",
 						isPresented = Compose.cell(true),
-						trigger = UI.Button "Anchor" { label = "Anchor" },
+						trigger = UI.Button { Name = "Anchor", label = "Anchor" },
 						items = {
 							{
 								id = "Parent",
@@ -1905,7 +1916,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame "Screen" {
-						UI.Button "Plus" { label = "+", help = "Posts this avatar" },
+						UI.Button { Name = "Plus", label = "+", help = "Posts this avatar" },
 					}
 				end)
 				local plus = find(world.screen, "Plus")
@@ -1934,7 +1945,7 @@ return function(verifyHarness: Verify.Harness)
 				local presented = Compose.cell(false)
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame "Screen" {
-						UI.Button "Opener" { label = "Open" } :: unknown,
+						UI.Button { Name = "Opener", label = "Open" } :: unknown,
 						UI.Alert {
 							isPresented = presented,
 							title = "Leave race?",
@@ -1966,7 +1977,7 @@ return function(verifyHarness: Verify.Harness)
 				local presented = Compose.cell(false)
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame {
-						UI.Button "Opener" { label = "Open" } :: unknown,
+						UI.Button { Name = "Opener", label = "Open" } :: unknown,
 						UI.Alert {
 							isPresented = presented,
 							title = "Confirm",
@@ -1995,8 +2006,8 @@ return function(verifyHarness: Verify.Harness)
 					return UI.TabView({
 						selection = selection,
 						tabs = {
-							{ id = "one", content = UI.Button "OneAction" { label = "One" } } :: FixtureNavigationTypes.Tab,
-							{ id = "two", content = UI.Button "TwoAction" { label = "Two" } } :: FixtureNavigationTypes.Tab,
+							{ id = "one", content = UI.Button { Name = "OneAction", label = "One" } } :: FixtureNavigationTypes.Tab,
+							{ id = "two", content = UI.Button { Name = "TwoAction", label = "Two" } } :: FixtureNavigationTypes.Tab,
 						},
 					})
 				end)
@@ -2021,7 +2032,8 @@ return function(verifyHarness: Verify.Harness)
 							{
 								id = "a",
 								content = function(): Instance
-									return UI.TabView "Inner" {
+									return UI.TabView {
+										Name = "Inner",
 										selection = inner,
 										tabs = {
 											{ id = "x", label = "Swipe actions", content = Host.Frame "X" {} } :: FixtureNavigationTypes.Tab,
@@ -2061,7 +2073,7 @@ return function(verifyHarness: Verify.Harness)
 						tabs = {
 							{
 								id = "one",
-								content = UI.ProgressView "Spinner" { presentation = "spinner" :: "spinner" },
+								content = UI.ProgressView { Name = "Spinner", presentation = "spinner" :: "spinner" },
 							} :: FixtureNavigationTypes.Tab,
 							{ id = "two", content = Host.Frame "Two" {} } :: FixtureNavigationTypes.Tab,
 						},
@@ -2112,7 +2124,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local seen, used, retired = Compose.cell(false), Compose.cell(false), {}
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					local anchor = UI.Button "Anchor" { label = "Anchor" }
+					local anchor = UI.Button { Name = "Anchor", label = "Anchor" }
 					return Host.Frame({
 						anchor :: unknown,
 						UI.Callout({
@@ -2320,7 +2332,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_navigation::native navigation controls::reserves segmented caption width and wraps rows instead of clipping whole words",
 			run = function()
 				local world = setup(function(UI: FacetControls)
-					return UI.Picker "Motion" {
+					return UI.Picker {
+						Name = "Motion",
 						style = "segmented" :: "segmented",
 						selected = Compose.cell("normal"),
 						options = {
@@ -2345,7 +2358,8 @@ return function(verifyHarness: Verify.Harness)
 				package.metrics.controlSizes.compact.height = 22
 				package.chrome = { control = { kind = "fill", contentInsets = { top = 2, bottom = 2 } } }
 				local world = setup(function(UI: FacetControls)
-					return UI.Picker "Laps" {
+					return UI.Picker {
+						Name = "Laps",
 						style = "segmented" :: "segmented",
 						controlSize = "compact" :: "compact",
 						selected = Compose.cell("3"),
@@ -2481,13 +2495,13 @@ return function(verifyHarness: Verify.Harness)
 						path = path,
 						root = {
 							content = function(): Instance
-								return UI.Button "RootAction" { label = "Root" }
+								return UI.Button { Name = "RootAction", label = "Root" }
 							end,
 						} :: NavigationFixtures.NavigationDestination<any>,
 						destinations = {
 							detail = {
 								content = function(): Instance
-									return UI.Button "DetailAction" { label = "Detail" }
+									return UI.Button { Name = "DetailAction", label = "Detail" }
 								end,
 							} :: NavigationFixtures.NavigationDestination<any>,
 						},
@@ -2506,8 +2520,8 @@ return function(verifyHarness: Verify.Harness)
 					return UI.PageView({
 						selection = selection,
 						pages = {
-							{ id = "one", content = UI.Button "PageOne" { label = "One" } } :: FixtureNavigationTypes.Tab,
-							{ id = "two", content = UI.Button "PageTwo" { label = "Two" } } :: FixtureNavigationTypes.Tab,
+							{ id = "one", content = UI.Button { Name = "PageOne", label = "One" } } :: FixtureNavigationTypes.Tab,
+							{ id = "two", content = UI.Button { Name = "PageTwo", label = "Two" } } :: FixtureNavigationTypes.Tab,
 						},
 					})
 				end)
@@ -2560,7 +2574,8 @@ return function(verifyHarness: Verify.Harness)
 					local reference, references, enters = nil, 0, 0
 					local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 						return Host.Frame({
-							UI.Picker("Auto")({
+							UI.Picker({
+								Name = "Auto",
 								Position = function(use: Use)
 									return engine.types.UDim2.fromOffset(use(position), 70)
 								end,
@@ -2585,7 +2600,8 @@ return function(verifyHarness: Verify.Harness)
 									{ value = "b", label = "Beta" } :: Navigation.PickerOption<string>,
 								},
 							}) :: unknown,
-							UI.Picker "Segments" {
+							UI.Picker {
+								Name = "Segments",
 								style = "segmented" :: "segmented",
 								axis = axis,
 								selected = value,
@@ -2662,7 +2678,8 @@ return function(verifyHarness: Verify.Harness)
 				local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
 					sizing = Compose.cell(engine.types.Enum.AutomaticSize.None)
 					return Host.Frame({
-						UI.Picker "Bounded" {
+						UI.Picker {
+							Name = "Bounded",
 							style = "menu" :: "menu",
 							Size = engine.types.UDim2.new(1, -160, 0, 44),
 							selected = selected,
@@ -2671,7 +2688,8 @@ return function(verifyHarness: Verify.Harness)
 								{ value = "other", label = "Another destination with a long title" } :: Navigation.PickerOption<string>,
 							},
 						} :: unknown,
-						UI.Menu "AdaptiveHeight" {
+						UI.Menu {
+							Name = "AdaptiveHeight",
 							Size = engine.types.UDim2.new(1, 0, 0, 0),
 							AutomaticSize = sizing,
 							label = "Menu",
@@ -2715,7 +2733,8 @@ return function(verifyHarness: Verify.Harness)
 				local options = Compose.cell({ { value = "a", label = "Alpha" } })
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Picker "Plain" {
+						UI.Picker {
+							Name = "Plain",
 							style = "segmented" :: "segmented",
 							selected = selected,
 							options = {
@@ -2723,14 +2742,16 @@ return function(verifyHarness: Verify.Harness)
 								{ value = "b", label = "Beta" } :: Navigation.PickerOption<string>,
 							},
 						} :: unknown,
-						UI.Picker "ReadableDescription" {
+						UI.Picker {
+							Name = "ReadableDescription",
 							style = "segmented" :: "segmented",
 							selected = selected,
 							options = {
 								{ value = "a", label = "Alpha", description = description } :: Navigation.PickerOption<string>,
 							},
 						},
-						UI.Picker "ReadableOptions" {
+						UI.Picker {
+							Name = "ReadableOptions",
 							style = "segmented" :: "segmented",
 							selected = selected,
 							options = options,
@@ -2770,13 +2791,13 @@ return function(verifyHarness: Verify.Harness)
 						path = path,
 						root = {
 							content = function(): Instance
-								return UI.Button "RootAction" { label = "Root" }
+								return UI.Button { Name = "RootAction", label = "Root" }
 							end,
 						} :: NavigationFixtures.NavigationDestination<any>,
 						destinations = {
 							good = {
 								content = function(): Instance
-									return UI.Button "Good" { label = "Good" }
+									return UI.Button { Name = "Good", label = "Good" }
 								end,
 							} :: NavigationFixtures.NavigationDestination<any>,
 							bad = {
@@ -2825,7 +2846,8 @@ return function(verifyHarness: Verify.Harness)
 						destinations = {
 							child = {
 								content = function(): Instance
-									return UI.NavigationStack "ChildStack" {
+									return UI.NavigationStack {
+										Name = "ChildStack",
 										path = inner,
 										root = {
 											content = function(): Instance
@@ -2835,7 +2857,7 @@ return function(verifyHarness: Verify.Harness)
 										destinations = {
 											detail = {
 												content = function(): Instance
-													return UI.Button "DeepAction" { label = "Deep" }
+													return UI.Button { Name = "DeepAction", label = "Deep" }
 												end,
 											} :: NavigationFixtures.NavigationDestination<any>,
 										},
@@ -2882,7 +2904,8 @@ return function(verifyHarness: Verify.Harness)
 						destinations = {
 							child = {
 								content = function(): Instance
-									return Child.NavigationStack "ChildStack" {
+									return Child.NavigationStack {
+										Name = "ChildStack",
 										path = inner,
 										root = {
 											content = function(): Instance
@@ -2892,7 +2915,7 @@ return function(verifyHarness: Verify.Harness)
 										destinations = {
 											detail = {
 												content = function(): Instance
-													return UI.Button "DeepAction" { label = "Deep" }
+													return UI.Button { Name = "DeepAction", label = "Deep" }
 												end,
 											} :: NavigationFixtures.NavigationDestination<any>,
 										},
@@ -2926,7 +2949,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local shown, retired, presses = Compose.cell(true), nil, 0
 				local world = setup(function(UI: FacetControls, Host: RobloxHost, engine, gui)
-					local anchor = UI.Button "Anchor" {
+					local anchor = UI.Button {
+						Name = "Anchor",
 						label = "Anchor",
 						onActivate = function()
 							presses += 1
@@ -2987,7 +3011,7 @@ return function(verifyHarness: Verify.Harness)
 					overlayParent = overlay,
 				})
 				local stop, screen: any = runtime.mount(function()
-					local anchor = UI.Button "Anchor" { label = "Anchor" }
+					local anchor = UI.Button { Name = "Anchor", label = "Anchor" }
 					return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
 						((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 							anchor :: unknown,
@@ -3036,7 +3060,7 @@ return function(verifyHarness: Verify.Harness)
 						detent = selected,
 						isPresented = shown,
 						content = function(): Instance
-							return UI.Button "KeptContent" { label = "Content" }
+							return UI.Button { Name = "KeptContent", label = "Content" }
 						end,
 					})
 				end)
@@ -3069,13 +3093,13 @@ return function(verifyHarness: Verify.Harness)
 							{
 								id = "a",
 								content = function(): Instance
-									return UI.Button "AContent" { label = "A" }
+									return UI.Button { Name = "AContent", label = "A" }
 								end,
 							} :: FixtureNavigationTypes.Tab,
 							{
 								id = "b",
 								content = function(): Instance
-									return UI.Button "BContent" { label = "B" }
+									return UI.Button { Name = "BContent", label = "B" }
 								end,
 							} :: FixtureNavigationTypes.Tab,
 						},
@@ -3141,7 +3165,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local reasons = {}
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					local anchor = UI.Button "Anchor" { label = "Anchor" }
+					local anchor = UI.Button { Name = "Anchor", label = "Anchor" }
 					return Host.Frame({
 						anchor :: unknown,
 						UI.Callout({
@@ -3193,10 +3217,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_navigation::native navigation controls::restores only the anchor link the callout set and leaves an app's own link",
 			run = function()
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					local anchor = UI.Button "Anchor" { label = "Anchor" }
+					local anchor = UI.Button { Name = "Anchor", label = "Anchor" }
 					return Host.Frame({
 						anchor :: unknown,
-						UI.Button "Own" { label = "Own" },
+						UI.Button { Name = "Own", label = "Own" },
 						UI.Callout({
 							anchor = anchor :: GuiObject,
 							edge = "bottom" :: "bottom",
@@ -3238,7 +3262,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_navigation::native navigation controls::keeps measured callout arrows outside automatic content bounds",
 			run = function()
 				local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
-					local anchor = UI.Button "Anchor" { label = "Anchor" }
+					local anchor = UI.Button { Name = "Anchor", label = "Anchor" }
 					return Host.Frame({
 						anchor :: unknown,
 						UI.Callout({
@@ -3330,7 +3354,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_navigation::native navigation controls::moves a top callout below its anchor when only the bottom has room",
 			run = function()
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					local anchor = UI.Button "Anchor" { label = "Anchor" }
+					local anchor = UI.Button { Name = "Anchor", label = "Anchor" }
 					return Host.Frame({
 						anchor :: unknown,
 						UI.Callout({
@@ -3371,7 +3395,8 @@ return function(verifyHarness: Verify.Harness)
 					local expanded, image = Compose.cell(false), Compose.cell("rbxassetid://1")
 					local world = setup(function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame({
-							UI.DisclosureGroup "Disclosure" {
+							UI.DisclosureGroup {
+								Name = "Disclosure",
 								label = "Details",
 								appearance = "divided" :: "divided",
 								chevronPosition = "leading" :: "leading",
@@ -3380,13 +3405,14 @@ return function(verifyHarness: Verify.Harness)
 									return UI.Text({ text = "Details" })
 								end,
 							} :: unknown,
-							UI.CollapsibleView "Summary" {
+							UI.CollapsibleView {
+								Name = "Summary",
 								label = "Summary",
 								image = image,
 								expanded = expanded,
 								dismissButton = false,
 								content = function(): Instance
-									return UI.Button "DetailsAction" { label = "Details" }
+									return UI.Button { Name = "DetailsAction", label = "Details" }
 								end,
 							},
 						})
@@ -3415,7 +3441,8 @@ return function(verifyHarness: Verify.Harness)
 				local selected = Compose.cell("a")
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.TabView "Sidebar" {
+						UI.TabView {
+							Name = "Sidebar",
 							selection = selected,
 							placement = "sidebar" :: "sidebar",
 							sections = { { id = "s", label = "Section" } },
@@ -3436,7 +3463,8 @@ return function(verifyHarness: Verify.Harness)
 								} :: FixtureNavigationTypes.Tab,
 							},
 						} :: unknown,
-						UI.TabView "Collapsed" {
+						UI.TabView {
+							Name = "Collapsed",
 							selection = selected,
 							style = "collapsible" :: "collapsible",
 							tabs = {
@@ -3564,7 +3592,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local shown = Compose.cell(false)
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					local source = UI.Button "Source" { label = "Open" }
+					local source = UI.Button { Name = "Source", label = "Open" }
 					return Host.Frame({
 						source :: unknown,
 						UI.Alert({
@@ -3616,7 +3644,7 @@ return function(verifyHarness: Verify.Harness)
 							Host.WorldModel "World" {},
 						},
 						Host.ViewportFrame "OtherScene" { CurrentCamera = Compose.static(externalCamera) },
-						UI.Button "Open" { label = "Open" },
+						UI.Button { Name = "Open", label = "Open" },
 						Host.UIDragDetector "CardDrag" {},
 					}
 					return Host.Frame({
@@ -3710,7 +3738,7 @@ return function(verifyHarness: Verify.Harness)
 				local shown = Compose.cell(false)
 				local world = setup(function(UI: FacetControls, Host: RobloxHost, engine, gui)
 					gui.ReducedMotionEnabled = true
-					local source = UI.Button "Card" { label = "Card" }
+					local source = UI.Button { Name = "Card", label = "Card" }
 					return Host.Frame({
 						source :: unknown,
 						UI.Alert({
@@ -3863,7 +3891,7 @@ return function(verifyHarness: Verify.Harness)
 					local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<any> })
 					local world = setup(function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame({
-							UI.ScrollView "Neighbour" { UI.Button "Outside" { label = "Outside" } } :: unknown,
+							UI.ScrollView { Name = "Neighbour", UI.Button { Name = "Outside", label = "Outside" } } :: unknown,
 							UI.NavigationStack({
 								path = path,
 								transition = if mode == "false"
@@ -3873,15 +3901,15 @@ return function(verifyHarness: Verify.Harness)
 								root = {
 									content = function(): Instance
 										return UI.VStack {
-											UI.Button "RootAction" { label = "Root" } :: unknown,
-											UI.Button "RootNext" { label = "Next" },
+											UI.Button { Name = "RootAction", label = "Root" } :: unknown,
+											UI.Button { Name = "RootNext", label = "Next" },
 										}
 									end,
 								} :: NavigationFixtures.NavigationDestination<any>,
 								destinations = {
 									detail = {
 										content = function(): Instance
-											return UI.Button "DetailAction" { label = "Detail" }
+											return UI.Button { Name = "DetailAction", label = "Detail" }
 										end,
 									} :: NavigationFixtures.NavigationDestination<any>,
 								},
@@ -3946,14 +3974,14 @@ return function(verifyHarness: Verify.Harness)
 						root = {
 							title = "Root",
 							content = function(): Instance
-								return UI.Button "RootAction" { label = "Root" }
+								return UI.Button { Name = "RootAction", label = "Root" }
 							end,
 						} :: NavigationFixtures.NavigationDestination<any>,
 						destinations = {
 							detail = {
 								title = "Detail",
 								content = function(): Instance
-									return UI.Button "DetailAction" { label = "Detail" }
+									return UI.Button { Name = "DetailAction", label = "Detail" }
 								end,
 							} :: NavigationFixtures.NavigationDestination<any>,
 						},
@@ -4109,7 +4137,7 @@ return function(verifyHarness: Verify.Harness)
 				local shown, detent = Compose.cell(false), Compose.cell("medium")
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Button "Opener" { label = "Open" } :: unknown,
+						UI.Button { Name = "Opener", label = "Open" } :: unknown,
 						UI.Sheet({
 							isPresented = shown,
 							detent = detent,
@@ -4218,7 +4246,7 @@ return function(verifyHarness: Verify.Harness)
 					local anchor = Host.TextButton "Anchor" {}
 					return Host.Frame({
 						anchor :: unknown,
-						UI.Button "Plus" { label = "+", help = "Adds one" },
+						UI.Button { Name = "Plus", label = "+", help = "Adds one" },
 						UI.Callout({
 							anchor = anchor :: GuiObject,
 							content = Host.TextLabel "Tip" {} :: Instance,
@@ -4690,7 +4718,8 @@ return function(verifyHarness: Verify.Harness)
 					run = function()
 						local world = setup(function(UI, Host)
 							return Host.Frame({
-								UI.Picker "Handling" {
+								UI.Picker {
+									Name = "Handling",
 									label = "Handling",
 									style = "segmented" :: "segmented",
 									selected = Compose.cell("a"),
@@ -4731,7 +4760,8 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					for _, touch in { false, true } do
 						local world = setup(function(UI)
-							return UI.Picker "Mode" {
+							return UI.Picker {
+								Name = "Mode",
 								style = "segmented",
 								controlSize = "compact",
 								selected = Compose.cell("a"),
@@ -4758,7 +4788,8 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_navigation::Segmented Picker caption geometry::paints a segmented field label only with its settled options",
 				run = function()
 					local world = setup(function(UI)
-						return UI.Picker "Motion" {
+						return UI.Picker {
+							Name = "Motion",
 							label = "Motion",
 							style = "segmented",
 							selected = Compose.cell("device"),
@@ -4794,7 +4825,8 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_navigation::Segmented Picker caption geometry::keeps a touch segment target inside an authored 44-point format strip",
 				run = function()
 					local world = setup(function(UI, Host, engine)
-						return UI.Picker "Format" {
+						return UI.Picker {
+							Name = "Format",
 							style = "segmented",
 							selected = Compose.cell("rgb"),
 							options = { { value = "rgb", label = "RGB" }, { value = "hsv", label = "HSV" } },
@@ -4829,7 +4861,8 @@ return function(verifyHarness: Verify.Harness)
 					}
 					for _, sample in samples do
 						local world = setup(function(UI)
-							return UI.Picker "Laps" {
+							return UI.Picker {
+								Name = "Laps",
 								style = "segmented",
 								controlSize = "compact",
 								selected = Compose.cell("3"),
@@ -4857,7 +4890,8 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_navigation::Segmented Picker caption geometry::reserves the caption and both native padding edges",
 				run = function()
 					local world = setup(function(UI)
-						return UI.Picker "Device" {
+						return UI.Picker {
+							Name = "Device",
 							style = "segmented",
 							selected = Compose.cell("a"),
 							options = { { value = "a", label = "Device" }, { value = "b", label = "Theme" } },
@@ -4890,7 +4924,8 @@ return function(verifyHarness: Verify.Harness)
 					local world = setup(function(UI, Host)
 						return Host.Frame {
 							Host.UIScale { Scale = 2 },
-							UI.Picker "Mode" {
+							UI.Picker {
+								Name = "Mode",
 								style = "segmented",
 								selected = Compose.cell("a"),
 								options = { { value = "a", label = "Device" }, { value = "b", label = "Theme" } },

@@ -66,13 +66,11 @@ return {
 			})
 		end
 		local function switch()
-			return UI.Toggle "Switch" {
-				label = "Enable choices",
-				value = enabled,
-			}
+			return UI.Toggle { Name = "Switch", label = "Enable choices", value = enabled }
 		end
 		local function checkbox()
-			return UI.Toggle "Checkbox" {
+			return UI.Toggle {
+				Name = "Checkbox",
 				label = "Include night races and their full race results",
 				value = checked,
 				mixed = mixed,
@@ -81,7 +79,8 @@ return {
 			}
 		end
 		local function plainCheckbox()
-			return UI.Toggle "PlainCheckbox" {
+			return UI.Toggle {
+				Name = "PlainCheckbox",
 				label = "Reduced motion",
 				value = checked,
 				presentation = "checkbox" :: "checkbox",
@@ -92,7 +91,8 @@ return {
 			}
 		end
 		local function toggle()
-			return UI.Toggle "Boost" {
+			return UI.Toggle {
+				Name = "Boost",
 				label = "Boost mode",
 				value = boost,
 				presentation = "button" :: "button",
@@ -101,7 +101,8 @@ return {
 		end
 
 		local function radio()
-			return UI.Picker "Radio" {
+			return UI.Picker {
+				Name = "Radio",
 				selected = selected,
 				options = choices,
 				style = "radioGroup" :: "radioGroup",
@@ -109,7 +110,8 @@ return {
 			}
 		end
 		local function segmented()
-			return UI.Picker "Segments" {
+			return UI.Picker {
+				Name = "Segments",
 				selected = selected,
 				options = {
 					{ value = "open", label = "Open" } :: PickerOption,
@@ -120,7 +122,8 @@ return {
 			}
 		end
 		local function popup()
-			return UI.Picker "Popup" {
+			return UI.Picker {
+				Name = "Popup",
 				label = "Race group",
 				selected = selected,
 				options = {
@@ -135,7 +138,8 @@ return {
 			table.insert(trackOptions, { value = item.id, label = item.label })
 		end
 		local function search()
-			return UI.Picker "Tracks" {
+			return UI.Picker {
+				Name = "Tracks",
 				label = "Track",
 				selected = track,
 				options = trackOptions,
@@ -145,7 +149,8 @@ return {
 		end
 		local function multi()
 			return UI.Menu {
-				trigger = UI.Button "Tags" {
+				trigger = UI.Button {
+					Name = "Tags",
 					label = "Scenery filters",
 					enabled = enabled,
 					onActivate = function() end,
@@ -164,7 +169,8 @@ return {
 			}
 		end
 		local function combo()
-			return UI.ComboBox "Vehicle" {
+			return UI.ComboBox {
+				Name = "Vehicle",
 				value = comboValue,
 				text = comboText,
 				options = {
@@ -191,7 +197,8 @@ return {
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 					Padding = UDim.new(0, 16),
 				}) :: unknown,
-				UI.Vote "TrackVote" {
+				UI.Vote {
+					Name = "TrackVote",
 					LayoutOrder = 1,
 					value = vote,
 					summary = function(use: Use)
@@ -201,13 +208,14 @@ return {
 						vote:set(nextValue)
 					end,
 				},
-				UI.Vote "PastVote" {
+				UI.Vote {
+					Name = "PastVote",
 					LayoutOrder = 2,
 					value = "down" :: "down",
 					readOnly = true,
 					controlSize = "compact" :: "compact",
 				},
-				UI.Chip "VoteTag" { LayoutOrder = 3, label = "Rally", selected = signal(false) },
+				UI.Chip { Name = "VoteTag", LayoutOrder = 3, label = "Rally", selected = signal(false) },
 			}
 		end
 		local function reset()
@@ -231,7 +239,8 @@ return {
 			laps:set("5")
 		end
 		local function driverField()
-			return UI.Picker "Driver" {
+			return UI.Picker {
+				Name = "Driver",
 				label = "Driver",
 				requiredMark = "required" :: "required",
 				hint = "Who takes the wheel for this race.",
@@ -244,7 +253,8 @@ return {
 			}
 		end
 		local function cards()
-			return UI.Picker "Mode" {
+			return UI.Picker {
+				Name = "Mode",
 				label = "Race mode",
 				style = "cards" :: "cards",
 				axis = "x" :: "x",
@@ -265,7 +275,8 @@ return {
 			}
 		end
 		local function lapStrip()
-			return UI.Picker "Laps" {
+			return UI.Picker {
+				Name = "Laps",
 				style = "segmented" :: "segmented",
 				appearance = "stroke",
 				corners = "pill" :: "pill",
@@ -330,7 +341,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.Button "Reset" { label = "Reset", onActivate = reset },
+				UI.Button { Name = "Reset", label = "Reset", onActivate = reset },
 				caption("CapSwitch", "Toggle · switch"),
 				switch(),
 				heading("Check and toggle"),
@@ -354,7 +365,8 @@ return {
 				segmented(),
 				caption("CapPopup", "Picker · automatic (menu on touch and pointer; rows on a television)"),
 				popup(),
-				UI.Button "Join" {
+				UI.Button {
+					Name = "Join",
 					label = "Toggle club membership",
 					onActivate = function()
 						club:set(not club:peek())
@@ -378,7 +390,8 @@ return {
 			return Host.Frame "SelectionControls" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView "Content" {
+				UI.ScrollView {
+					Name = "Content",
 					padding = 16,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),

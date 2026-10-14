@@ -113,7 +113,8 @@ return {
 						controlSize = rung,
 					}),
 				}),
-				UI.Picker "Status" {
+				UI.Picker {
+					Name = "Status",
 					LayoutOrder = 4,
 					label = "Status",
 					selected = status,
@@ -124,7 +125,8 @@ return {
 						{ value = "voice", label = "Voice" } :: PickerOption,
 					},
 				},
-				UI.Picker "Size" {
+				UI.Picker {
+					Name = "Size",
 					LayoutOrder = 5,
 					label = "Size",
 					selected = rung,
@@ -161,7 +163,8 @@ return {
 				return Host.Frame "Badge" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					UI.ScrollView "Content" {
+					UI.ScrollView {
+						Name = "Content",
 						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),

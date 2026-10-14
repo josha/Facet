@@ -1,14 +1,14 @@
 --!strict
 local Types = require("./types")
 local Content = require("./content_types")
-local Media = require("./media_types")
+local MediaProps = require("./media_props")
 local ComposeTypes = require("../vendor/compose/core")
 
 return function(
 	ctx: Types.Context,
 	UI: {
 		badged: Content.Badged,
-		Badge: Types.Constructor<Media.BadgeProps, GuiObject>,
+		Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
 	}
 ): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read

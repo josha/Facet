@@ -40,9 +40,5 @@ export type ColorPickerOptions = {
 	appearance: WordsValue?,
 	corners: ("pill" | "square")?,
 }
-export type ColorPickerProps = Shared.FrameProps & ColorPickerOptions
-export type ColorPickerControls = {
-	ColorPicker: Shared.Constructor<ColorPickerProps, Frame>,
-}
 
 return {}

@@ -2,6 +2,11 @@
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
+local function named<P>(name: string, props: P): P
+	local copy = table.clone((props :: unknown) :: { [unknown]: unknown })
+	copy.Name = name
+	return (copy :: unknown) :: P
+end
 local library = require("./library")
 local document = require("./document")
 local values = require("./value")
@@ -299,7 +304,8 @@ function adapter.evaluate(item: any, ctx: any, locals: any): any
 		end
 	elseif tag == "row" then
 		return function(current)
-			return ctx.UI.Text "RowLabel" {
+			return ctx.UI.Text {
+				Name = "RowLabel",
 				text = function(use: Use)
 					local row = use(current)
 					return tostring(row.label or row.name or row.id or "Item")
@@ -313,13 +319,14 @@ function adapter.evaluate(item: any, ctx: any, locals: any): any
 			for _, node in item.nodes do
 				table.insert(props, ctx.render(node))
 			end
-			return ctx.UI.VStack "__FacetDesignContent"(props)
+			return ctx.UI.VStack(named("__FacetDesignContent", props))
 		end
 	elseif tag == "anchor" then
 		local key = "anchor_" .. item.node.id
 		if not locals[key] then
 			local definition = library.definitions[item.node.kind]
-			locals[key] = ctx.UI.Button(item.node.name .. "Anchor") {
+			locals[key] = ctx.UI.Button {
+				Name = item.node.name .. "Anchor",
 				label = item.node.props.anchorLabel or definition.defaults.anchorLabel,
 				onActivate = function()
 					locals[adapter.stateName(item.node, "isPresented")]:set(true)
@@ -453,11 +460,11 @@ function adapter.emit(item: any, emitNode: any, depth: number?): string
 	elseif tag == "column" then
 		return "function(row: any) return row[" .. values.literal(item.key) .. "] end"
 	elseif tag == "row" then
-		return 'function(current) return UI.Text "RowLabel" { text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, TextWrapped = true } end'
+		return 'function(current) return UI.Text { Name = "RowLabel", text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, TextWrapped = true } end'
 	elseif tag == "anchor" then
 		return "anchor_" .. item.node.id
 	elseif tag == "content" then
-		local lines = { 'function() return UI.VStack "__FacetDesignContent" { gap = "s", width = "fill",' }
+		local lines = { 'function() return UI.VStack { Name = "__FacetDesignContent", gap = "s", width = "fill",' }
 		for _, node in item.nodes do
 			table.insert(lines, emitNode(node, level + 1) .. ",")
 		end

@@ -14,6 +14,7 @@
     {"id": "experiment-markers", "tier": "fast", "run": "lute run tools/facet check experiment-markers", "replaces": ["check_experiment_markers"]},
     {"id": "screen-key-bindings", "tier": "fast", "run": "lute run tools/facet check screen-key-bindings", "replaces": ["check_no_screen_key_bindings"]},
     {"id": "type-policy", "tier": "fast", "run": "lute run tools/facet check type-policy"},
+    {"id": "control-props", "tier": "fast", "run": "lute run tools/facet types props --check"},
     {"id": "doctor", "tier": "full", "run": "lute run tools/facet build doctor", "replaces": ["doctor"]},
     {"id": "links", "tier": "full", "run": "lute run tools/facet check links", "replaces": ["check_links_cli"]},
     {"id": "doc-style", "tier": "full", "run": "lute run tools/facet check doc-style", "replaces": ["check_doc_style"]},

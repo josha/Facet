@@ -8,10 +8,14 @@ local Types = require("./types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
 local NavigationTypes = require("./navigation_types")
+local CollectionProps = require("./collection_props")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
+local NavigationProps = require("./navigation_props")
 type Controls = {
-	RowActions: Types.Constructor<CollectionTypes.RowActionsSpec, Frame>,
-	Menu: NavigationTypes.MenuConstructor,
-	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
+	RowActions: Types.Constructor<CollectionProps.RowActionsSpec, Frame>,
+	Menu: ControlTypes.MenuConstructor,
+	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
 }
 type RowEdge = CollectionTypes.RowEdge
 type RowAction = CollectionTypes.RowAction
@@ -38,7 +42,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 	}
 	local FULL_SWIPE = 0.6
 	local RESISTANCE = 0.55
-	UI.RowActions = ctx.construct("RowActions", function(spec: CollectionTypes.RowActionsSpec): Frame
+	UI.RowActions = ctx.construct("RowActions", function(spec: CollectionProps.RowActionsSpec): Frame
 		assert(
 			spec.actionPlacement == nil or spec.actionPlacement == "trailing" or spec.actionPlacement == "bottom",
 			"RowActions.actionPlacement must be trailing or bottom"
@@ -288,7 +292,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 						local function first(use: ComposeTypes.Use): boolean
 							return use(index) == 1
 						end
-						local buttonProps: InputTypes.ButtonProps = {
+						local buttonProps: InputProps.ButtonProps = {
 							Name = current:peek().id,
 							LayoutOrder = function(use: ComposeTypes.Use)
 								return if edge == "leading" then -use(index) else use(index)
@@ -708,7 +712,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 				},
 			},
 		}))
-		local menuSpec: NavigationTypes.MenuSpec<string> = {
+		local menuSpec: NavigationProps.MenuSpec<string> = {
 			trigger = root,
 			closeButton = true,
 			items = menuItems,
@@ -929,7 +933,7 @@ return function(ctx: Types.Context, UI: Controls): ()
 					Compose.show(function(use: ComposeTypes.Use)
 						return read(spec.editing, use) == true and destructive(use) ~= nil
 					end, function()
-						local buttonProps: InputTypes.ButtonProps = {
+						local buttonProps: InputProps.ButtonProps = {
 							Name = "Delete",
 							Size = function(use: ComposeTypes.Use)
 								return D2.new(0, use(editWidth), 1, 0)

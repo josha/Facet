@@ -320,7 +320,8 @@ function example.build(ctx: any)
 	end
 
 	local function measure(name: string, sample: string, size: number)
-		local probe = UI.Text(name) {
+		local probe = UI.Text {
+			Name = name,
 			Visible = false,
 			text = sample,
 			TextSize = size,
@@ -351,6 +352,7 @@ function example.build(ctx: any)
 			return math.max(14, math.ceil(bounds.Y))
 		end)
 		local board: { any } = {
+			Name = "board",
 			columns = COLS,
 			gap = "xs",
 			cellHeight = function(use: Use): number
@@ -370,7 +372,8 @@ function example.build(ctx: any)
 				local fill = Host.Frame "fill" {
 					Size = UDim2.fromScale(1, 1),
 					Host.UICorner({}) :: unknown,
-					UI.Text "ch" {
+					UI.Text {
+						Name = "ch",
 						text = function(use: Use)
 							return use(rowsSig)[rr].letters:sub(cc, cc)
 						end,
@@ -381,7 +384,8 @@ function example.build(ctx: any)
 						end,
 						TextXAlignment = Enum.TextXAlignment.Center,
 					},
-					UI.Text "mark" {
+					UI.Text {
+						Name = "mark",
 						text = function(use: Use)
 							return TILE_MARK[use(state)]
 						end,
@@ -418,7 +422,8 @@ function example.build(ctx: any)
 					typedRing,
 				}
 				typed:AddTag("facet-status-neutral")
-				local tile = UI.ZStack(`tile{r}_{c}`) {
+				local tile = UI.ZStack {
+					Name = `tile{r}_{c}`,
 					width = "fill" :: "fill",
 					height = "fill" :: "fill",
 					fill :: unknown,
@@ -429,16 +434,17 @@ function example.build(ctx: any)
 				table.insert(board, tile)
 			end
 		end
-		local keyboard: { any } = { width = "fill" :: "fill", gap = "s" }
+		local keyboard: { any } = { Name = "kb", width = "fill" :: "fill", gap = "s" }
 		for ri, keys in KEYBOARD do
 			local units = #keys
-			local row: { any } = { width = "fill" :: "fill", gap = "xs" }
+			local row: { any } = { Name = "kbrow" .. ri, width = "fill" :: "fill", gap = "xs" }
 			for _, key in keys do
 				local isCommand = key == "Enter" or key == "Back"
 				local state = Compose.formula(function(use: Use)
 					return if isCommand then nil else use(keysSig)[key] or "unknown"
 				end)
-				local button = UI.Button("key_" .. key) {
+				local button = UI.Button {
+					Name = "key_" .. key,
 					if ri ~= 3 then nil elseif isCommand then UI.fill(1.5) else UI.fill() :: unknown,
 					Size = if ri == 3
 						then UDim2.fromOffset(0, 44)
@@ -466,7 +472,7 @@ function example.build(ctx: any)
 				table.insert(row, button)
 				keyPathByLetter[key] = `/WordGuess/page/kb/kbrow{ri}/key_{key}`
 			end
-			table.insert(keyboard, UI.HStack("kbrow" .. ri)(row))
+			table.insert(keyboard, UI.HStack(row))
 		end
 		statusSig = Compose.formula(function(use: Use)
 			local notice = use(noticeSig)
@@ -475,25 +481,32 @@ function example.build(ctx: any)
 			end
 			return `Guess the six-letter word — row {math.min(use(activeSig), ROWS)} of {ROWS}.`
 		end)
-		return UI.ScrollView "page" {
+		return UI.ScrollView {
+			Name = "page",
 			gap = "s",
 			align = "center" :: "center",
 			sheet :: unknown,
 			Host.StyleLink { StyleSheet = Compose.static(sheet) },
-			UI.Text "Title" { text = "Word Guess", textRole = "title" :: "title" },
-			UI.Text "Status" {
+			UI.Text { Name = "Title", text = "Word Guess", textRole = "title" :: "title" },
+			UI.Text {
+				Name = "Status",
 				text = statusSig,
 				Size = UDim2.fromScale(1, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Center,
 			},
-			UI.Grid "board"(board),
+			UI.Grid(board),
 			letterProbe,
 			markProbe,
-			UI.Text "Legend" { text = "v exact spot   ~ different spot   x absent", textRole = "caption" :: "caption" },
-			UI.VStack "kb"(keyboard),
-			UI.Button "Restart" {
+			UI.Text {
+				Name = "Legend",
+				text = "v exact spot   ~ different spot   x absent",
+				textRole = "caption" :: "caption",
+			},
+			UI.VStack(keyboard),
+			UI.Button {
+				Name = "Restart",
 				label = "New game",
 				onActivate = function()
 					restart()
@@ -543,9 +556,11 @@ function example.build(ctx: any)
 	return {
 		title = example.title,
 		screen = function()
-			return UI.Screen "WordGuess" {
+			return UI.Screen {
+				Name = "WordGuess",
 				WordGame() :: unknown,
-				UI.Alert "WordGuessResult" {
+				UI.Alert {
+					Name = "WordGuessResult",
 					isPresented = resultOpen,
 					title = resultTitle,
 					message = resultMessage,

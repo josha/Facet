@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -28,7 +29,7 @@ return function(verifyHarness: Verify.Harness)
 			for key, value in (extra or {} :: { [string]: any }) do
 				spec[key] = value
 			end
-			return UI.Sheet "Sheet"(spec)
+			return UI.Sheet(named("Sheet", spec))
 		end, options)
 		w.detent = detent
 		local modal = w.find("Modal")
@@ -111,7 +112,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls)
 					return UI.RowActions({
 						fullSwipe = false,
-						content = UI.Button "Body" { label = "Row" } :: GuiObject,
+						content = UI.Button { Name = "Body", label = "Row" } :: GuiObject,
 						trailing = { { id = "Archive", label = "Archive" } :: FixtureCollectionTypes.RowAction },
 					})
 				end)
@@ -140,7 +141,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls)
 					return UI.RowActions({
 						fullSwipe = false,
-						content = UI.Button "Body" { label = "Row" } :: GuiObject,
+						content = UI.Button { Name = "Body", label = "Row" } :: GuiObject,
 						trailing = { { id = "Archive", label = "Archive" } :: FixtureCollectionTypes.RowAction },
 					})
 				end)

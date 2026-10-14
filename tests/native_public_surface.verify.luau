@@ -31,7 +31,8 @@ return function(verifyHarness: Verify.Harness)
 				local stop, frame: any = runtime.mount(function()
 					return Host.Frame({
 						Compose.show(shown, function()
-							return UI.Button("Action")({
+							return UI.Button({
+								Name = "Action",
 								label = label,
 								Attributes = { meaning = "test" } :: FixtureEngineTypes.Attributes,
 								ref = function(node)

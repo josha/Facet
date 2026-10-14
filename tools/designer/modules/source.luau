@@ -258,7 +258,7 @@ function source.parse(code: string, name: string): document.Document
 		local allowed = matches("function() end")
 			or matches("function(value) return true, value end")
 			or matches(
-				'function(current) return UI.Text "RowLabel" { text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, TextWrapped = true } end'
+				'function(current) return UI.Text { Name = "RowLabel", text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, TextWrapped = true } end'
 			)
 		if
 			not allowed
@@ -446,9 +446,7 @@ function source.parse(code: string, name: string): document.Document
 		sequence({ "UI", "." })
 		local kind = take().value
 		assert(library.definitions[kind], `No design adapter for {kind}`)
-		local label = take()
-		assert(label.kind == "literal" and type(label.value) == "string", "Use a literal control name")
-		local result = { id = "pending", kind = kind, name = label.value, props = {}, children = {} }
+		local result = { id = "pending", kind = kind, name = "", props = {}, children = {} }
 		local function collect(item: any): any
 			if type(item) ~= "table" then
 				return item
@@ -519,6 +517,15 @@ function source.parse(code: string, name: string): document.Document
 			else
 				local key = take().value
 				take("=")
+				if key == "Name" then
+					local label = take()
+					assert(label.kind == "literal" and type(label.value) == "string", "Use a literal control name")
+					result.name = label.value
+					if peek() == "," then
+						take(",")
+					end
+					continue
+				end
 				local raw = expression(depth + 1)
 				local property
 				if type(raw) == "table" and raw.__facetField then
@@ -545,6 +552,7 @@ function source.parse(code: string, name: string): document.Document
 			end
 		end
 		take("}")
+		assert(result.name ~= "", "Use a literal control name")
 		if string.match(result.name, "^__FacetDesignHost_n%d+$") then
 			return assert(result.children[#result.children])
 		end

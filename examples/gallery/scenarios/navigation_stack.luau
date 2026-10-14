@@ -93,7 +93,8 @@ return {
 			Compose.cleanup(function()
 				exits += 1
 			end)
-			return UI.ScrollView "Scroll" {
+			return UI.ScrollView {
+				Name = "Scroll",
 				padding = 16,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
@@ -112,7 +113,8 @@ return {
 			}
 		end
 		local function journey()
-			return UI.NavigationStack "Journey" {
+			return UI.NavigationStack {
+				Name = "Journey",
 				path = path,
 				backLabel = "Back",
 
@@ -170,7 +172,8 @@ return {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									Padding = UDim.new(0, 8),
 								}) :: unknown,
-								UI.Text "ResultsHeading" {
+								UI.Text {
+									Name = "ResultsHeading",
 									BackgroundTransparency = 1,
 									BorderSizePixel = 0,
 									Size = UDim2.new(1, 0, 0, 0),
@@ -240,7 +243,8 @@ return {
 								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
 							searchLayout,
-							UI.Button "Continue" {
+							UI.Button {
+								Name = "Continue",
 								label = "Plan details",
 								appearance = "emphasis" :: "emphasis",
 								onActivate = function()
@@ -275,29 +279,34 @@ return {
 											SortOrder = Enum.SortOrder.LayoutOrder,
 											Padding = UDim.new(0, 8),
 										}) :: unknown,
-										UI.HStack "Baseline" {
+										UI.HStack {
+											Name = "Baseline",
 											LayoutOrder = 1,
 											width = "fill" :: "fill",
 											gap = "s",
 											align = "end" :: "end",
-											UI.Text "Label" {
+											UI.Text {
+												Name = "Label",
 												LayoutOrder = 1,
 												text = "Days",
 												textRole = "caption" :: "caption",
 											} :: unknown,
-											UI.Text "Value" {
+											UI.Text {
+												Name = "Value",
 												LayoutOrder = 2,
 												text = "3",
 												textRole = "title" :: "title",
 											},
-											UI.Spacer "FlexibleGap" { LayoutOrder = 3, minLength = minimum },
-											UI.Text "Unit" {
+											UI.Spacer { Name = "FlexibleGap", LayoutOrder = 3, minLength = minimum },
+											UI.Text {
+												Name = "Unit",
 												LayoutOrder = 4,
 												text = "away",
 												textRole = "body" :: "body",
 											},
 										},
-										UI.HStack "LastBaseline" {
+										UI.HStack {
+											Name = "LastBaseline",
 											LayoutOrder = 2,
 											width = "fill" :: "fill",
 											gap = "s",
@@ -345,7 +354,8 @@ return {
 										}),
 									}),
 								},
-								UI.Button "Review" {
+								UI.Button {
+									Name = "Review",
 									label = "Review journey",
 									onActivate = function()
 										push({ id = "review", value = destination:peek() })
@@ -379,7 +389,8 @@ return {
 									TextYAlignment = Enum.TextYAlignment.Top,
 									TextXAlignment = Enum.TextXAlignment.Left,
 								}),
-								UI.Button "StartAgain" {
+								UI.Button {
+									Name = "StartAgain",
 									label = "Back to the beginning",
 									onActivate = function()
 										popToRoot()

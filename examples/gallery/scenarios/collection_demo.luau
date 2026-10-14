@@ -167,7 +167,8 @@ return function(ctx: any, options: any)
 				SortOrder = E.SortOrder.LayoutOrder,
 				Padding = D.new(0, 8),
 			}),
-			UI.StatusIndicator "Unread" {
+			UI.StatusIndicator {
+				Name = "Unread",
 				LayoutOrder = 1,
 				form = "dot",
 				status = "accent",
@@ -187,20 +188,23 @@ return function(ctx: any, options: any)
 					VerticalAlignment = E.VerticalAlignment.Center,
 					Padding = D.new(0, 2),
 				}),
-				UI.Text "From" {
+				UI.Text {
+					Name = "From",
 					LayoutOrder = 1,
 					Visible = sender,
 					text = words("from"),
 					textRole = "body" :: "body",
 					truncate = "end",
 				},
-				UI.Text "Subject" {
+				UI.Text {
+					Name = "Subject",
 					LayoutOrder = 2,
 					text = words("subject"),
 					textRole = "label" :: "label",
 					truncate = "end",
 				},
-				UI.Text "Preview" {
+				UI.Text {
+					Name = "Preview",
 					LayoutOrder = 3,
 					text = words("preview"),
 					textRole = "caption" :: "caption",
@@ -208,7 +212,8 @@ return function(ctx: any, options: any)
 					truncate = "end",
 				},
 			}),
-			UI.Image "Flag" {
+			UI.Image {
+				Name = "Flag",
 				LayoutOrder = 3,
 				Size = D2.fromOffset(16, 16),
 				tint = ctx.types.Color3.fromRGB(214, 64, 56),
@@ -241,7 +246,8 @@ return function(ctx: any, options: any)
 					PaddingBottom = D.new(0, 10),
 				}),
 				Host.UIListLayout({ Padding = D.new(0, 4), SortOrder = E.SortOrder.LayoutOrder }),
-				UI.Text "PostTitle" {
+				UI.Text {
+					Name = "PostTitle",
 					LayoutOrder = 1,
 					text = function(use: Use)
 						return use(current).label
@@ -255,7 +261,8 @@ return function(ctx: any, options: any)
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
 				},
-				UI.Text "PostBody" {
+				UI.Text {
+					Name = "PostBody",
 					LayoutOrder = 2,
 					text = function(use: Use)
 						return use(current).description
@@ -533,7 +540,8 @@ return function(ctx: any, options: any)
 			BackgroundTransparency = 1,
 			table.unpack((buttons :: unknown) :: { unknown }),
 		}
-		local titleProbe = UI.Text "TitleLineMeasure" {
+		local titleProbe = UI.Text {
+			Name = "TitleLineMeasure",
 			Visible = false,
 			text = "Ag",
 			TextSize = function(use: Use)
@@ -542,7 +550,8 @@ return function(ctx: any, options: any)
 			AutomaticSize = E.AutomaticSize.XY,
 			Size = D2.fromOffset(0, 0),
 		}
-		local bodyProbe = UI.Text "BodyLineMeasure" {
+		local bodyProbe = UI.Text {
+			Name = "BodyLineMeasure",
 			Visible = false,
 			text = "Ag",
 			TextSize = function(use: Use)
@@ -595,7 +604,8 @@ return function(ctx: any, options: any)
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
 					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }) :: unknown,
-					UI.Text "Title" {
+					UI.Text {
+						Name = "Title",
 						LayoutOrder = 1,
 						Visible = function(use: Use)
 							local viewport = ctx.viewport and use(ctx.viewport)
@@ -609,7 +619,8 @@ return function(ctx: any, options: any)
 						BackgroundTransparency = 1,
 					},
 					actionsFrame,
-					UI.Text "Status" {
+					UI.Text {
+						Name = "Status",
 						LayoutOrder = 3,
 						text = function(use: Use)
 							local snapshot, count = use(status), 0

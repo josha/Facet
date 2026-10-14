@@ -1,5 +1,6 @@
 --!strict
 local NativeEngine = require("./lib/native_engine")
+local named = require("./lib/named")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -33,7 +34,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local function mount(specOf: (any, any) -> { [any]: any }, options: any?): any
 		return overlay.new(function(UI: FacetControls, Host: RobloxHost)
-			local anchor = UI.Button "Plus" { label = "+" }
+			local anchor = UI.Button { Name = "Plus", label = "+" }
 			local spec = specOf(UI, Host)
 			spec.anchor = anchor
 			if spec.onRetire == nil then
@@ -42,7 +43,7 @@ return function(verifyHarness: Verify.Harness)
 			return Host.Frame({
 				Name = "Editor",
 				Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
-				UI.Callout "Callout"(spec),
+				UI.Callout(named("Callout", spec)),
 			})
 		end, options)
 	end
@@ -64,13 +65,14 @@ return function(verifyHarness: Verify.Harness)
 			local used = Compose.cell(false)
 			local gate = Compose.cell(true)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				local first = UI.Button "Plus" { label = "+" }
-				local second = UI.Button "Share" { label = "Share" }
+				local first = UI.Button { Name = "Plus", label = "+" }
+				local second = UI.Button { Name = "Share", label = "Share" }
 				return Host.Frame({
 					Name = "Editor",
 					Host.Frame({ Name = "Bar", first :: unknown, second }) :: unknown,
 					Compose.show(gate, function()
-						return UI.Callout "First" {
+						return UI.Callout {
+							Name = "First",
 							anchor = first :: GuiObject,
 							priority = 2,
 							content = tip(Host),
@@ -83,7 +85,8 @@ return function(verifyHarness: Verify.Harness)
 							end,
 						}
 					end),
-					UI.Callout "Second" {
+					UI.Callout {
+						Name = "Second",
 						anchor = second :: GuiObject,
 						priority = 1,
 						content = function(): Instance
@@ -131,12 +134,13 @@ return function(verifyHarness: Verify.Harness)
 				local failures: { string } = {}
 				local reports: { string } = {}
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					local first = UI.Button "Plus" { label = "+" }
-					local second = UI.Button "Share" { label = "Share" }
+					local first = UI.Button { Name = "Plus", label = "+" }
+					local second = UI.Button { Name = "Share", label = "Share" }
 					return Host.Frame({
 						Name = "Editor",
 						Host.Frame({ Name = "Bar", first :: unknown, second }) :: unknown,
-						UI.Callout "First" {
+						UI.Callout {
+							Name = "First",
 							anchor = first :: GuiObject,
 							priority = 2,
 							content = tip(Host),
@@ -147,7 +151,8 @@ return function(verifyHarness: Verify.Harness)
 								table.insert(reports, reason)
 							end,
 						},
-						UI.Callout "Second" {
+						UI.Callout {
+							Name = "Second",
 							anchor = second :: GuiObject,
 							priority = 1,
 							content = function(): Instance
@@ -180,11 +185,12 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local gate = Compose.cell(true)
 				local a = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					local anchor = UI.Button "Plus" { label = "+" }
+					local anchor = UI.Button { Name = "Plus", label = "+" }
 					return Host.Frame({
 						Host.Frame({ anchor :: unknown }) :: unknown,
 						Compose.show(gate, function()
-							return UI.Callout "Callout" {
+							return UI.Callout {
+								Name = "Callout",
 								anchor = anchor :: GuiObject,
 								content = tip(Host),
 								onRetire = function() end,
@@ -264,7 +270,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local generation, reports = Compose.cell(1), {}
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					local anchor = UI.Button "Plus" { label = "+" }
+					local anchor = UI.Button { Name = "Plus", label = "+" }
 					return Host.Frame({
 						Host.Frame({ anchor :: unknown }) :: unknown,
 						Compose.keyed({
@@ -272,7 +278,8 @@ return function(verifyHarness: Verify.Harness)
 								return { use(generation) }
 							end,
 							render = function(): GuiObject
-								return UI.Callout "Callout" {
+								return UI.Callout {
+									Name = "Callout",
 									anchor = anchor :: GuiObject,
 									content = tip(Host),
 									actions = {
@@ -446,7 +453,7 @@ return function(verifyHarness: Verify.Harness)
 	verifyHarness:suite("native help: the structured form and the live plate", function()
 		local function helped(value: any): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = value } })
+				return Host.Frame({ Name = "Screen", UI.Button { Name = "Post", label = "Post", help = value } })
 			end, { motionLevel = "none" })
 			local post = w.find("Post")
 			post.AbsolutePosition = Vector2.new(300, 200)
@@ -461,7 +468,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_callout_help::native help: the structured form and the live plate::a title, a body and a display-only shortcut paint in one plate",
 			run = function()
 				local before = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+					return Host.Frame({
+						Name = "Screen",
+						UI.Button { Name = "Post", label = "Post", help = "Posts it" },
+					})
 				end)
 				local post = before.find("Post")
 				before.input.PreferredInput = before.Enum.PreferredInput.Gamepad
@@ -577,7 +587,8 @@ return function(verifyHarness: Verify.Harness)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
 					Name = "Screen",
-					UI.Button "Post" {
+					UI.Button {
+						Name = "Post",
 						label = "Post",
 						help = {
 							title = "Save",
@@ -670,11 +681,12 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_callout_help::native Callout: the plate and its tail arrive together::the panel and the tail both wait for the first styled frame and fade over the short duration",
 				run = function()
 					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						local anchor = UI.Button "Plus" { label = "+" }
+						local anchor = UI.Button { Name = "Plus", label = "+" }
 						return Host.Frame({
 							Name = "Editor",
 							Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
-							UI.Callout "Tip" {
+							UI.Callout {
+								Name = "Tip",
 								anchor = anchor :: GuiObject,
 								isPresented = true,
 								content = tip(Host),
@@ -702,11 +714,12 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_callout_help::native Callout: the plate and its tail arrive together::the plate's own paint waits for its fade group's first drawn frame, so text and panel appear as one",
 				run = function()
 					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						local anchor = UI.Button "Plus" { label = "+" }
+						local anchor = UI.Button { Name = "Plus", label = "+" }
 						return Host.Frame({
 							Name = "Editor",
 							Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
-							UI.Callout "Tip" {
+							UI.Callout {
+								Name = "Tip",
 								anchor = anchor :: GuiObject,
 								isPresented = true,
 								content = tip(Host),
@@ -764,7 +777,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_callout_help::touch contextual text placement::keeps long-press help above and flips it when the top has no room",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame { UI.Button "HelpAnchor" { label = "Help", help = "Full action name" } }
+					return Host.Frame { UI.Button { Name = "HelpAnchor", label = "Help", help = "Full action name" } }
 				end, { motionLevel = "none" })
 				local anchor = w.find("HelpAnchor")
 				anchor.AbsolutePosition = Vector2.new(300, 200)
@@ -788,8 +801,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame {
-						UI.Button "First" { label = "First", help = "First help" } :: unknown,
-						UI.Button "Second" { label = "Second", help = "Second help" },
+						UI.Button { Name = "First", label = "First", help = "First help" } :: unknown,
+						UI.Button { Name = "Second", label = "Second", help = "Second help" },
 					}
 				end, { motionLevel = "none" })
 				local E = w.Enum
@@ -829,8 +842,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame {
-						UI.Button "First" { label = "First", help = "First help" } :: unknown,
-						UI.Button "Second" { label = "Second", help = "Second help" },
+						UI.Button { Name = "First", label = "First", help = "First help" } :: unknown,
+						UI.Button { Name = "Second", label = "Second", help = "Second help" },
 					}
 				end, { motionLevel = "none" })
 				local first, second, E = w.find("First"), w.find("Second"), w.Enum
@@ -872,7 +885,7 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame {
 						sheet :: unknown,
 						link,
-						UI.Button "Styled" { label = "Styled", help = "Styled help" },
+						UI.Button { Name = "Styled", label = "Styled", help = "Styled help" },
 					}
 				end, { motionLevel = "none" })
 				w.gui.SelectedObject = w.find("Styled")

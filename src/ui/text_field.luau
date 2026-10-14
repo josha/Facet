@@ -9,6 +9,7 @@ local InputTypes = require("./input_types")
 local Shared = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 local Environment = require("./environment_types")
+local ControlTypes = require("./control_types")
 
 type Spec = InputTypes.TextInputImplementationProps
 type Scrub = {
@@ -84,7 +85,7 @@ local function round(value: number, digits: number): number
 	return if value < 0 then -rounded else rounded
 end
 
-return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
+return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 	local runtime, Host, Compose = ctx.runtime, ctx.Host, ctx.Compose
 	local read = ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
@@ -596,7 +597,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			`Facet.{control}: invalid clearButtonMode`
 		)
 		local clear = if mode ~= "never"
-			then UI.Button "Clear" {
+			then UI.Button {
+				Name = "Clear",
 				name = "Clear",
 				icon = "close",
 				appearance = "utility",
@@ -676,7 +678,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 
 		if framed then
 			local parts: { ComposeTypes.Child } = {}
-			local function slot(name: string, order: number, content: Instance)
+			local function slot(name: string, order: number, content: Shared.Child)
 				table.insert(
 					parts,
 					Host.Frame(name)({
@@ -684,7 +686,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						BackgroundTransparency = 1,
 						Size = D2.fromOffset(0, 0),
 						AutomaticSize = E.AutomaticSize.XY,
-						content :: ComposeTypes.Child,
+						content,
 					})
 				)
 			end
@@ -762,7 +764,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			if spec.stepButtons then
 				local function stepButton(name: string, glyph: string, direction: number, order: number)
-					local button = UI.Button(name)({
+					local button = UI.Button({
+						Name = name,
 						icon = glyph,
 						name = name,
 						repeatDelay = 0.4,

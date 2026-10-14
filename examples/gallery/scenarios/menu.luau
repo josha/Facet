@@ -212,7 +212,8 @@ return {
 					PaddingRight = UDim.new(0, 8),
 				}),
 				menu,
-				UI.Text "Routes" {
+				UI.Text {
+					Name = "Routes",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -285,13 +286,15 @@ return {
 			return Host.Frame "MenuDemo" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView "Page" {
+				UI.ScrollView {
+					Name = "Page",
 					padding = 16,
 					gap = 4,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					ScrollBarThickness = 6,
-					UI.Text "Title" {
+					UI.Text {
+						Name = "Title",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -302,7 +305,8 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					} :: unknown,
-					UI.Text "Intro" {
+					UI.Text {
+						Name = "Intro",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -369,7 +373,8 @@ return {
 					readout("State", COPY.stateTitle, stateLine),
 					readout("Counts", COPY.countsTitle, countsLine),
 					readout("Ran", COPY.ranTitle, ran),
-					UI.Text "DepthNote" {
+					UI.Text {
+						Name = "DepthNote",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),

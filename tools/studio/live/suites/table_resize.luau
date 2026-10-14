@@ -26,7 +26,8 @@ local cases: { Case } = {
 						container = Host.Frame {
 							Size = UDim2.fromOffset(460, 300),
 							Host.UIScale { Scale = scale } :: unknown,
-							UI.Table "Results" {
+							UI.Table {
+								Name = "Results",
 								from = rows,
 								key = function(row)
 									return row.id

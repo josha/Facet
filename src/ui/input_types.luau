@@ -3,11 +3,10 @@ local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 
 type Value<T> = Shared.Value<T>
-type Constructor<P, N> = Shared.Constructor<P, N>
 
-export type ValueBinding<T> =
-	{ value: ComposeTypes.Cell<T>, onChange: ((T) -> ())? }
-	| { value: Value<T>, onChange: (T) -> () }
+export type CellBinding<T> = { value: ComposeTypes.Cell<T>, onChange: ((T) -> ())? }
+export type RequestBinding<T> = { value: Value<T>, onChange: (T) -> () }
+export type ValueBinding<T> = CellBinding<T> | RequestBinding<T>
 export type EnabledOptions =
 	{ enabled: Shared.ValueBoolean?, disabled: Shared.ValueBoolean?, busy: Shared.ValueBoolean? }
 export type Row = { title: Shared.ValueString?, description: Shared.ValueString?, value: string?, icon: string? }
@@ -22,7 +21,7 @@ export type HelpSpec = {
 export type Help = Shared.ValueString | HelpSpec
 export type ButtonCorners = "pill" | "square"
 export type ButtonRole = "default" | "cancel" | "destructive" | "onIndicator"
-export type ButtonVisualOptions = EnabledOptions & {
+export type ButtonVisualOptions = {
 	label: Shared.ValueString?,
 	name: Shared.ValueString?,
 	compactLabel: Shared.ValueString?,
@@ -55,18 +54,31 @@ export type ButtonInputOptions = {
 	onPointerUp: ((InputObject) -> ())?,
 	onPointerCancel: (() -> ())?,
 }
-export type ButtonProps = Shared.TextButtonProps & ButtonVisualOptions & ButtonInputOptions & {
+export type ButtonOptions = {
 	selected: Shared.ValueBoolean?,
 	onActivate: ((InputObject?, number?) -> ())?,
 }
-export type ToggleImplementationProps = Shared.TextButtonProps & ButtonVisualOptions & ButtonInputOptions & {
-	value: Shared.ValueBoolean,
-	onChange: ((boolean) -> ())?,
+export type ButtonShape =
+	Shared.TextButtonProps
+	& EnabledOptions
+	& ButtonVisualOptions
+	& ButtonInputOptions
+	& ButtonOptions
+export type ToggleOptions = {
 	presentation: ("switch" | "checkbox" | "button")?,
 	mixed: Shared.ValueBoolean?,
 	indicatorPosition: ("leading" | "trailing")?,
 }
-export type ToggleProps = ToggleImplementationProps & ValueBinding<boolean>
+export type ToggleImplementationProps =
+	Shared.TextButtonProps
+	& EnabledOptions
+	& ButtonVisualOptions
+	& ButtonInputOptions
+	& ToggleOptions
+	& {
+		value: Shared.ValueBoolean,
+		onChange: ((boolean) -> ())?,
+	}
 export type TextCommitReason = "submit" | "focusLost"
 export type CommitReason = TextCommitReason | "clamped"
 export type ClearButtonMode = "never" | "always" | "whileEditing" | "unlessEditing"
@@ -91,7 +103,7 @@ export type FieldChrome = {
 	appearance: TextValue?,
 	corners: FieldCorners?,
 }
-export type TextInputOptions = FieldChrome & {
+export type TextInputOptions = {
 	enabled: FlagValue?,
 	disabled: FlagValue?,
 	readOnly: FlagValue?,
@@ -104,8 +116,8 @@ export type TextInputOptions = FieldChrome & {
 	clearButton: boolean?,
 	clearButtonMode: ClearButtonMode?,
 	selectOnFocus: SelectOnFocusValue?,
-	leading: Instance?,
-	trailing: Instance?,
+	leading: Shared.Child?,
+	trailing: Shared.Child?,
 	onCancel: (() -> ())?,
 	min: number?,
 	max: number?,
@@ -120,22 +132,25 @@ export type NumberOptions = {
 	suffix: TextValue?,
 	scrub: FlagValue?,
 }
-export type TextInputPresentation =
-	{ presentation: ("plain" | "search")?, numericValue: nil?, onCommit: ((string, TextCommitReason) -> ())? }
-	| { presentation: "number", numericValue: NumberCell, onCommit: ((number, CommitReason) -> ())? }
-export type TextInputImplementationProps = Shared.TextBoxProps & TextInputOptions & NumberOptions & {
+export type TextPresentation = {
+	presentation: ("plain" | "search")?,
+	numericValue: nil?,
+	onCommit: ((string, TextCommitReason) -> ())?,
+}
+export type NumberPresentation = {
+	presentation: "number",
+	numericValue: NumberCell,
+	onCommit: ((number, CommitReason) -> ())?,
+}
+export type TextInputPresentation = TextPresentation | NumberPresentation
+export type TextInputImplementationProps = Shared.TextBoxProps & FieldChrome & TextInputOptions & NumberOptions & {
 	value: TextValue,
 	onChange: ((string) -> ())?,
 	onCommit: (((string, TextCommitReason) -> ()) | ((number, CommitReason) -> ()))?,
 	presentation: ("plain" | "search" | "number")?,
 	numericValue: ComposeTypes.Cell<number>?,
 }
-export type TextInputBase = Shared.TextBoxProps & TextInputOptions & NumberOptions & {
-	value: TextValue,
-	onChange: ((string) -> ())?,
-}
-export type TextInputProps = TextInputBase & TextBinding & TextInputPresentation
-export type NumberInputProps = TextInputBase & TextBinding & {
+export type NumberInputModel = {
 	numericValue: NumberCell,
 	onCommit: ((number, CommitReason) -> ())?,
 }
@@ -149,13 +164,16 @@ export type NumberInputOptions = ValueOptions & {
 	enabled: Shared.ValueBoolean?,
 	label: Shared.ValueString?,
 }
-export type StepperImplementationProps = Shared.FrameProps & NumberInputOptions & {
-	value: Shared.ValueNumber,
-	onChange: ((number) -> ())?,
+export type StepperOptions = {
+	enabled: Shared.ValueBoolean?,
+	label: Shared.ValueString?,
 	repeatDelay: number?,
 	repeatInterval: number?,
 }
-export type StepperProps = StepperImplementationProps & ValueBinding<number>
+export type StepperImplementationProps = Shared.FrameProps & ValueOptions & StepperOptions & {
+	value: Shared.ValueNumber,
+	onChange: ((number) -> ())?,
+}
 export type SliderRange = { lower: number, upper: number }
 export type SliderThumb = "value" | "lower" | "upper"
 export type SliderChange = { thumb: SliderThumb }
@@ -167,13 +185,13 @@ export type SliderKnob = {
 	enabled: ComposeTypes.Readable<boolean>,
 }
 export type SliderOptions = {
-	onCommit: (((number, SliderChange?) -> ()) | ((SliderRange, SliderChange) -> ()))?,
+	enabled: Shared.ValueBoolean?,
+	label: Shared.ValueString?,
 	tapToPosition: boolean?,
 	thumbImage: TextValue?,
 	trackImage: TextValue?,
 	row: Row?,
 	axis: ("x" | "y")?,
-	range: boolean?,
 	minGap: number?,
 	thumb: ("always" | "auto" | "none")?,
 	thumbContent: ((SliderKnob) -> Instance)?,
@@ -183,33 +201,39 @@ export type SliderOptions = {
 	contained: boolean?,
 }
 export type SliderImplementationProps = Shared.FrameProps & ValueOptions & SliderOptions & {
-	enabled: Shared.ValueBoolean?,
-	label: Shared.ValueString?,
+	range: boolean?,
 	value: Shared.ValueNumber | RangeValue,
 	onChange: (((number, SliderChange?) -> ()) | ((SliderRange, SliderChange) -> ()))?,
+	onCommit: (((number, SliderChange?) -> ()) | ((SliderRange, SliderChange) -> ()))?,
 }
 export type RangeValue = Value<SliderRange>
-export type SliderBinding =
-	{ range: false?, value: ComposeTypes.Cell<number>, onChange: ((number) -> ())?, onCommit: ((number) -> ())? }
-	| { range: false?, value: Shared.ValueNumber, onChange: (number) -> (), onCommit: ((number) -> ())? }
-	| {
-		range: true,
-		value: RangeValue,
-		onChange: ((SliderRange, SliderChange) -> ())?,
-		onCommit: ((SliderRange, SliderChange) -> ())?,
-	}
-export type SliderProps = Shared.FrameProps & ValueOptions & SliderOptions & {
-	enabled: Shared.ValueBoolean?,
-	label: Shared.ValueString?,
-} & SliderBinding
+export type SliderCellBinding = {
+	range: false?,
+	value: ComposeTypes.Cell<number>,
+	onChange: ((number) -> ())?,
+	onCommit: ((number) -> ())?,
+}
+export type SliderRequestBinding = {
+	range: false?,
+	value: Shared.ValueNumber,
+	onChange: (number) -> (),
+	onCommit: ((number) -> ())?,
+}
+export type SliderRangeBinding = {
+	range: true,
+	value: RangeValue,
+	onChange: ((SliderRange, SliderChange) -> ())?,
+	onCommit: ((SliderRange, SliderChange) -> ())?,
+}
+export type SliderBinding = SliderCellBinding | SliderRequestBinding | SliderRangeBinding
 export type LevelSize = "small" | "medium" | "large"
 export type Glyphs = { filled: string, empty: string }
 export type Images = { filled: string, empty: string }
 export type Tint = { filled: Value<Color3>?, empty: Value<Color3>? }
-export type LevelBinding =
-	{ value: ComposeTypes.Cell<number>, onChange: ((number) -> ())?, readOnly: boolean? }
-	| { value: Shared.ValueNumber, onChange: (number) -> (), readOnly: boolean? }
-	| { value: Shared.ValueNumber, readOnly: true, onChange: ((number) -> ())? }
+export type LevelCellBinding = { value: ComposeTypes.Cell<number>, onChange: ((number) -> ())?, readOnly: boolean? }
+export type LevelRequestBinding = { value: Shared.ValueNumber, onChange: (number) -> (), readOnly: boolean? }
+export type LevelReadOnlyBinding = { value: Shared.ValueNumber, readOnly: true, onChange: ((number) -> ())? }
+export type LevelBinding = LevelCellBinding | LevelRequestBinding | LevelReadOnlyBinding
 export type LevelOptions = {
 	count: number?,
 	allowZero: boolean?,
@@ -222,13 +246,13 @@ export type RatingImplementationProps = Shared.TextButtonProps & LevelOptions & 
 	glyphs: Glyphs?,
 	starSize: LevelSize?,
 }
-export type RatingProps = Shared.TextButtonProps & {
+export type RatingOptions = {
 	count: number?,
 	allowZero: boolean?,
 	enabled: Shared.ValueBoolean?,
 	glyphs: Glyphs?,
 	starSize: LevelSize?,
-} & LevelBinding
+}
 export type LevelPickerImplementationProps = Shared.TextButtonProps & LevelOptions & {
 	value: Shared.ValueNumber,
 	onChange: ((number) -> ())?,
@@ -238,7 +262,7 @@ export type LevelPickerImplementationProps = Shared.TextButtonProps & LevelOptio
 	images: Images?,
 	tint: Tint?,
 }
-export type LevelPickerProps = Shared.TextButtonProps & {
+export type LevelPickerOptions = {
 	count: number?,
 	allowZero: boolean?,
 	enabled: Shared.ValueBoolean?,
@@ -247,34 +271,48 @@ export type LevelPickerProps = Shared.TextButtonProps & {
 	glyphs: Glyphs?,
 	images: Images?,
 	tint: Tint?,
-} & LevelBinding
-export type ChipSelection =
-	{ selected: ComposeTypes.Cell<boolean>, onToggle: ((boolean) -> ())? }
-	| { selected: Shared.ValueBoolean, onToggle: (boolean) -> () }
-	| { selected: nil?, onToggle: nil?, onRemove: () -> () }
-export type ChipImplementationProps = Shared.TextButtonNativeProps & ButtonVisualOptions & ButtonInputOptions & {
-	ref: ((TextButton | Frame) -> ())?,
-	selected: Shared.ValueBoolean?,
+}
+export type ChipCellSelection = {
+	selected: ComposeTypes.Cell<boolean>,
 	onToggle: ((boolean) -> ())?,
 	onRemove: (() -> ())?,
+}
+export type ChipRequestSelection = { selected: Shared.ValueBoolean, onToggle: (boolean) -> (), onRemove: (() -> ())? }
+export type ChipRemoval = { selected: nil?, onToggle: nil?, onRemove: () -> () }
+export type ChipSelection = ChipCellSelection | ChipRequestSelection | ChipRemoval
+export type ChipOptions = {
+	ref: ((TextButton | Frame) -> ())?,
 	editing: FlagValue?,
 	removeLabel: Shared.ValueString?,
 	removeFocusFallback: Value<GuiObject?>?,
-	leading: Instance?,
-	trailing: Instance?,
+	leading: Shared.Child?,
+	trailing: Shared.Child?,
 }
-export type ChipProps = ChipImplementationProps & ChipSelection
-export type ShortcutHintSource = { keys: Value<{ { string } }>, action: nil? } | { action: InputAction, keys: nil? }
-export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & {
+export type ChipImplementationProps =
+	Shared.TextButtonNativeProps
+	& EnabledOptions
+	& ButtonVisualOptions
+	& ButtonInputOptions
+	& ChipOptions
+	& {
+		selected: Shared.ValueBoolean?,
+		onToggle: ((boolean) -> ())?,
+		onRemove: (() -> ())?,
+	}
+export type ShortcutKeys = { keys: Value<{ { string } }>, action: nil? }
+export type ShortcutAction = { action: InputAction, keys: nil? }
+export type ShortcutHintSource = ShortcutKeys | ShortcutAction
+export type ShortcutHintOptions = {
 	ref: ((TextLabel | Frame) -> ())?,
-	action: InputAction?,
-	keys: Value<{ { string } }>?,
 	separator: Shared.ValueString?,
 	controlSize: Value<Shared.ControlSize?>?,
 	label: Shared.ValueString?,
 	labelPosition: ("start" | "end")?,
 }
-export type ShortcutHintProps = ShortcutHintImplementationProps & ShortcutHintSource
+export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & ShortcutHintOptions & {
+	action: InputAction?,
+	keys: Value<{ { string } }>?,
+}
 export type HapticKind = Shared.HapticKind
 export type AdjustmentState = { value: Shared.ValueNumber, onChange: ((number) -> ())? } | AdjustableOptions
 export type AdjustableOptions = {
@@ -285,20 +323,6 @@ export type AdjustableOptions = {
 	axis: ("horizontal" | "vertical" | "none")?,
 	repeats: boolean?,
 	canAdjust: ((direction: number, use: ComposeTypes.Use?) -> boolean)?,
-}
-export type InputControls = {
-	adjustable: (node: GuiObject, options: AdjustableOptions) -> (),
-	feedback: (kind: HapticKind) -> (),
-	Button: Constructor<ButtonProps, TextButton>,
-	Toggle: Constructor<ToggleProps, TextButton>,
-	TextInput: Constructor<TextInputProps, TextBox | Frame>,
-	NumberInput: Constructor<NumberInputProps, TextBox | Frame>,
-	Stepper: Constructor<StepperProps, Frame>,
-	Slider: Constructor<SliderProps, Frame>,
-	Rating: Constructor<RatingProps, TextButton>,
-	LevelPicker: Constructor<LevelPickerProps, TextButton>,
-	Chip: Constructor<ChipProps, TextButton | Frame>,
-	ShortcutHint: Constructor<ShortcutHintProps, TextLabel | Frame>,
 }
 
 return {}

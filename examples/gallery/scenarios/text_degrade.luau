@@ -70,7 +70,8 @@ return {
 		end)
 
 		local function widthPicker()
-			return UI.Picker "Room" {
+			return UI.Picker {
+				Name = "Room",
 				label = COPY.widthLabel,
 				style = "segmented" :: "segmented",
 				options = {
@@ -87,13 +88,15 @@ return {
 			return Host.Frame "TextDegrade" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView "Page" {
+				UI.ScrollView {
+					Name = "Page",
 					padding = 16,
 					gap = 16,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					ScrollBarThickness = 6,
-					UI.Text "Title" {
+					UI.Text {
+						Name = "Title",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -104,7 +107,8 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					} :: unknown,
-					UI.Text "Lead" {
+					UI.Text {
+						Name = "Lead",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -233,7 +237,8 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 					},
-					UI.Text "Footnote" {
+					UI.Text {
+						Name = "Footnote",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),

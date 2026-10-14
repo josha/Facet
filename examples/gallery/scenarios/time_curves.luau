@@ -69,15 +69,17 @@ return {
 		local function screen()
 			local children = {
 				label("Title", "Time curves — a duration a spring cannot promise"),
-				UI.Toggle "Reduced" { label = "Reduce decorative motion", value = reduced },
+				UI.Toggle { Name = "Reduced", label = "Reduce decorative motion", value = reduced },
 				label("RaceHeading", "Cooldown: on time versus approaching"),
-				UI.Button "RunRace" { label = "Run the cooldown", onActivate = runRace },
-				UI.ProgressView "Cooldown" {
+				UI.Button { Name = "RunRace", label = "Run the cooldown", onActivate = runRace },
+				UI.ProgressView {
+					Name = "Cooldown",
 					label = "Tween — 0.5 seconds, linear",
 					value = cooldown,
 					showValue = true,
 				},
-				UI.ProgressView "Chasing" {
+				UI.ProgressView {
+					Name = "Chasing",
 					label = "Spring — 0.5 second response",
 					value = chasing,
 					showValue = true,
@@ -91,7 +93,7 @@ return {
 					)
 				end),
 				label("GalleryHeading", "One 400 ms trip, four curves"),
-				UI.Button "Launch" { label = "Launch all four", onActivate = launch },
+				UI.Button { Name = "Launch", label = "Launch all four", onActivate = launch },
 			}
 			for _, lane in lanes do
 				table.insert(
@@ -119,7 +121,7 @@ return {
 				)
 			end
 			table.insert(children, label("PanelHeading", "A 450 ms panel trip — position and height share one curve"))
-			table.insert(children, UI.Button "FlyPanel" { label = "Fly the panel", onActivate = fly })
+			table.insert(children, UI.Button { Name = "FlyPanel", label = "Fly the panel", onActivate = fly })
 			table.insert(
 				children,
 				Host.Frame "PanelLane" {
@@ -147,7 +149,8 @@ return {
 					label("PanelCaption", "The plate doubles its height on the same curve, in the same action."),
 				}
 			)
-			return UI.ScrollView "TimeCurves" {
+			return UI.ScrollView {
+				Name = "TimeCurves",
 				padding = 16,
 				gap = 12,
 				Size = D2.fromScale(1, 1),

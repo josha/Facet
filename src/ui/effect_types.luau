@@ -17,7 +17,7 @@ export type Sequence = {
 	running: Shared.Readable<boolean>,
 	completed: Shared.Readable<boolean>,
 }
-export type FlashProps = Shared.FrameProps & {
+export type FlashOptions = {
 	target: Shared.Value<GuiObject>,
 	progress: Shared.Value<number>,
 	color: Shared.Value<Color3>?,
@@ -26,6 +26,5 @@ export type FlashProps = Shared.FrameProps & {
 export type Controls = {
 	sequence: (SequenceSpec) -> Sequence,
 	countUp: (Shared.Value<number>) -> Shared.Readable<number>,
-	Flash: Shared.Constructor<FlashProps, Frame>,
 }
 return {}

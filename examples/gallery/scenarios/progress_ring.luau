@@ -48,13 +48,15 @@ return {
 			local root = Host.Frame "ProgressRing" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView "Page" {
+				UI.ScrollView {
+					Name = "Page",
 					padding = 16,
 					gap = 8,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					ScrollBarThickness = 6,
-					UI.Text "Title" {
+					UI.Text {
+						Name = "Title",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -65,7 +67,8 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					} :: unknown,
-					UI.Text "Caption" {
+					UI.Text {
+						Name = "Caption",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -87,7 +90,8 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.Slider "AdjustProgress" {
+					UI.Slider {
+						Name = "AdjustProgress",
 						value = progress,
 						min = 0,
 						max = 1,
@@ -104,7 +108,8 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.ProgressView "Bar" {
+					UI.ProgressView {
+						Name = "Bar",
 						value = progress,
 						showValue = true,
 						endLabel = function(use: Use)
@@ -114,7 +119,8 @@ return {
 						segments = 5,
 						trail = { delay = 0.3, duration = 0.35 },
 					},
-					UI.ProgressView "Ring" {
+					UI.ProgressView {
+						Name = "Ring",
 						label = COPY.determinate,
 						value = progress,
 						presentation = "circular" :: "circular",
@@ -122,16 +128,16 @@ return {
 						showValue = true,
 						format = percent,
 					},
-					UI.ProgressView "Loading" {
-						label = COPY.loading,
-					},
-					UI.ProgressView "Busy" {
+					UI.ProgressView { Name = "Loading", label = COPY.loading },
+					UI.ProgressView {
+						Name = "Busy",
 						label = COPY.indeterminate,
 						presentation = "circular" :: "circular",
 						controlSize = rung,
 						endLabel = "Connecting",
 					},
-					UI.ProgressView "Dots" {
+					UI.ProgressView {
+						Name = "Dots",
 						label = COPY.spinner,
 						presentation = "spinner" :: "spinner",
 						controlSize = rung,
@@ -171,10 +177,7 @@ return {
 							end,
 						}),
 					},
-					UI.Button "Reset" {
-						label = "Reset progress",
-						onActivate = reset,
-					},
+					UI.Button { Name = "Reset", label = "Reset progress", onActivate = reset },
 					placeholders.section(),
 				},
 			}

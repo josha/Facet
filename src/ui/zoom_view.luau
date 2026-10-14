@@ -6,11 +6,13 @@ local reducedMotion = require("./motion").reduced
 local sessionOf = require("./drag_session")
 local arbiterOf = require("./gesture_service")
 local scrollLock = require("./scroll_lock")
+local ControlTypes = require("./control_types")
+local ZoomTravelProps = require("./zoom_travel_props")
 
-return function(ctx: Shared.Context, UI: Types.Controls)
+return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
-	UI.ZoomView = ctx.construct("ZoomView", function(spec: Types.ZoomViewProps): ScrollingFrame
+	UI.ZoomView = ctx.construct("ZoomView", function(spec: ZoomTravelProps.ZoomViewProps): ScrollingFrame
 		assert(type(spec.content) == "function", "Facet UI.ZoomView: content is required")
 		local function positive(value: number): boolean
 			return value > 0 and value < math.huge

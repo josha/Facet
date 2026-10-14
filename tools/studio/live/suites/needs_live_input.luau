@@ -61,7 +61,8 @@ end
 add("list-keyboard-and-dpad", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		return UI.VirtualList "List" {
+		return UI.VirtualList {
+			Name = "List",
 			from = rows(100),
 			key = function(item)
 				return item.id
@@ -225,7 +226,8 @@ end, {
 add("touch-drag-scrolls-reorderable-list", {}, function(t)
 	local value = { reorders = 0 }
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.VirtualList "Sortable" {
+		return UI.VirtualList {
+			Name = "Sortable",
 			from = rows(50),
 			key = function(item)
 				return item.id
@@ -300,7 +302,8 @@ end, {
 add("tray-grows-with-text-size", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.RowActions "Row" {
+		return UI.RowActions {
+			Name = "Row",
 			content = UI.Text({ text = "Message", Size = UDim2.fromScale(1, 1) }),
 			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
 			trailing = {
@@ -351,8 +354,8 @@ local function modalFixture(t: any, withSheet: boolean, actions: { any })
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
-			UI.Button "Background" { label = "Background", LayoutOrder = 1 },
-			UI.Button "Background2" { label = "Background two", LayoutOrder = 2 },
+			UI.Button { Name = "Background", label = "Background", LayoutOrder = 1 },
+			UI.Button { Name = "Background2", label = "Background two", LayoutOrder = 2 },
 			UI.Sheet({
 				isPresented = value.sheet,
 				detent = Compose.cell("medium"),
@@ -363,9 +366,9 @@ local function modalFixture(t: any, withSheet: boolean, actions: { any })
 						AutomaticSize = Enum.AutomaticSize.Y,
 						BackgroundTransparency = 1,
 						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
-						UI.Button "First" { label = "First", LayoutOrder = 1 },
-						UI.Button "Second" { label = "Second", LayoutOrder = 2 },
-						UI.Button "Third" { label = "Third", LayoutOrder = 3 },
+						UI.Button { Name = "First", label = "First", LayoutOrder = 1 },
+						UI.Button { Name = "Second", label = "Second", LayoutOrder = 2 },
+						UI.Button { Name = "Third", label = "Third", LayoutOrder = 3 },
 					}
 				end,
 			}),
@@ -558,7 +561,8 @@ add("return-and-space-activate-once", {}, function(t)
 	local value = { count = 0 }
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.enabled = Compose.cell(true)
-		return UI.Button "Counter" {
+		return UI.Button {
+			Name = "Counter",
 			label = "Count",
 			enabled = value.enabled,
 			onActivate = function()
@@ -589,8 +593,10 @@ end, {
 add("shift-return-opens-row-menu", {}, function(t)
 	local value = { count = 0 }
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.RowActions "Row" {
-			content = UI.Button "Content" {
+		return UI.RowActions {
+			Name = "Row",
+			content = UI.Button {
+				Name = "Content",
 				label = "Message",
 				Size = UDim2.fromScale(1, 1),
 				onActivate = function()
@@ -641,9 +647,9 @@ add("skinned-part-hover-state", {}, function(t)
 			Size = UDim2.fromOffset(360, 300),
 			BackgroundTransparency = 1,
 			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }) :: unknown,
-			UI.Toggle "Toggle" { value = Compose.cell(false), label = "On", LayoutOrder = 1 },
-			UI.Stepper "Stepper" { value = Compose.cell(2), min = 0, max = 5, LayoutOrder = 2 },
-			UI.Slider "Slider" { value = Compose.cell(0.5), LayoutOrder = 3 },
+			UI.Toggle { Name = "Toggle", value = Compose.cell(false), label = "On", LayoutOrder = 1 },
+			UI.Stepper { Name = "Stepper", value = Compose.cell(2), min = 0, max = 5, LayoutOrder = 2 },
+			UI.Slider { Name = "Slider", value = Compose.cell(0.5), LayoutOrder = 3 },
 		}
 	end, { frames = 10 })
 	value.stage = stage

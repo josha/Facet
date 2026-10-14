@@ -22,10 +22,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for _, width in { 320, 360, 375, 389, 390, 430 } do
 					local w = mount(function(UI: FacetControls)
-						return UI.NavBar "Header" {
+						return UI.NavBar {
+							Name = "Header",
 							padding = 8,
-							center = UI.TextInput "Search" { value = Compose.cell("Coastal") },
-							trailing = UI.Button "Filter" { label = "Filter", icon = "menu" },
+							center = UI.TextInput { Name = "Search", value = Compose.cell("Coastal") },
+							trailing = UI.Button { Name = "Filter", label = "Filter", icon = "menu" },
 						}
 					end)
 					local header, trailing = w.find("Header"), w.find("Trailing")
@@ -56,7 +57,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for _, width in { 320, 360, 375, 389, 430 } do
 					local w = mount(function(UI: FacetControls)
-						return UI.NavBar "Header" {
+						return UI.NavBar {
+							Name = "Header",
 							title = "Discover",
 							trailing = UI.HStack {
 								UI.Button { label = "Spatial mode" },
@@ -89,7 +91,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local closes = 0
 				local w = mount(function(UI: FacetControls)
-					return UI.Notice "Connection" {
+					return UI.Notice {
+						Name = "Connection",
 						severity = "warning" :: "warning",
 						title = "Connection",
 						message = "Connection interrupted",
@@ -118,7 +121,8 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local pressed: { string } = {}
 					local w = mount(function(UI: FacetControls)
-						return UI.Notice "Sync" {
+						return UI.Notice {
+							Name = "Sync",
 							message = "Your changes are not synced",
 							link = {
 								label = "Details",
@@ -168,9 +172,10 @@ return function(verifyHarness: Verify.Harness)
 				local shown = Compose.cell(false)
 				local w = mount(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Button "Before" { label = "Before" } :: unknown,
+						UI.Button { Name = "Before", label = "Before" } :: unknown,
 						Compose.show(shown, function()
-							return UI.Notice "Sync" {
+							return UI.Notice {
+								Name = "Sync",
 								message = "Not synced",
 								link = { label = "Details", onActivate = function() end },
 								onDismiss = function() end,
@@ -195,7 +200,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local pressed = 0
 				local w = mount(function(UI: FacetControls)
-					return UI.Notice "Sync" {
+					return UI.Notice {
+						Name = "Sync",
 						message = "Not synced",
 						actions = {
 							{
@@ -269,7 +275,8 @@ return function(verifyHarness: Verify.Harness)
 				local shown = Compose.cell(true)
 				local w = mount(function(UI: FacetControls, Host: RobloxHost)
 					return Compose.show(shown, function()
-						return UI.Notice "Banner" {
+						return UI.Notice {
+							Name = "Banner",
 							placement = "affixed" :: "affixed",
 							severity = "warning" :: "warning",
 							message = "Offline",
@@ -296,12 +303,12 @@ return function(verifyHarness: Verify.Harness)
 				local w = mount(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Name = "Stack",
-						UI.Notice "Banner" { placement = "affixed" :: "affixed", message = "One" } :: unknown,
-						UI.Notice "Banner2" { placement = "affixed" :: "affixed", message = "Two" },
+						UI.Notice { Name = "Banner", placement = "affixed" :: "affixed", message = "One" } :: unknown,
+						UI.Notice { Name = "Banner2", placement = "affixed" :: "affixed", message = "Two" },
 					})
 				end)
 				local other = mount(function(UI: FacetControls)
-					return UI.Notice "Banner" { placement = "affixed" :: "affixed", message = "Elsewhere" }
+					return UI.Notice { Name = "Banner", placement = "affixed" :: "affixed", message = "Elsewhere" }
 				end)
 				local first, second = w.find("Banner"), w.find("Banner2")
 				first.AbsolutePosition, first.AbsoluteSize = Vector2.new(0, 0), Vector2.new(800, 40)
@@ -327,7 +334,7 @@ return function(verifyHarness: Verify.Harness)
 				local problems: { string } = {}
 				local message = Compose.cell("Short")
 				local w = mount(function(UI: FacetControls)
-					return UI.Notice "Banner" { placement = "affixed" :: "affixed", message = message }
+					return UI.Notice { Name = "Banner", placement = "affixed" :: "affixed", message = message }
 				end, {
 					runService = true,
 					onError = function(problem: unknown)
@@ -352,7 +359,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local message = Compose.cell("Short")
 				local w = mount(function(UI: FacetControls)
-					return UI.Notice "Banner" { placement = "affixed" :: "affixed", message = message }
+					return UI.Notice { Name = "Banner", placement = "affixed" :: "affixed", message = message }
 				end)
 				local banner = w.find("Banner")
 				banner.AbsoluteSize = Vector2.new(800, 40)
@@ -371,7 +378,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local backs = 0
 				local w = mount(function(UI: FacetControls)
-					return UI.NavBar "Top" {
+					return UI.NavBar {
+						Name = "Top",
 						title = "Tracks",
 						backLabel = "Back",
 						onBack = function()
@@ -404,9 +412,10 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_notice_navbar::native NavBar: the slot form::a new bar keeps one row while its filling title row is still laid out, so it never flashes",
 				run = function()
 					local w = mount(function(UI: FacetControls, Host: RobloxHost)
-						return UI.NavBar "Top" {
+						return UI.NavBar {
+							Name = "Top",
 							title = "Garage",
-							trailing = Host.Frame({ Name = "Tools", UI.Button "Edit" { label = "Edit" } }),
+							trailing = Host.Frame({ Name = "Tools", UI.Button { Name = "Edit", label = "Edit" } }),
 						}
 					end)
 					local layout = w.find("Top"):FindFirstChildWhichIsA("UIListLayout")

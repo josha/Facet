@@ -83,7 +83,8 @@ return {
 			return Host.Frame "FlowWrap" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView "Page" {
+				UI.ScrollView {
+					Name = "Page",
 					padding = 16,
 					gap = 8,
 					BackgroundTransparency = 1,

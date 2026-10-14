@@ -50,31 +50,92 @@ export type MenuDim = {
 	max: MenuDimLength?,
 }
 export type MenuWidth = number | UDim | UDim2 | MenuDim
-export type MenuAction<V = string> =
-	(MenuItemBase & {
-		children: Value<{ MenuItem<V> }>,
-		onSelect: nil,
-		checked: nil,
-		selected: nil,
-	})
-	| (MenuItemBase & { children: nil, onSelect: () -> (), checked: nil, selected: nil })
-	| (MenuItemBase & {
-		children: nil,
-		checked: ComposeTypes.Cell<boolean>,
-		selected: nil,
-		onChange: ((boolean) -> ())?,
-		onSelect: (() -> ())?,
-	})
-	| (MenuItemBase & {
-		children: nil,
-		checked: nil,
-		selected: ComposeTypes.Cell<V>,
-		value: V,
-		onChange: ((V) -> ())?,
-		onSelect: (() -> ())?,
-	})
+export type MenuSubmenu<V = string> = {
+	role: Value<"default" | "cancel" | "destructive" | "onIndicator">?,
+	id: string?,
+	label: Types.ValueString,
+	description: Types.ValueString?,
+	icon: Types.ValueString?,
+	meta: Types.ValueString?,
+	enabled: Types.ValueBoolean?,
+	marked: Types.ValueBoolean?,
+	dismiss: boolean?,
+	divider: false?,
+	badge: Value<(string | number)?>?,
+	avatar: MenuAvatar?,
+	sectionTitle: Types.ValueString?,
+	shortcutLabel: Types.ValueString?,
+	children: Value<{ MenuItem<V> }>,
+	onSelect: nil,
+	checked: nil,
+	selected: nil,
+}
+export type MenuCommand = {
+	role: Value<"default" | "cancel" | "destructive" | "onIndicator">?,
+	id: string?,
+	label: Types.ValueString,
+	description: Types.ValueString?,
+	icon: Types.ValueString?,
+	meta: Types.ValueString?,
+	enabled: Types.ValueBoolean?,
+	marked: Types.ValueBoolean?,
+	dismiss: boolean?,
+	divider: false?,
+	badge: Value<(string | number)?>?,
+	avatar: MenuAvatar?,
+	sectionTitle: Types.ValueString?,
+	shortcutLabel: Types.ValueString?,
+	children: nil,
+	onSelect: () -> (),
+	checked: nil,
+	selected: nil,
+}
+export type MenuCheck = {
+	role: Value<"default" | "cancel" | "destructive" | "onIndicator">?,
+	id: string?,
+	label: Types.ValueString,
+	description: Types.ValueString?,
+	icon: Types.ValueString?,
+	meta: Types.ValueString?,
+	enabled: Types.ValueBoolean?,
+	marked: Types.ValueBoolean?,
+	dismiss: boolean?,
+	divider: false?,
+	badge: Value<(string | number)?>?,
+	avatar: MenuAvatar?,
+	sectionTitle: Types.ValueString?,
+	shortcutLabel: Types.ValueString?,
+	children: nil,
+	checked: ComposeTypes.Cell<boolean>,
+	selected: nil,
+	onChange: ((boolean) -> ())?,
+	onSelect: (() -> ())?,
+}
+export type MenuChoice<V = string> = {
+	role: Value<"default" | "cancel" | "destructive" | "onIndicator">?,
+	id: string?,
+	label: Types.ValueString,
+	description: Types.ValueString?,
+	icon: Types.ValueString?,
+	meta: Types.ValueString?,
+	enabled: Types.ValueBoolean?,
+	marked: Types.ValueBoolean?,
+	dismiss: boolean?,
+	divider: false?,
+	badge: Value<(string | number)?>?,
+	avatar: MenuAvatar?,
+	sectionTitle: Types.ValueString?,
+	shortcutLabel: Types.ValueString?,
+	children: nil,
+	checked: nil,
+	selected: ComposeTypes.Cell<V>,
+	value: V,
+	onChange: ((V) -> ())?,
+	onSelect: (() -> ())?,
+}
+export type MenuAction<V = string> = MenuSubmenu<V> | MenuCommand | MenuCheck | MenuChoice<V>
 export type MenuItem<V = string> = { id: string?, divider: true } | MenuAction<V>
-export type MenuSpec<V = string> = Types.FrameProps & {
+export type MenuOptions<V = string> = {
 	items: Value<{ MenuItem<V> }>,
 	query: ComposeTypes.Cell<string>?,
 	label: Types.ValueString?,
@@ -108,7 +169,7 @@ export type PickerOption<V = string> = {
 	enabled: Types.ValueBoolean?,
 }
 export type PickerStyle = "automatic" | "menu" | "navigationLink" | "segmented" | "inline" | "radioGroup" | "cards"
-export type PickerCommon<V> = Types.GuiObjectProps & {
+export type PickerCommon<V> = {
 	Style: Value<Enum.FrameStyle>?,
 	options: Value<{ PickerOption<V> }>,
 	style: PickerStyle?,
@@ -133,20 +194,19 @@ export type PickerCommon<V> = Types.GuiObjectProps & {
 	indicatorPosition: ("leading" | "trailing")?,
 	valueAlignment: ("start" | "end")?,
 }
-export type SinglePickerSpec<V = string> = PickerCommon<V> & {
+export type SingleSelection<V = string> = {
 	multiple: false?,
 	selected: ComposeTypes.Cell<V>,
 	onChanging: ((V, V) -> boolean?)?,
 	onChange: ((V) -> ())?,
 }
-export type MultiplePickerSpec<V = string> = PickerCommon<V> & {
+export type MultipleSelection<V = string> = {
 	multiple: true,
 	selected: ComposeTypes.Cell<{ [V]: boolean }>,
 	onChanging: (({ [V]: boolean }, { [V]: boolean }) -> boolean?)?,
 	onChange: (({ [V]: boolean }) -> ())?,
 }
-export type PickerSpec<V = string> = SinglePickerSpec<V> | MultiplePickerSpec<V>
-export type SplitButtonSpec<V = string> = Types.FrameProps & {
+export type SplitButtonOptions<V = string> = {
 	label: Types.ValueString?,
 	onActivate: (() -> ())?,
 	items: Value<{ MenuItem<V> }>,
@@ -155,7 +215,7 @@ export type SplitButtonSpec<V = string> = Types.FrameProps & {
 	shortcut: Inputs.Shortcut?,
 	menuLabel: Types.ValueString?,
 }
-export type ComboBoxSpec = Types.FrameProps & {
+export type ComboBoxOptions = {
 	value: ComposeTypes.Cell<string>,
 	text: ComposeTypes.Cell<string>,
 	options: Value<{ PickerOption<string> }>,
@@ -165,7 +225,7 @@ export type ComboBoxSpec = Types.FrameProps & {
 	commitOnFocusLost: boolean?,
 	placeholder: Types.ValueString?,
 }
-export type DisclosureGroupSpec = Types.FrameProps & {
+export type DisclosureGroupOptions = {
 	expanded: ComposeTypes.Cell<boolean>,
 	label: Types.ValueString?,
 	content: Content,
@@ -178,7 +238,7 @@ export type DisclosureGroupSpec = Types.FrameProps & {
 	textSize: Value<string | number>?,
 	indent: (number | Types.SpaceStep)?,
 }
-export type CollapsibleViewSpec = Types.TextButtonProps & Inputs.ButtonVisualOptions & Inputs.ButtonInputOptions & {
+export type CollapsibleViewOptions = {
 	expanded: ComposeTypes.Cell<boolean>,
 	content: Content,
 	initialFocus: string?,
@@ -197,7 +257,7 @@ export type AlertAction<P = unknown> = {
 	onActivate: ((P) -> ())?,
 }
 export type AlertText<P> = string | ComposeTypes.Readable<string> | ComposeTypes.Formula<string> | ((P) -> string)
-export type AlertSpec<P = unknown> = Types.FrameProps & {
+export type AlertOptions<P = unknown> = {
 	isPresented: ComposeTypes.Cell<boolean>?,
 	item: ComposeTypes.Cell<P?>?,
 	presenting: Value<P>?,
@@ -220,9 +280,9 @@ export type SheetDetent =
 	| "hug"
 	| { id: string, fraction: number, height: nil }
 	| { id: string, fraction: nil, height: number }
-export type SheetSpec = Types.FrameProps & {
+export type SheetOptions = {
 	isPresented: ComposeTypes.Cell<boolean>,
-	detent: ComposeTypes.Cell<string>,
+	detent: (ComposeTypes.Cell<string> | string)?,
 	detents: { SheetDetent }?,
 	title: Types.ValueString?,
 	content: Content,
@@ -241,7 +301,7 @@ export type SheetSpec = Types.FrameProps & {
 }
 export type SheetRequest = (string) -> boolean
 export type CalloutRetirement = "featureUsed" | "seen" | "dismissed" | "tapAway" | "action"
-export type CalloutSpec = Types.FrameProps & {
+export type CalloutOptions = {
 	anchor: GuiObject,
 	content: Content?,
 	title: Types.ValueString?,
@@ -281,7 +341,7 @@ export type TabIndicator = {
 	count: Value<number?>?,
 	max: number?,
 }
-export type TabViewSpec = Types.FrameProps & {
+export type TabViewOptions = {
 	selection: ComposeTypes.Cell<string>,
 	tabs: Value<{ Tab }>,
 	sections: { { id: string, label: string } }?,
@@ -318,7 +378,7 @@ export type NavigationDestination<P = unknown> = {
 	chrome: Value<"automatic" | "hidden">?,
 	content: Instance | ((NavigationEntry<P>?) -> Instance),
 }
-export type NavigationStackSpec<P = unknown> = Types.FrameProps & {
+export type NavigationStackOptions<P = unknown> = {
 	path: ComposeTypes.Cell<{ NavigationEntry<P> }>,
 	root: NavigationDestination<P>,
 	destinations: { [string]: NavigationDestination<P> },
@@ -326,7 +386,7 @@ export type NavigationStackSpec<P = unknown> = Types.FrameProps & {
 	chrome: Value<"automatic" | "hidden">?,
 	transition: Transition | false?,
 }
-export type PageViewSpec = Types.FrameProps & {
+export type PageViewOptions = {
 	selection: ComposeTypes.Cell<string>,
 	pages: { Tab },
 	indicators: boolean?,
@@ -398,28 +458,28 @@ export type Surfaces = {
 		{ GuiObject },
 		((ComposeTypes.Use) -> string)?
 	) -> ({ ComposeTypes.Readable<Vector2> }, ComposeTypes.Readable<boolean>),
-	sheetModal: ((SheetSpec, SheetRequest, PresencePhase?) -> Frame)?,
+	sheetModal: ((Types.FrameProps & SheetOptions, SheetRequest, PresencePhase?) -> Frame)?,
 }
-export type PickerConstructor = (<V>(PickerSpec<V>) -> GuiObject) & ((string) -> <V>(PickerSpec<V>) -> GuiObject)
-export type MenuConstructor = (<V>(MenuSpec<V>) -> GuiObject) & ((string) -> <V>(MenuSpec<V>) -> GuiObject)
-export type SplitButtonConstructor = (<V>(SplitButtonSpec<V>) -> Frame) & ((string) -> <V>(SplitButtonSpec<V>) -> Frame)
-export type AlertConstructor = (<P>(AlertSpec<P>) -> Frame) & ((string) -> <P>(AlertSpec<P>) -> Frame)
-export type NavigationStackConstructor =
-	(<P>(NavigationStackSpec<P>) -> Frame)
-	& ((string) -> <P>(NavigationStackSpec<P>) -> Frame)
-export type NavigationControls = {
-	Picker: PickerConstructor,
-	Menu: MenuConstructor,
-	RadialMenu: Radial.RadialMenuConstructor,
-	SplitButton: SplitButtonConstructor,
-	ComboBox: Types.Constructor<ComboBoxSpec, Frame>,
-	DisclosureGroup: Types.Constructor<DisclosureGroupSpec, Frame>,
-	CollapsibleView: Types.Constructor<CollapsibleViewSpec, TextButton>,
-	Alert: AlertConstructor,
-	Callout: Types.Constructor<CalloutSpec, Frame>,
-	Sheet: Types.Constructor<SheetSpec, Frame>,
-	NavigationStack: NavigationStackConstructor,
-	PageView: Types.Constructor<PageViewSpec, Frame>,
-	TabView: Types.Constructor<TabViewSpec, Frame>,
+export type SplitColumn = "sidebar" | "detail"
+export type NavigationSplitViewOptions = {
+	axis: ("x" | "y")?,
+	resizable: Types.ValueBoolean?,
+	alwaysShowResizeHandle: Types.ValueBoolean?,
+	sidebarHeight: ComposeTypes.Cell<number>?,
+	minSidebarHeight: number?,
+	maxSidebarHeight: number?,
+	minDetailHeight: number?,
+	compactHeight: number?,
+	sidebar: Content,
+	detail: Content,
+	detailVisible: Types.ValueBoolean?,
+	preferredCompactColumn: ComposeTypes.Cell<SplitColumn>?,
+	sidebarWidth: ComposeTypes.Cell<number>?,
+	minSidebarWidth: number?,
+	maxSidebarWidth: number?,
+	minDetailWidth: number?,
+	compactWidth: number?,
+	backLabel: Types.ValueString?,
+	detailLabel: Types.ValueString?,
 }
 return {}

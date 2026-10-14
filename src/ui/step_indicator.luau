@@ -1,11 +1,13 @@
 --!strict
 local Types = require("./types")
 local Content = require("./content_types")
-local Inputs = require("./input_types")
 local Nav = require("./navigation_types")
 local ThemeTypes = require("./theme_types")
 local ComposeTypes = require("../vendor/compose/core")
 local values = require("./content_values")
+local ContentProps = require("./content_props")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
 local reducedMotion = require("./motion").reduced
 
 type Snapshot = { steps: { Content.Step }, current: string?, index: { [string]: number } }
@@ -18,9 +20,9 @@ local STEP_KEYS: { [string]: boolean } =
 return function(
 	ctx: Types.Context,
 	UI: {
-		StepIndicator: Types.Constructor<Content.StepIndicatorSpec, Frame>,
-		Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
-		Menu: Nav.MenuConstructor,
+		StepIndicator: Types.Constructor<ContentProps.StepIndicatorSpec, Frame>,
+		Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
+		Menu: ControlTypes.MenuConstructor,
 	}
 ): ()
 	local Host, Compose, read, runtime = ctx.Host, ctx.Compose, ctx.read, ctx.runtime
@@ -72,7 +74,7 @@ return function(
 		return nil
 	end
 
-	UI.StepIndicator = ctx.construct("StepIndicator", function(spec: Content.StepIndicatorSpec): Frame
+	UI.StepIndicator = ctx.construct("StepIndicator", function(spec: ContentProps.StepIndicatorSpec): Frame
 		local initialSteps, initialCurrent = read(spec.steps), read(spec.current)
 		local refusal = problem(initialSteps, initialCurrent)
 		if refusal then
@@ -321,7 +323,7 @@ return function(
 					AutomaticSize = if sizing == "fill" then E.AutomaticSize.Y else E.AutomaticSize.XY,
 				}
 				if permitted(step) then
-					local props: Inputs.ButtonProps = {
+					local props: InputProps.ButtonProps = {
 						Name = layout.Name,
 						LayoutOrder = layout.LayoutOrder,
 						Size = layout.Size,
@@ -338,7 +340,7 @@ return function(
 						end,
 					}
 					for _, child in content(id) do
-						table.insert(props, child)
+						props[#props + 1] = child
 					end
 					local button = UI.Button(props)
 					node = button

@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -32,7 +33,7 @@ return function(verifyHarness: Verify.Harness)
 			return Host.Frame({
 				Name = "Page",
 				UI.Button({ Name = "Before", label = "Before" }) :: unknown,
-				UI.Pagination("P")(spec),
+				UI.Pagination(named("P", spec)),
 				UI.Button({ Name = "After", label = "After" }),
 			})
 		end)
@@ -306,7 +307,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local package = require("../examples/themes/fantasy_ornate").build(Facet.themes)
 				local world = worlds.new(function(UI: FacetControls)
-					return UI.Pagination("P")((controlled(5, { pageCount = 200 })))
+					return UI.Pagination(named("P", (controlled(5, { pageCount = 200 }))))
 				end, { theme = package })
 				local root = world.find("P")
 				world.bounds(root:FindFirstChild("DigitMeasure"), 80)
@@ -354,7 +355,8 @@ return function(verifyHarness: Verify.Harness)
 				local asked = 0
 				local world = worlds.new(function(UI: FacetControls)
 					return Compose.show(show, function()
-						return UI.Pagination("P")({
+						return UI.Pagination({
+							Name = "P",
 							page = page,
 							pageCount = count,
 							onChange = function(nextPage: number)

@@ -7,23 +7,26 @@ local Types = require("./color_picker_types")
 local colorValue = require("./color_value")
 local fieldChrome = require("./field_chrome")
 local rest = require("./rest")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
+local NavigationProps = require("./navigation_props")
 
 type Use = ComposeTypes.Use
 type Hsv = colorValue.Hsv
 type Item = colorValue.Swatch
 type Paint = { color: Color3?, alpha: number }
-type Spec = Types.ColorPickerProps
+type Spec = InputProps.ColorPickerProps
 type Placement = { edge: string, x: number, y: number, w: number, h: number }
 type Measure = (Use) -> number
 type PanelView = { panel: Frame, chrome: Measure, tech: Measure }
 type Deps = {
 	ColorPicker: Shared.Constructor<Spec, Frame>,
-	Button: Shared.Constructor<Inputs.ButtonProps, TextButton>,
-	Slider: Shared.Constructor<Inputs.SliderProps, Frame>,
-	TextInput: Shared.Constructor<Inputs.TextInputProps, TextBox | Frame>,
-	NumberInput: Shared.Constructor<Inputs.NumberInputProps, TextBox | Frame>,
-	ShortcutHint: Shared.Constructor<Inputs.ShortcutHintProps, TextLabel | Frame>,
-	Picker: Nav.PickerConstructor,
+	Button: Shared.Constructor<InputProps.ButtonProps, TextButton>,
+	Slider: Shared.Constructor<InputProps.SliderProps, Frame>,
+	TextInput: Shared.Constructor<InputProps.TextInputProps, TextBox | Frame>,
+	NumberInput: Shared.Constructor<InputProps.NumberInputProps, TextBox | Frame>,
+	ShortcutHint: Shared.Constructor<InputProps.ShortcutHintProps, TextLabel | Frame>,
+	Picker: ControlTypes.PickerConstructor,
 }
 
 local KEYS = {
@@ -606,7 +609,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			track: (() -> Instance)?,
 			knob: ((Inputs.SliderKnob) -> Instance)?
 		): Frame
-			local props: Inputs.SliderProps = {
+			local props: InputProps.SliderProps = {
+				Name = name,
 				label = words,
 				value = function(use: Use): number
 					return get(use(canon)) * max
@@ -629,7 +633,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					commit()
 				end,
 			}
-			local node = UI.Slider(name)(props)
+			local node = UI.Slider(props)
 			local found = node:FindFirstChild("Track", true)
 			if found then
 				found:SetAttribute("AccessibleLabel", words)
@@ -1029,10 +1033,10 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					stop()
 				end
 			end)
-			local hintProps: Inputs.ShortcutHintProps =
-				{ keys = { { "Right Stick" } }, controlSize = "compact" :: "compact" }
+			local hintProps: InputProps.ShortcutHintProps =
+				{ Name = "StickKey", keys = { { "Right Stick" } }, controlSize = "compact" :: "compact" }
 			local hint = ctx.row({
-				UI.ShortcutHint("StickKey")(hintProps),
+				UI.ShortcutHint(hintProps),
 				ctx.styled(ctx.text({ Name = "Words", Text = "Move saturation and brightness" }), "type-caption"),
 			}, {
 				Name = "StickHint",
@@ -1097,7 +1101,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					return true
 				end
 				return ctx.styled(
-					UI.Button("Save")({
+					UI.Button({
+						Name = "Save",
 						name = "Save colour",
 						appearance = "utility",
 						Size = D2.fromOffset(CELL, CELL),
@@ -1148,7 +1153,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local value = use(held)
 					return value ~= nil and color.same(value, use(source).color)
 				end
-				local node = UI.Button(key)({
+				local node = UI.Button({
+					Name = key,
 					name = function(use: Use): string
 						local entry = use(source)
 						local named = entry.label or color.hex(entry.color)
@@ -1263,7 +1269,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			if removing then
 				table.insert(
 					parts,
-					UI.Button("Edit")({
+					UI.Button({
+						Name = "Edit",
 						label = function(use: Use): string
 							return if use(editing) then "Done" else "Edit"
 						end,
@@ -1362,7 +1369,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				use(canon)
 				resync()
 			end)
-			local props: Inputs.NumberInputProps = {
+			local props: InputProps.NumberInputProps = {
+				Name = name,
 				label = words,
 				value = text,
 				numericValue = number,
@@ -1381,7 +1389,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					resync()
 				end,
 			}
-			return UI.NumberInput(name)(props)
+			return UI.NumberInput(props)
 		end
 		local function fieldsRow(fields: { Shared.Child }): Frame
 			local row =
@@ -1434,7 +1442,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				text:set(formatted())
 				hexError:set("")
 			end)
-			local props: Inputs.TextInputProps = {
+			local props: InputProps.TextInputProps = {
+				Name = "FieldHex",
 				label = "Hex",
 				value = text,
 				errorText = hexError,
@@ -1460,7 +1469,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					text:set(formatted())
 				end,
 			}
-			return fieldsRow({ UI.TextInput("FieldHex")(props) })
+			return fieldsRow({ UI.TextInput(props) })
 		end
 		local function readoutView(): Frame
 			local builders: { [string]: () -> Frame } = { rgb = rgbFields, hsv = hsvFields, hex = hexFields }
@@ -1494,14 +1503,15 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					return D2.new(1, 0, 0, math.ceil(height))
 				end,
 			})
-			local formatProps: Nav.SinglePickerSpec<string> = {
+			local formatProps: NavigationProps.SinglePickerSpec<string> = {
+				Name = "Format",
 				selected = formatCell,
 				style = "segmented" :: "segmented",
 				options = FORMATS,
 				Size = D2.fromOffset(0, CELL),
 				AutomaticSize = E.AutomaticSize.X,
 			}
-			local picker = UI.Picker("Format")(formatProps)
+			local picker = UI.Picker(formatProps)
 			runtime.mount(function()
 				return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
 			end, picker)
@@ -1590,9 +1600,14 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				for _, mode in modes do
 					table.insert(options, { value = mode, label = MODE_LABEL[mode] })
 				end
-				local modeProps: Nav.SinglePickerSpec<string> =
-					{ selected = modeCell, style = "automatic" :: "automatic", options = options, LayoutOrder = 1 }
-				table.insert(children, measure(UI.Picker("Modes")(modeProps)))
+				local modeProps: NavigationProps.SinglePickerSpec<string> = {
+					Name = "Modes",
+					selected = modeCell,
+					style = "automatic" :: "automatic",
+					options = options,
+					LayoutOrder = 1,
+				}
+				table.insert(children, measure(UI.Picker(modeProps)))
 			end
 			local readout = readoutView()
 			runtime.decorate(readout, {
@@ -1626,7 +1641,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			})
 			table.insert(children, body)
 			if hasAlpha then
-				local opacity: Inputs.SliderProps = {
+				local opacity: InputProps.SliderProps = {
+					Name = "Opacity",
 					label = "Opacity",
 					LayoutOrder = 4,
 					value = function(use: Use): number
@@ -1654,7 +1670,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						commit()
 					end,
 				}
-				local slider = UI.Slider("Opacity")(opacity)
+				local slider = UI.Slider(opacity)
 				local track = slider:FindFirstChild("Track", true)
 				if track then
 					track:SetAttribute("AccessibleLabel", "Opacity")
@@ -1663,7 +1679,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end
 			local actions: { Shared.Child } = {}
 			if draft then
-				local cancelProps: Inputs.ButtonProps = {
+				local cancelProps: InputProps.ButtonProps = {
+					Name = "Cancel",
 					label = "Cancel",
 					role = "cancel" :: "cancel",
 					onActivate = function()
@@ -1674,10 +1691,11 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						end
 					end,
 				}
-				table.insert(actions, UI.Button("Cancel")(cancelProps))
+				table.insert(actions, UI.Button(cancelProps))
 				table.insert(
 					actions,
-					UI.Button("Apply")({
+					UI.Button({
+						Name = "Apply",
 						label = "Apply",
 						appearance = "emphasis",
 						onActivate = function()
@@ -1691,7 +1709,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			elseif overlay then
 				table.insert(
 					actions,
-					UI.Button("Done")({
+					UI.Button({
+						Name = "Done",
 						label = "Done",
 						onActivate = function()
 							close("activate")
@@ -1893,7 +1912,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			local layout = assert(row:FindFirstChildWhichIsA("UIListLayout"))
 			layout.VerticalAlignment = E.VerticalAlignment.Center
 			layout.HorizontalAlignment = if labelled then E.HorizontalAlignment.Left else E.HorizontalAlignment.Center
-			local well = UI.Button("Well")({
+			local well = UI.Button({
+				Name = "Well",
 				name = function(use: Use): string
 					return semanticName(use)
 				end,

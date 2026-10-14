@@ -44,7 +44,8 @@ table.insert(cases, {
 			end
 			local wide = sizeOf().X >= 700
 			local long = "A long description that does not fit on one line of this header and must wrap inside it"
-			return UI.Screen "Board" {
+			return UI.Screen {
+				Name = "Board",
 				padding = "m",
 				UI.VStack {
 					gap = "m",
@@ -52,23 +53,26 @@ table.insert(cases, {
 					UI.Text { text = "Button: icon and label at an authored 52 px width", textRole = "caption" },
 					UI.HStack {
 						gap = "s",
-						UI.Button "Tight" {
+						UI.Button {
+							Name = "Tight",
 							icon = "chevron.leading",
 							label = "Back",
 							Size = UDim2.fromOffset(52, 44),
 							AutomaticSize = Enum.AutomaticSize.None,
 						},
-						UI.Button "Both" {
+						UI.Button {
+							Name = "Both",
 							icon = "chevron.leading",
 							trailingIcon = "chevron.trailing",
 							label = "Step",
 							Size = UDim2.fromOffset(52, 44),
 							AutomaticSize = Enum.AutomaticSize.None,
 						},
-						UI.Button "Wide" { icon = "chevron.leading", label = "Back to the lobby" },
+						UI.Button { Name = "Wide", icon = "chevron.leading", label = "Back to the lobby" },
 					},
 					UI.Text { text = "DisclosureGroup: long description", textRole = "caption" },
-					UI.DisclosureGroup "Trailing" {
+					UI.DisclosureGroup {
+						Name = "Trailing",
 						Size = UDim2.fromOffset(if wide then 420 else 340, 0),
 						label = "Details",
 						description = long,
@@ -79,7 +83,8 @@ table.insert(cases, {
 							return UI.Text { text = "Body" }
 						end,
 					},
-					UI.DisclosureGroup "Leading" {
+					UI.DisclosureGroup {
+						Name = "Leading",
 						Size = UDim2.fromOffset(if wide then 420 else 340, 0),
 						label = "Details",
 						description = long,
@@ -91,7 +96,8 @@ table.insert(cases, {
 						end,
 					},
 					UI.Text { text = "Slider: range fill under the handles", textRole = "caption" },
-					UI.Slider "Range" {
+					UI.Slider {
+						Name = "Range",
 						Size = UDim2.fromOffset(if wide then 420 else 320, 0),
 						value = Compose.cell({ lower = 4, upper = 12 }),
 						min = 1,
@@ -99,11 +105,11 @@ table.insert(cases, {
 						range = true,
 					},
 					UI.Text { text = "Stepper and PageView dots", textRole = "caption" },
-					UI.Stepper "Step" { value = Compose.cell(10), max = 10 },
+					UI.Stepper { Name = "Step", value = Compose.cell(10), max = 10 },
 					Host.Frame {
 						Size = UDim2.fromOffset(if wide then 420 else 320, 160),
 						BackgroundTransparency = 1,
-						UI.PageView "Courses" { pages = pages, selection = Compose.cell("one") },
+						UI.PageView { Name = "Courses", pages = pages, selection = Compose.cell("one") },
 					},
 				},
 			}
@@ -143,7 +149,7 @@ table.insert(cases, {
 					completion = "stay",
 				})
 			end
-			return UI.RadialMenu "Quick" { isPresented = open, items = items, preset = options.preset }
+			return UI.RadialMenu { Name = "Quick", isPresented = open, items = items, preset = options.preset }
 		end, { size = sizeOf(), theme = themeOf(t), frames = 20 })
 		open:set(true)
 		t.settle(60)

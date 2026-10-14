@@ -12,6 +12,7 @@ local sessionOf = require("./drag_session")
 local DragTypes = require("./drag_types")
 local Env = require("./environment_types")
 local pointerOf = require("./drag_pointer")
+local InputProps = require("./input_props")
 local reducedMotion = require("./motion").reduced
 export type Editor<V, K> = {
 	placement: (K, ComposeTypes.Placement, ComposeTypes.Use) -> ComposeTypes.Placement,
@@ -42,8 +43,8 @@ type Move<V, K> = {
 }
 return function<V, K>(
 	ctx: Types.Context,
-	UI: { Button: Types.Constructor<InputTypes.ButtonProps, TextButton> },
-	spec: CollectionTypes.ReorderOptions<V, K>,
+	UI: { Button: Types.Constructor<InputProps.ButtonProps, TextButton> },
+	spec: CollectionTypes.ReorderShape<V, K>,
 	source: Types.Value<{ V }>,
 	keyOf: (V, number) -> K,
 	controls: ComposeTypes.OrderedCollectionControls<K>,
@@ -587,7 +588,7 @@ return function<V, K>(
 		end)
 		local handle = if reorderable
 			then Compose.show(controlsShown, function()
-				local handleProps: InputTypes.ButtonProps = {
+				local handleProps: InputProps.ButtonProps = {
 					Name = "Move",
 					Visible = function(use: ComposeTypes.Use)
 						return use(controlsShown) and not use(confirming)
@@ -691,7 +692,7 @@ return function<V, K>(
 			local item = use(current)
 			return policy.allows(spec.rowDeletable, item) and not policy.disabled(spec.disabled, item)
 		end
-		local minusProps: InputTypes.ButtonProps = {
+		local minusProps: InputProps.ButtonProps = {
 			Name = "Minus",
 			label = "−",
 			name = "Delete",
@@ -706,7 +707,7 @@ return function<V, K>(
 				confirming:set(not confirming:peek())
 			end,
 		}
-		local confirmProps: InputTypes.ButtonProps = {
+		local confirmProps: InputProps.ButtonProps = {
 			Name = "Delete",
 			label = "Delete",
 			role = "destructive" :: InputTypes.ButtonRole,
@@ -1706,7 +1707,7 @@ return function<V, K>(
 				local image, targetZ, frontSize = dragImage(dropY)
 				drag.preview(image, body, frontSize)
 				image.Visible = false
-				local keyboardTargetProps: InputTypes.ButtonProps = {
+				local keyboardTargetProps: InputProps.ButtonProps = {
 					Name = "Drop",
 					label = "Drop",
 					Position = D2.new(1, -100, 0, 0),

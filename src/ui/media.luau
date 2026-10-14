@@ -12,18 +12,20 @@ local decoration = require("./native_decoration")
 local help = require("./help")
 local textReveal = require("./text_reveal")
 local prepareMedia = require("./media_readiness")
-export type MediaControls = Media.MediaControls
+local ControlTypes = require("./control_types")
+local MediaProps = require("./media_props")
+export type MediaControls = ControlTypes.Controls
 
 local SETTLE_SECONDS = 0.15
 local VISIBLE_FRACTION = 0.5
 
-return function(ctx: Types.Context, controls: Media.MediaControls?): Media.MediaControls
+return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTypes.Controls
 	local Host, runtime, Compose = ctx.Host, ctx.runtime, ctx.Compose
 	local themes = bindThemes(Compose)
 	local lists = layoutKit.of(ctx)
 	local types, read = ctx.types, ctx.read
 	local E, D2, D, V2 = types.Enum, types.UDim2, types.UDim, types.Vector2
-	local UI: Media.MediaControls = controls or ({} :: Media.MediaControls)
+	local UI: ControlTypes.Controls = controls or ({} :: ControlTypes.Controls)
 	local function skin(node: GuiObject, slot: string, options: Theme.SkinOptions?): GuiObject
 		local package = ctx.config.theme
 		if not Compose.isReadable(package) and type(package) ~= "function" then
@@ -201,7 +203,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		ltr = E.TextDirection.LeftToRight,
 		rtl = E.TextDirection.RightToLeft,
 	}
-	UI.Text = ctx.construct("Text", function(spec: Media.TextProps): TextLabel
+	UI.Text = ctx.construct("Text", function(spec: MediaProps.TextProps): TextLabel
 		local fields = (spec :: unknown) :: { [string]: unknown }
 		for _, retired in { "color", "font" } do
 			if fields[retired] ~= nil then
@@ -421,7 +423,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 	end)
 
 	local PRESENTATIONS = { titleAndIcon = true, titleOnly = true, iconOnly = true }
-	UI.Label = ctx.construct("Label", function(spec: Media.LabelProps): Frame
+	UI.Label = ctx.construct("Label", function(spec: MediaProps.LabelProps): Frame
 		local fields = (spec :: unknown) :: { [string]: unknown }
 		if fields.text ~= nil or fields.label ~= nil then
 			error("Facet UI.Label: a Label is an icon and a title. Use title, or use UI.Text for plain text.", 0)
@@ -469,7 +471,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		end
 		if effective ~= "iconOnly" then
 			local titleSize: Media.TextSize = spec.textSize or "body"
-			table.insert(children, UI.Text("Title")({ text = spec.title, textSize = titleSize }))
+			table.insert(children, UI.Text({ Name = "Title", text = spec.title, textSize = titleSize }))
 		end
 		if spec.iconPosition == "trailing" then
 			local reversed: { ComposeTypes.Child } = {}
@@ -497,7 +499,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		return root
 	end)
 
-	UI.Image = ctx.construct("Image", function(spec: Media.ImageProps): ImageLabel
+	UI.Image = ctx.construct("Image", function(spec: MediaProps.ImageProps): ImageLabel
 		local keys = { "image", "tint", "scaleMode", "tileSize", "sliceCenter", "sliceScale", "resample", "shape" }
 		local declared = read(spec.scaleMode)
 		local live = Compose.isReadable(spec.scaleMode) or type(spec.scaleMode) == "function"
@@ -610,7 +612,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		return image
 	end)
 
-	UI.Badge = ctx.construct("Badge", function(spec: Media.BadgeProps): GuiObject
+	UI.Badge = ctx.construct("Badge", function(spec: MediaProps.BadgeProps): GuiObject
 		assert(
 			spec.iconPosition == nil or spec.iconPosition == "leading" or spec.iconPosition == "trailing",
 			"Facet Badge invalid iconPosition"
@@ -685,7 +687,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 					Compose.show(function(use: ComposeTypes.Use)
 						return read(spec.appearance, use) == "status"
 					end, function()
-						return UI.StatusIndicator "Status" {
+						return UI.StatusIndicator {
+							Name = "Status",
 							status = spec.status,
 							diameter = 8,
 							LayoutOrder = -1,
@@ -769,7 +772,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		return pill
 	end)
 
-	UI.StatusIndicator = ctx.construct("StatusIndicator", function(spec: Media.StatusIndicatorProps): TextLabel
+	UI.StatusIndicator = ctx.construct("StatusIndicator", function(spec: MediaProps.StatusIndicatorProps): TextLabel
 		local size = function(use: ComposeTypes.Use)
 			return read(spec.diameter, use)
 				or (
@@ -846,36 +849,27 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			} :: Engine.TextLabelNativeProps
 		)
 		if spec.count ~= nil and spec.Size == nil then
-			table.insert(
-				native,
-				Host.UISizeConstraint({
-					MinSize = function(use: ComposeTypes.Use)
-						return V2.new(size(use), size(use))
-					end,
-				})
-			)
+			native[#native + 1] = Host.UISizeConstraint({
+				MinSize = function(use: ComposeTypes.Use)
+					return V2.new(size(use), size(use))
+				end,
+			})
 		elseif spec.count == nil then
-			table.insert(
-				native,
-				Host.UIAspectRatioConstraint({
-					AspectRatio = function(use: ComposeTypes.Use)
-						return if form(use) == "dash" then 3 else 1
-					end,
-					AspectType = E.AspectType.FitWithinMaxSize,
-				})
-			)
+			native[#native + 1] = Host.UIAspectRatioConstraint({
+				AspectRatio = function(use: ComposeTypes.Use)
+					return if form(use) == "dash" then 3 else 1
+				end,
+				AspectType = E.AspectType.FitWithinMaxSize,
+			})
 		end
 		if spec.cutout then
-			table.insert(
-				native,
-				ctx.styled(
-					Host.UIStroke "Cutout" {
-						ApplyStrokeMode = E.ApplyStrokeMode.Border,
-						BorderStrokePosition = E.BorderStrokePosition.Inner,
-						Thickness = 1,
-					},
-					"cutout"
-				)
+			native[#native + 1] = ctx.styled(
+				Host.UIStroke "Cutout" {
+					ApplyStrokeMode = E.ApplyStrokeMode.Border,
+					BorderStrokePosition = E.BorderStrokePosition.Inner,
+					Thickness = 1,
+				},
+				"cutout"
 			)
 		end
 		local node = ctx.styled(Host.TextLabel(native), "text")
@@ -901,7 +895,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		return node
 	end)
 
-	UI.Path = ctx.construct("Path", function(spec: Media.PathProps): Frame
+	UI.Path = ctx.construct("Path", function(spec: MediaProps.PathProps): Frame
 		assert(spec.points ~= nil, "Facet Path requires points")
 		local width, height = spec.width, spec.height
 		assert(width == nil or (type(width) == "number" and width > 0), "Facet Path width must be a positive number")
@@ -969,11 +963,11 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			BorderSizePixel = 0,
 			Size = if width or height then D2.fromOffset(width or height or 0, height or width or 0) else nil,
 		})
-		table.insert(props, path)
+		props[#props + 1] = path
 		return Host.Frame(props)
 	end)
 
-	UI.ProgressView = ctx.construct("ProgressView", function(spec: Media.ProgressViewProps): Frame
+	UI.ProgressView = ctx.construct("ProgressView", function(spec: MediaProps.ProgressViewProps): Frame
 		local motionReduced = reducedMotion(ctx)
 		local presentation = spec.presentation or "bar"
 		assert(
@@ -1480,7 +1474,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		end)
 		return clock, nil
 	end)
-	UI.Skeleton = ctx.construct("Skeleton", function(spec: Media.SkeletonProps): Frame
+	UI.Skeleton = ctx.construct("Skeleton", function(spec: MediaProps.SkeletonProps): Frame
 		local form = spec.form or "box"
 		assert(form == "box" or form == "circle" or form == "line", "Facet Skeleton invalid form")
 		assert(spec.lines == nil or form == "line", "Facet Skeleton lines require line form")
@@ -1548,7 +1542,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		)
 	end)
 
-	UI.AsyncImage = ctx.construct("AsyncImage", function(spec: Media.AsyncImageProps): Frame
+	UI.AsyncImage = ctx.construct("AsyncImage", function(spec: MediaProps.AsyncImageProps): Frame
 		local state: ComposeTypes.Cell<Media.ImageState> = Compose.cell("loading" :: Media.ImageState)
 		local loaded = Compose.cell("")
 		local failure = Compose.cell(nil :: unknown)
@@ -1687,7 +1681,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		return root
 	end)
 
-	UI.Avatar = ctx.construct("Avatar", function(spec: Media.AvatarProps): TextButton
+	UI.Avatar = ctx.construct("Avatar", function(spec: MediaProps.AvatarProps): TextButton
 		assert(spec.form == nil or spec.form == "standard" or spec.form == "icon", "Facet Avatar invalid form")
 		local diameter = function(use: ComposeTypes.Use)
 			return read(spec.diameter, use)
@@ -1893,7 +1887,8 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			local statuses: { [string]: Media.Status } =
 				{ online = "success", away = "warning", busy = "error", offline = "neutral" }
 			runtime.mount(function()
-				return UI.StatusIndicator "Presence" {
+				return UI.StatusIndicator {
+					Name = "Presence",
 					diameter = 12,
 					cutout = true,
 					Visible = function(use: ComposeTypes.Use)
@@ -1916,7 +1911,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 		return root
 	end)
 
-	UI.AvatarGroup = ctx.construct("AvatarGroup", function(spec: Media.AvatarGroupProps): Frame
+	UI.AvatarGroup = ctx.construct("AvatarGroup", function(spec: MediaProps.AvatarGroupProps): Frame
 		local items = Compose.formula(function(use: ComposeTypes.Use)
 			local members = read(spec.items, use)
 			assert(type(members) == "table", "Facet AvatarGroup items must be an array")
@@ -1980,118 +1975,104 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 				SortOrder = E.SortOrder.LayoutOrder,
 			}),
 		})
-		table.insert(
-			native,
-			Compose.keyed({
-				from = function(use: ComposeTypes.Use)
-					local items = use(items)
-					local visible: { Media.AvatarMember } = {}
-					for index = 1, math.min(#items, maximum) do
-						table.insert(visible, items[index])
-					end
-					return visible
-				end,
-				key = function(item: Media.AvatarMember)
-					return if item.resource then item.id .. "\0" .. tostring(item.resource) else item.id
-				end,
-				render = function(
-					current: ComposeTypes.Readable<Media.AvatarMember>,
-					index: ComposeTypes.Readable<number>
-				)
-					return UI.Avatar({
-						resource = current:peek().resource,
-						Name = function(use: ComposeTypes.Use)
-							return use(current).id
+		native[#native + 1] = Compose.keyed({
+			from = function(use: ComposeTypes.Use)
+				local items = use(items)
+				local visible: { Media.AvatarMember } = {}
+				for index = 1, math.min(#items, maximum) do
+					table.insert(visible, items[index])
+				end
+				return visible
+			end,
+			key = function(item: Media.AvatarMember)
+				return if item.resource then item.id .. "\0" .. tostring(item.resource) else item.id
+			end,
+			render = function(current: ComposeTypes.Readable<Media.AvatarMember>, index: ComposeTypes.Readable<number>)
+				return UI.Avatar({
+					resource = current:peek().resource,
+					Name = function(use: ComposeTypes.Use)
+						return use(current).id
+					end,
+					name = function(use: ComposeTypes.Use)
+						return use(current).name
+					end,
+					image = if current:peek().icon
+						then nil
+						else function(use: ComposeTypes.Use)
+							local item = use(current)
+							return item.image
+								or (
+									if item.userId
+										then "rbxthumb://type=AvatarHeadShot&id=" .. tostring(item.userId) .. "&w=150&h=150"
+										else ""
+								)
 						end,
-						name = function(use: ComposeTypes.Use)
-							return use(current).name
+					presence = function(use: ComposeTypes.Use): Media.Presence?
+						return use(current).presence :: Media.Presence?
+					end,
+					icon = if current:peek().icon
+						then function(use: ComposeTypes.Use): string?
+							return use(current).icon
+						end
+						else nil,
+					diameter = size,
+					presenceMark = spec.layout == "spread",
+					LayoutOrder = index,
+				})
+			end,
+		})
+		native[#native + 1] = Compose.show(function(use: ComposeTypes.Use)
+			return #use(items) > maximum
+		end, function()
+			return ctx.styled(
+				Host.TextButton "Overflow" {
+					Attributes = {
+						AccessibleLabel = (function(use: ComposeTypes.Use): string
+							local label = read(spec.overflowLabel, use)
+							assert(
+								label == nil or type(label) == "string",
+								"Facet AvatarGroup overflowLabel must be a string"
+							)
+							return label or tostring(#use(items) - maximum) .. " more players"
+						end) :: Engine.Value<Engine.AttributeValue?>,
+					},
+					Size = function(use: ComposeTypes.Use)
+						local pixels = size(use)
+						return D2.fromOffset(pixels, pixels)
+					end,
+					LayoutOrder = maximum + 2,
+					Text = function(use: ComposeTypes.Use)
+						return if spec.overflow == "ellipsis" then "…" else "+" .. tostring(#use(items) - maximum)
+					end,
+					Selectable = spec.onOverflow ~= nil,
+					AutoButtonColor = false,
+					Activated = function()
+						local onOverflow = spec.onOverflow
+						if onOverflow then
+							onOverflow()
+						end
+					end,
+					Host.UICorner({ CornerRadius = ctx.round }),
+					Host.UISizeConstraint({
+						MinSize = function(use: ComposeTypes.Use): Vector2
+							local minimum = floor(use)
+							return V2.new(minimum, minimum)
 						end,
-						image = if current:peek().icon
-							then nil
-							else function(use: ComposeTypes.Use)
-								local item = use(current)
-								return item.image
-									or (
-										if item.userId
-											then "rbxthumb://type=AvatarHeadShot&id="
-												.. tostring(item.userId)
-												.. "&w=150&h=150"
-											else ""
-									)
-							end,
-						presence = function(use: ComposeTypes.Use): Media.Presence?
-							return use(current).presence :: Media.Presence?
-						end,
-						icon = if current:peek().icon
-							then function(use: ComposeTypes.Use): string?
-								return use(current).icon
-							end
-							else nil,
-						diameter = size,
-						presenceMark = spec.layout == "spread",
-						LayoutOrder = index,
-					})
-				end,
-			})
-		)
-		table.insert(
-			native,
-			Compose.show(function(use: ComposeTypes.Use)
+					}),
+				},
+				"button"
+			)
+		end)
+		if spacing < 0 then
+			native[#native + 1] = Compose.show(function(use: ComposeTypes.Use)
 				return #use(items) > maximum
 			end, function()
-				return ctx.styled(
-					Host.TextButton "Overflow" {
-						Attributes = {
-							AccessibleLabel = (function(use: ComposeTypes.Use): string
-								local label = read(spec.overflowLabel, use)
-								assert(
-									label == nil or type(label) == "string",
-									"Facet AvatarGroup overflowLabel must be a string"
-								)
-								return label or tostring(#use(items) - maximum) .. " more players"
-							end) :: Engine.Value<Engine.AttributeValue?>,
-						},
-						Size = function(use: ComposeTypes.Use)
-							local pixels = size(use)
-							return D2.fromOffset(pixels, pixels)
-						end,
-						LayoutOrder = maximum + 2,
-						Text = function(use: ComposeTypes.Use)
-							return if spec.overflow == "ellipsis" then "…" else "+" .. tostring(#use(items) - maximum)
-						end,
-						Selectable = spec.onOverflow ~= nil,
-						AutoButtonColor = false,
-						Activated = function()
-							local onOverflow = spec.onOverflow
-							if onOverflow then
-								onOverflow()
-							end
-						end,
-						Host.UICorner({ CornerRadius = ctx.round }),
-						Host.UISizeConstraint({
-							MinSize = function(use: ComposeTypes.Use): Vector2
-								local minimum = floor(use)
-								return V2.new(minimum, minimum)
-							end,
-						}),
-					},
-					"button"
-				)
+				return Host.Frame "OverflowGap" {
+					BackgroundTransparency = 1,
+					LayoutOrder = maximum + 1,
+					Size = D2.fromOffset(4 - 2 * spacing, 0),
+				}
 			end)
-		)
-		if spacing < 0 then
-			table.insert(
-				native,
-				Compose.show(function(use: ComposeTypes.Use)
-					return #use(items) > maximum
-				end, function()
-					return Host.Frame "OverflowGap" {
-						BackgroundTransparency = 1,
-						LayoutOrder = maximum + 1,
-						Size = D2.fromOffset(4 - 2 * spacing, 0),
-					}
-				end)
-			)
 		end
 		local group = Host.Frame(native)
 		if spec.layout ~= "spread" then
@@ -2239,7 +2220,7 @@ return function(ctx: Types.Context, controls: Media.MediaControls?): Media.Media
 			near
 	end
 
-	UI.Stage = ctx.construct("Stage", function(spec: Media.StageProps): ViewportFrame
+	UI.Stage = ctx.construct("Stage", function(spec: MediaProps.StageProps): ViewportFrame
 		local world = Host.WorldModel "World" {}
 		local externalCamera = spec.camera
 			and (

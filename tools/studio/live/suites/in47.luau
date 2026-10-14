@@ -609,14 +609,17 @@ local function chromeBar(t: any): (any, any, any)
 		return Host.Frame "Root" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.HStack "Bar" {
-				UI.Button "Left" {
+			UI.HStack {
+				Name = "Bar",
+				UI.Button {
+					Name = "Left",
 					label = "Left",
 					onActivate = function()
 						table.insert(pressed, "Left")
 					end,
 				} :: unknown,
-				UI.Button "Right" {
+				UI.Button {
+					Name = "Right",
 					label = "Right",
 					onActivate = function()
 						table.insert(pressed, "Right")
@@ -627,7 +630,8 @@ local function chromeBar(t: any): (any, any, any)
 				Position = UDim2.fromOffset(0, 200),
 				Size = UDim2.fromOffset(300, 100),
 				BackgroundTransparency = 1,
-				UI.Button "A" {
+				UI.Button {
+					Name = "A",
 					label = "Content A",
 					onActivate = function()
 						table.insert(pressed, "A")
@@ -694,9 +698,11 @@ local function fieldForm(t: any): (any, any)
 	local value = { commits = {}, changes = {} }
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value.text = Compose.cell("seed")
-		return UI.VStack "Form" {
+		return UI.VStack {
+			Name = "Form",
 			gap = "s",
-			UI.TextInput "Name" {
+			UI.TextInput {
+				Name = "Name",
 				value = value.text,
 				onChange = function(text)
 					table.insert(value.changes, text)
@@ -706,7 +712,7 @@ local function fieldForm(t: any): (any, any)
 					table.insert(value.commits, { text, reason })
 				end,
 			} :: unknown,
-			UI.Button "Next" { label = "Next" },
+			UI.Button { Name = "Next", label = "Next" },
 		}
 	end, { frames = 12 })
 	value.field = textBox(t.find(stage, "Name"))
@@ -885,7 +891,8 @@ local function radial(t: any, options: { [string]: any }?): { [string]: any }
 				end,
 			})
 		end
-		return UI.RadialMenu "Quick" {
+		return UI.RadialMenu {
+			Name = "Quick",
 			isPresented = value.open,
 			items = items,
 			preset = config.preset,
@@ -1252,7 +1259,8 @@ end
 
 local function tableProbe(t: any): (any, any)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.Table "Scores" {
+		return UI.Table {
+			Name = "Scores",
 			from = { { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" } },
 			key = "id",
 			widths = Compose.cell({}),
@@ -1551,15 +1559,18 @@ end)
 local function shortcutPair(t: any): any
 	local value: any = { plain = 0, shifted = 0 }
 	t.mount(function(UI: FacetControls)
-		return UI.VStack "Pair" {
-			UI.Button "Plain" {
+		return UI.VStack {
+			Name = "Pair",
+			UI.Button {
+				Name = "Plain",
 				label = "Plain K",
 				shortcut = { keyCode = "K" },
 				onActivate = function()
 					value.plain += 1
 				end,
 			} :: unknown,
-			UI.Button "Shifted" {
+			UI.Button {
+				Name = "Shifted",
 				label = "Shift K",
 				shortcut = { keyCode = "K", modifiers = { shift = true } },
 				onActivate = function()
@@ -1689,16 +1700,18 @@ add("actions-released-with-their-owner", {}, function(t: any)
 	local baseline = #contexts()
 	local fired = 0
 	t.mount(function(UI: FacetControls)
-		return UI.VStack "Owned" {
-			UI.Button "Save" {
+		return UI.VStack {
+			Name = "Owned",
+			UI.Button {
+				Name = "Save",
 				label = "Save",
 				shortcut = { keyCode = "K" },
 				onActivate = function()
 					fired += 1
 				end,
 			} :: unknown,
-			UI.Button "Close" { label = "Close", dialogAction = "cancel" :: "cancel" },
-			UI.TextInput "Name" { value = "seed", onChange = function() end },
+			UI.Button { Name = "Close", label = "Close", dialogAction = "cancel" :: "cancel" },
+			UI.TextInput { Name = "Name", value = "seed", onChange = function() end },
 		}
 	end, { frames = 12 })
 	local mounted = #contexts()
@@ -1724,7 +1737,8 @@ add("one-action-many-devices", {}, function(t: any)
 	local io = device(t)
 	local fired = 0
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.Button "Close" {
+		return UI.Button {
+			Name = "Close",
 			label = "Close",
 			shortcut = { keyCode = "K" },
 			dialogAction = "cancel" :: "cancel",
@@ -1769,7 +1783,8 @@ add("pad-one-action-many-devices", {}, function(t: any)
 	local io = device(t)
 	local fired = 0
 	t.mount(function(UI: FacetControls)
-		return UI.Button "Close" {
+		return UI.Button {
+			Name = "Close",
 			label = "Close",
 			shortcut = { keyCode = "K" },
 			dialogAction = "cancel" :: "cancel",
@@ -1796,7 +1811,8 @@ add("touch-one-action-many-devices", {}, function(t: any)
 			Position = UDim2.fromOffset(40, 240),
 			Size = UDim2.fromOffset(200, 100),
 			BackgroundTransparency = 1,
-			UI.Button "Close" {
+			UI.Button {
+				Name = "Close",
 				label = "Close",
 				shortcut = { keyCode = "K" },
 				dialogAction = "cancel" :: "cancel",
@@ -1816,15 +1832,17 @@ local function hoverProbe(t: any, value: any): any
 			Position = UDim2.fromOffset(40, 240),
 			Size = UDim2.fromOffset(300, 200),
 			BackgroundTransparency = 1,
-			UI.VStack "Column" {
-				UI.Button "Go" {
+			UI.VStack {
+				Name = "Column",
+				UI.Button {
+					Name = "Go",
 					label = "Go",
 					help = "Starts the race",
 					onActivate = function()
 						value.activated += 1
 					end,
 				} :: unknown,
-				UI.Text "Caption" { text = "A caption" },
+				UI.Text { Name = "Caption", text = "A caption" },
 			},
 		}
 	end, { frames = 12 })
@@ -1953,12 +1971,13 @@ add("help-leaves-with-its-surface", {}, function(t: any)
 	local open
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(true)
-		return UI.Sheet "Editor" {
+		return UI.Sheet {
+			Name = "Editor",
 			isPresented = open,
 			detent = Compose.cell("medium"),
 			title = "Editor",
 			content = function(): Instance
-				return UI.Button "Post" { label = "Post", help = "Posts this avatar" }
+				return UI.Button { Name = "Post", label = "Post", help = "Posts this avatar" }
 			end,
 		}
 	end, { frames = 30 })
@@ -1991,7 +2010,7 @@ local function sliderProbe(t: any): (any, any)
 			Position = UDim2.new(0, 40, 0.5, -40),
 			Size = UDim2.fromOffset(300, 80),
 			BackgroundTransparency = 1,
-			UI.Slider "Vol" { value = value, min = 0, max = 100, Size = UDim2.fromOffset(300, 44) },
+			UI.Slider { Name = "Vol", value = value, min = 0, max = 100, Size = UDim2.fromOffset(300, 44) },
 		}
 	end, { frames = 12 })
 	return stage, value
@@ -2053,7 +2072,8 @@ add("pad-table-row-a-selects", {}, function(t: any)
 	local selection
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		selection = Compose.cell({})
-		return UI.Table "Scores" {
+		return UI.Table {
+			Name = "Scores",
 			from = { { id = "a", name = "Alpha" }, { id = "b", name = "Bravo" }, { id = "c", name = "Charlie" } },
 			key = "id",
 			selection = selection,

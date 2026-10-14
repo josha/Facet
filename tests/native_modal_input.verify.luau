@@ -9,7 +9,8 @@ return function(verifyHarness: Verify.Harness)
 	local overlay = require("./lib/overlay_world")
 
 	local function dialog(UI: any, Host: any, name: string, open: any): any
-		return UI.Dialog(name)({
+		return UI.Dialog({
+			Name = name,
 			isPresented = open,
 			onPresentedChange = function(value: boolean)
 				open:set(value)

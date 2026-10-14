@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -33,7 +34,8 @@ return function(verifyHarness: Verify.Harness)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
 					Name = "Screen",
-					UI.Button "Post" {
+					UI.Button {
+						Name = "Post",
 						label = "Post",
 						help = "Posts it",
 						onActivate = function()
@@ -84,7 +86,7 @@ return function(verifyHarness: Verify.Harness)
 	verifyHarness:suite("full-value disclosure of truncated text", function()
 		local function label(spec: { [any]: any }): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({ Name = "Screen", UI.Text "Name"(spec) })
+				return Host.Frame({ Name = "Screen", UI.Text(named("Name", spec)) })
 			end, { motionLevel = "none" })
 			place(w.find("Name"))
 			return w
@@ -120,9 +122,10 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Name = "Screen",
-						UI.Button "Row" {
+						UI.Button {
+							Name = "Row",
 							label = "",
-							UI.Text "Name" { text = LONG, truncate = "end" :: "end", disclose = true },
+							UI.Text { Name = "Name", text = LONG, truncate = "end" :: "end", disclose = true },
 						},
 					})
 				end, { motionLevel = "none" })
@@ -142,7 +145,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Name = "Screen",
-						UI.Button "Post" { label = LONG, disclose = true, help = "Posts it" },
+						UI.Button { Name = "Post", label = LONG, disclose = true, help = "Posts it" },
 					})
 				end, { motionLevel = "none" })
 				local post = w.find("Post")
@@ -177,7 +180,8 @@ return function(verifyHarness: Verify.Harness)
 						local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 							return Host.Frame({
 								Name = "Screen",
-								UI.Toggle "Music" {
+								UI.Toggle {
+									Name = "Music",
 									label = LONG,
 									value = Compose.cell(false),
 									disclose = case.disclose,
@@ -211,7 +215,7 @@ return function(verifyHarness: Verify.Harness)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				local children: { any } = {}
 				for index = 1, count do
-					table.insert(children, UI.Text("Name" .. index)({ text = LONG, reveal = "auto" :: "auto" }))
+					table.insert(children, UI.Text({ Name = "Name" .. index, text = LONG, reveal = "auto" :: "auto" }))
 				end
 				return Host.Frame({ Name = "Screen", table.unpack((children :: unknown) :: { unknown }) })
 			end, { motionLevel = if reduced then "none" else "normal" })

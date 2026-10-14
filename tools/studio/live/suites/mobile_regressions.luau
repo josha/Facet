@@ -94,10 +94,7 @@ table.insert(cases, {
 	run = function(t: Live)
 		for _, theme in t.themes do
 			local stage = t.mount(function(UI: any, _: any, C: any)
-				return UI.TextInput "Search" {
-					value = C.cell("Mint"),
-					presentation = "search",
-				}
+				return UI.TextInput { Name = "Search", value = C.cell("Mint"), presentation = "search" }
 			end, { theme = theme.package, size = Vector2.new(390, 740), environment = { preferredInput = "Touch" } })
 			local field, icon, clear = t.find(stage, "Field"), t.find(stage, "SearchIcon"), t.find(stage, "Clear")
 			local f, i, c = t.rect(field), t.rect(icon), t.rect(clear)
@@ -113,7 +110,8 @@ table.insert(cases, {
 	id = "segmented-opening-layout",
 	run = function(t: Live)
 		local stage = t.mount(function(UI: any, _: any, C: any)
-			return UI.Picker "Motion" {
+			return UI.Picker {
+				Name = "Motion",
 				label = "Motion",
 				style = "segmented",
 				selected = C.cell("device"),
@@ -135,7 +133,8 @@ table.insert(cases, {
 		local open
 		local stage = t.mount(function(UI: any, _: any, C: any)
 			open = C.cell(false)
-			return UI.ColorPicker "Colour" {
+			return UI.ColorPicker {
+				Name = "Colour",
 				value = C.cell(Color3.new(1, 0, 0)),
 				onChange = function() end,
 				isPresented = open,
@@ -206,7 +205,8 @@ table.insert(cases, {
 	id = "radial-touch-origin",
 	run = function(t: Live)
 		local stage = t.mount(function(UI: any)
-			return UI.RadialMenu "Quick" {
+			return UI.RadialMenu {
+				Name = "Quick",
 				label = "Quick actions",
 				Position = UDim2.fromOffset(24, 240),
 				items = {
@@ -256,13 +256,15 @@ table.insert(cases, {
 	id = "hud-collapse-content",
 	run = function(t: Live)
 		local stage = t.mount(function(UI: any, Host: Live)
-			return UI.Composition "Hud" {
+			return UI.Composition {
+				Name = "Hud",
 				Position = UDim2.fromOffset(0, 200),
 				Size = UDim2.fromOffset(200, 100),
 				gap = 8,
 				padding = 0,
 				topbar = false,
-				UI.Region "Tasks" {
+				UI.Region {
+					Name = "Tasks",
 					zone = "left",
 					rank = 1,
 					Host.Frame "TasksFull" { Size = UDim2.fromOffset(240, 130) },
@@ -299,7 +301,8 @@ table.insert(cases, {
 	run = function(t: Live)
 		t.device({ device = "iphone_14", input = Enum.PreferredInput.Touch })
 		local stage = t.mount(function(UI: any)
-			return UI.RowActions "Row" {
+			return UI.RowActions {
+				Name = "Row",
 				Position = UDim2.fromOffset(12, 240),
 				Size = UDim2.fromOffset(360, 56),
 				content = UI.Text { text = "Message", Size = UDim2.fromScale(1, 1) },
@@ -333,15 +336,18 @@ table.insert(cases, {
 	id = "topbar-regions-side-by-side",
 	run = function(t: Live)
 		t.mount(function(UI: any, Host: Live)
-			return UI.Composition "Hud" {
+			return UI.Composition {
+				Name = "Hud",
 				gap = 8,
 				padding = 0,
-				UI.Region "Objective" {
+				UI.Region {
+					Name = "Objective",
 					zone = "topbar",
 					rank = 2,
 					Host.Frame "ObjectiveFull" { Size = UDim2.fromOffset(120, 32) },
 				},
-				UI.Region "Timer" {
+				UI.Region {
+					Name = "Timer",
 					zone = "topbar",
 					rank = 1,
 					Host.Frame "TimerFull" { Size = UDim2.fromOffset(90, 32) },
@@ -413,7 +419,8 @@ table.insert(cases, {
 			local open
 			local stage = t.mount(function(UI: Live, _: Live, C: Live)
 				open = C.cell(false)
-				return UI.ColorPicker "Colour" {
+				return UI.ColorPicker {
+					Name = "Colour",
 					value = C.cell(Color3.fromRGB(171, 205, 109)),
 					isPresented = open,
 					modes = { "spectrum", "sliders" },

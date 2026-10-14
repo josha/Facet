@@ -122,7 +122,8 @@ return {
 		return {
 			section = section,
 			screen = function()
-				return UI.ScrollView "PagingScreen" {
+				return UI.ScrollView {
+					Name = "PagingScreen",
 					padding = 16,
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),

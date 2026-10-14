@@ -175,7 +175,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_control_polish::native option rows keep the mark in its own slot::an inline list and a menu keep the check after the label",
 			run = function()
 				local inline = world(function(UI: FacetControls)
-					return UI.Picker "P" {
+					return UI.Picker {
+						Name = "P",
 						style = "inline" :: "inline",
 						indicator = "none" :: "none",
 						selected = Compose.cell("normal"),
@@ -185,7 +186,12 @@ return function(verifyHarness: Verify.Harness)
 				clear("inline", find(inline.screen, "normal"), "TrailingIcon", "trailing")
 				inline.stop()
 				local menu = world(function(UI: FacetControls)
-					return UI.Picker "P" { style = "menu" :: "menu", selected = Compose.cell("normal"), options = THREE }
+					return UI.Picker {
+						Name = "P",
+						style = "menu" :: "menu",
+						selected = Compose.cell("normal"),
+						options = THREE,
+					}
 				end)
 				find(menu.screen, "Trigger").Activated:Fire()
 				local row
@@ -215,7 +221,8 @@ return function(verifyHarness: Verify.Harness)
 						local id = package.identity.id
 						for _, size in { "compact", "regular", "large" } do
 							local w = world(function(UI: FacetControls)
-								return UI.Picker "P" {
+								return UI.Picker {
+									Name = "P",
 									style = "segmented" :: "segmented",
 									controlSize = size :: "compact" | "regular" | "large",
 									selected = Compose.cell("normal"),
@@ -267,7 +274,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_control_polish::native segmented picker track::bounds segments in layout units under a scaled ancestor",
 			run = function()
 				local w = world(function(UI: FacetControls)
-					return UI.Picker "P" {
+					return UI.Picker {
+						Name = "P",
 						style = "segmented" :: "segmented",
 						label = "Mode",
 						selected = Compose.cell("easy"),
@@ -289,7 +297,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_control_polish::native segmented picker track::a caller's fixed 44 point track keeps the segments inside it",
 			run = function()
 				local w = world(function(UI: FacetControls, _, engine)
-					return UI.Picker "P" {
+					return UI.Picker {
+						Name = "P",
 						style = "segmented" :: "segmented",
 						selected = Compose.cell("easy"),
 						options = THREE,
@@ -314,14 +323,17 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_control_polish::native selection paint::applies the selected state during the activation that causes it",
 			run = function()
 				local w = world(function(UI: FacetControls)
-					return UI.VStack "Column" {
-						UI.Picker "Segments" {
+					return UI.VStack {
+						Name = "Column",
+						UI.Picker {
+							Name = "Segments",
 							style = "segmented" :: "segmented",
 							selected = Compose.cell("easy"),
 							options = THREE,
 						} :: unknown,
-						UI.Toggle "Hat" { label = "Hat", value = Compose.cell(false) },
-						UI.TabView "Tabs" {
+						UI.Toggle { Name = "Hat", label = "Hat", value = Compose.cell(false) },
+						UI.TabView {
+							Name = "Tabs",
 							selection = Compose.cell("one"),
 							indicator = "pill" :: "pill",
 							placement = "topBar" :: "topBar",
@@ -330,14 +342,14 @@ return function(verifyHarness: Verify.Harness)
 									id = "one",
 									label = "One",
 									content = function(): Instance
-										return UI.Text "OneBody" { text = "One" }
+										return UI.Text { Name = "OneBody", text = "One" }
 									end,
 								} :: FixtureNavigationTypes.Tab,
 								{
 									id = "two",
 									label = "Two",
 									content = function(): Instance
-										return UI.Text "TwoBody" { text = "Two" }
+										return UI.Text { Name = "TwoBody", text = "Two" }
 									end,
 								} :: FixtureNavigationTypes.Tab,
 							},
@@ -373,7 +385,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local styleRules = require("./lib/style_rules")
 				local w = world(function(UI: FacetControls, _, engine)
-					return UI.Button "Key" {
+					return UI.Button {
+						Name = "Key",
 						label = "W",
 						Size = engine.types.UDim2.fromOffset(31, 44),
 						AutomaticSize = engine.types.Enum.AutomaticSize.None,
@@ -436,7 +449,8 @@ return function(verifyHarness: Verify.Harness)
 				local package = assert(require("../examples/themes/pixel_quest").build(themes))
 				local selectedTheme = Compose.cell(package)
 				local w = world(function(UI, _, engine)
-					return UI.Button "Key" {
+					return UI.Button {
+						Name = "Key",
 						label = "E",
 						Size = engine.types.UDim2.fromOffset(31, 44),
 						AutomaticSize = engine.types.Enum.AutomaticSize.None,
@@ -460,7 +474,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local live: boolean? = nil
 				local w = world(function(UI: FacetControls, _, engine)
-					return UI.Button "Tab" {
+					return UI.Button {
+						Name = "Tab",
 						label = "Inputs",
 						Size = engine.types.UDim2.fromOffset(94, 44),
 						AutomaticSize = engine.types.Enum.AutomaticSize.None,

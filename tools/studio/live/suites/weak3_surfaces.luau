@@ -8,6 +8,11 @@ type CivilRangeCell = typeof(require("@repo/tools/typecheck/aliases").CivilRange
 type CivilRange = typeof(require("@repo/tools/typecheck/aliases").CivilRange)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+local function named<P>(name: string, props: P): P
+	local copy = table.clone((props :: unknown) :: { [unknown]: unknown })
+	copy.Name = name
+	return (copy :: unknown) :: P
+end
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -236,7 +241,7 @@ add("dialog-actions-stack-and-row", {}, function(t)
 			return Host.Frame "Board" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Dialog("Confirm")(spec),
+				UI.Dialog(named("Confirm", spec)),
 			}
 		end, { size = Vector2.new(1280, 720), frames = 30 })
 		local panel = visibleNamed(t, stage, "Panel")
@@ -284,7 +289,8 @@ add("picker-panel-widest-row", {}, function(t)
 	local open
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(false)
-		return UI.Picker "P" {
+		return UI.Picker {
+			Name = "P",
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(160, 0),
 			style = "menu" :: "menu",
@@ -343,7 +349,8 @@ end)
 add("navigation-link-one-line", {}, function(t)
 	t.note("host", host(t))
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.Picker "P" {
+		return UI.Picker {
+			Name = "P",
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(480, 0),
 			label = "Track",
@@ -390,7 +397,8 @@ add("slider-custom-knob-footprint", {}, function(t)
 	local builds, value = 0, nil
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value = Compose.cell(50)
-		return UI.Slider "Vol" {
+		return UI.Slider {
+			Name = "Vol",
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(320, 0),
 			value = value,
@@ -445,8 +453,9 @@ add("slider-rung-thin-rail-whole-target", {}, function(t)
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
 			Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-			UI.Slider "Regular" { LayoutOrder = 1, Size = UDim2.fromOffset(320, 0), value = Compose.cell(50) },
-			UI.Slider "Compact" {
+			UI.Slider { Name = "Regular", LayoutOrder = 1, Size = UDim2.fromOffset(320, 0), value = Compose.cell(50) },
+			UI.Slider {
+				Name = "Compact",
 				LayoutOrder = 2,
 				Size = UDim2.fromOffset(320, 0),
 				value = Compose.cell(50),
@@ -495,7 +504,8 @@ add("dtp-draft-footer-rects", {}, function(t)
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(360, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
-			UI.DateTimePicker "Window" {
+			UI.DateTimePicker {
+				Name = "Window",
 				label = "Season window",
 				selection = "range" :: "range",
 				range = range,
@@ -586,7 +596,8 @@ add("color-swatch-square-cells", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(false)
 		local value = Compose.cell(Color3.fromRGB(255, 196, 0))
-		return UI.ColorPicker "Trim" {
+		return UI.ColorPicker {
+			Name = "Trim",
 			Position = UDim2.fromOffset(40, 40),
 			value = value,
 			onChange = function(next: any)
@@ -628,7 +639,8 @@ add("color-brick-field-above-grid", {}, function(t)
 	t.note("host", host(t))
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		local value = Compose.cell(Color3.fromRGB(255, 0, 0))
-		return UI.ColorPicker "Brick" {
+		return UI.ColorPicker {
+			Name = "Brick",
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(420, 0),
 			value = value,
@@ -664,7 +676,8 @@ local function denseMenu(t: any, theme: any): (any, any)
 	local open
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(false)
-		return UI.Menu "M" {
+		return UI.Menu {
+			Name = "M",
 			Position = UDim2.fromOffset(40, 40),
 			label = "Options",
 			isPresented = open,
@@ -723,7 +736,8 @@ add("picker-dense-pointer-rows-live", {}, function(t)
 	local open
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		open = Compose.cell(false)
-		return UI.Picker "P" {
+		return UI.Picker {
+			Name = "P",
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(240, 0),
 			style = "menu" :: "menu",
@@ -763,7 +777,8 @@ add("outline-disclosure-indent", {}, function(t)
 			BackgroundTransparency = 1,
 			Size = UDim2.fromOffset(390, 400),
 			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-			UI.DisclosureGroup "G" {
+			UI.DisclosureGroup {
+				Name = "G",
 				label = "Inputs",
 				appearance = "outline" :: "outline",
 				textSize = "label" :: "label",
@@ -812,7 +827,8 @@ add("picker-start-inline-hug", {}, function(t)
 				Size = UDim2.fromOffset(0, 0),
 				AutomaticSize = Enum.AutomaticSize.XY,
 				Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
-				UI.Picker "P" {
+				UI.Picker {
+					Name = "P",
 					label = "Motion",
 					style = "menu" :: "menu",
 					valueAlignment = "start" :: "start",
@@ -864,7 +880,8 @@ add("picker-touch-inline-hug", {}, function(t)
 			Size = UDim2.fromOffset(0, 0),
 			AutomaticSize = Enum.AutomaticSize.XY,
 			Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal }) :: unknown,
-			UI.Picker "P" {
+			UI.Picker {
+				Name = "P",
 				label = "Motion",
 				style = "menu" :: "menu",
 				valueAlignment = "start" :: "start",
@@ -923,7 +940,8 @@ add("sheet-adaptive-side-edge", {}, function(t)
 			return Host.Frame "Room" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				UI.Sheet "Inspector" {
+				UI.Sheet {
+					Name = "Inspector",
 					isPresented = Compose.cell(true),
 					detent = Compose.cell("medium"),
 					placement = "adaptive" :: "adaptive",
@@ -995,7 +1013,8 @@ end)
 add("tabview-rung-centred", {}, function(t)
 	t.note("host", host(t))
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		return UI.TabView "Pages" {
+		return UI.TabView {
+			Name = "Pages",
 			Size = UDim2.fromOffset(600, 400),
 			placement = "topBar" :: "topBar",
 			controlSize = "compact" :: "compact",
@@ -1050,7 +1069,8 @@ interactive(
 				Size = UDim2.fromOffset(320, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-				UI.Toggle "Box" {
+				UI.Toggle {
+					Name = "Box",
 					label = "Reduced motion",
 					presentation = "checkbox" :: "checkbox",
 					appearance = "plain",

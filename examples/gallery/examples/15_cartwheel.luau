@@ -51,7 +51,8 @@ return {
 			for _, item in current:peek().items do
 				table.insert(contents, view.text("Potion", `{item.bottles} × {data.potionById(item.potion).name}`))
 			end
-			return UI.VStack("Order_" .. id) {
+			return UI.VStack {
+				Name = "Order_" .. id,
 				width = "fill" :: "fill",
 				padding = "m",
 				gap = "s",
@@ -59,7 +60,8 @@ return {
 					return `{if use(pinned) == id then "★ " else ""}Order {id}`
 				end, "heading") :: unknown,
 				view.text("BottleCount", `{current:peek().bottles} bottles`),
-				UI.DisclosureGroup "OrderContents" {
+				UI.DisclosureGroup {
+					Name = "OrderContents",
 					label = "What's in this order?",
 					expanded = expanded[id],
 					content = function(): Instance
@@ -73,7 +75,8 @@ return {
 				C.show(function(use: any)
 					return use(current).status == "brewing"
 				end, function()
-					return UI.ProgressView "Preparation" {
+					return UI.ProgressView {
+						Name = "Preparation",
 						label = "Brewing",
 						value = function(use: any)
 							use(model.clock.nowSignal)
@@ -95,7 +98,8 @@ return {
 						return (status == "new" or status == "ready")
 							and use(model.commands.status(verb .. ":" .. id)) ~= "pending"
 					end),
-					UI.RadialMenu("Actions_" .. id) {
+					UI.RadialMenu {
+						Name = "Actions_" .. id,
 						label = "Order actions",
 						contentFit = "radial" :: "radial",
 						ringWidth = "wide" :: "wide",
@@ -153,13 +157,15 @@ return {
 				end)
 				return result
 			end)
-			return UI.Screen("Lane_" .. status) {
+			return UI.Screen {
+				Name = "Lane_" .. status,
 				gap = "s",
 				padding = "s",
 				view.text("LaneHeading", function(use: any)
 					return `{title} · {#use(rows)}`
 				end, "heading") :: unknown,
-				UI.ScrollView "Tickets" {
+				UI.ScrollView {
+					Name = "Tickets",
 					gap = "s",
 					padding = "s",
 					UI.fill() :: unknown,
@@ -217,12 +223,14 @@ return {
 		end
 		return {
 			screen = function()
-				return UI.ScrollView "Cartwheel" {
+				return UI.ScrollView {
+					Name = "Cartwheel",
 					padding = "m",
 					gap = "m",
 					ref = view.observeWidth(width),
 					view.text("CartTitle", "Cartwheel · Market day", "title") :: unknown,
-					UI.Image "CartIllustration" {
+					UI.Image {
+						Name = "CartIllustration",
 						image = art.cart,
 						scaleMode = "crop" :: "crop",
 						Size = function(use: any)
@@ -230,7 +238,8 @@ return {
 						end,
 					},
 					view.actions({
-						UI.CollapsibleView "Takings" {
+						UI.CollapsibleView {
+							Name = "Takings",
 							label = "Day's takings",
 							expanded = summaryOpen,
 							content = summary,
@@ -244,7 +253,8 @@ return {
 					C.show(function(use: any)
 						return not use(wide)
 					end, function()
-						return UI.Picker "OrderLane" {
+						return UI.Picker {
+							Name = "OrderLane",
 							label = "Orders",
 							selected = lane,
 							options = {

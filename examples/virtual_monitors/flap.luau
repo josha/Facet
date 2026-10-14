@@ -177,7 +177,8 @@ return function(ctx: any)
 			Activated = press,
 		},
 	}
-	return UI.VStack "FlapBody" {
+	return UI.VStack {
+		Name = "FlapBody",
 		width = "fill" :: "fill",
 		height = "fill" :: "fill",
 		gap = "s",
@@ -187,7 +188,8 @@ return function(ctx: any)
 			UI.fill() :: unknown,
 			scene,
 		} :: unknown,
-		UI.HStack "FlightControls" {
+		UI.HStack {
+			Name = "FlightControls",
 			width = "fill" :: "fill",
 			gap = "s",
 			align = "center" :: "center",
@@ -205,7 +207,8 @@ return function(ctx: any)
 					end,
 				}
 			),
-			UI.Text "FlightInstructions" {
+			UI.Text {
+				Name = "FlightInstructions",
 				text = "Tap / Space · Fly through the gaps",
 				textRole = "caption" :: "caption",
 				role = "secondary" :: "secondary",

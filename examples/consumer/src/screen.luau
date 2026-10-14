@@ -9,9 +9,11 @@ function screen.build(Facet: any, UI: any)
 	local count = Compose.cell(0)
 	local sound = Compose.cell(true)
 	local visible = Compose.cell(true)
-	return UI.Screen "Consumer" {
+	return UI.Screen {
+		Name = "Consumer",
 		Compose.show(visible, function()
-			return UI.VStack "Panel" {
+			return UI.VStack {
+				Name = "Panel",
 				BackgroundTransparency = 0,
 				padding = "m",
 				ref = function(node: Frame)
@@ -20,20 +22,23 @@ function screen.build(Facet: any, UI: any)
 				gap = "s",
 				width = "fill" :: "fill",
 				align = "stretch" :: "stretch",
-				UI.Text "Title" { text = "Facet consumer", textRole = "title" :: "title" } :: unknown,
-				UI.Text "Blurb" {
+				UI.Text { Name = "Title", text = "Facet consumer", textRole = "title" :: "title" } :: unknown,
+				UI.Text {
+					Name = "Blurb",
 					text = "One component, local state, one theme. Press Bump and watch the count follow.",
 					textRole = "caption" :: "caption",
 					TextWrapped = true,
 				},
-				UI.Text "Count" {
+				UI.Text {
+					Name = "Count",
 					text = function(use: Use)
 						return if use(count) == 1 then "1 tap" else `{use(count)} taps`
 					end,
 					textRole = "heading" :: "heading",
 				},
-				UI.Toggle "Sound" { label = "Sound", value = sound },
-				UI.Button "Bump" {
+				UI.Toggle { Name = "Sound", label = "Sound", value = sound },
+				UI.Button {
+					Name = "Bump",
 					label = "Bump",
 					appearance = "emphasis",
 					onActivate = function()
@@ -42,7 +47,8 @@ function screen.build(Facet: any, UI: any)
 						end)
 					end,
 				},
-				UI.Button "Close" {
+				UI.Button {
+					Name = "Close",
 					label = "Close",
 					onActivate = function()
 						visible:set(false)

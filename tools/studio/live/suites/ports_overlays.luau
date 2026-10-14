@@ -199,7 +199,8 @@ local function longDialog(UI: any, Host: any, Compose: any, opened: any?): any
 	return Host.Frame "Board" {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-		UI.Dialog "Long" {
+		UI.Dialog {
+			Name = "Long",
 			isPresented = opened or Compose.cell(true),
 			onPresentedChange = function() end,
 			title = "Leave the race?",
@@ -491,7 +492,7 @@ add("help-plate-edges-and-shrinking-window", {}, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(1280, 720))
 	local buttons = {}
 	local function spot(UI: any, Host: any, name: string, position: UDim2, anchor: Vector2, help: any): any
-		local button = UI.Button(name)({ label = name, help = help })
+		local button = UI.Button({ Name = name, label = name, help = help })
 		buttons[name] = button
 		return Host.Frame({
 			Name = name .. "Spot",
@@ -757,7 +758,8 @@ add("notice-layout-and-emphasis-paint", {}, function(t)
 	end
 	t.check("each severity paints its own color", count == 4, colors)
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.Notice "Plain" {
+		return UI.Notice {
+			Name = "Plain",
 			severity = "info" :: "info",
 			message = "A new track pack is ready to install.",
 			link = { label = "Release notes", onActivate = function() end },
@@ -787,7 +789,8 @@ add("popover-caps-and-side-hang", {}, function(t)
 	): any
 		local opened = Compose.cell(false)
 		cells[name] = opened
-		local trigger = UI.Button(name .. "Button")({
+		local trigger = UI.Button({
+			Name = name .. "Button",
 			label = name,
 			Size = if size then UDim2.fromScale(1, 1) else nil,
 			AutomaticSize = if size then Enum.AutomaticSize.None else nil,
@@ -800,7 +803,8 @@ add("popover-caps-and-side-hang", {}, function(t)
 			Position = position,
 			Size = size or UDim2.fromOffset(0, 0),
 			AutomaticSize = if size then Enum.AutomaticSize.None else Enum.AutomaticSize.XY,
-			UI.Popover(name)({
+			UI.Popover({
+				Name = name,
 				isPresented = opened,
 				onPresentedChange = function(nextValue: boolean)
 					opened:set(nextValue)
@@ -953,7 +957,8 @@ add("sheet-scroll-policy-and-detectors", {}, function(t)
 		return Host.Frame "Board" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.Sheet "Rules" {
+			UI.Sheet {
+				Name = "Rules",
 				title = "Race rules",
 				isPresented = Compose.cell(true),
 				detent = detent,
@@ -1116,7 +1121,8 @@ add("snackbar-art-carve", {}, function(t)
 			return Host.Frame "Board" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Toast "Everything" {
+				UI.Toast {
+					Name = "Everything",
 					isPresented = shown,
 					message = "Offline: your times will upload when you reconnect.",
 					icon = "status.warning",
@@ -1174,11 +1180,12 @@ add("snackbar-paint-order", {}, function(t)
 	local trigger
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		calloutOn, dialogOn = Compose.cell(false), Compose.cell(false)
-		trigger = UI.Button "HelpTrigger" {
+		trigger = UI.Button {
+			Name = "HelpTrigger",
 			label = "Boost",
 			help = { title = "Boost", body = "Fills the boost meter faster." },
 		}
-		local anchor = UI.Button "TourAnchor" { label = "Garage" }
+		local anchor = UI.Button { Name = "TourAnchor", label = "Garage" }
 		return Host.Frame "Board" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -1202,13 +1209,15 @@ add("snackbar-paint-order", {}, function(t)
 				end,
 				onRetire = function() end,
 			},
-			UI.Toast "Snack1" {
+			UI.Toast {
+				Name = "Snack1",
 				isPresented = Compose.cell(true),
 				message = "Kart sold. The garage has room for one more.",
 				action = { label = "Undo", onActivate = function() end },
 				closeButton = false,
 			},
-			UI.Dialog "Leave" {
+			UI.Dialog {
+				Name = "Leave",
 				isPresented = dialogOn,
 				closeButton = false,
 				title = "Leave the race?",
@@ -1300,20 +1309,23 @@ add("snackbar-composition-widths", {}, function(t)
 			return Host.Frame "Board" {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Toast "Plain" {
+				UI.Toast {
+					Name = "Plain",
 					isPresented = cell("Plain"),
 					message = "Saved to your garage.",
 					width = "hug" :: "hug",
 					duration = 60,
 					onPresentedChange = answer("Plain"),
 				} :: unknown,
-				UI.Toast "WithAction" {
+				UI.Toast {
+					Name = "WithAction",
 					isPresented = cell("WithAction"),
 					message = "Kart sold.",
 					action = undo,
 					closeButton = false,
 				},
-				UI.Toast "WithClose" {
+				UI.Toast {
+					Name = "WithClose",
 					isPresented = close,
 					message = "Friend request sent.",
 					action = undo,
@@ -1321,14 +1333,16 @@ add("snackbar-composition-widths", {}, function(t)
 						close:set(nextValue)
 					end,
 				},
-				UI.Toast "LongPlain" {
+				UI.Toast {
+					Name = "LongPlain",
 					isPresented = cell("LongPlain"),
 					message = long,
 					width = "hug" :: "hug",
 					duration = 60,
 					onPresentedChange = answer("LongPlain"),
 				},
-				UI.Toast "LongAction" {
+				UI.Toast {
+					Name = "LongAction",
 					isPresented = cell("LongAction"),
 					message = long,
 					action = undo,
@@ -1490,7 +1504,7 @@ interactive(
 					Size = UDim2.fromOffset(0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
 					BackgroundTransparency = 1,
-					UI.Menu "M" { label = "Options", isPresented = value.presented, items = items },
+					UI.Menu { Name = "M", label = "Options", isPresented = value.presented, items = items },
 				},
 			}
 		end, { frames = 20 })
@@ -1539,7 +1553,8 @@ interactive(
 					Size = UDim2.fromOffset(0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
 					BackgroundTransparency = 1,
-					UI.Popover "Tip" {
+					UI.Popover {
+						Name = "Tip",
 						isPresented = value.open,
 						onPresentedChange = function(nextValue: boolean)
 							table.insert(value.changes, nextValue)
@@ -1548,7 +1563,7 @@ interactive(
 						onDismiss = function(reason: "anchorLost" | "cancel" | "outside" | "trigger")
 							table.insert(value.dismissed, reason)
 						end,
-						trigger = UI.Button "Open" { label = "Open" },
+						trigger = UI.Button { Name = "Open", label = "Open" },
 						content = function(): Instance
 							return Host.Frame "Card" {
 								BackgroundTransparency = 1,
@@ -1556,7 +1571,7 @@ interactive(
 								AutomaticSize = Enum.AutomaticSize.XY,
 								Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
 								UI.Text({ Name = "Line", text = "Popover body", LayoutOrder = 1 }),
-								UI.Button "Inner" { label = "Inner", LayoutOrder = 2 },
+								UI.Button { Name = "Inner", label = "Inner", LayoutOrder = 2 },
 							}
 						end,
 					},
@@ -1682,7 +1697,7 @@ add("popover-capped-follows-a-shrinking-window", {}, function(t)
 		opened = Compose.cell(false)
 		local rows = {}
 		for index = 1, 30 do
-			table.insert(rows, UI.Button(`Row{index}`)({ label = `Row {index}`, LayoutOrder = index }))
+			table.insert(rows, UI.Button({ Name = `Row{index}`, label = `Row {index}`, LayoutOrder = index }))
 		end
 		return Host.Frame "Board" {
 			Size = UDim2.fromScale(1, 1),
@@ -1692,12 +1707,13 @@ add("popover-capped-follows-a-shrinking-window", {}, function(t)
 				Size = UDim2.fromOffset(0, 0),
 				AutomaticSize = Enum.AutomaticSize.XY,
 				BackgroundTransparency = 1,
-				UI.Popover "Capped" {
+				UI.Popover {
+					Name = "Capped",
 					isPresented = opened,
 					onPresentedChange = function(nextValue: boolean)
 						opened:set(nextValue)
 					end,
-					trigger = UI.Button "CappedButton" { label = "Rows" },
+					trigger = UI.Button { Name = "CappedButton", label = "Rows" },
 					maxWidth = 220,
 					maxHeight = 180,
 					content = function(): Instance
@@ -1771,7 +1787,8 @@ add("sheet-hug-follows-live-copy", {}, function(t)
 		return Host.Frame "Board" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.Sheet "Hug" {
+			UI.Sheet {
+				Name = "Hug",
 				title = "Lobby",
 				isPresented = Compose.cell(true),
 				detent = Compose.cell("hug"),

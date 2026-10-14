@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -40,14 +41,15 @@ return function(verifyHarness: Verify.Harness)
 			Name = "Card",
 			BackgroundTransparency = 1,
 			Host.TextLabel "Line" { Text = "Popover body" } :: unknown,
-			UI.Button "Inner" { label = "Inner" },
+			UI.Button { Name = "Inner", label = "Inner" },
 		})
 	end
 
 	local function mount(specOf: (any, any) -> any, options: any?): any
 		local o = options or {}
 		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine, gui)
-			local children = { UI.Popover "Tip"(specOf(UI, Host)), UI.Button "Other" { label = "Other" } }
+			local children =
+				{ UI.Popover(named("Tip", specOf(UI, Host))), UI.Button { Name = "Other", label = "Other" } }
 			for _, extra in o.extra or {} do
 				table.insert(children, extra(UI, Host))
 			end
@@ -64,7 +66,7 @@ return function(verifyHarness: Verify.Harness)
 				onDismiss = function(reason: string)
 					table.insert(log.dismissed, reason)
 				end,
-				trigger = UI.Button "Open" { label = "Open" },
+				trigger = UI.Button { Name = "Open", label = "Open" },
 				content = function(): Instance
 					return content(UI, Host)
 				end,
@@ -197,7 +199,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = mount(function(UI: FacetControls, Host: RobloxHost)
 					return {
 						isPresented = open,
-						trigger = UI.Button "Open" { label = "Open" },
+						trigger = UI.Button { Name = "Open", label = "Open" },
 						content = function(): Instance
 							return content(UI, Host)
 						end,
@@ -360,7 +362,7 @@ return function(verifyHarness: Verify.Harness)
 				local tailed = mount(function(UI: FacetControls, Host: RobloxHost)
 					return {
 						isPresented = Compose.cell(true),
-						trigger = UI.Button "Open" { label = "Open" },
+						trigger = UI.Button { Name = "Open", label = "Open" },
 						content = function(): Instance
 							return content(UI, Host)
 						end,
@@ -690,7 +692,7 @@ return function(verifyHarness: Verify.Harness)
 						onPresentedChange = function()
 							error("proposal bug")
 						end,
-						trigger = UI.Button "Open" { label = "Open" },
+						trigger = UI.Button { Name = "Open", label = "Open" },
 						content = function(): Instance
 							return content(UI, Host)
 						end,
@@ -711,7 +713,7 @@ return function(verifyHarness: Verify.Harness)
 							calls += 1
 							error("dismiss bug")
 						end,
-						trigger = UI.Button "Open" { label = "Open" },
+						trigger = UI.Button { Name = "Open", label = "Open" },
 						content = function(): Instance
 							return content(UI, Host)
 						end,
@@ -739,7 +741,7 @@ return function(verifyHarness: Verify.Harness)
 								open:set(true)
 							end
 						end,
-						trigger = UI.Button "Open" { label = "Open" },
+						trigger = UI.Button { Name = "Open", label = "Open" },
 						content = function(): Instance
 							return content(UI, Host)
 						end,
@@ -761,7 +763,7 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame({
 						Name = "S",
 						Compose.show(shown, function()
-							return UI.Popover "Tip"(standard(open, log, change)(UI, Host))
+							return UI.Popover(named("Tip", standard(open, log, change)(UI, Host)))
 						end),
 					})
 				end)
@@ -791,7 +793,7 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame({
 						Name = "S",
 						Compose.show(shown, function()
-							return UI.Popover "Tip"(standard(open, log, change)(UI, Host))
+							return UI.Popover(named("Tip", standard(open, log, change)(UI, Host)))
 						end),
 					})
 				end)
@@ -824,7 +826,7 @@ return function(verifyHarness: Verify.Harness)
 				local function base(UI: any, Host: any, extra: { [string]: any }): any
 					local spec: any = {
 						isPresented = Compose.cell(false),
-						trigger = UI.Button "Open" { label = "Open" },
+						trigger = UI.Button { Name = "Open", label = "Open" },
 						content = function(): Instance
 							return content(UI, Host)
 						end,
@@ -962,7 +964,7 @@ return function(verifyHarness: Verify.Harness)
 				local a, target = app()
 				local dismissed = {}
 				local close, screen = a.presentAnchored(function(UI: FacetControls)
-					return UI.Text "Hint" { text = "Drag to steer" }
+					return UI.Text { Name = "Hint", text = "Drag to steer" }
 				end, {
 					source = { rect = { x = 100, y = 100, w = 40, h = 40 } },
 					modal = false,
@@ -986,7 +988,7 @@ return function(verifyHarness: Verify.Harness)
 				local a = app()
 				local dismissed = {}
 				local _, screen = a.presentAnchored(function(UI: FacetControls)
-					return UI.Text "Hint" { text = "Tap outside" }
+					return UI.Text { Name = "Hint", text = "Tap outside" }
 				end, {
 					source = { rect = { x = 100, y = 100, w = 40, h = 40 } },
 					onDismiss = function(reason)

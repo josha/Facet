@@ -48,7 +48,8 @@ return {
 					})
 				)
 			end
-			return UI.ScrollView "CanvasGroupDemo" {
+			return UI.ScrollView {
+				Name = "CanvasGroupDemo",
 				padding = 16,
 				gap = 12,
 				Size = UDim2.fromScale(1, 1),

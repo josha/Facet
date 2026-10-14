@@ -2,6 +2,7 @@
 local valueModel = require("./input_value")
 local InputTypes = require("./input_types")
 local Shared = require("./types")
+local ControlTypes = require("./control_types")
 local ComposeTypes = require("../vendor/compose/core")
 
 type Spec = InputTypes.SliderImplementationProps
@@ -56,7 +57,7 @@ local function finite(value: unknown): boolean
 	return type(value) == "number" and value == value and math.abs(value) < math.huge
 end
 
-return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): ()
+return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 	local runtime, Host, Compose, read = ctx.runtime, ctx.Host, ctx.Compose, ctx.read
 	local readSource = ctx.readSource
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum

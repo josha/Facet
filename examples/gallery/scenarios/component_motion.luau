@@ -130,7 +130,8 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.Button "Select" {
+					UI.Button {
+						Name = "Select",
 						row = {
 							title = function(use: Use)
 								return use(current).name
@@ -146,7 +147,8 @@ return {
 			return Host.Frame "AutomaticMotion" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView "Page" {
+				UI.ScrollView {
+					Name = "Page",
 					padding = 16,
 					gap = 16,
 					BackgroundTransparency = 1,
@@ -167,7 +169,8 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 						children = {
-							UI.VirtualList "Items" {
+							UI.VirtualList {
+								Name = "Items",
 								from = items,
 								key = function(entry)
 									return entry.id
@@ -187,10 +190,7 @@ return {
 							},
 						},
 					}) :: unknown,
-					UI.Toggle "DetailsToggle" {
-						label = "Show details",
-						value = expanded,
-					},
+					UI.Toggle { Name = "DetailsToggle", label = "Show details", value = expanded },
 					Host.Frame "Details" {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -226,16 +226,15 @@ return {
 							})
 						end),
 					},
-					UI.Button "Buy" {
+					UI.Button {
+						Name = "Buy",
 						label = "Buy selected",
 						enabled = affordable,
 						onActivate = buy,
 					},
-					UI.Button "Reverse" {
-						label = "Reverse order",
-						onActivate = reverse,
-					},
-					UI.Button "Reset" {
+					UI.Button { Name = "Reverse", label = "Reverse order", onActivate = reverse },
+					UI.Button {
+						Name = "Reset",
 						label = "Reset balance",
 						onActivate = commands.reset,
 					},

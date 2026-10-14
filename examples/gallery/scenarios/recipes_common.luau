@@ -128,7 +128,8 @@ return {
 			if opts.icon ~= nil then
 				table.insert(
 					children,
-					UI.Label "Icon" {
+					UI.Label {
+						Name = "Icon",
 						title = opts.iconLabel or opts.title,
 						icon = opts.icon,
 						presentation = "iconOnly" :: "iconOnly",
@@ -138,7 +139,8 @@ return {
 			end
 			table.insert(
 				children,
-				UI.Text "Title" {
+				UI.Text {
+					Name = "Title",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -152,7 +154,8 @@ return {
 			)
 			table.insert(
 				children,
-				UI.Text "Message" {
+				UI.Text {
+					Name = "Message",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -165,11 +168,7 @@ return {
 			)
 			table.insert(
 				children,
-				UI.Button "Action" {
-					label = opts.actionLabel,
-					appearance = "soft",
-					onActivate = opts.onAction,
-				}
+				UI.Button { Name = "Action", label = opts.actionLabel, appearance = "soft", onActivate = opts.onAction }
 			)
 			return Host.Frame({
 				Name = id,
@@ -394,7 +393,8 @@ return {
 						end
 					end,
 					content = function(): Instance
-						return UI.Text "Body" {
+						return UI.Text {
+							Name = "Body",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -637,7 +637,8 @@ return {
 				return Host.Frame "Recipes" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					UI.ScrollView "Content" {
+					UI.ScrollView {
+						Name = "Content",
 						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),

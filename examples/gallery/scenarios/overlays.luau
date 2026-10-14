@@ -160,7 +160,8 @@ return {
 		end
 
 		local function screen()
-			local tourButton = UI.Button "TourButton" {
+			local tourButton = UI.Button {
+				Name = "TourButton",
 				label = COPY.coach,
 				onActivate = function()
 					tourAsked:set(true)
@@ -170,7 +171,8 @@ return {
 			return Host.Frame "Overlays" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				UI.ScrollView "Content" {
+				UI.ScrollView {
+					Name = "Content",
 					padding = 16,
 					gap = 16,
 					BackgroundTransparency = 1,
@@ -179,18 +181,21 @@ return {
 					label("Title", COPY.title, 1, "title") :: unknown,
 					label("Intro", COPY.intro, 2),
 					label("Status", status, 3),
-					UI.Button "Reset" { LayoutOrder = 4, label = COPY.reset, onActivate = reset },
-					UI.NavBar "Header" {
+					UI.Button { Name = "Reset", LayoutOrder = 4, label = COPY.reset, onActivate = reset },
+					UI.NavBar {
+						Name = "Header",
 						LayoutOrder = 5,
-						center = UI.TextInput "Search" { value = query, placeholder = COPY.search },
-						trailing = UI.Popover "Filters" {
+						center = UI.TextInput { Name = "Search", value = query, placeholder = COPY.search },
+						trailing = UI.Popover {
+							Name = "Filters",
 							isPresented = filterOpen,
 							onPresentedChange = function(nextValue: boolean)
 								filterOpen:set(nextValue)
 							end,
-							trigger = UI.Button "Filter" { label = COPY.filter, icon = "menu" },
+							trigger = UI.Button { Name = "Filter", label = COPY.filter, icon = "menu" },
 							content = function(): Instance
-								return UI.Picker "FilterBy" {
+								return UI.Picker {
+									Name = "FilterBy",
 									style = "radioGroup" :: "radioGroup",
 									selected = filterBy,
 									onChange = function(value: string)
@@ -209,7 +214,8 @@ return {
 						surface = "panel",
 						padding = 8,
 					},
-					UI.Popover "About" {
+					UI.Popover {
+						Name = "About",
 						LayoutOrder = 6,
 						isPresented = aboutOpen,
 						onPresentedChange = function(nextValue: boolean)
@@ -218,7 +224,8 @@ return {
 						onDismiss = function(reason: string)
 							note(`Last: about closed ({reason})`)
 						end,
-						trigger = UI.Button "AboutButton" {
+						trigger = UI.Button {
+							Name = "AboutButton",
 							label = COPY.about,
 							help = { title = COPY.aboutHelpTitle, body = COPY.aboutHelp, shortcut = { { "F1" } } },
 						},
@@ -226,7 +233,8 @@ return {
 						content = body(COPY.aboutBody),
 					},
 					label("AboutHelpPrinted", COPY.aboutHelp, 7, "caption"),
-					UI.Popover "Locked" {
+					UI.Popover {
+						Name = "Locked",
 						LayoutOrder = 9,
 						isPresented = lockedOpen,
 						onPresentedChange = function(nextValue: boolean)
@@ -236,7 +244,7 @@ return {
 								note("Last: close refused")
 							end
 						end,
-						trigger = UI.Button "LockedButton" { label = COPY.locked },
+						trigger = UI.Button { Name = "LockedButton", label = COPY.locked },
 						content = function(): Instance
 							return Host.Frame "Body" {
 								BackgroundTransparency = 1,
@@ -248,8 +256,9 @@ return {
 									Padding = UDim.new(0, 8),
 								}) :: unknown,
 								label("Line", COPY.lockedBody, 1),
-								UI.Toggle "Allow" { LayoutOrder = 2, label = COPY.allow, value = allowClose },
-								UI.Button "Close" {
+								UI.Toggle { Name = "Allow", LayoutOrder = 2, label = COPY.allow, value = allowClose },
+								UI.Button {
+									Name = "Close",
 									LayoutOrder = 3,
 									label = COPY.close,
 									onActivate = function()
@@ -262,14 +271,16 @@ return {
 						end,
 					},
 					sourceRow,
-					UI.Button "SourceButton" {
+					UI.Button {
+						Name = "SourceButton",
 						LayoutOrder = 10,
 						label = COPY.sourceShow,
 						onActivate = function()
 							sourceOpen:set(not sourceOpen:peek())
 						end,
 					},
-					UI.Popover "Source" {
+					UI.Popover {
+						Name = "Source",
 						isPresented = sourceOpen,
 						onPresentedChange = function(nextValue: boolean)
 							sourceOpen:set(nextValue)
@@ -291,14 +302,16 @@ return {
 						tourButton,
 						tour(tourButton),
 					},
-					UI.Button "DialogButton" {
+					UI.Button {
+						Name = "DialogButton",
 						LayoutOrder = 12,
 						label = COPY.dialog,
 						onActivate = function()
 							dialogOpen:set(true)
 						end,
 					},
-					UI.Dialog "Leave" {
+					UI.Dialog {
+						Name = "Leave",
 						isPresented = dialogOpen,
 						onPresentedChange = function(nextValue: boolean)
 							dialogOpen:set(nextValue)
@@ -329,14 +342,16 @@ return {
 							} :: OverlayAction,
 						},
 					},
-					UI.Button "TermsButton" {
+					UI.Button {
+						Name = "TermsButton",
 						LayoutOrder = 13,
 						label = COPY.lockedDialog,
 						onActivate = function()
 							termsOpen:set(true)
 						end,
 					},
-					UI.Dialog "Terms" {
+					UI.Dialog {
+						Name = "Terms",
 						isPresented = termsOpen,
 						onPresentedChange = function(nextValue: boolean)
 							if nextValue or termsRead:peek() then
@@ -351,7 +366,7 @@ return {
 						title = COPY.lockedDialogTitle,
 						width = "narrow" :: "narrow",
 						content = function(): Instance
-							return UI.Toggle "Read" { label = COPY.accept, value = termsRead }
+							return UI.Toggle { Name = "Read", label = COPY.accept, value = termsRead }
 						end,
 					},
 				},

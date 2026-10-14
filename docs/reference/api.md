@@ -12,6 +12,7 @@ and styling. This reference describes the `0.12.0` surface.
 | `Compose` | The pinned Compose core module, by reference. Use its cells, formulas, owners and structural operations directly. |
 | `Roblox` | The pinned Compose Roblox module, by reference. `createRuntime(engine?)` makes the native runtime. `createHost(engine?)` makes its host. |
 | `controls(runtime, options?)` | Returns the control constructor table for that native runtime. |
+| `host(runtime)` | Returns `runtime.constructors` with the `Host` type. Use it for native objects: `local Host = Facet.host(runtime)`. |
 | `app(options?)` | Returns an app: a runtime, the controls for it, and a `mount` that adds the ScreenGui, the StyleSheet and the StyleLink. See [Mounting](#mounting). |
 | `themes` | Theme package definitions, native StyleSheet compilation, icons and skins. |
 | `COMPOSE_COMMIT` | The full Compose commit of the pinned copy. The Facet tests use this commit. |
@@ -49,15 +50,47 @@ contracts keep the item and value types through callbacks. Native properties use
 the Roblox property types. For example, `Size` accepts a `UDim2` or a reactive
 source of a `UDim2`.
 
-The pinned Luau solver sometimes needs explicit types for these values:
+Each `Props` and `Spec` type is one flat table type. It holds the native
+properties of the root, the control options and the children. Thus strict
+mode checks a property table without casts in both Luau solvers:
 
-- reactive `use` parameters,
-- content factories that return `Instance` or `GuiObject`,
-- native anchors.
+- a literal option, such as `textRole = "title"` or `width = "fill"`,
+- a callback and a `function(use)` body, without parameter types,
+- children of different classes in the same table.
 
-Literal options can need singleton annotations, such as
-`presentation = "number" :: "number"`. These annotations keep the contract
-without `any`.
+`Host` types the native constructors, and `Child` types a child entry.
+`DialogAction` types a Dialog action.
+
+The old solver gives no contextual type to the items of an array that is in an
+optional or a reactive option. Examples are `actions`, `items`, `options`,
+`tabs`, `steps` and `detents`. When the items use literal options, give the
+array a type in a local:
+
+```luau
+local open = Compose.cell(true)
+local function close()
+    open:set(false)
+end
+local actions: { Facet.DialogAction } = {
+    { id = "stay", label = "Stay", role = "cancel", onActivate = close },
+    { id = "leave", label = "Leave", role = "destructive", onActivate = close },
+}
+local stop = runtime.mount(function()
+    return UI.Dialog { isPresented = open, title = "Leave the race?", actions = actions }
+end, playerGui)
+stop()
+```
+
+A cell of an optional or literal type takes its type from a typed initial
+value: `local initial: string? = nil` and then `Compose.cell(initial)`.
+
+`Toggle`, `TextInput`, `NumberInput`, `Stepper`, `Slider`, `Rating`,
+`LevelPicker`, `Chip`, `ShortcutHint` and `Picker` accept one of several
+binding shapes. Their constructors have one overload for each shape and one for
+the union. In the old solver, a native Instance property of these controls,
+such as `Parent`, takes only a value of that exact class. The new solver checks
+the first shape (a writable cell) without casts. It does not check the other
+shapes or the items of union typed arrays without casts.
 
 Drag callbacks receive an `unknown` payload. This includes
 `DraggableSpec.onStart` and the payload argument of every `DropTargetSpec`
@@ -217,9 +250,10 @@ Give both modules from the same Compose copy. Make the runtime with that
 
 ## Constructor contract
 
-`UI.Button(spec)` and `UI.Button("Name")(spec)` are equivalent construction
-forms. The second form sets the name. Every constructor returns a native
-Instance. `ref = function(instance) ... end` receives that root. Make controls
+Each constructor takes one property table: `UI.Button { ... }` or
+`UI.Button(spec)`. Set the Instance name with the native `Name` property:
+`UI.Button { Name = "Save", label = "Save" }`. A string in place of the table
+is an error. Every constructor returns a native Instance. `ref = function(instance) ... end` receives that root. Make controls
 inside a Compose owner. This is usually the component that you give to
 `runtime.mount`.
 
@@ -579,10 +613,10 @@ has such a child, the positions are spaced by 65536 (position 2 is 131072).
 ```luau
 local sound = Compose.cell(true)
 local function save() print("Saved") end
-return UI.Screen "Settings" {
+return UI.Screen { Name = "Settings",
     gap = "s",
     UI.Text { text = "Settings", textRole = "title" },
-    UI.ScrollView "Page" {
+    UI.ScrollView { Name = "Page",
         gap = "s",
         UI.Toggle { label = "Sound", value = sound },
         UI.Button { label = "Save", onActivate = save },
@@ -778,7 +812,7 @@ scroll position. Options: `axis`, `gap`, `padding`, `align`, `distribute`,
   stack turns. `Divider` and `Spacer` children turn with it.
 
 ```luau
-UI.AdaptiveStack "Actions" { gap = "s", save, cancel, help }
+UI.AdaptiveStack { Name = "Actions", gap = "s", save, cancel, help }
 ```
 
 ### ViewThatFits
@@ -801,7 +835,7 @@ shows when none fits. It needs at least one candidate. Options: `width` and
   unbounded and the first candidate shows.
 
 ```luau
-UI.ViewThatFits "Actions" {
+UI.ViewThatFits { Name = "Actions",
     UI.HStack { gap = "s", save, cancel, help },
     UI.VStack { gap = "xs", save, cancel, help },
 }
@@ -819,9 +853,9 @@ as `Screen` does.
 
 ```luau
 local hidden = Compose.cell(1)
-return UI.Composition "Hud" {
-	UI.Region "Score" { zone = "top", rank = 1, UI.Text { text = "12 : 9" } },
-	UI.Region "Tasks" {
+return UI.Composition { Name = "Hud",
+	UI.Region { Name = "Score", zone = "top", rank = 1, UI.Text { text = "12 : 9" } },
+	UI.Region { Name = "Tasks",
 		zone = "left",
 		rank = 3,
 		mayDrop = true,
@@ -829,7 +863,7 @@ return UI.Composition "Hud" {
 		UI.Text { text = "Win a round, land 25 hits" },
 		UI.Button { label = "Tasks 1/2" },
 	},
-	UI.Region "Objective" { zone = "topbar", rank = 2, UI.Text { text = "Round 3" } },
+	UI.Region { Name = "Objective", zone = "topbar", rank = 2, UI.Text { text = "Round 3" } },
 }
 ```
 
@@ -1223,8 +1257,8 @@ Frame holds these children in order:
 validate. `required` adds ` *` to the label text, also for a readable label.
 `optional` adds no word. Put localized "optional" text in `hint`.
 
-`leading` and `trailing` are native Instances. `leading` is decoration and is
-not a focus stop. A search field refuses `leading`, because its search mark
+`leading` and `trailing` are children, such as native Instances. `leading` is
+decoration and is not a focus stop. A search field refuses `leading`, because its search mark
 leads. The focusable parts of `trailing` come after the TextBox and the clear
 button.
 
@@ -1282,7 +1316,7 @@ drag, and your number stays.
 
 ```luau
 local draft, laps = Compose.cell("3"), Compose.cell(3)
-UI.NumberInput "Laps" {
+UI.NumberInput { Name = "Laps",
     value = draft,
     numericValue = laps,
     min = 1,
@@ -1300,7 +1334,7 @@ colour, for example the paint of a kart. For a few named colours, use
 
 ```luau
 local paint = Compose.cell(Color3.fromRGB(230, 57, 70))
-UI.ColorPicker "KartPaint" {
+UI.ColorPicker { Name = "KartPaint",
     label = "Kart paint",
     value = paint,
     onChange = function(color)
@@ -1463,7 +1497,7 @@ calendar date, a date range, or a date with a time. For a count of days, use
 
 ```luau
 local raceDay = Compose.cell({ year = 2026, month = 10, day = 3 })
-UI.DateTimePicker "RaceDay" {
+UI.DateTimePicker { Name = "RaceDay",
     label = "Race day",
     value = raceDay,
     onChange = function(date)
@@ -1927,7 +1961,7 @@ menus keep the control-specific navigation of the menu.
 
 ```lua
 UI.Menu {
-    trigger = UI.Button "More" { icon = "more", shape = "circle" },
+    trigger = UI.Button { Name = "More", icon = "more", shape = "circle" },
     width = { type = "hug", min = 220, max = 320 },
     onOpen = function() headerPinned:set(true) end,
     onClose = function() headerPinned:set(false) end,
@@ -2622,7 +2656,10 @@ presentation. The `suppression` checkbox sits below the actions.
 
 ### Sheet
 
-Sheet requires a writable `isPresented` and a writable `detent`. The default
+Sheet requires a writable `isPresented`. `detent` is a writable cell or a
+detent id. With an id or without `detent`, the sheet keeps the selected detent.
+It starts at that id, or at the first detent when the id is not in `detents`.
+With a cell, the sheet writes the selected detent to the cell. The default
 detents are `medium` and `large`. A custom entry is `{ id, fraction }` or
 `{ id, height }`, never both. The `hug` entry fits the body and the pinned
 regions. It measures the content of the body, not the scroll canvas, so it does
@@ -2816,7 +2853,7 @@ A failure in `onShow` does not stop the plate. The failure goes to the
 local open = Compose.cell(false)
 runtime.mount(function()
     return Host.ScreenGui {
-        UI.Dialog "Leave" {
+        UI.Dialog { Name = "Leave",
             isPresented = open,
             onPresentedChange = function(nextValue) open:set(nextValue) end,
             onDismiss = function(reason) print(reason) end,
@@ -2893,7 +2930,7 @@ shows Close by default and follows the same explicit choice.
 local open = Compose.cell(false)
 runtime.mount(function()
     return Host.ScreenGui {
-        UI.Popover "About" {
+        UI.Popover { Name = "About",
             isPresented = open,
             onPresentedChange = function(nextValue) open:set(nextValue) end,
             trigger = UI.Button { label = "About scoring" },
@@ -2979,8 +3016,8 @@ reach it. Both modes share one schedule per layer.
 ```luau
 runtime.mount(function()
     return Host.ScreenGui {
-        UI.Toast "Saved" { message = "Settings saved", key = "save", duration = 3 },
-        UI.Toast "Sold" {
+        UI.Toast { Name = "Saved", message = "Settings saved", key = "save", duration = 3 },
+        UI.Toast { Name = "Sold",
             message = "Kart sold",
             action = { label = "Undo", onActivate = function() print("undo") end },
         },
@@ -4253,7 +4290,7 @@ are in a unit box, with the angle 0 at 12 o'clock and positive angles clockwise.
 
 ```luau
 local speed = Compose.cell(0.5)
-UI.Path "Needle" {
+UI.Path { Name = "Needle",
 	points = function(use)
 		return Facet.pathShapes.needle(use(speed) * 270 - 135, { innerRadius = 0.2 })
 	end,
@@ -4388,8 +4425,8 @@ over a list uses `focusOnAppear` and `returnFocus` together:
 ```luau
 local open = Compose.cell(false)
 Compose.show(open, function()
-	local detail = UI.VStack "Detail" {
-		UI.Button "Back" { label = "Back", onActivate = function() open:set(false) end },
+	local detail = UI.VStack { Name = "Detail",
+		UI.Button { Name = "Back", label = "Back", onActivate = function() open:set(false) end },
 	}
 	UI.focusSection(detail, { focusOnAppear = "Back", returnFocus = true })
 	return detail
@@ -4418,7 +4455,7 @@ menu button of the game. An unknown option or a value that is not a boolean
 causes an error.
 
 ```luau
-local hud = UI.Screen "Hud" { UI.Button "Map" { label = "Map" } }
+local hud = UI.Screen { Name = "Hud", UI.Button { Name = "Map", label = "Map" } }
 local responder = UI.responder(hud)
 -- the game opens its menu with a key of its own
 responder.engage()
@@ -4451,9 +4488,9 @@ local angle = Compose.cell(0)
 local function turn(direction: number)
 	angle:set(angle:peek() + direction * 15)
 end
-local row = UI.HStack "Turn" {
-	UI.Button "Left" { label = "Turn left", onActivate = function() turn(-1) end },
-	UI.Button "Right" { label = "Turn right", onActivate = function() turn(1) end },
+local row = UI.HStack { Name = "Turn",
+	UI.Button { Name = "Left", label = "Turn left", onActivate = function() turn(-1) end },
+	UI.Button { Name = "Right", label = "Turn right", onActivate = function() turn(1) end },
 }
 UI.adjustable(row, { onAdjust = turn, axis = "none", repeats = true })
 ```
@@ -4698,7 +4735,7 @@ environment keeps the last real size.
 ```luau
 local function Apps(tabs, selection)
 	local env = UI.environment()
-	return UI.TabView "Apps" {
+	return UI.TabView { Name = "Apps",
 		tabs = tabs,
 		selection = selection,
 		railWidth = function(use)
@@ -4747,7 +4784,7 @@ local function CrateActions(crate, prompt, actions)
 	Compose.cleanup(function()
 		triggered:Disconnect()
 	end)
-	return UI.RadialMenu "CrateActions" {
+	return UI.RadialMenu { Name = "CrateActions",
 		items = actions,
 		anchor = binding.anchor,
 		isPresented = open,

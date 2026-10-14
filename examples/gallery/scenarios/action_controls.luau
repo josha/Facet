@@ -143,7 +143,8 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}),
-				UI.Text "CapVocabulary" {
+				UI.Text {
+					Name = "CapVocabulary",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -197,7 +198,8 @@ return {
 					}),
 					table.unpack(chips),
 				}),
-				UI.Button "IconLabelled" {
+				UI.Button {
+					Name = "IconLabelled",
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					label = "Go",
@@ -219,7 +221,8 @@ return {
 						Padding = UDim.new(0, 8),
 						Wraps = true,
 					}),
-					UI.Button "IconOnly" {
+					UI.Button {
+						Name = "IconOnly",
 						icon = "close",
 						name = "Dismiss the race card",
 						corners = "pill" :: "pill",
@@ -229,7 +232,8 @@ return {
 							status:set("Race card dismissed.")
 						end,
 					},
-					UI.Button "SquareAction" {
+					UI.Button {
+						Name = "SquareAction",
 						label = "Square",
 						corners = "square" :: "square",
 						controlSize = rung,
@@ -245,7 +249,8 @@ return {
 					Size = UDim2.new(1, 0, 0, 96),
 					Image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
 					ScaleType = Enum.ScaleType.Crop,
-					UI.Button "OverMediaAction" {
+					UI.Button {
+						Name = "OverMediaAction",
 						label = "Play this replay",
 						controlSize = "large" :: "large",
 						enabled = enabled,
@@ -282,12 +287,14 @@ return {
 			Compose.cleanup(function()
 				mounted = false
 			end)
-			local rowToggle = UI.Toggle "Assist" {
+			local rowToggle = UI.Toggle {
+				Name = "Assist",
 				label = "Driving assistance",
 				value = assist,
 				row = { description = "Keep the car stable on rough terrain", icon = "settings" },
 			}
-			local rowSlider = UI.Slider "Music" {
+			local rowSlider = UI.Slider {
+				Name = "Music",
 				label = "Music volume",
 				value = rowVolume,
 				min = 0,
@@ -295,7 +302,8 @@ return {
 				step = 5,
 				row = { description = "Balance music against race sounds", icon = "settings" },
 			}
-			local rowAction = UI.Button "Equipment" {
+			local rowAction = UI.Button {
+				Name = "Equipment",
 				label = "Manage equipment",
 				row = { description = "Choose a driver for the next race", value = "2 drivers", icon = "person.fill" },
 				onActivate = function()
@@ -303,7 +311,8 @@ return {
 					scrollTarget:set("Drivers")
 				end,
 			}
-			local save = UI.Button "Save" {
+			local save = UI.Button {
+				Name = "Save",
 				label = "Prepare race",
 				busy = busy,
 				enabled = enabled,
@@ -327,7 +336,8 @@ return {
 					connection:Disconnect()
 				end)
 			end
-			local repeatButton = UI.Button "Repeat" {
+			local repeatButton = UI.Button {
+				Name = "Repeat",
 				label = "Add a lap · hold to repeat",
 				enabled = enabled,
 				repeatDelay = 0.4,
@@ -336,7 +346,8 @@ return {
 					count:set(count:peek() + 1)
 				end,
 			}
-			local shortcut = UI.Button "Shortcut" {
+			local shortcut = UI.Button {
+				Name = "Shortcut",
 				label = "Restart count · F6",
 				shortcut = { keyCode = "F6" },
 				enabled = enabled,
@@ -367,11 +378,9 @@ return {
 					end,
 				} :: MenuItem,
 			}
-			local menu = UI.Menu "Filters" {
-				label = "Race filters",
-				items = items,
-			}
-			local split = UI.SplitButton "Split" {
+			local menu = UI.Menu { Name = "Filters", label = "Race filters", items = items }
+			local split = UI.SplitButton {
+				Name = "Split",
 				label = "Start race",
 				enabled = enabled,
 				onActivate = function()
@@ -394,7 +403,8 @@ return {
 					} :: MenuItem,
 				},
 			}
-			local dialog = UI.Alert "RaceConfirmation" {
+			local dialog = UI.Alert {
+				Name = "RaceConfirmation",
 				isPresented = confirming,
 				title = "Start this race?",
 				message = "Your selected driver is ready.",
@@ -550,7 +560,8 @@ return {
 						PaddingTop = UDim.new(0, 24),
 						PaddingBottom = UDim.new(0, 24),
 					}),
-					UI.Text "HeroTitle" {
+					UI.Text {
+						Name = "HeroTitle",
 						LayoutOrder = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -559,7 +570,8 @@ return {
 						TextWrapped = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-					UI.Text "HeroBody" {
+					UI.Text {
+						Name = "HeroBody",
 						LayoutOrder = 2,
 						role = "secondary" :: "secondary",
 						Size = UDim2.new(1, 0, 0, 0),
@@ -568,7 +580,8 @@ return {
 						TextWrapped = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-					UI.Button "ChooseDriver" {
+					UI.Button {
+						Name = "ChooseDriver",
 						LayoutOrder = 3,
 						label = "Choose a driver",
 						appearance = "emphasis",
@@ -653,7 +666,8 @@ return {
 						TextXAlignment = Enum.TextXAlignment.Left,
 						Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
 					}),
-					UI.Button "EditTags" {
+					UI.Button {
+						Name = "EditTags",
 						LayoutOrder = 2,
 						label = function(use: Use)
 							return if use(editingTags) then "Done" else "Edit"
@@ -691,7 +705,8 @@ return {
 							end,
 							render = function(current: Readable<string>, placement, key: string): GuiObject
 								local item = current:peek()
-								return UI.Chip "Token" {
+								return UI.Chip {
+									Name = "Token",
 									label = item,
 									controlSize = "compact" :: "compact",
 									selected = function(use: Use)
@@ -719,7 +734,8 @@ return {
 				},
 				heading("Prepare a race"),
 				save,
-				UI.Text "Status" {
+				UI.Text {
+					Name = "Status",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -731,7 +747,8 @@ return {
 				},
 				heading("Set the lap count"),
 				repeatButton,
-				UI.Text "Count" {
+				UI.Text {
+					Name = "Count",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -762,7 +779,8 @@ return {
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
 				heading("Start or choose a mode"),
-				UI.Text "CapSplit" {
+				UI.Text {
+					Name = "CapSplit",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -774,7 +792,8 @@ return {
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
 				split,
-				UI.Button "Confirm" {
+				UI.Button {
+					Name = "Confirm",
 					label = "Confirm race…",
 					enabled = enabled,
 					onActivate = openDialog,
@@ -827,11 +846,9 @@ return {
 						Padding = UDim.new(0, 8),
 						Wraps = true,
 					}),
-					UI.Button "Reset" {
-						label = "Reset",
-						onActivate = reset,
-					},
-					UI.Button "Enable" {
+					UI.Button { Name = "Reset", label = "Reset", onActivate = reset },
+					UI.Button {
+						Name = "Enable",
 						label = "Toggle enabled",
 						onActivate = function()
 							enabled:set(not enabled:peek())
@@ -852,7 +869,8 @@ return {
 				}),
 				VocabularySection(),
 			})
-			local scroller = UI.ScrollView "Content" {
+			local scroller = UI.ScrollView {
+				Name = "Content",
 				padding = 16,
 				BorderSizePixel = 0,
 				BackgroundTransparency = 1,

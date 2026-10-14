@@ -9,7 +9,7 @@ A component is a function that returns a native Instance.
   control or layout constructor makes them.
 - Make controls inside a Compose owner. This is usually the component that you
   give to `app.mount`.
-- Put a semantic name directly after the constructor: `UI.HStack "Toolbar" { ... }` or `UI.Button "Save" { ... }`. Do not write `Name = "..."` for a fixed name. Use `Name` only when the name is computed.
+- Put a semantic name directly after the constructor: `UI.HStack { Name = "Toolbar", ... }` or `UI.Button { Name = "Save", ... }`. Do not write `Name = "..."` for a fixed name. Use `Name` only when the name is computed.
 - Use numeric children and native property names.
 
 ## State and requests
@@ -123,10 +123,10 @@ Roblox does the layout.
 ```luau
 local function Profile()
     local name = Compose.cell("")
-    return UI.Screen "Profile" {
+    return UI.Screen { Name = "Profile",
         gap = "m",
         UI.Text { text = "Profile", textRole = "title" },
-        UI.ScrollView "Form" {
+        UI.ScrollView { Name = "Form",
             gap = "s",
             UI.TextInput { value = name, placeholder = "Name" },
             UI.HStack { gap = "s", UI.Button { label = "Save" }, UI.Button { label = "Cancel" } },

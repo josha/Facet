@@ -22,7 +22,7 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 end
 
 local function anchored(UI: any, Host: any, Compose: any, at: UDim2, edge: string?, pivot: Vector2)
-	local anchor = UI.Button "Anchor" { label = "Anchor", Position = at, AnchorPoint = pivot }
+	local anchor = UI.Button { Name = "Anchor", label = "Anchor", Position = at, AnchorPoint = pivot }
 	return Host.Frame "Surface" {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -147,14 +147,14 @@ add("navigation-stack-root-box-and-back-chrome", {}, function(t)
 			path = path,
 			root = {
 				content = function(): Instance
-					return UI.Text "RootLabel" { text = "Root" }
+					return UI.Text { Name = "RootLabel", text = "Root" }
 				end,
 			},
 			destinations = {
 				detail = {
 					title = "Detail",
 					content = function(): Instance
-						return UI.Text "DetailLabel" { text = "Detail" }
+						return UI.Text { Name = "DetailLabel", text = "Detail" }
 					end,
 				} :: Destination,
 			},
@@ -183,7 +183,8 @@ end)
 
 add("vertical-segments-stack-share-width-floor", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.Picker "Rail" {
+		return UI.Picker {
+			Name = "Rail",
 			style = "segmented" :: "segmented",
 			axis = "y" :: "y",
 			selected = Compose.cell("a"),
@@ -240,10 +241,10 @@ add("tab-head-accessory-above-rail", {}, function(t)
 			},
 			accessories = {
 				head = function(): Instance?
-					return UI.Text "HeadLabel" { text = "Profile header" }
+					return UI.Text { Name = "HeadLabel", text = "Profile header" }
 				end,
 				foot = function(): Instance?
-					return UI.Button "FootButton" { label = "Settings" }
+					return UI.Button { Name = "FootButton", label = "Settings" }
 				end,
 			},
 		})
@@ -274,7 +275,8 @@ end)
 add("circle-button-authored-axes", {}, function(t)
 	for _, rung in { "compact", "regular", "large" } :: { "compact" | "large" | "regular" } do
 		local stage = t.mount(function(UI: FacetControls)
-			return UI.Button "Circle" {
+			return UI.Button {
+				Name = "Circle",
 				label = "Close",
 				icon = "close",
 				shape = "circle" :: "circle",
@@ -291,7 +293,8 @@ add("circle-button-authored-axes", {}, function(t)
 	for _, axis in { "width", "height" } do
 		local size = if axis == "width" then UDim2.fromOffset(32, 0) else UDim2.fromOffset(0, 72)
 		local stage = t.mount(function(UI: FacetControls)
-			return UI.Button "Circle" {
+			return UI.Button {
+				Name = "Circle",
 				label = "Close",
 				icon = "close",
 				shape = "circle" :: "circle",
@@ -310,7 +313,7 @@ end)
 add("circular-progress-stroke-inside-box", {}, function(t)
 	for _, theme in t.themes do
 		local stage = t.mount(function(UI: FacetControls)
-			return UI.ProgressView "Ring" { presentation = "circular" :: "circular", value = 1 }
+			return UI.ProgressView { Name = "Ring", presentation = "circular" :: "circular", value = 1 }
 		end, { theme = theme.package, size = Vector2.new(200, 200) })
 		local indicator = t.find(stage, "Indicator")
 		local fill = indicator and indicator:FindFirstChild("RingFill")
@@ -357,8 +360,8 @@ add("chrome-insets-reserve-native-padding", {}, function(t)
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				Host.UIListLayout({ Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-				UI.Button "Plain" { label = "Continue the long journey", LayoutOrder = 1 },
-				UI.Toggle "Switch" { label = "Notifications", value = Compose.cell(true), LayoutOrder = 2 },
+				UI.Button { Name = "Plain", label = "Continue the long journey", LayoutOrder = 1 },
+				UI.Toggle { Name = "Switch", label = "Notifications", value = Compose.cell(true), LayoutOrder = 2 },
 			}
 		end, { theme = theme.package, size = Vector2.new(420, 300) })
 		for _, name in { "Plain", "Switch" } do
@@ -469,7 +472,7 @@ add("chrome-zero-inset-full-bleed", {}, function(t)
 		bare.contentInsets = { left = 0, right = 0, top = 0, bottom = 0 }
 		package.chrome.control = bare
 		local stage = t.mount(function(UI: FacetControls)
-			return UI.Button "Plain" { label = "Continue", Size = UDim2.fromOffset(240, 44) }
+			return UI.Button { Name = "Plain", label = "Continue", Size = UDim2.fromOffset(240, 44) }
 		end, { theme = package, size = Vector2.new(420, 300) })
 		local node = t.find(stage, "Plain")
 		local lifted = node and t.find(node, "LabelBounds")
@@ -501,7 +504,8 @@ add("layers-hang-outside-layout", {}, function(t)
 				detent = Compose.cell("medium"),
 				title = "Loadout",
 				content = function(): Instance
-					return UI.Text "SheetBody" {
+					return UI.Text {
+						Name = "SheetBody",
 						text = "Choose a loadout for the next round.",
 						TextWrapped = true,
 						Size = UDim2.fromScale(1, 0),
@@ -563,7 +567,8 @@ add("grid-cell-width-arithmetic", {}, function(t)
 			rows[index] = { id = tostring(index) }
 		end
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-			return UI.VirtualGrid "Grid" {
+			return UI.VirtualGrid {
+				Name = "Grid",
 				from = rows,
 				key = function(item)
 					return item.id
@@ -609,7 +614,8 @@ add("image-button-caption-clear-of-artwork", {}, function(t)
 	for _, theme in t.themes do
 		for _, width in { 180, 240, 320 } do
 			local stage = t.mount(function(UI: FacetControls)
-				return UI.Button "Card" {
+				return UI.Button {
+					Name = "Card",
 					label = "A driver with a descriptive title",
 					subtitle = "A longer description that must wrap inside the card.",
 					image = "rbxasset://textures/ui/GuiImagePlaceholder.png",
@@ -678,13 +684,15 @@ add("image-button-wrapped-cells-reserve-full-height", {}, function(t)
 						},
 					})
 				end
-				local row = UI.HStack "Cards" { width = "fill" :: "fill", wrap = true, gap = "m", table.unpack(cells) }
+				local row =
+					UI.HStack { Name = "Cards", width = "fill" :: "fill", wrap = true, gap = "m", table.unpack(cells) }
 				return UI.ScrollView {
-					UI.VStack "Page" {
+					UI.VStack {
+						Name = "Page",
 						width = "fill" :: "fill",
 						gap = "m",
 						row :: unknown,
-						UI.Text "NextSection" { text = "Settings row" },
+						UI.Text { Name = "NextSection", text = "Settings row" },
 					} :: unknown,
 					Host.UIScale { Scale = scale } :: unknown,
 				}

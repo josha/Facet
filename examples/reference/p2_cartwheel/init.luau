@@ -146,13 +146,15 @@ function Cartwheel.build(ctx: ExampleContext)
 		return Host.Frame "Brews" {
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.TextInput "Search" {
+			UI.TextInput {
+				Name = "Search",
 				value = query,
 				placeholder = "Search brews",
 				Size = D2.new(1, -32, 0, 44),
 				Position = D2.fromOffset(16, 8),
 			} :: unknown,
-			UI.VirtualList "BrewList" {
+			UI.VirtualList {
+				Name = "BrewList",
 				from = rows,
 				key = function(item)
 					return item.id
@@ -202,7 +204,8 @@ function Cartwheel.build(ctx: ExampleContext)
 				section:set("brews")
 			end),
 			view.text("Recommended pitch: " .. ambient.recommendedPlaza().name),
-			UI.Picker "Timeframe" {
+			UI.Picker {
+				Name = "Timeframe",
 				selected = timeframe,
 				options = {
 					{ value = "today", label = "Today" } :: PickerOption,
@@ -258,13 +261,13 @@ function Cartwheel.build(ctx: ExampleContext)
 	local function workbench(): Instance
 		return view.page("Workbench", {
 			view.text("Workbench", 28),
-			UI.TextInput "PotionName" { value = draftName, placeholder = "Potion name" },
+			UI.TextInput { Name = "PotionName", value = draftName, placeholder = "Potion name" },
 			view.action("NewPotion", "New potion", function()
 				selectPotion("scratch")
 			end),
-			UI.Picker "Base" { selected = base, options = pickerOptions(data.bases, false) },
-			UI.Picker "Essence" { selected = essence, options = pickerOptions(data.essences, true) },
-			UI.Picker "Garnish" { selected = garnish, options = pickerOptions(data.garnishes, true) },
+			UI.Picker { Name = "Base", selected = base, options = pickerOptions(data.bases, false) },
+			UI.Picker { Name = "Essence", selected = essence, options = pickerOptions(data.essences, true) },
+			UI.Picker { Name = "Garnish", selected = garnish, options = pickerOptions(data.garnishes, true) },
 			view.text(function(use: Use)
 				local values = data.attributesOf(use(base), use(essence), use(garnish))
 				local parts = {}
@@ -294,7 +297,8 @@ function Cartwheel.build(ctx: ExampleContext)
 	local function ledger(): Instance
 		return view.page("Ledger", {
 			view.text("Ledger", 28),
-			UI.Picker "LedgerTimeframe" {
+			UI.Picker {
+				Name = "LedgerTimeframe",
 				selected = ledgerTimeframe,
 				options = {
 					{ value = "twoWeeks", label = "Two weeks" } :: PickerOption,
@@ -377,7 +381,8 @@ function Cartwheel.build(ctx: ExampleContext)
 	end
 	local function marketStage(plaza)
 		local V3, CF = ctx.types.Vector3, ctx.types.CFrame
-		return UI.Stage "MarketScene" {
+		return UI.Stage {
+			Name = "MarketScene",
 			Size = D2.new(1, 0, 0, 220),
 			camera = CF.lookAt(V3.new(6, 4, 9), V3.new(0, 1, 0)),
 			content = function(sceneRuntime, world): (() -> ())?
@@ -443,7 +448,7 @@ function Cartwheel.build(ctx: ExampleContext)
 	local function plazas()
 		return view.page("Plazas", {
 			view.text("Plazas", 28),
-			UI.Picker "Market" { selected = selectedPlaza, options = pickerOptions(data.plazas, false) },
+			UI.Picker { Name = "Market", selected = selectedPlaza, options = pickerOptions(data.plazas, false) },
 			view.column("Conditions", {
 				Compose.keyed({
 					from = function(use: Use)
@@ -475,7 +480,8 @@ function Cartwheel.build(ctx: ExampleContext)
 		return Host.Frame "Cartwheel" {
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.TabView "Destinations" {
+			UI.TabView {
+				Name = "Destinations",
 				selection = section,
 				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				Size = D2.new(1, 0, 1, -112),
@@ -488,7 +494,8 @@ function Cartwheel.build(ctx: ExampleContext)
 					{ id = "plazas", label = "Plazas", content = plazas } :: Tab,
 				},
 			} :: unknown,
-			UI.Button "Guild" {
+			UI.Button {
+				Name = "Guild",
 				label = function(use: Use)
 					return if use(identity.signedIn)
 						then "Sign out of " .. use(identity.guildName)
@@ -510,7 +517,8 @@ function Cartwheel.build(ctx: ExampleContext)
 				Size = D2.new(1, -32, 0, 56),
 				AutomaticSize = ctx.types.Enum.AutomaticSize.None,
 			}),
-			UI.Sheet "BrewDetail" {
+			UI.Sheet {
+				Name = "BrewDetail",
 				title = "Brew",
 				isPresented = detailOpen,
 				detent = Compose.cell("large"),
@@ -560,19 +568,22 @@ function Cartwheel.build(ctx: ExampleContext)
 					return view.page("Brew", parts)
 				end,
 			},
-			UI.Sheet "Signup" {
+			UI.Sheet {
+				Name = "Signup",
 				title = "Join the guild",
 				isPresented = signupOpen,
 				detent = Compose.cell("medium"),
 				content = function(): Instance
 					return view.column("Form", {
-						UI.TextInput "GuildName" {
+						UI.TextInput {
+							Name = "GuildName",
 							value = guild,
 							placeholder = "Guild name",
 							maxLength = 24,
 							validate = identity.normalize,
 						},
-						UI.TextInput "Watchword" {
+						UI.TextInput {
+							Name = "Watchword",
 							value = watchword,
 							placeholder = "Watchword",
 							maxLength = 32,
@@ -586,7 +597,8 @@ function Cartwheel.build(ctx: ExampleContext)
 					})
 				end,
 			},
-			UI.Alert "Celebration" {
+			UI.Alert {
+				Name = "Celebration",
 				isPresented = celebration,
 				title = "Brew collected!",
 				message = notice,

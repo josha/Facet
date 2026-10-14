@@ -55,7 +55,8 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 	local releaseSlots: (() -> ())?
 	local removeSource: (() -> ())?
 	local stage = t.mount(function(UI: Controls, Host: Host, C: Compose): GuiObject
-		local button = UI.Button "Source" {
+		local button = UI.Button {
+			Name = "Source",
 			label = "Carry A",
 			Position = UDim2.fromOffset(20, 20),
 			Size = UDim2.fromOffset(80, 64),
@@ -64,7 +65,8 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 				presses += 1
 			end,
 		}
-		local destination = UI.Button "Target" {
+		local destination = UI.Button {
+			Name = "Target",
 			label = "Place here",
 			Position = UDim2.fromOffset(240, 180),
 			Size = UDim2.fromOffset(80, 64),
@@ -82,7 +84,8 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 				slots:set({ "B" })
 			end
 			UI.draggable(destination, { payload = { keys = { "A" } }, touchPickup = "immediate", returnTravel = true })
-			pickup = UI.VirtualGrid "SourceRack" {
+			pickup = UI.VirtualGrid {
+				Name = "SourceRack",
 				from = rows,
 				slots = if reserved then slots else nil,
 				key = "id",
@@ -106,7 +109,7 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 					}
 					else nil,
 				render = function(): GuiObject
-					return UI.Button "RackTile" { label = "Carry tile" }
+					return UI.Button { Name = "RackTile", label = "Carry tile" }
 				end,
 			}
 		else
@@ -177,7 +180,8 @@ local function setup(t: Live, collection: boolean?, reserved: boolean?): State
 			pointerEnded:Disconnect()
 			frames:Disconnect()
 		end)
-		local body = UI.ScrollView "ScrolledParent" {
+		local body = UI.ScrollView {
+			Name = "ScrolledParent",
 			Size = UDim2.fromOffset(420, 340),
 			CanvasSize = UDim2.fromOffset(420, 720),
 			AutomaticCanvasSize = Enum.AutomaticSize.None,
@@ -223,7 +227,8 @@ local cases: { Case } = {
 			local source: GuiObject?, target: GuiObject?, neighbour: GuiObject?
 			local value: State?
 			local stage = t.mount(function(UI, Host, C)
-				local button = UI.Button "Source" {
+				local button = UI.Button {
+					Name = "Source",
 					label = "A",
 					Position = UDim2.fromOffset(20, 20),
 					Size = UDim2.fromOffset(64, 64),
@@ -236,7 +241,8 @@ local cases: { Case } = {
 					returnTravel = true,
 				})
 				local items: { Item } = { { id = "B" }, { id = "C" } }
-				local rack = UI.VirtualGrid "TargetRack" {
+				local rack = UI.VirtualGrid {
+					Name = "TargetRack",
 					from = items,
 					key = "id",
 					columns = 3,

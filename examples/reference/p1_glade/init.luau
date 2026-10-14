@@ -199,7 +199,7 @@ function Glade.build(ctx: ExampleContext)
 		return view.page("GladeDetail", {
 			view.text(text("glade." .. id), 28),
 			scene(id),
-			UI.Toggle "Favorite" { label = "Favorite glade", value = favorites[id] },
+			UI.Toggle { Name = "Favorite", label = "Favorite glade", value = favorites[id] },
 			view.text(function(use: Use)
 				return "Dew: " .. use(supply.state(id, "dew"))
 			end),
@@ -211,7 +211,8 @@ function Glade.build(ctx: ExampleContext)
 				return "Nectar: " .. use(supply.state(id, "nectar"))
 			end),
 			UI.ProgressView({ value = supply.level(id, "nectar"), label = "Nectar" }),
-			UI.Picker "Nectar" {
+			UI.Picker {
+				Name = "Nectar",
 				selected = choice,
 				options = options,
 				onChange = function(value)
@@ -247,7 +248,7 @@ function Glade.build(ctx: ExampleContext)
 			view.action("Task", text("task.open", { glade = L("glade." .. seed.TASK.glade) }), function()
 				open(seed.TASK.glade)
 			end),
-			UI.TextInput "Search" { value = search, placeholder = "Search glades" },
+			UI.TextInput { Name = "Search", value = search, placeholder = "Search glades" },
 			view.column("Glades", {
 				view.list(filtered, function(current)
 					local glade = current:peek()
@@ -354,7 +355,8 @@ function Glade.build(ctx: ExampleContext)
 		table.insert(children, view.action("Restore", "Restore provisions", commerce.restore))
 		table.insert(
 			children,
-			UI.Picker "Locale" {
+			UI.Picker {
+				Name = "Locale",
 				selected = locale,
 				options = {
 					{ value = "en", label = "English" } :: PickerOption,
@@ -368,7 +370,8 @@ function Glade.build(ctx: ExampleContext)
 		return Host.Frame "Glade" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
-			UI.TabView "Destinations" {
+			UI.TabView {
+				Name = "Destinations",
 				selection = section,
 				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				Size = D2.new(1, 0, 1, -64),
@@ -406,17 +409,20 @@ function Glade.build(ctx: ExampleContext)
 				AutomaticSize = ctx.types.Enum.AutomaticSize.None,
 				TextWrapped = true,
 			}),
-			UI.Sheet "KeeperEdit" {
+			UI.Sheet {
+				Name = "KeeperEdit",
 				title = text("keeper.editTitle"),
 				isPresented = editOpen,
 				detent = Compose.cell("medium"),
 				content = function(): Instance
 					return view.column("Fields", {
-						UI.TextInput "DisplayName" {
+						UI.TextInput {
+							Name = "DisplayName",
 							value = draftName,
 							placeholder = text("keeper.displayName"),
 						},
-						UI.TextInput "Contact" {
+						UI.TextInput {
+							Name = "Contact",
 							value = draftContact,
 							placeholder = text("keeper.contact"),
 						},
@@ -427,7 +433,8 @@ function Glade.build(ctx: ExampleContext)
 					})
 				end,
 			},
-			UI.Alert "Reset" {
+			UI.Alert {
+				Name = "Reset",
 				isPresented = resetOpen,
 				title = Compose.formula(text("keeper.confirmTitle")),
 				message = Compose.formula(text("keeper.confirmBody")),
@@ -441,19 +448,22 @@ function Glade.build(ctx: ExampleContext)
 					} :: AlertAction,
 				},
 			},
-			UI.Sheet "Detail" {
+			UI.Sheet {
+				Name = "Detail",
 				title = "Glade",
 				isPresented = detailOpen,
 				detent = Compose.cell("large"),
 				content = detail,
 			},
-			UI.Sheet "Provisions" {
+			UI.Sheet {
+				Name = "Provisions",
 				title = "Provisions",
 				isPresented = shopOpen,
 				detent = Compose.cell("large"),
 				content = shop,
 			},
-			UI.Sheet "Wisp" {
+			UI.Sheet {
+				Name = "Wisp",
 				title = "Wisp",
 				isPresented = wispOpen,
 				detent = Compose.cell("medium"),

@@ -1,14 +1,15 @@
 --!strict
 local Shared = require("./types")
-local Types = require("./zoom_travel_types")
 local Nav = require("./navigation_types")
 local engine = require("./travel_engine")
+local ControlTypes = require("./control_types")
+local ZoomTravelProps = require("./zoom_travel_props")
 local reducedMotion = require("./motion").reduced
 
-return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
+return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local D2, V2 = ctx.types.UDim2, ctx.types.Vector2
-	local function build(spec: Types.TravelProps): Frame
+	local function build(spec: ZoomTravelProps.TravelProps): Frame
 		assert(type(spec.content) == "function", "Facet UI.Travel: content is required")
 		local anchor = Host.Frame(ctx.props(spec, {
 			"destination",
@@ -380,7 +381,7 @@ return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
 		end
 		return anchor
 	end
-	UI.Travel = ctx.construct("Travel", function(spec: Types.TravelProps): Frame
+	UI.Travel = ctx.construct("Travel", function(spec: ZoomTravelProps.TravelProps): Frame
 		local owner = assert(Compose.currentOwner()).createChild()
 		return Compose.withOwner(owner, function(): Frame
 			return build(spec)

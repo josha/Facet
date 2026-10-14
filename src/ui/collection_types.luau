@@ -18,8 +18,9 @@ export type FocusControls<K> = {
 export type SlotControls<K> = { nodeOfKey: ((K) -> GuiObject?)? }
 export type Selection<K> = { [K]: boolean }
 export type Children<V> = ((item: V) -> { V }?) | string
+export type OptionalChildren<V> = { children: Children<V>? }
+export type RequiredChildren<V> = { children: Children<V> }
 export type HierarchyOptions<V, K> = {
-	children: Children<V>?,
 	expanded: ComposeTypes.Cell<Selection<K>>?,
 	onExpansionChange: ((expanded: Selection<K>) -> ())?,
 	indent: Types.ValueNumber?,
@@ -42,7 +43,7 @@ export type SelectionOptions<V, K> = {
 	onSelectionChange: ((selection: Selection<K>) -> ())?,
 	editing: Types.ValueBoolean?,
 }
-export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
+export type ReorderOptions<V, K> = {
 	collectionId: unknown?,
 	drag: ((items: { V }, keys: { K }) -> Env.DraggableSpec)?,
 	drop: Env.DropTargetSpec?,
@@ -58,7 +59,7 @@ export type ReorderOptions<V, K> = SelectionOptions<V, K> & {
 	direction: ComposeTypes.OrderedCollectionDirection?,
 }
 export type Activate<V, K> = (item: V, key: K, input: InputObject?, clickCount: number?) -> ()
-export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions<V, K> & HierarchyOptions<V, K> & {
+export type CollectionOptions<V, K> = {
 	from: Types.Value<{ V }>,
 	slots: Types.Value<{ K }>?,
 	slotControls: SlotControls<K>?,
@@ -70,7 +71,7 @@ export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions
 	crossGap: Types.ValueNumber?,
 	columns: Types.ValueNumber?,
 	minColumnWidth: Types.ValueNumber?,
-	rowActions: ((current: ComposeTypes.Readable<V>, key: K) -> RowActionsOptions?)?,
+	rowActions: ((current: ComposeTypes.Readable<V>, key: K) -> RowActionsShape?)?,
 	overscan: number?,
 	measured: Types.Value<{ [K]: number }>?,
 	measure: boolean?,
@@ -94,27 +95,8 @@ export type CollectionOptions<V, K> = Types.ScrollingFrameProps & ReorderOptions
 	onReachEnd: (() -> ())?,
 	contentOverflow: Types.Value<"visible" | "clip">?,
 }
-export type KeyedCollectionSpec<V, K> = CollectionOptions<V, K> & { key: ((item: V, index: number) -> K) | string }
-export type IdentityCollectionSpec<V> = CollectionOptions<V, V> & { key: nil? }
-export type CollectionSpec<V, K> = KeyedCollectionSpec<V, K> | IdentityCollectionSpec<V>
-export type CollectionConstructor =
-	(<V, K>(spec: KeyedCollectionSpec<V, K>) -> ScrollingFrame)
-	& (<V, _K>(spec: IdentityCollectionSpec<V>) -> ScrollingFrame)
-	& ((
-		name: string
-	) -> (
-		(<V, K>(spec: KeyedCollectionSpec<V, K>) -> ScrollingFrame)
-		& (<V, _K>(spec: IdentityCollectionSpec<V>) -> ScrollingFrame)
-	))
-
-export type OutlineSpec<V, K> = CollectionSpec<V, K> & { children: Children<V> }
-export type OutlineConstructor =
-	(<V, K>(spec: KeyedCollectionSpec<V, K> & { children: Children<V> }) -> ScrollingFrame)
-	& (<V, _K>(spec: IdentityCollectionSpec<V> & { children: Children<V> }) -> ScrollingFrame)
-	& ((
-		name: string
-	) -> (<V, K>(spec: KeyedCollectionSpec<V, K> & { children: Children<V> }) -> ScrollingFrame)
-		& (<V, _K>(spec: IdentityCollectionSpec<V> & { children: Children<V> }) -> ScrollingFrame))
+export type Keyed<V, K> = { key: ((item: V, index: number) -> K) | string }
+export type Identity = { key: nil? }
 
 export type RowAction = {
 	id: string,
@@ -125,7 +107,7 @@ export type RowAction = {
 	onActivate: (() -> ())?,
 }
 export type RowEdge = "leading" | "trailing"
-export type RowActionsOptions = Types.FrameProps & {
+export type RowActionsFields = {
 	actionPlacement: ("trailing" | "bottom")?,
 	swipeEnabled: Types.ValueBoolean?,
 	leading: Types.Value<{ RowAction }>?,
@@ -139,7 +121,8 @@ export type RowActionsOptions = Types.FrameProps & {
 	reducedMotion: Types.ValueBoolean?,
 	editing: Types.ValueBoolean?,
 }
-export type RowActionsSpec = RowActionsOptions & { content: GuiObject | (() -> GuiObject) }
+export type RowActionsShape = Types.FrameProps & RowActionsFields
+export type RowActionsContent = { content: GuiObject | (() -> GuiObject) }
 export type CellDraft = { text: string, original: unknown, error: string? }
 export type CellEditorOptions = {
 	editor: "text" | "number" | "toggle" | "menu",
@@ -157,7 +140,6 @@ export type CellEditorOptions = {
 	max: number?,
 	step: number?,
 }
-export type CellEditorSpec = Types.FrameProps & CellEditorOptions
 export type TableColumn<V, K> = {
 	id: string,
 	label: Types.ValueString?,
@@ -182,7 +164,7 @@ export type TableColumn<V, K> = {
 	max: number?,
 	step: number?,
 }
-export type TableOptions<V, K> = Types.FrameProps & ReorderOptions<V, K> & HierarchyOptions<V, K> & {
+export type TableOptions<V, K> = {
 	focusPolicy: ("key" | "index")?,
 	initialFocus: K?,
 	autoFocus: boolean?,
@@ -199,7 +181,7 @@ export type TableOptions<V, K> = Types.FrameProps & ReorderOptions<V, K> & Hiera
 	widths: ComposeTypes.Cell<{ [string]: number }>?,
 	onWidthsChange: ((widths: { [string]: number }) -> ())?,
 	onActivate: Activate<V, K>?,
-	rowActions: ((current: ComposeTypes.Readable<V>, key: K) -> RowActionsOptions?)?,
+	rowActions: ((current: ComposeTypes.Readable<V>, key: K) -> RowActionsShape?)?,
 	headerHeight: Types.ValueNumber?,
 	header: boolean?,
 	status: (
@@ -219,19 +201,19 @@ export type TableOptions<V, K> = Types.FrameProps & ReorderOptions<V, K> & Hiera
 	mode: ComposeTypes.OrderedCollectionMode?,
 	snap: ("none" | "item")?,
 }
-export type KeyedTableSpec<V, K> = TableOptions<V, K> & { key: ((item: V, index: number) -> K) | string }
-export type IdentityTableSpec<V> = TableOptions<V, V> & { key: nil? }
-export type TableSpec<V, K> = KeyedTableSpec<V, K> | IdentityTableSpec<V>
-export type TableConstructor =
-	(<V, K>(spec: KeyedTableSpec<V, K>) -> Frame)
-	& (<V, _K>(spec: IdentityTableSpec<V>) -> Frame)
-	& ((name: string) -> (<V, K>(spec: KeyedTableSpec<V, K>) -> Frame) & (<V, _K>(spec: IdentityTableSpec<V>) -> Frame))
-export type CollectionControls = {
-	CellEditor: Types.Constructor<CellEditorSpec, Frame>,
-	VirtualList: CollectionConstructor,
-	VirtualGrid: CollectionConstructor,
-	Outline: OutlineConstructor,
-	Table: TableConstructor,
-	RowActions: Types.Constructor<RowActionsSpec, Frame>,
-}
+export type ReorderShape<V, K> = SelectionOptions<V, K> & ReorderOptions<V, K>
+export type CollectionShape<V, K> =
+	Types.ScrollingFrameProps
+	& SelectionOptions<V, K>
+	& ReorderOptions<V, K>
+	& HierarchyOptions<V, K>
+	& OptionalChildren<V>
+	& CollectionOptions<V, K>
+export type TableShape<V, K> =
+	Types.FrameProps
+	& SelectionOptions<V, K>
+	& ReorderOptions<V, K>
+	& HierarchyOptions<V, K>
+	& OptionalChildren<V>
+	& TableOptions<V, K>
 return {}

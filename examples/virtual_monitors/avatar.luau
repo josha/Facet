@@ -137,7 +137,8 @@ return function(ctx: Context)
 		end
 	end)
 	local function page(name: string, ...)
-		return UI.ScrollView(name)({
+		return UI.ScrollView({
+			Name = name,
 			padding = { top = 16, left = 16, right = 24, bottom = 16 },
 			gap = 10,
 			ScrollBarThickness = 5,
@@ -145,7 +146,8 @@ return function(ctx: Context)
 		})
 	end
 	local function turnButtons()
-		local row = UI.HStack "TurnButtons" {
+		local row = UI.HStack {
+			Name = "TurnButtons",
 			width = "fill" :: "fill",
 			gap = "s",
 			button("TurnLeft", "Turn left", function()
@@ -164,7 +166,8 @@ return function(ctx: Context)
 		UI.adjustable(row, { onAdjust = model.turn, axis = "none" :: "none", repeats = true })
 		return row
 	end
-	local preview = UI.ZStack "PreviewPanel" {
+	local preview = UI.ZStack {
+		Name = "PreviewPanel",
 		Size = function(use: Use)
 			return if wide(use) then D2.new(1, -settingsWidth(use) - 16, 1, 0) else D2.new(1, 0, 0, previewHeight(use))
 		end,
@@ -177,7 +180,8 @@ return function(ctx: Context)
 			Ambient = C3.fromRGB(92, 99, 120),
 			LightDirection = types.Vector3.new(-0.7, -0.8, 1),
 		}),
-		UI.VStack "AvatarHUD" {
+		UI.VStack {
+			Name = "AvatarHUD",
 			gap = "s",
 			AnchorPoint = function(use: Use)
 				return if wide(use) then V2.new(0, 1) else V2.zero
@@ -210,7 +214,8 @@ return function(ctx: Context)
 			PaddingTop = ctx.D.new(0, 12),
 			PaddingBottom = ctx.D.new(0, 12),
 		}),
-		UI.NavigationStack "SettingsStack" {
+		UI.NavigationStack {
+			Name = "SettingsStack",
 			path = model.avatarPath,
 			root = {
 				title = "Explorer",
@@ -219,30 +224,35 @@ return function(ctx: Context)
 					settingsPage = page(
 						"SettingsPage",
 						quiet("Subtitle", "Choose an accent and accessories.", "label"),
-						UI.DisclosureGroup "SettingsDisclosure" {
+						UI.DisclosureGroup {
+							Name = "SettingsDisclosure",
 							label = "Appearance",
 							expanded = model.avatarSettingsExpanded,
 							Size = D2.new(1, 0, 0, 0),
 							AutomaticSize = E.AutomaticSize.Y,
 							content = function(): Instance
-								return UI.VStack "AppearanceSettings" {
+								return UI.VStack {
+									Name = "AppearanceSettings",
 									width = "fill" :: "fill",
 									gap = 10,
 									words("PaletteLabel", "Accent", "label") :: unknown,
-									UI.Picker "Palette" {
+									UI.Picker {
+										Name = "Palette",
 										selected = model.palette,
 										style = "segmented" :: "segmented",
 										options = accentOptions,
 										Size = D2.new(1, 0, 0, 44),
 										AutomaticSize = E.AutomaticSize.None,
 									},
-									UI.Toggle "Hat" {
+									UI.Toggle {
+										Name = "Hat",
 										label = "Explorer hat",
 										value = model.hat,
 										Size = D2.new(1, 0, 0, 44),
 										AutomaticSize = E.AutomaticSize.None,
 									},
-									UI.ColorPicker "HatColour" {
+									UI.ColorPicker {
+										Name = "HatColour",
 										label = "Hat colour",
 										modes = { "swatches", "spectrum" } :: { "swatches" | "spectrum" },
 										swatches = {
@@ -264,7 +274,8 @@ return function(ctx: Context)
 										end,
 										enabled = model.hat,
 									},
-									UI.RadialMenu "QuickPalette" {
+									UI.RadialMenu {
+										Name = "QuickPalette",
 										label = "Quick accent",
 										appearance = "buttons" :: "buttons",
 										Size = D2.new(1, 0, 0, 44),
@@ -273,13 +284,15 @@ return function(ctx: Context)
 								}
 							end,
 						},
-						UI.Button "MotionRow" {
+						UI.Button {
+							Name = "MotionRow",
 							row = { title = "Motion & turning" },
 							onActivate = function()
 								model.avatarPath:set({ { id = "motion", value = true } })
 							end,
 						},
-						UI.HStack "SummaryActions" {
+						UI.HStack {
+							Name = "SummaryActions",
 							width = "fill" :: "fill",
 							gap = "s",
 							button(
@@ -288,7 +301,8 @@ return function(ctx: Context)
 								openSummary,
 								{ Size = D2.new(0.5, -4, 0, 44), AutomaticSize = E.AutomaticSize.None }
 							) :: unknown,
-							UI.CollapsibleView "Tips" {
+							UI.CollapsibleView {
+								Name = "Tips",
 								label = "Tips",
 								icon = "edit",
 								expanded = model.avatarTipsExpanded,
@@ -296,7 +310,8 @@ return function(ctx: Context)
 								AutomaticSize = E.AutomaticSize.None,
 								content = function(): Instance
 									local tips
-									tips = UI.VStack "PreviewTips" {
+									tips = UI.VStack {
+										Name = "PreviewTips",
 										width = "fill" :: "fill",
 										gap = "s",
 										quiet(
@@ -337,7 +352,8 @@ return function(ctx: Context)
 						return page(
 							"MotionPage",
 							words("TurnStepLabel", "Turn step", "label"),
-							UI.Stepper "TurnStep" {
+							UI.Stepper {
+								Name = "TurnStep",
 								min = 1,
 								max = #turnSteps,
 								step = 1,
@@ -353,7 +369,8 @@ return function(ctx: Context)
 								Size = D2.new(1, 0, 0, 44),
 							},
 							words("RotationLabel", "Rotation", "label"),
-							UI.Slider "Rotation" {
+							UI.Slider {
+								Name = "Rotation",
 								value = model.angle,
 								min = -180,
 								max = 180,
@@ -363,7 +380,8 @@ return function(ctx: Context)
 								end,
 								Size = D2.new(1, 0, 0, 44),
 							},
-							UI.NumberInput "ExactAngle" {
+							UI.NumberInput {
+								Name = "ExactAngle",
 								label = "Exact angle",
 								hint = "Type an angle or a sum, such as 90+45.",
 								value = angleDraft,
@@ -379,12 +397,14 @@ return function(ctx: Context)
 							},
 							turnButtons(),
 							words("SpinLabel", "Auto-spin", "label"),
-							UI.HStack "AutoSpinRow" {
+							UI.HStack {
+								Name = "AutoSpinRow",
 								width = "fill" :: "fill",
 								gap = "s",
 								align = "center" :: "center",
 								quiet("SpinValue", spin, "label", { Size = D2.new(0, 0, 0, 0), UI.fill() }) :: unknown,
-								UI.LevelPicker "AutoSpin" {
+								UI.LevelPicker {
+									Name = "AutoSpin",
 									value = model.autoSpin,
 									count = 3,
 									allowZero = true,
@@ -399,7 +419,8 @@ return function(ctx: Context)
 		},
 	}
 	settings:AddTag("facet-panel")
-	local body = UI.HStack "AvatarBody" {
+	local body = UI.HStack {
+		Name = "AvatarBody",
 		width = "fill" :: "fill",
 		height = "fill" :: "fill",
 		gap = 16,
@@ -409,16 +430,19 @@ return function(ctx: Context)
 	}
 	ctx.measure(body, dimensions)
 	return body,
-		UI.ZStack "Overlays" {
+		UI.ZStack {
+			Name = "Overlays",
 			width = "fill" :: "fill",
 			height = "fill" :: "fill",
-			UI.Sheet "AvatarSummary" {
+			UI.Sheet {
+				Name = "AvatarSummary",
 				title = "Look summary",
 				isPresented = model.avatarSummary,
 				detent = model.avatarSummaryDetent,
 				content = facts,
 			} :: unknown,
-			UI.Alert "ResetAvatar" {
+			UI.Alert {
+				Name = "ResetAvatar",
 				isPresented = model.resetAvatarPresented,
 				title = "Reset your look?",
 				message = "The accent, hat, hat colour and rotation return to their defaults.",
@@ -441,7 +465,8 @@ return function(ctx: Context)
 					return if count > 0 then { count } else {}
 				end,
 				render = function(): GuiObject
-					return UI.Toast "LookReset" {
+					return UI.Toast {
+						Name = "LookReset",
 						message = "Your look is back to the default.",
 						key = "look",
 						width = "hug" :: "hug",

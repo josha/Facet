@@ -70,7 +70,8 @@ interactive(
 				Position = UDim2.fromOffset(100, 100),
 				BackgroundTransparency = 1,
 				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 40) }) :: unknown,
-				UI.Slider "Gap" {
+				UI.Slider {
+					Name = "Gap",
 					LayoutOrder = 1,
 					Size = UDim2.fromOffset(420, 0),
 					value = value.gap,
@@ -83,7 +84,8 @@ interactive(
 						table.insert(value.commits, `{info.thumb}:{range.lower}-{range.upper}`)
 					end,
 				},
-				UI.Slider "Pile" {
+				UI.Slider {
+					Name = "Pile",
 					LayoutOrder = 2,
 					Size = UDim2.fromOffset(420, 0),
 					value = value.pile,
@@ -174,7 +176,8 @@ interactive(
 				Position = UDim2.fromOffset(100, 100),
 				Size = UDim2.fromOffset(360, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				UI.ColorPicker "Accent" {
+				UI.ColorPicker {
+					Name = "Accent",
 					label = "Accent",
 					style = "inline" :: "inline",
 					modes = { "spectrum" :: "spectrum" },
@@ -246,8 +249,8 @@ interactive(
 				Size = UDim2.fromOffset(400, 200),
 				BackgroundTransparency = 1,
 				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 24) }) :: unknown,
-				UI.Button "Link" { label = "Read more", underline = "hover" :: "hover", LayoutOrder = 1 },
-				UI.Button "Always" { label = "Terms", underline = "always" :: "always", LayoutOrder = 2 },
+				UI.Button { Name = "Link", label = "Read more", underline = "hover" :: "hover", LayoutOrder = 1 },
+				UI.Button { Name = "Always", label = "Terms", underline = "always" :: "always", LayoutOrder = 2 },
 			}
 		end, { frames = 12 })
 		value.link = t.find(stage, "Link")
@@ -314,8 +317,8 @@ interactive(
 				Size = UDim2.fromOffset(360, 300),
 				BackgroundTransparency = 1,
 				Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 12) }) :: unknown,
-				UI.Toggle "Toggle" { value = value.toggle, label = "On", LayoutOrder = 1 },
-				UI.Stepper "Stepper" { value = Compose.cell(2), min = 0, max = 5, LayoutOrder = 2 },
+				UI.Toggle { Name = "Toggle", value = value.toggle, label = "On", LayoutOrder = 1 },
+				UI.Stepper { Name = "Stepper", value = Compose.cell(2), min = 0, max = 5, LayoutOrder = 2 },
 			}
 		end, { frames = 10 })
 		value.indicator = t.find(t.find(stage, "Toggle"), "Indicator")

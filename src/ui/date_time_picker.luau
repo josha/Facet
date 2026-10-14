@@ -4,15 +4,17 @@ local fieldChrome = require("./field_chrome")
 local materialize = require("./materialize")
 local Shared = require("./types")
 local Nav = require("./navigation_types")
-local Inputs = require("./input_types")
-local Collections = require("./collection_types")
 local DTP = require("./date_time_picker_types")
 local CivilTypes = require("./civil_date_types")
+local CollectionProps = require("./collection_props")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
+local NavigationProps = require("./navigation_props")
 local ComposeTypes = require("../vendor/compose/core")
 
 type CivilDate = DTP.CivilDate
 type Range = DTP.Range
-type Spec = DTP.DateTimePickerProps
+type Spec = InputProps.DateTimePickerProps
 type Use = ComposeTypes.Use
 type Readable<T> = ComposeTypes.Readable<T>
 type Cell<T> = ComposeTypes.Cell<T>
@@ -24,13 +26,13 @@ type Grab = { other: CivilDate, from: Range, last: CivilDate, moved: boolean }
 type TimeRow = { id: string, hour: number, minute: number }
 type Deps = {
 	DateTimePicker: Shared.Constructor<Spec, Frame>,
-	Button: Shared.Constructor<Inputs.ButtonProps, TextButton>,
-	NumberInput: Shared.Constructor<Inputs.NumberInputProps, TextBox | Frame>,
-	Chip: Shared.Constructor<Inputs.ChipProps, TextButton | Frame>,
-	ShortcutHint: Shared.Constructor<Inputs.ShortcutHintProps, TextLabel | Frame>,
-	Menu: Nav.MenuConstructor,
-	Picker: Nav.PickerConstructor,
-	VirtualList: Collections.CollectionConstructor,
+	Button: Shared.Constructor<InputProps.ButtonProps, TextButton>,
+	NumberInput: Shared.Constructor<InputProps.NumberInputProps, TextBox | Frame>,
+	Chip: Shared.Constructor<InputProps.ChipProps, TextButton | Frame>,
+	ShortcutHint: Shared.Constructor<InputProps.ShortcutHintProps, TextLabel | Frame>,
+	Menu: ControlTypes.MenuConstructor,
+	Picker: ControlTypes.PickerConstructor,
+	VirtualList: ControlTypes.CollectionConstructor,
 }
 
 local KEYS = {
@@ -1286,7 +1288,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					local v = use(value)
 					half:set(if v ~= nil and v.hour ~= nil and v.hour >= 12 then "PM" else "AM")
 				end)
-				local halfSpec: Nav.SinglePickerSpec<string> = {
+				local halfSpec: NavigationProps.SinglePickerSpec<string> = {
 					Name = "Half",
 					options = { { value = "AM", label = "AM" }, { value = "PM", label = "PM" } },
 					selected = half,
@@ -1335,7 +1337,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					at = clock()
 				end
 				local first = if at.hour ~= nil then (at.hour * 60 + (at.minute or 0)) // minuteStep else 0
-				local timesSpec: Collections.KeyedCollectionSpec<TimeRow, string> = {
+				local timesSpec: CollectionProps.KeyedCollectionSpec<TimeRow, string> = {
 					Name = "Times",
 					LayoutOrder = 2,
 					from = times,
@@ -1383,7 +1385,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				local clamped = Compose.formula(function(use: Use): Range?
 					return civil.clampRange(p.range(use(today)), use(minDate), use(maxDate))
 				end)
-				local chipSpec: Inputs.ChipProps = {
+				local chipSpec: InputProps.ChipProps = {
 					Name = `Preset-{p.id}`,
 					label = p.label,
 					controlSize = "compact" :: "compact",
@@ -1439,7 +1441,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			local hint = Compose.show(function(use: Use)
 				return prefers(E.PreferredInput.Gamepad, use)
 			end, function()
-				local keys: Inputs.ShortcutHintProps = {
+				local keys: InputProps.ShortcutHintProps = {
 					Name = "PageKeys",
 					keys = { { "LB" }, { "RB" } },
 					controlSize = "compact" :: "compact",

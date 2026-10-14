@@ -7,6 +7,7 @@ return function(verifyHarness: Verify.Harness)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local Shared = require("../src/ui/types")
 	local Radial = require("../src/ui/radial_types")
+	local RadialProps = require("../src/ui/radial_props")
 
 	local fadeKit = require("./lib/fade")
 	local Compose = require("../src/vendor/compose/core")
@@ -24,12 +25,12 @@ return function(verifyHarness: Verify.Harness)
 		stop: () -> (),
 	}
 	local function setup(
-		spec: Radial.RadialMenuSpec<any> | ((engines.Engine) -> Radial.RadialMenuSpec<any>),
+		spec: RadialProps.RadialMenuSpec<any> | ((engines.Engine) -> RadialProps.RadialMenuSpec<any>),
 		animated: boolean?,
 		environment: Shared.EnvironmentPreview?
 	): World
 		local engine, now = engines.new(), 0
-		local actual: Radial.RadialMenuSpec<any> = if type(spec) == "function" then spec(engine) else spec
+		local actual: RadialProps.RadialMenuSpec<any> = if type(spec) == "function" then spec(engine) else spec
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		input.GetFocusedTextBox = function()
 			return nil
@@ -126,7 +127,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("keeps short names on one line inside round item targets", {
 			id = "native_radial_controls::radial label fit::keeps short names on one line inside round item targets",
 			run = function()
-				local spec: Radial.RadialMenuSpec<any> = {
+				local spec: RadialProps.RadialMenuSpec<any> = {
 					appearance = "buttons" :: Radial.Appearance,
 					items = {
 						{ id = "sage", label = "Sage", onSelect = function() end } :: Radial.RadialItem<any>,

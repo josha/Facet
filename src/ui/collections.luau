@@ -16,13 +16,15 @@ local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
-local InputTypes = require("./input_types")
+local CollectionProps = require("./collection_props")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
 type Controls = {
-	VirtualList: CollectionTypes.CollectionConstructor,
-	Outline: CollectionTypes.OutlineConstructor,
-	VirtualGrid: CollectionTypes.CollectionConstructor,
-	RowActions: Types.Constructor<CollectionTypes.RowActionsSpec, Frame>,
-	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
+	VirtualList: ControlTypes.CollectionConstructor,
+	Outline: ControlTypes.OutlineConstructor,
+	VirtualGrid: ControlTypes.CollectionConstructor,
+	RowActions: Types.Constructor<CollectionProps.RowActionsSpec, Frame>,
+	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
 }
 local FLING_MINIMUM = 200
 local FLING_STOP = 20
@@ -30,7 +32,7 @@ local FLING_WINDOW = 0.1
 type PooledRow = { node: Frame, owner: ComposeTypes.Owner }
 
 export type BuildList = <V, K>(
-	CollectionTypes.KeyedCollectionSpec<V, K>,
+	CollectionProps.KeyedCollectionSpec<V, K>,
 	TreeTypes.Tree<V, K>?,
 	boolean?
 ) -> ScrollingFrame
@@ -136,7 +138,7 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		return nil
 	end
 	local function collection<V, K>(
-		spec: CollectionTypes.CollectionOptions<V, K>,
+		spec: CollectionTypes.CollectionShape<V, K>,
 		kind: ComposeTypes.OrderedCollectionLayoutKind,
 		keyOf: (V, number) -> K,
 		tree: TreeTypes.Tree<V, K>?,
@@ -1749,48 +1751,52 @@ return function(ctx: Types.Context, UI: Controls): BuildList
 		return root
 	end
 	local function construct<V, K>(
-		spec: CollectionTypes.CollectionSpec<V, K>,
+		spec: CollectionProps.CollectionSpec<V, K>,
 		kind: ComposeTypes.OrderedCollectionLayoutKind,
 		tree: TreeTypes.Tree<V, K>?,
 		actionsWrapped: boolean?
 	): ScrollingFrame
 		if spec.key == nil then
-			return collection(spec, kind, function(value: V, _index: number): V
-				return value
-			end)
+			return collection(
+				(spec :: unknown) :: CollectionTypes.CollectionShape<V, V>,
+				kind,
+				function(value: V, _index: number): V
+					return value
+				end
+			)
 		end
 		local key: unknown = spec.key
 		if type(key) == "string" then
 			assert(key ~= "", "Facet collection: key field must not be empty")
-			local fieldSpec = (spec :: unknown) :: CollectionTypes.KeyedCollectionSpec<V, string>
+			local fieldSpec = (spec :: unknown) :: CollectionTypes.CollectionShape<V, string>
 			return collection(fieldSpec, kind, function(value: V, _index: number): string
 				return tostring(((value :: unknown) :: { [string]: unknown })[key])
 			end)
 		end
 		assert(type(key) == "function", "Facet collection: key must be a function or a field name")
 		return collection(
-			(spec :: unknown) :: CollectionTypes.KeyedCollectionSpec<V, K>,
+			(spec :: unknown) :: CollectionTypes.CollectionShape<V, K>,
 			kind,
 			(key :: unknown) :: (V, number) -> K,
 			tree,
 			actionsWrapped
 		)
 	end
-	local function list<V, K>(spec: CollectionTypes.CollectionSpec<V, K>): ScrollingFrame
+	local function list<V, K>(spec: CollectionProps.CollectionSpec<V, K>): ScrollingFrame
 		return construct(spec, "list")
 	end
-	local function grid<V, K>(spec: CollectionTypes.CollectionSpec<V, K>): ScrollingFrame
+	local function grid<V, K>(spec: CollectionProps.CollectionSpec<V, K>): ScrollingFrame
 		return construct(spec, "grid")
 	end
 
-	UI.Outline = ctx.construct("Outline", function<V, K>(spec: CollectionTypes.OutlineSpec<V, K>): ScrollingFrame
+	UI.Outline = ctx.construct("Outline", function<V, K>(spec: CollectionProps.OutlineSpec<V, K>): ScrollingFrame
 		assert(spec.children ~= nil, "Facet Outline requires children")
 		return construct(spec, "list")
-	end) :: CollectionTypes.OutlineConstructor
-	UI.VirtualList = ctx.construct("VirtualList", list) :: CollectionTypes.CollectionConstructor
-	UI.VirtualGrid = ctx.construct("VirtualGrid", grid) :: CollectionTypes.CollectionConstructor
+	end) :: ControlTypes.OutlineConstructor
+	UI.VirtualList = ctx.construct("VirtualList", list) :: ControlTypes.CollectionConstructor
+	UI.VirtualGrid = ctx.construct("VirtualGrid", grid) :: ControlTypes.CollectionConstructor
 	return function<V, K>(
-		spec: CollectionTypes.KeyedCollectionSpec<V, K>,
+		spec: CollectionProps.KeyedCollectionSpec<V, K>,
 		tree: TreeTypes.Tree<V, K>?,
 		actionsWrapped: boolean?
 	): ScrollingFrame

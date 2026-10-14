@@ -33,6 +33,7 @@ return {
 			local id = serial
 			local fact = Compose.cell(true)
 			local spec: { [string]: any } = {
+				Name = `Snack{id}`,
 				isPresented = fact,
 				message = message,
 				onPresentedChange = function(nextValue: boolean)
@@ -113,31 +114,36 @@ return {
 					return `Undo pressed {n} {if n == 1 then "time" else "times"}; the toast stays until you close it.`
 				end, 2),
 				row("Compositions", 3, {
-					UI.Button "SnackMessage" {
+					UI.Button {
+						Name = "SnackMessage",
 						label = "Message",
 						onActivate = function()
 							show("Saved to your garage.", { duration = 4 })
 						end,
 					},
-					UI.Button "SnackIcon" {
+					UI.Button {
+						Name = "SnackIcon",
 						label = "Icon and message",
 						onActivate = function()
 							show("Lap record saved.", { icon = "status.success", duration = 4 })
 						end,
 					},
-					UI.Button "SnackAction" {
+					UI.Button {
+						Name = "SnackAction",
 						label = "With action",
 						onActivate = function()
 							show("Kart sold.", { action = undo, closeButton = false, duration = 6 })
 						end,
 					},
-					UI.Button "SnackClose" {
+					UI.Button {
+						Name = "SnackClose",
 						label = "Action and close",
 						onActivate = function()
 							show("Friend request sent.", { action = undo })
 						end,
 					},
-					UI.Button "SnackAll" {
+					UI.Button {
+						Name = "SnackAll",
 						label = "Everything",
 						onActivate = function()
 							show(
@@ -148,14 +154,16 @@ return {
 					},
 				}),
 				row("Policies", 4, {
-					UI.Toggle "Refuse" { label = "Refuse closes", value = refuse },
-					UI.Button "SnackUrgent" {
+					UI.Toggle { Name = "Refuse", label = "Refuse closes", value = refuse },
+					UI.Button {
+						Name = "SnackUrgent",
 						label = "Urgent (priority 5)",
 						onActivate = function()
 							show("Race starting in 10 seconds.", { priority = 5, duration = 5 })
 						end,
 					},
-					UI.Button "SnackBurst" {
+					UI.Button {
+						Name = "SnackBurst",
 						label = "Burst of twelve",
 						onActivate = function()
 							for index = 1, 12 do
@@ -171,7 +179,7 @@ return {
 					end,
 					render = function(item: any): GuiObject
 						local entry: Entry = item:peek()
-						return UI.Toast(`Snack{entry.id}`)(entry.spec :: any)
+						return UI.Toast(entry.spec :: any)
 					end,
 				}),
 			}
@@ -228,7 +236,8 @@ return {
 				label("NoticeTitle", "Notices", 1, "heading"),
 				label("Last", last, 2),
 				Compose.show(shown, function()
-					return UI.Notice "Update" {
+					return UI.Notice {
+						Name = "Update",
 						LayoutOrder = 3,
 						severity = "info",
 						appearance = "emphasis",
@@ -258,13 +267,15 @@ return {
 				Host.Frame(severityProps),
 				snackbars(),
 				row("Commands", 6, {
-					UI.Button "ShowBanner" {
+					UI.Button {
+						Name = "ShowBanner",
 						label = "Pin an offline banner",
 						onActivate = function()
 							banner:set(not banner:peek())
 						end,
 					},
-					UI.Button "ShowUpdate" {
+					UI.Button {
+						Name = "ShowUpdate",
 						label = "Bring the update back",
 						onActivate = function()
 							shown:set(true)
@@ -276,7 +287,8 @@ return {
 
 		local function affixed(): any
 			return Compose.show(banner, function()
-				return UI.Notice "Offline" {
+				return UI.Notice {
+					Name = "Offline",
 					placement = "affixed" :: "affixed",
 					severity = "warning",
 					message = "Connection interrupted. Reconnecting.",
@@ -299,7 +311,8 @@ return {
 				return Host.Frame "Notices" {
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
-					UI.ScrollView "Content" {
+					UI.ScrollView {
+						Name = "Content",
 						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.fromScale(1, 1),

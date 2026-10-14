@@ -139,7 +139,8 @@ end
 
 add("radial-list-fallback-fits", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.RadialMenu "Quick" {
+		return UI.RadialMenu {
+			Name = "Quick",
 			isPresented = Compose.cell(true),
 			clearance = 100,
 			items = radialItems(3, true),
@@ -171,10 +172,7 @@ end)
 interactive("radial-list-scrolls-selection-into-view", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.RadialMenu "Quick" {
-			isPresented = Compose.cell(true),
-			items = radialItems(12, false),
-		}
+		return UI.RadialMenu { Name = "Quick", isPresented = Compose.cell(true), items = radialItems(12, false) }
 	end, { size = Vector2.new(420, 200), frames = 30 })
 	value.panel = visibleNamed(t, stage, "RadialPanel")
 	t.check(
@@ -650,7 +648,8 @@ add("picker-style-sweep", {}, function(t)
 						AutomaticSize = Enum.AutomaticSize.Y,
 						BackgroundTransparency = 1,
 						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
-						UI.Picker "Handling" {
+						UI.Picker {
+							Name = "Handling",
 							label = "Handling",
 							style = style :: (
 								"automatic" | "segmented" | "inline" | "radioGroup" | "navigationLink" | "menu"
@@ -661,7 +660,7 @@ add("picker-style-sweep", {}, function(t)
 							query = if style == "navigationLink" then Compose.cell("") else nil,
 							LayoutOrder = 1,
 						},
-						UI.Text "Below" { text = "Neighbour", LayoutOrder = 2 },
+						UI.Text { Name = "Below", text = "Neighbour", LayoutOrder = 2 },
 					}
 				end, { theme = theme.package, size = size, frames = 12 })
 				local picker, below = t.find(stage, "Handling"), t.find(stage, "Below")
@@ -780,7 +779,8 @@ add("virtual-list-clamps-across-tabs", {}, function(t)
 			return list
 		end)())
 		selection = Compose.cell("a")
-		return UI.TabView "Tabs" {
+		return UI.TabView {
+			Name = "Tabs",
 			selection = selection,
 			Size = UDim2.fromOffset(400, 360),
 			tabs = {
@@ -788,7 +788,8 @@ add("virtual-list-clamps-across-tabs", {}, function(t)
 					id = "a",
 					label = "List",
 					content = function()
-						return UI.VirtualList "List" {
+						return UI.VirtualList {
+							Name = "List",
 							from = rows,
 							key = function(item)
 								return item.id

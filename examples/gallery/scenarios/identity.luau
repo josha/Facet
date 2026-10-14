@@ -25,13 +25,15 @@ return {
 				return Host.Frame "Identity" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					UI.ScrollView "Content" {
+					UI.ScrollView {
+						Name = "Content",
 						padding = 16,
 						gap = 24,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),
 						ScrollBarThickness = 6,
-						UI.Button "Reset" {
+						UI.Button {
+							Name = "Reset",
 							label = "Reset identity",
 							onActivate = reset,
 						} :: unknown,

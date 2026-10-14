@@ -138,8 +138,8 @@ add("disabled-subtree", {}, function(t: any)
 		return Host.Frame "Area" {
 			Size = UDim2.fromOffset(400, 300),
 			Interactable = false,
-			UI.Button "Inner" { label = "Inside" } :: unknown,
-			UI.Toggle "Check" { label = "Option", value = t.Facet.Compose.cell(false) },
+			UI.Button { Name = "Inner", label = "Inside" } :: unknown,
+			UI.Toggle { Name = "Check", label = "Option", value = t.Facet.Compose.cell(false) },
 		}
 	end)
 	t.settle(10)

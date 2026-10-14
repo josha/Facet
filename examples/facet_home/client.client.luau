@@ -247,7 +247,8 @@ local stop = runtime.mount(function()
 	for index, name in { "Home", "Furnish", "Activities", "People", "Settings" } do
 		table.insert(
 			buttons,
-			UI.Button("Go" .. name) {
+			UI.Button {
+				Name = "Go" .. name,
 				label = if name == "Activities" then "Play" elseif name == "Furnish" then "Build" else name,
 				appearance = function(use: Use)
 					return if use(route) == name then "soft" else "utility"
@@ -333,7 +334,8 @@ local stop = runtime.mount(function()
 		end)
 	end
 	local dock = homeDock(runtime, UDim2, {
-		UI.Button "HomeToggle" {
+		UI.Button {
+			Name = "HomeToggle",
 			label = function(use: Use)
 				return if use(panelOpen) then "Explore" else "Open Home"
 			end,
@@ -347,7 +349,8 @@ local stop = runtime.mount(function()
 				end
 			end,
 		},
-		UI.Text "Status" {
+		UI.Text {
+			Name = "Status",
 			text = function(use: Use)
 				return use(status)
 			end,

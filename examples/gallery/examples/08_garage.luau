@@ -147,7 +147,8 @@ return {
 			end)
 		end
 		local function saved()
-			return UI.VStack "SavedRides" {
+			return UI.VStack {
+				Name = "SavedRides",
 				width = "fill" :: "fill",
 				gap = "m",
 				C.show(function(use: any)
@@ -189,28 +190,39 @@ return {
 					return D2.new(1, 0, 0, if use(wide) then 410 else 250)
 				end,
 			})
-			return UI.ScrollView "Garage" {
+			return UI.ScrollView {
+				Name = "Garage",
 				padding = "l",
 				gap = "l",
 				ref = view.observeWidth(width),
 				view.text("GarageTitle", "Build your weekend ride", "title") :: unknown,
-				UI.AdaptiveStack "Configurator" {
+				UI.AdaptiveStack {
+					Name = "Configurator",
 					width = "fill" :: "fill",
 					gap = "l",
 					axis = function(use: any)
 						return if use(wide) then "x" else "y"
 					end,
-					UI.VStack "Showroom" {
+					UI.VStack {
+						Name = "Showroom",
 						Size = function(use: any)
 							return D2.new(1, if use(wide) then -354 else 0, 0, 0)
 						end,
 						AutomaticSize = E.AutomaticSize.Y,
 						gap = "m",
 						stage :: unknown,
-						UI.Slider "Turntable" { label = "Rotate car", value = angle, min = -180, max = 180, step = 1 },
-						UI.Picker "VehicleLineup" { label = "Vehicle", selected = vehicle, options = rides },
+						UI.Slider {
+							Name = "Turntable",
+							label = "Rotate car",
+							value = angle,
+							min = -180,
+							max = 180,
+							step = 1,
+						},
+						UI.Picker { Name = "VehicleLineup", label = "Vehicle", selected = vehicle, options = rides },
 					} :: unknown,
-					UI.VStack "Inspector" {
+					UI.VStack {
+						Name = "Inspector",
 						Size = function(use: any)
 							return if use(wide) then D2.fromOffset(330, 0) else D2.new(1, 0, 0, 0)
 						end,
@@ -219,16 +231,17 @@ return {
 						view.text("ModelName", function(use: any)
 							return use(spec).label
 						end, "title") :: unknown,
-						UI.ColorPicker "Paint" { label = "Paint", value = paint },
-						UI.Picker "Wheels" { label = "Wheels", selected = wheel, options = wheels },
-						UI.Toggle "StripeToggle" { label = "Racing stripe", value = stripe },
+						UI.ColorPicker { Name = "Paint", label = "Paint", value = paint },
+						UI.Picker { Name = "Wheels", label = "Wheels", selected = wheel, options = wheels },
+						UI.Toggle { Name = "StripeToggle", label = "Racing stripe", value = stripe },
 						UI.Divider {},
-						UI.Popover "SaveRide" {
+						UI.Popover {
+							Name = "SaveRide",
 							isPresented = presented,
 							onPresentedChange = function(value)
 								presented:set(value)
 							end,
-							trigger = UI.Button "SavePreset" { label = "Save this car" },
+							trigger = UI.Button { Name = "SavePreset", label = "Save this car" },
 							compact = "popover",
 							maxWidth = 320,
 							content = function(): Instance
@@ -236,14 +249,15 @@ return {
 									width = "fill" :: "fill",
 									gap = "m",
 									view.text("SaveTitle", "Name this car", "heading") :: unknown,
-									UI.TextInput "PresetName" { label = "Name", value = name },
+									UI.TextInput { Name = "PresetName", label = "Name", value = name },
 									view.button("ConfirmSave", "Save car", save, function(use: any)
 										return string.find(use(name), "%S") ~= nil
 									end),
 								}
 							end,
 						},
-						UI.DisclosureGroup "SavedCars" {
+						UI.DisclosureGroup {
+							Name = "SavedCars",
 							label = function(use: any)
 								return `Saved cars · {#use(presets)}`
 							end,

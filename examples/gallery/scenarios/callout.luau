@@ -145,7 +145,8 @@ return {
 				seen:set(true)
 				saved:set(`seen = true (because the framework reported "{reason}")`)
 			end)
-			local anchor = UI.Button "Plus" {
+			local anchor = UI.Button {
+				Name = "Plus",
 				label = COPY.plus,
 				name = COPY.plusName,
 				help = COPY.helpPlus,
@@ -195,7 +196,8 @@ return {
 
 		local function shareTip()
 			local events = callbacks(second, function() end)
-			local anchor = UI.Button "Share" {
+			local anchor = UI.Button {
+				Name = "Share",
 				label = COPY.share,
 				help = COPY.helpShare,
 				onActivate = function() end,
@@ -315,7 +317,8 @@ return {
 					shareTip() :: unknown,
 					avatarTip(),
 				},
-				UI.ScrollView "Page" {
+				UI.ScrollView {
+					Name = "Page",
 					padding = 16,
 					gap = 8,
 					LayoutOrder = 2,

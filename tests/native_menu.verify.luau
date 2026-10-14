@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -54,7 +55,7 @@ return function(verifyHarness: Verify.Harness)
 			fields.label = "Options"
 		end
 		return worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(fields) })
+			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu(named("M", fields)) })
 		end, options or { motionLevel = "none" })
 	end
 
@@ -258,7 +259,7 @@ return function(verifyHarness: Verify.Harness)
 				local authored: any, returned
 				local ran: { string } = {}
 				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					authored = UI.Button "Opener" { label = "More" }
+					authored = UI.Button { Name = "Opener", label = "More" }
 					returned = UI.Menu({
 						trigger = authored,
 						LayoutOrder = 3,
@@ -278,7 +279,11 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 				local named = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Menu "Actions" { trigger = UI.Button "Opener" { label = "More" }, items = items(1) },
+						UI.Menu {
+							Name = "Actions",
+							trigger = UI.Button { Name = "Opener", label = "More" },
+							items = items(1),
+						},
 					})
 				end, { motionLevel = "none" })
 				Verify.expect(named.find("Actions").ClassName):toBe("TextButton")
@@ -295,7 +300,7 @@ return function(verifyHarness: Verify.Harness)
 						Name = "S",
 						Size = UDim2.fromOffset(800, 600),
 						UI.Menu {
-							trigger = UI.Button "Opener" { label = "More" },
+							trigger = UI.Button { Name = "Opener", label = "More" },
 							items = {
 								{ id = "plain", label = "Plain", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
 								{
@@ -328,7 +333,7 @@ return function(verifyHarness: Verify.Harness)
 							Name = "S",
 							Size = UDim2.fromOffset(800, 600),
 							UI.Menu {
-								trigger = UI.Button "Opener" { label = "More" },
+								trigger = UI.Button { Name = "Opener", label = "More" },
 								presentation = case[1] :: "sheet" | "menu",
 								items = {
 									{ id = "one", label = "One", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,

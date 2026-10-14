@@ -54,7 +54,8 @@ return {
 			for _, consumer in rules.CONSUMERS do
 				table.insert(
 					children,
-					UI.Stepper(consumer.id .. "Power")({
+					UI.Stepper({
+						Name = consumer.id .. "Power",
 						label = `{consumer.label} · needs {consumer.needs}`,
 						value = draft[consumer.id],
 						min = 0,
@@ -79,7 +80,8 @@ return {
 				})
 			)
 			table.insert(children, view.text("OutpostNotice", notice))
-			return UI.VStack "PowerControls" {
+			return UI.VStack {
+				Name = "PowerControls",
 				width = "fill" :: "fill",
 				gap = "m",
 				table.unpack((children :: unknown) :: { unknown }),
@@ -224,26 +226,35 @@ return {
 					AlwaysOnTop = false,
 					style :: unknown,
 					if style then Host.StyleLink { StyleSheet = C.static(style) } else nil :: unknown,
-					UI.Screen "TerminalScreen" {
+					UI.Screen {
+						Name = "TerminalScreen",
 						gap = "m",
 						view.text("TerminalTitle", "OUTPOST 07 / POWER", "title") :: unknown,
-						UI.ScrollView "TerminalControls" { width = "fill" :: "fill", UI.fill() :: unknown, panel() },
+						UI.ScrollView {
+							Name = "TerminalControls",
+							width = "fill" :: "fill",
+							UI.fill() :: unknown,
+							panel(),
+						},
 					},
 				}
 			end, ctx.inputTarget)
 			C.cleanup(stopSurface)
-			return UI.VStack "WorldView" {
+			return UI.VStack {
+				Name = "WorldView",
 				width = "fill" :: "fill",
 				height = "fill" :: "fill",
 				padding = "m",
 				gap = "s",
-				UI.VStack "WorldCommands" {
+				UI.VStack {
+					Name = "WorldCommands",
 					width = "fill" :: "fill",
 					view.actions({
 						view.button("LeaveWorld", "Back to overview", function()
 							worldMode:set(false)
 						end),
-						UI.CollapsibleView "WorldPowerControls" {
+						UI.CollapsibleView {
+							Name = "WorldPowerControls",
 							label = "Power controls",
 							expanded = controlsOpen,
 							content = panel,
@@ -262,7 +273,8 @@ return {
 					view.stage("OutpostPreview", function()
 						return model(0)
 					end, CF.lookAt(V3.new(16, 12, -20), V3.new(0, 2, 2))),
-					UI.ProgressView "SystemsOnline" {
+					UI.ProgressView {
+						Name = "SystemsOnline",
 						label = "Systems online",
 						value = function(use: any)
 							return rules.runningCount(use(confirmed))
@@ -275,7 +287,8 @@ return {
 						view.button("EnterWorld", "Use the world terminal", function()
 							worldMode:set(true)
 						end),
-						UI.RadialMenu "PowerShortcuts" {
+						UI.RadialMenu {
+							Name = "PowerShortcuts",
 							label = "Quick actions",
 							contentFit = "radial" :: "radial",
 							ringWidth = "wide" :: "wide",

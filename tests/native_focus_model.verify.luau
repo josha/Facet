@@ -81,9 +81,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_focus_model::Tab traversal priority and the keyboard opt-in::only the runtime that owns selection handles a shared native Tab binding",
 			run = function()
 				local w = setup(function(UI: FacetControls)
-					return UI.Screen "First" {
-						UI.Button "OldA" { label = "Old A" } :: unknown,
-						UI.Button "OldB" { label = "Old B" },
+					return UI.Screen {
+						Name = "First",
+						UI.Button { Name = "OldA", label = "Old A" } :: unknown,
+						UI.Button { Name = "OldB", label = "Old B" },
 					}
 				end)
 				local first = w.find("FacetTraversal", w.parent)
@@ -97,9 +98,9 @@ return function(verifyHarness: Verify.Harness)
 				local Host = runtime.constructors
 				local stop, screen: any = runtime.mount(function()
 					return Host.ScreenGui {
-						UI.Button "A" { label = "A" } :: unknown,
-						UI.Button "B" { label = "B" },
-						UI.Button "C" { label = "C" },
+						UI.Button { Name = "A", label = "A" } :: unknown,
+						UI.Button { Name = "B", label = "B" },
+						UI.Button { Name = "C", label = "C" },
 					}
 				end, w.parent)
 				local contexts = {}
@@ -141,7 +142,7 @@ return function(verifyHarness: Verify.Harness)
 					UI.responder(panel, { passive = false })
 					return Host.Frame {
 						panel :: unknown,
-						UI.Button "Outside" { label = "Outside" },
+						UI.Button { Name = "Outside", label = "Outside" },
 					}
 				end)
 				w.gui.SelectedObject = w.find("NativeA")
@@ -156,11 +157,12 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_focus_model::Tab traversal priority and the keyboard opt-in::walks Tab by SelectionOrder tier, then document order within a tier",
 			run = function()
 				local w = setup(function(UI: FacetControls)
-					return UI.Screen "Page" {
-						UI.Button "A" { label = "A" } :: unknown,
-						UI.Button "Late" { label = "Late", SelectionOrder = 5 },
-						UI.Button "B" { label = "B" },
-						UI.Button "First" { label = "First", SelectionOrder = -1 },
+					return UI.Screen {
+						Name = "Page",
+						UI.Button { Name = "A", label = "A" } :: unknown,
+						UI.Button { Name = "Late", label = "Late", SelectionOrder = 5 },
+						UI.Button { Name = "B", label = "B" },
+						UI.Button { Name = "First", label = "First", SelectionOrder = -1 },
 					}
 				end)
 				local names = {}
@@ -178,7 +180,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_focus_model::Tab traversal priority and the keyboard opt-in::binds Tab only while a keyboard is live and keyboardNavigation is not false",
 			run = function()
 				local w = setup(function(UI: FacetControls)
-					return UI.Button "A" { label = "A" }
+					return UI.Button { Name = "A", label = "A" }
 				end)
 				local context = w.find("FacetTraversal", w.parent)
 				Verify.expect(context.Enabled):toBe(true)
@@ -188,7 +190,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(context.Enabled):toBe(true)
 				w.stop()
 				local off = setup(function(UI: FacetControls)
-					return UI.Button "A" { label = "A" }
+					return UI.Button { Name = "A", label = "A" }
 				end, { keyboardNavigation = false })
 				Verify.expect(off.find("FacetTraversal", off.parent).Enabled):toBe(false)
 				off.stop()
@@ -201,7 +203,11 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_focus_model::stick entry::a left-stick push enters the selection like a D-pad press; a drift does not",
 			run = function()
 				local w = setup(function(UI: FacetControls)
-					return UI.Screen "Page" { UI.Button "A" { label = "A" } :: unknown, UI.Button "B" { label = "B" } }
+					return UI.Screen {
+						Name = "Page",
+						UI.Button { Name = "A", label = "A" } :: unknown,
+						UI.Button { Name = "B", label = "B" },
+					}
 				end)
 				local V2 = w.engine.types.Vector2
 				local context = w.find("FacetEntry", w.parent)
@@ -223,9 +229,10 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_focus_model::leaving the gamepad::drops a pad selection when the preferred input leaves the gamepad, so the engine cannot eat typed WASD",
 				run = function()
 					local w = setup(function(UI: FacetControls)
-						return UI.Screen "Page" {
-							UI.Button "Q" { label = "Q" } :: unknown,
-							UI.Button "W" { label = "W" },
+						return UI.Screen {
+							Name = "Page",
+							UI.Button { Name = "Q", label = "Q" } :: unknown,
+							UI.Button { Name = "W", label = "W" },
 						}
 					end)
 					local E = w.engine.types.Enum
@@ -255,7 +262,11 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_focus_model::leaving the gamepad::keeps a first Tab that lands before the preferred input leaves the gamepad",
 			run = function()
 				local w = setup(function(UI: FacetControls)
-					return UI.Screen "Page" { UI.Button "Q" { label = "Q" } :: unknown, UI.Button "W" { label = "W" } }
+					return UI.Screen {
+						Name = "Page",
+						UI.Button { Name = "Q", label = "Q" } :: unknown,
+						UI.Button { Name = "W", label = "W" },
+					}
 				end)
 				local E = w.engine.types.Enum
 				w.input.GetLastInputType = function()
@@ -279,7 +290,7 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame {
 						Name = "Legacy",
 						own :: unknown,
-						UI.Screen "Page" { UI.Button "Q" { label = "Q" } },
+						UI.Screen { Name = "Page", UI.Button { Name = "Q", label = "Q" } },
 					}
 				end)
 				local E = w.engine.types.Enum
@@ -299,14 +310,15 @@ return function(verifyHarness: Verify.Harness)
 		local function sections(options: { [string]: any }?)
 			local shelf: any
 			local w = setup(function(UI: FacetControls, Host: RobloxHost)
-				shelf = UI.HStack "Shelf" {
-					UI.Button "One" { label = "One" } :: unknown,
-					UI.Button "Two" { label = "Two" },
-					UI.Button "Three" { label = "Three" },
+				shelf = UI.HStack {
+					Name = "Shelf",
+					UI.Button { Name = "One", label = "One" } :: unknown,
+					UI.Button { Name = "Two", label = "Two" },
+					UI.Button { Name = "Three", label = "Three" },
 				}
 				UI.focusSection(shelf, options)
 				return Host.Frame "Page" {
-					UI.Button "Outside" { label = "Outside" } :: unknown,
+					UI.Button { Name = "Outside", label = "Outside" } :: unknown,
 					shelf,
 				}
 			end)
@@ -355,11 +367,12 @@ return function(verifyHarness: Verify.Harness)
 				local open = Compose.cell(false)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame "Page" {
-						UI.Button "Row" { label = "Row" } :: unknown,
+						UI.Button { Name = "Row", label = "Row" } :: unknown,
 						Compose.show(open, function()
-							local detail = UI.VStack "Detail" {
-								UI.Button "Title" { label = "Title" } :: unknown,
-								UI.Button "Back" { label = "Back" },
+							local detail = UI.VStack {
+								Name = "Detail",
+								UI.Button { Name = "Title", label = "Title" } :: unknown,
+								UI.Button { Name = "Back", label = "Back" },
 							}
 							UI.focusSection(detail, { focusOnAppear = "Back", returnFocus = true })
 							return detail
@@ -380,9 +393,9 @@ return function(verifyHarness: Verify.Harness)
 				local open = Compose.cell(false)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame "Page" {
-						UI.Button "Row" { label = "Row" } :: unknown,
+						UI.Button { Name = "Row", label = "Row" } :: unknown,
 						Compose.show(open, function()
-							local detail = UI.VStack "Detail" { UI.Button "Back" { label = "Back" } }
+							local detail = UI.VStack { Name = "Detail", UI.Button { Name = "Back", label = "Back" } }
 							UI.focusSection(detail, { focusOnAppear = true, returnFocus = true })
 							return detail
 						end),
@@ -401,9 +414,9 @@ return function(verifyHarness: Verify.Harness)
 				local open = Compose.cell(false)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame "Page" {
-						UI.Button "Row" { label = "Row" } :: unknown,
+						UI.Button { Name = "Row", label = "Row" } :: unknown,
 						Compose.show(open, function()
-							local detail = UI.VStack "Detail" { UI.Button "Back" { label = "Back" } }
+							local detail = UI.VStack { Name = "Detail", UI.Button { Name = "Back", label = "Back" } }
 							UI.focusSection(detail)
 							return detail
 						end),
@@ -422,20 +435,23 @@ return function(verifyHarness: Verify.Harness)
 			local responder: any
 			local presses: { [string]: number } = {}
 			local w = setup(function(UI: FacetControls)
-				local hud = UI.Screen "Hud" {
-					UI.Button "One" {
+				local hud = UI.Screen {
+					Name = "Hud",
+					UI.Button {
+						Name = "One",
 						label = "One",
 						onActivate = function()
 							presses.one = (presses.one or 0) + 1
 						end,
 					} :: unknown,
-					UI.Button "Two" {
+					UI.Button {
+						Name = "Two",
 						label = "Two",
 						onActivate = function()
 							presses.two = (presses.two or 0) + 1
 						end,
 					},
-					UI.Button "Three" { label = "Three" },
+					UI.Button { Name = "Three", label = "Three" },
 				}
 				responder = UI.responder(hud, options)
 				return hud
@@ -546,9 +562,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_focus_model::traversalWrap (DK-3)::traversalWrap = false stops Tab at the last control and Shift+Tab at the first",
 			run = function()
 				local w = setup(function(UI: FacetControls)
-					local page = UI.Screen "Page" {
-						UI.Button "A" { label = "A" } :: unknown,
-						UI.Button "B" { label = "B" },
+					local page = UI.Screen {
+						Name = "Page",
+						UI.Button { Name = "A", label = "A" } :: unknown,
+						UI.Button { Name = "B", label = "B" },
 					}
 					UI.responder(page, { passive = false, traversalWrap = false })
 					return page
@@ -575,7 +592,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_focus_model::keyboardNavigation = false::binds no Tab and no Space; Return still activates",
 			run = function()
 				local w = setup(function(UI: FacetControls)
-					return UI.Screen "Page" { UI.Button "A" { label = "A" } }
+					return UI.Screen { Name = "Page", UI.Button { Name = "A", label = "A" } }
 				end, { keyboardNavigation = false })
 				w.gui.SelectedObject = w.find("A")
 				Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(false)
@@ -588,7 +605,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for _, options in { {}, { keyboardNavigation = true } } do
 					local w = setup(function(UI: FacetControls)
-						return UI.Screen "Page" { UI.Button "A" { label = "A" } }
+						return UI.Screen { Name = "Page", UI.Button { Name = "A", label = "A" } }
 					end, options)
 					Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
 					w.gui.SelectedObject = w.find("A")

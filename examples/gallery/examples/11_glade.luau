@@ -102,11 +102,17 @@ return {
 			return Host.Frame "GladeScene" {
 				Size = D2.new(1, 0, 0, 300),
 				BackgroundTransparency = 1,
-				UI.Image "GardenPainting" { image = art.garden, scaleMode = "fit" :: "fit", Size = D2.fromScale(1, 1) } :: unknown,
+				UI.Image {
+					Name = "GardenPainting",
+					image = art.garden,
+					scaleMode = "fit" :: "fit",
+					Size = D2.fromScale(1, 1),
+				} :: unknown,
 				C.show(function(use: any)
 					return use(creature) ~= nil
 				end, function()
-					return UI.Image "VisitorSprite" {
+					return UI.Image {
+						Name = "VisitorSprite",
 						image = art.wisps,
 						scaleMode = "fit" :: "fit",
 						Size = D2.fromScale(0.23, 0.35),
@@ -124,7 +130,8 @@ return {
 			local island = scene(visitor)
 			ctx.runtime.decorate(island, { Size = D2.fromScale(1, 1) })
 			local function hotspot(name: string, label, x, y, action, enabled)
-				return UI.Button(name) {
+				return UI.Button {
+					Name = name,
 					label = label,
 					onActivate = action,
 					enabled = enabled,
@@ -132,10 +139,12 @@ return {
 					AnchorPoint = V2.new(0.5, 0.5),
 				}
 			end
-			return UI.ScrollView "Glade" {
+			return UI.ScrollView {
+				Name = "Glade",
 				padding = "l",
 				align = "center" :: "center",
-				UI.VStack "GardenContent" {
+				UI.VStack {
+					Name = "GardenContent",
 					width = "fill" :: "fill",
 					gap = "m",
 					Host.UISizeConstraint { MaxSize = V2.new(960, 100000) } :: unknown,
@@ -169,7 +178,7 @@ return {
 						),
 					},
 					view.text("GladeNotice", notice, "heading"),
-					UI.ProgressView "DewLevel" { label = "Pond water", value = water },
+					UI.ProgressView { Name = "DewLevel", label = "Pond water", value = water },
 					view.actions({
 						view.button("OpenFieldGuide", function(use: any)
 							local count = 0
@@ -184,7 +193,8 @@ return {
 							journalOpen:set(true)
 						end),
 					}),
-					UI.Sheet "Feeder" {
+					UI.Sheet {
+						Name = "Feeder",
 						title = "What will you leave out?",
 						isPresented = feederOpen,
 						closeButton = true,
@@ -219,7 +229,7 @@ return {
 			}
 		end
 		local function collection()
-			local children = { UI.Toggle "FavoritesOnly" { label = "Favorites only", value = favoriteOnly } }
+			local children = { UI.Toggle { Name = "FavoritesOnly", label = "Favorites only", value = favoriteOnly } }
 			for _, creature in creatures do
 				table.insert(
 					children,
@@ -242,7 +252,8 @@ return {
 								end, function(use: any)
 									return use(seen)[creature.id] == true
 								end),
-								UI.Toggle("Favorite_" .. creature.id)({
+								UI.Toggle({
+									Name = "Favorite_" .. creature.id,
 									label = "Favorite",
 									value = function(use: any)
 										return use(favorites)[creature.id] == true
@@ -289,7 +300,8 @@ return {
 			})
 		end
 		local function visitorSheet()
-			return UI.Sheet "VisitorDetails" {
+			return UI.Sheet {
+				Name = "VisitorDetails",
 				title = "Field notes",
 				isPresented = presented,
 				detent = C.cell("large"),
@@ -316,14 +328,16 @@ return {
 					BackgroundTransparency = 1,
 					garden() :: unknown,
 					visitorSheet(),
-					UI.Sheet "FieldGuide" {
+					UI.Sheet {
+						Name = "FieldGuide",
 						title = "Field guide",
 						isPresented = guideOpen,
 						closeButton = true,
 						detent = C.cell("large"),
 						content = collection,
 					},
-					UI.Sheet "VisitJournal" {
+					UI.Sheet {
+						Name = "VisitJournal",
 						title = "Recent visits",
 						isPresented = journalOpen,
 						closeButton = true,

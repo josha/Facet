@@ -10,6 +10,7 @@ local time = require("@std/time")
 local Analyzer = require("../lib/analyzer")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
+local ControlProps = require("../lib/control_props")
 local Files = require("../lib/files")
 local Generator = require("../lib/engine_generator")
 local Hash = require("../lib/hash")
@@ -20,6 +21,7 @@ local USAGE = [[usage: lute run tools/facet types [--solver old|new|both] [--fla
        lute run tools/facet types [--solver ...] --files FILE [FILE...]
        lute run tools/facet types selftest [--solver old|new|both]
        lute run tools/facet types engine [--check] [--definitions PATH] [--creator-docs PATH]
+       lute run tools/facet types props [--check]
        lute run tools/facet types --selftest
 
 The complete check type checks every tracked and untracked Luau file that Git does not
@@ -34,6 +36,8 @@ selftest runs the checker cases, then proves that the analyzer accepts a native 
 and a Lute standard library type and rejects an incompatible scalar in each context.
 engine checks or regenerates src/ui/engine_types.luau from the pinned declarations
 and tools/typecheck/engine_members.json; --creator-docs refreshes that metadata.
+props checks or regenerates the flat control property types in src/ui/*_props.luau
+from the option tables in src/ui/*_types.luau.
 --selftest runs only the checker cases.]]
 
 local ARTIFACTS = "artifacts/verify/types"
@@ -796,6 +800,23 @@ local function engine(invocation: Cli.Invocation): number
 	return 0
 end
 
+local function props(invocation: Cli.Invocation): number
+	local stale, texts = ControlProps.stale(ARTIFACTS)
+	if Cli.switch(invocation, "check") then
+		if #stale > 0 then
+			print(("control props differ; run lute run tools/facet types props: %s"):format(table.concat(stale, ", ")))
+			return 1
+		end
+		print(("%d generated props modules match their option types"):format(#ControlProps.FAMILIES))
+		return 0
+	end
+	for _, output in stale do
+		Files.write(output, texts[output])
+		print(("wrote %s"):format(output))
+	end
+	return 0
+end
+
 local function analyzerVersion()
 	local reported = Run.capture({ "luau-lsp", "--version" })
 	if not reported.ok then
@@ -919,6 +940,10 @@ local function full(options: Options): number
 				"Native engine type generation differs: engine_types.luau differs; run lute run tools/facet types engine"
 			)
 		end
+		local stale = ControlProps.stale(ARTIFACTS)
+		if #stale > 0 then
+			fail(("Control props differ: %s; run lute run tools/facet types props"):format(table.concat(stale, ", ")))
+		end
 	end
 	local targets = selectTargets(options)
 	compile(targets)
@@ -949,6 +974,9 @@ local function run(invocation: Cli.Invocation): number
 	local ok, code = pcall(function(): number
 		if subcommand == "engine" then
 			return engine(invocation)
+		end
+		if subcommand == "props" then
+			return props(invocation)
 		end
 		local offset = if subcommand == "selftest" then 2 else 1
 		local options, problem = parseOptions(invocation, offset)
@@ -1350,14 +1378,14 @@ cases = function(): { Case.Case }
 					Case.equal(count, #lines - 6, "count"),
 					Case.equal(
 						Analyzer.named('local wrong: number = UI.Button({ label = "Save" })'),
-						'local wrong: number = UI.Button("Typed")({ label = "Save" })',
+						'local wrong: number = UI.Button({ Name = "Typed", label = "Save" })',
 						"named"
 					),
 					Case.expect(
-						string.find(source, 'UI.ThisControlDoesNotExist("Typed")', 1, true) == nil,
+						string.find(source, 'UI.ThisControlDoesNotExist({ Name = "Typed"', 1, true) == nil,
 						"the unknown control gained a named form"
 					),
-					Case.expect(string.find(source, 'UI.Badge("Typed")', 1, true) ~= nil, "Badge has no named form")
+					Case.expect(string.find(source, 'UI.Badge({ Name = "Typed"', 1, true) ~= nil, "Badge has no named form")
 				)
 			end,
 		},

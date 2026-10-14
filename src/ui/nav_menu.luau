@@ -11,7 +11,11 @@ local reducedMotion = require("./motion").reduced
 local rest = require("./rest")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
-local Overlay = require("./overlay_types")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
+local MediaProps = require("./media_props")
+local NavigationProps = require("./navigation_props")
+local OverlayProps = require("./overlay_props")
 
 local RADIO_MARK = 18 + 8
 
@@ -20,15 +24,15 @@ type MenuEntry<V> = { key: string, heading: string?, item: Nav.MenuItem<V>?, rul
 return function(
 	ctx: Types.Context,
 	UI: {
-		Menu: Nav.MenuConstructor,
-		Picker: Nav.PickerConstructor,
-		SplitButton: Nav.SplitButtonConstructor,
-		ComboBox: Types.Constructor<Nav.ComboBoxSpec, Frame>,
-		Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
-		Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject>,
-		TextInput: Types.Constructor<Inputs.TextInputProps, TextBox | Frame>,
-		Badge: Types.Constructor<Media.BadgeProps, GuiObject>,
-		Avatar: Types.Constructor<Media.AvatarProps, TextButton>,
+		Menu: ControlTypes.MenuConstructor,
+		Picker: ControlTypes.PickerConstructor,
+		SplitButton: ControlTypes.SplitButtonConstructor,
+		ComboBox: Types.Constructor<NavigationProps.ComboBoxSpec, Frame>,
+		Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
+		Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject>,
+		TextInput: Types.Constructor<InputProps.TextInputProps, TextBox | Frame>,
+		Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
+		Avatar: Types.Constructor<MediaProps.AvatarProps, TextButton>,
 		badged: Content.Badged,
 	},
 	surfaces: Nav.Surfaces
@@ -422,7 +426,7 @@ return function(
 		return notes
 	end
 	local function menuPanel<V>(
-		spec: Nav.MenuSpec<V>,
+		spec: NavigationProps.MenuSpec<V>,
 		close: () -> (),
 		anchor: GuiObject,
 		nonmodal: boolean?,
@@ -588,7 +592,8 @@ return function(
 			Compose.show(function()
 				return spec.query ~= nil
 			end, function()
-				return UI.TextInput "Search" {
+				return UI.TextInput {
+					Name = "Search",
 					value = assert(spec.query),
 					placeholder = "Search",
 					LayoutOrder = -2,
@@ -861,7 +866,8 @@ return function(
 		}
 		if closeCommand ~= nil and closeCommand ~= false then
 			surfaces.attach(rows, {
-				UI.Button "CloseCommand" {
+				UI.Button {
+					Name = "CloseCommand",
 					Visible = function(use: ComposeTypes.Use)
 						return closeCommand == true or use(sheeted)
 					end,
@@ -1582,7 +1588,7 @@ return function(
 		return modal
 	end
 
-	local function buildMenu<V>(spec: Nav.MenuSpec<V>, wrap: boolean): GuiObject
+	local function buildMenu<V>(spec: NavigationProps.MenuSpec<V>, wrap: boolean): GuiObject
 		assert(
 			spec.closeButton == nil or type(spec.closeButton) == "boolean",
 			"Facet UI.Menu: closeButton must be a boolean"
@@ -1674,7 +1680,7 @@ return function(
 				end
 			end
 		elseif authored == nil then
-			local triggerProps: Inputs.ButtonProps = {
+			local triggerProps: InputProps.ButtonProps = {
 				Name = "Trigger",
 				label = spec.label or "Menu",
 				enabled = spec.enabled,
@@ -1704,16 +1710,13 @@ return function(
 				triggerProps.Attributes = attributes
 			end
 			if spec.disclosure then
-				table.insert(
-					triggerProps,
-					ctx.icon("chevron.up.chevron.down", {
-						Name = "Disclosure",
-						Size = D2.fromOffset(12, 12),
-						AnchorPoint = V2.new(1, 0.5),
-						Position = D2.new(1, 20, 0.5, 0),
-						BackgroundTransparency = 1,
-					}) :: Types.Child
-				)
+				triggerProps[#triggerProps + 1] = ctx.icon("chevron.up.chevron.down", {
+					Name = "Disclosure",
+					Size = D2.fromOffset(12, 12),
+					AnchorPoint = V2.new(1, 0.5),
+					Position = D2.new(1, 20, 0.5, 0),
+					BackgroundTransparency = 1,
+				}) :: Types.Child
 			end
 			local button = UI.Button(triggerProps)
 			if spec.disclosure then
@@ -1853,7 +1856,7 @@ return function(
 		})
 		return root
 	end
-	UI.Menu = ctx.construct("Menu", function<V>(spec: Nav.MenuSpec<V>): GuiObject
+	UI.Menu = ctx.construct("Menu", function<V>(spec: NavigationProps.MenuSpec<V>): GuiObject
 		return buildMenu(spec, false)
 	end)
 
@@ -2045,7 +2048,7 @@ return function(
 		return nil
 	end
 	local chrome = fieldChrome(ctx)
-	UI.Picker = ctx.construct("Picker", function<V>(spec: Nav.PickerSpec<V>): GuiObject
+	UI.Picker = ctx.construct("Picker", function<V>(spec: NavigationProps.PickerSpec<V>): GuiObject
 		writable(spec.selected, "Picker.selected")
 		assert(spec.onChange == nil or type(spec.onChange) == "function", "Picker.onChange must be a function")
 		assert(spec.onChanging == nil or type(spec.onChanging) == "function", "Picker.onChanging must be a function")
@@ -2254,115 +2257,112 @@ return function(
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 			})
-			table.insert(
-				props,
-				Compose.keyed({
-					from = function(use: ComposeTypes.Use)
-						return { use(resolved) }
-					end,
-					render = function(current: ComposeTypes.Readable<Nav.PickerStyle>)
-						local presentation: Nav.PickerStyle = current:peek()
-						local automatic = props.AutomaticSize
-						local size = derive(function(use: ComposeTypes.Use?)
-							local sizing = read(automatic, use)
-							return D2.fromScale(
-								if sizing == E.AutomaticSize.X or sizing == E.AutomaticSize.XY then 0 else 1,
-								if sizing == E.AutomaticSize.Y or sizing == E.AutomaticSize.XY then 0 else 1
-							)
-						end, automatic)
-						if spec.multiple then
-							local child: Nav.MultiplePickerSpec<V> = {
-								options = spec.options,
-								query = spec.query,
-								placeholder = spec.placeholder,
-								label = spec.label,
-								required = spec.required,
-								enabled = spec.enabled,
-								indicator = spec.indicator,
-								axis = spec.axis,
-								sizing = spec.sizing,
-								iconOnly = spec.iconOnly,
-								textSize = spec.textSize,
-								Name = "Presentation",
-								style = presentation,
-								isPresented = opened,
-								AutomaticSize = automatic,
-								Size = size,
-								controlSize = spec.controlSize,
-								corners = if presentation == "menu"
+			props[#props + 1] = Compose.keyed({
+				from = function(use: ComposeTypes.Use)
+					return { use(resolved) }
+				end,
+				render = function(current: ComposeTypes.Readable<Nav.PickerStyle>)
+					local presentation: Nav.PickerStyle = current:peek()
+					local automatic = props.AutomaticSize
+					local size = derive(function(use: ComposeTypes.Use?)
+						local sizing = read(automatic, use)
+						return D2.fromScale(
+							if sizing == E.AutomaticSize.X or sizing == E.AutomaticSize.XY then 0 else 1,
+							if sizing == E.AutomaticSize.Y or sizing == E.AutomaticSize.XY then 0 else 1
+						)
+					end, automatic)
+					if spec.multiple then
+						local child: NavigationProps.MultiplePickerSpec<V> = {
+							options = spec.options,
+							query = spec.query,
+							placeholder = spec.placeholder,
+							label = spec.label,
+							required = spec.required,
+							enabled = spec.enabled,
+							indicator = spec.indicator,
+							axis = spec.axis,
+							sizing = spec.sizing,
+							iconOnly = spec.iconOnly,
+							textSize = spec.textSize,
+							Name = "Presentation",
+							style = presentation,
+							isPresented = opened,
+							AutomaticSize = automatic,
+							Size = size,
+							controlSize = spec.controlSize,
+							corners = if presentation == "menu"
+									or presentation == "segmented"
+									or presentation == "navigationLink"
+								then spec.corners
+								else nil,
+							maxHeight = if presentation == "menu" or presentation == "navigationLink"
+								then spec.maxHeight
+								else nil,
+							appearance = if spec.appearance ~= nil
+									and (
+										presentation == "menu"
 										or presentation == "segmented"
 										or presentation == "navigationLink"
-									then spec.corners
-									else nil,
-								maxHeight = if presentation == "menu" or presentation == "navigationLink"
-									then spec.maxHeight
-									else nil,
-								appearance = if spec.appearance ~= nil
-										and (
-											presentation == "menu"
-											or presentation == "segmented"
-											or presentation == "navigationLink"
-										)
-									then function(use: ComposeTypes.Use): string
-										return translate(read(spec.appearance, use), presentation) or "utility"
-									end
-									else nil,
-								valueAlignment = spec.valueAlignment,
-								multiple = true :: true,
-								selected = spec.selected,
-								onChanging = spec.onChanging,
-								onChange = spec.onChange,
-							}
-							return UI.Picker(child)
-						else
-							local child: Nav.SinglePickerSpec<V> = {
-								options = spec.options,
-								query = spec.query,
-								placeholder = spec.placeholder,
-								label = spec.label,
-								required = spec.required,
-								enabled = spec.enabled,
-								indicator = spec.indicator,
-								axis = spec.axis,
-								sizing = spec.sizing,
-								iconOnly = spec.iconOnly,
-								textSize = spec.textSize,
-								Name = "Presentation",
-								style = presentation,
-								isPresented = opened,
-								AutomaticSize = automatic,
-								Size = size,
-								controlSize = spec.controlSize,
-								corners = if presentation == "menu"
+									)
+								then function(use: ComposeTypes.Use): string
+									return translate(read(spec.appearance, use), presentation) or "utility"
+								end
+								else nil,
+							valueAlignment = spec.valueAlignment,
+							multiple = true :: true,
+							selected = spec.selected,
+							onChanging = spec.onChanging,
+							onChange = spec.onChange,
+						}
+						return UI.Picker(child)
+					else
+						local child: NavigationProps.SinglePickerSpec<V> = {
+							options = spec.options,
+							query = spec.query,
+							placeholder = spec.placeholder,
+							label = spec.label,
+							required = spec.required,
+							enabled = spec.enabled,
+							indicator = spec.indicator,
+							axis = spec.axis,
+							sizing = spec.sizing,
+							iconOnly = spec.iconOnly,
+							textSize = spec.textSize,
+							Name = "Presentation",
+							style = presentation,
+							isPresented = opened,
+							AutomaticSize = automatic,
+							Size = size,
+							controlSize = spec.controlSize,
+							corners = if presentation == "menu"
+									or presentation == "segmented"
+									or presentation == "navigationLink"
+								then spec.corners
+								else nil,
+							maxHeight = if presentation == "menu" or presentation == "navigationLink"
+								then spec.maxHeight
+								else nil,
+							appearance = if spec.appearance ~= nil
+									and (
+										presentation == "menu"
 										or presentation == "segmented"
 										or presentation == "navigationLink"
-									then spec.corners
-									else nil,
-								maxHeight = if presentation == "menu" or presentation == "navigationLink"
-									then spec.maxHeight
-									else nil,
-								appearance = if spec.appearance ~= nil
-										and (
-											presentation == "menu"
-											or presentation == "segmented"
-											or presentation == "navigationLink"
-										)
-									then function(use: ComposeTypes.Use): string
-										return translate(read(spec.appearance, use), presentation) or "utility"
-									end
-									else nil,
-								valueAlignment = spec.valueAlignment,
-								multiple = false :: false,
-								selected = spec.selected,
-								onChanging = spec.onChanging,
-								onChange = spec.onChange,
-							}
-							return UI.Picker(child)
-						end
-					end,
-				})
-			)
-			table.insert(props, measure)
+									)
+								then function(use: ComposeTypes.Use): string
+									return translate(read(spec.appearance, use), presentation) or "utility"
+								end
+								else nil,
+							valueAlignment = spec.valueAlignment,
+							multiple = false :: false,
+							selected = spec.selected,
+							onChanging = spec.onChanging,
+							onChange = spec.onChange,
+						}
+						return UI.Picker(child)
+					end
+				end,
+			})
+			props[#props + 1] = measure
 			local container = Host.Frame(props)
 			local measured = ctx.observe.AbsoluteSize(container)
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -2425,7 +2425,7 @@ return function(
 		end)
 		if style == "menu" then
 			local native: Types.FrameNativeProps = ctx.props(spec, pickerKeys)
-			local menuSpec: Nav.MenuSpec<V> = { items = {} }
+			local menuSpec: NavigationProps.MenuSpec<V> = { items = {} }
 			for key, value in pairs(native) do
 				menuSpec[key] = value
 			end
@@ -2444,7 +2444,7 @@ return function(
 					then table.concat(labels, ", ")
 					else read(spec.placeholder, use) or (if spec.label == nil then "Choose" else "Choose")
 			end
-			local triggerProps: Inputs.ButtonProps = {
+			local triggerProps: InputProps.ButtonProps = {
 				Name = "Trigger",
 				label = valueText,
 				enabled = spec.enabled,
@@ -2581,7 +2581,7 @@ return function(
 				return read(spec.placeholder, use) or "Choose"
 			end
 			local native: Types.FrameNativeProps = ctx.props(spec, pickerKeys)
-			local triggerProps = (native :: unknown) :: Inputs.ButtonProps
+			local triggerProps = (native :: unknown) :: InputProps.ButtonProps
 			triggerProps.Name = spec.Name or "Picker"
 			triggerProps.enabled = spec.enabled
 			triggerProps.label = spec.label or chosenText
@@ -2637,9 +2637,9 @@ return function(
 				maxHeight = spec.maxHeight or 400,
 				title = spec.label,
 				content = function(): Instance
-					local choices: Nav.PickerSpec<V>
+					local choices: NavigationProps.PickerSpec<V>
 					if spec.multiple then
-						local source: Nav.MultiplePickerSpec<V> = spec
+						local source: NavigationProps.MultiplePickerSpec<V> = spec
 						local child = table.clone(source)
 						child.Name, child.style, child.isPresented = "Choices", "inline", nil
 						child.Size = D2.new(1, 0, 0, 0)
@@ -2652,7 +2652,7 @@ return function(
 						end
 						choices = child
 					else
-						local source: Nav.SinglePickerSpec<V> = spec
+						local source: NavigationProps.SinglePickerSpec<V> = spec
 						local child = table.clone(source)
 						child.Name, child.style, child.isPresented = "Choices", "inline", nil
 						child.Size = D2.new(1, 0, 0, 0)
@@ -2683,7 +2683,7 @@ return function(
 				if read(spec.enabled) == false or spec.multiple then
 					return
 				end
-				local single = (spec :: unknown) :: Nav.SinglePickerSpec<V>
+				local single = (spec :: unknown) :: NavigationProps.SinglePickerSpec<V>
 				local previous = single.selected:peek()
 				if single.onChanging and single.onChanging((nil :: unknown) :: V, previous) == false then
 					return
@@ -2891,7 +2891,7 @@ return function(
 			}),
 		}
 		if spec.query then
-			table.insert(children, UI.TextInput "Search" { value = spec.query, placeholder = "Search" })
+			table.insert(children, UI.TextInput { Name = "Search", value = spec.query, placeholder = "Search" })
 		end
 		table.insert(
 			children,
@@ -3096,7 +3096,7 @@ return function(
 						or type(spec.options) == "function"
 					then
 						local statusUI = (UI :: unknown) :: {
-							StatusIndicator: Types.Constructor<Media.StatusIndicatorProps, TextLabel>,
+							StatusIndicator: Types.Constructor<MediaProps.StatusIndicatorProps, TextLabel>,
 						}
 						surfaces.attach(button, {
 							Compose.show(function(use: ComposeTypes.Use)
@@ -3522,7 +3522,7 @@ return function(
 		return row
 	end)
 
-	UI.SplitButton = ctx.construct("SplitButton", function<V>(spec: Nav.SplitButtonSpec<V>): Frame
+	UI.SplitButton = ctx.construct("SplitButton", function<V>(spec: NavigationProps.SplitButtonSpec<V>): Frame
 		local input = surfaces.service("UserInputService")
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
@@ -3535,7 +3535,8 @@ return function(
 			return read(spec.enabled, use) ~= false and read(spec.busy, use) ~= true
 		end
 		local function primary()
-			return UI.Button "Primary" {
+			return UI.Button {
+				Name = "Primary",
 				appearance = "utility",
 				label = spec.label,
 				onActivate = spec.onActivate,
@@ -3552,7 +3553,8 @@ return function(
 				AutomaticSize = E.AutomaticSize.XY,
 				Compose.show(touch, function()
 					local suppressEcho = false
-					local trigger = UI.Button "Primary" {
+					local trigger = UI.Button {
+						Name = "Primary",
 						Size = if spec.Size then D2.fromScale(1, 1) else nil,
 						AutomaticSize = if spec.Size then E.AutomaticSize.None else nil,
 						label = spec.label,
@@ -3600,9 +3602,11 @@ return function(
 							},
 							"divider"
 						),
-						UI.Menu "Alternatives" {
+						UI.Menu {
+							Name = "Alternatives",
 							trigger = function(): GuiObject
-								return UI.Button "Trigger" {
+								return UI.Button {
+									Name = "Trigger",
 									appearance = "utility",
 									icon = "chevron.down",
 									name = spec.menuLabel or "More options",
@@ -3631,7 +3635,7 @@ return function(
 		)
 	end)
 
-	UI.ComboBox = ctx.construct("ComboBox", function(spec: Nav.ComboBoxSpec): Frame
+	UI.ComboBox = ctx.construct("ComboBox", function(spec: NavigationProps.ComboBoxSpec): Frame
 		writable(spec.value, "ComboBox.value")
 		writable(spec.text, "ComboBox.text")
 		assert(type(spec.value:peek()) == "string", "ComboBox.value must be a string")
@@ -3701,7 +3705,8 @@ return function(
 			spec.text:set(label(spec.value:peek()))
 			errorText:set("")
 		end
-		local created = UI.TextInput "Editor" {
+		local created = UI.TextInput {
+			Name = "Editor",
 			value = spec.text,
 			placeholder = spec.placeholder,
 			enabled = spec.enabled,
@@ -3738,7 +3743,8 @@ return function(
 			BackgroundTransparency = 1,
 			Position = D2.new(1, -56, 0, 0),
 			Size = D2.new(0, 56, 1, 0),
-			UI.Button "Trigger" {
+			UI.Button {
+				Name = "Trigger",
 				label = "",
 				icon = "chevron.down",
 				enabled = spec.enabled,

@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- Breaking: each control constructor takes one property table. The label form
+  `UI.Button "Save" { ... }` and `UI.Button("Save")(spec)` is removed. Set the
+  Instance name with the native `Name` property:
+  `UI.Button { Name = "Save", label = "Save" }`. A string in place of the table
+  is an error. Native `Host` constructors keep the Compose label form.
+- Breaking types: each `Props` and `Spec` type is one flat table type that holds
+  the native root properties, the control options and the children. Strict mode
+  checks literal options, callbacks and children of different classes without
+  casts. `lute run tools/facet types props` generates the flat types in
+  `src/ui/*_props.luau` from the option tables in `src/ui/*_types.luau`.
+  The intersection aliases are removed: for example `InputTypes.ButtonProps`
+  is now `ButtonProps` in `input_props`, and the option tables are named
+  `ButtonOptions`, `StackOptions` and so on. The `XControls` registry types of
+  each family are removed. `control_types.luau` holds the `Controls` type and
+  each constructor type.
+- Breaking types: the binding controls (`Toggle`, `TextInput`, `NumberInput`,
+  `Stepper`, `Slider`, `Rating`, `LevelPicker`, `Chip`, `ShortcutHint` and
+  `Picker`) have one constructor overload for each binding shape and one for the
+  union. The shapes are exported, for example `ToggleCellProps` and
+  `ToggleRequestProps`. `MenuItem`, `RadialItem` and `ImageResource` are unions
+  of flat table types (`MenuSubmenu`, `MenuCommand`, `MenuCheck`,
+  `MenuChoice`, `RadialCheck`, `RadialChoice` and `RadialAction`).
+- Breaking types: `Padding` sides reject an unknown side, such as `start`.
+  TextInput and Chip `leading` and `trailing` accept any child.
+- `Facet.host(runtime)` returns the runtime constructors with the `Host` type.
+  The root exports the `Host`, `Child` and `DialogAction` types.
+- Sheet `detent` accepts a detent id. With an id or without `detent`, the sheet
+  keeps the selected detent and starts at that id or at its first detent.
 - Luau generators in `tools/facet/art/` make the standard icons and the
   procedural reference theme art. `lute run tools/facet art <target>` writes
   each PNG whose pixels changed, and `--check` compares every pixel with the

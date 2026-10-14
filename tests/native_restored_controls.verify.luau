@@ -105,7 +105,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local value = Compose.cell("Lap 1")
 				local root, _, stop = build(nil, function(UI: FacetControls)
-					return UI.Text("Lap")({ text = value, textRole = "title" :: "title" })
+					return UI.Text({ Name = "Lap", text = value, textRole = "title" :: "title" })
 				end)
 				Verify.expect(root.ClassName):toBe("TextLabel")
 				Verify.expect(root.Name):toBe("Lap")
@@ -141,7 +141,7 @@ return function(verifyHarness: Verify.Harness)
 							else function(use: any)
 								return use(value)
 							end
-						return UI.Label("Lap")({ title = title })
+						return UI.Label({ Name = "Lap", title = title })
 					end)
 					local before = root:FindFirstChild("Title")
 					Verify.expect(before.Text):toBe("Lap 1")
@@ -246,9 +246,9 @@ return function(verifyHarness: Verify.Harness)
 				local theme = Compose.cell(themes.neutralPackage())
 				local root, engine, stop = build({ theme = theme }, function(UI: FacetControls)
 					return UI.VStack({
-						UI.Divider("Default")({}) :: unknown,
-						UI.Divider("Pixels")({ thickness = 3 }),
-						UI.Divider("Step")({ thickness = "xs" }),
+						UI.Divider({ Name = "Default" }) :: unknown,
+						UI.Divider({ Name = "Pixels", thickness = 3 }),
+						UI.Divider({ Name = "Step", thickness = "xs" }),
 					})
 				end)
 				local UDim2 = engine.types.UDim2
@@ -354,7 +354,9 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_restored_controls::native restored controls: Spacer::keeps an explicit native size and refuses an invalid minimum",
 			run = function()
 				local root, engine, stop = build(nil, function(UI: FacetControls)
-					return UI.HStack({ UI.Spacer("Gap")({ Size = Roblox.UDim2.fromOffset(40, 4), minLength = 8 }) })
+					return UI.HStack({
+						UI.Spacer({ Name = "Gap", Size = Roblox.UDim2.fromOffset(40, 4), minLength = 8 }),
+					})
 				end)
 				Verify.expect(root:FindFirstChild("Gap").Size):toBe(engine.types.UDim2.fromOffset(40, 4))
 				stop()
@@ -461,14 +463,15 @@ return function(verifyHarness: Verify.Harness)
 					local club = Compose.cell(false)
 					local theme = Compose.cell(themes.neutralPackage())
 					local world = setup(function(UI: FacetControls)
-						return UI.CollapsibleView "Settings" {
+						return UI.CollapsibleView {
+							Name = "Settings",
 							label = "Race settings",
 							expanded = Compose.cell(false),
 							icon = Compose.formula(function(use: any): string
 								return if use(club) then "check" else "flag"
 							end),
 							content = function(): Instance
-								return UI.Toggle "Club" { value = club, label = "Club membership" }
+								return UI.Toggle { Name = "Club", value = club, label = "Club membership" }
 							end,
 						}
 					end, { theme = theme })

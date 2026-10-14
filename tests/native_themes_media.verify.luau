@@ -33,6 +33,7 @@ return function(verifyHarness: Verify.Harness)
 	type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
 	local FixtureComposeTypes = require("../src/vendor/compose/core")
 	local FixtureMediaTypes = require("../src/ui/media_types")
+	local FixtureMediaProps = require("../src/ui/media_props")
 	local FixtureThemeTypes = require("../src/ui/theme_types")
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
@@ -131,7 +132,7 @@ return function(verifyHarness: Verify.Harness)
 					local labels: { TextLabel } = {}
 					local stop = runtime.mount(function()
 						local text = "A deliberately long label that has to wrap or truncate honestly in every theme"
-						local specs: { FixtureMediaTypes.TextProps } = {
+						local specs: { FixtureMediaProps.TextProps } = {
 							{ text = text, disclose = true },
 							{ text = text, disclose = true, wrap = true },
 							{ text = text, disclose = true, TextTruncate = engine.types.Enum.TextTruncate.None },
@@ -1636,9 +1637,9 @@ return function(verifyHarness: Verify.Harness)
 				local screen = engine.new("ScreenGui")
 				local stop = runtime.mount(function()
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Avatar "Passive" { name = "Pat Lane" } :: unknown,
-						UI.Avatar "Ada" { name = "Ada Quill", onActivate = function() end },
-						UI.Avatar "Bo" { name = "Bo Lane", onActivate = function() end },
+						UI.Avatar { Name = "Passive", name = "Pat Lane" } :: unknown,
+						UI.Avatar { Name = "Ada", name = "Ada Quill", onActivate = function() end },
+						UI.Avatar { Name = "Bo", name = "Bo Lane", onActivate = function() end },
 					})
 				end, screen)
 				local passive, ada, bo = find(screen, "Passive"), find(screen, "Ada"), find(screen, "Bo")
@@ -1666,7 +1667,8 @@ return function(verifyHarness: Verify.Harness)
 					roster[index] = { id = `p{index}`, name = `Player {index}` }
 				end
 				local stop = runtime.mount(function()
-					return UI.AvatarGroup "Team" {
+					return UI.AvatarGroup {
+						Name = "Team",
 						items = roster,
 						max = 3,
 						controlSize = "compact" :: "compact",
@@ -1695,7 +1697,8 @@ return function(verifyHarness: Verify.Harness)
 				local screen = engine.new("ScreenGui")
 				local calls = 0
 				local stop = runtime.mount(function()
-					return UI.AvatarGroup "Team" {
+					return UI.AvatarGroup {
+						Name = "Team",
 						items = { { id = "a", name = "A" }, { id = "b", name = "B" }, { id = "c", name = "C" } },
 						max = 1,
 						onOverflow = function()

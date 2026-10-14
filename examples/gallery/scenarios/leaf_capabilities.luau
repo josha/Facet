@@ -39,7 +39,8 @@ return {
 			end
 
 			local board = {
-				UI.Text "BoardNote" {
+				UI.Text {
+					Name = "BoardNote",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -61,7 +62,8 @@ return {
 							BackgroundTransparency = 1,
 							Size = UDim2.new(0, 140, 0, 56),
 							AutomaticSize = Enum.AutomaticSize.Y,
-							UI.Text "Label" {
+							UI.Text {
+								Name = "Label",
 								BackgroundTransparency = 1,
 								BorderSizePixel = 0,
 								Size = UDim2.new(1, 0, 0, 0),
@@ -107,7 +109,8 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}) :: unknown,
-				UI.Text "Title" {
+				UI.Text {
+					Name = "Title",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -149,7 +152,8 @@ return {
 						end,
 					}),
 				},
-				UI.Text "MarkupHeading" {
+				UI.Text {
+					Name = "MarkupHeading",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -160,7 +164,8 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Text "Plain" {
+				UI.Text {
+					Name = "Plain",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -176,7 +181,8 @@ return {
 						PaddingRight = UDim.new(0, 4),
 					}),
 				},
-				UI.Text "Marked" {
+				UI.Text {
+					Name = "Marked",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -193,7 +199,8 @@ return {
 						PaddingRight = UDim.new(0, 4),
 					}),
 				},
-				UI.Text "Bold" {
+				UI.Text {
+					Name = "Bold",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -210,7 +217,8 @@ return {
 						PaddingRight = UDim.new(0, 4),
 					}),
 				},
-				UI.Text "Heavy" {
+				UI.Text {
+					Name = "Heavy",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -227,7 +235,8 @@ return {
 						PaddingRight = UDim.new(0, 4),
 					}),
 				},
-				UI.Text "Escaped" {
+				UI.Text {
+					Name = "Escaped",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -238,7 +247,8 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Text "Rtl" {
+				UI.Text {
+					Name = "Rtl",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -247,7 +257,8 @@ return {
 					direction = "rtl" :: "rtl",
 					TextWrapped = true,
 				},
-				UI.Text "CutHeading" {
+				UI.Text {
+					Name = "CutHeading",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -258,7 +269,8 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Text "CutEnd" {
+				UI.Text {
+					Name = "CutEnd",
 					ref = function(node)
 						nodes.CutEnd = node
 					end,
@@ -271,7 +283,8 @@ return {
 					text = TRACK,
 					truncate = "end",
 				},
-				UI.Text "CutMiddle" {
+				UI.Text {
+					Name = "CutMiddle",
 					ref = function(node)
 						nodes.CutMiddle = node
 					end,
@@ -284,7 +297,8 @@ return {
 					text = TRACK,
 					truncate = "middle",
 				},
-				UI.Text "PictureHeading" {
+				UI.Text {
+					Name = "PictureHeading",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -325,7 +339,8 @@ return {
 						Image = ART,
 					}),
 				},
-				UI.Text "BoardHeading" {
+				UI.Text {
+					Name = "BoardHeading",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -374,7 +389,8 @@ return {
 				return Host.Frame "LeafCapabilities" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					UI.ScrollView "Content" {
+					UI.ScrollView {
+						Name = "Content",
 						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),

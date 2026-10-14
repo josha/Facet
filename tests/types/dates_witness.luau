@@ -1,10 +1,12 @@
 --!strict
 local Dates = require("../../src/ui/date_time_picker_types")
+local DatesControls = require("../../src/ui/control_types")
 local Compose = require("../../src/vendor/compose/core")
 
-return function(UI: Dates.DateTimePickerControls): ()
+return function(UI: DatesControls.Controls): ()
 	local session = Compose.cell(nil :: Dates.CivilDate?)
-	local single: Frame = UI.DateTimePicker("Session")({
+	local single: Frame = UI.DateTimePicker({
+		Name = "Session",
 		label = "Play session",
 		time = true,
 		minuteStep = 15,

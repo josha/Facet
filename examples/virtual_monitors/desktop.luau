@@ -51,24 +51,27 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 			return if launch then launch.stage else 1
 		end
 		local function panel(stack, name, ...)
-			local plate = stack(name)({ gap = "xs", padding = "s", Host.UICorner({}), ... })
+			local plate = stack({ Name = name, gap = "xs", padding = "s", Host.UICorner({}), ... })
 			plate:AddTag("facet-panel")
 			return plate
 		end
-		local overlay = UI.Composition "LaunchOverlay" {
+		local overlay = UI.Composition {
+			Name = "LaunchOverlay",
 			ZIndex = 4,
 			Visible = function(use: Use)
 				return launching(use) ~= nil
 			end,
-			UI.Region "Launch" {
+			UI.Region {
+				Name = "Launch",
 				zone = "bottomRight",
 				rank = 1,
 				mayDrop = true,
 				panel(
 					UI.VStack,
 					"LaunchCard",
-					UI.Text "LaunchTitle" { text = title, textRole = "label" :: "label" },
-					UI.Text "LaunchStage" {
+					UI.Text { Name = "LaunchTitle", text = title, textRole = "label" :: "label" },
+					UI.Text {
+						Name = "LaunchStage",
 						role = "secondary" :: "secondary",
 						textRole = "caption" :: "caption",
 						text = function(use: Use)
@@ -79,7 +82,8 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 				panel(
 					UI.HStack,
 					"LaunchChip",
-					UI.Text "LaunchChipText" {
+					UI.Text {
+						Name = "LaunchChipText",
 						textRole = "caption" :: "caption",
 						text = function(use: Use)
 							return `Joining {stage(use)}/3`
@@ -96,7 +100,8 @@ function desktop.create(Facet: any, runtime: any, views: any, model: any, progre
 				local t = math.clamp((use(progress) - 0.55) / 0.45, 0, 1)
 				return 1 - t * t * (3 - 2 * t)
 			end,
-			UI.TabView "Apps" {
+			UI.TabView {
+				Name = "Apps",
 				selection = model.selectedTab,
 				tabs = tabs,
 				style = "sidebarAdaptable" :: "sidebarAdaptable",

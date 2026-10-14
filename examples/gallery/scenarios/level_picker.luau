@@ -45,6 +45,7 @@ return {
 
 		local function row(id: string, label: string, hint: string, value: any, pickerId: string, spec: any): any
 			spec.value = value
+			spec.Name = pickerId
 			return Host.Frame({
 				Name = id,
 				BackgroundTransparency = 1,
@@ -99,7 +100,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 					}) :: unknown,
-					UI.LevelPicker(pickerId)(spec),
+					UI.LevelPicker(spec),
 					UI.Stepper({
 
 						Name = `{id}Step`,
@@ -148,7 +149,8 @@ return {
 		local function screen()
 			local page: { any } = {
 
-				UI.Text "Title" {
+				UI.Text {
+					Name = "Title",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -159,7 +161,8 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Text "Intro" {
+				UI.Text {
+					Name = "Intro",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -221,7 +224,8 @@ return {
 			)
 			table.insert(
 				page,
-				UI.Text "Note" {
+				UI.Text {
+					Name = "Note",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -237,7 +241,8 @@ return {
 			return Host.Frame "LevelPickerDemo" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView "Page" {
+				UI.ScrollView {
+					Name = "Page",
 					padding = 16,
 					gap = 8,
 					Size = UDim2.new(1, 0, 1, 0),

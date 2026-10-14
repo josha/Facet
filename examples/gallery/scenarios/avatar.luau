@@ -56,7 +56,8 @@ return {
 						Padding = D.new(0, 12),
 						SortOrder = E.SortOrder.LayoutOrder,
 					}) :: unknown,
-					UI.Avatar "Portrait" {
+					UI.Avatar {
+						Name = "Portrait",
 						name = "Ada Quill",
 						presence = presence,
 						controlSize = size :: Readable<("compact" | "large" | "regular" | "xsmall")?>,
@@ -82,9 +83,10 @@ return {
 							record = node
 						end,
 					},
-					UI.Avatar "Initials" { name = "Émile Noël", backplate = true, controlSize = size },
-					UI.Avatar "Icon" { name = "Bo Marchetti", form = "icon" :: "icon", controlSize = size },
-					UI.Avatar "Guest" {
+					UI.Avatar { Name = "Initials", name = "Émile Noël", backplate = true, controlSize = size },
+					UI.Avatar { Name = "Icon", name = "Bo Marchetti", form = "icon" :: "icon", controlSize = size },
+					UI.Avatar {
+						Name = "Guest",
 						name = "Guest",
 						icon = "person",
 						background = "success",
@@ -92,7 +94,8 @@ return {
 						controlSize = size,
 					},
 				},
-				UI.Picker "Picture" {
+				UI.Picker {
+					Name = "Picture",
 					label = "Picture",
 					selected = mode,
 					onChange = function()
@@ -106,7 +109,8 @@ return {
 						{ value = "failed", label = "Failed" } :: PickerOption,
 					},
 				},
-				UI.Picker "Presence" {
+				UI.Picker {
+					Name = "Presence",
 					label = "Presence",
 					selected = presence,
 					options = {
@@ -117,7 +121,8 @@ return {
 						{ value = "inExperience", label = "In game" } :: PickerOption,
 					},
 				},
-				UI.Picker "Size" {
+				UI.Picker {
+					Name = "Size",
 					label = "Size",
 					selected = size,
 					options = {
@@ -138,7 +143,8 @@ return {
 		return {
 			section = section,
 			screen = function()
-				return UI.ScrollView "Avatar" {
+				return UI.ScrollView {
+					Name = "Avatar",
 					padding = 16,
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),

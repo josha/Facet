@@ -7,7 +7,7 @@ type Value<T> = Types.Value<T>
 
 export type Diagnostics = { diagnostics: (() -> { string })? }
 export type PaginationForm = "numbers" | "arrows" | "label"
-export type PaginationSpec = Types.FrameProps & {
+export type PaginationOptions = {
 	page: Types.ValueNumber,
 	onChange: (number) -> (),
 	pageCount: Value<number?>?,
@@ -31,7 +31,7 @@ export type Step = {
 	navigable: boolean?,
 	enabled: boolean?,
 }
-export type StepIndicatorSpec = Types.FrameProps & {
+export type StepIndicatorOptions = {
 	steps: Value<{ Step }>,
 	current: Value<string?>,
 	onSelect: ((string) -> ())?,
@@ -42,7 +42,7 @@ export type StepIndicatorSpec = Types.FrameProps & {
 	controls: Diagnostics?,
 }
 export type VoteValue = "up" | "down" | "none"
-export type VoteSpec = Types.FrameProps & {
+export type VoteOptions = {
 	value: Value<VoteValue>,
 	onChange: ((VoteValue) -> ())?,
 	summary: Types.ValueString?,
@@ -59,7 +59,8 @@ export type CardAction = {
 	busy: Types.ValueBoolean?,
 }
 export type CardMenu = { items: Value<{ Nav.MenuItem<string> }>, label: Types.ValueString? }
-export type CardControls = Diagnostics & {
+export type CardControls = {
+	diagnostics: (() -> { string })?,
 	enterActions: (() -> boolean)?,
 	leaveActions: (() -> ())?,
 	engaged: ComposeTypes.Readable<boolean>?,
@@ -68,7 +69,7 @@ export type CardControls = Diagnostics & {
 	lifting: ComposeTypes.Readable<boolean>?,
 	revealExtent: ComposeTypes.Readable<{ body: number }>?,
 }
-export type CardSpec = Types.FrameProps & {
+export type CardOptions = {
 	image: Types.ValueString?,
 	artwork: (() -> GuiObject)?,
 	title: Types.ValueString,
@@ -86,11 +87,4 @@ export type CardSpec = Types.FrameProps & {
 }
 export type BadgeValue = string | number | boolean
 export type Badged = (GuiObject, Value<BadgeValue?>, ("ltr" | "rtl")?) -> Frame
-export type ContentControls = {
-	badged: Badged,
-	Card: Types.Constructor<CardSpec, Frame>,
-	Pagination: Types.Constructor<PaginationSpec, Frame>,
-	StepIndicator: Types.Constructor<StepIndicatorSpec, Frame>,
-	Vote: Types.Constructor<VoteSpec, Frame>,
-}
 return {}

@@ -1,10 +1,11 @@
 --!strict
 local Types = require("./types")
 local Content = require("./content_types")
-local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local window = require("./pagination_window")
 local values = require("./content_values")
+local ContentProps = require("./content_props")
+local InputProps = require("./input_props")
 
 type Entry = { kind: "page" | "gap" | "label" | "first" | "previous" | "next" | "last", key: string, page: number? }
 type State = { current: number?, count: number?, hasPrevious: boolean, hasNext: boolean }
@@ -16,8 +17,8 @@ local ARROWS = { "first", "previous", "next", "last" }
 return function(
 	ctx: Types.Context,
 	UI: {
-		Pagination: Types.Constructor<Content.PaginationSpec, Frame>,
-		Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
+		Pagination: Types.Constructor<ContentProps.PaginationSpec, Frame>,
+		Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
 	}
 ): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
@@ -33,7 +34,7 @@ return function(
 		return value == nil or type(value) == "boolean"
 	end
 
-	UI.Pagination = ctx.construct("Pagination", function(spec: Content.PaginationSpec): Frame
+	UI.Pagination = ctx.construct("Pagination", function(spec: ContentProps.PaginationSpec): Frame
 		assert(
 			isPage(read(spec.page)),
 			"Facet UI.Pagination: page is required: a finite whole number or a readable of one"

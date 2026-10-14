@@ -67,7 +67,8 @@ return {
 			return Host.Frame "Sheet" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView "Page" {
+				UI.ScrollView {
+					Name = "Page",
 					padding = 16,
 					gap = 16,
 					BackgroundTransparency = 1,
@@ -131,7 +132,8 @@ return {
 						end,
 					}),
 				} :: unknown,
-				UI.Sheet "Lobby" {
+				UI.Sheet {
+					Name = "Lobby",
 					title = copy.lobby,
 					header = false :: false,
 					isPresented = lobbyShown,
@@ -183,7 +185,8 @@ return {
 						} :: OverlayAction,
 					},
 				},
-				UI.Sheet "Filters" {
+				UI.Sheet {
+					Name = "Filters",
 					title = copy.filters,
 					placement = "side" :: "side",
 					width = "narrow" :: "narrow",
@@ -234,7 +237,8 @@ return {
 						}
 					end,
 				},
-				UI.Sheet "Briefing" {
+				UI.Sheet {
+					Name = "Briefing",
 					title = copy.briefing,
 					isPresented = presented,
 					detent = detent,

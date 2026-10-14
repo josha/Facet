@@ -132,7 +132,8 @@ return {
 			})
 		end
 		local function equipmentArt(item: any)
-			return UI.Image "EquipmentArt" {
+			return UI.Image {
+				Name = "EquipmentArt",
 				image = art.equipment,
 				scaleMode = "fit" :: "fit",
 				Size = D2.fromScale(1, 1),
@@ -141,7 +142,8 @@ return {
 			}
 		end
 		local function bag()
-			return UI.NavigationStack "PackNavigation" {
+			return UI.NavigationStack {
+				Name = "PackNavigation",
 				path = path,
 				Size = D2.fromScale(1, 1),
 				root = {
@@ -149,16 +151,25 @@ return {
 					content = function(): Instance
 						local measuredWidth = C.cell(600)
 						local metricScale = UI.environment().metricScale
-						return UI.Screen "BagPage" {
+						return UI.Screen {
+							Name = "BagPage",
 							gap = "m",
 							view.text("Objective", "Prepare for the frost cave", "title") :: unknown,
-							UI.ProgressView "Warmth" { label = "Warmth", value = warmth, max = 10, showValue = true },
-							UI.TextInput "SearchEquipment" {
+							UI.ProgressView {
+								Name = "Warmth",
+								label = "Warmth",
+								value = warmth,
+								max = 10,
+								showValue = true,
+							},
+							UI.TextInput {
+								Name = "SearchEquipment",
 								presentation = "search" :: "search",
 								value = query,
 								placeholder = "Find equipment…",
 							},
-							UI.Picker "EquipmentCategory" {
+							UI.Picker {
+								Name = "EquipmentCategory",
 								selected = filter,
 								options = {
 									{ value = "all", label = "All equipment" } :: PickerOption,
@@ -172,7 +183,8 @@ return {
 							end, function()
 								return view.text("NoEquipment", "No equipment matches. Try another search.")
 							end),
-							UI.VirtualGrid "EquipmentGrid" {
+							UI.VirtualGrid {
+								Name = "EquipmentGrid",
 								from = filtered,
 								key = "id",
 								measure = true,
@@ -188,7 +200,8 @@ return {
 								ref = view.observeWidth(measuredWidth),
 								render = function(current): GuiObject
 									local item: any = current:peek()
-									local card = UI.Card("Item_" .. item.id)({
+									local card = UI.Card({
+										Name = "Item_" .. item.id,
 										title = item.name,
 										caption = function(use: any)
 											return `+{item.warmth} warmth · {item.power} power{if use(equipped)[item.slot]
@@ -261,7 +274,8 @@ return {
 				})
 				table.insert(slots, target)
 			end
-			return UI.VStack "HotbarDock" {
+			return UI.VStack {
+				Name = "HotbarDock",
 				width = "fill" :: "fill",
 				gap = "s",
 				view.text(
@@ -269,7 +283,8 @@ return {
 					"HOTBAR · Drag a tool here to rearrange it. Select a slot to equip.",
 					"caption"
 				) :: unknown,
-				UI.Grid "HotbarSlots" {
+				UI.Grid {
+					Name = "HotbarSlots",
 					columns = 3,
 					gap = "s",
 					cellHeight = 52,
@@ -278,7 +293,8 @@ return {
 			}
 		end
 		local function screen()
-			return UI.ScrollView "AdventurersPack" {
+			return UI.ScrollView {
+				Name = "AdventurersPack",
 				padding = "m",
 				gap = "s",
 				ref = view.observeWidth(width),
@@ -311,7 +327,8 @@ return {
 					end),
 				},
 				belt(),
-				UI.Sheet "LoadoutSheet" {
+				UI.Sheet {
+					Name = "LoadoutSheet",
 					title = "Expedition loadout",
 					isPresented = loadoutOpen,
 					closeButton = true,

@@ -85,7 +85,8 @@ return {
 			})
 		end
 		local function pressButton(effect)
-			return UI.Button "Press" {
+			return UI.Button {
+				Name = "Press",
 				label = "Press and hold",
 				PressHapticEffect = if effect then Compose.static(effect) else nil,
 				onPointerDown = function()
@@ -120,7 +121,8 @@ return {
 				end,
 			},
 			screen = function()
-				return UI.ScrollView "SensoryFeedback" {
+				return UI.ScrollView {
+					Name = "SensoryFeedback",
 					padding = 16,
 					gap = 16,
 					Size = D2.fromScale(1, 1),
@@ -135,7 +137,7 @@ return {
 						"Introduction",
 						"Try a press, a completed click, a selection and a custom double pulse. This demo opts in to haptics; turn it off to compare the same controls without feedback."
 					),
-					UI.Toggle "PlayHaptics" { value = playHaptics, label = "Play haptics" },
+					UI.Toggle { Name = "PlayHaptics", value = playHaptics, label = "Play haptics" },
 					text("Status", state, "caption"),
 					text(
 						"Evidence",
@@ -156,7 +158,8 @@ return {
 						"ReleaseRow",
 						"2. Completed click",
 						"Press, drag outside and release to cancel. Only a completed click requests feedback.",
-						UI.Button "Release" {
+						UI.Button {
+							Name = "Release",
 							label = "Complete a click",
 							onActivate = function()
 								record("release")
@@ -167,7 +170,8 @@ return {
 						"SelectionRow",
 						"3. Selection",
 						"A short hover pulse accompanies each accepted selection change.",
-						UI.Toggle "Selection" {
+						UI.Toggle {
+							Name = "Selection",
 							value = selected,
 							label = "Selected",
 							onChange = function(value)
@@ -180,7 +184,8 @@ return {
 						"StrengthRow",
 						"4. Custom double pulse",
 						"Adjust the strength, then compare the two-pulse pattern with the buttons above.",
-						UI.Slider "Strength" {
+						UI.Slider {
+							Name = "Strength",
 							value = strength,
 							min = 0,
 							max = 1,
@@ -188,7 +193,8 @@ return {
 							label = "Pulse strength",
 						}
 					),
-					UI.Button "Custom" {
+					UI.Button {
+						Name = "Custom",
 						label = "Play double pulse",
 						onActivate = function()
 							record("custom")

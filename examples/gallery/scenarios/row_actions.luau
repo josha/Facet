@@ -90,7 +90,8 @@ return {
 				return result
 			end,
 			screen = function()
-				return UI.TabView "RowActions" {
+				return UI.TabView {
+					Name = "RowActions",
 					selection = selected,
 					tabs = tabs,
 					Size = ctx.types.UDim2.fromScale(1, 1),

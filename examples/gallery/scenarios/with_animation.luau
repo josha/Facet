@@ -68,14 +68,15 @@ return {
 			})
 		end
 		local function screen()
-			return UI.ScrollView "StateMotion" {
+			return UI.ScrollView {
+				Name = "StateMotion",
 				padding = 16,
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				label("Title", "One action, one shared motion") :: unknown,
-				UI.Toggle "Reduced" { label = "Reduce decorative motion", value = reduced },
-				UI.Button "Animate" { label = "Animate", onActivate = animate },
+				UI.Toggle { Name = "Reduced", label = "Reduce decorative motion", value = reduced },
+				UI.Button { Name = "Animate", label = "Animate", onActivate = animate },
 				label(
 					"Decorative",
 					"The puck changes color and position; the card grows; the badge fades, shrinks and turns."
@@ -113,7 +114,8 @@ return {
 						BackgroundColor3 = C3.new(1, 1, 1),
 						BorderSizePixel = 0,
 					} :: unknown,
-					UI.Text "CardCaption" {
+					UI.Text {
+						Name = "CardCaption",
 						text = "The card grows; this pip keeps its size.",
 						Position = D2.fromOffset(40, 8),
 						Size = D2.new(1, -48, 1, -16),
@@ -150,7 +152,7 @@ return {
 					end,
 					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }) :: unknown,
 					label("FadedLabel", "A group fades its label and controls together"),
-					UI.Button "Locked" { label = "Locked", enabled = false },
+					UI.Button { Name = "Locked", label = "Locked", enabled = false },
 				},
 				Host.Frame "Details" {
 					Size = D2.new(1, 0, 0, 0),
@@ -217,9 +219,9 @@ return {
 					"Informational",
 					"Charge keeps moving to its known destination when decorative motion is reduced."
 				),
-				UI.ProgressView "Charge" { label = "Charge", value = charge, showValue = true },
-				UI.ProgressView "Busy" { label = "No terminus" },
-				UI.ProgressView "Spinner" { label = "Spinner", presentation = "spinner" :: "spinner" },
+				UI.ProgressView { Name = "Charge", label = "Charge", value = charge, showValue = true },
+				UI.ProgressView { Name = "Busy", label = "No terminus" },
+				UI.ProgressView { Name = "Spinner", label = "Spinner", presentation = "spinner" :: "spinner" },
 				label("Status", function(use: Use)
 					return "Animations: " .. use(runs)
 				end),

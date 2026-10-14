@@ -56,14 +56,16 @@ return {
 		end
 		local function rail(name, order)
 			local cardWidth = Compose.cell(240)
-			local nameProbe = UI.Text "NameMeasure" {
+			local nameProbe = UI.Text {
+				Name = "NameMeasure",
 				Visible = false,
 				text = "Livery 000",
 				textRole = "label" :: "label",
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
 			}
-			local badgeProbe = UI.Text "BadgeMeasure" {
+			local badgeProbe = UI.Text {
+				Name = "BadgeMeasure",
 				Visible = false,
 				text = "Endurance",
 				textRole = "caption" :: "caption",
@@ -147,7 +149,8 @@ return {
 								}) :: unknown,
 								track,
 							},
-							UI.Text "Name" {
+							UI.Text {
+								Name = "Name",
 								text = function(use: Use)
 									return use(current).name
 								end,
@@ -159,7 +162,8 @@ return {
 								TextTruncate = E.TextTruncate.AtEnd,
 								BackgroundTransparency = 1,
 							},
-							UI.Text "Badge" {
+							UI.Text {
+								Name = "Badge",
 								text = function(use: Use)
 									return use(current).badge
 								end,
@@ -182,7 +186,8 @@ return {
 		end
 		return {
 			screen = function()
-				return UI.ScrollView "CardRail" {
+				return UI.ScrollView {
+					Name = "CardRail",
 					padding = 16,
 					gap = 8,
 					Size = D2.fromScale(1, 1),

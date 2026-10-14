@@ -316,15 +316,18 @@ return function(ctx: any)
 			gap = "s",
 			align = "center",
 			wrap = roomy,
-			UI.ZStack "DropStatusSpace" {
+			UI.ZStack {
+				Name = "DropStatusSpace",
 				width = "fill",
 				height = "hug",
 				UI.fill(),
-				UI.Text "StatusLines" {
+				UI.Text {
+					Name = "StatusLines",
 					text = " \n \n ",
 					TextTransparency = 1,
 				},
-				UI.Text "DropStatus" {
+				UI.Text {
+					Name = "DropStatus",
 					text = notice,
 					wrap = true,
 					Size = D2.new(1, 0, 0, 0),

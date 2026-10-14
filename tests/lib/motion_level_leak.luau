@@ -21,7 +21,7 @@ local function mountAndDispose()
 		} :: any
 	)
 	local stop = runtime.mount(function()
-		return UI.VStack({ UI.Button "Save" { label = "Save" } })
+		return UI.VStack({ UI.Button { Name = "Save", label = "Save" } })
 	end, engine.new("ScreenGui"))
 	stop()
 	runtime:dispose()
@@ -62,7 +62,7 @@ for _ = 1, 50 do
 			} :: any
 		)
 		contexts[UI] = true
-		return UI.VStack({ UI.Button "Save" { label = "Save" } })
+		return UI.VStack({ UI.Button { Name = "Save", label = "Save" } })
 	end, engine.new("ScreenGui"))
 	stop()
 end

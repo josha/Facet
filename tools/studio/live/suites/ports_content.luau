@@ -151,7 +151,8 @@ add("pagination-fit-narrows-in-order", {}, function(t)
 			Size = function(use: Use)
 				return UDim2.fromOffset(use(width), 60)
 			end,
-			UI.Pagination "Results" {
+			UI.Pagination {
+				Name = "Results",
 				page = page,
 				pageCount = 9999,
 				onChange = function(nextPage: number)

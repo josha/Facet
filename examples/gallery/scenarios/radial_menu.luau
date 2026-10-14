@@ -101,7 +101,8 @@ return {
 				end,
 			}
 			if item.kind == "world" then
-				stage = UI.Stage "TrailPack" {
+				stage = UI.Stage {
+					Name = "TrailPack",
 					Size = UDim2.fromOffset(260, 200),
 					Position = UDim2.fromScale(0.5, 0.5),
 					AnchorPoint = Vector2.new(0.5, 0.5),
@@ -405,11 +406,13 @@ return {
 				end
 			end)
 			local corner = string.gsub(item.corner, "%-(%a)", string.upper)
-			return UI.Composition "Scene" {
+			return UI.Composition {
+				Name = "Scene",
 				LayoutOrder = 3,
 				Size = UDim2.new(1, 0, 0, 260),
 				Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Grow }) :: unknown,
-				UI.Region "Subject" {
+				UI.Region {
+					Name = "Subject",
 					zone = "center" :: "center",
 					rank = 1,
 					if item.kind == "world"
@@ -420,7 +423,8 @@ return {
 							silhouette :: unknown,
 						} :: unknown,
 				},
-				UI.Region "LauncherCorner" {
+				UI.Region {
+					Name = "LauncherCorner",
 					zone = if item.kind == "corner" then corner :: RegionZone else "bottomLeft" :: RegionZone,
 					rank = 2,
 					menuNode :: unknown,
@@ -441,7 +445,8 @@ return {
 				elseif tab == "world" then "Open the pack’s actions, then inspect, unpack, or pick it up."
 				else "Open your commands. Equipment leads to Tools. The explorer stays in view."
 		end)
-		local disclosure = UI.DisclosureGroup "Advanced" {
+		local disclosure = UI.DisclosureGroup {
+			Name = "Advanced",
 			LayoutOrder = 5,
 			label = "More options",
 			expanded = advanced,
@@ -455,7 +460,8 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 					}) :: unknown,
-					UI.Button "ContentFit" {
+					UI.Button {
+						Name = "ContentFit",
 						label = Compose.formula(function(use: Use)
 							return "Arc shape: " .. fitNames[use(fitting)]
 						end),
@@ -463,7 +469,8 @@ return {
 							fitting:set(fitModes[(table.find(fitModes, fitting:peek()) :: number) % #fitModes + 1])
 						end,
 					},
-					UI.Button "CornerPosition" {
+					UI.Button {
+						Name = "CornerPosition",
 						label = Compose.formula(function(use: Use)
 							return "Corner: " .. use(corner)
 						end),
@@ -471,23 +478,20 @@ return {
 							corner:set(corners[(table.find(corners, corner:peek()) :: number) % #corners + 1])
 						end,
 					},
-					UI.Toggle "Separate" {
+					UI.Toggle {
+						Name = "Separate",
 						label = "Separate character icons",
 						value = separate,
 					},
-					UI.Toggle "Skin" {
-						label = "Jewel buttons",
-						value = skinned,
-					},
-					UI.Toggle "Move" {
-						label = "Let the explorer wander",
-						value = moving,
-					},
-					UI.Toggle "PassThrough" {
+					UI.Toggle { Name = "Skin", label = "Jewel buttons", value = skinned },
+					UI.Toggle { Name = "Move", label = "Let the explorer wander", value = moving },
+					UI.Toggle {
+						Name = "PassThrough",
 						label = "Allow taps through the center",
 						value = passThrough,
 					},
-					UI.Button "Scrim" {
+					UI.Button {
+						Name = "Scrim",
 						label = Compose.formula(function(use: Use)
 							return "Page dim: " .. use(dim)
 						end),
@@ -496,7 +500,8 @@ return {
 							dim:set(order[(table.find(order, dim:peek()) :: number) % #order + 1])
 						end,
 					},
-					UI.Button "CenterPolicy" {
+					UI.Button {
+						Name = "CenterPolicy",
 						label = Compose.formula(function(use: Use)
 							return "Center: " .. use(centerPolicy)
 						end),
@@ -520,7 +525,8 @@ return {
 		end
 		local function controls(): { unknown }
 			return {
-				UI.Picker "Tabs" {
+				UI.Picker {
+					Name = "Tabs",
 					LayoutOrder = 1,
 					selected = selected,
 					options = modes,
@@ -530,7 +536,8 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.Text "Instruction" {
+					UI.Text {
+						Name = "Instruction",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -547,7 +554,8 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.Text "Result" {
+					UI.Text {
+						Name = "Result",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -565,7 +573,8 @@ return {
 		local function screen()
 			local content = controls()
 			table.insert(content, 3, sceneRows())
-			return UI.ScrollView "RadialMenu" {
+			return UI.ScrollView {
+				Name = "RadialMenu",
 				padding = 16,
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),

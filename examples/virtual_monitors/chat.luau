@@ -139,7 +139,8 @@ return function(ctx: Context)
 		end
 		local rowFrame
 		if isUser then
-			local card = UI.VStack("Message_" .. id)({
+			local card = UI.VStack({
+				Name = "Message_" .. id,
 				padding = 14,
 				ctx.rounded(18) :: unknown,
 				measuredHeight(
@@ -158,8 +159,12 @@ return function(ctx: Context)
 				),
 			})
 			card:AddTag("facet-track")
-			rowFrame =
-				UI.VStack("MessageRow_" .. id)({ width = "fill" :: "fill", align = "end" :: "end", card :: unknown })
+			rowFrame = UI.VStack({
+				Name = "MessageRow_" .. id,
+				width = "fill" :: "fill",
+				align = "end" :: "end",
+				card :: unknown,
+			})
 		else
 			local icon = sparkle(22)
 			runtime.decorate(icon, {
@@ -167,11 +172,13 @@ return function(ctx: Context)
 					return if use(streamingHere) and not reduced(use) then use(spin.progress) * 360 else 0
 				end,
 			})
-			rowFrame = UI.HStack("MessageRow_" .. id)({
+			rowFrame = UI.HStack({
+				Name = "MessageRow_" .. id,
 				width = "fill" :: "fill",
 				gap = 12,
 				icon :: unknown,
-				UI.VStack("Message_" .. id)({
+				UI.VStack({
+					Name = "Message_" .. id,
 					gap = "s",
 					Size = D2.new(0, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
@@ -179,7 +186,8 @@ return function(ctx: Context)
 					Compose.show(function(use: Use)
 						return use(current).content == ""
 					end, function()
-						return UI.ProgressView "Thinking" {
+						return UI.ProgressView {
+							Name = "Thinking",
 							presentation = "spinner" :: "spinner",
 							label = "Thinking",
 							diameter = 18,
@@ -189,10 +197,12 @@ return function(ctx: Context)
 					Compose.show(function(use: Use)
 						return use(current).content ~= "" and not use(streamingHere)
 					end, function()
-						return UI.HStack "MessageTools" {
+						return UI.HStack {
+							Name = "MessageTools",
 							gap = "s",
 							align = "center" :: "center",
-							UI.Vote "Feedback" {
+							UI.Vote {
+								Name = "Feedback",
 								value = function(use: Use)
 									return use(chat.feedback)[id] or "none"
 								end,
@@ -289,7 +299,8 @@ return function(ctx: Context)
 	local buildSomething = button("BuildSomething", "Build something", function()
 		prompt("Help me build a game browser")
 	end, { TextWrapped = true })
-	local send = UI.Button "Send" {
+	local send = UI.Button {
+		Name = "Send",
 		name = function(use: Use)
 			return if use(chat.streaming) then "Stop" else "Send"
 		end,
@@ -325,7 +336,8 @@ return function(ctx: Context)
 			GroupTransparency = function(use: Use)
 				return 1 - reveal(use)
 			end,
-			UI.VStack "WelcomeContent" {
+			UI.VStack {
+				Name = "WelcomeContent",
 				gap = "s",
 				AnchorPoint = V2.new(0.5, 0.5),
 				Size = D2.new(1, -24, 0, 0),
@@ -338,7 +350,8 @@ return function(ctx: Context)
 				end, function()
 					return sparkle(40)
 				end) :: unknown,
-				UI.Text "WelcomeQuestion" {
+				UI.Text {
+					Name = "WelcomeQuestion",
 					text = "What are you working on?",
 					textRole = "title" :: "title",
 					TextSize = function(use: Use)
@@ -357,23 +370,27 @@ return function(ctx: Context)
 			},
 		}
 	end)
-	local body = UI.VStack "ChatBody" {
+	local body = UI.VStack {
+		Name = "ChatBody",
 		width = "fill" :: "fill",
 		height = "fill" :: "fill",
 		align = "center" :: "center",
-		UI.VStack "ConversationColumn" {
+		UI.VStack {
+			Name = "ConversationColumn",
 			width = "fill" :: "fill",
 			height = "fill" :: "fill",
 			gap = "s",
 			Host.UISizeConstraint({ MaxSize = V2.new(960, math.huge) }) :: unknown,
-			UI.Notice "Disclaimer" {
+			UI.Notice {
+				Name = "Disclaimer",
 				placement = "affixed" :: "affixed",
 				message = "Simulated responses · No messages leave this device",
 				Visible = function(use: Use)
 					return not use(short)
 				end,
 			},
-			UI.HStack "ChatToolbar" {
+			UI.HStack {
+				Name = "ChatToolbar",
 				width = "fill" :: "fill",
 				gap = "s",
 				align = "center" :: "center",
@@ -418,7 +435,8 @@ return function(ctx: Context)
 					width = { type = "hug" :: "hug", min = 220, max = 320 },
 				},
 			},
-			UI.ZStack "Thread" {
+			UI.ZStack {
+				Name = "Thread",
 				ClipsDescendants = true,
 				Size = D2.fromScale(1, 0),
 				AutomaticSize = E.AutomaticSize.None,
@@ -450,10 +468,12 @@ return function(ctx: Context)
 				}),
 				welcome,
 			},
-			UI.VStack "Composer" {
+			UI.VStack {
+				Name = "Composer",
 				width = "fill" :: "fill",
 				gap = "s",
-				UI.Grid "Suggestions" {
+				UI.Grid {
+					Name = "Suggestions",
 					columns = function(use: Use)
 						return if use(width) < 420 then 1 else 2
 					end,
@@ -465,7 +485,8 @@ return function(ctx: Context)
 					findGame :: unknown,
 					buildSomething,
 				} :: unknown,
-				UI.TextInput "Draft" {
+				UI.TextInput {
+					Name = "Draft",
 					value = chat.draft,
 					placeholder = "Reply to Assistant…",
 					corners = "pill" :: "pill",
@@ -485,7 +506,8 @@ return function(ctx: Context)
 		},
 	}
 	ctx.measure(body, extent)
-	local callout = UI.Callout "PromptHint" {
+	local callout = UI.Callout {
+		Name = "PromptHint",
 		anchor = findGame,
 		edge = "top" :: "top",
 		align = "leading" :: "leading",
@@ -501,7 +523,8 @@ return function(ctx: Context)
 		end,
 	}
 	return body,
-		UI.ZStack "Overlays" {
+		UI.ZStack {
+			Name = "Overlays",
 			width = "fill" :: "fill",
 			height = "fill" :: "fill",
 			callout :: unknown,

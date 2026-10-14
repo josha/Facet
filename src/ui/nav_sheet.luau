@@ -11,10 +11,12 @@ local motion = require("./motion")
 local reducedMotion = motion.reduced
 local freeze = require("./freeze")
 local fontReadiness = require("./font_readiness")
+local InputProps = require("./input_props")
+local NavigationProps = require("./navigation_props")
 
 type Controls = {
-	Sheet: Types.Constructor<Nav.SheetSpec, Frame>,
-	Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
+	Sheet: Types.Constructor<NavigationProps.SheetSpec, Frame>,
+	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
 	adjustable: (GuiObject, Inputs.AdjustableOptions) -> (),
 }
 type Detent = { id: string, fraction: number?, height: number?, hug: boolean, index: number }
@@ -64,8 +66,11 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return if frames then frames.now() else os.clock()
 	end
 
-	local function prepare(spec: Nav.SheetSpec): Prepared
-		assert(type(spec.detent) == "table" and spec.detent.set, "Sheet.detent requires a writable Compose cell")
+	local function prepare(spec: NavigationProps.SheetSpec): Prepared
+		assert(
+			spec.detent == nil or type(spec.detent) == "string" or (type(spec.detent) == "table" and spec.detent.set),
+			"Sheet.detent requires a detent id or a writable Compose cell"
+		)
 		local placement = spec.placement or "automatic"
 		assert(PLACEMENTS[placement], "Sheet.placement must be automatic, adaptive, bottom, side or center")
 		assert(
@@ -168,8 +173,20 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return string.upper(string.sub(id, 1, 1)) .. string.sub(id, 2)
 	end
 
+	local function writableDetent(spec: NavigationProps.SheetSpec, prepared: Prepared): ComposeTypes.Cell<string>
+		local authored = spec.detent
+		if type(authored) == "table" then
+			return authored
+		end
+		local initial = if type(authored) == "string" and prepared.byId[authored]
+			then authored
+			else prepared.detents[1].id
+		return Compose.cell(initial)
+	end
+
 	local function modalFor(
-		spec: Nav.SheetSpec,
+		spec: NavigationProps.SheetSpec,
+		detent: ComposeTypes.Cell<string>,
 		prepared: Prepared,
 		request: Nav.SheetRequest?,
 		phase: Nav.PresencePhase?,
@@ -261,9 +278,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			end)
 			return out
 		end
-		local lastValid = if byId[spec.detent:peek()] then spec.detent:peek() else detents[1].id
+		local lastValid = if byId[detent:peek()] then detent:peek() else detents[1].id
 		local function selected(use: ComposeTypes.Use?): Detent
-			local id = readSource(spec.detent, use)
+			local id = readSource(detent, use)
 			local found = byId[id]
 			if found then
 				lastValid = id
@@ -321,7 +338,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 		local function select(id: string)
 			dragHeight:set(nil)
-			spec.detent:set(id)
+			detent:set(id)
 		end
 		local function nextUp(use: ComposeTypes.Use?): Detent?
 			local sorted = ordered()
@@ -477,9 +494,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		local function standing(use: ComposeTypes.Use?): number
 			return math.max(painted(use), lowest(use))
 		end
-		local watchedDetent = spec.detent:peek()
+		local watchedDetent = detent:peek()
 		Compose.watch(function(use: ComposeTypes.Use)
-			local id = use(spec.detent)
+			local id = use(detent)
 			if id ~= watchedDetent then
 				watchedDetent = id
 				if session then
@@ -741,14 +758,16 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				return nil
 			end
 			if explicit ~= nil and explicit ~= true then
-				return linkClose(UI.Button "Close" {
+				return linkClose(UI.Button {
+					Name = "Close",
 					label = explicit :: Types.Value<string>,
 					appearance = if overHero then "inverse" else "link",
 					LayoutOrder = 2,
 					onActivate = activate,
 				})
 			end
-			return linkClose(UI.Button "Close" {
+			return linkClose(UI.Button {
+				Name = "Close",
 				name = "Close",
 				Visible = if explicit == nil then canDismiss else true,
 				icon = "close",
@@ -1177,8 +1196,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return overlay
 	end
 
-	UI.Sheet = ctx.construct("Sheet", function(spec: Nav.SheetSpec): Frame
+	UI.Sheet = ctx.construct("Sheet", function(spec: NavigationProps.SheetSpec): Frame
 		local prepared = prepare(spec)
+		local detent = writableDetent(spec, prepared)
 		assert(
 			type(spec.isPresented) == "table" and spec.isPresented.set,
 			"Sheet.isPresented requires a writable Compose cell"
@@ -1188,7 +1208,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		)
 		surfaces.attach(root, {
 			surfaces.overlay(root, spec.isPresented, function(phase)
-				return modalFor(spec, prepared, nil, phase, root)
+				return modalFor(spec, detent, prepared, nil, phase, root)
 			end, {
 				motion = ctx.motionTiming("sheet"),
 				failure = function(failure)
@@ -1204,7 +1224,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return root
 	end)
 
-	surfaces.sheetModal = function(spec: Nav.SheetSpec, request: Nav.SheetRequest, phase: Nav.PresencePhase?): Frame
-		return modalFor(spec, prepare(spec), request, phase, nil)
+	surfaces.sheetModal = function(
+		spec: NavigationProps.SheetSpec,
+		request: Nav.SheetRequest,
+		phase: Nav.PresencePhase?
+	): Frame
+		local prepared = prepare(spec)
+		return modalFor(spec, writableDetent(spec, prepared), prepared, request, phase, nil)
 	end
 end

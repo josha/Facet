@@ -4018,7 +4018,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			.. "bottom one at a time, is pad-reachable, pauses on hover and may be bound to isPresented.",
 		alternatives = "Notice for persistent status.",
 		scenarios = { "notice", "sponsor_toast" },
-		snippet = 'UI.Toast "Saved" { message = "Kart sold", action = { label = "Undo", onActivate = undo } }',
+		snippet = 'UI.Toast { Name = "Saved", message = "Kart sold", action = { label = "Undo", onActivate = undo } }',
 		demonstrates = {
 			"message",
 			"content",
@@ -4691,7 +4691,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			.. "(padding m by default). The safe area is the ScreenGui's job (ScreenInsets keeps the root out "
 			.. "of the top bar and notches); a long body goes in a ScrollView that takes the remaining height.",
 		alternatives = "A stack for anything that is not the root.",
-		snippet = 'app.mount(function() return UI.Screen "Main" { UI.Text { … }, UI.ScrollView { UI.fill(), … } } end)',
+		snippet = 'app.mount(function() return UI.Screen { Name = "Main", UI.Text { … }, UI.ScrollView { UI.fill(), … } } end)',
 		cellWidth = 380,
 		cellHeight = 320,
 		base = function()
@@ -5829,11 +5829,14 @@ PAGE_DATA.Outline = {
 		} :: State,
 		{ name = "large indentation", props = { indent = 48 } } :: State,
 		{ name = "reduced motion", props = { reducedMotion = true } } :: State,
-		{ name = "disabled folder", props = {
-			disabled = function(item)
-				return item.id == "folder"
-			end,
-		} },
+		{
+			name = "disabled folder",
+			props = {
+				disabled = function(item)
+					return item.id == "folder"
+				end,
+			},
+		},
 	},
 }
 

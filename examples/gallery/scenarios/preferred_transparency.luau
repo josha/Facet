@@ -35,7 +35,8 @@ return {
 			})
 		end
 		local function screen()
-			return UI.ScrollView "PreferredTransparency" {
+			return UI.ScrollView {
+				Name = "PreferredTransparency",
 				padding = 16,
 				gap = 12,
 				Size = UDim2.fromScale(1, 1),
@@ -44,7 +45,8 @@ return {
 				UI.Text({
 					text = "Change Background transparency in the Roblox menu under Settings. Facet scales translucent theme surfaces and modal backdrops by your setting. An authored group fade stays independent.",
 				}),
-				UI.Text "Reading" {
+				UI.Text {
+					Name = "Reading",
 					text = function(use: Use)
 						return `Your setting: {math.round(use(preference) * 100)}%`
 					end,
@@ -59,13 +61,15 @@ return {
 					GroupTransparency = 0.5,
 					panel("Authored fade", 0),
 				},
-				UI.Button "Open" {
+				UI.Button {
+					Name = "Open",
 					label = "Open a dialog",
 					onActivate = function()
 						opened:set(true)
 					end,
 				},
-				UI.Alert "Dialog" {
+				UI.Alert {
+					Name = "Dialog",
 					isPresented = opened,
 					title = "Modal backdrop",
 					message = "This backdrop darkens as you lower Background transparency.",

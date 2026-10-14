@@ -121,7 +121,8 @@ return {
 					PaddingBottom = D.new(0, 12),
 				}),
 				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
-				UI.Text "Heading" {
+				UI.Text {
+					Name = "Heading",
 					text = function(use: Use)
 						local g = use(geometry)
 						return string.format("%s · %d px · %d columns", name, g.width, g.columns)
@@ -157,7 +158,8 @@ return {
 		end
 		return {
 			screen = function()
-				return UI.ScrollView "ContainerGrid" {
+				return UI.ScrollView {
+					Name = "ContainerGrid",
 					padding = 16,
 					gap = 12,
 					Size = D2.fromScale(1, 1),
@@ -177,19 +179,22 @@ return {
 							Wraps = true,
 							Padding = D.new(0, 8),
 						}) :: unknown,
-						UI.Button "Resize" {
+						UI.Button {
+							Name = "Resize",
 							label = "Resize sidebar",
 							onActivate = function()
 								sidebarWidth:set(if sidebarWidth:peek() == 360 then 1040 else 360)
 							end,
 						},
-						UI.Button "GuidesToggle" {
+						UI.Button {
+							Name = "GuidesToggle",
 							label = "Toggle grid guides",
 							onActivate = function()
 								guides:set(not guides:peek())
 							end,
 						},
-						UI.Button "Replays" {
+						UI.Button {
+							Name = "Replays",
 							label = "Toggle replays",
 							onActivate = function()
 								media:set(not media:peek())

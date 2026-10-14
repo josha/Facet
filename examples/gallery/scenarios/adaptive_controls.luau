@@ -81,7 +81,8 @@ return {
 				BackgroundTransparency = 1,
 				Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
 				label("SlidersHeading", "Slider shapes", "heading"),
-				UI.Slider "LapWindow" {
+				UI.Slider {
+					Name = "LapWindow",
 					LayoutOrder = 2,
 					label = "Laps",
 					value = lapWindow,
@@ -91,7 +92,8 @@ return {
 					range = true :: true,
 					minGap = 2,
 				},
-				UI.Text "TiltCaption" {
+				UI.Text {
+					Name = "TiltCaption",
 					LayoutOrder = 3,
 					text = "Tilt (a turned range)",
 					textRole = "caption" :: "caption",
@@ -101,7 +103,8 @@ return {
 					LayoutOrder = 4,
 					Size = UDim2.new(1, 0, 0, 160),
 					BackgroundTransparency = 1,
-					UI.Slider "Tilt" {
+					UI.Slider {
+						Name = "Tilt",
 						AnchorPoint = Vector2.new(0.5, 0.5),
 						Position = UDim2.fromScale(0.5, 0.5),
 						Size = UDim2.new(0.6, 0, 0, 0),
@@ -124,7 +127,8 @@ return {
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 					}) :: unknown,
-					UI.Slider "Balance" {
+					UI.Slider {
+						Name = "Balance",
 						LayoutOrder = 1,
 						label = "Rear",
 						value = balance,
@@ -133,7 +137,8 @@ return {
 						step = 5,
 						axis = "y" :: "y",
 					},
-					UI.Text "BalanceNote" {
+					UI.Text {
+						Name = "BalanceNote",
 						LayoutOrder = 2,
 						text = "Rear bias runs bottom to top, and Up raises it.",
 						textRole = "caption" :: "caption",
@@ -143,7 +148,8 @@ return {
 						AutomaticSize = Enum.AutomaticSize.Y,
 					},
 				},
-				UI.Slider "Boost" {
+				UI.Slider {
+					Name = "Boost",
 					LayoutOrder = 6,
 					label = "Boost",
 					value = boost,
@@ -153,7 +159,8 @@ return {
 					thumb = "auto" :: "auto",
 					controlSize = "compact" :: "compact",
 				},
-				UI.Slider "Camera" {
+				UI.Slider {
+					Name = "Camera",
 					LayoutOrder = 7,
 					label = "Camera",
 					value = camera,
@@ -162,7 +169,8 @@ return {
 					step = 5,
 					thumb = "none" :: "none",
 				},
-				UI.Slider "Steer" {
+				UI.Slider {
+					Name = "Steer",
 					LayoutOrder = 8,
 					label = "Steer",
 					value = steer,
@@ -229,7 +237,8 @@ return {
 					Name = "Tile" .. i,
 					LayoutOrder = i,
 					Size = UDim2.new(0.25, -6, 0, 44),
-					UI.Badge "Count" {
+					UI.Badge {
+						Name = "Count",
 						label = count,
 						status = "info" :: "info",
 						AnchorPoint = Vector2.new(1, 0.5),
@@ -251,7 +260,8 @@ return {
 					HorizontalAlignment = Enum.HorizontalAlignment.Center,
 					Padding = UDim.new(0, 16),
 				}) :: unknown,
-				UI.ScrollView "BodyScroll" {
+				UI.ScrollView {
+					Name = "BodyScroll",
 					LayoutOrder = 1,
 					padding = 16,
 					BackgroundTransparency = 1,
@@ -279,14 +289,16 @@ return {
 							Host.UIListLayout({ Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
 							label("Heading", "Settings", "heading"),
 							divider(),
-							UI.Stepper "Volume" {
+							UI.Stepper {
+								Name = "Volume",
 								label = "Volume",
 								value = volume,
 								min = 0,
 								max = 10,
 								step = 1,
 							},
-							UI.Slider "Brightness" {
+							UI.Slider {
+								Name = "Brightness",
 								label = "Brightness",
 								value = brightness,
 								min = 0,
@@ -294,7 +306,8 @@ return {
 								step = 5,
 							},
 							sliderShapes(),
-							UI.Picker "Quality" {
+							UI.Picker {
+								Name = "Quality",
 								label = "Quality",
 								selected = quality,
 								options = {
@@ -305,17 +318,20 @@ return {
 							},
 							divider(),
 							label("NavHeading", "Icon segments, and the vertical rail", "caption"),
-							UI.Picker "NavPill" {
+							UI.Picker {
+								Name = "NavPill",
 								selected = section,
 								options = navOptions,
 								style = "segmented" :: "segmented",
 								iconOnly = true,
 							},
-							UI.HStack "NavRailRow" {
+							UI.HStack {
+								Name = "NavRailRow",
 								Size = UDim2.fromScale(1, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
 								BackgroundTransparency = 1,
-								UI.Picker "NavRail" {
+								UI.Picker {
+									Name = "NavRail",
 									Size = UDim2.fromOffset(0, 0),
 									AutomaticSize = Enum.AutomaticSize.XY,
 									selected = section,
@@ -324,7 +340,8 @@ return {
 									axis = "y" :: "y",
 									iconOnly = true,
 								} :: unknown,
-								UI.Text "NavReadout" {
+								UI.Text {
+									Name = "NavReadout",
 									text = function(use: Use)
 										return `Selected: {use(section)} — the pill and the rail share this selection.`
 									end,
@@ -337,7 +354,8 @@ return {
 								},
 							},
 							divider(),
-							UI.DisclosureGroup "Advanced" {
+							UI.DisclosureGroup {
+								Name = "Advanced",
 								label = "Advanced",
 								description = "Optional rendering and privacy settings",
 								icon = "settings",
@@ -374,7 +392,8 @@ return {
 								end,
 							},
 							strongDivider(),
-							UI.DisclosureGroup "Outline" {
+							UI.DisclosureGroup {
+								Name = "Outline",
 								label = "Components",
 								appearance = "outline" :: "outline",
 								textSize = "label" :: "label",
@@ -386,13 +405,15 @@ return {
 										AutomaticSize = Enum.AutomaticSize.Y,
 										BackgroundTransparency = 1,
 										Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-										UI.Button "OutlineButton" {
+										UI.Button {
+											Name = "OutlineButton",
 											LayoutOrder = 1,
 											label = "Button",
 											appearance = "link" :: "link",
 											underline = "hover" :: "hover",
 										},
-										UI.Button "OutlineChip" {
+										UI.Button {
+											Name = "OutlineChip",
 											LayoutOrder = 2,
 											label = "Chip",
 											appearance = "link" :: "link",
@@ -413,12 +434,14 @@ return {
 							Host.Frame "Toolbar" {
 								Size = UDim2.new(1, 0, 0, 40),
 								BackgroundTransparency = 1,
-								UI.Button "TbBack" {
+								UI.Button {
+									Name = "TbBack",
 									label = "Back",
 									Size = UDim2.fromOffset(76, 40),
 									onActivate = noop,
 								} :: unknown,
-								UI.Button "TbPlay" {
+								UI.Button {
+									Name = "TbPlay",
 									label = "Play",
 									Position = UDim2.fromOffset(84, 0),
 									Size = UDim2.fromOffset(80, 40),
@@ -426,7 +449,8 @@ return {
 										progress:set(math.min(1, progress:peek() + 0.1))
 									end,
 								},
-								UI.Button "TbMore" {
+								UI.Button {
+									Name = "TbMore",
 									label = "More",
 									icon = "more",
 									AnchorPoint = Vector2.new(1, 0),
@@ -476,7 +500,8 @@ return {
 									onActivate = noop,
 								}),
 							},
-							UI.ProgressView "Download" {
+							UI.ProgressView {
+								Name = "Download",
 								label = "Download",
 								value = progress,
 								showValue = true,

@@ -803,7 +803,7 @@ function example.build(ctx: any)
 		end
 		local boardSlots: { [string]: GuiObject } = {}
 		local rackSlots: { [number]: GuiObject } = {}
-		local cells: { any } = { columns = SIZE, gap = "xs", aspectRatio = 1, narrow() }
+		local cells: { any } = { Name = "board", columns = SIZE, gap = "xs", aspectRatio = 1, narrow() }
 		for r = 1, SIZE do
 			for c = 1, SIZE do
 				local rr, cc = r, c
@@ -836,11 +836,13 @@ function example.build(ctx: any)
 				table.insert(
 					cells,
 					(function()
-						local node = UI.ZStack(`cell{r}_{c}`)({
+						local node = UI.ZStack({
+							Name = `cell{r}_{c}`,
 							width = 44,
 							height = 44,
-							UI.Text "mark" { text = mark, textRole = "caption" :: "caption" } :: unknown,
-							UI.Button "tap" {
+							UI.Text { Name = "mark", text = mark, textRole = "caption" :: "caption" } :: unknown,
+							UI.Button {
+								Name = "tap",
 								Size = UDim2.fromScale(1, 1),
 								label = function(use: Use)
 									return use(mark)
@@ -889,7 +891,7 @@ function example.build(ctx: any)
 				)
 			end
 		end
-		local rackTiles: { any } = { columns = RACK_SIZE, gap = "xs", cellHeight = 48, narrow() }
+		local rackTiles: { any } = { Name = "rack", columns = RACK_SIZE, gap = "xs", cellHeight = 48, narrow() }
 		for i = 1, RACK_SIZE do
 			local slot = i
 			local letter = Compose.formula(function(use: Use)
@@ -906,7 +908,8 @@ function example.build(ctx: any)
 			end)
 			table.insert(
 				rackTiles,
-				UI.Button("rt" .. i)({
+				UI.Button({
+					Name = "rt" .. i,
 					ref = function(node: TextButton)
 						rackSlots[slot] = node
 					end,
@@ -922,23 +925,26 @@ function example.build(ctx: any)
 				})
 			)
 		end
-		return UI.Screen "TileGame" {
-			UI.ScrollView "Page" {
+		return UI.Screen {
+			Name = "TileGame",
+			UI.ScrollView {
+				Name = "Page",
 				gap = "s",
 				align = "stretch" :: "stretch",
-				UI.Text "Title" { text = "Facet Crossword", textRole = "title" :: "title", TextWrapped = true } :: unknown,
-				UI.HStack "Stats" {
+				UI.Text { Name = "Title", text = "Facet Crossword", textRole = "title" :: "title", TextWrapped = true } :: unknown,
+				UI.HStack {
+					Name = "Stats",
 					wrap = true,
 					gap = "m",
 					width = "fill" :: "fill",
-					UI.Text "Score" { text = scoreText } :: unknown,
-					UI.Text "Progress" { text = progressText },
+					UI.Text { Name = "Score", text = scoreText } :: unknown,
+					UI.Text { Name = "Progress", text = progressText },
 				},
-				UI.Text "Hint" { text = hintText, TextWrapped = true },
-				UI.Text "Word" { text = wordText, TextWrapped = true },
-				UI.Grid "board"(cells),
-				UI.Text "RackLabel" { text = "Your rack", TextWrapped = true },
-				UI.Grid "rack"(rackTiles),
+				UI.Text { Name = "Hint", text = hintText, TextWrapped = true },
+				UI.Text { Name = "Word", text = wordText, TextWrapped = true },
+				UI.Grid(cells),
+				UI.Text { Name = "RackLabel", text = "Your rack", TextWrapped = true },
+				UI.Grid(rackTiles),
 				Compose.OrderedCollection {
 					from = movingTiles,
 					key = function(tile: MovingTile)
@@ -976,13 +982,15 @@ function example.build(ctx: any)
 						}
 					end,
 				},
-				UI.HStack "Actions" {
+				UI.HStack {
+					Name = "Actions",
 					gap = "s",
 					width = "fill" :: "fill",
-					UI.Button "Submit" { label = "Submit word", onActivate = submit, UI.fill() } :: unknown,
-					UI.Button "Undo" { label = "Undo turn", onActivate = undo, UI.fill() },
+					UI.Button { Name = "Submit", label = "Submit word", onActivate = submit, UI.fill() } :: unknown,
+					UI.Button { Name = "Undo", label = "Undo turn", onActivate = undo, UI.fill() },
 				},
-				UI.Button "Reset" {
+				UI.Button {
+					Name = "Reset",
 					label = "Start over",
 					onActivate = function()
 						restart(DEFAULT_SEED)

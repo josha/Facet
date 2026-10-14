@@ -144,7 +144,8 @@ return {
 			local root = Host.Frame "ToastLab" {
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.ScrollView "Actions" {
+				UI.ScrollView {
+					Name = "Actions",
 					padding = 16,
 					gap = 12,
 					Size = D2.fromScale(1, 1),
@@ -154,7 +155,8 @@ return {
 						text = "Show a toast, then try Test input. Notifications leave the controls below usable.",
 						TextWrapped = true,
 					}),
-					((UI.Picker "Edge" :: unknown) :: (EdgePicker) -> GuiObject) {
+					((UI.Picker :: unknown) :: (EdgePicker) -> GuiObject) {
+						Name = "Edge",
 						label = "Edge for new stacks",
 						selected = edge,
 						options = {
@@ -162,7 +164,8 @@ return {
 							{ value = "bottom" :: "top" | "bottom", label = "Bottom" } :: PickerOption,
 						},
 					},
-					((UI.Picker "Width" :: unknown) :: (WidthPicker) -> GuiObject) {
+					((UI.Picker :: unknown) :: (WidthPicker) -> GuiObject) {
+						Name = "Width",
 						label = "Toast width",
 						selected = widthMode,
 						options = {
@@ -180,8 +183,9 @@ return {
 							Wraps = true,
 							Padding = D.new(0, 8),
 						}) :: unknown,
-						UI.Button "Send" { label = "Show toast", onActivate = send },
-						UI.Button "Pair" {
+						UI.Button { Name = "Send", label = "Show toast", onActivate = send },
+						UI.Button {
+							Name = "Pair",
 							label = "Show pair",
 							onActivate = function()
 								show(
@@ -196,27 +200,31 @@ return {
 								)
 							end,
 						},
-						UI.Button "Burst" { label = "Burst", onActivate = burst },
-						UI.Button "Priority" {
+						UI.Button { Name = "Burst", label = "Burst", onActivate = burst },
+						UI.Button {
+							Name = "Priority",
 							label = "Priority",
 							onActivate = function()
 								show("Urgent", "Arrived during another toast's read floor", { priority = 9 })
 							end,
 						},
-						UI.Button "Supersede" {
+						UI.Button {
+							Name = "Supersede",
 							label = "Supersede",
 							onActivate = function()
 								show("Subject", "Revision " .. (superseded + 1), { subject = "lap-time" })
 							end,
 						},
-						UI.Button "Clear" {
+						UI.Button {
+							Name = "Clear",
 							label = "Dismiss messages",
 							onActivate = function()
 								dismiss()
 							end,
 						},
 					},
-					UI.Button "Beneath" {
+					UI.Button {
+						Name = "Beneath",
 						label = function(use: Use)
 							return "Test input: " .. use(presses)
 						end,
@@ -224,7 +232,8 @@ return {
 							presses:set(presses:peek() + 1)
 						end,
 					},
-					UI.Text "Status" {
+					UI.Text {
+						Name = "Status",
 						text = function(use: Use)
 							use(rows)
 							use(revision)
@@ -259,7 +268,8 @@ return {
 								props.AutomaticSize = if hug then E.AutomaticSize.XY else E.AutomaticSize.Y
 								return UI.Text(props)
 							end
-							local anchor = UI.Toast "Toast" {
+							local anchor = UI.Toast {
+								Name = "Toast",
 								isPresented = Compose.formula(function(use: Use)
 									return use(current).presented
 								end),
@@ -280,7 +290,8 @@ return {
 								position = row.position,
 								width = row.width,
 								content = function(): Instance
-									return UI.VStack "Body" {
+									return UI.VStack {
+										Name = "Body",
 										gap = 4,
 										width = (if hug then "hug" else "fill") :: "hug" | "fill",
 										line("Title", { textRole = "strong" :: "strong", text = row.title }) :: unknown,

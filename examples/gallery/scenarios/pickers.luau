@@ -153,7 +153,7 @@ return {
 				}) :: unknown,
 				text("Title", COPY.title, "title"),
 				text("ColoursTitle", COPY.colours, "heading"),
-				UI.Toggle "Refuse" { label = COPY.refuse, value = refuse },
+				UI.Toggle { Name = "Refuse", label = COPY.refuse, value = refuse },
 				text("Committed", function(use: any): string
 					return `{COPY.committed} {use(committed)}`
 				end, "body"),
@@ -162,7 +162,8 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					Host.UISizeConstraint({ MaxSize = nativeTypes.Vector2.new(360, math.huge) }) :: unknown,
-					UI.ColorPicker "Accent" {
+					UI.ColorPicker {
+						Name = "Accent",
 						label = COPY.accent,
 						style = "inline" :: "inline",
 						modes = { "spectrum" } :: { "brick" | "sliders" | "spectrum" | "swatches" },
@@ -171,7 +172,8 @@ return {
 						onCommit = record,
 					},
 				},
-				UI.ColorPicker "Body" {
+				UI.ColorPicker {
+					Name = "Body",
 					label = COPY.body,
 					hint = COPY.bodyHint,
 					value = body,
@@ -198,7 +200,8 @@ return {
 						AutomaticSize = Enum.AutomaticSize.XY,
 						text = COPY.trim,
 					}),
-					UI.ColorPicker "Trim" {
+					UI.ColorPicker {
+						Name = "Trim",
 						LayoutOrder = 2,
 						value = trim,
 						onChange = accept(trim),
@@ -208,14 +211,16 @@ return {
 						onRemoveSwatch = removeTeam,
 					},
 				},
-				UI.ColorPicker "Livery" {
+				UI.ColorPicker {
+					Name = "Livery",
 					label = COPY.livery,
 					value = livery,
 					onChange = accept(livery),
 					onCommit = record,
 					draft = true,
 				},
-				UI.ColorPicker "Fog" {
+				UI.ColorPicker {
+					Name = "Fog",
 					label = COPY.fog,
 					style = "inline" :: "inline",
 					modes = { "sliders" } :: { "brick" | "sliders" | "spectrum" | "swatches" },
@@ -224,7 +229,8 @@ return {
 					onCommit = record,
 				},
 				text("DatesTitle", COPY.dates, "heading"),
-				UI.DateTimePicker "RaceDay" {
+				UI.DateTimePicker {
+					Name = "RaceDay",
 					label = COPY.raceDay,
 					hint = COPY.raceHint,
 					value = raceDay,
@@ -237,7 +243,8 @@ return {
 					end,
 					clock = today,
 				},
-				UI.DateTimePicker "Starts" {
+				UI.DateTimePicker {
+					Name = "Starts",
 					label = COPY.starts,
 					value = starts,
 					onChange = accept(starts),
@@ -246,7 +253,8 @@ return {
 					minuteStep = 15,
 					clock = today,
 				},
-				UI.DateTimePicker "Window" {
+				UI.DateTimePicker {
+					Name = "Window",
 					label = COPY.window,
 					placeholder = COPY.windowEmpty,
 					selection = "range" :: "range",
@@ -264,7 +272,8 @@ return {
 			return Host.Frame "PickersScreen" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView "Content" {
+				UI.ScrollView {
+					Name = "Content",
 					padding = 16,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),

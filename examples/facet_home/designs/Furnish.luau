@@ -12,11 +12,13 @@ return function(UI: Facet.Controls, data: { [string]: any }?): GuiObject
 			["minWidth"] = 180,
 			["priority"] = "always",
 			["render"] = function(current: any)
-				return UI.VStack "name" {
+				return UI.VStack {
+					Name = "name",
 					gap = "xs",
 					padding = "xs" :: "xs",
 					width = "fill" :: "fill",
-					UI.Text "FurnitureName" {
+					UI.Text {
+						Name = "FurnitureName",
 						text = function(use: any)
 							return tostring(
 								if use(current)["name"] == nil then "Sample value" else use(current)["name"]
@@ -25,7 +27,8 @@ return function(UI: Facet.Controls, data: { [string]: any }?): GuiObject
 						textRole = "strong" :: "strong",
 						wrap = true,
 					},
-					UI.Text "FurnitureCategory" {
+					UI.Text {
+						Name = "FurnitureCategory",
 						role = "secondary" :: "secondary",
 						text = function(use: any)
 							return tostring(
@@ -50,11 +53,13 @@ return function(UI: Facet.Controls, data: { [string]: any }?): GuiObject
 			["label"] = "Placed",
 			["priority"] = 2,
 			["render"] = function(current: any)
-				return UI.VStack "quantity" {
+				return UI.VStack {
+					Name = "quantity",
 					gap = "xs",
 					padding = "xs" :: "xs",
 					width = "fill" :: "fill",
-					UI.Badge "Badge" {
+					UI.Badge {
+						Name = "Badge",
 						label = function(use: any)
 							return tostring(if use(current)["quantity"] == nil then "0" else use(current)["quantity"])
 						end,
@@ -72,11 +77,13 @@ return function(UI: Facet.Controls, data: { [string]: any }?): GuiObject
 			["label"] = "Next finish",
 			["priority"] = 1,
 			["render"] = function(current: any)
-				return UI.VStack "finish" {
+				return UI.VStack {
+					Name = "finish",
 					gap = "xs",
 					padding = "xs" :: "xs",
 					width = "fill" :: "fill",
-					UI.Text "CellValue" {
+					UI.Text {
+						Name = "CellValue",
 						text = function(use: any)
 							return tostring(
 								if use(current)["finish"] == nil then "Sample value" else use(current)["finish"]
@@ -93,51 +100,61 @@ return function(UI: Facet.Controls, data: { [string]: any }?): GuiObject
 			["width"] = 110,
 		},
 	}
-	return UI.Screen "Screen" {
+	return UI.Screen {
+		Name = "Screen",
 		gap = "m",
-		UI.ScrollView "Content" {
+		UI.ScrollView {
+			Name = "Content",
 			gap = "m",
 			height = "fill" :: "fill",
 			padding = { ["bottom"] = 24, ["left"] = 20, ["right"] = 20, ["top"] = 20 },
 			width = "fill" :: "fill",
-			UI.Text "Eyebrow" {
+			UI.Text {
+				Name = "Eyebrow",
 				role = "secondary" :: "secondary",
 				text = "FACET HOME",
 				textRole = "caption" :: "caption",
 				wrap = true,
 			},
-			UI.Text "Heading" {
+			UI.Text {
+				Name = "Heading",
 				text = "A room that feels like you.",
 				textRole = "title" :: "title",
 				wrap = true,
 			},
-			UI.Text "Subtitle" {
+			UI.Text {
+				Name = "Subtitle",
 				role = "secondary" :: "secondary",
 				text = "Choose a piece. Find its place. Make it yours.",
 				textRole = "body" :: "body",
 				wrap = true,
 			},
-			UI.Text "Selection" {
+			UI.Text {
+				Name = "Selection",
 				text = "Selected: Cloud sofa · Place 1",
 				textRole = "body" :: "body",
 				wrap = true,
 			},
-			UI.TextInput "FurnitureSearch" {
+			UI.TextInput {
+				Name = "FurnitureSearch",
 				clearButton = true,
 				placeholder = "Find furniture",
 				value = state_n7,
 			},
-			UI.Text "InventoryHeading" {
+			UI.Text {
+				Name = "InventoryHeading",
 				text = "YOUR INVENTORY",
 				textRole = "body" :: "body",
 				wrap = true,
 			},
-			UI.Text "InventoryHelp" {
+			UI.Text {
+				Name = "InventoryHelp",
 				text = "Select to choose. Swipe or right-click for actions.",
 				textRole = "body" :: "body",
 				wrap = true,
 			},
-			UI.Table "FurnitureInventory" {
+			UI.Table {
+				Name = "FurnitureInventory",
 				Size = UDim2.new(1, 0, 0, 340),
 				columns = columns_n10,
 				from = if data and data["InventoryRows"]
@@ -219,97 +236,83 @@ return function(UI: Facet.Controls, data: { [string]: any }?): GuiObject
 					}
 				end,
 			},
-			UI.Text "EmptyFurniture" {
+			UI.Text {
+				Name = "EmptyFurniture",
 				text = "No furniture matches. Clear your search.",
 				textRole = "body" :: "body",
 				wrap = true,
 			},
-			UI.Text "RoomPlanHeading" {
+			UI.Text {
+				Name = "RoomPlanHeading",
 				text = "ROOM PLAN · Pick a place",
 				textRole = "body" :: "body",
 				wrap = true,
 			},
-			UI.Grid "RoomPlan" {
+			UI.Grid {
+				Name = "RoomPlan",
 				cellHeight = 56,
 				columns = 3,
 				gap = "s",
-				UI.Button "Slot_1" {
-					appearance = "standard" :: "standard",
-					label = "Place 1",
-				},
-				UI.Button "Slot_2" {
-					appearance = "standard" :: "standard",
-					label = "Place 2",
-				},
-				UI.Button "Slot_3" {
-					appearance = "standard" :: "standard",
-					label = "Place 3",
-				},
-				UI.Button "Slot_4" {
-					appearance = "standard" :: "standard",
-					label = "Place 4",
-				},
-				UI.Button "Slot_5" {
-					appearance = "standard" :: "standard",
-					label = "Place 5",
-				},
-				UI.Button "Slot_6" {
-					appearance = "standard" :: "standard",
-					label = "Place 6",
-				},
+				UI.Button { Name = "Slot_1", appearance = "standard" :: "standard", label = "Place 1" },
+				UI.Button { Name = "Slot_2", appearance = "standard" :: "standard", label = "Place 2" },
+				UI.Button { Name = "Slot_3", appearance = "standard" :: "standard", label = "Place 3" },
+				UI.Button { Name = "Slot_4", appearance = "standard" :: "standard", label = "Place 4" },
+				UI.Button { Name = "Slot_5", appearance = "standard" :: "standard", label = "Place 5" },
+				UI.Button { Name = "Slot_6", appearance = "standard" :: "standard", label = "Place 6" },
 			},
-			UI.Button "Place" {
+			UI.Button {
+				Name = "Place",
 				appearance = "emphasis" :: "emphasis",
 				label = "Place selected furniture",
 			},
-			UI.Grid "EditActions" {
+			UI.Grid {
+				Name = "EditActions",
 				cellHeight = 56,
 				columns = 2,
 				gap = "s",
-				UI.Button "Rotate" {
-					appearance = "standard" :: "standard",
-					label = "Rotate",
-				},
-				UI.Button "Remove" {
-					appearance = "standard" :: "standard",
-					label = "Remove",
-				},
+				UI.Button { Name = "Rotate", appearance = "standard" :: "standard", label = "Rotate" },
+				UI.Button { Name = "Remove", appearance = "standard" :: "standard", label = "Remove" },
 			},
-			UI.Text "ColorHeading" {
+			UI.Text {
+				Name = "ColorHeading",
 				text = "FINISH · Choose a palette",
 				textRole = "body" :: "body",
 				wrap = true,
 			},
-			UI.Grid "Palettes" {
+			UI.Grid {
+				Name = "Palettes",
 				cellHeight = 56,
 				columns = 2,
 				gap = "s",
-				UI.Button "Palette_sage" {
+				UI.Button {
+					Name = "Palette_sage",
 					appearance = "standard" :: "standard",
 					label = "Sage",
 				},
-				UI.Button "Palette_clay" {
+				UI.Button {
+					Name = "Palette_clay",
 					appearance = "standard" :: "standard",
 					label = "Clay",
 				},
-				UI.Button "Palette_cream" {
+				UI.Button {
+					Name = "Palette_cream",
 					appearance = "standard" :: "standard",
 					label = "Cream",
 				},
-				UI.Button "Palette_midnight" {
+				UI.Button {
+					Name = "Palette_midnight",
 					appearance = "standard" :: "standard",
 					label = "Midnight",
 				},
 			},
-			UI.Grid "SaveActions" {
+			UI.Grid {
+				Name = "SaveActions",
 				cellHeight = 56,
 				columns = 2,
 				gap = "s",
-				UI.Button "Save" {
-					appearance = "emphasis" :: "emphasis",
-					label = "Save room",
-				},
-				UI.Button "Restore" {
+				UI.Button { Name = "Save", appearance = "emphasis" :: "emphasis", label = "Save room" },
+				UI.Button {
+					Name = "Restore",
 					appearance = "standard" :: "standard",
 					label = "Restore saved room",
 				},

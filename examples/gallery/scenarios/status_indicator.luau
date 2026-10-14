@@ -43,13 +43,15 @@ return {
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
 						}) :: unknown,
-						UI.StatusIndicator "Mark" {
+						UI.StatusIndicator {
+							Name = "Mark",
 							LayoutOrder = 1,
 							form = word,
 							status = status,
 							name = word,
 						},
-						UI.Text "Name" {
+						UI.Text {
+							Name = "Name",
 							LayoutOrder = 2,
 							text = string.upper(string.sub(word, 1, 1)) .. string.sub(word, 2),
 						},
@@ -65,8 +67,9 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
 				}) :: unknown,
-				UI.Text "Title" { text = "Status marks", textRole = "heading" :: "heading" },
-				UI.Text "Guide" {
+				UI.Text { Name = "Title", text = "Status marks", textRole = "heading" :: "heading" },
+				UI.Text {
+					Name = "Guide",
 					text = "Shapes carry meaning alongside color. Counts stop growing at 99+.",
 					role = "secondary" :: "secondary",
 				},
@@ -82,7 +85,8 @@ return {
 					}) :: unknown,
 					table.unpack(shapes),
 				},
-				UI.Picker "Status" {
+				UI.Picker {
+					Name = "Status",
 					label = "Status",
 					selected = status,
 					options = {
@@ -96,7 +100,8 @@ return {
 						{ value = "contrast", label = "Contrast" } :: PickerOption,
 					},
 				},
-				UI.Picker "Shape" {
+				UI.Picker {
+					Name = "Shape",
 					label = "Shape",
 					selected = form,
 					options = {
@@ -115,7 +120,8 @@ return {
 						Padding = UDim.new(0, 12),
 						Wraps = true,
 					}) :: unknown,
-					UI.StatusIndicator "Count" {
+					UI.StatusIndicator {
+						Name = "Count",
 						count = count,
 						status = status,
 						name = "Unread",
@@ -123,13 +129,15 @@ return {
 							record = value
 						end,
 					},
-					UI.StatusIndicator "Cutout" {
+					UI.StatusIndicator {
+						Name = "Cutout",
 						form = form,
 						status = status,
 						cutout = true,
 						controlSize = "large" :: "large",
 					},
-					UI.Button "More" {
+					UI.Button {
+						Name = "More",
 						label = "Add 25",
 						icon = "increment",
 						appearance = "soft",
@@ -137,7 +145,8 @@ return {
 							count:set(count:peek() + 25)
 						end,
 					},
-					UI.Button "Reset" {
+					UI.Button {
+						Name = "Reset",
 						label = "Clear",
 						appearance = "link",
 						onActivate = function()
@@ -156,7 +165,8 @@ return {
 				return Host.Frame "StatusIndicator" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					UI.ScrollView "Content" {
+					UI.ScrollView {
+						Name = "Content",
 						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),

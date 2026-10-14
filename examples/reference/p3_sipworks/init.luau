@@ -147,7 +147,7 @@ function Sipworks.build(ctx: ExampleContext)
 			end, function(use: Use)
 				return use(order.status) ~= "pending" and use(taskModel.phase) ~= "done"
 			end),
-			UI.TextInput "Search" { value = search, placeholder = text("search.placeholder") },
+			UI.TextInput { Name = "Search", value = search, placeholder = text("search.placeholder") },
 			view.column("Blends", {
 				view.list(visible, function(current)
 					local blend = current:peek()
@@ -176,7 +176,14 @@ function Sipworks.build(ctx: ExampleContext)
 	local function recipeContent(id)
 		local rows = {
 			view.text(text("recipe.title"), 24),
-			UI.Stepper "Batch" { value = batchSize, min = 1, max = 9, step = 1, label = text("recipe.batchSize") },
+			UI.Stepper {
+				Name = "Batch",
+				value = batchSize,
+				min = 1,
+				max = 9,
+				step = 1,
+				label = text("recipe.batchSize"),
+			},
 		}
 		for _, measure in catalog.recipeMeasures(id) do
 			local ingredient = catalog.botanical(measure.botanicalId)
@@ -279,7 +286,8 @@ function Sipworks.build(ctx: ExampleContext)
 	local function stampsPage(): Instance
 		return view.page("Rewards", {
 			view.text(text("rewards.title"), 28),
-			UI.Picker "Locale" {
+			UI.Picker {
+				Name = "Locale",
 				selected = i18n.locale,
 				options = function(use: Use): { StringPickerOption }
 					local locale = use(i18n.locale)
@@ -351,7 +359,8 @@ function Sipworks.build(ctx: ExampleContext)
 		return ctx.Host.Frame "Sipworks" {
 			BackgroundTransparency = 1,
 			Size = ctx.types.UDim2.fromScale(1, 1),
-			UI.TabView "Destinations" {
+			UI.TabView {
+				Name = "Destinations",
 				selection = section,
 				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				Size = ctx.types.UDim2.new(1, 0, 1, -64),
@@ -372,14 +381,16 @@ function Sipworks.build(ctx: ExampleContext)
 				AutomaticSize = ctx.types.Enum.AutomaticSize.None,
 				TextWrapped = true,
 			}),
-			UI.Sheet "Blend" {
+			UI.Sheet {
+				Name = "Blend",
 				isPresented = selectedOpen,
 				detent = Compose.cell("large"),
 				title = text("sheet.blend"),
 				closeButton = text("common.done"),
 				content = detail,
 			},
-			UI.Sheet "Botanical" {
+			UI.Sheet {
+				Name = "Botanical",
 				isPresented = botanicalOpen,
 				detent = Compose.cell("medium"),
 				title = text("sheet.botanical"),

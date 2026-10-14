@@ -1,9 +1,10 @@
 --!strict
 local Types = require("./types")
 local Content = require("./content_types")
-local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local values = require("./content_values")
+local ContentProps = require("./content_props")
+local InputProps = require("./input_props")
 
 local SIDES: { { side: Content.VoteValue, name: string, icon: string, label: string } } = {
 	{ side = "up", name = "Opt1", icon = "vote.up", label = "Upvote" },
@@ -13,8 +14,8 @@ local SIDES: { { side: Content.VoteValue, name: string, icon: string, label: str
 return function(
 	ctx: Types.Context,
 	UI: {
-		Vote: Types.Constructor<Content.VoteSpec, Frame>,
-		Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
+		Vote: Types.Constructor<ContentProps.VoteSpec, Frame>,
+		Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
 	}
 ): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
@@ -23,7 +24,7 @@ return function(
 		return value == "up" or value == "down" or value == "none"
 	end
 
-	UI.Vote = ctx.construct("Vote", function(spec: Content.VoteSpec): Frame
+	UI.Vote = ctx.construct("Vote", function(spec: ContentProps.VoteSpec): Frame
 		assert(isVote(read(spec.value)), "Facet UI.Vote: value must be up, down or none")
 		assert(spec.onChange == nil or type(spec.onChange) == "function", "Facet UI.Vote: onChange must be a function")
 		assert(

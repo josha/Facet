@@ -5,6 +5,11 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
+local function named<P>(name: string, props: P): P
+	local copy = table.clone((props :: unknown) :: { [unknown]: unknown })
+	copy.Name = name
+	return (copy :: unknown) :: P
+end
 local GuiService = game:GetService("GuiService")
 
 type Case = {
@@ -232,7 +237,8 @@ add("fields-label-above", {}, function(t)
 		t.cleanup()
 	end
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.TextInput "Long" {
+		return UI.TextInput {
+			Name = "Long",
 			value = Compose.cell(""),
 			label = "Your full racing name as it appears on the season leaderboard",
 			requiredMark = "required" :: "required",
@@ -321,20 +327,22 @@ add("fields-accessories", {}, function(t)
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Host.UIListLayout({ Padding = UDim.new(0, 16), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-			UI.TextInput "Kitted" {
+			UI.TextInput {
+				Name = "Kitted",
 				LayoutOrder = 1,
 				value = Compose.cell("Ada"),
 				label = "Racer",
 				clearButtonMode = "always" :: "always",
 				leading = Host.Frame "Glyph" { Size = UDim2.fromOffset(20, 20) },
-				trailing = UI.Button "Go" { label = "Go", onActivate = function() end },
+				trailing = UI.Button { Name = "Go", label = "Go", onActivate = function() end },
 			},
-			UI.TextInput "Find" {
+			UI.TextInput {
+				Name = "Find",
 				LayoutOrder = 2,
 				value = Compose.cell("coast"),
 				label = "Search tracks",
 				presentation = "search" :: "search",
-				trailing = UI.Button "Filter" { label = "Filter", onActivate = function() end },
+				trailing = UI.Button { Name = "Filter", label = "Filter", onActivate = function() end },
 			},
 		}
 	end, { size = Vector2.new(600, 400), frames = 20 })
@@ -406,7 +414,8 @@ interactive(
 	"afterClick: left-click once at the screen point noted as click (the middle of the compact Input plate)",
 	function(t)
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-			return UI.TextInput "Compact" {
+			return UI.TextInput {
+				Name = "Compact",
 				value = Compose.cell("Ada"),
 				label = "Name",
 				controlSize = "compact" :: "compact",
@@ -562,7 +571,8 @@ interactive(
 				BackgroundTransparency = 1,
 				Host.UIPadding({ PaddingLeft = UDim.new(0, 40), PaddingTop = UDim.new(0, 40) }) :: unknown,
 				Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }),
-				UI.NumberInput "Speed" {
+				UI.NumberInput {
+					Name = "Speed",
 					LayoutOrder = 1,
 					Size = UDim2.fromOffset(420, 0),
 					value = Compose.cell("120"),
@@ -575,14 +585,16 @@ interactive(
 					scrub = true,
 					selectOnFocus = "all" :: "all",
 				},
-				UI.TextInput "Tail" {
+				UI.TextInput {
+					Name = "Tail",
 					LayoutOrder = 2,
 					Size = UDim2.fromOffset(420, 0),
 					value = Compose.cell("Coastal circuit"),
 					label = "Caret at the end",
 					selectOnFocus = "end" :: "end",
 				},
-				UI.TextInput "Plain" {
+				UI.TextInput {
+					Name = "Plain",
 					LayoutOrder = 3,
 					Size = UDim2.fromOffset(420, 0),
 					value = Compose.cell("Coastal circuit"),
@@ -869,7 +881,8 @@ interactive(
 					Size = UDim2.fromOffset(320, 320),
 					Position = UDim2.fromOffset(190, 100),
 					BackgroundTransparency = 1,
-					UI.Slider "Tilt" {
+					UI.Slider {
+						Name = "Tilt",
 						AnchorPoint = Vector2.new(0.5, 0.5),
 						Position = UDim2.fromScale(0.5, 0.5),
 						Size = UDim2.new(0.8, 0, 0, 0),
@@ -962,7 +975,8 @@ add("slider-range-live", {}, function(t)
 	end
 	t.cleanup()
 	local knobs = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		return UI.Slider "Knobs" {
+		return UI.Slider {
+			Name = "Knobs",
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(420, 0),
 			value = Compose.cell({ lower = 0, upper = 100 }),
@@ -1147,7 +1161,7 @@ local function datePicker(t: any, make: (any, any) -> any, holder: { [string]: a
 			AnchorPoint = config.anchor or Vector2.zero,
 			Size = config.size or UDim2.fromOffset(360, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
-			UI.DateTimePicker("Date")(make(Compose, UI)),
+			UI.DateTimePicker(named("Date", make(Compose, UI))),
 		}
 	end, { frames = 20 })
 	openNow(t)
@@ -1342,12 +1356,15 @@ interactive(
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(360, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				UI.DateTimePicker("Date")(singleSpec(Compose, {
-					value = { year = 2026, month = 9, day = 16, hour = 14, minute = 30 },
-					time = true,
-					draft = true,
-					isPresented = value.open,
-				})),
+				UI.DateTimePicker(named(
+					"Date",
+					singleSpec(Compose, {
+						value = { year = 2026, month = 9, day = 16, hour = 14, minute = 30 },
+						time = true,
+						draft = true,
+						isPresented = value.open,
+					})
+				)),
 			}
 		end, { frames = 20 })
 		openNow(t)
@@ -1400,7 +1417,7 @@ interactive(
 					Position = UDim2.fromOffset(40, 40),
 					Size = UDim2.fromOffset(360, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.DateTimePicker("Date")(singleSpec(Compose, { draft = true, isPresented = value.open })),
+					UI.DateTimePicker(named("Date", singleSpec(Compose, { draft = true, isPresented = value.open }))),
 				}
 			end, { frames = 20 })
 			openNow(t)
@@ -1428,8 +1445,10 @@ interactive(
 					Size = UDim2.fromOffset(360, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					Host.UIListLayout({ Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-					UI.DateTimePicker("Date")(singleSpec(Compose, { style = "inline" :: "inline", LayoutOrder = 1 })),
-					UI.Button "Below" { label = "Below", LayoutOrder = 2, onActivate = function() end },
+					UI.DateTimePicker(
+						named("Date", singleSpec(Compose, { style = "inline" :: "inline", LayoutOrder = 1 }))
+					),
+					UI.Button { Name = "Below", label = "Below", LayoutOrder = 2, onActivate = function() end },
 				}
 			end, { frames = 20 })
 			value.days = partOf(t.find(stage, "Pane1"), "Days")
@@ -1663,26 +1682,32 @@ add("dtp-paint", {}, function(t)
 					BackgroundTransparency = 1,
 					Size = UDim2.fromOffset(360, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.DateTimePicker("Span")(rangeSpec(Compose, {
-						style = "inline" :: "inline",
-						today = today,
-						min = { year = 2026, month = 12, day = 2 },
-						range = {
-							start = { year = 2026, month = 12, day = 5 },
-							finish = { year = 2026, month = 12, day = 20 },
-						},
-					})),
+					UI.DateTimePicker(named(
+						"Span",
+						rangeSpec(Compose, {
+							style = "inline" :: "inline",
+							today = today,
+							min = { year = 2026, month = 12, day = 2 },
+							range = {
+								start = { year = 2026, month = 12, day = 5 },
+								finish = { year = 2026, month = 12, day = 20 },
+							},
+						})
+					)),
 				},
 				Host.Frame "SingleBox" {
 					LayoutOrder = 2,
 					BackgroundTransparency = 1,
 					Size = UDim2.fromOffset(360, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.DateTimePicker("Single")(singleSpec(Compose, {
-						style = "inline" :: "inline",
-						today = today,
-						value = { year = 2026, month = 12, day = 12 },
-					})),
+					UI.DateTimePicker(named(
+						"Single",
+						singleSpec(Compose, {
+							style = "inline" :: "inline",
+							today = today,
+							value = { year = 2026, month = 12, day = 12 },
+						})
+					)),
 				},
 			}
 		end, { palette = name, frames = 20 })
@@ -1842,7 +1867,7 @@ interactive(
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(360, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				UI.DateTimePicker("Date")(singleSpec(Compose, { style = "inline" :: "inline" })),
+				UI.DateTimePicker(named("Date", singleSpec(Compose, { style = "inline" :: "inline" }))),
 			}
 		end, { frames = 20 })
 		local year = t.find(stage, "Year")
@@ -2019,7 +2044,8 @@ interactive(
 						end,
 						render = function(current: Readable<string>): GuiObject
 							local item = current:peek()
-							return UI.Chip(item)({
+							return UI.Chip({
+								Name = item,
 								label = item,
 								controlSize = "compact" :: "compact",
 								selected = function(use: Use)
@@ -2157,7 +2183,8 @@ local function driverPicker(t: any, first: string, value: any): any
 		value.driver = Compose.cell(first)
 		value.open = Compose.cell(false)
 		value.changes = 0
-		return UI.Picker "Driver" {
+		return UI.Picker {
+			Name = "Driver",
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(400, 0),
 			label = "Driver",
@@ -2520,11 +2547,11 @@ add("color-hidden-technique-size", {}, function(t)
 				opens[index] = Compose.cell(false)
 				table.insert(
 					children,
-					UI.ColorPicker(`Well{index}`)((colorSpec(Compose, {
+					UI.ColorPicker(named(`Well{index}`, (colorSpec(Compose, {
 						LayoutOrder = index,
 						modes = rotated(index),
 						isPresented = opens[index],
-					})))
+					}))))
 				)
 			end
 			return Host.Frame "Wells" {
@@ -2649,12 +2676,12 @@ add("color-placement-real-layout", {}, function(t)
 								spot.y.Offset
 							),
 							Size = UDim2.fromOffset(if kind == "Labelled" then 360 else 44, 44),
-							UI.ColorPicker(name)((colorSpec(Compose, {
+							UI.ColorPicker(named(name, (colorSpec(Compose, {
 								label = if kind == "Labelled" then "Kart body" else nil,
 								modes = ALL_MODES,
 								alpha = true,
 								isPresented = opens[name],
-							}))),
+							})))),
 						})
 					)
 				end
@@ -2728,8 +2755,8 @@ interactive(
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(44, 44),
-				UI.ColorPicker("Well")(
-					(colorSpec(Compose, { modes = { "swatches" }, isPresented = openLater(Compose) }))
+				UI.ColorPicker(
+					named("Well", (colorSpec(Compose, { modes = { "swatches" }, isPresented = openLater(Compose) })))
 				),
 			}
 		end, { frames = 20 })
@@ -2810,7 +2837,7 @@ add("color-plane-layers-and-ring", {}, function(t)
 			Position = UDim2.fromOffset(40, 40),
 			Size = UDim2.fromOffset(360, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
-			UI.ColorPicker("Accent")(spec),
+			UI.ColorPicker(named("Accent", spec)),
 		}
 	end, { frames = 20 })
 	local root = t.find(stage, "Accent")
@@ -2952,9 +2979,9 @@ add("color-touch-bubble-room", {}, function(t)
 				LayoutOrder = 1,
 				BackgroundTransparency = 1,
 				Size = UDim2.fromOffset(44, 44),
-				UI.ColorPicker("Sheet")(sheetSpec),
+				UI.ColorPicker(named("Sheet", sheetSpec)),
 			},
-			UI.ColorPicker("Inline")(inlineSpec),
+			UI.ColorPicker(named("Inline", inlineSpec)),
 		}
 	end, { frames = 20 })
 	openNow(t)
@@ -3031,12 +3058,12 @@ add("color-phone-sheet-apply-on-screen", {}, function(t)
 				opens[mode] = Compose.cell(false)
 				table.insert(
 					children,
-					UI.ColorPicker(`Well{index}`)((colorSpec(Compose, {
+					UI.ColorPicker(named(`Well{index}`, (colorSpec(Compose, {
 						LayoutOrder = index,
 						modes = { mode },
 						draft = true,
 						isPresented = opens[mode],
-					})))
+					}))))
 				)
 			end
 			return Host.Frame "Wells" {
@@ -3268,7 +3295,7 @@ interactive(
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(44, 44),
-				UI.ColorPicker("Well")((colorSpec(Compose, { modes = { "spectrum", "swatches" } }))),
+				UI.ColorPicker(named("Well", (colorSpec(Compose, { modes = { "spectrum", "swatches" } })))),
 			}
 		end, { frames = 20 })
 		value.layer = layerOf(stage)
@@ -3326,8 +3353,11 @@ interactive(
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(40, 40),
 				Size = UDim2.fromOffset(44, 44),
-				UI.ColorPicker("Well")(
-					(colorSpec(Compose, { modes = { "spectrum", "swatches" }, isPresented = openLater(Compose) }))
+				UI.ColorPicker(
+					named(
+						"Well",
+						(colorSpec(Compose, { modes = { "spectrum", "swatches" }, isPresented = openLater(Compose) }))
+					)
 				),
 			}
 		end, { frames = 20 })

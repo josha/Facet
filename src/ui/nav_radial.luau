@@ -7,7 +7,9 @@ local adaptive = require("./adaptive")
 local Types = require("./types")
 local Radial = require("./radial_types")
 local Navigation = require("./navigation_types")
-local Inputs = require("./input_types")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
+local RadialProps = require("./radial_props")
 local ComposeTypes = require("../vendor/compose/core")
 
 type NavigationHold = { count: number, saved: boolean, changed: boolean, watch: RBXScriptConnection? }
@@ -49,15 +51,15 @@ end
 return function(
 	ctx: Types.Context,
 	UI: {
-		Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
-		RadialMenu: Radial.RadialMenuConstructor,
+		Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
+		RadialMenu: ControlTypes.RadialMenuConstructor,
 	},
 	surfaces: Navigation.Surfaces
 )
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local build: Radial.RadialMenuBuilder = function<V>(spec: Radial.RadialMenuSpec<V>): Frame
+	local build: ControlTypes.RadialMenuConstructor = function<V>(spec: RadialProps.RadialMenuSpec<V>): Frame
 		assert(spec.items, "RadialMenu requires items")
 
 		local input = surfaces.service("UserInputService")
@@ -291,8 +293,11 @@ return function(
 						item.onChange(item.value)
 					end
 				end
-			elseif item.onSelect then
-				item.onSelect()
+			else
+				local select: (() -> ())? = item.onSelect
+				if select then
+					select()
+				end
 			end
 		end
 		local function nativeActivate(sector: Radial.Sector<V>?, input: InputObject?, source: string?)
@@ -428,7 +433,8 @@ return function(
 				end
 			end
 			surfaces.attach(root, {
-				UI.Button "Launcher" {
+				UI.Button {
+					Name = "Launcher",
 					AnchorPoint = if overAnchor then V2.new(0.5, 0.5) else nil,
 					Position = overAnchor,
 					label = spec.label or "Quick actions",
@@ -665,7 +671,7 @@ return function(
 						do
 							local extent, target = 0, 0
 							for _, probe in geometry.sectors(shown, levelStart, currentSweep, distribution, ri, ri + 1) do
-								local width, height = estimate(probe.item)
+								local width, height = estimate((probe.item :: unknown) :: Radial.RadialItemBase<V>)
 								local ux, uy = math.sin(math.rad(probe.angle)), -math.cos(math.rad(probe.angle))
 								local hw, hh = width / 2 + padding, height / 2 + padding
 								local middle = ri + math.abs(hw * ux) + math.abs(hh * uy)
@@ -1402,7 +1408,8 @@ return function(
 					return D2.fromOffset(at.X, at.Y)
 				end
 				local hideLauncher: (() -> ())? = nil
-				local centerNode = UI.Button "Center" {
+				local centerNode = UI.Button {
+					Name = "Center",
 					corners = "pill" :: "pill",
 					appearance = "utility",
 					name = centerName,

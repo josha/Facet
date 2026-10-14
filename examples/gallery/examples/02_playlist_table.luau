@@ -103,10 +103,7 @@ function example.build(ctx: any)
 		return baseRows:peek() :: { any }
 	end
 	local function starCell(item: any)
-		return UI.Rating "Rating" {
-			value = ratings[plain(item).id],
-			count = 5,
-		}
+		return UI.Rating { Name = "Rating", value = ratings[plain(item).id], count = 5 }
 	end
 
 	local function removeTrack(id: string)
@@ -173,7 +170,8 @@ function example.build(ctx: any)
 		baseRows:set(out)
 	end
 	function built.screen()
-		local tracks = UI.Table "Tracks" {
+		local tracks = UI.Table {
+			Name = "Tracks",
 			Size = UDim2.new(1, 0, 0, 328),
 			widths = columnWidths,
 			columns = {
@@ -301,17 +299,21 @@ function example.build(ctx: any)
 			end
 			return `Now playing — {track}`
 		end
-		local screen = UI.Screen "Playlist" {
-			UI.ScrollView "Page" {
+		local screen = UI.Screen {
+			Name = "Playlist",
+			UI.ScrollView {
+				Name = "Page",
 				gap = "s",
 				align = "stretch" :: "stretch",
-				UI.Text "Title" { text = "Playlist", textRole = "title" :: "title" } :: unknown,
-				UI.TextInput "Filter" {
+				UI.Text { Name = "Title", text = "Playlist", textRole = "title" :: "title" } :: unknown,
+				UI.TextInput {
+					Name = "Filter",
 					value = filterText,
 					presentation = "search" :: "search",
 					placeholder = "Filter tracks",
 				},
-				UI.Text "EmptyResult" {
+				UI.Text {
+					Name = "EmptyResult",
 					Visible = function(use: Use)
 						return #use(filteredRows) == 0
 					end,
@@ -322,11 +324,17 @@ function example.build(ctx: any)
 					end,
 					TextWrapped = true,
 				},
-				UI.Text "Hint" { text = hintText, textRole = "caption" :: "caption", TextWrapped = true },
-				UI.Text "NowPlaying" { text = nowPlayingText, textRole = "caption" :: "caption", TextWrapped = true },
-				UI.Text "Widths" { text = widthsText, textRole = "caption" :: "caption", TextWrapped = true },
+				UI.Text { Name = "Hint", text = hintText, textRole = "caption" :: "caption", TextWrapped = true },
+				UI.Text {
+					Name = "NowPlaying",
+					text = nowPlayingText,
+					textRole = "caption" :: "caption",
+					TextWrapped = true,
+				},
+				UI.Text { Name = "Widths", text = widthsText, textRole = "caption" :: "caption", TextWrapped = true },
 				tracks,
-				UI.Button "Restore" {
+				UI.Button {
+					Name = "Restore",
 					label = "Restore the original playlist",
 					onActivate = restore,
 				},

@@ -126,7 +126,8 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 				state.beatIndex = reached
 			end)
 			local height = math.max(120, math.floor(ctx.viewport.h * 0.5))
-			state.list = UI.VirtualList "Roster" {
+			state.list = UI.VirtualList {
+				Name = "Roster",
 				from = state.rows,
 				key = function(item)
 					return item.id
@@ -225,15 +226,17 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 				state.entry:restart()
 			end
 		end)
-		state.field = UI.TextInput "Name" { value = Compose.cell(""), invalid = state.invalid }
-		state.button = UI.Button "Go" {
+		state.field = UI.TextInput { Name = "Name", value = Compose.cell(""), invalid = state.invalid }
+		state.button = UI.Button {
+			Name = "Go",
 			label = "Go",
 			pop = true,
 			onActivate = function()
 				state.pops += 1
 			end,
 		}
-		state.disclosure = UI.DisclosureGroup "Adv" {
+		state.disclosure = UI.DisclosureGroup {
+			Name = "Adv",
 			label = "Advanced",
 			expanded = state.expanded,
 			onToggle = function(value)

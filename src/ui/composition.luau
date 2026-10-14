@@ -6,6 +6,9 @@ local Overlay = require("./overlay_types")
 local layoutKit = require("./layout_kit")
 local reducedMotion = require("./motion").reduced
 local resolver = require("./composition_resolve")
+local ControlTypes = require("./control_types")
+local LayoutProps = require("./layout_props")
+local OverlayProps = require("./overlay_props")
 
 type Declared = {
 	zone: Layout.Zone,
@@ -21,14 +24,14 @@ local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 
 return function(
 	ctx: Types.Context,
-	UI: Layout.LayoutControls & { Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject> }
+	UI: ControlTypes.Controls & { Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject> }
 )
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local declared = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Declared }
 
-	UI.Region = ctx.construct("Region", function(spec: Layout.RegionProps): Frame
+	UI.Region = ctx.construct("Region", function(spec: LayoutProps.RegionProps): Frame
 		local zone, rank = spec.zone, spec.rank
 		assert(
 			type(zone) == "string" and resolver.CELLS[zone] ~= nil,
@@ -153,7 +156,8 @@ return function(
 					open:set(false)
 				end
 			end)
-			properties[#properties + 1] = UI.Popover "Expand" {
+			properties[#properties + 1] = UI.Popover {
+				Name = "Expand",
 				isPresented = open,
 				onPresentedChange = function(value: boolean)
 					open:set(value and form:peek() > 1)
@@ -243,7 +247,7 @@ return function(
 		return Host.Frame(name)(fields)
 	end
 
-	UI.Composition = ctx.construct("Composition", function(spec: Layout.CompositionProps): Frame
+	UI.Composition = ctx.construct("Composition", function(spec: LayoutProps.CompositionProps): Frame
 		local properties = (ctx.props(spec, { "gap", "padding", "topbar" }) :: unknown) :: Types.FrameNativeProps
 		local regions: { Frame } = {}
 		local helpers: { Instance } = {}
@@ -467,7 +471,8 @@ return function(
 					V2.new(if column == 1 then 0 else 1, (row - 1) / 2)
 			end
 			runtime.mount(function()
-				return UI.Popover("Hidden" .. frame.Name) {
+				return UI.Popover {
+					Name = "Hidden" .. frame.Name,
 					isPresented = open,
 					onPresentedChange = function(value: boolean)
 						open:set(value and #dropped:peek() > 0)

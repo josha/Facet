@@ -40,16 +40,20 @@ function example.build(ctx: any)
 		return celsius:peek()
 	end
 	function built.screen()
-		return UI.Screen "TempConverter" {
-			UI.ScrollView "Page" {
+		return UI.Screen {
+			Name = "TempConverter",
+			UI.ScrollView {
+				Name = "Page",
 				gap = "s",
-				UI.Text "Title" { text = "Fahrenheit → Celsius", textRole = "title" :: "title" } :: unknown,
-				UI.Text "Prompt" {
+				UI.Text { Name = "Title", text = "Fahrenheit → Celsius", textRole = "title" :: "title" } :: unknown,
+				UI.Text {
+					Name = "Prompt",
 					text = "Enter a temperature in °F:",
 					textRole = "label" :: "label",
 					role = "secondary" :: "secondary",
 				},
-				UI.TextInput "Fahrenheit" {
+				UI.TextInput {
+					Name = "Fahrenheit",
 					value = fahrenheit,
 					placeholder = "e.g. 212",
 					validate = acceptNumeric,
@@ -57,7 +61,8 @@ function example.build(ctx: any)
 						celsius:set(toCelsius(text))
 					end,
 				},
-				UI.Text "Preview" {
+				UI.Text {
+					Name = "Preview",
 					role = "secondary" :: "secondary",
 					text = function(use: Use)
 						local c = use(liveCelsius)
@@ -66,14 +71,15 @@ function example.build(ctx: any)
 							else string.format("Preview: %g °C  (live, as you type)", c)
 					end,
 				},
-				UI.Text "Result" {
+				UI.Text {
+					Name = "Result",
 					textRole = "heading" :: "heading",
 					text = function(use: Use)
 						local c = use(celsius)
 						return if c == nil then "Result: —" else string.format("Result: %g °C", c)
 					end,
 				},
-				UI.Button "Clear" { label = "Clear", onActivate = clear },
+				UI.Button { Name = "Clear", label = "Clear", onActivate = clear },
 			},
 		}
 	end

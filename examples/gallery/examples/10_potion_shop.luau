@@ -171,7 +171,8 @@ return {
 			for index, order in orders do
 				table.insert(
 					tickets,
-					UI.VStack("Ticket" .. index) {
+					UI.VStack {
+						Name = "Ticket" .. index,
 						width = "fill" :: "fill",
 						gap = "xs",
 						padding = "s",
@@ -186,7 +187,8 @@ return {
 				)
 			end
 			for _, recipe in recipes do
-				local ingredient = UI.Button("Add_" .. recipe.id) {
+				local ingredient = UI.Button {
+					Name = "Add_" .. recipe.id,
 					label = recipe.ingredient .. "\nAdd one portion",
 					Size = D2.new(1, 0, 0, 72),
 					enabled = function(use: any)
@@ -215,7 +217,8 @@ return {
 				return use(phase) == "ready"
 			end)
 			UI.draggable(serveButton, { payload = { kind = "order" :: "order" }, armOnTap = false })
-			local rail = UI.Grid "OrderRail" {
+			local rail = UI.Grid {
+				Name = "OrderRail",
 				columns = 3,
 				gap = "m",
 				cellHeight = 104,
@@ -227,7 +230,8 @@ return {
 				end,
 				onDrop = serve,
 			})
-			return UI.ScrollView "PotionShop" {
+			return UI.ScrollView {
+				Name = "PotionShop",
 				padding = "l",
 				gap = "m",
 				view.text("ShopTitle", "The potion counter", "title") :: unknown,
@@ -244,7 +248,8 @@ return {
 						then "Empty cauldron · Add ingredients from the shelf below"
 						else `{use(quantity)} portions of {byId[use(selected)].ingredient}`
 				end),
-				UI.Grid "IngredientShelf" {
+				UI.Grid {
+					Name = "IngredientShelf",
 					columns = 3,
 					gap = "s",
 					cellHeight = 76,
@@ -253,7 +258,12 @@ return {
 				C.show(function(use: any)
 					return use(phase) == "brewing"
 				end, function()
-					return UI.ProgressView "BrewProgress" { label = "Brewing", value = progress, showValue = true }
+					return UI.ProgressView {
+						Name = "BrewProgress",
+						label = "Brewing",
+						value = progress,
+						showValue = true,
+					}
 				end),
 				view.actions({
 					view.button("Brew", "Brew the order", brew, function(use: any)
@@ -349,14 +359,16 @@ return {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
 					shop() :: unknown,
-					UI.Sheet "RecipeBookSheet" {
+					UI.Sheet {
+						Name = "RecipeBookSheet",
 						title = "Recipe book",
 						isPresented = bookOpen,
 						closeButton = true,
 						detent = C.cell("large"),
 						content = book,
 					},
-					UI.Sheet "LedgerSheet" {
+					UI.Sheet {
+						Name = "LedgerSheet",
 						title = "Today's takings",
 						isPresented = ledgerOpen,
 						closeButton = true,

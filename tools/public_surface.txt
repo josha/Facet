@@ -119,6 +119,7 @@ gamepadContention : table(frozen)
   gamepadContention.iasPlayerScriptsActive : function
   gamepadContention.legacyStackActive : function
   gamepadContention.traversalKeyContended : function
+host : function
 inputPriority : table(frozen)
   inputPriority.aboveFacet : number
   inputPriority.belowControls : number
@@ -249,6 +250,7 @@ type CardSpec
 type Cell
 type CellDraft
 type CellEditorSpec
+type Child
 type ChipProps
 type CivilDate
 type CivilDateModule
@@ -269,6 +271,7 @@ type CompositionProps
 type ControlOptions
 type Controls
 type DateTimePickerProps
+type DialogAction
 type DialogSpec
 type DisclosureGroupSpec
 type DividerProps
@@ -290,6 +293,7 @@ type GestureOptions
 type GridProps
 type HapticKind
 type HierarchyOptions
+type Host
 type IdentityCollectionSpec
 type IdentityTableSpec
 type ImageProps

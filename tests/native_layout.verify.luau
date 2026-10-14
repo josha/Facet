@@ -84,7 +84,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 					return UI.Composition {
-						UI.Region "Health" {
+						UI.Region {
+							Name = "Health",
 							zone = "bottomLeft" :: "bottomLeft",
 							rank = 1,
 							Host.Frame "Full" {} :: unknown,
@@ -115,7 +116,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
 					return UI.Composition {
-						UI.Region "Health" {
+						UI.Region {
+							Name = "Health",
 							zone = "bottomLeft" :: "bottomLeft",
 							rank = 1,
 							Host.Frame "Full" {} :: unknown,
@@ -308,7 +310,7 @@ return function(verifyHarness: Verify.Harness)
 					} :: any
 				)
 				local stop, result = runtime.mount(function()
-					return UI.Text "Value" { text = "50%" }
+					return UI.Text { Name = "Value", text = "50%" }
 				end, engine.new("ScreenGui"))
 				local label: any = result
 				engine.heartbeat:Fire(1 / 60)
@@ -385,7 +387,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 				end)
 				local stop, result = runtime.mount(function()
-					return UI.Text "Summary" { text = "Page 1 of 3" }
+					return UI.Text { Name = "Summary", text = "Page 1 of 3" }
 				end, engine.new("ScreenGui"))
 				local root: any = result
 				local initialFace, initialSize = root.FontFace, root.TextSize
@@ -419,9 +421,9 @@ return function(verifyHarness: Verify.Harness)
 					{ services = { RunService = { Heartbeat = frames.heartbeat } } },
 					function(UI, Host)
 						return Host.Frame {
-							UI.Text "Automatic" { text = "Ranger rifle" },
-							UI.Text "Fixed" { text = "Ranger rifle", AutomaticSize = Enum.AutomaticSize.None },
-							UI.Slider "Slider" { value = Compose.cell(0.5) },
+							UI.Text { Name = "Automatic", text = "Ranger rifle" },
+							UI.Text { Name = "Fixed", text = "Ranger rifle", AutomaticSize = Enum.AutomaticSize.None },
+							UI.Slider { Name = "Slider", value = Compose.cell(0.5) },
 						}
 					end
 				)
@@ -553,7 +555,7 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_layout::Screen::fills its parent, pads the content by the m step and stacks vertically",
 				run = function()
 					local root, engine, stop = build(nil, function(UI: FacetControls)
-						return UI.Screen "Home" { gap = "s", UI.Text { text = "A" } }
+						return UI.Screen { Name = "Home", gap = "s", UI.Text { text = "A" } }
 					end)
 					local E = engine.types.Enum
 					Verify.expect(root.Name):toBe("Home")
@@ -841,7 +843,8 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local roblox = require("./lib/native_engine").types
 					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
-						return UI.ScrollView "Page" {
+						return UI.ScrollView {
+							Name = "Page",
 							padding = 16,
 							Host.Frame {
 								Name = "Body",
@@ -908,7 +911,8 @@ return function(verifyHarness: Verify.Harness)
 					)
 					local root: any
 					runtime.mount(function()
-						root = UI.ScrollView "Page" {
+						root = UI.ScrollView {
+							Name = "Page",
 							padding = 16,
 							((runtime.constructors.Frame :: unknown) :: FrameConstructor) {
 								Name = "Body",
@@ -943,7 +947,8 @@ return function(verifyHarness: Verify.Harness)
 						local roblox = require("./lib/native_engine").types
 						local height = Compose.cell(0)
 						local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
-							return UI.ScrollView "Page" {
+							return UI.ScrollView {
+								Name = "Page",
 								padding = 16,
 								Host.Frame {
 									Name = "Body",
@@ -1025,7 +1030,8 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_layout::Grid::fills columns first with flow column and follows the child count",
 				run = function()
 					local root, engine, stop = build(nil, function(UI: FacetControls, Host: RobloxHost)
-						return UI.Grid "Board" {
+						return UI.Grid {
+							Name = "Board",
 							columns = 2,
 							flow = "column" :: "column",
 							Host.Frame { Name = "A" } :: unknown,

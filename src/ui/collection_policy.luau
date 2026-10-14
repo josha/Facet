@@ -5,6 +5,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local sessionOf = require("./drag_session")
 local DragTypes = require("./drag_types")
 local activation = require("./activation")
+local CollectionProps = require("./collection_props")
 local policy = {}
 function policy.allows<V>(predicate: ((V) -> boolean)?, item: V): boolean
 	if predicate == nil then
@@ -49,7 +50,7 @@ end
 function policy.actions<V, K>(
 	ctx: Types.Context,
 	spec: {
-		rowActions: ((ComposeTypes.Readable<V>, K) -> CollectionTypes.RowActionsOptions?)?,
+		rowActions: ((ComposeTypes.Readable<V>, K) -> CollectionTypes.RowActionsShape?)?,
 		rowDeletable: ((V) -> boolean)?,
 		disabled: ((V) -> boolean)?,
 		reducedMotion: Types.ValueBoolean?,
@@ -58,7 +59,7 @@ function policy.actions<V, K>(
 	current: ComposeTypes.Readable<V>,
 	key: K,
 	row: GuiObject,
-	constructor: Types.Constructor<CollectionTypes.RowActionsSpec, Frame>,
+	constructor: Types.Constructor<CollectionProps.RowActionsSpec, Frame>,
 	coordinator: ComposeTypes.Cell<{}?>,
 	tiled: boolean?
 ): (GuiObject, ComposeTypes.Readable<number>?)
@@ -67,8 +68,8 @@ function policy.actions<V, K>(
 	if authored == nil and #edits == 0 then
 		return row, nil
 	end
-	local actions: CollectionTypes.RowActionsOptions = authored or {}
-	local actionSpec = table.clone(actions) :: CollectionTypes.RowActionsSpec
+	local actions: CollectionTypes.RowActionsShape = authored or {}
+	local actionSpec = table.clone(actions) :: CollectionProps.RowActionsSpec
 	local function gated(list: Types.Value<{ CollectionTypes.RowAction }>?): Types.Value<{ CollectionTypes.RowAction }>?
 		if list == nil then
 			return nil
@@ -126,7 +127,7 @@ function policy.actions<V, K>(
 end
 function policy.drop<V, K>(
 	ctx: Types.Context,
-	spec: CollectionTypes.ReorderOptions<V, K>,
+	spec: CollectionTypes.ReorderShape<V, K>,
 	current: ComposeTypes.Readable<V>,
 	key: K,
 	row: GuiObject,

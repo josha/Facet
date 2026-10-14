@@ -2,15 +2,16 @@
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
-local Inputs = require("./input_types")
 local materialize = require("./materialize")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local freeze = require("./freeze")
+local InputProps = require("./input_props")
+local OverlayProps = require("./overlay_props")
 
 type Controls = {
-	Dialog: Types.Constructor<Overlay.DialogSpec, Frame>,
-	Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
+	Dialog: Types.Constructor<OverlayProps.DialogSpec, Frame>,
+	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
 }
 
 local KEYS = {
@@ -50,7 +51,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 	end
 
-	UI.Dialog = ctx.construct("Dialog", function(spec: Overlay.DialogSpec): Frame
+	UI.Dialog = ctx.construct("Dialog", function(spec: OverlayProps.DialogSpec): Frame
 		local where = "UI.Dialog"
 		if spec.isPresented == nil then
 			error(`Facet {where}: isPresented is required; it is the caller's boolean fact`, 0)
@@ -220,7 +221,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				if closeButton then
 					table.insert(
 						header,
-						UI.Button "Close" {
+						UI.Button {
+							Name = "Close",
 							name = "Close",
 							icon = "close",
 							Size = D2.fromOffset(44, 44),

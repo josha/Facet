@@ -80,7 +80,8 @@ return {
 				"body" | "caption" | "control" | "heading" | "label" | "numeral" | "strong" | "title"
 			)?
 		)
-			return UI.Text(name)({
+			return UI.Text({
+				Name = name,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -94,6 +95,7 @@ return {
 		end
 		local function body()
 			local props: StackProps = {
+				Name = "Body",
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -120,7 +122,8 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 					}) :: unknown,
-					UI.Button "Enable" {
+					UI.Button {
+						Name = "Enable",
 						LayoutOrder = 1,
 						label = function(use: Use)
 							return if use(enabled) then "Disable fields" else "Enable fields"
@@ -129,7 +132,13 @@ return {
 							enabled:set(not enabled:peek())
 						end,
 					},
-					UI.Button "Reset" { LayoutOrder = 2, label = "Reset", appearance = "utility", onActivate = reset },
+					UI.Button {
+						Name = "Reset",
+						LayoutOrder = 2,
+						label = "Reset",
+						appearance = "utility",
+						onActivate = reset,
+					},
 				},
 				UI.Text({
 
@@ -154,7 +163,8 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.TextInput "Editor" {
+				UI.TextInput {
+					Name = "Editor",
 					value = text,
 					multiline = true,
 					enabled = enabled,
@@ -162,14 +172,16 @@ return {
 						saved:set(v)
 					end,
 				},
-				UI.Button "Save" {
+				UI.Button {
+					Name = "Save",
 					label = "Save notes",
 					enabled = enabled,
 					onActivate = function()
 						saved:set(text:peek())
 					end,
 				},
-				UI.Text "Saved" {
+				UI.Text {
+					Name = "Saved",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -191,7 +203,8 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.TextInput "Search" {
+				UI.TextInput {
+					Name = "Search",
 					value = query,
 					presentation = "search" :: "search",
 					enabled = enabled,
@@ -230,7 +243,8 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.NumberInput "Laps" {
+				UI.NumberInput {
+					Name = "Laps",
 					value = draft,
 					numericValue = laps,
 					min = 1,
@@ -239,7 +253,8 @@ return {
 					enabled = enabled,
 					ref = keep("Laps"),
 				},
-				UI.Text "Committed" {
+				UI.Text {
+					Name = "Committed",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -251,7 +266,8 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.NumberInput "Fee" {
+				UI.NumberInput {
+					Name = "Fee",
 					value = feeDraft,
 					numericValue = fee,
 					enabled = enabled,
@@ -268,7 +284,8 @@ return {
 					end,
 					ref = keep("Fee"),
 				},
-				UI.Text "CommittedFee" {
+				UI.Text {
+					Name = "CommittedFee",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -279,7 +296,8 @@ return {
 					TextWrapped = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.NumberInput "Speed" {
+				UI.NumberInput {
+					Name = "Speed",
 					value = speedDraft,
 					numericValue = speed,
 					enabled = enabled,
@@ -294,14 +312,16 @@ return {
 					ref = keep("Speed"),
 				},
 				caption("FurnitureHeading", "Fields with furniture", "heading"),
-				UI.TextInput "Handle" {
+				UI.TextInput {
+					Name = "Handle",
 					value = handle,
 					enabled = enabled,
 					label = "Display name",
 					requiredMark = "required" :: "required",
 					hint = "Other racers see this above your kart.",
 					errorText = nameError,
-					trailing = UI.Button "Paste" {
+					trailing = UI.Button {
+						Name = "Paste",
 						label = "Paste",
 						enabled = enabled,
 						onActivate = function()
@@ -311,7 +331,8 @@ return {
 					},
 					ref = keep("Handle"),
 				},
-				UI.Text "Pasted" {
+				UI.Text {
+					Name = "Pasted",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -322,7 +343,8 @@ return {
 					TextWrapped = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.TextInput "JoinCode" {
+				UI.TextInput {
+					Name = "JoinCode",
 					value = joinCode,
 					label = "Join code",
 					hint = "Share this with friends. It cannot be edited here.",
@@ -330,7 +352,8 @@ return {
 					clearButtonMode = "always" :: "always",
 					ref = keep("JoinCode"),
 				},
-				UI.TextInput "Briefing" {
+				UI.TextInput {
+					Name = "Briefing",
 					value = brief,
 					multiline = true,
 					visibleLines = 3,
@@ -340,14 +363,15 @@ return {
 					ref = keep("Briefing"),
 				},
 			}
-			return UI.VStack "Body"(props)
+			return UI.VStack(props)
 		end
 		return {
 			screen = function()
 				return Host.Frame "TextControls" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					UI.ScrollView "Content" {
+					UI.ScrollView {
+						Name = "Content",
 						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),

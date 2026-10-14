@@ -2,18 +2,19 @@
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
-local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local Theme = require("./theme_types")
 local parts = require("./overlay_parts")
 local reservations = require("./reservations")
 local motion = require("./motion")
 local freeze = require("./freeze")
+local InputProps = require("./input_props")
+local OverlayProps = require("./overlay_props")
 
 type Controls = {
-	Notice: Types.Constructor<Overlay.NoticeSpec, Frame>,
-	NavBar: Types.Constructor<Overlay.NavBarSpec, Frame>,
-	Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
+	Notice: Types.Constructor<OverlayProps.NoticeSpec, Frame>,
+	NavBar: Types.Constructor<OverlayProps.NavBarSpec, Frame>,
+	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
 }
 
 local NOTICE_KEYS = {
@@ -65,7 +66,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return ctx.metric("space." .. (value or fallback), use)
 	end
 
-	UI.Notice = ctx.construct("Notice", function(spec: Overlay.NoticeSpec): Frame
+	UI.Notice = ctx.construct("Notice", function(spec: OverlayProps.NoticeSpec): Frame
 		local where = "UI.Notice"
 		if not parts.bound(ctx, spec.message, "string") then
 			error(`Facet {where}: message is required; it is a string or a bound string`, 0)
@@ -254,7 +255,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if link then
 				table.insert(
 					accessories,
-					UI.Button "Link" {
+					UI.Button {
+						Name = "Link",
 						label = link.label,
 						appearance = if emphasis then nil else "link",
 						controlSize = spec.controlSize,
@@ -370,7 +372,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local dismiss = spec.onDismiss
 			table.insert(
 				rowChildren,
-				UI.Button "Close" {
+				UI.Button {
+					Name = "Close",
 					name = "Close",
 					icon = "close",
 					controlSize = spec.controlSize,
@@ -538,7 +541,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return root
 	end)
 
-	UI.NavBar = ctx.construct("NavBar", function(spec: Overlay.NavBarSpec): Frame
+	UI.NavBar = ctx.construct("NavBar", function(spec: OverlayProps.NavBarSpec): Frame
 		local where = "UI.NavBar"
 		if spec.onBack ~= nil and type(spec.onBack) ~= "function" then
 			error(`Facet {where}: onBack must be a function`, 0)

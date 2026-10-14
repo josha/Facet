@@ -71,7 +71,8 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 					local field = current:peek()
 					local control
 					if field.kind == "color" then
-						control = kit.UI.ColorPicker("Property_" .. field.key) {
+						control = kit.UI.ColorPicker {
+							Name = "Property_" .. field.key,
 							value = function(use: Use)
 								local value = use(current).value
 								return if value then Color3.fromHex(value) else nil
@@ -192,7 +193,8 @@ function shell.mount(Facet: any, parent: Instance, model: any, actions: any, opt
 				end,
 			}),
 		}
-		local sidebar = kit.UI.VStack "DesignOutline" {
+		local sidebar = kit.UI.VStack {
+			Name = "DesignOutline",
 			width = "fill" :: "fill",
 			height = "fill" :: "fill",
 			padding = 12,

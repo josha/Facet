@@ -388,7 +388,8 @@ local function build(ctx: any)
 				end)
 				return art
 			end)() :: unknown,
-			UI.Button "hit" {
+			UI.Button {
+				Name = "hit",
 				ref = function(node)
 					tile.hit = node
 				end,
@@ -496,7 +497,8 @@ local function build(ctx: any)
 				table.insert(children, slot)
 			end
 		end
-		local node = UI.ZStack "board" {
+		local node = UI.ZStack {
+			Name = "board",
 			ClipsDescendants = true,
 			width = COLS * 48,
 			height = ROWS * 48,
@@ -796,25 +798,30 @@ local function build(ctx: any)
 		local movesText = Compose.formula(function(use: Use)
 			return if use(moves) == 1 then "1 swap" else `{use(moves)} swaps`
 		end)
-		return UI.Screen "Match3" {
-			UI.ScrollView "Page" {
+		return UI.Screen {
+			Name = "Match3",
+			UI.ScrollView {
+				Name = "Page",
 				gap = "s",
 				align = "stretch" :: "stretch",
-				UI.Text "Title" { text = "Facet Match-3", textRole = "title" :: "title", TextWrapped = true } :: unknown,
-				UI.Text "Hint" { text = hint, TextWrapped = true },
-				UI.HStack "Stats" {
+				UI.Text { Name = "Title", text = "Facet Match-3", textRole = "title" :: "title", TextWrapped = true } :: unknown,
+				UI.Text { Name = "Hint", text = hint, TextWrapped = true },
+				UI.HStack {
+					Name = "Stats",
 					gap = "m",
 					wrap = true,
-					UI.Text "Score" { text = scoreText } :: unknown,
-					UI.Text "Moves" { text = movesText },
+					UI.Text { Name = "Score", text = scoreText } :: unknown,
+					UI.Text { Name = "Moves", text = movesText },
 				},
 				boardView(),
-				UI.Text "ArtStatus" { text = artStatus, TextWrapped = true },
-				UI.HStack "Art" {
+				UI.Text { Name = "ArtStatus", text = artStatus, TextWrapped = true },
+				UI.HStack {
+					Name = "Art",
 					wrap = true,
 					gap = "s",
-					UI.Button "Reload" { label = "Re-request artwork", onActivate = reloadArt } :: unknown,
-					UI.Button "Deliver" {
+					UI.Button { Name = "Reload", label = "Re-request artwork", onActivate = reloadArt } :: unknown,
+					UI.Button {
+						Name = "Deliver",
 						label = "Deliver artwork",
 						onActivate = function()
 							local n = deliverArt()
@@ -823,9 +830,9 @@ local function build(ctx: any)
 							)
 						end,
 					},
-					UI.Button "Break" { label = "Fail a load", onActivate = failArt },
+					UI.Button { Name = "Break", label = "Fail a load", onActivate = failArt },
 				},
-				UI.Button "Reset" { label = "New board", onActivate = reset },
+				UI.Button { Name = "Reset", label = "New board", onActivate = reset },
 			},
 		}
 	end

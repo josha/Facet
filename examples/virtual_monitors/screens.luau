@@ -152,7 +152,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					local live = use(source)
 					return live ~= nil and live.serial == toast.serial
 				end)
-				return UI.Toast(app .. "Toast")({
+				return UI.Toast({
+					Name = app .. "Toast",
 					isPresented = presented,
 					onPresentedChange = function(value)
 						if not value then
@@ -225,7 +226,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		)
 		local player = actions.player
 		local displayName = if player then player.DisplayName else "You"
-		local profile = UI.Avatar "Profile" {
+		local profile = UI.Avatar {
+			Name = "Profile",
 			name = displayName,
 			userId = if player and player.UserId > 0 then player.UserId else nil,
 			presence = model.presence,
@@ -236,27 +238,32 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		}
 		local presenceWords = { online = "Online", away = "Away", busy = "Busy" }
 		local menuShown = Compose.cell(false)
-		local root = UI.ZStack(name)({
+		local root = UI.ZStack({
+			Name = name,
 			width = "fill" :: "fill",
 			height = "fill" :: "fill",
 			SelectionGroup = true,
 			ClipsDescendants = true,
-			UI.Screen "Page" {
+			UI.Screen {
+				Name = "Page",
 				gap = "s",
 				padding = { top = "s", right = "m", bottom = "m", left = "m" },
-				UI.NavBar "Header" {
+				UI.NavBar {
+					Name = "Header",
 					title = if name == "Chat" then "Assistant" elseif name == "Flap" then "Facet Flap" else name,
 					titleSize = "heading",
 					Visible = function(use: Use)
 						return actions.spatial == true or use(menuShown) or not (collapsed and use(collapsed))
 					end,
-					trailing = UI.AdaptiveStack "HeaderActions" {
+					trailing = UI.AdaptiveStack {
+						Name = "HeaderActions",
 						axis = "x" :: "x",
 						gap = "s",
 						align = "center" :: "center",
-						UI.ViewThatFits "ChromeFit" { width = "hug" :: "hug", UI.HStack(chrome) } :: unknown,
+						UI.ViewThatFits { Name = "ChromeFit", width = "hug" :: "hug", UI.HStack(chrome) } :: unknown,
 						UI.Menu {
-							trigger = UI.Button "ActionsMenu" {
+							trigger = UI.Button {
+								Name = "ActionsMenu",
 								icon = "more",
 								name = "Menu",
 								shape = "circle" :: "circle",
@@ -312,12 +319,14 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						return not actions.spatial or use(model.focused) == name
 					end,
 					UI.fill() :: unknown,
-					UI.ErrorBoundary "AppBoundary" {
+					UI.ErrorBoundary {
+						Name = "AppBoundary",
 						width = "fill" :: "fill",
 						height = "fill" :: "fill",
 						view = function()
 							local body, extra = build(region)
-							return UI.ZStack "AppContent" {
+							return UI.ZStack {
+								Name = "AppContent",
 								width = "fill" :: "fill",
 								height = "fill" :: "fill",
 								body :: unknown,
@@ -326,7 +335,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						end,
 						fallback = function(failure, retry)
 							warn(`{name} stopped: {failure}`)
-							return UI.VStack "AppFailure" {
+							return UI.VStack {
+								Name = "AppFailure",
 								width = "fill" :: "fill",
 								gap = "s",
 								padding = "l",
@@ -358,7 +368,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					return actions.spatial == true and use(model.focused) ~= name
 				end,
 			}),
-			UI.Popover "StatusPopover" {
+			UI.Popover {
+				Name = "StatusPopover",
 				title = "Status",
 				source = { node = profile },
 				isPresented = statusOpen,
@@ -369,13 +380,16 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				align = "end" :: "end",
 				maxWidth = 280,
 				content = function(): Instance
-					return UI.VStack "PresenceCard" {
+					return UI.VStack {
+						Name = "PresenceCard",
 						width = "fill" :: "fill",
 						gap = "s",
-						UI.HStack "Identity" {
+						UI.HStack {
+							Name = "Identity",
 							gap = "s",
 							align = "center" :: "center",
-							UI.StatusIndicator "PresenceDot" {
+							UI.StatusIndicator {
+								Name = "PresenceDot",
 								status = function(use: Use)
 									local presence = use(model.presence)
 									return if presence == "online"
@@ -387,12 +401,14 @@ function screens.create(Facet: any, runtime: any, actions: any)
 									return presenceWords[use(model.presence)]
 								end,
 							} :: unknown,
-							UI.Text "DisplayName" {
+							UI.Text {
+								Name = "DisplayName",
 								text = "Signed in as <b>" .. Facet.richText.escape(displayName) .. "</b>",
 								rich = true,
 							},
 						} :: unknown,
-						UI.Picker "Presence" {
+						UI.Picker {
+							Name = "Presence",
 							selected = model.presence,
 							onChange = function()
 								statusOpen:set(false)
@@ -407,14 +423,16 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					}
 				end,
 			},
-			UI.Dialog "AboutDialog" {
+			UI.Dialog {
+				Name = "AboutDialog",
 				isPresented = about,
 				onPresentedChange = function(value)
 					about:set(value)
 				end,
 				title = "About Virtual Monitors",
 				content = function(): Instance
-					return UI.VStack "AboutCopy" {
+					return UI.VStack {
+						Name = "AboutCopy",
 						width = "fill" :: "fill",
 						gap = "s",
 						stage("AboutScene", actions.discoveryContent, { Size = D2.new(1, 0, 0, 150) }) :: unknown,
@@ -494,7 +512,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			selectedCard:set(card)
 			model.selectGame(current:peek())
 		end
-		card = UI.Card("Game_" .. item.id)({
+		card = UI.Card({
+			Name = "Game_" .. item.id,
 			title = function(use: Use)
 				return use(current).title
 			end,
@@ -504,7 +523,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			end,
 			artwork = function()
 				local decorated = runtime.timeline({ duration = (1 + item.index % 3) / 60 }).completed
-				preview = UI.ZStack "Preview" {
+				preview = UI.ZStack {
+					Name = "Preview",
 					width = "fill" :: "fill",
 					height = "fill" :: "fill",
 					ClipsDescendants = true,
@@ -514,7 +534,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						lazy = true,
 					}),
 					Compose.show(decorated, function()
-						return UI.StatusIndicator "LiveDot" {
+						return UI.StatusIndicator {
+							Name = "LiveDot",
 							status = "success",
 							name = "Live now",
 							AnchorPoint = V2.new(0, 0),
@@ -524,7 +545,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					Compose.show(function(use: Use)
 						return use(decorated) and #use(current).friends > 0
 					end, function()
-						return UI.AvatarGroup "Friends" {
+						return UI.AvatarGroup {
+							Name = "Friends",
 							items = function(use: Use)
 								return use(current).friends
 							end,
@@ -574,17 +596,20 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					{ x = day / 6, y = 1 - (0.25 + 0.5 * wobble), inX = 0, inY = 0, outX = 0, outY = 0 }
 				)
 			end
-			return UI.HStack "Sparkline" {
+			return UI.HStack {
+				Name = "Sparkline",
 				width = "fill" :: "fill",
 				gap = "s",
 				align = "center" :: "center",
-				UI.Path "TrendLine" {
+				UI.Path {
+					Name = "TrendLine",
 					points = points,
 					role = "accent" :: "accent",
 					thickness = 3,
 					Size = D2.new(1, -52, 0, 40),
 				} :: unknown,
-				UI.Path "RatingArc" {
+				UI.Path {
+					Name = "RatingArc",
 					points = Facet.pathShapes.arc(0, selected.percent * 3.6, { radius = 0.8 }),
 					role = "secondary" :: "secondary",
 					thickness = 4,
@@ -607,7 +632,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		end
 		local perPage = 6
 		local pageCount = math.max(1, math.ceil(#similar / perPage))
-		return UI.VStack "GameDetails" {
+		return UI.VStack {
+			Name = "GameDetails",
 			width = "fill" :: "fill",
 			gap = "s",
 			stage(
@@ -615,11 +641,13 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				if actions.gameContent then actions.gameContent(current) else nil,
 				{ Size = D2.new(1, 0, 0, 180) }
 			) :: unknown,
-			UI.HStack "PlayRow" {
+			UI.HStack {
+				Name = "PlayRow",
 				width = "fill" :: "fill",
 				gap = "s",
 				align = "center" :: "center",
-				UI.SplitButton "Play" {
+				UI.SplitButton {
+					Name = "Play",
 					label = "Play",
 					menuLabel = "More ways to play",
 					onActivate = function()
@@ -656,7 +684,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			Compose.show(function(use: Use)
 				return launching(use) ~= nil
 			end, function()
-				return UI.StepIndicator "LaunchSteps" {
+				return UI.StepIndicator {
+					Name = "LaunchSteps",
 					steps = function(use: Use)
 						local stage = launching(use).stage
 						local steps = {}
@@ -679,7 +708,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					listLabel = "Launch steps",
 				}
 			end),
-			UI.DateTimePicker "Session" {
+			UI.DateTimePicker {
+				Name = "Session",
 				label = "Play session",
 				time = true,
 				minuteStep = 15,
@@ -700,29 +730,34 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				end,
 			},
 			words("Description", selected.description),
-			UI.Divider "CreatorRule" {},
-			UI.HStack "Creator" {
+			UI.Divider { Name = "CreatorRule" },
+			UI.HStack {
+				Name = "Creator",
 				width = "fill" :: "fill",
 				gap = "s",
 				align = "center" :: "center",
-				UI.AsyncImage "CreatorAvatar" {
+				UI.AsyncImage {
+					Name = "CreatorAvatar",
 					source = selected.creatorImage,
 					loader = actions.creatorImageLoader,
 					Size = D2.fromOffset(40, 40),
 					placeholder = function()
-						return UI.Skeleton "CreatorShimmer" {
+						return UI.Skeleton {
+							Name = "CreatorShimmer",
 							form = "circle",
 							Size = D2.fromOffset(40, 40),
 							AutomaticSize = E.AutomaticSize.None,
 						}
 					end,
 				} :: unknown,
-				UI.Text "CreatorName" { text = selected.creator, textRole = "label" :: "label", UI.fill() },
+				UI.Text { Name = "CreatorName", text = selected.creator, textRole = "label" :: "label", UI.fill() },
 			},
-			UI.HStack "DetailsTabs" {
+			UI.HStack {
+				Name = "DetailsTabs",
 				width = "fill" :: "fill",
 				gap = "s",
-				UI.Picker "DetailSection" {
+				UI.Picker {
+					Name = "DetailSection",
 					selected = model.detailTab,
 					onChange = function(value)
 						model.detailTab:set(value)
@@ -736,7 +771,7 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						{ value = "similar", label = "Similar games" } :: PickerOption,
 					},
 				} :: unknown,
-				UI.Spacer "TabsGap" { minLength = "s" },
+				UI.Spacer { Name = "TabsGap", minLength = "s" },
 				button("SaveDetail", saveAction(current).label, function()
 					model.save(current:peek())
 				end),
@@ -744,12 +779,14 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			Compose.show(function(use: Use)
 				return tab(use) == "about"
 			end, function()
-				return UI.VStack "AboutGame" {
+				return UI.VStack {
+					Name = "AboutGame",
 					width = "fill" :: "fill",
 					gap = "s",
 					ratingAnchor :: unknown,
 					Compose.show(ratingPresented, function()
-						return UI.Callout "RatingPopover" {
+						return UI.Callout {
+							Name = "RatingPopover",
 							priority = 10,
 							anchor = ratingAnchor,
 							isPresented = ratingPresented,
@@ -765,11 +802,12 @@ function screens.create(Facet: any, runtime: any, actions: any)
 							end,
 						}
 					end),
-					UI.Label "TrendHeading" { title = "Players this week", icon = "person", textSize = "label" },
+					UI.Label { Name = "TrendHeading", title = "Players this week", icon = "person", textSize = "label" },
 					sparkline(),
 					quiet("Rating", selected.rating .. " recommend this game · " .. selected.players, "label"),
 					words("YourRating", "Your rating", "label"),
-					UI.Rating "Stars" {
+					UI.Rating {
+						Name = "Stars",
 						value = function(use: Use)
 							return use(model.ratings)[selected.id] or selected.stars
 						end,
@@ -815,7 +853,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						},
 					})
 				end
-				return UI.VStack "SimilarGames" {
+				return UI.VStack {
+					Name = "SimilarGames",
 					width = "fill" :: "fill",
 					gap = "s",
 					Compose.switch(function(use: Use)
@@ -831,7 +870,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 					Compose.show(function()
 						return pageCount > 1
 					end, function()
-						return UI.Pagination "SimilarPages" {
+						return UI.Pagination {
+							Name = "SimilarPages",
 							page = model.similarPage,
 							pageCount = pageCount,
 							onChange = function(page)
@@ -913,7 +953,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				return use(model.shelf) == "saved"
 			end,
 		})
-		local shelves = UI.HStack "Shelves" {
+		local shelves = UI.HStack {
+			Name = "Shelves",
 			width = function(use: Use)
 				return if short(use) and not compact(use) then "hug" else "fill"
 			end,
@@ -929,7 +970,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			UI.badged(savedShelf, function(use: Use)
 				return #use(model.savedGames)
 			end),
-			UI.Text "Count" {
+			UI.Text {
+				Name = "Count",
 				text = function(use: Use)
 					return `{#use(model.visibleGames)} games`
 				end,
@@ -956,17 +998,20 @@ function screens.create(Facet: any, runtime: any, actions: any)
 				child,
 			}
 		end
-		body = UI.VStack "DiscoverBody" {
+		body = UI.VStack {
+			Name = "DiscoverBody",
 			width = "fill" :: "fill",
 			height = "fill" :: "fill",
 			gap = "s",
 			Host.InputContext "DiscoverShortcuts" { focusSearch :: unknown } :: unknown,
-			UI.HStack "SearchControls" {
+			UI.HStack {
+				Name = "SearchControls",
 				width = "fill" :: "fill",
 				gap = "s",
 				align = "center" :: "center",
 				wrap = true,
-				UI.ComboBox "Search" {
+				UI.ComboBox {
+					Name = "Search",
 					value = model.searchSelection,
 					text = model.query,
 					acceptCustom = function()
@@ -1005,13 +1050,15 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						end,
 					}),
 				} :: unknown,
-				UI.ShortcutHint "SearchShortcut" {
+				UI.ShortcutHint {
+					Name = "SearchShortcut",
 					action = focusSearch,
 					Visible = function(use: Use)
 						return not compact(use) and not use(touchEnabled)
 					end,
 				},
-				UI.Picker "Sort" {
+				UI.Picker {
+					Name = "Sort",
 					selected = model.sort,
 					onChange = function(value)
 						model.sort:set(value)
@@ -1055,7 +1102,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 										else nil,
 									{ Position = D2.fromOffset(12, 12), Size = D2.new(0.42, -18, 1, -24) }
 								),
-								UI.VStack "FeaturedCopy" {
+								UI.VStack {
+									Name = "FeaturedCopy",
 									gap = "xs",
 									Position = D2.new(0.42, 8, 0, 18),
 									Size = D2.new(0.58, -28, 0, 0),
@@ -1065,10 +1113,12 @@ function screens.create(Facet: any, runtime: any, actions: any)
 									words("FeaturedTitle", item.title, "heading"),
 									quiet("FeaturedDescription", item.description, "body"),
 									quiet("FeaturedFacts", item.rating .. " recommend  ·  " .. item.players),
-									UI.HStack "FeaturedCreator" {
+									UI.HStack {
+										Name = "FeaturedCreator",
 										gap = "xs",
 										align = "center" :: "center",
-										UI.Image "FeaturedCreatorImage" {
+										UI.Image {
+											Name = "FeaturedCreatorImage",
 											image = item.creatorImage,
 											shape = "circle" :: "circle",
 											scaleMode = "crop" :: "crop",
@@ -1081,7 +1131,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 										}),
 									},
 								},
-								UI.Badge "FeaturedBadge" {
+								UI.Badge {
+									Name = "FeaturedBadge",
 									label = "Featured",
 									AnchorPoint = V2.new(1, 0),
 									Position = D2.new(1, -12, 0, 8),
@@ -1092,7 +1143,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 						end,
 					})
 				end
-				return UI.PageView "Featured" {
+				return UI.PageView {
+					Name = "Featured",
 					pages = pages,
 					selection = model.featuredSelection,
 					summary = false,
@@ -1103,7 +1155,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			Compose.show(function(use: Use)
 				return use(model.shelf) == "browse" and #use(model.visibleGames) == 0
 			end, function()
-				return UI.Notice "NoResults" {
+				return UI.Notice {
+					Name = "NoResults",
 					title = "No games match",
 					message = "Try another genre or a shorter search.",
 					actions = {
@@ -1122,7 +1175,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			Compose.show(function(use: Use)
 				return use(model.shelf) == "saved" and #use(model.savedGames) == 0
 			end, function()
-				return UI.VStack "Empty" {
+				return UI.VStack {
+					Name = "Empty",
 					width = "fill" :: "fill",
 					gap = "xs",
 					padding = "m",
@@ -1156,7 +1210,8 @@ function screens.create(Facet: any, runtime: any, actions: any)
 			Compose.show(function(use: Use)
 				return use(model.shelf) == "saved" and #use(model.savedGames) > 0
 			end, function()
-				return feedFrame(UI.Table "SavedGames" {
+				return feedFrame(UI.Table {
+					Name = "SavedGames",
 					from = model.savedGames,
 					key = "id",
 					selection = model.savedSelection,
@@ -1238,10 +1293,12 @@ function screens.create(Facet: any, runtime: any, actions: any)
 		}
 		measure(body, dimensions)
 		return body,
-			UI.ZStack "Overlays" {
+			UI.ZStack {
+				Name = "Overlays",
 				width = "fill" :: "fill",
 				height = "fill" :: "fill",
-				UI.Alert "GameDetail" {
+				UI.Alert {
+					Name = "GameDetail",
 					surface = "fullScreen",
 					transition = { source = selectedCard, seconds = 0.32, ease = Compose.easing.outCubic },
 					item = model.selectedGame,

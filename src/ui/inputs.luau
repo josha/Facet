@@ -13,6 +13,8 @@ local InputTypes = require("./input_types")
 local Shared = require("./types")
 local ThemeTypes = require("./theme_types")
 local EngineTypes = require("./engine_types")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
 local ComposeTypes = require("../vendor/compose/core")
 type ValueState<T> = {
 	value: Shared.Value<T>,
@@ -34,7 +36,7 @@ type Adjust = {
 	arrows: ((ComposeTypes.Use, number) -> boolean)?,
 	extra: (((ComposeTypes.Use) -> boolean) -> ())?,
 }
-type ToggleButtonProps = InputTypes.ButtonProps & {
+type ToggleButtonProps = InputProps.ButtonProps & {
 	value: Shared.Value<boolean>?,
 	mixed: Shared.Value<boolean>?,
 	presentation: ("switch" | "checkbox" | "button")?,
@@ -70,7 +72,7 @@ local function repeatHeld(
 	end)
 end
 
-return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
+return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 	local lists = layoutKit.of(ctx)
 	local runtime, Host, Compose = ctx.runtime, ctx.Host, ctx.Compose
 	local read, props = ctx.read, ctx.props
@@ -487,7 +489,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		numeral = true,
 	}
 	local escapeRich = richText.escape
-	UI.Button = ctx.construct("Button", function(spec: InputTypes.ButtonProps): TextButton
+	UI.Button = ctx.construct("Button", function(spec: InputProps.ButtonProps): TextButton
 		assert(
 			spec.onActivate == nil or type(spec.onActivate) == "function",
 			"Facet.Button: onActivate must be a function"
@@ -680,43 +682,40 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			and spec.shape ~= "circle"
 			and (spec.AutomaticSize == nil or rich)
 		if constrainedCaption then
-			table.insert(
-				p,
-				Host.UISizeConstraint({
-					MinSize = function(use: ComposeTypes.Use): Vector2
-						local package = read(ctx.config.theme, use)
-						local skin = package and package.chrome and package.chrome.control
-						local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
-						local minimum = if targetFloor then targetFloor(use) else 0
-						if ctx.controlSize(spec.controlSize, "height", use) >= minimum then
-							minimum = 0
-						end
-						local leadingGlyph, trailingGlyph = read(spec.icon, use), read(spec.trailingIcon, use)
-						local glyphs = (if leadingGlyph ~= nil and leadingGlyph ~= "" then 1 else 0)
-							+ (if trailingGlyph ~= nil and trailingGlyph ~= "" then 1 else 0)
-						local glyphSide = ctx.controlSize(
-							if spec.controlSize ~= nil then spec.controlSize else ctx.config.controlSize,
-							"iconSize",
-							use
-						)
-						local caption = read(spec.label, use)
-						local captioned = caption ~= nil and caption ~= ""
-						local content = if captioned
-							then ctx.metric("typography.control.size", use) + glyphs * (glyphSide + contentGap)
-							else glyphs * glyphSide + math.max(0, glyphs - 1) * contentGap
-						return V2.new(
-							math.max(
-								minimum,
-								2 * ctx.controlSize(spec.controlSize, "paddingX", use)
-									+ (carve.left or 0)
-									+ (carve.right or 0)
-									+ content
-							),
-							minimum
-						)
-					end,
-				})
-			)
+			p[#p + 1] = Host.UISizeConstraint({
+				MinSize = function(use: ComposeTypes.Use): Vector2
+					local package = read(ctx.config.theme, use)
+					local skin = package and package.chrome and package.chrome.control
+					local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
+					local minimum = if targetFloor then targetFloor(use) else 0
+					if ctx.controlSize(spec.controlSize, "height", use) >= minimum then
+						minimum = 0
+					end
+					local leadingGlyph, trailingGlyph = read(spec.icon, use), read(spec.trailingIcon, use)
+					local glyphs = (if leadingGlyph ~= nil and leadingGlyph ~= "" then 1 else 0)
+						+ (if trailingGlyph ~= nil and trailingGlyph ~= "" then 1 else 0)
+					local glyphSide = ctx.controlSize(
+						if spec.controlSize ~= nil then spec.controlSize else ctx.config.controlSize,
+						"iconSize",
+						use
+					)
+					local caption = read(spec.label, use)
+					local captioned = caption ~= nil and caption ~= ""
+					local content = if captioned
+						then ctx.metric("typography.control.size", use) + glyphs * (glyphSide + contentGap)
+						else glyphs * glyphSide + math.max(0, glyphs - 1) * contentGap
+					return V2.new(
+						math.max(
+							minimum,
+							2 * ctx.controlSize(spec.controlSize, "paddingX", use)
+								+ (carve.left or 0)
+								+ (carve.right or 0)
+								+ content
+						),
+						minimum
+					)
+				end,
+			})
 		end
 		if not rich and p.TextTruncate == nil then
 			local automatic = p.AutomaticSize
@@ -812,28 +811,22 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					aspect.DominantAxis = if wide then E.DominantAxis.Width else E.DominantAxis.Height
 				end
 			end
-			table.insert(p, Host.UIAspectRatioConstraint(aspect))
-			table.insert(p, Host.UICorner({ CornerRadius = ctx.round }))
+			p[#p + 1] = Host.UIAspectRatioConstraint(aspect)
+			p[#p + 1] = Host.UICorner({ CornerRadius = ctx.round })
 		elseif spec.corners then
-			table.insert(
-				p,
-				Host.UICorner({ CornerRadius = if dynamic(spec.corners) then cornerRadius else cornerRadius() })
-			)
+			p[#p + 1] = Host.UICorner({ CornerRadius = if dynamic(spec.corners) then cornerRadius else cornerRadius() })
 		end
 		if spec.busy ~= nil then
-			table.insert(
-				p,
-				Host.UIPadding({
-					PaddingRight = function(use: ComposeTypes.Use): UDim
-						if read(spec.busy, use) ~= true then
-							return D.new(0, 0)
-						end
-						local package = read(ctx.config.theme, use)
-						local skin = package and package.chrome and package.chrome.control
-						return D.new(0, 32 + (if skin and skin.contentInsets then skin.contentInsets.right or 0 else 0))
-					end,
-				})
-			)
+			p[#p + 1] = Host.UIPadding({
+				PaddingRight = function(use: ComposeTypes.Use): UDim
+					if read(spec.busy, use) ~= true then
+						return D.new(0, 0)
+					end
+					local package = read(ctx.config.theme, use)
+					local skin = package and package.chrome and package.chrome.control
+					return D.new(0, 32 + (if skin and skin.contentInsets then skin.contentInsets.right or 0 else 0))
+				end,
+			})
 			p[#p + 1] = Compose.show(function(use: ComposeTypes.Use)
 				return read(spec.busy, use) == true
 			end, function()
@@ -1115,7 +1108,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					})
 				end, glyph)
 			end
-			table.insert(p, contentFrame)
+			p[#p + 1] = contentFrame
 		end
 		local captionFits = Compose.cell(true)
 		local keyboardAttached = false
@@ -1132,19 +1125,15 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			)
 		end
 		if not lazyKeyboard then
-			table.insert(
-				p,
-				Compose.show(function(use: ComposeTypes.Use)
-					keyboardAttached = keyboardAttached
-						or (read(selectedForKeyboard, use) == true and enabled(spec, use))
-					return keyboardAttached
-				end, function()
-					attachKeyboard()
-					return Compose.fragment(function()
-						return {}
-					end)
+			p[#p + 1] = Compose.show(function(use: ComposeTypes.Use)
+				keyboardAttached = keyboardAttached or (read(selectedForKeyboard, use) == true and enabled(spec, use))
+				return keyboardAttached
+			end, function()
+				attachKeyboard()
+				return Compose.fragment(function()
+					return {}
 				end)
-			)
+			end)
 		end
 		local hapticSwitch = p.PressHapticEffect == nil and dynamic(spec.haptic)
 		if p.PressHapticEffect == nil and not hapticSwitch then
@@ -1984,7 +1973,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			direction: number,
 			allowed: (ComposeTypes.Use) -> boolean
 		)
-			local button = UI.Button(name)({
+			local button = UI.Button({
+				Name = name,
 				icon = glyph,
 				name = name,
 				haptic = true,
@@ -2156,7 +2146,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		paintedPart = paintedPart,
 	})
 
-	local function level(source: InputTypes.RatingProps | InputTypes.LevelPickerProps, rating: boolean): TextButton
+	local function level(source: InputProps.RatingProps | InputProps.LevelPickerProps, rating: boolean): TextButton
 		local spec = (source :: Shared.TextButtonProps) :: LevelSpec
 		requireValue(spec, "number", if rating then "Rating" else "LevelPicker")
 		local count = spec.count or 5
@@ -2474,10 +2464,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		return root
 	end
 
-	UI.Rating = ctx.construct("Rating", function(spec: InputTypes.RatingProps): TextButton
+	UI.Rating = ctx.construct("Rating", function(spec: InputProps.RatingProps): TextButton
 		return level(spec, true)
 	end)
-	UI.LevelPicker = ctx.construct("LevelPicker", function(spec: InputTypes.LevelPickerProps): TextButton
+	UI.LevelPicker = ctx.construct("LevelPicker", function(spec: InputProps.LevelPickerProps): TextButton
 		return level(spec, false)
 	end)
 	UI.Chip = ctx.construct("Chip", function(spec: InputTypes.ChipImplementationProps): TextButton | Frame
@@ -2497,7 +2487,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			return spec.selected == nil or read(spec.editing, use) == true
 		end
-		local p = (table.clone(spec) :: unknown) :: InputTypes.ButtonProps & {
+		local p = (table.clone(spec) :: unknown) :: InputProps.ButtonProps & {
 			onToggle: ((boolean) -> ())?,
 			onRemove: (() -> ())?,
 			editing: Shared.Value<boolean>?,
@@ -2724,7 +2714,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					keys = spec.keys,
 					separator = spec.separator,
 					controlSize = spec.controlSize,
-				} :: unknown) :: InputTypes.ShortcutHintProps)
+				} :: unknown) :: InputProps.ShortcutHintProps)
 				local caption = ctx.styled(
 					ctx.text({ Name = "Label", Text = spec.label, AutomaticSize = E.AutomaticSize.XY }),
 					"secondary"

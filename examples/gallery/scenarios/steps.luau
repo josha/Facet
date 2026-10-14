@@ -94,7 +94,8 @@ return {
 		return {
 			section = section,
 			screen = function()
-				return UI.ScrollView "StepsScreen" {
+				return UI.ScrollView {
+					Name = "StepsScreen",
 					padding = 16,
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),

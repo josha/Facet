@@ -6,6 +6,7 @@ local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
 local Overlay = require("./overlay_types")
 local freeze = require("./freeze")
+local OverlayProps = require("./overlay_props")
 
 export type Component = () -> ComposeTypes.Child
 export type AppOptions = {
@@ -195,8 +196,9 @@ return function(
 		spec.content = function(): Instance
 			return component(UI)
 		end
+		spec.Name = "Anchored"
 		local stop, screen = mount(function(): ComposeTypes.Child
-			return UI.Popover "Anchored"((spec :: unknown) :: Overlay.PopoverSpec)
+			return UI.Popover((spec :: unknown) :: OverlayProps.PopoverSpec)
 		end)
 		release = stop
 		local function close()
@@ -242,7 +244,8 @@ return function(
 			toastLayer = layer
 		end
 		stop = runtime.mountFragment(function(): { ComposeTypes.Child }
-			return { UI.Toast(`Toast{id}`)((spec :: unknown) :: Overlay.ToastSpec) }
+			spec.Name = `Toast{id}`
+			return { UI.Toast((spec :: unknown) :: OverlayProps.ToastSpec) }
 		end, assert(toastLayer))
 		if not live then
 			stop()

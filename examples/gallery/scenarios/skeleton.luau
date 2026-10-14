@@ -144,7 +144,8 @@ return {
 								Size = UDim2.new(1, 0, 0, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
 								Compose.show(first, function()
-									return UI.Skeleton "Card" {
+									return UI.Skeleton {
+										Name = "Card",
 										form = "box" :: "box",
 										corners = "panel" :: "panel",
 									}
@@ -166,7 +167,8 @@ return {
 							}),
 						}
 					end, function()
-						return UI.Text "ReadyCopy" {
+						return UI.Text {
+							Name = "ReadyCopy",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
@@ -187,7 +189,8 @@ return {
 				return Host.Frame "Skeleton" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					UI.ScrollView "Content" {
+					UI.ScrollView {
+						Name = "Content",
 						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),

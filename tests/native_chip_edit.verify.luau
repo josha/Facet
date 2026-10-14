@@ -88,7 +88,8 @@ return function(verifyHarness: Verify.Harness)
 	local function tagWorld(theme: any?, rung: ("xsmall" | "compact" | "regular" | "large")?): any
 		local state = { selected = Compose.cell(false), editing = Compose.cell(false), removes = 0 }
 		local w = world(function(UI: FacetControls)
-			return UI.Chip("Tag")({
+			return UI.Chip({
+				Name = "Tag",
 				label = "Rain",
 				selected = state.selected,
 				editing = state.editing,
@@ -221,7 +222,8 @@ return function(verifyHarness: Verify.Harness)
 				local w = world(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Name = "Holder",
-						UI.Chip("Token")({
+						UI.Chip({
+							Name = "Token",
 							label = "Rain",
 							enabled = enabled,
 							onRemove = function()

@@ -37,7 +37,8 @@ return {
 		local function picture(id: string, height: number)
 			local index = indices[id] - 1
 			local col, row = index % 3 + 1, math.floor(index / 3) + 1
-			return UI.Image "TeaIllustration" {
+			return UI.Image {
+				Name = "TeaIllustration",
 				image = art.teas,
 				scaleMode = if height >= 240 then "fit" else "crop",
 				Size = D2.new(1, 0, 0, height),
@@ -65,14 +66,16 @@ return {
 					)
 				end
 			end
-			return UI.ScrollView "RecipeDetail" {
+			return UI.ScrollView {
+				Name = "RecipeDetail",
 				padding = "m",
 				gap = "m",
 				picture(blend.id, 240) :: unknown,
 				view.text("RecipeTitle", blend.title, "title"),
 				view.text("Description", blend.paragraphs[1].text),
 				view.actions({
-					UI.Toggle "FavoriteRecipe" {
+					UI.Toggle {
+						Name = "FavoriteRecipe",
 						label = "Saved",
 						presentation = "button" :: "button",
 						value = function(use: any)
@@ -83,7 +86,8 @@ return {
 							model.favorites.toggle(blend.id)
 						end,
 					},
-					UI.CollapsibleView "BrewingNotes" {
+					UI.CollapsibleView {
+						Name = "BrewingNotes",
 						label = "Brewing notes",
 						expanded = C.cell(false),
 						content = function(): Instance
@@ -105,8 +109,9 @@ return {
 						end,
 					},
 				}),
-				UI.Stepper "Servings" { label = "Cups to make", value = servings, min = 1, max = 8, step = 1 },
-				UI.DisclosureGroup "Ingredients" {
+				UI.Stepper { Name = "Servings", label = "Cups to make", value = servings, min = 1, max = 8, step = 1 },
+				UI.DisclosureGroup {
+					Name = "Ingredients",
 					label = "Gather your ingredients",
 					expanded = C.cell(true),
 					content = function(): Instance
@@ -116,7 +121,8 @@ return {
 							local key = blend.id .. "/" .. ingredient.id
 							table.insert(
 								ingredientRows,
-								UI.Toggle("Gather_" .. ingredient.id) {
+								UI.Toggle {
+									Name = "Gather_" .. ingredient.id,
 									value = gathered[key],
 									presentation = "checkbox" :: "checkbox",
 									label = function(use: any)
@@ -149,7 +155,8 @@ return {
 					)
 				end
 			end
-			return UI.ScrollView "BotanicalDetail" {
+			return UI.ScrollView {
+				Name = "BotanicalDetail",
 				padding = "m",
 				gap = "m",
 				view.text("BotanicalTitle", botanical.name, "title") :: unknown,
@@ -197,12 +204,14 @@ return {
 				return found
 			end)
 			local function collection()
-				return UI.Screen "RecipeLibrary" {
+				return UI.Screen {
+					Name = "RecipeLibrary",
 					padding = "m",
 					gap = "m",
 					view.text("LibraryTitle", "Sipworks", "title") :: unknown,
 					view.text("LibraryIntro", "A recipe for every kind of afternoon."),
-					UI.TextInput "FindRecipe" {
+					UI.TextInput {
+						Name = "FindRecipe",
 						presentation = "search" :: "search",
 						value = query,
 						placeholder = "Find a blend or ingredient…",
@@ -212,7 +221,8 @@ return {
 					end, function()
 						return view.text("NoRecipes", "No recipes here yet. Try another search or save a blend.")
 					end),
-					UI.VirtualGrid "RecipeGrid" {
+					UI.VirtualGrid {
+						Name = "RecipeGrid",
 						from = visible,
 						key = "id",
 						gap = 12,
@@ -226,7 +236,8 @@ return {
 						ref = view.observeWidth(gridWidth),
 						render = function(current): GuiObject
 							local blend = current:peek()
-							return UI.Card("Recipe_" .. blend.id) {
+							return UI.Card {
+								Name = "Recipe_" .. blend.id,
 								title = blend.title,
 								caption = `{catalog.steepMinutes(blend.id)} min · {#catalog.tileBotanicals(blend.id)} botanicals`,
 								artwork = function()
@@ -244,7 +255,8 @@ return {
 				}
 			end
 			local function detailArea()
-				return UI.NavigationStack "RecipeNavigation" {
+				return UI.NavigationStack {
+					Name = "RecipeNavigation",
 					path = path,
 					root = {
 						title = "Recipe book",
@@ -290,7 +302,8 @@ return {
 						},
 					}
 				end, function()
-					return UI.NavigationStack "RecipeNavigation" {
+					return UI.NavigationStack {
+						Name = "RecipeNavigation",
 						path = path,
 						root = { title = "Sipworks", content = collection },
 						destinations = {

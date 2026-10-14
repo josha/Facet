@@ -97,20 +97,23 @@ return {
 				return Host.Frame "RowCapabilities" {
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					UI.Text "Title" {
+					UI.Text {
+						Name = "Title",
 						text = COPY.title,
 						textRole = "title" :: "title",
 						Size = UDim2.new(1, 0, 0, 36),
 						BackgroundTransparency = 1,
 					} :: unknown,
-					UI.Text "Explanation" {
+					UI.Text {
+						Name = "Explanation",
 						text = "Pinned rows cannot move. Protected rows cannot be deleted. Locked rows cannot be selected.",
 						TextWrapped = true,
 						Position = UDim2.fromOffset(0, 40),
 						Size = UDim2.new(1, 0, 0, 56),
 						BackgroundTransparency = 1,
 					},
-					UI.Table "RunSheet" {
+					UI.Table {
+						Name = "RunSheet",
 						Position = UDim2.fromOffset(0, 100),
 						Size = UDim2.new(1, 0, 1, -164),
 						from = rows,
@@ -163,7 +166,8 @@ return {
 							}
 						end,
 					},
-					UI.Text "Status" {
+					UI.Text {
+						Name = "Status",
 						Position = UDim2.new(0, 0, 1, -56),
 						Size = UDim2.new(1, 0, 0, 56),
 						text = message,

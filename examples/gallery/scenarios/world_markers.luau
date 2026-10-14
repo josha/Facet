@@ -100,17 +100,18 @@ return {
 			Compose.cleanup(function()
 				connection:Disconnect()
 			end)
-			return UI.ScrollView "WorldMarkers" {
+			return UI.ScrollView {
+				Name = "WorldMarkers",
 				padding = 16,
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				UI.Text({ text = "A · Objective   B · Ally   C · Supplies", TextWrapped = true }) :: unknown,
 				map,
-				UI.Toggle "Move" { label = "Move objective offscreen", value = shifted },
-				UI.Toggle "Crowd" { label = "Bring markers together", value = crowded },
-				UI.Toggle "Hide" { label = "Occlude supplies", value = hidden },
-				UI.Text "Selected" { text = selected, TextWrapped = true },
+				UI.Toggle { Name = "Move", label = "Move objective offscreen", value = shifted },
+				UI.Toggle { Name = "Crowd", label = "Bring markers together", value = crowded },
+				UI.Toggle { Name = "Hide", label = "Occlude supplies", value = hidden },
+				UI.Text { Name = "Selected", text = selected, TextWrapped = true },
 			}
 		end
 		return {

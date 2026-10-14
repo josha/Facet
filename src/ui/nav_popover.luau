@@ -1,16 +1,17 @@
 --!strict
 local Types = require("./types")
-local InputTypes = require("./input_types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local placement = require("./overlay_placement")
 local activation = require("./activation")
+local InputProps = require("./input_props")
+local OverlayProps = require("./overlay_props")
 
 type Controls = {
-	Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject>,
-	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
+	Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject>,
+	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
 }
 
 local KEYS = {
@@ -44,7 +45,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return type(value) == "number" and value == value and math.abs(value) < math.huge
 	end
 
-	UI.Popover = ctx.construct("Popover", function(spec: Overlay.PopoverSpec): GuiObject
+	UI.Popover = ctx.construct("Popover", function(spec: OverlayProps.PopoverSpec): GuiObject
 		local where = "UI.Popover"
 		if spec.isPresented == nil then
 			error(`Facet {where}: isPresented is required; it is the caller's boolean fact`, 0)
@@ -352,7 +353,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							HorizontalAlignment = E.HorizontalAlignment.Right,
 							SortOrder = E.SortOrder.LayoutOrder,
 						} :: Types.Child,
-						UI.Button "CloseCommand" {
+						UI.Button {
+							Name = "CloseCommand",
 							Visible = function(use: ComposeTypes.Use)
 								if spec.closeButton ~= nil then
 									return spec.closeButton

@@ -13,7 +13,7 @@ local width: Facet.Cell<Facet.Extent> = Compose.cell("fill" :: Facet.Extent)
 local visible = Compose.cell(true)
 local maximum = Compose.cell(480)
 local stackProps: Facet.StackProps =
-	{ maxWidth = 480, gap = "m", padding = { left = "xs", top = 4 }, align = "center" :: "center" }
+	{ Name = "Toolbar", maxWidth = 480, gap = "m", padding = { left = "xs", top = 4 }, align = "center" :: "center" }
 local screen: Frame = UI.Screen({
 	maxWidth = 640,
 	gap = gap,
@@ -21,7 +21,7 @@ local screen: Frame = UI.Screen({
 	distribute = "spaceBetween" :: "spaceBetween",
 	UI.Text({ text = "Title" }),
 })
-local named: Frame = UI.Screen("Home")({ padding = 0 })
+local named: Frame = UI.Screen({ Name = "Home", padding = 0 })
 local column: Frame = UI.VStack({
 	gap = "s",
 	width = width,
@@ -32,7 +32,7 @@ local column: Frame = UI.VStack({
 	Visible = visible,
 	UI.Button({ label = "Save" }),
 })
-local row: Frame = UI.HStack("Toolbar")(stackProps)
+local row: Frame = UI.HStack(stackProps)
 local adaptiveProps: Facet.AdaptiveStackProps = { maxWidth = maximum, gap = "s", axis = "x" :: "x" }
 local adaptive: Frame = UI.AdaptiveStack(adaptiveProps)
 local fits: Frame =
@@ -46,7 +46,7 @@ local page: ScrollingFrame = UI.ScrollView({
 	align = "stretch" :: "stretch",
 	ScrollBarThickness = 6,
 })
-local sideways: ScrollingFrame = UI.ScrollView("Rail")({ axis = "x" :: "x" })
+local sideways: ScrollingFrame = UI.ScrollView({ Name = "Rail", axis = "x" :: "x" })
 local grid: Frame = UI.Grid({
 	maxWidth = 640,
 	columns = 3,
@@ -56,7 +56,8 @@ local grid: Frame = UI.Grid({
 	aspectRatio = 1,
 	align = "center" :: "center",
 })
-local guarded: Frame = UI.ErrorBoundary("Region")({
+local guarded: Frame = UI.ErrorBoundary({
+	Name = "Region",
 	maxWidth = function(use: Facet.Use): number
 		return use(maximum)
 	end,
@@ -88,7 +89,8 @@ local spacer: Frame = UI.Spacer(spacerProps)
 local adaptive: Frame = UI.AdaptiveStack({ axis = "x" :: "x", gap = "s" })
 local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Long" }) :: unknown, UI.Text({ text = "L" }) })
 local chosen: Facet.Cell<number> = Compose.cell(1)
-local region: Frame = UI.Region("Tasks")({
+local region: Frame = UI.Region({
+	Name = "Tasks",
 	zone = "left" :: "left",
 	rank = 2,
 	mayDrop = true,
@@ -99,7 +101,7 @@ local region: Frame = UI.Region("Tasks")({
 	UI.Text({ text = "Tasks" }) :: unknown,
 	UI.Text({ text = "1/3" }),
 })
-local hud: Frame = UI.Composition("Hud")({ gap = "s", padding = "m", topbar = visible, region :: unknown })
+local hud: Frame = UI.Composition({ Name = "Hud", gap = "s", padding = "m", topbar = visible, region :: unknown })
 return {
 	adaptive = adaptive,
 	fits = fits,

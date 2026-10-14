@@ -39,20 +39,23 @@ return {
 			})
 		end
 		local function screen()
-			local after = UI.Button "After" {
+			local after = UI.Button {
+				Name = "After",
 				label = "After",
 				onActivate = function()
 					live:set(true)
 				end,
 			}
-			local go = UI.Button "Go" {
+			local go = UI.Button {
+				Name = "Go",
 				label = "Engage",
 				enabled = live,
 				onActivate = function()
 					engaged:set(engaged:peek() + 1)
 				end,
 			}
-			local innerGo = UI.Button "InnerGo" {
+			local innerGo = UI.Button {
+				Name = "InnerGo",
 				label = "Engage from inner panel",
 				enabled = live,
 				onActivate = function()
@@ -71,14 +74,15 @@ return {
 					end
 				end
 			end)
-			return UI.ScrollView "InheritedSubtree" {
+			return UI.ScrollView {
+				Name = "InheritedSubtree",
 				padding = 16,
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				UI.Text({ text = "Nested color and control state", textRole = "title" :: "title" }) :: unknown,
-				UI.Toggle "PowerToggle" { label = "Panel power", value = live },
-				UI.Slider "BlendSlider" { label = "Tint", value = blend, min = 0, max = 100, step = 5 },
+				UI.Toggle { Name = "PowerToggle", label = "Panel power", value = live },
+				UI.Slider { Name = "BlendSlider", label = "Tint", value = blend, min = 0, max = 100, step = 5 },
 				Host.Frame "Panel" {
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,

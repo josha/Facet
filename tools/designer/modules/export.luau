@@ -65,18 +65,10 @@ function export.component(value: document.Document): string
 			table.insert(keys, key)
 		end
 		table.sort(keys)
-		table.insert(body, indent .. "UI." .. node.kind .. " " .. literal(node.name) .. " {")
+		table.insert(body, indent .. "UI." .. node.kind .. " {")
+		table.insert(body, indent .. "\tName = " .. literal(node.name) .. ",")
 		for _, key in keys do
 			local expression = adapter.emit(props[key], emit, depth + 1)
-			for _, descriptor in definition.fields do
-				if
-					descriptor.key == key
-					and type(props[key]) == "string"
-					and table.find({ "choice", "extent", "space", "padding" }, descriptor.kind)
-				then
-					expression ..= " :: " .. literal(props[key])
-				end
-			end
 			table.insert(body, indent .. "\t" .. key .. " = " .. expression .. ",")
 		end
 		if
@@ -96,9 +88,9 @@ function export.component(value: document.Document): string
 		local result = table.concat(body, "\n")
 		if definition.anchor then
 			return indent
-				.. 'UI.VStack "__FacetDesignHost_'
+				.. 'UI.VStack { Name = "__FacetDesignHost_'
 				.. node.id
-				.. '" { gap = "s", anchor_'
+				.. '", gap = "s", anchor_'
 				.. node.id
 				.. ",\n"
 				.. result

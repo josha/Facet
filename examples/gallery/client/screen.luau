@@ -318,7 +318,8 @@ function screen.build(ctx: any)
 			ctx.currentSelect = nil
 			errorMessage:set(tostring(result))
 			warn("[Facet Gallery] " .. demo.id .. ": " .. tostring(result))
-			return UI.Text "DemoFailure" {
+			return UI.Text {
+				Name = "DemoFailure",
 				Size = UDim2.fromScale(1, 1),
 				AutomaticSize = Enum.AutomaticSize.None,
 				BackgroundTransparency = 1,
@@ -372,10 +373,16 @@ function screen.build(ctx: any)
 		return list
 	end
 	local function caption(name: string, text)
-		return UI.Text(name)({ text = text, textRole = "caption" :: "caption", role = "secondary" :: "secondary" })
+		return UI.Text({
+			Name = name,
+			text = text,
+			textRole = "caption" :: "caption",
+			role = "secondary" :: "secondary",
+		})
 	end
 	local function note(name: string, text)
-		return UI.Text(name)({
+		return UI.Text({
+			Name = name,
 			text = text,
 			textRole = "caption" :: "caption",
 			role = "secondary" :: "secondary",
@@ -386,16 +393,19 @@ function screen.build(ctx: any)
 	end
 
 	local function displayPickers(style)
-		return UI.VStack "Pickers" {
+		return UI.VStack {
+			Name = "Pickers",
 			gap = "s",
 			width = "fill" :: "fill",
-			UI.Picker "Preview" {
+			UI.Picker {
+				Name = "Preview",
 				label = COPY.preview,
 				style = style,
 				selected = ctx.devicePreview,
 				options = options({ "automatic", "desktop", "phone", "tablet", "tv" }),
 			} :: unknown,
-			UI.Picker "Orientation" {
+			UI.Picker {
+				Name = "Orientation",
 				label = COPY.orientation,
 				style = style,
 				selected = ctx.orientationPreview,
@@ -405,7 +415,8 @@ function screen.build(ctx: any)
 					return device ~= nil and device.rotates == true
 				end,
 			},
-			UI.Picker "Input" {
+			UI.Picker {
+				Name = "Input",
 				label = COPY.input,
 				style = style,
 				selected = ctx.inputPreview,
@@ -418,7 +429,8 @@ function screen.build(ctx: any)
 		for index, entry in themes do
 			table.insert(
 				themeChips,
-				UI.Button("P_" .. entry.value)({
+				UI.Button({
+					Name = "P_" .. entry.value,
 					LayoutOrder = index,
 					label = entry.label,
 					selected = function(use: Use)
@@ -433,10 +445,12 @@ function screen.build(ctx: any)
 			)
 		end
 		local build = ctx.buildStamp
-		return UI.VStack "Settings" {
+		return UI.VStack {
+			Name = "Settings",
 			gap = "m",
 			width = "fill" :: "fill",
-			UI.VStack "Display" {
+			UI.VStack {
+				Name = "Display",
 				gap = "s",
 				width = "fill" :: "fill",
 				Compose.show(UI.environment().isTenFoot, function()
@@ -444,7 +458,8 @@ function screen.build(ctx: any)
 				end, function()
 					return displayPickers("menu")
 				end) :: unknown,
-				UI.Button "ResetAll" {
+				UI.Button {
+					Name = "ResetAll",
 					label = COPY.resetAll,
 					onActivate = function()
 						screen.resetAll(ctx)
@@ -452,10 +467,12 @@ function screen.build(ctx: any)
 				},
 				note("Note", COPY.previewNote),
 			} :: unknown,
-			UI.VStack "Motion" {
+			UI.VStack {
+				Name = "Motion",
 				gap = "xs",
 				width = "fill" :: "fill",
-				UI.Picker "MotionMode" {
+				UI.Picker {
+					Name = "MotionMode",
 					label = "Motion",
 					style = "segmented" :: "segmented",
 					selected = ctx.motionMode,
@@ -472,12 +489,19 @@ function screen.build(ctx: any)
 				note("MotionNote", COPY.motionNote),
 			},
 			if type(build) == "string" and build ~= "" then caption("Build", `build {build}`) else nil :: unknown,
-			UI.VStack "Choose" {
+			UI.VStack {
+				Name = "Choose",
 				gap = "xs",
 				width = "fill" :: "fill",
 				caption("Title", "Theme") :: unknown,
-				UI.Grid "Packages" { columns = 2, gap = "xs", table.unpack((themeChips :: unknown) :: { unknown }) },
-				UI.HStack "Mode" {
+				UI.Grid {
+					Name = "Packages",
+					columns = 2,
+					gap = "xs",
+					table.unpack((themeChips :: unknown) :: { unknown }),
+				},
+				UI.HStack {
+					Name = "Mode",
 					gap = "xs",
 					Compose.keyed({
 						from = function(use: Use): { string }
@@ -493,7 +517,8 @@ function screen.build(ctx: any)
 							return name
 						end,
 						render = function(_, position, name: string): GuiObject
-							return UI.Button(name)({
+							return UI.Button({
+								Name = name,
 								label = name,
 								LayoutOrder = position,
 								selected = function(use: Use)
@@ -569,7 +594,8 @@ function screen.build(ctx: any)
 		for index, tab in tabs do
 			table.insert(
 				demoButtons,
-				UI.Button("Demo-" .. tab.id)({
+				UI.Button({
+					Name = "Demo-" .. tab.id,
 					LayoutOrder = index,
 					row = { title = tab.label, description = demos[index].blurb },
 					textSize = "strong",
@@ -589,7 +615,8 @@ function screen.build(ctx: any)
 				})
 			)
 		end
-		return UI.VStack "DemoList" {
+		return UI.VStack {
+			Name = "DemoList",
 			gap = "xs",
 			align = "start" :: "start",
 			width = "fill" :: "fill",
@@ -597,10 +624,12 @@ function screen.build(ctx: any)
 		}
 	end
 	local function panel()
-		return UI.VStack "ShowcasePanel" {
+		return UI.VStack {
+			Name = "ShowcasePanel",
 			gap = "s",
 			width = "fill" :: "fill",
-			UI.Picker "Section" {
+			UI.Picker {
+				Name = "Section",
 				style = "segmented" :: "segmented",
 				selected = section,
 				options = {
@@ -614,7 +643,8 @@ function screen.build(ctx: any)
 		}
 	end
 	local function hint(name: string, text)
-		return UI.Text(name)({
+		return UI.Text({
+			Name = name,
 			text = text,
 			textRole = "caption" :: "caption",
 			role = "secondary" :: "secondary",
@@ -631,7 +661,8 @@ function screen.build(ctx: any)
 			VerticalAlignment = Enum.VerticalAlignment.Top,
 		}) :: unknown,
 		hint("MenuHint", "LB"),
-		UI.CollapsibleView "Showcase" {
+		UI.CollapsibleView {
+			Name = "Showcase",
 			label = function(use: Use)
 				return titles[use(selected)] or "Demos"
 			end,
@@ -642,7 +673,8 @@ function screen.build(ctx: any)
 			local layout = use(ctx.categoryLayout)
 			return layout ~= nil and use(layout.available)
 		end, function()
-			return UI.Button "ToggleSidebar" {
+			return UI.Button {
+				Name = "ToggleSidebar",
 				label = function(use: Use)
 					local layout = use(ctx.categoryLayout)
 					return if layout and use(layout.placement) == "sidebar" then "Use top tabs" else "Use sidebar"
@@ -711,7 +743,8 @@ function screen.build(ctx: any)
 		end,
 
 		toolbar,
-		UI.TabView "Demos" {
+		UI.TabView {
+			Name = "Demos",
 			selection = selected,
 			tabs = tabs,
 			retention = "top",

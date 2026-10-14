@@ -49,22 +49,26 @@ function example.build(ctx: any)
 	end
 	built.openDialog, built.restore = openDialog, restore
 	function built.screen()
-		return UI.Screen "DangerScreen" {
-			UI.ScrollView "Page" {
+		return UI.Screen {
+			Name = "DangerScreen",
+			UI.ScrollView {
+				Name = "Page",
 				gap = "s",
 				align = "stretch" :: "stretch",
-				UI.Text "Title" {
+				UI.Text {
+					Name = "Title",
 					textRole = "title" :: "title",
 					TextWrapped = true,
 					text = function(use: Use)
 						return if use(hasSave) then "Save Slot 1 — Rally Stage 3, 42%" else "Save Slot 1 — empty"
 					end,
 				} :: unknown,
-				UI.Text "Outcome" { text = outcome, TextWrapped = true },
-				UI.Button "Delete" { label = "Delete Save", enabled = hasSave, onActivate = openDialog },
-				UI.Button "Restore" { label = "Restore the save", onActivate = restore },
+				UI.Text { Name = "Outcome", text = outcome, TextWrapped = true },
+				UI.Button { Name = "Delete", label = "Delete Save", enabled = hasSave, onActivate = openDialog },
+				UI.Button { Name = "Restore", label = "Restore the save", onActivate = restore },
 			} :: unknown,
-			UI.Alert "ConfirmDialog" {
+			UI.Alert {
+				Name = "ConfirmDialog",
 				title = "Delete this save?",
 				severity = "critical",
 				message = "This cannot be undone.",

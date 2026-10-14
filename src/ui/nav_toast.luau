@@ -2,21 +2,22 @@
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
-local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local toastSchedule = require("./toast_schedule")
 local motion = require("./motion")
 local reducedMotion = motion.reduced
 local reservations = require("./reservations")
+local InputProps = require("./input_props")
+local OverlayProps = require("./overlay_props")
 
 type Controls = {
-	Toast: Types.Constructor<Overlay.ToastSpec, Frame>,
-	Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
+	Toast: Types.Constructor<OverlayProps.ToastSpec, Frame>,
+	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
 }
 type Reason = Overlay.ToastDismissReason
 type Record = {
-	spec: Overlay.ToastSpec,
+	spec: OverlayProps.ToastSpec,
 	state: ComposeTypes.Cell<string>,
 	height: ComposeTypes.Cell<number>,
 	stack: Stack?,
@@ -214,7 +215,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 	end
 
-	local function validate(spec: Overlay.ToastSpec)
+	local function validate(spec: OverlayProps.ToastSpec)
 		local where = "UI.Toast"
 		local fields = (spec :: unknown) :: { [string]: unknown }
 		local interactive = spec.action ~= nil
@@ -543,7 +544,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			}),
 		})
 		local action = spec.action :: Overlay.ToastAction
-		local button = UI.Button "Action" {
+		local button = UI.Button {
+			Name = "Action",
 			label = action.label,
 			LayoutOrder = 2,
 			onActivate = function()
@@ -607,7 +609,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			rowProps[#rowProps + 1] = ctx.icon(spec.icon, { Name = "Icon", LayoutOrder = 0 })
 		end
 		if closable then
-			rowProps[#rowProps + 1] = UI.Button "Close" {
+			rowProps[#rowProps + 1] = UI.Button {
+				Name = "Close",
 				name = "Close",
 				icon = "close",
 				LayoutOrder = 3,
@@ -729,7 +732,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 	end
 
-	UI.Toast = ctx.construct("Toast", function(spec: Overlay.ToastSpec): Frame
+	UI.Toast = ctx.construct("Toast", function(spec: OverlayProps.ToastSpec): Frame
 		validate(spec)
 		local interactive = spec.action ~= nil
 		local level = motion.level(ctx)
