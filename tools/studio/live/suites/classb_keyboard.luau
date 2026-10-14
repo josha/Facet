@@ -218,6 +218,49 @@ local function scenario(t: any, name: string, size: any, options: { [string]: an
 	return stage, built
 end
 
+for _, width in { 390, 1280 } do
+	interactive("hud-settings-nonmodal-" .. width, {}, function(t)
+		local stage, built = scenario(t, "hud", Vector2.new(width, 844))
+		t.stable(stage)
+		local trigger = t.find(stage, "HudSettingsTrigger")
+		local suffix = if t.visible(trigger) then "" else "Column"
+		return {
+			stage = stage,
+			built = built,
+			suffix = suffix,
+			trigger = t.find(stage, "HudSettings" .. suffix .. "Trigger"),
+			outside = t.find(stage, "UrlBar"),
+		}
+	end, {
+		afterOpen = function(t, value)
+			local toggle = t.find(value.stage, "SettingsUrlBar" .. value.suffix)
+			t.check("settings content is visible", t.visible(toggle))
+			t.inside("settings stay inside the offered screen", toggle, value.stage)
+			value.close = t.find(value.stage, "CloseCommand")
+			local panel = toggle:FindFirstAncestor("Panel")
+			local close = value.close
+			t.near("Close is square", close.AbsoluteSize.X, close.AbsoluteSize.Y, 0.5)
+			t.check("Close is a small corner control", close.AbsoluteSize.X < panel.AbsoluteSize.X / 3)
+			t.check(
+				"Close is aligned at the right",
+				close.AbsolutePosition.X > panel.AbsolutePosition.X + panel.AbsoluteSize.X / 2
+			)
+			t.check("the native theme owns the panel corner", panel:FindFirstChildOfClass("UICorner") == nil)
+		end,
+		afterOutside = function(t, value)
+			t.check("outside input changes the shared setting", value.built.report().urlBar == true)
+			t.check(
+				"outside input leaves settings open",
+				t.visible(t.find(value.stage, "SettingsUrlBar" .. value.suffix))
+			)
+		end,
+		afterClose = function(t, value)
+			local toggle = value.stage:FindFirstChild("SettingsUrlBar" .. value.suffix, true)
+			t.check("Close dismisses settings", toggle == nil or not t.visible(toggle))
+		end,
+	})
+end
+
 local function button(UI: any, name: string, label: string?): any
 	return UI.Button(name)({ label = label or name })
 end

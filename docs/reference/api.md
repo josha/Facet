@@ -1092,8 +1092,10 @@ Presentation options:
   or subtitle buttons.
 
 The pointer callbacks are `onPointerDown`, `onPointerUp` and `onPointerCancel`.
-Each callback works alone. `onPointerCancel` runs when a held pointer leaves
-the button.
+Each callback works alone. `onPointerCancel` runs once when a held pointer
+leaves the button, the Button is destroyed, or its Compose owner is disposed.
+Cancellation clears the held state and stops repetition before the callback.
+A normal release calls `onPointerUp` without a cancellation.
 
 A text Button with a bounded width truncates its label at the end when the
 label does not fit its box. A Button whose width follows its label does not
@@ -2877,6 +2879,7 @@ fades in at its final size with its scrim. See [Motion](#motion).
 Dismissible modal Popovers show Close in a compact room (less than 600 layout
 units wide), or when the content covers at least 75 percent of the safe room.
 Small floating Popovers use outside input, Escape, or gamepad B to close.
+Close is a square utility button at the upper right of the anchored panel.
 Nonmodal panels do not show Close by default. `closeButton = true` or `false`
 decides either way. `cancelPolicy = "none"` hides Close. The compact Sheet
 shows Close by default and follows the same explicit choice.
@@ -4083,6 +4086,15 @@ A theme package contains `identity`, `style = { defaultTheme, themes }`,
 `contentStrong`, `accent`, `onAccent`, `danger`, `onDanger`, `success`,
 `onSuccess`, `warning` and `onWarning`. The extras include control states,
 secondary content, hairlines and opacities.
+
+An authored rule property can be a native value, `{ role = "content" }` for a
+palette color, or `{ metric = "strokes.outline" }` for a numeric theme metric.
+Metric paths start inside `metrics` and use dot-separated keys. They must name
+one finite number; `themes.define` rejects missing paths, tables and nonnumeric
+values. Resolution uses the effective package after `forDistance`, so a stroke
+metric of 3 becomes 4.5 at ten feet. Literal numbers stay unchanged. Motion
+metrics retain their existing distance policy and do not scale.
+
 
 These `extra` entries are optional. A palette that does not declare them paints
 as before:

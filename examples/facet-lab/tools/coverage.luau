@@ -10,6 +10,10 @@ local env = {}
 for key, value in roblox :: any do
 	env[key] = value
 end
+env.require = function(path: string): unknown
+	local name = assert(string.match(path, "^%./([%w_]+)$"))
+	return luau.load(fs.readFile(`src/{name}.luau`), { environment = env })()
+end
 local catalog = luau.load(fs.readFile("src/catalog.luau"), { debugName = "catalog", environment = env })()
 
 local bodies: { [string]: string } = {}

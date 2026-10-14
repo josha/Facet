@@ -327,6 +327,20 @@ local shadowPresets: { [string]: ThemeTypes.Shadow } = {
 	overlay = { blurRadius = { offset = 24 }, transparency = 0.45, offset = { y = { offset = 8 } } },
 }
 
+local function numericMetric(metrics: ThemeTypes.Metrics, path: unknown): number?
+	if type(path) ~= "string" or path == "" then
+		return nil
+	end
+	local value: unknown = metrics
+	for _, key in string.split(path, ".") do
+		if key == "" or type(value) ~= "table" then
+			return nil
+		end
+		value = (value :: { [string]: unknown })[key]
+	end
+	return if type(value) == "number" and value == value and math.abs(value) < math.huge then value else nil
+end
+
 function themes.define(
 	inputDefinition: ThemeTypes.ThemeDefinition | ThemeTypes.ThemePackage
 ): (ThemeTypes.ThemePackage?, ThemeTypes.ThemeReport)
@@ -540,6 +554,22 @@ function themes.define(
 				issue(path, "must name an Enum.EasingStyle item")
 			end
 		end)
+	end
+	for index, rule in (package.rules or {}) :: { ThemeTypes.Rule } do
+		for property, value in (rule.properties or rule.props or {}) :: ThemeTypes.AuthoredRuleProperties do
+			if type(value) == "table" then
+				local reference = (value :: unknown) :: { metric: unknown, role: unknown }
+				if
+					reference.metric ~= nil
+					and (reference.role ~= nil or numericMetric(package.metrics, reference.metric) == nil)
+				then
+					table.insert(errors, {
+						field = `rules.{index}.properties.{property}`,
+						message = "A metric reference must name one finite numeric theme metric",
+					})
+				end
+			end
+		end
 	end
 	local chrome: { [string]: ThemeTypes.SkinLayer } = package.chrome or {}
 	local shadows: { [string]: ThemeTypes.Shadow } = package.style.shadows or {}
@@ -1714,6 +1744,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		for key, value in (definition.properties or definition.props or {}) :: ThemeTypes.AuthoredRuleProperties do
 			if type(value) == "table" and type((value :: { role: string }).role) == "string" then
 				properties[key] = c((value :: { role: string }).role)
+			elseif type(value) == "table" and ((value :: unknown) :: { metric: unknown }).metric ~= nil then
+				local path = ((value :: unknown) :: { metric: unknown }).metric
+				properties[key] = assert(
+					numericMetric(package.metrics, path),
+					`Facet theme rule: invalid numeric metric {tostring(path)}`
+				)
 			else
 				properties[key] = value :: ThemeTypes.StyleValue?
 			end

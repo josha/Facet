@@ -42,34 +42,8 @@ local function reorderRows(c: any, rows: Cell<{ Row }>)
 	end
 end
 
-local function transferState(c: any): { [string]: any }
-	local rows = c.cell("transferRows", ROWS)
-	local serial = 0
-	return {
-		from = rows,
-		collectionId = rows,
-		drag = function(items, keys)
-			return { payload = { items = items, keys = keys, collection = rows }, operations = { "copy" } }
-		end,
-		drop = {
-			operation = "copy",
-			accepts = function(payload)
-				return type(payload) == "table" and payload.items ~= nil
-			end,
-			onDrop = function(payload: any, info: any)
-				local next = table.clone(rows:peek())
-				for index, item in payload.items do
-					serial += 1
-					local copy = table.clone(item)
-					copy.id, copy.name = "copy-" .. serial, item.name .. " copy"
-					table.insert(next, info.insertion.slot + index, copy)
-				end
-				rows:set(next)
-				c.log("onDrop")(info.operation, info.insertion.slot)
-				return true
-			end,
-		},
-	}
+local function transferState(c: unknown)
+	return require("./collection_transfer_state")(c, ROWS)
 end
 
 local function rowDropState(c: any): { [string]: any }
@@ -331,6 +305,19 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end,
 			} :: State,
 			{ name = "label text size", props = { textSize = "label" } } :: State,
+			{
+				name = "reactive numeric text size",
+				props = function(c: Context)
+					local size = c.cell("buttonTextSize", 16)
+					return {
+						label = "Change text size",
+						textSize = size,
+						onActivate = function()
+							size:set(if size:peek() == 16 then 24 else 16)
+						end,
+					}
+				end,
+			} :: State,
 			{
 				name = "named icon (circle)",
 				props = { icon = "settings", shape = "circle" :: "circle", name = "Settings" },
@@ -2520,7 +2507,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "Close shown", props = { closeButton = true } } :: State,
 			{ name = "Close hidden", props = { closeButton = false } } :: State,
-			{ name = "non-modal (no catcher, no Cancel)", props = { modal = false } } :: State,
+			{
+				name = "HUD settings (non-modal on touch)",
+				props = { modal = false, compact = "popover", closeButton = true },
+			} :: State,
 			{ name = "cancel policy none", props = { cancelPolicy = "none" } } :: State,
 			{
 				name = "dismiss reported",
