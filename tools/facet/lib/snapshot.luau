@@ -66,6 +66,7 @@ function Snapshot.config(root: string, name: Name): Config
 			"src/gate",
 			"src/evidence",
 			"src/agent-eval",
+			"src/codec",
 			"tools/agent-eval.luau",
 			"src/benchmark.luau",
 			"src/benchmark-store.luau",

@@ -120,32 +120,11 @@ local doubles: { [string]: any } = {
 		object.WaveformKeys = keys
 	end,
 }
-local PLUGIN_CLASSES: { [string]: VerifyRoblox.ReflectionClass } = {
-	PluginGui = {
-		Name = "PluginGui",
-		Superclass = "LayerCollector",
-		Tags = { "NotCreatable" },
-		Properties = { Title = { Name = "Title", Datatype = "String", Scriptability = "ReadWrite", Tags = {} } },
-		DefaultProperties = {},
-	},
-	DockWidgetPluginGui = {
-		Name = "DockWidgetPluginGui",
-		Superclass = "PluginGui",
-		Tags = { "NotCreatable" },
-		Properties = {},
-		DefaultProperties = { Title = "", Enabled = true },
-	},
-}
 local metadata: { [string]: any } = {}
 local classes: { [string]: any } = {}
 local names = reflection:GetClassNames()
-for name in PLUGIN_CLASSES do
-	if reflection:GetClass(name) == nil then
-		table.insert(names, name)
-	end
-end
 for _, name in names do
-	local original = reflection:GetClass(name) or PLUGIN_CLASSES[name]
+	local original = assert(reflection:GetClass(name))
 	local class: any = { Name = name, Superclass = original.Superclass, Tags = original.Tags }
 	class.Properties = {}
 	for key, property in original.Properties do
