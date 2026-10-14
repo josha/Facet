@@ -66,7 +66,7 @@ local function planted(line: string): { Marker }
 	local failure = Rule.within({
 		["src/init.luau"] = "return {}\n",
 		[PROBE] = "local value = 1\n" .. line .. "\nreturn value\n",
-		["tests/scratch.spec.luau"] = "local ZZ_SCRATCH = true\n",
+		["tests/scratch.verify.luau"] = "local ZZ_SCRATCH = true\n",
 		["src/notes.txt"] = "ZZ_NOT_A_MODULE\n",
 	}, function(context)
 		found = scan(context)

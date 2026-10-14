@@ -54,7 +54,7 @@ to rebuild the maintained examples, including
 The showcase has five main demos: Garage, Sipworks, Screen-anchored HUD,
 Playlist and Arcade. Arcade contains Word Guess, Crossword,
 Match 3 and Outpost. The original control, collection and motion fixtures remain available
-for the lab and regression tests. `tests/native_gallery.spec.luau` mounts those pages. It exercises the
+for the lab and regression tests. `tests/native_gallery.verify.luau` mounts those pages. It exercises the
 games, the settings, the playlist and the standalone consumer. Additional
 regression fixtures and the virtual monitors have separate native tests and
 Studio evidence.

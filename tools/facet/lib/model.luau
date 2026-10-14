@@ -74,7 +74,7 @@ function Model.sourceFiles(root: string?): { string }
 	local found: { string } = {}
 	for _, relative in Files.walk(Files.join(root or ".", "src")) do
 		local name = Files.name(relative)
-		if string.sub(name, -5) == ".luau" and string.sub(name, -10) ~= ".spec.luau" then
+		if string.sub(name, -5) == ".luau" and string.sub(name, -12) ~= ".verify.luau" then
 			table.insert(found, "src/" .. relative)
 		end
 	end
@@ -309,7 +309,7 @@ function Model.build(options: Options?): (boolean, string)
 	local stage = Files.join(root, stageRelative)
 	local project = {
 		name = "Facet",
-		globIgnorePaths = { "**/*.spec.luau" },
+		globIgnorePaths = { "**/*.verify.luau" },
 		tree = { ["$path"] = "src", Distribution = { ["$path"] = stageRelative .. "/Distribution" } },
 	}
 	local scratch = Files.join(root, (".model_build.%s.project.json"):format(token))

@@ -75,7 +75,7 @@ uses the same native paint transition in the four apps. The accent also sets
 the outfit colour of the explorer. The hat colour comes only from the hat
 `UI.ColorPicker`. `themes.define` rejects a palette if `onAccent` on `accent`
 or `onSelected` on `controlSelected` is below 4.5:1.
-`tests/native_virtual_monitors.spec.luau` also requires 4.5:1 for `accent` on
+`tests/native_virtual_monitors.verify.luau` also requires 4.5:1 for `accent` on
 `surface` and on `surfaceStrong`.
 
 Collections use Facet's native `VirtualGrid`, `VirtualList` and `Table`
@@ -118,5 +118,5 @@ the Avatar "Motion & turning" page) and `Invoke("chat", text)`.
 Select `"Flap"` with tab or focus, then use `Invoke("flap")` to start/flap/retry
 or `Invoke("flapPause")` to pause.
 
-Automated behavior coverage lives in `tests/native_virtual_monitors.spec.luau`.
+Automated behavior coverage lives in `tests/native_virtual_monitors.verify.luau`.
 

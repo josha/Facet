@@ -309,7 +309,7 @@ local function files(context: Rule.Context): { string }
 					skipped = true
 				end
 			end
-			if not skipped and string.sub(file, -5) == ".luau" and string.sub(file, -10) ~= ".spec.luau" then
+			if not skipped and string.sub(file, -5) == ".luau" and string.sub(file, -12) ~= ".verify.luau" then
 				table.insert(found, file)
 			end
 		end
@@ -451,7 +451,7 @@ local function planted(source: string, allowlist: { Entry }?): { string }
 		[THEMES] = THEMES_FIXTURE,
 		["examples/gallery/examples/plant.luau"] = source,
 		["examples/gallery/examples/words/skipped.luau"] = 'local s = Instance.new("Frame")\n',
-		["examples/reference/plant.spec.luau"] = 'local s = Instance.new("Frame")\n',
+		["examples/reference/plant.verify.luau"] = 'local s = Instance.new("Frame")\n',
 	}, function(context)
 		findings = inspect(context, allowlist or {})
 		return nil

@@ -5,7 +5,7 @@ plant seeds, wait for them to grow, and harvest them before they wither. Coins
 buy seeds, harvests give experience, and each level unlocks a new crop.
 
 - `model.luau` holds the game rules. It has no UI and takes a clock, so the
-  rules are tested without Roblox (`tests/native_facet_farm.spec.luau`).
+  rules are tested without Roblox (`tests/native_facet_farm.verify.luau`).
 - `screens.luau` builds the screen from Facet controls: a Grid of plot Buttons,
   crop art drawn with `UI.Path` and `Facet.pathShapes`, ProgressView growth
   timers, Badges, a segmented and a menu Picker, a RadialMenu for gamepad

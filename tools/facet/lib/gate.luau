@@ -67,7 +67,7 @@ local function tests(id: string, names: { string }): Gate.ProducerDraft
 	local tools = toolUnits()
 	local worker: string? = nil
 	for _, name in names do
-		local locator = `tests/{name}.spec.luau`
+		local locator = `tests/{name}.verify.luau`
 		assert(fs.exists(locator), "unknown spec: " .. name)
 		table.insert(locators, locator)
 		local chosen = if tools[name] then TOOL_WORKER else ENGINE_WORKER
@@ -101,7 +101,7 @@ local function planned(entry: Entry, claimed: { [string]: boolean }): { string }
 	local names: { string } = {}
 	local wanted = entry.requires
 	for _, unit in decode(entry.plan :: string).units :: { Unit } do
-		assert(unit.locator == `tests/{unit.id}.spec.luau`, "plan locator differs from its source: " .. unit.id)
+		assert(unit.locator == `tests/{unit.id}.verify.luau`, "plan locator differs from its source: " .. unit.id)
 		local selected = if wanted ~= nil
 			then table.find(unit.requires or {}, wanted) ~= nil
 			else not requiresAny(unit, claimed)

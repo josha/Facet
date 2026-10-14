@@ -115,7 +115,7 @@ app.runtime:dispose()
   with an error.
 - `Activated:Fire()` sends the event that a click or a gamepad press sends.
 
-The [standalone consumer test](../../tests/native_gallery.spec.luau) mounts the
+The [standalone consumer test](../../tests/native_gallery.verify.luau) mounts the
 screen module of `examples/consumer` in the same way.
 
 A headless test proves state, events, structure and cleanup. It does not prove

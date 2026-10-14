@@ -28,7 +28,7 @@ and a second version would be strictly worse. The ink is `#F0F0F2` on
 transparency; nothing is baked in and the tint owns the colour completely. Both
 paint paths (the native `ImageColor3` sheet token and the fallback explicit
 write) resolve that role from the same palette as the plate behind it, and
-`tests/theme_icons.spec.luau` pins their two role vocabularies to each other.
+`tests/theme_icons.verify.luau` pins their two role vocabularies to each other.
 
 **Contact sheet (no Studio needed):** `source/preview/contact-sheet.png` — every
 icon at 16 / 20 / 24 / 48 px on mid-grey, which are the sizes they are actually
@@ -109,7 +109,7 @@ pair and the three selection marks (2026-09-11), and P1d's eleven common glyphs
    `glossy_touch` / `compact_pointer` pair used to decline it as well, as a
    controlled comparison against Fantasy Ornate — which shipped `^v` and `v` to
    real screens, so that demonstration moved to `pixel_quest.buildWithoutIcons`,
-   a build only a driver installs. `tests/icon_coverage.spec.luau` is the rule.
+   a build only a driver installs. `tests/icon_coverage.verify.luau` is the rule.
 7. **Fantasy Ornate deliberately does NOT decline it.** It maps six names to its
    own art, invents one (`ornate:settings`), and leaves `menu` / `more` to the
    library — every rung of the ladder visible in one shipped centrepiece.

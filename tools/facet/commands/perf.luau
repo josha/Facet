@@ -1163,11 +1163,11 @@ CASES["spec-timings"] = function(): { Case.Case }
 			name = "spec-timings: cases are grouped by spec in first-seen order",
 			run = function(): string?
 				local outcome = decode(
-					[[{"execution": {"report": {"results": [{"source": "tests/a.spec.luau", "durationMicros": 1500}, {"source": null, "durationMicros": 10}, {"source": "tests/a.spec.luau", "durationMicros": 500}]}}}]]
+					[[{"execution": {"report": {"results": [{"source": "tests/a.verify.luau", "durationMicros": 1500}, {"source": null, "durationMicros": 10}, {"source": "tests/a.verify.luau", "durationMicros": 500}]}}}]]
 				)
 				return Case.equal(
 					specTable(specRows(outcome)),
-					"spec\tcases\tcases_ms\ntests/a.spec.luau\t2\t2\nunknown\t1\t0.01\n",
+					"spec\tcases\tcases_ms\ntests/a.verify.luau\t2\t2\nunknown\t1\t0.01\n",
 					"table"
 				)
 			end,

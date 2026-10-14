@@ -105,7 +105,7 @@ on Rojo 7.7.0, three consecutive builds of one tree make byte-identical `.rbxm`
 and `.rbxmx` files. Between commits, only the `SourceCommit` attribute changes.
 
 `SourceHash` is sha256 over the sorted list of `src/**/*.luau`. It excludes
-`*.spec.luau`, because the model does not ship those files. For each file, the
+`*.verify.luau`, because the model does not ship those files. For each file, the
 hash reads `<relpath>\n` and then the bytes of the file, with CRLF changed to
 LF. Because the path comes before the content, a rename changes the hash even
 when no code changes. This is correct, because a rename moves an instance in

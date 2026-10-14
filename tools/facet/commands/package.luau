@@ -59,7 +59,7 @@ local FORBIDDEN_SEGMENTS: { [string]: boolean } = {
 	bench = true,
 	spikes = true,
 }
-local FORBIDDEN_SUBSTRINGS: { string } = { "fusion_adapter", "imperative", ".spec" }
+local FORBIDDEN_SUBSTRINGS: { string } = { "fusion_adapter", "imperative", ".verify" }
 local APPROVED_MODERATION: { [string]: boolean } = { Approved = true, MODERATION_STATE_APPROVED = true }
 local REQUIRED_DISTRIBUTION: { { string } } = {
 	{ "Facet/Distribution", "Folder" },
@@ -2831,7 +2831,7 @@ cases = function(): { Case.Case }
 			return Rule.within({
 				["src/init.luau"] = 'local VERSION = "1.2.3"\r\nreturn VERSION\r\n',
 				["src/ui/button.luau"] = "return {}\n",
-				["src/ui/button.spec.luau"] = "return nil\n",
+				["src/ui/button.verify.luau"] = "return nil\n",
 				["src/ui/notes.md"] = "not a module\n",
 			}, function(context: Rule.Context): string?
 				local expected = Hash.sha256(

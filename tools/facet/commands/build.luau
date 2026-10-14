@@ -134,7 +134,7 @@ local function world(
 	return {
 		name = name,
 		emitLegacyScripts = false,
-		globIgnorePaths = { "**/*.spec.luau" },
+		globIgnorePaths = { "**/*.verify.luau" },
 		tree = tree,
 	}
 end

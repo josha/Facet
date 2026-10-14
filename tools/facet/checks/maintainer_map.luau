@@ -645,7 +645,7 @@ local function inspect(context: Rule.Context): ({ string }, Counts)
 		local tests, scenario = row.cells[2], row.cells[3]
 		local named = 0
 		for _, token in backticked(tests) do
-			if string.sub(token, -10) ~= ".spec.luau" then
+			if string.sub(token, -12) ~= ".verify.luau" then
 				continue
 			end
 			named += 1
@@ -887,7 +887,7 @@ local function coverage(context: Rule.Context): { Coverage }
 		end
 	end
 	for _, relative in Files.walk(context.path(TESTS)) do
-		if string.sub(relative, -10) ~= ".spec.luau" then
+		if string.sub(relative, -12) ~= ".verify.luau" then
 			continue
 		end
 		local hit: { [string]: boolean } = {}
@@ -936,8 +936,8 @@ local MAP_FIXTURE = table.concat({
 	"",
 	"| Area | Tests | Studio scenario | Extend via |",
 	"|---|---|---|---|",
-	"| **root** | `tests/root.spec.luau` | `all_controls` | [Adding a control](extending/new-control.md) |",
-	"| **themes** | `tests/themes.spec.luau` | None "
+	"| **root** | `tests/root.verify.luau` | `all_controls` | [Adding a control](extending/new-control.md) |",
+	"| **themes** | `tests/themes.verify.luau` | None "
 		.. EM_DASH
 		.. " a live suite covers it. | [Adding a control](extending/new-control.md) |",
 	"",
@@ -969,8 +969,8 @@ local function fixture(): { [string]: string }
 		["src/init.luau"] = "return {}\n",
 		["src/ui/button.luau"] = "return {}\n",
 		["src/themes.luau"] = "return {}\n",
-		["tests/root.spec.luau"] = 'local Facet = require("../src")\nreturn Facet\n',
-		["tests/themes.spec.luau"] = "local themes = require('../src/themes')\nreturn themes\n",
+		["tests/root.verify.luau"] = 'local Facet = require("../src")\nreturn Facet\n',
+		["tests/themes.verify.luau"] = "local themes = require('../src/themes')\nreturn themes\n",
 		[SCENARIO_INDEX] = 'return { "all_controls" }\n',
 		[SCENARIO_DIRECTORY .. "/all_controls.luau"] = "return {}\n",
 		[SCENARIO_DIRECTORY .. "/unlisted.luau"] = "return {}\n",
@@ -1121,8 +1121,8 @@ local function cases(): { Rule.Case }
 			name = "a spec named under an area it does not cover is reported",
 			run = function()
 				return planted(function(text)
-					return replaceOnce(text, "`tests/root.spec.luau`", "`tests/themes.spec.luau`")
-				end, nil, "the 'root' row names 'tests/themes.spec.luau', which requires no module of that area")
+					return replaceOnce(text, "`tests/root.verify.luau`", "`tests/themes.verify.luau`")
+				end, nil, "the 'root' row names 'tests/themes.verify.luau', which requires no module of that area")
 			end,
 		},
 		{

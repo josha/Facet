@@ -89,7 +89,7 @@ stops the descendants of a worker and of a producer, a blocked dependent, each
 exit class, the reference host and each verdict.
 The selftest cases of `tools/facet/checks/architecture.luau` and
 `tools/facet/checks/plan.luau` cover the architecture and source plan policy.
-`tests/tools/rules.spec.luau` runs them as Verify cases. Live assertions use Verify reports from `tools/studio/live`.
+`tests/tools/rules.verify.luau` runs them as Verify cases. Live assertions use Verify reports from `tools/studio/live`.
 
 ## Limits
 

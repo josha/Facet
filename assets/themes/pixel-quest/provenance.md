@@ -105,7 +105,7 @@ accent ramps — `RED_D #7A1F22 / RED #C8402F / RED_L #E8735A` and
    characters, which a player photographed in Studio (`^v` in a picker trigger,
    `*` and `o` for a radio). The eight added glyphs — the leading and up
    chevrons, the stacked pop-up pair, `more`, `edit` and the three selection
-   marks — close the set. `tests/icon_coverage.spec.luau` fails this package if a
+   marks — close the set. `tests/icon_coverage.verify.luau` fails this package if a
    hole ever reopens.
 
 **Regenerate:** `lute run tools/facet art pixel-quest` from the repository root.

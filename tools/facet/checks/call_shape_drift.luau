@@ -18,19 +18,19 @@ type AllowEntry = { path: string, pattern: string, plain: boolean, reason: strin
 
 local ALLOWLIST: { AllowEntry } = {
 	{
-		path = "tests/native_public_surface.spec.luau",
+		path = "tests/native_public_surface.verify.luau",
 		pattern = "toBeNil()",
 		plain = true,
 		reason = "the public-surface spec asserts that each removed name is nil",
 	},
 	{
-		path = "tests/native_registration.spec.luau",
+		path = "tests/native_registration.verify.luau",
 		pattern = "%f[%w_]UI%.ProofControl%f[^%w_]",
 		plain = false,
 		reason = "the registration spec generates ProofControl into an edited copy of src/ui/init.luau and proves the new constructor is exported",
 	},
 	{
-		path = "tests/scenario_require_paths.spec.luau",
+		path = "tests/scenario_require_paths.verify.luau",
 		pattern = 'GetService("ReplicatedStorage").Facet.tokens.chrome_slots',
 		plain = true,
 		reason = "a planted require line for the require-path checker names an Instance path under ReplicatedStorage, not the Facet table",
@@ -626,10 +626,10 @@ local function cases(): { Rule.Case }
 			run = function()
 				return Case.same(
 					scanned({
-						["tests/native_public_surface.spec.luau"] = "expect(Facet.new).toBeNil()\nlocal row = UI.Scene({})\n",
+						["tests/native_public_surface.verify.luau"] = "expect(Facet.new).toBeNil()\nlocal row = UI.Scene({})\n",
 					}),
 					{
-						"tests/native_public_surface.spec.luau:2: `UI.Scene` is not a constructor on Facet.controls(runtime)",
+						"tests/native_public_surface.verify.luau:2: `UI.Scene` is not a constructor on Facet.controls(runtime)",
 					}
 				)
 			end,

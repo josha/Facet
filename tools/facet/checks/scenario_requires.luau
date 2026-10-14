@@ -41,7 +41,7 @@ local function fixture(): { [string]: string }
 		["examples/gallery/scenarios/init.luau"] = 'local common = require("@self/common")\nreturn common\n',
 		["examples/gallery/scenarios/common.luau"] = "return {}\n",
 		[SCENARIO] = 'local common = require("./common")\nlocal Facet = require("../Facet")\nreturn common\n',
-		["examples/gallery/scenarios/adaptive_controls.spec.luau"] = 'local missing = require("./missing")\n',
+		["examples/gallery/scenarios/adaptive_controls.verify.luau"] = 'local missing = require("./missing")\n',
 		["examples/gallery/examples/01_basic.luau"] = 'local theme = require("../FacetThemes/noir")\nreturn theme\n',
 		["examples/gallery/client/init.client.luau"] = 'local scenarios = require("./FacetScenarios")\n',
 		["examples/gallery/server/main.server.luau"] = "return nil\n",

@@ -115,7 +115,7 @@ installs Lute. Run `lute run tools/facet help` to list the commands.
 - `tools/facet/checks` holds one module for each check. A check module returns
   its findings and its selftest cases. `tools/facet/commands` holds the other
   commands. `tools/facet/lib` holds the shared modules.
-- `tests/tools/rules.spec.luau` and `tests/tools/commands.spec.luau` run each
+- `tests/tools/rules.verify.luau` and `tests/tools/commands.verify.luau` run each
   selftest case as a Verify case in the Lute worker `tests/lute/worker.luau`.
   The `tool-specs` producer runs each plan unit that requires `lute`. The
   `suite` producer runs the other plan units in the engine worker

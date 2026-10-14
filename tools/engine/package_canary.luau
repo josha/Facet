@@ -215,7 +215,7 @@ for _, problem in nameProblems do
 	print(`         - {problem}`)
 end
 
-local FORBIDDEN = { "fusion_adapter", "imperative", ".spec" }
+local FORBIDDEN = { "fusion_adapter", "imperative", ".verify" }
 local APPROVED_VENDOR = {}
 for path in (Lute.parse(fs.readFileToString("src/vendor/compose/UPSTREAM.lock")) :: any).sha256 do
 	if string.match(path, "%.luau$") then

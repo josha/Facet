@@ -1178,7 +1178,7 @@ cases = function(): { Case.Case }
 					"src/a.luau",
 					"tools/facet/init.luau",
 					"tests/lute/worker.luau",
-					"tests/a.spec.luau",
+					"tests/a.verify.luau",
 					"tools/lute/studio_live.luau",
 					"bench/perf_runner.luau",
 					"tools/vendor/verify/src/lute/host.luau",
@@ -1188,7 +1188,7 @@ cases = function(): { Case.Case }
 				return Case.first(
 					Case.same(roblox, {
 						"src/a.luau",
-						"tests/a.spec.luau",
+						"tests/a.verify.luau",
 						"bench/perf_runner.luau",
 						"tools/vendor/verify/src/core/init.luau",
 					}, "roblox"),

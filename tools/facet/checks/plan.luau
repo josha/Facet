@@ -8,13 +8,8 @@ local function specSources(context: Rule.Context): ({ [string]: string }, { stri
 	local sources: { [string]: string } = {}
 	local failures: { string } = {}
 	for _, relative in Files.walk(context.path("tests")) do
-		local suffix = string.sub(relative, -10)
-		if suffix == ".spec.luau" or suffix == "_spec.luau" then
-			local name = string.sub(relative, 1, -11)
-			if sources[name] ~= nil then
-				table.insert(failures, "spec files share the same ID: " .. name)
-			end
-			sources[name] = "tests/" .. relative
+		if string.sub(relative, -12) == ".verify.luau" then
+			sources[string.sub(relative, 1, -13)] = "tests/" .. relative
 		end
 	end
 	return sources, failures
@@ -97,15 +92,15 @@ end
 local function cases(): { Rule.Case }
 	return {
 		{
-			name = "every nested spec and the legacy suffix are accepted once",
+			name = "every nested Verify file is accepted once",
 			run = function()
 				return Rule.within({
-					["tests/native.spec.luau"] = "return {}",
-					["tests/nested/control_spec.luau"] = "return {}",
+					["tests/native.verify.luau"] = "return {}",
+					["tests/nested/control.verify.luau"] = "return {}",
 					["tests/lib/helper.luau"] = "return {}",
 					["tests/plan.json"] = plan({
-						{ id = "native", locator = "tests/native.spec.luau" },
-						{ id = "nested/control", locator = "tests/nested/control_spec.luau" },
+						{ id = "native", locator = "tests/native.verify.luau" },
+						{ id = "nested/control", locator = "tests/nested/control.verify.luau" },
 					}),
 				}, function(context)
 					return same(check(context), {})
@@ -116,8 +111,8 @@ local function cases(): { Rule.Case }
 			name = "a missing source and an undeclared spec are rejected",
 			run = function()
 				return Rule.within({
-					["tests/added.spec.luau"] = "return {}",
-					["tests/plan.json"] = plan({ { id = "removed", locator = "tests/removed.spec.luau" } }),
+					["tests/added.verify.luau"] = "return {}",
+					["tests/plan.json"] = plan({ { id = "removed", locator = "tests/removed.verify.luau" } }),
 				}, function(context)
 					return same(check(context), {
 						"Verify plan spec is not on disk: removed",
@@ -129,14 +124,14 @@ local function cases(): { Rule.Case }
 		{
 			name = "duplicate IDs and locators are rejected",
 			run = function()
-				local unit = { id = "native", locator = "tests/native.spec.luau" }
+				local unit = { id = "native", locator = "tests/native.verify.luau" }
 				return Rule.within({
-					["tests/native.spec.luau"] = "return {}",
+					["tests/native.verify.luau"] = "return {}",
 					["tests/plan.json"] = plan({ unit, unit }),
 				}, function(context)
 					return same(check(context), {
 						"duplicate Verify plan ID: native",
-						"duplicate Verify plan locator: tests/native.spec.luau",
+						"duplicate Verify plan locator: tests/native.verify.luau",
 					})
 				end)
 			end,
@@ -145,10 +140,10 @@ local function cases(): { Rule.Case }
 			name = "a locator that does not match its source ID is rejected",
 			run = function()
 				return Rule.within({
-					["tests/native.spec.luau"] = "return {}",
-					["tests/plan.json"] = plan({ { id = "native", locator = "tests/other.spec.luau" } }),
+					["tests/native.verify.luau"] = "return {}",
+					["tests/plan.json"] = plan({ { id = "native", locator = "tests/other.verify.luau" } }),
 				}, function(context)
-					return same(check(context), { "Verify plan locator for native must be tests/native.spec.luau" })
+					return same(check(context), { "Verify plan locator for native must be tests/native.verify.luau" })
 				end)
 			end,
 		},
@@ -179,14 +174,14 @@ local function cases(): { Rule.Case }
 			end,
 		},
 		{
-			name = "spec files with colliding IDs are rejected",
+			name = "a file with the old spec suffix is not a Verify file",
 			run = function()
 				return Rule.within({
-					["tests/native.spec.luau"] = "return {}",
-					["tests/native_spec.luau"] = "return {}",
-					["tests/plan.json"] = plan({ { id = "native", locator = "tests/native_spec.luau" } }),
+					["tests/native.verify.luau"] = "return {}",
+					["tests/old.spec.luau"] = "return {}",
+					["tests/plan.json"] = plan({ { id = "native", locator = "tests/native.verify.luau" } }),
 				}, function(context)
-					return same(check(context), { "spec files share the same ID: native" })
+					return same(check(context), {})
 				end)
 			end,
 		},

@@ -66,7 +66,7 @@ local function addTree(
 			addTree(fs, root, entries, child, robloxPath .. "." .. name, "ModuleScript")
 		elseif
 			string.match(name, "%.luau$") ~= nil
-			and string.match(name, "%.spec%.luau$") == nil
+			and string.match(name, "%.verify%.luau$") == nil
 			and string.match(name, "^init%.") == nil
 		then
 			table.insert(entries, {
@@ -107,7 +107,7 @@ function StudioTree.entries(fs: FileSystem, root: string?, mode: string?): { Fil
 			if
 				string.match(name, "%.luau$") ~= nil
 				and string.match(name, "%.client%.luau$") == nil
-				and string.match(name, "%.spec%.luau$") == nil
+				and string.match(name, "%.verify%.luau$") == nil
 			then
 				table.insert(entries, {
 					path = "ReplicatedStorage.VirtualMonitors." .. string.gsub(name, "%.luau$", ""),

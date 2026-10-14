@@ -420,19 +420,19 @@ local function cases(): { Rule.Case }
 			run = function()
 				return Rule.within(
 					tree({
-						["tests/data.spec.luau"] = 'return require("../examples/words/len" .. tostring(5))',
+						["tests/data.verify.luau"] = 'return require("../examples/words/len" .. tostring(5))',
 						["examples/words/len5.luau"] = "return {}",
 					}),
 					function(context)
-						if #dependencies(context, "tests/data.spec.luau") ~= 0 then
+						if #dependencies(context, "tests/data.verify.luau") ~= 0 then
 							return "an existing prefix failed"
 						end
 						Files.write(
-							context.path("tests/data.spec.luau"),
+							context.path("tests/data.verify.luau"),
 							'return require("../examples/missing/len" .. tostring(5))'
 						)
 						return Rule.expect(
-							#dependencies(context, "tests/data.spec.luau") > 0,
+							#dependencies(context, "tests/data.verify.luau") > 0,
 							"a missing prefix passed"
 						)
 					end
@@ -444,7 +444,7 @@ local function cases(): { Rule.Case }
 			run = function()
 				return Rule.within(
 					tree({
-						["tests/probe.spec.luau"] = table.concat({
+						["tests/probe.verify.luau"] = table.concat({
 							'-- require("./removed")',
 							"local example = 'require(\"./removed\")'",
 							'local text = `example require("./removed"): {require("./actual")}`',
@@ -453,12 +453,12 @@ local function cases(): { Rule.Case }
 						["tests/actual.luau"] = "return {}",
 					}),
 					function(context)
-						local listed = importList(context, "tests/probe.spec.luau")
+						local listed = importList(context, "tests/probe.verify.luau")
 						if listed ~= "./actual, ./actual" then
 							return "imports: " .. listed
 						end
 						return Rule.expect(
-							#dependencies(context, "tests/probe.spec.luau") == 0,
+							#dependencies(context, "tests/probe.verify.luau") == 0,
 							"a literal was resolved"
 						)
 					end
@@ -470,7 +470,7 @@ local function cases(): { Rule.Case }
 			run = function()
 				return Rule.within(
 					tree({
-						["tests/probe.spec.luau"] = table.concat({
+						["tests/probe.verify.luau"] = table.concat({
 							'type Props = typeof(require("@repo/missing")("("))',
 							'local value: typeof(require("./missing")) = nil :: never',
 							'local text = "typeof(require(\\"./missing\\"))"',
@@ -480,16 +480,16 @@ local function cases(): { Rule.Case }
 						["tests/actual.luau"] = "return {}",
 					}),
 					function(context)
-						local listed = importList(context, "tests/probe.spec.luau")
+						local listed = importList(context, "tests/probe.verify.luau")
 						if listed ~= "./actual, ./actual" then
 							return "imports: " .. listed
 						end
-						if #dependencies(context, "tests/probe.spec.luau") ~= 0 then
+						if #dependencies(context, "tests/probe.verify.luau") ~= 0 then
 							return "an erased type import was checked"
 						end
-						Files.write(context.path("tests/probe.spec.luau"), 'return require("@repo/missing")')
+						Files.write(context.path("tests/probe.verify.luau"), 'return require("@repo/missing")')
 						return Rule.expect(
-							#dependencies(context, "tests/probe.spec.luau") > 0,
+							#dependencies(context, "tests/probe.verify.luau") > 0,
 							"a runtime alias passed"
 						)
 					end
@@ -501,23 +501,23 @@ local function cases(): { Rule.Case }
 			run = function()
 				return Rule.within(
 					tree({
-						["tests/probe.spec.luau"] = 'local requireDynamic = require :: (unknown) -> unknown\nreturn requireDynamic("../examples/words/len" .. tostring(5))',
+						["tests/probe.verify.luau"] = 'local requireDynamic = require :: (unknown) -> unknown\nreturn requireDynamic("../examples/words/len" .. tostring(5))',
 						["examples/words/len5.luau"] = "return {}",
 					}),
 					function(context)
-						local listed = importList(context, "tests/probe.spec.luau")
+						local listed = importList(context, "tests/probe.verify.luau")
 						if listed ~= "dynamic:../examples/words/len" then
 							return "imports: " .. listed
 						end
-						if #dependencies(context, "tests/probe.spec.luau") ~= 0 then
+						if #dependencies(context, "tests/probe.verify.luau") ~= 0 then
 							return "an existing dynamic prefix failed"
 						end
 						Files.write(
-							context.path("tests/probe.spec.luau"),
+							context.path("tests/probe.verify.luau"),
 							'local load = require :: (unknown) -> unknown; return load("./missing")'
 						)
 						return Rule.expect(
-							#dependencies(context, "tests/probe.spec.luau") > 0,
+							#dependencies(context, "tests/probe.verify.luau") > 0,
 							"a missing alias import passed"
 						)
 					end
