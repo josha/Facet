@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- A native chrome shadow keeps the opacity of the fill that casts it. Before,
+  a translucent Button, such as the `soft` appearance, kept the full shadow.
+  A hard plate then showed through the tint as a dark slab, with a bare strip
+  along the edge opposite the shadow offset.
+
+- An anchored Popover shows its `title` as a heading in one header row with
+  Close. Before, the title reached only the compact Sheet, and Close sat alone
+  in its own row above the content, which left an empty band at the top.
+
 - Skinned Button captions reduce their padding when the visible text does not
   fit. Pixel Quest word-game keys keep their letters visible on narrow screens.
 - ColorPicker keeps the RGB, HSV and Hex fields mounted and reserves their

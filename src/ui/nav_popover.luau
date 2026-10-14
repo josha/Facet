@@ -332,27 +332,46 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local closeContentSize = if content:IsA("GuiObject")
 				then ctx.observe.AbsoluteSize(content :: GuiObject)
 				else Compose.cell(V2.zero)
-			if
-				spec.cancelPolicy ~= "none"
+			local closes = spec.cancelPolicy ~= "none"
 				and spec.closeButton ~= false
 				and (not chrome or spec.closeButton == true)
-			then
+			if closes or spec.title ~= nil then
 				if content:IsA("GuiObject") then
 					runtime.decorate(content, { LayoutOrder = 1 })
 				end
-				table.insert(
-					children,
-					Host.Frame "CloseHeader" {
-						BackgroundTransparency = 1,
-						Size = D2.new(1, 0, 0, 0),
-						AutomaticSize = E.AutomaticSize.Y,
-						LayoutOrder = 0,
-						Host.UIListLayout {
-							FillDirection = E.FillDirection.Horizontal,
-							HorizontalAlignment = E.HorizontalAlignment.Right,
-							SortOrder = E.SortOrder.LayoutOrder,
-						} :: Types.Child,
+				local header: { Types.Child } = {
+					Host.UIListLayout {
+						FillDirection = E.FillDirection.Horizontal,
+						HorizontalAlignment = E.HorizontalAlignment.Right,
+						VerticalAlignment = E.VerticalAlignment.Center,
+						SortOrder = E.SortOrder.LayoutOrder,
+						Padding = ctx.types.UDim.new(0, PADDING),
+					} :: Types.Child,
+				}
+				if spec.title ~= nil then
+					table.insert(
+						header,
+						ctx.styled(
+							ctx.text({
+								Name = "Title",
+								LayoutOrder = 1,
+								Text = function(use: ComposeTypes.Use)
+									return read(spec.title, use) or ""
+								end,
+								TextWrapped = true,
+								Size = D2.new(1, 0, 0, 0),
+								AutomaticSize = E.AutomaticSize.Y,
+								Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+							}),
+							"type-heading"
+						)
+					)
+				end
+				if closes then
+					table.insert(
+						header,
 						UI.Button "CloseCommand" {
+							LayoutOrder = 2,
 							Visible = function(use: ComposeTypes.Use)
 								if spec.closeButton ~= nil then
 									return spec.closeButton
@@ -371,9 +390,20 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							onActivate = function()
 								propose(false, "cancel")
 							end,
-						},
-					}
-				)
+						}
+					)
+				end
+				local row: Types.FrameNativeProps = {
+					Name = "CloseHeader",
+					BackgroundTransparency = 1,
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+					LayoutOrder = 0,
+				}
+				for _, child in header do
+					row[#row + 1] = child
+				end
+				table.insert(children, Host.Frame(row))
 			end
 			local body, _, _, extent, bodyRested = parts.scroller(ctx, bodyProps, children, { hug = true, rest = true })
 			Compose.watch(function(use: ComposeTypes.Use)

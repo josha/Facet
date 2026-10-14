@@ -2720,6 +2720,29 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 			)
+			verifyHarness:case("keeps a native shadow at the opacity of the fill that casts it", {
+				id = "native_inputs::native parity weaker actions::keeps a native shadow at the opacity of the fill that casts it",
+				run = function()
+					local package = Facet.themes.neutralPackage()
+					assert(package.chrome).control = { kind = "native" :: "native", shadow = "raised" }
+					local world = setup(function(UI: FacetControls, Host: RobloxHost)
+						return Host.Frame "Card" {
+							UI.Button "Tint" { label = "Tint", onActivate = function() end },
+						}
+					end, { theme = package })
+					local node = find(world.node, "Tint")
+					local shadow = find(node, "ChromeShadow")
+					node.BackgroundTransparency = 0
+					Verify.expect(shadow.Transparency):toBeCloseTo(0.35, 5)
+					node.BackgroundTransparency = 0.8 -- a tint casts a fifth of the opaque shadow
+					Verify.expect(shadow.Transparency):toBeCloseTo(1 - 0.65 * 0.2, 5)
+					node.BackgroundTransparency = 1
+					Verify.expect(shadow.Transparency):toBe(1)
+					node.BackgroundTransparency = 0
+					Verify.expect(shadow.Transparency):toBeCloseTo(0.35, 5)
+					world.stop()
+				end,
+			})
 		end)
 	end)(verifyHarness)
 end
