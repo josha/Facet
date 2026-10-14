@@ -28,15 +28,6 @@ local function uses(source: string): ({ number }?, string?)
 	return result :: { number }, nil
 end
 
-local function vendored(relative: string): boolean
-	for _, part in string.split(relative, "/") do
-		if part == "vendor" then
-			return true
-		end
-	end
-	return false
-end
-
 local function inventory(context: Rule.Context, directories: { string }): Inventory
 	local counts: Counts = {}
 	local locations: { string } = {}
@@ -45,7 +36,7 @@ local function inventory(context: Rule.Context, directories: { string }): Invent
 		for _, relative in Files.walk(context.path(directory)) do
 			local extension = Files.extension(relative)
 			local path = directory .. "/" .. relative
-			if (extension == ".luau" or extension == ".lua") and not vendored(path) then
+			if (extension == ".luau" or extension == ".lua") and not Files.vendored(path) then
 				local lines, problem = uses(Files.read(context.path(path)))
 				if lines == nil then
 					return { counts = counts, locations = locations, failure = ("%s: %s"):format(path, problem or "") }

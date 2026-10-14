@@ -19,8 +19,6 @@ export type Filter = Resample.Filter
 return table.freeze({
 	Blur = require("@self/blur"),
 	Canvas = Canvas,
-	Checksum = require("@self/checksum"),
-	Deflate = require("@self/deflate"),
 	Draw = Draw,
 	Field = Field,
 	Font = require("@self/font"),

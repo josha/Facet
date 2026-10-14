@@ -7,7 +7,7 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local fs = require("@std/fs")
 local process = require("@std/process")
 local Lute = require("../vendor/verify/src/lute")
-local Base64 = require("../facet/lib/base64")
+local Base64 = require("../vendor/verify/src/codec/base64")
 local Files = require("../facet/lib/files")
 local Xml = require("../facet/lib/xml")
 local Loader = require("../../tests/lib/loader")
@@ -27,7 +27,11 @@ type Node = {
 local MODEL_XML = "build/Facet.rbxmx"
 
 local function attributes(encoded: string): { [string]: unknown }
-	local data = buffer.fromstring(Base64.decode((string.gsub(encoded, "%s", ""))))
+	local decoded = Base64.decode((string.gsub(encoded, "%s", "")))
+	if decoded == nil then
+		error("attributes are not base64", 0)
+	end
+	local data = buffer.fromstring(decoded)
 	local cursor = 0
 	local function u32(): number
 		local value = buffer.readu32(data, cursor)

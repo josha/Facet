@@ -2,14 +2,6 @@
 
 local Json = require("./json")
 
-local function stringArray(list: { string }): Json.Array
-	local array = Json.array()
-	for _, item in list do
-		table.insert(array, item)
-	end
-	return array
-end
-
 export type Outcome = {
 	errors: { string },
 	notes: { string },
@@ -157,7 +149,7 @@ end
 local function sortedRepr(values: { string }): string
 	local copy = table.clone(values)
 	table.sort(copy)
-	return Evidence.repr(stringArray(copy))
+	return Evidence.repr(Json.array(copy))
 end
 
 local function keys(value: Json.Object): { string }

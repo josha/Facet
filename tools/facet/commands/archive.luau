@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
@@ -536,10 +537,6 @@ local function resolve(path: string, document: string): string
 	return normalizePath(dirname(document) .. "/" .. path)
 end
 
-local function startsWith(text: string, prefix: string): boolean
-	return string.sub(text, 1, #prefix) == prefix
-end
-
 local function beforeFragment(target: string): string
 	local hash = string.find(target, "#", 1, true)
 	return if hash then string.sub(target, 1, hash - 1) else target
@@ -547,7 +544,7 @@ end
 
 local function isArchived(target: string, document: string): boolean
 	for _, scheme in { "http://", "https://", "mailto:", "#" } do
-		if startsWith(target, scheme) then
+		if stringext.hasPrefix(target, scheme) then
 			return false
 		end
 	end
@@ -559,11 +556,11 @@ local function isArchived(target: string, document: string): boolean
 	if table.find(ARCHIVED_FILES, resolved) ~= nil then
 		return true
 	end
-	if startsWith(resolved, "docs/reference/") and table.find(PUBLIC_REFERENCE, resolved) == nil then
+	if stringext.hasPrefix(resolved, "docs/reference/") and table.find(PUBLIC_REFERENCE, resolved) == nil then
 		return true
 	end
 	for _, prefix in ARCHIVED_PREFIXES do
-		if startsWith(resolved, prefix) then
+		if stringext.hasPrefix(resolved, prefix) then
 			return true
 		end
 	end
@@ -593,7 +590,7 @@ local function documents(repository: string): { string }
 				continue
 			end
 			local document = directory .. "/" .. entry.name
-			if startsWith(document, "docs/reference/") and table.find(PUBLIC_REFERENCE, document) == nil then
+			if stringext.hasPrefix(document, "docs/reference/") and table.find(PUBLIC_REFERENCE, document) == nil then
 				continue
 			end
 			table.insert(found, document)

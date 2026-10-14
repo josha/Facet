@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local luau = require("@lute/luau")
 local net = require("@std/net")
 local path = require("@std/path")
@@ -14,14 +15,6 @@ local Generator = require("../lib/engine_generator")
 local Hash = require("../lib/hash")
 local Json = require("../lib/json")
 local Run = require("../lib/run")
-
-local function stringArray(list: { string }): Json.Array
-	local array = Json.array()
-	for _, item in list do
-		table.insert(array, item)
-	end
-	return array
-end
 
 local USAGE = [[usage: lute run tools/facet types [--solver old|new|both] [--flag KEY=VALUE]... [--source-only]
        lute run tools/facet types [--solver ...] --files FILE [FILE...]
@@ -86,10 +79,6 @@ local function fail(message: string): never
 	error(message, 0)
 end
 
-local function trim(text: string): string
-	return string.match(text, "^%s*(.-)%s*$") or text
-end
-
 local function home(): string
 	return Files.normalize(path.format(process.homedir()))
 end
@@ -151,7 +140,7 @@ end
 local function repositoryFiles(): { string }
 	local listed = Run.git(INVENTORY)
 	if not listed.ok then
-		fail("git ls-files failed: " .. trim(listed.stderr))
+		fail("git ls-files failed: " .. stringext.trim(listed.stderr))
 	end
 	return Analyzer.inventory(listed.stdout, Files.isFile)
 end
@@ -188,7 +177,7 @@ local function prepareLuteTypes(): LuteTypes
 		fail("rokit.toml does not pin lute")
 	end
 	local reported = Run.capture({ Run.lute(), "--version" })
-	local version = trim(reported.stdout)
+	local version = stringext.trim(reported.stdout)
 	if not reported.ok or version ~= base then
 		fail(("Lute %s differs from the rokit.toml pin %s; run rokit install"):format(version, tostring(pin)))
 	end
@@ -200,7 +189,7 @@ local function prepareLuteTypes(): LuteTypes
 	local setup = Run.capture({ Run.lute(), "setup" }, { cwd = scratch, timeout = 120 })
 	Files.remove(scratch)
 	if not setup.ok then
-		fail("lute setup failed: " .. trim(setup.stdout .. setup.stderr))
+		fail("lute setup failed: " .. stringext.trim(setup.stdout .. setup.stderr))
 	end
 	local typedefs = Files.join(home(), ".lute/typedefs", base :: string)
 	for _, library in { "std", "lute" } do
@@ -295,7 +284,7 @@ end
 local function projects(): { Analyzer.Project }
 	local listed = Run.git(PROJECTS)
 	if not listed.ok then
-		fail("git ls-files failed: " .. trim(listed.stderr))
+		fail("git ls-files failed: " .. stringext.trim(listed.stderr))
 	end
 	local names: { string } = {}
 	local seen: { [string]: boolean } = {}
@@ -313,7 +302,7 @@ local function projects(): { Analyzer.Project }
 		local sourcemap = Files.join(ARTIFACTS, name .. ".sourcemap.json")
 		local built = Run.capture({ "rojo", "sourcemap", project, "--absolute", "-o", sourcemap }, { timeout = 300 })
 		if not built.ok then
-			fail(("rojo sourcemap %s failed: %s"):format(project, trim(built.stderr)))
+			fail(("rojo sourcemap %s failed: %s"):format(project, stringext.trim(built.stderr)))
 		end
 		local mapped: { string } = {}
 		local verbatim = false
@@ -542,7 +531,7 @@ local function encodeProbes(probes: Probes?): unknown
 	end
 	return record({
 		{ "count", probes.count },
-		{ "missed", stringArray(probes.missed) },
+		{ "missed", Json.array(probes.missed) },
 		{ "unexpected", encodeDiagnostics(probes.unexpected) },
 		{ "log", probes.log },
 	})
@@ -576,7 +565,7 @@ local function assemble(
 				{ "project", context.run.project },
 				{ "platform", context.run.platform },
 				{ "security", security },
-				{ "targets", stringArray(context.run.targets) },
+				{ "targets", Json.array(context.run.targets) },
 				{ "log", context.log },
 			})
 		)
@@ -589,9 +578,9 @@ local function assemble(
 		{ "ok", ok },
 		{ "solver", options.solver },
 		{ "mode", modeOf(options) },
-		{ "targets", stringArray(targets) },
-		{ "flags", stringArray(flags) },
-		{ "missingStrict", stringArray(missingStrict) },
+		{ "targets", Json.array(targets) },
+		{ "flags", Json.array(flags) },
+		{ "missingStrict", Json.array(missingStrict) },
 		{ "diagnostics", encodeDiagnostics(merged.owned) },
 		{ "dependencyDiagnostics", encodeDiagnostics(merged.external) },
 		{ "publicProbes", encodeProbes(probes) },
@@ -809,8 +798,10 @@ local function analyzerVersion()
 		fail("Pinned luau-lsp is missing; run rokit install")
 	end
 	local expected = Json.stringField(decodeFile(LOCK), "analyzerVersion")
-	if trim(reported.stdout) ~= expected then
-		fail(("Analyzer %s differs from the pinned toolchain; run rokit install"):format(trim(reported.stdout)))
+	if stringext.trim(reported.stdout) ~= expected then
+		fail(
+			("Analyzer %s differs from the pinned toolchain; run rokit install"):format(stringext.trim(reported.stdout))
+		)
 	end
 end
 

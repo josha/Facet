@@ -18,13 +18,21 @@ type Kinds = { [unknown]: "array" | "object" }
 
 local orders: Orders = {}
 local kinds: Kinds = {}
+local floats: { [unknown]: number } = {}
 setmetatable(orders, { __mode = "k" })
 setmetatable(kinds, { __mode = "k" })
+setmetatable(floats, { __mode = "k" })
 
 Json.null = NULL
 
 function Json.isNull(value: unknown): boolean
 	return value == NULL
+end
+
+function Json.float(value: number): unknown
+	local marker = table.freeze({})
+	floats[marker] = value
+	return marker
 end
 
 function Json.object(): Object
@@ -34,8 +42,8 @@ function Json.object(): Object
 	return object
 end
 
-function Json.array(items: { unknown }?): Array
-	local array: Array = items or {}
+function Json.array<T>(items: { T }?): Array
+	local array: Array = if items ~= nil then (table.clone(items) :: unknown) :: Array else {}
 	kinds[array] = "array"
 	return array
 end
@@ -129,10 +137,6 @@ end
 
 function Json.asNumber(value: unknown): number?
 	return if type(value) == "number" then value else nil
-end
-
-function Json.asBoolean(value: unknown): boolean?
-	return if type(value) == "boolean" then value else nil
 end
 
 function Json.field(value: unknown, key: string): unknown
@@ -430,6 +434,55 @@ local function encodeNumber(value: number): string
 	return tostring(value)
 end
 
+local function floatRepr(value: number): string
+	if value ~= value then
+		return "NaN"
+	elseif value == math.huge then
+		return "Infinity"
+	elseif value == -math.huge then
+		return "-Infinity"
+	elseif value == 0 then
+		return if 1 / value < 0 then "-0.0" else "0.0"
+	end
+	local mantissa, exponent = "", 0
+	for precision = 1, 17 do
+		local text = string.format("%." .. (precision - 1) .. "e", value)
+		if tonumber(text) == value then
+			local digits, power = string.match(text, "^(-?[%d%.]+)e([-+]%d+)$")
+			mantissa = string.gsub(digits :: string, "%.", "")
+			exponent = tonumber(power) :: number
+			break
+		end
+	end
+	local negative = string.sub(mantissa, 1, 1) == "-"
+	if negative then
+		mantissa = string.sub(mantissa, 2)
+	end
+	mantissa = string.gsub(mantissa, "0+$", "")
+	if mantissa == "" then
+		mantissa = "0"
+	end
+	local text
+	if exponent >= -4 and exponent < 16 then
+		if exponent >= 0 then
+			local whole = if #mantissa > exponent + 1
+				then string.sub(mantissa, 1, exponent + 1)
+				else mantissa .. string.rep("0", exponent + 1 - #mantissa)
+			local fraction = string.sub(mantissa, exponent + 2)
+			text = whole .. "." .. (if fraction == "" then "0" else fraction)
+		else
+			text = "0." .. string.rep("0", -exponent - 1) .. mantissa
+		end
+	else
+		local head = string.sub(mantissa, 1, 1)
+		local tail = string.sub(mantissa, 2)
+		text = head
+			.. (if tail == "" then "" else "." .. tail)
+			.. ("e%s%02d"):format(if exponent < 0 then "-" else "+", math.abs(exponent))
+	end
+	return if negative then "-" .. text else text
+end
+
 local function encodeValue(value: unknown, options: EncodeOptions, depth: number, out: { string })
 	local indent = options.indent
 	local ascii = options.ascii ~= false
@@ -443,6 +496,8 @@ local function encodeValue(value: unknown, options: EncodeOptions, depth: number
 		table.insert(out, encodeNumber(value))
 	elseif type(value) == "string" then
 		table.insert(out, encodeString(value, ascii))
+	elseif floats[value] ~= nil then
+		table.insert(out, floatRepr(floats[value]))
 	elseif type(value) == "table" then
 		local tableValue = value :: { [unknown]: unknown }
 		local newline = if indent then "\n" .. string.rep(" ", indent * (depth + 1)) else ""

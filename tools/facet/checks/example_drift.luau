@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local Case = require("../lib/case")
 local Files = require("../lib/files")
 local Luau = require("../lib/luau")
@@ -359,10 +360,6 @@ local function allowedEntry(file: string, text: string, allowlist: { Entry }): E
 	return nil
 end
 
-local function trim(text: string): string
-	return string.match(text, "^%s*(.-)%s*$") or text
-end
-
 local function inspect(context: Rule.Context, allowlist: { Entry }): ({ string }, number)
 	local roles, problem = typeRoles(context)
 	if roles == nil then
@@ -427,7 +424,7 @@ local function inspect(context: Rule.Context, allowlist: { Entry }): ({ string }
 			for _, message in messages do
 				table.insert(
 					violations,
-					("%s:%d: [%s] %s: %s"):format(file, number, message.code, message.what, trim(text))
+					("%s:%d: [%s] %s: %s"):format(file, number, message.code, message.what, stringext.trim(text))
 				)
 			end
 		end

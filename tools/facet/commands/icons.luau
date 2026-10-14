@@ -1,14 +1,16 @@
 --!strict
 
-local crypto = require("@lute/crypto")
 local fs = require("@std/fs")
 local process = require("@std/process")
-local Assets = require("../lib/open-cloud-assets")
+local Media = require("../../vendor/verify/src/codec/image")
+local Assets = require("../lib/assets")
 local Cli = require("../lib/cli")
-local OrderedJson = require("../lib/ordered-json")
-local Checksum = require("../lib/raster/checksum")
+local Hash = require("../lib/hash")
+local Json = require("../lib/json")
 
-type Object = OrderedJson.Object
+type Object = Json.Object
+
+local UPLOAD_SECONDS = 120
 
 local ICON_DIRECTORY = "assets/icons"
 local MANIFEST = ICON_DIRECTORY .. "/upload-manifest.json"
@@ -35,20 +37,6 @@ options:
   --theme       a theme package folder under assets/themes/
   --registry    the Luau module that receives the ids (needs --theme)]]
 
-local function split(text: string, separator: string): { string }
-	local parts: { string } = {}
-	local start = 1
-	while true do
-		local at = string.find(text, separator, start, true)
-		if at == nil then
-			table.insert(parts, string.sub(text, start))
-			return parts
-		end
-		table.insert(parts, string.sub(text, start, at - 1))
-		start = at + #separator
-	end
-end
-
 local function registryNames(): { [string]: string }
 	local source = fs.readFileToString(REGISTRY)
 	local at = string.find(source, "standard_icons.ART", 1, true)
@@ -56,10 +44,10 @@ local function registryNames(): { [string]: string }
 		error(("%s declares no standard_icons.ART table"):format(REGISTRY), 0)
 	end
 	local names: { [string]: string } = {}
-	local chunks = split(string.sub(source, at), '["')
+	local chunks = string.split(string.sub(source, at), '["')
 	for index = 2, #chunks do
 		local chunk = chunks[index]
-		local name = split(chunk, '"]')[1]
+		local name = string.split(chunk, '"]')[1]
 		local asset = string.match(chunk, 'assetName = "([^"]*)"')
 		if asset ~= nil then
 			names[name] = asset
@@ -88,20 +76,11 @@ local function sortedKeys<T>(map: { [string]: T }): { string }
 	return keys
 end
 
-local function pngSize(data: string): (number, number)
-	local function word(offset: number): number
-		local a, b, c, d = string.byte(data, offset, offset + 3)
-		return a * 16777216 + b * 65536 + c * 256 + d
-	end
-	return word(17), word(21)
-end
-
 local function writeRegistry(assets: Object, names: { [string]: string }, registry: string, field: string)
 	local source = fs.readFileToString(registry)
 	for _, iconName in sortedKeys(names) do
 		local assetName: string = names[iconName]
-		local record = OrderedJson.asObject(OrderedJson.get(assets, assetName))
-		local contentId = if record ~= nil then OrderedJson.asString(OrderedJson.get(record, "contentId")) else nil
+		local contentId = Json.stringField(assets[assetName], "contentId")
 		if contentId ~= nil and contentId ~= "" then
 			local anchorText = if field == "contentId"
 				then ('assetName = "%s"'):format(assetName)
@@ -128,23 +107,76 @@ local function writeRegistry(assets: Object, names: { [string]: string }, regist
 end
 
 local function writeManifest(path: string, manifest: Object)
-	fs.writeStringToFile(path, OrderedJson.dumps(manifest) .. "\n")
+	fs.writeStringToFile(path, Json.encode(manifest, { indent = 2 }) .. "\n")
 	print(("manifest -> %s"):format(path))
 end
 
-local function describeRequest(request: Assets.Request, asset: string, size: number, fields: string)
-	print(("  would upload  %s"):format(asset))
-	print(("    %s %s"):format(request.method, request.url))
-	print("    x-api-key: $ROBLOX_API_KEY")
-	print(("    Content-Type: %s"):format(request.headers["Content-Type"]))
-	print(
-		("    body: multipart/form-data, %d bytes (request field and %d-byte fileContent)"):format(
-			#(request.body or ""),
-			size
-		)
+local function sortedObject(object: Object): Object
+	local sorted = Json.object()
+	for _, key in sortedKeys(object) do
+		Json.set(sorted, key, object[key])
+	end
+	return sorted
+end
+
+local function answered(status: number, payload: Object, label: string): Object
+	if status < 200 or status >= 300 then
+		error(("HTTP %d from %s\n%s"):format(status, label, string.sub(Json.encode(payload), 1, 2000)), 0)
+	end
+	return payload
+end
+
+local function createImage(key: string, body: string, contentType: string): (string, string)
+	local status, started = Assets.call(Assets.network, "POST", "/v1/assets", key, body, contentType)
+	answered(status, started, Assets.BASE .. "/v1/assets")
+	local operation = Json.stringField(started, "operationId") or Json.stringField(started, "path")
+	if operation == nil or operation == "" then
+		error("the create call returned no operation id", 0)
+	end
+	local polledStatus, polled = Assets.poll(
+		Assets.network,
+		operation,
+		key,
+		Assets.realClock(),
+		function() end,
+		UPLOAD_SECONDS
 	)
+	if polledStatus == 408 then
+		error(("operation %s never completed"):format(operation), 0)
+	end
+	answered(polledStatus, polled, Assets.BASE .. "/v1/operations/" .. operation)
+	local response = Json.objectField(polled, "response") or Json.object()
+	local assetId = Json.field(response, "assetId")
+	if type(assetId) ~= "string" and type(assetId) ~= "number" then
+		error(("operation %s finished with no assetId"):format(operation), 0)
+	end
+	local moderation = Json.stringField(Json.field(response, "moderationResult"), "moderationState")
+	if moderation == "Rejected" then
+		error("moderation rejected the asset", 0)
+	end
+	local assetType = Json.field(response, "assetType")
+	if assetType ~= nil and assetType ~= "Image" then
+		error(("the asset came back as %s, not Image"):format(tostring(assetType)), 0)
+	end
+	return "rbxassetid://" .. tostring(assetId), moderation or "Unknown"
+end
+
+local function readAsset(key: string, assetId: string): (string, string)
+	local path = "/v1/assets/" .. assetId
+	local status, info = Assets.call(Assets.network, "GET", path, key)
+	answered(status, info, Assets.BASE .. path)
+	local state = Json.stringField(Json.field(info, "moderationResult"), "moderationState")
+	return state or "Unknown", Json.stringField(info, "assetType") or "Unknown"
+end
+
+local function describeRequest(contentType: string, bytes: number, asset: string, size: number, fields: string)
+	print(("  would upload  %s"):format(asset))
+	print(("    POST %s/v1/assets"):format(Assets.BASE))
+	print("    x-api-key: $ROBLOX_API_KEY")
+	print(("    Content-Type: %s"):format(contentType))
+	print(("    body: multipart/form-data, %d bytes (request field and %d-byte fileContent)"):format(bytes, size))
 	print(("    request: %s"):format(fields))
-	print("    then GET " .. Assets.operationUrl("<operationId>") .. " until done")
+	print(("    then GET %s/v1/operations/<operationId> until done"):format(Assets.BASE))
 end
 
 local function upload(invocation: Cli.Invocation): number
@@ -185,36 +217,35 @@ local function upload(invocation: Cli.Invocation): number
 	end
 
 	local existing = if fs.exists(manifestPath)
-		then OrderedJson.asObject(OrderedJson.parse(fs.readFileToString(manifestPath)))
-		else OrderedJson.object()
+		then Json.asObject(Json.decode(fs.readFileToString(manifestPath)))
+		else Json.object()
 	if existing == nil then
 		print(("%s is not a JSON object"):format(manifestPath))
 		return 1
 	end
 	local manifest = existing :: Object
-	local assets = OrderedJson.asObject(OrderedJson.get(manifest, "assets")) or OrderedJson.object()
-	local options: Assets.Options = { transport = Assets.netTransport(key) }
+	local assets = Json.objectField(manifest, "assets") or Json.object()
 
 	if recheck then
 		if dryRun then
-			for _, name in sortedKeys(assets.map) do
+			for _, name in sortedKeys(assets) do
 				print(("  would read  %s"):format(name))
 			end
 			return 0
 		end
-		for _, name in sortedKeys(assets.map) do
-			local record = OrderedJson.asObject(assets.map[name])
-			local contentId = if record ~= nil then OrderedJson.asString(OrderedJson.get(record, "contentId")) else nil
+		for _, name in sortedKeys(assets) do
+			local record = Json.asObject(assets[name])
+			local contentId = Json.stringField(record, "contentId")
 			local assetId = if contentId ~= nil then string.match(contentId, "([^/]*)$") else nil
 			if record ~= nil and assetId ~= nil and assetId ~= "" then
-				local state, kind = Assets.read(options, assetId)
-				OrderedJson.set(record, "moderation", OrderedJson.string(state))
-				OrderedJson.set(record, "assetType", OrderedJson.string(kind))
+				local state, kind = readAsset(key, assetId)
+				Json.set(record, "moderation", state)
+				Json.set(record, "assetType", kind)
 				local flag = if state == "Approved" and kind == "Image" then "" else "   <-- check"
 				print(("  %-32s %-12s %s%s"):format(name, state, kind, flag))
 			end
 		end
-		OrderedJson.set(manifest, "assets", OrderedJson.sorted(assets))
+		Json.set(manifest, "assets", sortedObject(assets))
 		writeManifest(manifestPath, manifest)
 		writeRegistry(assets, names, registry, field)
 		return 0
@@ -227,103 +258,96 @@ local function upload(invocation: Cli.Invocation): number
 			print(("MISSING %s; run lute run tools/facet art"):format(path))
 			return 1
 		end
-		local record = OrderedJson.asObject(assets.map[assetName]) or OrderedJson.object()
-		local current = OrderedJson.asString(OrderedJson.get(record, "contentId"))
+		local record = Json.asObject(assets[assetName]) or Json.object()
+		local current = Json.stringField(record, "contentId")
 		if current ~= nil and current ~= "" and not force then
 			print(("  skip   %s  %s"):format(assetName, current))
 			continue
 		end
 		local data = fs.readFileToString(path)
-		local digest = Checksum.hex(crypto.digest(crypto.hash.sha256, data))
-		local requestFields = OrderedJson.object()
-		OrderedJson.set(requestFields, "assetType", OrderedJson.string("Image"))
-		OrderedJson.set(requestFields, "displayName", OrderedJson.string(assetName))
-		OrderedJson.set(requestFields, "description", OrderedJson.string(DESCRIPTION))
-		local userId = OrderedJson.object()
-		OrderedJson.set(userId, "userId", OrderedJson.string(creator))
-		local creatorObject = OrderedJson.object()
-		OrderedJson.set(creatorObject, "creator", userId)
-		OrderedJson.set(requestFields, "creationContext", creatorObject)
-		local requestJson = OrderedJson.compact(requestFields)
-		local boundary = "----facet" .. string.sub(digest, 1, 32)
-		local request = Assets.createRequest(
-			{ { name = "request", value = requestJson } },
-			{ name = "fileContent", filename = assetName .. ".png", contentType = "image/png", data = data },
-			boundary
-		)
+		local digest = Hash.sha256(data)
+		local requestFields = Json.object()
+		Json.set(requestFields, "assetType", "Image")
+		Json.set(requestFields, "displayName", assetName)
+		Json.set(requestFields, "description", DESCRIPTION)
+		local userId = Json.object()
+		Json.set(userId, "userId", creator)
+		local creatorObject = Json.object()
+		Json.set(creatorObject, "creator", userId)
+		Json.set(requestFields, "creationContext", creatorObject)
+		local requestJson = Json.encode(requestFields)
+		local body, contentType = Assets.form({
+			{ name = "request", value = requestJson },
+			{ name = "fileContent", value = data, filename = assetName .. ".png", contentType = "image/png" },
+		}, "----facet" .. string.sub(digest, 1, 32))
 		if dryRun then
-			describeRequest(request, assetName, #data, requestJson)
+			describeRequest(contentType, #body, assetName, #data, requestJson)
 			continue
 		end
-		local result: Assets.Created = Assets.create(options, request)
-		local width, height = pngSize(data)
+		local contentId, moderation = createImage(key, body, contentType)
+		local width, height = Media.pngSize(data)
+		if width == nil or height == nil then
+			error(("%s is not a PNG"):format(path), 0)
+		end
 		if theme == nil then
-			if OrderedJson.get(record, "sliceBorder") == nil then
-				OrderedJson.set(record, "sliceBorder", OrderedJson.int(0))
+			if record.sliceBorder == nil then
+				Json.set(record, "sliceBorder", 0)
 			end
-			if OrderedJson.get(record, "slot") == nil then
-				OrderedJson.set(record, "slot", OrderedJson.string("icons." .. iconName))
+			if record.slot == nil then
+				Json.set(record, "slot", "icons." .. iconName)
 			end
-			if OrderedJson.get(record, "state") == nil then
-				OrderedJson.set(record, "state", OrderedJson.string("default"))
+			if record.state == nil then
+				Json.set(record, "state", "default")
 			end
 		end
-		OrderedJson.set(record, "file", OrderedJson.string(assetName .. ".png"))
-		OrderedJson.set(record, "contentId", OrderedJson.string(result.contentId))
-		OrderedJson.set(record, "size", OrderedJson.string(("%dx%d"):format(width, height)))
-		OrderedJson.set(record, "moderation", OrderedJson.string(result.moderation))
-		OrderedJson.set(record, "sha256", OrderedJson.string(digest))
-		OrderedJson.set(assets, assetName, record)
-		print(("  upload %s  %s  (%s)"):format(assetName, result.contentId, result.moderation))
+		Json.set(record, "file", assetName .. ".png")
+		Json.set(record, "contentId", contentId)
+		Json.set(record, "size", ("%dx%d"):format(width, height))
+		Json.set(record, "moderation", moderation)
+		Json.set(record, "sha256", digest)
+		Json.set(assets, assetName, record)
+		print(("  upload %s  %s  (%s)"):format(assetName, contentId, moderation))
 	end
 
 	if dryRun then
 		return 0
 	end
 	if theme ~= nil then
-		OrderedJson.set(manifest, "assets", OrderedJson.sorted(assets))
+		Json.set(manifest, "assets", sortedObject(assets))
 		writeManifest(manifestPath, manifest)
 		writeRegistry(assets, names, registry, field)
 		return 0
 	end
-	local sorted = OrderedJson.sorted(assets)
-	local files: { OrderedJson.Value } = {}
-	for _, name in sorted.keys do
-		table.insert(files, OrderedJson.string(name))
-	end
-	local out = OrderedJson.object()
-	OrderedJson.set(out, "schema", OrderedJson.string("facet-theme-assets/1"))
-	OrderedJson.set(out, "package", OrderedJson.string("facet-standard-icons"))
-	OrderedJson.set(out, "stage", OrderedJson.string("compact-label"))
-	OrderedJson.set(out, "uploaded", OrderedJson.string(os.date("%Y-%m-%d") :: string))
-	OrderedJson.set(
+	local sorted = sortedObject(assets)
+	local out = Json.object()
+	Json.set(out, "schema", "facet-theme-assets/1")
+	Json.set(out, "package", "facet-standard-icons")
+	Json.set(out, "stage", "compact-label")
+	Json.set(out, "uploaded", os.date("%Y-%m-%d") :: string)
+	Json.set(
 		out,
 		"method",
-		OrderedJson.string(
-			"Roblox Open Cloud POST /assets/v1/assets with assetType=Image, polled to done via "
-				.. "/assets/v1/operations/<id>, by lute run tools/facet icons upload. FULLY HEADLESS -- no Studio and no "
-				.. "human step, unlike the eleven per-package assets that went up through the Studio MCP "
-				.. "upload_image route. assetType=Image (not Decal) returns a real Image asset, AssetTypeId 1."
-		)
+		"Roblox Open Cloud POST /assets/v1/assets with assetType=Image, polled to done via "
+			.. "/assets/v1/operations/<id>, by lute run tools/facet icons upload. FULLY HEADLESS -- no Studio and no "
+			.. "human step, unlike the eleven per-package assets that went up through the Studio MCP "
+			.. "upload_image route. assetType=Image (not Decal) returns a real Image asset, AssetTypeId 1."
 	)
-	OrderedJson.set(
+	Json.set(
 		out,
 		"note",
-		OrderedJson.string(
-			"Framework-owned art, not a theme package: it resolves BELOW a package's own icons and "
-				.. "ABOVE the ASCII fallback glyph (src/themes/package.luau resolveIcon). One near-white "
-				.. "#F0F0F2 silhouette per name, no per-state variants -- tintRole owns the colour, and "
-				.. "ImageColor3 multiplies, so white reaches every palette while black could only darken. "
-				.. "Regenerate the PNGs with lute run tools/facet art icons."
-		)
+		"Framework-owned art, not a theme package: it resolves BELOW a package's own icons and "
+			.. "ABOVE the ASCII fallback glyph (src/themes/package.luau resolveIcon). One near-white "
+			.. "#F0F0F2 silhouette per name, no per-state variants -- tintRole owns the colour, and "
+			.. "ImageColor3 multiplies, so white reaches every palette while black could only darken. "
+			.. "Regenerate the PNGs with lute run tools/facet art icons."
 	)
-	OrderedJson.set(out, "assets", sorted)
-	OrderedJson.set(
+	Json.set(out, "assets", sorted)
+	Json.set(
 		out,
 		"uploadedBy",
-		OrderedJson.string("compact-label stage (the standard icon set that makes compactLabel's image form usable)")
+		"compact-label stage (the standard icon set that makes compactLabel's image form usable)"
 	)
-	OrderedJson.set(out, "uploadedFiles", OrderedJson.array(files))
+	Json.set(out, "uploadedFiles", Json.array(Json.keys(sorted)))
 	writeManifest(manifestPath, out)
 	writeRegistry(assets, names, registry, field)
 	return 0

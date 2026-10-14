@@ -1,12 +1,12 @@
 --!strict
 
-local crypto = require("@lute/crypto")
 local fs = require("@std/fs")
 local task = require("@std/task")
 local Comments = require("./comments")
 local Document = require("./document")
 local Edit = require("./edit")
 local Operations = require("./operations")
+local Hash = require("../lib/hash")
 local Schema = require("../lib/schema")
 local Wire = require("./wire")
 
@@ -48,14 +48,7 @@ local Workspace = {}
 Workspace.MAX_HISTORY = 500
 Workspace.AUTHOR_PATTERN = "^[%w_%-%.:@]+$"
 
-function Workspace.hash(text: string): string
-	local digest = crypto.digest(crypto.hash.sha256, text)
-	local parts = table.create(buffer.len(digest))
-	for index = 0, buffer.len(digest) - 1 do
-		parts[index + 1] = string.format("%02x", buffer.readu8(digest, index))
-	end
-	return table.concat(parts)
-end
+Workspace.hash = Hash.sha256
 
 function Workspace.historyPath(file: string): string
 	return file .. ".history.json"

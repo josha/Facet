@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local Files = require("../lib/files")
 local LabBoundary = require("../lib/lab_boundary")
 local Luau = require("../lib/luau")
@@ -79,28 +80,24 @@ local function imports(scan: Scan, relative: string): { string }
 	return found
 end
 
-local function startsWith(value: string, prefix: string): boolean
-	return string.sub(value, 1, #prefix) == prefix
-end
-
 local function isInit(relative: string): boolean
 	return Files.name(relative) == "init.luau"
 end
 
 local function resolveUncached(scan: Scan, relative: string, requested: string): (Resolution, string?)
-	local dynamic = startsWith(requested, "dynamic:")
+	local dynamic = stringext.hasPrefix(requested, "dynamic:")
 	local target = if dynamic then string.sub(requested, 9) else requested
 	for _, prefix in EXTERNAL do
-		if startsWith(target, prefix) then
+		if stringext.hasPrefix(target, prefix) then
 			return "external", nil
 		end
 	end
 	local base: string
-	if startsWith(target, "@self/") then
+	if stringext.hasPrefix(target, "@self/") then
 		local rest = string.sub(target, 7)
 		local anchor = if isInit(relative) then Files.parent(relative) else string.gsub(relative, "%.luau?$", "")
 		base = Files.collapse(anchor .. "/" .. rest)
-	elseif startsWith(target, ".") then
+	elseif stringext.hasPrefix(target, ".") then
 		local directory = Files.parent(relative)
 		local anchor = if isInit(relative) then Files.parent(directory) else directory
 		base = Files.collapse(anchor .. "/" .. target)
@@ -114,7 +111,7 @@ local function resolveUncached(scan: Scan, relative: string, requested: string):
 		end
 		local prefix = Files.name(base)
 		for _, entry in Files.list(context.path(Files.parent(base))) do
-			if startsWith(entry.name, prefix) and string.sub(entry.name, -5) == ".luau" then
+			if stringext.hasPrefix(entry.name, prefix) and string.sub(entry.name, -5) == ".luau" then
 				return "external", nil
 			end
 		end
@@ -175,15 +172,6 @@ local function luauFiles(context: Rule.Context, folder: string): { string }
 		end
 	end
 	return found
-end
-
-local function vendored(relative: string): boolean
-	for _, part in string.split(relative, "/") do
-		if part == "vendor" then
-			return true
-		end
-	end
-	return false
 end
 
 local function constructorAlias(entry: Source): number?
@@ -331,7 +319,7 @@ local function check(context: Rule.Context): { string }
 				if
 					resolution == "resolved"
 					and resolved ~= nil
-					and startsWith(resolved, "src/")
+					and stringext.hasPrefix(resolved, "src/")
 					and resolved ~= "src/init.luau"
 				then
 					failures[("%s: requires private Facet module %s"):format(relative, resolved)] = true
@@ -351,7 +339,7 @@ local function check(context: Rule.Context): { string }
 	end
 	for _, folder in DEPENDENCY_ROOTS do
 		for _, relative in luauFiles(context, folder) do
-			if not vendored(relative) then
+			if not Files.vendored(relative) then
 				forbiddenDependencies(source(scan, relative), relative, failures)
 			end
 		end

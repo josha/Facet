@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
@@ -67,14 +68,6 @@ export type Counts = {
 
 export type Coverage = { area: string, specs: number }
 
-local function trim(text: string): string
-	return string.match(text, "^%s*(.-)%s*$") or text
-end
-
-local function startsWith(text: string, prefix: string): boolean
-	return string.sub(text, 1, #prefix) == prefix
-end
-
 local function backticked(cell: string): { string }
 	local found: { string } = {}
 	for token in string.gmatch(cell, "`([^`]+)`") do
@@ -85,7 +78,7 @@ end
 
 local function areaName(cell: string): string
 	local stripped = string.gsub(cell, "%*", "")
-	return trim(stripped)
+	return stringext.trim(stripped)
 end
 
 local function tableAfter(lines: { string }, marker: string): { Row }?
@@ -102,13 +95,13 @@ local function tableAfter(lines: { string }, marker: string): { Row }?
 	local rows: { Row } = {}
 	local started = false
 	for index = start, #lines do
-		local line = trim(lines[index])
+		local line = stringext.trim(lines[index])
 		if string.sub(line, 1, 1) == "|" then
 			started = true
 			if string.match(line, "^[|%s:-]+$") == nil then
 				local cells: { string } = {}
 				for cell in string.gmatch(line, "|([^|]*)") do
-					table.insert(cells, trim(cell))
+					table.insert(cells, stringext.trim(cell))
 				end
 				if #cells > 0 and cells[#cells] == "" then
 					table.remove(cells)
@@ -142,7 +135,7 @@ local function ignoredTopLevel(context: Rule.Context): { [string]: boolean }
 		return ignored
 	end
 	for _, line in Files.lines(Files.text(path)) do
-		local name = string.match(trim(line), "^/?([%w_.-]+)/$")
+		local name = string.match(stringext.trim(line), "^/?([%w_.-]+)/$")
 		if name ~= nil then
 			ignored[name] = true
 		end
@@ -199,7 +192,7 @@ local function requiredModules(context: Rule.Context, file: string): { string }
 			continue
 		end
 		local resolved = Markdown.normalize(directory .. "/" .. target)
-		if resolved ~= SRC and not startsWith(resolved, SRC .. "/") then
+		if resolved ~= SRC and not stringext.hasPrefix(resolved, SRC .. "/") then
 			continue
 		end
 		local module = moduleFile(context, resolved)
@@ -218,7 +211,7 @@ local function ownerOf(ownership: Ownership, file: string): string?
 	local best: string? = nil
 	local bestLength = 0
 	for directory, area in ownership.directories do
-		if startsWith(file, directory) and #directory > bestLength then
+		if stringext.hasPrefix(file, directory) and #directory > bestLength then
 			best = area
 			bestLength = #directory
 		end
@@ -507,7 +500,7 @@ local function inspect(context: Rule.Context): ({ string }, Counts)
 		local area = areaName(cells[1])
 		table.insert(areaOrder, area)
 		for _, token in backticked(cells[2]) do
-			if not startsWith(token, SRC .. "/") then
+			if not stringext.hasPrefix(token, SRC .. "/") then
 				problem(
 					row.line,
 					("the '%s' row owns '%s', which is not under src/"):format(area, token),
@@ -579,7 +572,7 @@ local function inspect(context: Rule.Context): ({ string }, Counts)
 	table.sort(ownedDirectories)
 	for _, file in ownedFiles do
 		for _, directory in ownedDirectories do
-			if startsWith(file, directory) then
+			if stringext.hasPrefix(file, directory) then
 				problem(nil, ("'%s' is owned directly and through '%s'"):format(file, directory), "give it one owner")
 			end
 		end
@@ -814,7 +807,7 @@ local function inspect(context: Rule.Context): ({ string }, Counts)
 			break
 		end
 		linkCursor = finish + 1
-		if startsWith(target, "http") or startsWith(target, "#") then
+		if stringext.hasPrefix(target, "http") or stringext.hasPrefix(target, "#") then
 			continue
 		end
 		counts.links += 1

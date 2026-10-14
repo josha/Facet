@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
@@ -69,11 +70,6 @@ local PLANTS: { Plant } = {
 		expect = "ClassicDesktop",
 	},
 }
-
-local function trim(text: string): string
-	local trimmed = string.gsub(string.gsub(text, "^%s+", ""), "%s+$", "")
-	return trimmed
-end
 
 local function replaceAll(source: string, anchor: string, replacement: string): string
 	local parts: { string } = {}
@@ -227,7 +223,10 @@ local function install(context: Rule.Context, work: string, manifest: unknown, o
 		local document = Files.join(work, `{name}.rbxmx`)
 		local built = ThemeBuilds.one(context.root, `examples/themes/{module}.luau`, name, document, true)
 		if not built.ok then
-			table.insert(problems, `{name}: rojo could not build the isolated artifact: {trim(built.message)}`)
+			table.insert(
+				problems,
+				`{name}: rojo could not build the isolated artifact: {stringext.trim(built.message)}`
+			)
 			continue
 		end
 		local source = artifactSource(Files.read(document), name, problems)
@@ -247,12 +246,12 @@ local function install(context: Rule.Context, work: string, manifest: unknown, o
 	local probe = Run.capture(PROBE, { cwd = work })
 	if probe.ok then
 		if not options.quiet then
-			print(trim(probe.stdout))
+			print(stringext.trim(probe.stdout))
 		end
 	else
-		for _, line in Files.lines(trim(probe.stdout .. probe.stderr)) do
-			if trim(line) ~= "" then
-				table.insert(problems, "probe: " .. trim(line))
+		for _, line in Files.lines(stringext.trim(probe.stdout .. probe.stderr)) do
+			if stringext.trim(line) ~= "" then
+				table.insert(problems, "probe: " .. stringext.trim(line))
 			end
 		end
 		if probe.stdout == "" and probe.stderr == "" then
@@ -270,7 +269,7 @@ local function inspect(context: Rule.Context, options: Options): { string }
 	end
 	local built = ThemeBuilds.all(context.root, true)
 	if not built.ok then
-		return { "lute run tools/facet build themes failed: " .. trim(built.message) }
+		return { "lute run tools/facet build themes failed: " .. stringext.trim(built.message) }
 	end
 	local manifestPath = context.path(ThemeBuilds.MANIFEST)
 	if not Files.isFile(manifestPath) then

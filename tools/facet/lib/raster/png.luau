@@ -1,8 +1,7 @@
 --!strict
 --!native
 
-local Checksum = require("./checksum")
-local Deflate = require("./deflate")
+local Zlib = require("../zlib")
 local ImageModule = require("./image")
 
 type Image = ImageModule.Image
@@ -163,7 +162,7 @@ function Png.chunks(data: buffer): { Chunk }
 			error(("png: truncated %s chunk"):format(kind), 0)
 		end
 		local stored = readU32(data, offset + 8 + length)
-		if Checksum.crc32(data, offset + 4, length + 4) ~= stored then
+		if Zlib.crc32(data, offset + 4, length + 4) ~= stored then
 			error(("png: CRC mismatch in %s chunk"):format(kind), 0)
 		end
 		local body = buffer.create(length)
@@ -225,7 +224,7 @@ function Png.decode(data: buffer): Image
 	local bitsPerPixel = channels * depth
 	local stride = (width * bitsPerPixel + 7) // 8
 	local expected = (stride + 1) * height
-	local raw = Deflate.decompress(compressed, expected)
+	local raw = Zlib.decompress(compressed, expected)
 	if buffer.len(raw) < expected then
 		error("png: image data is shorter than the header declares", 0)
 	end
@@ -313,7 +312,7 @@ local function chunk(kind: string, body: buffer): buffer
 	writeU32(out, 0, length)
 	buffer.writestring(out, 4, kind)
 	buffer.copy(out, 8, body, 0, length)
-	writeU32(out, 8 + length, Checksum.crc32(out, 4, length + 4))
+	writeU32(out, 8 + length, Zlib.crc32(out, 4, length + 4))
 	return out
 end
 
@@ -328,7 +327,7 @@ function Png.encode(image: Image): buffer
 	buffer.writeu8(header, 8, 8)
 	buffer.writeu8(header, 9, colorType)
 	local filtered = filterRows(image.data, image.width, image.height, image.channels)
-	local compressed = Deflate.compress(filtered)
+	local compressed = Zlib.compress(filtered)
 	local pieces = { chunk("IHDR", header) }
 	local offset = 0
 	local total = buffer.len(compressed)

@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local Case = require("../lib/case")
 local Files = require("../lib/files")
 local Luau = require("../lib/luau")
@@ -56,10 +57,6 @@ local SCAFFOLDING: { [string]: boolean } = {
 export type Surface = { controls: { [string]: boolean }, members: { [string]: boolean } }
 
 type Hit = { position: number, message: string }
-
-local function startsWith(text: string, prefix: string): boolean
-	return string.sub(text, 1, #prefix) == prefix
-end
 
 local function isWord(byte: number?): boolean
 	if byte == nil then
@@ -305,7 +302,7 @@ end
 local function allowed(scope: string, text: string): boolean
 	for _, entry in ALLOWLIST do
 		local base = string.gsub(entry.path, "/+$", "")
-		if scope == entry.path or startsWith(scope, base .. "/") then
+		if scope == entry.path or stringext.hasPrefix(scope, base .. "/") then
 			if string.find(text, entry.pattern, 1, entry.plain) ~= nil then
 				return true
 			end
@@ -339,20 +336,20 @@ end
 
 local function inScope(path: string): boolean
 	for _, prefix in EXCLUDED_TREES do
-		if startsWith(path, prefix) then
+		if stringext.hasPrefix(path, prefix) then
 			return false
 		end
 	end
 	local scanned = false
 	for _, prefix in SCANNED_ROOTS do
-		if startsWith(path, prefix) then
+		if stringext.hasPrefix(path, prefix) then
 			scanned = true
 		end
 	end
 	if not scanned then
 		return false
 	end
-	if startsWith(path, "docs/") then
+	if stringext.hasPrefix(path, "docs/") then
 		return string.sub(path, -3) == ".md" or string.sub(path, -5) == ".luau"
 	end
 	return string.sub(path, -5) == ".luau"

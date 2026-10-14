@@ -1,5 +1,6 @@
 --!strict
 
+local stringext = require("@std/stringext")
 local task = require("@std/task")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
@@ -139,15 +140,10 @@ local function git(session: Session, arguments: { string }, indexFile: string?):
 	return Run.capture(argv, { cwd = session.cwd, env = environment })
 end
 
-local function trimmed(text: string): string
-	local value = string.gsub(string.gsub(text, "^%s+", ""), "%s+$", "")
-	return value
-end
-
 local function must(session: Session, arguments: { string }, indexFile: string?): string
 	local result = git(session, arguments, indexFile)
 	if not result.ok then
-		abort(session, ("`git %s` failed:\n%s"):format(table.concat(arguments, " "), trimmed(result.stderr)), 1)
+		abort(session, ("`git %s` failed:\n%s"):format(table.concat(arguments, " "), stringext.trim(result.stderr)), 1)
 	end
 	return result.stdout
 end
@@ -257,7 +253,7 @@ local function republish(
 				break
 			end
 			if string.find(result.stderr, "index.lock", 1, true) == nil then
-				session.say(("  WARN  could not republish %s: %s"):format(path, trimmed(result.stderr)))
+				session.say(("  WARN  could not republish %s: %s"):format(path, stringext.trim(result.stderr)))
 				contended = false
 				break
 			end
@@ -285,7 +281,7 @@ local function commit(session: Session, options: Options, workspace: string): nu
 	if messageFile == nil then
 		return abort(session, "-m <message-file> is required (write the message FIRST)", 1)
 	end
-	local oldHead = trimmed(must(session, { "rev-parse", "HEAD" }))
+	local oldHead = stringext.trim(must(session, { "rev-parse", "HEAD" }))
 	local index = Files.join(workspace, "index")
 	must(session, { "read-tree", oldHead }, index)
 
@@ -309,7 +305,7 @@ local function commit(session: Session, options: Options, workspace: string): nu
 			continue
 		end
 		if not tracked(session, path) then
-			local blob = trimmed(must(session, { "hash-object", "-w", path }))
+			local blob = stringext.trim(must(session, { "hash-object", "-w", path }))
 			must(session, { "update-index", "--add", "--cacheinfo", ("100644,%s,%s"):format(blob, path) }, index)
 			session.say(("  NEW    %s"):format(path))
 			continue
@@ -326,7 +322,7 @@ local function commit(session: Session, options: Options, workspace: string): nu
 						2
 					)
 				end
-				local blob = trimmed(must(session, { "hash-object", "-w", path }))
+				local blob = stringext.trim(must(session, { "hash-object", "-w", path }))
 				must(
 					session,
 					{ "update-index", "--add", "--cacheinfo", ("%s,%s,%s"):format(newMode, blob, path) },
@@ -342,7 +338,7 @@ local function commit(session: Session, options: Options, workspace: string): nu
 				if markers ~= "" then
 					abort(session, ("%s is BINARY and markers cannot select inside one — refusing"):format(path), 2)
 				end
-				local blob = trimmed(must(session, { "hash-object", "-w", path }))
+				local blob = stringext.trim(must(session, { "hash-object", "-w", path }))
 				must(session, { "update-index", "--add", "--cacheinfo", ("100644,%s,%s"):format(blob, path) }, index)
 				session.say(("  BINARY %s  (whole file, %d bytes of patch)"):format(path, #diff))
 				continue
@@ -402,7 +398,7 @@ local function commit(session: Session, options: Options, workspace: string): nu
 		return 0
 	end
 
-	local tree = trimmed(must(session, { "write-tree" }, index))
+	local tree = stringext.trim(must(session, { "write-tree" }, index))
 	local messagePath = located(session, messageFile)
 	local readable, message = pcall(Files.read, messagePath)
 	if not readable then
@@ -410,14 +406,14 @@ local function commit(session: Session, options: Options, workspace: string): nu
 	end
 	local normalized = Files.join(workspace, "message")
 	Files.write(normalized, normalizedMessage(message :: string))
-	local sha = trimmed(must(session, { "commit-tree", tree, "-p", oldHead, "-F", normalized }))
-	local ref = trimmed(must(session, { "symbolic-ref", "HEAD" }))
+	local sha = stringext.trim(must(session, { "commit-tree", tree, "-p", oldHead, "-F", normalized }))
+	local ref = stringext.trim(must(session, { "symbolic-ref", "HEAD" }))
 	local swapped = git(session, { "update-ref", ref, sha, oldHead })
 	if not swapped.ok then
 		abort(
 			session,
 			("HEAD moved under you — nothing committed.\n  %s\n  Your working tree is untouched. Re-run this exact command."):format(
-				trimmed(swapped.stderr)
+				stringext.trim(swapped.stderr)
 			),
 			3
 		)
@@ -572,7 +568,7 @@ local function cases(): { Case.Case }
 					Files.remove(Files.join(root, "gone.txt"))
 					Files.write(Files.join(root, "message.txt"), "the deletion commits\r\n\r\nBody.\r\n")
 					local code, lines = invoke(options("message.txt", { "gone.txt" }))
-					local tree = trimmed(Run.git({ "ls-tree", "HEAD", "--", "gone.txt" }, root).stdout)
+					local tree = stringext.trim(Run.git({ "ls-tree", "HEAD", "--", "gone.txt" }, root).stdout)
 					local message = Run.git({ "log", "-1", "--format=%B" }, root).stdout
 					return Case.first(
 						Case.equal(code, 0, "exit code (" .. table.concat(lines, " / ") .. ")"),
@@ -639,7 +635,7 @@ local function cases(): { Case.Case }
 					commitAll(root, { "same.txt", "picture.bin" }, "base")
 					Files.write(Files.join(root, "picture.bin"), "\0\1\2\4\5")
 					Files.write(Files.join(root, "message.txt"), "refused\n")
-					local head = trimmed(Run.git({ "rev-parse", "HEAD" }, root).stdout)
+					local head = stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout)
 					local unchanged = invoke(options("message.txt", { "same.txt" }))
 					Files.write(Files.join(root, "same.txt"), "changed\n")
 					local unmatched, unmatchedLines = invoke(options("message.txt", { "same.txt:NOPE" }))
@@ -654,7 +650,7 @@ local function cases(): { Case.Case }
 						Case.equal(binary, 2, "binary with a marker"),
 						Case.expect(said(binaryLines, "is BINARY"), "no binary message"),
 						Case.equal(noMessage, 1, "no message file"),
-						Case.equal(trimmed(Run.git({ "rev-parse", "HEAD" }, root).stdout), head, "HEAD moved")
+						Case.equal(stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout), head, "HEAD moved")
 					)
 				end)
 			end,
@@ -667,9 +663,9 @@ local function cases(): { Case.Case }
 					commitAll(root, { "picture.bin" }, "base")
 					Files.write(Files.join(root, "picture.bin"), "\0\1\2\4\5")
 					Files.write(Files.join(root, "message.txt"), "binary\n")
-					local head = trimmed(Run.git({ "rev-parse", "HEAD" }, root).stdout)
+					local head = stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout)
 					local dry, dryLines = invoke(options("message.txt", { "picture.bin" }, true))
-					local after = trimmed(Run.git({ "rev-parse", "HEAD" }, root).stdout)
+					local after = stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout)
 					local code, lines = invoke(options("message.txt", { "picture.bin" }))
 					return Case.first(
 						Case.equal(dry, 0, "dry run"),

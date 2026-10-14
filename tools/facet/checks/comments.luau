@@ -25,15 +25,6 @@ local function transform(source: string, relative: string): (string?, string?, n
 	return source, nil, 0
 end
 
-local function vendored(relative: string): boolean
-	for _, part in string.split(relative, "/") do
-		if part == "vendor" then
-			return true
-		end
-	end
-	return false
-end
-
 local function sourcePaths(context: Rule.Context, selections: { string }): ({ string }?, string?)
 	local arguments = { "-C", context.root, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--" }
 	for _, selection in selections do
@@ -51,7 +42,11 @@ local function sourcePaths(context: Rule.Context, selections: { string }): ({ st
 			continue
 		end
 		unique[relative] = true
-		if SUFFIXES[Files.extension(relative)] and not vendored(relative) and Files.isFile(context.path(relative)) then
+		if
+			SUFFIXES[Files.extension(relative)]
+			and not Files.vendored(relative)
+			and Files.isFile(context.path(relative))
+		then
 			table.insert(found, relative)
 		end
 	end

@@ -36,11 +36,6 @@ function Xml.decode(text: string): string
 	return decoded
 end
 
-function Xml.escape(text: string): string
-	local escaped = string.gsub(text, '[&<>"]', { ["&"] = "&amp;", ["<"] = "&lt;", [">"] = "&gt;", ['"'] = "&quot;" })
-	return escaped
-end
-
 local function newElement(tag: string): Element
 	return { tag = tag, attributes = {}, children = {}, text = "", content = "" }
 end

@@ -237,6 +237,10 @@ function Files.within(target: string, base: string): boolean
 		or string.sub(normalizedTarget, 1, #normalizedBase + 1) == normalizedBase .. "/"
 end
 
+function Files.vendored(relative: string): boolean
+	return table.find(string.split(relative, "/"), "vendor") ~= nil
+end
+
 function Files.collapse(value: string): string
 	local normalized = Files.normalize(value)
 	local absolute = string.sub(normalized, 1, 1) == "/"
