@@ -1381,8 +1381,9 @@ The panel holds these parts in order:
 
 1. `Modes`: a `UI.Picker` of the techniques. It is present only with two or
    more modes.
-2. `Body`: the `Technique` frame. Each technique stays mounted. The inactive
-   techniques are not visible. The frame is as tall as the tallest technique,
+2. `Body`: the `Technique` frame. The Bricks technique mounts on its first
+   visit. Each mounted technique stays mounted until the panel closes. The
+   inactive techniques are not visible. The frame is as tall as the tallest technique,
    so the panel keeps one height when the tab changes. In a scrolling body,
    an inactive technique reserves at most the height of the body, so a short
    technique has nothing below it to scroll to. The swatch and brick

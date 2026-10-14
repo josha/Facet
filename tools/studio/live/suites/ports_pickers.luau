@@ -2558,14 +2558,22 @@ add("color-hidden-technique-size", {}, function(t)
 					local show = technique:FindFirstChild(name)
 					local height = if show then show.AbsoluteSize.Y else -1
 					sizes[name] = { height = height, visible = show and show.Visible }
-					t.check(
-						`{screen.name} tab {ALL_MODES[index]}: {name} reports a height while {if show
-								and show.Visible
-							then "shown"
-							else "hidden"}`,
-						height > 0.5,
-						height
-					)
+					if name == "ShowBricks" and ALL_MODES[index] ~= "brick" then
+						t.check(
+							`{screen.name} tab {ALL_MODES[index]}: the unvisited Bricks grid is not mounted`,
+							show ~= nil and #show:GetChildren() == 0 and height == 0,
+							height
+						)
+					else
+						t.check(
+							`{screen.name} tab {ALL_MODES[index]}: {name} reports a height while {if show
+									and show.Visible
+								then "shown"
+								else "hidden"}`,
+							height > 0.5,
+							height
+						)
+					end
 				end
 				local shownShow = technique:FindFirstChild(SHOWS[index])
 				local tallestPicker = 0

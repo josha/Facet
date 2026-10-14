@@ -186,36 +186,30 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				end,
 				ctx.corner() :: Shared.Child,
 				Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
-				Compose.keyed({
-					from = function(use: Use): { boolean }
-						local p = paint(use)
-						return { p.color ~= nil and p.alpha < 1 }
-					end,
-					render = function(current: ComposeTypes.Readable<boolean>): GuiObject
-						local translucent = current:peek()
-						local props: Shared.FrameNativeProps & Shared.CanvasGroupNativeProps = {
-							Name = "Paint",
+				Compose.show(function(use: Use): boolean
+					local p = paint(use)
+					return p.color ~= nil and p.alpha < 1
+				end, function(): CanvasGroup
+					return Host.CanvasGroup {
+						Name = "Paint",
+						Size = D2.fromScale(1, 1),
+						BorderSizePixel = 0,
+						BackgroundTransparency = 1,
+						ctx.corner() :: Shared.Child,
+						checkerView(),
+						Host.Frame "Plate" {
 							Size = D2.fromScale(1, 1),
 							BorderSizePixel = 0,
-							BackgroundTransparency = 1,
-							ctx.corner() :: Shared.Child,
-							checkerView(),
-							Host.Frame "Plate" {
-								Size = D2.fromScale(1, 1),
-								BorderSizePixel = 0,
-								BackgroundColor3 = function(use: Use)
-									return paint(use).color or WHITE
-								end,
-								BackgroundTransparency = function(use: Use)
-									local p = paint(use)
-									return if p.color == nil then 1 else 1 - p.alpha
-								end,
-								if translucent then nil else ctx.corner() :: Shared.Child,
-							},
-						}
-						return if translucent then Host.CanvasGroup(props) else Host.Frame(props)
-					end,
-				}),
+							BackgroundColor3 = function(use: Use)
+								return paint(use).color or WHITE
+							end,
+							BackgroundTransparency = function(use: Use)
+								local p = paint(use)
+								return if p.color == nil then 1 else 1 - p.alpha
+							end,
+						},
+					}
+				end),
 				Host.Frame "Empty" {
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
@@ -400,12 +394,12 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		local alphaEcho: number? = nil
 		Compose.watch(function(use: Use)
 			local value = use(held)
-			if value ~= nil and not color.same(value, color.toColor(canon:peek())) then
-				canon:set(color.hsvOf(value, canon:peek()))
-			end
 			if echo ~= nil and value ~= nil and color.same(value, echo) then
 				echo = nil
 			else
+				if value ~= nil and not color.same(value, color.toColor(canon:peek())) then
+					canon:set(color.hsvOf(value, canon:peek()))
+				end
 				snapshot.value, snapshot.canon = held:peek(), canon:peek()
 			end
 		end)
@@ -775,6 +769,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		end
 
 		local function planeView(): Frame
+			local hueChannel = Compose.formula(function(use: Use): number
+				return use(canon).h
+			end)
 			local dragging = Compose.cell(false)
 			local dragStart: Hsv? = nil
 			local surface: Frame
@@ -881,7 +878,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 						Host.UIGradient "Gradient" {
 							Rotation = 0,
 							Color = function(use: Use)
-								local hue = color.toColor({ h = use(canon).h, s = 1, v = 1 })
+								local hue = color.toColor({ h = use(hueChannel), s = 1, v = 1 })
 								return ctx.types.ColorSequence.new({
 									ctx.types.ColorSequenceKeypoint.new(0, WHITE),
 									ctx.types.ColorSequenceKeypoint.new(1, hue),
@@ -1069,7 +1066,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 			end
 		end
 
-		local function gridView(name: string, items: (Use) -> { Item }, removable: boolean): Frame
+		local function gridView(name: string, items: (Use) -> { Item }, removable: boolean, mode: string): Frame
 			local owned: { [Instance]: { item: ComposeTypes.Readable<Item>, index: ComposeTypes.Readable<number> } } =
 				{}
 			local grid: Frame
@@ -1145,6 +1142,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					return saveCell(index)
 				end
 				local function chosen(use: Use): boolean
+					if use(modeCell) ~= mode then
+						return false
+					end
 					local value = use(held)
 					return value ~= nil and color.same(value, use(source).color)
 				end
@@ -1277,7 +1277,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					})
 				)
 			end
-			table.insert(parts, gridView("Swatches", items, removing))
+			table.insert(parts, gridView("Swatches", items, removing, "swatches"))
 			return centred(
 				ctx.column(parts, { Name = "Saved", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 			)
@@ -1339,7 +1339,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				),
 				gridView("BrickGrid", function(): { Item }
 					return bricks
-				end, false),
+				end, false, "brick"),
 			}, { Name = "Brick", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }))
 		end
 
@@ -1510,6 +1510,14 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				BackgroundTransparency = 1,
 			}
 			for _, mode in modes do
+				local visited = Compose.cell(mode ~= "brick" or modeCell:peek() == mode)
+				if not visited:peek() then
+					Compose.watch(function(use: Use)
+						if use(modeCell) == mode then
+							visited:set(true)
+						end
+					end)
+				end
 				local show = Host.Frame(`Show{MODE_LABEL[mode]}`)({
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
@@ -1517,7 +1525,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					Visible = function(use: Use)
 						return use(modeCell) == mode
 					end,
-					builders[mode]() :: Shared.Child,
+					Compose.show(visited, builders[mode]),
 				})
 				table.insert(shows, show)
 				technique[#technique + 1] = show
