@@ -2,9 +2,8 @@
 #
 # WHY THIS FILE EXISTS (2026-08-15). Facet had no rokit.toml, so `rokit`'s shim
 # fell back to a global default when run from here — Rojo 7.7.0-rc.1 (Nov 2025)
-# — while RascalRally, which does pin, correctly resolved 7.7.0 (Jul 2026). The
-# two builds of the same source used toolchains seven months apart and nothing
-# said so.
+# — while a consumer project that pins resolved 7.7.0 (Jul 2026). The two builds
+# of the same source used toolchains seven months apart and nothing said so.
 #
 # It cost a real thing: 7.7.0-rc.1's reflection database does not know
 # `Workspace.PlayerScriptsUseInputActionSystem`, the property that puts Roblox's
