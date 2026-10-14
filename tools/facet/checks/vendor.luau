@@ -11,6 +11,11 @@ local APPROVED: { [string]: { string } } = {
 	["tools/vendor"] = { "verify" },
 }
 
+local LOCKS: { [string]: string } = {
+	compose = "src/vendor/compose/UPSTREAM.lock",
+	verify = "tools/vendor/verify/UPSTREAM.lock",
+}
+
 local function check(context: Rule.Context): { string }
 	local findings: { string } = {}
 	local composeOk, composeMessage = Snapshot.check(context.root, "compose")
@@ -20,6 +25,24 @@ local function check(context: Rule.Context): { string }
 	local verifyOk, verifyMessage = Snapshot.check(context.root, "verify")
 	if not verifyOk then
 		table.insert(findings, verifyMessage)
+	end
+	local notices = if Files.exists(context.path("THIRD_PARTY_NOTICES.md"))
+		then Files.read(context.path("THIRD_PARTY_NOTICES.md"))
+		else ""
+	for name, lock in LOCKS do
+		local commit = if Files.exists(context.path(lock))
+			then Json.stringField(Json.decode(Files.read(context.path(lock))), "commit")
+			else nil
+		if commit ~= nil and string.find(notices, commit, 1, true) == nil then
+			table.insert(findings, ("THIRD_PARTY_NOTICES.md: name the pinned %s commit %s"):format(name, commit))
+		end
+		if name == "compose" and commit ~= nil and Files.exists(context.path("src/init.luau")) then
+			if
+				string.find(Files.read(context.path("src/init.luau")), `COMPOSE_COMMIT = "{commit}"`, 1, true) == nil
+			then
+				table.insert(findings, ("src/init.luau: COMPOSE_COMMIT must be the pinned commit %s"):format(commit))
+			end
+		end
 	end
 	for directory, allowed in APPROVED do
 		for _, entry in Files.list(context.path(directory)) do
@@ -68,11 +91,32 @@ local function tree(): { [string]: string }
 		["tools/vendor/verify/src/core/init.luau"] = verifyFiles["src/core/init.luau"],
 		["tools/vendor/verify/.agents/skills/verify/SKILL.md"] = verifyDocs["SKILL.md"],
 		["tools/vendor/verify/UPSTREAM.lock"] = pinned(verifyFiles, verifyDocs),
+		["THIRD_PARTY_NOTICES.md"] = ("Compose and Verify at commit `%s`.\n"):format(string.rep("c", 40)),
+		["src/init.luau"] = ('local COMPOSE_COMMIT = "%s"\n'):format(string.rep("c", 40)),
 	}
 end
 
 local function cases(): { Rule.Case }
 	return {
+		{
+			name = "a notice or COMPOSE_COMMIT that differs from the pin fails",
+			run = function()
+				local files = tree()
+				files["THIRD_PARTY_NOTICES.md"] = "Compose and Verify at an older commit.\n"
+				files["src/init.luau"] = 'local COMPOSE_COMMIT = "old"\n'
+				return Rule.within(files, function(context)
+					local findings = table.concat(check(context), "\n")
+					for _, expected in
+						{ "name the pinned compose commit", "name the pinned verify commit", "COMPOSE_COMMIT must be" }
+					do
+						if string.find(findings, expected, 1, true) == nil then
+							return "missing finding: " .. expected
+						end
+					end
+					return nil
+				end)
+			end,
+		},
 		{
 			name = "intact pinned snapshots pass",
 			run = function()
