@@ -21,7 +21,7 @@ lute run tools/facet sync compose --bump <full 40-character commit>
 ```
 
 `--bump` changes the commit name, both hash inventories and the files together,
-from one archive of that commit. Then update the provenance receipt and run `lune run tools/lune/verify full`.
+from one archive of that commit. Then update the provenance receipt and run `lute run tools/facet gate full`.
 
 Do not edit `commit` by hand. `--check` compares the files with the lock's
 inventory; it cannot ask, offline, whether that inventory came from the commit
