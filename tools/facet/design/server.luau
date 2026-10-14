@@ -101,10 +101,22 @@ local function broadcast(hub: Hub, file: string, message: { [string]: unknown },
 	end
 end
 
-local function track(hub: Hub, key: string): Watched?
+local function inside(hub: Hub, key: string): boolean
+	for segment in string.gmatch(key, "[^/]+") do
+		if segment == ".." then
+			return false
+		end
+	end
+	return string.sub(key, 1, 1) ~= "/" and string.match(key, "^%a:/") == nil
+end
+
+local function track(hub: Hub, key: string, trusted: boolean?): Watched?
 	local existing = hub.files[key]
 	if existing then
 		return existing
+	end
+	if not trusted and not inside(hub, key) then
+		return nil
 	end
 	local path = absolute(hub, key)
 	if not fs.exists(path) then
@@ -144,7 +156,7 @@ function Server.hub(options: Options): Hub
 		version = options.version or "0.0.0",
 	}
 	for _, path in Workspace.discover(hub.roots) do
-		track(hub, relative(hub, path))
+		track(hub, relative(hub, path), true)
 	end
 	return hub
 end
@@ -380,7 +392,8 @@ local function toolJob(hub: Hub, client: Client, message: { [string]: unknown })
 	local input: { [string]: unknown } = if type(message.input) == "table"
 		then message.input :: { [string]: unknown }
 		else {}
-	local context: Registry.Context = { author = client.author, root = hub.root, schema = hub.schema }
+	local context: Registry.Context =
+		{ author = client.author, root = hub.root, confine = true, docs = hub.root, schema = hub.schema }
 	local function run()
 		local before: { [string]: string } = {}
 		local file = input.file
@@ -550,7 +563,7 @@ end
 function Server.poll(hub: Hub, rescan: boolean?)
 	if rescan then
 		for _, path in Workspace.discover(hub.roots) do
-			track(hub, relative(hub, path))
+			track(hub, relative(hub, path), true)
 		end
 	end
 	if hub.writing then

@@ -66,7 +66,8 @@ local function run(invocation: Cli.Invocation): number
 		local root = Support.root()
 		local context: Registry.Context = {
 			author = Support.author(Cli.flag(invocation, "author"), "human"),
-			root = root,
+			root = Support.cwd(),
+			docs = root,
 			schema = Support.schema(root),
 		}
 		local result, failure = Registry.call(context, name, input)

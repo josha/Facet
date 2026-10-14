@@ -768,6 +768,14 @@
         "local-luau",
         "lute"
       ]
+    },
+    {
+      "id": "lute/design_cli",
+      "locator": "tests/lute/design_cli.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
     }
   ]
 }

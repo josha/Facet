@@ -14,6 +14,10 @@ function Support.root(): string
 	return (string.gsub(base, "\\", "/"))
 end
 
+function Support.cwd(): string
+	return (string.gsub(tostring(process.cwd()), "\\", "/"))
+end
+
 function Support.schema(root: string): Schema.Schema?
 	local ok, schema = pcall(Schema.load, root)
 	if ok then

@@ -44,6 +44,8 @@ function Mcp.session(options: Options): Session
 		context = {
 			author = options.author or "agent:mcp",
 			root = options.root,
+			confine = true,
+			docs = options.root,
 			schema = options.schema,
 		},
 		initialized = false,

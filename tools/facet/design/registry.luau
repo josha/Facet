@@ -16,6 +16,8 @@ export type Failure = Workspace.Failure
 export type Context = {
 	author: string,
 	root: string?,
+	confine: boolean?,
+	docs: string?,
 	schema: Schema.Schema?,
 }
 
@@ -54,15 +56,19 @@ local function resolveFile(context: Context, input: Input): (string?, Failure?)
 	if string.sub(path, -5) ~= ".luau" then
 		return nil, failure("invalid", "file must be a .luau view module")
 	end
-	for segment in string.gmatch(path, "[^/]+") do
-		if segment == ".." then
-			return nil, failure("invalid", "file must stay inside the workspace root")
+	local confine = context.confine == true
+	if confine then
+		for segment in string.gmatch(path, "[^/]+") do
+			if segment == ".." then
+				return nil, failure("invalid", "file must stay inside the workspace root")
+			end
 		end
 	end
 	local root = context.root
-	if root and string.sub(path, 1, 1) ~= "/" and not string.match(path, "^%a:/") then
+	local absolute = string.sub(path, 1, 1) == "/" or string.match(path, "^%a:/") ~= nil
+	if root and not absolute then
 		path = (root :: string) .. "/" .. path
-	elseif root and string.sub(path, 1, #(root :: string)) ~= root then
+	elseif root and confine and string.sub(path, 1, #(root :: string) + 1) ~= root .. "/" then
 		return nil, failure("invalid", "file must stay inside the workspace root")
 	end
 	if not fs.exists(path) then
@@ -330,7 +336,7 @@ local function schemaOf(context: Context): (Schema.Schema?, Failure?)
 	if context.schema then
 		return context.schema, nil
 	end
-	local ok, loaded = pcall(Schema.load, context.root)
+	local ok, loaded = pcall(Schema.load, context.docs or context.root)
 	if not ok then
 		return nil, failure("not_found", tostring(loaded))
 	end
@@ -405,7 +411,7 @@ add({
 	target = "none",
 	internal = false,
 	run = function(context: Context, input: Input): (Result?, Failure?)
-		local path = (context.root or ".") .. "/" .. Registry.DOCS
+		local path = (context.docs or context.root or ".") .. "/" .. Registry.DOCS
 		if not fs.exists(path) then
 			return nil, failure("not_found", "cannot find " .. Registry.DOCS)
 		end
@@ -453,9 +459,11 @@ add({
 		local root = context.root or "."
 		local path = input.path
 		local target = if type(path) == "string" then root .. "/" .. (path :: string) else root
-		for segment in string.gmatch(target, "[^/]+") do
-			if segment == ".." then
-				return nil, failure("invalid", "path must stay inside the workspace root")
+		if context.confine then
+			for segment in string.gmatch(target, "[^/]+") do
+				if segment == ".." then
+					return nil, failure("invalid", "path must stay inside the workspace root")
+				end
 			end
 		end
 		local files = Workspace.discover({ target })

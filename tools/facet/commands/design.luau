@@ -56,7 +56,8 @@ end
 local function context(invocation: Cli.Invocation, root: string): Registry.Context
 	return {
 		author = Support.author(Cli.flag(invocation, "author"), "human"),
-		root = root,
+		root = Support.cwd(),
+		docs = root,
 		schema = Support.schema(root),
 	}
 end
