@@ -430,6 +430,31 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a skinned caption can reclaim padding when the native button reports a fit", {
+			id = "native_control_polish::skinned-caption-fit",
+			run = function()
+				local package = assert(require("../examples/themes/pixel_quest").build(themes))
+				local selectedTheme = Compose.cell(package)
+				local w = world(function(UI, _, engine)
+					return UI.Button "Key" {
+						label = "E",
+						Size = engine.types.UDim2.fromOffset(31, 44),
+						AutomaticSize = engine.types.Enum.AutomaticSize.None,
+					}
+				end, { theme = selectedTheme })
+				local key = find(w.screen, "Key")
+				local label = find(key, "Label")
+				key.AbsoluteSize = w.V2.new(31, 44)
+				key.TextFits = true
+				label.TextFits = false
+				expect(key:HasTag("facet-button-tight")):toBe(true)
+				label.TextFits = true
+				key.AbsoluteSize = w.V2.new(120, 44)
+				expect(key:HasTag("facet-button-tight")):toBe(false)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("decides the tight padding from the engine's live fit, not a fit report still in flight", {
 			id = "native_control_polish::native navigation stack paint::decides the tight padding from the engine's live fit, not a fit report still in flight",
 			run = function()

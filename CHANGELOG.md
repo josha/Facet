@@ -15,6 +15,13 @@
   `lute run tools/facet <command>` replaces the Python tools and the Lune
   maintenance scripts. The Verify gate runner and the workloads that need the
   Lune engine double stay in `tools/lune`.
+- Skinned Button captions reduce their padding when the visible text does not
+  fit. Pixel Quest word-game keys keep their letters visible on narrow screens.
+- ColorPicker keeps the RGB, HSV and Hex fields mounted and reserves their
+  tallest row, so format changes do not move the panel.
+- The Lab drag-and-drop demo reserves space for its status text, so touch
+  pickup and release keep the 3D canvas still.
+
 - Popover Close is a small utility button at the upper right. Native styling
   owns the panel corner, so its radius matches the connected tail outline.
 

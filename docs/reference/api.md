@@ -1393,10 +1393,13 @@ The panel holds these parts in order:
 3. `Opacity`: present only with `alpha`.
 4. `Readout`: the `Preview` swatch, the `Format` picker (RGB, HSV and Hex) and
    the fields. The preview is two cells wide and one cell tall, and the format
-   picker fills the rest of the row. The fields share the `Fields` row in equal
-   columns with a native `HorizontalFlex`, each with its label above it. The
-   `Hex` field takes the whole row. On a touch screen, the readout comes before
-   the body, so the finger does not cover it.
+   picker fills the rest of the row. Each format has a row (`FieldsRGB`,
+   `FieldsHSV` or `FieldsHex`) with equal columns and native `HorizontalFlex`.
+   Each field has its label above it. The `Hex` field takes the whole row.
+   The rows stay mounted; only the selected format is visible. The readout
+   reserves the tallest row, so the panel does not move when the format changes.
+   On a touch screen, the readout comes before the body, so the finger does not
+   cover it.
 5. `Actions`: Cancel and Apply, or Done on a sheet.
 
 #### Techniques
