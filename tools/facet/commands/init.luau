@@ -19,10 +19,6 @@ local commands: { Cli.Command } = {
 	require("@self/archive"),
 	require("@self/bench"),
 	require("@self/gate"),
-	require("@self/design"),
-	require("@self/tool"),
-	require("@self/mcp"),
-	require("@self/schema"),
 }
 
 return table.freeze(commands)
