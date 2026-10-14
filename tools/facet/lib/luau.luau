@@ -153,7 +153,7 @@ function Luau.walk(root: Node, visit: (Node) -> boolean)
 		end
 		local keys: { string } = {}
 		local numbered: { Node } = {}
-		for key, value in node do
+		for key, value in next, node do
 			if type(value) == "table" then
 				if type(key) == "string" then
 					if
@@ -174,7 +174,6 @@ function Luau.walk(root: Node, visit: (Node) -> boolean)
 			descend(numbered[index])
 			index += 1
 		end
-		table.sort(keys)
 		for _, key in keys do
 			local child = Luau.node(node[key])
 			if child ~= nil then
@@ -271,6 +270,12 @@ function Luau.strings(parsed: Parsed): { StringLiteral }
 		end
 		return true
 	end)
+	table.sort(found, function(left: StringLiteral, right: StringLiteral): boolean
+		if left.line ~= right.line then
+			return left.line < right.line
+		end
+		return left.start < right.start
+	end)
 	return found
 end
 
@@ -311,34 +316,15 @@ function Luau.calls(parsed: Parsed): { Call }
 		end
 		return true
 	end)
-	return found
-end
-
-local function requireAliases(parsed: Parsed): { [string]: boolean }
-	local aliases: { [string]: boolean } = { require = true }
-	Luau.walk(parsed.root, function(node)
-		if Luau.kind(node) == "stat" and Luau.tag(node) == "local" then
-			local values = Luau.items(node, "values")
-			for index, variable in Luau.items(node, "variables") do
-				local value = values[index]
-				if value ~= nil and Luau.tag(value) == "cast" then
-					local operand = Luau.child(value, "operand")
-					if
-						operand ~= nil
-						and Luau.tag(operand) == "global"
-						and Luau.tokenText(operand, "name") == "require"
-					then
-						local name = Luau.tokenText(variable, "name")
-						if name ~= nil then
-							aliases[name] = true
-						end
-					end
-				end
-			end
+	table.sort(found, function(left: Call, right: Call): boolean
+		local leftLocation = Luau.location(left.node)
+		local rightLocation = Luau.location(right.node)
+		if leftLocation.beginLine ~= rightLocation.beginLine then
+			return leftLocation.beginLine < rightLocation.beginLine
 		end
-		return true
+		return leftLocation.beginColumn < rightLocation.beginColumn
 	end)
-	return aliases
+	return found
 end
 
 local function requiredPath(argument: Node): (string?, boolean)
@@ -360,38 +346,65 @@ local function requiredPath(argument: Node): (string?, boolean)
 end
 
 function Luau.requires(parsed: Parsed): { Require }
-	local aliases = requireAliases(parsed)
-	local found: { Require } = {}
+	local aliases: { [string]: boolean } = { require = true }
+	type Candidate = { name: string, node: Node }
+	local candidates: { Candidate } = {}
 	Luau.walk(parsed.root, function(node)
-		if Luau.kind(node) == "type" and Luau.tag(node) == "typeof" then
+		local kind = Luau.kind(node)
+		if kind == "type" and Luau.tag(node) == "typeof" then
 			return false
 		end
-		if Luau.kind(node) == "expr" and Luau.tag(node) == "call" then
-			local func = Luau.child(node, "func")
-			local tag = if func then Luau.tag(func) else ""
-			local name = if func == nil
-				then nil
-				elseif tag == "global" then Luau.tokenText(func, "name")
-				elseif tag == "local" then Luau.tokenText(func, "token")
-				else nil
-			if name ~= nil and aliases[name] then
-				local argument = Luau.items(node, "arguments")[1]
-				if argument ~= nil then
-					local requested, dynamic = requiredPath(argument)
-					if requested ~= nil then
-						local location = Luau.location(node)
-						table.insert(found, {
-							path = requested,
-							dynamic = dynamic,
-							line = location.beginLine,
-							column = location.beginColumn,
-						})
+		if kind == "stat" and Luau.tag(node) == "local" then
+			local values = Luau.items(node, "values")
+			for index, variable in Luau.items(node, "variables") do
+				local value = values[index]
+				if value ~= nil and Luau.tag(value) == "cast" then
+					local operand = Luau.child(value, "operand")
+					if
+						operand ~= nil
+						and Luau.tag(operand) == "global"
+						and Luau.tokenText(operand, "name") == "require"
+					then
+						local name = Luau.tokenText(variable, "name")
+						if name ~= nil then
+							aliases[name] = true
+						end
 					end
+				end
+			end
+		elseif kind == "expr" and Luau.tag(node) == "call" then
+			local func = Luau.child(node, "func")
+			if func ~= nil then
+				local tag = Luau.tag(func)
+				local name = if tag == "global"
+					then Luau.tokenText(func, "name")
+					elseif tag == "local" then Luau.tokenText(func, "token")
+					else nil
+				if name ~= nil then
+					table.insert(candidates, { name = name, node = node })
 				end
 			end
 		end
 		return true
 	end)
+	local found: { Require } = {}
+	for _, candidate in candidates do
+		if aliases[candidate.name] then
+			local argument = Luau.items(candidate.node, "arguments")[1]
+			if argument ~= nil then
+				local requested, dynamic = requiredPath(argument)
+				if requested ~= nil then
+					local location = Luau.location(candidate.node)
+					table.insert(found, {
+						path = requested,
+						dynamic = dynamic,
+						line = location.beginLine,
+						column = location.beginColumn,
+					})
+				end
+			end
+		end
+	end
 	table.sort(found, function(left: Require, right: Require): boolean
 		if left.line ~= right.line then
 			return left.line < right.line
