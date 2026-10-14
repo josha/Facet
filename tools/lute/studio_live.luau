@@ -81,7 +81,7 @@ end
 local monitors: { [string]: any } = { ["$className"] = "Folder" }
 for _, entry in fs.listDirectory("examples/virtual_monitors") do
 	local name = string.match(entry.name, "^(.+)%.luau$")
-	if name and not string.find(name, "%.client$") and not string.find(name, "%.spec$") then
+	if name and not string.find(name, "%.client$") and not string.find(name, "%.verify$") then
 		monitors[name] = { ["$path"] = "virtual_monitors/" .. entry.name }
 	end
 end

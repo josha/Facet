@@ -4,7 +4,7 @@
   "stage": "compact-label",
   "uploaded": "2026-10-02",
   "method": "Roblox Open Cloud POST /assets/v1/assets with assetType=Image, polled to done via /assets/v1/operations/<id>, by tools/upload_icons.py. FULLY HEADLESS -- no Studio and no human step, unlike the eleven per-package assets that went up through the Studio MCP upload_image route. assetType=Image (not Decal) returns a real Image asset, AssetTypeId 1.",
-  "note": "Framework-owned art, not a theme package: it resolves BELOW a package's own icons and ABOVE the ASCII fallback glyph (src/themes/package.luau resolveIcon). One near-white #F0F0F2 silhouette per name, no per-state variants -- tintRole owns the colour, and ImageColor3 multiplies, so white reaches every palette while black could only darken. Regenerate the PNGs with assets/icons/source/generate_icons.py.",
+  "note": "Framework-owned art, not a theme package: it resolves BELOW a package's own icons and ABOVE the ASCII fallback glyph (src/themes/package.luau resolveIcon). One near-white #F0F0F2 silhouette per name, no per-state variants -- tintRole owns the colour, and ImageColor3 multiplies, so white reaches every palette while black could only darken. Regenerate the PNGs with lute run tools/facet art icons.",
   "assets": {
     "facet_icon_calendar": {
       "sliceBorder": 0,

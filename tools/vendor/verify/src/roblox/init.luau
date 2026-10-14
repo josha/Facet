@@ -19,10 +19,9 @@ local ExperienceHost = require "@self/experience-host"
 
 local Datatypes = require "@self/datatypes"
 local Environment = require "@self/environment"
-local ObservationSink = require "@self/observation-sink"
-local PlaceBoot = require "@self/place-boot"
 local Scheduler = require "@self/scheduler"
-local ConsolePatterns = require "@self/console-patterns"
+local UiAudit = require "@self/ui-audit"
+local UiAuditCollect = require "@self/ui-audit-collect"
 
 export type CaseEntry = CaseEntry.Entry
 export type CaseEntryFactory = CaseEntry.Factory
@@ -101,38 +100,31 @@ export type DatatypeColor3 = Datatypes.Color3Value
 export type DatatypeUDim = Datatypes.UDimValue
 export type DatatypeUDim2 = Datatypes.UDim2Value
 export type DatatypeEnum = Datatypes.EnumValue
+export type DatatypeEnumCategory = Datatypes.EnumCategory
+export type DatatypeEnumItem = Datatypes.EnumMember
+export type DatatypeVector2int16 = Datatypes.Vector2int16Value
+export type DatatypeVector3int16 = Datatypes.Vector3int16Value
+export type DatatypeRect = Datatypes.RectValue
+export type DatatypeNumberRange = Datatypes.NumberRangeValue
+export type DatatypeNumberSequence = Datatypes.NumberSequenceValue
+export type DatatypeColorSequence = Datatypes.ColorSequenceValue
+export type DatatypeBrickColor = Datatypes.BrickColorValue
+export type DatatypeFont = Datatypes.FontValue
+export type DatatypeTweenInfo = Datatypes.TweenInfoValue
+export type DatatypeContent = Datatypes.ContentValue
+export type DatatypeCatalog = Datatypes.Catalog
+export type DatatypeLibrary = Datatypes.Library
 export type VirtualScheduler = Scheduler.Scheduler
 export type VirtualTask<A... = ...unknown, R... = ...unknown> = Scheduler.Task<A..., R...>
 export type VirtualCallback<A... = ...unknown, R... = ...unknown> = Scheduler.Callback<A..., R...>
-export type PlaceBootStage = PlaceBoot.Stage
-export type PlaceBootView = PlaceBoot.View
-export type PlaceBootObserver = PlaceBoot.Observer
-export type PlaceBootConfig = PlaceBoot.Config
-export type PlaceBootDeps<B = unknown> = PlaceBoot.Deps<B>
-export type PlaceBootReport = PlaceBoot.Report
-export type PlaceBootHost<B = unknown, C = () -> unknown> = PlaceBoot.Host<B, C>
-export type PlaceBootFiles = PlaceBoot.Files
-export type PlaceBootCache<B = unknown, C = () -> unknown> = PlaceBoot.Cache<B, C>
-export type PlaceBootMounted = PlaceBoot.Mounted
-export type PlaceBootOpaque = PlaceBoot.Opaque
-export type PlaceBootTreeDeps<B = unknown> = PlaceBoot.TreeDeps<B>
-export type ObservationNode = ObservationSink.Node
-type ObservationOwner = ObservationSink.Owner
-export type ObservationTransport = ObservationSink.Transport
-export type ObservationWire = ObservationSink.Wire
-export type ObservationRecord = ObservationSink.Record
-export type ObservationReportLimits = ObservationSink.ReportLimits
-export type ObservationMarker = ObservationSink.Marker
-export type ObservationMarkerLimits = ObservationSink.MarkerLimits
-export type ObservationMarkerOptions = ObservationSink.MarkerOptions
-export type ObservationValueNames = ObservationSink.ValueNames
-export type ObservationSeam<N = ObservationNode> = ObservationSink.Seam<N>
-export type ObservationSeamDeps<N = ObservationNode, O = ObservationOwner> = ObservationSink.SeamDeps<N, O>
-export type ObservationSeamState<N = ObservationNode> = ObservationSink.SeamState<N>
-export type ObservationAcquire<N = ObservationNode> = ObservationSink.Acquire<N>
+export type UiAuditDump = UiAudit.Dump
+export type UiAuditElement = UiAudit.Element
+export type UiAuditOptions = UiAudit.Options
+export type UiAuditReport = UiAudit.Report
+export type UiAuditViolation = UiAudit.Violation
+export type UiAuditCollectOptions = UiAuditCollect.Options
 
 return {
-	caseEntry = CaseEntry,
 	environmentEngine = EnvironmentEngineAdapter.create,
 	reflection = Reflection,
 	uiFakes = UiFakes,
@@ -148,34 +140,15 @@ return {
 	network = Network,
 	experienceHost = ExperienceHost,
 	testEnvironment = Environment.create,
-	BASIC_ENVIRONMENT_CLASSES = Environment.BASIC_CLASSES,
-	virtualScheduler = Scheduler.create,
 	datatypes = Datatypes,
 	isInstance = Environment.isInstance,
 	typeName = Environment.typeName,
-	consolePatterns = ConsolePatterns,
-	placeBoot = PlaceBoot,
-	bootPlace = PlaceBoot.run,
-	buildPlaceTree = PlaceBoot.buildTree,
-	createPlaceCache = PlaceBoot.createCache,
-	createPlaceRuntime = PlaceBoot.createRuntime,
-	resolvePlaceAlias = PlaceBoot.resolveAlias,
-	stabilizeCommit = PlaceBoot.stabilizeCommit,
-	PLACE_COMMIT_TOKEN = PlaceBoot.COMMIT_TOKEN,
-	PLACE_FRAME_SECONDS = PlaceBoot.FRAME_SECONDS,
-	PLACE_BOOT_STAGES = PlaceBoot.STAGES,
-	observationSink = ObservationSink,
-	OBSERVATION_ENCODED_TAG_SUFFIX = ObservationSink.ENCODED_TAG_SUFFIX,
-	DEFAULT_OBSERVATION_REPORT_LIMITS = ObservationSink.DEFAULT_REPORT_LIMITS,
-	DEFAULT_OBSERVATION_MARKER_LIMITS = ObservationSink.DEFAULT_MARKER_LIMITS,
-	OBSERVATION_SINK_REASONS = ObservationSink.REASONS,
-	observationWire = ObservationSink.createWire,
-	boundedObservationValue = ObservationSink.boundedValue,
-	observationMarkers = ObservationSink.markers,
-	tallyObservations = ObservationSink.tally,
-	observationReferencePool = ObservationSink.referencePool,
-	createObservationSeamState = ObservationSink.createSeamState,
-	pooledObservationSeam = ObservationSink.pooledSeam,
-	armObservationSink = ObservationSink.arm,
-	publishObservations = ObservationSink.publish,
+	uiAudit = {
+		SCHEMA_VERSION = UiAudit.SCHEMA_VERSION,
+		RULES = UiAudit.RULES,
+		collect = UiAuditCollect.collect,
+		decode = UiAudit.decode,
+		analyze = UiAudit.analyze,
+		contrastRatio = UiAudit.contrastRatio,
+	},
 }

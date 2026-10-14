@@ -2,7 +2,7 @@
   "name": "Facet-Gallery",
   "emitLegacyScripts": false,
   "globIgnorePaths": [
-    "**/*.spec.luau"
+    "**/*.verify.luau"
   ],
   "tree": {
     "$className": "DataModel",

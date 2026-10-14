@@ -18,7 +18,7 @@ cases that these sources register. Reports record each case result and the
 selected tier. A native engine double checks control policy, state and resource
 ownership. It does not prove engine layout, paint or real input behavior.
 
-`tools/check_plan.py` checks that the plan lists every spec file on disk
+`lute run tools/facet check plan` checks that the plan lists every spec file on disk
 exactly once. It rejects missing files, duplicate IDs and incorrect source
 paths. The `plan` producer runs this check. The `suite` producer runs the
 registered cases and records their results.

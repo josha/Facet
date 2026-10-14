@@ -12,8 +12,8 @@ framework's character* — and the character is still the floor beneath that. A
 package declines the whole rung with `identity.standardIcons = false`.
 
 The art is original, repository-owned and **procedurally generated**: the single
-source is `source/generate_icons.py`, which draws flat geometry at 8× and
-downsamples with LANCZOS. Re-running it reproduces every PNG byte for byte. No
+source is `tools/facet/art/icons.luau`, which draws flat geometry at 8× and
+downsamples with LANCZOS. Re-running it reproduces every PNG pixel for pixel. No
 model generated any pixel here — a 16–24 px UI glyph has to be crisp and
 pixel-aligned, which is what AI raster generation is worst at, and these shapes
 are strokes and polygons that code draws exactly.
@@ -28,7 +28,7 @@ and a second version would be strictly worse. The ink is `#F0F0F2` on
 transparency; nothing is baked in and the tint owns the colour completely. Both
 paint paths (the native `ImageColor3` sheet token and the fallback explicit
 write) resolve that role from the same palette as the plate behind it, and
-`tests/theme_icons.spec.luau` pins their two role vocabularies to each other.
+`tests/theme_icons.verify.luau` pins their two role vocabularies to each other.
 
 **Contact sheet (no Studio needed):** `source/preview/contact-sheet.png` — every
 icon at 16 / 20 / 24 / 48 px on mid-grey, which are the sizes they are actually
@@ -99,9 +99,9 @@ pair and the three selection marks (2026-09-11), and P1d's eleven common glyphs
 4. **All eighteen are drawn inside a 96 px content area centred in the 128 px
    box**, so the set shares one optical weight and one margin. That margin is
    what keeps a 20 px icon off a 20 px plate's edge; do not crop it out.
-5. **Stroke weight is 13 px in 128-space** with round caps and joins. PIL has no
-   round cap, so the generator draws caps and joins as explicit circles — that is
-   what stops a chevron's tip looking chipped at 16 px.
+5. **Stroke weight is 13 px in 128-space** with round caps and joins. The line
+   primitive has no round cap, so the generator draws caps and joins as explicit
+   circles — that is what stops a chevron's tip looking chipped at 16 px.
 6. **One package declines the set** and draws its own: `pixel_quest`, because a
    smooth silhouette in a 4 px pixel grid reads as a mistake and
    `ResamplerMode.Pixelated` only makes it a nearest-neighbour mistake. It may
@@ -109,21 +109,25 @@ pair and the three selection marks (2026-09-11), and P1d's eleven common glyphs
    `glossy_touch` / `compact_pointer` pair used to decline it as well, as a
    controlled comparison against Fantasy Ornate — which shipped `^v` and `v` to
    real screens, so that demonstration moved to `pixel_quest.buildWithoutIcons`,
-   a build only a driver installs. `tests/icon_coverage.spec.luau` is the rule.
+   a build only a driver installs. `tests/icon_coverage.verify.luau` is the rule.
 7. **Fantasy Ornate deliberately does NOT decline it.** It maps six names to its
    own art, invents one (`ornate:settings`), and leaves `menu` / `more` to the
    library — every rung of the ladder visible in one shipped centrepiece.
 
-**Regenerate:** `<repo-root>/.venv/bin/python assets/icons/source/generate_icons.py`
-(Pillow 12.2.0 at creation time; any CWD works).
+**Regenerate:** `lute run tools/facet art icons` from the repository root.
+`lute run tools/facet art icons --check` regenerates in memory and compares
+every pixel with the committed files. The command writes only a file whose
+pixels changed, so the bytes and SHA-256 values of the other files stay.
 
 **Import/publishing:** **fully headless**, unlike the eleven per-package assets
-that shipped before it. `tools/upload_icons.py` uploads every PNG through Roblox
-Open Cloud (`POST /assets/v1/assets` with **`assetType = "Image"` — not
-`"Decal"`, whatever the documentation says**), polls each operation to `done`,
-writes `upload-manifest.json` and pushes the returned ids into
-`src/themes/standard_icons.luau`, which is the registry the framework reads. No
-Studio, no human step, no hand-transcribed id. `--recheck` re-reads each asset's
+that shipped before it. `lute run tools/facet icons upload` uploads every PNG
+through Roblox Open Cloud (`POST /assets/v1/assets` with **`assetType = "Image"`
+— not `"Decal"`, whatever the documentation says**), polls each operation to
+`done`, writes `upload-manifest.json` and pushes the returned ids into
+`src/ui/icons.luau`, which is the registry the framework reads. The command
+reads the API key only from the `ROBLOX_API_KEY` environment variable, and
+`--dry-run` prints each request without sending it. No Studio, no human step, no
+hand-transcribed id. `--recheck` re-reads each asset's
 moderation state and asset type afterwards; the original eleven came back
 **Approved** and **`Image`** on 2026-07-27. Another project reproducing this set
 uploads the same PNGs under its own account and substitutes its ids — no hidden
@@ -379,6 +383,16 @@ Only these three PNGs were generated. Existing art and asset IDs were retained.
 The images use the existing near-white silhouette and theme tint.
 The Open Cloud upload returned `Reviewing` for all three images; IDs and hashes
 are in `upload-manifest.json`. The lab uses them in the compact segmented view picker.
+
+## Luau generator (2026-10-14)
+
+The Python generator is replaced by `tools/facet/art/icons.luau`. The Facet
+raster library in `tools/facet/lib/raster/` implements the Pillow drawing,
+LANCZOS and PNG operations that the generator uses. The Luau generator produces
+all 33 icon PNGs pixel for pixel. The PNG bytes, the SHA-256 values and the
+asset IDs did not change, and nothing was uploaded. The contact sheet was
+written again because the committed sheet did not show the three container view
+icons. The new sheet is identical to the sheet that Pillow 12.3.0 makes.
 
 ## Bundled sound placeholders
 

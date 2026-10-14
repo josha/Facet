@@ -15,7 +15,7 @@ function api.press(node: any, value: any)
 	end
 	if detector and detector.Enabled then
 		active = { detector = detector, press = value }
-		local V2 = require("@lune/roblox").Vector2
+		local V2 = require("./native_engine").types.Vector2
 		detector.DragStart:Fire(V2.new(value.Position.X, value.Position.Y))
 	end
 end
@@ -28,7 +28,7 @@ function api.move(input: any, value: any)
 		and value.Position
 		and (value == active.press or tostring(value.UserInputType) == "Enum.UserInputType.MouseMovement")
 	then
-		local V2 = require("@lune/roblox").Vector2
+		local V2 = require("./native_engine").types.Vector2
 		active.detector.DragContinue:Fire(V2.new(value.Position.X, value.Position.Y))
 	end
 end
@@ -46,7 +46,7 @@ function api.finish(input: any, value: any)
 	end
 	if drag and drag.detector.Parent then
 		local position = value.Position or drag.press.Position
-		local V2 = require("@lune/roblox").Vector2
+		local V2 = require("./native_engine").types.Vector2
 		drag.detector.DragEnd:Fire(V2.new(position.X, position.Y))
 	end
 	input.InputEnded:Fire(value)

@@ -1,6 +1,6 @@
 --!strict
 
-local Roblox = require("@lune/roblox")
+local Lute = require("../../tools/vendor/verify/src/lute")
 local VerifyRoblox = require("../../tools/vendor/verify/src/roblox")
 local Shared = require("../../src/ui/types")
 local ComposeRoblox = require("../../src/vendor/compose/roblox")
@@ -22,8 +22,27 @@ export type Engine = {
 	census: () -> { live: number, connections: number },
 	onWrite: ((any, string, any) -> ()) -> any,
 }
+export type Options = {
+	measureText: ((any) -> any)?,
+	textFits: ((any) -> any)?,
+	getStyled: ((any, string) -> any)?,
+	styleOnlySignals: boolean?,
+	selectionNeedsPlayerGui: boolean?,
+	lenientProperties: boolean?,
+	recordCreated: boolean?,
+}
 
-local reflection = Roblox.getReflectionDatabase()
+local SNAPSHOT = "tests/fixtures/roblox-reflection.json"
+
+local snapshot = Lute.fixture.load(SNAPSHOT)
+local library = VerifyRoblox.reflectionSnapshot.library(snapshot)
+local reflection = VerifyRoblox.reflectionSnapshot.database(snapshot)
+local typeName = VerifyRoblox.typeName
+local datatypes: { [string]: unknown } = table.clone((library :: unknown) :: { [string]: unknown })
+datatypes.typeof = typeName
+local types = (table.freeze(datatypes) :: unknown) :: Shared.RobloxTypes
+local Vector2 = library.Vector2
+
 local eventNames = {
 	"Activated",
 	"Focused",
@@ -86,10 +105,10 @@ local doubles: { [string]: any } = {
 		object.StopCount = (object.StopCount or 0) + 1
 	end,
 	GetMouseLocation = function()
-		return Roblox.Vector2.new(-1, -1)
+		return Vector2.new(-1, -1)
 	end,
 	GetGuiInset = function()
-		return Roblox.Vector2.zero, Roblox.Vector2.zero
+		return Vector2.zero, Vector2.zero
 	end,
 	IsKeyDown = function()
 		return false
@@ -104,18 +123,15 @@ local doubles: { [string]: any } = {
 local metadata: { [string]: any } = {}
 local classes: { [string]: any } = {}
 local names = reflection:GetClassNames()
-table.insert(names, "UIShadow")
 for _, name in names do
-	local original = assert(reflection:GetClass(if name == "UIShadow" then "UIComponent" else name))
-	local class: any = { Name = original.Name, Superclass = original.Superclass, Tags = original.Tags }
-	class.Name = name
-	class.Superclass = if name == "UIShadow" then "UIComponent" else original.Superclass
+	local original = assert(reflection:GetClass(name))
+	local class: any = { Name = name, Superclass = original.Superclass, Tags = original.Tags }
 	class.Properties = {}
 	for key, property in original.Properties do
 		local opaque = property.Datatype == "ContentId" or property.Datatype == "BinaryString"
 		class.Properties[key] = {
 			Name = property.Name,
-			Datatype = if opaque then "string" else property.Datatype,
+			Datatype = if opaque then "String" else property.Datatype,
 			Scriptability = "ReadWrite",
 			Tags = {},
 		}
@@ -137,8 +153,8 @@ for _, name in names do
 			"CanvasPosition",
 		}
 	do
-		properties[key] = Roblox.Vector2.zero
-		class.DefaultProperties[key] = Roblox.Vector2.zero
+		properties[key] = Vector2.zero
+		class.DefaultProperties[key] = Vector2.zero
 	end
 	for _, key in
 		{
@@ -155,12 +171,7 @@ for _, name in names do
 	do
 		properties[key] = false
 	end
-	if name == "UICorner" then
-		for _, key in { "TopLeftRadius", "TopRightRadius", "BottomLeftRadius", "BottomRightRadius" } do
-			properties[key] = Roblox.UDim.new(0, 8)
-			class.DefaultProperties[key] = properties[key]
-		end
-	elseif name == "GuiService" then
+	if name == "GuiService" then
 		class.Properties.PreferredTransparency = nil
 		class.DefaultProperties.PreferredTransparency = nil
 		properties.PreferredTransparency = 1
@@ -168,16 +179,6 @@ for _, name in names do
 		properties.AutoSelectGuiEnabled = true
 		class.DefaultProperties.GuiNavigationEnabled = true
 		class.DefaultProperties.AutoSelectGuiEnabled = true
-	elseif name == "UIShadow" then
-		properties = {
-			BlurRadius = Roblox.UDim.new(0, 12),
-			Color = Roblox.Color3.new(),
-			Offset = Roblox.UDim2.new(),
-			Spread = Roblox.UDim2.new(),
-			Transparency = 0.5,
-			ZIndex = -1,
-			Enabled = true,
-		}
 	end
 	local ui = VerifyRoblox.uiFakes.classes[name]
 	local events = table.clone(eventNames)
@@ -201,36 +202,9 @@ local database = {
 		return metadata[name]
 	end,
 }
-local nativeDefaults: { [string]: any } = {}
-local resolved: { [string]: { [string]: any } } = {}
-local ABSENT = table.freeze({})
 local function defaultProperty(className: string, key: string): any
-	local known = resolved[className]
-	if not known then
-		known = {}
-		resolved[className] = known
-	end
-	local cached = known[key]
-	if cached ~= nil then
-		return if cached == ABSENT then nil else cached
-	end
-	local value = metadata[className].DefaultProperties[key]
 	local injected = classes[className].properties[key]
-	if value == nil and injected ~= nil and injected ~= false then
-		value = injected
-	end
-	if value == nil then
-		if not nativeDefaults[className] then
-			local ok, instance = pcall((Roblox.Instance.new :: unknown) :: (string) -> any, className)
-			nativeDefaults[className] = if ok then instance else Roblox.Instance.new("Folder")
-		end
-		local ok, fallback = pcall(function()
-			return nativeDefaults[className][key]
-		end)
-		value = if ok then fallback else nil
-	end
-	known[key] = if value == nil then ABSENT else value
-	return value
+	return if injected == false then nil else injected
 end
 
 local function connections(signal: any): number
@@ -239,8 +213,8 @@ local function connections(signal: any): number
 	end)
 end
 
-local function new(options: any?): Engine
-	local settings = options or {}
+local function new(options: Options?): Engine
+	local settings: Options = options or {}
 	local environment: VerifyRoblox.Environment
 	local computed: { [string]: any } = {}
 	for _, class in { "TextLabel", "TextButton", "TextBox" } do
@@ -266,22 +240,10 @@ local function new(options: any?): Engine
 	end
 	local bridge = VerifyRoblox.fixtureBridge({
 		database = database,
-		typeName = function(value: any)
-			if type(value) == "table" then
-				local source = rawget(value, "SourceType")
-				if source and source.Name == "Uri" and type(rawget(value, "Uri")) == "string" then
-					return "Content"
-				end
-			end
-			return typeof(value)
-		end,
-		enumType = function(value)
-			return tostring((value :: any).EnumType)
-		end,
+		typeName = typeName,
+		enumType = library.enumType,
 		classes = classes,
-		library = (
-				{ typeName = typeof, datatypes = Roblox } :: unknown
-			) :: VerifyRoblox.EnvironmentEngineLibrary<any, any, any, any, any, any>,
+		library = VerifyRoblox.reflectionSnapshot.engineLibrary(library),
 		defaultProperty = defaultProperty,
 		handlerErrors = "raise",
 		functionDoubles = true,
@@ -308,55 +270,6 @@ local function new(options: any?): Engine
 		end
 	end)
 
-	local types: any = table.clone(Roblox)
-	types.BrickColor = setmetatable({
-		palette = function(index: number): any
-			return Roblox.BrickColor.palette(index + 1)
-		end,
-	}, { __index = Roblox.BrickColor })
-	local enumTypes = {}
-	types.Enum = setmetatable({}, {
-		__index = function(_, name)
-			if enumTypes[name] then
-				return enumTypes[name]
-			end
-			local original = Roblox.Enum[name]
-			if type(original) == "function" then
-				return function(_, ...)
-					return original(Roblox.Enum, ...)
-				end
-			end
-			local items = original:GetEnumItems()
-			local byName, byValue = {}, {}
-			for _, item in items do
-				byName[item.Name], byValue[item.Value] = item, item
-			end
-			local proxy = setmetatable({
-				FromName = function(_, itemName)
-					return byName[itemName]
-				end,
-				FromValue = function(_, value)
-					return byValue[value]
-				end,
-				GetEnumItems = function()
-					return table.clone(items)
-				end,
-			}, {
-				__index = function(_, key)
-					return original[key]
-				end,
-				__tostring = function()
-					return tostring(original)
-				end,
-			})
-			enumTypes[name] = proxy
-			return proxy
-		end,
-	})
-	types.TweenInfo = VerifyRoblox.datatypes.TweenInfo
-	types.FloatCurveKey = VerifyRoblox.datatypes.FloatCurveKey
-	types.Path2DControlPoint = VerifyRoblox.datatypes.Path2DControlPoint
-
 	local engine: any = bridge.engine
 	engine.census = function()
 		assert(settings.recordCreated ~= false, "census requires recording all created instances")
@@ -378,7 +291,7 @@ local function new(options: any?): Engine
 			end
 		end)
 	end
-	engine.types = types
+	engine.types = table.clone(types)
 	return engine :: Engine
 end
-return { new = new, connections = connections }
+return { new = new, connections = connections, types = types }

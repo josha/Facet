@@ -6,7 +6,7 @@ not a theme package.
 
 Every texture in this directory is **original, repository-owned, procedurally
 generated art**. There is no external imagery, no third-party asset, and no game
-or OS trade dress. The single source is `source/generate_art.py`.
+or OS trade dress. The single source is `tools/facet/art/ornate_gauge.luau`.
 
 ## Why this folder is different from its siblings
 
@@ -62,18 +62,12 @@ checker, so the stretch and the end-cap alignment are judgeable on disk.
 ## Regeneration
 
 ```sh
-# from the repo root's shared venv; any CWD works
-/path/to/UntitledRacingGame/.venv/bin/python \
-  GameStudio/ui/Facet/assets/themes/ornate-gauge/source/generate_art.py
+lute run tools/facet art ornate-gauge
 ```
 
-Deterministic: re-running reproduces all three PNGs byte-for-byte on the
-recorded library versions.
-
-| Library | Version used |
-|---|---|
-| Pillow | 12.2.0 |
-| numpy | 2.4.6 |
+Deterministic: re-running reproduces all three PNGs and the contact sheet
+pixel for pixel. `--check` compares them with the committed files and
+writes nothing.
 
 SHA-256 of the committed files (2026-07-25):
 
@@ -99,3 +93,12 @@ this folder, and everything it draws it with is in `upload-manifest.json`.
 
 Original art produced for this repository, released under the repository's
 licence. No third-party material is included.
+
+## Luau generator (2026-10-14)
+
+The Python generator is replaced by `tools/facet/art/ornate_gauge.luau`. The Facet raster library in
+`tools/facet/lib/raster/` implements the Pillow drawing, resampling, blur
+and PNG operations that the generator uses.
+It produces all 3 committed package PNGs pixel for pixel, so their bytes,
+SHA-256 values and asset IDs did not change. Nothing was uploaded. The contact sheet is also
+identical, because it has no text.

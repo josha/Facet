@@ -39,14 +39,14 @@ property.
 2. Each round runs `base`, then `cand`. The token run also runs `tok`. The main
    run has 8 rounds.
 3. In each round, each of the 27 controlled scenes runs in a new Lune process:
-   `lune run tools/lune/perf_paired_scene <scene>`. The runner calls the
+   `lute run bench/paired_scene.luau <scene>`. The runner calls the
    unmodified `perf_runner.runScene` of the commit, with the scene, warm-up and
    sample counts of the commit, at the reference profile (`floorAndroid`).
-   `main` cannot run its full `lune run tools/lune/perf` matrix, because three scenes fail
+   `main` cannot run its full `lute run tools/facet perf run` matrix, because three scenes fail
    setup. A new process for each scene isolates that failure. All commits use
    the same method.
-4. After the scenes, the round runs the `lune run tools/lune/bench` of the commit.
-5. `tools/perf_paired.py report` calculates these values:
+4. After the scenes, the round runs the `lute run tools/facet bench` of the commit.
+5. `lute run tools/facet perf paired report` calculates these values:
    - `p50` and `p95`: the median over the rounds of the p50 and p95 of each run,
      in ms.
    - `ratio`: the median of the second commit divided by the median of the first
@@ -249,7 +249,7 @@ than in the tables above. Read the ratios and the paired ranges.
 `nocopy` is `cand` with one change in `tests/lib/native_engine.luau`:
 `SetProperties` and `SetPropertyTransitions` keep the table that they get and
 do not copy it. The paired run has 6 rounds and the order base, cand, nocopy
-in each round (`tools/perf_paired.py run --skip-bench`).
+in each round (`lute run tools/facet perf paired run --skip-bench`).
 
 | Scene | cand / base p50 | paired range | nocopy / base p50 | paired range | nocopy / cand p50 | paired range |
 |---|---:|---|---:|---|---:|---|
@@ -339,7 +339,7 @@ Paired run, 8 rounds, `--skip-bench`, six style scenes:
 | shadow-storm | 0.0108 | 0.0001 | 0.012 | 0.01-0.02 | 0.0236 | 0.0002 | 0.008 | 0.00-0.02 | 0.0129-0.0383 | 0.0002-0.0005 |  |
 | dense-hud | 0.5703 | 0.0241 | 0.042 | 0.04-0.04 | 1.1749 | 0.0351 | 0.030 | 0.02-0.06 | 1.0262-1.9367 | 0.0270-0.0755 |  |
 
-Checks on the prototype: `lune run tools/lune/verify fast` has the same result as `cand`
+Checks on the prototype: `lute run tools/facet gate fast` has the same result as `cand`
 (suite 654 passed, one more test; the coverage producer has the same three
 pending live risks). `python3 tools/check_types.py` and StyLua pass. The new
 test "swaps palette colors through StyleSheet tokens without rewriting rules"
@@ -377,9 +377,9 @@ This benchmark does not call Facet code.
 
 | Check | Result |
 |---|---|
-| `lune run tools/lune/verify fast`, suite | 653 passed |
-| `lune run tools/lune/verify fast`, coverage producer | FAIL: 3 pending live Studio risks (the collection toolbar under phone and largest text, the shell reservation under themes and largest text, haptic motor output on physical devices) |
-| `lune run tools/lune/verify fast`, other producers | PASS |
+| `lute run tools/facet gate fast`, suite | 653 passed |
+| `lute run tools/facet gate fast`, coverage producer | FAIL: 3 pending live Studio risks (the collection toolbar under phone and largest text, the shell reservation under themes and largest text, haptic motor output on physical devices) |
+| `lute run tools/facet gate fast`, other producers | PASS |
 | `python3 tools/check_types.py` | PASS |
 | `stylua --check src tests tools bench examples` | PASS |
 
@@ -389,11 +389,11 @@ This benchmark does not call Facet code.
 rokit install
 git worktree add --detach ../facet-base a8c8895673c0745506908b66dc89f8cead6b66f3
 git worktree add --detach ../facet-cand 6789e3b1
-python3 tools/perf_paired.py run --out /tmp/paired --rounds 8 \
+lute run tools/facet perf paired run --out /tmp/paired --rounds 8 \
   base=../facet-base cand=../facet-cand
-python3 tools/perf_paired.py report /tmp/paired base cand
+lute run tools/facet perf paired report /tmp/paired base cand
 ```
 
-`run` copies `tools/lune/perf_paired_scene.luau` into each worktree as an
+`run` copies `bench/paired_scene.luau` into each worktree as an
 untracked file, because `main` does not have it. Close Roblox Studio and other
 heavy processes before a run.

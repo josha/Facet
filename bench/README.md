@@ -1,6 +1,6 @@
 # Native Compose and Roblox performance evidence
 
-`lune run tools/lune/bench` runs the same named microbenchmark subjects and CPU yardstick against the unchanged `baseline.json`. `lune run tools/lune/perf` runs all 27 controlled scene names against the unchanged `perf_budgets.json`. `tests/native_perf.spec.luau` checks the registry against every versioned controlled budget and exercises every subject, including teardown.
+`lute run tools/facet bench` runs the same named microbenchmark subjects and CPU yardstick against the unchanged `baseline.json`. `lute run tools/facet perf run` runs all 27 controlled scene names against the unchanged `perf_budgets.json`. `tests/native_perf.verify.luau` checks the registry against every versioned controlled budget and exercises every subject, including teardown.
 
 The workload data generator remains `perf-dataset/1`, with the same deterministic seed and image keys. The live performance lab and controlled headless scenes share the native workload constructors. The lab also offers fully mounted native lists, row-count ramps, resizing and host movement.
 
@@ -20,7 +20,7 @@ The microbenchmarks retain 100 unbatched HUD writes, 200 sparse chains, 50 keyed
 
 Deterministic workload tests check sampling, state changes, image ownership
 and accounting, retained navigation pages, settling, theme art and native motion.
-The sampling case in `tests/native_perf.spec.luau` checks the sample count and
+The sampling case in `tests/native_perf.verify.luau` checks the sample count and
 warmup of each controlled scene. The timing commands execute the current scenes
 and compare their results with the unchanged budgets.
 

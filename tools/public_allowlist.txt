@@ -1,6 +1,6 @@
 # Facet public-tip allowlist — one pattern per line. A tracked path must match one
 # of these to be part of the public branch tip; anything else must be archived by
-# tools/archive_private.py (or explicitly deleted) before the tree is public.
+# `lute run tools/facet archive private` (or explicitly deleted) before the tree is public.
 # Patterns: a trailing "/" allows the whole directory; otherwise an exact path or a
 # shell glob (fnmatch) against the repo-relative path. "!" negates a pattern that a
 # broader allow would otherwise admit (evaluated after allows).
@@ -37,7 +37,7 @@ skills/
 .github/
 package/
 # docs/plans/, docs/superpowers/ and artifacts/distribution-readiness/ hold private
-#   planning; tools/check_public_allowlist.py refuses them even if a line here allows them.
+#   planning; `lute run tools/facet check public-allowlist` refuses them even if a line here allows them.
 !tools/lune/gate_manifest.luau
 !tools/lune/gate_legacy.luau
 !tools/lune/verify/convert_manifest.py

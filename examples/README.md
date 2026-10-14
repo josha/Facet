@@ -34,7 +34,7 @@ host mounts them with the runtime pieces that `Facet.app` uses.
 | A complete multi-surface showcase | [Virtual monitors](virtual_monitors/README.md) |
 | A farming game with crop growth, tools and a seed market | [Facet Farm](facet_farm/README.md) |
 
-The checked-in places are in `examples/places`. Run `lune run tools/lune/build places`
+The checked-in places are in `examples/places`. Run `lute run tools/facet build places`
 to rebuild the maintained examples, including
 [Virtual Monitors](places/Facet-VirtualMonitors.rbxl) and
 [Facet Farm](places/Facet-Farm.rbxl). Facet Flap is part of Virtual Monitors.
@@ -54,7 +54,7 @@ to rebuild the maintained examples, including
 The showcase has five main demos: Garage, Sipworks, Screen-anchored HUD,
 Playlist and Arcade. Arcade contains Word Guess, Crossword,
 Match 3 and Outpost. The original control, collection and motion fixtures remain available
-for the lab and regression tests. `tests/native_gallery.spec.luau` mounts those pages. It exercises the
+for the lab and regression tests. `tests/native_gallery.verify.luau` mounts those pages. It exercises the
 games, the settings, the playlist and the standalone consumer. Additional
 regression fixtures and the virtual monitors have separate native tests and
 Studio evidence.
