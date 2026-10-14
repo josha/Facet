@@ -1,6 +1,6 @@
 --!strict
 
-local fs = require("@lune/fs")
+local fs = require("@std/fs")
 
 local theme_packages = {}
 
@@ -76,7 +76,8 @@ end
 
 function theme_packages.files(): { string }
 	local out: { string } = {}
-	for _, entry in fs.readDir(THEMES_DIR) do
+	for _, item in fs.listDirectory(THEMES_DIR) do
+		local entry = item.name
 		local name = string.match(entry, "^([%w_]+)%.luau$")
 		if name ~= nil then
 			table.insert(out, name)
@@ -114,21 +115,21 @@ function theme_packages.check(extraFiles: { string }?): { ok: boolean, problems:
 
 	for name in onDisk do
 		if theme_packages.ROLES[name] == nil then
-			problems[#problems + 1] = `{THEMES_DIR}/{name}.luau has no declared role in tools/lune/theme_packages.luau `
+			problems[#problems + 1] = `{THEMES_DIR}/{name}.luau has no declared role in tools/engine/theme_packages.luau `
 				.. `— every theme module is a reference package, a refusal fixture or a rung-3 control, and the six `
 				.. `lists that consume this directory all read the role`
 		end
 	end
 	for name in theme_packages.ROLES do
 		if not onDisk[name] then
-			problems[#problems + 1] = `tools/lune/theme_packages.luau declares a role for '{name}', which does not `
+			problems[#problems + 1] = `tools/engine/theme_packages.luau declares a role for '{name}', which does not `
 				.. `exist under {THEMES_DIR}/ — if it was renamed or deleted, fix the role table`
 		end
 	end
 
 	for name in theme_packages.NOT_SHIPPABLE do
 		if not onDisk[name] then
-			problems[#problems + 1] = `tools/lune/theme_packages.luau excludes '{name}' from the shippable set, but `
+			problems[#problems + 1] = `tools/engine/theme_packages.luau excludes '{name}' from the shippable set, but `
 				.. `{THEMES_DIR}/{name}.luau does not exist — if it was renamed or deleted, fix the exclusion table`
 		end
 		local reason = theme_packages.NOT_SHIPPABLE[name]

@@ -1,17 +1,16 @@
 --!strict
 
-local fs = require("@lune/fs")
-local process = require("@lune/process")
-local serde = require("@lune/serde")
-local stdio = require("@lune/stdio")
+local fs = require("@std/fs")
+local process = require("@std/process")
+local json = require("@std/json")
 
 local Facet = require("../../src") :: any
 local theme_packages = require("./theme_packages")
 local themes = Facet.themes
 
 local argv: { string } = {}
-for _, arg in process.args do
-	if arg ~= "--" then
+for index, arg in process.args do
+	if index > 1 and arg ~= "--" then
 		table.insert(argv, arg)
 	end
 end
@@ -20,11 +19,11 @@ local mode = argv[1]
 local outDir = argv[2] or "build/themes"
 
 local function fail(message: string, ...: string)
-	stdio.ewrite(`theme_artifacts: {message}\n`)
+	print(`theme_artifacts: {message}`)
 	for _, path in { ... } do
-		if fs.isFile(path) then
-			fs.removeFile(path)
-			stdio.ewrite(`theme_artifacts: removed {path} — a refused build must not leave an artifact behind\n`)
+		if fs.exists(path) then
+			fs.remove(path)
+			print(`theme_artifacts: removed {path} — a refused build must not leave an artifact behind`)
 		end
 	end
 	process.exit(1)
@@ -38,7 +37,7 @@ if mode == "list" then
 end
 
 if mode ~= "manifest" then
-	print("usage: lune run tools/lune/theme_artifacts -- list | manifest [<dir>]")
+	print("usage: lute run tools/engine/theme_artifacts.luau list | manifest [<dir>]")
 	fail("unknown mode")
 end
 
@@ -62,8 +61,8 @@ local shippable = theme_packages.shippable()
 for _, name in shippable do
 	if MODULES[name] == nil then
 		fail(
-			`'{name}' is shippable but tools/lune/theme_artifacts.luau does not require it. `
-				.. `Add it to MODULES (Lune needs a literal path) — the builder emits an artifact for every `
+			`'{name}' is shippable but tools/engine/theme_artifacts.luau does not require it. `
+				.. `Add it to MODULES (a literal require path) — the builder emits an artifact for every `
 				.. `shippable package and the manifest has to describe all of them.`,
 			artifactPath(name),
 			manifestPath
@@ -109,7 +108,7 @@ for _, name in shippable do
 
 	local artifact = theme_packages.artifactName(name)
 	local file = `{outDir}/{artifact}.rbxm`
-	local bytes = if fs.isFile(file) then #fs.readFile(file) else 0
+	local bytes = if fs.exists(file) then #fs.readFileToString(file) else 0
 
 	table.insert(entries, {
 		module = name,
@@ -138,12 +137,12 @@ for _, name in shippable do
 	end
 end
 
-if not fs.isDir(outDir) then
-	fs.writeDir(outDir)
+if not fs.exists(outDir) then
+	fs.createDirectory(outDir, { makeParents = true })
 end
-fs.writeFile(
+fs.writeStringToFile(
 	manifestPath,
-	serde.encode("json", {
+	json.serialize({
 		schema = "facet-theme-artifacts/1",
 		facetVersion = Facet.VERSION,
 		themeSchema = themes.SCHEMA,

@@ -50,7 +50,6 @@ jobs:
       - name: Report the toolchain
         run: |
           rojo --version
-          lune --version
           lute --version
           luau-lsp --version
           stylua --version
@@ -62,14 +61,14 @@ jobs:
         shell: bash
         run: |
           mkdir -p artifacts/verify
-          lune run tools/lune/verify fast 2>&1 | tee artifacts/verify/ci-fast.log
+          lute run tools/facet gate fast 2>&1 | tee artifacts/verify/ci-fast.log
 
       - name: Full tier
         shell: bash
         run: |
           mkdir -p artifacts/verify
-          lune run tools/lune/verify --list
-          lune run tools/lune/verify full 2>&1 | tee artifacts/verify/ci.log
+          lute run tools/facet gate --list
+          lute run tools/facet gate full 2>&1 | tee artifacts/verify/ci.log
 
       - name: Save verification diagnostics
         if: always()

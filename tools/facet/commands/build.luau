@@ -7,6 +7,7 @@ local Hash = require("../lib/hash")
 local Json = require("../lib/json")
 local LabBoundary = require("../lib/lab_boundary")
 local Model = require("../lib/model")
+local PlaceChecks = require("../lib/place_checks")
 local Rojo = require("../lib/rojo")
 local Rule = require("../lib/rule")
 local Run = require("../lib/run")
@@ -61,6 +62,7 @@ local REFERENCE = {
 }
 
 local PLACE_PROJECT = "examples/.place_build.project.json"
+local PLACE_CHECKS = "artifacts/verify/places"
 local REFERENCE_PROJECT = "examples/.reference_place_build.project.json"
 local LAB = "examples/facet-lab"
 local LAB_OUTPUTS = { "build/Facet-Lab.rbxl", "build/Foundation-Light.rbxm", "build/Foundation-Dark.rbxm" }
@@ -170,46 +172,67 @@ end
 
 local function places(): number
 	local stamp = "content " .. Rojo.contentHash(".", PLACE_CONTENT, 12)
-	local bootstrapped: { string } = {}
-	for index, example in EXAMPLES do
-		local output = `examples/places/{example[2]}.rbxl`
-		local code = rojo(world(example[1], { Facet_Example = index - 1 }, GALLERY), output, PLACE_PROJECT)
+	local function inspected(project: Rojo.Project, name: string, scratch: string?, check: (string) -> string?): number
+		local xml = `{PLACE_CHECKS}/{name}.rbxlx`
+		local code = rojo(project, xml, scratch)
 		if code ~= 0 then
 			return code
 		end
-		table.insert(bootstrapped, output)
+		local problem = check(xml)
+		if problem ~= nil then
+			print("FAIL " .. problem)
+			return 1
+		end
+		print(`ok   {name}: the XML build passes its place check`)
+		return 0
+	end
+	for index, example in EXAMPLES do
+		local output = `examples/places/{example[2]}.rbxl`
+		local project = world(example[1], { Facet_Example = index - 1 }, GALLERY)
+		local code = rojo(project, output, PLACE_PROJECT)
+		if code ~= 0 then
+			return code
+		end
 		print(`built {output} ({example[1]})`)
+		code = inspected(project, example[2], PLACE_PROJECT, PlaceChecks.bootstrap)
+		if code ~= 0 then
+			return code
+		end
 	end
 	local showcase = "examples/places/Facet-Showcase.rbxl"
 	local attributes: Json.Object = { Facet_Showcase = true, Facet_NativeStyle = true, Facet_Build = stamp }
-	local code = rojo(world("Facet-Showcase", attributes, SHOWCASE, true), showcase, PLACE_PROJECT)
+	local showcaseProject = world("Facet-Showcase", attributes, SHOWCASE, true)
+	local code = rojo(showcaseProject, showcase, PLACE_PROJECT)
 	if code ~= 0 then
 		return code
 	end
-	table.insert(bootstrapped, showcase)
 	print(`built {showcase} (Facet-Showcase — in-game demo + theme switching)`)
+	code = inspected(showcaseProject, "Facet-Showcase", PLACE_PROJECT, PlaceChecks.bootstrap)
+	if code ~= 0 then
+		return code
+	end
 	code = rojo("examples/performance.project.json", "examples/places/Facet-PerformanceLab.rbxl")
 	if code ~= 0 then
 		return code
 	end
 	print("built examples/places/Facet-PerformanceLab.rbxl (Facet-PerformanceLab — Step 9 performance lab)")
-	local check = { "lune", "run", "tools/lune/check_place_bootstrap.luau" }
-	table.move(bootstrapped, 1, #bootstrapped, #check + 1, check)
-	code = step(check)
-	if code ~= 0 then
-		return code
-	end
-	code = rojo("examples/virtual_monitors/default.project.json", "examples/places/Facet-VirtualMonitors.rbxl")
-	if code ~= 0 then
-		return code
-	end
-	code = rojo("examples/facet_farm/default.project.json", "examples/places/Facet-Farm.rbxl")
-	if code ~= 0 then
-		return code
-	end
-	code = step({ "lune", "run", "tools/lune/check_app_places.luau" })
-	if code ~= 0 then
-		return code
+	for _, app in
+		{
+			{ name = "Facet-VirtualMonitors", folder = "virtual_monitors", root = "VirtualMonitors" },
+			{ name = "Facet-Farm", folder = "facet_farm", root = "FacetFarm" },
+		}
+	do
+		local project = `examples/{app.folder}/default.project.json`
+		code = rojo(project, `examples/places/{app.name}.rbxl`)
+		if code ~= 0 then
+			return code
+		end
+		code = inspected(project, app.name, nil, function(xml: string): string?
+			return PlaceChecks.app(xml, app.folder, app.root)
+		end)
+		if code ~= 0 then
+			return code
+		end
 	end
 	local count = 0
 	for _, entry in Files.list("examples/places") do
@@ -260,11 +283,11 @@ local function lab(): number
 		return 1
 	end
 	print("boundary ok: repository sources, outputs in the lab build directory")
-	local code = step({ "lune", "run", "tools/coverage.luau", "check" }, LAB)
+	local code = step({ Run.lute(), "run", "tools/coverage.luau", "check" }, LAB)
 	if code ~= 0 then
 		return code
 	end
-	code = step({ "lune", "run", "tools/check_themes.luau" }, LAB)
+	code = step({ Run.lute(), "run", "tools/check_themes.luau" }, LAB)
 	if code ~= 0 then
 		return code
 	end
@@ -342,10 +365,8 @@ local function doctor(): number
 		Json.set(entry, "required", true)
 		table.insert(checks, entry)
 	end
-	local hasLune, luneVersion = version({ "lune", "--version" })
 	local hasLute, luteVersion = version({ "lute", "--version" })
 	local hasRojo, rojoVersion = version({ "rojo", "--version" })
-	check("lune", hasLune, luneVersion, "lune not on PATH")
 	check(
 		"lute",
 		hasLute,
@@ -357,9 +378,9 @@ local function doctor(): number
 	check("library", Files.isFile("src/init.luau"), "native Facet entry point present", "src/init.luau missing")
 	check(
 		"verification",
-		Files.isFile("tools/lune/gate.luau"),
+		Files.isFile("tools/facet/lib/gate.luau") and Files.isFile("tools/facet/producers.json"),
 		"Verify gate definition present",
-		"tools/lune/gate.luau missing"
+		"tools/facet/lib/gate.luau or tools/facet/producers.json missing"
 	)
 	check(
 		"maintainer-tools",

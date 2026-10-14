@@ -2,11 +2,13 @@
 
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 
-local fs = require("@lune/fs")
-local process = require("@lune/process")
+local fs = require("@std/fs")
+local process = require("@std/process")
+local Loader = require("../../tests/lib/loader")
 
-local Facet = require("../../src") :: any
-local engines = require("../../tests/lib/native_engine")
+local loader = Loader.new()
+local Facet = loader.require("src") :: any
+local engines = loader.require("tests/lib/native_engine.luau") :: typeof(require("../../tests/lib/native_engine"))
 
 local SNAPSHOT = "tools/public_surface.txt"
 local INIT = "src/init.luau"
@@ -46,7 +48,7 @@ local function surface(): { string }
 	end
 	runtime:dispose()
 	local types: { string } = {}
-	for name in string.gmatch(fs.readFile(INIT), "\nexport type ([%w_]+)") do
+	for name in string.gmatch(fs.readFileToString(INIT), "\nexport type ([%w_]+)") do
 		table.insert(types, name)
 	end
 	table.sort(types)
@@ -83,12 +85,12 @@ local function compare(expected: string, actual: { string }): { string }
 	return differences
 end
 
-local mode = process.args[1]
+local mode = process.args[2]
 local lines = surface()
 local text = table.concat(lines, "\n") .. "\n"
 
 if mode == "--write" then
-	fs.writeFile(SNAPSHOT, text)
+	fs.writeStringToFile(SNAPSHOT, text)
 	print(`check_public_surface: wrote {#lines} lines to {SNAPSHOT}`)
 	process.exit(0)
 end
@@ -109,15 +111,15 @@ if mode == "--selftest" then
 end
 
 if mode ~= nil then
-	print("usage: lune run tools/lune/check_public_surface [--write | --selftest]")
+	print("usage: lute run tools/engine/check_public_surface.luau [--write | --selftest]")
 	process.exit(2)
 end
 
-if not fs.isFile(SNAPSHOT) then
+if not fs.exists(SNAPSHOT) then
 	print(`check_public_surface: FAIL - {SNAPSHOT} is missing; run with --write and review the file`)
 	process.exit(1)
 end
-local differences = compare(fs.readFile(SNAPSHOT), lines)
+local differences = compare((string.gsub(fs.readFileToString(SNAPSHOT), "\r\n", "\n")), lines)
 if #differences > 0 then
 	print(`check_public_surface: FAIL - the public surface differs from {SNAPSHOT}:`)
 	for _, line in differences do

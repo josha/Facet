@@ -10,7 +10,7 @@ local Run = require("../lib/run")
 local USAGE = [[usage: lute run tools/facet release <version> <commit> [extra package publish flags...]
 
 Builds and publishes Facet <version> from <commit> in a temporary git worktree:
-the release gate (lune run tools/lune/verify release), then
+the release gate (lute run tools/facet gate release), then
 lute run tools/facet package build and package publish --confirm.
 It refuses an unknown commit, a dirty tree, a missing ROBLOX_API_KEY and an
 unconfigured asset id. It never pushes.]]
@@ -200,8 +200,8 @@ local function publish(version: string, commit: string, assetId: string, extra: 
 	if not Run.git({ "worktree", "add", "--detach", work, fullCommit }).ok then
 		return finish(1)
 	end
-	print("release: gate = lune run tools/lune/verify release")
-	if not Run.inherit({ "lune", "run", "tools/lune/verify", "release" }, { cwd = work }).ok then
+	print("release: gate = lute run tools/facet gate release")
+	if not Run.inherit({ Run.lute(), "run", "tools/facet", "gate", "release" }, { cwd = work }).ok then
 		return finish(1)
 	end
 	print("release: gate PASS")

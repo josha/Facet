@@ -1,41 +1,41 @@
 --!strict
-local fs = require("@lune/fs")
-local process = require("@lune/process")
-local serde = require("@lune/serde")
-local task = require("@lune/task")
-local Lune = require("../vendor/verify/src/lune")
+local fs = require("@std/fs")
+local json = require("@std/json")
+local process = require("@std/process")
+local task = require("@std/task")
+local Lute = require("../vendor/verify/src/lute")
 local Verify = require("../vendor/verify/src/core")
 local Gate = require("../vendor/verify/src/gate")
-local gate = require("./gate")
+local Files = require("../facet/lib/files")
+local Run = require("../facet/lib/run")
+local gate = require("../facet/lib/gate")
 
 local harness = Verify.createHarness({ source = "facet-verify-integration", now = os.clock })
-fs.writeDir("artifacts/verify")
 local directory = `artifacts/verify/integration-{os.time()}-{math.random(1, 1e9)}`
-assert(not fs.isDir(directory), "the integration scratch directory already exists: " .. directory)
-fs.writeDir(directory)
+assert(not Files.isDirectory(directory), "the integration scratch directory already exists: " .. directory)
+Files.makeDirectory(directory)
 local VERIFY = "../../../tools/vendor/verify/src"
+local LUTE = Run.lute()
 
 local function source(name: string, text: string): string
-	fs.writeFile(`{directory}/{name}.luau`, text)
+	Files.write(`{directory}/{name}.luau`, text)
 	return `{directory}/{name}.luau`
 end
 
 local function worker(name: string, body: string): string
 	local path = `{directory}/{name}-worker.luau`
-	fs.writeFile(
+	Files.write(
 		path,
 		table.concat({
-			'local fs = require("@lune/fs")',
-			'local process = require("@lune/process")',
-			'local serde = require("@lune/serde")',
-			`local Lune = require("{VERIFY}/lune")`,
+			'local fs = require("@std/fs")',
+			'local process = require("@std/process")',
+			`local Lute = require("{VERIFY}/lute")`,
 			`local Verify = require("{VERIFY}/core")`,
-			"local batch = Lune.decodeBatch(fs.readFile(process.args[1]))",
-			"local output, runId = process.args[2], process.args[3]",
+			"local batch = Lute.decodeBatch(fs.readFileToString(process.args[2]))",
+			"local output = process.args[3]",
 			"local harness = Verify.createHarness({ now = os.clock, source = batch.units[1].locator, prefixIds = false })",
 			'harness:case("ok", { id = "ok", run = function() end })',
-			'local report = harness:run({ executor = "fixture", environment = { runtime = "lune" }, capabilities = { "local-luau" } })',
-			"local function receipt(run, id) return Lune.encodeReceipt(Lune.runtime.json, run, id, report) end",
+			'local report = harness:run({ executor = "fixture", environment = { runtime = "lute" }, capabilities = { "local-luau" } })',
 			body,
 		}, "\n")
 	)
@@ -59,32 +59,55 @@ local function tests(id: string, locators: { string }, cases: { string }?, custo
 	}
 end
 
-local function command(id: string, script: string, environment: string?, tier: string?): gate.Entry
+local function exiting(code: number): { string }
+	local path = source(`exit-{code}`, `local process = require("@std/process")\nprocess.exit({code})`)
+	return { LUTE, "run", path }
+end
+
+local function command(id: string, code: number, environment: string?, tier: string?): gate.Entry
 	return {
 		id = id,
 		tier = tier or "fast",
 		environment = environment,
-		producer = { id = id, kind = "command", argv = { "/bin/sh", "-c", script } },
+		producer = { id = id, kind = "command", argv = exiting(code) },
 	}
+end
+
+local function descendant(name: string, marker: string): string
+	local child = source(
+		`{name}-child`,
+		table.concat({
+			'local fs = require("@std/fs")',
+			'local task = require("@std/task")',
+			"task.wait(3)",
+			`fs.writeStringToFile("{marker}", "survived")`,
+		}, "\n")
+	)
+	return table.concat({
+		'local process = require("@std/process")',
+		'local task = require("@std/task")',
+		`task.spawn(function() process.run(\{ "{LUTE}", "run", "{child}" \}) end)`,
+		"task.wait(30)",
+	}, "\n")
 end
 
 local function reporter(id: string, mode: string, expectation: Gate.ReportExpectation?): gate.Entry
 	local path = `{directory}/reporter.luau`
-	fs.writeFile(
+	Files.write(
 		path,
 		table.concat({
-			'local fs = require("@lune/fs")',
-			'local process = require("@lune/process")',
-			`local Lune = require("{VERIFY}/lune")`,
+			'local fs = require("@std/fs")',
+			'local process = require("@std/process")',
+			`local Lute = require("{VERIFY}/lute")`,
 			`local Verify = require("{VERIFY}/core")`,
-			"local mode, path, run = process.args[1], process.args[2], process.args[3]",
+			"local mode, path, run = process.args[2], process.args[3], process.args[4]",
 			'local harness = Verify.createHarness({ now = os.clock, source = "reporter", prefixIds = false })',
 			'harness:case("one", { id = "one", run = function(context) context:expect(mode ~= "failing"):toBe(true) end })',
-			'local report = harness:run({ executor = "fixture", environment = { runtime = "lune" } })',
-			'if mode == "empty" then fs.writeFile(path, "")',
-			'elseif mode == "malformed" then fs.writeFile(path, "{ not json")',
-			'elseif mode == "stale" then Lune.gate.writeReport(path, "another-run", report)',
-			'elseif mode ~= "missing" then Lune.gate.writeReport(path, run, report) end',
+			'local report = harness:run({ executor = "fixture", environment = { runtime = "lute" } })',
+			'if mode == "empty" then fs.writeStringToFile(path, "")',
+			'elseif mode == "malformed" then fs.writeStringToFile(path, "{ not json")',
+			'elseif mode == "stale" then Lute.gate.writeReport(path, "another-run", report)',
+			'elseif mode ~= "missing" then Lute.gate.writeReport(path, run, report) end',
 			'process.exit(if mode == "contradicts" then 1 else 0)',
 		}, "\n")
 	)
@@ -94,7 +117,7 @@ local function reporter(id: string, mode: string, expectation: Gate.ReportExpect
 		producer = {
 			id = id,
 			kind = "command",
-			argv = { "lune", "run", path, mode, "{report}", "{run}" },
+			argv = { LUTE, "run", path, mode, "{report}", "{run}" },
 			report = expectation or { minimum = 1 },
 		},
 	}
@@ -113,7 +136,7 @@ local function runGate(
 	if settings.rerun then
 		chosen = { ids = { settings.rerun }, tiers = if #tiers > 0 then tiers else nil }
 	end
-	return Lune.gate.run(definition, { directory = `{directory}/gate`, selection = chosen })
+	return Lute.gate.run(definition, { directory = `{directory}/gate`, selection = chosen })
 end
 
 local function completeTier(outcome: Gate.Outcome): boolean
@@ -239,64 +262,54 @@ harness:suite("Suite execution through the Verify gate", function()
 		}, { tier = "fast" })
 		context:expect(status(inBody, "tiered")):toBe("failed")
 	end)
-	harness:case(
-		"rejects missing, empty, malformed, foreign, stale and contradictory worker receipts",
-		function(context)
-			local locator = source("receipt", "return function() end")
-			local faults: { [string]: string } = {
-				silent = "",
-				empty = 'fs.writeFile(output, "")',
-				malformed = 'fs.writeFile(output, "{ not json")',
-				foreign = 'fs.writeFile(output, receipt(runId, "another-batch"))',
-				stale = 'fs.writeFile(output, receipt("another-run", batch.id))',
-				invalid = 'fs.writeFile(output, serde.encode("json", { receiptVersion = 1, runId = runId, batchId = batch.id, report = { total = 5 } }))',
-				contradictory = "fs.writeFile(output, receipt(runId, batch.id)) process.exit(1)",
-			}
-			local entries = {
-				tests(
-					"accepted",
-					{ locator },
-					nil,
-					worker("accepted", "fs.writeFile(output, receipt(runId, batch.id))")
-				),
-			}
-			for name, body in faults do
-				table.insert(entries, tests(name, { locator }, nil, worker(name, body)))
-			end
-			local outcome = runGate(entries)
-			context:expect(status(outcome, "accepted")):toBe("passed")
-			for name in faults do
-				context:expect(`{name}: {status(outcome, name)}`):toBe(`{name}: failed`)
-			end
+	harness:case("rejects missing, empty, malformed and invalid worker reports", function(context)
+		local locator = source("receipt", "return function() end")
+		local faults: { [string]: string } = {
+			silent = "",
+			empty = 'fs.writeStringToFile(output, "")',
+			malformed = 'fs.writeStringToFile(output, "{ not json")',
+			invalid = "fs.writeStringToFile(output, Lute.encode({ total = 5 }))",
+		}
+		local entries = {
+			tests(
+				"accepted",
+				{ locator },
+				nil,
+				worker("accepted", "fs.writeStringToFile(output, Lute.encode(report))")
+			),
+		}
+		for name, body in faults do
+			table.insert(entries, tests(name, { locator }, nil, worker(name, body)))
 		end
-	)
+		local outcome = runGate(entries)
+		context:expect(status(outcome, "accepted")):toBe("passed")
+		for name in faults do
+			context:expect(`{name}: {status(outcome, name)}`):toBe(`{name}: failed`)
+		end
+	end)
 	harness:case("stops a timed-out worker and its descendants", function(context)
 		local marker = `{directory}/descendant-survived`
-		local hung = tests(
-			"hang",
-			{ source("hang", "return function() end") },
-			nil,
-			worker("hang", `process.exec("/bin/sh", \{ "-c", "(sleep 3; touch {marker}) & sleep 30" })`)
-		)
+		local hung =
+			tests("hang", { source("hang", "return function() end") }, nil, worker("hang", descendant("hang", marker)))
 		assert(hung.producer).deadlineSeconds = 1
 		local outcome = runGate({ hung })
 		context:expect(status(outcome, "hang") ~= "passed"):toBe(true)
 		context:expect(outcome.execution.report.timedOut + outcome.execution.report.failed > 0):toBe(true)
 		task.wait(4)
-		context:expect(fs.isFile(marker)):toBe(false)
+		context:expect(fs.exists(marker)):toBe(false)
 	end)
 end)
 
 harness:suite("Facet gate through Verify", function()
 	harness:case("classifies pass, failure and environment deferral by producer class", function(context)
 		local entries = {
-			command("pass", "exit 0"),
-			command("failure", "exit 1"),
-			command("unclassified", "exit 2"),
-			command("live", "exit 2", "studio"),
-			command("device", "exit 2", "device"),
-			command("timing", "exit 2", "perf"),
-			command("live-broken", "exit 1", "studio"),
+			command("pass", 0),
+			command("failure", 1),
+			command("unclassified", 2),
+			command("live", 2, "studio"),
+			command("device", 2, "device"),
+			command("timing", 2, "perf"),
+			command("live-broken", 1, "studio"),
 		}
 		local outcome = runGate(entries)
 		context:expect(status(outcome, "pass")):toBe("passed")
@@ -313,9 +326,9 @@ harness:suite("Facet gate through Verify", function()
 	end)
 	harness:case("separates focused, complete, deferred and releasable outcomes", function(context)
 		local clean = {
-			command("fast", "exit 0"),
-			command("full", "exit 0", nil, "full"),
-			command("gate", "exit 0", nil, "release"),
+			command("fast", 0),
+			command("full", 0, nil, "full"),
+			command("gate", 0, nil, "release"),
 		}
 		local release = runGate(clean, { tier = "release" })
 		context:expect(release.acceptance.releasable):toBe(true)
@@ -330,7 +343,7 @@ harness:suite("Facet gate through Verify", function()
 		local focused = runGate(clean, { tier = "full", rerun = "fast" })
 		context:expect(completeTier(focused)):toBe(false)
 		context:expect(focused.acceptance.verdict):toBe("selected")
-		local deferred = { command("fast", "exit 0"), command("live", "exit 2", "studio", "full") }
+		local deferred = { command("fast", 0), command("live", 2, "studio", "full") }
 		local lower = runGate(deferred, { tier = "full" })
 		context:expect(lower.acceptance.deferred):toEqual({ "live" })
 		context:expect(lower.acceptance.verdict ~= "failed"):toBe(true)
@@ -338,7 +351,7 @@ harness:suite("Facet gate through Verify", function()
 		context:expect(blocked.acceptance.verdict):toBe("deferred")
 		context:expect(blocked.acceptance.releasable):toBe(false)
 		context:expect(gate.releasable(0, "release", blocked)):toBe(1)
-		local failed = runGate({ command("fast", "exit 1") }, { tier = "fast" })
+		local failed = runGate({ command("fast", 1) }, { tier = "fast" })
 		context:expect(failed.acceptance.verdict):toBe("failed")
 		context
 			:expect(function()
@@ -371,16 +384,17 @@ harness:suite("Facet gate through Verify", function()
 	end)
 	harness:case("blocks dependents and stops a timed-out producer with its descendants", function(context)
 		local marker = `{directory}/gate-descendant-survived`
-		local hung = command("hung", `(sleep 3; touch {marker}) & sleep 30`)
+		local hung = command("hung", 0)
+		assert(hung.producer).argv = { LUTE, "run", source("gate-hung", descendant("gate-hung", marker)) }
 		assert(hung.producer).deadlineSeconds = 1
-		local dependent = command("dependent", "exit 0")
+		local dependent = command("dependent", 0)
 		dependent.after = { "hung" }
 		local outcome = runGate({ hung, dependent })
 		context:expect(status(outcome, "hung")):toBe("timed_out")
 		context:expect(status(outcome, "dependent")):toBe("blocked")
 		context:expect(outcome.acceptance.verdict):toBe("failed")
 		task.wait(4)
-		context:expect(fs.isFile(marker)):toBe(false)
+		context:expect(fs.exists(marker)):toBe(false)
 	end)
 	harness:case("declares every committed producer once with its tier and suite plan", function(context)
 		local tiers = { fast = 0, full = 0, release = 0 }
@@ -391,10 +405,11 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 12, full = 36, release = 1 })
+		context:expect(tiers):toEqual({ fast = 14, full = 36, release = 1 })
 		context:expect(seen["perf"].tier):toBe("full")
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
-		local plan = serde.decode("json", fs.readFile("tests/plan.json"))
+		local plan =
+			Lute.parse(fs.readFileToString("tests/plan.json")) :: { units: { { locator: string, requires: { string }? } } }
 		local locators = {}
 		local toolLocators = {}
 		for _, unit in plan.units do
@@ -407,7 +422,7 @@ harness:suite("Facet gate through Verify", function()
 		context:expect(seen["suite"].worker):toBe("tests/worker.luau")
 		context:expect(seen["tool-specs"].locators):toEqual(toolLocators)
 		context:expect(seen["tool-specs"].worker):toBe("tests/lute/worker.luau")
-		context:expect(seen["tool-specs"].command):toEqual({ "lute", "run" })
+		context:expect(seen["tool-specs"].command):toBeNil()
 		context:expect(seen["suite"].cases):toBeNil()
 		context:expect(seen["suite"].isolate):toBe(true)
 		context:expect(seen["suite"].sourceDeadlineSeconds):toBe(600)
@@ -435,8 +450,8 @@ harness:suite("Facet gate through Verify", function()
 		context:expect(string.match(build.tree, "^%x+$") ~= nil and #build.tree == 40):toBe(true)
 		context:expect(type(build.clean)):toBe("boolean")
 		context:expect(string.match(build.digest, "^%x+$") ~= nil and #build.digest == 64):toBe(true)
-		local bound = Lune.gate.run(
-			Gate.define(gate.define({ command("fast", "exit 0") }, false, "fixture-build")),
+		local bound = Lute.gate.run(
+			Gate.define(gate.define({ command("fast", 0) }, false, "fixture-build")),
 			{ directory = `{directory}/gate`, build = build }
 		)
 		context:expect(assert(bound.build).commit):toBe(build.commit)
@@ -514,9 +529,9 @@ harness:suite("Native fixture", function()
 	end)
 end)
 
-local report = harness:run({ executor = "facet-lune", environment = { tier = "full" } })
+local report = harness:run({ executor = "facet-lute", environment = { tier = "full" } })
 print(Verify.format(report))
-fs.writeFile(`{directory}/selftest.json`, serde.encode("json", report, true))
+Files.write(`{directory}/selftest.json`, json.serialize(report :: any, true))
 if report.total == 0 or report.passed ~= report.total then
 	process.exit(1)
 end

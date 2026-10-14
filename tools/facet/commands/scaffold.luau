@@ -12,7 +12,7 @@ Writes src/ui/<name>.luau and registers the control in src/ui/init.luau,
 src/ui/control_types.luau and src/init.luau. It refuses to overwrite a control file.]]
 
 local NEXT_STEPS =
-	"Implement the control, add a native behavior spec and gallery scenario, and document its API before running lune run tools/lune/verify full."
+	"Implement the control, add a native behavior spec and gallery scenario, and document its API before running lute run tools/facet gate full."
 
 local function message(failure: unknown): string
 	local text = string.gsub(tostring(failure), "^.-:%d+: ", "")

@@ -80,7 +80,6 @@ jobs:
         run: |
           set -euo pipefail
           rojo --version
-          lune --version
           lute --version
           stylua --version
 

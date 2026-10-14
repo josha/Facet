@@ -25,6 +25,10 @@ end
 local USAGE = [[usage: lute run tools/facet perf <subcommand> [options]
 
 subcommands:
+  run [baseline]                run every scene on each profile and check the trend budgets (exit 2 on a
+                                host timing failure); baseline rewrites bench/perf_budgets.json instead
+  baseline SCENE...             rebaseline only the named scenes in bench/perf_budgets.json
+  prove-gate                    inject a regression, prove that run fails, then rerun it clean
   budgets                       check bench/perf_budgets.json and the last perf run's skipped device budgets
   metrics                       check the metric rows of artifacts/phase-4/perf.json (exit 2 when it is absent)
   scenes [--themes]             check that each production (or theme-swap) scene did its work
@@ -83,7 +87,7 @@ local function budgets(): number
 		return 1
 	end
 	if not Files.isFile(Evidence.PERF) then
-		print(("perf budgets: FAIL - %s is missing; run lune run tools/lune/perf first"):format(Evidence.PERF))
+		print(("perf budgets: FAIL - %s is missing; run lute run tools/facet perf run first"):format(Evidence.PERF))
 		return 1
 	end
 	local outcome = Evidence.budgets(
@@ -120,7 +124,7 @@ end
 
 local function scenes(themes: boolean): number
 	if not Files.isFile(Evidence.PERF) then
-		print(("perf scenes: FAIL - %s is missing; run lune run tools/lune/perf first"):format(Evidence.PERF))
+		print(("perf scenes: FAIL - %s is missing; run lute run tools/facet perf run first"):format(Evidence.PERF))
 		return 1
 	end
 	local outcome = Evidence.scenes(readJson(Evidence.PERF), themes)
@@ -311,13 +315,13 @@ local function pairedRun(invocation: Cli.Invocation): number
 		else Paired.SCENES
 	local skipBench = Cli.switch(invocation, "skip-bench")
 	local environment = toolEnvironment(rokitDirectories(), false)
-	local runner = Files.absolute("tools/lune/perf_paired_scene.luau")
+	local runner = Files.absolute("bench/paired_scene.luau")
 	local log = Files.join(out, "log.txt")
 	local rows = Files.join(out, "scenes.jsonl")
 	Files.makeDirectory(out)
 	for round = 1, rounds do
 		for _, entry in trees do
-			local target = Files.join(entry.tree, "tools/lune/perf_paired_scene.luau")
+			local target = Files.join(entry.tree, "bench/paired_scene.luau")
 			if not samePath(target, runner) then
 				Files.write(target, Files.read(runner))
 			end
@@ -327,7 +331,7 @@ local function pairedRun(invocation: Cli.Invocation): number
 			)
 			for _, scene in sceneList do
 				local result = Run.capture(
-					{ "lune", "run", "tools/lune/perf_paired_scene", scene },
+					{ Run.lute(), "run", "bench/paired_scene.luau", scene },
 					{ cwd = entry.tree, env = environment }
 				)
 				local row = Paired.sceneRow(result.stdout)
@@ -345,7 +349,7 @@ local function pairedRun(invocation: Cli.Invocation): number
 			end
 			if not skipBench then
 				local bench = Run.capture(
-					{ "lune", "run", "tools/lune/bench" },
+					{ Run.lute(), "run", "tools/facet", "bench" },
 					{ cwd = entry.tree, env = environment }
 				)
 				Files.write(
@@ -494,7 +498,7 @@ local function budgetFixture(): string
 	end
 	return ([[{
 		"schema": "facet-perf-budgets/2",
-		"evidenceClass": "lune",
+		"evidenceClass": "lute",
 		"frameCeiling": {"uiShare": 0.25, "directionality": "one-way", "note": "Passing it proves NOTHING about a device."},
 		"scenes": {%s},
 		"deviceBudgets": {
@@ -536,7 +540,7 @@ local HEADLESS_METRICS = [[{
 }]]
 
 local EVIDENCE_CLASSES = [=[[
-	{"id": "lune", "level": "E1", "instrument": "os.clock", "proves": "trend", "cannotProve": "device"},
+	{"id": "lute", "level": "E1", "instrument": "os.clock", "proves": "trend", "cannotProve": "device"},
 	{"id": "desktop-retail", "level": "E4", "instrument": "MicroProfiler", "proves": "device", "cannotProve": "other devices", "rows": 0},
 	{"id": "phone-physical", "level": "E4", "instrument": "MicroProfiler", "proves": "device", "cannotProve": "other devices", "rows": 0},
 	{"id": "console-physical", "level": "E4", "instrument": "MicroProfiler", "proves": "device", "cannotProve": "other devices", "rows": 0}
@@ -547,7 +551,7 @@ local function metricsReport(runs: string, extra: string?): string
 end
 
 local function headlessRun(scene: string, metricsText: string?): string
-	return ([[{"scene": "%s", "device": "floorAndroid", "evidenceClass": "lune", "evidenceLevel": "E1", "authoritative": false, "deviceRun": false, "metrics": %s}]]):format(
+	return ([[{"scene": "%s", "device": "floorAndroid", "evidenceClass": "lute", "evidenceLevel": "E1", "authoritative": false, "deviceRun": false, "metrics": %s}]]):format(
 		scene,
 		metricsText or HEADLESS_METRICS
 	)
@@ -582,14 +586,14 @@ local function scenesReport(overrides: { [string]: string }?): string
 		local async = if scene == "async-image-grid" then [[, "async": {"completed": 12}]] else ""
 		table.insert(
 			runs,
-			([[{"scene": "%s", "device": "floorAndroid", "evidenceClass": "lune", "dataset": "perf-dataset/1", "extras": %s%s}]]):format(
+			([[{"scene": "%s", "device": "floorAndroid", "evidenceClass": "lute", "dataset": "perf-dataset/1", "extras": %s%s}]]):format(
 				scene,
 				extras,
 				async
 			)
 		)
 	end
-	table.insert(runs, [[{"scene": "dense-hud", "device": "consoleTenFoot", "evidenceClass": "lune"}]])
+	table.insert(runs, [[{"scene": "dense-hud", "device": "consoleTenFoot", "evidenceClass": "lute"}]])
 	return ([[{"schema": "facet-perf/2", "generatedAt": "2026-10-14T09:00:00Z", "runs": [%s]}]]):format(
 		table.concat(runs, ", ")
 	)
@@ -884,7 +888,7 @@ CASES.scenes = function(): { Case.Case }
 			run = function(): string?
 				local outcome = Evidence.scenes(
 					decode(
-						[[{"schema": "facet-perf/1", "runs": [{"scene": "async-image-grid", "device": "floorAndroid", "evidenceClass": "lune", "dataset": "d", "extras": {}, "async": {"completed": 0}}]}]]
+						[[{"schema": "facet-perf/1", "runs": [{"scene": "async-image-grid", "device": "floorAndroid", "evidenceClass": "lute", "dataset": "d", "extras": {}, "async": {"completed": 0}}]}]]
 					),
 					false
 				)
@@ -1190,6 +1194,13 @@ CASES["spec-timings"] = function(): { Case.Case }
 	}
 end
 
+local function noCases(): { Case.Case }
+	return {}
+end
+CASES.run = noCases
+CASES.baseline = noCases
+CASES["prove-gate"] = noCases
+
 local ORDER = { "budgets", "metrics", "scenes", "place", "paired", "aggregate", "spec-timings" }
 
 local function allCases(): { Case.Case }
@@ -1219,6 +1230,15 @@ local function run(invocation: Cli.Invocation): number
 	end
 	if Cli.switch(invocation, "selftest") then
 		return Case.report("perf " .. subcommand, CASES[subcommand])
+	end
+	if subcommand == "run" or subcommand == "baseline" or subcommand == "prove-gate" then
+		local PerfRun = require("../lib/perf_run")
+		if subcommand == "run" then
+			return PerfRun.run(invocation.positional[2] == "baseline")
+		elseif subcommand == "baseline" then
+			return PerfRun.baselineScenes(table.move(invocation.positional, 2, #invocation.positional, 1, {}))
+		end
+		return PerfRun.proveGate()
 	end
 	local ok, code = pcall(function(): number
 		if subcommand == "budgets" then

@@ -29,7 +29,7 @@ Evidence.PERF = "artifacts/phase-4/perf.json"
 Evidence.BUDGETS = "bench/perf_budgets.json"
 Evidence.DEVICE_DIRECTORY = "artifacts/cross-platform-proof/device"
 Evidence.DEVICE_CLASSES = { "console-physical", "desktop-retail", "phone-physical" }
-Evidence.HEADLESS_CLASS = "lune"
+Evidence.HEADLESS_CLASS = "lute"
 Evidence.METRICS =
 	{ "frameWorkMs", "updateMs", "instances", "connections", "memoryKb", "inputToVisibleMs", "themeSwap" }
 Evidence.REFERENCE = "floorAndroid"
@@ -195,7 +195,7 @@ function Evidence.budgets(budgets: unknown, report: unknown, deviceRows: (string
 	if field(budgets, "schema") ~= "facet-perf-budgets/2" then
 		fail(("unexpected schema %s; expected facet-perf-budgets/2"):format(Evidence.repr(field(budgets, "schema"))))
 	end
-	if field(budgets, "evidenceClass") ~= "lune" then
+	if field(budgets, "evidenceClass") ~= Evidence.HEADLESS_CLASS then
 		fail("the scene budgets must be labelled with the evidence class that produced them")
 	end
 	local ceiling = objectOr(field(budgets, "frameCeiling"))
@@ -433,7 +433,7 @@ end
 local function headlessRun(run: Json.Object, class: unknown, where: string, fail: (string) -> ())
 	if class ~= Evidence.HEADLESS_CLASS then
 		fail(
-			("%s: evidenceClass %s; a Lune process may only emit %s"):format(
+			("%s: evidenceClass %s; a headless Lute process may only emit %s"):format(
 				where,
 				Evidence.repr(class),
 				Evidence.repr(Evidence.HEADLESS_CLASS)
@@ -772,7 +772,7 @@ function Evidence.scenes(report: unknown, themes: boolean): Outcome
 	local devices: { [string]: boolean } = {}
 	for _, entry in list(field(report, "runs")) do
 		local run = object(entry)
-		if field(run, "evidenceClass") ~= "lune" then
+		if field(run, "evidenceClass") ~= Evidence.HEADLESS_CLASS then
 			continue
 		end
 		local device = Evidence.text(field(run, "device"))

@@ -40,7 +40,7 @@ ROBLOX_API_KEY is read from the environment only. It is never printed or written
 Exit codes: 0 success (a dry run included), 1 a refusal or a failed check,
 2 an environment failure or a usage error.]]
 
-local CANARY = "tools/lune/package_canary.luau"
+local CANARY = "tools/engine/package_canary.luau"
 local DEFAULT_CONFIG = "package/facet-package.json"
 local DEFAULT_RECEIPTS = "package/receipts"
 local GATE_EVIDENCE = "artifacts/verify/native/gate/latest.json"
@@ -1268,7 +1268,7 @@ local function cmdVerify(env: Environment, invocation: Cli.Invocation): number
 	if Cli.switch(invocation, "skip-canary") then
 		say("  [skip] packaged-consumer canary (--skip-canary)")
 	else
-		local canary = Run.capture({ "lune", "run", CANARY }, { cwd = env.root })
+		local canary = Run.capture({ Run.lute(), "run", CANARY }, { cwd = env.root })
 		indented(say, canary.stdout .. canary.stderr)
 		if canary.ok then
 			say("  [ ok ] packaged-consumer canary")

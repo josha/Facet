@@ -10,6 +10,7 @@ export type Invocation = {
 	positional: { string },
 	flags: Flags,
 	repeated: { [string]: { string } },
+	arguments: { string },
 }
 
 export type Command = {
@@ -43,6 +44,7 @@ function Cli.parse(arguments: { string }, values: { string }?): Invocation
 		table.insert(list, value)
 	end
 	local command = "help"
+	local commandIndex = #arguments
 	local first = true
 	local literal = false
 	local index = 1
@@ -64,6 +66,7 @@ function Cli.parse(arguments: { string }, values: { string }?): Invocation
 				flags[switch] = true
 			elseif first then
 				command = argument
+				commandIndex = index
 				first = false
 			else
 				table.insert(positional, argument)
@@ -71,7 +74,13 @@ function Cli.parse(arguments: { string }, values: { string }?): Invocation
 		end
 		index += 1
 	end
-	return { command = command, positional = positional, flags = flags, repeated = repeated }
+	return {
+		command = command,
+		positional = positional,
+		flags = flags,
+		repeated = repeated,
+		arguments = table.move(arguments, commandIndex + 1, #arguments, 1, {}),
+	}
 end
 
 function Cli.flag(invocation: Invocation, name: string): string?

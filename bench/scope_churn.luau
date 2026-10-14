@@ -3,12 +3,12 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-local process = require("@lune/process")
-local serde = require("@lune/serde")
+local process = require("@std/process")
+local json = require("@std/json")
 local nativeApp = require("./native_app")
-local workload = process.args[1] or "keyed-churn"
-local size = tonumber(process.args[2]) or 20000
-local samples = tonumber(process.args[3]) or 150
+local workload = process.args[2] or "keyed-churn"
+local size = tonumber(process.args[3]) or 20000
+local samples = tonumber(process.args[4]) or 150
 assert(workload == "children" or workload == "keyed-churn" or workload == "keyed-reverse", "unknown workload")
 assert(size > 0 and size % 1 == 0 and samples > 0 and samples % 1 == 0, "invalid sample dimensions")
 local world = nativeApp()
@@ -101,7 +101,7 @@ owner.dispose()
 world.dispose()
 local unmountMs = (os.clock() - started) * 1000
 table.sort(timings)
-print(serde.encode("json", {
+print(json.serialize({
 	workload = workload,
 	size = size,
 	samples = samples,
@@ -111,6 +111,6 @@ print(serde.encode("json", {
 	mountMs = mountMs,
 	unmountMs = unmountMs,
 	teardown = #world.target:GetChildren(),
-	evidenceClass = "lune",
+	evidenceClass = "lute",
 	geometryMeasured = false,
 }))

@@ -17,6 +17,8 @@ local commands: { Cli.Command } = {
 	require("@self/words"),
 	require("@self/git"),
 	require("@self/archive"),
+	require("@self/bench"),
+	require("@self/gate"),
 	require("@self/design"),
 	require("@self/tool"),
 	require("@self/mcp"),

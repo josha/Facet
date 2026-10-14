@@ -35,7 +35,7 @@ function ThemeBuilds.one(root: string, source: string, name: string, output: str
 end
 
 function ThemeBuilds.all(root: string, quiet: boolean?): Rojo.Outcome
-	local listing = Run.capture({ "lune", "run", "tools/lune/theme_artifacts", "--", "list" }, { cwd = root })
+	local listing = Run.capture({ Run.lute(), "run", "tools/engine/theme_artifacts.luau", "list" }, { cwd = root })
 	local count = 0
 	for _, entry in ThemeBuilds.parseListing(if listing.ok then listing.stdout else "") do
 		if Files.isDirectory(Files.join(root, `examples/themes/{entry.module}`)) then
@@ -63,7 +63,7 @@ function ThemeBuilds.all(root: string, quiet: boolean?): Rojo.Outcome
 		)
 	end
 	local manifest = Rojo.run(
-		{ "lune", "run", "tools/lune/theme_artifacts", "--", "manifest", ThemeBuilds.OUTPUT },
+		{ Run.lute(), "run", "tools/engine/theme_artifacts.luau", "manifest", ThemeBuilds.OUTPUT },
 		{ cwd = root, quiet = quiet }
 	)
 	if not manifest.ok then

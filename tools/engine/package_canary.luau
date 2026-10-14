@@ -4,12 +4,114 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
-local fs = require("@lune/fs")
-local process = require("@lune/process")
-local serde = require("@lune/serde")
-local roblox = require("@lune/roblox")
+local fs = require("@std/fs")
+local process = require("@std/process")
+local Lute = require("../vendor/verify/src/lute")
+local Base64 = require("../facet/lib/base64")
+local Files = require("../facet/lib/files")
+local Xml = require("../facet/lib/xml")
+local Loader = require("../../tests/lib/loader")
+
+type Node = {
+	Name: string,
+	ClassName: string,
+	Source: string?,
+	Value: string?,
+	attributes: { [string]: unknown },
+	children: { Node },
+	GetChildren: (Node) -> { Node },
+	FindFirstChild: (Node, string) -> Node?,
+	GetAttribute: (Node, string) -> unknown,
+}
 
 local MODEL_XML = "build/Facet.rbxmx"
+
+local function attributes(encoded: string): { [string]: unknown }
+	local data = buffer.fromstring(Base64.decode((string.gsub(encoded, "%s", ""))))
+	local cursor = 0
+	local function u32(): number
+		local value = buffer.readu32(data, cursor)
+		cursor += 4
+		return value
+	end
+	local function text(): string
+		local length = u32()
+		local value = buffer.readstring(data, cursor, length)
+		cursor += length
+		return value
+	end
+	local values: { [string]: unknown } = {}
+	if buffer.len(data) < 4 then
+		return values
+	end
+	for _ = 1, u32() do
+		local name = text()
+		local kind = buffer.readu8(data, cursor)
+		cursor += 1
+		if kind == 0x02 then
+			values[name] = text()
+		elseif kind == 0x03 then
+			values[name] = buffer.readu8(data, cursor) ~= 0
+			cursor += 1
+		elseif kind == 0x06 then
+			values[name] = buffer.readf64(data, cursor)
+			cursor += 8
+		else
+			break
+		end
+	end
+	return values
+end
+
+local function node(item: Xml.Element): Node
+	local built = {
+		Name = "",
+		ClassName = item.attributes.class or "",
+		attributes = {},
+		children = {},
+	} :: Node
+	local declared = Xml.first(item, "Properties")
+	if declared ~= nil then
+		for _, property in declared.children do
+			local name = property.attributes.name
+			if name == "Name" then
+				built.Name = property.text
+			elseif name == "Source" then
+				built.Source = property.text
+			elseif name == "Value" then
+				built.Value = property.text
+			elseif name == "AttributesSerialize" and property.text ~= "" then
+				built.attributes = attributes(property.text)
+			end
+		end
+	end
+	for _, child in Xml.children(item, "Item") do
+		table.insert(built.children, node(child))
+	end
+	built.GetChildren = function(self: Node): { Node }
+		return self.children
+	end
+	built.FindFirstChild = function(self: Node, name: string): Node?
+		for _, child in self.children do
+			if child.Name == name then
+				return child
+			end
+		end
+		return nil
+	end
+	built.GetAttribute = function(self: Node, name: string): unknown
+		return self.attributes[name]
+	end
+	return built
+end
+
+local function deserializeModel(text: string): { Node }
+	local roots: { Node } = {}
+	for _, item in Xml.children(Xml.parse(text), "Item") do
+		table.insert(roots, node(item))
+	end
+	return roots
+end
 
 local EXTRACT_ROOT = "build/.canary"
 
@@ -34,11 +136,11 @@ end
 
 print("package_canary")
 
-if not fs.isFile(MODEL_XML) then
+if not fs.exists(MODEL_XML) then
 	fail(`{MODEL_XML} is missing — run lute run tools/facet package build first`)
 end
 
-local roots = roblox.deserializeModel(fs.readFile(MODEL_XML))
+local roots = deserializeModel(fs.readFileToString(MODEL_XML))
 if #roots ~= 1 then
 	fail(`the model holds {#roots} root instances; the distribution is exactly one`)
 end
@@ -46,10 +148,10 @@ local modelRoot = roots[1]
 check(modelRoot.Name == "Facet", `the model's one root is named Facet (read {modelRoot.Name})`)
 check(modelRoot.ClassName == "ModuleScript", `the root is a ModuleScript (read {modelRoot.ClassName})`)
 
-if fs.isDir(EXTRACT_ROOT) then
-	fs.removeDir(EXTRACT_ROOT)
+if Files.isDirectory(EXTRACT_ROOT) then
+	Files.remove(EXTRACT_ROOT)
 end
-fs.writeDir(EXTRACT_ROOT)
+Files.makeDirectory(EXTRACT_ROOT)
 
 local extracted: { string } = {}
 
@@ -96,13 +198,13 @@ local function extract(instance: any, dir: string, instancePath: string)
 		local target = if #instance:GetChildren() > 0 then `{dir}/init.luau` else `{dir}.luau`
 		if claim(target, instancePath) then
 			if #instance:GetChildren() > 0 then
-				fs.writeDir(dir)
+				Files.makeDirectory(dir)
 			end
-			fs.writeFile(target, instance.Source)
+			Files.write(target, instance.Source or "")
 			table.insert(extracted, target)
 		end
 	elseif #instance:GetChildren() > 0 then
-		fs.writeDir(dir)
+		Files.makeDirectory(dir)
 	end
 	for _, child in instance:GetChildren() do
 		if checkName(child.Name, instancePath) then
@@ -120,7 +222,7 @@ end
 
 local FORBIDDEN = { "fusion_adapter", "imperative", ".spec" }
 local APPROVED_VENDOR = {}
-for path in serde.decode("json", fs.readFile("src/vendor/compose/UPSTREAM.lock")).sha256 do
+for path in (Lute.parse(fs.readFileToString("src/vendor/compose/UPSTREAM.lock")) :: any).sha256 do
 	if string.match(path, "%.luau$") then
 		APPROVED_VENDOR["vendor/compose/" .. path] = true
 	end
@@ -164,8 +266,10 @@ for _, name in { "LICENSE", "THIRD_PARTY_NOTICES" } do
 	)
 end
 
-local Facet = require("../../build/.canary/Facet") :: any
-local engine = require("../../tests/lib/native_engine").new()
+local loader = Loader.new()
+local Facet = loader.require("build/.canary/Facet") :: any
+local engines = loader.require("tests/lib/native_engine.luau") :: typeof(require("../../tests/lib/native_engine"))
+local engine = engines.new()
 local Compose: ComposeModule = Facet.Compose
 local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 local Host = (runtime.constructors :: unknown) :: RobloxHost
@@ -205,10 +309,7 @@ for lap = 1, 3 do
 	)
 	close()
 	check(#target:GetChildren() == 0, `lap {lap}: owned scene is removed`)
-	check(
-		require("../../tests/lib/native_engine").connections(button.Activated) == 0,
-		`lap {lap}: owned input connection is released`
-	)
+	check(engines.connections(button.Activated) == 0, `lap {lap}: owned input connection is released`)
 end
 runtime:dispose()
 if #failures > 0 then

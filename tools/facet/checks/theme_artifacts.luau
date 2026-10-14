@@ -26,8 +26,14 @@ type Options = {
 }
 
 local COPIED_TREES = { "src", "tools/vendor/verify" }
-local COPIED_FILES = { "rokit.toml", "tests/lib/native_engine.luau", "tools/lune/theme_artifact_probe.luau" }
-local PROBE = { "lune", "run", "tools/lune/theme_artifact_probe" }
+local COPIED_FILES = {
+	"rokit.toml",
+	"tests/lib/native_engine.luau",
+	"tests/lib/loader.luau",
+	"tests/fixtures/roblox-reflection.json",
+	"tools/engine/theme_artifact_probe.luau",
+}
+local PROBE = { "lute", "run", "tools/engine/theme_artifact_probe.luau" }
 
 local PLANTS: { Plant } = {
 	{
@@ -494,7 +500,7 @@ local rule: Rule.Rule = {
 	cases = cases,
 	actions = {
 		planted = {
-			summary = "build and probe the real artifacts with each planted fault (needs rojo and lune)",
+			summary = "build and probe the real artifacts with each planted fault (needs rojo and lute)",
 			run = selftest,
 		},
 		keep = {

@@ -3,12 +3,13 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
-local requireDynamic = require :: (any) -> any
-local fs = require("@lune/fs")
-local process = require("@lune/process")
-local serde = require("@lune/serde")
-local Facet = require("../../src")
-local engineLib = require("../../tests/lib/native_engine")
+local fs = require("@std/fs")
+local process = require("@std/process")
+local Lute = require("../vendor/verify/src/lute")
+local Loader = require("../../tests/lib/loader")
+local loader = Loader.new()
+local Facet = loader.require("src") :: typeof(require("../../src"))
+local engineLib = loader.require("tests/lib/native_engine.luau") :: typeof(require("../../tests/lib/native_engine"))
 local themes, Compose: ComposeModule = Facet.themes, Facet.Compose
 local failures: { string } = {}
 local checks = 0
@@ -18,14 +19,14 @@ local function check(ok, message)
 		table.insert(failures, message)
 	end
 end
-if not fs.isFile("installed/expected.json") then
+if not fs.exists("installed/expected.json") then
 	print("theme_artifact_probe requires the isolated tree from lute run tools/facet check theme-artifacts")
 	process.exit(2)
 end
-local expected = serde.decode("json", fs.readFile("installed/expected.json"))
+local expected = Lute.parse(fs.readFileToString("installed/expected.json")) :: any
 local function inspect(entry: any)
 	local name = entry.artifact
-	local module = requireDynamic("../../installed/" .. name)
+	local module = loader.require("installed/" .. name) :: any
 	assert(type(module) == "table" and type(module.build) == "function", name .. ": artifact exposes no build(themes)")
 	local package, report = module.build(themes)
 	assert(package and report.ok, name .. ": build() refused the theme package")
