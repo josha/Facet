@@ -2734,7 +2734,7 @@ return function(verifyHarness: Verify.Harness)
 					local shadow = find(node, "ChromeShadow")
 					node.BackgroundTransparency = 0
 					Verify.expect(shadow.Transparency):toBeCloseTo(0.35, 5)
-					node.BackgroundTransparency = 0.8 -- a tint casts a fifth of the opaque shadow
+					node.BackgroundTransparency = 0.8
 					Verify.expect(shadow.Transparency):toBeCloseTo(1 - 0.65 * 0.2, 5)
 					node.BackgroundTransparency = 1
 					Verify.expect(shadow.Transparency):toBe(1)

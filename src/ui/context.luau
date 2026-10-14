@@ -1857,9 +1857,6 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 			return themes.skin(runtime, config.theme, slot, {
 				types = types,
 				target = node,
-				-- A native shadow is cast by the node's own fill, so it keeps the fill's opacity: none under a clear
-				-- fill, a proportionally lighter one under a tint (a full-strength plate under a translucent fill
-				-- shows through it as a dark slab, with a bare strip along the edge the shadow is offset from).
 				shadowTransparency = function(use: ComposeTypes.Use)
 					local package = ctx.read(config.theme, use)
 					local recipe = package and (package.chrome or {})[slot]
