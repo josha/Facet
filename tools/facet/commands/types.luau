@@ -170,6 +170,10 @@ local function lutePin(rokit: string): (string?, string?)
 	return pin, string.match(pin, "^(%d+%.%d+%.%d+)")
 end
 
+local function matchesLutePin(version: string, pin: string, base: string): boolean
+	return version == pin or version == base
+end
+
 local function aliasProblem(luaurc: unknown, base: string): string?
 	local aliases = Json.objectField(luaurc, "aliases")
 	for _, alias in { "std", "lute" } do
@@ -189,7 +193,7 @@ local function prepareLuteTypes(): LuteTypes
 	end
 	local reported = Run.capture({ Run.lute(), "--version" })
 	local version = trim(reported.stdout)
-	if not reported.ok or version ~= base then
+	if not reported.ok or not matchesLutePin(version, pin :: string, base :: string) then
 		fail(("Lute %s differs from the rokit.toml pin %s; run rokit install"):format(version, tostring(pin)))
 	end
 	local problem = aliasProblem(Json.decode(Files.read(".luaurc")), base :: string)
@@ -1363,6 +1367,21 @@ cases = function(): { Case.Case }
 						"the unknown control gained a named form"
 					),
 					Case.expect(string.find(source, 'UI.Badge("Typed")', 1, true) ~= nil, "Badge has no named form")
+				)
+			end,
+		},
+		{
+			name = "Lute accepts the pinned nightly and base version reports",
+			run = function(): string?
+				local pin, base = "1.0.1-nightly.20261006", "1.0.1"
+				return Case.first(
+					Case.expect(matchesLutePin(pin, pin, base), "the pinned nightly was refused"),
+					Case.expect(matchesLutePin(base, pin, base), "the base version was refused"),
+					Case.expect(not matchesLutePin("1.0.0", pin, base), "a different base version was accepted"),
+					Case.expect(
+						not matchesLutePin("1.0.1-nightly.20261007", pin, base),
+						"a different nightly was accepted"
+					)
 				)
 			end,
 		},

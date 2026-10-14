@@ -309,8 +309,7 @@ local function commit(session: Session, options: Options, workspace: string): nu
 			continue
 		end
 		if not tracked(session, path) then
-			local blob = trimmed(must(session, { "hash-object", "-w", path }))
-			must(session, { "update-index", "--add", "--cacheinfo", ("100644,%s,%s"):format(blob, path) }, index)
+			must(session, { "add", "--", path }, index)
 			session.say(("  NEW    %s"):format(path))
 			continue
 		end

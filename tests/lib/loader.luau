@@ -33,15 +33,18 @@ end
 local resolved: { [string]: string } = {}
 
 local function locate(module: string): string
+	if string.sub(module, -5) == ".luau" then
+		if fs.exists(module) then
+			return module
+		end
+		error("no module at " .. module, 0)
+	end
 	if fs.exists(module .. ".luau") then
 		return module .. ".luau"
 	end
 	local index = module .. "/init.luau"
 	if fs.exists(index) then
 		return index
-	end
-	if string.sub(module, -5) == ".luau" and fs.exists(module) then
-		return module
 	end
 	error("no module at " .. module, 0)
 end
