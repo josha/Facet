@@ -562,7 +562,12 @@ end
 
 function Server.poll(hub: Hub, rescan: boolean?)
 	if rescan then
-		for _, path in Workspace.discover(hub.roots) do
+		local known: { [string]: boolean } = {}
+		for _, watched in hub.files do
+			known[watched.path] = true
+			known[watched.key] = true
+		end
+		for _, path in Workspace.discover(hub.roots, nil, known) do
 			track(hub, relative(hub, path), true)
 		end
 	end

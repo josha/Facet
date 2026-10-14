@@ -513,8 +513,9 @@ local SKIP: { [string]: boolean } = {
 	[".claude"] = true,
 }
 
-function Workspace.discover(roots: { string }, limit: number?): { string }
+function Workspace.discover(roots: { string }, limit: number?, known: { [string]: boolean }?): { string }
 	local found: { string } = {}
+	local skip = known or {}
 	local maximum = limit or 2000
 	local function walk(path: string, depth: number)
 		if #found >= maximum or depth > 24 then
@@ -534,7 +535,7 @@ function Workspace.discover(roots: { string }, limit: number?): { string }
 				if not SKIP[entry.name] then
 					walk(child, depth + 1)
 				end
-			elseif string.sub(entry.name, -5) == ".luau" and Workspace.isView(child) then
+			elseif string.sub(entry.name, -5) == ".luau" and not skip[child] and Workspace.isView(child) then
 				table.insert(found, child)
 			end
 		end

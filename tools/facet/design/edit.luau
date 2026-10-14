@@ -228,7 +228,7 @@ local function restOfLine(source: string, offset: number): string
 	return string.sub(source, offset + 1, finish)
 end
 
-function Edit.renderTable(doc: Document, regions: Regions, blocks: { Block }): string
+function Edit.renderTable(doc: Document, regions: Regions, blocks: { Block }, expand: boolean?): string
 	if #blocks == 0 then
 		return "{}"
 	end
@@ -241,7 +241,7 @@ function Edit.renderTable(doc: Document, regions: Regions, blocks: { Block }): s
 		end
 		table.insert(cores, block.core)
 	end
-	if inline then
+	if inline and not expand then
 		local candidate = "{ " .. table.concat(cores, ", ") .. " }"
 		local lineStart = Edit.lineStart(source, regions.open.start)
 		local prefix = string.sub(source, lineStart + 1, regions.open.start)
@@ -328,7 +328,7 @@ function Edit.entries(doc: Document, owner: Node, start: number, count: number, 
 	for index = start + count, total do
 		table.insert(all, Edit.extract(doc, regions, index))
 	end
-	local text = Edit.renderTable(doc, regions, all)
+	local text = Edit.renderTable(doc, regions, all, total == 0)
 	local old = string.sub(source, regions.open.start + 1, regions.close.finish)
 	return {
 		splice = { start = regions.open.start, finish = regions.close.finish, text = text },

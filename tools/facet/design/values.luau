@@ -550,7 +550,7 @@ function Values.print(value: Value, style: Style, scope: Scope): string
 	local kind = value.kind
 	if kind == "string" or kind == "token" then
 		local text = Values.quote(value.value :: string)
-		if value.cast or (value.cast == nil and kind == "token" and style.cast) then
+		if value.cast then
 			return text .. " :: " .. text
 		end
 		return text

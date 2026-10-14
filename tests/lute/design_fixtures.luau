@@ -83,6 +83,21 @@ return function(UI: Facet.Controls, model: { [string]: unknown }): GuiObject
 end
 ]==]
 
+Fixtures.HOST = [==[
+--!strict
+
+local Facet = require(game.ReplicatedStorage.Facet)
+
+return function(UI: Facet.Controls, model: { [string]: unknown }): GuiObject
+	local Host = Facet.Roblox.createRuntime().constructors
+	return UI.Screen "Screen" {
+		Host.Frame "Backdrop" {
+			BackgroundTransparency = 1,
+		},
+	}
+end
+]==]
+
 Fixtures.SPACES = table.concat({
 	"--!strict",
 	"",

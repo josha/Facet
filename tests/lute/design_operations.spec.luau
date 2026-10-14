@@ -335,6 +335,53 @@ return function(verifyHarness: Verify.Harness)
 				contains(text, '        },\n        UI.Divider "Rule" {},\n    }\n')
 			end,
 		},
+		{
+			name = "insert expands an empty table",
+			source = Fixtures.RICH,
+			ops = { { op = "insert", parent = "Root/Panel/#Divider1", node = { kind = "Spacer", label = "Gap" } } },
+			check = function(doc: Doc, text: string)
+				Verify.expect(childIds(doc, "Root/Panel/#Divider1")):toEqual({ "Root/Panel/#Divider1/Gap" })
+				contains(text, '\t\t\tUI.Divider {\n\t\t\t\tUI.Spacer "Gap" {},\n\t\t\t},\n')
+			end,
+		},
+		{
+			name = "wrap and move carry a keyed collection",
+			source = Fixtures.RICH,
+			ops = {
+				{ op = "wrap", node = "Root/Panel/Item[]", kind = "ScrollView", label = "List" },
+				{ op = "move", node = "Root/Panel/List", parent = "Root", index = 0 },
+			},
+			check = function(doc: Doc, text: string)
+				local keyed = node(doc, "Root/List/Item[]")
+				Verify.expect(keyed.type):toBe("keyed")
+				Verify.expect(childIds(doc, "Root/List/Item[]")):toEqual({ "Root/List/Item[]/Item" })
+				contains(
+					text,
+					'\treturn UI.Screen "Root" {\n\t\tgap = "m",\n\t\tUI.ScrollView "List" {\n\t\t\tCompose.keyed({\n'
+				)
+			end,
+		},
+		{
+			name = "set_prop edits a Host control without schema checks",
+			source = Fixtures.HOST,
+			ops = {
+				{ op = "set_prop", node = "Backdrop", prop = "BackgroundTransparency", value = 0.25 },
+				{
+					op = "insert",
+					parent = "Backdrop",
+					node = { kind = "Text", label = "Caption", props = { text = "Hi" } },
+				},
+			},
+			check = function(doc: Doc, text: string)
+				local backdrop = node(doc, "Screen/Backdrop")
+				Verify.expect(backdrop.namespace):toBe("Host")
+				Verify.expect(propText(doc, "Screen/Backdrop", "BackgroundTransparency")):toBe("0.25")
+				contains(
+					text,
+					'\t\tHost.Frame "Backdrop" {\n\t\t\tBackgroundTransparency = 0.25,\n\t\t\tUI.Text "Caption" {\n'
+				)
+			end,
+		},
 	}
 
 	local function run(scenario: Scenario): (Doc, Operations.BatchResult)
