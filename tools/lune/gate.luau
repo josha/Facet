@@ -23,7 +23,7 @@ local PLAN = "tests/plan.json"
 
 local WORKERS = {
 	lune = { worker = "tests/worker.luau", command = nil :: { string }? },
-	lute = { worker = "tests/tools/worker.luau", command = { "lute", "run" } :: { string }? },
+	lute = { worker = "tests/lute/worker.luau", command = { "lute", "run" } :: { string }? },
 }
 
 local function runtimeOf(unit: { requires: { string }? }): string

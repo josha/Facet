@@ -38,6 +38,7 @@ local Analyzer = {}
 Analyzer.LUTE_RUNTIME = {
 	"tools/facet/",
 	"tests/tools/",
+	"tests/lute/",
 	"tools/lute/",
 	"tools/vendor/verify/src/lute/",
 	"tools/vendor/verify/tools/",

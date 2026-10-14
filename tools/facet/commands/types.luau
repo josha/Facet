@@ -1264,7 +1264,7 @@ cases = function(): { Case.Case }
 				local roblox, lute = Analyzer.partition({
 					"src/a.luau",
 					"tools/facet/init.luau",
-					"tests/tools/worker.luau",
+					"tests/lute/worker.luau",
 					"tests/a.spec.luau",
 					"tools/lute/studio_live.luau",
 					"tools/lune/perf.luau",
@@ -1281,7 +1281,7 @@ cases = function(): { Case.Case }
 					}, "roblox"),
 					Case.same(lute, {
 						"tools/facet/init.luau",
-						"tests/tools/worker.luau",
+						"tests/lute/worker.luau",
 						"tools/lute/studio_live.luau",
 						"tools/vendor/verify/src/lute/host.luau",
 						"tools/vendor/verify/tools/studio-worker.luau",

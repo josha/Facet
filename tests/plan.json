@@ -749,6 +749,70 @@
         "local-luau",
         "lute"
       ]
+    },
+    {
+      "id": "lute/design_roundtrip",
+      "locator": "tests/lute/design_roundtrip.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
+    },
+    {
+      "id": "lute/design_operations",
+      "locator": "tests/lute/design_operations.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
+    },
+    {
+      "id": "lute/design_workspace",
+      "locator": "tests/lute/design_workspace.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
+    },
+    {
+      "id": "lute/design_comments",
+      "locator": "tests/lute/design_comments.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
+    },
+    {
+      "id": "lute/design_schema",
+      "locator": "tests/lute/design_schema.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
+    },
+    {
+      "id": "lute/design_mcp",
+      "locator": "tests/lute/design_mcp.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
+    },
+    {
+      "id": "lute/design_server",
+      "locator": "tests/lute/design_server.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
+    },
+    {
+      "id": "lute/design_cli",
+      "locator": "tests/lute/design_cli.spec.luau",
+      "requires": [
+        "local-luau",
+        "lute"
+      ]
     }
   ]
 }
