@@ -342,26 +342,36 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				end
 				table.insert(
 					children,
-					UI.Button "CloseCommand" {
-						Visible = function(use: ComposeTypes.Use)
-							if spec.closeButton ~= nil then
-								return spec.closeButton
-							end
-							local box = safe(use)
-							local size = use(closeContentSize) :: Vector2
-							local unit = use(closeUnit)
-							return box.w / unit < 600
-								or box.w * box.h > 0
-									and (size.X + 2 * PADDING * unit) * (size.Y + 2 * PADDING * unit) >= box.w * box.h * 0.75
-						end,
-						name = "Close",
-						icon = "close",
+					Host.Frame "CloseHeader" {
+						BackgroundTransparency = 1,
+						Size = D2.new(1, 0, 0, 0),
+						AutomaticSize = E.AutomaticSize.Y,
 						LayoutOrder = 0,
-						Size = D2.new(1, 0, 0, 44),
-						AutomaticSize = E.AutomaticSize.None,
-						onActivate = function()
-							propose(false, "cancel")
-						end,
+						Host.UIListLayout {
+							FillDirection = E.FillDirection.Horizontal,
+							HorizontalAlignment = E.HorizontalAlignment.Right,
+							SortOrder = E.SortOrder.LayoutOrder,
+						} :: Types.Child,
+						UI.Button "CloseCommand" {
+							Visible = function(use: ComposeTypes.Use)
+								if spec.closeButton ~= nil then
+									return spec.closeButton
+								end
+								local box = safe(use)
+								local size = use(closeContentSize) :: Vector2
+								local unit = use(closeUnit)
+								return box.w / unit < 600
+									or box.w * box.h > 0
+										and (size.X + 2 * PADDING * unit) * (size.Y + 2 * PADDING * unit) >= box.w * box.h * 0.75
+							end,
+							name = "Close",
+							icon = "close",
+							appearance = "utility",
+							shape = "circle" :: "circle",
+							onActivate = function()
+								propose(false, "cancel")
+							end,
+						},
 					}
 				)
 			end
@@ -385,7 +395,6 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 					ZIndex = 2,
 					body :: Instance,
 					ctx.padding(PADDING, PADDING),
-					ctx.corner(),
 				}, true),
 				"popover"
 			)

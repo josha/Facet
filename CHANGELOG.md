@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Popover Close is a small utility button at the upper right. Native styling
+  owns the panel corner, so its radius matches the connected tail outline.
+
+- Authored theme rules accept `{ metric = "strokes.outline" }` for numeric
+  metrics. They resolve after distance scaling and follow theme changes.
+  Invalid references fail theme validation; literal values keep their meaning.
+- A held Button calls `onPointerCancel` once when destroyed or when its Compose
+  owner is disposed. Cancellation stops repetition before invoking the callback.
+- The Lab demonstrates reactive numeric Button text sizes and an anchored,
+  non-modal Popover on touch. The HUD showcase exposes its display settings
+  through that Popover without blocking other HUD controls.
+
 - ColorPicker opens with fewer native objects and mounts Bricks on its first
   visit. Spectrum dragging keeps the hue gradient unchanged when only
   saturation and value change. Hidden grids skip selection updates.

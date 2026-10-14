@@ -47,6 +47,39 @@ local function visibleNamed(t: any, root: Instance, name: string): any
 	return nil
 end
 
+add("held-button-destruction-cancels", {}, function(t)
+	local value = { down = 0, cancelled = 0, up = 0 }
+	local stage = t.mount(function(UI: FacetControls)
+		return UI.Button "Held" {
+			label = "Hold then remove",
+			Size = UDim2.fromOffset(240, 80),
+			onPointerDown = function()
+				value.down += 1
+			end,
+			onPointerCancel = function()
+				value.cancelled += 1
+			end,
+			onPointerUp = function()
+				value.up += 1
+			end,
+		}
+	end, { frames = 12 })
+	value.button = t.find(stage, "Held")
+	return value
+end, {
+	whileHeld = function(t, value)
+		t.check("native press reached the Button", value.down == 1, value.down)
+		value.button:Destroy()
+		t.settle(3)
+		t.check("destruction cancels the held press once", value.cancelled == 1, value.cancelled)
+	end,
+	afterRelease = function(t, value)
+		t.cleanup()
+		t.check("release and owner cleanup do not cancel twice", value.cancelled == 1, value.cancelled)
+		t.check("destroyed Button did not receive a normal release", value.up == 0, value.up)
+	end,
+})
+
 add("gallery-keyboard-reaches-demos", {}, function(t)
 	local value = {}
 	local stage, context = t.gallery({ size = Vector2.new(1280, 720), demo = "all-controls" })

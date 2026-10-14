@@ -397,6 +397,7 @@ return {
 			},
 		}
 		local function rounds(suffix: string, vertical: boolean)
+			local settingsOpen = Compose.cell(false)
 			return row(if vertical then "RoundsColumn" else "RoundsRow", {
 				UI.Menu({
 					trigger = disc("HudActions" .. suffix .. "Trigger", copy.round1, "menu") :: GuiObject,
@@ -405,6 +406,27 @@ return {
 				disc("Report" .. suffix, copy.round2, "flag", function()
 					reportOpen:set(true)
 				end),
+				UI.Popover({
+					Name = "HudSettings" .. suffix,
+					isPresented = settingsOpen,
+					onPresentedChange = function(open)
+						settingsOpen:set(open)
+					end,
+					trigger = disc("HudSettings" .. suffix .. "Trigger", "HUD settings", "settings") :: GuiButton,
+					title = "HUD settings",
+					modal = false,
+					compact = "popover" :: "popover",
+					closeButton = true,
+					maxWidth = 280,
+					content = function(): Instance
+						return UI.VStack({
+							width = "fill" :: "fill",
+							gap = "s",
+							UI.Toggle({ Name = "SettingsUrlBar" .. suffix, label = copy.urlBarOn, value = urlBar }) :: unknown,
+							UI.Toggle({ Name = "SettingsRideStrip" .. suffix, label = copy.rideOn, value = ride }),
+						})
+					end,
+				}),
 			}, 8, vertical)
 		end
 		local function region(id, zone, rank, mayDrop, ...)

@@ -115,3 +115,51 @@ end
 
 Colors, strokes, radii and shadows come from the theme tokens. A game that
 wants a larger named set adds it to its own theme package.
+
+## HUD settings during gameplay
+
+Use an ordinary settings Button and a Popover. `modal = false` leaves gameplay
+input available outside the panel. `compact = "popover"` keeps that policy on
+small touch screens instead of adapting to a sheet. Give the panel an explicit
+Close control because a non-modal Popover has no outside catcher or Cancel
+binding. The **Screen-anchored HUD** showcase uses this pattern for its URL bar
+and topbar strip settings.
+
+```luau
+local settingsOpen = Compose.cell(false)
+local musicEnabled = Compose.cell(true)
+return UI.Popover {
+    isPresented = settingsOpen,
+    onPresentedChange = function(open) settingsOpen:set(open) end,
+    trigger = UI.Button { icon = "settings", name = "HUD settings" },
+    title = "HUD settings",
+    modal = false,
+    compact = "popover",
+    closeButton = true,
+    content = function()
+        return UI.Toggle { label = "Music", value = musicEnabled }
+    end,
+}
+```
+
+Keep the trigger in the HUD's responder. A passive responder does not enter
+from a D-pad press while at rest. Give gamepad players an explicit menu entry:
+engage the responder and set `GuiService.SelectedObject` to the settings
+trigger when the game opens its menu. Once a sibling is selected, native
+selection moves between eligible controls. Use `NextSelectionDown` and the
+other native links when the game requires an exact neighbour. A non-modal
+Popover does not claim focus; enter its content explicitly if the game needs
+that behavior.
+
+For a layer that requires screen-pixel coordinates, use `app.runtime.mount`
+with `app.Host.ScreenGui { ScreenInsets = Enum.ScreenInsets.None, ... }`.
+Install the theme StyleSheet and StyleLink in that root, as in the styling
+guide, and retain the returned unmount function. This uses the native screen
+boundary without adding per-mount options to `app.mount`.
+
+## Reactive label size
+
+`UI.Button { textSize = sizeCell }` accepts a readable number or type role.
+The Lab's **reactive numeric text size** state switches between 16 and 24 pixels.
+For a custom `UI.Text` child, bind the native `TextSize = sizeCell` property.
+For `UI.Text`, use `textSize = "fit"` only when text should shrink to fit a fixed box.

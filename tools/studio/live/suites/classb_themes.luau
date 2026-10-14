@@ -47,6 +47,38 @@ local function paletteOf(package: any, name: string): any
 	error("missing palette " .. name)
 end
 
+add("authored-metric-native-stroke", {}, function(t)
+	local themes = t.Facet.themes
+	local definition = themes.neutralPackage()
+	definition.metrics.strokes.outline = 3
+	definition.rules = {
+		{ selector = ".metric-outline", properties = { Thickness = { metric = "strokes.outline" } } },
+	}
+	local package = assert(themes.define(definition))
+	local selected, distant
+	local stage = t.mount(function(_UI, Host: RobloxHost, Compose: ComposeModule, env)
+		selected, distant = env.theme, Compose.cell(false)
+		local sheet = themes.createStyleSheet(env.runtime, selected, { tenFoot = distant, transition = false })
+		local stroke = Host.UIStroke "Outline" {}
+		stroke:AddTag("metric-outline")
+		return Host.Frame "Face" {
+			Size = UDim2.fromOffset(140, 80),
+			sheet :: unknown,
+			Host.StyleLink { StyleSheet = Compose.static(sheet) },
+			stroke,
+		}
+	end, { theme = package, size = Vector2.new(400, 300) })
+	local stroke = t.find(stage, "Outline")
+	t.near("native stroke resolves the near metric", stroke:GetStyled("Thickness"), 3, 0.01)
+	distant:set(true)
+	t.settle(6)
+	t.near("native stroke resolves the far metric", stroke:GetStyled("Thickness"), 4.5, 0.01)
+	definition.metrics.strokes.outline = 4
+	selected:set(assert(themes.define(definition)))
+	t.settle(6)
+	t.near("native stroke follows a replacement theme", stroke:GetStyled("Thickness"), 6, 0.01)
+end)
+
 add("skeleton-circle-round-sweep", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Holder" {

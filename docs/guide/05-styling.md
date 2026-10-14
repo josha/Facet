@@ -92,3 +92,127 @@ transition as the controls.
 The [API reference](../reference/api.md#themes) has the full `createStyleSheet`
 contract. [Custom themes](09-custom-themes.md) explains how to make a
 game-owned theme package.
+
+## Game-specific rules
+
+Use Roblox styling first. Facet's theme compiler only resolves palette roles
+and metric references before it emits native rules. For example, add these
+rules to a game theme with `metrics.strokes.outline = 3`:
+
+```luau
+local definition = Facet.themes.neutralPackage()
+definition.metrics.strokes.outline = 3
+definition.rules = {
+    {
+        selector = ".toy-button::UIStroke",
+        properties = {
+            Color = { role = "content" },
+            Thickness = { metric = "strokes.outline" },
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        },
+    },
+    {
+        selector = ".facet-dialog >> .facet-role-cancel",
+        properties = { BackgroundColor3 = { role = "surfaceStrong" } },
+    },
+}
+```
+
+The outline becomes 4.5 pixels at ten feet and follows a theme replacement.
+A literal `Thickness = 3` remains 3. A metric reference must resolve to a finite
+number; it cannot construct a `UDim`, `UDim2` or sequence. Use native values for
+those types. Dialog actions already carry Button role tags, including
+`facet-role-default`, `facet-role-cancel` and `facet-role-destructive`.
+An action's `id` becomes its native `Name`; use `#RaceAgain` for one action.
+
+Roblox creates the pseudo-instances targeted by `::UIStroke`, `::UICorner`,
+`::UIGradient` and `::UIPadding`. Do not add another decoration just to make
+those rules work. Facet also mirrors authored `::UIStroke` rules onto its real
+`facet-fade-stroke` child so the stroke can follow a control fade. Facet enables
+that child during the fade. To remove a stroke in both states, set
+`Thickness = 0`; `Enabled = false` alone does not suppress that fade child.
+This is Facet's fade policy, not a limitation of native `UIStroke.Enabled`.
+Native corner, stroke and gradient rules also decorate `kind = "native"`
+skins; no separate skin fields are needed for these mechanisms.
+
+## Press effects and game state
+
+Use native `:Press` selectors for visual press state. A composite Button can
+contain native children; keep one Button as the activation target. A child
+`UIScale` named `FaceScale` can be selected by
+`.toy-button:Press >> #FaceScale`. Scale a visual face inside a stable hit target
+when a press effect must not change the pointer hit area.
+
+Roblox's `StyleRule:SetPropertyTransitions` supports native property
+transitions. Put geometry transitions on game-owned rules in the same sheet;
+Facet only installs automatic transitions for color and transparency. For
+example, create a rest rule and a press rule for that `UIScale`:
+
+```luau
+local theme = Compose.cell(package)
+local sheet = Facet.themes.createStyleSheet(runtime, theme)
+local rest = Host.StyleRule { Selector = ".toy-button >> #FaceScale", Parent = Compose.static(sheet) }
+local pressed = Host.StyleRule { Selector = ".toy-button:Press >> #FaceScale", Parent = Compose.static(sheet) }
+rest:SetProperties({ Scale = 1 })
+pressed:SetProperties({ Scale = 0.94 })
+local environment = UI.environment()
+Compose.watch(function(use)
+    local motion = use(theme).metrics.motion
+    local duration = if use(environment.reducedMotion) then 0 else motion.press or motion.normal
+    local transitions = { Scale = TweenInfo.new(duration) }
+    rest:SetPropertyTransitions(transitions)
+    pressed:SetPropertyTransitions(transitions)
+end)
+local button = UI.Button {
+    label = "",
+    name = "Drift",
+    Size = UDim2.fromOffset(120, 64),
+    Host.Frame "Face" {
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        Host.UIScale "FaceScale" {},
+        UI.Text { text = "DRIFT", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center },
+    },
+}
+button:AddTag("toy-button")
+return Host.ScreenGui {
+    sheet,
+    Host.StyleLink { StyleSheet = Compose.static(sheet) },
+    button,
+}
+```
+
+Author a transition on both the entered and the exited state. The example uses the selected
+theme’s motion timing. Prefer a child scale to animating a layout-owned `Size` or `Position`. If game logic needs
+`GuiState`, read the Button's native property and observe
+`GetPropertyChangedSignal("GuiState")`; register the connection's disconnect
+with `Compose.cleanup`. Do not mirror pointer events merely to paint a press.
+
+For a semantic game tag, use a Compose watch and native tag methods inside the
+mounted component. The owner stops the watch when the control is removed:
+
+```luau
+local hasItem = Compose.cell(false)
+local button = UI.Button { label = "Item" }
+Compose.watch(function(use)
+    if use(hasItem) then
+        button:AddTag("has-item")
+    else
+        button:RemoveTag("has-item")
+    end
+end)
+return button
+```
+
+For motion that needs a spring, use `runtime.spring` with
+`theme.metrics.motion.springs[name]` and the public reduced-motion fact.
+Motion metrics do not scale with viewing distance, and the internal
+`ctx.motionSpring` only reads the theme; it adds no reduced-motion policy.
+A new app-level wrapper would not remove the game's policy decision.
+
+Checked native APIs: [UI styling](https://create.roblox.com/docs/ui/styling),
+[StyleRule](https://create.roblox.com/docs/reference/engine/classes/StyleRule),
+[GuiObject](https://create.roblox.com/docs/reference/engine/classes/GuiObject),
+and [UIStroke](https://create.roblox.com/docs/reference/engine/classes/UIStroke).
+These provide selectors, transitions, press state and decorations; Compose
+provides their reactive bindings and lifetime.

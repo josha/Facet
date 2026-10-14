@@ -1536,6 +1536,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					stopFrame = nil
 				end
 			end
+			local function cancel()
+				local wasHeld = held
+				release()
+				if wasHeld and spec.onPointerCancel then
+					spec.onPointerCancel()
+				end
+			end
 			local function startRepeat()
 				if stopFrame or not (spec.repeatDelay or spec.repeatInterval) then
 					return
@@ -1551,7 +1558,8 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					activate()
 				end)
 			end
-			Compose.cleanup(release)
+			Compose.cleanup(cancel)
+			runtime.connect(node, "Destroying", cancel)
 			runtime.connect(node, "InputBegan", function(input)
 				local kind = input.UserInputType.Name
 				if
@@ -1581,12 +1589,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					end
 				end
 			end)
-			runtime.connect(node, "MouseLeave", function()
-				if held and spec.onPointerCancel then
-					spec.onPointerCancel()
-				end
-				release()
-			end)
+			runtime.connect(node, "MouseLeave", cancel)
 		end
 
 		local bindings: { Shared.InputBindingNativeProps } = {}
