@@ -13,8 +13,8 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Verify
+  platform:
+    name: Verify (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -98,3 +98,16 @@ jobs:
 
       - name: The model is the library alone
         run: lute run tools/facet check library-purity
+
+  verify:
+    name: Verify
+    needs: platform
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every platform passed
+        run: |
+          if [ "${{ needs.platform.result }}" != "success" ]; then
+            echo "A platform job did not pass: ${{ needs.platform.result }}"
+            exit 1
+          fi
