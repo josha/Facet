@@ -12,6 +12,7 @@ local Attach = require "@self/studio-attach"
 local Mcp = require "@self/studio-mcp"
 local OpenCloud = require "@self/open-cloud"
 local Fixture = require "@self/fixture"
+local Chunk = require "@self/chunk"
 local TypePolicy = require "@self/type-policy"
 local Batch = require "@self/batch"
 local Bounded = require "@self/bounded"
@@ -22,6 +23,8 @@ local Host = require "@self/host"
 local Lock = require "@self/lock"
 local Wire = require "@self/wire"
 local Worker = require "@self/worker"
+local SpecSuite = require "@self/spec-suite"
+local IsolatedUnits = require "@self/isolated-units"
 
 export type AttachmentSink = Attachments.Sink
 export type AttachmentOptions = Attachments.Options
@@ -58,6 +61,12 @@ export type OpenCloudHandle = OpenCloud.Handle
 export type OpenCloudOutcome = OpenCloud.Outcome
 export type OpenCloudSession = OpenCloud.Session
 export type FixtureOptions = Fixture.Options
+export type ChunkOptions = Chunk.Options
+export type FixtureExportOptions = Fixture.ExportOptions
+export type FixtureExecute = Fixture.Execute
+export type FixtureProbe = Fixture.Probe
+export type FixtureProbeResults = Fixture.ProbeResults
+export type ReflectionSnapshot = Fixture.Snapshot
 export type OpenCloudBinding = OpenCloud.Binding
 export type OpenCloudSubmission = OpenCloud.Submission
 export type OpenCloudLogs = OpenCloud.LogsOutcome
@@ -97,6 +106,11 @@ export type WorkerArguments = Worker.Arguments
 export type LoadDisposition = Worker.LoadDisposition
 export type Registrar = Worker.Registrar
 export type SelfRegisteringWorkerOperations = Worker.SelfRegisteringOperations
+export type SpecSuiteInvocation = SpecSuite.Invocation
+export type SpecSuiteDefaults = SpecSuite.Defaults
+export type SpecSuiteOptions = SpecSuite.Options
+export type IsolatedUnitRun = IsolatedUnits.Run
+export type IsolatedUnitOptions = IsolatedUnits.Options
 
 return {
 	platform = Platform,
@@ -108,6 +122,7 @@ return {
 	studio = Studio,
 	openCloud = OpenCloud,
 	fixture = Fixture,
+	chunk = Chunk,
 	gate = Gate,
 	typePolicy = TypePolicy,
 	encode = Wire.encode,
@@ -122,6 +137,8 @@ return {
 	directoryLock = Lock.directoryLock,
 
 	worker = Worker.main,
+	specSuite = SpecSuite,
+	isolatedUnits = IsolatedUnits,
 	workerArguments = Worker.arguments,
 	runWorkerBatch = Worker.runBatch,
 

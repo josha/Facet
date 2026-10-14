@@ -21,10 +21,16 @@ local Transport = require "@self/transport"
 local Types = require "@self/types"
 local Wait = require "@self/wait"
 local Console = require "@self/console"
+local SourceCorpus = require "@self/source-corpus"
+
+export type SourceIdentity = SourceCorpus.Identity
+export type SourceCorpusManifest = SourceCorpus.Manifest
 
 export type OperationRequest = Operations.Request
 export type CaseHost = Operations.Host
 export type Operation<I, O> = Operations.Operation<I, O>
+export type OperationBinding = Operations.Binding
+export type OperationHostOptions = Operations.HostOptions
 export type NamedCase = HarnessModule.NamedCase
 export type PerformanceInput = Performance.Input
 export type PerformanceSummary = Performance.Summary
@@ -122,8 +128,11 @@ export type RunProgress = Progress.Progress
 export type ClassifyConsoleOptions = Console.ClassifyOptions
 
 return {
+	sourceCorpus = SourceCorpus,
 	operation = Operations.operation,
 	bindOperation = Operations.bind,
+	bindHostOperation = Operations.binding,
+	operationHost = Operations.host,
 	DESELECTED_PREFIX = HarnessModule.DESELECTED_PREFIX,
 	runCase = HarnessModule.runCase,
 	runCases = HarnessModule.runCases,
