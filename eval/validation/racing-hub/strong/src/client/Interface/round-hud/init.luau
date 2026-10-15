@@ -291,7 +291,7 @@ local function mount(context: Context)
 		render()
 	end)
 	api.onEvent(function(event: Round.Event)
-		table.insert(lines, ("%s eliminated %s"):format(event.by, event.victim))
+		table.insert(lines, ("%s knocked out: last on %s"):format(event.victim, event.by))
 		while #lines > FEED_LINES do
 			table.remove(lines, 1)
 		end

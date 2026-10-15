@@ -196,14 +196,16 @@ local function cases(kind: string): { Play.Case }
 			run = function(qa, context)
 				qa:admin("manual")
 				qa:admin("phase", { phase = "Round", seconds = 120 })
-				qa:admin("eliminate", { victim = "Zed", by = "Nova" })
+				qa:admin("eliminate", { victim = "Zed", lap = 1 })
+				qa:admin("laps", { name = "Nova", laps = 2 })
 				qa:admin("eliminate", { victim = "Ivy", by = "Nova" })
-				qa:admin("eliminate", { victim = "Pip", by = "Moss" })
+				qa:admin("eliminate", { victim = "Pip", lap = 1 })
+				qa:admin("laps", { name = "Moss", laps = 1 })
 				tap(qa, context, "Scoreboard")
-				Check.text(qa, context, "^eliminations$", "the scoreboard names its column")
+				Check.text(qa, context, "^laps$", "the scoreboard names its column")
 				Check.text(qa, context, "^team$", "the scoreboard has a Team column")
 				Check.text(qa, context, "^racer$", "the scoreboard has a Racer column")
-				Check.that(context, ordered(qa, "Nova", "Moss"), "two eliminations rank above one")
+				Check.that(context, ordered(qa, "Nova", "Moss"), "two completed laps rank above one")
 				Check.visible(qa, context, { text = "you", clipped = true }, "the scoreboard marks the local player")
 				Check.visible(
 					qa,
@@ -213,7 +215,8 @@ local function cases(kind: string): { Play.Case }
 				)
 				capture(qa, "scoreboard")
 				qa:admin("eliminate", { victim = "Bolt", by = "Moss" })
-				qa:admin("eliminate", { victim = "Rook", by = "Moss" })
+				qa:admin("eliminate", { victim = "Rook", lap = 2 })
+				qa:admin("laps", { name = "Moss", laps = 3 })
 				Check.that(
 					context,
 					Check.eventually(4, function()
@@ -225,9 +228,9 @@ local function cases(kind: string): { Play.Case }
 				if qa.device.id == "desktop" then
 					local ok = qa:press("Tab")
 					Check.that(context, ok, "Tab reaches the game")
-					Check.text(qa, context, "^eliminations$", "Tab opens the scoreboard")
+					Check.text(qa, context, "^laps$", "Tab opens the scoreboard")
 					qa:press("Tab")
-					Check.absent(qa, context, "^eliminations$", "Tab closes the scoreboard")
+					Check.absent(qa, context, "^laps$", "Tab closes the scoreboard")
 				end
 				qa:admin("phase", { phase = "Results", seconds = 120 })
 				tap(qa, context, "Back to hub")
