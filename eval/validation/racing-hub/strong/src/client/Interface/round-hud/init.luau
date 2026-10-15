@@ -128,7 +128,8 @@ local function mount(context: Context)
 			- hubScreen.AbsolutePosition.Y
 			+ Kit.space.small
 		commands.Position = UDim2.new(1, -16, 0, top)
-		commands.Size = UDim2.new(0, 156, 1, -(top + 16))
+		commands.Size =
+			UDim2.new(0, 156, if game:GetService("UserInputService").TouchEnabled then 0.5 else 1, -(top + 16))
 	end
 	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
 	bluePanel:GetPropertyChangedSignal("AbsolutePosition"):Connect(layoutCommands)

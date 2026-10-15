@@ -33,7 +33,7 @@ local function mount(context: Context)
 	badge.Name = "Ready"
 	badge.AutomaticSize = Enum.AutomaticSize.None
 	badge.AnchorPoint = Vector2.new(1, 0)
-	badge.Position = UDim2.new(1, 6, 0, -10)
+	badge.Position = UDim2.new(1, 6, 0, -16)
 	badge.Size = UDim2.fromOffset(56, 22)
 	badge.BackgroundTransparency = 0
 	badge.BackgroundColor3 = Kit.colors.danger
