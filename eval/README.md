@@ -5,8 +5,9 @@ the hub and ten chained follow-ups. [`extended-spec.json`](extended-spec.json)
 keeps the detailed briefs as a diagnostic. The headline uses universal checks
 and the blind judge; exact-spec results are reported without gating. See the
 [tier counts, scoped Studio MCP handoff and calibration commands](validation/vibe.md).
-The [slice run receipt](validation/slice-run.md) records the current Verify pin
-and live results. Universal calibration does not pass yet.
+The [slice report](reports/slice-2026-10-15.md) records the harness correction,
+reference calibration and re-scored saved builds. The earlier
+[slice run receipt](validation/slice-run.md) is historical evidence.
 
 FacetBench measures how well AI coding agents build Roblox game interfaces. It compares two arms on the same game:
 
