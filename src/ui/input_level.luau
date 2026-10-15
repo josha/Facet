@@ -18,13 +18,12 @@ type LevelSpec = Shared.TextButtonProps & inputKit.ValueState<number> & InputTyp
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
 	local runtime, Host, Compose = ctx.runtime, ctx.Host, ctx.Compose
-	local read, props = ctx.read, ctx.props
+	local read = ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
-	local lists, enabled, requireValue, changed = kit.lists, kit.enabled, kit.requireValue, kit.changed
-	local attributes, adjustment = kit.attributes, kit.adjustment
+	local enabled, changed = kit.enabled, kit.changed
 	local function level(source: InputProps.RatingProps | InputProps.LevelPickerProps, rating: boolean): TextButton
 		local spec = (source :: Shared.TextButtonProps) :: LevelSpec
-		requireValue(spec, "number", if rating then "Rating" else "LevelPicker")
+		kit.requireValue(spec, "number", if rating then "Rating" else "LevelPicker")
 		local count = spec.count or 5
 		assert(
 			type(count) == "number" and count > 0 and count % 1 == 0 and count < math.huge,
@@ -138,7 +137,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			BackgroundTransparency = 1,
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = D2.fromScale(0.5, 0.5),
-			lists.list({ gap = 2, align = "end" }, false),
+			kit.lists.list({ gap = 2, align = "end" }, false),
 		}
 		for index, mark in marks do
 			runtime.decorate(mark, { LayoutOrder = index })
@@ -190,7 +189,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				changed(spec, assert(snapshot))
 			end
 		end
-		local p = props(
+		local p = ctx.props(
 			spec,
 			{
 				"value",
@@ -309,7 +308,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local function published(use: ComposeTypes.Use): number
 			return math.clamp(read(spec.value, use), minimum, count)
 		end
-		attributes(root, {
+		kit.attributes(root, {
 			value = published,
 			minimum = minimum,
 			maximum = count,
@@ -320,7 +319,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		runtime.connect(root, "InputBegan", function()
 			suppressActivation = false
 		end)
-		adjustment(root, spec, function(direction)
+		kit.adjustment(root, spec, function(direction)
 			apply((read(spec.value) :: number) + direction)
 		end, cancel, minimum, count)
 		Compose.watch(function(use: ComposeTypes.Use)

@@ -9,10 +9,10 @@ local ComposeTypes = require("../vendor/compose/core")
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
 	local Compose, read = ctx.Compose, ctx.read
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
-	local enabled, writable, attributes = kit.enabled, kit.writable, kit.attributes
+	local enabled = kit.enabled
 	UI.Chip = ctx.construct("Chip", function(spec: InputTypes.ChipImplementationProps): TextButton | Frame
 		assert(
-			spec.selected == nil or writable(spec.selected) or type(spec.onToggle) == "function",
+			spec.selected == nil or kit.writable(spec.selected) or type(spec.onToggle) == "function",
 			"Facet.Chip: read-only selected requires onToggle"
 		)
 		assert(spec.selected ~= nil or spec.onRemove, "Facet.Chip: selected or onRemove is required")
@@ -162,7 +162,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		node = ctx.styled(UI.Button(p), "chip")
 		node:AddTag("facet-selection-mark")
 		if removable then
-			attributes(
+			kit.attributes(
 				node,
 				{
 					AccessibleLabel = function(use: ComposeTypes.Use): string

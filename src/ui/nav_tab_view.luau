@@ -318,7 +318,7 @@ return function(
 				spec.onChange(id)
 			end
 		end
-		local metrics = tabMetrics(ctx, spec, {
+		local frame: tabMetrics.TabFrame = {
 			fit = fit,
 			placement = placement,
 			visibleTabs = visibleTabs,
@@ -328,13 +328,12 @@ return function(
 			footHeight = footHeight,
 			trailingWidth = trailingWidth,
 			indicatorOf = indicatorOf,
-		})
+		}
+		local metrics = tabMetrics(ctx, spec, frame)
 		local floating, floatingSize, floatingPosition =
 			metrics.floating, metrics.floatingSize, metrics.floatingPosition
-		local segmentedTop, segmentWidth, plated, inset =
-			metrics.segmentedTop, metrics.segmentWidth, metrics.plated, metrics.inset
-		local band, railWidth, bottomInset, contentGap =
-			metrics.band, metrics.railWidth, metrics.bottomInset, metrics.contentGap
+		local segmentedTop, segmentWidth, inset = metrics.segmentedTop, metrics.segmentWidth, metrics.inset
+		local band, railWidth, bottomInset = metrics.band, metrics.railWidth, metrics.bottomInset
 		local barExtent, stripLayout, stripOverflows, stripContent =
 			metrics.barExtent, metrics.stripLayout, metrics.stripOverflows, metrics.stripContent
 		local INSET = segmentMetrics.inset
@@ -385,11 +384,7 @@ return function(
 			}) :: Types.Child,
 			stripLayout :: Types.Child,
 			tabItem(ctx, UI, surfaces, spec, {
-				fit = fit,
-				placement = placement,
-				visibleTabs = visibleTabs,
-				layoutUnit = layoutUnit,
-				indicatorOf = indicatorOf,
+				frame = frame,
 				select = select,
 				sectionLabels = sectionLabels,
 				tabButtons = tabButtons,
@@ -512,7 +507,12 @@ return function(
 				return if place == "sidebar"
 					then D2.new(1, -(railWidth(use)), 1, 0)
 					elseif place == "none" then D2.fromScale(1, 1)
-					else D2.new(1, 0, 1, -band(use) - contentGap(use) - use(aboveHeight) - bottomInset(use))
+					else D2.new(
+						1,
+						0,
+						1,
+						-band(use) - metrics.contentGap(use) - use(aboveHeight) - bottomInset(use)
+					)
 			end,
 			Compose.LayerStack({
 				from = visited,
@@ -631,7 +631,7 @@ return function(
 			ZIndex = 1,
 			BorderSizePixel = 0,
 			Visible = function(use: ComposeTypes.Use)
-				return (plated(use) or floating(use)) and not use(collapsed)
+				return (metrics.plated(use) or floating(use)) and not use(collapsed)
 			end,
 			Size = function(use: ComposeTypes.Use)
 				if floating(use) then
@@ -726,10 +726,7 @@ return function(
 			end),
 		})
 		tabAccessories(ctx, surfaces, spec, root, {
-			placement = placement,
-			headHeight = headHeight,
-			footHeight = footHeight,
-			trailingWidth = trailingWidth,
+			frame = frame,
 			aboveHeight = aboveHeight,
 			metrics = metrics,
 		})

@@ -39,18 +39,17 @@ return function(
 ): Frame
 	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
-	local tagWhile = parts.tagWhile
-	local isRange, withTime, draft, locale = options.isRange, options.withTime, options.draft, options.locale
+	local isRange, draft, locale = options.isRange, options.draft, options.locale
 	local viewMonth, room, dual, preferred = state.viewMonth, state.room, state.dual, state.preferred
 	local presented, requestPresented, close = state.presented, state.requestPresented, state.close
 	local typedError, valueText, typedEntry = state.typedError, state.valueText, state.typedEntry
-	local enabled, interactive, mayEdit = state.enabled, state.interactive, state.mayEdit
-	local isDisabled, propose, commit = state.isDisabled, state.propose, state.commit
+	local enabled, interactive = state.enabled, state.interactive
+	local propose = state.propose
 	local landing = calendar.landing
 
 	local function parseOne(s: string): (CivilDate?, string?)
-		local d, why = civil.parse(s, locale, withTime)
-		if d ~= nil and isDisabled(d) then
+		local d, why = civil.parse(s, locale, options.withTime)
+		if d ~= nil and state.isDisabled(d) then
 			return nil, "That date is not available."
 		end
 		return d, why
@@ -100,7 +99,7 @@ return function(
 		typedError:set("")
 		if propose(next) then
 			if not draft then
-				commit()
+				state.commit()
 			end
 			local anchor = if isRange then (next :: Range).start else next :: CivilDate?
 			if anchor ~= nil then
@@ -165,7 +164,7 @@ return function(
 				box.Text = valueText:peek()
 				return
 			end
-			if not mayEdit() then
+			if not state.mayEdit() then
 				box.Text = valueText:peek()
 				return
 			end
@@ -198,7 +197,7 @@ return function(
 				requestPresented(true)
 			end,
 		})
-		tagWhile(show, "facet-secondary", function(use: Use)
+		parts.tagWhile(show, "facet-secondary", function(use: Use)
 			return use(valueText) == ""
 		end)
 		return show

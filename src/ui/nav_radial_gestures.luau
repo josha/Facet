@@ -58,12 +58,10 @@ return function<V>(
 	local spec, session, appearance, gestureSelection = menu.spec, menu.session, menu.appearance, menu.gestureSelection
 	local opened, path, candidate, interacting = menu.opened, menu.path, menu.candidate, menu.interacting
 	local naming, touchPoint, holding = menu.naming, menu.touchPoint, menu.holding
-	local jump, cancel, close, nativeActivate, beginPointer =
-		menu.jump, menu.cancel, menu.close, menu.nativeActivate, menu.beginPointer
+	local cancel, nativeActivate = menu.cancel, menu.nativeActivate
 	local origin, center, layout, sectors, fallback =
 		arrangement.origin, arrangement.center, arrangement.layout, arrangement.sectors, arrangement.fallback
 	local buttons, focus, gui, panel = paint.buttons, paint.focus, paint.gui, paint.panel
-	local showCenter, centerNode, reachOf = hub.showCenter, hub.centerNode, hub.reachOf
 	local function choose(sector: Radial.Sector<V>?): Radial.Sector<V>?
 		if sector and read(sector.item.enabled) == false then
 			sector = nil
@@ -74,7 +72,7 @@ return function<V>(
 	local function beyond(position: Vector3): boolean
 		local ring = layout:peek()
 		local at = center:peek() + origin:peek()
-		return not ring.list and V2.new(position.X - at.X, position.Y - at.Y).Magnitude > reachOf(ring)
+		return not ring.list and V2.new(position.X - at.X, position.Y - at.Y).Magnitude > hub.reachOf(ring)
 	end
 	session.aimPointer = function(
 		position: Vector3,
@@ -167,7 +165,7 @@ return function<V>(
 		end
 	end
 	runtime.connect(panel, "InputBegan", function(input: InputObject)
-		beginPointer(input, true)
+		menu.beginPointer(input, true)
 	end)
 	local inputService = surfaces.service("UserInputService")
 	runtime.connect(inputService or panel, "InputChanged", function(input: InputObject)
@@ -229,7 +227,7 @@ return function<V>(
 			local sector = if outside or launcherTap then nil else assert(session.aimPointer)(input.Position, true)
 			cancel()
 			if outside then
-				close()
+				menu.close()
 			elseif type(sector) == "table" then
 				nativeActivate(sector, input, "gesture")
 			end
@@ -270,7 +268,7 @@ return function<V>(
 		local entries = use(sectors)
 		local validPath = use(layout).path
 		if #validPath < #path:peek() then
-			jump(validPath)
+			menu.jump(validPath)
 		end
 		local wanted, found = candidate:peek(), false
 		for _, sector in entries do
@@ -337,7 +335,7 @@ return function<V>(
 				return bestKey, false
 			end
 			local here = V2.new(current.x, current.y)
-			if read(showCenter) and aligned(-here) >= math.cos(math.rad(45)) then
+			if read(hub.showCenter) and aligned(-here) >= math.cos(math.rad(45)) then
 				return nil, true
 			end
 			table.sort(entries, function(a, b)
@@ -373,7 +371,7 @@ return function<V>(
 				if centre then
 					candidate:set(nil)
 					if gui then
-						gui.SelectedObject = centerNode
+						gui.SelectedObject = hub.centerNode
 					end
 					return
 				end

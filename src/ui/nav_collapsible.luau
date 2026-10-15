@@ -16,7 +16,7 @@ return function(
 ): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local body, revealMotion = kit.body, kit.revealMotion
+	local body = kit.body
 	UI.CollapsibleView = ctx.construct(
 		"CollapsibleView",
 		function(spec: NavigationProps.CollapsibleViewSpec): TextButton
@@ -52,7 +52,7 @@ return function(
 			Compose.watch(function(use: ComposeTypes.Use)
 				entered:set(use(spec.expanded) and use(prepared))
 			end)
-			local progress, closed, opacity = revealMotion(entered)
+			local progress, closed, opacity = kit.revealMotion(entered)
 			local function hidden(use: ComposeTypes.Use): number
 				return if use(prepared) then opacity(use) else 1
 			end

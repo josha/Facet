@@ -29,17 +29,15 @@ return function<V>(
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local spec, session = menu.spec, menu.session
-	local reduced, glyphOnly, appearance, corner = menu.reduced, menu.glyphOnly, menu.appearance, menu.corner
+	local reduced, appearance = menu.reduced, menu.appearance
 	local contentFit: Radial.ContentFit = menu.contentFit
-	local preferred, opened, candidate, naming = menu.preferred, menu.opened, menu.candidate, menu.naming
-	local beginPointer, nativeActivate, pointing, skin =
-		menu.beginPointer, menu.nativeActivate, menu.pointing, menu.skin
-	local centerTarget, following, center = arrangement.centerTarget, arrangement.following, arrangement.center
+	local preferred, candidate, naming = menu.preferred, menu.candidate, menu.naming
+	local following, center = arrangement.following, arrangement.center
 	local captionPadding, wordWidths, sectors, fallback =
 		arrangement.captionPadding, arrangement.wordWidths, arrangement.sectors, arrangement.fallback
 	local entry = runtime.timeline({ duration = ctx.metric("motion.radial.enter") })
 	Compose.watch(function(use: ComposeTypes.Use)
-		use(centerTarget)
+		use(arrangement.centerTarget)
 		if entry.completed:peek() then
 			following:set(true)
 		end
@@ -69,7 +67,7 @@ return function<V>(
 		if live.list then
 			return false
 		end
-		if glyphOnly(live.item) then
+		if menu.glyphOnly(live.item) then
 			return true
 		end
 		local item = live.item
@@ -124,7 +122,7 @@ return function<V>(
 		Active = function(use: ComposeTypes.Use)
 			return use(fallback) or not spec.centerPassThrough
 		end,
-		Interactable = opened,
+		Interactable = menu.opened,
 		Selectable = false,
 		CanvasSize = D2.fromOffset(0, 0),
 		AutomaticCanvasSize = function(use: ComposeTypes.Use)
@@ -150,7 +148,7 @@ return function<V>(
 							visit(read(item.children, use), if prefix == "" then item.id else key)
 						end
 					end
-					if spec.center and spec.center ~= "back" and not corner then
+					if spec.center and spec.center ~= "back" and not menu.corner then
 						table.insert(entries, prefix .. "/$navigation")
 					end
 				end
@@ -277,7 +275,7 @@ return function<V>(
 							LayoutOrder = function(use: ComposeTypes.Use)
 								return currentSector(use).index
 							end,
-							InputBegan = beginPointer,
+							InputBegan = menu.beginPointer,
 							MouseEnter = function()
 								if
 									not session.capture
@@ -285,7 +283,7 @@ return function<V>(
 									and (preferred == nil or preferred:peek() ~= E.PreferredInput.Touch)
 								then
 									candidate:set(currentSector().key)
-									naming:set(pointing())
+									naming:set(menu.pointing())
 								end
 							end,
 							MouseLeave = function()
@@ -328,7 +326,7 @@ return function<V>(
 							end,
 							selected = chosen,
 							onActivate = function(input: InputObject?)
-								nativeActivate(currentSector(), input)
+								menu.nativeActivate(currentSector(), input)
 							end,
 							SelectionGained = function()
 								focus.focus(currentSector().key)
@@ -372,7 +370,7 @@ return function<V>(
 						Compose.cleanup(function()
 							buttons[sector.key] = nil
 						end)
-						skin(button, spec.skin and spec.skin.item, function(use: ComposeTypes.Use)
+						menu.skin(button, spec.skin and spec.skin.item, function(use: ComposeTypes.Use)
 							return use(candidate) == currentSector(use).key
 						end)
 						local caption = button:FindFirstChild("Title", true)

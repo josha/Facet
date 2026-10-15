@@ -24,9 +24,8 @@ return function(
 ): () -> Frame
 	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
-	local months = options.months
 	local viewMonth, minDate, maxDate = state.viewMonth, state.minDate, state.maxDate
-	local peekMonth, monthClosed, canPage, page = state.peekMonth, state.monthClosed, state.canPage, state.page
+	local peekMonth = state.peekMonth
 	local interactive = state.interactive
 	local upTarget = calendar.upTarget
 
@@ -104,9 +103,9 @@ return function(
 			for m = 1, 12 do
 				table.insert(list, {
 					value = m,
-					label = months[m],
+					label = options.months[m],
 					enabled = function(inner: Use): boolean
-						return not monthClosed({ year = inner(viewMonth).year, month = m, day = 1 }, inner)
+						return not state.monthClosed({ year = inner(viewMonth).year, month = m, day = 1 }, inner)
 					end,
 				})
 			end
@@ -144,10 +143,10 @@ return function(
 				shape = "circle" :: "circle",
 				appearance = "utility",
 				enabled = function(use: Use)
-					return interactive(use) and canPage(delta, use)
+					return interactive(use) and state.canPage(delta, use)
 				end,
 				onActivate = function()
-					page(delta)
+					state.page(delta)
 				end,
 			})
 		end

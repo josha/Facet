@@ -10,7 +10,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 	local runtime, Host, Compose = ctx.runtime, ctx.Host, ctx.Compose
 	local read, props = ctx.read, ctx.props
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
-	local noKey = kit.noKey
 	UI.ShortcutHint = ctx.construct(
 		"ShortcutHint",
 		function(spec: InputTypes.ShortcutHintImplementationProps): TextLabel | Frame
@@ -197,7 +196,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 										local keys: { string } = {}
 										local service = input
 										for _, code in { use(primary), use(secondary), use(key) } do
-											if code and code ~= noKey then
+											if code and code ~= kit.noKey then
 												local ok, found = true, ""
 												if service and service.GetStringForKeyCode then
 													ok, found = pcall(function(): string

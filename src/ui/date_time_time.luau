@@ -27,7 +27,7 @@ return function(
 	local Host, Compose = ctx.Host, ctx.Compose
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local draft, minuteStep, hourCycle, clock = options.draft, options.minuteStep, options.hourCycle, options.clock
-	local value, anchorDate, prefers = state.value, state.anchorDate, state.prefers
+	local value, anchorDate = state.value, state.anchorDate
 	local interactive, propose, commit = state.interactive, state.propose, state.commit
 	local downTarget = calendar.downTarget
 
@@ -152,7 +152,7 @@ return function(
 			table.insert(times, { id = `{minutes // 60}:{minutes % 60}`, hour = minutes // 60, minute = minutes % 60 })
 		end
 		local list = Compose.show(function(use: Use)
-			return prefers(E.PreferredInput.Touch, use)
+			return state.prefers(E.PreferredInput.Touch, use)
 		end, function()
 			local at: CivilDate = value:peek() or clock()
 			if at.hour == nil then

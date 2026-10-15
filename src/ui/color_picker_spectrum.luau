@@ -23,8 +23,8 @@ return function(
 ): () -> Frame
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local color, ring, WHITE, BLACK = kit.color, kit.ring, kit.WHITE, kit.BLACK
-	local held, canon, selected, preferred = state.held, state.canon, state.selected, state.preferred
+	local color, ring, WHITE = kit.color, kit.ring, kit.WHITE
+	local held, canon, selected = state.held, state.canon, state.selected
 	local interactive, mayEdit, propose, commit, touch, gamepad =
 		state.interactive, state.mayEdit, state.propose, state.commit, state.touch, state.gamepad
 	local bubble, hueSlider = sliders.bubble, sliders.hueSlider
@@ -84,7 +84,7 @@ return function(
 		end
 		local first = true
 		Compose.watch(function(use: Use)
-			use(preferred)
+			use(state.preferred)
 			if not first then
 				cancelDrag()
 			end
@@ -150,7 +150,7 @@ return function(
 				Host.Frame "Value" {
 					Size = D2.fromScale(1, 1),
 					BorderSizePixel = 0,
-					BackgroundColor3 = BLACK,
+					BackgroundColor3 = kit.BLACK,
 					Host.UIGradient "Gradient" {
 						Rotation = 90,
 						Transparency = ctx.types.NumberSequence.new({

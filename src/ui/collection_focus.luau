@@ -21,14 +21,14 @@ return function<V, K>(
 	local input = ctx.config.userInputService
 	local belongsTo, findSelectable = State.belongsTo, State.findSelectable
 	local spec, kind, keyOf, tree = view.spec, view.kind, view.keyOf, view.tree
-	local source, viewport, cross, mountedVersion = view.source, view.viewport, view.cross, view.mountedVersion
-	local status, controls, selection, measured = view.status, view.controls, view.selection, view.measured
-	local horizontal, focusActive, noFocusCandidates = view.horizontal, view.focusActive, view.noFocusCandidates
-	local mounted, cellEdits, placed = view.mounted, view.cellEdits, view.placed
+	local source, viewport, mountedVersion = view.source, view.viewport, view.mountedVersion
+	local status, controls = view.status, view.controls
+	local horizontal, focusActive = view.horizontal, view.focusActive
+	local mounted = view.mounted
 	local restoring = false
 	local focusGeometry = Compose.formula(function(use: ComposeTypes.Use)
 		use(mountedVersion)
-		for _, placement in placed do
+		for _, placement in view.placed do
 			use(placement)
 		end
 		local current = use(status)
@@ -48,14 +48,14 @@ return function<V, K>(
 	local focusScope = Compose.createFocusScope({
 		from = function(use: ComposeTypes.Use)
 			if not use(focusActive) then
-				return noFocusCandidates
+				return view.noFocusCandidates
 			end
 			if kind == "list" then
 				return source(use)
 			end
 			use(focusGeometry)
-			use(cross)
-			use(measured)
+			use(view.cross)
+			use(view.measured)
 			read(spec.measured, use)
 			read(spec.columns, use)
 			read(spec.itemSize, use)
@@ -282,14 +282,14 @@ return function<V, K>(
 			return nil
 		end
 		local key: K? = nil
-		for candidate in readSource(selection, use) do
+		for candidate in readSource(view.selection, use) do
 			if key ~= nil then
 				return nil
 			end
 			key = candidate
 		end
 		key = key or readSource(focusScope.current, use)
-		local edits = if key ~= nil then cellEdits[key] else nil
+		local edits = if key ~= nil then view.cellEdits[key] else nil
 		if edits then
 			for _, action in edits do
 				if action.enabled(use) then

@@ -20,7 +20,7 @@ return function(
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
 	local shared = PickerParts(ctx, surfaces)
-	local pickerKeys, appearanceFor, derive = shared.keys, shared.appearanceFor, shared.derive
+	local pickerKeys, derive = shared.keys, shared.derive
 	local menus = pickerMenus(ctx, UI, shared, buildMenu)
 	local cardsStyle = pickerCards(ctx, UI, shared)
 	local optionsStyle = pickerOptions(ctx, UI, surfaces, shared)
@@ -79,7 +79,7 @@ return function(
 			controlSize = spec.controlSize,
 			corners = spec.corners,
 		})
-		appearanceFor(declaredStyle, read(spec.appearance))
+		shared.appearanceFor(declaredStyle, read(spec.appearance))
 		assert(
 			spec.maxHeight == nil
 				or (type(spec.maxHeight) == "number" and spec.maxHeight > 0 and spec.maxHeight < math.huge),

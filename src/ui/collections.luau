@@ -27,7 +27,7 @@ export type BuildList = <V, K>(
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
-	local props, observe = ctx.props, ctx.observe
+	local observe = ctx.observe
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local behavior = {
 		"children",
@@ -120,10 +120,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		end
 		local view = State.create(ctx, spec, kind, keyOf, tree, actionsWrapped, source)
 		local viewport, cross, status, controls = view.viewport, view.cross, view.status, view.controls
-		local selection, selectionMode, measured, horizontal =
-			view.selection, view.selectionMode, view.measured, view.horizontal
-		local cardsMode, unit, unitSize, retiring = view.cardsMode, view.unit, view.unitSize, view.retiring
-		local mainEdge, crossEdge, cardLayout = view.mainEdge, view.crossEdge, view.cardLayout
+		local measured, horizontal = view.measured, view.horizontal
+		local retiring = view.retiring
+		local mainEdge, crossEdge = view.mainEdge, view.crossEdge
 		local root: ScrollingFrame
 		local writingOffset = false
 		local function setOffset(requested: number): ()
@@ -147,7 +146,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 				or spec.drop
 				or spec.reorderable
 				or spec.deletable
-				or (spec.editing ~= nil and selectionMode ~= "none" and spec.selectionIndicator ~= false)
+				or (spec.editing ~= nil and view.selectionMode ~= "none" and spec.selectionIndicator ~= false)
 			then reorder(
 				ctx,
 				UI,
@@ -158,7 +157,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 				function()
 					return root
 				end,
-				selection,
+				view.selection,
 				Compose.cell(nil :: CollectionTypes.Sort?),
 				spec.editing,
 				kind == "grid",
@@ -190,7 +189,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			local extent = if current and current.extent then current.extent else 0
 			return if extent > 0 then extent + 2 * mainEdge(use) else 0
 		end)
-		local native = props(spec, behavior, {
+		local native = ctx.props(spec, behavior, {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = D2.fromScale(1, 1),
@@ -233,7 +232,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			end
 			return Host.Frame(nativeProps)
 		end)
-		table.insert(native, unit)
+		table.insert(native, view.unit)
 		root = ctx.styled(Host.ScrollingFrame(native), "Collection")
 		Compose.cleanup(function()
 			for node, release in retiring do
@@ -259,7 +258,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			end)
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
-			local scale = use(unitSize).X
+			local scale = use(view.unitSize).X
 			local dimensions, at = use(size), use(position)
 			use(ancestryVersion)
 			local ancestor = use(mountParent)
@@ -349,11 +348,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 				end
 			end)
 		end
-		if spec.snap == "item" or cardsMode then
+		if spec.snap == "item" or view.cardsMode then
 			attachSnap(ctx, spec, root, controls, status, viewport, setOffset, function()
 				return writingOffset
 			end, function()
-				local _, perView = cardLayout()
+				local _, perView = view.cardLayout()
 				return spec.snap == "item" or perView == 1
 			end)
 		end

@@ -17,10 +17,10 @@ local ComposeTypes = require("../vendor/compose/core")
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
 	local runtime, Host, Compose = ctx.runtime, ctx.Host, ctx.Compose
-	local read, props = ctx.read, ctx.props
+	local read = ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
-	local dynamic, hasText, enabled, repeatHeld = kit.dynamic, kit.hasText, kit.enabled, kit.repeatHeld
-	local noKey, unskinned, typeRoles = kit.noKey, kit.unskinned, kit.typeRoles
+	local dynamic, enabled = kit.dynamic, kit.enabled
+	local noKey, typeRoles = kit.noKey, kit.typeRoles
 	local dialogOrder = 0
 	local roles: { [string]: boolean } = { default = true, cancel = true, destructive = true, onIndicator = true }
 	local roleTags: { [string]: string } = {}
@@ -256,7 +256,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			defaults.Selectable = enabledProperty
 			defaults.Interactable = enabledProperty
 		end
-		local p = props(spec, buttonKeys, defaults)
+		local p = ctx.props(spec, buttonKeys, defaults)
 		local targetFloor = if spec.controlSize ~= nil and ctx.config.userInputService ~= nil
 			then ctx.touchFloor()
 			else nil
@@ -552,7 +552,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			local row: InputTypes.Row = spec.row or {}
 			local described = row.description or spec.subtitle or spec.hint
 			Compose.watch(function(use: ComposeTypes.Use)
-				if hasText(described, use) then
+				if kit.hasText(described, use) then
 					node:AddTag("facet-button-described")
 				else
 					node:RemoveTag("facet-button-described")
@@ -736,7 +736,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			})
 		end
 
-		if not unskinned[spec] then
+		if not kit.unskinned[spec] then
 			local function skin()
 				ctx.skin(node, "control", {
 					selected = spec.selected,
@@ -876,7 +876,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				if stopFrame or not (spec.repeatDelay or spec.repeatInterval) then
 					return
 				end
-				stopFrame = repeatHeld(assert(runtime.host.frames), repeatDelay, repeatInterval, function(): boolean
+				stopFrame = kit.repeatHeld(assert(runtime.host.frames), repeatDelay, repeatInterval, function(): boolean
 					if not held or not enabled(spec) or not ctx.available(node) then
 						release()
 						return false

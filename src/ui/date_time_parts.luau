@@ -36,13 +36,13 @@ local function sameRange(a: Range, b: Range): boolean
 end
 
 local function new(ctx: Shared.Context): Parts
-	local Host, Compose = ctx.Host, ctx.Compose
+	local Host = ctx.Host
 	local D2, V2 = ctx.types.UDim2, ctx.types.Vector2
 	local gui = ctx.config.guiService
 	local input = ctx.config.services.UserInputService
 
 	local function tagWhile(node: Instance, tag: string, on: (Use) -> boolean)
-		Compose.watch(function(use: Use)
+		ctx.Compose.watch(function(use: Use)
 			if on(use) then
 				node:AddTag(tag)
 			elseif node:HasTag(tag) then

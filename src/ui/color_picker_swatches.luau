@@ -22,12 +22,11 @@ return function(
 ): Swatches
 	local Compose, Host, read, readSource = ctx.Compose, ctx.Host, ctx.read, ctx.readSource
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
-	local color, swatch, WHITE = kit.color, kit.swatch, kit.WHITE
-	local spec, saving, removing = state.spec, state.saving, state.removing
+	local color = kit.color
+	local spec, removing = state.spec, state.removing
 	local gui, selected, held, canon = state.gui, state.selected, state.held, state.canon
-	local modeCell, columns, editing, swatchList = state.modeCell, state.columns, state.editing, state.swatchList
-	local interactive, mayEdit, propose, commit, brickName =
-		state.interactive, state.mayEdit, state.propose, state.commit, state.brickName
+	local columns, editing, swatchList = state.columns, state.editing, state.swatchList
+	local interactive, propose = state.interactive, state.propose
 
 	local function landAfterRemoval(grid: Instance, index: number)
 		if not gui then
@@ -52,7 +51,7 @@ return function(
 		local owned: { [Instance]: { item: ComposeTypes.Readable<Item>, index: ComposeTypes.Readable<number> } } = {}
 		local grid: Frame
 		local function removeAt(item: Item, index: number)
-			if not mayEdit() then
+			if not state.mayEdit() then
 				return
 			end
 			local remove = spec.onRemoveSwatch
@@ -123,7 +122,7 @@ return function(
 				return saveCell(index)
 			end
 			local function chosen(use: Use): boolean
-				if use(modeCell) ~= mode then
+				if use(state.modeCell) ~= mode then
 					return false
 				end
 				local value = use(held)
@@ -152,10 +151,10 @@ return function(
 						return
 					end
 					if propose(color.hsvOf(entry.color, canon:peek())) then
-						commit()
+						state.commit()
 					end
 				end,
-				swatch("Swatch", D2.fromScale(1, 1), function(use: Use): Paint
+				kit.swatch("Swatch", D2.fromScale(1, 1), function(use: Use): Paint
 					return { color = use(source).color, alpha = 1 }
 				end) :: Shared.Child,
 				ctx.icon("checkmark", {
@@ -235,8 +234,8 @@ return function(
 	local function swatchesView(): Frame
 		local items = function(use: Use): { Item }
 			local list = table.clone(use(swatchList))
-			if saving then
-				table.insert(list, { key = SAVE_KEY, color = WHITE })
+			if state.saving then
+				table.insert(list, { key = SAVE_KEY, color = kit.WHITE })
 			end
 			return list
 		end
@@ -272,7 +271,7 @@ return function(
 					ctx.text({
 						Name = "BrickName",
 						Text = function(use: Use)
-							return brickName(use(held)) or "No engine colour matches"
+							return state.brickName(use(held)) or "No engine colour matches"
 						end,
 					}),
 				}, { Name = "NameField", ctx.padding(SPACE, 6) :: Shared.Child }),

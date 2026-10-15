@@ -12,12 +12,11 @@ export type Pointer<K> = {
 }
 return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 	local ctx, spec, gesture = shared.ctx, shared.spec, shared.gesture
-	local Compose = ctx.Compose
 	local read = ctx.read
 	local V2, E = ctx.types.Vector2, ctx.types.Enum
-	local moving, selection, source, keyOf = shared.moving, shared.selection, shared.source, shared.keyOf
-	local reorderable, rowNodes, movable, arbiter = shared.reorderable, shared.rowNodes, shared.movable, shared.arbiter
-	local grid, horizontal, pluginGui, editing = shared.grid, shared.horizontal, shared.pluginGui, shared.editing
+	local moving, source = shared.moving, shared.source
+	local reorderable, arbiter = shared.reorderable, shared.arbiter
+	local grid, pluginGui, editing = shared.grid, shared.pluginGui, shared.editing
 	local disarm, begin, axis, movePointer = shared.disarm, shared.begin, shared.axis, shared.movePointer
 	local cancel, commit, input = shared.cancel, shared.commit, shared.input
 	local pressed: K? = nil
@@ -42,14 +41,14 @@ return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 		if gesture.touchOrigin then
 			return
 		end
-		local row = rowNodes[key]
+		local row = shared.rowNodes[key]
 		local options: DragTypes.SourceSpec? = nil
 		if value.UserInputType == E.UserInputType.Touch and spec.drag then
 			local items, keys = {}, {}
-			local selected = read(selection)
+			local selected = read(shared.selection)
 			for index, item in read(spec.selectionFrom or source) do
-				local candidate = keyOf(item, index)
-				if movable(item) and (candidate == key or (selected[key] and selected[candidate])) then
+				local candidate = shared.keyOf(item, index)
+				if shared.movable(item) and (candidate == key or (selected[key] and selected[candidate])) then
 					table.insert(items, item)
 					table.insert(keys, candidate)
 				end
@@ -71,7 +70,7 @@ return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 						then (options and options.touchPickup) or "longPress"
 						else "immediate",
 					axis = (options and options.touchDragAxis)
-						or (if grid then "XY" elseif horizontal then "X" else "Y"),
+						or (if grid then "XY" elseif shared.horizontal then "X" else "Y"),
 					scroll = true,
 				})
 			then
@@ -236,7 +235,7 @@ return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 				ctx.observe.MouseEnabled(input),
 				ctx.observe.KeyboardEnabled(input),
 				ctx.observe.GamepadEnabled(input)
-			Compose.watch(function(use: ComposeTypes.Use)
+			ctx.Compose.watch(function(use: ComposeTypes.Use)
 				local move = use(moving)
 				if
 					move

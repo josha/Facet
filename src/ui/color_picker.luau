@@ -41,7 +41,7 @@ local KEYS = {
 }
 
 return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
-	local Compose, runtime = ctx.Compose, ctx.runtime
+	local runtime = ctx.runtime
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
 	local kit = Kit.new(ctx)
 	local chrome, color = kit.chrome, kit.color
@@ -49,9 +49,8 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 	local function build(spec: Spec): Frame
 		local state = createState(ctx, kit, spec)
 		local style, labelled, diagnostics = state.style, state.labelled, state.diagnostics
-		local held, canon, valueText, presented = state.held, state.canon, state.valueText, state.presented
-		local modeCell, formatCell, placement, hexError =
-			state.modeCell, state.formatCell, state.placement, state.hexError
+		local held, canon, presented = state.held, state.canon, state.presented
+		local placement, hexError = state.placement, state.hexError
 		local columns, editing, enabled = state.columns, state.editing, state.enabled
 		local panelView = createPanel(ctx, UI, surfaces, kit, state)
 
@@ -65,7 +64,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		if style == "inline" then
 			local view = panelView(false, function()
 				return false
-			end, Compose.cell(math.huge))
+			end, ctx.Compose.cell(math.huge))
 			if chrome.present(spec) then
 				root = chrome.wrap({
 					control = "ColorPicker",
@@ -94,7 +93,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					return if value == nil then "" else color.hex(value)
 				end,
 				text = function(use: Use): string
-					return valueText(use)
+					return state.valueText(use)
 				end,
 				hue = function(use: Use): number
 					return use(canon).h * 360
@@ -106,10 +105,10 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					return use(canon).v * 100
 				end,
 				mode = function(use: Use): string
-					return use(modeCell)
+					return use(state.modeCell)
 				end,
 				format = function(use: Use): string
-					return use(formatCell)
+					return use(state.formatCell)
 				end,
 				presented = function(use: Use): boolean
 					return presented(use)

@@ -11,15 +11,14 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local gui = kit.gui
-	local preference, selecting, within, displayed, firstSelectable, attach =
-		kit.preference, kit.selecting, kit.within, kit.displayed, kit.firstSelectable, kit.attach
+	local within, displayed, firstSelectable = kit.within, kit.displayed, kit.firstSelectable
 	local function modal(content: () -> GuiObject, dismiss: (string?) -> (), options: Nav.ModalOptions?): Frame
 		local spec: Nav.ModalOptions = options or {}
 		local exiting = spec.exiting
 		local shown = spec.appearance
 		local previous = if gui then gui.SelectedObject else nil
-		local preferred = preference()
-		local focusIn = selecting()
+		local preferred = kit.preference()
+		local focusIn = kit.selecting()
 		local panel = content()
 		runtime.decorate(panel, {
 			SelectionGroup = true,
@@ -120,7 +119,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 		if spec.backgroundTransparency == nil and catcher then
 			catcher:AddTag("facet-scrim")
 			if shown then
-				attach(catcher, {
+				kit.attach(catcher, {
 					Host.UIGradient "ScrimFade" {
 						Transparency = function(use: ComposeTypes.Use)
 							return ctx.types.NumberSequence.new(1 - shown(use))

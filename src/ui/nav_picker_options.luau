@@ -17,10 +17,8 @@ local RADIO_MARK = 18 + 8
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces, shared: PickerParts.Parts)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
-	local pickerKeys, appearanceFor, derive, liveIcon =
-		shared.keys, shared.appearanceFor, shared.derive, shared.liveIcon
-	local layoutWidth, wrapWhenLong, sideChrome, wrapCaptions =
-		shared.layoutWidth, shared.wrapWhenLong, shared.sideChrome, shared.wrapCaptions
+	local pickerKeys, derive = shared.keys, shared.derive
+	local layoutWidth, sideChrome, wrapCaptions = shared.layoutWidth, shared.sideChrome, shared.wrapCaptions
 	local function slideSelection(
 		picker: Frame,
 		boxes: {
@@ -285,7 +283,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 								return read(use(source).description, use) or ""
 							end
 							else nil,
-						icon = liveIcon(source),
+						icon = shared.liveIcon(source),
 						TextSize = spec.textSize,
 						TextXAlignment = if style == "segmented" then E.TextXAlignment.Center else nil,
 						trailingIcon = if read(spec.indicator) == "none" and style ~= "segmented"
@@ -529,7 +527,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
 							return use(room) - 2 * segmentMetrics.inset
 						end, peers)
-						wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): string
+						shared.wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): string
 							return `{use(room) - 2 * segmentMetrics.inset}|{peers(use)}`
 						end, button, true)
 						local caption = button:FindFirstChild("Title", true) or button:FindFirstChild("Label", true)
@@ -752,7 +750,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 			if spec.appearance ~= nil then
 				Compose.watch(function(use: ComposeTypes.Use)
-					local word = appearanceFor("segmented", read(spec.appearance, use))
+					local word = shared.appearanceFor("segmented", read(spec.appearance, use))
 					local stroke, utility = word == "stroke", word == "utility"
 					if stroke then
 						picker:AddTag("facet-segmented-stroke")

@@ -16,7 +16,7 @@ return function(
 ): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local body, empty = kit.body, kit.empty
+	local body = kit.body
 	type CalloutRegistration = { id: number, eligible: ComposeTypes.Readable<boolean>, priority: number }
 	local callouts = Compose.cell({} :: { CalloutRegistration })
 	local nextCallout = 0
@@ -89,7 +89,7 @@ return function(
 			end
 			return active == registration
 		end)
-		local root = empty(spec, {
+		local root = kit.empty(spec, {
 			"anchor",
 			"content",
 			"dismissLabel",

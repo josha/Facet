@@ -26,11 +26,10 @@ return function(
 ): Frame
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local chrome, swatch = kit.chrome, kit.swatch
+	local chrome = kit.chrome
 	local spec, labelled, placement, columns = state.spec, state.labelled, state.placement, state.columns
 	local enabled, touch, presented, requestPresented, close =
 		state.enabled, state.touch, state.presented, state.requestPresented, state.close
-	local valueText, semanticName, currentPaint = state.valueText, state.semanticName, state.currentPaint
 
 	local function place(
 		use: Use,
@@ -115,7 +114,7 @@ return function(
 		)
 	end
 	local edge = if labelled then 24 else 32
-	table.insert(parts, swatch("Swatch", D2.fromOffset(edge, edge), currentPaint))
+	table.insert(parts, kit.swatch("Swatch", D2.fromOffset(edge, edge), state.currentPaint))
 	if labelled then
 		table.insert(
 			parts,
@@ -123,7 +122,7 @@ return function(
 				ctx.text({
 					Name = "Value",
 					Text = function(use: Use)
-						return valueText(use)
+						return state.valueText(use)
 					end,
 					TextTruncate = E.TextTruncate.AtEnd,
 				}),
@@ -143,7 +142,7 @@ return function(
 	layout.HorizontalAlignment = if labelled then E.HorizontalAlignment.Left else E.HorizontalAlignment.Center
 	local well = UI.Button("Well")({
 		name = function(use: Use): string
-			return semanticName(use)
+			return state.semanticName(use)
 		end,
 		appearance = if labelled then nil else "utility",
 		enabled = function(use: Use): boolean

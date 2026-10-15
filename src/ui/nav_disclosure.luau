@@ -14,7 +14,7 @@ return function(
 ): ()
 	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
-	local body, revealMotion, unroll = kit.body, kit.revealMotion, kit.unroll
+	local body = kit.body
 	UI.DisclosureGroup = ctx.construct("DisclosureGroup", function(spec: NavigationProps.DisclosureGroupSpec): Frame
 		assert(
 			type(spec.expanded) == "table" and spec.expanded.set,
@@ -74,7 +74,7 @@ return function(
 			end
 		end
 
-		local progress, closed, hidden = revealMotion(spec.expanded)
+		local progress, closed, hidden = kit.revealMotion(spec.expanded)
 		local caret = header:FindFirstChild(if side == "leading" then "LeadingIcon" else "TrailingIcon", true)
 		if caret and caret:IsA("GuiObject") then
 			runtime.decorate(caret, {
@@ -129,7 +129,7 @@ return function(
 						node,
 					}
 					surfaces.attach(fade, { inset :: Types.Child })
-					local automatic, height = unroll(progress, ctx.observe.AbsoluteSize(fade))
+					local automatic, height = kit.unroll(progress, ctx.observe.AbsoluteSize(fade))
 					local reveal = Host.Frame "Reveal" {
 						BackgroundTransparency = 1,
 						ClipsDescendants = true,

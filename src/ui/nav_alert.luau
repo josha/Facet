@@ -19,7 +19,6 @@ return function(
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local empty = kit.empty
 	local function presented<P>(
 		spec: { isPresented: ComposeTypes.Cell<boolean>?, item: ComposeTypes.Cell<P?>? }
 	): ComposeTypes.Body<boolean>
@@ -54,7 +53,7 @@ return function(
 		): { Nav.AlertAction<P> }?
 			return if type(value) == "function" then value(payload) else value
 		end
-		local root = empty(spec, {
+		local root = kit.empty(spec, {
 			"title",
 			"message",
 			"actions",

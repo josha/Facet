@@ -13,14 +13,14 @@ return function<V, K>(
 	canvasAt: ComposeTypes.Cell<Vector2>,
 	bodyAt: ComposeTypes.Cell<UDim2>
 ): Frame
-	local ctx, UI, spec, gesture = shared.ctx, shared.UI, shared.spec, shared.gesture
+	local ctx, spec, gesture = shared.ctx, shared.spec, shared.gesture
 	local Compose, Host = ctx.Compose, ctx.Host
 	local read = ctx.read
 	local D2, V2 = ctx.types.UDim2, ctx.types.Vector2
 	local moving, incoming, choosingDestination, drag =
 		shared.moving, shared.incoming, shared.choosingDestination, shared.drag
-	local source, controls, rowNodes, commit = shared.source, shared.controls, shared.rowNodes, shared.commit
-	local grid, horizontal, scaleOf, alongBody = shared.grid, shared.horizontal, shared.scaleOf, shared.alongBody
+	local source, controls, rowNodes = shared.source, shared.controls, shared.rowNodes
+	local grid, horizontal, scaleOf = shared.grid, shared.horizontal, shared.scaleOf
 	local axis, crossAxis = shared.axis, shared.crossAxis
 	local function dragImage(dropY: (ComposeTypes.Use) -> number): (Frame, number, UDim2)
 		local move = assert(moving:peek())
@@ -64,7 +64,7 @@ return function<V, K>(
 				local window = axis(body.AbsoluteWindowSize) / scaleOf(body)
 				local along = if live and live.pointer
 					then math.clamp(
-						alongBody(body, live.pointer) + base - extent / 2,
+						shared.alongBody(body, live.pointer) + base - extent / 2,
 						base,
 						math.max(base, base + window - extent - stack)
 					)
@@ -256,9 +256,9 @@ return function<V, K>(
 						and not use(choosingDestination)
 						and (spec.onReorder ~= nil or spec.drop ~= nil)
 				end,
-				onActivate = commit,
+				onActivate = shared.commit,
 			}
-			gesture.keyboardTarget = UI.Button(keyboardTargetProps)
+			gesture.keyboardTarget = shared.UI.Button(keyboardTargetProps)
 			local nativeProps: Types.FrameProps = {
 				Name = "DropFeedback",
 				ZIndex = FEEDBACK_Z,

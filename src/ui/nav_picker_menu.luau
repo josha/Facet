@@ -13,7 +13,7 @@ return function(
 	shared: PickerParts.Parts,
 	buildMenu: MenuItems.BuildMenu
 )
-	local Compose, runtime, read = ctx.Compose, ctx.runtime, ctx.read
+	local runtime, read = ctx.runtime, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local pickerKeys, appearanceFor = shared.keys, shared.appearanceFor
 	local function menuStyle<V>(spec: NavigationProps.PickerSpec<V>, choice: PickerParts.Choice<V>): GuiObject
@@ -162,7 +162,7 @@ return function(
 	end
 	local function linkStyle<V>(spec: NavigationProps.PickerSpec<V>, choice: PickerParts.Choice<V>): GuiObject
 		local isSelected = choice.isSelected
-		local opened: ComposeTypes.Cell<boolean> = spec.isPresented or Compose.cell(false)
+		local opened: ComposeTypes.Cell<boolean> = spec.isPresented or ctx.Compose.cell(false)
 		local chosenText = function(use: ComposeTypes.Use): string
 			for _, option in read(spec.options, use) do
 				if isSelected(option.value, use) then

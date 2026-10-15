@@ -26,19 +26,16 @@ return function<V, K>(
 	local observe = ctx.observe
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
-	local belongsTo = State.belongsTo
-	local spec, keyOf, tree = view.spec, view.keyOf, view.tree
+	local spec, tree = view.spec, view.tree
 	local kind: ComposeTypes.OrderedCollectionLayoutKind = view.kind
-	local actionsWrapped, source, viewport, cross = view.actionsWrapped, view.source, view.viewport, view.cross
+	local source, viewport, cross = view.source, view.viewport, view.cross
 	local mountedVersion, status, controls, selection = view.mountedVersion, view.status, view.controls, view.selection
-	local onlySelected, coordinator, selectionMode, selectRow =
-		view.onlySelected, view.coordinator, view.selectionMode, view.selectRow
-	local measured, containsCards, horizontal, cardsMode =
-		view.measured, view.containsCards, view.horizontal, view.cardsMode
-	local frames, reduced, unitSize, focusActive = view.frames, view.reduced, view.unitSize, view.focusActive
+	local coordinator, selectionMode = view.coordinator, view.selectionMode
+	local measured, containsCards, horizontal = view.measured, view.containsCards, view.horizontal
+	local reduced, focusActive = view.reduced, view.focusActive
 	local mounted, cellEdits, placed, poolOwner = view.mounted, view.cellEdits, view.placed, view.poolOwner
-	local preparing, retiring, waiting, pool = view.preparing, view.retiring, view.waiting, view.pool
-	local crossEdge, cardLayout, fullSizes = view.crossEdge, view.cardLayout, view.fullSizes
+	local preparing, waiting = view.preparing, view.waiting
+	local crossEdge, fullSizes = view.crossEdge, view.fullSizes
 	local slotSource, withSlots = slots.source, slots.wrap
 	local function select(key: K, current: ComposeTypes.Readable<V>, input: InputObject?, clicks: number?): ()
 		if policy.disabled(spec.disabled, current:peek()) or activation.consumed(input) then
@@ -50,7 +47,7 @@ return function<V, K>(
 		local pointer = input ~= nil and input.UserInputType == E.UserInputType.MouseButton1
 		local double = pointer and (clicks or 0) >= 2
 		if not double then
-			selectRow(key, current:peek(), input)
+			view.selectRow(key, current:peek(), input)
 		end
 		local choosing = selectionMode ~= "none" and read(spec.editing) == true
 		if spec.onActivate and not choosing and (selectionMode == "none" or not pointer or double) then
@@ -121,7 +118,9 @@ return function<V, K>(
 				return {
 					kind = kind,
 					columns = columns,
-					itemSize = if cardsMode then (cardLayout(use)) else read(spec.itemSize or 40, use) :: number,
+					itemSize = if view.cardsMode
+						then (view.cardLayout(use))
+						else read(spec.itemSize or 40, use) :: number,
 					gap = if tree then 0 else gap,
 					crossGap = crossGap,
 					crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
@@ -133,7 +132,7 @@ return function<V, K>(
 					rowPlacement: ComposeTypes.Readable<ComposeTypes.Placement>,
 					key: K
 				)
-					local lease = pool.acquire()
+					local lease = view.pool.acquire()
 					local node = runtime.borrow(lease.value.node) :: Frame
 					local contentOwner = poolOwner.createChild()
 					local function retained<T>(row: ComposeTypes.Readable<T>): ComposeTypes.Readable<T>
@@ -206,7 +205,7 @@ return function<V, K>(
 						local seconds = ctx.metric("motion.durations.glide")
 						local present = ctx.motionEase("present")
 						glide:set(delta)
-						stopGlide = frames.onFrame(function(step: number)
+						stopGlide = view.frames.onFrame(function(step: number)
 							elapsed = math.min(seconds, elapsed + step)
 							glide:set(delta * (1 - present(elapsed / seconds)))
 							if elapsed >= seconds then
@@ -270,7 +269,7 @@ return function<V, K>(
 								end
 								table.insert(cellEdits[key], gated)
 							end
-							if not actionsWrapped then
+							if not view.actionsWrapped then
 								rendered, actionHeight = policy.actions(
 									ctx,
 									spec,
@@ -337,7 +336,7 @@ return function<V, K>(
 									Attributes = {
 										FacetSelectionRequired = selectionMode ~= "none",
 										FacetOnlySelected = function(use: ComposeTypes.Use)
-											return use(onlySelected) == key
+											return use(view.onlySelected) == key
 										end,
 										FacetSelected = function(use: ComposeTypes.Use)
 											return read(selection, use)[key] == true
@@ -470,7 +469,7 @@ return function<V, K>(
 							then observe.Scale(lift)
 							else Compose.cell(1)
 						Compose.watch(function(use: ComposeTypes.Use)
-							local ancestors = use(unitSize).X
+							local ancestors = use(view.unitSize).X
 							if ancestors <= 0 then
 								ancestors = 1
 							end
@@ -494,7 +493,7 @@ return function<V, K>(
 						end)
 					end
 					Compose.cleanup(function()
-						if gui and belongsTo(gui.SelectedObject, node) then
+						if gui and State.belongsTo(gui.SelectedObject, node) then
 							view.focusOwned = true
 							gui.SelectedObject = nil
 						end
@@ -513,7 +512,7 @@ return function<V, K>(
 							return cell:peek()
 						end)
 						for index, item in nextRows do
-							local nextKey = keyOf(item, index)
+							local nextKey = view.keyOf(item, index)
 							wanted = wanted or nextKey == key
 							local window = viewport:peek()
 							local at = if controls.placementOf then controls.placementOf(index) else nil
@@ -539,7 +538,7 @@ return function<V, K>(
 							parked = previousParent
 							node.Parent = parked
 							content.Interactable = false
-							retiring[node] = release
+							view.retiring[node] = release
 						else
 							release()
 						end

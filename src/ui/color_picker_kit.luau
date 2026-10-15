@@ -42,7 +42,7 @@ local function writable(source: unknown): boolean
 end
 
 local function new(ctx: Shared.Context): Kit
-	local Compose, Host = ctx.Compose, ctx.Host
+	local Host = ctx.Host
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local C3 = ctx.types.Color3
 	local chrome = fieldChrome(ctx)
@@ -151,7 +151,7 @@ local function new(ctx: Shared.Context): Kit
 				end,
 				ctx.corner() :: Shared.Child,
 				Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),
-				Compose.show(function(use: Use): boolean
+				ctx.Compose.show(function(use: Use): boolean
 					local p = paint(use)
 					return p.color ~= nil and p.alpha < 1
 				end, function(): CanvasGroup
