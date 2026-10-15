@@ -211,12 +211,15 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		else
 			parent = Compose.cell(nil :: Instance?)
 			available = Compose.cell(false)
-			local ancestry = Compose.cell(0)
-			runtime.connect(node, "AncestryChanged", function()
-				ancestry:set(ancestry:peek() + 1)
-			end)
-			Compose.watch(function(use)
-				use(ancestry)
+			local ancestryOwner: ComposeTypes.Owner?
+			local function locate()
+				if owner.isDisposed() then
+					return
+				end
+				if ancestryOwner then
+					ancestryOwner.dispose()
+					ancestryOwner = nil
+				end
 				local inputParent: Instance? = config.inputParent
 				if inputParent == nil then
 					local root: Instance? = node
@@ -229,32 +232,38 @@ return function(ctx: Shared.Context, config: Shared.Config)
 						return
 					end
 				end
-				local sources: { ComposeTypes.Readable<boolean> } = {}
-				local at: Instance? = node
-				local collector: Instance? = nil
-				while at do
-					if at:IsA("GuiObject") then
-						table.insert(sources, ctx.observe.Visible(at))
-						table.insert(sources, ctx.observe.Interactable(at))
-					elseif at:IsA("LayerCollector") then
-						collector = at
-						table.insert(sources, ctx.observe.Enabled(at))
-						break
-					end
-					at = at.Parent
-				end
-				local target: Instance? = if inputParent then inputParent else collector
-				parent:set(target)
-				Compose.watch(function(use: ComposeTypes.Use)
-					local enabled = true
-					for _, source in sources do
-						if use(source) == false then
-							enabled = false
+				local childOwner = owner.createChild()
+				ancestryOwner = childOwner
+				Compose.withOwner(childOwner, function()
+					local sources: { ComposeTypes.Readable<boolean> } = {}
+					local at: Instance? = node
+					local collector: Instance? = nil
+					while at do
+						if at:IsA("GuiObject") then
+							table.insert(sources, ctx.observe.Visible(at))
+							table.insert(sources, ctx.observe.Interactable(at))
+						elseif at:IsA("LayerCollector") then
+							collector = at
+							table.insert(sources, ctx.observe.Enabled(at))
+							break
 						end
+						at = at.Parent
 					end
-					available:set(enabled)
+					local target: Instance? = if inputParent then inputParent else collector
+					parent:set(target)
+					Compose.watch(function(use: ComposeTypes.Use)
+						local enabled = true
+						for _, source in sources do
+							if use(source) == false then
+								enabled = false
+							end
+						end
+						available:set(enabled)
+					end)
 				end)
-			end)
+			end
+			locate()
+			runtime.connect(node, "AncestryChanged", locate)
 		end
 		local gui = config.guiService
 		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil

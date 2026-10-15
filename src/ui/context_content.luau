@@ -11,7 +11,7 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 	local writable = (label :: unknown) :: { FontFace: Font, TextSize: number, AutomaticSize: Enum.AutomaticSize }
 	local previousFace: Font?, previousSize: number? = nil, nil
 	local frames = services.RunService
-	local deferred = if frames then runtime.scheduler() else nil
+	local owner = assert(Compose.currentOwner())
 	local pending = false
 	local alive = true
 	local refreshing = false
@@ -40,10 +40,12 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 		end
 	end
 	local function deferReflow()
-		if not pending and deferred and alive and not refreshing and label.AutomaticSize ~= Enum.AutomaticSize.None then
+		if not pending and frames and alive and not refreshing and label.AutomaticSize ~= Enum.AutomaticSize.None then
 			pending = true
+			local deferred = runtime.scheduler(owner)
 			deferred.after(0, function()
 				pending = false
+				deferred.dispose()
 				reflow(true)
 			end)
 		end
