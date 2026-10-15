@@ -153,6 +153,14 @@ return function(harness: Verify.Harness)
 				t:expect(RaceSpace.safeContent(dump)):toBe(false)
 			end
 			element.rect = { x = size[3] + 16, y = 74, width = 100, height = 44 }
+			local action = table.clone(element)
+			action.text = nil
+			action.interactive = true
+			action.selectable = false
+			action.rect = { x = size[3] + 16, y = 0, width = 44, height = 44 }
+			dump.elements = { action }
+			t:expect(not RaceSpace.safeContent(dump)):toBeTrueWith("unlabelled actions also clear the core UI")
+			dump.elements = { element }
 			element.interactive = true
 			element.selectable = true
 			(element.text :: Audit.Text).content = "Close"
