@@ -72,7 +72,9 @@ return {
 		for _, element in dump.elements do
 			local text = element.text
 			local hud = text ~= nil and text.content ~= "" and text.transparency < 0.95
-			if not element.visible or not (hud or (element.interactive and element.interactable)) then
+			if
+				not element.visible or not (hud or ((element.interactive or element.active) and element.interactable))
+			then
 				continue
 			end
 			local rect = clipped(clipped(element.rect, element.clip), element.scrollClip)
@@ -177,14 +179,6 @@ return {
 			dump,
 			{ x = screen.width / 3, y = screen.height * 0.35, width = screen.width / 3, height = screen.height * 0.3 },
 			false
-		)
-	end,
-	thumbstickClear = function(dump: Audit.Dump): boolean
-		local screen = dump.screen
-		return clear(
-			dump,
-			{ x = 0, y = screen.height * 0.6, width = screen.width * 0.35, height = screen.height * 0.4 },
-			true
 		)
 	end,
 }

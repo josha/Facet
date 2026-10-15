@@ -44,6 +44,19 @@ local function query(words: string): QA.Query
 	return { role = "button", text = string.lower(words) }
 end
 
+local function helpCopy(qa: QA.QA): string
+	local texts = qa:texts()
+	for index, text in texts do
+		local normalized = string.gsub(string.gsub(text, "%d+:%d%d:%d%d", "<timer>"), "%d+:%d%d", "<timer>")
+		if string.find(string.lower(text), "offer", 1, true) ~= nil then
+			normalized = string.gsub(normalized, "%d+", "#")
+		end
+		texts[index] = normalized
+	end
+	table.sort(texts)
+	return table.concat(texts, "\n")
+end
+
 local function press(qa: QA.QA, context: Core.Context, words: string)
 	qa:reveal(query(words))
 	Check.tap(qa, context, query(words), "use " .. words)
@@ -65,6 +78,26 @@ local function back(qa: QA.QA, context: Core.Context)
 	else
 		Check.tap(qa, context, found :: QA.Query, "return one level")
 	end
+end
+
+local function touchRegions(qa: QA.QA, context: Core.Context, screen: string): { Space.TouchRect }
+	local controls = qa:call("touchControls")
+	Check.that(context, Check.field(controls, "available") == true, "runtime touch controls are observable")
+	local regions: { Space.TouchRect } = {}
+	local raw = Check.field(controls, "rectangles")
+	assert(type(raw) == "table", "runtime touch rectangles are required")
+	for _, item in raw :: { unknown } do
+		local path = Check.field(item, "path")
+		table.insert(regions, {
+			path = if type(path) == "string" then path else nil,
+			x = Check.number(item, "rect", "x"),
+			y = Check.number(item, "rect", "y"),
+			width = Check.number(item, "rect", "width"),
+			height = Check.number(item, "rect", "height"),
+		})
+	end
+	context:attach(screen .. "-touch-controls", "application/json", Lute.encode(controls))
+	return regions
 end
 
 local function observe(qa: QA.QA, context: Core.Context, screen: string): Audit.Dump
@@ -104,25 +137,9 @@ local function observe(qa: QA.QA, context: Core.Context, screen: string): Audit.
 	end
 	Check.that(context, Space.selectionValid(dump), "selection is valid")
 	if qa.device.mode == "touch" then
-		local controls = qa:call("touchControls")
-		Check.that(context, Check.field(controls, "available") == true, "runtime touch controls are observable")
-		local regions: { Space.TouchRect } = {}
-		local raw = Check.field(controls, "rectangles")
-		assert(type(raw) == "table", "runtime touch rectangles are required")
-		for _, item in raw :: { unknown } do
-			local path = Check.field(item, "path")
-			table.insert(regions, {
-				path = if type(path) == "string" then path else nil,
-				x = Check.number(item, "rect", "x"),
-				y = Check.number(item, "rect", "y"),
-				width = Check.number(item, "rect", "width"),
-				height = Check.number(item, "rect", "height"),
-			})
-		end
-		context:attach(screen .. "-touch-controls", "application/json", Lute.encode(controls))
 		Check.that(
 			context,
-			Space.touchControlsClear(dump, regions),
+			Space.touchControlsClear(dump, touchRegions(qa, context, screen)),
 			"UI and HUD text clear the actual thumbstick, jump and CAS buttons"
 		)
 	end
@@ -136,6 +153,7 @@ local function cases(id: string): { Play.Case }
 	end
 	add("hub", "universal-hub", function(qa, context)
 		qa:admin("manual")
+		qa:admin("system", { system = "hud-dock", command = "pause" })
 		qa:admin("phase", { phase = "Intermission", seconds = 600 })
 		Check.visible(qa, context, query("Shop"), "hub actions are available", 20)
 		Check.that(context, qa:first({ role = "button", exact = "back" }) == nil, "root has no Back action")
@@ -157,11 +175,11 @@ local function cases(id: string): { Play.Case }
 			qa:sleep(0.5)
 			observe(qa, context, screen)
 			if name == "Tutorial" then
-				local first = qa:hasText("step")
+				local first = helpCopy(qa)
 				press(qa, context, "Next")
-				Check.that(context, qa:hasText("step") ~= first, "Next advances help")
+				Check.that(context, helpCopy(qa) ~= first, "Next advances help")
 				press(qa, context, "Back")
-				Check.that(context, qa:hasText("step") == first, "Back restores the previous help step")
+				Check.that(context, helpCopy(qa) == first, "Back restores the previous help step")
 				press(qa, context, "Skip")
 			else
 				back(qa, context)
@@ -354,4 +372,4 @@ local function scenario(id: string): Play.Scenario
 	return result
 end
 
-return { scenario = scenario, observe = observe, back = back, press = press, turns = turns }
+return { scenario = scenario, observe = observe, back = back, press = press, turns = turns, touchRegions = touchRegions }

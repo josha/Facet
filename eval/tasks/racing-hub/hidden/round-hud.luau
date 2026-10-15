@@ -6,6 +6,7 @@ local process = require("@std/process")
 local Audit = require("../../../../tools/vendor/verify/src/roblox/ui-audit")
 local Lute = require("../../../../tools/vendor/verify/src/lute")
 local RaceSpace = require("./race-space")
+local Universal = require("./universal")
 
 local Check = require("../../../../tools/play/host/check")
 local Core = require("../../../../tools/vendor/verify/src/core")
@@ -170,8 +171,8 @@ local behavior: { Case } = {
 			if table.find(qa.device.input, "touch") then
 				Check.that(
 					context,
-					RaceSpace.thumbstickClear(dump),
-					"interactive UI leaves the lower-left touch thumbstick region clear"
+					RaceSpace.touchControlsClear(dump, Universal.touchRegions(qa, context, "diagnostic-round")),
+					"UI clears the actual native touch controls"
 				)
 			end
 		end,

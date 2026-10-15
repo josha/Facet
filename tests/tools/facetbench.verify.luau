@@ -104,17 +104,18 @@ return function(harness: Verify.Harness)
 		element.rect.y = 410
 		t:expect(RaceSpace.centerClear(dump)):toBe(false)
 		element.rect = { x = 20, y = 650, width = 100, height = 44 }
-		t:expect(RaceSpace.thumbstickClear(dump)):toBe(true)
+		local measuredThumb: RaceSpace.TouchRect = { x = 0, y = 620, width = 150, height = 224 }
+		t:expect(RaceSpace.touchControlsClear(dump, { measuredThumb })):toBe(true)
 		element.interactive = true
-		t:expect(RaceSpace.thumbstickClear(dump)):toBe(false)
+		t:expect(RaceSpace.touchControlsClear(dump, { measuredThumb })):toBe(false)
 		element.interactive = false
 		element.active = true
-		t:expect(RaceSpace.thumbstickClear(dump)):toBe(false)
+		t:expect(RaceSpace.touchControlsClear(dump, { measuredThumb })):toBe(false)
 		element.scrollClip = { x = 200, y = 650, width = 100, height = 44 }
-		t:expect(RaceSpace.thumbstickClear(dump)):toBe(true)
+		t:expect(RaceSpace.touchControlsClear(dump, { measuredThumb })):toBe(true)
 		element.scrollClip = nil
 		element.visible = false
-		t:expect(RaceSpace.thumbstickClear(dump)):toBe(true)
+		t:expect(RaceSpace.touchControlsClear(dump, { measuredThumb })):toBe(true)
 		element.visible = true
 		element.rect = { x = 16, y = 48, width = 160, height = 44 }
 		element.text = {
