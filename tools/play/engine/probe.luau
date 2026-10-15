@@ -8,6 +8,13 @@ local UserInputService = game:GetService("UserInputService")
 
 local Collect = require("../../../tools/vendor/verify/src/roblox/ui-audit-collect")
 local scrollTarget = require("./scroll_target")
+local racingDrive = require("../../../eval/validation/racing-hub/driving-probe")
+local invalidSelections = 0
+game:GetService("LogService").MessageOut:Connect(function(message: string)
+	if string.find(message, "SelectedObject", 1, true) and string.find(message, "invalid GuiObject", 1, true) then
+		invalidSelections += 1
+	end
+end)
 
 export type Rect = { x: number, y: number, width: number, height: number }
 
@@ -1193,6 +1200,23 @@ handlers.matches = function(request)
 	local selected = GuiService.SelectedObject
 	local target = targetOf(queryOf(request.query))
 	return { matches = selected ~= nil and target ~= nil and same(selected, target), selected = selectedInfo() }
+end
+
+handlers.racingDrive = function()
+	return racingDrive()
+end
+
+handlers.racingState = function()
+	local player = Players.LocalPlayer
+	assert(player)
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	return {
+		racing = player:GetAttribute("Racing") == true,
+		x = if root and root:IsA("BasePart") then root.Position.X else 0,
+		z = if root and root:IsA("BasePart") then root.Position.Z else 0,
+		invalidSelections = invalidSelections,
+	}
 end
 
 handlers.dump = function(request)

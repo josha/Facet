@@ -136,6 +136,45 @@ return function(harness: Verify.Harness)
 		invisibleText.transparency = 1
 		roster.text = invisibleText
 		t:expect(RaceSpace.textClear(dump)):toBe(true)
+		for _, size in { { 1920, 1080, 0 }, { 390, 844, 0 }, { 844, 390, 59 }, { 1180, 820, 0 }, { 1920, 1080, 0 } } do
+			dump.screen.width, dump.screen.height = size[1], size[2]
+			dump.screen.guiInset.top = 58
+			dump.screen.safeArea = { x = size[3], y = 0, width = size[1] - size[3], height = size[2] - 20 }
+			dump.elements = { element }
+			element.rect = { x = size[3] + 16, y = 74, width = 100, height = 44 }
+			t:expect(RaceSpace.safeContent(dump))
+				:toBeTrueWith("safe HUD content clears the core UI and the device cutout")
+			element.rect.y = 56
+			t:expect(RaceSpace.safeContent(dump)):toBe(false)
+			element.rect.y = 57
+			t:expect(RaceSpace.safeContent(dump)):toBeTrueWith("safe content allows one pixel of rounding")
+			if size[3] > 0 then
+				element.rect.x = 0
+				t:expect(RaceSpace.safeContent(dump)):toBe(false)
+			end
+			element.rect = { x = size[3] + 16, y = 74, width = 100, height = 44 }
+			element.interactive = true
+			element.selectable = true
+			(element.text :: Audit.Text).content = "Close"
+			local scrim = table.clone(element)
+			scrim.index = 2
+			scrim.text = nil
+			scrim.interactive = false
+			scrim.selectable = false
+			scrim.background = { color = { r = 0.02, g = 0.03, b = 0.05 }, transparency = 0.35 }
+			scrim.rect = { x = 0, y = 0, width = size[1], height = size[2] }
+			dump.elements[2] = scrim
+			t:expect(RaceSpace.scrimCovers(dump)):toBeTrueWith("the strong full-screen scrim covers the viewport")
+			scrim.rect = { x = size[3], y = 58, width = size[1] - size[3], height = size[2] - 58 }
+			t:expect(not RaceSpace.scrimCovers(dump))
+				:toBeTrueWith("the weak safe-area scrim leaves the top bar undimmed")
+			dump.selected = 1
+			t:expect(RaceSpace.selectionValid(dump)):toBe(true)
+			element.visible = false
+			t:expect(RaceSpace.selectionValid(dump)):toBe(false)
+			element.visible = true
+			dump.selected = nil
+		end
 	end)
 	harness:case("each extended turn retains earlier player cases on all five devices", function(t)
 		local previous: { [string]: { [string]: boolean } } = {}
