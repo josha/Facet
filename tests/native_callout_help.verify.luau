@@ -9,6 +9,7 @@ return function(verifyHarness: Verify.Harness)
 	local materialize = require("./lib/materialize")
 	local fadeKit = require("./lib/fade")
 	local Compose = require("../src/vendor/compose/core")
+	local themes = require("../src/ui/themes")(Compose)
 	local overlay = require("./lib/overlay_world")
 	local placement = require("../src/ui/overlay_placement")
 	local Vector2 = require("./lib/native_engine").types.Vector2
@@ -694,7 +695,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(panel.Visible):toBe(true)
 					Verify.expect(arrow.Visible):toBe(true)
 					local previous, intermediate = 1, 0
-					for _ = 1, 8 do
+					for _ = 1, math.ceil(themes.neutralPackage().metrics.motion.fast * 60) + 1 do
 						w.advance(1 / 60)
 						local alpha = fadeKit.of(panel)
 						Verify.expect(alpha <= previous):toBe(true)
