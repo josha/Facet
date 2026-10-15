@@ -256,6 +256,7 @@ export type Context = {
 	fade: (CanvasGroupNativeProps, boolean?, boolean?) -> Frame,
 	fadeTo: (Instance, Engine.ValueNumber) -> (),
 	text: (TextLabelNativeProps?) -> TextLabel,
+	textLayout: (TextLabel | TextButton) -> (),
 	row: ({ Child }, FrameNativeProps?) -> Frame,
 	layoutUnit: (GuiBase2d, string?) -> ComposeTypes.Readable<number>,
 	layoutSize: (GuiBase2d, ComposeTypes.Readable<number>?) -> ComposeTypes.Readable<Vector2>,

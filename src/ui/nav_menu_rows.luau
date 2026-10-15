@@ -131,6 +131,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		row = UI.Button({
 			Name = rowKey,
 			LayoutOrder = index,
+			AutomaticSize = E.AutomaticSize.Y,
+			TextWrapped = true,
+			TextTruncate = E.TextTruncate.None,
 			Size = function(use: ComposeTypes.Use)
 				return D2.new(1, 0, 0, hitFloor(use))
 			end,
@@ -167,6 +170,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			trailingMark(row, trailing, selected, enabled)
 		end
 		row:AddTag("facet-menu-item")
+		if simple then
+			ctx.textLayout(row)
+		end
 		rowNodes[rowKey] = row
 		Compose.cleanup(function()
 			if rowNodes[rowKey] == row then

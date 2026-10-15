@@ -2,7 +2,23 @@
 local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 
-local pending = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: boolean }
+local pending = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: number }
+
+local function begin(node: Instance): () -> ()
+	pending[node] = (pending[node] or 0) + 1
+	local active = true
+	return function()
+		if active then
+			active = false
+			local remaining = (pending[node] or 1) - 1
+			if remaining > 0 then
+				pending[node] = remaining
+			else
+				pending[node] = nil
+			end
+		end
+	end
+end
 
 local function natural(ctx: Types.Context, label: TextLabel): ComposeTypes.Readable<Vector2>
 	local Compose, Host = ctx.Compose, ctx.Host
@@ -18,7 +34,12 @@ local function natural(ctx: Types.Context, label: TextLabel): ComposeTypes.Reada
 	local font, points = ctx.observeStyled.FontFace(label), ctx.observeStyled.TextSize(label)
 	local serial, alive = 0, true
 	local thread: thread? = nil
+	local release: (() -> ())? = nil
 	local function cancel()
+		if release then
+			release()
+			release = nil
+		end
 		if thread and coroutine.status(thread) == "suspended" and task then
 			pcall(task.cancel, thread)
 		end
@@ -27,14 +48,14 @@ local function natural(ctx: Types.Context, label: TextLabel): ComposeTypes.Reada
 	Compose.cleanup(function()
 		alive = false
 		cancel()
-		pending[label] = nil
 	end)
 	Compose.watch(function(use: ComposeTypes.Use)
 		local words, markup, face, size = use(text), use(rich), use(font), use(points)
 		serial += 1
 		local ticket = serial
 		cancel()
-		pending[label] = true
+		local completed = begin(label)
+		release = completed
 		params.Text, params.RichText, params.Font, params.Size = words, markup, face, size
 		local function measure()
 			local ok, value = pcall(function(): Vector2
@@ -44,8 +65,8 @@ local function natural(ctx: Types.Context, label: TextLabel): ComposeTypes.Reada
 				if ok then
 					bounds:set(value)
 				end
-				pending[label] = nil
 			end
+			completed()
 		end
 		if task and task.spawn then
 			thread = task.spawn(measure)
@@ -57,8 +78,23 @@ local function natural(ctx: Types.Context, label: TextLabel): ComposeTypes.Reada
 end
 
 return {
+	begin = begin,
 	natural = natural,
 	ready = function(node: Instance): boolean
-		return pending[node] ~= true
+		if pending[node] ~= nil then
+			return false
+		end
+		if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+			local automatic = node.AutomaticSize.Name
+			if
+				node.Text ~= ""
+				and node.TextWrapped
+				and node.TextTruncate.Name == "None"
+				and (automatic == "Y" or automatic == "XY")
+			then
+				return node.TextFits
+			end
+		end
+		return true
 	end,
 }

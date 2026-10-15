@@ -9,6 +9,51 @@ local ComposeTypes = require("../src/vendor/compose/core")
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 return function(harness: Verify.Harness)
+	harness:case("wrapped text height is pending until its native measurement completes", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local calls, blocked = 0, 0
+		local label: TextLabel? = nil
+		local service = {
+			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
+				calls += 1
+				if label and not measure.ready(label) then
+					blocked += 1
+				end
+				t:expect(params.Width > 0):toBe(true)
+				return engine.types.Vector2.new(90, 144)
+			end,
+		}
+		local ctx = context(
+			Facet.Compose,
+			runtime,
+			{
+				types = engine.types,
+				services = { TextService = (service :: unknown) :: TextService },
+			} :: Shared.Config
+		)
+		local stop = runtime.mount(function()
+			label = ctx.text {
+				Text = "Wrapped body copy",
+				TextWrapped = true,
+				Size = engine.types.UDim2.new(1, 0, 0, 0),
+				AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+			}
+			return label
+		end, engine.new("ScreenGui"))
+		local node = assert(label)
+		node.TextFits = false
+		node.AbsoluteSize = engine.types.Vector2.new(100, 20)
+		t:expect(calls > 0):toBe(true)
+		t:expect(blocked):toBe(calls)
+		t:expect(measure.ready(node)):toBe(false)
+		node.AbsoluteSize = engine.types.Vector2.new(100, 144)
+		node.TextFits = true
+		t:expect(measure.ready(node)):toBe(true)
+		stop()
+		runtime:dispose()
+	end)
+
 	harness:case("natural text metrics use native font inputs and ignore rendered geometry", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)
