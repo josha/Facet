@@ -10,9 +10,11 @@ files, task recipes, controls, call shapes and typed state patterns. Read the
 application contracts and existing components together in your next call.
 Use `project [directory]` for file discovery; rg and Git are optional.
 For options outside the recipes, use `docs <Control>` or `docs --search TEXT`.
-Long sections print an outline; `--full` prints the full contract. Do not read
-the documentation folder or dependency source in full. Starter components
-are in `examples/blocks/`.
+Long sections give an excerpt and subsection names. Query the subsection that
+answers the missing option. Use `--full` only when that excerpt is insufficient;
+do not batch full references. Do not reread a contract already in context.
+Do not read the documentation folder or dependency source in full. Read one
+matching starter in `examples/blocks/` only if the recipe does not fit.
 
 ## Build
 
@@ -55,6 +57,23 @@ not needed for the same screens. Do not read dump files. If Studio is
 unavailable, report that limit once and use `verify --static`.
 The tools remove a UTF-8 BOM from application Luau files before engine tools
 read them. In Windows PowerShell 5.1 use `Set-Content -Encoding utf8`.
+
+## Keep context small
+
+Read only the affected function or line range after an edit. Keep UI components
+in separate modules so a local change needs a local read. Do not print a whole
+source file to prepare a Studio update. Use the project's sync path when one is
+available. Otherwise transfer each module once, then patch only the changed
+section through `execute_luau`. Check the match count before changing Source.
+Return a short status, not the updated source.
+
+For Studio checks, batch related `execute_luau` queries and return only the
+needed text, state, selected control, viewport or bounds. Limit descendant
+queries to the affected panel. Use input events to test interactions. Capture
+each distinct layout and device after a coherent change, and capture again
+when a visual problem remains. Use state queries between those visual checks;
+do not capture after every input. Inspect images through the image tool, never
+print image bytes, base64, complete capture payloads or full interface dumps.
 
 For a missing behavior, search the docs. Use native Roblox mechanisms first,
 then Compose, then a Facet control, then game code. For Compose operations
