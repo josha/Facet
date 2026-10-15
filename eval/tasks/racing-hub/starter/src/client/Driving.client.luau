@@ -18,22 +18,7 @@ local function drift(_name: string, state: Enum.UserInputState): Enum.ContextAct
 	return Enum.ContextActionResult.Sink
 end
 
-local function phase()
-	local racing = player:GetAttribute("Racing") == true
-	if racing then
-		ContextActionService:BindAction("KartDrift", drift, false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonX)
-	else
-		ContextActionService:UnbindAction("KartDrift")
-		holding = false
-		charge = 0
-		boost = 0
-		speed = 0
-	end
-end
-player:GetAttributeChangedSignal("Racing"):Connect(phase)
-phase()
-
-RunService:BindToRenderStep("KartDrive", Enum.RenderPriority.Camera.Value + 1, function(dt: number)
+local function render(dt: number)
 	local camera = workspace.CurrentCamera
 	if not camera then
 		return
@@ -98,4 +83,30 @@ RunService:BindToRenderStep("KartDrive", Enum.RenderPriority.Camera.Value + 1, f
 		camera.FieldOfView = savedFov
 	end
 	previous = racing
-end)
+end
+
+local function phase()
+	local racing = player:GetAttribute("Racing") == true
+	if racing then
+		ContextActionService:BindAction("KartDrift", drift, false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonX)
+		RunService:BindToRenderStep("KartDrive", Enum.RenderPriority.Camera.Value + 1, render)
+	else
+		ContextActionService:UnbindAction("KartDrift")
+		RunService:UnbindFromRenderStep("KartDrive")
+		local camera = workspace.CurrentCamera
+		if previous and camera then
+			camera.CameraType = savedType
+			local character = player.Character
+			local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+			camera.CameraSubject = if humanoid then humanoid else savedSubject
+			camera.FieldOfView = savedFov
+		end
+		previous = false
+		holding = false
+		charge = 0
+		boost = 0
+		speed = 0
+	end
+end
+player:GetAttributeChangedSignal("Racing"):Connect(phase)
+phase()
