@@ -134,20 +134,67 @@ end
 local specs: { [string]: { [string]: string } } = {}
 local names = {}
 
-local groups: { [string]: boolean } = {}
-for group in string.gmatch(fs.readFileToString(FACET .. "control_types.luau"), ":: [%w_]+%.([%w_]+Controls)%)") do
-	groups[group] = true
-end
-for typeName, body in bodies do
-	if groups[typeName] then
-		for line in string.gmatch(body, "[^\n]+") do
-			local control, expr = string.match(line, "^\t([%a_][%w_]*): (.+),$")
-			if control then
-				local props = propsTypeOf(assert(expr))
-				specs[control] = if props then optionsOf(props) else {}
-				table.insert(names, control)
+local origins: { [string]: { [string]: string } } = {}
+for _, entry in fs.listDirectory(FACET) do
+	local name = entry.name
+	if string.match(name, "_props%.luau$") then
+		local source = fs.readFileToString(FACET .. name)
+		local aliases: { [string]: string } = {}
+		for alias, typeName in string.gmatch(source, "\nlocal ([%w_]+) = %(nil :: unknown%) :: [%w_]+%.([%w_]+)") do
+			aliases[alias] = typeName
+		end
+		for _, chunk in string.split(source, "\nexport type ") do
+			local typeName = string.match(chunk, "^([%w_]+)")
+			if typeName then
+				local fields: { [string]: string } = {}
+				for line in string.gmatch(chunk, "[^\n]+") do
+					local field, alias = string.match(line, "^\t([%l_][%w_]*): typeof%(([%w_]+)%.[%w_]+%),$")
+					local inline = nil
+					if field == nil then
+						field, inline =
+							string.match(line, "^\t([%l_][%w_]*): typeof%(%(%(nil :: unknown%) :: [%w_]+%.([%w_]+)")
+					end
+					local optionTable = if alias then aliases[alias] else inline
+					if field and optionTable then
+						fields[field] = optionsOf(optionTable)[field] or optionTable
+					end
+				end
+				origins[typeName] = fields
 			end
 		end
+	end
+end
+local controlTypes = fs.readFileToString(FACET .. "control_types.luau")
+local constructors: { [string]: string } = {}
+local collecting: string? = nil
+for line in string.gmatch(controlTypes, "[^\n]+") do
+	local opened = string.match(line, "^type ([%w_]+Shapes) =")
+	if opened then
+		collecting = opened
+		constructors[opened] = ""
+	elseif collecting and string.sub(line, 1, 1) == "\t" then
+		constructors[collecting] ..= line
+	else
+		collecting = nil
+	end
+end
+local controlsBody = assert(string.match(controlTypes, "export type Controls = {\n(.-)\n}"))
+for line in string.gmatch(controlsBody, "[^\n]+") do
+	local control, expr = string.match(line, "^\t([%a_][%w_]*): (.+),$")
+	if control then
+		local source = expr
+		local shapes = string.match(expr, "^[%w_]+Constructor$")
+		if shapes then
+			source = constructors[string.gsub(expr, "Constructor$", "Shapes")] or expr
+		end
+		local fields: { [string]: string } = {}
+		for propsName in string.gmatch(source, "%.([%w_]+)") do
+			for field, origin in origins[propsName] or {} do
+				fields[field] = fields[field] or origin
+			end
+		end
+		specs[control] = fields
+		table.insert(names, control)
 	end
 end
 table.sort(names)
@@ -208,6 +255,42 @@ end
 local GLOBAL = { ref = "the root hook every constructor takes" }
 local ALLOW: { [string]: { [string]: string } } = {
 	environment = {},
+	Flash = {
+		color = "the reward sequence page drives Flash through UI.sequence",
+		mode = "the reward sequence page drives Flash through UI.sequence",
+		progress = "the reward sequence page drives Flash through UI.sequence",
+		target = "the reward sequence page drives Flash through UI.sequence",
+	},
+	NavigationSplitView = {
+		compactHeight = "the split view page shows its default columns",
+		compactWidth = "the split view page shows its default columns",
+		detailVisible = "the split view page shows its default columns",
+		maxSidebarHeight = "the split view page shows its default columns",
+		maxSidebarWidth = "the split view page shows its default columns",
+		minDetailHeight = "the split view page shows its default columns",
+		minDetailWidth = "the split view page shows its default columns",
+		minSidebarHeight = "the split view page shows its default columns",
+		minSidebarWidth = "the split view page shows its default columns",
+	},
+	Travel = {
+		content = "the Travel page drives these options from its custom demos",
+		destination = "the Travel page drives these options from its custom demos",
+		lift = "the Travel page drives these options from its custom demos",
+		motion = "the Travel page drives these options from its custom demos",
+		onLanded = "the Travel page drives these options from its custom demos",
+		onStarted = "the Travel page drives these options from its custom demos",
+		stagger = "the Travel page drives these options from its custom demos",
+		transparency = "the Travel page drives these options from its custom demos",
+	},
+	ZoomView = {
+		content = "the ZoomView page drives these options from its custom demo",
+		contentSize = "the ZoomView page drives these options from its custom demo",
+		controls = "the ZoomView page drives these options from its custom demo",
+		doubleTapZoom = "the ZoomView page drives these options from its custom demo",
+		focus = "the ZoomView page drives these options from its custom demo",
+		minZoom = "the ZoomView page drives these options from its custom demo",
+		zoom = "the ZoomView page drives these options from its custom demo",
+	},
 }
 
 if process.args[2] ~= "check" then
