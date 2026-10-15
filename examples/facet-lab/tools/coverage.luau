@@ -134,6 +134,31 @@ end
 local specs: { [string]: { [string]: string } } = {}
 local names = {}
 
+local function trim(text: string): string
+	return (string.gsub(text, "^%s*(.-)%s*$", "%1"))
+end
+
+local function arguments(list: string): { string }
+	local out: { string } = {}
+	local depth, start = 0, 1
+	for i = 1, #list do
+		local ch = string.sub(list, i, i)
+		if ch == "(" or ch == "<" or ch == "{" then
+			depth += 1
+		elseif ch == ")" or ch == "}" or (ch == ">" and string.sub(list, i - 1, i - 1) ~= "-") then
+			depth -= 1
+		elseif ch == "," and depth == 0 then
+			table.insert(out, trim(string.sub(list, start, i - 1)))
+			start = i + 1
+		end
+	end
+	table.insert(out, trim(string.sub(list, start)))
+	return out
+end
+
+type Shape = { fields: { [string]: string }, slots: { [string]: number } }
+type Instance = { shape: string, args: { string } }
+
 local origins: { [string]: { [string]: string } } = {}
 for _, entry in fs.listDirectory(FACET) do
 	local name = entry.name
@@ -143,20 +168,54 @@ for _, entry in fs.listDirectory(FACET) do
 		for alias, typeName in string.gmatch(source, "\nlocal ([%w_]+) = %(nil :: unknown%) :: [%w_]+%.([%w_]+)") do
 			aliases[assert(alias)] = assert(typeName)
 		end
-		for _, chunk in string.split(source, "\nexport type ") do
+		local function originOf(expression: string, field: string): string?
+			local alias = string.match(expression, "^typeof%(([%w_]+)%.[%w_]+%)$")
+			local optionTable = if alias
+				then aliases[alias]
+				else string.match(expression, "^typeof%(%(%(nil :: unknown%) :: [%w_]+%.([%w_]+)")
+			return if optionTable then optionsOf(optionTable)[field] or optionTable else nil
+		end
+		local shapes: { [string]: Shape } = {}
+		local instances: { [string]: Instance } = {}
+		local declarations = string.gsub(source, "\nexport type ", "\ntype ")
+		for _, chunk in string.split(declarations, "\ntype ") do
 			local typeName = string.match(chunk, "^([%w_]+)")
 			if typeName then
-				local fields: { [string]: string } = {}
+				local params = string.split(string.match(chunk, "^[%w_]+<([^>]*)> = {") or "", ", ")
+				local shape: Shape = { fields = {}, slots = {} }
 				for line in string.gmatch(chunk, "[^\n]+") do
-					local field, alias = string.match(line, "^\t([%l_][%w_]*): typeof%(([%w_]+)%.[%w_]+%),$")
-					local inline = nil
-					if field == nil then
-						field, inline =
-							string.match(line, "^\t([%l_][%w_]*): typeof%(%(%(nil :: unknown%) :: [%w_]+%.([%w_]+)")
+					local field, expression = string.match(line, "^\t([%l_][%w_]*): (.+),$")
+					if field and expression then
+						local slot = table.find(params, expression)
+						if slot then
+							shape.slots[field] = slot
+						else
+							local origin = originOf(expression, field)
+							if origin then
+								shape.fields[field] = origin
+							end
+						end
 					end
-					local optionTable = if alias then aliases[alias] else inline
-					if field and optionTable then
-						fields[field] = optionsOf(optionTable)[field] or optionTable
+				end
+				origins[typeName] = shape.fields
+				if next(shape.slots) then
+					shapes[typeName] = shape
+				end
+				local target, list = string.match(chunk, "^[%w_]+[^\n]-%s=%s([%w_]+)(%b<>)")
+				if target and list then
+					instances[typeName] = { shape = target, args = arguments(string.sub(list, 2, -2)) }
+				end
+			end
+		end
+		for typeName, instance in instances do
+			local shape = shapes[instance.shape]
+			if shape then
+				local fields = table.clone(shape.fields)
+				for field, slot in shape.slots do
+					local argument = instance.args[slot]
+					local origin = if argument then originOf(argument, field) else nil
+					if origin then
+						fields[field] = origin
 					end
 				end
 				origins[typeName] = fields
