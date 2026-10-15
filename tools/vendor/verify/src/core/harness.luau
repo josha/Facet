@@ -1,5 +1,6 @@
 --!strict
 
+local Capability = require "./capability"
 local Attachment = require "./attachment"
 local Matchers = require "./matchers"
 local ReportModel = require "./report"
@@ -42,6 +43,7 @@ export type Disposable<T = unknown> = {
 export type Resource<T = unknown> = (() -> ()) | (T & { dispose: (T) -> () }) | (T & { destroy: (T) -> () })
 
 export type Context = {
+	id: string,
 	unsupported: (self: Context, requirement: string) -> never,
 	await: <I, O>(
 		self: Context,
@@ -181,22 +183,7 @@ local function checkedName(kind: string, name: string): string
 	return name
 end
 
-local function copySortedUnique(values: { string }?, label: string): { string }
-	local seen: { [string]: boolean } = {}
-	local copy: { string } = {}
-	local sourceValues: { string } = if values ~= nil then values else {}
-	for _, value in sourceValues do
-		if value == "" then
-			error(label .. " values must not be empty", 3)
-		end
-		if not seen[value] then
-			seen[value] = true
-			table.insert(copy, value)
-		end
-	end
-	table.sort(copy)
-	return copy
-end
+local copySortedUnique = Capability.sorted
 
 local function copyEnvironment(values: { [string]: string }?): { [string]: string }
 	local result: { [string]: string } = {}
@@ -253,14 +240,7 @@ local function defaultInvoke(_phase: Types.InvocationPhase, run: () -> ()): Invo
 	return if ok then { outcome = "returned" } else { outcome = "failed", error = result }
 end
 
-local function selectionSet(values: { string }?): { [string]: boolean }
-	local result: { [string]: boolean } = {}
-	local sourceValues: { string } = if values ~= nil then values else {}
-	for _, value in sourceValues do
-		result[value] = true
-	end
-	return result
-end
+local selectionSet = Capability.set
 
 local function intersects(values: { string }, wanted: { [string]: boolean }): boolean
 	for _, value in values do
@@ -513,7 +493,6 @@ local function createHarness(options: {
 				artifacts = {},
 				limitations = base.limitations,
 				missingCapabilities = missing,
-				skipReason = nil,
 				origin = runOrigin,
 			}
 		end
@@ -531,6 +510,7 @@ local function createHarness(options: {
 		local runtimeSkipReason: string? = nil
 		local started = now()
 		local context = {} :: Context
+		context.id = entry.id
 		local deadline = if entry.timeoutSeconds then started + entry.timeoutSeconds else math.huge
 		local host: Operations.Host? = nil
 		local evidence: Types.Evidence = { observations = {}, checkpoints = {}, reviews = {}, measurements = {} }
@@ -730,27 +710,15 @@ local function createHarness(options: {
 		end
 
 		function context:attach(name: string, mediaType: string, text: string)
-			local refusal = Attachment.check(name, mediaType, text, attachmentLimits)
+			local refusal = Attachment.check(
+				name,
+				mediaType,
+				text,
+				attachmentLimits,
+				{ count = attachmentCount, total = runAttachmentBytes, names = attachmentNames }
+			)
 			if refusal ~= nil then
 				error(refusal, 2)
-			end
-			if attachmentCount >= attachmentLimits.maxCount then
-				error(
-					("attachment %q exceeds the per-case count limit of %d"):format(name, attachmentLimits.maxCount),
-					2
-				)
-			end
-			if runAttachmentBytes + #text > attachmentLimits.maxTotalBytes then
-				error(
-					("attachment %q exceeds the per-report limit of %d bytes"):format(
-						name,
-						attachmentLimits.maxTotalBytes
-					),
-					2
-				)
-			end
-			if attachmentNames[name] then
-				error(("attachment %q is already attached to this case"):format(name), 2)
 			end
 			attachmentNames[name] = true
 			attachmentCount += 1

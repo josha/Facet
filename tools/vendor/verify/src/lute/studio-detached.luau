@@ -1,8 +1,9 @@
 --!strict
 
-local crypto = require "@lute/crypto"
+local digest = require "./hash"
 local task = require "@std/task"
 local Core = require "../core"
+local Transport = require "../core/transport"
 local Wire = require "./wire"
 
 export type Reply = {
@@ -34,15 +35,6 @@ export type Outcome = {
 
 local SEGMENT_BYTES = 24000
 local POLL_SECONDS = 0.5
-
-local function digest(bytes: string): string
-	local value = crypto.digest(crypto.hash.sha256, bytes)
-	local out: { string } = {}
-	for index = 0, buffer.len(value) - 1 do
-		table.insert(out, string.format("%02x", buffer.readu8(value, index)))
-	end
-	return table.concat(out)
-end
 
 local function prefixFor(runId: string): string
 	return "VerifyRun" .. string.sub(digest(runId), 1, 24) .. "_"
@@ -203,16 +195,8 @@ local function fetch(options: Options, prefix: string, status: { [string]: unkno
 		if not reply.ok then
 			return failure(reply, ("transport: segment %d of %d was not fetched"):format(index, count))
 		end
-		local fields = record(reply.text)
-		if
-			fields == nil
-			or type(fields.index) ~= "number"
-			or type(fields.count) ~= "number"
-			or type(fields.digest) ~= "string"
-			or type(fields.totalDigest) ~= "string"
-			or type(fields.totalBytes) ~= "number"
-			or type(fields.payload) ~= "string"
-		then
+		local fields = Transport.readSegment(record(reply.text))
+		if fields == nil then
 			return {
 				status = "failed",
 				detail = ("transport: segment %d of %d is missing or malformed in the engine"):format(index, count),
@@ -238,14 +222,7 @@ local function fetch(options: Options, prefix: string, status: { [string]: unkno
 				),
 			}
 		end
-		table.insert(segments, {
-			index = index,
-			count = count,
-			digest = fields.digest :: string,
-			totalDigest = fields.totalDigest :: string,
-			totalBytes = fields.totalBytes :: number,
-			payload = fields.payload :: string,
-		})
+		table.insert(segments, fields)
 	end
 	local whole, reason = Core.reassembleSegments(segments)
 	if whole == nil then
