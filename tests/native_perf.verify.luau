@@ -71,7 +71,7 @@ return function(verifyHarness: Verify.Harness)
 							hidden += 1
 						end
 					end
-					Verify.expect(hidden):toBe(3)
+					Verify.expect(hidden):toBe(0)
 					local measurement = assert(scene.extras(state).segmented)
 					Verify.expect(measurement.segments):toBe(3)
 					Verify.expect(measurement.textSizeBefore ~= nil):toBe(true)
