@@ -30,6 +30,9 @@ The final completion after the last tool call is excluded from replay estimates.
 Image base64 is transport data, not text tokens. Plain has 16 image blocks
 (4,023,264 base64 bytes), with 1,171 later-call image exposures. Facet has 24
 (7,488,604 bytes), with 1,337 exposures. No image saving is priced below.
+Decoded JPEG dimensions are 1919x1080 (plain 5, Facet 9), 499x1080 (6, 5),
+1920x887 (4, 7), and tablet frames of 1454x1010 (plain 1) or 1452x1008
+(Facet 3). No image was changed.
 `mcp.json` configures the shared Studio transport; it is not itself a transcript
 message. Its server schemas and any skill catalog injection are unobserved.
 
@@ -69,7 +72,7 @@ The transcript cannot establish how those arguments were retained or charged.
 
 ## Cause
 
-Actual cached input is 8,223,232 Facet versus about 3.28M plain. The Facet run
+Actual cached input is 8,223,232 Facet versus 3,281,024 plain. The Facet run
 loads these outputs before its first implementation:
 
 | Call | Material | Bytes | Later calls |
@@ -104,13 +107,13 @@ would reduce the saving.
 | Change | Arithmetic | Estimated cache-read saving |
 | --- | --- | ---: |
 | Shorter arm instructions | `(2063 - 878) / 4 * 143` | 42,364 |
-| Smaller default start response; typed collection example remains queryable | `(5738 - 4214) / 4 * 142` | 54,102 |
+| Smaller default start response; typed collection example remains queryable | `(5738 - 4427) / 4 * 142` | 46,541 |
 | New skill guidance costs context | `-(5041 - 3816) / 4 * 141` | -43,181 |
-| Scoped docs at call 5; omit redundant project listing and Compose skill read | `(19715 - 7610) / 4 * 138` | 417,623 |
-| Scoped docs at call 6; omit unnecessary starter reads | `(23724 - 5600) / 4 * 137` | 620,747 |
-| Scoped docs at call 7; retain both game contract reads | `(19504 - 15452) / 4 * 136` | 137,768 |
-| Scoped docs at call 8 | `(37632 - 12498) / 4 * 135` | 848,273 |
-| Scoped docs at call 9 | `(20990 - 4676) / 4 * 134` | 546,519 |
+| Scoped docs at call 5; omit redundant project listing and Compose skill read | `(19715 - 7594) / 4 * 138` | 418,175 |
+| Scoped docs at call 6; omit unnecessary starter reads | `(23724 - 5584) / 4 * 137` | 621,295 |
+| Scoped docs at call 7; retain both game contract reads | `(19504 - 15436) / 4 * 136` | 138,312 |
+| Scoped docs at call 8 | `(37632 - 12474) / 4 * 135` | 849,083 |
+| Scoped docs at call 9 | `(20990 - 4652) / 4 * 134` | 547,323 |
 | Six local source reads, budget 1,600 bytes each | `2084018.75 - 1600 / 4 * (130+120+89+53+32+22)` | 1,905,619 |
 | Terse lint in five unchanged 796-byte verify outputs | `(796 - 348) / 4 * (116+87+70+58+23)` | 39,648 |
 | Studio patch guidance and selective captures | Unpriced; preserve visual evidence | 0 credited |
@@ -124,9 +127,9 @@ reader to a subsection. `project .` now uses the bounded application summary.
 Lint keeps each location and rule, prints repeated advice once, and preserves
 source lines and repeated advice with `--verbose`. Verify inherits that output.
 
-Total estimated saving is 4,569,480 cache-read tokens. Projected cache reads are
-`8,223,232 - 4,569,480 = 3,653,752`. Holding fresh input (172,374) and output
-(30,969) fixed gives **3,857,095 total tokens**, versus 8,426,575 observed Facet
+Total estimated saving is 4,565,177 cache-read tokens. Projected cache reads are
+`8,223,232 - 4,565,177 = 3,658,055`. Holding fresh input (172,374) and output
+(30,969) fixed gives **3,861,398 total tokens**, versus 8,426,575 observed Facet
 tokens: about **54% less**. This scenario is not a confidence interval or an
 eval result. If the agent keeps its old full-reference reads, the large
 behavioral savings do not follow from the CLI change alone.
@@ -137,4 +140,41 @@ The existing Compose cell, show, keyed and cleanup APIs cover state and ownershi
 
 ## Validation
 
-Results are recorded after the final checks. No agent eval is run.
+- `lute run tools/facet gate fast`: exit 0 after access to the Lute typedef
+  cache was granted. Verify reports NARROWED: 13 producers passed and 14 cases
+  tagged for the full tier were deselected. This is not full evidence.
+- The focused tooling run passed 193 cases. It is also a narrowed run.
+- `lute run eval/tools/check.luau`: exit 0. Shared-kit absence notes are
+  informational. The Facet kit was rebuilt with 521 files.
+- Type policy, formatting, documentation style and link checks passed.
+- The ledger passed a focused type check with both Luau solvers and zero
+  blocking diagnostics. Dependency diagnostics remain separate. Its output
+  is byte-for-byte identical after the concrete record type fix.
+- `lute run tools/facet package build` and `package status`: exit 0. The
+  package status still reports the existing publish drift and pending Studio
+  check. Nothing was published.
+- The standalone benchmark returned exit 2, FAIL_ENVIRONMENT. Its timing
+  yardstick moved 34.3% while other checks ran. No runtime speed claim follows.
+
+The first fast run caught two docs regressions: missing compact type guidance
+and missing `--full` discovery. Both were fixed while keeping the existing
+tests. Its other failure was sandbox access to `~/.lute/typedefs`, not a code
+regression. The successful rerun used access to that cache.
+
+The additional full gate failed three producers: tool-specs could not update
+the user typedef cache in the sandbox; facetbench-references could not download
+the pinned definitions through the restricted network; types lost a temporary
+checker file while another type test ran. Bench and perf were deferred for
+host timing failures. The other full-gate producers passed.
+
+A separate repository type run then found 20 blocking diagnostics in the new
+ledger's JSON aggregation types. Concrete event, row and total records fixed
+them. Both solvers passed the focused check afterward. The earlier full gate
+is not claimed as passing evidence. The final fast command was run again after
+this fix. The unresolved download, cache access in the full run and timing
+limits are environment limits, separate from the fixed docs and ledger
+regressions. The fast run's deselection is tier selection, not a failed case
+or a missing capability.
+
+No agent eval was run. No plain or shared arm source, library source or vendor
+snapshot was changed. The estimate remains unvalidated by an agent run.

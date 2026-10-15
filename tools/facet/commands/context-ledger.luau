@@ -6,6 +6,30 @@ local Json = require("../lib/json")
 
 local USAGE = "usage: lute run tools/facet context-ledger RUN_DIRECTORY --out FILE"
 
+type Event = { item: Json.Object, call: number, seconds: number }
+type Row = {
+	call: number,
+	seconds: number,
+	id: string,
+	category: string,
+	part: string,
+	bytes: number,
+	textTokensEstimate: number,
+	laterCalls: number,
+	replayedTextTokensEstimate: number,
+	images: number,
+	imageBase64Bytes: number,
+	label: string,
+}
+type Total = {
+	bytes: number,
+	weightedBytes: number,
+	entries: number,
+	images: number,
+	imageBase64Bytes: number,
+	replayedImages: number,
+}
+
 local function category(command: string): string
 	if string.find(command, "tools/facet docs", 1, true) then
 		return "docs and recipes (including batched reads)"
@@ -28,7 +52,7 @@ local function run(invocation: Cli.Invocation): number
 		print(USAGE)
 		return 2
 	end
-	local events: { Json.Object } = {}
+	local events: { Event } = {}
 	local calls = 0
 	local usage: unknown = nil
 	for _, line in Files.lines(Files.read(Files.join(directory, "transcript.jsonl"))) do
@@ -49,8 +73,8 @@ local function run(invocation: Cli.Invocation): number
 			end
 		end
 	end
-	local rows: { Json.Object } = {}
-	local totals: { [string]: Json.Object } = {}
+	local rows: { Row } = {}
+	local totals: { [string]: Total } = {}
 	local function add(
 		at: number,
 		seconds: number,
@@ -78,20 +102,14 @@ local function run(invocation: Cli.Invocation): number
 			imageBase64Bytes = base64 or 0,
 			label = string.sub(text, 1, if part == "command" then 1000 else 240),
 		})
-		local total = totals[group]
+		local total: Total = totals[group]
 			or { bytes = 0, weightedBytes = 0, entries = 0, images = 0, imageBase64Bytes = 0, replayedImages = 0 }
-		for key, value in
-			{
-				bytes = bytes,
-				weightedBytes = weighted,
-				entries = 1,
-				images = images or 0,
-				imageBase64Bytes = base64 or 0,
-				replayedImages = (images or 0) * remaining,
-			}
-		do
-			total[key] = (Json.asNumber(total[key]) or 0) + value
-		end
+		total.bytes += bytes
+		total.weightedBytes += weighted
+		total.entries += 1
+		total.images += images or 0
+		total.imageBase64Bytes += base64 or 0
+		total.replayedImages += (images or 0) * remaining
 		totals[group] = total
 	end
 	for _, name in { "prompt.md", "workspace/AGENTS.md" } do
@@ -101,9 +119,9 @@ local function run(invocation: Cli.Invocation): number
 		end
 	end
 	for _, event in events do
-		local item = Json.objectField(event, "item") :: Json.Object
-		local at = Json.numberField(event, "call") or 0
-		local seconds = Json.numberField(event, "seconds") or 0
+		local item = event.item
+		local at = event.call
+		local seconds = event.seconds
 		local id = Json.stringField(item, "id") or ""
 		local kind = Json.stringField(item, "type")
 		if kind == "command_execution" then
@@ -123,7 +141,8 @@ local function run(invocation: Cli.Invocation): number
 			local images, base64 = 0, 0
 			local texts: { string } = {}
 			local result = Json.field(item, "result")
-			for _, block in Json.arrayField(result, "content") or {} do
+			local content: Json.Array = Json.arrayField(result, "content") or {}
+			for _, block in content do
 				if Json.stringField(block, "type") == "image" then
 					images += 1
 					base64 += #(Json.stringField(block, "data") or "")
