@@ -498,15 +498,21 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					end
 					local services = ctx.config.services
 					local frames = services and services.RunService
-					local scheduler = if frames then runtime.scheduler() else nil
 					Compose.watch(function(use: ComposeTypes.Use)
 						use(height)
 						use(at)
 						use(origin)
 						use(extent)
 						publish()
-						if scheduler then
-							scheduler.replace("insets", 0, publish)
+						if frames then
+							local stop: (() -> ())? = nil
+							stop = runtime.connect(frames, "Heartbeat", function()
+								if stop then
+									stop()
+									stop = nil
+								end
+								publish()
+							end)
 						end
 					end)
 				end)
