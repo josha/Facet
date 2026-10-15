@@ -59,42 +59,33 @@ return function(
 		return effect
 	end
 	function ctx.playWhileShown(timeline: Shared.Playback, node: Instance)
-		local owner = assert(Compose.currentOwner(), "Facet playWhileShown requires a Compose owner")
-		local ancestryOwner: ComposeTypes.Owner?
-		local function locate()
-			if owner.isDisposed() then
-				return
-			end
-			if ancestryOwner then
-				ancestryOwner.dispose()
-			end
-			local childOwner = owner.createChild()
-			ancestryOwner = childOwner
-			Compose.withOwner(childOwner, function()
-				local sources: { ComposeTypes.Readable<boolean> } = {}
-				local at: Instance? = node
-				while at do
-					if at:IsA("GuiObject") then
-						table.insert(sources, ctx.observe.Visible(at))
-					elseif at:IsA("LayerCollector") then
-						table.insert(sources, ctx.observe.Enabled(at))
-						break
-					end
-					at = at.Parent
+		local ancestry = Compose.cell(0)
+		runtime.connect(node, "AncestryChanged", function()
+			ancestry:set(ancestry:peek() + 1)
+		end)
+		Compose.watch(function(use)
+			use(ancestry)
+			local sources: { ComposeTypes.Readable<boolean> } = {}
+			local at: Instance? = node
+			while at do
+				if at:IsA("GuiObject") then
+					table.insert(sources, ctx.observe.Visible(at))
+				elseif at:IsA("LayerCollector") then
+					table.insert(sources, ctx.observe.Enabled(at))
+					break
 				end
-				Compose.watch(function(use: ComposeTypes.Use)
-					for _, source in sources do
-						if not use(source) then
-							timeline:pause()
-							return
-						end
+				at = at.Parent
+			end
+			Compose.watch(function(use: ComposeTypes.Use)
+				for _, source in sources do
+					if not use(source) then
+						timeline:pause()
+						return
 					end
-					timeline:play()
-				end)
+				end
+				timeline:play()
 			end)
-		end
-		runtime.connect(node, "AncestryChanged", locate)
-		locate()
+		end)
 	end
 	local fades = (setmetatable({}, { __mode = "k" }) :: unknown) :: {
 		[Instance]: { source: ComposeTypes.Cell<{ Shared.Value<number> }>, transparency: (ComposeTypes.Use) -> number },
@@ -217,9 +208,7 @@ return function(
 					end
 					assert(gather)()
 					local collecting = true
-					local delayed = if task == nil and frames == nil then runtime.scheduler() else nil
-					local pending: { [thread]: boolean } = {}
-					local waiting: { [RBXScriptConnection]: boolean } = {}
+					local delayed = runtime.scheduler()
 					runtime.connect(node, "ChildAdded", function(child: Instance)
 						if collecting and carried(child) then
 							local function collect()
@@ -229,38 +218,11 @@ return function(
 									end)
 								end
 							end
-							if delayed then
-								delayed.after(0, collect)
-							elseif task == nil and frames then
-								local held: RBXScriptConnection? = nil
-								held = frames.Heartbeat:Connect(function()
-									if held then
-										held:Disconnect()
-										waiting[held] = nil
-									end
-									collect()
-								end)
-								waiting[held :: RBXScriptConnection] = true
-							else
-								local held: thread? = nil
-								held = task.defer(function()
-									if held then
-										pending[held] = nil
-									end
-									collect()
-								end)
-								pending[held :: thread] = true
-							end
+							delayed.after(0, collect)
 						end
 					end)
 					Compose.cleanup(function()
 						collecting = false
-						for held in waiting do
-							held:Disconnect()
-						end
-						for held in pending do
-							task.cancel(held)
-						end
 						keepSelection(function()
 							for _, child in group:GetChildren() do
 								child.Parent = node
