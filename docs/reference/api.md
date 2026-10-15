@@ -69,6 +69,36 @@ options, use the named form or give the table a type in a local, for example
 
 `Host` types the native constructors, and `Child` types a child entry.
 
+The root module also exports the types of the option values and of the
+option parts. Use them to give a local a type without an internal module:
+
+- The binding shapes of each binding control, for example
+  `ToggleCellProps`, `ToggleRequestProps`, `TextInputCellProps`,
+  `TextInputRequestProps`, `TextInputNumberCellProps`,
+  `TextInputNumberRequestProps`, `NumberInputCellProps`,
+  `NumberInputRequestProps`, `StepperCellProps`, `StepperRequestProps`,
+  `SliderCellProps`, `SliderRequestProps`, `SliderRangeProps`,
+  `RatingCellProps`, `RatingRequestProps`, `RatingReadOnlyProps`,
+  `LevelPickerCellProps`, `LevelPickerRequestProps`,
+  `LevelPickerReadOnlyProps`, `ChipCellProps`, `ChipRequestProps`,
+  `ChipRemovableProps`, `ShortcutHintKeysProps` and
+  `ShortcutHintActionProps`.
+- The spec shapes `SinglePickerSpec`, `MultiplePickerSpec`,
+  `KeyedOutlineSpec`, `IdentityOutlineSpec` and `FocusControls`.
+- The action and overlay parts `DialogAction`, `ActionRole`, `ToastAction`,
+  `CardAction`, `CardMenu`, `PopoverSource`, `OverlayRect` and
+  `CollectionPlacement`.
+- The value types `ButtonRole`, `TextCommitReason`, `CommitReason`,
+  `ClearButtonMode`, `ControlSize`, `Status`, `TextRole`, `Presence`,
+  `ImageScaleMode`, `ImageLoader`, `VoteValue`, `StepState`,
+  `PaginationForm`, `TabPlacement`, `TabSelectionIndicator`,
+  `NoticeSeverity`, `ColorSwatch`, `ColorPickerMode` and `DateRangePreset`.
+- The dismiss reasons `DialogDismissReason`, `PopoverDismissReason`,
+  `ToastDismissReason`, `ColorPickerDismissReason` and
+  `DateTimePickerDismissReason`.
+- The theme definition types `ThemeDefinition`, `PalettePatch`,
+  `PaletteExtra` and `TypographyPatch`.
+
 The old solver gives no contextual type to the items of an array that is in an
 optional or a reactive option. Examples are `actions`, `items`, `options`,
 `tabs`, `steps` and `detents`. An optional option is a union with `nil`, and
