@@ -331,11 +331,12 @@ function parts.actions(
 		table.insert(widths, ctx.observe.TextBounds(button))
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
-		local total = (#actions - 1) * 8
+		-- a row gives each action an equal share, so the widest label decides whether the row fits
+		local widest = 0
 		for _, bounds in widths do
-			total += use(bounds).X + 24
+			widest = math.max(widest, use(bounds).X + 24)
 		end
-		measured:set(total)
+		measured:set(#actions * widest + (#actions - 1) * 8)
 	end)
 	return { frame = Host.Frame(props), stacked = stacked }
 end

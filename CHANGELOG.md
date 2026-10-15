@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Two `automatic` overlay actions stack when the longer label does not fit its
+  equal share of the row. Before, the row compared the sum of the labels with
+  the row width, so a short and a long label stayed in a row and the long one
+  ran past its button.
 - When the side zones of a Composition row squeeze a center-lane zone that
   fits the row alone, the side regions that are wider than the room the center
   leaves also step down, by rank. Before, only the center zone gave way, so a

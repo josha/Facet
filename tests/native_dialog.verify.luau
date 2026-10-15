@@ -771,6 +771,22 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("stacks two actions when the longer label does not fit its equal share of the row", {
+			id = "native_dialog::native Dialog: composition, layout and the height budget::stacks two actions when the longer label does not fit its equal share of the row",
+			run = function()
+				local open, log, change = caller()
+				local w = mount(standard(open, log, change), { size = Vector2.new(390, 844) })
+				sized(w, 60)
+				local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
+				actionButton(w, "Stay").TextBounds = Vector2.new(40, 20)
+				actionButton(w, "Leave").TextBounds = Vector2.new(200, 20)
+				Verify.expect(list.FillDirection):toBe(w.Enum.FillDirection.Vertical)
+				actionButton(w, "Leave").TextBounds = Vector2.new(48, 20)
+				Verify.expect(list.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case(
 			"automatic actions stack for three; an explicit row that cannot fit falls to the safe stack",
 			{
