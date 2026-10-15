@@ -82,8 +82,7 @@ return {
 		for _, element in dump.elements do
 			local text = element.text
 			local paintsText = text ~= nil and text.content ~= "" and text.transparency < 0.95
-			local backdrop = not element.selectable and text ~= nil and text.content == ""
-			local input = element.interactive and element.interactable and not backdrop
+			local input = element.interactive and element.interactable
 			if not element.visible or not (paintsText or input) then
 				continue
 			end
