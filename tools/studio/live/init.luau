@@ -8,12 +8,15 @@ type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
+local LogService = game:GetService("LogService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local storage = game:GetService("ReplicatedStorage")
 
 local Verify = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("core"))
-local VerifyRoblox = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("roblox"))
+local VerifyRoblox: typeof(require("@repo/tools/vendor/verify/src/roblox")) = (require :: any)(
+	storage:WaitForChild("FacetVerify"):WaitForChild("roblox")
+)
 
 local live = {}
 
@@ -711,9 +714,9 @@ function live.report(suite: string, options: { [string]: any }?): any
 		capabilities = capabilities,
 		selection = { ids = selected },
 		progress = if config.runId and config.progressToken
-			then VerifyRoblox.progressChannel.publisher(config.runId, config.progressToken, function(value)
-				return HttpService:JSONEncode(value)
-			end, print)
+			then VerifyRoblox.progressChannel.publisher(config.runId, config.progressToken, function(message, context)
+				LogService:GetLogger(VerifyRoblox.progressChannel.LOGGER):Info(message, context)
+			end)
 			else nil,
 	})
 	return report
