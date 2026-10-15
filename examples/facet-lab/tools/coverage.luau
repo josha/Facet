@@ -141,7 +141,7 @@ for _, entry in fs.listDirectory(FACET) do
 		local source = fs.readFileToString(FACET .. name)
 		local aliases: { [string]: string } = {}
 		for alias, typeName in string.gmatch(source, "\nlocal ([%w_]+) = %(nil :: unknown%) :: [%w_]+%.([%w_]+)") do
-			aliases[alias] = typeName
+			aliases[assert(alias)] = assert(typeName)
 		end
 		for _, chunk in string.split(source, "\nexport type ") do
 			local typeName = string.match(chunk, "^([%w_]+)")
@@ -181,16 +181,19 @@ end
 local controlsBody = assert(string.match(controlTypes, "export type Controls = {\n(.-)\n}"))
 for line in string.gmatch(controlsBody, "[^\n]+") do
 	local control, expr = string.match(line, "^\t([%a_][%w_]*): (.+),$")
-	if control then
-		local source = expr
-		local shapes = string.match(expr, "^[%w_]+Constructor$")
-		if shapes then
-			source = constructors[string.gsub(expr, "Constructor$", "Shapes")] or expr
+	if control and expr then
+		local source: string = expr
+		if string.match(expr, "^[%w_]+Constructor$") then
+			local shapesName = string.gsub(expr, "Constructor$", "Shapes")
+			source = constructors[shapesName] or expr
 		end
 		local fields: { [string]: string } = {}
 		for propsName in string.gmatch(source, "%.([%w_]+)") do
-			for field, origin in origins[propsName] or {} do
-				fields[field] = fields[field] or origin
+			local declared = origins[assert(propsName)]
+			if declared then
+				for field, origin in declared do
+					fields[field] = fields[field] or origin
+				end
 			end
 		end
 		specs[control] = fields
