@@ -4,7 +4,7 @@ Build the first part of the interface for one racing game: the hub HUD with its 
 
 ## Design direction
 
-Use one visual identity. Use a dark slate base, warm amber for main actions, pale text, and a small set of status colors. Use one font family with a small set of sizes and weights. Use a spacing scale based on 4 pixels. Use the same panel heading, action style, and top-right Close position on every panel. You can use equivalent colors and a suitable readable font. Keep the world visible around the HUD.
+Use one visual identity. Use a dark metallic base, cyan and violet neon accents for main actions, pale text, and a small set of status colors. Use one font family with a small set of sizes and weights. Use a spacing scale based on 4 pixels. Use the same panel heading, action style, and top-right Close position on every panel. You can use equivalent colors and a suitable readable font. Keep the world visible around the HUD.
 
 Close returns to the hub. Each panel has one clear visible way back. The root hub has no Back command. On a console, B closes the panel and selection returns to the control that opened it. Keep state when the player closes a panel.
 
@@ -41,3 +41,7 @@ The game model owns all state. Currency values in every client refer to one wall
 ## Done when
 
 The HUD, the dock panels and the Shop work on desktop, both phone orientations, tablet, and console. All player actions work with that device's input. Every panel has a way back. Purchases and rewards update every balance.
+
+## Design direction
+
+Use a sci-fi neon identity with dark panels, cyan and violet accents, and readable pale text. Keep the world visible around the HUD.

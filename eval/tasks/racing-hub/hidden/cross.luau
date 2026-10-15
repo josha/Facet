@@ -28,9 +28,11 @@ end
 local cases: { Play.Case } = {
 	{
 		id = "race-results-return",
+		tier = "spec",
 		run = function(qa, context)
-			qa:admin("phase", { phase = "Results", seconds = 120, winner = "Red" })
-			Check.text(qa, context, "red wins", "the race ends with results")
+			qa:admin("phase", { phase = "Round", seconds = 120 })
+			qa:admin("phase", { phase = "Results", seconds = 120 })
+			Check.text(qa, context, "finish order", "the race ends with results")
 			tap(qa, context, "Back to hub")
 			Check.that(
 				context,
@@ -43,6 +45,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "overlay-stack-and-focus",
+		tier = "spec",
 		screen = "overlay-stack",
 		run = function(qa, context)
 			tap(qa, context, "Shop")
@@ -67,6 +70,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "purchase-flows-to-hud-and-garage",
+		tier = "spec",
 		screen = "shared-wallet",
 		run = function(qa, context)
 			qa:admin("wallet", { coins = 500, gems = 200 })
@@ -103,6 +107,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "quest-crate-connects-to-collection",
+		tier = "spec",
 		run = function(qa, context)
 			local crates = tonumber(value(qa, "state", "crates")) or 0
 			Check.that(context, crates == 1, "the mechanic rewarded one crate")
@@ -123,6 +128,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "queue-loadout-race-rewards",
+		tier = "spec",
 		screen = "race-loadout",
 		run = function(qa, context)
 			tap(qa, context, "Garage")
@@ -150,7 +156,8 @@ local cases: { Play.Case } = {
 			qa:dump("race-loadout")
 			Coherence.observe(qa.device.id, "race-loadout")
 			qa:capture("race-loadout")
-			qa:admin("phase", { phase = "Results", winner = "Red", seconds = 120 })
+			qa:admin("phase", { phase = "Round", seconds = 120 })
+			qa:admin("phase", { phase = "Results", seconds = 120 })
 			Check.text(qa, context, "earned%s*50%s*coins", "results name the currency reward")
 			Check.text(qa, context, "120%s*xp", "results name the XP reward")
 			Check.that(
@@ -211,8 +218,9 @@ for _, panel in
 		"Offer",
 	}
 do
-	table.insert(cases, {
+	local case: Play.Case = {
 		id = "navigation/" .. string.gsub(string.lower(panel), " ", "-"),
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, { role = "button", text = string.lower(panel) }, "open " .. panel)
 			Coherence.returnControl(qa, context)
@@ -226,7 +234,8 @@ do
 			returned(qa, context, panel)
 			Check.gone(qa, context, { role = "button", exact = "back" }, "the root hub has no Back command")
 		end,
-	})
+	}
+	table.insert(cases, case)
 end
 
 return cases

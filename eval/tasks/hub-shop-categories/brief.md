@@ -13,3 +13,7 @@ For a purchase of at least 500 Coins or 100 Gems, first ask `Buy ITEM for PRICE 
 | Actions | Confirm, Cancel |
 
 The categories and confirmation must work with touch and gamepad. Close or B returns one level and restores selection. The entire racing hub must still work.
+
+## Design direction
+
+Use a sci-fi neon identity with dark panels, cyan and violet accents, and readable pale text. Keep the world visible around the HUD.

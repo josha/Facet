@@ -383,6 +383,10 @@ The [fake host](../tests/fake-host.luau) of the tests injects missing, duplicate
 
 ---
 
+## Mounted place sources
+
+`Roblox.createPlaceCache(host)` shares source and compiled bytes while loading each supplied environment separately. `Roblox.buildPlaceTree(engine, projectPath, dependencies)` mounts a project through the supplied engine and file host; `Roblox.createPlaceRuntime(engine, mounted, options)` runs its source modules with separate client and server contexts. `Roblox.bootPlace(config, dependencies)` coordinates the bounded boot stages. These are headless checks, and do not establish native rendering, input, asset access or release acceptance.
+
 ## Host observations
 
 Use typed operations, `context:perform`, `await`, `checkpoint`, `judge` and `measure` in the ordinary case.
@@ -967,3 +971,5 @@ Choose a ruleset: `Consumer.generic` or `Consumer.roblox`.
 
 `Core.runCases(cases, options, now, ids?)` executes ordinary named cases with exact selection.
 The [run guide](running.md) describes selection, entry modules and host execution.
+
+`Core.waitUntil(spec, ops)` polls to a bound and returns its terminal reason, last observation and elapsed time. `Core.awaitValue(predicate, seconds, poll, ops)` waits for a non-nil value (including false), returns nil on timeout or cancellation, and raises probe failures. Its optional final `truthy` argument ignores false as well as nil. The caller supplies the clock, sleep and optional cancellation.

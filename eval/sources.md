@@ -143,7 +143,7 @@ The extended turns use these generic interface patterns. These descriptions are 
 | `pack-opening` | 3, 6 | Choose a pack, confirm the cost, reveal the cards and see the collection grow. |
 | `vehicle-garage` | 1 | Filter vehicles, open the details, spawn one and use the vehicle HUD. |
 | `character-shop` | 8 | Compare characters, rent or buy one after a confirmation and equip it. |
-| `round-hud` | 12 | Follow the intermission, the round timer, the team rosters, eliminations and results. |
+| `round-hud` | 12 | Follow the intermission, the round timer, positions, laps, standings and results. |
 | `lobby-queue` | 11 | Join a queue, see how many more players the match needs, leave the queue, see the countdown. |
 | `hud-dock` | 4, 6, 12 | Read currencies and progress while they change, open panels from a dock and claim a timed offer. |
 | `shop-categories` | 6 | Change request: category tabs and a confirmation for large purchases. |

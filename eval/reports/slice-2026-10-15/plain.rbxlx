@@ -1,0 +1,5450 @@
+<roblox version="4">
+  <Item class="Lighting" referent="0">
+    <Properties>
+      <string name="Name">Lighting</string>
+      <token name="Technology">4</token>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="1">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="Folder" referent="2">
+      <Properties>
+        <string name="Name">Packages</string>
+      </Properties>
+    </Item>
+    <Item class="Folder" referent="3">
+      <Properties>
+        <string name="Name">Remotes</string>
+      </Properties>
+      <Item class="RemoteFunction" referent="4">
+        <Properties>
+          <string name="Name">BuyBoost</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="5">
+        <Properties>
+          <string name="Name">BuyDriver</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="6">
+        <Properties>
+          <string name="Name">BuyOffer</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="7">
+        <Properties>
+          <string name="Name">Choose</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="8">
+        <Properties>
+          <string name="Name">ClaimQuest</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="9">
+        <Properties>
+          <string name="Name">ClaimReward</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="10">
+        <Properties>
+          <string name="Name">CodesStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="11">
+        <Properties>
+          <string name="Name">CrateStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="12">
+        <Properties>
+          <string name="Name">DialogueStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="13">
+        <Properties>
+          <string name="Name">DriverStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="14">
+        <Properties>
+          <string name="Name">EconomyStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="15">
+        <Properties>
+          <string name="Name">Equip</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="16">
+        <Properties>
+          <string name="Name">EquipDriver</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="17">
+        <Properties>
+          <string name="Name">ExitVehicle</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="18">
+        <Properties>
+          <string name="Name">GarageStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="19">
+        <Properties>
+          <string name="Name">GetCodesState</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="20">
+        <Properties>
+          <string name="Name">GetCrateState</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="21">
+        <Properties>
+          <string name="Name">GetDialogueState</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="22">
+        <Properties>
+          <string name="Name">GetDriverState</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="23">
+        <Properties>
+          <string name="Name">GetEconomyState</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="24">
+        <Properties>
+          <string name="Name">GetGarageState</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="25">
+        <Properties>
+          <string name="Name">GetHubState</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="26">
+        <Properties>
+          <string name="Name">GetInventory</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="27">
+        <Properties>
+          <string name="Name">GetLobbyState</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="28">
+        <Properties>
+          <string name="Name">GetRewardsState</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="29">
+        <Properties>
+          <string name="Name">GetRoundState</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="30">
+        <Properties>
+          <string name="Name">GetSettings</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="31">
+        <Properties>
+          <string name="Name">GetShopState</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="32">
+        <Properties>
+          <string name="Name">HubStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="33">
+        <Properties>
+          <string name="Name">InventoryChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="34">
+        <Properties>
+          <string name="Name">JoinQueue</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="35">
+        <Properties>
+          <string name="Name">Leave</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="36">
+        <Properties>
+          <string name="Name">LeaveQueue</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="37">
+        <Properties>
+          <string name="Name">LobbyStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="38">
+        <Properties>
+          <string name="Name">OpenCrate</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="39">
+        <Properties>
+          <string name="Name">Purchase</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="40">
+        <Properties>
+          <string name="Name">RedeemCode</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="41">
+        <Properties>
+          <string name="Name">RentDriver</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="42">
+        <Properties>
+          <string name="Name">ReturnToHub</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="43">
+        <Properties>
+          <string name="Name">RewardsStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="44">
+        <Properties>
+          <string name="Name">RoundEvent</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="45">
+        <Properties>
+          <string name="Name">RoundStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="46">
+        <Properties>
+          <string name="Name">SaveSettings</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="47">
+        <Properties>
+          <string name="Name">SetFavorite</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="48">
+        <Properties>
+          <string name="Name">SettingsChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteEvent" referent="49">
+        <Properties>
+          <string name="Name">ShopStateChanged</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="50">
+        <Properties>
+          <string name="Name">SpawnVehicle</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="51">
+        <Properties>
+          <string name="Name">Talk</string>
+        </Properties>
+      </Item>
+      <Item class="RemoteFunction" referent="52">
+        <Properties>
+          <string name="Name">Unequip</string>
+        </Properties>
+      </Item>
+    </Item>
+    <Item class="Folder" referent="53">
+      <Properties>
+        <string name="Name">Shared</string>
+      </Properties>
+      <Item class="ModuleScript" referent="54">
+        <Properties>
+          <string name="Name">Hub</string>
+          <string name="Source"><![CDATA[--!strict
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Shop = require(script.Shop)
+local Inventory = require(script.Inventory)
+local Settings = require(script.Settings)
+local Codes = require(script.Codes)
+local DailyRewards = require(script.DailyRewards)
+local Dialogue = require(script.Dialogue)
+local Crates = require(script.Crates)
+local Garage = require(script.Garage)
+local Drivers = require(script.Drivers)
+local Round = require(script.Round)
+local Lobby = require(script.Lobby)
+local Economy = require(script.Economy)
+
+export type State = {
+	wallet: { Coins: number, Gems: number },
+	xp: number,
+	level: number,
+	races: number,
+	crates: number,
+	kart: string,
+	driver: string,
+	raceKart: string,
+	raceDriver: string,
+	positions: { string },
+}
+export type Client = {
+	getState: () -> State,
+	onStateChanged: ((State) -> ()) -> RBXScriptConnection,
+	serverNow: () -> number,
+	returnToHub: () -> boolean,
+}
+export type Context = {
+	player: Player,
+	playerGui: PlayerGui,
+	hub: Client,
+	shop: Shop.Client,
+	inventory: Inventory.Client,
+	settings: Settings.Client,
+	codes: Codes.Client,
+	rewards: DailyRewards.Client,
+	dialogue: Dialogue.Client,
+	crates: Crates.Client,
+	garage: Garage.Client,
+	drivers: Drivers.Client,
+	round: Round.Client,
+	lobby: Lobby.Client,
+	economy: Economy.Client,
+}
+local function client(): Client
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local get = remotes:WaitForChild("GetHubState") :: RemoteFunction
+	local changed = remotes:WaitForChild("HubStateChanged") :: RemoteEvent
+	return {
+		returnToHub = function(): boolean
+			return (remotes:WaitForChild("ReturnToHub") :: RemoteFunction):InvokeServer()
+		end,
+		getState = function(): State
+			return get:InvokeServer()
+		end,
+		onStateChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+		serverNow = function(): number
+			return workspace:GetServerTimeNow()
+		end,
+	}
+end
+local function context(player: Player): Context
+	return {
+		player = player,
+		playerGui = player:WaitForChild("PlayerGui") :: PlayerGui,
+		hub = client(),
+		shop = Shop.client(),
+		inventory = Inventory.client(),
+		settings = Settings.client(),
+		codes = Codes.client(),
+		rewards = DailyRewards.client(),
+		dialogue = Dialogue.client(),
+		crates = Crates.client(),
+		garage = Garage.client(),
+		drivers = Drivers.client(),
+		round = Round.client(),
+		lobby = Lobby.client(),
+		economy = Economy.client(),
+	}
+end
+return { context = context }
+]]></string>
+        </Properties>
+        <Item class="ModuleScript" referent="55">
+          <Properties>
+            <string name="Name">Catalog</string>
+            <string name="Source"><![CDATA[--!strict
+
+export type Currency = "Coins" | "Gems"
+
+export type Category = "Motors" | "Boosts" | "Wheels" | "Cosmetics"
+
+export type Item = {
+	id: string,
+	name: string,
+	category: Category,
+	price: number,
+	currency: Currency,
+	description: string,
+}
+
+local items: { Item } = {
+	{
+		id = "starter_motor",
+		name = "Starter Motor",
+		category = "Motors",
+		price = 50,
+		currency = "Coins",
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "sport_motor",
+		name = "Sport Motor",
+		category = "Motors",
+		price = 250,
+		currency = "Coins",
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "crystal_motor",
+		name = "Crystal Motor",
+		category = "Motors",
+		price = 75,
+		currency = "Gems",
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "turbo_kit",
+		name = "Turbo Kit",
+		category = "Boosts",
+		price = 400,
+		currency = "Coins",
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "lucky_charm",
+		name = "Lucky Charm",
+		category = "Boosts",
+		price = 10,
+		currency = "Gems",
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "amber_wheels",
+		name = "Amber Wheels",
+		category = "Wheels",
+		price = 25,
+		currency = "Gems",
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "road_wheels",
+		name = "Road Wheels",
+		category = "Wheels",
+		price = 150,
+		currency = "Coins",
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "gold_paint",
+		name = "Gold Paint",
+		category = "Cosmetics",
+		price = 120,
+		currency = "Gems",
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "rainbow_trail",
+		name = "Rainbow Trail",
+		category = "Cosmetics",
+		price = 900,
+		currency = "Coins",
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+}
+
+local byId: { [string]: Item } = {}
+for _, item in items do
+	byId[item.id] = item
+end
+
+local categories: { Category } = { "Motors", "Boosts", "Wheels", "Cosmetics" }
+
+return {
+	items = items,
+	byId = byId,
+	categories = categories,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="56">
+          <Properties>
+            <string name="Name">Codes</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+export type Currency = "Coins" | "Gems"
+
+export type Reward = {
+	kind: "Currency" | "Item",
+	name: string,
+	amount: number,
+}
+
+export type State = {
+	wallet: { Coins: number, Gems: number },
+	items: { [string]: number },
+	redeemed: { string },
+}
+
+export type Failure = "empty" | "invalid" | "expired" | "already_redeemed" | "rate_limited" | "busy"
+
+export type RedeemResult = {
+	ok: boolean,
+	code: string,
+	reason: Failure?,
+	retryIn: number?,
+	rewards: { Reward },
+	state: State,
+}
+
+export type Client = {
+	getState: () -> State,
+	redeem: (code: string) -> RedeemResult,
+	onStateChanged: (callback: (State) -> ()) -> RBXScriptConnection,
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "Codes.client() runs on the client")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetCodesState") :: RemoteFunction
+	local redeem = remotes:WaitForChild("RedeemCode") :: RemoteFunction
+	local changed = remotes:WaitForChild("CodesStateChanged") :: RemoteEvent
+	return {
+		getState = function(): State
+			return getState:InvokeServer()
+		end,
+		redeem = function(code: string): RedeemResult
+			return redeem:InvokeServer(code)
+		end,
+		onStateChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="57">
+          <Properties>
+            <string name="Name">Crates</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+export type Rarity = "Common" | "Rare" | "Epic" | "Legendary"
+
+export type Card = { id: string, name: string, rarity: Rarity }
+
+export type Odds = { Common: number, Rare: number, Epic: number, Legendary: number }
+
+export type Crate = { id: string, name: string, price: number, cards: number, odds: Odds }
+
+export type State = {
+	gems: number,
+	collection: { [string]: number },
+}
+
+export type Failure = "insufficient_funds" | "unknown_crate" | "busy"
+
+export type OpenResult = {
+	ok: boolean,
+	crate: string,
+	reason: Failure?,
+	cards: { Card },
+	state: State,
+}
+
+export type Client = {
+	crates: { Crate },
+	cards: { Card },
+	getState: () -> State,
+	open: (crateId: string) -> OpenResult,
+	onStateChanged: (callback: (State) -> ()) -> RBXScriptConnection,
+}
+
+local crates: { Crate } = {
+	{
+		id = "starter",
+		name = "Starter Crate",
+		price = 50,
+		cards = 3,
+		odds = { Common = 70, Rare = 25, Epic = 5, Legendary = 0 },
+	},
+	{
+		id = "veteran",
+		name = "Veteran Crate",
+		price = 120,
+		cards = 4,
+		odds = { Common = 45, Rare = 35, Epic = 17, Legendary = 3 },
+	},
+	{
+		id = "legend",
+		name = "Legend Crate",
+		price = 300,
+		cards = 5,
+		odds = { Common = 20, Rare = 40, Epic = 30, Legendary = 10 },
+	},
+}
+
+local cards: { Card } = {
+	{ id = "pebble_golem", name = "Pebble Golem", rarity = "Common" },
+	{ id = "moss_sprite", name = "Moss Sprite", rarity = "Common" },
+	{ id = "dune_beetle", name = "Dune Beetle", rarity = "Common" },
+	{ id = "river_otter", name = "River Otter", rarity = "Common" },
+	{ id = "frost_fox", name = "Frost Fox", rarity = "Rare" },
+	{ id = "ember_hawk", name = "Ember Hawk", rarity = "Rare" },
+	{ id = "tide_serpent", name = "Tide Serpent", rarity = "Rare" },
+	{ id = "storm_lion", name = "Storm Lion", rarity = "Epic" },
+	{ id = "crystal_stag", name = "Crystal Stag", rarity = "Epic" },
+	{ id = "sun_dragon", name = "Sun Dragon", rarity = "Legendary" },
+	{ id = "moon_whale", name = "Moon Whale", rarity = "Legendary" },
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "Crates.client() runs on the client")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetCrateState") :: RemoteFunction
+	local open = remotes:WaitForChild("OpenCrate") :: RemoteFunction
+	local changed = remotes:WaitForChild("CrateStateChanged") :: RemoteEvent
+	return {
+		crates = crates,
+		cards = cards,
+		getState = function(): State
+			return getState:InvokeServer()
+		end,
+		open = function(crateId: string): OpenResult
+			return open:InvokeServer(crateId)
+		end,
+		onStateChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+	crates = crates,
+	cards = cards,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="58">
+          <Properties>
+            <string name="Name">DailyRewards</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+export type Reward = {
+	kind: "Coins" | "Gems" | "Item",
+	name: string,
+	amount: number,
+}
+
+export type Day = { day: number, reward: Reward }
+
+export type State = {
+	track: { Day },
+	day: number,
+	claimedToday: boolean,
+	nextClaimAt: number,
+	restarted: boolean,
+	wallet: { Coins: number, Gems: number },
+	items: { [string]: number },
+}
+
+export type Failure = "already_claimed" | "busy"
+
+export type ClaimResult = {
+	ok: boolean,
+	reason: Failure?,
+	reward: Reward?,
+	state: State,
+}
+
+export type Client = {
+	getState: () -> State,
+	claim: () -> ClaimResult,
+	serverNow: () -> number,
+	onStateChanged: (callback: (State) -> ()) -> RBXScriptConnection,
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "DailyRewards.client() runs on the client")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetRewardsState") :: RemoteFunction
+	local claim = remotes:WaitForChild("ClaimReward") :: RemoteFunction
+	local changed = remotes:WaitForChild("RewardsStateChanged") :: RemoteEvent
+	return {
+		getState = function(): State
+			return getState:InvokeServer()
+		end,
+		claim = function(): ClaimResult
+			return claim:InvokeServer()
+		end,
+		serverNow = function(): number
+			return workspace:GetServerTimeNow()
+		end,
+		onStateChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="59">
+          <Properties>
+            <string name="Name">Dialogue</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+export type Choice = { id: string, text: string }
+
+export type Node = {
+	id: string,
+	speaker: string,
+	text: string,
+	choices: { Choice },
+	ended: boolean,
+}
+
+export type State = {
+	nearby: string?,
+	node: Node?,
+	coins: number,
+	questAccepted: boolean,
+}
+
+export type Failure = "not_nearby" | "no_conversation" | "unknown_choice" | "busy"
+
+export type Result = {
+	ok: boolean,
+	reason: Failure?,
+	state: State,
+}
+
+export type Client = {
+	getState: () -> State,
+	talk: () -> Result,
+	choose: (choiceId: string) -> Result,
+	leave: () -> Result,
+	onStateChanged: (callback: (State) -> ()) -> RBXScriptConnection,
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "Dialogue.client() runs on the client")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetDialogueState") :: RemoteFunction
+	local talk = remotes:WaitForChild("Talk") :: RemoteFunction
+	local choose = remotes:WaitForChild("Choose") :: RemoteFunction
+	local leave = remotes:WaitForChild("Leave") :: RemoteFunction
+	local changed = remotes:WaitForChild("DialogueStateChanged") :: RemoteEvent
+	return {
+		getState = function(): State
+			return getState:InvokeServer()
+		end,
+		talk = function(): Result
+			return talk:InvokeServer()
+		end,
+		choose = function(choiceId: string): Result
+			return choose:InvokeServer(choiceId)
+		end,
+		leave = function(): Result
+			return leave:InvokeServer()
+		end,
+		onStateChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="60">
+          <Properties>
+            <string name="Name">Drivers</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+export type Rarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary"
+
+export type Driver = {
+	id: string,
+	name: string,
+	series: "Circuit" | "Rally",
+	rarity: Rarity,
+	price: number,
+	rentPrice: number,
+	strength: number,
+	speed: number,
+	durability: number,
+}
+
+export type State = {
+	coins: number,
+	owned: { [string]: boolean },
+	rented: { [string]: number },
+	equipped: string?,
+}
+
+export type Failure = "insufficient_funds" | "already_owned" | "not_available" | "unknown_driver" | "busy"
+
+export type Result = { ok: boolean, reason: Failure?, state: State }
+
+export type Client = {
+	drivers: { Driver },
+	rentSeconds: number,
+	getState: () -> State,
+	buy: (driverId: string) -> Result,
+	rent: (driverId: string) -> Result,
+	equip: (driverId: string) -> Result,
+	serverNow: () -> number,
+	onStateChanged: (callback: (State) -> ()) -> RBXScriptConnection,
+}
+
+local drivers: { Driver } = {
+	{
+		id = "kira",
+		name = "Kira",
+		series = "Circuit",
+		rarity = "Legendary",
+		price = 900,
+		rentPrice = 90,
+		strength = 92,
+		speed = 80,
+		durability = 70,
+	},
+	{
+		id = "ren",
+		name = "Ren",
+		series = "Circuit",
+		rarity = "Epic",
+		price = 600,
+		rentPrice = 60,
+		strength = 75,
+		speed = 85,
+		durability = 55,
+	},
+	{
+		id = "aiko",
+		name = "Aiko",
+		series = "Circuit",
+		rarity = "Rare",
+		price = 350,
+		rentPrice = 35,
+		strength = 50,
+		speed = 90,
+		durability = 40,
+	},
+	{
+		id = "tomo",
+		name = "Tomo",
+		series = "Circuit",
+		rarity = "Uncommon",
+		price = 150,
+		rentPrice = 15,
+		strength = 45,
+		speed = 50,
+		durability = 60,
+	},
+	{
+		id = "haru",
+		name = "Haru",
+		series = "Circuit",
+		rarity = "Common",
+		price = 60,
+		rentPrice = 6,
+		strength = 30,
+		speed = 40,
+		durability = 45,
+	},
+	{
+		id = "blaze",
+		name = "Blaze",
+		series = "Rally",
+		rarity = "Legendary",
+		price = 1000,
+		rentPrice = 100,
+		strength = 95,
+		speed = 75,
+		durability = 85,
+	},
+	{
+		id = "pixel",
+		name = "Pixel",
+		series = "Rally",
+		rarity = "Rare",
+		price = 300,
+		rentPrice = 30,
+		strength = 40,
+		speed = 95,
+		durability = 35,
+	},
+	{
+		id = "golem",
+		name = "Golem",
+		series = "Rally",
+		rarity = "Common",
+		price = 80,
+		rentPrice = 8,
+		strength = 70,
+		speed = 20,
+		durability = 90,
+	},
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "Drivers.client() runs on the client")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetDriverState") :: RemoteFunction
+	local buy = remotes:WaitForChild("BuyDriver") :: RemoteFunction
+	local rent = remotes:WaitForChild("RentDriver") :: RemoteFunction
+	local equip = remotes:WaitForChild("EquipDriver") :: RemoteFunction
+	local changed = remotes:WaitForChild("DriverStateChanged") :: RemoteEvent
+	return {
+		drivers = drivers,
+		rentSeconds = 600,
+		getState = function(): State
+			return getState:InvokeServer()
+		end,
+		buy = function(driverId: string): Result
+			return buy:InvokeServer(driverId)
+		end,
+		rent = function(driverId: string): Result
+			return rent:InvokeServer(driverId)
+		end,
+		equip = function(driverId: string): Result
+			return equip:InvokeServer(driverId)
+		end,
+		serverNow = function(): number
+			return workspace:GetServerTimeNow()
+		end,
+		onStateChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+	drivers = drivers,
+	rentSeconds = 600,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="61">
+          <Properties>
+            <string name="Name">Economy</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+export type Quest = {
+	id: string,
+	title: string,
+	goal: number,
+	progress: number,
+	reward: number,
+	claimed: boolean,
+}
+
+export type Offer = {
+	name: string,
+	coins: number,
+	price: number,
+	endsAt: number,
+	bought: boolean,
+}
+
+export type State = {
+	coins: number,
+	gems: number,
+	perSecond: number,
+	boostEndsAt: number?,
+	boostPrice: number,
+	zone: number,
+	zoneProgress: number,
+	zoneGoal: number,
+	quests: { Quest },
+	offer: Offer,
+}
+
+export type Failure =
+	"insufficient_funds"
+	| "already_active"
+	| "not_complete"
+	| "already_claimed"
+	| "expired"
+	| "already_bought"
+	| "unknown_quest"
+
+export type Result = { ok: boolean, reason: Failure?, state: State }
+
+export type Client = {
+	getState: () -> State,
+	buyBoost: () -> Result,
+	claimQuest: (questId: string) -> Result,
+	buyOffer: () -> Result,
+	serverNow: () -> number,
+	onStateChanged: (callback: (State) -> ()) -> RBXScriptConnection,
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "Economy.client() runs on the client")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetEconomyState") :: RemoteFunction
+	local buyBoost = remotes:WaitForChild("BuyBoost") :: RemoteFunction
+	local claimQuest = remotes:WaitForChild("ClaimQuest") :: RemoteFunction
+	local buyOffer = remotes:WaitForChild("BuyOffer") :: RemoteFunction
+	local changed = remotes:WaitForChild("EconomyStateChanged") :: RemoteEvent
+	return {
+		getState = function(): State
+			return getState:InvokeServer()
+		end,
+		buyBoost = function(): Result
+			return buyBoost:InvokeServer()
+		end,
+		claimQuest = function(questId: string): Result
+			return claimQuest:InvokeServer(questId)
+		end,
+		buyOffer = function(): Result
+			return buyOffer:InvokeServer()
+		end,
+		serverNow = function(): number
+			return workspace:GetServerTimeNow()
+		end,
+		onStateChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="62">
+          <Properties>
+            <string name="Name">Garage</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+export type Category = "Sprint" | "Circuit" | "Coast"
+
+export type Rarity = "Common" | "Rare" | "Epic" | "Legendary"
+
+export type Vehicle = {
+	id: string,
+	name: string,
+	category: Category,
+	rarity: Rarity,
+	level: number,
+	speed: number,
+	armor: number,
+	firepower: number,
+	controls: { string },
+}
+
+export type State = {
+	favorites: { [string]: boolean },
+	spawned: string?,
+}
+
+export type Failure = "unknown_vehicle" | "already_spawned" | "nothing_spawned" | "busy"
+
+export type Result = { ok: boolean, reason: Failure?, state: State }
+
+export type Client = {
+	vehicles: { Vehicle },
+	categories: { Category },
+	rarities: { Rarity },
+	getState: () -> State,
+	spawn: (vehicleId: string) -> Result,
+	exit: () -> Result,
+	setFavorite: (vehicleId: string, favorite: boolean) -> Result,
+	onStateChanged: (callback: (State) -> ()) -> RBXScriptConnection,
+}
+
+local AIR = { "Drive: W A S D", "Accelerate: W", "Brake: S", "Exit: Leave Vehicle" }
+local LAND = { "Drive: W A S D", "Steer: A D", "Exit: Leave Vehicle" }
+local SEA = { "Drive: W A S D", "Brake: S", "Exit: Leave Vehicle" }
+
+local vehicles: { Vehicle } = {
+	{
+		id = "sprint_kart",
+		name = "Sprint Kart",
+		category = "Sprint",
+		rarity = "Common",
+		level = 3,
+		speed = 70,
+		armor = 20,
+		firepower = 10,
+		controls = AIR,
+	},
+	{
+		id = "aero_kart",
+		name = "Aero Kart",
+		category = "Sprint",
+		rarity = "Rare",
+		level = 8,
+		speed = 85,
+		armor = 35,
+		firepower = 45,
+		controls = AIR,
+	},
+	{
+		id = "heavy_kart",
+		name = "Heavy Kart",
+		category = "Sprint",
+		rarity = "Epic",
+		level = 14,
+		speed = 55,
+		armor = 80,
+		firepower = 70,
+		controls = AIR,
+	},
+	{
+		id = "summit_kart",
+		name = "Summit Kart",
+		category = "Sprint",
+		rarity = "Legendary",
+		level = 21,
+		speed = 95,
+		armor = 60,
+		firepower = 90,
+		controls = AIR,
+	},
+	{
+		id = "rookie_kart",
+		name = "Rookie Kart",
+		category = "Circuit",
+		rarity = "Common",
+		level = 1,
+		speed = 60,
+		armor = 30,
+		firepower = 5,
+		controls = LAND,
+	},
+	{
+		id = "scout_kart",
+		name = "Scout Kart",
+		category = "Circuit",
+		rarity = "Rare",
+		level = 6,
+		speed = 80,
+		armor = 25,
+		firepower = 20,
+		controls = LAND,
+	},
+	{
+		id = "iron_kart",
+		name = "Iron Kart",
+		category = "Circuit",
+		rarity = "Epic",
+		level = 12,
+		speed = 30,
+		armor = 95,
+		firepower = 85,
+		controls = LAND,
+	},
+	{
+		id = "rail_kart",
+		name = "Rail Kart",
+		category = "Circuit",
+		rarity = "Legendary",
+		level = 19,
+		speed = 25,
+		armor = 70,
+		firepower = 100,
+		controls = LAND,
+	},
+	{
+		id = "coast_kart",
+		name = "Coast Kart",
+		category = "Coast",
+		rarity = "Common",
+		level = 2,
+		speed = 50,
+		armor = 10,
+		firepower = 0,
+		controls = SEA,
+	},
+	{
+		id = "patrol_kart",
+		name = "Patrol Kart",
+		category = "Coast",
+		rarity = "Rare",
+		level = 7,
+		speed = 65,
+		armor = 40,
+		firepower = 35,
+		controls = SEA,
+	},
+	{
+		id = "stream_kart",
+		name = "Stream Kart",
+		category = "Coast",
+		rarity = "Epic",
+		level = 13,
+		speed = 45,
+		armor = 75,
+		firepower = 60,
+		controls = SEA,
+	},
+	{
+		id = "cruise_kart",
+		name = "Cruise Kart",
+		category = "Coast",
+		rarity = "Epic",
+		level = 20,
+		speed = 35,
+		armor = 100,
+		firepower = 95,
+		controls = SEA,
+	},
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "Garage.client() runs on the client")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetGarageState") :: RemoteFunction
+	local spawnVehicle = remotes:WaitForChild("SpawnVehicle") :: RemoteFunction
+	local exitVehicle = remotes:WaitForChild("ExitVehicle") :: RemoteFunction
+	local setFavorite = remotes:WaitForChild("SetFavorite") :: RemoteFunction
+	local changed = remotes:WaitForChild("GarageStateChanged") :: RemoteEvent
+	return {
+		vehicles = vehicles,
+		categories = { "Sprint", "Circuit", "Coast" },
+		rarities = { "Common", "Rare", "Epic", "Legendary" },
+		getState = function(): State
+			return getState:InvokeServer()
+		end,
+		spawn = function(vehicleId: string): Result
+			return spawnVehicle:InvokeServer(vehicleId)
+		end,
+		exit = function(): Result
+			return exitVehicle:InvokeServer()
+		end,
+		setFavorite = function(vehicleId: string, favorite: boolean): Result
+			return setFavorite:InvokeServer(vehicleId, favorite)
+		end,
+		onStateChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+	vehicles = vehicles,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="63">
+          <Properties>
+            <string name="Name">Inventory</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Items = require(script.Parent.Items)
+
+export type Slot = Items.Slot
+export type Rarity = Items.Rarity
+export type Definition = Items.Definition
+
+export type State = {
+	owned: { string },
+	equipped: { [Slot]: string },
+}
+
+export type Failure = "not_owned" | "unknown_item" | "empty_slot"
+
+export type Result = {
+	ok: boolean,
+	reason: Failure?,
+	state: State,
+}
+
+export type Client = {
+	definitions: { Definition },
+	slots: { Slot },
+	getState: () -> State,
+	equip: (itemId: string) -> Result,
+	unequip: (slot: Slot) -> Result,
+	onChanged: (callback: (State) -> ()) -> RBXScriptConnection,
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "Inventory.client() runs on the client")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getInventory = remotes:WaitForChild("GetInventory") :: RemoteFunction
+	local equip = remotes:WaitForChild("Equip") :: RemoteFunction
+	local unequip = remotes:WaitForChild("Unequip") :: RemoteFunction
+	local changed = remotes:WaitForChild("InventoryChanged") :: RemoteEvent
+	return {
+		definitions = Items.definitions,
+		slots = Items.slots,
+		getState = function(): State
+			return getInventory:InvokeServer()
+		end,
+		equip = function(itemId: string): Result
+			return equip:InvokeServer(itemId)
+		end,
+		unequip = function(slot: Slot): Result
+			return unequip:InvokeServer(slot)
+		end,
+		onChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+	definitions = Items.definitions,
+	byId = Items.byId,
+	slots = Items.slots,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="64">
+          <Properties>
+            <string name="Name">Items</string>
+            <string name="Source"><![CDATA[--!strict
+
+export type Slot = "Motor" | "Body" | "Wheels" | "Trail"
+
+export type Rarity = "Common" | "Rare" | "Epic" | "Legendary"
+
+export type Definition = {
+	id: string,
+	name: string,
+	slot: Slot,
+	rarity: Rarity,
+	power: number,
+	description: string,
+}
+
+local definitions: { Definition } = {
+	{
+		id = "starter_motor",
+		name = "Starter Motor",
+		slot = "Motor",
+		rarity = "Common",
+		power = 5,
+		description = "A reliable motor for new racers.",
+	},
+	{
+		id = "frost_motor",
+		name = "Frost Motor",
+		slot = "Motor",
+		rarity = "Rare",
+		power = 42,
+		description = "A stable motor for cold tracks.",
+	},
+	{
+		id = "ember_motor",
+		name = "Ember Motor",
+		slot = "Motor",
+		rarity = "Epic",
+		power = 77,
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "night_motor",
+		name = "Night Motor",
+		slot = "Motor",
+		rarity = "Legendary",
+		power = 128,
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "light_body",
+		name = "Light Body",
+		slot = "Body",
+		rarity = "Common",
+		power = 8,
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "steel_body",
+		name = "Steel Body",
+		slot = "Body",
+		rarity = "Rare",
+		power = 36,
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "storm_body",
+		name = "Storm Body",
+		slot = "Body",
+		rarity = "Epic",
+		power = 61,
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "city_wheels",
+		name = "City Wheels",
+		slot = "Wheels",
+		rarity = "Common",
+		power = 3,
+		description = "Road wheels for daily hub runs.",
+	},
+	{
+		id = "snow_wheels",
+		name = "Snow Wheels",
+		slot = "Wheels",
+		rarity = "Rare",
+		power = 19,
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "flame_wheels",
+		name = "Flame Wheels",
+		slot = "Wheels",
+		rarity = "Legendary",
+		power = 95,
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "spark_trail",
+		name = "Spark Trail",
+		slot = "Trail",
+		rarity = "Common",
+		power = 1,
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "galaxy_trail",
+		name = "Galaxy Trail",
+		slot = "Trail",
+		rarity = "Epic",
+		power = 4,
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+	{
+		id = "golden_trail",
+		name = "Golden Trail",
+		slot = "Trail",
+		rarity = "Legendary",
+		power = 6,
+		description = "A tested racing part. Fit it in the garage before the next race.",
+	},
+}
+
+for _, item in require(script.Parent.Catalog).items do
+	if item.id ~= "starter_motor" then
+		local definition: Definition = {
+			id = item.id,
+			name = item.name,
+			slot = if item.category == "Motors" or item.category == "Boosts"
+				then "Motor"
+				elseif item.category == "Wheels" then "Wheels"
+				else "Trail",
+			rarity = "Rare",
+			power = item.price,
+			description = item.description,
+		}
+		table.insert(definitions, definition)
+	end
+end
+local byId: { [string]: Definition } = {}
+for _, definition in definitions do
+	byId[definition.id] = definition
+end
+
+local slots: { Slot } = { "Motor", "Body", "Wheels", "Trail" }
+
+return {
+	definitions = definitions,
+	byId = byId,
+	slots = slots,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="65">
+          <Properties>
+            <string name="Name">Lobby</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+export type ModeId = "solo" | "duo"
+
+export type Mode = { id: ModeId, name: string, players: number, description: string }
+
+export type Phase = "Lobby" | "Queue" | "Countdown" | "Starting"
+
+export type State = {
+	phase: Phase,
+	mode: ModeId?,
+	players: number,
+	needed: number,
+	countdownEndsAt: number?,
+}
+
+export type Failure = "already_queued" | "not_queued" | "unknown_mode" | "starting"
+
+export type Result = { ok: boolean, reason: Failure?, state: State }
+
+export type Client = {
+	modes: { Mode },
+	getState: () -> State,
+	join: (modeId: ModeId) -> Result,
+	leave: () -> Result,
+	serverNow: () -> number,
+	onStateChanged: (callback: (State) -> ()) -> RBXScriptConnection,
+}
+
+local modes: { Mode } = {
+	{ id = "solo", name = "Solo", players = 4, description = "Every player for themselves." },
+	{ id = "duo", name = "Duo", players = 6, description = "Team up in pairs." },
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "Lobby.client() runs on the client")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetLobbyState") :: RemoteFunction
+	local join = remotes:WaitForChild("JoinQueue") :: RemoteFunction
+	local leave = remotes:WaitForChild("LeaveQueue") :: RemoteFunction
+	local changed = remotes:WaitForChild("LobbyStateChanged") :: RemoteEvent
+	return {
+		modes = modes,
+		getState = function(): State
+			return getState:InvokeServer()
+		end,
+		join = function(modeId: ModeId): Result
+			return join:InvokeServer(modeId)
+		end,
+		leave = function(): Result
+			return leave:InvokeServer()
+		end,
+		serverNow = function(): number
+			return workspace:GetServerTimeNow()
+		end,
+		onStateChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+	modes = modes,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="66">
+          <Properties>
+            <string name="Name">Round</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+export type Phase = "Intermission" | "Round" | "Results"
+
+export type Team = "Red" | "Blue"
+
+export type Fighter = {
+	name: string,
+	team: Team,
+	eliminated: boolean,
+	eliminations: number,
+}
+
+export type State = {
+	round: number,
+	phase: Phase,
+	endsAt: number,
+	fighters: { Fighter },
+	winner: (Team | "Draw")?,
+	rewards: { Red: number, Blue: number }?,
+}
+
+export type Event = {
+	kind: "elimination",
+	victim: string,
+	by: string,
+	at: number,
+}
+
+export type Client = {
+	localName: string,
+	getState: () -> State,
+	serverNow: () -> number,
+	onStateChanged: (callback: (State) -> ()) -> RBXScriptConnection,
+	onEvent: (callback: (Event) -> ()) -> RBXScriptConnection,
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "Round.client() runs on the client")
+	local Players = game:GetService("Players")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetRoundState") :: RemoteFunction
+	local changed = remotes:WaitForChild("RoundStateChanged") :: RemoteEvent
+	local event = remotes:WaitForChild("RoundEvent") :: RemoteEvent
+	return {
+		localName = (Players.LocalPlayer :: Player).Name,
+		getState = function(): State
+			return getState:InvokeServer()
+		end,
+		serverNow = function(): number
+			return workspace:GetServerTimeNow()
+		end,
+		onStateChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+		onEvent = function(callback: (Event) -> ()): RBXScriptConnection
+			return event.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="67">
+          <Properties>
+            <string name="Name">Settings</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+export type Preset = "Low" | "Medium" | "High"
+
+export type Values = {
+	musicVolume: number,
+	effectsVolume: number,
+	showDamageNumbers: boolean,
+	cameraShake: boolean,
+	graphics: Preset,
+}
+
+export type Patch = {
+	musicVolume: number?,
+	effectsVolume: number?,
+	showDamageNumbers: boolean?,
+	cameraShake: boolean?,
+	graphics: Preset?,
+}
+
+export type Keybind = { action: string, keyboard: string, gamepad: string }
+
+export type Failure = "invalid_value"
+
+export type SaveResult = {
+	ok: boolean,
+	reason: Failure?,
+	field: string?,
+	values: Values,
+}
+
+export type Client = {
+	defaults: Values,
+	presets: { Preset },
+	keybinds: { Keybind },
+	get: () -> Values,
+	save: (patch: Patch) -> SaveResult,
+	onChanged: (callback: (Values) -> ()) -> RBXScriptConnection,
+}
+
+local defaults: Values = {
+	musicVolume = 70,
+	effectsVolume = 70,
+	showDamageNumbers = true,
+	cameraShake = true,
+	graphics = "High",
+}
+
+local presets: { Preset } = { "Low", "Medium", "High" }
+
+local keybinds: { Keybind } = {
+	{ action = "Sprint", keyboard = "Left Shift", gamepad = "L3" },
+	{ action = "Interact", keyboard = "E", gamepad = "X" },
+	{ action = "Inventory", keyboard = "I", gamepad = "Y" },
+	{ action = "Map", keyboard = "M", gamepad = "Select" },
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "Settings.client() runs on the client")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getSettings = remotes:WaitForChild("GetSettings") :: RemoteFunction
+	local saveSettings = remotes:WaitForChild("SaveSettings") :: RemoteFunction
+	local changed = remotes:WaitForChild("SettingsChanged") :: RemoteEvent
+	return {
+		defaults = table.clone(defaults),
+		presets = table.clone(presets),
+		keybinds = keybinds,
+		get = function(): Values
+			return getSettings:InvokeServer()
+		end,
+		save = function(patch: Patch): SaveResult
+			return saveSettings:InvokeServer(patch)
+		end,
+		onChanged = function(callback: (Values) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+	defaults = defaults,
+	presets = presets,
+	keybinds = keybinds,
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="68">
+          <Properties>
+            <string name="Name">Shop</string>
+            <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Catalog = require(script.Parent.Catalog)
+
+export type Currency = Catalog.Currency
+export type Category = Catalog.Category
+export type Item = Catalog.Item
+
+export type Wallet = { Coins: number, Gems: number }
+
+export type State = {
+	wallet: Wallet,
+	owned: { [string]: boolean },
+}
+
+export type Failure = "insufficient_funds" | "already_owned" | "unknown_item" | "busy"
+
+export type PurchaseResult = {
+	ok: boolean,
+	item: string,
+	reason: Failure?,
+	state: State,
+}
+
+export type Client = {
+	catalog: { Item },
+	categories: { Category },
+	getState: () -> State,
+	purchase: (itemId: string) -> PurchaseResult,
+	onStateChanged: (callback: (State) -> ()) -> RBXScriptConnection,
+}
+
+local function client(): Client
+	assert(RunService:IsClient(), "Shop.client() runs on the client")
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetShopState") :: RemoteFunction
+	local purchase = remotes:WaitForChild("Purchase") :: RemoteFunction
+	local changed = remotes:WaitForChild("ShopStateChanged") :: RemoteEvent
+	return {
+		catalog = Catalog.items,
+		categories = Catalog.categories,
+		getState = function(): State
+			return getState:InvokeServer()
+		end,
+		purchase = function(itemId: string): PurchaseResult
+			return purchase:InvokeServer(itemId)
+		end,
+		onStateChanged = function(callback: (State) -> ()): RBXScriptConnection
+			return changed.OnClientEvent:Connect(callback)
+		end,
+	}
+end
+
+return {
+	client = client,
+	catalog = Catalog.items,
+	byId = Catalog.byId,
+	categories = Catalog.categories,
+}
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="ModuleScript" referent="69">
+        <Properties>
+          <string name="Name">RaceRules</string>
+          <string name="Source"><![CDATA[--!strict
+
+export type Progress = { checkpoint: number, lap: number, progress: number }
+export type Rank = { name: string, progress: number, finish: number, out: boolean }
+
+local function advance(racer: Progress, t: number, onRoad: boolean, checkpoints: number): boolean
+	local checkpoint = math.floor(t * checkpoints)
+	local crossed = onRoad and checkpoint == (racer.checkpoint + 1) % checkpoints
+	if crossed then
+		racer.checkpoint = checkpoint
+		if checkpoint == 0 then
+			racer.lap += 1
+		end
+	end
+	local fraction = if onRoad then math.clamp(t * checkpoints - racer.checkpoint, 0, 1) else 0
+	racer.progress = racer.lap + (racer.checkpoint + fraction) / checkpoints
+	return crossed and checkpoint == 0
+end
+
+local function ahead(a: Rank, b: Rank): boolean
+	if a.out ~= b.out then
+		return not a.out
+	end
+	if a.finish ~= b.finish then
+		return a.finish < b.finish
+	end
+	if a.progress == b.progress then
+		return a.name < b.name
+	end
+	return a.progress > b.progress
+end
+
+return { advance = advance, ahead = ahead }
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="70">
+        <Properties>
+          <string name="Name">RaceTrack</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Track = { segments = 80, checkpoints = 16, laps = 3, width = 26, seed = 20261015 }
+local knots: { Vector3 } = {}
+for index = 0, 11 do
+	local angle = index / 12 * math.pi * 2
+	knots[index + 1] = Vector3.new(130 * math.sin(angle), 2, -190 + 85 * math.cos(angle))
+end
+
+function Track.point(t: number): Vector3
+	local scaled = t % 1 * #knots
+	local index = math.floor(scaled)
+	local u = scaled - index
+	local a, b, c, d =
+		knots[(index - 1) % #knots + 1],
+		knots[index + 1],
+		knots[(index + 1) % #knots + 1],
+		knots[(index + 2) % #knots + 1]
+	return (2 * b + (c - a) * u + (2 * a - 5 * b + 4 * c - d) * u ^ 2 + (-a + 3 * b - 3 * c + d) * u ^ 3) * 0.5
+end
+
+function Track.frame(t: number, lane: number?): CFrame
+	local point = Track.point(t)
+	local frame = CFrame.lookAt(point, Track.point(t + 0.0001))
+	return frame * CFrame.new(lane or 0, 0, 0)
+end
+
+function Track.progress(point: Vector3): number
+	return (math.atan2(point.X / 130, (point.Z + 190) / 85) / (math.pi * 2)) % 1
+end
+
+return Track
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="71">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="Script" referent="72">
+      <Properties>
+        <string name="Name">Server</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[--!strict
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+require(script.World).build()
+local RaceService = require(script.RaceService)
+local Ledger = require(script.Ledger)
+local handlers: { [string]: (string, { [string]: unknown }?) -> unknown } = {}
+local locks: { [Player]: boolean } = {}
+local function guarded<R, A...>(invoke: (Player, A...) -> R): (Player, A...) -> R
+	return function(player: Player, ...: A...): R
+		while locks[player] do
+			task.wait()
+		end
+		locks[player] = true
+		local ok, value = pcall(invoke, player, ...)
+		locks[player] = nil
+		if not ok then
+			error(value)
+		end
+		return value
+	end
+end
+do
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local ShopService = require(script.ShopService)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetShopState") :: RemoteFunction
+	local purchase = remotes:WaitForChild("Purchase") :: RemoteFunction
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	getState.OnServerInvoke = function(player: Player)
+		return ShopService.getState(player)
+	end
+
+	purchase.OnServerInvoke = guarded(function(player: Player, itemId: unknown)
+		local result = ShopService.purchase(player, itemId)
+		if result.ok then
+			require(script.InventoryService).give(player, result.item)
+		end
+		return result
+	end)
+
+	local function firstPlayer(): Player
+		local player = Players:GetPlayers()[1]
+		assert(player ~= nil, "no player is in the server")
+		return player
+	end
+
+	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
+		local options: { [string]: unknown } = args or {}
+		local player = firstPlayer()
+		if command == "state" then
+			return { state = ShopService.getState(player), journal = ShopService.journal(player) }
+		elseif command == "grant" then
+			local currency: "Coins" | "Gems" = if options.currency == "Gems" then "Gems" else "Coins"
+			local amount = tonumber(options.amount) or 0
+			ShopService.grant(player, currency, amount)
+			return ShopService.getState(player)
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	handlers["shop"] = admin.OnInvoke
+end
+do
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local InventoryService = require(script.InventoryService)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	local remoteGetInventory = remotes:WaitForChild("GetInventory") :: RemoteFunction
+	remoteGetInventory.OnServerInvoke = function(player: Player)
+		return InventoryService.getState(player)
+	end
+
+	local remoteEquip = remotes:WaitForChild("Equip") :: RemoteFunction
+	remoteEquip.OnServerInvoke = guarded(function(player: Player, itemId: unknown)
+		return InventoryService.equip(player, itemId)
+	end)
+
+	local remoteUnequip = remotes:WaitForChild("Unequip") :: RemoteFunction
+	remoteUnequip.OnServerInvoke = guarded(function(player: Player, slot: unknown)
+		return InventoryService.unequip(player, slot)
+	end)
+
+	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
+		local options: { [string]: unknown } = args or {}
+		local player = Players:GetPlayers()[1]
+		assert(player ~= nil, "no player is in the server")
+		if command == "state" then
+			return { state = InventoryService.getState(player), journal = InventoryService.journal(player) }
+		elseif command == "give" then
+			return InventoryService.give(player, tostring(options.item))
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	handlers["inventory"] = admin.OnInvoke
+end
+do
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local SettingsStore = require(script.SettingsStore)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	local remoteGetSettings = remotes:WaitForChild("GetSettings") :: RemoteFunction
+	remoteGetSettings.OnServerInvoke = function(player: Player)
+		return SettingsStore.get(player)
+	end
+
+	local remoteSaveSettings = remotes:WaitForChild("SaveSettings") :: RemoteFunction
+	remoteSaveSettings.OnServerInvoke = guarded(function(player: Player, patch: unknown)
+		return SettingsStore.save(player, patch)
+	end)
+
+	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
+		local options: { [string]: unknown } = args or {}
+		local player = Players:GetPlayers()[1]
+		assert(player ~= nil, "no player is in the server")
+		if command == "state" then
+			return { values = SettingsStore.get(player), journal = SettingsStore.journal(player) }
+		elseif command == "push" then
+			return SettingsStore.push(player, options)
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	handlers["settings"] = admin.OnInvoke
+end
+do
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local CodesService = require(script.CodesService)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetCodesState") :: RemoteFunction
+	local redeem = remotes:WaitForChild("RedeemCode") :: RemoteFunction
+
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	getState.OnServerInvoke = function(player: Player)
+		return CodesService.getState(player)
+	end
+
+	redeem.OnServerInvoke = guarded(function(player: Player, code: unknown)
+		return CodesService.redeem(player, code)
+	end)
+
+	local function firstPlayer(): Player
+		local player = Players:GetPlayers()[1]
+		assert(player ~= nil, "no player is in the server")
+		return player
+	end
+
+	admin.OnInvoke = function(command: string, _args: { [string]: unknown }?): unknown
+		local player = firstPlayer()
+		if command == "state" then
+			return { state = CodesService.getState(player), journal = CodesService.journal(player) }
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	handlers["codes"] = admin.OnInvoke
+end
+do
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local RewardService = require(script.RewardService)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetRewardsState") :: RemoteFunction
+	local claim = remotes:WaitForChild("ClaimReward") :: RemoteFunction
+
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	getState.OnServerInvoke = function(player: Player)
+		return RewardService.getState(player)
+	end
+
+	claim.OnServerInvoke = guarded(function(player: Player)
+		return RewardService.claim(player)
+	end)
+
+	local function firstPlayer(): Player
+		local player = Players:GetPlayers()[1]
+		assert(player ~= nil, "no player is in the server")
+		return player
+	end
+
+	admin.OnInvoke = function(command: string, _args: { [string]: unknown }?): unknown
+		local player = firstPlayer()
+		if command == "state" then
+			return {
+				state = RewardService.getState(player),
+				journal = RewardService.journal(player),
+				now = workspace:GetServerTimeNow(),
+			}
+		elseif command == "advance" then
+			RewardService.advance(player)
+			return RewardService.getState(player)
+		elseif command == "miss" then
+			RewardService.miss(player)
+			return RewardService.getState(player)
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	handlers["daily-rewards"] = admin.OnInvoke
+end
+do
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local DialogueService = require(script.DialogueService)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetDialogueState") :: RemoteFunction
+	local talk = remotes:WaitForChild("Talk") :: RemoteFunction
+	local choose = remotes:WaitForChild("Choose") :: RemoteFunction
+	local leave = remotes:WaitForChild("Leave") :: RemoteFunction
+
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	getState.OnServerInvoke = function(player: Player)
+		return DialogueService.getState(player)
+	end
+
+	talk.OnServerInvoke = guarded(function(player: Player)
+		return DialogueService.talk(player)
+	end)
+
+	choose.OnServerInvoke = guarded(function(player: Player, choiceId: unknown)
+		return DialogueService.choose(player, choiceId)
+	end)
+
+	leave.OnServerInvoke = guarded(function(player: Player)
+		return DialogueService.leave(player)
+	end)
+
+	local function firstPlayer(): Player
+		local player = Players:GetPlayers()[1]
+		assert(player ~= nil, "no player is in the server")
+		return player
+	end
+
+	admin.OnInvoke = function(command: string, _args: { [string]: unknown }?): unknown
+		local player = firstPlayer()
+		if command == "state" then
+			return { state = DialogueService.getState(player), journal = DialogueService.journal(player) }
+		elseif command == "approach" then
+			DialogueService.setNearby(player, true)
+			return DialogueService.getState(player)
+		elseif command == "walkAway" then
+			DialogueService.setNearby(player, false)
+			return DialogueService.getState(player)
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	handlers["npc-dialogue"] = admin.OnInvoke
+end
+do
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local CrateService = require(script.CrateService)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetCrateState") :: RemoteFunction
+	local open = remotes:WaitForChild("OpenCrate") :: RemoteFunction
+
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	getState.OnServerInvoke = function(player: Player)
+		return CrateService.getState(player)
+	end
+
+	open.OnServerInvoke = guarded(function(player: Player, crateId: unknown)
+		return CrateService.open(player, crateId)
+	end)
+
+	local function firstPlayer(): Player
+		local player = Players:GetPlayers()[1]
+		assert(player ~= nil, "no player is in the server")
+		return player
+	end
+
+	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
+		local options: { [string]: unknown } = args or {}
+		local player = firstPlayer()
+		if command == "state" then
+			return { state = CrateService.getState(player), journal = CrateService.journal(player) }
+		elseif command == "grant" then
+			CrateService.grant(player, tonumber(options.gems) or 0)
+			return CrateService.getState(player)
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	handlers["pack-opening"] = admin.OnInvoke
+end
+do
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local GarageService = require(script.GarageService)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetGarageState") :: RemoteFunction
+	local spawnVehicle = remotes:WaitForChild("SpawnVehicle") :: RemoteFunction
+	local exitVehicle = remotes:WaitForChild("ExitVehicle") :: RemoteFunction
+	local setFavorite = remotes:WaitForChild("SetFavorite") :: RemoteFunction
+
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	getState.OnServerInvoke = function(player: Player)
+		return GarageService.getState(player)
+	end
+
+	spawnVehicle.OnServerInvoke = guarded(function(player: Player, vehicleId: unknown)
+		return GarageService.spawn(player, vehicleId)
+	end)
+
+	exitVehicle.OnServerInvoke = guarded(function(player: Player)
+		return GarageService.exit(player)
+	end)
+
+	setFavorite.OnServerInvoke = guarded(function(player: Player, vehicleId: unknown, favorite: unknown)
+		return GarageService.setFavorite(player, vehicleId, favorite)
+	end)
+
+	admin.OnInvoke = function(command: string, _args: { [string]: unknown }?): unknown
+		local player = Players:GetPlayers()[1]
+		assert(player ~= nil, "no player is in the server")
+		if command == "state" then
+			return { state = GarageService.getState(player), journal = GarageService.journal(player) }
+		elseif command == "exit" then
+			return GarageService.exit(player)
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	handlers["vehicle-garage"] = admin.OnInvoke
+end
+do
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local DriverService = require(script.DriverService)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetDriverState") :: RemoteFunction
+	local buy = remotes:WaitForChild("BuyDriver") :: RemoteFunction
+	local rent = remotes:WaitForChild("RentDriver") :: RemoteFunction
+	local equip = remotes:WaitForChild("EquipDriver") :: RemoteFunction
+
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	getState.OnServerInvoke = function(player: Player)
+		return DriverService.getState(player)
+	end
+
+	buy.OnServerInvoke = guarded(function(player: Player, id: unknown)
+		return DriverService.buy(player, id)
+	end)
+
+	rent.OnServerInvoke = guarded(function(player: Player, id: unknown)
+		return DriverService.rent(player, id)
+	end)
+
+	equip.OnServerInvoke = guarded(function(player: Player, id: unknown)
+		return DriverService.equip(player, id)
+	end)
+
+	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
+		local options: { [string]: unknown } = args or {}
+		local player = Players:GetPlayers()[1]
+		assert(player ~= nil, "no player is in the server")
+		if command == "state" then
+			return {
+				state = DriverService.getState(player),
+				journal = DriverService.journal(player),
+				now = workspace:GetServerTimeNow(),
+			}
+		elseif command == "grant" then
+			DriverService.grant(player, tonumber(options.coins) or 0)
+			return DriverService.getState(player)
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	handlers["character-shop"] = admin.OnInvoke
+end
+do
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local Round = require(ReplicatedStorage.Shared.Hub.Round)
+	local RoundService = require(script.RoundService)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetRoundState") :: RemoteFunction
+
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	getState.OnServerInvoke = function(_player: Player)
+		return RoundService.snapshot()
+	end
+
+	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
+		local options: { [string]: unknown } = args or {}
+		if command == "state" then
+			local state = RoundService.snapshot()
+			return {
+				state = state,
+				remaining = state.endsAt - workspace:GetServerTimeNow(),
+				events = RoundService.events(),
+			}
+		elseif command == "manual" then
+			RoundService.setAutomatic(false)
+			return true
+		elseif command == "phase" then
+			local raw = tostring(options.phase)
+			assert(raw == "Intermission" or raw == "Round" or raw == "Results", "unknown phase " .. raw)
+			local phase: Round.Phase = if raw == "Round"
+				then "Round"
+				elseif raw == "Results" then "Results"
+				else "Intermission"
+			local winner = options.winner
+			RoundService.enter(
+				phase,
+				tonumber(options.seconds),
+				if winner == "Red" or winner == "Blue" or winner == "Draw" then winner else nil
+			)
+			return RoundService.snapshot()
+		elseif command == "eliminate" then
+			return RoundService.eliminate(tostring(options.victim), "lap " .. tostring(tonumber(options.lap) or 1))
+		elseif command == "laps" then
+			RoundService.setLaps(tostring(options.name), tonumber(options.laps) or 0)
+			return true
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	RoundService.start()
+
+	handlers["round-hud"] = admin.OnInvoke
+end
+do
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local QueueService = require(script.QueueService)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetLobbyState") :: RemoteFunction
+	local join = remotes:WaitForChild("JoinQueue") :: RemoteFunction
+	local leave = remotes:WaitForChild("LeaveQueue") :: RemoteFunction
+
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	getState.OnServerInvoke = function(_player: Player)
+		return QueueService.snapshot()
+	end
+
+	join.OnServerInvoke = guarded(function(player: Player, modeId: unknown)
+		return QueueService.join(player, modeId)
+	end)
+
+	leave.OnServerInvoke = guarded(function(player: Player)
+		return QueueService.leave(player)
+	end)
+
+	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
+		local options: { [string]: unknown } = args or {}
+		if command == "state" then
+			local state = QueueService.snapshot()
+			local endsAt = state.countdownEndsAt
+			return {
+				state = state,
+				countdown = if endsAt ~= nil then endsAt - workspace:GetServerTimeNow() else nil,
+				journal = QueueService.journal(),
+			}
+		elseif command == "manual" then
+			QueueService.setAutomatic(false)
+			return true
+		elseif command == "addPlayers" then
+			QueueService.addBots(tonumber(options.count) or 1)
+			return QueueService.snapshot()
+		elseif command == "removePlayers" then
+			QueueService.addBots(-(tonumber(options.count) or 1))
+			return QueueService.snapshot()
+		elseif command == "finishCountdown" then
+			QueueService.finishCountdown()
+			return QueueService.snapshot()
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	QueueService.start()
+
+	handlers["lobby-queue"] = admin.OnInvoke
+end
+do
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local EconomyService = require(script.EconomyService)
+
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local getState = remotes:WaitForChild("GetEconomyState") :: RemoteFunction
+	local buyBoost = remotes:WaitForChild("BuyBoost") :: RemoteFunction
+	local claimQuest = remotes:WaitForChild("ClaimQuest") :: RemoteFunction
+	local buyOffer = remotes:WaitForChild("BuyOffer") :: RemoteFunction
+
+	local admin = {} :: { OnInvoke: (string, { [string]: unknown }?) -> unknown }
+
+	getState.OnServerInvoke = function(player: Player)
+		return EconomyService.getState(player)
+	end
+
+	buyBoost.OnServerInvoke = guarded(function(player: Player)
+		return EconomyService.buyBoost(player)
+	end)
+
+	claimQuest.OnServerInvoke = guarded(function(player: Player, questId: unknown)
+		return EconomyService.claimQuest(player, questId)
+	end)
+
+	buyOffer.OnServerInvoke = guarded(function(player: Player)
+		return EconomyService.buyOffer(player)
+	end)
+
+	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
+		local options: { [string]: unknown } = args or {}
+		local player = Players:GetPlayers()[1]
+		assert(player ~= nil, "no player is in the server")
+		if command == "state" then
+			return {
+				state = EconomyService.getState(player),
+				journal = EconomyService.journal(player),
+				now = workspace:GetServerTimeNow(),
+			}
+		elseif command == "pause" then
+			EconomyService.setPaused(true)
+			return true
+		elseif command == "resume" then
+			EconomyService.setPaused(false)
+			return true
+		elseif command == "grant" then
+			EconomyService.grant(player, tonumber(options.coins) or 0, tonumber(options.gems) or 0)
+			return EconomyService.getState(player)
+		end
+		error("unknown admin command " .. tostring(command))
+	end
+
+	EconomyService.start()
+
+	handlers["hud-dock"] = admin.OnInvoke
+end
+
+local Hub = require(ReplicatedStorage.Shared.Hub)
+local RoundService = require(script.RoundService)
+local QueueService = require(script.QueueService)
+local EconomyService = require(script.EconomyService)
+local GarageService = require(script.GarageService)
+local DriverService = require(script.DriverService)
+local RewardService = require(script.RewardService)
+local remotes = ReplicatedStorage:WaitForChild("Remotes")
+local admin = Instance.new("BindableFunction")
+admin.Name = "AdminCommands"
+admin.Parent = ServerStorage
+local raceManual = false
+
+local DialogueService = require(script.DialogueService)
+local raceLoadouts: { [Player]: { kart: string, driver: string } } = {}
+local positions: { string } = { "You", "Nova", "Pip", "Rook", "Zed", "Ivy", "Bolt", "Moss" }
+local function hubState(player: Player): Hub.State
+	local progress = Ledger.progress(player)
+	local race = raceLoadouts[player] or { kart = progress.kart, driver = progress.driver }
+	return {
+		wallet = table.clone(Ledger.wallet(player)),
+		xp = progress.xp,
+		level = progress.level,
+		races = progress.races,
+		crates = progress.crates,
+		kart = progress.kart,
+		driver = progress.driver,
+		raceKart = race.kart,
+		raceDriver = race.driver,
+		positions = table.clone(positions),
+	}
+end
+(remotes:WaitForChild("GetHubState") :: RemoteFunction).OnServerInvoke = hubState
+admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
+	local options: { [string]: unknown } = args or {}
+	local player = Players:GetPlayers()[1]
+	assert(player ~= nil, "no player is in the server")
+	if command == "state" or command == "journal" then
+		local systems: { [string]: unknown } = {}
+		local journals: { [string]: unknown } = {}
+		for name, handler in handlers do
+			local response = handler("state", {})
+			systems[name] = response
+			if type(response) == "table" then
+				journals[name] = (response :: { [string]: unknown }).journal
+			end
+		end
+		return if command == "journal"
+			then journals
+			else { state = hubState(player), systems = systems, journal = journals }
+	elseif command == "system" then
+		if options.system == "round-hud" and options.command == "manual" then
+			raceManual = true
+		end
+		local handler = handlers[tostring(options.system)]
+		assert(handler ~= nil, "unknown system")
+		local fields = if type(options.args) == "table" then options.args :: { [string]: unknown } else {}
+		return handler(tostring(options.command), fields)
+	elseif command == "wallet" then
+		local wallet = Ledger.wallet(player)
+		wallet.Coins = math.max(0, tonumber(options.coins) or wallet.Coins)
+		wallet.Gems = math.max(0, tonumber(options.gems) or wallet.Gems)
+		return hubState(player)
+	elseif command == "grant" then
+		EconomyService.grant(player, tonumber(options.coins) or 0, tonumber(options.gems) or 0)
+		return hubState(player)
+	elseif command == "positions" then
+		if type(options.names) == "table" then
+			local nextPositions: { string } = {}
+			for _, name in options.names :: { unknown } do
+				assert(type(name) == "string", "invalid position")
+				table.insert(nextPositions, name)
+			end
+			positions = nextPositions
+		end
+		return hubState(player)
+	elseif command == "driving" then
+		raceManual = false
+		RoundService.setAutomatic(true)
+		RoundService.enter("Round", 90)
+		return true
+	elseif command == "phase" or command == "manual" or command == "eliminate" or command == "laps" then
+		if command == "manual" then
+			raceManual = true
+		end
+		return handlers["round-hud"](command, options)
+	elseif command == "advance" or command == "miss" then
+		return handlers["daily-rewards"](command, options)
+	end
+	error("unknown admin command " .. command)
+end
+local lastQueue = "Lobby"
+local lastRound = 0
+local signatures: { [Player]: string } = {}
+Players.PlayerRemoving:Connect(function(player)
+	raceLoadouts[player] = nil
+	signatures[player] = nil
+	locks[player] = nil
+end)
+task.spawn(function()
+	while true do
+		local queue = QueueService.snapshot()
+		if queue.phase == "Starting" and lastQueue ~= "Starting" then
+			RoundService.enter("Round")
+		end
+		lastQueue = queue.phase
+		local round = RoundService.snapshot()
+		if round.phase == "Round" and not raceManual then
+			positions = RaceService.positions()
+		end
+		if round.phase == "Round" and lastRound ~= round.round then
+			lastRound = round.round
+			for _, player in Players:GetPlayers() do
+				local progress = Ledger.progress(player)
+				raceLoadouts[player] =
+					{ kart = progress.kart, driver = DriverService.getState(player).equipped or "haru" }
+			end
+		end
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
+			DialogueService.autoNearby(
+				player,
+				root ~= nil and root:IsA("BasePart") and (root.Position - Vector3.new(24, 3, 0)).Magnitude < 12
+			)
+			local state = hubState(player)
+			local signature = game:GetService("HttpService"):JSONEncode(state)
+			if signatures[player] ~= signature then
+				signatures[player] = signature;
+				(remotes:WaitForChild("HubStateChanged") :: RemoteEvent):FireClient(player, state);
+				(remotes:WaitForChild("ShopStateChanged") :: RemoteEvent):FireClient(
+					player,
+					require(script.ShopService).getState(player)
+				);
+				(remotes:WaitForChild("CodesStateChanged") :: RemoteEvent):FireClient(
+					player,
+					require(script.CodesService).getState(player)
+				);
+				(remotes:WaitForChild("RewardsStateChanged") :: RemoteEvent):FireClient(
+					player,
+					RewardService.getState(player)
+				);
+				(remotes:WaitForChild("EconomyStateChanged") :: RemoteEvent):FireClient(
+					player,
+					EconomyService.getState(player)
+				);
+				(remotes:WaitForChild("CrateStateChanged") :: RemoteEvent):FireClient(
+					player,
+					require(script.CrateService).getState(player)
+				);
+				(remotes:WaitForChild("DriverStateChanged") :: RemoteEvent):FireClient(
+					player,
+					DriverService.getState(player)
+				)
+			end
+		end
+		task.wait(0.25)
+	end
+end)
+local returnToHub = remotes:WaitForChild("ReturnToHub") :: RemoteFunction
+returnToHub.OnServerInvoke = guarded(function(_player: Player): boolean
+	if RoundService.snapshot().phase ~= "Results" then
+		return false
+	end
+	RoundService.enter("Intermission")
+	return true
+end)
+]]></string>
+      </Properties>
+      <Item class="ModuleScript" referent="73">
+        <Properties>
+          <string name="Name">CodesService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local Ledger = require(script.Parent.Ledger)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Codes = require(ReplicatedStorage.Shared.Hub.Codes)
+
+type State = Codes.State
+type Reward = Codes.Reward
+type RedeemResult = Codes.RedeemResult
+
+export type Entry = { code: string, ok: boolean, reason: Codes.Failure?, at: number }
+
+type Definition = { rewards: { Reward }, expired: boolean }
+
+type Profile = {
+	wallet: { Coins: number, Gems: number },
+	items: { [string]: number },
+	redeemed: { string },
+	failures: { number },
+	busy: boolean,
+	journal: { Entry },
+}
+
+local CATALOG: { [string]: Definition } = {
+	WELCOME = {
+		rewards = {
+			{ kind = "Currency", name = "Coins", amount = 500 },
+			{ kind = "Currency", name = "Gems", amount = 10 },
+		},
+		expired = false,
+	},
+	SPEEDY = {
+		rewards = { { kind = "Item", name = "Speed Potion", amount = 2 } },
+		expired = false,
+	},
+	LUCKY7 = {
+		rewards = {
+			{ kind = "Item", name = "Lucky Charm", amount = 1 },
+			{ kind = "Currency", name = "Coins", amount = 77 },
+		},
+		expired = false,
+	},
+	SUMMER24 = {
+		rewards = { { kind = "Currency", name = "Gems", amount = 50 } },
+		expired = true,
+	},
+}
+
+local FAILURE_LIMIT = 5
+local FAILURE_WINDOW = 30
+local SERVER_DELAY = 0.4
+
+local profiles: { [Player]: Profile } = {}
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CodesStateChanged") :: RemoteEvent
+
+local function profileOf(player: Player): Profile
+	local profile = profiles[player]
+	if profile == nil then
+		local created: Profile = {
+			wallet = Ledger.wallet(player),
+			items = {},
+			redeemed = {},
+			failures = {},
+			busy = false,
+			journal = {},
+		}
+		profiles[player] = created
+		return created
+	end
+	return profile
+end
+
+local function snapshot(profile: Profile): State
+	return {
+		wallet = { Coins = profile.wallet.Coins, Gems = profile.wallet.Gems },
+		items = table.clone(profile.items),
+		redeemed = table.clone(profile.redeemed),
+	}
+end
+
+local function publish(player: Player)
+	changed:FireClient(player, snapshot(profileOf(player)))
+end
+
+local function normalize(raw: unknown): string
+	if type(raw) ~= "string" then
+		return ""
+	end
+	local trimmed = string.match(raw, "^%s*(.-)%s*$") or ""
+	return string.upper(string.sub(trimmed, 1, 40))
+end
+
+local function getState(player: Player): State
+	return snapshot(profileOf(player))
+end
+
+local function redeem(player: Player, raw: unknown): RedeemResult
+	local profile = profileOf(player)
+	local code = normalize(raw)
+	local now = os.clock()
+	local function refuse(reason: Codes.Failure, retryIn: number?): RedeemResult
+		table.insert(profile.journal, { code = code, ok = false, reason = reason, at = now })
+		return { ok = false, code = code, reason = reason, retryIn = retryIn, rewards = {}, state = snapshot(profile) }
+	end
+	local recent: { number } = {}
+	for _, at in profile.failures do
+		if now - at < FAILURE_WINDOW then
+			table.insert(recent, at)
+		end
+	end
+	profile.failures = recent
+	if #recent >= FAILURE_LIMIT then
+		return refuse("rate_limited", math.max(1, math.ceil(FAILURE_WINDOW - (now - recent[1]))))
+	end
+	if code == "" then
+		return refuse("empty")
+	end
+	if profile.busy then
+		return refuse("busy")
+	end
+	local definition = CATALOG[code]
+	if definition == nil then
+		table.insert(profile.failures, now)
+		return refuse("invalid")
+	end
+	if definition.expired then
+		table.insert(profile.failures, now)
+		return refuse("expired")
+	end
+	if table.find(profile.redeemed, code) ~= nil then
+		return refuse("already_redeemed")
+	end
+	profile.busy = true
+	task.wait(SERVER_DELAY)
+	for _, reward in definition.rewards do
+		if reward.kind == "Currency" then
+			if reward.name == "Gems" then
+				profile.wallet.Gems += reward.amount
+			else
+				profile.wallet.Coins += reward.amount
+			end
+		else
+			profile.items[reward.name] = (profile.items[reward.name] or 0) + reward.amount
+		end
+	end
+	table.insert(profile.redeemed, code)
+	profile.busy = false
+	table.insert(profile.journal, { code = code, ok = true, reason = nil, at = os.clock() })
+	publish(player)
+	return {
+		ok = true,
+		code = code,
+		reason = nil,
+		retryIn = nil,
+		rewards = table.clone(definition.rewards),
+		state = snapshot(profile),
+	}
+end
+
+local function journal(player: Player): { Entry }
+	return table.clone(profileOf(player).journal)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	profiles[player] = nil
+end)
+
+return {
+	getState = getState,
+	redeem = redeem,
+	journal = journal,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="74">
+        <Properties>
+          <string name="Name">CrateService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local Ledger = require(script.Parent.Ledger)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Crates = require(ReplicatedStorage.Shared.Hub.Crates)
+
+type State = Crates.State
+type Card = Crates.Card
+
+export type Entry = { crate: string, ok: boolean, reason: Crates.Failure?, cards: { string }, at: number }
+
+type Profile = {
+	wallet: Ledger.Wallet,
+	collection: { [string]: number },
+	opened: number,
+	busy: boolean,
+	journal: { Entry },
+}
+
+local SERVER_DELAY = 0.4
+local RARITIES: { Crates.Rarity } = { "Common", "Rare", "Epic", "Legendary" }
+
+local profiles: { [Player]: Profile } = {}
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CrateStateChanged") :: RemoteEvent
+
+local byRarity: { [string]: { Card } } = {}
+for _, card in Crates.cards do
+	byRarity[card.rarity] = byRarity[card.rarity] or {}
+	table.insert(byRarity[card.rarity], card)
+end
+
+local function profileOf(player: Player): Profile
+	local profile = profiles[player]
+	if profile == nil then
+		local created: Profile =
+			{ wallet = Ledger.wallet(player), collection = {}, opened = 0, busy = false, journal = {} }
+		profiles[player] = created
+		return created
+	end
+	return profile
+end
+
+local function snapshot(profile: Profile): State
+	return { gems = profile.wallet.Gems, collection = table.clone(profile.collection) }
+end
+
+local function publish(player: Player)
+	changed:FireClient(player, snapshot(profileOf(player)))
+end
+
+local function chance(odds: Crates.Odds, rarity: string): number
+	return if rarity == "Common"
+		then odds.Common
+		elseif rarity == "Rare" then odds.Rare
+		elseif rarity == "Epic" then odds.Epic
+		else odds.Legendary
+end
+
+local function crateOf(id: string): Crates.Crate?
+	for _, crate in Crates.crates do
+		if crate.id == id then
+			return crate
+		end
+	end
+	return nil
+end
+
+local function draw(crate: Crates.Crate, random: Random): { Card }
+	local result: { Card } = {}
+	for _ = 1, crate.cards do
+		local roll = random:NextNumber() * 100
+		local chosen: Crates.Rarity = "Common"
+		local sum = 0
+		for _, rarity in RARITIES do
+			sum += chance(crate.odds, rarity)
+			if roll < sum then
+				chosen = rarity :: Crates.Rarity
+				break
+			end
+		end
+		local pool = byRarity[chosen]
+		table.insert(result, table.clone(pool[random:NextInteger(1, #pool)]))
+	end
+	return result
+end
+
+local function getState(player: Player): State
+	return snapshot(profileOf(player))
+end
+
+local function open(player: Player, crateId: unknown): Crates.OpenResult
+	local profile = profileOf(player)
+	local id = if type(crateId) == "string" then crateId else ""
+	local function refuse(reason: Crates.Failure): Crates.OpenResult
+		table.insert(profile.journal, { crate = id, ok = false, reason = reason, cards = {}, at = os.clock() })
+		return { ok = false, crate = id, reason = reason, cards = {}, state = snapshot(profile) }
+	end
+	local crate = crateOf(id)
+	if crate == nil then
+		return refuse("unknown_crate")
+	end
+	if profile.busy then
+		return refuse("busy")
+	end
+	local free = id == "starter" and Ledger.progress(player).crates > 0
+	if not free and profile.wallet.Gems < (crate :: Crates.Crate).price then
+		return refuse("insufficient_funds")
+	end
+	profile.busy = true
+	task.wait(SERVER_DELAY)
+	profile.opened += 1
+	local cards = draw(crate :: Crates.Crate, Random.new(1000 + profile.opened))
+	if not free or not Ledger.consumeCrate(player) then
+		profile.wallet.Gems -= (crate :: Crates.Crate).price
+	end
+	local names: { string } = {}
+	for _, card in cards do
+		profile.collection[card.id] = (profile.collection[card.id] or 0) + 1
+		table.insert(names, card.id)
+	end
+	profile.busy = false
+	table.insert(profile.journal, { crate = id, ok = true, reason = nil, cards = names, at = os.clock() })
+	publish(player)
+	return { ok = true, crate = id, reason = nil, cards = cards, state = snapshot(profile) }
+end
+
+local function grant(player: Player, gems: number)
+	local profile = profileOf(player)
+	profile.wallet.Gems = math.max(0, profile.wallet.Gems + gems)
+	publish(player)
+end
+
+local function journal(player: Player): { Entry }
+	return table.clone(profileOf(player).journal)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	profiles[player] = nil
+end)
+
+return {
+	getState = getState,
+	open = open,
+	grant = grant,
+	journal = journal,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="75">
+        <Properties>
+          <string name="Name">DialogueService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local Ledger = require(script.Parent.Ledger)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Dialogue = require(ReplicatedStorage.Shared.Hub.Dialogue)
+
+type State = Dialogue.State
+type Node = Dialogue.Node
+type Result = Dialogue.Result
+
+export type Entry = { kind: string, node: string?, choice: string?, ok: boolean, at: number }
+
+type Option = { id: string, text: string, goes: string }
+
+type Step = { speaker: string, text: string, choices: { Option }, ended: boolean, grant: number? }
+
+type Profile = {
+	nearby: string?,
+	node: string?,
+	wallet: Ledger.Wallet,
+	questAccepted: boolean,
+	busy: boolean,
+	journal: { Entry },
+}
+
+local NPC = "Mechanic"
+
+local TREE: { [string]: Step } = {
+	start = {
+		speaker = NPC,
+		text = "Hello, racer! Help me test the hub equipment. Will you help me?",
+		choices = {
+			{ id = "help", text = "I will help you.", goes = "thanks" },
+			{ id = "ask", text = "What needs a test?", goes = "well" },
+			{ id = "refuse", text = "Not today.", goes = "later" },
+		},
+		ended = false,
+	},
+	well = {
+		speaker = NPC,
+		text = "The kart motor needs a test before the next race.",
+		choices = {
+			{ id = "help", text = "I will help you.", goes = "thanks" },
+			{ id = "refuse", text = "Not today.", goes = "later" },
+		},
+		ended = false,
+	},
+	thanks = {
+		speaker = NPC,
+		text = "Thank you! Take 50 Coins and a Starter Crate for the test.",
+		choices = { { id = "bye", text = "Goodbye.", goes = "farewell" } },
+		ended = false,
+		grant = 50,
+	},
+	later = {
+		speaker = NPC,
+		text = "Maybe another day, then.",
+		choices = {},
+		ended = true,
+	},
+	farewell = {
+		speaker = NPC,
+		text = "Safe racing. Open your crate before the next race!",
+		choices = {},
+		ended = true,
+	},
+}
+
+local profiles: { [Player]: Profile } = {}
+local overrides: { [Player]: boolean } = {}
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DialogueStateChanged") :: RemoteEvent
+
+local function profileOf(player: Player): Profile
+	local profile = profiles[player]
+	if profile == nil then
+		local created: Profile = {
+			nearby = nil,
+			node = nil,
+			wallet = Ledger.wallet(player),
+			questAccepted = false,
+			busy = false,
+			journal = {},
+		}
+		profiles[player] = created
+		return created
+	end
+	return profile
+end
+
+local function nodeOf(id: string?): Node?
+	if id == nil then
+		return nil
+	end
+	local step = TREE[id :: string]
+	local choices: { Dialogue.Choice } = {}
+	for _, choice in step.choices do
+		table.insert(choices, { id = choice.id, text = choice.text })
+	end
+	return { id = id :: string, speaker = step.speaker, text = step.text, choices = choices, ended = step.ended }
+end
+
+local function snapshot(profile: Profile): State
+	return {
+		nearby = profile.nearby,
+		node = nodeOf(profile.node),
+		coins = profile.wallet.Coins,
+		questAccepted = profile.questAccepted,
+	}
+end
+
+local function publish(player: Player)
+	changed:FireClient(player, snapshot(profileOf(player)))
+end
+
+local function answer(profile: Profile, ok: boolean, reason: Dialogue.Failure?): Result
+	return { ok = ok, reason = reason, state = snapshot(profile) }
+end
+
+local function record(profile: Profile, kind: string, node: string?, choice: string?, ok: boolean)
+	table.insert(profile.journal, { kind = kind, node = node, choice = choice, ok = ok, at = os.clock() })
+end
+
+local function getState(player: Player): State
+	return snapshot(profileOf(player))
+end
+
+local function talk(player: Player): Result
+	local profile = profileOf(player)
+	if profile.nearby == nil then
+		return answer(profile, false, "not_nearby")
+	end
+	profile.node = "start"
+	record(profile, "talk", "start", nil, true)
+	publish(player)
+	return answer(profile, true, nil)
+end
+
+local function choose(player: Player, choiceId: unknown): Result
+	local profile = profileOf(player)
+	if profile.node == nil then
+		return answer(profile, false, "no_conversation")
+	end
+	if profile.busy then
+		return answer(profile, false, "busy")
+	end
+	local step = TREE[profile.node :: string]
+	local chosen: Option? = nil
+	for _, choice in step.choices do
+		if choice.id == choiceId then
+			chosen = choice
+		end
+	end
+	if chosen == nil then
+		record(profile, "choose", profile.node, tostring(choiceId), false)
+		return answer(profile, false, "unknown_choice")
+	end
+	profile.busy = true
+	task.wait(0.2)
+	local target = (chosen :: Option).goes
+	profile.node = target
+	local grant = TREE[target].grant
+	if grant ~= nil and not profile.questAccepted then
+		profile.questAccepted = true
+		profile.wallet.Coins += grant
+		Ledger.addCrate(player)
+	end
+	profile.busy = false
+	record(profile, "choose", target, tostring(choiceId), true)
+	publish(player)
+	return answer(profile, true, nil)
+end
+
+local function leave(player: Player): Result
+	local profile = profileOf(player)
+	profile.node = nil
+	record(profile, "leave", nil, nil, true)
+	publish(player)
+	return answer(profile, true, nil)
+end
+
+local function setNearby(player: Player, nearby: boolean)
+	local profile = profileOf(player)
+	profile.nearby = if nearby then NPC else nil
+	if not nearby then
+		profile.node = nil
+	end
+	publish(player)
+end
+
+local function journal(player: Player): { Entry }
+	return table.clone(profileOf(player).journal)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	profiles[player] = nil
+	overrides[player] = nil
+end)
+
+return {
+	getState = getState,
+	talk = talk,
+	choose = choose,
+	leave = leave,
+	setNearby = function(player: Player, nearby: boolean)
+		overrides[player] = true
+		setNearby(player, nearby)
+	end,
+	autoNearby = function(player: Player, nearby: boolean)
+		if overrides[player] == nil and (profileOf(player).nearby ~= nil) ~= nearby then
+			setNearby(player, nearby)
+		end
+	end,
+	journal = journal,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="76">
+        <Properties>
+          <string name="Name">DriverService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local Ledger = require(script.Parent.Ledger)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Drivers = require(ReplicatedStorage.Shared.Hub.Drivers)
+
+type State = Drivers.State
+type Result = Drivers.Result
+
+export type Entry = { kind: string, driver: string, ok: boolean, reason: Drivers.Failure?, at: number }
+
+type Profile = {
+	wallet: Ledger.Wallet,
+	owned: { [string]: boolean },
+	rented: { [string]: number },
+	equipped: string?,
+	busy: boolean,
+	journal: { Entry },
+}
+
+local profiles: { [Player]: Profile } = {}
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DriverStateChanged") :: RemoteEvent
+
+local byId: { [string]: Drivers.Driver } = {}
+for _, driver in Drivers.drivers do
+	byId[driver.id] = driver
+end
+
+local function profileOf(player: Player): Profile
+	local profile = profiles[player]
+	if profile == nil then
+		local created: Profile = {
+			wallet = Ledger.wallet(player),
+			owned = { haru = true },
+			rented = {},
+			equipped = "haru",
+			busy = false,
+			journal = {},
+		}
+		profiles[player] = created
+		return created
+	end
+	return profile
+end
+
+local function prune(profile: Profile)
+	local now = workspace:GetServerTimeNow()
+	for id, expires in profile.rented do
+		if expires <= now then
+			profile.rented[id] = nil
+			if profile.equipped == id then
+				profile.equipped = nil
+			end
+		end
+	end
+end
+
+local function snapshot(profile: Profile): State
+	prune(profile)
+	return {
+		coins = profile.wallet.Coins,
+		owned = table.clone(profile.owned),
+		rented = table.clone(profile.rented),
+		equipped = profile.equipped,
+	}
+end
+
+local function publish(player: Player)
+	changed:FireClient(player, snapshot(profileOf(player)))
+end
+
+local function answer(profile: Profile, kind: string, id: string, reason: Drivers.Failure?): Result
+	table.insert(profile.journal, { kind = kind, driver = id, ok = reason == nil, reason = reason, at = os.clock() })
+	return { ok = reason == nil, reason = reason, state = snapshot(profile) }
+end
+
+local function pay(player: Player, raw: unknown, kind: "buy" | "rent"): Result
+	local profile = profileOf(player)
+	local id = if type(raw) == "string" then raw else ""
+	local driver = byId[id]
+	if driver == nil then
+		return answer(profile, kind, id, "unknown_driver")
+	end
+	if profile.busy then
+		return answer(profile, kind, id, "busy")
+	end
+	if profile.owned[id] then
+		return answer(profile, kind, id, "already_owned")
+	end
+	local cost = if kind == "buy" then driver.price else driver.rentPrice
+	if profile.wallet.Coins < cost then
+		return answer(profile, kind, id, "insufficient_funds")
+	end
+	profile.busy = true
+	task.wait(0.4)
+	profile.wallet.Coins -= cost
+	if kind == "buy" then
+		profile.owned[id] = true
+		profile.rented[id] = nil
+	else
+		profile.rented[id] = workspace:GetServerTimeNow() + Drivers.rentSeconds
+	end
+	profile.busy = false
+	publish(player)
+	return answer(profile, kind, id, nil)
+end
+
+local function equip(player: Player, raw: unknown): Result
+	local profile = profileOf(player)
+	local id = if type(raw) == "string" then raw else ""
+	prune(profile)
+	if byId[id] == nil then
+		return answer(profile, "equip", id, "unknown_driver")
+	end
+	if not profile.owned[id] and profile.rented[id] == nil then
+		return answer(profile, "equip", id, "not_available")
+	end
+	profile.equipped = id
+	Ledger.setDriver(player, id)
+	publish(player)
+	return answer(profile, "equip", id, nil)
+end
+
+local function getState(player: Player): State
+	return snapshot(profileOf(player))
+end
+
+local function grant(player: Player, coins: number)
+	local profile = profileOf(player)
+	profile.wallet.Coins = math.max(0, profile.wallet.Coins + coins)
+	publish(player)
+end
+
+local function journal(player: Player): { Entry }
+	return table.clone(profileOf(player).journal)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	profiles[player] = nil
+end)
+
+return {
+	getState = getState,
+	buy = function(player: Player, id: unknown): Result
+		return pay(player, id, "buy")
+	end,
+	rent = function(player: Player, id: unknown): Result
+		return pay(player, id, "rent")
+	end,
+	equip = equip,
+	grant = grant,
+	journal = journal,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="77">
+        <Properties>
+          <string name="Name">EconomyService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local Ledger = require(script.Parent.Ledger)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Economy = require(ReplicatedStorage.Shared.Hub.Economy)
+
+type State = Economy.State
+type Result = Economy.Result
+
+export type Entry = { kind: string, ok: boolean, reason: Economy.Failure?, at: number }
+
+type Profile = {
+	wallet: Ledger.Wallet,
+
+	earned: number,
+	boostEndsAt: number?,
+	boosts: number,
+	quests: { Economy.Quest },
+	offer: Economy.Offer,
+	journal: { Entry },
+}
+
+local BASE_INCOME = 5
+local BOOST_PRICE = 10
+local BOOST_SECONDS = 30
+local ZONE_GOAL = 5000
+local OFFER_SECONDS = 25 * 60
+
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("EconomyStateChanged") :: RemoteEvent
+local profiles: { [Player]: Profile } = {}
+local paused = false
+
+local function profileOf(player: Player): Profile
+	local profile = profiles[player]
+	if profile == nil then
+		local created: Profile = {
+			wallet = Ledger.wallet(player),
+
+			earned = 1180,
+			boostEndsAt = nil,
+			boosts = 0,
+			quests = {
+				{
+					id = "earn_small",
+					title = "Earn 1,200 Coins",
+					goal = 1200,
+					progress = 0,
+					reward = 5,
+					claimed = false,
+				},
+				{
+					id = "earn_big",
+					title = "Earn 10,000 Coins",
+					goal = 10000,
+					progress = 0,
+					reward = 25,
+					claimed = false,
+				},
+				{ id = "boost", title = "Buy a 2x Coins boost", goal = 1, progress = 0, reward = 10, claimed = false },
+			},
+			offer = {
+				name = "Starter Offer",
+				coins = 5000,
+				price = 99,
+				endsAt = workspace:GetServerTimeNow() + OFFER_SECONDS,
+				bought = false,
+			},
+			journal = {},
+		}
+		profiles[player] = created
+		return created
+	end
+	return profile
+end
+
+local function boosted(profile: Profile): boolean
+	return profile.boostEndsAt ~= nil and (profile.boostEndsAt :: number) > workspace:GetServerTimeNow()
+end
+
+local function refresh(profile: Profile)
+	for _, quest in profile.quests do
+		if quest.id == "boost" then
+			quest.progress = math.min(quest.goal, profile.boosts)
+		else
+			quest.progress = math.min(quest.goal, profile.earned)
+		end
+	end
+	if not boosted(profile) then
+		profile.boostEndsAt = nil
+	end
+end
+
+local function snapshot(profile: Profile): State
+	refresh(profile)
+	local quests: { Economy.Quest } = {}
+	for _, quest in profile.quests do
+		table.insert(quests, table.clone(quest))
+	end
+	return {
+		coins = profile.wallet.Coins,
+		gems = profile.wallet.Gems,
+		perSecond = if boosted(profile) then BASE_INCOME * 2 else BASE_INCOME,
+		boostEndsAt = profile.boostEndsAt,
+		boostPrice = BOOST_PRICE,
+		zone = 2,
+		zoneProgress = math.min(ZONE_GOAL, profile.earned),
+		zoneGoal = ZONE_GOAL,
+		quests = quests,
+		offer = table.clone(profile.offer),
+	}
+end
+
+local function publish(player: Player)
+	changed:FireClient(player, snapshot(profileOf(player)))
+end
+
+local function answer(profile: Profile, kind: string, reason: Economy.Failure?): Result
+	table.insert(profile.journal, { kind = kind, ok = reason == nil, reason = reason, at = os.clock() })
+	return { ok = reason == nil, reason = reason, state = snapshot(profile) }
+end
+
+local function earn(profile: Profile, amount: number)
+	profile.wallet.Coins += amount
+	profile.earned += amount
+end
+
+local function buyBoost(player: Player): Result
+	local profile = profileOf(player)
+	if boosted(profile) then
+		return answer(profile, "boost", "already_active")
+	end
+	if profile.wallet.Gems < BOOST_PRICE then
+		return answer(profile, "boost", "insufficient_funds")
+	end
+	profile.wallet.Gems -= BOOST_PRICE
+	profile.boosts += 1
+	profile.boostEndsAt = workspace:GetServerTimeNow() + BOOST_SECONDS
+	publish(player)
+	return answer(profile, "boost", nil)
+end
+
+local function claimQuest(player: Player, questId: unknown): Result
+	local profile = profileOf(player)
+	refresh(profile)
+	for _, quest in profile.quests do
+		if quest.id == questId then
+			if quest.claimed then
+				return answer(profile, "quest", "already_claimed")
+			end
+			if quest.progress < quest.goal then
+				return answer(profile, "quest", "not_complete")
+			end
+			quest.claimed = true
+			profile.wallet.Gems += quest.reward
+			publish(player)
+			return answer(profile, "quest", nil)
+		end
+	end
+	return answer(profile, "quest", "unknown_quest")
+end
+
+local function buyOffer(player: Player): Result
+	local profile = profileOf(player)
+	local offer = profile.offer
+	if offer.bought then
+		return answer(profile, "offer", "already_bought")
+	end
+	if workspace:GetServerTimeNow() >= offer.endsAt then
+		return answer(profile, "offer", "expired")
+	end
+	if profile.wallet.Gems < offer.price then
+		return answer(profile, "offer", "insufficient_funds")
+	end
+	profile.wallet.Gems -= offer.price
+	offer.bought = true
+	earn(profile, offer.coins)
+	publish(player)
+	return answer(profile, "offer", nil)
+end
+
+local function start()
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if not paused then
+				for player, profile in profiles do
+					earn(profile, if boosted(profile) then BASE_INCOME * 2 else BASE_INCOME)
+					publish(player)
+				end
+			end
+		end
+	end)
+	Players.PlayerAdded:Connect(function(player)
+		profileOf(player)
+	end)
+	for _, player in Players:GetPlayers() do
+		profileOf(player)
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		profiles[player] = nil
+	end)
+end
+
+return {
+	start = start,
+	getState = function(player: Player): State
+		return snapshot(profileOf(player))
+	end,
+	buyBoost = buyBoost,
+	claimQuest = claimQuest,
+	buyOffer = buyOffer,
+	setPaused = function(value: boolean)
+		paused = value
+	end,
+	grant = function(player: Player, coins: number, gems: number)
+		local profile = profileOf(player)
+		earn(profile, coins)
+		profile.wallet.Gems += gems
+		publish(player)
+	end,
+	journal = function(player: Player): { Entry }
+		return table.clone(profileOf(player).journal)
+	end,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="78">
+        <Properties>
+          <string name="Name">GarageService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Ledger = require(script.Parent.Ledger)
+local Garage = require(ReplicatedStorage.Shared.Hub.Garage)
+
+type State = Garage.State
+type Result = Garage.Result
+
+export type Entry = { kind: string, vehicle: string?, ok: boolean, reason: Garage.Failure?, at: number }
+
+type Profile = {
+	favorites: { [string]: boolean },
+	spawned: string?,
+	busy: boolean,
+	journal: { Entry },
+}
+
+local profiles: { [Player]: Profile } = {}
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GarageStateChanged") :: RemoteEvent
+
+local known: { [string]: boolean } = {}
+for _, vehicle in Garage.vehicles do
+	known[vehicle.id] = true
+end
+
+local function profileOf(player: Player): Profile
+	local profile = profiles[player]
+	if profile == nil then
+		local created: Profile = { favorites = { summit_kart = true }, spawned = nil, busy = false, journal = {} }
+		profiles[player] = created
+		return created
+	end
+	return profile
+end
+
+local function snapshot(profile: Profile): State
+	return { favorites = table.clone(profile.favorites), spawned = profile.spawned }
+end
+
+local function publish(player: Player)
+	changed:FireClient(player, snapshot(profileOf(player)))
+end
+
+local function answer(profile: Profile, kind: string, vehicle: string?, reason: Garage.Failure?): Result
+	table.insert(
+		profile.journal,
+		{ kind = kind, vehicle = vehicle, ok = reason == nil, reason = reason, at = os.clock() }
+	)
+	return { ok = reason == nil, reason = reason, state = snapshot(profile) }
+end
+
+local function getState(player: Player): State
+	return snapshot(profileOf(player))
+end
+
+local function spawnVehicle(player: Player, vehicleId: unknown): Result
+	local profile = profileOf(player)
+	local id = if type(vehicleId) == "string" then vehicleId else ""
+	if not known[id] then
+		return answer(profile, "spawn", id, "unknown_vehicle")
+	end
+	if profile.busy then
+		return answer(profile, "spawn", id, "busy")
+	end
+	if profile.spawned ~= nil then
+		return answer(profile, "spawn", id, "already_spawned")
+	end
+	profile.busy = true
+	task.wait(0.4)
+	profile.spawned = id
+	Ledger.setKart(player, id)
+	profile.busy = false
+	publish(player)
+	return answer(profile, "spawn", id, nil)
+end
+
+local function exitVehicle(player: Player): Result
+	local profile = profileOf(player)
+	if profile.spawned == nil then
+		return answer(profile, "exit", nil, "nothing_spawned")
+	end
+	local id = profile.spawned
+	profile.spawned = nil
+	publish(player)
+	return answer(profile, "exit", id, nil)
+end
+
+local function setFavorite(player: Player, vehicleId: unknown, favorite: unknown): Result
+	local profile = profileOf(player)
+	local id = if type(vehicleId) == "string" then vehicleId else ""
+	if not known[id] then
+		return answer(profile, "favorite", id, "unknown_vehicle")
+	end
+	if favorite == true then
+		profile.favorites[id] = true
+	else
+		profile.favorites[id] = nil
+	end
+	publish(player)
+	return answer(profile, "favorite", id, nil)
+end
+
+local function journal(player: Player): { Entry }
+	return table.clone(profileOf(player).journal)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	profiles[player] = nil
+end)
+
+return {
+	getState = getState,
+	spawn = spawnVehicle,
+	exit = exitVehicle,
+	setFavorite = setFavorite,
+	journal = journal,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="79">
+        <Properties>
+          <string name="Name">InventoryService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Inventory = require(ReplicatedStorage.Shared.Hub.Inventory)
+
+type State = Inventory.State
+type Result = Inventory.Result
+type Slot = Inventory.Slot
+
+export type Entry = { kind: string, item: string?, ok: boolean, reason: string?, at: number }
+
+type Profile = {
+	owned: { string },
+	equipped: { [Slot]: string },
+	journal: { Entry },
+}
+
+local STARTING_ITEMS = {
+	"starter_motor",
+	"frost_motor",
+	"ember_motor",
+	"light_body",
+	"steel_body",
+	"city_wheels",
+	"snow_wheels",
+	"spark_trail",
+	"galaxy_trail",
+}
+
+local profiles: { [Player]: Profile } = {}
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("InventoryChanged") :: RemoteEvent
+
+local function fresh(): Profile
+	return {
+		owned = table.clone(STARTING_ITEMS),
+		equipped = { Motor = "starter_motor", Body = "light_body", Wheels = "city_wheels" },
+		journal = {},
+	}
+end
+
+local function profileOf(player: Player): Profile
+	local profile = profiles[player]
+	if profile == nil then
+		local created = fresh()
+		profiles[player] = created
+		return created
+	end
+	return profile
+end
+
+local function snapshot(profile: Profile): State
+	return { owned = table.clone(profile.owned), equipped = table.clone(profile.equipped) }
+end
+
+local function publish(player: Player)
+	changed:FireClient(player, snapshot(profileOf(player)))
+end
+
+local function record(profile: Profile, kind: string, item: string?, ok: boolean, reason: string?)
+	table.insert(profile.journal, { kind = kind, item = item, ok = ok, reason = reason, at = os.clock() })
+end
+
+local function getState(player: Player): State
+	return snapshot(profileOf(player))
+end
+
+local function equip(player: Player, itemId: unknown): Result
+	local profile = profileOf(player)
+	local id = if type(itemId) == "string" then itemId else ""
+	local definition = Inventory.byId[id]
+	if definition == nil then
+		record(profile, "equip", id, false, "unknown_item")
+		return { ok = false, reason = "unknown_item", state = snapshot(profile) }
+	end
+	if table.find(profile.owned, id) == nil then
+		record(profile, "equip", id, false, "not_owned")
+		return { ok = false, reason = "not_owned", state = snapshot(profile) }
+	end
+	profile.equipped[definition.slot] = id
+	record(profile, "equip", id, true, nil)
+	publish(player)
+	return { ok = true, reason = nil, state = snapshot(profile) }
+end
+
+local function unequip(player: Player, slot: unknown): Result
+	local profile = profileOf(player)
+	local name = if type(slot) == "string" then slot else ""
+	if table.find(Inventory.slots, name :: Slot) == nil or profile.equipped[name :: Slot] == nil then
+		record(profile, "unequip", name, false, "empty_slot")
+		return { ok = false, reason = "empty_slot", state = snapshot(profile) }
+	end
+	profile.equipped[name :: Slot] = nil
+	record(profile, "unequip", name, true, nil)
+	publish(player)
+	return { ok = true, reason = nil, state = snapshot(profile) }
+end
+
+local function give(player: Player, itemId: string): boolean
+	local profile = profileOf(player)
+	if Inventory.byId[itemId] == nil or table.find(profile.owned, itemId) ~= nil then
+		return false
+	end
+	table.insert(profile.owned, itemId)
+	record(profile, "give", itemId, true, nil)
+	publish(player)
+	return true
+end
+
+local function journal(player: Player): { Entry }
+	return table.clone(profileOf(player).journal)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	profiles[player] = nil
+end)
+
+return {
+	getState = getState,
+	equip = equip,
+	unequip = unequip,
+	give = give,
+	journal = journal,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="80">
+        <Properties>
+          <string name="Name">Kart</string>
+          <string name="Source"><![CDATA[--!strict
+
+export type Kart = { model: Model, seat: VehicleSeat }
+local Kart = {}
+
+function Kart.create(name: string, color: Color3, frame: CFrame, kinematic: boolean): Kart
+	local model = Instance.new("Model")
+	model.Name = name
+	local function part(label: string, size: Vector3, offset: CFrame, tint: Color3): Part
+		local object = Instance.new("Part")
+		object.Name = label
+		object.Size = size
+		object.CFrame = frame * offset
+		object.Color = tint
+		object.Anchored = kinematic
+		object.CanCollide = not kinematic
+		object.TopSurface = Enum.SurfaceType.Smooth
+		object.BottomSurface = Enum.SurfaceType.Smooth
+		object.Parent = model
+		return object
+	end
+	local body = part("Chassis", Vector3.new(5, 0.7, 7), CFrame.new(0, 1, 0), color)
+	body.RootPriority = 127
+	body.CustomPhysicalProperties = PhysicalProperties.new(1, 0.15, 0, 100, 100)
+	model.PrimaryPart = body
+	local seat = Instance.new("VehicleSeat")
+	seat.Name = "DriverSeat"
+	seat.Size = Vector3.new(2, 0.7, 2)
+	seat.CFrame = frame * CFrame.new(0, 1.8, 0.6)
+	seat.Color = Color3.fromRGB(42, 49, 64)
+	seat.Anchored = kinematic
+	seat.CanCollide = false
+	seat.HeadsUpDisplay = not kinematic
+	seat.Parent = model
+	local function weld(object: BasePart)
+		local joint = Instance.new("WeldConstraint")
+		joint.Part0 = body
+		joint.Part1 = object
+		joint.Parent = object
+	end
+	weld(seat)
+	weld(part("Nose", Vector3.new(3, 1, 2), CFrame.new(0, 1.8, -2.4), color))
+	weld(part("Spoiler", Vector3.new(6, 0.4, 1), CFrame.new(0, 2.4, 3), color))
+	for _, x in { -3.2, 3.2 } do
+		for _, z in { -2, 2 } do
+			local wheel = part("Wheel", Vector3.new(1.2, 2, 2), CFrame.new(x, 0.5, z), Color3.fromRGB(34, 40, 53))
+			wheel.Shape = Enum.PartType.Cylinder
+			wheel.CustomPhysicalProperties = PhysicalProperties.new(0.5, 0.15, 0, 100, 100)
+			if kinematic then
+				weld(wheel)
+			else
+				local axle = Instance.new("Attachment")
+				axle.Position = Vector3.new(x, -0.5, z)
+				axle.Parent = body
+				local hub = Instance.new("Attachment")
+				hub.Parent = wheel
+				local hinge = Instance.new("HingeConstraint")
+				hinge.Attachment0 = axle
+				hinge.Attachment1 = hub
+				hinge.Parent = body
+			end
+		end
+	end
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "DriveAttachment"
+	attachment.Parent = body
+	local drive = Instance.new("LinearVelocity")
+	drive.Name = "Drive"
+	drive.Attachment0 = attachment
+	drive.RelativeTo = Enum.ActuatorRelativeTo.World
+	drive.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+	drive.PrimaryTangentAxis = Vector3.xAxis
+	drive.SecondaryTangentAxis = Vector3.zAxis
+	drive.MaxForce = 18000
+	drive.Enabled = not kinematic
+	drive.Parent = body
+	local turn = Instance.new("AngularVelocity")
+	turn.Name = "Turn"
+	turn.Attachment0 = attachment
+	turn.RelativeTo = Enum.ActuatorRelativeTo.World
+	turn.MaxTorque = 12000
+	turn.Enabled = not kinematic
+	turn.Parent = body
+	local uprightAxis = Instance.new("Attachment")
+	uprightAxis.Axis = Vector3.yAxis
+	uprightAxis.SecondaryAxis = Vector3.xAxis
+	uprightAxis.Parent = body
+	local upright = Instance.new("AlignOrientation")
+	upright.Attachment0 = uprightAxis
+	upright.Mode = Enum.OrientationAlignmentMode.OneAttachment
+	upright.AlignType = Enum.AlignType.PrimaryAxisParallel
+	upright.CFrame = CFrame.Angles(0, 0, math.pi / 2)
+	upright.MaxTorque = 100000
+	upright.Responsiveness = 15
+	upright.Enabled = not kinematic
+	upright.Parent = body
+	model.Parent = workspace
+	return { model = model, seat = seat }
+end
+
+return Kart
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="81">
+        <Properties>
+          <string name="Name">Ledger</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+
+export type Wallet = { Coins: number, Gems: number }
+export type Progress = { xp: number, level: number, races: number, crates: number, kart: string, driver: string }
+type Profile = { wallet: Wallet, progress: Progress, rewarded: number }
+local profiles: { [Player]: Profile } = {}
+
+local function profileOf(player: Player): Profile
+	local profile = profiles[player]
+	if profile == nil then
+		profile = {
+			wallet = { Coins = 320, Gems = 40 },
+			progress = { xp = 0, level = 1, races = 0, crates = 0, kart = "rookie_kart", driver = "haru" },
+			rewarded = 0,
+		}
+		profiles[player] = profile
+	end
+	return profile
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	profiles[player] = nil
+end)
+
+return {
+	wallet = function(player: Player): Wallet
+		return profileOf(player).wallet
+	end,
+	progress = function(player: Player): Progress
+		return table.clone(profileOf(player).progress)
+	end,
+	setKart = function(player: Player, id: string)
+		profileOf(player).progress.kart = id
+	end,
+	setDriver = function(player: Player, id: string)
+		profileOf(player).progress.driver = id
+	end,
+	addCrate = function(player: Player)
+		profileOf(player).progress.crates += 1
+	end,
+	consumeCrate = function(player: Player): boolean
+		local progress = profileOf(player).progress
+		if progress.crates < 1 then
+			return false
+		end
+		progress.crates -= 1
+		return true
+	end,
+	reward = function(player: Player, round: number, coins: number)
+		local profile = profileOf(player)
+		if round <= profile.rewarded then
+			return
+		end
+		profile.rewarded = round
+		profile.wallet.Coins += coins
+		profile.wallet.Gems += 5
+		profile.progress.xp += 120
+		profile.progress.level = 1 + profile.progress.xp // 100
+		profile.progress.races += 1
+	end,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="82">
+        <Properties>
+          <string name="Name">QueueService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Lobby = require(ReplicatedStorage.Shared.Hub.Lobby)
+
+type State = Lobby.State
+type Result = Lobby.Result
+
+export type Entry = { kind: string, mode: string?, ok: boolean, reason: Lobby.Failure?, at: number }
+
+local COUNTDOWN = 10
+local STARTING = 6
+local BOT_INTERVAL = 4
+
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("LobbyStateChanged") :: RemoteEvent
+
+local state: State = { phase = "Lobby", mode = nil, players = 0, needed = 0, countdownEndsAt = nil }
+local bots = 0
+local automatic = true
+local lastBot = 0
+local startedAt = 0
+local journal: { Entry } = {}
+
+local function snapshot(): State
+	return {
+		phase = state.phase,
+		mode = state.mode,
+		players = state.players,
+		needed = state.needed,
+		countdownEndsAt = state.countdownEndsAt,
+	}
+end
+
+local function publish()
+	changed:FireAllClients(snapshot())
+end
+
+local function modeOf(id: unknown): Lobby.Mode?
+	for _, mode in Lobby.modes do
+		if mode.id == id then
+			return mode
+		end
+	end
+	return nil
+end
+
+local function recount()
+	if state.phase ~= "Queue" and state.phase ~= "Countdown" then
+		return
+	end
+	state.players = math.min(state.needed, 1 + bots)
+	if state.players >= state.needed and state.phase == "Queue" then
+		state.phase = "Countdown"
+		state.countdownEndsAt = workspace:GetServerTimeNow() + COUNTDOWN
+	elseif state.players < state.needed and state.phase == "Countdown" then
+		state.phase = "Queue"
+		state.countdownEndsAt = nil
+	end
+	publish()
+end
+
+local function answer(kind: string, mode: string?, reason: Lobby.Failure?): Result
+	table.insert(journal, { kind = kind, mode = mode, ok = reason == nil, reason = reason, at = os.clock() })
+	return { ok = reason == nil, reason = reason, state = snapshot() }
+end
+
+local function join(_player: Player, modeId: unknown): Result
+	local mode = modeOf(modeId)
+	if mode == nil then
+		return answer("join", tostring(modeId), "unknown_mode")
+	end
+	if state.phase == "Starting" then
+		return answer("join", (mode :: Lobby.Mode).id, "starting")
+	end
+	if state.phase ~= "Lobby" then
+		return answer("join", (mode :: Lobby.Mode).id, "already_queued")
+	end
+	state.phase = "Queue"
+	state.mode = (mode :: Lobby.Mode).id
+	state.needed = (mode :: Lobby.Mode).players
+	bots = 0
+	lastBot = os.clock()
+	recount()
+	return answer("join", state.mode, nil)
+end
+
+local function leave(_player: Player): Result
+	if state.phase ~= "Queue" and state.phase ~= "Countdown" then
+		return answer("leave", nil, "not_queued")
+	end
+	state.phase = "Lobby"
+	state.mode = nil
+	state.players = 0
+	state.needed = 0
+	state.countdownEndsAt = nil
+	bots = 0
+	publish()
+	return answer("leave", nil, nil)
+end
+
+local function addBots(count: number)
+	bots = math.max(0, bots + count)
+	recount()
+end
+
+local function tick()
+	local now = workspace:GetServerTimeNow()
+	if state.phase == "Queue" and automatic and os.clock() - lastBot >= BOT_INTERVAL then
+		lastBot = os.clock()
+		addBots(1)
+	elseif state.phase == "Countdown" and state.countdownEndsAt ~= nil and now >= state.countdownEndsAt then
+		state.phase = "Starting"
+		state.countdownEndsAt = nil
+		startedAt = os.clock()
+		publish()
+	elseif state.phase == "Starting" and os.clock() - startedAt >= STARTING then
+		state.phase = "Lobby"
+		state.mode = nil
+		state.players = 0
+		state.needed = 0
+		bots = 0
+		publish()
+	end
+end
+
+local function start()
+	task.spawn(function()
+		while true do
+			tick()
+			task.wait(0.25)
+		end
+	end)
+end
+
+return {
+	start = start,
+	snapshot = snapshot,
+	join = join,
+	leave = leave,
+	addBots = addBots,
+	finishCountdown = function()
+		if state.phase == "Countdown" then
+			state.countdownEndsAt = workspace:GetServerTimeNow()
+		end
+	end,
+	setAutomatic = function(value: boolean)
+		automatic = value
+	end,
+	journal = function(): { Entry }
+		return table.clone(journal)
+	end,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="83">
+        <Properties>
+          <string name="Name">RaceService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Track = require(game:GetService("ReplicatedStorage").Shared.RaceTrack)
+local Rules = require(game:GetService("ReplicatedStorage").Shared.RaceRules)
+local Round = require(game:GetService("ReplicatedStorage").Shared.Hub.Round)
+local Kart = require(script.Parent.Kart)
+
+type Racer = {
+	name: string,
+	team: Round.Team,
+	kart: Kart.Kart,
+	player: Player?,
+	progress: number,
+	startProgress: number,
+	checkpoint: number,
+	lap: number,
+	finish: number,
+	speed: number,
+	lane: number,
+	out: boolean,
+}
+local racers: { Racer } = {}
+local ordered: { Racer } = {}
+local names: { string } = {}
+local active = false
+local manual = false
+local elapsed = 0
+local accumulator = 0
+local measuredSeconds = 0
+local measuredSteps = 0
+local measuredCost = 0
+local measuredMax = 0
+local reseatAt = 0
+local complete: () -> () = function() end
+local palette = {
+	Color3.fromRGB(255, 190, 65),
+	Color3.fromRGB(240, 90, 95),
+	Color3.fromRGB(73, 180, 225),
+	Color3.fromRGB(178, 112, 225),
+	Color3.fromRGB(80, 210, 145),
+	Color3.fromRGB(255, 145, 70),
+	Color3.fromRGB(238, 120, 190),
+	Color3.fromRGB(235, 225, 110),
+}
+
+local function markOut(name: string)
+	for _, racer in racers do
+		if racer.name == name then
+			racer.out = true
+			for _, object in racer.kart.model:GetDescendants() do
+				if object:IsA("BasePart") then
+					object.Anchored = true
+				end
+			end
+			return
+		end
+	end
+end
+
+local function stop()
+	active = false
+	for _, racer in racers do
+		local player = racer.player
+		if player then
+			player:SetAttribute("Racing", false)
+			local character = player.Character
+			local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+			if humanoid then
+				humanoid.Sit = false
+				humanoid.Jump = false
+			end
+		end
+		racer.kart.model:Destroy()
+		if player and player.Character then
+			player.Character:PivotTo(CFrame.lookAt(Vector3.new(0, 5, 0), Vector3.new(0, 5, -100)))
+			local root = player.Character:FindFirstChild("HumanoidRootPart")
+			if root and root:IsA("BasePart") then
+				root.AssemblyLinearVelocity = Vector3.zero
+				root.AssemblyAngularVelocity = Vector3.zero
+			end
+		end
+	end
+	table.clear(racers)
+	table.clear(ordered)
+end
+
+local function start(fighters: { Round.Fighter }, scenario: boolean, onComplete: () -> ())
+	stop()
+	manual = scenario
+	complete = onComplete
+	elapsed = 0
+	accumulator = 0
+	reseatAt = 0
+	table.clear(names)
+	for index, fighter in fighters do
+		local player = Players:FindFirstChild(fighter.name)
+		local driver = if player and player:IsA("Player") then player else nil
+		local lane = if index % 2 == 0 then -5 else 5
+		local progress = 0.05 - math.floor((index - 1) / 2) * 0.012
+		local kart = Kart.create(
+			fighter.name .. "Kart",
+			palette[(index - 1) % #palette + 1],
+			Track.frame(progress, lane),
+			driver == nil or manual
+		)
+		local racer: Racer = {
+			name = fighter.name,
+			team = fighter.team,
+			kart = kart,
+			player = driver,
+			progress = progress,
+			startProgress = progress,
+			checkpoint = 0,
+			lap = 0,
+			finish = math.huge,
+			speed = 0.047 + index * 0.0007,
+			lane = lane,
+			out = false,
+		}
+		table.insert(racers, racer)
+		table.insert(ordered, racer)
+		if driver then
+			driver:SetAttribute("Racing", true)
+			driver:SetAttribute("RaceAutopilot", manual)
+			local character = driver.Character
+			local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+			if humanoid then
+				if character then
+					character:PivotTo(kart.seat.CFrame * CFrame.new(0, 2, 0))
+				end
+				kart.seat:Sit(humanoid)
+			end
+			if not manual and kart.model.PrimaryPart then
+				kart.model.PrimaryPart:SetNetworkOwner(driver)
+			end
+			local progressData = require(script.Parent.Ledger).progress(driver)
+			kart.model:SetAttribute("KartId", progressData.kart)
+			kart.model:SetAttribute("DriverId", progressData.driver)
+		end
+	end
+	for index, racer in ordered do
+		names[index] = if racer.player then "You" else racer.name
+	end
+	active = true
+end
+
+RunService.Heartbeat:Connect(function(dt: number)
+	if not active then
+		return
+	end
+	accumulator += dt
+	if accumulator < 1 / 30 then
+		return
+	end
+	debug.profilebegin("SunfieldRaceStep")
+	local stepStarted = os.clock()
+	measuredSeconds += accumulator
+	elapsed += accumulator
+	accumulator = 0
+	local reseat = elapsed >= reseatAt
+	if reseat then
+		reseatAt = elapsed + 0.5
+	end
+	local finished = 0
+	for _, racer in racers do
+		if racer.out then
+			finished += 1
+			continue
+		end
+		if reseat and racer.player then
+			local character = racer.player.Character
+			local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+			if humanoid and humanoid.SeatPart ~= racer.kart.seat then
+				if character then
+					character:PivotTo(racer.kart.seat.CFrame * CFrame.new(0, 2, 0))
+				end
+				racer.kart.seat:Sit(humanoid)
+			end
+		end
+		if racer.player == nil or manual then
+			racer.progress = math.min(Track.laps, elapsed * racer.speed + racer.startProgress)
+			local lap = math.floor(racer.progress)
+			racer.lap = lap
+			racer.checkpoint = math.floor(racer.progress % 1 * Track.checkpoints)
+			racer.kart.model:PivotTo(Track.frame(racer.progress % 1, racer.lane) * CFrame.new(0, 1, 0))
+		else
+			local root = racer.kart.model.PrimaryPart
+			if root then
+				local t = Track.progress(root.Position)
+				local onRoad = (root.Position - Track.point(t)).Magnitude < Track.width / 2 + 5
+				Rules.advance(racer, t, onRoad, Track.checkpoints)
+				root:SetAttribute("Lap", math.min(Track.laps, racer.lap + 1))
+				root:SetAttribute("Checkpoint", racer.checkpoint)
+				root:SetAttribute("RaceProgress", racer.progress)
+				if root.Position.Y < -10 or (root.Position - Track.point(t)).Magnitude > 60 then
+					racer.kart.model:PivotTo(
+						Track.frame(racer.checkpoint / Track.checkpoints, racer.lane) * CFrame.new(0, 3, 0)
+					)
+					root.AssemblyLinearVelocity = Vector3.zero
+				end
+			end
+		end
+		if racer.progress >= Track.laps and racer.finish == math.huge then
+			racer.finish = if racer.player == nil or manual
+				then (Track.laps - racer.startProgress) / racer.speed
+				else elapsed
+		end
+		if racer.finish ~= math.huge then
+			finished += 1
+		end
+	end
+	table.sort(ordered, Rules.ahead)
+	for index, racer in ordered do
+		names[index] = if racer.player then "You" else racer.name
+	end
+	if not manual and finished == #racers then
+		complete()
+	end
+	local cost = os.clock() - stepStarted
+	measuredCost += cost
+	measuredMax = math.max(measuredMax, cost)
+	measuredSteps += 1
+	if measuredSeconds >= 1 then
+		workspace:SetAttribute("RaceStepMeanUs", measuredCost / measuredSteps * 1e6)
+		workspace:SetAttribute("RaceStepMaxUs", measuredMax * 1e6)
+		workspace:SetAttribute("RaceStepHz", measuredSteps / measuredSeconds)
+		measuredSeconds, measuredSteps, measuredCost, measuredMax = 0, 0, 0, 0
+	end
+	debug.profileend()
+end)
+
+return {
+	start = start,
+	stop = stop,
+	positions = function(): { string }
+		return names
+	end,
+	winner = function(): Round.Team | "Draw"
+		return if ordered[1] then ordered[1].team else "Draw"
+	end,
+	setManual = function(value: boolean)
+		manual = value
+	end,
+	markOut = markOut,
+	laps = function(name: string): number
+		for _, racer in racers do
+			if racer.name == name then
+				return racer.lap
+			end
+		end
+		return 0
+	end,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="84">
+        <Properties>
+          <string name="Name">RewardService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local Ledger = require(script.Parent.Ledger)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local DailyRewards = require(ReplicatedStorage.Shared.Hub.DailyRewards)
+
+type State = DailyRewards.State
+type Reward = DailyRewards.Reward
+
+export type Entry = { kind: string, day: number, ok: boolean, reason: string?, at: number }
+
+type Profile = {
+	day: number,
+	claimedToday: boolean,
+	nextClaimAt: number,
+	restarted: boolean,
+	wallet: { Coins: number, Gems: number },
+	items: { [string]: number },
+	busy: boolean,
+	journal: { Entry },
+}
+
+local TRACK: { DailyRewards.Day } = {
+	{ day = 1, reward = { kind = "Coins", name = "Coins", amount = 100 } },
+	{ day = 2, reward = { kind = "Coins", name = "Coins", amount = 150 } },
+	{ day = 3, reward = { kind = "Gems", name = "Gems", amount = 5 } },
+	{ day = 4, reward = { kind = "Coins", name = "Coins", amount = 300 } },
+	{ day = 5, reward = { kind = "Gems", name = "Gems", amount = 10 } },
+	{ day = 6, reward = { kind = "Item", name = "Speed Potion", amount = 3 } },
+	{ day = 7, reward = { kind = "Item", name = "Legendary Crate", amount = 1 } },
+}
+
+local COOLDOWN = 6 * 3600
+local SERVER_DELAY = 0.3
+
+local profiles: { [Player]: Profile } = {}
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RewardsStateChanged") :: RemoteEvent
+
+local function profileOf(player: Player): Profile
+	local profile = profiles[player]
+	if profile == nil then
+		local created: Profile = {
+			day = 3,
+			claimedToday = false,
+			nextClaimAt = 0,
+			restarted = false,
+			wallet = Ledger.wallet(player),
+			items = {},
+			busy = false,
+			journal = {},
+		}
+		profiles[player] = created
+		return created
+	end
+	return profile
+end
+
+local function snapshot(profile: Profile): State
+	local track: { DailyRewards.Day } = {}
+	for _, entry in TRACK do
+		table.insert(track, { day = entry.day, reward = table.clone(entry.reward) })
+	end
+	return {
+		track = track,
+		day = profile.day,
+		claimedToday = profile.claimedToday,
+		nextClaimAt = profile.nextClaimAt,
+		restarted = profile.restarted,
+		wallet = { Coins = profile.wallet.Coins, Gems = profile.wallet.Gems },
+		items = table.clone(profile.items),
+	}
+end
+
+local function publish(player: Player)
+	changed:FireClient(player, snapshot(profileOf(player)))
+end
+
+local function getState(player: Player): State
+	return snapshot(profileOf(player))
+end
+
+local function claim(player: Player): DailyRewards.ClaimResult
+	local profile = profileOf(player)
+	if profile.busy then
+		return { ok = false, reason = "busy", reward = nil, state = snapshot(profile) }
+	end
+	if profile.claimedToday then
+		table.insert(
+			profile.journal,
+			{ kind = "claim", day = profile.day, ok = false, reason = "already_claimed", at = os.clock() }
+		)
+		return { ok = false, reason = "already_claimed", reward = nil, state = snapshot(profile) }
+	end
+	profile.busy = true
+	task.wait(SERVER_DELAY)
+	local reward = TRACK[profile.day].reward
+	if reward.kind == "Coins" then
+		profile.wallet.Coins += reward.amount
+	elseif reward.kind == "Gems" then
+		profile.wallet.Gems += reward.amount
+	else
+		profile.items[reward.name] = (profile.items[reward.name] or 0) + reward.amount
+	end
+	profile.claimedToday = true
+	profile.restarted = false
+	profile.nextClaimAt = workspace:GetServerTimeNow() + COOLDOWN
+	profile.busy = false
+	table.insert(profile.journal, { kind = "claim", day = profile.day, ok = true, reason = nil, at = os.clock() })
+	publish(player)
+	return { ok = true, reason = nil, reward = table.clone(reward), state = snapshot(profile) }
+end
+
+local function advance(player: Player)
+	local profile = profileOf(player)
+	profile.day = if profile.claimedToday then profile.day % #TRACK + 1 else profile.day
+	profile.claimedToday = false
+	profile.nextClaimAt = 0
+	profile.restarted = false
+	table.insert(profile.journal, { kind = "advance", day = profile.day, ok = true, reason = nil, at = os.clock() })
+	publish(player)
+end
+
+local function miss(player: Player)
+	local profile = profileOf(player)
+	profile.day = 1
+	profile.claimedToday = false
+	profile.nextClaimAt = 0
+	profile.restarted = true
+	table.insert(profile.journal, { kind = "miss", day = 1, ok = true, reason = nil, at = os.clock() })
+	publish(player)
+end
+
+local function journal(player: Player): { Entry }
+	return table.clone(profileOf(player).journal)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	profiles[player] = nil
+end)
+
+return {
+	getState = getState,
+	claim = claim,
+	advance = advance,
+	miss = miss,
+	journal = journal,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="85">
+        <Properties>
+          <string name="Name">RoundService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Ledger = require(script.Parent.Ledger)
+local RaceService = require(script.Parent.RaceService)
+local Round = require(ReplicatedStorage.Shared.Hub.Round)
+
+type State = Round.State
+type Fighter = Round.Fighter
+type Phase = Round.Phase
+
+local function duration(phase: Phase): number
+	return if phase == "Round" then 90 elseif phase == "Results" then 10 else 20
+end
+local BOTS: { { name: string, team: Round.Team } } = {
+	{ name = "Nova", team = "Red" },
+	{ name = "Pip", team = "Red" },
+	{ name = "Rook", team = "Red" },
+	{ name = "Zed", team = "Blue" },
+	{ name = "Ivy", team = "Blue" },
+	{ name = "Bolt", team = "Blue" },
+	{ name = "Moss", team = "Blue" },
+}
+local WIN_REWARD = 50
+local LOSS_REWARD = 20
+
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RoundStateChanged") :: RemoteEvent
+local event = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RoundEvent") :: RemoteEvent
+
+local state: State = {
+	round = 1,
+	phase = "Intermission",
+	endsAt = workspace:GetServerTimeNow() + duration("Intermission"),
+	fighters = {},
+	winner = nil,
+	rewards = nil,
+}
+local automatic = true
+local raceComplete = false
+local log: { Round.Event } = {}
+
+for _, bot in BOTS do
+	table.insert(state.fighters, { name = bot.name, team = bot.team, eliminated = false, eliminations = 0 })
+end
+
+local function snapshot(): State
+	local fighters: { Fighter } = {}
+	for _, fighter in state.fighters do
+		table.insert(fighters, table.clone(fighter))
+	end
+	return {
+		round = state.round,
+		phase = state.phase,
+		endsAt = state.endsAt,
+		fighters = fighters,
+		winner = state.winner,
+		rewards = if state.rewards ~= nil then table.clone(state.rewards) else nil,
+	}
+end
+
+local function publish()
+	changed:FireAllClients(snapshot())
+end
+
+local function find(name: string): Fighter?
+	for _, fighter in state.fighters do
+		if fighter.name == name then
+			return fighter
+		end
+	end
+	return nil
+end
+
+local function alive(team: Round.Team): number
+	local count = 0
+	for _, fighter in state.fighters do
+		if fighter.team == team and not fighter.eliminated then
+			count += 1
+		end
+	end
+	return count
+end
+
+local function enter(phase: Phase, seconds: number?, winner: (Round.Team | "Draw")?)
+	state.phase = phase
+	state.endsAt = workspace:GetServerTimeNow() + (seconds or duration(phase))
+	if phase == "Round" then
+		for _, fighter in state.fighters do
+			fighter.eliminated = false
+			fighter.eliminations = 0
+		end
+		state.winner = nil
+		state.rewards = nil
+		raceComplete = false
+		RaceService.start(state.fighters, not automatic, function()
+			raceComplete = true
+		end)
+	elseif phase == "Results" then
+		local red, blue = alive("Red"), alive("Blue")
+		state.winner = winner
+			or (
+				if automatic
+					then RaceService.winner()
+					elseif red > blue then "Red"
+					elseif blue > red then "Blue"
+					else "Draw"
+			)
+		RaceService.stop()
+		state.rewards = {
+			Red = if state.winner == "Red" then WIN_REWARD else LOSS_REWARD,
+			Blue = if state.winner == "Blue" then WIN_REWARD else LOSS_REWARD,
+		}
+		for _, player in Players:GetPlayers() do
+			Ledger.reward(player, state.round, (state.rewards :: { Red: number, Blue: number }).Red)
+		end
+	elseif phase == "Intermission" then
+		RaceService.stop()
+		state.round += 1
+		state.winner = nil
+		state.rewards = nil
+	end
+	publish()
+end
+
+local function eliminate(victim: string, lap: string): boolean
+	local target = find(victim)
+	if automatic or target == nil or target.eliminated or state.phase ~= "Round" then
+		return false
+	end
+	target.eliminated = true
+	RaceService.markOut(victim)
+	local entry: Round.Event = { kind = "elimination", victim = victim, by = lap, at = workspace:GetServerTimeNow() }
+	table.insert(log, entry)
+	event:FireAllClients(entry)
+	publish()
+	if not automatic and (alive("Red") == 0 or alive("Blue") == 0) then
+		enter("Results")
+	end
+	return true
+end
+
+local function join(player: Player)
+	if find(player.Name) == nil then
+		local fighter: Fighter = { name = player.Name, team = "Red", eliminated = false, eliminations = 0 }
+		table.insert(state.fighters, 1, fighter)
+		publish()
+	end
+end
+
+local function leave(player: Player)
+	for index, fighter in state.fighters do
+		if fighter.name == player.Name then
+			table.remove(state.fighters, index)
+			publish()
+			return
+		end
+	end
+end
+
+local function tick()
+	local now = workspace:GetServerTimeNow()
+	if state.phase ~= "Intermission" and now >= state.endsAt then
+		if state.phase == "Round" then
+			enter("Results")
+		else
+			enter("Intermission")
+		end
+		return
+	end
+	if automatic and state.phase == "Round" then
+		local updated = false
+		for _, fighter in state.fighters do
+			local laps = RaceService.laps(fighter.name)
+			if fighter.eliminations ~= laps then
+				fighter.eliminations = laps
+				updated = true
+			end
+		end
+		if updated then
+			publish()
+		end
+		if raceComplete then
+			enter("Results")
+		end
+	end
+end
+
+local function start()
+	Players.PlayerAdded:Connect(join)
+	Players.PlayerRemoving:Connect(leave)
+	for _, player in Players:GetPlayers() do
+		join(player)
+	end
+	task.spawn(function()
+		while true do
+			tick()
+			task.wait(0.25)
+		end
+	end)
+end
+
+return {
+	start = start,
+	snapshot = snapshot,
+	enter = enter,
+	eliminate = eliminate,
+	setLaps = function(name: string, laps: number)
+		assert(not automatic, "lap fixtures require manual mode")
+		local fighter = find(name)
+		assert(fighter, "unknown racer")
+		fighter.eliminations = math.clamp(math.floor(laps), 0, 3)
+		publish()
+	end,
+	setAutomatic = function(value: boolean)
+		automatic = value
+		RaceService.setManual(not value)
+	end,
+	events = function(): { Round.Event }
+		return table.clone(log)
+	end,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="86">
+        <Properties>
+          <string name="Name">SettingsStore</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Settings = require(ReplicatedStorage.Shared.Hub.Settings)
+
+type Values = Settings.Values
+type SaveResult = Settings.SaveResult
+
+export type Entry = { kind: string, fields: { string }, ok: boolean, reason: string?, at: number }
+
+local SAVED: Values = {
+	musicVolume = 60,
+	effectsVolume = 80,
+	showDamageNumbers = true,
+	cameraShake = false,
+	graphics = "Medium",
+}
+local SAVE_DELAY = 0.2
+
+local stored: { [Player]: Values } = {}
+local journals: { [Player]: { Entry } } = {}
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("SettingsChanged") :: RemoteEvent
+
+local function valuesOf(player: Player): Values
+	local values = stored[player]
+	if values == nil then
+		values = table.clone(SAVED)
+		stored[player] = values
+	end
+	return values
+end
+
+local function journalOf(player: Player): { Entry }
+	local journal = journals[player]
+	if journal == nil then
+		journal = {}
+		journals[player] = journal
+	end
+	return journal
+end
+
+local function get(player: Player): Values
+	return table.clone(valuesOf(player))
+end
+
+local function volume(value: unknown): number?
+	if type(value) ~= "number" or value ~= value then
+		return nil
+	end
+	if value < 0 or value > 100 then
+		return nil
+	end
+	return math.floor(value + 0.5)
+end
+
+local function save(player: Player, patch: unknown): SaveResult
+	local current = valuesOf(player)
+	local journal = journalOf(player)
+	if type(patch) ~= "table" then
+		table.insert(journal, { kind = "save", fields = {}, ok = false, reason = "invalid_value", at = os.clock() })
+		return { ok = false, reason = "invalid_value", field = nil, values = table.clone(current) }
+	end
+	local raw = patch :: { [string]: unknown }
+	local next = table.clone(current)
+	local fields: { string } = {}
+	for key, value in raw do
+		local accepted = true
+		if key == "musicVolume" or key == "effectsVolume" then
+			local level = volume(value)
+			if level == nil then
+				accepted = false
+			elseif key == "musicVolume" then
+				next.musicVolume = level
+			else
+				next.effectsVolume = level
+			end
+		elseif key == "showDamageNumbers" or key == "cameraShake" then
+			if type(value) ~= "boolean" then
+				accepted = false
+			elseif key == "showDamageNumbers" then
+				next.showDamageNumbers = value
+			else
+				next.cameraShake = value
+			end
+		elseif key == "graphics" then
+			if value == "Low" or value == "Medium" or value == "High" then
+				next.graphics = value
+			else
+				accepted = false
+			end
+		else
+			accepted = false
+		end
+		if not accepted then
+			table.insert(
+				journal,
+				{ kind = "save", fields = { key }, ok = false, reason = "invalid_value", at = os.clock() }
+			)
+			return { ok = false, reason = "invalid_value", field = key, values = table.clone(current) }
+		end
+		table.insert(fields, key)
+	end
+	task.wait(SAVE_DELAY)
+	stored[player] = next
+	table.sort(fields)
+	table.insert(journal, { kind = "save", fields = fields, ok = true, reason = nil, at = os.clock() })
+	changed:FireClient(player, table.clone(next))
+	return { ok = true, reason = nil, field = nil, values = table.clone(next) }
+end
+
+local function push(player: Player, patch: { [string]: unknown }): SaveResult
+	return save(player, patch)
+end
+
+local function journal(player: Player): { Entry }
+	return table.clone(journalOf(player))
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	stored[player] = nil
+	journals[player] = nil
+end)
+
+return {
+	get = get,
+	save = save,
+	push = push,
+	journal = journal,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="87">
+        <Properties>
+          <string name="Name">ShopService</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local Ledger = require(script.Parent.Ledger)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shop = require(ReplicatedStorage.Shared.Hub.Shop)
+
+type State = Shop.State
+type PurchaseResult = Shop.PurchaseResult
+
+export type Entry = { kind: string, item: string?, ok: boolean, reason: string?, at: number }
+
+type Profile = {
+	wallet: Shop.Wallet,
+	owned: { [string]: boolean },
+	busy: boolean,
+	journal: { Entry },
+}
+
+local STARTING_ITEMS = { "starter_motor" }
+local SERVER_DELAY = 0.25
+
+local profiles: { [Player]: Profile } = {}
+local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ShopStateChanged") :: RemoteEvent
+
+local function fresh(player: Player): Profile
+	local owned: { [string]: boolean } = {}
+	for _, id in STARTING_ITEMS do
+		owned[id] = true
+	end
+	return {
+		wallet = Ledger.wallet(player),
+		owned = owned,
+		busy = false,
+		journal = {},
+	}
+end
+
+local function balance(wallet: Shop.Wallet, currency: Shop.Currency): number
+	return if currency == "Gems" then wallet.Gems else wallet.Coins
+end
+
+local function adjust(wallet: Shop.Wallet, currency: Shop.Currency, delta: number)
+	if currency == "Gems" then
+		wallet.Gems = math.max(0, wallet.Gems + delta)
+	else
+		wallet.Coins = math.max(0, wallet.Coins + delta)
+	end
+end
+
+local function profileOf(player: Player): Profile
+	local profile = profiles[player]
+	if profile == nil then
+		local created = fresh(player)
+		profiles[player] = created
+		return created
+	end
+	return profile
+end
+
+local function snapshot(profile: Profile): State
+	return {
+		wallet = { Coins = profile.wallet.Coins, Gems = profile.wallet.Gems },
+		owned = table.clone(profile.owned),
+	}
+end
+
+local function publish(player: Player)
+	changed:FireClient(player, snapshot(profileOf(player)))
+end
+
+local function record(profile: Profile, entry: Entry)
+	table.insert(profile.journal, entry)
+end
+
+local function getState(player: Player): State
+	return snapshot(profileOf(player))
+end
+
+local function purchase(player: Player, itemId: unknown): PurchaseResult
+	local profile = profileOf(player)
+	local id = if type(itemId) == "string" then itemId else ""
+	local function refuse(reason: Shop.Failure): PurchaseResult
+		record(profile, { kind = "purchase", item = id, ok = false, reason = reason, at = os.clock() })
+		return { ok = false, item = id, reason = reason, state = snapshot(profile) }
+	end
+	local item = Shop.byId[id]
+	if item == nil then
+		return refuse("unknown_item")
+	end
+	if profile.busy then
+		return refuse("busy")
+	end
+	if profile.owned[id] then
+		return refuse("already_owned")
+	end
+	if balance(profile.wallet, item.currency) < item.price then
+		return refuse("insufficient_funds")
+	end
+	profile.busy = true
+	task.wait(SERVER_DELAY)
+	adjust(profile.wallet, item.currency, -item.price)
+	profile.owned[id] = true
+	profile.busy = false
+	record(profile, { kind = "purchase", item = id, ok = true, reason = nil, at = os.clock() })
+	publish(player)
+	return { ok = true, item = id, reason = nil, state = snapshot(profile) }
+end
+
+local function grant(player: Player, currency: Shop.Currency, amount: number)
+	local profile = profileOf(player)
+	adjust(profile.wallet, currency, amount)
+	record(profile, { kind = "grant", item = currency, ok = true, reason = nil, at = os.clock() })
+	publish(player)
+end
+
+local function journal(player: Player): { Entry }
+	return table.clone(profileOf(player).journal)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	profiles[player] = nil
+end)
+
+return {
+	getState = getState,
+	purchase = purchase,
+	grant = grant,
+	journal = journal,
+	publish = publish,
+}
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="88">
+        <Properties>
+          <string name="Name">World</string>
+          <string name="Source"><![CDATA[--!strict
+
+local Lighting = game:GetService("Lighting")
+local Track = require(game:GetService("ReplicatedStorage").Shared.RaceTrack)
+
+local World = {}
+
+function World.build()
+	local folder = Instance.new("Folder")
+	folder.Name = "SunfieldCircuit"
+	folder.Parent = workspace
+	local count = 0
+	local function part(name: string, size: Vector3, frame: CFrame, color: Color3, material: Enum.Material?): Part
+		local object = Instance.new("Part")
+		object.Name = name
+		object.Size = size
+		object.CFrame = frame
+		object.Color = color
+		object.Material = material or Enum.Material.SmoothPlastic
+		object.Anchored = true
+		object.TopSurface = Enum.SurfaceType.Smooth
+		object.BottomSurface = Enum.SurfaceType.Smooth
+		object.Parent = folder
+		count += 1
+		return object
+	end
+	local green = Color3.fromRGB(113, 192, 100)
+	local cream = Color3.fromRGB(255, 235, 172)
+	local coral = Color3.fromRGB(244, 99, 75)
+	local teal = Color3.fromRGB(46, 178, 180)
+	part("Meadow", Vector3.new(440, 2, 440), CFrame.new(0, -1, -155), green, Enum.Material.Grass)
+	part("Plaza", Vector3.new(100, 1, 72), CFrame.new(0, 0.5, 0), cream, Enum.Material.Concrete)
+	part("GridWalk", Vector3.new(18, 1, 72), CFrame.new(0, 0.5, -70), cream)
+	for index = 0, Track.segments - 1 do
+		local a, b = Track.point(index / Track.segments), Track.point((index + 1) / Track.segments)
+		local frame = CFrame.lookAt((a + b) / 2, b)
+		local length = (a - b).Magnitude + 0.6
+		part(
+			"Asphalt",
+			Vector3.new(Track.width, 1, length),
+			frame * CFrame.new(0, -1, 0),
+			Color3.fromRGB(57, 67, 80),
+			Enum.Material.Asphalt
+		)
+		for _, side in { -1, 1 } do
+			part(
+				"Curb",
+				Vector3.new(2, 0.5, length),
+				frame * CFrame.new(side * 14, -0.5, 0),
+				if index % 2 == 0 then coral else cream
+			)
+			part(
+				"Barrier",
+				Vector3.new(1.5, 3, length),
+				frame * CFrame.new(side * 17, 0.5, 0),
+				if index % 4 < 2 then teal else cream
+			)
+		end
+	end
+	for index = 0, Track.checkpoints - 1 do
+		local checkpoint = part(
+			"Checkpoint",
+			Vector3.new(30, 12, 1),
+			Track.frame(index / Track.checkpoints) * CFrame.new(0, 5, 0),
+			teal
+		)
+		checkpoint.Transparency = 1
+		checkpoint.CanCollide = false
+		checkpoint.CanTouch = false
+		checkpoint:SetAttribute("Index", index)
+	end
+	for _, side in { -1, 1 } do
+		part("GantryPost", Vector3.new(2, 15, 2), Track.frame(0, side * 16) * CFrame.new(0, 6, 0), teal)
+	end
+	part("FinishGantry", Vector3.new(34, 4, 2), Track.frame(0) * CFrame.new(0, 13, 0), cream)
+	for index = 0, 11 do
+		part(
+			"FinishTile",
+			Vector3.new(2, 0.1, 3),
+			Track.frame(0, index * 2 - 11) * CFrame.new(0, -0.44, 0),
+			if index % 2 == 0 then cream else Color3.fromRGB(40, 50, 65)
+		)
+	end
+	local function stall(name: string, x: number, z: number, color: Color3, width: number)
+		part(name, Vector3.new(width, 10, 3), CFrame.new(x, 6, z), color)
+		part(name .. "Roof", Vector3.new(width + 4, 2, 16), CFrame.new(x, 12, z + 4), cream)
+		for _, side in { -1, 1 } do
+			part(name .. "Pillar", Vector3.new(1, 10, 1), CFrame.new(x + side * (width / 2), 6, z + 10), color)
+		end
+		part(name .. "Counter", Vector3.new(width - 2, 3, 4), CFrame.new(x, 2.5, z + 7), color)
+	end
+	stall("Garage", -32, 15, teal, 25)
+	stall("ShopStall", 0, 23, coral, 16)
+	stall("MechanicStand", 26, -7, teal, 14)
+	stall("CrateArea", 36, 22, coral, 15)
+	for index = 1, 6 do
+		part(
+			"SupplyCrate",
+			Vector3.new(4, 4, 4),
+			CFrame.new(28 + (index % 3) * 5, 3 + (index // 4) * 4, 29),
+			cream,
+			Enum.Material.WoodPlanks
+		)
+	end
+	for _, side in { -1, 1 } do
+		part("QueueGate", Vector3.new(3, 10, 3), CFrame.new(side * 12, 6, -30), coral)
+	end
+	part("QueueArch", Vector3.new(27, 3, 3), CFrame.new(0, 12, -30), teal)
+	local random = Random.new(Track.seed)
+	for index = 1, 24 do
+		local frame = Track.frame(index / 24, if index % 2 == 0 then 32 else -35)
+		local height = random:NextNumber(9, 15)
+		part(
+			"TreeTrunk",
+			Vector3.new(2, height, 2),
+			frame * CFrame.new(0, height / 2 - 2, 0),
+			Color3.fromRGB(143, 100, 65),
+			Enum.Material.Wood
+		)
+		local crown = part(
+			"TreeCrown",
+			Vector3.new(10, 10, 10),
+			frame * CFrame.new(0, height - 2, 0),
+			if index % 2 == 0 then teal else Color3.fromRGB(65, 151, 99)
+		)
+		crown.Shape = Enum.PartType.Ball
+	end
+	local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
+	if spawn then
+		spawn.CFrame = CFrame.lookAt(Vector3.new(0, 2, 0), Vector3.new(0, 2, -100))
+		spawn.Transparency = 1
+		spawn.CanCollide = false
+		spawn.Neutral = true
+	end
+	Lighting.ClockTime = 12
+	Lighting.Brightness = 2.5
+	Lighting.Ambient = Color3.fromRGB(165, 178, 198)
+	Lighting.OutdoorAmbient = Color3.fromRGB(180, 190, 210)
+	folder:SetAttribute("StaticParts", count)
+	assert(count == 511, "update the racing world part budget")
+end
+
+return World
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="StarterGui" referent="89">
+    <Properties>
+      <string name="Name">StarterGui</string>
+      <token name="ScreenOrientation">4</token>
+    </Properties>
+  </Item>
+  <Item class="StarterPlayer" referent="90">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="91">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="LocalScript" referent="92">
+        <Properties>
+          <string name="Name">Client</string>
+          <string name="Source"><![CDATA[--!strict
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Hub = require(ReplicatedStorage.Shared.Hub)
+local Interface = require(script.Interface)
+Interface.mount(Hub.context(Players.LocalPlayer))
+]]></string>
+        </Properties>
+        <Item class="LocalScript" referent="93">
+          <Properties>
+            <string name="Name">Driving</string>
+            <string name="Source"><![CDATA[--!strict
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ContextActionService = game:GetService("ContextActionService")
+local player = Players.LocalPlayer
+local holding = false
+local charge = 0
+local boost = 0
+local speed = 0
+local previous = false
+local savedType = Enum.CameraType.Custom
+local savedSubject: (BasePart | Humanoid)? = nil
+local savedFov = 70
+
+local function drift(_name: string, state: Enum.UserInputState): Enum.ContextActionResult
+	holding = state == Enum.UserInputState.Begin or state == Enum.UserInputState.Change
+	return Enum.ContextActionResult.Sink
+end
+
+local function render(dt: number)
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+	local character = player.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	local seat = if humanoid then humanoid.SeatPart else nil
+	local racing = player:GetAttribute("Racing") == true and seat ~= nil and seat:IsA("VehicleSeat")
+	if racing and seat and seat:IsA("VehicleSeat") then
+		if not previous then
+			savedType = camera.CameraType
+			savedSubject = camera.CameraSubject
+			savedFov = camera.FieldOfView
+		end
+		local root = seat.AssemblyRootPart
+		if root then
+			local drive = root:FindFirstChild("Drive")
+			local turn = root:FindFirstChild("Turn")
+			local drifting = holding or math.abs(seat.SteerFloat) > 0.8
+			if drifting and math.abs(speed) > 12 then
+				charge = math.min(1.5, charge + dt)
+			elseif charge > 0 then
+				if charge >= 0.35 then
+					boost = 1.2
+				end
+				charge = 0
+			end
+			boost = math.max(0, boost - dt)
+			local target = seat.ThrottleFloat * (if boost > 0 then 66 else 46)
+			speed += (target - speed) * math.min(1, dt * 3)
+			if
+				player:GetAttribute("RaceAutopilot") ~= true
+				and drive
+				and drive:IsA("LinearVelocity")
+				and turn
+				and turn:IsA("AngularVelocity")
+			then
+				local forward = root.CFrame.LookVector
+				local velocity = forward * speed
+				if drifting then
+					velocity = velocity:Lerp(root.AssemblyLinearVelocity, 0.25)
+				end
+				drive.PlaneVelocity = Vector2.new(velocity.X, velocity.Z)
+				turn.AngularVelocity = Vector3.new(
+					0,
+					-seat.SteerFloat * math.clamp(speed / 22, -1, 1) * (if drifting then 2.2 else 1.6),
+					0
+				)
+			end
+			camera.CameraType = Enum.CameraType.Scriptable
+			local position = root.Position
+			local desired = CFrame.lookAt(
+				position - root.CFrame.LookVector * 19 + Vector3.new(0, 10, 0),
+				position + root.CFrame.LookVector * 12 + Vector3.new(0, 2, 0)
+			)
+			camera.CFrame = if previous then camera.CFrame:Lerp(desired, 1 - math.exp(-dt * 9)) else desired
+			camera.FieldOfView = if boost > 0 then 78 else 70
+		end
+	elseif previous then
+		camera.CameraType = savedType
+		camera.CameraSubject = if humanoid then humanoid else savedSubject
+		camera.FieldOfView = savedFov
+	end
+	previous = racing
+end
+
+local function phase()
+	local racing = player:GetAttribute("Racing") == true
+	if racing then
+		ContextActionService:BindAction("KartDrift", drift, false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonX)
+		RunService:BindToRenderStep("KartDrive", Enum.RenderPriority.Camera.Value + 1, render)
+	else
+		ContextActionService:UnbindAction("KartDrift")
+		RunService:UnbindFromRenderStep("KartDrive")
+		local camera = workspace.CurrentCamera
+		if previous and camera then
+			camera.CameraType = savedType
+			local character = player.Character
+			local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+			camera.CameraSubject = if humanoid then humanoid else savedSubject
+			camera.FieldOfView = savedFov
+		end
+		previous = false
+		holding = false
+		charge = 0
+		boost = 0
+		speed = 0
+	end
+end
+player:GetAttributeChangedSignal("Racing"):Connect(phase)
+phase()
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="94">
+          <Properties>
+            <string name="Name">Interface</string>
+            <string name="Source"><![CDATA[--!strict
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Hub = require(ReplicatedStorage.Shared.Hub)
+export type Context = Hub.Context
+local function mount(context: Context)
+	local _ = context
+end
+return { mount = mount }
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="Workspace" referent="95">
+    <Properties>
+      <string name="Name">Workspace</string>
+      <bool name="NeedsPivotMigration">false</bool>
+    </Properties>
+    <Item class="Part" referent="96">
+      <Properties>
+        <string name="Name">Mechanic</string>
+        <bool name="Anchored">true</bool>
+        <Color3uint8 name="Color3uint8">16761920</Color3uint8>
+        <Vector3 name="Position">
+          <X>24</X>
+          <Y>3</Y>
+          <Z>0</Z>
+        </Vector3>
+        <Vector3 name="size">
+          <X>3</X>
+          <Y>6</Y>
+          <Z>3</Z>
+        </Vector3>
+      </Properties>
+    </Item>
+    <Item class="SpawnLocation" referent="97">
+      <Properties>
+        <string name="Name">SpawnLocation</string>
+        <bool name="Anchored">true</bool>
+        <Vector3 name="Position">
+          <X>0</X>
+          <Y>0.5</Y>
+          <Z>0</Z>
+        </Vector3>
+        <Vector3 name="size">
+          <X>8</X>
+          <Y>1</Y>
+          <Z>8</Z>
+        </Vector3>
+      </Properties>
+    </Item>
+  </Item>
+</roblox>

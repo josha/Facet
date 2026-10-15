@@ -6,6 +6,7 @@ local S = require("../../extended/hidden/support")
 local cases: { Play.Case } = {
 	{
 		id = "livery-preview-save",
+		tier = "spec",
 		screen = "livery",
 		run = function(qa, context)
 			S.state(qa, "reset")
@@ -36,6 +37,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "livery-discard-cancel",
+		tier = "spec",
 		screen = "livery-discard",
 		run = function(qa, context)
 			S.tap(qa, context, "Flames")

@@ -52,15 +52,26 @@ local function mount(context: Hub.Context)
 	local wallet = label(counters, "")
 	local progress = label(counters, "")
 	local income = label(counters, "")
-	local summary = Kit.create("Frame", {
+	local summary = Kit.create("ScrollingFrame", {
 		BackgroundColor3 = Kit.colors.panel,
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -8),
-		Size = UDim2.new(0.4, 0, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -8, 0, 52),
+		Size = UDim2.new(0.46, -8, 0.2, 0),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(),
+		ScrollBarThickness = 4,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		AutomaticSize = Enum.AutomaticSize.None,
 		Visible = false,
 		Parent = screen,
-	}, { Kit.padding(8), Kit.list(Enum.FillDirection.Vertical, 8) }) :: Frame
+	}, { Kit.padding(8), Kit.list(Enum.FillDirection.Vertical, 8) }) :: ScrollingFrame
+	local function raceLayout()
+		summary.Size = UDim2.new(if screen.AbsoluteSize.X < 600 then 0.46 else 0.28, -8, 0.2, 0)
+	end
+	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(raceLayout)
+	raceLayout()
+	Kit.create("UISizeConstraint", { MaxSize = Vector2.new(260, 250), Parent = summary })
 	local loadout = label(summary, "")
 	local raceWallet = label(summary, "")
 	local boosts = Kit.modal(screen, "Boosts", "Boosts")
@@ -169,7 +180,7 @@ local function mount(context: Hub.Context)
 	end)
 	local function renderQueue()
 		local racing = previousPhase == "Round"
-		queueLabel.Parent = if racing then commands else screen
+		queueLabel.Parent = if racing then summary else screen
 		queueLabel.AnchorPoint = if racing then Vector2.zero else Vector2.new(0.5, 0.5)
 		queueLabel.Position = if racing then UDim2.new() else UDim2.fromScale(0.5, 0.85)
 		queueLabel.Size = UDim2.new(if racing then 1 else 0.6, 0, 0, 0)

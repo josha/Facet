@@ -14,3 +14,7 @@ Show Saving while a save is pending and Saved only after the server accepts it. 
 | Save state | Saving, Saved |
 
 The entire racing hub must still work.
+
+## Design direction
+
+Use a sci-fi neon identity with dark panels, cyan and violet accents, and readable pale text. Keep the world visible around the HUD.

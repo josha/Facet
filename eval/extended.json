@@ -17,6 +17,7 @@
     "arms":  [
                  {
                      "id":  "plain",
+                     "studio": {"build":["rojo","build","default.project.json","-o","{evidence}/agent.rbxlx"],"place":"{evidence}/agent.rbxlx"},
                      "overlay":  [
                                      "arms/shared",
                                      "../artifacts/facetbench/arm-shared",
@@ -26,6 +27,7 @@
                  },
                  {
                      "id":  "facet",
+                     "studio": {"build":["rojo","build","default.project.json","-o","{evidence}/agent.rbxlx"],"place":"{evidence}/agent.rbxlx"},
                      "overlay":  [
                                      "arms/shared",
                                      "../artifacts/facetbench/arm-shared",
@@ -61,7 +63,7 @@
                                    }
                    }
                ],
-    "seeds":  [1],
+    "seeds": [1],
     "parallelism":  1,
     "evidence":  "../artifacts/facetbench/extended",
     "budgets":  {

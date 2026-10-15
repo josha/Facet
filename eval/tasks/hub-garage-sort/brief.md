@@ -14,3 +14,7 @@ Add Name, Speed, and Rarity sort choices. Name uses A to Z. Speed uses the highe
 | Empty result | No vehicles match |
 
 Search, sorting, details, Spawn, Close, and B must work on all devices. The entire racing hub must still work.
+
+## Design direction
+
+Use a sci-fi neon identity with dark panels, cyan and violet accents, and readable pale text. Keep the world visible around the HUD.

@@ -5,3 +5,7 @@ Start from `hub-livery-editor` in the same arm and seed. Keep all earlier behavi
 When time ends, disable voting and show `Winner: TRACK`. Use the highest count and catalog order for a tie. Keep the final counts readable. Close or B returns to the hub and restores selection. Touch and console players must reach all three cards.
 
 Use the existing `Extended.client()` contract. State has `tracks`, `votes`, `vote` (0 for none, otherwise a 1-based track index), `endsAt`, and `winner`. Call `request("vote", index)`. Use `now()` for the countdown and subscribe to changes while open. The game server starts ballots and sends other players' votes. Do not start or finish a ballot in interface code. Do not change server or shared files.
+
+## Design direction
+
+Use a sci-fi neon identity with dark panels, cyan and violet accents, and readable pale text. Keep the world visible around the HUD.

@@ -8,6 +8,7 @@ local function mount(playerGui: PlayerGui)
 	local saved = api.get().livery
 	local draft = table.clone(saved)
 	local modal, scroll = E.panel(playerGui, "Livery")
+	modal.close.Interactable = false
 	E.label(scroll, "Car preview")
 	local preview = Kit.create("ViewportFrame", {
 		Size = UDim2.new(1, 0, 0, 160),

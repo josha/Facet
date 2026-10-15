@@ -23,3 +23,5 @@ lute run eval/tasks/racing-hub/hidden/play.luau --workspace <workspace> --output
 Use each turn's `hidden/play.luau` for its completed workspace. Review the Verify report, each named screen, the dumps, and `coherence.json`. Check the weak failures as well as the strong results before recording a calibration result.
 
 See [the racing world handoff](../scenery.md) for the playable place, controls, deterministic scenarios, cost model, and the new HUD calibration fault.
+
+See [the individual race handoff](../race.md) for the current leaderboard, race model, sci-fi palette, and calibration commands.
