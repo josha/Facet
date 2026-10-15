@@ -82,14 +82,12 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 	local function arrive(build: () -> Instance, arrived: ComposeTypes.Cell<boolean>): Instance
 		local frames = ctx.config.services and ctx.config.services.RunService
 		local built: Instance? = nil
-		local wrapper: CanvasGroup? = nil
+		local wrapper: Frame? = nil
 		if frames and frames.PreRender then
-			wrapper = Host.CanvasGroup "OverlayArrival" {
+			wrapper = Host.Frame "OverlayArrival" {
 				BackgroundTransparency = 1,
 				Size = ctx.types.UDim2.fromScale(1, 1),
-				GroupTransparency = function(use: ComposeTypes.Use): number
-					return if use(arrived) then 0 else 1
-				end,
+				Visible = arrived,
 				Interactable = arrived,
 				Compose.fragment(function(): { unknown }
 					local node = build()

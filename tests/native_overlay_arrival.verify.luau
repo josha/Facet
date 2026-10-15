@@ -125,6 +125,8 @@ return function(verifyHarness: Verify.Harness)
 				}
 			end, true)
 			local group = screen:FindFirstChild("OverlayArrival", true)
+			Verify.expect(group:IsA("Frame")):toBe(true)
+			Verify.expect(group.ClipsDescendants):toBe(false)
 			Verify.expect(group.ZIndex):toBe(group:FindFirstChild("AlertModal", true).ZIndex)
 			Verify.expect(require("./lib/fade").of(group)):toBe(1)
 			for _, node in group:GetDescendants() do
