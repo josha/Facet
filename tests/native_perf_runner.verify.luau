@@ -10,6 +10,62 @@ return function(verifyHarness: Verify.Harness)
 	local perf_runner = require("../bench/perf_runner")
 	local perf_profiles = require("../bench/perf_profiles")
 	local Compose = require("../src/vendor/compose/core")
+	local Memory = require("../tools/facet/checks/perf_memory")
+
+	verifyHarness:suite("exact performance resource gates", function()
+		verifyHarness:case("rejects each resource leak and malformed count independently of timing", {
+			id = "native_perf_runner::exact performance resource gates::rejects each resource leak and malformed count independently of timing",
+			run = function()
+				local function report(start: unknown, sample: unknown, final: unknown, churn: boolean): unknown
+					return {
+						runs = {
+							{
+								scene = "test",
+								device = "floorAndroid",
+								evidenceClass = "lute",
+								samples = 1,
+								resources = { start = start, iterations = { sample }, teardown = final, churn = churn },
+							},
+						},
+					}
+				end
+				local zero = { instances = 0, connections = 0, registrations = 0 }
+				expect(Memory.check(report(zero, zero, zero, true))):toEqual({})
+				for _, name in { "instances", "connections", "registrations" } do
+					local leak: { [string]: number } = table.clone(zero)
+					leak[name] = 1
+					expect(#Memory.check(report(zero, leak, zero, true))):toBe(1)
+					expect(#Memory.check(report(zero, zero, leak, false))):toBe(1)
+					leak[name] = 0.5
+					expect(#Memory.check(report(zero, leak, zero, true))):toBe(1)
+				end
+				expect(#Memory.check({ runs = {} }) > 0):toBe(true)
+				expect(#Memory.check({ runs = { { evidenceClass = "lute" } } }) > 0):toBe(true)
+			end,
+		})
+		verifyHarness:case(
+			"radial exits release registrations after every close and release all resources on teardown",
+			{
+				id = "native_perf_runner::exact performance resource gates::radial exits release registrations after every close and release all resources on teardown",
+				run = function()
+					local scenes = require("../bench/perf_scenes")
+					local found = false
+					for _, scene in scenes do
+						if scene.name == "radial-menu-open-close" then
+							found = true
+							local row = perf_runner.runScene(scene, perf_profiles.get(perf_profiles.REFERENCE), {
+								warmup = 2,
+								samples = 6,
+								memory = true,
+							})
+							expect(Memory.check({ runs = { row } })):toEqual({})
+						end
+					end
+					expect(found):toBe(true)
+				end,
+			}
+		)
+	end)
 
 	local function keys(tbl: any): { string }
 		local out = {}

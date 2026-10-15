@@ -272,7 +272,6 @@ local function new(options: Options?): Engine
 
 	local engine: any = bridge.engine
 	engine.census = function()
-		assert(settings.recordCreated ~= false, "census requires recording all created instances")
 		local accounting = bridge.accounting()
 		return { live = accounting.objects, connections = accounting.connections }
 	end

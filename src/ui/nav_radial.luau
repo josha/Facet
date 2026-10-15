@@ -12,6 +12,7 @@ local MenuTypes = require("./nav_radial_menu")
 local paintSectors = require("./nav_radial_sectors")
 local buildCenter = require("./nav_radial_center")
 local attachGestures = require("./nav_radial_gestures")
+local createPresence = require("./nav_overlay_presence")
 
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Navigation.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
@@ -67,6 +68,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			AutomaticSize = if anchorGui then E.AutomaticSize.None else E.AutomaticSize.XY,
 		}))
 		local layoutUnit = ctx.layoutUnit(root)
+		local timing = ctx.motionTiming("radial")
+		local departure = createPresence(ctx).departure(timing, root, function(): boolean
+			return not menu.reduced() and spec.transition ~= false
+		end)
+		local beginDeparture = assert(departure.exit)
+		departure.exit = function(nodes): ComposeTypes.Exiting
+			timing.exit = ctx.metric("motion.radial.exit")
+			return beginDeparture(nodes)
+		end
 		if spec.launcher ~= false then
 			local overAnchor: ((ComposeTypes.Use) -> UDim2)? = nil
 			if anchorGui then
@@ -226,14 +236,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end)
 				return modal
 			end, {
-				presence = {
-					exit = function(): ComposeTypes.Exiting
-						if menu.reduced() or spec.transition == false then
-							return { completed = Compose.cell(true) }
-						end
-						return runtime.timeline({ duration = ctx.metric("motion.radial.exit") })
-					end,
-				},
+				presence = departure,
 			}),
 		})
 		Compose.watch(function(use: ComposeTypes.Use)

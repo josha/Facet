@@ -48,6 +48,8 @@
     {"id": "perf", "tier": "full", "environment": "perf", "run": "lute run tools/facet perf run", "why": "performance scenes stay within their trend budgets on the reference host"},
     {"id": "perf-budgets", "tier": "full", "environment": "perf", "run": "lute run tools/facet perf budgets", "why": "every performance scene has a budget"},
     {"id": "perf-metrics", "tier": "full", "environment": "perf", "run": "lute run tools/facet perf metrics", "why": "performance reports carry every required metric"},
+    {"id": "perf-memory", "tier": "full", "run": "lute run tools/facet perf memory", "after": ["perf"], "why": "every scene releases native instances, connections and Compose registrations, and churn does not grow exact counts"},
+    {"id": "prove-perf-memory-gate", "tier": "full", "run": "lute run tools/facet perf prove-memory-gate", "why": "planted detached instances, native connections and Compose registrations each fail the memory gate"},
     {"id": "perf-scenes", "tier": "full", "environment": "perf", "run": "lute run tools/facet perf scenes", "why": "every performance scene mounts and settles"},
     {"id": "perf-scenes-themes", "tier": "full", "environment": "perf", "run": "lute run tools/facet perf scenes --themes", "why": "every performance scene mounts and settles under every theme"},
     {"id": "perf-place", "tier": "full", "environment": "studio", "run": "lute run tools/facet perf place --no-build", "why": "the performance place matches the scene list"},
