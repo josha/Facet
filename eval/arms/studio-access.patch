@@ -1,0 +1,69 @@
+diff --git a/tools/facet/lib/snapshot.luau b/tools/facet/lib/snapshot.luau
+--- a/tools/facet/lib/snapshot.luau
++++ b/tools/facet/lib/snapshot.luau
+@@ -67,6 +67,7 @@
+ 			"src/agent-eval",
+ 			"src/codec",
+ 			"tools/agent-eval.luau",
++			"tools/scoped-studio-mcp.luau",
+ 			"src/benchmark.luau",
+ 			"src/benchmark-check.luau",
+ 			"src/benchmark-store.luau",
+diff --git a/eval/extended.json b/eval/extended.json
+index a7399d2a..4ae4decb 100644
+--- a/eval/extended.json
++++ b/eval/extended.json
+@@ -17,6 +17,7 @@
+     "arms":  [
+                  {
+                      "id":  "plain",
++                     "studio": {"build":["rojo","build","default.project.json","-o","{evidence}/agent.rbxlx"],"place":"{evidence}/agent.rbxlx"},
+                      "overlay":  [
+                                      "arms/shared",
+                                      "../artifacts/facetbench/arm-shared",
+@@ -26,6 +27,7 @@
+                  },
+                  {
+                      "id":  "facet",
++                     "studio": {"build":["rojo","build","default.project.json","-o","{evidence}/agent.rbxlx"],"place":"{evidence}/agent.rbxlx"},
+                      "overlay":  [
+                                      "arms/shared",
+                                      "../artifacts/facetbench/arm-shared",
+diff --git a/eval/extended-spec.json b/eval/extended-spec.json
+index 9eda6190..2de7278a 100644
+--- a/eval/extended-spec.json
++++ b/eval/extended-spec.json
+@@ -17,6 +17,7 @@
+     "arms":  [
+                  {
+                      "id":  "plain",
++                     "studio": {"build":["rojo","build","default.project.json","-o","{evidence}/agent.rbxlx"],"place":"{evidence}/agent.rbxlx"},
+                      "overlay":  [
+                                      "arms/shared",
+                                      "../artifacts/facetbench/arm-shared",
+@@ -26,6 +27,7 @@
+                  },
+                  {
+                      "id":  "facet",
++                     "studio": {"build":["rojo","build","default.project.json","-o","{evidence}/agent.rbxlx"],"place":"{evidence}/agent.rbxlx"},
+                      "overlay":  [
+                                      "arms/shared",
+                                      "../artifacts/facetbench/arm-shared",
+diff --git a/eval/slice.json b/eval/slice.json
+index 05f2b951..af5ef843 100644
+--- a/eval/slice.json
++++ b/eval/slice.json
+@@ -5,11 +5,13 @@
+   "arms": [
+     {
+       "id": "plain",
++                     "studio": {"build":["rojo","build","default.project.json","-o","{evidence}/agent.rbxlx"],"place":"{evidence}/agent.rbxlx"},
+       "overlay": ["arms/shared", "../artifacts/facetbench/arm-shared", "arms/plain"],
+       "instructions": "arms/plain/AGENTS.md"
+     },
+     {
+       "id": "facet",
++                     "studio": {"build":["rojo","build","default.project.json","-o","{evidence}/agent.rbxlx"],"place":"{evidence}/agent.rbxlx"},
+       "overlay": ["arms/shared", "../artifacts/facetbench/arm-shared", "arms/facet", "../artifacts/facetbench/arm-facet"],
+       "instructions": "arms/facet/AGENTS.md"
+     }

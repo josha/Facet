@@ -6,6 +6,7 @@ local S = require("../../extended/hidden/support")
 local cases: { Play.Case } = {
 	{
 		id = "track-vote-change-live",
+		tier = "spec",
 		screen = "track-vote",
 		run = function(qa, context)
 			S.state(qa, "ballot", { seconds = 90 })
@@ -31,6 +32,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "track-vote-lock-winner",
+		tier = "spec",
 		screen = "track-winner",
 		run = function(qa, context)
 			S.state(qa, "finish")

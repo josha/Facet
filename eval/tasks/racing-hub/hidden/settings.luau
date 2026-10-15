@@ -54,6 +54,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "hud-settings-button",
+		tier = "spec",
 		run = function(qa, context)
 			Check.visible(qa, context, { role = "button", text = "settings" }, "the HUD shows a Settings button", 20)
 			qa:capture("1-hud")
@@ -61,6 +62,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "opens-with-saved-values",
+		tier = "spec",
 		screen = "settings",
 		shot = "2-settings",
 		run = function(qa, context)
@@ -75,6 +77,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-controls",
+		tier = "spec",
 		run = function(qa, context)
 			for _, words in { "Sprint", "Left Shift", "Interact", "Inventory" } do
 				Check.that(
@@ -87,6 +90,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "moves-music-slider",
+		tier = "spec",
 		run = function(qa, context)
 			if qa.device.mode == "gamepad" then
 				local selected, detail = qa:gamepadSelect({ role = "selectable", near = "Music" })
@@ -111,6 +115,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "toggles-camera-shake",
+		tier = "spec",
 		run = function(qa, context)
 			qa:reveal({ text = "Camera Shake" })
 			Check.tap(qa, context, { role = "button", near = "Camera Shake" }, "turn on Camera Shake")
@@ -125,6 +130,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "chooses-graphics",
+		tier = "spec",
 		screen = "changed",
 		shot = "3-changed",
 		run = function(qa, context)
@@ -136,6 +142,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "saves-to-server",
+		tier = "spec",
 		run = function(qa, context)
 			close(qa, context)
 			Check.that(
@@ -150,6 +157,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "reopens-with-saved-values",
+		tier = "spec",
 		run = function(qa, context)
 			open(qa, context)
 			Check.text(qa, context, "%f[%d][234]%d%%", "the Music slider shows the saved value near 30%", 4)
@@ -158,6 +166,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "follows-server-change",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("push", { effectsVolume = 25 })
 			Check.text(
@@ -171,6 +180,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "closes-settings",
+		tier = "spec",
 		run = function(qa, context)
 			close(qa, context)
 		end,

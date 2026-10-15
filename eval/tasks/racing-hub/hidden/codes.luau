@@ -58,6 +58,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "hud-codes-button",
+		tier = "spec",
 		run = function(qa, context)
 			Check.visible(qa, context, { role = "button", text = "codes" }, "the HUD shows a Codes button", 20)
 			qa:capture("1-hud")
@@ -65,6 +66,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "opens-codes",
+		tier = "spec",
 		screen = "codes",
 		shot = "2-codes",
 		run = function(qa, context)
@@ -77,6 +79,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "refuses-empty-code",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, REDEEM, "press Redeem with an empty field")
 			Check.text(qa, context, "type a code first", "the panel asks for a code", 4)
@@ -84,6 +87,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "refuses-unknown-code",
+		tier = "spec",
 		run = function(qa, context)
 			enter(qa, context, "nope")
 			Check.text(qa, context, "does not exist", "the panel says that the code does not exist", 4)
@@ -92,6 +96,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "refuses-expired-code",
+		tier = "spec",
 		screen = "feedback",
 		shot = "3-feedback",
 		run = function(qa, context)
@@ -103,6 +108,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "redeems-valid-code",
+		tier = "spec",
 		screen = "rewards",
 		shot = "4-rewards",
 		run = function(qa, context)
@@ -124,6 +130,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "continues-to-balance",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, { role = "button", text = "continue" }, "press Continue")
 			Check.gone(qa, context, { role = "button", text = "continue" }, "the reward view closes", 4)
@@ -133,6 +140,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "refuses-repeated-code",
+		tier = "spec",
 		run = function(qa, context)
 			enter(qa, context, "WELCOME")
 			Check.text(qa, context, "already used", "the panel says that the code was already used", 4)
@@ -141,6 +149,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "limits-retries",
+		tier = "spec",
 		timeoutSeconds = 300,
 		run = function(qa, context)
 			for _, code in { "bad1", "bad2", "bad3" } do
@@ -154,6 +163,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "closes-codes",
+		tier = "spec",
 		run = function(qa, context)
 			continueIfShown(qa)
 			Check.tap(qa, context, { role = "button", text = "close" }, "close the panel")

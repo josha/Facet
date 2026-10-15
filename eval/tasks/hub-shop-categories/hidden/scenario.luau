@@ -11,6 +11,7 @@ for _, session in Base.sessions do
 	end
 	table.insert(cases, {
 		id = "turn-coherence",
+		tier = "spec",
 		run = function(qa, context)
 			Coherence.check(qa.device.id, context)
 		end,

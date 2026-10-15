@@ -1,5 +1,13 @@
 # FacetBench
 
+The headline is now [`extended.json`](extended.json): short player prompts for
+the hub and ten chained follow-ups. [`extended-spec.json`](extended-spec.json)
+keeps the detailed briefs as a diagnostic. The headline uses universal checks
+and the blind judge; exact-spec results are reported without gating. See the
+[tier counts, scoped Studio MCP handoff and calibration commands](validation/vibe.md).
+The [slice run receipt](validation/slice-run.md) records the current Verify pin
+and live results. Universal calibration does not pass yet.
+
 FacetBench measures how well AI coding agents build Roblox game interfaces. It compares two arms on the same game:
 
 | Arm | Setup |
@@ -24,7 +32,7 @@ The racing hub combines the 16 UI tasks that we see most often in Roblox games i
 | `hub-race-scoreboard` | Follow-up turn: a sorted race scoreboard. |
 | `racing-hub/slice` | A configuration of the racing hub for the fast loop: the same starter, a [brief](tasks/racing-hub/slice/brief.md) that asks only for the HUD, its dock panels and the shop, and only the HUD, shop and coherence checks. |
 
-Each task directory holds `task.json` (the task for Verify), `brief.md` (the ticket that the agent gets), and, for the racing hub, `starter/` and `hidden/`. The starter is a Rojo project. `src/server` is the game model; it owns all state and validates every request. `src/shared` is the network contract with strict Luau types. `src/client/Interface/init.luau` is an empty `mount(context)` where the interface goes. A follow-up turn starts from the final workspace of the racing hub in the same arm and seed (`from` in `task.json`) and keeps every earlier check.
+Each task directory holds `task.json`, the short `vibe.md` prompt and the detailed `brief.md` spec. The racing hub also has `starter/` and `hidden/`. The starter is a Rojo project. `src/server` owns game state and validates requests. `src/shared` is the strict typed network contract. The interface goes in `src/client/Interface/init.luau`. A follow-up starts from the workspace named by `from` in the same arm and seed and keeps earlier checks.
 
 ## Hidden checks
 
@@ -32,8 +40,9 @@ Each task has these checks, in this order:
 
 1. `contract` (command, required): `src/server` and `src/shared` are the same as in the starter.
 2. `types` (command, not required): `tools/typecheck/check.luau` in strict mode over `src/client`. It records `types.passed` and `types.errors`.
-3. `play` (Verify report, required): [`tools/play/host/play.luau`](../tools/play/host/play.luau) builds the workspace with Rojo, mounts an engine probe into a copy of the place and starts a disposable Studio. For each device it sets the Studio Device Simulator, starts play and runs the cases of `hidden/scenario.luau`. A case passes only when every step works. `--systems` keeps only the named systems; the slice uses `hud-dock,shop`.
-4. `audit-<screen>` (interface audit, not required, one for each device): the Verify interface audit of the dump that the play check saved for that screen. `lute run eval/tools/check.luau` checks that each audited screen is named by a case of each audited session.
+3. `play` (Verify report, required): [`tools/play/host/play.luau`](../tools/play/host/play.luau) builds the workspace, mounts the probe and starts a disposable Studio. Each device runs universal cases. `--systems` keeps the slice's `hud-dock,shop` systems.
+4. `spec` (Verify report, not required): the same host runs the original diagnostic cases in fresh game sessions. Its state, timeouts, captures and performance evidence stay separate.
+5. `audit-<screen>` (interface audit, not required, one for each device): the Verify interface audit of the dump that the play check saved for that screen. `lute run eval/tools/check.luau` checks that each audited screen is named by a case of each audited session.
 
 The play check drives the interface only as a player can:
 
@@ -72,9 +81,9 @@ The probe measures the interface in play mode on each device. It counts only the
 | `peakGuiObjects`, `peakComponents` | The largest counts at the end of a case that names a screen. |
 | `idleFrameP50Ms`, `idleFrameP95Ms` | The median and the 95th percentile of the client frame time (the `RenderStepped` delta) over two idle seconds after mount. |
 | `activeFrameP50Ms`, `activeFrameP95Ms` | The same frame times while the cases that name a screen run. |
-| `heapDeltaKb` | `gcinfo()` at the end of the device session minus after mount. Noisy. |
-| `instanceDelta`, `guiObjectDelta` | `Stats.InstanceCount` and GuiObjects at the end of the session minus after mount. |
-| `guiMbDelta` | `Stats:GetMemoryUsageMbForTag(Enum.DeveloperMemoryTag.Gui)` at the end minus after mount. |
+| `heapDeltaKb` | `gcinfo()` in the returned-hub snapshot minus after mount. Noisy. |
+| `instanceDelta`, `guiObjectDelta` | `Stats.InstanceCount` and GuiObjects in that snapshot minus after mount. |
+| `guiMbDelta` | `Stats:GetMemoryUsageMbForTag(Enum.DeveloperMemoryTag.Gui)` in that snapshot minus after mount. |
 
 The frame time is the whole client frame, including the probe. Both arms run the same game, place, device and cases, so the difference between the arms is the difference of the interfaces. `lute run eval/tools/overhead.luau <evidence directory>` prints each metric for each task, device and arm, the ratio of the treatment arm to the baseline arm, and the median ratio. `lute run eval/tools/coverage.luau <evidence directory>...` writes `usage.json` for each Facet run and prints which Facet controls the runs use and which no run uses.
 
@@ -99,7 +108,7 @@ validation steps](REPORT.md). The owner confirmed the limits on 2026-10-15.
 Instances are reported, not gated. The headline passes only when all quality
 and overhead rules pass and no required evidence is missing.
 
-[`thresholds.json`](thresholds.json) declares the claim before any run. The treatment arm is `facet` and the baseline arm is `plain`. The intervals are paired percentile bootstraps over tasks, at 95% confidence, with 4000 resamples and the seed 20261014. Each rule needs at least 5 paired tasks: the racing hub and its four follow-up turns.
+[`thresholds.json`](thresholds.json) declares the claim before a run. The treatment is `facet`; the baseline is `plain`. Intervals use paired percentile bootstraps over tasks, at 95% confidence, with 4000 resamples and seed 20261014. Each rule needs at least 5 paired tasks. The headline has 11 chained tasks.
 
 | Rule | Metric | Passes when |
 | --- | --- | --- |
@@ -112,7 +121,10 @@ and overhead rules pass and no required evidence is missing.
 | `less-wall-time` | `wallSeconds` | `facet` takes at most 0.6 times the wall time. |
 | `faster-turns` | `turnLatencyP50` | The upper bound of the median turn latency ratio is below 1. |
 
-A run passes when the agent completed, the `contract` and `play` checks passed and no budget was exceeded.
+A headline run passes when the agent completed, the contract and every universal
+play case passed, and no budget was exceeded. Spec cases remain diagnostic.
+Use `eval/tools/report.luau` for that verdict. The separate non-required spec
+producer retains diagnostics without changing universal state or measurements.
 
 ## Run
 
@@ -120,18 +132,19 @@ Install Roblox Studio, sign in, and turn on the Studio MCP server. Install the t
 
 | Suite | Use | Tasks | Seeds and devices |
 | --- | --- | --- | --- |
-| [`games.json`](games.json) | The headline evaluation. Its numbers are the reported quality, cost, tokens and turns. | The racing hub and its four follow-up turns. | Seeds 1 to 3, five devices. |
+| [`games.json`](games.json) | The earlier five-task corpus. | The racing hub and four independent follow-ups. | Seeds 1 to 3, five devices. |
 | [`slice.json`](slice.json) | The fast loop while Facet changes. | `racing-hub/slice`. | Seed 1, desktop and phone portrait. |
-| [`extended.json`](extended.json) | Wider task coverage. | Racing hub, four existing requests in sequence, then six new requests. | Seeds 1 to 3, five devices. |
+| [`extended.json`](extended.json) | The headline with vibe prompts and universal gates. | Hub and ten chained follow-ups. | Seed 1, five devices. |
+| [`extended-spec.json`](extended-spec.json) | Detailed-spec diagnostic with both check tiers. | The same 11 tasks. | Seed 1, five devices. |
 | [`validation/games.json`](validation/games.json) | The strong and weak reference interfaces, with the Verify `fixture` adapter. No agent runs. | The racing hub. | Seed 1, five devices. |
 
 Run from the repository root:
 
 ```sh
-lute run tools/vendor/verify/tools/agent-eval.luau plan   --suite eval/games.json
-lute run tools/vendor/verify/tools/agent-eval.luau run    --suite eval/games.json --seed 1
-lute run tools/vendor/verify/tools/agent-eval.luau judge  --suite eval/games.json --transport api
-lute run tools/vendor/verify/tools/agent-eval.luau report --suite eval/games.json --thresholds eval/thresholds.json
+lute run tools/vendor/verify/tools/agent-eval.luau plan   --suite eval/extended.json
+lute run tools/vendor/verify/tools/agent-eval.luau run    --suite eval/extended.json --seed 1
+lute run tools/vendor/verify/tools/agent-eval.luau judge  --suite eval/extended.json --transport api
+lute run eval/tools/report.luau artifacts/facetbench/extended
 ```
 
 - `plan` lists the runs. It starts nothing.
@@ -159,7 +172,9 @@ The gate producer `facetbench` runs [`tools/check.luau`](tools/check.luau). It l
 
 ## Limits
 
-See [the extended suite handoff](validation/extended.md) for the six new turns, reference checks, Studio commands, and token estimate. The extended suite uses chained configurations of the four existing requests under `tasks/extended`. Their briefs are unchanged. The headline suite keeps its original independent follow-ups.
+The [extended handoff](validation/extended.md) records the earlier six-turn
+work. The [vibe handoff](validation/vibe.md) supersedes its suite, tier and
+calibration policy. The detailed briefs are unchanged.
 
 
 - A pass proves that the hidden checks accepted the final workspace in Studio on this host. It proves nothing about real phones, real consoles or real gamepads.

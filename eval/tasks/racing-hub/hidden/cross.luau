@@ -28,6 +28,7 @@ end
 local cases: { Play.Case } = {
 	{
 		id = "race-results-return",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("phase", { phase = "Results", seconds = 120, winner = "Red" })
 			Check.text(qa, context, "red wins", "the race ends with results")
@@ -43,6 +44,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "overlay-stack-and-focus",
+		tier = "spec",
 		screen = "overlay-stack",
 		run = function(qa, context)
 			tap(qa, context, "Shop")
@@ -67,6 +69,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "purchase-flows-to-hud-and-garage",
+		tier = "spec",
 		screen = "shared-wallet",
 		run = function(qa, context)
 			qa:admin("wallet", { coins = 500, gems = 200 })
@@ -103,6 +106,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "quest-crate-connects-to-collection",
+		tier = "spec",
 		run = function(qa, context)
 			local crates = tonumber(value(qa, "state", "crates")) or 0
 			Check.that(context, crates == 1, "the mechanic rewarded one crate")
@@ -123,6 +127,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "queue-loadout-race-rewards",
+		tier = "spec",
 		screen = "race-loadout",
 		run = function(qa, context)
 			tap(qa, context, "Garage")
@@ -213,6 +218,7 @@ for _, panel in
 do
 	table.insert(cases, {
 		id = "navigation/" .. string.gsub(string.lower(panel), " ", "-"),
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, { role = "button", text = string.lower(panel) }, "open " .. panel)
 			Coherence.returnControl(qa, context)

@@ -9,6 +9,41 @@ return function(harness: Verify.Harness)
 	local b = Eval.lute
 	local thresholds = Eval.report.decodeThresholds(b.decode(b.files.read("eval/thresholds.json")))
 	local overhead = b.decode(b.files.read("eval/overhead.json")) :: Headline.Overhead
+	harness:case("spec failures do not gate and missing universal evidence fails closed", function(t)
+		local directory = b.absolute("artifacts/facetbench/synthetic-tiers")
+		local suite = Fixture.write(directory, "pass")
+		local runs = Eval.load(directory, b.files, b.decode)
+		local judgments = Eval.judge.load(directory, b.files, b.decode)
+		for _, run in runs do
+			run.passed = false
+			if run.arm == "facet" then
+				for _, audit in run.audits do
+					audit.rules["instance-count"] = 10000
+					audit.rules["type-scale"] = 10000
+					audit.rules["spacing-scale"] = 10000
+					audit.rules["press-feedback-missing"] = 10000
+				end
+			end
+		end
+		t:expect(Headline.build(suite, runs, judgments, thresholds, overhead).passed):toBe(true)
+		for _, run in runs do
+			for _, check in run.checks do
+				if check.check == "play" then
+					check.passed = false
+				end
+			end
+		end
+		t:expect(Headline.build(suite, runs, judgments, thresholds, overhead).passed):toBe(false)
+		for _, run in runs do
+			for _, check in run.checks do
+				if check.check == "play" then
+					check.passed = run.arm == "facet"
+				end
+			end
+		end
+		runs[1].scores["play.universal.desktop.fraction"] = nil
+		t:expect(Headline.build(suite, runs, judgments, thresholds, overhead).passed):toBe(false)
+	end)
 	for _, mode in { "pass", "instances", "fail", "missing" } do
 		harness:case("headline report reads " .. mode .. " synthetic run directory", function(t)
 			local directory = b.absolute("artifacts/facetbench/synthetic-" .. mode)

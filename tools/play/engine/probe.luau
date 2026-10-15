@@ -867,6 +867,48 @@ end
 
 local handlers: { [string]: (Request) -> unknown } = {}
 
+handlers.touchControls = function(): unknown
+	local gui = playerGui()
+	local touch = gui:FindFirstChild("TouchGui")
+	local controlFrame = if touch then touch:FindFirstChild("TouchControlFrame") else nil
+	local rectangles: { { name: string, path: string, rect: Rect } } = {}
+	local function add(node: Instance?, name: string)
+		if node == nil or not node:IsA("GuiObject") or node.AbsoluteSize.X <= 0 or node.AbsoluteSize.Y <= 0 then
+			return
+		end
+		local parent: Instance? = node
+		while parent ~= nil and parent ~= gui do
+			if parent:IsA("GuiObject") and not parent.Visible then
+				return
+			elseif parent:IsA("ScreenGui") and not parent.Enabled then
+				return
+			end
+			parent = parent.Parent
+		end
+		local base = origin()
+		table.insert(rectangles, {
+			name = name,
+			path = node:GetFullName(),
+			rect = {
+				x = node.AbsolutePosition.X - base.X,
+				y = node.AbsolutePosition.Y - base.Y,
+				width = node.AbsoluteSize.X,
+				height = node.AbsoluteSize.Y,
+			},
+		})
+	end
+	if controlFrame ~= nil then
+		for _, name in { "ThumbstickFrame", "DynamicThumbstickFrame", "JumpButton" } do
+			add(controlFrame:FindFirstChild(name, true), name)
+		end
+	end
+	local actions = game:GetService("ContextActionService")
+	for name in actions:GetAllBoundActionInfo() do
+		add(actions:GetButton(name), "CAS:" .. name)
+	end
+	return { available = controlFrame ~= nil, rectangles = rectangles }
+end
+
 handlers.ping = function()
 	local gui = playerGui()
 	frame()

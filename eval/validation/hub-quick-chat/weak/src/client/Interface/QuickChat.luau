@@ -8,6 +8,7 @@ local function mount(playerGui: PlayerGui)
 	local api = Extended.client()
 	local state = api.get()
 	local modal, scroll = E.panel(playerGui, "Quick Chat")
+	modal.close.Interactable = false
 	local wheel =
 		Kit.create("Frame", { Size = UDim2.new(1, 0, 0, 360), BackgroundTransparency = 1, Parent = scroll }) :: Frame
 	local choices: { TextButton } = {}

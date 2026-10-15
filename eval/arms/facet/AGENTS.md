@@ -16,7 +16,9 @@ Build the interface with Facet. Facet is a Roblox UI library. It is in
   problem. Separate audit and preview calls are not needed for those screens.
 - Do not read dependency source or the documentation folder in full. Use
   `docs <Control>` for options outside the recipes. Do not read dump files.
-- If Studio is unavailable, report that limit once and use `verify --static`.
+- If the product verification session is unavailable, report that limit once
+  and use `verify --static` plus the scoped Studio MCP. If scoped MCP is also
+  unavailable, follow the setup-failure rule in `TEAM_NOTES.md`.
 
 - Do not add another UI framework or UI library.
 

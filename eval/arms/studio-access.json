@@ -1,0 +1,4 @@
+{
+  "build": ["rojo", "build", "default.project.json", "-o", "{evidence}/agent.rbxlx"],
+  "place": "{evidence}/agent.rbxlx"
+}

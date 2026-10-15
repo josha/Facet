@@ -20,6 +20,7 @@ local systems: { System } = {
 	{ id = "vehicle-garage", cases = require("./vehicle-garage"), screens = { details = "kart-details" } },
 	{
 		id = "character-shop",
+		tier = "spec",
 		coins = 700,
 		cases = require("./character-shop"),
 		screens = { details = "driver-details", confirm = "driver-confirm" },
@@ -45,11 +46,12 @@ end
 
 local only = selected()
 
-local function cases(): { Play.Case }
+local function cases(chosen: { [string]: boolean }?): { Play.Case }
 	local result: { Play.Case } = {}
-	local filter = only
+	local filter = chosen or only
 	table.insert(result, {
 		id = "idle-hub-needs-player-input",
+		tier = "spec",
 		run = function(qa: QA.QA, context: Core.Context)
 			local before = qa:call("racingState")
 			qa:sleep(3)
@@ -83,6 +85,7 @@ local function cases(): { Play.Case }
 		end
 		table.insert(result, {
 			id = system.id .. "/prepare",
+			tier = "spec",
 			run = function(qa: QA.QA)
 				qa:admin("manual")
 				qa:admin("system", { system = "hud-dock", command = "pause" })
@@ -93,6 +96,7 @@ local function cases(): { Play.Case }
 		for _, case in system.cases do
 			table.insert(result, {
 				id = system.id .. "/" .. case.id,
+				tier = case.tier,
 				screen = if case.screen ~= nil then screen(case.screen) else nil,
 				shot = if case.shot ~= nil then system.id .. "-" .. case.shot else nil,
 				run = function(qa, context)
@@ -112,13 +116,14 @@ local function cases(): { Play.Case }
 			})
 		end
 	end
-	if only == nil then
+	if filter == nil then
 		for _, case in Cross do
 			table.insert(result, case)
 		end
 	end
 	table.insert(result, {
 		id = "modal-scrims-cover-viewport",
+		tier = "spec",
 		run = function(qa, context)
 			Check.that(
 				context,
@@ -129,6 +134,7 @@ local function cases(): { Play.Case }
 	})
 	table.insert(result, {
 		id = "hud-and-controls-respect-insets",
+		tier = "spec",
 		run = function(qa, context)
 			Check.that(
 				context,
@@ -139,6 +145,7 @@ local function cases(): { Play.Case }
 	})
 	table.insert(result, {
 		id = "selection-stays-valid",
+		tier = "spec",
 		run = function(qa: QA.QA, context: Core.Context)
 			Check.that(
 				context,
@@ -154,12 +161,14 @@ local function cases(): { Play.Case }
 	})
 	table.insert(result, {
 		id = "coherence",
+		tier = "spec",
 		run = function(qa, context)
 			Coherence.check(qa.device.id, context)
 		end,
 	})
 	table.insert(result, {
 		id = "hub-reachable",
+		tier = "spec",
 		run = function(qa, context)
 			Check.visible(qa, context, { role = "button", exact = "shop" }, "the player can return to the hub")
 		end,
@@ -171,4 +180,13 @@ local scenario: Play.Scenario = { sessions = {} }
 for _, device in { "desktop", "phone-portrait", "phone-landscape", "tablet", "console" } do
 	table.insert(scenario.sessions, { device = device, cases = cases() })
 end
-return scenario
+return {
+	sessions = scenario.sessions,
+	forSystems = function(ids: { [string]: boolean }): Play.Scenario
+		local result: Play.Scenario = { sessions = {} }
+		for _, session in scenario.sessions do
+			table.insert(result.sessions, { device = session.device, cases = cases(ids) })
+		end
+		return result
+	end,
+}
