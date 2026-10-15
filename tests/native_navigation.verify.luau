@@ -2344,8 +2344,11 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local picker, button = find(world.screen, "Motion"), find(world.screen, "normal")
-				find(button, "CaptionMeasure").TextBounds = world.engine.types.Vector2.new(54, 16)
-				Verify.expect(button:FindFirstChildWhichIsA("UISizeConstraint").MinSize.X):toBeGreaterThanOrEqual(78)
+				local floor = button:FindFirstChildWhichIsA("UISizeConstraint")
+				local minimum = floor.MinSize
+				button.TextBounds = world.engine.types.Vector2.new(54, 16)
+				Verify.expect(button.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.X)
+				Verify.expect(floor.MinSize):toBe(minimum)
 				Verify.expect(picker:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(true)
 				world.stop()
 			end,
@@ -4883,17 +4886,13 @@ return function(verifyHarness: Verify.Harness)
 							PaddingRight = world.engine.types.UDim.new(0, 19),
 						}
 					end, segment)
-					local measure = segment:FindFirstChild("CaptionMeasure", true)
-					Verify.expect(measure.TextTransparency):toBe(1)
-					Verify.expect(measure.Interactable):toBe(false)
-					measure.TextBounds = V2(world, 68, 16)
-					local minimum = 0
-					for _, child in segment:GetChildren() do
-						if child:IsA("UISizeConstraint") then
-							minimum = math.max(minimum, child.MinSize.X)
-						end
-					end
-					assert(minimum >= 104, `Caption width {minimum} does not include both edges`)
+					local padding = segment:FindFirstChildWhichIsA("UIPadding")
+					local floor = segment:FindFirstChildWhichIsA("UISizeConstraint")
+					local minimum = floor.MinSize
+					segment.TextBounds = V2(world, 68, 16)
+					Verify.expect(segment.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.X)
+					Verify.expect(padding.PaddingLeft.Offset + padding.PaddingRight.Offset):toBe(36)
+					Verify.expect(floor.MinSize):toBe(minimum)
 					world.stop()
 				end,
 			})
