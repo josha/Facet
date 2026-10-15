@@ -8,6 +8,7 @@ type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayActi
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
+local geometry = require(game:GetService("ReplicatedStorage").FacetLive.overlay_geometry)
 
 type Case = {
 	id: string,
@@ -1843,4 +1844,113 @@ add("sheet-hug-follows-live-copy", {}, function(t)
 	t.check("the content was built once", builds == 1, builds)
 end)
 
+for _, device in { "desktop", "iphone_14", "xbox" } do
+	for _, kind in { "Alert", "Dialog", "Sheet", "Menu", "Popover" } do
+		table.insert(cases, {
+			id = `modal-scrim-safe-insets/{device}/{kind}`,
+			contracts = {},
+			run = function(t)
+				if device ~= "desktop" then
+					t.device({ device = device })
+				end
+				local opened
+				local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule): GuiObject
+					opened = Compose.cell(false)
+					local function content(): Instance
+						return UI.Text "Copy" {
+							text = "Confirm the selected driver and race details before continuing.",
+							TextWrapped = true,
+							Size = UDim2.new(1, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+						}
+					end
+					if kind == "Alert" then
+						return UI.Alert {
+							isPresented = opened,
+							title = "Confirm driver",
+							message = "Review the race details.",
+							actions = {
+								{
+									id = "Cancel",
+									label = "Cancel",
+									role = "cancel" :: "cancel",
+									onActivate = function()
+										opened:set(false)
+									end,
+								},
+							},
+						}
+					elseif kind == "Dialog" then
+						return UI.Dialog {
+							isPresented = opened,
+							title = "Confirm driver",
+							content = content,
+							onPresentedChange = function(value: boolean)
+								opened:set(value)
+							end,
+						}
+					elseif kind == "Sheet" then
+						return UI.Sheet {
+							isPresented = opened,
+							title = "Confirm driver",
+							content = content,
+							detent = Compose.cell("hug"),
+							detents = { "hug" } :: { SheetDetent },
+						}
+					elseif kind == "Menu" then
+						return UI.Menu {
+							isPresented = opened,
+							label = "Options",
+							presentation = "sheet",
+							items = { { id = "Review", label = "Review driver", onSelect = function() end } },
+						}
+					end
+					local anchor = UI.Button { label = "Details", Position = UDim2.fromOffset(40, 100) }
+					return UI.Popover {
+						isPresented = opened,
+						trigger = anchor,
+						content = content,
+						compact = "popover",
+						maxWidth = 280,
+						onPresentedChange = function(value: boolean)
+							opened:set(value)
+						end,
+					}
+				end, { emulate = false, motionLevel = "normal", environment = { preferredTextSize = "Largest" } })
+				local playerGui = game:GetService("Players").LocalPlayer.PlayerGui
+				local function reference(name: string, insets: Enum.ScreenInsets): (ScreenGui, Frame)
+					local screen = Instance.new("ScreenGui")
+					screen.Name, screen.ScreenInsets = name, insets
+					screen.ClipToDeviceSafeArea = false
+					screen.SafeAreaCompatibility = Enum.SafeAreaCompatibility.None
+					local frame = Instance.new("Frame")
+					frame.BackgroundTransparency, frame.Size, frame.Parent = 1, UDim2.fromScale(1, 1), screen
+					screen.Parent = playerGui
+					return screen, frame
+				end
+				local full, viewport = reference("FullViewport", Enum.ScreenInsets.None)
+				local core, safe = reference("CoreSafe", Enum.ScreenInsets.CoreUISafeInsets)
+				opened:set(true)
+				t.settle(90)
+				local layer = layerOf(stage)
+				local catcher = t.find(layer, "DismissOutside")
+				local panel = t.find(
+					layer,
+					if kind == "Alert"
+						then "AlertPanel"
+						elseif kind == "Sheet" then "SheetPanel"
+						elseif kind == "Menu" then "MenuPanel"
+						else "Panel"
+				)
+				t.check("modal panel and scrim are presented", catcher ~= nil and panel ~= nil and t.visible(panel))
+				if catcher and panel then
+					geometry.scrim(t, catcher, viewport, safe, panel)
+				end
+				full:Destroy()
+				core:Destroy()
+				t.cleanup()
+			end,
+		})
+	end
+end
 return cases

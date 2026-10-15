@@ -8,6 +8,7 @@ local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
 local storage = game:GetService("ReplicatedStorage")
 local stability = (require :: (Instance) -> typeof(require("../frame_stability")))(storage.FacetLive.frame_stability)
+local clipping = (require :: (Instance) -> typeof(require("../text_clipping")))(storage.FacetLive.text_clipping)
 type Sample = { path: string, rect: { number }, text: { number }? }
 type Context = { dispatch: (string, unknown) -> unknown }
 type Config = {
@@ -153,6 +154,11 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 	end)
 	connection:Disconnect()
 	assert(ok, tostring(problem))
+	local final = root()
+	if final and not negative then
+		local faults = clipping.inspect(final:FindFirstAncestorWhichIsA("LayerCollector") or final)
+		t.check(name .. " settled text is not clipped", #faults == 0, faults)
+	end
 	t.check(name .. " records visible objects", tracker.seen > 0, tracker.seen)
 	t.check(name .. " reaches 30 unchanged frames", tracker.quiet >= 30, tracker.frame)
 	t.check(
