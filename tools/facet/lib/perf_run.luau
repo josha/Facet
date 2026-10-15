@@ -5,9 +5,9 @@ local Json = require("./json")
 local Run = require("./run")
 local Loader = require("../../../tests/lib/loader")
 
-local perf_runner: typeof(require("../../../bench/perf_runner"))
-local perf_scenes: typeof(require("../../../bench/perf_scenes"))
-local perf_profiles: typeof(require("../../../bench/perf_profiles"))
+local perf_runner = (nil :: unknown) :: typeof(require("../../../bench/perf_runner"))
+local perf_scenes = (nil :: unknown) :: typeof(require("../../../bench/perf_scenes"))
+local perf_profiles = (nil :: unknown) :: typeof(require("../../../bench/perf_profiles"))
 local loaded = false
 
 local function loadBench()
@@ -73,7 +73,7 @@ end
 local function profiles(): { unknown }
 	local list: { unknown } = {}
 	for _, name in perf_profiles.list() do
-		table.insert(list, perf_profiles.get(name))
+		list[#list + 1] = perf_profiles.get(name)
 	end
 	return list
 end
