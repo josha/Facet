@@ -6,6 +6,7 @@ return function(verifyHarness: Verify.Harness)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+	type ExampleContext = typeof(require("@repo/examples/types").Context)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 	local FixtureEngineTypes = require("../src/ui/engine_types")
 	local FixtureComposeTypes = require("../src/vendor/compose/core")
@@ -3738,14 +3739,14 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("resets the mounted callout showcase without replacing anchor identities", {
 			id = "native_navigation::native navigation controls::resets the mounted callout showcase without replacing anchor identities",
 			run = function()
-				local built
+				local built: any
 				local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
-					built = require("../examples/gallery/scenarios/callout").build({
+					built = require("../examples/gallery/scenarios/callout").build(({
 						UI = UI,
 						Host = Host,
 						Compose = Compose,
 						types = engine.types,
-					})
+					} :: unknown) :: ExampleContext)
 					return built.screen()
 				end)
 				local anchor = find(world.screen, "Plus")

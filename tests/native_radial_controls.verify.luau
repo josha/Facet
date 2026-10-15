@@ -827,7 +827,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine = engines.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local ctx = {
+				local ctx: any = {
 					Compose = Compose,
 					runtime = runtime,
 					Host = (runtime.constructors :: unknown) :: RobloxHost,

@@ -19,7 +19,7 @@ return function(verifyHarness: Verify.Harness)
 		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
-		local ctx = {
+		local ctx: any = {
 			Facet = Facet,
 			Compose = C,
 			runtime = runtime,

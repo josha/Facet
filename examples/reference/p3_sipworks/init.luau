@@ -102,7 +102,7 @@ function Sipworks.build(ctx: ExampleContext)
 	Compose.cleanup(unlock.onResolved(function(ok)
 		notice:set(if ok then "notice.unlocked" else "notice.declined")
 	end))
-	local heartbeat = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
+	local heartbeat: RBXScriptSignal? = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
 	if heartbeat then
 		local beat = heartbeat:Connect(clock.advance)
 		Compose.cleanup(function()

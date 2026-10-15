@@ -1,6 +1,7 @@
 --!strict
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type PlaylistBuilt = { [string]: unknown, screen: () -> Instance, dispose: () -> () }
 type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
 type RowActionsOptions = typeof(require("@repo/tools/typecheck/aliases").RowActionsOptions)
@@ -24,7 +25,12 @@ local TRACKS: { Track } = {
 function example.build(ctx: ExampleContext)
 	local UI, Compose = ctx.UI, ctx.Compose
 	local UDim2, Enum = ctx.types.UDim2, ctx.types.Enum
-	local built: { [string]: unknown } = {}
+	local built: PlaylistBuilt = {
+		screen = function(): Instance
+			error("the playlist screen is not ready")
+		end,
+		dispose = function() end,
+	}
 
 	local baseRows = Compose.cell(table.clone(TRACKS))
 	local filterText = Compose.cell("")
@@ -363,7 +369,6 @@ function example.build(ctx: ExampleContext)
 		end
 		return screen
 	end
-	built.dispose = function() end
 	return built
 end
 return example

@@ -4,6 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+	type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
@@ -297,7 +298,7 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame({
 						Name = "S",
 						Size = UDim2.fromOffset(800, 600),
-						UI.Menu {
+						UI.Menu(({
 							trigger = UI.Button "Opener" { label = "More" },
 							items = {
 								{ id = "plain", label = "Plain", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
@@ -307,7 +308,7 @@ return function(verifyHarness: Verify.Harness)
 									children = { { id = "leaf", label = "Leaf", onSelect = function() end } },
 								} :: FixtureNavigationTypes.MenuItem<any>,
 							},
-						},
+						} :: unknown) :: MenuSpec),
 					})
 				end, { motionLevel = "none" })
 				world.find("Opener").Activated:Fire()
@@ -330,13 +331,13 @@ return function(verifyHarness: Verify.Harness)
 						return Host.Frame({
 							Name = "S",
 							Size = UDim2.fromOffset(800, 600),
-							UI.Menu {
+							UI.Menu(({
 								trigger = UI.Button "Opener" { label = "More" },
 								presentation = case[1] :: "sheet" | "menu",
 								items = {
 									{ id = "one", label = "One", onSelect = function() end } :: FixtureNavigationTypes.MenuItem<any>,
 								},
-							},
+							} :: unknown) :: MenuSpec),
 						})
 					end, { motionLevel = "none" })
 					world.find("Opener").Activated:Fire()

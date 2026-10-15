@@ -1,7 +1,6 @@
 --!strict
 
 local Facet = require("../src")
-local Shared = require("../src/ui/types")
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 type SkinLayer = typeof(require("@repo/tools/typecheck/aliases").SkinLayer)
@@ -71,7 +70,7 @@ export type Context = {
 	topInset: Readable<number>?,
 	metricScale: Cell<Readable<number>?>?,
 	previewScale: Readable<number>?,
-	environment: Shared.EnvironmentPreview?,
+	environment: typeof(require("@repo/tools/typecheck/aliases").ControlOptions.environment),
 	hoverPreview: ((Use) -> boolean?)?,
 	motionPreference: Cell<MotionLevel?>?,
 	motionLevel: Readable<MotionLevel>?,

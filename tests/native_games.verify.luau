@@ -4,6 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+	type ExampleContext = typeof(require("@repo/examples/types").Context)
 	type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type Readable<T> = { peek: (Readable<T>) -> T }
@@ -82,7 +83,7 @@ return function(verifyHarness: Verify.Harness)
 	local function mountGame(ctx: World, definition: any): any
 		local game
 		local stop, node = ctx.runtime.mount(function()
-			gallery.configure(ctx)
+			gallery.configure((ctx :: unknown) :: ExampleContext)
 			ctx.UI = Facet.controls(ctx.runtime, {
 				types = ctx.types,
 				environment = {

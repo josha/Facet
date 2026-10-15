@@ -39,7 +39,7 @@ function Foyer.build(ctx: ExampleContext)
 	local function settle()
 		services.settle()
 	end
-	local heartbeat = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
+	local heartbeat: RBXScriptSignal? = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
 	if heartbeat then
 		local beat = heartbeat:Connect(settle)
 		Compose.cleanup(function()

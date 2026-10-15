@@ -53,7 +53,7 @@ function Cartwheel.build(ctx: ExampleContext)
 	local function advance(dt: number)
 		clock.advance(dt)
 	end
-	local heartbeat = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
+	local heartbeat: RBXScriptSignal? = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
 	if heartbeat then
 		local beat = heartbeat:Connect(advance)
 		Compose.cleanup(function()

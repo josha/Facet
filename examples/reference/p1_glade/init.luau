@@ -66,7 +66,7 @@ function Glade.build(ctx: ExampleContext)
 		end)
 		commerce.update(now:peek())
 	end
-	local heartbeat = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
+	local heartbeat: RBXScriptSignal? = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
 	if heartbeat then
 		local beat = heartbeat:Connect(advance)
 		Compose.cleanup(function()
