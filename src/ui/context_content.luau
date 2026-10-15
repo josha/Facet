@@ -142,7 +142,10 @@ return function(
 			end
 		end)
 		if label:FindFirstChildWhichIsA("UISizeConstraint") == nil then
-			local glyphs = ctx.layoutBounds(label, ctx.layoutUnit(label, "TextBoundsUnit"))
+			local unit = ctx.layoutUnit(label, "TextBoundsUnit")
+			local glyphs = Compose.formula(function(use: ComposeTypes.Use): Vector2
+				return use(bounds) / use(unit)
+			end)
 			local wrapped, truncated = ctx.observeStyled.TextWrapped(label), ctx.observeStyled.TextTruncate(label)
 			local authored = ctx.observe.Size(label)
 			local stopFloor, floor = runtime.mount(function()
