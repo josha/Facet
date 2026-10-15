@@ -218,7 +218,7 @@ for _, panel in
 		"Offer",
 	}
 do
-	table.insert(cases, {
+	local case: Play.Case = {
 		id = "navigation/" .. string.gsub(string.lower(panel), " ", "-"),
 		tier = "spec",
 		run = function(qa, context)
@@ -234,7 +234,8 @@ do
 			returned(qa, context, panel)
 			Check.gone(qa, context, { role = "button", exact = "back" }, "the root hub has no Back command")
 		end,
-	})
+	}
+	table.insert(cases, case)
 end
 
 return cases

@@ -187,7 +187,8 @@ end
 local function cases(id: string): { Play.Case }
 	local result: { Play.Case } = {}
 	local function add(name: string, screen: string?, run: Play.CaseBody)
-		table.insert(result, { id = "universal/" .. name, tier = "universal", screen = screen, run = run })
+		local case: Play.Case = { id = "universal/" .. name, tier = "universal", screen = screen, run = run }
+		table.insert(result, case)
 	end
 	add("hub", "universal-hub", function(qa, context)
 		qa:admin("manual")
