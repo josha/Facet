@@ -332,14 +332,16 @@ return function(
 		local metrics = tabMetrics(ctx, spec, frame)
 		local floating, floatingSize, floatingPosition =
 			metrics.floating, metrics.floatingSize, metrics.floatingPosition
-		local segmentedTop, segmentWidth, inset = metrics.segmentedTop, metrics.segmentWidth, metrics.inset
+		local segmentedTop, inset = metrics.segmentedTop, metrics.inset
 		local band, railWidth, bottomInset = metrics.band, metrics.railWidth, metrics.bottomInset
 		local barExtent, stripLayout, stripOverflows, stripContent =
 			metrics.barExtent, metrics.stripLayout, metrics.stripOverflows, metrics.stripContent
 		local INSET = segmentMetrics.inset
 		local bar = Host.ScrollingFrame "Tabs" {
 			ZIndex = 2,
-			BackgroundTransparency = 1,
+			BackgroundTransparency = function(use: ComposeTypes.Use): number
+				return if segmentedTop(use) then 0 else 1
+			end,
 			BorderSizePixel = 0,
 			ScrollBarThickness = function(use: ComposeTypes.Use)
 				return if use(placement) == "sidebar" then 2 else 0
@@ -353,52 +355,87 @@ return function(
 				return if use(placement) == "sidebar" then E.ScrollingDirection.Y else E.ScrollingDirection.X
 			end,
 			Size = function(use: ComposeTypes.Use)
-				if floating(use) then
-					return floatingSize(use)
-				end
 				if segmentedTop(use) then
-					return D2.fromOffset((segmentWidth(use)), band(use) + 2 * INSET)
+					return D2.fromOffset(0, band(use) + 2 * INSET)
 				end
-				return if use(placement) == "sidebar"
-					then D2.new(0, railWidth(use) - 16, 1, -use(headHeight) - use(footHeight))
-					else D2.new(1, -use(trailingWidth), 0, band(use))
+				return D2.fromScale(1, 1)
 			end,
-			Position = function(use: ComposeTypes.Use)
-				if floating(use) then
-					return floatingPosition(use)
-				end
-				if segmentedTop(use) then
-					local _, left = segmentWidth(use)
-					return D2.fromOffset(left, 0)
-				end
-				return if use(placement) == "sidebar"
-					then D2.fromOffset(8, use(headHeight))
-					elseif string.find(use(placement), "bottom") then D2.new(0, 0, 1, -band(use))
-					else D2.fromOffset(0, 0)
+			AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
+				return if segmentedTop(use) then E.AutomaticSize.X else E.AutomaticSize.None
 			end,
+			Host.UIFlexItem {
+				FlexMode = function(use: ComposeTypes.Use): Enum.UIFlexMode
+					return if segmentedTop(use) then E.UIFlexMode.Shrink else E.UIFlexMode.None
+				end,
+			},
 			Host.UIPadding({
 				PaddingLeft = inset,
 				PaddingRight = inset,
 				PaddingTop = inset,
 				PaddingBottom = inset,
 			}) :: Types.Child,
-			stripLayout :: Types.Child,
-			tabItem(ctx, UI, surfaces, spec, {
-				frame = frame,
-				select = select,
-				sectionLabels = sectionLabels,
-				tabButtons = tabButtons,
-				tabMeasures = tabMeasures,
-				tabLinks = tabLinks,
-				metrics = metrics,
-			}),
+			Host.Frame "Strip" {
+				BackgroundTransparency = 1,
+				Size = function(use: ComposeTypes.Use): UDim2
+					return D2.fromScale(1, if use(placement) == "sidebar" then 0 else 1)
+				end,
+				AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
+					return if use(placement) == "sidebar" then E.AutomaticSize.Y else E.AutomaticSize.X
+				end,
+				stripLayout :: Types.Child,
+				tabItem(ctx, UI, surfaces, spec, {
+					frame = frame,
+					select = select,
+					sectionLabels = sectionLabels,
+					tabButtons = tabButtons,
+					tabMeasures = tabMeasures,
+					tabLinks = tabLinks,
+					metrics = metrics,
+				}),
+			},
+		}
+		local bandBox = Host.Frame "TabBand" {
+			ZIndex = 2,
+			BackgroundTransparency = 1,
+			Size = function(use: ComposeTypes.Use): UDim2
+				if floating(use) then
+					return floatingSize(use)
+				end
+				if segmentedTop(use) then
+					return D2.new(1, -use(trailingWidth), 0, band(use) + 2 * INSET)
+				end
+				return if use(placement) == "sidebar"
+					then D2.new(0, railWidth(use) - 16, 1, -use(headHeight) - use(footHeight))
+					else D2.new(1, -use(trailingWidth), 0, band(use))
+			end,
+			Position = function(use: ComposeTypes.Use): UDim2
+				if floating(use) then
+					return floatingPosition(use)
+				end
+				return if use(placement) == "sidebar"
+					then D2.fromOffset(8, use(headHeight))
+					elseif string.find(use(placement), "bottom") then D2.new(0, 0, 1, -band(use))
+					else D2.fromOffset(0, 0)
+			end,
+			Host.UIListLayout {
+				FillDirection = E.FillDirection.Horizontal,
+				HorizontalAlignment = E.HorizontalAlignment.Center,
+				VerticalAlignment = E.VerticalAlignment.Center,
+			},
+			bar,
 		}
 		Compose.watch(function(use: ComposeTypes.Use)
 			bar:SetAttribute("FacetEntry", use(spec.selection))
 			if segmentedTop(use) then
 				root:AddTag("facet-top-tabs")
+				bandBox:AddTag("facet-top-tabs")
+				bar:AddTag("facet-tab-plate")
+				bar:AddTag("facet-segmented")
 			else
 				root:RemoveTag("facet-top-tabs")
+				bandBox:RemoveTag("facet-top-tabs")
+				bar:RemoveTag("facet-tab-plate")
+				bar:RemoveTag("facet-segmented")
 			end
 		end)
 		local ancestry, barAt, barSize =
@@ -469,12 +506,20 @@ return function(
 		end)
 		local revealed: string? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
+			use(ancestry)
+			use(tabLinks)
 			local selected = use(spec.selection)
 			local measure = tabMeasures[selected]
-			if not measure then
+			local button = tabButtons[selected]
+			if not measure or not button or not button.Parent then
 				return
 			end
-			local extent, origin, at, size = use(barSize), use(barPosition), use(measure.position), use(measure.size)
+			use(barSize)
+			use(barPosition)
+			use(measure.position)
+			use(measure.size)
+			local extent, origin, at, size =
+				bar.AbsoluteSize, bar.AbsolutePosition, button.AbsolutePosition, button.AbsoluteSize
 			local vertical = use(placement) == "sidebar"
 			local start = if vertical then at.Y - origin.Y else at.X - origin.X
 			local length = if vertical then size.Y else size.X
@@ -631,7 +676,7 @@ return function(
 			ZIndex = 1,
 			BorderSizePixel = 0,
 			Visible = function(use: ComposeTypes.Use)
-				return (metrics.plated(use) or floating(use)) and not use(collapsed)
+				return (metrics.plated(use) or floating(use)) and not use(collapsed) and not segmentedTop(use)
 			end,
 			Size = function(use: ComposeTypes.Use)
 				if floating(use) then
@@ -640,7 +685,7 @@ return function(
 				if use(placement) == "sidebar" then
 					return D2.new(0, railWidth(use) - 16, 1, -use(headHeight) - use(footHeight))
 				end
-				return D2.fromOffset((segmentWidth(use)), band(use) + 2 * INSET)
+				return D2.fromOffset(0, 0)
 			end,
 			Position = function(use: ComposeTypes.Use)
 				if floating(use) then
@@ -649,8 +694,7 @@ return function(
 				if use(placement) == "sidebar" then
 					return D2.fromOffset(8, use(headHeight))
 				end
-				local _, left = segmentWidth(use)
-				return D2.fromOffset(left, 0)
+				return D2.fromOffset(0, 0)
 			end,
 		}
 		if not floating() then
@@ -681,7 +725,7 @@ return function(
 				track:AddTag("facet-segmented")
 			end
 		end)
-		surfaces.attach(root, { track, bar, layers })
+		surfaces.attach(root, { track, bandBox, layers })
 		local canvas, window = ctx.observe.AbsoluteCanvasSize(bar), ctx.observe.AbsoluteWindowSize(bar)
 		runtime.decorate(bar, {
 			Visible = function(use: ComposeTypes.Use)
