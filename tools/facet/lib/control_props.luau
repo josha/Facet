@@ -516,7 +516,7 @@ local function generate(family: Family): string
 		return local_
 	end
 	local blocks = {}
-	local function body(recipe: Recipe, extra: { string }): { string }
+	local function body(recipe: Recipe, extra: { string }, tail: { string }?): { string }
 		local out = {}
 		local seen: { [string]: string } = {}
 		local native = assert(recipe.native, `control_props: {recipe.name} has no native root props`)
@@ -547,8 +547,66 @@ local function generate(family: Family): string
 				table.insert(out, if override then `\t{field}: {override},` else `\t{field}: typeof({access}.{field}),`)
 			end
 		end
+		if tail then
+			table.move(tail, 1, #tail, #out + 1, out)
+		end
 		table.insert(out, "\t[number | Engine.EventKey]: Compose.Child,")
 		return out
+	end
+	local function shapeBlocks(recipe: Recipe, variants: { Variant }, params: string, arguments: string)
+		local order: { string } = {}
+		local types: { { [string]: string } } = {}
+		for index, variant in variants do
+			local fields: { [string]: string } = {}
+			for _, text in variant.parts do
+				local part = parsePart(text)
+				local path = family.modules[part.alias]
+				assert(path, `control_props: {family.output} has no module alias {part.alias}`)
+				local file = "src/ui/" .. string.sub(path, 3) .. ".luau"
+				local argument = if part.arguments then string.gsub(part.arguments, "[^%w]", "") else ""
+				local access = if part.arguments and recipe.params
+					then `((nil :: unknown) :: {part.text})`
+					else witness(
+						part.alias .. part.name .. argument,
+						part.text,
+						string.gsub(part.name, "Options$", "")
+							.. string.upper(string.sub(argument, 1, 1))
+							.. string.sub(argument, 2)
+					)
+				for _, field in optionFields(file, part.name) do
+					assert(fields[field] == nil, `control_props: {variant.name} receives {field} twice`)
+					if not table.find(order, field) then
+						table.insert(order, field)
+					end
+					fields[field] = `typeof({access}.{field})`
+				end
+			end
+			types[index] = fields
+		end
+		local shape = string.gsub(string.gsub(recipe.name, "Props$", ""), "Spec$", "") .. "Shape"
+		local leading = if recipe.params then string.sub(arguments, 2, -2) .. ", " else ""
+		local generics: { string } = {}
+		local tail: { string } = {}
+		for _, field in order do
+			local generic = string.upper(string.sub(field, 1, 1)) .. string.sub(field, 2) .. "Field"
+			table.insert(generics, generic)
+			table.insert(tail, `\t{field}: {generic},`)
+		end
+		table.insert(blocks, `type {shape}<{leading}{table.concat(generics, ", ")}> = \{`)
+		for _, line in body(recipe, {}, tail) do
+			table.insert(blocks, line)
+		end
+		table.insert(blocks, "}")
+		local names: { string } = {}
+		for index, variant in variants do
+			local values: { string } = {}
+			for _, field in order do
+				table.insert(values, types[index][field] or "nil")
+			end
+			table.insert(blocks, `export type {variant.name}{params} = {shape}<{leading}{table.concat(values, ", ")}>`)
+			table.insert(names, variant.name .. arguments)
+		end
+		table.insert(blocks, `export type {recipe.name}{params} = {table.concat(names, " | ")}`)
 	end
 	for _, recipe in family.recipes do
 		local params = if recipe.params then `<{recipe.params}>` else ""
@@ -558,16 +616,7 @@ local function generate(family: Family): string
 		if recipe.alias then
 			table.insert(blocks, `export type {recipe.name}{params} = {recipe.alias}`)
 		elseif recipe.variants then
-			local names = {}
-			for _, variant in recipe.variants do
-				table.insert(blocks, `export type {variant.name}{params} = \{`)
-				for _, line in body(recipe, variant.parts) do
-					table.insert(blocks, line)
-				end
-				table.insert(blocks, "}")
-				table.insert(names, variant.name .. arguments)
-			end
-			table.insert(blocks, `export type {recipe.name}{params} = {table.concat(names, " | ")}`)
+			shapeBlocks(recipe, recipe.variants, params, arguments)
 		else
 			table.insert(blocks, `export type {recipe.name}{params} = \{`)
 			for _, line in body(recipe, {}) do
