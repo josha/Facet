@@ -8,8 +8,8 @@ agent and reads no hidden check. The plain arm is unchanged.
 Run from the repository root:
 
 ```sh
-lute run tools/facet context-ledger C:/git/facet-wt/slice/artifacts/facetbench/slice/runs/racing-hub-slice/plain/codex-sol/seed-1 --out artifacts/context-plain.json
-lute run tools/facet context-ledger C:/git/facet-wt/slice/artifacts/facetbench/slice/runs/racing-hub-slice/facet/codex-sol/seed-1 --out artifacts/context-facet.json
+lute run tools/facet context-ledger artifacts/facetbench/slice/runs/racing-hub-slice/plain/codex-sol/seed-1 --out artifacts/context-plain.json
+lute run tools/facet context-ledger artifacts/facetbench/slice/runs/racing-hub-slice/facet/codex-sol/seed-1 --out artifacts/context-facet.json
 ```
 
 Each JSON row records the item ID, completion time, call number, payload part,
