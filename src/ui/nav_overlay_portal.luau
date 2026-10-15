@@ -91,7 +91,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 					return if use(arrived) then 0 else 1
 				end,
 				Interactable = arrived,
-				Compose.fragment(function()
+				Compose.fragment(function(): { unknown }
 					local node = build()
 					built = node
 					return { node }

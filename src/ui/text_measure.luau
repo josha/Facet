@@ -116,11 +116,11 @@ return {
 		end
 		local acquire = shared[label]
 		if not acquire then
-			acquire = ctx.Compose.createSharedResource(function()
+			acquire = ctx.Compose.createSharedResource(function(): (ComposeTypes.Readable<Vector2>, (() -> ())?)
 				ctx.Compose.cleanup(function()
 					shared[label] = nil
 				end)
-				return createNatural(ctx, label, nil, revision)
+				return createNatural(ctx, label, nil, revision), nil
 			end)
 			shared[label] = acquire
 		end

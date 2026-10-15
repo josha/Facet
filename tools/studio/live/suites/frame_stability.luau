@@ -3,6 +3,7 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
@@ -489,10 +490,14 @@ for _, viewport in viewports do
 					return stage
 				end, function()
 					stage = t.mount(function(UI: FacetControls, _Host: RobloxHost, Compose: ComposeModule)
+						local options: { StringPickerOption } = {
+							{ value = "a", label = "Device" },
+							{ value = "b", label = "Theme" },
+						}
 						local picker = UI.Picker "CaptionEdges" {
 							style = "segmented",
 							selected = Compose.cell("a"),
-							options = { { value = "a", label = "Device" }, { value = "b", label = "Theme" } },
+							options = options,
 						}
 						for _, node in picker:GetDescendants() do
 							if node:IsA("TextButton") and (node.Name == "a" or node.Name == "b") then
