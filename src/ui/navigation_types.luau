@@ -6,7 +6,7 @@ local Inputs = require("./input_types")
 local Overlay = require("./overlay_types")
 
 export type Value<T> = Types.Value<T>
-export type Content = Instance | (() -> Instance)
+export type Content = Instance | Types.GuiInstance | (() -> Instance)
 export type Indicator = "automatic" | "pill" | "underline" | "none"
 export type TabSelectionIndicator = Indicator | "mark"
 export type Placement = "automatic" | "topBar" | "sidebar" | "bottomBar" | "bottomBarCompact" | "none"
@@ -139,7 +139,7 @@ export type MenuOptions<V = string> = {
 	items: Value<{ MenuItem<V> }>,
 	query: ComposeTypes.Cell<string>?,
 	label: Types.ValueString?,
-	trigger: GuiObject | (() -> GuiObject)?,
+	trigger: Types.GuiInstance | (() -> GuiObject)?,
 	disclosure: boolean?,
 	triggers: { MenuTrigger }?,
 	presentation: Value<"automatic" | "menu" | "sheet">?,
@@ -302,7 +302,7 @@ export type SheetOptions = {
 export type SheetRequest = (string) -> boolean
 export type CalloutRetirement = "featureUsed" | "seen" | "dismissed" | "tapAway" | "action"
 export type CalloutOptions = {
-	anchor: GuiObject,
+	anchor: Types.GuiInstance,
 	content: Content?,
 	title: Types.ValueString?,
 	media: Overlay.Media?,

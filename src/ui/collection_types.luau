@@ -122,7 +122,7 @@ export type RowActionsFields = {
 	editing: Types.ValueBoolean?,
 }
 export type RowActionsShape = Types.FrameProps & RowActionsFields
-export type RowActionsContent = { content: GuiObject | (() -> GuiObject) }
+export type RowActionsContent = { content: Types.GuiInstance | (() -> GuiObject) }
 export type CellDraft = { text: string, original: unknown, error: string? }
 export type CellEditorOptions = {
 	editor: "text" | "number" | "toggle" | "menu",

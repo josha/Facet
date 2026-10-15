@@ -76,4 +76,35 @@ local function panel(): Frame
 	}
 end
 
-return panel
+local function anchored(): Frame
+	local trigger = UI.Button "Trigger" { label = "Open" }
+	local row = UI.HStack "Row" { gap = "xs" }
+	local items: { Facet.MenuItem } = {
+		{ id = "edit", label = "Edit", onSelect = function() end },
+	}
+	local swipe: { Facet.RowAction } = {
+		{ id = "delete", label = "Delete", role = "destructive", onActivate = function() end },
+	}
+	return UI.VStack "Anchored" {
+		trigger,
+		row,
+		UI.Menu { trigger = trigger, items = items },
+		UI.Callout {
+			anchor = trigger,
+			title = "Tip",
+			isPresented = open,
+			onRetire = function() end,
+		},
+		UI.Popover {
+			trigger = trigger,
+			isPresented = open,
+			content = function(): Instance
+				return UI.Text { text = "Tip" }
+			end,
+		},
+		UI.Flash { target = row, progress = volume },
+		UI.RowActions { content = row, trailing = swipe },
+	}
+end
+
+return { panel = panel, anchored = anchored }

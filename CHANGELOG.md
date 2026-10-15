@@ -35,6 +35,12 @@
   tools, such as the Lab, use them in place of a cast to an untyped table.
 - Sheet `detent` accepts a detent id. With an id or without `detent`, the sheet
   keeps the selected detent and starts at that id or at its first detent.
+- A class-valued option accepts a value of a subclass in the direct form in
+  the old solver. Examples are Menu and Popover `trigger`, Callout `anchor`,
+  Flash `target`, RowActions `content` and a navigation `content` instance.
+  Before, `UI.Flash { target = row }` with a `Frame` row needed
+  `row :: GuiObject`. The option type lists the GuiObject classes, and the old
+  solver matches each value to its own class.
 - Option types accept more values. `motionLevel` accepts a readable that gives
   `nil`, and then the device setting applies. The StyleSheet `hover` option
   accepts a readable that gives `nil`. StatusIndicator `name` accepts a

@@ -67,7 +67,7 @@ export type PopoverOptions = {
 	isPresented: Types.ValueBoolean,
 	onPresentedChange: ((boolean) -> ())?,
 	onDismiss: ((PopoverDismissReason) -> ())?,
-	trigger: GuiButton?,
+	trigger: Types.GuiButtonInstance?,
 	source: PopoverSource?,
 	content: () -> Instance,
 	edge: Edge?,

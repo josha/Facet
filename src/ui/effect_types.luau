@@ -18,7 +18,7 @@ export type Sequence = {
 	completed: Shared.Readable<boolean>,
 }
 export type FlashOptions = {
-	target: Shared.Value<GuiObject>,
+	target: Shared.GuiInstance | Shared.Value<GuiObject>,
 	progress: Shared.Value<number>,
 	color: Shared.Value<Color3>?,
 	mode: ("pulse" | "sweep")?,

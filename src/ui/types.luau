@@ -17,6 +17,19 @@ export type ValueBoolean = Engine.ValueBoolean
 export type ValueNumber = Engine.ValueNumber
 
 export type Constructor<P, N> = Engine.Constructor<P, N>
+export type GuiButtonInstance = GuiButton | TextButton | ImageButton
+export type GuiInstance =
+	GuiObject
+	| GuiButtonInstance
+	| GuiLabel
+	| TextLabel
+	| ImageLabel
+	| Frame
+	| ScrollingFrame
+	| CanvasGroup
+	| TextBox
+	| ViewportFrame
+	| VideoFrame
 export type Host = Engine.Host
 export type Attributes = Engine.Attributes
 export type AttributeValue = Engine.AttributeValue
