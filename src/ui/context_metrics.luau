@@ -32,13 +32,13 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 	function ctx.neutralMetrics(use: ComposeTypes.Use?): Theme.Metrics
 		return if distance(use) then distantMetrics else defaultMetrics
 	end
-	function ctx.metric(path: string, use: ComposeTypes.Use?): number
+	function ctx.metric(path: string, use: ComposeTypes.Use?, authored: boolean?): number
 		local package = ctx.read(config.theme, use)
 		local value = assert(
 			metricAt(if package then package.metrics else nil, path) or metricAt(ctx.neutralMetrics(use), path),
 			`Facet numeric metric {path} is missing`
 		)
-		if environment and string.match(path, "^typography%.[^.]+%.size$") then
+		if authored ~= true and environment and string.match(path, "^typography%.[^.]+%.size$") then
 			local chosen = ctx.read(environment.preferredTextSize, use)
 			if chosen ~= nil then
 				local ranks = { Medium = 0, Large = 1, Larger = 2, Largest = 3 }

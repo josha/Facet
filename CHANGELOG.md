@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `UI.environment().scaled(value, relativeTo)` takes an optional type role.
+  The length then also grows with the player's text size, by the same factor
+  as text of that role, as SwiftUI's `@ScaledMetric(relativeTo:)` does. A
+  portrait beside a line of text keeps its proportion at `Largest`.
+- The gallery examples use `scaled` for their breakpoints and grid columns in
+  place of arithmetic with `metricScale`. The HUD scenario radio face and line
+  width follow the text size. The Lab Environment entry shows `scaled(48)`
+  and `scaled(48, "body")` side by side.
 - Table returns its body to the top when the sort changes, or scrolls the
   minimum distance to show the first selected row in the new order.
 - Add `Facet.format.compact`, `grouped` and `duration` for HUD values.

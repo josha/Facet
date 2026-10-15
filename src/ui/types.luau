@@ -226,7 +226,7 @@ export type Context = {
 	read: Read,
 	readSource: <T>(Readable<T>, Use?) -> T,
 	haptic: (kind: unknown) -> HapticEffect?,
-	metric: (string, Use?) -> number,
+	metric: (string, Use?, boolean?) -> number,
 	phrase: (key: string, source: string, args: { [string]: string | number }, Use?) -> string,
 	motionTiming: (string, Use?) -> { enter: number, exit: number },
 	motionSpring: (string, Use?) -> { period: number, damping: number },

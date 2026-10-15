@@ -40,9 +40,9 @@ return {
 		local width, lane, pinned = C.cell(1100), C.cell("new"), C.cell(noPin)
 		local summaryOpen = C.cell(false)
 		local notice = C.cell("Start a waiting order, or serve one that is already ready.")
-		local metric = UI.environment().metricScale
+		local wideAt = UI.environment().scaled(900)
 		local wide = C.formula(function(use: Use)
-			return use(width) >= 900 * use(metric)
+			return use(width) >= use(wideAt)
 		end)
 		local function inspect(id: number)
 			expanded[id] = expanded[id] or C.cell(false)
