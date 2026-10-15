@@ -489,8 +489,27 @@ local function perfScores(perf: { [string]: DevicePerf }, scores: { [string]: nu
 	end
 end
 
+local function validateResults(expected: { [string]: boolean }, report: Core.Report)
+	assert(next(expected) ~= nil, "harness error: no device play cases were selected")
+	local seen: { [string]: boolean } = {}
+	for _, result in report.results do
+		if result.id == "workspace/builds" then
+			continue
+		end
+		assert(expected[result.id], "harness error: unexpected play case " .. result.id)
+		assert(not seen[result.id], "harness error: repeated play result " .. result.id)
+		seen[result.id] = true
+	end
+	for id in expected do
+		assert(seen[id], "harness error: no recorded result for " .. id)
+	end
+end
+
 local function main(scenario: Scenario, entrySource: string, universal: Scenario?)
 	local args = arguments()
+	if args.scores ~= nil and fs.exists(args.scores) then
+		fs.remove(args.scores)
+	end
 	local tiers: { [string]: string } = { ["workspace/builds"] = args.tier }
 	if universal ~= nil and args.tier == "universal" then
 		scenario = universal
@@ -505,6 +524,7 @@ local function main(scenario: Scenario, entrySource: string, universal: Scenario
 	})
 
 	local harness = Core.createHarness({ now = os.clock })
+	local expected: { [string]: boolean } = {}
 	harness:suite(taskName, function()
 		harness:case("workspace/builds", {
 			id = "workspace/builds",
@@ -522,11 +542,14 @@ local function main(scenario: Scenario, entrySource: string, universal: Scenario
 			end
 			for _, case in entry.cases do
 				local id = entry.device .. "/" .. case.id
+				assert(not expected[id], "harness error: duplicate play case " .. id)
+				expected[id] = true
 				tiers[id] = case.tier or "spec"
 				harness:case(id, {
 					id = id,
 					timeoutSeconds = case.timeoutSeconds or 240,
 					run = function(context: Core.Context)
+						host.log("case: " .. id .. " started")
 						local qa = host.enter(entry.device)
 						local screen = case.screen
 						if screen == nil then
@@ -562,6 +585,13 @@ local function main(scenario: Scenario, entrySource: string, universal: Scenario
 	})
 	host.close()
 	Lute.gate.writeReport(args.report, args.run, report)
+	host.log(Core.format(report))
+	fs.writeStringToFile(args.outputs .. "/play.log", table.concat(host.lines, "\n") .. "\n")
+	validateResults(expected, report)
+	for id in expected do
+		local device = string.match(id, "^([^/]+)/") :: string
+		assert(host.perf[device] ~= nil, "harness error: device setup did not complete for " .. device)
+	end
 	local passed, total = 0, 0
 	local byDevice: { [string]: { passed: number, total: number } } = {}
 	local byTier: { [string]: { passed: number, total: number } } = {}
@@ -620,7 +650,6 @@ local function main(scenario: Scenario, entrySource: string, universal: Scenario
 	fs.writeStringToFile(args.outputs .. "/perf.json", Lute.encode(host.perf))
 	fs.writeStringToFile(args.outputs .. "/tiers.json", Lute.encode(tiers))
 	fs.writeStringToFile(args.outputs .. "/play.log", table.concat(host.lines, "\n") .. "\n")
-	print(Core.format(report))
 	if passed ~= total then
 		process.exit(1)
 	end
@@ -629,4 +658,5 @@ end
 return {
 	main = main,
 	open = open,
+	validateResults = validateResults,
 }

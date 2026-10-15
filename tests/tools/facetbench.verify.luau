@@ -4,6 +4,7 @@ local Verify = require("../../tools/vendor/verify/src/core")
 local Audit = require("../../tools/vendor/verify/src/roblox/ui-audit")
 local Rules = require("../../eval/tasks/racing-hub/starter/src/shared/RaceRules")
 local RaceSpace = require("../../eval/tasks/racing-hub/hidden/race-space")
+local Play = require("../../tools/play/host/play")
 local Scenarios = {
 	require("../../eval/tasks/hub-livery-editor/hidden/scenario"),
 	require("../../eval/tasks/hub-track-vote/hidden/scenario"),
@@ -22,6 +23,30 @@ local Added = {
 }
 
 return function(harness: Verify.Harness)
+	harness:case("missing universal device cases are a harness error instead of a zero score", function(t)
+		local empty = Verify.createHarness({ now = os.clock })
+		empty:case("workspace/builds", { id = "workspace/builds", run = function() end })
+		local report = empty:run({ executor = "regression" })
+		local ok, problem = pcall(function(): boolean
+			Play.validateResults({
+				["desktop/universal/hub"] = true,
+				["phone-portrait/universal/hub"] = true,
+			}, report)
+			return true
+		end)
+		t:expect(ok):toBe(false)
+		t:expect(string.find(tostring(problem), "harness error: no recorded result", 1, true) ~= nil):toBe(true)
+		local failed = Verify.createHarness({ now = os.clock })
+		failed:case("desktop/universal/hub", {
+			id = "desktop/universal/hub",
+			run = function()
+				error("small text")
+			end,
+		})
+		t:expect(
+			pcall(Play.validateResults, { ["desktop/universal/hub"] = true }, failed:run({ executor = "regression" }))
+		):toBe(true)
+	end)
 	harness:case("race progress requires ordered checkpoints and a forward finish crossing", function(t)
 		local racer = { checkpoint = 0, lap = 0, progress = 0 }
 		t:expect(Rules.advance(racer, 0.8, true, 16)):toBe(false)
@@ -153,6 +178,41 @@ return function(harness: Verify.Harness)
 		invisibleText.transparency = 1
 		roster.text = invisibleText
 		t:expect(RaceSpace.textClear(dump)):toBe(true)
+		local aligned = table.clone(element.text :: Audit.Text)
+		aligned.xAlignment, aligned.yAlignment = "Left", "Center"
+		aligned.bounds = { width = 40, height = 18 }
+		element.text = aligned
+		local rosterText = table.clone(aligned)
+		roster.text = rosterText
+		rosterText.xAlignment = "Right"
+		t:expect(RaceSpace.textClear(dump)):toBeTrueWith("overlapping label boxes can contain separate rendered text")
+		rosterText.xAlignment = "Left"
+		t:expect(RaceSpace.textClear(dump)):toBe(false)
+		dump.roots = {
+			{
+				index = 1,
+				class = "ScreenGui",
+				path = "Hub",
+				enabled = true,
+				displayOrder = 0,
+				world = false,
+				rect = element.rect,
+			},
+			{
+				index = 2,
+				class = "ScreenGui",
+				path = "Modal",
+				enabled = true,
+				displayOrder = 2,
+				world = false,
+				rect = element.rect,
+			},
+		}
+		roster.background = { color = { r = 0, g = 0, b = 0 }, transparency = 0 }
+		t:expect(RaceSpace.textClear(dump)):toBeTrueWith("opaque modal paint covers text on lower screen layers")
+		roster.background.transparency = 1
+		t:expect(RaceSpace.textClear(dump)):toBe(false)
+		dump.roots = {}
 		for _, size in { { 1920, 1080, 0 }, { 390, 844, 0 }, { 844, 390, 59 }, { 1180, 820, 0 }, { 1920, 1080, 0 } } do
 			dump.screen.width, dump.screen.height = size[1], size[2]
 			dump.screen.guiInset.top = 58

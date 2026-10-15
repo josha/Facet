@@ -150,7 +150,39 @@ end
 local function cases(id: string): { Play.Case }
 	local result: { Play.Case } = {}
 	local function add(name: string, screen: string?, run: Play.CaseBody)
-		table.insert(result, { id = "universal/" .. name, tier = "universal", screen = screen, run = run })
+		table.insert(result, {
+			id = "universal/" .. name,
+			tier = "universal",
+			screen = screen,
+			run = function(qa, context)
+				local ok, problem = pcall(function(): boolean
+					run(qa, context)
+					return true
+				end)
+				if not ok then
+					for _ = 1, 8 do
+						local found: QA.Query? = nil
+						for _, word in { "Close", "Back", "Cancel", "Skip", "Return" } do
+							local candidate: QA.Query = { role = "button", exact = string.lower(word) }
+							if qa:first(candidate) ~= nil then
+								found = candidate
+								break
+							end
+						end
+						if found == nil then
+							break
+						end
+						local recovered, detail = qa:tap(found)
+						qa:log("cleanup after " .. name .. ": " .. tostring(recovered) .. " " .. detail)
+						if not recovered then
+							break
+						end
+						qa:sleep(0.5)
+					end
+					error(problem, 0)
+				end
+			end,
+		})
 	end
 	add("hub", "universal-hub", function(qa, context)
 		qa:admin("manual")

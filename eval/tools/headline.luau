@@ -94,6 +94,33 @@ local function build(
 					local key = "play.universal." .. device.id
 					local total = run.scores[key .. ".total"]
 					local fraction = run.scores[key .. ".fraction"]
+					local recorded, passed = 0, 0
+					local seen: { [string]: boolean } = {}
+					for _, check in run.checks do
+						if check.check ~= "play" then
+							continue
+						end
+						for _, case in check.cases do
+							local prefix = device.id .. "/universal/"
+							if string.sub(case.id, 1, #prefix) == prefix and not seen[case.id] then
+								seen[case.id] = true
+								recorded += 1
+								passed += if case.status == "passed" then 1 else 0
+							end
+						end
+					end
+					if recorded == 0 or recorded ~= total or fraction ~= passed / recorded then
+						table.insert(
+							problems,
+							"harness error: universal case records disagree with scores: "
+								.. run.task
+								.. "/"
+								.. run.arm
+								.. "/"
+								.. device.id
+						)
+						complete = false
+					end
 					if
 						total == nil
 						or total <= 0

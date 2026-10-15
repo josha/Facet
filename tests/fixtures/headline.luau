@@ -25,8 +25,11 @@ local function write(directory: string, mode: string): Headline.Manifest
 				local scores: { [string]: number } = { ["types.passed"] = 1, ["types.errors"] = 0 }
 				local audits: { { device: string?, score: number, path: string, rules: { [string]: number } } } = {}
 				for _, device in task.devices do
-					scores["play.fraction." .. device.id] = if facet then 1 else 0.5
-					scores["play.universal." .. device.id .. ".fraction"] = if facet then 1 else 0.5
+					local fraction = if facet
+						then 1
+						else math.floor((task.universalCases or 10) / 2) / (task.universalCases or 10)
+					scores["play.fraction." .. device.id] = fraction
+					scores["play.universal." .. device.id .. ".fraction"] = fraction
 					scores["play.universal." .. device.id .. ".total"] = task.universalCases or 10
 					scores["spec.fraction." .. device.id] = 0
 					local measurements: { [string]: number } = {
@@ -59,6 +62,16 @@ local function write(directory: string, mode: string): Headline.Manifest
 					end
 				end
 				local tokens, seconds = if facet then 400 else 1000, if facet then 40 else 100
+				local cases: { { id: string, status: string } } = {}
+				for _, device in task.devices do
+					local count = task.universalCases or 10
+					for index = 1, count do
+						table.insert(cases, {
+							id = device.id .. "/universal/" .. tostring(index),
+							status = if facet or index <= count / 2 then "passed" else "failed",
+						})
+					end
+				end
 				local raw = {
 					schemaVersion = 1,
 					id = relative,
@@ -100,7 +113,7 @@ local function write(directory: string, mode: string): Headline.Manifest
 							required = true,
 							status = "passed",
 							passed = facet,
-							cases = {},
+							cases = cases,
 							scores = {},
 						},
 						{
