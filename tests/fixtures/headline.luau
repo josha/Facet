@@ -7,6 +7,10 @@ local Headline = require("../../eval/tools/headline")
 local function write(directory: string, mode: string): Headline.Manifest
 	local b = Eval.lute
 	local suite = Headline.manifest()
+	suite.seeds = { 1, 2, 3 }
+	while #suite.tasks > 5 do
+		table.remove(suite.tasks)
+	end
 	local index: { { path: string } } = {}
 	local judgments: { Eval.Judgment } = {}
 	local order = 0
@@ -22,6 +26,9 @@ local function write(directory: string, mode: string): Headline.Manifest
 				local audits: { { device: string?, score: number, path: string, rules: { [string]: number } } } = {}
 				for _, device in task.devices do
 					scores["play.fraction." .. device.id] = if facet then 1 else 0.5
+					scores["play.universal." .. device.id .. ".fraction"] = if facet then 1 else 0.5
+					scores["play.universal." .. device.id .. ".total"] = task.universalCases or 10
+					scores["play.spec." .. device.id .. ".fraction"] = 0
 					local measurements: { [string]: number } = {
 						baseInstances = if mode == "instances" and facet then 10000 else 100,
 						mountSeconds = if mode == "fail" and facet then 12 else 10,
@@ -85,7 +92,18 @@ local function write(directory: string, mode: string): Headline.Manifest
 						permissionDenials = 0,
 					},
 					session = { usageSource = "turn.completed", mcpServers = {}, tools = {} },
-					checks = {},
+					checks = {
+						{
+							id = "contract",
+							check = "contract",
+							kind = "command",
+							required = true,
+							status = "passed",
+							passed = true,
+							cases = {},
+							scores = {},
+						},
+					},
 					scores = scores,
 					audits = audits,
 					captures = {},

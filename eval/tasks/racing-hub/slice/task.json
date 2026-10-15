@@ -3,7 +3,7 @@
   "id": "racing-hub-slice",
   "title": "Build the racing hub HUD and shop",
   "tier": "game",
-  "brief": "brief.md",
+  "brief": "vibe.md",
   "starter": "../starter",
   "checks": [
     {
@@ -21,7 +21,7 @@
       "scores": true
     },
     {
-      "id": "play",
+      "id": "play","required":false,
       "kind": "verify",
       "argv": ["lute", "run", "{task}/../hidden/play.luau", "--workspace", "{workspace}", "--outputs", "{outputs}", "--captures", "{captures}", "--report", "{report}", "--run", "{run}", "--scores", "{scores}", "--devices", "{devices}", "--systems", "hud-dock,shop"],
       "deadlineSeconds": 2400,
@@ -68,6 +68,11 @@
       "id": "audit-offer",
       "required": false,
       "kind": "audit"
-    }
+    },
+    {"id":"audit-universal-hub","kind":"audit","required":false,"perDevice":true,"dump":"{outputs}/dumps/{device}/universal-hub.json"},
+    {"id":"audit-universal-shop","kind":"audit","required":false,"perDevice":true,"dump":"{outputs}/dumps/{device}/universal-shop.json"},
+    {"id":"audit-universal-boosts","kind":"audit","required":false,"perDevice":true,"dump":"{outputs}/dumps/{device}/universal-boosts.json"},
+    {"id":"audit-universal-quests","kind":"audit","required":false,"perDevice":true,"dump":"{outputs}/dumps/{device}/universal-quests.json"},
+    {"id":"audit-universal-offer","kind":"audit","required":false,"perDevice":true,"dump":"{outputs}/dumps/{device}/universal-offer.json"}
   ]
 }
