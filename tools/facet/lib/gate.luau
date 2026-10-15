@@ -18,7 +18,7 @@ export type Entry = {
 	plan: string?,
 	requires: string?,
 	after: { string }?,
-	replaces: { string }?,
+	why: string,
 	producer: Gate.ProducerDraft?,
 	deadlineSeconds: number?,
 }
@@ -148,7 +148,7 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?): 
 		producer.tier = entry.tier
 		producer.tags = { environment }
 		producer.after = entry.after
-		producer.why = if entry.replaces then "replaces " .. table.concat(entry.replaces, ", ") else nil
+		producer.why = assert(entry.why, "a producer needs a why: " .. entry.id)
 		table.insert(producers, producer)
 	end
 	return {

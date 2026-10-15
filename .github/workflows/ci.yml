@@ -13,14 +13,17 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Verify
+  platform:
+    name: Verify (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Check out the repository
@@ -33,7 +36,11 @@ jobs:
           GITHUB_PAT: ${{ github.token }}
         run: |
           curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
-          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cygpath -w "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+          else
+            echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+          fi
 
       - name: Install the pinned toolchain
         env:
@@ -91,3 +98,16 @@ jobs:
 
       - name: The model is the library alone
         run: lute run tools/facet check library-purity
+
+  verify:
+    name: Verify
+    needs: platform
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every platform passed
+        run: |
+          if [ "${{ needs.platform.result }}" != "success" ]; then
+            echo "A platform job did not pass: ${{ needs.platform.result }}"
+            exit 1
+          fi

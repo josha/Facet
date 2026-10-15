@@ -294,8 +294,11 @@ return function(
 				shadowTransparency = function(use: ComposeTypes.Use)
 					local package = ctx.read(config.theme, use)
 					local recipe = package and (package.chrome or {})[slot]
-					local transparent = recipe and recipe.kind == "native" and use(background) == 1
-					return if transparent then 1 elseif fades[node] then fades[node].transparency(use) else 0
+					local fill = if recipe and recipe.kind == "native"
+						then math.clamp(use(background) :: number, 0, 1)
+						else 0
+					local fade = if fades[node] then fades[node].transparency(use) else 0
+					return 1 - (1 - fill) * (1 - fade)
 				end,
 				label = if stateOptions.label ~= nil
 					then stateOptions.label
