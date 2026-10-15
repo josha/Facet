@@ -23,6 +23,7 @@ export type Root = {
 	world: boolean,
 	screenInsets: string?,
 	ignoreGuiInset: boolean?,
+	zIndexBehavior: string?,
 	rect: Rect,
 }
 
@@ -242,6 +243,7 @@ local function decode(value: unknown): Dump
 			world = boolean(entry.world, where .. ".world", false),
 			screenInsets = optionalText(entry.screenInsets, where .. ".screenInsets"),
 			ignoreGuiInset = optionalBoolean(entry.ignoreGuiInset, where .. ".ignoreGuiInset"),
+			zIndexBehavior = optionalText(entry.zIndexBehavior, where .. ".zIndexBehavior"),
 			rect = rect(entry.rect, where .. ".rect"),
 		})
 	end

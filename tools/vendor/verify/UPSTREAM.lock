@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "ff09c4bedc4e650519ae72078426a323db6c85a6",
+  "commit": "ce04d9f1b16e17fbd0ac71b28b9bedffc45085ae",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "2e08694bef737336852a6331bc12685fd83477cb9277abc8cd5561b418f13c61",
@@ -141,9 +141,9 @@
     "src/roblox/reflection.luau": "10c65b8994ad803a80dc58f88e673dca9791e024ff1b5c4fc5a7fb3be7f480e2",
     "src/roblox/report-channel.luau": "a8a130864528ccc238559fc223978d1e369d5aa896791336f9c6672f67d50b19",
     "src/roblox/scheduler.luau": "5f9f6a4a632bb84b276bb1a84977fad81f388e07c39128ff6c466276717c9cd2",
-    "src/roblox/ui-audit-collect.luau": "6e9df71006c6767e897afc79f348113962e9d70d84a3a1689de2866257184bc0",
-    "src/roblox/ui-audit-dump.luau": "3910401917420583eea5a8677ddfffaa4cb7d774cdeb29ce2971a86f0d6908e8",
-    "src/roblox/ui-audit.luau": "29c6a19af5d7219e8233649e9ad642b97e3a4a01886aa4df334f4d9e69eadb67",
+    "src/roblox/ui-audit-collect.luau": "43a8bb5c99c7a7780d11b34fc3c387962d68b5ab7605782c3de878eef60f21ef",
+    "src/roblox/ui-audit-dump.luau": "18f14833d02c2aea2a6d10bb6911314b099d7414c820ef8c95aa71a18e1ca498",
+    "src/roblox/ui-audit.luau": "66ace0174a6bf0f5a0c4f0d6182fb9dd2a69559e8825904600bbcc389e4a3fba",
     "src/roblox/ui-fakes.luau": "ba46c035ce20a4bb96beea7dba5c1c98555d5daa5df8fb06e5880ce298e3c8f2",
     "tools/agent-eval.luau": "31a4f5152818e509624c2defaf77cf56dea3d3774749b940876420edbcd1174e",
     "tools/export-studio-probes.luau": "785084148033733ccecd22f40951760c8d8392edbf3941267b5e8a37fc911fc4",
