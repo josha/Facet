@@ -28,7 +28,8 @@ finding names the rule, the line and the fix.
   --solver NAME   The Luau type solver for --types: new (the default, as in
                   Studio) or old.
   --rules         Lists the rules and exits.
-  --verbose       Print full type errors. The default shortens long type errors
+  --verbose       Print source lines, repeated rule advice and full type errors.
+                  The default shortens long type errors
                   and saves their full text to artifacts/facet-lint/types.txt.
   --usage         Lists the Facet controls and helpers that the paths use, with
                   counts, read from the source. It does not run the code.
@@ -247,21 +248,20 @@ local function run(invocation: Cli.Invocation): number
 	end
 	local errors = 0
 	local lines: { string } = {}
+	local rules: { [string]: boolean } = {}
 	for _, finding in findings do
 		if finding.severity == "error" then
 			errors += 1
 		end
-		table.insert(
-			lines,
-			("%s:%d: %s [%s] %s\n    %s"):format(
-				finding.file,
-				finding.line,
-				finding.severity,
-				finding.rule,
-				finding.message,
-				finding.text
-			)
-		)
+		local label = ("%s:%d: %s [%s]"):format(finding.file, finding.line, finding.severity, finding.rule)
+		if not rules[finding.rule] or Cli.switch(invocation, "verbose") then
+			label ..= " " .. finding.message
+		end
+		if Cli.switch(invocation, "verbose") then
+			label ..= "\n    " .. finding.text
+		end
+		rules[finding.rule] = true
+		table.insert(lines, label)
 	end
 	local details: { string } = {}
 	local hints: { [string]: boolean } = {}

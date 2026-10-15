@@ -14,7 +14,8 @@ typed state and control call shapes in one bounded response.
   <name>         A control, function or topic heading, for example Button, Sheet,
                  Mounting, Toast or "Text fit". Prints that section and its
                  subsections. Give several names to print several sections.
-                 Long sections print an outline. Use --full for the full text.
+                 Long sections print a short excerpt and subsection names.
+                 Query a subsection for details, or use --full for the full text.
   --full         Print full sections without the default 2400-token text budget.
   --outline      With a name, prints the subsection headings and their sizes only.
   --search TEXT  Lists the sections that mention TEXT, most mentions first.
@@ -67,11 +68,30 @@ local function show(sections: { DocsIndex.Section }, name: string, outline: bool
 	local lines: { string } = {}
 	local bounded = budget ~= nil and DocsIndex.tokens(text) > math.min(budget, 1200)
 	if bounded then
-		table.insert(lines, `facet docs: {chosen.title} is {DocsIndex.tokens(text)} tokens; showing its outline.`)
-		table.insert(lines, `Read it with: lute run tools/facet docs "{chosen.title}" --full`)
+		table.insert(lines, `facet docs: {chosen.title} excerpt; query a subsection, or use --full.`)
+		if not outline then
+			local excerpt: { string } = {}
+			local fenced = false
+			local size = 0
+			for _, line in string.split(chosen.body, "\n") do
+				if size + #line > math.min(1600, (budget or 2400) * 2) then
+					break
+				end
+				table.insert(excerpt, line)
+				size += #line + 1
+				if string.match(line, "^%s*```") then
+					fenced = not fenced
+				end
+			end
+			if fenced then
+				table.insert(excerpt, "```")
+			end
+			table.insert(lines, table.concat(excerpt, "\n"))
+		end
 	end
 	if outline or bounded then
 		local inside = false
+		local count = 0
 		for _, section in sections do
 			if section == chosen then
 				inside = true
@@ -79,6 +99,11 @@ local function show(sections: { DocsIndex.Section }, name: string, outline: bool
 				break
 			end
 			if inside then
+				count += 1
+				if bounded and not outline and count > math.min(12, math.max(1, math.floor((budget or 2400) / 70))) then
+					table.insert(lines, `More headings: lute run tools/facet docs "{chosen.title}" --outline`)
+					break
+				end
 				table.insert(lines, heading(section))
 			end
 		end
@@ -152,6 +177,10 @@ local function run(invocation: Cli.Invocation): number
 	local seen: { [string]: boolean } = {}
 	local remaining = 2400
 	for index, name in invocation.positional do
+		if remaining <= 0 and not Cli.switch(invocation, "full") and not Cli.switch(invocation, "outline") then
+			print("facet docs: response budget reached; query the remaining names in a separate call.")
+			break
+		end
 		local found = DocsIndex.find(sections, name)
 		local chosen = if #found > 0 then found[1].section else nil
 		if chosen ~= nil then
@@ -167,6 +196,14 @@ local function run(invocation: Cli.Invocation): number
 			Cli.switch(invocation, "outline"),
 			if Cli.switch(invocation, "full") then nil else remaining
 		)
+		if
+			not Cli.switch(invocation, "full")
+			and not Cli.switch(invocation, "outline")
+			and DocsIndex.tokens(text) > remaining
+		then
+			print(`facet docs: response budget reached; query "{name}" separately.`)
+			break
+		end
 		remaining = math.max(0, remaining - DocsIndex.tokens(text))
 		if index > 1 then
 			print("")
@@ -196,6 +233,31 @@ local SAMPLE = table.concat({
 
 local function cases(): { Case.Case }
 	return {
+		{
+			name = "a long contract gives a closed excerpt and scoped discovery while full text stays available",
+			run = function()
+				local source = "# Long\nA useful call shape.\n```luau\n"
+					.. string.rep("local value = 1\n", 500)
+					.. "```\n## Detail\nThe missing option."
+				local sections = DocsIndex.parse("docs/reference/api.md", source)
+				local _, short = show(sections, "Long", false, 2400)
+				local _, full = show(sections, "Long", false)
+				local fences = select(2, string.gsub(short, "```", ""))
+				return Case.first(
+					Case.expect(
+						string.find(short, "A useful call shape.", 1, true) ~= nil,
+						"the excerpt has no call shape"
+					),
+					Case.expect(string.find(short, "## Detail", 1, true) ~= nil, "scoped discovery is missing"),
+					Case.equal(fences % 2, 0, "unclosed code fence"),
+					Case.expect(#short < 4800, "the bounded response is too large"),
+					Case.expect(
+						string.find(full, "The missing option.", 1, true) ~= nil,
+						"the full contract is missing"
+					)
+				)
+			end,
+		},
 		{
 			name = "a section holds its subsections and stops at the next peer heading",
 			run = function()
