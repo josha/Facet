@@ -43,15 +43,17 @@ function Memory.check(report: unknown): { string }
 			elseif final ~= 0 then
 				table.insert(errors, `{where}: teardown retains {final} {name}; expected zero`)
 			end
+			local previous = start
 			for index, entry in iterations do
 				local current = count(entry, name)
 				if current == nil then
 					table.insert(errors, `{where}: iteration {index} has no exact {name} count`)
 					break
-				elseif start ~= nil and Json.field(resources, "churn") == true and current > start then
-					table.insert(errors, `{where}: iteration {index} grows {name} from {start} to {current}`)
+				elseif previous ~= nil and Json.field(resources, "churn") == true and current > previous then
+					table.insert(errors, `{where}: iteration {index} grows {name} from {previous} to {current}`)
 					break
 				end
+				previous = current
 			end
 		end
 	end

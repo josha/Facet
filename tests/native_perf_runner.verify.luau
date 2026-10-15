@@ -43,12 +43,37 @@ return function(verifyHarness: Verify.Harness)
 				expect(#Memory.check({ runs = { { evidenceClass = "lute" } } }) > 0):toBe(true)
 			end,
 		})
+		verifyHarness:case("rejects churn growth below the warmed resource count", {
+			id = "native_perf_runner::exact performance resource gates::rejects churn growth below the warmed resource count",
+			run = function()
+				local function counts(value: number)
+					return { instances = value, connections = value, registrations = value }
+				end
+				local errors = Memory.check({
+					runs = {
+						{
+							scene = "churn",
+							device = "floorAndroid",
+							evidenceClass = "lute",
+							samples = 3,
+							resources = {
+								start = counts(10),
+								iterations = { counts(8), counts(7), counts(8) },
+								teardown = counts(0),
+								churn = true,
+							},
+						},
+					},
+				})
+				expect(#errors):toBe(3)
+			end,
+		})
 		verifyHarness:case(
 			"radial exits release registrations after every close and release all resources on teardown",
 			{
 				id = "native_perf_runner::exact performance resource gates::radial exits release registrations after every close and release all resources on teardown",
 				run = function()
-					local scenes = require("../bench/perf_scenes")
+					local scenes = (require("../bench/perf_scenes") :: unknown) :: { { name: string } }
 					local found = false
 					for _, scene in scenes do
 						if scene.name == "radial-menu-open-close" then
