@@ -36,7 +36,7 @@ local function inspect(root: Instance): ({ Fault }, number)
 			continue
 		end
 		sampled += 1
-		if not node.TextFits then
+		if not node.TextFits and node.TextTruncate == Enum.TextTruncate.None then
 			table.insert(faults, {
 				element = node:GetFullName(),
 				ancestor = node:GetFullName(),
@@ -49,6 +49,9 @@ local function inspect(root: Instance): ({ Fault }, number)
 			})
 		end
 		for _, clip in clips do
+			if clip:IsA("ScrollingFrame") then
+				continue
+			end
 			local position, ending = node.AbsolutePosition, node.AbsolutePosition + node.AbsoluteSize
 			local boundary = clip.AbsolutePosition + clip.AbsoluteSize
 			local overflow = {
