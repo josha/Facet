@@ -1,6 +1,11 @@
 --!strict
 
 local task = require("@std/task")
+local fs = require("@std/fs")
+local process = require("@std/process")
+local Audit = require("../../../../tools/vendor/verify/src/roblox/ui-audit")
+local Lute = require("../../../../tools/vendor/verify/src/lute")
+local RaceSpace = require("./race-space")
 
 local Check = require("../../../../tools/play/host/check")
 local Core = require("../../../../tools/vendor/verify/src/core")
@@ -96,6 +101,20 @@ local function startRound(qa: QA.QA, context: Core.Context)
 	Check.text(qa, context, "round", "the HUD shows the Round phase", 5)
 end
 
+local function drivingDump(qa: QA.QA): Audit.Dump
+	qa:dump("driving-safety")
+	for index, word in process.args do
+		if word == "--outputs" then
+			return Audit.decode(
+				Lute.parse(
+					fs.readFileToString(process.args[index + 1] .. "/dumps/" .. qa.device.id .. "/driving-safety.json")
+				)
+			)
+		end
+	end
+	error("--outputs is required")
+end
+
 local behavior: { Case } = {
 	{
 		id = "shows-intermission",
@@ -128,6 +147,38 @@ local behavior: { Case } = {
 				context,
 				qa:first({ pattern = "4%s*alive", near = "blue" }) ~= nil,
 				"the Blue team shows 4 alive"
+			)
+		end,
+	},
+	{
+		id = "driving-keeps-selection-free",
+		run = function(qa, context)
+			for _ = 1, 3 do
+				Check.that(context, qa:selected() == nil, "driving has no selected UI until the player opens a panel")
+				task.wait(0.2)
+			end
+		end,
+	},
+	{
+		id = "driving-keeps-thumbstick-free",
+		run = function(qa, context)
+			local dump = drivingDump(qa)
+			if table.find(qa.device.input, "touch") then
+				Check.that(
+					context,
+					RaceSpace.thumbstickClear(dump),
+					"interactive UI leaves the lower-left touch thumbstick region clear"
+				)
+			end
+		end,
+	},
+	{
+		id = "driving-keeps-road-clear",
+		run = function(qa, context)
+			Check.that(
+				context,
+				RaceSpace.centerClear(drivingDump(qa)),
+				"the race HUD leaves the central road corridor clear"
 			)
 		end,
 	},

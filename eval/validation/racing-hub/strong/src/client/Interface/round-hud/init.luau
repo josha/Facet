@@ -121,6 +121,13 @@ local function mount(context: Context)
 		Kit.create("UISizeConstraint", { MinSize = Vector2.new(160, 0), MaxSize = Vector2.new(320, math.huge) }),
 		Kit.list(Enum.FillDirection.Vertical, 4),
 	}) :: Frame
+	local function feedLayout()
+		local compact = screen.AbsoluteSize.X < 600
+		feed.AnchorPoint = Vector2.new(0, if compact then 1 else 0.5)
+		feed.Position = if compact then UDim2.new(0, 8, 1, -8) else UDim2.new(0, 8, 0.55, 0)
+	end
+	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(feedLayout)
+	feedLayout()
 
 	local results = Kit.create("Frame", {
 		Name = "Results",

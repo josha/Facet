@@ -1,6 +1,7 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GuiService = game:GetService("GuiService")
 local Round = require(ReplicatedStorage.Shared.Hub.Round)
 local Hub = require(ReplicatedStorage.Shared.Hub)
 local Garage = require(ReplicatedStorage.Shared.Hub.Garage)
@@ -50,8 +51,8 @@ local function mount(context: Hub.Context)
 	local income = label(counters, "")
 	local summary = Kit.create("Frame", {
 		BackgroundColor3 = Kit.colors.panel,
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromScale(0.5, 0.35),
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -8),
 		Size = UDim2.new(0.4, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Visible = false,
@@ -59,13 +60,6 @@ local function mount(context: Hub.Context)
 	}, { Kit.padding(8), Kit.list(Enum.FillDirection.Vertical, 8) }) :: Frame
 	local loadout = label(summary, "")
 	local raceWallet = label(summary, "")
-	local function phaseChanged(state: Round.State)
-		counters.Visible = state.phase == "Intermission"
-		dock.Visible = state.phase == "Intermission"
-		summary.Visible = state.phase == "Round"
-	end
-	context.round.onStateChanged(phaseChanged)
-	phaseChanged(context.round.getState())
 	local boosts = Kit.modal(screen, "Boosts", "Boosts")
 	local boostBody = body(boosts)
 	label(boostBody, "2x Coins for 30 seconds")
@@ -141,6 +135,20 @@ local function mount(context: Hub.Context)
 	local playButton = button(dock, "Play", function()
 		modes.setOpen(true)
 	end)
+	local previousPhase: Round.Phase? = nil
+	local function phaseChanged(state: Round.State)
+		counters.Visible = state.phase == "Intermission"
+		dock.Visible = state.phase == "Intermission"
+		summary.Visible = state.phase == "Round"
+		if state.phase == "Round" and previousPhase ~= "Round" then
+			GuiService.SelectedObject = nil
+		elseif state.phase == "Intermission" and previousPhase ~= "Intermission" then
+			Kit.focus(playButton)
+		end
+		previousPhase = state.phase
+	end
+	context.round.onStateChanged(phaseChanged)
+	phaseChanged(context.round.getState())
 	local queueLabel = label(screen, "")
 	queueLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 	queueLabel.Position = UDim2.fromScale(0.5, 0.85)
@@ -410,9 +418,9 @@ local function mount(context: Hub.Context)
 		end
 		raceWallet.Text = Kit.number(hub.wallet.Coins) .. " Coins • " .. Kit.number(hub.wallet.Gems) .. " Gems"
 		loadout.Text = kartName
-			.. "\n"
+			.. " / "
 			.. driverName
-			.. "\nPosition "
+			.. " / Position "
 			.. tostring(table.find(hub.positions, "You") or 1)
 	end
 	context.hub.onStateChanged(function(next)

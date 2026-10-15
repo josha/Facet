@@ -56,6 +56,7 @@ local function cases(): { Play.Case }
 		table.insert(result, {
 			id = system.id .. "/prepare",
 			run = function(qa: QA.QA)
+				qa:admin("manual")
 				qa:admin("system", { system = "hud-dock", command = "pause" })
 				qa:admin("wallet", { coins = system.coins, gems = system.gems })
 				qa:admin("phase", { phase = "Intermission", seconds = 600 })
