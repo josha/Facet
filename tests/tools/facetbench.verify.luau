@@ -46,6 +46,20 @@ return function(harness: Verify.Harness)
 		t:expect(
 			pcall(Play.validateResults, { ["desktop/universal/hub"] = true }, failed:run({ executor = "regression" }))
 		):toBe(true)
+		local transport = Verify.createHarness({ now = os.clock })
+		transport:case("desktop/universal/hub", {
+			id = "desktop/universal/hub",
+			run = function()
+				error("harness error: Studio Client call failed: session_lost")
+			end,
+		})
+		t:expect(
+			pcall(
+				Play.validateResults,
+				{ ["desktop/universal/hub"] = true },
+				transport:run({ executor = "regression" })
+			)
+		):toBe(false)
 	end)
 	harness:case("race progress requires ordered checkpoints and a forward finish crossing", function(t)
 		local racer = { checkpoint = 0, lap = 0, progress = 0 }

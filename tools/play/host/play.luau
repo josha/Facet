@@ -499,6 +499,9 @@ local function validateResults(expected: { [string]: boolean }, report: Core.Rep
 		assert(expected[result.id], "harness error: unexpected play case " .. result.id)
 		assert(not seen[result.id], "harness error: repeated play result " .. result.id)
 		seen[result.id] = true
+		for _, failure in result.failures do
+			assert(string.find(failure.message, "harness error:", 1, true) == nil, failure.message)
+		end
 	end
 	for id in expected do
 		assert(seen[id], "harness error: no recorded result for " .. id)
