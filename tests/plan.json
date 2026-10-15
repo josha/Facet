@@ -6,6 +6,7 @@
     "batchCount": 1
   },
   "units": [
+    { "id": "frame_stability", "locator": "tests/frame_stability.verify.luau", "requires": ["local-luau"] },
     { "id": "tools/facetbench", "locator": "tests/tools/facetbench.verify.luau", "requires": ["local-luau", "lute"] },
     { "id": "tools/headline", "locator": "tests/tools/headline.verify.luau", "requires": ["lute"] },
     { "id": "play_scroll_target", "locator": "tests/play_scroll_target.verify.luau", "requires": ["local-luau"] },
