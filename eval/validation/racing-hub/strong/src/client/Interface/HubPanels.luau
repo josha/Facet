@@ -168,6 +168,11 @@ local function mount(context: Hub.Context)
 		context.lobby.leave()
 	end)
 	local function renderQueue()
+		local racing = previousPhase == "Round"
+		queueLabel.Parent = if racing then commands else screen
+		queueLabel.AnchorPoint = if racing then Vector2.zero else Vector2.new(0.5, 0.5)
+		queueLabel.Position = if racing then UDim2.new() else UDim2.fromScale(0.5, 0.85)
+		queueLabel.Size = UDim2.new(if racing then 1 else 0.6, 0, 0, 0)
 		queueLabel.Visible = queue.phase ~= "Lobby"
 		playButton.Visible = queue.phase == "Lobby"
 		leaveQueue.Visible = queue.phase == "Queue" or queue.phase == "Countdown"
@@ -193,6 +198,9 @@ local function mount(context: Hub.Context)
 	end
 	context.lobby.onStateChanged(function(next)
 		queue = next
+		renderQueue()
+	end)
+	context.round.onStateChanged(function()
 		renderQueue()
 	end)
 	local garageState = context.garage.getState()
