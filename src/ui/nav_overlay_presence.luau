@@ -173,48 +173,23 @@ return function(ctx: Types.Context): Presence
 		shown: () -> boolean
 	): ComposeTypes.PresenceOptions
 		local level = motion.level(ctx)
-		local owner = assert(Compose.currentOwner())
-		type Pending = {
-			completed: ComposeTypes.Readable<boolean>,
-			scope: ComposeTypes.Owner?,
-		}
-		local pending: ComposeTypes.Cell<Pending?> = Compose.cell(nil :: Pending?)
-		local function release(entry: Pending?)
-			if entry and entry.scope then
-				entry.scope.dispose()
-			end
-		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			local entry = use(pending)
-			if entry and use(entry.completed) then
-				pending:set(nil)
-				release(entry)
-			end
-		end)
-		Compose.cleanup(function()
-			release(pending:peek())
-		end)
-		local function begin(
-			completed: ComposeTypes.Readable<boolean>,
-			scope: ComposeTypes.Owner?
-		): ComposeTypes.Exiting
-			release(pending:peek())
-			pending:set({ completed = completed, scope = scope })
-			return { completed = completed }
-		end
+		local scheduler = runtime.scheduler()
 		return {
 			exit = function()
 				local current = level()
 				if not shown() or not attached(anchor) or current == "none" then
-					return begin(Compose.cell(true), nil)
+					scheduler.cancel("exit")
+					return { completed = Compose.cell(true) }
 				end
-				local scope = owner.createChild()
-				local timeline = Compose.withOwner(scope, function()
-					return runtime.timeline({
-						duration = if current == "limited" then ctx.metric("motion.reducedFade") else timing.exit,
-					})
-				end)
-				return begin(timeline.completed, scope)
+				local completed = Compose.cell(false)
+				scheduler.replace(
+					"exit",
+					if current == "limited" then ctx.metric("motion.reducedFade") else timing.exit,
+					function()
+						completed:set(true)
+					end
+				)
+				return { completed = completed }
 			end,
 		}
 	end

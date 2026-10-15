@@ -120,19 +120,9 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			for _, surface in surfaces do
 				surface.Visible = false
 			end
-			local connection: RBXScriptConnection? = nil
-			connection = frames.Heartbeat:Connect(function()
-				if connection then
-					connection:Disconnect()
-					connection = nil
-				end
+			runtime.scheduler().after(0, function()
 				for _, surface in surfaces do
 					surface.Visible = true
-				end
-			end)
-			Compose.cleanup(function()
-				if connection then
-					connection:Disconnect()
 				end
 			end)
 			return node

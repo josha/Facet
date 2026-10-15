@@ -22,13 +22,9 @@ return function(ctx: Shared.Context, UI: Controls.Controls)
 		local content = ctx.observe.ContentText(label)
 		local painted = ctx.observe.Text(label)
 		local reduce = reducedMotion(ctx)
-		local cancel: (() -> ())? = nil
 		local function finish()
 			if owner.isDisposed() or revealed:peek() then
 				return
-			end
-			if cancel then
-				cancel()
 			end
 			label.MaxVisibleGraphemes = -1
 			revealed:set(true)
@@ -65,28 +61,25 @@ return function(ctx: Shared.Context, UI: Controls.Controls)
 			elseif revealed:peek() then
 				return
 			end
-			local scheduler = runtime.scheduler()
-			cancel = scheduler.clear
 			if reduced then
 				finish()
 				return
 			end
-			scheduler.after(0, function()
-				local total = 0
-				for _ in utf8.graphemes(line) do
-					total += 1
+			local total = 0
+			for _ in utf8.graphemes(line) do
+				total += 1
+			end
+			local clock = runtime.clock { start = started }
+			C.watch(function(read: Shared.Use)
+				if read(revealed) then
+					return
 				end
-				local tick: () -> ()
-				tick = function()
-					local visible = math.min(total, math.max(0, math.floor((frames.now() - started) / interval)))
-					if visible >= total then
-						finish()
-					else
-						label.MaxVisibleGraphemes = visible
-						scheduler.after(math.max(0, started + (visible + 1) * interval - frames.now()), tick)
-					end
+				local visible = math.min(total, math.floor(read(clock) / interval))
+				if visible >= total then
+					finish()
+				else
+					label.MaxVisibleGraphemes = visible
 				end
-				tick()
 			end)
 		end)
 		return label

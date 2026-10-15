@@ -11,7 +11,8 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 	local writable = (label :: unknown) :: { FontFace: Font, TextSize: number, AutomaticSize: Enum.AutomaticSize }
 	local previousFace: Font?, previousSize: number? = nil, nil
 	local frames = services.RunService
-	local pending: RBXScriptConnection? = nil
+	local deferred = if frames then runtime.scheduler() else nil
+	local pending = false
 	local alive = true
 	local refreshing = false
 	local function reflow(metrics: boolean?)
@@ -39,23 +40,12 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 		end
 	end
 	local function deferReflow()
-		if
-			pending == nil
-			and frames
-			and alive
-			and not refreshing
-			and label.AutomaticSize ~= Enum.AutomaticSize.None
-		then
-			local function nextFrame()
-				if pending then
-					pending:Disconnect()
-					pending = nil
-				end
+		if not pending and deferred and alive and not refreshing and label.AutomaticSize ~= Enum.AutomaticSize.None then
+			pending = true
+			deferred.after(0, function()
+				pending = false
 				reflow(true)
-			end
-			pending = if frames.PreRender
-				then frames.PreRender:Connect(nextFrame)
-				else frames.Heartbeat:Connect(nextFrame)
+			end)
 		end
 	end
 	local function refreshMetrics()
@@ -280,11 +270,6 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 		alive = false
 		styled:Disconnect()
 		changed:Disconnect()
-
-		if pending then
-			pending:Disconnect()
-			pending = nil
-		end
 	end)
 end
 
