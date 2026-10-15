@@ -21,13 +21,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		return type(value) == "string"
 	end
 	local function within(node: Instance?, ancestor: Instance): boolean
-		while node do
-			if node == ancestor then
-				return true
-			end
-			node = node.Parent
-		end
-		return false
+		return node ~= nil and (node == ancestor or node:IsDescendantOf(ancestor))
 	end
 
 	UI.Card = ctx.construct("Card", function(spec: ContentProps.CardSpec): Frame

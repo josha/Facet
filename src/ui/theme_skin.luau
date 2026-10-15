@@ -99,6 +99,16 @@ return function(
 	end
 	local types, Host = typesFor(settings), (runtime.constructors :: unknown) :: Engine.Host
 	local D2, V2 = types.UDim2, types.Vector2
+	local function axis(value: ThemeTypes.ShadowAxis?): (number, number)
+		local resolved: ThemeTypes.ShadowAxis = value or {}
+		return resolved.scale or 0, resolved.offset or 0
+	end
+	local function pair(value: ThemeTypes.ShadowPair?): UDim2
+		local resolved: ThemeTypes.ShadowPair = value or {}
+		local x, xo = axis(resolved.x)
+		local y, yo = axis(resolved.y)
+		return D2.new(x, xo, y, yo)
+	end
 	if not Compose.isReadable(packageOrReadable) and type(packageOrReadable) ~= "function" then
 		local package = read(packageOrReadable) or neutral
 		local chrome = package.chrome
@@ -120,16 +130,6 @@ return function(
 				assert(shadow ~= nil, "Facet theme unknown shadow preset")
 			end
 			if shadow then
-				local function axis(value: ThemeTypes.ShadowAxis?): (number, number)
-					local resolved: ThemeTypes.ShadowAxis = value or {}
-					return resolved.scale or 0, resolved.offset or 0
-				end
-				local function pair(value: ThemeTypes.ShadowPair?): UDim2
-					local resolved: ThemeTypes.ShadowPair = value or {}
-					local x, xo = axis(resolved.x)
-					local y, yo = axis(resolved.y)
-					return D2.new(x, xo, y, yo)
-				end
 				runtime.mount(function()
 					return Host.UIShadow "ChromeShadow" {
 						Color = color(types, shadow.color or { r = 0, g = 0, b = 0 }),
@@ -557,16 +557,6 @@ return function(
 	runtime.mountFragment(function()
 		return {
 			Compose.show(retainedShadow, function()
-				local function axis(value: ThemeTypes.ShadowAxis?): (number, number)
-					local resolved: ThemeTypes.ShadowAxis = value or {}
-					return resolved.scale or 0, resolved.offset or 0
-				end
-				local function pair(value: ThemeTypes.ShadowPair?): UDim2
-					local resolved: ThemeTypes.ShadowPair = value or {}
-					local x, xo = axis(resolved.x)
-					local y, yo = axis(resolved.y)
-					return D2.new(x, xo, y, yo)
-				end
 				local properties: Engine.UIShadowNativeProps = {
 					Name = "ChromeShadow",
 					Color = function(use: ComposeTypes.Use)

@@ -49,15 +49,8 @@ local function give(frame: ScrollingFrame)
 	end
 end
 
-local function within(node: Instance, ancestor: Instance): boolean
-	local at: Instance? = node
-	while at do
-		if at == ancestor then
-			return true
-		end
-		at = at.Parent
-	end
-	return false
+local function within(node: Instance?, ancestor: Instance): boolean
+	return node ~= nil and (node == ancestor or node:IsDescendantOf(ancestor))
 end
 
 local function exempt(state: Layer, node: Instance): boolean

@@ -85,13 +85,7 @@ return function(ctx: Types.Context, attach: Attach): Kit
 		end
 	end
 	local function within(node: Instance?, ancestor: Instance): boolean
-		while node do
-			if node == ancestor then
-				return true
-			end
-			node = node.Parent
-		end
-		return false
+		return node ~= nil and (node == ancestor or node:IsDescendantOf(ancestor))
 	end
 	local function displayed(node: Instance): boolean
 		local at: Instance? = node
