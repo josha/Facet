@@ -13,10 +13,10 @@ end
 
 local FAMILY = "rbxasset://fonts/families/BuilderSans.json"
 local LINE_HEIGHT = 1.15
-local SIZES = { caption = 11, label = 12, body = 13, control = 13, heading = 15, title = 18 }
+local SIZES: { [string]: number } = { caption = 11, label = 12, body = 13, control = 13, heading = 15, title = 18 }
 
-local function typography(): any
-	local out: any = {}
+local function typography(): { [string]: { [string]: unknown } }
+	local out: { [string]: { [string]: unknown } } = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY }, size = size, lineHeight = LINE_HEIGHT }
 	end
@@ -129,12 +129,12 @@ function classic_desktop.definition(themes: any): any
 		},
 
 		chrome = {
-			panel = { kind = "native" :: "native" },
-			control = { kind = "native" :: "native" },
-			field = { kind = "native" :: "native" },
-			selection = { kind = "native" :: "native" },
-			divider = { kind = "native" :: "native" },
-			scrollbar = { kind = "native" :: "native" },
+			panel = { kind = "native" },
+			control = { kind = "native" },
+			field = { kind = "native" },
+			selection = { kind = "native" },
+			divider = { kind = "native" },
+			scrollbar = { kind = "native" },
 		},
 		assets = {},
 		compatibility = { requiresSchema = themes.SCHEMA },

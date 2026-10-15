@@ -11,17 +11,17 @@ local function rgb(r: number, g: number, b: number)
 end
 
 local FAMILY = "rbxasset://fonts/families/Michroma.json"
-local SIZES = { caption = 11, label = 12, body = 14, control = 14, heading = 18, title = 22 }
+local SIZES: { [string]: number } = { caption = 11, label = 12, body = 14, control = 14, heading = 18, title = 22 }
 
-local function typography(): any
-	local out: any = {}
+local function typography(): { [string]: { [string]: unknown } }
+	local out: { [string]: { [string]: unknown } } = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY }, size = size, lineHeight = 1.45 }
 	end
 	return out
 end
 
-local function wash(topA: number, bottomA: number): any
+local function wash(topA: number, bottomA: number): { [string]: unknown }
 	return {
 		rotation = 115,
 		stops = {
@@ -37,7 +37,7 @@ local function wash(topA: number, bottomA: number): any
 	}
 end
 
-local function sheen(topA: number, bottomA: number): any
+local function sheen(topA: number, bottomA: number): { [string]: unknown }
 	return {
 		rotation = 115,
 		stops = {
@@ -129,7 +129,7 @@ function scifi_hud.definition(themes: any): any
 		chrome = {
 
 			panel = {
-				kind = "native" :: "native",
+				kind = "native",
 				shadow = {
 					blurRadius = { scale = 0, offset = 24 },
 					color = { r = 0.05, g = 0.42, b = 0.5 },
@@ -139,7 +139,7 @@ function scifi_hud.definition(themes: any): any
 				},
 			},
 			control = {
-				kind = "native" :: "native",
+				kind = "native",
 				shadow = {
 					blurRadius = { scale = 0, offset = 16 },
 					color = { r = 0.05, g = 0.42, b = 0.5 },
@@ -148,13 +148,13 @@ function scifi_hud.definition(themes: any): any
 					zIndex = -1,
 				},
 			},
-			field = { kind = "native" :: "native" },
-			selection = { kind = "native" :: "native" },
-			divider = { kind = "native" :: "native" },
-			scrollbar = { kind = "native" :: "native" },
+			field = { kind = "native" },
+			selection = { kind = "native" },
+			divider = { kind = "native" },
+			scrollbar = { kind = "native" },
 
 			focus = {
-				kind = "glow" :: "glow",
+				kind = "glow",
 				color = "$Accent",
 				blurRadius = { scale = 0, offset = 20 },
 				transparency = 0.3,
