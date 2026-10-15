@@ -174,7 +174,7 @@ The gate producer `facetbench` runs [`tools/check.luau`](tools/check.luau). It l
 
 The [extended handoff](validation/extended.md) records the earlier six-turn
 work. The [vibe handoff](validation/vibe.md) supersedes its suite, tier and
-calibration policy. The detailed briefs are unchanged.
+calibration policy. The detailed briefs remain diagnostic.
 
 
 - A pass proves that the hidden checks accepted the final workspace in Studio on this host. It proves nothing about real phones, real consoles or real gamepads.
@@ -185,3 +185,5 @@ calibration policy. The detailed briefs are unchanged.
 - `VirtualInput` refuses a key that Roblox binds to a core action, for example Tab while the Roblox player list is on. The scoreboard turn asks for the player list to be off, and the check reports a refused key as a failure with the reason.
 
 The starter also contains the shared playable kart world. See [the racing world handoff](validation/scenery.md) for builds, controls, costs, and scenario determinism. The world team owns this code; eval agents still build only the interface.
+
+See [the individual race handoff](validation/race.md) for the race contract, sci-fi world, headless calibration, and Studio commands.
