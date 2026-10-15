@@ -7,6 +7,7 @@ local Lute = require("../../../../tools/vendor/verify/src/lute")
 local Check = require("../../../../tools/play/host/check")
 local QA = require("../../../../tools/play/host/qa")
 local Core = require("../../../../tools/vendor/verify/src/core")
+local RaceSpace = require("./race-space")
 
 type Values = { [string]: boolean }
 type Palette = { [string]: Values }
@@ -14,6 +15,7 @@ local palettes: { [string]: Palette } = {}
 local scores: { [string]: number } = {}
 type Extent = { minX: number, maxX: number, minY: number, maxY: number }
 local returns: { [string]: Extent } = {}
+local insets: { [string]: { scrims: boolean, content: boolean, selection: boolean } } = {}
 local bounds: { [string]: number } =
 	{ fonts = 6, textSizes = 24, textColors = 48, spacing = 32, buttonColors = 32, buttonStyles = 64 }
 
@@ -37,6 +39,12 @@ local function observe(device: string, screen: string)
 	end
 	local dump =
 		Audit.decode(Lute.parse(fs.readFileToString(output .. "/dumps/" .. device .. "/" .. screen .. ".json")))
+	local checks: { scrims: boolean, content: boolean, selection: boolean } = insets[device]
+		or { scrims = true, content = true, selection = true }
+	insets[device] = checks
+	checks.scrims = checks.scrims and RaceSpace.scrimCovers(dump)
+	checks.content = checks.content and RaceSpace.safeContent(dump)
+	checks.selection = checks.selection and RaceSpace.selectionValid(dump)
 	local palette = palettes[device]
 		or { fonts = {}, textSizes = {}, textColors = {}, spacing = {}, buttonColors = {}, buttonStyles = {} }
 	palettes[device] = palette
@@ -86,6 +94,10 @@ local function returnControl(qa: QA.QA, context: Core.Context)
 end
 
 local function check(device: string, context: Core.Context)
+	local geometry = insets[device]
+	Check.that(context, geometry ~= nil and geometry.scrims, "all observed modal scrims cover the viewport")
+	Check.that(context, geometry ~= nil and geometry.content, "all observed text and controls respect safe insets")
+	Check.that(context, geometry ~= nil and geometry.selection, "all observed selection targets are valid")
 	local palette = palettes[device]
 	Check.that(context, palette ~= nil, "the screen dumps contain a visible interface")
 	for name in bounds do
@@ -136,4 +148,12 @@ local function writeScores()
 	fs.writeStringToFile(path, Lute.encode(combined))
 end
 
-return { observe = observe, returnControl = returnControl, check = check, writeScores = writeScores }
+return {
+	observe = observe,
+	returnControl = returnControl,
+	check = check,
+	writeScores = writeScores,
+	insets = function(device: string): { scrims: boolean, content: boolean, selection: boolean }
+		return insets[device] or { scrims = false, content = false, selection = false }
+	end,
+}

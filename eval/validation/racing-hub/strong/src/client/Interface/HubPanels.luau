@@ -159,10 +159,16 @@ local function mount(context: Hub.Context)
 	queueLabel.Position = UDim2.fromScale(0.5, 0.85)
 	queueLabel.Size = UDim2.new(0.6, 0, 0, 0)
 	queueLabel.TextXAlignment = Enum.TextXAlignment.Center
+	queueLabel.BackgroundColor3 = Kit.colors.panel
+	queueLabel.BackgroundTransparency = 0.05
+	queueLabel.FontFace = Kit.bold
+	Kit.corner(12).Parent = queueLabel
+	Kit.padding(Kit.space.medium).Parent = queueLabel
 	local leaveQueue = button(dock, "Leave Queue", function()
 		context.lobby.leave()
 	end)
 	local function renderQueue()
+		queueLabel.Visible = queue.phase ~= "Lobby"
 		playButton.Visible = queue.phase == "Lobby"
 		leaveQueue.Visible = queue.phase == "Queue" or queue.phase == "Countdown"
 		if queue.phase == "Countdown" then

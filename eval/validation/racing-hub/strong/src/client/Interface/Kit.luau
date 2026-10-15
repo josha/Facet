@@ -106,7 +106,20 @@ function Kit.usesGamepad(): boolean
 end
 
 function Kit.focus(target: GuiObject?)
-	if target ~= nil and Kit.usesGamepad() then
+	if target ~= nil and Kit.usesGamepad() and target.Selectable and target.Interactable then
+		local ancestor: Instance? = target
+		while ancestor and not ancestor:IsA("PlayerGui") do
+			if ancestor:IsA("GuiObject") and not ancestor.Visible then
+				return
+			end
+			if ancestor:IsA("ScreenGui") and not ancestor.Enabled then
+				return
+			end
+			ancestor = ancestor.Parent
+		end
+		if ancestor == nil then
+			return
+		end
 		GuiService.SelectedObject = target
 	end
 end
@@ -239,6 +252,24 @@ end
 
 function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vector2?): Modal
 	local limit = maxSize or Vector2.new(760, 620)
+	local scrimScreen = Kit.create("ScreenGui", {
+		Name = name .. "Backdrop",
+		ResetOnSpawn = false,
+		ScreenInsets = Enum.ScreenInsets.None,
+		ClipToDeviceSafeArea = false,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		DisplayOrder = 1,
+		Parent = screen.Parent,
+	}) :: ScreenGui
+	local panelScreen = Kit.create("ScreenGui", {
+		Name = name .. "Content",
+		ResetOnSpawn = false,
+		ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		DisplayOrder = 2,
+		Parent = screen.Parent,
+	}) :: ScreenGui
+	Kit.scale(panelScreen)
 	local scrim = Kit.create("TextButton", {
 		Name = name .. "Scrim",
 		Text = "",
@@ -250,7 +281,7 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 		Size = UDim2.fromScale(1, 1),
 		Visible = false,
 		ZIndex = 10,
-		Parent = screen,
+		Parent = scrimScreen,
 	}) :: TextButton
 	local panel = Kit.create("Frame", {
 		Name = name,
@@ -260,7 +291,7 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 		BackgroundColor3 = Kit.colors.panel,
 		Visible = false,
 		ZIndex = 11,
-		Parent = screen,
+		Parent = panelScreen,
 	}, {
 		Kit.corner(16),
 		Kit.padding(Kit.space.large),
@@ -492,6 +523,8 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 			table.insert(stack, modal)
 			modal.panel.ZIndex = 10 + #stack * 2
 			modal.scrim.ZIndex = modal.panel.ZIndex - 1
+			(modal.scrim.Parent :: ScreenGui).DisplayOrder = #stack * 2 - 1
+			(modal.panel.Parent :: ScreenGui).DisplayOrder = #stack * 2
 			original(true, focus)
 		else
 			local index = table.find(stack, modal)
@@ -505,6 +538,9 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 				top.scrim.Visible = true
 			end
 			Kit.focus(previous)
+			if GuiService.SelectedObject == nil and top ~= nil then
+				Kit.focus(top.close)
+			end
 		end
 	end
 	modal.panel.SelectionBehaviorUp = Enum.SelectionBehavior.Stop

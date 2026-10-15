@@ -46,6 +46,32 @@ local only = selected()
 
 local function cases(): { Play.Case }
 	local result: { Play.Case } = {}
+	table.insert(result, {
+		id = "idle-hub-needs-player-input",
+		run = function(qa, context)
+			local before = qa:call("racingState")
+			qa:sleep(3)
+			local after = qa:call("racingState")
+			Check.that(context, Check.field(after, "racing") == false, "the player stays out of a race without input")
+			Check.that(
+				context,
+				math.abs(Check.number(after, "x") - Check.number(before, "x")) < 2
+					and math.abs(Check.number(after, "z") - Check.number(before, "z")) < 2,
+				"the game does not move the idle player"
+			)
+			local value = qa:admin("state")
+			Check.that(
+				context,
+				Check.field(value, "systems", "lobby-queue", "state", "phase") == "Lobby",
+				"the queue stays idle without input"
+			)
+			Check.that(
+				context,
+				qa:first({ role = "button", exact = "close" }) == nil,
+				"no dialog opens without player input"
+			)
+		end,
+	})
 	for _, system in systems do
 		if only ~= nil and not only[system.id] then
 			continue
@@ -89,6 +115,41 @@ local function cases(): { Play.Case }
 			table.insert(result, case)
 		end
 	end
+	table.insert(result, {
+		id = "modal-scrims-cover-viewport",
+		run = function(qa, context)
+			Check.that(
+				context,
+				Coherence.insets(qa.device.id).scrims,
+				"every open modal or sheet dims the full viewport within one pixel"
+			)
+		end,
+	})
+	table.insert(result, {
+		id = "hud-and-controls-respect-insets",
+		run = function(qa, context)
+			Check.that(
+				context,
+				Coherence.insets(qa.device.id).content,
+				"visible text and controls clear core UI and device unsafe areas"
+			)
+		end,
+	})
+	table.insert(result, {
+		id = "selection-stays-valid",
+		run = function(qa, context)
+			Check.that(
+				context,
+				Check.number(qa:call("racingState"), "invalidSelections") == 0,
+				"no invalid selection warning occurs during navigation or transitions"
+			)
+			Check.that(
+				context,
+				Coherence.insets(qa.device.id).selection,
+				"selection targets a visible live selectable control"
+			)
+		end,
+	})
 	table.insert(result, {
 		id = "coherence",
 		run = function(qa, context)
