@@ -2,9 +2,11 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Track = require("../../tasks/racing-hub/starter/src/shared/RaceTrack")
 
 return function(): { [string]: unknown }
+	local loadTrack =
+		getfenv(0).require :: (ModuleScript) -> { progress: (Vector3) -> number, point: (number) -> Vector3 }
+	local Track = loadTrack(game:GetService("ReplicatedStorage").Shared.RaceTrack)
 	local player = Players.LocalPlayer
 	assert(player, "a local driver is required")
 	local character = player.Character
