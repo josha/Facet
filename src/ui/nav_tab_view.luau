@@ -8,8 +8,6 @@ local adaptive = require("./adaptive")
 local segmentMetrics = require("./segment_metrics")
 local reservations = require("./reservations")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
-local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
 local pageLayers = require("./nav_page_layers")
 local tabMetrics = require("./nav_tab_metrics")
@@ -22,16 +20,12 @@ type SelectionLinks = {
 	NextSelectionDown: GuiObject?,
 }
 
-type Controls = {
-	TabView: Types.Constructor<NavigationProps.TabViewSpec, Frame>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	Menu: ControlTypes.MenuConstructor,
-	StatusIndicator: Types.Constructor<MediaProps.StatusIndicatorProps, TextLabel>,
-	Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
-	badged: Content.Badged,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers: pageLayers.PageLayers): ()
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	surfaces: Nav.Surfaces,
+	layers: pageLayers.PageLayers
+): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local content, layer, checkedSelection = layers.content, layers.layer, layers.checkedSelection
@@ -324,7 +318,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers
 				spec.onChange(id)
 			end
 		end
-		local metrics = tabMetrics(ctx, spec, {
+		local frame: tabMetrics.TabFrame = {
 			fit = fit,
 			placement = placement,
 			visibleTabs = visibleTabs,
@@ -334,13 +328,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers
 			footHeight = footHeight,
 			trailingWidth = trailingWidth,
 			indicatorOf = indicatorOf,
-		})
+		}
+		local metrics = tabMetrics(ctx, spec, frame)
 		local floating, floatingSize, floatingPosition =
 			metrics.floating, metrics.floatingSize, metrics.floatingPosition
-		local segmentedTop, segmentWidth, plated, inset =
-			metrics.segmentedTop, metrics.segmentWidth, metrics.plated, metrics.inset
-		local band, railWidth, bottomInset, contentGap =
-			metrics.band, metrics.railWidth, metrics.bottomInset, metrics.contentGap
+		local segmentedTop, segmentWidth, inset = metrics.segmentedTop, metrics.segmentWidth, metrics.inset
+		local band, railWidth, bottomInset = metrics.band, metrics.railWidth, metrics.bottomInset
 		local barExtent, stripLayout, stripOverflows, stripContent =
 			metrics.barExtent, metrics.stripLayout, metrics.stripOverflows, metrics.stripContent
 		local INSET = segmentMetrics.inset
@@ -391,11 +384,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers
 			}) :: Types.Child,
 			stripLayout :: Types.Child,
 			tabItem(ctx, UI, surfaces, spec, {
-				fit = fit,
-				placement = placement,
-				visibleTabs = visibleTabs,
-				layoutUnit = layoutUnit,
-				indicatorOf = indicatorOf,
+				frame = frame,
 				select = select,
 				sectionLabels = sectionLabels,
 				tabButtons = tabButtons,
@@ -518,7 +507,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers
 				return if place == "sidebar"
 					then D2.new(1, -(railWidth(use)), 1, 0)
 					elseif place == "none" then D2.fromScale(1, 1)
-					else D2.new(1, 0, 1, -band(use) - contentGap(use) - use(aboveHeight) - bottomInset(use))
+					else D2.new(
+						1,
+						0,
+						1,
+						-band(use) - metrics.contentGap(use) - use(aboveHeight) - bottomInset(use)
+					)
 			end,
 			Compose.LayerStack({
 				from = visited,
@@ -637,7 +631,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers
 			ZIndex = 1,
 			BorderSizePixel = 0,
 			Visible = function(use: ComposeTypes.Use)
-				return (plated(use) or floating(use)) and not use(collapsed)
+				return (metrics.plated(use) or floating(use)) and not use(collapsed)
 			end,
 			Size = function(use: ComposeTypes.Use)
 				if floating(use) then
@@ -732,10 +726,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers
 			end),
 		})
 		tabAccessories(ctx, surfaces, spec, root, {
-			placement = placement,
-			headHeight = headHeight,
-			footHeight = footHeight,
-			trailingWidth = trailingWidth,
+			frame = frame,
 			aboveHeight = aboveHeight,
 			metrics = metrics,
 		})

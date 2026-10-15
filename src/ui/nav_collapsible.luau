@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
@@ -7,15 +8,15 @@ local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local surfaceParts = require("./nav_surface_parts")
 
-type Controls = {
-	CollapsibleView: Types.Constructor<NavigationProps.CollapsibleViewSpec, TextButton>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: surfaceParts.SurfaceParts): ()
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	surfaces: Nav.Surfaces,
+	kit: surfaceParts.SurfaceParts
+): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local body, revealMotion = kit.body, kit.revealMotion
+	local body = kit.body
 	UI.CollapsibleView = ctx.construct(
 		"CollapsibleView",
 		function(spec: NavigationProps.CollapsibleViewSpec): TextButton
@@ -51,7 +52,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: s
 			Compose.watch(function(use: ComposeTypes.Use)
 				entered:set(use(spec.expanded) and use(prepared))
 			end)
-			local progress, closed, opacity = revealMotion(entered)
+			local progress, closed, opacity = kit.revealMotion(entered)
 			local function hidden(use: ComposeTypes.Use): number
 				return if use(prepared) then opacity(use) else 1
 			end

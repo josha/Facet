@@ -20,15 +20,13 @@ return function<V, K>(
 	local read = ctx.read
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local moving, selection, sort = shared.moving, shared.selection, shared.sort
-	local grid, horizontal, reorderable, preferred =
-		shared.grid, shared.horizontal, shared.reorderable, shared.preferred
+	local grid, reorderable, preferred = shared.grid, shared.reorderable, shared.preferred
 	local controlsShown, leading, trailing, header =
 		shared.controlsShown, shared.leading, shared.trailing, shared.header
-	local mode, marked, minusShown, markShown = shared.mode, shared.marked, shared.minusShown, shared.markShown
-	local motionReduced, instantLayout, rowNodes, rowKeys =
-		shared.motionReduced, shared.instantLayout, shared.rowNodes, shared.rowKeys
-	local gui, pluginGui, movable, disarm = shared.gui, shared.pluginGui, shared.movable, shared.disarm
-	local begin, commit, cancel, movePointer = shared.begin, shared.commit, shared.cancel, shared.movePointer
+	local mode, minusShown = shared.mode, shared.minusShown
+	local rowNodes, rowKeys = shared.rowNodes, shared.rowKeys
+	local gui, movable = shared.gui, shared.movable
+	local begin, commit, movePointer = shared.begin, shared.commit, shared.movePointer
 	local axis, crossAxis = shared.axis, shared.crossAxis
 	local selectedObject: ComposeTypes.Readable<unknown>? = if ctx.config.guiService
 		then ctx.observe.SelectedObject(ctx.config.guiService)
@@ -91,7 +89,7 @@ return function<V, K>(
 						DragStyle = if grid
 							then E.UIDragDetectorDragStyle.TranslatePlane
 							else E.UIDragDetectorDragStyle.TranslateLine,
-						DragAxis = if horizontal then V2.new(1, 0) else V2.new(0, 1),
+						DragAxis = if shared.horizontal then V2.new(1, 0) else V2.new(0, 1),
 						ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 						Enabled = function(use: ComposeTypes.Use)
 							local selected = if selectedObject then use(selectedObject) else nil
@@ -133,7 +131,7 @@ return function<V, K>(
 								return
 							end
 							if tapped then
-								cancel()
+								shared.cancel()
 								toggle()
 							else
 								commit()
@@ -204,7 +202,7 @@ return function<V, K>(
 		}
 		local minus = if minusShown then UI.Button(minusProps) else nil
 		local confirm = if minusShown then UI.Button(confirmProps) else nil
-		local mark = if marked
+		local mark = if shared.marked
 			then ctx.styled(
 				Host.Frame "SelectMark" {
 					AnchorPoint = V2.new(0.5, 0.5),
@@ -212,7 +210,7 @@ return function<V, K>(
 					Size = D2.fromOffset(18, 18),
 					BackgroundTransparency = 1,
 					Selectable = false,
-					Visible = markShown,
+					Visible = shared.markShown,
 					ctx.corner(if mode == "multiple" then 3 else 9) :: Types.Child,
 					(if mode == "multiple"
 						then ctx.icon("checkmark", {
@@ -249,7 +247,7 @@ return function<V, K>(
 		end, { period = edgeSpring.period, damping = edgeSpring.damping })
 		local right = ctx.runtime.spring(rightOf, { period = edgeSpring.period, damping = edgeSpring.damping })
 		local function edges(use: ComposeTypes.Use): Vector2
-			if instantLayout or motionReduced(use) then
+			if shared.instantLayout or shared.motionReduced(use) then
 				return V2.new(use(leading), rightOf(use))
 			end
 			return V2.new(use(left), use(right))
@@ -299,7 +297,7 @@ return function<V, K>(
 				then V2.new(gesture.pendingInput.Position.X, gesture.pendingInput.Position.Y)
 				elseif positions[1] then pointerOf(ctx, positions[1])
 				else gesture.touchOrigin
-			disarm()
+			shared.disarm()
 			if position then
 				begin(key, position)
 			end
@@ -442,7 +440,7 @@ return function<V, K>(
 			pointer.press(key, value)
 		end)
 		if row:IsA("GuiButton") then
-			if pluginGui then
+			if shared.pluginGui then
 				ctx.runtime.connect(row, "MouseButton1Down", function(x: number, y: number)
 					pointer.mouseDown(V2.new(x, y))
 				end)

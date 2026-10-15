@@ -1,7 +1,7 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
-local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local release = require("./sheet_release")
@@ -11,9 +11,6 @@ local reducedMotion = motion.reduced
 local NavigationProps = require("./navigation_props")
 local sheetDetents = require("./nav_sheet_detents")
 
-type Controls = {
-	adjustable: (GuiObject, Inputs.AdjustableOptions) -> (),
-}
 type Detent = sheetDetents.Detent
 type Prepared = sheetDetents.Prepared
 type Session = {
@@ -57,7 +54,7 @@ local HELD_PULL = 0.2
 
 return function(
 	ctx: Types.Context,
-	UI: Controls,
+	UI: ControlTypes.BuilderControls,
 	surfaces: Nav.Surfaces,
 	word: (string) -> string
 ): (

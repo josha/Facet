@@ -5,12 +5,12 @@ local FLING_MINIMUM = 200
 local FLING_STOP = 20
 local FLING_WINDOW = 0.1
 return function<V, K>(ctx: Types.Context, view: State.View<V, K>, root: ScrollingFrame): ()
-	local Compose, runtime = ctx.Compose, ctx.runtime
+	local runtime = ctx.runtime
 	local V2, E = ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
-	local spec, horizontal, frames = view.spec, view.horizontal, view.frames
+	local spec, frames = view.spec, view.frames
 	local input = ctx.config.userInputService
-	if horizontal and input and not spec.reorderable then
+	if view.horizontal and input and not spec.reorderable then
 		local pressAt: number? = nil
 		local startOffset, dragging = 0, false
 		local samples: { Vector2 } = {}
@@ -22,7 +22,7 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>, root: Scrollin
 				stopFling = nil
 			end
 		end
-		Compose.cleanup(halt)
+		ctx.Compose.cleanup(halt)
 		local function limit(): number
 			return math.max(0, root.CanvasSize.X.Offset - root.AbsoluteWindowSize.X)
 		end

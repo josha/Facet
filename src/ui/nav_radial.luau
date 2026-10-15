@@ -3,7 +3,6 @@ local layoutKit = require("./layout_kit")
 local Types = require("./types")
 local Navigation = require("./navigation_types")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
 local RadialProps = require("./radial_props")
 local ComposeTypes = require("../vendor/compose/core")
 local createMenu = require("./nav_radial_menu")
@@ -14,14 +13,7 @@ local paintSectors = require("./nav_radial_sectors")
 local buildCenter = require("./nav_radial_center")
 local attachGestures = require("./nav_radial_gestures")
 
-return function(
-	ctx: Types.Context,
-	UI: {
-		Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-		RadialMenu: ControlTypes.RadialMenuConstructor,
-	},
-	surfaces: Navigation.Surfaces
-)
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Navigation.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
@@ -29,10 +21,10 @@ return function(
 		assert(spec.items, "RadialMenu requires items")
 		local menu = createMenu(ctx, surfaces, spec)
 		local session = menu.session
-		local opened, scrim, reduced, skin = menu.opened, menu.scrim, menu.reduced, menu.skin
+		local opened, scrim, skin = menu.opened, menu.scrim, menu.skin
 		local cancel, close, open = menu.cancel, menu.close, menu.open
 		local back: () -> () = menu.back
-		local isPointer, beginPointer, nativeActivate = menu.isPointer, menu.beginPointer, menu.nativeActivate
+		local isPointer = menu.isPointer
 		local anchored = read(spec.anchor)
 		local anchorGui = if anchored
 				and (typeof(anchored) == "Instance" or (type(anchored) == "table" and anchored.IsA))
@@ -98,7 +90,7 @@ return function(
 						if not opened:peek() and isPointer(input) then
 							open()
 							session.openedByLauncher = opened:peek()
-							beginPointer(input, false, true)
+							menu.beginPointer(input, false, true)
 						end
 					end,
 					onActivate = function(input: InputObject?)
@@ -130,22 +122,19 @@ return function(
 					arrangement.center,
 					arrangement.layout,
 					arrangement.fallback
-				local panel, transparency = paint.panel, paint.transparency
-				local centerHit, centerNode, previewPlate, preview =
-					hub.centerHit, hub.centerNode, hub.previewPlate, hub.preview
 				local hideLauncher = hub.hideLauncher
 				local modal = surfaces.modal(
 					function()
-						return panel
+						return paint.panel
 					end,
 					back,
 					{
 						appearance = function(use: ComposeTypes.Use?): number
-							return 1 - if use then transparency(use) else 0
+							return 1 - if use then paint.transparency(use) else 0
 						end,
 					}
 				)
-				surfaces.attach(modal, { centerHit, centerNode, previewPlate, preview })
+				surfaces.attach(modal, { hub.centerHit, hub.centerNode, hub.previewPlate, hub.preview })
 				if hideLauncher then
 					hideLauncher()
 				end
@@ -239,7 +228,7 @@ return function(
 			end, {
 				presence = {
 					exit = function(): ComposeTypes.Exiting
-						if reduced() or spec.transition == false then
+						if menu.reduced() or spec.transition == false then
 							return { completed = Compose.cell(true) }
 						end
 						return runtime.timeline({ duration = ctx.metric("motion.radial.exit") })
@@ -270,7 +259,7 @@ return function(
 					then assert(session.candidateSector)()
 					else nil
 				if selected then
-					nativeActivate(selected, nil, "hold")
+					menu.nativeActivate(selected, nil, "hold")
 				else
 					cancel()
 				end

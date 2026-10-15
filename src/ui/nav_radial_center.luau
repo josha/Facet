@@ -32,14 +32,14 @@ return function<V>(
 ): Hub<V>
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local spec, corner, painted, skin = menu.spec, menu.corner, menu.painted, menu.skin
+	local spec, corner, painted = menu.spec, menu.corner, menu.painted
 	local path, candidate, naming, touchPoint = menu.path, menu.candidate, menu.naming, menu.touchPoint
-	local preferred, back, jump, close = menu.preferred, menu.back, menu.jump, menu.close
+	local preferred = menu.preferred
 	local viewport, origin, launcher, anchorSize =
 		arrangement.viewport, arrangement.origin, arrangement.launcher, arrangement.anchorSize
 	local center, layout, sectors, fallback =
 		arrangement.center, arrangement.layout, arrangement.sectors, arrangement.fallback
-	local transparency, iconic, panel = paint.transparency, paint.iconic, paint.panel
+	local transparency, panel = paint.transparency, paint.panel
 	local ringNavigation = spec.center == "empty" or spec.center == "content"
 	local function showCenter(use: ComposeTypes.Use): boolean
 		if corner or use(fallback) or not ringNavigation then
@@ -57,11 +57,11 @@ return function<V>(
 	end
 	local function centerAction()
 		if navigating() or spec.center == nil or spec.center == "back" then
-			back()
+			menu.back()
 		elseif spec.center == "root" then
-			jump({})
+			menu.jump({})
 		else
-			close()
+			menu.close()
 		end
 	end
 	local function hub(use: ComposeTypes.Use): number
@@ -195,7 +195,7 @@ return function<V>(
 		})
 		surfaces.attach(panel, { node })
 	end
-	skin(centerNode, spec.skin and spec.skin.center)
+	menu.skin(centerNode, spec.skin and spec.skin.center)
 	local panelSize = ctx.observe.AbsoluteSize(panel)
 	local function reachOf(ring: Radial.Layout<V>): number
 		local reach = ring.inner
@@ -297,7 +297,7 @@ return function<V>(
 				local entries = use(sectors)
 				for sectorIndex = 1, #entries do
 					local sector = entries[sectorIndex]
-					if sector.key == key and iconic(use, sector) then
+					if sector.key == key and paint.iconic(use, sector) then
 						local label = read(sector.item.label, use) or ""
 						local detail = read(sector.item.description, use)
 						return label .. (if detail then " · " .. detail else "")

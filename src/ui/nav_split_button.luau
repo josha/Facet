@@ -3,17 +3,15 @@ local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local MenuItems = require("./nav_menu_items")
 
-type Controls = {
-	Menu: ControlTypes.MenuConstructor,
-	SplitButton: ControlTypes.SplitButtonConstructor,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, buildMenu: MenuItems.BuildMenu)
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	surfaces: Nav.Surfaces,
+	buildMenu: MenuItems.BuildMenu
+)
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
 	local E, D2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.UDim
 	UI.SplitButton = ctx.construct("SplitButton", function<V>(spec: NavigationProps.SplitButtonSpec<V>): Frame

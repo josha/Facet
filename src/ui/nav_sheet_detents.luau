@@ -19,7 +19,6 @@ local PLACEMENTS: { [string]: boolean } =
 	freeze({ automatic = true, adaptive = true, bottom = true, side = true, center = true })
 
 return function(ctx: Types.Context): Detents
-	local Compose = ctx.Compose
 	local function prepare(spec: NavigationProps.SheetSpec): Prepared
 		assert(
 			spec.detent == nil or type(spec.detent) == "string" or (type(spec.detent) == "table" and spec.detent.set),
@@ -135,7 +134,7 @@ return function(ctx: Types.Context): Detents
 		local initial = if type(authored) == "string" and prepared.byId[authored]
 			then authored
 			else prepared.detents[1].id
-		return Compose.cell(initial)
+		return ctx.Compose.cell(initial)
 	end
 	return { prepare = prepare, word = word, writableDetent = writableDetent }
 end

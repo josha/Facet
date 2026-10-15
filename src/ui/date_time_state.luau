@@ -62,8 +62,7 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 	local E = ctx.types.Enum
 	local gui, input = parts.gui, parts.input
 	local isRange, withTime, draft, overlay = options.isRange, options.withTime, options.draft, options.overlay
-	local proposeSingle, proposeRange, hasProposer = options.proposeSingle, options.proposeRange, options.hasProposer
-	local weekStart, months, locale, clock = options.weekStart, options.months, options.locale, options.clock
+	local months, clock = options.months, options.clock
 
 	local diagnostics = Compose.cell({} :: { string })
 	local function note(message: string)
@@ -111,7 +110,7 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 		return read(spec.enabled, use) ~= false
 	end
 	local function interactive(use: Use?): boolean
-		return enabled(use) and read(spec.readOnly, use) ~= true and hasProposer
+		return enabled(use) and read(spec.readOnly, use) ~= true and options.hasProposer
 	end
 	local today = Compose.cell(civil.dateOf(clock()))
 	local disposed = false
@@ -146,7 +145,7 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 	for k = 1, if isRange then 2 else 1 do
 		monthGrids[k] = Compose.formula(function(use: Use): { CivilDate }
 			local m = paneMonth(k, use)
-			return civil.monthGrid(m.year, m.month, weekStart)
+			return civil.monthGrid(m.year, m.month, options.weekStart)
 		end)
 	end
 	local function paneGrid(k: number, use: Use?): { CivilDate }
@@ -207,9 +206,9 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 		proposing = true
 		local ok, err = pcall(function()
 			if isRange then
-				assert(proposeRange)(next :: Range)
+				assert(options.proposeRange)(next :: Range)
 			else
-				assert(proposeSingle)(next :: CivilDate?)
+				assert(options.proposeSingle)(next :: CivilDate?)
 			end
 		end)
 		proposing = false
@@ -347,7 +346,7 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 		if v == nil then
 			return ""
 		end
-		return if spec.format ~= nil then spec.format(v) else civil.format(v, locale)
+		return if spec.format ~= nil then spec.format(v) else civil.format(v, options.locale)
 	end
 	local valueText = Compose.formula(function(use: Use): string
 		if isRange then

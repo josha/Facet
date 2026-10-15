@@ -7,10 +7,7 @@ local NavigationProps = require("./navigation_props")
 local tabMetrics = require("./nav_tab_metrics")
 
 export type TabAccessoryView = {
-	placement: ComposeTypes.Formula<string>,
-	headHeight: ComposeTypes.Cell<number>,
-	footHeight: ComposeTypes.Cell<number>,
-	trailingWidth: ComposeTypes.Cell<number>,
+	frame: tabMetrics.TabFrame,
 	aboveHeight: ComposeTypes.Cell<number>,
 	metrics: tabMetrics.TabMetrics,
 }
@@ -25,11 +22,12 @@ return function(
 	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
 	local INSET = segmentMetrics.inset
-	local placement, headHeight, footHeight, trailingWidth, aboveHeight =
-		view.placement, view.headHeight, view.footHeight, view.trailingWidth, view.aboveHeight
+	local frame = view.frame
+	local placement, headHeight, footHeight, trailingWidth =
+		frame.placement, frame.headHeight, frame.footHeight, frame.trailingWidth
+	local aboveHeight = view.aboveHeight
 	local metrics = view.metrics
-	local railWidth, band, bottomInset, segmentedTop =
-		metrics.railWidth, metrics.band, metrics.bottomInset, metrics.segmentedTop
+	local band, bottomInset = metrics.band, metrics.bottomInset
 	local slots: { [string]: { [string]: boolean } } = {
 		head = { sidebar = true },
 		foot = { sidebar = true },
@@ -65,7 +63,7 @@ return function(
 						ClipsDescendants = true,
 						Size = function(use: ComposeTypes.Use)
 							return if slot == "head" or slot == "foot"
-								then D2.fromOffset(railWidth(use), 0)
+								then D2.fromOffset(metrics.railWidth(use), 0)
 								elseif slot == "trailing" then D2.fromOffset(0, band(use))
 								else D2.new(1, 0, 0, 0)
 						end,
@@ -103,7 +101,7 @@ return function(
 								1,
 								-use(trailingWidth),
 								if place == "topBar" then 0 else 1,
-								if segmentedTop(use)
+								if metrics.segmentedTop(use)
 									then INSET
 									elseif place == "topBar" then 0
 									else -band(use) - bottomInset(use)

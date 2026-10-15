@@ -1,26 +1,25 @@
 --!strict
+local ControlTypes = require("./control_types")
 local motion = require("./motion")
 local reorder = require("./collection_reorder")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
-local InputProps = require("./input_props")
 local Metrics = require("./collection_table_metrics")
 return function<V, K>(
 	ctx: Types.Context,
-	UI: { Button: Types.Constructor<InputProps.ButtonProps, TextButton> },
+	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.TableShape<V, K>,
 	editing: Types.ValueBoolean?,
 	editor: reorder.Editor<V, K>?,
 	metrics: Metrics.Metrics
 ): ComposeTypes.Directive
-	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
+	local Host, runtime = ctx.Host, ctx.runtime
 	local read = ctx.read
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
-	local toolbarShown, toolbarHeight, preferredInput =
-		metrics.toolbarShown, metrics.toolbarHeight, metrics.preferredInput
-	return Compose.show(toolbarShown, function()
+	local preferredInput = metrics.preferredInput
+	return ctx.Compose.show(metrics.toolbarShown, function()
 		local progress = runtime.tween(function(use: ComposeTypes.Use): number
 			return if read(editing, use) then 1 else 0
 		end, {
@@ -128,7 +127,7 @@ return function<V, K>(
 			Name = "Toolbar",
 			BackgroundTransparency = 1,
 			Size = function(use: ComposeTypes.Use)
-				return D2.new(1, 0, 0, use(toolbarHeight) - ctx.metric("space.s", use))
+				return D2.new(1, 0, 0, use(metrics.toolbarHeight) - ctx.metric("space.s", use))
 			end,
 			button :: ComposeTypes.Child,
 			ctx.styled(

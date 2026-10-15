@@ -17,14 +17,7 @@ local STATES: { [string]: string } =
 local STEP_KEYS: { [string]: boolean } =
 	{ id = true, label = true, description = true, state = true, navigable = true, enabled = true }
 
-return function(
-	ctx: Types.Context,
-	UI: {
-		StepIndicator: Types.Constructor<ContentProps.StepIndicatorSpec, Frame>,
-		Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-		Menu: ControlTypes.MenuConstructor,
-	}
-): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	local Host, Compose, read, runtime = ctx.Host, ctx.Compose, ctx.read, ctx.runtime
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 

@@ -1,16 +1,12 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
-local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local sheetGesture = require("./nav_sheet_gesture")
-
-type Controls = {
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
 
 export type SheetContent = {
 	plaqued: ComposeTypes.Cell<boolean>,
@@ -23,7 +19,7 @@ export type SheetContent = {
 
 return function(
 	ctx: Types.Context,
-	UI: Controls,
+	UI: ControlTypes.BuilderControls,
 	surfaces: Nav.Surfaces
 ): (NavigationProps.SheetSpec, sheetGesture.Gesture) -> SheetContent
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read

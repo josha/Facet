@@ -1,34 +1,26 @@
 --!strict
 local Types = require("./types")
 local Nav = require("./navigation_types")
-local Content = require("./content_types")
 local fieldChrome = require("./field_chrome")
 local ComposeTypes = require("../vendor/compose/core")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
-local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
-local OverlayProps = require("./overlay_props")
 local MenuItems = require("./nav_menu_items")
 local PickerParts = require("./nav_picker_parts")
 local pickerMenus = require("./nav_picker_menu")
 local pickerCards = require("./nav_picker_cards")
 local pickerOptions = require("./nav_picker_options")
 
-type Controls = {
-	Picker: ControlTypes.PickerConstructor,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject>,
-	TextInput: Types.Constructor<InputProps.TextInputProps, TextBox | Frame>,
-	Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
-	badged: Content.Badged,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, buildMenu: MenuItems.BuildMenu)
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	surfaces: Nav.Surfaces,
+	buildMenu: MenuItems.BuildMenu
+)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
 	local shared = PickerParts(ctx, surfaces)
-	local pickerKeys, appearanceFor, derive = shared.keys, shared.appearanceFor, shared.derive
+	local pickerKeys, derive = shared.keys, shared.derive
 	local menus = pickerMenus(ctx, UI, shared, buildMenu)
 	local cardsStyle = pickerCards(ctx, UI, shared)
 	local optionsStyle = pickerOptions(ctx, UI, surfaces, shared)
@@ -87,7 +79,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, buildM
 			controlSize = spec.controlSize,
 			corners = spec.corners,
 		})
-		appearanceFor(declaredStyle, read(spec.appearance))
+		shared.appearanceFor(declaredStyle, read(spec.appearance))
 		assert(
 			spec.maxHeight == nil
 				or (type(spec.maxHeight) == "number" and spec.maxHeight > 0 and spec.maxHeight < math.huge),

@@ -17,9 +17,9 @@ type ToggleButtonProps = InputProps.ButtonProps & {
 }
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
-	local runtime, Host, Compose, read = ctx.runtime, ctx.Host, ctx.Compose, ctx.read
+	local runtime, Host, read = ctx.runtime, ctx.Host, ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
-	local dynamic, writable, unskinned, typeRoles = kit.dynamic, kit.writable, kit.unskinned, kit.typeRoles
+	local dynamic, writable = kit.dynamic, kit.writable
 	UI.Toggle = ctx.construct("Toggle", function(spec: InputTypes.ToggleImplementationProps): TextButton
 		assert(type(read(spec.value)) == "boolean", "Facet.Toggle: value must be boolean")
 		assert(writable(spec.value) or spec.onChange, "Facet.Toggle: read-only value requires onChange")
@@ -199,7 +199,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 			indicator:AddTag(if presentation == "switch" then "facet-toggle-switch" else "facet-toggle-checkbox")
 			if dynamic(spec.value) or dynamic(spec.mixed) then
-				Compose.watch(updateIndicator)
+				ctx.Compose.watch(updateIndicator)
 			else
 				updateIndicator()
 			end
@@ -213,7 +213,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				local title = ctx.text({ Name = "Title", Text = row.title or spec.label or "" })
 				local labelSize = read(spec.textSize)
 				assert(
-					labelSize == nil or typeRoles[labelSize :: string] or type(labelSize) == "number",
+					labelSize == nil or kit.typeRoles[labelSize :: string] or type(labelSize) == "number",
 					"Facet.Toggle: textSize must be a type role or a positive number"
 				)
 				if type(labelSize) == "string" then
@@ -307,7 +307,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			p.haptic = true
 		end
 		if presentation ~= "button" then
-			unskinned[p] = true
+			kit.unskinned[p] = true
 		end
 		local toggle = ctx.styled(UI.Button(p), "toggle")
 		if markRow then

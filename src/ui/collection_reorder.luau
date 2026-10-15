@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local createState = require("./collection_reorder_state")
 local createPointer = require("./collection_reorder_pointer")
 local createRow = require("./collection_reorder_row")
@@ -8,7 +9,6 @@ local bindKeys = require("./collection_reorder_keys")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local CollectionTypes = require("./collection_types")
-local InputProps = require("./input_props")
 export type Editor<V, K> = {
 	placement: (K, ComposeTypes.Placement, ComposeTypes.Use) -> ComposeTypes.Placement,
 	wrap: (GuiObject, ComposeTypes.Readable<V>, K, boolean?) -> Frame,
@@ -26,7 +26,7 @@ export type Editor<V, K> = {
 }
 return function<V, K>(
 	ctx: Types.Context,
-	UI: { Button: Types.Constructor<InputProps.ButtonProps, TextButton> },
+	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.ReorderShape<V, K>,
 	source: Types.Value<{ V }>,
 	keyOf: (V, number) -> K,
@@ -58,7 +58,7 @@ return function<V, K>(
 		instantLayout,
 		reservedSlots
 	)
-	local moving, incoming, drag, begin = shared.moving, shared.incoming, shared.drag, shared.begin
+	local moving = shared.moving
 	local pointer = createPointer(shared)
 	local wrap = createRow(shared, pointer)
 	local function overlay(insideBody: boolean?): Frame
@@ -72,8 +72,8 @@ return function<V, K>(
 	end
 	return {
 		placement = function(key: K, at: ComposeTypes.Placement, use: ComposeTypes.Use): ComposeTypes.Placement
-			local move, proposal = use(moving), use(incoming)
-			local session = use(drag.state)
+			local move, proposal = use(moving), use(shared.incoming)
+			local session = use(shared.drag.state)
 			if session == nil or session.target ~= bodyOf() or session.accepted ~= true then
 				return at
 			end
@@ -120,7 +120,7 @@ return function<V, K>(
 				return false
 			end
 			if moving:peek() == nil then
-				begin(key, nil, nil, input.UserInputType == E.UserInputType.Touch)
+				shared.begin(key, nil, nil, input.UserInputType == E.UserInputType.Touch)
 			end
 			return moving:peek() ~= nil
 		end,

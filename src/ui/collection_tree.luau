@@ -1,11 +1,11 @@
 --!strict
+local ControlTypes = require("./control_types")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local Collections = require("./collection_types")
 local motion = require("./motion")
 local policy = require("./collection_policy")
 local sessionOf = require("./drag_session")
-local InputProps = require("./input_props")
 
 type Node<V, K> = { item: V, key: K, parent: K?, depth: number, branch: boolean, visible: boolean }
 type Snapshot<V, K> = {
@@ -31,7 +31,7 @@ export type Tree<V, K> = {
 
 return function<V, K>(
 	ctx: Types.Context,
-	UI: { Button: Types.Constructor<InputProps.ButtonProps, TextButton> },
+	UI: ControlTypes.BuilderControls,
 	spec: Collections.HierarchyOptions<V, K> & Collections.OptionalChildren<V> & {
 		from: Types.Value<{ V }>,
 		disabled: Collections.RowPredicate<V>?,

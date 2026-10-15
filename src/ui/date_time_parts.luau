@@ -3,22 +3,12 @@ local civil = require("./civil_date")
 local Shared = require("./types")
 local DTP = require("./date_time_picker_types")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
 local ComposeTypes = require("../vendor/compose/core")
 
 type CivilDate = DTP.CivilDate
 type Range = DTP.Range
 type Use = ComposeTypes.Use
-export type Deps = {
-	DateTimePicker: Shared.Constructor<InputProps.DateTimePickerProps, Frame>,
-	Button: Shared.Constructor<InputProps.ButtonProps, TextButton>,
-	NumberInput: Shared.Constructor<InputProps.NumberInputProps, TextBox | Frame>,
-	Chip: Shared.Constructor<InputProps.ChipProps, TextButton | Frame>,
-	ShortcutHint: Shared.Constructor<InputProps.ShortcutHintProps, TextLabel | Frame>,
-	Menu: ControlTypes.MenuConstructor,
-	Picker: ControlTypes.PickerConstructor,
-	VirtualList: ControlTypes.CollectionConstructor,
-}
+export type Deps = ControlTypes.BuilderControls
 export type Parts = {
 	gui: GuiService?,
 	input: UserInputService?,
@@ -46,13 +36,13 @@ local function sameRange(a: Range, b: Range): boolean
 end
 
 local function new(ctx: Shared.Context): Parts
-	local Host, Compose = ctx.Host, ctx.Compose
+	local Host = ctx.Host
 	local D2, V2 = ctx.types.UDim2, ctx.types.Vector2
 	local gui = ctx.config.guiService
 	local input = ctx.config.services.UserInputService
 
 	local function tagWhile(node: Instance, tag: string, on: (Use) -> boolean)
-		Compose.watch(function(use: Use)
+		ctx.Compose.watch(function(use: Use)
 			if on(use) then
 				node:AddTag(tag)
 			elseif node:HasTag(tag) then

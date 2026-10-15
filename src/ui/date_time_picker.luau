@@ -65,10 +65,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		local calendar = createCalendar(ctx, UI, parts, options, state)
 		local panelView = createPanel(ctx, UI, parts, spec, options, state, calendar)
 		local overlay = options.overlay
-		local diagnostics, viewMonth, room, dual = state.diagnostics, state.viewMonth, state.room, state.dual
-		local presented, valueText, typedError, enabled =
-			state.presented, state.valueText, state.typedError, state.enabled
-		local cells, landing = calendar.cells, calendar.landing
+		local diagnostics, room, dual = state.diagnostics, state.room, state.dual
+		local presented, typedError, enabled = state.presented, state.typedError, state.enabled
+		local landing = calendar.landing
 
 		local chromeSpec: fieldChrome.Options = {
 			label = spec.label,
@@ -90,7 +89,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				spec = chromeSpec,
 				plate = panel,
 				focus = function()
-					local list = cells[1]
+					local list = calendar.cells[1]
 					if gui and list and list[landing()] then
 						gui.SelectedObject = list[landing()]
 					end
@@ -124,7 +123,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 		runtime.decorate(root, {
 			Attributes = {
 				month = function(use: Use): string
-					local m = use(viewMonth)
+					local m = use(state.viewMonth)
 					return string.format("%04d-%02d", m.year, m.month)
 				end,
 				dual = function(use: Use): boolean
@@ -137,7 +136,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					return use(presented)
 				end,
 				text = function(use: Use): string
-					return use(valueText)
+					return use(state.valueText)
 				end,
 				typedError = function(use: Use): string
 					return use(typedError)

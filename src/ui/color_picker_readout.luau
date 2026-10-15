@@ -15,11 +15,10 @@ local CELL, GAP = Kit.CELL, Kit.GAP
 return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerState.State): () -> Frame
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
-	local color, swatch = kit.color, kit.swatch
+	local color = kit.color
 	local hasAlpha, held, alphaHeld, canon = state.hasAlpha, state.held, state.alphaHeld, state.canon
 	local formatCell, hexError = state.formatCell, state.hexError
-	local interactive, propose, proposeAlpha, commit, currentPaint =
-		state.interactive, state.propose, state.proposeAlpha, state.commit, state.currentPaint
+	local interactive, propose, commit = state.interactive, state.propose, state.commit
 
 	local function numberField(
 		name: string,
@@ -131,7 +130,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 				hexError:set("")
 				local moved = propose(color.hsvOf(parsed, canon:peek()))
 				if a ~= nil then
-					moved = proposeAlpha(a) or moved
+					moved = state.proposeAlpha(a) or moved
 				end
 				if moved then
 					commit()
@@ -186,7 +185,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 			return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill })
 		end, picker)
 		local head = ctx.row({
-			swatch("Preview", D2.fromOffset(2 * CELL + GAP, CELL), currentPaint),
+			kit.swatch("Preview", D2.fromOffset(2 * CELL + GAP, CELL), state.currentPaint),
 			picker,
 		}, { Name = "Head", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
 		assert(head:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Center

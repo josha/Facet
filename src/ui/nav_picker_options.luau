@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local segmentMetrics = require("./segment_metrics")
 local Types = require("./types")
 local Nav = require("./navigation_types")
@@ -7,27 +8,17 @@ local Content = require("./content_types")
 local reducedMotion = require("./motion").reduced
 local rest = require("./rest")
 local ComposeTypes = require("../vendor/compose/core")
-local InputProps = require("./input_props")
 local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
 local PickerParts = require("./nav_picker_parts")
 
 local RADIO_MARK = 18 + 8
 
-type Controls = {
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	TextInput: Types.Constructor<InputProps.TextInputProps, TextBox | Frame>,
-	Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
-	badged: Content.Badged,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, shared: PickerParts.Parts)
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces, shared: PickerParts.Parts)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
-	local pickerKeys, appearanceFor, derive, liveIcon =
-		shared.keys, shared.appearanceFor, shared.derive, shared.liveIcon
-	local layoutWidth, wrapWhenLong, sideChrome, wrapCaptions =
-		shared.layoutWidth, shared.wrapWhenLong, shared.sideChrome, shared.wrapCaptions
+	local pickerKeys, derive = shared.keys, shared.derive
+	local layoutWidth, sideChrome, wrapCaptions = shared.layoutWidth, shared.sideChrome, shared.wrapCaptions
 	local function slideSelection(
 		picker: Frame,
 		boxes: {
@@ -292,7 +283,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, shared
 								return read(use(source).description, use) or ""
 							end
 							else nil,
-						icon = liveIcon(source),
+						icon = shared.liveIcon(source),
 						TextSize = spec.textSize,
 						TextXAlignment = if style == "segmented" then E.TextXAlignment.Center else nil,
 						trailingIcon = if read(spec.indicator) == "none" and style ~= "segmented"
@@ -536,7 +527,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, shared
 						wrapCaptions(button, spec.controlSize, function(use: ComposeTypes.Use): number
 							return use(room) - 2 * segmentMetrics.inset
 						end, peers)
-						wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): string
+						shared.wrapWhenLong(button :: TextButton, function(use: ComposeTypes.Use): string
 							return `{use(room) - 2 * segmentMetrics.inset}|{peers(use)}`
 						end, button, true)
 						local caption = button:FindFirstChild("Title", true) or button:FindFirstChild("Label", true)
@@ -759,7 +750,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, shared
 			end
 			if spec.appearance ~= nil then
 				Compose.watch(function(use: ComposeTypes.Use)
-					local word = appearanceFor("segmented", read(spec.appearance, use))
+					local word = shared.appearanceFor("segmented", read(spec.appearance, use))
 					local stroke, utility = word == "stroke", word == "utility"
 					if stroke then
 						picker:AddTag("facet-segmented-stroke")

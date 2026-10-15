@@ -23,7 +23,6 @@ return function(
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local gui, input = kit.gui, kit.input
-	local displayed, attach = kit.displayed, kit.attach
 	local appearance, atRest = presence.appearance, presence.atRest
 	local overlay, parent = portal.overlay, portal.parent
 	local helpPointer = Compose.createSharedResource(function()
@@ -122,7 +121,7 @@ return function(
 			runtime.connect(input, "TouchLongPress", function(points: { Vector2 }, phase: Enum.UserInputState)
 				local point: Vector2? = points[1]
 				local layer = anchor:FindFirstAncestorWhichIsA("ScreenGui")
-				if point == nil or layer == nil or not displayed(anchor) then
+				if point == nil or layer == nil or not kit.displayed(anchor) then
 					return
 				end
 				local offset = if layer.IgnoreGuiInset and gui then gui:GetGuiInset() else V2.zero
@@ -183,7 +182,7 @@ return function(
 			end)
 		end
 		local timing: Nav.MotionTiming = { enter = ctx.metric("motion.normal"), exit = ctx.metric("motion.fast") }
-		attach(anchor, {
+		kit.attach(anchor, {
 			overlay(anchor, armed, function(phase: Nav.PresencePhase?)
 				local settled = Compose.cell(false)
 				local presence = appearance(phase, timing, settled)

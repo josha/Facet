@@ -8,16 +8,15 @@ local motion = require("./motion")
 local reducedMotion = motion.reduced
 local adaptive = require("./adaptive")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local pageLayers = require("./nav_page_layers")
 
-type Controls = {
-	NavigationStack: ControlTypes.NavigationStackConstructor,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers: pageLayers.PageLayers): ()
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	surfaces: Nav.Surfaces,
+	layers: pageLayers.PageLayers
+): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local content, checkTransition, layer = layers.content, layers.checkTransition, layers.layer

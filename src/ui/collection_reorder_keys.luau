@@ -6,10 +6,9 @@ return function<V, K>(shared: State.Reorder<V, K>, root: Frame, body: ScrollingF
 	local E = ctx.types.Enum
 	local moving, choosingDestination, drag, focus =
 		shared.moving, shared.choosingDestination, shared.drag, shared.focus
-	local rowNodes, gui, grid, horizontal = shared.rowNodes, shared.gui, shared.grid, shared.horizontal
+	local rowNodes, gui, horizontal = shared.rowNodes, shared.gui, shared.horizontal
 	local reorderable, deletable, begin, step = shared.reorderable, shared.deletable, shared.begin, shared.step
-	local commit, cancel, chosen, remove = shared.commit, shared.cancel, shared.chosen, shared.remove
-	local canDelete = shared.canDelete
+	local commit, chosen = shared.commit, shared.chosen
 	local function keyboardActive(use: ComposeTypes.Use): boolean
 		local move = use(moving)
 		local node = use(focus)
@@ -77,7 +76,7 @@ return function<V, K>(shared: State.Reorder<V, K>, root: Frame, body: ScrollingF
 	ctx.action(root, "ReorderDown", later, keyboardActive, function()
 		step(1, true)
 	end, { priority = 400, capture = true })
-	if grid then
+	if shared.grid then
 		ctx.action(
 			root,
 			"ReorderCrossEarlier",
@@ -101,7 +100,7 @@ return function<V, K>(shared: State.Reorder<V, K>, root: Frame, body: ScrollingF
 	end
 	ctx.action(root, "ReorderCancel", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
 		return use(moving) ~= nil
-	end, cancel, { priority = 400 })
+	end, shared.cancel, { priority = 400 })
 	ctx.action(root, "ReorderDrop", { E.KeyCode.Return, E.KeyCode.ButtonA }, function(use)
 		local move = use(moving)
 		return move ~= nil
@@ -133,9 +132,9 @@ return function<V, K>(shared: State.Reorder<V, K>, root: Frame, body: ScrollingF
 			root,
 			"DeleteRows",
 			{ E.KeyCode.Delete, E.KeyCode.Backspace, E.KeyCode.ButtonX },
-			canDelete,
+			shared.canDelete,
 			function()
-				remove(false)
+				shared.remove(false)
 			end,
 			{ priority = 400 }
 		)

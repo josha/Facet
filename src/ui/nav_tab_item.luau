@@ -1,26 +1,14 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
-local InputProps = require("./input_props")
-local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
 local tabMetrics = require("./nav_tab_metrics")
 
-type Controls = {
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	StatusIndicator: Types.Constructor<MediaProps.StatusIndicatorProps, TextLabel>,
-	Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
-	badged: Content.Badged,
-}
-
 export type TabItemView = {
-	fit: boolean,
-	placement: ComposeTypes.Formula<string>,
-	visibleTabs: ComposeTypes.Formula<{ Nav.Tab }>,
-	layoutUnit: ComposeTypes.Readable<number>,
-	indicatorOf: (ComposeTypes.Use) -> Nav.TabSelectionIndicator?,
+	frame: tabMetrics.TabFrame,
 	select: (string) -> (),
 	sectionLabels: { [string]: string },
 	tabButtons: { [string]: TextButton },
@@ -33,22 +21,22 @@ local CORNER_OVERLAP = 0.25
 
 return function(
 	ctx: Types.Context,
-	UI: Controls,
+	UI: ControlTypes.BuilderControls,
 	surfaces: Nav.Surfaces,
 	spec: NavigationProps.TabViewSpec,
 	view: TabItemView
 ): Types.Child
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
-	local fit, placement, visibleTabs = view.fit, view.placement, view.visibleTabs
-	local layoutUnit, indicatorOf, select = view.layoutUnit, view.indicatorOf, view.select
+	local frame = view.frame
+	local fit, placement, visibleTabs = frame.fit, frame.placement, frame.visibleTabs
+	local layoutUnit, indicatorOf, select = frame.layoutUnit, frame.indicatorOf, view.select
 	local sectionLabels, tabButtons, tabMeasures, tabLinks =
 		view.sectionLabels, view.tabButtons, view.tabMeasures, view.tabLinks
 	local metrics = view.metrics
 	local wordWidths, stacked, crowded, labelLine, iconGap =
 		metrics.wordWidths, metrics.stacked, metrics.crowded, metrics.labelLine, metrics.iconGap
-	local badgeClearances, band, tabHeight, segmentedTop =
-		metrics.badgeClearances, metrics.band, metrics.tabHeight, metrics.segmentedTop
+	local badgeClearances, band, tabHeight = metrics.badgeClearances, metrics.band, metrics.tabHeight
 	return Compose.keyed({
 		from = visibleTabs,
 		key = function(tab: Nav.Tab): string
@@ -410,7 +398,7 @@ return function(
 					and (
 						place == "sidebar"
 						or string.find(place, "bottom") ~= nil
-						or (spec.style == "sidebarAdaptable" and segmentedTop(use))
+						or (spec.style == "sidebarAdaptable" and metrics.segmentedTop(use))
 					)
 				local tags: { [string]: boolean } = { ["facet-tab-current"] = current, ["facet-tab-filled"] = filled }
 				for name, active in tags do

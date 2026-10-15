@@ -11,14 +11,7 @@ local reducedMotion = require("./motion").reduced
 local ACTION_KEYS: { [string]: boolean } = { label = true, icon = true, onActivate = true, enabled = true, busy = true }
 local MENU_KEYS: { [string]: boolean } = { items = true, label = true }
 
-return function(
-	ctx: Types.Context,
-	UI: {
-		Card: Types.Constructor<ContentProps.CardSpec, Frame>,
-		Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-		Menu: ControlTypes.MenuConstructor,
-	}
-): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	local Host, Compose, read, runtime = ctx.Host, ctx.Compose, ctx.read, ctx.runtime
 	local E, D2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.UDim
 	local function nonempty(value: unknown): boolean
@@ -28,13 +21,7 @@ return function(
 		return type(value) == "string"
 	end
 	local function within(node: Instance?, ancestor: Instance): boolean
-		while node do
-			if node == ancestor then
-				return true
-			end
-			node = node.Parent
-		end
-		return false
+		return node ~= nil and (node == ancestor or node:IsDescendantOf(ancestor))
 	end
 
 	UI.Card = ctx.construct("Card", function(spec: ContentProps.CardSpec): Frame

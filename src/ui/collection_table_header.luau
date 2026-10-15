@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local activation = require("./activation")
 local scrollLock = require("./scroll_lock")
 local ComposeTypes = require("../vendor/compose/core")
@@ -9,7 +10,7 @@ local Metrics = require("./collection_table_metrics")
 local Columns = require("./collection_table_columns")
 return function<V, K>(
 	ctx: Types.Context,
-	UI: { Button: Types.Constructor<InputProps.ButtonProps, TextButton> },
+	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.TableShape<V, K>,
 	sort: ComposeTypes.Cell<CollectionTypes.Sort?>,
 	widths: ComposeTypes.Cell<{ [string]: number }>,
@@ -21,8 +22,7 @@ return function<V, K>(
 	local read = ctx.read
 	local readSource = ctx.readSource
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
-	local input, preferredInput, recordHeight = metrics.input, metrics.preferredInput, metrics.recordHeight
-	local minimumOf, columnFrame = layout.minimumOf, layout.columnFrame
+	local input, preferredInput = metrics.input, metrics.preferredInput
 	local function setWidths(value: { [string]: number }): ()
 		if spec.onWidthsChange then
 			spec.onWidthsChange(value)
@@ -86,7 +86,7 @@ return function<V, K>(
 			local grip: TextButton?
 			local minimum = Compose.formula(function(use)
 				local value = use(current)
-				return if value.width ~= nil then value.minWidth or 48 else minimumOf(value)
+				return if value.width ~= nil then value.minWidth or 48 else layout.minimumOf(value)
 			end)
 			if column.resizable ~= false then
 				local startingPosition, startingWidth = 0, 0
@@ -152,7 +152,7 @@ return function<V, K>(
 				}
 				grip = Host.TextButton(gripProps)
 			end
-			frame = ctx.styled(columnFrame(current, index, button, grip), "TableHeader")
+			frame = ctx.styled(layout.columnFrame(current, index, button, grip), "TableHeader")
 			runtime.decorate(frame, {
 				ZIndex = function(use: ComposeTypes.Use)
 					return #read(spec.columns, use) - use(index) + 1
@@ -176,7 +176,7 @@ return function<V, K>(
 					"divider"
 				)
 			end, frame)))
-			recordHeight(headerMeasures, column.id, button, 16)
+			metrics.recordHeight(headerMeasures, column.id, button, 16)
 			if grip then
 				local selected = Compose.cell(false)
 				runtime.connect(grip, "SelectionGained", function()

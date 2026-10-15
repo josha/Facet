@@ -1,25 +1,18 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local reducedMotion = require("./motion").reduced
 local rest = require("./rest")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
-local InputProps = require("./input_props")
-local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
 local MenuItems = require("./nav_menu_items")
 local MenuRows = require("./nav_menu_rows")
 
 type MenuEntry<V> = MenuItems.MenuEntry<V>
-type Controls = {
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	TextInput: Types.Constructor<InputProps.TextInputProps, TextBox | Frame>,
-	Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
-	Avatar: Types.Constructor<MediaProps.AvatarProps, TextButton>,
-}
 
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces)
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local readSource = ctx.readSource
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim

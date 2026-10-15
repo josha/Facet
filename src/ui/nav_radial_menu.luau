@@ -5,13 +5,13 @@ local adaptive = require("./adaptive")
 local Types = require("./types")
 local Radial = require("./radial_types")
 local Navigation = require("./navigation_types")
-local InputProps = require("./input_props")
+local ControlTypes = require("./control_types")
 local RadialProps = require("./radial_props")
 local ComposeTypes = require("../vendor/compose/core")
 
 local HOLD = 0.4
 
-export type Controls = { Button: Types.Constructor<InputProps.ButtonProps, TextButton> }
+export type Controls = ControlTypes.BuilderControls
 export type Session<V> = {
 	branchOrigin: { path: string, shape: Radial.SectorShape }?,
 	capture: InputObject?,

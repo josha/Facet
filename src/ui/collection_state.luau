@@ -60,13 +60,7 @@ export type View<V, K> = {
 	fullSizes: (ComposeTypes.Use) -> { [K]: number },
 }
 local function belongsTo(node: Instance?, ancestor: Instance): boolean
-	while node do
-		if node == ancestor then
-			return true
-		end
-		node = node.Parent
-	end
-	return false
+	return node ~= nil and (node == ancestor or node:IsDescendantOf(ancestor))
 end
 local function findSelectable(node: Instance, names: { string }?, depth: number): GuiObject?
 	if node:IsA("GuiObject") and (not node.Visible or not node.Interactable) then

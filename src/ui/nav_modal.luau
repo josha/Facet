@@ -9,12 +9,12 @@ local overlayPortal = require("./nav_overlay_portal")
 local navHelp = require("./nav_help")
 
 return function(ctx: Types.Context): Nav.Surfaces
-	local Compose, runtime = ctx.Compose, ctx.runtime
+	local runtime = ctx.runtime
 	local function attach<N>(node: N & Instance, children: { Types.Child }): N & Instance
 		local stop = runtime.mountFragment(function()
 			return children
 		end, node)
-		Compose.cleanup(stop)
+		ctx.Compose.cleanup(stop)
 		return node
 	end
 	local kit = surfaceKit(ctx, attach)

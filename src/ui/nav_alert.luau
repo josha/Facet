@@ -6,22 +6,19 @@ local materialize = require("./materialize")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local reducedMotion = require("./motion").reduced
 local surfaceParts = require("./nav_surface_parts")
 
-type Controls = {
-	Alert: ControlTypes.AlertConstructor,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	Toggle: Types.Constructor<InputProps.ToggleProps, TextButton>,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: surfaceParts.SurfaceParts): ()
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	surfaces: Nav.Surfaces,
+	kit: surfaceParts.SurfaceParts
+): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local empty = kit.empty
 	local function presented<P>(
 		spec: { isPresented: ComposeTypes.Cell<boolean>?, item: ComposeTypes.Cell<P?>? }
 	): ComposeTypes.Body<boolean>
@@ -56,7 +53,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: s
 		): { Nav.AlertAction<P> }?
 			return if type(value) == "function" then value(payload) else value
 		end
-		local root = empty(spec, {
+		local root = kit.empty(spec, {
 			"title",
 			"message",
 			"actions",

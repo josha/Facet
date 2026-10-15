@@ -17,7 +17,7 @@ export type SurfaceParts = {
 }
 
 return function(ctx: Types.Context): SurfaceParts
-	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local Host, runtime, read = ctx.Host, ctx.runtime, ctx.read
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
 	local function body(content: Nav.Content): Instance
 		return if type(content) == "function" then content() else content
@@ -65,7 +65,7 @@ return function(ctx: Types.Context): SurfaceParts
 				return if level() == "limited" then fade(t) else t
 			end, true)
 		return progress,
-			Compose.formula(function(use: ComposeTypes.Use): boolean
+			ctx.Compose.formula(function(use: ComposeTypes.Use): boolean
 				return progress(use) <= 0
 			end),
 			function(use: ComposeTypes.Use): number

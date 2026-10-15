@@ -4,15 +4,12 @@ local Env = require("./environment_types")
 local State = require("./collection_reorder_state")
 return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 	local ctx, spec = shared.ctx, shared.spec
-	local Compose = ctx.Compose
 	local read = ctx.read
-	local moving, incoming, drag, sort = shared.moving, shared.incoming, shared.drag, shared.sort
-	local source, keyOf, controls, reservedSlots = shared.source, shared.keyOf, shared.controls, shared.reservedSlots
-	local collectionId, sourceIndex, location, commitLocal =
-		shared.collectionId, shared.sourceIndex, shared.location, shared.commitLocal
-	local grid, horizontal, scaleOf, alongBody = shared.grid, shared.horizontal, shared.scaleOf, shared.alongBody
-	local axis, crossAxis, canvasOffset, movePointer =
-		shared.axis, shared.crossAxis, shared.canvasOffset, shared.movePointer
+	local moving, incoming, drag = shared.moving, shared.incoming, shared.drag
+	local source, controls, reservedSlots = shared.source, shared.controls, shared.reservedSlots
+	local collectionId, sourceIndex, location = shared.collectionId, shared.sourceIndex, shared.location
+	local horizontal, scaleOf, alongBody = shared.horizontal, shared.scaleOf, shared.alongBody
+	local axis, crossAxis = shared.axis, shared.crossAxis
 	local focus = shared.focus
 	local destination = (if spec.drop then table.clone(spec.drop) else {}) :: DragTypes.TargetSpec
 	local accept, drop, update = destination.accepts, destination.onDrop, destination.onUpdate
@@ -60,7 +57,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 				included[key] = true
 			end
 			for index, item in rows do
-				local key = keyOf(item, index)
+				local key = shared.keyOf(item, index)
 				if not included[key] then
 					table.insert(remaining, key)
 					table.insert(rowIndices, assert(controls.indexOfKey)(key) or index)
@@ -78,7 +75,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		while low <= high do
 			local middle = math.floor((low + high) / 2)
 			local at = assert(controls.placementOf)(rowIndices[middle])
-			local crossed = if grid
+			local crossed = if shared.grid
 				then offset >= at.offset + at.size
 					or (
 						offset >= at.offset
@@ -135,7 +132,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		if info.invalid then
 			return false, info.invalid
 		end
-		if read(sort) ~= nil then
+		if read(shared.sort) ~= nil then
 			return false, "Clear sorting before inserting items"
 		end
 		if localMove(payload, info) then
@@ -152,7 +149,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 	end
 	destination.onDrop = function(payload: unknown, info: DragTypes.Proposal): (boolean | "pending")?
 		if localMove(payload, info) then
-			commitLocal((payload :: { keys: { K } }).keys, (info.insertion :: Env.DropInsertion).slot)
+			shared.commitLocal((payload :: { keys: { K } }).keys, (info.insertion :: Env.DropInsertion).slot)
 			return true
 		end
 		return if drop
@@ -200,9 +197,9 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		if next == now then
 			return false
 		end
-		canvasOffset(body, next)
+		shared.canvasOffset(body, next)
 		if moving:peek() then
-			movePointer(position)
+			shared.movePointer(position)
 		end
 		return true
 	end
@@ -211,7 +208,7 @@ return function<V, K>(shared: State.Reorder<V, K>, body: ScrollingFrame): ()
 		drag.register(body, destination)
 	end
 	drag.own(body)
-	Compose.watch(function(use)
+	ctx.Compose.watch(function(use)
 		local node = use(focus)
 		local session = drag.state:peek()
 		if session and session.source == body and session.mode == "armed" then

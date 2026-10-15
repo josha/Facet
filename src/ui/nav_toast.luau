@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
@@ -8,13 +9,8 @@ local toastSchedule = require("./toast_schedule")
 local motion = require("./motion")
 local reducedMotion = motion.reduced
 local reservations = require("./reservations")
-local InputProps = require("./input_props")
 local OverlayProps = require("./overlay_props")
 
-type Controls = {
-	Toast: Types.Constructor<OverlayProps.ToastSpec, Frame>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
 type Reason = Overlay.ToastDismissReason
 type Record = {
 	spec: OverlayProps.ToastSpec,
@@ -57,7 +53,7 @@ local KEYS = {
 local PASSIVE_ONLY = { "content", "position", "width", "fade" }
 local MARGIN, GAP, HUG_MAX, ROW_Z, ACTION_Z = 8, 8, 560, 70, 60
 
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2, UD = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local frames = runtime.host.frames

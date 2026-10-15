@@ -28,9 +28,9 @@ return function(
 ): Panel
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local E, D, D2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2
-	local modes, hasAlpha, draft = state.modes, state.hasAlpha, state.draft
+	local modes, draft = state.modes, state.draft
 	local modeCell, columns = state.modeCell, state.columns
-	local touch, close, restore, apply = state.touch, state.close, state.restore, state.apply
+	local touch, close = state.touch, state.close
 	local sliders = createSliders(ctx, UI, kit, state)
 	local planeView = createSpectrum(ctx, UI, surfaces, kit, state, sliders)
 	local swatches = createSwatches(ctx, UI, surfaces, kit, state)
@@ -145,7 +145,7 @@ return function(
 			end,
 		})
 		table.insert(children, body)
-		if hasAlpha then
+		if state.hasAlpha then
 			table.insert(children, measure(sliders.opacitySlider()))
 		end
 		local actions: { Shared.Child } = {}
@@ -158,7 +158,7 @@ return function(
 					if overlay then
 						close("cancel")
 					else
-						restore()
+						state.restore()
 					end
 				end,
 			}
@@ -169,7 +169,7 @@ return function(
 					label = "Apply",
 					appearance = "emphasis",
 					onActivate = function()
-						apply()
+						state.apply()
 						if overlay then
 							close("apply")
 						end

@@ -32,10 +32,9 @@ local CHECKER_CELLS = 24
 return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerState.State): Sliders
 	local Host, runtime = ctx.Host, ctx.runtime
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local color, ring, WHITE, LIGHT, DARK = kit.color, kit.ring, kit.WHITE, kit.LIGHT, kit.DARK
-	local held, alphaHeld, canon = state.held, state.alphaHeld, state.canon
-	local interactive, propose, proposeAlpha, commit, touch =
-		state.interactive, state.propose, state.proposeAlpha, state.commit, state.touch
+	local color, ring, WHITE = kit.color, kit.ring, kit.WHITE
+	local held, canon = state.held, state.canon
+	local interactive, propose, commit, touch = state.interactive, state.propose, state.commit, state.touch
 
 	local function channelSlider(
 		name: string,
@@ -139,7 +138,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 						Size = D2.fromScale(1 / CHECKER_CELLS, 1),
 						BorderSizePixel = 0,
 						LayoutOrder = index,
-						BackgroundColor3 = if (index + row) % 2 == 0 then LIGHT else DARK,
+						BackgroundColor3 = if (index + row) % 2 == 0 then kit.LIGHT else kit.DARK,
 					})
 				)
 			end
@@ -252,7 +251,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 			label = "Opacity",
 			LayoutOrder = 4,
 			value = function(use: Use): number
-				return use(alphaHeld) * 100
+				return use(state.alphaHeld) * 100
 			end,
 			min = 0,
 			max = 100,
@@ -270,7 +269,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 				end
 			end),
 			onChange = function(n: number)
-				proposeAlpha(n / 100)
+				state.proposeAlpha(n / 100)
 			end,
 			onCommit = function()
 				commit()

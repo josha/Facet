@@ -59,7 +59,7 @@ local MODE_LABEL, MAX_COLUMNS = Kit.MODE_LABEL, Kit.MAX_COLUMNS
 return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 	local Compose, read, readSource = ctx.Compose, ctx.read, ctx.readSource
 	local E = ctx.types.Enum
-	local chrome, color, normalize, WHITE = kit.chrome, kit.color, kit.normalize, kit.WHITE
+	local color, normalize = kit.color, kit.normalize
 	local function refuse(message: string): never
 		error(`Facet UI.ColorPicker: {message}`, 0)
 	end
@@ -155,7 +155,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 			refuse(`\`swatches\` {why}.`)
 		end
 	end
-	chrome.check("ColorPicker", spec)
+	kit.chrome.check("ColorPicker", spec)
 	local labelled = spec.label ~= nil
 
 	local diagnostics = Compose.cell({} :: { string })
@@ -217,7 +217,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 		return not disposed and interactive()
 	end
 
-	local canon = Compose.cell(color.hsvOf((initial :: Color3?) or WHITE))
+	local canon = Compose.cell(color.hsvOf((initial :: Color3?) or kit.WHITE))
 	local snapshot: { value: Color3?, alpha: number, canon: Hsv } =
 		{ value = held:peek(), alpha = alphaHeld:peek(), canon = canon:peek() }
 	local function takeSnapshot()

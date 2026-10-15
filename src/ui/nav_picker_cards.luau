@@ -1,20 +1,15 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
-local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local PickerParts = require("./nav_picker_parts")
 
-type Controls = {
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
-
-return function(ctx: Types.Context, UI: Controls, shared: PickerParts.Parts)
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, shared: PickerParts.Parts)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
-	local pickerKeys, liveIcon, layoutWidth, wrapCaptions =
-		shared.keys, shared.liveIcon, shared.layoutWidth, shared.wrapCaptions
+	local pickerKeys = shared.keys
 	local function cardsStyle<V>(spec: NavigationProps.PickerSpec<V>, choice: PickerParts.Choice<V>): GuiObject
 		local isSelected, select, options = choice.isSelected, choice.select, choice.options
 		local across = read(spec.axis) == "x"
@@ -60,7 +55,7 @@ return function(ctx: Types.Context, UI: Controls, shared: PickerParts.Parts)
 						subtitle = function(use: ComposeTypes.Use)
 							return read(use(source).description, use) or ""
 						end,
-						icon = liveIcon(source),
+						icon = shared.liveIcon(source),
 						controlSize = spec.controlSize,
 						appearance = function(use: ComposeTypes.Use): string
 							return if chosen(use) then "emphasis" else "standard"
@@ -79,8 +74,8 @@ return function(ctx: Types.Context, UI: Controls, shared: PickerParts.Parts)
 						end,
 					})
 					card:AddTag("facet-card-option")
-					local cardWidth = layoutWidth(card)
-					wrapCaptions(card, spec.controlSize, function(use: ComposeTypes.Use): number
+					local cardWidth = shared.layoutWidth(card)
+					shared.wrapCaptions(card, spec.controlSize, function(use: ComposeTypes.Use): number
 						return use(cardWidth)
 					end)
 					local content = card:FindFirstChild("Content")

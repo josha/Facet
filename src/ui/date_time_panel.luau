@@ -32,9 +32,9 @@ return function(
 	local frame = parts.frame
 	local isRange, withTime, draft, overlay, presets =
 		options.isRange, options.withTime, options.draft, options.overlay, options.presets
-	local range, today, minDate, maxDate = state.range, state.today, state.minDate, state.maxDate
-	local viewMonth, dual, prefers = state.viewMonth, state.dual, state.prefers
-	local interactive, propose, commit, restore = state.interactive, state.propose, state.commit, state.restore
+	local range = state.range
+	local viewMonth = state.viewMonth
+	local interactive, propose, commit = state.interactive, state.propose, state.commit
 	local takeSnapshot, close = state.takeSnapshot, state.close
 	local pane, downTarget = calendar.pane, calendar.downTarget
 	local header = createHeader(ctx, UI, options, state, calendar)
@@ -44,7 +44,7 @@ return function(
 		local chips: { Shared.Child } = {}
 		for _, p in presets do
 			local clamped = Compose.formula(function(use: Use): Range?
-				return civil.clampRange(p.range(use(today)), use(minDate), use(maxDate))
+				return civil.clampRange(p.range(use(state.today)), use(state.minDate), use(state.maxDate))
 			end)
 			local chipSpec: InputProps.ChipProps = {
 				Name = `Preset-{p.id}`,
@@ -86,7 +86,7 @@ return function(
 			),
 		}
 		local second = Compose.show(function(use: Use)
-			return use(dual)
+			return use(state.dual)
 		end, function()
 			local p = pane(2)
 			p.LayoutOrder = 2
@@ -97,7 +97,7 @@ return function(
 		table.insert(children, panesRow)
 		local hintOrder = #children + 1
 		local hint = Compose.show(function(use: Use)
-			return prefers(E.PreferredInput.Gamepad, use)
+			return state.prefers(E.PreferredInput.Gamepad, use)
 		end, function()
 			local keys: InputProps.ShortcutHintProps = {
 				Name = "PageKeys",
@@ -130,7 +130,7 @@ return function(
 				propose(if isRange then span(nil, nil) else nil)
 			end, "link")
 			local cancel = action("Cancel", "Cancel", function()
-				restore()
+				state.restore()
 				takeSnapshot()
 				close("cancel")
 			end)

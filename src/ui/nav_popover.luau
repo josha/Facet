@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
@@ -6,13 +7,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local placement = require("./overlay_placement")
 local activation = require("./activation")
-local InputProps = require("./input_props")
 local OverlayProps = require("./overlay_props")
-
-type Controls = {
-	Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
 
 local KEYS = {
 	"isPresented",
@@ -37,7 +32,7 @@ local KEYS = {
 local MARGIN = 8
 local PADDING = 8
 
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 

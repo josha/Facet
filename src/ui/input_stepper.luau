@@ -7,13 +7,12 @@ local ControlTypes = require("./control_types")
 local ComposeTypes = require("../vendor/compose/core")
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
-	local Host, read, props = ctx.Host, ctx.read, ctx.props
+	local Host, read = ctx.Host, ctx.read
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
-	local lists, enabled, stopEnabled, requireValue = kit.lists, kit.enabled, kit.stopEnabled, kit.requireValue
-	local changed, attributes, valueAttributes, adjustment =
-		kit.changed, kit.attributes, kit.valueAttributes, kit.adjustment
+	local lists, enabled = kit.lists, kit.enabled
+	local changed = kit.changed
 	UI.Stepper = ctx.construct("Stepper", function(spec: InputTypes.StepperImplementationProps): Frame
-		requireValue(spec, "number", "Stepper")
+		kit.requireValue(spec, "number", "Stepper")
 		local modelSpec = table.clone(spec) :: valueModel.Options
 		modelSpec.step = spec.step or 1
 		local model = valueModel(modelSpec, read)
@@ -94,7 +93,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				})
 			)
 		end
-		local p = props(spec, {
+		local p = ctx.props(spec, {
 			"value",
 			"min",
 			"max",
@@ -107,7 +106,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			"repeatInterval",
 		}, {
 			Selectable = function(use: ComposeTypes.Use): boolean
-				return stopEnabled(spec, use)
+				return kit.stopEnabled(spec, use)
 			end,
 			Size = if spec.label then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
 			AutomaticSize = if spec.label then E.AutomaticSize.Y else E.AutomaticSize.XY,
@@ -126,15 +125,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		)
 		local node = ctx.styled(Host.Frame(p), "stepper")
 		ctx.skin(node, "stepperPlate")
-		valueAttributes(node, spec, model)
+		kit.valueAttributes(node, spec, model)
 		if spec.label ~= nil then
-			attributes(node, {
+			kit.attributes(node, {
 				AccessibleLabel = function(use: ComposeTypes.Use): string
 					return read(spec.label, use) or ""
 				end,
 			})
 		end
-		adjustment(node, spec, adjust, nil, model.min, model.max)
+		kit.adjustment(node, spec, adjust, nil, model.min, model.max)
 		return node
 	end)
 end

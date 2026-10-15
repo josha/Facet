@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local layoutKit = require("./layout_kit")
 local reorder = require("./collection_reorder")
 local policy = require("./collection_policy")
@@ -8,16 +9,8 @@ local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
-local CollectionProps = require("./collection_props")
-local InputProps = require("./input_props")
-local OverlayProps = require("./overlay_props")
 local Metrics = require("./collection_table_metrics")
 local Columns = require("./collection_table_columns")
-type Controls = {
-	RowActions: Types.Constructor<CollectionProps.RowActionsSpec, Frame>,
-	Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
 export type Rows<V, K> = {
 	spec: CollectionTypes.TableShape<V, K>,
 	rowPolicySpec: CollectionTypes.TableShape<V, K>,
@@ -43,7 +36,11 @@ export type Rows<V, K> = {
 	metrics: Metrics.Metrics,
 	layout: Columns.Columns<V, K>,
 }
-return function<V, K>(ctx: Types.Context, UI: Controls, shared: Rows<V, K>): CollectionTypes.RowRender<V, K>
+return function<V, K>(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	shared: Rows<V, K>
+): CollectionTypes.RowRender<V, K>
 	local lists = layoutKit.of(ctx)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
@@ -54,10 +51,9 @@ return function<V, K>(ctx: Types.Context, UI: Controls, shared: Rows<V, K>): Col
 	local unitScale, scrolledX, editors, field = shared.unitScale, shared.scrolledX, shared.editors, shared.field
 	local tree, editor, laneWidth = shared.tree, shared.editor, shared.laneWidth
 	local metrics, layout = shared.metrics, shared.layout
-	local CELL_PADDING, minimumRow, touchRows = metrics.cellPadding, metrics.minimumRow, metrics.touchRows
-	local recordHeight, textInsetSize = metrics.recordHeight, metrics.textInsetSize
-	local collapsed, disclosureWidth, disclosureShare = layout.collapsed, layout.disclosureWidth, layout.disclosureShare
-	local setPrimaryMeasure, textWrap, columnFrame = layout.setPrimaryMeasure, layout.textWrap, layout.columnFrame
+	local CELL_PADDING, minimumRow = metrics.cellPadding, metrics.minimumRow
+	local collapsed, disclosureWidth = layout.collapsed, layout.disclosureWidth
+	local setPrimaryMeasure = layout.setPrimaryMeasure
 	return function(
 		current: ComposeTypes.Readable<V>,
 		placement: ComposeTypes.Readable<ComposeTypes.Placement>,
@@ -148,7 +144,7 @@ return function<V, K>(ctx: Types.Context, UI: Controls, shared: Rows<V, K>): Col
 								Size = function(use: ComposeTypes.Use)
 									return D2.new(
 										1,
-										if share then use(disclosureShare) else 0,
+										if share then use(layout.disclosureShare) else 0,
 										if lines(use) then 0 else 1,
 										0
 									)
@@ -170,7 +166,7 @@ return function<V, K>(ctx: Types.Context, UI: Controls, shared: Rows<V, K>): Col
 						then nil
 						else probe("Undisclosed", function(use: ComposeTypes.Use): string
 							return valueText(use)
-						end, true, touchRows)
+						end, true, metrics.touchRows)
 					local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
 					local custom = render
 					local content: GuiObject = if custom
@@ -199,7 +195,7 @@ return function<V, K>(ctx: Types.Context, UI: Controls, shared: Rows<V, K>): Col
 								end,
 								TextTruncate = E.TextTruncate.AtEnd,
 								TextWrapped = function(use: ComposeTypes.Use): boolean
-									return textWrap(use(column), use) and use(assert(wordFits)) ~= false
+									return layout.textWrap(use(column), use) and use(assert(wordFits)) ~= false
 								end,
 								Size = D2.fromScale(1, 1),
 								AutomaticSize = E.AutomaticSize.None,
@@ -236,7 +232,7 @@ return function<V, K>(ctx: Types.Context, UI: Controls, shared: Rows<V, K>): Col
 								then (padding:GetStyled("PaddingLeft") :: UDim).Offset + (padding:GetStyled(
 									"PaddingRight"
 								) :: UDim).Offset
-								else math.max(CELL_PADDING, use(textInsetSize).X / use(unitScale))
+								else math.max(CELL_PADDING, use(metrics.textInsetSize).X / use(unitScale))
 							setPrimaryMeasure(key, math.ceil(use(natural).X / use(unitScale)) + inset)
 						end)
 						Compose.cleanup(function()
@@ -244,7 +240,7 @@ return function<V, K>(ctx: Types.Context, UI: Controls, shared: Rows<V, K>): Col
 						end)
 					end
 					if not render then
-						recordHeight(cellHeights, definition.id, content :: TextLabel, CELL_PADDING)
+						metrics.recordHeight(cellHeights, definition.id, content :: TextLabel, CELL_PADDING)
 						local fits = ctx.observe.TextFits(assert(undisclosed))
 						Compose.watch(function(use: ComposeTypes.Use)
 							local id = use(column).id
@@ -276,7 +272,8 @@ return function<V, K>(ctx: Types.Context, UI: Controls, shared: Rows<V, K>): Col
 							cellHeights:set(sizes)
 						end)
 					end
-					local cell = ctx.styled(columnFrame(column, index, content, longestWord, undisclosed), "TableCell")
+					local cell =
+						ctx.styled(layout.columnFrame(column, index, content, longestWord, undisclosed), "TableCell")
 					cell.ClipsDescendants = true
 					return cell
 				end,

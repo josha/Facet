@@ -1,36 +1,18 @@
 --!strict
 local Types = require("./types")
 local Nav = require("./navigation_types")
-local Content = require("./content_types")
 local activation = require("./activation")
 local ComposeTypes = require("../vendor/compose/core")
 local ControlTypes = require("./control_types")
 local InputProps = require("./input_props")
-local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
-local OverlayProps = require("./overlay_props")
 local MenuItems = require("./nav_menu_items")
 local MenuPanel = require("./nav_menu_panel")
 local registerPicker = require("./nav_picker")
 local registerSplitButton = require("./nav_split_button")
 local registerComboBox = require("./nav_combo_box")
 
-return function(
-	ctx: Types.Context,
-	UI: {
-		Menu: ControlTypes.MenuConstructor,
-		Picker: ControlTypes.PickerConstructor,
-		SplitButton: ControlTypes.SplitButtonConstructor,
-		ComboBox: Types.Constructor<NavigationProps.ComboBoxSpec, Frame>,
-		Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-		Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject>,
-		TextInput: Types.Constructor<InputProps.TextInputProps, TextBox | Frame>,
-		Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
-		Avatar: Types.Constructor<MediaProps.AvatarProps, TextButton>,
-		badged: Content.Badged,
-	},
-	surfaces: Nav.Surfaces
-): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local itemModel = MenuItems(ctx)

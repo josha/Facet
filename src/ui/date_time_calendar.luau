@@ -36,13 +36,13 @@ return function(
 	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local gui, input, tagWhile, frame = parts.gui, parts.input, parts.tagWhile, parts.frame
-	local isRange, draft, weekStart = options.isRange, options.draft, options.weekStart
-	local months, weekdays = options.months, options.weekdays
+	local isRange, draft = options.isRange, options.draft
+	local months = options.months
 	local value, range, today, selected = state.value, state.range, state.today, state.selected
-	local dual, paneMonth, paneGrid, panes = state.dual, state.paneMonth, state.paneGrid, state.panes
-	local peekMonth, canPage, page = state.peekMonth, state.canPage, state.page
-	local interactive, mayEdit, isDisabled = state.interactive, state.mayEdit, state.isDisabled
-	local propose, commit, choose, longName = state.propose, state.commit, state.choose, state.longName
+	local paneMonth, paneGrid = state.paneMonth, state.paneGrid
+	local canPage, page = state.canPage, state.page
+	local interactive, isDisabled = state.interactive, state.isDisabled
+	local propose = state.propose
 
 	local cells: { [number]: { [number]: TextButton } } = {}
 	local cellIndex: { [Instance]: { k: number, i: number } } = {}
@@ -50,7 +50,7 @@ return function(
 		return paneGrid(k)[i]
 	end
 	local function cellFor(d: CivilDate, use: Use?): (number?, number?)
-		for k = 1, panes(use) do
+		for k = 1, state.panes(use) do
 			local m = paneMonth(k, use)
 			if d.year == m.year and d.month == m.month then
 				for i, g in paneGrid(k, use) do
@@ -63,7 +63,7 @@ return function(
 		return nil, nil
 	end
 	local function landing(): number
-		local m = peekMonth()
+		local m = state.peekMonth()
 		local grid = paneGrid(1)
 		local want = if isRange then range:peek().start else value:peek()
 		local candidates: { CivilDate } = { today:peek() }
@@ -100,7 +100,7 @@ return function(
 	end
 	local function grabEnd(d: CivilDate): boolean
 		local r = range:peek()
-		if not isRange or r.start == nil or r.finish == nil or not mayEdit() then
+		if not isRange or r.start == nil or r.finish == nil or not state.mayEdit() then
 			return false
 		end
 		local other = if civil.compare(d, r.start) == 0
@@ -136,7 +136,7 @@ return function(
 		if cancelled then
 			propose(held.from)
 		elseif not draft then
-			commit()
+			state.commit()
 		end
 	end
 	if isRange and input then
@@ -313,7 +313,7 @@ return function(
 			LayoutOrder = i,
 			label = "",
 			name = function(use: Use)
-				return longName(use(date)) .. (if use(disabled) then ", unavailable" else "")
+				return state.longName(use(date)) .. (if use(disabled) then ", unavailable" else "")
 			end,
 			Size = D2.fromOffset(CELL, CELL),
 			AutomaticSize = E.AutomaticSize.None,
@@ -330,7 +330,7 @@ return function(
 					swallowTap = false
 					return
 				end
-				choose(date:peek())
+				state.choose(date:peek())
 			end,
 			Host.Frame "Layers" {
 				BackgroundTransparency = 1,
@@ -372,13 +372,13 @@ return function(
 	local function pane(k: number): Frame
 		local names: { Shared.Child } = {}
 		for c = 0, 6 do
-			local dayIndex = (weekStart - 1 + c) % 7 + 1
+			local dayIndex = (options.weekStart - 1 + c) % 7 + 1
 			table.insert(
 				names,
 				ctx.styled(
 					ctx.text({
 						Name = `W{c + 1}`,
-						Text = weekdays[dayIndex],
+						Text = options.weekdays[dayIndex],
 						Size = D2.fromOffset(CELL, 20),
 						AutomaticSize = E.AutomaticSize.None,
 						TextXAlignment = E.TextXAlignment.Center,
@@ -413,7 +413,7 @@ return function(
 					return `{months[m.month]} {m.year}`
 				end,
 				Visible = function(use: Use)
-					return use(dual)
+					return use(state.dual)
 				end,
 			}),
 			"type-label"

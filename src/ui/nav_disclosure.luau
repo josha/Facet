@@ -1,20 +1,20 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
-local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local surfaceParts = require("./nav_surface_parts")
 
-type Controls = {
-	DisclosureGroup: Types.Constructor<NavigationProps.DisclosureGroupSpec, Frame>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: surfaceParts.SurfaceParts): ()
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	surfaces: Nav.Surfaces,
+	kit: surfaceParts.SurfaceParts
+): ()
 	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
-	local body, revealMotion, unroll = kit.body, kit.revealMotion, kit.unroll
+	local body = kit.body
 	UI.DisclosureGroup = ctx.construct("DisclosureGroup", function(spec: NavigationProps.DisclosureGroupSpec): Frame
 		assert(
 			type(spec.expanded) == "table" and spec.expanded.set,
@@ -74,7 +74,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: s
 			end
 		end
 
-		local progress, closed, hidden = revealMotion(spec.expanded)
+		local progress, closed, hidden = kit.revealMotion(spec.expanded)
 		local caret = header:FindFirstChild(if side == "leading" then "LeadingIcon" else "TrailingIcon", true)
 		if caret and caret:IsA("GuiObject") then
 			runtime.decorate(caret, {
@@ -129,7 +129,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: s
 						node,
 					}
 					surfaces.attach(fade, { inset :: Types.Child })
-					local automatic, height = unroll(progress, ctx.observe.AbsoluteSize(fade))
+					local automatic, height = kit.unroll(progress, ctx.observe.AbsoluteSize(fade))
 					local reveal = Host.Frame "Reveal" {
 						BackgroundTransparency = 1,
 						ClipsDescendants = true,

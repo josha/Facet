@@ -1,16 +1,10 @@
 --!strict
+local ControlTypes = require("./control_types")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local Nav = require("./navigation_types")
-local InputProps = require("./input_props")
-local MediaProps = require("./media_props")
 local MenuItems = require("./nav_menu_items")
 
-type Controls = {
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
-	Avatar: Types.Constructor<MediaProps.AvatarProps, TextButton>,
-}
 export type RowState = {
 	hitFloor: (ComposeTypes.Use?) -> number,
 	sheeted: ComposeTypes.Readable<boolean>,
@@ -22,7 +16,7 @@ export type RowState = {
 }
 export type AncestorLevel<V> = { id: string, items: { Nav.MenuItem<V> }, prefix: { string }, depth: number }
 
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces)
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local itemModel = MenuItems(ctx)

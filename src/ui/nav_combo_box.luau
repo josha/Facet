@@ -1,22 +1,13 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
-local InputProps = require("./input_props")
-local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
 local MenuPanel = require("./nav_menu_panel")
 
-type Controls = {
-	ComboBox: Types.Constructor<NavigationProps.ComboBoxSpec, Frame>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	TextInput: Types.Constructor<InputProps.TextInputProps, TextBox | Frame>,
-	Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
-	Avatar: Types.Constructor<MediaProps.AvatarProps, TextButton>,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces)
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
 	local menuPanel = MenuPanel(ctx, UI, surfaces)
