@@ -149,7 +149,7 @@ lute run eval/tasks/racing-hub/hidden/play.luau --workspace <workspace> --output
 
 ## Validation
 
-[`validation/racing-hub`](validation/racing-hub) holds the plain-Roblox `strong` and `weak` reference interfaces. The strong interface has one hub, one wallet, and shared navigation. The weak interface differs in two files: missing selection paths and panels that are too wide for phones in `Kit.luau`, and stale purchase states in `shop/init.luau`; the suite reads its other files from `strong`. Run it when Studio is available:
+[`validation/racing-hub`](validation/racing-hub) holds the plain-Roblox `strong` and `weak` reference interfaces. The strong interface has one hub, one wallet, and shared navigation. The weak interface differs in two files: missing selection paths and panels that are too wide for phones in `Kit.luau`, stale purchase states in `shop/init.luau`, and a central race timer in `round-hud/init.luau`; the suite reads its other files from `strong`. Run it when Studio is available:
 
 ```sh
 lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/validation/games.json --parallel 1
@@ -168,3 +168,5 @@ See [the extended suite handoff](validation/extended.md) for the six new turns, 
 - The audit reads properties. It does not see style rules, rendered pixels or animation, and its selection path is an approximation.
 - Captures come from the Studio viewport through the MCP capture tool. Their size depends on the Studio window.
 - `VirtualInput` refuses a key that Roblox binds to a core action, for example Tab while the Roblox player list is on. The scoreboard turn asks for the player list to be off, and the check reports a refused key as a failure with the reason.
+
+The starter also contains the shared playable kart world. See [the racing world handoff](validation/scenery.md) for builds, controls, costs, and scenario determinism. The world team owns this code; eval agents still build only the interface.

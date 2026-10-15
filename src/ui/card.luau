@@ -225,16 +225,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			spec.controls.lifting = lifting
 			spec.controls.diagnostics = checks.list
 		end
-		local cardWidth = Compose.cell(0)
 		local artwork = Host.ImageLabel({
 			Name = "Artwork",
 			LayoutOrder = 1,
 			BackgroundTransparency = 1,
 			Image = image,
-			Size = function(use: ComposeTypes.Use): UDim2
-				local width = use(cardWidth)
-				return D2.new(1, 0, 0, if width > 0 then math.ceil(width / ratio) else 100000)
-			end,
+			Size = D2.new(1, 0, 0, 100000),
 			ScaleType = if spec.imageFraming == "fit" then E.ScaleType.Fit else E.ScaleType.Crop,
 			Host.UIAspectRatioConstraint {
 				AspectRatio = ratio,
@@ -479,11 +475,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			row :: Types.Child,
 		}
 		local liftScale = Host.UIScale({ Name = "Lift", Scale = scale })
-		local layoutUnit = Host.Frame({
-			Name = "LayoutUnit",
-			Size = D2.fromOffset(1, 1),
-			Visible = false,
-		})
 		local card = Host.Frame(ctx.props(spec, {
 			"image",
 			"artwork",
@@ -531,13 +522,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				end,
 			}) :: Types.Child,
 			liftScale :: Types.Child,
-			layoutUnit :: Types.Child,
 			body :: Types.Child,
 			plate :: Types.Child,
 		}))
 		root = card
 		local extent = ctx.observe.AbsoluteSize(card)
-		local unitSize = ctx.observe.AbsoluteSize(layoutUnit)
 		if spec.onActivate then
 			local bodyExtent = ctx.observe.AbsoluteSize(body)
 			local ringed = if spec.ringTarget == "media" then ctx.observe.AbsoluteSize(artwork) else extent
@@ -559,11 +548,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				end,
 			})
 		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			local painted = use(unitSize).X
-			local factor = if painted > 0 then painted else math.max(liftScale.Scale, 0.001)
-			cardWidth:set(math.round(use(extent).X / factor))
-		end)
 		local revealExtent = Compose.formula(function(use: ComposeTypes.Use): { body: number }
 			return { body = use(extent).Y }
 		end)

@@ -1,6 +1,11 @@
 --!strict
 
 local task = require("@std/task")
+local fs = require("@std/fs")
+local process = require("@std/process")
+local Audit = require("../../../../tools/vendor/verify/src/roblox/ui-audit")
+local Lute = require("../../../../tools/vendor/verify/src/lute")
+local RaceSpace = require("./race-space")
 
 local Check = require("../../../../tools/play/host/check")
 local Core = require("../../../../tools/vendor/verify/src/core")
@@ -81,12 +86,12 @@ local function eliminate(qa: QA.QA, victim: string, by: string)
 	qa:admin("eliminate", { victim = victim, by = by })
 end
 
-local function feed(qa: QA.QA, context: Core.Context, by: string, victim: string)
+local function feed(qa: QA.QA, context: Core.Context, _by: string, victim: string)
 	Check.text(
 		qa,
 		context,
-		string.lower(by) .. "%s+eliminated%s+" .. string.lower(victim),
-		("the feed shows %s eliminated %s"):format(by, victim),
+		string.lower(victim) .. "%s+knocked out:%s+last on lap 1",
+		("the feed shows %s knocked out: last on lap 1"):format(victim),
 		4
 	)
 end
@@ -94,6 +99,20 @@ end
 local function startRound(qa: QA.QA, context: Core.Context)
 	qa:admin("phase", { phase = "Round", seconds = 180 })
 	Check.text(qa, context, "round", "the HUD shows the Round phase", 5)
+end
+
+local function drivingDump(qa: QA.QA): Audit.Dump
+	qa:dump("driving-safety")
+	for index, word in process.args do
+		if word == "--outputs" then
+			return Audit.decode(
+				Lute.parse(
+					fs.readFileToString(process.args[index + 1] .. "/dumps/" .. qa.device.id .. "/driving-safety.json")
+				)
+			)
+		end
+	end
+	error("--outputs is required")
 end
 
 local behavior: { Case } = {
@@ -132,6 +151,38 @@ local behavior: { Case } = {
 		end,
 	},
 	{
+		id = "driving-keeps-selection-free",
+		run = function(qa, context)
+			for _ = 1, 3 do
+				Check.that(context, qa:selected() == nil, "driving has no selected UI until the player opens a panel")
+				task.wait(0.2)
+			end
+		end,
+	},
+	{
+		id = "driving-keeps-thumbstick-free",
+		run = function(qa, context)
+			local dump = drivingDump(qa)
+			if table.find(qa.device.input, "touch") then
+				Check.that(
+					context,
+					RaceSpace.thumbstickClear(dump),
+					"interactive UI leaves the lower-left touch thumbstick region clear"
+				)
+			end
+		end,
+	},
+	{
+		id = "driving-keeps-road-clear",
+		run = function(qa, context)
+			Check.that(
+				context,
+				RaceSpace.centerClear(drivingDump(qa)),
+				"the race HUD leaves the central road corridor clear"
+			)
+		end,
+	},
+	{
 		id = "marks-an-elimination",
 		screen = "round",
 		shot = "2-round",
@@ -164,7 +215,7 @@ local behavior: { Case } = {
 			feed(qa, context, "Nova", "Zed")
 			eliminate(qa, "Rook", "Moss")
 			feed(qa, context, "Moss", "Rook")
-			Check.absent(qa, context, "nova%s+eliminated%s+zed", "the oldest line leaves the feed", 3)
+			Check.absent(qa, context, "zed%s+knocked out", "the oldest line leaves the feed", 3)
 		end,
 	},
 	{
@@ -197,7 +248,7 @@ local behavior: { Case } = {
 			qa:admin("phase", { phase = "Intermission", seconds = 20 })
 			Check.absent(qa, context, "blue wins", "the results hide in the intermission", 4)
 			startRound(qa, context)
-			Check.absent(qa, context, "eliminated", "the feed clears for the new round", 4)
+			Check.absent(qa, context, "knocked out", "the feed clears for the new round", 4)
 			Check.absent(qa, context, "you are out", "You are out hides in the new round", 3)
 		end,
 	},

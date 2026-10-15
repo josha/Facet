@@ -1,6 +1,9 @@
 --!strict
 
 local Verify = require("../../tools/vendor/verify/src/core")
+local Audit = require("../../tools/vendor/verify/src/roblox/ui-audit")
+local Rules = require("../../eval/tasks/racing-hub/starter/src/shared/RaceRules")
+local RaceSpace = require("../../eval/tasks/racing-hub/hidden/race-space")
 local Scenarios = {
 	require("../../eval/tasks/hub-livery-editor/hidden/scenario"),
 	require("../../eval/tasks/hub-track-vote/hidden/scenario"),
@@ -19,6 +22,168 @@ local Added = {
 }
 
 return function(harness: Verify.Harness)
+	harness:case("race progress requires ordered checkpoints and a forward finish crossing", function(t)
+		local racer = { checkpoint = 0, lap = 0, progress = 0 }
+		t:expect(Rules.advance(racer, 0.8, true, 16)):toBe(false)
+		t:expect(racer.checkpoint):toBe(0)
+		t:expect(Rules.advance(racer, 1 / 16, false, 16)):toBe(false)
+		t:expect(racer.checkpoint):toBe(0)
+		for lap = 1, 3 do
+			for checkpoint = 1, 15 do
+				t:expect(Rules.advance(racer, checkpoint / 16 + 0.001, true, 16)):toBe(false)
+			end
+			t:expect(Rules.advance(racer, 0.001, true, 16)):toBe(true)
+			t:expect(racer.lap):toBe(lap)
+			t:expect(Rules.advance(racer, 0, true, 16)):toBe(false)
+		end
+	end)
+	harness:case("race standings prefer finish order then checkpoint progress and put OUT last", function(t)
+		local first = { name = "First", progress = 3, finish = 1, out = false }
+		local second = { name = "Second", progress = 3.1, finish = 2, out = false }
+		local behind = { name = "Behind", progress = 2.9, finish = math.huge, out = false }
+		local out = { name = "Out", progress = 3.2, finish = math.huge, out = true }
+		local order = { out, behind, second, first }
+		table.sort(order, Rules.ahead)
+		t:expect(order[1].name):toBe("First")
+		t:expect(order[2].name):toBe("Second")
+		t:expect(order[3].name):toBe("Behind")
+		t:expect(order[4].name):toBe("Out")
+	end)
+	harness:case("race safety geometry accepts edge HUDs and rejects center paint and thumbstick actions", function(t)
+		local dump: Audit.Dump = {
+			schemaVersion = 1,
+			screen = {
+				width = 390,
+				height = 844,
+				scale = 1,
+				guiInset = { left = 0, top = 0, right = 0, bottom = 0 },
+				input = { "touch" },
+			},
+			roots = {},
+			elements = {},
+			instances = 1,
+			truncated = false,
+		}
+		local element: Audit.Element = {
+			index = 1,
+			root = 1,
+			class = "TextLabel",
+			path = "HUD",
+			rect = { x = 140, y = 10, width = 100, height = 40 },
+			rotation = 0,
+			visible = true,
+			zIndex = 1,
+			order = 1,
+			interactive = false,
+			selectable = false,
+			active = false,
+			interactable = true,
+			next = {},
+			selectionGroup = false,
+			stops = {},
+			background = { color = { r = 0, g = 0, b = 0 }, transparency = 0 },
+		}
+		dump.elements[1] = element
+		t:expect(RaceSpace.centerClear(dump)):toBe(true)
+		element.rect.y = 410
+		t:expect(RaceSpace.centerClear(dump)):toBe(false)
+		element.rect = { x = 20, y = 650, width = 100, height = 44 }
+		t:expect(RaceSpace.thumbstickClear(dump)):toBe(true)
+		element.interactive = true
+		t:expect(RaceSpace.thumbstickClear(dump)):toBe(false)
+		element.interactive = false
+		element.active = true
+		t:expect(RaceSpace.thumbstickClear(dump)):toBe(false)
+		element.scrollClip = { x = 200, y = 650, width = 100, height = 44 }
+		t:expect(RaceSpace.thumbstickClear(dump)):toBe(true)
+		element.scrollClip = nil
+		element.visible = false
+		t:expect(RaceSpace.thumbstickClear(dump)):toBe(true)
+		element.visible = true
+		element.rect = { x = 16, y = 48, width = 160, height = 44 }
+		element.text = {
+			content = "Coins\nGems",
+			size = 18,
+			bounds = { width = 80, height = 44 },
+			scaled = false,
+			wrapped = true,
+			bold = false,
+			color = { r = 1, g = 1, b = 1 },
+			transparency = 0,
+		}
+		local roster = table.clone(element)
+		roster.index = 2
+		roster.root = 2
+		roster.path = "AnotherScreen.Roster"
+		roster.rect = { x = 16, y = 20, width = 160, height = 24 }
+		dump.elements[2] = roster
+		t:expect(RaceSpace.textClear(dump)):toBeTrueWith("stacked HUD readouts clear each other across screens")
+		roster.rect.y = 60
+		t:expect(not RaceSpace.textClear(dump)):toBeTrueWith("the old roster position intersects the wallet")
+		roster.rect.y = 91
+		t:expect(RaceSpace.textClear(dump)):toBeTrueWith("one pixel of edge rounding is allowed")
+		roster.rect.y = 90
+		t:expect(not RaceSpace.textClear(dump)):toBeTrueWith("two pixels of text overlap is rejected")
+		roster.rect = { x = 16, y = 48, width = 160, height = 44 }
+		t:expect(not RaceSpace.textClear(dump)):toBeTrueWith("fully coincident text is an overlap")
+		roster.visible = false
+		t:expect(RaceSpace.textClear(dump)):toBe(true)
+		roster.visible = true
+		roster.scrollClip = { x = 16, y = 0, width = 160, height = 44 }
+		t:expect(RaceSpace.textClear(dump)):toBeTrueWith("clipped text does not collide")
+		roster.scrollClip = nil
+		local invisibleText = table.clone(element.text :: Audit.Text)
+		invisibleText.transparency = 1
+		roster.text = invisibleText
+		t:expect(RaceSpace.textClear(dump)):toBe(true)
+		for _, size in { { 1920, 1080, 0 }, { 390, 844, 0 }, { 844, 390, 59 }, { 1180, 820, 0 }, { 1920, 1080, 0 } } do
+			dump.screen.width, dump.screen.height = size[1], size[2]
+			dump.screen.guiInset.top = 58
+			dump.screen.safeArea = { x = size[3], y = 0, width = size[1] - size[3], height = size[2] - 20 }
+			dump.elements = { element }
+			element.rect = { x = size[3] + 16, y = 74, width = 100, height = 44 }
+			t:expect(RaceSpace.safeContent(dump))
+				:toBeTrueWith("safe HUD content clears the core UI and the device cutout")
+			element.rect.y = 56
+			t:expect(RaceSpace.safeContent(dump)):toBe(false)
+			element.rect.y = 57
+			t:expect(RaceSpace.safeContent(dump)):toBeTrueWith("safe content allows one pixel of rounding")
+			if size[3] > 0 then
+				element.rect.x = 0
+				t:expect(RaceSpace.safeContent(dump)):toBe(false)
+			end
+			element.rect = { x = size[3] + 16, y = 74, width = 100, height = 44 }
+			local action = table.clone(element)
+			action.text = nil
+			action.interactive = true
+			action.selectable = false
+			action.rect = { x = size[3] + 16, y = 0, width = 44, height = 44 }
+			dump.elements = { action }
+			t:expect(not RaceSpace.safeContent(dump)):toBeTrueWith("unlabelled actions also clear the core UI")
+			dump.elements = { element }
+			element.interactive = true
+			element.selectable = true
+			(element.text :: Audit.Text).content = "Close"
+			local scrim = table.clone(element)
+			scrim.index = 2
+			scrim.text = nil
+			scrim.interactive = false
+			scrim.selectable = false
+			scrim.background = { color = { r = 0.02, g = 0.03, b = 0.05 }, transparency = 0.35 }
+			scrim.rect = { x = 0, y = 0, width = size[1], height = size[2] }
+			dump.elements[2] = scrim
+			t:expect(RaceSpace.scrimCovers(dump)):toBeTrueWith("the strong full-screen scrim covers the viewport")
+			scrim.rect = { x = size[3], y = 58, width = size[1] - size[3], height = size[2] - 58 }
+			t:expect(not RaceSpace.scrimCovers(dump))
+				:toBeTrueWith("the weak safe-area scrim leaves the top bar undimmed")
+			dump.selected = 1
+			t:expect(RaceSpace.selectionValid(dump)):toBe(true)
+			element.visible = false
+			t:expect(RaceSpace.selectionValid(dump)):toBe(false)
+			element.visible = true
+			dump.selected = nil
+		end
+	end)
 	harness:case("each extended turn retains earlier player cases on all five devices", function(t)
 		local previous: { [string]: { [string]: boolean } } = {}
 		for index, scenario in Scenarios do

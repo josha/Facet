@@ -1,6 +1,11 @@
 --!strict
 
 local task = require("@std/task")
+local fs = require("@std/fs")
+local process = require("@std/process")
+local Audit = require("../../../../tools/vendor/verify/src/roblox/ui-audit")
+local Lute = require("../../../../tools/vendor/verify/src/lute")
+local RaceSpace = require("./race-space")
 
 local Check = require("../../../../tools/play/host/check")
 local Core = require("../../../../tools/vendor/verify/src/core")
@@ -113,6 +118,16 @@ local behavior: { Case } = {
 			Check.text(qa, context, "/%s*5k", "the zone progress shows the 5K goal", 2)
 			qa:capture("1-hud")
 			qa:dump("hud")
+			local output: string? = nil
+			for index, word in process.args do
+				if word == "--outputs" then
+					output = process.args[index + 1]
+				end
+			end
+			assert(output ~= nil, "--outputs is required")
+			local dump =
+				Audit.decode(Lute.parse(fs.readFileToString(output .. "/dumps/" .. qa.device.id .. "/hud.json")))
+			Check.that(context, RaceSpace.textClear(dump), "visible HUD text does not overlap other text")
 		end,
 	},
 	{

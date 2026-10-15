@@ -27,7 +27,7 @@
           "src/client/Interface/inventory/init.luau": "{task}/strong/src/client/Interface/inventory/init.luau",
           "src/client/Interface/npc-dialogue/init.luau": "{task}/strong/src/client/Interface/npc-dialogue/init.luau",
           "src/client/Interface/pack-opening/init.luau": "{task}/strong/src/client/Interface/pack-opening/init.luau",
-          "src/client/Interface/round-hud/init.luau": "{task}/strong/src/client/Interface/round-hud/init.luau",
+          "src/client/Interface/round-hud/init.luau": "{task}/{arm}/src/client/Interface/round-hud/init.luau",
           "src/client/Interface/settings/init.luau": "{task}/strong/src/client/Interface/settings/init.luau",
           "src/client/Interface/shop/init.luau": "{task}/{arm}/src/client/Interface/shop/init.luau"
         }

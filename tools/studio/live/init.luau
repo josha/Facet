@@ -435,6 +435,9 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				end,
 			}
 			screen.configure(context)
+			if config.preferredTextSize then
+				context.textPreview:set(config.preferredTextSize)
+			end
 			context.UI = Facet.controls(env.runtime, {
 				viewport = env.viewport,
 				theme = env.theme,

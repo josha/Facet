@@ -62,8 +62,8 @@ local function mount(context: Context)
 	Kit.padding(Kit.space.small).Parent = out
 	out.Parent = screen
 
-	local function teamPanel(team: Round.Team, right: boolean): (Frame, TextLabel, Frame)
-		local panel = Kit.create("Frame", {
+	local function teamPanel(team: Round.Team, right: boolean): (ScrollingFrame, TextLabel, Frame)
+		local panel = Kit.create("ScrollingFrame", {
 			Name = team .. "Team",
 			AnchorPoint = Vector2.new(if right then 1 else 0, 0),
 			Position = if right
@@ -71,6 +71,13 @@ local function mount(context: Context)
 				else UDim2.new(0, Kit.space.small, 0, Kit.space.small),
 			Size = UDim2.new(0.22, 0, 0, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
+			AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			CanvasSize = UDim2.new(),
+			ScrollingDirection = Enum.ScrollingDirection.Y,
+			ScrollBarThickness = 4,
+			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
+			ClipsDescendants = true,
+			BorderSizePixel = 0,
 			BackgroundColor3 = Kit.colors.panel,
 			BackgroundTransparency = 0.1,
 			Parent = screen,
@@ -79,7 +86,7 @@ local function mount(context: Context)
 			Kit.padding(Kit.space.small),
 			Kit.create("UISizeConstraint", { MinSize = Vector2.new(120, 0), MaxSize = Vector2.new(240, math.huge) }),
 			Kit.list(Enum.FillDirection.Vertical, 2),
-		}) :: Frame
+		}) :: ScrollingFrame
 		local header = Kit.label(team, Kit.size.body, TEAM_COLORS[team], true)
 		header.Name = "Header"
 		header.LayoutOrder = 0
@@ -97,17 +104,37 @@ local function mount(context: Context)
 
 	local redPanel, redHeader, redRoster = teamPanel("Red", false)
 	local bluePanel, blueHeader, blueRoster = teamPanel("Blue", true)
-	local _ = redPanel
-	local _ = bluePanel
+	local hubScreen = Kit.screen(context.playerGui, "Hub")
+	local stats = hubScreen:WaitForChild("PlayerStats") :: Frame
+	local commands = hubScreen:WaitForChild("HubCommands") :: Frame
+	local redLimit = redPanel:FindFirstChildOfClass("UISizeConstraint") :: UISizeConstraint
+	local blueLimit = bluePanel:FindFirstChildOfClass("UISizeConstraint") :: UISizeConstraint
+	stats.Size = UDim2.new(1, 0, 0, 0)
+	stats.LayoutOrder = 2
+	stats.Parent = redPanel
 	local function layout()
 		local compact = screen.AbsoluteSize.X < 600
 		redPanel.Position = UDim2.new(0, 8, 0, if compact then 48 else 8)
 		bluePanel.Position = UDim2.new(1, -8, 0, if compact then 48 else 8)
 		redPanel.Size = UDim2.new(if compact then 0.46 else 0.22, 0, 0, 0)
 		bluePanel.Size = redPanel.Size
+		local height = math.max(0, screen.AbsoluteSize.Y - redPanel.Position.Y.Offset - Kit.space.small)
+		redLimit.MaxSize = Vector2.new(240, height)
+		blueLimit.MaxSize = redLimit.MaxSize
+	end
+	local function layoutCommands()
+		local top = bluePanel.AbsolutePosition.Y
+			+ bluePanel.AbsoluteSize.Y
+			- hubScreen.AbsolutePosition.Y
+			+ Kit.space.small
+		commands.Position = UDim2.new(1, -16, 0, top)
+		commands.Size = UDim2.new(0, 156, 1, -(top + 16))
 	end
 	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
+	bluePanel:GetPropertyChangedSignal("AbsolutePosition"):Connect(layoutCommands)
+	bluePanel:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutCommands)
 	layout()
+	layoutCommands()
 
 	local feed = Kit.create("Frame", {
 		Name = "Feed",
@@ -121,6 +148,13 @@ local function mount(context: Context)
 		Kit.create("UISizeConstraint", { MinSize = Vector2.new(160, 0), MaxSize = Vector2.new(320, math.huge) }),
 		Kit.list(Enum.FillDirection.Vertical, 4),
 	}) :: Frame
+	local function feedLayout()
+		local compact = screen.AbsoluteSize.X < 600
+		feed.AnchorPoint = Vector2.new(0, if compact then 1 else 0.5)
+		feed.Position = if compact then UDim2.new(0, 8, 1, -8) else UDim2.new(0, 8, 0.55, 0)
+	end
+	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(feedLayout)
+	feedLayout()
 
 	local results = Kit.create("Frame", {
 		Name = "Results",
@@ -257,7 +291,7 @@ local function mount(context: Context)
 		render()
 	end)
 	api.onEvent(function(event: Round.Event)
-		table.insert(lines, ("%s eliminated %s"):format(event.by, event.victim))
+		table.insert(lines, ("%s knocked out: last on %s"):format(event.victim, event.by))
 		while #lines > FEED_LINES do
 			table.remove(lines, 1)
 		end

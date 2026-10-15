@@ -5,6 +5,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local motion = require("./motion")
 local rest = require("./rest")
 local fontReadiness = require("./font_readiness")
+local arrival = require("./overlay_arrival")
 
 export type Presence = {
 	appearance: (Nav.PresencePhase?, Nav.MotionTiming, ComposeTypes.Readable<boolean>?) -> Nav.Presence,
@@ -25,12 +26,16 @@ return function(ctx: Types.Context): Presence
 		ready: ComposeTypes.Readable<boolean>?
 	): Nav.Presence
 		local level = motion.level(ctx)
+		local arrivalReady = arrival.ready(phase)
+		local function placed(use: ComposeTypes.Use?): boolean
+			return (ready == nil or ctx.read(ready, use)) and (arrivalReady == nil or ctx.read(arrivalReady, use))
+		end
 		local exiting: ComposeTypes.Readable<boolean> = if phase then phase.exiting else Compose.cell(false)
 		local shown = Compose.cell(false)
 		local fadeIn, fadeOut = ctx.metric("motion.presentFadeIn"), ctx.metric("motion.presentFadeOut")
 		local present, fade = ctx.motionEase("present"), ctx.motionEase("fade")
 		local progress = runtime.tween(function(use: ComposeTypes.Use): number
-			return if use(exiting) or not use(shown) or (ready ~= nil and not use(ready)) then 0 else 1
+			return if use(exiting) or not use(shown) or not placed(use) then 0 else 1
 		end, {
 			seconds = function(_: ComposeTypes.Use): number
 				if level() == "limited" then
@@ -44,13 +49,13 @@ return function(ctx: Types.Context): Presence
 		})
 		shown:set(true)
 		local function raw(use: ComposeTypes.Use?): number
-			if ready ~= nil and not ctx.read(ready, use) then
+			if not placed(use) then
 				return 0
 			end
 			return if level(use) == "none" then 1 else ctx.read(progress, use)
 		end
 		local function travel(use: ComposeTypes.Use?): number
-			if ready ~= nil and not ctx.read(ready, use) then
+			if not placed(use) then
 				return 0
 			end
 			return if level(use) == "normal" then ctx.read(progress, use) else 1
@@ -122,7 +127,7 @@ return function(ctx: Types.Context): Presence
 			held[index] = natural
 			Compose.watch(function(use: ComposeTypes.Use)
 				local value = use(size)
-				if not use(rested) or amount(use) >= 1 then
+				if not use(rested) or amount() >= 1 then
 					natural:set(value)
 				end
 			end)
