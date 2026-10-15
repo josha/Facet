@@ -92,6 +92,11 @@ local function stop()
 		racer.kart.model:Destroy()
 		if player and player.Character then
 			player.Character:PivotTo(CFrame.lookAt(Vector3.new(0, 5, 0), Vector3.new(0, 5, -100)))
+			local root = player.Character:FindFirstChild("HumanoidRootPart")
+			if root and root:IsA("BasePart") then
+				root.AssemblyLinearVelocity = Vector3.zero
+				root.AssemblyAngularVelocity = Vector3.zero
+			end
 		end
 	end
 	table.clear(racers)

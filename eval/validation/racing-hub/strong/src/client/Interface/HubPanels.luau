@@ -140,10 +140,12 @@ local function mount(context: Hub.Context)
 		counters.Visible = state.phase == "Intermission"
 		dock.Visible = state.phase == "Intermission"
 		summary.Visible = state.phase == "Round"
-		if state.phase == "Round" and previousPhase ~= "Round" then
-			GuiService.SelectedObject = nil
-		elseif state.phase == "Intermission" and previousPhase ~= "Intermission" then
-			Kit.focus(playButton)
+		if previousPhase ~= state.phase then
+			if state.phase == "Round" then
+				GuiService.SelectedObject = nil
+			elseif state.phase == "Intermission" then
+				Kit.focus(playButton)
+			end
 		end
 		previousPhase = state.phase
 	end

@@ -113,14 +113,14 @@ function World.build()
 		part(
 			"TreeTrunk",
 			Vector3.new(2, height, 2),
-			frame * CFrame.new(0, height / 2, 0),
+			frame * CFrame.new(0, height / 2 - 2, 0),
 			Color3.fromRGB(143, 100, 65),
 			Enum.Material.Wood
 		)
 		local crown = part(
 			"TreeCrown",
 			Vector3.new(10, 10, 10),
-			frame * CFrame.new(0, height, 0),
+			frame * CFrame.new(0, height - 2, 0),
 			if index % 2 == 0 then teal else Color3.fromRGB(65, 151, 99)
 		)
 		crown.Shape = Enum.PartType.Ball

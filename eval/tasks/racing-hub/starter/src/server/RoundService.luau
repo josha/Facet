@@ -104,7 +104,15 @@ local function enter(phase: Phase, seconds: number?, winner: (Round.Team | "Draw
 			lapLeader = by
 		end)
 	elseif phase == "Results" then
-		state.winner = winner or RaceService.winner()
+		local red, blue = alive("Red"), alive("Blue")
+		state.winner = winner
+			or (
+				if automatic
+					then RaceService.winner()
+					elseif red > blue then "Red"
+					elseif blue > red then "Blue"
+					else "Draw"
+			)
 		RaceService.stop()
 		state.rewards = {
 			Red = if state.winner == "Red" then WIN_REWARD else LOSS_REWARD,

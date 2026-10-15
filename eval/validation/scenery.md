@@ -12,7 +12,7 @@ The round HUD has three new behavior cases. They sample selection with no panel 
 
 ## Cost
 
-The world builder creates 511 static parts. The project adds the spawn and mechanic: 513 parts in the hub. Each kart adds eight parts. A race with one player and seven rivals has 577 world and kart parts, excluding the player's avatar. Kinematic rivals have no active physics constraints or collisions. The player has four wheel hinges and three active drive constraints. The world has no frame loop in the hub.
+The world builder creates 511 static parts. The project adds the spawn and mechanic: 513 parts in the hub. Each kart adds eight parts. A race with one player and seven rivals has 577 world and kart parts, excluding the player's avatar. Kinematic rivals have no active physics constraints or collisions. The player has four wheel hinges and three active drive constraints. Hub frames only test whether a race is active. There are no geometry or driving updates in the hub.
 
 During a race the server runs at no more than 30 updates per second. Each update does at most eight racer updates, seven model pivots in normal play (eight in scenario mode), and an eight-entry in-place standings sort. The client updates one kart's velocity, steering, and camera per rendered frame. The hot loops create no Instances, connections, closures, or Luau tables. Native Vector3 and CFrame values still have engine costs. Lap elimination and recovery are occasional work outside the normal update budget. The existing hub state publisher still runs at four updates per second.
 

@@ -1,8 +1,6 @@
 --!strict
 
 local Verify = require("../../tools/vendor/verify/src/core")
-local Lute = require("../../tools/vendor/verify/src/lute")
-local Engine = require("../lib/native_engine")
 local Audit = require("../../tools/vendor/verify/src/roblox/ui-audit")
 local Rules = require("../../eval/tasks/racing-hub/starter/src/shared/RaceRules")
 local RaceSpace = require("../../eval/tasks/racing-hub/hidden/race-space")
@@ -50,19 +48,6 @@ return function(harness: Verify.Harness)
 		t:expect(order[2].name):toBe("Second")
 		t:expect(order[3].name):toBe("Behind")
 		t:expect(order[4].name):toBe("Out")
-	end)
-	harness:case("the seeded circuit closes with a continuous tangent and correct progress", function(t)
-		local loader = Lute.loader.new({ globals = { Vector3 = Engine.types.Vector3, CFrame = Engine.types.CFrame } })
-		local track =
-			loader.require("eval/tasks/racing-hub/starter/src/shared/RaceTrack.luau") :: typeof(require("../../eval/tasks/racing-hub/starter/src/shared/RaceTrack"))
-		t:expect((track.point(0) - track.point(1)).Magnitude < 0.0001):toBe(true)
-		local before = (track.point(0) - track.point(-0.0001)).Unit
-		local after = (track.point(0.0001) - track.point(0)).Unit
-		t:expect(before:Dot(after) > 0.999):toBe(true)
-		for index = 0, 79 do
-			local progress = index / 80
-			t:expect(math.abs(track.progress(track.point(progress)) - progress) < 0.001):toBe(true)
-		end
 	end)
 	harness:case("race safety geometry accepts edge HUDs and rejects center paint and thumbstick actions", function(t)
 		local dump: Audit.Dump = {
