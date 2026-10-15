@@ -2,7 +2,6 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Engine = require("./engine_types")
 type Insets = { [string]: UDim }
-local observeGeometry = require("./geometry_observation")
 
 return function(
 	Compose: typeof(ComposeTypes),
@@ -43,12 +42,10 @@ return function(
 		ZIndex = node.ZIndex,
 		container,
 	})
-	local scale = (observeGeometry(Compose, runtime, boundary, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
-	local size = (observeGeometry(Compose, runtime, target, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
-	local at = (observeGeometry(Compose, runtime, target, "AbsolutePosition") :: unknown) :: ComposeTypes.Cell<Vector2>
-	local boundaryAt = (
-		observeGeometry(Compose, runtime, boundary, "AbsolutePosition") :: unknown
-	) :: ComposeTypes.Cell<Vector2>
+	local scale = (runtime.observe(boundary, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
+	local size = (runtime.observe(target, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
+	local at = (runtime.observe(target, "AbsolutePosition") :: unknown) :: ComposeTypes.Cell<Vector2>
+	local boundaryAt = (runtime.observe(boundary, "AbsolutePosition") :: unknown) :: ComposeTypes.Cell<Vector2>
 	local insets = Compose.cell({} :: Insets)
 	local connections: { RBXScriptConnection }, paddingConnections: { RBXScriptConnection } = {}, {}
 	local function disconnectPadding()
@@ -116,9 +113,7 @@ return function(
 	end)
 	if target:IsA("ScrollingFrame") then
 		local frame = target :: ScrollingFrame
-		local canvas = (
-			observeGeometry(Compose, runtime, frame, "CanvasPosition") :: unknown
-		) :: ComposeTypes.Cell<Vector2>
+		local canvas = (runtime.observe(frame, "CanvasPosition") :: unknown) :: ComposeTypes.Cell<Vector2>
 		runtime.decorate(boundary, {
 			Position = function(use: ComposeTypes.Use): UDim2
 				local rendered: Vector2, factor: Vector2, at: Vector2 = use(size), use(scale), use(canvas)

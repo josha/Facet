@@ -395,11 +395,10 @@ local cases: { any } = {
 		id = "geometry-feedback",
 		contracts = {},
 		run = function(t: any)
-			local observe = require(game.ReplicatedStorage.Facet.ui.geometry_observation)
 			local node, size
 			t.mount(function(_UI: any, Host: any, Compose: any, env: any)
 				node = Host.Frame { Size = UDim2.fromOffset(100, 40) }
-				size = observe(Compose, env.runtime, node, "AbsoluteSize")
+				size = env.runtime.observe(node, "AbsoluteSize")
 				Compose.watch(function(use: any)
 					local width = use(size).X
 					if width > 0 and width < 200 then
@@ -419,7 +418,6 @@ local cases: { any } = {
 		id = "geometry-publication",
 		contracts = {},
 		run = function(t: any)
-			local observe = require(game.ReplicatedStorage.Facet.ui.geometry_observation)
 			local first, second, firstSize, secondSize, shown
 			local runs, lastFirst, lastSecond = 0, 0, 0
 			local order = {}
@@ -441,8 +439,8 @@ local cases: { any } = {
 						Compose.cleanup(function()
 							observation.readProperty = read
 						end)
-						firstSize = observe(Compose, env.runtime, first, "AbsoluteSize")
-						secondSize = observe(Compose, env.runtime, second, "AbsoluteSize")
+						firstSize = env.runtime.observe(first, "AbsoluteSize")
+						secondSize = env.runtime.observe(second, "AbsoluteSize")
 						local other = t.Facet.Roblox.createRuntime()
 						local subscriber = Compose.createRootOwner(function()
 							Compose.watch(function(use: any)
