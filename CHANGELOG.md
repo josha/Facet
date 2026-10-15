@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- When the side zones of a Composition row squeeze a center-lane zone that
+  fits the row alone, the side regions that are wider than the room the center
+  leaves also step down, by rank. Before, only the center zone gave way, so a
+  rank 3 corner could push a rank 1 race bar to its smaller form.
 - A center-lane zone (`top`, `center` or `bottom`) of a Composition can use the
   width that the side zones of its row leave free. Before, each lane had a
   fixed third of the width, so a wide `top` or `bottom` region dropped on a
