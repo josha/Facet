@@ -132,6 +132,9 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 							) or (services.TextService ~= nil and label:GetStyled("TextWrapped") == true)
 						)
 				end, function()
+					local nativeBounds = if services.TextService
+						then textMeasure.natural(ctx, label, nil, revision)
+						else nil
 					local unit = ctx.layoutUnit(label, "TextBoundsUnit")
 					local wrappedHeight = Compose.cell(0)
 					local serial, last = 0, ""
@@ -218,13 +221,21 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 					runtime.decorate(constraint, {
 						[Compose.group({ "MaxSize", "MinSize" })] = function(use: ComposeTypes.Use): (Vector2, Vector2)
 							use(revision)
-							local mode, glyph, authoredSize = label.AutomaticSize, use(bounds) / use(unit), label.Size
+							local mode, glyph, authoredSize =
+								label.AutomaticSize,
+								if nativeBounds then use(nativeBounds) else use(bounds) / use(unit),
+								label.Size
 							local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
 							local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
 							local free = label:GetStyled("TextWrapped") == false
 								and label:GetStyled("TextTruncate") == Enum.TextTruncate.None
 							freeX, freeY = freeX and free, freeY and free
-							local x, y = math.ceil(glyph.X), math.ceil(glyph.Y)
+							freeY = freeY and (nativeBounds == nil or label:GetStyled("LineHeight") == 1)
+							local known = glyph.X < math.huge
+							freeX, freeY = freeX and known, freeY and known
+							local x, y =
+								if nativeBounds then glyph.X else math.ceil(glyph.X),
+								if nativeBounds then glyph.Y else math.ceil(glyph.Y)
 							local maximum = types.Vector2.new(
 								if freeX
 										and glyph.X > 0

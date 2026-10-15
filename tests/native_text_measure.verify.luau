@@ -9,6 +9,44 @@ local ComposeTypes = require("../src/vendor/compose/core")
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 return function(harness: Verify.Harness)
+	harness:case("glyph constraints use font metrics while rendered bounds and the unit probe lag", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local service = {
+			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
+				return engine.types.Vector2.new(#params.Text * params.Size, params.Size)
+			end,
+		}
+		local ctx = context(
+			Facet.Compose,
+			runtime,
+			{
+				types = engine.types,
+				services = { TextService = (service :: unknown) :: TextService },
+			} :: Shared.Config
+		)
+		local label: TextLabel? = nil
+		local stop = runtime.mount(function()
+			local node = ctx.text { Text = "Saved", TextSize = 16 }
+			label = node
+			return node
+		end, engine.new("ScreenGui"))
+		local node = assert(label)
+		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
+		local unit = assert(node:FindFirstChild("TextBoundsUnit")) :: Frame
+		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(80, 16))
+		node.TextBounds = engine.types.Vector2.new(9000, 999)
+		unit.AbsoluteSize = engine.types.Vector2.new(50, 0.5)
+		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(80, 16))
+		t:expect(floor.MaxSize):toEqual(engine.types.Vector2.new(80, 16))
+		node.TextSize = 24
+		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(120, 24))
+		node.LineHeight = 1.5
+		t:expect(floor.MaxSize.Y):toBe(math.huge)
+		stop()
+		runtime:dispose()
+		t:expect(engine.census().connections):toBe(0)
+	end)
 	harness:case("wrapped text height is pending until its native measurement completes", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)

@@ -20,26 +20,33 @@ local function begin(node: Instance): () -> ()
 	end
 end
 
-local function natural(ctx: Types.Context, label: TextLabel): ComposeTypes.Readable<Vector2>
+local shared = (setmetatable({}, { __mode = "k" }) :: unknown) :: {
+	[Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.Readable<Vector2>>,
+}
+
+local function createNatural(
+	ctx: Types.Context,
+	label: TextLabel | TextButton | TextBox,
+	fallback: (() -> ComposeTypes.Readable<Vector2>)?,
+	revision: ComposeTypes.Cell<number>?
+): ComposeTypes.Readable<Vector2>
 	local Compose, Host = ctx.Compose, ctx.Host
 	local service = ctx.config.services.TextService
 	local bounds = Compose.cell(ctx.types.Vector2.new(math.huge, 0))
 	if service == nil then
-		return bounds
+		return if fallback then fallback() else bounds
 	end
 	local params = (
 		((Host :: unknown) :: { GetTextBoundsParams: ({ Width: number }) -> GetTextBoundsParams }).GetTextBoundsParams
 	)({ Width = 0 })
-	local text, rich = ctx.observe.Text(label), ctx.observe.RichText(label)
-	local font, points = ctx.observeStyled.FontFace(label), ctx.observeStyled.TextSize(label)
+	local text = if revision then nil else ctx.observe.Text(label)
+	local rich = if revision then nil else ctx.observe.RichText(label)
+	local font = if revision then nil else ctx.observeStyled.FontFace(label)
+	local points = if revision then nil else ctx.observeStyled.TextSize(label)
 	local serial, alive = 0, true
+	local last: string? = nil
 	local thread: thread? = nil
-	local release: (() -> ())? = nil
 	local function cancel()
-		if release then
-			release()
-			release = nil
-		end
 		if thread and coroutine.status(thread) == "suspended" and task then
 			pcall(task.cancel, thread)
 		end
@@ -48,14 +55,29 @@ local function natural(ctx: Types.Context, label: TextLabel): ComposeTypes.Reada
 	Compose.cleanup(function()
 		alive = false
 		cancel()
+		completed()
 	end)
 	Compose.watch(function(use: ComposeTypes.Use)
-		local words, markup, face, size = use(text), use(rich), use(font), use(points)
+		if revision then
+			use(revision)
+		end
+		local words = if text then use(text) else label.Text
+		local markup = if rich then use(rich) else label.RichText
+		local face = if font then use(font) else label:GetStyled("FontFace") :: Font
+		local size = if points then use(points) else label:GetStyled("TextSize") :: number
+		local key = `{#words}:{words}|{markup}|{face.Family}|{face.Weight.Name}|{face.Style.Name}|{size}`
+		if key == last then
+			return
+		end
+		last = key
 		serial += 1
 		local ticket = serial
 		cancel()
 		local completed = begin(label)
 		release = completed
+		if revision then
+			bounds:set(ctx.types.Vector2.new(math.huge, 0))
+		end
 		params.Text, params.RichText, params.Font, params.Size = words, markup, face, size
 		local function measure()
 			local ok, value = pcall(function(): Vector2
@@ -65,8 +87,8 @@ local function natural(ctx: Types.Context, label: TextLabel): ComposeTypes.Reada
 				if ok then
 					bounds:set(value)
 				end
+				completed()
 			end
-			completed()
 		end
 		if task and task.spawn then
 			thread = task.spawn(measure)
@@ -79,7 +101,27 @@ end
 
 return {
 	begin = begin,
-	natural = natural,
+	natural = function(
+		ctx: Types.Context,
+		label: TextLabel | TextButton | TextBox,
+		fallback: (() -> ComposeTypes.Readable<Vector2>)?,
+		revision: ComposeTypes.Cell<number>?
+	): ComposeTypes.Readable<Vector2>
+		if ctx.config.services.TextService == nil then
+			return if fallback then fallback() else ctx.Compose.cell(ctx.types.Vector2.new(math.huge, 0))
+		end
+		local acquire = shared[label]
+		if not acquire then
+			acquire = ctx.Compose.createSharedResource(function()
+				ctx.Compose.cleanup(function()
+					shared[label] = nil
+				end)
+				return createNatural(ctx, label, nil, revision)
+			end)
+			shared[label] = acquire
+		end
+		return acquire()
+	end,
 	ready = function(node: Instance): boolean
 		if pending[node] ~= nil then
 			return false
