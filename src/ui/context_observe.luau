@@ -67,63 +67,72 @@ return function(ctx: Shared.Context, config: Shared.Config, _services: Shared.Se
 		local acquire = byProperty[property]
 		if not acquire then
 			acquire = Compose.createSharedResource(function(): (ComposeTypes.Cell<unknown>, (() -> ())?)
-				local source = runtime.observe(node, property)
-				local value = Compose.cell(source:peek())
-				local stopNudges: (() -> ())? = nil
-				local function clearNudges()
-					if stopNudges then
-						stopNudges()
-						stopNudges = nil
-					end
-				end
-				local publish: (unknown) -> ()
-				publish = function(current: unknown)
-					local keys, gui = config.userInputService, config.guiService
-					if
-						selection
-						and gui
-						and keys
-						and keys.PreferredInput == Enum.PreferredInput.Touch
-						and current ~= nil
-					then
-						gui.SelectedObject = nil
-						current = nil
-					elseif preferred and gui and current == Enum.PreferredInput.Touch and gui.SelectedObject ~= nil then
-						gui.SelectedObject = nil
-					end
-					if
-						preferred
-						and preferredInput.withheld(
-							node :: UserInputService,
-							current,
-							Enum.PreferredInput.KeyboardAndMouse
-						)
-					then
-						stopNudges = stopNudges
-							or preferredInput.nudges(node :: UserInputService, Enum, function()
-								publish(source:peek())
-							end)
-						return
-					end
-					clearNudges()
-					value:set(current)
-					if selection then
-						for _, hook in ctx.selectionHooks do
-							hook(current)
+				local cell: ComposeTypes.Cell<unknown>? = nil
+				local scope = Compose.createRootOwner(function()
+					local source = runtime.observe(node, property)
+					local value = Compose.cell(source:peek())
+					local stopNudges: (() -> ())? = nil
+					local function clearNudges()
+						if stopNudges then
+							stopNudges()
+							stopNudges = nil
 						end
 					end
-				end
-				Compose.watch(function(use: ComposeTypes.Use)
-					publish(use(source))
-				end)
-				Compose.cleanup(clearNudges)
-				Compose.cleanup(function()
-					byProperty[property] = nil
-					if next(byProperty) == nil then
-						sharedObservations[node] = nil
+					local publish: (unknown) -> ()
+					publish = function(current: unknown)
+						local keys, gui = config.userInputService, config.guiService
+						if
+							selection
+							and gui
+							and keys
+							and keys.PreferredInput == Enum.PreferredInput.Touch
+							and current ~= nil
+						then
+							gui.SelectedObject = nil
+							current = nil
+						elseif
+							preferred
+							and gui
+							and current == Enum.PreferredInput.Touch
+							and gui.SelectedObject ~= nil
+						then
+							gui.SelectedObject = nil
+						end
+						if
+							preferred
+							and preferredInput.withheld(
+								node :: UserInputService,
+								current,
+								Enum.PreferredInput.KeyboardAndMouse
+							)
+						then
+							stopNudges = stopNudges
+								or preferredInput.nudges(node :: UserInputService, Enum, function()
+									publish(source:peek())
+								end)
+							return
+						end
+						clearNudges()
+						value:set(current)
+						if selection then
+							for _, hook in ctx.selectionHooks do
+								hook(current)
+							end
+						end
 					end
-				end)
-				return value, nil
+					Compose.watch(function(use: ComposeTypes.Use)
+						publish(use(source))
+					end)
+					Compose.cleanup(clearNudges)
+					Compose.cleanup(function()
+						byProperty[property] = nil
+						if next(byProperty) == nil then
+							sharedObservations[node] = nil
+						end
+					end)
+					cell = value
+				end, runtime.reactor)
+				return assert(cell), scope.dispose
 			end)
 			byProperty[property] = acquire
 		end
