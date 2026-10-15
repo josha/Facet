@@ -59,6 +59,17 @@ local function vertical(edge: string): boolean
 	return edge == "top" or edge == "bottom"
 end
 
+function placement.width(source: Rect, size: { w: number, h: number }, safe: Rect, gap: number): number
+	local above = source.y - gap - safe.y
+	local below = safe.y + safe.h - source.y - source.h - gap
+	if size.h <= math.max(above, below) then
+		return math.min(size.w, safe.w)
+	end
+	local before = source.x - gap - safe.x
+	local after = safe.x + safe.w - source.x - source.w - gap
+	return math.min(size.w, safe.w, math.max(1, before, after))
+end
+
 function placement.solve(request: Request): Placement
 	placement.assertEdge(request.edge, "placement")
 	placement.assertAlign(request.align, "placement")
