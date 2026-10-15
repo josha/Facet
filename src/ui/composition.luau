@@ -317,6 +317,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local riding: (ComposeTypes.Use) -> boolean = function()
 			return false
 		end
+		local landed = Compose.cell(false)
+		local function inStrip(use: ComposeTypes.Use): boolean
+			return riding(use) and not use(landed)
+		end
 		local stripGui: ScreenGui? = nil
 		if #stripRegions > 0 then
 			local screen: ComposeTypes.Cell<ScreenGui?> = Compose.cell(nil :: ScreenGui?)
@@ -358,14 +362,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				BorderSizePixel = 0,
 				LayoutOrder = 0,
 				Size = function(use: ComposeTypes.Use): UDim2
-					return if riding(use) then D2.fromScale(1, 1) else D2.new()
+					return if inStrip(use) then D2.fromScale(1, 1) else D2.new()
 				end,
 				AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
-					return if riding(use) then E.AutomaticSize.None else E.AutomaticSize.XY
+					return if inStrip(use) then E.AutomaticSize.None else E.AutomaticSize.XY
 				end,
 				Host.UIListLayout({
 					FillDirection = function(use: ComposeTypes.Use): Enum.FillDirection
-						return if riding(use) then E.FillDirection.Horizontal else E.FillDirection.Vertical
+						return if inStrip(use) then E.FillDirection.Horizontal else E.FillDirection.Vertical
 					end,
 					SortOrder = E.SortOrder.LayoutOrder,
 					HorizontalAlignment = E.HorizontalAlignment.Center,
@@ -401,7 +405,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			})
 			runtime.decorate(topbarZone, {
 				Parent = function(use: ComposeTypes.Use): Instance?
-					return if riding(use) then created else zones.top
+					return if inStrip(use) then created else zones.top
 				end,
 			})
 		end
@@ -559,13 +563,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				list[index] = { zone = entry.zone, rank = entry.rank, mayDrop = entry.mayDrop, sizes = measured }
 			end
 			local band = if stripSize and rides then use(stripSize) else nil
-			local chosen = resolver.resolve(
+			local chosen, down = resolver.resolve(
 				extent.X,
 				extent.Y,
 				kit.spacing(gap, use),
 				list,
 				if band and band.X > 0 then { x = band.X, y = band.Y } else nil
 			)
+			landed:set(down)
 			local moved = last ~= nil and last.X > 0 and last ~= extent
 			last = extent
 			for index, region in regions do

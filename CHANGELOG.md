@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A Composition moves its `topbar` regions to the `top` zone when the strip
+  of the Roblox top bar cannot hold them at their last forms. Before, they
+  stayed in the strip and covered the Roblox buttons on a portrait phone.
 - `UI.environment().scaled(value, relativeTo)` takes an optional type role.
   The length then also grows with the player's text size, by the same factor
   as text of that role, as SwiftUI's `@ScaledMetric(relativeTo:)` does. A

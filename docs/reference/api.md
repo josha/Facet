@@ -1070,6 +1070,13 @@ Step-down:
 - When `topbar` is `false`, when `GuiService.TopbarInset` has no width, or
   when the composition is not in a ScreenGui, these regions come first in the
   `top` zone.
+- When the strip cannot hold the strip regions at their last forms, they
+  also come first in the `top` zone, and the composition resolves again
+  without the strip. A portrait phone has a narrow strip between the Roblox
+  buttons and the edge, so a long line of chips moves under the bar and does
+  not cover the Roblox buttons. The strip ScreenGui stays in place while it
+  is empty, so the composition can measure the strip and move the regions back
+  when the strip is wide again, for example after a rotation.
 
 ### fill
 

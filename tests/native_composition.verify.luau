@@ -145,6 +145,31 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case(
+			"lands its top bar regions in the top zone when the strip cannot hold their smallest forms",
+			{
+				id = "native_composition::Composition::lands its top bar regions in the top zone when the strip cannot hold their smallest forms",
+				run = function()
+					local root, engine, forms, gui, stop = mount(nil, true)
+					local T = engine.types
+					local topbar = root:FindFirstChild("Topbar", true)
+					gui.TopbarInset = T.Rect.new(250, 0, 350, 58)
+					local strip = topbar.Parent
+					Verify.expect(strip.ClassName):toBe("ScreenGui")
+					sized(engine, strip, 100, 58)
+					sized(engine, root:FindFirstChild("Zones"), 844, 330)
+					Verify.expect(topbar.Parent.Name):toBe("Top")
+					Verify.expect(topbar.LayoutOrder):toBe(0)
+					Verify.expect(strip.Parent):toBe(root:FindFirstAncestorWhichIsA("ScreenGui").Parent)
+					Verify.expect(forms.peek().Strip):toBe(1)
+					sized(engine, strip, 680, 58)
+					Verify.expect(topbar.Parent):toBe(strip)
+					Verify.expect(topbar.Size):toBe(T.UDim2.fromScale(1, 1))
+					stop()
+				end,
+			}
+		)
+
 		verifyHarness:case("discloses a stepped-down region's richest content in context, anchored at the region", {
 			id = "native_composition::Composition::discloses a stepped-down region's richest content in context, anchored at the region",
 			run = function()

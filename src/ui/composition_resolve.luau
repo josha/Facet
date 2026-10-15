@@ -38,115 +38,124 @@ local function cellOf(zone: string, riding: boolean): (number, number)
 	return cell[1], cell[2]
 end
 
-return {
-	CELLS = CELLS,
-	resolve = function(
-		width: number,
-		height: number,
-		gap: number,
-		regions: { Declared },
-		strip: { x: number, y: number }?
-	): { number }
-		local forms = table.create(#regions, 1)
-		if width <= 0 or height <= 0 then
-			return forms
-		end
-		local lane = (width - 2 * gap) / 3
-		local riding = strip ~= nil
-		while true do
-			local zoneW: { [number]: number }, zoneH: { [number]: number }, members: { [number]: { number } } =
-				{}, {}, {}
-			for index, region in regions do
-				local column, row = cellOf(region.zone, riding)
-				local key = column * 4 + row
-				members[key] = members[key] or {}
-				table.insert(members[key], index)
-				local form = forms[index]
-				local size = if form > 0 then region.sizes[form] else nil
-				if size and size.x > 0 and size.y > 0 then
-					if key == 0 then
-						zoneW[key] = (zoneW[key] or -gap) + gap + size.x
-						zoneH[key] = math.max(zoneH[key] or 0, size.y)
-					else
-						zoneW[key] = math.max(zoneW[key] or 0, size.x)
-						zoneH[key] = (zoneH[key] or -gap) + gap + size.y
-					end
+local function resolve(
+	width: number,
+	height: number,
+	gap: number,
+	regions: { Declared },
+	strip: { x: number, y: number }?
+): ({ number }, boolean)
+	local forms = table.create(#regions, 1)
+	if width <= 0 or height <= 0 then
+		return forms, false
+	end
+	local lane = (width - 2 * gap) / 3
+	local riding = strip ~= nil
+	while true do
+		local zoneW: { [number]: number }, zoneH: { [number]: number }, members: { [number]: { number } } = {}, {}, {}
+		for index, region in regions do
+			local column, row = cellOf(region.zone, riding)
+			local key = column * 4 + row
+			members[key] = members[key] or {}
+			table.insert(members[key], index)
+			local form = forms[index]
+			local size = if form > 0 then region.sizes[form] else nil
+			if size and size.x > 0 and size.y > 0 then
+				if key == 0 then
+					zoneW[key] = (zoneW[key] or -gap) + gap + size.x
+					zoneH[key] = math.max(zoneH[key] or 0, size.y)
+				else
+					zoneW[key] = math.max(zoneW[key] or 0, size.x)
+					zoneH[key] = (zoneH[key] or -gap) + gap + size.y
 				end
 			end
-			local failing: { [number]: boolean } = {}
-			local function fail(key: number, wider: number?)
-				for _, index in members[key] or ({} :: { number }) do
+		end
+		local failing: { [number]: boolean } = {}
+		local function fail(key: number, wider: number?)
+			for _, index in members[key] or ({} :: { number }) do
+				local form = forms[index]
+				local size = if form > 0 then regions[index].sizes[form] else nil
+				if wider == nil or (size and size.x > wider) then
+					failing[index] = true
+				end
+			end
+		end
+		local function check(key: number, width: number, tall: number)
+			if (zoneH[key] or 0) > tall then
+				fail(key)
+			elseif (zoneW[key] or 0) > width then
+				fail(key, width)
+			end
+		end
+		if strip then
+			if (zoneW[0] or 0) > strip.x then
+				fail(0)
+			elseif (zoneH[0] or 0) > strip.y then
+				for _, index in members[0] or ({} :: { number }) do
 					local form = forms[index]
 					local size = if form > 0 then regions[index].sizes[form] else nil
-					if wider == nil or (size and size.x > wider) then
+					if size and size.y > strip.y then
 						failing[index] = true
 					end
 				end
 			end
-			local function check(key: number, width: number, tall: number)
-				if (zoneH[key] or 0) > tall then
-					fail(key)
-				elseif (zoneW[key] or 0) > width then
-					fail(key, width)
-				end
-			end
-			if strip then
-				if (zoneW[0] or 0) > strip.x then
-					fail(0)
-				elseif (zoneH[0] or 0) > strip.y then
-					for _, index in members[0] or ({} :: { number }) do
-						local form = forms[index]
-						local size = if form > 0 then regions[index].sizes[form] else nil
-						if size and size.y > strip.y then
-							failing[index] = true
-						end
-					end
-				end
-			end
-			for column = 1, 3 do
-				local top, middle, bottom = column * 4 + 1, column * 4 + 2, column * 4 + 3
-				for row, key in { top, middle, bottom } do
-					local room = lane
-					if column == 2 then
-						local side = math.max(zoneW[4 + row] or 0, zoneW[12 + row] or 0)
-						room = math.max(lane, width - 2 * (side + gap))
-						local wide = zoneW[key] or 0
-						if wide > room and wide <= width - 2 * gap and (zoneH[key] or 0) <= height then
-							local spare = (width - wide) / 2 - gap
-							fail(4 + row, spare)
-							fail(12 + row, spare)
-						end
-					end
-					check(key, room, height)
-				end
-				local h1, h2, h3 = zoneH[top] or 0, zoneH[middle] or 0, zoneH[bottom] or 0
-				if h2 > 0 then
-					if h1 > 0 and h1 + gap > (height - h2) / 2 then
-						fail(top)
-						fail(middle)
-					end
-					if h3 > 0 and (height + h2) / 2 + gap > height - h3 then
-						fail(bottom)
-						fail(middle)
-					end
-				elseif h1 > 0 and h3 > 0 and h1 + gap + h3 > height then
-					fail(top)
-					fail(bottom)
-				end
-			end
-			local chosen: number? = nil
-			for index, region in regions do
-				local form = forms[index]
-				local steppable = failing[index] and form > 0 and (form < #region.sizes or region.mayDrop)
-				if steppable and (chosen == nil or region.rank >= regions[chosen].rank) then
-					chosen = index
-				end
-			end
-			if chosen == nil then
-				return forms
-			end
-			local region = regions[chosen]
-			forms[chosen] = if forms[chosen] < #region.sizes then forms[chosen] + 1 else 0
 		end
-	end,
+		for column = 1, 3 do
+			local top, middle, bottom = column * 4 + 1, column * 4 + 2, column * 4 + 3
+			for row, key in { top, middle, bottom } do
+				local room = lane
+				if column == 2 then
+					local side = math.max(zoneW[4 + row] or 0, zoneW[12 + row] or 0)
+					room = math.max(lane, width - 2 * (side + gap))
+					local wide = zoneW[key] or 0
+					if wide > room and wide <= width - 2 * gap and (zoneH[key] or 0) <= height then
+						local spare = (width - wide) / 2 - gap
+						fail(4 + row, spare)
+						fail(12 + row, spare)
+					end
+				end
+				check(key, room, height)
+			end
+			local h1, h2, h3 = zoneH[top] or 0, zoneH[middle] or 0, zoneH[bottom] or 0
+			if h2 > 0 then
+				if h1 > 0 and h1 + gap > (height - h2) / 2 then
+					fail(top)
+					fail(middle)
+				end
+				if h3 > 0 and (height + h2) / 2 + gap > height - h3 then
+					fail(bottom)
+					fail(middle)
+				end
+			elseif h1 > 0 and h3 > 0 and h1 + gap + h3 > height then
+				fail(top)
+				fail(bottom)
+			end
+		end
+		local chosen: number? = nil
+		for index, region in regions do
+			local form = forms[index]
+			local steppable = failing[index] and form > 0 and (form < #region.sizes or region.mayDrop)
+			if steppable and (chosen == nil or region.rank >= regions[chosen].rank) then
+				chosen = index
+			end
+		end
+		if chosen == nil then
+			if strip then
+				for index in failing do
+					if regions[index].zone == "topbar" then
+						local landed = resolve(width, height, gap, regions, nil)
+						return landed, true
+					end
+				end
+			end
+			return forms, false
+		end
+		local region = regions[chosen]
+		forms[chosen] = if forms[chosen] < #region.sizes then forms[chosen] + 1 else 0
+	end
+end
+
+return {
+	CELLS = CELLS,
+	resolve = resolve,
 }
