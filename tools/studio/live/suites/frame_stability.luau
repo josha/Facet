@@ -2,6 +2,7 @@
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
@@ -164,7 +165,9 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 end
 
 local function pages(): { Page }
-	local screen = (require :: (Instance) -> { list: () -> { Entry } })(storage.Gallery.screen)
+	local screen = (require :: (Instance) -> { list: () -> { Entry } })(
+		storage:WaitForChild("Gallery"):WaitForChild("screen")
+	)
 	local listed = screen.list()
 	local added = workspace:GetAttribute("Facet_Demos")
 	if type(added) == "string" then
@@ -189,30 +192,34 @@ local function pages(): { Page }
 	return out
 end
 
-local cases: { { id: string, contracts: { string }, keepGallery: boolean, run: (T) -> () } } = {
-	{
-		id = "negative-one-frame-late-resize",
-		contracts = {},
-		keepGallery = false,
-		run = function(t: T)
-			local stage: GuiObject? = nil
-			local late: Frame? = nil
-			observe(t, "negative", function()
-				return stage
-			end, function()
-				stage = t.mount(function(_UI: FacetControls, Host: RobloxHost)
-					late = Host.Frame "Late" { Size = UDim2.fromOffset(100, 20) }
-					return late :: Frame
-				end, { frames = 0 })
-				RunService.PreRender:Wait()
-				RunService.Heartbeat:Wait()
-				local frame = assert(late)
-				frame.Size = UDim2.fromOffset(101, 20)
-			end, true)
-			t.cleanup()
-		end,
-	},
+type Case = { id: string, contracts: { string }, keepGallery: boolean, run: (T) -> () }
+local cases: { Case } = {}
+local function add(case: Case)
+	table.insert(cases, case)
+end
+local negative: Case = {
+	id = "negative-one-frame-late-resize",
+	contracts = {},
+	keepGallery = false,
+	run = function(t: T)
+		local stage: GuiObject? = nil
+		local late: Frame? = nil
+		observe(t, "negative", function()
+			return stage
+		end, function()
+			stage = t.mount(function(_UI: FacetControls, Host: RobloxHost)
+				late = Host.Frame "Late" { Size = UDim2.fromOffset(100, 20) }
+				return late :: Frame
+			end, { frames = 0 })
+			RunService.PreRender:Wait()
+			RunService.Heartbeat:Wait()
+			local frame = assert(late)
+			frame.Size = UDim2.fromOffset(101, 20)
+		end, true)
+		t.cleanup()
+	end,
 }
+add(negative)
 
 local viewports = {
 	{ name = "phone", width = 390, height = 844 },
@@ -221,7 +228,7 @@ local viewports = {
 }
 for _, viewport in viewports do
 	for _, textSize in { "Medium", "Largest" } do
-		table.insert(cases, {
+		add({
 			id = `native-feedback/{viewport.name}/{textSize}`,
 			contracts = {},
 			keepGallery = false,
@@ -231,10 +238,10 @@ for _, viewport in viewports do
 					return stage
 				end, function()
 					stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame {
+						local properties: FrameNativeProps = {
 							Size = UDim2.fromScale(1, 1),
 							BackgroundTransparency = 1,
-							UI.Toast { message = "Saved", width = "hug", duration = 3600 } :: unknown,
+							UI.Toast { message = "Saved", width = "hug", duration = 3600 },
 							UI.Toast {
 								message = "Your changes are saved. You can continue with the next task or review the collection before leaving.",
 								width = "hug",
@@ -251,6 +258,7 @@ for _, viewport in viewports do
 								end,
 							},
 						}
+						return Host.Frame(properties)
 					end, {
 						frames = 0,
 						size = Vector2.new(viewport.width, viewport.height),
@@ -270,7 +278,7 @@ for _, viewport in viewports do
 						)
 					end
 				end
-				table.sort(rows, function(a, b)
+				table.sort(rows, function(a: GuiObject, b: GuiObject)
 					return a.AbsolutePosition.Y < b.AbsolutePosition.Y
 				end)
 				t.check("three toast rows are mounted", #rows == 3, #rows)
@@ -305,7 +313,7 @@ for _, page in pages() do
 	for _, viewport in viewports do
 		for _, textSize in { "Medium", "Largest" } do
 			local name = `{page.id}/{page.tab or "root"}/{viewport.name}/{textSize}`
-			table.insert(cases, {
+			add({
 				id = name,
 				contracts = {},
 				keepGallery = false,

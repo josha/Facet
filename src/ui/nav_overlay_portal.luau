@@ -145,8 +145,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		if node:GetAttribute("FacetArrivalGroup") == true then
 			return node
 		end
-		return Host.CanvasGroup {
-			Name = "OverlayArrival",
+		return Host.CanvasGroup "OverlayArrival" {
 			BackgroundTransparency = 1,
 			Size = ctx.types.UDim2.fromScale(1, 1),
 			GroupTransparency = function(use: ComposeTypes.Use): number
@@ -204,7 +203,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 				local function themed(): Instance
 					local services = ctx.config.services.RunService
 					local arrived = Compose.cell(services == nil or services.PreRender == nil)
-					local entering = phase or { exiting = Compose.cell(false) }
+					local entering: Nav.PresencePhase = phase or { exiting = Compose.cell(false) }
 					arrival.bind(entering, arrived)
 					local node = build(entering)
 					local scope: Instance? = anchor
