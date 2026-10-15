@@ -1,0 +1,108 @@
+{
+    "schemaVersion":  1,
+    "id":  "facetbench-validation-hub-party-invite",
+    "tasks":  [
+                  "../tasks/racing-hub",
+                  "../tasks/extended/hub-shop-categories",
+                  "../tasks/extended/hub-garage-sort",
+                  "../tasks/extended/hub-settings-reset",
+                  "../tasks/extended/hub-race-scoreboard",
+                  "hub-livery-editor",
+                  "hub-track-vote",
+                  "hub-quick-chat",
+                  "hub-upgrades",
+                  "hub-party-invite"
+              ],
+    "arms":  [
+                 {
+                     "id":  "strong"
+                 },
+                 {
+                     "id":  "weak"
+                 }
+             ],
+    "agents":  [
+                   {
+                       "id":  "reference",
+                       "adapter":  "fixture",
+                       "options":  {
+                                       "stream":  "reference.stamped",
+                                       "files":  {
+                                                     "src/client/Interface/HubPanels.luau":  "followups/strong/src/client/Interface/HubPanels.luau",
+                                                     "src/client/Interface/init.luau":  "{task}/strong/src/client/Interface/init.luau",
+                                                     "src/client/Interface/Kit.luau":  "racing-hub/strong/src/client/Interface/Kit.luau",
+                                                     "src/client/Interface/codes/init.luau":  "racing-hub/strong/src/client/Interface/codes/init.luau",
+                                                     "src/client/Interface/daily-rewards/init.luau":  "racing-hub/strong/src/client/Interface/daily-rewards/init.luau",
+                                                     "src/client/Interface/inventory/init.luau":  "racing-hub/strong/src/client/Interface/inventory/init.luau",
+                                                     "src/client/Interface/npc-dialogue/init.luau":  "racing-hub/strong/src/client/Interface/npc-dialogue/init.luau",
+                                                     "src/client/Interface/pack-opening/init.luau":  "racing-hub/strong/src/client/Interface/pack-opening/init.luau",
+                                                     "src/client/Interface/round-hud/init.luau":  "racing-hub/strong/src/client/Interface/round-hud/init.luau",
+                                                     "src/client/Interface/settings/init.luau":  "followups/strong/src/client/Interface/settings/init.luau",
+                                                     "src/client/Interface/shop/init.luau":  "followups/strong/src/client/Interface/shop/init.luau",
+                                                     "src/client/Interface/ExtendedKit.luau":  "hub-livery-editor/strong/src/client/Interface/ExtendedKit.luau",
+                                                     "src/client/Interface/Livery.luau":  "hub-livery-editor/strong/src/client/Interface/Livery.luau",
+                                                     "src/client/Interface/TrackVote.luau":  "hub-track-vote/strong/src/client/Interface/TrackVote.luau",
+                                                     "src/client/Interface/QuickChat.luau":  "hub-quick-chat/strong/src/client/Interface/QuickChat.luau",
+                                                     "src/client/Interface/Upgrades.luau":  "hub-upgrades/strong/src/client/Interface/Upgrades.luau",
+                                                     "src/client/Interface/Party.luau":  "{task}/{arm}/src/client/Interface/Party.luau"
+                                                 }
+                                   }
+                   }
+               ],
+    "seeds":  [
+                  1
+              ],
+    "parallelism":  1,
+    "evidence":  "../../artifacts/facetbench/validation-hub-party-invite",
+    "budgets":  {
+                    "wallSeconds":  7200
+                },
+    "devices":  [
+                    {
+                        "id":  "desktop",
+                        "width":  1920,
+                        "height":  1080,
+                        "scale":  1,
+                        "input":  [
+                                      "mouse",
+                                      "keyboard"
+                                  ]
+                    },
+                    {
+                        "id":  "phone-portrait",
+                        "width":  390,
+                        "height":  844,
+                        "scale":  1,
+                        "input":  [
+                                      "touch"
+                                  ]
+                    },
+                    {
+                        "id":  "phone-landscape",
+                        "width":  844,
+                        "height":  390,
+                        "scale":  1,
+                        "input":  [
+                                      "touch"
+                                  ]
+                    },
+                    {
+                        "id":  "tablet",
+                        "width":  1180,
+                        "height":  820,
+                        "scale":  1,
+                        "input":  [
+                                      "touch"
+                                  ]
+                    },
+                    {
+                        "id":  "console",
+                        "width":  1920,
+                        "height":  1080,
+                        "scale":  1,
+                        "input":  [
+                                      "gamepad"
+                                  ]
+                    }
+                ]
+}

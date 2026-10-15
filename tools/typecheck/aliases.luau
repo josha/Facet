@@ -12,6 +12,8 @@ local Dataset = require("../../examples/performance/lab/dataset")
 local Runtime = require("../../src/vendor/compose/core/runtime")
 
 return (nil :: unknown) :: {
+	TimerControls: Facet.TimerControls,
+	TypewriterControls: Facet.TypewriterControls,
 	SlotControls: Facet.SlotControls<string>,
 	FocusControls: Facet.FocusControls<string>,
 	CommandScope: Facet.CommandScope<number>,

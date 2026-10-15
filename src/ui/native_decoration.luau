@@ -141,7 +141,9 @@ return function(
 	runtime.decorate(container, {
 		Size = function(use)
 			local box: { width: number, height: number } = use(bounds)
-			return D2.fromOffset(math.ceil(box.width - 1e-3), math.ceil(box.height - 1e-3))
+			return if settings.inset
+				then D2.fromOffset(math.ceil(box.width - 1e-3), math.ceil(box.height - 1e-3))
+				else D2.fromOffset(box.width, box.height)
 		end,
 		Position = function(use)
 			local box = use(bounds)

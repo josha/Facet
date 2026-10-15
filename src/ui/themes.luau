@@ -114,6 +114,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			large = { height = 56, paddingX = 16, iconSize = 24 },
 		},
 		motion = {
+			typewriter = { grapheme = 0.035, pause = 0 },
 			fast = 0.12,
 			normal = 0.2,
 			press = 0.08,
@@ -260,6 +261,7 @@ local SEGMENT_INSET = segmentMetrics.inset
 local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, types: Engine.RobloxTypes): { NativeRule }
 	local kit = ruleKit(package, selected, types, neutral, paint)
 	local extra, source, c, f, rule = kit.extra, kit.source, kit.c, kit.f, kit.rule
+	local resolved = kit.resolved
 	rule("ScrollingFrame", {
 		VerticalScrollBarInset = types.Enum.ScrollBarInset.Always,
 		HorizontalScrollBarInset = types.Enum.ScrollBarInset.ScrollBar,
@@ -440,6 +442,12 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingBottom = types.UDim.new(0, 0),
 	})
 	rule(".facet-disclosure::UIPadding", { PaddingRight = types.UDim.new(0, 32 + (buttonInsets.right or 0)) })
+	rule(".facet-menu-mark::UIPadding", {
+		PaddingRight = types.UDim.new(
+			0,
+			8 + rungMetric("regular", "paddingX") + rungMetric("regular", "iconSize") + (buttonInsets.right or 0)
+		),
+	})
 	rule(".facet-button-described::UIPadding", {
 		PaddingTop = types.UDim.new(0, 10 + (buttonInsets.top or 0)),
 		PaddingBottom = types.UDim.new(0, 10 + (buttonInsets.bottom or 0)),
@@ -641,7 +649,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-toggle-plain", { BackgroundTransparency = 1 })
 	rule(".facet-toggle-indicator", { BackgroundColor3 = c("control"), BackgroundTransparency = 0 })
 	rule(".facet-toggle-on", { BackgroundColor3 = c("selection") })
-	local knob, offTrack, loudKnob = c("onSelection") :: Color3, c("control") :: Color3, c("content") :: Color3
+	local knob, offTrack, loudKnob =
+		resolved("onSelection") :: Color3, resolved("control") :: Color3, resolved("content") :: Color3
 	local offKnob = if contrast(knob, offTrack) >= 3
 			or contrast(knob, offTrack) >= contrast(loudKnob, offTrack)
 		then knob
@@ -665,7 +674,9 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-appearance-soft:Press", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0.6 })
 	rule(".facet-appearance-soft >> .facet-button-caption", { TextColor3 = c("accent") })
 	rule(".facet-appearance-soft >> .facet-icon", { ImageColor3 = c("accent") })
-	local linkInk = if contrast(assert(c("accent")), assert(c("surface"))) >= 4.5 then c("accent") else c("content")
+	local linkInk = if contrast(assert(resolved("accent")), assert(resolved("surface"))) >= 4.5
+		then c("accent")
+		else c("content")
 	rule(".facet-appearance-link", { BackgroundTransparency = 1, TextColor3 = linkInk })
 	rule(".facet-appearance-link:Hover", { BackgroundTransparency = 1, TextColor3 = linkInk })
 	rule(".facet-appearance-link:Press", { BackgroundTransparency = 1, TextTransparency = 0.3 })
@@ -768,8 +779,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	})
 	rule(".facet-floating::UIStroke", { Color = c("hairline"), Transparency = 0.3, Thickness = 1 })
 	rule(".facet-tail", { BackgroundColor3 = c("surfaceStrong"), BackgroundTransparency = 0, BorderSizePixel = 0 })
-	local outlineInk = c("hairline") :: Color3
-	local outlineFill = c("surfaceStrong") :: Color3
+	local outlineInk = color(types, source("hairline")) :: Color3
+	local outlineFill = color(types, source("surfaceStrong")) :: Color3
 	rule(".facet-outlined::UIStroke", { Transparency = 1 })
 	rule(".facet-outline", { Color3 = outlineInk:Lerp(outlineFill, 0.3), Thickness = 1 })
 	rule(".facet-outline-tooltip", { Color3 = outlineInk:Lerp(outlineFill, 0.4) })
@@ -827,7 +838,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-quiet-destructive >> .facet-button-caption", { TextColor3 = c("danger") })
 	rule(".facet-quiet-destructive >> .facet-icon", { ImageColor3 = c("danger") })
 
-	local track, quiet, loud = c("control") :: Color3, c("contentSecondary") :: Color3, c("content") :: Color3
+	local track, quiet, loud =
+		resolved("control") :: Color3, resolved("contentSecondary") :: Color3, resolved("content") :: Color3
 	local segmentInk = if contrast(quiet, track) >= 4.5 or contrast(quiet, track) >= contrast(loud, track)
 		then quiet
 		else loud
@@ -1013,10 +1025,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	for _, entry in
 		{ { ".facet-role-destructive", "danger", "onDanger" }, { ".facet-accent", "accent", "onAccent" } } :: { { string } }
 	do
-		local selector, fill, ink = entry[1], c(entry[2]) :: Color3, c(entry[3]) :: Color3
+		local selector, fill, ink = entry[1], resolved(entry[2]) :: Color3, resolved(entry[3]) :: Color3
 		local pressed = pressedEmphasis and entry[2] == "accent"
 		local tinted = not pressed and contrast(ink, black) > contrast(fill, black)
-		rule(selector .. " > #SkinBoundary >> .facet-skin-art", { ImageColor3 = if tinted then fill else white })
+		rule(selector .. " > #SkinBoundary >> .facet-skin-art", { ImageColor3 = if tinted then c(entry[2]) else white })
 		rule(selector .. ".facet-skinned", {
 			BackgroundTransparency = if tinted or pressed then 1 else 0,
 			TextColor3 = if pressed then onSelected else nil,
@@ -1070,7 +1082,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	if extra.dimDisabledPlates == true then
 		local dim = extra.disabledContentOpacity or 0.4
 		local page = source("surface")
-		local function faded(role: string): Color3?
+		local function faded(role: string): (Color3 | string)?
 			local plate, base = source(role), page
 			if plate == nil or base == nil then
 				return c(role)

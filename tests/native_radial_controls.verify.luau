@@ -271,6 +271,10 @@ return function(verifyHarness: Verify.Harness)
 				local title = button:FindFirstChild("Title", true) or button
 				title.TextBounds = world.engine.types.Vector2.new(32, 16)
 				local measure = assert(button:FindFirstChild("CaptionMeasure"))
+				local points = title.TextSize
+				title.TextSize = points + 2
+				Verify.expect(measure.TextSize):toBe(points + 2)
+				title.TextSize = points
 				measure.TextBounds = world.engine.types.Vector2.new(48, 16)
 				Verify.expect(measure.Text):toBe("settings")
 				Verify.expect(measure.TextTruncate.Name):toBe("None")
@@ -444,10 +448,10 @@ return function(verifyHarness: Verify.Harness)
 					`{paint.Position.X.Offset},{paint.Position.Y.Offset},{paint:FindFirstChild("Sector").Thickness}`
 				Verify.expect(after):toBe(before)
 				local arriving = world.find("Sector-wear")
-				local fade = arriving:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value
+				local fade = fadeKit.of(arriving)
 				Verify.expect(fade > 0.5):toBe(true)
 				world.step(0.5)
-				Verify.expect(arriving:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value):toBe(0)
+				Verify.expect(fadeKit.of(arriving)):toBe(0)
 				world.stop()
 			end,
 		})

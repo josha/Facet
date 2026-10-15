@@ -120,11 +120,15 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			catcher:AddTag("facet-scrim")
 			if shown then
 				kit.attach(catcher, {
-					Host.UIGradient "ScrimFade" {
-						Transparency = function(use: ComposeTypes.Use)
-							return ctx.types.NumberSequence.new(1 - shown(use))
-						end,
-					},
+					Compose.show(function(use: ComposeTypes.Use): boolean
+						return shown(use) < 1
+					end, function()
+						return Host.UIGradient "ScrimFade" {
+							Transparency = function(use: ComposeTypes.Use)
+								return ctx.types.NumberSequence.new(1 - shown(use))
+							end,
+						}
+					end),
 				})
 			end
 		end

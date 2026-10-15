@@ -21,7 +21,7 @@ canonical: the version, the commit and the source hash come from the repository.
 commands:
   stage [--out DIR] [--quiet]                    stage the Distribution folder
   manifest --model XML --artifact FILE --out M   write the semantic manifest
-  build [--publisher]                            rebuild build/Facet.rbxm and its manifest
+  build [--publisher] [--verify]                 rebuild build/Facet.rbxm and its manifest; --verify also inspects the package
   status                                         this tree against the last receipt
   verify [--skip-canary]                         build, tree inspection, purity, packaged canary
   create [release options]                       mint the asset (DRY RUN unless --confirm)
@@ -1787,7 +1787,7 @@ end
 local KNOWN: { [string]: { string } } = {
 	stage = { "out", "quiet" },
 	manifest = { "model", "artifact", "out" },
-	build = { "publisher" },
+	build = { "publisher", "verify" },
 	status = {},
 	verify = { "skip-canary" },
 	create = {},
@@ -1896,7 +1896,11 @@ local function run(invocation: Cli.Invocation): number
 		elseif subcommand == "manifest" then
 			return cmdManifest(env, invocation)
 		elseif subcommand == "build" then
-			return cmdBuild(env, invocation)
+			local code = cmdBuild(env, invocation)
+			if code == 0 and Cli.switch(invocation, "verify") then
+				return cmdVerify(env, invocation)
+			end
+			return code
 		elseif subcommand == "status" then
 			return cmdStatus(env)
 		elseif subcommand == "verify" then

@@ -1,11 +1,16 @@
 --!strict
 
+type Context = typeof(require("@repo/examples/performance/lab/workload_types").Context)
+type CollectionStatus = typeof(require("@repo/tools/typecheck/aliases").CollectionStatus)
+type OrderedControls = typeof(require("@repo/tools/typecheck/aliases").OrderedControls)
+type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
+type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local motion = {}
 
-function motion.create(ctx: { [string]: any }, name: string, _dataset)
+function motion.create(ctx: Context, name: string, _dataset)
 	local Compose: ComposeModule, runtime, Host, UI, types = ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
 	local D2, E = types.UDim2, types.Enum
 	local state = {
@@ -13,7 +18,7 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 		name = name,
 		observed = {},
 		nodes = {},
-		controls = {},
+		controls = {} :: OrderedControls,
 		status = Compose.cell({
 			mode = "windowed",
 			direction = "vertical",
@@ -27,14 +32,14 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 			extent = 0,
 			following = false,
 			measured = 0,
-		}),
+		} :: CollectionStatus),
 		motionSteps = 0,
 		countWork = false,
 		motionTransactions = 0,
 		springsMoving = nil :: number?,
 		rows = nil :: Readable<{ unknown }>?,
 	}
-	local function label(text: unknown, size: number, name: string?)
+	local function label(text: TextValue, size: number, name: string?)
 		return Host.TextLabel({
 			Name = name or "Text",
 			Text = text,
@@ -44,8 +49,8 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 			TextXAlignment = E.TextXAlignment.Left,
 		})
 	end
-	local function screen(children)
-		local properties = {
+	local function screen(children: { Instance }): Frame
+		local properties: FrameProps = {
 			Name = "Motion",
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -54,7 +59,7 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 		}
 		for index, node in children do
 			runtime.decorate(node, { LayoutOrder = index })
-			table.insert(properties, node)
+			properties[#properties + 1] = node
 		end
 		state.root = Host.Frame(properties)
 		return state.root
@@ -293,7 +298,8 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 		end
 		if state.n % 10 == 0 then
 			if ctx.engine then
-				state.button.Activated:Fire()
+				local signal = (state.button.Activated :: unknown) :: { Fire: (unknown) -> () }
+				signal:Fire()
 			else
 				game:GetService("GuiService").SelectedObject = state.button
 				local parent = state.button.Parent
@@ -322,11 +328,11 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 			state.flipsSeen += 1
 		end
 		local pulse = state.field:FindFirstChild("ValidationPulse", true)
-		if pulse and math.abs(pulse.Scale - 1) > 0.000001 then
+		if pulse and math.abs((pulse :: UIScale).Scale - 1) > 0.000001 then
 			state.shakesSeen += 1
 		end
 		local pop = state.button:FindFirstChild("Pop", true)
-		if pop and math.abs(pop.Scale - 1) > 0.000001 then
+		if pop and math.abs((pop :: UIScale).Scale - 1) > 0.000001 then
 			state.popsSeen += 1
 		end
 		if state.n % 30 == 0 then

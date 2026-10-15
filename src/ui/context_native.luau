@@ -102,7 +102,7 @@ return function(
 	function ctx.fadeTo(node: Instance, value: Shared.Value<number>): ()
 		assert(fades[node], "Facet: fadeTo needs a node made by ctx.fade").source:set({ value })
 	end
-	function ctx.fade(properties: Shared.CanvasGroupNativeProps, persistent: boolean?): Frame
+	function ctx.fade(properties: Shared.CanvasGroupNativeProps, persistent: boolean?, chrome: boolean?): Frame
 		local fields = (properties :: unknown) :: { [unknown]: unknown }
 		local source = Compose.cell({ (fields.GroupTransparency or 0) :: Shared.Value<number> })
 		fields.GroupTransparency = nil
@@ -123,17 +123,29 @@ return function(
 		local latched = Compose.cell(true)
 		local stop = runtime.mountFragment(function()
 			return {
-				Host.UIGradient "FadePaint" { Transparency = paint },
-				ctx.styled(
-					Host.UIStroke "FadeStroke" {
-						Host.UIGradient "FadePaint" {
-							Transparency = function(use: ComposeTypes.Use): NumberSequence
-								return if use(latched) then types.NumberSequence.new(1) else paint(use)
-							end,
-						},
-					},
-					"fade-stroke"
-				),
+				Compose.show(function(use: ComposeTypes.Use)
+					return chrome ~= false and use(shown) and transparency(use) > 0
+				end, function()
+					node:AddTag("facet-fading")
+					Compose.cleanup(function()
+						node:RemoveTag("facet-fading")
+					end)
+					return Compose.fragment(function()
+						return {
+							Host.UIGradient "FadePaint" { Transparency = paint },
+							ctx.styled(
+								Host.UIStroke "FadeStroke" {
+									Host.UIGradient "FadePaint" {
+										Transparency = function(use: ComposeTypes.Use): NumberSequence
+											return if use(latched) then types.NumberSequence.new(1) else paint(use)
+										end,
+									},
+								},
+								"fade-stroke"
+							),
+						}
+					end)
+				end),
 				Compose.show(function(use: ComposeTypes.Use)
 					return use(shown) and (persistent == true or amount(use) > 0)
 				end, function()
@@ -255,11 +267,7 @@ return function(
 							end
 						end)
 					end)
-					node:AddTag("facet-fading")
 					latched:set(false)
-					Compose.cleanup(function()
-						node:RemoveTag("facet-fading")
-					end)
 					return Compose.fragment(function()
 						return {}
 					end)

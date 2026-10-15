@@ -16,7 +16,7 @@ Regenerate the procedural PNG art and write each file whose pixels changed.
 A file with the same pixels is not rewritten, so its bytes and hashes stay.
 
 targets:
-  all                every target below except sample
+  all                every target below, then sample
   sample             assets/themes/plate-samples.json from the committed plates
 %s
 
@@ -140,7 +140,12 @@ local function run(invocation: Cli.Invocation): number
 	end
 	report.images = entries
 	Cli.emit(invocation, report, table.concat(lines, "\n"))
-	return if passed then 0 else 1
+	local code = if passed then 0 else 1
+	if name == "all" then
+		print("art plate-samples")
+		code = math.max(code, Sample.run(invocation))
+	end
+	return code
 end
 
 local command: Cli.Command = {

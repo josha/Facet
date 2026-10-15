@@ -533,10 +533,16 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 					return D2.new(1, 0, 0, math.max(minimum, use(textHeight) + message + 16))
 				end
 		end
+		local attachEditing: (() -> ())?
 		nativeProps.Focused = function(...)
 			if enabled() and not editing:peek() then
 				snapshot = read(spec.value)
 				editing:set(true)
+				local attach = attachEditing
+				if attach then
+					attachEditing = nil
+					attach()
+				end
 			end
 			if spec.Focused then
 				spec.Focused(...)
@@ -878,7 +884,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			drawnHeight = Compose.formula(function(use: ComposeTypes.Use): number
 				return use(measured).Y
 			end)
-		else
+		elseif messageNode then
 			local bounds = ctx.observe.TextBounds(node)
 			drawnHeight = Compose.formula(function(use: ComposeTypes.Use): number
 				return use(bounds).Y
@@ -913,30 +919,32 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 				end
 			end)
 		end
-		ctx.action(node, "TextEditing", {
-			E.KeyCode.Up,
-			E.KeyCode.Down,
-			E.KeyCode.Left,
-			E.KeyCode.Right,
-			E.KeyCode.DPadUp,
-			E.KeyCode.DPadDown,
-			E.KeyCode.DPadLeft,
-			E.KeyCode.DPadRight,
-		}, editing, function() end, { priority = 10000 })
-		local _, editingContext = ctx.action(
-			node,
-			"Cancel",
-			{ E.KeyCode.Escape, E.KeyCode.ButtonB },
-			editing,
-			cancel,
-			{ priority = 10000 }
-		)
-		local nativeEditingAvailable = ctx.observe.Enabled(editingContext)
-		Compose.watch(function(use: ComposeTypes.Use)
-			if not use(nativeEditingAvailable) and editing:peek() then
-				editing:set(false)
-				releaseFocus()
-			end
+		attachEditing = Compose.bindOwner(function()
+			ctx.action(node, "TextEditing", {
+				E.KeyCode.Up,
+				E.KeyCode.Down,
+				E.KeyCode.Left,
+				E.KeyCode.Right,
+				E.KeyCode.DPadUp,
+				E.KeyCode.DPadDown,
+				E.KeyCode.DPadLeft,
+				E.KeyCode.DPadRight,
+			}, editing, function() end, { priority = 10000 })
+			local _, editingContext = ctx.action(
+				node,
+				"Cancel",
+				{ E.KeyCode.Escape, E.KeyCode.ButtonB },
+				editing,
+				cancel,
+				{ priority = 10000 }
+			)
+			local nativeEditingAvailable = ctx.observe.Enabled(editingContext)
+			Compose.watch(function(use: ComposeTypes.Use)
+				if not use(nativeEditingAvailable) and editing:peek() then
+					editing:set(false)
+					releaseFocus()
+				end
+			end)
 		end)
 		local inputService = ctx.config.services.UserInputService
 		if inputService then

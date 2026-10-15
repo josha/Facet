@@ -12,16 +12,6 @@ export type Observation = {
 return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Services): Observation
 	local Compose, runtime, Enum = ctx.Compose, ctx.runtime, ctx.types.Enum
 	type SharedObservation = { cell: ComposeTypes.Cell<unknown>, users: number, stop: () -> () }
-	local serviceNodes: { [Instance]: boolean } = {}
-	for _, service in (services :: unknown) :: { [string]: Instance } do
-		serviceNodes[service] = true
-	end
-	if config.guiService then
-		serviceNodes[config.guiService] = true
-	end
-	if config.userInputService then
-		serviceNodes[config.userInputService] = true
-	end
 	local sharedObservations: { [Instance]: { [string]: SharedObservation } } = {}
 	local preview: { [string]: unknown } = (config.environment or {}) :: { [string]: unknown }
 	local PREVIEWED: { [string]: { key: string, enum: string? } } = {
@@ -73,10 +63,9 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 		TextBounds = true,
 		TextFits = true,
 	}
-	local sharedProperties = { Visible = true, Interactable = true, Enabled = true }
 	local function observe(node: Instance, property: string): ComposeTypes.Cell<unknown>
 		local observation = assert(runtime.host.observation, "Roblox property observation is required")
-		if serviceNodes[node] or sharedProperties[property] then
+		if not geometryProperties[property] then
 			local byProperty = sharedObservations[node]
 			if byProperty == nil then
 				byProperty = {}
@@ -175,20 +164,13 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 			held.users += 1
 			return (previewed(property, held.cell) :: unknown) :: ComposeTypes.Cell<unknown>
 		end
-		if geometryProperties[property] then
-			return observeGeometry(
-				Compose,
-				runtime,
-				node,
-				property,
-				if services.RunService then services.RunService.PreRender else nil
-			)
-		end
-		local value = Compose.cell(observation.readProperty(node, property))
-		Compose.cleanup(observation.observeProperty(node, property, function()
-			value:set(observation.readProperty(node, property))
-		end))
-		return value
+		return observeGeometry(
+			Compose,
+			runtime,
+			node,
+			property,
+			if services.RunService then services.RunService.PreRender else nil
+		)
 	end
 	local function observers(watch: (Instance, string) -> ComposeTypes.Cell<unknown>): Shared.Observe
 		local bound: { [string]: (Instance) -> ComposeTypes.Cell<unknown> } = {}

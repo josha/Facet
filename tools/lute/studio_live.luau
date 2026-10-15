@@ -69,9 +69,9 @@ project.tree.Workspace["$attributes"] = { Facet_Demos = fs.readFileToString("too
 project.tree.ReplicatedStorage.FacetLive = { ["$path"] = "../tools/studio/live" }
 project.tree.ReplicatedStorage.FacetVerify = { ["$path"] = "../tools/vendor/verify/src" }
 project.tree.ReplicatedStorage.FacetConsumerScreen = { ["$path"] = "consumer/src/screen.luau" }
+project.tree.ReplicatedStorage.Lab = { ["$path"] = "facet-lab/src" }
+project.tree.ReplicatedStorage.LabThemes = { ["$path"] = "facet-lab/themes" }
 if table.find(suites, "lab") then
-	project.tree.ReplicatedStorage.Lab = { ["$path"] = "facet-lab/src" }
-	project.tree.ReplicatedStorage.LabThemes = { ["$path"] = "facet-lab/themes" }
 	project.tree.ReplicatedStorage.FacetShowcase = {
 		["$className"] = "Folder",
 		screen = { ["$path"] = "gallery/client/screen.luau" },
@@ -89,6 +89,9 @@ project.tree.ReplicatedStorage.VirtualMonitors = monitors
 fs.writeStringToFile(PROJECT, json.serialize(project))
 if not fs.exists("build") then
 	fs.createDirectory("build")
+end
+if not fs.exists("artifacts/studio-live") then
+	fs.createDirectory("artifacts/studio-live", { makeParents = true })
 end
 local built = process.run({ "rojo", "build", PROJECT, "-o", PLACE })
 fs.remove(PROJECT)

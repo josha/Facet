@@ -348,7 +348,7 @@ do
 								local fade = panel:FindFirstChild("FadePaint")
 									or panel:FindFirstChild("PresentationFade")
 								local alpha = if fade then fade.Transparency.Keypoints[1].Value else 0
-								if alpha < 0.95 then
+								if alpha < 0.95 and t.visible(panel) then
 									local frame = snapshot(
 										panel,
 										kind ~= "Sheet"

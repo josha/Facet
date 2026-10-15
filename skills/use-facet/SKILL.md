@@ -1,231 +1,64 @@
 ---
 name: use-facet
-description: >
-  Build, design, change, debug, style, or test Roblox UI with Facet.
-  Use this skill for Roblox game UI and Studio plugin interfaces, even if the user does not name Facet.
-  This includes minimaps, HUDs, menus, stores, inventories, settings, prompts, overlays, and world-space interfaces.
-  Use Facet from the first line of UI code.
-  This rule also applies to prototypes and new projects that do not have Facet installed.
-  Do not use this skill for non-Roblox UI or Roblox work without UI.
+description: Build, change, style or test Roblox game UI and Studio plugin interfaces with Facet. Use Facet from the first UI code, including prototypes and projects without Facet installed. Do not use for non-Roblox UI or Roblox work without UI.
 ---
 
 # Use Facet
 
-Facet supplies Roblox UI controls. The controls use Compose and the Roblox engine.
+Start with `lute run tools/facet docs`. One bounded response gives the project
+files, task recipes, controls, call shapes and typed state patterns. Read the
+application contracts and existing components together in your next call.
+Use `project [directory]` for file discovery; rg and Git are optional.
+For options outside the recipes, use `docs <Control>` or `docs --search TEXT`.
+Long sections print an outline; `--full` prints the full contract. Do not read
+the documentation folder or dependency source in full. Starter components
+are in `examples/blocks/`.
 
-Before you design or change UI, read all current Facet documentation in
-[`docs/`](../../docs/). Read each file in full. Include the guides, API reference,
-architecture, layout, containers, composition, input, themes, and extension instructions.
-Start with the [documentation index](../../docs/guide/README.md).
-The index is a reading map. It does not replace the other files.
-Also read [AGENTS.md](../../AGENTS.md). Do not use historical design plans as current API instructions.
-Do not read an unchanged file again during the same conversation.
+## Build
 
-## Order of solutions
+- Make one `Facet.app({ name, parent })` and one `app.mount(component)`.
+  Use `app.UI` for controls. Name `app.runtime.constructors` `Host` for native
+  objects. Each screen is a Compose branch or portal of this tree.
+- Use named constructors: `UI.Button "Save" { label = "Save" }`. Use strict
+  Luau without `any` casts. Control options use lower camel case; native
+  properties keep their Roblox names.
+- Use `Facet.Compose`: `cell` for local state, `formula` for derived values,
+  `show` for branches, `keyed` for children and `cleanup` to release resources.
+  Read cells with `use(cell)` in property functions and `cell:peek()` in
+  callbacks. Write with `cell:set(value)` or `cell:update(fn)`.
+  Use `function(use: Facet.Use)` when a property reads different cell types.
+- Use VirtualList, VirtualGrid or Table for interactive collections. Keep
+  durable row state in the model. The server owns game state and validates
+  requests. Show the result that the server returns.
+- The theme owns paint, type, spacing and motion. Use `textRole`,
+  `appearance`, `gap` and `padding` tokens. Use `wrap = true` for long text in
+  a stack with `width = "fill"`. Do not set `TextScaled`.
+- For a length the game owns, such as a portrait, use
+  `UI.environment().scaled(64)`. Give the type role for a length that sits
+  with text: `scaled(64, "body")` also follows the player's text size. Do not
+  multiply by `metricScale`.
+- Keep all HUD groups in one Composition. Use stable region widths and
+  smaller forms before you let a region drop. Use `UI.environment` or adaptive
+  controls for size changes. Do not branch on the device.
+- Use native InputAction and InputContext for game commands. Controls own
+  their input and selection. Do not bind Escape or the gamepad Start button.
+- Keep `AutoLocalize` on for fixed text. Use `Translator:FormatByKey` and the
+  `translator` option for formatted text. Turn AutoLocalize off for player text.
 
-For each need, look in this order, and use the first that fits:
+## Check
 
-1. The Roblox engine: native Instances, properties, layouts, constraints,
-   StyleSheets, the Input Action System and LocalizationService.
-2. Compose: cells, formulas, `show`, `keyed`, `portal`, springs and owners.
-3. A Facet control or option.
-4. Only then, game code. If the need is reusable, change Facet, not the game.
+Run `lute run tools/facet verify --tap TEXT...` after a coherent edit. It runs
+strict types, usage lint, a Rojo build, audit and screenshots in one command.
+Give one `--tap` for each control in the path to a screen. It uses one capture
+session across all five devices and prints only problems and screenshot paths.
+Inspect those screenshots and fix high and medium findings. Repeat checks only
+after changes or an unresolved problem; separate audit and preview calls are
+not needed for the same screens. Do not read dump files. If Studio is
+unavailable, report that limit once and use `verify --static`.
+The tools remove a UTF-8 BOM from application Luau files before engine tools
+read them. In Windows PowerShell 5.1 use `Set-Content -Encoding utf8`.
 
-Examples: bind a native `TextSize` for a reactive pixel size. Name a dialog
-action button by its `id` and select it with `#id` in a StyleRule. Set the
-native `DisplayName` of a touch binding so `ShortcutHint` shows it.
-
-## Read first for a game HUD
-
-The full documentation is long. For a game HUD, read these sections of the
-[API reference](../../docs/reference/api.md) before you write code: Composition
-(zones, lanes, ranks, `mayDrop` and forms), Text, Button, environment and the
-controls options. Read the other sections when you use their controls.
-
-## Rules that are easy to miss
-
-- **Composition drops regions.** A region with `mayDrop = true` hides when its
-  zone does not fit. A side zone fits in a third of the width. A `top`,
-  `center` or `bottom` zone can also use the width that the side zones of its
-  row leave free. When a region does not show, read the `Visible` property and
-  the `FacetForm` attribute of the region before you change its content. Give
-  a region a smaller second form before you let it drop. When the side
-  zones of a row squeeze a center zone, rank decides which region steps down.
-- **One Composition for the whole HUD.** Put every HUD element in one
-  Composition, including a minimap or another native Frame (put the Frame in
-  a region). A second ScreenGui is invisible to the solver, so its contents
-  overlap the regions on a small screen.
-- **Stable widths.** Give a value that changes during play, such as a
-  counter, one width for all its values. A region that changes width can make
-  a neighbor region step down and come back each time the value changes.
-- **Text that wraps.** Use `UI.Text` with `wrap = true`, a width and
-  `AutomaticSize = Enum.AutomaticSize.Y`, or `lines = n` to clamp. Do not
-  estimate the height of text yourself.
-- **Readables.** Most options accept a value or a readable. When an option
-  refuses a readable, read its contract in the API reference. If a reactive
-  value is reasonable for it, change Facet.
-- **Sizes.** Take lengths from type roles, `controlSize` and theme metrics.
-  For a length that the game owns, such as a portrait, use
-  `UI.environment().scaled(64)` or `scaled("space.m")`. For a length that sits
-  with text, such as a portrait beside a line, add the role:
-  `scaled(64, "body")` also follows the player's text size. Do not multiply by
-  `metricScale` by hand, and do not branch on device names.
-- **Input.** Bind game commands as native `InputAction`s in an
-  `InputContext`. Show their keys with `UI.ShortcutHint { action = ... }`. It
-  shows the glyph of the device in use.
-- **Localization.** Use the Roblox mechanism. Keep `AutoLocalize` on for
-  fixed strings and add them to the `LocalizationTable`. Format strings with
-  values with `Translator:FormatByKey` and give Facet the `translator`
-  option. Do not join translated pieces with `..`. Set `AutoLocalize = false`
-  on player names and other text that players write.
-
-## Verify on each device class
-
-Use the Studio Device Simulator for a phone in portrait and landscape, a
-tablet and a console, and the Controller Emulator for a gamepad. A screen that
-is correct on a desktop can drop or crowd regions on a phone. Make each state
-appear (a long message, a full list, an open dialog) while you look. Report
-each problem that you find in Facet as a Facet change, not a game workaround.
-
-## Select behavior before layout
-
-Before composing the screen, map its tasks to the highest-level Facet controls
-that already own the required behavior. Use the
-[task-to-control map](../../docs/guide/14-choosing-controls.md#task-to-control),
-then read those controls' API contracts. Choose by selection, editing,
-reordering, navigation and input needs before considering appearance or item
-count. A small dataset does not remove the need for a collection control.
-
-For a layer outline, playlist or editable inventory, start with `UI.VirtualList`
-for rows, `UI.VirtualGrid` for tiles, or `UI.Table` for meaningful columns.
-Use their selection and reorder options when the task needs them. A `UI.Button`
-can render a row; the containing collection owns selection, focus and movement.
-Use plain keyed children for repeated content that does not need those
-collection behaviors. See
-[interactive collections](../../docs/guide/14-choosing-controls.md#interactive-collections).
-
-For user-ordered rows, use `reorderable = true` and accept `onReorder` in the
-model. Preserve the control's drag and non-pointer paths. Do not substitute
-standalone Up/Down buttons for collection reordering unless the user requests
-that interaction or the task has a concrete constraint. If a needed shared
-behavior is missing or broken, fix Facet instead of recreating it in the screen.
-
-## Authoring
-
-Make a runtime with `Facet.Roblox.createRuntime()`. Name its constructors
-`Host`. Get the controls with `Facet.controls(runtime, options?)`. A component
-returns native Instances. Mount it with `runtime.mount` into the native parent
-of the caller. The [working screen](../../docs/guide/03-getting-started.md) is
-the complete recipe for startup, styling and teardown. The
-[standalone consumer](../../examples/consumer/) is a project that you can run.
-
-- Use `Host.ScreenGui`, `Host.SurfaceGui` or `Host.BillboardGui` for the
-  target. Native Frames, layouts, constraints, scrolling and embedded 3D use
-  the same Compose runtime. They are ordinary supported composition.
-- Native properties keep their names and datatypes. Numeric entries are
-  children. Control options use lower camel case. The `ref` of a control
-  receives the root Instance. Borrowed Instance properties use
-  `Compose.static(instance)`.
-- Use Compose cells, formulas, watches and cleanup directly. Property bodies
-  read through `use`. Callbacks command the model with `:set` or `:update`.
-  `:peek()` reads without subscribing. Batch updates with
-  `runtime.reactor:batch`.
-- Use `Compose.show`, `Compose.keyed`, `Compose.portal` and
-  `Compose.LayerStack` for structure. Use `runtime.spring`, `runtime.tween` and
-  `runtime.timeline` for motion. Keep durable state outside disposable branches
-  and virtual rows.
-- Virtual controls take `from`, a key function and
-  `render(current, placement, key)`. Read the current items inside property
-  bindings. Compose owns windowing, pooling and anchor preservation.
-- Stop the mounts before you dispose the runtime. Register external
-  subscriptions with their Compose owner. Do not add another application or
-  lifetime facade.
-
-See [components](../../docs/guide/15-components.md) for state and ownership,
-and [adaptive composition](../../docs/guide/15-adaptive-recipes.md) for layout.
-
-## Compose in the existing screen
-
-First, examine the toolbar, settings, navigation and action composition of the
-host screen. Use again the nearest control and surface that can express the
-task. Customize the native layout and the game-owned theme package before you
-add a new presentation. A reusable behavior that is missing from an existing
-Facet control belongs in Facet. Domain copy, models, networking and server
-validation belong to the game.
-
-Use [Choosing controls](../../docs/guide/14-choosing-controls.md) to select controls for the player's task.
-Use [Control families](../../docs/guide/16-controls.md) to compare their functions and alternatives.
-Check each selected control in the [API reference](../../docs/reference/api.md).
-Check its presentation, state contract, and input behavior.
-Do not select a control from its name alone.
-Do not copy an example without a check of its use in your game.
-
-- For top-level peer destinations, use an adaptive outer `UI.TabView` with
-  `style = "sidebarAdaptable"`. Put ordinary nested page tabs inside its content
-  factories. Use `UI.NavigationStack` for a hierarchy and Back.
-- Use `UI.Picker` to choose a value, `UI.Menu` for commands, and `UI.ComboBox`
-  for validated custom text. Keep the documented input behavior of the
-  control. Do not rebuild its popup or keyboard handling.
-- Use `UI.Alert` for a brief decision and `UI.Sheet` for a substantial
-  temporary task. Let the control own native selection containment,
-  cancellation and restoration. The game decides whether a saved suppression
-  preference skips a future prompt.
-- Keep collection behavior when changing its layout or styling. Window large
-  collections. Use `mode = "all"` only for a bounded collection with a concrete
-  reason to keep every row mounted; it does not replace the collection contract.
-- Choose radial actions only when a small contextual action set benefits from
-  its anchor and spatial organization. Project world objects with the engine
-  camera. World surfaces stay flat UI. Facet has no VR ray, hand or gaze path.
-
-Read the native bounds and the preferred input, text and accessibility facts.
-Do not branch on device names. Do not estimate text geometry. Do not add
-another solver, focus graph, input transport or scroll-window calculation. If a
-framework promise is broken, fix it in Facet. Do not work around it in a game.
-
-## Themes and artwork
-
-When the look needs customization, derive a game-owned theme package. Give the
-same theme package source to the controls and to
-`Facet.themes.createStyleSheet`. Parent the sheet and a native StyleLink inside
-the screen owner. Explicit native paint overrides StyleSheet paint. Thus use
-semantic rules for defaults and theme transitions.
-
-Use real image icons, artwork and declared skin insets. Examine contrast and
-content boundaries at narrow sizes, with large text and across theme changes.
-See [custom themes](../../docs/guide/09-custom-themes.md),
-[styling](../../docs/guide/05-styling.md) and
-[rich skinning](../../docs/guide/10-rich-skinning.md).
-
-## Verification
-
-1. While you edit, run the targeted behavioral specs.
-2. Before you propose changes, run `lute run tools/facet gate full`. Use a checkout with
-   history for the coverage audit. A passing `full` run is not equivalent to
-   the historical coverage on main. See the
-   [verification scope](../../docs/guide/18-verification-scope.md).
-3. After runtime changes, rebuild and examine the distributable with
-   `lute run tools/facet package build` and `lute run tools/facet package status`. Package publication
-   is a separate maintainer task.
-
-In Studio, exercise changed screens at compact and wide sizes with the
-applicable pointer, touch, keyboard and gamepad input. Include enlarged text,
-reduced motion and native theme paint. Observe the actual input results.
-Programmatic activation and headless geometry doubles alone do not prove hit
-testing or accessibility. The gallery settings give theme, motion and
-viewing-distance previews. The Studio Device Emulator and Controller Emulator
-give viewport and input checks.
-
-For an editable collection, check row selection, moving an item, the resulting
-model order, and the applicable touch, keyboard and gamepad paths. In a Studio
-plugin, exercise the PluginGui itself. A working game viewport does not prove
-that plugin mouse input works. Confirm that styling did not replace or disable
-the chosen control's behavior.
-
-Keep performance measurements separate from live Studio work. Report their
-measurement boundaries. Do not edit the generated Compose snapshot. For new
-reusable behavior, use the [extension playbooks](../../docs/extending/). For
-live evidence requirements, read the
-[device verification guide](../../docs/guide/11-device-verification.md).
-
-For upstream runtime, collection or motion details, read the pinned
-[Compose skill](../compose/SKILL.md) and its linked API reference.
+For a missing behavior, search the docs. Use native Roblox mechanisms first,
+then Compose, then a Facet control, then game code. For Compose operations
+outside this path, read the [Compose skill](../compose/SKILL.md).
+In the Facet repository, read [AGENTS.md](../../AGENTS.md) before changes.

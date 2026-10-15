@@ -4,6 +4,7 @@ local Rule = require("./lib/rule")
 
 local rules: { Rule.Rule } = {
 	require("@self/plan"),
+	require("@self/facetbench_references"),
 	require("@self/architecture"),
 	require("@self/type_policy"),
 	require("@self/vendor"),
@@ -18,7 +19,6 @@ local rules: { Rule.Rule } = {
 	require("@self/example_drift"),
 	require("@self/call_shape_drift"),
 	require("@self/public_allowlist"),
-	require("@self/experiment_markers"),
 	require("@self/scenario_requires"),
 	require("@self/library_purity"),
 	require("@self/word_data"),

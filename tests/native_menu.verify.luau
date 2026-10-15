@@ -85,6 +85,80 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native menu parity with main", function()
+		verifyHarness:case("keeps native row marks reactive across selection and icon states", {
+			id = "native_menu::native menu parity with main::keeps native row marks reactive across selection and icon states",
+			run = function()
+				local checked, enabled = Compose.cell(false), Compose.cell(true)
+				local world = labelled({
+					items = { { id = "checked", label = "Checked", checked = checked, enabled = enabled } },
+				}, {
+					motionLevel = "none",
+					icons = {
+						checkmark = {
+							default = "rbxassetid://1",
+							hover = "rbxassetid://2",
+							pressed = "rbxassetid://3",
+							selected = "rbxassetid://4",
+							disabled = "rbxassetid://5",
+						},
+					},
+				})
+				local row = world.find("checked", open(world))
+				local mark = row:FindFirstChild("TrailingIcon")
+				Verify.expect(row.Text):toBe("Checked")
+				Verify.expect(mark.Visible):toBe(false)
+				row.Activated:Fire()
+				Verify.expect(checked:peek()):toBe(true)
+				Verify.expect(mark.Visible):toBe(true)
+				Verify.expect(mark.Image):toBe("rbxassetid://4")
+				row.GuiState = world.engine.types.Enum.GuiState.Hover
+				Verify.expect(mark.Image):toBe("rbxassetid://2")
+				row.GuiState = world.engine.types.Enum.GuiState.Press
+				Verify.expect(mark.Image):toBe("rbxassetid://3")
+				enabled:set(false)
+				Verify.expect(mark.Image):toBe("rbxassetid://5")
+				row.Activated:Fire()
+				Verify.expect(checked:peek()):toBe(true)
+				checked:set(false)
+				Verify.expect(mark.Visible):toBe(false)
+				world.stop()
+				Verify.expect(mark:isDestroyed()):toBe(true)
+			end,
+		})
+		verifyHarness:case("keeps live labels and actions when a plain row gains and loses a description", {
+			id = "native_menu::native menu parity with main::keeps live labels and actions when a plain row gains and loses a description",
+			run = function()
+				local count = 0
+				local label = Compose.cell("Save")
+				local action: FixtureNavigationTypes.MenuItem<string> = {
+					id = "save",
+					label = label,
+					dismiss = false,
+					onSelect = function()
+						count += 1
+					end,
+				}
+				local source = Compose.cell({ action })
+				local world = labelled({ items = source })
+				local panel = open(world)
+				local row = world.find("save", panel)
+				Verify.expect(row:FindFirstChild("Content")):toBe(nil)
+				label:set("Save race")
+				Verify.expect(row.Text):toBe("Save race")
+				row.Activated:Fire()
+				local described = table.clone(action)
+				described.description = "Keep this lap"
+				source:set({ described })
+				Verify.expect(world.find("Description", panel).Text):toBe("Keep this lap")
+				world.find("save", panel).Activated:Fire()
+				source:set({ action })
+				Verify.expect(world.find("save", panel).Text):toBe("Save race")
+				Verify.expect(world.find("Description", panel)):toBe(nil)
+				world.find("save", panel).Activated:Fire()
+				Verify.expect(count):toBe(3)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("keeps the stationary panel mask synchronized with its persistent child group", {
 			id = "native_menu::native menu parity with main::keeps the stationary panel mask synchronized with its persistent child group",
 			run = function()
@@ -314,10 +388,24 @@ return function(verifyHarness: Verify.Harness)
 				world.find("Opener").Activated:Fire()
 				local panel = panelOf(world)
 				for _, id in { "plain", "deeper" } do
-					local content = world.find(id, panel):FindFirstChild("Content")
-					local words = content:FindFirstChild("Captions") or content:FindFirstChild("Title")
-					Verify.expect(words ~= nil and words:FindFirstChildWhichIsA("UIFlexItem") ~= nil):toBe(true)
-					Verify.expect(content.Size.X.Scale):toBe(1)
+					local row = world.find(id, panel)
+					local content = row:FindFirstChild("Content")
+					if content then
+						local words = content:FindFirstChild("Captions") or content:FindFirstChild("Title")
+						Verify.expect(words ~= nil and words:FindFirstChildWhichIsA("UIFlexItem") ~= nil):toBe(true)
+						Verify.expect(content.Size.X.Scale):toBe(1)
+					else
+						Verify.expect(row.Text):toBe(if id == "plain" then "Plain" else "Deeper")
+						Verify.expect(row.TextXAlignment):toBe(world.engine.types.Enum.TextXAlignment.Left)
+						Verify.expect(row.Size.X.Scale):toBe(1)
+						if id == "deeper" then
+							local mark = row:FindFirstChild("TrailingIcon")
+							Verify.expect(mark.AnchorPoint):toBe(Vector2.new(1, 0.5))
+							Verify.expect(mark.Position.X.Scale):toBe(1)
+							Verify.expect(mark.Position.X.Offset)
+								:toBe(row:FindFirstChildWhichIsA("UIPadding").PaddingRight.Offset)
+						end
+					end
 				end
 				world.stop()
 			end,
@@ -409,9 +497,12 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect((world.find("skin", parent):HasTag("facet-selected"))):toBe(false)
 						Verify.expect(world.find("skin", parent):FindFirstChild("Hairline").Visible):toBe(true)
 						for _, id in { "plain", "adjust", "skin" } do
-							local layout =
-								world.find(id, parent):FindFirstChild("Content"):FindFirstChildWhichIsA("UIListLayout")
-							Verify.expect(`{id} {layout.HorizontalAlignment.Name}`):toBe(`{id} Left`)
+							local button = world.find(id, parent)
+							local content = button:FindFirstChild("Content")
+							local alignment = if content
+								then content:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment
+								else button.TextXAlignment
+							Verify.expect(`{id} {alignment.Name}`):toBe(`{id} Left`)
 						end
 					end
 					world.stop()

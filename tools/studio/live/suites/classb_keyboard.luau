@@ -908,7 +908,7 @@ add("role-fills-win-at-rest", {}, function(t)
 			danger and hover and press ~= nil
 		)
 		if danger and hover and press and baseHover then
-			local color = danger:GetProperty("BackgroundColor3")
+			local color = t.ruleValue(danger, "BackgroundColor3")
 			local fill = t.find(stage, "Delete"):GetStyled("BackgroundColor3")
 			t.check(`{entry.name} the destructive button rests on the danger fill`, same(fill, color), {
 				fill = tostring(fill),
@@ -920,11 +920,11 @@ add("role-fills-win-at-rest", {}, function(t)
 			)
 			t.check(
 				`{entry.name} the role hover rule paints danger`,
-				same(hover:GetProperty("BackgroundColor3"), color)
+				same(t.ruleValue(hover, "BackgroundColor3"), color)
 			)
 			t.check(
 				`{entry.name} the role press rule paints danger`,
-				same(press:GetProperty("BackgroundColor3"), color)
+				same(t.ruleValue(press, "BackgroundColor3"), color)
 			)
 			t.check(
 				`{entry.name} the role rules come after the generic state rules`,

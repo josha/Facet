@@ -14,6 +14,7 @@ local cellModule = require "../reactive/cell"
 export type Viewport = {
 	offset: number,
 	size: number,
+	offsetRevision: number?,
 }
 
 export type Mode = "all" | "windowed"
@@ -214,6 +215,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	local measuredCount = 0
 	local following = followEnd
 	local lastOffset: number? = nil
+	local lastOffsetRevision: number? = nil
 	local requestedOffset: number? = nil
 	local anchorKey: K? = nil
 	local anchorOffset = 0
@@ -365,10 +367,12 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 		local range: Layout.Range
 		local viewportOffset = 0
 		local viewportSize = extent
+		local offsetRevision: number? = nil
 		if mode == "windowed" then
 			local read = (viewportBody :: Types.Body<Viewport>)(use)
 			viewportOffset = numberOr(read.offset, 0)
 			viewportSize = numberOr(read.size, 0)
+			offsetRevision = read.offsetRevision
 			range = windowRange
 		else
 			wholeRange.first = 1
@@ -378,11 +382,12 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 			range = wholeRange
 		end
 
-		local scrollChanged = lastOffset ~= nil and viewportOffset ~= lastOffset
+		local scrollChanged = lastOffset ~= nil
+			and (viewportOffset ~= lastOffset or offsetRevision ~= lastOffsetRevision)
 		local effectiveOffset = if not scrollChanged and requestedOffset ~= nil then requestedOffset else viewportOffset
 		local desiredOffset: number? = nil
 		if followEnd and mode == "windowed" then
-			if lastOffset == nil or viewportOffset ~= lastOffset then
+			if lastOffset == nil or scrollChanged then
 				local distanceFromEnd = extent - (viewportOffset + viewportSize)
 				following = distanceFromEnd <= followThreshold
 			end
@@ -425,6 +430,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 		end
 
 		lastOffset = viewportOffset
+		lastOffsetRevision = offsetRevision
 
 		if retained > 0 then
 			anchorIndex = if mode == "windowed"

@@ -72,6 +72,9 @@ return function<V>(
 		end
 		local item = live.item
 		local icon = item.icon ~= nil or (item.compactLabel ~= nil and item.compactLabel.icon ~= nil)
+		if not icon then
+			return false
+		end
 		local padding = captionPadding(use)
 		local button = buttons[live.key]
 		local inset = button and button:FindFirstChildWhichIsA("UIPadding")
@@ -81,7 +84,7 @@ return function<V>(
 			padding = left.Offset + right.Offset
 		end
 		local width = math.min(geometry.labelBounds(live, 40).w, use(fittedWidths)[live.key] or math.huge)
-		return icon and (use(wordWidths)[live.key] or 0) + padding > width
+		return (use(wordWidths)[live.key] or 0) + padding > width
 	end
 	local focus = Compose.createFocusScope({
 		from = sectors,
@@ -375,20 +378,26 @@ return function<V>(
 						end)
 						local caption = button:FindFirstChild("Title", true)
 						local textNode = if caption and caption:IsA("TextLabel") then caption else button
-						local natural = ctx.text({
-							Name = "CaptionMeasure",
-							Text = function(use: ComposeTypes.Use): string
-								return read(currentSector(use).item.label, use) or ""
-							end,
-							FontFace = ctx.observeStyled.FontFace(textNode),
-							TextSize = ctx.observeStyled.TextSize(textNode),
-							TextWrapped = false,
-							TextTruncate = E.TextTruncate.None,
-							TextTransparency = 1,
-							Interactable = false,
-							Size = D2.fromOffset(0, 0),
-							AutomaticSize = E.AutomaticSize.XY,
-						})
+						local natural = ctx.styled(
+							Host.TextLabel({
+								Name = "CaptionMeasure",
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								TextXAlignment = E.TextXAlignment.Left,
+								Text = function(use: ComposeTypes.Use): string
+									return read(currentSector(use).item.label, use) or ""
+								end,
+								FontFace = ctx.observeStyled.FontFace(textNode),
+								TextSize = ctx.observeStyled.TextSize(textNode),
+								TextWrapped = false,
+								TextTruncate = E.TextTruncate.None,
+								TextTransparency = 1,
+								Interactable = false,
+								Size = D2.fromOffset(0, 0),
+								AutomaticSize = E.AutomaticSize.XY,
+							}),
+							"Text"
+						)
 						surfaces.attach(button, { natural })
 						local unit = ctx.layoutUnit(button)
 						local fullBounds, paintedBounds =
@@ -434,7 +443,7 @@ return function<V>(
 								return if currentSector(use).list then D2.new(1, 0, 0, 44) else D2.fromScale(1, 1)
 							end,
 							button,
-						})
+						}, nil, false)
 						local shaped = Compose.cell(false)
 						local shape = Host.Frame "Paint" {
 							BackgroundTransparency = 1,

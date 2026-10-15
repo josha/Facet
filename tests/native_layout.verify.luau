@@ -210,6 +210,52 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native text layout", function()
+		verifyHarness:case("owns a glyph floor only while text can grow without wrapping or truncation", {
+			id = "native_layout::native text layout::owns a glyph floor only while text can grow without wrapping or truncation",
+			run = function()
+				local root, engine, stop = build(nil, function(UI: FacetControls)
+					return UI.Text { text = "Inventory", wrap = true }
+				end)
+				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
+				Verify.expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)
+				root.TextBounds = engine.types.Vector2.new(80, 20)
+				root.TextWrapped = false
+				Verify.expect(root:FindFirstChild("TextBoundsFloor").MinSize):toBe(engine.types.Vector2.new(80, 20))
+				root.TextTruncate = engine.types.Enum.TextTruncate.AtEnd
+				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
+				Verify.expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)
+				root.TextTruncate = engine.types.Enum.TextTruncate.None
+				Verify.expect(root:FindFirstChild("TextBoundsFloor").MinSize):toBe(engine.types.Vector2.new(80, 20))
+				stop()
+				Verify.expect(engine.census().connections):toBe(0)
+			end,
+		})
+		verifyHarness:case("defers fixed text layout resources until native automatic sizing starts", {
+			id = "native_layout::native text layout::defers fixed text layout resources until native automatic sizing starts",
+			run = function()
+				local mode = Compose.cell(engineLib.types.Enum.AutomaticSize.None)
+				local root, engine, stop = build(nil, function(UI: FacetControls)
+					return UI.Text({
+						text = "Player",
+						Size = engineLib.types.UDim2.fromOffset(160, 40),
+						AutomaticSize = mode,
+					})
+				end)
+				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
+				Verify.expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)
+				root.TextBounds = engine.types.Vector2.new(60, 20)
+				mode:set(engine.types.Enum.AutomaticSize.XY)
+				local floor = root:FindFirstChild("TextBoundsFloor")
+				Verify.expect(floor ~= nil):toBe(true)
+				Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(60, 20))
+				mode:set(engine.types.Enum.AutomaticSize.None)
+				mode:set(engine.types.Enum.AutomaticSize.XY)
+				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBe(floor)
+				stop()
+				Verify.expect(engine.census().connections):toBe(0)
+			end,
+		})
+
 		verifyHarness:case("keeps the Slider readout reservation across drag values", {
 			id = "native_layout::native text layout::keeps the Slider readout reservation across drag values",
 			run = function()
@@ -402,13 +448,13 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(root.FontFace):toBe(initialFace)
 				Verify.expect(root.TextSize):toBe(initialSize)
 				points = 17
-				root:GetPropertyChangedSignal("TextSize"):Fire()
+				root.StyledPropertiesChanged:Fire()
 				engine.heartbeat:Fire(1 / 60)
 				Verify.expect(nativeMetrics[#nativeMetrics][2]):toBe(17)
 				Verify.expect(root.TextSize):toBe(initialSize)
 				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
 				points = 19
-				root:GetPropertyChangedSignal("TextSize"):Fire()
+				root.StyledPropertiesChanged:Fire()
 				stop()
 				runtime:dispose()
 				local count = #nativeMetrics
@@ -468,10 +514,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local Enum, UDim2, Vector2 = engineLib.types.Enum, engineLib.types.UDim2, engineLib.types.Vector2
 				local asked: { number } = {}
+				local lines = 3
 				local textService = {
 					GetTextBoundsAsync = function(_, params: { Width: number, Size: number }): Vector2
 						table.insert(asked, params.Width)
-						return Vector2.new(params.Width, 3 * params.Size)
+						return Vector2.new(params.Width, lines * params.Size)
 					end,
 				}
 				local line = Compose.cell("Use your Soda Rocket: tap ITEM")
@@ -491,7 +538,12 @@ return function(verifyHarness: Verify.Harness)
 				local floor = label:FindFirstChild("TextBoundsFloor")
 				Verify.expect(#asked > 0):toBe(true)
 				Verify.expect(asked[#asked]):toBe(300)
-				Verify.expect(floor.MinSize.Y):toBe(math.ceil(3 * label.TextSize * math.max(label.LineHeight, 1)))
+				for _, sample in { { 1, 2, 1 }, { 2, 1.25, 2.25 }, { 3, 2, 5 } } do
+					lines = sample[1]
+					label.LineHeight = sample[2]
+					line:set(string.rep("Line ", lines))
+					Verify.expect(floor.MinSize.Y):toBe(math.ceil(sample[3] * label.TextSize))
+				end
 				label.TextWrapped = false
 				Verify.expect(floor.MinSize.Y):toBe(0)
 				stop()

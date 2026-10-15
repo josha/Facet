@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local styleProperties = require("./lib/style_properties")
 
 return function(verifyHarness: Verify.Harness)
 	local nativeDrag = require("./lib/native_drag")
@@ -41,7 +42,7 @@ return function(verifyHarness: Verify.Harness)
 	local function rule(sheet, selector)
 		for _, node in sheet:GetChildren() do
 			if node.Selector == selector then
-				return node:GetProperties()
+				return styleProperties(node)
 			end
 		end
 		error("No rule: " .. selector)

@@ -60,6 +60,118 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native input controls", function()
+		verifyHarness:case("tracks modal portal eligibility after entering and leaving a modal", {
+			id = "native_inputs::native input controls::tracks modal portal eligibility after entering and leaving a modal",
+			run = function()
+				local node, stop, engine, runtime, ctx = world(function(UI: FacetControls)
+					return UI.Button({ label = "Portal" })
+				end)
+				local modal = engine.new("Frame")
+				modal.Parent = node.Parent
+				local available = false
+				local owner = Compose.createRootOwner(function(root)
+					root.watch(function(use)
+						available = ctx.available(node, use)
+					end)
+				end)
+				Verify.expect(available):toBe(true)
+				ctx.modalPortals:set({ { node = node, anchor = modal } })
+				ctx.modalScopes:set({ modal })
+				Verify.expect(available):toBe(true)
+				ctx.modalPortals:set({})
+				Verify.expect(available):toBe(false)
+				ctx.modalScopes:set({})
+				Verify.expect(available):toBe(true)
+				ctx.modalScopes:set({ modal })
+				Verify.expect(available):toBe(false)
+				ctx.modalPortals:set({ { node = node, anchor = modal } })
+				Verify.expect(available):toBe(true)
+				owner.dispose()
+				stop()
+				modal:Destroy()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("installs text editing contexts once on first focus", {
+			id = "native_inputs::native input controls::installs text editing contexts once on first focus",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.TextInput({ value = Compose.cell("Player") })
+				end)
+				local function contexts(): number
+					local count = 0
+					for _, instance in engine.made do
+						if instance.ClassName == "InputContext" then
+							count += 1
+						end
+					end
+					return count
+				end
+				Verify.expect(contexts()):toBe(0)
+				node:CaptureFocus()
+				Verify.expect(contexts()):toBe(2)
+				node:ReleaseFocus(false)
+				node:CaptureFocus()
+				Verify.expect(contexts()):toBe(2)
+				node:ReleaseFocus(false)
+				stop()
+				Verify.expect(engine.census().connections):toBe(0)
+			end,
+		})
+
+		verifyHarness:case("shares native property observations until the last owner releases them", {
+			id = "native_inputs::native input controls::shares native property observations until the last owner releases them",
+			run = function()
+				local node, stop, engine, runtime, ctx = world(function(UI: FacetControls)
+					return UI.Button({ label = "Save" })
+				end)
+				local firstOwner, secondOwner =
+					Compose.createOwner(runtime.reactor), Compose.createOwner(runtime.reactor)
+				local before = engine.census().connections
+				local first = Compose.withOwner(firstOwner, function()
+					return ctx.observe.Text(node)
+				end)
+				local second = Compose.withOwner(secondOwner, function()
+					return ctx.observe.Text(node)
+				end)
+				Verify.expect(first):toBe(second)
+				Verify.expect(engine.census().connections):toBe(before + 1)
+				node.Text = "First"
+				Verify.expect(first:peek()):toBe("First")
+				firstOwner.dispose()
+				node.Text = "Second"
+				Verify.expect(second:peek()):toBe("Second")
+				Verify.expect(engine.census().connections):toBe(before + 1)
+				secondOwner.dispose()
+				Verify.expect(engine.census().connections):toBe(before)
+				node.Text = "Released"
+				Verify.expect(second:peek()):toBe("Second")
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("creates a subtitle when text arrives and reuses it after clearing", {
+			id = "native_inputs::native input controls::creates a subtitle when text arrives and reuses it after clearing",
+			run = function()
+				local subtitle = Compose.cell("")
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button "Action" { label = "Action", subtitle = subtitle }
+				end)
+				Verify.expect(find(node, "Description")):toBe(nil)
+				subtitle:set("Details")
+				local caption = find(node, "Description")
+				Verify.expect(caption.Text):toBe("Details")
+				Verify.expect(caption.Visible):toBe(true)
+				subtitle:set("")
+				Verify.expect(find(node, "Description")):toBe(caption)
+				Verify.expect(caption.Visible):toBe(false)
+				subtitle:set("Updated")
+				Verify.expect(caption.Text):toBe("Updated")
+				Verify.expect(caption.Visible):toBe(true)
+				stop()
+			end,
+		})
 		verifyHarness:case("keeps the checkbox image asset through activation and theme changes", {
 			id = "native_inputs::native input controls::keeps the checkbox image asset through activation and theme changes",
 			run = function()
@@ -2299,10 +2411,14 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(skin.Size):toBe(engine.types.UDim2.fromOffset(0, 0))
 				Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(0, 0))
 				for _, scale in { 1.25, 0.5, 2, 0.75, 1.25, 1 } do
-					node.AbsoluteSize = engine.types.Vector2.new(80 * scale, 44 * scale)
+					node.AbsoluteSize = engine.types.Vector2.new(80.25 * scale, 44.5 * scale)
 					for _, decoration in { skin, label } do
 						decoration.Parent.AbsoluteSize = engine.types.Vector2.new(scale, scale)
-						Verify.expect(decoration.Size):toBe(engine.types.UDim2.fromOffset(80, 44))
+						Verify.expect(decoration.Size):toBe(
+							if decoration == skin
+								then engine.types.UDim2.fromOffset(80.25, 44.5)
+								else engine.types.UDim2.fromOffset(81, 45)
+						)
 						Verify.expect(decoration.Parent.Size):toBe(engine.types.UDim2.fromOffset(1, 1))
 					end
 				end

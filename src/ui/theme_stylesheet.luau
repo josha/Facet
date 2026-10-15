@@ -296,7 +296,7 @@ return function(
 		priority: number,
 		properties: ThemeTypes.RuleProperties?,
 		transitions: { [string]: string }?,
-		timing: string?,
+		timing: string,
 	}
 	local mounted: { [string]: MountedRule } = {}
 	type ByTiming = { [string]: { [string]: string } }
@@ -314,7 +314,11 @@ return function(
 		if transitions == nil then
 			local built: { [string]: string } = {}
 			for property, value in properties do
-				if typeof(value) == "Color3" or string.find(property, "Transparency$") then
+				if
+					typeof(value) == "Color3"
+					or (type(value) == "string" and string.sub(value, 1, 12) == "$FacetColor_")
+					or string.find(property, "Transparency$")
+				then
 					built[property] = "$" .. timing
 				end
 			end
@@ -340,7 +344,7 @@ return function(
 		end
 		return same :: boolean
 	end
-	local function apply(record: MountedRule, definition: NativeRule, timing: string)
+	local function apply(record: MountedRule, definition: NativeRule)
 		if record.priority ~= definition.priority then
 			record.node.Priority = definition.priority
 			record.priority = definition.priority
@@ -348,10 +352,10 @@ return function(
 		local properties = definition.properties
 		local propertiesChanged = record.properties == nil
 			or (record.properties ~= properties and not sameRuleProperties(record.properties, properties))
-		if not propertiesChanged and record.timing == timing then
+		if not propertiesChanged then
 			return
 		end
-		local transitions = transitionsFor(properties, timing)
+		local transitions = transitionsFor(properties, record.timing)
 		local previous = record.transitions
 		local timingChanged = previous ~= transitions and (previous == nil or not sameProperties(previous, transitions))
 		if timingChanged then
@@ -362,7 +366,6 @@ return function(
 			record.node:SetProperties(properties)
 			record.properties = properties
 		end
-		record.timing = timing
 	end
 	local written: { [string]: TweenInfo } = {}
 	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
@@ -376,9 +379,10 @@ return function(
 					Selector = initial.selector,
 					Priority = initial.priority,
 				})
-				local record: MountedRule = { node = node, priority = initial.priority }
+				local record: MountedRule =
+					{ node = node, priority = initial.priority, timing = TOKENS[stateOf(initial.selector)] }
 				mounted[id] = record
-				apply(record, initial, TOKENS[stateOf(initial.selector)])
+				apply(record, initial)
 				Compose.cleanup(function()
 					if mounted[id] == record then
 						mounted[id] = nil
@@ -394,6 +398,7 @@ return function(
 			if read(distant, use) == true then "ten-foot" else "near"
 		)
 		local current = compiledRules(package, read(settings.theme, use))
+		local colorTokens: { [string]: Color3? } = current[1].tokens or {}
 		local hovering = read(settings.hover, use)
 		if hovering == nil then
 			hovering = read(hover, use)
@@ -406,6 +411,9 @@ return function(
 			written[token] = timing
 			sheet:SetAttribute(token, timing)
 		end
+		for token, value in colorTokens do
+			sheet:SetAttribute(token, value)
+		end
 		local preference = preferenceFor(use)
 		local typography = package.metrics.controls.typography or neutral.metrics.controls.typography
 		local textChoice = read(preferredTextSize :: Engine.Value<Enum.PreferredTextSize | string>?, use)
@@ -416,14 +424,19 @@ return function(
 		local structureChanged = #previousIds ~= #current
 		table.clear(definitions)
 		for index, compiledDefinition in current do
-			local definition = withPreference(withTextSize(compiledDefinition, textOffset), preference)
+			local definition = if textOffset ~= 0
+				then withTextSize(compiledDefinition, textOffset)
+				else compiledDefinition
+			if preference < 1 then
+				definition = withPreference(definition, preference)
+			end
 			definitions[definition.id] = definition
 			if previousIds[index] ~= definition.id then
 				structureChanged = true
 			end
 			local record = mounted[definition.id]
 			if record then
-				apply(record, definition, TOKENS[stateOf(definition.selector)])
+				apply(record, definition)
 			end
 		end
 		if structureChanged then

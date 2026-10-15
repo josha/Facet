@@ -65,7 +65,34 @@ function geometry.sectors<V>(
 	return result
 end
 
-function geometry.labelBounds(s: Radial.SectorShape, height: number): { w: number, h: number }
+type LabelBounds = { w: number, h: number }
+type LabelFit = {
+	x: number,
+	y: number,
+	inner: number,
+	outer: number,
+	angle: number,
+	span: number,
+	height: number,
+	bounds: LabelBounds,
+}
+local labelFits = setmetatable({} :: { [Radial.SectorShape]: LabelFit }, { __mode = "k" })
+
+function geometry.labelBounds(s: Radial.SectorShape, height: number): LabelBounds
+	local cached = labelFits[s]
+	if
+		cached
+		and cached.x == s.x
+		and cached.y == s.y
+		and cached.inner == s.inner
+		and cached.outer == s.outer
+		and cached.angle == s.angle
+		and cached.span == s.span
+		and cached.height == height
+	then
+		return cached.bounds
+	end
+	local requestedHeight = height
 	local innerSquared, outerSquared = s.inner * s.inner, s.outer * s.outer
 	local sine, cosine = math.sin(math.rad(s.angle)), math.cos(math.rad(s.angle))
 	local halfAngle = s.span / 2 - 2
@@ -115,7 +142,19 @@ function geometry.labelBounds(s: Radial.SectorShape, height: number): { w: numbe
 			hi = mid
 		end
 	end
-	return { w = lo, h = height }
+	local bounds: LabelBounds = { w = lo, h = height }
+	table.freeze(bounds)
+	labelFits[s] = {
+		x = s.x,
+		y = s.y,
+		inner = s.inner,
+		outer = s.outer,
+		angle = s.angle,
+		span = s.span,
+		height = requestedHeight,
+		bounds = bounds,
+	}
+	return (bounds :: unknown) :: LabelBounds
 end
 
 function geometry.fitContent(

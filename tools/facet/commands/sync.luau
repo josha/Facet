@@ -4,7 +4,7 @@ local Cli = require("../lib/cli")
 local Snapshot = require("../lib/snapshot")
 local SnapshotCases = require("../lib/snapshot_cases")
 
-local USAGE = [[usage: lute run tools/facet sync <compose|verify> [--check] [--bump COMMIT] [--source REPOSITORY]
+local USAGE = [[usage: lute run tools/facet sync <compose|verify|all> [--check] [--bump COMMIT] [--source REPOSITORY]
 
 Materialize the exact pinned snapshot of a vendored dependency. The snapshot is tracked, generated and read-only.
   --check            fail when a file differs from the pin; never fetch
@@ -13,6 +13,14 @@ Materialize the exact pinned snapshot of a vendored dependency. The snapshot is 
 
 local function run(invocation: Cli.Invocation): number
 	local target = invocation.positional[1]
+	if target == "all" and Cli.switch(invocation, "check") and Cli.unknownFlags(invocation, { "check" }) == nil then
+		local function report(name: Snapshot.Name): number
+			local passed, message = Snapshot.check(".", name)
+			print(`vendor {name}: {message}`)
+			return if passed then 0 else 1
+		end
+		return math.max(report("compose"), report("verify"))
+	end
 	if target ~= "compose" and target ~= "verify" then
 		print(USAGE)
 		return 2

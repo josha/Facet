@@ -46,9 +46,9 @@ table.insert(cases, {
 			local long = "A long description that does not fit on one line of this header and must wrap inside it"
 			return UI.Screen "Board" {
 				padding = "m",
-				UI.VStack {
+				UI.ScrollView "ReviewScroll" {
 					gap = "m",
-					Size = UDim2.fromScale(1, 0),
+					Size = UDim2.fromScale(1, 1),
 					UI.Text { text = "Button: icon and label at an authored 52 px width", textRole = "caption" },
 					UI.HStack {
 						gap = "s",
@@ -113,6 +113,9 @@ table.insert(cases, {
 	steps = {
 		held = function(t: any, value: any)
 			t.check("the board is mounted", value.stage ~= nil)
+			local scroll = t.find(value.stage, "ReviewScroll")
+			t.check("native wheel input reaches the lower controls", scroll.CanvasPosition.Y > 0, scroll.CanvasPosition)
+			t.inside("the PageView is reachable inside the review viewport", t.find(value.stage, "Courses"), scroll, 1)
 		end,
 	},
 })
@@ -123,8 +126,10 @@ table.insert(cases, {
 	setup = function(t: any)
 		local options = shared.FacetVisual or {}
 		local open: any
+		local selected
 		local stage = t.mount(function(UI: any, _Host: any, Compose: any)
 			open = Compose.cell(false)
+			selected = Compose.cell("")
 			local items = {}
 			for _, entry in
 				{
@@ -141,17 +146,46 @@ table.insert(cases, {
 					icon = entry[2],
 					labelStyle = if options.iconOnly then "icon" else nil,
 					completion = "stay",
+					onSelect = function()
+						selected:set(entry[1])
+					end,
 				})
 			end
 			return UI.RadialMenu "Quick" { isPresented = open, items = items, preset = options.preset }
 		end, { size = sizeOf(), theme = themeOf(t), frames = 20 })
 		open:set(true)
 		t.settle(60)
-		return { stage = stage }
+		return { stage = stage, selected = selected }
 	end,
 	steps = {
 		held = function(t: any, value: any)
 			t.check("the board is mounted", value.stage ~= nil)
+			t.check(
+				"native pointer input activates the north command",
+				value.selected:peek() == "N",
+				value.selected:peek()
+			)
+			for _, id in { "N", "E", "S", "W" } do
+				local item = t.find(value.stage, id)
+				local caption = item and (t.find(item, "Title") or item)
+				local icon = item and t.find(item, "LeadingIcon")
+				local namedIcon = icon ~= nil
+					and t.visible(icon)
+					and icon.AbsoluteSize.X > 0
+					and icon.AbsoluteSize.Y > 0
+				t.check(
+					id .. " keeps its command name",
+					item ~= nil and item:GetAttribute("label") == ((shared.FacetVisual or {}).label or id)
+				)
+				t.check(
+					id .. " presents a fitting caption or icon",
+					item ~= nil and t.visible(item) and ((caption ~= nil and t.fits(caption)) or namedIcon),
+					caption and { caption.ContentText, caption.TextBounds, caption.AbsoluteSize }
+				)
+				if namedIcon then
+					t.inside(id .. " icon stays inside its target", icon, item, 1)
+				end
+			end
 		end,
 	},
 })

@@ -1,0 +1,97 @@
+{
+    "Button":  {
+                   "connections":  3,
+                   "holdings":  10,
+                   "instances":  1
+               },
+    "Button-bounded":  {
+                           "connections":  8,
+                           "holdings":  22,
+                           "instances":  2
+                       },
+    "Text":  {
+                 "connections":  10,
+                 "holdings":  22,
+                 "instances":  3
+             },
+    "TextInput":  {
+                      "connections":  4,
+                      "holdings":  17,
+                      "instances":  2
+                  },
+    "Toggle":  {
+                   "connections":  3,
+                   "holdings":  21,
+                   "instances":  6
+               },
+    "Slider":  {
+                   "connections":  18,
+                   "holdings":  70,
+                   "instances":  17
+               },
+    "Picker":  {
+                   "connections":  17,
+                   "holdings":  65,
+                   "instances":  10
+               },
+    "Menu-1-rows":  {
+                        "connections":  63,
+                        "holdings":  295,
+                        "instances":  54
+                    },
+    "Menu-2-rows":  {
+                        "connections":  78,
+                        "holdings":  353,
+                        "instances":  64
+                    },
+    "Sheet":  {
+                  "connections":  59,
+                  "holdings":  258,
+                  "instances":  50
+              },
+    "Dialog":  {
+                   "connections":  71,
+                   "holdings":  259,
+                   "instances":  45
+               },
+    "Card":  {
+                 "connections":  15,
+                 "holdings":  103,
+                 "instances":  21
+             },
+    "VirtualList-1-rows":  {
+                               "connections":  45,
+                               "holdings":  174,
+                               "instances":  31
+                           },
+    "VirtualList-2-rows":  {
+                               "connections":  59,
+                               "holdings":  212,
+                               "instances":  34
+                           },
+    "Button-focused":  {
+                           "connections":  10,
+                           "holdings":  28,
+                           "instances":  5
+                       },
+    "TextInput-focused":  {
+                              "connections":  15,
+                              "holdings":  53,
+                              "instances":  16
+                          },
+    "Picker-open":  {
+                        "connections":  79,
+                        "holdings":  363,
+                        "instances":  67
+                    },
+    "Card-actions":  {
+                         "connections":  37,
+                         "holdings":  161,
+                         "instances":  31
+                     },
+    "Text-fixed":  {
+                       "instances":  1,
+                       "connections":  1,
+                       "holdings":  4
+                   }
+}

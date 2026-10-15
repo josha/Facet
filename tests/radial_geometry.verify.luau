@@ -3,8 +3,27 @@ local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	local g = require("../src/ui/nav_radial_geometry")
+	local Radial = require("../src/ui/radial_types")
 	local expect = Verify.expect
 	verifyHarness:suite("radial geometry", function()
+		verifyHarness:case("label fits follow changed shapes and requested heights", {
+			id = "radial_geometry::radial geometry::label fits follow changed shapes and requested heights",
+			run = function()
+				local shape: Radial.SectorShape =
+					{ x = 0, y = -100, inner = 60, outer = 150, angle = 0, span = 90, size = 40 }
+				local fields = (shape :: unknown) :: { [string]: number }
+				local initial = g.labelBounds(shape, 40)
+				expect(g.labelBounds(shape, 40)):toEqual(initial)
+				for _, field in { "x", "y", "inner", "outer", "angle", "span" } do
+					local previous = fields[field]
+					fields[field] = previous + 7
+					expect(g.labelBounds(shape, 40)):toEqual(g.labelBounds(table.clone(shape), 40))
+					fields[field] = previous
+				end
+				expect(g.labelBounds(shape, 20)):toEqual(g.labelBounds(table.clone(shape), 20))
+				expect(g.labelBounds(shape, 40)):toEqual(initial)
+			end,
+		})
 		verifyHarness:case("label bounds stay inside rotated narrow and wide sectors", {
 			id = "radial_geometry::radial geometry::label bounds stay inside rotated narrow and wide sectors",
 			run = function()

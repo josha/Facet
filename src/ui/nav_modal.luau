@@ -11,10 +11,9 @@ local navHelp = require("./nav_help")
 return function(ctx: Types.Context): Nav.Surfaces
 	local runtime = ctx.runtime
 	local function attach<N>(node: N & Instance, children: { Types.Child }): N & Instance
-		local stop = runtime.mountFragment(function()
+		runtime.mountFragment(function()
 			return children
 		end, node)
-		ctx.Compose.cleanup(stop)
 		return node
 	end
 	local kit = surfaceKit(ctx, attach)

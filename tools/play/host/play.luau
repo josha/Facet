@@ -1,0 +1,602 @@
+--!strict
+
+local fs = require("@std/fs")
+local process = require("@std/process")
+local task = require("@std/task")
+
+local AgentEval = require("../../../tools/vendor/verify/src/agent-eval")
+local Core = require("../../../tools/vendor/verify/src/core")
+local Lute = require("../../../tools/vendor/verify/src/lute")
+
+local Devices = require("./devices")
+local QA = require("./qa")
+
+export type CaseBody = (qa: QA.QA, context: Core.Context) -> ()
+
+export type Case = { id: string, run: CaseBody, timeoutSeconds: number?, screen: string?, shot: string? }
+
+export type Session = { device: string, cases: { Case } }
+
+export type Scenario = { sessions: { Session } }
+
+export type HostOptions = {
+	workspace: string,
+	outputs: string,
+	captures: string,
+	project: string?,
+	keep: boolean?,
+	quiet: boolean?,
+}
+
+export type DevicePerf = {
+	mountSeconds: number?,
+	idle: { [string]: unknown }?,
+	screens: { [string]: { [string]: unknown } },
+	final: { [string]: unknown }?,
+	returned: boolean?,
+}
+
+export type Host = {
+	build: () -> (boolean, string?),
+	enter: (device: string) -> QA.QA,
+	measure: (device: string, screen: string, body: () -> ()) -> (),
+	perf: { [string]: DevicePerf },
+	close: () -> (),
+	log: (line: string) -> (),
+	lines: { string },
+	shots: { QA.Shot },
+}
+
+type Arguments = {
+	workspace: string,
+	outputs: string,
+	captures: string,
+	report: string,
+	run: string,
+	scores: string?,
+	devices: { [string]: boolean }?,
+	keep: boolean,
+}
+
+local absolute = AgentEval.lute.absolute
+local ROOT_NAME = "PlayProbe"
+
+local function directoryOf(source: string): string
+	local path = absolute((string.gsub(source, "^@", "")))
+	return string.match(path, "^(.*)/[^/]*$") or "."
+end
+
+local HERE = directoryOf(debug.info(1, "s"))
+local PROBE = absolute(HERE .. "/../engine/probe.luau")
+
+local function arguments(): Arguments
+	local values: { [string]: string } = {}
+	local keep = false
+	local index = 2
+	while index <= #process.args do
+		local word = process.args[index]
+		local name = string.match(word, "^%-%-([%w%-]+)$")
+		if name == "keep" then
+			keep = true
+		elseif name ~= nil and process.args[index + 1] ~= nil then
+			values[name] = process.args[index + 1]
+			index += 1
+		end
+		index += 1
+	end
+	local function given(name: string): string
+		local value = values[name]
+		if value == nil then
+			error("--" .. name .. " is required", 0)
+		end
+		return value
+	end
+	local function required(name: string): string
+		return absolute(given(name))
+	end
+	local devices: { [string]: boolean }? = nil
+	if values.devices ~= nil and values.devices ~= "" then
+		local chosen: { [string]: boolean } = {}
+		for id in string.gmatch(values.devices, "[^,]+") do
+			Devices.get(id)
+			chosen[id] = true
+		end
+		devices = chosen
+	end
+	local scores: string? = values.scores
+	return {
+		workspace = required("workspace"),
+		outputs = required("outputs"),
+		captures = required("captures"),
+		report = required("report"),
+		run = given("run"),
+		scores = if scores ~= nil then absolute(scores) else nil,
+		devices = devices,
+		keep = keep,
+	}
+end
+
+local function ensure(path: string)
+	if not fs.exists(path) then
+		fs.createDirectory(path, { makeParents = true })
+	end
+end
+
+local function simulatorCode(device: Devices.Device): string
+	local orientation = if device.orientation == "portrait"
+		then "Enum.ScreenOrientation.Portrait"
+		elseif device.orientation == "landscape" then "Enum.ScreenOrientation.LandscapeLeft"
+		else "nil"
+	return table.concat({
+		"local service = game:GetService('StudioDeviceSimulatorService')",
+		("service:SetDeviceAsync(%q)"):format(device.preset),
+		("local orientation = %s"):format(orientation),
+		"if orientation ~= nil then service:SetOrientationAsync(orientation) end",
+		"service:SetScalingModeAsync(Enum.DeviceSimulatorScalingMode.FitToWindow)",
+		"return service:GetDeviceAsync()",
+	}, "\n")
+end
+
+local function open(options: HostOptions): Host
+	ensure(options.outputs)
+	ensure(options.captures)
+	local build = options.outputs .. "/build"
+	ensure(build)
+	local placePath = build .. "/play.rbxlx"
+	local lines: { string } = {}
+	local shots: { QA.Shot } = {}
+	local built = false
+	local buildProblem: string? = nil
+	local launched: Lute.StudioLaunched? = nil
+	local launchProblem: string? = nil
+	local current: { device: string, qa: QA.QA }? = nil
+	local playing = false
+	local perf: { [string]: DevicePerf } = {}
+
+	local function probe(qa: QA.QA, fields: { [string]: unknown }): { [string]: unknown }?
+		local ok, value = pcall(function(): unknown
+			return qa:call("perf", fields)
+		end)
+		return if ok and type(value) == "table" then value :: { [string]: unknown } else nil
+	end
+
+	local function finishDevice()
+		local active = current
+		if active ~= nil and perf[active.device] ~= nil then
+			local record = perf[active.device]
+			local ok = pcall(function()
+				for _ = 1, 8 do
+					local query: QA.Query = { exact = "Close", role = "button" }
+					if active.qa:first(query) == nil then
+						query.exact = "Back"
+					end
+					if active.qa:first(query) == nil then
+						record.returned = true
+						break
+					end
+					local activated = if active.device == "console"
+						then active.qa:gamepadActivate(query)
+						else active.qa:tap(query)
+					assert(activated, "return control did not activate")
+					active.qa:sleep(0.5)
+				end
+			end)
+			if ok and record.returned then
+				active.qa:sleep(5)
+				record.final = probe(active.qa, { action = "idle", seconds = 2 })
+			end
+		end
+	end
+	local problems: { [string]: string } = {}
+
+	local function log(line: string)
+		if not options.quiet then
+			print(line)
+		end
+		table.insert(lines, line)
+	end
+
+	local function session(): Lute.StudioSession
+		return (launched :: Lute.StudioLaunched).session
+	end
+
+	local function stopPlay()
+		if playing and launched ~= nil then
+			local response = session().play(false)
+			if not response.ok then
+				log("play: stopping play failed: " .. tostring(response.detail))
+			end
+			playing = false
+			task.wait(2)
+		end
+	end
+
+	local function buildPlace(): (boolean, string?)
+		local project = options.workspace .. "/" .. (options.project or "default.project.json")
+		local output = build .. "/game.rbxlx"
+		local result = process.run({ "rojo", "build", project, "-o", output }, { cwd = options.workspace })
+		if not result.ok then
+			buildProblem = "rojo build failed: " .. result.stderr .. result.stdout
+			return false, buildProblem
+		end
+		local ok, problem = pcall(function(): boolean
+			Lute.place.build({
+				output = placePath,
+				basePlace = output,
+				roots = {},
+				modules = { PROBE },
+				rootName = ROOT_NAME,
+			})
+			return true
+		end)
+		if not ok then
+			buildProblem = "the probe could not be mounted: " .. tostring(problem)
+			return false, buildProblem
+		end
+		built = true
+		return true, nil
+	end
+
+	local function start(device: Devices.Device): QA.QA
+		if not built then
+			error("blocked: the workspace did not build: " .. tostring(buildProblem), 0)
+		end
+		if launched == nil and launchProblem == nil then
+			local opened, problem = Lute.studio.launch({
+				place = placePath,
+				directory = options.outputs .. "/studio",
+				runSeconds = 3600,
+				callSeconds = 120,
+				launchSeconds = 240,
+			})
+			launched = opened
+			launchProblem = problem
+			if opened ~= nil then
+				log(("play: Studio %d opened %s"):format(opened.pid, opened.name))
+			end
+		end
+		if launched == nil then
+			error("blocked: Studio is not available: " .. tostring(launchProblem), 0)
+		end
+		finishDevice()
+		stopPlay()
+		current = nil
+		local simulated = session().execute("Edit", simulatorCode(device))
+		if not simulated.ok then
+			error("the device simulator did not accept " .. device.preset .. ": " .. tostring(simulated.detail), 0)
+		end
+		local started = session().play(true)
+		if not started.ok then
+			error("play did not start: " .. tostring(started.detail), 0)
+		end
+		playing = true
+		local playStarted = os.clock()
+		local context: QA.Context = {
+			session = session(),
+			probe = Lute.place.moduleExpression(PROBE, ROOT_NAME),
+			outputs = options.outputs,
+			captures = options.captures,
+			scratch = options.outputs .. "/raw-captures",
+			shots = shots,
+			log = log,
+		}
+		local qa = QA.create(context, device)
+		local deadline = os.clock() + 120
+		local ready: { [string]: unknown }? = nil
+		local lastProblem = ""
+		while os.clock() < deadline do
+			local ok, value = pcall(function(): unknown
+				return qa:call("ping")
+			end)
+			if ok and type(value) == "table" then
+				ready = value :: { [string]: unknown }
+				break
+			end
+			lastProblem = tostring(value)
+			task.wait(1)
+		end
+		if ready == nil then
+			error("the client did not become ready: " .. lastProblem, 0)
+		end
+		local settle = os.clock() + 20
+		while os.clock() < settle do
+			local value = qa:call("ping")
+			if type(value) == "table" and (tonumber((value :: { [string]: unknown }).roots) or 0) > 0 then
+				break
+			end
+			task.wait(0.5)
+		end
+		task.wait(2)
+		local final = qa:call("ping")
+		local fields: { [string]: unknown } = if type(final) == "table" then final :: { [string]: unknown } else {}
+		local viewport: { [string]: unknown } = if type(fields.viewport) == "table"
+			then fields.viewport :: { [string]: unknown }
+			else {}
+		qa.viewport = {
+			width = tonumber(viewport.screenWidth) or 0,
+			height = tonumber(viewport.screenHeight) or 0,
+		}
+		log(
+			("play: %s ready, screen %dx%d, inputs %s"):format(
+				device.id,
+				qa.viewport.width,
+				qa.viewport.height,
+				Lute.encode(fields.inputs)
+			)
+		)
+		local portrait = qa.viewport.height > qa.viewport.width
+		if device.orientation == "portrait" and not portrait then
+			error("the screen is not in portrait; the game must allow portrait on phones", 0)
+		elseif device.orientation == "landscape" and portrait then
+			error("the screen is not in landscape", 0)
+		end
+		local settleCalled = os.clock()
+		local settled = probe(qa, { action = "settle", quiet = 1, limit = 20 })
+		local record: DevicePerf = { screens = {} }
+		if settled ~= nil and type(settled.seconds) == "number" then
+			record.mountSeconds = settleCalled - playStarted + (settled.seconds :: number)
+		end
+		record.idle = probe(qa, { action = "idle", seconds = 2 })
+		perf[device.id] = record
+		current = { device = device.id, qa = qa }
+		return qa
+	end
+
+	local function enter(id: string): QA.QA
+		local active = current
+		if active ~= nil and active.device == id then
+			return active.qa
+		end
+		local known = problems[id]
+		if known ~= nil then
+			error("blocked: " .. known, 0)
+		end
+		local ok, result = pcall(start, Devices.get(id))
+		if not ok then
+			problems[id] = tostring(result)
+			current = nil
+			error(tostring(result), 0)
+		end
+		return result :: QA.QA
+	end
+
+	local function measure(device: string, screen: string, body: () -> ())
+		local active = current
+		local record = perf[device]
+		if active == nil or active.device ~= device or record == nil then
+			body()
+			return
+		end
+		probe(active.qa, { action = "begin" })
+		local ok, problem = pcall(function(): boolean
+			body()
+			return true
+		end)
+		local ended = probe(active.qa, { action = "end" })
+		if ended ~= nil then
+			record.screens[screen] = ended
+		end
+		if not ok then
+			error(problem, 0)
+		end
+	end
+
+	local function close()
+		finishDevice()
+		stopPlay()
+		local opened = launched
+		if opened == nil then
+			return
+		end
+		if options.keep then
+			log("play: keeping Studio " .. opened.name)
+			return
+		end
+		local closed = opened.close()
+		if not closed.session.acknowledged then
+			log("play: Studio cleanup was not acknowledged: " .. tostring(closed.session.detail))
+		end
+		if #closed.survivors > 0 then
+			log("play: Studio processes survived cleanup: " .. table.concat(closed.survivors, ","))
+		end
+		launched = nil
+	end
+
+	return {
+		build = buildPlace,
+		enter = enter,
+		close = close,
+		log = log,
+		lines = lines,
+		shots = shots,
+		measure = measure,
+		perf = perf,
+	}
+end
+
+local function number(value: unknown, ...: string): number?
+	local cursor = value
+	for _, key in { ... } do
+		if type(cursor) ~= "table" then
+			return nil
+		end
+		cursor = (cursor :: { [string]: unknown })[key]
+	end
+	return if type(cursor) == "number" then cursor else nil
+end
+
+local function perfScores(perf: { [string]: DevicePerf }, scores: { [string]: number })
+	for device, record in perf do
+		local function put(name: string, value: number?)
+			if value ~= nil then
+				scores[("perf.%s.%s"):format(device, name)] = value
+			end
+		end
+		put("mountSeconds", record.mountSeconds)
+		put("idleFrameP50Ms", number(record.idle, "frames", "p50"))
+		put("idleFrameP95Ms", number(record.idle, "frames", "p95"))
+		put("baseGuiObjects", number(record.idle, "census", "gui"))
+		put("baseComponents", number(record.idle, "census", "components"))
+		put("baseInstances", number(record.idle, "census", "instances"))
+		put("returned", if record.returned then 1 else 0)
+		local returnMetrics: { [string]: string } = { heapReturnRatio = "luaHeapKb", guiReturnRatio = "guiMb" }
+		for metric, property in returnMetrics do
+			local before, after = number(record.idle, "memory", property), number(record.final, "memory", property)
+			if before ~= nil and after ~= nil and before > 0 then
+				put(metric, after / before)
+			end
+		end
+		local peakGui, peakComponents, p50Sum, p50Count, p95Max = nil :: number?, nil :: number?, 0, 0, nil :: number?
+		for _, screen in record.screens do
+			local gui, components = number(screen, "census", "gui"), number(screen, "census", "components")
+			local p50, p95 = number(screen, "frames", "p50"), number(screen, "frames", "p95")
+			if gui ~= nil then
+				peakGui = math.max(peakGui or 0, gui)
+			end
+			if components ~= nil then
+				peakComponents = math.max(peakComponents or 0, components)
+			end
+			if p50 ~= nil then
+				p50Sum += p50
+				p50Count += 1
+			end
+			if p95 ~= nil then
+				p95Max = math.max(p95Max or 0, p95)
+			end
+		end
+		put("peakGuiObjects", peakGui)
+		put("peakComponents", peakComponents)
+		put("activeFrameP50Ms", if p50Count > 0 then p50Sum / p50Count else nil)
+		put("activeFrameP95Ms", p95Max)
+		local function delta(...: string): number?
+			local before, after = number(record.idle, ...), number(record.final, ...)
+			return if before ~= nil and after ~= nil then after - before else nil
+		end
+		put("heapDeltaKb", delta("memory", "luaHeapKb"))
+		put("instanceDelta", delta("memory", "instances"))
+		put("guiMbDelta", delta("memory", "guiMb"))
+		put("guiObjectDelta", delta("census", "gui"))
+	end
+end
+
+local function main(scenario: Scenario, entrySource: string)
+	local args = arguments()
+	local taskDirectory = absolute(directoryOf(entrySource) .. "/..")
+	local taskName = string.match(taskDirectory, "([^/]+)$") or "task"
+	local host = open({
+		workspace = args.workspace,
+		outputs = args.outputs,
+		captures = args.captures,
+		keep = args.keep,
+	})
+
+	local harness = Core.createHarness({ now = os.clock })
+	harness:suite(taskName, function()
+		harness:case("workspace/builds", {
+			id = "workspace/builds",
+			timeoutSeconds = 300,
+			run = function(context: Core.Context)
+				local ok, problem = host.build()
+				if not ok then
+					context:expect(false):toBeTrueWith(tostring(problem))
+				end
+			end,
+		})
+		for _, entry in scenario.sessions do
+			if args.devices ~= nil and not (args.devices :: { [string]: boolean })[entry.device] then
+				continue
+			end
+			for _, case in entry.cases do
+				local id = entry.device .. "/" .. case.id
+				harness:case(id, {
+					id = id,
+					timeoutSeconds = case.timeoutSeconds or 240,
+					run = function(context: Core.Context)
+						local qa = host.enter(entry.device)
+						local screen = case.screen
+						if screen == nil then
+							case.run(qa, context)
+							return
+						end
+						local ok, problem = pcall(function(): boolean
+							host.measure(entry.device, screen, function()
+								case.run(qa, context)
+							end)
+							return true
+						end)
+						if
+							not ok and not fs.exists(("%s/dumps/%s/%s.json"):format(args.outputs, entry.device, screen))
+						then
+							pcall(function()
+								qa:capture(case.shot or screen)
+								qa:dump(screen)
+							end)
+						end
+						if not ok then
+							error(problem, 0)
+						end
+					end,
+				})
+			end
+		end
+	end)
+
+	local report = harness:run({
+		executor = "play",
+		environment = { task = taskName, workspace = args.workspace },
+	})
+	host.close()
+	Lute.gate.writeReport(args.report, args.run, report)
+	local passed, total = 0, 0
+	local byDevice: { [string]: { passed: number, total: number } } = {}
+	for _, result in report.results do
+		total += 1
+		local device = string.match(result.id, "^([^/]+)/") or "workspace"
+		local tally = byDevice[device] or { passed = 0, total = 0 }
+		byDevice[device] = tally
+		tally.total += 1
+		if result.status == "passed" then
+			passed += 1
+			tally.passed += 1
+		end
+	end
+	local kept, blank, missing = 0, 0, 0
+	for _, shot in host.shots do
+		if shot.path ~= nil then
+			kept += 1
+		elseif shot.blank then
+			blank += 1
+		else
+			missing += 1
+		end
+	end
+	if args.scores ~= nil then
+		local scores: { [string]: number } = {
+			casesPassed = passed,
+			casesTotal = total,
+			caseFraction = if total > 0 then passed / total else 0,
+			capturesKept = kept,
+			capturesBlank = blank,
+			capturesMissing = missing,
+		}
+		for device, tally in byDevice do
+			if device ~= "workspace" then
+				scores["fraction." .. device] = if tally.total > 0 then tally.passed / tally.total else 0
+			end
+		end
+		perfScores(host.perf, scores)
+		fs.writeStringToFile(args.scores :: string, Lute.encode(scores))
+	end
+	fs.writeStringToFile(args.outputs .. "/captures.json", Lute.encode(host.shots))
+	fs.writeStringToFile(args.outputs .. "/perf.json", Lute.encode(host.perf))
+	fs.writeStringToFile(args.outputs .. "/play.log", table.concat(host.lines, "\n") .. "\n")
+	print(Core.format(report))
+	if passed ~= total then
+		process.exit(1)
+	end
+end
+
+return {
+	main = main,
+	open = open,
+}

@@ -408,9 +408,10 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 15, full = 38, release = 1 })
+		context:expect(tiers):toEqual({ fast = 13, full = 24, release = 1 })
 		context:expect(seen["perf"].tier):toBe("full")
 		context:expect(seen["perf-memory"].tier):toBe("full")
+		context:expect(seen["perf-footprint"].tier):toBe("full")
 		context:expect(seen["perf-memory"].after):toBeNil()
 		local order: { [string]: number } = {}
 		for index, producer in definition.producers do
@@ -418,8 +419,33 @@ harness:suite("Facet gate through Verify", function()
 		end
 		context:expect(order["perf"] < order["perf-memory"]):toBe(true)
 		context:expect(assert(definition.policy).concurrency):toBe(1)
-		context:expect(seen["prove-perf-memory-gate"].tier):toBe("full")
+		for _, removed in
+			{
+				"types-selftest",
+				"public-surface-selftest",
+				"prove-perf-memory-gate",
+				"verify-vendor",
+				"reference-builds",
+				"consumer-build",
+				"gallery-build",
+				"monitors-build",
+				"performance-build",
+				"theme-builds",
+				"model-build",
+				"package-verify",
+				"package-purity",
+				"plate-samples",
+				"perf-scenes-themes",
+				"perf-budgets",
+				"perf-metrics",
+				"doctor",
+				"experiment-markers",
+			}
+		do
+			context:expect(seen[removed]):toBeNil()
+		end
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
+		context:expect(seen["facetbench"].tier):toBe("fast")
 		local plan =
 			Lute.parse(fs.readFileToString("tests/plan.json")) :: { units: { { locator: string, requires: { string }? } } }
 		local locators = {}
@@ -451,10 +477,15 @@ harness:suite("Facet gate through Verify", function()
 		for _, producer in definition.producers do
 			context:expect(table.find(producer.argv or {}, "python3")):toBeNil()
 		end
-		for _, reader in { "perf-budgets", "perf-metrics", "perf-scenes" } do
+		for _, reader in { "perf-scenes" } do
 			context:expect(order["perf"] < order[reader]):toBe(true)
 		end
-		context:expect(order["model-build"] < order["package-verify"]):toBe(true)
+		context:expect(order["package-build"] < order["package-canary"]):toBe(true)
+		context:expect(seen["vendor"].argv):toEqual({ "lute", "run", "tools/facet", "check", "vendor" })
+		context:expect(seen["standalone-builds"].argv):toEqual({ "lute", "run", "tools/facet", "build", "standalone" })
+		context
+			:expect(seen["package-build"].argv)
+			:toEqual({ "lute", "run", "tools/facet", "package", "build", "--verify" })
 	end)
 	harness:case("binds the gate to the commit, tree, clean state and package source hash", function(context)
 		local build = gate.build()

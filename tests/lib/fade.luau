@@ -2,7 +2,12 @@
 local fade = {}
 
 function fade.of(node: any): number
-	return node:FindFirstChild("FadePaint").Transparency.Keypoints[1].Value
+	local paint = node:FindFirstChild("FadePaint")
+	if paint then
+		return paint.Transparency.Keypoints[1].Value
+	end
+	local group = node:FindFirstChild("Fade")
+	return if group then group.GroupTransparency else if node.Visible then 0 else 1
 end
 
 function fade.layer(node: any): any

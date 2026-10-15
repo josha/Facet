@@ -163,6 +163,14 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		return Vector2.new(at[1], at[2])
 	end
 	local drivers: { [string]: (any, any, any) -> () } = {}
+	drivers["changed-controls-board"] = function(t, value, io)
+		io.pointerAction(centre(t.find(value.stage, "ReviewScroll")), { Wheel = -40 })
+		live.step("held")
+	end
+	drivers["radial-menu-board"] = function(t, value, io)
+		io.click(centre(t.find(value.stage, "N")))
+		live.step("held")
+	end
 	for _, width in { 390, 1280 } do
 		drivers["hud-settings-nonmodal-" .. width] = function(_, value, io)
 			io.click(centre(value.trigger))

@@ -1159,6 +1159,36 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("focus ring: the engine draws the theme's focus look", function()
+		verifyHarness:case("owns the input subscription and keeps keyboard and pointer visibility", {
+			id = "native_environment::focus ring: the engine draws the theme's focus look::owns the input subscription and keeps keyboard and pointer visibility",
+			run = function()
+				local w = world(nil, { environment = { preferredInput = "Touch" } })
+				w.input.GetLastInputType = function()
+					return w.Enum.UserInputType.Keyboard
+				end
+				local inputChanged = w.input.LastInputTypeChanged
+				local before = engineLib.connections(inputChanged)
+				local playerGui = w.engine.new("PlayerGui")
+				local stop = owned(w.runtime, function()
+					w.UI.focusRing(playerGui)
+				end)
+				local stroke = playerGui.SelectionImageObject:FindFirstChildWhichIsA("UIStroke")
+				Verify.expect(engineLib.connections(inputChanged)):toBe(before + 1)
+				Verify.expect(stroke.Transparency):toBe(0)
+				inputChanged:Fire(w.Enum.UserInputType.MouseMovement)
+				Verify.expect(stroke.Transparency):toBe(1)
+				inputChanged:Fire(w.Enum.UserInputType.Gamepad1)
+				Verify.expect(stroke.Transparency):toBe(0)
+				inputChanged:Fire(w.Enum.UserInputType.Touch)
+				Verify.expect(stroke.Transparency):toBe(1)
+				inputChanged:Fire(w.Enum.UserInputType.Keyboard)
+				Verify.expect(stroke.Transparency):toBe(0)
+				stop()
+				Verify.expect(engineLib.connections(inputChanged)):toBe(before)
+				inputChanged:Fire(w.Enum.UserInputType.MouseMovement)
+				w.stop()
+			end,
+		})
 		local function ring(package: any?, environment: any?)
 			local w = world(nil, { theme = package, environment = environment })
 			local playerGui = w.engine.new("PlayerGui")

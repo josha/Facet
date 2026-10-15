@@ -13,6 +13,9 @@ game screens and Studio plugin interfaces.
 
 | Need | Control |
 |---|---|
+| Show currency or score counters | Text with Facet.format.compact or Facet.format.grouped. |
+| Show a round deadline or elapsed time | Timer; Facet.format.duration for a fixed duration. |
+| Reveal an NPC dialogue line with Skip | Typewriter. |
 | Do one action | Button. |
 | Do a primary action that has alternatives | SplitButton. |
 | Select an independent boolean | Toggle. |

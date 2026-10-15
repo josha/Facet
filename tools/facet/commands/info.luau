@@ -1,0 +1,234 @@
+--!strict
+
+local json = require("@std/json")
+local Case = require("../lib/case")
+local Cli = require("../lib/cli")
+local DocsIndex = require("../lib/docs_index")
+local Files = require("../lib/files")
+
+local USAGE = [[usage: lute run tools/facet info [--full] [--json]
+
+Prints what an author needs first: the Facet version, how to mount a screen,
+which control fits each player task, the starter blocks and the next commands.
+It is short. Read the contract of each control that you choose with
+lute run tools/facet docs <Control>. Use --full for the complete control map
+and starter block list.]]
+
+local MOUNT = [[local Facet = require(game:GetService("ReplicatedStorage").Packages.Facet)
+local Compose = Facet.Compose
+local app = Facet.app({ name = "Shop", parent = playerGui })
+local UI = app.UI
+local open = Compose.cell(false)
+app.mount(function()
+	return UI.Screen "Shop" {
+		UI.Button "Open" { label = "Shop", onActivate = function() open:set(true) end },
+		UI.Sheet "Panel" {
+			title = "Shop",
+			isPresented = open,
+			content = function()
+				return UI.Text "Hello" { text = "Hello" }
+			end,
+		},
+	}
+end)]]
+
+local COMPOSE = {
+	{ "Compose.cell(value)", "state that the screen owns; cell:set(value), cell:update(fn), cell:peek()" },
+	{ "Compose.formula(function(use) ... end)", "a value derived from other cells" },
+	{ "function(use) return use(cell) end", "a property that follows a cell" },
+	{ "Compose.show(readable, build)", "a branch that mounts and unmounts with a condition" },
+	{ "Compose.keyed({ from, key, render })", "a list of children keyed by id" },
+	{ "Compose.cleanup(fn)", "release a connection or a timer with its owner" },
+	{ "app.runtime.tween, app.runtime.spring", "animation that the owner stops" },
+}
+
+local RULES = {
+	"Make one runtime and mount one root. Each screen, panel and overlay is a Compose.show branch or a portal of that tree, switched by Compose state.",
+	'Write controls in the named form, UI.Button "Buy" { ... }, so that strict mode checks every option without casts.',
+	"Native properties keep their Roblox names (Size, LayoutOrder). Control options use lower camel case (label, onActivate).",
+	"State is Compose cells. Read a cell inside a property function with use(cell). Change it with cell:set(value).",
+	"Put Roblox objects through Host = app.runtime.constructors, for example Host.UIListLayout { ... }.",
+	"The theme owns paint, type, spacing and motion. Use textRole, appearance, gap and padding tokens, not literal colors and sizes.",
+	"Controls own gamepad selection, touch targets, safe insets and reduced motion. Do not rebuild them.",
+}
+
+local COMMANDS = {
+	{ "docs <Control>...", "the contract of a control or topic, for example docs Sheet Toast" },
+	{ "docs --search TEXT", "the sections that mention TEXT" },
+	{
+		'docs "App and runtime setup" "Sheet and overlay focus" "Text wrapping and sizing" "Selection and gamepad focus" "Typed collections"',
+		"short answers to the common setup, focus, text, selection and collection type questions",
+	},
+	{ "lint [paths]", "Facet usage problems and strict types in your interface code" },
+	{ "preview [--device ID]...", "screenshots and an outline of a screen that you must see; not a flow test" },
+	{
+		"audit --tap TEXT...",
+		"once, when the screens are done, with one --tap for each control that opens a screen, for example --tap Shop; without --tap it checks only the first screen",
+	},
+}
+
+local function version(): string
+	if not Files.isFile("src/init.luau") then
+		for _, candidate in { "Packages/Facet/init.luau", "Packages/Facet/src/init.luau" } do
+			if Files.isFile(candidate) then
+				local found = string.match(Files.read(candidate), 'VERSION%s*=%s*"([^"]+)"')
+				if found ~= nil then
+					return found
+				end
+			end
+		end
+		return "unknown"
+	end
+	return string.match(Files.read("src/init.luau"), 'VERSION%s*=%s*"([^"]+)"') or "unknown"
+end
+
+local function sectionText(sections: { DocsIndex.Section }, name: string, file: string): string?
+	for _, match in DocsIndex.find(sections, name) do
+		if match.section.file == file then
+			return DocsIndex.extent(sections, match.section)
+		end
+	end
+	return nil
+end
+
+type Facts = { version: string, tokens: number, hasTasks: boolean }
+
+local function report(full: boolean?): (string, Facts)
+	local sections = DocsIndex.load(".")
+	local tasks = sectionText(sections, "Task to control", "docs/guide/14-choosing-controls.md")
+	local blocks = sectionText(sections, "Starter blocks", "examples/blocks/README.md")
+	if not full then
+		local text = table.concat({
+			("Facet %s: Roblox UI controls on Compose."):format(version()),
+			"",
+			"```luau",
+			MOUNT,
+			"```",
+			"",
+			"Use one app and one mounted root. Use app.runtime.constructors as Host for native objects.",
+			"Use named controls, theme tokens and Compose cells. Read properties with function(use: Facet.Use).",
+			"Compose.cleanup releases resources; Compose.show owns branches. Keep durable row state in the model.",
+			"",
+			"Task -> controls -> short recipe (lute run tools/facet docs NAME):",
+			'  HUD, panels -> Composition, Region, Sheet -> "HUD panels"',
+			'  Lists, tiles, filters -> VirtualList, VirtualGrid, Table -> "Collection screen"',
+			"  Child pages -> NavigationStack; tabs -> TabView; confirmation -> Alert",
+			"  Settings -> Toggle, Slider, Picker; text entry -> TextInput",
+			'  Text fit -> "Text wrapping and sizing"; type errors -> "Reactive type errors"',
+			"",
+			"Start with: lute run tools/facet docs (project files, recipes and call shapes in one response).",
+			"Starter components: examples/blocks/. More controls and blocks: info --full.",
+			"Check a coherent edit: verify --tap TEXT... runs types, lint, build, audit and screenshots together.",
+			"Use verify --static without Studio. File discovery: project [directory]; rg and Git are optional.",
+		}, "\n")
+		return text, { version = version(), tokens = DocsIndex.tokens(text), hasTasks = tasks ~= nil }
+	end
+	local lines: { string } = {
+		("Facet %s: Roblox UI controls on Compose and the native engine."):format(version()),
+		"",
+		"## Mount a screen",
+		"",
+		"```luau",
+		MOUNT,
+		"```",
+		"",
+		"## Rules",
+		"",
+	}
+	for _, rule in RULES do
+		table.insert(lines, "- " .. rule)
+	end
+	table.insert(lines, "")
+	table.insert(lines, "## Compose essentials")
+	table.insert(lines, "")
+	table.insert(
+		lines,
+		"Facet includes Compose as Facet.Compose. Use it for state, ownership, branches, lists and motion. Do not build a second state system."
+	)
+	table.insert(lines, "")
+	for _, entry in COMPOSE do
+		table.insert(lines, ("- `%s`: %s."):format(entry[1], entry[2]))
+	end
+	if tasks ~= nil then
+		table.insert(lines, "")
+		table.insert(lines, (string.gsub(tasks, "^##", "##", 1)))
+	end
+	if blocks ~= nil then
+		table.insert(lines, "")
+		table.insert(lines, blocks)
+	end
+	table.insert(lines, "")
+	table.insert(lines, "## Next commands")
+	table.insert(lines, "")
+	for _, entry in COMMANDS do
+		table.insert(lines, ("- `lute run tools/facet %s`: %s."):format(entry[1], entry[2]))
+	end
+	local text = table.concat(lines, "\n")
+	return text, { version = version(), tokens = DocsIndex.tokens(text), hasTasks = tasks ~= nil }
+end
+
+local function run(invocation: Cli.Invocation): number
+	local unknown = Cli.unknownFlags(invocation, { "full" })
+	if unknown ~= nil or #invocation.positional > 0 then
+		if unknown ~= nil then
+			print("facet info: unknown flags " .. unknown)
+		end
+		print(USAGE)
+		return 2
+	end
+	local text, facts = report(Cli.switch(invocation, "full"))
+	local value: json.Value = { version = facts.version, tokens = facts.tokens, text = text }
+	Cli.emit(invocation, value, text)
+	return 0
+end
+
+local function cases(): { Case.Case }
+	return {
+		{
+			name = "the overview names the version, the mount recipe, the task map and the commands",
+			run = function()
+				local text, facts = report(true)
+				return Case.first(
+					Case.expect(facts.version ~= "unknown", "the version is unknown"),
+					Case.expect(facts.hasTasks == true, "the task-to-control map is missing"),
+					Case.expect(string.find(text, "Facet.app(", 1, true) ~= nil, "the mount recipe is missing"),
+					Case.expect(
+						string.find(text, "| Ask for a brief confirmation | Alert. |", 1, true) ~= nil,
+						"a task row is missing"
+					),
+					Case.expect(string.find(text, "tools/facet docs", 1, true) ~= nil, "the docs command is missing"),
+					Case.expect(string.find(text, "Compose.cell", 1, true) ~= nil, "the Compose essentials are missing")
+				)
+			end,
+		},
+		{
+			name = "the overview stays short",
+			run = function()
+				local _, facts = report()
+				return Case.expect(facts.tokens < 4000, `the overview is {facts.tokens} tokens`)
+			end,
+		},
+		{
+			name = "every control that the overview recipe uses has a documented section",
+			run = function()
+				local sections = DocsIndex.load(".")
+				for _, name in { "Screen", "Button", "Sheet", "Text", "Mounting" } do
+					if #DocsIndex.find(sections, name) == 0 then
+						return `{name} has no section`
+					end
+				end
+				return nil
+			end,
+		},
+	}
+end
+
+local command: Cli.Command = {
+	name = "info",
+	summary = "Print the Facet overview for an author: mounting, the task-to-control map and the next commands.",
+	usage = USAGE,
+	cases = cases,
+	run = run,
+}
+
+return command

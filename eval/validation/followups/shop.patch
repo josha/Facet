@@ -1,0 +1,96 @@
+diff --git a/src/client/Interface/shop/init.luau b/src/client/Interface/shop/init.luau
+index 6f5cb159..6d5dd3a4 100644
+--- a/src/client/Interface/shop/init.luau
++++ b/src/client/Interface/shop/init.luau
+@@ -8,15 +8,53 @@ local function mount(context: Context)
+ 	local state = api.getState()
+ 	local screen = Kit.screen(context.playerGui, "Shop")
+ 	local modal = Kit.modal(screen, "Shop", "Shop")
++	local category = "All"
++	local cards: { [string]: Frame } = {}
++	local confirm = Kit.modal(screen, "ShopConfirm", "Confirm")
++	local question = Kit.label("")
++	question.Parent = confirm.body
++	local pending: (() -> ())? = nil
++	local yes = Kit.button("Confirm")
++	yes.Position = UDim2.fromOffset(0, 96)
++	yes.Parent = confirm.body
++	yes.Activated:Connect(function()
++		local action = pending
++		pending = nil
++		if action ~= nil then
++			action()
++		end
++		confirm.setOpen(false)
++	end)
++	local no = Kit.button("Cancel")
++	no.Position = UDim2.fromOffset(0, 152)
++	no.Parent = confirm.body
++	no.Activated:Connect(function()
++		pending = nil
++		confirm.setOpen(false)
++	end)
+ 	local dock = Kit.hud(screen)
+ 	local opener = Kit.button("Shop", "primary")
+ 	opener.Parent = dock
+ 	opener.Activated:Connect(function()
++		category = "All"
++		for _, card in cards do
++			card.Visible = true
++		end
+ 		modal.setOpen(true)
+ 	end)
+ 	local list = Kit.scroller()
+ 	list.Parent = modal.body
+ 	Kit.list(Enum.FillDirection.Vertical, 8).Parent = list
++	for _, name in { "All", "Motors", "Boosts", "Wheels", "Cosmetics" } do
++		local choice = Kit.button(name)
++		choice.Parent = list
++		choice.Activated:Connect(function()
++			category = name
++			for _, item in api.catalog do
++				cards[item.id].Visible = category == "All" or item.category == category
++			end
++		end)
++	end
+ 	local balance = Kit.label("")
+ 	balance.Parent = list
+ 	local codes = Kit.button("Codes")
+@@ -30,6 +68,7 @@ local function mount(context: Context)
+ 	for _, item in api.catalog do
+ 		local card = Kit.card()
+ 		card.Parent = list
++		cards[item.id] = card
+ 		Kit.list(Enum.FillDirection.Vertical, 8).Parent = card
+ 		Kit.label(item.name, 20, nil, true).Parent = card
+ 		Kit.label(item.description, 16).Parent = card
+@@ -37,7 +76,7 @@ local function mount(context: Context)
+ 		local action = Kit.button("Buy", "primary")
+ 		action.Parent = card
+ 		actions[item.id] = action
+-		action.Activated:Connect(function()
++		local function buy()
+ 			local result = api.purchase(item.id)
+ 			state = result.state
+ 			if result.ok then
+@@ -47,6 +86,20 @@ local function mount(context: Context)
+ 			else
+ 				say(result.reason or "Try again")
+ 			end
++		end
++		action.Activated:Connect(function()
++			local funds = if item.currency == "Coins" then state.wallet.Coins else state.wallet.Gems
++			if funds < item.price then
++				say("Not enough " .. item.currency)
++				return
++			end
++			if item.price >= (if item.currency == "Coins" then 500 else 100) then
++				question.Text = ("Buy %s for %d %s?"):format(item.name, item.price, item.currency)
++				pending = buy
++				confirm.setOpen(true)
++			else
++				buy()
++			end
+ 		end)
+ 	end
+ 	local function render()

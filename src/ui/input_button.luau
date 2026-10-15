@@ -759,16 +759,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 
 		local guiState = if iconState then ctx.observe.GuiState(node) else nil
-		local previousTags: { [string]: boolean } = {}
+		local previousTags: { [string]: true? } = {}
 		local previousAttributes: { [string]: boolean | string } = {}
 		local initialized = false
-		local initialTags: { [string]: boolean }? = nil
 		local function tag(name: string, active: boolean)
-			if previousTags[name] ~= active then
-				previousTags[name] = active
+			if (previousTags[name] == true) ~= active then
+				previousTags[name] = if active then true else nil
 				if active then
 					node:AddTag(name)
-				elseif initialized or (initialTags ~= nil and initialTags[name]) then
+				else
 					node:RemoveTag(name)
 				end
 			end
@@ -785,11 +784,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			local role, appearance = read(spec.role, use) or "default", read(spec.appearance, use) or "standard"
 			assert(roles[role], "Facet.Button: invalid semantic role")
 			if not initialized then
-				local present: { [string]: boolean } = {}
 				for _, name in node:GetTags() do
-					present[name] = true
+					previousTags[name] = true
 				end
-				initialTags = present
 			end
 			if iconState then
 				local state = read(guiState, use)
@@ -825,7 +822,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			attribute("role", role)
 			attribute("label", read(spec.name or spec.label or "", use))
 			initialized = true
-			initialTags = nil
 		end
 		local stateIsDynamic = iconState ~= nil
 		for _, source in

@@ -172,8 +172,21 @@ return function(
 				table.insert(rowCaptions, caption("Description", description))
 			end
 		else
+			local function secondary(): ComposeTypes.Child
+				local text = assert(description)
+				if not dynamic(text) then
+					return if hasText(text) then caption("Description", text) else nil
+				end
+				local attached = false
+				return ctx.Compose.show(function(use: ComposeTypes.Use): boolean
+					attached = attached or hasText(text, use)
+					return attached
+				end, function()
+					return caption("Description", text)
+				end)
+			end
 			local captions = if description
-				then ctx.column({ caption("Title", label), caption("Description", description) }, {
+				then ctx.column({ caption("Title", label), secondary() }, {
 					Name = "Captions",
 					Size = if imageCard then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
 					AutomaticSize = if imageCard or stacked then E.AutomaticSize.Y else E.AutomaticSize.XY,

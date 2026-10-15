@@ -147,7 +147,10 @@ return function(harness: Verify.Harness)
 		local refusals: { [string]: string } = {}
 		for _, id in pages do
 			Verify.expect(lab.open(id).ok):toBe(true)
-			Verify.expect(target:FindFirstChild("Page_" .. id, true) ~= nil):toBe(true)
+			assert(
+				target:FindFirstChild("Page_" .. id, true) ~= nil,
+				`Page_{id} did not mount: {lab.report().errors.page or "no page error"}`
+			)
 			for page, errors in lab.state.errors do
 				for where, message in errors do
 					refusals[page .. "/" .. where] = message

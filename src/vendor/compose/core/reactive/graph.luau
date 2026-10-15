@@ -240,14 +240,18 @@ local function recordThenRefresh(consumer: Consumer, producer: Producer)
 		return
 	end
 
-	local at = consumer.reads + 1
-	consumer.reads = at
+	local at = consumer.reads
 	local dependencies = consumer.dependencies
 	local edge = dependencies[at]
 	if edge == nil or edge[PRODUCER] ~= producer then
-		trim(consumer, at)
-		edge = attach(producer, consumer)
-		dependencies[at] = edge
+		at += 1
+		consumer.reads = at
+		edge = dependencies[at]
+		if edge == nil or edge[PRODUCER] ~= producer then
+			trim(consumer, at)
+			edge = attach(producer, consumer)
+			dependencies[at] = edge
+		end
 	end
 
 	local refresh = producer.refresh

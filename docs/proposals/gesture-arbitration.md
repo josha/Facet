@@ -56,7 +56,7 @@ runtime.mount, runtime.connect, runtime.tween and OrderedCollection placement.
 Use them for ownership, a screen preview, travel and insertion. They do not
 choose which Facet gesture can use a contact. No vendor change is needed.
 
-Word Amigos currently freezes tile identity and zoom in CaptureInput and
+A word game currently freezes tile identity and zoom in CaptureInput and
 Capture, finds DragGhost in DragOrigin, calculates rack insertion itself, and
 runs separate flights in RenderFlight. Facet should own this UI policy. The
 game must still validate a move and update both models in one transaction.

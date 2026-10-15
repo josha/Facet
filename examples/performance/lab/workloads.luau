@@ -2,6 +2,11 @@
 
 type DatasetModule = typeof(require("./dataset"))
 
+type Context = typeof(require("@repo/examples/performance/lab/workload_types").Context)
+type CollectionStatus = typeof(require("@repo/tools/typecheck/aliases").CollectionStatus)
+type OrderedControls = typeof(require("@repo/tools/typecheck/aliases").OrderedControls)
+type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
+type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ObservedCell = typeof(require("@repo/tools/typecheck/aliases").UnknownCell)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
@@ -9,8 +14,11 @@ type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
-type Signal = { Fire: (Signal) -> () }
-type FocusNode = { SelectionGained: Signal, SelectionLost: Signal }
+type Signal = { Fire: (Signal, ...unknown) -> () }
+local function fire(signal: unknown, ...: unknown)
+	local native = (signal :: unknown) :: Signal
+	native:Fire(...)
+end
 local motion = require("./motion_workloads")
 local workloads = {}
 workloads.VERSION = "native-perf-workloads/2"
@@ -73,7 +81,7 @@ workloads.DATASETS = {
 	["radial-menu-open-close"] = "Six-action radial menu; open and close",
 }
 
-local function createStandard(ctx: { [string]: any }, name: string, dataset: DatasetModule)
+local function createStandard(ctx: Context, name: string, dataset: DatasetModule)
 	assert(workloads.DATASETS[name], `unknown performance workload {name}`)
 	local Compose: ComposeModule, runtime, Host, UI, types = ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
 	local D2, V2, E, C3 = types.UDim2, types.Vector2, types.Enum, types.Color3
@@ -90,13 +98,13 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 	local state = {
 		n = 0,
 		name = name,
-		selected = nil :: (Cell<string> | Cell<{ [string]: boolean? }>)?,
+		selected = nil :: (Cell<string> | Cell<{ [string]: boolean }>)?,
 		observed = {} :: { ObservedCell },
 		nodes = {},
 		close = nil :: (() -> ())?,
-		focused = nil :: FocusNode?,
+		focused = nil :: GuiObject?,
 		surface = nil :: { panel: string, items: { [string]: boolean } }?,
-		controls = {},
+		controls = {} :: OrderedControls & { [number]: UIDragDetector },
 		status = Compose.cell({
 			mode = "windowed",
 			direction = "vertical",
@@ -110,7 +118,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			extent = 0,
 			following = false,
 			measured = 0,
-		}),
+		} :: CollectionStatus),
 	}
 	Compose.cleanup(function()
 		if state.close then
@@ -120,7 +128,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 	end)
 	ctx.rowModels = ctx.rowModels or { values = {}, toggles = {} }
 	state.rowModels = ctx.rowModels
-	local opened, detailShown = Compose.cell(nil), Compose.cell(false)
+	local opened, detailShown = Compose.cell(nil :: Row?), Compose.cell(false)
 	ctx.onRowActivate = function(item)
 		opened:set(item)
 		detailShown:set(true)
@@ -134,7 +142,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			end),
 			message = Compose.formula(function(use: Use)
 				local item = use(opened)
-				return if item then item.detail else ""
+				return if item then item.detail or "" else ""
 			end),
 			actions = {
 				{ id = "close", label = "Close" } :: AlertAction,
@@ -150,17 +158,17 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			BackgroundTransparency = 1,
 		})
 	end
-	local function stack(children: { any })
-		local props: { [any]: any } = {
+	local function stack(children: { Instance }): Frame
+		local props: FrameProps = {
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
 		}
 		for index, node in children do
-			if type(node) ~= "function" and node:IsA("GuiObject") then
-				runtime.decorate(node, { LayoutOrder = index })
+			if type(node) ~= "function" and ((node :: unknown) :: Instance):IsA("GuiObject") then
+				runtime.decorate((node :: unknown) :: Instance, { LayoutOrder = index })
 			end
-			table.insert(props, node)
+			props[#props + 1] = node :: unknown
 		end
 		return Host.Frame(props)
 	end
@@ -169,11 +177,12 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 		table.insert(state.observed, (cell :: unknown) :: ObservedCell)
 		return cell
 	end
-	local function viewport(node)
+	local function viewport<T>(node: T): T
 		if ctx.engine then
-			node.AbsoluteSize = V2.new(ctx.viewport.w, ctx.viewport.h)
-			if node.ClassName == "ScrollingFrame" then
-				node.AbsoluteWindowSize = V2.new(ctx.viewport.w, math.max(120, ctx.viewport.h - 80))
+			((node :: unknown) :: GuiObject).AbsoluteSize = V2.new(ctx.viewport.w, ctx.viewport.h)
+			if ((node :: unknown) :: Instance).ClassName == "ScrollingFrame" then
+				((node :: unknown) :: ScrollingFrame).AbsoluteWindowSize =
+					V2.new(ctx.viewport.w, math.max(120, ctx.viewport.h - 80))
 			end
 		end
 		return node
@@ -214,7 +223,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 		return state.list
 	end
 	local function images()
-		local children = { Host.UIGridLayout({ CellSize = D2.fromOffset(64, 64) }) }
+		local children: { Instance } = { Host.UIGridLayout({ CellSize = D2.fromOffset(64, 64) }) }
 		state.images = {}
 		state.requests = {}
 		state.async = state.async or { completed = 0, stale = 0, dropped = 0 }
@@ -248,7 +257,11 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 				})
 			)
 		end
-		return Host.Frame(children)
+		local props: FrameProps = {}
+		for index, child in children do
+			props[index] = child
+		end
+		return Host.Frame(props)
 	end
 	local surfaces = {
 		alert = { panel = "AlertPanel", items = { Delete = true, Keep = true, Cancel = true } },
@@ -268,13 +281,13 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			},
 		},
 	}
-	local function presentedSurface()
+	local function presentedSurface(): Instance?
 		if not (ctx.frame and ctx.target and state.surface) then
 			return nil
 		end
 		return ctx.target:FindFirstChild(state.surface.panel, true)
 	end
-	local function transient(kind)
+	local function transient(kind: string): GuiObject
 		local selected = Compose.cell("1")
 		state.presented, state.selected = Compose.cell(false), selected
 		state.surface = surfaces[kind]
@@ -283,7 +296,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 		state.afterRun = function()
 			local frames = 0
 			while presentedSurface() and frames < 60 do
-				ctx.frame()
+				assert(ctx.frame)()
 				frames += 1
 			end
 			state.settleFrames = math.max(state.settleFrames, frames)
@@ -291,7 +304,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 				state.settled += 1
 			end
 		end
-		local options = {}
+		local options: { { id: string, value: string, label: string, onActivate: () -> (), onSelect: () -> () } } = {}
 		for index = 1, 6 do
 			options[index] = {
 				id = tostring(index),
@@ -318,7 +331,12 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 				actions = actions,
 			})
 		elseif kind == "radial" then
-			return UI.RadialMenu({ items = options, isPresented = state.presented, preset = "compass" })
+			local radial: typeof(require("@repo/tools/typecheck/aliases").RadialSpec) = {
+				items = (options :: unknown) :: { typeof(require("@repo/tools/typecheck/aliases").RadialItem) },
+				isPresented = state.presented,
+				preset = "donut",
+			}
+			return UI.RadialMenu(radial)
 		end
 		local choices = {}
 		for index, option in options do
@@ -336,7 +354,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 	end
 	local function lifecycle()
 		local volume, quality, selected = Compose.cell(50), Compose.cell(2), Compose.cell("medium")
-		local children = {
+		local children: { Instance } = {
 			UI.Text({ text = "Settings" }),
 			UI.Slider({
 				label = "Volume",
@@ -370,7 +388,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			}),
 			UI.ProgressView({ value = 0.4 }),
 		}
-		local toggles = {}
+		local toggles: { Instance } = {}
 		for index = 1, 12 do
 			local checked = Compose.cell(index % 2 == 0)
 			table.insert(
@@ -389,7 +407,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 		table.insert(children, flags)
 		return stack(children)
 	end
-	function state.build()
+	function state.build(): GuiObject
 		if name == "virtual-list-scroll" or name == "lab-dense-scroll" then
 			return list(2000)
 		elseif name == "lab-collection-churn" then
@@ -416,7 +434,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 				items[index] = { id = `r{index}`, name = `Racer {index}` }
 			end
 			state.rows, state.collectionSelection =
-				Compose.cell(items :: { Row }), Compose.cell({} :: { [string]: boolean? })
+				Compose.cell(items :: { Row }), Compose.cell({} :: { [string]: boolean })
 			state.selected = state.collectionSelection
 			local function cell(current: Readable<Row>): Instance
 				return Host.TextLabel({
@@ -434,8 +452,8 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 					return item.id
 				end,
 				columns = {
-					{ id = "name", minWidth = 80, render = cell } :: { id: string, minWidth: number?, width: number?, render: (Readable<Row>) -> Instance },
-					{ id = "n", width = 48, render = cell } :: { id: string, minWidth: number?, width: number?, render: (Readable<Row>) -> Instance },
+					{ id = "name", minWidth = 80, render = cell } :: typeof(require("@repo/tools/typecheck/aliases").TableColumn),
+					{ id = "n", width = 48, render = cell } :: typeof(require("@repo/tools/typecheck/aliases").TableColumn),
 				},
 				itemSize = 40,
 				header = false,
@@ -452,7 +470,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 		elseif name == "async-image-burst" then
 			state.images, state.inflight = {}, {}
 			state.async = { completed = 0, stale = 0, dropped = 0 }
-			local children = {}
+			local children: { Instance } = {}
 			for index = 1, 12 do
 				local image = Compose.cell("rbxassetid://0")
 				state.images[index] = image
@@ -475,7 +493,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 		elseif name == "locale-textsize-change" or name == "picker-segmented-textsize" then
 			state.expanded, state.textSize = bindCell(false), bindCell(1)
 			state.locale = Compose.cell("en-us")
-			local children = {}
+			local children: { Instance } = {}
 			local function label(text: any, size: number)
 				return Host.TextLabel({
 					Text = text,
@@ -532,7 +550,8 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 				),
 			})
 		elseif name == "scroll-focus-traversal" or name == "native-scroll-drag" then
-			local children = { CanvasSize = D2.fromOffset(0, 1500), Size = D2.fromScale(1, 1), Host.UIListLayout({}) }
+			local children: typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameNativeProps) =
+				{ CanvasSize = D2.fromOffset(0, 1500), Size = D2.fromScale(1, 1), Host.UIListLayout({}) }
 			for index = 1, if name == "scroll-focus-traversal" then 16 else 30 do
 				local node = UI.Button({
 					Name = `Row{index}`,
@@ -565,14 +584,14 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 					end, node)
 					table.insert(state.controls, drag)
 				end
-				table.insert(children, node)
+				children[#children + 1] = node
 			end
 			state.list = viewport(Host.ScrollingFrame(children))
 			return state.list
 		elseif name == "adaptive-navigation-images" or name == "navigation-customization" then
 			local selected = Compose.cell("garage")
 			state.selected = selected
-			state.placement = Compose.cell("topBar")
+			state.placement = Compose.cell("topBar" :: "topBar" | "sidebar")
 			state.contentBuilds = 0
 			state.tabs = {
 				{
@@ -580,7 +599,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 					label = "Garage",
 					content = function(): Instance
 						state.contentBuilds += 1
-						local children = {
+						local children: typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameNativeProps) = {
 							Name = "Cars",
 							Size = D2.fromScale(1, 1),
 							AutomaticCanvasSize = E.AutomaticSize.Y,
@@ -596,7 +615,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 								onActivate = function() end,
 							})
 							table.insert(state.nodes, card)
-							table.insert(children, card)
+							children[#children + 1] = card
 						end
 						return Host.ScrollingFrame(children)
 					end,
@@ -616,11 +635,13 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 					end,
 				},
 			}
-			state.customization = Compose.cell({ order = { "garage", "race", "settings" } })
+			state.customization = Compose.cell(
+				{ order = { "garage", "race", "settings" } } :: { order: { string }?, hidden: { string }? }
+			)
 			state.afterRun = function()
 				if ctx.frame then
 					for _ = 1, 60 do
-						ctx.frame()
+						assert(ctx.frame)()
 					end
 				end
 			end
@@ -660,7 +681,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 				state.themeControls[4],
 			})
 		else
-			local children = {}
+			local children: { Instance } = {}
 			local count = if name == "shadow-storm" then 100 elseif name == "stylesheet-state-churn" then 40 else 8
 			for index = 1, count do
 				local value = bindCell(if name == "stylesheet-state-churn" then index == 1 else 0)
@@ -668,15 +689,18 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 					table.insert(
 						children,
 						Host.Frame({
-							BackgroundTransparency = value,
+							BackgroundTransparency = (value :: unknown) :: Cell<number>,
 							Size = D2.fromOffset(30, 30),
 							Host.UICorner({}) :: unknown,
 							Host.UIStroke({ Thickness = 2 }),
-							Host.UIShadow({ Transparency = value, BlurRadius = types.UDim.new(0, 8) }),
+							Host.UIShadow({
+								Transparency = (value :: unknown) :: Cell<number>,
+								BlurRadius = types.UDim.new(0, 8),
+							}),
 						})
 					)
 				elseif name == "stylesheet-state-churn" then
-					local control = UI.Toggle({ label = `Option {index}`, value = value })
+					local control = UI.Toggle({ label = `Option {index}`, value = (value :: unknown) :: Cell<boolean> })
 					table.insert(state.nodes, control)
 					table.insert(children, control)
 				else
@@ -752,7 +776,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 				elseif name == "async-image-grid" then
 					return images()
 				end
-				local children = {}
+				local children: { Instance } = {}
 				for index = 1, 6 do
 					table.insert(
 						children,
@@ -795,11 +819,11 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			end
 			state.list.CanvasPosition = V2.new(0, state.scroll)
 			if name == "native-scroll-drag" and ctx.engine then
-				state.controls[1].DragStart:Fire(V2.new(10, 10))
+				fire(state.controls[1].DragStart, V2.new(10, 10))
 				for index = 1, 6 do
-					state.controls[1].DragContinue:Fire(V2.new(10 + index * 30, 10 + index * 12))
+					fire(state.controls[1].DragContinue, V2.new(10 + index * 30, 10 + index * 12))
 				end
-				state.controls[1].DragEnd:Fire(V2.new(210, 90))
+				fire(state.controls[1].DragEnd, V2.new(210, 90))
 			end
 		elseif name == "lab-collection-churn" or name == "collection-mutation" then
 			local items = table.clone(state.rows:peek())
@@ -828,7 +852,8 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 				local key = state.nextSelectionKey
 				state.collectionSelection:update(function(previous)
 					local next = table.clone(previous)
-					next[key] = if next[key] then nil else true
+					local entries = (next :: unknown) :: { [string]: boolean? }
+					entries[key] = if next[key] then nil else true
 					return next
 				end)
 			end
@@ -852,7 +877,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 				state.current += (target - state.current) * 0.35
 				state.value:set(state.current)
 				if ctx.frame then
-					ctx.frame()
+					assert(ctx.frame)()
 				end
 			end
 		elseif name == "locale-textsize-change" or name == "picker-segmented-textsize" then
@@ -870,7 +895,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			local ticks = if name == "radial-menu-open-close" then 2 else 1
 			if ctx.frame then
 				for _ = 1, ticks do
-					ctx.frame()
+					assert(ctx.frame)()
 				end
 			end
 			local surface = presentedSurface()
@@ -887,7 +912,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			state.presented:set(false)
 			if ctx.frame then
 				for _ = 1, ticks do
-					ctx.frame()
+					assert(ctx.frame)()
 				end
 			end
 			if surface and presentedSurface() == nil then
@@ -896,33 +921,33 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 		elseif name == "adaptive-navigation-images" then
 			local started = os.clock()
 			if ctx.frame then
-				ctx.frame()
+				assert(ctx.frame)()
 			end
 			phases = { idle = os.clock() - started }
 			started = os.clock()
 			local card = state.nodes[state.n % 2 + 1]
 			if ctx.engine then
 				if state.focused then
-					state.focused.SelectionLost:Fire()
+					fire(state.focused.SelectionLost)
 				end
-				card.SelectionGained:Fire()
+				fire(card.SelectionGained)
 			else
 				game:GetService("GuiService").SelectedObject = card
 			end
 			state.focused = card
 			if ctx.frame then
-				ctx.frame()
+				assert(ctx.frame)()
 			end
 			assert(phases).focus = os.clock() - started
 			started = os.clock()
 			state.placement:set("sidebar")
 			if ctx.frame then
-				ctx.frame()
+				assert(ctx.frame)()
 			end
 			state.placement:set("topBar")
 			if ctx.frame then
-				ctx.frame()
-				ctx.frame()
+				assert(ctx.frame)()
+				assert(ctx.frame)()
 			end
 			assert(phases).navigation = os.clock() - started
 			assert(state.contentBuilds == 1, "navigation chrome rebuilt retained inventory")
@@ -942,9 +967,9 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			for _, node in state.nodes do
 				if ctx.engine then
 					if state.focused then
-						state.focused.SelectionLost:Fire()
+						fire(state.focused.SelectionLost)
 					end
-					node.SelectionGained:Fire()
+					fire(node.SelectionGained)
 					state.focused = node
 					state.focusMoves = (state.focusMoves or 0) + 1
 				else
@@ -976,7 +1001,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			if name == "dense-hud" then
 				local started = os.clock()
 				if ctx.engine then
-					state.nodes[1].Activated:Fire()
+					fire(state.nodes[1].Activated)
 				else
 					state.activate()
 				end
@@ -1005,14 +1030,16 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			and name ~= "picker-menu-open-close"
 			and name ~= "radial-menu-open-close"
 		then
-			ctx.frame()
+			assert(ctx.frame)()
 		end
 		return phases
 	end
 	return state
 end
-type Workload = typeof(motion.create({}, "", nil)) | typeof(createStandard({}, "", require("./dataset")))
-function workloads.create(ctx: { [string]: any }, name: string, dataset: DatasetModule): Workload
+type Workload =
+	typeof(motion.create(nil :: never, "", nil))
+	| typeof(createStandard(nil :: never, "", require("./dataset")))
+function workloads.create(ctx: Context, name: string, dataset: DatasetModule): Workload
 	if name == "dense-motion" or name == "control-motion" then
 		return motion.create(ctx, name, dataset)
 	end

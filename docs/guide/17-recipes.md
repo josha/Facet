@@ -26,7 +26,7 @@ return UI.VStack {
 
 ```luau
 local query = Compose.cell("")
-local visible = Compose.formula(function(use)
+local visible = Compose.formula(function(use: Facet.Use)
     local term = string.lower(use(query))
     local result = {}
     for _, item in use(items) do

@@ -10,6 +10,32 @@
   place of arithmetic with `metricScale`. The HUD scenario radio face and line
   width follow the text size. The Lab Environment entry shows `scaled(48)`
   and `scaled(48, "body")` side by side.
+- Table returns its body to the top when the sort changes, or scrolls the
+  minimum distance to show the first selected row in the new order.
+- Add `Facet.format.compact`, `grouped` and `duration` for HUD values.
+  Add `Timer` for round deadlines and elapsed time. Add `Typewriter` for
+  dialogue with Skip, completion state and theme motion timing.
+
+- The author loop is a set of commands that print only what a task needs.
+  `lute run tools/facet info` prints the mount recipe, the rules, the
+  task-to-control map and the starter blocks. `docs <Control>` prints one
+  section of the reference with its subsections, an outline or a search.
+  `lint` finds Facet usage problems and type-checks the interface with a Rojo
+  sourcemap. `preview` and `audit` play the place in a disposable Studio on
+  each device and report screenshots, an outline and the interface audit.
+  `kit --out DIR` writes the library, these commands, the documentation, the
+  starter blocks and the skills into a game project. Before, the skill told an
+  author to read all 46 documentation files, about 139,000 tokens. For a shop
+  screen an author now reads about 12,000.
+- The use-facet skill is the author loop in seven steps and the rules.
+- `lint` gives hints for type errors that hide their cause, and `lint --usage`
+  counts the Facet controls and helpers that a project uses. `preview` reports
+  whether each tap found its control.
+- `examples/blocks` holds nine starter blocks: a HUD panel, an item store,
+  category tabs, settings, code redemption, an inventory grid, a scoreboard, a
+  round HUD and a dialogue box. A spec mounts each block in the engine double.
+- The Studio play host of FacetBench moves to `tools/play` and is shared with
+  `preview` and `audit`.
 - A wrapped automatic-height text keeps at least the height of its styled
   lines, measured with `TextService:GetTextBoundsAsync`. Before, the engine
   sized it with the native font and size (LegacyArial at 8), so a styled
@@ -622,7 +648,7 @@
 - Gallery, virtual monitors, reference apps, consumer and performance lab use the same native authoring model. Themes compile to native StyleSheets linked by the caller.
 - Verification records which old mechanism tests were retired and which control behaviors have replacement evidence. The generated Compose vendor remains unchanged.
 - Removed first-party explanatory code comments. Compiler directives and legal notices remain.
-- Restored the verification producers that still apply to the native architecture: documentation style, maintainer map, brand and call-shape drift, experiment markers, screen key bindings, theme drift, public-surface snapshot, performance scene, capture, place and gate evidence, the release falsification and the release-gate evidence file. CI runs on Ubuntu and on the ARM reference runner.
+- Restored the verification producers that still apply to the native architecture: documentation style, maintainer map, brand and call-shape drift, screen key bindings, theme drift, public-surface snapshot, performance scene, capture, place and gate evidence, the release falsification and the release-gate evidence file. CI runs on Ubuntu and on the ARM reference runner.
 - Lab audit parity: a Slider `controlSize` sets the thumb size, and the track is at least 44 pixels long. A ProgressView bar `controlSize` sets the track thickness. A read-only Vote mark has the interactive option size. The optional metric `controls.shortcutHint.capStroke` draws the ShortcutHint cap outline. A standard Notice pads its content by the theme's `panel` contentInsets.
 - Badge `corners` reads the package radii. The Table resize grip and the Slider track have accessible names. The ornate-gauge and custom-control theme fixtures use the current constructors.
 - A `RadialMenu` with `follow = "fixed"` keeps its ring and its center hole until it opens again. The list presentation shows one navigation control: `close` and `back` at the root read "Close", and `back` in a submenu reads "Back".

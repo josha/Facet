@@ -171,6 +171,17 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 		local at, size = node.AbsolutePosition, node.AbsoluteSize
 		return { x = at.X, y = at.Y, w = size.X, h = size.Y, r = at.X + size.X, b = at.Y + size.Y }
 	end
+	function t.ruleValue(rule: StyleRule, property: string): unknown
+		local value = rule:GetProperty(property)
+		local sheet = rule:FindFirstAncestorWhichIsA("StyleSheet")
+		if sheet and type(value) == "string" and string.sub(value, 1, 1) == "$" then
+			local resolved = sheet:GetAttribute(string.sub(value, 2))
+			if resolved ~= nil then
+				return resolved
+			end
+		end
+		return value
+	end
 	function t.inside(name: string, inner: any, outer: any, tolerance: number?)
 		local a = if typeof(inner) == "Instance" then t.rect(inner) else inner
 		local b = if typeof(outer) == "Instance" then t.rect(outer) else outer
@@ -287,6 +298,13 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 		return root
 	end
 	function t.context(UI: any, Host: any, Compose: any, env: any): { [string]: any }
+		local function find(kind: string, name: string): Instance
+			local source = if kind == "example"
+				then storage:WaitForChild("FacetExamples")
+				elseif kind == "reference" then storage:WaitForChild("FacetReference")
+				else storage:WaitForChild("FacetScenarios")
+			return source:WaitForChild(name)
+		end
 		return {
 			Facet = Facet,
 			Compose = Compose,
@@ -299,12 +317,9 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 			runService = RunService,
 			inputTarget = Players.LocalPlayer:WaitForChild("PlayerGui"),
 			worldTarget = workspace,
+			find = find,
 			load = function(kind: string, name: string)
-				local source = if kind == "example"
-					then storage:WaitForChild("FacetExamples")
-					elseif kind == "reference" then storage:WaitForChild("FacetReference")
-					else storage:WaitForChild("FacetScenarios")
-				return (require :: any)(source:WaitForChild(name))
+				return (require :: any)(find(kind, name))
 			end,
 		}
 	end
