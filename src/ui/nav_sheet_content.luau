@@ -243,6 +243,9 @@ return function(
 			local previousUp: GuiObject? = nil
 			local function linkContent()
 				local nextEntry = surfaces.firstSelectable(body)
+				if nextEntry == command then
+					nextEntry = surfaces.firstSelectable(content)
+				end
 				if nextEntry == entry then
 					return
 				end
