@@ -494,8 +494,6 @@ return function(verifyHarness: Verify.Harness)
 				local function wide(x: number, y: number)
 					return { x = x, y = y }
 				end
-				-- a portrait phone: the race bar (rank 1) needs 200 of 390; a 120-wide radio (rank 3) in the top left
-				-- leaves it 134
 				local bar: Declared =
 					{ zone = "top" :: "top", rank = 1, mayDrop = false, sizes = { wide(200, 90), wide(170, 80) } }
 				local radio: Declared =
@@ -503,7 +501,6 @@ return function(verifyHarness: Verify.Harness)
 				local forms = resolver.resolve(390, 800, 8, { bar, radio })
 				Verify.expect(forms[1]):toBe(1)
 				Verify.expect(forms[2]):toBe(2)
-				-- a side region that outranks the center keeps its form: the center steps down instead
 				local score: Declared =
 					{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { wide(120, 50) } }
 				local tip: Declared =
@@ -511,7 +508,6 @@ return function(verifyHarness: Verify.Harness)
 				forms = resolver.resolve(390, 800, 8, { tip, score })
 				Verify.expect(forms[1]):toBe(2)
 				Verify.expect(forms[2]):toBe(1)
-				-- a center zone wider than the whole row does not push the corners
 				local banner: Declared = { zone = "top" :: "top", rank = 1, mayDrop = false, sizes = { wide(500, 90) } }
 				forms = resolver.resolve(390, 800, 8, { banner, radio })
 				Verify.expect(forms[2]):toBe(1)

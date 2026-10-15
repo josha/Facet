@@ -331,7 +331,6 @@ function parts.actions(
 		table.insert(widths, ctx.observe.TextBounds(button))
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
-		-- a row gives each action an equal share, so the widest label decides whether the row fits
 		local widest = 0
 		for _, bounds in widths do
 			widest = math.max(widest, use(bounds).X + 24)
