@@ -180,14 +180,25 @@ return {
 		): Frame
 			return plate(name, "control", text(name .. "Text", label, role), 10, 4)
 		end
-		local function disc(name: string, label: string, icon: string, onActivate: (() -> ())?): TextButton
+		local function disc(
+			name: string,
+			label: string,
+			icon: string,
+			onActivate: (() -> ())?,
+			side: Readable<number>?
+		): TextButton
 			return UI.Button({
 				Name = name,
 				label = "",
 				name = label,
 				icon = icon,
 				shape = "circle",
-				Size = D2.fromOffset(44, 44),
+				Size = if side
+					then function(use: Use): UDim2
+						local edge = math.floor(use(side) + 0.5)
+						return D2.fromOffset(edge, edge)
+					end
+					else D2.fromOffset(44, 44),
 				onActivate = onActivate,
 			})
 		end
@@ -372,18 +383,22 @@ return {
 			return text("WeaponText", copy.weaponName)
 		end
 		rich.Radio = function()
+			local env = UI.environment()
+			local faceSide, lineWidth = env.scaled(44, "label"), env.scaled(240, "strong")
 			return plate(
 				"RadioPlate",
 				"panel",
 				row("RadioBody", {
-					disc("RadioFace", copy.radioName, "person"),
+					disc("RadioFace", copy.radioName, "person", nil, faceSide),
 					row("RadioWords", {
 						text("RadioName", copy.radioName, "label"),
 						UI.Text "RadioLine" {
 							text = copy.radioLine,
 							textRole = "strong",
 							wrap = true,
-							Size = D2.fromOffset(240, 0),
+							Size = function(use: Use): UDim2
+								return D2.fromOffset(math.floor(use(lineWidth) + 0.5), 0)
+							end,
 							AutomaticSize = E.AutomaticSize.Y,
 						},
 					}, 2, true),

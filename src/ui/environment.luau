@@ -558,11 +558,35 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local metricScale = derived(function(use): number
 			return if use(isTenFoot) then adaptive.TEN_FOOT_SCALE else 1
 		end)
-		local function scaled(value: number | string): ComposeTypes.Readable<number>
+		local textService = (config.services :: unknown) :: { TextService: TextService? }
+		local function textFactor(role: string, use: ComposeTypes.Use): number
+			local path = `typography.{role}.size`
+			local authored = ctx.metric(path, use, true)
+			local chosen = ctx.metric(path, use)
+			use(preferredTextSize)
+			local engine = 1
+			local service = textService.TextService
+			if service and authored > 0 then
+				local ok, bounds = pcall(function()
+					return service:GetTextSize("Mg", authored, ctx.types.Enum.Font.SourceSans, V2.new(100000, 100000))
+				end)
+				if ok and typeof(bounds) == "Vector2" and bounds.Y > 0 then
+					engine = math.max(1, bounds.Y / authored)
+				end
+			end
+			return engine * (if authored > 0 then chosen / authored else 1)
+		end
+		local function scaled(value: number | string, relativeTo: string?): ComposeTypes.Readable<number>
+			assert(
+				relativeTo == nil
+					or (type(relativeTo) == "string" and pcall(ctx.metric, `typography.{relativeTo}.size`)),
+				"Facet environment.scaled relativeTo must be a type role"
+			)
 			if type(value) == "string" then
 				ctx.metric(value)
 				return derived(function(use): number
-					return ctx.metric(value, use)
+					local length = ctx.metric(value, use)
+					return if relativeTo then length * textFactor(relativeTo, use) else length
 				end)
 			end
 			assert(
@@ -570,7 +594,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				"Facet environment.scaled expects a finite number or a theme metric path"
 			)
 			return derived(function(use): number
-				return value * use(metricScale)
+				local length = value * use(metricScale)
+				return if relativeTo then length * textFactor(relativeTo, use) else length
 			end)
 		end
 		local environment: Env.Environment = freeze({

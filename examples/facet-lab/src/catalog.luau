@@ -5258,6 +5258,26 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				}, "\n"))
 			end)
 			local atLeast = env.atLeast("regular")
+			local function square(name: string, side: Readable<number>, caption: string): Instance
+				return UI.VStack(name)({
+					gap = "xs",
+					align = "center",
+					c.Host.Frame({
+						Name = "Square",
+						BackgroundColor3 = Color3.fromRGB(120, 140, 220),
+						Size = function(use: Use): UDim2
+							local edge = math.floor(use(side) + 0.5)
+							return UDim2.fromOffset(edge, edge)
+						end,
+					}),
+					UI.Text({
+						text = function(use: Use)
+							return `{caption} = {math.floor(use(side) + 0.5)}`
+						end,
+						textRole = "caption",
+					}),
+				})
+			end
 			return UI.VStack({
 				gap = "xs",
 				label,
@@ -5266,6 +5286,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						return `atLeast("regular") = {tostring(use(atLeast))}`
 					end,
 					textRole = "caption",
+				}),
+				UI.HStack({
+					gap = "m",
+					align = "end",
+					square("Scaled", env.scaled(48), "scaled(48)"),
+					square("ScaledBody", env.scaled(48, "body"), 'scaled(48, "body")'),
 				}),
 			})
 		end,

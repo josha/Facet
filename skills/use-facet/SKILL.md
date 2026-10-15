@@ -66,7 +66,9 @@ controls options. Read the other sections when you use their controls.
   value is reasonable for it, change Facet.
 - **Sizes.** Take lengths from type roles, `controlSize` and theme metrics.
   For a length that the game owns, such as a portrait, use
-  `UI.environment().scaled(64)` or `scaled("space.m")`. Do not multiply by
+  `UI.environment().scaled(64)` or `scaled("space.m")`. For a length that sits
+  with text, such as a portrait beside a line, add the role:
+  `scaled(64, "body")` also follows the player's text size. Do not multiply by
   `metricScale` by hand, and do not branch on device names.
 - **Input.** Bind game commands as native `InputAction`s in an
   `InputContext`. Show their keys with `UI.ShortcutHint { action = ... }`. It

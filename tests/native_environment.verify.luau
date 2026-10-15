@@ -275,6 +275,52 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		verifyHarness:case("scaled relative to a type role follows the player's text size like that role", {
+			id = "native_environment::environment: viewing distance, metric scale and overscan::scaled relative to a type role follows the player's text size like that role",
+			run = function()
+				local boost = 1
+				local textService = {
+					GetTextSize = function(_, _text: string, size: number): Vector2
+						return Roblox.Vector2.new(size, size * boost)
+					end,
+				}
+				local w = world({ TextService = textService })
+				local made: { typeof(w.UI.environment().scaled(0)) } = {}
+				local refused = false
+				local stop = owned(w.runtime, function()
+					local env = w.UI.environment()
+					table.insert(made, env.scaled(64, "body"))
+					table.insert(made, env.scaled(64))
+					refused = not pcall(env.scaled, 64, "shout")
+				end)
+				local face, plain = made[1], made[2]
+				Verify.expect((face:peek())):toBe(64)
+				boost = 1.5
+				w.gui.PreferredTextSize = w.Enum.PreferredTextSize.Largest
+				Verify.expect((face:peek())):toBe(96)
+				Verify.expect((plain:peek())):toBe(64)
+				Verify.expect(refused):toBe(true)
+				stop()
+				w.stop()
+			end,
+		})
+		verifyHarness:case("scaled relative to a type role follows a text size preview", {
+			id = "native_environment::environment: viewing distance, metric scale and overscan::scaled relative to a type role follows a text size preview",
+			run = function()
+				local preview = Compose.cell("Medium")
+				local w = world(nil, { environment = { preferredTextSize = preview } })
+				local made: { typeof(w.UI.environment().scaled(0)) } = {}
+				local stop = owned(w.runtime, function()
+					table.insert(made, w.UI.environment().scaled(64, "body"))
+				end)
+				local face = made[1]
+				Verify.expect((face:peek())):toBe(64)
+				preview:set("Largest")
+				Verify.expect((face:peek()) > 64):toBe(true)
+				stop()
+				w.stop()
+			end,
+		})
 		verifyHarness:case("an authored viewingDistance outranks the inference and says so", {
 			id = "native_environment::environment: viewing distance, metric scale and overscan::an authored viewingDistance outranks the inference and says so",
 			run = function()
