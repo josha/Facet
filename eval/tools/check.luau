@@ -39,6 +39,24 @@ end
 
 local EVAL = absolute(directoryOf(debug.info(1, "s")) .. "/..")
 Bench.prepare(Files.parent(EVAL))
+local structuralLoader = binding.loader()
+structuralLoader.files = table.clone(structuralLoader.files)
+local generatedKits = {
+	[absolute(EVAL .. "/../artifacts/facetbench/arm-shared")] = true,
+	[absolute(EVAL .. "/../artifacts/facetbench/arm-facet")] = true,
+}
+structuralLoader.files.exists = function(path: string): boolean
+	return generatedKits[absolute(path)] == true or binding.files.exists(path)
+end
+structuralLoader.files.isDirectory = function(path: string): boolean
+	return generatedKits[absolute(path)] == true or binding.files.isDirectory(path)
+end
+structuralLoader.files.list = function(path: string)
+	if generatedKits[absolute(path)] and not binding.files.exists(path) then
+		return {}
+	end
+	return binding.files.list(path)
+end
 
 local problems: { string } = {}
 local notes: { string } = {}
@@ -67,14 +85,14 @@ end
 
 local function suite(path: string): AgentEval.Suite?
 	local ok, value: unknown = pcall(function(): AgentEval.Suite
-		return AgentEval.decodeSuite(read(path), path, binding.loader())
+		return AgentEval.decodeSuite(read(path), path, structuralLoader)
 	end)
 	if not ok then
 		fail(("%s does not load: %s"):format(path, tostring(value)))
 		return nil
 	end
 	local loaded = value :: AgentEval.Suite
-	local runs = AgentEval.plan(loaded, binding.loader())
+	local runs = AgentEval.plan(loaded, structuralLoader)
 	print(("check: %s has %d task(s), %d arm(s) and %d run(s)"):format(path, #loaded.tasks, #loaded.arms, #runs))
 	return loaded
 end

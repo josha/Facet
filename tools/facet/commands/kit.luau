@@ -310,10 +310,10 @@ local function cases(): { Case.Case }
 					return "the kit was not written: " .. table.concat(lines, "; ")
 				end
 				local docs = Run.capture(
-					{ "lute", "run", "tools/facet", "docs", "Button" },
+					{ Run.lute(), "run", "tools/facet", "docs", "Button" },
 					{ cwd = out, timeout = 120 }
 				)
-				local help = Run.capture({ "lute", "run", "tools/facet", "help" }, { cwd = out, timeout = 120 })
+				local help = Run.capture({ Run.lute(), "run", "tools/facet", "help" }, { cwd = out, timeout = 120 })
 				local again = write(out, plan(), false)
 				Files.remove(out)
 				return Case.first(
