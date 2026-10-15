@@ -15,19 +15,26 @@ return function(verifyHarness: Verify.Harness)
 	local cells = require("./lib/cells")
 	local Compose: ComposeModule = Facet.Compose
 
-	local function make(options: { [string]: any }?): (any, any, any)
-		local engine: any = engineLib.new()
+	local function make(options: { [string]: any }?, engineOptions: engineLib.Options?): (any, any, any)
+		local engine: any = engineLib.new(engineOptions)
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local config: { [string]: any } = { types = engine.types, guiService = gui, services = { GuiService = gui } }
+		if engineOptions then
+			config.services = { GuiService = gui, RunService = { Heartbeat = engine.heartbeat } }
+		end
 		for key, value in (options or {}) :: { [string]: any } do
 			config[key] = value
 		end
 		return engine, runtime, Facet.controls(runtime, config :: any)
 	end
 
-	local function build(options: { [string]: any }?, body: (any, any) -> any): (any, any, () -> (), any)
-		local engine, runtime, UI = make(options)
+	local function build(
+		options: { [string]: any }?,
+		body: (any, any) -> any,
+		engineOptions: engineLib.Options?
+	): (any, any, () -> (), any)
+		local engine, runtime, UI = make(options, engineOptions)
 		local root: any
 		local unmount = runtime.mount(function()
 			root = body(UI, runtime.constructors)
@@ -413,68 +420,46 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("measures wrapped automatic-height text again with the styled size when its text changes", {
 			id = "native_layout::native text layout::measures wrapped automatic-height text again with the styled size when its text changes",
 			run = function()
-				local engine: any = engineLib.new()
 				local points = 16
-				local original = engine.new
-				engine.new = function(className)
-					local node = original(className)
-					if className == "TextLabel" then
-						local defaults = { FontFace = node.FontFace, TextSize = node.TextSize }
-						node.GetStyled = function(self, property)
-							if property == "TextSize" then
-								return points
-							end
-							return self[property]
-						end
-						node.ResetPropertyToDefault = function(self, property)
-							self[property] = defaults[property]
-						end
-					end
-					return node
-				end
-				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-				local UI = Facet.controls(
-					runtime,
-					{
-						types = engine.types,
-						services = { RunService = { Heartbeat = engine.heartbeat } },
-					} :: any
-				)
+				local Enum, UDim2, Vector2 = engineLib.types.Enum, engineLib.types.UDim2, engineLib.types.Vector2
 				local measured = {}
-				engine.onWrite(function(node, property, value)
-					if
-						node.Name == "Line"
-						and property == "AutomaticSize"
-						and value == engine.types.Enum.AutomaticSize.Y
-					then
-						table.insert(measured, node.TextSize)
-					end
-				end)
 				local line = Compose.cell("Short.")
-				local stop, result = runtime.mount(function()
+				local label, engine, stop = build(nil, function(UI)
 					return UI.Text "Line" {
 						text = line,
 						wrap = true,
-						Size = engine.types.UDim2.fromOffset(168, 0),
-						AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+						Size = UDim2.fromOffset(168, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
 					}
-				end, engine.new("ScreenGui"))
-				local label: any = result
+				end, {
+					getStyled = function(node, property)
+						if property == "TextSize" and node.ClassName == "TextLabel" then
+							return points
+						end
+						return node[property]
+					end,
+				})
+				engine.onWrite(function(node, property, value)
+					if node.Name == "Line" and property == "AutomaticSize" and value == Enum.AutomaticSize.Y then
+						table.insert(measured, node.TextSize)
+					end
+				end)
+				line:set("Short, then longer.")
 				engine.heartbeat:Fire(1 / 60)
 				local settled = #measured
+				Verify.expect(settled > 0):toBe(true)
 				Verify.expect(measured[settled]):toBe(16)
 				line:set("I tuned half these karts.  Including yours.  Drive it well.")
 				engine.heartbeat:Fire(1 / 60)
 				Verify.expect(#measured > settled):toBe(true)
 				Verify.expect(measured[#measured]):toBe(16)
 				Verify.expect(label.TextSize == 16):toBe(false)
-				label.AbsoluteSize = engine.types.Vector2.new(168, 19)
+				label.AbsoluteSize = Vector2.new(168, 19)
 				local before = #measured
-				label.TextBounds = engine.types.Vector2.new(160, 38)
+				label.TextBounds = Vector2.new(160, 38)
 				engine.heartbeat:Fire(1 / 60)
 				Verify.expect(#measured > before):toBe(true)
 				stop()
-				runtime:dispose()
 				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
 			end,
 		})

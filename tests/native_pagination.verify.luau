@@ -123,15 +123,15 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local asked: { string } = {}
 					local spanish = {
-						FormatByKey = function(_, key: string, args: { [string]: any }): string
+						FormatByKey = function(_, key: string, args: { [string]: unknown }): string
 							table.insert(asked, key)
 							if key == "Facet.PageOf" then
-								return `Página {args.current} de {args.count}`
+								return `Página {tostring(args.current)} de {tostring(args.count)}`
 							end
 							error("missing key")
 						end,
 					}
-					local translator = Compose.cell(spanish :: any)
+					local translator = Compose.cell(spanish)
 					local world = worlds.new(function(UI: FacetControls)
 						return UI.Pagination("P")({
 							page = 3,

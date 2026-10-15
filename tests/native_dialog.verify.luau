@@ -816,8 +816,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("follows a readable width and a readable actionLayout while presented", {
 			id = "native_dialog::native Dialog: reactive width and action layout::follows a readable width and a readable actionLayout while presented",
 			run = function()
-				local width = Compose.cell("narrow" :: any)
-				local layout = Compose.cell("row" :: any)
+				local width = Compose.cell("narrow")
+				local layout = Compose.cell("row")
 				local open, log, change = caller()
 				local w = mount(standard(open, log, change, { width = width, actionLayout = layout }))
 				local panel = w.find("Panel")

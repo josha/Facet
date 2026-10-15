@@ -257,11 +257,12 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local distance = Compose.cell("near")
 				local w, env, stop = console({ environment = { viewingDistance = distance } })
-				local portrait: any, gap: any
+				local made: { typeof(env.scaled(0)) } = {}
 				local stopScaled = owned(w.runtime, function()
-					portrait = env.scaled(64)
-					gap = env.scaled("space.m")
+					table.insert(made, env.scaled(64))
+					table.insert(made, env.scaled("space.m"))
 				end)
+				local portrait, gap = made[1], made[2]
 				Verify.expect((portrait:peek())):toBe(64)
 				local near = gap:peek()
 				distance:set("ten-foot")
