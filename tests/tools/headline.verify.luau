@@ -16,6 +16,14 @@ return function(harness: Verify.Harness)
 		local judgments = Eval.judge.load(directory, b.files, b.decode)
 		for _, run in runs do
 			run.passed = false
+			if run.arm == "facet" then
+				for _, audit in run.audits do
+					audit.rules["instance-count"] = 10000
+					audit.rules["type-scale"] = 10000
+					audit.rules["spacing-scale"] = 10000
+					audit.rules["press-feedback-missing"] = 10000
+				end
+			end
 		end
 		t:expect(Headline.build(suite, runs, judgments, thresholds, overhead).passed):toBe(true)
 		runs[1].scores["play.universal.desktop.fraction"] = nil

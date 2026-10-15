@@ -23,6 +23,18 @@ export type Overhead = { status: string, rules: { Rule } }
 export type Output = { markdown: string, quality: Eval.EvalReport, passed: boolean, problems: { string } }
 
 local stats = Eval.stats
+local UNIVERSAL_AUDIT: { [string]: boolean } = {
+	["text-truncated"] = true,
+	["text-clipped"] = true,
+	["contrast-low"] = true,
+	["offscreen"] = true,
+	["outside-safe-area"] = true,
+	["touch-target-small"] = true,
+	["interactive-overlap"] = true,
+	["gamepad-unreachable"] = true,
+	["focus-hidden"] = true,
+	["selection-link-broken"] = true,
+}
 
 local function show(value: number?): string
 	return if value == nil then "missing" else ("%.3f"):format(value)
@@ -95,7 +107,14 @@ local function build(
 		local audits = {}
 		for _, item in run.audits do
 			if string.find(item.path, "audit-universal-", 1, true) ~= nil then
-				table.insert(audits, item)
+				local measured = table.clone(item)
+				measured.rules = {}
+				for rule, count in item.rules do
+					if UNIVERSAL_AUDIT[rule] then
+						measured.rules[rule] = count
+					end
+				end
+				table.insert(audits, measured)
 			end
 		end
 		run.audits = audits
