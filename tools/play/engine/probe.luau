@@ -756,6 +756,9 @@ local function gamepadPath(query: Query, limit: number): { [string]: unknown }
 			continue
 		end
 		for _, direction in ORDER do
+			if not node.Selectable or not node.Interactable or shownRect(node, false) == nil then
+				break
+			end
 			GuiService.SelectedObject = node
 			frames(1)
 			key(DIRECTIONS[direction])
@@ -768,7 +771,9 @@ local function gamepadPath(query: Query, limit: number): { [string]: unknown }
 			end
 		end
 	end
-	GuiService.SelectedObject = start
+	if start.Selectable and start.Interactable and shownRect(start, false) ~= nil then
+		GuiService.SelectedObject = start
+	end
 	frames(2)
 	if found == nil then
 		return { found = false, reason = "no selection path reaches the control", visited = count, labels = labels }
