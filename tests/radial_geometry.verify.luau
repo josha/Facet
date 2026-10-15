@@ -5,6 +5,41 @@ return function(verifyHarness: Verify.Harness)
 	local g = require("../src/ui/nav_radial_geometry")
 	local expect = Verify.expect
 	verifyHarness:suite("radial geometry", function()
+		verifyHarness:case("label bounds stay inside rotated narrow and wide sectors", {
+			id = "radial_geometry::radial geometry::label bounds stay inside rotated narrow and wide sectors",
+			run = function()
+				for _, span in { 15, 45, 90, 180, 270, 360 } do
+					for angle = -180, 540, 17 do
+						for _, inner in { 0, 60, 110 } do
+							local shape = {
+								x = math.sin(math.rad(angle)) * (inner + 150) / 2,
+								y = -math.cos(math.rad(angle)) * (inner + 150) / 2,
+								inner = inner,
+								outer = 150,
+								angle = angle,
+								span = span,
+							}
+							local box = g.labelBounds(shape, 40)
+							expect(box.w >= 0 and box.w <= 160 and box.h >= 0 and box.h <= 40):toBe(true)
+							if box.w > 0 and box.h > 0 then
+								local nearX = math.max(0, math.abs(shape.x) - box.w / 2 - 3)
+								local nearY = math.max(0, math.abs(shape.y) - box.h / 2 - 3)
+								expect(nearX * nearX + nearY * nearY >= inner * inner - 1e-8):toBe(true)
+								for _, dx in { -box.w / 2 - 3, box.w / 2 + 3 } do
+									for _, dy in { -box.h / 2 - 3, box.h / 2 + 3 } do
+										local x, y = shape.x + dx, shape.y + dy
+										expect(x * x + y * y <= 150 * 150 + 1e-8):toBe(true)
+										expect(
+											math.abs(g.delta(math.deg(math.atan2(x, -y)), angle)) <= span / 2 - 2 + 1e-8
+										):toBe(true)
+									end
+								end
+							end
+						end
+					end
+				end
+			end,
+		})
 		verifyHarness:case("radial sectors exclude the hole, preserve compass gaps, and bound overshoot", {
 			id = "radial_geometry::radial geometry::radial sectors exclude the hole, preserve compass gaps, and bound overshoot",
 			run = function()
