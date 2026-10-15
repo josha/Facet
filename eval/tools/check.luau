@@ -103,6 +103,7 @@ end
 local games = suite(EVAL .. "/games.json")
 local slice = suite(EVAL .. "/slice.json")
 local gameValidation = suite(EVAL .. "/validation/games.json")
+suite(EVAL .. "/validation/slice.json")
 local extended = suite(EVAL .. "/extended.json")
 suite(EVAL .. "/extended-spec.json")
 for _, id in
