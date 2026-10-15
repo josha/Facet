@@ -5,10 +5,21 @@ local Json = require("./json")
 local Run = require("./run")
 local Loader = require("../../../tests/lib/loader")
 
-local loader = Loader.new()
-local perf_runner = loader.require("bench/perf_runner.luau") :: typeof(require("../../../bench/perf_runner"))
-local perf_scenes = loader.require("bench/perf_scenes.luau") :: typeof(require("../../../bench/perf_scenes"))
-local perf_profiles = loader.require("bench/perf_profiles.luau") :: typeof(require("../../../bench/perf_profiles"))
+local perf_runner: typeof(require("../../../bench/perf_runner"))
+local perf_scenes: typeof(require("../../../bench/perf_scenes"))
+local perf_profiles: typeof(require("../../../bench/perf_profiles"))
+local loaded = false
+
+local function loadBench()
+	if loaded then
+		return
+	end
+	local loader = Loader.new()
+	perf_runner = loader.require("bench/perf_runner.luau") :: typeof(require("../../../bench/perf_runner"))
+	perf_scenes = loader.require("bench/perf_scenes.luau") :: typeof(require("../../../bench/perf_scenes"))
+	perf_profiles = loader.require("bench/perf_profiles.luau") :: typeof(require("../../../bench/perf_profiles"))
+	loaded = true
+end
 
 local PerfRun = {}
 
@@ -71,7 +82,11 @@ local function injected(): ({ unknown }, string?, number)
 	local injectScene = Run.env("FACET_PERF_INJECT_REGRESSION")
 	local injectFactor = tonumber(Run.env("FACET_PERF_INJECT_FACTOR") or "") or 8
 	if injectScene == nil then
-		return perf_scenes, nil, injectFactor
+		local all: { unknown } = {}
+		for _, scene in perf_scenes do
+			table.insert(all, scene)
+		end
+		return all, nil, injectFactor
 	end
 	local found = false
 	local scenes: { unknown } = {}
@@ -80,7 +95,7 @@ local function injected(): ({ unknown }, string?, number)
 			found = true
 			local original = scene.run
 			local clone = table.clone(scene)
-			clone.run = function(state: unknown): unknown
+			clone.run = function(state)
 				local phases = original(state)
 				for _ = 2, injectFactor do
 					original(state)
@@ -266,6 +281,7 @@ local function ingest(report: { runs: { unknown }, [string]: unknown })
 end
 
 function PerfRun.run(baseline: boolean): number
+	loadBench()
 	local list = profiles()
 	local scenes, injectScene, injectFactor = injected()
 	print(`perf: {#scenes} scenes × {#list} profiles (reference = {perf_profiles.REFERENCE})`)
@@ -362,6 +378,7 @@ function PerfRun.run(baseline: boolean): number
 end
 
 function PerfRun.baselineScenes(names: { string }): number
+	loadBench()
 	if #names == 0 then
 		print("usage: lute run tools/facet perf baseline <scene> [<scene> ...]")
 		return 2
@@ -459,6 +476,7 @@ local function syntheticReport(scene: string, p95: number): { [string]: unknown 
 end
 
 function PerfRun.proveGate(): number
+	loadBench()
 	print(`perf prove-gate: injecting a {FACTOR}x regression into '{TARGET_SCENE}' and running the real gate…`)
 	local injectedCode, injectedOut = gate({
 		FACET_PERF_INJECT_REGRESSION = TARGET_SCENE,
