@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- A wrapped automatic-height text keeps at least the height of its styled
+  lines, measured with `TextService:GetTextBoundsAsync`. Before, the engine
+  sized it with the native font and size (LegacyArial at 8), so a styled
+  two-line prompt in a hugging chip showed one clipped line.
+- Two `automatic` overlay actions stack when the longer label does not fit its
+  equal share of the row. Before, the row compared the sum of the labels with
+  the row width, so a short and a long label stayed in a row and the long one
+  ran past its button.
+- When the side zones of a Composition row squeeze a center-lane zone that
+  fits the row alone, the side regions that are wider than the room the center
+  leaves also step down, by rank. Before, only the center zone gave way, so a
+  rank 3 corner could push a rank 1 race bar to its smaller form.
 - A center-lane zone (`top`, `center` or `bottom`) of a Composition can use the
   width that the side zones of its row leave free. Before, each lane had a
   fixed third of the width, so a wide `top` or `bottom` region dropped on a

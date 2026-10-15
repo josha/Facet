@@ -1013,7 +1013,11 @@ Layout:
   the side zones of its row leave free. Its width must not exceed the full
   width minus twice the wider side zone of that row and twice `gap`. Thus a
   wide `top` or `bottom` region fits on a phone when the corners of its row
-  are empty or narrow.
+  are empty or narrow. When the side zones of its row squeeze a center zone
+  that fits the row alone, the side regions that are wider than the room the
+  center leaves also count as not fitting. Thus rank decides: a rank 3 corner
+  steps down before a rank 1 race bar, and a rank 1 corner keeps its form
+  while a rank 2 center region steps down.
 - The zones of one lane must not overlap vertically. The `center` zone stays centred and keeps `gap` from the
   zones above and below it.
 
@@ -3007,9 +3011,10 @@ Other options:
 - `hero`: the shared media shape.
 - `actionLayout`: `automatic`, `row` or `stacked`. `automatic` puts two short
   actions in a row and stacks three or more. A row that cannot show the full
-  labels also stacks, and so do the actions of an Alert, a Dialog and a Sheet
-  on a ten-foot screen (`ctx.tenFoot()`) or at the `Larger` and `Largest`
-  preferred text sizes, each full width.
+  labels also stacks. The row gives each action an equal share of its width,
+  so the longest label decides. The actions of an Alert, a Dialog and a Sheet
+  also stack on a ten-foot screen (`ctx.tenFoot()`) or at the `Larger` and
+  `Largest` preferred text sizes, each full width.
 - `width`: `automatic`, `narrow` or `wide`.
 - `contentSelectable`: `true` (the default) makes an overflowing body one
   selectable stop. With the selection on it, Up and Down scroll the body. At
@@ -3967,6 +3972,11 @@ or `textRole` instead.
   removes it. `role` can be bound.
 - `textAlign` is `start`, `center` or `end` and sets `TextXAlignment`. It can
   be bound. `wrap` sets `TextWrapped`. `rich = true` sets `RichText`.
+- A wrapped text with automatic height measures its lines with
+  `TextService:GetTextBoundsAsync` at its styled font, size and line height,
+  and its `TextBoundsFloor` constraint keeps at least that height. The engine
+  sizes automatic text with the native `FontFace` and `TextSize`, not the
+  styled ones, so a styled two-line string could show one clipped line.
 - `direction` is `auto`, `ltr` or `rtl` and sets `TextDirection`.
 - `tint` sets `TextColor3` for a colour that no role gives.
 - `disclose = true` keeps a truncated value readable. Unwrapped text uses an

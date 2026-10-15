@@ -486,6 +486,34 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("steps a lower-rank side region down before a center region that its row squeezes", {
+			id = "native_composition::Composition::steps a lower-rank side region down before a center region that its row squeezes",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local function wide(x: number, y: number)
+					return { x = x, y = y }
+				end
+				local bar: Declared =
+					{ zone = "top" :: "top", rank = 1, mayDrop = false, sizes = { wide(200, 90), wide(170, 80) } }
+				local radio: Declared =
+					{ zone = "topLeft" :: "topLeft", rank = 3, mayDrop = true, sizes = { wide(120, 50), wide(60, 50) } }
+				local forms = resolver.resolve(390, 800, 8, { bar, radio })
+				Verify.expect(forms[1]):toBe(1)
+				Verify.expect(forms[2]):toBe(2)
+				local score: Declared =
+					{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { wide(120, 50) } }
+				local tip: Declared =
+					{ zone = "top" :: "top", rank = 2, mayDrop = true, sizes = { wide(200, 90), wide(120, 60) } }
+				forms = resolver.resolve(390, 800, 8, { tip, score })
+				Verify.expect(forms[1]):toBe(2)
+				Verify.expect(forms[2]):toBe(1)
+				local banner: Declared = { zone = "top" :: "top", rank = 1, mayDrop = false, sizes = { wide(500, 90) } }
+				forms = resolver.resolve(390, 800, 8, { banner, radio })
+				Verify.expect(forms[2]):toBe(1)
+			end,
+		})
+
 		verifyHarness:case(
 			"refuses an unknown anchor, a rank that is not a whole number, and a child that is not a Region",
 			{

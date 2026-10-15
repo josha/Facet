@@ -49,7 +49,15 @@ controls options. Read the other sections when you use their controls.
   `center` or `bottom` zone can also use the width that the side zones of its
   row leave free. When a region does not show, read the `Visible` property and
   the `FacetForm` attribute of the region before you change its content. Give
-  a region a smaller second form before you let it drop.
+  a region a smaller second form before you let it drop. When the side
+  zones of a row squeeze a center zone, rank decides which region steps down.
+- **One Composition for the whole HUD.** Put every HUD element in one
+  Composition, including a minimap or another native Frame (put the Frame in
+  a region). A second ScreenGui is invisible to the solver, so its contents
+  overlap the regions on a small screen.
+- **Stable widths.** Give a value that changes during play, such as a
+  counter, one width for all its values. A region that changes width can make
+  a neighbor region step down and come back each time the value changes.
 - **Text that wraps.** Use `UI.Text` with `wrap = true`, a width and
   `AutomaticSize = Enum.AutomaticSize.Y`, or `lines = n` to clamp. Do not
   estimate the height of text yourself.

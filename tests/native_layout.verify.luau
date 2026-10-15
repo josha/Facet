@@ -463,6 +463,40 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
 			end,
 		})
+		verifyHarness:case("floors a wrapped automatic-height text at the height of its styled lines", {
+			id = "native_layout::native text layout::floors a wrapped automatic-height text at the height of its styled lines",
+			run = function()
+				local Enum, UDim2, Vector2 = engineLib.types.Enum, engineLib.types.UDim2, engineLib.types.Vector2
+				local asked: { number } = {}
+				local textService = {
+					GetTextBoundsAsync = function(_, params: { Width: number, Size: number }): Vector2
+						table.insert(asked, params.Width)
+						return Vector2.new(params.Width, 3 * params.Size)
+					end,
+				}
+				local line = Compose.cell("Use your Soda Rocket: tap ITEM")
+				local label, _, stop = build({ services = { TextService = textService } }, function(UI)
+					return UI.Text "Line" {
+						text = line,
+						wrap = true,
+						Size = UDim2.fromOffset(300, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+					}
+				end, {
+					getStyled = function(node, property)
+						return node[property]
+					end,
+				})
+				label.AbsoluteSize = Vector2.new(300, 27)
+				local floor = label:FindFirstChild("TextBoundsFloor")
+				Verify.expect(#asked > 0):toBe(true)
+				Verify.expect(asked[#asked]):toBe(300)
+				Verify.expect(floor.MinSize.Y):toBe(math.ceil(3 * label.TextSize * math.max(label.LineHeight, 1)))
+				label.TextWrapped = false
+				Verify.expect(floor.MinSize.Y):toBe(0)
+				stop()
+			end,
+		})
 		verifyHarness:case("reflows automatic text when font metrics change and preserves fixed text", {
 			id = "native_layout::native text layout::reflows automatic text when font metrics change and preserves fixed text",
 			run = function()

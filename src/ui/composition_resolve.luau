@@ -110,6 +110,12 @@ return {
 					if column == 2 then
 						local side = math.max(zoneW[4 + row] or 0, zoneW[12 + row] or 0)
 						room = math.max(lane, width - 2 * (side + gap))
+						local wide = zoneW[key] or 0
+						if wide > room and wide <= width - 2 * gap and (zoneH[key] or 0) <= height then
+							local spare = (width - wide) / 2 - gap
+							fail(4 + row, spare)
+							fail(12 + row, spare)
+						end
 					end
 					check(key, room, height)
 				end
