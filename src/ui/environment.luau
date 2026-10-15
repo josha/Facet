@@ -621,6 +621,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			isTall = derived(function(use): boolean
 				return use(heightClass) == "tall"
 			end),
+			thumbTarget = derived(function(use: ComposeTypes.Use): number
+				local size = use(viewportSize)
+				local short = math.min(size.X, size.Y)
+				return ctx.metric(if short <= 500 then "targetSizes.thumb" else "targetSizes.thumbLarge", use)
+			end),
 			isLandscape = derived(function(use: ComposeTypes.Use): boolean
 				local size = use(viewportSize)
 				return size.X > size.Y

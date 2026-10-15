@@ -240,6 +240,8 @@ export type Context = {
 	viewingDistance: (Use?) -> "automatic" | "near" | "ten-foot",
 	effectiveInput: () -> (Use?) -> "Touch" | "Gamepad" | "KeyboardAndMouse",
 	touchFloor: () -> (Use?) -> number,
+	overlayHosts: { [Instance]: Instance },
+	thumbFloor: (Readable<number>) -> (Use?) -> number,
 	observe: Observe,
 	observeStyled: Observe,
 	shiftRoute: (Instance, () -> ()) -> (),

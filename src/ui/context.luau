@@ -23,6 +23,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 		types = types,
 		config = config :: Shared.ResolvedConfig,
 		metrics = { textSize = 16, controlHeight = 36, gap = 8, cornerRadius = 8 },
+		overlayHosts = setmetatable({}, { __mode = "k" }),
 	}
 	local ctx = (fields :: unknown) :: Shared.Context
 	local track = installConstruct(ctx)

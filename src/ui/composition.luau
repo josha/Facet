@@ -15,11 +15,14 @@ type Declared = {
 	mayDrop: boolean,
 	sizes: { ComposeTypes.Cell<Vector2> },
 	form: ComposeTypes.Cell<number>,
+	leading: boolean,
 	animate: boolean,
 	reveal: { host: (Instance) -> (), back: () -> () }?,
 }
 
 local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
+local ENGINE_BUTTON = 44
+local ENGINE_MARGIN = 2
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
@@ -47,6 +50,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			"Facet Region expand must be a function that returns the richest content"
 		)
 		assert(spec.reveal == nil or type(spec.reveal) == "boolean", "Facet Region reveal must be a boolean")
+		assert(
+			spec.leading == nil or (type(spec.leading) == "boolean" and (spec.leading == false or zone == "topbar")),
+			"Facet Region leading must be a boolean, and only a topbar region can lead"
+		)
 		local form: ComposeTypes.Cell<number> = spec.form or Compose.cell(1)
 		form:set(1)
 		local reduced = reducedMotion(ctx)
@@ -59,7 +66,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			return if reduced(use) then 1 else rest + (1 - rest) * present(use(pop.progress))
 		end)
 		local properties = (
-			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand", "reveal" }, {
+			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand", "reveal", "leading" }, {
 				BorderSizePixel = 0,
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
@@ -203,6 +210,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			mayDrop = spec.mayDrop == true,
 			sizes = sizes,
 			form = form,
+			leading = spec.leading == true,
 			animate = false,
 			reveal = if spec.reveal ~= false and spec.mayDrop == true
 				then { host = hostInto, back = returnHome }
@@ -216,13 +224,23 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		column: number,
 		row: number,
 		gap: Types.Value<Types.Space>,
-		children: { Frame }
+		children: { Frame },
+		shift: ComposeTypes.Readable<resolver.Shift>
 	): Frame
 		local fields: Types.FrameNativeProps = {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			AnchorPoint = V2.new((column - 1) / 2, (row - 1) / 2),
-			Position = D2.fromScale((column - 1) / 2, (row - 1) / 2),
+			ZIndex = if column == 2 then 2 else 1,
+			Position = function(use: ComposeTypes.Use): UDim2
+				local moved = use(shift)
+				local down = if column ~= 2
+					then 0
+					elseif row == 1 then moved.top
+					elseif row == 3 then -moved.bottom
+					else 0
+				return D2.new((column - 1) / 2, 0, (row - 1) / 2, down)
+			end,
 			Size = D2.new(),
 			AutomaticSize = E.AutomaticSize.XY,
 			Host.UIListLayout({
@@ -296,12 +314,36 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				table.insert(members[home], region)
 			end
 		end
+		local landedZone: Frame? = nil
+		if #stripRegions > 0 then
+			landedZone = Host.Frame "Landed" {
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				LayoutOrder = 0,
+				Size = D2.new(),
+				AutomaticSize = E.AutomaticSize.XY,
+				Host.UIListLayout({
+					SortOrder = E.SortOrder.LayoutOrder,
+					HorizontalAlignment = E.HorizontalAlignment.Center,
+					Padding = function(use: ComposeTypes.Use): UDim
+						return D.new(0, kit.spacing(gap, use))
+					end,
+				}),
+			}
+		end
 		local zones: { [string]: Frame } = {}
 		local placed: { Frame } = {}
+		local shift: ComposeTypes.Cell<resolver.Shift> = Compose.cell({ top = 0, bottom = 0 } :: resolver.Shift)
 		for zone, children in members do
 			local cell = resolver.CELLS[zone]
-			local frame =
-				zoneFrame(string.upper(string.sub(zone, 1, 1)) .. string.sub(zone, 2), cell[1], cell[2], gap, children)
+			local frame = zoneFrame(
+				string.upper(string.sub(zone, 1, 1)) .. string.sub(zone, 2),
+				cell[1],
+				cell[2],
+				gap,
+				if zone == "top" and landedZone then { landedZone :: Frame, table.unpack(children) } else children,
+				shift
+			)
 			zones[zone] = frame
 			table.insert(placed, frame)
 		end
@@ -317,10 +359,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local riding: (ComposeTypes.Use) -> boolean = function()
 			return false
 		end
-		local landed = Compose.cell(false)
-		local function inStrip(use: ComposeTypes.Use): boolean
-			return riding(use) and not use(landed)
-		end
+		local landed: ComposeTypes.Cell<{ boolean }> = Compose.cell({} :: { boolean })
 		local stripGui: ScreenGui? = nil
 		if #stripRegions > 0 then
 			local screen: ComposeTypes.Cell<ScreenGui?> = Compose.cell(nil :: ScreenGui?)
@@ -357,29 +396,64 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local rect: Rect? = if band then use(band) else nil
 				return read(spec.topbar, use) ~= false and use(holder) ~= nil and rect ~= nil and rect.Width > 0
 			end
-			local topbarZone = Host.Frame "Topbar" {
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				LayoutOrder = 0,
-				Size = function(use: ComposeTypes.Use): UDim2
-					return if inStrip(use) then D2.fromScale(1, 1) else D2.new()
-				end,
-				AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
-					return if inStrip(use) then E.AutomaticSize.None else E.AutomaticSize.XY
-				end,
-				Host.UIListLayout({
-					FillDirection = function(use: ComposeTypes.Use): Enum.FillDirection
-						return if inStrip(use) then E.FillDirection.Horizontal else E.FillDirection.Vertical
-					end,
+			local function row(name: string, alignment: Enum.HorizontalAlignment, fields: Types.FrameNativeProps): Frame
+				fields.BackgroundTransparency = 1
+				fields.BorderSizePixel = 0
+				fields[#fields + 1] = Host.UIListLayout({
+					FillDirection = E.FillDirection.Horizontal,
 					SortOrder = E.SortOrder.LayoutOrder,
-					HorizontalAlignment = E.HorizontalAlignment.Center,
+					HorizontalAlignment = alignment,
 					VerticalAlignment = E.VerticalAlignment.Center,
 					Padding = function(use: ComposeTypes.Use): UDim
 						return D.new(0, kit.spacing(gap, use))
 					end,
+				})
+				return Host.Frame(name)(fields)
+			end
+			local leadsAny = false
+			for _, region in stripRegions do
+				leadsAny = leadsAny or declared[region].leading
+			end
+			local leadingRow = row("Leading", E.HorizontalAlignment.Left, {
+				LayoutOrder = 1,
+				Size = D2.new(),
+				AutomaticSize = E.AutomaticSize.XY,
+				Visible = leadsAny,
+			})
+			local middleRow = row("Middle", E.HorizontalAlignment.Center, {
+				LayoutOrder = 2,
+				Size = D2.fromScale(0, 1),
+				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+			})
+			local topbarZone = row("Topbar", E.HorizontalAlignment.Left, {
+				Size = D2.fromScale(1, 1),
+				Host.UIPadding({
+					PaddingTop = function(use: ComposeTypes.Use): UDim
+						local rect: Rect? = if band then use(band) else nil
+						local tall = if rect then rect.Height else 0
+						return D.new(0, math.max(0, tall - ENGINE_BUTTON - ENGINE_MARGIN))
+					end,
+					PaddingBottom = D.new(0, ENGINE_MARGIN),
+					PaddingLeft = function(use: ComposeTypes.Use): UDim
+						return D.new(0, kit.spacing(gap, use))
+					end,
+					PaddingRight = function(use: ComposeTypes.Use): UDim
+						return D.new(0, kit.spacing(gap, use))
+					end,
 				}),
-				table.unpack(stripRegions),
-			}
+				leadingRow,
+				middleRow,
+			})
+			local landing = assert(landedZone)
+			for _, region in stripRegions do
+				local home = if declared[region].leading then leadingRow else middleRow
+				local order = assert(table.find(regions, region))
+				runtime.decorate(region, {
+					Parent = function(use: ComposeTypes.Use): Instance?
+						return if riding(use) and not use(landed)[order] then home else landing
+					end,
+				})
+			end
 			local created = Host.ScreenGui "CompositionTopbar" {
 				ResetOnSpawn = false,
 				ZIndexBehavior = E.ZIndexBehavior.Sibling,
@@ -396,16 +470,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						return if link then link.StyleSheet else nil
 					end,
 				}),
+				topbarZone,
 			}
 			stripGui = created
+			Compose.watch(function(use: ComposeTypes.Use)
+				local host = use(screen)
+				if host then
+					ctx.overlayHosts[created] = host
+				end
+			end)
 			runtime.decorate(created, {
 				Parent = function(use: ComposeTypes.Use): Instance?
 					return if riding(use) then use(holder) else nil
-				end,
-			})
-			runtime.decorate(topbarZone, {
-				Parent = function(use: ComposeTypes.Use): Instance?
-					return if inStrip(use) then created else zones.top
 				end,
 			})
 		end
@@ -458,7 +534,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local function place(use: ComposeTypes.Use): (UDim2, Vector2)
 				local unit, space = use(safeUnit), kit.spacing(gap, use)
 				local size = use(zoneSize) / unit
+				local moved = use(shift)
 				local at = (use(safeBox) - size) * anchor
+					+ V2.new(
+						0,
+						if column ~= 2 then 0 elseif row == 1 then moved.top elseif row == 3 then -moved.bottom else 0
+					)
 				if column == 2 then
 					return if row == 3
 						then D2.fromOffset(at.X + size.X / 2, at.Y - space)
@@ -546,6 +627,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end, safe)
 		end
 		local box = ctx.layoutSize(safe, safeUnit)
+		local warned: { [Frame]: boolean } = {}
+		local overflowing: { [Frame]: boolean } = {}
+		local streaks: { [Frame]: number } = {}
+		local later = runtime.scheduler()
 		local last: Vector2? = nil
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
 		local stripSize = if stripGui then ctx.layoutSize(stripGui, stripUnit) else nil
@@ -562,19 +647,57 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				end
 				list[index] = { zone = entry.zone, rank = entry.rank, mayDrop = entry.mayDrop, sizes = measured }
 			end
-			local band = if stripSize and rides then use(stripSize) else nil
-			local chosen, down = resolver.resolve(
+			local strip = if stripSize and rides then use(stripSize) else nil
+			local band = if strip
+				then {
+					x = strip.X - 2 * kit.spacing(gap, use),
+					y = math.min(strip.Y - ENGINE_MARGIN, ENGINE_BUTTON),
+				}
+				else nil
+			local chosen, down, moved, overflow = resolver.resolve(
 				extent.X,
 				extent.Y,
 				kit.spacing(gap, use),
 				list,
-				if band and band.X > 0 then { x = band.X, y = band.Y } else nil
+				if band and strip and strip.X > 0 then band else nil
 			)
-			landed:set(down)
-			local moved = last ~= nil and last.X > 0 and last ~= extent
+			local before = landed:peek()
+			local same = #before == #down
+			for index, value in down do
+				same = same and before[index] == value
+			end
+			if not same then
+				landed:set(down)
+			end
+			local was = shift:peek()
+			if was.top ~= moved.top or was.bottom ~= moved.bottom then
+				shift:set(moved)
+			end
+			local still: { [Frame]: boolean } = {}
+			for _, index in overflow do
+				local region = regions[index]
+				still[region] = true
+				if not overflowing[region] and not warned[region] then
+					local streak = (streaks[region] or 0) + 1
+					streaks[region] = streak
+					later.after(2, function()
+						if overflowing[region] and streaks[region] == streak and not warned[region] then
+							warned[region] = true
+							local size = box:peek()
+							warn(
+								`Facet Composition: Region '{region.Name}' does not fit {math.floor(size.X)} by {math.floor(
+									size.Y
+								)} even at its last form and nothing else can give way. Give it a smaller form, mayDrop = true or a higher rank number`
+							)
+						end
+					end)
+				end
+			end
+			overflowing = still
+			local resized = last ~= nil and last.X > 0 and last ~= extent
 			last = extent
 			for index, region in regions do
-				declared[region].animate = moved
+				declared[region].animate = resized
 				declared[region].form:set(chosen[index])
 			end
 		end)

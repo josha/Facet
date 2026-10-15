@@ -124,20 +124,27 @@ return function(verifyHarness: Verify.Harness)
 					local ride = Compose.cell(true)
 					local root: any, engine, forms, gui, stop = mount(nil, ride)
 					local T = engine.types
-					local topbar = root:FindFirstChild("Topbar", true)
-					Verify.expect(topbar.Parent.Name):toBe("Top")
+					local region = root:FindFirstChild("Strip", true)
+					Verify.expect(region.Parent.Name):toBe("Landed")
+					Verify.expect(region.Parent.Parent.Name):toBe("Top")
+					Verify.expect(region.Parent.LayoutOrder):toBe(0)
 					gui.TopbarInset = T.Rect.new(164, 0, 844, 58)
-					local strip = topbar.Parent
-					Verify.expect(strip.ClassName):toBe("ScreenGui")
+					Verify.expect(region.Parent.Name):toBe("Middle")
+					local strip = region:FindFirstAncestorWhichIsA("ScreenGui")
+					Verify.expect(strip.Name):toBe("CompositionTopbar")
 					Verify.expect(strip.ScreenInsets):toBe(T.Enum.ScreenInsets.TopbarSafeInsets)
 					Verify.expect(strip.Parent):toBe(root:FindFirstAncestorWhichIsA("ScreenGui").Parent)
-					Verify.expect(topbar.Size):toBe(T.UDim2.fromScale(1, 1))
+					Verify.expect(strip:FindFirstChild("Topbar").Size):toBe(T.UDim2.fromScale(1, 1))
+					local row = strip:FindFirstChild("Topbar"):FindFirstChildWhichIsA("UIPadding")
+					Verify.expect(row.PaddingTop):toBe(T.UDim.new(0, 12))
+					Verify.expect(row.PaddingBottom):toBe(T.UDim.new(0, 2))
+					Verify.expect(row.PaddingLeft):toBe(T.UDim.new(0, 8))
+					Verify.expect(row.PaddingRight):toBe(T.UDim.new(0, 8))
 					sized(engine, strip, 680, 58)
 					sized(engine, root:FindFirstChild("Zones"), 844, 330)
 					Verify.expect(forms.peek().Strip):toBe(1)
 					ride:set(false)
-					Verify.expect(topbar.Parent.Name):toBe("Top")
-					Verify.expect(topbar.LayoutOrder):toBe(0)
+					Verify.expect(region.Parent.Name):toBe("Landed")
 					Verify.expect(strip.Parent):toBe(nil)
 					stop()
 					Verify.expect(strip.Parent):toBe(nil)
@@ -152,23 +159,171 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local root, engine, forms, gui, stop = mount(nil, true)
 					local T = engine.types
-					local topbar = root:FindFirstChild("Topbar", true)
+					local region = root:FindFirstChild("Strip", true)
 					gui.TopbarInset = T.Rect.new(250, 0, 350, 58)
-					local strip = topbar.Parent
-					Verify.expect(strip.ClassName):toBe("ScreenGui")
+					local strip = region:FindFirstAncestorWhichIsA("ScreenGui")
+					Verify.expect(strip.Name):toBe("CompositionTopbar")
 					sized(engine, strip, 100, 58)
 					sized(engine, root:FindFirstChild("Zones"), 844, 330)
-					Verify.expect(topbar.Parent.Name):toBe("Top")
-					Verify.expect(topbar.LayoutOrder):toBe(0)
+					Verify.expect(region.Parent.Name):toBe("Landed")
+					Verify.expect(region.Parent.Parent.Name):toBe("Top")
 					Verify.expect(strip.Parent):toBe(root:FindFirstAncestorWhichIsA("ScreenGui").Parent)
 					Verify.expect(forms.peek().Strip):toBe(1)
 					sized(engine, strip, 680, 58)
-					Verify.expect(topbar.Parent):toBe(strip)
-					Verify.expect(topbar.Size):toBe(T.UDim2.fromScale(1, 1))
+					Verify.expect(region.Parent.Name):toBe("Middle")
 					stop()
 				end,
 			}
 		)
+
+		verifyHarness:case("keeps a leading top bar region beside the engine buttons while a later region lands", {
+			id = "native_composition::Composition::keeps a leading top bar region beside the engine buttons while a later region lands",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local gear: Declared =
+					{ zone = "topbar" :: "topbar", rank = 1, mayDrop = false, sizes = { { x = 44, y = 44 } } }
+				local info: Declared = {
+					zone = "topbar" :: "topbar",
+					rank = 1,
+					mayDrop = false,
+					sizes = { { x = 240, y = 33 }, { x = 187, y = 24 } },
+				}
+				local forms, landed = resolver.resolve(327, 628, 8, { gear, info }, { x = 195, y = 58 })
+				Verify.expect(landed[1]):toBe(false)
+				Verify.expect(landed[2]):toBe(true)
+				Verify.expect(forms[1]):toBe(1)
+				Verify.expect(forms[2]):toBe(1)
+				forms, landed = resolver.resolve(673, 290, 8, { gear, info }, { x = 541, y = 58 })
+				Verify.expect(landed[2]):toBe(false)
+				Verify.expect(forms[2]):toBe(1)
+
+				local engine, runtime, UI, gui = make()
+				local T = engine.types
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local lead, middle
+				runtime.mount(function()
+					local Host = runtime.constructors
+					lead = UI.Region {
+						Name = "Gear",
+						zone = "topbar",
+						rank = 1,
+						leading = true,
+						Host.Frame { Name = "GearFull" },
+					}
+					middle = UI.Region { Name = "Info", zone = "topbar", rank = 1, Host.Frame { Name = "InfoFull" } }
+					return UI.Composition { gap = 8, padding = 0, lead, middle }
+				end, layer)
+				gui.TopbarInset = T.Rect.new(164, 0, 844, 58)
+				Verify.expect(lead.Parent.Name):toBe("Leading")
+				Verify.expect(middle.Parent.Name):toBe("Middle")
+				Verify.expect(lead.Parent.Parent):toBe(middle.Parent.Parent)
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("opens an overlay from a top bar region in the composition's ScreenGui", {
+			id = "native_composition::Composition::opens an overlay from a top bar region in the composition's ScreenGui",
+			run = function()
+				local engine, runtime, UI, gui = make()
+				local T = engine.types
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local open = Compose.cell(false)
+				runtime.mount(function()
+					local Host = runtime.constructors
+					return UI.Composition {
+						gap = 8,
+						padding = 0,
+						UI.Region {
+							Name = "Gear",
+							zone = "topbar",
+							rank = 1,
+							leading = true,
+							UI.Popover "Options" {
+								isPresented = open,
+								trigger = UI.Button "Gear" { label = "Options" },
+								content = function()
+									return Host.Frame { Name = "OptionsPanel" }
+								end,
+							},
+						},
+					}
+				end, layer)
+				gui.TopbarInset = T.Rect.new(164, 0, 844, 58)
+				open:set(true)
+				local panel = layer:FindFirstChild("OptionsPanel", true)
+				Verify.expect(panel ~= nil):toBe(true)
+				Verify.expect(panel:FindFirstAncestorWhichIsA("ScreenGui")):toBe(layer)
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("stacks a center-lane zone under its corners when no region can give way", {
+			id = "native_composition::Composition::stacks a center-lane zone under its corners when no region can give way",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local function wide(x: number, y: number)
+					return { x = x, y = y }
+				end
+				local item: Declared =
+					{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { wide(92, 149) } }
+				local map: Declared =
+					{ zone = "topRight" :: "topRight", rank = 1, mayDrop = false, sizes = { wide(96, 96) } }
+				local panel: Declared = { zone = "top" :: "top", rank = 1, mayDrop = false, sizes = { wide(200, 150) } }
+				local forms, _, shift = resolver.resolve(327, 628, 8, { item, map, panel })
+				Verify.expect(forms[1]):toBe(1)
+				Verify.expect(forms[2]):toBe(1)
+				Verify.expect(forms[3]):toBe(1)
+				Verify.expect(shift.top):toBe(157)
+				Verify.expect(shift.bottom):toBe(0)
+				local list: Declared = { zone = "left" :: "left", rank = 4, mayDrop = true, sizes = { wide(60, 94) } }
+				forms, _, shift = resolver.resolve(327, 628, 8, { item, map, panel, list })
+				Verify.expect(forms[4]):toBe(0)
+				Verify.expect(shift.top):toBe(157)
+				local narrow: Declared = { zone = "top" :: "top", rank = 1, mayDrop = false, sizes = { wide(100, 40) } }
+				forms, _, shift = resolver.resolve(327, 628, 8, { item, map, narrow })
+				Verify.expect(shift.top):toBe(0)
+				local tip: Declared = { zone = "top" :: "top", rank = 2, mayDrop = true, sizes = { wide(200, 60) } }
+				forms, _, shift = resolver.resolve(327, 628, 8, { item, map, tip })
+				Verify.expect(forms[3]):toBe(0)
+				Verify.expect(shift.top):toBe(0)
+				local banner: Declared = { zone = "top" :: "top", rank = 1, mayDrop = false, sizes = { wide(400, 60) } }
+				local overflow
+				forms, _, shift, overflow = resolver.resolve(327, 628, 8, { item, map, banner })
+				Verify.expect(shift.top):toBe(157)
+				Verify.expect(#overflow):toBe(1)
+				Verify.expect(overflow[1]):toBe(3)
+
+				local engine, runtime, UI = make()
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local root: Frame
+				runtime.mount(function()
+					local Host = runtime.constructors
+					root = UI.Composition {
+						gap = 8,
+						padding = 0,
+						topbar = false,
+						UI.Region { Name = "Item", zone = "topLeft", rank = 1, Host.Frame { Name = "ItemFull" } },
+						UI.Region { Name = "Map", zone = "topRight", rank = 1, Host.Frame { Name = "MapFull" } },
+						UI.Region { Name = "Panel", zone = "top", rank = 1, Host.Frame { Name = "PanelFull" } },
+					}
+					return root
+				end, layer)
+				sized(engine, root:FindFirstChild("ItemFull", true), 92, 149)
+				sized(engine, root:FindFirstChild("MapFull", true), 96, 96)
+				sized(engine, root:FindFirstChild("PanelFull", true), 200, 150)
+				sized(engine, root:FindFirstChild("Zones"), 327, 628)
+				local top = root:FindFirstChild("Top", true) :: Frame
+				Verify.expect(top.Position):toBe(engine.types.UDim2.new(0.5, 0, 0, 157))
+				sized(engine, root:FindFirstChild("PanelFull", true), 100, 40)
+				Verify.expect(top.Position):toBe(engine.types.UDim2.new(0.5, 0, 0, 0))
+				runtime:dispose()
+			end,
+		})
 
 		verifyHarness:case("discloses a stepped-down region's richest content in context, anchored at the region", {
 			id = "native_composition::Composition::discloses a stepped-down region's richest content in context, anchored at the region",

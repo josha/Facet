@@ -165,6 +165,22 @@ return function(
 			return "KeyboardAndMouse"
 		end
 	end
+	function ctx.thumbFloor(target: ComposeTypes.Readable<number>): (ComposeTypes.Use?) -> number
+		local input = config.userInputService
+		if input == nil then
+			return function()
+				return 0
+			end
+		end
+		local touch = ctx.observe.TouchEnabled(input)
+		local floor = ctx.touchFloor()
+		return function(use: ComposeTypes.Use?): number
+			if ctx.readSource(touch, use) ~= true then
+				return floor(use)
+			end
+			return if use then use(target) else target:peek()
+		end
+	end
 	function ctx.touchFloor(): (ComposeTypes.Use?) -> number
 		local input = config.userInputService
 		if input == nil then

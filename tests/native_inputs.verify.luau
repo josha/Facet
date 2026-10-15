@@ -2613,6 +2613,35 @@ return function(verifyHarness: Verify.Harness)
 			return nil
 		end
 
+		verifyHarness:case("keeps a thumb-target Button at the thumb size of the screen's short edge on touch", {
+			id = "native_inputs::native input controls::keeps a thumb-target Button at the thumb size of the screen's short edge on touch",
+			run = function()
+				local viewport = Compose.cell(engineLib.new().types.Vector2.new(359, 718))
+				local h = harness({ environment = { viewportSize = viewport } })
+				h.input.TouchEnabled = true
+				h.input.KeyboardEnabled = false
+				local root, stop = mount(h, function()
+					return h.UI.Button "Drift" {
+						label = "DRIFT",
+						target = "thumb" :: "thumb",
+						onActivate = function() end,
+					}
+				end)
+				local V2 = h.engine.types.Vector2
+				local floor = find(root, "Drift"):FindFirstChild("TargetFloor")
+				Verify.expect(floor.MinSize):toBe(V2.new(70, 70))
+				viewport:set(V2.new(718, 359))
+				Verify.expect(floor.MinSize):toBe(V2.new(70, 70))
+				viewport:set(V2.new(1024, 768))
+				Verify.expect(floor.MinSize):toBe(V2.new(120, 120))
+				h.input.TouchEnabled = false
+				h.input.KeyboardEnabled = true
+				Verify.expect(floor.MinSize):toBe(V2.zero)
+				stop()
+				h.dispose()
+			end,
+		})
+
 		type Compound = { class: string?, name: string?, tags: { string }, state: string? }
 		type Selector = { parts: { Compound }, combinators: { string }, pseudo: string? }
 

@@ -111,6 +111,7 @@ export type RegionOptions = {
 	form: Types.Cell<number>?,
 	expand: (() -> Instance)?,
 	reveal: boolean?,
+	leading: boolean?,
 }
 export type CompositionOptions = { gap: Space?, padding: Padding?, topbar: Engine.ValueBoolean? }
 return {}

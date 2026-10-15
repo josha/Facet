@@ -196,6 +196,18 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				message = "targetSizes.pointer must be from 24 to targetSizes.minimum",
 			})
 		end
+		for _, name in { "thumb", "thumbLarge" } do
+			local value = sizes[name]
+			if
+				value ~= nil
+				and (type(value) ~= "number" or (type(minimum) == "number" and (value :: number) < (minimum :: number)))
+			then
+				table.insert(errors, {
+					field = "metrics.targetSizes." .. name,
+					message = `targetSizes.{name} must be a number of pixels, at least targetSizes.minimum`,
+				})
+			end
+		end
 		local motion = (package.metrics :: { motion: unknown }).motion
 		if type(motion) ~= "table" then
 			table.insert(errors, { field = "metrics.motion", message = "Motion tokens must be a table" })

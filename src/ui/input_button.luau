@@ -64,6 +64,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		"onPointerCancel",
 		"textSize",
 		"underline",
+		"target",
 	})
 	local CONTROL_RUNGS = { "xsmall", "compact", "regular", "large" }
 	local rungTags: { string } = {}
@@ -79,6 +80,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		assert(
 			spec.shape == nil or spec.shape == "rect" or spec.shape == "circle",
 			"Facet.Button: shape must be rect or circle"
+		)
+		assert(
+			spec.target == nil or spec.target == "hit" or spec.target == "thumb",
+			"Facet.Button: target must be hit or thumb"
 		)
 		local function cornerRadius(use: ComposeTypes.Use?): UDim
 			local corners = read(spec.corners, use)
@@ -255,8 +260,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			defaults.Interactable = enabledProperty
 		end
 		local p = ctx.props(spec, buttonKeys, defaults)
-		local targetFloor = if spec.controlSize ~= nil and ctx.config.userInputService ~= nil
-			then ctx.touchFloor()
+		local thumb = spec.target == "thumb" and ctx.config.userInputService ~= nil
+		local targetFloor: ((ComposeTypes.Use?) -> number)? = if thumb
+			then ctx.thumbFloor(if UI.environment ~= nil
+				then UI.environment().thumbTarget
+				else Compose.formula(function(use: ComposeTypes.Use): number
+					return ctx.metric("targetSizes.thumb", use)
+				end))
+			elseif spec.controlSize ~= nil and ctx.config.userInputService ~= nil then ctx.touchFloor()
 			else nil
 		local constrainedCaption = bounded
 			and spec.label ~= nil
@@ -963,7 +974,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return Host.UISizeConstraint "TargetFloor" {
 					MinSize = function(use: ComposeTypes.Use): Vector2
 						local minimum = floor(use)
-						if ctx.controlSize(spec.controlSize, "height", use) >= minimum then
+						if not thumb and ctx.controlSize(spec.controlSize, "height", use) >= minimum then
 							return V2.zero
 						end
 						return V2.new(minimum, minimum)

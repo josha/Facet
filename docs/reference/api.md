@@ -996,6 +996,9 @@ Region options:
 - `form`: a writable cell. The composition writes the index of the form that
   shows, or 0 when the region is hidden. Read it to offer the hidden content in
   another place, such as a sheet.
+- `leading`: a boolean, default `false`. Only a `topbar` region can lead. A
+  leading region sits at the start of the strip, beside the Roblox buttons.
+  The other strip regions stay centred in the rest of the strip.
 - `reveal`: a boolean, default `true`. While the region shows a reduced form,
   a tap, click or `A` on that form opens the richest form in a Popover
   anchored at the region (`compact = "popover"`, so a phone keeps it in
@@ -1034,6 +1037,8 @@ Layout:
   center leaves also count as not fitting. Thus rank decides: a rank 3 corner
   steps down before a rank 1 race bar, and a rank 1 corner keeps its form
   while a rank 2 center region steps down.
+- The zones of the center lane draw above the side zones (`ZIndex` 2), so a
+  center callout is never hidden behind a side region.
 - The zones of one lane must not overlap vertically. The `center` zone stays centred and keeps `gap` from the
   zones above and below it.
 
@@ -1049,6 +1054,14 @@ Step-down:
   the zone give way. A narrow region cannot make the zone narrower.
 - The composition repeats this until every lane fits or no region can give
   way. It never scales content down.
+- When a `top` or `bottom` zone is still wider than the room between the
+  corner zones of its row and no region can give way, the zone moves below the
+  top corners, or above the bottom corners, and uses the full width. Then the
+  composition resolves again from the richest forms. The `left` and `right`
+  zones that the moved zone covers give way first.
+- When a region still does not fit at its last form and nothing else can give
+  way, the composition warns once in the output with the name of the region.
+  Give that region a smaller form, `mayDrop = true` or a higher rank number.
 - The decision uses only the measured sizes and the size of the composition.
   Thus a rotation, a resize or a text size change gives the same forms as a
   new mount of the same size.
@@ -1070,13 +1083,26 @@ Step-down:
 - When `topbar` is `false`, when `GuiService.TopbarInset` has no width, or
   when the composition is not in a ScreenGui, these regions come first in the
   `top` zone.
-- When the strip cannot hold the strip regions at their last forms, they
-  also come first in the `top` zone, and the composition resolves again
-  without the strip. A portrait phone has a narrow strip between the Roblox
-  buttons and the edge, so a long line of chips moves under the bar and does
-  not cover the Roblox buttons. The strip ScreenGui stays in place while it
-  is empty, so the composition can measure the strip and move the regions back
-  when the strip is wide again, for example after a rotation.
+- When the strip cannot hold a strip region at its last form, that region
+  moves to the start of the `top` zone in its richest form. The region with
+  the highest rank moves first, and with equal ranks the later region moves
+  first, so the others stay in the strip. A portrait phone has a narrow strip
+  between the Roblox buttons and the edge, so a long line of chips moves under
+  the bar and does not cover the Roblox buttons. The strip ScreenGui stays in
+  place while it is empty, so the composition can measure the strip and move
+  the regions back when the strip is wide again, for example after a
+  rotation.
+- The strip regions sit in the row of the Roblox buttons: 44 pixels high, 2
+  pixels above the bottom of the band, so a region centres on the same line as
+  the Roblox buttons. A region taller than 44 pixels does not fit the strip.
+  The leading row starts one `gap` after the Roblox buttons, and the strip
+  keeps one `gap` from the edge of the screen. Give a button
+  beside them a 44 pixel height, as a `compact` circle in the neutral theme.
+- A Popover, Menu or other overlay that a strip region opens shows in the
+  ScreenGui of the composition, so the narrow strip does not clip it.
+- In the strip, the `Topbar` Frame holds a `Leading` row for the leading
+  regions and a `Middle` row that centres the other regions. In the `top`
+  zone, a `Landed` Frame holds the regions that moved.
 
 ### fill
 
@@ -1194,6 +1220,11 @@ Presentation options:
   carve (`chrome.control.contentInsets`) is added to that padding on each
   side, so the label and a Menu or Picker disclosure icon sit inside the
   frame. A framed TextInput adds the `field` carve the same way.
+- `target`: `hit` (the default) or `thumb`. On touch, a `thumb` Button has a
+  `TargetFloor` of `UI.environment().thumbTarget` on both axes, whatever its
+  `controlSize`. Use it for the primary actions of a game that the player
+  presses with a thumb while playing, such as Jump, Drift or Fire. With
+  another input it keeps the usual floor.
 - `textSize`: a type role (`caption`, `label`, `body`, `heading`, `title`,
   `control`, `strong` or `numeral`) or a number of pixels, or a readable of
   one. A role adds the `facet-type-<role>` tag to the label, and a number sets
@@ -4474,6 +4505,10 @@ The metrics also have optional entries:
 - `controlSizes.xsmall = { height, paddingX, iconSize }`. Without it, each
   field is `2 * compact - regular`, and not less than 0. `define` refuses an
   `xsmall` entry that does not have all three numbers.
+- `targetSizes.thumb` and `targetSizes.thumbLarge`: the sizes of a primary
+  on-screen action for the thumb on a phone and on a larger screen. The
+  neutral values are 70 and 120. `define` refuses a value under
+  `targetSizes.minimum`.
 - `targetSizes.pointer`: a row height from 24 to `targetSizes.minimum`. Floating
   Menu and Picker menu rows use it while the input is pointer-only. `define`
   refuses a value outside that range.
@@ -4973,6 +5008,7 @@ environment keeps the last real size.
 |---|---|
 | `viewportSize`, `viewportWidth`, `viewportHeight` | The viewport: layout units for a `GuiBase2d` source, pixels for a camera. |
 | `sizeClass`, `heightClass`, `orientation`, `axis` | `adaptive` applied to the viewport. On a ten-foot display (`isTenFoot`) `sizeClass` stops at `"regular"` and `heightClass` at `"medium"`, so a television never takes the densest arrangement. |
+| `thumbTarget` | The size in pixels of a primary on-screen action for the thumb: `targetSizes.thumb` (70 in the neutral package) when the short edge of the screen is 500 pixels or less, otherwise `targetSizes.thumbLarge` (120). These are the sizes of the Roblox touch jump button. A rotation does not change it. |
 | `isCompact`, `isRegular`, `isWide`, `isRegularOrWider`, `isShort`, `isTall`, `isLandscape` | Booleans. `isRegular` is the middle class only. Use `isRegularOrWider` for "not compact". |
 | `atLeast(target)` | A new boolean readable for `sizeClassAtLeast(sizeClass, target)`. |
 | `interactionClasses` | `{ primary, pointer, touch, gamepad, keyboard }` from `UserInputService.PreferredInput` and the `MouseEnabled`, `TouchEnabled`, `GamepadEnabled` and `KeyboardEnabled` capabilities. `primary` is `"pointer"`, `"touch"` or `"gamepad"`. Before a player uses touch or a gamepad, a device with touch and no mouse is `"touch"`. The primary class is always in the set. A press of modifier keys alone (Shift, Control, Alt, Meta or Super, with no other key or mouse button down) does not move Facet to keyboard and mouse, though the engine's `PreferredInput` changes; the next other key, mouse button, mouse movement or wheel does. Every control, and the theme StyleSheet's hover paint, reads `PreferredInput` through this rule. |

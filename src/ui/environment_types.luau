@@ -29,6 +29,7 @@ export type Environment = {
 	isRegularOrWider: Types.Readable<boolean>,
 	isShort: Types.Readable<boolean>,
 	isTall: Types.Readable<boolean>,
+	thumbTarget: Types.Readable<number>,
 	isLandscape: Types.Readable<boolean>,
 	axis: Types.Readable<"x" | "y">,
 	atLeast: (target: SizeClass) -> Types.Readable<boolean>,

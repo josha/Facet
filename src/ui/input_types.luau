@@ -53,6 +53,7 @@ export type ButtonInputOptions = {
 	onPointerDown: ((InputObject) -> ())?,
 	onPointerUp: ((InputObject) -> ())?,
 	onPointerCancel: (() -> ())?,
+	target: ("hit" | "thumb")?,
 }
 export type ButtonOptions = {
 	selected: Shared.ValueBoolean?,

@@ -16,6 +16,8 @@ export type Declared = {
 	mayDrop: boolean,
 	sizes: { { x: number, y: number } },
 }
+export type Shift = { top: number, bottom: number }
+type Stacked = { top: boolean, bottom: boolean }
 
 local CELLS: { [string]: { number } } = {
 	topLeft = { 1, 1 },
@@ -43,18 +45,22 @@ local function resolve(
 	height: number,
 	gap: number,
 	regions: { Declared },
-	strip: { x: number, y: number }?
-): ({ number }, boolean)
+	strip: { x: number, y: number }?,
+	stacked: Stacked?
+): ({ number }, { boolean }, Shift, { number })
 	local forms = table.create(#regions, 1)
+	local landed = table.create(#regions, false)
+	local shift: Shift = { top = 0, bottom = 0 }
 	if width <= 0 or height <= 0 then
-		return forms, false
+		return forms, landed, shift, {}
 	end
+	local stack: Stacked = stacked or { top = false, bottom = false }
 	local lane = (width - 2 * gap) / 3
-	local riding = strip ~= nil
+	local full = width - 2 * gap
 	while true do
 		local zoneW: { [number]: number }, zoneH: { [number]: number }, members: { [number]: { number } } = {}, {}, {}
 		for index, region in regions do
-			local column, row = cellOf(region.zone, riding)
+			local column, row = cellOf(region.zone, strip ~= nil and not landed[index])
 			local key = column * 4 + row
 			members[key] = members[key] or {}
 			table.insert(members[key], index)
@@ -80,11 +86,11 @@ local function resolve(
 				end
 			end
 		end
-		local function check(key: number, width: number, tall: number)
+		local function check(key: number, room: number, tall: number)
 			if (zoneH[key] or 0) > tall then
 				fail(key)
-			elseif (zoneW[key] or 0) > width then
-				fail(key, width)
+			elseif (zoneW[key] or 0) > room then
+				fail(key, room)
 			end
 		end
 		if strip then
@@ -100,23 +106,40 @@ local function resolve(
 				end
 			end
 		end
+		local corner = {
+			top = math.max(zoneH[5] or 0, zoneH[13] or 0),
+			bottom = math.max(zoneH[7] or 0, zoneH[15] or 0),
+		}
+		local squeezed = { top = false, bottom = false }
 		for column = 1, 3 do
 			local top, middle, bottom = column * 4 + 1, column * 4 + 2, column * 4 + 3
 			for row, key in { top, middle, bottom } do
 				local room = lane
 				if column == 2 then
+					local edge = if row == 1 then "top" elseif row == 3 then "bottom" else nil
 					local side = math.max(zoneW[4 + row] or 0, zoneW[12 + row] or 0)
 					room = math.max(lane, width - 2 * (side + gap))
 					local wide = zoneW[key] or 0
-					if wide > room and wide <= width - 2 * gap and (zoneH[key] or 0) <= height then
-						local spare = (width - wide) / 2 - gap
-						fail(4 + row, spare)
-						fail(12 + row, spare)
+					if edge and stack[edge] then
+						room = full
+					elseif wide > room then
+						if edge then
+							squeezed[edge] = true
+						end
+						if wide <= full and (zoneH[key] or 0) <= height then
+							local spare = (width - wide) / 2 - gap
+							fail(4 + row, spare)
+							fail(12 + row, spare)
+						end
 					end
 				end
 				check(key, room, height)
 			end
 			local h1, h2, h3 = zoneH[top] or 0, zoneH[middle] or 0, zoneH[bottom] or 0
+			if column == 2 then
+				h1 = if stack.top and h1 > 0 then corner.top + gap + h1 else h1
+				h3 = if stack.bottom and h3 > 0 then corner.bottom + gap + h3 else h3
+			end
 			if h2 > 0 then
 				if h1 > 0 and h1 + gap > (height - h2) / 2 then
 					fail(top)
@@ -131,27 +154,56 @@ local function resolve(
 				fail(bottom)
 			end
 		end
+		local function clearSides(stacked: boolean, key: number, reach: number)
+			local wide = zoneW[key] or 0
+			if not stacked or wide <= 0 then
+				return
+			end
+			for _, side in { 6, 14 } do
+				local sideW, sideH = zoneW[side] or 0, zoneH[side] or 0
+				if sideH > 0 and sideW + gap > (width - wide) / 2 and reach + gap > (height - sideH) / 2 then
+					fail(side)
+					fail(key)
+				end
+			end
+		end
+		clearSides(stack.top, 9, corner.top + gap + (zoneH[9] or 0))
+		clearSides(stack.bottom, 11, corner.bottom + gap + (zoneH[11] or 0))
 		local chosen: number? = nil
 		for index, region in regions do
 			local form = forms[index]
-			local steppable = failing[index] and form > 0 and (form < #region.sizes or region.mayDrop)
+			local lands = strip ~= nil and region.zone == "topbar" and not landed[index]
+			local steppable = failing[index] and form > 0 and (form < #region.sizes or region.mayDrop or lands)
 			if steppable and (chosen == nil or region.rank >= regions[chosen].rank) then
 				chosen = index
 			end
 		end
 		if chosen == nil then
-			if strip then
-				for index in failing do
-					if regions[index].zone == "topbar" then
-						local landed = resolve(width, height, gap, regions, nil)
-						return landed, true
-					end
+			for edge in squeezed do
+				if squeezed[edge] and not stack[edge] and corner[edge] > 0 then
+					local next: Stacked = { top = stack.top, bottom = stack.bottom }
+					next[edge] = true
+					return resolve(width, height, gap, regions, strip, next)
 				end
 			end
-			return forms, false
+			shift.top = if stack.top and (zoneW[9] or 0) > 0 then corner.top + gap else 0
+			shift.bottom = if stack.bottom and (zoneW[11] or 0) > 0 then corner.bottom + gap else 0
+			local overflow: { number } = {}
+			for index in failing do
+				table.insert(overflow, index)
+			end
+			table.sort(overflow)
+			return forms, landed, shift, overflow
 		end
 		local region = regions[chosen]
-		forms[chosen] = if forms[chosen] < #region.sizes then forms[chosen] + 1 else 0
+		if forms[chosen] < #region.sizes then
+			forms[chosen] += 1
+		elseif strip ~= nil and region.zone == "topbar" and not landed[chosen] then
+			landed[chosen] = true
+			forms[chosen] = 1
+		else
+			forms[chosen] = 0
+		end
 	end
 end
 
