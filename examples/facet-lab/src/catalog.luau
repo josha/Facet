@@ -276,6 +276,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = { row = { description = "Shown in the garage", icon = "settings", value = "On" } },
 			} :: State,
 			{ name = "hint line", props = { hint = "Saves your setup" } } :: State,
+			{
+				name = "subtitle in a fixed 117 width (wraps)",
+				props = merged(fixed(117), { label = "Boost Board", subtitle = "HELP · 2 energy", icon = "settings" }),
+			} :: State,
 			{ name = "pop on press", props = { pop = true } } :: State,
 			{ name = "haptic", props = { haptic = true } } :: State,
 			{ name = "hold repeats", props = { repeatDelay = 0.4, repeatInterval = 0.1 } } :: State,

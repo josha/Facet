@@ -157,9 +157,19 @@ return function(
 				return "No pages"
 			end
 			if st.count ~= nil then
-				return `Page {string.rep("0", #tostring(st.count))} of {st.count}`
+				return ctx.phrase(
+					"Facet.PageOf",
+					"Page {current} of {count}",
+					{ current = string.rep("0", #tostring(st.count)), count = st.count },
+					use
+				)
 			end
-			return `Page {string.rep("0", math.max(4, #tostring(st.current)))}`
+			return ctx.phrase(
+				"Facet.Page",
+				"Page {current}",
+				{ current = string.rep("0", math.max(4, #tostring(st.current))) },
+				use
+			)
 		end)
 		local unit = ctx.layoutUnit(digits)
 		local digitBounds, ellipsisBounds, widestBounds =
@@ -357,7 +367,14 @@ return function(
 							if st.current == nil then
 								return "No pages"
 							end
-							return if st.count ~= nil then `Page {st.current} of {st.count}` else `Page {st.current}`
+							return if st.count ~= nil
+								then ctx.phrase(
+									"Facet.PageOf",
+									"Page {current} of {count}",
+									{ current = st.current, count = st.count },
+									use
+								)
+								else ctx.phrase("Facet.Page", "Page {current}", { current = st.current }, use)
 						end,
 						TextXAlignment = E.TextXAlignment.Center,
 						AutomaticSize = function(use: ComposeTypes.Use)

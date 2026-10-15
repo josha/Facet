@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- A center-lane zone (`top`, `center` or `bottom`) of a Composition can use the
+  width that the side zones of its row leave free. Before, each lane had a
+  fixed third of the width, so a wide `top` or `bottom` region dropped on a
+  phone even when the corners of its row were empty.
+- A wrapped automatic-height `UI.Text` is measured again with its styled type
+  size when its text changes, and when its text bounds pass its box with
+  `AutomaticSize.Y`. Before, the engine measured the new text with the native
+  `TextSize`, so a two-line string showed one line.
+- A Button with `subtitle` or `hint` and an authored width keeps that width.
+  The label and the subtitle wrap inside it and the Button grows in height.
+  Before, it grew past the authored width.
+- Dialog and Sheet `width`, and Dialog `actionLayout`, accept a readable.
+- `UI.environment().scaled(value)` returns a number readable for a game's own
+  lengths: a number times `metricScale`, or a theme metric path from the
+  effective package.
+- The `translator` option takes a native `Translator`. Strings that Facet
+  assembles from values (page, step, index, remove and range-thumb labels) use
+  `Translator:FormatByKey` with `Facet.*` keys, with the English source as the
+  fallback. The API reference lists the keys.
+- The API reference says how an `action` ShortcutHint shows a touch binding:
+  set the native `DisplayName` of the `Scriptable` binding.
+
 - A native chrome shadow keeps the opacity of the fill that casts it. Before,
   a translucent Button, such as the `soft` appearance, kept the full shadow.
   A hard plate then showed through the tint as a dark slab, with a bare strip

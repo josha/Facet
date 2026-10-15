@@ -1152,7 +1152,9 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 					name = function(use: Use): string
 						local entry = use(source)
 						local named = entry.label or color.hex(entry.color)
-						return if removable and use(editing) then `Remove {named}` else named
+						return if removable and use(editing)
+							then ctx.phrase("Facet.RemoveItem", "Remove {item}", { item = named }, use)
+							else named
 					end,
 					appearance = "utility",
 					Size = D2.fromOffset(CELL, CELL),

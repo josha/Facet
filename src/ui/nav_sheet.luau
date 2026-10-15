@@ -73,7 +73,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				or ((placement == "side" or placement == "adaptive") and (spec.edge == "left" or spec.edge == "right")),
 			"Sheet.edge is left or right, and only with placement side or adaptive"
 		)
-		assert(spec.width == nil or parts.WIDTHS[spec.width] ~= nil, "Sheet.width must be automatic, narrow or wide")
+		parts.checkPreset(ctx, "Sheet", "width", spec.width, parts.WIDTH_PRESETS)
 		assert(
 			spec.closeButton == nil
 				or type(spec.closeButton) == "boolean"

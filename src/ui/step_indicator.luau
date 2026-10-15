@@ -135,7 +135,12 @@ return function(
 				return "No current step"
 			end
 			local position = m.index[m.current]
-			return `Step {position} of {#m.steps} — {m.steps[position].label}`
+			return ctx.phrase(
+				"Facet.StepOf",
+				"Step {current} of {count} — {label}",
+				{ current = position, count = #m.steps, label = m.steps[position].label },
+				use
+			)
 		end)
 		local function propose(id: string)
 			local m = model:peek()

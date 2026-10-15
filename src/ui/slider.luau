@@ -880,7 +880,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				AccessibleLabel = function(use: ComposeTypes.Use): string
 					local named = read(spec.label, use)
 					local side = use(adjusting) :: string
-					return if named and named ~= "" then `{named} {side}` else `Range {side}`
+					return ctx.phrase(
+						"Facet.RangeThumb",
+						"{range} {thumb}",
+						{ range = if named and named ~= "" then named else "Range", thumb = side },
+						use
+					)
 				end,
 			})
 			h.adjustment(
@@ -922,7 +927,12 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls, h: Helpers): 
 				h.attributes(handles[thumb], {
 					AccessibleLabel = function(use: ComposeTypes.Use): string
 						local named = read(spec.label, use)
-						return if named and named ~= "" then `{named} {thumb}` else `Range {thumb}`
+						return ctx.phrase(
+							"Facet.RangeThumb",
+							"{range} {thumb}",
+							{ range = if named and named ~= "" then named else "Range", thumb = thumb },
+							use
+						)
 					end,
 					value = function(use: ComposeTypes.Use): number
 						local current = pair(use)

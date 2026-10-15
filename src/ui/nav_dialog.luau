@@ -74,17 +74,8 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				0
 			)
 		end
-		if spec.width ~= nil and parts.WIDTHS[spec.width] == nil then
-			error(`Facet {where}: width must be automatic, narrow or wide`, 0)
-		end
-		if
-			spec.actionLayout ~= nil
-			and spec.actionLayout ~= "automatic"
-			and spec.actionLayout ~= "row"
-			and spec.actionLayout ~= "stacked"
-		then
-			error(`Facet {where}: actionLayout must be automatic, row or stacked`, 0)
-		end
+		parts.checkPreset(ctx, where, "width", spec.width, parts.WIDTH_PRESETS)
+		parts.checkPreset(ctx, where, "actionLayout", spec.actionLayout, parts.ACTION_LAYOUTS)
 		if spec.contentSelectable ~= nil and type(spec.contentSelectable) ~= "boolean" then
 			error(`Facet {where}: contentSelectable must be true or false`, 0)
 		end

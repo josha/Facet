@@ -410,6 +410,74 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
 			end,
 		})
+		verifyHarness:case("measures wrapped automatic-height text again with the styled size when its text changes", {
+			id = "native_layout::native text layout::measures wrapped automatic-height text again with the styled size when its text changes",
+			run = function()
+				local engine: any = engineLib.new()
+				local points = 16
+				local original = engine.new
+				engine.new = function(className)
+					local node = original(className)
+					if className == "TextLabel" then
+						local defaults = { FontFace = node.FontFace, TextSize = node.TextSize }
+						node.GetStyled = function(self, property)
+							if property == "TextSize" then
+								return points
+							end
+							return self[property]
+						end
+						node.ResetPropertyToDefault = function(self, property)
+							self[property] = defaults[property]
+						end
+					end
+					return node
+				end
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local UI = Facet.controls(
+					runtime,
+					{
+						types = engine.types,
+						services = { RunService = { Heartbeat = engine.heartbeat } },
+					} :: any
+				)
+				local measured = {}
+				engine.onWrite(function(node, property, value)
+					if
+						node.Name == "Line"
+						and property == "AutomaticSize"
+						and value == engine.types.Enum.AutomaticSize.Y
+					then
+						table.insert(measured, node.TextSize)
+					end
+				end)
+				local line = Compose.cell("Short.")
+				local stop, result = runtime.mount(function()
+					return UI.Text "Line" {
+						text = line,
+						wrap = true,
+						Size = engine.types.UDim2.fromOffset(168, 0),
+						AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+					}
+				end, engine.new("ScreenGui"))
+				local label: any = result
+				engine.heartbeat:Fire(1 / 60)
+				local settled = #measured
+				Verify.expect(measured[settled]):toBe(16)
+				line:set("I tuned half these karts.  Including yours.  Drive it well.")
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(#measured > settled):toBe(true)
+				Verify.expect(measured[#measured]):toBe(16)
+				Verify.expect(label.TextSize == 16):toBe(false)
+				label.AbsoluteSize = engine.types.Vector2.new(168, 19)
+				local before = #measured
+				label.TextBounds = engine.types.Vector2.new(160, 38)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(#measured > before):toBe(true)
+				stop()
+				runtime:dispose()
+				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+			end,
+		})
 		verifyHarness:case("reflows automatic text when font metrics change and preserves fixed text", {
 			id = "native_layout::native text layout::reflows automatic text when font metrics change and preserves fixed text",
 			run = function()

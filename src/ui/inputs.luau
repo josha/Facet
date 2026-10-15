@@ -658,8 +658,6 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 		)
 			and spec.image == nil
 			and spec.row == nil
-			and spec.subtitle == nil
-			and spec.hint == nil
 		if bounded and spec.AutomaticSize == nil then
 			defaults.AutomaticSize = E.AutomaticSize.Y
 			if not rich then
@@ -983,6 +981,7 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 			end
 			local label = row.title or spec.label or (if leading then nil else spec.name) or ""
 			local description = row.description or spec.subtitle or spec.hint
+			local stacked = bounded and description ~= nil and not spec.row and not imageCard
 			local lead = #content
 			local rowCaptions: { GuiObject } = {}
 			local wordless = leading ~= nil and description == nil and not dynamic(label) and label == ""
@@ -1000,9 +999,9 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						Name = name,
 						Text = if live then words else words(),
 						Visible = if live then shown else shown(),
-						Size = if imageCard then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
-						AutomaticSize = if imageCard then E.AutomaticSize.Y else E.AutomaticSize.XY,
-						TextWrapped = imageCard,
+						Size = if imageCard or stacked then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
+						AutomaticSize = if imageCard or stacked then E.AutomaticSize.Y else E.AutomaticSize.XY,
+						TextWrapped = imageCard or stacked,
 					})
 					if name == "Title" then
 						sized(made)
@@ -1025,7 +1024,10 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 						then ctx.column({ caption("Title", label), caption("Description", description) }, {
 							Name = "Captions",
 							Size = if imageCard then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
-							AutomaticSize = if imageCard then E.AutomaticSize.Y else E.AutomaticSize.XY,
+							AutomaticSize = if imageCard or stacked then E.AutomaticSize.Y else E.AutomaticSize.XY,
+							(
+									if stacked then Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) else nil
+								) :: ComposeTypes.Child,
 						})
 						else caption("Title", label)
 					if imageCard then
@@ -1063,11 +1065,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 					Position = function(use: ComposeTypes.Use)
 						return if hasText(description, use) then D2.fromScale(0, 0) else D2.fromScale(0, 0.5)
 					end,
-					Size = if spec.TextXAlignment == nil
-						then nil
+					Size = if stacked
+						then D2.fromScale(1, 0)
+						elseif spec.TextXAlignment == nil then nil
 						else function(use: ComposeTypes.Use)
 							return if hasText(description, use) then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
 						end,
+					AutomaticSize = if stacked then E.AutomaticSize.Y else nil,
 				})
 				else ctx.row(content, {
 					Name = "Content",
@@ -2640,7 +2644,13 @@ return function(ctx: Shared.Context, UI: InputTypes.InputControls): ()
 							return read(spec.label, use) or ""
 						end
 						local named = read(spec.removeLabel, use)
-						return named or `Remove {read(spec.label, use) or ""}`
+						return named
+							or ctx.phrase(
+								"Facet.RemoveItem",
+								"Remove {item}",
+								{ item = read(spec.label, use) or "" },
+								use
+							)
 					end,
 					editing = function(use: ComposeTypes.Use)
 						return editing(use)

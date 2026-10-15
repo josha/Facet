@@ -2295,7 +2295,12 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				ctx.text({
 					Name = "Summary",
 					Text = function(use: ComposeTypes.Use)
-						return `Page {indexById[use(spec.selection)]} of {#spec.pages}`
+						return ctx.phrase(
+							"Facet.PageOf",
+							"Page {current} of {count}",
+							{ current = indexById[use(spec.selection)], count = #spec.pages },
+							use
+						)
 					end,
 				})
 			)
@@ -2305,7 +2310,14 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			for index, page in spec.pages do
 				local id = page.id
 				local dot = UI.Button(id)({
-					name = `Page {index} of {#spec.pages}`,
+					name = function(use: ComposeTypes.Use): string
+						return ctx.phrase(
+							"Facet.PageOf",
+							"Page {current} of {count}",
+							{ current = index, count = #spec.pages },
+							use
+						)
+					end,
 					LayoutOrder = index,
 					Size = D2.fromOffset(44, 44),
 					AutomaticSize = E.AutomaticSize.None,

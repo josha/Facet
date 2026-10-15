@@ -555,6 +555,24 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local isTenFoot = derived(function(use): boolean
 			return tenFoot(use)
 		end)
+		local metricScale = derived(function(use): number
+			return if use(isTenFoot) then adaptive.TEN_FOOT_SCALE else 1
+		end)
+		local function scaled(value: number | string): ComposeTypes.Readable<number>
+			if type(value) == "string" then
+				ctx.metric(value)
+				return derived(function(use): number
+					return ctx.metric(value, use)
+				end)
+			end
+			assert(
+				type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge,
+				"Facet environment.scaled expects a finite number or a theme metric path"
+			)
+			return derived(function(use): number
+				return value * use(metricScale)
+			end)
+		end
 		local environment: Env.Environment = freeze({
 			viewportSize = viewportSize,
 			viewportWidth = viewportWidth,
@@ -596,9 +614,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			viewingDistanceSource = (derived(function(use): "authored" | "inferred"
 				return if ctx.viewingDistance(use) == "automatic" then "inferred" else "authored"
 			end) :: unknown) :: ComposeTypes.Readable<"authored" | "inferred">,
-			metricScale = derived(function(use): number
-				return if use(isTenFoot) then adaptive.TEN_FOOT_SCALE else 1
-			end),
+			metricScale = metricScale,
+			scaled = scaled,
 			overscanInsets = overscan,
 			navPlacement = (derived(function(use): adaptive.NavPlacement
 				return adaptive.navPlacement({

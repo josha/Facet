@@ -40,8 +40,6 @@ local APPEARANCE: { [string]: string } = {
 	utility = "facet-appearance-utility",
 }
 
-local REFIT_FRAMES = 30
-
 return function(ctx: Shared.Context): Chrome
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
@@ -100,44 +98,6 @@ return function(ctx: Shared.Context): Chrome
 			local own = if internal then read(internal, use) else nil
 			return if type(own) == "string" then own else ""
 		end
-	end
-	local function refit(label: TextLabel): TextLabel
-		local frames = ctx.config.services and ctx.config.services.RunService
-		if frames == nil then
-			return label
-		end
-		local size = ctx.observe.AbsoluteSize(label)
-		local pending: RBXScriptConnection? = nil
-		local function release()
-			if pending then
-				pending:Disconnect()
-				pending = nil
-			end
-		end
-		ctx.Compose.cleanup(release)
-		ctx.Compose.watch(function(use: ComposeTypes.Use)
-			use(size)
-			if pending ~= nil then
-				return
-			end
-			local count = 0
-			local original: UDim2? = nil
-			pending = frames.Heartbeat:Connect(function()
-				count += 1
-				local base = original
-				if base then
-					release()
-					label.Size = base
-				elseif label.TextBounds.Y > label.AbsoluteSize.Y + 0.5 then
-					local current = label.Size
-					original = current
-					label.Size = D2.new(current.X.Scale, current.X.Offset, current.Y.Scale, current.Y.Offset + 1)
-				elseif count >= REFIT_FRAMES then
-					release()
-				end
-			end)
-		end)
-		return label
 	end
 	local function tagWhile(node: Instance, tag: string, on: boolean)
 		if on then
@@ -199,7 +159,7 @@ return function(ctx: Shared.Context): Chrome
 						options.focus()
 					end
 				end,
-				refit(ctx.styled(
+				ctx.styled(
 					ctx.text({
 						Name = "Title",
 						Text = function(use: ComposeTypes.Use)
@@ -210,7 +170,7 @@ return function(ctx: Shared.Context): Chrome
 						TextWrapped = true,
 					}),
 					"type-label"
-				)),
+				),
 			}
 			table.insert(parts, label)
 		end

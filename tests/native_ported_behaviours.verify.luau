@@ -340,6 +340,39 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
+		verifyHarness:case("a Button with a subtitle keeps its authored width and wraps both captions inside it", {
+			id = "native_ported_behaviours::bounded text buttons::a Button with a subtitle keeps its authored width and wraps both captions inside it",
+			run = function()
+				local w = world(function(UI: FacetControls, Host: RobloxHost)
+					return Host.Frame {
+						Size = UDim2.fromOffset(401, 400),
+						UI.Button "Card" {
+							label = "Boost Board",
+							subtitle = "HELP · 2 energy",
+							controlSize = "large" :: "large",
+							Size = UDim2.fromOffset(117, 0),
+						},
+						UI.Button "Loose" { label = "Boost Board", subtitle = "HELP · 2 energy" },
+					}
+				end)
+				local card, loose = find(w.screen, "Card"), find(w.screen, "Loose")
+				expect(card.Size.X.Offset):toBe(117)
+				expect(card.AutomaticSize.Name):toBe("Y")
+				local captions = find(card, "Captions")
+				expect(captions.AutomaticSize.Name):toBe("Y")
+				expect(captions:FindFirstChildWhichIsA("UIFlexItem").FlexMode.Name):toBe("Fill")
+				for _, name in { "Title", "Description" } do
+					local caption = find(captions, name)
+					expect(caption.TextWrapped):toBe(true)
+					expect(caption.Size.X.Scale):toBe(1)
+					expect(caption.AutomaticSize.Name):toBe("Y")
+				end
+				expect(find(card, "Content").Size.X.Scale):toBe(1)
+				expect(loose.AutomaticSize.Name):toBe("XY")
+				expect(find(find(loose, "Captions"), "Description").TextWrapped):toBe(false)
+				w.stop()
+			end,
+		})
 	end)
 
 	verifyHarness:suite("StepIndicator room", function()
