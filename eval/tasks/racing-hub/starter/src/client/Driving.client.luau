@@ -2,6 +2,43 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Track = require(game:GetService("ReplicatedStorage").Shared.RaceTrack)
+local rivals: { Model } = {}
+local function watch(object: Instance)
+	if object:IsA("Model") then
+		table.insert(rivals, object)
+	end
+end
+for _, object in workspace:GetChildren() do
+	watch(object)
+end
+workspace.ChildAdded:Connect(watch)
+RunService:BindToRenderStep("RaceRivals", Enum.RenderPriority.Camera.Value - 1, function()
+	local now = workspace:GetServerTimeNow()
+	for index = #rivals, 1, -1 do
+		local model = rivals[index]
+		if model.Parent == nil then
+			table.remove(rivals, index)
+			continue
+		end
+		local start = model:GetAttribute("RaceStart")
+		local origin = model:GetAttribute("StartProgress")
+		local rate = model:GetAttribute("RaceSpeed")
+		local lane = model:GetAttribute("RaceLane")
+		if
+			type(start) == "number"
+			and type(origin) == "number"
+			and type(rate) == "number"
+			and type(lane) == "number"
+		then
+			local stopped = model:GetAttribute("StoppedProgress")
+			local progress = if type(stopped) == "number"
+				then stopped
+				else math.min(Track.laps, math.max(0, now - start) * rate + origin)
+			model:PivotTo(Track.frame(progress % 1, lane) * CFrame.new(0, 1, 0))
+		end
+	end
+end)
 local ContextActionService = game:GetService("ContextActionService")
 local player = Players.LocalPlayer
 local holding = false
@@ -56,6 +93,16 @@ local function render(dt: number)
 				and turn
 				and turn:IsA("AngularVelocity")
 			then
+				local t = Track.progress(root.Position)
+				if root.Position.Y < -10 or (root.Position - Track.point(t)).Magnitude > 60 then
+					local checkpoint = root:GetAttribute("Checkpoint")
+					local progress = if type(checkpoint) == "number" then checkpoint / Track.checkpoints else 0
+					local model = seat.Parent
+					if model and model:IsA("Model") then
+						model:PivotTo(Track.frame(progress) * CFrame.new(0, 3, 0))
+					end
+					root.AssemblyLinearVelocity = Vector3.zero
+				end
 				local forward = root.CFrame.LookVector
 				local velocity = forward * speed
 				if drifting then
@@ -89,7 +136,7 @@ local function phase()
 	local racing = player:GetAttribute("Racing") == true
 	if racing then
 		ContextActionService:BindAction("KartDrift", drift, false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonX)
-		RunService:BindToRenderStep("KartDrive", Enum.RenderPriority.Camera.Value + 1, render)
+		RunService:BindToRenderStep("KartDrive", Enum.RenderPriority.Camera.Value, render)
 	else
 		ContextActionService:UnbindAction("KartDrift")
 		RunService:UnbindFromRenderStep("KartDrive")
