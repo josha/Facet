@@ -194,14 +194,15 @@ it does not produce a setup-only pass. `--only TEXT` selects a case by id.
 The attached Studio must contain the current case modules. Building the
 runner's place file does not reload the attached place.
 
-Gamepad suites (`focus_walk`, `focus_opened`, `gamepad_walk`) and interactive
+Gamepad suites (`focus_walk`, `focus_opened`, `focus_probe`, `gamepad_walk`) and interactive
 gamepad cases need the Controller Emulator. Turn it on in the attached
 Studio, then use `--device keep`. This keeps the emulator enabled between
-cases. For example:
+cases. The complete walks can take more than ten minutes. The example sets
+the deadline to six hours for each suite:
 
 ```sh
 lute run tools/lute/studio_live.luau needs_live_input --studio ID --device keep --interactive --tag controller-sidebar --only sidebar-dpad-to-collections
-lute run tools/lute/studio_live.luau focus_walk focus_opened gamepad_walk --studio ID --device keep --tag controller
+lute run tools/lute/studio_live.luau focus_walk focus_opened focus_probe gamepad_walk --studio ID --device keep --tag controller --deadline 21600
 ```
 
 Run the same command for each controller case with its exact `--only` id and
