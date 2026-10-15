@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "9a6c11fac10955ddf07e514316226fb40aed3dfe",
+  "commit": "79f32d61c4c6dd15e76efb01681ba308d55c52c6",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -89,8 +89,8 @@
   },
   "docs": {
     "SKILL.md": "5b00d1daf8a47f8d97e5af9ab3044aca442fa027064015c8e7ffb584b074c7f1",
-    "references/api.md": "9db25d6d4cda99f987a8fefe54456409d1b8f5105c966e74afd9330932bea4d6",
-    "references/consumer-guides.md": "f0d466dff24ec15410b31c90a6e54cbdb5185a24f9e07fe9c6bb5c77f91f65b3",
-    "references/ownership.md": "a85b9c259e0a2adeb8328818df714349b6bbcbb19c452237dbc21bae3ef83692"
+    "references/api.md": "c906cc90acb2ff284161d8797b600c4be4b7806f35a293abcc8045487a22d27d",
+    "references/consumer-guides.md": "7a543d8626c23e8dd43516ac6f701cca96ed36f83d17add0db27043ce9f007f2",
+    "references/ownership.md": "844e3241dd3767a83ac416983ef973109d07b8f2f393ef160e48cf5a40f562a0"
   }
 }

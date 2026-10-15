@@ -9,7 +9,7 @@ copy.
 ## Compose
 
 **Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
-`9a6c11fac10955ddf07e514316226fb40aed3dfe`,
+`79f32d61c4c6dd15e76efb01681ba308d55c52c6`,
 `src/core` and `src/roblox`.
 
 **Distribution.** `src/vendor/compose` is a generated, read-only snapshot of that
