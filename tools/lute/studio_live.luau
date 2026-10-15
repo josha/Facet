@@ -69,9 +69,13 @@ project.tree.Workspace["$attributes"] = { Facet_Demos = fs.readFileToString("too
 project.tree.ReplicatedStorage.FacetLive = { ["$path"] = "../tools/studio/live" }
 project.tree.ReplicatedStorage.FacetVerify = { ["$path"] = "../tools/vendor/verify/src" }
 project.tree.ReplicatedStorage.FacetConsumerScreen = { ["$path"] = "consumer/src/screen.luau" }
-project.tree.ReplicatedStorage.Lab = { ["$path"] = "facet-lab/src" }
+project.tree.ReplicatedStorage.Lab = {
+	["$className"] = "Folder",
+	drag_drop_demo = { ["$path"] = "facet-lab/src/drag_drop_demo.luau" },
+}
 project.tree.ReplicatedStorage.LabThemes = { ["$path"] = "facet-lab/themes" }
 if table.find(suites, "lab") then
+	project.tree.ReplicatedStorage.Lab = { ["$path"] = "facet-lab/src" }
 	project.tree.ReplicatedStorage.FacetShowcase = {
 		["$className"] = "Folder",
 		screen = { ["$path"] = "gallery/client/screen.luau" },
