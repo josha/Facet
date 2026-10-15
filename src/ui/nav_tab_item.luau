@@ -6,6 +6,7 @@ local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
 local NavigationProps = require("./navigation_props")
 local tabMetrics = require("./nav_tab_metrics")
+local textMeasure = require("./text_measure")
 
 export type TabItemView = {
 	frame: tabMetrics.TabFrame,
@@ -121,9 +122,17 @@ return function(
 					end,
 				})
 				surfaces.attach(button, { measure :: Types.Child })
-				local natural = ctx.observe.TextBounds(measure)
+				local natural = textMeasure.natural(ctx, measure, function()
+					local bounds = ctx.observe.TextBounds(measure)
+					return Compose.formula(function(use: ComposeTypes.Use): Vector2
+						return use(bounds) / use(layoutUnit)
+					end)
+				end)
 				Compose.watch(function(use: ComposeTypes.Use)
-					local width = use(natural).X
+					local width = use(natural).X * use(layoutUnit)
+					if width == math.huge then
+						return
+					end
 					local widths = table.clone(wordWidths:peek())
 					widths[tab.id] = width
 					wordWidths:set(widths)
@@ -135,7 +144,16 @@ return function(
 				end)
 			end
 			if fit then
-				local natural = ctx.observe.TextBounds(button:FindFirstChild("LabelMeasure") :: TextLabel)
+				local measure = button:FindFirstChild("LabelMeasure") :: TextLabel
+				local measured = textMeasure.natural(ctx, measure, function()
+					local bounds = ctx.observe.TextBounds(measure)
+					return Compose.formula(function(use: ComposeTypes.Use): Vector2
+						return use(bounds) / use(layoutUnit)
+					end)
+				end)
+				local natural = Compose.formula(function(use: ComposeTypes.Use): Vector2
+					return use(measured) * use(layoutUnit)
+				end)
 				local room = ctx.observe.AbsoluteSize(button)
 				local function budget(use: ComposeTypes.Use): (number, number, number, boolean)
 					local width = use(natural).X
