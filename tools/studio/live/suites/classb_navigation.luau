@@ -277,7 +277,9 @@ add("segment-corner-concentric", {}, function(t)
 end)
 
 add("collapsible-safe-edges", {}, function(t)
-	for _, size in { Vector2.new(320, 300), Vector2.new(390, 844), Vector2.new(1280, 720), false } do
+	local sizes: { Vector2 | false } = { Vector2.new(320, 300), Vector2.new(390, 844), Vector2.new(1280, 720), false }
+	for _, entry in sizes do
+		local size: Vector2? = if typeof(entry) == "Vector2" then entry else nil
 		local where = if size then `{size.X}x{size.Y}` else "native viewport"
 		local expanded
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)

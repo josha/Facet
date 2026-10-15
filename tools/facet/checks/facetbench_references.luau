@@ -5,6 +5,7 @@ local Files = require("../lib/files")
 local Rule = require("../lib/rule")
 local Case = require("../lib/case")
 local Bench = require("../lib/facetbench")
+local Definitions = require("../lib/definitions")
 
 local TURNS = Bench.turns
 
@@ -19,6 +20,12 @@ end
 
 local function check(context: Rule.Context): { string }
 	Bench.prepare(context.root)
+	local definitions = "artifacts/facetbench/arm-shared/tools/typecheck/roblox.d.luau"
+	local resolved, problem =
+		pcall(Definitions.resolve, context.path("tools/typecheck/roblox.lock.json"), context.path(definitions))
+	if not resolved then
+		return { tostring(problem) }
+	end
 	local findings: { string } = {}
 	for index, id in TURNS do
 		for _, arm in { "strong", "weak" } do
@@ -44,7 +51,7 @@ local function check(context: Rule.Context): { string }
 					"--workspace",
 					relative,
 					"--definitions",
-					"artifacts/facetbench/arm-shared/tools/typecheck/roblox.d.luau",
+					definitions,
 					"src/client",
 					"src/server",
 					"src/shared",
