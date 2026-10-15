@@ -112,7 +112,7 @@ end
 local function safeArea(): ScreenGui
 	local current = state.safe
 	if current == nil or current.Parent == nil then
-		current = overlay(SAFE_NAME, Enum.ScreenInsets.DeviceSafeInsets)
+		current = overlay(SAFE_NAME, Enum.ScreenInsets.CoreUISafeInsets)
 		state.safe = current
 	end
 	return current :: ScreenGui
@@ -1246,6 +1246,41 @@ handlers.dump = function(request)
 		input = inputList,
 		safeAreaRoot = safeArea(),
 	})
+	local viewport = frame()
+	local offset = viewport.AbsolutePosition + Vector2.new(dump.screen.guiInset.left, dump.screen.guiInset.top)
+	local shifted: { [unknown]: boolean } = {}
+	local function translate(rect: Rect?)
+		if rect ~= nil and not shifted[rect] then
+			shifted[rect] = true
+			rect.x -= offset.X
+			rect.y -= offset.Y
+		end
+	end
+	for _, root in dump.roots do
+		if not root.world then
+			translate(root.rect)
+		end
+	end
+	for _, element in dump.elements do
+		local root = dump.roots[element.root]
+		if root ~= nil and not root.world then
+			translate(element.rect)
+			translate(element.clip)
+			translate(element.scrollClip)
+		end
+	end
+	translate(dump.screen.safeArea)
+	dump.screen.width = viewport.AbsoluteSize.X
+	dump.screen.height = viewport.AbsoluteSize.Y
+	local safe = dump.screen.safeArea
+	if safe ~= nil then
+		dump.screen.guiInset = {
+			left = safe.x,
+			top = safe.y,
+			right = dump.screen.width - safe.x - safe.width,
+			bottom = dump.screen.height - safe.y - safe.height,
+		}
+	end
 	return stash(HttpService:JSONEncode(dump))
 end
 

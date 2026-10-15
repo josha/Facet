@@ -7,6 +7,7 @@ export type Style = "primary" | "secondary" | "success" | "danger" | "ghost"
 
 export type Modal = {
 	scrim: TextButton,
+	backdrop: Frame,
 	panel: Frame,
 	header: Frame,
 	title: TextLabel,
@@ -270,6 +271,14 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 		Parent = screen.Parent,
 	}) :: ScreenGui
 	Kit.scale(panelScreen)
+	local backdrop = Kit.create("Frame", {
+		Name = name .. "Dim",
+		BackgroundColor3 = Kit.colors.scrim,
+		BackgroundTransparency = 0.35,
+		Size = UDim2.fromScale(1, 1),
+		Visible = false,
+		Parent = scrimScreen,
+	}) :: Frame
 	local scrim = Kit.create("TextButton", {
 		Name = name .. "Scrim",
 		Text = "",
@@ -277,11 +286,11 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 		Selectable = false,
 		Interactable = not Kit.isTenFoot(),
 		BackgroundColor3 = Kit.colors.scrim,
-		BackgroundTransparency = 0.35,
+		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
 		Visible = false,
 		ZIndex = 10,
-		Parent = scrimScreen,
+		Parent = panelScreen,
 	}) :: TextButton
 	local panel = Kit.create("Frame", {
 		Name = name,
@@ -333,6 +342,7 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 	local modal: Modal
 	modal = {
 		scrim = scrim,
+		backdrop = backdrop,
 		panel = panel,
 		header = header,
 		title = titleLabel,
@@ -347,6 +357,7 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 			end
 			open = value
 			scrim.Visible = value
+			backdrop.Visible = value
 			panel.Visible = value
 			for _, object in covered do
 				object.Visible = not value
@@ -519,11 +530,12 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 			if top ~= nil then
 				top.panel.Visible = false
 				top.scrim.Visible = false
+				top.backdrop.Visible = false
 			end
 			table.insert(stack, modal)
 			modal.panel.ZIndex = 10 + #stack * 2
 			modal.scrim.ZIndex = modal.panel.ZIndex - 1
-			(modal.scrim.Parent :: ScreenGui).DisplayOrder = #stack * 2 - 1
+			(modal.backdrop.Parent :: ScreenGui).DisplayOrder = #stack * 2 - 1
 			(modal.panel.Parent :: ScreenGui).DisplayOrder = #stack * 2
 			original(true, focus)
 		else
@@ -536,6 +548,7 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 			if top ~= nil then
 				top.panel.Visible = true
 				top.scrim.Visible = true
+				top.backdrop.Visible = true
 			end
 			Kit.focus(previous)
 			if GuiService.SelectedObject == nil and top ~= nil then
