@@ -445,7 +445,10 @@ do
 			)
 			return RoundService.snapshot()
 		elseif command == "eliminate" then
-			return RoundService.eliminate(tostring(options.victim), tostring(options.by))
+			return RoundService.eliminate(tostring(options.victim), "lap " .. tostring(tonumber(options.lap) or 1))
+		elseif command == "laps" then
+			RoundService.setLaps(tostring(options.name), tonumber(options.laps) or 0)
+			return true
 		end
 		error("unknown admin command " .. tostring(command))
 	end
@@ -642,7 +645,12 @@ admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknow
 			positions = nextPositions
 		end
 		return hubState(player)
-	elseif command == "phase" or command == "manual" or command == "eliminate" then
+	elseif command == "driving" then
+		raceManual = false
+		RoundService.setAutomatic(true)
+		RoundService.enter("Round", 90)
+		return true
+	elseif command == "phase" or command == "manual" or command == "eliminate" or command == "laps" then
 		if command == "manual" then
 			raceManual = true
 		end

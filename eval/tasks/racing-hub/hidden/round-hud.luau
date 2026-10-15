@@ -86,12 +86,12 @@ local function eliminate(qa: QA.QA, victim: string, by: string)
 	qa:admin("eliminate", { victim = victim, by = by })
 end
 
-local function feed(qa: QA.QA, context: Core.Context, by: string, victim: string)
+local function feed(qa: QA.QA, context: Core.Context, _by: string, victim: string)
 	Check.text(
 		qa,
 		context,
-		string.lower(by) .. "%s+eliminated%s+" .. string.lower(victim),
-		("the feed shows %s eliminated %s"):format(by, victim),
+		string.lower(victim) .. "%s+knocked out:%s+last on lap 1",
+		("the feed shows %s knocked out: last on lap 1"):format(victim),
 		4
 	)
 end
@@ -215,7 +215,7 @@ local behavior: { Case } = {
 			feed(qa, context, "Nova", "Zed")
 			eliminate(qa, "Rook", "Moss")
 			feed(qa, context, "Moss", "Rook")
-			Check.absent(qa, context, "nova%s+eliminated%s+zed", "the oldest line leaves the feed", 3)
+			Check.absent(qa, context, "zed%s+knocked out", "the oldest line leaves the feed", 3)
 		end,
 	},
 	{
@@ -248,7 +248,7 @@ local behavior: { Case } = {
 			qa:admin("phase", { phase = "Intermission", seconds = 20 })
 			Check.absent(qa, context, "blue wins", "the results hide in the intermission", 4)
 			startRound(qa, context)
-			Check.absent(qa, context, "eliminated", "the feed clears for the new round", 4)
+			Check.absent(qa, context, "knocked out", "the feed clears for the new round", 4)
 			Check.absent(qa, context, "you are out", "You are out hides in the new round", 3)
 		end,
 	},

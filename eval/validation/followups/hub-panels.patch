@@ -120,8 +120,8 @@ index c9d8bd3f..b5c12ae5 100644
 +			return
 +		end
 +		clear(scoreboardBody)
-+		label(scoreboardBody, "Racer / Team / Eliminations")
-+		for _, heading in { "Racer", "Team", "Eliminations" } do
++		label(scoreboardBody, "Racer / Team / Laps")
++		for _, heading in { "Racer", "Team", "Laps" } do
 +			label(scoreboardBody, heading)
 +		end
 +		local racers = table.clone(state.fighters)

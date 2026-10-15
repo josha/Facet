@@ -29,6 +29,7 @@ Players use these devices. Every screen must work and read well on all of them:
 
 - The game allows both phone orientations: `StarterGui.ScreenOrientation` is `Sensor` in `default.project.json`. Keep it.
 - Keep important content and controls inside the safe area.
+- Keep HUD text and controls clear of the Roblox top bar and device cutouts. When a dialog or sheet opens, dim the whole screen, including the area behind the top bar.
 - Make touch targets at least 44 x 44 points.
 - Text must be readable: good contrast and no clipped or cut text.
 - A player with only a gamepad must reach and use every control with the D-pad (or left stick) and the A button. When a screen or a dialog opens and the player uses a gamepad, put the selection on a sensible control.
@@ -43,7 +44,7 @@ The player walks in the hub. A race seats the player in a kart on the grid. The 
 - Touch: use the default Roblox thumbstick. Hold a sharp turn for at least 0.35 seconds, then ease the stick toward the center for a short boost. The same steering charge works on all devices.
 - Do not bind movement keys or gamepad driving inputs in the passive race HUD. Do not set `GuiService.SelectedObject` during driving. A panel that the player opens can use selection; closing it must release selection back to driving.
 - Keep interactive UI out of the lower-left thumbstick area: the left 35% of the bottom 40% of the screen. Keep the central third of the screen clear from 35% to 65% of screen height so the player can see the road. Use edge readouts for race information.
-- The server owns standings, finish order, eliminations, and rewards. Use the existing clients and remotes. Do not add a driving system, camera, world, or extra vehicle GUI.
+- The server owns standings, finish order, lap knockouts, and rewards. Every racer can drive all three laps in normal play. Scenario hooks can set OUT states for interface checks. An event's `by` value names the lap, such as `lap 1`. Show `VICTIM knocked out: last on LAP`. The existing `eliminations` numeric field now reports completed laps. Use it for the scoreboard's Laps column. Use the existing clients and remotes. Do not add a driving system, camera, world, or extra vehicle GUI.
 
 ## Words in the interface
 

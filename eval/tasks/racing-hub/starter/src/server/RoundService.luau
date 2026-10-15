@@ -39,8 +39,6 @@ local state: State = {
 }
 local automatic = true
 local raceComplete = false
-local lapVictim: string? = nil
-local lapLeader = ""
 local log: { Round.Event } = {}
 
 for _, bot in BOTS do
@@ -96,12 +94,8 @@ local function enter(phase: Phase, seconds: number?, winner: (Round.Team | "Draw
 		state.winner = nil
 		state.rewards = nil
 		raceComplete = false
-		lapVictim = nil
 		RaceService.start(state.fighters, not automatic, function()
 			raceComplete = true
-		end, function(victim: string, by: string)
-			lapVictim = victim
-			lapLeader = by
 		end)
 	elseif phase == "Results" then
 		local red, blue = alive("Red"), alive("Blue")
@@ -130,18 +124,14 @@ local function enter(phase: Phase, seconds: number?, winner: (Round.Team | "Draw
 	publish()
 end
 
-local function eliminate(victim: string, by: string): boolean
+local function eliminate(victim: string, lap: string): boolean
 	local target = find(victim)
-	if target == nil or target.eliminated or state.phase ~= "Round" then
+	if automatic or target == nil or target.eliminated or state.phase ~= "Round" then
 		return false
 	end
 	target.eliminated = true
 	RaceService.markOut(victim)
-	local attacker = find(by)
-	if attacker ~= nil then
-		attacker.eliminations += 1
-	end
-	local entry: Round.Event = { kind = "elimination", victim = victim, by = by, at = workspace:GetServerTimeNow() }
+	local entry: Round.Event = { kind = "elimination", victim = victim, by = lap, at = workspace:GetServerTimeNow() }
 	table.insert(log, entry)
 	event:FireAllClients(entry)
 	publish()
@@ -180,9 +170,16 @@ local function tick()
 		return
 	end
 	if automatic and state.phase == "Round" then
-		if lapVictim ~= nil then
-			eliminate(lapVictim, lapLeader)
-			lapVictim = nil
+		local updated = false
+		for _, fighter in state.fighters do
+			local laps = RaceService.laps(fighter.name)
+			if fighter.eliminations ~= laps then
+				fighter.eliminations = laps
+				updated = true
+			end
+		end
+		if updated then
+			publish()
 		end
 		if raceComplete then
 			enter("Results")
@@ -209,6 +206,13 @@ return {
 	snapshot = snapshot,
 	enter = enter,
 	eliminate = eliminate,
+	setLaps = function(name: string, laps: number)
+		assert(not automatic, "lap fixtures require manual mode")
+		local fighter = find(name)
+		assert(fighter, "unknown racer")
+		fighter.eliminations = math.clamp(math.floor(laps), 0, 3)
+		publish()
+	end,
 	setAutomatic = function(value: boolean)
 		automatic = value
 		RaceService.setManual(not value)

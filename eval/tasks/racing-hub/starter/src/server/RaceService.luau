@@ -28,14 +28,12 @@ local active = false
 local manual = false
 local elapsed = 0
 local accumulator = 0
-local leadingLap = 0
 local measuredSeconds = 0
 local measuredSteps = 0
 local measuredCost = 0
 local measuredMax = 0
 local reseatAt = 0
 local complete: () -> () = function() end
-local eliminate: (string, string) -> () = function() end
 local palette = {
 	Color3.fromRGB(255, 190, 65),
 	Color3.fromRGB(240, 90, 95),
@@ -56,21 +54,6 @@ local function markOut(name: string)
 					object.Anchored = true
 				end
 			end
-			return
-		end
-	end
-end
-
-local function reachedLap(racer: Racer, lap: number)
-	if manual or lap <= leadingLap or lap >= Track.laps then
-		return
-	end
-	leadingLap = lap
-	for index = #ordered, 1, -1 do
-		local last = ordered[index]
-		if last ~= racer and not last.out and last.finish == math.huge then
-			markOut(last.name)
-			eliminate(last.name, racer.name)
 			return
 		end
 	end
@@ -103,19 +86,12 @@ local function stop()
 	table.clear(ordered)
 end
 
-local function start(
-	fighters: { Round.Fighter },
-	scenario: boolean,
-	onComplete: () -> (),
-	onEliminate: (string, string) -> ()
-)
+local function start(fighters: { Round.Fighter }, scenario: boolean, onComplete: () -> ())
 	stop()
 	manual = scenario
 	complete = onComplete
-	eliminate = onEliminate
 	elapsed = 0
 	accumulator = 0
-	leadingLap = 0
 	reseatAt = 0
 	table.clear(names)
 	for index, fighter in fighters do
@@ -164,6 +140,9 @@ local function start(
 			kart.model:SetAttribute("DriverId", progressData.driver)
 		end
 	end
+	for index, racer in ordered do
+		names[index] = if racer.player then "You" else racer.name
+	end
 	active = true
 end
 
@@ -203,7 +182,6 @@ RunService.Heartbeat:Connect(function(dt: number)
 		if racer.player == nil or manual then
 			racer.progress = math.min(Track.laps, elapsed * racer.speed + racer.startProgress)
 			local lap = math.floor(racer.progress)
-			reachedLap(racer, lap)
 			racer.lap = lap
 			racer.checkpoint = math.floor(racer.progress % 1 * Track.checkpoints)
 			racer.kart.model:PivotTo(Track.frame(racer.progress % 1, racer.lane) * CFrame.new(0, 1, 0))
@@ -212,11 +190,10 @@ RunService.Heartbeat:Connect(function(dt: number)
 			if root then
 				local t = Track.progress(root.Position)
 				local onRoad = (root.Position - Track.point(t)).Magnitude < Track.width / 2 + 5
-				local crossedLap = Rules.advance(racer, t, onRoad, Track.checkpoints)
-				if crossedLap then
-					reachedLap(racer, racer.lap)
-				end
+				Rules.advance(racer, t, onRoad, Track.checkpoints)
 				root:SetAttribute("Lap", math.min(Track.laps, racer.lap + 1))
+				root:SetAttribute("Checkpoint", racer.checkpoint)
+				root:SetAttribute("RaceProgress", racer.progress)
 				if root.Position.Y < -10 or (root.Position - Track.point(t)).Magnitude > 60 then
 					racer.kart.model:PivotTo(
 						Track.frame(racer.checkpoint / Track.checkpoints, racer.lane) * CFrame.new(0, 3, 0)
@@ -267,4 +244,12 @@ return {
 		manual = value
 	end,
 	markOut = markOut,
+	laps = function(name: string): number
+		for _, racer in racers do
+			if racer.name == name then
+				return racer.lap
+			end
+		end
+		return 0
+	end,
 }
