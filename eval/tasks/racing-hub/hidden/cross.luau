@@ -30,8 +30,9 @@ local cases: { Play.Case } = {
 		id = "race-results-return",
 		tier = "spec",
 		run = function(qa, context)
-			qa:admin("phase", { phase = "Results", seconds = 120, winner = "Red" })
-			Check.text(qa, context, "red wins", "the race ends with results")
+			qa:admin("phase", { phase = "Round", seconds = 120 })
+			qa:admin("phase", { phase = "Results", seconds = 120 })
+			Check.text(qa, context, "finish order", "the race ends with results")
 			tap(qa, context, "Back to hub")
 			Check.that(
 				context,
@@ -155,7 +156,8 @@ local cases: { Play.Case } = {
 			qa:dump("race-loadout")
 			Coherence.observe(qa.device.id, "race-loadout")
 			qa:capture("race-loadout")
-			qa:admin("phase", { phase = "Results", winner = "Red", seconds = 120 })
+			qa:admin("phase", { phase = "Round", seconds = 120 })
+			qa:admin("phase", { phase = "Results", seconds = 120 })
 			Check.text(qa, context, "earned%s*50%s*coins", "results name the currency reward")
 			Check.text(qa, context, "120%s*xp", "results name the XP reward")
 			Check.that(

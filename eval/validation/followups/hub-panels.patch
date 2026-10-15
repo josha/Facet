@@ -120,23 +120,23 @@ index c9d8bd3f..b5c12ae5 100644
 +			return
 +		end
 +		clear(scoreboardBody)
-+		label(scoreboardBody, "Racer / Team / Laps")
-+		for _, heading in { "Racer", "Team", "Laps" } do
++		label(scoreboardBody, "Racer / Position / Laps / Gap")
++		for _, heading in { "Racer", "Position", "Laps", "Gap" } do
 +			label(scoreboardBody, heading)
 +		end
-+		local racers = table.clone(state.fighters)
-+		table.sort(racers, function(a: Round.Fighter, b: Round.Fighter)
-+			return if a.eliminations == b.eliminations then a.name < b.name else a.eliminations > b.eliminations
++		local racers = table.clone(state.racers)
++		table.sort(racers, function(a: Round.Racer, b: Round.Racer)
++			return a.position < b.position
 +		end)
 +		for _, racer in racers do
 +			label(
 +				scoreboardBody,
-+				("%s %s / %s / %d %s"):format(
++				("%s %s / %d / %d / +%.1fs %s"):format(
 +					racer.name,
 +					if racer.name == context.round.localName then "You" else "",
-+					racer.team,
-+					racer.eliminations,
-+					if racer.eliminated then "OUT" else ""
++					racer.position,
++					racer.completedLaps, racer.gap,
++					if racer.eliminated then "OUT" elseif racer.finished then "Finished" else ""
 +				)
 +			)
 +		end

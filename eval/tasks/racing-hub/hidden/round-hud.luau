@@ -28,10 +28,10 @@ local BOTS: { [string]: boolean } = {
 local function server(qa: QA.QA): (string, number, string)
 	local value = qa:admin("state")
 	local localName = "?"
-	local fighters = Check.field(value, "state", "fighters")
-	if type(fighters) == "table" then
-		for _, fighter in fighters :: { unknown } do
-			local name = tostring(Check.field(fighter, "name"))
+	local racers = Check.field(value, "state", "racers")
+	if type(racers) == "table" then
+		for _, racer in racers :: { unknown } do
+			local name = tostring(Check.field(racer, "name"))
 			if not BOTS[name] then
 				localName = name
 			end
@@ -88,6 +88,7 @@ local function eliminate(qa: QA.QA, victim: string, by: string)
 end
 
 local function feed(qa: QA.QA, context: Core.Context, _by: string, victim: string)
+	qa:reveal({ pattern = string.lower(victim) .. "%s+knocked out", clipped = true })
 	Check.text(
 		qa,
 		context,
@@ -137,20 +138,19 @@ local behavior: { Case } = {
 			startRound(qa, context)
 			timerMatches(qa, context, "Round")
 			for name in BOTS do
-				Check.visible(qa, context, { text = name, clipped = true }, "the teams list " .. name, 3)
+				qa:reveal({ text = name, clipped = true })
+				Check.visible(qa, context, { text = name, clipped = true }, "the standings list " .. name, 3)
 			end
 			local _, _, localName = server(qa)
+			qa:reveal({ text = localName, clipped = true })
 			Check.that(context, qa:first({ text = "you" }) ~= nil, "the HUD marks the local player as You")
 			Check.that(
 				context,
 				qa:first({ text = localName, clipped = true }) ~= nil,
-				"the Red team lists the local player " .. localName
+				"the standings list the local player " .. localName
 			)
-			Check.that(
-				context,
-				qa:first({ pattern = "4%s*alive", near = "blue" }) ~= nil,
-				"the Blue team shows 4 alive"
-			)
+			Check.text(qa, context, "position%s*%d+", "the HUD shows position")
+			Check.text(qa, context, "lap%s*1%s*/%s*3", "the HUD shows lap 1 of 3")
 		end,
 	},
 	{
@@ -195,19 +195,16 @@ local behavior: { Case } = {
 		shot = "2-round",
 		run = function(qa, context)
 			eliminate(qa, "Zed", "Nova")
+			qa:reveal({ text = "Zed", clipped = true })
 			feed(qa, context, "Nova", "Zed")
 			Check.that(
 				context,
 				Check.eventually(3, function()
-					return nearer(qa, { pattern = "^out$", near = "Zed" }, { pattern = "^out$", near = "Ivy" })
+					return nearer(qa, { pattern = "zed.*out$", near = "Zed" }, { pattern = "ivy.*out$", near = "Ivy" })
 				end),
 				"Zed shows OUT and Ivy does not"
 			)
-			Check.that(
-				context,
-				nearer(qa, { pattern = "3%s*alive", near = "blue" }, { pattern = "3%s*alive", near = "red" }),
-				"the Blue team shows 3 alive"
-			)
+
 			qa:capture("2-round")
 			qa:dump("round")
 		end,
@@ -233,6 +230,7 @@ local behavior: { Case } = {
 		shot = "3-out",
 		run = function(qa, context)
 			local _, _, localName = server(qa)
+			qa:reveal({ text = localName, clipped = true })
 			eliminate(qa, localName, "Moss")
 			Check.text(qa, context, "you are out", "the HUD says You are out", 4)
 			qa:capture("3-out")
@@ -245,9 +243,11 @@ local behavior: { Case } = {
 		screen = "results",
 		shot = "4-results",
 		run = function(qa, context)
-			qa:admin("phase", { phase = "Results", seconds = 20, winner = "Blue" })
-			Check.text(qa, context, "blue wins", "the results show Blue wins", 4)
-			Check.text(qa, context, "earned%s*20%s*coins", "the results show You earned 20 Coins", 3)
+			qa:admin("phase", { phase = "Round", seconds = 120 })
+			qa:admin("laps", { name = select(3, server(qa)), laps = 3 })
+			qa:admin("phase", { phase = "Results", seconds = 20 })
+			Check.text(qa, context, "finish order", "the results show finish order", 4)
+			Check.text(qa, context, "earned%s*50%s*coins", "the results show You earned 50 Coins", 3)
 			qa:capture("4-results")
 			qa:dump("results")
 		end,
@@ -257,7 +257,7 @@ local behavior: { Case } = {
 		tier = "spec",
 		run = function(qa, context)
 			qa:admin("phase", { phase = "Intermission", seconds = 20 })
-			Check.absent(qa, context, "blue wins", "the results hide in the intermission", 4)
+			Check.absent(qa, context, "finish order", "the results hide in the intermission", 4)
 			startRound(qa, context)
 			Check.absent(qa, context, "knocked out", "the feed clears for the new round", 4)
 			Check.absent(qa, context, "you are out", "You are out hides in the new round", 3)

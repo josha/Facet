@@ -44,6 +44,28 @@ local function query(words: string): QA.Query
 	return { role = "button", text = string.lower(words) }
 end
 
+local function raceReadout(qa: QA.QA, position: number): boolean
+	for _, text in qa:texts() do
+		local normalized = string.lower(text)
+		for _, prefix in { "position", "place", "rank", "pos", "p" } do
+			if string.find(normalized, prefix .. "%s*[:#]?%s*" .. tostring(position) .. "%f[^%d]") then
+				return true
+			end
+		end
+		if string.find(normalized, tostring(position) .. "[snrt][tdh]") then
+			return true
+		end
+	end
+	return false
+end
+
+local function racers(qa: QA.QA): { unknown }
+	local value = qa:admin("system", { system = "round-hud", command = "state" })
+	local entries = Check.field(value, "state", "racers")
+	assert(type(entries) == "table", "the race contract supplies standings")
+	return entries :: { unknown }
+end
+
 local function helpCopy(qa: QA.QA): string
 	local texts = qa:texts()
 	for index, text in texts do
@@ -342,6 +364,20 @@ local function cases(id: string): { Play.Case }
 			qa:admin("phase", { phase = "Round", seconds = 120 })
 			qa:sleep(2)
 			local race = observe(qa, context, "universal-race")
+			Check.that(context, raceReadout(qa, 1), "the racer can read their position")
+			Check.text(qa, context, "lap%s*%d+", "the racer can read their lap")
+			local entries = racers(qa)
+			local rival = tostring(Check.field(entries[2], "name"))
+			Check.visible(qa, context, { text = rival, clipped = true }, "the HUD shows race standings")
+			Check.absent(qa, context, "%d+%s*alive", "a kart race has no team counts")
+			qa:admin("laps", { name = rival, laps = 3 })
+			Check.that(
+				context,
+				Check.eventually(4, function()
+					return raceReadout(qa, 2)
+				end),
+				"position follows the live standings"
+			)
 			Check.that(context, Space.centerClear(race), "the road remains visible while driving")
 			Check.that(context, qa:selected() == nil, "passive HUD releases gamepad selection")
 			if index >= 4 then
@@ -352,6 +388,11 @@ local function cases(id: string): { Play.Case }
 			qa:admin("phase", { phase = "Results", seconds = 120 })
 			qa:sleep(1)
 			observe(qa, context, "universal-results")
+			Check.visible(qa, context, { text = rival, clipped = true }, "results show the first finisher")
+			local result = qa:admin("system", { system = "round-hud", command = "state" })
+			local localName = tostring(Check.field(entries[1], "name"))
+			local reward = Check.number(result, "state", "rewards", localName)
+			Check.text(qa, context, tostring(reward) .. "%D*coins", "results show the server currency reward")
 			press(qa, context, "hub")
 			Check.visible(qa, context, query("Shop"), "results return to the hub")
 		end)
