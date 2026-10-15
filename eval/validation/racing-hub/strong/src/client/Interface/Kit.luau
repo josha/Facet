@@ -284,7 +284,7 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 		Text = "",
 		AutoButtonColor = false,
 		Selectable = false,
-		Interactable = not Kit.isTenFoot(),
+		Interactable = not Kit.isTenFoot() and not UserInputService.TouchEnabled,
 		BackgroundColor3 = Kit.colors.scrim,
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),

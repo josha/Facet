@@ -454,6 +454,29 @@ function Kit.hud(screen: ScreenGui): Frame
 	if dock ~= nil then
 		return dock :: Frame
 	end
+	task.spawn(function()
+		local playerGui = screen.Parent
+		if playerGui == nil then
+			return
+		end
+		local touch = playerGui:WaitForChild("TouchGui", 10)
+		local controls = if touch then touch:WaitForChild("TouchControlFrame", 10) else nil
+		local jump = if controls then controls:WaitForChild("JumpButton", 10) else nil
+		if jump == nil or not jump:IsA("GuiObject") then
+			return
+		end
+		local overlay = Instance.new("ScreenGui")
+		overlay.ScreenInsets = Enum.ScreenInsets.None
+		overlay.DisplayOrder = 50
+		overlay.Parent = screen.Parent
+		local action = Kit.button("Quick action")
+		action.Parent = overlay
+		game:GetService("RunService").RenderStepped:Connect(function()
+			action.Position = UDim2.fromOffset(jump.AbsolutePosition.X, jump.AbsolutePosition.Y)
+			action.Size = UDim2.fromOffset(jump.AbsoluteSize.X, jump.AbsoluteSize.Y)
+			action.Visible = jump.Visible
+		end)
+	end)
 	local frame = Kit.create("Frame", {
 		BackgroundTransparency = 1,
 		AnchorPoint = Vector2.new(1, 0),
