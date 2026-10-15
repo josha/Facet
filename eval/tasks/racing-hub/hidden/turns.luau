@@ -37,6 +37,7 @@ local function cases(kind: string): { Play.Case }
 		return {
 			{
 				id = "categories",
+				tier = "spec",
 				screen = "shop-categories",
 				run = function(qa, context)
 					qa:admin("wallet", { coins = 2000, gems = 200 })
@@ -51,6 +52,7 @@ local function cases(kind: string): { Play.Case }
 			},
 			{
 				id = "big-purchase-confirm",
+				tier = "spec",
 				screen = "shop-category-confirm",
 				run = function(qa, context)
 					local before = snapshot(qa, "shop")
@@ -91,6 +93,7 @@ local function cases(kind: string): { Play.Case }
 		return {
 			{
 				id = "garage-sort",
+				tier = "spec",
 				screen = "garage-sort",
 				run = function(qa, context)
 					tap(qa, context, "Garage")
@@ -107,6 +110,7 @@ local function cases(kind: string): { Play.Case }
 			},
 			{
 				id = "garage-search",
+				tier = "spec",
 				screen = "garage-search",
 				run = function(qa, context)
 					local ok, detail = qa:typeText({ role = "input" }, "AERO")
@@ -132,6 +136,7 @@ local function cases(kind: string): { Play.Case }
 		return {
 			{
 				id = "settings-reset-cancel",
+				tier = "spec",
 				screen = "settings-reset",
 				run = function(qa, context)
 					tap(qa, context, "Settings")
@@ -165,6 +170,7 @@ local function cases(kind: string): { Play.Case }
 			},
 			{
 				id = "settings-reset-save",
+				tier = "spec",
 				run = function(qa, context)
 					tap(qa, context, "Reset to Defaults")
 					tap(qa, context, "Reset")
@@ -192,6 +198,7 @@ local function cases(kind: string): { Play.Case }
 	return {
 		{
 			id = "race-scoreboard",
+			tier = "spec",
 			screen = "scoreboard",
 			run = function(qa, context)
 				qa:admin("manual")

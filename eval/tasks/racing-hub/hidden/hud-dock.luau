@@ -98,6 +98,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "shows-counters",
+		tier = "spec",
 		screen = "hud",
 		shot = "1-hud",
 		run = function(qa, context)
@@ -132,6 +133,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "follows-the-income",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("resume")
 			task.wait(3.2)
@@ -158,6 +160,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "buys-a-boost",
+		tier = "spec",
 		screen = "boosts",
 		shot = "2-boosts",
 		run = function(qa, context)
@@ -189,6 +192,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "claims-quests",
+		tier = "spec",
 		screen = "quests",
 		shot = "3-quests",
 		run = function(qa, context)
@@ -228,6 +232,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "buys-the-offer",
+		tier = "spec",
 		screen = "offer",
 		shot = "4-offer",
 		run = function(qa, context)

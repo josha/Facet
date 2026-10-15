@@ -13,7 +13,14 @@ local QA = require("./qa")
 
 export type CaseBody = (qa: QA.QA, context: Core.Context) -> ()
 
-export type Case = { id: string, run: CaseBody, timeoutSeconds: number?, screen: string?, shot: string? }
+export type Case = {
+	id: string,
+	run: CaseBody,
+	timeoutSeconds: number?,
+	screen: string?,
+	shot: string?,
+	tier: ("universal" | "spec")?,
+}
 
 export type Session = { device: string, cases: { Case } }
 
@@ -479,8 +486,22 @@ local function perfScores(perf: { [string]: DevicePerf }, scores: { [string]: nu
 	end
 end
 
-local function main(scenario: Scenario, entrySource: string)
+local function main(scenario: Scenario, entrySource: string, universal: Scenario?)
 	local args = arguments()
+	local tiers: { [string]: string } = { ["workspace/builds"] = "universal" }
+	if universal ~= nil then
+		local combined: Scenario = { sessions = {} }
+		for index, session in scenario.sessions do
+			local cases = table.clone(universal.sessions[index].cases)
+			for _, case in session.cases do
+				local diagnostic = table.clone(case)
+				diagnostic.tier = "spec"
+				table.insert(cases, diagnostic)
+			end
+			table.insert(combined.sessions, { device = session.device, cases = cases })
+		end
+		scenario = combined
+	end
 	local taskDirectory = absolute(directoryOf(entrySource) .. "/..")
 	local taskName = string.match(taskDirectory, "([^/]+)$") or "task"
 	local host = open({
@@ -508,6 +529,7 @@ local function main(scenario: Scenario, entrySource: string)
 			end
 			for _, case in entry.cases do
 				local id = entry.device .. "/" .. case.id
+				tiers[id] = case.tier or "spec"
 				harness:case(id, {
 					id = id,
 					timeoutSeconds = case.timeoutSeconds or 240,
@@ -546,12 +568,34 @@ local function main(scenario: Scenario, entrySource: string)
 		environment = { task = taskName, workspace = args.workspace },
 	})
 	host.close()
+	if universal ~= nil then
+		for _, shot in host.shots do
+			if shot.path ~= nil and string.find(shot.screen, "universal-", 1, true) ~= 1 then
+				local directory = args.outputs .. "/spec-captures/" .. shot.device
+				ensure(directory)
+				local destination = directory .. "/" .. shot.screen .. ".png"
+				if fs.exists(shot.path) then
+					fs.move(shot.path, destination)
+				end
+				shot.path = destination
+			end
+		end
+	end
 	Lute.gate.writeReport(args.report, args.run, report)
 	local passed, total = 0, 0
 	local byDevice: { [string]: { passed: number, total: number } } = {}
+	local byTier: { [string]: { passed: number, total: number } } = {}
 	for _, result in report.results do
 		total += 1
 		local device = string.match(result.id, "^([^/]+)/") or "workspace"
+		local tier = tiers[result.id]
+		assert(tier ~= nil, "every play case must declare a tier")
+		for _, key in { tier, tier .. "." .. device } do
+			local count = byTier[key] or { passed = 0, total = 0 }
+			byTier[key] = count
+			count.total += 1
+			count.passed += if result.status == "passed" then 1 else 0
+		end
 		local tally = byDevice[device] or { passed = 0, total = 0 }
 		byDevice[device] = tally
 		tally.total += 1
@@ -584,11 +628,17 @@ local function main(scenario: Scenario, entrySource: string)
 				scores["fraction." .. device] = if tally.total > 0 then tally.passed / tally.total else 0
 			end
 		end
+		for tier, tally in byTier do
+			scores[tier .. ".passed"] = tally.passed
+			scores[tier .. ".total"] = tally.total
+			scores[tier .. ".fraction"] = tally.passed / tally.total
+		end
 		perfScores(host.perf, scores)
 		fs.writeStringToFile(args.scores :: string, Lute.encode(scores))
 	end
 	fs.writeStringToFile(args.outputs .. "/captures.json", Lute.encode(host.shots))
 	fs.writeStringToFile(args.outputs .. "/perf.json", Lute.encode(host.perf))
+	fs.writeStringToFile(args.outputs .. "/tiers.json", Lute.encode(tiers))
 	fs.writeStringToFile(args.outputs .. "/play.log", table.concat(host.lines, "\n") .. "\n")
 	print(Core.format(report))
 	if passed ~= total then

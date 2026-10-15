@@ -6,6 +6,7 @@ local S = require("../../extended/hidden/support")
 local cases: { Play.Case } = {
 	{
 		id = "quick-chat-open-send",
+		tier = "spec",
 		screen = "quick-chat",
 		run = function(qa, context)
 			if qa.device.id == "desktop" then
@@ -31,6 +32,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "quick-chat-cooldown",
+		tier = "spec",
 		screen = "chat-sent",
 		run = function(qa, context)
 			local before = Check.number(S.state(qa), "chatCount")

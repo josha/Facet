@@ -84,6 +84,22 @@ return function(harness: Verify.Harness)
 			background = { color = { r = 0, g = 0, b = 0 }, transparency = 0 },
 		}
 		dump.elements[1] = element
+		local actualJump = { x = 140, y = 10, width = 100, height = 40 }
+		element.interactive = true
+		t:expect(RaceSpace.touchControlsClear(dump, { actualJump })):toBe(false)
+		actualJump.x = 300
+		t:expect(RaceSpace.touchControlsClear(dump, { actualJump })):toBe(true)
+		local native: RaceSpace.TouchRect = {
+			x = element.rect.x,
+			y = element.rect.y,
+			width = element.rect.width,
+			height = element.rect.height,
+			path = element.path,
+		}
+		t:expect(RaceSpace.touchControlsClear(dump, { native })):toBe(true)
+		native.path = "PlayerGui.ContextActionGui.OtherButton"
+		t:expect(RaceSpace.touchControlsClear(dump, { native })):toBe(false)
+		element.interactive = false
 		t:expect(RaceSpace.centerClear(dump)):toBe(true)
 		element.rect.y = 410
 		t:expect(RaceSpace.centerClear(dump)):toBe(false)

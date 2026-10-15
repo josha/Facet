@@ -50,6 +50,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "shows-play",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("manual")
 			Check.visible(qa, context, PLAY, "the lobby shows a Play button", 20)
@@ -58,6 +59,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-modes",
+		tier = "spec",
 		screen = "modes",
 		shot = "2-modes",
 		run = function(qa, context)
@@ -73,6 +75,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "joins-the-queue",
+		tier = "spec",
 		screen = "queue",
 		shot = "3-queue",
 		run = function(qa, context)
@@ -85,6 +88,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "follows-the-server-count",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("addPlayers", { count = 2 })
 			Check.text(qa, context, "3%s*/%s*4", "the queue shows 3/4", 4)
@@ -93,6 +97,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "leaves-the-queue",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, LEAVE, "press Leave Queue")
 			Check.that(
@@ -108,6 +113,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "counts-down-when-full",
+		tier = "spec",
 		screen = "countdown",
 		shot = "4-countdown",
 		run = function(qa, context)
@@ -144,6 +150,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "stops-when-a-player-leaves",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("removePlayers", { count = 1 })
 			Check.text(qa, context, "need 1 more player", "the queue needs a player again", 4)
@@ -152,6 +159,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "starts-the-match",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("addPlayers", { count = 1 })
 			Check.text(qa, context, "match starts in", "the countdown starts again", 4)

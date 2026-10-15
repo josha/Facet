@@ -6,6 +6,7 @@ local S = require("../../extended/hidden/support")
 local cases: { Play.Case } = {
 	{
 		id = "party-search-clear",
+		tier = "spec",
 		screen = "party-empty",
 		run = function(qa, context)
 			S.tap(qa, context, "Party")
@@ -27,6 +28,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "party-invite-outcomes",
+		tier = "spec",
 		screen = "party-invite",
 		run = function(qa, context)
 			local offline = Check.visible(

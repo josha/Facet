@@ -46,6 +46,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "hud-shop-button",
+		tier = "spec",
 		run = function(qa, context)
 			Check.visible(qa, context, { role = "button", text = "shop" }, "the HUD shows a Shop button", 20)
 			qa:capture("1-hud")
@@ -53,6 +54,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "opens-shop",
+		tier = "spec",
 		screen = "shop",
 		shot = "2-shop",
 		run = function(qa, context)
@@ -64,6 +66,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-balances",
+		tier = "spec",
 		run = function(qa, context)
 			Check.text(qa, context, Check.count("320"), "the shop shows the 320 Coins balance")
 			Check.text(qa, context, Check.count("40"), "the shop shows the 40 Gems balance")
@@ -71,6 +74,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-prices-and-currency",
+		tier = "spec",
 		run = function(qa, context)
 			Check.text(qa, context, Check.count("250"), "the Sport Motor price is visible")
 			Check.text(qa, context, "coin", "prices name the Coins currency")
@@ -79,12 +83,14 @@ local behavior: { Case } = {
 	},
 	{
 		id = "marks-owned-items",
+		tier = "spec",
 		run = function(qa, context)
 			Check.that(context, ownedNear(qa, "Starter Motor"), "the Starter Motor shows Owned instead of Buy")
 		end,
 	},
 	{
 		id = "buys-affordable-item",
+		tier = "spec",
 		run = function(qa, context)
 			buy(qa, context, "Sport Motor")
 			local bought = Check.eventually(5, function()
@@ -104,6 +110,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "refuses-insufficient-coins",
+		tier = "spec",
 		screen = "feedback",
 		shot = "3-feedback",
 		run = function(qa, context)
@@ -118,6 +125,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "buys-with-gems",
+		tier = "spec",
 		run = function(qa, context)
 			buy(qa, context, "Amber Wheels")
 			local bought = Check.eventually(5, function()
@@ -130,6 +138,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "refuses-insufficient-gems",
+		tier = "spec",
 		run = function(qa, context)
 			buy(qa, context, "Gold Paint")
 			Check.text(qa, context, "not enough gems", "the shop explains that the player needs more Gems", 4)
@@ -138,6 +147,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "follows-server-balance",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("grant", { currency = "Coins", amount = 1000 })
 			local shown = qa:waitText("1[,%.]?070", 4) or qa:waitText("1%.07k", 1)
@@ -146,6 +156,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "closes-shop",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, { role = "button", text = "close" }, "close the shop")
 			Check.gone(qa, context, { text = "Sport Motor" }, "the shop closes", 4)

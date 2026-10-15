@@ -6,6 +6,7 @@ local S = require("../../extended/hidden/support")
 local cases: { Play.Case } = {
 	{
 		id = "tutorial-dock",
+		tier = "spec",
 		screen = "tutorial-dock",
 		run = function(qa, context)
 			S.tap(qa, context, "Tutorial")
@@ -21,6 +22,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "tutorial-shop-back",
+		tier = "spec",
 		screen = "tutorial-shop",
 		run = function(qa, context)
 			Check.text(qa, context, "step 2 of 3: shop", "second step points to Shop")
@@ -36,6 +38,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "tutorial-queue-skip",
+		tier = "spec",
 		screen = "tutorial-queue",
 		run = function(qa, context)
 			Check.text(qa, context, "step 3 of 3: race queue", "third step points to race queue")
