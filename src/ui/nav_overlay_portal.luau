@@ -3,6 +3,9 @@ local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local overlayPresence = require("./nav_overlay_presence")
+local rest = require("./rest")
+local fontReadiness = require("./font_readiness")
+local arrival = require("./overlay_arrival")
 
 export type Portal = {
 	available: (GuiObject) -> ComposeTypes.Readable<boolean>,
@@ -75,41 +78,83 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		return value
 	end
 
-	local function arrive(node: Instance): Instance
+	local function arrive(node: Instance, arrived: ComposeTypes.Cell<boolean>): Instance
 		local frames = ctx.config.services and ctx.config.services.RunService
 		if frames == nil then
+			arrived:set(true)
 			return node
 		end
 		local surfaces: { GuiObject } = {}
 		local parts: { Instance } = if node:IsA("GuiObject") then { node } else node:GetChildren()
 		for _, part in parts do
 			if part:IsA("GuiObject") and part.Visible then
-				part.Visible = false
 				table.insert(surfaces, part)
 			end
 		end
 		if #surfaces == 0 then
+			arrived:set(true)
 			return node
 		end
-		local connection: RBXScriptConnection? = nil
-		connection = frames.Heartbeat:Connect(function()
-			if connection then
-				connection:Disconnect()
-				connection = nil
-			end
+		if frames.PreRender == nil then
+			arrived:set(true)
 			for _, surface in surfaces do
-				if not surface.Visible then
+				surface.Visible = false
+			end
+			local connection: RBXScriptConnection? = nil
+			connection = frames.Heartbeat:Connect(function()
+				if connection then
+					connection:Disconnect()
+					connection = nil
+				end
+				for _, surface in surfaces do
 					surface.Visible = true
 				end
+			end)
+			Compose.cleanup(function()
+				if connection then
+					connection:Disconnect()
+				end
+			end)
+			return node
+		end
+		local fontsReady = fontReadiness(ctx, surfaces)
+		local ready = rest(ctx, function(): (string, boolean, boolean?)
+			local signature: { string } = {}
+			local filled = false
+			for _, surface in surfaces do
+				local descendants = surface:GetDescendants()
+				table.insert(descendants, surface)
+				filled = filled or (surface.AbsoluteSize.X > 0 and surface.AbsoluteSize.Y > 0)
+				for _, child in descendants do
+					if child:IsA("GuiObject") then
+						local value = `{child.AbsolutePosition}:{child.AbsoluteSize}:{child.Visible}`
+						if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+							value ..= `:{child.TextBounds}`
+						end
+						table.insert(signature, value)
+					end
+				end
+			end
+			return table.concat(signature, ";"), filled, fontsReady()
+		end, nil, true)
+		Compose.watch(function(use: ComposeTypes.Use)
+			if use(ready) then
+				arrived:set(true)
 			end
 		end)
-		Compose.cleanup(function()
-			if connection then
-				connection:Disconnect()
-				connection = nil
-			end
-		end)
-		return node
+		if node:GetAttribute("FacetArrivalGroup") == true then
+			return node
+		end
+		return Host.CanvasGroup {
+			Name = "OverlayArrival",
+			BackgroundTransparency = 1,
+			Size = ctx.types.UDim2.fromScale(1, 1),
+			GroupTransparency = function(use: ComposeTypes.Use): number
+				return if use(ready) then 0 else 1
+			end,
+			Interactable = ready,
+			node,
+		}
 	end
 	local function parent(anchor: Instance): GuiBase2d?
 		local layer = (ctx.config.overlayParent or anchor:FindFirstAncestorWhichIsA("LayerCollector")) :: GuiBase2d?
@@ -126,9 +171,13 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 	): Types.Child
 		local owner = assert(Compose.currentOwner())
 		local destination = Compose.cell(nil :: Instance?)
-		destination:set(ctx.config.overlayParent)
+		destination:set(if options and options.parent then options.parent() else ctx.config.overlayParent)
 		local function locate()
 			if owner.isDisposed() then
+				return
+			end
+			if options and options.parent then
+				destination:set(options.parent() or parent(anchor))
 				return
 			end
 			if ctx.config.overlayParent then
@@ -153,7 +202,11 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 					age = runtime.timeline({ duration = 0.001 }).elapsed
 				end
 				local function themed(): Instance
-					local node = build(phase)
+					local services = ctx.config.services.RunService
+					local arrived = Compose.cell(services == nil or services.PreRender == nil)
+					local entering = phase or { exiting = Compose.cell(false) }
+					arrival.bind(entering, arrived)
+					local node = build(entering)
 					local scope: Instance? = anchor
 					while scope and scope ~= target do
 						local link = scope:FindFirstChildWhichIsA("StyleLink")
@@ -170,7 +223,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 						end
 						scope = scope.Parent
 					end
-					return arrive(node)
+					return arrive(node, arrived)
 				end
 				if options and options.failure then
 					return Host.Folder({

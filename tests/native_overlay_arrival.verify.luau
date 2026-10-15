@@ -14,9 +14,9 @@ return function(verifyHarness: Verify.Harness)
 	local Compose: ComposeModule = Facet.Compose
 
 	local function signal()
-		local handlers: { () -> () } = {}
+		local handlers: { (number) -> () } = {}
 		return {
-			Connect = function(_: any, fn: () -> ())
+			Connect = function(_: any, fn: (number) -> ())
 				table.insert(handlers, fn)
 				return {
 					Disconnect = function()
@@ -29,7 +29,7 @@ return function(verifyHarness: Verify.Harness)
 			end,
 			Fire = function(_self: any)
 				for _, fn in table.clone(handlers) do
-					fn()
+					fn(1 / 60)
 				end
 			end,
 			count = function()
@@ -38,11 +38,11 @@ return function(verifyHarness: Verify.Harness)
 		}
 	end
 
-	local function world(build: (any) -> any)
+	local function world(build: (any) -> any, render: boolean?)
 		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
-		local frames = { Heartbeat = signal() }
+		local frames = { Heartbeat = signal(), PreRender = if render then signal() else nil }
 		local UI = Facet.controls(
 			runtime,
 			{
@@ -77,6 +77,34 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("presented surfaces arrive styled", function()
+		verifyHarness:case("waits for deferred geometry before the first painted frame", function()
+			local screen, frames, stop = world(function(UI: FacetControls)
+				return UI.Alert {
+					title = "Stable crop",
+					isPresented = Compose.cell(true),
+					actions = { { id = "ok", label = "Sell" } },
+				}
+			end, true)
+			local group = screen:FindFirstChild("OverlayArrival", true)
+			Verify.expect(group.GroupTransparency):toBe(1)
+			for _, node in group:GetDescendants() do
+				if node:IsA("GuiObject") then
+					node.AbsoluteSize = engineLib.types.Vector2.new(210, 40)
+				end
+			end
+			local render = assert(frames.PreRender)
+			render:Fire()
+			Verify.expect(group.GroupTransparency):toBe(1)
+			group:FindFirstChildWhichIsA("GuiObject").AbsoluteSize = engineLib.types.Vector2.new(236, 40)
+			render:Fire()
+			Verify.expect(group.GroupTransparency):toBe(1)
+			for _ = 1, 4 do
+				render:Fire()
+			end
+			Verify.expect(group.GroupTransparency):toBe(0)
+			stop()
+			Verify.expect(render.count()):toBe(0)
+		end)
 		verifyHarness:case("holds a newly presented surface hidden until the next frame, when the theme styles apply", {
 			id = "native_overlay_arrival::presented surfaces arrive styled::holds a newly presented surface hidden until the next frame, when the theme styles apply",
 			run = function()
