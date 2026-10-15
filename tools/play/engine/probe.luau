@@ -622,9 +622,15 @@ local function scrollers(): { ScrollingFrame }
 			table.insert(found, { scroller = object, area = window.width * window.height })
 		end
 	end)
-	table.sort(found, function(left, right): boolean
-		return left.area > right.area
-	end)
+	table.sort(
+		found,
+		function(
+			left: { scroller: ScrollingFrame, area: number },
+			right: { scroller: ScrollingFrame, area: number }
+		): boolean
+			return left.area > right.area
+		end
+	)
 	local ordered: { ScrollingFrame } = {}
 	for _, entry in found do
 		table.insert(ordered, entry.scroller)
