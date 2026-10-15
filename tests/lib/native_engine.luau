@@ -44,6 +44,7 @@ local types = (table.freeze(datatypes) :: unknown) :: Shared.RobloxTypes
 local Vector2 = library.Vector2
 
 local eventNames = {
+	"StyledPropertiesChanged",
 	"Activated",
 	"Focused",
 	"ReturnPressedFromOnScreenKeyboard",

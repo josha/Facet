@@ -39,6 +39,7 @@ return function(verifyHarness: Verify.Harness)
 	type Use = <T>(Readable<T>) -> T
 
 	local transitionOf = require("./lib/transition")
+	local styleProperties = require("./lib/style_properties")
 	local Compose = require("../src/vendor/compose/core")
 	local Roblox = require("../src/vendor/compose/roblox")
 	local context = require("../src/ui/context")
@@ -58,13 +59,94 @@ return function(verifyHarness: Verify.Harness)
 		for _, node in sheet:GetChildren() do
 			local rule = node :: StyleRule
 			if rule.Selector == selector then
-				return rule:GetProperties()
+				return styleProperties(rule)
 			end
 		end
 		error("No rule: " .. selector)
 	end
 
 	verifyHarness:suite("native themes and media", function()
+		verifyHarness:case("installs motion tokens before a palette token starts a theme transition", {
+			id = "native_themes_media::native themes and media::installs motion tokens before a palette token starts a theme transition",
+			run = function()
+				local engine, runtime = setup()
+				local nextPackage = themes.neutralPackage()
+				nextPackage.metrics.motion.normal = 0.4
+				nextPackage.style.themes[1].colors.content = { r = 0.8, g = 0.8, b = 0.8 }
+				local source = Compose.cell(assert((themes.define(themes.neutralPackage()))))
+				local stop, result = runtime.mount(function()
+					return themes.createStyleSheet(runtime, source, { types = engine.types })
+				end, engine.new("Folder"))
+				local sheet = result :: StyleSheet
+				local observed: number? = nil
+				local connection = sheet:GetAttributeChangedSignal("FacetColor_content"):Connect(function()
+					for _, child in sheet:GetChildren() do
+						local rule = child :: StyleRule
+						if rule.Selector == ".facet-text" then
+							observed = transitionOf(rule, "TextColor3").Time
+						end
+					end
+				end)
+				source:set(assert((themes.define(nextPackage))))
+				Verify.expect(observed):toBeFloat32(0.4)
+				connection:Disconnect()
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case(
+			"keeps palette roles distinct and updates their native tokens without rewriting color rules",
+			{
+				id = "native_themes_media::native themes and media::keeps palette roles distinct and updates their native tokens without rewriting color rules",
+				run = function()
+					local engine, runtime = setup()
+					local package = themes.neutralPackage()
+					package.style.themes[1].colors.accent = package.style.themes[1].colors.danger
+					local alternate = table.clone(package.style.themes[1])
+					alternate.name = "Alternate"
+					alternate.colors = table.clone(alternate.colors)
+					alternate.colors.accent = { r = 0.2, g = 0.3, b = 0.4 }
+					table.insert(package.style.themes, alternate)
+					local palette = Compose.cell(package.style.defaultTheme)
+					local definition = assert((themes.define(package)))
+					local stop, result = runtime.mount(function()
+						return themes.createStyleSheet(runtime, definition, {
+							types = engine.types,
+							theme = palette,
+						})
+					end, engine.new("Folder"))
+					local sheet = result :: StyleSheet
+					local writes = 0
+					for _, child in sheet:GetChildren() do
+						local rule = child :: StyleRule
+						if rule.Selector ~= ".facet-text" and rule.Selector ~= ".facet-accent-text" then
+							continue
+						end
+						local methods = (
+							rule :: unknown
+						) :: { SetProperties: (StyleRule, FixtureThemeTypes.RuleProperties) -> () }
+						local set = methods.SetProperties
+						methods.SetProperties = function(self, properties)
+							writes += 1
+							set(self, properties)
+						end
+					end
+					local content = style(sheet, ".facet-validation").TextColor3
+					palette:set("Alternate")
+					Verify.expect(style(sheet, ".facet-validation").TextColor3):toBe(content)
+					Verify.expect(style(sheet, ".facet-accent-text").TextColor3)
+						:toBe(engine.types.Color3.new(0.2, 0.3, 0.4))
+					Verify.expect(writes):toBe(0)
+					palette:set(package.style.defaultTheme)
+					Verify.expect(style(sheet, ".facet-accent-text").TextColor3):toBe(content)
+					Verify.expect(writes):toBe(0)
+					stop()
+					runtime:dispose()
+				end,
+			}
+		)
+
 		verifyHarness:case("resolves authored metric rules through distance and theme changes", {
 			id = "native_themes_media::native themes and media::resolves authored metric rules through distance and theme changes",
 			run = function()
@@ -311,7 +393,7 @@ return function(verifyHarness: Verify.Harness)
 					return linear(color.R) * 0.2126 + linear(color.G) * 0.7152 + linear(color.B) * 0.0722
 				end
 				local surface = style(sheet, ".facet-panel").BackgroundColor3
-				local a, b = luminance(link), luminance(surface)
+				local a, b = luminance(link :: Color3), luminance(surface :: Color3)
 				Verify.expect((math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)):toBeGreaterThanOrEqual(4.5)
 				stop()
 				runtime:dispose()
@@ -326,7 +408,9 @@ return function(verifyHarness: Verify.Harness)
 					return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
 				end, engine.new("Folder"))
 				for _, side in { "Left", "Right", "Top", "Bottom" } do
-					Verify.expect(style(sheet, ".facet-button.facet-radial-label::UIPadding")["Padding" .. side].Offset)
+					Verify.expect(
+						(style(sheet, ".facet-button.facet-radial-label::UIPadding")["Padding" .. side] :: UDim).Offset
+					)
 						:toBe(0)
 				end
 				stop()
@@ -378,7 +462,7 @@ return function(verifyHarness: Verify.Harness)
 				local stop, sheet: any = runtime.mount(function()
 					return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
 				end, engine.new("Folder"))
-				local base = style(sheet, ".facet-text").TextSize
+				local base = style(sheet, ".facet-text").TextSize :: number
 				preference:set("Largest")
 				Verify.expect(style(sheet, ".facet-text").TextSize):toBe(base + 6)
 				Verify.expect(style(sheet, ".facet-type-control").TextSize)
@@ -460,12 +544,12 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((transitionOf(surfaceRule, "BackgroundTransparency"))):toBe(timing)
 					Verify.expect((transitionOf(textRule, "TextSize"))):toBe(nil)
 					selection:set("Light")
-					Verify.expect(textRule:GetProperties().TextColor3):toBe(engine.types.Color3.new(0.1, 0.1, 0.1))
-					Verify.expect(surfaceRule:GetProperties().BackgroundColor3)
+					Verify.expect(styleProperties(textRule).TextColor3):toBe(engine.types.Color3.new(0.1, 0.1, 0.1))
+					Verify.expect(styleProperties(surfaceRule).BackgroundColor3)
 						:toBe(engine.types.Color3.new(0.9, 0.9, 0.9))
 					selection:set("Dark")
 					Verify.expect((transitionOf(textRule, "TextColor3"))):toBe(timing)
-					Verify.expect(textRule:GetProperties().TextColor3)
+					Verify.expect(styleProperties(textRule).TextColor3)
 						:toBe(engine.types.Color3.new(236 / 255, 239 / 255, 245 / 255))
 					Verify.expect(sheet:GetChildren()[1]):toBe(rules[1])
 					Verify.expect(#sheet:GetChildren()):toBe(#rules)
@@ -474,7 +558,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(transitionOf(textRule, "TextColor3").Time):toBe(0)
 					Verify.expect(transitionOf(surfaceRule, "BackgroundColor3").Time):toBe(0)
 					selection:set("Light")
-					Verify.expect(surfaceRule:GetProperties().BackgroundColor3)
+					Verify.expect(styleProperties(surfaceRule).BackgroundColor3)
 						:toBe(engine.types.Color3.new(0.9, 0.9, 0.9))
 					reduced:set(false)
 					local override = engine.types.TweenInfo.new(0.6, engine.types.Enum.EasingStyle.Linear)
@@ -1792,7 +1876,7 @@ return function(verifyHarness: Verify.Harness)
 		end
 
 		local function style(sheet: any, selector: string): { [string]: any }
-			return ruleNode(sheet, selector):GetProperties()
+			return styleProperties(ruleNode(sheet, selector))
 		end
 
 		local function find(root: any, name: string): any
@@ -1914,7 +1998,7 @@ return function(verifyHarness: Verify.Harness)
 						retuned.style.themes[1].colors.danger = { r = 0.5, g = 0, b = 0.1 }
 						package:set(retuned)
 						Verify.expect((ruleNode(sheet, ".facet-role-destructive"))):toBe(destructive)
-						Verify.expect(destructive:GetProperties().BackgroundColor3)
+						Verify.expect(styleProperties(destructive).BackgroundColor3)
 							:toBe(h.engine.types.Color3.new(0.5, 0, 0.1))
 						stop()
 						h.dispose()

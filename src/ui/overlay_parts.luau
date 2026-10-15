@@ -320,6 +320,10 @@ function parts.actions(
 				return if use(stacked) then D2.new(1, 0, 0, rowHeight) else D2.fromOffset(0, rowHeight)
 			end,
 			AutomaticSize = E.AutomaticSize.None,
+			TextWrapped = false,
+			TextTruncate = function(use: ComposeTypes.Use)
+				return if use(stacked) then E.TextTruncate.AtEnd else E.TextTruncate.None
+			end,
 			LayoutOrder = function(use: ComposeTypes.Use)
 				return if action.role == "cancel" then (if use(stacked) then #actions + 1 else 0) else index
 			end,

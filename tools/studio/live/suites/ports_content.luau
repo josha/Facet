@@ -1393,13 +1393,18 @@ add("menu-rows-floor-and-lead", {}, function(t)
 			local r = t.rect(row)
 			table.insert(named, { name = id, rect = r })
 			t.check(`{id} row is at least 44 px tall`, r.h >= 43.5, r.h)
-			local title = t.find(row, "Title")
+			local title = if row:IsA("TextButton") and row.ContentText ~= "" then row else t.find(row, "Title")
 			if title then
-				local x = title.AbsolutePosition.X - row.AbsolutePosition.X
+				t.check(`{id} label is drawn and fits`, t.fits(title))
+				local padding = title:FindFirstChildWhichIsA("UIPadding")
+				local inset = if padding
+					then padding.PaddingLeft.Offset + padding.PaddingLeft.Scale * title.AbsoluteSize.X
+					else 0
+				local x = title.AbsolutePosition.X - row.AbsolutePosition.X + inset
 				lead = lead or x
 				t.near(`{id} label starts where the badge row's label starts`, x, lead, 0.5)
 			else
-				t.check(`{id} has a Title label`, false)
+				t.check(`{id} has a text label`, false)
 			end
 		end
 	end

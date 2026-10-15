@@ -1,0 +1,165 @@
+diff --git a/src/client/Interface/HubPanels.luau b/src/client/Interface/HubPanels.luau
+index c9d8bd3f..b5c12ae5 100644
+--- a/src/client/Interface/HubPanels.luau
++++ b/src/client/Interface/HubPanels.luau
+@@ -183,12 +183,27 @@ local function mount(context: Hub.Context)
+ 	local rarity = "All"
+ 	local draft = "All"
+ 	local selected: Garage.Vehicle? = nil
++	local searchValue = ""
++	local sortValue = "Name"
++	local search = Kit.input("Search karts")
++	search.Parent = garageBody
++	local garageRows = Kit.create("Frame", {
++		BackgroundTransparency = 1,
++		AutomaticSize = Enum.AutomaticSize.Y,
++		Size = UDim2.new(1, 0, 0, 0),
++		Parent = garageBody,
++	}) :: Frame
++	Kit.list(Enum.FillDirection.Vertical, 8).Parent = garageRows
+ 	local filters = Kit.modal(screen, "Filters", "Filters")
+ 	local filterBody = body(filters)
+ 	local detail = Kit.modal(screen, "Kart", "Kart details")
+ 	local detailBody = body(detail)
+ 	local renderGarage: () -> ()
+ 	local renderDetail: () -> ()
++	search:GetPropertyChangedSignal("Text"):Connect(function()
++		searchValue = search.Text
++		renderGarage()
++	end)
+ 	for _, value in context.garage.rarities do
+ 		button(filterBody, value, function()
+ 			draft = value
+@@ -222,35 +237,57 @@ local function mount(context: Hub.Context)
+ 		end)
+ 	end
+ 	renderGarage = function()
+-		clear(garageBody)
++		clear(garageRows)
++		button(garageRows, "Clear", function()
++			search.Text = ""
++		end)
++		for _, name in { "Name", "Speed", "Rarity" } do
++			button(garageRows, name, function()
++				sortValue = name
++				renderGarage()
++			end)
++		end
+ 		for _, value in { "All", "Sprint", "Circuit", "Coast", "Favorites" } do
+-			button(garageBody, value, function()
++			button(garageRows, value, function()
+ 				category = value
+ 				renderGarage()
+ 			end)
+ 		end
+-		button(garageBody, "Inventory", function()
++		button(garageRows, "Inventory", function()
+ 			Kit.openPanel("Inventory")
+ 		end)
+-		button(garageBody, "Filters", function()
++		button(garageRows, "Filters", function()
+ 			draft = rarity
+ 			filters.setOpen(true)
+ 		end)
+-		button(garageBody, "Clear Filters", function()
++		button(garageRows, "Clear Filters", function()
+ 			rarity = "All"
+ 			renderGarage()
+ 		end)
+ 		local count = 0
+-		for _, kart in context.garage.vehicles do
++		local ordered = table.clone(context.garage.vehicles)
++		local ranks: { [string]: number } = { Legendary = 4, Epic = 3, Rare = 2, Common = 1 }
++		table.sort(ordered, function(a: Garage.Vehicle, b: Garage.Vehicle)
++			if sortValue == "Speed" and a.speed ~= b.speed then
++				return a.speed > b.speed
++			end
++			if sortValue == "Rarity" and a.rarity ~= b.rarity then
++				return ranks[a.rarity] > ranks[b.rarity]
++			end
++			return a.name < b.name
++		end)
++		for _, kart in ordered do
+ 			if
+ 				(
+ 					category == "All"
+ 					or kart.category == category
+ 					or (category == "Favorites" and garageState.favorites[kart.id])
+-				) and (rarity == "All" or kart.rarity == rarity)
++				)
++				and (rarity == "All" or kart.rarity == rarity)
++				and string.find(string.lower(kart.name), string.lower(searchValue), 1, true) ~= nil
+ 			then
+ 				count += 1
+-				button(garageBody, ("%s • Lv %d • %s"):format(kart.name, kart.level, kart.rarity), function()
++				button(garageRows, ("%s • Lv %d • %s"):format(kart.name, kart.level, kart.rarity), function()
+ 					selected = kart
+ 					renderDetail()
+ 					detail.setOpen(true)
+@@ -258,7 +295,7 @@ local function mount(context: Hub.Context)
+ 			end
+ 		end
+ 		if count == 0 then
+-			label(garageBody, "No vehicles match")
++			label(garageRows, "No vehicles match")
+ 		end
+ 	end
+ 	local garageButton = button(dock, "Garage", function()
+@@ -436,6 +473,57 @@ local function mount(context: Hub.Context)
+ 		end
+ 	end)
+ 	Kit.focus(playButton)
++	local scoreboard = Kit.modal(screen, "Scoreboard", "Scoreboard")
++	local scoreboardBody = body(scoreboard)
++	local scoreboardButton = button(summary, "Scoreboard", function()
++		scoreboard.setOpen(true)
++	end)
++	local function scoreboardRender(state: Round.State)
++		scoreboardButton.Visible = state.phase == "Round"
++		if not scoreboard.isOpen() then
++			return
++		end
++		clear(scoreboardBody)
++		label(scoreboardBody, "Racer / Team / Eliminations")
++		for _, heading in { "Racer", "Team", "Eliminations" } do
++			label(scoreboardBody, heading)
++		end
++		local racers = table.clone(state.fighters)
++		table.sort(racers, function(a: Round.Fighter, b: Round.Fighter)
++			return if a.eliminations == b.eliminations then a.name < b.name else a.eliminations > b.eliminations
++		end)
++		for _, racer in racers do
++			label(
++				scoreboardBody,
++				("%s %s / %s / %d %s"):format(
++					racer.name,
++					if racer.name == context.round.localName then "You" else "",
++					racer.team,
++					racer.eliminations,
++					if racer.eliminated then "OUT" else ""
++				)
++			)
++		end
++	end
++	scoreboard.panel:GetPropertyChangedSignal("Visible"):Connect(function()
++		scoreboardRender(context.round.getState())
++	end)
++	context.round.onStateChanged(scoreboardRender)
++	game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
++	game:GetService("ContextActionService")
++		:BindActionAtPriority(
++			"ScoreboardToggle",
++			function(_: string, state: Enum.UserInputState): Enum.ContextActionResult
++				if state == Enum.UserInputState.Begin and context.round.getState().phase == "Round" then
++					scoreboard.setOpen(not scoreboard.isOpen(), scoreboard.close)
++				end
++				return Enum.ContextActionResult.Sink
++			end,
++			false,
++			Enum.ContextActionPriority.High.Value,
++			Enum.KeyCode.Tab
++		)
++	scoreboardRender(context.round.getState())
+ end
+ 
+ return { mount = mount }

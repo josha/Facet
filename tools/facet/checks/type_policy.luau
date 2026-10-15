@@ -7,7 +7,7 @@ local Rule = require("../lib/rule")
 local VerifyLute = require("../../vendor/verify/src/lute")
 
 local BUDGET = "tools/typecheck/any_budget.json"
-local DIRECTORIES = { "src", "examples", "tools", "tests", "bench" }
+local DIRECTORIES = { "src", "eval", "examples", "tools", "tests", "bench" }
 local BUDGETED = { "examples", "tools", "tests", "bench" }
 
 export type Counts = { [string]: number }
@@ -81,8 +81,10 @@ end
 
 local function violations(counts: Counts, budget: Budget): { string }
 	local errors: { string } = {}
-	if (counts.src or 0) > 0 then
-		table.insert(errors, ("src contains %d forbidden any types"):format(counts.src))
+	for _, directory in { "src", "eval" } do
+		if (counts[directory] or 0) > 0 then
+			table.insert(errors, ("%s contains %d forbidden any types"):format(directory, counts[directory]))
+		end
 	end
 	for _, directory in BUDGETED do
 		local limit = budget[directory]

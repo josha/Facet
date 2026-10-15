@@ -46,7 +46,7 @@ export type Gesture = {
 	detector: (string, "grip" | "panel") -> Instance,
 	tallest: ComposeTypes.Formula<boolean>,
 	grabber: TextButton,
-	handle: Frame,
+	handle: TextButton,
 }
 
 local HANDLE = 20
@@ -524,7 +524,15 @@ return function(
 			SelectionOrder = -2,
 			Attributes = { FacetFocusPart = "Pill" } :: Types.Attributes,
 			AnchorPoint = V2.new(0.5, 0.5),
-			Position = D2.fromScale(0.5, 0.5),
+			Position = function(use: ComposeTypes.Use): UDim2
+				local side = from(use)
+				local offset = surfaces.inset(0, RESERVED[side], nil, use) + HANDLE / 2
+				return if side == "bottom"
+					then D2.new(0.5, 0, 0, offset)
+					elseif side == "left" then D2.new(1, -offset, 0.5, 0)
+					else D2.new(0, offset, 0.5, 0)
+			end,
+			Visible = indicator ~= "hidden",
 			Size = function(use: ComposeTypes.Use)
 				return if from(use) == "bottom" then D2.fromOffset(88, 44) else D2.fromOffset(44, 88)
 			end,
@@ -602,26 +610,6 @@ return function(
 				if nextUp(use) then "Resize: " .. word(selected(use).id) else "Close sheet"
 			)
 		end)
-		local handle = Host.Frame "DragHandle" {
-			BackgroundTransparency = 1,
-			ZIndex = 2,
-			AnchorPoint = function(use: ComposeTypes.Use)
-				return V2.new(if from(use) == "left" then 1 else 0, 0)
-			end,
-			Position = function(use: ComposeTypes.Use)
-				local side = from(use)
-				local carve = surfaces.inset(0, RESERVED[side], nil, use)
-				if side == "bottom" then
-					return D2.fromOffset(0, carve)
-				end
-				return if side == "left" then D2.new(1, -carve, 0, 0) else D2.fromOffset(carve, 0)
-			end,
-			Size = function(use: ComposeTypes.Use)
-				return if from(use) == "bottom" then D2.new(1, 0, 0, HANDLE) else D2.new(0, HANDLE, 1, 0)
-			end,
-			Visible = indicator ~= "hidden",
-			grabber :: Instance,
-		}
 		return {
 			edge = edge,
 			level = level,
@@ -644,7 +632,7 @@ return function(
 			detector = detector,
 			tallest = tallest,
 			grabber = grabber,
-			handle = handle,
+			handle = grabber,
 		}
 	end
 end

@@ -342,7 +342,33 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 				layout = layout,
 			}),
 		}
-		body = buildList(bodySpec, tree, true)
+		local previousSort = sort:peek()
+		body = buildList(bodySpec, tree, true, function(use: ComposeTypes.Use, viewport): number?
+			local rows = read(ordered, use)
+			local order = use(sort)
+			if order == previousSort then
+				return nil
+			end
+			for index, item in rows do
+				if assert(queries.indexOfKey)(keyOf(item, index)) ~= index then
+					return nil
+				end
+			end
+			previousSort = order
+			local selected = selection:peek()
+			for index, item in rows do
+				if selected[keyOf(item, index)] then
+					local at = assert(queries.placementOf)(index)
+					if at.offset < viewport.offset then
+						return assert(queries.offsetOf)(index, "start", viewport.size)
+					elseif at.offset + at.size > viewport.offset + viewport.size then
+						return assert(queries.offsetOf)(index, "end", viewport.size)
+					end
+					return viewport.offset
+				end
+			end
+			return 0
+		end)
 		local unit = Host.Frame({
 			Name = "LayoutUnit",
 			Size = D2.fromOffset(1, 1),

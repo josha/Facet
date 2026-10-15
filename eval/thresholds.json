@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "treatment": "facet",
+  "baseline": "plain",
+  "confidence": 0.95,
+  "resamples": 4000,
+  "seed": 20261014,
+  "minimumTasks": 5,
+  "rules": [
+    {
+      "id": "pass-rate-gain",
+      "metric": "passRate",
+      "atLeast": 0.25,
+      "why": "Facet runs pass the hidden checks at least 25 points more often than plain runs"
+    },
+    {
+      "id": "pass-rate-gain-interval",
+      "metric": "passRate",
+      "lower": 0,
+      "why": "the 95% interval of the pass-rate difference is above zero"
+    },
+    {
+      "id": "judge-win-rate",
+      "metric": "judgeWinRate",
+      "atLeast": 0.7,
+      "why": "the blind judge prefers the Facet screenshots in at least 70% of the comparisons"
+    },
+    {
+      "id": "judge-win-rate-interval",
+      "metric": "judgeWinRate",
+      "lower": 0.6,
+      "why": "the 95% interval of the judge win rate is above 0.60"
+    },
+    {
+      "id": "fewer-audit-violations",
+      "metric": "auditViolations",
+      "atMost": 0.4,
+      "why": "Facet interfaces have at least 60% fewer interface audit violations in each audit"
+    },
+    {
+      "id": "fewer-tokens",
+      "metric": "totalTokens",
+      "atMost": 0.5,
+      "why": "Facet runs use at most half of the tokens of plain runs"
+    },
+    {
+      "id": "less-wall-time",
+      "metric": "wallSeconds",
+      "atMost": 0.6,
+      "why": "Facet runs take at most 60% of the wall time of plain runs"
+    },
+    {
+      "id": "faster-turns",
+      "metric": "turnLatencyP50",
+      "upper": 1,
+      "why": "the median turn latency of Facet runs is lower: the 95% interval of the ratio is below 1"
+    }
+  ]
+}

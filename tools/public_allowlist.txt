@@ -34,6 +34,7 @@ tests/
 bench/
 tools/
 skills/
+eval/
 .github/
 package/
 # docs/plans/, docs/superpowers/ and artifacts/distribution-readiness/ hold private
@@ -111,3 +112,7 @@ artifacts/interaction-2.patch
 
 artifacts/lab-mount-report.md
 docs/proposals/travel-lifetime.md
+
+# Agent evals: the engine and Compose replacement review and the task recipe proposal.
+docs/proposals/engine-compose-replacements.md
+docs/proposals/task-recipes.md

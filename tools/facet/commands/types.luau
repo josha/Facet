@@ -2,7 +2,6 @@
 
 local stringext = require("@std/stringext")
 local luau = require("@lute/luau")
-local net = require("@std/net")
 local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
@@ -11,6 +10,7 @@ local Analyzer = require("../lib/analyzer")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local ControlProps = require("../lib/control_props")
+local Definitions = require("../lib/definitions")
 local Files = require("../lib/files")
 local Generator = require("../lib/engine_generator")
 local Hash = require("../lib/hash")
@@ -209,28 +209,8 @@ local function prepareLuteTypes(): LuteTypes
 end
 
 local function definitions(lockFile: string): string
-	local lock = decodeFile(lockFile)
-	local digest = Json.stringField(lock, "sha256") or fail(lockFile .. " has no sha256")
-	local url = Json.stringField(lock, "url") or fail(lockFile .. " has no url")
 	local file = Files.join(ARTIFACTS, if lockFile == PLUGIN_LOCK then "roblox-plugin.d.luau" else "roblox.d.luau")
-	if Files.isFile(file) and Hash.sha256(Files.read(file)) == digest then
-		return file
-	end
-	local fetched, response = pcall(function(): net.Response
-		return net.request(url)
-	end)
-	if not fetched then
-		fail(("could not download the Roblox definitions from %s: %s"):format(url, tostring(response)))
-	end
-	local answer = response :: net.Response
-	if not answer.ok then
-		fail(("could not download the Roblox definitions from %s: HTTP %d"):format(url, answer.status))
-	end
-	if Hash.sha256(answer.body) ~= digest then
-		fail("Roblox definitions differ from their pinned SHA-256")
-	end
-	Files.write(file, answer.body)
-	return file
+	return Definitions.resolve(lockFile, file)
 end
 
 local function analyze(
@@ -290,6 +270,8 @@ local function analyze(
 end
 
 local function projects(): { Analyzer.Project }
+	local Bench = require("../lib/facetbench")
+	Bench.prepare(Files.cwd())
 	local listed = Run.git(PROJECTS)
 	if not listed.ok then
 		fail("git ls-files failed: " .. stringext.trim(listed.stderr))
@@ -301,6 +283,9 @@ local function projects(): { Analyzer.Project }
 			seen[project] = true
 			table.insert(names, project)
 		end
+	end
+	if not seen[Bench.project] then
+		table.insert(names, Bench.project)
 	end
 	table.sort(names)
 	local root = Files.cwd()
@@ -1065,6 +1050,21 @@ end
 cases = function(): { Case.Case }
 	return {
 		{
+			name = "control option origins retain native hooks, binding variants and aliases",
+			run = function(): string?
+				local origins = ControlProps.optionOrigins(".")
+				return Case.first(
+					Case.equal(origins.ButtonProps.ref, "TextButtonProps", "native hook"),
+					Case.equal(origins.ToggleCellProps.value, "CellBinding", "cell binding"),
+					Case.equal(origins.ToggleRequestProps.value, "RequestBinding", "request binding"),
+					Case.equal(origins.SliderCellProps.range, "SliderCellBinding", "cell variant"),
+					Case.equal(origins.SliderRangeProps.range, "SliderRangeBinding", "range variant"),
+					Case.equal(origins.CollectionSpec.from, origins.KeyedCollectionSpec.from, "collection alias"),
+					Case.equal(origins.KeyedCollectionSpec.rowActions, nil, "direct override")
+				)
+			end,
+		},
+		{
 			name = "inventory includes each repository area and untracked files",
 			run = function(): string?
 				local existing: { [string]: boolean } = {}
@@ -1547,7 +1547,20 @@ local command: Cli.Command = {
 	usage = USAGE,
 	values = { "solver", "files", "flag", "definitions", "creator-docs" },
 	cases = function(): { Case.Case }
-		return cases()
+		local list = cases()
+		table.insert(list, {
+			name = "the analyzers accept native and Lute types and reject planted scalar faults",
+			run = function(): string?
+				analyzerVersion()
+				prepareLuteTypes()
+				local code = 0
+				for _, solver in { "old", "new" } do
+					code = math.max(code, liveSelftest(flagsFor(solver, {})))
+				end
+				return Case.equal(code, 0, "types selftest")
+			end,
+		})
+		return list
 	end,
 	run = run,
 }

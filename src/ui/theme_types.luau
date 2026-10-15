@@ -14,6 +14,7 @@ export type MotionTimingPatch = { enter: number?, exit: number? }
 export type SpringMetric = { period: number, damping: number }
 export type SpringMetricPatch = { period: number?, damping: number? }
 export type MotionMetrics = {
+	typewriter: { grapheme: number, pause: number }?,
 	fast: number,
 	normal: number,
 	press: number?,
@@ -40,6 +41,7 @@ export type MotionMetrics = {
 	fling: { [string]: number }?,
 }
 export type MotionMetricsPatch = {
+	typewriter: { grapheme: number?, pause: number? }?,
 	fast: number?,
 	normal: number?,
 	press: number?,

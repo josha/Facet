@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "facetbench-slice",
+  "tasks": ["tasks/racing-hub/slice"],
+  "arms": [
+    {
+      "id": "plain",
+      "overlay": ["arms/shared", "../artifacts/facetbench/arm-shared", "arms/plain"],
+      "instructions": "arms/plain/AGENTS.md"
+    },
+    {
+      "id": "facet",
+      "overlay": ["arms/shared", "../artifacts/facetbench/arm-shared", "arms/facet", "../artifacts/facetbench/arm-facet"],
+      "instructions": "arms/facet/AGENTS.md"
+    }
+  ],
+  "agents": [
+    {
+      "id": "codex-sol",
+      "adapter": "codex",
+      "model": "gpt-6.1-sol",
+      "options": {
+        "effort": "medium",
+        "arguments": ["--approve-for-me", "--ignore-user-config", "--disable", "apps", "--disable", "image_generation", "--disable", "multi_agent", "--disable", "computer_use", "--disable", "browser_use", "--disable", "plugins"]
+      }
+    }
+  ],
+  "seeds": [1],
+  "parallelism": 1,
+  "evidence": "../artifacts/facetbench/slice",
+  "budgets": {
+    "wallSeconds": 3600
+  },
+  "devices": [
+    {
+      "id": "desktop",
+      "width": 1920,
+      "height": 1080,
+      "scale": 1,
+      "input": ["mouse", "keyboard"]
+    },
+    {
+      "id": "phone-portrait",
+      "width": 390,
+      "height": 844,
+      "scale": 1,
+      "input": ["touch"]
+    }
+  ]
+}

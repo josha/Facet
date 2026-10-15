@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local styleProperties = require("./lib/style_properties")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -100,7 +101,7 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(readout.AutomaticSize):toBe(w.engine.types.Enum.AutomaticSize.Y)
 						w.bounds(readout, width - 80, 24)
 						local sheet, stopSheet = sheetFor(theme)
-						local paint = assert(rule(sheet, ".facet-surface")):GetProperties().BackgroundColor3
+						local paint = styleProperties(assert(rule(sheet, ".facet-surface"))).BackgroundColor3
 						local palette = theme.style.themes[if mode == "foundation-dark" then 1 else 2].colors.surface
 						Verify.expect(paint):toBe(w.engine.types.Color3.new(palette.r, palette.g, palette.b))
 						stopSheet()
@@ -1209,11 +1210,11 @@ return function(verifyHarness: Verify.Harness)
 						w.stop()
 					end
 					local sheet, stop = sheetFor(package(name))
-					local plate = assert(rule(sheet, ".facet-badge-status")):GetProperties().BackgroundColor3
+					local plate = styleProperties(assert(rule(sheet, ".facet-badge-status"))).BackgroundColor3
 					for _, status in
 						{ "warning", "error", "accent", "neutral" } :: { "accent" | "error" | "neutral" | "warning" }
 					do
-						local mark = assert(rule(sheet, ".facet-status-" .. status)):GetProperties().BackgroundColor3
+						local mark = styleProperties(assert(rule(sheet, ".facet-status-" .. status))).BackgroundColor3
 						Verify.expect(`{name} {status} {mark == plate}`):toBe(`{name} {status} false`)
 					end
 					stop()
@@ -1242,7 +1243,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local neutral = themes.neutralPackage()
 				local sheet, stop = sheetFor(neutral)
-				local stroke = assert(rule(sheet, ".facet-shortcut-hint::UIStroke")):GetProperties()
+				local stroke = styleProperties(assert(rule(sheet, ".facet-shortcut-hint::UIStroke")))
 				Verify.expect(stroke.Thickness):toBe(neutral.metrics.strokes.hairline)
 				stop()
 				for thickness, expected in { [0] = false, [2] = true } :: { [number]: boolean } do

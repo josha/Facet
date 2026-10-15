@@ -53,6 +53,21 @@ return function(verifyHarness: Verify.Harness)
 		local flow = w.find("SheetFlow")
 		flow:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = Vector2.new(500, height - 16)
 	end
+	local function sheetInsets(
+		w: { find: (string) -> GuiObject }
+	): { left: number, top: number, right: number, bottom: number }
+		local room, panel = w.find("Room"), w.find("SheetPanel")
+		return {
+			left = room.Position.X.Offset,
+			top = room.Position.Y.Offset,
+			right = -room.Size.X.Offset - room.Position.X.Offset,
+			bottom = panel.Size.Y.Offset - room.Size.Y.Offset - room.Position.Y.Offset,
+		}
+	end
+	local function insetSides(w: { find: (string) -> GuiObject }): string
+		local inset = sheetInsets(w)
+		return `{inset.top} {inset.right} {inset.bottom} {inset.left}`
+	end
 
 	local function built(fn: (any, any) -> any): any
 		return { __build = fn }
@@ -354,7 +369,7 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 				local none = mount({ contentInset = "none" })
 				Verify.expect(none.find("SheetFlow"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Offset):toBe(0)
-				Verify.expect(none.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Offset):toBe(16)
+				Verify.expect(sheetInsets(none).left):toBe(16)
 				none.stop()
 			end,
 		})
@@ -1263,8 +1278,8 @@ return function(verifyHarness: Verify.Harness)
 	verifyHarness:suite("native Sheet: the grabber sits on the edge the sheet came from", function()
 		local WIDE = { room = Vector2.new(1200, 800), motionLevel = "none" }
 		local function grip(w: any): (any, any, any)
-			local handle = w.find("DragHandle")
-			return handle, w.find("Pill"), w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding")
+			local handle = w.find("Grabber")
+			return handle, w.find("Pill"), sheetInsets(w)
 		end
 
 		verifyHarness:case("links the native grabber to the Header Close selection stop", {
@@ -1321,8 +1336,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("the grip and column share an unpadded presentation group", {
-			id = "native_sheet_parts::native Sheet: the grabber sits on the edge the sheet came from::the grip and column share an unpadded presentation group",
+		verifyHarness:case("the grip and content share an unpadded presentation group", {
+			id = "native_sheet_parts::native Sheet: the grabber sits on the edge the sheet came from::the grip and content share an unpadded presentation group",
 			run = function()
 				local bindThemes = require("../src/ui/themes")
 				local fantasy = (require :: any)("../examples/themes/fantasy_ornate").build(bindThemes(Compose))
@@ -1331,14 +1346,14 @@ return function(verifyHarness: Verify.Harness)
 					local panel = w.find("SheetPanel")
 					local group = panel:FindFirstChild("Fade")
 					Verify.expect(group.ClassName):toBe("CanvasGroup")
-					Verify.expect(w.find("DragHandle").Parent):toBe(group)
+					Verify.expect(w.find("Grabber").Parent):toBe(group)
 					Verify.expect(group:FindFirstChildWhichIsA("UIListLayout")):toBeNil()
 					Verify.expect(group:FindFirstChildWhichIsA("UIPadding")):toBeNil()
 					Verify.expect((panel:FindFirstChildWhichIsA("UIListLayout"))):toBeNil()
 					local inset = panel:FindFirstChildWhichIsA("UIPadding")
 					Verify.expect(inset == nil or (inset.PaddingLeft.Offset == 0 and inset.PaddingTop.Offset == 0))
 						:toBe(true)
-					Verify.expect(w.find("SheetColumn").Parent):toBe(group)
+					Verify.expect(w.find("Room").Parent):toBe(group)
 					w.stop()
 				end
 			end,
@@ -1349,12 +1364,13 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = mount(nil, WIDE)
 				local handle, pill, padding = grip(w)
-				Verify.expect(handle.Size):toBe(w.engine.types.UDim2.new(1, 0, 0, 20))
-				Verify.expect(handle.Position):toBe(w.engine.types.UDim2.new(0, 0, 0, 0))
+				Verify.expect(handle.Size):toBe(w.engine.types.UDim2.fromOffset(88, 44))
+				Verify.expect(handle.Position):toBe(w.engine.types.UDim2.new(0.5, 0, 0, 10))
+				Verify.expect(handle.AnchorPoint):toBe(w.Vector2.new(0.5, 0.5))
 				Verify.expect(pill.Size):toBe(w.engine.types.UDim2.fromOffset(36, 5))
 				Verify.expect((handle:IsDescendantOf(w.find("Room")))):toBe(false)
-				Verify.expect(padding.PaddingTop.Offset):toBe(40)
-				Verify.expect(padding.PaddingLeft.Offset):toBe(padding.PaddingRight.Offset)
+				Verify.expect(padding.top):toBe(40)
+				Verify.expect(padding.left):toBe(padding.right)
 				w.stop()
 			end,
 		})
@@ -1364,20 +1380,20 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = mount({ placement = "side" :: "side" }, WIDE)
 				local handle, pill, padding = grip(w)
-				Verify.expect(handle.Size):toBe(w.engine.types.UDim2.new(0, 20, 1, 0))
-				Verify.expect(handle.AnchorPoint):toBe(w.Vector2.new(0, 0))
-				Verify.expect(handle.Position):toBe(w.engine.types.UDim2.new(0, 0, 0, 0))
+				Verify.expect(handle.Size):toBe(w.engine.types.UDim2.fromOffset(44, 88))
+				Verify.expect(handle.AnchorPoint):toBe(w.Vector2.new(0.5, 0.5))
+				Verify.expect(handle.Position):toBe(w.engine.types.UDim2.new(0, 10, 0.5, 0))
 				Verify.expect(pill.Size):toBe(w.engine.types.UDim2.fromOffset(5, 36))
-				Verify.expect(padding.PaddingLeft.Offset - 28):toBe(padding.PaddingRight.Offset)
-				Verify.expect(padding.PaddingTop.Offset):toBe(12)
-				Verify.expect(padding.PaddingRight.Offset):toBe(16)
+				Verify.expect(padding.left - 28):toBe(padding.right)
+				Verify.expect(padding.top):toBe(12)
+				Verify.expect(padding.right):toBe(16)
 				w.stop()
 				local left = mount({ placement = "side" :: "side", edge = "left" :: "left" }, WIDE)
 				local leftHandle, _, leftPadding = grip(left)
-				Verify.expect(leftHandle.AnchorPoint):toBe(left.Vector2.new(1, 0))
-				Verify.expect(leftHandle.Position):toBe(left.engine.types.UDim2.new(1, 0, 0, 0))
-				Verify.expect(leftPadding.PaddingRight.Offset):toBe(44)
-				Verify.expect(leftPadding.PaddingLeft.Offset):toBe(16)
+				Verify.expect(leftHandle.AnchorPoint):toBe(left.Vector2.new(0.5, 0.5))
+				Verify.expect(leftHandle.Position):toBe(left.engine.types.UDim2.new(1, -10, 0.5, 0))
+				Verify.expect(leftPadding.right):toBe(44)
+				Verify.expect(leftPadding.left):toBe(16)
 				left.stop()
 			end,
 		})
@@ -1388,8 +1404,8 @@ return function(verifyHarness: Verify.Harness)
 				local w = mount({ dragIndicator = "hidden", placement = "side" :: "side" }, WIDE)
 				local handle, _, padding = grip(w)
 				Verify.expect(handle.Visible):toBe(false)
-				Verify.expect(padding.PaddingLeft.Offset):toBe(16)
-				Verify.expect(padding.PaddingTop.Offset):toBe(12)
+				Verify.expect(padding.left):toBe(16)
+				Verify.expect(padding.top):toBe(12)
 				w.stop()
 			end,
 		})
@@ -1476,15 +1492,15 @@ return function(verifyHarness: Verify.Harness)
 						{ id = "Apply", label = "Apply", onActivate = noop } :: OverlayAction,
 					},
 				}, { theme = fantasy })
-				Verify.expect((sides(w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding")))):toBe("70 46 42 46")
-				local bar = w.find("DragHandle").Position.Y.Offset
-				Verify.expect(bar >= 30 and bar + 20 <= 58):toBe(true)
+				Verify.expect((insetSides(w))):toBe("70 46 42 46")
+				local bar = w.find("Grabber").Position.Y.Offset
+				Verify.expect(bar - 10 >= 30 and bar + 10 <= 58):toBe(true)
 				Verify.expect((w.find("Grabber"):GetAttribute("FacetFocusPart"))):toBe("Pill")
 				w.stop()
 				local side = mount({ placement = "side" :: "side" }, { theme = fantasy, room = Vector2.new(1200, 800) })
-				Verify.expect((sides(side.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding")))):toBe("42 46 42 74")
-				local x = side.find("DragHandle").Position.X.Offset
-				Verify.expect(x >= 30 and x + 20 <= 58):toBe(true)
+				Verify.expect((insetSides(side))):toBe("42 46 42 74")
+				local x = side.find("Grabber").Position.X.Offset
+				Verify.expect(x - 10 >= 30 and x + 10 <= 58):toBe(true)
 				side.stop()
 			end,
 		})
@@ -1495,13 +1511,15 @@ return function(verifyHarness: Verify.Harness)
 				local themes = bindThemes(Compose)
 				local theme = Compose.cell(fantasy)
 				local w = mount({ contentInset = "none", dragIndicator = "hidden" }, { theme = theme })
-				local padding = w.find("SheetColumn"):FindFirstChildWhichIsA("UIPadding")
-				Verify.expect((sides(padding))):toBe("42 46 42 46")
+				local padding = function(): string
+					return insetSides(w)
+				end
+				Verify.expect((padding())):toBe("42 46 42 46")
 				theme:set((require :: any)("../examples/themes/fantasy_parchment").build(themes))
-				Verify.expect((sides(padding))):toBe("30 34 30 34")
+				Verify.expect((padding())):toBe("30 34 30 34")
 				local neutral = assert(themes.define(themes.neutralPackage()))
 				theme:set(neutral)
-				Verify.expect((sides(padding))):toBe("12 16 12 16")
+				Verify.expect((padding())):toBe("12 16 12 16")
 				w.stop()
 			end,
 		})

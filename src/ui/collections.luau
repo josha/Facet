@@ -18,10 +18,13 @@ local CollectionTypes = require("./collection_types")
 local CollectionProps = require("./collection_props")
 local ControlTypes = require("./control_types")
 
+export type ScrollPolicy = (ComposeTypes.Use, ComposeTypes.OrderedCollectionViewport) -> number?
+
 export type BuildList = <V, K>(
 	CollectionProps.KeyedCollectionSpec<V, K>,
 	TreeTypes.Tree<V, K>?,
-	boolean?
+	boolean?,
+	ScrollPolicy?
 ) -> ScrollingFrame
 
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
@@ -93,7 +96,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		kind: ComposeTypes.OrderedCollectionLayoutKind,
 		keyOf: (V, number) -> K,
 		tree: TreeTypes.Tree<V, K>?,
-		actionsWrapped: boolean?
+		actionsWrapped: boolean?,
+		scrollPolicy: ScrollPolicy?
 	): ScrollingFrame
 		assert(
 			spec.contentOverflow == nil or table.find({ "visible", "clip" }, read(spec.contentOverflow)),
@@ -285,7 +289,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			cross:set(if horizontal then dimensions.Y else dimensions.X)
 			local previous = viewport:peek()
 			if previous.offset ~= offset or previous.size ~= extent then
-				viewport:set({ offset = offset, size = extent })
+				viewport:set({ offset = offset, size = extent, offsetRevision = previous.offsetRevision })
 			end
 		end)
 		local resetKey: string? = nil
@@ -300,11 +304,24 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 				view.initialFollow = false
 				desired = math.max(0, current.extent - box.size)
 			end
+			local policyOffset = if scrollPolicy then scrollPolicy(use, box) else nil
+			if policyOffset ~= nil then
+				desired = policyOffset
+			end
+			if reset then
+				desired = 0
+			end
 			if desired ~= nil then
 				setOffset(desired)
 			end
-			if reset then
-				setOffset(0)
+			if policyOffset ~= nil or reset then
+				local current = viewport:peek()
+				local at = root.CanvasPosition
+				viewport:set({
+					offset = math.max(0, (if horizontal then at.X else at.Y) - mainEdge()),
+					size = current.size,
+					offsetRevision = (current.offsetRevision or 0) + 1,
+				})
 			end
 		end)
 		local focusScope, eligible = createFocus(ctx, view, editor, root, setOffset)
@@ -363,7 +380,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		spec: CollectionProps.CollectionSpec<V, K>,
 		kind: ComposeTypes.OrderedCollectionLayoutKind,
 		tree: TreeTypes.Tree<V, K>?,
-		actionsWrapped: boolean?
+		actionsWrapped: boolean?,
+		scrollPolicy: ScrollPolicy?
 	): ScrollingFrame
 		if spec.key == nil then
 			return collection(
@@ -388,7 +406,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			kind,
 			(key :: unknown) :: (V, number) -> K,
 			tree,
-			actionsWrapped
+			actionsWrapped,
+			scrollPolicy
 		)
 	end
 	local function list<V, K>(spec: CollectionProps.CollectionSpec<V, K>): ScrollingFrame
@@ -407,8 +426,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 	return function<V, K>(
 		spec: CollectionProps.KeyedCollectionSpec<V, K>,
 		tree: TreeTypes.Tree<V, K>?,
-		actionsWrapped: boolean?
+		actionsWrapped: boolean?,
+		scrollPolicy: ScrollPolicy?
 	): ScrollingFrame
-		return construct(spec, "list", tree, actionsWrapped)
+		return construct(spec, "list", tree, actionsWrapped, scrollPolicy)
 	end
 end

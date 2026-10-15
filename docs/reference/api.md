@@ -44,8 +44,9 @@ The exported Luau types include `Facet`, `ComposeModule`, `ComposeRobloxModule`,
 `CivilDate`, `CivilRange`, `CivilLocale`, `CivilDateModule`,
 and the `Props` and `Spec` contracts of each control. The layout types include
 `Space`, `Padding` and `Extent`. `RowActionsOptions` types collection row action
-callbacks. `SheetDetent` types a sheet detent entry. `Cell<T>`, `Readable<T>`,
-`Runtime`, `Owner` and `Use` are the Compose types. Collection, menu and picker
+callbacks. `SheetDetent` types a sheet detent entry. `Facet.Cell<T>`,
+`Facet.Readable<T>`, `Facet.Runtime`, `Facet.Owner` and `Facet.Use` are the
+Compose types. Collection, menu and picker
 contracts keep the item and value types through callbacks. Native properties use
 the Roblox property types. For example, `Size` accepts a `UDim2` or a reactive
 source of a `UDim2`.
@@ -343,6 +344,21 @@ the state. An input value control writes a writable cell when the related
 callback is absent. If you supply `onChange` or `onToggle`, the callback is a
 request. Update the model in the callback to accept it. Navigation controls
 document their own write-then-notify behavior below.
+
+In strict Luau, `Facet.Cell<T>` types a writable cell, `Facet.Readable<T>`
+types a value that a `use` call reads, and `Facet.Use` types the `use`
+parameter, `<T>(Facet.Readable<T>) -> T`. When the type checker cannot infer a
+`function(use)` body, for example a body that reads cells of two types, give
+the parameter the type: `function(use: Facet.Use)`. A collection `render`
+receives `current: Facet.Readable<Item>`.
+
+```luau
+local coins: Facet.Cell<number> = Compose.cell(0)
+local name: Facet.Cell<string> = Compose.cell("Ann")
+local label = UI.Text "Coins" {
+    text = function(use: Facet.Use) return use(name) .. ": " .. use(coins) end,
+}
+```
 
 ### Factory options
 
@@ -3452,13 +3468,25 @@ collection. A list wraps only along its scrolling axis.
 
 Native properties and children stay available.
 
+In strict Luau, give the spec a type on a local and pass the local to the
+constructor. `Facet.KeyedCollectionSpec<Item, Key>` is a spec with `key`.
+`Facet.IdentityCollectionSpec<Item>` is a spec without `key`. Outline and
+Table use `Facet.KeyedOutlineSpec`, `Facet.IdentityOutlineSpec`,
+`Facet.KeyedTableSpec` and `Facet.IdentityTableSpec`. The type gives `render`,
+`current` and `use` their types, so they need no annotation. A key function, a
+positional child such as `UI.fill()` or an unannotated `render` in an inline
+spec makes the type checker report `None of the overloads ... are compatible`
+without the cause. Put the type on the spec to see the cause.
+
 ```luau
-local rows = Compose.cell({ { id = "a", title = "Amber" } })
-local list = UI.VirtualList {
+type Item = { id: string, title: string }
+
+local rows = Compose.cell({ { id = "a", title = "Amber" } } :: { Item })
+local spec: Facet.KeyedCollectionSpec<Item, string> = {
+    UI.fill(),
     from = rows,
-    key = "id",
+    key = function(item, _index) return item.id end,
     itemSize = 52,
-    Size = UDim2.fromScale(1, 1),
     render = function(current)
         return UI.Button {
             label = function(use) return use(current).title end,
@@ -3467,6 +3495,7 @@ local list = UI.VirtualList {
         }
     end,
 }
+local list = UI.VirtualList "Rows" (spec)
 ```
 
 ### Card
@@ -3582,6 +3611,11 @@ UI.VirtualGrid {
 ```
 
 ### Table
+
+When `sort` changes, Table returns the body to the top. If a selected row is
+in the new order, Table scrolls the minimum distance to show the whole row.
+With multiple selected rows, Table uses the first selected row in the new
+order. VirtualList, VirtualGrid and Outline keep their native anchor policy.
 
 `from`, `key` and `columns` define the rows. `key` has the same forms as for
 VirtualList. A column has:
@@ -3956,6 +3990,92 @@ press.
 | `AvatarGroup` | `items` with id, name, image, userId, icon and presence, and an optional `resource` function that returns an `ImageResource`. max (4); stacked or spread layout; count or ellipsis overflow; onOverflow; diameter or controlSize. A stacked group has the `facet-avatar-stack` tag, and the theme draws a surface ring around each face. The faces take no input. The overflow chip is the only target: an `OverflowGap` keeps it clear of the overlapping faces, and with touch or a gamepad it is at least `targetSizes.minimum` on both axes. The group binds no gamepad button, so ButtonB reaches the screen. |
 | `Stage` | A native ViewportFrame. A `camera` CFrame or a borrowed Camera, `fieldOfView`, `content(runtime, world, live)` for 3D content that Compose owns, and `lazy`. |
 
+### HUD formatting
+
+`Facet.format` is a frozen namespace of pure functions. No runtime is required.
+All three functions refuse NaN and infinity with an error.
+
+- `compact(value: number, options: CompactOptions?) -> string` uses K, M, B and T.
+  `significantDigits` defaults to 3 and accepts whole numbers from 1 through 15.
+  It trims trailing decimal zeros and promotes a rounded value to the next suffix.
+  For example, 93210 becomes `93.2K`, 2350 becomes `2.35K`, and 999950 becomes `1M`.
+  Values above T keep the T suffix. Small fractions can use exponent notation.
+- `grouped(value: number, options: GroupedOptions?) -> string` groups digits in
+  threes. `decimals` defaults to 0 and accepts whole numbers from 0 through 15.
+  It rounds to that decimal count and keeps the decimal zeros. `separator`
+  defaults to `,`. The decimal indicator is `.`. These formats do not select a locale.
+- `duration(seconds: number, options: DurationOptions?) -> string` clamps below
+  zero and discards fractional seconds. It shows `m:ss` below an hour and
+  `h:mm:ss` at or above an hour. `hours = true` always shows the hours field.
+
+```luau
+UI.Text { text = Facet.format.compact(93210), textRole = "numeral" }
+UI.Text { text = Facet.format.grouped(1234567.5, { decimals = 1, separator = "," }) }
+UI.Text { text = Facet.format.duration(3723) }
+```
+
+### Timer
+
+`UI.Timer(spec: TimerProps) -> TextLabel` shows a deadline or elapsed time.
+Set exactly one of `deadline` or `start`. Each accepts a number, a Compose
+readable or a function of `use`. A changed value updates the same label.
+Times and clock results must be finite.
+
+`now: (() -> number)?` defaults to `runtime.host.frames.now`. Use the same
+clock and time unit as the deadline or start. For a server deadline, pass a
+clock that reads server time. Remaining time rounds up; elapsed time rounds
+down. A future start shows zero until a full elapsed second has passed.
+`hours = true` forces the hours field. `textRole` selects a theme type role.
+Native TextLabel properties, events, children and `ref` also apply. Timer uses
+Text and leaves the font to the theme.
+
+The Compose scheduler updates each displayed second and stops at completion.
+Unmount cancels scheduled work. `onComplete()` runs once when a deadline is
+reached, including an expired initial deadline. A changed deadline starts a
+new completion cycle. Elapsed timers do not complete. To bind completion,
+pass a `TimerControls` table as `controls`. The control sets its `completed`
+field to a readable boolean and clears the field on unmount. Completion is a
+display signal; the game owns round state and server validation.
+
+```luau
+local timer: Facet.TimerControls = {}
+local roundDeadline = Compose.cell(os.clock() + 77)
+UI.Timer "Round" {
+    deadline = roundDeadline,
+    now = os.clock,
+    controls = timer,
+    onComplete = function() print("Time reached") end,
+}
+UI.Text { text = function(use) return if use(assert(timer.completed)) then "Round complete" else "Playing" end }
+```
+
+### Typewriter
+
+`UI.Typewriter(spec: TypewriterProps) -> TextLabel` takes the Text options and
+reveals the full `text` through native `MaxVisibleGraphemes`. It never slices
+the string. It counts graphemes in engine `ContentText`, so rich-text tags and
+entities do not add reveal steps. A new text value restarts the reveal.
+`MaxVisibleGraphemes`, a middle cut and `reveal = "auto"` are refused.
+
+The theme tokens `motion.typewriter.grapheme` (seconds per grapheme, default
+0.035) and `motion.typewriter.pause` (initial seconds, default 0) set timing.
+The interval must be positive and the pause must be nonnegative. The neutral
+theme supplies missing tokens. At motion level `limited` or `none`, the whole
+line shows at once. Text styles and the font follow the theme.
+
+`onRevealed()` runs once when the line finishes, including an empty line,
+Skip or reduced motion. Pass a `TypewriterControls` table as `controls` to
+get `revealed: Readable<boolean>` and `finish: () -> ()`. `finish()` shows
+the whole line at once. Repeated calls do not repeat the callback. A new line
+resets `revealed`. Unmount cancels the clock and clears the controls fields.
+
+```luau
+local reveal: Facet.TypewriterControls = {}
+local dialogueLine = Compose.cell("<b>Guide:</b> Follow the lights to the next camp.")
+UI.Typewriter "Guide" { text = dialogueLine, rich = true, wrap = true, controls = reveal }
+UI.Button { label = "Skip", onActivate = function() if reveal.finish then reveal.finish() end end }
+```
+
 ### Text
 
 `UI.Text(spec) -> TextLabel` shows plain text. `text` is a string, a readable
@@ -4239,6 +4359,12 @@ weight. The derived role keeps the family, style, size and line height.
   back in the normal time, or in the hover time while the pointer is still over
   the control (the release enters `:Hover`). Native transitions retarget
   interrupted changes.
+- Palette color rules reference native `$FacetColor_<role>` tokens. The
+  StyleSheet attributes hold the resolved colors. A palette change updates
+  these attributes and keeps the color rules. `StyleRule:GetProperties()`
+  returns the token strings for these properties. Read the matching attribute
+  on the StyleSheet to inspect a resolved color. These attributes belong to
+  Facet. Computed colors can remain direct rule properties.
 - Reduced motion or `transition = false` sets zero-duration paint. If you omit
   reduced motion, the sheet follows GuiService.
 - Explicit Instance paint still overrides stylesheet paint.
@@ -4451,7 +4577,7 @@ name.
 `Facet.gamepadContention` reports whether the engine's legacy player scripts
 hold input that the controls need. Every probe is guarded: without an engine
 it answers `false` and never throws. Nothing warns on its own; call them from
-a doctor check or when an input looks dead.
+an input check or when an input looks dead.
 
 | Call | Result |
 |---|---|

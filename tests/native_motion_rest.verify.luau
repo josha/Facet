@@ -132,8 +132,8 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("holds the complete tooltip at its rested size while opacity changes", {
-			id = "native_motion_rest::present at rest: help tooltip::holds the complete tooltip at its rested size while opacity changes",
+		verifyHarness:case("keeps native tooltip sizing active while opacity changes", {
+			id = "native_motion_rest::present at rest: help tooltip::keeps native tooltip sizing active while opacity changes",
 			run = function()
 				local w = hovered()
 				local panel = w.find("Help")
@@ -144,11 +144,14 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(FRAME)
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
-				Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
+				Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
 				Verify.expect(panel:FindFirstChild("PresentationContent", true)):toBe(nil)
-				Verify.expect(panel.Size.X.Offset):toBe(138)
-				Verify.expect(panel.Size.Y.Offset):toBe(64)
-				w.advance(1, 30)
+				for _ = 1, 30 do
+					w.advance(FRAME)
+					Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
+					Verify.expect(panel.Size.X.Offset):toBe(0)
+					Verify.expect(panel.Size.Y.Offset):toBe(0)
+				end
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
 				w.stop()

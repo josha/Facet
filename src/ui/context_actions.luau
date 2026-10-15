@@ -107,10 +107,13 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			ctx.modalPortals:set(remaining)
 		end)
 	end
-	function ctx.available(node: Instance, use: ComposeTypes.Use?): boolean
+	local function withinModal(node: Instance, use: ComposeTypes.Use?): boolean
 		local scopes = ctx.read(ctx.modalScopes, use)
-		local portals = ctx.readSource(ctx.modalPortals, use)
 		local modal: Instance? = scopes[#scopes]
+		if modal == nil then
+			return true
+		end
+		local portals = ctx.readSource(ctx.modalPortals, use)
 		local function inside(at: Instance?, visited: { [Instance]: boolean }): boolean
 			if not at or visited[at] then
 				return false
@@ -129,7 +132,9 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			end
 			return false
 		end
-		local inModal = modal == nil or inside(node, {})
+		return inside(node, {})
+	end
+	function ctx.available(node: Instance, use: ComposeTypes.Use?): boolean
 		local at: Instance? = node
 		while at do
 			if at:IsA("GuiObject") and (not at.Visible or not at.Interactable) then
@@ -140,7 +145,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			end
 			at = at.Parent
 		end
-		return inModal
+		return withinModal(node, use)
 	end
 	type ActionGroup = {
 		context: InputContext,
@@ -304,15 +309,17 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			end)
 		end
 		local action = Host.InputAction(p)
-		local enabled = Compose.formula(function(use: ComposeTypes.Use): boolean
+		local function enabledBody(use: ComposeTypes.Use): boolean
 			if selection then
 				use(selection)
 			end
 			return use(parent) ~= nil
-				and use(available)
 				and ctx.read(enabledSource, use) ~= false
-				and ctx.available(node, use)
-		end)
+				and use(available)
+				and withinModal(node, use)
+		end
+		local enabled = if config.userInputService then Compose.formula(enabledBody) else nil
+		local enabledBinding = enabled or enabledBody
 		local reservedBound: { [string]: boolean } = {}
 		for _, binding in keyCodes :: { Shared.ActionBinding } do
 			local code: unknown = if type(binding) == "string"
@@ -332,7 +339,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				node = node,
 				gui = config.guiService,
 				enabled = function(): boolean
-					return enabled:peek()
+					return assert(enabled):peek()
 				end,
 				press = function()
 					if viaAction then
@@ -385,7 +392,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 			end
 			local wasOn = false
 			Compose.watch(function(use: ComposeTypes.Use)
-				local on = use(enabled)
+				local on = use(assert(enabled))
 				if on and not wasOn then
 					stale = held()
 				end
@@ -395,10 +402,10 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		local context: InputContext
 		if group then
 			context = group.context
-			runtime.decorate(action, { Enabled = enabled })
+			runtime.decorate(action, { Enabled = enabledBinding })
 			action.Parent = context
 		elseif settings.group then
-			runtime.decorate(action, { Enabled = enabled })
+			runtime.decorate(action, { Enabled = enabledBinding })
 			context = Host.InputContext("Facet" .. settings.group)({
 				Parent = parent,
 				Priority = settings.priority or 2000,
@@ -415,7 +422,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				Parent = parent,
 				Priority = settings.priority or 2000,
 				Sink = settings.sink ~= false,
-				Enabled = enabled,
+				Enabled = enabledBinding,
 				action,
 			})
 		end
@@ -445,7 +452,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				end
 			end
 			local steerable = Compose.formula(function(use: ComposeTypes.Use): boolean
-				return use(enabled) and use(selection) ~= nil
+				return use(assert(enabled)) and use(selection) ~= nil
 			end)
 			local function nextSelection(target: GuiObject, direction: string): GuiObject?
 				if direction == "Up" then

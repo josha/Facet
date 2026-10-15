@@ -315,8 +315,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							step(direction)
 						end, { priority = 3000, capture = true })
 					end
-					bind("DialogBodyDown", 1, { E.KeyCode.Down, E.KeyCode.DPadDown })
-					bind("DialogBodyUp", -1, { E.KeyCode.Up, E.KeyCode.DPadUp })
+					surfaces.attach(scroller, {
+						Compose.show(room.overflowing, function()
+							bind("DialogBodyDown", 1, { E.KeyCode.Down, E.KeyCode.DPadDown })
+							bind("DialogBodyUp", -1, { E.KeyCode.Up, E.KeyCode.DPadUp })
+							return Compose.fragment(function()
+								return {}
+							end)
+						end),
+					})
 				end
 				local settled = Compose.cell(false)
 				local held: ComposeTypes.Cell<Vector2?> = Compose.cell(nil :: Vector2?)

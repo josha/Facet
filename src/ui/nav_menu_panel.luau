@@ -214,7 +214,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			Compose.keyed({
 				from = entries,
 				key = function(entry: MenuEntry<V>)
-					return entry.key
+					local item = entry.item
+					return (if item and item.divider ~= true and item.description ~= nil then "D:" else "P:")
+						.. entry.key
 				end,
 				render = function(
 					entrySource: ComposeTypes.Readable<MenuEntry<V>>,
@@ -240,17 +242,18 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		}
 		if closeCommand ~= nil and closeCommand ~= false then
 			surfaces.attach(rows, {
-				UI.Button "CloseCommand" {
-					Visible = function(use: ComposeTypes.Use)
-						return closeCommand == true or use(sheeted)
-					end,
-					name = "Close",
-					icon = "close",
-					LayoutOrder = 2147483647,
-					Size = D2.new(1, 0, 0, 44),
-					AutomaticSize = E.AutomaticSize.None,
-					onActivate = close,
-				},
+				Compose.show(function(use: ComposeTypes.Use)
+					return closeCommand == true or use(sheeted)
+				end, function()
+					return UI.Button "CloseCommand" {
+						name = "Close",
+						icon = "close",
+						LayoutOrder = 2147483647,
+						Size = D2.new(1, 0, 0, 44),
+						AutomaticSize = E.AutomaticSize.None,
+						onActivate = close,
+					}
+				end),
 			})
 		end
 		local room = Compose.cell(0)
@@ -289,12 +292,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 			rows,
 		}
-		local levelFade = ctx.fade {
+		local levelFade = ctx.fade({
 			Name = "MenuLevel",
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
 			scroller,
-		}
+		}, nil, false)
 		ctx.fadeTo(levelFade, function(use: ComposeTypes.Use): number
 			if not use(sheeted) then
 				return 0
@@ -314,7 +317,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							return 1 - shown.opacity(use)
 						end,
 						levelFade,
-					}, true),
+					}, true, false),
 					"menu-group"
 				)
 				else levelFade,
@@ -616,17 +619,26 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 			return nil
 		end
-		ctx.action(modal, "MenuRight", { E.KeyCode.Right, E.KeyCode.DPadRight }, function(use: ComposeTypes.Use)
-			return selectedBranch(use) ~= nil
-		end, function()
-			local item = selectedBranch()
-			if item then
-				enter(assert(item.id))
-			end
-		end, { priority = 2100, capture = true })
-		ctx.action(modal, "MenuLeft", { E.KeyCode.Left, E.KeyCode.DPadLeft }, function(use: ComposeTypes.Use)
-			return #use(path) > 0
-		end, back, { priority = 2100, capture = true })
+		surfaces.attach(modal, {
+			Compose.show(function(use: ComposeTypes.Use)
+				return selectedBranch(use) ~= nil or #use(path) > 0
+			end, function()
+				ctx.action(modal, "MenuRight", { E.KeyCode.Right, E.KeyCode.DPadRight }, function(use: ComposeTypes.Use)
+					return selectedBranch(use) ~= nil
+				end, function()
+					local item = selectedBranch()
+					if item then
+						enter(assert(item.id))
+					end
+				end, { priority = 2100, capture = true })
+				ctx.action(modal, "MenuLeft", { E.KeyCode.Left, E.KeyCode.DPadLeft }, function(use: ComposeTypes.Use)
+					return #use(path) > 0
+				end, back, { priority = 2100, capture = true })
+				return Compose.fragment(function()
+					return {}
+				end)
+			end),
+		})
 		local focusIn = surfaces.selecting()
 		local placed = ctx.observe.Parent(modal)
 		Compose.watch(function(use: ComposeTypes.Use)

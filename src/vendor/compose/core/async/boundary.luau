@@ -1,6 +1,5 @@
 --!strict
 
-local Block = require "../runtime/block"
 local Children = require "../runtime/children"
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
@@ -23,7 +22,7 @@ local function boundary(builder: Builder, fallback: Fallback): Children.Directiv
 		local failure = cellModule.cell(nil :: unknown)
 		local attempt = cellModule.cell(1)
 
-		local current: Block.Block? = nil
+		local current: (() -> ())? = nil
 
 		local reported = false
 
@@ -51,7 +50,7 @@ local function boundary(builder: Builder, fallback: Fallback): Children.Directiv
 			local previous = current
 			current = nil
 			if previous ~= nil then
-				previous.dispose()
+				previous()
 			end
 
 			if reason == nil then
@@ -59,11 +58,9 @@ local function boundary(builder: Builder, fallback: Fallback): Children.Directiv
 				local child = owner.createChild()
 				child.guardWith { report = report }
 
-				local ok, block = pcall(Block.mountBlock, mountPoint, child, function(): { Host.Node }
-					return { builder() }
-				end, Block.nameOf(builder), 1)
+				local ok, block = pcall(Support.mountBuilder, mountPoint, child, builder, "boundary")
 				if ok then
-					current = block
+					current = child.dispose
 				else
 					child.dispose()
 					report(block)
@@ -71,9 +68,9 @@ local function boundary(builder: Builder, fallback: Fallback): Children.Directiv
 				return
 			end
 
-			current = Block.mountBlock(mountPoint, owner, function(): { Host.Node }
-				return { fallback(reason, retry) }
-			end, Block.nameOf(fallback), 1)
+			current = Support.mountBuilder(mountPoint, owner, function()
+				return fallback(reason, retry)
+			end, "boundary")
 		end)
 	end
 end

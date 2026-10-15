@@ -111,6 +111,10 @@ civilDate : table(frozen)
   civilDate.weekday : function
   civilDate.within : function
 controls : function
+format : table(frozen)
+  format.compact : function
+  format.duration : function
+  format.grouped : function
 gamepadContention : table(frozen)
   gamepadContention.cameraKeysContended : function
   gamepadContention.describeContention : function
@@ -202,9 +206,11 @@ controls(runtime).TabView : function
 controls(runtime).Table : function
 controls(runtime).Text : function
 controls(runtime).TextInput : function
+controls(runtime).Timer : function
 controls(runtime).Toast : function
 controls(runtime).Toggle : function
 controls(runtime).Travel : function
+controls(runtime).Typewriter : function
 controls(runtime).VStack : function
 controls(runtime).ViewThatFits : function
 controls(runtime).VirtualGrid : function
@@ -277,6 +283,7 @@ type CommandScope
 type CommandSpec
 type CommandTarget
 type CommitReason
+type CompactOptions
 type Component
 type ComposeModule
 type ComposeRobloxModule
@@ -298,6 +305,7 @@ type DropInfo
 type DropInsertion
 type DropOperation
 type DropTargetSpec
+type DurationOptions
 type Environment
 type ErrorBoundaryProps
 type Extent
@@ -309,6 +317,7 @@ type GestureDecision
 type GestureKind
 type GestureOptions
 type GridProps
+type GroupedOptions
 type HapticKind
 type HierarchyOptions
 type Host
@@ -422,6 +431,8 @@ type TextProps
 type TextRole
 type ThemeDefinition
 type ThemePackage
+type TimerControls
+type TimerProps
 type ToastAction
 type ToastDismissReason
 type ToastOptions
@@ -430,6 +441,8 @@ type ToggleCellProps
 type ToggleProps
 type ToggleRequestProps
 type TravelProps
+type TypewriterControls
+type TypewriterProps
 type TypographyPatch
 type Use
 type ViewThatFitsProps

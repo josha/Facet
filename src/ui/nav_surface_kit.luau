@@ -142,7 +142,9 @@ return function(ctx: Types.Context, attach: Attach): Kit
 		local settings: Nav.PanelSkin = options or {}
 		local extra = settings.reserve
 		ctx.skin(panel, slot or "panel", { label = settings.title, onCaption = settings.onCaption })
-		local padding = settings.padding or panel:FindFirstChildWhichIsA("UIPadding")
+		local padding = if settings.padding == false
+			then nil
+			else settings.padding or panel:FindFirstChildWhichIsA("UIPadding")
 		if padding and (ctx.config.theme ~= nil or extra) then
 			local function side(name: string, authored: UDim): (ComposeTypes.Use) -> UDim
 				return function(use: ComposeTypes.Use): UDim

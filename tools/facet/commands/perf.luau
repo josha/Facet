@@ -11,6 +11,7 @@ local Json = require("../lib/json")
 local Lute = require("../../vendor/verify/src/lute")
 local Microprofiler = require("../lib/microprofiler")
 local Memory = require("../checks/perf_memory")
+local Footprint = require("../checks/perf_footprint")
 local Paired = require("../lib/perf_paired")
 local Place = require("../lib/perf_place")
 local Run = require("../lib/run")
@@ -25,6 +26,8 @@ subcommands:
   budgets                       check bench/perf_budgets.json and the last perf run's skipped device budgets
   metrics                       check the metric rows of artifacts/phase-4/perf.json (exit 2 when it is absent)
   memory [REPORT.json]          gate exact teardown counts and report resource growth during churn
+  footprint [REPORT.json]       measure control resources and check the committed ceilings
+  profile SCENE [TRACE.json]    sample the unchanged scene with the Lute profiler
   prove-memory-gate             plant native and Compose leaks and prove that the teardown gate fails
   scenes [--themes]             check that each production (or theme-swap) scene did its work
   place [--no-build]            build examples/performance.project.json and check the place
@@ -152,6 +155,42 @@ local function scenes(themes: boolean): number
 	return 0
 end
 
+local function footprint(path: string?): number
+	local output = path or "artifacts/perf-footprint.json"
+	if Files.isFile(output) then
+		Files.remove(output)
+	end
+	local result = Run.inherit({ Run.lute(), "run", "tools/engine/perf_footprint.luau", output })
+	if not result.ok or not Files.isFile(output) then
+		print("perf footprint: failed to produce a control census")
+		return 1
+	end
+	local errors = Footprint.check(readJson(output), readJson("bench/footprint_budgets.json"))
+	if #errors > 0 then
+		return failLines(errors)
+	end
+	print("perf footprint: PASS - all control counts fit their ceilings and teardown counts are zero")
+	return 0
+end
+
+local function profile(scene: string?, output: string?): number
+	if scene == nil then
+		print(USAGE)
+		return 2
+	end
+	local trace = output or `artifacts/{scene}-profile.json`
+	Files.makeDirectory(Files.parent(trace))
+	return Run.inherit({
+		Run.lute(),
+		"run",
+		"--profile",
+		"--profile-output",
+		trace,
+		"tools/engine/perf_profile.luau",
+		scene,
+	}).code
+end
+
 local function toolEnvironment(extra: { string }, onlyExisting: boolean): { [string]: string }
 	local environment = Run.environment()
 	local key = "PATH"
@@ -170,7 +209,7 @@ local function toolEnvironment(extra: { string }, onlyExisting: boolean): { [str
 	end
 	local current = environment[key]
 	if current ~= nil then
-		table.insert(parts, current)
+		table.insert(parts, 1, current)
 	else
 		table.insert(parts, "")
 	end
@@ -1210,12 +1249,52 @@ CASES.run = noCases
 CASES.baseline = noCases
 CASES["prove-gate"] = noCases
 CASES.memory = noCases
+CASES.profile = noCases
+CASES.footprint = function(): { Case.Case }
+	local counts = [[{"instances":1,"connections":2,"holdings":3}]]
+	local report = Json.decode(
+		[[{"schema":"facet-perf-footprint/1","samples":[{"name":"Button","idle":]]
+			.. counts
+			.. [[,"active":]]
+			.. counts
+			.. [[,"teardown":{"instances":0,"connections":0,"holdings":0}}]}]]
+	)
+	return {
+		{
+			name = "footprint: counts must be complete, bounded and released",
+			run = function(): string?
+				return Case.first(
+					Case.same(Footprint.check(report, Json.decode([[{"Button":]] .. counts .. "}")), {}, "valid census"),
+					Case.expect(
+						#Footprint.check(
+								report,
+								Json.decode([[{"Button":{"instances":0,"connections":2,"holdings":3}}]])
+							) > 0,
+						"resource growth passed"
+					),
+					Case.expect(
+						#Footprint.check(report, Json.decode([[{"Missing":]] .. counts .. "}")) > 0,
+						"missing control passed"
+					),
+					Case.expect(#Footprint.check(Json.decode("{}"), Json.decode("{}")) > 0, "empty report passed")
+				)
+			end,
+		},
+	}
+end
 CASES["prove-memory-gate"] = noCases
 
-local ORDER = { "budgets", "metrics", "scenes", "place", "paired", "aggregate", "spec-timings" }
+local ORDER = { "budgets", "metrics", "scenes", "place", "paired", "aggregate", "spec-timings", "footprint" }
 
 local function allCases(): { Case.Case }
 	local cases: { Case.Case } = {}
+	table.insert(cases, {
+		name = "the memory gate rejects planted native and Compose leaks",
+		run = function(): string?
+			local PerfRun = require("../lib/perf_run")
+			return Case.equal(PerfRun.proveMemoryGate(), 0, "prove-memory-gate")
+		end,
+	})
 	for _, name in ORDER do
 		for _, case in CASES[name]() do
 			table.insert(cases, case)
@@ -1250,7 +1329,18 @@ local function run(invocation: Cli.Invocation): number
 	then
 		local PerfRun = require("../lib/perf_run")
 		if subcommand == "run" then
-			return PerfRun.run(invocation.positional[2] == "baseline")
+			local code = PerfRun.run(invocation.positional[2] == "baseline")
+			if invocation.positional[2] ~= "baseline" then
+				print("perf budgets")
+				local budgetCode = budgets()
+				print("perf metrics")
+				local metricsCode = metrics()
+				if code == 1 or budgetCode == 1 or metricsCode == 1 then
+					return 1
+				end
+				code = math.max(code, budgetCode, metricsCode)
+			end
+			return code
 		elseif subcommand == "baseline" then
 			return PerfRun.baselineScenes(table.move(invocation.positional, 2, #invocation.positional, 1, {}))
 		elseif subcommand == "prove-memory-gate" then
@@ -1265,8 +1355,18 @@ local function run(invocation: Cli.Invocation): number
 			return metrics()
 		elseif subcommand == "memory" then
 			return memory(invocation.positional[2])
+		elseif subcommand == "footprint" then
+			return footprint(invocation.positional[2])
+		elseif subcommand == "profile" then
+			return profile(invocation.positional[2], invocation.positional[3])
 		elseif subcommand == "scenes" then
-			return scenes(Cli.switch(invocation, "themes"))
+			if Cli.switch(invocation, "themes") then
+				return scenes(true)
+			end
+			print("perf scenes")
+			local code = scenes(false)
+			print("perf scenes --themes")
+			return math.max(code, scenes(true))
 		elseif subcommand == "place" then
 			return place(invocation)
 		elseif subcommand == "paired" then

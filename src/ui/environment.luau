@@ -74,10 +74,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			if ok and last then
 				heard(last)
 			end
-			local connection = service.LastInputTypeChanged:Connect(heard)
-			Compose.cleanup(function()
-				connection:Disconnect()
-			end)
+			runtime.connect(service, "LastInputTypeChanged", heard)
 		end
 		local env = UI.environment()
 		local far = ctx.tenFoot()

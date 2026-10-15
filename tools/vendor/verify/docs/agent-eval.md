@@ -82,7 +82,7 @@ An arm setup has these fields. Paths are relative to the file that declares them
 | Field | Meaning |
 | --- | --- |
 | `overlay` | Files and directories that Verify copies over the starter, in order. |
-| `instructions` | A Markdown file. The Claude Code adapter appends it to the system prompt. |
+| `instructions` | A Markdown file. The Claude Code adapter appends it to the system prompt. The Codex adapter sends it as developer instructions. |
 | `mcp` | An MCP configuration file. Verify replaces `{workspace}` and `{evidence}` in it. |
 | `allowedTools`, `disallowedTools` | Tool names that the adapter passes to the agent. |
 | `env` | Environment variables for the agent process. |
@@ -118,6 +118,7 @@ Verify replaces these placeholders in `argv`, `env` and `dump`:
 | `{captures}` | `{evidence}/captures`. Write screenshots to `{captures}/<device>/<screen>.png`. |
 | `{scores}` | The scores file of the check. |
 | `{seed}` | The seed. |
+| `{devices}` | The ids of the task devices, separated by commas. |
 | `{device}`, `{width}`, `{height}`, `{scale}`, `{input}` | The device of a `perDevice` check. |
 
 The gate replaces `{report}` and `{run}`. The run placeholders do not name the arm.
@@ -165,8 +166,9 @@ claude -p --output-format stream-json --verbose [--model id] [--max-turns n] [--
 
 The agent options are `command`, `permissionMode`, `strictMcpConfig` (default true), `persistSession` (default false), `settingSources`, `effort` and `arguments`.
 `--strict-mcp-config` loads only the MCP servers of the arm.
-The Lute binding pipes the agent output through [`stamp.luau`](../src/agent-eval/stamp.luau), which writes the arrival time of each line.
-This needs `sh` and `cat` on `PATH`. Git for Windows supplies them.
+The Lute binding records the arrival time of each output line.
+On Windows it starts the agent through Windows PowerShell, which feeds the prompt file, reads the output lines and records the exit code. It needs no other shell.
+On other systems it pipes the agent output through [`stamp.luau`](../src/agent-eval/stamp.luau) with `sh` and `cat`. The `shell` option of `AgentEval.lute.services` selects this pipe on Windows too.
 A line keeps its arrival time even when the run reaches its deadline.
 
 `AgentEval.transcript.parseClaudeStream(lines, decode)` reads the stream:
@@ -183,6 +185,33 @@ A line keeps its arrival time even when the run reaches its deadline.
 
 Messages with a `parent_tool_use_id` count as subagent messages, not as turns.
 Without arrival times, the latencies are empty and the tool time is absent.
+
+`AgentEval.adapters.codex(decode)` (adapter name `codex`) runs the Codex command line in the workspace and sends the brief on standard input:
+
+```sh
+codex exec --json --skip-git-repo-check -C workspace [-m id] [--sandbox mode] [--ephemeral] \
+  [-c model_reasoning_effort="level"] [-c developer_instructions="text"] [-c mcp_servers.name.field=value]... \
+  [-c override]... [arguments]... -
+```
+
+The agent options are `command`, `effort`, `sandbox`, `persistSession` (default false), `config` (a list of `key=value` overrides) and `arguments`.
+The adapter writes each server of the `mcpServers` object of the arm MCP configuration as `mcp_servers.<name>` overrides: `command`, `args` and `env`, or `url`.
+Codex cannot restrict tools, so an arm with `allowedTools` or `disallowedTools` fails to provision.
+Codex takes no turn or cost limit. The adapter enforces only the wall-clock budget. The runner checks `maxOutputTokens` after the run.
+
+`AgentEval.transcript.parseCodexStream(lines, decode)` reads the JSON events:
+
+| Value | Source |
+| --- | --- |
+| Turns | The model steps: one for each tool item and one for each `turn.completed` event. Parallel tool calls of one model response count as more than one step. |
+| Tokens | The sum of the `usage` of the `turn.completed` events. Input is `input_tokens` minus `cached_input_tokens` and `cache_write_input_tokens`. Cache reads are `cached_input_tokens`, cache writes are `cache_write_input_tokens` and output is `output_tokens`. |
+| Tools | Each `command_execution`, `file_change`, `mcp_tool_call`, `web_search` and `todo_list` item counts once. A failed or declined item, or a command with a nonzero exit code, is a tool error. |
+| Turn latency, interval | For each model step, the time from the previous line, and the time from the previous step. |
+| Tool time | The union of the intervals from `item.started` to `item.completed` of the tool items. |
+| Status | `error` after `turn.failed`, `success` after `turn.completed`, `error` when only an `error` event arrived, otherwise `incomplete`. |
+| Result | The text of the last `agent_message` item, or the message of the failure. |
+
+Codex reports no cost, so the cost is absent.
 
 `AgentEval.adapters.command({ id, argv, parse?, stamp?, stdin?, decode })` runs another agent command line.
 `argv` can use `{prompt_file}`, `{workspace}`, `{model}`, `{max_turns}`, `{mcp_config}`, `{seed}` and `{evidence}`.
@@ -211,9 +240,9 @@ The collector reads each property in a protected call, so a missing property rea
 | `offscreen` | high | A visible control or text extends past the screen. |
 | `outside-safe-area` | medium | A visible control or text extends past the safe area. |
 | `touch-target-small` | medium | A control is smaller than `minTouchTarget` (default 44) times the scale, on a touch device. |
-| `interactive-overlap` | medium | Two controls in the same root overlap, and neither contains the other. |
+| `interactive-overlap` | medium | Two controls in the same root partly overlap. A control that is the ancestor of the other, or whose rectangle holds the whole rectangle of the other (for example a full-screen scrim behind a dialog), does not count. |
 | `gamepad-unreachable` | medium | A control is not selectable, or no selection path from the selected or top-left control reaches it. |
-| `focus-hidden` | medium | A selectable control has an invisible `SelectionImageObject`. |
+| `focus-hidden` | medium | On a gamepad device: a selectable control has an invisible `SelectionImageObject`. |
 | `selection-link-broken` | low | `NextSelection*` names a control that is hidden or not selectable. |
 | `press-feedback-missing` | low | With `pressFeedback = true` only: a button has no automatic color, hover image, pressed image or `stateStyled` state. |
 | `type-scale` | low | Each distinct text size above `maxTypeSizes` (default 6). |
@@ -269,6 +298,7 @@ Turn latency percentiles use the latencies of all runs of the sampled tasks.
 | Metric | Statistic |
 | --- | --- |
 | `passRate`, `auditScore` | Difference of the treatment and baseline means. |
+| `auditViolations` | Ratio of the treatment and baseline means. The value of a run is the mean number of audit violations in each audit of the run. A run with no audit has no value. |
 | `judgeWinRate` | The mean treatment score of the judgments. |
 | `inputTokens`, `cacheCreationTokens`, `cacheReadTokens`, `outputTokens`, `totalTokens`, `costUsd`, `turns`, `wallSeconds`, `timeToFirstPassSeconds` | Ratio of the treatment and baseline means. |
 | `turnLatencyP50`, `turnLatencyP95` | Ratio of the treatment and baseline percentiles. |
@@ -294,7 +324,9 @@ Declare the thresholds before the runs:
 }
 ```
 
-A rule has `lower` or `upper`. A `lower` rule passes when the lower bound is above the value. An `upper` rule passes when the upper bound is below it.
+A rule has one of `lower`, `upper`, `atLeast` or `atMost`. A `lower` rule passes when the lower bound is above the value. An `upper` rule passes when the upper bound is below it.
+An `atLeast` rule passes when the estimate is at least the value. An `atMost` rule passes when the estimate is at most the value.
+To require an estimate and a bound for one metric, declare two rules.
 A rule with `agent` applies to that agent. Otherwise it applies to each agent.
 A rule fails when fewer than `minimumTasks` paired tasks carry its metric or the interval is undefined.
 The verdict is `PASS` only when every rule passes.

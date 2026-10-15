@@ -198,19 +198,13 @@ return function(
 					Host.UISizeConstraint({ MaxSize = V2.new(264, math.huge) }) :: Types.Child,
 				})
 				label:AddTag("facet-type-caption")
-				local held: ComposeTypes.Cell<Vector2?> = Compose.cell(nil :: Vector2?)
 				local panelProps: Types.CanvasGroupNativeProps = {
 					Name = plate and plate.name or "Help",
 					GroupTransparency = function(use: ComposeTypes.Use)
 						return 1 - presence.opacity(use)
 					end,
-					AutomaticSize = function(use: ComposeTypes.Use)
-						return if use(held) then E.AutomaticSize.None else E.AutomaticSize.XY
-					end,
-					Size = function(use: ComposeTypes.Use)
-						local box = use(held)
-						return if box then D2.fromOffset(math.ceil(box.X), math.ceil(box.Y)) else D2.fromOffset(0, 0)
-					end,
+					AutomaticSize = E.AutomaticSize.XY,
+					Size = D2.fromOffset(0, 0),
 					ZIndex = 96,
 				}
 				panelProps[#panelProps + 1] = ctx.padding(8, 6)
@@ -252,9 +246,6 @@ return function(
 				local panel = ctx.fade(panelProps, true)
 				local sizes, rested = atRest(presence.travel, settled, { panel, label })
 				local measured = sizes[1]
-				Compose.watch(function(use: ComposeTypes.Use)
-					held:set(if use(rested) and presence.travel(use) < 1 then use(measured) else nil)
-				end)
 				local edge = if structured and structured.edge then structured.edge else "top"
 				local align = if structured and structured.align then structured.align else "center"
 				local solution = Compose.formula(function(use: ComposeTypes.Use): placement.Placement

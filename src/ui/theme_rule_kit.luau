@@ -5,11 +5,18 @@ local support = require("./theme_support")
 
 local merge, paletteFor, font = support.merge, support.paletteFor, support.font
 
-export type NativeRule = { id: string, selector: string, properties: ThemeTypes.RuleProperties, priority: number }
+export type NativeRule = {
+	id: string,
+	selector: string,
+	properties: ThemeTypes.RuleProperties,
+	priority: number,
+	tokens: { [string]: Color3? }?,
+}
 export type RuleKit = {
 	extra: ThemeTypes.PaletteExtra,
 	source: (string) -> ThemeTypes.RGB?,
-	c: (string) -> Color3?,
+	c: (string) -> string?,
+	resolved: (string) -> Color3?,
 	f: (ThemeTypes.FontSpec | Font) -> Font,
 	rule: (string, ThemeTypes.RuleProperties, boolean?) -> (),
 	finish: () -> { NativeRule },
@@ -26,7 +33,7 @@ return function(
 	local palette = paletteFor(package, selected)
 	local colors = merge(neutral.style.themes[1].colors, palette.colors)
 	local extra = merge(neutral.style.themes[1].extra :: ThemeTypes.PaletteExtra, palette.extra)
-	local resolvedColors: { [string]: Color3? }, typefaces: { [string]: Font? } = {}, {}
+	local tokens: { [string]: Color3? }, typefaces: { [string]: Font? } = {}, {}
 	local fallbacks: { [string]: string } = {
 		selection = "accent",
 		onSelection = "onAccent",
@@ -44,15 +51,16 @@ return function(
 		end
 		return value
 	end
-	local function c(role: string): Color3?
-		if resolvedColors[role] == nil then
+	local function c(role: string): string?
+		local token = "FacetColor_" .. role
+		if tokens[token] == nil then
 			local value = color(types, source(role))
 			if value == nil and role == "voice" then
-				value = (c("warning") :: Color3):Lerp(c("danger") :: Color3, 0.5)
+				value = (color(types, source("warning")) :: Color3):Lerp(color(types, source("danger")) :: Color3, 0.5)
 			end
-			resolvedColors[role] = value
+			tokens[token] = value
 		end
-		return resolvedColors[role]
+		return if tokens[token] ~= nil then "$" .. token else nil
 	end
 	local function f(value: ThemeTypes.FontSpec | Font): Font
 		if typeof(value) == "Font" then
@@ -79,6 +87,7 @@ return function(
 			selector = selector,
 			properties = properties,
 			priority = #rules * 10,
+			tokens = tokens,
 		})
 	end
 	local function rule(selector: string, properties: ThemeTypes.RuleProperties, authored: boolean?)
@@ -149,5 +158,16 @@ return function(
 		end
 		return ordered
 	end
-	return { extra = extra, source = source, c = c, f = f, rule = rule, finish = finish }
+	return {
+		extra = extra,
+		source = source,
+		c = c,
+		resolved = function(role: string): Color3?
+			local token = c(role)
+			return if token then tokens[string.sub(token, 2)] else nil
+		end,
+		f = f,
+		rule = rule,
+		finish = finish,
+	}
 end

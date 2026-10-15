@@ -17,6 +17,7 @@ local ThemeBuilds = require("../lib/theme_builds")
 local USAGE = [[usage: lute run tools/facet build <target> [arguments]
 
 targets:
+  standalone                       places, reference places, consumer, showcase and performance
   places                           examples/places/*.rbxl, then the bootstrap and app place checks
   reference                        artifacts/verify/reference-places/*.rbxl
   themes                           build/themes/<Name>.rbxm and build/themes/manifest.json
@@ -25,8 +26,7 @@ targets:
   model [output] [--publisher]     build/Facet.rbxm, its .rbxmx twin and its manifest
   lab                              examples/facet-lab/build/*
   home                             build/Facet-Home.rbxl
-  designer                         build/Facet-Design.rbxm and build/Facet-Design-Playground.rbxl
-  doctor                           the toolchain and the library invariants (artifacts/doctor.json)]]
+  designer                         build/Facet-Design.rbxm and build/Facet-Design-Playground.rbxl]]
 
 local EXAMPLES = {
 	{ "Facet-SettingsDemo", "00_settings_demo" },
@@ -254,6 +254,22 @@ local function reference(): number
 	return 0
 end
 
+local function standalone(): number
+	local code = places()
+	code = math.max(code, reference())
+	for _, build in
+		{
+			{ "consumer", "examples/consumer/default.project.json" },
+			{ "gallery", "examples/showcase.project.json" },
+			{ "performance", "examples/performance.project.json" },
+		}
+	do
+		print(`standalone-builds: {build[1]}`)
+		code = math.max(code, rojo(build[2], `artifacts/verify/native/{build[1]}.rbxl`))
+	end
+	return code
+end
+
 local function themes(invocation: Cli.Invocation): number
 	local arguments = invocation.positional
 	if Cli.switch(invocation, "one") then
@@ -338,85 +354,13 @@ local function home(): number
 	return rojo("examples/facet_home/default.project.json", "build/Facet-Home.rbxl")
 end
 
-local function version(argv: { string }): (boolean, string)
-	local result = Run.capture(argv)
-	return result.ok, (string.gsub(result.stdout, "%s+$", ""))
-end
-
-local function doctor(): number
-	local code = snapshot("compose")
-	if code ~= 0 then
-		return code
-	end
-	code = snapshot("verify")
-	if code ~= 0 then
-		return code
-	end
-	Files.makeDirectory("artifacts")
-	Files.makeDirectory("build")
-	local checks: { unknown } = {}
-	local failed = false
-	local function check(name: string, passed: boolean, detail: string, missing: string)
-		failed = failed or not passed
-		local entry = Json.object()
-		Json.set(entry, "name", name)
-		Json.set(entry, "status", if passed then "OK" else "FAIL")
-		Json.set(entry, "detail", if passed then detail else missing)
-		Json.set(entry, "required", true)
-		table.insert(checks, entry)
-	end
-	local hasLute, luteVersion = version({ "lute", "--version" })
-	local hasRojo, rojoVersion = version({ "rojo", "--version" })
-	check(
-		"lute",
-		hasLute,
-		if string.match(luteVersion, "^lute") then luteVersion else "lute " .. luteVersion,
-		"lute not on PATH"
-	)
-	check("rojo", hasRojo, rojoVersion, "rojo not on PATH")
-	check("corpus", Files.isFile("tests/plan.json"), "committed Verify plan present", "tests/plan.json missing")
-	check("library", Files.isFile("src/init.luau"), "native Facet entry point present", "src/init.luau missing")
-	check(
-		"verification",
-		Files.isFile("tools/facet/lib/gate.luau") and Files.isFile("tools/facet/producers.json"),
-		"Verify gate definition present",
-		"tools/facet/lib/gate.luau or tools/facet/producers.json missing"
-	)
-	check(
-		"maintainer-tools",
-		Files.isFile("tools/facet/init.luau"),
-		"Lute maintainer command line present",
-		"tools/facet/init.luau missing"
-	)
-	check(
-		"rojo-build",
-		Run.capture({ "rojo", "build", "examples/gallery.project.json", "-o", "build/Facet-Gallery.rbxl" }).ok,
-		"gallery place builds",
-		"rojo build examples/gallery.project.json failed"
-	)
-	local studio = Json.object()
-	Json.set(studio, "name", "studio-mcp")
-	Json.set(studio, "status", "ENV")
-	Json.set(studio, "detail", "verified per-session via Studio MCP, not from shell")
-	Json.set(studio, "required", false)
-	table.insert(checks, studio)
-	local status = if failed then "FAIL" else "PASS"
-	local document = Json.object()
-	Json.set(document, "schema", "facet-doctor/1")
-	Json.set(document, "status", status)
-	Json.set(document, "requirement", "UI-AGENT-001")
-	Json.set(document, "checks", Json.array(checks))
-	Files.write("artifacts/doctor.json", Json.pretty(document))
-	print(`doctor: {status} (artifacts/doctor.json)`)
-	return if failed then 1 else 0
-end
-
 local FLAGS: { [string]: { string } } = {
 	themes = { "one" },
 	model = { "publisher" },
 }
 
 local TARGETS: { [string]: (Cli.Invocation) -> number } = {
+	standalone = standalone,
 	places = places,
 	reference = reference,
 	themes = themes,
@@ -424,7 +368,6 @@ local TARGETS: { [string]: (Cli.Invocation) -> number } = {
 	lab = lab,
 	home = home,
 	designer = designer,
-	doctor = doctor,
 }
 
 local function refusal(invocation: Cli.Invocation): string?
@@ -547,8 +490,7 @@ local function cases(): { Case.Case }
 					accepts({ "themes" }),
 					accepts({ "themes", "--one", "a.luau", "A", "a.rbxm" }),
 					accepts({ "model" }),
-					accepts({ "model", "build/Other.rbxmx", "--publisher" }),
-					accepts({ "doctor" })
+					accepts({ "model", "build/Other.rbxmx", "--publisher" })
 				)
 			end,
 		},
@@ -586,7 +528,7 @@ end
 
 local command: Cli.Command = {
 	name = "build",
-	summary = "Build places, reference places, themes, the model, the lab, home, the designer, or run doctor.",
+	summary = "Build places, reference places, themes, the model, the lab, home, or the designer.",
 	usage = USAGE,
 	cases = cases,
 	run = run,
