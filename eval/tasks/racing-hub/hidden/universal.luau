@@ -125,7 +125,8 @@ local function observe(qa: QA.QA, context: Core.Context, screen: string): Audit.
 			"focus-hidden",
 		}
 	do
-		Check.that(context, report.rules[rule].count == 0, screen .. ": " .. rule)
+		local summary = report.rules[rule]
+		Check.that(context, summary == nil or summary.count == 0, screen .. ": " .. rule)
 	end
 	Check.that(context, Space.textClear(dump), "text does not overlap")
 	Check.that(context, Space.safeContent(dump), "content clears core UI and cutouts")

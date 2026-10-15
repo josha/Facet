@@ -86,6 +86,27 @@ local function list(value: unknown): { unknown }
 	return value :: { unknown }
 end
 
+local function checkProjects(directory: string)
+	for _, relative in Files.walk(directory, { skip = { vendor = true } }) do
+		if not string.match(relative, "%.project%.json$") then
+			continue
+		end
+		local path = directory .. "/" .. relative
+		local tree = field(read(path), "tree")
+		if field(tree, "$className") == "DataModel" then
+			local technology = field(field(field(tree, "Lighting"), "$properties"), "Technology")
+			if type(technology) ~= "string" or technology == "" or technology == "Compatibility" then
+				fail(path .. " must set Lighting.Technology to a non-Compatibility value")
+			end
+		end
+	end
+end
+
+for _, directory in { "eval", "examples", "tools" } do
+	checkProjects(Files.parent(EVAL) .. "/" .. directory)
+end
+checkProjects(Files.parent(EVAL) .. "/" .. Bench.starter)
+
 local function suite(path: string): AgentEval.Suite?
 	local ok, value: unknown = pcall(function(): AgentEval.Suite
 		return AgentEval.decodeSuite(read(path), path, structuralLoader)

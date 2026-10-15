@@ -351,6 +351,7 @@ function Model.build(options: Options?): (boolean, string)
 				name = "FacetPublisher",
 				tree = {
 					["$className"] = "DataModel",
+					Lighting = { ["$properties"] = { Technology = "Future" } },
 					ReplicatedStorage = {
 						["$className"] = "ReplicatedStorage",
 						Facet = { ["$path"] = Files.absolute(output) },
