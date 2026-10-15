@@ -11,6 +11,8 @@ local Kit = require(script.Parent.Kit)
 local function mount(context: Hub.Context)
 	local screen = Kit.screen(context.playerGui, "Hub")
 	local dock = Kit.hud(screen)
+	local commands = (dock.Parent :: ScrollingFrame).Parent :: Frame
+	commands.Name = "HubCommands"
 	local function button(parent: Instance, words: string, action: () -> ()): TextButton
 		local control = Kit.button(words)
 		control.Parent = parent
@@ -40,6 +42,7 @@ local function mount(context: Hub.Context)
 	local hub = context.hub.getState()
 	local economy = context.economy.getState()
 	local counters = Kit.create("Frame", {
+		Name = "PlayerStats",
 		BackgroundTransparency = 1,
 		Position = UDim2.fromOffset(16, 48),
 		Size = UDim2.fromOffset(170, 0),
