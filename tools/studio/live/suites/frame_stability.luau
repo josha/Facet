@@ -389,7 +389,11 @@ add({
 			frame.Size = UDim2.fromOffset(121, 20)
 		end, true)
 		t.check("state negative retains only the late resize", #tracker.faults == 1, tracker.faults)
-		t.check("state negative catches one pixel", tracker.faults[1] ~= nil and tracker.faults[1].delta[3] == 1, tracker.faults)
+		t.check(
+			"state negative catches one pixel",
+			tracker.faults[1] ~= nil and tracker.faults[1].delta[3] == 1,
+			tracker.faults
+		)
 		t.cleanup()
 	end,
 })
@@ -827,7 +831,9 @@ for _, page in pages() do
 									local scene = assert(stage)
 									local overlay = scene:FindFirstChild("PreviewOverlays", true)
 									local surface = if overlay and overlay:IsA("GuiObject") then overlay else scene
-									local point = surface.AbsolutePosition + Vector2.new(2, 2) + GuiService:GetGuiInset()
+									local point = surface.AbsolutePosition
+										+ Vector2.new(2, 2)
+										+ GuiService:GetGuiInset()
 									virtual:SendMousePosition(point)
 									virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
 									virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
