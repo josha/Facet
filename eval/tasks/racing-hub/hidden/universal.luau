@@ -48,7 +48,7 @@ local function raceReadout(qa: QA.QA, position: number): boolean
 	for _, text in qa:texts() do
 		local normalized = string.lower(text)
 		for _, prefix in { "position", "place", "rank", "pos", "p" } do
-			if string.find(normalized, prefix .. "%s*[:#]?%s*" .. tostring(position) .. "%f[^%d]") then
+			if string.find(normalized, "%f[%a]" .. prefix .. "%s*[:#]?%s*" .. tostring(position) .. "%f[^%d]") then
 				return true
 			end
 		end
@@ -382,7 +382,11 @@ local function cases(id: string): { Play.Case }
 			qa:sleep(2)
 			local race = observe(qa, context, "universal-race")
 			Check.that(context, raceReadout(qa, 1), "the racer can read their position")
-			Check.text(qa, context, "lap%s*%d+", "the racer can read their lap")
+			Check.that(
+				context,
+				qa:hasText("lap%s*%d+") ~= nil or qa:hasText("%d+%s*/%s*%d+%s*laps?") ~= nil,
+				"the racer can read their lap"
+			)
 			local entries = racers(qa)
 			local rival = tostring(Check.field(entries[2], "name"))
 			Check.visible(qa, context, { text = rival, clipped = true }, "the HUD shows race standings")
@@ -417,7 +421,12 @@ local function cases(id: string): { Play.Case }
 			Check.that(context, finishOrder(qa, rival, localName), "results list racers in finish order")
 			local reward = Check.number(result, "state", "rewards", localName)
 			qa:reveal({ text = "coins", clipped = true })
-			Check.text(qa, context, tostring(reward) .. "%D*coins", "results show the server currency reward")
+			Check.that(
+				context,
+				qa:hasText(tostring(reward) .. "%D*coins") ~= nil
+					or qa:hasText("coins%D*" .. tostring(reward) .. "%f[^%d]") ~= nil,
+				"results show the server currency reward"
+			)
 			press(qa, context, "hub")
 			Check.visible(qa, context, query("Shop"), "results return to the hub")
 		end)
