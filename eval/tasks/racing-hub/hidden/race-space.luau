@@ -43,6 +43,25 @@ local function clear(dump: Audit.Dump, region: Audit.Rect, interactiveOnly: bool
 end
 
 return {
+	textClear = function(dump: Audit.Dump): boolean
+		local texts: { Audit.Rect } = {}
+		for _, element in dump.elements do
+			local text = element.text
+			if not element.visible or text == nil or text.content == "" or text.transparency >= 0.95 then
+				continue
+			end
+			local rect = clipped(clipped(element.rect, element.clip), element.scrollClip)
+			rect = clipped(rect, { x = 0, y = 0, width = dump.screen.width, height = dump.screen.height })
+			for _, previous in texts do
+				local shared = clipped(rect, previous)
+				if shared.width > 1 and shared.height > 1 then
+					return false
+				end
+			end
+			table.insert(texts, rect)
+		end
+		return true
+	end,
 	centerClear = function(dump: Audit.Dump): boolean
 		local screen = dump.screen
 		return clear(

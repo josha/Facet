@@ -99,6 +99,43 @@ return function(harness: Verify.Harness)
 		element.scrollClip = nil
 		element.visible = false
 		t:expect(RaceSpace.thumbstickClear(dump)):toBe(true)
+		element.visible = true
+		element.rect = { x = 16, y = 48, width = 160, height = 44 }
+		element.text = {
+			content = "Coins\nGems",
+			size = 18,
+			bounds = { width = 80, height = 44 },
+			scaled = false,
+			wrapped = true,
+			bold = false,
+			color = { r = 1, g = 1, b = 1 },
+			transparency = 0,
+		}
+		local roster = table.clone(element)
+		roster.index = 2
+		roster.root = 2
+		roster.path = "AnotherScreen.Roster"
+		roster.rect = { x = 16, y = 20, width = 160, height = 24 }
+		dump.elements[2] = roster
+		t:expect(RaceSpace.textClear(dump)):toBeTrueWith("stacked HUD readouts clear each other across screens")
+		roster.rect.y = 60
+		t:expect(not RaceSpace.textClear(dump)):toBeTrueWith("the old roster position intersects the wallet")
+		roster.rect.y = 91
+		t:expect(RaceSpace.textClear(dump)):toBeTrueWith("one pixel of edge rounding is allowed")
+		roster.rect.y = 90
+		t:expect(not RaceSpace.textClear(dump)):toBeTrueWith("two pixels of text overlap is rejected")
+		roster.rect = { x = 16, y = 48, width = 160, height = 44 }
+		t:expect(not RaceSpace.textClear(dump)):toBeTrueWith("fully coincident text is an overlap")
+		roster.visible = false
+		t:expect(RaceSpace.textClear(dump)):toBe(true)
+		roster.visible = true
+		roster.scrollClip = { x = 16, y = 0, width = 160, height = 44 }
+		t:expect(RaceSpace.textClear(dump)):toBeTrueWith("clipped text does not collide")
+		roster.scrollClip = nil
+		local invisibleText = table.clone(element.text :: Audit.Text)
+		invisibleText.transparency = 1
+		roster.text = invisibleText
+		t:expect(RaceSpace.textClear(dump)):toBe(true)
 	end)
 	harness:case("each extended turn retains earlier player cases on all five devices", function(t)
 		local previous: { [string]: { [string]: boolean } } = {}
