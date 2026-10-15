@@ -46,7 +46,12 @@ local function createNatural(
 	local serial, alive = 0, true
 	local last: string? = nil
 	local thread: thread? = nil
+	local release: (() -> ())? = nil
 	local function cancel()
+		if release then
+			release()
+			release = nil
+		end
 		if thread and coroutine.status(thread) == "suspended" and task then
 			pcall(task.cancel, thread)
 		end
@@ -55,7 +60,6 @@ local function createNatural(
 	Compose.cleanup(function()
 		alive = false
 		cancel()
-		completed()
 	end)
 	Compose.watch(function(use: ComposeTypes.Use)
 		if revision then
