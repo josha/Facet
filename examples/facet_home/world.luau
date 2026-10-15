@@ -1,11 +1,8 @@
 --!strict
 
-type Host = {
-	Part: (string) -> ({ [string]: any }) -> Part,
-	Model: (string) -> ({ Instance }) -> Model,
-	PointLight: ({ [string]: any }) -> PointLight,
-	ProximityPrompt: ({ [string]: any }) -> ProximityPrompt,
-}
+type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
+type Constructor = (props: { [string]: unknown }) -> unknown
+type Item = { kind: string, rotation: number, palette: string }
 local world = {}
 world.colors = {
 	sage = Color3.fromRGB(121, 159, 137),
@@ -16,7 +13,7 @@ world.colors = {
 function world.position(index: number): Vector3
 	return Vector3.new(((index - 1) % 3 - 1) * 7, 0.28, if index <= 3 then -4 else 4)
 end
-function world.furniture(Host: Host, item: any, at: CFrame, assets: Instance?): Model
+function world.furniture(Host: Host, item: Item, at: CFrame, assets: Instance?): Model
 	local template = if assets then assets:FindFirstChild(item.kind) else nil
 	if template and template:IsA("Model") then
 		local model = template:Clone()
@@ -116,9 +113,9 @@ function world.furniture(Host: Host, item: any, at: CFrame, assets: Instance?): 
 		table.insert(pieces, part("Rug", Vector3.new(5.5, 0.12, 4), Vector3.new(0, 0.12, 0), tint))
 		table.insert(pieces, part("Stripe", Vector3.new(5.3, 0.04, 0.35), Vector3.new(0, 0.2, 0), soft))
 	end
-	return Host.Model(item.kind)(pieces)
+	return Host.Model(item.kind) { table.unpack(pieces) }
 end
-function world.room(Host: Host, owner: Player, origin: Vector3): (Model, { Part }, Part)
+function world.room(Host: Host, Prompt: Constructor, owner: Player, origin: Vector3): (Model, { Part }, Part)
 	local wood = Color3.fromRGB(182, 147, 107)
 	local function part(name: string, size: Vector3, position: Vector3, color: Color3): Part
 		return Host.Part(name) {
@@ -174,13 +171,14 @@ function world.room(Host: Host, owner: Player, origin: Vector3): (Model, { Part 
 		marker.Transparency = 0.92
 		marker.CanCollide = false
 		marker:SetAttribute("FacetHomeSlot", index)
-		Host.ProximityPrompt {
+		local prompt = Prompt {
 			ActionText = "Choose this place",
 			ObjectText = "Room place " .. index,
 			MaxActivationDistance = 8,
 			RequiresLineOfSight = false,
-		}.Parent =
-			marker
+		}
+		assert(typeof(prompt) == "Instance", "Missing room prompt")
+		prompt.Parent = marker
 		table.insert(slots, marker)
 		table.insert(children, marker)
 	end
@@ -195,7 +193,7 @@ function world.room(Host: Host, owner: Player, origin: Vector3): (Model, { Part 
 			table.insert(children, crown)
 		end
 	end
-	local room = Host.Model("Home_" .. owner.UserId)(children)
+	local room = Host.Model("Home_" .. owner.UserId) { table.unpack(children) }
 	room:SetAttribute("OwnerUserId", owner.UserId)
 	return room, slots, board
 end

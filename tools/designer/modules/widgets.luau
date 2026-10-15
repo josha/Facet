@@ -37,8 +37,7 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 		return Facet.themes.createStyleSheet(runtime, theme, { theme = "Light" })
 	end
 	function kit.text(name: string, value: any, size: number?, height: number?): TextLabel
-		return UI.Text {
-			Name = name,
+		return UI.Text(name) {
 			text = value,
 			textSize = size or 12,
 			wrap = false,
@@ -62,8 +61,7 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 			name
 		) ~= nil or string.sub(name, 1, 15) == "ChoiceProperty_"
 
-		return UI.Button {
-			Name = name,
+		return UI.Button(name) {
 			label = if type(value) == "function"
 				then function(use: Use)
 					return string.gsub(value(use), "%s*▾", "")
@@ -96,8 +94,7 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 			baseline = tostring(if type(value) == "function" then value(use) else value)
 			draft:set(baseline)
 		end)
-		return UI.TextInput {
-			Name = name,
+		return UI.TextInput(name) {
 			value = draft,
 			onCommit = function(proposed)
 				if proposed ~= baseline then
@@ -115,8 +112,7 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 		}
 	end
 	function kit.search(value: any, callback: (string) -> ()): TextBox
-		return UI.TextInput {
-			Name = "MenuSearch",
+		return UI.TextInput "MenuSearch" {
 			value = value,
 			onChange = callback,
 			presentation = "search" :: "search",
@@ -131,8 +127,7 @@ function widgets.new(Facet: any, runtime: any, model: any, options: any): any
 		for index, child in children do
 			runtime.decorate(child, { LayoutOrder = index })
 		end
-		return UI.HStack {
-			Name = name,
+		return UI.HStack(name) {
 			width = "fill" :: "fill",
 			Size = UDim2.new(1, 0, 0, height or 0),
 			gap = 6,

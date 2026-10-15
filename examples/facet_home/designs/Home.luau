@@ -3,74 +3,68 @@
 local Facet = require(game.ReplicatedStorage.Facet)
 local Compose = Facet.Compose
 
-return function(UI: Facet.Controls, data: { [string]: any }?): GuiObject
-	return UI.Screen {
-		Name = "Screen",
+export type Row = { [string]: unknown }
+export type Data = {}
+
+return function(UI: Facet.Controls, data: Data?): GuiObject
+	return UI.Screen "Screen" {
 		gap = "m",
-		UI.ScrollView {
-			Name = "Content",
+		UI.ScrollView "Content" {
 			gap = "m",
-			height = "fill" :: "fill",
+			height = "fill",
 			padding = { ["bottom"] = 24, ["left"] = 20, ["right"] = 20, ["top"] = 20 },
-			width = "fill" :: "fill",
-			UI.Text {
-				Name = "Eyebrow",
-				role = "secondary" :: "secondary",
+			width = "fill",
+			UI.Text "Eyebrow" {
+				role = "secondary",
 				text = "FACET HOME",
-				textRole = "caption" :: "caption",
+				textRole = "caption",
 				wrap = true,
 			},
-			UI.Text {
-				Name = "Heading",
+			UI.Text "Heading" {
 				text = "Make yourself at home.",
-				textRole = "title" :: "title",
+				textRole = "title",
 				wrap = true,
 			},
-			UI.Text {
-				Name = "Subtitle",
-				role = "secondary" :: "secondary",
+			UI.Text "Subtitle" {
+				role = "secondary",
 				text = "A calm place to create, play, and spend time together.",
-				textRole = "body" :: "body",
+				textRole = "body",
 				wrap = true,
 			},
-			UI.Text {
-				Name = "Welcome",
+			UI.Text "Welcome" {
 				text = "Your room is ready. Start with something that makes it yours.",
-				textRole = "body" :: "body",
+				textRole = "body",
 				wrap = true,
 			},
-			UI.Text {
-				Name = "RoomSummary",
+			UI.Text "RoomSummary" {
 				text = "6 places. Endless possibilities.",
-				textRole = "body" :: "body",
+				textRole = "body",
 				wrap = true,
 			},
-			UI.Button {
-				Name = "OpenFurnish",
-				appearance = "emphasis" :: "emphasis",
+			UI.Button "OpenFurnish" {
+				appearance = "emphasis",
 				label = "Furnish your home",
 			},
-			UI.Button {
-				Name = "OpenActivities",
-				appearance = "standard" :: "standard",
+			UI.Button "OpenActivities" {
+				appearance = "standard",
 				label = "Take a little break",
 			},
-			UI.Button {
-				Name = "OpenPeople",
-				appearance = "standard" :: "standard",
+			UI.Button "OpenPeople" {
+				appearance = "standard",
 				label = "See who is here",
 			},
-			UI.Button { Name = "Explore", appearance = "soft" :: "soft", label = "Explore in 3D" },
-			UI.Text {
-				Name = "Project",
+			UI.Button "Explore" {
+				appearance = "soft",
+				label = "Explore in 3D",
+			},
+			UI.Text "Project" {
 				text = "HOME PROJECT · Arrange three pieces, then save your room.",
-				textRole = "body" :: "body",
+				textRole = "body",
 				wrap = true,
 			},
-			UI.Text {
-				Name = "ProjectProgress",
+			UI.Text "ProjectProgress" {
 				text = "0 / 3 pieces placed",
-				textRole = "body" :: "body",
+				textRole = "body",
 				wrap = true,
 			},
 		},

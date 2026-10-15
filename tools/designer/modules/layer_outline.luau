@@ -21,8 +21,7 @@ function outline.mount(Facet: any, UI: any, Host: any, model: any, actions: any)
 		end
 		selection:set(if id then { [id] = true } else {})
 	end)
-	return UI.VirtualList {
-		Name = "LayerTree",
+	return UI.VirtualList "LayerTree" {
 		from = function(use: Use)
 			return use(model).rows
 		end,
@@ -55,8 +54,7 @@ function outline.mount(Facet: any, UI: any, Host: any, model: any, actions: any)
 		},
 		render = function(current)
 			local id = current:peek().id
-			return UI.Button {
-				Name = "Layer_" .. id,
+			return UI.Button("Layer_" .. id) {
 				label = function(use: Use)
 					local row = use(current)
 					return if use(editing) == id then "" else string.rep("  ", row.depth) .. row.name
@@ -82,8 +80,7 @@ function outline.mount(Facet: any, UI: any, Host: any, model: any, actions: any)
 				Compose.show(function(use: Use)
 					return use(editing) == id
 				end, function()
-					local field = UI.TextInput {
-						Name = "Rename_" .. id,
+					local field = UI.TextInput("Rename_" .. id) {
 						value = draft,
 						selectOnFocus = "all",
 						maxLength = 120,

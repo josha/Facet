@@ -8,8 +8,7 @@ local function inventory(ctx: any, populated: boolean, longNames: boolean): GuiO
 	local quantity = Compose.cell(3)
 	local filter = Compose.cell("")
 	local details = Compose.cell(false)
-	return UI.Screen {
-		Name = "Inventory",
+	return UI.Screen "Inventory" {
 		gap = "m",
 		UI.Text { text = "Your next adventure", textRole = "title" :: "title" } :: unknown,
 		UI.Text {
@@ -18,8 +17,7 @@ local function inventory(ctx: any, populated: boolean, longNames: boolean): GuiO
 			wrap = true,
 		},
 		UI.TextInput { value = filter, placeholder = "Find equipment", clearButton = true },
-		UI.ScrollView {
-			Name = "Equipment",
+		UI.ScrollView "Equipment" {
 			width = "fill" :: "fill",
 			height = "fill" :: "fill",
 			gap = "s",
@@ -42,8 +40,7 @@ local function inventory(ctx: any, populated: boolean, longNames: boolean): GuiO
 				} :: unknown,
 			UI.Toggle { label = "Include emergency supplies", value = selected },
 			UI.Stepper { value = quantity, min = 1, max = 10 },
-			UI.AdaptiveStack {
-				Name = "Actions",
+			UI.AdaptiveStack "Actions" {
 				gap = "s",
 				UI.Button {
 					label = "Inspect equipment",

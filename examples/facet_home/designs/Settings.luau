@@ -3,55 +3,49 @@
 local Facet = require(game.ReplicatedStorage.Facet)
 local Compose = Facet.Compose
 
-return function(UI: Facet.Controls, data: { [string]: any }?): GuiObject
-	return UI.Screen {
-		Name = "Screen",
+export type Row = { [string]: unknown }
+export type Data = {}
+
+return function(UI: Facet.Controls, data: Data?): GuiObject
+	return UI.Screen "Screen" {
 		gap = "m",
-		UI.ScrollView {
-			Name = "Content",
+		UI.ScrollView "Content" {
 			gap = "m",
-			height = "fill" :: "fill",
+			height = "fill",
 			padding = { ["bottom"] = 24, ["left"] = 20, ["right"] = 20, ["top"] = 20 },
-			width = "fill" :: "fill",
-			UI.Text {
-				Name = "Eyebrow",
-				role = "secondary" :: "secondary",
+			width = "fill",
+			UI.Text "Eyebrow" {
+				role = "secondary",
 				text = "FACET HOME",
-				textRole = "caption" :: "caption",
+				textRole = "caption",
 				wrap = true,
 			},
-			UI.Text {
-				Name = "Heading",
+			UI.Text "Heading" {
 				text = "Make yourself comfortable.",
-				textRole = "title" :: "title",
+				textRole = "title",
 				wrap = true,
 			},
-			UI.Text {
-				Name = "Subtitle",
-				role = "secondary" :: "secondary",
+			UI.Text "Subtitle" {
+				role = "secondary",
 				text = "Presentation settings stay available while you build and play.",
-				textRole = "body" :: "body",
+				textRole = "body",
 				wrap = true,
 			},
-			UI.Button {
-				Name = "TogglePalette",
-				appearance = "standard" :: "standard",
+			UI.Button "TogglePalette" {
+				appearance = "standard",
 				label = "Switch light / dark",
 			},
-			UI.Button {
-				Name = "ToggleText",
-				appearance = "standard" :: "standard",
+			UI.Button "ToggleText" {
+				appearance = "standard",
 				label = "Switch regular / larger text",
 			},
-			UI.Button {
-				Name = "ToggleMode",
-				appearance = "standard" :: "standard",
+			UI.Button "ToggleMode" {
+				appearance = "standard",
 				label = "Switch flat / immersive view",
 			},
-			UI.Text {
-				Name = "Access",
+			UI.Text "Access" {
 				text = "Flat mode keeps every room action available. World prompts support keyboard, touch, and controller. Motion follows your device preference.",
-				textRole = "body" :: "body",
+				textRole = "body",
 				wrap = true,
 			},
 		},
