@@ -139,9 +139,17 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 					local wrappedHeight = Compose.cell(0)
 					local serial, last = 0, ""
 					local active = true
+					local release: (() -> ())? = nil
+					local function finish()
+						if release then
+							release()
+							release = nil
+						end
+					end
 					if services.TextService then
 						Compose.cleanup(function()
 							active = false
+							finish()
 						end)
 						Compose.watch(function(use: ComposeTypes.Use)
 							use(revision)
@@ -153,6 +161,7 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 								serial += 1
 								last = ""
 								wrappedHeight:set(0)
+								finish()
 								return
 							end
 							local wide = use(size).X / use(unit)
@@ -169,12 +178,22 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 								label:GetStyled("LineHeight") :: number
 							local key =
 								`{wide}|{text}|{points}|{spacing}|{font.Family}|{font.Weight.Name}|{font.Style.Name}`
-							if wide <= 0 or text == "" or key == last then
+							if wide <= 0 or text == "" then
+								serial += 1
+								last = ""
+								wrappedHeight:set(0)
+								finish()
+								return
+							end
+							if key == last then
 								return
 							end
 							last = key
 							serial += 1
 							local ticket = serial
+							wrappedHeight:set(0)
+							finish()
+							release = textMeasure.hold(label)
 							local params = ((Host :: unknown) :: {
 								[string]: (props: { [string]: unknown }) -> Instance,
 							}).GetTextBoundsParams({
@@ -184,7 +203,6 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 								Width = wide,
 								RichText = label.RichText,
 							})
-							local completed = textMeasure.begin(label)
 							local function measure()
 								local ok, measured = pcall(function()
 									return (services.TextService :: TextService):GetTextBoundsAsync(
@@ -200,11 +218,12 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 										) :: UDim).Offset
 										else 0
 									wrappedHeight:set(
-										math.ceil(measured.Y + (lineCount - 1) * points * (math.max(spacing, 1) - 1))
-											+ vertical
+										measured.Y + (lineCount - 1) * points * (math.max(spacing, 1) - 1) + vertical
 									)
 								end
-								completed()
+								if ticket == serial then
+									finish()
+								end
 							end
 							if task and task.spawn then
 								task.spawn(measure)

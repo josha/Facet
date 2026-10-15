@@ -4,7 +4,7 @@ local ComposeTypes = require("../vendor/compose/core")
 
 local pending = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: number }
 
-local function begin(node: Instance): () -> ()
+local function hold(node: Instance): () -> ()
 	pending[node] = (pending[node] or 0) + 1
 	local active = true
 	return function()
@@ -77,7 +77,7 @@ local function createNatural(
 		serial += 1
 		local ticket = serial
 		cancel()
-		local completed = begin(label)
+		local completed = hold(label)
 		release = completed
 		if revision then
 			bounds:set(ctx.types.Vector2.new(math.huge, 0))
@@ -104,7 +104,7 @@ local function createNatural(
 end
 
 return {
-	begin = begin,
+	hold = hold,
 	natural = function(
 		ctx: Types.Context,
 		label: TextLabel | TextButton | TextBox,

@@ -9,6 +9,57 @@ local ComposeTypes = require("../src/vendor/compose/core")
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 return function(harness: Verify.Harness)
+	harness:case("wrapped glyph floors preserve fractional native heights", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local height = 47.2
+		local service = {
+			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
+				return engine.types.Vector2.new(80, if params.Width > 0 then height else 16)
+			end,
+		}
+		local ctx = context(
+			Facet.Compose,
+			runtime,
+			{
+				types = engine.types,
+				services = { TextService = (service :: unknown) :: TextService },
+			} :: Shared.Config
+		)
+		local mounted: TextLabel? = nil
+		local stop = runtime.mount(function()
+			local node = ctx.text {
+				Text = "Wrapped caption",
+				TextSize = 16,
+				TextWrapped = true,
+				Size = engine.types.UDim2.fromOffset(120, 0),
+				AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+			}
+			mounted = node
+			return node
+		end, engine.new("ScreenGui"))
+		local node = assert(mounted)
+		node.AbsoluteSize = engine.types.Vector2.new(120, height)
+		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
+		t:expect(floor.MinSize.Y):toBe(engine.types.Vector2.new(0, height).Y)
+		height = 19.2
+		node.Text = "Short"
+		t:expect(floor.MinSize.Y):toBe(engine.types.Vector2.new(0, height).Y)
+		stop()
+		runtime:dispose()
+		t:expect(engine.census().connections):toBe(0)
+	end)
+	harness:case("text readiness retains every outstanding measurement", function(t)
+		local engine = engineLib.new()
+		local label = engine.new("TextLabel")
+		local first, second = measure.hold(label), measure.hold(label)
+		t:expect(measure.ready(label)):toBe(false)
+		first()
+		first()
+		t:expect(measure.ready(label)):toBe(false)
+		second()
+		t:expect(measure.ready(label)):toBe(true)
+	end)
 	harness:case("glyph constraints use font metrics while rendered bounds and the unit probe lag", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)
