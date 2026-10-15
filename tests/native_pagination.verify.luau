@@ -131,7 +131,7 @@ return function(verifyHarness: Verify.Harness)
 							error("missing key")
 						end,
 					}
-					local translator = Compose.cell(spanish)
+					local translator = Compose.cell(spanish :: typeof(spanish)?)
 					local world = worlds.new(function(UI: FacetControls)
 						return UI.Pagination("P")({
 							page = 3,
