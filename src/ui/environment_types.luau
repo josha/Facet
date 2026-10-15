@@ -38,7 +38,7 @@ export type Environment = {
 	isTenFoot: Types.Readable<boolean>,
 	viewingDistanceSource: Types.Readable<"authored" | "inferred">,
 	metricScale: Types.Readable<number>,
-	scaled: (value: number | string) -> Types.Readable<number>,
+	scaled: (value: number | string, relativeTo: string?) -> Types.Readable<number>,
 	overscanInsets: Types.Readable<SafeInsets>,
 	navPlacement: Types.Readable<Adaptive.NavPlacement>,
 	safeInsets: Types.Readable<SafeInsets>,

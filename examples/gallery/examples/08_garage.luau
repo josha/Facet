@@ -27,9 +27,9 @@ return {
 		local presets, name, presented = C.cell(noPresets), C.cell("Weekend racer"), C.cell(false)
 		local notice = C.cell("Pick a ride. Make it yours.")
 		local width, savedOpen = C.cell(1000), C.cell(false)
-		local metric = UI.environment().metricScale
+		local wideAt = UI.environment().scaled(850)
 		local wide = C.formula(function(use: Use)
-			return use(width) >= 850 * use(metric)
+			return use(width) >= use(wideAt)
 		end)
 		local spec = C.formula(function(use: Use)
 			for _, item in vehicles do

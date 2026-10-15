@@ -130,6 +130,24 @@ local function demos(): { string }
 	return out
 end
 
+add("showcase-pages-load", {}, function(t)
+	local lab = storage:FindFirstChild("Lab")
+	local client = lab and lab:FindFirstChild("client")
+	t.check("Lab client has its Showcase dependency", client == nil or storage:FindFirstChild("FacetShowcase") ~= nil)
+	local errors: { string } = {}
+	local connection = game:GetService("ScriptContext").Error:Connect(function(message: string)
+		table.insert(errors, message)
+	end)
+	for _, id in demos() do
+		local shown = api("show", id)
+		t.settle(30)
+		local report = api("report", nil)
+		t.check(`{id} loads`, shown.ok and report.mounted == id and report.error == nil, report)
+	end
+	connection:Disconnect()
+	t.check("Showcase pages raise no script errors", #errors == 0, errors)
+end)
+
 add("gallery-dpad-walk", {}, function(t: any)
 	for _, id in demos() do
 		local seen: { [Instance]: boolean } = {}

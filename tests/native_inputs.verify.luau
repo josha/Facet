@@ -122,8 +122,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("shares native property observations until the last owner releases them", {
 			id = "native_inputs::native input controls::shares native property observations until the last owner releases them",
 			run = function()
-				local node, stop, engine, runtime, ctx = world(function(UI: FacetControls)
-					return UI.Button({ label = "Save" })
+				local node, stop, engine, runtime, ctx = world(function(_UI: FacetControls, _engine, runtime)
+					return runtime.constructors.TextButton({ Text = "Save" })
 				end)
 				local firstOwner, secondOwner =
 					Compose.createOwner(runtime.reactor), Compose.createOwner(runtime.reactor)
@@ -148,6 +148,25 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(second:peek()):toBe("Second")
 				stop()
 				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("empty button captions never tighten custom content padding", {
+			id = "native_inputs::native input controls::empty button captions never tighten custom content padding",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls, engine)
+					return UI.Button {
+						Size = engine.types.UDim2.fromOffset(44, 44),
+						AutomaticSize = engine.types.Enum.AutomaticSize.None,
+					}
+				end)
+				node.AbsoluteSize = engine.types.Vector2.new(44, 44)
+				node.TextFits = false
+				Verify.expect(node:HasTag("facet-button-tight")):toBe(false)
+				node.Text = "Saved"
+				Verify.expect(node:HasTag("facet-button-tight")):toBe(true)
+				node.Text = ""
+				Verify.expect(node:HasTag("facet-button-tight")):toBe(false)
+				stop()
 			end,
 		})
 

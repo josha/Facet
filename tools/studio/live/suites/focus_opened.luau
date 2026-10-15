@@ -20,6 +20,7 @@ local CASES: {
 		inline: boolean?,
 		anywhere: boolean?,
 		anchor: string?,
+		owner: string?,
 	}
 } =
 	{
@@ -29,8 +30,9 @@ local CASES: {
 		{
 			id = "disclosure-group",
 			show = "all-controls",
-			tab = "navigation/disclosure",
-			trigger = "Practice",
+			tab = "inputs/basics",
+			trigger = "Header",
+			owner = "Advanced",
 			inline = true,
 		},
 		{ id = "sheet-lobby", show = "all-controls", tab = "actions/sheets", trigger = "OpenLobby" },
@@ -88,6 +90,7 @@ for _, spec in CASES do
 					if
 						(name == nil or node.Name == name)
 						and (spec.anywhere or string.find(node:GetFullName(), scope, 1, true))
+						and (spec.owner == nil or node:FindFirstAncestor(spec.owner) ~= nil)
 					then
 						return node
 					end
@@ -144,7 +147,15 @@ for _, spec in CASES do
 				return
 			end
 			local report = focus.opened(root, trigger, keys)
-			report.moves = nil
+			local errors: { string } = {}
+			for _, node in root:GetDescendants() do
+				local failure = node:GetAttribute("FacetError")
+				if failure ~= nil then
+					table.insert(errors, `{node:GetFullName()}: {tostring(failure)}`)
+				end
+			end
+			t.check("the surface reopens without errors", #errors == 0, errors)
+			t.check("the opened fixture exposes selectable content", #report.items > 0, report.items)
 			t.check("focus moves into it", report.landedInside or spec.inline == true, report.landed)
 			t.check("every item reachable", #report.unreached == 0, report.unreached)
 			t.check("no escape to the page behind", spec.inline == true or #report.escapes == 0, report.escapes)

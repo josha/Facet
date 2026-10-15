@@ -114,6 +114,23 @@ the shared presentation helper holds only the measured box during motion.
 These checks catch layout changes and scrollbar flashes, not every paint or
 rasterization defect. Keep a visual pass for theme paint and device rendering.
 
+On the final frame, each visible text element must have `TextFits` set to
+`true`. Its bounds must stay inside each ancestor that clips descendants,
+including `CanvasGroup`, within 0.5 pixels. A failure names the text element,
+the clipping ancestor and the overflow. The planted label proves that the
+check rejects clipping. `frame_stability` applies the same check after each
+interaction reaches rest.
+
+The attachment cases check Help, Callout, Popover, Menu and Picker at each
+preferred text size and at wide and narrow widths. They check the panel gap,
+the tail position and the safe area. A narrow Picker uses its existing
+adaptive sheet presentation. Its sheet must stay inside the safe area.
+
+The modal scrim cases in `ports_overlays` run on desktop, `iphone_14` and
+`xbox`. They check the whole viewport, including core UI and device unsafe
+areas, within one pixel. They also check safe panel bounds and restoration
+of the screen's device clipping policy after the last modal closes.
+
 `table_resize` compares resized large headings with freshly created native
 text, including shrinking and widening columns under display scaling. It also
 checks that the header band reaches the outer scrollbar edge.
@@ -177,14 +194,15 @@ it does not produce a setup-only pass. `--only TEXT` selects a case by id.
 The attached Studio must contain the current case modules. Building the
 runner's place file does not reload the attached place.
 
-Gamepad suites (`focus_walk`, `focus_opened`, `gamepad_walk`) and interactive
+Gamepad suites (`focus_walk`, `focus_opened`, `focus_probe`, `gamepad_walk`) and interactive
 gamepad cases need the Controller Emulator. Turn it on in the attached
 Studio, then use `--device keep`. This keeps the emulator enabled between
-cases. For example:
+cases. The complete walks can take more than ten minutes. The example sets
+the deadline to six hours for each suite:
 
 ```sh
 lute run tools/lute/studio_live.luau needs_live_input --studio ID --device keep --interactive --tag controller-sidebar --only sidebar-dpad-to-collections
-lute run tools/lute/studio_live.luau focus_walk focus_opened gamepad_walk --studio ID --device keep --tag controller
+lute run tools/lute/studio_live.luau focus_walk focus_opened focus_probe gamepad_walk --studio ID --device keep --tag controller --deadline 21600
 ```
 
 Run the same command for each controller case with its exact `--only` id and

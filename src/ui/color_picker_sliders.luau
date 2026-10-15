@@ -1,5 +1,6 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
+local textMeasure = require("./text_measure")
 local Shared = require("./types")
 local Inputs = require("./input_types")
 local InputProps = require("./input_props")
@@ -227,7 +228,15 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 		for _, slider in sliders do
 			local label = slider:FindFirstChild("Label") :: TextLabel
 			table.insert(labels, label)
-			table.insert(bounds, ctx.observe.TextBounds(label))
+			table.insert(
+				bounds,
+				textMeasure.natural(ctx, label, function()
+					local rendered, unit = ctx.observe.TextBounds(label), ctx.layoutUnit(label)
+					return ctx.Compose.formula(function(use: Use): Vector2
+						return use(rendered) / use(unit)
+					end)
+				end)
+			)
 		end
 		for _, label in labels do
 			local padding = label:FindFirstChildWhichIsA("UIPadding")
@@ -236,7 +245,10 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 				Size = function(use: Use)
 					local widest = 0
 					for _, size in bounds do
-						widest = math.max(widest, use(size).X)
+						local width = use(size).X
+						if width < math.huge then
+							widest = math.max(widest, width)
+						end
 					end
 					return D2.fromOffset(math.ceil(widest) + inset, 0)
 				end,

@@ -88,7 +88,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return { place, size }
 		end)
 		local function shown(use: ComposeTypes.Use): boolean
-			return read(indicator, use) ~= "underline" and use(currentOrder) > 0 and use(rect) ~= nil
+			return read(indicator, use) ~= "underline"
+				and not reduced(use)
+				and use(sliding) ~= use(currentOrder)
+				and use(currentOrder) > 0
+				and use(rect) ~= nil
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			if shown(use) then
@@ -210,7 +214,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					end
 					local current = source:peek()
 					local fixed = fixedOptions and spec.query == nil
-					local captionNatural = Compose.cell(0)
 					local sealed = style == "segmented" and current.icon ~= nil
 					local function labelOf(use: ComposeTypes.Use?): string
 						if read(spec.iconOnly, use) then
@@ -425,16 +428,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							end),
 						})
 					end
-					local function segmentPadding(use: ComposeTypes.Use): number
-						local padding = button:FindFirstChildWhichIsA("UIPadding")
-						if padding then
-							local left = padding:GetStyled("PaddingLeft") :: UDim
-							local right = padding:GetStyled("PaddingRight") :: UDim
-							return left.Offset + right.Offset
-						end
-						return sideChrome(spec.controlSize, use, read(spec.iconOnly, use) == true)
-					end
-
 					local underlined = Compose.isReadable(spec.indicator)
 						or type(spec.indicator) == "function"
 						or spec.indicator == "underline"
@@ -448,23 +441,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 										44 - sideChrome(spec.controlSize, use, sealed and labelOf(use) == "")
 									)
 									else 44
-								if style == "segmented" then
-									local caption = use(captionNatural)
-									local glyph = if read(use(source).icon, use)
-										then ctx.controlSize(spec.controlSize, "iconSize", use) + (if caption > 0
-											then 8
-											else 0)
-										else 0
-									if caption > 0 or glyph > 0 then
-										width = math.max(
-											width,
-											math.min(
-												math.max(44, use(room) - 2 * segmentMetrics.inset),
-												math.ceil(caption) + segmentPadding(use) + glyph
-											)
-										)
-									end
-								end
 								return V2.new(width, if spec.controlSize ~= nil or strip then 0 else 44)
 							end,
 							MaxSize = if style == "segmented"
@@ -504,23 +480,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						end)
 					end
 					if style == "segmented" then
-						local measure = ctx.text {
-							Name = "CaptionMeasure",
-							TextTransparency = 1,
-							Interactable = false,
-							TextWrapped = false,
-							Text = function(use: ComposeTypes.Use)
-								return labelOf(use)
-							end,
-							TextSize = ctx.observeStyled.TextSize(button),
-							FontFace = ctx.observeStyled.FontFace(button),
-						}
-						surfaces.attach(button, { measure :: Types.Child })
-						local naturalWidth = ctx.observe.TextBounds(measure)
-						local measureUnit = ctx.layoutUnit(measure)
-						Compose.watch(function(use: ComposeTypes.Use)
-							captionNatural:set(use(naturalWidth).X / use(measureUnit))
-						end)
 						local function peers(use: ComposeTypes.Use): number
 							return #use(options)
 						end

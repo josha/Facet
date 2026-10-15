@@ -23,6 +23,21 @@ return function(ctx: Types.Context): Popover
 		local settings: Nav.PopoverOptions = options or {}
 		local rested = settings.rested
 		local rise = settings.rise
+		local parent = ctx.observe.Parent(panel)
+		local function position(use: ComposeTypes.Use, x: number, y: number): UDim2
+			local container = use(parent)
+			while container and not container:IsA("GuiBase2d") do
+				container = container.Parent
+			end
+			local extent = if container and container:IsA("GuiBase2d") then container.AbsoluteSize else V2.zero
+			local left, top = math.floor(x), math.floor(y)
+			return D2.new(
+				if extent.X > 0 then (x - left) / extent.X else 0,
+				if extent.X > 0 then left else x,
+				if extent.Y > 0 then (y - top) / extent.Y else 0,
+				if extent.Y > 0 then top else y
+			)
+		end
 		local function scale(use: ComposeTypes.Use): number
 			if panel:HasTag("facet-menu") or panel:HasTag("facet-popover") or panel:HasTag("facet-tooltip") then
 				return 1
@@ -51,11 +66,8 @@ return function(ctx: Types.Context): Popover
 					local at, origin = place(use)
 					local distance = if rise then rise(use) else nil
 					return if distance
-						then D2.fromOffset(at.X, at.Y + distance * (1 - amount(use)))
-						else D2.fromOffset(
-							math.round((at.X + origin.X) * 1e4) / 1e4,
-							math.round((at.Y + origin.Y) * 1e4) / 1e4
-						)
+						then position(use, at.X, at.Y + distance * (1 - amount(use)))
+						else position(use, at.X + origin.X, at.Y + origin.Y)
 				end,
 			})
 		else
@@ -64,10 +76,10 @@ return function(ctx: Types.Context): Popover
 					local at, origin = place(use)
 					local distance = if rise then rise(use) else nil
 					if distance then
-						return D2.fromOffset(at.X, at.Y + distance * (1 - amount(use)))
+						return position(use, at.X, at.Y + distance * (1 - amount(use)))
 					end
 					local shrink = 1 - scale(use)
-					return D2.fromOffset(at.X + origin.X * shrink, at.Y + origin.Y * shrink)
+					return position(use, at.X + origin.X * shrink, at.Y + origin.Y * shrink)
 				end,
 			})
 		end

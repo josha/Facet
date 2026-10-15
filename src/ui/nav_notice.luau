@@ -212,7 +212,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					end)
 					if ok and ticket == serial and message.Parent ~= nil and bounds.Y > 0 then
 						message.AutomaticSize = E.AutomaticSize.None
-						message.Size = D2.new(1, 0, 0, math.ceil(bounds.Y))
+						message.Size = D2.new(1, 0, 0, bounds.Y)
 					end
 				end)
 			end)

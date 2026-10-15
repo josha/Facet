@@ -840,8 +840,9 @@ return function(verifyHarness: Verify.Harness)
 				local iconSeal = pickers.find("a", icons):FindFirstChild("CornerBadge", true)
 				Verify.expect(iconSeal ~= nil and iconSeal.Text == "3"):toBe(true)
 				Verify.expect(iconSeal:FindFirstAncestorWhichIsA("ImageLabel") ~= nil):toBe(true)
-				local measure = pickers.find("a", icons):FindFirstChild("CaptionMeasure", true)
-				Verify.expect(measure ~= nil and measure.TextTransparency == 1 and not measure.Interactable):toBe(true)
+				local segment = pickers.find("a", icons)
+				Verify.expect(segment.AutomaticSize.Name):toBe("X")
+				Verify.expect(segment:FindFirstChildWhichIsA("UISizeConstraint").MinSize.X <= 44):toBe(true)
 				local shown = {}
 				for _, node in pickers.find("a", icons):GetDescendants() do
 					if

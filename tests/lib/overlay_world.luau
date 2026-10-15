@@ -68,7 +68,9 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 		services = {
 			GuiService = gui,
 			UserInputService = input,
-			RunService = if o.runService then { Heartbeat = engine.heartbeat } :: any else nil,
+			RunService = if o.runService
+				then { Heartbeat = engine.heartbeat, PreRender = if o.preRender then engine.heartbeat else nil } :: any
+				else nil,
 		},
 		theme = o.theme,
 		motionLevel = o.motionLevel,

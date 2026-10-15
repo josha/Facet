@@ -35,7 +35,9 @@ are in `examples/blocks/`.
   a stack with `width = "fill"`. Do not set `TextScaled`.
 - Keep all HUD groups in one Composition. Use stable region widths and
   smaller forms before you let a region drop. Use `UI.environment` or adaptive
-  controls for size changes. Do not branch on the device.
+  controls for size changes. Do not branch on the device. For a length the
+  game owns, use `UI.environment().scaled(64)`. Add a type role,
+  `scaled(64, "body")`, when the length sits beside text.
 - Use native InputAction and InputContext for game commands. Controls own
   their input and selection. Do not bind Escape or the gamepad Start button.
 - Keep `AutoLocalize` on for fixed text. Use `Translator:FormatByKey` and the

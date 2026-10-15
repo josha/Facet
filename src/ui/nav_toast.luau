@@ -11,6 +11,7 @@ local reducedMotion = motion.reduced
 local reservations = require("./reservations")
 local OverlayProps = require("./overlay_props")
 local arrival = require("./overlay_arrival")
+local textMeasure = require("./text_measure")
 
 type Reason = Overlay.ToastDismissReason
 type Record = {
@@ -393,10 +394,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 	end
 
 	local function passiveRow(record: Record, stack: Stack, phase: Nav.PresencePhase?): Instance
-		local spec, layer = record.spec, stack.layer
+		local spec = record.spec
 		local bottom = spec.position == "bottom"
 		local hug = spec.width == "hug"
-		local extent = if hug then ctx.layoutSize(layer) else nil
+		local contentHug = hug and spec.content ~= nil
+		local extent = if contentHug then ctx.layoutSize(stack.layer) else nil
+		local natural: ComposeTypes.Readable<Vector2>? = nil
 		local reduced = reducedMotion(ctx)
 		local level = motion.level(ctx)
 		local body: Instance
@@ -411,26 +414,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end,
 				TextWrapped = true,
 				LayoutOrder = 1,
-				Size = if hug then D2.fromOffset(0, 0) else D2.fromScale(1, 0),
-				AutomaticSize = if hug then E.AutomaticSize.XY else E.AutomaticSize.Y,
+				Size = D2.fromScale(1, 0),
+				AutomaticSize = E.AutomaticSize.Y,
 			})
 			if hug then
-				surfaces.attach(messageNode, {
-					Host.UISizeConstraint {
-						Name = "MessageWidthCap",
-						MaxSize = function(use: ComposeTypes.Use): Vector2
-							local package = read(ctx.config.theme, use)
-							local panel = if package and package.chrome then package.chrome.panel else nil
-							local insets = if panel then panel.contentInsets else nil
-							local inset = math.max(12, if insets then insets.left or 0 else 0)
-								+ math.max(12, if insets then insets.right or 0 else 0)
-								+ (if spec.icon then ctx.controlSize(nil, "iconSize", use) + 8 else 0)
-							return V2.new(math.max(0, math.min(HUG_MAX, use(assert(extent)).X - 32) - inset), math.huge)
-						end,
-					},
-				})
+				natural = textMeasure.natural(ctx, messageNode)
 			end
-			body = withIcon(spec.icon, messageNode, hug)
+			body = withIcon(spec.icon, messageNode, false)
 		end
 		local entered = Compose.cell(false)
 		local slide, opacity = limitedSlide(phase, entered, level)
@@ -450,12 +440,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			AnchorPoint = function(use: ComposeTypes.Use)
 				return V2.new(0.5, if bottom then 0 else 1 - amount(use))
 			end,
-			AutomaticSize = if hug then E.AutomaticSize.XY else E.AutomaticSize.Y,
+			AutomaticSize = if contentHug then E.AutomaticSize.XY else E.AutomaticSize.Y,
 			Size = function(use: ComposeTypes.Use)
-				if not hug then
-					return D2.fromScale(1, 0)
-				end
-				return D2.fromOffset(0, 0)
+				return if contentHug then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
 			end,
 			Position = function(use: ComposeTypes.Use)
 				local travel = (1 - amount(use)) * (MARGIN + use(stack.inset))
@@ -469,7 +456,16 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			props[#props + 1] = Host.UISizeConstraint({
 				Name = "WidthCap",
 				MaxSize = function(use: ComposeTypes.Use)
-					return V2.new(math.max(0, math.min(HUG_MAX, use(assert(extent)).X - 32)), math.huge)
+					if extent then
+						return V2.new(math.max(0, math.min(HUG_MAX, use(extent).X - 32)), math.huge)
+					end
+					local package = read(ctx.config.theme, use)
+					local panel = if package and package.chrome then package.chrome.panel else nil
+					local insets = if panel then panel.contentInsets else nil
+					local chrome = math.max(12, if insets then insets.left or 0 else 0)
+						+ math.max(12, if insets then insets.right or 0 else 0)
+						+ (if spec.icon then ctx.controlSize(nil, "iconSize", use) + 8 else 0)
+					return V2.new(math.min(HUG_MAX, if natural then use(natural).X + chrome else HUG_MAX), math.huge)
 				end,
 			})
 		end
