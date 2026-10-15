@@ -6141,6 +6141,44 @@ PAGE_DATA.Flash = {
 	make = PAGE_DATA.RewardSequence.make,
 }
 
+PAGE_DATA.format = {
+	facet = true,
+	family = "media",
+	purpose = "Read currency and XP totals in a HUD counter strip.",
+	surface = "Facet.format",
+	alternatives = "Use grouped for an exact wallet total.",
+	snippet = "UI.Text { text = Facet.format.compact(93210) }",
+	axes = {},
+	states = {},
+	make = function(_UI: FacetControls, _p: Properties, c: Context): Instance
+		return require("./hud_demo").counters(c)
+	end,
+}
+PAGE_DATA.Timer = {
+	family = "media",
+	purpose = "Track a round deadline and show its completion.",
+	alternatives = "Use Facet.format.duration for a fixed duration.",
+	snippet = "UI.Timer { deadline = roundDeadline, now = os.clock }",
+	demonstrates = { "deadline", "start", "now", "onComplete", "textRole", "controls" },
+	axes = { { key = "hours", values = { false, true } }, { key = "elapsed", values = { false, true } } },
+	states = {},
+	make = function(_UI: FacetControls, p: Properties, c: Context): Instance
+		return require("./hud_demo").timer(c, p.hours == true, p.elapsed == true)
+	end,
+}
+PAGE_DATA.Typewriter = {
+	family = "media",
+	purpose = "Read an NPC dialogue line as it appears, or skip the reveal.",
+	alternatives = "Use Text to show the full line at once.",
+	snippet = "UI.Typewriter { text = dialogueLine, controls = reveal }",
+	demonstrates = { "controls", "onRevealed" },
+	axes = {},
+	states = {},
+	make = function(_UI: FacetControls, _p: Properties, c: Context): Instance
+		return require("./hud_demo").dialogue(c)
+	end,
+}
+
 local function kindOf(id: string, data: any, UI: any): string
 	if UI[id] ~= nil then
 		return "control"

@@ -4070,6 +4070,7 @@ export type Observe = {
 	AutomaticSize: (GuiObject) -> Compose.Cell<Enum.AutomaticSize>,
 	BackgroundColor3: (GuiObject) -> Compose.Cell<Color3>,
 	CanvasPosition: (ScrollingFrame) -> Compose.Cell<Vector2>,
+	ContentText: (TextBox | TextButton | TextLabel) -> Compose.Cell<string>,
 	CornerRadius: (UICorner) -> Compose.Cell<UDim>,
 	CurrentPage: (UIPageLayout) -> Compose.Cell<GuiObject>,
 	CursorPosition: (TextBox) -> Compose.Cell<number>,

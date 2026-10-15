@@ -7,6 +7,7 @@ local Content = require("./content_types")
 local Env = require("./environment_types")
 local LayoutProps = require("./layout_props")
 local MediaProps = require("./media_props")
+local HudProps = require("./hud_props")
 local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local RadialProps = require("./radial_props")
@@ -98,6 +99,8 @@ type TableShapes =
 export type TableConstructor = TableShapes & ((string) -> TableShapes)
 
 export type Controls = {
+	Timer: Constructor<HudProps.TimerProps, TextLabel>,
+	Typewriter: Constructor<HudProps.TypewriterProps, TextLabel>,
 	commandScope: typeof(((nil :: unknown) :: Commands.Controls).commandScope),
 	sequence: typeof(((nil :: unknown) :: Effects.Controls).sequence),
 	countUp: typeof(((nil :: unknown) :: Effects.Controls).countUp),

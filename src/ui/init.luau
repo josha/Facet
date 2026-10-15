@@ -23,6 +23,8 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	require("@self/collection_row_actions")(ctx, UI)
 	require("@self/collection_table")(ctx, UI, buildList)
 	require("@self/media")(ctx, UI)
+	require("@self/timer")(ctx, UI)
+	require("@self/typewriter")(ctx, UI)
 	require("@self/pagination")(ctx, UI)
 	require("@self/step_indicator")(ctx, UI)
 	require("@self/vote")(ctx, UI)

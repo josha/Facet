@@ -55,7 +55,13 @@ local function sheetRule(stage: Instance, selector: string): { [string]: any }?
 	local found
 	for _, node in sheet:GetDescendants() do
 		if node:IsA("StyleRule") and node.Selector == selector then
-			found = node:GetProperties()
+			found = {}
+			for key, value in node:GetProperties() do
+				local token = if type(value) == "string" and string.sub(value, 1, 1) == "$"
+					then sheet:GetAttribute(string.sub(value, 2))
+					else nil
+				found[key] = if token ~= nil then token else value
+			end
 		end
 	end
 	return found
@@ -271,8 +277,8 @@ add("segment-corner-concentric", {}, function(t)
 end)
 
 add("collapsible-safe-edges", {}, function(t)
-	for _, size in { Vector2.new(320, 300), Vector2.new(390, 844), Vector2.new(1280, 720) } do
-		local where = `{size.X}x{size.Y}`
+	for _, size in { Vector2.new(320, 300), Vector2.new(390, 844), Vector2.new(1280, 720), false } do
+		local where = if size then `{size.X}x{size.Y}` else "native viewport"
 		local expanded
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 			expanded = Compose.cell(false)
@@ -291,7 +297,7 @@ add("collapsible-safe-edges", {}, function(t)
 					end,
 				},
 			}
-		end, { size = size, frames = 10 })
+		end, { size = if size then size else nil, frames = 10 })
 		expanded:set(true)
 		t.settle(20)
 		local gui = stage:FindFirstAncestorWhichIsA("ScreenGui")
@@ -300,7 +306,8 @@ add("collapsible-safe-edges", {}, function(t)
 		if presentation then
 			t.stable(presentation)
 			t.inside(where .. " the expanded view stays inside the screen", presentation, stage, 1)
-			t.inside(where .. " the expanded view stays inside the ScreenGui safe area", presentation, gui, 1)
+			local safe = if size then stage:FindFirstChild("Screen") else gui
+			t.inside(where .. " the expanded view stays inside the screen safe area", presentation, safe, 1)
 			local box, screen = t.rect(presentation), t.rect(stage)
 			local margin = t.themes[1].package.metrics.space.s
 			t.check(

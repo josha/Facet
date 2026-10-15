@@ -1,0 +1,24 @@
+{
+  "name": "racing-hub-weak",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "../../../tasks/racing-hub/starter/src/shared"
+      },
+      "Packages": {
+        "$path": "../../../tasks/racing-hub/starter/Packages"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": {
+          "$className": "Folder",
+          "Interface": {
+            "$path": "src/client/Interface"
+          }
+        }
+      }
+    }
+  }
+}

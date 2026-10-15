@@ -9,6 +9,16 @@ local EffectProps = require("@self/ui/effect_props")
 local InputProps = require("@self/ui/input_props")
 local LayoutProps = require("@self/ui/layout_props")
 local MediaProps = require("@self/ui/media_props")
+local HudProps = require("@self/ui/hud_props")
+local HudTypes = require("@self/ui/hud_types")
+local format = require("@self/ui/format")
+export type TimerProps = HudProps.TimerProps
+export type TimerControls = HudTypes.TimerControls
+export type TypewriterProps = HudProps.TypewriterProps
+export type TypewriterControls = HudTypes.TypewriterControls
+export type CompactOptions = format.CompactOptions
+export type GroupedOptions = format.GroupedOptions
+export type DurationOptions = format.DurationOptions
 local NavigationProps = require("@self/ui/navigation_props")
 local OverlayProps = require("@self/ui/overlay_props")
 local RadialProps = require("@self/ui/radial_props")
@@ -266,6 +276,7 @@ export type Facet = {
 	gamepadContention: gamepadContention.GamepadContention,
 	pathShapes: typeof(pathShapes),
 	richText: typeof(richText),
+	format: typeof(format),
 	recipes: { arithmetic: { parse: (unknown) -> number? } },
 	inputPriority: { belowControls: number, aboveFacet: number },
 	bind: (ComposeModule, ComposeRobloxModule) -> Facet,
@@ -273,7 +284,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "1836eaaa4da1e39046d9a3176be768890cf50731"
+local COMPOSE_COMMIT = "45e11085bb526211180a5d437c5e78a9c1a53084"
 local USED = {
 	"boundary",
 	"cell",
@@ -340,6 +351,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		gamepadContention = gamepadContention,
 		pathShapes = pathShapes,
 		richText = richText,
+		format = format,
 		recipes = recipes,
 		inputPriority = INPUT_PRIORITY,
 		bind = bind,

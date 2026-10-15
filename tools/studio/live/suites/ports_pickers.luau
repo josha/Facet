@@ -305,9 +305,10 @@ add("fields-error-still", {}, function(t)
 					message = if mark.Parent then mark.Parent.AbsoluteSize else nil,
 				}
 			)
-			t.check("the error text is on one line at 1280 px", words.AbsoluteSize.Y <= words.TextSize * 1.6, {
+			local points = styled(words, "TextSize")
+			t.check("the error text is on one line at 1280 px", words.AbsoluteSize.Y <= points * 1.6, {
 				words.AbsoluteSize,
-				words.TextSize,
+				points,
 			})
 		else
 			t.near("the hint returns to the Input left edge", words.AbsolutePosition.X, rest.x, 1)

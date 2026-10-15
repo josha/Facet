@@ -4,6 +4,9 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Readable<T> = { peek: (Readable<T>) -> T }
 type ThemeModule = typeof(require("@repo/examples/types").ThemeModule)
 local loadTheme: (ModuleScript) -> ThemeModule = require
 
@@ -17,13 +20,17 @@ local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-local Facet = require(ReplicatedStorage:WaitForChild("Facet"))
+local Facet: FacetModule = require(ReplicatedStorage:WaitForChild("Facet"))
 local showcase = require(ReplicatedStorage:WaitForChild("FacetShowcase"):WaitForChild("screen"))
 local lab_settings = require(script.Parent.lab_settings)
 local catalog = require(script.Parent.catalog)
 local browser = require(script.Parent.browser)
 local lab_audit = require(script.Parent.lab_audit)
 local lab_sweep = require(script.Parent.lab_sweep)
+local buildCatalog = (
+	catalog.build :: unknown
+) :: (typeof(require("@repo/tools/typecheck/aliases").Controls)) -> browser.CatalogData
+local runSweep: (unknown, PlayerGui, { string }, unknown) -> unknown = lab_sweep.run
 local Compose: ComposeModule = Facet.Compose
 
 pcall(function()
@@ -31,6 +38,7 @@ pcall(function()
 end)
 
 local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+assert(playerGui:IsA("PlayerGui"))
 local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 
 local modules = {}
@@ -40,49 +48,55 @@ for _, folder in { ReplicatedStorage:WaitForChild("FacetThemes"), ReplicatedStor
 	end
 end
 local packages = showcase.themePackages(Facet.themes, modules, loadTheme)
-packages.Neutral = assert(Facet.themes.define(Facet.themes.neutralPackage()))
+local neutral = Facet.themes.define(Facet.themes.neutralPackage())
+packages.Neutral = assert(neutral)
 
-local lab: any
+local lab = (nil :: unknown) :: typeof(browser.mount(nil :: never))
 local owner = Compose.createRootOwner(function()
-	local viewport = Facet.Roblox.createViewport(workspace.CurrentCamera)
+	local createViewport = (
+		Facet.Roblox.createViewport :: unknown
+	) :: (Camera) -> Readable<{ width: number, height: number }>
+	local viewport = createViewport(assert(workspace.CurrentCamera))
 
-	local ctx: any = {
-		Facet = Facet,
-		Compose = Compose,
-		runtime = runtime,
-		Host = (runtime.constructors :: unknown) :: RobloxHost,
-		viewport = viewport,
-		guiService = GuiService,
-		runService = game:GetService("RunService"),
-		worldTarget = workspace,
-		inputTarget = playerGui,
-		packages = packages,
-		types = {
-			UDim = UDim,
-			UDim2 = UDim2,
-			Vector2 = Vector2,
-			Color3 = Color3,
-			Vector3 = Vector3,
-			CFrame = CFrame,
-			Path2DControlPoint = Path2DControlPoint,
-			FloatCurveKey = FloatCurveKey,
-			Rect = Rect,
-			NumberSequence = NumberSequence,
-			NumberSequenceKeypoint = NumberSequenceKeypoint,
-			ColorSequence = ColorSequence,
-			ColorSequenceKeypoint = ColorSequenceKeypoint,
-			Enum = Enum,
-		},
-	}
+	local ctx = (
+		{
+			Facet = Facet,
+			Compose = Compose,
+			runtime = runtime,
+			Host = (runtime.constructors :: unknown) :: RobloxHost,
+			viewport = viewport,
+			guiService = GuiService,
+			runService = game:GetService("RunService"),
+			worldTarget = workspace,
+			inputTarget = playerGui,
+			packages = packages,
+			types = {
+				UDim = UDim,
+				UDim2 = UDim2,
+				Vector2 = Vector2,
+				Color3 = Color3,
+				Vector3 = Vector3,
+				CFrame = CFrame,
+				Path2DControlPoint = Path2DControlPoint,
+				FloatCurveKey = FloatCurveKey,
+				Rect = Rect,
+				NumberSequence = NumberSequence,
+				NumberSequenceKeypoint = NumberSequenceKeypoint,
+				ColorSequence = ColorSequence,
+				ColorSequenceKeypoint = ColorSequenceKeypoint,
+				Enum = Enum,
+			},
+		} :: unknown
+	) :: ExampleContext
 	showcase.configure(ctx)
-	ctx.sceneVisible = Compose.cell(false)
+	local sceneVisible = Compose.cell(false)
+	ctx.sceneVisible = sceneVisible
 	ctx.theme = Compose.cell(packages.foundation)
 	ctx.themeMode = Compose.cell(packages.foundation.style.defaultTheme)
 	ctx.themeName = Compose.cell("foundation")
-	local settings = lab_settings.new(ctx, UserInputService)
-	ctx.preview = showcase.preview
+	local settings = lab_settings.new((ctx :: unknown) :: lab_settings.Context, UserInputService)
 
-	local app = Facet.app({
+	local appOptions: typeof(require("@repo/tools/typecheck/aliases").AppOptions) = {
 		runtime = runtime,
 		name = "Facet_Lab",
 		theme = ctx.theme,
@@ -96,7 +110,8 @@ local owner = Compose.createRootOwner(function()
 			hover = settings.hover,
 		},
 		screen = { ZIndexBehavior = Enum.ZIndexBehavior.Sibling },
-	})
+	}
+	local app = Facet.app(appOptions)
 
 	local backdrop = Facet.app({
 		runtime = runtime,
@@ -111,8 +126,8 @@ local owner = Compose.createRootOwner(function()
 			Name = "Backdrop",
 			Size = UDim2.fromScale(1, 1),
 			BorderSizePixel = 0,
-			BackgroundTransparency = function(use)
-				return if use(ctx.sceneVisible) then 1 else 0
+			BackgroundTransparency = function(use: <T>(Readable<T>) -> T)
+				return if use(sceneVisible) then 1 else 0
 			end,
 		})
 		fill:AddTag("facet-surface")
@@ -121,13 +136,18 @@ local owner = Compose.createRootOwner(function()
 	Compose.cleanup(app.dispose)
 	ctx.UI = app.UI
 
-	lab = browser.mount({
+	local browserContext = (ctx :: unknown) :: browser.Context
+	browserContext.preview = showcase.preview
+	local controls = (app.UI :: unknown) :: typeof(require("@repo/tools/typecheck/aliases").Controls)
+	local catalogData = buildCatalog(controls)
+	local browserOptions: browser.MountOpts = {
 		Facet = Facet,
 		app = app,
-		ctx = ctx,
+		ctx = browserContext,
 		settings = settings,
-		catalog = catalog.build(app.UI),
-	})
+		catalog = catalogData,
+	}
+	lab = browser.mount(browserOptions)
 end, runtime.reactor)
 
 local api = Instance.new("Folder")
@@ -235,11 +255,11 @@ local handlers: { [string]: (string?) -> string } = {
 		if sweepJob and sweepJob.running then
 			return answer({ running = true, pages = sweepJob.completed })
 		end
-		local ids = if arg ~= nil and arg ~= "" then string.split(arg, ",") else lab.pageIds()
+		local ids: { string } = if arg ~= nil and arg ~= "" then string.split(arg, ",") else lab.pageIds()
 		sweepJob = { running = true, completed = {}, current = nil }
 		local job = sweepJob
 		task.spawn(function()
-			local ok, result = pcall(lab_sweep.run, lab, playerGui, ids, {
+			local ok, result = pcall(runSweep, lab, playerGui, ids, {
 				runtime = runtime,
 				inputPriority = Facet.inputPriority.aboveFacet,
 				progress = function(row, complete)
@@ -261,14 +281,15 @@ local handlers: { [string]: (string?) -> string } = {
 	sweepReport = function(arg)
 		local job = sweepJob or { running = false, completed = {} }
 		local rows = {}
-		for _, id in if arg ~= nil and arg ~= "" then string.split(arg, ",") else lab.pageIds() do
+		local ids: { string } = if arg ~= nil and arg ~= "" then string.split(arg, ",") else lab.pageIds()
+		for _, id in ids do
 			rows[id] = job.completed[id]
 		end
 		return answer({ running = job.running, current = job.current, completed = rows, error = job.error })
 	end,
 
 	probe = function(arg)
-		local ids = if arg ~= nil and arg ~= "" then string.split(arg, ",") else lab.pageIds()
+		local ids: { string } = if arg ~= nil and arg ~= "" then string.split(arg, ",") else lab.pageIds()
 		local out = {}
 		for _, id in ids do
 			lab.open(id)
@@ -282,8 +303,13 @@ local handlers: { [string]: (string?) -> string } = {
 	end,
 
 	audit = function(arg)
-		local ids = if arg ~= nil and arg ~= "" then string.split(arg, ",") else lab.pageIds()
-		return lab_audit(lab, playerGui, ids)
+		local ids: { string } = if arg ~= nil and arg ~= "" then string.split(arg, ",") else lab.pageIds()
+		return lab_audit({
+			open = lab.open,
+			report = function()
+				return { errors = lab.report().errors }
+			end,
+		}, playerGui, ids)
 	end,
 }
 for name, impl in handlers do

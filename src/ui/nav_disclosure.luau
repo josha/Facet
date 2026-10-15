@@ -120,14 +120,14 @@ return function(
 							)
 						end,
 					})
-					local fade = ctx.fade {
+					local fade = ctx.fade({
 						Name = "RevealFade",
 						BackgroundTransparency = 1,
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						GroupTransparency = hidden,
 						node,
-					}
+					}, nil, false)
 					surfaces.attach(fade, { inset :: Types.Child })
 					local automatic, height = kit.unroll(progress, ctx.observe.AbsoluteSize(fade))
 					local reveal = Host.Frame "Reveal" {

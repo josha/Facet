@@ -5,6 +5,7 @@ local Lute = require("../../../tools/vendor/verify/src/lute")
 local roblox = require("../../../tools/vendor/verify/src/roblox").datatypes
 
 local FACET = "../../src/ui/"
+local ControlProps = require("../../../tools/facet/lib/control_props")
 
 type Props = { [unknown]: unknown }
 type Source = Props | (unknown) -> Props
@@ -31,199 +32,21 @@ local function map<K, V>(items: { [K]: V }?): { [K]: V }
 end
 
 local env: { [string]: unknown } = {}
-for key, value in pairs(roblox) do
+for key, value in (roblox :: unknown) :: { [string]: unknown } do
 	env[key] = value
 end
 env.require = function(path: string): unknown
 	local name = assert(string.match(path, "^%./([%w_]+)$"))
-	return Lute.chunk.load(fs.readFileToString(`src/{name}.luau`), { name = name, environment = env })()
+	local module = Lute.chunk.load(fs.readFileToString(`src/{name}.luau`), { name = name, environment = env })()
+	return module
 end
 type Catalog = { PAGE_DATA: { [string]: PageData } }
 local catalog =
 	Lute.chunk.load(fs.readFileToString("src/catalog.luau"), { name = "catalog", environment = env })() :: Catalog
 
-local bodies: { [string]: string } = {}
-for _, entry in fs.listDirectory(FACET) do
-	local name = entry.name
-	if string.match(name, "_types%.luau$") and name ~= "engine_types.luau" then
-		local source = fs.readFileToString(FACET .. name) .. "\nexport type __END = nil\n"
-		for start, typeName in string.gmatch(source, "()export type ([%w_]+)") do
-			local rest = string.sub(source, assert(tonumber(start)))
-
-			local body = string.match(rest, "^export type [%w_]+[^\n]*=(.-)\nexport type ")
-				or string.match(rest, "^export type [%w_]+[^\n]*=(.-)\nreturn")
-			if body then
-				bodies[assert(typeName)] = body
-			end
-		end
-	end
-end
-
-local function scan(body: string): ({ string }, { string })
-	local fields, refs = {}, {}
-	local depth = 0
-	local i = 1
-	while i <= #body do
-		local ch = string.sub(body, i, i)
-		if ch == "{" or ch == "(" or ch == "<" then
-			depth += 1
-		elseif ch == "}" or ch == ")" or ch == ">" then
-			depth -= 1
-		elseif ch == "-" and string.sub(body, i + 1, i + 1) == ">" then
-			i += 1
-		elseif depth == 1 and string.match(ch, "[%a_]") and string.match(string.sub(body, 1, i - 1), "[{,\n]%s*$") then
-			local field = string.match(body, "^([%a_][%w_]*)%??%s*:", i)
-			if field then
-				table.insert(fields, field)
-			end
-		elseif
-			depth == 0
-			and string.match(ch, "[%a_]")
-			and not string.match(string.sub(body, i - 1, i - 1), "[%w_%.]")
-		then
-			local ident = assert(string.match(body, "^[%a_][%w_%.]*", i))
-			table.insert(refs, assert(string.match(ident, "([%w_]+)$")))
-			i += #ident - 1
-		end
-		i += 1
-	end
-	return fields, refs
-end
-
-local function optionsOf(typeName: string, seen: { [string]: boolean }?): { [string]: string }
-	local out: { [string]: string } = {}
-	seen = seen or {}
-	if assert(seen)[typeName] or bodies[typeName] == nil then
-		return out
-	end
-	assert(seen)[typeName] = true
-	local fields, refs = scan(bodies[typeName])
-	for _, field in fields do
-		if string.match(field, "^[a-z]") then
-			out[field] = typeName
-		end
-	end
-	for _, ref in refs do
-		for field, origin in optionsOf(ref, seen) do
-			out[field] = out[field] or origin
-		end
-	end
-	return out
-end
-
-local function propsTypeOf(expr: string, depth: number?): string?
-	local hit = string.match(expr, "([%w_]+Props)")
-		or string.match(expr, "([%w_]+Spec)")
-		or string.match(expr, "([%w_]+Options)")
-	if hit then
-		return hit
-	end
-	if (depth or 0) > 3 then
-		return nil
-	end
-	for ident in string.gmatch(expr, "([%w_]+)") do
-		if bodies[ident] then
-			local found = propsTypeOf(bodies[ident], (depth or 0) + 1)
-			if found then
-				return found
-			end
-		end
-	end
-	return nil
-end
-
 local specs: { [string]: { [string]: string } } = {}
-local names = {}
-
-local function trim(text: string): string
-	return (string.gsub(text, "^%s*(.-)%s*$", "%1"))
-end
-
-local function arguments(list: string): { string }
-	local out: { string } = {}
-	local depth, start = 0, 1
-	for i = 1, #list do
-		local ch = string.sub(list, i, i)
-		if ch == "(" or ch == "<" or ch == "{" then
-			depth += 1
-		elseif ch == ")" or ch == "}" or (ch == ">" and string.sub(list, i - 1, i - 1) ~= "-") then
-			depth -= 1
-		elseif ch == "," and depth == 0 then
-			table.insert(out, trim(string.sub(list, start, i - 1)))
-			start = i + 1
-		end
-	end
-	table.insert(out, trim(string.sub(list, start)))
-	return out
-end
-
-type Shape = { fields: { [string]: string }, slots: { [string]: number } }
-type Instance = { shape: string, args: { string } }
-
-local origins: { [string]: { [string]: string } } = {}
-for _, entry in fs.listDirectory(FACET) do
-	local name = entry.name
-	if string.match(name, "_props%.luau$") then
-		local source = fs.readFileToString(FACET .. name)
-		local aliases: { [string]: string } = {}
-		for alias, typeName in string.gmatch(source, "\nlocal ([%w_]+) = %(nil :: unknown%) :: [%w_]+%.([%w_]+)") do
-			aliases[assert(alias)] = assert(typeName)
-		end
-		local function originOf(expression: string, field: string): string?
-			local alias = string.match(expression, "^typeof%(([%w_]+)%.[%w_]+%)$")
-			local optionTable = if alias
-				then aliases[alias]
-				else string.match(expression, "^typeof%(%(%(nil :: unknown%) :: [%w_]+%.([%w_]+)")
-			return if optionTable then optionsOf(optionTable)[field] or optionTable else nil
-		end
-		local shapes: { [string]: Shape } = {}
-		local instances: { [string]: Instance } = {}
-		local declarations = string.gsub(source, "\nexport type ", "\ntype ")
-		for _, chunk in string.split(declarations, "\ntype ") do
-			local typeName = string.match(chunk, "^([%w_]+)")
-			if typeName then
-				local params = string.split(string.match(chunk, "^[%w_]+<([^>]*)> = {") or "", ", ")
-				local shape: Shape = { fields = {}, slots = {} }
-				for line in string.gmatch(chunk, "[^\n]+") do
-					local field, expression = string.match(line, "^\t([%l_][%w_]*): (.+),$")
-					if field and expression then
-						local slot = table.find(params, expression)
-						if slot then
-							shape.slots[field] = slot
-						else
-							local origin = originOf(expression, field)
-							if origin then
-								shape.fields[field] = origin
-							end
-						end
-					end
-				end
-				origins[typeName] = shape.fields
-				if next(shape.slots) then
-					shapes[typeName] = shape
-				end
-				local target, list = string.match(chunk, "^[%w_]+[^\n]-%s=%s([%w_]+)(%b<>)")
-				if target and list then
-					instances[typeName] = { shape = target, args = arguments(string.sub(list, 2, -2)) }
-				end
-			end
-		end
-		for typeName, instance in instances do
-			local shape = shapes[instance.shape]
-			if shape then
-				local fields = table.clone(shape.fields)
-				for field, slot in shape.slots do
-					local argument = instance.args[slot]
-					local origin = if argument then originOf(argument, field) else nil
-					if origin then
-						fields[field] = origin
-					end
-				end
-				origins[typeName] = fields
-			end
-		end
-	end
-end
+local names: { string } = {}
+local origins = ControlProps.optionOrigins("../..")
 local controlTypes = fs.readFileToString(FACET .. "control_types.luau")
 local constructors: { [string]: string } = {}
 local collecting: string? = nil
@@ -261,6 +84,18 @@ for line in string.gmatch(controlsBody, "[^\n]+") do
 	end
 end
 table.sort(names)
+
+if process.args[2] == "fields" then
+	local lines: { string } = {}
+	for control, fields in specs do
+		for field, origin in fields do
+			table.insert(lines, `{control}\t{field}\t{origin}`)
+		end
+	end
+	table.sort(lines)
+	print(table.concat(lines, "\n"))
+	return
+end
 
 local ANY
 ANY = setmetatable({}, {

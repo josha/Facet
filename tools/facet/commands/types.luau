@@ -290,6 +290,8 @@ local function analyze(
 end
 
 local function projects(): { Analyzer.Project }
+	local Bench = require("../lib/facetbench")
+	Bench.prepare(Files.cwd())
 	local listed = Run.git(PROJECTS)
 	if not listed.ok then
 		fail("git ls-files failed: " .. stringext.trim(listed.stderr))
@@ -301,6 +303,9 @@ local function projects(): { Analyzer.Project }
 			seen[project] = true
 			table.insert(names, project)
 		end
+	end
+	if not seen[Bench.project] then
+		table.insert(names, Bench.project)
 	end
 	table.sort(names)
 	local root = Files.cwd()
@@ -1065,6 +1070,21 @@ end
 cases = function(): { Case.Case }
 	return {
 		{
+			name = "control option origins retain native hooks, binding variants and aliases",
+			run = function(): string?
+				local origins = ControlProps.optionOrigins(".")
+				return Case.first(
+					Case.equal(origins.ButtonProps.ref, "TextButtonProps", "native hook"),
+					Case.equal(origins.ToggleCellProps.value, "CellBinding", "cell binding"),
+					Case.equal(origins.ToggleRequestProps.value, "RequestBinding", "request binding"),
+					Case.equal(origins.SliderCellProps.range, "SliderCellBinding", "cell variant"),
+					Case.equal(origins.SliderRangeProps.range, "SliderRangeBinding", "range variant"),
+					Case.equal(origins.CollectionSpec.from, origins.KeyedCollectionSpec.from, "collection alias"),
+					Case.equal(origins.KeyedCollectionSpec.rowActions, nil, "direct override")
+				)
+			end,
+		},
+		{
 			name = "inventory includes each repository area and untracked files",
 			run = function(): string?
 				local existing: { [string]: boolean } = {}
@@ -1547,7 +1567,20 @@ local command: Cli.Command = {
 	usage = USAGE,
 	values = { "solver", "files", "flag", "definitions", "creator-docs" },
 	cases = function(): { Case.Case }
-		return cases()
+		local list = cases()
+		table.insert(list, {
+			name = "the analyzers accept native and Lute types and reject planted scalar faults",
+			run = function(): string?
+				analyzerVersion()
+				prepareLuteTypes()
+				local code = 0
+				for _, solver in { "old", "new" } do
+					code = math.max(code, liveSelftest(flagsFor(solver, {})))
+				end
+				return Case.equal(code, 0, "types selftest")
+			end,
+		})
+		return list
 	end,
 	run = run,
 }

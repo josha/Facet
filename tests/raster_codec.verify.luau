@@ -7,6 +7,7 @@ return function(verifyHarness: Verify.Harness)
 	local Raster = require("../tools/facet/lib/raster")
 	local vectors = require("./fixtures/raster_vectors")
 
+	local Jpeg = require("../tools/facet/lib/raster/jpeg")
 	local Zlib = require("../tools/facet/lib/zlib")
 	local Png = Raster.Png
 	local Image = Raster.Image
@@ -63,6 +64,24 @@ return function(verifyHarness: Verify.Harness)
 			.. "crane fjord mocha ninja sushi adieu axe asked cakes walked chairs\n",
 		3
 	)
+
+	local function quadrant(x: number, y: number): { number }
+		if x < 20 and y < 12 then
+			return { 220, 40, 40 }
+		elseif y < 12 then
+			return { 40, 200, 60 }
+		elseif x < 20 then
+			return { 30, 60, 210 }
+		end
+		local level = (x - 20) * 255 // 19
+		return { level, level, level }
+	end
+
+	local function patched(hex: string, find: string, replace: string): buffer
+		local at = string.find(hex, find, 1, true)
+		assert(at ~= nil, "the vector has no " .. find)
+		return bytes(string.sub(hex, 1, at - 1) .. replace .. string.sub(hex, at + #find))
+	end
 
 	local function case(suite: string, name: string, run: () -> ())
 		verifyHarness:case(name, {
@@ -328,6 +347,66 @@ return function(verifyHarness: Verify.Harness)
 			for filter = 0, 4 do
 				expect(filters[filter]):toBe(true)
 			end
+		end)
+	end)
+
+	verifyHarness:suite("jpeg", function()
+		case("jpeg", "decodes a subsampled color JPEG that GDI+ wrote close to its source", function()
+			local image = Jpeg.decode(bytes(vectors.jpegColor))
+			expect({ image.width, image.height, image.channels }):toEqual { 40, 24, 3 }
+			local total, worst = 0, 0
+			for y = 0, 23 do
+				for x = 0, 39 do
+					local source = quadrant(x, y)
+					for channel = 0, 2 do
+						local difference =
+							math.abs(buffer.readu8(image.data, (y * 40 + x) * 3 + channel) - source[channel + 1])
+						total += difference
+						worst = math.max(worst, difference)
+					end
+				end
+			end
+			expect(total / (40 * 24 * 3)):toBeLessThan(6)
+			expect(worst):toBeLessThan(80)
+			for _, point in { { 5, 5 }, { 30, 5 }, { 5, 18 }, { 39, 18 } } do
+				local source = quadrant(point[1], point[2])
+				for channel = 0, 2 do
+					local value = buffer.readu8(image.data, (point[2] * 40 + point[1]) * 3 + channel)
+					expect(math.abs(value - source[channel + 1])):toBeLessThan(8)
+				end
+			end
+		end)
+
+		case("jpeg", "decodes a greyscale JPEG that WPF wrote close to its source", function()
+			local image = Jpeg.decode(bytes(vectors.jpegGrey))
+			expect({ image.width, image.height, image.channels }):toEqual { 40, 24, 1 }
+			local total = 0
+			for y = 0, 23 do
+				for x = 0, 39 do
+					local expected = (x * 6 + y * 3) % 256
+					local difference = math.abs(buffer.readu8(image.data, y * 40 + x) - expected)
+					total += math.min(difference, 256 - difference)
+				end
+			end
+			expect(total / (40 * 24)):toBeLessThan(8)
+		end)
+
+		case("jpeg", "refuses progressive frames, restart intervals and other data", function()
+			expect(function()
+				Jpeg.decode(patched(vectors.jpegColor, "ffc00011", "ffc20011"))
+			end):toThrow "only baseline JPEG"
+			expect(function()
+				Jpeg.decode(patched(vectors.jpegColor, "ffda000c", "ffdd00040010ffda000c"))
+			end):toThrow "restart intervals are not supported"
+			expect(function()
+				Jpeg.decode(patched(vectors.jpegColor, "ffc0001108", "ffc000110c"))
+			end):toThrow "8-bit samples"
+			expect(function()
+				Jpeg.decode(buffer.fromstring "\137PNG\r\n\26\n")
+			end):toThrow "start of image"
+			expect(function()
+				Jpeg.decode(buffer.fromstring(string.sub(buffer.tostring(bytes(vectors.jpegColor)), 1, 200)))
+			end):toThrow "jpeg:"
 		end)
 	end)
 end

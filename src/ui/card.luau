@@ -273,22 +273,26 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		runtime.mount(function()
 			return inset(false)
 		end, titleLabel)
-		local captionLabel = ctx.text({
-			Name = "Caption",
-			LayoutOrder = 3,
-			Text = caption,
-			Visible = function(use: ComposeTypes.Use): boolean
-				return use(caption) ~= ""
-			end,
-			Size = D2.fromScale(1, 0),
-			AutomaticSize = E.AutomaticSize.Y,
-			TextWrapped = true,
-		})
-		captionLabel:AddTag("facet-type-caption")
-		captionLabel:AddTag("facet-secondary")
-		runtime.mount(function()
-			return inset(true)
-		end, captionLabel)
+		local captionLabel: TextLabel?
+		if spec.caption ~= nil then
+			local label = ctx.text({
+				Name = "Caption",
+				LayoutOrder = 3,
+				Text = caption,
+				Visible = function(use: ComposeTypes.Use): boolean
+					return use(caption) ~= ""
+				end,
+				Size = D2.fromScale(1, 0),
+				AutomaticSize = E.AutomaticSize.Y,
+				TextWrapped = true,
+			})
+			label:AddTag("facet-type-caption")
+			label:AddTag("facet-secondary")
+			runtime.mount(function()
+				return inset(true)
+			end, label)
+			captionLabel = label
+		end
 		local bodyChildren: { Types.Child } = {
 			Host.UIPadding {
 				PaddingLeft = D.new(0, 0),
@@ -604,9 +608,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				end
 			end)
 		end
-		ctx.action(card, "CardCancel", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
-			return use(entered) and not use(menuOpen)
-		end, leaveActions, { priority = 1500 })
+		if primary or menu then
+			ctx.action(card, "CardCancel", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
+				return use(entered) and not use(menuOpen)
+			end, leaveActions, { priority = 1500 })
+		end
 		if input then
 			runtime.connect(input, "InputBegan", function(event: InputObject)
 				if not entered:peek() or menuOpen:peek() then

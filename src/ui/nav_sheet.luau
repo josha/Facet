@@ -53,7 +53,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local gesture = gestureFor(spec, detent, prepared, request, phase, anchor)
 		local placed, edge, ready, toward = gesture.placed, gesture.edge, gesture.ready, gesture.toward
 		local pulled, painted, keyboard, standing = gesture.pulled, gesture.painted, gesture.keyboard, gesture.standing
-		local level, handle, detector, reserve = gesture.level, gesture.handle, gesture.detector, gesture.reserve
+		local level, handle, detector, pad = gesture.level, gesture.handle, gesture.detector, gesture.pad
 		local canDismiss, interactive, lowest = gesture.canDismiss, gesture.interactive, gesture.lowest
 		local unit, extent = gesture.unit, gesture.extent
 		local sheetBody = contentFor(spec, gesture)
@@ -80,16 +80,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 			return 0, math.ceil(painted(use) * rest)
 		end
-		local column = ctx.column({ room.frame, ctx.padding(0, 0) }, {
-			Name = "SheetColumn",
-			BackgroundTransparency = 1,
-			AutomaticSize = E.AutomaticSize.None,
-			Size = D2.fromScale(1, 1),
+		runtime.decorate(room.frame, {
+			[Compose.group({ "Position", "Size" })] = function(use: ComposeTypes.Use): (UDim2, UDim2)
+				local left, top, right, bottom =
+					pad("left", use), pad("top", use), pad("right", use), pad("bottom", use)
+				return D2.fromOffset(left, top), D2.new(1, -left - right, 0, math.max(0, standing(use) - top - bottom))
+			end,
 		})
-		local layout = column:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout?
-		if layout then
-			layout.Padding = ctx.types.UDim.new(0, 8)
-		end
 		local panelProps: Types.CanvasGroupNativeProps = {
 			Name = "SheetPanel",
 			BackgroundTransparency = 0,
@@ -112,7 +109,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				return if not use(ready) then 1 elseif level(use) == "limited" then 1 - shown.opacity(use) else 0
 			end,
 		}
-		for _, child in { handle, column, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
+		for _, child in { handle, room.frame, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
 			panelProps[#panelProps + 1] = child
 		end
 		local panel = ctx.fade(panelProps, true)
@@ -125,8 +122,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			},
 		})
 		surfaces.skin(panel, nil, {
-			padding = column:FindFirstChildWhichIsA("UIPadding"),
-			reserve = reserve,
+			padding = false,
 			title = if spec.header == nil then spec.title else nil,
 			onCaption = function(on: boolean)
 				plaqued:set(on)

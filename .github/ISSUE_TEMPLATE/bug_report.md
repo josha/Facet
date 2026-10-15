@@ -35,6 +35,4 @@ assignees: ""
 
 ## Anything else
 
-<!-- The error text, a screenshot, or what you already ruled out. `lute run tools/facet build doctor`
-     is worth running first if the problem looks like a build or toolchain
-     failure. -->
+<!-- The error text, a screenshot, or what you already ruled out. -->

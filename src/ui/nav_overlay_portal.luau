@@ -13,7 +13,7 @@ export type Portal = {
 return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local departure = presence.departure
-	local function available(anchor: GuiObject): ComposeTypes.Readable<boolean>
+	local function available(anchor: GuiObject, changed: (() -> ())?): ComposeTypes.Readable<boolean>
 		local owner = assert(Compose.currentOwner())
 		local value = Compose.cell(false)
 		local ancestryOwner: ComposeTypes.Owner?
@@ -64,8 +64,14 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 				end)
 			end)
 		end
-		runtime.connect(anchor, "AncestryChanged", locate)
-		locate()
+		local function refresh()
+			locate()
+			if changed then
+				changed()
+			end
+		end
+		runtime.connect(anchor, "AncestryChanged", refresh)
+		refresh()
 		return value
 	end
 
@@ -119,10 +125,6 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		options: Nav.OverlayOptions?
 	): Types.Child
 		local owner = assert(Compose.currentOwner())
-		local enabled = available(anchor)
-		local condition = function(use: ComposeTypes.Use): boolean
-			return use(enabled) and ctx.read(presented, use)
-		end
 		local destination = Compose.cell(nil :: Instance?)
 		destination:set(ctx.config.overlayParent)
 		local function locate()
@@ -134,83 +136,73 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			end
 			destination:set(parent(anchor))
 		end
-		runtime.connect(anchor, "AncestryChanged", locate)
-		locate()
-		return Compose.keyed({
-			from = function(use: ComposeTypes.Use)
-				local target = use(destination)
-				return if target then { target } else {}
-			end,
-			render = function(current)
-				local age: ComposeTypes.Readable<number>? = nil
-				local function render(phase: Nav.PresencePhase?): Folder
-					if phase then
-						age = runtime.timeline({ duration = 0.001 }).elapsed
-					end
-					local function themed(): Instance
-						local node = build(phase)
-						local scope: Instance? = anchor
-						local target = current:peek() :: Instance
-						while scope and scope ~= target do
-							local link = scope:FindFirstChildWhichIsA("StyleLink")
-							if link then
-								local observe = (
-									ctx.observe :: unknown
-								) :: { StyleSheet: (StyleLink) -> ComposeTypes.Cell<StyleSheet?> }
-								local sheet = observe.StyleSheet(link :: StyleLink)
-								local Links = (Host :: unknown) :: { StyleLink: ({ StyleSheet: unknown }) -> Instance }
-								runtime.mountFragment(function()
-									return { Links.StyleLink { StyleSheet = sheet } }
-								end, node)
-								break
-							end
-							scope = scope.Parent
+		local enabled = available(anchor, locate)
+		local condition = function(use: ComposeTypes.Use): boolean
+			return use(enabled) and ctx.read(presented, use)
+		end
+		return Compose.switch(destination, {}, function()
+			local target = destination:peek()
+			if target == nil then
+				return Compose.fragment(function()
+					return {}
+				end)
+			end
+			local age: ComposeTypes.Readable<number>? = nil
+			local function render(phase: Nav.PresencePhase?): Instance
+				if phase then
+					age = runtime.timeline({ duration = 0.001 }).elapsed
+				end
+				local function themed(): Instance
+					local node = build(phase)
+					local scope: Instance? = anchor
+					while scope and scope ~= target do
+						local link = scope:FindFirstChildWhichIsA("StyleLink")
+						if link then
+							local observe = (
+								ctx.observe :: unknown
+							) :: { StyleSheet: (StyleLink) -> ComposeTypes.Cell<StyleSheet?> }
+							local sheet = observe.StyleSheet(link :: StyleLink)
+							local Links = (Host :: unknown) :: { StyleLink: ({ StyleSheet: unknown }) -> Instance }
+							runtime.mountFragment(function()
+								return { Links.StyleLink { StyleSheet = sheet } }
+							end, node)
+							break
 						end
-						return arrive(node)
+						scope = scope.Parent
 					end
-					return Host.Folder "OverlayPortal" {
-						Compose.portal(current:peek(), function()
-							if options and options.failure then
-								return {
-									Host.Folder({
-										Compose.boundary(function()
-											return themed()
-										end, options.failure),
-									}),
-								}
-							end
-							return { themed() }
-						end),
-					}
+					return arrive(node)
 				end
-				local presence = if options and options.presence
-					then options.presence
-					elseif options and options.motion then departure(options.motion, anchor, function(): boolean
-						local elapsed = age
-						return elapsed ~= nil and elapsed:peek() > 0
-					end)
-					else nil
-				local function presentation(): Folder
-					return Host.Folder "Presentation" {
-						if presence
-							then Compose.presence(condition, render, presence)
-							else Compose.show(condition, render),
-					}
+				if options and options.failure then
+					return Host.Folder({
+						Compose.boundary(function()
+							return themed()
+						end, options.failure),
+					})
 				end
-				local identity = options and options.identity
-				if identity then
-					return Host.Folder "Presentations" {
-						Compose.keyed({
-							from = function(use: ComposeTypes.Use)
-								return { identity(use) }
-							end,
-							render = presentation,
-						}),
-					}
-				end
-				return presentation()
-			end,
-		})
+				return themed()
+			end
+			local presence = if options and options.presence
+				then options.presence
+				elseif options and options.motion then departure(options.motion, anchor, function(): boolean
+					local elapsed = age
+					return elapsed ~= nil and elapsed:peek() > 0
+				end)
+				else nil
+			local function presentation(): Types.Child
+				return if presence
+					then Compose.presence(condition, render, presence)
+					else Compose.show(condition, render)
+			end
+			local identity = options and options.identity
+			runtime.mountFragment(function()
+				return {
+					if identity then Compose.switch(identity, {}, presentation) else presentation(),
+				}
+			end, target)
+			return Compose.fragment(function()
+				return {}
+			end)
+		end)
 	end
 	return { available = available, parent = parent, overlay = overlay }
 end

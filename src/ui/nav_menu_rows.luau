@@ -4,6 +4,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local MenuItems = require("./nav_menu_items")
+local Theme = require("./theme_types")
 
 export type RowState = {
 	hitFloor: (ComposeTypes.Use?) -> number,
@@ -21,6 +22,44 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local itemModel = MenuItems(ctx)
 	local actionItem, commitItem = itemModel.actionItem, itemModel.commitItem
+	local function trailingMark(
+		row: GuiObject,
+		name: string,
+		selected: (ComposeTypes.Use) -> boolean,
+		enabled: Types.Value<boolean>
+	)
+		row:AddTag("facet-menu-mark")
+		local state = if ctx.iconVaries(name) then ctx.observe.GuiState(row) else nil
+		runtime.mountFragment(function()
+			return {
+				Host.UIPadding({
+					PaddingRight = if ctx.config.theme == nil
+						then D.new(0, ctx.controlSize(nil, "iconSize") + 8)
+						else nil,
+				}),
+				ctx.icon(
+					name,
+					{
+						Name = "TrailingIcon",
+						AnchorPoint = V2.new(1, 0.5),
+						Position = function(use: ComposeTypes.Use): UDim2
+							return D2.new(1, ctx.controlSize(nil, "iconSize", use) + 8, 0.5, 0)
+						end,
+					},
+					if state
+						then function(use: ComposeTypes.Use): Theme.SkinState
+							return if read(enabled, use) == false
+								then "disabled"
+								elseif use(state) == E.GuiState.Press then "pressed"
+								elseif use(state) == E.GuiState.Hover then "hover"
+								elseif selected(use) then "selected"
+								else "default"
+						end
+						else nil
+				),
+			}
+		end, row)
+	end
 	local function fillTitle(button: GuiObject)
 		local content = button:FindFirstChild("Content")
 		local words = content and (content:FindFirstChild("Captions") or content:FindFirstChild("Title"))
@@ -70,7 +109,25 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return ctx.styled(Host.Frame "Divider" { Size = D2.new(1, 0, 0, 1), LayoutOrder = index }, "divider")
 		end
 		local rowKey = tostring(item.id or index:peek())
-		local row: GuiObject
+		local trailing = if item.children
+			then "chevron.trailing"
+			elseif item.checked ~= nil or item.selected ~= nil or item.marked ~= nil then "checkmark"
+			else nil
+		local simple = item.icon == nil
+			and item.description == nil
+			and item.avatar == nil
+			and ctx.config.controlSize == nil
+		local function selected(use: ComposeTypes.Use): boolean
+			local live = actionItem(use(source))
+			return if live.checked
+				then use(live.checked)
+				elseif live.selected then use(live.selected) == live.value
+				else read(live.marked, use) == true
+		end
+		local function enabled(use: ComposeTypes.Use): boolean
+			return read(actionItem(use(source)).enabled, use) ~= false
+		end
+		local row: TextButton
 		row = UI.Button({
 			Name = rowKey,
 			LayoutOrder = index,
@@ -82,23 +139,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end,
 			icon = item.icon,
 			role = item.role,
-			trailingIcon = if item.children
-				then "chevron.trailing"
-				elseif item.checked ~= nil or item.selected ~= nil or item.marked ~= nil then "checkmark"
+			trailingIcon = if simple then nil else trailing,
+			subtitle = if item.description ~= nil or item.avatar ~= nil
+				then function(use: ComposeTypes.Use)
+					return read(actionItem(use(source)).description, use) or ""
+				end
 				else nil,
-			subtitle = function(use: ComposeTypes.Use)
-				return read(actionItem(use(source)).description, use) or ""
-			end,
-			enabled = function(use: ComposeTypes.Use)
-				return read(actionItem(use(source)).enabled, use) ~= false
-			end,
-			selected = function(use: ComposeTypes.Use)
-				local live = actionItem(use(source))
-				return if live.checked
-					then use(live.checked)
-					elseif live.selected then use(live.selected) == live.value
-					else read(live.marked, use) == true
-			end,
+			TextXAlignment = E.TextXAlignment.Left,
+			enabled = enabled,
+			selected = selected,
 			onActivate = function()
 				local live = actionItem(source:peek())
 				if read(live.enabled) == false then
@@ -114,6 +163,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				end
 			end,
 		})
+		if simple and trailing then
+			trailingMark(row, trailing, selected, enabled)
+		end
 		row:AddTag("facet-menu-item")
 		rowNodes[rowKey] = row
 		Compose.cleanup(function()
@@ -142,14 +194,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				row:RemoveTag("facet-menu-dense")
 			end
 		end)
-		local accessories: { Types.Child } = {
-			Host.UIListLayout({
-				FillDirection = E.FillDirection.Horizontal,
-				SortOrder = E.SortOrder.LayoutOrder,
-				VerticalAlignment = E.VerticalAlignment.Center,
-				Padding = D.new(0, 8),
-			}) :: Types.Child,
-		}
+		local accessories: { Types.Child } = {}
 		if item.badge ~= nil then
 			table.insert(
 				accessories,
@@ -185,7 +230,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			shortcut:AddTag("facet-secondary")
 			table.insert(accessories, shortcut :: Types.Child)
 		end
-		if #accessories > 1 then
+		if #accessories > 0 then
 			surfaces.attach(row, {
 				Host.Frame "Accessories" {
 					BackgroundTransparency = 1,
@@ -194,6 +239,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					Size = D2.fromOffset(0, 0),
 					AutomaticSize = E.AutomaticSize.XY,
 					ZIndex = 2,
+					Host.UIListLayout({
+						FillDirection = E.FillDirection.Horizontal,
+						SortOrder = E.SortOrder.LayoutOrder,
+						VerticalAlignment = E.VerticalAlignment.Center,
+						Padding = D.new(0, 8),
+					}),
 					table.unpack(accessories),
 				} :: Types.Child,
 			})
@@ -228,13 +279,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		if item.role == "destructive" then
 			row:AddTag("facet-menu-destructive")
 		end
-		local content = row:FindFirstChild("Content")
-		if content and content:IsA("GuiObject") then
+		local content = row:FindFirstChild("Content") or row
+		if content:IsA("GuiObject") then
 			local layout = content:FindFirstChildWhichIsA("UIListLayout")
 			if layout then
 				layout.HorizontalAlignment = E.HorizontalAlignment.Left
 			end
-			local natural = ctx.observe.AbsoluteSize(content)
+			local natural: ComposeTypes.Readable<Vector2> = if content == row
+				then ctx.observe.TextBounds(row)
+				else ctx.observe.AbsoluteSize(content)
 			local words = content:FindFirstChild("Captions") or content:FindFirstChild("Title")
 			local wordsBox: ComposeTypes.Readable<Vector2>? = nil
 			local wordsNatural: ComposeTypes.Readable<Vector2>? = nil
@@ -248,6 +301,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 			Compose.watch(function(use: ComposeTypes.Use)
 				local width = use(natural).X
+				if simple and trailing then
+					width += ctx.controlSize(nil, "iconSize", use) + 8
+				end
 				if wordsBox and wordsNatural then
 					width = width - use(wordsBox).X + use(wordsNatural).X
 				end
@@ -280,9 +336,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			label = item.label,
 			enabled = item.enabled,
 			icon = item.icon,
-			subtitle = function(use: ComposeTypes.Use)
-				return read(item.description, use) or ""
-			end,
+			subtitle = item.description,
+			TextXAlignment = E.TextXAlignment.Left,
 			LayoutOrder = index,
 			Size = function(use: ComposeTypes.Use)
 				return D2.new(1, 0, 0, hitFloor(use))

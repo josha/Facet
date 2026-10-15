@@ -7,6 +7,7 @@ local parchment = require("../examples/themes/fantasy_parchment")
 local compactPointer = require("../examples/themes/compact_pointer")
 local glossyTouch = require("../examples/themes/glossy_touch")
 local ornate = require("../examples/themes/fantasy_ornate")
+local styleProperties = require("../tests/lib/style_properties")
 local sampling = {
 	["virtual-list-scroll"] = { 160, 40 },
 	["native-scroll-drag"] = { 160, 40 },
@@ -61,7 +62,7 @@ local function ruleSnapshot(root)
 	local rules = {}
 	for _, node in root:GetDescendants() do
 		if node.ClassName == "StyleRule" then
-			rules[`{node.Selector}#{node.Priority}`] = node:GetProperties()
+			rules[`{node.Selector}#{node.Priority}`] = styleProperties(node)
 		end
 	end
 	return rules

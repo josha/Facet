@@ -174,7 +174,6 @@ lute run tools/facet build model                # build/Facet.rbxm, the library 
 lute run tools/facet build themes               # build/themes/<Name>.rbxm, one per reference theme
 lute run tools/facet package build              # the package artifact and its manifest
 lute run tools/facet package status             # does the built artifact still match the source?
-lute run tools/facet build doctor               # the toolchain and the library invariants
 ```
 
 `lute run tools/facet package build` and `status` are offline. Publishing the asset needs a

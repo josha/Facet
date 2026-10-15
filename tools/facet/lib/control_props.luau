@@ -27,6 +27,18 @@ end
 
 local FAMILIES: { Family } = {
 	{
+		output = "src/ui/hud_props.luau",
+		modules = { Hud = "./hud_types", Media = "./media_types" },
+		recipes = {
+			{ name = "TimerProps", native = "TextLabelNativeProps", parts = { "Hud.TimerOptions" } },
+			{
+				name = "TypewriterProps",
+				native = "TextLabelNativeProps",
+				parts = { "Media.TextOptions", "Hud.TypewriterOptions" },
+			},
+		},
+	},
+	{
 		output = "src/ui/layout_props.luau",
 		modules = { Layout = "./layout_types" },
 		recipes = {
@@ -386,8 +398,8 @@ local function source(path: string): string
 	return cached
 end
 
-local function nativeFields(native: string): { string }
-	local text = source(ENGINE)
+local function nativeFields(native: string, root: string?): { string }
+	local text = source(if root then Files.join(root, ENGINE) else ENGINE)
 	local start = string.find(text, `\nexport type {native} = \{\n`, 1, true)
 	assert(start, `control_props: {ENGINE} has no table type {native}`)
 	local body = string.match(text, "^(.-)\n}", start + #native + 17)
@@ -655,6 +667,59 @@ end
 local ControlProps = {}
 
 ControlProps.FAMILIES = FAMILIES
+
+function ControlProps.optionOrigins(root: string): { [string]: { [string]: string } }
+	local origins: { [string]: { [string]: string } } = {}
+	for _, family in FAMILIES do
+		local function fields(parts: { string }): { [string]: string }
+			local found: { [string]: string } = {}
+			for _, text in parts do
+				local part = parsePart(text)
+				local module = assert(family.modules[part.alias])
+				local file = Files.join(root, "src/ui", string.sub(module, 3) .. ".luau")
+				for _, field in optionFields(file, part.name) do
+					if string.match(field, "^[a-z]") then
+						found[field] = part.name
+					end
+				end
+			end
+			return found
+		end
+		for _, recipe in family.recipes do
+			local base = fields(recipe.parts or {})
+			if recipe.native then
+				for _, field in nativeFields(recipe.native, root) do
+					if string.match(field, "^[a-z]") then
+						base[field] = recipe.native
+					end
+				end
+			end
+			for field in recipe.overrides or {} :: { [string]: string } do
+				base[field] = nil
+			end
+			if recipe.variants then
+				local common = table.clone(base)
+				for _, variant in recipe.variants do
+					local variantFields = table.clone(common)
+					for field, origin in fields(variant.parts) do
+						variantFields[field] = origin
+						base[field] = origin
+					end
+					origins[variant.name] = variantFields
+				end
+			end
+			if recipe.alias then
+				for name in string.gmatch(recipe.alias, "([%w_]+)[<| ]") do
+					for field, origin in origins[name] or {} :: { [string]: string } do
+						base[field] = base[field] or origin
+					end
+				end
+			end
+			origins[recipe.name] = base
+		end
+	end
+	return origins
+end
 
 function ControlProps.generate(family: Family, scratchDirectory: string): string
 	local name = assert(string.match(family.output, "[^/]+$"), "control_props: output has no file name")

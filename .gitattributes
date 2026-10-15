@@ -10,3 +10,4 @@ src/vendor/compose/** text eol=lf
 skills/compose/** text eol=lf
 tools/vendor/verify/** text eol=lf
 *.luau text eol=lf
+*.patch text eol=lf -whitespace

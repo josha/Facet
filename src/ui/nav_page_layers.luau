@@ -70,7 +70,7 @@ return function(ctx: Types.Context): PageLayers
 		properties.Interactable = function(use: ComposeTypes.Use)
 			return use(state).top
 		end
-		local panel = ctx.fade(properties)
+		local panel = ctx.fade(properties, nil, if properties.BackgroundTransparency == 1 then false else nil)
 		local parent = ctx.observe.Parent(panel)
 		Compose.watch(function(use: ComposeTypes.Use)
 			mounted:set(use(parent) ~= nil)

@@ -356,7 +356,7 @@ local function analyze(dump: Dump, options: Options?): Report
 		end
 		if element.interactive and element.focus ~= nil then
 			local focus = element.focus :: Focus
-			if element.selectable and focus.selectionImage == "hidden" then
+			if resolved.gamepad and element.selectable and focus.selectionImage == "hidden" then
 				add("focus-hidden", element, "the selection image is invisible", nil)
 			end
 			if
@@ -449,6 +449,11 @@ local function analyze(dump: Dump, options: Options?): Report
 			local left = interactive[leftIndex]
 			local right = interactive[rightIndex]
 			if left.root ~= right.root or ancestorOf(left.index, right) or ancestorOf(right.index, left) then
+				continue
+			end
+			local leftRect = visibleRects[left.index] :: Rect
+			local rightRect = visibleRects[right.index] :: Rect
+			if inside(leftRect, rightRect, EDGE) or inside(rightRect, leftRect, EDGE) then
 				continue
 			end
 			local shared = Dump.intersect(visibleRects[left.index], visibleRects[right.index]) :: Rect

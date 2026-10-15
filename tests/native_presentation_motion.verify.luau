@@ -84,7 +84,8 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function fadeOf(w: any): number
-		return w.find("ScrimFade").Transparency.Keypoints[1].Value
+		local fade = w.find("ScrimFade")
+		return if fade then fade.Transparency.Keypoints[1].Value else 0
 	end
 
 	verifyHarness:suite("presentation motion: Calendar", function()
@@ -531,6 +532,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(caret.Rotation):toBe(0)
 					expanded:set(true)
 					local reveal, fade = w.find("Reveal"), w.find("RevealFade")
+					Verify.expect(fade:FindFirstChild("FadeStroke")):toBeNil()
 					fade.AbsoluteSize = Vector2.new(300, 120)
 					Verify.expect(reveal.ClipsDescendants):toBe(true)
 					Verify.expect(reveal.AutomaticSize):toBe(w.Enum.AutomaticSize.None)

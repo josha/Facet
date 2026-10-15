@@ -9,7 +9,7 @@ copy.
 ## Compose
 
 **Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
-`1836eaaa4da1e39046d9a3176be768890cf50731` on the official `main` branch,
+`45e11085bb526211180a5d437c5e78a9c1a53084`,
 `src/core` and `src/roblox`.
 
 **Distribution.** `src/vendor/compose` is a generated, read-only snapshot of that
@@ -469,6 +469,39 @@ PCG64 (as distributed with NumPy):
     IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
     CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+**zlib.** The compressor in `tools/facet/lib/zlib.luau` follows the deflate
+design of the zlib library (<https://zlib.net>): hash chains over a 3-byte
+rolling hash, one step of lazy matching, and the chain and nice-match limits.
+It is an altered Luau version, not the original software. The zlib license
+follows as zlib states it:
+
+    (C) 1995-2024 Jean-loup Gailly and Mark Adler
+
+    This software is provided 'as-is', without any express or implied
+    warranty.  In no event will the authors be held liable for any damages
+    arising from the use of this software.
+
+    Permission is granted to anyone to use this software for any purpose,
+    including commercial applications, and to alter it and redistribute it
+    freely, subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must not
+       claim that you wrote the original software. If you use this software
+       in a product, an acknowledgment in the product documentation would be
+       appreciated but is not required.
+    2. Altered source versions must be plainly marked as such, and must not be
+       misrepresented as being the original software.
+    3. This notice may not be removed or altered from any source distribution.
+
+    Jean-loup Gailly        Mark Adler
+    jloup@gzip.org          madler@alumni.caltech.edu
+
+**JPEG.** `tools/facet/lib/raster/jpeg.luau` is a baseline JPEG decoder for the
+Studio captures of the play host. The history of this project records it as
+work of this project that follows the ITU T.81 baseline process. No
+third-party source is identified in it, so it has no notice here. If one is
+found, its notice goes in this section.
+
 ## How this file is kept true
 
 Add a section here in the same commit that adds any material this repository did
@@ -480,6 +513,6 @@ does not belong in the repository.
 
 The development tree includes Verify from
 [voidmeld/verify](https://github.com/voidmeld/verify), commit
-`eecccc4688120c5d8a4c0e9d15eaa9352934cf21`, under the MIT License.
+`ff2a119deacfdaf706a82192a664acc3d1bf80c4`, under the MIT License.
 Its license is in `tools/vendor/verify/LICENSE`. The generated snapshot is
 checked by `lute run tools/facet sync verify --check`. Verify is not included in the Facet model.

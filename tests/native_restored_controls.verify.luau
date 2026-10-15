@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local styleProperties = require("./lib/style_properties")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -82,7 +83,7 @@ return function(verifyHarness: Verify.Harness)
 	local function style(sheet: any, selector: string): { [string]: any }
 		for _, node in sheet:GetChildren() do
 			if node.Selector == selector then
-				return node:GetProperties()
+				return styleProperties(node)
 			end
 		end
 		error("No rule: " .. selector)

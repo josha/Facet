@@ -43,7 +43,11 @@ Analyzer.LUTE_RUNTIME = {
 	"tools/lute/",
 	"tools/vendor/verify/src/lute/",
 	"tools/vendor/verify/tools/",
+	"eval/lib/host/",
+	"eval/tools/",
 }
+
+Analyzer.LUTE_PATTERNS = { "^eval/tasks/[^/]+/hidden/" }
 
 Analyzer.VENDOR = { "src/vendor/", "tools/vendor/" }
 
@@ -52,6 +56,11 @@ Analyzer.KINDS = { TypeError = true, SyntaxError = true }
 function Analyzer.isLute(path: string): boolean
 	for _, prefix in Analyzer.LUTE_RUNTIME do
 		if stringext.hasPrefix(path, prefix) then
+			return true
+		end
+	end
+	for _, pattern in Analyzer.LUTE_PATTERNS do
+		if string.match(path, pattern) ~= nil then
 			return true
 		end
 	end

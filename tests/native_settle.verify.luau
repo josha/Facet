@@ -225,7 +225,8 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("settle: the sheet follows the finger", function()
 		local function scrimAlpha(w: any): number
-			return w.find("ScrimFade").Transparency.Keypoints[1].Value
+			local fade = w.find("ScrimFade")
+			return if fade then fade.Transparency.Keypoints[1].Value else 0
 		end
 
 		verifyHarness:case("the scrim lightens with the drag toward dismissal", {

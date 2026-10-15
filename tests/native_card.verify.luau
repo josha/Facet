@@ -197,6 +197,18 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Card", function()
+		verifyHarness:case("omits absent caption and action-cancel resources", {
+			id = "native_card::native Card::omits absent caption and action-cancel resources",
+			run = function()
+				local world, _, controls = mount({ image = "rbxassetid://1", title = "Course" })
+				Verify.expect(world.find("Caption")):toBe(nil)
+				Verify.expect(world.find("FacetCardCancel")):toBe(nil)
+				Verify.expect(assert(controls.enterActions)()):toBe(false)
+				world.stop()
+				Verify.expect(world.engine.census().connections):toBe(0)
+			end,
+		})
+
 		verifyHarness:case("keeps body, primary and More as sibling targets so one press runs one intent", {
 			id = "native_card::native Card::keeps body, primary and More as sibling targets so one press runs one intent",
 			run = function()

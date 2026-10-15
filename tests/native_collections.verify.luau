@@ -82,6 +82,124 @@ return function(verifyHarness: Verify.Harness)
 		end
 		return values
 	end
+	verifyHarness:suite("Table sort scrolling", function()
+		verifyHarness:case("resets sorting and reveals a selected row without changing list anchoring", {
+			id = "native_collections::Table sort scrolling::resets sorting and reveals a selected row without changing list anchoring",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local rows = records(20)
+				local sort = Compose.cell(nil :: FixtureCollectionTypes.Sort?)
+				local selection = Compose.cell({} :: FixtureCollectionTypes.Selection<number>)
+				local controls: FixtureComposeTypes.OrderedCollectionControls<number> = {}
+				local stop, mounted = runtime.mount(function()
+					return UI.Table({
+						from = rows,
+						key = function(item: { id: number, label: string }): number
+							return item.id
+						end,
+						columns = { { id = "id" } },
+						itemSize = 20,
+						sort = sort,
+						selection = selection,
+						controls = controls,
+					})
+				end, target)
+				local node = (mounted :: unknown) :: Frame
+				local body = assert(node:FindFirstChild("Body")) :: ScrollingFrame
+				local geometry = (body :: unknown) :: { AbsoluteWindowSize: Vector2 }
+				geometry.AbsoluteWindowSize = engine.types.Vector2.new(200, 95)
+				local function expectTop(key: number)
+					for _, height in { 96, 95 } do
+						geometry.AbsoluteWindowSize = engine.types.Vector2.new(200, height)
+						Verify.expect(body.CanvasPosition.Y):toBe(0)
+						Verify.expect(assert(body:FindFirstChild("Items")):FindFirstChild(tostring(key)) ~= nil)
+							:toBe(true)
+					end
+				end
+				sort:set({ column = "id", direction = "descending" })
+				Verify.expect(body.CanvasPosition.Y):toBe(0)
+				expectTop(20)
+				local header = assert(node:FindFirstChild("Sort", true))
+				local signal = (header :: unknown) :: { Activated: { Fire: (unknown) -> () } }
+				signal.Activated:Fire()
+				Verify.expect(body.CanvasPosition.Y):toBe(0)
+				expectTop(1)
+				selection:set({ [1] = true })
+				sort:set({ column = "id", direction = "descending" })
+				local placement = assert(controls.placementOf)(assert(controls.indexOfKey)(1) :: number)
+				Verify.expect(body.CanvasPosition.Y <= placement.offset):toBe(true)
+				Verify.expect(body.CanvasPosition.Y + 95 >= placement.offset + placement.size):toBe(true)
+				Verify.expect(body.CanvasPosition.Y):toBe(placement.offset + placement.size - 95)
+				signal.Activated:Fire()
+				Verify.expect(body.CanvasPosition.Y):toBe(0)
+				selection:set({ [999] = true })
+				sort:set({ column = "id", direction = "descending" })
+				Verify.expect(body.CanvasPosition.Y):toBe(0)
+				stop()
+				local source = Compose.cell(rows)
+				local stopList, mountedList = runtime.mount(function()
+					return UI.VirtualList({
+						from = source,
+						key = "id",
+						itemSize = 20,
+						render = function(): GuiObject
+							return UI.Button({ label = "Row" })
+						end,
+					})
+				end, target)
+				local list = (mountedList :: unknown) :: ScrollingFrame
+				local listGeometry = (list :: unknown) :: { AbsoluteWindowSize: Vector2 }
+				listGeometry.AbsoluteWindowSize = engine.types.Vector2.new(200, 95)
+				local reversed = table.clone(rows)
+				table.sort(reversed, function(a, b)
+					return a.id > b.id
+				end)
+				source:set(reversed)
+				Verify.expect(list.CanvasPosition.Y):toBe(305)
+				stopList()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("resets a list at the top through a permutation and later reflows", {
+			id = "native_collections::Table sort scrolling::resets a list at the top through a permutation and later reflows",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local rows = records(20)
+				local source = Compose.cell(rows)
+				local reset = Compose.cell("initial")
+				local stop, mounted = runtime.mount(function()
+					return UI.VirtualList({
+						from = source,
+						key = "id",
+						itemSize = 20,
+						scrollReset = reset,
+						render = function(): GuiObject
+							return UI.Button({ label = "Row" })
+						end,
+					})
+				end, target)
+				local list = (mounted :: unknown) :: ScrollingFrame
+				local geometry = (list :: unknown) :: { AbsoluteWindowSize: Vector2 }
+				geometry.AbsoluteWindowSize = engine.types.Vector2.new(200, 95)
+				local reversed = table.clone(rows)
+				table.sort(reversed, function(a, b)
+					return a.id > b.id
+				end)
+				runtime:batch(function()
+					source:set(reversed)
+					reset:set("reversed")
+				end)
+				Verify.expect(list.CanvasPosition.Y):toBe(0)
+				for _, height in { 96, 95 } do
+					geometry.AbsoluteWindowSize = engine.types.Vector2.new(200, height)
+					Verify.expect(list.CanvasPosition.Y):toBe(0)
+					Verify.expect(assert(list:FindFirstChild("Items")):FindFirstChild("20") ~= nil):toBe(true)
+				end
+				stop()
+				runtime:dispose()
+			end,
+		})
+	end)
 	verifyHarness:suite("collection geometry publication", function()
 		verifyHarness:case("does not correct a native end scroll into the reserved Card lift gutter", {
 			id = "native_collections::collection geometry publication::does not correct a native end scroll into the reserved Card lift gutter",

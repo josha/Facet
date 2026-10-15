@@ -66,7 +66,7 @@ local function scenario(t: any, name: string, options: { [string]: any }?): (any
 end
 
 local ELLIPSIS = "\u{2026}"
-local COASTAL = "Coastal circuit reverse night lap 14"
+local COASTAL = "Coastal circuit reverse night endurance race lap 14"
 
 local function labelHolder(t: any, text: any, width: any, extra: { [string]: any }?, options: { [string]: any }?): any
 	return t.mount(function(UI: any, Host: any, Compose: any)
@@ -110,6 +110,7 @@ add("label-middle-truncation-real-bounds", {}, function(t)
 	width:set(400)
 	t.settle(6)
 	t.check("the whole value paints when it fits", label.ContentText == COASTAL, label.ContentText)
+	t.check("the full value exceeds every truncation offer", label.TextBounds.X > 200, label.TextBounds)
 	width:set(1)
 	t.settle(6)
 	t.check("only the ellipsis paints when nothing fits", label.ContentText == ELLIPSIS, label.ContentText)

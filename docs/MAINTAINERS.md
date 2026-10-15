@@ -40,7 +40,7 @@ modules. A directory with a trailing slash owns each module in it.
 | **overlays** | `src/ui/nav_dialog.luau`, `src/ui/nav_popover.luau`, `src/ui/nav_sheet.luau`, `src/ui/nav_sheet_content.luau`, `src/ui/nav_sheet_detents.luau`, `src/ui/nav_sheet_gesture.luau`, `src/ui/nav_notice.luau`, `src/ui/overlay_parts.luau`, `src/ui/materialize.luau`, `src/ui/overlay_placement.luau`, `src/ui/overlay_types.luau`, `src/ui/overlay_props.luau`, `src/ui/sheet_release.luau`, `src/ui/reservations.luau`, `src/ui/activation.luau`, `src/ui/nav_toast.luau`, `src/ui/toast_schedule.luau` | Dialogs, popovers, sheets, snackbars, toasts, notices, the navigation bar, the shared placement and the layer insets. | None. Reach it through `Facet.controls`. |
 | **radial** | `src/ui/nav_radial.luau`, `src/ui/nav_radial_menu.luau`, `src/ui/nav_radial_layout.luau`, `src/ui/nav_radial_sectors.luau`, `src/ui/nav_radial_center.luau`, `src/ui/nav_radial_gestures.luau`, `src/ui/nav_radial_geometry.luau`, `src/ui/radial_types.luau`, `src/ui/radial_props.luau` | The radial menu and its geometry. | None. Reach it through `Facet.controls`. |
 | **collections** | `src/ui/collections.luau`, `src/ui/collection_state.luau`, `src/ui/collection_slots.luau`, `src/ui/collection_rows.luau`, `src/ui/collection_focus.luau`, `src/ui/collection_navigation.luau`, `src/ui/collection_fling.luau`, `src/ui/collection_policy.luau`, `src/ui/collection_paint.luau`, `src/ui/collection_tree.luau`, `src/ui/collection_selection.luau`, `src/ui/collection_reorder.luau`, `src/ui/collection_reorder_state.luau`, `src/ui/collection_reorder_row.luau`, `src/ui/collection_reorder_pointer.luau`, `src/ui/collection_reorder_keys.luau`, `src/ui/collection_reorder_drop.luau`, `src/ui/collection_reorder_feedback.luau`, `src/ui/collection_snap.luau`, `src/ui/collection_row_actions.luau`, `src/ui/collection_table.luau`, `src/ui/collection_table_metrics.luau`, `src/ui/collection_table_columns.luau`, `src/ui/collection_table_header.luau`, `src/ui/collection_table_rows.luau`, `src/ui/collection_table_toolbar.luau`, `src/ui/collection_table_editors.luau`, `src/ui/collection_types.luau`, `src/ui/collection_props.luau` | Keyed and virtual collections, animated hierarchies, selection, reorder, snap, row actions, reusable CellEditor drafts and tables. | None. Reach it through `Facet.controls`. |
-| **media** | `src/ui/media.luau`, `src/ui/media_shared.luau`, `src/ui/media_text.luau`, `src/ui/media_image.luau`, `src/ui/media_async_image.luau`, `src/ui/media_badge.luau`, `src/ui/media_progress.luau`, `src/ui/media_skeleton.luau`, `src/ui/media_avatar.luau`, `src/ui/media_stage.luau`, `src/ui/media_path.luau`, `src/ui/media_readiness.luau`, `src/ui/media_types.luau`, `src/ui/media_props.luau`, `src/ui/rich_text.luau` | Labels, badges, status, progress, skeletons, images, avatars, stages, paths and rich text escaping. | `Facet.richText`, `Facet.pathShapes`, or through `Facet.controls`. |
+| **media** | `src/ui/media.luau`, `src/ui/media_shared.luau`, `src/ui/media_text.luau`, `src/ui/media_image.luau`, `src/ui/media_async_image.luau`, `src/ui/media_badge.luau`, `src/ui/media_progress.luau`, `src/ui/media_skeleton.luau`, `src/ui/media_avatar.luau`, `src/ui/media_stage.luau`, `src/ui/media_path.luau`, `src/ui/media_readiness.luau`, `src/ui/media_types.luau`, `src/ui/media_props.luau`, `src/ui/rich_text.luau`, `src/ui/format.luau`, `src/ui/timer.luau`, `src/ui/typewriter.luau`, `src/ui/hud_types.luau`, `src/ui/hud_props.luau` | Labels, badges, status, progress, skeletons, images, avatars, stages, paths and rich text escaping. | `Facet.format`, `Facet.richText`, `Facet.pathShapes`, or through `Facet.controls`. |
 | **content** | `src/ui/pagination.luau`, `src/ui/pagination_window.luau`, `src/ui/step_indicator.luau`, `src/ui/vote.luau`, `src/ui/card.luau`, `src/ui/badge_seal.luau`, `src/ui/content_values.luau`, `src/ui/content_types.luau`, `src/ui/content_props.luau` | Pagination, step indicators, votes, cards, and the checks that keep the last legal value. | None. Reach it through `Facet.controls`. |
 | **effects** | `src/ui/effect_types.luau`, `src/ui/effect_props.luau`, `src/ui/effect_sequence.luau`, `src/ui/effect_flash.luau` | Ordered effect policy, numeric motion and transient GUI paint. | Through `Facet.controls`. |
 | **zoom and travel** | `src/ui/zoom_view.luau`, `src/ui/zoom_geometry.luau`, `src/ui/travel.luau`, `src/ui/travel_engine.luau`, `src/ui/travel_geometry.luau`, `src/ui/zoom_travel_types.luau`, `src/ui/zoom_travel_props.luau` | Board zoom, pan, focus limits and travel between native containers. | None. Reach it through `Facet.controls`. |
@@ -58,7 +58,7 @@ covers the library root. To see the number of specs for each area, run
 
 | Area | Tests | Studio scenario | Extend via |
 |---|---|---|---|
-| **library root** | `tests/lab_loader.verify.luau`, `tests/native_public_surface.verify.luau`, `tests/native_compose_contract.verify.luau`, `tests/native_compose_binding.verify.luau`, `tests/native_navigation.verify.luau`, `tests/native_radial_controls.verify.luau` | `all_controls` | [Adding a control](extending/new-control.md) |
+| **library root** | `tests/blocks.verify.luau`, `tests/lab_loader.verify.luau`, `tests/native_public_surface.verify.luau`, `tests/native_compose_contract.verify.luau`, `tests/native_compose_binding.verify.luau`, `tests/native_navigation.verify.luau`, `tests/native_radial_controls.verify.luau` | `all_controls` | [Adding a control](extending/new-control.md) |
 | **Compose snapshot** | `tests/native_themes_media.verify.luau`, `tests/native_perf_runner.verify.luau` | `component_motion` | [Adopting an engine feature](extending/new-engine-feature.md). Change Compose upstream. Then run `lute run tools/facet sync compose`. |
 | **control context** | `tests/native_registration.verify.luau`, `tests/native_inputs.verify.luau`, `tests/gesture_arbitration.verify.luau`, `tests/container_transfer.verify.luau` | `all_controls` | [Native primitives](extending/new-primitive.md) |
 | **inputs** | `tests/command_scope.verify.luau`, `tests/native_inputs.verify.luau`, `tests/native_collections.verify.luau` | `action_controls`, `text_controls` | [Adding a control](extending/new-control.md) |
@@ -66,7 +66,7 @@ covers the library root. To see the number of specs for each area, run
 | **overlays** | `tests/native_dialog.verify.luau`, `tests/native_popover.verify.luau`, `tests/native_sheet_parts.verify.luau`, `tests/native_toast_action.verify.luau`, `tests/native_notice_navbar.verify.luau`, `tests/native_callout_help.verify.luau`, `tests/sheet_release.verify.luau` | `overlays`, `notice`, `sheet` | [Adding a control](extending/new-control.md) |
 | **radial** | `tests/radial_geometry.verify.luau`, `tests/native_collections.verify.luau` | `radial_menu` | [Adding a control](extending/new-control.md) |
 | **collections** | `tests/native_collections.verify.luau` | `collections`, `table_virtualized`, `row_actions` | [Adding a control](extending/new-control.md) |
-| **media** | `tests/native_themes_media.verify.luau` | `async_images`, `avatar`, `badge` | [Mounting into native targets](extending/new-render-target.md) |
+| **media** | `tests/native_themes_media.verify.luau`, `tests/hud_format.verify.luau`, `tests/hud_timer.verify.luau`, `tests/hud_typewriter.verify.luau` | `async_images`, `avatar`, `badge` | [Mounting into native targets](extending/new-render-target.md) |
 | **content** | `tests/native_pagination.verify.luau` | `paging`, `steps` | [Adding a control](extending/new-control.md) |
 | **effects** | `tests/effect_sequence.verify.luau` | None — use the reward_sequence live suite and Lab page. | [Adding a control](extending/new-control.md) |
 | **zoom and travel** | `tests/zoom_travel.verify.luau` | None — use the zoom and travel live suite and Lab pages. | [Adding a control](extending/new-control.md) |
@@ -83,13 +83,14 @@ directories that `.gitignore` excludes.
 |---|---|---|
 | `src/` | The library. See [Areas](#areas). | `lute run tools/facet gate full` |
 | `tests/` | The behavioral specs, the native engine double and the type witnesses. | `lute run tools/facet gate spec <spec-name>` |
-| `examples/` | The gallery, the Facet Lab, the consumer project, the reference apps, the virtual monitors, the example themes and the performance lab. | `lute run tools/facet check scenario-requires` |
+| `examples/` | The starter blocks in `examples/blocks`, the gallery, the Facet Lab, the consumer project, the reference apps, the virtual monitors, the example themes and the performance lab. | `lute run tools/facet check scenario-requires` |
 | `bench/` | The benchmark scenes, profiles and baselines. | `lute run tools/facet bench` |
 | `tools/` | The Verify gate runner, the Lute maintainer commands and checks, the native engine double programs and the Studio tools. | `lute run tools/facet check --all` |
 | `docs/` | The guide, the extension playbooks, the reference, this map and the historical plans. | `lute run tools/facet check doc-style` |
 | `assets/` | The icon images and the theme art. The generators in `tools/facet/art/` make them, and the package build includes them. | `lute run tools/facet art all --check` |
 | `package/` | The Roblox Package configuration and the publish receipts. See [the package interface](../package/README.md). | `lute run tools/facet package status` |
 | `skills/` | The agent skills for Compose and for Facet. | None. A reviewer reads them with the guide. |
+| `eval/` | FacetBench: the agent evaluation tasks, arms, hidden checks, thresholds and validation references. See [the FacetBench guide](../eval/README.md). | `lute run eval/tools/check.luau` |
 
 ## Quick answers
 
@@ -116,6 +117,20 @@ Theme definitions compile to native StyleSheets. The callers own the
 StyleLinks. Do not write explicit default paint properties that hide the
 stylesheet rules.
 
+## Gate producers
+
+The gate has 36 producers: 13 fast, 22 full and 1 release. `tool-specs`
+includes the planted-fault proofs for types, public surface and memory.
+`vendor` checks both dependency pins. `standalone-builds` builds the example
+and reference places. `theme-artifacts` builds and probes themes.
+`package-build` builds and verifies the model and package. `art` also checks
+plate samples. `perf` reports budgets and metrics; `perf-scenes` checks both
+production and theme scenes. `perf-place` keeps its Studio environment.
+
+The Lab option check reads field origins from the props generator and its
+option tables. Run the [Lab coverage tool](../examples/facet-lab/tools/coverage.luau)
+with `fields` from `examples/facet-lab` to list each control, field and origin.
+
 ## Evidence
 
 Control policy tests use a native engine double. Geometry, hit testing,
@@ -132,6 +147,18 @@ their limits.
 Read the [contributor workflow](../CONTRIBUTING.md), the
 [API reference](reference/api.md) and the
 [control playbook](extending/new-control.md).
+
+Run `lute run tools/facet perf footprint` for the control resource census.
+The report subtracts an empty screen from each mounted control. It records
+active and idle instances, connections and Compose holdings, then checks
+zero resources after disposal. Menu and VirtualList samples with one and
+two rows show the cost of one more row. These fixed headless fixtures use
+the native engine double. They do not measure engine layout or device memory.
+The `perf-footprint` producer checks `bench/footprint_budgets.json`.
+
+Run `lute run tools/facet perf profile SCENE` for a Lute sampling trace of
+the unchanged scene. Profiles include setup and warmup. Use paired runs
+for timing claims.
 
 ## How this page stays true
 

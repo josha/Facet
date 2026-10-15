@@ -3,6 +3,44 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
+type StringCell = typeof(require("@repo/tools/typecheck/aliases").StringCell)
+type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
+type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type MotionLevel = typeof(require("@repo/examples/types").MotionLevel)
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type InputChoice = {
+	preferredInput: string,
+	mouseEnabled: boolean,
+	keyboardEnabled: boolean,
+	touchEnabled: boolean,
+	gamepadEnabled: boolean,
+}
+type Device = { logical: { width: number, height: number }, scale: number, fit: number, simulated: boolean }
+export type Settings = {
+	cells: { [string]: StringCell },
+	CHOICES: { [string]: { string } },
+	transparency: Readable<number>,
+	hover: Readable<boolean>,
+	scale: Readable<number>,
+	viewport: Cell<Vector2?>,
+	environment: typeof(require("@repo/tools/typecheck/aliases").ControlOptions.environment),
+	device: (Use, { width: number, height: number }) -> Device,
+	set: (string, string) -> { [string]: string | boolean },
+	reset: () -> (),
+	lines: Readable<string>,
+	status: () -> { [string]: string },
+}
+
+export type Context = {
+	Compose: ComposeModule,
+	types: RobloxTypes,
+	runtime: Runtime,
+	guiService: GuiService,
+	viewingDistance: StringCell,
+	previewScale: Readable<number>,
+	motionPreference: Cell<MotionLevel?>,
+	motionLevel: Readable<MotionLevel>,
+}
 
 local lab_settings = {}
 
@@ -23,7 +61,7 @@ lab_settings.CHOICES = {
 	text = { "automatic", "Medium", "Large", "Larger", "Largest" },
 }
 
-local INPUT = {
+local INPUT: { [string]: InputChoice } = {
 	pointer = {
 		preferredInput = "KeyboardAndMouse",
 		mouseEnabled = true,
@@ -50,11 +88,11 @@ local DEVICE_INPUT = { phone = "touch", tablet = "touch", desktop = "pointer", t
 local DISPLAY = { phone = "Small", tablet = "Medium", desktop = "Medium", tv = "Large" }
 local TRANSPARENCY = { default = 1, reduced = 0.5, opaque = 0 }
 
-function lab_settings.new(ctx: any, input: UserInputService): any
+function lab_settings.new(ctx: Context, input: UserInputService): Settings
 	local Compose: ComposeModule = ctx.Compose
 	local Enum = ctx.types.Enum
 	local gui = ctx.guiService
-	local cells: { [string]: any } = {
+	local cells: { [string]: StringCell } = {
 		platform = Compose.cell("automatic"),
 		orientation = Compose.cell("automatic"),
 		distance = ctx.viewingDistance,
@@ -65,7 +103,7 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 		text = Compose.cell("automatic"),
 	}
 
-	local function live(object: Instance, property: string, read: () -> unknown): any
+	local function live<T>(object: Instance, property: string, read: () -> T): Cell<T>
 		local value = Compose.cell(read())
 		local connection = object:GetPropertyChangedSignal(property):Connect(function()
 			value:set(read())
@@ -85,11 +123,11 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 		return gui.PreferredTextSize
 	end)
 
-	local function effectiveInput(use: any): string
+	local function effectiveInput(use: Use): string
 		local choice = use(cells.input)
 		return if choice == "automatic" then DEVICE_INPUT[use(cells.platform)] or "automatic" else choice
 	end
-	local self: any = { cells = cells, CHOICES = lab_settings.CHOICES }
+	local self = ({ cells = cells, CHOICES = lab_settings.CHOICES } :: unknown) :: Settings
 	self.transparency = Compose.formula(function(use: Use)
 		local choice = use(cells.transparency)
 		return if choice == "automatic" then use(realTransparency) else TRANSPARENCY[choice]
@@ -108,31 +146,41 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 
 	self.viewport = Compose.cell(nil :: Vector2?)
 
-	local function forced(field: string)
-		return function(use: any): any
+	local function forced<T>(read: (InputChoice) -> T): (Use) -> T?
+		return function(use: Use): T?
 			local class = INPUT[effectiveInput(use)]
-			return if class then class[field] else nil
+			return if class then read(class) else nil
 		end
 	end
 	self.environment = {
-		preferredInput = forced("preferredInput"),
-		mouseEnabled = forced("mouseEnabled"),
-		keyboardEnabled = forced("keyboardEnabled"),
-		touchEnabled = forced("touchEnabled"),
-		gamepadEnabled = forced("gamepadEnabled"),
-		preferredTextSize = function(use: any): string?
+		preferredInput = forced(function(choice)
+			return choice.preferredInput
+		end),
+		mouseEnabled = forced(function(choice)
+			return choice.mouseEnabled
+		end),
+		keyboardEnabled = forced(function(choice)
+			return choice.keyboardEnabled
+		end),
+		touchEnabled = forced(function(choice)
+			return choice.touchEnabled
+		end),
+		gamepadEnabled = forced(function(choice)
+			return choice.gamepadEnabled
+		end),
+		preferredTextSize = function(use: Use): string?
 			local text = use(cells.text)
 			return if text == "automatic" then nil else text
 		end,
-		displaySize = function(use: any): string?
+		displaySize = function(use: Use): string?
 			return DISPLAY[use(cells.platform)]
 		end,
-		viewportSize = function(use: any): Vector2?
+		viewportSize = function(use: Use): Vector2?
 			return if use(cells.platform) == "automatic" then nil else use(self.viewport)
 		end,
 	}
 
-	function self.device(use: any, avail: { width: number, height: number }): any
+	function self.device(use: Use, avail: { width: number, height: number })
 		local platform, orientation, scale = use(cells.platform), use(cells.orientation), use(self.scale)
 		if platform == "automatic" then
 			return {
@@ -156,7 +204,7 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 		}
 	end
 
-	function self.set(key: string, value: string): any
+	function self.set(key: string, value: string)
 		local cell = cells[key]
 		if cell == nil or not table.find(lab_settings.CHOICES[key], value) then
 			return { ok = false, reason = "unknown setting or value" }
@@ -164,7 +212,7 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 		ctx.runtime:batch(function()
 			cell:set(value)
 			if key == "motion" then
-				ctx.motionPreference:set(if value == "automatic" then nil else value)
+				ctx.motionPreference:set(if value == "automatic" then nil else value :: MotionLevel)
 			elseif key == "platform" then
 				cells.distance:set(if value == "tv" then "ten-foot" else "automatic")
 			end
@@ -181,7 +229,7 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 	end
 
 	self.lines = Compose.formula(function(use: Use)
-		local function word(v: any): string
+		local function word(v: unknown): string
 			return (string.gsub(tostring(v), "^Enum%.%w+%.", ""))
 		end
 		local out = {}
@@ -233,8 +281,8 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 		return table.concat(out, "\n")
 	end)
 
-	function self.status(): any
-		local out: { [string]: any } = { lines = self.lines:peek() }
+	function self.status(): { [string]: string }
+		local out: { [string]: string } = { lines = self.lines:peek() }
 		for key, cell in cells do
 			out[key] = cell:peek()
 		end

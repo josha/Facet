@@ -5,6 +5,8 @@ local Visible = require("./audit_visible")
 type ReservedKeys = typeof(require("@repo/src/ui/reserved_keys"))
 type VerifyCore = typeof(require("@repo/tools/vendor/verify/src/core"))
 type VerifyRoblox = typeof(require("@repo/tools/vendor/verify/src/roblox"))
+type InputHostModule = typeof(require("@repo/tools/vendor/verify/src/roblox").inputHost)
+type InputBackend = typeof(require("@repo/tools/vendor/verify/src/roblox").inputHost.native())
 local loadCore: (Instance?) -> VerifyCore = require
 local loadRoblox: (Instance?) -> VerifyRoblox = require
 local Sweep = {}
@@ -260,14 +262,17 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 	local deps = supplied or {}
 	local modules = game:GetService("ReplicatedStorage"):FindFirstChild("FacetVerify")
 	local Verify: VerifyCore = deps.Verify or loadCore(assert(modules):FindFirstChild("core"))
-	local InputHost = deps.InputHost or loadRoblox(assert(modules):FindFirstChild("roblox")).inputHost
-	local input = assert(deps.input or InputHost.native(), "native virtual input is unavailable")
-	local wait = deps.wait or task.wait
+	local InputHost: InputHostModule = deps.InputHost or loadRoblox(assert(modules):FindFirstChild("roblox")).inputHost
+	local suppliedInput: InputBackend = deps.input or InputHost.native()
+	local input = assert(suppliedInput, "native virtual input is unavailable")
+	local screenCenter = (InputHost.screenCenter :: unknown) :: (GuiObject) -> { x: number, y: number }
+	local wait: (number?) -> number = deps.wait or task.wait
 	local gui = game:GetService("GuiService")
 	local frames = game:GetService("RunService")
 	local inputService = game:GetService("UserInputService")
 	local touchInset: Vector2? = nil
-	local virtual = game:GetService("UserInputService"):CreateVirtualInput() :: VirtualInput
+	local virtual = game:GetService("UserInputService"):CreateVirtualInput()
+	assert(virtual:IsA("VirtualInput"))
 	local observations = {}
 	local currentRow: any = nil
 	local logged = game:GetService("LogService").MessageOut:Connect(function(message, kind)
@@ -356,7 +361,7 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 				hits += 1
 			end)
 			else nil
-		local point = InputHost.screenCenter(node)
+		local point = screenCenter(node)
 		if touchInset then
 			point = {
 				x = node.AbsolutePosition.X + node.AbsoluteSize.X / 2 + touchInset.X,
@@ -715,7 +720,7 @@ function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: an
 							if n and n:IsA("GuiObject") then
 								attempt(identity, function()
 									reveal(n)
-									local point = InputHost.screenCenter(n)
+									local point = screenCenter(n)
 									if touchInset then
 										local center = n.AbsolutePosition + n.AbsoluteSize / 2 + touchInset
 										point = { x = center.X, y = center.Y }

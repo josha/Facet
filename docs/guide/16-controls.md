@@ -9,6 +9,11 @@ Use this map to understand each control's role, then read its linked contract.
 [Choosing controls](14-choosing-controls.md) explains the interaction decisions
 and gives recipes for search, drill-down and contextual actions.
 
+Use [Facet.format](../reference/api.md#hud-formatting) for currency counters and
+fixed durations. Use [Timer](../reference/api.md#timer) for a round deadline or
+elapsed time. Use [Typewriter](../reference/api.md#typewriter) to reveal a dialogue
+line with a Skip action.
+
 ## Actions and values
 
 | Control | Use it for | Choose something else when |
