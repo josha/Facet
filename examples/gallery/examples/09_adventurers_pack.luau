@@ -35,7 +35,7 @@ return {
 		local query, filter, path = C.cell(""), C.cell("all"), C.cell(entries)
 		local hotbar = C.cell({ "sword", "lantern", "pick" })
 		local width, loadoutOpen = C.cell(1100), C.cell(false)
-		local metric = UI.environment().metricScale
+		local wideAt = UI.environment().scaled(850)
 		local toolPayloads: { [string]: { kind: string, id: string } } = {}
 		local toolOf: { [unknown]: string } = {}
 		for _, item in items do
@@ -46,7 +46,7 @@ return {
 			end
 		end
 		local wide = C.formula(function(use: Use)
-			return use(width) >= 850 * use(metric)
+			return use(width) >= use(wideAt)
 		end)
 		local notice = C.cell("The frost cave needs 10 warmth. Find a warmer outfit.")
 		local warmth = C.formula(function(use: Use)
@@ -170,7 +170,8 @@ return {
 					title = "Adventurer's Pack",
 					content = function(): Instance
 						local measuredWidth = C.cell(600)
-						local metricScale = UI.environment().metricScale
+						local env = UI.environment()
+						local cardSize, columnWidth = env.scaled(300), env.scaled(230)
 						return UI.Screen "BagPage" {
 							gap = "m",
 							view.text("Objective", "Prepare for the frost cave", "title"),
@@ -200,10 +201,10 @@ return {
 								measure = true,
 								gap = 12,
 								itemSize = function(use: Use)
-									return 300 * use(metricScale)
+									return use(cardSize)
 								end,
 								columns = function(use: Use)
-									return math.max(1, math.floor(use(measuredWidth) / (230 * use(metricScale))))
+									return math.max(1, math.floor(use(measuredWidth) / use(columnWidth)))
 								end,
 								Size = D2.new(1, 0, 0, 310),
 								UI.fill(),

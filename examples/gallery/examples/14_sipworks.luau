@@ -23,7 +23,8 @@ return {
 		local path, query, servings = C.cell(noEntries), C.cell(""), C.cell(1)
 		local gathered: { [string]: typeof(C.cell(false)) } = {}
 		local indices: { [string]: number } = {}
-		local metric = UI.environment().metricScale
+		local env = UI.environment()
+		local wideAt, columnWidth = env.scaled(830), env.scaled(190)
 		for index, blend in catalog.blends do
 			indices[blend.id] = index
 		end
@@ -185,7 +186,7 @@ return {
 		local function library(category: string)
 			local width, gridWidth = C.cell(1000), C.cell(400)
 			local wide = C.formula(function(use: Use)
-				return use(width) >= 830 * use(metric)
+				return use(width) >= use(wideAt)
 			end)
 			local visible = C.formula(function(use: Use)
 				use(model.favorites.set)
@@ -225,7 +226,7 @@ return {
 						measure = true,
 						itemSize = 240,
 						columns = function(use: Use)
-							return math.max(1, math.floor(use(gridWidth) / (190 * use(metric))))
+							return math.max(1, math.floor(use(gridWidth) / use(columnWidth)))
 						end,
 						Size = D2.new(1, 0, 0, 300),
 						UI.fill(),
