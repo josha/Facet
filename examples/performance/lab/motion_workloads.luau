@@ -15,8 +15,8 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 		nodes = {},
 		controls = {},
 		status = Compose.cell({
-			mode = "windowed" :: "windowed",
-			direction = "vertical" :: "vertical",
+			mode = "windowed",
+			direction = "vertical",
 			total = 0,
 			retained = 0,
 			first = 0,

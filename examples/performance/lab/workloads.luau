@@ -96,8 +96,8 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 		surface = nil :: { panel: string, items: { [string]: boolean } }?,
 		controls = {},
 		status = Compose.cell({
-			mode = "windowed" :: "windowed",
-			direction = "vertical" :: "vertical",
+			mode = "windowed",
+			direction = "vertical",
 			total = 0,
 			retained = 0,
 			first = 0,
@@ -303,18 +303,19 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			}
 		end
 		if kind == "alert" then
+			local actions: { AlertAction } = {
+				{ id = "Delete", label = "Delete", role = "destructive" },
+				{ id = "Keep", label = "Keep a copy" },
+				{ id = "Cancel", label = "Cancel", role = "cancel" },
+			}
 			return UI.Alert({
 				title = "Delete this save?",
 				message = "The save slot is cleared and the run restarts from the last checkpoint.",
 				isPresented = state.presented,
-				actions = {
-					{ id = "Delete", label = "Delete", role = "destructive" :: "destructive" } :: AlertAction,
-					{ id = "Keep", label = "Keep a copy" } :: AlertAction,
-					{ id = "Cancel", label = "Cancel", role = "cancel" :: "cancel" } :: AlertAction,
-				},
+				actions = actions,
 			})
 		elseif kind == "radial" then
-			return UI.RadialMenu({ items = options, isPresented = state.presented, preset = "compass" :: "compass" })
+			return UI.RadialMenu({ items = options, isPresented = state.presented, preset = "compass" })
 		end
 		local choices = {}
 		for index, option in options do
@@ -327,7 +328,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			onChange = function(value)
 				state.selected:set(value)
 			end,
-			style = "menu" :: "menu",
+			style = "menu",
 		})
 	end
 	local function lifecycle()
@@ -436,7 +437,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 				itemSize = 40,
 				header = false,
 				selection = state.collectionSelection,
-				selectionMode = "multiple" :: "multiple",
+				selectionMode = "multiple",
 				status = state.status,
 			})
 			for _, child in node:GetChildren() do
@@ -492,7 +493,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 					children,
 					UI.Picker({
 						label = "Difficulty",
-						style = "segmented" :: "segmented",
+						style = "segmented",
 						selected = state.selected,
 						textSize = function(use: Use)
 							return 16 * use(state.textSize)
@@ -623,7 +624,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 				selection = state.selected,
 				customization = state.customization,
 				placement = state.placement,
-				style = "sidebarAdaptable" :: "sidebarAdaptable",
+				style = "sidebarAdaptable",
 			})
 		elseif string.sub(name, 1, 11) == "theme-swap-" then
 			state.packages = assert(ctx.themePackages, "theme workload requires original package fixtures")
