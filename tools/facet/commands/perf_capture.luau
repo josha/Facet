@@ -26,7 +26,8 @@ return function(invocation: Cli.Invocation): number
 				Json.encode(qa:call("perf", { action = "geometry", seconds = 2 }))
 			)
 			qa:dump("mounted")
-			for index, text in invocation.repeated.tap or {} do
+			local taps: { string } = invocation.repeated.tap or {}
+			for index, text in taps do
 				host.measure(device, tostring(index) .. "-" .. text, function()
 					local tapped, detail = qa:tap({ text = text })
 					assert(tapped, detail)

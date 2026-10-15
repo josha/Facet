@@ -315,11 +315,14 @@ local function cases(): { Case.Case }
 					{ cwd = out, timeout = 120 }
 				)
 				local help = Run.capture({ Run.lute(), "run", "tools/facet", "help" }, { cwd = out, timeout = 120 })
-				local probeOk, probeProblem = pcall(Lute.place.build, {
-					output = Files.join(out, "probe.rbxlx"),
-					roots = {},
-					modules = { Files.join(out, "tools/play/engine/probe.luau") },
-				})
+				local probeOk, probeProblem = pcall(function(): boolean
+					Lute.place.build({
+						output = Files.join(out, "probe.rbxlx"),
+						roots = {},
+						modules = { Files.join(out, "tools/play/engine/probe.luau") },
+					})
+					return true
+				end)
 				local again = write(out, plan(), false)
 				Files.remove(out)
 				return Case.first(

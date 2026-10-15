@@ -1456,7 +1456,8 @@ handlers.perf = function(request: Request): unknown
 						local before = previous[node]
 						if before and before ~= value then
 							local path = node:GetFullName()
-							local record = changed[path] or { changes = 0, first = before, last = value }
+							local record: { changes: number, first: string, last: string } = changed[path]
+								or { changes = 0, first = before, last = value }
 							record.changes += 1
 							record.last = value
 							changed[path] = record
