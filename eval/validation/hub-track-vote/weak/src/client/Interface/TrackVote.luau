@@ -7,6 +7,7 @@ local function mount(playerGui: PlayerGui)
 	local api = Extended.client()
 	local state = api.get()
 	local modal, scroll = E.panel(playerGui, "Track Vote")
+	modal.close.Interactable = false
 	local timer = E.label(scroll, "Waiting for vote")
 	local choices: { TextButton } = {}
 	for index, name in state.tracks do

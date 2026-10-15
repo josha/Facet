@@ -61,7 +61,7 @@
                                    }
                    }
                ],
-    "seeds":  [1],
+    "seeds": [1],
     "parallelism":  1,
     "evidence":  "../artifacts/facetbench/extended",
     "budgets":  {

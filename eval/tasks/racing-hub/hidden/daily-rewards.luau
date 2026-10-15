@@ -89,6 +89,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "hud-shows-ready",
+		tier = "spec",
 		run = function(qa, context)
 			Check.visible(qa, context, HUD, "the HUD shows a Rewards button", 20)
 			Check.that(
@@ -103,6 +104,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-the-track",
+		tier = "spec",
 		screen = "track",
 		shot = "2-track",
 		run = function(qa, context)
@@ -126,6 +128,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "marks-day-states",
+		tier = "spec",
 		run = function(qa, context)
 			Check.that(context, dayState(qa, 1) == "claimed", "Day 1 shows Claimed")
 			Check.that(context, dayState(qa, 2) == "claimed", "Day 2 shows Claimed")
@@ -136,6 +139,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "claims-today",
+		tier = "spec",
 		screen = "claimed",
 		shot = "3-claimed",
 		run = function(qa, context)
@@ -154,6 +158,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "counts-down",
+		tier = "spec",
 		run = function(qa, context)
 			local first = countdown(qa)
 			Check.that(context, first ~= nil, "the panel shows Next reward in H:MM:SS")
@@ -177,6 +182,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "hides-ready",
+		tier = "spec",
 		run = function(qa, context)
 			close(qa, context)
 			Check.visible(qa, context, HUD, "the HUD shows the Rewards button again", 4)
@@ -186,6 +192,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "follows-a-new-day",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("advance")
 			Check.visible(qa, context, CLAIM, "the next day can be claimed without reopening the panel", 5)
@@ -209,6 +216,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "explains-a-missed-day",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("miss")
 			Check.text(qa, context, "missed a day", "the panel says that the streak started again", 5)
@@ -224,6 +232,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "closes-rewards",
+		tier = "spec",
 		run = function(qa, context)
 			close(qa, context)
 		end,

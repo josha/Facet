@@ -6,6 +6,7 @@ local S = require("../../extended/hidden/support")
 local cases: { Play.Case } = {
 	{
 		id = "upgrades-insufficient",
+		tier = "spec",
 		screen = "upgrades",
 		run = function(qa, context)
 			qa:admin("wallet", { coins = 1000, gems = 0 })
@@ -22,6 +23,7 @@ local cases: { Play.Case } = {
 	},
 	{
 		id = "upgrades-confirm-cancel-purchase",
+		tier = "spec",
 		screen = "upgrade-confirm",
 		run = function(qa, context)
 			qa:admin("wallet", { coins = 1000, gems = 50 })

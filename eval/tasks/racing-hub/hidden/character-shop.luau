@@ -64,6 +64,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "hud-drivers-button",
+		tier = "spec",
 		run = function(qa, context)
 			Check.visible(qa, context, HUD, "the HUD shows a Drivers button", 20)
 			qa:capture("1-hud")
@@ -71,6 +72,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "lists-drivers",
+		tier = "spec",
 		screen = "list",
 		shot = "2-list",
 		run = function(qa, context)
@@ -106,6 +108,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-details",
+		tier = "spec",
 		screen = "details",
 		shot = "3-details",
 		run = function(qa, context)
@@ -121,6 +124,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "refuses-without-coins",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, { role = "button", text = "buy" }, "press Buy for Kira")
 			Check.text(qa, context, "not enough coins", "the shop says that the player needs more Coins", 4)
@@ -130,6 +134,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "confirms-the-rent",
+		tier = "spec",
 		screen = "confirm",
 		shot = "4-confirm",
 		run = function(qa, context)
@@ -143,6 +148,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "rents-after-confirming",
+		tier = "spec",
 		screen = "rented",
 		shot = "5-rented",
 		run = function(qa, context)
@@ -171,6 +177,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "equips-the-rented-driver",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, { role = "button", exact = "equip" }, "equip Kira")
 			Check.that(
@@ -185,6 +192,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "buys-after-confirming",
+		tier = "spec",
 		run = function(qa, context)
 			choose(qa, context, "Aiko")
 			Check.tap(qa, context, { role = "button", text = "buy" }, "press Buy for Aiko")
@@ -210,6 +218,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "closes-shop",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, { role = "button", exact = "close" }, "close the shop")
 			Check.gone(qa, context, { text = "Kira" }, "the shop closes", 4)

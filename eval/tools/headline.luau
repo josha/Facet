@@ -1,11 +1,19 @@
 --!strict
 
 local Eval = require("../../tools/vendor/verify/src/agent-eval")
+local Universal = require("../tasks/racing-hub/hidden/universal")
 
 type Run = Eval.RunResult
 export type Manifest = {
 	id: string,
-	tasks: { { id: string, devices: { { id: string } }, checks: { { id: string, kind: string, perDevice: boolean? } } } },
+	tasks: {
+		{
+			id: string,
+			universalCases: number?,
+			devices: { { id: string } },
+			checks: { { id: string, kind: string, perDevice: boolean? } },
+		}
+	},
 	arms: { { id: string } },
 	agents: { { id: string } },
 	seeds: { number },
@@ -15,6 +23,18 @@ export type Overhead = { status: string, rules: { Rule } }
 export type Output = { markdown: string, quality: Eval.EvalReport, passed: boolean, problems: { string } }
 
 local stats = Eval.stats
+local UNIVERSAL_AUDIT: { [string]: boolean } = {
+	["text-truncated"] = true,
+	["text-clipped"] = true,
+	["contrast-low"] = true,
+	["offscreen"] = true,
+	["outside-safe-area"] = true,
+	["touch-target-small"] = true,
+	["interactive-overlap"] = true,
+	["gamepad-unreachable"] = true,
+	["focus-hidden"] = true,
+	["selection-link-broken"] = true,
+}
 
 local function show(value: number?): string
 	return if value == nil then "missing" else ("%.3f"):format(value)
@@ -51,6 +71,63 @@ local function build(
 	calibration: Eval.Calibration?
 ): Output
 	local problems: { string } = {}
+	local measured: { Run } = {}
+	for _, original in runs do
+		local run = table.clone(original)
+		local complete = run.status == "completed" and #run.exceeded == 0
+		local contract = false
+		local play = false
+		for _, check in run.checks do
+			if check.required and not check.passed then
+				complete = false
+			end
+			if check.check == "contract" then
+				contract = check.passed
+			end
+			if check.check == "play" then
+				play = check.passed
+			end
+		end
+		for _, task in suite.tasks do
+			if task.id == run.task then
+				for _, device in task.devices do
+					local key = "play.universal." .. device.id
+					local total = run.scores[key .. ".total"]
+					local fraction = run.scores[key .. ".fraction"]
+					if
+						total == nil
+						or total <= 0
+						or fraction == nil
+						or (task.universalCases ~= nil and total ~= task.universalCases)
+					then
+						table.insert(
+							problems,
+							"missing universal tier: " .. run.task .. "/" .. run.arm .. "/" .. device.id
+						)
+					end
+					complete = complete and total ~= nil and total > 0 and fraction == 1
+				end
+			end
+		end
+		run.passed = complete and contract and play
+		run.checksPassed = run.passed
+		local audits = {}
+		for _, item in run.audits do
+			if string.find(item.path, "audit-universal-", 1, true) ~= nil then
+				local measured = table.clone(item)
+				measured.rules = {}
+				for rule, count in item.rules do
+					if UNIVERSAL_AUDIT[rule] then
+						measured.rules[rule] = count
+					end
+				end
+				table.insert(audits, measured)
+			end
+		end
+		run.audits = audits
+		table.insert(measured, run)
+	end
+	runs = measured
 	local byId: { [string]: Run } = {}
 	local expected: { [string]: boolean } = {}
 	local expectedJudgments: { [string]: boolean } = {}
@@ -93,7 +170,7 @@ local function build(
 		"",
 		"Quality rules: **"
 			.. quality.verdict
-			.. "**. Intervals: paired task bootstrap, 95%, 4000 resamples, seed 20261014. Follow-up tasks share a workspace history; five tasks are not five independent games.",
+			.. "**. Intervals: paired task bootstrap, 95%, 4000 resamples, seed 20261014. Follow-up tasks share workspace history and are not independent games.",
 		"",
 		"| Agent | Rule | Result | Bound | Limit | Value | Estimate | 95% interval | Paired tasks |",
 		"| --- | --- | --- | --- | ---: | ---: | ---: | --- | ---: |",
@@ -147,7 +224,7 @@ local function build(
 	for _, task in suite.tasks do
 		local auditCount = 0
 		for _, check in task.checks do
-			if check.kind == "audit" then
+			if check.kind == "audit" and string.find(check.id, "audit-universal-", 1, true) == 1 then
 				auditCount += if check.perDevice then #task.devices else 1
 			end
 		end
@@ -169,7 +246,7 @@ local function build(
 						table.insert(problems, "incomplete audits: " .. key)
 					end
 					for _, device in task.devices do
-						if run.scores["play.fraction." .. device.id] == nil then
+						if run.scores["play.universal." .. device.id .. ".fraction"] == nil then
 							table.insert(problems, "missing hidden-check fraction: " .. key .. "/" .. device.id)
 						end
 					end
@@ -432,6 +509,30 @@ local function build(
 		end
 	end
 	table.sort(problems)
+	table.insert(lines, "")
+	table.insert(lines, "Universal checks gate run pass rate. Spec checks are diagnostic and do not enter the verdict.")
+	table.insert(lines, "")
+	table.insert(lines, "| Task | Arm | Seed | Device | Universal fraction | Spec fraction (diagnostic) |")
+	table.insert(lines, "| --- | --- | ---: | --- | ---: | ---: |")
+	for _, run in runs do
+		for _, item in suite.tasks do
+			if item.id == run.task then
+				for _, device in item.devices do
+					table.insert(
+						lines,
+						("| %s | %s | %d | %s | %s | %s |"):format(
+							run.task,
+							run.arm,
+							run.seed,
+							device.id,
+							show(run.scores["play.universal." .. device.id .. ".fraction"]),
+							show(run.scores["spec.fraction." .. device.id])
+						)
+					)
+				end
+			end
+		end
+	end
 	passed = passed and #problems == 0
 	table.insert(lines, "")
 	lines[3] = "Headline: **" .. (if passed then "PASS" else "FAIL") .. "**."
@@ -471,9 +572,9 @@ local function write(evidence: string, suite: Manifest, thresholds: Eval.Thresho
 	return output
 end
 
-local function manifest(): Manifest
+local function manifest(source: string?): Manifest
 	local b = Eval.lute
-	local raw = b.decode(b.files.read("eval/games.json")) :: {
+	local raw = b.decode(b.files.read(source or "eval/extended.json")) :: {
 		id: string,
 		tasks: { string },
 		devices: { { id: string } },
@@ -481,7 +582,14 @@ local function manifest(): Manifest
 		agents: { { id: string } },
 		seeds: { number },
 	}
-	local tasks: { { id: string, devices: { { id: string } }, checks: { { id: string, kind: string, perDevice: boolean? } } } } =
+	local tasks: {
+		{
+			id: string,
+			universalCases: number?,
+			devices: { { id: string } },
+			checks: { { id: string, kind: string, perDevice: boolean? } },
+		}
+	} =
 		{}
 	for _, path in raw.tasks do
 		local task = b.decode(b.files.read("eval/" .. path .. "/task.json")) :: {
@@ -489,7 +597,12 @@ local function manifest(): Manifest
 			devices: { { id: string } }?,
 			checks: { { id: string, kind: string, perDevice: boolean? } },
 		}
-		table.insert(tasks, { id = task.id, devices = task.devices or raw.devices, checks = task.checks })
+		table.insert(tasks, {
+			id = task.id,
+			universalCases = #Universal.scenario(task.id).sessions[1].cases,
+			devices = task.devices or raw.devices,
+			checks = task.checks,
+		})
 	end
 	return { id = raw.id, tasks = tasks, arms = raw.arms, agents = raw.agents, seeds = raw.seeds }
 end

@@ -8,6 +8,7 @@ local function mount(playerGui: PlayerGui)
 	local api = Extended.client()
 	local state = api.get()
 	local modal, scroll, opener = E.panel(playerGui, "Upgrades")
+	modal.close.Interactable = false
 	local chosen = "rookie_kart"
 	local confirm = Kit.modal(Kit.screen(playerGui, "Upgrades"), "UpgradeConfirm", "Confirm")
 	local confirmBody = Kit.scroller()

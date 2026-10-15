@@ -13,7 +13,14 @@ local QA = require("./qa")
 
 export type CaseBody = (qa: QA.QA, context: Core.Context) -> ()
 
-export type Case = { id: string, run: CaseBody, timeoutSeconds: number?, screen: string?, shot: string? }
+export type Case = {
+	id: string,
+	run: CaseBody,
+	timeoutSeconds: number?,
+	screen: string?,
+	shot: string?,
+	tier: ("universal" | "spec")?,
+}
 
 export type Session = { device: string, cases: { Case } }
 
@@ -56,6 +63,7 @@ type Arguments = {
 	scores: string?,
 	devices: { [string]: boolean }?,
 	keep: boolean,
+	tier: "universal" | "spec",
 }
 
 local absolute = AgentEval.lute.absolute
@@ -104,6 +112,7 @@ local function arguments(): Arguments
 		devices = chosen
 	end
 	local scores: string? = values.scores
+	assert(values.tier == nil or values.tier == "universal" or values.tier == "spec", "invalid --tier")
 	return {
 		workspace = required("workspace"),
 		outputs = required("outputs"),
@@ -113,6 +122,7 @@ local function arguments(): Arguments
 		scores = if scores ~= nil then absolute(scores) else nil,
 		devices = devices,
 		keep = keep,
+		tier = if values.tier == "spec" then "spec" else "universal",
 	}
 end
 
@@ -479,8 +489,12 @@ local function perfScores(perf: { [string]: DevicePerf }, scores: { [string]: nu
 	end
 end
 
-local function main(scenario: Scenario, entrySource: string)
+local function main(scenario: Scenario, entrySource: string, universal: Scenario?)
 	local args = arguments()
+	local tiers: { [string]: string } = { ["workspace/builds"] = args.tier }
+	if universal ~= nil and args.tier == "universal" then
+		scenario = universal
+	end
 	local taskDirectory = absolute(directoryOf(entrySource) .. "/..")
 	local taskName = string.match(taskDirectory, "([^/]+)$") or "task"
 	local host = open({
@@ -508,6 +522,7 @@ local function main(scenario: Scenario, entrySource: string)
 			end
 			for _, case in entry.cases do
 				local id = entry.device .. "/" .. case.id
+				tiers[id] = case.tier or "spec"
 				harness:case(id, {
 					id = id,
 					timeoutSeconds = case.timeoutSeconds or 240,
@@ -549,9 +564,18 @@ local function main(scenario: Scenario, entrySource: string)
 	Lute.gate.writeReport(args.report, args.run, report)
 	local passed, total = 0, 0
 	local byDevice: { [string]: { passed: number, total: number } } = {}
+	local byTier: { [string]: { passed: number, total: number } } = {}
 	for _, result in report.results do
 		total += 1
 		local device = string.match(result.id, "^([^/]+)/") or "workspace"
+		local tier = tiers[result.id]
+		assert(tier ~= nil, "every play case must declare a tier")
+		for _, key in { tier, tier .. "." .. device } do
+			local count = byTier[key] or { passed = 0, total = 0 }
+			byTier[key] = count
+			count.total += 1
+			count.passed += if result.status == "passed" then 1 else 0
+		end
 		local tally = byDevice[device] or { passed = 0, total = 0 }
 		byDevice[device] = tally
 		tally.total += 1
@@ -584,11 +608,17 @@ local function main(scenario: Scenario, entrySource: string)
 				scores["fraction." .. device] = if tally.total > 0 then tally.passed / tally.total else 0
 			end
 		end
+		for tier, tally in byTier do
+			scores[tier .. ".passed"] = tally.passed
+			scores[tier .. ".total"] = tally.total
+			scores[tier .. ".fraction"] = tally.passed / tally.total
+		end
 		perfScores(host.perf, scores)
 		fs.writeStringToFile(args.scores :: string, Lute.encode(scores))
 	end
 	fs.writeStringToFile(args.outputs .. "/captures.json", Lute.encode(host.shots))
 	fs.writeStringToFile(args.outputs .. "/perf.json", Lute.encode(host.perf))
+	fs.writeStringToFile(args.outputs .. "/tiers.json", Lute.encode(tiers))
 	fs.writeStringToFile(args.outputs .. "/play.log", table.concat(host.lines, "\n") .. "\n")
 	print(Core.format(report))
 	if passed ~= total then

@@ -6,6 +6,7 @@ local process = require("@std/process")
 local Audit = require("../../../../tools/vendor/verify/src/roblox/ui-audit")
 local Lute = require("../../../../tools/vendor/verify/src/lute")
 local RaceSpace = require("./race-space")
+local Universal = require("./universal")
 
 local Check = require("../../../../tools/play/host/check")
 local Core = require("../../../../tools/vendor/verify/src/core")
@@ -118,6 +119,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "shows-intermission",
+		tier = "spec",
 		screen = "intermission",
 		shot = "1-intermission",
 		run = function(qa, context)
@@ -130,6 +132,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-the-round",
+		tier = "spec",
 		run = function(qa, context)
 			startRound(qa, context)
 			timerMatches(qa, context, "Round")
@@ -152,6 +155,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "driving-keeps-selection-free",
+		tier = "spec",
 		run = function(qa, context)
 			for _ = 1, 3 do
 				Check.that(context, qa:selected() == nil, "driving has no selected UI until the player opens a panel")
@@ -161,19 +165,21 @@ local behavior: { Case } = {
 	},
 	{
 		id = "driving-keeps-thumbstick-free",
+		tier = "spec",
 		run = function(qa, context)
 			local dump = drivingDump(qa)
 			if table.find(qa.device.input, "touch") then
 				Check.that(
 					context,
-					RaceSpace.thumbstickClear(dump),
-					"interactive UI leaves the lower-left touch thumbstick region clear"
+					RaceSpace.touchControlsClear(dump, Universal.touchRegions(qa, context, "diagnostic-round")),
+					"UI clears the actual native touch controls"
 				)
 			end
 		end,
 	},
 	{
 		id = "driving-keeps-road-clear",
+		tier = "spec",
 		run = function(qa, context)
 			Check.that(
 				context,
@@ -184,6 +190,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "marks-an-elimination",
+		tier = "spec",
 		screen = "round",
 		shot = "2-round",
 		run = function(qa, context)
@@ -207,6 +214,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "keeps-four-feed-lines",
+		tier = "spec",
 		run = function(qa, context)
 			eliminate(qa, "Ivy", "Rook")
 			eliminate(qa, "Bolt", "Pip")
@@ -220,6 +228,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "tells-the-player-they-are-out",
+		tier = "spec",
 		screen = "out",
 		shot = "3-out",
 		run = function(qa, context)
@@ -232,6 +241,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-results",
+		tier = "spec",
 		screen = "results",
 		shot = "4-results",
 		run = function(qa, context)
@@ -244,6 +254,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "resets-for-the-next-round",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("phase", { phase = "Intermission", seconds = 20 })
 			Check.absent(qa, context, "blue wins", "the results hide in the intermission", 4)

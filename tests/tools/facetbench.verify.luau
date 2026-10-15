@@ -84,21 +84,38 @@ return function(harness: Verify.Harness)
 			background = { color = { r = 0, g = 0, b = 0 }, transparency = 0 },
 		}
 		dump.elements[1] = element
+		local actualJump = { x = 140, y = 10, width = 100, height = 40 }
+		element.interactive = true
+		t:expect(RaceSpace.touchControlsClear(dump, { actualJump })):toBe(false)
+		actualJump.x = 300
+		t:expect(RaceSpace.touchControlsClear(dump, { actualJump })):toBe(true)
+		local native: RaceSpace.TouchRect = {
+			x = element.rect.x,
+			y = element.rect.y,
+			width = element.rect.width,
+			height = element.rect.height,
+			path = element.path,
+		}
+		t:expect(RaceSpace.touchControlsClear(dump, { native })):toBe(true)
+		native.path = "PlayerGui.ContextActionGui.OtherButton"
+		t:expect(RaceSpace.touchControlsClear(dump, { native })):toBe(false)
+		element.interactive = false
 		t:expect(RaceSpace.centerClear(dump)):toBe(true)
 		element.rect.y = 410
 		t:expect(RaceSpace.centerClear(dump)):toBe(false)
 		element.rect = { x = 20, y = 650, width = 100, height = 44 }
-		t:expect(RaceSpace.thumbstickClear(dump)):toBe(true)
+		local measuredThumb: RaceSpace.TouchRect = { x = 0, y = 620, width = 150, height = 224 }
+		t:expect(RaceSpace.touchControlsClear(dump, { measuredThumb })):toBe(true)
 		element.interactive = true
-		t:expect(RaceSpace.thumbstickClear(dump)):toBe(false)
+		t:expect(RaceSpace.touchControlsClear(dump, { measuredThumb })):toBe(false)
 		element.interactive = false
 		element.active = true
-		t:expect(RaceSpace.thumbstickClear(dump)):toBe(false)
+		t:expect(RaceSpace.touchControlsClear(dump, { measuredThumb })):toBe(false)
 		element.scrollClip = { x = 200, y = 650, width = 100, height = 44 }
-		t:expect(RaceSpace.thumbstickClear(dump)):toBe(true)
+		t:expect(RaceSpace.touchControlsClear(dump, { measuredThumb })):toBe(true)
 		element.scrollClip = nil
 		element.visible = false
-		t:expect(RaceSpace.thumbstickClear(dump)):toBe(true)
+		t:expect(RaceSpace.touchControlsClear(dump, { measuredThumb })):toBe(true)
 		element.visible = true
 		element.rect = { x = 16, y = 48, width = 160, height = 44 }
 		element.text = {

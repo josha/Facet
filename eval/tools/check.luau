@@ -7,6 +7,8 @@ local Files = require("../../tools/facet/lib/files")
 
 local AgentEval = require("../../tools/vendor/verify/src/agent-eval")
 local Play = require("../../tools/play/host/play")
+local Universal = require("../tasks/racing-hub/hidden/universal")
+local HubScenario = require("../tasks/racing-hub/hidden/scenario")
 
 local SCENARIOS: { [string]: Play.Scenario } = {
 	["racing-hub"] = require("../tasks/racing-hub/hidden/scenario"),
@@ -60,6 +62,7 @@ end
 
 local problems: { string } = {}
 local notes: { string } = {}
+local tierCounts: { [string]: { universal: number, spec: number } } = {}
 
 local function fail(message: string)
 	table.insert(problems, message)
@@ -101,6 +104,7 @@ local games = suite(EVAL .. "/games.json")
 local slice = suite(EVAL .. "/slice.json")
 local gameValidation = suite(EVAL .. "/validation/games.json")
 local extended = suite(EVAL .. "/extended.json")
+suite(EVAL .. "/extended-spec.json")
 for _, id in
 	{
 		"hub-livery-editor",
@@ -134,10 +138,17 @@ for _, loaded in { games, slice, extended } do
 				end
 			end
 			local hasPlay = false
+			local hasSpec = false
 			for _, check in item.checks do
 				if check.id == "play" and check.kind == "verify" then
-					hasPlay = true
+					hasPlay = check.required ~= false and table.find(check.argv or {}, "universal") ~= nil
 				end
+				if check.id == "spec" and check.kind == "verify" then
+					hasSpec = check.required == false and table.find(check.argv or {}, "spec") ~= nil
+				end
+			end
+			if not hasSpec then
+				fail(("task %s has no non-required spec producer"):format(item.id))
 			end
 			if not hasPlay then
 				fail(("task %s has no play check"):format(item.id))
@@ -148,12 +159,20 @@ for _, loaded in { games, slice, extended } do
 			local scenario = if string.find(item.directory, "/extended/", 1, true) ~= nil
 				then EXTENDED_SCENARIOS[item.id]
 				else SCENARIOS[item.id]
+			if item.id == "racing-hub-slice" then
+				scenario = HubScenario.forSystems({ shop = true, ["hud-dock"] = true })
+			end
 			if scenario == nil then
 				fail(("task %s has no scenario in eval/tools/check.luau"):format(item.id))
 				continue
 			end
 			local sessions: { [string]: { [string]: boolean } } = {}
 			for _, session in scenario.sessions do
+				for _, case in session.cases do
+					if case.tier ~= "spec" then
+						fail(item.id .. "/" .. case.id .. " has no spec tier")
+					end
+				end
 				if corpus.id == "facetbench-games" then
 					print(("check: %s/%s has %d case(s)"):format(item.id, session.device, #session.cases))
 				end
@@ -165,6 +184,15 @@ for _, loaded in { games, slice, extended } do
 				end
 				sessions[session.device] = screens
 			end
+			for _, session in Universal.scenario(item.id).sessions do
+				for _, case in session.cases do
+					if case.screen ~= nil then
+						sessions[session.device][case.screen] = true
+					end
+				end
+			end
+			local universalCount = #Universal.scenario(item.id).sessions[1].cases
+			tierCounts[item.id] = { universal = universalCount, spec = #scenario.sessions[1].cases }
 			for _, device in item.devices do
 				if sessions[device.id] == nil then
 					fail(("task %s has no play session for the device %s"):format(item.id, device.id))
@@ -233,6 +261,9 @@ for _, loaded in { games, slice, extended } do
 	end
 end
 local _ = gameValidation
+for id, counts in tierCounts do
+	print(("tiers: %s universal=%d spec=%d per device"):format(id, counts.universal, counts.spec))
+end
 
 for _, note in notes do
 	print("note: " .. note)

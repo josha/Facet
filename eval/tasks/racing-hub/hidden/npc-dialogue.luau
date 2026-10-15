@@ -50,6 +50,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "hides-talk-when-far",
+		tier = "spec",
 		run = function(qa, context)
 			Check.visible(qa, context, { pattern = "%f[%d]0%f[%D]%s*coins" }, "the HUD shows 0 Coins", 20)
 			Check.that(context, qa:first(TALK) == nil, "no Talk button shows while the player is far from Mechanic")
@@ -58,6 +59,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "starts-talk",
+		tier = "spec",
 		screen = "talk",
 		shot = "2-talk",
 		run = function(qa, context)
@@ -71,6 +73,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "follows-a-question",
+		tier = "spec",
 		run = function(qa, context)
 			choose(qa, context, "What needs a test?", "well")
 			Check.text(qa, context, "kart motor needs a test", "the box shows Mechanic's answer", 4)
@@ -83,6 +86,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "accepts-the-quest",
+		tier = "spec",
 		screen = "reward",
 		shot = "3-reward",
 		run = function(qa, context)
@@ -97,6 +101,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "ends-the-talk",
+		tier = "spec",
 		run = function(qa, context)
 			choose(qa, context, "Goodbye.", "farewell")
 			Check.text(qa, context, "safe racing", "the box shows the last line", 4)
@@ -114,6 +119,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "leaves-early",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, TALK, "talk to Mechanic again")
 			Check.text(qa, context, "help me test", "the talk starts again", 4)
@@ -131,6 +137,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "closes-when-the-player-walks-away",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, TALK, "talk to Mechanic a third time")
 			Check.text(qa, context, "help me test", "the talk starts again", 4)

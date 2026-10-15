@@ -100,6 +100,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "hud-crates-button",
+		tier = "spec",
 		run = function(qa, context)
 			Check.visible(qa, context, { role = "button", text = "crates" }, "the HUD shows a Crates button", 20)
 			qa:capture("1-hud")
@@ -107,6 +108,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-the-store",
+		tier = "spec",
 		screen = "store",
 		shot = "2-store",
 		run = function(qa, context)
@@ -124,6 +126,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "cancels-before-paying",
+		tier = "spec",
 		screen = "confirm",
 		shot = "3-confirm",
 		run = function(qa, context)
@@ -145,6 +148,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "opens-after-confirming",
+		tier = "spec",
 		run = function(qa, context)
 			askToOpen(qa, context, "Starter Crate")
 			confirm(qa, context, 0)
@@ -153,6 +157,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "reveals-in-order",
+		tier = "spec",
 		screen = "reveal",
 		shot = "4-reveal",
 		run = function(qa, context)
@@ -174,6 +179,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-the-collection",
+		tier = "spec",
 		screen = "collection",
 		shot = "5-collection",
 		run = function(qa, context)
@@ -200,6 +206,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "refuses-without-gems",
+		tier = "spec",
 		run = function(qa, context)
 			askToOpen(qa, context, "Legend Crate")
 			Check.text(qa, context, "not enough gems", "the store says that the player needs more Gems", 4)
@@ -209,6 +216,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "closes-store",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, { role = "button", exact = "close" }, "close the store")
 			Check.gone(qa, context, { text = "Starter Crate" }, "the store closes", 4)

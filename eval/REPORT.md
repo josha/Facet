@@ -1,9 +1,25 @@
 # Headline report
 
-Run from the repository root after all 30 runs and all 75 blind comparisons finish:
+The owner changed the headline on 2026-10-15 to `extended.json`: 22 runs and
+55 blind task/device/seed comparisons. The hub and ten follow-ups use short
+player prompts. `extended-spec.json` keeps the detailed briefs. The headline
+run pass rate uses the universal tier, contract integrity, completion and
+budgets. Spec failures do not gate it. Universal audits and the blind judge
+remain in the quality rules. Overhead limits and all other thresholds stay
+unchanged. Missing universal scores fail closed. Both tier fractions appear
+in `headline.md`; diagnostic captures stay outside the judge's image set.
+
+See [the complete tier table and calibration commands](validation/vibe.md).
+No Studio calibration or agent measurement was run. The Verify change on
+`scoped-mcp` must be reviewed and pushed before re-pinning and applying
+`arms/studio-access.patch`. Both arms then get the same scoped Studio MCP;
+the Facet CLI remains available only in its arm. Runs remain sequential until
+native isolation is accepted. The current arm notes refuse a blind fallback.
+
+Run from the repository root after all 22 runs and 55 blind comparisons finish:
 
 ```sh
-lute run eval/tools/report.luau artifacts/facetbench/games
+lute run eval/tools/report.luau artifacts/facetbench/extended
 ```
 
 The command writes `headline.md` and `quality.json` in that directory. It reads
@@ -49,13 +65,15 @@ The shared play host now counts all descendants and roots of the game UI as
 `baseInstances`. It stops frame sampling between windows. This keeps the
 probe's frame array from growing across the whole scenario.
 
-At device end the host activates visible Close or Back buttons, using mouse
+After the universal cases the host activates visible Close or Back buttons, using mouse
 or gamepad selection as appropriate. It allows at most eight actions, waits
 five seconds, then records the same two-second idle window used at mount.
 `returned` records whether no further Close or Back control was found.
 `heapReturnRatio` and `guiReturnRatio` divide final memory by mounted memory.
 A failed return leaves these measurements absent. Disabled category memory
 tracking also leaves GUI memory absent. No forced collection is used.
+The spec producer uses fresh game sessions with separate performance evidence.
+A diagnostic failure or timeout cannot change the headline memory result.
 
 This is a hub retention check. It is not an unmount test. The owner must verify
 that Close and Back return each implementation to the hub in Studio. Controls
@@ -84,25 +102,25 @@ It checks audit counts, per-device case fractions, token provenance, latencies
 and two valid judge presentations in opposite orders. Missing overhead data
 fails the headline even if a partial bootstrap estimate looks favorable.
 Overhead uses Verify's paired task bootstrap with the same configuration as
-the quality rules. Each task value is the mean of its three seeds. Each device
+the quality rules. Each task value is the mean of its configured seeds. Each device
 gets its own rule. Per-task display values are medians, with separate run pass
 rates. Follow-up tasks share history, so the interval does not establish five
 independent games. The report states this limitation.
 
 ## Studio validation
 
-No Studio was launched for this change. On an authenticated Studio host with
-the MCP enabled, run these commands from the repository root:
+No Studio was launched for this change. First use the 11-turn reference
+calibration loop in [the vibe handoff](validation/vibe.md). The agent commands
+below require the reviewed Verify re-pin and Studio access patch. Use an
+authenticated Studio host with the MCP enabled:
 
 ```sh
 lute run eval/tools/shared-kit.luau
 lute run tools/facet kit --out artifacts/facetbench/arm-facet --force
 lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/validation/games.json --parallel 1 --fresh
-lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/games.json --parallel 1 --seed 1 --fresh
-lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/games.json --parallel 1 --seed 2 --fresh
-lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/games.json --parallel 1 --seed 3 --fresh
-lute run tools/vendor/verify/tools/agent-eval.luau judge --suite eval/games.json --transport api
-lute run eval/tools/report.luau artifacts/facetbench/games
+lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/extended.json --parallel 1 --seed 1 --fresh
+lute run tools/vendor/verify/tools/agent-eval.luau judge --suite eval/extended.json --transport api
+lute run eval/tools/report.luau artifacts/facetbench/extended
 ```
 
 For each device and both arms, inspect the indexed run's `checks/perf.json` and
@@ -119,8 +137,8 @@ before using the preference claim.
 To recheck the play host against an existing workspace without rerunning an agent:
 
 ```sh
-lute run eval/tasks/racing-hub/hidden/play.luau --workspace artifacts/facetbench/games/runs/racing-hub/plain/codex-sol/seed-1/workspace --outputs artifacts/facetbench/play-plain/out --captures artifacts/facetbench/play-plain/captures --report artifacts/facetbench/play-plain/report.json --run report-plain --scores artifacts/facetbench/play-plain/scores.json --devices desktop,phone-portrait,phone-landscape,tablet,console
-lute run eval/tasks/racing-hub/hidden/play.luau --workspace artifacts/facetbench/games/runs/racing-hub/facet/codex-sol/seed-1/workspace --outputs artifacts/facetbench/play-facet/out --captures artifacts/facetbench/play-facet/captures --report artifacts/facetbench/play-facet/report.json --run report-facet --scores artifacts/facetbench/play-facet/scores.json --devices desktop,phone-portrait,phone-landscape,tablet,console
+lute run eval/tasks/racing-hub/hidden/play.luau --workspace artifacts/facetbench/extended/runs/racing-hub/plain/codex-sol/seed-1/workspace --outputs artifacts/facetbench/play-plain/out --captures artifacts/facetbench/play-plain/captures --report artifacts/facetbench/play-plain/report.json --run report-plain --scores artifacts/facetbench/play-plain/scores.json --devices desktop,phone-portrait,phone-landscape,tablet,console
+lute run eval/tasks/racing-hub/hidden/play.luau --workspace artifacts/facetbench/extended/runs/racing-hub/facet/codex-sol/seed-1/workspace --outputs artifacts/facetbench/play-facet/out --captures artifacts/facetbench/play-facet/captures --report artifacts/facetbench/play-facet/report.json --run report-facet --scores artifacts/facetbench/play-facet/scores.json --devices desktop,phone-portrait,phone-landscape,tablet,console
 ```
 
 These diagnostic outputs do not update Verify's indexed results. Use the suite
