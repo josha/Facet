@@ -376,7 +376,9 @@ add({
 			return stage
 		end, function()
 			stage = t.mount(function(_UI: FacetControls, Host: RobloxHost)
-				late = Host.Frame "Late" { Size = UDim2.fromOffset(100, 20), Attributes = { value = 0 } }
+				local frame = Host.Frame "Late" { Size = UDim2.fromOffset(100, 20) }
+				frame:SetAttribute("value", 0)
+				late = frame
 				return late :: Frame
 			end, { frames = 0 })
 			RunService.PreRender:Wait()

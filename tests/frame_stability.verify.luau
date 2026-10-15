@@ -6,10 +6,9 @@ local engineLib = require("./lib/native_engine")
 local Lute = require("../tools/vendor/verify/src/lute")
 
 local function inspector(engine: engineLib.Engine): typeof(clipping)
+	local globals: { [string]: unknown } = { Vector2 = engine.types.Vector2, Enum = engine.types.Enum }
 	return (
-		Lute.loader
-			.new({ globals = { Vector2 = engine.types.Vector2, Enum = engine.types.Enum } })
-			.require("tools/studio/live/text_clipping") :: unknown
+		Lute.loader.new({ globals = globals }).require("tools/studio/live/text_clipping") :: unknown
 	) :: typeof(clipping)
 end
 
