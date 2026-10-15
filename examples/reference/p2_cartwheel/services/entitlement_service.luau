@@ -4,9 +4,12 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 
 local entitlement_service = {}
 
-function entitlement_service.new(opts: any): any
-	local Compose: ComposeModule = opts.Compose
-	local self: any = {}
+export type Opts = { Compose: ComposeModule }
+export type Dump = { chatterPlus: boolean, fullLedger: boolean, attempts: { [string]: number } }
+
+function entitlement_service.new(opts: Opts)
+	local Compose = opts.Compose
+	local self = {}
 
 	local chatterPlus = Compose.cell(false)
 	local fullLedger = Compose.cell(false)
@@ -44,7 +47,7 @@ function entitlement_service.new(opts: any): any
 		end
 	end
 
-	function self.dump(): any
+	function self.dump(): Dump
 		return { chatterPlus = chatterPlus:peek(), fullLedger = fullLedger:peek(), attempts = table.clone(attempts) }
 	end
 

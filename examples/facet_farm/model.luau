@@ -1,5 +1,8 @@
 --!strict
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type Formula<T> = { peek: (Readable<T>) -> T, dispose: (Formula<T>) -> () }
 type Use = <T>(Readable<T>) -> T
 local model = {}
 
@@ -16,13 +19,38 @@ export type Crop = {
 export type PlotState = "grass" | "plowed" | "growing" | "ready" | "withered"
 export type Plot = { id: string, index: number, state: PlotState, crop: CropId?, planted: number? }
 export type Tool = "plow" | "plant" | "harvest"
+export type View = "2d" | "3d"
+export type Toast = { serial: number, message: string }
+export type Cue = { serial: number, name: string }
+export type Farm = {
+	coins: Cell<number>,
+	xp: Cell<number>,
+	plots: Cell<{ Plot }>,
+	now: Cell<number>,
+	tool: Cell<Tool>,
+	seed: Cell<CropId>,
+	marketOpen: Cell<boolean>,
+	blend: Readable<number>?,
+	view: Cell<View>,
+	music: Cell<boolean>,
+	levelUp: Cell<boolean>,
+	toast: Cell<Toast?>,
+	harvested: Cell<number>,
+	cue: Cell<Cue?>,
+	level: Formula<number>,
+	tick: () -> (),
+	unlocked: (crop: Crop) -> boolean,
+	act: (index: number) -> boolean,
+	harvestAll: () -> number,
+}
 
-model.CROPS = {
+local CROPS: { Crop } = {
 	{ id = "wheat", label = "Wheat", cost = 5, grow = 20, sell = 14, xp = 1, unlock = 1 },
 	{ id = "carrot", label = "Carrot", cost = 15, grow = 40, sell = 38, xp = 2, unlock = 2 },
 	{ id = "strawberry", label = "Strawberry", cost = 25, grow = 60, sell = 70, xp = 3, unlock = 3 },
 	{ id = "pumpkin", label = "Pumpkin", cost = 40, grow = 90, sell = 115, xp = 5, unlock = 4 },
-} :: { Crop }
+}
+model.CROPS = CROPS
 model.COLUMNS, model.ROWS = 6, 4
 model.PLOW_COST = 2
 model.WITHER_AFTER = 3
@@ -70,28 +98,39 @@ function model.stateAt(plot: Plot, now: number): PlotState
 	return "growing"
 end
 
-function model.new(Compose: any, clock: (() -> number)?)
+function model.new(Compose: ComposeModule, clock: (() -> number)?): Farm
 	local time = clock or os.clock
 	local plots: { Plot } = {}
 	for index = 1, model.COLUMNS * model.ROWS do
 		table.insert(plots, { id = "Plot" .. index, index = index, state = "grass" })
 	end
+	local initialTool: Tool = "plow"
+	local initialSeed: CropId = "wheat"
+	local initialView: View = "2d"
+	local noBlend: Readable<number>? = nil
+	local noToast: Toast? = nil
+	local noCue: Cue? = nil
+	local tool: Cell<Tool> = Compose.cell(initialTool)
+	local seed: Cell<CropId> = Compose.cell(initialSeed)
+	local view: Cell<View> = Compose.cell(initialView)
+	local toast: Cell<Toast?> = Compose.cell(noToast)
+	local cues: Cell<Cue?> = Compose.cell(noCue)
 	local self = {
 		coins = Compose.cell(120),
 		xp = Compose.cell(0),
 		plots = Compose.cell(plots),
 		now = Compose.cell(time()),
-		tool = Compose.cell("plow" :: Tool),
-		seed = Compose.cell("wheat" :: CropId),
+		tool = tool,
+		seed = seed,
 		marketOpen = Compose.cell(false),
-		blend = nil :: Readable<number>?,
-		view = Compose.cell("2d" :: "2d" | "3d"),
+		blend = noBlend,
+		view = view,
 		music = Compose.cell(true),
 		levelUp = Compose.cell(false),
-		toast = Compose.cell(nil :: { serial: number, message: string }?),
+		toast = toast,
 		harvested = Compose.cell(0),
 
-		cue = Compose.cell(nil :: { serial: number, name: string }?),
+		cue = cues,
 	}
 	local serial = 0
 	local function cue(name: string)

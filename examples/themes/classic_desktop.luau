@@ -1,4 +1,10 @@
 --!strict
+type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
+type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
+type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
+type RGB = { r: number, g: number, b: number }
+type Palette = { colors: { [string]: RGB }, extra: Extra }
+type Typography = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.metrics.typography.body)
 
 local classic_desktop = {}
 
@@ -7,23 +13,23 @@ classic_desktop.displayName = "Classic Desktop"
 
 classic_desktop.themeClasses = table.freeze({ "palette", "metrics" })
 
-local function rgb(r: number, g: number, b: number)
+local function rgb(r: number, g: number, b: number): RGB
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
 local FAMILY = "rbxasset://fonts/families/BuilderSans.json"
 local LINE_HEIGHT = 1.15
-local SIZES = { caption = 11, label = 12, body = 13, control = 13, heading = 15, title = 18 }
+local SIZES: { [string]: number } = { caption = 11, label = 12, body = 13, control = 13, heading = 15, title = 18 }
 
-local function typography(): any
-	local out: any = {}
+local function typography(): { [string]: Typography }
+	local out: { [string]: Typography } = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY }, size = size, lineHeight = LINE_HEIGHT }
 	end
 	return out
 end
 
-local DAY = {
+local DAY: Palette = {
 	colors = {
 		surface = rgb(212, 208, 200),
 		surfaceStrong = rgb(240, 238, 232),
@@ -52,7 +58,7 @@ local DAY = {
 	},
 }
 
-local NIGHT = {
+local NIGHT: Palette = {
 	colors = {
 		surface = rgb(38, 38, 36),
 		surfaceStrong = rgb(52, 52, 49),
@@ -81,7 +87,7 @@ local NIGHT = {
 	},
 }
 
-function classic_desktop.definition(themes: any): any
+function classic_desktop.definition(themes: Themes): ThemeDefinition
 	return {
 		base = themes.neutralPackage(),
 		identity = {
@@ -117,31 +123,21 @@ function classic_desktop.definition(themes: any): any
 			controls = {
 				progress = { circularSize = 20, circularThickness = 2, spinnerDotSize = 6 },
 			},
-
-			insets = {
-				panel = { top = 8, right = 8, bottom = 8, left = 8 },
-				control = { top = 4, right = 8, bottom = 4, left = 8 },
-				field = { top = 4, right = 8, bottom = 4, left = 8 },
-				selection = { top = 2, right = 4, bottom = 2, left = 4 },
-				divider = { top = 0, right = 0, bottom = 0, left = 0 },
-				scrollbar = { top = 0, right = 0, bottom = 0, left = 0 },
-			},
 		},
 
 		chrome = {
-			panel = { kind = "native" :: "native" },
-			control = { kind = "native" :: "native" },
-			field = { kind = "native" :: "native" },
-			selection = { kind = "native" :: "native" },
-			divider = { kind = "native" :: "native" },
-			scrollbar = { kind = "native" :: "native" },
+			panel = { kind = "native" },
+			control = { kind = "native" },
+			field = { kind = "native" },
+			selection = { kind = "native" },
+			divider = { kind = "native" },
+			scrollbar = { kind = "native" },
 		},
 		assets = {},
-		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end
 
-function classic_desktop.build(themes: any): (any, any)
+function classic_desktop.build(themes: Themes)
 	return themes.define(classic_desktop.definition(themes))
 end
 

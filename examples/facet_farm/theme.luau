@@ -1,4 +1,8 @@
 --!strict
+type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
+type Color3Constructor = typeof(Color3)
+type ColorPatch = { r: number?, g: number?, b: number? }
 local theme = {}
 
 local function rgb(r: number, g: number, b: number)
@@ -26,31 +30,32 @@ theme.ART = table.freeze({
 	dry = rgb(150, 120, 80),
 })
 
-function theme.color(Color3: any, name: string): Color3
+function theme.color(Color3: Color3Constructor, name: string): Color3
 	local value = theme.ART[name]
 	return Color3.new(value.r, value.g, value.b)
 end
 
-function theme.create(Facet: any)
+function theme.create(Facet: FacetModule): ThemePackage
 	local themes = Facet.themes
+	local colors: { [string]: ColorPatch } = {
+		surface = rgb(246, 239, 222),
+		surfaceStrong = rgb(255, 251, 240),
+		content = rgb(58, 46, 32),
+		contentStrong = rgb(38, 30, 20),
+		accent = rgb(62, 128, 60),
+		onAccent = rgb(255, 255, 255),
+		danger = rgb(170, 48, 40),
+		onDanger = rgb(255, 255, 255),
+	}
 	local package, report = themes.define({
 		base = themes.neutralPackage(),
-		identity = { id = "facet-farm", displayName = "Facet Farm", schemaVersion = 1, version = "1.0.0" },
+		identity = { id = "facet-farm", displayName = "Facet Farm", schemaVersion = "1", version = "1.0.0" },
 		style = {
 			defaultTheme = "Meadow",
 			themes = {
 				{
 					name = "Meadow",
-					colors = {
-						surface = rgb(246, 239, 222),
-						surfaceStrong = rgb(255, 251, 240),
-						content = rgb(58, 46, 32),
-						contentStrong = rgb(38, 30, 20),
-						accent = rgb(62, 128, 60),
-						onAccent = rgb(255, 255, 255),
-						danger = rgb(170, 48, 40),
-						onDanger = rgb(255, 255, 255),
-					},
+					colors = colors,
 					extra = {
 						control = rgb(234, 222, 196),
 						controlHover = rgb(224, 210, 180),

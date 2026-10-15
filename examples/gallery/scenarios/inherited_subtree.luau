@@ -4,9 +4,10 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Nested color and enabled controls",
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local D, D2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Color3, ctx.types.Enum
 		local live, blend, engaged = Compose.cell(true), Compose.cell(35), Compose.cell(0)
@@ -39,23 +40,20 @@ return {
 			})
 		end
 		local function screen()
-			local after = UI.Button {
-				Name = "After",
+			local after = UI.Button "After" {
 				label = "After",
 				onActivate = function()
 					live:set(true)
 				end,
 			}
-			local go = UI.Button {
-				Name = "Go",
+			local go = UI.Button "Go" {
 				label = "Engage",
 				enabled = live,
 				onActivate = function()
 					engaged:set(engaged:peek() + 1)
 				end,
 			}
-			local innerGo = UI.Button {
-				Name = "InnerGo",
+			local innerGo = UI.Button "InnerGo" {
 				label = "Engage from inner panel",
 				enabled = live,
 				onActivate = function()
@@ -74,25 +72,24 @@ return {
 					end
 				end
 			end)
-			return UI.ScrollView {
-				Name = "InheritedSubtree",
+			return UI.ScrollView "InheritedSubtree" {
 				padding = 16,
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Text({ text = "Nested color and control state", textRole = "title" :: "title" }) :: unknown,
-				UI.Toggle { Name = "PowerToggle", label = "Panel power", value = live },
-				UI.Slider { Name = "BlendSlider", label = "Tint", value = blend, min = 0, max = 100, step = 5 },
+				UI.Text({ text = "Nested color and control state", textRole = "title" }),
+				UI.Toggle "PowerToggle" { label = "Panel power", value = live },
+				UI.Slider "BlendSlider" { label = "Tint", value = blend, min = 0, max = 100, step = 5 },
 				Host.Frame "Panel" {
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }) :: unknown,
+					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
 					Host.Frame "Row" {
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }) :: unknown,
+						Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
 						label("HeroTitle", "The title and crest share this panel's live tint", tint),
 						Host.ImageLabel "Crest" {
 							Image = "rbxasset://textures/ui/GuiImagePlaceholder.png",
@@ -108,7 +105,7 @@ return {
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						BackgroundTransparency = 1,
-						Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }) :: unknown,
+						Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
 						label("Sub", "The inner panel keeps its own secondary color", function(use: Use)
 							return palette(use, "contentSecondary")
 						end),

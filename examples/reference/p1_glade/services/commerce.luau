@@ -1,6 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 
 local seedData = require("../content/seed")
 local strings = require("../content/strings")
@@ -8,8 +10,19 @@ local strings = require("../content/strings")
 local commerce = {}
 
 export type Opts = {
-	Compose: any,
-	now: any,
+	Compose: ComposeModule,
+	now: Readable<number>,
+}
+export type Record = { status: Cell<string>, reason: Cell<string?> }
+type Flight = { id: string, family: string, outcome: string, apply: (() -> ())?, dueAt: number }
+export type Held = { nectar: string, count: number }
+export type CommandState = { id: string, status: string, reason: string? }
+export type Dump = {
+	satchel: { Held },
+	charm: string,
+	commands: { CommandState },
+	attempts: { pack: number, charm: number, restore: number },
+	inFlight: number,
 }
 
 local REASONS = { "declined", "offline", "owned", "fallback" }
@@ -24,55 +37,55 @@ local function isKnownReason(reason: string): boolean
 	return false
 end
 
-function commerce.new(opts: Opts): any
+function commerce.new(opts: Opts)
 	local Compose: ComposeModule = opts.Compose
 	local now = opts.now
 
-	local satchel: { [string]: any } = {}
+	local satchel: { [string]: Cell<number> } = {}
 	for _, nectar in seedData.NECTARS do
 		if nectar.premium then
 			satchel[nectar.id] = Compose.cell(seedData.SATCHEL[nectar.id] or 0)
 		end
 	end
-	local charmTier = Compose.cell("none")
+	local charmTier: Cell<string> = Compose.cell("none")
 
-	local records: { [string]: any } = {}
+	local records: { [string]: Record } = {}
 
 	local attempts: { [string]: number } = { pack = 0, charm = 0, restore = 0 }
 
-	local inFlight: { any } = {}
+	local inFlight: { Flight } = {}
 
-	local function recordFor(id: string): any
-		local record = records[id]
-		if record == nil then
-			record = {
-				status = Compose.cell("idle"),
-				reason = Compose.cell(nil :: string?),
-			}
-			records[id] = record
+	local function recordFor(id: string): Record
+		local existing = records[id]
+		if existing ~= nil then
+			return existing
 		end
+		local noReason: string? = nil
+		local reason: Cell<string?> = Compose.cell(noReason)
+		local record: Record = { status = Compose.cell("idle"), reason = reason }
+		records[id] = record
 		return record
 	end
 
 	local service = {}
 
-	function service.command(id: string): any
+	function service.command(id: string): Record
 		return recordFor(id)
 	end
 
-	function service.status(id: string): any
+	function service.status(id: string): Cell<string>
 		return recordFor(id).status
 	end
 
-	function service.reason(id: string): any
+	function service.reason(id: string): Cell<string?>
 		return recordFor(id).reason
 	end
 
-	function service.satchelOf(nectarId: string): any
+	function service.satchelOf(nectarId: string): Cell<number>
 		return satchel[nectarId]
 	end
 
-	function service.charmTier(): any
+	function service.charmTier(): Cell<string>
 		return charmTier
 	end
 
@@ -156,8 +169,8 @@ function commerce.new(opts: Opts): any
 		if #inFlight == 0 then
 			return
 		end
-		local due: { any } = {}
-		local rest: { any } = {}
+		local due: { Flight } = {}
+		local rest: { Flight } = {}
 		for _, flight in inFlight do
 			if at >= flight.dueAt then
 				table.insert(due, flight)
@@ -221,14 +234,14 @@ function commerce.new(opts: Opts): any
 		attempts = { pack = 0, charm = 0, restore = 0 }
 	end
 
-	function service.dump(): any
-		local held: { any } = {}
+	function service.dump(): Dump
+		local held: { Held } = {}
 		for _, nectar in seedData.NECTARS do
 			if nectar.premium then
 				table.insert(held, { nectar = nectar.id, count = satchel[nectar.id]:peek() })
 			end
 		end
-		local commands: { any } = {}
+		local commands: { CommandState } = {}
 		local ids: { string } = {}
 		for id in records do
 			table.insert(ids, id)

@@ -4,6 +4,7 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Detent sheets",
 	intro = "Open a race briefing. Drag its header to resize, or focus Size and use Left / Right. On a distant screen the panel moves to the center.",
@@ -28,11 +29,10 @@ return {
 	title = "Detent sheets",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local copy = ctx.copy or COPY
@@ -64,11 +64,41 @@ return {
 			nightOnly:set(false)
 		end
 		local function Briefing()
-			return Host.Frame "Sheet" {
+			local banner: Instance = UI.Text "Banner" {
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				text = copy.lobby,
+				textRole = "title",
+				TextWrapped = true,
+				TextXAlignment = Enum.TextXAlignment.Left,
+			}
+			local lobbyDetents: { SheetDetent } = { "hug", "large" }
+			local lobbyActions: { OverlayAction } = {
+				{
+					id = "NotNow",
+					label = copy.notNow,
+					role = "cancel",
+					onActivate = function()
+						lobbyShown:set(false)
+					end,
+				},
+				{
+					id = "Join",
+					label = copy.joinLobby,
+					role = "default",
+					onActivate = function()
+						status:set("Joined the harbor sprint.")
+						lobbyShown:set(false)
+					end,
+				},
+			}
+			local filterDetents: { SheetDetent } = { "medium", "large" }
+			local briefingDetents: { SheetDetent } = { { id = "compact", fraction = 0.35 }, "medium", "large" }
+			return Host.Frame("Sheet")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView {
-					Name = "Page",
+				UI.ScrollView "Page" {
 					padding = 16,
 					gap = 16,
 					BackgroundTransparency = 1,
@@ -81,11 +111,11 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = copy.title,
-						textRole = "title" :: "title",
+						textRole = "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}) :: unknown,
+					}),
 					UI.Text({
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
@@ -97,9 +127,8 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.Text({
+					UI.Text "Status" {
 						LayoutOrder = 3,
-						Name = "Status",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -108,93 +137,60 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					UI.Button({
+					},
+					UI.Button "Open" {
 						LayoutOrder = 4,
-						Name = "Open",
 						label = copy.open,
 						onActivate = open,
-					}),
-					UI.Button({
+					},
+					UI.Button "OpenLobby" {
 						LayoutOrder = 5,
-						Name = "OpenLobby",
 						label = copy.openLobby,
 						onActivate = function()
 							lobbyShown:set(true)
 						end,
-					}),
-					UI.Button({
+					},
+					UI.Button "OpenFilters" {
 						LayoutOrder = 6,
-						Name = "OpenFilters",
 						label = copy.openFilters,
 						onActivate = function()
 							filtersShown:set(true)
 						end,
-					}),
-				} :: unknown,
-				UI.Sheet {
-					Name = "Lobby",
+					},
+				},
+				UI.Sheet "Lobby" {
 					title = copy.lobby,
-					header = false :: false,
+					header = false,
 					isPresented = lobbyShown,
 					detent = lobbyDetent,
-					detents = { "hug", "large" } :: { SheetDetent },
-					scrollPolicy = "atLargestDetent" :: "atLargestDetent",
+					detents = lobbyDetents,
+					scrollPolicy = "atLargestDetent",
 					hero = {
 						height = 140,
 						background = Color3.fromRGB(44, 98, 210),
-						content = UI.Text({
-							Name = "Banner",
-							BackgroundTransparency = 1,
-							Size = UDim2.new(1, 0, 0, 0),
-							AutomaticSize = Enum.AutomaticSize.Y,
-							text = copy.lobby,
-							textRole = "title" :: "title",
-							TextWrapped = true,
-							TextXAlignment = Enum.TextXAlignment.Left,
-						}) :: Instance,
+						content = banner,
 					},
 					content = function(): Instance
-						return UI.Text({
-							Name = "LobbyBody",
+						return UI.Text "LobbyBody" {
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = copy.lobbyBody,
 							TextWrapped = true,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						})
+						}
 					end,
-					actions = {
-						{
-							id = "NotNow",
-							label = copy.notNow,
-							role = "cancel" :: "cancel",
-							onActivate = function()
-								lobbyShown:set(false)
-							end,
-						} :: OverlayAction,
-						{
-							id = "Join",
-							label = copy.joinLobby,
-							role = "default" :: "default",
-							onActivate = function()
-								status:set("Joined the harbor sprint.")
-								lobbyShown:set(false)
-							end,
-						} :: OverlayAction,
-					},
+					actions = lobbyActions,
 				},
-				UI.Sheet {
-					Name = "Filters",
+				UI.Sheet "Filters" {
 					title = copy.filters,
-					placement = "side" :: "side",
-					width = "narrow" :: "narrow",
+					placement = "side",
+					width = "narrow",
 					isPresented = filtersShown,
 					detent = filtersDetent,
-					detents = { "medium", "large" } :: { SheetDetent },
+					detents = filterDetents,
 					content = function(): Instance
-						return Host.Frame "FilterList" {
+						return Host.Frame("FilterList")({
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
@@ -202,7 +198,7 @@ return {
 								FillDirection = Enum.FillDirection.Vertical,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 16),
-							}) :: unknown,
+							}),
 							UI.Text({
 								LayoutOrder = 1,
 								BackgroundTransparency = 1,
@@ -212,39 +208,35 @@ return {
 								TextWrapped = true,
 								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
-							UI.Toggle({
+							UI.Toggle "Night" {
 								LayoutOrder = 2,
-								Name = "Night",
 								label = "Night races only",
 								value = nightOnly,
-							}),
-							UI.Button({
+							},
+							UI.Button "Clear" {
 								LayoutOrder = 3,
-								Name = "Clear",
 								label = copy.clear,
 								onActivate = function()
 									nightOnly:set(false)
 								end,
-							}),
-							UI.Button({
+							},
+							UI.Button "Apply" {
 								LayoutOrder = 4,
-								Name = "Apply",
 								label = copy.apply,
 								onActivate = function()
 									filtersShown:set(false)
 								end,
-							}),
-						}
+							},
+						})
 					end,
 				},
-				UI.Sheet {
-					Name = "Briefing",
+				UI.Sheet "Briefing" {
 					title = copy.briefing,
 					isPresented = presented,
 					detent = detent,
-					detents = { { id = "compact", fraction = 0.35 }, "medium", "large" } :: { SheetDetent },
+					detents = briefingDetents,
 					content = function(): Instance
-						return Host.Frame "Details" {
+						return Host.Frame("Details")({
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
@@ -252,10 +244,9 @@ return {
 								FillDirection = Enum.FillDirection.Vertical,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 16),
-							}) :: unknown,
-							UI.Text({
+							}),
+							UI.Text "Description" {
 								LayoutOrder = 1,
-								Name = "Description",
 								BackgroundTransparency = 1,
 								BorderSizePixel = 0,
 								Size = UDim2.new(1, 0, 0, 0),
@@ -264,7 +255,7 @@ return {
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
-							}),
+							},
 							UI.Text({
 								LayoutOrder = 2,
 								BackgroundTransparency = 1,
@@ -276,12 +267,11 @@ return {
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
-							UI.Toggle({
+							UI.Toggle "Membership" {
 								LayoutOrder = 3,
-								Name = "Membership",
 								label = copy.join,
 								value = membership,
-							}),
+							},
 							UI.Text({
 								LayoutOrder = 4,
 								BackgroundTransparency = 1,
@@ -293,9 +283,8 @@ return {
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
 							}),
-							UI.Button({
+							UI.Button "Start" {
 								LayoutOrder = 5,
-								Name = "Start",
 								Size = UDim2.new(1, 0, 0, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
 								label = copy.start,
@@ -303,11 +292,11 @@ return {
 									status:set("Practice started.")
 									close()
 								end,
-							}),
-						}
+							},
+						})
 					end,
 				},
-			}
+			})
 		end
 		return {
 			screen = Briefing,
@@ -330,10 +319,10 @@ return {
 			},
 			states = function()
 				return {
-					{ id = "medium", kind = "dialog" :: "dialog", open = open },
+					{ id = "medium", kind = "dialog", open = open },
 					{
 						id = "large",
-						kind = "dialog" :: "dialog",
+						kind = "dialog",
 						open = function()
 							setDetent("large")
 							return open()

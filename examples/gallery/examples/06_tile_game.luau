@@ -1,7 +1,9 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 type OptionalNumberCell = typeof(require("@repo/tools/typecheck/aliases").OptionalNumberCell)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 
 local words = require("./words")
 
@@ -35,7 +37,7 @@ rules.DEAL_ATTEMPTS = DEAL_ATTEMPTS
 rules.MIN_WORD = words.MIN_LENGTH
 rules.MAX_WORD = words.MAX_LENGTH
 
-rules.VALUES = table.freeze({
+local VALUES: { [string]: number } = table.freeze({
 	A = 1,
 	B = 3,
 	C = 3,
@@ -63,35 +65,37 @@ rules.VALUES = table.freeze({
 	Y = 4,
 	Z = 10,
 })
+rules.VALUES = VALUES
 
-rules.DISTRIBUTION = table.freeze({
-	{ "A", 9 },
-	{ "B", 2 },
-	{ "C", 2 },
-	{ "D", 4 },
-	{ "E", 12 },
-	{ "F", 2 },
-	{ "G", 3 },
-	{ "H", 2 },
-	{ "I", 9 },
-	{ "J", 1 },
-	{ "K", 1 },
-	{ "L", 4 },
-	{ "M", 2 },
-	{ "N", 6 },
-	{ "O", 8 },
-	{ "P", 2 },
-	{ "Q", 1 },
-	{ "R", 6 },
-	{ "S", 4 },
-	{ "T", 6 },
-	{ "U", 4 },
-	{ "V", 2 },
-	{ "W", 2 },
-	{ "X", 1 },
-	{ "Y", 2 },
-	{ "Z", 1 },
-} :: { { string | number } })
+local DISTRIBUTION: { { letter: string, count: number } } = table.freeze({
+	{ letter = "A", count = 9 },
+	{ letter = "B", count = 2 },
+	{ letter = "C", count = 2 },
+	{ letter = "D", count = 4 },
+	{ letter = "E", count = 12 },
+	{ letter = "F", count = 2 },
+	{ letter = "G", count = 3 },
+	{ letter = "H", count = 2 },
+	{ letter = "I", count = 9 },
+	{ letter = "J", count = 1 },
+	{ letter = "K", count = 1 },
+	{ letter = "L", count = 4 },
+	{ letter = "M", count = 2 },
+	{ letter = "N", count = 6 },
+	{ letter = "O", count = 8 },
+	{ letter = "P", count = 2 },
+	{ letter = "Q", count = 1 },
+	{ letter = "R", count = 6 },
+	{ letter = "S", count = 4 },
+	{ letter = "T", count = 6 },
+	{ letter = "U", count = 4 },
+	{ letter = "V", count = 2 },
+	{ letter = "W", count = 2 },
+	{ letter = "X", count = 1 },
+	{ letter = "Y", count = 2 },
+	{ letter = "Z", count = 1 },
+})
+rules.DISTRIBUTION = DISTRIBUTION
 
 rules.SAY = table.freeze({
 	centre = "Your first word has to cover the starred centre square.",
@@ -123,7 +127,7 @@ function rules.key(r: number, c: number): string
 end
 
 function rules.value(letter: string): number
-	return (rules.VALUES :: any)[letter] or 0
+	return VALUES[letter] or 0
 end
 
 function rules.onBoard(r: number, c: number): boolean
@@ -143,9 +147,9 @@ end
 
 function rules.newBag(rng: () -> number): { string }
 	local bag: { string } = {}
-	for _, entry in rules.DISTRIBUTION do
-		for _ = 1, entry[2] :: number do
-			table.insert(bag, entry[1] :: string)
+	for _, entry in DISTRIBUTION do
+		for _ = 1, entry.count do
+			table.insert(bag, entry.letter)
 		end
 	end
 	for i = #bag, 2, -1 do
@@ -225,7 +229,7 @@ function rules.wordVerdict(word: string): string
 	return "ok"
 end
 
-local STEPS = table.freeze({ { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } })
+local STEPS: { { number } } = table.freeze({ { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } })
 
 local function letterAt(board: { [string]: string }, placed: { [string]: string }, r: number, c: number): string?
 	if not rules.onBoard(r, c) then
@@ -275,7 +279,10 @@ function rules.wordOf(
 ): string
 	local out: { string } = {}
 	for _, cell in cells do
-		table.insert(out, letterAt(board, placed, cell.r, cell.c) :: string)
+		local letter = letterAt(board, placed, cell.r, cell.c)
+		if letter ~= nil then
+			table.insert(out, letter)
+		end
 	end
 	return table.concat(out)
 end
@@ -379,7 +386,7 @@ function rules.validate(board: { [string]: string }, placed: { [string]: string 
 		local touches = false
 		for _, cell in cells do
 			for _, step in STEPS do
-				local r, c = cell.r + step[1] :: number, cell.c + step[2] :: number
+				local r, c = cell.r + step[1], cell.c + step[2]
 				if rules.onBoard(r, c) and board[rules.key(r, c)] ~= nil then
 					touches = true
 					break
@@ -477,7 +484,7 @@ function rules.legalCells(
 		for c = 1, SIZE do
 			if letterAt(board, placed, r, c) ~= nil then
 				for _, step in STEPS do
-					local nr, nc = r + step[1] :: number, c + step[2] :: number
+					local nr, nc = r + step[1], c + step[2]
 					if rules.onBoard(nr, nc) and letterAt(board, placed, nr, nc) == nil then
 						legal[rules.key(nr, nc)] = true
 					end
@@ -490,17 +497,19 @@ end
 
 example.rules = rules
 
-local CELL_TINT: { [string]: any } = {
+type Tint = { role: string, blend: number }
 
-	idle = { role = "contentSecondary" :: "contentSecondary", blend = 0.2 },
+local CELL_TINT: { [string]: Tint } = {
 
-	legal = { role = "accent" :: "accent", blend = 0.3 },
+	idle = { role = "contentSecondary", blend = 0.2 },
 
-	centre = { role = "accent" :: "accent", blend = 0.3 },
+	legal = { role = "accent", blend = 0.3 },
 
-	pending = { role = "accent" :: "accent", blend = 0.6 },
+	centre = { role = "accent", blend = 0.3 },
 
-	committed = { role = "contentSecondary" :: "contentSecondary", blend = 0.5 },
+	pending = { role = "accent", blend = 0.6 },
+
+	committed = { role = "contentSecondary", blend = 0.5 },
 }
 
 local CELL_SURFACE: { [string]: string } = {
@@ -519,10 +528,10 @@ local CELL_MARK: { [string]: string } = {
 	committed = "",
 }
 
-function example.build(ctx: any)
-	local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
+function example.build(ctx: ExampleContext): Built
+	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Color3, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
-	local function paletteColor(use: any, role: string): Color3
+	local function paletteColor(use: Use, role: string): Color3
 		local package = if ctx.theme then use(ctx.theme) else ctx.Facet.themes.neutralPackage()
 		local mode = if ctx.themeMode then use(ctx.themeMode) else package.style.defaultTheme
 		local chosen = package.style.themes[1]
@@ -536,18 +545,24 @@ function example.build(ctx: any)
 	end
 
 	local seedSig = Compose.cell(DEFAULT_SEED)
-	local boardSig = Compose.cell({} :: { [string]: string })
-	local pendingSig = Compose.cell({} :: { [string]: string })
-	local rackSig = Compose.cell({} :: { [number]: string })
-	local originSig = Compose.cell({} :: { [string]: number })
+	local noLetters: { [string]: string } = {}
+	local noPending: { [string]: string } = {}
+	local noRack: { [number]: string } = {}
+	local noOrigins: { [string]: number } = {}
+	local boardSig = Compose.cell(noLetters)
+	local pendingSig = Compose.cell(noPending)
+	local rackSig = Compose.cell(noRack)
+	local originSig = Compose.cell(noOrigins)
 	type MovingTile = { id: number, letter: string, slot: number?, cell: string? }
-	local movingTiles = Compose.cell({} :: { MovingTile })
+	local noTiles: { MovingTile } = {}
+	local movingTiles = Compose.cell(noTiles)
 	local nextTileId = 0
 	local function newMovingTile(letter: string, slot: number): MovingTile
 		nextTileId += 1
 		return { id = nextTileId, letter = letter, slot = slot }
 	end
-	local selectedSig: OptionalNumberCell = Compose.cell(nil :: number?)
+	local noSlot: number? = nil
+	local selectedSig: OptionalNumberCell = Compose.cell(noSlot)
 	local scoreSig = Compose.cell(0)
 	local turnSig = Compose.cell(1)
 	local phaseSig = Compose.cell("playing")
@@ -701,13 +716,13 @@ function example.build(ctx: any)
 				bagAt += 1
 			end
 		end
-		local nextScore = scoreSig:peek() + (verdict.score :: number)
+		local nextScore = scoreSig:peek() + (verdict.score or 0)
 		local nextTurn = turnSig:peek() + 1
-		local phase = "playing" :: "playing"
+		local phase = "playing"
 		if nextScore >= GOAL then
-			phase = "won" :: "won"
+			phase = "won"
 		elseif nextTurn > TURNS then
-			phase = "lost" :: "lost"
+			phase = "lost"
 		end
 		ctx.runtime:batch(function()
 			local visuals = table.clone(movingTiles:peek())
@@ -745,32 +760,32 @@ function example.build(ctx: any)
 		end)
 	end
 	restart(DEFAULT_SEED)
-	local turnsLeft: any
-	local scoreText: any
-	local progressText: any
-	local verdictSig: any
-	local wordText: any
-	local hintText: any
-	local cellStateOf: { [string]: any } = {}
+	local turnsLeftSig: Readable<number>? = nil
+	local scoreTextSig: Readable<string>? = nil
+	local progressTextSig: Readable<string>? = nil
+	local verdictSigOf: Readable<Verdict?>? = nil
+	local wordTextSig: Readable<string>? = nil
+	local hintTextSig: Readable<string>? = nil
+	local cellStateOf: { [string]: Readable<string> } = {}
 	local function Crossword()
-		turnsLeft = Compose.formula(function(use: Use)
+		local turnsLeft = Compose.formula(function(use: Use)
 			return math.max(0, TURNS - (use(turnSig) - 1))
 		end)
-		scoreText = Compose.formula(function(use: Use)
+		local scoreText = Compose.formula(function(use: Use)
 			return `{use(scoreSig)} of {GOAL} points`
 		end)
-		progressText = Compose.formula(function(use: Use)
+		local progressText = Compose.formula(function(use: Use)
 			local left = use(turnsLeft)
 			return `{left} {if left == 1 then "turn" else "turns"} left`
 		end)
-		verdictSig = Compose.formula(function(use: Use): Verdict?
+		local verdictSig = Compose.formula(function(use: Use): Verdict?
 			local pending = use(pendingSig)
 			if next(pending) == nil then
 				return nil
 			end
 			return rules.validate(use(boardSig), pending, use(turnSig))
 		end)
-		wordText = Compose.formula(function(use: Use)
+		local wordText = Compose.formula(function(use: Use)
 			local notice = use(noticeSig)
 			if notice ~= "" then
 				return notice
@@ -781,7 +796,7 @@ function example.build(ctx: any)
 			end
 			return verdict.message
 		end)
-		hintText = Compose.formula(function(use: Use)
+		local hintText = Compose.formula(function(use: Use)
 			local phase = use(phaseSig)
 			if phase == "won" then
 				return `You reached {use(scoreSig)} points in {use(turnSig) - 1} of {TURNS} turns — you win! `
@@ -798,12 +813,14 @@ function example.build(ctx: any)
 			end
 			return "Pick a letter from your rack, then choose a square."
 		end)
+		turnsLeftSig, scoreTextSig, progressTextSig = turnsLeft, scoreText, progressText
+		verdictSigOf, wordTextSig, hintTextSig = verdictSig, wordText, hintText
 		local function narrow()
 			return Host.UISizeConstraint({ MaxSize = Vector2.new(360, math.huge) })
 		end
 		local boardSlots: { [string]: GuiObject } = {}
 		local rackSlots: { [number]: GuiObject } = {}
-		local cells: { any } = { Name = "board", columns = SIZE, gap = "xs", aspectRatio = 1, narrow() }
+		local cells: { Child } = {}
 		for r = 1, SIZE do
 			for c = 1, SIZE do
 				local rr, cc = r, c
@@ -836,13 +853,11 @@ function example.build(ctx: any)
 				table.insert(
 					cells,
 					(function()
-						local node = UI.ZStack({
-							Name = `cell{r}_{c}`,
+						local node = UI.ZStack(`cell{r}_{c}`)({
 							width = 44,
 							height = 44,
-							UI.Text { Name = "mark", text = mark, textRole = "caption" :: "caption" } :: unknown,
-							UI.Button {
-								Name = "tap",
+							UI.Text "mark" { text = mark, textRole = "caption" },
+							UI.Button "tap" {
 								Size = UDim2.fromScale(1, 1),
 								label = function(use: Use)
 									return use(mark)
@@ -881,7 +896,7 @@ function example.build(ctx: any)
 									Enabled = function(use: Use)
 										return use(surface) == CELL_SURFACE.pending
 									end,
-								} :: unknown,
+								},
 								Host.UIPadding {},
 							},
 						})
@@ -891,7 +906,7 @@ function example.build(ctx: any)
 				)
 			end
 		end
-		local rackTiles: { any } = { Name = "rack", columns = RACK_SIZE, gap = "xs", cellHeight = 48, narrow() }
+		local rackTiles: { Child } = {}
 		for i = 1, RACK_SIZE do
 			local slot = i
 			local letter = Compose.formula(function(use: Use)
@@ -908,8 +923,7 @@ function example.build(ctx: any)
 			end)
 			table.insert(
 				rackTiles,
-				UI.Button({
-					Name = "rt" .. i,
+				UI.Button("rt" .. i)({
 					ref = function(node: TextButton)
 						rackSlots[slot] = node
 					end,
@@ -925,26 +939,35 @@ function example.build(ctx: any)
 				})
 			)
 		end
-		return UI.Screen {
-			Name = "TileGame",
-			UI.ScrollView {
-				Name = "Page",
+		return UI.Screen "TileGame" {
+			UI.ScrollView "Page" {
 				gap = "s",
-				align = "stretch" :: "stretch",
-				UI.Text { Name = "Title", text = "Facet Crossword", textRole = "title" :: "title", TextWrapped = true } :: unknown,
-				UI.HStack {
-					Name = "Stats",
+				align = "stretch",
+				UI.Text "Title" { text = "Facet Crossword", textRole = "title", TextWrapped = true },
+				UI.HStack "Stats" {
 					wrap = true,
 					gap = "m",
-					width = "fill" :: "fill",
-					UI.Text { Name = "Score", text = scoreText } :: unknown,
-					UI.Text { Name = "Progress", text = progressText },
+					width = "fill",
+					UI.Text "Score" { text = scoreText },
+					UI.Text "Progress" { text = progressText },
 				},
-				UI.Text { Name = "Hint", text = hintText, TextWrapped = true },
-				UI.Text { Name = "Word", text = wordText, TextWrapped = true },
-				UI.Grid(cells),
-				UI.Text { Name = "RackLabel", text = "Your rack", TextWrapped = true },
-				UI.Grid(rackTiles),
+				UI.Text "Hint" { text = hintText, TextWrapped = true },
+				UI.Text "Word" { text = wordText, TextWrapped = true },
+				UI.Grid "board"({
+					columns = SIZE,
+					gap = "xs",
+					aspectRatio = 1,
+					narrow(),
+					table.unpack(cells),
+				}),
+				UI.Text "RackLabel" { text = "Your rack", TextWrapped = true },
+				UI.Grid "rack"({
+					columns = RACK_SIZE,
+					gap = "xs",
+					cellHeight = 48,
+					narrow(),
+					table.unpack(rackTiles),
+				}),
 				Compose.OrderedCollection {
 					from = movingTiles,
 					key = function(tile: MovingTile)
@@ -962,7 +985,7 @@ function example.build(ctx: any)
 										return assert(boardSlots[key])
 									end
 								end
-								return assert(rackSlots[tile.slot :: number])
+								return assert(rackSlots[assert(tile.slot)])
 							end,
 							content = function(): GuiObject
 								return Host.Frame {
@@ -982,15 +1005,13 @@ function example.build(ctx: any)
 						}
 					end,
 				},
-				UI.HStack {
-					Name = "Actions",
+				UI.HStack "Actions" {
 					gap = "s",
-					width = "fill" :: "fill",
-					UI.Button { Name = "Submit", label = "Submit word", onActivate = submit, UI.fill() } :: unknown,
-					UI.Button { Name = "Undo", label = "Undo turn", onActivate = undo, UI.fill() },
+					width = "fill",
+					UI.Button "Submit" { label = "Submit word", onActivate = submit, UI.fill() },
+					UI.Button "Undo" { label = "Undo turn", onActivate = undo, UI.fill() },
 				},
-				UI.Button {
-					Name = "Reset",
+				UI.Button "Reset" {
 					label = "Start over",
 					onActivate = function()
 						restart(DEFAULT_SEED)
@@ -1021,7 +1042,7 @@ function example.build(ctx: any)
 		for slot = 1, RACK_SIZE do
 			if rack[slot] == letter then
 				selectedSig:set(slot)
-				activateCell(r :: number, c :: number)
+				activateCell(r, c)
 				return
 			end
 		end
@@ -1038,7 +1059,7 @@ function example.build(ctx: any)
 				Pressed = function()
 					typeLetter(letter)
 				end,
-				Host.InputBinding({ KeyCode = Enum.KeyCode[letter] }),
+				Host.InputBinding({ KeyCode = assert(Enum.KeyCode:FromName(letter)) }),
 			})
 		)
 	end
@@ -1046,7 +1067,7 @@ function example.build(ctx: any)
 		Parent = ctx.inputTarget,
 		Priority = 2000,
 		Sink = true,
-		table.unpack((bindings :: unknown) :: { unknown }),
+		table.unpack(bindings),
 	}
 
 	return {
@@ -1056,7 +1077,12 @@ function example.build(ctx: any)
 		press = function(keyCode: string)
 			typeLetter(keyCode)
 		end,
-		select = selectSlot,
+		select = function(slot: unknown): boolean?
+			if type(slot) == "number" then
+				selectSlot(slot)
+			end
+			return nil
+		end,
 		place = activateCell,
 		submit = submit,
 		undo = undo,
@@ -1084,7 +1110,7 @@ function example.build(ctx: any)
 		cellState = function(r: number, c: number): string
 			return cellStateOf[rules.key(r, c)]:peek()
 		end,
-		cellTint = function(r: number, c: number): any
+		cellTint = function(r: number, c: number): Tint
 			return CELL_TINT[cellStateOf[rules.key(r, c)]:peek()]
 		end,
 		cellSurface = function(r: number, c: number): string
@@ -1115,25 +1141,25 @@ function example.build(ctx: any)
 			return turnSig:peek()
 		end,
 		turnsLeft = function(): number
-			return turnsLeft:peek()
+			return assert(turnsLeftSig):peek()
 		end,
 		phase = function(): string
 			return phaseSig:peek()
 		end,
 		hintText = function(): string
-			return hintText:peek()
+			return assert(hintTextSig):peek()
 		end,
 		wordText = function(): string
-			return wordText:peek()
+			return assert(wordTextSig):peek()
 		end,
 		scoreText = function(): string
-			return scoreText:peek()
+			return assert(scoreTextSig):peek()
 		end,
 		progressText = function(): string
-			return progressText:peek()
+			return assert(progressTextSig):peek()
 		end,
-		verdict = function(): any
-			return verdictSig:peek()
+		verdict = function(): Verdict?
+			return assert(verdictSigOf):peek()
 		end,
 		dump = function(): string
 			local out: { string } = {}

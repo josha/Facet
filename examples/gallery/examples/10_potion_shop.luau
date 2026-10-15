@@ -1,5 +1,10 @@
 --!strict
+
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 local makeView = require("./showcase_view")
+type Sale = { id: number, name: string, recipe: string, quantity: number, earned: number }
 local recipes = {
 	{ id = "sun", label = "Bottled sunshine", ingredient = "Sun petals", color = { 255, 192, 77 }, price = 15 },
 	{ id = "moon", label = "Moonlight tonic", ingredient = "Moon mint", color = { 160, 146, 244 }, price = 20 },
@@ -10,22 +15,23 @@ local orders = {
 	{ name = "Orin", recipe = "moon", quantity = 1, note = "Something for a night under the stars." },
 	{ name = "Pip", recipe = "moss", quantity = 3, note = "The whole hiking club is coming!" },
 }
-local byId = {}
+local byId: { [string]: typeof(recipes[1]) } = {}
 for _, recipe in recipes do
 	byId[recipe.id] = recipe
 end
 return {
 	title = "Potion Shop",
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext)
 		local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 		local V3, C3, E, D2 = ctx.types.Vector3, ctx.types.Color3, ctx.types.Enum, ctx.types.UDim2
 		local view = makeView(ctx)
 		local selected, quantity, progress = C.cell("sun"), C.cell(0), C.cell(0)
 		local customer, coins, phase = C.cell(1), C.cell(0), C.cell("mixing")
-		local ledger, notice = C.cell({}), C.cell("Your first customer wants two bottles of sunshine.")
+		local noSales: { Sale } = {}
+		local ledger, notice = C.cell(noSales), C.cell("Your first customer wants two bottles of sunshine.")
 		local bookOpen, ledgerOpen = C.cell(false), C.cell(false)
 		local brewed: { recipe: string, quantity: number }? = nil
-		local function advance(dt)
+		local function advance(dt: number)
 			if phase:peek() ~= "brewing" then
 				return
 			end
@@ -136,12 +142,12 @@ return {
 						C3.fromRGB(115, 100, 91),
 						{ Shape = E.PartType.Ball }
 					),
-					view.part("Brew", V3.new(2.7, 0.3, 2.7), V3.new(0, 1.8, 0), function(use: any)
+					view.part("Brew", V3.new(2.7, 0.3, 2.7), V3.new(0, 1.8, 0), function(use: Use)
 						return C3.fromRGB(table.unpack(byId[use(selected)].color))
 					end, {
 						Shape = E.PartType.Ball,
 						Material = E.Material.Neon,
-						Transparency = function(use: any)
+						Transparency = function(use: Use)
 							return if use(quantity) == 0 then 1 else 0.2
 						end,
 					}),
@@ -156,124 +162,122 @@ return {
 							C3.fromRGB(239, 223, 181),
 							{
 								Shape = E.PartType.Ball,
-								Transparency = function(use: any)
+								Transparency = function(use: Use)
 									return if use(phase) == "brewing" then 0.2 else 1
 								end,
 							}
 						)
 					)
 				end
-				return Host.Model "PotionWorkbench" { table.unpack((parts :: unknown) :: { unknown }) }
+				return Host.Model "PotionWorkbench" { table.unpack(parts) }
 			end, ctx.types.CFrame.lookAt(V3.new(7, 7, 10), V3.new(0, 0.8, 0)), 260)
 		end
 		local function shop()
 			local tickets, ingredients = {}, {}
+			local ingredientOf: { [unknown]: string } = {}
 			for index, order in orders do
 				table.insert(
 					tickets,
-					UI.VStack {
-						Name = "Ticket" .. index,
-						width = "fill" :: "fill",
+					UI.VStack("Ticket" .. index) {
+						width = "fill",
 						gap = "xs",
 						padding = "s",
-						view.text("Customer", function(use: any)
+						view.text("Customer", function(use: Use)
 							return `{if use(customer) > index
 								then "✓ "
 								elseif use(customer) == index then "→ "
 								else ""}{order.name}`
-						end, "heading") :: unknown,
+						end, "heading"),
 						view.text("Request", `{order.quantity} × {byId[order.recipe].label}`, "caption"),
 					}
 				)
 			end
 			for _, recipe in recipes do
-				local ingredient = UI.Button {
-					Name = "Add_" .. recipe.id,
+				local ingredient = UI.Button("Add_" .. recipe.id) {
 					label = recipe.ingredient .. "\nAdd one portion",
 					Size = D2.new(1, 0, 0, 72),
-					enabled = function(use: any)
+					enabled = function(use: Use)
 						return use(phase) == "mixing" and use(customer) <= #orders
 					end,
 					onActivate = function()
 						addIngredient(recipe.id)
 					end,
 				}
-				UI.draggable(
-					ingredient,
-					{ payload = { kind = "ingredient" :: "ingredient", id = recipe.id }, armOnTap = false }
-				)
+				local payload = { kind = "ingredient", id = recipe.id }
+				ingredientOf[payload] = recipe.id
+				UI.draggable(ingredient, { payload = payload, armOnTap = false })
 				table.insert(ingredients, ingredient)
 			end
 			local cauldron = counter()
 			UI.dropTarget(cauldron, {
-				accepts = function(payload)
-					return payload.kind == "ingredient"
+				accepts = function(payload: unknown)
+					return ingredientOf[payload] ~= nil
 				end,
-				onDrop = function(payload)
-					addIngredient(payload.id)
+				onDrop = function(payload: unknown)
+					local id = ingredientOf[payload]
+					if id then
+						addIngredient(id)
+					end
 				end,
 			})
-			local serveButton = view.button("Serve", "Hand over the order", serve, function(use: any)
+			local serveButton = view.button("Serve", "Hand over the order", serve, function(use: Use)
 				return use(phase) == "ready"
 			end)
-			UI.draggable(serveButton, { payload = { kind = "order" :: "order" }, armOnTap = false })
-			local rail = UI.Grid {
-				Name = "OrderRail",
+			local orderPayload = { kind = "order" }
+			UI.draggable(serveButton, { payload = orderPayload, armOnTap = false })
+			local rail = UI.Grid "OrderRail" {
 				columns = 3,
 				gap = "m",
 				cellHeight = 104,
-				table.unpack((tickets :: unknown) :: { unknown }),
+				table.unpack(tickets),
 			}
 			UI.dropTarget(rail, {
-				accepts = function(payload)
-					return payload.kind == "order" and phase:peek() == "ready"
+				accepts = function(payload: unknown)
+					return payload == orderPayload and phase:peek() == "ready"
 				end,
 				onDrop = serve,
 			})
-			return UI.ScrollView {
-				Name = "PotionShop",
+			return UI.ScrollView "PotionShop" {
 				padding = "l",
 				gap = "m",
-				view.text("ShopTitle", "The potion counter", "title") :: unknown,
+				view.text("ShopTitle", "The potion counter", "title"),
 				rail,
-				view.text("Order", function(use: any)
+				view.text("Order", function(use: Use)
 					local order = orders[use(customer)]
 					return if order
 						then `{order.name}: “{order.note}”`
 						else "Every customer served. Your day is complete!"
 				end, "heading"),
 				cauldron,
-				view.text("Batch", function(use: any)
+				view.text("Batch", function(use: Use)
 					return if use(quantity) == 0
 						then "Empty cauldron · Add ingredients from the shelf below"
 						else `{use(quantity)} portions of {byId[use(selected)].ingredient}`
 				end),
-				UI.Grid {
-					Name = "IngredientShelf",
+				UI.Grid "IngredientShelf" {
 					columns = 3,
 					gap = "s",
 					cellHeight = 76,
-					table.unpack((ingredients :: unknown) :: { unknown }),
+					table.unpack(ingredients),
 				},
-				C.show(function(use: any)
+				C.show(function(use: Use)
 					return use(phase) == "brewing"
 				end, function()
-					return UI.ProgressView {
-						Name = "BrewProgress",
+					return UI.ProgressView "BrewProgress" {
 						label = "Brewing",
 						value = progress,
 						showValue = true,
 					}
 				end),
 				view.actions({
-					view.button("Brew", "Brew the order", brew, function(use: any)
+					view.button("Brew", "Brew the order", brew, function(use: Use)
 						return use(phase) == "mixing" and use(quantity) > 0 and use(customer) <= #orders
 					end),
 					serveButton,
 					view.button("EmptyCauldron", "Empty cauldron", function()
 						quantity:set(0)
 						notice:set("Ready for fresh ingredients.")
-					end, function(use: any)
+					end, function(use: Use)
 						return use(phase) == "mixing"
 					end),
 				}),
@@ -283,7 +287,7 @@ return {
 					view.button("OpenRecipes", "Recipe book", function()
 						bookOpen:set(true)
 					end),
-					view.button("OpenLedger", function(use: any)
+					view.button("OpenLedger", function(use: Use)
 						return `{use(coins)} coins · Day's takings`
 					end, function()
 						ledgerOpen:set(true)
@@ -297,9 +301,9 @@ return {
 				table.insert(
 					children,
 					UI.VStack {
-						width = "fill" :: "fill",
+						width = "fill",
 						gap = "s",
-						view.text(recipe.id .. "Title", recipe.label, "heading") :: unknown,
+						view.text(recipe.id .. "Title", recipe.label, "heading"),
 						view.text(
 							recipe.id .. "Recipe",
 							recipe.ingredient .. " + spring water\n" .. recipe.price .. " coins per bottle"
@@ -309,7 +313,7 @@ return {
 							quantity:set(0)
 							bookOpen:set(false)
 							notice:set(recipe.label .. ": add " .. recipe.ingredient .. " from the shelf.")
-						end, function(use: any)
+						end, function(use: Use)
 							return use(phase) == "mixing"
 						end),
 						UI.Divider {},
@@ -329,21 +333,21 @@ return {
 				"Today's takings",
 				"Each completed order earns coins. Start a new day whenever you like.",
 				{
-					view.text("TotalCoins", function(use: any)
+					view.text("TotalCoins", function(use: Use)
 						return `{use(coins)} coins`
 					end, "title"),
-					C.show(function(use: any)
+					C.show(function(use: Use)
 						return #use(ledger) == 0
 					end, function()
 						return view.text("EmptyLedger", "The first sale is always the sweetest.")
 					end),
 					C.keyed({
 						from = ledger,
-						key = function(item)
+						key = function(item: Sale)
 							return item.id
 						end,
-						render = function(current): GuiObject
-							return view.text("Sale" .. current:peek().id, function(use: any)
+						render = function(current: Readable<Sale>): GuiObject
+							return view.text("Sale" .. current:peek().id, function(use: Use)
 								local sale = use(current)
 								return `{sale.name} · {sale.quantity} × {sale.recipe} · +{sale.earned}`
 							end)
@@ -358,17 +362,15 @@ return {
 				return Host.Frame "PotionShopRoot" {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					shop() :: unknown,
-					UI.Sheet {
-						Name = "RecipeBookSheet",
+					shop(),
+					UI.Sheet "RecipeBookSheet" {
 						title = "Recipe book",
 						isPresented = bookOpen,
 						closeButton = true,
 						detent = C.cell("large"),
 						content = book,
 					},
-					UI.Sheet {
-						Name = "LedgerSheet",
+					UI.Sheet "LedgerSheet" {
 						title = "Today's takings",
 						isPresented = ledgerOpen,
 						closeButton = true,

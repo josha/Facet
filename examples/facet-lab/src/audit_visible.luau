@@ -6,11 +6,11 @@ return function(node: GuiObject, includeOutsideWindow: boolean?): boolean
 	local right, bottom = p.X + math.max(1, s.X), p.Y + math.max(1, s.Y)
 	local at: Instance? = node
 	while at do
-		if at:IsA("LayerCollector") and not (at :: LayerCollector).Enabled then
+		if at:IsA("LayerCollector") and not at.Enabled then
 			return false
 		elseif at:IsA("GuiObject") then
-			local gui = at :: GuiObject
-			if not gui.Visible or (gui:IsA("CanvasGroup") and (gui :: CanvasGroup).GroupTransparency >= 1) then
+			local gui = at
+			if not gui.Visible or (gui:IsA("CanvasGroup") and gui.GroupTransparency >= 1) then
 				return false
 			end
 			if not includeOutsideWindow and gui ~= node and gui.ClipsDescendants then

@@ -6,9 +6,10 @@ type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Adaptive controls",
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Host, Compose: ComposeModule = ctx.UI, ctx.Host, ctx.Compose
 		local UDim, UDim2, Vector2, Color3, Enum =
 			ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
@@ -22,7 +23,7 @@ return {
 		local tilt, balance, boost = Compose.cell(0), Compose.cell(50), Compose.cell(35)
 		local camera, steer = Compose.cell(60), Compose.cell(50)
 		local function wide(use: Use)
-			return use(ctx.viewport).width >= 900
+			return use(assert(ctx.viewport)).width >= 900
 		end
 		local function columnSize(use: Use)
 			return if wide(use) then UDim2.new(0.5, -12, 0, 0) else UDim2.new(1, 0, 0, 0)
@@ -51,7 +52,7 @@ return {
 			return UI.Text({
 				Name = name,
 				text = text,
-				textRole = role or "body" :: "body",
+				textRole = role or "body",
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				TextWrapped = true,
@@ -79,32 +80,29 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+				Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 				label("SlidersHeading", "Slider shapes", "heading"),
-				UI.Slider {
-					Name = "LapWindow",
+				UI.Slider "LapWindow" {
 					LayoutOrder = 2,
 					label = "Laps",
 					value = lapWindow,
 					min = 1,
 					max = 20,
 					step = 1,
-					range = true :: true,
+					range = true,
 					minGap = 2,
 				},
-				UI.Text {
-					Name = "TiltCaption",
+				UI.Text "TiltCaption" {
 					LayoutOrder = 3,
 					text = "Tilt (a turned range)",
-					textRole = "caption" :: "caption",
-					role = "secondary" :: "secondary",
+					textRole = "caption",
+					role = "secondary",
 				},
 				Host.Frame "TiltStage" {
 					LayoutOrder = 4,
 					Size = UDim2.new(1, 0, 0, 160),
 					BackgroundTransparency = 1,
-					UI.Slider {
-						Name = "Tilt",
+					UI.Slider "Tilt" {
 						AnchorPoint = Vector2.new(0.5, 0.5),
 						Position = UDim2.fromScale(0.5, 0.5),
 						Size = UDim2.new(0.6, 0, 0, 0),
@@ -112,7 +110,7 @@ return {
 						min = 0,
 						max = 100,
 						step = 10,
-						range = true :: true,
+						range = true,
 						minGap = 10,
 						rotation = tilt,
 					},
@@ -126,51 +124,46 @@ return {
 						Padding = UDim.new(0, 16),
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						SortOrder = Enum.SortOrder.LayoutOrder,
-					}) :: unknown,
-					UI.Slider {
-						Name = "Balance",
+					}),
+					UI.Slider "Balance" {
 						LayoutOrder = 1,
 						label = "Rear",
 						value = balance,
 						min = 0,
 						max = 100,
 						step = 5,
-						axis = "y" :: "y",
+						axis = "y",
 					},
-					UI.Text {
-						Name = "BalanceNote",
+					UI.Text "BalanceNote" {
 						LayoutOrder = 2,
 						text = "Rear bias runs bottom to top, and Up raises it.",
-						textRole = "caption" :: "caption",
-						role = "secondary" :: "secondary",
+						textRole = "caption",
+						role = "secondary",
 						TextWrapped = true,
 						Size = UDim2.new(1, -80, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 					},
 				},
-				UI.Slider {
-					Name = "Boost",
+				UI.Slider "Boost" {
 					LayoutOrder = 6,
 					label = "Boost",
 					value = boost,
 					min = 0,
 					max = 100,
 					step = 5,
-					thumb = "auto" :: "auto",
-					controlSize = "compact" :: "compact",
+					thumb = "auto",
+					controlSize = "compact",
 				},
-				UI.Slider {
-					Name = "Camera",
+				UI.Slider "Camera" {
 					LayoutOrder = 7,
 					label = "Camera",
 					value = camera,
 					min = 0,
 					max = 100,
 					step = 5,
-					thumb = "none" :: "none",
+					thumb = "none",
 				},
-				UI.Slider {
-					Name = "Steer",
+				UI.Slider "Steer" {
 					LayoutOrder = 8,
 					label = "Steer",
 					value = steer,
@@ -183,18 +176,19 @@ return {
 							Host.UICorner({ CornerRadius = UDim.new(1, 0) }),
 						}
 						knob:AddTag("facet-slider-thumb")
+						local target: GuiObject = knob
 						ctx.runtime.mount(function()
 							return ctx.Facet.themes.skin(
 								ctx.runtime,
 								ctx.theme,
 								"sliderThumb",
-								{ types = ctx.types, target = knob }
+								{ types = ctx.types, target = target }
 							)
 						end, knob)
 						return Host.Frame "Knob" {
 							Size = UDim2.fromOffset(24, 24),
 							BackgroundTransparency = 1,
-							knob :: unknown,
+							knob,
 						}
 					end,
 				},
@@ -228,7 +222,7 @@ return {
 						LayoutOrder = i,
 						Size = UDim2.fromOffset(72, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						value :: unknown,
+						value,
 					}))
 				)
 			end
@@ -237,10 +231,9 @@ return {
 					Name = "Tile" .. i,
 					LayoutOrder = i,
 					Size = UDim2.new(0.25, -6, 0, 44),
-					UI.Badge {
-						Name = "Count",
+					UI.Badge "Count" {
 						label = count,
-						status = "info" :: "info",
+						status = "info",
 						AnchorPoint = Vector2.new(1, 0.5),
 						Position = UDim2.new(1, -6, 0.5, 0),
 					},
@@ -259,9 +252,8 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					HorizontalAlignment = Enum.HorizontalAlignment.Center,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
-				UI.ScrollView {
-					Name = "BodyScroll",
+				}),
+				UI.ScrollView "BodyScroll" {
 					LayoutOrder = 1,
 					padding = 16,
 					BackgroundTransparency = 1,
@@ -269,7 +261,7 @@ return {
 					ScrollBarThickness = 4,
 					ScrollBarImageTransparency = 0.4,
 					VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-					UI.fill() :: unknown,
+					UI.fill(),
 					Host.Frame "Body" {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -280,25 +272,23 @@ return {
 							end,
 							Padding = UDim.new(0, 24),
 							SortOrder = Enum.SortOrder.LayoutOrder,
-						} :: unknown,
+						},
 						Host.Frame "Settings" {
 							Size = columnSize,
 							AutomaticSize = Enum.AutomaticSize.Y,
 							BackgroundTransparency = 1,
 							LayoutOrder = 1,
-							Host.UIListLayout({ Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+							Host.UIListLayout({ Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
 							label("Heading", "Settings", "heading"),
 							divider(),
-							UI.Stepper {
-								Name = "Volume",
+							UI.Stepper "Volume" {
 								label = "Volume",
 								value = volume,
 								min = 0,
 								max = 10,
 								step = 1,
 							},
-							UI.Slider {
-								Name = "Brightness",
+							UI.Slider "Brightness" {
 								label = "Brightness",
 								value = brightness,
 								min = 0,
@@ -306,47 +296,42 @@ return {
 								step = 5,
 							},
 							sliderShapes(),
-							UI.Picker {
-								Name = "Quality",
+							UI.Picker "Quality" {
 								label = "Quality",
 								selected = quality,
 								options = {
-									{ value = "performance", label = "Performance" } :: PickerOption,
-									{ value = "balanced", label = "Balanced" } :: PickerOption,
-									{ value = "fidelity", label = "Fidelity" } :: PickerOption,
+									{ value = "performance", label = "Performance" },
+									{ value = "balanced", label = "Balanced" },
+									{ value = "fidelity", label = "Fidelity" },
 								},
 							},
 							divider(),
 							label("NavHeading", "Icon segments, and the vertical rail", "caption"),
-							UI.Picker {
-								Name = "NavPill",
+							UI.Picker "NavPill" {
 								selected = section,
 								options = navOptions,
-								style = "segmented" :: "segmented",
+								style = "segmented",
 								iconOnly = true,
 							},
-							UI.HStack {
-								Name = "NavRailRow",
+							UI.HStack "NavRailRow" {
 								Size = UDim2.fromScale(1, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
 								BackgroundTransparency = 1,
-								UI.Picker {
-									Name = "NavRail",
+								UI.Picker "NavRail" {
 									Size = UDim2.fromOffset(0, 0),
 									AutomaticSize = Enum.AutomaticSize.XY,
 									selected = section,
 									options = navOptions,
-									style = "segmented" :: "segmented",
-									axis = "y" :: "y",
+									style = "segmented",
+									axis = "y",
 									iconOnly = true,
-								} :: unknown,
-								UI.Text {
-									Name = "NavReadout",
+								},
+								UI.Text "NavReadout" {
 									text = function(use: Use)
 										return `Selected: {use(section)} — the pill and the rail share this selection.`
 									end,
-									textRole = "caption" :: "caption",
-									role = "secondary" :: "secondary",
+									textRole = "caption",
+									role = "secondary",
 									TextWrapped = true,
 									Size = UDim2.new(1, 0, 0, 0),
 									AutomaticSize = Enum.AutomaticSize.Y,
@@ -354,13 +339,12 @@ return {
 								},
 							},
 							divider(),
-							UI.DisclosureGroup {
-								Name = "Advanced",
+							UI.DisclosureGroup "Advanced" {
 								label = "Advanced",
 								description = "Optional rendering and privacy settings",
 								icon = "settings",
-								chevronPosition = "trailing" :: "trailing",
-								appearance = "divided" :: "divided",
+								chevronPosition = "trailing",
+								appearance = "divided",
 								expanded = advanced,
 								content = function(): Instance
 									return Host.Frame "AdvancedBody" {
@@ -370,54 +354,49 @@ return {
 										Host.UIListLayout({
 											SortOrder = Enum.SortOrder.LayoutOrder,
 											Padding = UDim.new(0, 8),
-										}) :: unknown,
-										UI.Toggle({
+										}),
+										UI.Toggle "Vsync" {
 											LayoutOrder = 1,
-											Name = "Vsync",
 											label = "Vertical sync",
 											value = vsync,
-											controlSize = "large" :: "large",
+											controlSize = "large",
 											hint = "Keep frames aligned with the display",
-										}),
-										UI.Toggle({
+										},
+										UI.Toggle "Telemetry" {
 											LayoutOrder = 2,
-											Name = "Telemetry",
 											label = "Share telemetry",
 											value = telemetry,
-											presentation = "checkbox" :: "checkbox",
+											presentation = "checkbox",
 											hint = "Send anonymous play statistics",
-											indicatorPosition = "leading" :: "leading",
-										}),
+											indicatorPosition = "leading",
+										},
 									}
 								end,
 							},
 							strongDivider(),
-							UI.DisclosureGroup {
-								Name = "Outline",
+							UI.DisclosureGroup "Outline" {
 								label = "Components",
-								appearance = "outline" :: "outline",
-								textSize = "label" :: "label",
-								indent = "m" :: "m",
+								appearance = "outline",
+								textSize = "label",
+								indent = "m",
 								expanded = outlineOpen,
 								content = function(): Instance
 									return Host.Frame "OutlineRows" {
 										Size = UDim2.new(1, 0, 0, 0),
 										AutomaticSize = Enum.AutomaticSize.Y,
 										BackgroundTransparency = 1,
-										Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-										UI.Button {
-											Name = "OutlineButton",
+										Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }),
+										UI.Button "OutlineButton" {
 											LayoutOrder = 1,
 											label = "Button",
-											appearance = "link" :: "link",
-											underline = "hover" :: "hover",
+											appearance = "link",
+											underline = "hover",
 										},
-										UI.Button {
-											Name = "OutlineChip",
+										UI.Button "OutlineChip" {
 											LayoutOrder = 2,
 											label = "Chip",
-											appearance = "link" :: "link",
-											underline = "hover" :: "hover",
+											appearance = "link",
+											underline = "hover",
 										},
 									}
 								end,
@@ -428,20 +407,18 @@ return {
 							AutomaticSize = Enum.AutomaticSize.Y,
 							BackgroundTransparency = 1,
 							LayoutOrder = 2,
-							Host.UIListLayout({ Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+							Host.UIListLayout({ Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
 							label("HudHeading", "Status", "heading"),
 							divider(),
 							Host.Frame "Toolbar" {
 								Size = UDim2.new(1, 0, 0, 40),
 								BackgroundTransparency = 1,
-								UI.Button {
-									Name = "TbBack",
+								UI.Button "TbBack" {
 									label = "Back",
 									Size = UDim2.fromOffset(76, 40),
 									onActivate = noop,
-								} :: unknown,
-								UI.Button {
-									Name = "TbPlay",
+								},
+								UI.Button "TbPlay" {
 									label = "Play",
 									Position = UDim2.fromOffset(84, 0),
 									Size = UDim2.fromOffset(80, 40),
@@ -449,8 +426,7 @@ return {
 										progress:set(math.min(1, progress:peek() + 0.1))
 									end,
 								},
-								UI.Button {
-									Name = "TbMore",
+								UI.Button "TbMore" {
 									label = "More",
 									icon = "more",
 									AnchorPoint = Vector2.new(1, 0),
@@ -467,41 +443,36 @@ return {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									FillDirection = Enum.FillDirection.Horizontal,
 									Padding = UDim.new(0, 6),
-								}) :: unknown,
-								UI.Button({
+								}),
+								UI.Button "CmpRoomy" {
 									LayoutOrder = 1,
-									Name = "CmpRoomy",
 									label = "Edit item",
 									Size = UDim2.new(1, -174, 0, 40),
 									onActivate = noop,
 									Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Shrink }),
-								}),
-								UI.Button({
+								},
+								UI.Button "CmpText" {
 									LayoutOrder = 2,
-									Name = "CmpText",
 									label = "Ed",
 									Size = UDim2.fromOffset(52, 40),
 									onActivate = noop,
-								}),
-								UI.Button({
+								},
+								UI.Button "CmpIcon" {
 									LayoutOrder = 3,
-									Name = "CmpIcon",
 									label = "Edit",
 									icon = "edit",
 									Size = UDim2.fromOffset(52, 40),
 									onActivate = noop,
-								}),
-								UI.Button({
+								},
+								UI.Button "CmpNone" {
 									LayoutOrder = 4,
-									Name = "CmpNone",
 									label = "Edit item",
 									TextTruncate = Enum.TextTruncate.AtEnd,
 									Size = UDim2.fromOffset(52, 40),
 									onActivate = noop,
-								}),
+								},
 							},
-							UI.ProgressView {
-								Name = "Download",
+							UI.ProgressView "Download" {
 								label = "Download",
 								value = progress,
 								showValue = true,
@@ -519,7 +490,7 @@ return {
 									FillDirection = Enum.FillDirection.Horizontal,
 									Wraps = true,
 									Padding = UDim.new(0, 4),
-								}) :: unknown,
+								}),
 								table.unpack(stats),
 							},
 							Host.Frame "Tiles" {
@@ -529,7 +500,7 @@ return {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									FillDirection = Enum.FillDirection.Horizontal,
 									Padding = UDim.new(0, 8),
-								}) :: unknown,
+								}),
 								table.unpack(tiles),
 							},
 							divider(),
@@ -541,7 +512,7 @@ return {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									CellSize = UDim2.new(1 / 3, -4, 1, 0),
 									CellPadding = UDim2.fromOffset(6, 0),
-								}) :: unknown,
+								}),
 								label("LegendLow", "Optional", "caption"),
 								label("LegendMid", "Useful", "caption"),
 								label("LegendHigh", "Essential", "caption"),
@@ -554,7 +525,7 @@ return {
 									FillDirection = Enum.FillDirection.Horizontal,
 									HorizontalFlex = Enum.UIFlexAlignment.Fill,
 									Padding = UDim.new(0, 6),
-								}) :: unknown,
+								}),
 								plate(Host.Frame({
 									LayoutOrder = 1,
 									Name = "Optional",
@@ -582,7 +553,7 @@ return {
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									CellSize = UDim2.new(0.5, -4, 0, 24),
 									CellPadding = UDim2.fromOffset(8, 0),
-								}) :: unknown,
+								}),
 								label("SpecAKey", "Columns", "caption"),
 								label("SpecAVal", "align", "caption"),
 								label("SpecBKey", "Span", "caption"),
@@ -596,15 +567,14 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UISizeConstraint({ MaxSize = Vector2.new(620, math.huge) }) :: unknown,
+					Host.UISizeConstraint({ MaxSize = Vector2.new(620, math.huge) }),
 					Host.UIListLayout({
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						FillDirection = Enum.FillDirection.Horizontal,
 						Padding = UDim.new(0, 8),
 					}),
-					UI.Button({
+					UI.Button "Save" {
 						LayoutOrder = 1,
-						Name = "Save",
 						Size = UDim2.new(1 / 3, -6, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						label = "Save changes",
@@ -612,29 +582,27 @@ return {
 						onActivate = function()
 							saved:set(true)
 						end,
-					}),
-					UI.Button({
+					},
+					UI.Button "Reset" {
 						LayoutOrder = 2,
-						Name = "Reset",
 						Size = UDim2.new(1 / 3, -6, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						label = "Reset to defaults",
 						compactLabel = "Reset",
-						role = "cancel" :: "cancel",
+						role = "cancel",
 						onActivate = reset,
-					}),
-					UI.Button({
+					},
+					UI.Button "Delete" {
 						LayoutOrder = 3,
-						Name = "Delete",
 						Size = UDim2.new(1 / 3, -6, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						label = "Delete profile",
 						compactLabel = "Delete",
-						role = "destructive" :: "destructive",
+						role = "destructive",
 						onActivate = function()
 							reset()
 						end,
-					}),
+					},
 				},
 			}
 		end

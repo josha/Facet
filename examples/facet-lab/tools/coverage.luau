@@ -6,8 +6,32 @@ local roblox = require("../../../tools/vendor/verify/src/roblox").datatypes
 
 local FACET = "../../src/ui/"
 
-local env = {}
-for key, value in roblox :: any do
+type Props = { [unknown]: unknown }
+type Source = Props | (unknown) -> Props
+type Axis = { key: string, values: { unknown }, props: Source?, implies: { [unknown]: Source }?, matrix: boolean? }
+type State = { name: string, props: Source? }
+type PageData = {
+	family: string,
+	alias: string?,
+	base: Source?,
+	axes: { Axis }?,
+	states: { State }?,
+	demonstrates: { string }?,
+	matrix: boolean?,
+	recipe: unknown,
+	facet: unknown,
+	scenarios: { string }?,
+}
+
+local function list<T>(items: { T }?): { T }
+	return items or {}
+end
+local function map<K, V>(items: { [K]: V }?): { [K]: V }
+	return items or {}
+end
+
+local env: { [string]: unknown } = {}
+for key, value in pairs(roblox) do
 	env[key] = value
 end
 env.require = function(path: string): unknown
@@ -23,7 +47,7 @@ for _, entry in fs.listDirectory(FACET) do
 	if string.match(name, "_types%.luau$") and name ~= "engine_types.luau" then
 		local source = fs.readFileToString(FACET .. name) .. "\nexport type __END = nil\n"
 		for start, typeName in string.gmatch(source, "()export type ([%w_]+)") do
-			local rest = string.sub(source, tonumber(start) :: number)
+			local rest = string.sub(source, assert(tonumber(start)))
 
 			local body = string.match(rest, "^export type [%w_]+[^\n]*=(.-)\nexport type ")
 				or string.match(rest, "^export type [%w_]+[^\n]*=(.-)\nreturn")
@@ -149,9 +173,9 @@ local stub = setmetatable({
 		return ANY
 	end,
 })
-local function keysOf(source: any, into: { [string]: boolean })
-	local ok, value = pcall(function()
-		return if type(source) == "function" then source(stub) else source
+local function keysOf(source: Source?, into: { [string]: boolean })
+	local ok, value = pcall(function(): Props?
+		return if typeof(source) == "function" then source(stub) else source
 	end)
 	if ok and type(value) == "table" then
 		for key in value do
@@ -165,17 +189,17 @@ local shownBy: { [string]: { [string]: boolean } } = {}
 for id, data in catalog.PAGE_DATA do
 	local shown: { [string]: boolean } = {}
 	keysOf(data.base, shown)
-	for _, axis in data.axes or {} do
+	for _, axis in list(data.axes) do
 		shown[axis.key] = true
 		keysOf(axis.props, shown)
-		for _, need in axis.implies or {} do
+		for _, need in map(axis.implies) do
 			keysOf(need, shown)
 		end
 	end
-	for _, st in data.states or {} do
+	for _, st in list(data.states) do
 		keysOf(st.props, shown)
 	end
-	for _, key in data.demonstrates or {} do
+	for _, key in list(data.demonstrates) do
 		shown[key] = true
 	end
 	shownBy[id] = shown
@@ -202,12 +226,12 @@ if process.args[2] ~= "check" then
 	end)
 	for _, id in ids do
 		local data = catalog.PAGE_DATA[id]
-		local axes, axisText = data.axes or {}, {}
+		local axes, axisText = list(data.axes), {}
 		for _, axis in axes do
 			table.insert(axisText, `{axis.key}({#axis.values})`)
 		end
 		local states = { "rest" }
-		for _, st in data.states or {} do
+		for _, st in list(data.states) do
 			table.insert(states, st.name)
 		end
 		local cells = if data.matrix == false then 0 else #states * (if axes[1] then #axes[1].values else 1)

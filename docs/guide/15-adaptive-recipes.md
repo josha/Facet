@@ -8,7 +8,7 @@ different arrangements.
 ## A wrapping action band
 
 ```luau
-return UI.HStack { Name = "Actions",
+return UI.HStack "Actions" {
     wrap = true,
     gap = "s",
     width = "fill",
@@ -24,7 +24,7 @@ an action means.
 ## A row that becomes a column
 
 ```luau
-return UI.AdaptiveStack { Name = "Actions",
+return UI.AdaptiveStack "Actions" {
     gap = "s",
     UI.Button { label = "Save", onActivate = save },
     UI.Button { label = "Preview", onActivate = preview },
@@ -43,7 +43,7 @@ the `ref` of the control. Register the disconnect with `Compose.cleanup`.
 
 ```luau
 local width = Compose.cell(0)
-return UI.VirtualGrid { Name = "Cards",
+return UI.VirtualGrid "Cards" {
     from = rows,
     key = "id",
     itemSize = 180,

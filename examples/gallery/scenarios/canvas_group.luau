@@ -4,10 +4,11 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 local STOPS = { 1, 0.7, 0.4, 0.15 }
 return {
 	title = "Canvas group: one fade, or three",
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local UDim, UDim2, Vector2, Color3, Enum =
 			ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
@@ -48,29 +49,27 @@ return {
 					})
 				)
 			end
-			return UI.ScrollView {
-				Name = "CanvasGroupDemo",
+			return UI.ScrollView "CanvasGroupDemo" {
 				padding = 16,
 				gap = 12,
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Text({ LayoutOrder = 1, text = "One fade, or three", TextSize = 24 }) :: unknown,
+				UI.Text({ LayoutOrder = 1, text = "One fade, or three", TextSize = 24 }),
 				UI.Text({
 					LayoutOrder = 2,
 					text = "The same plates and opacity. One CanvasGroup composites the image before fading it; separate groups reveal every overlap.",
 				}),
-				Host.Frame({
+				Host.Frame "Stops" {
 					LayoutOrder = 3,
-					Name = "Stops",
 					Size = UDim2.new(1, 0, 0, 40),
 					BackgroundTransparency = 1,
 					Host.UIListLayout({
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						FillDirection = Enum.FillDirection.Horizontal,
 						Padding = UDim.new(0, 8),
-					}) :: unknown,
+					}),
 					table.unpack(choices),
-				}),
+				},
 				UI.Text({ LayoutOrder = 4, text = "One group" }),
 				Host.CanvasGroup({
 					LayoutOrder = 5,
@@ -90,14 +89,13 @@ return {
 					BackgroundTransparency = 1,
 					plates(true),
 				}),
-				UI.Button({
+				UI.Button "Show" {
 					LayoutOrder = 8,
-					Name = "Show",
 					label = "Show / hide the fading panel",
 					onActivate = function()
 						showing:set(not showing:peek())
 					end,
-				}),
+				},
 				Host.CanvasGroup({
 					LayoutOrder = 9,
 					Name = "Arrival",

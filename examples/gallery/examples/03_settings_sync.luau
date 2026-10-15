@@ -1,11 +1,11 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local example = { title = "Settings Sync" }
-function example.build(ctx: any)
-	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
+function example.build(ctx: ExampleContext)
+	local UI, Compose = ctx.UI, ctx.Compose
 	local server = Compose.cell({ music = false, volume = 10, revision = 1 })
 	local draft = Compose.cell({ music = false, volume = 10 })
 	local status = Compose.cell("idle")
@@ -57,16 +57,15 @@ function example.build(ctx: any)
 		history:set({ "Reset. Nothing sent yet." })
 	end
 	local function text(name: string, value, role)
-		return UI.Text({ Name = name, text = value, textRole = role, TextWrapped = true })
+		return UI.Text(name)({ text = value, textRole = role, TextWrapped = true })
 	end
 	return {
 		screen = function()
-			return UI.ScrollView {
-				Name = "SettingsSync",
+			return UI.ScrollView "SettingsSync" {
 				gap = 12,
 				padding = "m",
-				align = "stretch" :: "stretch",
-				text("Title", "Settings sync", "title") :: unknown,
+				align = "stretch",
+				text("Title", "Settings sync", "title"),
 				text(
 					"Explanation",
 					"Send a change, inspect the optimistic draft, then deliver the server reply.",
@@ -80,10 +79,9 @@ function example.build(ctx: any)
 					local value = use(server)
 					return `Server confirmed: music {if value.music then "on" else "off"}, volume {value.volume} (revision {value.revision})`
 				end),
-				UI.Toggle {
-					Name = "Music",
+				UI.Toggle "Music" {
 					label = "Music",
-					indicatorPosition = "trailing" :: "trailing",
+					indicatorPosition = "trailing",
 					value = function(use: Use)
 						return use(draft).music
 					end,
@@ -91,8 +89,7 @@ function example.build(ctx: any)
 						request(value, draft:peek().volume)
 					end,
 				},
-				UI.Stepper {
-					Name = "Volume",
+				UI.Stepper "Volume" {
 					label = "Volume",
 					min = 0,
 					max = 10,
@@ -103,20 +100,18 @@ function example.build(ctx: any)
 						request(draft:peek().music, value)
 					end,
 				},
-				UI.Button {
-					Name = "Invalid",
+				UI.Button "Invalid" {
 					label = "Ask for volume 99",
 					onActivate = function()
 						request(draft:peek().music, 99)
 					end,
 				},
-				UI.Button {
-					Name = "Deliver",
+				UI.Button "Deliver" {
 					label = "Deliver server reply",
 					appearance = "emphasis",
 					onActivate = deliver,
 				},
-				UI.Button { Name = "Reset", label = "Reset demo", appearance = "link", onActivate = reset },
+				UI.Button "Reset" { label = "Reset demo", appearance = "link", onActivate = reset },
 				text("Status", status, "caption"),
 				text("History", function(use: Use)
 					return table.concat(use(history), "\n")

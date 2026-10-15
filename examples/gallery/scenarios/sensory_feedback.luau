@@ -4,10 +4,12 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 return {
 	title = "Sensory feedback per control",
 	ledgerRows = {},
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local playHaptics, selected, strength = Compose.cell(true), Compose.cell(false), Compose.cell(0.6)
@@ -15,10 +17,10 @@ return {
 			Compose.cell(0), Compose.cell("No feedback requested yet."), Compose.cell("Ready")
 		local history = {}
 		local effects: { [string]: HapticEffect } = {
-			press = Host.HapticEffect "PressEffect" { Type = E.HapticEffectType.UIClick },
-			release = Host.HapticEffect "ReleaseEffect" { Type = E.HapticEffectType.UIClick },
-			selection = Host.HapticEffect "SelectionEffect" { Type = E.HapticEffectType.UIHover },
-			custom = Host.HapticEffect "CustomEffect" { Type = E.HapticEffectType.Custom },
+			press = Host.HapticEffect("PressEffect")({ Type = E.HapticEffectType.UIClick }),
+			release = Host.HapticEffect("ReleaseEffect")({ Type = E.HapticEffectType.UIClick }),
+			selection = Host.HapticEffect("SelectionEffect")({ Type = E.HapticEffectType.UIHover }),
+			custom = Host.HapticEffect("CustomEffect")({ Type = E.HapticEffectType.Custom }),
 		}
 		Compose.watch(function(use: Use)
 			local amplitude = use(strength)
@@ -72,21 +74,19 @@ return {
 				TextXAlignment = E.TextXAlignment.Left,
 			})
 		end
-		local function row(name, title, description, control)
-			return Host.Frame({
-				Name = name,
+		local function row(name: string, title: string, description: string, control: Child)
+			return Host.Frame(name)({
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ Padding = D.new(0, 6), SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
+				Host.UIListLayout({ Padding = D.new(0, 6), SortOrder = E.SortOrder.LayoutOrder }),
 				text("Title", title, "strong"),
 				text("Description", description, "caption"),
 				control,
 			})
 		end
 		local function pressButton(effect)
-			return UI.Button {
-				Name = "Press",
+			return UI.Button "Press" {
 				label = "Press and hold",
 				PressHapticEffect = if effect then Compose.static(effect) else nil,
 				onPointerDown = function()
@@ -121,14 +121,13 @@ return {
 				end,
 			},
 			screen = function()
-				return UI.ScrollView {
-					Name = "SensoryFeedback",
+				return UI.ScrollView "SensoryFeedback" {
 					padding = 16,
 					gap = 16,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
 					ScrollBarThickness = 6,
-					effects.press :: unknown,
+					effects.press,
 					effects.release,
 					effects.selection,
 					effects.custom,
@@ -137,7 +136,7 @@ return {
 						"Introduction",
 						"Try a press, a completed click, a selection and a custom double pulse. This demo opts in to haptics; turn it off to compare the same controls without feedback."
 					),
-					UI.Toggle { Name = "PlayHaptics", value = playHaptics, label = "Play haptics" },
+					UI.Toggle "PlayHaptics" { value = playHaptics, label = "Play haptics" },
 					text("Status", state, "caption"),
 					text(
 						"Evidence",
@@ -158,8 +157,7 @@ return {
 						"ReleaseRow",
 						"2. Completed click",
 						"Press, drag outside and release to cancel. Only a completed click requests feedback.",
-						UI.Button {
-							Name = "Release",
+						UI.Button "Release" {
 							label = "Complete a click",
 							onActivate = function()
 								record("release")
@@ -170,8 +168,7 @@ return {
 						"SelectionRow",
 						"3. Selection",
 						"A short hover pulse accompanies each accepted selection change.",
-						UI.Toggle {
-							Name = "Selection",
+						UI.Toggle "Selection" {
 							value = selected,
 							label = "Selected",
 							onChange = function(value)
@@ -184,8 +181,7 @@ return {
 						"StrengthRow",
 						"4. Custom double pulse",
 						"Adjust the strength, then compare the two-pulse pattern with the buttons above.",
-						UI.Slider {
-							Name = "Strength",
+						UI.Slider "Strength" {
 							value = strength,
 							min = 0,
 							max = 1,
@@ -193,8 +189,7 @@ return {
 							label = "Pulse strength",
 						}
 					),
-					UI.Button {
-						Name = "Custom",
+					UI.Button "Custom" {
 						label = "Play double pulse",
 						onActivate = function()
 							record("custom")

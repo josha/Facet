@@ -1,13 +1,14 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
 local example = { title = "Confirmation Dialog" }
-function example.build(ctx: any)
-	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
-	local built: any = {
+function example.build(ctx: ExampleContext)
+	local UI, Compose = ctx.UI, ctx.Compose
+	local built = {
 		deletePath = "/DangerScreen/Page/Delete",
 		restorePath = "/DangerScreen/Page/Restore",
 		outcomePath = "/DangerScreen/Page/Outcome",
@@ -49,52 +50,49 @@ function example.build(ctx: any)
 	end
 	built.openDialog, built.restore = openDialog, restore
 	function built.screen()
-		return UI.Screen {
-			Name = "DangerScreen",
-			UI.ScrollView {
-				Name = "Page",
+		local actions: { AlertAction } = {
+			{
+				id = "Confirm",
+				label = "Delete Save",
+				compactLabel = "Delete",
+				role = "destructive",
+				onActivate = function()
+					ctx.runtime:batch(function()
+						result:set("confirmed")
+						hasSave:set(false)
+					end)
+				end,
+			},
+			{
+				id = "Cancel",
+				label = "Cancel",
+				role = "cancel",
+				onActivate = function()
+					result:set("cancelled")
+				end,
+			},
+		}
+		return UI.Screen "DangerScreen" {
+			UI.ScrollView "Page" {
 				gap = "s",
-				align = "stretch" :: "stretch",
-				UI.Text {
-					Name = "Title",
-					textRole = "title" :: "title",
+				align = "stretch",
+				UI.Text "Title" {
+					textRole = "title",
 					TextWrapped = true,
 					text = function(use: Use)
 						return if use(hasSave) then "Save Slot 1 — Rally Stage 3, 42%" else "Save Slot 1 — empty"
 					end,
-				} :: unknown,
-				UI.Text { Name = "Outcome", text = outcome, TextWrapped = true },
-				UI.Button { Name = "Delete", label = "Delete Save", enabled = hasSave, onActivate = openDialog },
-				UI.Button { Name = "Restore", label = "Restore the save", onActivate = restore },
-			} :: unknown,
-			UI.Alert {
-				Name = "ConfirmDialog",
+				},
+				UI.Text "Outcome" { text = outcome, TextWrapped = true },
+				UI.Button "Delete" { label = "Delete Save", enabled = hasSave, onActivate = openDialog },
+				UI.Button "Restore" { label = "Restore the save", onActivate = restore },
+			},
+			UI.Alert "ConfirmDialog" {
 				title = "Delete this save?",
 				severity = "critical",
 				message = "This cannot be undone.",
 				isPresented = open,
-				actions = {
-					{
-						id = "Confirm",
-						label = "Delete Save",
-						compactLabel = "Delete",
-						role = "destructive" :: "destructive",
-						onActivate = function()
-							ctx.runtime:batch(function()
-								result:set("confirmed")
-								hasSave:set(false)
-							end)
-						end,
-					},
-					{
-						id = "Cancel",
-						label = "Cancel",
-						role = "cancel" :: "cancel",
-						onActivate = function()
-							result:set("cancelled")
-						end,
-					},
-				} :: { { id: string, label: string, compactLabel: string?, role: string, onActivate: () -> () } },
+				actions = actions,
 			},
 		}
 	end

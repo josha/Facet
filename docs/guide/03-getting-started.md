@@ -79,11 +79,11 @@ local UI = app.UI
 
 local function Counter()
     local count = Compose.cell(0)
-    return UI.Screen { Name = "Counter",
-        UI.Text { Name = "Count",
+    return UI.Screen "Counter" {
+        UI.Text "Count" {
             text = function(use) return `Count: {use(count)}` end,
         },
-        UI.Button { Name = "Add",
+        UI.Button "Add" {
             label = "Add one",
             onActivate = function()
                 count:update(function(n) return n + 1 end)

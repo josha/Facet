@@ -1,17 +1,28 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Timeline = typeof(require("@repo/tools/typecheck/aliases").Timeline)
+type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type ModelNativeProps = typeof(require("@repo/tools/typecheck/aliases").ModelNativeProps)
+type PartNativeProps = typeof(require("@repo/tools/typecheck/aliases").PartNativeProps)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-local Compose: ComposeModule = require(game:GetService("ReplicatedStorage").Facet).Compose
+type HatPiece = { name: string, size: Vector3, height: number, color: "tint" | "shade" | Color3 }
+local Facet = require(game:GetService("ReplicatedStorage").Facet)
+local catalogModule = require("./catalog")
+type Game = catalogModule.Game
+local Compose = Facet.Compose
 local scenes = {}
 
-function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: Readable<string>, active: any)
-	local Host = (runtime.constructors :: unknown) :: RobloxHost
-	return runtime.mount(function()
-		local nodes: any = { Name = item.title }
+function scenes.card(
+	runtime: Runtime,
+	target: Instance,
+	item: Game,
+	motionPolicy: Readable<string>,
+	active: ((Use) -> boolean)?
+): () -> ()
+	local Host = Facet.host(runtime)
+	local stop = runtime.mount(function()
+		local nodes: ModelNativeProps = { Name = item.title }
 		local accent = Color3.new(item.color.r, item.color.g, item.color.b)
 		local variant = (item.index - 1) % 6
 		local clock: Timeline =
@@ -49,22 +60,19 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: Re
 				Material = material or Enum.Material.SmoothPlastic,
 				Shape = shape or Enum.PartType.Block,
 			})
-			table.insert(nodes, instance)
+			nodes[#nodes + 1] = instance
 			return instance
 		end
 		local function wedge(name: string, size: Vector3, cframe: CFrame, color: Color3)
-			table.insert(
-				nodes,
-				Host.WedgePart({
-					Name = name,
-					Anchored = true,
-					CanCollide = false,
-					Size = size,
-					CFrame = cframe,
-					Color = color,
-					Material = Enum.Material.SmoothPlastic,
-				})
-			)
+			nodes[#nodes + 1] = Host.WedgePart({
+				Name = name,
+				Anchored = true,
+				CanCollide = false,
+				Size = size,
+				CFrame = cframe,
+				Color = color,
+				Material = Enum.Material.SmoothPlastic,
+			})
 		end
 		local function pillar(
 			name: string,
@@ -321,12 +329,13 @@ function scenes.card(runtime: any, target: Instance, item: any, motionPolicy: Re
 		end
 		return Host.Model(nodes)
 	end, target)
+	return stop
 end
 
-function scenes.discovery(runtime: any, target: Instance)
-	local Host = (runtime.constructors :: unknown) :: RobloxHost
-	return runtime.mount(function()
-		local children: any = { Name = "Afterlight" }
+function scenes.discovery(runtime: Runtime, target: Instance): () -> ()
+	local Host = Facet.host(runtime)
+	local stop = runtime.mount(function()
+		local children: ModelNativeProps = { Name = "Afterlight" }
 		local function part(
 			name: string,
 			size: Vector3,
@@ -335,19 +344,16 @@ function scenes.discovery(runtime: any, target: Instance)
 			material: Enum.Material?,
 			shape: Enum.PartType?
 		)
-			table.insert(
-				children,
-				Host.Part({
-					Name = name,
-					Anchored = true,
-					CanCollide = false,
-					Size = size,
-					CFrame = frame,
-					Color = color,
-					Material = material or Enum.Material.SmoothPlastic,
-					Shape = shape or Enum.PartType.Block,
-				})
-			)
+			children[#children + 1] = Host.Part({
+				Name = name,
+				Anchored = true,
+				CanCollide = false,
+				Size = size,
+				CFrame = frame,
+				Color = color,
+				Material = material or Enum.Material.SmoothPlastic,
+				Shape = shape or Enum.PartType.Block,
+			})
 		end
 		local stone = Color3.fromRGB(65, 82, 97)
 		local grass = Color3.fromRGB(100, 163, 149)
@@ -434,20 +440,21 @@ function scenes.discovery(runtime: any, target: Instance)
 		part("Beacon", Vector3.new(0.22, 3.5, 0.22), CFrame.new(1, 5, 10), glow, Enum.Material.Neon)
 		return Host.Model(children)
 	end, target)
+	return stop
 end
 
 function scenes.staticAvatar(
-	runtime: any,
+	runtime: Runtime,
 	target: Instance,
 	angle: Readable<number>,
 	palette: Readable<string>,
 	hat: Readable<boolean>,
 	motionPolicy: Readable<string>,
 	hatTint: Readable<{ number }>
-)
-	local Host = (runtime.constructors :: unknown) :: RobloxHost
+): () -> ()
+	local Host = Facet.host(runtime)
 	local animatedAngle: Readable<number>
-	local colors = {
+	local colors: { [string]: Color3 } = {
 		sage = Color3.fromRGB(130, 158, 126),
 		clay = Color3.fromRGB(195, 121, 94),
 		iris = Color3.fromRGB(146, 124, 191),
@@ -458,9 +465,9 @@ function scenes.staticAvatar(
 		size: Vector3,
 		position: Vector3,
 		color: Color3 | ((Use) -> Color3),
-		extra: { [string]: any }?
-	)
-		local props: any = {
+		extra: PartNativeProps?
+	): Part
+		local props: PartNativeProps = {
 			Name = name,
 			Anchored = true,
 			CanCollide = false,
@@ -472,32 +479,34 @@ function scenes.staticAvatar(
 			Color = color,
 			Material = Enum.Material.SmoothPlastic,
 		}
-		for key, value in (extra or {} :: { [string]: any }) do
-			props[key] = value
+		if extra then
+			for key, value in extra do
+				props[key] = value
+			end
 		end
 		return Host.Part(props)
 	end
-	local function outfit(use: Use)
+	local function outfit(use: Use): Color3
 		return colors[use(palette)]
 	end
-	local function visibility(use: Use)
+	local function visibility(use: Use): number
 		return if use(hat) then 0 else 1
 	end
-	local function crown(use: Use)
+	local function crown(use: Use): Color3
 		local tint = use(hatTint)
 		return Color3.fromRGB(tint[1], tint[2], tint[3])
 	end
-	local function brim(use: Use)
+	local function brim(use: Use): Color3
 		local tint = use(hatTint)
 		return Color3.fromRGB(tint[1] * 0.85, tint[2] * 0.85, tint[3] * 0.85)
 	end
-	return runtime.mount(function()
+	local stop = runtime.mount(function()
 		animatedAngle = runtime.spring(function(use: Use)
 			return use(angle)
 		end, { period = 0.55, damping = 0.9 })
 		return Host.Model "Explorer" {
 
-			piece("Shirt", Vector3.new(0.62, 1.55, 0.12), Vector3.new(0, 2.52, -0.49), Color3.fromRGB(238, 226, 202)) :: unknown,
+			piece("Shirt", Vector3.new(0.62, 1.55, 0.12), Vector3.new(0, 2.52, -0.49), Color3.fromRGB(238, 226, 202)),
 			piece("JacketZip", Vector3.new(0.045, 1.52, 0.04), Vector3.new(0, 2.50, -0.58), Color3.fromRGB(79, 80, 67)),
 			piece("LeftPocket", Vector3.new(0.49, 0.46, 0.10), Vector3.new(-0.54, 2.55, -0.51), outfit),
 			piece("RightPocket", Vector3.new(0.49, 0.46, 0.10), Vector3.new(0.54, 2.55, -0.51), outfit),
@@ -577,6 +586,7 @@ function scenes.staticAvatar(
 			),
 		}
 	end, target)
+	return stop
 end
 local avatarTemplate: Model?
 local avatarIsPlayer = false
@@ -627,30 +637,47 @@ function scenes.disposeAvatar()
 		avatarTemplate = nil
 	end
 end
-function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, active: ((Use) -> boolean)?, hatTint)
-	if not avatarTemplate then
+function scenes.avatar(
+	runtime: Runtime,
+	target: Instance,
+	angle: Readable<number>,
+	palette: Readable<string>,
+	hat: Readable<boolean>,
+	motionPolicy: Readable<string>,
+	active: ((Use) -> boolean)?,
+	hatTint: Readable<{ number }>
+): () -> ()
+	local template = avatarTemplate
+	if not template then
 		return scenes.staticAvatar(runtime, target, angle, palette, hat, motionPolicy, hatTint)
 	end
-	local Host = (runtime.constructors :: unknown) :: RobloxHost
-	local colors = {
+	local Host = Facet.host(runtime)
+	local colors: { [string]: Color3 } = {
 		sage = Color3.fromRGB(130, 158, 126),
 		clay = Color3.fromRGB(195, 121, 94),
 		iris = Color3.fromRGB(146, 124, 191),
 	}
-	local stop, rig = runtime.mount(function()
-		local model = runtime.adopt(avatarTemplate:Clone())
+	local rig = template:Clone()
+	local stop = runtime.mount(function()
+		local model = rig
+		runtime.adopt(model)
 		local rotation = runtime.spring(function(use: Use)
 			return use(angle)
 		end, { period = 0.55, damping = 1 })
-		runtime.decorate(model.HumanoidRootPart, {
+		runtime.decorate(assert(model:FindFirstChild("HumanoidRootPart")), {
 			CFrame = function(use: Use)
 				local degrees = if use(motionPolicy) == "reduced" then use(angle) else use(rotation)
 				return CFrame.new(0, 3, 0) * CFrame.Angles(0, math.rad(degrees), 0)
 			end,
 		})
 		for _, accessory in model:GetChildren() do
-			local handle = accessory:IsA("Accessory") and accessory:FindFirstChild("Handle")
-			if handle and accessory.AccessoryType == Enum.AccessoryType.Hat then
+			local handle = if accessory:IsA("Accessory") then accessory:FindFirstChild("Handle") else nil
+			if
+				handle
+				and handle:IsA("BasePart")
+				and accessory:IsA("Accessory")
+				and accessory.AccessoryType == Enum.AccessoryType.Hat
+			then
 				local resting = handle.Transparency
 				runtime.decorate(handle, {
 					Transparency = function(use: Use)
@@ -663,7 +690,7 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 			if not avatarIsPlayer and part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
 				local name = part.Name
 				runtime.decorate(part, {
-					Color = function(use: Use)
+					Color = function(use: Use): Color3
 						if name == "Head" or name:find("Hand") then
 							return Color3.fromRGB(234, 183, 138)
 						end
@@ -675,35 +702,41 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 				})
 			end
 		end
-		local head = model.Head
+		local head = model:FindFirstChild("Head")
+		if head == nil or not head:IsA("BasePart") then
+			error("Avatar preview has no head")
+		end
 		local anchor = head:FindFirstChild("HatAttachment")
 		local crownBase = if anchor and anchor:IsA("Attachment") then anchor.CFrame else CFrame.new(0, 0.6, 0)
 		local fit = math.clamp(head.Size.X / 1.2, 0.55, 1.3)
 		runtime.mountFragment(function()
 			local pieces: { Instance } = {}
-			for _, spec: { name: string, size: Vector3, height: number, color: string | Color3 } in
+			local hatPieces: { HatPiece } = {
+				{ name = "Brim", size = Vector3.new(2.1, 0.13, 1.9), height = -0.16, color = "shade" },
+				{ name = "Crown", size = Vector3.new(1.25, 0.55, 1.1), height = 0.12, color = "tint" },
 				{
-					{ name = "Brim", size = Vector3.new(2.1, 0.13, 1.9), height = -0.16, color = "shade" },
-					{ name = "Crown", size = Vector3.new(1.25, 0.55, 1.1), height = 0.12, color = "tint" },
-					{
-						name = "Band",
-						size = Vector3.new(1.28, 0.14, 1.14),
-						height = -0.08,
-						color = Color3.fromRGB(105, 74, 55),
-					},
-				} :: { { name: string, size: Vector3, height: number, color: string | Color3 } }
-			do
+					name = "Band",
+					size = Vector3.new(1.28, 0.14, 1.14),
+					height = -0.08,
+					color = Color3.fromRGB(105, 74, 55),
+				},
+			}
+			for _, spec in hatPieces do
 				local fixed = spec.color
+				local color: Color3 | (Use) -> Color3
+				if typeof(fixed) == "Color3" then
+					color = fixed
+				else
+					local k = if fixed == "shade" then 0.85 else 1
+					color = function(use: Use): Color3
+						local tint = use(hatTint)
+						return Color3.fromRGB(tint[1] * k, tint[2] * k, tint[3] * k)
+					end
+				end
 				local part = Host.Part({
 					Name = "Hat" .. spec.name,
 					Size = spec.size * fit,
-					Color = if fixed == "tint" or fixed == "shade"
-						then function(use: Use)
-							local tint = use(hatTint)
-							local k = if fixed == "shade" then 0.85 else 1
-							return Color3.fromRGB(tint[1] * k, tint[2] * k, tint[3] * k)
-						end
-						else fixed :: Color3,
+					Color = color,
 					CFrame = head.CFrame * crownBase * CFrame.new(0, spec.height * fit, 0),
 					CanCollide = false,
 					Massless = true,
@@ -725,9 +758,14 @@ function scenes.avatar(runtime, target, angle, palette, hat, motionPolicy, activ
 		end, model)
 		return model
 	end, target)
-	local animator = rig.Humanoid:FindFirstChildOfClass("Animator")
-	local ok, track = pcall(function()
-		return animator:LoadAnimation(rig.PreviewIdle)
+	local humanoid = rig:FindFirstChildOfClass("Humanoid")
+	local animator = if humanoid then humanoid:FindFirstChildOfClass("Animator") else nil
+	local ok, track = pcall(function(): AnimationTrack
+		local animation = rig:FindFirstChild("PreviewIdle")
+		if animator and animation and animation:IsA("Animation") then
+			return animator:LoadAnimation(animation)
+		end
+		error("the avatar rig has no Animator or PreviewIdle animation")
 	end)
 	if ok then
 		track.Looped = true

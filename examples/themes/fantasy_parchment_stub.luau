@@ -1,4 +1,11 @@
 --!strict
+type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
+type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
+type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
+type Typography = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.metrics.typography.body)
+type Asset = typeof(require("@repo/examples/types").ThemeAsset)
+type RGB = { r: number, g: number, b: number }
+type Palette = { colors: { [string]: RGB }, extra: Extra }
 
 local fantasy_parchment_stub = {}
 
@@ -8,22 +15,22 @@ fantasy_parchment_stub.id = "fantasy-parchment-stub"
 fantasy_parchment_stub.displayName = "Fantasy Parchment (stub)"
 fantasy_parchment_stub.themeClasses = table.freeze({ "palette", "metrics", "font", "assets" })
 
-local function rgb(r: number, g: number, b: number)
+local function rgb(r: number, g: number, b: number): RGB
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
 local FAMILY = "rbxasset://fonts/families/Fondamento.json"
-local SIZES = { caption = 12, label = 14, body = 16, control = 17, heading = 22, title = 28 }
+local SIZES: { [string]: number } = { caption = 12, label = 14, body = 16, control = 17, heading = 22, title = 28 }
 
-local function typography(family: string): any
-	local out: any = {}
+local function typography(family: string): { [string]: Typography }
+	local out: { [string]: Typography } = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = family }, size = size, lineHeight = 1.35 }
 	end
 	return out
 end
 
-local ASSETS = {
+local ASSETS: { [string]: Asset } = {
 	parchment_panel = {
 		contentId = "rbxassetid://78012779616687",
 		sliceCenter = { x0 = 40, y0 = 40, x1 = 104, y1 = 104 },
@@ -48,7 +55,7 @@ local ASSETS = {
 	},
 }
 
-local PARCHMENT = {
+local PARCHMENT: Palette = {
 	colors = {
 		surface = rgb(48, 36, 26),
 		surfaceStrong = rgb(72, 55, 38),
@@ -78,18 +85,15 @@ local PARCHMENT = {
 	},
 }
 
-local function copy(v: any): any
-	if type(v) ~= "table" then
-		return v
-	end
-	local out: any = {}
-	for k, inner in v do
-		out[k] = copy(inner)
+local function copyAssets(source: { [string]: Asset }): { [string]: Asset }
+	local out: { [string]: Asset } = {}
+	for name, asset in source do
+		out[name] = table.clone(asset)
 	end
 	return out
 end
 
-function fantasy_parchment_stub.definition(themes: any): any
+function fantasy_parchment_stub.definition(themes: Themes): ThemeDefinition
 	return {
 		base = themes.neutralPackage(),
 		identity = {
@@ -114,75 +118,67 @@ function fantasy_parchment_stub.definition(themes: any): any
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.14, normal = 0.24 },
-
-			insets = {
-				panel = { top = 8, right = 8, bottom = 8, left = 8 },
-				control = { top = 4, right = 8, bottom = 4, left = 8 },
-				field = { top = 4, right = 8, bottom = 4, left = 8 },
-				selection = { top = 4, right = 6, bottom = 4, left = 6 },
-				divider = { top = 0, right = 0, bottom = 0, left = 0 },
-				scrollbar = { top = 0, right = 0, bottom = 0, left = 0 },
-			},
 		},
 		chrome = {
 			panel = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "parchment_panel",
 				contentInsets = { top = 18, right = 18, bottom = 18, left = 18 },
 				fallback = "native",
 			},
 			control = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "parchment_button",
 				contentInsets = { top = 8, right = 12, bottom = 8, left = 12 },
 				fallback = "native",
 			},
 			field = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "parchment_field",
 				contentInsets = { top = 8, right = 12, bottom = 8, left = 12 },
 				fallback = "native",
 			},
-			selection = { kind = "native" :: "native" },
-			divider = { kind = "native" :: "native" },
-			scrollbar = { kind = "native" :: "native" },
+			selection = { kind = "native" },
+			divider = { kind = "native" },
+			scrollbar = { kind = "native" },
 		},
-		assets = copy(ASSETS),
-		compatibility = { requiresSchema = themes.SCHEMA },
+		assets = copyAssets(ASSETS),
 	}
 end
 
-function fantasy_parchment_stub.build(themes: any): (any, any)
+function fantasy_parchment_stub.build(themes: Themes)
 	return themes.define(fantasy_parchment_stub.definition(themes))
 end
 
 fantasy_parchment_stub.BOGUS_CONTENT_ID = "rbxassetid://1"
 
-function fantasy_parchment_stub.buildBadAsset(themes: any): (any, any)
+function fantasy_parchment_stub.buildBadAsset(themes: Themes)
 	local def = fantasy_parchment_stub.definition(themes)
-	def.identity.id = fantasy_parchment_stub.id .. "-badasset"
-	def.identity.displayName = fantasy_parchment_stub.displayName .. " — missing asset"
-	def.assets.parchment_panel.contentId = fantasy_parchment_stub.BOGUS_CONTENT_ID
+	local identity = assert(def.identity)
+	identity.id = fantasy_parchment_stub.id .. "-badasset"
+	identity.displayName = fantasy_parchment_stub.displayName .. " — missing asset"
+	assert(def.assets).parchment_panel.contentId = fantasy_parchment_stub.BOGUS_CONTENT_ID
 	return themes.define(def)
 end
 
 fantasy_parchment_stub.UNKNOWN_FONT_FAMILY = "rbxasset://fonts/families/NotAShippedFamily.json"
 
-function fantasy_parchment_stub.buildBadFont(themes: any): (any, any)
+function fantasy_parchment_stub.buildBadFont(themes: Themes)
 	local def = fantasy_parchment_stub.definition(themes)
-	def.identity.id = fantasy_parchment_stub.id .. "-badfont"
-	def.identity.displayName = fantasy_parchment_stub.displayName .. " — missing font"
-	def.metrics.typography = typography(fantasy_parchment_stub.UNKNOWN_FONT_FAMILY)
+	local identity = assert(def.identity)
+	identity.id = fantasy_parchment_stub.id .. "-badfont"
+	identity.displayName = fantasy_parchment_stub.displayName .. " — missing font"
+	assert(def.metrics).typography = typography(fantasy_parchment_stub.UNKNOWN_FONT_FAMILY)
 	return themes.define(def)
 end
 
 fantasy_parchment_stub.INCOMPATIBLE_SCHEMA = "facet-theme/99"
 
-function fantasy_parchment_stub.buildIncompatible(themes: any): (any, any)
+function fantasy_parchment_stub.buildIncompatible(themes: Themes)
 	local def = fantasy_parchment_stub.definition(themes)
-	def.identity.id = fantasy_parchment_stub.id .. "-incompatible"
-	def.identity.schemaVersion = fantasy_parchment_stub.INCOMPATIBLE_SCHEMA
-	def.compatibility = { requiresSchema = fantasy_parchment_stub.INCOMPATIBLE_SCHEMA }
+	local identity = assert(def.identity)
+	identity.id = fantasy_parchment_stub.id .. "-incompatible"
+	identity.schemaVersion = fantasy_parchment_stub.INCOMPATIBLE_SCHEMA
 	return themes.define(def)
 end
 

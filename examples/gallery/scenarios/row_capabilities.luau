@@ -3,9 +3,11 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Rows that say no",
 	intro = "One table. Five rows. Three of them opt out of something the others allow.",
@@ -56,7 +58,7 @@ return {
 	title = "Rows that say no",
 	copy = COPY,
 	seed = SEED,
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local UDim, UDim2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local rows = Compose.cell(table.clone(SEED))
@@ -94,26 +96,41 @@ return {
 		end
 		return {
 			screen = function()
-				return Host.Frame "RowCapabilities" {
+				local columns: { TableColumn } = {
+					{
+						id = "name",
+						label = COPY.colName,
+						width = 260,
+						value = function(item)
+							return COPY[item.nameKey]
+						end,
+					},
+					{
+						id = "lock",
+						label = COPY.colLock,
+						width = 140,
+						value = function(item)
+							return item.lock or "—"
+						end,
+					},
+				}
+				return Host.Frame("RowCapabilities")({
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					UI.Text {
-						Name = "Title",
+					UI.Text "Title" {
 						text = COPY.title,
-						textRole = "title" :: "title",
+						textRole = "title",
 						Size = UDim2.new(1, 0, 0, 36),
 						BackgroundTransparency = 1,
-					} :: unknown,
-					UI.Text {
-						Name = "Explanation",
+					},
+					UI.Text "Explanation" {
 						text = "Pinned rows cannot move. Protected rows cannot be deleted. Locked rows cannot be selected.",
 						TextWrapped = true,
 						Position = UDim2.fromOffset(0, 40),
 						Size = UDim2.new(1, 0, 0, 56),
 						BackgroundTransparency = 1,
 					},
-					UI.Table {
-						Name = "RunSheet",
+					UI.Table "RunSheet" {
 						Position = UDim2.fromOffset(0, 100),
 						Size = UDim2.new(1, 0, 1, -164),
 						from = rows,
@@ -121,7 +138,7 @@ return {
 							return item.id
 						end,
 						selection = selection,
-						selectionMode = "single" :: "single",
+						selectionMode = "single",
 						selectable = function(item)
 							return item.lock ~= "select"
 						end,
@@ -130,51 +147,34 @@ return {
 						end,
 						reorderable = true,
 						onReorder = reorder,
-						columns = {
-							{
-								id = "name",
-								label = COPY.colName,
-								width = 260,
-								value = function(item)
-									return COPY[item.nameKey]
-								end,
-							} :: TableColumn,
-							{
-								id = "lock",
-								label = COPY.colLock,
-								width = 140,
-								value = function(item)
-									return item.lock or "—"
-								end,
-							} :: TableColumn,
-						},
+						columns = columns,
 						rowActions = function(current, key): RowActions
-							return {
-								trailing = {
-									{
-										id = "delete",
-										label = "Delete",
-										role = "destructive" :: "destructive",
-										enabled = function(use: Use)
-											return use(current).lock ~= "delete"
-										end,
-										onActivate = function()
-											remove(key)
-										end,
-									},
+							local trailing: { RowAction } = {
+								{
+									id = "delete",
+									label = "Delete",
+									role = "destructive",
+									enabled = function(use: Use)
+										return use(current).lock ~= "delete"
+									end,
+									onActivate = function()
+										remove(key)
+									end,
 								},
+							}
+							return {
+								trailing = trailing,
 							}
 						end,
 					},
-					UI.Text {
-						Name = "Status",
+					UI.Text "Status" {
 						Position = UDim2.new(0, 0, 1, -56),
 						Size = UDim2.new(1, 0, 0, 56),
 						text = message,
 						TextWrapped = true,
 						BackgroundTransparency = 1,
 					},
-				}
+				})
 			end,
 			report = function()
 				return { rows = rows:peek(), selection = selection:peek(), message = message:peek() }

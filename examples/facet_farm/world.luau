@@ -1,12 +1,16 @@
 --!strict
-type ModelNativeProps = typeof(require("@repo/tools/typecheck/aliases").ModelNativeProps)
 type PartNativeProps = typeof(require("@repo/tools/typecheck/aliases").PartNativeProps)
-
-type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
+type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local modelModule = require("./model")
 local theme = require("./theme")
+
+type Farm = modelModule.Farm
+type Plot = modelModule.Plot
 
 local world = {}
 
@@ -63,36 +67,37 @@ function world.fitFrame(free: Rect, project: (CFrame, Vector3) -> Vector2): CFra
 	return CFrame.lookAt(target - look * distance, target)
 end
 
-function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): () -> ()
-	local Host = (runtime.constructors :: unknown) :: RobloxHost
+function world.mount(
+	runtime: ComposeRuntime,
+	Host: Host,
+	Compose: ComposeModule,
+	farm: Farm,
+	parent: Instance
+): () -> ()
 	local function paint(name: string): Color3
 		return theme.color(Color3, name)
 	end
-	local function part(name: string, props: { [string]: any }): Part
-		local native: { [string]: any } = {
-			Name = name,
-			Anchored = true,
-			CanCollide = false,
-			CastShadow = true,
-			Material = Enum.Material.SmoothPlastic,
-		}
-		for key, value in props do
-			native[key] = value
-		end
-		return Host.Part((native :: unknown) :: PartNativeProps)
+	local function part(name: string, props: PartNativeProps): Part
+		local native = table.clone(props)
+		native.Name = if props.Name == nil then name else props.Name
+		native.Anchored = if props.Anchored == nil then true else props.Anchored
+		native.CanCollide = if props.CanCollide == nil then false else props.CanCollide
+		native.CastShadow = if props.CastShadow == nil then true else props.CastShadow
+		native.Material = if props.Material == nil then Enum.Material.SmoothPlastic else props.Material
+		return Host.Part(native)
 	end
 
 	local function crop(index: number, key: string)
 		local crop, state = string.match(key, "^(%w+):(%w+)$")
 		local base = world.plotPosition(index) + Vector3.new(0, 0.2, 0)
-		local plot = function(use: Use): any
+		local plot = function(use: Use): Plot
 			return use(farm.plots)[index]
 		end
 		local function grown(use: Use): number
 			return 0.35 + 0.65 * modelModule.progress(plot(use), use(farm.now))
 		end
-		local parts: { any } = {}
-		local function add(instance)
+		local parts: { Child } = {}
+		local function add(instance: Part)
 			table.insert(parts, instance)
 		end
 		if state == "withered" then
@@ -196,7 +201,7 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 				Color = paint("stalk"),
 			}))
 		end
-		return Host.Model(assert(crop) .. assert(state))((parts :: unknown) :: ModelNativeProps)
+		return Host.Model(assert(crop) .. assert(state))({ table.unpack(parts) })
 	end
 
 	local function tile(index: number)
@@ -220,7 +225,7 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 			farm.act(index)
 		end)
 		detector.Parent = ground
-		local furrows = {}
+		local furrows: { Child } = {}
 		for row = 1, 3 do
 			table.insert(
 				furrows,
@@ -235,7 +240,7 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 			)
 		end
 		return Host.Model("Tile" .. index)({
-			ground :: unknown,
+			ground,
 			table.unpack(furrows),
 			Compose.keyed({
 				from = function(use: Use)
@@ -243,7 +248,7 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 					if state == "grass" or state == "plowed" then
 						return {}
 					end
-					return { use(farm.plots)[index].crop .. ":" .. state }
+					return { assert(use(farm.plots)[index].crop) .. ":" .. state }
 				end,
 				render = function(current): Model
 					return crop(index, current:peek())
@@ -252,14 +257,14 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 		})
 	end
 
-	return runtime.mount(function()
-		local tiles = {}
+	local stop = runtime.mount(function()
+		local tiles: { Child } = {}
 		for index = 1, modelModule.COLUMNS * modelModule.ROWS do
 			table.insert(tiles, tile(index))
 		end
 		local width = modelModule.COLUMNS * SPACING + 2
 		local depth = modelModule.ROWS * SPACING + 2
-		local fence = {}
+		local fence: { Child } = {}
 		for side = -1, 1, 2 do
 			table.insert(
 				fence,
@@ -300,17 +305,18 @@ function world.mount(runtime: any, Compose: any, farm: any, parent: Instance): (
 				Color = paint("grass"),
 				Material = Enum.Material.Grass,
 				CastShadow = false,
-			}) :: unknown,
+			}),
 			part("Field", {
 				Size = Vector3.new(width, 0.3, depth),
 				CFrame = CFrame.new(0, -0.1, 0),
 				Color = paint("fence"),
 				Material = Enum.Material.Ground,
 			}),
-			Host.Model "Fence"(fence),
-			Host.Model "Plots"(tiles),
+			Host.Model "Fence" { table.unpack(fence) },
+			Host.Model "Plots" { table.unpack(tiles) },
 		}
 	end, parent)
+	return stop
 end
 
 return world

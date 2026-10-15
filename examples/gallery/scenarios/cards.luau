@@ -4,6 +4,9 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+type CardControls = typeof(require("@repo/tools/typecheck/aliases").CardControls)
+type Game = { id: string, title: string, players: string }
 local ITEM_COUNT = 60
 local CARD_LIFT = 1.04
 local SEED_EXTENT = 320
@@ -19,13 +22,14 @@ return {
 	title = "Cards (Card in a VirtualGrid)",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
 		local copy = ctx.copy or COPY
-		local viewport = ctx.viewport or Compose.cell({ width = 1280, height = 720 })
-		local games = table.create(ITEM_COUNT)
+		local viewport: Readable<{ width: number, height: number }> = ctx.viewport
+			or Compose.cell({ width = 1280, height = 720 })
+		local games: { Game } = table.create(ITEM_COUNT)
 		for index = 1, ITEM_COUNT do
 			games[index] = {
 				id = `g{index}`,
@@ -35,8 +39,8 @@ return {
 		end
 		local items = Compose.cell(games)
 		local last = Compose.cell(copy.lastNone)
-		local controls: { [string]: any } = {}
-		local cards: { [string]: any } = {}
+		local controls: { [string]: CardControls } = {}
+		local cards: { [string]: Frame } = {}
 		local columns = Compose.formula(function(use: Use)
 			return math.max(1, math.min(4, math.floor(use(viewport).width / 300)))
 		end)
@@ -47,11 +51,10 @@ return {
 		local function record(text: string)
 			last:set(copy.lastPrefix .. text)
 		end
-		local function render(current, _placement, key): GuiObject
-			local table_ = {}
+		local function render(current: Readable<Game>, _placement: unknown, key: string): GuiObject
+			local table_: CardControls = {}
 			controls[key] = table_
-			local card = UI.Card({
-				Name = "Card",
+			local card = UI.Card "Card" {
 				image = "rbxassetid://75342910516929",
 				title = function(use: Use)
 					return use(current).title
@@ -60,10 +63,14 @@ return {
 					return use(current).players
 				end,
 				controls = table_,
-				browseTarget = function()
+				browseTarget = function(): GuiObject?
 					local node = cards[key]
 					local content = if node then node.Parent else nil
-					return if content then content:FindFirstChild("RowHit") else nil
+					local hit = if content then content:FindFirstChild("RowHit") else nil
+					if hit and hit:IsA("GuiObject") then
+						return hit
+					end
+					return nil
 				end,
 				primaryAction = {
 					label = "Play",
@@ -82,7 +89,7 @@ return {
 						},
 					},
 				},
-			})
+			}
 			cards[key] = card
 			Compose.cleanup(function()
 				if cards[key] == card then
@@ -101,23 +108,21 @@ return {
 					PaddingBottom = UDim.new(0, 16),
 					PaddingLeft = UDim.new(0, 16),
 					PaddingRight = UDim.new(0, 16),
-				}) :: unknown,
+				}),
 				Host.UIListLayout({
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
 				}),
-				UI.Text({
-					Name = "Last",
+				UI.Text "Last" {
 					LayoutOrder = 1,
 					text = last,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					TextTruncate = Enum.TextTruncate.AtEnd,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.VirtualGrid({
-					Name = "Games",
+				},
+				UI.VirtualGrid "Games" {
 					LayoutOrder = 2,
 					Size = UDim2.new(1, 0, 1, -40),
 					from = items,
@@ -129,14 +134,14 @@ return {
 						return gutter(math.ceil(use(viewport).width / use(columns)))
 					end,
 					gap = gutter(SEED_EXTENT),
-					onActivate = function(_item, key)
+					onActivate = function(_item: Game, key: string)
 						local entry = controls[key]
 						if entry and entry.enterActions then
 							entry.enterActions()
 						end
 					end,
 					render = render,
-				}),
+				},
 			}
 		end
 		return {

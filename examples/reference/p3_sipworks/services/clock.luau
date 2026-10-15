@@ -32,7 +32,8 @@ function fakeclock.new(startAt: number?)
 			if entry.cancelled then
 				continue
 			end
-			if entry.at <= t and (best == nil or entry.at < (best :: Entry).at) then
+			local current = best
+			if entry.at <= t and (current == nil or entry.at < current.at) then
 				best, bestIndex = entry, i
 			end
 		end
@@ -77,5 +78,7 @@ function fakeclock.new(startAt: number?)
 
 	return self
 end
+
+export type Clock = typeof(fakeclock.new(0))
 
 return fakeclock

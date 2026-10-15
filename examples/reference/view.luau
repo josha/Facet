@@ -1,13 +1,16 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type Value<T> = T | Readable<T> | (Use) -> T
 return function(ctx: ExampleContext)
-	local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
+	local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
 	local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 	local view = {}
-	function view.text(label: any, size: number?): GuiObject
+	function view.text(label: Value<string>, size: number?): GuiObject
 		return UI.Text({
 			text = label,
 			TextSize = size or 16,
@@ -16,20 +19,19 @@ return function(ctx: ExampleContext)
 			AutomaticSize = E.AutomaticSize.Y,
 		})
 	end
-	function view.column(name: string, children: { any }, spacing: number?): Frame
-		local props: { [any]: any } = {
+	function view.column(name: string, children: { Child }, spacing: number?): Frame
+		local props: StackProps = {
 			Name = name,
 			width = "fill",
 			gap = spacing or 12,
 		}
 		for _, child in children do
-			table.insert(props, child)
+			props[#props + 1] = child
 		end
 		return UI.VStack(props)
 	end
-	function view.page(name: string, children: { any }): ScrollingFrame
-		return Host.ScrollingFrame({
-			Name = name,
+	function view.page(name: string, children: { Child }): ScrollingFrame
+		return Host.ScrollingFrame(name)({
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Size = D2.fromScale(1, 1),
@@ -41,12 +43,12 @@ return function(ctx: ExampleContext)
 				PaddingBottom = D.new(0, 16),
 				PaddingLeft = D.new(0, 16),
 				PaddingRight = D.new(0, 16),
-			}) :: unknown,
+			}),
 			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder }),
 			view.column("Content", children, 16),
 		})
 	end
-	function view.action(name: string, label: any, command: () -> (), enabled: any?): TextButton
+	function view.action(name: string, label: Value<string>, command: () -> (), enabled: Value<boolean>?): TextButton
 		return UI.Button({
 			Name = name,
 			label = label,
@@ -56,22 +58,23 @@ return function(ctx: ExampleContext)
 			AutomaticSize = E.AutomaticSize.None,
 		})
 	end
-	function view.list(source: any, render: (any, string) -> GuiObject)
+	function view.watch<T>(source: (Use) -> { T }, render: (Readable<T>, string) -> GuiObject, id: (T) -> string)
 		return Compose.keyed({
-			from = if Compose.isReadable(source) or type(source) == "function"
-				then source
-				else function()
-					return source
-				end,
-			key = function(item)
-				return item.id
+			from = source,
+			key = function(item: T): string
+				return id(item)
 			end,
-			render = function(current, index, key): GuiObject
+			render = function(current: Readable<T>, index: Readable<number>, key: string): GuiObject
 				local node = render(current, key)
 				ctx.runtime.decorate(node, { LayoutOrder = index })
 				return node
 			end,
 		})
+	end
+	function view.list<T>(items: { T }, render: (Readable<T>, string) -> GuiObject, id: (T) -> string)
+		return view.watch(function(): { T }
+			return items
+		end, render, id)
 	end
 	return view
 end

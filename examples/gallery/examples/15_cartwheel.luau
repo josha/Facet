@@ -1,33 +1,47 @@
 --!strict
 
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 type CartwheelModule = typeof(require("@repo/examples/reference/p2_cartwheel"))
 type CartwheelData = typeof(require("@repo/examples/reference/p2_cartwheel/content/data"))
 
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-local loadCartwheel = require :: (string) -> CartwheelModule
-local loadCartwheelData = require :: (string) -> CartwheelData
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type Brew = {
+	id: number,
+	status: string,
+	bottles: number,
+	items: { { bottles: number, potion: string } },
+}
+type Seller = { id: string, name: string, bottles: number }
+local loadCartwheel: (ModuleScript | string) -> CartwheelModule = require
+local loadCartwheelData: (ModuleScript | string) -> CartwheelData = require
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
 return {
 	title = "Cartwheel",
-	build = function(ctx: any)
-		local original = if script
-			then ctx.load("reference", "p2_cartwheel")
-			else loadCartwheel("../../reference/p2_cartwheel")
-		local data = if script
-			then ctx.load("reference", "p2_cartwheel", "content", "data")
-			else loadCartwheelData("../../reference/p2_cartwheel/content/data")
+	build = function(ctx: ExampleContext)
+		local original = loadCartwheel(
+			if script and ctx.find then ctx.find("reference", "p2_cartwheel") else "../../reference/p2_cartwheel"
+		)
+		local data = loadCartwheelData(
+			if script and ctx.find
+				then ctx.find("reference", "p2_cartwheel", "content", "data")
+				else "../../reference/p2_cartwheel/content/data"
+		)
 		local reference = original.build(ctx)
 		local model, steps = reference.model, reference.steps
 		local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 		local D2 = ctx.types.UDim2
 		local view = makeView(ctx)
-		local width, lane, pinned = C.cell(1100), C.cell("new"), C.cell(nil)
-		local expanded, summaryOpen = {}, C.cell(false)
+		local noPin: number? = nil
+		local expanded: { [number]: typeof(C.cell(false)) } = {}
+		local width, lane, pinned = C.cell(1100), C.cell("new"), C.cell(noPin)
+		local summaryOpen = C.cell(false)
 		local notice = C.cell("Start a waiting order, or serve one that is already ready.")
 		local metric = UI.environment().metricScale
-		local wide = C.formula(function(use: any)
+		local wide = C.formula(function(use: Use)
 			return use(width) >= 900 * use(metric)
 		end)
 		local function inspect(id: number)
@@ -44,102 +58,102 @@ return {
 				notice:set(`Serving order {id}…`)
 			end
 		end
-		local function ticket(current: any)
+		local function ticket(current: Readable<Brew>): GuiObject
 			local id = current:peek().id
 			expanded[id] = expanded[id] or C.cell(false)
+			local actions: { RadialItem } = {
+				{
+					id = "inspect",
+					label = "Inspect",
+					onSelect = function()
+						inspect(id)
+					end,
+				},
+				{
+					id = "pin",
+					label = "Prioritize",
+					onSelect = function()
+						pinned:set(id)
+						notice:set(`Order {id} moved to the front of its queue.`)
+					end,
+				},
+				{
+					id = "serve",
+					label = "Serve",
+					enabled = function(use: Use)
+						return use(current).status == "ready"
+					end,
+					onSelect = function()
+						command(id)
+					end,
+				},
+			}
 			local contents = {}
 			for _, item in current:peek().items do
-				table.insert(contents, view.text("Potion", `{item.bottles} × {data.potionById(item.potion).name}`))
+				table.insert(
+					contents,
+					view.text("Potion", `{item.bottles} × {assert(data.potionById(item.potion)).name}`)
+				)
 			end
-			return UI.VStack {
-				Name = "Order_" .. id,
-				width = "fill" :: "fill",
+			return UI.VStack("Order_" .. id) {
+				width = "fill",
 				padding = "m",
 				gap = "s",
-				view.text("OrderNumber", function(use: any)
+				view.text("OrderNumber", function(use: Use)
 					return `{if use(pinned) == id then "★ " else ""}Order {id}`
-				end, "heading") :: unknown,
+				end, "heading"),
 				view.text("BottleCount", `{current:peek().bottles} bottles`),
-				UI.DisclosureGroup {
-					Name = "OrderContents",
+				UI.DisclosureGroup "OrderContents" {
 					label = "What's in this order?",
 					expanded = expanded[id],
 					content = function(): Instance
 						return UI.VStack {
-							width = "fill" :: "fill",
+							width = "fill",
 							gap = "s",
-							table.unpack((contents :: unknown) :: { unknown }),
+							table.unpack(contents),
 						}
 					end,
 				},
-				C.show(function(use: any)
+				C.show(function(use: Use)
 					return use(current).status == "brewing"
 				end, function()
-					return UI.ProgressView {
-						Name = "Preparation",
+					return UI.ProgressView "Preparation" {
 						label = "Brewing",
-						value = function(use: any)
+						value = function(use: Use)
 							use(model.clock.nowSignal)
 							return 1 - (model.orders.remaining(id) or 0) / model.orders.brewSeconds()
 						end,
 					}
 				end),
 				view.actions({
-					view.button("Advance_" .. id, function(use: any)
+					view.button("Advance_" .. id, function(use: Use)
 						return if use(current).status == "ready"
 							then "Serve order"
 							elseif use(current).status == "brewing" then "Brewing…"
 							else "Start brew"
 					end, function()
 						command(id)
-					end, function(use: any)
+					end, function(use: Use)
 						local status = use(current).status
 						local verb = if status == "ready" then "finish" else "start"
 						return (status == "new" or status == "ready")
 							and use(model.commands.status(verb .. ":" .. id)) ~= "pending"
 					end),
-					UI.RadialMenu {
-						Name = "Actions_" .. id,
+					UI.RadialMenu("Actions_" .. id) {
 						label = "Order actions",
-						contentFit = "radial" :: "radial",
-						ringWidth = "wide" :: "wide",
-						center = "empty" :: "empty",
+						contentFit = "radial",
+						ringWidth = "wide",
+						center = "empty",
 						scrim = "dark",
-						items = {
-							{
-								id = "inspect",
-								label = "Inspect",
-								onSelect = function()
-									inspect(id)
-								end,
-							} :: RadialItem,
-							{
-								id = "pin",
-								label = "Prioritize",
-								onSelect = function()
-									pinned:set(id)
-									notice:set(`Order {id} moved to the front of its queue.`)
-								end,
-							} :: RadialItem,
-							{
-								id = "serve",
-								label = "Serve",
-								enabled = function(use: any)
-									return use(current).status == "ready"
-								end,
-								onSelect = function()
-									command(id)
-								end,
-							} :: RadialItem,
-						},
+						items = actions,
 					},
 				}),
 				UI.Divider {},
 			}
 		end
 		local function column(status: string, title: string)
-			local rows = C.formula(function(use: any)
-				local result = {}
+			local rows = C.formula(function(use: Use)
+				local result: { Brew } = {}
 				local priority = use(pinned)
 				for _, brew in use(model.orders.brews) do
 					if brew.status == status then
@@ -157,26 +171,24 @@ return {
 				end)
 				return result
 			end)
-			return UI.Screen {
-				Name = "Lane_" .. status,
+			return UI.Screen("Lane_" .. status) {
 				gap = "s",
 				padding = "s",
-				view.text("LaneHeading", function(use: any)
+				view.text("LaneHeading", function(use: Use)
 					return `{title} · {#use(rows)}`
-				end, "heading") :: unknown,
-				UI.ScrollView {
-					Name = "Tickets",
+				end, "heading"),
+				UI.ScrollView "Tickets" {
 					gap = "s",
 					padding = "s",
-					UI.fill() :: unknown,
+					UI.fill(),
 					C.keyed({
 						from = rows,
-						key = function(item)
+						key = function(item: Brew)
 							return item.id
 						end,
 						render = ticket,
 					}),
-					C.show(function(use: any)
+					C.show(function(use: Use)
 						return #use(rows) == 0
 					end, function()
 						return view.text(
@@ -191,29 +203,29 @@ return {
 			}
 		end
 		local function summary()
-			return UI.VStack {
-				width = "fill" :: "fill",
+			return UI.VStack "SummaryBody" {
+				width = "fill",
 				gap = "m",
-				view.text("SummaryTitle", "The day's takings", "heading") :: unknown,
-				view.text("Collected", function(use: any)
+				view.text("SummaryTitle", "The day's takings", "heading"),
+				view.text("Collected", function(use: Use)
 					use(model.stats.version)
 					return `{model.stats.collectedBottles()} bottles served`
 				end),
 				view.text("BestSellers", "Most popular potions", "heading"),
 				C.keyed({
-					from = C.formula(function(use: any)
+					from = C.formula(function(use: Use)
 						use(model.stats.version)
-						local result = {}
+						local result: { Seller } = {}
 						for _, row in model.stats.topFive("today") do
 							table.insert(result, { id = row.potion.id, name = row.potion.name, bottles = row.bottles })
 						end
 						return result
 					end),
-					key = function(item)
+					key = function(item: Seller)
 						return item.id
 					end,
-					render = function(current): GuiObject
-						return view.text("Seller", function(use: any)
+					render = function(current: Readable<Seller>): GuiObject
+						return view.text("Seller", function(use: Use)
 							local row = use(current)
 							return `{row.name} · {row.bottles} bottles`
 						end)
@@ -221,25 +233,29 @@ return {
 				}),
 			}
 		end
+		local lanes: { StringPickerOption } = {
+			{ value = "new", label = "Waiting" },
+			{ value = "brewing", label = "Brewing" },
+			{ value = "ready", label = "Ready" },
+		}
 		return {
 			screen = function()
-				return UI.ScrollView {
-					Name = "Cartwheel",
+				return UI.ScrollView "Cartwheel" {
 					padding = "m",
 					gap = "m",
-					ref = view.observeWidth(width),
-					view.text("CartTitle", "Cartwheel · Market day", "title") :: unknown,
-					UI.Image {
-						Name = "CartIllustration",
+					ref = function(node)
+						view.observeWidth(width, node)
+					end,
+					view.text("CartTitle", "Cartwheel · Market day", "title"),
+					UI.Image "CartIllustration" {
 						image = art.cart,
-						scaleMode = "crop" :: "crop",
-						Size = function(use: any)
+						scaleMode = "crop",
+						Size = function(use: Use)
 							return D2.new(1, 0, 0, math.clamp(use(width) * 0.18, 80, 170))
 						end,
 					},
 					view.actions({
-						UI.CollapsibleView {
-							Name = "Takings",
+						UI.CollapsibleView "Takings" {
 							label = "Day's takings",
 							expanded = summaryOpen,
 							content = summary,
@@ -250,18 +266,13 @@ return {
 						end),
 					}),
 					view.text("MarketNotice", notice),
-					C.show(function(use: any)
+					C.show(function(use: Use)
 						return not use(wide)
 					end, function()
-						return UI.Picker {
-							Name = "OrderLane",
+						return UI.Picker "OrderLane" {
 							label = "Orders",
 							selected = lane,
-							options = {
-								{ value = "new", label = "Waiting" } :: PickerOption,
-								{ value = "brewing", label = "Brewing" } :: PickerOption,
-								{ value = "ready", label = "Ready" } :: PickerOption,
-							},
+							options = lanes,
 						}
 					end),
 					Host.Frame "OrderBoard" {
@@ -275,7 +286,7 @@ return {
 									Size = D2.fromScale(1 / 3, 1),
 									BackgroundTransparency = 1,
 									column("new", "Waiting"),
-								} :: unknown,
+								},
 								Host.Frame {
 									Position = D2.fromScale(1 / 3, 0),
 									Size = D2.fromScale(1 / 3, 1),
@@ -291,13 +302,13 @@ return {
 							}
 						end, function()
 							return C.keyed({
-								from = C.formula(function(use: any)
+								from = C.formula(function(use: Use)
 									return { use(lane) }
 								end),
-								key = function(id)
+								key = function(id: string)
 									return id
 								end,
-								render = function(current): GuiObject
+								render = function(current: Readable<string>): GuiObject
 									local id = current:peek()
 									return column(
 										id,
@@ -314,8 +325,14 @@ return {
 			end,
 			report = function()
 				local report = reference.report()
-				report.pinned = pinned:peek()
-				return report
+				return {
+					orders = report.orders,
+					stats = report.stats,
+					entitlement = report.entitlement,
+					identity = report.identity,
+					commands = report.commands,
+					pinned = pinned:peek(),
+				}
 			end,
 			model = model,
 			steps = steps,

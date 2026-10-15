@@ -8,6 +8,7 @@ type UI = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Compose = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Types = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Tile = { id: string, letter: string }
 type Flight = { id: string, tile: Tile, destination: FacetCell<GuiObject> }
 type Model = { rack: { Tile }, board: { [number]: Tile } }
@@ -37,26 +38,27 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 			{ id = tostring(index), letter = if options.duplicateLetters and index == 7 then "A" else letter }
 		)
 	end
-	local model = C.cell({ rack = initial, board = {} } :: Model)
+	local start: Model = { rack = initial, board = {} }
+	local model = C.cell(start)
 	local slotKeys = C.cell({ "1", "2", "3", "4", "5", "6", "7" })
 	local notice = C.cell("Drag a letter to the board. Select a letter and press A or Return to carry it.")
-	local held: FacetCell<string?> = C.cell(nil :: string?)
-	local flights = C.cell({} :: { Flight })
+	local nothing: string? = nil
+	local held: FacetCell<string?> = C.cell(nothing)
+	local noFlights: { Flight } = {}
+	local flights = C.cell(noFlights)
 	local slotControls: SlotControls = {}
 	local boardNodes: { [number]: GuiObject } = {}
 	local rackNode: ScrollingFrame?
-	local function payload(value: unknown): Payload?
-		if type(value) ~= "table" then
-			return nil
-		end
-		local record = value :: { collection: unknown, keys: unknown, items: unknown }
-		if type(record.collection) ~= "string" or type(record.keys) ~= "table" or type(record.items) ~= "table" then
-			return nil
-		end
-		return value :: Payload
+	local issued: { [unknown]: Payload } = {}
+	setmetatable(issued, { __mode = "k" })
+	local function issue(value: Payload): Payload
+		issued[value] = value
+		return value
 	end
-	local function transfer(value: unknown, boardSlot: number?, rackSlot: number?): boolean
-		local data = payload(value)
+	local function payload(value: unknown): Payload?
+		return issued[value]
+	end
+	local function transfer(data: Payload?, boardSlot: number?, rackSlot: number?): boolean
 		if not data or not data.items[1] then
 			return false
 		end
@@ -97,11 +99,10 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 			notice:set(reason or "Returned to source")
 		end
 	end
-	local cells: { unknown } = {}
+	local cells: { GuiObject } = {}
 	for slot = 1, 25 do
 		local aim = C.cell(false)
-		local button = UI.Button {
-			Name = "BoardSlot" .. slot,
+		local button = UI.Button("BoardSlot" .. slot) {
 			label = function(use: Use)
 				local tile = use(model).board[slot]
 				local returning = false
@@ -113,7 +114,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 			selected = aim,
 			Size = D2.fromScale(1, 1),
 			AutomaticSize = E.AutomaticSize.None,
-			controlSize = "compact" :: "compact",
+			controlSize = "compact",
 			onActivate = function()
 				notice:set("Pressed board " .. slot)
 			end,
@@ -122,7 +123,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 		UI.draggable(button, {
 			payload = function()
 				local tile = model:peek().board[slot]
-				return if tile then { collection = "board", keys = { tile.id }, items = { tile } } else nil
+				return if tile then issue({ collection = "board", keys = { tile.id }, items = { tile } }) else nil
 			end,
 			hitArea = button,
 			returnTravel = true,
@@ -153,13 +154,12 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 				aim:set(false)
 			end,
 			onDrop = function(value)
-				return transfer(value, slot, nil)
+				return transfer(payload(value), slot, nil)
 			end,
 		})
 		table.insert(cells, button)
 	end
-	local rack = UI.VirtualGrid {
-		Name = "TransferRack",
+	local rack = UI.VirtualGrid "TransferRack" {
 		from = C.formula(function(use: Use): { Tile }
 			return use(model).rack
 		end),
@@ -170,12 +170,12 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 		columns = 7,
 		itemSize = 52,
 		gap = 4,
-		mode = "all" :: "all",
-		contentOverflow = "clip" :: "clip",
+		mode = "all",
+		contentOverflow = "clip",
 		Size = D2.fromOffset(396, 72),
 		drag = function(items: { Tile }, keys: { string }): DraggableSpec
 			return {
-				payload = { collection = "rack", items = items, keys = keys },
+				payload = issue({ collection = "rack", items = items, keys = keys }),
 				touchPickup = options.touchPickup,
 				touchDragAxis = options.touchDragAxis,
 				returnTravel = true,
@@ -232,7 +232,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 				return payload(value) ~= nil and not options.reject, "Rack locked"
 			end,
 			onDrop = function(value: unknown, info: DropInfo)
-				return transfer(value, nil, if info.insertion then info.insertion.slot else nil)
+				return transfer(payload(value), nil, if info.insertion then info.insertion.slot else nil)
 			end,
 		},
 		render = function(current: FacetReadable<Tile>): GuiObject
@@ -242,7 +242,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 				end,
 				Size = D2.fromScale(1, 1),
 				AutomaticSize = E.AutomaticSize.None,
-				controlSize = "compact" :: "compact",
+				controlSize = "compact",
 				onActivate = function()
 					notice:set("Pressed rack " .. current:peek().letter)
 				end,
@@ -250,11 +250,13 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 		end,
 	}
 	rackNode = rack
-	local gridProps = { Name = "TransferBoard", columns = 5, gap = 4, cellHeight = 52, Size = D2.fromOffset(276, 276) }
-	for index, cell in cells do
-		(gridProps :: { [unknown]: unknown })[index] = cell
-	end
-	local board = UI.Grid(gridProps)
+	local board = UI.Grid "TransferBoard" {
+		columns = 5,
+		gap = 4,
+		cellHeight = 52,
+		Size = D2.fromOffset(276, 276),
+		table.unpack(cells),
+	}
 	local scope: CommandScope?
 	if options.commandTyping then
 		local targets: { { key: number, node: GuiObject } } = {}
@@ -302,8 +304,20 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 			Size = D2.fromOffset(396, 44),
 		}
 		else UI.Text { text = "", Visible = false }
-	local content = UI.VStack {
-		Name = "ContainerTransfer",
+	local scaled: { Child } = {
+		Host.UIScale { Scale = options.scale or 1 },
+		UI.VStack "RackColumn" {
+			gap = "s",
+			board,
+			UI.Text {
+				text = "Seven-slot rack · A/Return: carry or place · B/Escape: cancel · Y: destination",
+				wrap = true,
+				Size = D2.fromOffset(396, 0),
+			},
+			rack,
+		},
+	}
+	local content = UI.VStack "ContainerTransfer" {
 		gap = "s",
 		UI.Text { text = notice, wrap = true, Size = D2.fromOffset(396, 0) },
 		chat,
@@ -355,9 +369,11 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 							return UI.Button { label = flight.tile.letter }
 						end,
 						onLanded = function(destination: GuiObject)
-							local target = assert(slotControls.nodeOfKey)(flight.id) :: GuiObject
+							local target = assert(slotControls.nodeOfKey)(flight.id)
 							if destination ~= target then
-								flight.destination:set(target)
+								if target then
+									flight.destination:set(target)
+								end
 								return
 							end
 							transfer({ collection = "board", items = { flight.tile }, keys = { flight.id } }, nil, nil)
@@ -379,26 +395,15 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 		Host.Frame {
 			Size = D2.fromOffset(396, 400),
 			BackgroundTransparency = 1,
-			Host.UIScale { Scale = options.scale or 1 } :: unknown,
-			UI.VStack {
-				gap = "s",
-				board :: unknown,
-				UI.Text {
-					text = "Seven-slot rack · A/Return: carry or place · B/Escape: cancel · Y: destination",
-					wrap = true,
-					Size = D2.fromOffset(396, 0),
-				},
-				rack :: unknown,
-			} :: unknown,
+			table.unpack(scaled),
 		},
 	}
 	if options.scrolled then
-		return UI.ScrollView {
-			Name = "TransferScroll",
+		return UI.ScrollView "TransferScroll" {
 			Size = D2.fromOffset(420, 320),
 			CanvasSize = D2.fromOffset(420, 520),
 			AutomaticCanvasSize = E.AutomaticSize.None,
-			content :: unknown,
+			content,
 		}
 	end
 	return content

@@ -4,9 +4,10 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "State-driven motion",
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Host, UI, Compose: ComposeModule, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
 		local D, D2, V2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 		local target, reduced, runs = Compose.cell(0), Compose.cell(false), Compose.cell(0)
@@ -23,10 +24,21 @@ return {
 				if use(reduced) then
 					return "none"
 				end
-				if ctx.motionLevel then
-					return use(ctx.motionLevel)
+				local motionLevel = ctx.motionLevel
+				if motionLevel then
+					local level = use(motionLevel)
+					if level == "none" then
+						return "none"
+					elseif level == "limited" then
+						return "limited"
+					end
+					return "normal"
 				end
-				return if ctx.reducedMotion and use(ctx.reducedMotion) then "none" else nil
+				local reducedMotion = ctx.reducedMotion
+				if reducedMotion and use(reducedMotion) then
+					return "none"
+				end
+				return nil
 			end,
 		})
 		local order = Compose.cell({ "Alpha", "Bravo", "Charlie" })
@@ -68,23 +80,22 @@ return {
 			})
 		end
 		local function screen()
-			return UI.ScrollView {
-				Name = "StateMotion",
+			return UI.ScrollView "StateMotion" {
 				padding = 16,
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				label("Title", "One action, one shared motion") :: unknown,
-				UI.Toggle { Name = "Reduced", label = "Reduce decorative motion", value = reduced },
-				UI.Button { Name = "Animate", label = "Animate", onActivate = animate },
+				label("Title", "One action, one shared motion"),
+				UI.Toggle "Reduced" { label = "Reduce decorative motion", value = reduced },
+				UI.Button "Animate" { label = "Animate", onActivate = animate },
 				label(
 					"Decorative",
 					"The puck changes color and position; the card grows; the badge fades, shrinks and turns."
 				),
-				Host.Frame "PuckLane" {
+				Host.Frame("PuckLane")({
 					Size = D2.new(1, 0, 0, 56),
 					BackgroundTransparency = 1,
-					Host.Frame "Puck" {
+					Host.Frame("Puck")({
 						Size = D2.fromOffset(40, 40),
 						BorderSizePixel = 0,
 						Position = function(use: Use)
@@ -98,9 +109,9 @@ return {
 							)
 						end,
 						Host.UICorner({ CornerRadius = D.new(1, 0) }),
-					},
-				},
-				Host.Frame "GrowingCard" {
+					}),
+				}),
+				Host.Frame("GrowingCard")({
 					BorderSizePixel = 0,
 					Size = function(use: Use)
 						return D2.new(1, 0, 0, 64 + 64 * use(amount))
@@ -108,24 +119,23 @@ return {
 					BackgroundColor3 = function(use: Use)
 						return color(use, "accent")
 					end,
-					Host.Frame "Pip" {
+					Host.Frame("Pip")({
 						Size = D2.fromOffset(16, 16),
 						Position = D2.fromOffset(12, 12),
 						BackgroundColor3 = C3.new(1, 1, 1),
 						BorderSizePixel = 0,
-					} :: unknown,
-					UI.Text {
-						Name = "CardCaption",
+					}),
+					UI.Text "CardCaption" {
 						text = "The card grows; this pip keeps its size.",
 						Position = D2.fromOffset(40, 8),
 						Size = D2.new(1, -48, 1, -16),
 						TextWrapped = true,
 					},
-				},
-				Host.Frame "EffectsLane" {
+				}),
+				Host.Frame("EffectsLane")({
 					Size = D2.new(1, 0, 0, 100),
 					BackgroundTransparency = 1,
-					Host.CanvasGroup "Badge" {
+					Host.CanvasGroup("Badge")({
 						Position = D2.fromScale(0.5, 0.5),
 						AnchorPoint = V2.new(0.5, 0.5),
 						Size = function(use: Use)
@@ -142,19 +152,19 @@ return {
 							return color(use, "accent")
 						end,
 						UI.Text({ text = "GO", Size = D2.fromScale(1, 1), TextXAlignment = E.TextXAlignment.Center }),
-					},
-				},
-				Host.CanvasGroup "WrappedFade" {
+					}),
+				}),
+				Host.CanvasGroup("WrappedFade")({
 					Size = D2.new(1, 0, 0, 84),
 					BackgroundTransparency = 1,
 					GroupTransparency = function(use: Use)
 						return 0.65 * math.clamp(use(amount), 0, 1)
 					end,
-					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }) :: unknown,
+					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
 					label("FadedLabel", "A group fades its label and controls together"),
-					UI.Button { Name = "Locked", label = "Locked", enabled = false },
-				},
-				Host.Frame "Details" {
+					UI.Button "Locked" { label = "Locked", enabled = false },
+				}),
+				Host.Frame("Details")({
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
 					BackgroundTransparency = 1,
@@ -166,7 +176,7 @@ return {
 							return if use(arrived) and not use(phase.exiting) then 1 else 0
 						end, { seconds = 0.2 })
 						arrived:set(true)
-						return Host.CanvasGroup "DetailArrival" {
+						return Host.CanvasGroup("DetailArrival")({
 							BackgroundTransparency = 1,
 							Size = D2.new(1, 0, 0, 0),
 							AutomaticSize = E.AutomaticSize.Y,
@@ -177,7 +187,7 @@ return {
 								"DetailPanel",
 								"Detail panel — the same action reveals this information and reverses the cards below."
 							),
-						}
+						})
 					end, {
 						exit = function()
 							return {
@@ -187,8 +197,8 @@ return {
 							}
 						end,
 					}),
-				},
-				Host.Frame "Cards" {
+				}),
+				Host.Frame("Cards")({
 					Size = D2.new(1, 0, 0, 136),
 					BackgroundTransparency = 1,
 					Compose.OrderedCollection({
@@ -214,14 +224,14 @@ return {
 							})
 						end,
 					}),
-				},
+				}),
 				label(
 					"Informational",
 					"Charge keeps moving to its known destination when decorative motion is reduced."
 				),
-				UI.ProgressView { Name = "Charge", label = "Charge", value = charge, showValue = true },
-				UI.ProgressView { Name = "Busy", label = "No terminus" },
-				UI.ProgressView { Name = "Spinner", label = "Spinner", presentation = "spinner" :: "spinner" },
+				UI.ProgressView "Charge" { label = "Charge", value = charge, showValue = true },
+				UI.ProgressView "Busy" { label = "No terminus" },
+				UI.ProgressView "Spinner" { label = "Spinner", presentation = "spinner" },
 				label("Status", function(use: Use)
 					return "Animations: " .. use(runs)
 				end),

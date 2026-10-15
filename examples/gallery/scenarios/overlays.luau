@@ -1,8 +1,15 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
+type OverlayMedia = typeof(require("@repo/tools/typecheck/aliases").OverlayMedia)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local COPY = {
 	title = "Overlays on request",
@@ -46,7 +53,7 @@ return {
 	title = "Overlays",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
@@ -84,7 +91,7 @@ return {
 			status:set(COPY.status)
 		end
 
-		local function label(name: string, text: any, order: number, role: string?): any
+		local function label(name: string, text: TextValue, order: number, role: ("title" | "caption")?): GuiObject
 			return UI.Text({
 				Name = name,
 				LayoutOrder = order,
@@ -99,50 +106,51 @@ return {
 			})
 		end
 
-		local function body(text: string): () -> any
+		local function body(text: string): () -> GuiObject
 			return function()
 				return label("Body", text, 1)
 			end
 		end
 
-		local function tour(anchor: any): any
+		local function tour(anchor: GuiObject)
 			return Compose.keyed({
-				from = function(use: any)
+				from = function(use: Use)
 					return { `{use(tourSession)}:{use(tourStep)}` }
 				end,
 				render = function(): GuiObject
 					local step = tourStep:peek()
-					return UI.Callout({
-						Name = if step == 1 then "Tour" else `Tour{step}`,
+					local media: OverlayMedia = { image = ART, aspectRatio = 2, scaleMode = "crop" }
+					local actions: { OverlayAction } = {
+						{
+							id = "Later",
+							label = COPY.coachLater,
+							onActivate = function()
+								note("Last: tour later")
+							end,
+						},
+						{
+							id = "Go",
+							label = if step < TOUR_STEPS then COPY.coachGo else COPY.coachDone,
+							role = "default",
+							onActivate = function()
+								if step < TOUR_STEPS then
+									advancing = true
+									note(`Last: tour step {step + 1} of {TOUR_STEPS}`)
+								else
+									note("Last: tour finished")
+								end
+							end,
+						},
+					}
+					return UI.Callout(if step == 1 then "Tour" else `Tour{step}`)({
 						anchor = anchor,
 						isPresented = tourAsked,
 						title = COPY.coachTitle,
-						media = { image = ART, aspectRatio = 2, scaleMode = "crop" :: "crop" },
+						media = media,
 						content = body(COPY.coachBody),
 						steps = { index = step, count = TOUR_STEPS },
 						closeButton = true,
-						actions = {
-							{
-								id = "Later",
-								label = COPY.coachLater,
-								onActivate = function()
-									note("Last: tour later")
-								end,
-							},
-							{
-								id = "Go",
-								label = if step < TOUR_STEPS then COPY.coachGo else COPY.coachDone,
-								role = "default" :: "default",
-								onActivate = function()
-									if step < TOUR_STEPS then
-										advancing = true
-										note(`Last: tour step {step + 1} of {TOUR_STEPS}`)
-									else
-										note("Last: tour finished")
-									end
-								end,
-							},
-						},
+						actions = actions,
 						onRetire = function(reason: string)
 							if advancing then
 								advancing = false
@@ -160,62 +168,76 @@ return {
 		end
 
 		local function screen()
-			local tourButton = UI.Button {
-				Name = "TourButton",
+			local tourButton = UI.Button "TourButton" {
 				label = COPY.coach,
 				onActivate = function()
 					tourAsked:set(true)
 				end,
 			}
 			local sourceRow = label("SourceRow", COPY.sourceRow, 8)
-			return Host.Frame "Overlays" {
+			local hero: OverlayMedia = { image = ART, aspectRatio = 2, scaleMode = "crop" }
+			local leaveActions: { DialogAction } = {
+				{
+					id = "Stay",
+					label = COPY.stay,
+					role = "cancel",
+					onActivate = function()
+						note("Last: stayed in the race")
+					end,
+				},
+				{
+					id = "Leave",
+					label = COPY.leave,
+					role = "destructive",
+					onActivate = function()
+						note("Last: left the race")
+					end,
+				},
+			}
+			return Host.Frame("Overlays")({
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				UI.ScrollView {
-					Name = "Content",
+				UI.ScrollView "Content" {
 					padding = 16,
 					gap = 16,
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
 					ScrollBarThickness = 6,
-					label("Title", COPY.title, 1, "title") :: unknown,
+					label("Title", COPY.title, 1, "title"),
 					label("Intro", COPY.intro, 2),
 					label("Status", status, 3),
-					UI.Button { Name = "Reset", LayoutOrder = 4, label = COPY.reset, onActivate = reset },
-					UI.NavBar {
-						Name = "Header",
+					UI.Button "Reset" { LayoutOrder = 4, label = COPY.reset, onActivate = reset },
+					UI.NavBar "Header" {
 						LayoutOrder = 5,
-						center = UI.TextInput { Name = "Search", value = query, placeholder = COPY.search },
-						trailing = UI.Popover {
-							Name = "Filters",
+						center = UI.TextInput "Search" { value = query, placeholder = COPY.search },
+						trailing = UI.Popover "Filters" {
 							isPresented = filterOpen,
 							onPresentedChange = function(nextValue: boolean)
 								filterOpen:set(nextValue)
 							end,
-							trigger = UI.Button { Name = "Filter", label = COPY.filter, icon = "menu" },
+							trigger = UI.Button "Filter" { label = COPY.filter, icon = "menu" },
 							content = function(): Instance
-								return UI.Picker {
-									Name = "FilterBy",
-									style = "radioGroup" :: "radioGroup",
+								local filterOptions: { PickerOption } = {
+									{ value = "all", label = "All races" },
+									{ value = "friends", label = "Friends" },
+									{ value = "ranked", label = "Ranked" },
+								}
+								return UI.Picker "FilterBy" {
+									style = "radioGroup",
 									selected = filterBy,
 									onChange = function(value: string)
 										filterBy:set(value)
 										note(`Last: filter {value}`)
 										filterOpen:set(false)
 									end,
-									options = {
-										{ value = "all", label = "All races" } :: PickerOption,
-										{ value = "friends", label = "Friends" } :: PickerOption,
-										{ value = "ranked", label = "Ranked" } :: PickerOption,
-									},
+									options = filterOptions,
 								}
 							end,
 						},
 						surface = "panel",
 						padding = 8,
 					},
-					UI.Popover {
-						Name = "About",
+					UI.Popover "About" {
 						LayoutOrder = 6,
 						isPresented = aboutOpen,
 						onPresentedChange = function(nextValue: boolean)
@@ -224,8 +246,7 @@ return {
 						onDismiss = function(reason: string)
 							note(`Last: about closed ({reason})`)
 						end,
-						trigger = UI.Button {
-							Name = "AboutButton",
+						trigger = UI.Button "AboutButton" {
 							label = COPY.about,
 							help = { title = COPY.aboutHelpTitle, body = COPY.aboutHelp, shortcut = { { "F1" } } },
 						},
@@ -233,8 +254,7 @@ return {
 						content = body(COPY.aboutBody),
 					},
 					label("AboutHelpPrinted", COPY.aboutHelp, 7, "caption"),
-					UI.Popover {
-						Name = "Locked",
+					UI.Popover "Locked" {
 						LayoutOrder = 9,
 						isPresented = lockedOpen,
 						onPresentedChange = function(nextValue: boolean)
@@ -244,9 +264,9 @@ return {
 								note("Last: close refused")
 							end
 						end,
-						trigger = UI.Button { Name = "LockedButton", label = COPY.locked },
+						trigger = UI.Button "LockedButton" { label = COPY.locked },
 						content = function(): Instance
-							return Host.Frame "Body" {
+							return Host.Frame("Body")({
 								BackgroundTransparency = 1,
 								Size = UDim2.fromOffset(280, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
@@ -254,11 +274,10 @@ return {
 									FillDirection = Enum.FillDirection.Vertical,
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									Padding = UDim.new(0, 8),
-								}) :: unknown,
+								}),
 								label("Line", COPY.lockedBody, 1),
-								UI.Toggle { Name = "Allow", LayoutOrder = 2, label = COPY.allow, value = allowClose },
-								UI.Button {
-									Name = "Close",
+								UI.Toggle "Allow" { LayoutOrder = 2, label = COPY.allow, value = allowClose },
+								UI.Button "Close" {
 									LayoutOrder = 3,
 									label = COPY.close,
 									onActivate = function()
@@ -267,30 +286,28 @@ return {
 										end
 									end,
 								},
-							}
+							})
 						end,
 					},
 					sourceRow,
-					UI.Button {
-						Name = "SourceButton",
+					UI.Button "SourceButton" {
 						LayoutOrder = 10,
 						label = COPY.sourceShow,
 						onActivate = function()
 							sourceOpen:set(not sourceOpen:peek())
 						end,
 					},
-					UI.Popover {
-						Name = "Source",
+					UI.Popover "Source" {
 						isPresented = sourceOpen,
 						onPresentedChange = function(nextValue: boolean)
 							sourceOpen:set(nextValue)
 						end,
 						source = { node = sourceRow },
-						edge = "bottom" :: "bottom",
-						align = "start" :: "start",
+						edge = "bottom",
+						align = "start",
 						content = body(COPY.sourceBody),
 					},
-					Host.Frame "TourRow" {
+					Host.Frame("TourRow")({
 						LayoutOrder = 11,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -298,20 +315,18 @@ return {
 						Host.UIListLayout({
 							FillDirection = Enum.FillDirection.Horizontal,
 							SortOrder = Enum.SortOrder.LayoutOrder,
-						}) :: unknown,
+						}),
 						tourButton,
 						tour(tourButton),
-					},
-					UI.Button {
-						Name = "DialogButton",
+					}),
+					UI.Button "DialogButton" {
 						LayoutOrder = 12,
 						label = COPY.dialog,
 						onActivate = function()
 							dialogOpen:set(true)
 						end,
 					},
-					UI.Dialog {
-						Name = "Leave",
+					UI.Dialog "Leave" {
 						isPresented = dialogOpen,
 						onPresentedChange = function(nextValue: boolean)
 							dialogOpen:set(nextValue)
@@ -319,39 +334,20 @@ return {
 						onDismiss = function(reason: string)
 							note(`Last: dialog closed ({reason})`)
 						end,
-						hero = { image = ART, aspectRatio = 2, scaleMode = "crop" :: "crop" },
+						hero = hero,
 						title = COPY.dialogTitle,
 						content = body(COPY.dialogBody),
 						actionLabel = COPY.dialogLabel,
-						actions = {
-							{
-								id = "Stay",
-								label = COPY.stay,
-								role = "cancel" :: "cancel",
-								onActivate = function()
-									note("Last: stayed in the race")
-								end,
-							} :: OverlayAction,
-							{
-								id = "Leave",
-								label = COPY.leave,
-								role = "destructive" :: "destructive",
-								onActivate = function()
-									note("Last: left the race")
-								end,
-							} :: OverlayAction,
-						},
+						actions = leaveActions,
 					},
-					UI.Button {
-						Name = "TermsButton",
+					UI.Button "TermsButton" {
 						LayoutOrder = 13,
 						label = COPY.lockedDialog,
 						onActivate = function()
 							termsOpen:set(true)
 						end,
 					},
-					UI.Dialog {
-						Name = "Terms",
+					UI.Dialog "Terms" {
 						isPresented = termsOpen,
 						onPresentedChange = function(nextValue: boolean)
 							if nextValue or termsRead:peek() then
@@ -364,13 +360,13 @@ return {
 							note(`Last: terms closed ({reason})`)
 						end,
 						title = COPY.lockedDialogTitle,
-						width = "narrow" :: "narrow",
+						width = "narrow",
 						content = function(): Instance
-							return UI.Toggle { Name = "Read", label = COPY.accept, value = termsRead }
+							return UI.Toggle "Read" { label = COPY.accept, value = termsRead }
 						end,
 					},
 				},
-			}
+			})
 		end
 
 		return {

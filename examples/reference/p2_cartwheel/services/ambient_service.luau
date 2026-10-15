@@ -5,14 +5,23 @@ local rng = require("./rng")
 
 local ambient_service = {}
 
+export type Opts = { seed: number? }
+export type Weather = {
+	samples: { number },
+	bands: { { from: number, to: number } },
+	marks: { { at: number, kind: string } },
+	damp: boolean,
+	cloud: number,
+}
+
 local SAMPLES = 25
 
-function ambient_service.new(opts: any): any
+function ambient_service.new(opts: Opts)
 	local seed: number = opts.seed or 1
-	local self: any = {}
-	local cache: { [string]: any } = {}
+	local self = {}
+	local cache: { [string]: Weather } = {}
 
-	local function build(plazaId: string): any
+	local function build(plazaId: string): Weather
 		local plaza = data.plazaById(plazaId)
 		local random = rng.new(seed * 13 + (if plaza == nil then 0 else plaza.seed))
 		local samples: { number } = {}
@@ -39,13 +48,13 @@ function ambient_service.new(opts: any): any
 		return {
 			samples = samples,
 			bands = { { from = 0, to = lanternOut }, { from = lanternLit, to = 1 } },
-			marks = { { at = lanternOut, kind = "out" }, { at = lanternLit, kind = "lit" } } :: { { at: number, kind: string } },
+			marks = { { at = lanternOut, kind = "out" }, { at = lanternLit, kind = "lit" } },
 			damp = damp,
 			cloud = math.floor((1 - samples[math.ceil(SAMPLES / 2)]) * 100),
 		}
 	end
 
-	function self.forPlaza(plazaId: string): any
+	function self.forPlaza(plazaId: string): Weather
 		local cached = cache[plazaId]
 		if cached == nil then
 			cached = build(plazaId)
@@ -62,18 +71,18 @@ function ambient_service.new(opts: any): any
 		return self.forPlaza(plazaId).damp
 	end
 
-	function self.recommendedPlaza(): any
-		for _, plaza in data.plazas :: any do
+	function self.recommendedPlaza(): data.Plaza
+		for _, plaza in data.plazas do
 			if not self.hasDampSpell(plaza.id) then
 				return plaza
 			end
 		end
-		return (data.plazas :: any)[1]
+		return data.plazas[1]
 	end
 
-	function self.dump(): any
-		local out = {}
-		for _, plaza in data.plazas :: any do
+	function self.dump(): { plazas: { { id: string, damp: boolean, cloud: number } }, recommended: string, samples: number }
+		local out: { { id: string, damp: boolean, cloud: number } } = {}
+		for _, plaza in data.plazas do
 			local entry = self.forPlaza(plaza.id)
 			table.insert(out, { id = plaza.id, damp = entry.damp, cloud = entry.cloud })
 		end

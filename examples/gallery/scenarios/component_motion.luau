@@ -1,34 +1,62 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
+type CollectionStatus = {
+	mode: "windowed" | "all",
+	direction: "horizontal" | "vertical",
+	total: number,
+	retained: number,
+	first: number,
+	last: number,
+	firstRow: number,
+	lastRow: number,
+	rowCount: number,
+	extent: number,
+	following: boolean,
+	desiredOffset: number?,
+	measured: number,
+}
+type Latest = {
+	expanded: boolean?,
+	selected: string?,
+	balance: number?,
+	affordable: boolean?,
+	first: string?,
+}
+type Commands = {
+	toggle: (() -> ())?,
+	reverse: (() -> ())?,
+	buy: (() -> ())?,
+	reset: (() -> ())?,
+}
 
 return {
 	title = "Automatic motion",
 	ledgerRows = {},
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local commands, latest = {}, {}
-		local function Section(props)
-			local rows = { gap = "s" }
+		local commands: Commands = {}
+		local latest: Latest = {}
+		local function Section(props: { title: string, footer: GuiObject, children: { Instance } })
+			local rows: { Instance } = {}
 			for _, child in props.children do
 				table.insert(rows, child)
 			end
-			return Host.Frame({
-				BackgroundTransparency = 1,
-				Size = UDim2.new(1, 0, 0, 0),
-				AutomaticSize = Enum.AutomaticSize.Y,
+			local children: { Instance } = {
 				Host.UIListLayout({
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}) :: unknown,
+				}),
 				UI.Text({
 
 					BackgroundTransparency = 1,
@@ -36,7 +64,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = props.title,
-					textRole = "body" :: "body",
+					textRole = "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -45,17 +73,23 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
+					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
 					table.unpack(rows),
 				},
 				props.footer,
+			}
+			return Host.Frame({
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				table.unpack(children),
 			})
 		end
 
-		local function arrival(): any
+		local function arrival(): Readable<number>
 			local runtime = ctx.runtime
 			if runtime == nil then
-				return 1
+				return Compose.cell(1)
 			end
 			local shown = Compose.cell(0)
 			local fade = runtime.tween(function(use: Use)
@@ -73,10 +107,11 @@ return {
 				{ id = "beacon", name = "Beacon", price = 20 },
 			})
 			local balance = Compose.cell(100)
-			local rowStatus = Compose.cell(nil)
+			local noStatus: CollectionStatus? = nil
+			local rowStatus: Cell<CollectionStatus?> = Compose.cell(noStatus)
 
 			local runtime = ctx.runtime
-			local displayedBalance = if runtime
+			local displayedBalance: Readable<number> = if runtime
 				then runtime.tween(function(use: Use)
 					return use(balance)
 				end, { seconds = 0.35 })
@@ -121,7 +156,7 @@ return {
 					first = use(items)[1].id,
 				}
 			end)
-			local function ItemRow(current, placement)
+			local function ItemRow(current, placement): GuiObject
 				return Host.Frame({
 					Name = "Card-" .. current:peek().id,
 					LayoutOrder = function(use: Use)
@@ -130,8 +165,7 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.Button {
-						Name = "Select",
+					UI.Button "Select" {
 						row = {
 							title = function(use: Use)
 								return use(current).name
@@ -147,8 +181,7 @@ return {
 			return Host.Frame "AutomaticMotion" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView {
-					Name = "Page",
+				UI.ScrollView "Page" {
 					padding = 16,
 					gap = 16,
 					BackgroundTransparency = 1,
@@ -169,13 +202,12 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
 						children = {
-							UI.VirtualList {
-								Name = "Items",
+							UI.VirtualList "Items" {
 								from = items,
 								key = function(entry)
 									return entry.id
 								end,
-								mode = "all" :: "all",
+								mode = "all",
 								measure = true,
 								itemSize = 56,
 								gap = 8,
@@ -189,19 +221,18 @@ return {
 								render = ItemRow,
 							},
 						},
-					}) :: unknown,
-					UI.Toggle { Name = "DetailsToggle", label = "Show details", value = expanded },
+					}),
+					UI.Toggle "DetailsToggle" { label = "Show details", value = expanded },
 					Host.Frame "Details" {
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						Compose.show(expanded, function()
 							local alpha = arrival()
-							return Host.CanvasGroup({
+							return Host.CanvasGroup "Panel" {
 								GroupTransparency = function(use: Use)
 									return 1 - use(alpha)
 								end,
-								Name = "Panel",
 								BackgroundTransparency = 1,
 								Size = UDim2.new(1, 0, 0, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
@@ -210,7 +241,7 @@ return {
 									PaddingBottom = UDim.new(0, 8),
 									PaddingLeft = UDim.new(0, 8),
 									PaddingRight = UDim.new(0, 8),
-								}) :: unknown,
+								}),
 								UI.Text({
 									BackgroundTransparency = 1,
 									BorderSizePixel = 0,
@@ -223,18 +254,16 @@ return {
 									TextYAlignment = Enum.TextYAlignment.Top,
 									TextXAlignment = Enum.TextXAlignment.Left,
 								}),
-							})
+							}
 						end),
 					},
-					UI.Button {
-						Name = "Buy",
+					UI.Button "Buy" {
 						label = "Buy selected",
 						enabled = affordable,
 						onActivate = buy,
 					},
-					UI.Button { Name = "Reverse", label = "Reverse order", onActivate = reverse },
-					UI.Button {
-						Name = "Reset",
+					UI.Button "Reverse" { label = "Reverse order", onActivate = reverse },
+					UI.Button "Reset" {
 						label = "Reset balance",
 						onActivate = commands.reset,
 					},
@@ -246,19 +275,19 @@ return {
 			present = {},
 			steps = {
 				toggle = function()
-					commands.toggle()
+					assert(commands.toggle)()
 					return latest
 				end,
 				reverse = function()
-					commands.reverse()
+					assert(commands.reverse)()
 					return latest
 				end,
 				buy = function()
-					commands.buy()
+					assert(commands.buy)()
 					return latest
 				end,
 				resetBalance = function()
-					commands.reset()
+					assert(commands.reset)()
 					return latest
 				end,
 			},

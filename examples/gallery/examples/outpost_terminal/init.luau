@@ -1,22 +1,49 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type TextPropsText = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
 local rules = require("@self/rules")
 local terminal = { rules = rules, CANVAS = { w = 640, h = 480 }, TITLE = "OUTPOST 7 — POWER" }
 
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
-	local o: { [string]: any } = options or {}
-	local Compose: ComposeModule, Host, UI = ctx.Compose, ctx.Host, ctx.UI
+type Allocation = rules.Allocation
+type Verdict = rules.Verdict
+type Outcome = { ok: boolean, code: string?, message: string?, consumer: string?, total: number?, detail: string? }
+type Reply = { revision: number?, allocation: Allocation?, code: string?, message: string? }
+type Envelope = {
+	requestId: number,
+	expectedRevision: number,
+	payload: { kind: string, allocation: Allocation },
+}
+type Snapshot = {
+	phase: string,
+	status: string,
+	draft: Allocation,
+	outpost: Allocation,
+	revision: number,
+	verdict: Verdict,
+	canApply: boolean,
+	complete: boolean,
+	message: string?,
+	outcome: Outcome?,
+	exitReason: string?,
+	counters: { sent: number, refusedLocally: number, applied: number },
+}
+type Options = { onState: ((Snapshot) -> ())?, send: ((Envelope) -> ...unknown)?, onExit: (() -> ())? }
+function terminal.build(ctx: ExampleContext, options: Options?)
+	local o: Options = options or {}
+	local Compose, Host, UI = ctx.Compose, ctx.Host, ctx.UI
 	local UDim, UDim2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 	local confirmed = Compose.cell(rules.copy(rules.START))
 	local revision = Compose.cell(0)
 	local phase, status = Compose.cell("idle"), Compose.cell("idle")
-	local outcome, exitReason = Compose.cell(nil :: any), Compose.cell(nil :: string?)
-	local draft = {}
+	local noOutcome: Outcome? = nil
+	local noReason: string? = nil
+	local outcome: Cell<Outcome?> = Compose.cell(noOutcome)
+	local exitReason: Cell<string?> = Compose.cell(noReason)
+	local draft: { [string]: typeof(Compose.cell(0)) } = {}
 	for _, consumer in rules.CONSUMERS do
 		draft[consumer.id] = Compose.cell(rules.START[consumer.id])
 	end
@@ -25,13 +52,13 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 	local sent, refusedLocally, applied = 0, 0, 0
 	local steps = {}
 	local function allocation(use: Use?)
-		local result = {}
+		local result: Allocation = {}
 		for _, consumer in rules.CONSUMERS do
 			result[consumer.id] = if use then use(draft[consumer.id]) else draft[consumer.id]:peek()
 		end
 		return result
 	end
-	local function seed(values)
+	local function seed(values: Allocation)
 		ctx.runtime:batch(function()
 			for _, consumer in rules.CONSUMERS do
 				draft[consumer.id]:set(values[consumer.id])
@@ -44,14 +71,15 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 	local canApply = Compose.formula(function(use: Use)
 		return use(phase) == "engaged" and use(status) ~= "pending" and use(verdict).ok
 	end)
-	local message = Compose.formula(function(use: Use)
+	local message = Compose.formula(function(use: Use): string
 		if use(status) == "pending" then
 			return "Sending to the outpost…"
 		end
 		local result = use(outcome)
-		return if result then result.message else if use(verdict).ok then rules.OBJECTIVE else use(verdict).message
+		return (if result then result.message else if use(verdict).ok then rules.OBJECTIVE else use(verdict).message)
+			or ""
 	end)
-	function steps.snapshot()
+	function steps.snapshot(): Snapshot
 		return {
 			phase = phase:peek(),
 			status = status:peek(),
@@ -72,7 +100,7 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 			o.onState(steps.snapshot())
 		end
 	end
-	function steps.ingest(nextRevision, values)
+	function steps.ingest(nextRevision: number, values: Allocation)
 		if nextRevision <= revision:peek() then
 			return false
 		end
@@ -84,7 +112,7 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 		publish()
 		return true
 	end
-	function steps.engage(values: { [string]: number }?, nextRevision: number?)
+	function steps.engage(values: Allocation?, nextRevision: number?)
 		if values then
 			if nextRevision == nil or nextRevision >= revision:peek() then
 				confirmed:set(rules.copy(values))
@@ -122,10 +150,10 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 		publish()
 		return { ok = true, value = draft[id]:peek() }
 	end
-	function steps.adjust(id, delta)
+	function steps.adjust(id: string, delta: number)
 		return steps.setValue(id, (if draft[id] then draft[id]:peek() else 0) + delta)
 	end
-	function steps.apply(): { sent: boolean, reason: string?, requestId: number?, allocation: { [string]: number }? }
+	function steps.apply(): { sent: boolean, reason: string?, requestId: number?, allocation: Allocation? }
 		if phase:peek() ~= "engaged" then
 			return { sent = false, reason = phase:peek() }
 		end
@@ -155,11 +183,11 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 			status:set("pending")
 			outcome:set(nil)
 		end)
-		local requestId = pendingId
+		local requestId = sequence
 		local delivered, failure = pcall(o.send, {
 			requestId = requestId,
 			expectedRevision = revision:peek(),
-			payload = { kind = "set" :: "set", allocation = values },
+			payload = { kind = "set", allocation = values },
 		})
 		if not delivered then
 			pendingId = nil
@@ -176,14 +204,14 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 		publish()
 		return { sent = true, requestId = requestId, allocation = values }
 	end
-	function steps.reset(): { sent: boolean, reason: string?, requestId: number?, allocation: { [string]: number }? }
+	function steps.reset(): { sent: boolean, reason: string?, requestId: number?, allocation: Allocation? }
 		if pendingId then
 			return { sent = false, reason = "pending" }
 		end
 		seed(rules.START)
 		return steps.apply()
 	end
-	function steps.confirm(requestId, result)
+	function steps.confirm(requestId: number?, result: Reply?)
 		if requestId ~= pendingId or pendingId == nil then
 			return false
 		end
@@ -200,7 +228,7 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 		publish()
 		return true
 	end
-	function steps.reject(requestId, result)
+	function steps.reject(requestId: number?, result: Reply?)
 		if requestId ~= pendingId or pendingId == nil then
 			return false
 		end
@@ -216,7 +244,7 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 		publish()
 		return true
 	end
-	function steps.exit(reason)
+	function steps.exit(reason: string?)
 		if phase:peek() == "exited" then
 			return false
 		end
@@ -247,8 +275,7 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 		for index, consumer in rules.CONSUMERS do
 			table.insert(
 				rows,
-				Host.Frame({
-					Name = consumer.id,
+				Host.Frame(consumer.id)({
 					LayoutOrder = index,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 64),
@@ -257,7 +284,7 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, -184, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 3) }) :: unknown,
+						Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 3) }),
 						label("Title", `{consumer.label} — needs {consumer.needs}`, 24),
 						label("State", function(use: Use)
 							local live = rules.isRunning(use(confirmed), consumer.id)
@@ -265,7 +292,7 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 							return (if nextRunning then consumer.running else consumer.idle)
 								.. (if live ~= nextRunning then " (on Apply)" else "")
 						end, 36, 13),
-					} :: unknown,
+					},
 					UI.Stepper({
 						Name = consumer.id .. "Step",
 						Position = UDim2.new(1, -172, 0, 8),
@@ -294,7 +321,7 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 				PaddingRight = UDim.new(0, 16),
 				PaddingTop = UDim.new(0, 16),
 				PaddingBottom = UDim.new(0, 16),
-			}) :: unknown,
+			}),
 			Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 			label("Title", terminal.TITLE, 30, 22),
 			label("Budget", function(use: Use)
@@ -304,54 +331,49 @@ function terminal.build(ctx: ExampleContext, options: { [string]: any }?)
 			label("Confirmed", function(use: Use)
 				return `Outpost: {rules.runningCount(use(confirmed))} of {#rules.CONSUMERS} consumers running.`
 			end, 24, 13),
-			Host.Frame({
+			Host.Frame("Consumers")({
 				LayoutOrder = 4,
-				Name = "Consumers",
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 200),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({ Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+				Host.UIListLayout({ Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
 				table.unpack(rows),
 			}),
 			label("Message", message, 44),
-			Host.Frame({
+			Host.Frame("Actions")({
 				LayoutOrder = 6,
-				Name = "Actions",
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 44),
 				Host.UIListLayout({
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					FillDirection = Enum.FillDirection.Horizontal,
 					Padding = UDim.new(0, 8),
-				}) :: unknown,
-				UI.Button({
+				}),
+				UI.Button "Apply" {
 					LayoutOrder = 1,
-					Name = "Apply",
 					label = "Apply",
 					enabled = canApply,
 					Size = UDim2.new(1 / 3, -6, 1, 0),
 					onActivate = steps.apply,
-				}),
-				UI.Button({
+				},
+				UI.Button "Reset" {
 					LayoutOrder = 2,
-					Name = "Reset",
 					label = "Reset",
 					enabled = function(use: Use)
 						return use(phase) == "engaged" and use(status) ~= "pending"
 					end,
 					Size = UDim2.new(1 / 3, -6, 1, 0),
 					onActivate = steps.reset,
-				}),
-				UI.Button({
+				},
+				UI.Button "Exit" {
 					LayoutOrder = 3,
-					Name = "Exit",
 					label = "Exit",
-					role = "cancel" :: "cancel",
+					role = "cancel",
 					Size = UDim2.new(1 / 3, -6, 1, 0),
 					onActivate = function()
 						steps.exit("exit-control")
 					end,
-				}),
+				},
 			}),
 		}
 		root:AddTag("facet-surface")

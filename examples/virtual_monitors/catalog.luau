@@ -1,5 +1,31 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type AvatarMember = typeof(require("@repo/tools/typecheck/aliases").AvatarMember)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+export type Game = {
+	id: string,
+	index: number,
+	title: string,
+	genre: string,
+	description: string,
+	color: { r: number, g: number, b: number },
+	players: string,
+	rating: string,
+	percent: number,
+	stars: number,
+	playing: number,
+	creator: string,
+	friends: { AvatarMember },
+	creatorImage: string,
+}
+export type Catalog = {
+	items: Cell<{ Game }>,
+	seen: (number, number?) -> (),
+	step: () -> (),
+	dispose: () -> (),
+}
 local catalog = {}
 local titles = {
 	"Afterlight",
@@ -33,14 +59,14 @@ local colors = {
 	{ r = 0.54, g = 0.38, b = 0.20 },
 }
 local CREATOR_HEADSHOTS = { 1, 156, 261 }
-local FRIENDS = {
+local FRIENDS: { AvatarMember } = {
 	{ id = "ada", name = "Ada Quill", presence = "online" },
 	{ id = "bo", name = "Bo Lane", presence = "online" },
 	{ id = "noel", name = "Noel Park", presence = "away" },
 	{ id = "ivy", name = "Ivy Moss", presence = "online" },
 	{ id = "kai", name = "Kai North", presence = "busy" },
 }
-local function friendsFor(index: number): { any }
+local function friendsFor(index: number): { AvatarMember }
 	local list = {}
 	for offset = 0, (index * 7) % 6 - 1 do
 		table.insert(list, FRIENDS[(index + offset) % #FRIENDS + 1])
@@ -55,15 +81,16 @@ local studios = {
 	"Paper Compass",
 	"Ember & Co.",
 }
-function catalog.new(Compose: any)
-	local items = Compose.cell({})
+function catalog.new(Compose: ComposeModule): Catalog
+	local initialItems: { Game } = {}
+	local items = Compose.cell(initialItems)
 	local pending, disposed = true, false
 	local function step()
 		if not pending or disposed then
 			return
 		end
 		pending = false
-		items:update(function(current)
+		items:update(function(current: { Game }): { Game }
 			local nextItems = table.clone(current)
 			for index = #current + 1, #current + 36 do
 				local variant = math.floor((index - 1) / #titles)
@@ -92,7 +119,7 @@ function catalog.new(Compose: any)
 	step()
 	return {
 		items = items,
-		seen = function(index, resultCount: number?)
+		seen = function(index: number, resultCount: number?)
 			local count = resultCount or #items:peek()
 			if count > 0 and index >= math.max(1, count - 12) then
 				pending = true

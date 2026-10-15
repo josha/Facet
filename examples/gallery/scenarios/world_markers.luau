@@ -4,9 +4,20 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+type Marker = {
+	id: string,
+	label: string,
+	x: number,
+	y: number,
+	edge: boolean,
+	visible: boolean,
+	width: number,
+	height: number,
+}
 return {
 	title = "World markers",
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local D, D2, V2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 		local shifted, crowded, hidden = Compose.cell(false), Compose.cell(false), Compose.cell(false)
@@ -15,7 +26,7 @@ return {
 		local geometry = Compose.formula(function(use: Use)
 			local box = use(size)
 			local width, height = math.max(96, box.X), math.max(240, box.Y)
-			local rows: { { visible: boolean, x: number, y: number, [string]: any } } = {}
+			local rows: { Marker } = {}
 			for index, name in { "Objective", "Ally", "Supplies" } do
 				local x = width * (if index == 1 and use(shifted) then 1.4 else if index == 3 then 0.62 else 0.6)
 				local y = height
@@ -62,7 +73,7 @@ return {
 						onActivate = function()
 							selected:set(geometry:peek()[index].label)
 						end,
-						Host.ImageLabel "Direction" {
+						Host.ImageLabel("Direction")({
 							BackgroundTransparency = 1,
 							Size = D2.fromOffset(16, 16),
 							Position = D2.new(1, -18, 0.5, -8),
@@ -71,14 +82,14 @@ return {
 							Visible = function(use: Use)
 								return use(geometry)[index].edge
 							end,
-						},
+						}),
 					})
 				)
 			end
-			local map = Host.Frame "Map" {
+			local map = Host.Frame("Map")({
 				Size = D2.new(1, 0, 0, 360),
 				BackgroundTransparency = 1,
-				Host.Frame "HudReservation" {
+				Host.Frame("HudReservation")({
 					Size = D2.new(1, 0, 0, 56),
 					BackgroundColor3 = C3.fromRGB(32, 45, 65),
 					BorderSizePixel = 0,
@@ -87,9 +98,9 @@ return {
 						Size = D2.fromScale(1, 1),
 						TextWrapped = true,
 					}),
-				} :: unknown,
+				}),
 				table.unpack(pins),
-			}
+			})
 			local function measure()
 				if map.AbsoluteSize.X > 0 then
 					size:set(map.AbsoluteSize)
@@ -100,18 +111,17 @@ return {
 			Compose.cleanup(function()
 				connection:Disconnect()
 			end)
-			return UI.ScrollView {
-				Name = "WorldMarkers",
+			return UI.ScrollView "WorldMarkers" {
 				padding = 16,
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Text({ text = "A · Objective   B · Ally   C · Supplies", TextWrapped = true }) :: unknown,
+				UI.Text({ text = "A · Objective   B · Ally   C · Supplies", TextWrapped = true }),
 				map,
-				UI.Toggle { Name = "Move", label = "Move objective offscreen", value = shifted },
-				UI.Toggle { Name = "Crowd", label = "Bring markers together", value = crowded },
-				UI.Toggle { Name = "Hide", label = "Occlude supplies", value = hidden },
-				UI.Text { Name = "Selected", text = selected, TextWrapped = true },
+				UI.Toggle "Move" { label = "Move objective offscreen", value = shifted },
+				UI.Toggle "Crowd" { label = "Bring markers together", value = crowded },
+				UI.Toggle "Hide" { label = "Occlude supplies", value = hidden },
+				UI.Text "Selected" { text = selected, TextWrapped = true },
 			}
 		end
 		return {

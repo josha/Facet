@@ -3,21 +3,29 @@
 type LiveModule = typeof(require("@repo/tools/studio/live"))
 type FocusModule = typeof(require("@repo/tools/studio/live/focus"))
 local HttpService = game:GetService("HttpService")
-local liveModule = game:GetService("ReplicatedStorage"):WaitForChild("FacetLive") :: ModuleScript
-local loadLive = require :: (ModuleScript) -> LiveModule
+local liveModule = game:GetService("ReplicatedStorage"):WaitForChild("FacetLive")
+assert(liveModule:IsA("ModuleScript"), "FacetLive is not a ModuleScript")
+local loadLive: (ModuleScript) -> LiveModule = require
 local L = loadLive(liveModule)
-local loadFocus = require :: (ModuleScript) -> FocusModule
-local focus = loadFocus(liveModule:WaitForChild("focus") :: ModuleScript)
+local focusModule = liveModule:WaitForChild("focus")
+assert(focusModule:IsA("ModuleScript"), "FacetLive.focus is not a ModuleScript")
+local loadFocus: (ModuleScript) -> FocusModule = require
+local focus = loadFocus(focusModule)
 local api = workspace:WaitForChild("FacetLabAPI")
+local function remote(name: string): BindableFunction
+	local node = api:WaitForChild(name)
+	assert(node:IsA("BindableFunction"), `FacetLabAPI.{name} is not a BindableFunction`)
+	return node
+end
 local root = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Facet_Lab")
 local options = shared.LabFocusWalk or {}
 local summary = {}
 local report = L.case("facet-lab", "focus-walk", function()
-	for _, id in HttpService:JSONDecode((api:WaitForChild("pages") :: BindableFunction):Invoke()) do
+	for _, id in HttpService:JSONDecode(remote("pages"):Invoke()) do
 		if options.only and not string.find(id, options.only, 1, true) then
 			continue
 		end
-		(api:WaitForChild("open") :: BindableFunction):Invoke(id)
+		remote("open"):Invoke(id)
 		task.wait(1)
 		local lint = focus.lint(root)
 		focus.rest(root)

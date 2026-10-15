@@ -1,72 +1,104 @@
 --!strict
-
-type Need = {
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
+type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
+type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
+type ExtraValue = typeof(require("@repo/examples/types").ThemeExtraValue)
+type PaletteExtra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
+type Size = { height: number, paddingX: number, iconSize: number }
+type Tint = { r: number, g: number, b: number }
+type Need<Fallback> = {
 	name: string,
 	kind: string,
 	section: string,
 	fields: { string }?,
 	authority: string,
 	capability: string,
-	fallback: number | { [string]: number },
+	fallback: Fallback,
 }
+type Gap = { name: string, message: string, fix: string }
+type Report = { ok: boolean, covered: { string }, missing: { Gap } }
+type Resolved = {
+	height: number,
+	paddingX: number,
+	iconSize: number,
+	tint: Tint,
+	usedFallback: { size: boolean, tint: boolean },
+}
+type Core = { Host: Host, types: RobloxTypes? }
 
 local custom_control = {}
 
 custom_control.namespace = "demo"
 custom_control.control = "Gauge"
 
-custom_control.needs = table.freeze({
-	table.freeze({
-		name = "demo:gauge",
-		kind = "controlSize" :: string,
-		section = "metrics.controlSizes",
-		fields = table.freeze({ "height", "paddingX", "iconSize" }) :: { string }?,
-		authority = "layout",
-		capability = "none",
-		fallback = table.freeze({ height = 24, paddingX = 8, iconSize = 14 }) :: number | { [string]: number },
-	}),
-	table.freeze({
-		name = "demo:gaugeTint",
-		kind = "color" :: string,
-		section = "style.themes[].extra",
-		fields = nil :: { string }?,
-		authority = "paint",
-		capability = "none",
-		fallback = table.freeze({ r = 0.35, g = 0.7, b = 0.9 }),
-	}),
-})
+local SIZE_FIELDS: { string } = table.freeze({ "height", "paddingX", "iconSize" })
 
-local function needByName(name: string): any
-	for _, need in custom_control.needs do
-		if need.name == name then
-			return need
+local SIZE_FALLBACK: Size = { height = 24, paddingX = 8, iconSize = 14 }
+local SIZE_NEED: Need<Size> = {
+	name = "demo:gauge",
+	kind = "controlSize",
+	section = "metrics.controlSizes",
+	fields = SIZE_FIELDS,
+	authority = "layout",
+	capability = "none",
+	fallback = SIZE_FALLBACK,
+}
+
+local TINT_FALLBACK: Tint = { r = 0.35, g = 0.7, b = 0.9 }
+local TINT_NEED: Need<Tint> = {
+	name = "demo:gaugeTint",
+	kind = "color",
+	section = "style.themes[].extra",
+	authority = "paint",
+	capability = "none",
+	fallback = TINT_FALLBACK,
+}
+
+local NEEDS: { Need<Size> | Need<Tint> } = { SIZE_NEED, TINT_NEED }
+table.freeze(SIZE_FALLBACK)
+table.freeze(TINT_FALLBACK)
+table.freeze(SIZE_NEED)
+table.freeze(TINT_NEED)
+custom_control.needs = table.freeze(NEEDS)
+
+local function tintOf(value: ExtraValue): Tint?
+	if type(value) == "table" then
+		local r, g, b = value.r, value.g, value.b
+		if type(r) == "number" and type(g) == "number" and type(b) == "number" then
+			return { r = r, g = g, b = b }
 		end
 	end
 	return nil
 end
 
-function custom_control.check(package: any): any
+local function gaugeTint(extra: PaletteExtra): ExtraValue
+	return if extra then extra["demo:gaugeTint"] else nil
+end
+
+function custom_control.check(package: ThemePackage): Report
 	local covered: { string } = {}
-	local missing: { any } = {}
+	local missing: { Gap } = {}
 	local function fail(name: string, message: string, fix: string)
 		table.insert(missing, { name = name, message = message, fix = fix })
 	end
 
-	local sizes = (package.metrics or {}).controlSizes or {}
-	local gauge = sizes["demo:gauge"]
-	local sizeNeed = needByName("demo:gauge")
+	local sizes = package.metrics and package.metrics.controlSizes
+	local gauge = if sizes then sizes["demo:gauge"] else nil
 	if type(gauge) ~= "table" then
 		fail(
 			"demo:gauge",
 			`theme package '{package.identity.id}' declares no '{custom_control.namespace}:gauge' control size, `
-				.. `so every {custom_control.control} falls back to its built-in {sizeNeed.fallback.height}px row `
+				.. `so every {custom_control.control} falls back to its built-in {SIZE_NEED.fallback.height}px row `
 				.. "and stops following the theme",
 			'add metrics.controlSizes["demo:gauge"] = { height = .., paddingX = .., iconSize = .. }'
 		)
 	else
+		local values: { [string]: number? } =
+			{ height = gauge.height, paddingX = gauge.paddingX, iconSize = gauge.iconSize }
 		local incomplete: { string } = {}
-		for _, field in sizeNeed.fields do
-			if type(gauge[field]) ~= "number" then
+		for _, field in SIZE_FIELDS do
+			if type(values[field]) ~= "number" then
 				table.insert(incomplete, field)
 			end
 		end
@@ -74,7 +106,7 @@ function custom_control.check(package: any): any
 			fail(
 				"demo:gauge",
 				`'demo:gauge' is missing {table.concat(incomplete, ", ")}`,
-				`declare {table.concat(sizeNeed.fields, ", ")} — the {custom_control.control} resolves all three on every solve`
+				`declare {table.concat(SIZE_FIELDS, ", ")} — the {custom_control.control} resolves all three on every solve`
 			)
 		else
 			table.insert(covered, "demo:gauge")
@@ -83,7 +115,7 @@ function custom_control.check(package: any): any
 
 	local uncovered: { string } = {}
 	for _, theme in package.style.themes do
-		local tint = (theme.extra or {})["demo:gaugeTint"]
+		local tint = gaugeTint(theme.extra)
 		if type(tint) ~= "table" or type(tint.r) ~= "number" then
 			table.insert(uncovered, theme.name)
 		end
@@ -103,35 +135,36 @@ function custom_control.check(package: any): any
 	return { ok = #missing == 0, covered = covered, missing = missing }
 end
 
-function custom_control.resolve(package: any?, themeName: string?): any
-	local sizeNeed = needByName("demo:gauge")
-	local tintNeed = needByName("demo:gaugeTint")
-	local metrics = if package ~= nil then package.metrics or {} else {}
-	local size = (metrics.controlSizes or {})["demo:gauge"]
+function custom_control.resolve(package: ThemePackage?, themeName: string?): Resolved
+	local sizes = if package and package.metrics then package.metrics.controlSizes else nil
+	local size = if sizes then sizes["demo:gauge"] else nil
 	local usedSizeFallback = type(size) ~= "table" or type(size.height) ~= "number"
-	local tint: any = nil
+	local resolvedSize = if usedSizeFallback or size == nil then SIZE_NEED.fallback else size
+	local tint: Tint? = nil
 	if package ~= nil then
 		local wanted = themeName or package.style.defaultTheme
 		for _, theme in package.style.themes do
 			if theme.name == wanted then
-				tint = (theme.extra or {})["demo:gaugeTint"]
+				tint = tintOf(gaugeTint(theme.extra))
 			end
 		end
 	end
-	local usedTintFallback = type(tint) ~= "table" or type(tint.r) ~= "number"
+	local usedTintFallback = tint == nil
 	return {
-		height = if usedSizeFallback then sizeNeed.fallback.height else size.height,
-		paddingX = if usedSizeFallback then sizeNeed.fallback.paddingX else size.paddingX,
-		iconSize = if usedSizeFallback then sizeNeed.fallback.iconSize else size.iconSize,
-		tint = if usedTintFallback then tintNeed.fallback else tint,
+		height = resolvedSize.height,
+		paddingX = resolvedSize.paddingX,
+		iconSize = resolvedSize.iconSize,
+		tint = tint or TINT_NEED.fallback,
 		usedFallback = { size = usedSizeFallback, tint = usedTintFallback },
 	}
 end
 
-function custom_control.blueprint(UI: any, core: any, resolved: any, id: string?): any
+function custom_control.blueprint(UI: Controls, core: Core, resolved: Resolved, id: string?): Frame
 	local Host = core.Host
-	local types = core.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
-	local UDim, UDim2, Enum = types.UDim, types.UDim2, types.Enum
+	local types = core.types
+	local UDim = if types then types.UDim else UDim
+	local UDim2 = if types then types.UDim2 else UDim2
+	local Enum = if types then types.Enum else Enum
 	local name = id or "Gauge"
 	local track = Host.Frame(name .. "Track")({
 		LayoutOrder = 2,
@@ -143,11 +176,10 @@ function custom_control.blueprint(UI: any, core: any, resolved: any, id: string?
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }) :: unknown,
-		UI.Text({
-			Name = name .. "Label",
+		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }),
+		UI.Text(name .. "Label")({
 			text = "Custom gauge (demo:gauge)",
-			textRole = "caption" :: "caption",
+			textRole = "caption",
 			LayoutOrder = 1,
 		}),
 		track,

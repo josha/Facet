@@ -3,14 +3,14 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Alerts and confirmations",
 	ledgerRows = {},
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local status = Compose.cell("The save is ready to replace.")
@@ -24,11 +24,28 @@ return {
 			status:set("The save is ready to replace.")
 		end
 		local function Example()
+			local actions: { AlertAction } = {
+				{
+					id = "Cancel",
+					label = "Keep previous",
+					role = "cancel",
+					onActivate = function()
+						status:set("Previous save kept.")
+					end,
+				},
+				{
+					id = "Replace",
+					label = "Replace save",
+					role = "destructive",
+					onActivate = function()
+						status:set("Checkpoint replaced.")
+					end,
+				},
+			}
 			return Host.Frame "Alert" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView {
-					Name = "Page",
+				UI.ScrollView "Page" {
 					padding = 16,
 					gap = 16,
 					BackgroundTransparency = 1,
@@ -41,11 +58,11 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = "Alerts and confirmations",
-						textRole = "title" :: "title",
+						textRole = "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}) :: unknown,
+					}),
 					UI.Text({
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
@@ -57,9 +74,8 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.Text({
+					UI.Text "Status" {
 						LayoutOrder = 3,
-						Name = "Status",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -68,53 +84,33 @@ return {
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					UI.Button({
+					},
+					UI.Button "Open" {
 						LayoutOrder = 4,
-						Name = "Open",
 						label = "Replace checkpoint…",
 						onActivate = open,
-					}),
-					UI.Button({
+					},
+					UI.Button "Reset" {
 						LayoutOrder = 5,
-						Name = "Reset",
 						label = "Reset",
 						onActivate = reset,
-					}),
-				} :: unknown,
-				UI.Alert {
-					Name = "ReplaceSave",
+					},
+				},
+				UI.Alert "ReplaceSave" {
 					title = "Replace this save?",
-					severity = "critical" :: "critical",
+					severity = "critical",
 					message = "Your current progress will replace the previous checkpoint.",
 					isPresented = presented,
 					suppression = { isSuppressed = Compose.cell(false), label = "Do not ask again" },
-					actions = {
-						{
-							id = "Cancel",
-							label = "Keep previous",
-							role = "cancel" :: "cancel",
-							onActivate = function()
-								status:set("Previous save kept.")
-							end,
-						} :: AlertAction,
-						{
-							id = "Replace",
-							label = "Replace save",
-							role = "destructive" :: "destructive",
-							onActivate = function()
-								status:set("Checkpoint replaced.")
-							end,
-						} :: AlertAction,
-					},
+					actions = actions,
 				},
 			}
 		end
 		return {
 			screen = Example,
 			steps = { open = open, reset = reset },
-			states = function()
-				return { { id = "confirmation", kind = "dialog" :: "dialog", open = open } }
+			states = function(): { { id: string, kind: "dialog", open: () -> boolean } }
+				return { { id = "confirmation", kind = "dialog", open = open } }
 			end,
 			report = function()
 				return { status = status:peek(), alert = { presented = presented:peek() } }

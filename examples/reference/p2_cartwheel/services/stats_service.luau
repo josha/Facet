@@ -7,19 +7,23 @@ local rng = require("./rng")
 
 local stats_service = {}
 
-local TIMEFRAMES = table.freeze({ "today", "week", "month", "year" })
+local TIMEFRAMES: { string } = table.freeze({ "today", "week", "month", "year" })
 local POINTS = table.freeze({ twoWeeks = 14, month = 30, year = 12 })
 
-function stats_service.new(opts: any): any
-	local Compose: ComposeModule = opts.Compose
+export type Opts = { Compose: ComposeModule, seed: number? }
+export type Row = { potion: data.Potion, bottles: number }
+export type Completed = { items: { { potion: string, bottles: number } } }
+
+function stats_service.new(opts: Opts)
+	local Compose = opts.Compose
 	local seed: number = opts.seed or 1
 
-	local self: any = {}
+	local self = {}
 	local version = Compose.cell(0)
 	self.version = version
 
 	local popularity: { [string]: { [string]: number } } = {}
-	for _, potion in data.potions :: any do
+	for _, potion in data.potions do
 		local random = rng.new(seed * 31 + potion.index)
 		local today = random.int(2, 40)
 		popularity[potion.id] = {
@@ -44,18 +48,18 @@ function stats_service.new(opts: any): any
 		return base + (collected[potionId] or 0)
 	end
 
-	function self.topFive(timeframe: string): { any }
-		local rows: { any } = {}
-		for _, potion in data.potions :: any do
+	function self.topFive(timeframe: string): { Row }
+		local rows: { Row } = {}
+		for _, potion in data.potions do
 			table.insert(rows, { potion = potion, bottles = self.bottlesFor(potion.id, timeframe) })
 		end
-		table.sort(rows, function(a, b)
+		table.sort(rows, function(a: Row, b: Row): boolean
 			if a.bottles == b.bottles then
 				return a.potion.index < b.potion.index
 			end
 			return a.bottles > b.bottles
 		end)
-		local out: { any } = {}
+		local out: { Row } = {}
 		for index = 1, math.min(5, #rows) do
 			table.insert(out, rows[index])
 		end
@@ -64,7 +68,7 @@ function stats_service.new(opts: any): any
 
 	function self.totalBottles(timeframe: string): number
 		local total = 0
-		for _, potion in data.potions :: any do
+		for _, potion in data.potions do
 			total += self.bottlesFor(potion.id, timeframe)
 		end
 		return total
@@ -95,7 +99,7 @@ function stats_service.new(opts: any): any
 		return out
 	end
 
-	function self.recordCompletion(brew: any)
+	function self.recordCompletion(brew: Completed)
 		for _, item in brew.items do
 			collected[item.potion] = (collected[item.potion] or 0) + item.bottles
 		end
@@ -111,11 +115,11 @@ function stats_service.new(opts: any): any
 	end
 
 	function self.timeframes(): { string }
-		return TIMEFRAMES :: any
+		return TIMEFRAMES
 	end
 
-	function self.dump(): any
-		local top = {}
+	function self.dump(): { top: { { id: string, bottles: number } }, collected: number, totalToday: number }
+		local top: { { id: string, bottles: number } } = {}
 		for _, row in self.topFive("today") do
 			table.insert(top, { id = row.potion.id, bottles = row.bottles })
 		end

@@ -5,14 +5,14 @@ type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Writing and search",
 	ledgerRows = { "CONTROL-TEXT" },
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local text = Compose.cell("Write your race notes here.")
@@ -80,8 +80,7 @@ return {
 				"body" | "caption" | "control" | "heading" | "label" | "numeral" | "strong" | "title"
 			)?
 		)
-			return UI.Text({
-				Name = name,
+			return UI.Text(name)({
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -108,12 +107,12 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Writing and search",
-					textRole = "title" :: "title",
+					textRole = "title",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				Host.Frame "Toolbar" {
+				Host.Frame("Toolbar")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -121,9 +120,8 @@ return {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}) :: unknown,
-					UI.Button {
-						Name = "Enable",
+					}),
+					UI.Button "Enable" {
 						LayoutOrder = 1,
 						label = function(use: Use)
 							return if use(enabled) then "Disable fields" else "Enable fields"
@@ -132,14 +130,13 @@ return {
 							enabled:set(not enabled:peek())
 						end,
 					},
-					UI.Button {
-						Name = "Reset",
+					UI.Button "Reset" {
 						LayoutOrder = 2,
 						label = "Reset",
 						appearance = "utility",
 						onActivate = reset,
 					},
-				},
+				}),
 				UI.Text({
 
 					BackgroundTransparency = 1,
@@ -147,7 +144,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Race notes",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -163,8 +160,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.TextInput {
-					Name = "Editor",
+				UI.TextInput "Editor" {
 					value = text,
 					multiline = true,
 					enabled = enabled,
@@ -172,16 +168,14 @@ return {
 						saved:set(v)
 					end,
 				},
-				UI.Button {
-					Name = "Save",
+				UI.Button "Save" {
 					label = "Save notes",
 					enabled = enabled,
 					onActivate = function()
 						saved:set(text:peek())
 					end,
 				},
-				UI.Text {
-					Name = "Saved",
+				UI.Text "Saved" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -198,15 +192,14 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Find a track",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.TextInput {
-					Name = "Search",
+				UI.TextInput "Search" {
 					value = query,
-					presentation = "search" :: "search",
+					presentation = "search",
 					enabled = enabled,
 				},
 				Compose.OrderedCollection({
@@ -230,7 +223,7 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						})
 					end,
-				}) :: any,
+				}),
 				UI.Text({
 
 					BackgroundTransparency = 1,
@@ -238,13 +231,12 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Lap count · 1 to 99",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.NumberInput {
-					Name = "Laps",
+				UI.NumberInput "Laps" {
 					value = draft,
 					numericValue = laps,
 					min = 1,
@@ -253,8 +245,7 @@ return {
 					enabled = enabled,
 					ref = keep("Laps"),
 				},
-				UI.Text {
-					Name = "Committed",
+				UI.Text "Committed" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -266,8 +257,7 @@ return {
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.NumberInput {
-					Name = "Fee",
+				UI.NumberInput "Fee" {
 					value = feeDraft,
 					numericValue = fee,
 					enabled = enabled,
@@ -284,8 +274,7 @@ return {
 					end,
 					ref = keep("Fee"),
 				},
-				UI.Text {
-					Name = "CommittedFee",
+				UI.Text "CommittedFee" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -296,8 +285,7 @@ return {
 					TextWrapped = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.NumberInput {
-					Name = "Speed",
+				UI.NumberInput "Speed" {
 					value = speedDraft,
 					numericValue = speed,
 					enabled = enabled,
@@ -308,20 +296,18 @@ return {
 					label = "Pit lane limit",
 					hint = "Drag sideways to change it. Focusing selects the number.",
 					scrub = true,
-					selectOnFocus = "all" :: "all",
+					selectOnFocus = "all",
 					ref = keep("Speed"),
 				},
 				caption("FurnitureHeading", "Fields with furniture", "heading"),
-				UI.TextInput {
-					Name = "Handle",
+				UI.TextInput "Handle" {
 					value = handle,
 					enabled = enabled,
 					label = "Display name",
-					requiredMark = "required" :: "required",
+					requiredMark = "required",
 					hint = "Other racers see this above your kart.",
 					errorText = nameError,
-					trailing = UI.Button {
-						Name = "Paste",
+					trailing = UI.Button "Paste" {
 						label = "Paste",
 						enabled = enabled,
 						onActivate = function()
@@ -331,8 +317,7 @@ return {
 					},
 					ref = keep("Handle"),
 				},
-				UI.Text {
-					Name = "Pasted",
+				UI.Text "Pasted" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -343,17 +328,15 @@ return {
 					TextWrapped = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.TextInput {
-					Name = "JoinCode",
+				UI.TextInput "JoinCode" {
 					value = joinCode,
 					label = "Join code",
 					hint = "Share this with friends. It cannot be edited here.",
 					readOnly = true,
-					clearButtonMode = "always" :: "always",
+					clearButtonMode = "always",
 					ref = keep("JoinCode"),
 				},
-				UI.TextInput {
-					Name = "Briefing",
+				UI.TextInput "Briefing" {
 					value = brief,
 					multiline = true,
 					visibleLines = 3,
@@ -367,18 +350,17 @@ return {
 		end
 		return {
 			screen = function()
-				return Host.Frame "TextControls" {
+				return Host.Frame("TextControls")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					UI.ScrollView {
-						Name = "Content",
+					UI.ScrollView "Content" {
 						padding = 16,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),
 						ScrollBarThickness = 6,
 						body(),
 					},
-				}
+				})
 			end,
 
 			steps = {

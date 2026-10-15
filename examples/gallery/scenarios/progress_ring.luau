@@ -4,6 +4,8 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSize)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 
 local COPY = {
 	title = "Progress and activity",
@@ -20,11 +22,10 @@ return {
 	title = "Progress and activity",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local progress = Compose.cell(0.25)
@@ -45,36 +46,33 @@ return {
 			Compose.cleanup(function()
 				rootPath, controller = nil, nil
 			end)
-			local root = Host.Frame "ProgressRing" {
+			local root = Host.Frame("ProgressRing")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView {
-					Name = "Page",
+				UI.ScrollView "Page" {
 					padding = 16,
 					gap = 8,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					ScrollBarThickness = 6,
-					UI.Text {
-						Name = "Title",
+					UI.Text "Title" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.title,
-						textRole = "heading" :: "heading",
+						textRole = "heading",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					} :: unknown,
-					UI.Text {
-						Name = "Caption",
+					},
+					UI.Text "Caption" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.caption,
-						textRole = "caption" :: "caption",
+						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -90,8 +88,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.Slider {
-						Name = "AdjustProgress",
+					UI.Slider "AdjustProgress" {
 						value = progress,
 						min = 0,
 						max = 1,
@@ -108,8 +105,7 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.ProgressView {
-						Name = "Bar",
+					UI.ProgressView "Bar" {
 						value = progress,
 						showValue = true,
 						endLabel = function(use: Use)
@@ -119,30 +115,27 @@ return {
 						segments = 5,
 						trail = { delay = 0.3, duration = 0.35 },
 					},
-					UI.ProgressView {
-						Name = "Ring",
+					UI.ProgressView "Ring" {
 						label = COPY.determinate,
 						value = progress,
-						presentation = "circular" :: "circular",
+						presentation = "circular",
 						diameter = 120,
 						showValue = true,
 						format = percent,
 					},
-					UI.ProgressView { Name = "Loading", label = COPY.loading },
-					UI.ProgressView {
-						Name = "Busy",
+					UI.ProgressView "Loading" { label = COPY.loading },
+					UI.ProgressView "Busy" {
 						label = COPY.indeterminate,
-						presentation = "circular" :: "circular",
+						presentation = "circular",
 						controlSize = rung,
 						endLabel = "Connecting",
 					},
-					UI.ProgressView {
-						Name = "Dots",
+					UI.ProgressView "Dots" {
 						label = COPY.spinner,
-						presentation = "spinner" :: "spinner",
+						presentation = "spinner",
 						controlSize = rung,
 					},
-					Host.Frame "Sizes" {
+					Host.Frame("Sizes")({
 						BackgroundTransparency = 1,
 						Size = UDim2.new(0, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.XY,
@@ -151,36 +144,33 @@ return {
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
 							Wraps = true,
-						}) :: unknown,
-						UI.Button({
+						}),
+						UI.Button "Compact" {
 							LayoutOrder = 1,
-							Name = "Compact",
 							label = "Compact",
 							onActivate = function()
 								rung:set("compact")
 							end,
-						}),
-						UI.Button({
+						},
+						UI.Button "Regular" {
 							LayoutOrder = 2,
-							Name = "Regular",
 							label = "Regular",
 							onActivate = function()
 								rung:set("regular")
 							end,
-						}),
-						UI.Button({
+						},
+						UI.Button "Large" {
 							LayoutOrder = 3,
-							Name = "Large",
 							label = "Large",
 							onActivate = function()
 								rung:set("large")
 							end,
-						}),
-					},
-					UI.Button { Name = "Reset", label = "Reset progress", onActivate = reset },
+						},
+					}),
+					UI.Button "Reset" { label = "Reset progress", onActivate = reset },
 					placeholders.section(),
 				},
-			}
+			})
 			return root
 		end
 		local function report()

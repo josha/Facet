@@ -60,8 +60,7 @@ function rows.build(ctx: { [string]: any }, current: Readable<any>, options: { [
 			Host.UISizeConstraint({ MinSize = T.Vector2.new(120, 40) }) :: unknown,
 			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
 			Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = T.UDim.new(0, 2) }),
-			UI.Text {
-				Name = "Title",
+			UI.Text "Title" {
 				TextSize = if full then nil else 16,
 				LayoutOrder = 1,
 				text = function(use: Use)
@@ -72,8 +71,7 @@ function rows.build(ctx: { [string]: any }, current: Readable<any>, options: { [
 				TextXAlignment = E.TextXAlignment.Left,
 				TextTruncate = E.TextTruncate.AtEnd,
 			},
-			UI.Text {
-				Name = "Detail",
+			UI.Text "Detail" {
 				TextSize = if full then nil else 13,
 				LayoutOrder = 2,
 				text = function(use: Use)
@@ -85,8 +83,7 @@ function rows.build(ctx: { [string]: any }, current: Readable<any>, options: { [
 				TextTruncate = E.TextTruncate.AtEnd,
 			},
 		},
-		UI.Toggle {
-			Name = "Ready",
+		UI.Toggle "Ready" {
 			LayoutOrder = 3,
 			label = if full then "Ready" else "Favourite",
 			value = checked,
@@ -95,8 +92,7 @@ function rows.build(ctx: { [string]: any }, current: Readable<any>, options: { [
 	if full then
 		table.insert(
 			children,
-			UI.Stepper {
-				Name = "Rate",
+			UI.Stepper "Rate" {
 				LayoutOrder = 4,
 				label = "Rate",
 				value = value,
@@ -110,8 +106,7 @@ function rows.build(ctx: { [string]: any }, current: Readable<any>, options: { [
 		)
 		table.insert(
 			children,
-			UI.Button {
-				Name = "Open",
+			UI.Button "Open" {
 				LayoutOrder = 5,
 				label = "Open",
 				onActivate = function()

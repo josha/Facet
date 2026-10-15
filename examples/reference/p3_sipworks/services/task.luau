@@ -14,14 +14,14 @@ task.FREE_POUR_BLEND = "mistral-mint"
 task.PHASES = { "order", "placing", "rejected", "redeem", "done" }
 
 export type Opts = {
-	Compose: any,
+	Compose: ComposeModule,
 	batch: (() -> ()) -> (),
-	rewards: any,
-	order: any,
+	rewards: { earned: Readable<number>, spent: Readable<number> },
+	order: { status: Readable<string> },
 }
 
-function task.new(opts: Opts): any
-	local Compose: ComposeModule = opts.Compose
+function task.new(opts: Opts)
+	local Compose = opts.Compose
 
 	local batch = opts.batch
 	local rewards = opts.rewards

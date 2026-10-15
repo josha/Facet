@@ -1,6 +1,10 @@
 --!strict
 
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type Entry = { id: string, value: string? }
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
 local items = {
@@ -13,34 +17,46 @@ local items = {
 	{ id = "lantern", name = "Sunstone lantern", slot = "tool", warmth = 2, power = 1, color = { 247, 193, 82 } },
 	{ id = "pick", name = "Glacier pick", slot = "tool", warmth = 0, power = 8, color = { 113, 199, 211 } },
 }
-local byId = {}
+type Item = typeof(items[1])
+local byId: { [string]: Item } = {}
 for index, item in items do
 	item.artIndex = index - 1
 	byId[item.id] = item
 end
 return {
 	title = "Adventurer's Pack",
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext)
 		local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 		local V3, C3, E, D2 = ctx.types.Vector3, ctx.types.Color3, ctx.types.Enum, ctx.types.UDim2
 		local view = makeView(ctx)
-		local equipped = C.cell({ coat = "traveler", boots = "boots", tool = "sword" })
-		local query, filter, path = C.cell(""), C.cell("all"), C.cell({})
+		local outfit: { [string]: string } = { coat = "traveler", boots = "boots", tool = "sword" }
+		local entries: { Entry } = {}
+		local equipped = C.cell(outfit)
+		local query, filter, path = C.cell(""), C.cell("all"), C.cell(entries)
 		local hotbar = C.cell({ "sword", "lantern", "pick" })
 		local width, loadoutOpen = C.cell(1100), C.cell(false)
 		local metric = UI.environment().metricScale
-		local wide = C.formula(function(use: any)
+		local toolPayloads: { [string]: { kind: string, id: string } } = {}
+		local toolOf: { [unknown]: string } = {}
+		for _, item in items do
+			if item.slot == "tool" then
+				local payload = { kind = "tool", id = item.id }
+				toolPayloads[item.id] = payload
+				toolOf[payload] = item.id
+			end
+		end
+		local wide = C.formula(function(use: Use)
 			return use(width) >= 850 * use(metric)
 		end)
 		local notice = C.cell("The frost cave needs 10 warmth. Find a warmer outfit.")
-		local warmth = C.formula(function(use: any)
+		local warmth = C.formula(function(use: Use)
 			local total = 0
 			for _, id in use(equipped) do
 				total += byId[id].warmth
 			end
 			return total
 		end)
-		local filtered = C.formula(function(use: any)
+		local filtered = C.formula(function(use: Use)
 			local found = {}
 			local search, category = string.lower(use(query)), use(filter)
 			for _, item in items do
@@ -53,7 +69,7 @@ return {
 			end
 			return found
 		end)
-		local function equip(id)
+		local function equip(id: string)
 			local item = byId[id]
 			if not item then
 				return false
@@ -64,7 +80,7 @@ return {
 			notice:set("Equipped " .. item.name .. ".")
 			return true
 		end
-		local function assign(id, slot)
+		local function assign(id: string, slot: number)
 			if not byId[id] or byId[id].slot ~= "tool" or slot < 1 or slot > 3 then
 				return false
 			end
@@ -90,8 +106,8 @@ return {
 		local function portrait()
 			return view.stage("Explorer", function()
 				return Host.Model "ExplorerModel" {
-					view.part("Snow", V3.new(6, 0.2, 5), V3.new(0, -0.1, 0), C3.fromRGB(208, 224, 232)) :: unknown,
-					view.part("Coat", V3.new(1.9, 2.1, 1), V3.new(0, 2.3, 0), function(use: any)
+					view.part("Snow", V3.new(6, 0.2, 5), V3.new(0, -0.1, 0), C3.fromRGB(208, 224, 232)),
+					view.part("Coat", V3.new(1.9, 2.1, 1), V3.new(0, 2.3, 0), function(use: Use)
 						return C3.fromRGB(table.unpack(byId[use(equipped).coat].color))
 					end),
 					view.part(
@@ -101,49 +117,53 @@ return {
 						C3.fromRGB(234, 194, 147),
 						{ Shape = E.PartType.Ball }
 					),
-					view.part("LeftBoot", V3.new(0.8, 1.3, 1.2), V3.new(-0.55, 0.65, 0.15), function(use: any)
+					view.part("LeftBoot", V3.new(0.8, 1.3, 1.2), V3.new(-0.55, 0.65, 0.15), function(use: Use)
 						return C3.fromRGB(table.unpack(byId[use(equipped).boots].color))
 					end),
-					view.part("RightBoot", V3.new(0.8, 1.3, 1.2), V3.new(0.55, 0.65, 0.15), function(use: any)
+					view.part("RightBoot", V3.new(0.8, 1.3, 1.2), V3.new(0.55, 0.65, 0.15), function(use: Use)
 						return C3.fromRGB(table.unpack(byId[use(equipped).boots].color))
 					end),
-					view.part("Tool", V3.new(0.35, 2.8, 0.35), V3.new(1.4, 2.2, 0), function(use: any)
+					view.part("Tool", V3.new(0.35, 2.8, 0.35), V3.new(1.4, 2.2, 0), function(use: Use)
 						return C3.fromRGB(table.unpack(byId[use(equipped).tool].color))
 					end),
 				}
 			end, ctx.types.CFrame.lookAt(V3.new(7, 5, 9), V3.new(0, 2, 0)), 240)
 		end
-		local function details(entry)
-			local item = byId[entry.value]
+		local function details(entry: Entry?)
+			local item = byId[assert(entry and entry.value)]
 			return view.page("ItemDetails", item.name, "Compare it with your current equipment.", {
 				portrait(),
-				view.text("Comparison", function(use: any)
+				view.text("Comparison", function(use: Use)
 					local current = byId[use(equipped)[item.slot]]
 					return `Equipped: {current.name}\nWarmth  {current.warmth} → {item.warmth}     Power  {current.power} → {item.power}`
 				end),
-				view.button("EquipItem", function(use: any)
+				view.button("EquipItem", function(use: Use)
 					return if use(equipped)[item.slot] == item.id then "Equipped" else "Equip " .. item.name
 				end, function()
 					equip(item.id)
-				end, function(use: any)
+				end, function(use: Use)
 					return use(equipped)[item.slot] ~= item.id
 				end),
 				view.text("EquipmentNotice", notice),
 			})
 		end
-		local function equipmentArt(item: any)
-			return UI.Image {
-				Name = "EquipmentArt",
+		local function equipmentArt(item: Item)
+			return UI.Image "EquipmentArt" {
 				image = art.equipment,
-				scaleMode = "fit" :: "fit",
+				scaleMode = "fit",
 				Size = D2.fromScale(1, 1),
 				ImageRectSize = ctx.types.Vector2.new(256, 256),
 				ImageRectOffset = ctx.types.Vector2.new(item.artIndex % 4 * 256, math.floor(item.artIndex / 4) * 256),
 			}
 		end
 		local function bag()
-			return UI.NavigationStack {
-				Name = "PackNavigation",
+			local categories: { StringPickerOption } = {
+				{ value = "all", label = "All equipment" },
+				{ value = "coat", label = "Coats" },
+				{ value = "boots", label = "Boots" },
+				{ value = "tool", label = "Tools" },
+			}
+			return UI.NavigationStack "PackNavigation" {
 				path = path,
 				Size = D2.fromScale(1, 1),
 				root = {
@@ -151,59 +171,50 @@ return {
 					content = function(): Instance
 						local measuredWidth = C.cell(600)
 						local metricScale = UI.environment().metricScale
-						return UI.Screen {
-							Name = "BagPage",
+						return UI.Screen "BagPage" {
 							gap = "m",
-							view.text("Objective", "Prepare for the frost cave", "title") :: unknown,
-							UI.ProgressView {
-								Name = "Warmth",
+							view.text("Objective", "Prepare for the frost cave", "title"),
+							UI.ProgressView "Warmth" {
 								label = "Warmth",
 								value = warmth,
 								max = 10,
 								showValue = true,
 							},
-							UI.TextInput {
-								Name = "SearchEquipment",
-								presentation = "search" :: "search",
+							UI.TextInput "SearchEquipment" {
+								presentation = "search",
 								value = query,
 								placeholder = "Find equipment…",
 							},
-							UI.Picker {
-								Name = "EquipmentCategory",
+							UI.Picker "EquipmentCategory" {
 								selected = filter,
-								options = {
-									{ value = "all", label = "All equipment" } :: PickerOption,
-									{ value = "coat", label = "Coats" } :: PickerOption,
-									{ value = "boots", label = "Boots" } :: PickerOption,
-									{ value = "tool", label = "Tools" } :: PickerOption,
-								},
+								options = categories,
 							},
-							C.show(function(use: any)
+							C.show(function(use: Use)
 								return #use(filtered) == 0
 							end, function()
 								return view.text("NoEquipment", "No equipment matches. Try another search.")
 							end),
-							UI.VirtualGrid {
-								Name = "EquipmentGrid",
+							UI.VirtualGrid "EquipmentGrid" {
 								from = filtered,
 								key = "id",
 								measure = true,
 								gap = 12,
-								itemSize = function(use: any)
+								itemSize = function(use: Use)
 									return 300 * use(metricScale)
 								end,
-								columns = function(use: any)
+								columns = function(use: Use)
 									return math.max(1, math.floor(use(measuredWidth) / (230 * use(metricScale))))
 								end,
 								Size = D2.new(1, 0, 0, 310),
-								UI.fill() :: unknown,
-								ref = view.observeWidth(measuredWidth),
-								render = function(current): GuiObject
-									local item: any = current:peek()
-									local card = UI.Card({
-										Name = "Item_" .. item.id,
+								UI.fill(),
+								ref = function(node)
+									view.observeWidth(measuredWidth, node)
+								end,
+								render = function(current: Readable<Item>): GuiObject
+									local item = current:peek()
+									local card = UI.Card("Item_" .. item.id)({
 										title = item.name,
-										caption = function(use: any)
+										caption = function(use: Use)
 											return `+{item.warmth} warmth · {item.power} power{if use(equipped)[item.slot]
 													== item.id
 												then " · Equipped"
@@ -220,10 +231,7 @@ return {
 										end,
 									})
 									if item.slot == "tool" then
-										UI.draggable(
-											card,
-											{ payload = { kind = "tool" :: "tool", id = item.id }, armOnTap = true }
-										)
+										UI.draggable(card, { payload = toolPayloads[item.id], armOnTap = true })
 									end
 									return card
 								end,
@@ -242,13 +250,13 @@ return {
 				{
 					portrait(),
 					UI.ProgressView { label = "Warmth", value = warmth, max = 10, showValue = true },
-					view.text("EquippedSummary", function(use: any)
+					view.text("EquippedSummary", function(use: Use)
 						local e = use(equipped)
 						return byId[e.coat].name .. " · " .. byId[e.boots].name .. " · " .. byId[e.tool].name
 					end),
 					view.button("EnterCave", "Enter the frost cave", function()
 						notice:set("Expedition ready! Your gear keeps you warm inside the frost cave.")
-					end, function(use: any)
+					end, function(use: Use)
 						return use(warmth) >= 10
 					end),
 					view.text("ExpeditionNotice", notice),
@@ -259,64 +267,66 @@ return {
 		local function belt()
 			local slots = {}
 			for slot = 1, 3 do
-				local target = view.button("Slot" .. slot, function(use: any)
+				local target = view.button("Slot" .. slot, function(use: Use)
 					return `{slot} · {byId[use(hotbar)[slot]].name}`
 				end, function()
 					equip(hotbar:peek()[slot])
 				end)
 				UI.dropTarget(target, {
-					accepts = function(payload)
-						return payload.kind == "tool"
+					accepts = function(payload: unknown)
+						return toolOf[payload] ~= nil
 					end,
-					onDrop = function(payload)
-						assign(payload.id, slot)
+					onDrop = function(payload: unknown)
+						local id = toolOf[payload]
+						if id then
+							assign(id, slot)
+						end
 					end,
 				})
 				table.insert(slots, target)
 			end
-			return UI.VStack {
-				Name = "HotbarDock",
-				width = "fill" :: "fill",
+			return UI.VStack "HotbarDock" {
+				width = "fill",
 				gap = "s",
 				view.text(
 					"HotbarHint",
 					"HOTBAR · Drag a tool here to rearrange it. Select a slot to equip.",
 					"caption"
-				) :: unknown,
-				UI.Grid {
-					Name = "HotbarSlots",
+				),
+				UI.Grid "HotbarSlots" {
 					columns = 3,
 					gap = "s",
 					cellHeight = 52,
-					table.unpack((slots :: unknown) :: { unknown }),
+					table.unpack(slots),
 				},
 			}
 		end
 		local function screen()
-			return UI.ScrollView {
-				Name = "AdventurersPack",
+			return UI.ScrollView "AdventurersPack" {
 				padding = "m",
 				gap = "s",
-				ref = view.observeWidth(width),
+				ref = function(node)
+					view.observeWidth(width, node)
+				end,
 				UI.HStack {
-					width = "fill" :: "fill",
+					width = "fill",
 					gap = "s",
 					wrap = true,
 					view.button("ShowLoadout", "Inspect loadout", function()
 						loadoutOpen:set(true)
-					end) :: unknown,
+					end),
 					view.button("ResetInventory", "Start over", reset),
-				} :: unknown,
+				},
 				Host.Frame "EquipmentWorkbench" {
 					BackgroundTransparency = 1,
 					Size = D2.new(1, 0, 0, 560),
 					Host.Frame "Backpack" {
 						BackgroundTransparency = 1,
-						Size = function(use: any)
+						Size = function(use: Use)
 							return D2.new(if use(wide) then 0.66 else 1, if use(wide) then -12 else 0, 1, 0)
 						end,
 						bag(),
-					} :: unknown,
+					},
 					C.show(wide, function()
 						return Host.Frame "CharacterPanel" {
 							BackgroundTransparency = 1,
@@ -327,8 +337,7 @@ return {
 					end),
 				},
 				belt(),
-				UI.Sheet {
-					Name = "LoadoutSheet",
+				UI.Sheet "LoadoutSheet" {
 					title = "Expedition loadout",
 					isPresented = loadoutOpen,
 					closeButton = true,

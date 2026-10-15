@@ -1,37 +1,39 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Bounded = { width: unknown?, label: unknown?, Size: unknown?, AutomaticSize: unknown? }
 
-return function(
+return function<P>(
 	Compose: ComposeModule,
-	props: any,
-	available: any,
+	props: P & Bounded,
+	available: Readable<number>,
 	control: boolean?,
-	types: any?,
+	types: RobloxTypes?,
 	boundLabel: boolean?,
 	maximum: number?
-): any
+): P & Bounded
 	local width = props.width
 	if control == false then
 		return props
 	end
-	local bounded = table.clone(props)
-	local room = if maximum
+	local room: Readable<number> = if maximum
 		then Compose.formula(function(use)
 			return math.min(maximum, math.max(0, use(available)))
 		end)
 		else available
 	if type(width) == "number" then
-		bounded.width = Compose.formula(function(use)
+		props.width = Compose.formula(function(use)
 			return math.min(width, math.max(0, use(room)))
 		end)
 	end
-	if boundLabel and type(props.label) == "string" and props.Size == nil and props.width == nil then
-		local native = types or { UDim2 = UDim2, Enum = Enum }
-		bounded.Size = Compose.formula(function(use)
-			return native.UDim2.fromOffset(math.max(0, use(room)), 0)
+	if boundLabel and type(props.label) == "string" and props.Size == nil and width == nil then
+		local native = if types then types.UDim2 else UDim2
+		props.Size = Compose.formula(function(use)
+			return native.fromOffset(math.max(0, use(room)), 0)
 		end)
-		bounded.AutomaticSize = native.Enum.AutomaticSize.Y
+		props.AutomaticSize = if types then types.Enum.AutomaticSize.Y else Enum.AutomaticSize.Y
 	end
-	return bounded
+	return props
 end

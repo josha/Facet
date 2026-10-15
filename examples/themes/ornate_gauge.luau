@@ -1,13 +1,39 @@
 --!strict
 
-type Need = {
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
+type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
+type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
+type RobloxTypes = typeof(require("@repo/tools/typecheck/aliases").RobloxTypes)
+type PaletteExtra = typeof(require("@repo/tools/typecheck/aliases").PaletteExtra)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type Size = { height: number, paddingX: number, iconSize: number }
+type Tint = { r: number, g: number, b: number }
+type Need<Fallback> = {
 	name: string,
 	kind: string,
 	section: string,
 	fields: { string }?,
 	authority: string,
 	capability: string,
-	fallback: number | { [string]: number },
+	fallback: Fallback,
+}
+type CoverageNeed = { name: string, section: string?, kind: ("color" | "number")?, fields: { string }? }
+type Resolved = {
+	height: number,
+	paddingX: number,
+	iconSize: number,
+	ring: number,
+	needle: Tint,
+	usedFallback: { size: boolean, needle: boolean, ring: boolean },
+}
+type Core = { Host: Host, types: RobloxTypes? }
+type Options = {
+	id: string?,
+	label: string?,
+	fraction: (number | Readable<number>)?,
+	heightPx: Readable<number>?,
 }
 
 local ornate_gauge = {}
@@ -24,101 +50,119 @@ ornate_gauge.ART = table.freeze({
 ornate_gauge.CAP_PX = 28
 ornate_gauge.NEEDLE_PX = 24
 
-ornate_gauge.needs = table.freeze({
-	table.freeze({
-		name = "gauge:dial",
-		kind = "controlSize" :: string,
-		section = "metrics.controlSizes",
-		fields = table.freeze({ "height", "paddingX", "iconSize" }) :: { string }?,
-		authority = "layout",
-		capability = "none",
-		fallback = table.freeze({ height = 44, paddingX = 12, iconSize = 18 }) :: number | { [string]: number },
-	}),
-	table.freeze({
-		name = "gauge:needle",
-		kind = "color" :: string,
-		section = "style.themes[].extra",
-		fields = nil :: { string }?,
-		authority = "paint",
-		capability = "none",
+local DIAL_FIELDS: { string } = { "height", "paddingX", "iconSize" }
+local DIAL_FALLBACK: Size = { height = 44, paddingX = 12, iconSize = 18 }
+local NEEDLE_FALLBACK: Tint = { r = 0.75, g = 0.58, b = 0.23 }
+local DIAL_NEED: Need<Size> = {
+	name = "gauge:dial",
+	kind = "controlSize",
+	section = "metrics.controlSizes",
+	fields = DIAL_FIELDS,
+	authority = "layout",
+	capability = "none",
+	fallback = DIAL_FALLBACK,
+}
+local NEEDLE_NEED: Need<Tint> = {
+	name = "gauge:needle",
+	kind = "color",
+	section = "style.themes[].extra",
+	authority = "paint",
+	capability = "none",
+	fallback = NEEDLE_FALLBACK,
+}
+local RING_NEED: Need<number> = {
+	name = "gauge:ring",
+	kind = "number",
+	section = "metrics.radii",
+	authority = "paint",
+	capability = "none",
+	fallback = 6,
+}
+local NEEDS: { Need<Size> | Need<Tint> | Need<number> } = { DIAL_NEED, NEEDLE_NEED, RING_NEED }
+table.freeze(DIAL_FIELDS)
+table.freeze(DIAL_FALLBACK)
+table.freeze(NEEDLE_FALLBACK)
+table.freeze(DIAL_NEED)
+table.freeze(NEEDLE_NEED)
+table.freeze(RING_NEED)
+ornate_gauge.needs = table.freeze(NEEDS)
 
-		fallback = table.freeze({ r = 0.75, g = 0.58, b = 0.23 }),
-	}),
-	table.freeze({
-		name = "gauge:ring",
-		kind = "number" :: string,
-		section = "metrics.radii",
-		fields = nil :: { string }?,
-		authority = "paint",
-		capability = "none",
-		fallback = 6,
-	}),
-})
+local COVERAGE: { CoverageNeed } = {
+	{ name = DIAL_NEED.name, section = DIAL_NEED.section, fields = DIAL_NEED.fields },
+	{ name = NEEDLE_NEED.name, section = NEEDLE_NEED.section, kind = "color" },
+	{ name = RING_NEED.name, section = RING_NEED.section, kind = "number" },
+}
 
-local function needByName(name: string): any
-	for _, need in ornate_gauge.needs do
-		if need.name == name then
-			return need
+function ornate_gauge.check(themes: Themes, package: ThemePackage)
+	return themes.checkCoverage(package, COVERAGE)
+end
+
+local function tintOf(extra: PaletteExtra?): Tint?
+	local value = if extra then extra["gauge:needle"] else nil
+	if type(value) == "table" then
+		local r, g, b = value.r, value.g, value.b
+		if type(r) == "number" and type(g) == "number" and type(b) == "number" then
+			return { r = r, g = g, b = b }
 		end
 	end
 	return nil
 end
 
-function ornate_gauge.check(themes: any, package: any): any
-	return themes.checkCoverage(package, ornate_gauge.needs)
-end
-
-function ornate_gauge.resolve(package: any?, themeName: string?): any
-	local sizeNeed = needByName("gauge:dial")
-	local colorNeed = needByName("gauge:needle")
-	local ringNeed = needByName("gauge:ring")
-	local metrics = if package ~= nil then package.metrics or {} else {}
-
-	local size = (metrics.controlSizes or {})["gauge:dial"]
+function ornate_gauge.resolve(package: ThemePackage?, themeName: string?): Resolved
+	local metrics = if package ~= nil then package.metrics else nil
+	local sizes = if metrics then metrics.controlSizes else nil
+	local size = if sizes then sizes["gauge:dial"] else nil
 	local usedSize = type(size) ~= "table" or type(size.height) ~= "number"
+	local dial = if usedSize or size == nil then DIAL_NEED.fallback else size
 
-	local ring = (metrics.radii or {})["gauge:ring"]
+	local radii = if metrics then metrics.radii else nil
+	local ring = if radii then radii["gauge:ring"] else nil
 	local usedRing = type(ring) ~= "number"
 
-	local needle: any = nil
+	local needle: Tint? = nil
 	if package ~= nil then
 		local wanted = themeName or package.style.defaultTheme
 		for _, theme in package.style.themes do
 			if theme.name == wanted then
-				needle = (theme.extra or {})["gauge:needle"]
+				needle = tintOf(theme.extra)
 			end
 		end
 	end
-	local usedNeedle = type(needle) ~= "table" or type(needle.r) ~= "number"
+	local usedNeedle = needle == nil
 
 	return {
-		height = if usedSize then sizeNeed.fallback.height else size.height,
-		paddingX = if usedSize then sizeNeed.fallback.paddingX else size.paddingX,
-		iconSize = if usedSize then sizeNeed.fallback.iconSize else size.iconSize,
-		ring = if usedRing then ringNeed.fallback else ring,
-		needle = if usedNeedle then colorNeed.fallback else needle,
+		height = dial.height,
+		paddingX = dial.paddingX,
+		iconSize = dial.iconSize,
+		ring = if ring ~= nil and not usedRing then ring else RING_NEED.fallback,
+		needle = needle or NEEDLE_NEED.fallback,
 		usedFallback = { size = usedSize, needle = usedNeedle, ring = usedRing },
 	}
 end
 
-function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): any
+function ornate_gauge.blueprint(UI: Controls, core: Core, resolved: Resolved, opts: Options?): Frame
 	local Host = core.Host
-	local types = core.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
-	local UDim, UDim2, Vector2, Color3, Enum = types.UDim, types.UDim2, types.Vector2, types.Color3, types.Enum
-	local o: any = opts or {}
-	local name: string = o.id or "Gauge"
+	local types = core.types
+	local UDim = if types then types.UDim else UDim
+	local UDim2 = if types then types.UDim2 else UDim2
+	local Vector2 = if types then types.Vector2 else Vector2
+	local Color3 = if types then types.Color3 else Color3
+	local Enum = if types then types.Enum else Enum
+	local o: Options = opts or {}
+	local name = o.id or "Gauge"
 	local capPx = ornate_gauge.CAP_PX
 	local needleColor = Color3.new(resolved.needle.r, resolved.needle.g, resolved.needle.b)
 
-	local function fraction(use: any): number
+	local function fraction(use: Use): number
 		local value = o.fraction
 		local n = if type(value) == "number" then value elseif value ~= nil then use(value) else 0
-		return math.clamp(if type(n) == "number" then n else 0, 0, 1)
+		return math.clamp(n, 0, 1)
 	end
-	local function height(use: any): number
-		return if o.heightPx ~= nil then use(o.heightPx) else resolved.height
+	local function height(use: Use): number
+		local source = o.heightPx
+		return if source ~= nil then use(source) else resolved.height
 	end
-	local function cap(side: string): any
+	local function cap(side: string): ImageLabel
 		return Host.ImageLabel(name .. side)({
 			Image = ornate_gauge.ART.endcap,
 			BackgroundTransparency = 1,
@@ -132,10 +176,10 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 	local dial = Host.Frame(name .. "Dial")({
 		LayoutOrder = 2,
 		BackgroundTransparency = 1,
-		Size = function(use: any)
+		Size = function(use: Use): UDim2
 			return UDim2.new(1, 0, 0, height(use))
 		end,
-		Host.UICorner({ CornerRadius = UDim.new(0, resolved.ring) }) :: unknown,
+		Host.UICorner({ CornerRadius = UDim.new(0, resolved.ring) }),
 		Host.ImageLabel(name .. "Face")({
 			Image = ornate_gauge.ART.face,
 			BackgroundTransparency = 1,
@@ -151,7 +195,7 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 				ImageColor3 = needleColor,
 				BackgroundTransparency = 1,
 				AnchorPoint = Vector2.new(0.5, 0),
-				Position = function(use: any)
+				Position = function(use: Use): UDim2
 					return UDim2.fromScale(fraction(use), 0)
 				end,
 				Size = UDim2.new(0, ornate_gauge.NEEDLE_PX, 1, 0),
@@ -165,11 +209,10 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }) :: unknown,
-		UI.Text({
-			Name = name .. "Label",
+		Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }),
+		UI.Text(name .. "Label")({
 			text = o.label or "Boiler pressure (gauge:dial)",
-			textRole = "caption" :: "caption",
+			textRole = "caption",
 			LayoutOrder = 1,
 		}),
 		dial,

@@ -184,26 +184,35 @@ for key, value in en do
 	xa[key] = pseudo(value)
 end
 
-strings.locales = table.freeze({ en = table.freeze(en), xa = table.freeze(xa) })
+local LOCALES: { [string]: { [string]: string } } = { en = table.freeze(en), xa = table.freeze(xa) }
+strings.locales = table.freeze(LOCALES)
 strings.pseudo = pseudo
 
-function strings.format(template: string, vars: { [string]: any }?): string
+export type Vars = { [string]: unknown }
+
+function strings.format(template: string, vars: Vars?): string
 	if vars == nil then
 		return template
 	end
 	return (
 		string.gsub(template, "{(%w+)}", function(name: string): string
-			local value = (vars :: any)[name]
+			local value = vars[name]
 			return if value == nil then "{" .. name .. "}" else tostring(value)
 		end)
 	)
 end
 
-function strings.new(locale: string?): any
-	local name = if locale ~= nil and (strings.locales :: any)[locale] ~= nil then locale else "en"
-	local table_ = (strings.locales :: any)[name]
+export type Strings = {
+	locale: string,
+	t: (key: string, vars: Vars?) -> string,
+	has: (key: string) -> boolean,
+}
+
+function strings.new(locale: string?): Strings
+	local name = if locale ~= nil and LOCALES[locale] ~= nil then locale else "en"
+	local table_ = LOCALES[name]
 	local self = { locale = name }
-	function self.t(key: string, vars: { [string]: any }?): string
+	function self.t(key: string, vars: Vars?): string
 		local template = table_[key]
 		if template == nil then
 			return key

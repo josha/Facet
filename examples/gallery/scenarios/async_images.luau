@@ -24,7 +24,8 @@ return {
 			end)("loading"),
 		}
 		local function errorCell(): UnknownCell
-			return Compose.cell(nil :: unknown)
+			local noError: unknown = nil
+			return Compose.cell(noError)
 		end
 		local errors = { errorCell(), errorCell(), errorCell() }
 		local pictures = {
@@ -50,13 +51,12 @@ return {
 		end
 		return {
 			screen = function()
-				return UI.ScrollView {
-					Name = "AsyncImages",
+				return UI.ScrollView "AsyncImages" {
 					padding = 16,
 					gap = 12,
 					BackgroundTransparency = 1,
 					Size = D2.fromScale(1, 1),
-					UI.Text({ LayoutOrder = 1, text = "Loading profile pictures", textRole = "title" :: "title" }) :: unknown,
+					UI.Text({ LayoutOrder = 1, text = "Loading profile pictures", textRole = "title" }),
 					UI.Text({
 						LayoutOrder = 2,
 						text = "Pictures keep their space while loading; unavailable pictures keep a placeholder.",
@@ -72,22 +72,21 @@ return {
 							)
 						end,
 					}),
-					Host.Frame({
+					Host.Frame "Row" {
 						LayoutOrder = 4,
-						Name = "Row",
 						BackgroundTransparency = 1,
 						Size = D2.new(1, 0, 0, 48),
 						Host.UIListLayout({
 							SortOrder = E.SortOrder.LayoutOrder,
 							FillDirection = E.FillDirection.Horizontal,
 							Padding = D.new(0, 12),
-						}) :: unknown,
+						}),
 						picture(1),
 						Compose.show(shown, function()
 							return picture(2)
 						end),
 						picture(3),
-					}),
+					},
 					UI.Button({
 						LayoutOrder = 5,
 						label = "Release second picture",

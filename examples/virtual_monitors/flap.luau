@@ -1,12 +1,13 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local flight = require("./flap_model")
+local modelModule = require("./model")
+type Context = modelModule.Context
 
-return function(ctx: any)
-	local Compose: ComposeModule, Host, UI = ctx.Compose, ctx.Host, ctx.UI
+return function(ctx: Context): GuiObject
+	local Compose, Host, UI = ctx.Compose, ctx.Host, ctx.UI
 	local D2, D, V2, C3, E = ctx.D2, ctx.D, ctx.V2, ctx.C3, ctx.E
 	local gameModel = ctx.model.flap
 	local state = gameModel.state
@@ -18,7 +19,14 @@ return function(ctx: any)
 		pipe = C3.fromRGB(64, 151, 117),
 		cap = C3.fromRGB(99, 191, 139),
 	}
-	local function text(name: string, content, size, position, bounds, color)
+	local function text(
+		name: string,
+		content: (Use) -> string,
+		size: number,
+		position: UDim2,
+		bounds: UDim2,
+		color: Color3?
+	): TextLabel
 		return Host.TextLabel(name)({
 			Text = content,
 			Font = E.Font.GothamBold,
@@ -49,7 +57,7 @@ return function(ctx: any)
 		BackgroundColor3 = C3.fromRGB(180, 222, 232),
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-		Host.UIAspectRatioConstraint { AspectRatio = width / height, AspectType = E.AspectType.FitWithinMaxSize } :: unknown,
+		Host.UIAspectRatioConstraint { AspectRatio = width / height, AspectType = E.AspectType.FitWithinMaxSize },
 		Host.Frame "Sun" {
 			Position = D2.fromScale(0.77, 0.13),
 			Size = D2.fromScale(0.10, 0.17),
@@ -114,7 +122,7 @@ return function(ctx: any)
 			BackgroundColor3 = C3.fromRGB(255, 207, 79),
 			BorderSizePixel = 0,
 			ZIndex = 3,
-			Host.UICorner { CornerRadius = D.new(0.3, 0) } :: unknown,
+			Host.UICorner { CornerRadius = D.new(0.3, 0) },
 			Host.Frame "Wing" {
 				Position = D2.fromScale(-0.18, 0.42),
 				Size = D2.fromScale(0.55, 0.42),
@@ -151,7 +159,7 @@ return function(ctx: any)
 			Visible = function(use: Use)
 				return use(state).phase ~= "playing"
 			end,
-			Host.UICorner { CornerRadius = D.new(0.08, 0) } :: unknown,
+			Host.UICorner { CornerRadius = D.new(0.08, 0) },
 			text("FlightTitle", function(use: Use)
 				local phase = use(state).phase
 				return if phase == "over"
@@ -177,23 +185,21 @@ return function(ctx: any)
 			Activated = press,
 		},
 	}
-	return UI.VStack {
-		Name = "FlapBody",
-		width = "fill" :: "fill",
-		height = "fill" :: "fill",
+	return UI.VStack "FlapBody" {
+		width = "fill",
+		height = "fill",
 		gap = "s",
 		Host.Frame "FlightStage" {
 			Size = D2.fromScale(1, 0),
 			BackgroundTransparency = 1,
-			UI.fill() :: unknown,
+			UI.fill(),
 			scene,
-		} :: unknown,
-		UI.HStack {
-			Name = "FlightControls",
-			width = "fill" :: "fill",
+		},
+		UI.HStack "FlightControls" {
+			width = "fill",
 			gap = "s",
-			align = "center" :: "center",
-			ctx.button("FlapAction", controlLabel, press) :: unknown,
+			align = "center",
+			ctx.button("FlapAction", controlLabel, press),
 			ctx.button(
 				"FlapPause",
 				function(use: Use)
@@ -207,11 +213,10 @@ return function(ctx: any)
 					end,
 				}
 			),
-			UI.Text {
-				Name = "FlightInstructions",
+			UI.Text "FlightInstructions" {
 				text = "Tap / Space · Fly through the gaps",
-				textRole = "caption" :: "caption",
-				role = "secondary" :: "secondary",
+				textRole = "caption",
+				role = "secondary",
 				TextWrapped = true,
 				UI.fill(),
 			},

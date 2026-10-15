@@ -1,12 +1,15 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 
 local words = require("./words")
 
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 
 local example = {}
 example.title = "Word Guess"
@@ -69,7 +72,8 @@ function rules.evaluate(guess: string, solution: string): { string }
 	return states
 end
 
-rules.KEY_RANK = table.freeze({ absent = 1, present = 2, correct = 3 })
+local KEY_RANK: { [string]: number } = table.freeze({ absent = 1, present = 2, correct = 3 })
+rules.KEY_RANK = KEY_RANK
 
 function rules.strongest(a: string?, b: string?): string?
 	if a == nil then
@@ -78,8 +82,8 @@ function rules.strongest(a: string?, b: string?): string?
 	if b == nil then
 		return a
 	end
-	local ra = (rules.KEY_RANK :: any)[a] or 0
-	local rb = (rules.KEY_RANK :: any)[b] or 0
+	local ra = KEY_RANK[a] or 0
+	local rb = KEY_RANK[b] or 0
 	return if rb > ra then b else a
 end
 
@@ -88,7 +92,10 @@ function rules.mergeKeys(keys: { [string]: string }, guess: string, states: { st
 	for i = 1, COLS do
 		local ch = guess:sub(i, i)
 		if ch ~= "" then
-			out[ch] = rules.strongest(out[ch], states[i]) :: string
+			local strongest = rules.strongest(out[ch], states[i])
+			if strongest ~= nil then
+				out[ch] = strongest
+			end
 		end
 	end
 	return out
@@ -146,8 +153,9 @@ local function tileState(rows: { Row }, active: number, r: number, c: number): s
 	if row == nil then
 		return "empty"
 	end
-	if row.submitted and row.states ~= nil then
-		return (row.states :: { string })[c]
+	local states = row.states
+	if row.submitted and states ~= nil then
+		return states[c]
 	end
 	if c <= #row.letters then
 		return "filled"
@@ -158,13 +166,13 @@ local function tileState(rows: { Row }, active: number, r: number, c: number): s
 	return "empty"
 end
 
-function example.build(ctx: any)
-	local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
+function example.build(ctx: ExampleContext): Built
+	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 
-	local theme = Compose.formula(function(use: Use)
-		local source = if Compose.isReadable(ctx.theme) then use(ctx.theme) else ctx.theme
-		source = source or ctx.Facet.themes.neutralPackage()
+	local themeSource = ctx.theme
+	local theme = Compose.formula(function(use: Use): ThemePackage
+		local source: ThemePackage = if themeSource then use(themeSource) else ctx.Facet.themes.neutralPackage()
 		local package = table.clone(source)
 		package.style = table.clone(package.style)
 		package.style.themes = {}
@@ -189,7 +197,8 @@ function example.build(ctx: any)
 
 	local rowsSig = Compose.cell(emptyRows())
 	local activeSig = Compose.cell(1)
-	local keysSig = Compose.cell({} :: { [string]: string })
+	local noKeys: { [string]: string } = {}
+	local keysSig = Compose.cell(noKeys)
 	local phaseSig = Compose.cell("playing")
 	local noticeSig = Compose.cell("")
 	local seedSig = Compose.cell(1)
@@ -297,13 +306,14 @@ function example.build(ctx: any)
 			openResults(phaseSig:peek() == "won", solution, active)
 		end
 	end
-	local statusSig: any
-	local tileStateOf: { [string]: any } = {}
-	local keyPathByLetter: { [string]: any } = {}
-	local function statusTag(node: Instance, state: any): Instance
+	local statusSig: Readable<string>? = nil
+	local tileStateOf: { [string]: Readable<string> } = {}
+	local keyPathByLetter: { [string]: string } = {}
+	local function statusTag(node: Instance, state: Readable<string>): Instance
 		local previous: string? = nil
 		Compose.watch(function(use: Use)
-			local status = STATUS[use(state)]
+			local value = use(state)
+			local status = if value ~= nil then STATUS[value] else nil
 			local tag = if status ~= nil then `facet-status-{status}` else nil
 			if tag == previous then
 				return
@@ -320,21 +330,24 @@ function example.build(ctx: any)
 	end
 
 	local function measure(name: string, sample: string, size: number)
-		local probe = UI.Text {
-			Name = name,
+		local probe = UI.Text(name) {
 			Visible = false,
 			text = sample,
 			TextSize = size,
 			Size = UDim2.new(),
 			AutomaticSize = Enum.AutomaticSize.XY,
 		}
-		local bounds = Compose.cell(probe.TextBounds)
-		local connection = probe:GetPropertyChangedSignal("TextBounds"):Connect(function()
-			bounds:set(probe.TextBounds)
-		end)
-		Compose.cleanup(function()
-			connection:Disconnect()
-		end)
+		local bounds = Compose.cell(Vector2.zero)
+		if probe:IsA("TextLabel") then
+			local label = probe
+			bounds:set(label.TextBounds)
+			local connection = label:GetPropertyChangedSignal("TextBounds"):Connect(function()
+				bounds:set(label.TextBounds)
+			end)
+			Compose.cleanup(function()
+				connection:Disconnect()
+			end)
+		end
 		return probe, bounds
 	end
 
@@ -351,17 +364,7 @@ function example.build(ctx: any)
 			local bounds: Vector2 = use(markBounds)
 			return math.max(14, math.ceil(bounds.Y))
 		end)
-		local board: { any } = {
-			Name = "board",
-			columns = COLS,
-			gap = "xs",
-			cellHeight = function(use: Use): number
-				local bounds: Vector2 = use(letterBounds)
-				local mark: number = use(markHeight)
-				return math.max(48, math.ceil(bounds.Y) + mark + 4)
-			end,
-			width = COLS * 52 - 4,
-		}
+		local tiles: { Child } = {}
 		for r = 1, ROWS do
 			for c = 1, COLS do
 				local rr, cc = r, c
@@ -371,9 +374,8 @@ function example.build(ctx: any)
 				tileStateOf[`{rr}:{cc}`] = state
 				local fill = Host.Frame "fill" {
 					Size = UDim2.fromScale(1, 1),
-					Host.UICorner({}) :: unknown,
-					UI.Text {
-						Name = "ch",
+					Host.UICorner({}),
+					UI.Text "ch" {
 						text = function(use: Use)
 							return use(rowsSig)[rr].letters:sub(cc, cc)
 						end,
@@ -384,8 +386,7 @@ function example.build(ctx: any)
 						end,
 						TextXAlignment = Enum.TextXAlignment.Center,
 					},
-					UI.Text {
-						Name = "mark",
+					UI.Text "mark" {
 						text = function(use: Use)
 							return TILE_MARK[use(state)]
 						end,
@@ -418,34 +419,32 @@ function example.build(ctx: any)
 					Visible = function(use: Use)
 						return use(state) == "filled"
 					end,
-					Host.UICorner({}) :: unknown,
+					Host.UICorner({}),
 					typedRing,
 				}
 				typed:AddTag("facet-status-neutral")
-				local tile = UI.ZStack {
-					Name = `tile{r}_{c}`,
-					width = "fill" :: "fill",
-					height = "fill" :: "fill",
-					fill :: unknown,
+				local tile = UI.ZStack(`tile{r}_{c}`) {
+					width = "fill",
+					height = "fill",
+					fill,
 					typed,
 					outline,
 				}
 				tile:AddTag("facet-status-accent")
-				table.insert(board, tile)
+				table.insert(tiles, tile)
 			end
 		end
-		local keyboard: { any } = { Name = "kb", width = "fill" :: "fill", gap = "s" }
+		local keyRows: { Child } = {}
 		for ri, keys in KEYBOARD do
 			local units = #keys
-			local row: { any } = { Name = "kbrow" .. ri, width = "fill" :: "fill", gap = "xs" }
+			local row: { Child } = {}
 			for _, key in keys do
 				local isCommand = key == "Enter" or key == "Back"
-				local state = Compose.formula(function(use: Use)
-					return if isCommand then nil else use(keysSig)[key] or "unknown"
+				local state = Compose.formula(function(use: Use): string
+					return if isCommand then "" else use(keysSig)[key] or "unknown"
 				end)
-				local button = UI.Button {
-					Name = "key_" .. key,
-					if ri ~= 3 then nil elseif isCommand then UI.fill(1.5) else UI.fill() :: unknown,
+				local button = UI.Button("key_" .. key) {
+					if ri ~= 3 then nil elseif isCommand then UI.fill(1.5) else UI.fill(),
 					Size = if ri == 3
 						then UDim2.fromOffset(0, 44)
 						else UDim2.new(1 / units, -math.ceil(4 * (units - 1) / units), 0, 44),
@@ -472,41 +471,48 @@ function example.build(ctx: any)
 				table.insert(row, button)
 				keyPathByLetter[key] = `/WordGuess/page/kb/kbrow{ri}/key_{key}`
 			end
-			table.insert(keyboard, UI.HStack(row))
+			table.insert(keyRows, UI.HStack("kbrow" .. ri)({ width = "fill", gap = "xs", table.unpack(row) }))
 		end
-		statusSig = Compose.formula(function(use: Use)
+		local status = Compose.formula(function(use: Use)
 			local notice = use(noticeSig)
 			if notice ~= "" then
 				return notice
 			end
 			return `Guess the six-letter word — row {math.min(use(activeSig), ROWS)} of {ROWS}.`
 		end)
-		return UI.ScrollView {
-			Name = "page",
+		statusSig = status
+		return UI.ScrollView "page" {
 			gap = "s",
-			align = "center" :: "center",
-			sheet :: unknown,
+			align = "center",
+			sheet,
 			Host.StyleLink { StyleSheet = Compose.static(sheet) },
-			UI.Text { Name = "Title", text = "Word Guess", textRole = "title" :: "title" },
-			UI.Text {
-				Name = "Status",
-				text = statusSig,
+			UI.Text "Title" { text = "Word Guess", textRole = "title" },
+			UI.Text "Status" {
+				text = status,
 				Size = UDim2.fromScale(1, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Center,
 			},
-			UI.Grid(board),
+			UI.Grid "board"({
+				columns = COLS,
+				gap = "xs",
+				cellHeight = function(use: Use): number
+					local bounds: Vector2 = use(letterBounds)
+					local mark: number = use(markHeight)
+					return math.max(48, math.ceil(bounds.Y) + mark + 4)
+				end,
+				width = COLS * 52 - 4,
+				table.unpack(tiles),
+			}),
 			letterProbe,
 			markProbe,
-			UI.Text {
-				Name = "Legend",
+			UI.Text "Legend" {
 				text = "v exact spot   ~ different spot   x absent",
-				textRole = "caption" :: "caption",
+				textRole = "caption",
 			},
-			UI.VStack(keyboard),
-			UI.Button {
-				Name = "Restart",
+			UI.VStack "kb"({ width = "fill", gap = "s", table.unpack(keyRows) }),
+			UI.Button "Restart" {
 				label = "New game",
 				onActivate = function()
 					restart()
@@ -526,7 +532,7 @@ function example.build(ctx: any)
 				Pressed = function()
 					typeLetter(letter)
 				end,
-				Host.InputBinding({ KeyCode = Enum.KeyCode[letter] }),
+				Host.InputBinding({ KeyCode = assert(Enum.KeyCode:FromName(letter)) }),
 			})
 		)
 	end
@@ -550,24 +556,23 @@ function example.build(ctx: any)
 		Parent = ctx.inputTarget,
 		Priority = 2000,
 		Sink = true,
-		table.unpack((bindings :: unknown) :: { unknown }),
+		table.unpack(bindings),
 	}
 
+	local resultActions: { AlertAction } = {
+		{ id = "Again", label = "New game", onActivate = restart },
+		{ id = "Close", label = "Close", role = "cancel", onActivate = closeResults },
+	}
 	return {
 		title = example.title,
 		screen = function()
-			return UI.Screen {
-				Name = "WordGuess",
-				WordGame() :: unknown,
-				UI.Alert {
-					Name = "WordGuessResult",
+			return UI.Screen "WordGuess" {
+				WordGame(),
+				UI.Alert "WordGuessResult" {
 					isPresented = resultOpen,
 					title = resultTitle,
 					message = resultMessage,
-					actions = {
-						{ id = "Again", label = "New game", onActivate = restart } :: AlertAction,
-						{ id = "Close", label = "Close", role = "cancel" :: "cancel", onActivate = closeResults } :: AlertAction,
-					},
+					actions = resultActions,
 				},
 			}
 		end,
@@ -606,7 +611,7 @@ function example.build(ctx: any)
 			return phaseSig:peek() == "lost"
 		end,
 		status = function(): string
-			return statusSig:peek()
+			return assert(statusSig):peek()
 		end,
 		seed = function(): number
 			return seedSig:peek()

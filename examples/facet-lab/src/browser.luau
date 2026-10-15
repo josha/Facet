@@ -284,8 +284,7 @@ function browser.mount(opts: MountOpts): any
 		available: any?
 	): any
 		local data = page.data
-		return UI.ErrorBoundary({
-			Name = "Live",
+		return UI.ErrorBoundary "Live" {
 			width = if data.cellWidth then "fill" else "hug",
 			height = if tall then "fill" else "hug",
 			view = function()
@@ -301,8 +300,7 @@ function browser.mount(opts: MountOpts): any
 			fallback = function(failure)
 				recordError(page.id, where, failure)
 				local message = string.gsub(tostring(failure), "^.-:%d+: ", "")
-				return UI.Text({
-					Name = "Refused",
+				return UI.Text "Refused" {
 					text = `Refused: {string.sub(message, 1, 220)}`,
 					textRole = "caption" :: "caption",
 					wrap = true,
@@ -312,11 +310,11 @@ function browser.mount(opts: MountOpts): any
 					ref = function(label)
 						label:AddTag("facet-validation")
 					end,
-				})
+				}
 			end,
 			onError = function() end,
 			if tall then UI.fill() else nil :: unknown,
-		})
+		}
 	end
 
 	local function cells(page: any, id: string, title: string?, entries: { any }): any
@@ -346,7 +344,7 @@ function browser.mount(opts: MountOpts): any
 					gap = "xs",
 					width = (entry.state and entry.state.cellWidth) or data.cellWidth or "hug",
 					height = height or "hug",
-					UI.Text({ Name = "Label", text = entry.label, textRole = "caption" :: "caption" }) :: unknown,
+					UI.Text "Label" { text = entry.label, textRole = "caption" :: "caption" } :: unknown,
 					render(page, c, overrides, `{id}C{i}`, height ~= nil, available),
 				}, available)
 			)
@@ -437,8 +435,7 @@ function browser.mount(opts: MountOpts): any
 		end
 		table.insert(
 			row,
-			UI.Button({
-				Name = "Reset",
+			UI.Button "Reset" {
 				label = "Reset",
 				textSize = "label",
 				controlSize = "compact" :: "compact",
@@ -456,7 +453,7 @@ function browser.mount(opts: MountOpts): any
 						ps.log:set({})
 					end)
 				end,
-			})
+			}
 		)
 		return section("Controls", "Controls", { caption("Configuration options for the playground"), UI.HStack(row) })
 	end
@@ -501,8 +498,7 @@ function browser.mount(opts: MountOpts): any
 			return data.cellHeight or "hug"
 		end)
 		local available = Compose.cell(0)
-		local liveControl = UI.VStack({
-			Name = "Live",
+		local liveControl = UI.VStack "Live" {
 
 			width = "fill",
 			maxWidth = if data.cellWidth and not data.fills then data.cellWidth * 2 else nil,
@@ -534,7 +530,7 @@ function browser.mount(opts: MountOpts): any
 					return render(page, c, props, "playground", cellHeight:peek() ~= "hug", available)
 				end,
 			}),
-		})
+		}
 
 		local room = UI.environment(liveControl)
 		Compose.watch(function(use: Use)
@@ -633,22 +629,20 @@ function browser.mount(opts: MountOpts): any
 
 	local function InContext(page: any): any
 		local ps = pageState(page)
-		return UI.VStack({
-			Name = "InContext",
+		return UI.VStack "InContext" {
 			width = "fill" :: "fill",
 			gap = "s",
 			when(function(use: Use)
 				return not use(ps.examples)
 			end, function()
-				return UI.Button({
-					Name = "ShowExamples",
+				return UI.Button "ShowExamples" {
 					label = "Show examples",
 					appearance = "utility",
 					controlSize = "compact" :: "compact",
 					onActivate = function()
 						ps.examples:set(true)
 					end,
-				})
+				}
 			end) :: unknown,
 			when(ps.examples, function()
 				local entries = {}
@@ -664,9 +658,9 @@ function browser.mount(opts: MountOpts): any
 				if built.dispose then
 					Compose.cleanup(built.dispose)
 				end
-				return UI.VStack({ Name = "Examples", width = "fill" :: "fill", height = 600, built.screen() })
+				return UI.VStack "Examples" { width = "fill" :: "fill", height = 600, built.screen() }
 			end),
-		})
+		}
 	end
 
 	local function Content(page: any): any
@@ -694,8 +688,7 @@ function browser.mount(opts: MountOpts): any
 		if page.id == "draggable" or page.id == "dropTarget" then
 			table.insert(
 				body,
-				UI.Button {
-					Name = "OpenDragDropDemo",
+				UI.Button "OpenDragDropDemo" {
 					label = "Open Drag and drop demo",
 					onActivate = function()
 						state.top:set("drag-drop")
@@ -864,15 +857,14 @@ function browser.mount(opts: MountOpts): any
 				)
 			end
 		end
-		local dividers = UI.VStack({
-			Name = "Dividers",
+		local dividers = UI.VStack "Dividers" {
 			width = 240,
 			gap = "s",
 			UI.Text({ text = "standard", textRole = "caption" :: "caption" }) :: unknown,
 			UI.Divider({}),
 			UI.Text({ text = "strong", textRole = "caption" :: "caption" }),
 			UI.Divider({ appearance = "strong" }),
-		})
+		}
 		return scroller("Style", {
 			Header(
 				"Style",
@@ -973,11 +965,10 @@ function browser.mount(opts: MountOpts): any
 			}),
 			section("SimulationSection", "Simulated or real", {
 				caption(settings.lines),
-				UI.Button({
-					Name = "ResetAll",
+				UI.Button "ResetAll" {
 					label = "Reset everything to Automatic",
 					onActivate = settings.reset,
-				}),
+				},
 			}),
 			section("BuildSection", "Build", {
 				caption(`Facet {Facet.VERSION} · {tostring(workspace:GetAttribute("Facet_Build"))}`),
@@ -995,8 +986,7 @@ function browser.mount(opts: MountOpts): any
 		local detail: { any } = { Name = "Detail", width = "fill" :: "fill", height = "fill" :: "fill" }
 		table.insert(
 			detail,
-			UI.VStack({
-				Name = "Body",
+			UI.VStack "Body" {
 				width = "fill" :: "fill",
 				height = "fill" :: "fill",
 				UI.fill() :: unknown,
@@ -1020,7 +1010,7 @@ function browser.mount(opts: MountOpts): any
 						return caption(`Page failed: {node}`)
 					end,
 				}),
-			})
+			}
 		)
 		return UI.VStack(detail)
 	end
@@ -1140,23 +1130,20 @@ function browser.mount(opts: MountOpts): any
 			})
 		end
 		table.insert(groups, group("lab", "Lab", labEntries))
-		return UI.VStack({
-			Name = "OutlineList",
+		return UI.VStack "OutlineList" {
 			width = "fill" :: "fill",
 			height = "fill" :: "fill",
 			gap = "s",
 			padding = { top = "s", left = "s", right = "s" },
-			UI.TextInput({
-				Name = "Search",
+			UI.TextInput "Search" {
 				value = state.query,
 				placeholder = "Search...",
 				presentation = "search" :: "search",
 				clearButton = true,
 				controlSize = "compact" :: "compact",
 				Size = UDim2.fromScale(1, 0),
-			}) :: unknown,
-			UI.Button({
-				Name = "L_settings",
+			} :: unknown,
+			UI.Button "L_settings" {
 				label = "Settings",
 				icon = "settings",
 				controlSize = "compact" :: "compact",
@@ -1170,56 +1157,50 @@ function browser.mount(opts: MountOpts): any
 					end
 				end,
 				Size = UDim2.fromScale(1, 0),
-			}),
-			UI.ScrollView({
-				Name = "Outline",
+			},
+			UI.ScrollView "Outline" {
 				width = "fill" :: "fill",
 				height = "fill" :: "fill",
 				UI.fill() :: unknown,
 				UI.VStack(groups),
-			}),
-		})
+			},
+		}
 	end
 
 	local function Catalog(): any
-		return UI.VStack({
-			Name = "Catalog",
+		return UI.VStack "Catalog" {
 			width = "fill" :: "fill",
 			height = "fill" :: "fill",
 			when(roomy, function()
-				local pane = UI.VStack({
-					Name = "OutlinePane",
+				local pane = UI.VStack "OutlinePane" {
 					height = "fill" :: "fill",
 					width = function(use: Use)
 						return math.clamp(math.floor(use(logical).width * 0.22), 240, 305)
 					end,
 					Outline(),
-				})
+				}
 				pane:AddTag("facet-pane")
 
 				UI.focusSection(pane)
-				return UI.HStack({
-					Name = "Split",
+				return UI.HStack "Split" {
 					width = "fill" :: "fill",
 					height = "fill" :: "fill",
 					gap = 0,
 					pane :: unknown,
-					UI.Divider({ Name = "PaneDivider", appearance = "strong" }),
-					UI.VStack({
-						Name = "DetailPane",
+					UI.Divider "PaneDivider" { appearance = "strong" },
+					UI.VStack "DetailPane" {
 						width = "fill" :: "fill",
 						height = "fill" :: "fill",
 						UI.fill() :: unknown,
 						Detail(),
-					}),
-				})
+					},
+				}
 			end) :: unknown,
 			when(compact, function()
 				local function open()
 					state.compactPath:set({ { id = "page" } })
 				end
-				return UI.NavigationStack({
-					Name = "Browse",
+				return UI.NavigationStack "Browse" {
 					path = state.compactPath,
 					backLabel = "Controls",
 					Size = UDim2.fromScale(1, 1),
@@ -1246,18 +1227,17 @@ function browser.mount(opts: MountOpts): any
 								return if page then page.title else ""
 							end,
 							content = function(): Instance
-								return UI.VStack({
-									Name = "Current",
+								return UI.VStack "Current" {
 									width = "fill" :: "fill",
 									height = "fill" :: "fill",
 									Detail(),
-								})
+								}
 							end,
 						},
 					},
-				})
+				}
 			end),
-		})
+		}
 	end
 
 	app.mount(function()
@@ -1271,8 +1251,7 @@ function browser.mount(opts: MountOpts): any
 			logical:set(size)
 			settings.viewport:set(Vector2.new(size.width, size.height))
 		end)
-		local frame = UI.VStack({
-			Name = "Device",
+		local frame = UI.VStack "Device" {
 			Size = function(use: Use)
 				local d = use(device)
 				return if d.simulated
@@ -1311,19 +1290,18 @@ function browser.mount(opts: MountOpts): any
 				end,
 			}),
 			Catalog(),
-		})
+		}
 		frame:AddTag("facet-surface")
 		Compose.watch(function(use)
 			frame.BackgroundTransparency = if use(ctx.sceneVisible) then 1 else 0
 		end)
-		local stage = UI.ZStack({
-			Name = "Stage",
+		local stage = UI.ZStack "Stage" {
 			width = "fill" :: "fill",
 			height = "fill" :: "fill",
 			alignH = "center" :: "center",
 			alignV = "center" :: "center",
 			frame :: unknown,
-		})
+		}
 		local room = UI.environment(stage)
 		Compose.watch(function(use: Use)
 			roomSize:set(use(room.viewportSize))

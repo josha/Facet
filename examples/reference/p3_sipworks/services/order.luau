@@ -1,32 +1,42 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+
+local clockModule = require("./clock")
 
 local order = {}
+
+export type Event = { blendId: string, mode: string, reason: string? }
+export type Opts = {
+	Compose: ComposeModule,
+	batch: (() -> ()) -> (),
+	clock: clockModule.Clock,
+	paymentsEnabled: boolean?,
+	rejectAt: { number }?,
+}
 
 order.RESOLVE_AFTER = 0.6
 order.READY_AFTER = 4.0
 
-function order.new(opts: any)
-	local Compose: ComposeModule = opts.Compose
+function order.new(opts: Opts)
+	local Compose = opts.Compose
 
 	local batch = opts.batch
 	local clock = opts.clock
 
 	local status = Compose.cell("idle")
 	local mode = Compose.cell("paid")
-	local blendId = (function(value: string?): OptionalStringCell
-		return Compose.cell(value)
-	end)(nil)
+	local noBlend: string? = nil
+	local blendId: Cell<string?> = Compose.cell(noBlend)
 	local isReady = Compose.cell(false)
-	local reason = (function(value: string?): OptionalStringCell
-		return Compose.cell(value)
-	end)(nil)
+	local noReason: string? = nil
+	local reason: Cell<string?> = Compose.cell(noReason)
 	local paymentsEnabled = Compose.cell(opts.paymentsEnabled ~= false)
 	local attempts = 0
-	local readyHandle: any = nil
-	local listeners: { (string, any) -> () } = {}
+	local readyHandle: { cancel: () -> () }? = nil
+	local listeners: { (string, Event) -> () } = {}
 
 	local self = {}
 	self.status = status
@@ -37,7 +47,8 @@ function order.new(opts: any)
 	self.paymentsEnabled = paymentsEnabled
 	self.price = "49 Credits"
 	self.guardReasonKey = "guard.paymentsDisabled"
-	self.rejectAt = opts.rejectAt or { 1 }
+	local rejectAt: { number } = opts.rejectAt or { 1 }
+	self.rejectAt = rejectAt
 
 	local function rejects(attempt: number): boolean
 		for _, at in self.rejectAt do
@@ -48,13 +59,13 @@ function order.new(opts: any)
 		return false
 	end
 
-	local function emit(event: string, info: any)
+	local function emit(event: string, info: Event)
 		for _, fn in listeners do
 			fn(event, info)
 		end
 	end
 
-	function self.onEvent(fn: (string, any) -> ()): () -> ()
+	function self.onEvent(fn: (string, Event) -> ()): () -> ()
 		table.insert(listeners, fn)
 		return function()
 			local index = table.find(listeners, fn)

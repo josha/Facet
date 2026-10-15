@@ -5,6 +5,7 @@ type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 local CELLS: { { id: string, label: string, spans: { number }? } } = {
 	{ id = "Standings", label = "Standings", spans = { 3, 4, 6 } },
 	{ id = "Lap", label = "Lap times", spans = { 3, 2, 3 } },
@@ -13,15 +14,15 @@ local CELLS: { { id: string, label: string, spans: { number }? } } = {
 }
 return {
 	title = "Measured container grid",
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 		local sidebarWidth, guides, media = Compose.cell(360), Compose.cell(false), Compose.cell(true)
 		local panels = {}
-		local function observe(node: Frame, property: string, cell: VectorCell)
-			cell:set((node :: any)[property])
-			local connection = node:GetPropertyChangedSignal(property):Connect(function()
-				cell:set((node :: any)[property])
+		local function observe(node: Frame, cell: VectorCell)
+			cell:set(node.AbsoluteSize)
+			local connection = node:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+				cell:set(node.AbsoluteSize)
 			end)
 			Compose.cleanup(function()
 				connection:Disconnect()
@@ -51,8 +52,7 @@ return {
 				}),
 			}
 			for index, item in CELLS do
-				local frame = Host.Frame({
-					Name = item.id,
+				local frame = Host.Frame(item.id) {
 					LayoutOrder = index,
 					BackgroundTransparency = 0,
 					Visible = function(use: Use)
@@ -64,7 +64,7 @@ return {
 						return D2.fromOffset(span * g.lane + (span - 1) * 8, 0)
 					end,
 					AutomaticSize = E.AutomaticSize.Y,
-					Host.UISizeConstraint({ MinSize = V2.new(0, 44) }) :: unknown,
+					Host.UISizeConstraint({ MinSize = V2.new(0, 44) }),
 					Host.UIPadding({
 						PaddingLeft = D.new(0, 8),
 						PaddingRight = D.new(0, 8),
@@ -77,7 +77,7 @@ return {
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 					}),
-				})
+				}
 				frame:AddTag("facet-control")
 				table.insert(children, frame)
 			end
@@ -85,9 +85,9 @@ return {
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				table.unpack((children :: unknown) :: { unknown }),
+				table.unpack(children),
 			}
-			observe(cells, "AbsoluteSize", bodySize)
+			observe(cells, bodySize)
 			local lanes = {}
 			for index = 1, 12 do
 				table.insert(
@@ -108,12 +108,11 @@ return {
 					})
 				)
 			end
-			local root = Host.Frame({
-				Name = name,
+			local root = Host.Frame(name) {
 				Size = D2.new(scale, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Host.UISizeConstraint({ MaxSize = V2.new(maxWidth and maxWidth:peek() or 100000, 100000) }) :: unknown,
+				Host.UISizeConstraint({ MaxSize = V2.new(maxWidth and maxWidth:peek() or 100000, 100000) }),
 				Host.UIPadding({
 					PaddingLeft = D.new(0, 16),
 					PaddingRight = D.new(0, 16),
@@ -121,8 +120,7 @@ return {
 					PaddingBottom = D.new(0, 12),
 				}),
 				Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 8) }),
-				UI.Text {
-					Name = "Heading",
+				UI.Text "Heading" {
 					text = function(use: Use)
 						local g = use(geometry)
 						return string.format("%s · %d px · %d columns", name, g.width, g.columns)
@@ -136,15 +134,15 @@ return {
 					Size = function(use: Use)
 						return D2.new(1, 0, 0, use(bodySize).Y)
 					end,
-					cells :: unknown,
+					cells,
 					Host.Frame "Guides" {
 						BackgroundTransparency = 1,
 						Size = D2.fromScale(1, 1),
 						ZIndex = 2,
-						table.unpack((lanes :: unknown) :: { unknown }),
+						table.unpack(lanes),
 					},
 				},
-			})
+			}
 			if maxWidth then
 				ctx.runtime.decorate(root:FindFirstChildWhichIsA("UISizeConstraint"), {
 					MaxSize = function(use: Use)
@@ -152,19 +150,18 @@ return {
 					end,
 				})
 			end
-			observe(root, "AbsoluteSize", extent)
+			observe(root, extent)
 			root:AddTag("facet-surface")
 			return root
 		end
 		return {
 			screen = function()
-				return UI.ScrollView {
-					Name = "ContainerGrid",
+				return UI.ScrollView "ContainerGrid" {
 					padding = 16,
 					gap = 12,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					UI.Text({ text = "One screen, three containers", textRole = "title" :: "title" }) :: unknown,
+					UI.Text({ text = "One screen, three containers", textRole = "title" }),
 					UI.Text({
 						text = "Each panel reads its own width; its cells use the actual space inside the frame.",
 						TextWrapped = true,
@@ -178,23 +175,20 @@ return {
 							FillDirection = E.FillDirection.Horizontal,
 							Wraps = true,
 							Padding = D.new(0, 8),
-						}) :: unknown,
-						UI.Button {
-							Name = "Resize",
+						}),
+						UI.Button "Resize" {
 							label = "Resize sidebar",
 							onActivate = function()
 								sidebarWidth:set(if sidebarWidth:peek() == 360 then 1040 else 360)
 							end,
 						},
-						UI.Button {
-							Name = "GuidesToggle",
+						UI.Button "GuidesToggle" {
 							label = "Toggle grid guides",
 							onActivate = function()
 								guides:set(not guides:peek())
 							end,
 						},
-						UI.Button {
-							Name = "Replays",
+						UI.Button "Replays" {
 							label = "Toggle replays",
 							onActivate = function()
 								media:set(not media:peek())

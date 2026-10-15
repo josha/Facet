@@ -1,36 +1,41 @@
 --!strict
 
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 local makeView = require("./showcase_view")
 local rules = require("./outpost_terminal/rules")
 return {
 	title = "Outpost",
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 		local V3, V2, CF, C3, E, D2 =
 			ctx.types.Vector3, ctx.types.Vector2, ctx.types.CFrame, ctx.types.Color3, ctx.types.Enum, ctx.types.UDim2
 		local view = makeView(ctx)
-		local confirmed, draft = C.cell(rules.copy(rules.START)), {}
+		local draft: { [string]: typeof(C.cell(0)) } = {}
+		local confirmed = C.cell(rules.copy(rules.START))
 		local worldMode, controlsOpen = C.cell(false), C.cell(false)
 		local notice = C.cell("Restore the door, beacon, and workshop using six power units.")
 		for _, consumer in rules.CONSUMERS do
 			draft[consumer.id] = C.cell(rules.START[consumer.id])
 		end
-		local function allocation(use: ((any) -> any)?)
-			local values = {}
+		local function allocation(use: Use?)
+			local values: rules.Allocation = {}
 			for id, cell in draft do
 				values[id] = if use then use(cell) else cell:peek()
 			end
 			return values
 		end
-		local verdict = C.formula(function(use: any)
+		local verdict = C.formula(function(use: Use)
 			return rules.validate(allocation(use))
 		end)
 		local function apply()
 			local nextState = allocation()
 			local valid = rules.validate(nextState)
 			if not valid.ok then
-				notice:set(valid.message)
+				notice:set(valid.message or "")
 				return false
 			end
 			local previous = confirmed:peek()
@@ -47,15 +52,14 @@ return {
 		end
 		local function panel()
 			local children = {
-				view.text("Budget", function(use: any)
+				view.text("Budget", function(use: Use)
 					return `{rules.spent(allocation(use))} / {rules.TOTAL} power units allocated`
 				end, "heading"),
 			}
 			for _, consumer in rules.CONSUMERS do
 				table.insert(
 					children,
-					UI.Stepper({
-						Name = consumer.id .. "Power",
+					UI.Stepper(consumer.id .. "Power")({
 						label = `{consumer.label} · needs {consumer.needs}`,
 						value = draft[consumer.id],
 						min = 0,
@@ -66,40 +70,39 @@ return {
 			end
 			table.insert(
 				children,
-				view.text("PowerValidation", function(use: any)
-					return if use(verdict).ok then "Ready to apply." else use(verdict).message
+				view.text("PowerValidation", function(use: Use)
+					return if use(verdict).ok then "Ready to apply." else use(verdict).message or ""
 				end)
 			)
 			table.insert(
 				children,
 				view.actions({
-					view.button("ApplyPower", "Apply power", apply, function(use: any)
+					view.button("ApplyPower", "Apply power", apply, function(use: Use)
 						return use(verdict).ok
 					end),
 					view.button("ResetPower", "Reset", reset),
 				})
 			)
 			table.insert(children, view.text("OutpostNotice", notice))
-			return UI.VStack {
-				Name = "PowerControls",
-				width = "fill" :: "fill",
+			return UI.VStack "PowerControls" {
+				width = "fill",
 				gap = "m",
-				table.unpack((children :: unknown) :: { unknown }),
+				table.unpack(children),
 			}
 		end
 		local function model(offset: number)
 			local function position(x: number, y: number, z: number)
 				return V3.new(x, y + offset, z)
 			end
-			local function liveColor(id)
-				return function(use: any)
+			local function liveColor(id: string)
+				return function(use: Use)
 					return if rules.isRunning(use(confirmed), id)
 						then C3.fromRGB(104, 233, 198)
 						else C3.fromRGB(90, 104, 127)
 				end
 			end
 			return Host.Model "OutpostScene" {
-				view.part("Platform", V3.new(20, 0.5, 12), position(0, -0.4, 1), C3.fromRGB(49, 58, 77)) :: unknown,
+				view.part("Platform", V3.new(20, 0.5, 12), position(0, -0.4, 1), C3.fromRGB(49, 58, 77)),
 				view.part("Workshop", V3.new(5, 3.6, 3), position(5, 1.8, 3), C3.fromRGB(86, 106, 122)),
 				view.part(
 					"WorkshopLight",
@@ -110,7 +113,7 @@ return {
 				),
 				view.part("DoorFrame", V3.new(4.5, 4.2, 0.8), position(-5, 2.1, 3), C3.fromRGB(117, 138, 150)),
 				view.part("BlastDoor", V3.new(3.5, 3.5, 0.9), position(-5, 1.8, 2.7), liveColor("door"), {
-					CFrame = function(use: any)
+					CFrame = function(use: Use)
 						return CF.new(-5, offset + (if rules.isRunning(use(confirmed), "door") then 4.9 else 1.8), 2.7)
 					end,
 				}),
@@ -125,7 +128,11 @@ return {
 			}
 		end
 		local function world()
-			local camera = ctx.worldTarget and ctx.worldTarget.CurrentCamera
+			local target = ctx.worldTarget
+			local camera: Camera? = nil
+			if target and target:IsA("Workspace") then
+				camera = target.CurrentCamera
+			end
 			local oldFrame, oldType, oldFov, oldFovMode, oldFocus
 			if camera then
 				oldFrame, oldType, oldFov, oldFovMode, oldFocus =
@@ -178,7 +185,7 @@ return {
 				C.cleanup(function()
 					connection:Disconnect()
 				end)
-				C.watch(function(use: any)
+				C.watch(function(use: Use)
 					local rectangle, screen = use(bounds), use(viewport)
 					local scale = if ctx.previewScale then use(ctx.previewScale) else 1
 					if rectangle.size.X <= 0 or rectangle.size.Y <= 0 or screen.Y <= 0 then
@@ -188,7 +195,7 @@ return {
 						V2.new(math.min(720, rectangle.size.X / scale), math.min(520, rectangle.size.Y / scale))
 					canvas:set(size)
 					local layer = terminalBounds:FindFirstAncestorWhichIsA("ScreenGui")
-					local function slope(point)
+					local function slope(point: Vector2)
 						local ray = if layer and layer.IgnoreGuiInset
 							then camera:ViewportPointToRay(point.X, point.Y)
 							else camera:ScreenPointToRay(point.X, point.Y)
@@ -204,7 +211,7 @@ return {
 				end)
 			end
 			local stopConsole, console = ctx.runtime.mount(function()
-				return view.part("ShowcaseConsole", function(use: any)
+				return view.part("ShowcaseConsole", function(use: Use)
 					local size = use(canvas)
 					return V3.new(size.X / 100, size.Y / 100, 0.35)
 				end, V3.new(0, 6003, -1), C3.fromRGB(28, 39, 54))
@@ -224,47 +231,74 @@ return {
 					CanvasSize = canvas,
 					Active = true,
 					AlwaysOnTop = false,
-					style :: unknown,
-					if style then Host.StyleLink { StyleSheet = C.static(style) } else nil :: unknown,
-					UI.Screen {
-						Name = "TerminalScreen",
+					style,
+					if style then Host.StyleLink { StyleSheet = C.static(style) } else nil,
+					UI.Screen "TerminalScreen" {
 						gap = "m",
-						view.text("TerminalTitle", "OUTPOST 07 / POWER", "title") :: unknown,
-						UI.ScrollView {
-							Name = "TerminalControls",
-							width = "fill" :: "fill",
-							UI.fill() :: unknown,
+						view.text("TerminalTitle", "OUTPOST 07 / POWER", "title"),
+						UI.ScrollView "TerminalControls" {
+							width = "fill",
+							UI.fill(),
 							panel(),
 						},
 					},
 				}
 			end, ctx.inputTarget)
 			C.cleanup(stopSurface)
-			return UI.VStack {
-				Name = "WorldView",
-				width = "fill" :: "fill",
-				height = "fill" :: "fill",
+			return UI.VStack "WorldView" {
+				width = "fill",
+				height = "fill",
 				padding = "m",
 				gap = "s",
-				UI.VStack {
-					Name = "WorldCommands",
-					width = "fill" :: "fill",
+				UI.VStack "WorldCommands" {
+					width = "fill",
 					view.actions({
 						view.button("LeaveWorld", "Back to overview", function()
 							worldMode:set(false)
 						end),
-						UI.CollapsibleView {
-							Name = "WorldPowerControls",
+						UI.CollapsibleView "WorldPowerControls" {
 							label = "Power controls",
 							expanded = controlsOpen,
 							content = panel,
 						},
 					}),
-				} :: unknown,
+				},
 				terminalBounds,
 			}
 		end
 		local function overview()
+			local shortcuts: { RadialItem } = {
+				{
+					id = "beacon",
+					label = "Beacon",
+					icon = "flag",
+					labelStyle = "icon",
+					onSelect = function()
+						draft.beacon:set(1)
+						notice:set("Beacon power staged. Apply when ready.")
+					end,
+				},
+				{
+					id = "door",
+					label = "Door",
+					icon = "chevron.trailing",
+					labelStyle = "icon",
+					onSelect = function()
+						draft.door:set(2)
+						notice:set("Door power staged. Apply when ready.")
+					end,
+				},
+				{
+					id = "workshop",
+					label = "Workshop",
+					icon = "settings",
+					labelStyle = "icon",
+					onSelect = function()
+						draft.workshop:set(2)
+						notice:set("Workshop power staged. Apply when ready.")
+					end,
+				},
+			}
 			return view.page(
 				"OutpostOverview",
 				"Bring Outpost 07 back online",
@@ -273,10 +307,9 @@ return {
 					view.stage("OutpostPreview", function()
 						return model(0)
 					end, CF.lookAt(V3.new(16, 12, -20), V3.new(0, 2, 2))),
-					UI.ProgressView {
-						Name = "SystemsOnline",
+					UI.ProgressView "SystemsOnline" {
 						label = "Systems online",
-						value = function(use: any)
+						value = function(use: Use)
 							return rules.runningCount(use(confirmed))
 						end,
 						max = 3,
@@ -287,45 +320,13 @@ return {
 						view.button("EnterWorld", "Use the world terminal", function()
 							worldMode:set(true)
 						end),
-						UI.RadialMenu {
-							Name = "PowerShortcuts",
+						UI.RadialMenu "PowerShortcuts" {
 							label = "Quick actions",
-							contentFit = "radial" :: "radial",
-							ringWidth = "wide" :: "wide",
-							center = "empty" :: "empty",
+							contentFit = "radial",
+							ringWidth = "wide",
+							center = "empty",
 							scrim = "dark",
-							items = {
-								{
-									id = "beacon",
-									label = "Beacon",
-									icon = "flag",
-									labelStyle = "icon" :: "icon",
-									onSelect = function()
-										draft.beacon:set(1)
-										notice:set("Beacon power staged. Apply when ready.")
-									end,
-								} :: RadialItem,
-								{
-									id = "door",
-									label = "Door",
-									icon = "chevron.trailing",
-									labelStyle = "icon" :: "icon",
-									onSelect = function()
-										draft.door:set(2)
-										notice:set("Door power staged. Apply when ready.")
-									end,
-								} :: RadialItem,
-								{
-									id = "workshop",
-									label = "Workshop",
-									icon = "settings",
-									labelStyle = "icon" :: "icon",
-									onSelect = function()
-										draft.workshop:set(2)
-										notice:set("Workshop power staged. Apply when ready.")
-									end,
-								} :: RadialItem,
-							},
+							items = shortcuts,
 						},
 					}),
 				}
@@ -336,7 +337,7 @@ return {
 				return Host.Frame "Outpost" {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					C.show(function(use: any)
+					C.show(function(use: Use)
 						return use(worldMode) and (not ctx.pageVisible or use(ctx.pageVisible))
 					end, world, overview),
 				}

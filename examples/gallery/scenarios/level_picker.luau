@@ -1,8 +1,21 @@
 --!strict
 
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type Segment = {
+	count: number,
+	segment: "bar" | "glyph" | "image",
+	glyphs: { filled: string, empty: string }?,
+	images: { filled: string, empty: string }?,
+	tint: { filled: Color3, empty: Color3 }?,
+	allowZero: boolean?,
+}
 
 local COPY = {
 	title = "Level pickers",
@@ -29,11 +42,10 @@ return {
 	title = "Level pickers",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 
@@ -43,11 +55,15 @@ return {
 		local trophies = Compose.cell(1)
 		local tinted = Compose.cell(6)
 
-		local function row(id: string, label: string, hint: string, value: any, pickerId: string, spec: any): any
-			spec.value = value
-			spec.Name = pickerId
-			return Host.Frame({
-				Name = id,
+		local function row(
+			id: string,
+			label: string,
+			hint: string,
+			value: Cell<number>,
+			pickerId: string,
+			spec: Segment
+		): Frame
+			return Host.Frame(id)({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -55,42 +71,39 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}) :: unknown,
+				}),
 				Host.UIPadding({
 					PaddingTop = UDim.new(0, 8),
 					PaddingBottom = UDim.new(0, 8),
 					PaddingLeft = UDim.new(0, 8),
 					PaddingRight = UDim.new(0, 8),
 				}),
-				UI.Text({
+				UI.Text "Label" {
 					LayoutOrder = 1,
-					Name = "Label",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = label,
-					textRole = "caption" :: "caption",
+					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.Text({
+				},
+				UI.Text "Hint" {
 					LayoutOrder = 2,
-					Name = "Hint",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = hint,
-					textRole = "caption" :: "caption",
+					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				Host.Frame({
+				},
+				Host.Frame "Pair" {
 					LayoutOrder = 3,
-					Name = "Pair",
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -99,8 +112,16 @@ return {
 						Wraps = true,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}) :: unknown,
-					UI.LevelPicker(spec),
+					}),
+					UI.LevelPicker(pickerId)({
+						value = value,
+						count = spec.count,
+						segment = spec.segment,
+						glyphs = spec.glyphs,
+						images = spec.images,
+						tint = spec.tint,
+						allowZero = spec.allowZero,
+					}),
 					UI.Stepper({
 
 						Name = `{id}Step`,
@@ -108,11 +129,11 @@ return {
 						min = if spec.allowZero == false then 1 else 0,
 						max = spec.count,
 					}),
-				}),
+				},
 			})
 		end
 
-		local function rows(): { any }
+		local function rows(): { Frame }
 			return {
 				row("Balanced", COPY.balanced, COPY.balancedHint, balanced, "BalancedBars", {
 					count = 10,
@@ -147,28 +168,26 @@ return {
 		end)
 
 		local function screen()
-			local page: { any } = {
+			local page: { Child } = {
 
-				UI.Text {
-					Name = "Title",
+				UI.Text "Title" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = COPY.title,
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
-				UI.Text {
-					Name = "Intro",
+				UI.Text "Intro" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = COPY.intro,
-					textRole = "caption" :: "caption",
+					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -187,51 +206,48 @@ return {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 4),
-					}) :: unknown,
+					}),
 					Host.UIPadding({
 						PaddingTop = UDim.new(0, 8),
 						PaddingBottom = UDim.new(0, 8),
 						PaddingLeft = UDim.new(0, 8),
 						PaddingRight = UDim.new(0, 8),
 					}),
-					UI.Text({
+					UI.Text "ReadoutTitle" {
 						LayoutOrder = 1,
-						Name = "ReadoutTitle",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.readoutTitle,
-						textRole = "caption" :: "caption",
+						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					UI.Text({
+					},
+					UI.Text "ReadoutBody" {
 						LayoutOrder = 2,
-						Name = "ReadoutBody",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = readout,
-						textRole = "caption" :: "caption",
+						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					},
 				}
 			)
 			table.insert(
 				page,
-				UI.Text {
-					Name = "Note",
+				UI.Text "Note" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = COPY.note,
-					textRole = "caption" :: "caption",
+					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -241,13 +257,12 @@ return {
 			return Host.Frame "LevelPickerDemo" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView {
-					Name = "Page",
+				UI.ScrollView "Page" {
 					padding = 16,
 					gap = 8,
 					Size = UDim2.new(1, 0, 1, 0),
 					BackgroundTransparency = 1,
-					table.unpack((page :: unknown) :: { unknown }),
+					table.unpack(page),
 				},
 			}
 		end

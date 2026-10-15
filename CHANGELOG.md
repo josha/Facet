@@ -2,37 +2,51 @@
 
 ## Unreleased
 
-- Breaking: each control constructor takes one property table. The label form
-  `UI.Button "Save" { ... }` and `UI.Button("Save")(spec)` is removed. Set the
-  Instance name with the native `Name` property:
-  `UI.Button { Name = "Save", label = "Save" }`. A string in place of the table
-  is an error. Native `Host` constructors keep the Compose label form.
-- Breaking types: each `Props` and `Spec` type is one flat table type that holds
-  the native root properties, the control options and the children. Strict mode
-  checks literal options, callbacks and children of different classes without
-  casts. `lute run tools/facet types props` generates the flat types in
-  `src/ui/*_props.luau` from the option tables in `src/ui/*_types.luau`.
-  The intersection aliases are removed: for example `InputTypes.ButtonProps`
-  is now `ButtonProps` in `input_props`, and the option tables are named
-  `ButtonOptions`, `StackOptions` and so on. The `XControls` registry types of
-  each family are removed. `control_types.luau` holds the `Controls` type and
-  each constructor type.
-- Breaking types: the binding controls (`Toggle`, `TextInput`, `NumberInput`,
-  `Stepper`, `Slider`, `Rating`, `LevelPicker`, `Chip`, `ShortcutHint` and
-  `Picker`) have one constructor overload for each binding shape and one for the
-  union. The shapes are exported, for example `ToggleCellProps` and
-  `ToggleRequestProps`. `MenuItem`, `RadialItem` and `ImageResource` are unions
-  of flat table types (`MenuSubmenu`, `MenuCommand`, `MenuCheck`,
-  `MenuChoice`, `RadialCheck`, `RadialChoice` and `RadialAction`).
-- Breaking types: `Padding` sides reject an unknown side, such as `start`.
-  TextInput and Chip `leading` and `trailing` accept any child.
+- Each control `Props` and `Spec` type is one flat table type. The type holds
+  the native root properties, the control options and the children. In the
+  named form, `UI.Button "Save" { ... }`, strict mode checks literal options,
+  callbacks and children of different classes without casts in both Luau
+  solvers. The direct form, `UI.Button { ... }`, calls an overloaded
+  constructor. The API reference tells when to use the named form or a typed
+  local for it. `lute run tools/facet types props` generates the flat types in
+  `src/ui/*_props.luau` from the option tables in `src/ui/*_types.luau`. The
+  names and the generic parameters of the root `Facet` types do not change.
+- The binding controls (`Toggle`, `TextInput`, `NumberInput`, `Stepper`,
+  `Slider`, `Rating`, `LevelPicker`, `Chip`, `ShortcutHint` and `Picker`)
+  have one constructor overload for each binding shape and one for the union,
+  in the direct and in the named form.
+- The root module exports more types, so that a game can type a local without
+  a cast or an internal module: `Host`, `Child`, `DialogAction`, `ActionRole`,
+  `ToastAction`, `PopoverSource`, `OverlayRect`, `CardAction`, `CardMenu`,
+  `CollectionPlacement`, `FocusControls`, `SinglePickerSpec`,
+  `MultiplePickerSpec`, `KeyedOutlineSpec`, `IdentityOutlineSpec`, the binding
+  shapes (for example `ToggleCellProps` and `ToggleRequestProps`), the theme
+  types `ThemeDefinition`, `PalettePatch`, `PaletteExtra` and
+  `TypographyPatch`, and the value types `ButtonRole`, `TextCommitReason`,
+  `CommitReason`, `ClearButtonMode`, `ControlSize`, `Status`, `TextRole`,
+  `Presence`, `ImageScaleMode`, `ImageLoader`, `VoteValue`, `StepState`,
+  `PaginationForm`, `TabPlacement`, `TabSelectionIndicator`, `NoticeSeverity`,
+  `ColorSwatch`, `ColorPickerMode`, `ColorPickerDismissReason`,
+  `DateRangePreset`, `DateTimePickerDismissReason`, `DialogDismissReason`,
+  `PopoverDismissReason` and `ToastDismissReason`.
 - `Facet.host(runtime)` returns the runtime constructors with the `Host` type.
-  The root exports the `Host`, `Child` and `DialogAction` types.
 - `app.construct(control, spec)` calls a constructor that data names, and
   `app.controlNames()` returns the sorted member names of `app.UI`. Data-driven
   tools, such as the Lab, use them in place of a cast to an untyped table.
 - Sheet `detent` accepts a detent id. With an id or without `detent`, the sheet
   keeps the selected detent and starts at that id or at its first detent.
+- Option types accept more values. `motionLevel` accepts a readable that gives
+  `nil`, and then the device setting applies. The StyleSheet `hover` option
+  accepts a readable that gives `nil`. StatusIndicator `name` accepts a
+  reactive value. TextInput and Chip `leading` and `trailing` accept any child.
+- Each large control module is split into one source file for each control.
+  The public API does not change.
+- Facet Design gives each exported component a `Row` type and a `Data` type
+  for its `data` input in place of `any`. The data keys and the callback
+  arguments do not change. The source reader also reads a component from an
+  earlier export.
+- The examples, the documentation and the skills make controls without casts.
+
 - Luau generators in `tools/facet/art/` make the standard icons and the
   procedural reference theme art. `lute run tools/facet art <target>` writes
   each PNG whose pixels changed, and `--check` compares every pixel with the

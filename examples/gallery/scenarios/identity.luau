@@ -1,15 +1,18 @@
 --!strict
 
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 
 return {
 	title = "Identity",
 	ledgerRows = {},
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local UI = ctx.UI
 		local Host = ctx.Host
 		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local avatar = require("./avatar").build(ctx)
@@ -25,18 +28,16 @@ return {
 				return Host.Frame "Identity" {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					UI.ScrollView {
-						Name = "Content",
+					UI.ScrollView "Content" {
 						padding = 16,
 						gap = 24,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),
 						ScrollBarThickness = 6,
-						UI.Button {
-							Name = "Reset",
+						UI.Button "Reset" {
 							label = "Reset identity",
 							onActivate = reset,
-						} :: unknown,
+						},
 						avatar.section(),
 						group.section(),
 					},
@@ -45,16 +46,6 @@ return {
 			report = function()
 				local face, roster = avatar.report(), group.report()
 				return if face and roster then { avatar = face, group = roster } else nil
-			end,
-			dispose = function()
-				local avatarCleanup = (avatar :: unknown) :: { dispose: (() -> ())? }
-				local groupCleanup = (group :: unknown) :: { dispose: (() -> ())? }
-				if avatarCleanup.dispose then
-					avatarCleanup.dispose()
-				end
-				if groupCleanup.dispose then
-					groupCleanup.dispose()
-				end
 			end,
 		}
 	end,

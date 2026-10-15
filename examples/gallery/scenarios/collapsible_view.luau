@@ -4,6 +4,7 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Collapsible views",
 	intro = "Open a custom settings view, or expand the selected destination below.",
@@ -16,11 +17,10 @@ return {
 	title = "Collapsible views",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local copy = ctx.copy or COPY
@@ -42,7 +42,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
+				}),
 				UI.Text({
 					LayoutOrder = 1,
 					BackgroundTransparency = 1,
@@ -50,17 +50,16 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = copy.settings,
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				UI.Toggle({
+				UI.Toggle "Club" {
 					LayoutOrder = 2,
-					Name = "Club",
 					label = "Club membership",
 					value = club,
-				}),
+				},
 				UI.Text({
 					LayoutOrder = 3,
 					BackgroundTransparency = 1,
@@ -91,7 +90,7 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 16),
-						}) :: unknown,
+						}),
 						UI.Text({
 							LayoutOrder = 1,
 							BackgroundTransparency = 1,
@@ -99,7 +98,7 @@ return {
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = copy[key],
-							textRole = "title" :: "title",
+							textRole = "title",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
@@ -115,14 +114,13 @@ return {
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
 						}),
-						UI.Button({
+						UI.Button "Practice" {
 							LayoutOrder = 3,
-							Name = "Practice",
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							label = "Practice this course",
 							onActivate = function() end,
-						}),
+						},
 					}
 				end,
 			})
@@ -131,8 +129,7 @@ return {
 			return Host.Frame "CollapsibleView" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				UI.ScrollView {
-					Name = "Page",
+				UI.ScrollView "Page" {
 					padding = 16,
 					gap = 16,
 					BackgroundTransparency = 1,
@@ -145,11 +142,11 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = copy.title,
-						textRole = "title" :: "title",
+						textRole = "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}) :: unknown,
+					}),
 					UI.Text({
 						LayoutOrder = 2,
 						BackgroundTransparency = 1,
@@ -161,32 +158,29 @@ return {
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-					UI.CollapsibleView({
+					UI.CollapsibleView "Settings" {
 						LayoutOrder = 3,
-						Name = "Settings",
 						label = label,
 						icon = icon,
 						expanded = expanded,
 						content = settingsContent,
-					}),
-					Host.Frame({
+					},
+					Host.Frame "NavigationRegion" {
 						LayoutOrder = 4,
-						Name = "NavigationRegion",
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 420),
 						Host.UIListLayout({
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 0),
-						}) :: unknown,
-						UI.TabView({
+						}),
+						UI.TabView "Destinations" {
 							LayoutOrder = 1,
-							Name = "Destinations",
-							style = "collapsible" :: "collapsible",
+							style = "collapsible",
 							selection = selected,
 							tabs = tabs,
-						}),
-					}),
+						},
+					},
 				},
 			}
 		end
@@ -209,7 +203,7 @@ return {
 				return {
 					{
 						id = "settings-open",
-						kind = "dialog" :: "dialog",
+						kind = "dialog",
 						open = function()
 							expanded:set(true)
 							return true

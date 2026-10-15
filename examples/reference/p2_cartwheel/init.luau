@@ -1,13 +1,15 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Draft = { name: string, base: string, essence: string, garnish: string }
+type TopRow = { id: string, name: string, bottles: number }
 local data = require("@self/content/data")
 local strings = require("@self/content/strings")
 local clockService = require("@self/services/clock")
@@ -20,7 +22,7 @@ local commandsService = require("@self/services/commands")
 local referenceView = require("./view")
 local Cartwheel = { title = "Cartwheel" }
 function Cartwheel.build(ctx: ExampleContext)
-	local Compose: ComposeModule, UI, Host = ctx.Compose, ctx.UI, ctx.Host
+	local Compose, UI, Host = ctx.Compose, ctx.UI, ctx.Host
 	local D2 = ctx.types.UDim2
 	local view = referenceView(ctx)
 	local S = strings.new("en")
@@ -35,7 +37,7 @@ function Cartwheel.build(ctx: ExampleContext)
 		Compose = Compose,
 		clock = clock,
 		strings = S,
-		toast = function(_, message)
+		toast = function(_: string, message: string)
 			notice:set(message)
 		end,
 	})
@@ -44,11 +46,11 @@ function Cartwheel.build(ctx: ExampleContext)
 	local selectedPlaza = Compose.cell(data.plazas[1].id)
 	local ledgerTimeframe = Compose.cell("twoWeeks")
 	local draftName, selectedPotion = Compose.cell("New potion"), Compose.cell("scratch")
-	local drafts = {}
+	local drafts: { [string]: Draft } = {}
 	local base, essence, garnish = Compose.cell(data.bases[1].id), Compose.cell(""), Compose.cell("")
 	local guild, watchword, signupOpen, celebration =
 		Compose.cell(""), Compose.cell(""), Compose.cell(false), Compose.cell(false)
-	local function advance(dt)
+	local function advance(dt: number)
 		clock.advance(dt)
 	end
 	local heartbeat = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
@@ -60,7 +62,7 @@ function Cartwheel.build(ctx: ExampleContext)
 	end
 	Compose.cleanup(clock.dispose)
 	Compose.cleanup(commands.dispose)
-	orders.onCompleted(function(brew)
+	orders.onCompleted(function(brew: orderService.Brew)
 		stats.recordCompletion(brew)
 		celebration:set(true)
 		notice:set(`Brew #{brew.id} collected · {brew.bottles} bottles`)
@@ -85,7 +87,7 @@ function Cartwheel.build(ctx: ExampleContext)
 			end,
 		})
 	end
-	local function purchase(product)
+	local function purchase(product: string)
 		return commands.submit({
 			id = "buy:" .. product,
 			decide = function()
@@ -109,12 +111,12 @@ function Cartwheel.build(ctx: ExampleContext)
 			end,
 		})
 	end
-	local function openBrew(id)
+	local function openBrew(id: number)
 		selectedBrew:set(id)
 		detailOpen:set(true)
 	end
-	local rows = Compose.formula(function(use: Use)
-		local result, q = {}, string.lower(use(query))
+	local rows = Compose.formula(function(use: Use): { orderService.Brew }
+		local result: { orderService.Brew }, q = {}, string.lower(use(query))
 		for _, brew in use(orders.brews) do
 			if string.find(string.lower(orders.searchText(brew)), q, 1, true) then
 				table.insert(result, brew)
@@ -122,7 +124,7 @@ function Cartwheel.build(ctx: ExampleContext)
 		end
 		return result
 	end)
-	local function brewRow(current: Readable<any>): GuiObject
+	local function brewRow(current: Readable<orderService.Brew>): GuiObject
 		local brew = current:peek()
 		return view.column(tostring(brew.id), {
 			view.action("Open", function(use: Use)
@@ -146,17 +148,15 @@ function Cartwheel.build(ctx: ExampleContext)
 		return Host.Frame "Brews" {
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.TextInput {
-				Name = "Search",
+			UI.TextInput "Search" {
 				value = query,
 				placeholder = "Search brews",
 				Size = D2.new(1, -32, 0, 44),
 				Position = D2.fromOffset(16, 8),
-			} :: unknown,
-			UI.VirtualList {
-				Name = "BrewList",
+			},
+			UI.VirtualList "BrewList" {
 				from = rows,
-				key = function(item)
+				key = function(item: orderService.Brew): number
 					return item.id
 				end,
 				itemSize = 108,
@@ -167,30 +167,34 @@ function Cartwheel.build(ctx: ExampleContext)
 			},
 		}
 	end
-	local function chart(title, series)
-		local bars = {}
+	local function chart(title: string, series: { number }): Frame
 		local largest = 1
 		for _, count in series do
 			largest = math.max(largest, count)
 		end
+		local p: FrameNativeProps = { Name = title, BackgroundTransparency = 1, Size = D2.new(1, 0, 0, 140) }
 		for index, count in series do
-			table.insert(
-				bars,
-				Host.Frame({
-					Name = tostring(index),
-					Size = D2.new(1 / #series, -2, count / largest, 0),
-					Position = D2.new((index - 1) / #series, 0, 1 - count / largest, 0),
-					BackgroundColor3 = ctx.types.Color3.fromRGB(108, 146, 124),
-					BorderSizePixel = 0,
-				})
-			)
-		end
-		local p = { Name = title, BackgroundTransparency = 1, Size = D2.new(1, 0, 0, 140) }
-		for _, node in bars do
-			table.insert(p, node)
+			p[#p + 1] = Host.Frame({
+				Name = tostring(index),
+				Size = D2.new(1 / #series, -2, count / largest, 0),
+				Position = D2.new((index - 1) / #series, 0, 1 - count / largest, 0),
+				BackgroundColor3 = ctx.types.Color3.fromRGB(108, 146, 124),
+				BorderSizePixel = 0,
+			})
 		end
 		return Host.Frame(p)
 	end
+	local timeframes: { StringPickerOption } = {
+		{ value = "today", label = "Today" },
+		{ value = "week", label = "Week" },
+		{ value = "month", label = "Month" },
+		{ value = "year", label = "Year" },
+	}
+	local ledgerTimeframes: { StringPickerOption } = {
+		{ value = "twoWeeks", label = "Two weeks" },
+		{ value = "month", label = "Month · Full Ledger" },
+		{ value = "year", label = "Year · Full Ledger" },
+	}
 	local function dashboard(): Instance
 		return view.page("Dashboard", {
 			view.text("Cartwheel", 30),
@@ -204,39 +208,35 @@ function Cartwheel.build(ctx: ExampleContext)
 				section:set("brews")
 			end),
 			view.text("Recommended pitch: " .. ambient.recommendedPlaza().name),
-			UI.Picker {
-				Name = "Timeframe",
+			UI.Picker "Timeframe" {
 				selected = timeframe,
-				options = {
-					{ value = "today", label = "Today" } :: PickerOption,
-					{ value = "week", label = "Week" } :: PickerOption,
-					{ value = "month", label = "Month" } :: PickerOption,
-					{ value = "year", label = "Year" } :: PickerOption,
-				},
+				options = timeframes,
 			},
 			view.text("Top five", 24),
 			view.column("TopFive", {
-				view.list(function(use: Use)
+				view.watch(function(use: Use): { TopRow }
 					use(stats.version)
-					local result = {}
+					local result: { TopRow } = {}
 					for _, row in stats.topFive(use(timeframe)) do
 						table.insert(result, { id = row.potion.id, name = row.potion.name, bottles = row.bottles })
 					end
 					return result
-				end, function(current)
-					return view.text(function(use: Use)
+				end, function(current: Readable<TopRow>): GuiObject
+					return view.text(function(use: Use): string
 						local row = use(current)
 						return row.name .. " · " .. row.bottles .. " bottles"
 					end)
+				end, function(row: TopRow): string
+					return row.id
 				end),
 			}),
 		})
 	end
-	local function selectPotion(id)
+	local function selectPotion(id: string)
 		drafts[selectedPotion:peek()] =
 			{ name = draftName:peek(), base = base:peek(), essence = essence:peek(), garnish = garnish:peek() }
 		local potion = data.potionById(id)
-		local record = drafts[id]
+		local record: Draft = drafts[id]
 			or {
 				name = if potion then potion.name else "New potion",
 				base = if potion then potion.base else data.bases[1].id,
@@ -251,26 +251,33 @@ function Cartwheel.build(ctx: ExampleContext)
 			garnish:set(record.garnish)
 		end)
 	end
-	local function pickerOptions(items, optional): { StringPickerOption }
-		local options = if optional then { { value = "", label = "None" } } else {}
+	local function ingredientOptions(items: { data.Ingredient }, optional: boolean): { StringPickerOption }
+		local options: { StringPickerOption } = if optional then { { value = "", label = "None" } } else {}
 		for _, item in items do
 			table.insert(options, { value = item.id, label = item.name })
+		end
+		return options
+	end
+	local function plazaOptions(): { StringPickerOption }
+		local options: { StringPickerOption } = {}
+		for _, plaza in data.plazas do
+			table.insert(options, { value = plaza.id, label = plaza.name })
 		end
 		return options
 	end
 	local function workbench(): Instance
 		return view.page("Workbench", {
 			view.text("Workbench", 28),
-			UI.TextInput { Name = "PotionName", value = draftName, placeholder = "Potion name" },
+			UI.TextInput "PotionName" { value = draftName, placeholder = "Potion name" },
 			view.action("NewPotion", "New potion", function()
 				selectPotion("scratch")
 			end),
-			UI.Picker { Name = "Base", selected = base, options = pickerOptions(data.bases, false) },
-			UI.Picker { Name = "Essence", selected = essence, options = pickerOptions(data.essences, true) },
-			UI.Picker { Name = "Garnish", selected = garnish, options = pickerOptions(data.garnishes, true) },
-			view.text(function(use: Use)
+			UI.Picker "Base" { selected = base, options = ingredientOptions(data.bases, false) },
+			UI.Picker "Essence" { selected = essence, options = ingredientOptions(data.essences, true) },
+			UI.Picker "Garnish" { selected = garnish, options = ingredientOptions(data.garnishes, true) },
+			view.text(function(use: Use): string
 				local values = data.attributesOf(use(base), use(essence), use(garnish))
-				local parts = {}
+				local parts: { string } = {}
 				for index, name in data.ATTRIBUTES do
 					table.insert(parts, name .. " " .. tostring(values[index]))
 				end
@@ -278,7 +285,7 @@ function Cartwheel.build(ctx: ExampleContext)
 			end),
 			view.text("Potion gallery", 24),
 			view.column("Potions", {
-				view.list(data.potions, function(current)
+				view.list(data.potions, function(current: Readable<data.Potion>): GuiObject
 					local potion = current:peek()
 					return view.column(potion.id, {
 						Host.ImageLabel "Potion" {
@@ -290,6 +297,8 @@ function Cartwheel.build(ctx: ExampleContext)
 							selectPotion(potion.id)
 						end),
 					})
+				end, function(potion: data.Potion): string
+					return potion.id
 				end),
 			}),
 		})
@@ -297,14 +306,9 @@ function Cartwheel.build(ctx: ExampleContext)
 	local function ledger(): Instance
 		return view.page("Ledger", {
 			view.text("Ledger", 28),
-			UI.Picker {
-				Name = "LedgerTimeframe",
+			UI.Picker "LedgerTimeframe" {
 				selected = ledgerTimeframe,
-				options = {
-					{ value = "twoWeeks", label = "Two weeks" } :: PickerOption,
-					{ value = "month", label = "Month · Full Ledger" } :: PickerOption,
-					{ value = "year", label = "Year · Full Ledger" } :: PickerOption,
-				},
+				options = ledgerTimeframes,
 			},
 			Compose.show(function(use: Use)
 				return use(ledgerTimeframe) ~= "twoWeeks" and not use(entitlement.fullLedger)
@@ -320,15 +324,15 @@ function Cartwheel.build(ctx: ExampleContext)
 			end, function()
 				return view.column("Trading", {
 					Compose.keyed({
-						from = function(use: Use)
+						from = function(use: Use): { string }
 							return { use(ledgerTimeframe) }
 						end,
-						key = function(id)
+						key = function(id: string): string
 							return id
 						end,
-						render = function(current): GuiObject
+						render = function(current: Readable<string>): GuiObject
 							local period = current:peek()
-							local rows = {}
+							local rows: { Child } = {}
 							for _, plaza in data.plazas do
 								table.insert(
 									rows,
@@ -345,7 +349,7 @@ function Cartwheel.build(ctx: ExampleContext)
 			end),
 		})
 	end
-	local function chatter()
+	local function chatter(): Instance
 		return view.page("Chatter", {
 			view.text("Chatter", 28),
 			view.action("Subscribe", "Join Chatter+ · 9 Credits monthly", function()
@@ -354,17 +358,17 @@ function Cartwheel.build(ctx: ExampleContext)
 				return not use(entitlement.chatterPlus) and use(commands.status("buy:chatter")) ~= "pending"
 			end),
 			view.column("Posts", {
-				view.list(function(use: Use)
-					local result = table.clone(data.chatterPosts)
+				view.watch(function(use: Use): { data.Post }
+					local result: { data.Post } = table.clone(data.chatterPosts)
 					if use(entitlement.chatterPlus) then
 						for _, post in data.chatterBonusPosts do
 							table.insert(result, post)
 						end
 					end
 					return result
-				end, function(current)
+				end, function(current: Readable<data.Post>): GuiObject
 					local post = current:peek()
-					local tags = {}
+					local tags: { string } = {}
 					for _, index in post.tags do
 						table.insert(tags, data.chatterTags[index])
 					end
@@ -375,94 +379,96 @@ function Cartwheel.build(ctx: ExampleContext)
 						),
 						view.text(table.concat(tags, " · ")),
 					})
+				end, function(post: data.Post): string
+					return post.id
 				end),
 			}),
 		})
 	end
-	local function marketStage(plaza)
+	local function marketStage(plaza: data.Plaza): GuiObject
 		local V3, CF = ctx.types.Vector3, ctx.types.CFrame
-		return UI.Stage {
-			Name = "MarketScene",
+		return UI.Stage "MarketScene" {
 			Size = D2.new(1, 0, 0, 220),
 			camera = CF.lookAt(V3.new(6, 4, 9), V3.new(0, 1, 0)),
 			content = function(sceneRuntime, world): (() -> ())?
-				return sceneRuntime.mount(function()
-					return Host.Model({
-						Name = plaza.name,
-						Host.Part "Ground" {
-							Anchored = true,
-							Size = V3.new(16, 0.3, 12),
-							CFrame = CF.new(0, -0.2, 0),
-							Color = ctx.types.Color3.fromRGB(87, 103, 83),
-						} :: unknown,
-						Host.Part "Cart" {
-							Anchored = true,
-							Size = V3.new(4, 1.5, 2),
-							CFrame = CF.new(0, 1, 0),
-							Color = ctx.types.Color3.fromRGB(118, 79, 49),
-							Material = ctx.types.Enum.Material.Wood,
-						},
-						Host.Part "Canopy" {
-							Anchored = true,
-							Size = V3.new(5, 0.2, 3),
-							CFrame = CF.new(0, 3, 0),
-							Color = ctx.types.Color3.fromRGB(168, 94, 69),
-						},
-						Host.Part "LeftPost" {
-							Anchored = true,
-							Size = V3.new(0.2, 3, 0.2),
-							CFrame = CF.new(-1.8, 1.5, 0.7),
-							Color = ctx.types.Color3.fromRGB(118, 79, 49),
-						},
-						Host.Part "RightPost" {
-							Anchored = true,
-							Size = V3.new(0.2, 3, 0.2),
-							CFrame = CF.new(1.8, 1.5, 0.7),
-							Color = ctx.types.Color3.fromRGB(118, 79, 49),
-						},
-						Compose.keyed({
-							from = function()
-								return { 1, 2, 3, 4, 5 }
-							end,
-							key = function(value)
-								return value
-							end,
-							render = function(current): Instance
-								local index = current:peek()
-								return Host.Part({
-									Name = "Potion" .. index,
-									Anchored = true,
-									Shape = ctx.types.Enum.PartType.Cylinder,
-									Size = V3.new(0.6, 0.3, 0.3),
-									CFrame = CF.new(-1.5 + index * 0.5, 2, 0) * CF.Angles(0, 0, math.pi / 2),
-									Color = ctx.types.Color3.fromHSV(index / 7, 0.5, 0.8),
-									Material = ctx.types.Enum.Material.Glass,
-								})
-							end,
-						}),
-					})
-				end, world)
+				return (
+					sceneRuntime.mount(function()
+						return Host.Model(plaza.name)({
+							Host.Part "Ground" {
+								Anchored = true,
+								Size = V3.new(16, 0.3, 12),
+								CFrame = CF.new(0, -0.2, 0),
+								Color = ctx.types.Color3.fromRGB(87, 103, 83),
+							},
+							Host.Part "Cart" {
+								Anchored = true,
+								Size = V3.new(4, 1.5, 2),
+								CFrame = CF.new(0, 1, 0),
+								Color = ctx.types.Color3.fromRGB(118, 79, 49),
+								Material = ctx.types.Enum.Material.Wood,
+							},
+							Host.Part "Canopy" {
+								Anchored = true,
+								Size = V3.new(5, 0.2, 3),
+								CFrame = CF.new(0, 3, 0),
+								Color = ctx.types.Color3.fromRGB(168, 94, 69),
+							},
+							Host.Part "LeftPost" {
+								Anchored = true,
+								Size = V3.new(0.2, 3, 0.2),
+								CFrame = CF.new(-1.8, 1.5, 0.7),
+								Color = ctx.types.Color3.fromRGB(118, 79, 49),
+							},
+							Host.Part "RightPost" {
+								Anchored = true,
+								Size = V3.new(0.2, 3, 0.2),
+								CFrame = CF.new(1.8, 1.5, 0.7),
+								Color = ctx.types.Color3.fromRGB(118, 79, 49),
+							},
+							Compose.keyed({
+								from = function(): { number }
+									return { 1, 2, 3, 4, 5 }
+								end,
+								key = function(value: number): number
+									return value
+								end,
+								render = function(current: Readable<number>): Instance
+									local index = current:peek()
+									return Host.Part({
+										Name = "Potion" .. index,
+										Anchored = true,
+										Shape = ctx.types.Enum.PartType.Cylinder,
+										Size = V3.new(0.6, 0.3, 0.3),
+										CFrame = CF.new(-1.5 + index * 0.5, 2, 0) * CF.Angles(0, 0, math.pi / 2),
+										Color = ctx.types.Color3.fromHSV(index / 7, 0.5, 0.8),
+										Material = ctx.types.Enum.Material.Glass,
+									})
+								end,
+							}),
+						})
+					end, world)
+				)
 			end,
 		}
 	end
-	local function plazas()
+	local function plazas(): Instance
 		return view.page("Plazas", {
 			view.text("Plazas", 28),
-			UI.Picker { Name = "Market", selected = selectedPlaza, options = pickerOptions(data.plazas, false) },
+			UI.Picker "Market" { selected = selectedPlaza, options = plazaOptions() },
 			view.column("Conditions", {
 				Compose.keyed({
-					from = function(use: Use)
+					from = function(use: Use): { string }
 						return { use(selectedPlaza) }
 					end,
-					key = function(id)
+					key = function(id: string): string
 						return id
 					end,
-					render = function(current): GuiObject
+					render = function(current: Readable<string>): GuiObject
 						local id = current:peek()
-						local plaza = data.plazaById(id)
+						local plaza = assert(data.plazaById(id))
 						local weather = ambient.forPlaza(id)
 						return view.column(id, {
-							view.text(assert(plaza).name, 24),
+							view.text(plaza.name, 24),
 							view.text(plaza.pitch),
 							marketStage(plaza),
 							view.text(
@@ -476,26 +482,28 @@ function Cartwheel.build(ctx: ExampleContext)
 			}),
 		})
 	end
-	local function screen()
+	local destinations: { Tab } = {
+		{ id = "dashboard", label = "Dashboard", content = dashboard },
+		{ id = "brews", label = "Brews", content = brewsPage },
+		{ id = "workbench", label = "Workbench", content = workbench },
+		{ id = "ledger", label = "Ledger", content = ledger },
+		{ id = "chatter", label = "Chatter", content = chatter },
+		{ id = "plazas", label = "Plazas", content = plazas },
+	}
+	local celebrationActions: { AlertAction } = {
+		{ id = "done", label = "Keep brewing" },
+	}
+	local function screen(): Instance
 		return Host.Frame "Cartwheel" {
 			Size = D2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.TabView {
-				Name = "Destinations",
+			UI.TabView "Destinations" {
 				selection = section,
-				style = "sidebarAdaptable" :: "sidebarAdaptable",
+				style = "sidebarAdaptable",
 				Size = D2.new(1, 0, 1, -112),
-				tabs = {
-					{ id = "dashboard", label = "Dashboard", content = dashboard } :: Tab,
-					{ id = "brews", label = "Brews", content = brewsPage } :: Tab,
-					{ id = "workbench", label = "Workbench", content = workbench } :: Tab,
-					{ id = "ledger", label = "Ledger", content = ledger } :: Tab,
-					{ id = "chatter", label = "Chatter", content = chatter } :: Tab,
-					{ id = "plazas", label = "Plazas", content = plazas } :: Tab,
-				},
-			} :: unknown,
-			UI.Button {
-				Name = "Guild",
+				tabs = destinations,
+			},
+			UI.Button "Guild" {
 				label = function(use: Use)
 					return if use(identity.signedIn)
 						then "Sign out of " .. use(identity.guildName)
@@ -517,14 +525,13 @@ function Cartwheel.build(ctx: ExampleContext)
 				Size = D2.new(1, -32, 0, 56),
 				AutomaticSize = ctx.types.Enum.AutomaticSize.None,
 			}),
-			UI.Sheet {
-				Name = "BrewDetail",
+			UI.Sheet "BrewDetail" {
 				title = "Brew",
 				isPresented = detailOpen,
 				detent = Compose.cell("large"),
 				content = function(): Instance
-					local brew = orders.byId(selectedBrew:peek())
-					local parts = { view.text(`Brew #{brew.id}`, 28) }
+					local brew = assert(orders.byId(selectedBrew:peek()))
+					local parts: { Child } = { view.text(`Brew #{brew.id}`, 28) }
 					for _, item in brew.items do
 						table.insert(
 							parts,
@@ -533,16 +540,13 @@ function Cartwheel.build(ctx: ExampleContext)
 					end
 					table.insert(
 						parts,
-						view.text(function(use: Use)
+						view.text(function(use: Use): string
 							use(clock.nowSignal)
 							use(orders.brews)
+							local remaining = orders.remaining(brew.id)
 							return "Status: "
-								.. orders.statusOf(brew.id)
-								.. (
-									if orders.remaining(brew.id)
-										then ` · {math.ceil(orders.remaining(brew.id))} s`
-										else ""
-								)
+								.. (orders.statusOf(brew.id) or "")
+								.. (if remaining then ` · {math.ceil(remaining)} s` else "")
 						end)
 					)
 					table.insert(
@@ -568,22 +572,19 @@ function Cartwheel.build(ctx: ExampleContext)
 					return view.page("Brew", parts)
 				end,
 			},
-			UI.Sheet {
-				Name = "Signup",
+			UI.Sheet "Signup" {
 				title = "Join the guild",
 				isPresented = signupOpen,
 				detent = Compose.cell("medium"),
 				content = function(): Instance
 					return view.column("Form", {
-						UI.TextInput {
-							Name = "GuildName",
+						UI.TextInput "GuildName" {
 							value = guild,
 							placeholder = "Guild name",
 							maxLength = 24,
 							validate = identity.normalize,
 						},
-						UI.TextInput {
-							Name = "Watchword",
+						UI.TextInput "Watchword" {
 							value = watchword,
 							placeholder = "Watchword",
 							maxLength = 32,
@@ -597,14 +598,11 @@ function Cartwheel.build(ctx: ExampleContext)
 					})
 				end,
 			},
-			UI.Alert {
-				Name = "Celebration",
+			UI.Alert "Celebration" {
 				isPresented = celebration,
 				title = "Brew collected!",
 				message = notice,
-				actions = {
-					{ id = "done", label = "Keep brewing" } :: AlertAction,
-				},
+				actions = celebrationActions,
 			},
 		}
 	end
@@ -628,15 +626,15 @@ function Cartwheel.build(ctx: ExampleContext)
 		steps = {
 			advance = advance,
 			openBrew = openBrew,
-			start = function(id)
+			start = function(id: number)
 				return brewCommand(id, "start")
 			end,
-			collect = function(id)
+			collect = function(id: number)
 				return brewCommand(id, "finish")
 			end,
 			purchase = purchase,
 			selectPotion = selectPotion,
-			signup = function(name, password)
+			signup = function(name: string, password: string)
 				guild:set(name)
 				watchword:set(password)
 				return signup()

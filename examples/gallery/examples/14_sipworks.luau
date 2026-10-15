@@ -1,22 +1,28 @@
 --!strict
 
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 type SipworksModule = typeof(require("@repo/examples/reference/p3_sipworks"))
-local loadSipworks = require :: (string) -> SipworksModule
+type Entry = { id: string, value: string? }
+local loadSipworks: (ModuleScript | string) -> SipworksModule = require
 local makeView = require("./showcase_view")
 local art = require("./showcase_art")
 return {
 	title = "Sipworks",
-	build = function(ctx: any)
-		local original = if script
-			then ctx.load("reference", "p3_sipworks")
-			else loadSipworks("../../reference/p3_sipworks")
+	build = function(ctx: ExampleContext)
+		local original = loadSipworks(
+			if script and ctx.find then ctx.find("reference", "p3_sipworks") else "../../reference/p3_sipworks"
+		)
 		local reference = original.build(ctx)
 		local model, catalog = reference.model, reference.model.catalog
 		local UI, Host, C = ctx.UI, ctx.Host, ctx.Compose
 		local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 		local view = makeView(ctx)
-		local path, query, servings = C.cell({}), C.cell(""), C.cell(1)
-		local gathered, indices = {}, {}
+		local noEntries: { Entry } = {}
+		local path, query, servings = C.cell(noEntries), C.cell(""), C.cell(1)
+		local gathered: { [string]: typeof(C.cell(false)) } = {}
+		local indices: { [string]: number } = {}
 		local metric = UI.environment().metricScale
 		for index, blend in catalog.blends do
 			indices[blend.id] = index
@@ -37,8 +43,7 @@ return {
 		local function picture(id: string, height: number)
 			local index = indices[id] - 1
 			local col, row = index % 3 + 1, math.floor(index / 3) + 1
-			return UI.Image {
-				Name = "TeaIllustration",
+			return UI.Image "TeaIllustration" {
 				image = art.teas,
 				scaleMode = if height >= 240 then "fit" else "crop",
 				Size = D2.new(1, 0, 0, height),
@@ -49,11 +54,11 @@ return {
 				),
 			}
 		end
-		local function recipe(entry: any)
-			local blend = catalog.blend(entry.value)
+		local function recipe(entry: Entry?)
+			local blend = assert(catalog.blend(assert(entry and entry.value)))
 			local related = {}
 			for _, measure in catalog.recipeMeasures(blend.id) do
-				local ingredient = catalog.botanical(measure.botanicalId)
+				local ingredient = assert(catalog.botanical(measure.botanicalId))
 				local key = blend.id .. "/" .. ingredient.id
 				gathered[key] = gathered[key] or C.cell(false)
 
@@ -66,19 +71,17 @@ return {
 					)
 				end
 			end
-			return UI.ScrollView {
-				Name = "RecipeDetail",
+			return UI.ScrollView "RecipeDetail" {
 				padding = "m",
 				gap = "m",
-				picture(blend.id, 240) :: unknown,
+				picture(blend.id, 240),
 				view.text("RecipeTitle", blend.title, "title"),
 				view.text("Description", blend.paragraphs[1].text),
 				view.actions({
-					UI.Toggle {
-						Name = "FavoriteRecipe",
+					UI.Toggle "FavoriteRecipe" {
 						label = "Saved",
-						presentation = "button" :: "button",
-						value = function(use: any)
+						presentation = "button",
+						value = function(use: Use)
 							use(model.favorites.set)
 							return model.favorites.isFavorite(blend.id)
 						end,
@@ -86,8 +89,7 @@ return {
 							model.favorites.toggle(blend.id)
 						end,
 					},
-					UI.CollapsibleView {
-						Name = "BrewingNotes",
+					UI.CollapsibleView "BrewingNotes" {
 						label = "Brewing notes",
 						expanded = C.cell(false),
 						content = function(): Instance
@@ -102,39 +104,37 @@ return {
 								table.insert(rows, view.text("Note", paragraph.text))
 							end
 							return UI.VStack {
-								width = "fill" :: "fill",
+								width = "fill",
 								gap = "m",
-								table.unpack((rows :: unknown) :: { unknown }),
+								table.unpack(rows),
 							}
 						end,
 					},
 				}),
-				UI.Stepper { Name = "Servings", label = "Cups to make", value = servings, min = 1, max = 8, step = 1 },
-				UI.DisclosureGroup {
-					Name = "Ingredients",
+				UI.Stepper "Servings" { label = "Cups to make", value = servings, min = 1, max = 8, step = 1 },
+				UI.DisclosureGroup "Ingredients" {
 					label = "Gather your ingredients",
 					expanded = C.cell(true),
 					content = function(): Instance
 						local ingredientRows = {}
 						for _, measure in catalog.recipeMeasures(blend.id) do
-							local ingredient = catalog.botanical(measure.botanicalId)
+							local ingredient = assert(catalog.botanical(measure.botanicalId))
 							local key = blend.id .. "/" .. ingredient.id
 							table.insert(
 								ingredientRows,
-								UI.Toggle {
-									Name = "Gather_" .. ingredient.id,
+								UI.Toggle("Gather_" .. ingredient.id) {
 									value = gathered[key],
-									presentation = "checkbox" :: "checkbox",
-									label = function(use: any)
+									presentation = "checkbox",
+									label = function(use: Use)
 										return `{measure.value * use(servings)} {measure.unit} · {ingredient.name}`
 									end,
 								}
 							)
 						end
 						return UI.VStack {
-							width = "fill" :: "fill",
+							width = "fill",
 							gap = "s",
-							table.unpack((ingredientRows :: unknown) :: { unknown }),
+							table.unpack(ingredientRows),
 						}
 					end,
 				},
@@ -142,8 +142,8 @@ return {
 				view.actions(related),
 			}
 		end
-		local function ingredient(entry: any)
-			local botanical = catalog.botanical(entry.value)
+		local function ingredient(entry: Entry?)
+			local botanical = assert(catalog.botanical(assert(entry and entry.value)))
 			local recipes = {}
 			for _, blend in catalog.blends do
 				if catalog.measureFor(blend.id, botanical.id) then
@@ -155,11 +155,10 @@ return {
 					)
 				end
 			end
-			return UI.ScrollView {
-				Name = "BotanicalDetail",
+			return UI.ScrollView "BotanicalDetail" {
 				padding = "m",
 				gap = "m",
-				view.text("BotanicalTitle", botanical.name, "title") :: unknown,
+				view.text("BotanicalTitle", botanical.name, "title"),
 				view.text(
 					"BotanicalDescription",
 					`A teaspoon weighs about {botanical.gramsPerTsp} g. Steep for {botanical.steepMinutes} minutes.`
@@ -168,7 +167,7 @@ return {
 				table.unpack(recipes),
 			}
 		end
-		local function belongs(blend: any, category: string): boolean
+		local function belongs(blend: { id: string }, category: string): boolean
 			if category == "saved" then
 				return model.favorites.isFavorite(blend.id)
 			end
@@ -185,10 +184,10 @@ return {
 		end
 		local function library(category: string)
 			local width, gridWidth = C.cell(1000), C.cell(400)
-			local wide = C.formula(function(use: any)
+			local wide = C.formula(function(use: Use)
 				return use(width) >= 830 * use(metric)
 			end)
-			local visible = C.formula(function(use: any)
+			local visible = C.formula(function(use: Use)
 				use(model.favorites.set)
 				local found = {}
 				for _, blend in catalog.blends do
@@ -204,40 +203,38 @@ return {
 				return found
 			end)
 			local function collection()
-				return UI.Screen {
-					Name = "RecipeLibrary",
+				return UI.Screen "RecipeLibrary" {
 					padding = "m",
 					gap = "m",
-					view.text("LibraryTitle", "Sipworks", "title") :: unknown,
+					view.text("LibraryTitle", "Sipworks", "title"),
 					view.text("LibraryIntro", "A recipe for every kind of afternoon."),
-					UI.TextInput {
-						Name = "FindRecipe",
-						presentation = "search" :: "search",
+					UI.TextInput "FindRecipe" {
+						presentation = "search",
 						value = query,
 						placeholder = "Find a blend or ingredient…",
 					},
-					C.show(function(use: any)
+					C.show(function(use: Use)
 						return #use(visible) == 0
 					end, function()
 						return view.text("NoRecipes", "No recipes here yet. Try another search or save a blend.")
 					end),
-					UI.VirtualGrid {
-						Name = "RecipeGrid",
+					UI.VirtualGrid "RecipeGrid" {
 						from = visible,
 						key = "id",
 						gap = 12,
 						measure = true,
 						itemSize = 240,
-						columns = function(use: any)
+						columns = function(use: Use)
 							return math.max(1, math.floor(use(gridWidth) / (190 * use(metric))))
 						end,
 						Size = D2.new(1, 0, 0, 300),
-						UI.fill() :: unknown,
-						ref = view.observeWidth(gridWidth),
+						UI.fill(),
+						ref = function(node)
+							view.observeWidth(gridWidth, node)
+						end,
 						render = function(current): GuiObject
 							local blend = current:peek()
-							return UI.Card {
-								Name = "Recipe_" .. blend.id,
+							return UI.Card("Recipe_" .. blend.id) {
 								title = blend.title,
 								caption = `{catalog.steepMinutes(blend.id)} min · {#catalog.tileBotanicals(blend.id)} botanicals`,
 								artwork = function()
@@ -255,8 +252,7 @@ return {
 				}
 			end
 			local function detailArea()
-				return UI.NavigationStack {
-					Name = "RecipeNavigation",
+				return UI.NavigationStack "RecipeNavigation" {
 					path = path,
 					root = {
 						title = "Recipe book",
@@ -264,7 +260,7 @@ return {
 							return UI.ScrollView {
 								padding = "l",
 								gap = "m",
-								picture("lantern-oolong", 280) :: unknown,
+								picture("lantern-oolong", 280),
 								view.text("ChooseRecipe", "What will you brew?", "title"),
 								view.text(
 									"ChooseHint",
@@ -293,7 +289,7 @@ return {
 							Size = D2.fromScale(0.46, 1),
 							BackgroundTransparency = 1,
 							collection(),
-						} :: unknown,
+						},
 						Host.Frame "DetailColumn" {
 							Position = D2.fromScale(0.46, 0),
 							Size = D2.fromScale(0.54, 1),
@@ -302,8 +298,7 @@ return {
 						},
 					}
 				end, function()
-					return UI.NavigationStack {
-						Name = "RecipeNavigation",
+					return UI.NavigationStack "RecipeNavigation" {
 						path = path,
 						root = { title = "Sipworks", content = collection },
 						destinations = {
@@ -313,7 +308,7 @@ return {
 					}
 				end),
 			}
-			view.observeWidth(width)(root)
+			view.observeWidth(width, root)
 			return root
 		end
 		local pages = {}
@@ -334,11 +329,17 @@ return {
 				end,
 			})
 		end
-		local built = view.tabs("Sipworks", pages, function()
+		local tabs = view.tabs("Sipworks", pages, function(): { [string]: unknown }
 			return { path = path:peek(), servings = servings:peek(), favorites = model.favorites.ids() }
 		end)
-		built.model = { path = path, servings = servings, gathered = gathered, query = query, catalog = catalog }
-		built.open, built.push, built.back = open, push, back
-		return built
+		return {
+			screen = tabs.screen,
+			select = tabs.select,
+			report = tabs.report,
+			model = { path = path, servings = servings, gathered = gathered, query = query, catalog = catalog },
+			open = open,
+			push = push,
+			back = back,
+		}
 	end,
 }
