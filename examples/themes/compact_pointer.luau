@@ -1,11 +1,4 @@
 --!strict
-type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
-type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
-type Typography = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.metrics.typography.body)
-type Asset = typeof(require("@repo/examples/types").ThemeAsset)
-type RGB = { r: number, g: number, b: number }
-type Palette = { colors: { [string]: RGB }, extra: Extra }
 
 local compact_pointer = {}
 
@@ -14,17 +7,17 @@ compact_pointer.displayName = "Compact Pointer"
 compact_pointer.themeClasses = table.freeze({ "palette", "metrics", "font", "assets" })
 compact_pointer.pairRole = "pointer"
 
-local function rgb(r: number, g: number, b: number): RGB
+local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
-local SELECTED_TINT: RGB = { r = 0.68, g = 0.78, b = 0.9 }
+local SELECTED_TINT = { r = 0.68, g = 0.78, b = 0.9 }
 
 local FAMILY = "rbxasset://fonts/families/BuilderSans.json"
-local SIZES: { [string]: number } = { caption = 11, label = 12, body = 13, control = 13, heading = 17, title = 22 }
+local SIZES = { caption = 11, label = 12, body = 13, control = 13, heading = 17, title = 22 }
 
-local function typography(): { [string]: Typography }
-	local out: { [string]: Typography } = {}
+local function typography(): any
+	local out: any = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY }, size = size, lineHeight = 1.25 }
 	end
@@ -32,7 +25,7 @@ local function typography(): { [string]: Typography }
 	return out
 end
 
-local AQUA: Palette = {
+local AQUA = {
 	colors = {
 		surface = rgb(238, 240, 243),
 		surfaceStrong = rgb(252, 253, 255),
@@ -62,7 +55,7 @@ local AQUA: Palette = {
 	},
 }
 
-local ASSETS: { [string]: Asset } = {
+local ASSETS = {
 	compact_panel = {
 		content = "rbxassetid://113956274031174",
 		sliceCenter = { x0 = 12, y0 = 12, x1 = 36, y1 = 36 },
@@ -143,7 +136,7 @@ local ASSETS: { [string]: Asset } = {
 	},
 }
 
-function compact_pointer.definition(themes: Themes): ThemeDefinition
+function compact_pointer.definition(themes: any): any
 	local assets = table.clone(ASSETS)
 
 	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
@@ -184,17 +177,25 @@ function compact_pointer.definition(themes: Themes): ThemeDefinition
 
 				slider = { railHeight = 4, thumbSize = 14, readoutMinWidth = 32 },
 			},
+			insets = {
+				panel = { top = 8, right = 8, bottom = 8, left = 8 },
+				control = { top = 2, right = 6, bottom = 2, left = 6 },
+				field = { top = 2, right = 6, bottom = 2, left = 6 },
+				selection = { top = 2, right = 4, bottom = 2, left = 4 },
+				divider = { top = 0, right = 0, bottom = 0, left = 0 },
+				scrollbar = { top = 0, right = 0, bottom = 0, left = 0 },
+			},
 		},
 		chrome = {
 			panel = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "compact_panel",
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 				fallback = "native",
 			},
 
 			control = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = {
 					default = "compact_button_default",
 					hover = "compact_button_hover",
@@ -205,61 +206,62 @@ function compact_pointer.definition(themes: Themes): ThemeDefinition
 				fallback = "native",
 			},
 			field = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "compact_field",
 				contentInsets = { top = 2, right = 6, bottom = 2, left = 6 },
 				fallback = "native",
 			},
 
 			selection = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "compact_button_default", selected = "compact_button_hover" },
 				contentInsets = { top = 2, right = 4, bottom = 2, left = 4 },
 				fallback = "native",
 			},
 
-			focus = { kind = "ring" },
+			focus = { kind = "ring" :: "ring" },
 			barTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "compact_bar_track",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
 			barFill = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "compact_bar_fill",
-				direction = "ltr",
+				direction = "ltr" :: "ltr",
 				fallback = "native",
 			},
 			toggleTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "compact_toggle_track_off", selected = "compact_toggle_track_on" },
 				fallback = "native",
 			},
 			toggleKnob = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "compact_toggle_knob",
 				sliced = false,
 				fallback = "native",
 			},
 
 			stepperPlate = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "compact_stepper_plate_default", pressed = "compact_stepper_plate_pressed" },
 				sliced = true,
 				contentInsets = { top = 2, right = 2, bottom = 2, left = 2 },
 				fallback = "native",
 			},
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 
 		icons = { ["facet:search"] = "search" },
 		assets = assets,
+		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end
 
-function compact_pointer.build(themes: Themes)
+function compact_pointer.build(themes: any): (any, any)
 	return themes.define(compact_pointer.definition(themes))
 end
 

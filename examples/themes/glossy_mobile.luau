@@ -1,12 +1,4 @@
 --!strict
-type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
-type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
-type Typography = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.metrics.typography.body)
-type Gradient = typeof(require("@repo/examples/types").ThemeGradient)
-type RGB = { r: number, g: number, b: number }
-type Palette = { colors: { [string]: RGB }, extra: Extra }
-type ExtraValue = typeof(require("@repo/examples/types").ThemeExtraValue)
 
 local glossy_mobile = {}
 
@@ -14,19 +6,15 @@ glossy_mobile.id = "glossy-mobile"
 glossy_mobile.displayName = "Glossy Mobile"
 glossy_mobile.themeClasses = table.freeze({ "palette", "metrics", "font" })
 
-local function rgb(r: number, g: number, b: number): RGB
+local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
-local function extraRgb(r: number, g: number, b: number): ExtraValue
-	return rgb(r, g, b)
-end
-
 local FAMILY = "rbxasset://fonts/families/Nunito.json"
-local SIZES: { [string]: number } = { caption = 13, label = 15, body = 17, control = 18, heading = 24, title = 30 }
+local SIZES = { caption = 13, label = 15, body = 17, control = 18, heading = 24, title = 30 }
 
-local function typography(): { [string]: Typography }
-	local out: { [string]: Typography } = {}
+local function typography(): any
+	local out: any = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY, weight = "Medium" }, size = size, lineHeight = 1.3 }
 	end
@@ -35,7 +23,7 @@ local function typography(): { [string]: Typography }
 	return out
 end
 
-local function gloss(topAlpha: number, bottomAlpha: number): Gradient
+local function gloss(topAlpha: number, bottomAlpha: number): any
 	return {
 		rotation = 90,
 		stops = {
@@ -53,7 +41,7 @@ local function gloss(topAlpha: number, bottomAlpha: number): Gradient
 	}
 end
 
-local DAYLIGHT: Palette = {
+local DAYLIGHT = {
 	colors = {
 		surface = rgb(238, 243, 250),
 		surfaceStrong = rgb(255, 255, 255),
@@ -84,11 +72,11 @@ local DAYLIGHT: Palette = {
 			panel = gloss(0.06, 0.3),
 		},
 
-		["demo:gaugeTint"] = extraRgb(12, 96, 200),
+		["demo:gaugeTint"] = rgb(12, 96, 200),
 	},
 }
 
-function glossy_mobile.definition(themes: Themes): ThemeDefinition
+function glossy_mobile.definition(themes: any): any
 	return {
 		base = themes.neutralPackage(),
 		identity = {
@@ -120,21 +108,30 @@ function glossy_mobile.definition(themes: Themes): ThemeDefinition
 			controls = {
 				progress = { circularSize = 32, circularThickness = 5, spinnerDotSize = 10 },
 			},
+			insets = {
+				panel = { top = 18, right = 18, bottom = 18, left = 18 },
+				control = { top = 10, right = 18, bottom = 10, left = 18 },
+				field = { top = 10, right = 18, bottom = 10, left = 18 },
+				selection = { top = 8, right = 10, bottom = 8, left = 10 },
+				divider = { top = 0, right = 0, bottom = 0, left = 0 },
+				scrollbar = { top = 0, right = 0, bottom = 0, left = 0 },
+			},
 		},
 		chrome = {
 
-			panel = { kind = "native", shadow = "raised" },
-			control = { kind = "native", shadow = "raised" },
-			field = { kind = "native" },
-			selection = { kind = "native" },
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			panel = { kind = "native" :: "native", shadow = "raised" },
+			control = { kind = "native" :: "native", shadow = "raised" },
+			field = { kind = "native" :: "native" },
+			selection = { kind = "native" :: "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 		assets = {},
+		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end
 
-function glossy_mobile.build(themes: Themes)
+function glossy_mobile.build(themes: any): (any, any)
 	return themes.define(glossy_mobile.definition(themes))
 end
 

@@ -1,13 +1,22 @@
 --!strict
-type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
-type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
-type Typography = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.metrics.typography.body)
-type SkinLayer = typeof(require("@repo/tools/typecheck/aliases").SkinLayer)
-type Asset = typeof(require("@repo/examples/types").ThemeAsset)
-type RGB = { r: number, g: number, b: number }
-type Palette = { colors: { [string]: RGB }, extra: Extra }
-type ExtraValue = typeof(require("@repo/examples/types").ThemeExtraValue)
+type SkinLayer = {
+	kind: string,
+	asset: (string | { [string]: string | { asset: string, rotation: number? } })?,
+	tileSize: { w: number, h: number }?,
+	sides: { string }?,
+	thickness: number?,
+	margin: number?,
+	tile: number?,
+	size: (number | { w: number, h: number })?,
+	topLeft: string?,
+	topRight: string?,
+	bottomLeft: string?,
+	bottomRight: string?,
+	edge: string?,
+	overhang: number?,
+	text: boolean?,
+	textInsets: { top: number, right: number, bottom: number, left: number }?,
+}
 
 local fantasy_ornate = {}
 
@@ -16,26 +25,22 @@ fantasy_ornate.displayName = "Fantasy Ornate"
 
 fantasy_ornate.themeClasses = table.freeze({ "palette", "metrics", "font", "assets" })
 
-local function rgb(r: number, g: number, b: number): RGB
+local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
-local function extraRgb(r: number, g: number, b: number): ExtraValue
-	return rgb(r, g, b)
-end
-
 local FAMILY = "rbxasset://fonts/families/Fondamento.json"
-local SIZES: { [string]: number } = { caption = 12, label = 14, body = 16, control = 17, heading = 22, title = 28 }
+local SIZES = { caption = 12, label = 14, body = 16, control = 17, heading = 22, title = 28 }
 
-local function typography(): { [string]: Typography }
-	local out: { [string]: Typography } = {}
+local function typography(): any
+	local out: any = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY }, size = size, lineHeight = 1.35 }
 	end
 	return out
 end
 
-local GRAND_HALL: Palette = {
+local GRAND_HALL = {
 	colors = {
 		surface = rgb(46, 34, 24),
 		surfaceStrong = rgb(66, 50, 34),
@@ -63,13 +68,13 @@ local GRAND_HALL: Palette = {
 		scrimOpacity = 0.55,
 		disabledContentOpacity = 0.45,
 
-		focusGlow = extraRgb(248, 206, 108),
+		focusGlow = rgb(248, 206, 108),
 
-		["gauge:needle"] = extraRgb(255, 214, 128),
+		["gauge:needle"] = rgb(255, 214, 128),
 	},
 }
 
-local CRYPT: Palette = {
+local CRYPT = {
 	colors = {
 		surface = rgb(26, 30, 38),
 		surfaceStrong = rgb(40, 46, 56),
@@ -96,13 +101,13 @@ local CRYPT: Palette = {
 		hairlineOpacity = 0.6,
 		scrimOpacity = 0.62,
 		disabledContentOpacity = 0.45,
-		focusGlow = extraRgb(146, 214, 232),
+		focusGlow = rgb(146, 214, 232),
 
-		["gauge:needle"] = extraRgb(168, 226, 240),
+		["gauge:needle"] = rgb(168, 226, 240),
 	},
 }
 
-local ASSETS: { [string]: Asset } = {
+local ASSETS = {
 
 	ornate_velvet_tile = { content = "rbxassetid://117354814510719", preload = "install", fallback = "native" },
 	ornate_panel_fill = {
@@ -267,23 +272,21 @@ local ASSETS: { [string]: Asset } = {
 	},
 }
 
-local RAIL_SIDES: { "top" | "right" | "bottom" | "left" } = { "top", "bottom" }
-
-local PANEL_LAYERS: { SkinLayer } = {
-	{ kind = "tile", asset = "ornate_velvet_tile", tileSize = { w = 64, h = 64 } },
-	{ kind = "fill", asset = "ornate_panel_fill" },
-	{ kind = "frame", asset = "ornate_panel_frame" },
+local PANEL_LAYERS = {
+	{ kind = "tile" :: "tile", asset = "ornate_velvet_tile", tileSize = { w = 64, h = 64 } } :: SkinLayer,
+	{ kind = "fill" :: "fill", asset = "ornate_panel_fill" } :: SkinLayer,
+	{ kind = "frame" :: "frame", asset = "ornate_panel_frame" } :: SkinLayer,
 
 	{
-		kind = "edges",
+		kind = "edges" :: "edges",
 		asset = "ornate_edge_rail",
-		sides = RAIL_SIDES,
+		sides = { "top", "bottom" },
 		thickness = 12,
 		margin = 44,
 		tile = 64,
-	},
+	} :: SkinLayer,
 	{
-		kind = "corners",
+		kind = "corners" :: "corners",
 		asset = "ornate_corner_tl",
 		size = 30,
 
@@ -291,54 +294,31 @@ local PANEL_LAYERS: { SkinLayer } = {
 		topRight = "ornate_corner_tr",
 		bottomLeft = "ornate_corner_bl",
 		bottomRight = "ornate_corner_br",
-	},
+	} :: SkinLayer,
 
 	{
-		kind = "plaque",
+		kind = "plaque" :: "plaque",
 		asset = "ornate_plaque",
 		size = { w = 176, h = 40 },
-		edge = "top",
+		edge = "top" :: "top",
 		overhang = 20,
 		text = true,
 		textInsets = { top = 13, right = 16, bottom = 15, left = 16 },
-	},
+	} :: SkinLayer,
 }
 
-local function copyAssets(source: { [string]: Asset }): { [string]: Asset }
-	local out: { [string]: Asset } = {}
-	for name, asset in source do
-		out[name] = table.clone(asset)
+local function copy(v: any): any
+	if type(v) ~= "table" then
+		return v
+	end
+	local out: any = {}
+	for k, inner in v do
+		out[k] = copy(inner)
 	end
 	return out
 end
 
-function fantasy_ornate.definition(themes: Themes): ThemeDefinition
-	local controlLayers: { SkinLayer } = {
-		{
-			kind = "fill",
-			asset = {
-				default = "ornate_button_default",
-				hover = "ornate_button_hover",
-				pressed = "ornate_button_pressed",
-				selected = { asset = "ornate_selection_selected", rotation = 180 },
-			},
-		},
-
-		{
-			kind = "corners",
-			asset = "ornate_corner_tl",
-			size = 14,
-			topLeft = "ornate_corner_tl",
-			topRight = "ornate_corner_tr",
-		},
-	}
-	local fieldLayers: { SkinLayer } = { { kind = "fill", asset = "ornate_field" } }
-	local selectionLayers: { SkinLayer } = {
-		{
-			kind = "fill",
-			asset = { default = "ornate_selection_default", selected = "ornate_selection_selected" },
-		},
-	}
+function fantasy_ornate.definition(themes: any): any
 	return {
 
 		base = themes.neutralPackage(),
@@ -385,49 +365,81 @@ function fantasy_ornate.definition(themes: Themes): ThemeDefinition
 				},
 				slider = { railHeight = 24, thumbSize = 28, readoutMinWidth = 44 },
 			},
+			insets = {
+				panel = { top = 8, right = 8, bottom = 8, left = 8 },
+				control = { top = 4, right = 8, bottom = 4, left = 8 },
+				field = { top = 4, right = 8, bottom = 4, left = 8 },
+				selection = { top = 4, right = 6, bottom = 4, left = 6 },
+				divider = { top = 0, right = 0, bottom = 0, left = 0 },
+				scrollbar = { top = 0, right = 0, bottom = 0, left = 0 },
+			},
 		},
 		chrome = {
 
 			navigation = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_selection_default",
 				contentInsets = { top = 6, right = 12, bottom = 6, left = 12 },
 				fallback = "native",
 			},
 
 			panel = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				contentInsets = { top = 30, right = 30, bottom = 30, left = 30 },
 				fallback = "native",
-				layers = table.clone(PANEL_LAYERS),
+				layers = copy(PANEL_LAYERS),
 
 				shadow = "raised",
 			},
 
 			control = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				contentInsets = { top = 10, right = 14, bottom = 10, left = 14 },
 				fallback = "native",
-				layers = controlLayers,
+				layers = {
+					({
+						kind = "fill" :: "fill",
+						asset = {
+							default = "ornate_button_default",
+							hover = "ornate_button_hover",
+							pressed = "ornate_button_pressed",
+							selected = { asset = "ornate_selection_selected", rotation = 180 },
+							error = "ornate_selection_selected",
+						},
+					} :: unknown) :: SkinLayer,
+
+					{
+						kind = "corners" :: "corners",
+						asset = "ornate_corner_tl",
+						size = 14,
+						topLeft = "ornate_corner_tl",
+						topRight = "ornate_corner_tr",
+					} :: SkinLayer,
+				},
 				shadow = "raised",
 			},
 
 			field = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				contentInsets = { top = 8, right = 12, bottom = 8, left = 12 },
 				fallback = "native",
-				layers = fieldLayers,
+				layers = { { kind = "fill" :: "fill", asset = "ornate_field" } :: SkinLayer },
 			},
 
 			selection = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				contentInsets = { top = 6, right = 8, bottom = 6, left = 8 },
 				fallback = "native",
-				layers = selectionLayers,
+				layers = {
+					({
+						kind = "fill" :: "fill",
+						asset = { default = "ornate_selection_default", selected = "ornate_selection_selected" },
+					} :: unknown) :: SkinLayer,
+				},
 			},
 
 			focus = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_panel_frame",
 				sliceScale = 0.3,
 				outset = 6,
@@ -435,13 +447,13 @@ function fantasy_ornate.definition(themes: Themes): ThemeDefinition
 			},
 
 			sliderTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_bar_track",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
 			sliderThumb = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_toggle_knob_default",
 				sliced = false,
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
@@ -449,7 +461,7 @@ function fantasy_ornate.definition(themes: Themes): ThemeDefinition
 			},
 
 			badge = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_bar_center",
 				sliced = false,
 				contentInsets = { top = 5, right = 5, bottom = 5, left = 5 },
@@ -457,19 +469,19 @@ function fantasy_ornate.definition(themes: Themes): ThemeDefinition
 			},
 
 			barTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_bar_track",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
 			barFill = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_bar_fill",
-				direction = "ltr",
+				direction = "ltr" :: "ltr",
 				fallback = "native",
 			},
 			barCap = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_bar_cap_start",
 				startAsset = "ornate_bar_cap_start",
 				endAsset = "ornate_bar_cap_end",
@@ -477,33 +489,33 @@ function fantasy_ornate.definition(themes: Themes): ThemeDefinition
 				fallback = "native",
 			},
 			barCenter = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "ornate_bar_center",
 				size = { w = 36, h = 28 },
 				fallback = "native",
 			},
 
 			toggleTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "ornate_toggle_track_off", selected = "ornate_toggle_track_on" },
 				fallback = "native",
 			},
 			toggleKnob = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "ornate_toggle_knob_default", pressed = "ornate_toggle_knob_pressed" },
 				fallback = "native",
 			},
 
 			stepperPlate = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "ornate_stepper_plate_default", pressed = "ornate_stepper_plate_pressed" },
 				sliced = true,
 				contentInsets = { top = 4, right = 4, bottom = 4, left = 4 },
 				fallback = "native",
 			},
 
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 
 		icons = {
@@ -515,24 +527,23 @@ function fantasy_ornate.definition(themes: Themes): ThemeDefinition
 			close = "ornate_icon_cross",
 			["ornate:settings"] = "ornate_icon_gear",
 		},
-		assets = copyAssets(ASSETS),
+		assets = copy(ASSETS),
+		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end
 
-function fantasy_ornate.build(themes: Themes)
+function fantasy_ornate.build(themes: any): (any, any)
 	return themes.define(fantasy_ornate.definition(themes))
 end
 
 fantasy_ornate.BOGUS_CONTENT_ID = "rbxassetid://1"
 fantasy_ornate.BROKEN_ASSET = "ornate_panel_frame"
 
-function fantasy_ornate.buildBadLayer(themes: Themes)
+function fantasy_ornate.buildBadLayer(themes: any): (any, any)
 	local def = fantasy_ornate.definition(themes)
-	local identity = assert(def.identity)
-	identity.id = fantasy_ornate.id .. "-badlayer"
-	identity.displayName = fantasy_ornate.displayName .. " — broken layer"
-	local assets = assert(def.assets)
-	assets[fantasy_ornate.BROKEN_ASSET].content = fantasy_ornate.BOGUS_CONTENT_ID
+	def.identity.id = fantasy_ornate.id .. "-badlayer"
+	def.identity.displayName = fantasy_ornate.displayName .. " — broken layer"
+	def.assets[fantasy_ornate.BROKEN_ASSET].content = fantasy_ornate.BOGUS_CONTENT_ID
 	return themes.define(def)
 end
 

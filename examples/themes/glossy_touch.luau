@@ -1,13 +1,11 @@
 --!strict
-type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
-type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
-type Typography = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.metrics.typography.body)
-type SkinLayer = typeof(require("@repo/tools/typecheck/aliases").SkinLayer)
-type Asset = typeof(require("@repo/examples/types").ThemeAsset)
-type RGB = { r: number, g: number, b: number }
-type Palette = { colors: { [string]: RGB }, extra: Extra }
-type ExtraValue = typeof(require("@repo/examples/types").ThemeExtraValue)
+type BarLayer = {
+	kind: "fill" | "tile",
+	asset: string,
+	inset: { x: number, y: number }?,
+	mask: string?,
+	tileSize: { w: number, h: number }?,
+}
 
 local glossy_touch = {}
 
@@ -17,19 +15,15 @@ glossy_touch.themeClasses = table.freeze({ "palette", "metrics", "font", "assets
 
 glossy_touch.pairRole = "touch"
 
-local function rgb(r: number, g: number, b: number): RGB
+local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
-local function extraRgb(r: number, g: number, b: number): ExtraValue
-	return rgb(r, g, b)
-end
-
 local FAMILY = "rbxasset://fonts/families/Nunito.json"
-local SIZES: { [string]: number } = { caption = 13, label = 15, body = 17, control = 17, heading = 24, title = 30 }
+local SIZES = { caption = 13, label = 15, body = 17, control = 17, heading = 24, title = 30 }
 
-local function typography(): { [string]: Typography }
-	local out: { [string]: Typography } = {}
+local function typography(): any
+	local out: any = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY, weight = "Medium" }, size = size, lineHeight = 1.3 }
 	end
@@ -37,7 +31,7 @@ local function typography(): { [string]: Typography }
 	return out
 end
 
-local SKY: Palette = {
+local SKY = {
 	colors = {
 		surface = rgb(226, 233, 242),
 		surfaceStrong = rgb(248, 251, 255),
@@ -66,11 +60,11 @@ local SKY: Palette = {
 		scrimOpacity = 0.35,
 		disabledContentOpacity = 0.4,
 
-		focusGlow = extraRgb(64, 152, 244),
+		focusGlow = rgb(64, 152, 244),
 	},
 }
 
-local ASSETS: { [string]: Asset } = {
+local ASSETS = {
 	glossy_panel = {
 		content = "rbxassetid://107047113527598",
 		sliceCenter = { x0 = 28, y0 = 28, x1 = 68, y1 = 68 },
@@ -162,16 +156,7 @@ local ASSETS: { [string]: Asset } = {
 	},
 }
 
-function glossy_touch.definition(themes: Themes): ThemeDefinition
-	local barLayers: { SkinLayer } = {
-		{ kind = "fill", asset = "glossy_bar_track" },
-
-		{
-			kind = "tile",
-			asset = "glossy_stripe_tile",
-			tileSize = { w = 24, h = 24 },
-		},
-	}
+function glossy_touch.definition(themes: any): any
 	local assets = table.clone(ASSETS)
 
 	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
@@ -210,10 +195,18 @@ function glossy_touch.definition(themes: Themes): ThemeDefinition
 					spinnerDotSize = 12,
 				},
 			},
+			insets = {
+				panel = { top = 16, right = 16, bottom = 16, left = 16 },
+				control = { top = 10, right = 16, bottom = 10, left = 16 },
+				field = { top = 10, right = 16, bottom = 10, left = 16 },
+				selection = { top = 8, right = 10, bottom = 8, left = 10 },
+				divider = { top = 0, right = 0, bottom = 0, left = 0 },
+				scrollbar = { top = 0, right = 0, bottom = 0, left = 0 },
+			},
 		},
 		chrome = {
 			panel = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "glossy_panel",
 				contentInsets = { top = 14, right = 14, bottom = 14, left = 14 },
 				fallback = "native",
@@ -221,7 +214,7 @@ function glossy_touch.definition(themes: Themes): ThemeDefinition
 			},
 
 			control = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = {
 					default = "glossy_button_default",
 					pressed = "glossy_button_pressed",
@@ -231,19 +224,19 @@ function glossy_touch.definition(themes: Themes): ThemeDefinition
 				fallback = "native",
 			},
 			field = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "glossy_field",
 				contentInsets = { top = 8, right = 14, bottom = 8, left = 14 },
 				fallback = "native",
 			},
 			selection = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "glossy_selection_default", selected = "glossy_selection_selected" },
 				contentInsets = { top = 6, right = 10, bottom = 6, left = 10 },
 				fallback = "native",
 			},
 			focus = {
-				kind = "glow",
+				kind = "glow" :: "glow",
 				color = "$FocusGlow",
 				blurRadius = { scale = 0, offset = 22 },
 				transparency = 0.3,
@@ -251,47 +244,58 @@ function glossy_touch.definition(themes: Themes): ThemeDefinition
 			},
 
 			barTrack = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
-				layers = barLayers,
+				layers = {
+					{ kind = "fill" :: "fill", asset = "glossy_bar_track" } :: BarLayer,
+
+					{
+						kind = "tile" :: "tile",
+						asset = "glossy_stripe_tile",
+						tileSize = { w = 24, h = 24 },
+						mask = "pill",
+						inset = { x = 2, y = 2 },
+					} :: BarLayer,
+				},
 			},
 			barFill = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "glossy_bar_fill",
-				direction = "ltr",
+				direction = "ltr" :: "ltr",
 				fallback = "native",
 			},
 
 			toggleTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "glossy_toggle_track_off", selected = "glossy_toggle_track_on" },
 				fallback = "native",
 			},
 			toggleKnob = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "glossy_toggle_knob",
 				sliced = false,
 				fallback = "native",
 			},
 
 			stepperPlate = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "glossy_stepper_plate_default", pressed = "glossy_stepper_plate_pressed" },
 				sliced = true,
 				contentInsets = { top = 4, right = 4, bottom = 4, left = 4 },
 				fallback = "native",
 			},
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 
 		icons = { ["facet:search"] = "search" },
 		assets = assets,
+		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end
 
-function glossy_touch.build(themes: Themes)
+function glossy_touch.build(themes: any): (any, any)
 	return themes.define(glossy_touch.definition(themes))
 end
 

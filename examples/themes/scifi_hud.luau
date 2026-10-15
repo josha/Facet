@@ -1,11 +1,4 @@
 --!strict
-type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
-type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
-type Typography = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.metrics.typography.body)
-type Gradient = typeof(require("@repo/examples/types").ThemeGradient)
-type RGB = { r: number, g: number, b: number }
-type Palette = { colors: { [string]: RGB }, extra: Extra }
 
 local scifi_hud = {}
 
@@ -13,22 +6,22 @@ scifi_hud.id = "scifi-hud"
 scifi_hud.displayName = "Sci-Fi HUD"
 scifi_hud.themeClasses = table.freeze({ "palette", "metrics", "font" })
 
-local function rgb(r: number, g: number, b: number): RGB
+local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
 local FAMILY = "rbxasset://fonts/families/Michroma.json"
-local SIZES: { [string]: number } = { caption = 11, label = 12, body = 14, control = 14, heading = 18, title = 22 }
+local SIZES = { caption = 11, label = 12, body = 14, control = 14, heading = 18, title = 22 }
 
-local function typography(): { [string]: Typography }
-	local out: { [string]: Typography } = {}
+local function typography(): any
+	local out: any = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY }, size = size, lineHeight = 1.45 }
 	end
 	return out
 end
 
-local function wash(topA: number, bottomA: number): Gradient
+local function wash(topA: number, bottomA: number): any
 	return {
 		rotation = 115,
 		stops = {
@@ -44,7 +37,7 @@ local function wash(topA: number, bottomA: number): Gradient
 	}
 end
 
-local function sheen(topA: number, bottomA: number): Gradient
+local function sheen(topA: number, bottomA: number): any
 	return {
 		rotation = 115,
 		stops = {
@@ -59,7 +52,7 @@ local function sheen(topA: number, bottomA: number): Gradient
 	}
 end
 
-local NIGHTWATCH: Palette = {
+local NIGHTWATCH = {
 	colors = {
 		surface = rgb(6, 11, 18),
 		surfaceStrong = rgb(12, 20, 30),
@@ -93,7 +86,7 @@ local NIGHTWATCH: Palette = {
 	},
 }
 
-function scifi_hud.definition(themes: Themes): ThemeDefinition
+function scifi_hud.definition(themes: any): any
 	return {
 		base = themes.neutralPackage(),
 		identity = {
@@ -123,12 +116,20 @@ function scifi_hud.definition(themes: Themes): ThemeDefinition
 			controls = {
 				progress = { circularSize = 36, circularThickness = 2, spinnerDotSize = 6 },
 			},
+			insets = {
+				panel = { top = 14, right = 14, bottom = 14, left = 14 },
+				control = { top = 8, right = 16, bottom = 8, left = 16 },
+				field = { top = 8, right = 16, bottom = 8, left = 16 },
+				selection = { top = 4, right = 8, bottom = 4, left = 8 },
+				divider = { top = 0, right = 0, bottom = 0, left = 0 },
+				scrollbar = { top = 0, right = 0, bottom = 0, left = 0 },
+			},
 		},
 
 		chrome = {
 
 			panel = {
-				kind = "native",
+				kind = "native" :: "native",
 				shadow = {
 					blurRadius = { scale = 0, offset = 24 },
 					color = { r = 0.05, g = 0.42, b = 0.5 },
@@ -138,7 +139,7 @@ function scifi_hud.definition(themes: Themes): ThemeDefinition
 				},
 			},
 			control = {
-				kind = "native",
+				kind = "native" :: "native",
 				shadow = {
 					blurRadius = { scale = 0, offset = 16 },
 					color = { r = 0.05, g = 0.42, b = 0.5 },
@@ -147,13 +148,13 @@ function scifi_hud.definition(themes: Themes): ThemeDefinition
 					zIndex = -1,
 				},
 			},
-			field = { kind = "native" },
-			selection = { kind = "native" },
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			field = { kind = "native" :: "native" },
+			selection = { kind = "native" :: "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 
 			focus = {
-				kind = "glow",
+				kind = "glow" :: "glow",
 				color = "$Accent",
 				blurRadius = { scale = 0, offset = 20 },
 				transparency = 0.3,
@@ -161,10 +162,11 @@ function scifi_hud.definition(themes: Themes): ThemeDefinition
 			},
 		},
 		assets = {},
+		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end
 
-function scifi_hud.build(themes: Themes)
+function scifi_hud.build(themes: any): (any, any)
 	return themes.define(scifi_hud.definition(themes))
 end
 

@@ -143,7 +143,7 @@ export type Config = {
 	controlSize: Value<ControlSize?>?,
 	theme: Value<Theme.ThemePackage>?,
 	icons: Value<{ [string]: Theme.IconEntry }>?,
-	motionLevel: Value<MotionLevel?>?,
+	motionLevel: (Value<MotionLevel> | Value<MotionLevel?>)?,
 	pressHaptic: (HapticEffect | HapticKind)?,
 	onError: ((unknown) -> ())?,
 	environment: EnvironmentPreview?,

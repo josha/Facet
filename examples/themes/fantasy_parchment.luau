@@ -1,12 +1,4 @@
 --!strict
-type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
-type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
-type Metrics = typeof(require("@repo/examples/types").ThemeMetrics)
-type Asset = typeof(require("@repo/examples/types").ThemeAsset)
-type RGB = { r: number, g: number, b: number }
-type Palette = { colors: { [string]: RGB }, extra: Extra }
-type ExtraValue = typeof(require("@repo/examples/types").ThemeExtraValue)
 
 local fantasy_parchment = {}
 
@@ -15,19 +7,15 @@ fantasy_parchment.displayName = "Fantasy Parchment"
 
 fantasy_parchment.themeClasses = table.freeze({ "palette", "metrics", "font", "assets" })
 
-local function rgb(r: number, g: number, b: number): RGB
+local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
-local function extraRgb(r: number, g: number, b: number): ExtraValue
-	return rgb(r, g, b)
-end
-
-local INK: RGB = { r = 0.5, g = 0.4, b = 0.3 }
+local INK = { r = 0.5, g = 0.4, b = 0.3 }
 local INKED = rgb(105, 75, 44)
 local VELLUM = rgb(252, 244, 224)
 
-local DAYLIGHT: Palette = {
+local DAYLIGHT = {
 	colors = {
 		surface = rgb(226, 210, 176),
 		surfaceStrong = rgb(238, 226, 198),
@@ -52,14 +40,14 @@ local DAYLIGHT: Palette = {
 		contentSecondary = rgb(100, 82, 58),
 		hairline = rgb(88, 68, 44),
 
-		focusGlow = extraRgb(214, 154, 46),
+		focusGlow = rgb(214, 154, 46),
 		hairlineOpacity = 0.72,
 		scrimOpacity = 0.5,
 		disabledContentOpacity = 0.45,
 	},
 }
 
-local CANDLELIGHT: Palette = {
+local CANDLELIGHT = {
 	colors = {
 		surface = rgb(48, 36, 26),
 		surfaceStrong = rgb(72, 55, 38),
@@ -86,14 +74,14 @@ local CANDLELIGHT: Palette = {
 
 		artTint = { r = 0.3, g = 0.3, b = 0.3 },
 
-		focusGlow = extraRgb(248, 196, 96),
+		focusGlow = rgb(248, 196, 96),
 		hairlineOpacity = 0.7,
 		scrimOpacity = 0.55,
 		disabledContentOpacity = 0.45,
 	},
 }
 
-local ASSETS: { [string]: Asset } = {
+local ASSETS = {
 	parchment_panel = {
 		contentId = "rbxassetid://78012779616687",
 		sliceCenter = { x0 = 40, y0 = 40, x1 = 104, y1 = 104 },
@@ -138,7 +126,7 @@ local ASSETS: { [string]: Asset } = {
 	},
 }
 
-local GENERATED: { metrics: Metrics } = {
+local GENERATED: any = {
 	-- theme_sync:begin metrics
 	metrics = {
 		controlSizes = {
@@ -219,6 +207,44 @@ local GENERATED: { metrics: Metrics } = {
 				trackWidth = 44,
 			},
 		},
+		insets = {
+			control = {
+				bottom = 4,
+				left = 8,
+				right = 8,
+				top = 4,
+			},
+			divider = {
+				bottom = 0,
+				left = 0,
+				right = 0,
+				top = 0,
+			},
+			field = {
+				bottom = 4,
+				left = 8,
+				right = 8,
+				top = 4,
+			},
+			panel = {
+				bottom = 8,
+				left = 8,
+				right = 8,
+				top = 8,
+			},
+			scrollbar = {
+				bottom = 0,
+				left = 0,
+				right = 0,
+				top = 0,
+			},
+			selection = {
+				bottom = 4,
+				left = 6,
+				right = 6,
+				top = 4,
+			},
+		},
 		motion = {
 			fast = 0.14,
 			normal = 0.24,
@@ -246,7 +272,7 @@ local GENERATED: { metrics: Metrics } = {
 			body = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -255,7 +281,7 @@ local GENERATED: { metrics: Metrics } = {
 			caption = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -264,7 +290,7 @@ local GENERATED: { metrics: Metrics } = {
 			control = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -273,7 +299,7 @@ local GENERATED: { metrics: Metrics } = {
 			heading = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -282,7 +308,7 @@ local GENERATED: { metrics: Metrics } = {
 			label = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -291,7 +317,7 @@ local GENERATED: { metrics: Metrics } = {
 			title = {
 				font = {
 					family = "rbxasset://fonts/families/Fondamento.json",
-					style = "Normal",
+					style = "Normal" :: "Normal",
 					weight = "Regular",
 				},
 				lineHeight = 1.35,
@@ -302,7 +328,7 @@ local GENERATED: { metrics: Metrics } = {
 	-- theme_sync:end metrics
 }
 
-function fantasy_parchment.definition(themes: Themes): ThemeDefinition
+function fantasy_parchment.definition(themes: any): any
 	return {
 
 		base = themes.neutralPackage(),
@@ -324,7 +350,7 @@ function fantasy_parchment.definition(themes: Themes): ThemeDefinition
 		chrome = {
 
 			panel = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "parchment_panel",
 				contentInsets = { top = 18, right = 18, bottom = 18, left = 18 },
 				fallback = "native",
@@ -332,7 +358,7 @@ function fantasy_parchment.definition(themes: Themes): ThemeDefinition
 				shadow = "raised",
 			},
 			control = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = {
 					default = "parchment_button",
 					selected = { asset = "parchment_button", rotation = 180, tint = INK },
@@ -342,26 +368,26 @@ function fantasy_parchment.definition(themes: Themes): ThemeDefinition
 				shadow = "raised",
 			},
 			field = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "parchment_field",
 				contentInsets = { top = 8, right = 12, bottom = 8, left = 12 },
 				fallback = "native",
 			},
 
-			focus = { kind = "ring", color = "$FocusGlow", thickness = 3 },
+			focus = { kind = "ring" :: "ring", color = "$FocusGlow", thickness = 3 },
 
-			selection = { kind = "native" },
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			selection = { kind = "native" :: "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 
 			sliderTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "parchment_slider_track",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
 			sliderThumb = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "parchment_slider_thumb",
 				sliced = false,
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
@@ -369,7 +395,7 @@ function fantasy_parchment.definition(themes: Themes): ThemeDefinition
 			},
 
 			badge = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "parchment_badge",
 				sliced = false,
 				contentInsets = { top = 5, right = 5, bottom = 5, left = 5 },
@@ -377,10 +403,11 @@ function fantasy_parchment.definition(themes: Themes): ThemeDefinition
 			},
 		},
 		assets = ASSETS,
+		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end
 
-function fantasy_parchment.build(themes: Themes)
+function fantasy_parchment.build(themes: any): (any, any)
 	return themes.define(fantasy_parchment.definition(themes))
 end
 

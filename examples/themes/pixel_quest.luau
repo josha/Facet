@@ -1,14 +1,4 @@
 --!strict
-type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
-type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
-type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
-type Typography = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.metrics.typography.body)
-type SkinLayer = typeof(require("@repo/tools/typecheck/aliases").SkinLayer)
-type Asset = typeof(require("@repo/examples/types").ThemeAsset)
-type RGB = { r: number, g: number, b: number }
-type Palette = { colors: { [string]: RGB }, extra: Extra }
-type ExtraValue = typeof(require("@repo/examples/types").ThemeExtraValue)
-type ThemeRule = typeof(require("@repo/examples/types").ThemeRule)
 
 local pixel_quest = {}
 
@@ -16,12 +6,8 @@ pixel_quest.id = "pixel-quest"
 pixel_quest.displayName = "Pixel Quest"
 pixel_quest.themeClasses = table.freeze({ "palette", "metrics", "assets" })
 
-local function rgb(r: number, g: number, b: number): RGB
+local function rgb(r: number, g: number, b: number)
 	return { r = r / 255, g = g / 255, b = b / 255 }
-end
-
-local function extraRgb(r: number, g: number, b: number): ExtraValue
-	return rgb(r, g, b)
 end
 
 local INK = rgb(22, 18, 31)
@@ -32,21 +18,22 @@ local RED = rgb(122, 31, 34)
 local GRN = rgb(79, 168, 63)
 
 local LEAF = rgb(44, 104, 44)
-local PRESSED_TINT: RGB = { r = 0.35, g = 0.95, b = 0.35 }
+local PRESSED_TINT = { r = 0.35, g = 0.95, b = 0.35 }
 local GOLD = rgb(224, 160, 40)
 
+local UNIT = 4
 local FAMILY = "rbxasset://fonts/families/BuilderSans.json"
-local SIZES: { [string]: number } = { caption = 12, label = 12, body = 16, control = 16, heading = 20, title = 28 }
+local SIZES = { caption = 12, label = 12, body = 16, control = 16, heading = 20, title = 28 }
 
-local function typography(): { [string]: Typography }
-	local out: { [string]: Typography } = {}
+local function typography(): any
+	local out: any = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY }, size = size, lineHeight = 1.25 }
 	end
 	return out
 end
 
-local ASSETS: { [string]: Asset } = {
+local ASSETS = {
 	pixel_panel = {
 		content = "rbxassetid://122249249524085",
 		sliceCenter = { x0 = 24, y0 = 24, x1 = 28, y1 = 28 },
@@ -150,7 +137,7 @@ local ASSETS: { [string]: Asset } = {
 	pixel_icon_check_off = { content = "rbxassetid://111516067571262", preload = "lazy", fallback = "native" },
 }
 
-local QUEST: Palette = {
+local QUEST = {
 	colors = {
 		surface = INK,
 		surfaceStrong = SHADE,
@@ -181,35 +168,17 @@ local QUEST: Palette = {
 		scrimOpacity = 0.5,
 		disabledContentOpacity = 0.45,
 
-		["gauge:needle"] = extraRgb(142, 222, 106),
+		["gauge:needle"] = rgb(142, 222, 106),
 	},
 }
 
-function pixel_quest.definition(themes: Themes): ThemeDefinition
-	local selectionLayers: { SkinLayer } = {
-		{
-			kind = "fill",
-			asset = { default = "pixel_plate_default", selected = "pixel_plate_selected" },
-		},
-		{
-			kind = "corners",
-			asset = { default = "pixel_blank", selected = "pixel_plate_ornament" },
-			size = 8,
-		},
-	}
-	local rules: { ThemeRule } = {
-		{ selector = ".facet-tab-item", properties = { TextColor3 = { role = "content" } } },
-		{
-			selector = ".facet-tab-item.facet-selected",
-			properties = { TextColor3 = { role = "onSelected" } },
-		},
-		{ selector = ".facet-tab-filled", properties = { TextColor3 = { role = "onAccent" } } },
-	}
+function pixel_quest.definition(themes: any): any
 	local assets = table.clone(ASSETS)
 
 	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
 	assets.menu = { content = "rbxassetid://119066409501208", tintRole = "content" }
 	assets.flag = { content = "rbxassetid://109067109704366", tintRole = "content" }
+	local inset = { top = 16, right = 16, bottom = 16, left = 16 }
 	return {
 		base = themes.neutralPackage(),
 		identity = {
@@ -219,9 +188,19 @@ function pixel_quest.definition(themes: Themes): ThemeDefinition
 			version = "1.0.0",
 
 			rendering = "pixel",
+			pixelUnit = UNIT,
+
+			standardIcons = false,
 		},
 		style = { defaultTheme = "Quest", themes = { { name = "Quest", colors = QUEST.colors, extra = QUEST.extra } } },
-		rules = rules,
+		rules = {
+			{ selector = ".facet-tab-item", properties = { TextColor3 = { role = "content" :: string } } },
+			{
+				selector = ".facet-tab-item.facet-selected",
+				properties = { TextColor3 = { role = "onSelected" :: string } },
+			},
+			{ selector = ".facet-tab-filled", properties = { TextColor3 = { role = "onAccent" :: string } } },
+		},
 		metrics = {
 			typography = typography(),
 			space = { xs = 4, s = 8, m = 16, l = 24, xl = 40 },
@@ -251,18 +230,26 @@ function pixel_quest.definition(themes: Themes): ThemeDefinition
 
 				textInput = { fieldHeight = 76 },
 			},
+			insets = {
+				panel = inset,
+				control = inset,
+				field = inset,
+				selection = { top = 8, right = 8, bottom = 8, left = 8 },
+				divider = { top = 0, right = 0, bottom = 0, left = 0 },
+				scrollbar = { top = 0, right = 0, bottom = 0, left = 0 },
+			},
 		},
 		chrome = {
-			focus = { kind = "brackets", corner = "square", size = 12, thickness = 4, outset = 2 },
+			focus = { kind = "brackets" :: "brackets", corner = "square", size = 12, thickness = 4, outset = 2 },
 			panel = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "pixel_panel",
 				fallback = "native",
 				contentInsets = { top = 24, right = 24, bottom = 24, left = 24 },
 			},
 
 			control = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = {
 					default = "pixel_plate_default",
 					selected = { asset = "pixel_plate_default", rotation = 180, tint = PRESSED_TINT },
@@ -271,21 +258,31 @@ function pixel_quest.definition(themes: Themes): ThemeDefinition
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},
 			field = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "pixel_field",
 				fallback = "native",
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},
 
 			selection = {
-				kind = "layered",
+				kind = "layered" :: "layered",
 				fallback = "native",
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
-				layers = selectionLayers,
+				layers = {
+					{
+						kind = "fill" :: string,
+						asset = { default = "pixel_plate_default", selected = "pixel_plate_selected" },
+					},
+					{
+						kind = "corners" :: string,
+						asset = { default = "pixel_blank", selected = "pixel_plate_ornament" },
+						size = 8,
+					},
+				},
 			},
 
 			stepperPlate = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "pixel_stepper_plate_default", pressed = "pixel_stepper_plate_pressed" },
 				sliced = true,
 				fallback = "native",
@@ -293,20 +290,20 @@ function pixel_quest.definition(themes: Themes): ThemeDefinition
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},
 			barTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "pixel_bar_track",
 				fallback = "native",
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 			},
 			barFill = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "pixel_bar_fill",
-				direction = "ltr",
+				direction = "ltr" :: "ltr",
 				fallback = "native",
 			},
 
 			barCap = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "pixel_bar_cap_heart",
 				startAsset = "pixel_bar_cap_heart",
 				sliced = false,
@@ -314,19 +311,19 @@ function pixel_quest.definition(themes: Themes): ThemeDefinition
 				fallback = "native",
 			},
 			toggleTrack = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = { default = "pixel_toggle_track_off", selected = "pixel_toggle_track_on" },
 				fallback = "native",
 				contentInsets = { top = 12, right = 12, bottom = 12, left = 12 },
 			},
 			toggleKnob = {
-				kind = "nineSlice",
+				kind = "nineSlice" :: "nineSlice",
 				asset = "pixel_toggle_knob",
 				sliced = false,
 				fallback = "native",
 			},
-			divider = { kind = "native" },
-			scrollbar = { kind = "native" },
+			divider = { kind = "native" :: "native" },
+			scrollbar = { kind = "native" :: "native" },
 		},
 
 		icons = {
@@ -349,16 +346,18 @@ function pixel_quest.definition(themes: Themes): ThemeDefinition
 			["facet:selection.check.off"] = "pixel_icon_check_off",
 		},
 		assets = assets,
+		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end
 
-function pixel_quest.build(themes: Themes)
+function pixel_quest.build(themes: any): (any, any)
 	return themes.define(pixel_quest.definition(themes))
 end
 
-function pixel_quest.buildWithoutIcons(themes: Themes)
+function pixel_quest.buildWithoutIcons(themes: any): (any, any)
 	local def = pixel_quest.definition(themes)
-	assert(def.identity).id = pixel_quest.id .. "-noicons"
+	def.identity.id = pixel_quest.id .. "-noicons"
+	def.identity.standardIcons = false
 	def.icons = nil
 	return themes.define(def)
 end
