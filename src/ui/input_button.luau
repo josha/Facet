@@ -495,17 +495,21 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			sized(node)
 			if spec.shape ~= "circle" then
 				local sizing = ctx.observe.AutomaticSize(node)
-				local words = ctx.observe.Text(node)
 				runtime.mountFragment(function()
 					return {
 						Compose.show(function(use: ComposeTypes.Use)
 							local grows = use(sizing)
-							return grows ~= E.AutomaticSize.X and grows ~= E.AutomaticSize.XY and use(words) ~= ""
+							return grows ~= E.AutomaticSize.X and grows ~= E.AutomaticSize.XY
 						end, function()
+							local words = ctx.observe.Text(node)
 							local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
 							local points, face = ctx.observeStyled.TextSize(node), ctx.observeStyled.FontFace(node)
 							local measured: string? = nil
 							Compose.watch(function(use: ComposeTypes.Use)
+								if use(words) == "" then
+									node:RemoveTag("facet-button-tight")
+									return
+								end
 								use(box)
 								use(fits)
 								local width, whole = node.AbsoluteSize.X, node.TextFits and use(captionFits)
