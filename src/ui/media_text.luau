@@ -197,6 +197,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		end
 		if pixels then
 			defaults.TextSize = pixels
+		elseif
+			(spec.wrap == true or spec.TextWrapped == true or lines ~= nil)
+			and sizeRole == nil
+			and size == nil
+			and spec.TextSize == nil
+		then
+			defaults.TextSize = function(use: ComposeTypes.Use): number
+				local role = read(spec.textRole, use) or "body"
+				return math.round(metric("typography." .. role .. ".size", use))
+			end
 		end
 		if spec.wrap ~= nil then
 			defaults.TextWrapped = spec.wrap

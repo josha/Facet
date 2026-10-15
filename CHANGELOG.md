@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A wrapped `UI.Text` with no size of its own holds its role size as its
+  native `TextSize`. Before, a wrapped automatic-height text in a hugging
+  stack could show one clipped line: the engine measured it with the native
+  `TextSize`, and the reflow after a text change did not hold there.
 - Two `automatic` overlay actions stack when the longer label does not fit its
   equal share of the row. Before, the row compared the sum of the labels with
   the row width, so a short and a long label stayed in a row and the long one

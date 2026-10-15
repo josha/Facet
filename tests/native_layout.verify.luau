@@ -417,10 +417,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
 			end,
 		})
-		verifyHarness:case("measures wrapped automatic-height text again with the styled size when its text changes", {
-			id = "native_layout::native text layout::measures wrapped automatic-height text again with the styled size when its text changes",
+		verifyHarness:case("holds a wrapped text at its role size so the engine measures each new text with it", {
+			id = "native_layout::native text layout::holds a wrapped text at its role size so the engine measures each new text with it",
 			run = function()
-				local points = 16
 				local Enum, UDim2, Vector2 = engineLib.types.Enum, engineLib.types.UDim2, engineLib.types.Vector2
 				local measured = {}
 				local line = Compose.cell("Short.")
@@ -428,37 +427,32 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Text "Line" {
 						text = line,
 						wrap = true,
+						textRole = "title",
 						Size = UDim2.fromOffset(168, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 					}
 				end, {
 					getStyled = function(node, property)
-						if property == "TextSize" and node.ClassName == "TextLabel" then
-							return points
-						end
 						return node[property]
 					end,
 				})
+				local native = engine.new("TextLabel").TextSize
+				local held = label.TextSize
+				Verify.expect(held > 0):toBe(true)
+				Verify.expect(held == native):toBe(false)
 				engine.onWrite(function(node, property, value)
 					if node.Name == "Line" and property == "AutomaticSize" and value == Enum.AutomaticSize.Y then
 						table.insert(measured, node.TextSize)
 					end
 				end)
-				line:set("Short, then longer.")
-				engine.heartbeat:Fire(1 / 60)
-				local settled = #measured
-				Verify.expect(settled > 0):toBe(true)
-				Verify.expect(measured[settled]):toBe(16)
 				line:set("I tuned half these karts.  Including yours.  Drive it well.")
 				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(#measured > settled):toBe(true)
-				Verify.expect(measured[#measured]):toBe(16)
-				Verify.expect(label.TextSize == 16):toBe(false)
+				Verify.expect(label.TextSize):toBe(held)
 				label.AbsoluteSize = Vector2.new(168, 19)
-				local before = #measured
 				label.TextBounds = Vector2.new(160, 38)
 				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(#measured > before):toBe(true)
+				Verify.expect(#measured > 0):toBe(true)
+				Verify.expect(measured[#measured]):toBe(held)
 				stop()
 				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
 			end,
