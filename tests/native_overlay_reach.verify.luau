@@ -122,7 +122,7 @@ return function(verifyHarness: Verify.Harness)
 						Name = "Screen",
 						UI.Button "Row" {
 							label = "",
-							UI.Text "Name" { text = LONG, truncate = "end" :: "end", disclose = true },
+							UI.Text "Name"({ text = LONG, truncate = "end" :: "end", disclose = true }),
 						},
 					})
 				end, { motionLevel = "none" })

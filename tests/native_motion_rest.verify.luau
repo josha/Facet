@@ -492,7 +492,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_motion_rest::rest tracker::reduced motion also waits for the plate's size to hold, then shows it whole",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+					return Host.Frame({
+						Name = "Screen",
+						UI.Button "Post" { label = "Post", help = "Posts it" },
+					})
 				end, { motionLevel = "none" })
 				local post = w.find("Post")
 				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
@@ -518,7 +521,10 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_motion_rest::rest tracker::reduced motion switched on during the wait fades the plate in at scale 1 once its size holds",
 				run = function()
 					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+						return Host.Frame({
+							Name = "Screen",
+							UI.Button "Post" { label = "Post", help = "Posts it" },
+						})
 					end)
 					w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 					w.gui.SelectedObject = w.find("Post")
@@ -542,7 +548,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_motion_rest::rest tracker::rest waits for a size that holds for a frame, not merely a filled one",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+					return Host.Frame({
+						Name = "Screen",
+						UI.Button "Post" { label = "Post", help = "Posts it" },
+					})
 				end)
 				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 				w.gui.SelectedObject = w.find("Post")
@@ -566,7 +575,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_motion_rest::rest tracker::a layout that never stops moving still enters after 0.25 seconds",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+					return Host.Frame({
+						Name = "Screen",
+						UI.Button "Post" { label = "Post", help = "Posts it" },
+					})
 				end)
 				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 				w.gui.SelectedObject = w.find("Post")
@@ -601,7 +613,7 @@ return function(verifyHarness: Verify.Harness)
 	local function menu(spec: { [any]: any }): any
 		spec.label = spec.label or "Options"
 		return worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(spec) })
+			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu "M"(spec) })
 		end, {})
 	end
 

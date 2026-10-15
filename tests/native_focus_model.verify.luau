@@ -201,7 +201,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_focus_model::stick entry::a left-stick push enters the selection like a D-pad press; a drift does not",
 			run = function()
 				local w = setup(function(UI: FacetControls)
-					return UI.Screen "Page" { UI.Button "A" { label = "A" } :: unknown, UI.Button "B" { label = "B" } }
+					return UI.Screen "Page" {
+						UI.Button "A" { label = "A" } :: unknown,
+						UI.Button "B" { label = "B" },
+					}
 				end)
 				local V2 = w.engine.types.Vector2
 				local context = w.find("FacetEntry", w.parent)
@@ -255,7 +258,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_focus_model::leaving the gamepad::keeps a first Tab that lands before the preferred input leaves the gamepad",
 			run = function()
 				local w = setup(function(UI: FacetControls)
-					return UI.Screen "Page" { UI.Button "Q" { label = "Q" } :: unknown, UI.Button "W" { label = "W" } }
+					return UI.Screen "Page" {
+						UI.Button "Q" { label = "Q" } :: unknown,
+						UI.Button "W" { label = "W" },
+					}
 				end)
 				local E = w.engine.types.Enum
 				w.input.GetLastInputType = function()

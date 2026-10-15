@@ -1,12 +1,11 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type EdgePicker = typeof(require("@repo/tools/typecheck/aliases").EdgePicker)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
-type WidthPicker = typeof(require("@repo/tools/typecheck/aliases").WidthPicker)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 type Row = {
 	id: number,
 	title: string,
@@ -24,17 +23,20 @@ type Options = { priority: number?, duration: number?, readFloor: number?, subje
 type LineProps = typeof(require("@repo/tools/typecheck/aliases").TextProps)
 return {
 	title = "Toasts",
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Host, UI, Compose: ComposeModule, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
-		local rows, presses, edge, widthMode =
-			Compose.cell({} :: { Row }),
-			Compose.cell(0),
-			Compose.cell("bottom" :: "top" | "bottom"),
-			Compose.cell("fill" :: "fill" | "hug")
+		local initialRows: { Row } = {}
+		local initialEdge: "top" | "bottom" = "bottom"
+		local initialWidth: "fill" | "hug" = "fill"
+		local rows = Compose.cell(initialRows)
+		local presses = Compose.cell(0)
+		local edge = Compose.cell(initialEdge)
+		local widthMode = Compose.cell(initialWidth)
 		local clock = runtime.timeline({ duration = 86400, repeats = math.huge })
 		local nextId, dropped, superseded = 0, 0, 0
-		local anchors = setmetatable({} :: { [number]: GuiObject }, { __mode = "v" })
+		local anchors: { [number]: GuiObject } = {}
+		setmetatable(anchors, { __mode = "v" })
 		local revision = Compose.cell(0)
 		local function update(id: number?, change: (Row) -> ())
 			local next = {}
@@ -141,7 +143,15 @@ return {
 			}
 		end
 		local function screen()
-			local root = Host.Frame "ToastLab" {
+			local edgeOptions: { PickerOption } = {
+				{ value = "top", label = "Top" },
+				{ value = "bottom", label = "Bottom" },
+			}
+			local widthOptions: { PickerOption } = {
+				{ value = "fill", label = "Wide" },
+				{ value = "hug", label = "Fit content" },
+			}
+			local root = Host.Frame("ToastLab")({
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				UI.ScrollView "Actions" {
@@ -149,28 +159,22 @@ return {
 					gap = 12,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					UI.Text({ text = "Toasts", textRole = "title" :: "title" }) :: unknown,
+					UI.Text({ text = "Toasts", textRole = "title" }),
 					UI.Text({
 						text = "Show a toast, then try Test input. Notifications leave the controls below usable.",
 						TextWrapped = true,
 					}),
-					((UI.Picker "Edge" :: unknown) :: (EdgePicker) -> GuiObject) {
+					UI.Picker "Edge" {
 						label = "Edge for new stacks",
 						selected = edge,
-						options = {
-							{ value = "top" :: "top" | "bottom", label = "Top" } :: PickerOption,
-							{ value = "bottom" :: "top" | "bottom", label = "Bottom" } :: PickerOption,
-						},
+						options = edgeOptions,
 					},
-					((UI.Picker "Width" :: unknown) :: (WidthPicker) -> GuiObject) {
+					UI.Picker "Width" {
 						label = "Toast width",
 						selected = widthMode,
-						options = {
-							{ value = "fill" :: "fill" | "hug", label = "Wide" } :: PickerOption,
-							{ value = "hug" :: "fill" | "hug", label = "Fit content" } :: PickerOption,
-						},
+						options = widthOptions,
 					},
-					Host.Frame "Commands" {
+					Host.Frame("Commands")({
 						Size = D2.new(1, 0, 0, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						BackgroundTransparency = 1,
@@ -179,7 +183,7 @@ return {
 							FillDirection = E.FillDirection.Horizontal,
 							Wraps = true,
 							Padding = D.new(0, 8),
-						}) :: unknown,
+						}),
 						UI.Button "Send" { label = "Show toast", onActivate = send },
 						UI.Button "Pair" {
 							label = "Show pair",
@@ -215,7 +219,7 @@ return {
 								dismiss()
 							end,
 						},
-					},
+					}),
 					UI.Button "Beneath" {
 						label = function(use: Use)
 							return "Test input: " .. use(presses)
@@ -238,8 +242,8 @@ return {
 						end,
 						TextWrapped = true,
 					},
-				} :: unknown,
-				Host.Frame "Messages" {
+				},
+				Host.Frame("Messages")({
 					BackgroundTransparency = 1,
 					Active = false,
 					Size = D2.fromScale(0, 0),
@@ -252,6 +256,7 @@ return {
 							local row = current:peek()
 							local id = row.id
 							local hug = row.width == "hug"
+							local stackWidth: "hug" | "fill" = if hug then "hug" else "fill"
 							local function line(name: string, props: LineProps)
 								props.Name = name
 								props.TextWrapped = true
@@ -282,9 +287,9 @@ return {
 								content = function(): Instance
 									return UI.VStack "Body" {
 										gap = 4,
-										width = (if hug then "hug" else "fill") :: "hug" | "fill",
-										line("Title", { textRole = "strong" :: "strong", text = row.title }) :: unknown,
-										line("Detail", { role = "secondary" :: "secondary", text = row.detail }),
+										width = stackWidth,
+										line("Title", { textRole = "strong", text = row.title }),
+										line("Detail", { role = "secondary", text = row.detail }),
 									}
 								end,
 							}
@@ -300,8 +305,8 @@ return {
 							return anchor
 						end,
 					}),
-				},
-			}
+				}),
+			})
 			return root
 		end
 		return {

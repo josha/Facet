@@ -2,7 +2,6 @@
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type DraggableSpec = typeof(require("@repo/tools/typecheck/aliases").DraggableSpec)
 
 return function(UI: Controls, Host: Host, C: ComposeModule): Frame
@@ -12,8 +11,7 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 		fit: (() -> boolean)?,
 	} =
 		{}
-	local view = UI.ZoomView {
-		Name = "CollectionBoardZoom",
+	local view = UI.ZoomView "CollectionBoardZoom" {
 		Size = UDim2.new(1, 0, 0, 300),
 		contentSize = Vector2.new(780, 780),
 		controls = camera,
@@ -35,15 +33,14 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 			return board
 		end,
 	}
-	local rack = UI.VirtualGrid {
-		Name = "CollectionPickupRack",
+	local rack = UI.VirtualGrid "CollectionPickupRack" {
 		from = { 1, 2, 3, 4, 5, 6, 7 },
 		key = function(id: number): number
 			return id
 		end,
 		columns = 7,
 		itemSize = 52,
-		mode = "all" :: "all",
+		mode = "all",
 		Size = UDim2.new(1, 0, 0, 64),
 		drag = function(_items: { number }, _keys: { number }): DraggableSpec
 			return {
@@ -66,14 +63,14 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 			}
 		end,
 	}
-	return UI.VStack(({
-		width = "fill" :: "fill",
+	return UI.VStack({
+		width = "fill",
 		gap = "s",
 		UI.Text {
 			text = "Lift a rack tile. The board zooms once. Further camera changes and pan wait for release. Drop or cancel returns to fit.",
 			wrap = true,
-		} :: unknown,
-		view :: unknown,
-		rack :: unknown,
-	} :: unknown) :: StackProps)
+		},
+		view,
+		rack,
+	})
 end

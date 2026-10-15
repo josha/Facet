@@ -184,11 +184,11 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame({
 						Host.Frame({ anchor :: unknown }) :: unknown,
 						Compose.show(gate, function()
-							return UI.Callout "Callout" {
+							return UI.Callout "Callout"({
 								anchor = anchor :: GuiObject,
 								content = tip(Host),
 								onRetire = function() end,
-							}
+							})
 						end),
 					})
 				end)
@@ -461,7 +461,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_callout_help::native help: the structured form and the live plate::a title, a body and a display-only shortcut paint in one plate",
 			run = function()
 				local before = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = "Posts it" } })
+					return Host.Frame({
+						Name = "Screen",
+						UI.Button "Post" { label = "Post", help = "Posts it" },
+					})
 				end)
 				local post = before.find("Post")
 				before.input.PreferredInput = before.Enum.PreferredInput.Gamepad

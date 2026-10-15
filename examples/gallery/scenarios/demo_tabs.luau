@@ -1,21 +1,40 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
-return function(ctx: any, id: string, groups: { any })
-	local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
+type Placement = "automatic" | "sidebar" | "topBar" | "bottomBar" | "bottomBarCompact" | "none"
+type Entry = typeof(require("@repo/examples/types").DemoTab)
+type CategoryLayout = typeof(require("@repo/examples/types").CategoryLayout)
+local function placementOf(value: string): Placement
+	if value == "sidebar" or value == "topBar" or value == "bottomBar" then
+		return value
+	elseif value == "bottomBarCompact" or value == "none" then
+		return value
+	end
+	return "automatic"
+end
+return function(ctx: ExampleContext, id: string, groups: { Entry })
+	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2 = ctx.types.UDim2
-	local selections = {}
-	local preference = ctx.categoryPlacement or Compose.cell("automatic")
-	local builtById = {}
-	local function tabsFor(key: string, entries: { any }, outer: boolean, parentVisible: Readable<boolean>?): GuiObject
+	local selections: { [string]: Cell<string> } = {}
+	local preference: Cell<string> = ctx.categoryPlacement or Compose.cell("automatic")
+	local builtById: { [string]: Built } = {}
+	local function tabsFor(
+		key: string,
+		entries: { Entry },
+		outer: boolean,
+		parentVisible: Readable<boolean>?
+	): GuiObject
 		local selected = selections[key]
 		if not selected then
 			selected = Compose.cell(entries[1].id)
 			selections[key] = selected
 		end
-		local tabs = {}
+		local tabs: { Tab } = {}
 		for _, entry in entries do
 			table.insert(tabs, {
 				id = entry.id,
@@ -24,15 +43,17 @@ return function(ctx: any, id: string, groups: { any })
 					local visible = Compose.formula(function(use: Use): boolean
 						return (not parentVisible or use(parentVisible)) and use(selected) == entry.id
 					end)
-					if entry.tabs then
-						return tabsFor(entry.id, entry.tabs, false, visible)
+					local children = entry.tabs
+					if children then
+						return tabsFor(entry.id, children, false, visible)
 					end
 					local pageContext = table.clone(ctx)
 					pageContext.pageVisible = visible
-					local built = entry.scenario.build(pageContext)
+					local built = assert(entry.scenario).build(pageContext)
 					builtById[entry.id] = built
-					if built.dispose then
-						Compose.cleanup(built.dispose)
+					local dispose = built.dispose
+					if dispose then
+						Compose.cleanup(dispose)
 					end
 					return built.screen()
 				end,
@@ -48,25 +69,21 @@ return function(ctx: any, id: string, groups: { any })
 			})
 		end
 		local home, distant = Compose.cell("automatic"), Compose.cell(false)
-		local effective = Compose.formula(
-			function(use: Use): "automatic" | "sidebar" | "topBar" | "bottomBar" | "bottomBarCompact" | "none"
-				local choice, place = use(preference), use(home)
-				if use(distant) or choice == "automatic" or string.find(place, "bottom") ~= nil then
-					return place :: "automatic" | "sidebar" | "topBar" | "bottomBar" | "bottomBarCompact" | "none"
-				end
-				return if choice == "side" then "sidebar" else "topBar"
+		local effective = Compose.formula(function(use: Use): string
+			local choice, place = use(preference), use(home)
+			if use(distant) or choice == "automatic" or string.find(place, "bottom") ~= nil then
+				return place
 			end
-		)
+			return if choice == "side" then "sidebar" else "topBar"
+		end)
 		local view = UI.TabView({
 			Name = key,
 			selection = selected,
 			tabs = tabs,
-			style = "sidebarAdaptable" :: "sidebarAdaptable",
-			placement = function(use: Use)
+			style = "sidebarAdaptable",
+			placement = function(use: Use): Placement
 				local place = use(effective)
-				return if place == use(home)
-					then "automatic"
-					else place :: "automatic" | "sidebar" | "topBar" | "bottomBar" | "bottomBarCompact" | "none"
+				return if place == use(home) then "automatic" else placementOf(place)
 			end,
 			Size = UDim2.fromScale(1, 1),
 		})
@@ -75,8 +92,9 @@ return function(ctx: any, id: string, groups: { any })
 			home:set(use(env.navPlacement))
 			distant:set(use(env.isTenFoot))
 		end)
-		if ctx.categoryLayout then
-			local layout = {
+		local categoryLayout = ctx.categoryLayout
+		if categoryLayout then
+			local layout: CategoryLayout = {
 				placement = effective,
 				available = Compose.formula(function(use: Use): boolean
 					local place = use(effective)
@@ -86,10 +104,10 @@ return function(ctx: any, id: string, groups: { any })
 					preference:set(if effective:peek() == "sidebar" then "top" else "side")
 				end,
 			}
-			ctx.categoryLayout:set(layout)
+			categoryLayout:set(layout)
 			Compose.cleanup(function()
-				if ctx.categoryLayout:peek() == layout then
-					ctx.categoryLayout:set(nil)
+				if categoryLayout:peek() == layout then
+					categoryLayout:set(nil)
 				end
 			end)
 		end
@@ -97,18 +115,17 @@ return function(ctx: any, id: string, groups: { any })
 	end
 	return {
 		screen = function()
-			return Host.Frame({
-				Name = id,
+			return Host.Frame(id)({
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				tabsFor("Categories", groups, true, ctx.pageVisible),
 			})
 		end,
 		select = function(path: string): boolean
-			local entries, key = groups, "Categories"
+			local entries: { Entry }?, key = groups, "Categories"
 			for part in string.gmatch(path, "[^/]+") do
-				local found
-				local currentEntries: { any } = entries or {}
+				local found: Entry? = nil
+				local currentEntries: { Entry } = entries or {}
 				for _, entry in currentEntries do
 					if entry.id == part then
 						found = entry
@@ -125,14 +142,14 @@ return function(ctx: any, id: string, groups: { any })
 			return true
 		end,
 		report = function()
-			local selected = {}
+			local selected: { [string]: string } = {}
 			for key, value in selections do
 				selected[key] = value:peek()
 			end
-			local entries, key, leaf = groups, "Categories", nil
+			local entries: { Entry }?, key, leaf: string? = groups, "Categories", nil
 			while entries do
 				local current = selected[key] or entries[1].id
-				local found
+				local found: Entry? = nil
 				for _, entry in entries do
 					if entry.id == current then
 						found = entry
@@ -144,11 +161,12 @@ return function(ctx: any, id: string, groups: { any })
 				end
 				leaf, key, entries = found.id, found.id, found.tabs
 			end
-			local built = leaf and builtById[leaf]
+			local built = if leaf then builtById[leaf] else nil
+			local report = if built then built.report else nil
 			return {
 				selected = selected,
 				active = leaf,
-				example = if built and built.report then built.report() else nil,
+				example = if report then report() else nil,
 			}
 		end,
 	}

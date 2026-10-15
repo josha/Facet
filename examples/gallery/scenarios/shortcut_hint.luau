@@ -2,35 +2,35 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSize)
+type ControlSizeValue = typeof(require("@repo/tools/typecheck/aliases").ControlSizeValue)
 type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 
 return {
 	title = "Keys and labels",
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Facet, UI, Compose: ComposeModule = ctx.Facet, ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local rung: ControlSize, separator, title =
-			Compose.cell("regular" :: "compact" | "large" | "regular" | "xsmall"),
-			Compose.cell("or"),
-			Compose.cell("Saved")
+		local initialRung: ControlSizeValue? = "regular"
+		local rung: ControlSize, separator, title = Compose.cell(initialRung), Compose.cell("or"), Compose.cell("Saved")
 		local guide = Compose.cell(false)
 		local function bindingCell(value: string?): OptionalStringCell
 			return Compose.cell(value)
 		end
 		local key = bindingCell(nil)
-		local liveAction = Host.InputAction "Activate" {
+		local liveAction = Host.InputAction("Activate")({
 			Type = Enum.InputActionType.Bool,
-			Host.InputBinding({ KeyCode = Enum.KeyCode.Return }) :: unknown,
+			Host.InputBinding({ KeyCode = Enum.KeyCode.Return }),
 			Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonA }),
-		}
-		local customAction = Host.InputAction "RecipeCommand" {
+		})
+		local customAction = Host.InputAction("RecipeCommand")({
 			Type = Enum.InputActionType.Bool,
 			Compose.show(key, function()
 				return Host.InputBinding({
@@ -39,13 +39,13 @@ return {
 					end,
 				})
 			end),
-		}
-		Host.InputContext "ShortcutRecipe" {
+		})
+		Host.InputContext("ShortcutRecipe")({
 			Parent = ctx.inputTarget,
 			Enabled = true,
-			liveAction :: unknown,
+			liveAction,
 			customAction,
-		}
+		})
 		local function report()
 			return { binding = key:peek(), title = title:peek(), guideVisible = guide:peek(), controlSize = rung:peek() }
 		end
@@ -54,7 +54,7 @@ return {
 			return report()
 		end
 		local function section()
-			local root = Host.Frame "HintRecipe" {
+			local root = Host.Frame("HintRecipe")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -62,23 +62,21 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
-				UI.Text({
+				}),
+				UI.Text "Title" {
 					LayoutOrder = 1,
-					Name = "Title",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Keys and labels",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.Text({
+				},
+				UI.Text "Note" {
 					LayoutOrder = 2,
-					Name = "Note",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -87,10 +85,9 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				Host.Frame({
+				},
+				Host.Frame("Size")({
 					LayoutOrder = 3,
-					Name = "Size",
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
@@ -99,101 +96,90 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}) :: unknown,
-					UI.Button({
+					}),
+					UI.Button "Compact" {
 						LayoutOrder = 1,
-						Name = "Compact",
 						label = "Compact",
 						onActivate = function()
 							rung:set("compact")
 						end,
-					}),
-					UI.Button({
+					},
+					UI.Button "Large" {
 						LayoutOrder = 2,
-						Name = "Large",
 						label = "Large",
 						onActivate = function()
 							rung:set("large")
 						end,
-					}),
-					UI.Button({
+					},
+					UI.Button "Rename" {
 						LayoutOrder = 3,
-						Name = "Rename",
 						label = "Update label",
 						onActivate = function()
 							title:set("Lap saved")
 						end,
-					}),
+					},
 				}),
-				UI.Text({
+				UI.Text "LiveHeading" {
 					LayoutOrder = 4,
-					Name = "LiveHeading",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "This surface's action",
-					textRole = "body" :: "body",
+					textRole = "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.ShortcutHint({
+				},
+				UI.ShortcutHint "Live" {
 					LayoutOrder = 5,
-					Name = "Live",
 					action = liveAction,
 					controlSize = rung,
-				}),
-				UI.Text({
+				},
+				UI.Text "ExplicitHeading" {
 					LayoutOrder = 6,
-					Name = "ExplicitHeading",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Alternatives, with a localized joining word",
-					textRole = "body" :: "body",
+					textRole = "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.ShortcutHint({
+				},
+				UI.ShortcutHint "Explicit" {
 					LayoutOrder = 7,
-					Name = "Explicit",
 					keys = { { "K" }, { "F1" } },
 					separator = separator,
 					controlSize = rung,
-				}),
-				UI.ShortcutHint({
+				},
+				UI.ShortcutHint "Labelled" {
 					LayoutOrder = 7,
-					Name = "Labelled",
 					keys = { { "M" } },
 					controlSize = rung,
 					label = "Open the map",
-				}),
-				UI.Label({ LayoutOrder = 8, Name = "BoundLabel", title = title, icon = "checkmark" }),
-				UI.Text({
+				},
+				UI.Label "BoundLabel" { LayoutOrder = 8, title = title, icon = "checkmark" },
+				UI.Text "CustomHeading" {
 					LayoutOrder = 9,
-					Name = "CustomHeading",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "A binding can arrive after its hint",
-					textRole = "body" :: "body",
+					textRole = "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.ShortcutHint({
+				},
+				UI.ShortcutHint "Custom" {
 					LayoutOrder = 10,
-					Name = "Custom",
 					action = customAction,
 					controlSize = rung,
-				}),
-				Host.Frame({
+				},
+				Host.Frame("Bindings")({
 					LayoutOrder = 11,
-					Name = "Bindings",
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
@@ -202,41 +188,37 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}) :: unknown,
-					UI.Button({
+					}),
+					UI.Button "Bind" {
 						LayoutOrder = 1,
-						Name = "Bind",
 						label = "Bind Enter",
 						onActivate = function()
 							binding("Return")
 						end,
-					}),
-					UI.Button({
+					},
+					UI.Button "Rebind" {
 						LayoutOrder = 2,
-						Name = "Rebind",
 						label = "Rebind R",
 						onActivate = function()
 							binding("R")
 						end,
-					}),
-					UI.Button({
+					},
+					UI.Button "Unbind" {
 						LayoutOrder = 3,
-						Name = "Unbind",
 						label = "Remove binding",
 						onActivate = function()
 							binding(nil)
 						end,
-					}),
+					},
 				}),
-				UI.Button({
+				UI.Button "OpenGuide" {
 					LayoutOrder = 12,
-					Name = "OpenGuide",
 					label = "Open shortcut guide",
 					appearance = "link",
 					onActivate = function()
 						guide:set(true)
 					end,
-				}),
+				},
 				Host.Frame({
 					LayoutOrder = 13,
 					Name = "Guide",
@@ -256,13 +238,13 @@ return {
 						}
 					end),
 				}),
-			}
+			})
 			return root
 		end
 		return {
 			section = section,
 			screen = function()
-				return Host.Frame "ShortcutHint" {
+				return Host.Frame("ShortcutHint")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					UI.ScrollView "Content" {
@@ -272,7 +254,7 @@ return {
 						ScrollBarThickness = 6,
 						section(),
 					},
-				}
+				})
 			end,
 			report = report,
 			steps = {

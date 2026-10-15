@@ -2,25 +2,20 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local CollectionTypes = require("./collection_types")
-local InputTypes = require("./input_types")
-local NavigationTypes = require("./navigation_types")
 local activation = require("./activation")
 local policy = require("./collection_policy")
-type Controls = {
-	CellEditor: Types.Constructor<CollectionTypes.CellEditorSpec, Frame>,
-	TextInput: Types.Constructor<InputTypes.TextInputProps, TextBox | Frame>,
-	NumberInput: Types.Constructor<InputTypes.NumberInputProps, TextBox | Frame>,
-	Toggle: Types.Constructor<InputTypes.ToggleProps, TextButton>,
-	Picker: NavigationTypes.PickerConstructor,
-}
+local CollectionProps = require("./collection_props")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
+local NavigationProps = require("./navigation_props")
 local EDITORS = { text = true, number = true, toggle = true, menu = true }
 local SETTINGS = { "options", "min", "max", "step", "draft", "validate", "editLabel", "editable" }
 
-return function(ctx: Types.Context, UI: Controls)
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 	local Compose, read = ctx.Compose, ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local editors = {}
-	local function build(spec: CollectionTypes.CellEditorSpec): Frame
+	local function build(spec: CollectionProps.CellEditorSpec): Frame
 		assert(EDITORS[spec.editor], "Facet CellEditor: editor must be text, number, toggle or menu")
 		assert(type(spec.onChange) == "function", "Facet CellEditor needs onChange")
 		assert(spec.editor ~= "menu" or spec.options ~= nil, "Facet CellEditor: menu needs options")
@@ -98,7 +93,7 @@ return function(ctx: Types.Context, UI: Controls)
 				end,
 				onChange = propose,
 				enabled = enabled,
-			} :: unknown) :: InputTypes.ToggleProps)
+			} :: unknown) :: InputProps.ToggleProps)
 		elseif spec.editor == "menu" then
 			local selected = Compose.cell(value())
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -117,7 +112,7 @@ return function(ctx: Types.Context, UI: Controls)
 					propose(nextValue)
 					return false
 				end,
-			} :: unknown) :: NavigationTypes.PickerSpec<unknown>)
+			} :: unknown) :: NavigationProps.SinglePickerSpec<unknown>)
 		else
 			local input = Compose.cell("")
 			local numeric = Compose.cell(tonumber(value()) or 0)
@@ -304,12 +299,12 @@ return function(ctx: Types.Context, UI: Controls)
 					Compose.show(initialized, function()
 						local editor: GuiObject
 						if spec.editor == "number" then
-							local numberProps = (props :: unknown) :: InputTypes.NumberInputProps
+							local numberProps = (props :: unknown) :: InputProps.NumberInputCellProps
 							numberProps.numericValue = numeric
 							numberProps.min, numberProps.max, numberProps.step = spec.min, spec.max, spec.step
 							editor = UI.NumberInput(numberProps)
 						else
-							editor = UI.TextInput((props :: unknown) :: InputTypes.TextInputProps)
+							editor = UI.TextInput((props :: unknown) :: InputProps.TextInputProps)
 						end
 						local field = (
 							if editor:IsA("TextBox") then editor else editor:FindFirstChildWhichIsA("TextBox", true)

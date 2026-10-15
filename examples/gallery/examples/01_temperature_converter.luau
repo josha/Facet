@@ -1,6 +1,6 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 type OptionalNumberCell = typeof(require("@repo/tools/typecheck/aliases").OptionalNumberCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
@@ -13,8 +13,8 @@ local function toCelsius(text: string): number?
 	local n = tonumber(text)
 	return if n then (n - 32) * 5 / 9 else nil
 end
-function example.build(ctx: any)
-	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
+function example.build(ctx: ExampleContext)
+	local UI, Compose = ctx.UI, ctx.Compose
 	local fahrenheit = Compose.cell("")
 	local celsius = (function(value: number?): OptionalNumberCell
 		return Compose.cell(value)
@@ -29,7 +29,7 @@ function example.build(ctx: any)
 			celsius:set(nil)
 		end)
 	end
-	local built: any = { clearPath = "/TempConverter/Page/Clear", dispose = function() end, clear = clear }
+	local built = { clearPath = "/TempConverter/Page/Clear", dispose = function() end, clear = clear }
 	function built.fahrenheitText()
 		return fahrenheit:peek()
 	end
@@ -43,11 +43,11 @@ function example.build(ctx: any)
 		return UI.Screen "TempConverter" {
 			UI.ScrollView "Page" {
 				gap = "s",
-				UI.Text "Title" { text = "Fahrenheit → Celsius", textRole = "title" :: "title" } :: unknown,
+				UI.Text "Title" { text = "Fahrenheit → Celsius", textRole = "title" },
 				UI.Text "Prompt" {
 					text = "Enter a temperature in °F:",
-					textRole = "label" :: "label",
-					role = "secondary" :: "secondary",
+					textRole = "label",
+					role = "secondary",
 				},
 				UI.TextInput "Fahrenheit" {
 					value = fahrenheit,
@@ -58,7 +58,7 @@ function example.build(ctx: any)
 					end,
 				},
 				UI.Text "Preview" {
-					role = "secondary" :: "secondary",
+					role = "secondary",
 					text = function(use: Use)
 						local c = use(liveCelsius)
 						return if c == nil
@@ -67,7 +67,7 @@ function example.build(ctx: any)
 					end,
 				},
 				UI.Text "Result" {
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					text = function(use: Use)
 						local c = use(celsius)
 						return if c == nil then "Result: —" else string.format("Result: %g °C", c)

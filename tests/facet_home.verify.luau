@@ -15,7 +15,7 @@ return function(verifyHarness: Verify.Harness)
 				local UI = Facet.controls(runtime, { types = engine.types })
 				local dock = require("../examples/facet_home/dock")
 				local stop, panel: any = runtime.mount(function()
-					return dock(runtime, engine.types.UDim2, {
+					return dock(Facet.host(runtime), engine.types.UDim2, {
 						UI.Button({ label = "Open Home", Size = engine.types.UDim2.fromOffset(118, 44) }),
 						UI.Text({
 							text = "Status",

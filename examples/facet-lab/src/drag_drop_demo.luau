@@ -26,8 +26,7 @@ return function(ctx: any)
 		for _, name in { "Red", "Green", "Blue" } do
 			table.insert(records, { id = name, kind = "color", value = palette[name], label = name, name = name })
 		end
-		return UI.VirtualGrid {
-			Name = "AppearanceAssets",
+		return UI.VirtualGrid "AppearanceAssets" {
 			from = records,
 			key = "id",
 			itemSize = 112,
@@ -225,8 +224,7 @@ return function(ctx: any)
 			choice,
 		}
 	end
-	return UI.VStack {
-		Name = "DragAndDropDemo",
+	return UI.VStack "DragAndDropDemo" {
 		BackgroundTransparency = 1,
 		UI.fill(),
 		width = "fill",
@@ -235,8 +233,7 @@ return function(ctx: any)
 		padding = function(use)
 			return if use(short) then "s" else "m"
 		end,
-		UI.VStack {
-			Name = "WorldTools",
+		UI.VStack "WorldTools" {
 			padding = panelPadding,
 			BackgroundTransparency = 0,
 			width = "fill",
@@ -289,8 +286,7 @@ return function(ctx: any)
 			end),
 		},
 		bounds,
-		UI.HStack {
-			Name = "WorldDestinations",
+		UI.HStack "WorldDestinations" {
 			padding = panelPadding,
 			Visible = function(use)
 				return roomy(use) or showDestinations(use)
@@ -305,8 +301,7 @@ return function(ctx: any)
 			if block then destination(block, "ChooseBlock", "Block", "Drop a color here") else nil,
 			if canvas then destination(canvas, "ChooseCanvas", "Canvas", "Drop an image or color here") else nil,
 		},
-		UI.HStack {
-			Name = "WorldStatus",
+		UI.HStack "WorldStatus" {
 			padding = panelPadding,
 			ref = function(node)
 				node:AddTag("facet-panel")
@@ -331,8 +326,7 @@ return function(ctx: any)
 					AutomaticSize = E.AutomaticSize.Y,
 				},
 			},
-			UI.Button {
-				Name = "UndoAppearance",
+			UI.Button "UndoAppearance" {
 				label = "Undo",
 				enabled = function(use)
 					return use(undo) ~= nil
@@ -349,8 +343,7 @@ return function(ctx: any)
 					notice:set("Appearance restored.")
 				end,
 			},
-			UI.Button {
-				Name = "ResetAppearance",
+			UI.Button "ResetAppearance" {
 				label = "Reset all",
 				onActivate = function()
 					if block then

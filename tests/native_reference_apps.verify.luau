@@ -11,7 +11,7 @@ return function(verifyHarness: Verify.Harness)
 	local cartwheel = require("../examples/reference/p2_cartwheel")
 	local sipworks = require("../examples/reference/p3_sipworks")
 	local foyer = require("../examples/reference/p4_foyer")
-	local function world(module)
+	local function world(module: any)
 		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local built

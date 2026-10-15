@@ -1,20 +1,27 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
+type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local theme = require("./theme")
-type Context = typeof(require("@repo/examples/types").Context)
-return function(ctx: Context)
-	local Compose: ComposeModule, Host, UI, model = ctx.Compose, ctx.Host, ctx.UI, ctx.model
-	local types, D2: typeof(UDim2), V2: typeof(Vector2), C3: typeof(Color3), CF: typeof(CFrame), E: typeof(Enum) =
-		ctx.types, ctx.D2, ctx.V2, ctx.C3, ctx.CF, ctx.E
+local modelModule = require("./model")
+type Context = modelModule.Context
+type TextValue = modelModule.TextValue
+type Fact = { id: string, label: string, value: (Use) -> string }
+return function(ctx: Context): (GuiObject, GuiObject)
+	local Compose, Host, UI, model = ctx.Compose, ctx.Host, ctx.UI, ctx.model
+	local types, D2, V2, C3, CF, E = ctx.types, ctx.D2, ctx.V2, ctx.C3, ctx.CF, ctx.E
 	local words, quiet, button = ctx.words, ctx.quiet, ctx.button
 	local arithmetic = ctx.Facet.recipes.arithmetic
 	local scrollTo, scrollToVisible = UI.scrollTo, UI.scrollToVisible
-	local accents, accentOptions, accentItems = {}, {}, {}
+	local accents: { [string]: string } = {}
+	local accentOptions: { StringPickerOption } = {}
+	local accentItems: { RadialItem } = {}
 	for _, entry in theme.ACCENTS do
 		accents[entry.id] = entry.label
 		table.insert(accentOptions, { value = entry.id, label = entry.label })
@@ -23,41 +30,39 @@ return function(ctx: Context)
 	local spins = { "Off", "Slow", "Medium", "Fast" }
 	local turnSteps = { 15, 30, 45, 90 }
 	local dimensions = Compose.cell(V2.new(920, 560))
-	local function wide(use: Use)
+	local function wide(use: Use): boolean
 		return use(dimensions).X >= 760
 	end
-	local function settingsWidth(use: Use)
+	local function settingsWidth(use: Use): number
 		return math.clamp(use(dimensions).X * 0.42, 340, 420)
 	end
-	local function previewHeight(use: Use)
+	local function previewHeight(use: Use): number
 		return math.clamp(use(dimensions).Y * 0.34, 120, 280)
 	end
-	local function accentName(use: Use)
+	local function accentName(use: Use): string
 		return accents[use(model.palette)] or use(model.palette)
 	end
-	local function rotation(use: Use)
+	local function rotation(use: Use): string
 		return `{math.round(use(model.angle))}°`
 	end
-	local function spin(use: Use)
+	local function spin(use: Use): string
 		return spins[use(model.autoSpin) + 1]
 	end
 	local function openSummary()
 		model.avatarSummary:set(true)
 	end
-	local function hud(id: string, title: string, rich: any, compact: any)
-		return Host.Frame({
-			Name = id .. "HUD",
+	local function hud(id: string, title: string, rich: TextValue, compact: TextValue): Frame
+		return Host.Frame(id .. "HUD")({
 			BackgroundTransparency = 1,
 			Size = function(use: Use)
 				return D2.new(1, 0, 0, if wide(use) then 48 else 32)
 			end,
 			Compose.show(wide, function()
-				local plate = UI.VStack({
-					Name = id .. "Plate",
-					width = "fill" :: "fill",
-					height = "fill" :: "fill",
+				local plate = UI.VStack(id .. "Plate")({
+					width = "fill",
+					height = "fill",
 					padding = { top = 5, left = 6, right = 6, bottom = 4 },
-					Host.UICorner({ CornerRadius = ctx.D.new(0, 8) }) :: unknown,
+					Host.UICorner({ CornerRadius = ctx.D.new(0, 8) }),
 					quiet(id .. "Label", title, "caption", {
 						TextWrapped = false,
 						Size = D2.new(1, 0, 0, 14),
@@ -72,7 +77,7 @@ return function(ctx: Context)
 				})
 				plate:AddTag("facet-panel")
 				return plate
-			end) :: unknown,
+			end),
 			Compose.show(function(use: Use)
 				return not wide(use)
 			end, function()
@@ -86,12 +91,12 @@ return function(ctx: Context)
 		})
 	end
 	local function facts(): Instance
-		local values = {
+		local values: { Fact } = {
 			{ id = "Palette", label = "Accent", value = accentName },
 			{
 				id = "Hat",
 				label = "Hat",
-				value = function(use: Use)
+				value = function(use: Use): string
 					return if use(model.hat) then "On" else "Off"
 				end,
 			},
@@ -99,34 +104,28 @@ return function(ctx: Context)
 			{
 				id = "TurnStep",
 				label = "Turn step",
-				value = function(use: Use)
+				value = function(use: Use): string
 					return `{use(model.turnStep)}°`
 				end,
 			},
 			{ id = "AutoSpin", label = "Auto-spin", value = spin },
 		}
-		local rows = { Name = "SummaryFacts", width = "fill" :: "fill", gap = "s" }
+		local rows: StackProps = { Name = "SummaryFacts", width = "fill", gap = "s" }
 		for _, fact in values do
-			table.insert(
-				rows,
-				UI.HStack({
-					Name = "Summary" .. fact.id,
-					width = "fill" :: "fill",
-					gap = "s",
-					quiet("Label", fact.label, "label", { Size = D2.new(0.5, -4, 0, 0) }) :: unknown,
-					words("Value", fact.value, "label", {
-						Size = D2.new(0.5, -4, 0, 0),
-						TextXAlignment = E.TextXAlignment.Right,
-					}),
-				})
-			)
+			rows[#rows + 1] = UI.HStack({
+				Name = "Summary" .. fact.id,
+				width = "fill",
+				gap = "s",
+				quiet("Label", fact.label, "label", { Size = D2.new(0.5, -4, 0, 0) }),
+				words("Value", fact.value, "label", {
+					Size = D2.new(0.5, -4, 0, 0),
+					TextXAlignment = E.TextXAlignment.Right,
+				}),
+			})
 		end
-		table.insert(
-			rows,
-			button("Done", "Done", function()
-				model.avatarSummary:set(false)
-			end, { Size = D2.new(1, 0, 0, 44), AutomaticSize = E.AutomaticSize.None })
-		)
+		rows[#rows + 1] = button("Done", "Done", function()
+			model.avatarSummary:set(false)
+		end, { Size = D2.new(1, 0, 0, 44), AutomaticSize = E.AutomaticSize.None })
 		return UI.VStack(rows)
 	end
 	local angleDraft = Compose.cell(tostring(math.round(model.angle:peek())))
@@ -136,7 +135,7 @@ return function(ctx: Context)
 			angleDraft:set(tostring(angle))
 		end
 	end)
-	local function page(name: string, ...)
+	local function page(name: string, ...: Child): ScrollingFrame
 		return UI.ScrollView(name)({
 			padding = { top = 16, left = 16, right = 24, bottom = 16 },
 			gap = 10,
@@ -144,16 +143,16 @@ return function(ctx: Context)
 			...,
 		})
 	end
-	local function turnButtons()
+	local function turnButtons(): Frame
 		local row = UI.HStack "TurnButtons" {
-			width = "fill" :: "fill",
+			width = "fill",
 			gap = "s",
 			button("TurnLeft", "Turn left", function()
 				model.turn(-1)
 			end, {
 				Size = D2.new(0.5, -4, 0, 44),
 				AutomaticSize = E.AutomaticSize.None,
-			}) :: unknown,
+			}),
 			button("TurnRight", "Turn right", function()
 				model.turn(1)
 			end, {
@@ -161,15 +160,16 @@ return function(ctx: Context)
 				AutomaticSize = E.AutomaticSize.None,
 			}),
 		}
-		UI.adjustable(row, { onAdjust = model.turn, axis = "none" :: "none", repeats = true })
+		UI.adjustable(row, { onAdjust = model.turn, axis = "none", repeats = true })
 		return row
 	end
+	local hatModes: { "swatches" | "spectrum" } = { "swatches", "spectrum" }
 	local preview = UI.ZStack "PreviewPanel" {
 		Size = function(use: Use)
 			return if wide(use) then D2.new(1, -settingsWidth(use) - 16, 1, 0) else D2.new(1, 0, 0, previewHeight(use))
 		end,
 		AutomaticSize = E.AutomaticSize.None,
-		ctx.rounded() :: unknown,
+		ctx.rounded(),
 		ctx.panelShadow(),
 		ctx.stage("AvatarPreview", ctx.actions.avatarContent, {
 			camera = CF.lookAt(types.Vector3.new(0, 3.4, -11), types.Vector3.new(0, 2.5, 0)),
@@ -191,19 +191,83 @@ return function(ctx: Context)
 			AutomaticSize = E.AutomaticSize.None,
 			hud("Look", "Look", function(use: Use)
 				return accentName(use) .. (if use(model.hat) then " · Hat on" else " · Hat off")
-			end, accentName) :: unknown,
+			end, accentName),
 			hud("Rotation", "Rotation", rotation, rotation),
 			hud("Spin", "Auto-spin", spin, spin),
 		},
 	}
 	preview:AddTag("facet-panel")
+	local motionDestination: Destination = {
+		title = "Motion & turning",
+		content = function(): Instance
+			return page(
+				"MotionPage",
+				words("TurnStepLabel", "Turn step", "label"),
+				UI.Stepper "TurnStep" {
+					min = 1,
+					max = #turnSteps,
+					step = 1,
+					value = function(use: Use)
+						return table.find(turnSteps, use(model.turnStep)) or 2
+					end,
+					onChange = function(index: number)
+						model.turnStep:set(turnSteps[index])
+					end,
+					format = function(index: number): string
+						return `{turnSteps[index]}°`
+					end,
+					Size = D2.new(1, 0, 0, 44),
+				},
+				words("RotationLabel", "Rotation", "label"),
+				UI.Slider "Rotation" {
+					value = model.angle,
+					min = -180,
+					max = 180,
+					step = model.turnStep,
+					format = function(value: number): string
+						return `{math.round(value)}°`
+					end,
+					Size = D2.new(1, 0, 0, 44),
+				},
+				UI.NumberInput "ExactAngle" {
+					label = "Exact angle",
+					hint = "Type an angle or a sum, such as 90+45.",
+					value = angleDraft,
+					numericValue = model.angle,
+					min = -180,
+					max = 180,
+					precision = 0,
+					suffix = "°",
+					scrub = true,
+					parse = arithmetic.parse,
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+				},
+				turnButtons(),
+				words("SpinLabel", "Auto-spin", "label"),
+				UI.HStack "AutoSpinRow" {
+					width = "fill",
+					gap = "s",
+					align = "center",
+					quiet("SpinValue", spin, "label", { Size = D2.new(0, 0, 0, 0), UI.fill() }),
+					UI.LevelPicker "AutoSpin" {
+						value = model.autoSpin,
+						count = 3,
+						allowZero = true,
+						Size = D2.fromOffset(156, 44),
+						AutomaticSize = E.AutomaticSize.None,
+					},
+				}
+			)
+		end,
+	}
 	local settings = Host.Frame "AvatarSettings" {
 		BorderSizePixel = 0,
 		SelectionGroup = true,
 		Size = function(use: Use)
 			return if wide(use) then D2.new(0, settingsWidth(use), 1, 0) else D2.new(1, 0, 1, -previewHeight(use) - 16)
 		end,
-		ctx.rounded() :: unknown,
+		ctx.rounded(),
 		Host.UIPadding({
 			PaddingLeft = ctx.D.new(0, 12),
 			PaddingRight = ctx.D.new(0, 12),
@@ -215,7 +279,7 @@ return function(ctx: Context)
 			root = {
 				title = "Explorer",
 				content = function(): Instance
-					local settingsPage
+					local settingsPage: ScrollingFrame
 					settingsPage = page(
 						"SettingsPage",
 						quiet("Subtitle", "Choose an accent and accessories.", "label"),
@@ -226,12 +290,12 @@ return function(ctx: Context)
 							AutomaticSize = E.AutomaticSize.Y,
 							content = function(): Instance
 								return UI.VStack "AppearanceSettings" {
-									width = "fill" :: "fill",
+									width = "fill",
 									gap = 10,
-									words("PaletteLabel", "Accent", "label") :: unknown,
+									words("PaletteLabel", "Accent", "label"),
 									UI.Picker "Palette" {
 										selected = model.palette,
-										style = "segmented" :: "segmented",
+										style = "segmented",
 										options = accentOptions,
 										Size = D2.new(1, 0, 0, 44),
 										AutomaticSize = E.AutomaticSize.None,
@@ -244,7 +308,7 @@ return function(ctx: Context)
 									},
 									UI.ColorPicker "HatColour" {
 										label = "Hat colour",
-										modes = { "swatches", "spectrum" } :: { "swatches" | "spectrum" },
+										modes = hatModes,
 										swatches = {
 											{ color = C3.fromRGB(218, 195, 145), label = "Straw" },
 											{ color = C3.fromRGB(105, 74, 55), label = "Leather" },
@@ -266,7 +330,7 @@ return function(ctx: Context)
 									},
 									UI.RadialMenu "QuickPalette" {
 										label = "Quick accent",
-										appearance = "buttons" :: "buttons",
+										appearance = "buttons",
 										Size = D2.new(1, 0, 0, 44),
 										items = accentItems,
 									},
@@ -280,14 +344,14 @@ return function(ctx: Context)
 							end,
 						},
 						UI.HStack "SummaryActions" {
-							width = "fill" :: "fill",
+							width = "fill",
 							gap = "s",
 							button(
 								"Summary",
 								"Summary",
 								openSummary,
 								{ Size = D2.new(0.5, -4, 0, 44), AutomaticSize = E.AutomaticSize.None }
-							) :: unknown,
+							),
 							UI.CollapsibleView "Tips" {
 								label = "Tips",
 								icon = "edit",
@@ -295,15 +359,14 @@ return function(ctx: Context)
 								Size = D2.new(0.5, -4, 0, 44),
 								AutomaticSize = E.AutomaticSize.None,
 								content = function(): Instance
-									local tips
-									tips = UI.VStack "PreviewTips" {
-										width = "fill" :: "fill",
+									local tips = UI.VStack "PreviewTips" {
+										width = "fill",
 										gap = "s",
 										quiet(
 											"TurnTips",
 											"Turn step sets the increment for Rotation and both Turn buttons. Use the stepper to choose 15°, 30°, 45° or 90°.",
 											"label"
-										) :: unknown,
+										),
 										quiet(
 											"SpinTips",
 											"Auto-spin keeps turning the preview until you pick Off, or your device asks for reduced motion. Your choices survive switching screens.",
@@ -330,113 +393,49 @@ return function(ctx: Context)
 					return settingsPage
 				end,
 			},
-			destinations = {
-				motion = {
-					title = "Motion & turning",
-					content = function(): Instance
-						return page(
-							"MotionPage",
-							words("TurnStepLabel", "Turn step", "label"),
-							UI.Stepper "TurnStep" {
-								min = 1,
-								max = #turnSteps,
-								step = 1,
-								value = function(use: Use)
-									return table.find(turnSteps, use(model.turnStep)) or 2
-								end,
-								onChange = function(index)
-									model.turnStep:set(turnSteps[index])
-								end,
-								format = function(index)
-									return `{turnSteps[index]}°`
-								end,
-								Size = D2.new(1, 0, 0, 44),
-							},
-							words("RotationLabel", "Rotation", "label"),
-							UI.Slider "Rotation" {
-								value = model.angle,
-								min = -180,
-								max = 180,
-								step = model.turnStep,
-								format = function(value)
-									return `{math.round(value)}°`
-								end,
-								Size = D2.new(1, 0, 0, 44),
-							},
-							UI.NumberInput "ExactAngle" {
-								label = "Exact angle",
-								hint = "Type an angle or a sum, such as 90+45.",
-								value = angleDraft,
-								numericValue = model.angle,
-								min = -180,
-								max = 180,
-								precision = 0,
-								suffix = "°",
-								scrub = true,
-								parse = arithmetic.parse,
-								Size = D2.new(1, 0, 0, 0),
-								AutomaticSize = E.AutomaticSize.Y,
-							},
-							turnButtons(),
-							words("SpinLabel", "Auto-spin", "label"),
-							UI.HStack "AutoSpinRow" {
-								width = "fill" :: "fill",
-								gap = "s",
-								align = "center" :: "center",
-								quiet("SpinValue", spin, "label", { Size = D2.new(0, 0, 0, 0), UI.fill() }) :: unknown,
-								UI.LevelPicker "AutoSpin" {
-									value = model.autoSpin,
-									count = 3,
-									allowZero = true,
-									Size = D2.fromOffset(156, 44),
-									AutomaticSize = E.AutomaticSize.None,
-								},
-							}
-						)
-					end,
-				} :: Destination,
-			},
+			destinations = { motion = motionDestination },
 		},
 	}
 	settings:AddTag("facet-panel")
 	local body = UI.HStack "AvatarBody" {
-		width = "fill" :: "fill",
-		height = "fill" :: "fill",
+		width = "fill",
+		height = "fill",
 		gap = 16,
 		wrap = true,
-		preview :: unknown,
+		preview,
 		settings,
 	}
 	ctx.measure(body, dimensions)
+	local resetActions: { AlertAction } = {
+		{ id = "cancel", label = "Cancel", role = "cancel" },
+		{
+			id = "reset",
+			label = "Reset",
+			role = "destructive",
+			onActivate = function()
+				model.resetAvatar()
+				UI.feedback("success")
+			end,
+		},
+	}
 	return body,
 		UI.ZStack "Overlays" {
-			width = "fill" :: "fill",
-			height = "fill" :: "fill",
+			width = "fill",
+			height = "fill",
 			UI.Sheet "AvatarSummary" {
 				title = "Look summary",
 				isPresented = model.avatarSummary,
 				detent = model.avatarSummaryDetent,
 				content = facts,
-			} :: unknown,
+			},
 			UI.Alert "ResetAvatar" {
 				isPresented = model.resetAvatarPresented,
 				title = "Reset your look?",
 				message = "The accent, hat, hat colour and rotation return to their defaults.",
-				actions = {
-					{ id = "cancel", label = "Cancel", role = "cancel" :: "cancel" } :: AlertAction,
-					{
-						id = "reset",
-						label = "Reset",
-						role = "destructive" :: "destructive",
-						onActivate = function()
-							model.resetAvatar()
-							UI.feedback("success")
-						end,
-					} :: AlertAction,
-				},
+				actions = resetActions,
 			},
 			Compose.keyed({
-				from = function(use: Use)
+				from = function(use: Use): { number }
 					local count = use(model.lookResets)
 					return if count > 0 then { count } else {}
 				end,
@@ -444,8 +443,8 @@ return function(ctx: Context)
 					return UI.Toast "LookReset" {
 						message = "Your look is back to the default.",
 						key = "look",
-						width = "hug" :: "hug",
-						position = "bottom" :: "bottom",
+						width = "hug",
+						position = "bottom",
 					}
 				end,
 			}),

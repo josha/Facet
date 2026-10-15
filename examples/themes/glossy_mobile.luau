@@ -11,10 +11,10 @@ local function rgb(r: number, g: number, b: number)
 end
 
 local FAMILY = "rbxasset://fonts/families/Nunito.json"
-local SIZES = { caption = 13, label = 15, body = 17, control = 18, heading = 24, title = 30 }
+local SIZES: { [string]: number } = { caption = 13, label = 15, body = 17, control = 18, heading = 24, title = 30 }
 
-local function typography(): any
-	local out: any = {}
+local function typography(): { [string]: { [string]: unknown } }
+	local out: { [string]: { [string]: unknown } } = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY, weight = "Medium" }, size = size, lineHeight = 1.3 }
 	end
@@ -23,7 +23,7 @@ local function typography(): any
 	return out
 end
 
-local function gloss(topAlpha: number, bottomAlpha: number): any
+local function gloss(topAlpha: number, bottomAlpha: number): { [string]: unknown }
 	return {
 		rotation = 90,
 		stops = {
@@ -119,12 +119,12 @@ function glossy_mobile.definition(themes: any): any
 		},
 		chrome = {
 
-			panel = { kind = "native" :: "native", shadow = "raised" },
-			control = { kind = "native" :: "native", shadow = "raised" },
-			field = { kind = "native" :: "native" },
-			selection = { kind = "native" :: "native" },
-			divider = { kind = "native" :: "native" },
-			scrollbar = { kind = "native" :: "native" },
+			panel = { kind = "native", shadow = "raised" },
+			control = { kind = "native", shadow = "raised" },
+			field = { kind = "native" },
+			selection = { kind = "native" },
+			divider = { kind = "native" },
+			scrollbar = { kind = "native" },
 		},
 		assets = {},
 		compatibility = { requiresSchema = themes.SCHEMA },

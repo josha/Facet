@@ -656,7 +656,7 @@ return function(verifyHarness: Verify.Harness)
 							spec[key] = field
 						end
 						local w = setup(function(UI: FacetControls, Host: RobloxHost)
-							return Host.Frame({ UI.Slider("S")(spec) })
+							return Host.Frame({ UI.Slider "S"(spec) })
 						end)
 						local slider = w.find("S")
 						Verify.expect(slider.Selectable):toBe(true)

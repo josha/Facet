@@ -6,9 +6,11 @@ local data = require("../content/data")
 
 local identity_service = {}
 
-function identity_service.new(opts: any): any
-	local Compose: ComposeModule = opts.Compose
-	local self: any = {}
+export type Opts = { Compose: ComposeModule }
+
+function identity_service.new(opts: Opts)
+	local Compose = opts.Compose
+	local self = {}
 
 	local signedIn = Compose.cell(false)
 	local guildName = Compose.cell("")
@@ -25,7 +27,7 @@ function identity_service.new(opts: any): any
 		if normalized == "" then
 			return false, "reject.fallback"
 		end
-		for _, taken in data.takenGuildNames :: any do
+		for _, taken in data.takenGuildNames do
 			if normalized == taken then
 				return false, "reject.guildTaken"
 			end
@@ -43,7 +45,7 @@ function identity_service.new(opts: any): any
 		guildName:set("")
 	end
 
-	function self.dump(): any
+	function self.dump(): { signedIn: boolean, guildName: string }
 		return { signedIn = signedIn:peek(), guildName = guildName:peek() }
 	end
 

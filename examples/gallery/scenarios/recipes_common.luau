@@ -3,6 +3,9 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local WRAP_TAGS = { "Rain", "Dust", "Night", "Mirror", "Reverse", "Elimination" }
@@ -21,11 +24,11 @@ local RAIL_TAGS = {
 
 return {
 	title = "Recipes",
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local Facet, UI, Compose: ComposeModule = ctx.Facet, ctx.UI, ctx.Compose
 		local Host = ctx.Host
 		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local actionsCap = Compose.cell(700)
@@ -85,7 +88,7 @@ return {
 			}
 		end
 
-		local function heading(id: string, text: string): any
+		local function heading(id: string, text: string): GuiObject
 			return UI.Text({
 				Name = id,
 				BackgroundTransparency = 1,
@@ -93,13 +96,13 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				text = text,
-				textRole = "title" :: "title",
+				textRole = "title",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
 			})
 		end
-		local function note(id: string, text: string): any
+		local function note(id: string, text: string): GuiObject
 			return UI.Text({
 				Name = id,
 				BackgroundTransparency = 1,
@@ -107,7 +110,7 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				text = text,
-				textRole = "caption" :: "caption",
+				textRole = "caption",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
@@ -123,15 +126,15 @@ return {
 				actionLabel: string,
 				onAction: () -> (),
 			}
-		): any
-			local children: { any } = {}
+		): Frame
+			local children: { GuiObject } = {}
 			if opts.icon ~= nil then
 				table.insert(
 					children,
 					UI.Label "Icon" {
 						title = opts.iconLabel or opts.title,
 						icon = opts.icon,
-						presentation = "iconOnly" :: "iconOnly",
+						presentation = "iconOnly",
 						iconSize = 32,
 					}
 				)
@@ -144,7 +147,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = opts.title,
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextXAlignment = Enum.TextXAlignment.Center,
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
@@ -165,14 +168,9 @@ return {
 			)
 			table.insert(
 				children,
-				UI.Button "Action" {
-					label = opts.actionLabel,
-					appearance = "soft",
-					onActivate = opts.onAction,
-				}
+				UI.Button "Action" { label = opts.actionLabel, appearance = "soft", onActivate = opts.onAction }
 			)
-			return Host.Frame({
-				Name = id,
+			return Host.Frame(id)({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -181,7 +179,7 @@ return {
 					HorizontalAlignment = Enum.HorizontalAlignment.Center,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}) :: unknown,
+				}),
 				Host.UIPadding({
 					PaddingTop = UDim.new(0, 16),
 					PaddingBottom = UDim.new(0, 16),
@@ -195,24 +193,30 @@ return {
 			local package: ThemePackage = if ctx.theme then use(ctx.theme) else Facet.themes.neutralPackage()
 			return package.metrics
 		end
-		local function observe(node: GuiObject, property: string): VectorCell
-			local value = Compose.cell((node :: any)[property] :: Vector2)
-			local connection = node:GetPropertyChangedSignal(property):Connect(function()
-				value:set((node :: any)[property])
+		local function observePosition(node: GuiObject): VectorCell
+			local value = Compose.cell(node.AbsolutePosition)
+			local connection = node:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+				value:set(node.AbsolutePosition)
 			end)
 			Compose.cleanup(function()
 				connection:Disconnect()
 			end)
 			return value
 		end
-		local function dividerExample(id: string, name: string, sides: any, thickness: number?): any
-			local row = UI.Label({ Name = "Row", LayoutOrder = 1, icon = "checkmark", title = name })
+		local function dividerExample(
+			id: string,
+			name: string,
+			sides: { left: boolean?, right: boolean? }?,
+			thickness: number?
+		): Frame
+			local row = UI.Label "Row" { LayoutOrder = 1, icon = "checkmark", title = name }
 			local title = row:FindFirstChild("Title")
-			local rowAt = observe(row, "AbsolutePosition")
-			local titleAt = if title then observe(title, "AbsolutePosition") else rowAt
-			local function inset(side: string)
+			local rowAt = observePosition(row)
+			local titleAt = if title and title:IsA("GuiObject") then observePosition(title) else rowAt
+			local function inset(side: "left" | "right")
 				return function(use: Use)
-					if type(sides) ~= "table" or not sides[side] then
+					local shown = if sides == nil then nil elseif side == "left" then sides.left else sides.right
+					if not shown then
 						return UDim.new(0, 0)
 					end
 					return UDim.new(0, math.max(0, use(titleAt).X - use(rowAt).X))
@@ -226,8 +230,7 @@ return {
 				end,
 			})
 			line:AddTag("facet-divider")
-			return Host.Frame({
-				Name = id,
+			return Host.Frame(id)({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -235,11 +238,10 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
-				}) :: unknown,
+				}),
 				row,
-				Host.Frame({
+				Host.Frame("Pad")({
 					LayoutOrder = 2,
-					Name = "Pad",
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -247,7 +249,7 @@ return {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 0),
-					}) :: unknown,
+					}),
 					Host.UIPadding({
 						PaddingLeft = inset("left"),
 						PaddingRight = inset("right"),
@@ -257,12 +259,11 @@ return {
 			})
 		end
 		local function dividers()
-			local card = Host.Frame({
-				Name = "Dividers",
+			local card = Host.Frame("Dividers")({
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				BorderSizePixel = 0,
-				Host.UISizeConstraint({ MaxSize = Vector2.new(360, math.huge) }) :: unknown,
+				Host.UISizeConstraint({ MaxSize = Vector2.new(360, math.huge) }),
 				Host.UIListLayout({
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
@@ -285,9 +286,14 @@ return {
 		end
 
 		local function Page()
-			local function actionButton(index, id, label, role, appearance)
-				local button = UI.Button({
-					Name = id,
+			local function actionButton(
+				index: number,
+				id: string,
+				label: string,
+				role: ("cancel" | "destructive")?,
+				appearance: ("emphasis" | "utility")?
+			)
+				local button = UI.Button(id)({
 					LayoutOrder = index,
 					Size = function(use: Use)
 						return if use(actionsHorizontal) then UDim2.fromOffset(0, 44) else UDim2.new(1, 0, 0, 44)
@@ -321,8 +327,9 @@ return {
 					end)
 					return value
 				end
-				local release, measure = ctx.runtime.mount(function()
-					return Host.TextLabel "NaturalWidth" {
+				local measure: TextLabel
+				local release = ctx.runtime.mount(function()
+					measure = Host.TextLabel("NaturalWidth")({
 						Text = label,
 						Visible = false,
 						TextWrapped = false,
@@ -330,7 +337,8 @@ return {
 						AutomaticSize = Enum.AutomaticSize.XY,
 						FontFace = styled("FontFace"),
 						TextSize = styled("TextSize"),
-					}
+					})
+					return measure
 				end, button)
 				Compose.cleanup(release)
 				local function measureChanged()
@@ -344,7 +352,7 @@ return {
 				return button
 			end
 			local function actionRow()
-				local row = Host.Frame "Actions" {
+				local row = Host.Frame("Actions")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -352,7 +360,7 @@ return {
 						MaxSize = function(use: Use)
 							return Vector2.new(use(actionsCap), math.huge)
 						end,
-					}) :: unknown,
+					}),
 					Host.UIListLayout({
 						FillDirection = function(use: Use)
 							return if use(actionsHorizontal)
@@ -365,7 +373,7 @@ return {
 					actionButton(1, "Cancel", "Cancel", "cancel", nil),
 					actionButton(2, "Save", "Save changes to this profile", nil, "emphasis"),
 					actionButton(3, "Delete", "Delete profile", "destructive", "utility"),
-				}
+				})
 				local function resized()
 					actionsWidth:set(row.AbsoluteSize.X)
 				end
@@ -376,7 +384,7 @@ return {
 				resized()
 				return row
 			end
-			local function accordionItem(id: string, label: string, body: string): any
+			local function accordionItem(id: string, label: string, body: string): Frame
 				return UI.DisclosureGroup({
 					Name = id,
 					label = label,
@@ -407,7 +415,7 @@ return {
 					end,
 				})
 			end
-			local function checkItem(id: string, label: string, width: any?): any
+			local function checkItem(id: string, label: string, width: UDim?)
 				return UI.Toggle({
 					Name = id,
 					Size = function(use: Use)
@@ -415,9 +423,9 @@ return {
 					end,
 					AutomaticSize = Enum.AutomaticSize.XY,
 					label = label,
-					presentation = "checkbox" :: "checkbox",
-					controlSize = "compact" :: "compact",
-					indicatorPosition = "leading" :: "leading",
+					presentation = "checkbox",
+					controlSize = "compact",
+					indicatorPosition = "leading",
 					enabled = enabled,
 					value = function(use: Use)
 						return use(checks)[id] == true
@@ -434,7 +442,7 @@ return {
 					end,
 				})
 			end
-			local function chipItem(tag, cells)
+			local function chipItem(tag: string, cells: { [string]: BooleanCell })
 				return UI.Chip({
 					Name = tag,
 					label = tag,
@@ -442,7 +450,7 @@ return {
 				})
 			end
 
-			local root = Host.Frame "Page" {
+			local root = Host.Frame("Page")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -450,7 +458,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 24),
-				}) :: unknown,
+				}),
 				Host.UIPadding({
 					PaddingTop = UDim.new(0, 16),
 					PaddingBottom = UDim.new(0, 16),
@@ -468,7 +476,7 @@ return {
 					"CheckboxNote",
 					"Independent settings, not a single choice. Use a Picker instead the moment only one of these can be true at a time."
 				),
-				Host.Frame "CheckboxGroup" {
+				Host.Frame("CheckboxGroup")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -476,13 +484,13 @@ return {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 4),
-					}) :: unknown,
+					}),
 					checkItem("tires", "Tire wear"),
 					checkItem("fuel", "Fuel use"),
 					checkItem("damage", "Damage"),
 					checkItem("weather", "Weather"),
-				},
-				Host.Frame "WrapChecks" {
+				}),
+				Host.Frame("WrapChecks")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -491,15 +499,15 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}) :: unknown,
+					}),
 					checkItem("tires", "Tire wear", UDim.new(0, 0)),
 					checkItem("fuel", "Fuel use", UDim.new(0, 0)),
 					checkItem("damage", "Damage", UDim.new(0, 0)),
 					checkItem("weather", "Weather", UDim.new(0, 0)),
-				},
+				}),
 				heading("ChipHeading", "Chip group"),
 				note("ChipWrapNote", "Wraps to a new line when it runs out of room."),
-				Host.Frame "WrapChips" {
+				Host.Frame("WrapChips")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -508,7 +516,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}) :: unknown,
+					}),
 					Compose.OrderedCollection({
 						from = wrapTags,
 						key = function(tag: string)
@@ -525,19 +533,19 @@ return {
 							return node
 						end,
 					}),
-				},
+				}),
 				note(
 					"ChipRailNote",
 					"One scrolling row instead, for a long list on a narrow screen. A keyboard or gamepad focus move keeps the picked chip in view with no extra wiring."
 				),
-				Host.ScrollingFrame "RailChips" {
+				Host.ScrollingFrame("RailChips")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					AutomaticCanvasSize = Enum.AutomaticSize.X,
 					CanvasSize = UDim2.new(),
 					ScrollBarThickness = 6,
-					Host.Frame "Row" {
+					Host.Frame("Row")({
 						BackgroundTransparency = 1,
 						Size = UDim2.new(0, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.XY,
@@ -545,7 +553,7 @@ return {
 							FillDirection = Enum.FillDirection.Horizontal,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}) :: unknown,
+						}),
 						Compose.OrderedCollection({
 							from = railTags,
 							key = function(tag: string)
@@ -556,8 +564,8 @@ return {
 								return chipItem(tag, railSelected)
 							end,
 						}),
-					},
-				},
+					}),
+				}),
 				heading("EmptyHeading", "Empty state"),
 				note(
 					"EmptyNote",
@@ -596,7 +604,7 @@ return {
 				heading("DividerHeading", "Divider insets"),
 				dividers(),
 				heading("AccordionHeading", "Single-open accordion"),
-				Host.Frame "Accordion" {
+				Host.Frame("Accordion")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -604,12 +612,12 @@ return {
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 0),
-					}) :: unknown,
+					}),
 					accordionItem("Rules", "Race rules", "Standard lap count, no shortcuts, collisions on."),
 					accordionItem("Setup", "Car setup", "Tire compound, gear ratio and ride height for this track."),
 					accordionItem("Rewards", "Rewards", "Podium finishes bank currency toward the next kart unlock."),
-				},
-			}
+				}),
+			})
 			return root
 		end
 		local function reset()
@@ -634,7 +642,7 @@ return {
 			report = report,
 			reset = reset,
 			screen = function()
-				return Host.Frame "Recipes" {
+				return Host.Frame("Recipes")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					UI.ScrollView "Content" {
@@ -644,7 +652,7 @@ return {
 						ScrollBarThickness = 6,
 						Page(),
 					},
-				}
+				})
 			end,
 			steps = {
 				narrowActions = function()

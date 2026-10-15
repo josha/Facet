@@ -4,6 +4,8 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 
 local STOPS: { { value: string, width: number? } } = {
 	{ value = "roomy", width = nil },
@@ -47,11 +49,10 @@ return {
 	copy = COPY,
 	stops = STOPS,
 	sortCompact = SORT_COMPACT,
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 
@@ -70,21 +71,22 @@ return {
 		end)
 
 		local function widthPicker()
+			local options: { PickerOption } = {
+				{ value = "roomy", label = COPY.roomy },
+				{ value = "snug", label = COPY.snug },
+				{ value = "tight", label = COPY.tight },
+				{ value = "impossible", label = COPY.impossible },
+			}
 			return UI.Picker "Room" {
 				label = COPY.widthLabel,
-				style = "segmented" :: "segmented",
-				options = {
-					{ value = "roomy", label = COPY.roomy } :: PickerOption,
-					{ value = "snug", label = COPY.snug } :: PickerOption,
-					{ value = "tight", label = COPY.tight } :: PickerOption,
-					{ value = "impossible", label = COPY.impossible } :: PickerOption,
-				},
+				style = "segmented",
+				options = options,
 				selected = stop,
 			}
 		end
 
 		local function screen()
-			return Host.Frame "TextDegrade" {
+			return Host.Frame("TextDegrade")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				UI.ScrollView "Page" {
@@ -99,24 +101,24 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.title,
-						textRole = "title" :: "title",
+						textRole = "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					} :: unknown,
+					},
 					UI.Text "Lead" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.lead,
-						textRole = "caption" :: "caption",
+						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
 					widthPicker(),
-					Host.Frame "RowPanel" {
+					Host.Frame("RowPanel")({
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -124,29 +126,27 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}) :: unknown,
+						}),
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 16),
 							PaddingBottom = UDim.new(0, 16),
 							PaddingLeft = UDim.new(0, 16),
 							PaddingRight = UDim.new(0, 16),
 						}),
-						UI.Text({
+						UI.Text "RowHeading" {
 							LayoutOrder = 1,
-							Name = "RowHeading",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = COPY.rowHeading,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-						Host.Frame({
+						},
+						Host.Frame("Row")({
 							LayoutOrder = 2,
-							Name = "Row",
 							BackgroundTransparency = 1,
 							Size = function(use: Use)
 								return UDim2.new(use(rowWidth).Scale, use(rowWidth).Offset, 0, 0)
@@ -156,17 +156,15 @@ return {
 								FillDirection = Enum.FillDirection.Horizontal,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 4),
-							}) :: unknown,
-							UI.Button({
+							}),
+							UI.Button "Sort" {
 								LayoutOrder = 1,
-								Name = "Sort",
 								label = COPY.sortLabel,
 								compactLabel = SORT_COMPACT,
 								onActivate = function() end,
-							}),
-							UI.Text({
+							},
+							UI.Text "Rank" {
 								LayoutOrder = 2,
-								Name = "Rank",
 								BackgroundTransparency = 1,
 								BorderSizePixel = 0,
 								Size = UDim2.new(1, 0, 0, 0),
@@ -175,10 +173,9 @@ return {
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
-							}),
-							UI.Text({
+							},
+							UI.Text "Date" {
 								LayoutOrder = 3,
-								Name = "Date",
 								BackgroundTransparency = 1,
 								BorderSizePixel = 0,
 								Size = UDim2.new(0, 60, 0, 0),
@@ -187,10 +184,10 @@ return {
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
-							}),
+							},
 						}),
-					},
-					Host.Frame "WrapPanel" {
+					}),
+					Host.Frame("WrapPanel")({
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -198,29 +195,27 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}) :: unknown,
+						}),
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 16),
 							PaddingBottom = UDim.new(0, 16),
 							PaddingLeft = UDim.new(0, 16),
 							PaddingRight = UDim.new(0, 16),
 						}),
-						UI.Text({
+						UI.Text "WrapHeading" {
 							LayoutOrder = 1,
-							Name = "WrapHeading",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = COPY.wrapHeading,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-						UI.Text({
+						},
+						UI.Text "WrapBody" {
 							LayoutOrder = 2,
-							Name = "WrapBody",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = function(use: Use)
@@ -231,21 +226,21 @@ return {
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-					},
+						},
+					}),
 					UI.Text "Footnote" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.footnote,
-						textRole = "caption" :: "caption",
+						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
 				},
-			}
+			})
 		end
 
 		return {
@@ -256,7 +251,7 @@ return {
 
 			steps = {
 
-				setStop = function(_built: any, payload: string?)
+				setStop = function(_built: unknown, payload: string?)
 					local value = payload
 					local known = false
 					for _, entry in STOPS do

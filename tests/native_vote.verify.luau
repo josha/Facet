@@ -16,7 +16,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local function mount(spec: any, extra: ((any) -> { any })?): any
 		return worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			local children: { any } = { UI.Vote("V")(spec) }
+			local children: { any } = { UI.Vote "V"(spec) }
 			local additions: { any } = if extra then extra(UI) else {}
 			for _, node in additions do
 				table.insert(children, node)

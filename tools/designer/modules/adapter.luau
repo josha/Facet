@@ -3,10 +3,12 @@ type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
 local library = require("./library")
+local contract = require("./contract")
 local document = require("./document")
 local values = require("./value")
 
 local adapter = {}
+adapter.bindings = nil :: { [string]: string }?
 
 function adapter.expression(tag: string, data: any?): any
 	local result = data or {}
@@ -347,19 +349,21 @@ function adapter.emit(item: any, emitNode: any, depth: number?): string
 	if tag == "variable" then
 		return item.name
 	elseif tag == "data" then
-		local lookup = "data[" .. values.literal(item.key) .. "]"
-		return "if data and " .. lookup .. " then " .. lookup .. " else " .. emit(item.initial)
+		if adapter.bindings then
+			adapter.bindings[item.key] = "rows"
+		end
+		return "rows(if data then data[" .. values.literal(item.key) .. "] else nil, " .. emit(item.initial) .. ")"
 	elseif tag == "activation" then
-		local lookup = "data[" .. values.literal(item.key) .. "]"
-		return "function(item: any, key: any, input: any, clickCount: any) if data and "
-			.. lookup
-			.. " then "
-			.. lookup
-			.. "(item, key, input, clickCount) end end"
+		if adapter.bindings then
+			adapter.bindings[item.key] = "activation"
+		end
+		return "function(item: Row, key: unknown, input: InputObject?, clickCount: number?) local handler = if data then data["
+			.. values.literal(item.key)
+			.. "] else nil if handler then handler(item, key, input, clickCount) end end"
 	elseif tag == "field" then
 		local lookup = "use(current)[" .. values.literal(item.key) .. "]"
 		local conversion = if item.conversion == "number" then "tonumber" else "tostring"
-		return "function(use: any) return "
+		return "function(use: Facet.Use) return "
 			.. conversion
 			.. "(if "
 			.. lookup
@@ -371,7 +375,7 @@ function adapter.emit(item: any, emitNode: any, depth: number?): string
 			.. (if item.conversion == "number" then " or " .. emit(item.fallback) else "")
 			.. " end"
 	elseif tag == "rowTemplate" then
-		local lines = { "function(current: any)" }
+		local lines = { "function(current: " .. contract.ROW .. "): GuiObject" }
 		for _, row in document.rows(item.node) do
 			local child = assert(document.find(item.node, row.id))
 			if document.collection({ root = item.node } :: any, child.id) then
@@ -410,7 +414,9 @@ function adapter.emit(item: any, emitNode: any, depth: number?): string
 					lines,
 					"local columns_"
 						.. child.id
-						.. ": {Facet.TableColumn<any, any>} = "
+						.. ": "
+						.. contract.COLUMNS
+						.. " = "
 						.. emit(adapter.properties(child).columns)
 				)
 			end
@@ -424,12 +430,18 @@ function adapter.emit(item: any, emitNode: any, depth: number?): string
 			action.onActivate = adapter.expression("rowAction", { key = action.handler or action.id })
 			action.handler = nil
 		end
-		return "function(current: any): Facet.RowActionsOptions return { trailing = "
+		return "function(current: "
+			.. contract.ROW
+			.. "): Facet.RowActionsOptions return { trailing = "
 			.. emit(actions)
 			.. ", fullSwipe = false } end"
 	elseif tag == "rowAction" then
-		local lookup = "data[" .. values.literal(item.key) .. "]"
-		return "function() if data and " .. lookup .. " then " .. lookup .. "(current:peek()) end end"
+		if adapter.bindings and adapter.bindings[item.key] ~= "activation" then
+			adapter.bindings[item.key] = "handler"
+		end
+		return "function() local handler = if data then data["
+			.. values.literal(item.key)
+			.. "] else nil if handler then handler(current:peek()) end end"
 	elseif tag == "state" then
 		return item.name
 	elseif tag == "cell" then
@@ -451,7 +463,7 @@ function adapter.emit(item: any, emitNode: any, depth: number?): string
 	elseif tag == "accept" then
 		return "function(value) return true, value end"
 	elseif tag == "column" then
-		return "function(row: any) return row[" .. values.literal(item.key) .. "] end"
+		return "function(row: Row) return row[" .. values.literal(item.key) .. "] end"
 	elseif tag == "row" then
 		return 'function(current) return UI.Text "RowLabel" { text = function(use) local row = use(current) return tostring(row.label or row.name or row.id or "Item") end, TextWrapped = true } end'
 	elseif tag == "anchor" then

@@ -2,22 +2,30 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSizeValue)
+type ControlSizeCell = typeof(require("@repo/tools/typecheck/aliases").ControlSize)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type BadgeStatus = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 return {
 	title = "Badges",
 	ledgerRows = {},
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local status, rung = Compose.cell("neutral"), Compose.cell("compact")
-		local rootPath, controller, record
+		local initialStatus: BadgeStatus = "neutral"
+		local initialRung: ControlSize = "compact"
+		local status: Cell<BadgeStatus> = Compose.cell(initialStatus)
+		local rung: ControlSizeCell = Compose.cell(initialRung)
+		local rootPath: unknown, controller: unknown, record: GuiObject? = nil, nil, nil
 		local function report()
 			return { status = status:peek(), controlSize = rung:peek() }
 		end
-		local function choose(word)
+		local function choose(word: BadgeStatus)
 			status:set(word)
 			return report()
 		end
@@ -29,6 +37,16 @@ return {
 			Compose.cleanup(function()
 				rootPath, controller, record = nil, nil, nil
 			end)
+			local statusOptions: { PickerOption } = {
+				{ value = "neutral", label = "Neutral" },
+				{ value = "warning", label = "Warning" },
+				{ value = "error", label = "Error" },
+				{ value = "voice", label = "Voice" },
+			}
+			local sizeOptions: { PickerOption } = {
+				{ value = "compact", label = "Compact" },
+				{ value = "large", label = "Large" },
+			}
 			local root = Host.Frame "BadgeRecipe" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -37,23 +55,21 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
-				UI.Text({
+				}),
+				UI.Text "Title" {
 					LayoutOrder = 1,
-					Name = "Title",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Small labels",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.Text({
+				},
+				UI.Text "Guide" {
 					LayoutOrder = 2,
-					Name = "Guide",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -62,10 +78,9 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				Host.Frame({
+				},
+				Host.Frame "Forms" {
 					LayoutOrder = 3,
-					Name = "Forms",
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
@@ -75,10 +90,9 @@ return {
 						Padding = UDim.new(0, 12),
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						Wraps = true,
-					}) :: unknown,
-					UI.Badge({
+					}),
+					UI.Badge "Standard" {
 						LayoutOrder = 1,
-						Name = "Standard",
 						label = "Ready",
 						icon = "status.info",
 						status = status,
@@ -86,56 +100,44 @@ return {
 						ref = function(value)
 							record = value
 						end,
-					}),
-					UI.Badge({
+					},
+					UI.Badge "Marked" {
 						LayoutOrder = 2,
-						Name = "Marked",
 						label = "Server",
 						appearance = "status",
 						status = status,
 						controlSize = rung,
-					}),
-					UI.Badge({
+					},
+					UI.Badge "Utility" {
 						LayoutOrder = 3,
-						Name = "Utility",
 						label = "Beta",
 						appearance = "utility",
 						icon = "status.info",
 						controlSize = rung,
-					}),
-					UI.Badge({
+					},
+					UI.Badge "Media" {
 						LayoutOrder = 4,
-						Name = "Media",
 						label = "Featured",
 						icon = "status.success",
 
 						status = status,
 						controlSize = rung,
-					}),
-				}),
+					},
+				},
 				UI.Picker "Status" {
 					LayoutOrder = 4,
 					label = "Status",
 					selected = status,
-					options = {
-						{ value = "neutral", label = "Neutral" } :: PickerOption,
-						{ value = "warning", label = "Warning" } :: PickerOption,
-						{ value = "error", label = "Error" } :: PickerOption,
-						{ value = "voice", label = "Voice" } :: PickerOption,
-					},
+					options = statusOptions,
 				},
 				UI.Picker "Size" {
 					LayoutOrder = 5,
 					label = "Size",
 					selected = rung,
-					options = {
-						{ value = "compact", label = "Compact" } :: PickerOption,
-						{ value = "large", label = "Large" } :: PickerOption,
-					},
+					options = sizeOptions,
 				},
-				Host.Frame({
+				Host.Frame "Hosts" {
 					LayoutOrder = 6,
-					Name = "Hosts",
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
@@ -145,11 +147,11 @@ return {
 						Padding = UDim.new(0, 24),
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						Wraps = true,
-					}) :: unknown,
-					UI.badged(UI.Button({ Name = "Inbox", LayoutOrder = 1, label = "Inbox" }), 120),
-					UI.badged(UI.Button({ Name = "Alerts", LayoutOrder = 2, label = "Alerts", icon = "menu" }), true),
-					UI.badged(UI.Avatar({ Name = "Friend", LayoutOrder = 3, name = "Alder" }), 3),
-				}),
+					}),
+					UI.badged(UI.Button "Inbox" { LayoutOrder = 1, label = "Inbox" }, 120),
+					UI.badged(UI.Button "Alerts" { LayoutOrder = 2, label = "Alerts", icon = "menu" }, true),
+					UI.badged(UI.Avatar "Friend" { LayoutOrder = 3, name = "Alder" }, 3),
+				},
 			}
 			return root
 		end

@@ -1,11 +1,12 @@
 --!strict
 local Shared = require("./types")
-local Types = require("./effect_types")
+local ControlTypes = require("./control_types")
 local Nav = require("./navigation_types")
+local EffectProps = require("./effect_props")
 local reducedMotion = require("./motion").reduced
-return function(ctx: Shared.Context, UI: Types.Controls, surfaces: Nav.Surfaces)
+return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces)
 	local C, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
-	UI.Flash = ctx.construct("Flash", function(spec: Types.FlashProps): Frame
+	UI.Flash = ctx.construct("Flash", function(spec: EffectProps.FlashProps): Frame
 		local reduce = reducedMotion(ctx)
 		local anchor = Host.Frame(
 			ctx.props(

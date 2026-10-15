@@ -189,7 +189,7 @@ return function(verifyHarness: Verify.Harness)
 			return Host.Frame({
 				Name = "Col",
 				Host.UIListLayout({}) :: unknown,
-				UI.DateTimePicker("P")(full),
+				UI.DateTimePicker "P"(full),
 				UI.Button("Other")({ label = "Other" }),
 			})
 		end, options)

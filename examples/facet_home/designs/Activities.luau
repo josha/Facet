@@ -3,39 +3,42 @@
 local Facet = require(game.ReplicatedStorage.Facet)
 local Compose = Facet.Compose
 
-return function(UI: Facet.Controls, data: { [string]: any }?): GuiObject
+export type Row = { [string]: unknown }
+export type Data = {}
+
+return function(UI: Facet.Controls, data: Data?): GuiObject
 	return UI.Screen "Screen" {
 		gap = "m",
 		UI.ScrollView "Content" {
 			gap = "m",
-			height = "fill" :: "fill",
+			height = "fill",
 			padding = { ["bottom"] = 24, ["left"] = 20, ["right"] = 20, ["top"] = 20 },
-			width = "fill" :: "fill",
+			width = "fill",
 			UI.Text "Eyebrow" {
-				role = "secondary" :: "secondary",
+				role = "secondary",
 				text = "FACET HOME",
-				textRole = "caption" :: "caption",
+				textRole = "caption",
 				wrap = true,
 			},
 			UI.Text "Heading" {
 				text = "A moment of play.",
-				textRole = "title" :: "title",
+				textRole = "title",
 				wrap = true,
 			},
 			UI.Text "Subtitle" {
-				role = "secondary" :: "secondary",
+				role = "secondary",
 				text = "Follow the four notes: LEAF → SUN → WATER → BLOOM. A wrong note starts the sequence again.",
-				textRole = "body" :: "body",
+				textRole = "body",
 				wrap = true,
 			},
 			UI.Text "ActivityProgress" {
 				text = "0 / 4 notes",
-				textRole = "body" :: "body",
+				textRole = "body",
 				wrap = true,
 			},
 			UI.Text "ActivityResult" {
 				text = "Start with LEAF.",
-				textRole = "body" :: "body",
+				textRole = "body",
 				wrap = true,
 			},
 			UI.Grid "Notes" {
@@ -43,28 +46,28 @@ return function(UI: Facet.Controls, data: { [string]: any }?): GuiObject
 				columns = 2,
 				gap = "s",
 				UI.Button "Note_1" {
-					appearance = "standard" :: "standard",
+					appearance = "standard",
 					label = "WATER",
 				},
 				UI.Button "Note_2" {
-					appearance = "standard" :: "standard",
+					appearance = "standard",
 					label = "LEAF",
 				},
 				UI.Button "Note_3" {
-					appearance = "standard" :: "standard",
+					appearance = "standard",
 					label = "BLOOM",
 				},
 				UI.Button "Note_4" {
-					appearance = "standard" :: "standard",
+					appearance = "standard",
 					label = "SUN",
 				},
 			},
 			UI.Button "ResetActivity" {
-				appearance = "standard" :: "standard",
+				appearance = "standard",
 				label = "Play again",
 			},
 			UI.Button "Garden" {
-				appearance = "soft" :: "soft",
+				appearance = "soft",
 				label = "Visit the garden",
 			},
 		},

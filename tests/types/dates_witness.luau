@@ -1,9 +1,11 @@
 --!strict
 local Dates = require("../../src/ui/date_time_picker_types")
+local DatesControls = require("../../src/ui/control_types")
 local Compose = require("../../src/vendor/compose/core")
 
-return function(UI: Dates.DateTimePickerControls): ()
-	local session = Compose.cell(nil :: Dates.CivilDate?)
+return function(UI: DatesControls.Controls): ()
+	local noSession: Dates.CivilDate? = nil
+	local session = Compose.cell(noSession)
 	local single: Frame = UI.DateTimePicker("Session")({
 		label = "Play session",
 		time = true,
@@ -18,9 +20,9 @@ return function(UI: Dates.DateTimePickerControls): ()
 			assert(closed ~= "")
 		end,
 	})
-	local trip = Compose.cell({} :: Dates.Range)
+	local trip: Compose.Cell<Dates.Range> = Compose.cell({})
 	local range: Frame = UI.DateTimePicker({
-		selection = "range" :: "range",
+		selection = "range",
 		range = trip,
 		onRangeChange = function(next: Dates.Range)
 			trip:set(next)

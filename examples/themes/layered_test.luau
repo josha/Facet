@@ -1,5 +1,12 @@
 --!strict
+type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
+type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
+type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
+type Typography = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.metrics.typography.body)
 type SkinLayer = typeof(require("@repo/tools/typecheck/aliases").SkinLayer)
+type Asset = typeof(require("@repo/examples/types").ThemeAsset)
+type RGB = { r: number, g: number, b: number }
+type Palette = { colors: { [string]: RGB }, extra: Extra }
 
 local layered_test = {}
 
@@ -9,22 +16,22 @@ layered_test.themeClasses = table.freeze({ "palette", "metrics", "font", "assets
 
 layered_test.testOnly = true
 
-local function rgb(r: number, g: number, b: number)
+local function rgb(r: number, g: number, b: number): RGB
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
 local FAMILY = "rbxasset://fonts/families/Fondamento.json"
-local SIZES = { caption = 12, label = 14, body = 16, control = 17, heading = 22, title = 28 }
+local SIZES: { [string]: number } = { caption = 12, label = 14, body = 16, control = 17, heading = 22, title = 28 }
 
-local function typography(family: string): any
-	local out: any = {}
+local function typography(family: string): { [string]: Typography }
+	local out: { [string]: Typography } = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = family }, size = size, lineHeight = 1.35 }
 	end
 	return out
 end
 
-local ASSETS = {
+local ASSETS: { [string]: Asset } = {
 	ornate_panel_fill = {
 		content = "rbxassetid://81048500362779",
 		sliceCenter = { x0 = 32, y0 = 32, x1 = 96, y1 = 96 },
@@ -138,7 +145,7 @@ local ASSETS = {
 	},
 }
 
-local ORNATE = {
+local ORNATE: Palette = {
 	colors = {
 		surface = rgb(34, 26, 20),
 		surfaceStrong = rgb(58, 44, 32),
@@ -167,31 +174,30 @@ local ORNATE = {
 	},
 }
 
-local function copy(v: any): any
-	if type(v) ~= "table" then
-		return v
-	end
-	local out: any = {}
-	for k, inner in v do
-		out[k] = copy(inner)
+local function copyAssets(source: { [string]: Asset }): { [string]: Asset }
+	local out: { [string]: Asset } = {}
+	for name, asset in source do
+		out[name] = table.clone(asset)
 	end
 	return out
 end
 
+local RAIL_SIDES: { "top" | "right" | "bottom" | "left" } = { "top", "bottom" }
+
 local PANEL_LAYERS: { SkinLayer } = {
-	{ kind = "tile" :: "tile", asset = "ornate_velvet_tile", tileSize = { w = 64, h = 64 } },
-	{ kind = "fill" :: "fill", asset = "ornate_panel_fill" },
-	{ kind = "frame" :: "frame", asset = "ornate_panel_frame" },
+	{ kind = "tile", asset = "ornate_velvet_tile", tileSize = { w = 64, h = 64 } },
+	{ kind = "fill", asset = "ornate_panel_fill" },
+	{ kind = "frame", asset = "ornate_panel_frame" },
 	{
-		kind = "edges" :: "edges",
+		kind = "edges",
 		asset = "ornate_edge_rail",
-		sides = { "top", "bottom" } :: { "top" | "bottom" | "left" | "right" },
+		sides = RAIL_SIDES,
 		thickness = 12,
 		margin = 40,
 		tile = 64,
 	},
 	{
-		kind = "corners" :: "corners",
+		kind = "corners",
 		asset = "ornate_corner_tl",
 		size = 28,
 		topLeft = "ornate_corner_tl",
@@ -201,17 +207,51 @@ local PANEL_LAYERS: { SkinLayer } = {
 	},
 
 	{
-		kind = "plaque" :: "plaque",
+		kind = "plaque",
 		asset = "ornate_plaque",
 		size = { w = 176, h = 40 },
-		edge = "top" :: "top",
+		edge = "top",
 		overhang = 20,
 		text = true,
 		textInsets = { top = 8, right = 16, bottom = 6, left = 16 },
 	},
 }
 
-function layered_test.definition(themes: any): any
+function layered_test.definition(themes: Themes): ThemeDefinition
+	local controlLayers: { SkinLayer } = {
+		{
+			kind = "fill",
+			asset = {
+				default = "ornate_button_default",
+				hover = "ornate_button_hover",
+				pressed = "ornate_button_pressed",
+			},
+		},
+		{
+			kind = "corners",
+			asset = "ornate_corner_tl",
+			size = 14,
+			topLeft = "ornate_corner_tl",
+			topRight = "ornate_corner_tr",
+		},
+
+		{
+			kind = "plaque",
+			asset = "ornate_plaque",
+			size = { w = 120, h = 28 },
+			edge = "top",
+			overhang = 10,
+			text = true,
+			textInsets = { top = 4, right = 12, bottom = 3, left = 12 },
+		},
+	}
+	local selectionLayers: { SkinLayer } = {
+		{
+			kind = "fill",
+			asset = { default = "ornate_selection_default", selected = "ornate_selection_selected" },
+		},
+	}
+	local fieldLayers: { SkinLayer } = { { kind = "fill", asset = "ornate_field" } }
 	return {
 		base = themes.neutralPackage(),
 		identity = {
@@ -236,105 +276,64 @@ function layered_test.definition(themes: any): any
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.14, normal = 0.24 },
-			insets = {
-				panel = { top = 8, right = 8, bottom = 8, left = 8 },
-				control = { top = 4, right = 8, bottom = 4, left = 8 },
-				field = { top = 4, right = 8, bottom = 4, left = 8 },
-				selection = { top = 4, right = 6, bottom = 4, left = 6 },
-				divider = { top = 0, right = 0, bottom = 0, left = 0 },
-				scrollbar = { top = 0, right = 0, bottom = 0, left = 0 },
-			},
 		},
 		chrome = {
 
 			panel = {
-				kind = "layered" :: "layered",
+				kind = "layered",
 				contentInsets = { top = 28, right = 28, bottom = 28, left = 28 },
 				fallback = "native",
-				layers = copy(PANEL_LAYERS),
+				layers = table.clone(PANEL_LAYERS),
 			},
 
 			control = {
-				kind = "layered" :: "layered",
+				kind = "layered",
 				contentInsets = { top = 10, right = 14, bottom = 10, left = 14 },
 				fallback = "native",
-				layers = {
-					{
-						kind = "fill" :: "fill",
-						asset = {
-							default = "ornate_button_default",
-							hover = "ornate_button_hover",
-							pressed = "ornate_button_pressed",
-
-							error = "ornate_selection_selected",
-						},
-					} :: SkinLayer,
-					{
-						kind = "corners" :: "corners",
-						asset = "ornate_corner_tl",
-						size = 14,
-						topLeft = "ornate_corner_tl",
-						topRight = "ornate_corner_tr",
-					} :: SkinLayer,
-
-					{
-						kind = "plaque" :: "plaque",
-						asset = "ornate_plaque",
-						size = { w = 120, h = 28 },
-						edge = "top" :: "top",
-						overhang = 10,
-						text = true,
-						textInsets = { top = 4, right = 12, bottom = 3, left = 12 },
-					} :: SkinLayer,
-				},
+				layers = controlLayers,
 			},
 
 			selection = {
-				kind = "layered" :: "layered",
+				kind = "layered",
 				contentInsets = { top = 6, right = 8, bottom = 6, left = 8 },
 				fallback = "native",
-				layers = {
-					{
-						kind = "fill" :: "fill",
-						asset = { default = "ornate_selection_default", selected = "ornate_selection_selected" },
-					} :: SkinLayer,
-				},
+				layers = selectionLayers,
 			},
 
 			field = {
-				kind = "layered" :: "layered",
+				kind = "layered",
 				contentInsets = { top = 8, right = 12, bottom = 8, left = 12 },
 				fallback = "native",
-				layers = { { kind = "fill" :: "fill", asset = "ornate_field" } :: SkinLayer },
+				layers = fieldLayers,
 			},
 
 			sliderThumb = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "ornate_button_default",
 				sliced = false,
 				fallback = "native",
 			},
 			sliderTrack = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "ornate_field",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
 
 			barTrack = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "ornate_bar_track",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
 			barFill = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "ornate_bar_fill",
-				direction = "ltr" :: "ltr",
+				direction = "ltr",
 				fallback = "native",
 			},
 			barCap = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "ornate_bar_cap_start",
 				startAsset = "ornate_bar_cap_start",
 				endAsset = "ornate_bar_cap_end",
@@ -342,49 +341,50 @@ function layered_test.definition(themes: any): any
 				fallback = "native",
 			},
 			barCenter = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "ornate_bar_center",
 				size = { w = 36, h = 28 },
 				fallback = "native",
 			},
 
 			toggleTrack = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = { default = "ornate_toggle_track_off", selected = "ornate_toggle_track_on" },
 				fallback = "native",
 			},
 			toggleKnob = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = { default = "ornate_toggle_knob_default", pressed = "ornate_toggle_knob_pressed" },
 				fallback = "native",
 			},
 
 			stepperPlate = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = { default = "ornate_stepper_plate_default", pressed = "ornate_stepper_plate_pressed" },
 				contentInsets = { top = 4, right = 4, bottom = 4, left = 4 },
 				fallback = "native",
 			},
-			divider = { kind = "native" :: "native" },
-			scrollbar = { kind = "native" :: "native" },
+			divider = { kind = "native" },
+			scrollbar = { kind = "native" },
 		},
-		assets = copy(ASSETS),
-		compatibility = { requiresSchema = themes.SCHEMA },
+		assets = copyAssets(ASSETS),
 	}
 end
 
-function layered_test.build(themes: any): (any, any)
+function layered_test.build(themes: Themes)
 	return themes.define(layered_test.definition(themes))
 end
 
 layered_test.BOGUS_CONTENT_ID = "rbxassetid://1"
 layered_test.BROKEN_ASSET = "ornate_panel_frame"
 
-function layered_test.buildBadLayer(themes: any): (any, any)
+function layered_test.buildBadLayer(themes: Themes)
 	local def = layered_test.definition(themes)
-	def.identity.id = layered_test.id .. "-badlayer"
-	def.identity.displayName = layered_test.displayName .. " — broken layer"
-	def.assets[layered_test.BROKEN_ASSET].content = layered_test.BOGUS_CONTENT_ID
+	local identity = assert(def.identity)
+	identity.id = layered_test.id .. "-badlayer"
+	identity.displayName = layered_test.displayName .. " — broken layer"
+	local assets = assert(def.assets)
+	assets[layered_test.BROKEN_ASSET].content = layered_test.BOGUS_CONTENT_ID
 	return themes.define(def)
 end
 

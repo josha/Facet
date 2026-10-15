@@ -1,12 +1,14 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
+type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type MenuSpec = typeof(require("@repo/tools/typecheck/aliases").MenuSpec)
 local copy = {
 	tasksTitle = "Beginner tasks",
 	task1 = "Win a round",
@@ -69,10 +71,12 @@ return {
 		local tasks = { Compose.cell(0.2), Compose.cell(0.4), Compose.cell(0.6) }
 		local urlBar, ride, overflow, reportOpen =
 			Compose.cell(false), Compose.cell(true), Compose.cell(false), Compose.cell(false)
-		local notice, selectedWeapon =
-			(function(value: string?): OptionalStringCell
-				return Compose.cell(value)
-			end)(nil), Compose.cell(1)
+		local noNotice: string? = nil
+		local notice: Cell<string?> = Compose.cell(noNotice)
+		local selectedWeapon = Compose.cell(1)
+		local reportActions: { AlertAction } = {
+			{ id = "close", label = "Done", role = "cancel" },
+		}
 		local chosen = {}
 		for _, id in ORDER do
 			chosen[id] = Compose.cell(1)
@@ -105,7 +109,7 @@ return {
 			vertical: boolean?,
 			align: Enum.HorizontalAlignment?
 		): Frame
-			local fields: { [any]: any } = {
+			local fields: FrameNativeProps = {
 				Name = name,
 				BackgroundTransparency = 1,
 				Size = D2.new(),
@@ -120,19 +124,17 @@ return {
 			}
 			for index, child in children do
 				child.LayoutOrder = index
-				table.insert(fields, child)
+				fields[#fields + 1] = child
 			end
 			return Host.Frame(fields)
 		end
 		local function plate(name: string, slot: string, content: GuiObject, padX: number, padY: number): Frame
-			local node = Host.Frame({
-				Name = name,
+			local node = Host.Frame(name) {
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
-				Host.UICorner({}) :: unknown,
+				Host.UICorner({}),
 				Host.UIPadding({}),
-				Host.Frame({
-					Name = "Inset",
+				Host.Frame "Inset" {
 					BackgroundTransparency = 1,
 					Size = D2.new(),
 					AutomaticSize = E.AutomaticSize.XY,
@@ -141,14 +143,16 @@ return {
 						PaddingRight = D.new(0, padX),
 						PaddingTop = D.new(0, padY),
 						PaddingBottom = D.new(0, padY),
-					}) :: unknown,
+					}),
 					content,
-				}),
-			})
+				},
+			}
 			node:AddTag("facet-" .. slot)
-			if ctx.theme then
+			local theme = ctx.theme
+			if theme then
+				local target: GuiObject = node
 				Compose.cleanup((ctx.runtime.mount(function()
-					return Facet.themes.skin(ctx.runtime, ctx.theme, slot, { types = ctx.types, target = node })
+					return Facet.themes.skin(ctx.runtime, theme, slot, { types = ctx.types, target = target })
 				end, node)))
 			end
 			return node
@@ -161,14 +165,14 @@ return {
 			return UI.Text({
 				Name = name,
 				text = label,
-				textRole = role or ("caption" :: "caption"),
+				textRole = role or "caption",
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
 			})
 		end
 		local function pill(
 			name: string,
-			label: any,
+			label: string | (Use) -> string,
 			role: ("caption" | "label" | "body" | "heading" | "title" | "control" | "strong" | "numeral")?
 		): Frame
 			return plate(name, "control", text(name .. "Text", label, role), 10, 4)
@@ -179,7 +183,7 @@ return {
 				label = "",
 				name = label,
 				icon = icon,
-				shape = "circle" :: "circle",
+				shape = "circle",
 				Size = D2.fromOffset(44, 44),
 				onActivate = onActivate,
 			})
@@ -277,13 +281,12 @@ return {
 			)
 		end
 		rich.Clock = function()
-			local ring = UI.ProgressView({
-				Name = "TimerRing",
+			local ring = UI.ProgressView "TimerRing" {
 				value = roundLeft,
-				presentation = "circular" :: "circular",
+				presentation = "circular",
 				diameter = 28,
 				Size = D2.fromOffset(28, 28),
-			})
+			}
 			return row("ClockFull", {
 				pill("ScoreHome", copy.scoreHome, "numeral"),
 				plate(
@@ -310,7 +313,7 @@ return {
 						UI.Button({
 							Name = "Weapon" .. index,
 							label = copy["weapon" .. index],
-							controlSize = "compact" :: "compact",
+							controlSize = "compact",
 
 							selected = function(use: Use)
 								return use(selectedWeapon) == index
@@ -340,21 +343,20 @@ return {
 			)
 		end
 		rich.Actions = function()
-			local node = UI.AdaptiveStack({
-				Name = "ActionsFull",
+			local node = UI.AdaptiveStack "ActionsFull" {
 				axis = function(use: Use): "x" | "y"
 					return if use(short) then "x" else "y"
 				end,
 				gap = "s",
-				width = "hug" :: "hug",
+				width = "hug",
 				disc("Shop", copy.action1, "more", function()
 					showNotice("Shop opened")
-				end) :: unknown,
+				end),
 				disc("Squad", copy.action2, "menu", function()
 					showNotice("Squad ready")
 				end),
 				disc("ActionMenu", copy.action3, "checkmark", steps.openOverflow),
-			})
+			}
 			return node
 		end
 		rich.Feed = function()
@@ -396,33 +398,36 @@ return {
 				end,
 			},
 		}
+		local function actionsMenu(suffix: string): GuiObject
+			local spec: MenuSpec = {
+				trigger = disc("HudActions" .. suffix .. "Trigger", copy.round1, "menu"),
+				items = menuItems,
+			}
+			return UI.Menu(spec)
+		end
 		local function rounds(suffix: string, vertical: boolean)
 			local settingsOpen = Compose.cell(false)
 			return row(if vertical then "RoundsColumn" else "RoundsRow", {
-				UI.Menu({
-					trigger = disc("HudActions" .. suffix .. "Trigger", copy.round1, "menu") :: GuiObject,
-					items = menuItems,
-				}),
+				actionsMenu(suffix),
 				disc("Report" .. suffix, copy.round2, "flag", function()
 					reportOpen:set(true)
 				end),
-				UI.Popover({
-					Name = "HudSettings" .. suffix,
+				UI.Popover("HudSettings" .. suffix)({
 					isPresented = settingsOpen,
 					onPresentedChange = function(open)
 						settingsOpen:set(open)
 					end,
-					trigger = disc("HudSettings" .. suffix .. "Trigger", "HUD settings", "settings") :: GuiButton,
+					trigger = disc("HudSettings" .. suffix .. "Trigger", "HUD settings", "settings"),
 					title = "HUD settings",
 					modal = false,
-					compact = "popover" :: "popover",
+					compact = "popover",
 					closeButton = true,
 					maxWidth = 280,
 					content = function(): Instance
 						return UI.VStack({
-							width = "fill" :: "fill",
+							width = "fill",
 							gap = "s",
-							UI.Toggle({ Name = "SettingsUrlBar" .. suffix, label = copy.urlBarOn, value = urlBar }) :: unknown,
+							UI.Toggle({ Name = "SettingsUrlBar" .. suffix, label = copy.urlBarOn, value = urlBar }),
 							UI.Toggle({ Name = "SettingsRideStrip" .. suffix, label = copy.rideOn, value = ride }),
 						})
 					end,
@@ -442,12 +447,11 @@ return {
 		end
 		return {
 			screen = function()
-				local composition = UI.Composition({
-					Name = "HudBody",
+				local composition = UI.Composition "HudBody" {
 					LayoutOrder = 3,
 					Size = D2.fromScale(1, 0),
 					topbar = ride,
-					UI.fill() :: unknown,
+					UI.fill(),
 					region("Strip", "topbar", 6, false, rich.Strip(), pill("ObjectiveShort", copy.objectiveShort)),
 					region("Rounds", "topLeft", 1, false, rounds("", false), rounds("Column", true)),
 					region(
@@ -509,20 +513,18 @@ return {
 						disc("ActionsCompact", copy.action3, "more", steps.openOverflow)
 					),
 					region("Weapon", "bottomRight", 6, true, rich.Weapon()),
-				})
-				return Host.Frame({
-					Name = "HudScreen",
+				}
+				return Host.Frame "HudScreen" {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					Host.UIListLayout({ Padding = D.new(0, 4), SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
-					Host.Frame({
-						Name = "BrowserChrome",
+					Host.UIListLayout({ Padding = D.new(0, 4), SortOrder = E.SortOrder.LayoutOrder }),
+					Host.Frame "BrowserChrome" {
 						LayoutOrder = 1,
 						Visible = urlBar,
 						Size = D2.new(1, 0, 0, 64),
-						Host.UIPadding({ PaddingLeft = D.new(0, 16), PaddingTop = D.new(0, 12) }) :: unknown,
+						Host.UIPadding({ PaddingLeft = D.new(0, 16), PaddingTop = D.new(0, 12) }),
 						text("Address", copy.urlBarField, "body"),
-					}),
+					},
 					Host.Frame({
 						Name = "Notice",
 						LayoutOrder = 2,
@@ -540,8 +542,7 @@ return {
 						}),
 					}),
 					composition,
-					Host.Frame({
-						Name = "Drivers",
+					Host.Frame "Drivers" {
 						LayoutOrder = 4,
 						BackgroundTransparency = 1,
 						Size = D2.new(1, 0, 0, 0),
@@ -550,7 +551,7 @@ return {
 							PaddingLeft = D.new(0, 8),
 							PaddingRight = D.new(0, 8),
 							PaddingBottom = D.new(0, 4),
-						}) :: unknown,
+						}),
 						Host.UIListLayout({
 							FillDirection = E.FillDirection.Horizontal,
 							Wraps = true,
@@ -558,33 +559,30 @@ return {
 							Padding = D.new(0, 16),
 							SortOrder = E.SortOrder.LayoutOrder,
 						}),
-						UI.Toggle({ Name = "UrlBar", LayoutOrder = 1, label = copy.urlBarOn, value = urlBar }),
-						UI.Toggle({ Name = "RideStrip", LayoutOrder = 2, label = copy.rideOn, value = ride }),
-						UI.Text({
-							Name = "Ladder",
+						UI.Toggle "UrlBar" { LayoutOrder = 1, label = copy.urlBarOn, value = urlBar },
+						UI.Toggle "RideStrip" { LayoutOrder = 2, label = copy.rideOn, value = ride },
+						UI.Text "Ladder" {
 							LayoutOrder = 3,
 							text = copy.ladder,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							Size = D2.new(0, 280, 0, 0),
 							AutomaticSize = E.AutomaticSize.Y,
 							Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
-						}),
-					}),
-					UI.Sheet({
-						Name = "HudOverflow",
+						},
+					},
+					UI.Sheet "HudOverflow" {
 						isPresented = overflow,
 						detent = Compose.cell("large"),
 						title = copy.overflowTitle,
 						content = function(): Instance
-							return Host.ScrollingFrame({
-								Name = "OverflowBody",
+							return Host.ScrollingFrame "OverflowBody" {
 								BackgroundTransparency = 1,
 								Size = D2.fromScale(1, 1),
 								CanvasSize = D2.fromOffset(0, 0),
 								AutomaticCanvasSize = E.AutomaticSize.Y,
 								ScrollBarThickness = 6,
-								Host.UIListLayout({ Padding = D.new(0, 16), SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
+								Host.UIListLayout({ Padding = D.new(0, 16), SortOrder = E.SortOrder.LayoutOrder }),
 								text("OverflowNote", copy.overflowNote),
 								Compose.show(function(use: Use)
 									return #use(unshown) == 0
@@ -604,19 +602,16 @@ return {
 										})
 									end,
 								}),
-							})
+							}
 						end,
-					}),
-					UI.Alert({
-						Name = "ReportDialog",
+					},
+					UI.Alert "ReportDialog" {
 						isPresented = reportOpen,
 						title = "Round report",
 						message = "Your report was recorded.",
-						actions = {
-							{ id = "close", label = "Done", role = "cancel" :: "cancel" } :: AlertAction,
-						},
-					}),
-				})
+						actions = reportActions,
+					},
+				}
 			end,
 			steps = steps,
 			model = {

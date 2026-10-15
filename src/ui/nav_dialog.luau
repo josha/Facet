@@ -1,17 +1,13 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
-local Inputs = require("./input_types")
 local materialize = require("./materialize")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local freeze = require("./freeze")
-
-type Controls = {
-	Dialog: Types.Constructor<Overlay.DialogSpec, Frame>,
-	Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
-}
+local OverlayProps = require("./overlay_props")
 
 local KEYS = {
 	"isPresented",
@@ -28,7 +24,7 @@ local KEYS = {
 	"contentSelectable",
 }
 
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 
@@ -50,7 +46,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 	end
 
-	UI.Dialog = ctx.construct("Dialog", function(spec: Overlay.DialogSpec): Frame
+	UI.Dialog = ctx.construct("Dialog", function(spec: OverlayProps.DialogSpec): Frame
 		local where = "UI.Dialog"
 		if spec.isPresented == nil then
 			error(`Facet {where}: isPresented is required; it is the caller's boolean fact`, 0)

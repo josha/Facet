@@ -21,7 +21,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local function mount(spec: any, width: number?, options: { [string]: any }?): (any, any)
 		local world = worlds.new(function(UI: FacetControls)
-			return UI.StepIndicator("Steps")(spec)
+			return UI.StepIndicator "Steps"(spec)
 		end, options)
 		local root = world.find("Steps")
 		world.resize(root, width or 900, 80)

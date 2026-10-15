@@ -108,7 +108,7 @@ return function(verifyHarness: Verify.Harness)
 		local stop, screen: any = runtime.mount(function()
 			return Host.ScreenGui({
 				Host.Frame "Col" {
-					if o.build then o.build(UI, Host) else UI.ColorPicker("P")(spec) :: unknown,
+					if o.build then o.build(UI, Host) else UI.ColorPicker "P"(spec) :: unknown,
 					UI.Button("Other")({ label = "Other" }),
 				},
 			})

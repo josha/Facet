@@ -19,29 +19,26 @@ type Readable<T> = { peek: (Readable<T>) -> T }
 type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Actions and menus",
 	ledgerRows = { "CONTROL-ACTIONS" },
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local sceneViewport = ctx.sceneViewport or ctx.viewport
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local sceneViewport: Readable<{ width: number, height: number }> = assert(ctx.sceneViewport or ctx.viewport)
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local function frame(properties: { [any]: any }): Frame
+		local function ordered(children: { Instance }): { Instance }
 			local index = 0
-			for _, child in ipairs(properties) do
-				if
-					(typeof(child) == "Instance" or type(child) == "table")
-					and type(child.IsA) == "function"
-					and child:IsA("GuiObject")
-				then
+			for _, child in children do
+				if child:IsA("GuiObject") then
 					index += 1
 					ctx.runtime.decorate(child, { LayoutOrder = index })
 				end
 			end
-			return Host.Frame(properties)
+			return children
 		end
 		local function wide(use: Use)
 			return use(sceneViewport).width >= 1000
@@ -56,7 +53,8 @@ return {
 		local status = signal("Ready to race.")
 		local favorites = signal(false)
 		local weather = signal("any")
-		local scrollTarget: Cell<string?> = signal(nil :: string?)
+		local noTarget: string? = nil
+		local scrollTarget: Cell<string?> = signal(noTarget)
 		local scrollProgress = signal(0)
 		local heroVisible = signal(true)
 		local rowVolume = signal(60)
@@ -64,8 +62,10 @@ return {
 		local confirming = signal(false)
 		local tokens = signal({ "Rain", "No assists", "Friends" })
 		local editingTags = signal(false)
-		local chosenTags = signal({} :: { [string]: boolean })
-		local driver: Cell<string?> = signal(nil :: string?)
+		local noTags: { [string]: boolean } = {}
+		local chosenTags = signal(noTags)
+		local noDriver: string? = nil
+		local driver: Cell<string?> = signal(noDriver)
 		local mounted = false
 		local seconds = 0
 		local readRung = function(): ControlSize?
@@ -73,7 +73,8 @@ return {
 		end
 		local setRung = function(_rung: ControlSize) end
 		local function VocabularySection()
-			local rung: Cell<ControlSize> = Compose.cell("compact" :: "xsmall" | "compact" | "regular" | "large")
+			local initialRung: ControlSize = "compact"
+			local rung: Cell<ControlSize> = Compose.cell(initialRung)
 			readRung = function(): ControlSize?
 				return rung:peek()
 			end
@@ -86,23 +87,20 @@ return {
 				end
 				setRung = function(_value) end
 			end)
-			local ladder, looks, chips = {}, {}, {}
-			for _, step in { "xsmall", "compact", "regular", "large" } :: { "xsmall" | "compact" | "regular" | "large" } do
-				table.insert(
-					ladder,
-					UI.Button({
-						Name = "Rung" .. step:sub(1, 1):upper() .. step:sub(2),
-						label = step,
-						controlSize = step :: ControlSize,
-						appearance = if step == "large" then "emphasis" else "standard",
-						enabled = enabled,
-						onActivate = function()
-							rung:set(step :: ControlSize)
-							status:set(step .. " size chosen.")
-						end,
-					})
-				)
+			local function rungButton(step: ControlSize): TextButton
+				return UI.Button("Rung" .. step:sub(1, 1):upper() .. step:sub(2))({
+					label = step,
+					controlSize = step,
+					appearance = if step == "large" then "emphasis" else "standard",
+					enabled = enabled,
+					onActivate = function()
+						rung:set(step)
+						status:set(step .. " size chosen.")
+					end,
+				})
 			end
+			local ladder = { rungButton("xsmall"), rungButton("compact"), rungButton("regular"), rungButton("large") }
+			local looks, chips = {}, {}
 			for _, word in { "standard", "emphasis", "soft", "utility", "link", "inverse" } do
 				table.insert(
 					looks,
@@ -110,10 +108,8 @@ return {
 						Name = "Look" .. word:sub(1, 1):upper() .. word:sub(2),
 						label = word,
 						appearance = word,
-						underline = (if word == "link" then "hover" else nil) :: "hover"?,
-						controlSize = function(use: Use): ControlSize
-							return use(rung) :: ControlSize
-						end,
+						underline = if word == "link" then "hover" else nil,
+						controlSize = rung,
 						enabled = enabled,
 						onActivate = function()
 							status:set(word .. " emphasis chosen.")
@@ -121,142 +117,152 @@ return {
 					})
 				)
 			end
-			for _, entry in { { "Dry", "compact" }, { "Wet", "regular" }, { "Snow", "large" } } do
+			local sizedChips: { { label: string, size: ControlSize } } = {
+				{ label = "Dry", size = "compact" },
+				{ label = "Wet", size = "regular" },
+				{ label = "Snow", size = "large" },
+			}
+			for _, entry in sizedChips do
 				table.insert(
 					chips,
 					UI.Chip({
-						Name = "Chip" .. entry[1],
-						label = entry[1],
-						selected = Compose.cell(entry[1] == "Dry"),
-						controlSize = entry[2] :: ControlSize,
-						appearance = if entry[1] == "Snow" then "utility" else "standard",
+						Name = "Chip" .. entry.label,
+						label = entry.label,
+						selected = Compose.cell(entry.label == "Dry"),
+						controlSize = entry.size,
+						appearance = if entry.label == "Snow" then "utility" else "standard",
 					})
 				)
 			end
-			return frame({
-				Name = "Vocabulary",
+			return Host.Frame "Vocabulary" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
-					FillDirection = Enum.FillDirection.Vertical,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 16),
-				}),
-				UI.Text "CapVocabulary" {
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					text = function(use: Use)
-						return `The appearance row uses the {use(rung)} size. Compact plates keep full-size tap targets.`
-					end,
-					textRole = "caption" :: "caption",
-					TextWrapped = true,
-					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
-				},
-				frame({
-					Name = "SizeLadder",
-					BackgroundTransparency = 1,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
+				table.unpack(ordered({
 					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Horizontal,
+						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 8),
-						VerticalAlignment = Enum.VerticalAlignment.Center,
-						Wraps = true,
+						Padding = UDim.new(0, 16),
 					}),
-					table.unpack(ladder),
-				}),
-				frame({
-					Name = "Appearances",
-					BackgroundTransparency = 1,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Horizontal,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 8),
-						Wraps = true,
-					}),
-					table.unpack(looks),
-				}),
-				frame({
-					Name = "SizedChips",
-					BackgroundTransparency = 1,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Horizontal,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 8),
-						VerticalAlignment = Enum.VerticalAlignment.Center,
-						Wraps = true,
-					}),
-					table.unpack(chips),
-				}),
-				UI.Button "IconLabelled" {
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					label = "Go",
-					icon = "facet:search",
-					controlSize = rung,
-					enabled = enabled,
-					onActivate = function()
-						status:set("Race search opened.")
-					end,
-				},
-				frame({
-					Name = "IconForms",
-					BackgroundTransparency = 1,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Horizontal,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 8),
-						Wraps = true,
-					}),
-					UI.Button "IconOnly" {
-						icon = "close",
-						name = "Dismiss the race card",
-						corners = "pill" :: "pill",
+					UI.Text "CapVocabulary" {
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = function(use: Use)
+							return `The appearance row uses the {use(rung)} size. Compact plates keep full-size tap targets.`
+						end,
+						textRole = "caption",
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					},
+					Host.Frame "SizeLadder" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						table.unpack(ordered({
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Horizontal,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 8),
+								VerticalAlignment = Enum.VerticalAlignment.Center,
+								Wraps = true,
+							}),
+							table.unpack(ladder),
+						})),
+					},
+					Host.Frame "Appearances" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						table.unpack(ordered({
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Horizontal,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 8),
+								Wraps = true,
+							}),
+							table.unpack(looks),
+						})),
+					},
+					Host.Frame "SizedChips" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						table.unpack(ordered({
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Horizontal,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 8),
+								VerticalAlignment = Enum.VerticalAlignment.Center,
+								Wraps = true,
+							}),
+							table.unpack(chips),
+						})),
+					},
+					UI.Button "IconLabelled" {
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						label = "Go",
+						icon = "facet:search",
 						controlSize = rung,
 						enabled = enabled,
 						onActivate = function()
-							status:set("Race card dismissed.")
+							status:set("Race search opened.")
 						end,
 					},
-					UI.Button "SquareAction" {
-						label = "Square",
-						corners = "square" :: "square",
-						controlSize = rung,
-						appearance = "utility" :: "utility",
-						enabled = enabled,
-						onActivate = function()
-							status:set("Square action chosen.")
-						end,
+					Host.Frame "IconForms" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						table.unpack(ordered({
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Horizontal,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 8),
+								Wraps = true,
+							}),
+							UI.Button "IconOnly" {
+								icon = "close",
+								name = "Dismiss the race card",
+								corners = "pill",
+								controlSize = rung,
+								enabled = enabled,
+								onActivate = function()
+									status:set("Race card dismissed.")
+								end,
+							},
+							UI.Button "SquareAction" {
+								label = "Square",
+								corners = "square",
+								controlSize = rung,
+								appearance = "utility",
+								enabled = enabled,
+								onActivate = function()
+									status:set("Square action chosen.")
+								end,
+							},
+						})),
 					},
-				}),
-				Host.ImageLabel "OverMedia" {
-					BackgroundTransparency = 1,
-					Size = UDim2.new(1, 0, 0, 96),
-					Image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
-					ScaleType = Enum.ScaleType.Crop,
-					UI.Button "OverMediaAction" {
-						label = "Play this replay",
-						controlSize = "large" :: "large",
-						enabled = enabled,
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						Position = UDim2.fromScale(0.5, 0.5),
-						onActivate = function()
-							status:set("Replay opened.")
-						end,
+					Host.ImageLabel "OverMedia" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 96),
+						Image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
+						ScaleType = Enum.ScaleType.Crop,
+						UI.Button "OverMediaAction" {
+							label = "Play this replay",
+							controlSize = "large",
+							enabled = enabled,
+							AnchorPoint = Vector2.new(0.5, 0.5),
+							Position = UDim2.fromScale(0.5, 0.5),
+							onActivate = function()
+								status:set("Replay opened.")
+							end,
+						},
 					},
-				},
-			})
+				})),
+			}
 		end
 
 		local function openDialog()
@@ -345,11 +351,11 @@ return {
 					status:set("Lap count restarted.")
 				end,
 			}
-			local items = {
-				{ id = "favorites", label = "Favorites only", checked = favorites } :: MenuItem,
-				{ divider = true } :: MenuItem,
-				{ id = "any", label = "Any weather", selected = weather, value = "any" } :: MenuItem,
-				{ id = "dry", label = "Dry weather", selected = weather, value = "dry" } :: MenuItem,
+			local items: { MenuItem } = {
+				{ id = "favorites", label = "Favorites only", checked = favorites },
+				{ divider = true },
+				{ id = "any", label = "Any weather", selected = weather, value = "any" },
+				{ id = "dry", label = "Dry weather", selected = weather, value = "dry" },
 				{
 					id = "snow",
 					label = "Snow",
@@ -357,20 +363,17 @@ return {
 					value = "snow",
 					enabled = false,
 					description = "Winter races are closed.",
-				} :: MenuItem,
-				{ divider = true } :: MenuItem,
+				},
+				{ divider = true },
 				{
 					id = "done",
 					label = "Apply filters",
 					onSelect = function()
 						status:set("Filters applied.")
 					end,
-				} :: MenuItem,
+				},
 			}
-			local menu = UI.Menu "Filters" {
-				label = "Race filters",
-				items = items,
-			}
+			local menu = UI.Menu "Filters" { label = "Race filters", items = items }
 			local split = UI.SplitButton "Split" {
 				label = "Start race",
 				enabled = enabled,
@@ -384,38 +387,39 @@ return {
 						onSelect = function()
 							status:set("Practice started.")
 						end,
-					} :: MenuItem,
+					},
 					{
 						id = "time",
 						label = "Time trial",
 						onSelect = function()
 							status:set("Time trial started.")
 						end,
-					} :: MenuItem,
+					},
+				},
+			}
+			local actions: { AlertAction } = {
+				{
+					id = "Cancel",
+					label = "Cancel",
+					role = "cancel",
+					onActivate = function()
+						status:set("Race cancelled.")
+					end,
+				},
+				{
+					id = "Accept",
+					label = "Start",
+					role = "default",
+					onActivate = function()
+						status:set("Race confirmed.")
+					end,
 				},
 			}
 			local dialog = UI.Alert "RaceConfirmation" {
 				isPresented = confirming,
 				title = "Start this race?",
 				message = "Your selected driver is ready.",
-				actions = {
-					{
-						id = "Cancel",
-						label = "Cancel",
-						role = "cancel" :: "cancel",
-						onActivate = function()
-							status:set("Race cancelled.")
-						end,
-					} :: AlertAction,
-					{
-						id = "Accept",
-						label = "Start",
-						role = "default" :: "default",
-						onActivate = function()
-							status:set("Race confirmed.")
-						end,
-					} :: AlertAction,
-				},
+				actions = actions,
 			}
 			local function heading(text)
 				return UI.Text({
@@ -424,14 +428,14 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = text,
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				})
 			end
 
-			local drivers: { [any]: any } = {}
+			local drivers: { TextButton } = {}
 			for i, name in { "Classic driver", "Trailblazer" } do
 				local card = UI.Button({
 					Name = "Driver" .. i,
@@ -442,7 +446,7 @@ return {
 					subtitle = "Choose for the next race",
 					image = `rbxthumb://type=AvatarHeadShot&id={i}&w=420&h=420`,
 					imageAspectRatio = 1,
-					imageFraming = "crop" :: "crop",
+					imageFraming = "crop",
 					enabled = enabled,
 					selected = function(use: Use)
 						return use(driver) == name
@@ -454,60 +458,62 @@ return {
 				})
 				table.insert(drivers, card)
 			end
-			local driverGrid = frame({
-				Name = "Drivers",
+			local driverGrid = Host.Frame "Drivers" {
 				Size = UDim2.new(1, 0, 0, 0),
 				BackgroundTransparency = 1,
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIGridLayout({
-					CellSize = function(use: Use)
-						local columns = if use(sceneViewport).width < 650 then 1 else 2
-						return UDim2.new(1 / columns, if columns == 1 then 0 else -8, 0, 240)
-					end,
-					CellPadding = UDim2.fromOffset(16, 16),
-				}),
-				table.unpack(drivers),
-			})
+				table.unpack(ordered({
+					Host.UIGridLayout({
+						CellSize = function(use: Use)
+							local columns = if use(sceneViewport).width < 650 then 1 else 2
+							return UDim2.new(1 / columns, if columns == 1 then 0 else -8, 0, 240)
+						end,
+						CellPadding = UDim2.fromOffset(16, 16),
+					}),
+					table.unpack(drivers),
+				})),
+			}
 
-			local previews: { [any]: any } = {}
-			for _, mode in { "crop", "none" } :: { "crop" | "none" } do
+			local previews: { Frame } = {}
+			for _, mode in { "crop", "none" } do
 				table.insert(
 					previews,
-					frame({
-						Name = "Backdrop" .. mode,
+					Host.Frame("Backdrop" .. mode) {
 						BackgroundTransparency = 1,
 						Size = UDim2.fromScale(1, 1),
 						AutomaticSize = Enum.AutomaticSize.None,
-						Host.UIListLayout({
-							FillDirection = Enum.FillDirection.Vertical,
-							SortOrder = Enum.SortOrder.LayoutOrder,
-							Padding = UDim.new(0, 8),
-						}),
-						Host.UIPadding({
-							PaddingTop = UDim.new(0, 16),
-							PaddingBottom = UDim.new(0, 16),
-							PaddingLeft = UDim.new(0, 16),
-							PaddingRight = UDim.new(0, 16),
-						}),
-						Host.ImageLabel "Preview" {
-							Image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
-							ScaleType = if mode == "crop" then Enum.ScaleType.Crop else Enum.ScaleType.Fit,
-							BackgroundTransparency = 1,
-							Size = UDim2.new(1, 0, 0, 180),
-						},
-						UI.Text({
-							BackgroundTransparency = 1,
-							BorderSizePixel = 0,
-							Size = UDim2.new(1, 0, 0, 0),
-							AutomaticSize = Enum.AutomaticSize.Y,
-							text = if mode == "crop"
-								then "Focal crop · keeps the face in view"
-								else "Natural pixels · crop as the view shrinks",
-							TextWrapped = true,
-							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-					})
+						table.unpack(ordered({
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Vertical,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 8),
+							}),
+							Host.UIPadding({
+								PaddingTop = UDim.new(0, 16),
+								PaddingBottom = UDim.new(0, 16),
+								PaddingLeft = UDim.new(0, 16),
+								PaddingRight = UDim.new(0, 16),
+							}),
+							Host.ImageLabel "Preview" {
+								Image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
+								ScaleType = if mode == "crop" then Enum.ScaleType.Crop else Enum.ScaleType.Fit,
+								BackgroundTransparency = 1,
+								Size = UDim2.new(1, 0, 0, 180),
+							},
+							UI.Text({
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								text = if mode == "crop"
+									then "Focal crop · keeps the face in view"
+									else "Natural pixels · crop as the view shrinks",
+								TextWrapped = true,
+								TextYAlignment = Enum.TextYAlignment.Top,
+								TextXAlignment = Enum.TextXAlignment.Left,
+							}),
+						})),
+					}
 				)
 			end
 
@@ -520,7 +526,7 @@ return {
 				ClipsDescendants = true,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UICorner({ CornerRadius = UDim.new(0, 12) }) :: unknown,
+				Host.UICorner({ CornerRadius = UDim.new(0, 12) }),
 				Host.UISizeConstraint({ MinSize = Vector2.new(0, 240) }),
 				Host.Frame "Scrim" {
 					Size = UDim2.fromScale(1, 1),
@@ -543,7 +549,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						VerticalAlignment = Enum.VerticalAlignment.Center,
 						Padding = UDim.new(0, 12),
-					}) :: unknown,
+					}),
 					Host.UIPadding({
 						PaddingLeft = UDim.new(0, 24),
 						PaddingRight = UDim.new(0, 12),
@@ -555,13 +561,13 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = "Your next race starts here",
-						textRole = "title" :: "title",
+						textRole = "title",
 						TextWrapped = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
 					UI.Text "HeroBody" {
 						LayoutOrder = 2,
-						role = "secondary" :: "secondary",
+						role = "secondary",
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = "Choose your driver. Tune your ride. Find your next challenge.",
@@ -580,293 +586,297 @@ return {
 				},
 			}
 
-			local showroom = frame({
-				Name = "Showroom",
+			local showroom = Host.Frame "Showroom" {
 				BackgroundTransparency = 1,
 				Size = sectionWidth,
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
-					FillDirection = Enum.FillDirection.Vertical,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 16),
-				}),
-				hero,
-				heading("Choose your driver"),
-				driverGrid,
-				heading("Image backgrounds"),
-				frame({
-					Name = "Backgrounds",
-					Size = UDim2.new(1, 0, 0, 0),
-					BackgroundTransparency = 1,
-					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIGridLayout({
-						CellSize = function(use: Use)
-							local width = use(sceneViewport).width
-							local columns = if width < 650 or (wide(use) and width < 1080) then 1 else 2
-							return UDim2.new(1 / columns, if columns == 1 then 0 else -8, 0, 260)
-						end,
-						CellPadding = UDim2.fromOffset(16, 16),
-					}),
-					table.unpack(previews),
-				}),
-			})
-			local raceSetup = frame({
-				Name = "RaceSetup",
-				BackgroundTransparency = 1,
-				Size = sectionWidth,
-				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
-					FillDirection = Enum.FillDirection.Vertical,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 16),
-				}),
-				frame({
-					Name = "SettingsRows",
-					BackgroundTransparency = 1,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
+				table.unpack(ordered({
 					Host.UIListLayout({
 						FillDirection = Enum.FillDirection.Vertical,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 16),
 					}),
-					rowAction,
-					rowToggle,
-					rowSlider,
-				}),
-				Host.Frame "TagsHeader" {
-					BackgroundTransparency = 1,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Horizontal,
-						VerticalAlignment = Enum.VerticalAlignment.Center,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-					}) :: unknown,
-					UI.Text({
-						LayoutOrder = 1,
+					hero,
+					heading("Choose your driver"),
+					driverGrid,
+					heading("Image backgrounds"),
+					Host.Frame "Backgrounds" {
+						Size = UDim2.new(1, 0, 0, 0),
 						BackgroundTransparency = 1,
-						Size = UDim2.new(0, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
-						text = "Race tags",
-						textRole = "heading" :: "heading",
-						TextXAlignment = Enum.TextXAlignment.Left,
-						Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
-					}),
-					UI.Button "EditTags" {
-						LayoutOrder = 2,
-						label = function(use: Use)
-							return if use(editingTags) then "Done" else "Edit"
-						end,
-						appearance = "soft",
-						controlSize = "compact" :: "compact",
-						onActivate = function()
-							editingTags:set(not editingTags:peek())
-						end,
+						table.unpack(ordered({
+							Host.UIGridLayout({
+								CellSize = function(use: Use)
+									local width = use(sceneViewport).width
+									local columns = if width < 650 or (wide(use) and width < 1080) then 1 else 2
+									return UDim2.new(1 / columns, if columns == 1 then 0 else -8, 0, 260)
+								end,
+								CellPadding = UDim2.fromOffset(16, 16),
+							}),
+							table.unpack(previews),
+						})),
 					},
-				},
-				Host.ScrollingFrame "Tokens" {
-					BackgroundTransparency = 1,
-					Selectable = false,
-					ScrollingDirection = Enum.ScrollingDirection.X,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					AutomaticCanvasSize = Enum.AutomaticSize.X,
-					CanvasSize = UDim2.new(),
-					ScrollBarThickness = 6,
-					frame({
-						Name = "Row",
+				})),
+			}
+			local raceSetup = Host.Frame "RaceSetup" {
+				BackgroundTransparency = 1,
+				Size = sectionWidth,
+				AutomaticSize = Enum.AutomaticSize.Y,
+				table.unpack(ordered({
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 16),
+					}),
+					Host.Frame "SettingsRows" {
 						BackgroundTransparency = 1,
-						Size = UDim2.new(0, 0, 0, 0),
-						AutomaticSize = Enum.AutomaticSize.XY,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						table.unpack(ordered({
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Vertical,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 16),
+							}),
+							rowAction,
+							rowToggle,
+							rowSlider,
+						})),
+					},
+					Host.Frame "TagsHeader" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
 						Host.UIListLayout({
 							FillDirection = Enum.FillDirection.Horizontal,
+							VerticalAlignment = Enum.VerticalAlignment.Center,
 							SortOrder = Enum.SortOrder.LayoutOrder,
-							Padding = UDim.new(0, 8),
 						}),
-						Compose.OrderedCollection({
-							from = tokens,
-							key = function(item)
-								return item
+						UI.Text({
+							LayoutOrder = 1,
+							BackgroundTransparency = 1,
+							Size = UDim2.new(0, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							text = "Race tags",
+							textRole = "heading",
+							TextXAlignment = Enum.TextXAlignment.Left,
+							Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
+						}),
+						UI.Button "EditTags" {
+							LayoutOrder = 2,
+							label = function(use: Use)
+								return if use(editingTags) then "Done" else "Edit"
 							end,
-							render = function(current: Readable<string>, placement, key: string): GuiObject
-								local item = current:peek()
-								return UI.Chip "Token" {
-									label = item,
-									controlSize = "compact" :: "compact",
-									selected = function(use: Use)
-										return use(chosenTags)[item] == true
-									end,
-									onToggle = function(value)
-										local nextChosen = table.clone(chosenTags:peek())
-										nextChosen[item] = value
-										chosenTags:set(nextChosen)
-									end,
-									editing = editingTags,
-									onRemove = function()
-										local nextItems = {}
-										for _, value in tokens:peek() do
-											if value ~= item then
-												table.insert(nextItems, value)
+							appearance = "soft",
+							controlSize = "compact",
+							onActivate = function()
+								editingTags:set(not editingTags:peek())
+							end,
+						},
+					},
+					Host.ScrollingFrame "Tokens" {
+						BackgroundTransparency = 1,
+						Selectable = false,
+						ScrollingDirection = Enum.ScrollingDirection.X,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						AutomaticCanvasSize = Enum.AutomaticSize.X,
+						CanvasSize = UDim2.new(),
+						ScrollBarThickness = 6,
+						Host.Frame "Row" {
+							BackgroundTransparency = 1,
+							Size = UDim2.new(0, 0, 0, 0),
+							AutomaticSize = Enum.AutomaticSize.XY,
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Horizontal,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 8),
+							}),
+							Compose.OrderedCollection({
+								from = tokens,
+								key = function(item)
+									return item
+								end,
+								render = function(current: Readable<string>, placement, key: string): GuiObject
+									local item = current:peek()
+									return UI.Chip "Token" {
+										label = item,
+										controlSize = "compact",
+										selected = function(use: Use)
+											return use(chosenTags)[item] == true
+										end,
+										onToggle = function(value)
+											local nextChosen = table.clone(chosenTags:peek())
+											nextChosen[item] = value
+											chosenTags:set(nextChosen)
+										end,
+										editing = editingTags,
+										onRemove = function()
+											local nextItems = {}
+											for _, value in tokens:peek() do
+												if value ~= item then
+													table.insert(nextItems, value)
+												end
 											end
-										end
-										tokens:set(nextItems)
-									end,
-								}
-							end,
-						}),
+											tokens:set(nextItems)
+										end,
+									}
+								end,
+							}),
+						},
+					},
+					heading("Prepare a race"),
+					save,
+					UI.Text "Status" {
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = status,
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					},
+					heading("Set the lap count"),
+					repeatButton,
+					UI.Text "Count" {
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = Compose.formula(function(use: Use)
+							return tostring(use(count)) .. " laps"
+						end),
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					},
+					shortcut,
+					heading("Filter the grid"),
+					menu,
+					UI.Text({
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = Compose.formula(function(use: Use)
+							return (if use(favorites) then "Favorites" else "All races")
+								.. " · "
+								.. use(weather)
+								.. " weather"
+						end),
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
 					}),
-				},
-				heading("Prepare a race"),
-				save,
-				UI.Text "Status" {
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					text = status,
-					TextWrapped = true,
-					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
-				},
-				heading("Set the lap count"),
-				repeatButton,
-				UI.Text "Count" {
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					text = Compose.formula(function(use: Use)
-						return tostring(use(count)) .. " laps"
-					end),
-					TextWrapped = true,
-					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
-				},
-				shortcut,
-				heading("Filter the grid"),
-				menu,
-				UI.Text({
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					text = Compose.formula(function(use: Use)
-						return (if use(favorites) then "Favorites" else "All races")
-							.. " · "
-							.. use(weather)
-							.. " weather"
-					end),
-					TextWrapped = true,
-					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				heading("Start or choose a mode"),
-				UI.Text "CapSplit" {
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					text = "Split button · one control: the action, and its menu (pointer: split; touch: long-press, with a chevron)",
-					textRole = "caption" :: "caption",
-					TextWrapped = true,
-					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
-				},
-				split,
-				UI.Button "Confirm" {
-					label = "Confirm race…",
-					enabled = enabled,
-					onActivate = openDialog,
-				},
-			})
-			local body = frame({
-				Name = "Sections",
+					heading("Start or choose a mode"),
+					UI.Text "CapSplit" {
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = "Split button · one control: the action, and its menu (pointer: split; touch: long-press, with a chevron)",
+						textRole = "caption",
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					},
+					split,
+					UI.Button "Confirm" {
+						label = "Confirm race…",
+						enabled = enabled,
+						onActivate = openDialog,
+					},
+				})),
+			}
+			local body = Host.Frame "Sections" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
-					FillDirection = function(use: Use)
-						return if wide(use) then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical
-					end,
-					VerticalAlignment = Enum.VerticalAlignment.Top,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 24),
-				}),
-				showroom,
-				raceSetup,
-			})
-			local page = frame({
-				BackgroundTransparency = 1,
-				Size = UDim2.new(1, 0, 0, 0),
-				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
-					FillDirection = Enum.FillDirection.Vertical,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 16),
-				}),
-				UI.Text({
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					text = "Actions and menus",
-					textRole = "title" :: "title",
-					TextWrapped = true,
-					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				frame({
-					Name = "Toolbar",
-					BackgroundTransparency = 1,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
+				table.unpack(ordered({
 					Host.UIListLayout({
-						FillDirection = Enum.FillDirection.Horizontal,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						Padding = UDim.new(0, 8),
-						Wraps = true,
-					}),
-					UI.Button "Reset" {
-						label = "Reset",
-						onActivate = reset,
-					},
-					UI.Button "Enable" {
-						label = "Toggle enabled",
-						onActivate = function()
-							enabled:set(not enabled:peek())
+						FillDirection = function(use: Use)
+							return if wide(use) then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical
 						end,
+						VerticalAlignment = Enum.VerticalAlignment.Top,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 24),
+					}),
+					showroom,
+					raceSetup,
+				})),
+			}
+			local page = Host.Frame {
+				BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				table.unpack(ordered({
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 16),
+					}),
+					UI.Text({
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = "Actions and menus",
+						textRole = "title",
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					}),
+					Host.Frame "Toolbar" {
+						BackgroundTransparency = 1,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						table.unpack(ordered({
+							Host.UIListLayout({
+								FillDirection = Enum.FillDirection.Horizontal,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+								Padding = UDim.new(0, 8),
+								Wraps = true,
+							}),
+							UI.Button "Reset" { label = "Reset", onActivate = reset },
+							UI.Button "Enable" {
+								label = "Toggle enabled",
+								onActivate = function()
+									enabled:set(not enabled:peek())
+								end,
+							},
+						})),
 					},
-				}),
-				body,
-				UI.Text({
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					Size = UDim2.new(1, 0, 0, 0),
-					AutomaticSize = Enum.AutomaticSize.Y,
-					text = "Size and emphasis",
-					textRole = "heading" :: "heading",
-					TextWrapped = true,
-					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				VocabularySection(),
-			})
+					body,
+					UI.Text({
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						Size = UDim2.new(1, 0, 0, 0),
+						AutomaticSize = Enum.AutomaticSize.Y,
+						text = "Size and emphasis",
+						textRole = "heading",
+						TextWrapped = true,
+						TextYAlignment = Enum.TextYAlignment.Top,
+						TextXAlignment = Enum.TextXAlignment.Left,
+					}),
+					VocabularySection(),
+				})),
+			}
 			local scroller = UI.ScrollView "Content" {
 				padding = 16,
 				BorderSizePixel = 0,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				ScrollBarThickness = 6,
-				page :: unknown,
+				page,
 			}
 			Compose.watch(function(use: Use)
 				local selected = use(scrollTarget)
 				local node = selected and scroller:FindFirstChild(selected, true)
-				if node then
+				if node and node:IsA("GuiObject") then
 					scroller.CanvasPosition = Vector2.new(
 						0,
-						(node :: GuiObject).AbsolutePosition.Y - scroller.AbsolutePosition.Y + scroller.CanvasPosition.Y
+						node.AbsolutePosition.Y - scroller.AbsolutePosition.Y + scroller.CanvasPosition.Y
 					)
 				end
 			end)
@@ -877,13 +887,14 @@ return {
 			Compose.cleanup(function()
 				connection:Disconnect()
 			end)
-			return frame({
-				Name = "ActionControls",
+			return Host.Frame "ActionControls" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
-				scroller,
-				dialog,
-			})
+				table.unpack(ordered({
+					scroller,
+					dialog,
+				})),
+			}
 		end
 
 		return {
@@ -892,7 +903,7 @@ return {
 				return {
 					{
 						id = "confirmation",
-						kind = "dialog" :: "dialog",
+						kind = "dialog",
 						open = function()
 							openDialog()
 							return true
@@ -900,7 +911,7 @@ return {
 					},
 					{
 						id = "busy",
-						kind = "busy" :: "busy",
+						kind = "busy",
 						open = function()
 							busy:set(true)
 							return true

@@ -1,15 +1,19 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 return {
 	title = "Status",
 	ledgerRows = {},
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local UI = ctx.UI
 		local Host = ctx.Host
 		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local marks = require("./status_indicator").build(ctx)
@@ -20,7 +24,7 @@ return {
 			badges.reset()
 			notices.reset()
 		end
-		local function reserved(content: any)
+		local function reserved(content: GuiObject)
 			local top, bottom = Compose.cell(0), Compose.cell(0)
 			local function measure()
 				local layer = content:FindFirstAncestorWhichIsA("LayerCollector")
@@ -30,8 +34,10 @@ return {
 				local offset = content.AbsolutePosition.Y - layer.AbsolutePosition.Y
 				local height = layer.AbsoluteSize.Y
 				local below = height - (offset + content.AbsoluteSize.Y)
-				top:set(math.max(0, (layer:GetAttribute("FacetInsetTop") or 0) - offset))
-				bottom:set(math.max(0, (layer:GetAttribute("FacetInsetBottom") or 0) - below))
+				local insetTop, insetBottom =
+					layer:GetAttribute("FacetInsetTop"), layer:GetAttribute("FacetInsetBottom")
+				top:set(math.max(0, (if type(insetTop) == "number" then insetTop else 0) - offset))
+				bottom:set(math.max(0, (if type(insetBottom) == "number" then insetBottom else 0) - below))
 			end
 			return top, bottom, measure
 		end
@@ -43,30 +49,27 @@ return {
 					PaddingLeft = UDim.new(0, 16),
 					PaddingRight = UDim.new(0, 16),
 				})
-				local frame = Host.Frame "StatusFamily" {
+				local frame = Host.Frame("StatusFamily")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					padding :: unknown,
+					padding,
 					UI.ScrollView "Content" {
 						gap = 24,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 1, 0),
 						ScrollBarThickness = 6,
-						UI.Button "Reset" {
-							label = "Reset status",
-							onActivate = reset,
-						} :: unknown,
+						UI.Button "Reset" { label = "Reset status", onActivate = reset },
 						notices.section(2),
 						marks.section(),
 						badges.section(),
 					},
-				}
+				})
 				local top, bottom, measure = reserved(frame)
 				ctx.runtime.decorate(padding, {
-					PaddingTop = function(use: any)
+					PaddingTop = function(use: Use)
 						return UDim.new(0, 16 + use(top))
 					end,
-					PaddingBottom = function(use: any)
+					PaddingBottom = function(use: Use)
 						return UDim.new(0, 16 + use(bottom))
 					end,
 				})
@@ -89,12 +92,12 @@ return {
 						connection:Disconnect()
 					end
 				end)
-				return Host.Frame "StatusPage" {
+				return Host.Frame("StatusPage")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
-					frame :: unknown,
+					frame,
 					notices.affixed(),
-				}
+				})
 			end,
 			notices = notices,
 			reset = reset,

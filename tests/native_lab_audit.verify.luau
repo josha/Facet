@@ -1034,7 +1034,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local ok, err = pcall(function()
 					worlds.new(function(UI: FacetControls)
-						return UI.ProgressView("P")({ value = 0.5, controlSize = "compact" :: "compact", thickness = 8 })
+						return UI.ProgressView("P")({
+							value = 0.5,
+							controlSize = "compact" :: "compact",
+							thickness = 8,
+						})
 					end)
 				end)
 				Verify.expect(ok):toBe(false)
@@ -1053,7 +1057,7 @@ return function(verifyHarness: Verify.Harness)
 					} :: { { [string]: any } }
 				do
 					Verify.expect(worlds.mountError(function(UI: FacetControls)
-						return UI.ProgressView("P")(spec :: any)
+						return UI.ProgressView "P"(spec :: any)
 					end) ~= nil):toBe(true)
 				end
 				Verify.expect((worlds.mountError(function(UI: FacetControls)
@@ -1144,7 +1148,7 @@ return function(verifyHarness: Verify.Harness)
 								UI.Toggle("TC")({
 									label = "Reduced Motion",
 									presentation = "checkbox" :: "checkbox",
-									appearance = "plain" :: "plain",
+									appearance = "plain",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 									value = Compose.cell(false),
 								}),

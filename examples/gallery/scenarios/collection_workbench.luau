@@ -1,40 +1,120 @@
 --!strict
+
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type CellDraft = typeof(require("@repo/tools/typecheck/aliases").CellDraft)
+type DropInfo = typeof(require("@repo/tools/typecheck/aliases").DropInfo)
+type DraggableSpec = typeof(require("@repo/tools/typecheck/aliases").DraggableSpec)
+type DropTargetSpec = typeof(require("@repo/tools/typecheck/aliases").DropTargetSpec)
+type RowActionsOptions = typeof(require("@repo/tools/typecheck/aliases").RowActionsOptions)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
+type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type Focus = typeof(require("@repo/tools/typecheck/aliases").FocusControls)
+type NavigationEntry = typeof(require("@repo/tools/typecheck/aliases").NavigationEntry)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+type Use = <T>(Readable<T>) -> T
+type File = {
+	id: string,
+	name: string,
+	color: string,
+	size: number,
+	kind: string,
+	parent: string?,
+	assetId: string?,
+}
+type Entry = { id: string, value: string? }
+type Removed = { index: number, item: File }
+type Undo = { removed: { Removed }?, collections: { { File } }? }
+type Payload = {
+	kind: "files" | "color" | "image",
+	collection: string?,
+	items: { File }?,
+	keys: { string }?,
+	value: Color3?,
+	label: string?,
+	assetId: string?,
+	name: string?,
+}
+type Selection = { [string]: boolean }
+type Operation = "copy" | "move" | "apply"
+type Sort = { column: string, direction: "ascending" | "descending" }
+type Receiver = {
+	operation: (Use) -> Operation,
+	accepts: (unknown, DropInfo) -> (boolean, string?),
+	onUpdate: (unknown, DropInfo, boolean, string?) -> (),
+	onDrop: (unknown, DropInfo) -> boolean,
+}
+type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 return {
 	title = "File library",
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext)
 		local UI, Host, Compose = ctx.UI, ctx.Host, ctx.Compose
 		local D2, E, C3 = ctx.types.UDim2, ctx.types.Enum, ctx.types.Color3
-		local rows, selection = Compose.cell({}), Compose.cell({})
-		local path, expanded = Compose.cell({}), Compose.cell({})
-		local paths: { [string]: typeof(path) } = { primary = path, linked = Compose.cell({}) }
+		local noFiles: { File } = {}
+		local noSelection: Selection = {}
+		local noEntries: { Entry } = {}
+		local rows: Cell<{ File }> = Compose.cell(noFiles)
+		local selection: Cell<Selection> = Compose.cell(noSelection)
+		local path: Cell<{ Entry }> = Compose.cell(noEntries)
+		local expanded: Cell<Selection> = Compose.cell(noSelection)
+		local linkedPath: Cell<{ Entry }> = Compose.cell(noEntries)
+		local paths: { [string]: Cell<{ Entry }> } = { primary = path, linked = linkedPath }
 		local creatingFolder = Compose.cell(false)
-		local inbox, inboxSelection = Compose.cell({}), Compose.cell({})
-		local transfers, operation = Compose.cell(false), Compose.cell("move")
+		local inbox: Cell<{ File }> = Compose.cell(noFiles)
+		local inboxSelection: Cell<Selection> = Compose.cell(noSelection)
+		local transfers = Compose.cell(false)
+		local operation = Compose.cell("move")
+		local function dropOperation(use: Use): Operation
+			local chosen = use(operation)
+			if chosen == "copy" then
+				return "copy"
+			elseif chosen == "apply" then
+				return "apply"
+			end
+			return "move"
+		end
 		local env = UI.environment()
 		local filtersOpen = Compose.cell(false)
 		local filtersDetent = Compose.cell("large")
 		local gridSize = Compose.cell(150)
-		local function short(use)
+		local function short(use: Use): boolean
 			return use(env.heightClass) == "short" or use(env.sizeClass) == "compact"
 		end
 		local editingEnabled = Compose.cell(true)
 		local editing, mode, linked = Compose.cell(false), Compose.cell("icons"), Compose.cell(false)
-		local function coarse(use)
+		local function coarse(use: Use): boolean
 			return use(env.effectiveInput) ~= "KeyboardAndMouse"
 		end
-		local function editable(use)
+		local function editable(use: Use): boolean
 			return use(editingEnabled)
 		end
-		local function choosing(use)
+		local function choosing(use: Use): boolean
 			return use(editingEnabled) and coarse(use) and use(editing)
 		end
 
 		local creating, newName, refuse = Compose.cell(false), Compose.cell(""), Compose.cell(false)
-		local focuses: { [string]: any } = { primary = {}, linked = {} }
+		local focuses: { [string]: Focus } = { primary = {}, linked = {} }
 		local query, state, message = Compose.cell(""), Compose.cell("ready"), Compose.cell("")
-		local drafts, undo, serial = {}, Compose.cell(nil), 0
-		local sorts = { primary = Compose.cell(nil), linked = Compose.cell(nil) }
-		local colors = {
+		local noUndo: Undo? = nil
+		local drafts: { [string]: Cell<CellDraft?> } = {}
+		local undo: Cell<Undo?> = Compose.cell(noUndo)
+		local serial = 0
+		local unsorted: Sort? = nil
+		local primarySort: Cell<Sort?> = Compose.cell(unsorted)
+		local linkedSort: Cell<Sort?> = Compose.cell(unsorted)
+		local sorts: { [string]: Cell<Sort?> } = { primary = primarySort, linked = linkedSort }
+		local payloads: { [unknown]: Payload } = {}
+		setmetatable(payloads, { __mode = "k" })
+		local function register(payload: Payload): Payload
+			payloads[payload] = payload
+			return payload
+		end
+		local colors: { StringPickerOption } = {
 			{ value = "Red", label = "Red" },
 			{ value = "Orange", label = "Orange" },
 			{ value = "Yellow", label = "Yellow" },
@@ -44,7 +124,7 @@ return {
 			{ value = "Gray", label = "Gray" },
 			{ value = "None", label = "No label" },
 		}
-		local palette = {
+		local palette: { [string]: Color3 } = {
 			Red = C3.fromRGB(245, 92, 97),
 			Orange = C3.fromRGB(255, 166, 75),
 			Yellow = C3.fromRGB(250, 211, 81),
@@ -55,8 +135,8 @@ return {
 			None = C3.fromRGB(180, 180, 180),
 		}
 
-		local function children(parent, all)
-			local result = {}
+		local function children(parent: string?, all: { File }): { File }
+			local result: { File } = {}
 			for _, item in all do
 				if item.parent == parent then
 					table.insert(result, item)
@@ -64,12 +144,12 @@ return {
 			end
 			return result
 		end
-		local function folderNow(use: any?)
+		local function folderNow(use: Use?): string?
 			local entries = if use then use(path) else path:peek()
 			return if #entries > 0 then entries[#entries].value else nil
 		end
-		local function subtree(keys, all)
-			local included = {}
+		local function subtree(keys: { string }, all: { File }): Selection
+			local included: Selection = {}
 			for _, key in keys do
 				included[key] = true
 			end
@@ -85,17 +165,18 @@ return {
 			end
 			return included
 		end
-		local function openFolder(item, pane)
+		local function openFolder(item: File, pane: string?)
 			local navigation = paths[pane or "primary"]
 			if item.kind ~= "Folder" then
 				message:set(`Opened {item.name}.`)
 				return
 			end
-			local lookup, entries = {}, {}
+			local lookup: { [string]: File } = {}
+			local entries: { Entry } = {}
 			for _, row in rows:peek() do
 				lookup[row.id] = row
 			end
-			local current = item
+			local current: File? = item
 			while current do
 				table.insert(entries, 1, { id = "folder", value = current.id })
 				current = if current.parent then lookup[current.parent] else nil
@@ -105,15 +186,16 @@ return {
 			editing:set(false)
 			navigation:set(entries)
 		end
-		Compose.watch(function(use)
-			local valid = {}
+		Compose.watch(function(use: Use)
+			local valid: Selection = {}
 			for _, item in use(rows) do
 				valid[item.id] = true
 			end
 			for _, navigation in paths do
 				local entries = navigation:peek()
 				for index, entry in entries do
-					if not valid[entry.value] then
+					local value = entry.value
+					if not (value and valid[value]) then
 						local kept = table.clone(entries)
 						for i = #kept, index, -1 do
 							table.remove(kept, i)
@@ -124,25 +206,31 @@ return {
 				end
 			end
 		end)
-		local function seed(count)
-			local nextRows = {}
+		local PLACES = { "Coast", "Canyon", "Forest", "City" }
+		local function seed(count: number)
+			local nextRows: { File } = {}
 			for i = 1, count do
 				nextRows[i] = {
 					id = tostring(i),
-					name = ({ "Coast", "Canyon", "Forest", "City" })[(i - 1) % 4 + 1] .. string.format(" %03d", i),
+					name = PLACES[(i - 1) % 4 + 1] .. string.format(" %03d", i),
 					color = if i == 1 then "Red" elseif i == 2 then "Blue" else "None",
 					size = i * 17,
 					kind = if i % 3 == 0 then "Material" else "Image",
 				}
 			end
-			for _, folder in
+			local folders: { File } = {
+				{ id = "environments", name = "Environments", kind = "Folder", color = "None", size = 0 },
+				{ id = "materials", name = "Materials", kind = "Folder", color = "None", size = 0 },
 				{
-					{ id = "environments", name = "Environments" },
-					{ id = "materials", name = "Materials" },
-					{ id = "archive", name = "Archive", parent = "environments" },
-				}
-			do
-				folder.kind, folder.color, folder.size = "Folder", "None", 0
+					id = "archive",
+					name = "Archive",
+					parent = "environments",
+					kind = "Folder",
+					color = "None",
+					size = 0,
+				},
+			}
+			for _, folder in folders do
 				table.insert(nextRows, folder)
 			end
 			for index = math.max(3, count - 7), count do
@@ -151,7 +239,7 @@ return {
 					elseif index % 3 == 0 then "materials"
 					else "environments"
 			end
-			local ordered = {}
+			local ordered: { File } = {}
 			for index = count + 1, #nextRows do
 				table.insert(ordered, nextRows[index])
 			end
@@ -160,7 +248,7 @@ return {
 			end
 			nextRows = ordered
 			path:set({})
-			paths.linked:set({})
+			linkedPath:set({})
 			expanded:set({})
 			serial = count
 			drafts = {}
@@ -171,20 +259,24 @@ return {
 			state:set("ready")
 		end
 		seed(24)
-		local function draft(key)
-			if not drafts[key] then
-				drafts[key] = Compose.cell(nil)
+		local function draft(key: string): Cell<CellDraft?>
+			local existing = drafts[key]
+			if existing then
+				return existing
 			end
-			return drafts[key]
+			local empty: CellDraft? = nil
+			local created: Cell<CellDraft?> = Compose.cell(empty)
+			drafts[key] = created
+			return created
 		end
-		local function validName(value)
+		local function validName(value: unknown): string?
 			return if type(value) ~= "string" or string.match(value, "^%s*$") then "Enter a file name." else nil
 		end
-		local function targets(key)
+		local function targets(key: string?): { string }
 			if key and not selection:peek()[key] then
 				return { key }
 			end
-			local keys = {}
+			local keys: { string } = {}
 			for _, item in rows:peek() do
 				if selection:peek()[item.id] then
 					table.insert(keys, item.id)
@@ -192,7 +284,7 @@ return {
 			end
 			return keys
 		end
-		local function change(key, field, value)
+		local function change(key: string?, field: "name" | "color" | "assetId", value: string?)
 			if not editingEnabled:peek() then
 				return
 			end
@@ -203,12 +295,18 @@ return {
 			if field == "name" and validName(value) then
 				return
 			end
-			local keys = if field == "color" then targets(key) else { key }
-			local nextRows: { any } = table.clone(rows:peek())
+			local keys: { string } = if field == "color" then targets(key) elseif key then { key } else {}
+			local nextRows: { File } = table.clone(rows:peek())
 			for i, item in nextRows do
 				if table.find(keys, item.id) then
 					local nextItem = table.clone(item)
-					nextItem[field] = value
+					if field == "assetId" then
+						nextItem.assetId = value
+					elseif value ~= nil and field == "name" then
+						nextItem.name = value
+					elseif value ~= nil then
+						nextItem.color = value
+					end
 					nextRows[i] = nextItem
 				end
 			end
@@ -217,12 +315,13 @@ return {
 				if field == "color" then `Label updated on {#keys} files.` else "Saved. Both views use the same files."
 			)
 		end
-		local function remove(keys)
+		local function remove(keys: { string })
 			if not editingEnabled:peek() then
 				return
 			end
 			local deleting = subtree(keys, rows:peek())
-			local kept, removed, selected = {}, {}, table.clone(selection:peek())
+			local kept: { File }, removed: { Removed } = {}, {}
+			local selected = table.clone(selection:peek())
 			for i, item in rows:peek() do
 				if deleting[item.id] then
 					table.insert(removed, { index = i, item = item })
@@ -234,7 +333,7 @@ return {
 			if #removed == 0 then
 				return
 			end
-			undo:set(removed)
+			undo:set({ removed = removed })
 			selection:set(selected)
 			rows:set(kept)
 			for _, key in keys do
@@ -246,18 +345,20 @@ return {
 			if not editingEnabled:peek() then
 				return
 			end
-			local removed = undo:peek()
-			if removed and removed.collections then
-				rows:set(removed.collections[1])
-				inbox:set(removed.collections[2])
+			local last = undo:peek()
+			local collections = if last then last.collections else nil
+			if collections then
+				rows:set(collections[1])
+				inbox:set(collections[2])
 				undo:set(nil)
 				message:set("Transfer undone.")
 				return
 			end
+			local removed = if last then last.removed else nil
 			if not removed then
 				return
 			end
-			local restored, chosen = table.clone(rows:peek()), {}
+			local restored: { File }, chosen: Selection = table.clone(rows:peek()), {}
 			for _, entry in removed do
 				table.insert(restored, math.min(entry.index, #restored + 1), entry.item)
 				chosen[entry.item.id] = true
@@ -267,13 +368,13 @@ return {
 			undo:set(nil)
 			message:set("Files restored.")
 		end
-		local function create(name)
+		local function create(name: string?)
 			if not editingEnabled:peek() then
 				return
 			end
 			serial += 1
 			local key = tostring(serial)
-			local nextRows: { any } = table.clone(rows:peek())
+			local nextRows: { File } = table.clone(rows:peek())
 			table.insert(nextRows, 1, {
 				id = key,
 				name = name or `Untitled {serial}`,
@@ -288,15 +389,16 @@ return {
 			selection:set({ [key] = true })
 			editing:set(true)
 			creating:set(false)
-			if focuses.primary.focus then
-				focuses.primary.focus(key)
+			local focus = focuses.primary.focus
+			if focus then
+				focus(key)
 			end
 			message:set(
 				if creatingFolder:peek() then "Folder created." else "New file created. Edit its name in either view."
 			)
 		end
-		local function visibleRows(all, parent, filter)
-			local visible = {}
+		local function visibleRows(all: { File }, parent: string?, filter: string): { File }
+			local visible: { File } = {}
 			for _, item in all do
 				if
 					(filter ~= "" or item.parent == parent) and string.find(string.lower(item.name), filter, 1, true)
@@ -306,14 +408,14 @@ return {
 			end
 			return visible
 		end
-		local filtered = Compose.formula(function(use)
+		local filtered = Compose.formula(function(use: Use): { File }
 			return visibleRows(use(rows), folderNow(use), string.lower(use(query)))
 		end)
-		local function reorder(keys: { string }, slot: number, source: any)
+		local function reorder(keys: { string }, slot: number, source: Readable<{ File }>)
 			if not editingEnabled:peek() or refuse:peek() then
 				return
 			end
-			local carried: { any }, remaining: { any }, visible: { string } = {}, {}, {}
+			local carried: { File }, remaining: { File }, visible: { string } = {}, {}, {}
 			for _, item in rows:peek() do
 				table.insert(if table.find(keys, item.id) then carried else remaining, item)
 			end
@@ -341,49 +443,55 @@ return {
 			message:set(`Moved {#carried} files. Both views use the same order.`)
 		end
 
-		local function dragFiles(items, keys, collection)
+		local allOperations: { Operation } = { "copy", "move", "apply" }
+		local function dragFiles(items: { File }, keys: { string }, collection: string): DraggableSpec
 			return {
-				payload = { kind = "files", collection = collection, items = items, keys = keys },
-				operations = { "copy", "move", "apply" },
+				payload = register({ kind = "files", collection = collection, items = items, keys = keys }),
+				operations = allOperations,
 			}
 		end
-		local function receive(collection, parent)
-			local target = if collection == "library" then rows else inbox
+		local function receiver(collection: string, parent: string?): Receiver
+			local target: Cell<{ File }> = if collection == "library" then rows else inbox
 			return {
-				operation = operation,
-				accepts = function(payload): (boolean, string?)
+				operation = dropOperation,
+				accepts = function(value: unknown): (boolean, string?)
 					if not editingEnabled:peek() or refuse:peek() then
 						return false, "Editing is unavailable"
 					end
-					if type(payload) ~= "table" or (payload.kind ~= "files" and payload.kind ~= "image") then
+					local payload = payloads[value]
+					if payload == nil or (payload.kind ~= "files" and payload.kind ~= "image") then
 						return false, "Drop files or an image here"
 					end
 					if
 						payload.kind == "files"
 						and payload.collection == collection
 						and parent
-						and subtree(payload.keys, target:peek())[parent]
+						and subtree(payload.keys or {}, target:peek())[parent]
 					then
 						return false, "A folder cannot contain itself"
 					end
 					return true, nil
 				end,
-				onUpdate = function(_, _, accepted, reason)
+				onUpdate = function(_: unknown, _: DropInfo, accepted: boolean, reason: string?)
 					if not accepted then
 						message:set(reason or "Cannot drop here")
 					end
 				end,
-				onDrop = function(payload, info)
+				onDrop = function(value: unknown, info: DropInfo): boolean
+					local payload = payloads[value]
+					if payload == nil then
+						return false
+					end
 					local oldRows, oldInbox = rows:peek(), inbox:peek()
-					local origin = if payload.collection == "library"
+					local origin: Cell<{ File }>? = if payload.collection == "library"
 						then rows
 						elseif payload.collection == "inbox" then inbox
 						else nil
-					local included = if origin then subtree(payload.keys, origin:peek()) else {}
+					local included: Selection = if origin then subtree(payload.keys or {}, origin:peek()) else {}
 					if parent and origin == target and included[parent] then
 						return false
 					end
-					local kept, carried, remap = {}, {}, {}
+					local kept: { File }, carried: { File }, remap: { [string]: string } = {}, {}, {}
 					for _, item in target:peek() do
 						if not (origin == target and info.operation == "move" and included[item.id]) then
 							table.insert(kept, item)
@@ -393,7 +501,7 @@ return {
 						serial += 1
 						table.insert(carried, {
 							id = tostring(serial),
-							name = payload.name,
+							name = payload.name or "",
 							kind = "Image",
 							assetId = payload.assetId,
 							size = 0,
@@ -419,7 +527,7 @@ return {
 						return false
 					end
 					local insertion = #kept + 1
-					local beforeKey = info.insertion and info.insertion.beforeKey
+					local beforeKey = if info.insertion then info.insertion.beforeKey else nil
 					if beforeKey then
 						for index, item in kept do
 							if item.id == beforeKey then
@@ -434,7 +542,7 @@ return {
 					ctx.runtime.reactor:batch(function()
 						undo:set({ collections = { oldRows, oldInbox } })
 						if origin and origin ~= target and info.operation == "move" then
-							local remaining = {}
+							local remaining: { File } = {}
 							for _, item in origin:peek() do
 								if not included[item.id] then
 									table.insert(remaining, item)
@@ -451,14 +559,22 @@ return {
 				end,
 			}
 		end
-		local function inboxView()
-			return UI.Outline {
-				Name = "Inbox",
-				from = function(use)
+		local function receive(collection: string, parent: string?): DropTargetSpec
+			local spec = receiver(collection, parent)
+			return {
+				operation = spec.operation,
+				accepts = spec.accepts,
+				onUpdate = spec.onUpdate,
+				onDrop = spec.onDrop,
+			}
+		end
+		local function inboxView(): ScrollingFrame
+			return UI.Outline "Inbox" {
+				from = function(use: Use): { File }
 					return children(nil, use(inbox))
 				end,
 				selectionFrom = inbox,
-				children = function(item)
+				children = function(item: File): { File }?
 					return if item.kind == "Folder" then children(item.id, inbox:peek()) else nil
 				end,
 				key = "id",
@@ -469,7 +585,7 @@ return {
 				itemSize = 64,
 				measure = true,
 				Size = D2.fromScale(1, 1),
-				drag = function(items, keys)
+				drag = function(items: { File }, keys: { string }): DraggableSpec
 					return dragFiles(items, keys, "inbox")
 				end,
 				drop = receive("inbox"),
@@ -477,7 +593,7 @@ return {
 					return editingEnabled:peek() and not refuse:peek()
 				end,
 				onReorder = function(keys: { string }, slot: number, parentKey: string?)
-					local kept: { any }, carried: { any } = {}, {}
+					local kept: { File }, carried: { File } = {}, {}
 					for _, item in inbox:peek() do
 						table.insert(if table.find(keys, item.id) then carried else kept, item)
 					end
@@ -497,17 +613,17 @@ return {
 					end
 					inbox:set(kept)
 				end,
-				render = function(current)
+				render = function(current: Readable<File>): GuiObject
 					return UI.VStack {
 						width = "fill",
 						padding = "s",
 						UI.Text {
-							text = function(use)
+							text = function(use: Use): string
 								return use(current).name
 							end,
 						},
 						UI.Text {
-							text = function(use)
+							text = function(use: Use): string
 								return use(current).kind
 							end,
 							textRole = "caption",
@@ -516,53 +632,63 @@ return {
 				end,
 			}
 		end
-		local function assets()
-			local chips = { UI.Text { text = "Drag to add or apply:", textRole = "caption" } }
-			for _, color in { "Red", "Green", "Blue" } do
-				local chip = UI.Button { Name = "Drag" .. color, label = color, BackgroundColor3 = palette[color] }
-				UI.draggable(chip, {
-					payload = { kind = "color", value = palette[color], label = color },
-					operations = { "apply" },
-					armOnTap = true,
-				})
-				table.insert(chips, chip)
-			end
-			local chip =
-				UI.Button { Name = "DragImageAsset", label = "Portrait image", icon = "rbxassetid://75342910516929" }
-			UI.draggable(chip, {
-				payload = { kind = "image", assetId = "rbxassetid://75342910516929", name = "Portrait" },
-				operations = { "copy", "move", "apply" },
-				armOnTap = true,
-			})
-			table.insert(chips, chip)
-			return UI.HStack {
+		local applyOnly: { Operation } = { "apply" }
+		local function assets(): Frame
+			local palettes: StackProps = {
 				Name = "DragPalette",
 				width = "fill",
 				align = "center",
 				gap = "s",
 				wrap = true,
-				table.unpack(chips),
+				UI.Text { text = "Drag to add or apply:", textRole = "caption" },
 			}
+			for _, color in { "Red", "Green", "Blue" } do
+				local chip = UI.Button { Name = "Drag" .. color, label = color, BackgroundColor3 = palette[color] }
+				UI.draggable(chip, {
+					payload = register({ kind = "color", value = palette[color], label = color }),
+					operations = applyOnly,
+					armOnTap = true,
+				})
+				palettes[#palettes + 1] = chip
+			end
+			local chip = UI.Button "DragImageAsset" { label = "Portrait image", icon = "rbxassetid://75342910516929" }
+			UI.draggable(chip, {
+				payload = register({ kind = "image", assetId = "rbxassetid://75342910516929", name = "Portrait" }),
+				operations = allOperations,
+				armOnTap = true,
+			})
+			palettes[#palettes + 1] = chip
+			return UI.HStack(palettes)
 		end
 
-		local function value(current, field)
-			return function(use)
-				return use(current)[field]
+		local function nameOf(current: Readable<File>): (Use) -> string
+			return function(use: Use): string
+				return use(current).name
 			end
 		end
-		local function cell(current: any, _placement: any, key: any, icon: boolean, tableCell: boolean?)
-			local preview = UI.ZStack {
-				Size = function(use: any)
+		local function kindOf(current: Readable<File>): (Use) -> string
+			return function(use: Use): string
+				return use(current).kind
+			end
+		end
+		local function cell(
+			current: Readable<File>,
+			_placement: unknown,
+			key: string,
+			icon: boolean,
+			tableCell: boolean?
+		): Frame
+			local preview = UI.ZStack "FilePreview" {
+				Size = function(use: Use): UDim2
 					local side = if icon then math.floor(use(gridSize) * 0.4) else 28
 					return D2.fromOffset(side, side)
 				end,
-				UI.Path {
-					Name = "FolderIcon",
+				UI.Path "FolderIcon" {
 					Size = D2.fromScale(1, 1),
 					closed = true,
 					thickness = 2,
 					role = "accent",
-					Visible = function(use)
+					Visible = function(use: Use): boolean
 						return use(current).kind == "Folder"
 					end,
 					points = {
@@ -575,56 +701,53 @@ return {
 					},
 				},
 				UI.Image {
-					Visible = function(use)
+					Visible = function(use: Use): boolean
 						return use(current).kind ~= "Folder"
 					end,
-					image = function(use)
+					image = function(use: Use): string
 						return use(current).assetId or "rbxassetid://75342910516929"
 					end,
-					Size = function(use: any)
+					Size = function(use: Use): UDim2
 						local side = if icon then math.floor(use(gridSize) * 0.4) else 28
 						return D2.fromOffset(side, side)
 					end,
-					ImageColor3 = function(use)
+					ImageColor3 = function(use: Use): Color3
 						return palette[use(current).color]
 					end,
 				},
 			}
-			local editor = UI.CellEditor {
-				Name = "Rename",
+			local editor = UI.CellEditor "Rename" {
 				editLabel = "Rename",
 				editor = "text",
-				value = value(current, "name"),
+				value = nameOf(current),
 				enabled = editable,
 				draft = draft(key),
 				validate = validName,
 				Size = D2.new(1, 0, 0, 0),
 				if not icon then UI.fill() else nil,
-				onChange = function(v)
-					change(key, "name", v)
+				onChange = function(v: unknown)
+					change(key, "name", if type(v) == "string" then v else nil)
 				end,
 			}
-			local label = UI.HStack {
-				Name = "ColorLabel",
-				Visible = function(use)
+			local label = UI.HStack "ColorLabel" {
+				Visible = function(use: Use): boolean
 					return use(current).color ~= "None"
 				end,
 				align = "center",
 				gap = "s",
-				Host.Frame {
-					Name = "Swatch",
+				Host.Frame "Swatch" {
 					Size = D2.fromOffset(12, 12),
-					BackgroundColor3 = function(use)
+					BackgroundColor3 = function(use: Use): Color3
 						return palette[use(current).color]
 					end,
 					BorderSizePixel = 0,
-					Visible = function(use)
+					Visible = function(use: Use): boolean
 						return use(current).color ~= "None"
 					end,
 					Host.UICorner { CornerRadius = ctx.types.UDim.new(1, 0) },
 				},
 				UI.Text {
-					text = function(use)
+					text = function(use: Use): string
 						return if use(current).color == "None" then "No label" else use(current).color
 					end,
 					textRole = "caption",
@@ -632,13 +755,13 @@ return {
 				},
 			}
 			local kind = UI.Text {
-				text = value(current, "kind"),
-				Visible = function(use)
+				text = kindOf(current),
+				Visible = function(use: Use): boolean
 					return not tableCell and (icon or not short(use))
 				end,
 				textRole = "caption",
 			}
-			local node = (if icon then UI.VStack else UI.HStack) {
+			local fileCell: StackProps = {
 				Name = "FileCell",
 				width = "fill",
 				height = "hug",
@@ -650,33 +773,40 @@ return {
 				if icon then editor else kind,
 				label,
 			}
-			return node
+			return if icon then UI.VStack(fileCell) else UI.HStack(fileCell)
 		end
-		local function rowDrop(current, key)
-			local folderDrop = receive("library", key)
-			local function isFolder()
+		local function rowDrop(current: Readable<File>, key: string): DropTargetSpec
+			local folderDrop = receiver("library", key)
+			local function isFolder(): boolean
 				return current:peek().kind == "Folder"
 			end
 			return {
-				label = value(current, "name"),
-				operation = function(use)
-					return if use(current).kind == "Folder" then use(operation) else "apply"
+				label = nameOf(current),
+				operation = function(use: Use): Operation
+					return if use(current).kind == "Folder" then dropOperation(use) else "apply"
 				end,
-				passThrough = function(payload)
-					return type(payload) ~= "table" or (payload.kind == "files" and not isFolder())
+				passThrough = function(value: unknown): boolean
+					local payload = payloads[value]
+					return payload == nil or (payload.kind == "files" and not isFolder())
 				end,
-				accepts = function(payload)
+				accepts = function(value: unknown, info: DropInfo): (boolean, string?)
 					if isFolder() then
-						return folderDrop.accepts(payload)
+						return folderDrop.accepts(value, info)
 					end
+					local payload = payloads[value]
 					return editingEnabled:peek()
 						and not refuse:peek()
+						and payload ~= nil
 						and (payload.kind == "color" or payload.kind == "image"),
 						"Enable editing to change this file"
 				end,
-				onDrop = function(payload, info)
+				onDrop = function(value: unknown, info: DropInfo): boolean
 					if isFolder() then
-						return folderDrop.onDrop(payload, info)
+						return folderDrop.onDrop(value, info)
+					end
+					local payload = payloads[value]
+					if payload == nil then
+						return true
 					end
 					change(
 						key,
@@ -688,79 +818,62 @@ return {
 			}
 		end
 
-		local function view(kind, id, folder)
-			local source = Compose.formula(function(use)
+		local function view(kind: string, id: string, folder: string?): GuiObject
+			local source = Compose.formula(function(use: Use): { File }
 				return visibleRows(use(rows), folder, if id == "linked" then "" else string.lower(use(query)))
 			end)
-			local spec = {
-				Name = id,
-				collectionId = "library",
-				drag = function(items, keys)
-					return dragFiles(items, keys, "library")
-				end,
-				drop = receive("library", folder),
-				rowDrop = rowDrop,
-				from = source,
-				key = "id",
-				selection = selection,
-				selectionFrom = rows,
-				selectionMode = "multiple",
-				focus = focuses[id],
-				editing = choosing,
-				deletable = true,
-				rowDeletable = function()
-					return editingEnabled:peek()
-				end,
-				reorderable = true,
-				movable = function()
-					return editingEnabled:peek() and not refuse:peek()
-				end,
-				onReorder = function(keys: { string }, slot: number, parentKey: string?)
-					local siblings = if parentKey then children(parentKey, rows:peek()) else source:peek()
-					reorder(keys, slot, Compose.cell(siblings))
-				end,
-				onDelete = remove,
-				maxRetained = 120,
-				Size = D2.fromScale(1, 1),
-				onActivate = function(item)
-					openFolder(item, id)
-				end,
-				rowActions = function(_, key)
-					return {
-						swipeEnabled = coarse,
-						enabled = editingEnabled,
-						trailing = {
-							{
-								id = "delete",
-								label = "Delete",
-								role = "destructive",
-								onActivate = function()
-									remove(targets(key))
-								end,
-							},
-						},
-					}
-				end,
-			}
-			if kind ~= "icons" then
-				spec.children = function(item)
-					return if item.kind == "Folder" and (id == "linked" or query:peek() == "")
-						then children(item.id, rows:peek())
-						else nil
-				end
-				spec.expanded = expanded
+			local function drag(items: { File }, keys: { string }): DraggableSpec
+				return dragFiles(items, keys, "library")
+			end
+			local drop = receive("library", folder)
+			local function rowDeletable(): boolean
+				return editingEnabled:peek()
+			end
+			local function movable(): boolean
+				return editingEnabled:peek() and not refuse:peek()
+			end
+			local function onReorder(keys: { string }, slot: number, parentKey: string?)
+				local siblings = if parentKey then children(parentKey, rows:peek()) else source:peek()
+				reorder(keys, slot, Compose.cell(siblings))
+			end
+			local function onActivate(item: File)
+				openFolder(item, id)
+			end
+			local function rowActions(_: Readable<File>, key: string): RowActionsOptions
+				local trailing: { RowAction } = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						onActivate = function()
+							remove(targets(key))
+						end,
+					},
+				}
+				return {
+					swipeEnabled = coarse,
+					enabled = editingEnabled,
+					trailing = trailing,
+				}
+			end
+			local function folderChildren(item: File): { File }?
+				return if item.kind == "Folder" and (id == "linked" or query:peek() == "")
+					then children(item.id, rows:peek())
+					else nil
+			end
+			local function render(current: Readable<File>, placement: unknown, key: string): GuiObject
+				return cell(current, placement, key, kind == "icons")
 			end
 			if kind == "details" then
-				spec.sort = sorts[id]
-				local columns: { any } = {
+				local columns: { TableColumn } = {
 					{
 						id = "name",
 						label = "File",
 						minWidth = 260,
-						value = function(item)
+						value = function(item: File): string
 							return item.name
 						end,
-						render = function(current, placement, key)
+						render = function(current: Readable<File>, placement: unknown, key: string): GuiObject
 							return cell(current, placement, key, false, true)
 						end,
 					},
@@ -770,7 +883,7 @@ return {
 						minWidth = 100,
 						width = 120,
 						priority = 1,
-						value = function(item)
+						value = function(item: File): string
 							return item.kind
 						end,
 					},
@@ -781,28 +894,108 @@ return {
 						width = 80,
 						align = "end",
 						priority = 2,
-						value = function(item)
+						value = function(item: File): number
 							return item.size
 						end,
 					},
 				}
-				spec.columns = columns
-				return UI.Table(spec)
-			end
-			spec.measure = true
-			spec.from = source
-			spec.itemSize = if kind == "icons" then 200 else nil
-			spec.gap = if kind == "icons" then 8 else 0
-			spec.render = function(current, placement, key)
-				return cell(current, placement, key, kind == "icons")
+				return UI.Table {
+					Name = id,
+					collectionId = "library",
+					drag = drag,
+					drop = drop,
+					rowDrop = rowDrop,
+					from = source,
+					key = "id",
+					selection = selection,
+					selectionFrom = rows,
+					selectionMode = "multiple",
+					focus = focuses[id],
+					editing = choosing,
+					deletable = true,
+					rowDeletable = rowDeletable,
+					reorderable = true,
+					movable = movable,
+					onReorder = onReorder,
+					onDelete = remove,
+					maxRetained = 120,
+					Size = D2.fromScale(1, 1),
+					onActivate = onActivate,
+					rowActions = rowActions,
+					children = folderChildren,
+					expanded = expanded,
+					sort = sorts[id],
+					columns = columns,
+				}
 			end
 			if kind == "icons" then
-				spec.minColumnWidth = gridSize
-				return UI.VirtualGrid(spec)
+				return UI.VirtualGrid {
+					Name = id,
+					collectionId = "library",
+					drag = drag,
+					drop = drop,
+					rowDrop = rowDrop,
+					from = source,
+					key = "id",
+					selection = selection,
+					selectionFrom = rows,
+					selectionMode = "multiple",
+					focus = focuses[id],
+					editing = choosing,
+					deletable = true,
+					rowDeletable = rowDeletable,
+					reorderable = true,
+					movable = movable,
+					onReorder = onReorder,
+					onDelete = remove,
+					maxRetained = 120,
+					Size = D2.fromScale(1, 1),
+					onActivate = onActivate,
+					rowActions = rowActions,
+					measure = true,
+					itemSize = 200,
+					gap = 8,
+					render = render,
+					minColumnWidth = gridSize,
+				}
 			end
-			return UI.Outline(spec)
+			return UI.Outline {
+				Name = id,
+				collectionId = "library",
+				drag = drag,
+				drop = drop,
+				rowDrop = rowDrop,
+				from = source,
+				key = "id",
+				selection = selection,
+				selectionFrom = rows,
+				selectionMode = "multiple",
+				focus = focuses[id],
+				editing = choosing,
+				deletable = true,
+				rowDeletable = rowDeletable,
+				reorderable = true,
+				movable = movable,
+				onReorder = onReorder,
+				onDelete = remove,
+				maxRetained = 120,
+				Size = D2.fromScale(1, 1),
+				onActivate = onActivate,
+				rowActions = rowActions,
+				children = folderChildren,
+				expanded = expanded,
+				measure = true,
+				gap = 0,
+				render = render,
+			}
 		end
-		local function button(name, label, action, enabled, visible)
+		local function button(
+			name: string,
+			label: string | (Use) -> string,
+			action: () -> (),
+			enabled: (boolean | Readable<boolean> | (Use) -> boolean)?,
+			visible: (boolean | Readable<boolean> | (Use) -> boolean)?
+		): TextButton
 			return UI.Button {
 				Name = name,
 				label = label,
@@ -811,80 +1004,85 @@ return {
 				Visible = visible,
 			}
 		end
-		local function wide(use)
+		local function wide(use: Use): boolean
 			return not short(use)
 		end
-		local function createPrompt(folder)
+		local function createPrompt(folder: boolean)
 			creatingFolder:set(folder)
 			newName:set("")
 			creating:set(true)
 		end
-		local function hasSelection(use)
+		local function hasSelection(use: Use): boolean
 			return use(editingEnabled) and next(use(selection)) ~= nil
 		end
-		local function labels()
-			local children = { UI.Text { text = "Label:", textRole = "body" } }
+		local function labels(): ScrollingFrame
+			local swatches: StackProps = {
+				Name = "Palette",
+				align = "center",
+				gap = 0,
+				wrap = false,
+				UI.Text { text = "Label:", textRole = "body" },
+			}
 			for _, option in colors do
-				table.insert(
-					children,
-					UI.Button {
-						Name = "Label" .. option.value,
-						name = option.label,
-						label = if option.value == "None" then "×" else "",
-						appearance = "utility",
-						shape = "circle",
-						Size = function(use: any)
-							local side = if coarse(use) then 44 else 32
-							return D2.fromOffset(side, side)
-						end,
-						enabled = hasSelection,
-						selected = function(use)
-							local selected, found = use(selection), false
-							for _, item in use(rows) do
-								if selected[item.id] then
-									if item.color ~= option.value then
-										return false
-									end
-									found = true
+				local optionValue = if type(option.value) == "string" then option.value else "None"
+				local optionLabel = if type(option.label) == "string" then option.label else optionValue
+				swatches[#swatches + 1] = UI.Button {
+					Name = "Label" .. optionValue,
+					name = optionLabel,
+					label = if optionValue == "None" then "×" else "",
+					appearance = "utility",
+					shape = "circle",
+					Size = function(use: Use): UDim2
+						local side = if coarse(use) then 44 else 32
+						return D2.fromOffset(side, side)
+					end,
+					enabled = hasSelection,
+					selected = function(use: Use): boolean
+						local selected, found = use(selection), false
+						for _, item in use(rows) do
+							if selected[item.id] then
+								if item.color ~= optionValue then
+									return false
 								end
+								found = true
 							end
-							return found
-						end,
-						onActivate = function()
-							change(nil, "color", option.value)
-						end,
-						if option.value ~= "None"
-							then Host.Frame {
-								Name = "Swatch",
-								AnchorPoint = ctx.types.Vector2.new(0.5, 0.5),
-								Position = D2.fromScale(0.5, 0.5),
-								Size = function(use: any)
-									local side = if coarse(use) then 24 else 20
-									return D2.fromOffset(side, side)
-								end,
-								BorderSizePixel = 0,
-								BackgroundColor3 = palette[option.value],
-								BackgroundTransparency = function(use)
-									return if hasSelection(use) then 0 else 0.65
-								end,
-								Host.UICorner { CornerRadius = ctx.types.UDim.new(1, 0) },
-							}
-							else nil,
-					}
-				)
+						end
+						return found
+					end,
+					onActivate = function()
+						change(nil, "color", optionValue)
+					end,
+					if optionValue ~= "None"
+						then Host.Frame "Swatch" {
+							AnchorPoint = ctx.types.Vector2.new(0.5, 0.5),
+							Position = D2.fromScale(0.5, 0.5),
+							Size = function(use: Use): UDim2
+								local side = if coarse(use) then 24 else 20
+								return D2.fromOffset(side, side)
+							end,
+							BorderSizePixel = 0,
+							BackgroundColor3 = palette[optionValue],
+							BackgroundTransparency = function(use: Use): number
+								return if hasSelection(use) then 0 else 0.65
+							end,
+							Host.UICorner { CornerRadius = ctx.types.UDim.new(1, 0) },
+						}
+						else nil,
+				}
 			end
-			return UI.ScrollView {
-				Name = "Labels",
+			return UI.ScrollView "Labels" {
 				axis = "x",
 				width = "fill",
 				height = "hug",
-				UI.HStack { Name = "Palette", align = "center", gap = 0, wrap = false, table.unpack(children) },
+				UI.HStack(swatches),
 			}
 		end
-		local splitColumn = Compose.cell("sidebar")
+		local sidebarColumn: "sidebar" | "detail" = "sidebar"
+		local splitColumn: Cell<"sidebar" | "detail"> = Compose.cell(sidebarColumn)
 		local splitWidth = Compose.cell(360)
-		local inboxColumn, inboxWidth = Compose.cell("sidebar"), Compose.cell(360)
-		Compose.watch(function(use)
+		local inboxColumn: Cell<"sidebar" | "detail"> = Compose.cell(sidebarColumn)
+		local inboxWidth = Compose.cell(360)
+		Compose.watch(function(use: Use)
 			if use(transfers) then
 				splitWidth:set(math.max(splitWidth:peek(), 760))
 			end
@@ -892,27 +1090,26 @@ return {
 				inboxColumn:set("sidebar")
 			end
 		end)
-		Compose.watch(function(use)
+		Compose.watch(function(use: Use)
 			if not use(linked) then
 				splitColumn:set("sidebar")
 			end
 		end)
-		local function folderNavigation(id)
+		local function folderNavigation(id: string): Frame
 			local navigation = paths[id]
-			local function content(folder)
+			local function content(folder: string?): GuiObject
 				if id == "linked" then
 					return view("details", id, folder)
 				end
-				return UI.VStack {
-					Name = "PrimaryView",
+				return UI.VStack "PrimaryView" {
 					width = "fill",
 					height = "fill",
 					UI.fill(),
 					Compose.keyed {
-						from = function(use)
+						from = function(use: Use): { string }
 							return { use(mode) }
 						end,
-						render = function(current)
+						render = function(current: Readable<string>): GuiObject
 							return view(current:peek(), id, folder)
 						end,
 					},
@@ -931,7 +1128,7 @@ return {
 				},
 				destinations = {
 					folder = {
-						title = function(use)
+						title = function(use: Use): string
 							local entries = use(navigation)
 							local entry = entries[#entries]
 							for _, item in use(rows) do
@@ -941,16 +1138,16 @@ return {
 							end
 							return "Folder"
 						end,
-						content = function(entry)
-							return content(assert(entry).value)
+						content = function(entry: NavigationEntry?): Instance
+							local value = assert(entry).value
+							return content(if type(value) == "string" then value else nil)
 						end,
 					},
 				},
 			}
 		end
-		local function folderViews()
-			return UI.NavigationSplitView {
-				Name = "Views",
+		local function folderViews(): Frame
+			return UI.NavigationSplitView "Views" {
 				alwaysShowResizeHandle = true,
 				detailVisible = linked,
 				preferredCompactColumn = splitColumn,
@@ -960,8 +1157,7 @@ return {
 				backLabel = "Back to Files",
 				detailLabel = "Open linked view",
 				sidebar = function()
-					return UI.NavigationSplitView {
-						Name = "PrimaryViews",
+					return UI.NavigationSplitView "PrimaryViews" {
 						alwaysShowResizeHandle = true,
 						detailVisible = transfers,
 						preferredCompactColumn = inboxColumn,
@@ -972,8 +1168,7 @@ return {
 							return folderNavigation("primary")
 						end,
 						detail = function()
-							return UI.VStack {
-								Name = "InboxView",
+							return UI.VStack "InboxView" {
 								width = "fill",
 								height = "fill",
 								UI.fill(),
@@ -984,8 +1179,7 @@ return {
 					}
 				end,
 				detail = function()
-					return UI.VStack {
-						Name = "LinkedView",
+					return UI.VStack "LinkedView" {
 						width = "fill",
 						height = "fill",
 						UI.Text { text = "Linked view · independent sort", textRole = "caption" },
@@ -995,13 +1189,12 @@ return {
 			}
 		end
 
-		local function editingToggle(visible)
-			return UI.Toggle {
-				Name = "EnableEditing",
+		local function editingToggle(visible: (Use) -> boolean): TextButton
+			return UI.Toggle "EnableEditing" {
 				Visible = visible,
 				label = "Enable editing",
 				value = editingEnabled,
-				onChange = function(value)
+				onChange = function(value: boolean)
 					editingEnabled:set(value)
 					message:set("")
 					if not value then
@@ -1011,9 +1204,8 @@ return {
 				end,
 			}
 		end
-		local function gridSizeControl()
-			return UI.Slider {
-				Name = "GridSize",
+		local function gridSizeControl(): Frame
+			return UI.Slider "GridSize" {
 				label = "Grid size",
 				value = gridSize,
 				min = 140,
@@ -1023,15 +1215,59 @@ return {
 					return `{math.round(value / 150 * 100)}%`
 				end,
 				Size = D2.new(1, 0, 0, 0),
-				Visible = function(use)
+				Visible = function(use: Use): boolean
 					return use(mode) == "icons"
 				end,
 				Host.UISizeConstraint { MaxSize = ctx.types.Vector2.new(400, math.huge) },
 			}
 		end
-		local function fileOptions()
-			return UI.VStack {
-				Name = "FileOptions",
+		local operations: { StringPickerOption } =
+			{ { value = "move", label = "Move" }, { value = "copy", label = "Copy" } }
+		local modes: { StringPickerOption } = {
+			{ value = "icons", label = "Icons", icon = "view.grid" },
+			{ value = "list", label = "List", icon = "view.list" },
+			{ value = "details", label = "Details", icon = "view.table" },
+		}
+		local demoItems: { MenuItem } = {
+			{ id = "refuse", label = "Refuse edits", checked = refuse },
+			{
+				id = "large",
+				label = "Load 1,000 files",
+				onSelect = function()
+					seed(1000)
+				end,
+			},
+			{
+				id = "reset",
+				label = "Reset to 24 files",
+				onSelect = function()
+					seed(24)
+				end,
+			},
+			{
+				id = "ready",
+				label = "Show files",
+				onSelect = function()
+					state:set("ready")
+				end,
+			},
+			{
+				id = "loading",
+				label = "Show loading",
+				onSelect = function()
+					state:set("loading")
+				end,
+			},
+			{
+				id = "error",
+				label = "Show load error",
+				onSelect = function()
+					state:set("error")
+				end,
+			},
+		}
+		local function fileOptions(): Frame
+			return UI.VStack "FileOptions" {
 				width = "fill",
 				gap = "s",
 				editingToggle(short),
@@ -1050,18 +1286,16 @@ return {
 						assets(),
 					}
 				end),
-				UI.HStack {
-					Name = "Filters",
+				UI.HStack "Filters" {
 					align = "center",
 					width = "fill",
 					gap = "s",
 					wrap = true,
-					UI.TextInput {
-						Name = "FilterFiles",
+					UI.TextInput "FilterFiles" {
 						placeholder = "Filter files",
 						value = query,
 						Size = D2.fromOffset(200, 36),
-						onChange = function(v)
+						onChange = function(v: string)
 							query:set(v)
 						end,
 					},
@@ -1069,107 +1303,107 @@ return {
 						query:set("")
 					end),
 
-					UI.Picker {
-						Name = "TransferOperation",
+					UI.Picker "TransferOperation" {
 						Size = D2.fromOffset(0, 0),
 						AutomaticSize = E.AutomaticSize.XY,
 						sizing = "hug",
 						selected = operation,
 						Visible = transfers,
-						options = { { value = "move", label = "Move" }, { value = "copy", label = "Copy" } },
+						options = operations,
 					},
-					UI.Menu {
-						Name = "DemoOptions",
+					UI.Menu "DemoOptions" {
 						label = "Demo options",
-						items = {
-							{ id = "refuse", label = "Refuse edits", checked = refuse },
-							{
-								id = "large",
-								label = "Load 1,000 files",
-								onSelect = function()
-									seed(1000)
-								end,
-							},
-							{
-								id = "reset",
-								label = "Reset to 24 files",
-								onSelect = function()
-									seed(24)
-								end,
-							},
-							{
-								id = "ready",
-								label = "Show files",
-								onSelect = function()
-									state:set("ready")
-								end,
-							},
-							{
-								id = "loading",
-								label = "Show loading",
-								onSelect = function()
-									state:set("loading")
-								end,
-							},
-							{
-								id = "error",
-								label = "Show load error",
-								onSelect = function()
-									state:set("error")
-								end,
-							},
-						},
+						items = demoItems,
 					},
 				},
 				Compose.show(short, gridSizeControl),
 			}
 		end
 
-		local function filesPage()
-			local page = UI.VStack {
-				Name = "CollectionWorkbench",
+		local createActions: { DialogAction } = {
+			{
+				id = "cancel",
+				label = "Cancel",
+				role = "cancel",
+				onActivate = function()
+					creating:set(false)
+				end,
+			},
+			{
+				id = "create",
+				label = "Create",
+				role = "default",
+				enabled = function(use: Use): boolean
+					return validName(use(newName)) == nil
+				end,
+				onActivate = function()
+					create(newName:peek())
+				end,
+			},
+		}
+		local viewItems: { MenuItem } = {
+			{ id = "linked", label = "Linked view", checked = linked, dismiss = true },
+			{ id = "inbox", label = "Show Inbox", checked = transfers, dismiss = true },
+		}
+		local actionItems: { MenuItem } = {
+			{
+				id = "newFile",
+				label = "New file",
+				enabled = editingEnabled,
+				onSelect = function()
+					createPrompt(false)
+				end,
+			},
+			{
+				id = "newFolder",
+				label = "New folder",
+				enabled = editingEnabled,
+				onSelect = function()
+					createPrompt(true)
+				end,
+			},
+			{
+				id = "delete",
+				label = "Delete selected",
+				role = "destructive",
+				enabled = hasSelection,
+				onSelect = function()
+					remove(targets(nil))
+				end,
+			},
+			{
+				id = "undo",
+				label = "Undo",
+				enabled = function(use: Use): boolean
+					return use(editingEnabled) and use(undo) ~= nil
+				end,
+				onSelect = restore,
+			},
+		}
+		local optionDetents: { SheetDetent } = { "large" }
+		local function filesPage(): ScrollingFrame
+			local page = UI.VStack "CollectionWorkbench" {
 				UI.fill(),
 				UI.Dialog {
 					isPresented = creating,
-					title = function(use: any)
+					title = function(use: Use): string
 						return if use(creatingFolder) then "New folder" else "New file"
 					end,
-					content = function()
-						return UI.TextInput {
-							Name = "NewFileName",
+					content = function(): Instance
+						return UI.TextInput "NewFileName" {
 							label = "Name",
 							value = newName,
-							onChange = function(v)
+							onChange = function(v: string)
 								newName:set(v)
 							end,
-							onCommit = function(v, reason)
+							onCommit = function(v: string, reason: "focusLost" | "submit")
 								if reason == "submit" and not validName(v) then
 									create(v)
 								end
 							end,
 						}
 					end,
-					actions = {
-						{
-							id = "cancel",
-							label = "Cancel",
-							role = "cancel",
-							onActivate = function()
-								creating:set(false)
-							end,
-						},
-						{
-							id = "create",
-							label = "Create",
-							role = "default",
-							enabled = function(use)
-								return validName(use(newName)) == nil
-							end,
-							onActivate = function()
-								create(newName:peek())
-							end,
-						},
-					},
+					actions = createActions,
 				},
 				width = "fill",
 				height = "fill",
@@ -1178,12 +1412,12 @@ return {
 				UI.Text {
 					text = "File library",
 					textRole = "title",
-					Visible = function(use)
+					Visible = function(use: Use): boolean
 						return not short(use)
 					end,
 				},
 				UI.Text {
-					text = function(use)
+					text = function(use: Use): string
 						if not use(editingEnabled) then
 							return "Read-only. Enable editing to rename, label, reorder, create or delete files."
 						end
@@ -1200,7 +1434,7 @@ return {
 							then "Tap a folder to open it. Use Back to leave it. Use the item’s … menu to rename. Edit selects several items."
 							else "Double-click a folder to open it. Click a selected name or press F2 to rename. Command/Ctrl-click adds to selection; Shift-click selects a range."
 					end,
-					Visible = function(use)
+					Visible = function(use: Use): boolean
 						return not short(use)
 					end,
 					Size = D2.new(1, 0, 0, 0),
@@ -1208,14 +1442,12 @@ return {
 					wrap = true,
 					textRole = "caption",
 				},
-				UI.HStack {
-					Name = "Toolbar",
+				UI.HStack "Toolbar" {
 					align = "center",
 					width = "fill",
 					gap = "s",
 					wrap = true,
-					UI.Picker {
-						Name = "ViewMode",
+					UI.Picker "ViewMode" {
 						Size = D2.fromOffset(0, 0),
 						AutomaticSize = E.AutomaticSize.XY,
 						style = "segmented",
@@ -1223,22 +1455,14 @@ return {
 						controlSize = "regular",
 						iconOnly = true,
 						selected = mode,
-						options = {
-							{ value = "icons", label = "Icons", icon = "view.grid" },
-							{ value = "list", label = "List", icon = "view.list" },
-							{ value = "details", label = "Details", icon = "view.table" },
-						},
+						options = modes,
 					},
-					UI.Menu {
-						Name = "ViewOptions",
+					UI.Menu "ViewOptions" {
 						label = "Views",
-						items = {
-							{ id = "linked", label = "Linked view", checked = linked, dismiss = true },
-							{ id = "inbox", label = "Show Inbox", checked = transfers, dismiss = true },
-						},
+						items = viewItems,
 					},
 					editingToggle(wide),
-					button("Edit", function(use)
+					button("Edit", function(use: Use): string
 						return if use(editing) then "Done" else "Edit"
 					end, function()
 						editing:set(not editing:peek())
@@ -1252,65 +1476,29 @@ return {
 
 					button("Delete", "Delete selected", function()
 						remove(targets(nil))
-					end, function(use)
+					end, function(use: Use): boolean
 						return use(editingEnabled) and next(use(selection)) ~= nil
 					end, wide),
-					button("Undo", "Undo", restore, function(use)
+					button("Undo", "Undo", restore, function(use: Use): boolean
 						return use(editingEnabled) and use(undo) ~= nil
 					end, wide),
-					UI.Menu {
-						Name = "FileActions",
+					UI.Menu "FileActions" {
 						label = "Actions",
 						Visible = short,
-						items = {
-							{
-								id = "newFile",
-								label = "New file",
-								enabled = editingEnabled,
-								onSelect = function()
-									createPrompt(false)
-								end,
-							},
-							{
-								id = "newFolder",
-								label = "New folder",
-								enabled = editingEnabled,
-								onSelect = function()
-									createPrompt(true)
-								end,
-							},
-							{
-								id = "delete",
-								label = "Delete selected",
-								role = "destructive",
-								enabled = hasSelection,
-								onSelect = function()
-									remove(targets(nil))
-								end,
-							},
-							{
-								id = "undo",
-								label = "Undo",
-								enabled = function(use)
-									return use(editingEnabled) and use(undo) ~= nil
-								end,
-								onSelect = restore,
-							},
-						},
+						items = actionItems,
 					},
 					button("ShowFilters", "Search & options", function()
 						filtersOpen:set(not filtersOpen:peek())
 					end, nil, short),
 				},
 				Compose.show(wide, fileOptions),
-				UI.Sheet {
-					Name = "FileOptionsSheet",
+				UI.Sheet "FileOptionsSheet" {
 					title = "Search & options",
 					isPresented = filtersOpen,
 					detent = filtersDetent,
-					detents = { "large" },
-					content = function()
-						return UI.VStack {
+					detents = optionDetents,
+					content = function(): Instance
+						return UI.VStack "FileOptionsBody" {
 							width = "fill",
 							gap = "m",
 							fileOptions(),
@@ -1321,7 +1509,7 @@ return {
 					end,
 				},
 				UI.Text {
-					text = function(use)
+					text = function(use: Use): string
 						local count = 0
 						for _, on in use(selection) do
 							if on then
@@ -1332,22 +1520,21 @@ return {
 					end,
 					textRole = "caption",
 				},
-				UI.VStack {
-					Name = "Contents",
+				UI.VStack "Contents" {
 					Host.UISizeConstraint { MinSize = ctx.types.Vector2.new(0, 320) },
 					width = "fill",
 					height = "fill",
 					UI.fill(),
-					Compose.show(function(use)
+					Compose.show(function(use: Use): boolean
 						return use(state) == "ready"
-					end, function()
+					end, function(): Instance
 						return folderViews()
-					end, function()
+					end, function(): Instance
 						return UI.VStack {
 							width = "fill",
 							gap = "m",
 							UI.Text {
-								text = function(use)
+								text = function(use: Use): string
 									return if use(state) == "loading"
 										then "Loading files…"
 										elseif use(state) == "error" then "Could not load files. Try again."
@@ -1367,7 +1554,7 @@ return {
 				},
 				Compose.show(wide, gridSizeControl),
 			}
-			return UI.ScrollView { Name = "FileViewport", width = "fill", height = "fill", page }
+			return UI.ScrollView "FileViewport" { width = "fill", height = "fill", page }
 		end
 
 		return {
@@ -1403,12 +1590,12 @@ return {
 				draft = draft,
 				change = change,
 				remove = remove,
-				reorder = function(keys, slot)
+				reorder = function(keys: { string }, slot: number)
 					reorder(keys, slot, filtered)
 				end,
 			},
 			report = function()
-				local order = {}
+				local order: { string } = {}
 				for _, item in rows:peek() do
 					table.insert(order, item.id)
 				end

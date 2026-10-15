@@ -682,7 +682,7 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 				Verify.expect(function()
 					world(function(UI: FacetControls)
-						return UI.Button "Corners"({ label = "Corners", corners = "round" } :: any)
+						return UI.Button({ Name = "Corners", label = "Corners", corners = "round" } :: any)
 					end)
 				end):toThrow()
 			end,

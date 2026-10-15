@@ -2,6 +2,7 @@
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 
+local contract = require("./contract")
 local document = require("./document")
 local library = require("./library")
 local literal = require("./value").literal
@@ -108,6 +109,19 @@ function source.parse(code: string, name: string): document.Document
 			take(item)
 		end
 	end
+	local function text(code: string)
+		for _, token in tokenize(code) do
+			take(token.value)
+		end
+	end
+	local function matchesAhead(code: string): boolean
+		for index, token in tokenize(code) do
+			if peek(index - 1) ~= token.value then
+				return false
+			end
+		end
+		return true
+	end
 	sequence({
 		"local",
 		"Facet",
@@ -126,20 +140,35 @@ function source.parse(code: string, name: string): document.Document
 		"Facet",
 		".",
 		"Compose",
-		"return",
-		"function",
-		"(",
-		"UI",
 	})
-	if peek() == ":" then
-		sequence({ ":", "Facet", ".", "Controls" })
-	end
-	if peek() == "," then
-		sequence({ ",", "data", ":", "{", "[", "string", "]", ":", "any", "}", "?" })
-	end
-	take(")")
-	if peek() == ":" then
-		sequence({ ":", "GuiObject" })
+	local typed = peek() == "export"
+	if typed then
+		text("export type Row = { [string]: unknown }")
+		sequence({ "export", "type", "Data", "=", "{" })
+		local depth = 1
+		while depth > 0 do
+			local value = take().value
+			if value == "{" or value == "(" then
+				depth += 1
+			elseif value == "}" or value == ")" then
+				depth -= 1
+			end
+		end
+		if matchesAhead(contract.ROWS) then
+			text(contract.ROWS)
+		end
+		text(contract.SIGNATURE)
+	else
+		sequence({ "return", "function", "(", "UI" })
+		if peek() == ":" then
+			sequence({ ":", "Facet", ".", "Controls" })
+		end
+		if peek() == "," then
+			sequence({ ",", "data", ":", "{", "[", "string", "]", ":", "any", "}", "?" })
+		end
+		if peek() == ":" then
+			sequence({ ":", "GuiObject" })
+		end
 	end
 	local expression: any
 	local node: any
@@ -202,9 +231,21 @@ function source.parse(code: string, name: string): document.Document
 						.. lookup
 						.. "(item, key, input, clickCount) end end"
 				)
+				or matches(
+					"function(item: Row, key: unknown, input: InputObject?, clickCount: number?) local handler = if data then "
+						.. lookup
+						.. " else nil if handler then handler(item, key, input, clickCount) end end"
+				)
 			then
 				return { __facetActivation = key }
-			elseif matches("function() if data and " .. lookup .. " then " .. lookup .. "(current:peek()) end end") then
+			elseif
+				matches("function() if data and " .. lookup .. " then " .. lookup .. "(current:peek()) end end")
+				or matches(
+					"function() local handler = if data then "
+						.. lookup
+						.. " else nil if handler then handler(current:peek()) end end"
+				)
+			then
 				return { __facetHandler = key }
 			end
 		end
@@ -213,8 +254,24 @@ function source.parse(code: string, name: string): document.Document
 				for _, conversion in { "tostring", "tonumber" } do
 					local tail = if conversion == "tonumber" then " or " .. literal(fallback) else ""
 					local lookup = "use(current)[" .. literal(key) .. "]"
+					local function field(parameter: string): string
+						return "function(use"
+							.. parameter
+							.. ") return "
+							.. conversion
+							.. "(if "
+							.. lookup
+							.. " == nil then "
+							.. literal(fallback)
+							.. " else "
+							.. lookup
+							.. ")"
+							.. tail
+							.. " end"
+					end
 					if
-						matches(
+						matches(field(": Facet.Use"))
+						or matches(
 							"function(use: any) return "
 								.. conversion
 								.. "(if "
@@ -243,7 +300,10 @@ function source.parse(code: string, name: string): document.Document
 			#actual == 12
 			and actual[3].value == "row"
 			and actual[10].kind == "literal"
-			and matches("function(row: any) return row[" .. literal(actual[10].value) .. "] end")
+			and (
+				matches("function(row: any) return row[" .. literal(actual[10].value) .. "] end")
+				or matches("function(row: Row) return row[" .. literal(actual[10].value) .. "] end")
+			)
 		then
 			return { __facetColumnField = actual[10].value }
 		end
@@ -285,6 +345,15 @@ function source.parse(code: string, name: string): document.Document
 	expression = function(depth: number?): any
 		local level = depth or 0
 		assert(level <= 40, "Component expressions exceed 40 levels")
+		if peek() == "rows" and peek(1) == "(" then
+			sequence({ "rows", "(", "if", "data", "then", "data", "[" })
+			local key = take()
+			assert(key.kind == "literal" and type(key.value) == "string", "Use a literal data input")
+			sequence({ "]", "else", "nil", "," })
+			local initial = expression(level + 1)
+			take(")")
+			return { __facetData = { key = key.value, initial = initial } }
+		end
 		if peek() == "if" then
 			sequence({ "if", "data", "and", "data", "[" })
 			local key = take()
@@ -297,9 +366,15 @@ function source.parse(code: string, name: string): document.Document
 		end
 		if peek() == "function" then
 			if peek(1) == "(" and peek(2) == "current" and peek(3) == ":" then
-				sequence({ "function", "(", "current", ":", "any", ")" })
-				if peek() == ":" then
+				if peek(4) == "Facet" then
+					text("function(current: " .. contract.ROW .. ")")
+				else
+					sequence({ "function", "(", "current", ":", "any", ")" })
+				end
+				if peek() == ":" and peek(1) == "Facet" then
 					sequence({ ":", "Facet", ".", "RowActionsOptions" })
+				elseif peek() == ":" then
+					sequence({ ":", "GuiObject" })
 				end
 				while peek() == "local" do
 					take("local")
@@ -311,7 +386,11 @@ function source.parse(code: string, name: string): document.Document
 						"Use generated row-local state"
 					)
 					if string.match(identifier, "^columns_n%d+$") then
-						sequence({ ":", "{", "Facet", ".", "TableColumn", "<", "any", ",", "any", ">", "}" })
+						if peek(6) == "Row" then
+							text(": " .. contract.COLUMNS)
+						else
+							sequence({ ":", "{", "Facet", ".", "TableColumn", "<", "any", ",", "any", ">", "}" })
+						end
 					end
 					take("=")
 					if string.match(identifier, "^anchor_n%d+$") then
@@ -554,7 +633,11 @@ function source.parse(code: string, name: string): document.Document
 		take("local")
 		local identifier = take().value
 		if string.match(identifier, "^columns_n%d+$") then
-			sequence({ ":", "{", "Facet", ".", "TableColumn", "<", "any", ",", "any", ">", "}" })
+			if peek(6) == "Row" then
+				text(": " .. contract.COLUMNS)
+			else
+				sequence({ ":", "{", "Facet", ".", "TableColumn", "<", "any", ",", "any", ">", "}" })
+			end
 		end
 		take("=")
 		if string.match(identifier, "^anchor_n%d+$") then

@@ -10,6 +10,7 @@ local Files = require("../lib/files")
 local Json = require("../lib/json")
 local Lute = require("../../vendor/verify/src/lute")
 local Microprofiler = require("../lib/microprofiler")
+local Memory = require("../checks/perf_memory")
 local Paired = require("../lib/perf_paired")
 local Place = require("../lib/perf_place")
 local Run = require("../lib/run")
@@ -23,6 +24,8 @@ subcommands:
   prove-gate                    inject a regression, prove that run fails, then rerun it clean
   budgets                       check bench/perf_budgets.json and the last perf run's skipped device budgets
   metrics                       check the metric rows of artifacts/phase-4/perf.json (exit 2 when it is absent)
+  memory [REPORT.json]          gate exact teardown counts and report resource growth during churn
+  prove-memory-gate             plant native and Compose leaks and prove that the teardown gate fails
   scenes [--themes]             check that each production (or theme-swap) scene did its work
   place [--no-build]            build examples/performance.project.json and check the place
   paired run --out DIR [--rounds N] [--scenes a,b] [--skip-bench] LABEL=WORKTREE...
@@ -111,6 +114,24 @@ local function metrics(): number
 		return failLines(outcome.errors)
 	end
 	print(outcome.summary)
+	return 0
+end
+
+local function memory(recorded: string?): number
+	local path = recorded or Evidence.PERF
+	if not Files.isFile(path) then
+		print("perf memory: FAIL - run lute run tools/facet perf run first")
+		return 1
+	end
+	local report = readJson(path)
+	for _, trend in Memory.growth(report) do
+		print("TREND " .. trend)
+	end
+	local errors = Memory.check(report)
+	if #errors > 0 then
+		return failLines(errors)
+	end
+	print("perf memory: PASS - exact resource counts return to zero after teardown; churn growth is a trend")
 	return 0
 end
 
@@ -1188,6 +1209,8 @@ end
 CASES.run = noCases
 CASES.baseline = noCases
 CASES["prove-gate"] = noCases
+CASES.memory = noCases
+CASES["prove-memory-gate"] = noCases
 
 local ORDER = { "budgets", "metrics", "scenes", "place", "paired", "aggregate", "spec-timings" }
 
@@ -1219,12 +1242,19 @@ local function run(invocation: Cli.Invocation): number
 	if Cli.switch(invocation, "selftest") then
 		return Case.report("perf " .. subcommand, CASES[subcommand])
 	end
-	if subcommand == "run" or subcommand == "baseline" or subcommand == "prove-gate" then
+	if
+		subcommand == "run"
+		or subcommand == "baseline"
+		or subcommand == "prove-gate"
+		or subcommand == "prove-memory-gate"
+	then
 		local PerfRun = require("../lib/perf_run")
 		if subcommand == "run" then
 			return PerfRun.run(invocation.positional[2] == "baseline")
 		elseif subcommand == "baseline" then
 			return PerfRun.baselineScenes(table.move(invocation.positional, 2, #invocation.positional, 1, {}))
+		elseif subcommand == "prove-memory-gate" then
+			return PerfRun.proveMemoryGate()
 		end
 		return PerfRun.proveGate()
 	end
@@ -1233,6 +1263,8 @@ local function run(invocation: Cli.Invocation): number
 			return budgets()
 		elseif subcommand == "metrics" then
 			return metrics()
+		elseif subcommand == "memory" then
+			return memory(invocation.positional[2])
 		elseif subcommand == "scenes" then
 			return scenes(Cli.switch(invocation, "themes"))
 		elseif subcommand == "place" then

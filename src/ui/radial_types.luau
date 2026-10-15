@@ -34,14 +34,71 @@ export type RadialItemBase<V> = {
 	children: Types.Value<{ RadialItem<V> }>?,
 	onSelect: (() -> ())?,
 }
-export type RadialItem<V = string> =
-	(
-		RadialItemBase<V>
-		& { checked: ComposeTypes.Cell<boolean>, selected: nil?, value: nil?, onChange: ((boolean) -> ())? }
-	)
-	| (RadialItemBase<V> & { checked: nil?, selected: ComposeTypes.Cell<V>, value: V, onChange: ((V) -> ())? })
-	| (RadialItemBase<V> & { checked: nil?, selected: nil?, value: nil?, onChange: nil? })
-export type RadialMenuSpec<V = string> = Types.FrameProps & {
+export type RadialCheck<V = string> = {
+	id: string,
+	label: Types.ValueString,
+	description: Types.ValueString?,
+	icon: Types.ValueString?,
+	compactLabel: { prefer: boolean?, icon: Types.ValueString? }?,
+	labelStyle: ("icon" | "text")?,
+	slot: CompassSlot?,
+	enabled: Types.ValueBoolean?,
+	hidden: Types.ValueBoolean?,
+	completion: Completion?,
+	navigation: Navigation?,
+	expansion: Expansion?,
+	dismiss: boolean?,
+	children: Types.Value<{ RadialItem<V> }>?,
+	onSelect: (() -> ())?,
+	checked: ComposeTypes.Cell<boolean>,
+	selected: nil?,
+	value: nil?,
+	onChange: ((boolean) -> ())?,
+}
+export type RadialChoice<V = string> = {
+	id: string,
+	label: Types.ValueString,
+	description: Types.ValueString?,
+	icon: Types.ValueString?,
+	compactLabel: { prefer: boolean?, icon: Types.ValueString? }?,
+	labelStyle: ("icon" | "text")?,
+	slot: CompassSlot?,
+	enabled: Types.ValueBoolean?,
+	hidden: Types.ValueBoolean?,
+	completion: Completion?,
+	navigation: Navigation?,
+	expansion: Expansion?,
+	dismiss: boolean?,
+	children: Types.Value<{ RadialItem<V> }>?,
+	onSelect: (() -> ())?,
+	checked: nil?,
+	selected: ComposeTypes.Cell<V>,
+	value: V,
+	onChange: ((V) -> ())?,
+}
+export type RadialAction<V = string> = {
+	id: string,
+	label: Types.ValueString,
+	description: Types.ValueString?,
+	icon: Types.ValueString?,
+	compactLabel: { prefer: boolean?, icon: Types.ValueString? }?,
+	labelStyle: ("icon" | "text")?,
+	slot: CompassSlot?,
+	enabled: Types.ValueBoolean?,
+	hidden: Types.ValueBoolean?,
+	completion: Completion?,
+	navigation: Navigation?,
+	expansion: Expansion?,
+	dismiss: boolean?,
+	children: Types.Value<{ RadialItem<V> }>?,
+	onSelect: (() -> ())?,
+	checked: nil?,
+	selected: nil?,
+	value: nil?,
+	onChange: nil?,
+}
+export type RadialItem<V = string> = RadialCheck<V> | RadialChoice<V> | RadialAction<V>
+export type RadialMenuOptions<V = string> = {
 	items: Types.Value<{ RadialItem<V> }>,
 	label: Types.ValueString?,
 	icon: Types.ValueString?,
@@ -72,8 +129,6 @@ export type RadialMenuSpec<V = string> = Types.FrameProps & {
 	transition: boolean?,
 	scrim: ("dark" | "light" | "none")?,
 }
-export type RadialMenuBuilder = <V>(RadialMenuSpec<V>) -> Frame
-export type RadialMenuConstructor = RadialMenuBuilder & ((string) -> RadialMenuBuilder)
 export type SectorShape = {
 	angle: number,
 	span: number,

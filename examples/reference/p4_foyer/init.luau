@@ -1,11 +1,10 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 local Services = require("@self/services")
@@ -14,32 +13,33 @@ local strings = require("@self/content/strings")
 local referenceView = require("./view")
 local Foyer = { title = "Foyer" }
 function Foyer.build(ctx: ExampleContext)
-	local Compose: ComposeModule, UI, Host = ctx.Compose, ctx.UI, ctx.Host
+	local Compose, UI, Host = ctx.Compose, ctx.UI, ctx.Host
 	local D2 = ctx.types.UDim2
 	local view = referenceView(ctx)
 	local services = Services.new({ Compose = Compose })
 	local destination, tab, query, locale =
 		Compose.cell("home"), Compose.cell("forYou"), Compose.cell(""), Compose.cell("en")
-	local selected, detailOpen, notifications, invite =
-		(function(value: string?): OptionalStringCell
-			return Compose.cell(value)
-		end)(nil), Compose.cell(false), Compose.cell(false), Compose.cell(false)
-	local sectionOpen, expanded = Compose.cell(false), Compose.cell(nil :: { tiles: { seed.Tile } }?)
+	local noSelection: string? = nil
+	local selected: Cell<string?> = Compose.cell(noSelection)
+	local detailOpen, notifications, invite = Compose.cell(false), Compose.cell(false), Compose.cell(false)
+	local noSection: Services.Section? = nil
+	local sectionOpen = Compose.cell(false)
+	local expanded: Cell<Services.Section?> = Compose.cell(noSection)
 	local filtered = services.filterMemo(query)
 	local notice = Compose.cell("")
-	local function text(key, param)
-		return function(use: Use)
+	local function text(key: string, param: string?): (Use) -> string
+		return function(use: Use): string
 			return strings.get(use(locale), key, param)
 		end
 	end
-	local function open(id)
+	local function open(id: string)
 		selected:set(id)
 		detailOpen:set(true)
 	end
 	local function settle()
 		services.settle()
 	end
-	local heartbeat = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
+	local heartbeat: RBXScriptSignal? = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
 	if heartbeat then
 		local beat = heartbeat:Connect(settle)
 		Compose.cleanup(function()
@@ -66,13 +66,14 @@ function Foyer.build(ctx: ExampleContext)
 			source = key,
 			Size = size or D2.new(1, 0, 0, 140),
 			failureLabel = "Artwork unavailable",
-			loader = function(source, resolve, reject)
+			loader = function(source: string, resolve: (string?) -> (), reject: (unknown) -> ()): (() -> ())?
 				local ok, asset = seed.assetFor(source)
 				if ok then
 					resolve(asset)
 				else
 					reject("scripted-failure")
 				end
+				return nil
 			end,
 		}
 	end
@@ -86,12 +87,12 @@ function Foyer.build(ctx: ExampleContext)
 			view.text(if item.sponsored then "Sponsored" else item.blurb),
 		})
 	end
-	local function tiles(items)
+	local function tiles(items: { seed.Tile }): ScrollingFrame
 		return UI.VirtualGrid "Worlds" {
-			from = function()
+			from = function(): { seed.Tile }
 				return items
 			end,
-			key = function(item)
+			key = function(item: seed.Tile): string
 				return item.id
 			end,
 			itemSize = 258,
@@ -99,12 +100,20 @@ function Foyer.build(ctx: ExampleContext)
 			measure = true,
 			gap = 12,
 			Size = D2.fromScale(1, 1),
-			render = function(current): GuiObject
+			render = function(current: Readable<seed.Tile>): GuiObject
 				return tile(current:peek())
 			end,
 		}
 	end
-	local function feed()
+	local feeds: { StringPickerOption } = {
+		{ value = "forYou", label = "For you" },
+		{ value = "charts", label = "Charts" },
+	}
+	local locales: { StringPickerOption } = {
+		{ value = "en", label = "English" },
+		{ value = "xa", label = "Expanded" },
+	}
+	local function feed(): Instance
 		return view.page("Feed", {
 			view.text("Foyer", 30),
 			UI.TextInput "Search" { value = query, placeholder = text("search.ph") },
@@ -119,17 +128,18 @@ function Foyer.build(ctx: ExampleContext)
 			end),
 			UI.Picker "FeedSelection" {
 				selected = tab,
-				options = {
-					{ value = "forYou", label = "For you" } :: PickerOption,
-					{ value = "charts", label = "Charts" } :: PickerOption,
-				},
+				options = feeds,
 			},
 			Compose.show(function(use: Use)
 				return use(query) ~= ""
 			end, function()
 				return view.column("SearchResults", {
-					view.list(filtered, function(current)
+					view.watch(function(use: Use): { seed.Tile }
+						return use(filtered)
+					end, function(current: Readable<seed.Tile>): GuiObject
 						return tile(current:peek())
+					end, function(item: seed.Tile): string
+						return item.id
 					end),
 					Compose.show(function(use: Use)
 						return #use(filtered) == 0
@@ -139,9 +149,9 @@ function Foyer.build(ctx: ExampleContext)
 				})
 			end, function()
 				return view.column("Sections", {
-					view.list(function(use: Use)
+					view.watch(function(use: Use): { Services.Section }
 						return if use(tab) == "charts" then services.charted else use(services.sections)
-					end, function(current)
+					end, function(current: Readable<Services.Section>): GuiObject
 						local entry = current:peek()
 						return view.column(entry.id, {
 							view.text(text(entry.titleKey), 24),
@@ -154,37 +164,41 @@ function Foyer.build(ctx: ExampleContext)
 								end
 							),
 							view.column("Tiles", {
-								view.list(function(use: Use)
+								view.watch(function(use: Use): { seed.Tile }
 									return use(current).tiles
-								end, function(item)
+								end, function(item: Readable<seed.Tile>): GuiObject
 									return tile(item:peek())
+								end, function(item: seed.Tile): string
+									return item.id
 								end),
 							}),
 						})
+					end, function(entry: Services.Section): string
+						return entry.id
 					end),
 				})
 			end),
 		})
 	end
-	local function friends()
+	local function friends(): Instance
 		return view.page("Crews", {
 			view.text(text("nav.crews"), 28),
 			view.action("Invite", text("invite.label"), function()
 				invite:set(true)
 			end),
 			view.column("Friends", {
-				view.list(services.friends, function(current)
+				view.list(services.friends, function(current: Readable<seed.Friend>): GuiObject
 					local friend = current:peek()
 					return view.column(friend.id, {
 						image(friend.portraitKey, D2.fromOffset(60, 60)),
 						view.text(friend.handle, 22),
 						UI.StatusIndicator({
-							status = if friend.presence == "here"
-								then "success" :: "success"
-								else "neutral" :: "neutral",
+							status = if friend.presence == "here" then "success" else "neutral",
 						}),
 						view.text(friend.presence),
 					})
+				end, function(friend: seed.Friend): string
+					return friend.id
 				end),
 			}),
 		})
@@ -193,57 +207,57 @@ function Foyer.build(ctx: ExampleContext)
 		return view.page("Mail", {
 			view.text(text("notices.title"), 28),
 			view.column("Notices", {
-				view.list(services.notices, function(current)
+				view.list(services.notices, function(current: Readable<seed.Notice>): GuiObject
 					local item = current:peek()
 					return view.column(
 						item.id,
 						{ view.text(item.bodyKeyless), view.text(text(item.timeKey, item.timeParam)) }
 					)
+				end, function(item: seed.Notice): string
+					return item.id
 				end),
 			}),
 		})
 	end
-	local function screen()
+	local destinations: { Tab } = {
+		{ id = "home", label = text("nav.home"), content = feed },
+		{ id = "crews", label = text("nav.crews"), content = friends },
+		{
+			id = "forge",
+			label = text("nav.forge"),
+			content = function(): Instance
+				return view.page("Forge", { view.text(text("nav.forge"), 28), view.text(text("stub.honest")) })
+			end,
+		},
+		{ id = "mail", label = text("nav.mail"), content = mailbox },
+		{
+			id = "you",
+			label = text("nav.you"),
+			content = function(): Instance
+				return view.page("Profile", {
+					view.text(text("profile.label"), 28),
+					view.text(text("profile.caption")),
+					UI.Picker "Locale" {
+						selected = locale,
+						options = locales,
+					},
+				})
+			end,
+		},
+	}
+	local inviteActions: { AlertAction } = {
+		{ id = "close", label = text("close.label"), role = "cancel" },
+	}
+	local function screen(): Instance
 		return Host.Frame "Foyer" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
 			UI.TabView "Destinations" {
-				style = "sidebarAdaptable" :: "sidebarAdaptable",
+				style = "sidebarAdaptable",
 				selection = destination,
 				Size = D2.new(1, 0, 1, -64),
-				tabs = {
-					{ id = "home", label = text("nav.home"), content = feed } :: Tab,
-					{ id = "crews", label = text("nav.crews"), content = friends } :: Tab,
-					{
-						id = "forge",
-						label = text("nav.forge"),
-						content = function(): Instance
-							return view.page(
-								"Forge",
-								{ view.text(text("nav.forge"), 28), view.text(text("stub.honest")) }
-							)
-						end,
-					} :: Tab,
-					{ id = "mail", label = text("nav.mail"), content = mailbox } :: Tab,
-					{
-						id = "you",
-						label = text("nav.you"),
-						content = function(): Instance
-							return view.page("Profile", {
-								view.text(text("profile.label"), 28),
-								view.text(text("profile.caption")),
-								UI.Picker "Locale" {
-									selected = locale,
-									options = {
-										{ value = "en", label = "English" } :: PickerOption,
-										{ value = "xa", label = "Expanded" } :: PickerOption,
-									},
-								},
-							})
-						end,
-					} :: Tab,
-				},
-			} :: unknown,
+				tabs = destinations,
+			},
 			UI.Text({
 				text = notice,
 				TextWrapped = true,
@@ -256,7 +270,7 @@ function Foyer.build(ctx: ExampleContext)
 				isPresented = detailOpen,
 				detent = Compose.cell("large"),
 				content = function(): Instance
-					local item = services.tileById(selected:peek())
+					local item = assert(services.tileById(assert(selected:peek())))
 					return view.page("World", {
 						image(item.thumbKey),
 						view.text(item.title, 28),
@@ -294,9 +308,7 @@ function Foyer.build(ctx: ExampleContext)
 				isPresented = invite,
 				title = Compose.formula(text("invite.label")),
 				message = Compose.formula(text("invite.stub")),
-				actions = {
-					{ id = "close", label = text("close.label"), role = "cancel" :: "cancel" } :: AlertAction,
-				},
+				actions = inviteActions,
 			},
 		}
 	end
@@ -306,7 +318,7 @@ function Foyer.build(ctx: ExampleContext)
 		steps = {
 			settle = settle,
 			open = open,
-			search = function(value)
+			search = function(value: string)
 				query:set(value)
 			end,
 			refresh = services.refresh,

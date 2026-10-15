@@ -76,7 +76,7 @@ return function(verifyHarness: Verify.Harness)
 			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				Name = "Host",
 				Compose.show(w.visible, function()
-					return UI.NumberInput("Laps")(merged)
+					return UI.NumberInput "Laps"(merged)
 				end),
 			})
 		end, screen)
@@ -125,7 +125,7 @@ return function(verifyHarness: Verify.Harness)
 								then true
 								elseif key == "prefix" or key == "suffix" then "$"
 								else 1
-							return UI.TextInput("T")(spec)
+							return UI.TextInput "T"(spec)
 						end, engine.new("ScreenGui"))
 						stop()
 					end)

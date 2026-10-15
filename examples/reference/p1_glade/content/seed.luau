@@ -1,13 +1,40 @@
 --!strict
 
+export type RGB = { number }
+export type Glade = {
+	id: string,
+	favourite: boolean,
+	nectar: string,
+	phaseOffset: number,
+	nectarAge: number,
+	dewAge: number,
+}
+export type Wisp = {
+	id: string,
+	scale: number,
+	phase: string,
+	favourite: string,
+	lumenOnly: boolean?,
+	hero: boolean?,
+	core: RGB,
+	glow: RGB,
+}
+export type Nectar = { id: string, premium: boolean, priority: number?, art: RGB }
+export type Pack = { id: string, nectar: string, quantity: number, price: number, hero: boolean?, art: RGB }
+export type CharmTier = { id: string, rank: number, price: number }
+export type Visit = { id: string, glade: string, wisp: string, start: number, finish: number, earlyStart: number? }
+export type Flora = { id: string, art: RGB }
+export type Drain = { empty: number, low: number }
+
 local seed = {}
 
 seed.WORLD = 20260808
 
-seed.DRAIN = {
+local DRAIN: { [string]: Drain } = {
 	nectar = { empty = 540, low = 450 },
 	dew = { empty = 960, low = 780 },
 }
+seed.DRAIN = DRAIN
 
 seed.DAY_SECONDS = 300
 seed.PHASES = { "night", "dawn", "day", "dusk", "eve" }
@@ -34,13 +61,14 @@ seed.METRICS = {
 	affordanceMax = 96,
 }
 
-seed.SKY = {
+local SKY: { [string]: { high: RGB, low: RGB, silhouette: RGB } } = {
 	night = { high = { 0.04, 0.05, 0.13 }, low = { 0.10, 0.11, 0.22 }, silhouette = { 0.02, 0.03, 0.07 } },
 	dawn = { high = { 0.28, 0.24, 0.42 }, low = { 0.86, 0.60, 0.44 }, silhouette = { 0.10, 0.09, 0.16 } },
 	day = { high = { 0.36, 0.62, 0.86 }, low = { 0.74, 0.86, 0.92 }, silhouette = { 0.14, 0.22, 0.20 } },
 	dusk = { high = { 0.20, 0.18, 0.36 }, low = { 0.90, 0.52, 0.34 }, silhouette = { 0.09, 0.08, 0.14 } },
 	eve = { high = { 0.09, 0.10, 0.24 }, low = { 0.38, 0.24, 0.38 }, silhouette = { 0.05, 0.05, 0.11 } },
 }
+seed.SKY = SKY
 
 seed.WHITE = { 1, 1, 1 }
 
@@ -50,7 +78,7 @@ seed.FERN = { 0.17, 0.31, 0.19 }
 seed.DEWSTONE = { 0.52, 0.56, 0.58 }
 seed.DEWWATER = { 0.62, 0.82, 0.88 }
 
-seed.GLADES = {
+local GLADES: { Glade } = {
 
 	{ id = "mossholm", favourite = true, nectar = "clover", phaseOffset = 180, nectarAge = 0, dewAge = 820 },
 	{ id = "fernhollow", favourite = false, nectar = "meadow", phaseOffset = 0, nectarAge = 460, dewAge = 800 },
@@ -58,12 +86,13 @@ seed.GLADES = {
 	{ id = "brambleRest", favourite = false, nectar = "bramble", phaseOffset = 120, nectarAge = 200, dewAge = 1000 },
 	{ id = "stillpond", favourite = false, nectar = "heather", phaseOffset = 240, nectarAge = 470, dewAge = 790 },
 }
+seed.GLADES = GLADES
 
-seed.WISPS = {
+local WISPS: { Wisp } = {
 	{
 		id = "emberwisp",
 		scale = 0.83,
-		phase = "eve" :: string,
+		phase = "eve",
 		favourite = "bramble",
 		core = { 1.00, 0.86, 0.62 },
 		glow = { 0.96, 0.54, 0.24 },
@@ -71,7 +100,7 @@ seed.WISPS = {
 	{
 		id = "palewisp",
 		scale = 1.00,
-		phase = "dawn" :: string,
+		phase = "dawn",
 		favourite = "clover",
 		core = { 0.98, 0.98, 0.94 },
 		glow = { 0.78, 0.82, 0.92 },
@@ -79,7 +108,7 @@ seed.WISPS = {
 	{
 		id = "frostwisp",
 		scale = 0.71,
-		phase = "night" :: string,
+		phase = "night",
 		favourite = "moonpetal",
 		lumenOnly = true,
 		core = { 0.90, 0.98, 1.00 },
@@ -88,7 +117,7 @@ seed.WISPS = {
 	{
 		id = "duskwisp",
 		scale = 1.00,
-		phase = "dusk" :: string,
+		phase = "dusk",
 		favourite = "moonpetal",
 		core = { 0.92, 0.86, 1.00 },
 		glow = { 0.52, 0.38, 0.82 },
@@ -96,7 +125,7 @@ seed.WISPS = {
 	{
 		id = "sunwisp",
 		scale = 1.00,
-		phase = "day" :: string,
+		phase = "day",
 		favourite = "meadow",
 		core = { 1.00, 0.96, 0.74 },
 		glow = { 0.98, 0.80, 0.28 },
@@ -104,15 +133,16 @@ seed.WISPS = {
 	{
 		id = "tidewisp",
 		scale = 0.76,
-		phase = "eve" :: string,
+		phase = "eve",
 		favourite = "gilded",
 		hero = true,
 		core = { 0.86, 0.98, 0.96 },
 		glow = { 0.24, 0.70, 0.72 },
 	},
 }
+seed.WISPS = WISPS
 
-seed.NECTARS = {
+local NECTARS: { Nectar } = {
 	{ id = "clover", premium = false, art = { 0.72, 0.80, 0.46 } },
 	{ id = "meadow", premium = false, art = { 0.84, 0.78, 0.38 } },
 	{ id = "fern", premium = false, art = { 0.46, 0.68, 0.44 } },
@@ -123,8 +153,9 @@ seed.NECTARS = {
 	{ id = "moonpetal", premium = true, priority = 2, art = { 0.68, 0.72, 0.94 } },
 	{ id = "gilded", premium = true, priority = 1, art = { 0.92, 0.72, 0.30 } },
 }
+seed.NECTARS = NECTARS
 
-seed.PACKS = {
+local PACKS: { Pack } = {
 	{ id = "starlightSingle", nectar = "starlight", quantity = 1, price = 79, art = { 0.80, 0.86, 1.00 } },
 	{
 		id = "starlightBundle",
@@ -139,19 +170,23 @@ seed.PACKS = {
 	{ id = "gildedSingle", nectar = "gilded", quantity = 1, price = 59, art = { 0.92, 0.72, 0.30 } },
 	{ id = "gildedBundle", nectar = "gilded", quantity = 5, price = 219, art = { 0.82, 0.58, 0.20 } },
 }
+seed.PACKS = PACKS
 
-seed.SATCHEL = { starlight = 3 }
+local SATCHEL: { [string]: number } = { starlight = 3 }
+seed.SATCHEL = SATCHEL
 
-seed.CHARM_TIERS = {
+local CHARM_TIERS: { CharmTier } = {
 	{ id = "ember", rank = 1, price = 99 },
 	{ id = "grove", rank = 2, price = 199 },
 	{ id = "lumen", rank = 3, price = 349 },
 }
-seed.CHARM_RANK = { none = 0, ember = 1, grove = 2, lumen = 3 }
+seed.CHARM_TIERS = CHARM_TIERS
+local CHARM_RANK: { [string]: number } = { none = 0, ember = 1, grove = 2, lumen = 3 }
+seed.CHARM_RANK = CHARM_RANK
 
 seed.KEEPER = { displayName = "Wren of the Low Fen", contact = "wren@glade", joined = "the third thaw" }
 
-seed.VISITS = {
+local VISITS: { Visit } = {
 	{ id = "v1", glade = "mossholm", wisp = "emberwisp", start = -900, finish = -720 },
 	{ id = "v2", glade = "mossholm", wisp = "emberwisp", start = -60, finish = 240 },
 	{ id = "v3", glade = "mossholm", wisp = "tidewisp", start = 600, finish = 900 },
@@ -162,65 +197,82 @@ seed.VISITS = {
 	{ id = "v8", glade = "stillpond", wisp = "duskwisp", start = -2000, finish = -1800 },
 	{ id = "v9", glade = "stillpond", wisp = "tidewisp", start = -30, finish = 300 },
 }
+seed.VISITS = VISITS
 
-seed.FLORA = {
+local FLORA: { Flora } = {
 	{ id = "mosscap", art = { 0.28, 0.44, 0.26 } },
 	{ id = "lanternvine", art = { 0.74, 0.66, 0.32 } },
 	{ id = "dewfern", art = { 0.34, 0.56, 0.42 } },
 	{ id = "bramblewort", art = { 0.42, 0.26, 0.34 } },
 	{ id = "stillreed", art = { 0.46, 0.62, 0.56 } },
 }
+seed.FLORA = FLORA
 
-seed.OUTCOMES = {
+local OUTCOMES: { [string]: { string } } = {
 	pack = { "confirmed", "declined", "confirmed", "offline" },
 	charm = { "confirmed", "owned", "confirmed" },
 	restore = { "confirmed", "offline" },
 }
+seed.OUTCOMES = OUTCOMES
 
 seed.TASK = { glade = "mossholm", wisp = "emberwisp" }
 
-local function index(list: { any }): { [string]: any }
-	local out: { [string]: any } = {}
+local function index<T>(list: { T }, id: (T) -> string): { [string]: T }
+	local out: { [string]: T } = {}
 	for _, entry in list do
-		out[entry.id] = entry
+		out[id(entry)] = entry
 	end
 	return out
 end
 
-seed.GLADE_BY_ID = index(seed.GLADES)
-seed.WISP_BY_ID = index(seed.WISPS)
-seed.NECTAR_BY_ID = index(seed.NECTARS)
-seed.PACK_BY_ID = index(seed.PACKS)
-seed.CHARM_BY_ID = index(seed.CHARM_TIERS)
-seed.FLORA_BY_ID = index(seed.FLORA)
+seed.GLADE_BY_ID = index(GLADES, function(entry: Glade): string
+	return entry.id
+end)
+seed.WISP_BY_ID = index(WISPS, function(entry: Wisp): string
+	return entry.id
+end)
+seed.NECTAR_BY_ID = index(NECTARS, function(entry: Nectar): string
+	return entry.id
+end)
+seed.PACK_BY_ID = index(PACKS, function(entry: Pack): string
+	return entry.id
+end)
+seed.CHARM_BY_ID = index(CHARM_TIERS, function(entry: CharmTier): string
+	return entry.id
+end)
+seed.FLORA_BY_ID = index(FLORA, function(entry: Flora): string
+	return entry.id
+end)
 
 seed.TASK_NECTAR = seed.WISP_BY_ID[seed.TASK.wisp].favourite
 
-seed.PREMIUM = {}
+local PREMIUM: { Nectar } = {}
+seed.PREMIUM = PREMIUM
 for _, nectar in seed.NECTARS do
 	if nectar.premium then
-		table.insert(seed.PREMIUM, nectar)
+		table.insert(PREMIUM, nectar)
 	end
 end
-table.sort(seed.PREMIUM, function(a: any, b: any)
-	return a.priority > b.priority
+table.sort(PREMIUM, function(a: Nectar, b: Nectar): boolean
+	return (a.priority or 0) > (b.priority or 0)
 end)
 
-seed.STANDARD = {}
+local STANDARD: { Nectar } = {}
+seed.STANDARD = STANDARD
 for _, nectar in seed.NECTARS do
 	if not nectar.premium then
-		table.insert(seed.STANDARD, nectar)
+		table.insert(STANDARD, nectar)
 	end
 end
 
-function seed.packsFor(nectarId: string): { any }
-	local out: { any } = {}
+function seed.packsFor(nectarId: string): { Pack }
+	local out: { Pack } = {}
 	for _, pack in seed.PACKS do
 		if pack.nectar == nectarId then
 			table.insert(out, pack)
 		end
 	end
-	table.sort(out, function(a: any, b: any)
+	table.sort(out, function(a: Pack, b: Pack): boolean
 		return a.quantity < b.quantity
 	end)
 	return out

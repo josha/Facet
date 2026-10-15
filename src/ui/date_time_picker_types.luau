@@ -52,9 +52,5 @@ export type DateTimePickerOptions = {
 	appearance: WordsValue?,
 	corners: ("pill" | "square")?,
 }
-export type DateTimePickerProps = Shared.FrameProps & DateTimePickerOptions
-export type DateTimePickerControls = {
-	DateTimePicker: Shared.Constructor<DateTimePickerProps, Frame>,
-}
 
 return {}

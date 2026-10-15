@@ -5,9 +5,11 @@ type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type NumberCell = typeof(require("@repo/tools/typecheck/aliases").NumberCell)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 return {
 	title = "Time-based easing",
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Host, UI, Compose: ComposeModule, runtime = ctx.Host, ctx.UI, ctx.Compose, ctx.runtime
 		local D, D2, C3, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Color3, ctx.types.Enum
 		local reduced, race, gallery, panel = Compose.cell(false), Compose.cell(0), Compose.cell(0), Compose.cell(0)
@@ -67,7 +69,7 @@ return {
 			})
 		end
 		local function screen()
-			local children = {
+			local children: { Child } = {
 				label("Title", "Time curves — a duration a spring cannot promise"),
 				UI.Toggle "Reduced" { label = "Reduce decorative motion", value = reduced },
 				label("RaceHeading", "Cooldown: on time versus approaching"),
@@ -96,16 +98,15 @@ return {
 			for _, lane in lanes do
 				table.insert(
 					children,
-					Host.Frame({
-						Name = lane.name,
+					Host.Frame(lane.name)({
 						Size = D2.new(1, 0, 0, 68),
 						BackgroundTransparency = 1,
-						label("Caption", lane.name) :: unknown,
-						Host.Frame "Track" {
+						label("Caption", lane.name),
+						Host.Frame("Track")({
 							Position = D2.fromOffset(0, 32),
 							Size = D2.new(1, 0, 0, 32),
 							BackgroundTransparency = 1,
-							Host.Frame "Marker" {
+							Host.Frame("Marker")({
 								Size = D2.fromOffset(28, 28),
 								BorderSizePixel = 0,
 								BackgroundColor3 = C3.fromRGB(64, 144, 255),
@@ -113,8 +114,8 @@ return {
 									local v = decorative(lane.value, gallery, use)
 									return D2.new(v, -28 * v, 0, 0)
 								end,
-							},
-						},
+							}),
+						}),
 					})
 				)
 			end
@@ -122,10 +123,10 @@ return {
 			table.insert(children, UI.Button "FlyPanel" { label = "Fly the panel", onActivate = fly })
 			table.insert(
 				children,
-				Host.Frame "PanelLane" {
+				Host.Frame("PanelLane")({
 					Size = D2.new(1, 0, 0, 48),
 					BackgroundTransparency = 1,
-					Host.Frame "Puck" {
+					Host.Frame("Puck")({
 						Size = D2.fromOffset(32, 32),
 						BackgroundColor3 = C3.fromRGB(80, 180, 160),
 						BorderSizePixel = 0,
@@ -133,26 +134,26 @@ return {
 							local v = decorative(panelFlight, panel, use)
 							return D2.new(v, -32 * v, 0, 0)
 						end,
-					},
-				}
+					}),
+				})
 			)
 			table.insert(
 				children,
-				Host.Frame "GrowingPanel" {
+				Host.Frame("GrowingPanel")({
 					BackgroundColor3 = C3.fromRGB(80, 180, 160),
 					BorderSizePixel = 0,
 					Size = function(use: Use)
 						return D2.new(1, 0, 0, 64 + 64 * decorative(panelFlight, panel, use))
 					end,
 					label("PanelCaption", "The plate doubles its height on the same curve, in the same action."),
-				}
+				})
 			)
 			return UI.ScrollView "TimeCurves" {
 				padding = 16,
 				gap = 12,
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				table.unpack((children :: unknown) :: { unknown }),
+				table.unpack(children),
 			}
 		end
 		return {

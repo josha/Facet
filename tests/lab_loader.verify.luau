@@ -99,7 +99,7 @@ return function(harness: Verify.Harness)
 		local app: Facet.App
 		local stop = runtime.mount(function()
 			local theme = Facet.themes.neutralPackage()
-			local context = {
+			local context: any = {
 				Facet = Facet,
 				Compose = C,
 				runtime = runtime,

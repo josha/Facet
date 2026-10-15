@@ -7,7 +7,7 @@ export type ZoomControls = {
 	zoomTo: ((Rect) -> boolean)?,
 	zoomAt: ((number, Vector2?) -> boolean)?,
 }
-export type ZoomViewProps = Shared.ScrollingFrameProps & {
+export type ZoomViewOptions = {
 	contentSize: Shared.Value<Vector2>,
 	content: () -> GuiObject,
 	zoom: Shared.Cell<number>?,
@@ -18,7 +18,7 @@ export type ZoomViewProps = Shared.ScrollingFrameProps & {
 	enabled: Shared.ValueBoolean?,
 	controls: ZoomControls?,
 }
-export type TravelProps = Shared.FrameProps & {
+export type TravelOptions = {
 	destination: Shared.Value<GuiObject>,
 	content: () -> GuiObject,
 	path: ("straight" | "arc")?,
@@ -28,10 +28,6 @@ export type TravelProps = Shared.FrameProps & {
 	lift: boolean?,
 	onStarted: ((GuiObject) -> ())?,
 	onLanded: ((GuiObject) -> ())?,
-}
-export type Controls = {
-	ZoomView: Shared.Constructor<ZoomViewProps, ScrollingFrame>,
-	Travel: Shared.Constructor<TravelProps, Frame>,
 }
 
 return {}

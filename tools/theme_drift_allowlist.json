@@ -1,35 +1,42 @@
 {
   "entries": [
     {
-      "path": "src/ui/inputs.luau",
+      "path": "src/ui/input_button.luau",
       "rule": "radius",
       "match": "ctx.corner(2),",
       "status": "structural",
       "reason": "The activity dots are fixed 4x4 px circles; radius 2 is half the dot, a shape rather than a theme corner size."
     },
     {
-      "path": "src/ui/media.luau",
+      "path": "src/ui/input_level.luau",
+      "rule": "radius",
+      "match": "ctx.corner(2),",
+      "status": "structural",
+      "reason": "The activity dots are fixed 4x4 px circles; radius 2 is half the dot, a shape rather than a theme corner size."
+    },
+    {
+      "path": "src/ui/media_badge.luau",
       "rule": "stroke",
       "match": "return math.max(2, math.floor(size(use) / 6 + 0.5))",
       "status": "structural",
       "reason": "The StatusIndicator ring thickness is a sixth of the indicator diameter with a 2 px floor, so it scales with the ring."
     },
     {
-      "path": "src/ui/media.luau",
+      "path": "src/ui/media_badge.luau",
       "rule": "stroke",
       "match": "Thickness = 1,",
       "status": "no-metric",
       "reason": "The StatusIndicator cutout is a 1 px gap painted in the surface color by .facet-cutout; it separates the dot from content and is not the hairline role."
     },
     {
-      "path": "src/ui/media.luau",
+      "path": "src/ui/media_progress.luau",
       "rule": "paint-opacity",
       "match": "BackgroundTransparency = 0.6,",
       "status": "no-metric",
       "reason": "The progress trail is a translucent echo of the .facet-fill accent; the palette has no trail opacity, and 0.6 is relative to the themed fill color."
     },
     {
-      "path": "src/ui/nav_modal.luau",
+      "path": "src/ui/nav_modal_stack.luau",
       "rule": "paint-color",
       "match": "ctx.types.Color3.new(0, 0, 0)",
       "status": "authored",
@@ -43,35 +50,35 @@
       "reason": "The slider rail and fill are thin bars; radius 3 rounds their ends into a capsule, a shape rather than a theme corner size. The code moved here from inputs.luau. A contained rail is as thick as the knob and rounds fully into a pill. Both go square when the theme's radii.pill is 0 (ctx.round)."
     },
     {
-      "path": "src/ui/nav_menu.luau",
+      "path": "src/ui/nav_picker_options.luau",
       "rule": "radius",
       "match": "ctx.corner(9) :: Types.Child,",
       "status": "structural",
       "reason": "The radio indicator is a fixed 18 px circle; radius 9 is half its size."
     },
     {
-      "path": "src/ui/nav_menu.luau",
+      "path": "src/ui/nav_picker_options.luau",
       "rule": "radius",
       "match": "ctx.corner(4) :: Types.Child,",
       "status": "structural",
       "reason": "The radio dot is a fixed 8 px circle; radius 4 is half its size."
     },
     {
-      "path": "src/ui/collection_reorder.luau",
+      "path": "src/ui/collection_reorder_row.luau",
       "rule": "radius",
       "match": "ctx.corner(if mode == \"multiple\" then 3 else 9) :: Types.Child,",
       "status": "structural",
       "reason": "The 18 px selection mark is square for multiple selection and a circle for single selection. ctx.corner removes rounding when the theme uses square corners."
     },
     {
-      "path": "src/ui/collection_reorder.luau",
+      "path": "src/ui/collection_reorder_row.luau",
       "rule": "radius",
       "match": "ctx.corner(4) :: Types.Child,",
       "status": "structural",
       "reason": "The edit-mode selection mark's dot is the 8 px radio dot; radius 4 is half its size."
     },
     {
-      "path": "src/ui/nav_pages.luau",
+      "path": "src/ui/nav_stack.luau",
       "rule": "paint-color",
       "match": "ctx.types.Color3.new(0, 0, 0)",
       "status": "authored",
@@ -85,21 +92,28 @@
       "reason": "Colour value conversion: this builds the colour the player chose, not a paint colour of the control."
     },
     {
-      "path": "src/ui/color_picker.luau",
+      "path": "src/ui/color_picker_kit.luau",
       "rule": "stroke",
       "match": "Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),",
       "status": "no-metric",
       "reason": "The swatch well outline separates any sample colour from the page; it has no theme metric."
     },
     {
-      "path": "src/ui/color_picker.luau",
+      "path": "src/ui/color_picker_swatches.luau",
+      "rule": "stroke",
+      "match": "Host.UIStroke({ Thickness = 1, ApplyStrokeMode = E.ApplyStrokeMode.Border }),",
+      "status": "no-metric",
+      "reason": "The swatch well outline separates any sample colour from the page; it has no theme metric."
+    },
+    {
+      "path": "src/ui/color_picker_sliders.luau",
       "rule": "stroke",
       "match": "Host.UIStroke({ Color = WHITE, Thickness = 2, Transparency = 0 }),",
       "status": "structural",
       "reason": "The plane position ring is white so it reads on every sample colour under it; it is part of the chosen colour display, not theme paint."
     },
     {
-      "path": "src/ui/date_time_picker.luau",
+      "path": "src/ui/date_time_calendar.luau",
       "rule": "stroke",
       "match": "Host.UIStroke({ Thickness = 1 }) :: Shared.Child,",
       "status": "no-metric",

@@ -2,30 +2,42 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
 
 local seed = require("./content/seed")
 
 export type CommandStatus = "idle" | "pending" | "confirmed" | "rejected"
+export type Section = { id: string, titleKey: string, layout: string, tiles: { seed.Tile } }
 
 local services = {}
 
-function services.new(deps: { Compose: any })
-	local Compose: ComposeModule = deps.Compose
-
-	local self = {} :: any
+function services.new(deps: { Compose: ComposeModule })
+	local Compose = deps.Compose
 
 	local page = 0
-	self.sections = Compose.cell(seed.sections(page))
-	self.charted = seed.charted()
-	self.continueIds = Compose.cell({} :: { [string]: boolean })
-	self.noticeCount = Compose.cell(#seed.notices)
-	self.notices = seed.notices
-
-	self.refreshStatus = Compose.cell("idle" :: CommandStatus)
-	self.refreshReason = Compose.cell(nil :: string?)
-	self.visitStatus = Compose.cell("idle" :: CommandStatus)
-	self.visitPendingId = Compose.cell(nil :: string?)
+	local idle: CommandStatus = "idle"
+	local nothing: string? = nil
+	local noIds: { [string]: boolean } = {}
+	local sections: Cell<{ Section }> = Compose.cell(seed.sections(page))
+	local refreshStatus: Cell<CommandStatus> = Compose.cell(idle)
+	local refreshReason: Cell<string?> = Compose.cell(nothing)
+	local visitStatus: Cell<CommandStatus> = Compose.cell(idle)
+	local visitPendingId: Cell<string?> = Compose.cell(nothing)
+	local continueIds: Cell<{ [string]: boolean }> = Compose.cell(noIds)
+	local self = {
+		sections = sections,
+		charted = seed.charted(),
+		continueIds = continueIds,
+		noticeCount = Compose.cell(#seed.notices),
+		notices = seed.notices,
+		refreshStatus = refreshStatus,
+		refreshReason = refreshReason,
+		visitStatus = visitStatus,
+		visitPendingId = visitPendingId,
+		friends = seed.friends,
+		inviteCount = Compose.cell(seed.inviteCount),
+	}
 
 	local rejectNext: { [string]: string? } = {}
 	function self.scriptRejection(command: string, reason: string?)
@@ -94,11 +106,8 @@ function services.new(deps: { Compose: any })
 		return page
 	end
 
-	self.friends = seed.friends
-	self.inviteCount = Compose.cell(seed.inviteCount)
-
-	function self.filterMemo(query: any)
-		return Compose.formula(function(use: Use)
+	function self.filterMemo(query: Readable<string>)
+		return Compose.formula(function(use: Use): { seed.Tile }
 			local q = string.lower(use(query))
 			if q == "" then
 				return {}
@@ -106,7 +115,7 @@ function services.new(deps: { Compose: any })
 			local out: { seed.Tile } = {}
 			local sects = use(self.sections)
 			local seen: { [string]: boolean } = {}
-			for _, section in sects :: { any } do
+			for _, section in sects do
 				for _, tile in section.tiles do
 					if not seen[tile.id] then
 						seen[tile.id] = true
@@ -124,7 +133,7 @@ function services.new(deps: { Compose: any })
 	end
 
 	function self.tileById(id: string): seed.Tile?
-		for _, section in self.sections:peek() :: { any } do
+		for _, section in self.sections:peek() do
 			for _, tile in section.tiles do
 				if tile.id == id then
 					return tile

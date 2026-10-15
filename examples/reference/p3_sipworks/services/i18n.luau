@@ -8,7 +8,10 @@ local i18n = {}
 
 i18n.LOCALES = strings.LOCALES
 
-function i18n.localeOf(fact: any): string
+export type Params = { [string]: string }
+export type Plural = { zero: string?, one: string?, other: string? }
+
+function i18n.localeOf(fact: unknown): string
 	if type(fact) ~= "string" then
 		return "en"
 	end
@@ -19,7 +22,7 @@ function i18n.localeOf(fact: any): string
 	return "en"
 end
 
-local function substitute(template: string, params: any): string
+local function substitute(template: string, params: Params?): string
 	if params == nil then
 		return template
 	end
@@ -34,20 +37,23 @@ local function substitute(template: string, params: any): string
 	)
 end
 
-local function pluralForm(entry: any, n: number?): string
+local function pluralForm(entry: Plural, n: number?): string
 	if n == 0 and entry.zero ~= nil then
 		return entry.zero
 	end
 	if n == 1 and entry.one ~= nil then
 		return entry.one
 	end
-	return entry.other or entry.one or entry.zero
+	return entry.other or entry.one or entry.zero or ""
 end
 
-function i18n.new(opts: any)
-	local Compose: ComposeModule = opts.Compose
+export type Opts = { Compose: ComposeModule, locale: string? }
 
-	local locale = Compose.cell((opts.locale or "en") :: string)
+function i18n.new(opts: Opts)
+	local Compose = opts.Compose
+
+	local initialLocale: string = opts.locale or "en"
+	local locale = Compose.cell(initialLocale)
 
 	local nameCache: { [string]: string } = {}
 
@@ -63,20 +69,21 @@ function i18n.new(opts: any)
 		return true
 	end
 
-	function self.at(localeId: string, key: string, params: any?): string
+	function self.at(localeId: string, key: string, params: Params?): string
 		local tableForLocale = strings.byLocale[localeId] or strings.byLocale.en
 		local entry = tableForLocale[key]
 		if entry == nil then
 			return "?" .. key
 		end
 		if type(entry) == "table" then
-			local n = if params ~= nil then params.n else nil
+			local count = if params ~= nil then params.n else nil
+			local n = if type(count) == "number" then count else nil
 			return substitute(pluralForm(entry, n), params)
 		end
 		return substitute(entry, params)
 	end
 
-	function self.t(key: string, params: any?): string
+	function self.t(key: string, params: Params?): string
 		return self.at(locale:peek(), key, params)
 	end
 

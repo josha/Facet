@@ -5,14 +5,14 @@ type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Writing and search",
 	ledgerRows = { "CONTROL-TEXT" },
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local text = Compose.cell("Write your race notes here.")
@@ -94,6 +94,7 @@ return {
 		end
 		local function body()
 			local props: StackProps = {
+				Name = "Body",
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -106,12 +107,12 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Writing and search",
-					textRole = "title" :: "title",
+					textRole = "title",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
-				Host.Frame "Toolbar" {
+				Host.Frame("Toolbar")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -119,7 +120,7 @@ return {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}) :: unknown,
+					}),
 					UI.Button "Enable" {
 						LayoutOrder = 1,
 						label = function(use: Use)
@@ -129,8 +130,13 @@ return {
 							enabled:set(not enabled:peek())
 						end,
 					},
-					UI.Button "Reset" { LayoutOrder = 2, label = "Reset", appearance = "utility", onActivate = reset },
-				},
+					UI.Button "Reset" {
+						LayoutOrder = 2,
+						label = "Reset",
+						appearance = "utility",
+						onActivate = reset,
+					},
+				}),
 				UI.Text({
 
 					BackgroundTransparency = 1,
@@ -138,7 +144,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Race notes",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -186,14 +192,14 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Find a track",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
 				UI.TextInput "Search" {
 					value = query,
-					presentation = "search" :: "search",
+					presentation = "search",
 					enabled = enabled,
 				},
 				Compose.OrderedCollection({
@@ -217,7 +223,7 @@ return {
 							TextXAlignment = Enum.TextXAlignment.Left,
 						})
 					end,
-				}) :: any,
+				}),
 				UI.Text({
 
 					BackgroundTransparency = 1,
@@ -225,7 +231,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Lap count · 1 to 99",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -290,7 +296,7 @@ return {
 					label = "Pit lane limit",
 					hint = "Drag sideways to change it. Focusing selects the number.",
 					scrub = true,
-					selectOnFocus = "all" :: "all",
+					selectOnFocus = "all",
 					ref = keep("Speed"),
 				},
 				caption("FurnitureHeading", "Fields with furniture", "heading"),
@@ -298,7 +304,7 @@ return {
 					value = handle,
 					enabled = enabled,
 					label = "Display name",
-					requiredMark = "required" :: "required",
+					requiredMark = "required",
 					hint = "Other racers see this above your kart.",
 					errorText = nameError,
 					trailing = UI.Button "Paste" {
@@ -327,7 +333,7 @@ return {
 					label = "Join code",
 					hint = "Share this with friends. It cannot be edited here.",
 					readOnly = true,
-					clearButtonMode = "always" :: "always",
+					clearButtonMode = "always",
 					ref = keep("JoinCode"),
 				},
 				UI.TextInput "Briefing" {
@@ -340,11 +346,11 @@ return {
 					ref = keep("Briefing"),
 				},
 			}
-			return UI.VStack "Body"(props)
+			return UI.VStack(props)
 		end
 		return {
 			screen = function()
-				return Host.Frame "TextControls" {
+				return Host.Frame("TextControls")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					UI.ScrollView "Content" {
@@ -354,7 +360,7 @@ return {
 						ScrollBarThickness = 6,
 						body(),
 					},
-				}
+				})
 			end,
 
 			steps = {

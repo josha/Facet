@@ -10,6 +10,7 @@ return function(verifyHarness: Verify.Harness)
 	type UIScaleConstructor = typeof(require("@repo/tools/typecheck/aliases").UIScaleConstructor)
 	local FixtureComposeTypes = require("../src/vendor/compose/core")
 	local FixtureCollectionTypes = require("../src/ui/collection_types")
+	local FixtureCollectionProps = require("../src/ui/collection_props")
 	local FixtureEnvironmentTypes = require("../src/ui/environment_types")
 	local FixtureEngineTypes = require("../src/ui/engine_types")
 	type Readable<T> = { peek: (Readable<T>) -> T }
@@ -263,16 +264,17 @@ return function(verifyHarness: Verify.Harness)
 							end,
 							render = function(current)
 								if current:peek() == "table" then
-									return UI.Table "Data"({
+									return UI.Table({
+										Name = "Data",
 										from = rows,
 										key = "id",
 										columns = {
 											{ id = "name", label = "Name" },
 											{ id = "kind", label = "Kind", width = 100 },
 										},
-									} :: FixtureCollectionTypes.KeyedTableSpec<Row, string>)
+									} :: FixtureCollectionProps.KeyedTableSpec<Row, string>)
 								end
-								local spec: FixtureCollectionTypes.KeyedCollectionSpec<Row, string> = {
+								local spec: FixtureCollectionProps.KeyedCollectionSpec<Row, string> = {
 									Name = "Data",
 									from = rows,
 									key = "id",
@@ -356,8 +358,9 @@ return function(verifyHarness: Verify.Harness)
 							end,
 							render = function(current)
 								if current:peek() == "table" then
-									return UI.Table "Data"(
+									return UI.Table(
 										{
+											Name = "Data",
 											from = rows,
 											key = "id",
 											itemSize = 44,
@@ -374,7 +377,7 @@ return function(verifyHarness: Verify.Harness)
 													end,
 												},
 											},
-										} :: FixtureCollectionTypes.KeyedTableSpec<{ id: string, label: string }, string>
+										} :: FixtureCollectionProps.KeyedTableSpec<{ id: string, label: string }, string>
 									)
 								end
 								local props = {
@@ -466,7 +469,7 @@ return function(verifyHarness: Verify.Harness)
 					local status = Compose.cell({} :: FixtureComposeTypes.OrderedCollectionStatus)
 					local controls: FixtureComposeTypes.OrderedCollectionControls<string> = {}
 					local stop = runtime.mount(function(): GuiObject
-						local spec: FixtureCollectionTypes.KeyedCollectionSpec<Row, string> & { children: FixtureCollectionTypes.Children<Row> } =
+						local spec: FixtureCollectionProps.KeyedCollectionSpec<Row, string> & { children: FixtureCollectionTypes.Children<Row> } =
 							{
 								from = rows,
 								key = function(item: Row): string
@@ -486,7 +489,7 @@ return function(verifyHarness: Verify.Harness)
 						if kind == "Outline" then
 							return UI.Outline(spec)
 						end
-						local tableSpec: FixtureCollectionTypes.KeyedTableSpec<Row, string> = {
+						local tableSpec: FixtureCollectionProps.KeyedTableSpec<Row, string> = {
 							from = rows,
 							key = function(item: Row): string
 								return item.id
@@ -536,7 +539,7 @@ return function(verifyHarness: Verify.Harness)
 					local second: Row = { id = "B", title = "Beta" }
 					local rows = Compose.cell({ first, second })
 					local stop, mountedRoot = runtime.mount(function(): GuiObject
-						local spec: FixtureCollectionTypes.KeyedCollectionSpec<Row, string> = {
+						local spec: FixtureCollectionProps.KeyedCollectionSpec<Row, string> = {
 							from = rows,
 							key = "id",
 							mode = "all" :: "all",
@@ -551,7 +554,7 @@ return function(verifyHarness: Verify.Harness)
 								key = "id",
 								mode = "all" :: "all",
 								columns = { { id = "name", label = "Name", render = spec.render } },
-							} :: FixtureCollectionTypes.KeyedTableSpec<Row, string>)
+							} :: FixtureCollectionProps.KeyedTableSpec<Row, string>)
 						end
 						return if kind == "grid" then UI.VirtualGrid(spec) else UI.VirtualList(spec)
 					end, target)
@@ -599,7 +602,7 @@ return function(verifyHarness: Verify.Harness)
 						Compose.cell({ { id = "A", title = "Alpha" }, { id = "B", title = "Beta" } } :: { Row })
 					local revision = Compose.cell(1)
 					local stop, mountedRoot = runtime.mount(function(): GuiObject
-						local spec: FixtureCollectionTypes.KeyedCollectionSpec<Row, string> = {
+						local spec: FixtureCollectionProps.KeyedCollectionSpec<Row, string> = {
 							from = rows,
 							key = "id",
 							mode = "all" :: "all",
@@ -660,7 +663,7 @@ return function(verifyHarness: Verify.Harness)
 					type Row = { id: string, title: string }
 					local rows = Compose.cell({ { id = "old", title = "Old" } } :: { Row })
 					local stop, root: any = runtime.mount(function()
-						local props: FixtureCollectionTypes.KeyedCollectionSpec<Row, string> = {
+						local props: FixtureCollectionProps.KeyedCollectionSpec<Row, string> = {
 							from = rows,
 							key = "id",
 							mode = "all" :: "all",
@@ -678,7 +681,7 @@ return function(verifyHarness: Verify.Harness)
 								key = "id",
 								mode = "all" :: "all",
 								columns = { { id = "file", label = "File", render = props.render } },
-							} :: FixtureCollectionTypes.KeyedTableSpec<Row, string>)
+							} :: FixtureCollectionProps.KeyedTableSpec<Row, string>)
 						end
 						return if kind == "grid" then UI.VirtualGrid(props) else UI.VirtualList(props)
 					end, target)
@@ -758,7 +761,7 @@ return function(verifyHarness: Verify.Harness)
 				local Host = runtime.constructors
 				local actions = 0
 				local stop, node: any = runtime.mount(function()
-					local spec: FixtureCollectionTypes.RowActionsSpec = {
+					local spec: FixtureCollectionProps.RowActionsSpec = {
 						content = Host.Frame {} :: GuiObject,
 						trailing = {
 							{
@@ -790,7 +793,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target, _, ctx = setup()
 				local Host = runtime.constructors
 				local stop, node: any = runtime.mount(function()
-					local spec: FixtureCollectionTypes.RowActionsSpec = {
+					local spec: FixtureCollectionProps.RowActionsSpec = {
 						content = Host.Frame {} :: GuiObject,
 						trailing = { { id = "Delete", label = "Delete", onActivate = function() end } },
 					}
@@ -816,7 +819,7 @@ return function(verifyHarness: Verify.Harness)
 				local activated = 0
 				local Host = runtime.constructors
 				local stop, node: any = runtime.mount(function()
-					local spec: FixtureCollectionTypes.RowActionsSpec = {
+					local spec: FixtureCollectionProps.RowActionsSpec = {
 						content = Host.Frame {
 							UI.Button "Details" {
 								label = "Details",
@@ -1550,14 +1553,14 @@ return function(verifyHarness: Verify.Harness)
 					measured = 0,
 				} :: Compose.OrderedCollectionStatus)
 				local stop, node: any = runtime.mount(function()
-					local props: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number> = {
+					local props: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> = {
 						from = records(5),
 						key = key,
 						itemSize = 20,
 						measure = true,
 						selectionMode = "multiple" :: "multiple",
 						editing = true,
-						rowActions = function(): FixtureCollectionTypes.RowActionsOptions
+						rowActions = function(): FixtureCollectionProps.RowActionsOptions
 							return { trailing = { { id = "open", label = "Open", onActivate = function() end } } }
 						end,
 						status = status,
@@ -2170,7 +2173,7 @@ return function(verifyHarness: Verify.Harness)
 							columns = {
 								{ id = "label", label = "Label", width = 100 } :: FixtureCollectionTypes.TableColumn<any, any>,
 							},
-							rowActions = function(): FixtureCollectionTypes.RowActionsOptions?
+							rowActions = function(): FixtureCollectionProps.RowActionsOptions?
 								return {
 									trailing = {
 										{ id = "delete", label = "Delete", role = "destructive" :: "destructive" } :: FixtureCollectionTypes.RowAction,
@@ -2870,7 +2873,7 @@ return function(verifyHarness: Verify.Harness)
 							render = function(current): GuiObject
 								return button(UI, current)
 							end,
-						} :: FixtureCollectionTypes.KeyedCollectionSpec<
+						} :: FixtureCollectionProps.KeyedCollectionSpec<
 							{ id: number, label: string },
 							number
 						>)
@@ -4691,7 +4694,7 @@ return function(verifyHarness: Verify.Harness)
 								end,
 							} :: FixtureCollectionTypes.TableColumn<any, any>,
 						},
-						rowActions = function(): FixtureCollectionTypes.RowActionsOptions?
+						rowActions = function(): FixtureCollectionProps.RowActionsOptions?
 							return {
 								trailing = {
 									{ id = "remove", label = "Remove", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
@@ -4744,7 +4747,7 @@ return function(verifyHarness: Verify.Harness)
 						reorderable = true,
 						onReorder = function() end,
 						columns = { { id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any> },
-						rowActions = function(): FixtureCollectionTypes.RowActionsOptions
+						rowActions = function(): FixtureCollectionProps.RowActionsOptions
 							return { trailing = { { id = "remove", label = "Remove" } } }
 						end,
 					})
@@ -4792,7 +4795,7 @@ return function(verifyHarness: Verify.Harness)
 						reorderable = true,
 						onReorder = function() end,
 						columns = { { id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any> },
-						rowActions = function(_, rowKey): FixtureCollectionTypes.RowActionsOptions?
+						rowActions = function(_, rowKey): FixtureCollectionProps.RowActionsOptions?
 							return {
 								open = if rowKey == 1 then opened else nil,
 								trailing = {
@@ -4860,7 +4863,7 @@ return function(verifyHarness: Verify.Harness)
 							rows:set(list)
 						end,
 						columns = { { id = "name", label = "Name" } :: FixtureCollectionTypes.TableColumn<any, any> },
-						rowActions = function(): FixtureCollectionTypes.RowActionsOptions?
+						rowActions = function(): FixtureCollectionProps.RowActionsOptions?
 							return {
 								trailing = {
 									{ id = "remove", label = "Remove", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
@@ -5843,7 +5846,7 @@ return function(verifyHarness: Verify.Harness)
 				local controls: any = {}
 				local minimum = Compose.cell(150)
 				local stop, grid: any = runtime.mount(function()
-					local props: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number> = {
+					local props: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> = {
 						from = records(10),
 						key = key,
 						minColumnWidth = minimum,
@@ -5880,7 +5883,7 @@ return function(verifyHarness: Verify.Harness)
 				assert(ctx.config.userInputService).PreferredInput = E.PreferredInput.Touch
 				local editing, controls: any = Compose.cell(true), {}
 				local stop, grid: any = runtime.mount(function()
-					local props: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number> = {
+					local props: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> = {
 						from = records(4),
 						key = key,
 						mode = "all" :: "all",
@@ -6024,7 +6027,7 @@ return function(verifyHarness: Verify.Harness)
 									render = function(): GuiObject
 										return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
 									end,
-								} :: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number>
+								} :: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number>
 							)
 						end, target)
 						table.insert(nodes, node)
@@ -6055,7 +6058,7 @@ return function(verifyHarness: Verify.Harness)
 					local engine, runtime, UI, target, _, ctx = setup()
 					local requests = {}
 					local stop, node: any = runtime.mount(function()
-						local props: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number> =
+						local props: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> =
 							{
 								from = records(8),
 								key = key,
@@ -6129,7 +6132,7 @@ return function(verifyHarness: Verify.Harness)
 					local selection = Compose.cell({ [1] = true, [2] = true })
 					local requests = {}
 					local stop, node: any = runtime.mount(function()
-						local props: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number> =
+						local props: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> =
 							{
 								from = records(8),
 								key = key,
@@ -6188,7 +6191,7 @@ return function(verifyHarness: Verify.Harness)
 				local all = records(3)
 				local carried, starts, ends = nil, 0, 0
 				local stop, node: any = runtime.mount(function()
-					local props: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number> = {
+					local props: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> = {
 						from = { all[1], all[3] },
 						selectionFrom = all,
 						key = key,
@@ -6296,7 +6299,7 @@ return function(verifyHarness: Verify.Harness)
 				local rows = Compose.cell(records(3))
 				local pending
 				local stop, node: any = runtime.mount(function()
-					local props: FixtureCollectionTypes.KeyedCollectionSpec<{ id: number, label: string }, number> = {
+					local props: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> = {
 						from = rows,
 						key = key,
 						itemSize = 40,
@@ -6558,7 +6561,7 @@ return function(verifyHarness: Verify.Harness)
 					local rows = Compose.cell({ { id = 1, name = "Alpha", checked = false, locked = false } })
 					local editing, changes = Compose.cell(false), {}
 					local stop, node: any = runtime.mount(function()
-						local props: FixtureCollectionTypes.KeyedTableSpec<
+						local props: FixtureCollectionProps.KeyedTableSpec<
 							{ id: number, name: string, checked: boolean, locked: boolean },
 							number
 						> =
@@ -7048,6 +7051,7 @@ return function(verifyHarness: Verify.Harness)
 		type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
 		local FixtureComposeTypes = require("../src/vendor/compose/core")
 		local FixtureCollectionTypes = require("../src/ui/collection_types")
+		local FixtureCollectionProps = require("../src/ui/collection_props")
 		type Readable<T> = { peek: (Readable<T>) -> T }
 		type Use = <T>(Readable<T>) -> T
 

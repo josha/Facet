@@ -6,6 +6,7 @@ return function(verifyHarness: Verify.Harness)
 	type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+	type ExampleContext = typeof(require("@repo/examples/types").Context)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
 	local FixtureEngineTypes = require("../src/ui/engine_types")
 	local FixtureComposeTypes = require("../src/vendor/compose/core")
@@ -16,6 +17,7 @@ return function(verifyHarness: Verify.Harness)
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
 	local Navigation = require("../src/ui/navigation_types")
+	local NavigationProps = require("../src/ui/navigation_props")
 	local SharedTypes = require("../src/ui/control_types")
 	local Shared = require("../src/ui/types")
 
@@ -133,7 +135,7 @@ return function(verifyHarness: Verify.Harness)
 				local path = Compose.cell({} :: { Navigation.NavigationEntry<number> })
 				local chrome = Compose.cell("hidden" :: "automatic" | "hidden")
 				local world = setup(function(UI: FacetControls)
-					local spec: Navigation.NavigationStackSpec<number> = {
+					local spec: NavigationProps.NavigationStackSpec<number> = {
 						path = path,
 						chrome = "hidden" :: "hidden",
 						transition = false :: false,
@@ -212,7 +214,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
 				local world = setup(function(UI: FacetControls)
-					local spec: Navigation.NavigationStackSpec<unknown> = {
+					local spec: NavigationProps.NavigationStackSpec<unknown> = {
 						path = path,
 						chrome = "hidden" :: "hidden",
 						root = {
@@ -262,7 +264,7 @@ return function(verifyHarness: Verify.Harness)
 				local selected = Compose.cell("games")
 				local placement = Compose.cell("bottomBar" :: Navigation.Placement)
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					local spec: Navigation.TabViewSpec = {
+					local spec: NavigationProps.TabViewSpec = {
 						selection = selected,
 						placement = placement,
 						track = "floating" :: "floating",
@@ -343,7 +345,7 @@ return function(verifyHarness: Verify.Harness)
 				local anchor =
 					Compose.cell("topTrailing" :: "topLeading" | "topTrailing" | "bottomLeading" | "bottomTrailing")
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					local spec: Navigation.TabViewSpec = {
+					local spec: NavigationProps.TabViewSpec = {
 						selection = Compose.cell("one"),
 						placement = "bottomBar" :: "bottomBar",
 						track = track,
@@ -459,7 +461,7 @@ return function(verifyHarness: Verify.Harness)
 						{ id = "profile", label = "Profile", icon = "person", content = page },
 						{ id = "settings", label = "Settings", icon = "settings", content = page },
 					}
-					local props: Navigation.TabViewSpec = {
+					local props: NavigationProps.TabViewSpec = {
 						selection = selection,
 						labelPlacement = choice,
 						textSize = textSize,
@@ -3737,14 +3739,14 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("resets the mounted callout showcase without replacing anchor identities", {
 			id = "native_navigation::native navigation controls::resets the mounted callout showcase without replacing anchor identities",
 			run = function()
-				local built
+				local built: any
 				local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
-					built = require("../examples/gallery/scenarios/callout").build({
+					built = require("../examples/gallery/scenarios/callout").build(({
 						UI = UI,
 						Host = Host,
 						Compose = Compose,
 						types = engine.types,
-					})
+					} :: unknown) :: ExampleContext)
 					return built.screen()
 				end)
 				local anchor = find(world.screen, "Plus")

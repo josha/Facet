@@ -64,7 +64,9 @@ return function(verifyHarness: Verify.Harness)
 		built.options = built.options or THREE
 		local target = engine.new("Folder")
 		local stop, screen: any = runtime.mount(function()
-			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ UI.Picker("P")(built) })
+			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
+				UI.Picker "P"(built),
+			})
 		end, target)
 		return {
 			engine = engine,

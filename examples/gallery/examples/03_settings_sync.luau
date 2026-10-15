@@ -1,11 +1,11 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local example = { title = "Settings Sync" }
-function example.build(ctx: any)
-	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
+function example.build(ctx: ExampleContext)
+	local UI, Compose = ctx.UI, ctx.Compose
 	local server = Compose.cell({ music = false, volume = 10, revision = 1 })
 	local draft = Compose.cell({ music = false, volume = 10 })
 	local status = Compose.cell("idle")
@@ -64,8 +64,8 @@ function example.build(ctx: any)
 			return UI.ScrollView "SettingsSync" {
 				gap = 12,
 				padding = "m",
-				align = "stretch" :: "stretch",
-				text("Title", "Settings sync", "title") :: unknown,
+				align = "stretch",
+				text("Title", "Settings sync", "title"),
 				text(
 					"Explanation",
 					"Send a change, inspect the optimistic draft, then deliver the server reply.",
@@ -81,7 +81,7 @@ function example.build(ctx: any)
 				end),
 				UI.Toggle "Music" {
 					label = "Music",
-					indicatorPosition = "trailing" :: "trailing",
+					indicatorPosition = "trailing",
 					value = function(use: Use)
 						return use(draft).music
 					end,
@@ -106,7 +106,11 @@ function example.build(ctx: any)
 						request(draft:peek().music, 99)
 					end,
 				},
-				UI.Button "Deliver" { label = "Deliver server reply", appearance = "emphasis", onActivate = deliver },
+				UI.Button "Deliver" {
+					label = "Deliver server reply",
+					appearance = "emphasis",
+					onActivate = deliver,
+				},
 				UI.Button "Reset" { label = "Reset demo", appearance = "link", onActivate = reset },
 				text("Status", status, "caption"),
 				text("History", function(use: Use)

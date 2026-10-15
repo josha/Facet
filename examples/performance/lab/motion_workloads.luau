@@ -15,8 +15,8 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 		nodes = {},
 		controls = {},
 		status = Compose.cell({
-			mode = "windowed" :: "windowed",
-			direction = "vertical" :: "vertical",
+			mode = "windowed",
+			direction = "vertical",
 			total = 0,
 			retained = 0,
 			first = 0,
@@ -32,7 +32,7 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 		countWork = false,
 		motionTransactions = 0,
 		springsMoving = nil :: number?,
-		rows = nil :: any,
+		rows = nil :: Readable<{ unknown }>?,
 	}
 	local function label(text: unknown, size: number, name: string?)
 		return Host.TextLabel({
@@ -81,7 +81,8 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 		for index = 1, 600 do
 			items[index] = { id = `chip{index}`, name = `Racer {index}` }
 		end
-		state.rows, state.banner = Compose.cell(items), Compose.cell("ready")
+		local rows = Compose.cell(items)
+		state.rows, state.banner = rows, Compose.cell("ready")
 		state.springs, state.targets = {}, {}
 		state.beats, state.beatCallbacks = 0, 0
 		function state.build()
@@ -127,7 +128,7 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 			end)
 			local height = math.max(120, math.floor(ctx.viewport.h * 0.5))
 			state.list = UI.VirtualList "Roster" {
-				from = state.rows,
+				from = rows,
 				key = function(item)
 					return item.id
 				end,
@@ -152,9 +153,9 @@ function motion.create(ctx: { [string]: any }, name: string, _dataset)
 		function state.step()
 			state.n += 1
 			local started = os.clock()
-			local nextRows = table.clone(state.rows:peek())
+			local nextRows = table.clone(rows:peek())
 			table.insert(nextRows, assert(table.remove(nextRows, 1)))
-			state.rows:set(nextRows)
+			rows:set(nextRows)
 			for index, target in state.targets do
 				target:set(if (state.n + index) % 2 == 0 then 12 else -12)
 			end

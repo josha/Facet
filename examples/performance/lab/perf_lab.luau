@@ -166,7 +166,7 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 			Size = T.UDim2.fromOffset(210, 40),
 			selected = selected,
 			options = choices,
-			style = "menu" :: "menu",
+			style = "menu",
 			onChange = function(value)
 				selected:set(value)
 				reset()
@@ -183,7 +183,7 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 				{ value = 10000, label = "10000 rows" } :: PickerOption,
 				{ value = 40000, label = "40000 rows" } :: PickerOption,
 			},
-			style = "menu" :: "menu",
+			style = "menu",
 			onChange = function(value)
 				rowCount:set(value)
 				reset()
@@ -295,8 +295,8 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 						values[row.id] = Compose.cell(row.name)
 					end
 					local status = Compose.cell({
-						mode = "windowed" :: "windowed",
-						direction = "vertical" :: "vertical",
+						mode = "windowed",
+						direction = "vertical",
 						total = 0,
 						retained = 0,
 						first = 0,

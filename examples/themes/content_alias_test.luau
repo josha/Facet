@@ -1,4 +1,10 @@
 --!strict
+type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
+type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
+type Extra = typeof(require("@repo/tools/typecheck/aliases").ThemePackage.style.themes[1].extra)
+type Asset = typeof(require("@repo/examples/types").ThemeAsset)
+type RGB = { r: number, g: number, b: number }
+type Palette = { colors: { [string]: RGB }, extra: Extra }
 
 local content_alias_test = {}
 
@@ -10,11 +16,11 @@ content_alias_test.testOnly = true
 local PLATE = "rbxassetid://70509734376718"
 local GLYPH = "rbxassetid://137937473154830"
 
-local function rgb(r: number, g: number, b: number)
+local function rgb(r: number, g: number, b: number): RGB
 	return { r = r / 255, g = g / 255, b = b / 255 }
 end
 
-local THEME = {
+local THEME: Palette = {
 	colors = {
 		surface = rgb(22, 18, 31),
 		surfaceStrong = rgb(58, 44, 79),
@@ -33,12 +39,15 @@ local THEME = {
 	extra = { control = rgb(168, 114, 47), contentSecondary = rgb(215, 168, 96) },
 }
 
-local function definition(themes: any, field: string): any
-	local function asset(contentValue: string, extra: any?): any
-		local out: any = { preload = "install", fallback = "native" }
-		out[field] = contentValue
-		for key, value in extra or {} do
-			out[key] = value
+local function definition(themes: Themes, field: "content" | "contentId"): ThemeDefinition
+	local function asset(contentValue: string, extra: Asset): Asset
+		local out = table.clone(extra)
+		out.preload = "install"
+		out.fallback = "native"
+		if field == "content" then
+			out.content = contentValue
+		else
+			out.contentId = contentValue
 		end
 		return out
 	end
@@ -54,16 +63,16 @@ local function definition(themes: any, field: string): any
 		style = { defaultTheme = "AB", themes = { { name = "AB", colors = THEME.colors, extra = THEME.extra } } },
 		chrome = {
 			control = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "plate",
 				fallback = "native",
 				contentInsets = { top = 16, right = 16, bottom = 16, left = 16 },
 			},
-			panel = { kind = "native" :: "native" },
-			field = { kind = "native" :: "native" },
-			selection = { kind = "native" :: "native" },
-			divider = { kind = "native" :: "native" },
-			scrollbar = { kind = "native" :: "native" },
+			panel = { kind = "native" },
+			field = { kind = "native" },
+			selection = { kind = "native" },
+			divider = { kind = "native" },
+			scrollbar = { kind = "native" },
 		},
 		icons = { increment = "glyph" },
 		assets = {
@@ -73,15 +82,14 @@ local function definition(themes: any, field: string): any
 			}),
 			glyph = asset(GLYPH, { tintRole = "accent" }),
 		},
-		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end
 
-function content_alias_test.build(themes: any): (any, any)
+function content_alias_test.build(themes: Themes)
 	return themes.define(definition(themes, "content"))
 end
 
-function content_alias_test.buildAlias(themes: any): (any, any)
+function content_alias_test.buildAlias(themes: Themes)
 	return themes.define(definition(themes, "contentId"))
 end
 

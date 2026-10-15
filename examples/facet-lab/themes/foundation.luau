@@ -1,5 +1,8 @@
 --!strict
 
+type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
+type ThemeDefinition = typeof(require("@repo/examples/types").ThemeDefinition)
+
 local foundation = {}
 
 foundation.id = "foundation"
@@ -84,7 +87,7 @@ local LIGHT = {
 	},
 }
 
-function foundation.definition(themes: any, defaultTheme: string?): any
+function foundation.definition(themes: Themes, defaultTheme: string?): ThemeDefinition
 	return {
 		base = themes.neutralPackage(),
 		identity = {
@@ -133,7 +136,7 @@ function foundation.definition(themes: any, defaultTheme: string?): any
 	}
 end
 
-function foundation.build(themes: any, defaultTheme: string?): (any, any)
+function foundation.build(themes: Themes, defaultTheme: string?)
 	return themes.define(foundation.definition(themes, defaultTheme))
 end
 

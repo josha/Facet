@@ -1,21 +1,35 @@
 --!strict
 
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+
 local clock = {}
 
 export type Scheduled = { at: number, seq: number, fn: () -> (), cancelled: boolean }
 
-function clock.new(Compose: any, opts: { start: number? }?): any
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
+export type Handle = { cancel: () -> () }
+export type Clock = {
+	nowSignal: Cell<number>,
+	now: () -> number,
+	after: (delay: number, fn: () -> ()) -> Handle,
+	advance: (dt: number) -> number,
+	pendingCount: () -> number,
+	dispose: () -> (),
+}
+
+function clock.new(Compose: ComposeModule, opts: { start: number? }?): Clock
 	local options: { start: number? } = opts or {}
-	local nowSignal = Compose.cell(options.start or 0)
+	local nowSignal: Cell<number> = Compose.cell(options.start or 0)
 	local scheduled: { Scheduled } = {}
 	local seq = 0
-	local self: any = { nowSignal = nowSignal }
+	local self = { nowSignal = nowSignal }
 
 	function self.now(): number
 		return nowSignal:peek()
 	end
 
-	function self.after(delay: number, fn: () -> ()): any
+	function self.after(delay: number, fn: () -> ()): Handle
 		seq += 1
 		local entry: Scheduled = { at = nowSignal:peek() + math.max(0, delay), seq = seq, fn = fn, cancelled = false }
 		table.insert(scheduled, entry)

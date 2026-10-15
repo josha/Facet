@@ -1,24 +1,48 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type OptionalNumberCell = typeof(require("@repo/tools/typecheck/aliases").OptionalNumberCell)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 
 export type Message = { id: number, role: "user" | "assistant", content: string }
+export type Vote = "up" | "down" | "none"
+export type Chat = {
+	messages: Cell<{ Message }>,
+	draft: Cell<string>,
+	streaming: Cell<boolean>,
+	active: Cell<number?>,
+	feedback: Cell<{ [number]: Vote? }>,
+	completed: Cell<number>,
+	restore: (Message, number) -> (),
+	retry: (number) -> boolean,
+	edit: (number) -> boolean,
+	rate: (number, Vote) -> (),
+	streamedChars: Cell<number>,
+	totalChars: Cell<number>,
+	send: () -> boolean,
+	remove: (number) -> (Message?, number?),
+	clear: () -> (),
+	stop: () -> (),
+	step: (number) -> (),
+	dispose: () -> (),
+}
 local chat = {}
 
-function chat.new(Compose: ComposeModule)
-	local messages = Compose.cell({} :: { Message })
+function chat.new(Compose: ComposeModule): Chat
+	local initialMessages: { Message } = {}
+	local messages: Cell<{ Message }> = Compose.cell(initialMessages)
 	local draft = Compose.cell("")
 	local streaming = Compose.cell(false)
-	local active = (function(value: number?): OptionalNumberCell
-		return Compose.cell(value)
-	end)(nil)
-	local feedback = Compose.cell({} :: { [number]: string? })
+	local initialActive: number? = nil
+	local active: Cell<number?> = Compose.cell(initialActive)
+	local initialFeedback: { [number]: Vote? } = {}
+	local feedback: Cell<{ [number]: Vote? }> = Compose.cell(initialFeedback)
 	local completed = Compose.cell(0)
 
 	local streamedChars, totalChars = Compose.cell(0), Compose.cell(0)
 	local serial, elapsed, cursor = 0, 0, 0
-	local response, activeId = "", nil :: number | nil
+	local response = ""
+	local activeId: number? = nil
 	local disposed = false
 	local function append(role: "user" | "assistant", content: string)
 		serial += 1
@@ -51,11 +75,11 @@ function chat.new(Compose: ComposeModule)
 		streamedChars:set(0)
 		totalChars:set(0)
 	end
-	local function remove(id: number)
+	local function remove(id: number): (Message?, number?)
 		if id == activeId then
 			stop()
 		end
-		local removed, at
+		local removed: Message?, at: number? = nil, nil
 		messages:update(function(current)
 			local kept = {}
 			for index, message in current do
@@ -161,7 +185,7 @@ function chat.new(Compose: ComposeModule)
 		end
 		return false
 	end
-	local function rate(id: number, value: string)
+	local function rate(id: number, value: Vote)
 		feedback:update(function(current)
 			local nextFeedback = table.clone(current)
 			nextFeedback[id] = if value == "none" or nextFeedback[id] == value then nil else value

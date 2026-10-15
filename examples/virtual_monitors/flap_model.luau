@@ -1,6 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 local flap = {
 	WIDTH = 768,
 	HEIGHT = 448,
@@ -23,6 +25,15 @@ export type State = {
 	y: number,
 	velocity: number,
 	score: number,
+}
+export type Flap = {
+	state: Cell<State>,
+	best: Cell<number>,
+	flap: () -> (),
+	pause: () -> (),
+	togglePause: () -> (),
+	step: (number) -> (),
+	dispose: () -> (),
 }
 
 function flap.gapRow(index: number): number
@@ -49,7 +60,7 @@ function flap.tileAt(column: number, row: number): string?
 end
 
 local function initial(): State
-	return { phase = "ready" :: "ready", x = 0, y = 192, velocity = 0, score = 0 }
+	return { phase = "ready", x = 0, y = 192, velocity = 0, score = 0 }
 end
 
 local function collision(state: State): boolean
@@ -68,7 +79,7 @@ local function collision(state: State): boolean
 	return false
 end
 
-function flap.new(Compose: ComposeModule)
+function flap.new(Compose: ComposeModule): Flap
 	local state, best = Compose.cell(initial()), Compose.cell(0)
 	local disposed = false
 	local function flapPress()
@@ -79,7 +90,7 @@ function flap.new(Compose: ComposeModule)
 		local nextState: State = if current.phase == "ready" or current.phase == "over"
 			then initial()
 			else table.clone(current)
-		nextState.phase = "playing" :: "playing"
+		nextState.phase = "playing"
 		nextState.velocity = flap.IMPULSE
 		state:set(nextState)
 	end
@@ -88,7 +99,7 @@ function flap.new(Compose: ComposeModule)
 			return
 		end
 		local nextState = table.clone(state:peek())
-		nextState.phase = "paused" :: "paused"
+		nextState.phase = "paused"
 		state:set(nextState)
 	end
 	local function togglePause()
@@ -97,7 +108,7 @@ function flap.new(Compose: ComposeModule)
 		end
 		if state:peek().phase == "paused" then
 			local nextState = table.clone(state:peek())
-			nextState.phase = "playing" :: "playing"
+			nextState.phase = "playing"
 			state:set(nextState)
 		else
 			pause()
@@ -116,7 +127,7 @@ function flap.new(Compose: ComposeModule)
 			nextState.y += nextState.velocity * delta + flap.GRAVITY * delta * delta / 2
 			nextState.velocity += flap.GRAVITY * delta
 			if collision(nextState) then
-				nextState.phase = "over" :: "over"
+				nextState.phase = "over"
 				break
 			end
 			local passed = (nextState.x + flap.BIRD_X - flap.BIRD_RADIUS) / flap.TILE

@@ -2,10 +2,13 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type ControlSize = typeof(require("@repo/tools/typecheck/aliases").ControlSizeValue)
+type ControlSizeCell = typeof(require("@repo/tools/typecheck/aliases").ControlSize)
+type Member = typeof(require("@repo/tools/typecheck/aliases").AvatarMember)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 
-type Member = { id: string, name: string, image: string?, presence: ("online" | "away" | "busy" | "offline")? }
 local function initialMembers(): { Member }
 	return {
 		{ id = "ada", name = "Ada Quill", image = "rbxassetid://75342910516929", presence = "online" },
@@ -19,15 +22,17 @@ end
 return {
 	title = "Player groups",
 	ledgerRows = {},
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
+		local initialSize: ControlSize = "regular"
 		local items, variant = Compose.cell(initialMembers()), Compose.cell("stacked")
-		local size, activations = Compose.cell("regular"), Compose.cell(0)
-		local record
+		local size: ControlSizeCell = Compose.cell(initialSize)
+		local activations = Compose.cell(0)
+		local record: Frame? = nil
 		local function report()
 			return {
 				count = #items:peek(),
@@ -60,7 +65,7 @@ return {
 			variant:set(value)
 			return report()
 		end
-		local function setSize(value)
+		local function setSize(value: ControlSize)
 			size:set(value)
 			return report()
 		end
@@ -79,6 +84,11 @@ return {
 			return report()
 		end
 		local function section()
+			local sizeOptions: { PickerOption } = {
+				{ value = "compact", label = "Compact" },
+				{ value = "regular", label = "Regular" },
+				{ value = "large", label = "Large" },
+			}
 			local root = Host.Frame "GroupRecipe" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -87,14 +97,14 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
+				}),
 				UI.Text "Title" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Players together",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -141,49 +151,41 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}) :: unknown,
-					UI.Button({
+					}),
+					UI.Button "Reorder" {
 						LayoutOrder = 1,
-						Name = "Reorder",
 						label = "Reorder",
 						onActivate = reorder,
-					}),
-					UI.Button({
+					},
+					UI.Button "Fewer" {
 						LayoutOrder = 2,
-						Name = "Fewer",
 						label = "Fewer",
 						onActivate = fewer,
-					}),
-					UI.Button({
+					},
+					UI.Button "Restore" {
 						LayoutOrder = 3,
-						Name = "Restore",
 						label = "Restore",
 						onActivate = restore,
-					}),
-					UI.Button({
+					},
+					UI.Button "ChangePicture" {
 						LayoutOrder = 4,
-						Name = "ChangePicture",
 						label = "Change picture",
 						onActivate = source,
-					}),
+					},
 				},
 				UI.Picker "Layout" {
 					label = "Layout",
 					selected = variant,
 					options = {
-						{ value = "stacked", label = "Stacked" } :: PickerOption,
-						{ value = "spread", label = "Spread" } :: PickerOption,
-						{ value = "ellipsis", label = "Ellipsis" } :: PickerOption,
+						{ value = "stacked", label = "Stacked" },
+						{ value = "spread", label = "Spread" },
+						{ value = "ellipsis", label = "Ellipsis" },
 					},
 				},
 				UI.Picker "Size" {
 					label = "Size",
 					selected = size,
-					options = {
-						{ value = "compact", label = "Compact" } :: PickerOption,
-						{ value = "regular", label = "Regular" } :: PickerOption,
-						{ value = "large", label = "Large" } :: PickerOption,
-					},
+					options = sizeOptions,
 				},
 				UI.Text "Activations" {
 					BackgroundTransparency = 1,
@@ -193,7 +195,7 @@ return {
 					text = function(use: Use)
 						return `Selected the group {use(activations)} times`
 					end,
-					textRole = "caption" :: "caption",
+					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,

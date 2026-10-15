@@ -1,6 +1,9 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
 type Readable<T> = { peek: (Readable<T>) -> T }
@@ -60,12 +63,11 @@ return {
 	title = "Menus and their five triggers",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local Facet = ctx.Facet
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 
@@ -75,49 +77,51 @@ return {
 		local countsLine = Compose.cell("")
 		local idiom = Compose.cell("auto")
 
-		local presentation = Compose.formula(function(use: Use)
+		local function presentation(use: Use): "automatic" | "menu" | "sheet"
 			local mode = use(idiom)
 			return if mode == "panel" then "menu" elseif mode == "sheet" then "sheet" else "automatic"
-		end)
+		end
 
-		local function verbs(): { any }
+		local function verbs(): { MenuItem }
 			local function run(key: string)
 				return function()
 					ran:set(COPY[key])
 				end
 			end
+			local makeup: { MenuItem } = {
+				{ id = "lips", label = COPY.lips, onSelect = run("lips") },
+				{ id = "eyes", label = COPY.eyes, onSelect = run("eyes") },
+			}
+			local layering: { MenuItem } = {
+				{ id = "clothing", label = COPY.clothing, onSelect = run("clothing") },
+				{
+					id = "makeup",
+					label = COPY.makeup,
+					children = makeup,
+				},
+			}
 			return {
-				{ id = "accessory", label = COPY.accessory, icon = "edit", onSelect = run("accessory") } :: MenuItem,
+				{ id = "accessory", label = COPY.accessory, icon = "edit", onSelect = run("accessory") },
 				{
 					id = "layering",
 					label = COPY.layering,
 					icon = "more",
-					children = {
-						{ id = "clothing", label = COPY.clothing, onSelect = run("clothing") } :: MenuItem,
-						{
-							id = "makeup",
-							label = COPY.makeup,
-							children = {
-								{ id = "lips", label = COPY.lips, onSelect = run("lips") },
-								{ id = "eyes", label = COPY.eyes, onSelect = run("eyes") },
-							},
-						} :: MenuItem,
-					},
-				} :: MenuItem,
-				{ id = "skin", label = COPY.skin, icon = "edit", onSelect = run("skin") } :: MenuItem,
-				{ divider = true } :: MenuItem,
-				{ id = "report", label = COPY.report, icon = "flag", onSelect = run("report") } :: MenuItem,
+					children = layering,
+				},
+				{ id = "skin", label = COPY.skin, icon = "edit", onSelect = run("skin") },
+				{ divider = true },
+				{ id = "report", label = COPY.report, icon = "flag", onSelect = run("report") },
 				{
 					id = "reset",
 					label = COPY.reset,
 					icon = "trash",
-					role = "destructive" :: "destructive",
+					role = "destructive",
 					onSelect = run("reset"),
-				} :: MenuItem,
+				},
 			}
 		end
 
-		local function unavailable(): { any }
+		local function unavailable(): { MenuItem }
 			return {
 				{ id = "save", label = COPY.saveOutfit, icon = "edit", enabled = false, onSelect = function() end },
 				{ id = "share", label = COPY.shareOutfit, icon = "flag", enabled = false, onSelect = function() end },
@@ -126,14 +130,21 @@ return {
 					id = "delete",
 					label = COPY.deleteOutfit,
 					icon = "trash",
-					role = "destructive" :: "destructive",
+					role = "destructive",
 					enabled = false,
 					onSelect = function() end,
 				},
 			}
 		end
 
-		local CARDS = {
+		type Card = {
+			id: string,
+			label: string,
+			routes: string,
+			triggers: { "activate" | "secondary" | "longPress" | "keyboard" | "gamepad" },
+			items: () -> { MenuItem },
+		}
+		local CARDS: { Card } = {
 			{ id = "Tap", label = COPY.tap, routes = COPY.tapRoutes, triggers = { "activate" }, items = verbs },
 			{
 				id = "Chord",
@@ -176,7 +187,7 @@ return {
 
 		local stateLine = Compose.cell(COPY.closed)
 
-		local function card(entry: any, conditions: any): any
+		local function card(entry: Card, conditions: unknown): Frame
 			local menu = UI.Menu({
 				Name = entry.id,
 				label = entry.label,
@@ -195,8 +206,7 @@ return {
 					stateLine:set(COPY.closed)
 				end,
 			})
-			return Host.Frame({
-				Name = `Card{entry.id}`,
+			return Host.Frame(`Card{entry.id}`)({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -204,7 +214,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
-				}) :: unknown,
+				}),
 				Host.UIPadding({
 					PaddingTop = UDim.new(0, 8),
 					PaddingBottom = UDim.new(0, 8),
@@ -218,7 +228,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = entry.routes,
-					textRole = "caption" :: "caption",
+					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -226,9 +236,8 @@ return {
 			})
 		end
 
-		local function readout(id: string, title: string, body: any): any
-			return Host.Frame({
-				Name = id,
+		local function readout(id: string, title: string, body: TextValue): Frame
+			return Host.Frame(id)({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -236,53 +245,51 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
-				}) :: unknown,
+				}),
 				Host.UIPadding({
 					PaddingTop = UDim.new(0, 8),
 					PaddingBottom = UDim.new(0, 8),
 					PaddingLeft = UDim.new(0, 8),
 					PaddingRight = UDim.new(0, 8),
 				}),
-				UI.Text({
+				UI.Text "Title" {
 					LayoutOrder = 1,
-					Name = "Title",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = title,
-					textRole = "caption" :: "caption",
+					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.Text({
+				},
+				UI.Text "Body" {
 					LayoutOrder = 2,
-					Name = "Body",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = body,
-					textRole = "caption" :: "caption",
+					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
+				},
 			})
 		end
 
 		local function screen()
 			local conditions = {
 				sizeClass = Compose.formula(function(use: Use)
-					return if use(ctx.viewport).width < 600 then "compact" else "regular"
+					return if use(assert(ctx.viewport)).width < 600 then "compact" else "regular"
 				end),
 			}
-			local cardRow: { any } = {}
+			local cardRow: { Frame } = {}
 			for _, entry in CARDS do
 				table.insert(cardRow, card(entry, conditions))
 			end
-			return Host.Frame "MenuDemo" {
+			return Host.Frame("MenuDemo")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				UI.ScrollView "Page" {
@@ -297,23 +304,23 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.title,
-						textRole = "heading" :: "heading",
+						textRole = "heading",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					} :: unknown,
+					},
 					UI.Text "Intro" {
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.intro,
-						textRole = "caption" :: "caption",
+						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
-					Host.Frame "Cards" {
+					Host.Frame("Cards")({
 						Size = UDim2.new(1, 0, 0, 0),
 						BackgroundTransparency = 1,
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -321,10 +328,10 @@ return {
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							FillDirection = Enum.FillDirection.Vertical,
 							Padding = UDim.new(0, 8),
-						}) :: unknown,
+						}),
 						table.unpack(cardRow),
-					},
-					Host.Frame "IdiomBox" {
+					}),
+					Host.Frame("IdiomBox")({
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -332,39 +339,37 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 4),
-						}) :: unknown,
+						}),
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
 						}),
-						UI.Picker({
+						UI.Picker "Idiom" {
 							LayoutOrder = 1,
-							Name = "Idiom",
 							label = COPY.idiomTitle,
-							style = "segmented" :: "segmented",
+							style = "segmented",
 							options = {
-								{ value = "auto", label = COPY.idiomAuto } :: PickerOption,
-								{ value = "panel", label = COPY.idiomPanel } :: PickerOption,
-								{ value = "sheet", label = COPY.idiomSheet } :: PickerOption,
+								{ value = "auto", label = COPY.idiomAuto },
+								{ value = "panel", label = COPY.idiomPanel },
+								{ value = "sheet", label = COPY.idiomSheet },
 							},
 							selected = idiom,
-						}),
-						UI.Text({
+						},
+						UI.Text "IdiomNote" {
 							LayoutOrder = 2,
-							Name = "IdiomNote",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = COPY.idiomNote,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-					},
+						},
+					}),
 					readout("Opened", COPY.openedTitle, lastOpen),
 					readout("State", COPY.stateTitle, stateLine),
 					readout("Counts", COPY.countsTitle, countsLine),
@@ -375,14 +380,14 @@ return {
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.depthNote,
-						textRole = "caption" :: "caption",
+						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
 					},
 					readout("Honest", COPY.honestTitle, COPY.honest),
 				},
-			}
+			})
 		end
 
 		return {
@@ -392,7 +397,7 @@ return {
 			ran = ran,
 
 			steps = {
-				idiom = function(_built: any, payload: string?)
+				idiom = function(_built: unknown, payload: string?)
 					idiom:set(if payload ~= nil and table.find(IDIOMS, payload) ~= nil then payload else "auto")
 					return { idiom = idiom:peek() }
 				end,

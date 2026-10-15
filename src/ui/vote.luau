@@ -1,29 +1,24 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Content = require("./content_types")
-local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local values = require("./content_values")
+local ContentProps = require("./content_props")
 
 local SIDES: { { side: Content.VoteValue, name: string, icon: string, label: string } } = {
 	{ side = "up", name = "Opt1", icon = "vote.up", label = "Upvote" },
 	{ side = "down", name = "Opt2", icon = "vote.down", label = "Downvote" },
 }
 
-return function(
-	ctx: Types.Context,
-	UI: {
-		Vote: Types.Constructor<Content.VoteSpec, Frame>,
-		Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
-	}
-): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local function isVote(value: unknown): boolean
 		return value == "up" or value == "down" or value == "none"
 	end
 
-	UI.Vote = ctx.construct("Vote", function(spec: Content.VoteSpec): Frame
+	UI.Vote = ctx.construct("Vote", function(spec: ContentProps.VoteSpec): Frame
 		assert(isVote(read(spec.value)), "Facet UI.Vote: value must be up, down or none")
 		assert(spec.onChange == nil or type(spec.onChange) == "function", "Facet UI.Vote: onChange must be a function")
 		assert(

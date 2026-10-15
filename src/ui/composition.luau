@@ -6,6 +6,8 @@ local Overlay = require("./overlay_types")
 local layoutKit = require("./layout_kit")
 local reducedMotion = require("./motion").reduced
 local resolver = require("./composition_resolve")
+local ControlTypes = require("./control_types")
+local LayoutProps = require("./layout_props")
 
 type Declared = {
 	zone: Layout.Zone,
@@ -19,16 +21,13 @@ type Declared = {
 
 local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 
-return function(
-	ctx: Types.Context,
-	UI: Layout.LayoutControls & { Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject> }
-)
+return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local declared = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Declared }
 
-	UI.Region = ctx.construct("Region", function(spec: Layout.RegionProps): Frame
+	UI.Region = ctx.construct("Region", function(spec: LayoutProps.RegionProps): Frame
 		local zone, rank = spec.zone, spec.rank
 		assert(
 			type(zone) == "string" and resolver.CELLS[zone] ~= nil,
@@ -243,7 +242,7 @@ return function(
 		return Host.Frame(name)(fields)
 	end
 
-	UI.Composition = ctx.construct("Composition", function(spec: Layout.CompositionProps): Frame
+	UI.Composition = ctx.construct("Composition", function(spec: LayoutProps.CompositionProps): Frame
 		local properties = (ctx.props(spec, { "gap", "padding", "topbar" }) :: unknown) :: Types.FrameNativeProps
 		local regions: { Frame } = {}
 		local helpers: { Instance } = {}

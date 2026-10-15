@@ -5,7 +5,7 @@ local rng = {}
 local M = 2147483647
 local A = 16807
 
-function rng.new(seed: number?): any
+function rng.new(seed: number?)
 	local state = math.floor(seed or 1) % M
 	if state <= 0 then
 		state += M - 1
@@ -28,7 +28,7 @@ function rng.new(seed: number?): any
 		return lo + math.floor(self.next() * (hi - lo + 1))
 	end
 
-	function self.pick(list: { any }): any
+	function self.pick<T>(list: { T }): T
 		return list[self.int(1, #list)]
 	end
 

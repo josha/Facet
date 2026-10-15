@@ -4,7 +4,6 @@ type SequenceStep = typeof(require("@repo/tools/typecheck/aliases").SequenceStep
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Compose = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 
 return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Frame
 	local row = Host.Frame { Name = "RewardCells", Size = UDim2.fromOffset(240, 60), BackgroundTransparency = 1 }
@@ -38,10 +37,11 @@ return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Fram
 		BackgroundTransparency = 1,
 		Parent = C.static(lane),
 	}
-	local destination = C.cell(source :: GuiObject)
+	local origin: GuiObject = source
+	local destination = C.cell(origin)
 	local travel = UI.Travel {
 		destination = destination,
-		path = "arc" :: "arc",
+		path = "arc",
 		content = function(): GuiObject
 			return UI.Text { text = "+24" }
 		end,
@@ -110,13 +110,12 @@ return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Fram
 		},
 	}
 	local sequence = UI.sequence(sequenceSpec)
-	return UI.VStack(({
+	return UI.VStack("RewardSequence")({
 		gap = "s",
 		UI.HStack {
-			UI.Button { Name = "RewardPlay", label = "Play reward", onActivate = sequence.play },
-			UI.Button { Name = "RewardFinish", label = "Finish", onActivate = sequence.finish },
-			UI.Button {
-				Name = "RewardCancel",
+			UI.Button "RewardPlay" { label = "Play reward", onActivate = sequence.play },
+			UI.Button "RewardFinish" { label = "Finish", onActivate = sequence.finish },
+			UI.Button "RewardCancel" {
 				label = "Cancel",
 				onActivate = function()
 					sequence.cancel()
@@ -125,22 +124,21 @@ return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Fram
 					status:set("Cancelled")
 				end,
 			},
-		} :: unknown,
-		row :: unknown,
-		lane :: unknown,
-		UI.Flash { target = row :: GuiObject, progress = sweep, mode = "sweep" :: "sweep" } :: unknown,
+		},
+		row,
+		lane,
+		UI.Flash "RowSweep" { target = row, progress = sweep, mode = "sweep" },
 		UI.Flash {
 			target = tiles[2],
 			progress = C.formula(function(use): number
 				return if showPulse == false then 0 else use(pulse)
 			end),
-		} :: unknown,
-		UI.Text {
-			Name = "RewardTotal",
+		},
+		UI.Text "RewardTotal" {
 			text = C.formula(function(use)
 				return `Total: {math.floor(use(total) + 0.5)}`
 			end),
-		} :: unknown,
-		UI.Text { Name = "RewardState", text = status } :: unknown,
-	} :: unknown) :: StackProps)
+		},
+		UI.Text "RewardState" { text = status },
+	})
 end
