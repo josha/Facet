@@ -12,14 +12,9 @@ local CollectionProps = require("./collection_props")
 local ControlTypes = require("./control_types")
 local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
-type Controls = {
-	RowActions: Types.Constructor<CollectionProps.RowActionsSpec, Frame>,
-	Menu: ControlTypes.MenuConstructor,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
 type RowEdge = CollectionTypes.RowEdge
 type RowAction = CollectionTypes.RowAction
-return function(ctx: Types.Context, UI: Controls): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
 	local readSource = ctx.readSource

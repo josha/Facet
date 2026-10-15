@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local createState = require("./collection_reorder_state")
 local createPointer = require("./collection_reorder_pointer")
 local createRow = require("./collection_reorder_row")
@@ -8,7 +9,6 @@ local bindKeys = require("./collection_reorder_keys")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local CollectionTypes = require("./collection_types")
-local InputProps = require("./input_props")
 export type Editor<V, K> = {
 	placement: (K, ComposeTypes.Placement, ComposeTypes.Use) -> ComposeTypes.Placement,
 	wrap: (GuiObject, ComposeTypes.Readable<V>, K, boolean?) -> Frame,
@@ -26,7 +26,7 @@ export type Editor<V, K> = {
 }
 return function<V, K>(
 	ctx: Types.Context,
-	UI: { Button: Types.Constructor<InputProps.ButtonProps, TextButton> },
+	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.ReorderShape<V, K>,
 	source: Types.Value<{ V }>,
 	keyOf: (V, number) -> K,

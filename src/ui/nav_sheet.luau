@@ -1,20 +1,14 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
-local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local fontReadiness = require("./font_readiness")
-local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local sheetDetents = require("./nav_sheet_detents")
 local sheetGesture = require("./nav_sheet_gesture")
 local sheetContent = require("./nav_sheet_content")
 
-type Controls = {
-	Sheet: Types.Constructor<NavigationProps.SheetSpec, Frame>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	adjustable: (GuiObject, Inputs.AdjustableOptions) -> (),
-}
 type Prepared = sheetDetents.Prepared
 
 local KEYS = {
@@ -38,7 +32,7 @@ local KEYS = {
 }
 local SETTLE_LIMIT = 20
 
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local readSource = ctx.readSource
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2

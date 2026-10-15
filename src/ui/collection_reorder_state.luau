@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local policy = require("./collection_policy")
 local activation = require("./activation")
 local scrollLock = require("./scroll_lock")
@@ -10,7 +11,6 @@ local arbitration = require("./gesture_arbitration")
 local sessionOf = require("./drag_session")
 local DragTypes = require("./drag_types")
 local Env = require("./environment_types")
-local InputProps = require("./input_props")
 local reducedMotion = require("./motion").reduced
 export type Move<V, K> = {
 	key: K,
@@ -42,7 +42,7 @@ export type Gesture<V, K> = {
 }
 export type Reorder<V, K> = {
 	ctx: Types.Context,
-	UI: { Button: Types.Constructor<InputProps.ButtonProps, TextButton> },
+	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.ReorderShape<V, K>,
 	source: Types.Value<{ V }>,
 	keyOf: (V, number) -> K,
@@ -102,7 +102,7 @@ export type Reorder<V, K> = {
 }
 return function<V, K>(
 	ctx: Types.Context,
-	UI: { Button: Types.Constructor<InputProps.ButtonProps, TextButton> },
+	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.ReorderShape<V, K>,
 	source: Types.Value<{ V }>,
 	keyOf: (V, number) -> K,

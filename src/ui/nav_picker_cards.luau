@@ -1,16 +1,12 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
-local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local PickerParts = require("./nav_picker_parts")
 
-type Controls = {
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
-
-return function(ctx: Types.Context, UI: Controls, shared: PickerParts.Parts)
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, shared: PickerParts.Parts)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
 	local pickerKeys, liveIcon, layoutWidth, wrapCaptions =

@@ -4,21 +4,12 @@ local Shared = require("./types")
 local colorValue = require("./color_value")
 local fieldChrome = require("./field_chrome")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
 
 type Use = ComposeTypes.Use
 export type Hsv = colorValue.Hsv
 export type Item = colorValue.Swatch
 export type Paint = { color: Color3?, alpha: number }
-export type Deps = {
-	ColorPicker: Shared.Constructor<InputProps.ColorPickerProps, Frame>,
-	Button: Shared.Constructor<InputProps.ButtonProps, TextButton>,
-	Slider: Shared.Constructor<InputProps.SliderProps, Frame>,
-	TextInput: Shared.Constructor<InputProps.TextInputProps, TextBox | Frame>,
-	NumberInput: Shared.Constructor<InputProps.NumberInputProps, TextBox | Frame>,
-	ShortcutHint: Shared.Constructor<InputProps.ShortcutHintProps, TextLabel | Frame>,
-	Picker: ControlTypes.PickerConstructor,
-}
+export type Deps = ControlTypes.BuilderControls
 export type Kit = {
 	chrome: fieldChrome.Chrome,
 	color: colorValue.ColorValue,

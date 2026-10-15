@@ -4,17 +4,15 @@ local ComposeTypes = require("../vendor/compose/core")
 local ControlTypes = require("./control_types")
 local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
-local OverlayProps = require("./overlay_props")
 local MenuItems = require("./nav_menu_items")
 local PickerParts = require("./nav_picker_parts")
 
-type Controls = {
-	Picker: ControlTypes.PickerConstructor,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject>,
-}
-
-return function(ctx: Types.Context, UI: Controls, shared: PickerParts.Parts, buildMenu: MenuItems.BuildMenu)
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	shared: PickerParts.Parts,
+	buildMenu: MenuItems.BuildMenu
+)
 	local Compose, runtime, read = ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local pickerKeys, appearanceFor = shared.keys, shared.appearanceFor

@@ -8,17 +8,10 @@ local CollectionProps = require("./collection_props")
 local ControlTypes = require("./control_types")
 local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
-type Controls = {
-	CellEditor: Types.Constructor<CollectionProps.CellEditorSpec, Frame>,
-	TextInput: Types.Constructor<InputProps.TextInputProps, TextBox | Frame>,
-	NumberInput: Types.Constructor<InputProps.NumberInputProps, TextBox | Frame>,
-	Toggle: Types.Constructor<InputProps.ToggleProps, TextButton>,
-	Picker: ControlTypes.PickerConstructor,
-}
 local EDITORS = { text = true, number = true, toggle = true, menu = true }
 local SETTINGS = { "options", "min", "max", "step", "draft", "validate", "editLabel", "editable" }
 
-return function(ctx: Types.Context, UI: Controls)
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls)
 	local Compose, read = ctx.Compose, ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local editors = {}

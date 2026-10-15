@@ -8,8 +8,6 @@ local adaptive = require("./adaptive")
 local segmentMetrics = require("./segment_metrics")
 local reservations = require("./reservations")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
-local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
 local pageLayers = require("./nav_page_layers")
 local tabMetrics = require("./nav_tab_metrics")
@@ -22,16 +20,12 @@ type SelectionLinks = {
 	NextSelectionDown: GuiObject?,
 }
 
-type Controls = {
-	TabView: Types.Constructor<NavigationProps.TabViewSpec, Frame>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	Menu: ControlTypes.MenuConstructor,
-	StatusIndicator: Types.Constructor<MediaProps.StatusIndicatorProps, TextLabel>,
-	Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
-	badged: Content.Badged,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers: pageLayers.PageLayers): ()
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	surfaces: Nav.Surfaces,
+	layers: pageLayers.PageLayers
+): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local content, layer, checkedSelection = layers.content, layers.layer, layers.checkedSelection

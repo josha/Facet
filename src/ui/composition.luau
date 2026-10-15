@@ -8,7 +8,6 @@ local reducedMotion = require("./motion").reduced
 local resolver = require("./composition_resolve")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
-local OverlayProps = require("./overlay_props")
 
 type Declared = {
 	zone: Layout.Zone,
@@ -22,10 +21,7 @@ type Declared = {
 
 local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 
-return function(
-	ctx: Types.Context,
-	UI: ControlTypes.Controls & { Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject> }
-)
+return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2

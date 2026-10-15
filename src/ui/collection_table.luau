@@ -14,22 +14,8 @@ local CollectionTypes = require("./collection_types")
 local tableEditors = require("./collection_table_editors")
 local CollectionProps = require("./collection_props")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
-local OverlayProps = require("./overlay_props")
 
-type Controls = {
-	Table: ControlTypes.TableConstructor,
-	CellEditor: Types.Constructor<CollectionProps.CellEditorSpec, Frame>,
-	VirtualList: <V, K>(spec: CollectionProps.KeyedCollectionSpec<V, K>) -> ScrollingFrame,
-	RowActions: Types.Constructor<CollectionProps.RowActionsSpec, Frame>,
-	Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	TextInput: Types.Constructor<InputProps.TextInputProps, TextBox | Frame>,
-	NumberInput: Types.Constructor<InputProps.NumberInputProps, TextBox | Frame>,
-	Toggle: Types.Constructor<InputProps.ToggleProps, TextButton>,
-	Picker: ControlTypes.PickerConstructor,
-}
-return function(ctx: Types.Context, UI: Controls, buildList: ListTypes.BuildList): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList: ListTypes.BuildList): ()
 	local lists = layoutKit.of(ctx)
 	local editors = tableEditors(ctx, UI)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime

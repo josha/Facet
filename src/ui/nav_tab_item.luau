@@ -1,19 +1,11 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
-local InputProps = require("./input_props")
-local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
 local tabMetrics = require("./nav_tab_metrics")
-
-type Controls = {
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	StatusIndicator: Types.Constructor<MediaProps.StatusIndicatorProps, TextLabel>,
-	Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
-	badged: Content.Badged,
-}
 
 export type TabItemView = {
 	fit: boolean,
@@ -33,7 +25,7 @@ local CORNER_OVERLAP = 0.25
 
 return function(
 	ctx: Types.Context,
-	UI: Controls,
+	UI: ControlTypes.BuilderControls,
 	surfaces: Nav.Surfaces,
 	spec: NavigationProps.TabViewSpec,
 	view: TabItemView

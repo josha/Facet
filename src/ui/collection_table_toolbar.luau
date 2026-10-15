@@ -1,15 +1,15 @@
 --!strict
+local ControlTypes = require("./control_types")
 local motion = require("./motion")
 local reorder = require("./collection_reorder")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local CollectionTypes = require("./collection_types")
 local InputTypes = require("./input_types")
-local InputProps = require("./input_props")
 local Metrics = require("./collection_table_metrics")
 return function<V, K>(
 	ctx: Types.Context,
-	UI: { Button: Types.Constructor<InputProps.ButtonProps, TextButton> },
+	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.TableShape<V, K>,
 	editing: Types.ValueBoolean?,
 	editor: reorder.Editor<V, K>?,

@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local layoutKit = require("./layout_kit")
 local reorder = require("./collection_reorder")
 local policy = require("./collection_policy")
@@ -8,16 +9,8 @@ local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
-local CollectionProps = require("./collection_props")
-local InputProps = require("./input_props")
-local OverlayProps = require("./overlay_props")
 local Metrics = require("./collection_table_metrics")
 local Columns = require("./collection_table_columns")
-type Controls = {
-	RowActions: Types.Constructor<CollectionProps.RowActionsSpec, Frame>,
-	Popover: Types.Constructor<OverlayProps.PopoverSpec, GuiObject>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
 export type Rows<V, K> = {
 	spec: CollectionTypes.TableShape<V, K>,
 	rowPolicySpec: CollectionTypes.TableShape<V, K>,
@@ -43,7 +36,11 @@ export type Rows<V, K> = {
 	metrics: Metrics.Metrics,
 	layout: Columns.Columns<V, K>,
 }
-return function<V, K>(ctx: Types.Context, UI: Controls, shared: Rows<V, K>): CollectionTypes.RowRender<V, K>
+return function<V, K>(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	shared: Rows<V, K>
+): CollectionTypes.RowRender<V, K>
 	local lists = layoutKit.of(ctx)
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read

@@ -17,14 +17,6 @@ local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
 local CollectionProps = require("./collection_props")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
-type Controls = {
-	VirtualList: ControlTypes.CollectionConstructor,
-	Outline: ControlTypes.OutlineConstructor,
-	VirtualGrid: ControlTypes.CollectionConstructor,
-	RowActions: Types.Constructor<CollectionProps.RowActionsSpec, Frame>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
 
 export type BuildList = <V, K>(
 	CollectionProps.KeyedCollectionSpec<V, K>,
@@ -32,7 +24,7 @@ export type BuildList = <V, K>(
 	boolean?
 ) -> ScrollingFrame
 
-return function(ctx: Types.Context, UI: Controls): BuildList
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local read = ctx.read
 	local props, observe = ctx.props, ctx.observe

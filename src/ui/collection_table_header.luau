@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local activation = require("./activation")
 local scrollLock = require("./scroll_lock")
 local ComposeTypes = require("../vendor/compose/core")
@@ -9,7 +10,7 @@ local Metrics = require("./collection_table_metrics")
 local Columns = require("./collection_table_columns")
 return function<V, K>(
 	ctx: Types.Context,
-	UI: { Button: Types.Constructor<InputProps.ButtonProps, TextButton> },
+	UI: ControlTypes.BuilderControls,
 	spec: CollectionTypes.TableShape<V, K>,
 	sort: ComposeTypes.Cell<CollectionTypes.Sort?>,
 	widths: ComposeTypes.Cell<{ [string]: number }>,

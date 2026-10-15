@@ -1,16 +1,10 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Content = require("./content_types")
-local MediaProps = require("./media_props")
 local ComposeTypes = require("../vendor/compose/core")
 
-return function(
-	ctx: Types.Context,
-	UI: {
-		badged: Content.Badged,
-		Badge: Types.Constructor<MediaProps.BadgeProps, GuiObject>,
-	}
-): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local function words(value: Content.BadgeValue?): string

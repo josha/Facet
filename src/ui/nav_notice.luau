@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
@@ -8,14 +9,7 @@ local parts = require("./overlay_parts")
 local reservations = require("./reservations")
 local motion = require("./motion")
 local freeze = require("./freeze")
-local InputProps = require("./input_props")
 local OverlayProps = require("./overlay_props")
-
-type Controls = {
-	Notice: Types.Constructor<OverlayProps.NoticeSpec, Frame>,
-	NavBar: Types.Constructor<OverlayProps.NavBarSpec, Frame>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
 
 local NOTICE_KEYS = {
 	"message",
@@ -55,7 +49,7 @@ local ICON_TAGS: { [string]: string } = freeze({
 	error = "facet-icon-error",
 })
 
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, UD = ctx.types.Enum, ctx.types.UDim2, ctx.types.UDim
 

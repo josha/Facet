@@ -1,11 +1,11 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
 local window = require("./pagination_window")
 local values = require("./content_values")
 local ContentProps = require("./content_props")
-local InputProps = require("./input_props")
 
 type Entry = { kind: "page" | "gap" | "label" | "first" | "previous" | "next" | "last", key: string, page: number? }
 type State = { current: number?, count: number?, hasPrevious: boolean, hasNext: boolean }
@@ -14,13 +14,7 @@ local MAX_SAFE = 9007199254740991
 local MAX_WINDOW = 20
 local ARROWS = { "first", "previous", "next", "last" }
 
-return function(
-	ctx: Types.Context,
-	UI: {
-		Pagination: Types.Constructor<ContentProps.PaginationSpec, Frame>,
-		Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-	}
-): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
 	local readSource = ctx.readSource
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2

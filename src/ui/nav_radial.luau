@@ -3,7 +3,6 @@ local layoutKit = require("./layout_kit")
 local Types = require("./types")
 local Navigation = require("./navigation_types")
 local ControlTypes = require("./control_types")
-local InputProps = require("./input_props")
 local RadialProps = require("./radial_props")
 local ComposeTypes = require("../vendor/compose/core")
 local createMenu = require("./nav_radial_menu")
@@ -14,14 +13,7 @@ local paintSectors = require("./nav_radial_sectors")
 local buildCenter = require("./nav_radial_center")
 local attachGestures = require("./nav_radial_gestures")
 
-return function(
-	ctx: Types.Context,
-	UI: {
-		Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-		RadialMenu: ControlTypes.RadialMenuConstructor,
-	},
-	surfaces: Navigation.Surfaces
-)
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Navigation.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2

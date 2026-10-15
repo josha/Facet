@@ -1,4 +1,5 @@
 --!strict
+local ControlTypes = require("./control_types")
 local activation = require("./activation")
 local adaptive = require("./adaptive")
 local preparePaint = require("./collection_paint")
@@ -9,12 +10,11 @@ local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local EngineTypes = require("./engine_types")
 local CollectionTypes = require("./collection_types")
-local CollectionProps = require("./collection_props")
 local State = require("./collection_state")
 local Slots = require("./collection_slots")
 return function<V, K>(
 	ctx: Types.Context,
-	UI: { RowActions: Types.Constructor<CollectionProps.RowActionsSpec, Frame> },
+	UI: ControlTypes.BuilderControls,
 	view: State.View<V, K>,
 	editor: reorder.Editor<V, K>?,
 	slots: Slots.Slots<V, K>

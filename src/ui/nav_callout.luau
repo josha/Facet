@@ -1,19 +1,19 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local Overlay = require("./overlay_types")
-local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local surfaceParts = require("./nav_surface_parts")
 
-type Controls = {
-	Callout: Types.Constructor<NavigationProps.CalloutSpec, Frame>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: surfaceParts.SurfaceParts): ()
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	surfaces: Nav.Surfaces,
+	kit: surfaceParts.SurfaceParts
+): ()
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local body, empty = kit.body, kit.empty

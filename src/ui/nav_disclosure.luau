@@ -1,17 +1,17 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
-local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local surfaceParts = require("./nav_surface_parts")
 
-type Controls = {
-	DisclosureGroup: Types.Constructor<NavigationProps.DisclosureGroupSpec, Frame>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
-
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: surfaceParts.SurfaceParts): ()
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	surfaces: Nav.Surfaces,
+	kit: surfaceParts.SurfaceParts
+): ()
 	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
 	local body, revealMotion, unroll = kit.body, kit.revealMotion, kit.unroll

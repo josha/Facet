@@ -1,20 +1,20 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local reducedMotion = require("./motion").reduced
-local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local pageLayers = require("./nav_page_layers")
 
-type Controls = {
-	PageView: Types.Constructor<NavigationProps.PageViewSpec, Frame>,
-	Button: Types.Constructor<InputProps.ButtonProps, TextButton>,
-}
-
 local FLING_SPEED = 1200
 
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers: pageLayers.PageLayers): ()
+return function(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	surfaces: Nav.Surfaces,
+	layers: pageLayers.PageLayers
+): ()
 	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local content, checkedSelection = layers.content, layers.checkedSelection
