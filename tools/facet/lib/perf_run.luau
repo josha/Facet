@@ -10,7 +10,7 @@ local perf_runner = (nil :: unknown) :: typeof(require("../../../bench/perf_runn
 local perf_scenes = (nil :: unknown) :: typeof(require("../../../bench/perf_scenes"))
 local perf_profiles = (nil :: unknown) :: typeof(require("../../../bench/perf_profiles"))
 local loaded = false
-local nativeApp: typeof(require("../../../bench/native_app"))
+local nativeApp = (nil :: unknown) :: typeof(require("../../../bench/native_app"))
 
 local function loadBench()
 	if loaded then
