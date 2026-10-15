@@ -137,11 +137,9 @@ return function(
 			end,
 			techniqueNode :: Shared.Child,
 		}
-		local window = ctx.observe.AbsoluteWindowSize(body)
 		runtime.decorate(techniqueNode, {
 			Size = function(use: Use)
-				local across = use(window).X / use(unit)
-				return if across > 0 then D2.fromOffset(across, active(use)) else D2.new(1, 0, 0, active(use))
+				return D2.new(1, 0, 0, active(use))
 			end,
 		})
 		table.insert(children, body)
