@@ -138,10 +138,17 @@ for _, loaded in { games, slice, extended } do
 				end
 			end
 			local hasPlay = false
+			local hasSpec = false
 			for _, check in item.checks do
 				if check.id == "play" and check.kind == "verify" then
-					hasPlay = true
+					hasPlay = check.required ~= false and table.find(check.argv or {}, "universal") ~= nil
 				end
+				if check.id == "spec" and check.kind == "verify" then
+					hasSpec = check.required == false and table.find(check.argv or {}, "spec") ~= nil
+				end
+			end
+			if not hasSpec then
+				fail(("task %s has no non-required spec producer"):format(item.id))
 			end
 			if not hasPlay then
 				fail(("task %s has no play check"):format(item.id))

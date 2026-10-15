@@ -6,69 +6,16 @@
   "brief": "vibe.md",
   "starter": "../starter",
   "checks": [
-    {
-      "id": "contract",
-      "kind": "command",
-      "argv": ["lute", "run", "{task}/../../../../tools/play/host/contract.luau", "{task}/../starter", "{workspace}"],
-      "deadlineSeconds": 60
-    },
-    {
-      "id": "types",
-      "kind": "command",
-      "argv": ["lute", "run", "{task}/../../../arms/shared/tools/typecheck/check.luau", "--workspace", "{workspace}", "--definitions", "{task}/../../../../artifacts/facetbench/arm-shared/tools/typecheck/roblox.d.luau", "--scores", "{scores}"],
-      "deadlineSeconds": 600,
-      "required": false,
-      "scores": true
-    },
-    {
-      "id": "play","required":false,
-      "kind": "verify",
-      "argv": ["lute", "run", "{task}/../hidden/play.luau", "--workspace", "{workspace}", "--outputs", "{outputs}", "--captures", "{captures}", "--report", "{report}", "--run", "{run}", "--scores", "{scores}", "--devices", "{devices}", "--systems", "hud-dock,shop"],
-      "deadlineSeconds": 2400,
-      "scores": true
-    },
-    {
-      "perDevice": true,
-      "dump": "{outputs}/dumps/{device}/shop.json",
-      "id": "audit-shop",
-      "required": false,
-      "kind": "audit"
-    },
-    {
-      "perDevice": true,
-      "dump": "{outputs}/dumps/{device}/feedback.json",
-      "id": "audit-feedback",
-      "required": false,
-      "kind": "audit"
-    },
-    {
-      "perDevice": true,
-      "dump": "{outputs}/dumps/{device}/hud.json",
-      "id": "audit-hud",
-      "required": false,
-      "kind": "audit"
-    },
-    {
-      "perDevice": true,
-      "dump": "{outputs}/dumps/{device}/boosts.json",
-      "id": "audit-boosts",
-      "required": false,
-      "kind": "audit"
-    },
-    {
-      "perDevice": true,
-      "dump": "{outputs}/dumps/{device}/quests.json",
-      "id": "audit-quests",
-      "required": false,
-      "kind": "audit"
-    },
-    {
-      "perDevice": true,
-      "dump": "{outputs}/dumps/{device}/offer.json",
-      "id": "audit-offer",
-      "required": false,
-      "kind": "audit"
-    },
+    {"id":"contract","kind":"command","argv":["lute","run","{task}/../../../../tools/play/host/contract.luau","{task}/../starter","{workspace}"],"deadlineSeconds":60},
+    {"id":"types","kind":"command","argv":["lute","run","{task}/../../../arms/shared/tools/typecheck/check.luau","--workspace","{workspace}","--definitions","{task}/../../../../artifacts/facetbench/arm-shared/tools/typecheck/roblox.d.luau","--scores","{scores}"],"deadlineSeconds":600,"required":false,"scores":true},
+    {"id":"play","kind":"verify","argv":["lute","run","{task}/../hidden/play.luau","--workspace","{workspace}","--outputs","{outputs}","--captures","{captures}","--report","{report}","--run","{run}","--scores","{scores}","--devices","{devices}","--systems","hud-dock,shop","--tier","universal"],"deadlineSeconds":2400,"scores":true,"required":true},
+    {"id":"spec","kind":"verify","argv":["lute","run","{task}/../hidden/play.luau","--workspace","{workspace}","--outputs","{outputs}/spec","--captures","{outputs}/spec-captures","--report","{report}","--run","{run}","--scores","{scores}","--devices","{devices}","--systems","hud-dock,shop","--tier","spec"],"deadlineSeconds":2400,"scores":true,"required":false},
+    {"perDevice":true,"dump":"{outputs}/spec/dumps/{device}/shop.json","id":"audit-shop","required":false,"kind":"audit"},
+    {"perDevice":true,"dump":"{outputs}/spec/dumps/{device}/feedback.json","id":"audit-feedback","required":false,"kind":"audit"},
+    {"perDevice":true,"dump":"{outputs}/spec/dumps/{device}/hud.json","id":"audit-hud","required":false,"kind":"audit"},
+    {"perDevice":true,"dump":"{outputs}/spec/dumps/{device}/boosts.json","id":"audit-boosts","required":false,"kind":"audit"},
+    {"perDevice":true,"dump":"{outputs}/spec/dumps/{device}/quests.json","id":"audit-quests","required":false,"kind":"audit"},
+    {"perDevice":true,"dump":"{outputs}/spec/dumps/{device}/offer.json","id":"audit-offer","required":false,"kind":"audit"},
     {"id":"audit-universal-hub","kind":"audit","required":false,"perDevice":true,"dump":"{outputs}/dumps/{device}/universal-hub.json"},
     {"id":"audit-universal-shop","kind":"audit","required":false,"perDevice":true,"dump":"{outputs}/dumps/{device}/universal-shop.json"},
     {"id":"audit-universal-boosts","kind":"audit","required":false,"perDevice":true,"dump":"{outputs}/dumps/{device}/universal-boosts.json"},

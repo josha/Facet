@@ -26,6 +26,21 @@ return function(harness: Verify.Harness)
 			end
 		end
 		t:expect(Headline.build(suite, runs, judgments, thresholds, overhead).passed):toBe(true)
+		for _, run in runs do
+			for _, check in run.checks do
+				if check.check == "play" then
+					check.passed = false
+				end
+			end
+		end
+		t:expect(Headline.build(suite, runs, judgments, thresholds, overhead).passed):toBe(false)
+		for _, run in runs do
+			for _, check in run.checks do
+				if check.check == "play" then
+					check.passed = run.arm == "facet"
+				end
+			end
+		end
 		runs[1].scores["play.universal.desktop.fraction"] = nil
 		t:expect(Headline.build(suite, runs, judgments, thresholds, overhead).passed):toBe(false)
 	end)

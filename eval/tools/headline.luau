@@ -76,9 +76,16 @@ local function build(
 		local run = table.clone(original)
 		local complete = run.status == "completed" and #run.exceeded == 0
 		local contract = false
+		local play = false
 		for _, check in run.checks do
+			if check.required and not check.passed then
+				complete = false
+			end
 			if check.check == "contract" then
 				contract = check.passed
+			end
+			if check.check == "play" then
+				play = check.passed
 			end
 		end
 		for _, task in suite.tasks do
@@ -102,7 +109,7 @@ local function build(
 				end
 			end
 		end
-		run.passed = complete and contract
+		run.passed = complete and contract and play
 		run.checksPassed = run.passed
 		local audits = {}
 		for _, item in run.audits do
@@ -519,7 +526,7 @@ local function build(
 							run.seed,
 							device.id,
 							show(run.scores["play.universal." .. device.id .. ".fraction"]),
-							show(run.scores["play.spec." .. device.id .. ".fraction"])
+							show(run.scores["spec.fraction." .. device.id])
 						)
 					)
 				end

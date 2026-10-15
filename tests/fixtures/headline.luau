@@ -28,7 +28,7 @@ local function write(directory: string, mode: string): Headline.Manifest
 					scores["play.fraction." .. device.id] = if facet then 1 else 0.5
 					scores["play.universal." .. device.id .. ".fraction"] = if facet then 1 else 0.5
 					scores["play.universal." .. device.id .. ".total"] = task.universalCases or 10
-					scores["play.spec." .. device.id .. ".fraction"] = 0
+					scores["spec.fraction." .. device.id] = 0
 					local measurements: { [string]: number } = {
 						baseInstances = if mode == "instances" and facet then 10000 else 100,
 						mountSeconds = if mode == "fail" and facet then 12 else 10,
@@ -93,6 +93,26 @@ local function write(directory: string, mode: string): Headline.Manifest
 					},
 					session = { usageSource = "turn.completed", mcpServers = {}, tools = {} },
 					checks = {
+						{
+							id = "play",
+							check = "play",
+							kind = "verify",
+							required = true,
+							status = "passed",
+							passed = facet,
+							cases = {},
+							scores = {},
+						},
+						{
+							id = "spec",
+							check = "spec",
+							kind = "verify",
+							required = false,
+							status = "failed",
+							passed = false,
+							cases = {},
+							scores = {},
+						},
 						{
 							id = "contract",
 							check = "contract",

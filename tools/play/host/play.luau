@@ -41,7 +41,6 @@ export type DevicePerf = {
 	screens: { [string]: { [string]: unknown } },
 	final: { [string]: unknown }?,
 	returned: boolean?,
-	sealed: boolean?,
 }
 
 export type Host = {
@@ -50,7 +49,6 @@ export type Host = {
 	measure: (device: string, screen: string, body: () -> ()) -> (),
 	perf: { [string]: DevicePerf },
 	close: () -> (),
-	seal: () -> (),
 	log: (line: string) -> (),
 	lines: { string },
 	shots: { QA.Shot },
@@ -65,6 +63,7 @@ type Arguments = {
 	scores: string?,
 	devices: { [string]: boolean }?,
 	keep: boolean,
+	tier: "universal" | "spec",
 }
 
 local absolute = AgentEval.lute.absolute
@@ -113,6 +112,7 @@ local function arguments(): Arguments
 		devices = chosen
 	end
 	local scores: string? = values.scores
+	assert(values.tier == nil or values.tier == "universal" or values.tier == "spec", "invalid --tier")
 	return {
 		workspace = required("workspace"),
 		outputs = required("outputs"),
@@ -122,6 +122,7 @@ local function arguments(): Arguments
 		scores = if scores ~= nil then absolute(scores) else nil,
 		devices = devices,
 		keep = keep,
+		tier = if values.tier == "spec" then "spec" else "universal",
 	}
 end
 
@@ -173,9 +174,6 @@ local function open(options: HostOptions): Host
 		local active = current
 		if active ~= nil and perf[active.device] ~= nil then
 			local record = perf[active.device]
-			if record.sealed then
-				return
-			end
 			local ok = pcall(function()
 				for _ = 1, 8 do
 					local query: QA.Query = { exact = "Close", role = "button" }
@@ -197,7 +195,6 @@ local function open(options: HostOptions): Host
 				active.qa:sleep(5)
 				record.final = probe(active.qa, { action = "idle", seconds = 2 })
 			end
-			record.sealed = true
 		end
 	end
 	local problems: { [string]: string } = {}
@@ -419,7 +416,6 @@ local function open(options: HostOptions): Host
 		build = buildPlace,
 		enter = enter,
 		close = close,
-		seal = finishDevice,
 		log = log,
 		lines = lines,
 		shots = shots,
@@ -495,19 +491,9 @@ end
 
 local function main(scenario: Scenario, entrySource: string, universal: Scenario?)
 	local args = arguments()
-	local tiers: { [string]: string } = { ["workspace/builds"] = "universal" }
-	if universal ~= nil then
-		local combined: Scenario = { sessions = {} }
-		for index, session in scenario.sessions do
-			local cases = table.clone(universal.sessions[index].cases)
-			for _, case in session.cases do
-				local diagnostic = table.clone(case)
-				diagnostic.tier = "spec"
-				table.insert(cases, diagnostic)
-			end
-			table.insert(combined.sessions, { device = session.device, cases = cases })
-		end
-		scenario = combined
+	local tiers: { [string]: string } = { ["workspace/builds"] = args.tier }
+	if universal ~= nil and args.tier == "universal" then
+		scenario = universal
 	end
 	local taskDirectory = absolute(directoryOf(entrySource) .. "/..")
 	local taskName = string.match(taskDirectory, "([^/]+)$") or "task"
@@ -542,9 +528,6 @@ local function main(scenario: Scenario, entrySource: string, universal: Scenario
 					timeoutSeconds = case.timeoutSeconds or 240,
 					run = function(context: Core.Context)
 						local qa = host.enter(entry.device)
-						if universal ~= nil and case.tier == "spec" then
-							host.seal()
-						end
 						local screen = case.screen
 						if screen == nil then
 							case.run(qa, context)
@@ -578,19 +561,6 @@ local function main(scenario: Scenario, entrySource: string, universal: Scenario
 		environment = { task = taskName, workspace = args.workspace },
 	})
 	host.close()
-	if universal ~= nil then
-		for _, shot in host.shots do
-			if shot.path ~= nil and string.find(shot.screen, "universal-", 1, true) ~= 1 then
-				local directory = args.outputs .. "/spec-captures/" .. shot.device
-				ensure(directory)
-				local destination = directory .. "/" .. shot.screen .. ".png"
-				if fs.exists(shot.path) then
-					fs.move(shot.path, destination)
-				end
-				shot.path = destination
-			end
-		end
-	end
 	Lute.gate.writeReport(args.report, args.run, report)
 	local passed, total = 0, 0
 	local byDevice: { [string]: { passed: number, total: number } } = {}
