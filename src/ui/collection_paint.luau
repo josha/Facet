@@ -23,7 +23,11 @@ return function(ctx: Types.Context, root: GuiObject): ComposeTypes.Readable<bool
 		scope = nextScope
 		ctx.Compose.withOwner(nextScope, function()
 			local function sample(): boolean
-				local filled = root.AbsoluteSize.X > 0 and root.AbsoluteSize.Y > 0
+				local box = root.AbsoluteSize
+				if box.X <= 0 or box.Y <= 0 then
+					return false
+				end
+				local filled = true
 				for _, node in root:GetDescendants() do
 					if node:IsA("GuiObject") then
 						local visible = node.Visible
