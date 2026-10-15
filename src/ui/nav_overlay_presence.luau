@@ -127,7 +127,7 @@ return function(ctx: Types.Context): Presence
 			held[index] = natural
 			Compose.watch(function(use: ComposeTypes.Use)
 				local value = use(size)
-				if not use(rested) or amount(use) >= 1 then
+				if not use(rested) or amount() >= 1 then
 					natural:set(value)
 				end
 			end)
