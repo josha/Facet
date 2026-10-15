@@ -495,17 +495,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			sized(node)
 			if spec.shape ~= "circle" then
 				local sizing = ctx.observe.AutomaticSize(node)
+				local words = ctx.observe.Text(node)
 				runtime.mountFragment(function()
 					return {
 						Compose.show(function(use: ComposeTypes.Use)
 							local grows = use(sizing)
-							return grows ~= E.AutomaticSize.X and grows ~= E.AutomaticSize.XY
+							return grows ~= E.AutomaticSize.X and grows ~= E.AutomaticSize.XY and use(words) ~= ""
 						end, function()
 							local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
-							local words, points, face =
-								ctx.observe.Text(node),
-								ctx.observeStyled.TextSize(node),
-								ctx.observeStyled.FontFace(node)
+							local points, face = ctx.observeStyled.TextSize(node), ctx.observeStyled.FontFace(node)
 							local measured: string? = nil
 							Compose.watch(function(use: ComposeTypes.Use)
 								use(box)
