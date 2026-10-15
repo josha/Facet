@@ -23,6 +23,12 @@ local TEXT = "Your selected driver is ready."
 local clipping = require(game:GetService("ReplicatedStorage").FacetLive.text_clipping)
 local geometry = require(game:GetService("ReplicatedStorage").FacetLive.overlay_geometry)
 
+local function rendered(t: { settle: (number?) -> () })
+	t.settle(1)
+	task.defer(coroutine.running())
+	coroutine.yield()
+end
+
 local function visible(node: GuiObject, root: Instance): boolean
 	local at: Instance? = node
 	while at and at ~= root do
@@ -385,7 +391,7 @@ do
 						local frames = {}
 						local started = os.clock()
 						while os.clock() - started < 1.2 do
-							t.settle(1)
+							rendered(t)
 							local panel = t.find(layer, names[kind])
 							if panel and panel:IsA("GuiObject") then
 								local fade = panel:FindFirstChild("FadePaint")
