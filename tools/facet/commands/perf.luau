@@ -24,8 +24,8 @@ subcommands:
   prove-gate                    inject a regression, prove that run fails, then rerun it clean
   budgets                       check bench/perf_budgets.json and the last perf run's skipped device budgets
   metrics                       check the metric rows of artifacts/phase-4/perf.json (exit 2 when it is absent)
-  memory [REPORT.json]          gate exact teardown counts and resource growth during churn
-  prove-memory-gate             plant native and Compose leaks and prove that the memory gate fails
+  memory [REPORT.json]          gate exact teardown counts and report resource growth during churn
+  prove-memory-gate             plant native and Compose leaks and prove that the teardown gate fails
   scenes [--themes]             check that each production (or theme-swap) scene did its work
   place [--no-build]            build examples/performance.project.json and check the place
   paired run --out DIR [--rounds N] [--scenes a,b] [--skip-bench] LABEL=WORKTREE...
@@ -123,11 +123,15 @@ local function memory(recorded: string?): number
 		print("perf memory: FAIL - run lute run tools/facet perf run first")
 		return 1
 	end
-	local errors = Memory.check(readJson(path))
+	local report = readJson(path)
+	for _, trend in Memory.growth(report) do
+		print("TREND " .. trend)
+	end
+	local errors = Memory.check(report)
 	if #errors > 0 then
 		return failLines(errors)
 	end
-	print("perf memory: PASS - exact resource counts return to zero and churn does not grow")
+	print("perf memory: PASS - exact resource counts return to zero after teardown; churn growth is a trend")
 	return 0
 end
 

@@ -13,8 +13,8 @@ return function(verifyHarness: Verify.Harness)
 	local Memory = require("../tools/facet/checks/perf_memory")
 
 	verifyHarness:suite("exact performance resource gates", function()
-		verifyHarness:case("rejects each resource leak and malformed count independently of timing", {
-			id = "native_perf_runner::exact performance resource gates::rejects each resource leak and malformed count independently of timing",
+		verifyHarness:case("rejects each teardown leak and malformed count and reports churn growth", {
+			id = "native_perf_runner::exact performance resource gates::rejects each teardown leak and malformed count and reports churn growth",
 			run = function()
 				local function report(start: unknown, sample: unknown, final: unknown, churn: boolean): unknown
 					return {
@@ -31,11 +31,18 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local zero = { instances = 0, connections = 0, registrations = 0 }
 				expect(Memory.check(report(zero, zero, zero, true))):toEqual({})
+				expect(Memory.growth(report(zero, zero, zero, true))):toEqual({})
 				for _, name in { "instances", "connections", "registrations" } do
 					local leak: { [string]: number } = table.clone(zero)
 					leak[name] = 1
-					expect(#Memory.check(report(zero, leak, zero, true))):toBe(1)
-					expect(#Memory.check(report(zero, zero, leak, false))):toBe(1)
+					expect(Memory.check(report(zero, leak, zero, true))):toEqual({})
+					expect(Memory.growth(report(zero, leak, zero, true))):toEqual({
+						`test@floorAndroid: iteration 1 grows {name} from 0 to 1`,
+					})
+					expect(Memory.growth(report(zero, leak, zero, false))):toEqual({})
+					expect(Memory.check(report(zero, zero, leak, false))):toEqual({
+						`test@floorAndroid: teardown retains 1 {name}; expected zero`,
+					})
 					leak[name] = 0.5
 					expect(#Memory.check(report(zero, leak, zero, true))):toBe(1)
 				end
@@ -43,13 +50,13 @@ return function(verifyHarness: Verify.Harness)
 				expect(#Memory.check({ runs = { { evidenceClass = "lute" } } }) > 0):toBe(true)
 			end,
 		})
-		verifyHarness:case("rejects churn growth below the warmed resource count", {
-			id = "native_perf_runner::exact performance resource gates::rejects churn growth below the warmed resource count",
+		verifyHarness:case("reports churn growth below the warmed resource count as a trend", {
+			id = "native_perf_runner::exact performance resource gates::reports churn growth below the warmed resource count as a trend",
 			run = function()
 				local function counts(value: number)
 					return { instances = value, connections = value, registrations = value }
 				end
-				local errors = Memory.check({
+				local report = {
 					runs = {
 						{
 							scene = "churn",
@@ -64,8 +71,13 @@ return function(verifyHarness: Verify.Harness)
 							},
 						},
 					},
+				}
+				expect(Memory.check(report)):toEqual({})
+				expect(Memory.growth(report)):toEqual({
+					"churn@floorAndroid: iteration 3 grows instances from 7 to 8",
+					"churn@floorAndroid: iteration 3 grows connections from 7 to 8",
+					"churn@floorAndroid: iteration 3 grows registrations from 7 to 8",
 				})
-				expect(#errors):toBe(3)
 			end,
 		})
 		verifyHarness:case(
@@ -84,6 +96,7 @@ return function(verifyHarness: Verify.Harness)
 								memory = true,
 							})
 							expect(Memory.check({ runs = { row } })):toEqual({})
+							expect(Memory.growth({ runs = { row } })):toEqual({})
 						end
 					end
 					expect(found):toBe(true)

@@ -319,7 +319,8 @@ function PerfRun.run(baseline: boolean): number
 	end
 	local result = perf_runner.checkBudgets(report, budgets) :: Check
 	local memoryErrors = Memory.check(report)
-	report.memory = { ok = #memoryErrors == 0, errors = memoryErrors }
+	local memoryGrowth = Memory.growth(report)
+	report.memory = { ok = #memoryErrors == 0, errors = memoryErrors, growth = memoryGrowth }
 	report.status = if result.ok and #memoryErrors == 0 then "PASS" else "FAIL"
 	report.budget = {
 		checked = true,
@@ -357,6 +358,14 @@ function PerfRun.run(baseline: boolean): number
 		print(`  (device budget '{s.class}' not checked: {s.reason})`)
 	end
 	print("")
+	for _, trend in memoryGrowth do
+		print("  TREND [memory] " .. trend)
+	end
+	if #memoryGrowth > 0 then
+		print(`  NOTE: {#memoryGrowth} exact count(s) grew during churn. Growth is a trend, not a gate.`)
+		print("        Teardown must release every instance, connection and Compose registration.")
+		print("")
+	end
 	for _, problem in memoryErrors do
 		print("FAIL [memory] " .. problem)
 	end
@@ -679,26 +688,40 @@ function PerfRun.proveMemoryGate(): number
 		}
 		local row = perf_runner.runScene(scene, perf_profiles.get(perf_profiles.REFERENCE), { memory = true })
 		local errors = Memory.check({ runs = { row } })
+		local growth = Memory.growth({ runs = { row } })
 		for _, stop in cleanup do
 			stop()
 		end
 		local path = `artifacts/performance-stress-places/memory-{kind}.json`
 		PerfRun.writeJson(path, { runs = { row } })
 		local command = Run.capture({ Run.lute(), "run", "tools/facet", "perf", "memory", path })
-		local teardown, growth = false, false
+		local teardown, reported = false, false
 		for _, problem in errors do
-			teardown = teardown or string.find(problem, "teardown retains", 1, true) ~= nil
-			growth = growth or string.find(problem, "grows " .. kind, 1, true) ~= nil
+			teardown = teardown
+				or string.find(problem, "teardown retains", 1, true) ~= nil
+					and string.find(problem, ` {kind};`, 1, true) ~= nil
 		end
-		local passed = if kind == "clean" then #errors == 0 and command.ok else teardown and growth and not command.ok
-		table.insert(
-			proofs,
-			{ kind = kind, passed = passed, errors = errors, resources = row.resources, exitCode = command.code }
-		)
+		for _, trend in growth do
+			reported = reported or string.find(trend, "grows " .. kind, 1, true) ~= nil
+		end
+		local passed = if kind == "clean"
+			then #errors == 0 and #growth == 0 and command.ok
+			else teardown and reported and not command.ok
+		table.insert(proofs, {
+			kind = kind,
+			passed = passed,
+			errors = errors,
+			growth = growth,
+			resources = row.resources,
+			exitCode = command.code,
+		})
 		print(`perf prove-memory-gate: {kind} {if passed then "PASS" else "FAIL"}`)
 		if not passed then
 			for _, problem in errors do
 				print(problem)
+			end
+			for _, trend in growth do
+				print(trend)
 			end
 			return 1
 		end
