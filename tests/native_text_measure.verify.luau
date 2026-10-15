@@ -105,6 +105,9 @@ return function(harness: Verify.Harness)
 		local label: TextLabel? = nil
 		local service = {
 			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
+				if params.Width == 0 then
+					return engine.types.Vector2.new(#params.Text * params.Size, params.Size)
+				end
 				calls += 1
 				if label and not measure.ready(label) then
 					blocked += 1
@@ -172,6 +175,7 @@ return function(harness: Verify.Harness)
 			local node = Host.TextLabel { Text = "Saved", TextSize = 16 }
 			label = node
 			result = measure.natural(ctx, node)
+			t:expect(measure.natural(ctx, node)):toBe(result)
 			return node
 		end, engine.new("ScreenGui"))
 		local node = assert(label)
