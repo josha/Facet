@@ -47,46 +47,30 @@ return function(
 	local at = (runtime.observe(target, "AbsolutePosition") :: unknown) :: ComposeTypes.Cell<Vector2>
 	local boundaryAt = (runtime.observe(boundary, "AbsolutePosition") :: unknown) :: ComposeTypes.Cell<Vector2>
 	local insets = Compose.cell({} :: Insets)
-	local connections: { RBXScriptConnection }, paddingConnections: { RBXScriptConnection } = {}, {}
-	local function disconnectPadding()
-		for _, connection in paddingConnections do
-			connection:Disconnect()
+	local padding = Compose.cell(target:FindFirstChildWhichIsA("UIPadding"))
+	local function childChanged(child: Instance)
+		if child:IsA("UIPadding") then
+			padding:set(target:FindFirstChildWhichIsA("UIPadding"))
 		end
-		table.clear(paddingConnections)
 	end
-	local function paddingChanged()
-		disconnectPadding()
-		local padding = target:FindFirstChildWhichIsA("UIPadding")
-		if padding == nil then
+	runtime.connect(target, "ChildAdded", childChanged)
+	runtime.connect(target, "ChildRemoved", childChanged)
+	Compose.watch(function(use)
+		local current = use(padding)
+		if current == nil then
 			insets:set({})
 			return
 		end
 		local function refresh()
 			local values: Insets = {}
 			for _, side in { "Left", "Right", "Top", "Bottom" } do
-				values[side] = padding:GetStyled("Padding" .. side) :: UDim
+				values[side] = current:GetStyled("Padding" .. side) :: UDim
 			end
 			insets:set(values)
 		end
-		for _, side in { "Left", "Right", "Top", "Bottom" } do
-			table.insert(paddingConnections, padding:GetStyledPropertyChangedSignal("Padding" .. side):Connect(refresh))
-			table.insert(paddingConnections, padding:GetPropertyChangedSignal("Padding" .. side):Connect(refresh))
-		end
+		runtime.connect(current, "StyledPropertiesChanged", refresh)
+		runtime.connect(current, "Changed", refresh)
 		refresh()
-	end
-	local function childChanged(child: Instance)
-		if child:IsA("UIPadding") then
-			paddingChanged()
-		end
-	end
-	table.insert(connections, target.ChildAdded:Connect(childChanged))
-	table.insert(connections, target.ChildRemoved:Connect(childChanged))
-	paddingChanged()
-	Compose.cleanup(function()
-		disconnectPadding()
-		for _, connection in connections do
-			connection:Disconnect()
-		end
 	end)
 	local bounds = Compose.formula(function(use)
 		local rendered, factor, padding = use(size), use(scale), use(insets)

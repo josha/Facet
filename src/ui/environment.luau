@@ -134,44 +134,35 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				ctx.types.Vector2.new(part.AbsoluteSize.X / whole.X, part.AbsoluteSize.Y / whole.Y)
 		end
 		local observation = runtime.host.observation
-		local tracking: { () -> () } = {}
-		local function untrack()
-			for _, stop in tracking do
-				stop()
-			end
-			table.clear(tracking)
-		end
 		local function bump()
 			reshaped:set(reshaped:peek() + 1)
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			local target = use(selected) :: Instance?
 			use(partRevision)
-			untrack()
 			if observation and target and target:IsA("GuiObject") then
-				table.insert(tracking, observation.observeProperty(target, "AbsoluteSize", bump))
+				Compose.cleanup(observation.observeProperty(target, "AbsoluteSize", bump))
 				local reach = target:GetAttributeChangedSignal("FacetFocusHeight"):Connect(bump)
 				local named = target:GetAttributeChangedSignal("FacetFocusPart"):Connect(function()
 					partRevision:set(partRevision:peek() + 1)
 					bump()
 				end)
-				table.insert(tracking, function()
+				Compose.cleanup(function()
 					reach:Disconnect()
 					named:Disconnect()
 				end)
 				local part = partOf(target)
 				if part then
-					table.insert(tracking, observation.observeProperty(part, "AbsoluteSize", bump))
-					table.insert(tracking, observation.observeProperty(part, "AbsolutePosition", bump))
-					table.insert(tracking, observation.observeProperty(target, "AbsolutePosition", bump))
+					Compose.cleanup(observation.observeProperty(part, "AbsoluteSize", bump))
+					Compose.cleanup(observation.observeProperty(part, "AbsolutePosition", bump))
+					Compose.cleanup(observation.observeProperty(target, "AbsolutePosition", bump))
 				end
 				local own = (part or target):FindFirstChildWhichIsA("UICorner")
 				if own then
-					table.insert(tracking, observation.observeProperty(own, "CornerRadius", bump))
+					Compose.cleanup(observation.observeProperty(own, "CornerRadius", bump))
 				end
 			end
 		end)
-		Compose.cleanup(untrack)
 		local tweens = (config.services :: unknown) :: { TweenService: TweenService? }
 		local tweenService = tweens.TweenService
 		if tweenService and observation then
