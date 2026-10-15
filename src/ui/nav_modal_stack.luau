@@ -6,6 +6,7 @@ local scrollLock = require("./scroll_lock")
 local surfaceKit = require("./nav_surface_kit")
 
 export type Modal = (() -> GuiObject, (string?) -> (), Nav.ModalOptions?) -> Frame
+local screens = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ScreenGui]: { count: number, clipped: boolean } }
 
 return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -115,6 +116,39 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			end
 		end
 		root = Host.Frame(props)
+		local heldScreen: ScreenGui? = nil
+		local function releaseScreen()
+			local screen = heldScreen
+			heldScreen = nil
+			local lease = if screen then screens[screen] else nil
+			if screen and lease then
+				lease.count -= 1
+				if lease.count == 0 then
+					screens[screen] = nil
+					screen.ClipToDeviceSafeArea = lease.clipped
+				end
+			end
+		end
+		local function acquireScreen()
+			local screen = root:FindFirstAncestorWhichIsA("ScreenGui")
+			if screen == heldScreen then
+				return
+			end
+			releaseScreen()
+			if screen then
+				local lease = screens[screen]
+				if lease == nil then
+					lease = { count = 0, clipped = screen.ClipToDeviceSafeArea == true }
+					screens[screen] = lease
+				end
+				lease.count += 1
+				heldScreen = screen
+				screen.ClipToDeviceSafeArea = false
+			end
+		end
+		runtime.connect(root, "AncestryChanged", acquireScreen)
+		acquireScreen()
+		Compose.cleanup(releaseScreen)
 		local catcher = root:FindFirstChild("DismissOutside")
 		if spec.backgroundTransparency == nil and catcher then
 			catcher:AddTag("facet-scrim")
@@ -136,22 +170,37 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			local service: GuiService = gui
 			local band = ctx.observe.TopbarInset(service)
 			local parent = ctx.observe.Parent(root)
+			local bounds = ctx.observe.AbsoluteSize(root)
 			local unit = ctx.layoutUnit(root)
 			local expansion = Compose.cell({ near = V2.zero, far = V2.zero, scale = 1 })
 			Compose.watch(function(use: ComposeTypes.Use)
 				use(band)
 				use(parent)
+				use(bounds)
 				local scale = math.max(use(unit), 0.001)
 				local screen = root:FindFirstAncestorWhichIsA("ScreenGui")
-				local inset = screen ~= nil
-					and not screen.IgnoreGuiInset
-					and screen.ScreenInsets == E.ScreenInsets.CoreUISafeInsets
 				local near, far = V2.zero, V2.zero
-				if inset then
-					local ok, topLeft, bottomRight = pcall(service.GetGuiInset, service)
-					if ok and typeof(topLeft) == "Vector2" then
-						near = topLeft
-						far = if typeof(bottomRight) == "Vector2" then bottomRight else V2.zero
+				if screen then
+					local measured = false
+					if service.GetInsetArea then
+						local ok, full, content = pcall(function(): (Rect, Rect)
+							return service:GetInsetArea(E.ScreenInsets.None), service:GetInsetArea(screen.ScreenInsets)
+						end)
+						if ok then
+							near, far = content.Min - full.Min, full.Max - content.Max
+							measured = true
+						end
+					end
+					if
+						not measured
+						and not screen.IgnoreGuiInset
+						and screen.ScreenInsets == E.ScreenInsets.CoreUISafeInsets
+					then
+						local ok, topLeft, bottomRight = pcall(service.GetGuiInset, service)
+						if ok and typeof(topLeft) == "Vector2" then
+							near = topLeft
+							far = if typeof(bottomRight) == "Vector2" then bottomRight else V2.zero
+						end
 					end
 				end
 				expansion:set({ near = near, far = far, scale = scale })

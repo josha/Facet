@@ -133,6 +133,13 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 	function t.note(name: string, value: any)
 		record.notes[name] = encode(value)
 	end
+	function t.attach(name: string, value: unknown)
+		if context then
+			context:attach(name, "application/json", HttpService:JSONEncode(value))
+		else
+			t.note(name, value)
+		end
+	end
 	function t.settle(frames: number?)
 		for _ = 1, frames or 6 do
 			RunService.RenderStepped:Wait()
@@ -410,6 +417,18 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				end
 			)
 			packages.Neutral = env.theme:peek()
+			local function find(kind: string, name: string, ...: string): ModuleScript
+				local source = if kind == "example"
+					then storage:WaitForChild("FacetExamples")
+					elseif kind == "reference" then storage:WaitForChild("FacetReference")
+					else storage:WaitForChild("FacetScenarios")
+				local target = source:WaitForChild(name)
+				for _, child in { ... } do
+					target = target:WaitForChild(child)
+				end
+				assert(target:IsA("ModuleScript"), name .. " is not a ModuleScript")
+				return target
+			end
 			context = {
 				Facet = Facet,
 				Compose = Compose,
@@ -426,15 +445,13 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				theme = env.theme,
 				themeMode = env.palette,
 				packages = packages,
-				load = function(kind, name)
-					local source = if kind == "example"
-						then storage:WaitForChild("FacetExamples")
-						elseif kind == "reference" then storage:WaitForChild("FacetReference")
-						else storage:WaitForChild("FacetScenarios")
-					return (require :: any)(source:WaitForChild(name))
+				find = find,
+				load = function(kind: string, name: string, ...: string)
+					return (require :: any)(find(kind, name, ...))
 				end,
 			}
 			screen.configure(context)
+			context.motionPreference:set("none")
 			if config.preferredTextSize then
 				context.textPreview:set(config.preferredTextSize)
 			end

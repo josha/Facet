@@ -1,6 +1,6 @@
 --!strict
 
-local crypto = require "@lute/crypto"
+local sha256 = require "../lute/hash"
 local fs = require "@std/fs"
 local json = require "@std/json"
 local net = require "@std/net"
@@ -14,7 +14,7 @@ local Bounded = require "../lute/bounded"
 local Gate = require "../gate"
 local LuteGate = require "../lute/gate"
 local Model = require "./model"
-local Paths = require "./paths"
+local Paths = require "../codec/path"
 local Powershell = require "../lute/powershell"
 local Services = require "./services"
 local Wire = require "../lute/wire"
@@ -139,18 +139,7 @@ end
 local function absolute(path: string): string
 	local value = Paths.normalize(path)
 	local full = if Paths.absolute(value) then value else cwd() .. "/" .. value
-	local prefix = string.match(full, "^%a:/") or (if string.sub(full, 1, 1) == "/" then "/" else "")
-	local parts: { string } = {}
-	for part in string.gmatch(string.sub(full, #prefix + 1), "[^/]+") do
-		if part == ".." then
-			if #parts > 0 then
-				table.remove(parts)
-			end
-		elseif part ~= "." then
-			table.insert(parts, part)
-		end
-	end
-	return prefix .. table.concat(parts, "/")
+	return Paths.collapse(full)
 end
 
 local function moduleDirectory(): string
@@ -160,15 +149,6 @@ local function moduleDirectory(): string
 end
 
 local STAMP = Paths.join(moduleDirectory(), "stamp.luau")
-
-local function sha256(bytes: string): string
-	local value = crypto.digest(crypto.hash.sha256, bytes)
-	local out: { string } = {}
-	for index = 0, buffer.len(value) - 1 do
-		table.insert(out, string.format("%02x", buffer.readu8(value, index)))
-	end
-	return table.concat(out)
-end
 
 local function isDirectory(path: string): boolean
 	return fs.exists(path) and fs.type(path) == "dir"

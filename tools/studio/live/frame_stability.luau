@@ -67,4 +67,11 @@ local function push(tracker: Tracker, samples: { Sample })
 	tracker.quiet = if changed then 0 else tracker.quiet + 1
 end
 
-return { new = new, push = push }
+return {
+	new = new,
+	push = push,
+	stateChange = function(tracker: Tracker)
+		table.clear(tracker.first)
+		tracker.quiet = 0
+	end,
+}

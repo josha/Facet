@@ -618,11 +618,11 @@ function focus.opened(
 	end
 	local entered = os.clock() - started
 	local inside: { GuiObject } = {}
-	local function gather(limit: number)
+	local function gather(limit: number, entering: boolean?)
 		local stable = 0
 		local from = os.clock()
 		inside = {}
-		while stable < 3 and os.clock() - from < limit do
+		while (stable < 3 or (entering == true and #inside == 0)) and os.clock() - from < limit do
 			task.wait(0.15)
 			local now = {}
 			for _, node in focus.stops(root) do
@@ -635,7 +635,7 @@ function focus.opened(
 		end
 		settle(root)
 	end
-	gather(4)
+	gather(4, true)
 	local landed = GuiService.SelectedObject
 	if landed and not before[landed] and not table.find(inside, landed) then
 		table.insert(inside, landed)
@@ -678,7 +678,7 @@ function focus.opened(
 		GuiService.SelectedObject = trigger
 		settle(root)
 		live().press({ keys.open }, 2)
-		gather(4)
+		gather(4, true)
 	end
 	local moves = focus.walk(root, walked, paths, keys.moves, nil, reopen)
 	if keys.up then
@@ -716,7 +716,9 @@ function focus.opened(
 			table.insert(report.unreached, path)
 		end
 	end
-	local closeFrom = if keys.closeFrom == "trigger" or not report.landedInside then trigger else landed
+	local closeFrom = if keys.closeFrom == "trigger" or not report.landedInside
+		then trigger
+		else current(root)[report.landed]
 	if closeFrom and closeFrom.Parent then
 		GuiService.SelectedObject = closeFrom
 		settle(root)
@@ -738,7 +740,7 @@ function focus.opened(
 	end
 	local after = GuiService.SelectedObject
 	local still = open()
-	report.closed = still == 0
+	report.closed = still == 0 and report.closePresses > 0
 	report.returned = after == trigger
 	report.after = if after then pathOf(after, root) else nil
 	return report

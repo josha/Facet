@@ -15,6 +15,7 @@ local Published = require "./published-source"
 local Studio = require "./studio"
 local Attach = require "./studio-attach"
 local Wire = require "./wire"
+local Logs = require "./studio-logs"
 
 type Attachments_Limits = Core.AttachmentLimits
 
@@ -77,14 +78,16 @@ local function engineCode(framework: string, entry: string, ids: { string }?, ho
 			then "local Progress = require("
 				.. Place.moduleExpression(framework .. "/src/roblox/progress-channel.luau")
 				.. ")\n"
-				.. "local http = game:GetService('HttpService')\n"
-				.. "local progress = Progress.publisher(runId, progressToken, function(value) return http:JSONEncode(value) end, print)\n"
+				.. "local logger = game:GetService('LogService'):GetLogger(Progress.LOGGER)\n"
+				.. "local progress = Progress.publisher(runId, progressToken, function(message, context) logger:Info(message, context) end)\n"
 			else "local progress = nil\n")
 		.. "local report = Entry.run(factory, '"
 		.. (host or "studio")
 		.. "', "
 		.. literalIds(ids)
-		.. ", progress, runId)\n"
+		.. ", progress, runId"
+		.. (if host == nil or host == "studio" then ", " .. Logs.drain else "")
+		.. ")\n"
 		.. "return game:GetService('HttpService'):JSONEncode(Channel.envelope(runId, report))"
 end
 
@@ -224,7 +227,6 @@ local function run(options: Options): Result
 			cloud = session.run {
 				code = engineCode(framework, options.entry, options.caseIds, "open-cloud"),
 				runId = directory,
-				requires = nil,
 			}
 			local finished = cloud :: OpenCloud.Outcome
 			outcome = if finished.status == "returned"
