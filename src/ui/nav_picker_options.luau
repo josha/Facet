@@ -6,7 +6,6 @@ local Nav = require("./navigation_types")
 local Media = require("./media_types")
 local Content = require("./content_types")
 local reducedMotion = require("./motion").reduced
-local rest = require("./rest")
 local ComposeTypes = require("../vendor/compose/core")
 local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
@@ -621,27 +620,35 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				return if use(ready) then 0 else 1
 			end
 			picker = ctx.fade(fading)
-			local settled = rest(ctx, function(): (string, boolean)
-				local parts = { tostring(picker.AbsoluteSize) }
-				local filled = picker.AbsoluteSize.X > 0 and picker.AbsoluteSize.Y > 0
-				local caption = fieldLabel
-				if caption then
-					table.insert(parts, `{caption.AbsolutePosition}:{caption.AbsoluteSize}:{caption.TextBounds}`)
-					filled = filled
-						and caption.AbsoluteSize.X > 0
-						and caption.AbsoluteSize.Y > 0
-						and caption.TextBounds.X <= caption.AbsoluteSize.X
-						and caption.TextBounds.Y <= caption.AbsoluteSize.Y
-				end
-				for button in segmentBoxes do
-					table.insert(
-						parts,
-						`{button.AbsolutePosition}:{button.AbsoluteSize}:{(button :: TextButton).TextBounds}`
-					)
-					filled = filled and button.AbsoluteSize.X > 0 and button.AbsoluteSize.Y > 0
-				end
-				return table.concat(parts, ";"), filled
-			end)
+			local complete = false
+			local settled = ctx.runtime.settled {
+				sample = function(): string
+					local parts = { tostring(picker.AbsoluteSize) }
+					local filled = picker.AbsoluteSize.X > 0 and picker.AbsoluteSize.Y > 0
+					local caption = fieldLabel
+					if caption then
+						table.insert(parts, `{caption.AbsolutePosition}:{caption.AbsoluteSize}:{caption.TextBounds}`)
+						filled = filled
+							and caption.AbsoluteSize.X > 0
+							and caption.AbsoluteSize.Y > 0
+							and caption.TextBounds.X <= caption.AbsoluteSize.X
+							and caption.TextBounds.Y <= caption.AbsoluteSize.Y
+					end
+					for button in segmentBoxes do
+						table.insert(
+							parts,
+							`{button.AbsolutePosition}:{button.AbsoluteSize}:{(button :: TextButton).TextBounds}`
+						)
+						filled = filled and button.AbsoluteSize.X > 0 and button.AbsoluteSize.Y > 0
+					end
+					complete = filled
+					return table.concat(parts, ";")
+				end,
+				equals = function(a: string, b: string): boolean
+					return complete and a == b
+				end,
+				timeout = ctx.metric("motion.restLimit"),
+			}
 			Compose.watch(function(use: ComposeTypes.Use)
 				ready:set(use(settled))
 			end)

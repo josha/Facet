@@ -1,7 +1,6 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
-local rest = require("./rest")
 local scrollLock = require("./scroll_lock")
 
 local MEASURE = 100000
@@ -49,10 +48,15 @@ return function(
 		extent:set(math.ceil(use(laidOut).Y - 0.01))
 	end)
 	local rested = if options and options.rest
-		then rest(ctx, function(): (string, boolean)
-			local now = extent:peek()
-			return tostring(now), now > 0 or size:peek().X > 0
-		end)
+		then ctx.runtime.settled {
+			sample = function(): number
+				return extent:peek()
+			end,
+			equals = function(a: number, b: number): boolean
+				return (b > 0 or size:peek().X > 0) and a == b
+			end,
+			timeout = ctx.metric("motion.restLimit"),
+		}
 		else Compose.cell(true)
 	return scroller, flow, size, extent, rested
 end

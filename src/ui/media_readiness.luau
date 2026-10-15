@@ -1,7 +1,6 @@
 --!strict
 local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
-local rest = require("./rest")
 local motion = require("./motion")
 
 return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: Types.Value<number>?)
@@ -86,21 +85,26 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 						end)
 					end
 					node:SetAttribute("FacetMediaReady", false)
-					local ready = rest(ctx, function(): (string, boolean, boolean?)
-						local box = size:peek()
-						local filled = box.X > 0
-							and box.Y > 0
-							and node:GetAttribute("FacetBuilt") ~= false
-							and (
-								loaded == nil
-								or (image ~= nil and image:peek() == "")
-								or loaded:peek() == true
-								or fetched:peek()
-							)
-						return tostring(box), filled, filled
-					end, function(use: ComposeTypes.Use): string
-						return if image then tostring(use(image)) else tostring(use(size))
-					end, true)
+					local ready = ctx.runtime.settled {
+						sample = function(): string
+							return tostring(size:peek())
+						end,
+						ready = function(): boolean
+							local box = size:peek()
+							return box.X > 0
+								and box.Y > 0
+								and node:GetAttribute("FacetBuilt") ~= false
+								and (
+									loaded == nil
+									or (image ~= nil and image:peek() == "")
+									or loaded:peek() == true
+									or fetched:peek()
+								)
+						end,
+						restart = function(use: ComposeTypes.Use): string
+							return if image then tostring(use(image)) else tostring(use(size))
+						end,
+					}
 					Compose.watch(function(read: ComposeTypes.Use)
 						node:SetAttribute("FacetMediaReady", read(ready))
 					end)

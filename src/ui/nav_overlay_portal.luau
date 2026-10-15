@@ -3,7 +3,6 @@ local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local overlayPresence = require("./nav_overlay_presence")
-local rest = require("./rest")
 local fontReadiness = require("./font_readiness")
 local textMeasure = require("./text_measure")
 local arrival = require("./overlay_arrival")
@@ -139,28 +138,38 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			return node
 		end
 		local fontsReady = fontReadiness(ctx, surfaces)
-		local ready = rest(ctx, function(): (string, boolean, boolean?)
-			local signature: { string } = {}
-			local filled = false
-			local measured = true
-			for _, surface in surfaces do
-				local descendants = surface:GetDescendants()
-				table.insert(descendants, surface)
-				filled = filled or (surface.AbsoluteSize.X > 0 and surface.AbsoluteSize.Y > 0)
-				for _, child in descendants do
-					measured = measured and textMeasure.ready(child)
-					if child:IsA("GuiObject") then
-						filled = filled or (child.Visible and child.AbsoluteSize.X > 0 and child.AbsoluteSize.Y > 0)
-						local value = `{child.AbsolutePosition}:{child.AbsoluteSize}:{child.Visible}`
-						if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
-							value ..= `:{child.TextBounds}`
+		local snapshot, complete, allowed = "", false, nil :: boolean?
+		local ready = ctx.runtime.settled {
+			sample = function(): string
+				return snapshot
+			end,
+			ready = function(): boolean
+				local signature: { string } = {}
+				local filled = false
+				local measured = true
+				for _, surface in surfaces do
+					local descendants = surface:GetDescendants()
+					table.insert(descendants, surface)
+					filled = filled or (surface.AbsoluteSize.X > 0 and surface.AbsoluteSize.Y > 0)
+					for _, child in descendants do
+						measured = measured and textMeasure.ready(child)
+						if child:IsA("GuiObject") then
+							filled = filled or (child.Visible and child.AbsoluteSize.X > 0 and child.AbsoluteSize.Y > 0)
+							local value = `{child.AbsolutePosition}:{child.AbsoluteSize}:{child.Visible}`
+							if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+								value ..= `:{child.TextBounds}`
+							end
+							table.insert(signature, value)
 						end
-						table.insert(signature, value)
 					end
 				end
-			end
-			return table.concat(signature, ";"), filled, fontsReady() and measured
-		end, nil, true)
+				snapshot, complete, allowed = table.concat(signature, ";"), filled, fontsReady() and measured
+				return allowed ~= false
+			end,
+			equals = function(a: string, b: string): boolean
+				return complete and a == b
+			end,
+		}
 		Compose.watch(function(use: ComposeTypes.Use)
 			if use(ready) then
 				arrived:set(true)
