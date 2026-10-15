@@ -178,6 +178,7 @@
                                                                 }
                                    },
                  "Workspace":  {
+"$attributes": { "WorldTheme": "scifi" },
                                    "SpawnLocation":  {
                                                          "$className":  "SpawnLocation",
                                                          "$properties":  {

@@ -4,6 +4,7 @@ local Lighting = game:GetService("Lighting")
 local Track = require(game:GetService("ReplicatedStorage").Shared.RaceTrack)
 
 local World = {}
+local scifi = workspace:GetAttribute("WorldTheme") == "scifi"
 
 function World.build()
 	local folder = Instance.new("Folder")
@@ -17,6 +18,18 @@ function World.build()
 		object.CFrame = frame
 		object.Color = color
 		object.Material = material or Enum.Material.SmoothPlastic
+		if scifi then
+			local emissive = name == "Curb"
+				or name == "Barrier"
+				or name == "FinishTile"
+				or name == "FinishGantry"
+				or name == "GantryPost"
+				or name == "QueueArch"
+			object.Material = if emissive then Enum.Material.Neon else Enum.Material.Metal
+			object.Color = if emissive
+				then (if count % 2 == 0 then Color3.fromRGB(40, 230, 255) else Color3.fromRGB(178, 80, 255))
+				else Color3.fromRGB(24 + count % 3 * 6, 30 + count % 3 * 6, 48 + count % 3 * 6)
+		end
 		object.Anchored = true
 		object.TopSurface = Enum.SurfaceType.Smooth
 		object.BottomSurface = Enum.SurfaceType.Smooth
@@ -46,7 +59,7 @@ function World.build()
 			part(
 				"Curb",
 				Vector3.new(2, 0.5, length),
-				frame * CFrame.new(side * 14, -0.5, 0),
+				frame * CFrame.new(side * 14, -0.47, 0),
 				if index % 2 == 0 then coral else cream
 			)
 			part(
@@ -77,7 +90,7 @@ function World.build()
 		part(
 			"FinishTile",
 			Vector3.new(2, 0.1, 3),
-			Track.frame(0, index * 2 - 11) * CFrame.new(0, -0.44, 0),
+			Track.frame(0, index * 2 - 11) * CFrame.new(0, -0.42, 0),
 			if index % 2 == 0 then cream else Color3.fromRGB(40, 50, 65)
 		)
 	end
@@ -132,10 +145,25 @@ function World.build()
 		spawn.CanCollide = false
 		spawn.Neutral = true
 	end
-	Lighting.ClockTime = 12
-	Lighting.Brightness = 2.5
-	Lighting.Ambient = Color3.fromRGB(165, 178, 198)
-	Lighting.OutdoorAmbient = Color3.fromRGB(180, 190, 210)
+	if scifi then
+		local atmosphere = Instance.new("Atmosphere")
+		atmosphere.Density = 0.25
+		atmosphere.Color = Color3.fromRGB(110, 130, 195)
+		atmosphere.Parent = Lighting
+		local bloom = Instance.new("BloomEffect")
+		bloom.Intensity = 0.45
+		bloom.Size = 24
+		bloom.Threshold = 1.2
+		bloom.Parent = Lighting
+		local sky = Instance.new("Sky")
+		sky.StarCount = 3000
+		sky.CelestialBodiesShown = true
+		sky.Parent = Lighting
+	end
+	Lighting.ClockTime = if scifi then 0 else 12
+	Lighting.Brightness = if scifi then 1.5 else 2.5
+	Lighting.Ambient = if scifi then Color3.fromRGB(65, 75, 115) else Color3.fromRGB(165, 178, 198)
+	Lighting.OutdoorAmbient = if scifi then Color3.fromRGB(85, 95, 135) else Color3.fromRGB(180, 190, 210)
 	folder:SetAttribute("StaticParts", count)
 	assert(count == 511, "update the racing world part budget")
 end
