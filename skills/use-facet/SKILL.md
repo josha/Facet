@@ -21,6 +21,62 @@ The index is a reading map. It does not replace the other files.
 Also read [AGENTS.md](../../AGENTS.md). Do not use historical design plans as current API instructions.
 Do not read an unchanged file again during the same conversation.
 
+## Order of solutions
+
+For each need, look in this order, and use the first that fits:
+
+1. The Roblox engine: native Instances, properties, layouts, constraints,
+   StyleSheets, the Input Action System and LocalizationService.
+2. Compose: cells, formulas, `show`, `keyed`, `portal`, springs and owners.
+3. A Facet control or option.
+4. Only then, game code. If the need is reusable, change Facet, not the game.
+
+Examples: bind a native `TextSize` for a reactive pixel size. Name a dialog
+action button by its `id` and select it with `#id` in a StyleRule. Set the
+native `DisplayName` of a touch binding so `ShortcutHint` shows it.
+
+## Read first for a game HUD
+
+The full documentation is long. For a game HUD, read these sections of the
+[API reference](../../docs/reference/api.md) before you write code: Composition
+(zones, lanes, ranks, `mayDrop` and forms), Text, Button, environment and the
+controls options. Read the other sections when you use their controls.
+
+## Rules that are easy to miss
+
+- **Composition drops regions.** A region with `mayDrop = true` hides when its
+  zone does not fit. A side zone fits in a third of the width. A `top`,
+  `center` or `bottom` zone can also use the width that the side zones of its
+  row leave free. When a region does not show, read the `Visible` property and
+  the `FacetForm` attribute of the region before you change its content. Give
+  a region a smaller second form before you let it drop.
+- **Text that wraps.** Use `UI.Text` with `wrap = true`, a width and
+  `AutomaticSize = Enum.AutomaticSize.Y`, or `lines = n` to clamp. Do not
+  estimate the height of text yourself.
+- **Readables.** Most options accept a value or a readable. When an option
+  refuses a readable, read its contract in the API reference. If a reactive
+  value is reasonable for it, change Facet.
+- **Sizes.** Take lengths from type roles, `controlSize` and theme metrics.
+  For a length that the game owns, such as a portrait, use
+  `UI.environment().scaled(64)` or `scaled("space.m")`. Do not multiply by
+  `metricScale` by hand, and do not branch on device names.
+- **Input.** Bind game commands as native `InputAction`s in an
+  `InputContext`. Show their keys with `UI.ShortcutHint { action = ... }`. It
+  shows the glyph of the device in use.
+- **Localization.** Use the Roblox mechanism. Keep `AutoLocalize` on for
+  fixed strings and add them to the `LocalizationTable`. Format strings with
+  values with `Translator:FormatByKey` and give Facet the `translator`
+  option. Do not join translated pieces with `..`. Set `AutoLocalize = false`
+  on player names and other text that players write.
+
+## Verify on each device class
+
+Use the Studio Device Simulator for a phone in portrait and landscape, a
+tablet and a console, and the Controller Emulator for a gamepad. A screen that
+is correct on a desktop can drop or crowd regions on a phone. Make each state
+appear (a long message, a full list, an open dialog) while you look. Report
+each problem that you find in Facet as a Facet change, not a game workaround.
+
 ## Select behavior before layout
 
 Before composing the screen, map its tasks to the highest-level Facet controls

@@ -812,6 +812,27 @@ return function(verifyHarness: Verify.Harness)
 		)
 	end)
 
+	verifyHarness:suite("native Dialog: reactive width and action layout", function()
+		verifyHarness:case("follows a readable width and a readable actionLayout while presented", {
+			id = "native_dialog::native Dialog: reactive width and action layout::follows a readable width and a readable actionLayout while presented",
+			run = function()
+				local width = Compose.cell("narrow")
+				local layout = Compose.cell("row")
+				local open, log, change = caller()
+				local w = mount(standard(open, log, change, { width = width, actionLayout = layout }))
+				local panel = w.find("Panel")
+				local narrow = panel.Size.X.Offset
+				width:set("wide")
+				Verify.expect(panel.Size.X.Offset > narrow):toBe(true)
+				local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
+				Verify.expect(list.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
+				layout:set("stacked")
+				Verify.expect(list.FillDirection):toBe(w.Enum.FillDirection.Vertical)
+				w.stop()
+			end,
+		})
+	end)
+
 	verifyHarness:suite("native Dialog: a plain overflowing body is one pad stop that scrolls", function()
 		verifyHarness:case("the ring reaches the body, Down scrolls it to the end, and then moves on to the actions", {
 			id = "native_dialog::native Dialog: a plain overflowing body is one pad stop that scrolls::the ring reaches the body, Down scrolls it to the end, and then moves on to the actions",

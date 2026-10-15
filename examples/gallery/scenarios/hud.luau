@@ -39,12 +39,14 @@ local copy = {
 	overflowEmpty = "Nothing is hidden — every zone is showing everything it has.",
 	overflowNote = "Nothing is deleted. A zone that gives way is listed here.",
 	feed = "Ravi eliminated Mo",
+	radioName = "Coach Mara",
+	radioLine = "Nice push on B!  Hold the stairs and wait for your squad.",
 	urlBarOn = "URL bar",
 	urlBarField = "example.com/play",
 	rideOn = "Topbar strip",
 	objective = "Round 3 · Capture",
 	objectiveShort = "R3",
-	ladder = "Gives way first: fps, feed, tasks, weapon, health, rail, actions, clock, buttons. Tap a smaller piece or its ··· to see the rest.",
+	ladder = "Gives way first: radio, fps, feed, tasks, weapon, health, rail, actions, clock, buttons. Tap a smaller piece or its ··· to see the rest.",
 }
 local FORMS = {
 	Strip = { "full", "short" },
@@ -57,9 +59,10 @@ local FORMS = {
 	Readout = { "full" },
 	Actions = { "full", "compact" },
 	Weapon = { "full" },
+	Radio = { "full" },
 }
 local LOSSLESS = { Rounds = true, Actions = true }
-local ORDER = { "Strip", "Rounds", "Tasks", "Health", "Feed", "Clock", "Rail", "Readout", "Actions", "Weapon" }
+local ORDER = { "Strip", "Rounds", "Tasks", "Health", "Feed", "Clock", "Rail", "Readout", "Actions", "Weapon", "Radio" }
 return {
 	title = "Screen-anchored HUD",
 	copy = copy,
@@ -368,6 +371,27 @@ return {
 		rich.Weapon = function()
 			return text("WeaponText", copy.weaponName)
 		end
+		rich.Radio = function()
+			return plate(
+				"RadioPlate",
+				"panel",
+				row("RadioBody", {
+					disc("RadioFace", copy.radioName, "person"),
+					row("RadioWords", {
+						text("RadioName", copy.radioName, "label"),
+						UI.Text "RadioLine" {
+							text = copy.radioLine,
+							textRole = "strong",
+							wrap = true,
+							Size = D2.fromOffset(240, 0),
+							AutomaticSize = E.AutomaticSize.Y,
+						},
+					}, 2, true),
+				}, 8),
+				10,
+				6
+			)
+		end
 		local menuItems: { MenuItem } = {
 			{
 				id = "damage",
@@ -513,6 +537,7 @@ return {
 						disc("ActionsCompact", copy.action3, "more", steps.openOverflow)
 					),
 					region("Weapon", "bottomRight", 6, true, rich.Weapon()),
+					region("Radio", "bottom", 10, true, rich.Radio()),
 				}
 				return Host.Frame "HudScreen" {
 					Size = D2.fromScale(1, 1),

@@ -105,8 +105,13 @@ return {
 			end
 			for column = 1, 3 do
 				local top, middle, bottom = column * 4 + 1, column * 4 + 2, column * 4 + 3
-				for _, key in { top, middle, bottom } do
-					check(key, lane, height)
+				for row, key in { top, middle, bottom } do
+					local room = lane
+					if column == 2 then
+						local side = math.max(zoneW[4 + row] or 0, zoneW[12 + row] or 0)
+						room = math.max(lane, width - 2 * (side + gap))
+					end
+					check(key, room, height)
 				end
 				local h1, h2, h3 = zoneH[top] or 0, zoneH[middle] or 0, zoneH[bottom] or 0
 				if h2 > 0 then

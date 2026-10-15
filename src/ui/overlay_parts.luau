@@ -187,9 +187,21 @@ function parts.call<A...>(fn: (A...) -> (), settle: (() -> ())?, ...: A...)
 	end
 end
 
-function parts.width(ctx: Types.Context, preset: Overlay.WidthPreset?, use: ComposeTypes.Use?): number
-	return ctx.metric(parts.WIDTHS[preset or "automatic"], use)
+function parts.width(ctx: Types.Context, preset: Types.Value<Overlay.WidthPreset?>?, use: ComposeTypes.Use?): number
+	local chosen = ctx.read(preset, use) or "automatic"
+	local key = parts.WIDTHS[chosen]
+	assert(key, `Facet width must be automatic, narrow or wide, not {tostring(chosen)}`)
+	return ctx.metric(key, use)
 end
+
+function parts.checkPreset(ctx: Types.Context, where: string, key: string, value: unknown, names: { string })
+	if value ~= nil and not parts.readable(ctx, value) and not table.find(names, value :: string) then
+		error(`Facet {where}: {key} must be {table.concat(names, ", ")} or a readable of one`, 0)
+	end
+end
+
+parts.WIDTH_PRESETS = freeze({ "automatic", "narrow", "wide" })
+parts.ACTION_LAYOUTS = freeze({ "automatic", "row", "stacked" })
 
 local function length(ctx: Types.Context, value: number | string, use: ComposeTypes.Use?): number
 	return if type(value) == "number" then value else ctx.metric(value, use)
@@ -254,22 +266,24 @@ function parts.actions(
 	ctx: Types.Context,
 	UI: UIControls,
 	actions: { Overlay.Action },
-	layout: Overlay.ActionLayout?,
+	layout: Types.Value<Overlay.ActionLayout?>?,
 	offered: (ComposeTypes.Use) -> number,
 	press: (Overlay.Action) -> (),
 	height: number?
 ): ActionGroup
 	local Compose, Host, E, D2 = ctx.Compose, ctx.Host, ctx.types.Enum, ctx.types.UDim2
-	local mode = layout or "automatic"
-	assert(
-		mode == "automatic" or mode == "row" or mode == "stacked",
-		"Facet actionLayout must be automatic, row or stacked"
-	)
+	local function modeOf(use: ComposeTypes.Use?): Overlay.ActionLayout
+		local mode = ctx.read(layout, use) or "automatic"
+		assert(table.find(parts.ACTION_LAYOUTS, mode), "Facet actionLayout must be automatic, row or stacked")
+		return mode :: Overlay.ActionLayout
+	end
+	modeOf()
 	local rowHeight = height or 44
 	local widths: { ComposeTypes.Readable<Vector2> } = {}
 	local measured = Compose.cell(0)
 	local form = parts.stackedForm(ctx)
 	local stacked = Compose.formula(function(use: ComposeTypes.Use): boolean
+		local mode = modeOf(use)
 		if mode == "stacked" or #actions > 2 or (mode ~= "row" and form(use)) then
 			return true
 		end

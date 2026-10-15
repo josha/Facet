@@ -116,6 +116,40 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case(
+			"formats the page label by key with a native Translator and falls back to the English source",
+			{
+				id = "native_pagination::native Pagination::formats the page label by key with a native Translator and falls back to the English source",
+				run = function()
+					local asked: { string } = {}
+					local spanish = {
+						FormatByKey = function(_, key: string, args: { [string]: unknown }): string
+							table.insert(asked, key)
+							if key == "Facet.PageOf" then
+								return `Página {tostring(args.current)} de {tostring(args.count)}`
+							end
+							error("missing key")
+						end,
+					}
+					local translator = Compose.cell(spanish :: typeof(spanish)?)
+					local world = worlds.new(function(UI: FacetControls)
+						return UI.Pagination("P")({
+							page = 3,
+							pageCount = 12,
+							form = "label" :: "label",
+							onChange = function() end,
+						})
+					end, { translator = translator })
+					local label = world.find("P"):FindFirstChild("Label", true)
+					Verify.expect(label.Text):toBe("Página 3 de 12")
+					Verify.expect(table.find(asked, "Facet.PageOf") ~= nil):toBe(true)
+					translator:set(nil)
+					Verify.expect(label.Text):toBe("Page 3 of 12")
+					world.stop()
+				end,
+			}
+		)
+
 		verifyHarness:case("shows zero pages as inert context and one page with no enabled navigation", {
 			id = "native_pagination::native Pagination::shows zero pages as inert context and one page with no enabled navigation",
 			run = function()

@@ -397,6 +397,32 @@ document their own write-then-notify behavior below.
   next to Return on a selected Button. `false` binds neither: Return still
   activates. Use `false` for an app whose keys belong to the game (see
   [Selection](#selection) and [responder](#responder)).
+- `translator`: a native `Translator` or a readable of one, for example from
+  `LocalizationService:GetTranslatorForPlayerAsync(player)`. Facet localizes
+  with the Roblox mechanism:
+  - A fixed string that a control shows, such as `Close`, `Back` or `Clear`,
+    and every string that you pass, is the `Text` of a native label with
+    `AutoLocalize` on. The engine translates it from your experience's
+    `LocalizationTable` (and its automatic text capture).
+  - A string that Facet assembles from values uses
+    `Translator:FormatByKey` with the keys below. Add these keys to your
+    `LocalizationTable`. Without a translator, or when a key is missing, Facet
+    uses the English source.
+
+    | Key | English source |
+    |---|---|
+    | `Facet.Page` | `Page {current}` |
+    | `Facet.PageOf` | `Page {current} of {count}` |
+    | `Facet.IndexOf` | `{current} of {count}` |
+    | `Facet.StepOf` | `Step {current} of {count} — {label}` |
+    | `Facet.RemoveItem` | `Remove {item}` |
+    | `Facet.RangeThumb` | `{range} {thumb}` |
+
+  - Assemble your own strings with values in the same way:
+    `translator:FormatByKey(key, args)` in a readable. Do not join
+    translated parts with `..`: word order changes between languages. Set
+    `AutoLocalize = false` on a label that shows a player name or other text
+    that players write.
 - `services`, `guiService`, `userInputService` and `types`: native dependencies.
 - `inputParent` and `overlayParent`: placement targets. Presented controls
   mount inside `overlayParent` when you set it. They measure its live bounds
@@ -981,11 +1007,14 @@ Layout:
 - A zone is a native Frame with an `AnchorPoint` and a scale `Position` at
   its edge or corner. It hugs its regions and stacks them
   in declaration order with a `UIListLayout`.
-- The screen has three lanes of equal width: left, center and right. Each lane
-  reserves its third. An empty lane does not give its width to the others, so
-  a zone stays at its edge.
-- A zone must fit the width of its lane. The zones of one lane must not
-  overlap vertically. The `center` zone stays centred and keeps `gap` from the
+- The screen has three lanes of equal width: left, center and right. A side
+  zone stays at its edge and must fit its third.
+- A center-lane zone (`top`, `center`, `bottom`) can also use the width that
+  the side zones of its row leave free. Its width must not exceed the full
+  width minus twice the wider side zone of that row and twice `gap`. Thus a
+  wide `top` or `bottom` region fits on a phone when the corners of its row
+  are empty or narrow.
+- The zones of one lane must not overlap vertically. The `center` zone stays centred and keeps `gap` from the
   zones above and below it.
 
 Step-down:
@@ -996,8 +1025,8 @@ Step-down:
 - When a lane does not fit, the region with the highest rank in the zones
   that do not fit shows its next form. After its last form, a region with
   `mayDrop` hides. With equal ranks, the later region gives way first.
-- When a zone is too wide, only its regions that are wider than the lane give
-  way. A narrow region cannot make the zone narrower.
+- When a zone is too wide, only its regions that are wider than the room of
+  the zone give way. A narrow region cannot make the zone narrower.
 - The composition repeats this until every lane fits or no region can give
   way. It never scales content down.
 - The decision uses only the measured sizes and the size of the composition.
@@ -1204,8 +1233,10 @@ label does not fit its box. A Button whose width follows its label does not
 truncate. A text Button or Toggle with an authored `Size` that has a width, and no
 authored `AutomaticSize`, wraps its label inside that width and grows in
 height. With an authored `TextTruncate` other than `None`, it keeps one line
-and truncates instead. An icon Button with an authored width (and no image,
-row, subtitle or hint) keeps that width, and its label truncates at the end.
+and truncates instead. An icon Button with an authored width (and no image
+or row) keeps that width, and its label truncates at the end. A Button with
+`subtitle` or `hint` and an authored width also keeps that width: the label
+and the subtitle wrap inside it, and the Button grows in height.
 This also applies to a reactive `Size` with `AutomaticSize = None` or `Y`.
 Its content stays inside the padding, and the label shrinks before the icon.
 An authored width never leaves less than one `control` em for the label inside
@@ -1915,6 +1946,13 @@ also takes an optional `separator` and `controlSize`. The default separator is
 ` / `. The theme metric `controls.shortcutHint.capStroke` sets the width of the
 cap outline. Without it, the outline is `strokes.hairline`. A value of 0 draws
 no outline.
+
+With `action`, the hint shows the action's native `PreferredBinding`: the
+binding's `DisplayImage` or the platform glyph when there is one, else the
+binding's `DisplayName`, else the key names. A touch control usually binds a
+`Scriptable` binding that has no key. Set that binding's native `DisplayName`
+(for example `"ITEM"`, the words on the touch button) so the hint shows them
+on touch. Without a name the hint shows no words for that binding.
 
 `label` shows the words for the action beside the keys in the secondary text
 color, such as `label = "Interact"`. `labelPosition` is `end` (the default,
@@ -4800,6 +4838,7 @@ environment keeps the last real size.
 | `isTenFoot` | `adaptive.isTenFoot` of the `viewingDistance` option, the display size, the touch and mouse capabilities and `GuiService:IsTenFootInterface()`. A gamepad alone is not ten-foot. |
 | `viewingDistanceSource` | `"authored"` when the `viewingDistance` option is `"near"` or `"ten-foot"`, else `"inferred"`. |
 | `metricScale` | `adaptive.TEN_FOOT_SCALE` (1.5) at ten feet, else 1. It is the factor of the ten-foot metric ladder (see [Themes](#themes)). |
+| `scaled(value)` | A new number readable for a length that a game authors itself, such as a portrait or a custom gauge. A number is multiplied by `metricScale`. A string is a theme metric path, such as `"space.m"` or `"iconSizes.large"`, read from the effective package (after `forDistance`). Use it in place of arithmetic with `metricScale`. Text sizes come from type roles: do not scale a `TextSize` with it. |
 | `overscanInsets` | `{ top, left, bottom, right }` in pixels. At ten feet it is the console profile as a proportion of the viewport (`adaptive.overscanInsets`): 60/1080 of the height and 90/1920 of the width, so 1920 by 1080 reserves 60 and 90. Near, it is zero. The `overscanInsets` option wins; `"none"` is zero. `UI.Screen` adds it to its padding. |
 | `navPlacement` | `adaptive.navPlacement` of the classes, the primary input, the display size and `isTenFoot`. |
 | `safeInsets` | `{ top, left, bottom, right }` from `GuiService:GetGuiInset()`. It updates when the viewport or `GuiService.TopbarInset` changes. |

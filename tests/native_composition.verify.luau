@@ -463,6 +463,29 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("lets a center-lane zone use the width that the side zones of its row leave free", {
+			id = "native_composition::Composition::lets a center-lane zone use the width that the side zones of its row leave free",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local function wide(x: number, y: number)
+					return { x = x, y = y }
+				end
+				local radio: Declared = { zone = "top" :: "top", rank = 2, mayDrop = true, sizes = { wide(330, 60) } }
+				local corner: Declared =
+					{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { wide(180, 120) } }
+				Verify.expect(resolver.resolve(749, 381, 8, { radio, corner })[1]):toBe(1)
+				local crowded: Declared =
+					{ zone = "topRight" :: "topRight", rank = 1, mayDrop = false, sizes = { wide(240, 60) } }
+				Verify.expect(resolver.resolve(749, 381, 8, { radio, corner, crowded })[1]):toBe(0)
+				local below: Declared =
+					{ zone = "bottomLeft" :: "bottomLeft", rank = 1, mayDrop = false, sizes = { wide(240, 60) } }
+				Verify.expect(resolver.resolve(749, 381, 8, { radio, corner, below })[1]):toBe(1)
+				local side: Declared = { zone = "left" :: "left", rank = 2, mayDrop = true, sizes = { wide(330, 60) } }
+				Verify.expect(resolver.resolve(749, 381, 8, { side })[1]):toBe(0)
+			end,
+		})
+
 		verifyHarness:case(
 			"refuses an unknown anchor, a rank that is not a whole number, and a child that is not a Region",
 			{

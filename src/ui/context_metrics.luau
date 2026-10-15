@@ -55,6 +55,26 @@ return function(ctx: Shared.Context, config: Shared.Config, themes: Theme.Themes
 		end
 		return value
 	end
+	function ctx.phrase(
+		key: string,
+		source: string,
+		args: { [string]: string | number },
+		use: ComposeTypes.Use?
+	): string
+		local translator = ctx.read(config.translator, use)
+		if translator then
+			local ok, text = pcall(translator.FormatByKey, translator, key, args)
+			if ok and type(text) == "string" and text ~= "" then
+				return text
+			end
+		end
+		return (
+			string.gsub(source, "{(%w+)}", function(name: string): string
+				local value = args[name]
+				return if value == nil then `\{{name}\}` else tostring(value)
+			end)
+		)
+	end
 	local function motionName(path: string, use: ComposeTypes.Use?): string
 		local package = ctx.read(config.theme, use)
 		local found = valueAt(if package then package.metrics else nil, path)

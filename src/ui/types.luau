@@ -161,6 +161,7 @@ export type Config = {
 	onError: ((unknown) -> ())?,
 	environment: EnvironmentPreview?,
 	keyboardNavigation: boolean?,
+	translator: Value<Translator?>?,
 }
 export type EnvironmentPreview = {
 	preferredInput: Value<(Enum.PreferredInput | string)?>?,
@@ -226,6 +227,7 @@ export type Context = {
 	readSource: <T>(Readable<T>, Use?) -> T,
 	haptic: (kind: unknown) -> HapticEffect?,
 	metric: (string, Use?) -> number,
+	phrase: (key: string, source: string, args: { [string]: string | number }, Use?) -> string,
 	motionTiming: (string, Use?) -> { enter: number, exit: number },
 	motionSpring: (string, Use?) -> { period: number, damping: number },
 	motionEase: (string, Use?) -> (number) -> number,

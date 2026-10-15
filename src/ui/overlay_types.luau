@@ -54,9 +54,9 @@ export type DialogOptions = {
 	hero: Media?,
 	actionLabel: Types.ValueString?,
 	actions: { DialogAction }?,
-	actionLayout: ActionLayout?,
+	actionLayout: Value<ActionLayout?>?,
 	closeButton: boolean?,
-	width: WidthPreset?,
+	width: Value<WidthPreset?>?,
 	contentSelectable: boolean?,
 }
 

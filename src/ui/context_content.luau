@@ -136,8 +136,18 @@ return function(
 		Compose.watch(function(use: ComposeTypes.Use)
 			local box, glyph, mode = use(size), use(bounds), use(automatic)
 			local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
-			local freeY = mode == Enum.AutomaticSize.XY
+			local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
 			if box.X > 0 and box.Y > 0 and ((freeX and glyph.X > box.X) or (freeY and glyph.Y > box.Y)) then
+				deferReflow()
+			end
+		end)
+		local content = ctx.observe.Text(label)
+		local firstText = true
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(content)
+			if firstText then
+				firstText = false
+			elseif previousSize ~= nil and label.TextSize ~= previousSize then
 				deferReflow()
 			end
 		end)

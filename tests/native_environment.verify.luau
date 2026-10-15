@@ -252,6 +252,29 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		verifyHarness:case("scaled follows the metric scale for a number and the effective theme for a metric path", {
+			id = "native_environment::environment: viewing distance, metric scale and overscan::scaled follows the metric scale for a number and the effective theme for a metric path",
+			run = function()
+				local distance = Compose.cell("near")
+				local w, env, stop = console({ environment = { viewingDistance = distance } })
+				local made: { typeof(env.scaled(0)) } = {}
+				local stopScaled = owned(w.runtime, function()
+					table.insert(made, env.scaled(64))
+					table.insert(made, env.scaled("space.m"))
+				end)
+				local portrait, gap = made[1], made[2]
+				Verify.expect((portrait:peek())):toBe(64)
+				local near = gap:peek()
+				distance:set("ten-foot")
+				Verify.expect((portrait:peek())):toBe(96)
+				Verify.expect((gap:peek()) > near):toBe(true)
+				Verify.expect((pcall(function()
+					return env.scaled(math.huge)
+				end))):toBe(false)
+				stopScaled()
+				stop()
+			end,
+		})
 		verifyHarness:case("an authored viewingDistance outranks the inference and says so", {
 			id = "native_environment::environment: viewing distance, metric scale and overscan::an authored viewingDistance outranks the inference and says so",
 			run = function()

@@ -210,7 +210,14 @@ return function(
 						ctx.styled(
 							ctx.text({
 								Name = "Steps",
-								Text = `{steps.index} of {steps.count}`,
+								Text = function(use: ComposeTypes.Use): string
+									return ctx.phrase(
+										"Facet.IndexOf",
+										"{current} of {count}",
+										{ current = steps.index, count = steps.count },
+										use
+									)
+								end,
 							}),
 							"secondary"
 						)

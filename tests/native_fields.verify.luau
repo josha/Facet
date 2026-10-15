@@ -811,18 +811,18 @@ return function(verifyHarness: Verify.Harness)
 				local V = w.engine.types.Vector2
 				local title = find(w.node, "Label/Title")
 				local before = title.Size
-				local changes = 0
-				title:GetPropertyChangedSignal("Size"):Connect(function()
-					changes += 1
+				local measured = 0
+				title:GetPropertyChangedSignal("AutomaticSize"):Connect(function()
+					if title.AutomaticSize == w.engine.types.Enum.AutomaticSize.Y then
+						measured += 1
+					end
 				end)
 				title.AbsoluteSize = V.new(200, 12)
 				title.TextBounds = V.new(80, 14)
 				expect(#listeners):toBe(1)
 				listeners[1]()
-				expect(title.Size.Y.Offset):toBe(before.Y.Offset + 1)
-				listeners[1]()
+				expect(measured):toBe(1)
 				expect(title.Size == before):toBe(true)
-				expect(changes):toBe(2)
 				expect(#listeners):toBe(0)
 				w.stop()
 			end,

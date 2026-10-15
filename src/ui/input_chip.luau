@@ -170,7 +170,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 							return read(spec.label, use) or ""
 						end
 						local named = read(spec.removeLabel, use)
-						return named or `Remove {read(spec.label, use) or ""}`
+						return named
+							or ctx.phrase(
+								"Facet.RemoveItem",
+								"Remove {item}",
+								{ item = read(spec.label, use) or "" },
+								use
+							)
 					end,
 					editing = function(use: ComposeTypes.Use)
 						return editing(use)

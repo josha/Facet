@@ -22,6 +22,7 @@ export type AppOptions = {
 	motionLevel: (Types.Value<Types.MotionLevel> | Types.Value<Types.MotionLevel?>)?,
 	environment: Types.EnvironmentPreview?,
 	keyboardNavigation: boolean?,
+	translator: Types.Value<Translator?>?,
 	pressHaptic: (HapticEffect | Types.HapticKind)?,
 	onError: ((unknown) -> ())?,
 	runtime: Types.Runtime?,

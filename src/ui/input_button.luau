@@ -243,8 +243,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		)
 			and spec.image == nil
 			and spec.row == nil
-			and spec.subtitle == nil
-			and spec.hint == nil
 		if bounded and spec.AutomaticSize == nil then
 			defaults.AutomaticSize = E.AutomaticSize.Y
 			if not rich then
