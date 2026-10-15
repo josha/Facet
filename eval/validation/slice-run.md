@@ -24,20 +24,18 @@ with Rojo and serialized Future as technology 4.
 The universal geometry check now accepts Verify's sparse rule map: an absent
 rule summary means zero violations. It still checks all the same rules.
 
-Verify is pinned to `ff09c4bedc4e650519ae72078426a323db6c85a6`.
-The old executable read a chunk of MCP requests as one JSON value. The existing
-upstream change at `5c8e51d` fixes request framing and Studio lifecycle use.
-The local commit `cb4da6f` fixes object serialization for initialize and ping.
-The local commit `ff09c4b` sets Future on native fixtures. Tests cover the
-serialized handshake and default fixture lighting. The upstream worktree is
-`C:/git/facet-wt/verify-scope-wire`, branch `fix/scoped-mcp-json`. Nothing was
-pushed. The commits must be available upstream before a remote source can
-regenerate this pin.
+Verify is pinned to `970a72d796878f8f6b9c1e33f29e84b3266b8734`.
+The old executable read a chunk of MCP requests as one JSON value. The upstream
+change at `5c8e51d` fixes request framing and Studio lifecycle use. Verify
+`939b58e` fixes object serialization for initialize and ping. Verify `970a72d`
+sets Future on native fixtures. Tests cover the serialized handshake and
+default fixture lighting.
 
 The measured arms use identical scoped transport code. Plain started on
-`cb4da6f`; the final fixture follow-up changes only the default place builder
-and its test. It does not change the base-place path used by the play host.
-Facet started on `ff09c4b`.
+a local commit with the fix in `939b58e`. The fixture follow-up changes only the
+default place builder and its test. It does not change the base-place path used
+by the play host.
+Facet started on a local commit with the fixes in `939b58e` and `970a72d`.
 
 The native engine APIs used are `Lighting.Technology`, `Camera.ViewportSize`
 and `RunService.RenderStepped`. Verify's public Studio launch, session and
