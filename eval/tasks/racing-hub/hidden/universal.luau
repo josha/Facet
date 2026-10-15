@@ -66,6 +66,22 @@ local function racers(qa: QA.QA): { unknown }
 	return entries :: { unknown }
 end
 
+local function finishOrder(qa: QA.QA, firstName: string, secondName: string): boolean
+	local first = qa:first({ text = firstName, clipped = true })
+	local second = qa:first({ text = secondName, clipped = true })
+	if not first or not second then
+		return false
+	end
+	if first.path == second.path then
+		local label = string.lower(first.label)
+		local a = string.find(label, string.lower(firstName), 1, true)
+		local b = string.find(label, string.lower(secondName), 1, true)
+		return a ~= nil and b ~= nil and a < b
+	end
+	return first.rect.y < second.rect.y - 4
+		or (math.abs(first.rect.y - second.rect.y) <= 4 and first.rect.x < second.rect.x)
+end
+
 local function helpCopy(qa: QA.QA): string
 	local texts = qa:texts()
 	for index, text in texts do
@@ -383,7 +399,13 @@ local function cases(id: string): { Play.Case }
 			if index >= 4 then
 				press(qa, context, "Scoreboard")
 				observe(qa, context, "universal-scoreboard")
+				Check.that(
+					context,
+					finishOrder(qa, rival, tostring(Check.field(entries[1], "name"))),
+					"scoreboard follows server position order"
+				)
 				back(qa, context)
+				Check.that(context, qa:selected() == nil, "closing the scoreboard returns selection to driving")
 			end
 			qa:admin("phase", { phase = "Results", seconds = 120 })
 			qa:sleep(1)
@@ -391,7 +413,9 @@ local function cases(id: string): { Play.Case }
 			Check.visible(qa, context, { text = rival, clipped = true }, "results show the first finisher")
 			local result = qa:admin("system", { system = "round-hud", command = "state" })
 			local localName = tostring(Check.field(entries[1], "name"))
+			Check.that(context, finishOrder(qa, rival, localName), "results list racers in finish order")
 			local reward = Check.number(result, "state", "rewards", localName)
+			qa:reveal({ text = "coins", clipped = true })
 			Check.text(qa, context, tostring(reward) .. "%D*coins", "results show the server currency reward")
 			press(qa, context, "hub")
 			Check.visible(qa, context, query("Shop"), "results return to the hub")

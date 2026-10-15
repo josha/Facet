@@ -105,7 +105,7 @@ index c9d8bd3f..b5c12ae5 100644
  		end
  	end
  	local garageButton = button(dock, "Garage", function()
-@@ -436,6 +473,57 @@ local function mount(context: Hub.Context)
+@@ -436,6 +473,61 @@ local function mount(context: Hub.Context)
  		end
  	end)
  	Kit.focus(playButton)
@@ -135,7 +135,8 @@ index c9d8bd3f..b5c12ae5 100644
 +					racer.name,
 +					if racer.name == context.round.localName then "You" else "",
 +					racer.position,
-+					racer.completedLaps, racer.gap,
++					racer.completedLaps,
++					racer.gap,
 +					if racer.eliminated then "OUT" elseif racer.finished then "Finished" else ""
 +				)
 +			)
@@ -145,6 +146,9 @@ index c9d8bd3f..b5c12ae5 100644
 +		scoreboardRender(context.round.getState())
 +	end)
 +	context.round.onStateChanged(scoreboardRender)
++	scoreboard.onClosed(function()
++		GuiService.SelectedObject = nil
++	end)
 +	game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
 +	game:GetService("ContextActionService")
 +		:BindActionAtPriority(
