@@ -208,19 +208,49 @@ return function(
 					end
 					assert(gather)()
 					local collecting = true
-					local delayed = runtime.scheduler()
-					runtime.connect(node, "ChildAdded", function(child: Instance)
-						if collecting and carried(child) then
-							local function collect()
-								if collecting and child.Parent == node then
-									keepSelection(function()
-										child.Parent = group
+					local delayed = if task == nil and frames == nil then runtime.scheduler() else nil
+					runtime.connect(
+						node,
+						"ChildAdded",
+						Compose.bindOwner(function(child: Instance)
+							if collecting and carried(child) then
+								local function collect()
+									if collecting and child.Parent == node then
+										keepSelection(function()
+											child.Parent = group
+										end)
+									end
+								end
+								if delayed then
+									delayed.after(0, collect)
+								elseif task == nil and frames then
+									local stop: (() -> ())? = nil
+									stop = runtime.connect(frames, "Heartbeat", function()
+										if stop then
+											stop()
+											stop = nil
+										end
+										collect()
+									end)
+								else
+									local release: (() -> ())? = nil
+									local work: thread? = nil
+									work = task.defer(function()
+										work = nil
+										if release then
+											release()
+										end
+										collect()
+									end)
+									release = Compose.cleanup(function()
+										if work then
+											task.cancel(work)
+										end
 									end)
 								end
 							end
-							delayed.after(0, collect)
-						end
-					end)
+						end)
+					)
 					Compose.cleanup(function()
 						collecting = false
 						keepSelection(function()

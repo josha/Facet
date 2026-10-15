@@ -18,6 +18,38 @@ return function(verifyHarness: Verify.Harness)
 	local engineLib = require("./lib/native_engine")
 	local expect = Verify.expect
 
+	verifyHarness:case("collects late fade content on the configured native frame", {
+		id = "native_fields::fade lifetime::collects late content on the configured native frame",
+		run = function()
+			local engine = engineLib.new()
+			local frames = engineLib.new().heartbeat
+			local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+			local late: Frame? = nil
+			local stop, mounted = runtime.mount(function()
+				local ctx = context(Compose, runtime, {
+					types = engine.types,
+					services = { RunService = ({ Heartbeat = frames } :: unknown) :: RunService },
+				})
+				local panel = ctx.fade({ GroupTransparency = 0.5 }, true)
+				runtime.mount(function()
+					local child = ctx.Host.Frame "Late" {}
+					late = child
+					return child
+				end, panel)
+				return panel
+			end, engine.new("ScreenGui"))
+			local panel = (mounted :: unknown) :: Frame
+			local child = assert(late)
+			Verify.expect(child.Parent == panel):toBe(true)
+			frames:Fire(1 / 60)
+			Verify.expect(child.Parent == panel:FindFirstChild("Fade")):toBe(true)
+			stop()
+			runtime:dispose()
+			Verify.expect(engineLib.connections(frames)):toBe(0)
+			Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
+		end,
+	})
+
 	local function world(build: (any, any, any) -> any, options: any?): any
 		local engine: any = engineLib.new()
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
