@@ -24,7 +24,7 @@ export type Handle = {
 	depth: number,
 }
 type Entry = { tick: (number) -> (), active: boolean, depth: number }
-type Service = { entries: { Entry }, carriers: { [GuiObject]: Entry } }
+type Service = { entries: { Entry }, carriers: { [GuiObject]: Entry }, disconnect: (() -> ())? }
 local services = setmetatable({} :: { [Shared.Runtime]: Service }, { __mode = "k" })
 
 return function(ctx: Shared.Context, options: Options): Handle
@@ -137,14 +137,19 @@ return function(ctx: Shared.Context, options: Options): Handle
 		shared.carriers[options.carrier] = entry
 	end
 	table.insert(shared.entries, entry)
-	local frames = assert(ctx.runtime.host.frames, "Facet travel requires a Compose frame clock")
-	local disconnect = frames.onFrame(entry.tick)
+	if not shared.disconnect then
+		local frames = assert(ctx.runtime.host.frames, "Facet travel requires a Compose frame clock")
+		shared.disconnect = frames.onFrame(function(delta: number)
+			for _, current in table.clone(shared.entries) do
+				current.tick(delta)
+			end
+		end)
+	end
 	stop = function()
 		if stopped then
 			return
 		end
 		stopped = true
-		disconnect()
 		entry.active = false
 		if options.carrier then
 			shared.carriers[options.carrier] = nil
@@ -152,6 +157,10 @@ return function(ctx: Shared.Context, options: Options): Handle
 		local index = table.find(shared.entries, entry)
 		if index then
 			table.remove(shared.entries, index)
+		end
+		if #shared.entries == 0 and shared.disconnect then
+			shared.disconnect()
+			shared.disconnect = nil
 		end
 	end
 	if options.carrier then

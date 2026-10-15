@@ -65,21 +65,26 @@ return function(ctx: Shared.Context, UI: Controls.Controls)
 				finish()
 				return
 			end
-			local total = 0
-			for _ in utf8.graphemes(line) do
-				total += 1
-			end
-			local clock = runtime.clock { start = started }
-			C.watch(function(read: Shared.Use)
-				if read(revealed) then
+			runtime.scheduler().after(0, function()
+				if revealed:peek() then
 					return
 				end
-				local visible = math.min(total, math.floor(read(clock) / interval))
-				if visible >= total then
-					finish()
-				else
-					label.MaxVisibleGraphemes = visible
+				local total = 0
+				for _ in utf8.graphemes(line) do
+					total += 1
 				end
+				local clock = runtime.clock { start = started }
+				C.watch(function(read: Shared.Use)
+					if read(revealed) then
+						return
+					end
+					local visible = math.min(total, math.floor(read(clock) / interval))
+					if visible >= total then
+						finish()
+					else
+						label.MaxVisibleGraphemes = visible
+					end
+				end)
 			end)
 		end)
 		return label
