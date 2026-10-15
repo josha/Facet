@@ -1,5 +1,8 @@
 # Slice run on 2026-10-15
 
+The [re-scored slice report](../reports/slice-2026-10-15.md) supersedes the
+scores and calibration below. This receipt keeps the earlier evidence.
+
 The lighting block is fixed. The slice report gives **FAIL**. Both agents
 completed, but neither passed a universal case. The strong reference also
 failed every universal case. These results do not establish a headline claim.

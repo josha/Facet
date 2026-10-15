@@ -463,6 +463,25 @@ local dock: Frame? = nil
 local stack: { Modal } = {}
 local panels: { [string]: Modal } = {}
 local backs: { [Modal]: () -> () } = {}
+type Controls = { Enable: (Controls) -> (), Disable: (Controls) -> () }
+local controls: Controls? = nil
+local function modalControls()
+	if not UserInputService.TouchEnabled then
+		return
+	end
+	if controls == nil then
+		local scripts = game:GetService("Players").LocalPlayer:WaitForChild("PlayerScripts")
+		local module =
+			require(scripts:WaitForChild("PlayerModule") :: ModuleScript) :: { GetControls: (unknown) -> Controls }
+		controls = module:GetControls()
+	end
+	local active = controls :: Controls
+	if #stack > 0 then
+		active:Disable()
+	else
+		active:Enable()
+	end
+end
 function Kit.bindBack(modal: Modal, action: () -> ())
 	backs[modal] = action
 end
@@ -538,12 +557,14 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 			(modal.backdrop.Parent :: ScreenGui).DisplayOrder = #stack * 2 - 1
 			(modal.panel.Parent :: ScreenGui).DisplayOrder = #stack * 2
 			original(true, focus)
+			modalControls()
 		else
 			local index = table.find(stack, modal)
 			if index ~= nil then
 				table.remove(stack, index)
 			end
 			original(false)
+			modalControls()
 			local top = stack[#stack]
 			if top ~= nil then
 				top.panel.Visible = true

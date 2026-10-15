@@ -10,6 +10,7 @@ local function mount(context: Context)
 	local modal = Kit.modal(screen, "Shop", "Shop")
 	local dock = Kit.hud(screen)
 	local opener = Kit.button("Shop", "primary")
+	opener.LayoutOrder = -1
 	opener.Parent = dock
 	opener.Activated:Connect(function()
 		modal.setOpen(true)

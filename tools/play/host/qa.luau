@@ -138,7 +138,14 @@ local function create(context: Context, device: Devices.Device): QA
 	local function execute(datamodel: string, code: string): { [string]: unknown }
 		local response = session.execute(datamodel, code)
 		if not response.ok then
-			error(("Studio %s call failed: %s (%s)"):format(datamodel, tostring(response.detail), response.delivery), 0)
+			error(
+				("harness error: Studio %s call failed: %s (%s)"):format(
+					datamodel,
+					tostring(response.detail),
+					response.delivery
+				),
+				0
+			)
 		end
 		return decode(response.text)
 	end

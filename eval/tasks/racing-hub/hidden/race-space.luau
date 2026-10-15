@@ -25,6 +25,70 @@ local function clipped(rect: Audit.Rect, clip: Audit.Rect?): Audit.Rect
 	}
 end
 
+local function textRect(element: Audit.Element): Audit.Rect
+	local text = element.text
+	assert(text)
+	if text.xAlignment == nil or text.yAlignment == nil then
+		return element.rect
+	end
+	local rect = element.rect
+	local padding = element.padding or { left = 0, right = 0, top = 0, bottom = 0 }
+	local width = rect.width - padding.left - padding.right
+	local height = rect.height - padding.top - padding.bottom
+	local x = if text.xAlignment == "Right"
+		then width - text.bounds.width
+		elseif text.xAlignment == "Center" then (width - text.bounds.width) / 2
+		else 0
+	local y = if text.yAlignment == "Bottom"
+		then height - text.bounds.height
+		elseif text.yAlignment == "Center" then (height - text.bounds.height) / 2
+		else 0
+	return {
+		x = rect.x + padding.left + x,
+		y = rect.y + padding.top + y,
+		width = text.bounds.width,
+		height = text.bounds.height,
+	}
+end
+
+local function occluded(dump: Audit.Dump, element: Audit.Element, rect: Audit.Rect): boolean
+	for _, cover in dump.elements do
+		if not cover.visible or cover.background.transparency > 0.05 then
+			continue
+		end
+		local parent = element.parent
+		local ancestor = false
+		while parent ~= nil do
+			if parent == cover.index then
+				ancestor = true
+				break
+			end
+			parent = dump.elements[parent].parent
+		end
+		if ancestor then
+			continue
+		end
+		local root, other = dump.roots[element.root], dump.roots[cover.root]
+		local above = root ~= nil and other ~= nil and other.displayOrder > root.displayOrder
+		if cover.root == element.root then
+			above = cover.zIndex > element.zIndex
+		end
+		if not above then
+			continue
+		end
+		local area = clipped(clipped(cover.rect, cover.clip), cover.scrollClip)
+		if
+			area.x <= rect.x
+			and area.y <= rect.y
+			and area.x + area.width >= rect.x + rect.width
+			and area.y + area.height >= rect.y + rect.height
+		then
+			return true
+		end
+	end
+	return false
+end
+
 local function clear(dump: Audit.Dump, region: Audit.Rect, interactiveOnly: boolean): boolean
 	for _, element in dump.elements do
 		if not element.visible then
@@ -78,6 +142,9 @@ return {
 				continue
 			end
 			local rect = clipped(clipped(element.rect, element.clip), element.scrollClip)
+			if occluded(dump, element, rect) then
+				continue
+			end
 			for _, region in regions do
 				local native = region.path ~= nil
 					and (element.path == region.path or string.find(element.path, region.path .. ".", 1, true) == 1)
@@ -161,8 +228,11 @@ return {
 			if not element.visible or text == nil or text.content == "" or text.transparency >= 0.95 then
 				continue
 			end
-			local rect = clipped(clipped(element.rect, element.clip), element.scrollClip)
+			local rect = clipped(clipped(textRect(element), element.clip), element.scrollClip)
 			rect = clipped(rect, { x = 0, y = 0, width = dump.screen.width, height = dump.screen.height })
+			if occluded(dump, element, rect) then
+				continue
+			end
 			for _, previous in texts do
 				local shared = clipped(rect, previous)
 				if shared.width > 1 and shared.height > 1 then
