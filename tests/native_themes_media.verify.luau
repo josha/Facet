@@ -58,7 +58,7 @@ return function(verifyHarness: Verify.Harness)
 	local function style(sheet: StyleSheet, selector: string)
 		for _, node in sheet:GetChildren() do
 			local rule = node :: StyleRule
-			if rule.Selector == selector then
+			if table.find(string.split(rule.Selector, ", "), selector) ~= nil then
 				return styleProperties(rule)
 			end
 		end
@@ -66,6 +66,33 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native themes and media", function()
+		verifyHarness:case("keeps disabled emphasis text readable after a consumer changes its accent pair", {
+			id = "native_themes_media::native themes and media::keeps disabled emphasis text readable after a consumer changes its accent pair",
+			run = function()
+				local engine = engineLib.new()
+				local runtime = Roblox.createRuntime(engine)
+				local package = themes.neutralPackage()
+				package.style.themes[1].colors.accent = { r = 0.76, g = 0.96, b = 0.27 }
+				package.style.themes[1].colors.onAccent = { r = 0.06, g = 0.09, b = 0.12 }
+				local stop, sheet = runtime.mount(function()
+					return themes.createStyleSheet(runtime, package, { types = engine.types })
+				end, engine.new("Folder"))
+				local node = engine.new("TextButton")
+				node:AddTag("facet-accent")
+				node:AddTag("facet-disabled")
+				local styleRules = require("./lib/style_rules")
+				local opacity = styleRules.resolve(sheet, node, "TextTransparency") :: number
+				local ink = engine.types.Color3.new(0.06, 0.09, 0.12)
+				local background = engine.types.Color3.new(0.76, 0.96, 0.27)
+				Verify.expect(opacity < 0.4):toBe(true)
+				Verify.expect(
+					require("../src/ui/theme_support").contrast(ink:Lerp(background, opacity), background) >= 4.5
+				)
+					:toBe(true)
+				stop()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("installs motion tokens before a palette token starts a theme transition", {
 			id = "native_themes_media::native themes and media::installs motion tokens before a palette token starts a theme transition",
 			run = function()
@@ -1867,7 +1894,7 @@ return function(verifyHarness: Verify.Harness)
 		local function ruleNode(sheet: any, selector: string): any
 			local found
 			for _, node in sheet:GetChildren() do
-				if node.Selector == selector then
+				if table.find(string.split(node.Selector, ", "), selector) ~= nil then
 					found = node
 				end
 			end

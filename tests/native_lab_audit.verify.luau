@@ -60,7 +60,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local function rule(sheet: any, selector: string): any?
 		for _, node in sheet:GetChildren() do
-			if node.Selector == selector then
+			if table.find(string.split(node.Selector, ", "), selector) ~= nil then
 				return node
 			end
 		end

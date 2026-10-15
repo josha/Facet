@@ -100,11 +100,11 @@ return function(
 			end
 		end
 		if string.sub(selector, -10) == "::UIStroke" then
-			add(string.sub(selector, 1, -11) .. " > .facet-fade-stroke", properties)
-		end
-		add(selector, properties)
-		if string.sub(selector, -11) == "::UIPadding" then
-			add(string.sub(selector, 1, -12) .. " > UIPadding", properties)
+			add(selector .. ", " .. string.sub(selector, 1, -11) .. " > .facet-fade-stroke", properties)
+		elseif string.sub(selector, -11) == "::UIPadding" then
+			add(selector .. ", " .. string.sub(selector, 1, -12) .. " > UIPadding", properties)
+		else
+			add(selector, properties)
 		end
 	end
 	add(".facet-fade-stroke", { Enabled = false, Transparency = 1 })
@@ -133,30 +133,66 @@ return function(
 			rule(definition.selector, properties, true)
 		end
 		local present: { [string]: boolean } = {}
-		local presence: { NativeRule } = {}
+		local presence: { string } = {}
 		for _, definition in rules do
-			local selector = definition.selector
+			local selector = string.match(definition.selector, ", (.+)$") or definition.selector
 			if
 				string.sub(selector, -21) == " > .facet-fade-stroke"
 				and selector ~= ".facet-fading > .facet-fade-stroke"
 				and not present[selector]
 			then
 				present[selector] = true
-				table.insert(presence, {
-					id = selector .. ":presence",
-					selector = selector,
-					properties = { Transparency = 0 },
-					priority = #presence,
-				})
+				table.insert(presence, selector)
 			end
 		end
 		local ordered = { rules[1] }
-		table.move(presence, 1, #presence, 2, ordered)
+		if #presence > 0 then
+			table.insert(ordered, {
+				id = "facet-fade-presence",
+				selector = table.concat(presence, ", "),
+				properties = { Transparency = 0 },
+				priority = 10,
+			})
+		end
 		table.move(rules, 2, #rules, #ordered + 1, ordered)
-		for index, definition in ordered do
+		local compact: { NativeRule } = {}
+		local function state(selector: string): string
+			return if string.find(selector, ":Press", 1, true)
+				then "press"
+				elseif string.find(selector, ":Hover", 1, true) then "hover"
+				else "normal"
+		end
+		for _, definition in ordered do
+			local merged = false
+			for index = #compact, 1, -1 do
+				local previous = compact[index]
+				if
+					support.sameProperties(previous.properties, definition.properties)
+					and state(previous.selector) == state(definition.selector)
+				then
+					previous.selector ..= ", " .. definition.selector
+					merged = true
+					break
+				end
+				local conflict = false
+				for property in definition.properties do
+					if previous.properties[property] ~= nil then
+						conflict = true
+						break
+					end
+				end
+				if conflict then
+					break
+				end
+			end
+			if not merged then
+				table.insert(compact, definition)
+			end
+		end
+		for index, definition in compact do
 			definition.priority = (index - 1) * 10
 		end
-		return ordered
+		return compact
 	end
 	return {
 		extra = extra,

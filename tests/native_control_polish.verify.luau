@@ -176,7 +176,7 @@ return function(verifyHarness: Verify.Harness)
 	local function rule(sheet: any, selector: string): any
 		local found
 		for _, node in sheet:GetChildren() do
-			if node.Selector == selector then
+			if table.find(string.split(node.Selector, ", "), selector) ~= nil then
 				found = node
 			end
 		end

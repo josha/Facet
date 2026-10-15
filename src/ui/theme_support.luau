@@ -19,6 +19,23 @@ local function contrast(first: Color3, second: Color3): number
 	return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)
 end
 
+local function readableTransparency(ink: Color3, background: Color3, requested: number): number
+	local maximum = math.clamp(requested, 0, 1)
+	if contrast(ink:Lerp(background, maximum), background) >= 4.5 then
+		return maximum
+	end
+	local low, high = 0, maximum
+	for _ = 1, 20 do
+		local middle = (low + high) / 2
+		if contrast(ink:Lerp(background, middle), background) >= 4.5 then
+			low = middle
+		else
+			high = middle
+		end
+	end
+	return low
+end
+
 local function copy<T>(value: T): T
 	if type(value) ~= "table" then
 		return value
@@ -170,6 +187,7 @@ end
 
 return {
 	contrast = contrast,
+	readableTransparency = readableTransparency,
 	copy = copy,
 	merge = merge,
 	read = read,

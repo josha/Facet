@@ -70,11 +70,13 @@ end
 local function resolve(sheet: any, node: any, property: string, pseudo: string?): any
 	local best, value = -math.huge, nil
 	for _, rule in sheet:GetChildren() do
-		local selector = parse(rule.Selector)
-		if selector.pseudo == pseudo and matchesAt(selector, #selector.parts, node) then
-			local candidate = rule:GetProperties()[property]
-			if candidate ~= nil and rule.Priority > best then
-				best, value = rule.Priority, candidate
+		for _, text in string.split(rule.Selector, ", ") do
+			local selector = parse(text)
+			if selector.pseudo == pseudo and matchesAt(selector, #selector.parts, node) then
+				local candidate = rule:GetProperties()[property]
+				if candidate ~= nil and rule.Priority > best then
+					best, value = rule.Priority, candidate
+				end
 			end
 		end
 	end
