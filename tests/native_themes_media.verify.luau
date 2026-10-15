@@ -33,6 +33,7 @@ return function(verifyHarness: Verify.Harness)
 	type TextButtonConstructor = typeof(require("@repo/tools/typecheck/aliases").TextButtonConstructor)
 	local FixtureComposeTypes = require("../src/vendor/compose/core")
 	local FixtureMediaTypes = require("../src/ui/media_types")
+	local FixtureMediaProps = require("../src/ui/media_props")
 	local FixtureThemeTypes = require("../src/ui/theme_types")
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
@@ -131,7 +132,7 @@ return function(verifyHarness: Verify.Harness)
 					local labels: { TextLabel } = {}
 					local stop = runtime.mount(function()
 						local text = "A deliberately long label that has to wrap or truncate honestly in every theme"
-						local specs: { FixtureMediaTypes.TextProps } = {
+						local specs: { FixtureMediaProps.TextProps } = {
 							{ text = text, disclose = true },
 							{ text = text, disclose = true, wrap = true },
 							{ text = text, disclose = true, TextTruncate = engine.types.Enum.TextTruncate.None },
@@ -1231,7 +1232,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine = engineLib.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
-				local environment = getfenv(media)
+				local environment = getfenv(require("../src/ui/media_async_image"))
 				local originalTask = environment.task
 				local pending = {}
 				environment.task = {

@@ -2,10 +2,13 @@
 
 local strings = {}
 
+export type Plural = { zero: string?, one: string?, other: string? }
+export type Entry = string | Plural
+
 local EXPANSION = 1.4
 
 local function expandRun(s: string): string
-	local trimmed = string.match(s, "^%s*(.-)%s*$") :: string
+	local trimmed = string.match(s, "^%s*(.-)%s*$") or s
 	if trimmed == "" then
 		return s
 	end
@@ -31,18 +34,18 @@ function strings.expand(template: string): string
 	local cursor = 1
 	while true do
 		local openAt, closeAt = string.find(template, "{[%w_]+}", cursor)
-		if openAt == nil then
+		if openAt == nil or closeAt == nil then
 			break
 		end
-		out ..= expandRun(string.sub(template, cursor, (openAt :: number) - 1))
-		out ..= string.sub(template, openAt :: number, closeAt :: number)
-		cursor = (closeAt :: number) + 1
+		out ..= expandRun(string.sub(template, cursor, openAt - 1))
+		out ..= string.sub(template, openAt, closeAt)
+		cursor = closeAt + 1
 	end
 	out ..= expandRun(string.sub(template, cursor))
 	return out .. "]"
 end
 
-local en: { [string]: any } = {
+local en: { [string]: Entry } = {
 	["app.title"] = "Sipworks",
 	["app.tagline"] = "A craft tea house",
 
@@ -189,24 +192,26 @@ local en: { [string]: any } = {
 	["measure.value"] = "{value} {unit}",
 }
 
-local function expandEntry(value: any): any
+local function expandEntry(value: Entry): Entry
 	if type(value) == "string" then
 		return strings.expand(value)
 	end
-	local out: { [string]: string } = {}
-	for form, text in value do
-		out[form] = strings.expand(text)
-	end
-	return out
+	return {
+		zero = if value.zero then strings.expand(value.zero) else nil,
+		one = if value.one then strings.expand(value.one) else nil,
+		other = if value.other then strings.expand(value.other) else nil,
+	}
 end
 
-local xa: { [string]: any } = {}
+local xa: { [string]: Entry } = {}
 for key, value in en do
 	xa[key] = expandEntry(value)
 end
 
 strings.EXPANSION = EXPANSION
-strings.byLocale = table.freeze({ en = en, xa = xa })
-strings.LOCALES = table.freeze({ "en", "xa" })
+local BY_LOCALE: { [string]: { [string]: Entry } } = { en = en, xa = xa }
+local LOCALES: { string } = { "en", "xa" }
+strings.byLocale = table.freeze(BY_LOCALE)
+strings.LOCALES = table.freeze(LOCALES)
 
 return strings

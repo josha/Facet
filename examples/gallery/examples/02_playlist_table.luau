@@ -1,27 +1,20 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type SortCell = typeof(require("@repo/tools/typecheck/aliases").SortCell)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type PlaylistBuilt = { [string]: unknown, screen: () -> Instance, dispose: () -> () }
+type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
+type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
+type RowActionsOptions = typeof(require("@repo/tools/typecheck/aliases").RowActionsOptions)
 
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
-type Column = {
-	id: string,
-	label: string,
-	width: number?,
-	minWidth: number?,
-	priority: number?,
-	wrap: boolean?,
-	resizable: boolean,
-	sortable: boolean,
-	value: (any) -> any,
-	render: ((any) -> any)?,
-	detailRender: ((any) -> any)?,
-}
+type Sort = { column: string, direction: "ascending" | "descending" }
+type Track = { id: string, name: string, artist: string, length: number, rating: number }
 
 local example = {}
 example.title = "Playlist Table"
-local TRACKS = {
+local TRACKS: { Track } = {
 	{ id = "neon", name = "Neon Straightaway", artist = "Chrome Coyote", length = 214, rating = 4 },
 	{ id = "drift", name = "Drift City Nights", artist = "Nine Volt", length = 187, rating = 3 },
 	{ id = "turbo", name = "Turbo Cascade", artist = "Paper Lantern", length = 243, rating = 5 },
@@ -29,65 +22,74 @@ local TRACKS = {
 	{ id = "photo", name = "Photo Finish", artist = "Bad Weather", length = 201, rating = 0 },
 	{ id = "apex", name = "Apex Bloom", artist = "Nine Volt", length = 176, rating = 3 },
 }
-function example.build(ctx: any)
-	local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
+function example.build(ctx: ExampleContext)
+	local UI, Compose = ctx.UI, ctx.Compose
 	local UDim2, Enum = ctx.types.UDim2, ctx.types.Enum
-	local built: any = {}
+	local built: PlaylistBuilt = {
+		screen = function(): Instance
+			error("the playlist screen is not ready")
+		end,
+		dispose = function() end,
+	}
 
-	local function plain(item: any): any
-		return if Compose.isReadable(item) then item:peek() else item
-	end
 	local baseRows = Compose.cell(table.clone(TRACKS))
 	local filterText = Compose.cell("")
-	local nowPlaying = Compose.cell(nil :: string?)
-	local sortOrder = (function(value: { column: string, direction: "ascending" | "descending" }?): SortCell
-		return Compose.cell(value)
-	end)(nil)
-	local columnWidths = Compose.cell({})
-	local ratings: { [string]: any } = {}
+	local nothingPlaying: string? = nil
+	local nowPlaying: Cell<string?> = Compose.cell(nothingPlaying)
+	local unsorted: Sort? = nil
+	local sortOrder: Cell<Sort?> = Compose.cell(unsorted)
+	local noWidths: { [string]: number } = {}
+	local columnWidths = Compose.cell(noWidths)
+	local ratings: { [string]: typeof(Compose.cell(0)) } = {}
 	for _, track in TRACKS do
 		ratings[track.id] = Compose.cell(track.rating)
 	end
 	local sortedRows = Compose.formula(function(use: Use)
-		local all = use(baseRows) :: { any }
+		local all = use(baseRows)
 		local order = use(sortOrder)
 		if order == nil then
 			return all
 		end
+		local column, direction = order.column, order.direction
 		local index: { [string]: number } = {}
 		for i, track in all do
 			index[track.id] = i
 		end
-		local keys: { [string]: any } = {}
+		local ratingKeys: { [string]: number } = {}
+		local textKeys: { [string]: string } = {}
 		for _, track in all do
-			if order.column == "rating" then
-				keys[track.id] = use(ratings[track.id])
-			elseif order.column == "artist" then
-				keys[track.id] = track.artist
+			if column == "rating" then
+				ratingKeys[track.id] = use(ratings[track.id])
+			elseif column == "artist" then
+				textKeys[track.id] = track.artist
 			else
-				keys[track.id] = track.name
+				textKeys[track.id] = track.name
 			end
 		end
 		local out = table.clone(all)
 		table.sort(out, function(a, b)
-			local av, bv = keys[a.id], keys[b.id]
-			if av == bv then
+			local same, ascending
+			if column == "rating" then
+				local av, bv = ratingKeys[a.id], ratingKeys[b.id]
+				same, ascending = av == bv, av < bv
+			else
+				local av, bv = textKeys[a.id], textKeys[b.id]
+				same, ascending = av == bv, av < bv
+			end
+			if same then
 				return index[a.id] < index[b.id]
 			end
-			if order.direction == "ascending" then
-				return av < bv
-			end
-			return av > bv
+			return if direction == "ascending" then ascending else not ascending
 		end)
 		return out
 	end)
 	local filteredRows = Compose.formula(function(use: Use)
 		local query = string.lower(use(filterText))
-		local all = use(sortedRows) :: { any }
+		local all = use(sortedRows)
 		if query == "" then
 			return all
 		end
-		local out = {}
+		local out: { Track } = {}
 		for _, track in all do
 			if string.find(string.lower(track.name), query, 1, true) ~= nil then
 				table.insert(out, track)
@@ -95,23 +97,20 @@ function example.build(ctx: any)
 		end
 		return out
 	end)
-	local function bakeManualOrder(): { any }
+	local function bakeManualOrder(): { Track }
 		if sortOrder:peek() ~= nil then
-			baseRows:set(table.clone(sortedRows:peek() :: { any }))
+			baseRows:set(table.clone(sortedRows:peek()))
 			sortOrder:set(nil)
 		end
-		return baseRows:peek() :: { any }
+		return baseRows:peek()
 	end
-	local function starCell(item: any)
-		return UI.Rating "Rating" {
-			value = ratings[plain(item).id],
-			count = 5,
-		}
+	local function starCell(item: Readable<Track>)
+		return UI.Rating "Rating" { value = ratings[item:peek().id], count = 5 }
 	end
 
 	local function removeTrack(id: string)
-		local out = {}
-		for _, track in baseRows:peek() :: { any } do
+		local out: { Track } = {}
+		for _, track in baseRows:peek() do
 			if track.id ~= id then
 				table.insert(out, track)
 			end
@@ -125,7 +124,7 @@ function example.build(ctx: any)
 	end
 	local function moveToTop(id: string)
 		local present = false
-		for _, track in baseRows:peek() :: { any } do
+		for _, track in baseRows:peek() do
 			if track.id == id then
 				present = true
 				break
@@ -134,7 +133,8 @@ function example.build(ctx: any)
 		if not present then
 			return
 		end
-		local moved, rest = nil, {}
+		local moved: Track? = nil
+		local rest: { Track } = {}
 		for _, track in bakeManualOrder() do
 			if track.id == id then
 				moved = track
@@ -142,7 +142,7 @@ function example.build(ctx: any)
 				table.insert(rest, track)
 			end
 		end
-		table.insert(rest, 1, moved)
+		table.insert(rest, 1, assert(moved))
 		baseRows:set(rest)
 	end
 	local function reorder(keys: { string }, toIndex: number)
@@ -152,7 +152,7 @@ function example.build(ctx: any)
 		if #keys == 0 then
 			return
 		end
-		local moving, staying = {}, {}
+		local moving: { Track }, staying: { Track } = {}, {}
 		local movingSet: { [string]: boolean } = {}
 		for _, key in keys do
 			movingSet[key] = true
@@ -160,7 +160,7 @@ function example.build(ctx: any)
 		for _, track in bakeManualOrder() do
 			table.insert(if movingSet[track.id] then moving else staying, track)
 		end
-		local out = {}
+		local out: { Track } = {}
 		for i = 1, toIndex do
 			table.insert(out, staying[i])
 		end
@@ -172,60 +172,62 @@ function example.build(ctx: any)
 		end
 		baseRows:set(out)
 	end
-	function built.screen()
+	built.screen = function()
+		local columns: { TableColumn } = {
+			{
+				id = "name",
+				label = "Name",
+				wrap = false,
+				minWidth = 90,
+				resizable = true,
+				sortable = true,
+				value = function(item: Track)
+					return item.name
+				end,
+			},
+			{
+				id = "artist",
+				label = "Artist",
+				wrap = false,
+				minWidth = 72,
+				priority = 1,
+				resizable = true,
+				sortable = true,
+				value = function(item: Track)
+					return item.artist
+				end,
+			},
+			{
+				id = "rating",
+				label = "Rating",
+				priority = 2,
+				width = 144,
+				resizable = false,
+				sortable = true,
+				value = function(item: Track)
+					return ratings[item.id]:peek()
+				end,
+				render = starCell,
+				detailRender = starCell,
+			},
+		}
+		local noSelection: { [string]: boolean } = {}
 		local tracks = UI.Table "Tracks" {
 			Size = UDim2.new(1, 0, 0, 328),
 			widths = columnWidths,
-			columns = {
-				{
-					id = "name",
-					label = "Name",
-					wrap = false,
-					minWidth = 90,
-					resizable = true,
-					sortable = true,
-					value = function(item)
-						return plain(item).name
-					end,
-				},
-				{
-					id = "artist",
-					label = "Artist",
-					wrap = false,
-					minWidth = 72,
-					priority = 1,
-					resizable = true,
-					sortable = true,
-					value = function(item)
-						return plain(item).artist
-					end,
-				},
-				{
-					id = "rating",
-					label = "Rating",
-					priority = 2,
-					width = 144,
-					resizable = false,
-					sortable = true,
-					value = function(item)
-						return ratings[plain(item).id]:peek()
-					end,
-					render = starCell,
-					detailRender = starCell,
-				},
-			} :: { Column },
+			columns = columns,
 
 			from = filteredRows,
 			key = "id",
 
 			sort = sortOrder,
-			selectionMode = "multiple" :: "multiple",
-			selection = Compose.cell({}),
-			onActivate = function(item: any, _key: string, input: InputObject?, clickCount: number?)
+			selectionMode = "multiple",
+			selection = Compose.cell(noSelection),
+			onActivate = function(item: Track, _key: string, input: InputObject?, clickCount: number?)
 				if input and input.UserInputType == Enum.UserInputType.MouseButton1 and (clickCount or 0) < 1 then
 					return
 				end
-				nowPlaying:set(plain(item).name)
+				nowPlaying:set(item.name)
 			end,
 			reorderable = true,
 			deletable = true,
@@ -235,32 +237,31 @@ function example.build(ctx: any)
 				end
 			end,
 
-			rowActions = function(item: any)
-				local id = plain(item).id
-				return {
-					leading = {
-						{
-							id = "top",
-							label = "Top",
-							icon = "chevron.up",
-							onActivate = function()
-								moveToTop(id)
-							end,
-						},
+			rowActions = function(item: Readable<Track>)
+				local id = item:peek().id
+				local leading: { RowAction } = {
+					{
+						id = "top",
+						label = "Top",
+						icon = "chevron.up",
+						onActivate = function()
+							moveToTop(id)
+						end,
 					},
-					trailing = {
-						{
-							id = "remove",
-							label = "Remove",
-							icon = "trash",
-							role = "destructive" :: "destructive",
-							onActivate = function()
-								removeTrack(id)
-							end,
-						},
-					},
-					fullSwipe = true,
 				}
+				local trailing: { RowAction } = {
+					{
+						id = "remove",
+						label = "Remove",
+						icon = "trash",
+						role = "destructive",
+						onActivate = function()
+							removeTrack(id)
+						end,
+					},
+				}
+				local actions: RowActionsOptions = { leading = leading, trailing = trailing, fullSwipe = true }
+				return actions
 			end,
 			onReorder = reorder,
 		}
@@ -280,8 +281,8 @@ function example.build(ctx: any)
 			{ id = "rating", label = "Rating", resizable = false },
 		}
 		local widthsText = Compose.formula(function(use: Use)
-			local overrides = use(columnWidths) :: { [string]: number }
-			local parts = {}
+			local overrides = use(columnWidths)
+			local parts: { string } = {}
 			for _, column in COLUMN_LABELS do
 				local px = overrides[column.id]
 				local shown = if px ~= nil
@@ -304,11 +305,11 @@ function example.build(ctx: any)
 		local screen = UI.Screen "Playlist" {
 			UI.ScrollView "Page" {
 				gap = "s",
-				align = "stretch" :: "stretch",
-				UI.Text "Title" { text = "Playlist", textRole = "title" :: "title" } :: unknown,
+				align = "stretch",
+				UI.Text "Title" { text = "Playlist", textRole = "title" },
 				UI.TextInput "Filter" {
 					value = filterText,
-					presentation = "search" :: "search",
+					presentation = "search",
 					placeholder = "Filter tracks",
 				},
 				UI.Text "EmptyResult" {
@@ -322,9 +323,13 @@ function example.build(ctx: any)
 					end,
 					TextWrapped = true,
 				},
-				UI.Text "Hint" { text = hintText, textRole = "caption" :: "caption", TextWrapped = true },
-				UI.Text "NowPlaying" { text = nowPlayingText, textRole = "caption" :: "caption", TextWrapped = true },
-				UI.Text "Widths" { text = widthsText, textRole = "caption" :: "caption", TextWrapped = true },
+				UI.Text "Hint" { text = hintText, textRole = "caption", TextWrapped = true },
+				UI.Text "NowPlaying" {
+					text = nowPlayingText,
+					textRole = "caption",
+					TextWrapped = true,
+				},
+				UI.Text "Widths" { text = widthsText, textRole = "caption", TextWrapped = true },
 				tracks,
 				UI.Button "Restore" {
 					label = "Restore the original playlist",
@@ -332,7 +337,7 @@ function example.build(ctx: any)
 				},
 			},
 		}
-		local exports = {
+		local exports: { [string]: unknown } = {
 			from = filteredRows,
 			sortedRows = sortedRows,
 			baseRows = baseRows,
@@ -364,7 +369,6 @@ function example.build(ctx: any)
 		end
 		return screen
 	end
-	built.dispose = function() end
 	return built
 end
 return example

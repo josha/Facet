@@ -9,8 +9,7 @@ return {
 	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local loading, first = Compose.cell(true), Compose.cell(true)
@@ -39,7 +38,7 @@ return {
 				rootPath, controller = nil, nil
 				table.clear(records)
 			end)
-			local root = Host.Frame "SkeletonRecipe" {
+			local root = Host.Frame("SkeletonRecipe")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -47,23 +46,21 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
-				UI.Text({
+				}),
+				UI.Text "Title" {
 					LayoutOrder = 1,
-					Name = "Title",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Loading silhouettes",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.Text({
+				},
+				UI.Text "Note" {
 					LayoutOrder = 2,
-					Name = "Note",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
@@ -72,10 +69,9 @@ return {
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				Host.Frame({
+				},
+				Host.Frame("Commands")({
 					LayoutOrder = 3,
-					Name = "Commands",
 					BackgroundTransparency = 1,
 					Size = UDim2.new(0, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.XY,
@@ -84,39 +80,35 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}) :: unknown,
-					UI.Button({
+					}),
+					UI.Button "Load" {
 						LayoutOrder = 1,
-						Name = "Load",
 						label = "Loading",
 						onActivate = function()
 							loading:set(true)
 						end,
-					}),
-					UI.Button({
+					},
+					UI.Button "Ready" {
 						LayoutOrder = 2,
-						Name = "Ready",
 						label = "Loaded",
 						onActivate = function()
 							loading:set(false)
 						end,
-					}),
-					UI.Button({
+					},
+					UI.Button "Reduce" {
 						LayoutOrder = 3,
-						Name = "Reduce",
 						label = "Reduce motion",
 						onActivate = function()
 							motion(true)
 						end,
-					}),
-					UI.Button({
+					},
+					UI.Button "Animate" {
 						LayoutOrder = 4,
-						Name = "Animate",
 						label = "Full motion",
 						onActivate = function()
 							motion(false)
 						end,
-					}),
+					},
 				}),
 				Host.Frame({
 					LayoutOrder = 4,
@@ -128,7 +120,7 @@ return {
 						Compose.cleanup(function()
 							table.clear(records)
 						end)
-						return Host.Frame "Placeholders" {
+						return Host.Frame("Placeholders")({
 							BackgroundTransparency = 1,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
@@ -136,7 +128,7 @@ return {
 								FillDirection = Enum.FillDirection.Vertical,
 								SortOrder = Enum.SortOrder.LayoutOrder,
 								Padding = UDim.new(0, 16),
-							}) :: unknown,
+							}),
 							Host.Frame({
 								LayoutOrder = 1,
 								Name = "First",
@@ -145,26 +137,24 @@ return {
 								AutomaticSize = Enum.AutomaticSize.Y,
 								Compose.show(first, function()
 									return UI.Skeleton "Card" {
-										form = "box" :: "box",
-										corners = "panel" :: "panel",
+										form = "box",
+										corners = "panel",
 									}
 								end),
 							}),
-							UI.Skeleton({
+							UI.Skeleton "Face" {
 								LayoutOrder = 2,
-								Name = "Face",
-								form = "circle" :: "circle",
+								form = "circle",
 								ref = function(record)
 									records.face = record
 								end,
-							}),
-							UI.Skeleton({
+							},
+							UI.Skeleton "Copy" {
 								LayoutOrder = 3,
-								Name = "Copy",
-								form = "line" :: "line",
+								form = "line",
 								lines = 3,
-							}),
-						}
+							},
+						})
 					end, function()
 						return UI.Text "ReadyCopy" {
 							BackgroundTransparency = 1,
@@ -178,13 +168,13 @@ return {
 						}
 					end),
 				}),
-			}
+			})
 			return root
 		end
 		return {
 			section = section,
 			screen = function()
-				return Host.Frame "Skeleton" {
+				return Host.Frame("Skeleton")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					UI.ScrollView "Content" {
@@ -194,7 +184,7 @@ return {
 						ScrollBarThickness = 6,
 						section(),
 					},
-				}
+				})
 			end,
 			report = report,
 			steps = {

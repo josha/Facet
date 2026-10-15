@@ -1,11 +1,28 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
+type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
+type ToastSpec = typeof(require("@repo/tools/typecheck/aliases").ToastSpec)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
+type NoticeSeverity = "info" | "success" | "warning" | "error"
+type ToastAction = { label: string, onActivate: () -> () }
+type ToastExtra = {
+	duration: number?,
+	icon: string?,
+	action: ToastAction?,
+	closeButton: boolean?,
+	priority: number?,
+}
+type Entry = { id: number, fact: BooleanCell, spec: ToastSpec }
 
 return {
 	title = "Notices",
 	ledgerRows = {},
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
@@ -14,8 +31,8 @@ return {
 		local last = Compose.cell("Last: nothing yet")
 		local refuse = Compose.cell(false)
 		local undone = Compose.cell(0)
-		type Entry = { id: number, fact: any, spec: { [string]: any } }
-		local entries = Compose.cell({} :: { Entry })
+		local initialEntries: { Entry } = {}
+		local entries = Compose.cell(initialEntries)
 		local serial = 0
 
 		local function release(id: number)
@@ -28,11 +45,13 @@ return {
 			entries:set(kept)
 		end
 
-		local function show(message: string, extra: { [string]: any }?)
+		local function show(message: string, extra: ToastExtra?)
 			serial += 1
 			local id = serial
 			local fact = Compose.cell(true)
-			local spec: { [string]: any } = {
+			local options: ToastExtra = extra or {}
+			local spec: ToastSpec = {
+				Name = `Snack{id}`,
 				isPresented = fact,
 				message = message,
 				onPresentedChange = function(nextValue: boolean)
@@ -44,23 +63,25 @@ return {
 					last:set(`Last: toast {reason}`)
 					release(id)
 				end,
+				duration = options.duration,
+				icon = options.icon,
+				action = options.action,
+				closeButton = options.closeButton,
+				priority = options.priority,
 			}
-			for key, value in (extra or {} :: { [string]: any }) do
-				spec[key] = value
-			end
 			local list = table.clone(entries:peek())
 			table.insert(list, { id = id, fact = fact, spec = spec })
 			entries:set(list)
 		end
 
-		local undo = {
+		local undo: ToastAction = {
 			label = "Undo",
 			onActivate = function()
 				undone:set(undone:peek() + 1)
 			end,
 		}
 
-		local function label(name: string, text: any, order: number, role: string?): any
+		local function label(name: string, text: TextValue, order: number, role: "heading"?)
 			return UI.Text({
 				Name = name,
 				LayoutOrder = order,
@@ -75,9 +96,11 @@ return {
 			})
 		end
 
-		local function row(name: string, order: number, children: { any }): any
-			local props: { [any]: any } = {
-				Name = name,
+		local function row(name: string, order: number, children: { GuiObject }): Frame
+			for index, child in children do
+				child.LayoutOrder = index
+			end
+			return Host.Frame(name)({
 				LayoutOrder = order,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -88,16 +111,12 @@ return {
 					Padding = UDim.new(0, 8),
 					Wraps = true,
 				}),
-			}
-			for index, child in children do
-				props[#props + 1] = child
-				child.LayoutOrder = index
-			end
-			return Host.Frame(props)
+				table.unpack(children),
+			})
 		end
 
-		local function snackbars(): any
-			return Host.Frame "Toasts" {
+		local function snackbars(): Frame
+			return Host.Frame("Toasts")({
 				LayoutOrder = 5,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -106,9 +125,9 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 8),
-				}) :: unknown,
+				}),
 				label("ToastTitle", "Toasts", 1, "heading"),
-				label("Undone", function(use: any): string
+				label("Undone", function(use: Use): string
 					local n = use(undone)
 					return `Undo pressed {n} {if n == 1 then "time" else "times"}; the toast stays until you close it.`
 				end, 2),
@@ -169,12 +188,12 @@ return {
 					key = function(entry: Entry): number
 						return entry.id
 					end,
-					render = function(item: any): GuiObject
+					render = function(item: Readable<Entry>): GuiObject
 						local entry: Entry = item:peek()
-						return UI.Toast(`Snack{entry.id}`)(entry.spec :: any)
+						return UI.Toast(entry.spec)
 					end,
 				}),
-			}
+			})
 		end
 
 		local function reset()
@@ -186,36 +205,32 @@ return {
 			entries:set({})
 		end
 
-		local function section(order: number?): any
-			local severities: { any } = {}
-			for index, severity in { "info", "success", "warning", "error" } do
+		local function section(order: number?): Frame
+			local severities: { GuiObject } = {}
+			local severityOrder: { NoticeSeverity } = { "info", "success", "warning", "error" }
+			for index, severity: NoticeSeverity in severityOrder do
 				table.insert(
 					severities,
-					UI.Notice {
+					UI.Notice({
 						Name = `Severity-{severity}`,
 						LayoutOrder = index,
 						severity = severity,
 						appearance = "emphasis",
 						message = `{if severity == "info" or severity == "error" then "An" else "A"} {severity} notice, in its severity's colour.`,
-					}
+					})
 				)
 			end
-			local severityProps: { [any]: any } = {
-				Name = "Severities",
-				LayoutOrder = 4,
-				BackgroundTransparency = 1,
-				Size = UDim2.new(1, 0, 0, 0),
-				AutomaticSize = Enum.AutomaticSize.Y,
-				Host.UIListLayout({
-					FillDirection = Enum.FillDirection.Vertical,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, 8),
-				}),
+			local installActions: { OverlayAction } = {
+				{
+					id = "Install",
+					label = "Install",
+					role = "default",
+					onActivate = function()
+						last:set("Last: install")
+					end,
+				},
 			}
-			for _, notice in severities do
-				severityProps[#severityProps + 1] = notice
-			end
-			return Host.Frame "NoticeRecipe" {
+			return Host.Frame("NoticeRecipe")({
 				LayoutOrder = order or 1,
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -224,7 +239,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
+				}),
 				label("NoticeTitle", "Notices", 1, "heading"),
 				label("Last", last, 2),
 				Compose.show(shown, function()
@@ -240,22 +255,24 @@ return {
 								last:set("Last: release notes")
 							end,
 						},
-						actions = {
-							{
-								id = "Install",
-								label = "Install",
-								role = "default" :: "default",
-								onActivate = function()
-									last:set("Last: install")
-								end,
-							},
-						},
+						actions = installActions,
 						onDismiss = function()
 							shown:set(false)
 						end,
 					}
 				end),
-				Host.Frame(severityProps),
+				Host.Frame("Severities")({
+					LayoutOrder = 4,
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+					}),
+					table.unpack(severities),
+				}),
 				snackbars(),
 				row("Commands", 6, {
 					UI.Button "ShowBanner" {
@@ -271,13 +288,13 @@ return {
 						end,
 					},
 				}),
-			}
+			})
 		end
 
-		local function affixed(): any
+		local function affixed()
 			return Compose.show(banner, function()
 				return UI.Notice "Offline" {
-					placement = "affixed" :: "affixed",
+					placement = "affixed",
 					severity = "warning",
 					message = "Connection interrupted. Reconnecting.",
 					onDismiss = function()
@@ -296,7 +313,7 @@ return {
 			entries = entries,
 			last = last,
 			screen = function()
-				return Host.Frame "Notices" {
+				return Host.Frame("Notices")({
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
 					UI.ScrollView "Content" {
@@ -305,9 +322,9 @@ return {
 						Size = UDim2.fromScale(1, 1),
 						ScrollBarThickness = 6,
 						section(),
-					} :: unknown,
+					},
 					affixed(),
-				}
+				})
 			end,
 			steps = {
 				reset = reset,

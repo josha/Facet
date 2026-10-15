@@ -1,22 +1,19 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
-local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local toastSchedule = require("./toast_schedule")
 local motion = require("./motion")
 local reducedMotion = motion.reduced
 local reservations = require("./reservations")
+local OverlayProps = require("./overlay_props")
 
-type Controls = {
-	Toast: Types.Constructor<Overlay.ToastSpec, Frame>,
-	Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
-}
 type Reason = Overlay.ToastDismissReason
 type Record = {
-	spec: Overlay.ToastSpec,
+	spec: OverlayProps.ToastSpec,
 	state: ComposeTypes.Cell<string>,
 	height: ComposeTypes.Cell<number>,
 	stack: Stack?,
@@ -56,7 +53,7 @@ local KEYS = {
 local PASSIVE_ONLY = { "content", "position", "width", "fade" }
 local MARGIN, GAP, HUG_MAX, ROW_Z, ACTION_Z = 8, 8, 560, 70, 60
 
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2, UD = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local frames = runtime.host.frames
@@ -214,7 +211,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 	end
 
-	local function validate(spec: Overlay.ToastSpec)
+	local function validate(spec: OverlayProps.ToastSpec)
 		local where = "UI.Toast"
 		local fields = (spec :: unknown) :: { [string]: unknown }
 		local interactive = spec.action ~= nil
@@ -729,7 +726,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		end
 	end
 
-	UI.Toast = ctx.construct("Toast", function(spec: Overlay.ToastSpec): Frame
+	UI.Toast = ctx.construct("Toast", function(spec: OverlayProps.ToastSpec): Frame
 		validate(spec)
 		local interactive = spec.action ~= nil
 		local level = motion.level(ctx)

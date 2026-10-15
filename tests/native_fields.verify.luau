@@ -146,7 +146,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local enabled = Compose.cell(false)
 				local w = world(function(UI: FacetControls)
-					return UI.TextInput("Name")({ value = Compose.cell(""), label = "Display name", enabled = enabled })
+					return UI.TextInput("Name")({
+						value = Compose.cell(""),
+						label = "Display name",
+						enabled = enabled,
+					})
 				end)
 				local label, field = find(w.node, "Label"), find(w.node, "Input/Field")
 				expect(label.Interactable):toBe(false)
@@ -527,7 +531,7 @@ return function(verifyHarness: Verify.Harness)
 					local err = refused(function(UI: FacetControls)
 						local spec: any = { value = Compose.cell("") }
 						spec[key] = bad
-						return UI.TextInput("Name")(spec)
+						return UI.TextInput "Name"(spec)
 					end)
 					expect(`{key}: {err ~= nil}`):toBe(`{key}: true`)
 					expect(`{key}: {string.find(tostring(err), key, 1, true) ~= nil}`):toBe(`{key}: true`)
@@ -718,7 +722,11 @@ return function(verifyHarness: Verify.Harness)
 				local heights = {}
 				for _, count in { 1, 3, 5 } do
 					local w = world(function(UI: FacetControls)
-						return UI.TextInput("Name")({ value = Compose.cell(""), multiline = true, visibleLines = count })
+						return UI.TextInput("Name")({
+							value = Compose.cell(""),
+							multiline = true,
+							visibleLines = count,
+						})
 					end)
 					local viewport = find(w.node, "Input/Viewport")
 					heights[count] = viewport.Size.Y.Offset
@@ -851,7 +859,7 @@ return function(verifyHarness: Verify.Harness)
 						for key, entry in bad do
 							spec[key] = entry
 						end
-						return UI.TextInput("Name")(spec)
+						return UI.TextInput "Name"(spec)
 					end)
 					expect(err ~= nil):toBe(true)
 				end

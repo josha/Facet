@@ -1,17 +1,13 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
-local InputTypes = require("./input_types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local placement = require("./overlay_placement")
 local activation = require("./activation")
-
-type Controls = {
-	Popover: Types.Constructor<Overlay.PopoverSpec, GuiObject>,
-	Button: Types.Constructor<InputTypes.ButtonProps, TextButton>,
-}
+local OverlayProps = require("./overlay_props")
 
 local KEYS = {
 	"isPresented",
@@ -36,7 +32,7 @@ local KEYS = {
 local MARGIN = 8
 local PADDING = 8
 
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 
@@ -44,7 +40,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return type(value) == "number" and value == value and math.abs(value) < math.huge
 	end
 
-	UI.Popover = ctx.construct("Popover", function(spec: Overlay.PopoverSpec): GuiObject
+	UI.Popover = ctx.construct("Popover", function(spec: OverlayProps.PopoverSpec): GuiObject
 		local where = "UI.Popover"
 		if spec.isPresented == nil then
 			error(`Facet {where}: isPresented is required; it is the caller's boolean fact`, 0)

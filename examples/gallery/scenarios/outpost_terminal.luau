@@ -1,43 +1,71 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type InstanceCell = typeof(require("@repo/tools/typecheck/aliases").InstanceCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
+type Terminal = typeof(require("@repo/examples/gallery/examples/outpost_terminal"))
+type Reply = {
+	kind: string?,
+	token: string?,
+	allocation: { [string]: number }?,
+	revision: number?,
+	ok: boolean?,
+	requestId: number?,
+	reason: string?,
+	code: string?,
+	message: string?,
+}
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Payload = {
+	kind: string?,
+	action: string?,
+	requestId: number?,
+	expectedRevision: number?,
+	allocation: { [string]: number }?,
+	token: string?,
+}
+local loadTerminal: (ModuleScript | string) -> Terminal = require
 return {
 	title = "Outpost power terminal (world surface)",
 	build = function(ctx: ExampleContext)
 		local Compose: ComposeModule, Host, UI = ctx.Compose, ctx.Host, ctx.UI
 		local UDim, UDim2, Vector2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
-		local terminal = ctx.load("example", "outpost_terminal")
+		local terminal =
+			loadTerminal(if ctx.find then ctx.find("example", "outpost_terminal") else "../examples/outpost_terminal")
 		local remote, player = ctx.outpostRemote, ctx.player
 		if not remote and game then
-			remote = game:GetService("ReplicatedStorage"):FindFirstChild("Facet_Outpost")
+			local found = game:GetService("ReplicatedStorage"):FindFirstChild("Facet_Outpost")
+			if found and found:IsA("RemoteEvent") then
+				remote = found
+			end
 			player = game:GetService("Players").LocalPlayer
 		end
 		local world = ctx.worldTarget
-		local console = (function(value: Instance?): InstanceCell
-			return Compose.cell(value)
-		end)(nil)
-		local token = nil
-		local replies = {}
+		local noConsole: BasePart? = nil
+		local console: Cell<BasePart?> = Compose.cell(noConsole)
+		local token: string? = nil
+		local replies: { Reply } = {}
 		local connectionState =
 			Compose.cell(if remote then "Opening the outpost…" else "No outpost server connected.")
 		local lastExit = Compose.cell("—")
-		local previousSelection = nil
-		local function command(kind: string, payload: { [string]: any }?)
+		local previousSelection: GuiObject? = nil
+		local function command(kind: string, payload: Payload?)
 			if not remote then
 				return false
 			end
-			local message = table.clone((payload or {}) :: { [string]: any })
+			local message: Payload = if payload then table.clone(payload) else {}
 			message.kind = kind
 			remote:FireServer(message)
 			return true
 		end
 		local built = terminal.build(ctx, {
 			send = if remote
-				then function(envelope)
+				then function(envelope: {
+					requestId: number,
+					expectedRevision: number,
+					payload: { kind: string, allocation: { [string]: number } },
+				})
 					command("apply", {
 						requestId = envelope.requestId,
 						expectedRevision = envelope.expectedRevision,
@@ -56,13 +84,14 @@ return {
 				end
 			end,
 		})
-		local function release(reason)
+		local function release(reason: string)
 			lastExit:set(reason)
 			built.steps.exit(reason)
 		end
 		local function findConsole()
 			local model = world and world:FindFirstChild("Outpost")
-			local part = model and model:FindFirstChild("Console")
+			local found = model and model:FindFirstChild("Console")
+			local part = if found and found:IsA("BasePart") then found else nil
 			if part ~= console:peek() then
 				if console:peek() and not part then
 					release("adornee-lost")
@@ -71,7 +100,7 @@ return {
 			end
 		end
 		if remote then
-			ctx.runtime.connect(remote, "OnClientEvent", function(reply)
+			ctx.runtime.connect(remote, "OnClientEvent", function(reply: Reply)
 				table.insert(replies, reply)
 				if #replies > 40 then
 					table.remove(replies, 1)
@@ -82,19 +111,19 @@ return {
 					if ctx.guiService then
 						previousSelection = ctx.guiService.SelectedObject
 					end
-					built.steps.engage(reply.allocation, reply.revision)
+					built.steps.engage(assert(reply.allocation), assert(reply.revision))
 					connectionState:set("Console engaged. Apply sends your draft to the server.")
 				elseif reply.kind == "state" then
-					built.steps.ingest(reply.revision, reply.allocation)
+					built.steps.ingest(assert(reply.revision), assert(reply.allocation))
 					connectionState:set("Walk to the console and use its prompt.")
 				elseif reply.kind == "verdict" then
 					if reply.ok then
-						built.steps.confirm(reply.requestId, reply)
+						built.steps.confirm(assert(reply.requestId), reply)
 					else
-						built.steps.reject(reply.requestId, reply)
+						built.steps.reject(assert(reply.requestId), reply)
 					end
 				elseif reply.kind == "closed" then
-					release(reply.reason)
+					release(reply.reason or "closed")
 				end
 			end)
 			command("open")
@@ -111,19 +140,17 @@ return {
 				release("adornee-lost")
 			elseif not root then
 				release("character-removed")
-			elseif ((root :: BasePart).Position - (part :: BasePart).Position).Magnitude > terminal.rules.RANGE then
-				release("out-of-range")
-			elseif RaycastParams and world.Raycast then
-				local params = RaycastParams.new()
-				params.FilterType = Enum.RaycastFilterType.Exclude
-				params.FilterDescendantsInstances = { character }
-				local hit = world:Raycast(
-					(root :: BasePart).Position,
-					(part :: BasePart).Position - (root :: BasePart).Position,
-					params
-				)
-				if hit and hit.Instance ~= part then
-					release("line-of-sight")
+			elseif root:IsA("BasePart") then
+				if (root.Position - part.Position).Magnitude > terminal.rules.RANGE then
+					release("out-of-range")
+				elseif RaycastParams and world and world:IsA("WorldRoot") then
+					local params = RaycastParams.new()
+					params.FilterType = Enum.RaycastFilterType.Exclude
+					params.FilterDescendantsInstances = { assert(character) }
+					local hit = world:Raycast(root.Position, part.Position - root.Position, params)
+					if hit and hit.Instance ~= part then
+						release("line-of-sight")
+					end
 				end
 			end
 		end
@@ -131,10 +158,11 @@ return {
 			ctx.runtime.connect(ctx.runService, "Heartbeat", checkEngagement)
 		end
 		findConsole()
-		if ctx.sceneVisible then
-			ctx.sceneVisible:set(true)
+		local sceneVisible = ctx.sceneVisible
+		if sceneVisible then
+			sceneVisible:set(true)
 			Compose.cleanup(function()
-				ctx.sceneVisible:set(false)
+				sceneVisible:set(false)
 			end)
 		end
 		local steps = {
@@ -192,9 +220,10 @@ return {
 		Compose.cleanup(function()
 			command("close")
 		end)
-		local function button(name, label, action)
+		local function button(name: string, label: string, action: () -> ...unknown): TextButton
 			return UI.Button({ Name = name, label = label, onActivate = action, Size = UDim2.new(1, 0, 0, 40) })
 		end
+		local loadTerminal: (ModuleScript | string) -> Terminal = require
 		return {
 			screen = function()
 				local sheet = ctx.Facet.themes.createStyleSheet(
@@ -202,9 +231,11 @@ return {
 					ctx.theme,
 					{ types = ctx.types, theme = ctx.themeMode }
 				)
-				local gui = Host.SurfaceGui "OutpostSurface" {
+				local gui = Host.SurfaceGui("OutpostSurface")({
 					Parent = ctx.inputTarget,
-					Adornee = console,
+					Adornee = function(use: Use): BasePart?
+						return use(console)
+					end,
 					Face = Enum.NormalId.Back,
 					CanvasSize = Vector2.new(terminal.CANVAS.w, terminal.CANVAS.h),
 					SizingMode = Enum.SurfaceGuiSizingMode.FixedSize,
@@ -214,25 +245,25 @@ return {
 					Active = function(use: Use)
 						return use(built.model.phase) == "engaged"
 					end,
-					Host.StyleLink({ StyleSheet = Compose.static(sheet) }) :: unknown,
+					Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 					built.screen(),
-				}
-				Host.InputContext "OutpostInput" {
+				})
+				Host.InputContext("OutpostInput")({
 					Parent = ctx.inputTarget,
 					Priority = 3000,
 					Sink = true,
 					Enabled = function(use: Use)
 						return use(built.model.phase) == "engaged"
 					end,
-					Host.InputAction "LeaveConsole" {
+					Host.InputAction("LeaveConsole")({
 						Type = Enum.InputActionType.Bool,
 						Pressed = function()
 							release("cancel")
 						end,
-						Host.InputBinding({ KeyCode = Enum.KeyCode.Escape }) :: unknown,
+						Host.InputBinding({ KeyCode = Enum.KeyCode.Escape }),
 						Host.InputBinding({ KeyCode = Enum.KeyCode.ButtonB }),
-					},
-				}
+					}),
+				})
 				local previousPhase = built.model.phase:peek()
 				Compose.watch(function(use: Use)
 					local phase = use(built.model.phase)
@@ -246,7 +277,7 @@ return {
 					end
 					previousPhase = phase
 				end)
-				return Host.Frame "OutpostCompanion" {
+				return Host.Frame("OutpostCompanion")({
 					Position = UDim2.fromOffset(12, 12),
 					Size = UDim2.new(0, 280, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -255,12 +286,12 @@ return {
 						PaddingRight = UDim.new(0, 12),
 						PaddingTop = UDim.new(0, 12),
 						PaddingBottom = UDim.new(0, 12),
-					}) :: unknown,
+					}),
 					Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }),
 					UI.Text({
 
 						text = "Outpost 7 — World terminal",
-						textRole = "heading" :: "heading",
+						textRole = "heading",
 						TextWrapped = true,
 						Size = UDim2.new(1, 0, 0, 54),
 					}),
@@ -281,10 +312,11 @@ return {
 						TextWrapped = true,
 						Size = UDim2.new(1, 0, 0, 36),
 					}),
-				}
+				})
 			end,
 			steps = steps,
 			report = function()
+				local loadTerminal: (ModuleScript | string) -> Terminal = require
 				return {
 					serverConnected = remote ~= nil,
 					mounted = console:peek() ~= nil,

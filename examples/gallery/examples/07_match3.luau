@@ -1,11 +1,13 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type CoordinatesCell = typeof(require("@repo/tools/typecheck/aliases").CoordinatesCell)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 
 local assets = require("./assets")
 
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
 
 local ROWS = 6
@@ -75,9 +77,9 @@ end
 local function hasLegalMoveIn(grid: { { string } }): boolean
 	local function trySwap(r1: number, c1: number, r2: number, c2: number): boolean
 		grid[r1][c1], grid[r2][c2] = grid[r2][c2], grid[r1][c1]
-		local any = next(findMatchesIn(grid)) ~= nil
+		local found = next(findMatchesIn(grid)) ~= nil
 		grid[r1][c1], grid[r2][c2] = grid[r2][c2], grid[r1][c1]
-		return any
+		return found
 	end
 	for r = 1, ROWS do
 		for c = 1, COLS do
@@ -92,8 +94,13 @@ local function hasLegalMoveIn(grid: { { string } }): boolean
 	return false
 end
 
-local function build(ctx: any)
-	local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
+local function cellOf(key: string): (number, number)
+	local rs, cs = key:match("(%d+),(%d+)")
+	return assert(tonumber(rs)), assert(tonumber(cs))
+end
+
+local function build(ctx: ExampleContext): Built
+	local UI, Compose, Host = ctx.UI, ctx.Compose, ctx.Host
 	local UDim2, Vector2, Color3, Enum = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 	local reducedMotion = ctx.reducedMotion
 	local seed = DEFAULT_SEED
@@ -106,7 +113,7 @@ local function build(ctx: any)
 		for c = 1, COLS do
 			local stack: { string } = {}
 			for r = ROWS, 1, -1 do
-				if grid[r][c] ~= nil then
+				if grid[r][c] ~= "" then
 					table.insert(stack, grid[r][c])
 				end
 			end
@@ -131,8 +138,8 @@ local function build(ctx: any)
 					break
 				end
 				for key in matched do
-					local rs, cs = key:match("(%d+),(%d+)")
-					grid[tonumber(rs) :: number][tonumber(cs) :: number] = nil :: any
+					local r, c = cellOf(key)
+					grid[r][c] = ""
 				end
 				collapseIn(grid)
 			end
@@ -147,17 +154,18 @@ local function build(ctx: any)
 		end
 		return grid
 	end
+	type Links = { left: GuiObject?, right: GuiObject?, up: GuiObject?, down: GuiObject? }
 	type Tile = {
 		id: number,
 		kind: string,
 		row: number,
 		col: number,
 		spawnRow: number?,
-		setKind: any,
-		setPosition: any,
-		setMarked: any,
-		setLeaving: any,
-		hit: any,
+		setKind: ((string) -> ())?,
+		setPosition: (({ row: number, col: number }) -> ())?,
+		setMarked: ((boolean) -> ())?,
+		setLeaving: ((boolean) -> ())?,
+		hit: GuiObject?,
 	}
 	local board: { { Tile? } } = {}
 	for r = 1, ROWS do
@@ -195,8 +203,9 @@ local function build(ctx: any)
 	local function hasLegalMove(): boolean
 		return hasLegalMoveIn(kindGrid())
 	end
-	local syncSelection
-	local items = Compose.cell({} :: { { id: number } })
+	local syncSelection: () -> ()
+	local noItems: { { id: number } } = {}
+	local items = Compose.cell(noItems)
 
 	local leaving: { Tile } = {}
 	local function publish()
@@ -241,12 +250,13 @@ local function build(ctx: any)
 	local moves = Compose.cell(0)
 	local message = Compose.cell("")
 	local resolving = Compose.cell(false)
-	local selected = (function(value: { number }?): CoordinatesCell
-		return Compose.cell(value)
-	end)(nil)
-	local kindHandle = {}
+	local unselected: { number }? = nil
+	local selected: Cell<{ number }?> = Compose.cell(unselected)
+	local kindHandle: { [string]: { state: Cell<string>, value: Cell<string?> } } = {}
 	for _, kind in KINDS do
-		kindHandle[kind] = { state = Compose.cell("ready"), value = Compose.cell(assets.match3Tiles[kind].image) }
+		local image: string? = assets.match3Tiles[kind].image
+		local value: Cell<string?> = Compose.cell(image)
+		kindHandle[kind] = { state = Compose.cell("ready"), value = value }
 	end
 	local PENDING = assets.pending
 	local function deliverArt()
@@ -260,7 +270,7 @@ local function build(ctx: any)
 		end
 		return delivered
 	end
-	local function requestArt(kind)
+	local function requestArt(kind: string)
 		kindHandle[kind].value:set(nil)
 		kindHandle[kind].state:set("pending")
 	end
@@ -297,24 +307,37 @@ local function build(ctx: any)
 	local activateTile: (tile: Tile) -> ()
 	local beginSwap: (number, number, number, number) -> ()
 	local tilesById: { [number]: Tile } = {}
+	local noLinks: { [number]: Links } = {}
+	local links = Compose.cell(noLinks)
 	syncSelection = function()
+		local nextLinks: { [number]: Links } = {}
 		for row = 1, ROWS do
 			for col = 1, COLS do
 				local tile = board[row][col]
-				if tile and tile.hit then
+				local hit = if tile then tile.hit else nil
+				if tile and hit then
 					local left, right = board[row][col - 1], board[row][col + 1]
 					local up, down =
 						if row > 1 then board[row - 1][col] else nil, if row < ROWS then board[row + 1][col] else nil
-					tile.hit.NextSelectionLeft = if left then left.hit else tile.hit
-					tile.hit.NextSelectionRight = if right then right.hit else tile.hit
-					tile.hit.NextSelectionUp = if up then up.hit else nil
-					tile.hit.NextSelectionDown = if down then down.hit else nil
+					nextLinks[tile.id] = {
+						left = if left then left.hit else hit,
+						right = if right then right.hit else hit,
+						up = if up then up.hit else nil,
+						down = if down then down.hit else nil,
+					}
 				end
 			end
 		end
+		links:set(nextLinks)
+	end
+	local function link(id: number, side: "left" | "right" | "up" | "down"): (Use) -> GuiObject?
+		return function(use: Use): GuiObject?
+			local current = use(links)[id]
+			return if current then current[side] else nil
+		end
 	end
 	local slots: { [string]: GuiObject } = {}
-	local function TileView(item: any)
+	local function TileView(item: Readable<{ id: number }>)
 		local tile = tilesById[item:peek().id]
 		local kind = Compose.cell(tile.kind)
 		local position = Compose.cell({
@@ -366,8 +389,7 @@ local function build(ctx: any)
 		local targetTransparency = Compose.formula(function(use: Use)
 			return if use(isLeaving) then 1 else 0
 		end)
-		local plate = Host.CanvasGroup({
-			Name = `tile{tile.id}`,
+		local plate = Host.CanvasGroup(`tile{tile.id}`)({
 			Size = UDim2.fromOffset(44, 44),
 			(function()
 				local art = Host.ImageLabel "img" {
@@ -377,7 +399,7 @@ local function build(ctx: any)
 					Size = UDim2.fromScale(0.7, 0.7),
 					Image = image,
 				}
-				local previous
+				local previous: string? = nil
 				Compose.watch(function(use: Use)
 					local tag = "facet-icon-" .. assets.match3Tints[use(kind)]
 					if previous then
@@ -387,11 +409,15 @@ local function build(ctx: any)
 					previous = tag
 				end)
 				return art
-			end)() :: unknown,
+			end)(),
 			UI.Button "hit" {
 				ref = function(node)
 					tile.hit = node
 				end,
+				NextSelectionLeft = link(tile.id, "left"),
+				NextSelectionRight = link(tile.id, "right"),
+				NextSelectionUp = link(tile.id, "up"),
+				NextSelectionDown = link(tile.id, "down"),
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				AutomaticSize = Enum.AutomaticSize.None,
@@ -409,7 +435,7 @@ local function build(ctx: any)
 					Transparency = function(use: Use)
 						return if use(picked) then 0 else 1
 					end,
-				} :: unknown,
+				},
 				onActivate = function(input)
 					if
 						input
@@ -443,7 +469,8 @@ local function build(ctx: any)
 						local origin = dragOrigin
 						local delta = if origin and at then at - origin else dragDelta
 						dragOrigin, dragDelta = nil, nil
-						if not origin or resolving:peek() or not tile.hit then
+						local hit = tile.hit
+						if not origin or resolving:peek() or not hit then
 							return
 						end
 						if delta and delta.Magnitude >= 16 then
@@ -455,7 +482,7 @@ local function build(ctx: any)
 								beginSwap(tile.row, tile.col, r, c)
 							end
 						elseif at and not dragMoved then
-							local position, size = tile.hit.AbsolutePosition, tile.hit.AbsoluteSize
+							local position, size = hit.AbsolutePosition, hit.AbsoluteSize
 							if
 								at.X >= position.X
 								and at.Y >= position.Y
@@ -483,7 +510,7 @@ local function build(ctx: any)
 		}
 	end
 	local function boardView()
-		local children: { unknown } = {}
+		local children: { Child } = {}
 		for row = -ROWS, ROWS do
 			for col = 1, COLS do
 				local slot = Host.Frame {
@@ -531,7 +558,7 @@ local function build(ctx: any)
 		publish()
 	end
 	dealBoard()
-	local phase = "idle" :: "idle"
+	local phase = "idle"
 	local elapsed = 0
 	local phaseLog: { string } = {}
 	local pendingSwap: { number }? = nil
@@ -562,9 +589,9 @@ local function build(ctx: any)
 	end
 	local PHASE_ACTION: { [string]: () -> () } = {
 		swap = function()
-			local move = pendingSwap :: { number }
+			local move = assert(pendingSwap)
 			ctx.runtime:batch(function()
-				local a, b = tileAt(move[1], move[2]) :: Tile, tileAt(move[3], move[4]) :: Tile
+				local a, b = assert(tileAt(move[1], move[2])), assert(tileAt(move[3], move[4]))
 				a.row, a.col, b.row, b.col = b.row, b.col, a.row, a.col
 				board[a.row][a.col], board[b.row][b.col] = a, b
 				syncPositions()
@@ -572,9 +599,9 @@ local function build(ctx: any)
 			end)
 		end,
 		revert = function()
-			local move = pendingSwap :: { number }
+			local move = assert(pendingSwap)
 			ctx.runtime:batch(function()
-				local a, b = tileAt(move[1], move[2]) :: Tile, tileAt(move[3], move[4]) :: Tile
+				local a, b = assert(tileAt(move[1], move[2])), assert(tileAt(move[3], move[4]))
 				a.row, a.col, b.row, b.col = b.row, b.col, a.row, a.col
 				board[a.row][a.col], board[b.row][b.col] = a, b
 				syncPositions()
@@ -584,8 +611,8 @@ local function build(ctx: any)
 		end,
 		mark = function()
 			for key in findMatches() do
-				local rs, cs = key:match("(%d+),(%d+)")
-				local tile = board[tonumber(rs) :: number][tonumber(cs) :: number]
+				local r, c = cellOf(key)
+				local tile = board[r][c]
 				if tile ~= nil and tile.setMarked ~= nil then
 					tile.setMarked(true)
 				end
@@ -594,8 +621,7 @@ local function build(ctx: any)
 		remove = function()
 			local cleared = 0
 			for key in findMatches() do
-				local rs, cs = key:match("(%d+),(%d+)")
-				local r, c = tonumber(rs) :: number, tonumber(cs) :: number
+				local r, c = cellOf(key)
 				local tile = board[r][c]
 				if tile ~= nil then
 					tilesById[tile.id] = nil
@@ -761,7 +787,7 @@ local function build(ctx: any)
 	end
 	local function reset()
 		stopTicking()
-		phase = "idle" :: "idle"
+		phase = "idle"
 		elapsed = 0
 		pendingSwap = nil
 		clearedThisRun = 0
@@ -775,9 +801,9 @@ local function build(ctx: any)
 		dealBoard()
 		message:set("")
 	end
-	local hint: any
+	local hintSig: Readable<string>? = nil
 	local function Match3()
-		hint = Compose.formula(function(use: Use)
+		local hint = Compose.formula(function(use: Use)
 			local said = use(message)
 			if said ~= "" then
 				return said
@@ -790,6 +816,7 @@ local function build(ctx: any)
 			end
 			return "Now tap a tile next to it — or tap the same tile again to put it down."
 		end)
+		hintSig = hint
 		local scoreText = Compose.formula(function(use: Use)
 			return `Score {use(score)}`
 		end)
@@ -799,13 +826,13 @@ local function build(ctx: any)
 		return UI.Screen "Match3" {
 			UI.ScrollView "Page" {
 				gap = "s",
-				align = "stretch" :: "stretch",
-				UI.Text "Title" { text = "Facet Match-3", textRole = "title" :: "title", TextWrapped = true } :: unknown,
+				align = "stretch",
+				UI.Text "Title" { text = "Facet Match-3", textRole = "title", TextWrapped = true },
 				UI.Text "Hint" { text = hint, TextWrapped = true },
 				UI.HStack "Stats" {
 					gap = "m",
 					wrap = true,
-					UI.Text "Score" { text = scoreText } :: unknown,
+					UI.Text "Score" { text = scoreText },
 					UI.Text "Moves" { text = movesText },
 				},
 				boardView(),
@@ -813,7 +840,7 @@ local function build(ctx: any)
 				UI.HStack "Art" {
 					wrap = true,
 					gap = "s",
-					UI.Button "Reload" { label = "Re-request artwork", onActivate = reloadArt } :: unknown,
+					UI.Button "Reload" { label = "Re-request artwork", onActivate = reloadArt },
 					UI.Button "Deliver" {
 						label = "Deliver artwork",
 						onActivate = function()
@@ -844,7 +871,7 @@ local function build(ctx: any)
 			return if tile ~= nil then tile.kind else ""
 		end,
 		boardSnapshot = function(): { string }
-			local out = {}
+			local out: { string } = {}
 			for r = 1, ROWS do
 				for c = 1, COLS do
 					local tile = board[r][c]
@@ -860,7 +887,7 @@ local function build(ctx: any)
 			return moves:peek()
 		end,
 		hintText = function(): string
-			return hint:peek()
+			return assert(hintSig):peek()
 		end,
 		artStatusText = function(): string
 			return artStatus:peek()

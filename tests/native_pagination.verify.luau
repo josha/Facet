@@ -32,7 +32,7 @@ return function(verifyHarness: Verify.Harness)
 			return Host.Frame({
 				Name = "Page",
 				UI.Button({ Name = "Before", label = "Before" }) :: unknown,
-				UI.Pagination("P")(spec),
+				UI.Pagination "P"(spec),
 				UI.Button({ Name = "After", label = "After" }),
 			})
 		end)
@@ -340,7 +340,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local package = require("../examples/themes/fantasy_ornate").build(Facet.themes)
 				local world = worlds.new(function(UI: FacetControls)
-					return UI.Pagination("P")((controlled(5, { pageCount = 200 })))
+					return UI.Pagination "P"((controlled(5, { pageCount = 200 })))
 				end, { theme = package })
 				local root = world.find("P")
 				world.bounds(root:FindFirstChild("DigitMeasure"), 80)

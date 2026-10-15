@@ -7,6 +7,16 @@ type BarLayer = {
 	tileSize: { w: number, h: number }?,
 }
 
+local BAR_TRACK_LAYERS: { BarLayer } = {
+	{ kind = "fill", asset = "glossy_bar_track" },
+	{
+		kind = "tile",
+		asset = "glossy_stripe_tile",
+		tileSize = { w = 24, h = 24 },
+		mask = "pill",
+		inset = { x = 2, y = 2 },
+	},
+}
 local glossy_touch = {}
 
 glossy_touch.id = "glossy-touch"
@@ -20,10 +30,10 @@ local function rgb(r: number, g: number, b: number)
 end
 
 local FAMILY = "rbxasset://fonts/families/Nunito.json"
-local SIZES = { caption = 13, label = 15, body = 17, control = 17, heading = 24, title = 30 }
+local SIZES: { [string]: number } = { caption = 13, label = 15, body = 17, control = 17, heading = 24, title = 30 }
 
-local function typography(): any
-	local out: any = {}
+local function typography(): { [string]: { [string]: unknown } }
+	local out: { [string]: { [string]: unknown } } = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY, weight = "Medium" }, size = size, lineHeight = 1.3 }
 	end
@@ -206,7 +216,7 @@ function glossy_touch.definition(themes: any): any
 		},
 		chrome = {
 			panel = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "glossy_panel",
 				contentInsets = { top = 14, right = 14, bottom = 14, left = 14 },
 				fallback = "native",
@@ -214,7 +224,7 @@ function glossy_touch.definition(themes: any): any
 			},
 
 			control = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = {
 					default = "glossy_button_default",
 					pressed = "glossy_button_pressed",
@@ -224,19 +234,19 @@ function glossy_touch.definition(themes: any): any
 				fallback = "native",
 			},
 			field = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "glossy_field",
 				contentInsets = { top = 8, right = 14, bottom = 8, left = 14 },
 				fallback = "native",
 			},
 			selection = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = { default = "glossy_selection_default", selected = "glossy_selection_selected" },
 				contentInsets = { top = 6, right = 10, bottom = 6, left = 10 },
 				fallback = "native",
 			},
 			focus = {
-				kind = "glow" :: "glow",
+				kind = "glow",
 				color = "$FocusGlow",
 				blurRadius = { scale = 0, offset = 22 },
 				transparency = 0.3,
@@ -244,49 +254,39 @@ function glossy_touch.definition(themes: any): any
 			},
 
 			barTrack = {
-				kind = "layered" :: "layered",
+				kind = "layered",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
-				layers = {
-					{ kind = "fill" :: "fill", asset = "glossy_bar_track" } :: BarLayer,
-
-					{
-						kind = "tile" :: "tile",
-						asset = "glossy_stripe_tile",
-						tileSize = { w = 24, h = 24 },
-						mask = "pill",
-						inset = { x = 2, y = 2 },
-					} :: BarLayer,
-				},
+				layers = BAR_TRACK_LAYERS,
 			},
 			barFill = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "glossy_bar_fill",
-				direction = "ltr" :: "ltr",
+				direction = "ltr",
 				fallback = "native",
 			},
 
 			toggleTrack = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = { default = "glossy_toggle_track_off", selected = "glossy_toggle_track_on" },
 				fallback = "native",
 			},
 			toggleKnob = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "glossy_toggle_knob",
 				sliced = false,
 				fallback = "native",
 			},
 
 			stepperPlate = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = { default = "glossy_stepper_plate_default", pressed = "glossy_stepper_plate_pressed" },
 				sliced = true,
 				contentInsets = { top = 4, right = 4, bottom = 4, left = 4 },
 				fallback = "native",
 			},
-			divider = { kind = "native" :: "native" },
-			scrollbar = { kind = "native" :: "native" },
+			divider = { kind = "native" },
+			scrollbar = { kind = "native" },
 		},
 
 		icons = { ["facet:search"] = "search" },

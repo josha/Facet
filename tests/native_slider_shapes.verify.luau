@@ -89,7 +89,7 @@ return function(verifyHarness: Verify.Harness)
 			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				Name = "Host",
 				Compose.show(w.visible, function()
-					return UI.Slider("Vol")(merged)
+					return UI.Slider "Vol"(merged)
 				end),
 			})
 		end, screen)

@@ -40,7 +40,8 @@ return function(verifyHarness: Verify.Harness)
 	local function hud(UI: any, Host: any, forms: any, topbar: any?)
 		local function region(name: string, spec: { [any]: any }): any
 			spec.form = forms[name]
-			return UI.Region(name)(spec)
+			spec.Name = name
+			return UI.Region(spec)
 		end
 		return UI.Composition "Hud" {
 			gap = 8,

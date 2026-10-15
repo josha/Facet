@@ -3,9 +3,24 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local rules = require(
+type Rules = typeof(require("@repo/examples/gallery/examples/outpost_terminal/rules"))
+type Allocation = { [string]: number }
+type Reply = { [string]: unknown }
+type Payload = {
+	kind: unknown,
+	action: unknown,
+	token: unknown,
+	requestId: unknown,
+	allocation: { [string]: unknown }?,
+}
+
+local rulesModule =
 	ReplicatedStorage:WaitForChild("FacetExamples"):WaitForChild("outpost_terminal"):WaitForChild("rules")
-) :: any
+if not rulesModule:IsA("ModuleScript") then
+	error("The outpost rules must be a ModuleScript")
+end
+local loadRules: (ModuleScript) -> Rules = require
+local rules = loadRules(rulesModule)
 
 local PROMPT_RANGE = rules.RANGE
 local CONSOLE_CFRAME = CFrame.new(0, 4, -24)
@@ -25,7 +40,7 @@ local beaconLight: PointLight? = nil
 local lampLights: { PointLight } = {}
 local doorClosedCFrame = CFrame.new()
 
-local allocation: { [string]: number } = rules.copy(rules.START)
+local allocation: Allocation = rules.copy(rules.START)
 local revision = 0
 
 local holder: Player? = nil
@@ -35,18 +50,18 @@ local openFor: { [Player]: boolean } = {}
 local lastCommandAt: { [Player]: number } = {}
 local loadedFor: { [Player]: boolean } = {}
 
-local function send(player: Player, reply: any)
+local function send(player: Player, reply: Reply)
 	remote:FireClient(player, reply)
 end
 
-local function broadcast(reply: any)
+local function broadcast(reply: Reply)
 	for player in openFor do
 		send(player, reply)
 	end
 end
 
-local function stateReply(): any
-	return { kind = "state" :: "state", revision = revision, allocation = rules.copy(allocation) }
+local function stateReply(): Reply
+	return { kind = "state", revision = revision, allocation = rules.copy(allocation) }
 end
 
 local function part(name: string, size: Vector3, cframe: CFrame, color: Color3, parent: Instance): BasePart
@@ -134,7 +149,7 @@ local function buildFixture()
 		holder = player
 		holderToken = `s{tokenCounter}`
 		send(player, {
-			kind = "session" :: "session",
+			kind = "session",
 			token = holderToken,
 			revision = revision,
 			allocation = rules.copy(allocation),
@@ -144,10 +159,11 @@ local function buildFixture()
 end
 
 local function destroyFixture()
-	if outpost == nil then
+	local model = outpost
+	if model == nil then
 		return
 	end
-	(outpost :: Model):Destroy()
+	model:Destroy()
 	outpost = nil
 	console = nil
 	prompt = nil
@@ -174,7 +190,7 @@ local function applyToWorld()
 	end
 end
 
-local function measure(player: Player, payload: any): any
+local function measure(player: Player, payload: Payload)
 	local consolePart = console
 	local character = player.Character
 	local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
@@ -183,10 +199,12 @@ local function measure(player: Player, payload: any): any
 		distance = (root.Position - consolePart.Position).Magnitude
 	end
 	local last = lastCommandAt[player]
+	local current = holder
+	local sessionToken: string? = if holderToken == "" then nil else holderToken
 	return {
-		holderId = if holder ~= nil then tostring((holder :: Player).UserId) else nil,
+		holderId = if current ~= nil then tostring(current.UserId) else nil,
 		senderId = tostring(player.UserId),
-		holderToken = if holderToken == "" then nil else holderToken,
+		holderToken = sessionToken,
 		token = payload.token,
 		sinceLast = if last ~= nil then os.clock() - last else nil,
 		distance = distance,
@@ -194,16 +212,16 @@ local function measure(player: Player, payload: any): any
 	}
 end
 
-local COMMANDS: { [string]: (Player, any) -> () } = {}
+local COMMANDS: { [string]: (Player, Payload) -> () } = {}
 
-COMMANDS.open = function(player: Player, _payload: any)
+COMMANDS.open = function(player: Player, _payload: Payload)
 	openFor[player] = true
 	buildFixture()
 	applyToWorld()
 	send(player, stateReply())
 end
 
-COMMANDS.close = function(player: Player, _payload: any)
+COMMANDS.close = function(player: Player, _payload: Payload)
 	openFor[player] = nil
 	if holder == player then
 		holder = nil
@@ -211,8 +229,9 @@ COMMANDS.close = function(player: Player, _payload: any)
 	end
 	if loadedFor[player] then
 		loadedFor[player] = nil
-		if player.Character ~= nil then
-			(player.Character :: Model):Destroy()
+		local character = player.Character
+		if character ~= nil then
+			character:Destroy()
 			player.Character = nil
 		end
 	end
@@ -221,7 +240,7 @@ COMMANDS.close = function(player: Player, _payload: any)
 	end
 end
 
-COMMANDS.character = function(player: Player, payload: any)
+COMMANDS.character = function(player: Player, payload: Payload)
 	if payload.action == "load" then
 		player:LoadCharacter()
 		loadedFor[player] = true
@@ -229,29 +248,30 @@ COMMANDS.character = function(player: Player, payload: any)
 		if character ~= nil then
 			local root = character:FindFirstChild("HumanoidRootPart")
 			if root ~= nil and root:IsA("BasePart") then
-				(character :: Model):PivotTo(SPAWN_CFRAME)
+				character:PivotTo(SPAWN_CFRAME)
 			end
 		end
-		send(player, { kind = "character" :: "character", loaded = true })
+		send(player, { kind = "character", loaded = true })
 	elseif payload.action == "remove" then
 		loadedFor[player] = nil
-		if player.Character ~= nil then
-			(player.Character :: Model):Destroy()
+		local character = player.Character
+		if character ~= nil then
+			character:Destroy()
 			player.Character = nil
 		end
 		if holder == player then
 			holder = nil
 			holderToken = ""
-			send(player, { kind = "closed" :: "closed", reason = "character-removed" })
+			send(player, { kind = "closed", reason = "character-removed" })
 		end
-		send(player, { kind = "character" :: "character", loaded = false })
+		send(player, { kind = "character", loaded = false })
 	end
 end
 
-COMMANDS.console = function(_player: Player, payload: any)
+COMMANDS.console = function(_player: Player, payload: Payload)
 	if payload.action == "remove" then
 		destroyFixture()
-		broadcast({ kind = "closed" :: "closed", reason = "adornee-lost" })
+		broadcast({ kind = "closed", reason = "adornee-lost" })
 	elseif payload.action == "restore" then
 		destroyFixture()
 		buildFixture()
@@ -260,20 +280,20 @@ COMMANDS.console = function(_player: Player, payload: any)
 	end
 end
 
-COMMANDS.release = function(player: Player, _payload: any)
+COMMANDS.release = function(player: Player, _payload: Payload)
 	if holder == player then
 		holder = nil
 		holderToken = ""
 	end
 end
 
-COMMANDS.apply = function(player: Player, payload: any)
+COMMANDS.apply = function(player: Player, payload: Payload)
 	local requestId = payload.requestId
 	local verdict = rules.authorize(measure(player, payload))
 	lastCommandAt[player] = os.clock()
 	if not verdict.ok then
 		send(player, {
-			kind = "verdict" :: "verdict",
+			kind = "verdict",
 			requestId = requestId,
 			ok = false,
 			code = verdict.code,
@@ -283,11 +303,20 @@ COMMANDS.apply = function(player: Player, payload: any)
 		})
 		return
 	end
-	allocation = rules.copy(payload.allocation)
+	local accepted: Allocation = {}
+	local offered = payload.allocation
+	if offered ~= nil then
+		for id, value in offered do
+			if type(value) == "number" then
+				accepted[id] = value
+			end
+		end
+	end
+	allocation = accepted
 	revision += 1
 	applyToWorld()
 	send(player, {
-		kind = "verdict" :: "verdict",
+		kind = "verdict",
 		requestId = requestId,
 		ok = true,
 		revision = revision,
@@ -301,11 +330,15 @@ COMMANDS.apply = function(player: Player, payload: any)
 	end
 end
 
-remote.OnServerEvent:Connect(function(player: Player, payload: any)
-	if type(payload) ~= "table" or type(payload.kind) ~= "string" then
+remote.OnServerEvent:Connect(function(player: Player, payload: Payload)
+	if type(payload) ~= "table" then
 		return
 	end
-	local command = COMMANDS[payload.kind]
+	local kind = payload.kind
+	if type(kind) ~= "string" then
+		return
+	end
+	local command = COMMANDS[kind]
 	if command == nil then
 		return
 	end

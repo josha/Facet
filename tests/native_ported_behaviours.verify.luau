@@ -446,4 +446,46 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 	end)
+
+	verifyHarness:suite("controls by name", function()
+		verifyHarness:case("an app lists its control names and constructs a control by name", {
+			id = "native_ported_behaviours::controls by name::an app lists its control names and constructs a control by name",
+			run = function()
+				local engine = engines.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local playerGui = engine.new("PlayerGui")
+				local app = Facet.app({ runtime = runtime, types = engine.types, parent = playerGui })
+				local names = app.controlNames()
+				expect(table.find(names, "Button") ~= nil):toBe(true)
+				expect(table.find(names, "environment") ~= nil):toBe(true)
+				local sorted = table.clone(names)
+				table.sort(sorted)
+				expect(table.concat(names, ",")):toBe(table.concat(sorted, ","))
+				local built: Instance? = nil
+				local refused: unknown = nil
+				local stop = app.mount(function()
+					local _, failure = pcall(app.construct, "Button", { label = "Play", bogus = true })
+					refused = failure
+					local node = app.construct("Button", { Name = "Play", label = "Play" })
+					built = node
+					return node
+				end)
+				local node = assert(built)
+				expect(node.Name):toBe("Play")
+				expect(node.ClassName):toBe("TextButton")
+				local ok, failure = pcall(app.construct, "environment", {})
+				expect(ok):toBe(false)
+				expect(string.find(tostring(failure), "there is no control named 'environment'", 1, true) ~= nil):toBe(
+					true
+				)
+				ok, failure = pcall(app.construct, "Missing", {})
+				expect(ok):toBe(false)
+				expect(string.find(tostring(failure), "there is no control named 'Missing'", 1, true) ~= nil):toBe(true)
+				expect(string.find(tostring(refused), "unknown option 'bogus'", 1, true) ~= nil):toBe(true)
+				stop()
+				app.dispose()
+				runtime:dispose()
+			end,
+		})
+	end)
 end

@@ -60,25 +60,35 @@ function rules.consumer(id: string): Consumer?
 	return byId[id]
 end
 
-local REFUSALS: { [string]: (any) -> string } = {
+export type RefusalInfo = {
+	id: string?,
+	label: string?,
+	value: (number | string)?,
+	capacity: number?,
+	total: number?,
+	distance: (number | string)?,
+	range: number?,
+}
 
-	whole = function(info: any): string
-		return `Power moves in whole units — {string.lower(info.label)} cannot take {info.value}.`
+local REFUSALS: { [string]: (RefusalInfo) -> string } = {
+
+	whole = function(info: RefusalInfo): string
+		return `Power moves in whole units — {string.lower(info.label or "")} cannot take {info.value}.`
 	end,
 
-	range = function(info: any): string
+	range = function(info: RefusalInfo): string
 		return `{info.label} takes 0 to {info.capacity} units. {info.value} is outside that.`
 	end,
 
-	budget = function(info: any): string
+	budget = function(info: RefusalInfo): string
 		return `The generator makes {rules.TOTAL} units and that allocation asks for {info.total}.`
 	end,
 
-	missing = function(info: any): string
+	missing = function(info: RefusalInfo): string
 		return `{info.label} has no number in that allocation.`
 	end,
 
-	unknown = function(info: any): string
+	unknown = function(info: RefusalInfo): string
 		return `The outpost has no consumer called '{info.id}'.`
 	end,
 
@@ -91,14 +101,14 @@ local REFUSALS: { [string]: (any) -> string } = {
 	rate = function(): string
 		return "The terminal takes one command at a time. Wait a moment and try again."
 	end,
-	distance = function(info: any): string
+	distance = function(info: RefusalInfo): string
 		return `You are {info.distance} studs from the console. Step within {info.range} to use it.`
 	end,
 }
 
 rules.REFUSAL_CODES = { "whole", "range", "budget", "missing", "unknown", "session", "holder", "rate", "distance" }
 
-function rules.refusal(code: string, info: any?): string
+function rules.refusal(code: string, info: RefusalInfo?): string
 	local phrase = REFUSALS[code]
 	assert(phrase ~= nil, `outpost rules: no refusal called '{code}'`)
 	return phrase(info or {})
@@ -110,9 +120,10 @@ export type Verdict = {
 	message: string?,
 	consumer: string?,
 	total: number,
+	detail: string?,
 }
 
-function rules.validate(allocation: Allocation): Verdict
+function rules.validate(allocation: { [string]: unknown }): Verdict
 	local total = 0
 	for id in allocation do
 		if byId[id] == nil then
@@ -169,12 +180,12 @@ export type Request = {
 	senderId: string,
 
 	holderToken: string?,
-	token: any,
+	token: unknown,
 
 	sinceLast: number?,
 
 	distance: number?,
-	allocation: any,
+	allocation: { [string]: unknown }?,
 }
 
 function rules.authorize(request: Request): Verdict
@@ -204,10 +215,11 @@ function rules.authorize(request: Request): Verdict
 		}
 	end
 
-	if type(request.allocation) ~= "table" then
+	local allocation = request.allocation
+	if type(allocation) ~= "table" then
 		return { ok = false, code = "missing", message = rules.refusal("missing", { label = "The outpost" }), total = 0 }
 	end
-	return rules.validate(request.allocation)
+	return rules.validate(allocation)
 end
 
 function rules.spent(allocation: Allocation): number

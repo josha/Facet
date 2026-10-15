@@ -185,7 +185,11 @@ return function(verifyHarness: Verify.Harness)
 				clear("inline", find(inline.screen, "normal"), "TrailingIcon", "trailing")
 				inline.stop()
 				local menu = world(function(UI: FacetControls)
-					return UI.Picker "P" { style = "menu" :: "menu", selected = Compose.cell("normal"), options = THREE }
+					return UI.Picker "P" {
+						style = "menu" :: "menu",
+						selected = Compose.cell("normal"),
+						options = THREE,
+					}
 				end)
 				find(menu.screen, "Trigger").Activated:Fire()
 				local row

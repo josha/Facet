@@ -2,20 +2,29 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Status = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
+type Form = "dot" | "ring" | "square" | "dash"
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 return {
 	title = "Status marks",
 	ledgerRows = {},
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext)
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
-		local status, form, count = Compose.cell("neutral"), Compose.cell("dot"), Compose.cell(0)
-		local rootPath, controller, record
+		local initialStatus: Status = "neutral"
+		local initialForm: Form = "dot"
+		local status: Cell<Status> = Compose.cell(initialStatus)
+		local form: Cell<Form> = Compose.cell(initialForm)
+		local count = Compose.cell(0)
+		local rootPath, controller, record: TextLabel?
 		local function report()
 			return { count = count:peek(), form = form:peek(), status = status:peek() }
 		end
-		local function choose(word)
+		local function choose(word: Status)
 			status:set(word)
 			return report()
 		end
@@ -29,7 +38,8 @@ return {
 				rootPath, controller, record = nil, nil, nil
 			end)
 			local shapes = {}
-			for index, word in { "dot", "ring", "square", "dash" } do
+			local forms: { Form } = { "dot", "ring", "square", "dash" }
+			for index, word: Form in forms do
 				table.insert(
 					shapes,
 					Host.Frame(word)({
@@ -42,7 +52,7 @@ return {
 							VerticalAlignment = Enum.VerticalAlignment.Center,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}) :: unknown,
+						}),
 						UI.StatusIndicator "Mark" {
 							LayoutOrder = 1,
 							form = word,
@@ -56,7 +66,21 @@ return {
 					})
 				)
 			end
-			local root = Host.Frame "StatusRecipe" {
+			local statusOptions: { PickerOption } = {
+				{ value = "neutral", label = "Neutral" },
+				{ value = "info", label = "Info" },
+				{ value = "success", label = "Success" },
+				{ value = "warning", label = "Warning" },
+				{ value = "error", label = "Error" },
+				{ value = "accent", label = "Accent" },
+				{ value = "voice", label = "Voice" },
+				{ value = "contrast", label = "Contrast" },
+			}
+			local shapeOptions: { PickerOption } = {
+				{ value = "dot", label = "Dot" },
+				{ value = "ring", label = "Ring" },
+			}
+			local root = Host.Frame("StatusRecipe")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -64,13 +88,13 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
-				UI.Text "Title" { text = "Status marks", textRole = "heading" :: "heading" },
+				}),
+				UI.Text "Title" { text = "Status marks", textRole = "heading" },
 				UI.Text "Guide" {
 					text = "Shapes carry meaning alongside color. Counts stop growing at 99+.",
-					role = "secondary" :: "secondary",
+					role = "secondary",
 				},
-				Host.Frame "Shapes" {
+				Host.Frame("Shapes")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -79,32 +103,20 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 24),
 						Wraps = true,
-					}) :: unknown,
+					}),
 					table.unpack(shapes),
-				},
+				}),
 				UI.Picker "Status" {
 					label = "Status",
 					selected = status,
-					options = {
-						{ value = "neutral", label = "Neutral" } :: PickerOption,
-						{ value = "info", label = "Info" } :: PickerOption,
-						{ value = "success", label = "Success" } :: PickerOption,
-						{ value = "warning", label = "Warning" } :: PickerOption,
-						{ value = "error", label = "Error" } :: PickerOption,
-						{ value = "accent", label = "Accent" } :: PickerOption,
-						{ value = "voice", label = "Voice" } :: PickerOption,
-						{ value = "contrast", label = "Contrast" } :: PickerOption,
-					},
+					options = statusOptions,
 				},
 				UI.Picker "Shape" {
 					label = "Shape",
 					selected = form,
-					options = {
-						{ value = "dot", label = "Dot" } :: PickerOption,
-						{ value = "ring", label = "Ring" } :: PickerOption,
-					},
+					options = shapeOptions,
 				},
-				Host.Frame "Live" {
+				Host.Frame("Live")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -114,7 +126,7 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 12),
 						Wraps = true,
-					}) :: unknown,
+					}),
 					UI.StatusIndicator "Count" {
 						count = count,
 						status = status,
@@ -127,7 +139,7 @@ return {
 						form = form,
 						status = status,
 						cutout = true,
-						controlSize = "large" :: "large",
+						controlSize = "large",
 					},
 					UI.Button "More" {
 						label = "Add 25",
@@ -144,8 +156,8 @@ return {
 							count:set(0)
 						end,
 					},
-				},
-			}
+				}),
+			})
 			return root
 		end
 		return {
@@ -153,7 +165,7 @@ return {
 			reset = reset,
 			report = report,
 			screen = function()
-				return Host.Frame "StatusIndicator" {
+				return Host.Frame("StatusIndicator")({
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 1, 0),
 					UI.ScrollView "Content" {
@@ -163,7 +175,7 @@ return {
 						ScrollBarThickness = 6,
 						section(),
 					},
-				}
+				})
 			end,
 			steps = {
 				warning = function()

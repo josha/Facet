@@ -1,9 +1,12 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 
 local data = require("../content/data")
 local rng = require("./rng")
+local clockModule = require("./clock")
 
 local order_service = {}
 
@@ -15,26 +18,40 @@ local BREW_SECONDS = 60
 
 local NEWEST_PLACED = 16 * 60 + 2
 
-function order_service.new(opts: any): any
-	local Compose: ComposeModule = opts.Compose
+export type Item = { potion: string, bottles: number }
+export type Brew = {
+	id: number,
+	status: string,
+	placedAt: number,
+	items: { Item },
+	bottles: number,
+	doneAt: number?,
+	endsAt: number?,
+	startedAt: number?,
+}
+export type Snapshot = { status: string, endsAt: number?, startedAt: number? }
+export type Opts = { Compose: ComposeModule, clock: clockModule.Clock, seed: number? }
+
+function order_service.new(opts: Opts)
+	local Compose = opts.Compose
 	local clock = opts.clock
 	local seed: number = opts.seed or 1
 	local random = rng.new(seed)
 
-	local self: any = {}
-	local completedListeners: { (any) -> () } = {}
-	local arrivalListeners: { (any) -> () } = {}
+	local self = {}
+	local completedListeners: { (Brew) -> () } = {}
+	local arrivalListeners: { (Brew) -> () } = {}
 	local arrivalLog: { number } = {}
 
-	local function rollItems(): ({ any }, number)
+	local function rollItems(): ({ Item }, number)
 		local count = random.int(1, 5)
 		local taken: { [string]: boolean } = {}
-		local items: { any } = {}
+		local items: { Item } = {}
 		local bottles = 0
 		for _ = 1, count do
-			local potion
+			local potion = data.potions[1]
 			for _ = 1, 8 do
-				potion = random.pick(data.potions :: any)
+				potion = random.pick(data.potions)
 				if not taken[potion.id] then
 					break
 				end
@@ -50,7 +67,7 @@ function order_service.new(opts: any): any
 		return items, bottles
 	end
 
-	local function makeBrew(id: number, status: string, placedAt: number): any
+	local function makeBrew(id: number, status: string, placedAt: number): Brew
 		local items, bottles = rollItems()
 		return {
 			id = id,
@@ -59,23 +76,21 @@ function order_service.new(opts: any): any
 			items = items,
 			bottles = bottles,
 			doneAt = if status == "done" then placedAt + 12 else nil,
-			endsAt = nil :: number?,
-			startedAt = nil :: number?,
 		}
 	end
 
-	local backlog: { any } = {}
+	local backlog: { Brew } = {}
 	local placed = NEWEST_PLACED
 	for id = BACKLOG_LAST, BACKLOG_FIRST, -1 do
 		local status = if id >= FIRST_READY then "ready" else "new"
 		table.insert(backlog, makeBrew(id, status, placed))
 		placed -= random.int(7, 19)
 	end
-	local brews = Compose.cell(backlog)
+	local brews: Cell<{ Brew }> = Compose.cell(backlog)
 	self.brews = brews
 
-	function self.byId(id: number): any?
-		for _, brew in brews:peek() :: any do
+	function self.byId(id: number): Brew?
+		for _, brew in brews:peek() do
 			if brew.id == id then
 				return brew
 			end
@@ -84,10 +99,10 @@ function order_service.new(opts: any): any
 	end
 
 	function self.count(): number
-		return #(brews:peek() :: any)
+		return #brews:peek()
 	end
 
-	function self.searchText(brew: any): string
+	function self.searchText(brew: Brew): string
 		local parts = { "brew #" .. tostring(brew.id), tostring(brew.id) }
 		for _, item in brew.items do
 			local potion = data.potionById(item.potion)
@@ -95,7 +110,8 @@ function order_service.new(opts: any): any
 				continue
 			end
 			table.insert(parts, potion.name)
-			for _, ingredientId in { potion.base, potion.essence, potion.garnish } do
+			local ingredientIds: { string? } = { potion.base, potion.essence, potion.garnish }
+			for _, ingredientId in ingredientIds do
 				local ingredient = data.ingredientById(ingredientId)
 				if ingredient ~= nil then
 					table.insert(parts, ingredient.name)
@@ -107,19 +123,20 @@ function order_service.new(opts: any): any
 
 	function self.remaining(id: number): number?
 		local brew = self.byId(id)
-		if brew == nil or brew.endsAt == nil then
+		local endsAt = if brew then brew.endsAt else nil
+		if endsAt == nil then
 			return nil
 		end
-		return math.max(0, brew.endsAt - clock.now())
+		return math.max(0, endsAt - clock.now())
 	end
 
 	function self.brewSeconds(): number
 		return BREW_SECONDS
 	end
 
-	local function replace(id: number, mutate: (any) -> ())
-		local current = brews:peek() :: any
-		local out = table.create(#current)
+	local function replace(id: number, mutate: (Brew) -> ())
+		local current = brews:peek()
+		local out: { Brew } = table.create(#current)
 		for _, brew in current do
 			if brew.id == id then
 				local copy = table.clone(brew)
@@ -192,7 +209,7 @@ function order_service.new(opts: any): any
 		end)
 	end
 
-	function self.snapshotOf(id: number): any
+	function self.snapshotOf(id: number): Snapshot
 		local brew = self.byId(id)
 		if brew == nil then
 			return { status = "new" }
@@ -200,7 +217,7 @@ function order_service.new(opts: any): any
 		return { status = brew.status, endsAt = brew.endsAt, startedAt = brew.startedAt }
 	end
 
-	function self.onCompleted(fn: (any) -> ())
+	function self.onCompleted(fn: (Brew) -> ())
 		table.insert(completedListeners, fn)
 	end
 
@@ -231,8 +248,8 @@ function order_service.new(opts: any): any
 		arrived += 1
 		local minutes = NEWEST_PLACED + math.floor(clock.now() / 60) + arrived
 		local brew = makeBrew(id, "new", minutes)
-		local current = brews:peek() :: any
-		local out = table.create(#current + 1)
+		local current = brews:peek()
+		local out: { Brew } = table.create(#current + 1)
 		table.insert(out, brew)
 		for _, existing in current do
 			table.insert(out, existing)
@@ -248,7 +265,7 @@ function order_service.new(opts: any): any
 		clock.after(when, arrive)
 	end
 
-	function self.onArrival(fn: (any) -> ())
+	function self.onArrival(fn: (Brew) -> ())
 		table.insert(arrivalListeners, fn)
 	end
 
@@ -260,10 +277,10 @@ function order_service.new(opts: any): any
 		return ARRIVAL_COUNT - arrived
 	end
 
-	function self.dump(): any
-		local counts = { new = 0, brewing = 0, ready = 0, done = 0 }
+	function self.dump()
+		local counts: { [string]: number } = { new = 0, brewing = 0, ready = 0, done = 0 }
 		local ids: { number } = {}
-		for _, brew in brews:peek() :: any do
+		for _, brew in brews:peek() do
 			counts[brew.status] = (counts[brew.status] or 0) + 1
 			table.insert(ids, brew.id)
 		end

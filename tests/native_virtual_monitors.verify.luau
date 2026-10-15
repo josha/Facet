@@ -1661,9 +1661,9 @@ return function(verifyHarness: Verify.Harness)
 				local lifetime = Compose.createRootOwner(function()
 					local model = modelModule.new(Compose)
 					Compose.cleanup(model.dispose)
-					local views = {}
+					local views: { [string]: () -> Instance } = {}
 					for _, name in screens.APPS do
-						views[name] = function()
+						views[name] = function(): Instance
 							mounted[name] = (mounted[name] or 0) + 1
 							Compose.cleanup(function()
 								released[name] = (released[name] or 0) + 1

@@ -1,6 +1,8 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 
 local commands = {}
 
@@ -17,20 +19,31 @@ export type Submit = {
 	after: ((ok: boolean) -> ())?,
 }
 
-function commands.new(opts: any): any
-	local Compose: ComposeModule = opts.Compose
+export type Feedback = { type: string, reason: string?, context: { command: string } }
+export type Entry = { id: string, ok: boolean, reason: string? }
+export type Opts = {
+	Compose: ComposeModule,
+	clock: { after: (number, () -> ()) -> unknown },
+	feedback: ((Feedback) -> ())?,
+	strings: { t: (string) -> string }?,
+	latency: number?,
+	toast: ((string, string) -> ())?,
+}
+
+function commands.new(opts: Opts)
+	local Compose = opts.Compose
 	local clock = opts.clock
 	local feedback = opts.feedback
 	local S = opts.strings
 	local latency: number = opts.latency or 0.25
 
-	local statuses: { [string]: any } = {}
-	local reasons: { [string]: any } = {}
+	local statuses: { [string]: Cell<string> } = {}
+	local reasons: { [string]: Cell<string> } = {}
 	local inFlight: { [string]: boolean } = {}
-	local log: { any } = {}
-	local self: any = { log = log }
+	local log: { Entry } = {}
+	local self = { log = log }
 
-	local function statusSignal(id: string): any
+	local function statusSignal(id: string): Cell<string>
 		local existing = statuses[id]
 		if existing == nil then
 			existing = Compose.cell("idle")
@@ -39,7 +52,7 @@ function commands.new(opts: any): any
 		return existing
 	end
 
-	local function reasonSignal(id: string): any
+	local function reasonSignal(id: string): Cell<string>
 		local existing = reasons[id]
 		if existing == nil then
 			existing = Compose.cell("")
@@ -48,11 +61,11 @@ function commands.new(opts: any): any
 		return existing
 	end
 
-	function self.status(id: string): any
+	function self.status(id: string): Cell<string>
 		return statusSignal(id)
 	end
 
-	function self.reason(id: string): any
+	function self.reason(id: string): Cell<string>
 		return reasonSignal(id)
 	end
 
@@ -61,8 +74,9 @@ function commands.new(opts: any): any
 	end
 
 	local function toast(id: string, message: string)
-		if opts.toast ~= nil then
-			opts.toast(id, message)
+		local show = opts.toast
+		if show ~= nil then
+			show(id, message)
 		end
 	end
 
@@ -110,8 +124,8 @@ function commands.new(opts: any): any
 		return true
 	end
 
-	function self.dump(): any
-		local out = {}
+	function self.dump(): { Entry }
+		local out: { Entry } = {}
 		for _, entry in log do
 			table.insert(out, { id = entry.id, ok = entry.ok, reason = entry.reason })
 		end

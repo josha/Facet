@@ -2,7 +2,6 @@
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type FrameProps = typeof(require("@repo/tools/typecheck/aliases").FrameProps)
 type ZoomControls = {
 	fit: (() -> boolean)?,
@@ -22,7 +21,6 @@ function demo.zoom(
 ): Frame
 	local zoom = Compose.cell(0.5)
 	local controls: ZoomControls = {}
-	local tile: TextButton? = nil
 	local children: { unknown } = {}
 	for index = 1, 169 do
 		local row, col = math.floor((index - 1) / 13), (index - 1) % 13
@@ -40,74 +38,68 @@ function demo.zoom(
 			}
 		)
 	end
-	local stack = (
-		{
-			width = "fill",
+	return UI.VStack("ZoomDemo")({
+		width = "fill",
+		gap = "s",
+		UI.HStack {
 			gap = "s",
-			UI.HStack {
-				gap = "s",
-				UI.Button {
-					label = "Fit",
-					onActivate = function()
-						assert(controls.fit)()
-					end,
-				},
-				UI.Button {
-					label = "Zoom to cell 7,7",
-					onActivate = function()
-						assert(controls.zoomTo)({ x = 360, y = 360, w = 180, h = 180 })
-					end,
-				},
-			} :: unknown,
-			UI.Text {
-				text = if captureCamera
-					then "Lift A: zoom at the contact point. Release: fit. Pan stays locked."
-					else "Pinch or double tap. Ctrl-wheel zooms. Select the view: triggers zoom, right stick pans, Y fits. Drag A: the board stays still.",
-				wrap = true,
-			} :: unknown,
-			UI.ZoomView {
-				Name = "BoardZoom",
-				contentSize = Vector2.new(780, 780),
-				zoom = zoom,
-				maxZoom = maxZoom,
-				enabled = enabled,
-				controls = controls,
-				Size = UDim2.new(1, 0, 0, 360),
-				content = function(): GuiObject
-					local props: FrameProps =
-						{ Name = "Board", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }
-					for _, child in children do
-						props[#props + 1] = child
-					end
-					tile = UI.Button {
-						Name = "TileA",
-						label = "A",
-						Size = UDim2.fromOffset(60, 60),
-						Position = UDim2.fromOffset(360, 360),
-						ZIndex = 2,
-					}
-					UI.draggable(tile :: TextButton, {
-						payload = "A",
-						touchPickup = "immediate",
-						statusLabels = false,
-						onStart = function()
-							if captureCamera then
-								assert(controls.zoomAt)(2)
-							end
-						end,
-						onEnd = function()
-							if captureCamera then
-								assert(controls.fit)()
-							end
-						end,
-					})
-					props[#props + 1] = tile
-					return Host.Frame(props)
+			UI.Button {
+				label = "Fit",
+				onActivate = function()
+					assert(controls.fit)()
 				end,
-			} :: unknown,
-		} :: unknown
-	) :: StackProps
-	return UI.VStack(stack)
+			},
+			UI.Button {
+				label = "Zoom to cell 7,7",
+				onActivate = function()
+					assert(controls.zoomTo)({ x = 360, y = 360, w = 180, h = 180 })
+				end,
+			},
+		},
+		UI.Text {
+			text = if captureCamera
+				then "Lift A: zoom at the contact point. Release: fit. Pan stays locked."
+				else "Pinch or double tap. Ctrl-wheel zooms. Select the view: triggers zoom, right stick pans, Y fits. Drag A: the board stays still.",
+			wrap = true,
+		},
+		UI.ZoomView "BoardZoom" {
+			contentSize = Vector2.new(780, 780),
+			zoom = zoom,
+			maxZoom = maxZoom,
+			enabled = enabled,
+			controls = controls,
+			Size = UDim2.new(1, 0, 0, 360),
+			content = function(): GuiObject
+				local props: FrameProps = { Name = "Board", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }
+				for _, child in children do
+					props[#props + 1] = child
+				end
+				local tile = UI.Button "TileA" {
+					label = "A",
+					Size = UDim2.fromOffset(60, 60),
+					Position = UDim2.fromOffset(360, 360),
+					ZIndex = 2,
+				}
+				UI.draggable(tile, {
+					payload = "A",
+					touchPickup = "immediate",
+					statusLabels = false,
+					onStart = function()
+						if captureCamera then
+							assert(controls.zoomAt)(2)
+						end
+					end,
+					onEnd = function()
+						if captureCamera then
+							assert(controls.fit)()
+						end
+					end,
+				})
+				props[#props + 1] = tile
+				return Host.Frame(props)
+			end,
+		},
+	})
 end
 
 function demo.travel(UI: Controls, Host: Host, Compose: ComposeModule, path: "straight" | "arc"): Frame
@@ -138,48 +130,44 @@ function demo.travel(UI: Controls, Host: Host, Compose: ComposeModule, path: "st
 		BackgroundTransparency = 1,
 		Parent = Compose.static(second),
 	}
-	local destination = Compose.cell(start :: GuiObject)
-	local stack = (
-		{
-			width = "fill",
-			gap = "l",
-			UI.HStack {
-				gap = "s",
-				UI.Button {
-					label = "Send",
-					onActivate = function()
-						destination:set(finish)
-					end,
-				},
-				UI.Button {
-					label = "Return",
-					onActivate = function()
-						destination:set(start)
-					end,
-				},
-			} :: unknown,
-			first :: unknown,
-			UI.Text {
-				text = "Send the tile between clipped rows. Press Return during travel to change its destination.",
-				wrap = true,
-			} :: unknown,
-			second :: unknown,
-			UI.Travel {
-				Name = "RowTravel",
-				destination = destination,
-				path = path,
-				content = function(): GuiObject
-					return UI.Button {
-						Name = "TravellingTile",
-						label = "A",
-						Size = UDim2.fromScale(1, 1),
-						AutomaticSize = Enum.AutomaticSize.None,
-					}
+	local origin: GuiObject = start
+	local destination = Compose.cell(origin)
+	return UI.VStack("TravelDemo")({
+		width = "fill",
+		gap = "l",
+		UI.HStack {
+			gap = "s",
+			UI.Button {
+				label = "Send",
+				onActivate = function()
+					destination:set(finish)
 				end,
-			} :: unknown,
-		} :: unknown
-	) :: StackProps
-	return UI.VStack(stack)
+			},
+			UI.Button {
+				label = "Return",
+				onActivate = function()
+					destination:set(start)
+				end,
+			},
+		},
+		first,
+		UI.Text {
+			text = "Send the tile between clipped rows. Press Return during travel to change its destination.",
+			wrap = true,
+		},
+		second,
+		UI.Travel "RowTravel" {
+			destination = destination,
+			path = path,
+			content = function(): GuiObject
+				return UI.Button "TravellingTile" {
+					label = "A",
+					Size = UDim2.fromScale(1, 1),
+					AutomaticSize = Enum.AutomaticSize.None,
+				}
+			end,
+		},
+	})
 end
 
 function demo.many(UI: Controls, Host: Host, Compose: ComposeModule): Frame
@@ -197,9 +185,10 @@ function demo.many(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 		slots[index] = slot
 	end
 	for index = 1, 64 do
-		destinations[index] = Compose.cell(slots[index] :: GuiObject)
+		local slot: GuiObject = slots[index]
+		destinations[index] = Compose.cell(slot)
 		local anchor = UI.Travel {
-			motion = "spring" :: "spring",
+			motion = "spring",
 			destination = destinations[index],
 			content = function(): GuiObject
 				return UI.Text {
@@ -213,7 +202,7 @@ function demo.many(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 		anchor.Parent = board
 	end
 	local flipped = false
-	return UI.VStack(({
+	return UI.VStack("ManyTravel")({
 		gap = "s",
 		UI.Button {
 			label = "Move 64 items",
@@ -223,9 +212,9 @@ function demo.many(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 					cell:set(slots[if flipped then 65 - index else index])
 				end
 			end,
-		} :: unknown,
-		board :: unknown,
-	} :: unknown) :: StackProps)
+		},
+		board,
+	})
 end
 
 function demo.shuffle(UI: Controls, Host: Host, Compose: ComposeModule): Frame
@@ -243,10 +232,11 @@ function demo.shuffle(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 		}
 	end
 	for index = 1, 7 do
-		cells[index] = Compose.cell(slots[index] :: GuiObject)
+		local slot: GuiObject = slots[index]
+		cells[index] = Compose.cell(slot)
 		local anchor = UI.Travel {
 			destination = cells[index],
-			path = "arc" :: "arc",
+			path = "arc",
 			lift = true,
 			stagger = index - 1,
 			onStarted = function()
@@ -262,7 +252,7 @@ function demo.shuffle(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 		anchor.Parent = row
 	end
 	local reverse = false
-	return UI.VStack(({
+	return UI.VStack("ShuffleTravel")({
 		gap = "s",
 		UI.Button {
 			label = "Shuffle row",
@@ -272,18 +262,17 @@ function demo.shuffle(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 					cell:set(slots[if reverse then (index + 2) % 7 + 1 else index])
 				end
 			end,
-		} :: unknown,
-		row :: unknown,
-		UI.Text {
-			Name = "TravelReadout",
+		},
+		row,
+		UI.Text "TravelReadout" {
 			text = Compose.formula(function(use)
 				return `Started {use(started)}, landed {use(landed)}. Shuffle again during flight.`
 			end),
 			Size = UDim2.fromScale(1, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			wrap = true,
-		} :: unknown,
-	} :: unknown) :: StackProps)
+		},
+	})
 end
 
 return demo

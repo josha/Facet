@@ -6,13 +6,15 @@ local Layout = require("./layout_types")
 local layoutKit = require("./layout_kit")
 local scrollLock = require("./scroll_lock")
 local initialScroll = require("./scroll_initial")
-export type LayoutControls = Layout.LayoutControls
+local ControlTypes = require("./control_types")
+local LayoutProps = require("./layout_props")
+export type LayoutControls = ControlTypes.Controls
 
-return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.LayoutControls
+return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTypes.Controls
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
 	local kit = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local UI: Layout.LayoutControls = controls or ({} :: Layout.LayoutControls)
+	local UI: ControlTypes.Controls = controls or ({} :: ControlTypes.Controls)
 	local flowKeys = { "gap", "padding", "align", "distribute", "wrap", "width", "height" }
 	local function containerProps(spec: unknown, keys: { string }): { [unknown]: unknown }
 		local maxWidth = (spec :: { maxWidth: Types.ValueNumber? }).maxWidth
@@ -48,20 +50,20 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		end
 		return containerProps(named, keys), children
 	end
-	local function stack(spec: Layout.StackProps, vertical: boolean): Frame
+	local function stack(spec: LayoutProps.StackProps, vertical: boolean): Frame
 		local properties, children = split(spec, flowKeys)
 		return kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, spec, vertical)
 	end
 
-	UI.VStack = ctx.construct("VStack", function(spec: Layout.StackProps): Frame
+	UI.VStack = ctx.construct("VStack", function(spec: LayoutProps.StackProps): Frame
 		return stack(spec, true)
 	end)
 
-	UI.HStack = ctx.construct("HStack", function(spec: Layout.StackProps): Frame
+	UI.HStack = ctx.construct("HStack", function(spec: LayoutProps.StackProps): Frame
 		return stack(spec, false)
 	end)
 
-	UI.Screen = ctx.construct("Screen", function(spec: Layout.ScreenProps): Frame
+	UI.Screen = ctx.construct("Screen", function(spec: LayoutProps.ScreenProps): Frame
 		local properties, children =
 			split(spec, { "gap", "padding", "align", "distribute", "width", "height", "chrome" })
 		local chrome = spec.chrome or "device"
@@ -166,7 +168,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		return frame
 	end)
 
-	UI.ZStack = ctx.construct("ZStack", function(spec: Layout.ZStackProps): Frame
+	UI.ZStack = ctx.construct("ZStack", function(spec: LayoutProps.ZStackProps): Frame
 		local properties, children = split(spec, { "padding", "width", "height", "alignH", "alignV" })
 		local size, automatic = kit.extent(spec, "hug", "hug")
 		local aligned = spec.alignH ~= nil or spec.alignV ~= nil
@@ -233,7 +235,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		return frame
 	end)
 
-	UI.ScrollView = ctx.construct("ScrollView", function(spec: Layout.ScrollViewProps): ScrollingFrame
+	UI.ScrollView = ctx.construct("ScrollView", function(spec: LayoutProps.ScrollViewProps): ScrollingFrame
 		local properties, children = split(spec, { "axis", "gap", "padding", "align", "distribute", "width", "height" })
 		local axis = spec.axis or "y"
 		assert(axis == "x" or axis == "y" or axis == "xy", "Facet ScrollView axis must be x, y or xy")
@@ -422,7 +424,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		return frame
 	end)
 
-	UI.Grid = ctx.construct("Grid", function(spec: Layout.GridProps): Frame
+	UI.Grid = ctx.construct("Grid", function(spec: LayoutProps.GridProps): Frame
 		local properties, children = split(
 			spec,
 			{ "columns", "flow", "gap", "rowGap", "cellHeight", "aspectRatio", "align", "padding", "width", "height" }
@@ -590,7 +592,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		end)
 	end
 
-	UI.AdaptiveStack = ctx.construct("AdaptiveStack", function(spec: Layout.AdaptiveStackProps): Frame
+	UI.AdaptiveStack = ctx.construct("AdaptiveStack", function(spec: LayoutProps.AdaptiveStackProps): Frame
 		local properties, children = split(spec, { "axis", "gap", "padding", "align", "distribute", "width", "height" })
 		local flow: Types.Flow = {
 			gap = spec.gap,
@@ -677,7 +679,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		return node
 	end)
 
-	UI.ViewThatFits = ctx.construct("ViewThatFits", function(spec: Layout.ViewThatFitsProps): Frame
+	UI.ViewThatFits = ctx.construct("ViewThatFits", function(spec: LayoutProps.ViewThatFitsProps): Frame
 		local properties, children = split(spec, { "width", "height" })
 		assert(#children > 0, "Facet ViewThatFits needs at least one candidate")
 		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Vector2> }
@@ -730,7 +732,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		return node
 	end)
 
-	UI.ErrorBoundary = ctx.construct("ErrorBoundary", function(spec: Layout.ErrorBoundaryProps): Frame
+	UI.ErrorBoundary = ctx.construct("ErrorBoundary", function(spec: LayoutProps.ErrorBoundaryProps): Frame
 		assert(type(spec.view) == "function", "Facet ErrorBoundary requires a view function")
 		assert(type(spec.fallback) == "function", "Facet ErrorBoundary requires a fallback function")
 		local properties = containerProps(spec, { "view", "fallback", "onError", "width", "height" })
@@ -801,7 +803,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		end
 	end
 
-	UI.Divider = ctx.construct("Divider", function(spec: Layout.DividerProps): Frame
+	UI.Divider = ctx.construct("Divider", function(spec: LayoutProps.DividerProps): Frame
 		local thickness = spec.thickness
 		assert(
 			thickness == nil or type(thickness) == "string" or (type(thickness) == "number" and thickness > 0),
@@ -843,7 +845,7 @@ return function(ctx: Types.Context, controls: Layout.LayoutControls?): Layout.La
 		return node
 	end)
 
-	UI.Spacer = ctx.construct("Spacer", function(spec: Layout.SpacerProps): Frame
+	UI.Spacer = ctx.construct("Spacer", function(spec: LayoutProps.SpacerProps): Frame
 		local native: Engine.FrameNativeProps = {
 			Name = "Spacer",
 			BorderSizePixel = 0,

@@ -102,8 +102,7 @@ return function(c: any, kind: string)
 					UI.fill(),
 				},
 			},
-			UI.CellEditor {
-				Name = "Rename",
+			UI.CellEditor "Rename" {
 				editLabel = "Rename",
 				editor = "text",
 				label = if kind == "Outline" then nil else "Name",
@@ -213,8 +212,7 @@ return function(c: any, kind: string)
 			spec.minColumnWidth = 140
 		end
 	end
-	return UI.VStack {
-		Name = "EditingDemo",
+	return UI.VStack "EditingDemo" {
 		width = "fill",
 		gap = "m",
 		UI.Text {
@@ -238,10 +236,9 @@ return function(c: any, kind: string)
 			gap = "s",
 			align = "center",
 			wrap = true,
-			UI.Toggle { Name = "EnableEditing", label = "Container editing", value = enabled },
-			UI.Toggle { Name = "EnableCellEditing", label = "Cell editing", value = cellsEnabled },
-			UI.Button {
-				Name = "EditItems",
+			UI.Toggle "EnableEditing" { label = "Container editing", value = enabled },
+			UI.Toggle "EnableCellEditing" { label = "Cell editing", value = cellsEnabled },
+			UI.Button "EditItems" {
 				label = function(use)
 					return if use(editing) then "Done" else "Edit"
 				end,
@@ -251,8 +248,7 @@ return function(c: any, kind: string)
 					editing:set(not editing:peek())
 				end,
 			},
-			UI.Button {
-				Name = "NewItem",
+			UI.Button "NewItem" {
 				label = "New item",
 				enabled = enabled,
 				onActivate = function()
@@ -266,8 +262,7 @@ return function(c: any, kind: string)
 					save(nextRows)
 				end,
 			},
-			UI.Button {
-				Name = "DeleteSelected",
+			UI.Button "DeleteSelected" {
 				label = "Delete selected",
 				enabled = function(use)
 					return use(enabled) and next(use(selection)) ~= nil
@@ -276,8 +271,7 @@ return function(c: any, kind: string)
 					remove(keys())
 				end,
 			},
-			UI.Button {
-				Name = "UndoEdit",
+			UI.Button "UndoEdit" {
 				label = "Undo",
 				enabled = function(use)
 					return (use(enabled) or use(cellsEnabled)) and use(undo) ~= nil
@@ -292,8 +286,7 @@ return function(c: any, kind: string)
 				end,
 			},
 		},
-		UI.Text {
-			Name = "EditingSummary",
+		UI.Text "EditingSummary" {
 			textRole = "caption",
 			text = function(use)
 				local count = 0

@@ -6,19 +6,15 @@ local library = require("./library")
 local export = {}
 
 local adapter = require("./adapter")
+local contract = require("./contract")
 local values = require("./value")
 local literal = values.literal
 
 function export.component(value: document.Document): string
 	document.validate(value)
-	local lines = {
-		"--!strict",
-		"",
-		"local Facet = require(game.ReplicatedStorage.Facet)",
-		"local Compose = Facet.Compose",
-		"",
-		"return function(UI: Facet.Controls, data: {[string]: any}?): GuiObject",
-	}
+	local bindings: { [string]: string } = {}
+	adapter.bindings = bindings
+	local lines = { contract.SIGNATURE }
 	for _, row in document.rows(value.root) do
 		local node = assert(document.find(value.root, row.id))
 		local keys: { string } = if document.collection(value, node.id)
@@ -68,15 +64,6 @@ function export.component(value: document.Document): string
 		table.insert(body, indent .. "UI." .. node.kind .. " " .. literal(node.name) .. " {")
 		for _, key in keys do
 			local expression = adapter.emit(props[key], emit, depth + 1)
-			for _, descriptor in definition.fields do
-				if
-					descriptor.key == key
-					and type(props[key]) == "string"
-					and table.find({ "choice", "extent", "space", "padding" }, descriptor.kind)
-				then
-					expression ..= " :: " .. literal(props[key])
-				end
-			end
 			table.insert(body, indent .. "\t" .. key .. " = " .. expression .. ",")
 		end
 		if
@@ -115,14 +102,25 @@ function export.component(value: document.Document): string
 				lines,
 				"\tlocal columns_"
 					.. node.id
-					.. ": {Facet.TableColumn<any, any>} = "
+					.. ": "
+					.. contract.COLUMNS
+					.. " = "
 					.. adapter.emit(adapter.properties(node).columns, emit, 1)
 			)
 		end
 	end
 	table.insert(lines, "\treturn " .. string.sub(emit(value.root, 1), 2))
 	table.insert(lines, "end")
-	return table.concat(lines, "\n") .. "\n"
+	adapter.bindings = nil
+	local header = { "--!strict", "", contract.HEADER, contract.dataType(bindings, literal), "" }
+	for _, kind in bindings do
+		if kind == "rows" then
+			table.insert(header, contract.ROWS)
+			table.insert(header, "")
+			break
+		end
+	end
+	return table.concat(header, "\n") .. "\n" .. table.concat(lines, "\n") .. "\n"
 end
 
 function export.preview(componentName: string, designName: string): string

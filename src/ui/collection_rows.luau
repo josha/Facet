@@ -1,0 +1,557 @@
+--!strict
+local ControlTypes = require("./control_types")
+local activation = require("./activation")
+local adaptive = require("./adaptive")
+local preparePaint = require("./collection_paint")
+local reorder = require("./collection_reorder")
+local policy = require("./collection_policy")
+local travelEngine = require("./travel_engine")
+local ComposeTypes = require("../vendor/compose/core")
+local Types = require("./types")
+local EngineTypes = require("./engine_types")
+local CollectionTypes = require("./collection_types")
+local State = require("./collection_state")
+local Slots = require("./collection_slots")
+return function<V, K>(
+	ctx: Types.Context,
+	UI: ControlTypes.BuilderControls,
+	view: State.View<V, K>,
+	editor: reorder.Editor<V, K>?,
+	slots: Slots.Slots<V, K>
+): (CollectionTypes.Follow?) -> ComposeTypes.Child
+	type SlotRecord = Slots.Slot<V, K>
+	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
+	local read = ctx.read
+	local readSource = ctx.readSource
+	local observe = ctx.observe
+	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
+	local gui = ctx.config.guiService
+	local spec, tree = view.spec, view.tree
+	local kind: ComposeTypes.OrderedCollectionLayoutKind = view.kind
+	local source, viewport, cross = view.source, view.viewport, view.cross
+	local mountedVersion, status, controls, selection = view.mountedVersion, view.status, view.controls, view.selection
+	local coordinator, selectionMode = view.coordinator, view.selectionMode
+	local measured, containsCards, horizontal = view.measured, view.containsCards, view.horizontal
+	local reduced, focusActive = view.reduced, view.focusActive
+	local mounted, cellEdits, placed, poolOwner = view.mounted, view.cellEdits, view.placed, view.poolOwner
+	local preparing, waiting = view.preparing, view.waiting
+	local crossEdge, fullSizes = view.crossEdge, view.fullSizes
+	local slotSource, withSlots = slots.source, slots.wrap
+	local function select(key: K, current: ComposeTypes.Readable<V>, input: InputObject?, clicks: number?): ()
+		if policy.disabled(spec.disabled, current:peek()) or activation.consumed(input) then
+			return
+		end
+		if editor and spec.onActivate == nil and read(spec.editing) ~= true and editor.pickUp(key, input) then
+			return
+		end
+		local pointer = input ~= nil and input.UserInputType == E.UserInputType.MouseButton1
+		local double = pointer and (clicks or 0) >= 2
+		if not double then
+			view.selectRow(key, current:peek(), input)
+		end
+		local choosing = selectionMode ~= "none" and read(spec.editing) == true
+		if spec.onActivate and not choosing and (selectionMode == "none" or not pointer or double) then
+			spec.onActivate(current:peek(), key, input, clicks)
+		end
+	end
+	local function captureSelection(node: Instance, key: K): ()
+		if view.scope == nil then
+			return
+		end
+		focusActive:set(true)
+		view.focusOwned = true
+		local path: { string } = {}
+		local current: Instance? = node
+		while current and current ~= mounted[key] do
+			table.insert(path, 1, current.Name)
+			current = current.Parent
+		end
+		view.focusedPath = path
+		view.scope.focus(key)
+	end
+	local function wireSelection(node: Instance, key: K): ()
+		if node:IsA("GuiObject") and (node.Selectable or node:IsA("GuiButton") or node:IsA("TextBox")) then
+			runtime.connect(node, "SelectionGained", function()
+				captureSelection(node, key)
+			end)
+		end
+		for _, child in node:GetChildren() do
+			wireSelection(child, key)
+		end
+	end
+	local function orderedRows(follow: CollectionTypes.Follow?): ComposeTypes.Child
+		return Compose.OrderedCollection({
+			from = slotSource,
+			key = function(record: SlotRecord, _index: number): K
+				return record.key
+			end,
+			mode = spec.mode or "windowed",
+			direction = spec.direction or "vertical",
+			viewport = viewport,
+			status = status,
+			controls = controls,
+			overscan = spec.overscan or 2,
+			measured = Compose.formula(function(use: ComposeTypes.Use)
+				local sizes = fullSizes(use)
+				return if tree
+					then tree.sizes(use, sizes, read(spec.itemSize or 40, use) :: number, read(spec.gap or 0, use))
+					else sizes
+			end),
+			follow = follow,
+			followThreshold = spec.followThreshold,
+			layout = function(use: ComposeTypes.Use)
+				local columns = if kind == "grid" then math.max(1, math.floor(read(spec.columns or 1, use))) else 1
+				if spec.minColumnWidth ~= nil then
+					local minimum = read(spec.minColumnWidth, use)
+					assert(
+						kind == "grid" and spec.columns == nil and minimum > 0 and minimum < math.huge,
+						"Facet minColumnWidth needs a grid, a positive width and no columns"
+					)
+					columns = adaptive.columnsFor(
+						math.max(0, use(cross) - 2 * crossEdge(use)),
+						minimum,
+						read(spec.crossGap or spec.gap or 0, use)
+					)
+				end
+				local gap: number = read(spec.gap or 0, use)
+				local crossGap: number = read(spec.crossGap or gap, use)
+				return {
+					kind = kind,
+					columns = columns,
+					itemSize = if view.cardsMode
+						then (view.cardLayout(use))
+						else read(spec.itemSize or 40, use) :: number,
+					gap = if tree then 0 else gap,
+					crossGap = crossGap,
+					crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
+				}
+			end,
+			render = withSlots(
+				function(
+					rowItem: ComposeTypes.Readable<V>,
+					rowPlacement: ComposeTypes.Readable<ComposeTypes.Placement>,
+					key: K
+				)
+					local lease = view.pool.acquire()
+					local node = runtime.borrow(lease.value.node) :: Frame
+					local contentOwner = poolOwner.createChild()
+					local function retained<T>(row: ComposeTypes.Readable<T>): ComposeTypes.Readable<T>
+						local held = Compose.withOwner(contentOwner, function(): ComposeTypes.Cell<T>
+							return Compose.cell(row:peek())
+						end)
+						Compose.watch(function(use: ComposeTypes.Use)
+							held:set(use(row))
+						end)
+						return held
+					end
+					local current, placement = retained(rowItem), retained(rowPlacement)
+					local glide = Compose.cell(0)
+					local stopGlide: (() -> ())? = nil
+					local function halt()
+						if stopGlide then
+							stopGlide()
+							stopGlide = nil
+						end
+					end
+					Compose.cleanup(halt)
+					local function shift(use: ComposeTypes.Use?): number
+						return if use then use(glide) else glide:peek()
+					end
+					local paintPlacement = Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.Placement
+						local at = use(placement)
+						return if editor and (spec.drag or spec.drop) then editor.placement(key, at, use) else at
+					end)
+					local reservedPosition = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
+					local springPlacement = spec.slots ~= nil or spec.drag ~= nil or spec.drop ~= nil
+					if springPlacement then
+						local engine = travelEngine(ctx, {
+							initial = { placement:peek().crossOffset, placement:peek().offset },
+							target = function()
+								local at = paintPlacement:peek()
+								return { at.crossOffset, at.offset }
+							end,
+							sample = function(values)
+								reservedPosition:set(V2.new(values[1], values[2]))
+							end,
+							reduced = reduced,
+							motion = "spring",
+							duration = ctx.metric("motion.durations.travel"),
+							ease = ctx.motionEase("travel"),
+							spring = ctx.motionSpring("travel"),
+						})
+						Compose.watch(function(use: ComposeTypes.Use)
+							use(paintPlacement)
+							engine.retarget()
+						end)
+					end
+					local previous = placement:peek()
+					Compose.watch(function(use: ComposeTypes.Use)
+						local at = use(placement)
+						local delta = previous.offset + glide:peek() - at.offset
+						local moved = at.index ~= previous.index
+						previous = at
+						if
+							springPlacement
+							or tree
+							or not moved
+							or kind ~= "list"
+							or math.abs(delta) > viewport:peek().size
+							or reduced()
+						then
+							return
+						end
+						halt()
+						local elapsed = 0
+						local seconds = ctx.metric("motion.durations.glide")
+						local present = ctx.motionEase("present")
+						glide:set(delta)
+						stopGlide = view.frames.onFrame(function(step: number)
+							elapsed = math.min(seconds, elapsed + step)
+							glide:set(delta * (1 - present(elapsed / seconds)))
+							if elapsed >= seconds then
+								halt()
+							end
+						end)
+					end)
+					Compose.withOwner(contentOwner, function()
+						runtime.decorate(node, {
+							Name = tostring(key),
+							ClipsDescendants = tree ~= nil,
+							Interactable = function(use: ComposeTypes.Use)
+								return (tree == nil or tree.visible(key, use))
+									and not policy.disabled(spec.disabled, use(current))
+							end,
+							LayoutOrder = function(use: ComposeTypes.Use)
+								return use(placement).index
+							end,
+							Position = function(use: ComposeTypes.Use)
+								local at = use(placement)
+								if springPlacement then
+									local position = use(reservedPosition)
+									return if horizontal
+										then D2.fromOffset(position.Y, position.X)
+										else D2.fromOffset(position.X, position.Y)
+								end
+								local offset = at.offset + shift(use)
+								return if horizontal
+									then D2.fromOffset(offset, at.crossOffset)
+									else D2.fromOffset(at.crossOffset, offset)
+							end,
+							Size = function(use: ComposeTypes.Use)
+								local at = use(placement)
+								return if horizontal
+									then D2.fromOffset(at.size, at.crossSize)
+									else D2.fromOffset(at.crossSize, at.size)
+							end,
+						})
+					end)
+					mounted[key] = node
+					placed[key] = placement
+					local measuredNode: GuiObject
+					local actionHeight: ComposeTypes.Readable<number>? = nil
+					local painted = Compose.cell(false)
+					local stop, mountedContent = Compose.withOwner(contentOwner, function()
+						return runtime.mount(function(): CanvasGroup
+							local rendered = spec.render(current, placement, key)
+							if tree and not tree.columnar then
+								rendered = tree.wrap(rendered, current, key)
+							end
+							measuredNode = rendered
+							if kind == "grid" and rendered:GetAttribute("FacetBody") ~= nil then
+								containsCards:set(true)
+							end
+							cellEdits[key] = {}
+							for _, edit in activation.edits(rendered) do
+								local gated = table.clone(edit)
+								gated.enabled = function(use: ComposeTypes.Use?): boolean
+									return edit.enabled(use)
+										and not policy.disabled(spec.disabled, readSource(current, use))
+								end
+								table.insert(cellEdits[key], gated)
+							end
+							if not view.actionsWrapped then
+								rendered, actionHeight = policy.actions(
+									ctx,
+									spec,
+									current,
+									key,
+									rendered,
+									UI.RowActions,
+									coordinator,
+									kind == "grid"
+								)
+							end
+							if editor then
+								rendered = editor.wrap(rendered, current, key)
+								local press = editor.press
+								Compose.cleanup(activation.providePress(rendered, function(value: InputObject)
+									press(key, value)
+								end))
+							end
+							local children: Types.FrameProps = {
+								Name = "Content",
+								Size = if tree
+									then function(use: ComposeTypes.Use): UDim2
+										return D2.new(
+											1,
+											0,
+											0,
+											math.max(read(spec.itemSize or 40, use) :: number, fullSizes(use)[key] or 0)
+										)
+									end
+									else D2.fromScale(1, 1),
+								BackgroundTransparency = 1,
+								Attributes = { FacetCollectionRow = true } :: EngineTypes.Attributes,
+								ClipsDescendants = function(use)
+									return read(spec.contentOverflow, use) == "clip"
+								end,
+								rendered,
+							}
+							if
+								spec.onSelectionChange
+								or spec.onActivate
+								or spec.selection
+								or spec.selectionMode
+								or spec.rowDrop
+								or #cellEdits[key] > 0
+								or editor
+							then
+								local hit: TextButton
+								hit = Host.TextButton "RowHit" {
+									AnchorPoint = V2.new(0.5, 0.5),
+									Position = D2.fromScale(0.5, 0.5),
+									Size = D2.fromScale(1, 1),
+									Text = "",
+									BackgroundTransparency = 1,
+									Selectable = true,
+									Interactable = function(use: ComposeTypes.Use)
+										return (tree == nil or tree.visible(key, use))
+											and not policy.disabled(spec.disabled, use(current))
+									end,
+									Activated = function(input: InputObject?, clicks: number?)
+										if not activation.intercepted(hit, input) then
+											select(key, current, input, clicks)
+										end
+									end,
+									Attributes = {
+										FacetSelectionRequired = selectionMode ~= "none",
+										FacetOnlySelected = function(use: ComposeTypes.Use)
+											return use(view.onlySelected) == key
+										end,
+										FacetSelected = function(use: ComposeTypes.Use)
+											return read(selection, use)[key] == true
+										end,
+									} :: EngineTypes.Attributes,
+								}
+								Compose.cleanup(activation.provide(hit, function(input: unknown, clicks: unknown)
+									if not activation.intercepted(hit, input) then
+										select(key, current, input :: InputObject?, clicks :: number?)
+									end
+								end))
+								local function pressed(value: InputObject)
+									activation.press(rendered, value)
+								end
+								runtime.connect(hit, "InputBegan", pressed)
+								if editor and ctx.config.inputParent and ctx.config.inputParent:IsA("PluginGui") then
+									runtime.connect(hit, "MouseButton1Down", function(x: number, y: number)
+										editor.mouseDown(V2.new(x, y))
+									end)
+									runtime.connect(hit, "InputEnded", editor.finish)
+								end
+								Compose.cleanup(activation.providePress(hit, pressed))
+								table.insert((children :: unknown) :: { unknown }, 1, hit)
+							end
+							local paintSelection = spec.selectionIndicator ~= false and selectionMode ~= "none"
+							if paintSelection then
+								children.BackgroundTransparency = nil
+							end
+							local groupProperties = (children :: unknown) :: Types.CanvasGroupNativeProps
+							groupProperties.GroupTransparency = function(use: ComposeTypes.Use): number
+								return if use(painted) then 0 else 1
+							end
+							groupProperties.AutomaticSize = if read(spec.contentOverflow) == "clip"
+								then E.AutomaticSize.None
+								else E.AutomaticSize.XY
+							local content = Host.CanvasGroup(groupProperties)
+							policy.drop(ctx, spec, current, key, content, kind == "grid" or horizontal)
+							if paintSelection then
+								ctx.styled(content, "TableRow")
+								if kind == "grid" or horizontal then
+									ctx.skin(content, "control", {
+										selected = function(use: ComposeTypes.Use): boolean
+											return use(selection)[key] == true
+										end,
+									})
+								end
+								Compose.watch(function(use: ComposeTypes.Use)
+									if use(selection)[key] == true then
+										content:AddTag("facet-selected")
+									else
+										content:RemoveTag("facet-selected")
+									end
+								end)
+							end
+							return content
+						end, node)
+					end)
+					local content = mountedContent :: CanvasGroup
+					local ready = Compose.withOwner(contentOwner, function()
+						return preparePaint(ctx, content)
+					end)
+					preparing[node] = {
+						ready = ready,
+						painted = painted,
+						required = function(): boolean
+							local at, window = placement:peek(), viewport:peek()
+							return spec.mode == "all"
+								or window.size <= 0
+								or (at.offset + at.size > window.offset and at.offset < window.offset + window.size)
+						end,
+					}
+					waiting:update(function(value)
+						return value + 1
+					end)
+					local parked: Instance? = nil
+					local previousParent: Instance? = node.Parent
+					local released = false
+					local restoringParent = false
+					local destroyed = node.Destroying:Connect(function()
+						parked = nil
+					end)
+					local restore = node.AncestryChanged:Connect(function()
+						if node.Parent and parked == nil then
+							previousParent = node.Parent
+						end
+						if parked and not restoringParent and not poolOwner.isDisposed() and node.Parent == nil then
+							restoringParent = true
+							local ok = pcall(function()
+								node.Parent = parked
+							end)
+							restoringParent = false
+							if not ok then
+								parked = nil
+							end
+						end
+					end)
+					local function release()
+						if released then
+							return
+						end
+						released = true
+						parked = nil
+						restore:Disconnect()
+						destroyed:Disconnect()
+						stop()
+						contentOwner.dispose()
+						lease.release()
+					end
+					wireSelection(content, key)
+					if spec.measure or (tree and not tree.columnar) then
+						local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(measuredNode)
+						local lift = measuredNode:FindFirstChildWhichIsA("UIScale")
+						local layoutUnit = if measuredNode:GetAttribute("FacetBody")
+							then measuredNode:FindFirstChild("LayoutUnit")
+							else nil
+						local measurementUnit: Frame? = if lift
+							then if layoutUnit and layoutUnit:IsA("Frame")
+								then layoutUnit
+								else Host.Frame({
+									Name = "MeasurementUnit",
+									Size = D2.fromOffset(1, 1),
+									Visible = false,
+								})
+							else nil
+						if measurementUnit then
+							measurementUnit.Parent = measuredNode
+						end
+						local paintedSize = if measurementUnit then observe.AbsoluteSize(measurementUnit) else nil
+						local factor: ComposeTypes.Readable<number> = if lift
+							then observe.Scale(lift)
+							else Compose.cell(1)
+						Compose.watch(function(use: ComposeTypes.Use)
+							local ancestors = use(view.unitSize).X
+							if ancestors <= 0 then
+								ancestors = 1
+							end
+							local liftScale = use(factor)
+							local painted = if paintedSize then use(paintedSize).X else 0
+							local scale = math.max(if painted > 0 then painted else liftScale * ancestors, 0.001)
+							local dimensions = use(size)
+							local extent = (if horizontal then dimensions.X else dimensions.Y) / scale
+								+ (if editor and not horizontal then use(editor.header) else 0)
+								+ (if actionHeight and not horizontal then use(actionHeight) else 0)
+							extent = math.round(extent)
+							local previous = measured:peek()[key]
+							if previous and liftScale ~= 1 and math.abs(extent - previous) <= 1 then
+								return
+							end
+							if extent > 0 and previous ~= extent then
+								local nextSizes = table.clone(measured:peek())
+								nextSizes[key] = extent
+								measured:set(nextSizes)
+							end
+						end)
+					end
+					Compose.cleanup(function()
+						if gui and State.belongsTo(gui.SelectedObject, node) then
+							view.focusOwned = true
+							gui.SelectedObject = nil
+						end
+						mounted[key] = nil
+						placed[key] = nil
+						cellEdits[key] = nil
+						if preparing[node] then
+							preparing[node] = nil
+							waiting:update(function(value)
+								return math.max(0, value - 1)
+							end)
+						end
+						local wanted = false
+						local pendingReplacement = false
+						local nextRows = source(function<T>(cell: ComposeTypes.Readable<T>): T
+							return cell:peek()
+						end)
+						for index, item in nextRows do
+							local nextKey = view.keyOf(item, index)
+							wanted = wanted or nextKey == key
+							local window = viewport:peek()
+							local at = if controls.placementOf then controls.placementOf(index) else nil
+							local inWindow = spec.mode == "all"
+								or window.size <= 0
+								or (
+									at ~= nil
+									and at.offset + at.size > window.offset
+									and at.offset < window.offset + window.size
+								)
+							pendingReplacement = pendingReplacement or (mounted[nextKey] == nil and inWindow)
+						end
+						if
+							not wanted
+							and pendingReplacement
+							and painted:peek()
+							and not poolOwner.isDisposed()
+							and #source(function<T>(cell: ComposeTypes.Readable<T>): T
+									return cell:peek()
+								end)
+								> 0
+						then
+							parked = previousParent
+							node.Parent = parked
+							content.Interactable = false
+							view.retiring[node] = release
+						else
+							release()
+						end
+					end)
+					runtime.connect(node, "AncestryChanged", function()
+						mountedVersion:update(function(value)
+							return value + 1
+						end)
+					end)
+					return node
+				end
+			),
+		})
+	end
+	return orderedRows
+end

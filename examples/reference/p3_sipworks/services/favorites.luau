@@ -1,11 +1,15 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 
 local favorites = {}
 
-function favorites.new(opts: any)
-	local Compose: ComposeModule = opts.Compose
+export type Opts = { Compose: ComposeModule, seed: number?, ids: { string }? }
+
+function favorites.new(opts: Opts)
+	local Compose = opts.Compose
 	local seed = opts.seed or 1
 	local ids: { string } = opts.ids or {}
 
@@ -21,7 +25,8 @@ function favorites.new(opts: any)
 		return out
 	end
 
-	local set = Compose.cell(seeded() :: { [string]: boolean? })
+	local initial: { [string]: boolean? } = seeded()
+	local set: Cell<{ [string]: boolean? }> = Compose.cell(initial)
 
 	local self = {}
 	self.set = set

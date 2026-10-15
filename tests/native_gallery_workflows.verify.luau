@@ -17,7 +17,7 @@ return function(verifyHarness: Verify.Harness)
 		local viewport = Compose.cell({ width = 1280, height = 720 })
 		local target = engine.new("Folder")
 		local guiService = engine.new("GuiService")
-		local ctx: ExampleContext = {
+		local ctx: any = {
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,

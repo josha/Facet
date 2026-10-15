@@ -4,6 +4,16 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type TextProps = typeof(require("@repo/tools/typecheck/aliases").TextProps)
+type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
+type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
+type ScrollViewProps = typeof(require("@repo/tools/typecheck/aliases").ScrollViewProps)
+type DemoTab = typeof(require("@repo/examples/types").DemoTab)
+type Scenario = typeof(require("@repo/examples/types").Scenario)
+type DemoTabs = typeof(require("@repo/examples/gallery/scenarios/demo_tabs"))
+local loadDemoTabs: (Instance) -> DemoTabs = require
+local loadScenario: (Instance) -> Scenario = require
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -31,7 +41,7 @@ function browser.mount(opts: MountOpts): any
 	local Host = (app.runtime.constructors :: unknown) :: RobloxHost
 	local adaptive = Facet.adaptive
 	local scenarios = ReplicatedStorage:WaitForChild("FacetScenarios")
-	local demoTabs = require(scenarios:WaitForChild("demo_tabs")) :: any
+	local demoTabs = loadDemoTabs(scenarios:WaitForChild("demo_tabs"))
 
 	local state = {
 		top = Compose.cell("catalog"),
@@ -59,30 +69,30 @@ function browser.mount(opts: MountOpts): any
 		return not use(roomy)
 	end)
 
-	local function wrapped(props: { [string]: any }): any
+	local function wrapped(props: TextProps): GuiObject
 		props.wrap = if props.wrap == nil then true else props.wrap
 		props.Size = props.Size or UDim2.fromScale(1, 0)
 		props.AutomaticSize = props.AutomaticSize or Enum.AutomaticSize.Y
 		props.TextXAlignment = props.TextXAlignment or Enum.TextXAlignment.Left
 		return UI.Text(props)
 	end
-	local function caption(text: any): any
-		return wrapped({ text = text, textRole = "caption" :: "caption" })
+	local function caption(text: TextValue): GuiObject
+		return wrapped({ text = text, textRole = "caption" })
 	end
-	local function heading(text: string): any
-		return wrapped({ Name = "Heading", text = text, textRole = "heading" :: "heading" })
+	local function heading(text: string): GuiObject
+		return wrapped({ Name = "Heading", text = text, textRole = "heading" })
 	end
-	local function section(id: string, title: string, body: { any }): any
-		local children: { any } = { Name = id, width = "fill" :: "fill", gap = "m", heading(title) }
+	local function section(id: string, title: string, body: { Child }): GuiObject
+		local children: StackProps = { Name = id, width = "fill", gap = "m", heading(title) }
 		for _, child in body do
-			table.insert(children, child)
+			children[#children + 1] = child
 		end
 		return UI.VStack(children)
 	end
-	local function scroller(id: string, children: { [any]: any }): any
+	local function scroller(id: string, children: ScrollViewProps): GuiObject
 		children.Name = id
-		children.width = "fill" :: "fill"
-		children.height = "fill" :: "fill"
+		children.width = "fill"
+		children.height = "fill"
 		children.gap = "xl"
 		children.padding = { top = "m", left = "m", right = "m", bottom = "xl" }
 		return UI.ScrollView(children)
@@ -104,10 +114,10 @@ function browser.mount(opts: MountOpts): any
 		return UI.Picker({
 			Name = id,
 			label = label,
-			style = "menu" :: "menu",
-			valueAlignment = "start" :: "start",
-			sizing = "hug" :: "hug",
-			controlSize = "compact" :: "compact",
+			style = "menu",
+			valueAlignment = "start",
+			sizing = "hug",
+			controlSize = "compact",
 			selected = selected,
 			options = options,
 			onChange = onChange,
@@ -259,7 +269,7 @@ function browser.mount(opts: MountOpts): any
 		if valid ~= nil and not valid(finalProps(page, DRY, configure(page, DRY, axisValues, stateList, context))) then
 			return false
 		end
-		local refusal = (app :: any).refusal
+		local refusal = app.refusal
 		if page.data.make ~= nil or refusal == nil then
 			return true
 		end
@@ -284,8 +294,7 @@ function browser.mount(opts: MountOpts): any
 		available: any?
 	): any
 		local data = page.data
-		return UI.ErrorBoundary({
-			Name = "Live",
+		return UI.ErrorBoundary "Live" {
 			width = if data.cellWidth then "fill" else "hug",
 			height = if tall then "fill" else "hug",
 			view = function()
@@ -301,10 +310,9 @@ function browser.mount(opts: MountOpts): any
 			fallback = function(failure)
 				recordError(page.id, where, failure)
 				local message = string.gsub(tostring(failure), "^.-:%d+: ", "")
-				return UI.Text({
-					Name = "Refused",
+				return UI.Text "Refused" {
 					text = `Refused: {string.sub(message, 1, 220)}`,
-					textRole = "caption" :: "caption",
+					textRole = "caption",
 					wrap = true,
 					Size = UDim2.fromOffset(240, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
@@ -312,17 +320,17 @@ function browser.mount(opts: MountOpts): any
 					ref = function(label)
 						label:AddTag("facet-validation")
 					end,
-				})
+				}
 			end,
 			onError = function() end,
-			if tall then UI.fill() else nil :: unknown,
-		})
+			if tall then UI.fill() else nil,
+		}
 	end
 
 	local function cells(page: any, id: string, title: string?, entries: { any }): any
 		local data, c = page.data, contextFor(pageState(page), false)
 		local available = Compose.cell(0)
-		local row: { any } = { Name = "Cells", width = "fill" :: "fill", wrap = true, gap = "m" }
+		local row: StackProps = { Name = "Cells", width = "fill", wrap = true, gap = "m" }
 		for i, entry in entries do
 			local states = if entry.state then { entry.state } else {}
 			if not isValid(page, entry.axis or {}, states, entry.context) then
@@ -339,27 +347,23 @@ function browser.mount(opts: MountOpts): any
 				if type(width) == "number" then width else nil
 			)
 			local height = if entry.state and entry.state.cellHeight then entry.state.cellHeight else data.cellHeight
-			table.insert(
-				row,
-				variantCell(UI, {
-					Name = `C{i}`,
-					gap = "xs",
-					width = (entry.state and entry.state.cellWidth) or data.cellWidth or "hug",
-					height = height or "hug",
-					UI.Text({ Name = "Label", text = entry.label, textRole = "caption" :: "caption" }) :: unknown,
-					render(page, c, overrides, `{id}C{i}`, height ~= nil, available),
-				}, available)
-			)
+			row[#row + 1] = variantCell(UI, {
+				Name = `C{i}`,
+				gap = "xs",
+				width = (entry.state and entry.state.cellWidth) or data.cellWidth or "hug",
+				height = height or "hug",
+				UI.Text "Label" { text = entry.label, textRole = "caption" },
+				render(page, c, overrides, `{id}C{i}`, height ~= nil, available),
+			}, available)
 		end
 		if #row == 0 then
 			return nil
 		end
-		local children: { any } = { Name = id, width = "fill" :: "fill", gap = "s" }
+		local children: StackProps = { Name = id, width = "fill", gap = "s" }
 		if title then
-			table.insert(children, wrapped({ Name = "Title", text = title, textRole = "body" :: "body" }))
+			children[#children + 1] = wrapped({ Name = "Title", text = title, textRole = "body" })
 		end
-		local stack = matrixRow(UI, Compose, row, available)
-		table.insert(children, stack)
+		children[#children + 1] = matrixRow(UI, Compose, row, available)
 		return UI.VStack(children)
 	end
 
@@ -377,8 +381,7 @@ function browser.mount(opts: MountOpts): any
 	local function Controls(page: any): any
 		local data, ps = page.data, pageState(page)
 		local axes, states = data.axes or {}, data.states or {}
-		local row: { any } =
-			{ Name = "Options", width = "fill" :: "fill", wrap = true, gap = "m", align = "center" :: "center" }
+		local row: StackProps = { Name = "Options", width = "fill", wrap = true, gap = "m", align = "center" }
 
 		local function current(use: any, key: string?, value: any, extra: any?): (any, any)
 			local values, list = {}, {}
@@ -392,72 +395,62 @@ function browser.mount(opts: MountOpts): any
 			end
 			return values, list
 		end
-		local checked = data.valid ~= nil or (app :: any).refusal ~= nil
+		local checked = data.valid ~= nil or app.refusal ~= nil
 		for _, axis in axes do
-			table.insert(
-				row,
-				dropdown(
-					`Axis_{axis.key}`,
-					axis.key,
-					ps.axis[axis.key],
-					axis.values,
-					nil,
-					if checked
-						then function(value)
-							return Compose.formula(function(use: Use)
-								return isValid(page, current(use, axis.key, value))
-							end)
-						end
-						else nil
-				)
+			row[#row + 1] = dropdown(
+				`Axis_{axis.key}`,
+				axis.key,
+				ps.axis[axis.key],
+				axis.values,
+				nil,
+				if checked
+					then function(value)
+						return Compose.formula(function(use: Use)
+							return isValid(page, current(use, axis.key, value))
+						end)
+					end
+					else nil
 			)
 		end
 		for _, st in states do
 			if st.matrixOnly then
 				continue
 			end
-			table.insert(
-				row,
-				UI.Toggle({
-					Name = `State_{st.name}`,
-					label = st.name,
-					presentation = "checkbox" :: "checkbox",
-					appearance = "plain",
-					controlSize = "compact" :: "compact",
-					textSize = "label",
-					value = ps.flags[st.name],
-
-					enabled = if checked
-						then Compose.formula(function(use: Use)
-							return use(ps.flags[st.name]) or isValid(page, current(use, nil, nil, st))
-						end)
-						else nil,
-				})
-			)
-		end
-		table.insert(
-			row,
-			UI.Button({
-				Name = "Reset",
-				label = "Reset",
+			row[#row + 1] = UI.Toggle({
+				Name = `State_{st.name}`,
+				label = st.name,
+				presentation = "checkbox",
+				appearance = "plain",
+				controlSize = "compact",
 				textSize = "label",
-				controlSize = "compact" :: "compact",
-				onActivate = function()
-					app.runtime:batch(function()
-						for _, axis in axes do
-							ps.axis[axis.key]:set(axis.values[1])
-						end
-						for _, st in states do
-							ps.flags[st.name]:set(false)
-						end
-						ps.values = {}
-						ps.revision:set(ps.revision:peek() + 1)
-						ps.version:set(ps.version:peek() + 1)
-						ps.log:set({})
+				value = ps.flags[st.name],
+
+				enabled = if checked
+					then Compose.formula(function(use: Use)
+						return use(ps.flags[st.name]) or isValid(page, current(use, nil, nil, st))
 					end)
-				end,
+					else nil,
 			})
-		)
+		end
+		row[#row + 1] = UI.Button "Reset" {
+			label = "Reset",
+			textSize = "label",
+			controlSize = "compact",
+			onActivate = function()
+				app.runtime:batch(function()
+					for _, axis in axes do
+						ps.axis[axis.key]:set(axis.values[1])
+					end
+					for _, st in states do
+						ps.flags[st.name]:set(false)
+					end
+					ps.values = {}
+					ps.revision:set(ps.revision:peek() + 1)
+					ps.version:set(ps.version:peek() + 1)
+					ps.log:set({})
+				end)
+			end,
+		}
 		return section("Controls", "Controls", { caption("Configuration options for the playground"), UI.HStack(row) })
 	end
 
@@ -501,8 +494,7 @@ function browser.mount(opts: MountOpts): any
 			return data.cellHeight or "hug"
 		end)
 		local available = Compose.cell(0)
-		local liveControl = UI.VStack({
-			Name = "Live",
+		local liveControl = UI.VStack "Live" {
 
 			width = "fill",
 			maxWidth = if data.cellWidth and not data.fills then data.cellWidth * 2 else nil,
@@ -534,7 +526,7 @@ function browser.mount(opts: MountOpts): any
 					return render(page, c, props, "playground", cellHeight:peek() ~= "hug", available)
 				end,
 			}),
-		})
+		}
 
 		local room = UI.environment(liveControl)
 		Compose.watch(function(use: Use)
@@ -633,54 +625,46 @@ function browser.mount(opts: MountOpts): any
 
 	local function InContext(page: any): any
 		local ps = pageState(page)
-		return UI.VStack({
-			Name = "InContext",
-			width = "fill" :: "fill",
+		return UI.VStack "InContext" {
+			width = "fill",
 			gap = "s",
 			when(function(use: Use)
 				return not use(ps.examples)
 			end, function()
-				return UI.Button({
-					Name = "ShowExamples",
+				return UI.Button "ShowExamples" {
 					label = "Show examples",
 					appearance = "utility",
-					controlSize = "compact" :: "compact",
+					controlSize = "compact",
 					onActivate = function()
 						ps.examples:set(true)
 					end,
-				})
-			end) :: unknown,
+				}
+			end),
 			when(ps.examples, function()
-				local entries = {}
+				local entries: { DemoTab } = {}
 				for _, name in page.data.scenarios do
 					local module = scenarios:FindFirstChild(name)
 					if module ~= nil then
-						table.insert(entries, { id = name, label = name, scenario = require(module) :: any })
+						table.insert(entries, { id = name, label = name, scenario = loadScenario(module) })
 					end
 				end
 				local scenarioCtx = table.clone(ctx)
 				scenarioCtx.UI = UI
 				local built = demoTabs(scenarioCtx, "Examples", entries)
-				if built.dispose then
-					Compose.cleanup(built.dispose)
-				end
-				return UI.VStack({ Name = "Examples", width = "fill" :: "fill", height = 600, built.screen() })
+				return UI.VStack "Examples" { width = "fill", height = 600, built.screen() }
 			end),
-		})
+		}
 	end
 
 	local function Content(page: any): any
 		local data = page.data or {}
-		local body: { any } = {}
+		local body: { Child } = {}
 		table.insert(body, caption(`Foundation: {data.alias or "—"}`))
 		if data.alternatives then
 			table.insert(body, caption(`Choose instead: {data.alternatives}`))
 		end
 		if data.snippet then
-			table.insert(
-				body,
-				wrapped({ text = data.snippet, textRole = "caption" :: "caption", role = "content" :: "content" })
-			)
+			table.insert(body, wrapped({ text = data.snippet, textRole = "caption", role = "content" }))
 		end
 		table.insert(
 			body,
@@ -694,8 +678,7 @@ function browser.mount(opts: MountOpts): any
 		if page.id == "draggable" or page.id == "dropTarget" then
 			table.insert(
 				body,
-				UI.Button {
-					Name = "OpenDragDropDemo",
+				UI.Button "OpenDragDropDemo" {
 					label = "Open Drag and drop demo",
 					onActivate = function()
 						state.top:set("drag-drop")
@@ -710,9 +693,9 @@ function browser.mount(opts: MountOpts): any
 	end
 
 	local function Header(title: string, description: string?, note: string?): any
-		local children: { any } = {
+		local children: StackProps = {
 			Name = "Header",
-			width = "fill" :: "fill",
+			width = "fill",
 			gap = "m",
 			wrapped({
 				Name = "Title",
@@ -723,24 +706,22 @@ function browser.mount(opts: MountOpts): any
 			}),
 		}
 		if description then
-			table.insert(children, wrapped({ Name = "Description", text = description }))
+			children[#children + 1] = wrapped({ Name = "Description", text = description })
 		end
 		if note then
-			table.insert(children, wrapped({ Name = "Note", text = note }))
+			children[#children + 1] = wrapped({ Name = "Note", text = note })
 		end
 		return UI.VStack(children)
 	end
 
 	local function Page(page: any): any
 		local data = page.data
-		local children: { any } = { Header(page.title, data.purpose, data.note) }
+		local children: ScrollViewProps = { Header(page.title, data.purpose, data.note) }
 		if page.id == "Table" or page.id == "VirtualList" or page.id == "VirtualGrid" or page.id == "Outline" then
-			table.insert(
-				children,
+			children[#children + 1] =
 				section("Editing", if page.id == "Outline" then "Two-column hierarchy and editing" else "Editing", {
 					collectionEditing(contextFor(pageState(page), true), page.id),
 				})
-			)
 		end
 		if data.base ~= nil then
 			local options = #(data.axes or {})
@@ -748,11 +729,11 @@ function browser.mount(opts: MountOpts): any
 				options += if st.matrixOnly then 0 else 1
 			end
 			if options > 0 then
-				table.insert(children, Controls(page))
+				children[#children + 1] = Controls(page)
 			end
-			table.insert(children, Playground(page))
+			children[#children + 1] = Playground(page)
 			for _, view in Examples(page) do
-				table.insert(children, view)
+				children[#children + 1] = view
 			end
 		end
 		for _, helper in page.helpers or {} do
@@ -762,15 +743,12 @@ function browser.mount(opts: MountOpts): any
 			for _, axis in helper.data.axes or {} do
 				values[axis.key] = axis.values[1]
 			end
-			table.insert(
-				children,
-				section(`Helper_{helper.id}`, helper.data.alias or helper.id, {
-					caption(`{helper.data.purpose} ({helper.data.snippet})`),
-					render(helper, c, configure(helper, c, values, {}), "helper"),
-				})
-			)
+			children[#children + 1] = section(`Helper_{helper.id}`, helper.data.alias or helper.id, {
+				caption(`{helper.data.purpose} ({helper.data.snippet})`),
+				render(helper, c, configure(helper, c, values, {}), "helper"),
+			})
 		end
-		table.insert(children, Content(page))
+		children[#children + 1] = Content(page)
 		return scroller(`Page_{page.id}`, children)
 	end
 
@@ -780,18 +758,15 @@ function browser.mount(opts: MountOpts): any
 		return node
 	end
 	local function StylePage(): any
-		local surfaces: { any } = { Name = "Surfaces", gap = "m", width = "fill" :: "fill", wrap = true }
+		local surfaces: StackProps = { Name = "Surfaces", gap = "m", width = "fill", wrap = true }
 		for _, tag in
 			{ "surface", "pane", "panel", "control", "field", "button", "badge", "track", "skeleton", "scrim" }
 		do
-			table.insert(
-				surfaces,
-				UI.VStack({
-					gap = "xs",
-					tagged(tag, `facet-{tag}`, 96, 56) :: unknown,
-					UI.Text({ text = `facet-{tag}`, textRole = "caption" :: "caption" }),
-				})
-			)
+			surfaces[#surfaces + 1] = UI.VStack({
+				gap = "xs",
+				tagged(tag, `facet-{tag}`, 96, 56),
+				UI.Text({ text = `facet-{tag}`, textRole = "caption" }),
+			})
 		end
 
 		local palette = Compose.formula(function(use: Use)
@@ -803,76 +778,46 @@ function browser.mount(opts: MountOpts): any
 			end
 			return package.style.themes[1]
 		end)
-		local swatches: { any } = { Name = "Palette", gap = "m", width = "fill" :: "fill", wrap = true }
+		local swatches: StackProps = { Name = "Palette", gap = "m", width = "fill", wrap = true }
 		for _, role in
-			{ "surface", "surfaceStrong", "content", "contentStrong", "accent", "danger", "success", "warning" } :: {
-				"accent"
-				| "content"
-				| "contentStrong"
-				| "danger"
-				| "success"
-				| "surface"
-				| "surfaceStrong"
-				| "warning"
-			}
+			{ "surface", "surfaceStrong", "content", "contentStrong", "accent", "danger", "success", "warning" }
 		do
-			table.insert(
-				swatches,
-				UI.VStack({
-					gap = "xs",
-					Host.Frame({
-						Name = role :: string,
-						Size = UDim2.fromOffset(72, 40),
-						BorderSizePixel = 0,
-						BackgroundColor3 = function(use: Use)
-							local color = use(palette).colors[role]
-							return if color then Color3.new(color.r, color.g, color.b) else Color3.new()
-						end,
-					}) :: unknown,
-					UI.Text({
-						text = role :: (
-							"accent"
-							| "content"
-							| "contentStrong"
-							| "danger"
-							| "success"
-							| "surface"
-							| "surfaceStrong"
-							| "warning"
-						),
-						textRole = "caption" :: "caption",
-					}),
-				})
-			)
+			swatches[#swatches + 1] = UI.VStack({
+				gap = "xs",
+				Host.Frame({
+					Name = role,
+					Size = UDim2.fromOffset(72, 40),
+					BorderSizePixel = 0,
+					BackgroundColor3 = function(use: Use)
+						local color = use(palette).colors[role]
+						return if color then Color3.new(color.r, color.g, color.b) else Color3.new()
+					end,
+				}),
+				UI.Text({ text = role, textRole = "caption" }),
+			})
 		end
-		local ramp: { any } = { Name = "Type", gap = "xs", width = "fill" :: "fill" }
+		local ramp: StackProps = { Name = "Type", gap = "xs", width = "fill" }
 		for _, role in Facet.themes.TYPE_ROLES do
-			table.insert(ramp, wrapped({ text = `{role} — The quick brown fox`, textRole = role }))
+			ramp[#ramp + 1] = wrapped({ text = `{role} — The quick brown fox`, textRole = role })
 		end
-		local ladder: { any } = { Name = "Ladder", gap = "m", width = "fill" :: "fill", wrap = true }
+		local ladder: StackProps = { Name = "Ladder", gap = "m", width = "fill", wrap = true }
 		for _, size in { "xsmall", "compact", "regular", "large" } do
-			for _, appearance in
-				{ "standard", "emphasis", "soft", "utility", "link", "inverse" } :: { "emphasis" | "inverse" | "link" | "soft" | "standard" | "utility" }
-			do
-				table.insert(
-					ladder,
-					UI.Button({
-						label = appearance :: "emphasis" | "inverse" | "link" | "soft" | "standard" | "utility",
-						appearance = appearance :: "emphasis" | "inverse" | "link" | "soft" | "standard" | "utility",
-						controlSize = size,
-					})
-				)
+			for _, appearance in { "standard", "emphasis", "soft", "utility", "link", "inverse" } do
+				ladder[#ladder + 1] = UI.Button({
+					label = appearance,
+					appearance = appearance,
+					controlSize = size,
+				})
 			end
 		end
-		local dividers = UI.VStack({
-			Name = "Dividers",
+		local dividers = UI.VStack "Dividers" {
 			width = 240,
 			gap = "s",
-			UI.Text({ text = "standard", textRole = "caption" :: "caption" }) :: unknown,
+			UI.Text({ text = "standard", textRole = "caption" }),
 			UI.Divider({}),
-			UI.Text({ text = "strong", textRole = "caption" :: "caption" }),
+			UI.Text({ text = "strong", textRole = "caption" }),
 			UI.Divider({ appearance = "strong" }),
-		})
+		}
 		return scroller("Style", {
 			Header(
 				"Style",
@@ -973,11 +918,10 @@ function browser.mount(opts: MountOpts): any
 			}),
 			section("SimulationSection", "Simulated or real", {
 				caption(settings.lines),
-				UI.Button({
-					Name = "ResetAll",
+				UI.Button "ResetAll" {
 					label = "Reset everything to Automatic",
 					onActivate = settings.reset,
-				}),
+				},
 			}),
 			section("BuildSection", "Build", {
 				caption(`Facet {Facet.VERSION} · {tostring(workspace:GetAttribute("Facet_Build"))}`),
@@ -992,36 +936,32 @@ function browser.mount(opts: MountOpts): any
 			local revision = if top == "catalog" then use(pageState(cat.pages[id]).revision) else 0
 			return { { id = id, revision = revision } }
 		end)
-		local detail: { any } = { Name = "Detail", width = "fill" :: "fill", height = "fill" :: "fill" }
-		table.insert(
-			detail,
-			UI.VStack({
-				Name = "Body",
-				width = "fill" :: "fill",
-				height = "fill" :: "fill",
-				UI.fill() :: unknown,
-				Compose.keyed({
-					from = current,
-					key = pageKey,
-					render = function(item: any): GuiObject
-						local id = item:peek().id
-						if id == "@style" then
-							return StylePage()
-						elseif id == "@settings" then
-							return SettingsPage()
-						elseif id == "@drag-drop" then
-							return dragDropDemo(ctx)
-						end
-						local ok, node = pcall(Page, cat.pages[id])
-						if ok then
-							return node
-						end
-						recordError(id, "page", node)
-						return caption(`Page failed: {node}`)
-					end,
-				}),
-			})
-		)
+		local detail: StackProps = { Name = "Detail", width = "fill", height = "fill" }
+		detail[#detail + 1] = UI.VStack "Body" {
+			width = "fill",
+			height = "fill",
+			UI.fill(),
+			Compose.keyed({
+				from = current,
+				key = pageKey,
+				render = function(item: any): GuiObject
+					local id = item:peek().id
+					if id == "@style" then
+						return StylePage()
+					elseif id == "@settings" then
+						return SettingsPage()
+					elseif id == "@drag-drop" then
+						return dragDropDemo(ctx)
+					end
+					local ok, node = pcall(Page, cat.pages[id])
+					if ok then
+						return node
+					end
+					recordError(id, "page", node)
+					return caption(`Page failed: {node}`)
+				end,
+			}),
+		}
 		return UI.VStack(detail)
 	end
 
@@ -1046,7 +986,7 @@ function browser.mount(opts: MountOpts): any
 			label = label,
 
 			appearance = "utility",
-			controlSize = "compact" :: "compact",
+			controlSize = "compact",
 			textSize = "body",
 			selected = isSelected,
 			onActivate = pick,
@@ -1081,7 +1021,7 @@ function browser.mount(opts: MountOpts): any
 				Size = UDim2.fromScale(1, 0),
 				Visible = any,
 				content = function(): Instance
-					local rows: { any } = { Name = "Rows", width = "fill" :: "fill" }
+					local rows: StackProps = { Name = "Rows", width = "fill" }
 					for _, e in entries do
 						local row = pageRow(e.id, e.label, e.selected, function()
 							e.pick()
@@ -1091,13 +1031,13 @@ function browser.mount(opts: MountOpts): any
 						end, function(use: Use)
 							return e.matches(use(state.query))
 						end)
-						table.insert(rows, row)
+						rows[#rows + 1] = row
 					end
 					return UI.VStack(rows)
 				end,
 			})
 		end
-		local groups: { any } = { Name = "Tree", width = "fill" :: "fill", gap = 0, padding = { bottom = "m" } }
+		local groups: StackProps = { Name = "Tree", width = "fill", gap = 0, padding = { bottom = "m" } }
 		for _, family in cat.families do
 			local entries = {}
 			for _, page in family.pages do
@@ -1118,7 +1058,7 @@ function browser.mount(opts: MountOpts): any
 					end,
 				})
 			end
-			table.insert(groups, group(family.id, family.label, entries))
+			groups[#groups + 1] = group(family.id, family.label, entries)
 		end
 		local labEntries = {}
 		for _, entry in { { id = "drag-drop", label = "Drag and drop demo" }, { id = "style", label = "Style" } } do
@@ -1139,27 +1079,24 @@ function browser.mount(opts: MountOpts): any
 				end,
 			})
 		end
-		table.insert(groups, group("lab", "Lab", labEntries))
-		return UI.VStack({
-			Name = "OutlineList",
-			width = "fill" :: "fill",
-			height = "fill" :: "fill",
+		groups[#groups + 1] = group("lab", "Lab", labEntries)
+		return UI.VStack "OutlineList" {
+			width = "fill",
+			height = "fill",
 			gap = "s",
 			padding = { top = "s", left = "s", right = "s" },
-			UI.TextInput({
-				Name = "Search",
+			UI.TextInput "Search" {
 				value = state.query,
 				placeholder = "Search...",
-				presentation = "search" :: "search",
+				presentation = "search",
 				clearButton = true,
-				controlSize = "compact" :: "compact",
+				controlSize = "compact",
 				Size = UDim2.fromScale(1, 0),
-			}) :: unknown,
-			UI.Button({
-				Name = "L_settings",
+			},
+			UI.Button "L_settings" {
 				label = "Settings",
 				icon = "settings",
-				controlSize = "compact" :: "compact",
+				controlSize = "compact",
 				selected = function(use: Use)
 					return use(state.top) == "settings"
 				end,
@@ -1170,56 +1107,50 @@ function browser.mount(opts: MountOpts): any
 					end
 				end,
 				Size = UDim2.fromScale(1, 0),
-			}),
-			UI.ScrollView({
-				Name = "Outline",
-				width = "fill" :: "fill",
-				height = "fill" :: "fill",
-				UI.fill() :: unknown,
+			},
+			UI.ScrollView "Outline" {
+				width = "fill",
+				height = "fill",
+				UI.fill(),
 				UI.VStack(groups),
-			}),
-		})
+			},
+		}
 	end
 
 	local function Catalog(): any
-		return UI.VStack({
-			Name = "Catalog",
-			width = "fill" :: "fill",
-			height = "fill" :: "fill",
+		return UI.VStack "Catalog" {
+			width = "fill",
+			height = "fill",
 			when(roomy, function()
-				local pane = UI.VStack({
-					Name = "OutlinePane",
-					height = "fill" :: "fill",
+				local pane = UI.VStack "OutlinePane" {
+					height = "fill",
 					width = function(use: Use)
 						return math.clamp(math.floor(use(logical).width * 0.22), 240, 305)
 					end,
 					Outline(),
-				})
+				}
 				pane:AddTag("facet-pane")
 
 				UI.focusSection(pane)
-				return UI.HStack({
-					Name = "Split",
-					width = "fill" :: "fill",
-					height = "fill" :: "fill",
+				return UI.HStack "Split" {
+					width = "fill",
+					height = "fill",
 					gap = 0,
-					pane :: unknown,
-					UI.Divider({ Name = "PaneDivider", appearance = "strong" }),
-					UI.VStack({
-						Name = "DetailPane",
-						width = "fill" :: "fill",
-						height = "fill" :: "fill",
-						UI.fill() :: unknown,
+					pane,
+					UI.Divider "PaneDivider" { appearance = "strong" },
+					UI.VStack "DetailPane" {
+						width = "fill",
+						height = "fill",
+						UI.fill(),
 						Detail(),
-					}),
-				})
-			end) :: unknown,
+					},
+				}
+			end),
 			when(compact, function()
 				local function open()
 					state.compactPath:set({ { id = "page" } })
 				end
-				return UI.NavigationStack({
-					Name = "Browse",
+				return UI.NavigationStack "Browse" {
 					path = state.compactPath,
 					backLabel = "Controls",
 					Size = UDim2.fromScale(1, 1),
@@ -1246,18 +1177,17 @@ function browser.mount(opts: MountOpts): any
 								return if page then page.title else ""
 							end,
 							content = function(): Instance
-								return UI.VStack({
-									Name = "Current",
-									width = "fill" :: "fill",
-									height = "fill" :: "fill",
+								return UI.VStack "Current" {
+									width = "fill",
+									height = "fill",
 									Detail(),
-								})
+								}
 							end,
 						},
 					},
-				})
+				}
 			end),
-		})
+		}
 	end
 
 	app.mount(function()
@@ -1271,8 +1201,7 @@ function browser.mount(opts: MountOpts): any
 			logical:set(size)
 			settings.viewport:set(Vector2.new(size.width, size.height))
 		end)
-		local frame = UI.VStack({
-			Name = "Device",
+		local deviceProps: StackProps = {
 			Size = function(use: Use)
 				local d = use(device)
 				return if d.simulated
@@ -1303,7 +1232,7 @@ function browser.mount(opts: MountOpts): any
 				Transparency = function(use: Use)
 					return if use(device).simulated then 0.4 else 1
 				end,
-			}) :: unknown,
+			}),
 			Host.UIScale({
 				Name = "Preview",
 				Scale = function(use: Use)
@@ -1311,19 +1240,19 @@ function browser.mount(opts: MountOpts): any
 				end,
 			}),
 			Catalog(),
-		})
+		}
+		local frame = UI.VStack "Device"(deviceProps)
 		frame:AddTag("facet-surface")
 		Compose.watch(function(use)
 			frame.BackgroundTransparency = if use(ctx.sceneVisible) then 1 else 0
 		end)
-		local stage = UI.ZStack({
-			Name = "Stage",
-			width = "fill" :: "fill",
-			height = "fill" :: "fill",
-			alignH = "center" :: "center",
-			alignV = "center" :: "center",
-			frame :: unknown,
-		})
+		local stage = UI.ZStack "Stage" {
+			width = "fill",
+			height = "fill",
+			alignH = "center",
+			alignV = "center",
+			frame,
+		}
 		local room = UI.environment(stage)
 		Compose.watch(function(use: Use)
 			roomSize:set(use(room.viewportSize))

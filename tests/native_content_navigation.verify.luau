@@ -17,7 +17,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local function menuWorld(spec: { [any]: any }, options: { [string]: any }?): any
 		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu("M")(spec) })
+			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu "M"(spec) })
 		end, options or { motionLevel = "none" })
 		return world
 	end

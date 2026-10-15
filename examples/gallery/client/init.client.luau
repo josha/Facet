@@ -4,7 +4,11 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
-local requireDynamic = require :: (any) -> any
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type Definition = typeof(require("@repo/examples/types").Definition)
+type ThemeModule = typeof(require("@repo/examples/types").ThemeModule)
+local loadDefinition: (ModuleScript) -> Definition = require
+local loadTheme: (ModuleScript) -> ThemeModule = require
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 if not game:IsLoaded() then
@@ -20,17 +24,18 @@ local Facet = require(storage:WaitForChild("Facet"))
 local gallery = require(script:WaitForChild("screen"))
 local Compose: ComposeModule = Facet.Compose
 local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
-local Host = (runtime.constructors :: unknown) :: RobloxHost
+local Host: RobloxHost = Facet.host(runtime)
 local owner = Compose.createRootOwner(function()
 	local viewport = Facet.Roblox.createViewport(workspace.CurrentCamera)
-	local example = workspace:GetAttribute("Facet_Example")
-	local demos = gallery.list(if type(example) == "number" then example else nil)
-	local initial, booted = gallery.boot(
-		workspace:GetAttribute("Facet_Demo"),
-		workspace:GetAttribute("Facet_Scenario"),
-		workspace:GetAttribute("Facet_Example")
-	)
-	if booted and type(example) ~= "number" then
+	local function text(name: string): string?
+		local value = workspace:GetAttribute(name)
+		return if type(value) == "string" then value else nil
+	end
+	local attribute = workspace:GetAttribute("Facet_Example")
+	local example = if type(attribute) == "number" then attribute else nil
+	local demos = gallery.list(example)
+	local initial, booted = gallery.boot(text("Facet_Demo"), text("Facet_Scenario"), example)
+	if booted and example == nil then
 		table.insert(
 			demos,
 			{ id = booted.id, kind = booted.kind, module = booted.module, title = booted.title, blurb = nil }
@@ -46,24 +51,44 @@ local owner = Compose.createRootOwner(function()
 		end
 	end
 	local selected = Compose.cell(initial)
-	local neutral = assert(Facet.themes.define(Facet.themes.neutralPackage()))
+	local defined = Facet.themes.define(Facet.themes.neutralPackage())
+	local neutral = assert(defined)
 	local theme = Compose.cell(neutral)
 	local selectedTheme = Compose.cell(neutral.style.defaultTheme)
 	local themeFolder = storage:FindFirstChild("FacetThemes")
 	local packages = gallery.themePackages(
 		Facet.themes,
 		if themeFolder then themeFolder:GetChildren() else {},
-		function(module)
-			return requireDynamic(module)
+		function(module: ModuleScript): ThemeModule
+			return loadTheme(module)
 		end
 	)
 	packages.Neutral = neutral
+	local function find(kind: string, name: string, ...: string): ModuleScript
+		local folder: Instance = if kind == "example"
+			then storage.FacetExamples
+			elseif kind == "reference" then storage.FacetReference
+			else storage.FacetScenarios
+		local target = folder:WaitForChild(name)
+		for _, child in { ... } do
+			target = target:WaitForChild(child)
+		end
+		if not target:IsA("ModuleScript") then
+			error(`{name} is not a ModuleScript`)
+		end
+		return target
+	end
+	local playerGui = players.LocalPlayer:WaitForChild("PlayerGui")
+	if not playerGui:IsA("PlayerGui") then
+		error("the local player has no PlayerGui")
+	end
+	local UI: FacetControls
 	local context: ExampleContext = {
 		Facet = Facet,
 		Compose = Compose,
 		runtime = runtime,
 		Host = Host,
-		UI = nil :: any,
+		UI = UI,
 		viewport = viewport,
 		types = {
 			UDim = UDim,
@@ -88,74 +113,70 @@ local owner = Compose.createRootOwner(function()
 		selection = selected,
 		demos = demos,
 		buildStamp = workspace:GetAttribute("Facet_Build"),
-		inputTarget = players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui,
+		inputTarget = playerGui,
 		guiService = game:GetService("GuiService"),
 		runService = game:GetService("RunService"),
 		theme = theme,
 		themeMode = selectedTheme,
 		packages = packages,
-		load = function(kind, name, ...)
-			local folder = if kind == "example"
-				then storage.FacetExamples
-				elseif kind == "reference" then storage.FacetReference
-				else storage.FacetScenarios
-			local target = folder:WaitForChild(name)
-			for _, child in { ... } do
-				target = target:WaitForChild(child)
-			end
-			return requireDynamic(target)
+		find = find,
+		load = function(kind: string, name: string, ...: string): Definition
+			return loadDefinition(find(kind, name, ...))
 		end,
 	}
 	gallery.configure(context)
-	context.UI = Facet.controls(runtime, {
+	local overlayParent: Instance? = context.overlayParent
+	UI = Facet.controls(runtime, {
 		viewport = viewport,
 		theme = theme,
 		motionLevel = context.motionPreference,
 		environment = context.environment,
-		overlayParent = context.overlayParent,
+		overlayParent = overlayParent,
 	})
+	context.UI = UI
 	local sheet = Facet.themes.createStyleSheet(runtime, theme, {
 		theme = selectedTheme,
 		motionLevel = context.motionPreference,
 		hover = context.hoverPreview,
-		tenFoot = context.UI.environment().isTenFoot,
+		tenFoot = UI.environment().isTenFoot,
 	})
 	context.sheet = sheet
 	local stop, gui = runtime.mount(function()
 		return Host.ScreenGui "FacetGallery" {
 			ResetOnSpawn = false,
 			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-			sheet :: unknown,
+			sheet,
 			Host.StyleLink({ StyleSheet = Facet.Compose.static(sheet) }),
-			context.UI.focusRing(players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui),
+			UI.focusRing(playerGui),
 			gallery.build(context),
 		}
-	end, players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui)
+	end, playerGui)
 	Compose.cleanup(stop)
+	local sceneVisible = assert(context.sceneVisible)
 	local stopBackdrop, backdrop = runtime.mount(function()
 		return Host.ScreenGui "FacetGalleryBackdrop" {
 			ResetOnSpawn = false,
 			IgnoreGuiInset = true,
 			ScreenInsets = Enum.ScreenInsets.None,
 			DisplayOrder = -1,
-			Host.StyleLink({ StyleSheet = Facet.Compose.static(sheet) }) :: unknown,
+			Host.StyleLink({ StyleSheet = Facet.Compose.static(sheet) }),
 			Host.Frame "Backdrop" {
 				Size = UDim2.fromScale(1, 1),
 				BorderSizePixel = 0,
 				Visible = function(use: Use)
-					return not use(context.sceneVisible)
+					return not use(sceneVisible)
 				end,
 			},
 		}
-	end, players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui)
-	assert((backdrop :: Instance):FindFirstChild("Backdrop")):AddTag("facet-surface")
+	end, playerGui)
+	if typeof(backdrop) == "Instance" then
+		assert(backdrop:FindFirstChild("Backdrop")):AddTag("facet-surface")
+	end
 	Compose.cleanup(stopBackdrop)
-	local api = Host.BindableFunction "FacetShowcaseAPI" {
-		Parent = workspace,
-		OnInvoke = Compose.static(function(command, argument)
-			return gallery.dispatch(context, command, argument)
-		end),
-	}
+	local api = Host.BindableFunction "FacetShowcaseAPI" { Parent = workspace }
+	api.OnInvoke = function(command: string, argument: unknown)
+		return gallery.dispatch(context, command, argument)
+	end
 	workspace:SetAttribute("Facet_Version", Facet.VERSION)
 	workspace:SetAttribute("Facet_ShowcaseReady", true)
 end, runtime.reactor)

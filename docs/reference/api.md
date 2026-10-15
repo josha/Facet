@@ -12,6 +12,7 @@ and styling. This reference describes the `0.12.0` surface.
 | `Compose` | The pinned Compose core module, by reference. Use its cells, formulas, owners and structural operations directly. |
 | `Roblox` | The pinned Compose Roblox module, by reference. `createRuntime(engine?)` makes the native runtime. `createHost(engine?)` makes its host. |
 | `controls(runtime, options?)` | Returns the control constructor table for that native runtime. |
+| `host(runtime)` | Returns `runtime.constructors` with the `Host` type. Use it for native objects: `local Host = Facet.host(runtime)`. |
 | `app(options?)` | Returns an app: a runtime, the controls for it, and a `mount` that adds the ScreenGui, the StyleSheet and the StyleLink. See [Mounting](#mounting). |
 | `themes` | Theme package definitions, native StyleSheet compilation, icons and skins. |
 | `COMPOSE_COMMIT` | The full Compose commit of the pinned copy. The Facet tests use this commit. |
@@ -49,15 +50,113 @@ contracts keep the item and value types through callbacks. Native properties use
 the Roblox property types. For example, `Size` accepts a `UDim2` or a reactive
 source of a `UDim2`.
 
-The pinned Luau solver sometimes needs explicit types for these values:
+Each `Props` and `Spec` type is one flat table type. It holds the native
+properties of the root, the control options and the children. In the named
+form, `UI.Button "Save" { ... }`, strict mode checks the property table
+without casts in both Luau solvers:
 
-- reactive `use` parameters,
-- content factories that return `Instance` or `GuiObject`,
-- native anchors.
+- a literal option, such as `textRole = "title"` or `width = "fill"`,
+- a callback and a `function(use)` body, without parameter types,
+- children of different classes in the same table.
 
-Literal options can need singleton annotations, such as
-`presentation = "number" :: "number"`. These annotations keep the contract
-without `any`.
+The direct form, `UI.Button { ... }`, calls the overloaded constructor with
+the table. Neither solver gives the full props type to a table literal in an
+overloaded call. The old solver gives all children the type of the first
+child, and it can refuse a literal option. The new solver refuses literal
+options. When the table has children of different classes or literal
+options, use the named form or give the table a type in a local, for example
+`local props: Facet.MenuSpec = { ... }` and then `UI.Menu(props)`.
+
+`Host` types the native constructors, and `Child` types a child entry.
+
+The root module also exports the types of the option values and of the
+option parts. Use them to give a local a type without an internal module:
+
+- The binding shapes of each binding control, for example
+  `ToggleCellProps`, `ToggleRequestProps`, `TextInputCellProps`,
+  `TextInputRequestProps`, `TextInputNumberCellProps`,
+  `TextInputNumberRequestProps`, `NumberInputCellProps`,
+  `NumberInputRequestProps`, `StepperCellProps`, `StepperRequestProps`,
+  `SliderCellProps`, `SliderRequestProps`, `SliderRangeProps`,
+  `RatingCellProps`, `RatingRequestProps`, `RatingReadOnlyProps`,
+  `LevelPickerCellProps`, `LevelPickerRequestProps`,
+  `LevelPickerReadOnlyProps`, `ChipCellProps`, `ChipRequestProps`,
+  `ChipRemovableProps`, `ShortcutHintKeysProps` and
+  `ShortcutHintActionProps`.
+- The spec shapes `SinglePickerSpec`, `MultiplePickerSpec`,
+  `KeyedOutlineSpec`, `IdentityOutlineSpec` and `FocusControls`.
+- The action and overlay parts `DialogAction`, `ActionRole`, `ToastAction`,
+  `CardAction`, `CardMenu`, `PopoverSource`, `OverlayRect` and
+  `CollectionPlacement`.
+- The value types `ButtonRole`, `TextCommitReason`, `CommitReason`,
+  `ClearButtonMode`, `ControlSize`, `Status`, `TextRole`, `Presence`,
+  `ImageScaleMode`, `ImageLoader`, `VoteValue`, `StepState`,
+  `PaginationForm`, `TabPlacement`, `TabSelectionIndicator`,
+  `NoticeSeverity`, `ColorSwatch`, `ColorPickerMode` and `DateRangePreset`.
+- The dismiss reasons `DialogDismissReason`, `PopoverDismissReason`,
+  `ToastDismissReason`, `ColorPickerDismissReason` and
+  `DateTimePickerDismissReason`.
+- The theme definition types `ThemeDefinition`, `PalettePatch`,
+  `PaletteExtra` and `TypographyPatch`.
+
+The old solver gives no contextual type to the items of an array that is in an
+optional or a reactive option. Examples are `actions`, `items`, `options`,
+`tabs`, `steps` and `detents`. An optional option is a union with `nil`, and
+a reactive option is a union with `Readable`. The old solver gives a type to an
+array item only when the option type is one table type. Thus no option type can
+fix this. When the items use literal options, give the array a type in a local.
+The root module exports each item type:
+
+| Option | Item type |
+| --- | --- |
+| `Dialog` `actions` | `DialogAction` |
+| `Sheet`, `Popover` and `Notice` `actions` | `OverlayAction` |
+| `Alert` `actions` | `AlertAction` |
+| `RowActions` `leading` and `trailing` | `RowAction` |
+| `Menu` and `SplitButton` `items` | `MenuItem` |
+| `RadialMenu` `items` | `RadialItem` |
+| `Picker` `options` | `PickerOption` |
+| `TabView` `tabs` and `PageView` `pages` | `Tab` |
+| `StepIndicator` `steps` | `Step` |
+| `Table` `columns` | `TableColumn` |
+| `Sheet` `detents` | `SheetDetent` |
+| `ColorPicker` `swatches` | `ColorSwatch` |
+
+The new solver gives a type to the literal items of `Dialog` and `Sheet`
+action arrays without a local. It does not select a member of a union
+item type, such as `MenuItem` and `RadialItem`, for a literal item. It also
+does not infer the value type of a generic constructor, such as `Menu`,
+`Picker`, `RadialMenu` and `Alert`, through a reactive option. These calls
+need the old solver for a check without casts.
+
+
+```luau
+local open = Compose.cell(true)
+local function close()
+    open:set(false)
+end
+local actions: { Facet.DialogAction } = {
+    { id = "stay", label = "Stay", role = "cancel", onActivate = close },
+    { id = "leave", label = "Leave", role = "destructive", onActivate = close },
+}
+local stop = runtime.mount(function()
+    return UI.Dialog { isPresented = open, title = "Leave the race?", actions = actions }
+end, playerGui)
+stop()
+```
+
+A cell of an optional or literal type takes its type from a typed initial
+value: `local initial: string? = nil` and then `Compose.cell(initial)`.
+
+`Toggle`, `TextInput`, `NumberInput`, `Stepper`, `Slider`, `Rating`,
+`LevelPicker`, `Chip`, `ShortcutHint` and `Picker` accept one of several
+binding shapes. Their constructors have one overload for each shape and one for
+the union, in the direct and in the named form. The root module also exports
+the type of each shape, for example `ToggleCellProps` and
+`ToggleRequestProps`. In the old solver, a native Instance property of these controls,
+such as `Parent`, takes only a value of that exact class. The new solver checks
+the first shape (a writable cell) without casts. It does not check the other
+shapes or the items of union typed arrays without casts.
 
 Drag callbacks receive an `unknown` payload. This includes
 `DraggableSpec.onStart` and the payload argument of every `DropTargetSpec`
@@ -115,6 +214,8 @@ The app has these fields:
 | `UI` | `Facet.controls(runtime, options)`. |
 | `mount(component, parent?)` | Mounts a ScreenGui into `parent`, `options.parent` or the PlayerGui of the local player. The ScreenGui holds a StyleSheet from `Facet.themes.createStyleSheet(runtime, options.theme)`, a StyleLink to that sheet, and the result of `component()`. In a PlayerGui it also mounts `UI.focusRing(playerGui)` (see [environment](#environment)). It returns the stop function and the ScreenGui. |
 | `refusal(control, spec)` | Asks whether the control `UI[control]` takes `spec`. It returns the words of the error that the constructor raises, or nil when the constructor accepts the spec. It builds the control under a temporary Compose owner and releases it at once, so nothing mounts. A refusal that only a later update can raise, such as a readable that changes to a refused value, is not answered. An unknown control name is an error. Use it to offer only the combinations that a control accepts, for example in a catalog or an editor. |
+| `construct(control, spec)` | Calls the constructor `UI[control]` with `spec` and returns its root. `control` must name a constructor, which starts with a capital letter. Call it inside a Compose owner, as you call the constructor itself. The constructor checks `spec` at run time and raises its usual errors. Use it when data selects the control, for example in a catalog or an editor. In other code, call the constructor directly, so that strict mode checks the properties. |
+| `controlNames()` | Returns the sorted names of the members of `UI`: the constructors and the helper functions. |
 | `presentToast(component, options?)` | Shows `component(app.UI)` as a `UI.Toast` in the app's shared toast ScreenGui and returns `{ id, dismiss() }`. See [Toast](#toast). |
 | `presentAnchored(component, options)` | Shows `component(app.UI)` in a `UI.Popover` against `options.source` (`{ node }` or `{ rect }`), in its own ScreenGui from `mount`. `options` takes the Popover placement keys (`edge`, `align`, `gap`, `crossOffset`, `tail`, `maxWidth`, `maxHeight`), `modal`, `cancelPolicy` and `onDismiss`. The panel is always anchored, never a sheet. It returns `close, screen`. A dismissal (Cancel, an outside tap, a lost source node) or `close()` reports `onDismiss` once and stops the mount. Use it for a coach mark or a custom anchored panel that no control owns. |
 | `dispose()` | Stops each mount of the app. Then it disposes the runtime if the app made it. A second call does nothing. |
@@ -257,8 +358,9 @@ document their own write-then-notify behavior below.
   live fact.
 - `motionLevel` and `icons`: these can also be reactive. `motionLevel` is
   `"normal"` (full motion), `"limited"` or `"none"` (see Motion). If you omit
-  it, motion follows the device: `GuiService.ReducedMotionEnabled` gives
-  `"limited"`, otherwise `"normal"`. The effective level is the stronger of
+  it, or when a readable gives nil, motion follows the device:
+  `GuiService.ReducedMotionEnabled` gives `"limited"`, otherwise `"normal"`.
+  The effective level is the stronger of
   yours and the device's (`"normal"` < `"limited"` < `"none"`): a game can add
   reduction but never remove a player's Reduce Motion. An unknown value given
   when the controls are made is an error, and so is the removed
@@ -1254,8 +1356,8 @@ Frame holds these children in order:
 validate. `required` adds ` *` to the label text, also for a readable label.
 `optional` adds no word. Put localized "optional" text in `hint`.
 
-`leading` and `trailing` are native Instances. `leading` is decoration and is
-not a focus stop. A search field refuses `leading`, because its search mark
+`leading` and `trailing` are children, such as native Instances. `leading` is
+decoration and is not a focus stop. A search field refuses `leading`, because its search mark
 leads. The focusable parts of `trailing` come after the TextBox and the clear
 button.
 
@@ -2244,7 +2346,8 @@ Back and Show detail controls. A gamepad at near viewing distance can use both
 panes.
 
 ```luau
-local column = Compose.cell("sidebar" :: "sidebar" | "detail")
+local first: "sidebar" | "detail" = "sidebar"
+local column = Compose.cell(first)
 local width = Compose.cell(360)
 UI.NavigationSplitView {
     preferredCompactColumn = column,
@@ -2660,7 +2763,10 @@ presentation. The `suppression` checkbox sits below the actions.
 
 ### Sheet
 
-Sheet requires a writable `isPresented` and a writable `detent`. The default
+Sheet requires a writable `isPresented`. `detent` is a writable cell or a
+detent id. With an id or without `detent`, the sheet keeps the selected detent.
+It starts at that id, or at the first detent when the id is not in `detents`.
+With a cell, the sheet writes the selected detent to the cell. The default
 detents are `medium` and `large`. A custom entry is `{ id, fraction }` or
 `{ id, height }`, never both. The `hug` entry fits the body and the pinned
 regions. It measures the content of the body, not the scroll canvas, so it does
@@ -4545,14 +4651,13 @@ While the source is held it has the `facet-drag-held` tag and the
 stays as the empty slot until the drop lands or the source goes back.
 
 ```lua
-UI.draggable(card, { payload = { kind = "sponsor", id = 7 } })
+local sponsors: { [unknown]: number } = {}
+local sponsor = { kind = "sponsor", id = 7 }
+sponsors[sponsor] = sponsor.id
+UI.draggable(card, { payload = sponsor })
 UI.dropTarget(slot, {
 	accepts = function(payload: unknown)
-		if type(payload) ~= "table" then
-			return false, "WRONG_KIND"
-		end
-		local data = payload :: { kind: unknown, id: unknown }
-		if data.kind ~= "sponsor" or type(data.id) ~= "number" then
+		if sponsors[payload] == nil then
 			return false, "WRONG_KIND"
 		end
 		return true

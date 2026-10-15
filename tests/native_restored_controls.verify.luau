@@ -354,7 +354,9 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_restored_controls::native restored controls: Spacer::keeps an explicit native size and refuses an invalid minimum",
 			run = function()
 				local root, engine, stop = build(nil, function(UI: FacetControls)
-					return UI.HStack({ UI.Spacer("Gap")({ Size = Roblox.UDim2.fromOffset(40, 4), minLength = 8 }) })
+					return UI.HStack({
+						UI.Spacer("Gap")({ Size = Roblox.UDim2.fromOffset(40, 4), minLength = 8 }),
+					})
 				end)
 				Verify.expect(root:FindFirstChild("Gap").Size):toBe(engine.types.UDim2.fromOffset(40, 4))
 				stop()

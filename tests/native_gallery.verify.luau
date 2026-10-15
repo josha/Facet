@@ -34,8 +34,8 @@ return function(verifyHarness: Verify.Harness)
 		local viewport = Compose.cell({ width = width or 1280, height = height or 720 })
 		local target = engine.new("Folder")
 		local guiService = engine.new("GuiService")
-		local ctx: ExampleContext = {
-			UI = nil :: any,
+		local ctx: any = {
+			UI = nil,
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
@@ -380,19 +380,19 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		local maintained: { { id: string, kind: "fixture" | "example", module: string, title: string?, blurb: string? } } =
+		local maintained: { { id: string, kind: string, module: string, title: string?, blurb: string? } } =
 			catalogue.list()
 		for _, demo in
 			{
-				{ id = "all-controls", kind = "fixture" :: "fixture", module = "all_controls" },
-				{ id = "collections", kind = "fixture" :: "fixture", module = "collections" },
-				{ id = "motion-layout", kind = "fixture" :: "fixture", module = "motion_layout" },
-				{ id = "radial-menu", kind = "fixture" :: "fixture", module = "radial_menu" },
-				{ id = "ex03", kind = "example" :: "example", module = "03_settings_sync" },
-				{ id = "ex05", kind = "example" :: "example", module = "05_word_game" },
-				{ id = "ex06", kind = "example" :: "example", module = "06_tile_game" },
-				{ id = "ex07", kind = "example" :: "example", module = "07_match3" },
-			} :: { { id: string, kind: "fixture" | "example", module: string, title: string?, blurb: string? } }
+				{ id = "all-controls", kind = "fixture", module = "all_controls" },
+				{ id = "collections", kind = "fixture", module = "collections" },
+				{ id = "motion-layout", kind = "fixture", module = "motion_layout" },
+				{ id = "radial-menu", kind = "fixture", module = "radial_menu" },
+				{ id = "ex03", kind = "example", module = "03_settings_sync" },
+				{ id = "ex05", kind = "example", module = "05_word_game" },
+				{ id = "ex06", kind = "example", module = "06_tile_game" },
+				{ id = "ex07", kind = "example", module = "07_match3" },
+			} :: { { id: string, kind: string, module: string, title: string?, blurb: string? } }
 		do
 			table.insert(maintained, demo)
 		end

@@ -21,7 +21,7 @@ return function(verifyHarness: Verify.Harness)
 		input.GetFocusedTextBox = function()
 			return nil
 		end
-		local ctx = {
+		local ctx: any = {
 			Compose = C,
 			Facet = Facet,
 			runtime = runtime,

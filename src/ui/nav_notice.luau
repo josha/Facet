@@ -1,20 +1,15 @@
 --!strict
+local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local Overlay = require("./overlay_types")
-local Inputs = require("./input_types")
 local ComposeTypes = require("../vendor/compose/core")
 local Theme = require("./theme_types")
 local parts = require("./overlay_parts")
 local reservations = require("./reservations")
 local motion = require("./motion")
 local freeze = require("./freeze")
-
-type Controls = {
-	Notice: Types.Constructor<Overlay.NoticeSpec, Frame>,
-	NavBar: Types.Constructor<Overlay.NavBarSpec, Frame>,
-	Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
-}
+local OverlayProps = require("./overlay_props")
 
 local NOTICE_KEYS = {
 	"message",
@@ -54,7 +49,7 @@ local ICON_TAGS: { [string]: string } = freeze({
 	error = "facet-icon-error",
 })
 
-return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, UD = ctx.types.Enum, ctx.types.UDim2, ctx.types.UDim
 
@@ -65,7 +60,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return ctx.metric("space." .. (value or fallback), use)
 	end
 
-	UI.Notice = ctx.construct("Notice", function(spec: Overlay.NoticeSpec): Frame
+	UI.Notice = ctx.construct("Notice", function(spec: OverlayProps.NoticeSpec): Frame
 		local where = "UI.Notice"
 		if not parts.bound(ctx, spec.message, "string") then
 			error(`Facet {where}: message is required; it is a string or a bound string`, 0)
@@ -538,7 +533,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 		return root
 	end)
 
-	UI.NavBar = ctx.construct("NavBar", function(spec: Overlay.NavBarSpec): Frame
+	UI.NavBar = ctx.construct("NavBar", function(spec: OverlayProps.NavBarSpec): Frame
 		local where = "UI.NavBar"
 		if spec.onBack ~= nil and type(spec.onBack) ~= "function" then
 			error(`Facet {where}: onBack must be a function`, 0)

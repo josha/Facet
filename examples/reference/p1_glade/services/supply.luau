@@ -2,6 +2,7 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
 
 local seedData = require("../content/seed")
@@ -9,22 +10,31 @@ local seedData = require("../content/seed")
 local supply = {}
 
 export type Opts = {
-	Compose: any,
-	rooted: (() -> any) -> any,
-	now: any,
+	Compose: ComposeModule,
+	rooted: <T>(() -> T) -> T,
+	now: Readable<number>,
+}
+export type Stamps = { nectar: Cell<number>, dew: Cell<number> }
+export type GladeSupply = {
+	glade: string,
+	nectar: string,
+	nectarElapsed: number,
+	dewElapsed: number,
+	nectarState: string,
+	dewState: string,
 }
 
 local KINDS = { "nectar", "dew" }
 supply.KINDS = KINDS
 
-function supply.new(opts: Opts): any
+function supply.new(opts: Opts)
 	local Compose: ComposeModule = opts.Compose
 
 	local rooted = opts.rooted
 	local now = opts.now
 
-	local stamps: { [string]: any } = {}
-	local assigned: { [string]: any } = {}
+	local stamps: { [string]: Stamps } = {}
+	local assigned: { [string]: Cell<string> } = {}
 	for _, glade in seedData.GLADES do
 		stamps[glade.id] = {
 			nectar = Compose.cell(-glade.nectarAge),
@@ -35,23 +45,27 @@ function supply.new(opts: Opts): any
 
 	local service = {}
 
-	local levels: { [string]: any } = {}
-	local remainings: { [string]: any } = {}
-	local states: { [string]: any } = {}
+	local levels: { [string]: Readable<number> } = {}
+	local remainings: { [string]: Readable<number> } = {}
+	local states: { [string]: Readable<string> } = {}
 
-	local function elapsedOf(gladeId: string, kind: string, at: number): number
-		local stamp = stamps[gladeId][kind]
-		return at - stamp:peek()
+	local function stampOf(gladeId: string, kind: string): Cell<number>
+		local stamp = stamps[gladeId]
+		return if kind == "dew" then stamp.dew else stamp.nectar
 	end
 
-	function service.remaining(gladeId: string, kind: string): any
+	local function elapsedOf(gladeId: string, kind: string, at: number): number
+		return at - stampOf(gladeId, kind):peek()
+	end
+
+	function service.remaining(gladeId: string, kind: string): Readable<number>
 		local key = gladeId .. "/" .. kind
 		local memo = remainings[key]
 		if memo == nil then
 			memo = rooted(function()
 				return Compose.formula(function(use: Use)
 					local at = use(now)
-					local stamp = use(stamps[gladeId][kind])
+					local stamp = use(stampOf(gladeId, kind))
 					local left = seedData.DRAIN[kind].empty - (at - stamp)
 					return if left < 0 then 0 else left
 				end)
@@ -61,7 +75,7 @@ function supply.new(opts: Opts): any
 		return memo
 	end
 
-	function service.level(gladeId: string, kind: string): any
+	function service.level(gladeId: string, kind: string): Readable<number>
 		local key = gladeId .. "/" .. kind
 		local memo = levels[key]
 		if memo == nil then
@@ -76,14 +90,14 @@ function supply.new(opts: Opts): any
 		return memo
 	end
 
-	function service.state(gladeId: string, kind: string): any
+	function service.state(gladeId: string, kind: string): Readable<string>
 		local key = gladeId .. "/" .. kind
 		local memo = states[key]
 		if memo == nil then
 			memo = rooted(function()
 				return Compose.formula(function(use: Use)
 					local at = use(now)
-					local stamp = use(stamps[gladeId][kind])
+					local stamp = use(stampOf(gladeId, kind))
 					local elapsed = at - stamp
 					local drain = seedData.DRAIN[kind]
 					if elapsed >= drain.empty then
@@ -99,12 +113,12 @@ function supply.new(opts: Opts): any
 		return memo
 	end
 
-	function service.nectarOf(gladeId: string): any
+	function service.nectarOf(gladeId: string): Cell<string>
 		return assigned[gladeId]
 	end
 
 	function service.refill(gladeId: string, kind: string)
-		stamps[gladeId][kind]:set(now:peek())
+		stampOf(gladeId, kind):set(now:peek())
 	end
 
 	function service.assign(gladeId: string, nectarId: string)
@@ -120,8 +134,8 @@ function supply.new(opts: Opts): any
 		end
 	end
 
-	function service.dump(): any
-		local out: { any } = {}
+	function service.dump(): { GladeSupply }
+		local out: { GladeSupply } = {}
 		for _, glade in seedData.GLADES do
 			local at = now:peek()
 			table.insert(out, {

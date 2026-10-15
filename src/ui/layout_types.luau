@@ -11,7 +11,7 @@ export type Align = Types.Align
 export type Distribute = Types.Distribute
 export type Edge = Types.Edge
 export type Axis = "x" | "y" | "xy"
-export type StackProps = Engine.FrameProps & {
+export type StackOptions = {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
 	maxWidth: Types.ValueNumber?,
@@ -21,7 +21,7 @@ export type StackProps = Engine.FrameProps & {
 	distribute: Types.Value<Distribute>?,
 	wrap: Types.ValueBoolean?,
 }
-export type ScreenProps = Engine.FrameProps & {
+export type ScreenOptions = {
 	chrome: ("device" | "band" | "edge")?,
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
@@ -31,7 +31,7 @@ export type ScreenProps = Engine.FrameProps & {
 	align: Types.Value<Align>?,
 	distribute: Types.Value<Distribute>?,
 }
-export type ZStackProps = Engine.FrameProps & {
+export type ZStackOptions = {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
 	maxWidth: Types.ValueNumber?,
@@ -39,7 +39,7 @@ export type ZStackProps = Engine.FrameProps & {
 	alignH: Types.Value<Edge>?,
 	alignV: Types.Value<Edge>?,
 }
-export type ScrollViewProps = Engine.ScrollingFrameProps & {
+export type ScrollViewOptions = {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
 	maxWidth: Types.ValueNumber?,
@@ -49,7 +49,7 @@ export type ScrollViewProps = Engine.ScrollingFrameProps & {
 	align: Types.Value<Align>?,
 	distribute: Types.Value<Distribute>?,
 }
-export type GridProps = Engine.FrameProps & {
+export type GridOptions = {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
 	maxWidth: Types.ValueNumber?,
@@ -62,7 +62,7 @@ export type GridProps = Engine.FrameProps & {
 	aspectRatio: Types.ValueNumber?,
 	align: Types.Value<Edge>?,
 }
-export type AdaptiveStackProps = Engine.FrameProps & {
+export type AdaptiveStackOptions = {
 	padding: Types.Value<Padding>?,
 	width: Types.Value<Extent>?,
 	maxWidth: Types.ValueNumber?,
@@ -72,12 +72,12 @@ export type AdaptiveStackProps = Engine.FrameProps & {
 	distribute: Types.Value<Distribute>?,
 	axis: Types.Value<"x" | "y">?,
 }
-export type ViewThatFitsProps = Engine.FrameProps & {
+export type ViewThatFitsOptions = {
 	width: Types.Value<Extent>?,
 	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,
 }
-export type ErrorBoundaryProps = Engine.FrameProps & {
+export type ErrorBoundaryOptions = {
 	view: () -> Types.Child,
 	fallback: (failure: unknown, retry: () -> ()) -> Types.Child,
 	onError: ((failure: unknown) -> ())?,
@@ -85,12 +85,12 @@ export type ErrorBoundaryProps = Engine.FrameProps & {
 	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,
 }
-export type DividerProps = Engine.FrameProps & {
+export type DividerOptions = {
 	axis: ("x" | "y")?,
 	thickness: (number | string)?,
 	appearance: Types.Value<"standard" | "strong">?,
 }
-export type SpacerProps = Engine.FrameProps & {
+export type SpacerOptions = {
 	minLength: Types.Value<Space>?,
 }
 export type Zone =
@@ -104,7 +104,7 @@ export type Zone =
 	| "bottom"
 	| "bottomRight"
 	| "topbar"
-export type RegionProps = Engine.FrameProps & {
+export type RegionOptions = {
 	zone: Zone,
 	rank: number,
 	mayDrop: boolean?,
@@ -112,21 +112,5 @@ export type RegionProps = Engine.FrameProps & {
 	expand: (() -> Instance)?,
 	reveal: boolean?,
 }
-export type CompositionProps = Engine.FrameProps & { gap: Space?, padding: Padding?, topbar: Engine.ValueBoolean? }
-export type LayoutControls = {
-	Screen: Types.Constructor<ScreenProps, Frame>,
-	VStack: Types.Constructor<StackProps, Frame>,
-	HStack: Types.Constructor<StackProps, Frame>,
-	ZStack: Types.Constructor<ZStackProps, Frame>,
-	ScrollView: Types.Constructor<ScrollViewProps, ScrollingFrame>,
-	Grid: Types.Constructor<GridProps, Frame>,
-	AdaptiveStack: Types.Constructor<AdaptiveStackProps, Frame>,
-	ViewThatFits: Types.Constructor<ViewThatFitsProps, Frame>,
-	ErrorBoundary: Types.Constructor<ErrorBoundaryProps, Frame>,
-	Divider: Types.Constructor<DividerProps, Frame>,
-	Spacer: Types.Constructor<SpacerProps, Frame>,
-	Composition: Types.Constructor<CompositionProps, Frame>,
-	Region: Types.Constructor<RegionProps, Frame>,
-	fill: (weight: number?) -> UIFlexItem,
-}
+export type CompositionOptions = { gap: Space?, padding: Padding?, topbar: Engine.ValueBoolean? }
 return {}

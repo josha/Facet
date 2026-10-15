@@ -1,17 +1,22 @@
 --!strict
 
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
+type ScrollingFrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").ScrollingFrameNativeProps)
 
 return {
 	title = "Leaf capabilities",
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local Facet = ctx.Facet
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 
@@ -24,13 +29,14 @@ return {
 		local frozen = Compose.cell(false)
 		local narrow = Compose.cell(true)
 
-		local nodes: { [string]: ScrollingFrame | TextLabel } = {}
-		local function solvedNameWidth(_built: any, name: string?): number?
+		local nodes: { [string]: GuiObject } = {}
+		local boardNode: ScrollingFrame? = nil
+		local function solvedNameWidth(name: string?): number?
 			local node = nodes[name or "CutMiddle"]
 			return if node then node.AbsoluteSize.X else nil
 		end
-		local function boardOffset(_built: any): Vector2?
-			return if nodes.Board then (nodes.Board :: ScrollingFrame).CanvasPosition else nil
+		local function boardOffset(): Vector2?
+			return if boardNode then boardNode.CanvasPosition else nil
 		end
 
 		local function Page()
@@ -38,7 +44,7 @@ return {
 				return if use(narrow) then 160 else 320
 			end
 
-			local board = {
+			local board: { Child } = {
 				UI.Text "BoardNote" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
@@ -51,7 +57,7 @@ return {
 				},
 			}
 			for row = 1, 3 do
-				local tiles = {}
+				local tiles: { Frame } = {}
 				for col = 1, 4 do
 					table.insert(
 						tiles,
@@ -67,7 +73,7 @@ return {
 								Size = UDim2.new(1, 0, 0, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
 								text = `sector {row}-{col}`,
-								textRole = "body" :: "body",
+								textRole = "body",
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
 								TextXAlignment = Enum.TextXAlignment.Left,
@@ -81,21 +87,21 @@ return {
 						})
 					)
 				end
-				table.insert(
-					board,
-					Host.Frame({
-						Name = `BoardRow{row}`,
-						BackgroundTransparency = 1,
-						Size = UDim2.new(0, 0, 0, 0),
-						AutomaticSize = Enum.AutomaticSize.XY,
-						Host.UIListLayout({
-							FillDirection = Enum.FillDirection.Horizontal,
-							SortOrder = Enum.SortOrder.LayoutOrder,
-							Padding = UDim.new(0, 8),
-						}) :: unknown,
-						table.unpack(tiles),
-					})
-				)
+				local rowProps: FrameNativeProps = {
+					Name = `BoardRow{row}`,
+					BackgroundTransparency = 1,
+					Size = UDim2.new(0, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.XY,
+					Host.UIListLayout({
+						FillDirection = Enum.FillDirection.Horizontal,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, 8),
+					}),
+				}
+				for _, tile in tiles do
+					rowProps[#rowProps + 1] = tile
+				end
+				table.insert(board, Host.Frame(rowProps))
 			end
 
 			return Host.Frame "Body" {
@@ -106,14 +112,14 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
+				}),
 				UI.Text "Title" {
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Leaf capabilities",
-					textRole = "title" :: "title",
+					textRole = "title",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -127,27 +133,25 @@ return {
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
 						Wraps = true,
-					}) :: unknown,
-					UI.Button({
+					}),
+					UI.Button "Width" {
 						LayoutOrder = 1,
-						Name = "Width",
 						label = function(use: Use)
 							return if use(narrow) then "Widen" else "Narrow"
 						end,
 						onActivate = function()
 							narrow:set(not narrow:peek())
 						end,
-					}),
-					UI.Button({
+					},
+					UI.Button "Freeze" {
 						LayoutOrder = 2,
-						Name = "Freeze",
 						label = function(use: Use)
 							return if use(frozen) then "Thaw" else "Freeze"
 						end,
 						onActivate = function()
 							frozen:set(not frozen:peek())
 						end,
-					}),
+					},
 				},
 				UI.Text "MarkupHeading" {
 					BackgroundTransparency = 1,
@@ -155,7 +159,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Markup, and the box it reserves",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -244,7 +248,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Direction: right to left",
-					direction = "rtl" :: "rtl",
+					direction = "rtl",
 					TextWrapped = true,
 				},
 				UI.Text "CutHeading" {
@@ -253,7 +257,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Where the cut goes",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -290,7 +294,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "One picture, two modes",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -303,7 +307,7 @@ return {
 						FillDirection = Enum.FillDirection.Horizontal,
 						SortOrder = Enum.SortOrder.LayoutOrder,
 						Padding = UDim.new(0, 8),
-					}) :: unknown,
+					}),
 					Host.ImageLabel({
 						LayoutOrder = 1,
 						Name = "Tiled",
@@ -331,13 +335,13 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "A canvas with two axes",
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
 				},
 				(function()
-					local node = Host.ScrollingFrame({
+					local boardProps: ScrollingFrameNativeProps = {
 						LayoutOrder = 16,
 						Name = "Board",
 						BackgroundTransparency = 1,
@@ -353,23 +357,25 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
-						}) :: unknown,
+						}),
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
 						}),
-						table.unpack(board),
-					})
-					nodes.Board = node
+					}
+					for _, child in board do
+						boardProps[#boardProps + 1] = child
+					end
+					local node = Host.ScrollingFrame(boardProps)
+					boardNode = node
 					return node
 				end)(),
 			}
 		end
 
-		local built: any
-		built = {
+		return {
 			screen = function()
 				return Host.Frame "LeafCapabilities" {
 					BackgroundTransparency = 1,
@@ -385,17 +391,17 @@ return {
 			end,
 			steps = {
 
-				widen = function(built: any)
+				widen = function()
 					narrow:set(false)
-					return { width = solvedNameWidth(built) }
+					return { width = solvedNameWidth() }
 				end,
-				narrow = function(built: any)
+				narrow = function()
 					narrow:set(true)
-					return { width = solvedNameWidth(built) }
+					return { width = solvedNameWidth() }
 				end,
 
-				freeze = function(built: any)
-					local before = boardOffset(built)
+				freeze = function()
+					local before = boardOffset()
 					frozen:set(true)
 					return { requestedFrozen = true, offsetBefore = before }
 				end,
@@ -412,9 +418,9 @@ return {
 					guest = GUEST,
 					escaped = (GUEST:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")),
 					art = ART,
-					width = solvedNameWidth(built),
-					endWidth = solvedNameWidth(built, "CutEnd"),
-					offset = boardOffset(built),
+					width = solvedNameWidth(),
+					endWidth = solvedNameWidth("CutEnd"),
+					offset = boardOffset(),
 				}
 			end,
 			reset = function()
@@ -422,6 +428,5 @@ return {
 				narrow:set(true)
 			end,
 		}
-		return built
 	end,
 }

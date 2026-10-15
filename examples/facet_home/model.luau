@@ -2,6 +2,11 @@
 
 export type Item = { kind: string, rotation: number, palette: string }
 export type Layout = { schema: string, revision: number, slots: { [string]: Item } }
+export type Stored = {
+	schema: unknown,
+	revision: unknown,
+	slots: { [unknown]: { kind: unknown, rotation: unknown, palette: unknown } },
+}
 local model = {}
 model.catalog = {
 	{ id = "sofa", name = "Leather loveseat", category = "Comfort" },
@@ -16,7 +21,7 @@ model.SLOTS = 6
 function model.empty(): Layout
 	return { schema = "facet-home/1", revision = 0, slots = {} }
 end
-function model.validate(value: any): Layout
+function model.validate(value: Stored): Layout
 	assert(type(value) == "table" and value.schema == "facet-home/1", "Unsupported home layout")
 	assert(type(value.revision) == "number" and value.revision % 1 == 0 and value.revision >= 0, "Invalid revision")
 	assert(type(value.slots) == "table", "Invalid room slots")
@@ -34,6 +39,7 @@ function model.validate(value: any): Layout
 			"Invalid room slot"
 		)
 		assert(type(item) == "table", "Invalid furniture")
+		assert(type(item.kind) == "string", "Unknown furniture")
 		local known = false
 		for _, entry in model.catalog do
 			known = known or entry.id == item.kind
@@ -43,22 +49,29 @@ function model.validate(value: any): Layout
 			type(item.rotation) == "number" and item.rotation % 1 == 0 and item.rotation >= 0 and item.rotation < 4,
 			"Invalid rotation"
 		)
-		assert(table.find(model.palettes, item.palette), "Unknown palette")
+		assert(type(item.palette) == "string" and table.find(model.palettes, item.palette), "Unknown palette")
 		clean.slots[key] = { kind = item.kind, rotation = item.rotation, palette = item.palette }
 	end
 	return clean
 end
-function model.edit(value: Layout, operation: string, slot: number, kind: string?, palette: string?): Layout
+function model.edit(value: Layout, operation: string, slot: number, kind: unknown, palette: unknown): Layout
 	local nextValue = model.validate(value)
 	assert(slot % 1 == 0 and slot >= 1 and slot <= model.SLOTS, "Choose a room slot")
 	local key = tostring(slot)
 	if operation == "place" then
-		nextValue.slots[key] = { kind = assert(kind), rotation = 0, palette = palette or "sage" }
+		local piece = assert(kind)
+		local finish = palette or "sage"
+		assert(type(piece) == "string", "Unknown furniture")
+		assert(type(finish) == "string", "Unknown palette")
+		nextValue.slots[key] = { kind = piece, rotation = 0, palette = finish }
 	elseif operation == "rotate" then
 		local item = assert(nextValue.slots[key], "This slot is empty")
 		item.rotation = (item.rotation + 1) % 4
 	elseif operation == "paint" then
-		assert(nextValue.slots[key], "This slot is empty").palette = assert(palette)
+		local item = assert(nextValue.slots[key], "This slot is empty")
+		local finish = assert(palette)
+		assert(type(finish) == "string", "Unknown palette")
+		item.palette = finish
 	elseif operation == "remove" then
 		nextValue.slots[key] = nil
 	else
@@ -66,7 +79,7 @@ function model.edit(value: Layout, operation: string, slot: number, kind: string
 	end
 	return model.validate(nextValue)
 end
-function model.replace(previous: any, expectedRevision: number, draft: Layout): Layout
+function model.replace(previous: Stored?, expectedRevision: number, draft: Layout): Layout
 	local old = if previous then model.validate(previous) else model.empty()
 	assert(old.revision == expectedRevision, "Home changed in another session")
 	local nextValue = model.validate(draft)

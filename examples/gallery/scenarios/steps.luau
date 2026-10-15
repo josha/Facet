@@ -4,6 +4,7 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type OptionalStringCell = typeof(require("@repo/tools/typecheck/aliases").OptionalStringCell)
 type Step = typeof(require("@repo/tools/typecheck/aliases").Step)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Steps",
 	refuse = "Refuse changes",
@@ -20,7 +21,7 @@ return {
 	title = "Steps",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
@@ -30,13 +31,13 @@ return {
 			return Compose.cell(value)
 		end)("ship")
 		local steps: { Step } = {
-			{ id = "cart", label = copy.cart, state = "complete" :: "complete", navigable = true },
+			{ id = "cart", label = copy.cart, state = "complete", navigable = true },
 			{ id = "ship", label = copy.shipping, description = copy.shippingNote, navigable = true },
 			{
 				id = "pay",
 				label = copy.payment,
 				description = copy.paymentNote,
-				state = "error" :: "error",
+				state = "error",
 				navigable = true,
 			},
 			{ id = "review", label = copy.review },
@@ -47,7 +48,7 @@ return {
 			end
 		end
 		local function section()
-			return Host.Frame "Steps" {
+			return Host.Frame("Steps")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -55,41 +56,38 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
-				UI.Text({
-					Name = "Title",
+				}),
+				UI.Text "Title" {
 					LayoutOrder = 1,
 					text = copy.title,
-					textRole = "heading" :: "heading",
+					textRole = "heading",
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.Toggle({ Name = "Refuse", LayoutOrder = 2, label = copy.refuse, value = refuse }),
-				UI.StepIndicator({
-					Name = "Checkout",
+				},
+				UI.Toggle "Refuse" { LayoutOrder = 2, label = copy.refuse, value = refuse },
+				UI.StepIndicator "Checkout" {
 					LayoutOrder = 3,
 					steps = steps,
 					current = current,
 					onSelect = select,
-				}),
-				UI.Text({
-					Name = "NarrowTitle",
+				},
+				UI.Text "NarrowTitle" {
 					LayoutOrder = 4,
 					text = copy.narrow,
-					textRole = "label" :: "label",
+					textRole = "label",
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				Host.Frame "NarrowBox" {
+				},
+				Host.Frame("NarrowBox")({
 					LayoutOrder = 5,
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(0.5, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					UI.StepIndicator({ Name = "Compact", steps = steps, current = current, onSelect = select }),
-				},
-			}
+					UI.StepIndicator "Compact" { steps = steps, current = current, onSelect = select },
+				}),
+			})
 		end
 		return {
 			section = section,

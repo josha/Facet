@@ -14,10 +14,10 @@ end
 local SELECTED_TINT = { r = 0.68, g = 0.78, b = 0.9 }
 
 local FAMILY = "rbxasset://fonts/families/BuilderSans.json"
-local SIZES = { caption = 11, label = 12, body = 13, control = 13, heading = 17, title = 22 }
+local SIZES: { [string]: number } = { caption = 11, label = 12, body = 13, control = 13, heading = 17, title = 22 }
 
-local function typography(): any
-	local out: any = {}
+local function typography(): { [string]: { [string]: unknown } }
+	local out: { [string]: { [string]: unknown } } = {}
 	for role, size in SIZES do
 		out[role] = { font = { family = FAMILY }, size = size, lineHeight = 1.25 }
 	end
@@ -188,14 +188,14 @@ function compact_pointer.definition(themes: any): any
 		},
 		chrome = {
 			panel = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "compact_panel",
 				contentInsets = { top = 8, right = 8, bottom = 8, left = 8 },
 				fallback = "native",
 			},
 
 			control = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = {
 					default = "compact_button_default",
 					hover = "compact_button_hover",
@@ -206,53 +206,53 @@ function compact_pointer.definition(themes: any): any
 				fallback = "native",
 			},
 			field = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "compact_field",
 				contentInsets = { top = 2, right = 6, bottom = 2, left = 6 },
 				fallback = "native",
 			},
 
 			selection = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = { default = "compact_button_default", selected = "compact_button_hover" },
 				contentInsets = { top = 2, right = 4, bottom = 2, left = 4 },
 				fallback = "native",
 			},
 
-			focus = { kind = "ring" :: "ring" },
+			focus = { kind = "ring" },
 			barTrack = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "compact_bar_track",
 				contentInsets = { top = 0, right = 0, bottom = 0, left = 0 },
 				fallback = "native",
 			},
 			barFill = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "compact_bar_fill",
-				direction = "ltr" :: "ltr",
+				direction = "ltr",
 				fallback = "native",
 			},
 			toggleTrack = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = { default = "compact_toggle_track_off", selected = "compact_toggle_track_on" },
 				fallback = "native",
 			},
 			toggleKnob = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = "compact_toggle_knob",
 				sliced = false,
 				fallback = "native",
 			},
 
 			stepperPlate = {
-				kind = "nineSlice" :: "nineSlice",
+				kind = "nineSlice",
 				asset = { default = "compact_stepper_plate_default", pressed = "compact_stepper_plate_pressed" },
 				sliced = true,
 				contentInsets = { top = 2, right = 2, bottom = 2, left = 2 },
 				fallback = "native",
 			},
-			divider = { kind = "native" :: "native" },
-			scrollbar = { kind = "native" :: "native" },
+			divider = { kind = "native" },
+			scrollbar = { kind = "native" },
 		},
 
 		icons = { ["facet:search"] = "search" },

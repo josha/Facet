@@ -5,6 +5,7 @@ type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 local seed = require("@self/content/seed")
@@ -15,12 +16,12 @@ local visitsService = require("@self/services/visits")
 local referenceView = require("./view")
 local Glade = { title = "Glade" }
 function Glade.build(ctx: ExampleContext)
-	local Compose: ComposeModule, Host, UI, runtime = ctx.Compose, ctx.Host, ctx.UI, ctx.runtime
+	local Compose, Host, UI, runtime = ctx.Compose, ctx.Host, ctx.UI, ctx.runtime
 	local D2, V2, C3, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Color3, ctx.types.Enum
 	local view = referenceView(ctx)
 	local owner = assert(Compose.currentOwner())
 	local now, locale = Compose.cell(0), Compose.cell("en")
-	local function rooted(body)
+	local function rooted<T>(body: () -> T): T
 		return Compose.withOwner(owner, body)
 	end
 	local supply = supplyService.new({ Compose = Compose, now = now, rooted = rooted })
@@ -28,8 +29,10 @@ function Glade.build(ctx: ExampleContext)
 	local visits =
 		visitsService.new({ Compose = Compose, now = now, rooted = rooted, charmTier = commerce.charmTier() })
 	local section, search = Compose.cell("glades"), Compose.cell("")
-	local selected, detailOpen, shopOpen, wisp, wispOpen =
-		Compose.cell("mossholm"), Compose.cell(false), Compose.cell(false), Compose.cell(nil), Compose.cell(false)
+	local selected, detailOpen, shopOpen, wispOpen =
+		Compose.cell("mossholm"), Compose.cell(false), Compose.cell(false), Compose.cell(false)
+	local noWisp: string? = nil
+	local wisp: Cell<string?> = Compose.cell(noWisp)
 	local notice, complete = Compose.cell(""), Compose.cell(false)
 	local keeperName, keeperContact = Compose.cell(seed.KEEPER.displayName), Compose.cell(seed.KEEPER.contact)
 	local draftName, draftContact = Compose.cell(seed.KEEPER.displayName), Compose.cell(seed.KEEPER.contact)
@@ -49,11 +52,11 @@ function Glade.build(ctx: ExampleContext)
 	for _, glade in seed.GLADES do
 		favorites[glade.id] = Compose.cell(glade.favourite)
 	end
-	local function L(key, subs)
+	local function L(key: string, subs: { [string]: string }?): string
 		return strings.get(locale:peek(), key, subs)
 	end
-	local function text(key, subs)
-		return function(use: Use)
+	local function text(key: string, subs: { [string]: string }?): (Use) -> string
+		return function(use: Use): string
 			return strings.get(use(locale), key, subs)
 		end
 	end
@@ -63,7 +66,7 @@ function Glade.build(ctx: ExampleContext)
 		end)
 		commerce.update(now:peek())
 	end
-	local heartbeat = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
+	local heartbeat: RBXScriptSignal? = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
 	if heartbeat then
 		local beat = heartbeat:Connect(advance)
 		Compose.cleanup(function()
@@ -131,13 +134,13 @@ function Glade.build(ctx: ExampleContext)
 		supply.assign(id, nectarId)
 		return true
 	end
-	local function open(id)
+	local function open(id: string)
 		selected:set(id)
 		detailOpen:set(true)
 	end
-	local filtered = Compose.formula(function(use: Use)
+	local filtered = Compose.formula(function(use: Use): { seed.Glade }
 		local query, which = string.lower(use(search)), use(section)
-		local result = {}
+		local result: { seed.Glade } = {}
 		for _, glade in seed.GLADES do
 			local favorite = use(favorites[glade.id])
 			if
@@ -149,7 +152,7 @@ function Glade.build(ctx: ExampleContext)
 		end
 		return result
 	end)
-	local function scene(gladeId)
+	local function scene(gladeId: string): Frame
 		local visitor = visits.current(gladeId)
 		return Host.Frame "LivingGlade" {
 			Size = D2.new(1, 0, 0, 190),
@@ -168,11 +171,11 @@ function Glade.build(ctx: ExampleContext)
 				Size = D2.fromScale(1, 0.3),
 				BackgroundColor3 = C3.new(seed.MOSS[1], seed.MOSS[2], seed.MOSS[3]),
 				BorderSizePixel = 0,
-			} :: unknown,
+			},
 			Compose.show(function(use: Use)
 				return use(visitor) ~= nil
 			end, function()
-				local id = visitor:peek().wisp
+				local id = assert(visitor:peek()).wisp
 				local definition = seed.WISP_BY_ID[id]
 				return Host.Frame({
 					Name = id,
@@ -222,12 +225,16 @@ function Glade.build(ctx: ExampleContext)
 			},
 			view.text("Recent visitors", 22),
 			view.column("Visits", {
-				view.list(visits.recent(id), function(current)
+				view.watch(function(use: Use): { visitsService.Recent }
+					return use(visits.recent(id))
+				end, function(current: Readable<visitsService.Recent>): GuiObject
 					local visit = current:peek()
 					return view.action(visit.id, text("wisp." .. visit.wisp), function()
 						wisp:set(visit.wisp)
 						wispOpen:set(true)
 					end)
+				end, function(visit: visitsService.Recent): string
+					return visit.id
 				end),
 			}),
 		})
@@ -249,7 +256,9 @@ function Glade.build(ctx: ExampleContext)
 			end),
 			UI.TextInput "Search" { value = search, placeholder = "Search glades" },
 			view.column("Glades", {
-				view.list(filtered, function(current)
+				view.watch(function(use: Use): { seed.Glade }
+					return use(filtered)
+				end, function(current: Readable<seed.Glade>): GuiObject
 					local glade = current:peek()
 					return view.column(glade.id, {
 						scene(glade.id),
@@ -263,6 +272,8 @@ function Glade.build(ctx: ExampleContext)
 								.. use(supply.state(glade.id, "nectar"))
 						end),
 					})
+				end, function(glade: seed.Glade): string
+					return glade.id
 				end),
 			}),
 		})
@@ -271,7 +282,7 @@ function Glade.build(ctx: ExampleContext)
 		return view.page("Wisps", {
 			view.text("Wisps", 28),
 			view.column("Visitors", {
-				view.list(seed.WISPS, function(current)
+				view.list(seed.WISPS, function(current: Readable<seed.Wisp>): GuiObject
 					local item = current:peek()
 					return view.column(item.id, {
 						view.action("Open", text("wisp." .. item.id), function()
@@ -281,6 +292,8 @@ function Glade.build(ctx: ExampleContext)
 						view.text("Favorite nectar: " .. L("nectar." .. item.favourite)),
 						view.text("Visits at " .. item.phase),
 					})
+				end, function(item: seed.Wisp): string
+					return item.id
 				end),
 			}),
 		})
@@ -301,9 +314,9 @@ function Glade.build(ctx: ExampleContext)
 					end, function(use: Use)
 						return use(commerce.status(pack.id)) ~= "pending"
 					end),
-					view.text(function(use: Use)
-						return use(commerce.status(pack.id))
-							.. (if use(commerce.reason(pack.id)) then ": " .. use(commerce.reason(pack.id)) else "")
+					view.text(function(use: Use): string
+						local reason = use(commerce.reason(pack.id))
+						return use(commerce.status(pack.id)) .. (if reason then ": " .. reason else "")
 					end),
 				})
 			)
@@ -352,53 +365,66 @@ function Glade.build(ctx: ExampleContext)
 			end
 		end
 		table.insert(children, view.action("Restore", "Restore provisions", commerce.restore))
+		local locales: { PickerOption } = {
+			{ value = "en", label = "English" },
+			{ value = "xa", label = "Expanded" },
+		}
 		table.insert(
 			children,
 			UI.Picker "Locale" {
 				selected = locale,
-				options = {
-					{ value = "en", label = "English" } :: PickerOption,
-					{ value = "xa", label = "Expanded" } :: PickerOption,
-				},
+				options = locales,
 			}
 		)
 		return view.page("Keeper", children)
 	end
 	local function screen()
+		local destinations: { Tab } = {
+			{ id = "glades", label = "Glades", content = overview },
+			{ id = "favorites", label = "Favorites", content = overview },
+			{ id = "wisps", label = "Wisps", content = wisps },
+			{
+				id = "flora",
+				label = "Flora",
+				content = function(): Instance
+					return view.page("Flora", {
+						view.list(seed.FLORA, function(current: Readable<seed.Flora>): GuiObject
+							local item = current:peek()
+							return view.column(item.id, {
+								view.text(text("flora." .. item.id), 24),
+								view.text(text("flora.species." .. item.id)),
+								Host.Frame({
+									Size = D2.new(1, 0, 0, 80),
+									BorderSizePixel = 0,
+									BackgroundColor3 = C3.new(item.art[1], item.art[2], item.art[3]),
+								}),
+							})
+						end, function(item: seed.Flora): string
+							return item.id
+						end),
+					})
+				end,
+			},
+			{ id = "keeper", label = "Keeper", content = keeper },
+		}
+		local resetActions: { AlertAction } = {
+			{ id = "cancel", label = text("keeper.keep"), role = "cancel" },
+			{
+				id = "reset",
+				label = text("keeper.startOver"),
+				role = "destructive",
+				onActivate = reset,
+			},
+		}
 		return Host.Frame "Glade" {
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
 			UI.TabView "Destinations" {
 				selection = section,
-				style = "sidebarAdaptable" :: "sidebarAdaptable",
+				style = "sidebarAdaptable",
 				Size = D2.new(1, 0, 1, -64),
-				tabs = {
-					{ id = "glades", label = "Glades", content = overview } :: Tab,
-					{ id = "favorites", label = "Favorites", content = overview } :: Tab,
-					{ id = "wisps", label = "Wisps", content = wisps } :: Tab,
-					{
-						id = "flora",
-						label = "Flora",
-						content = function(): Instance
-							return view.page("Flora", {
-								view.list(seed.FLORA, function(current)
-									local item = current:peek()
-									return view.column(item.id, {
-										view.text(text("flora." .. item.id), 24),
-										view.text(text("flora.species." .. item.id)),
-										Host.Frame({
-											Size = D2.new(1, 0, 0, 80),
-											BorderSizePixel = 0,
-											BackgroundColor3 = C3.new(item.art[1], item.art[2], item.art[3]),
-										}),
-									})
-								end),
-							})
-						end,
-					} :: Tab,
-					{ id = "keeper", label = "Keeper", content = keeper } :: Tab,
-				},
-			} :: unknown,
+				tabs = destinations,
+			},
 			UI.Text({
 				text = notice,
 				Position = D2.new(0, 16, 1, -60),
@@ -431,15 +457,7 @@ function Glade.build(ctx: ExampleContext)
 				isPresented = resetOpen,
 				title = Compose.formula(text("keeper.confirmTitle")),
 				message = Compose.formula(text("keeper.confirmBody")),
-				actions = {
-					{ id = "cancel", label = text("keeper.keep"), role = "cancel" :: "cancel" } :: AlertAction,
-					{
-						id = "reset",
-						label = text("keeper.startOver"),
-						role = "destructive" :: "destructive",
-						onActivate = reset,
-					} :: AlertAction,
-				},
+				actions = resetActions,
 			},
 			UI.Sheet "Detail" {
 				title = "Glade",

@@ -5,9 +5,10 @@ type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Background transparency",
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
 		local UDim, UDim2, Color3, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Color3, ctx.types.Enum
 		local gui = ctx.guiService
@@ -35,12 +36,15 @@ return {
 			})
 		end
 		local function screen()
+			local closeActions: { AlertAction } = {
+				{ id = "Close", label = "Close", role = "cancel" },
+			}
 			return UI.ScrollView "PreferredTransparency" {
 				padding = 16,
 				gap = 12,
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				UI.Text({ text = "Background transparency", TextSize = 24 }) :: unknown,
+				UI.Text({ text = "Background transparency", TextSize = 24 }),
 				UI.Text({
 					text = "Change Background transparency in the Roblox menu under Settings. Facet scales translucent theme surfaces and modal backdrops by your setting. An authored group fade stays independent.",
 				}),
@@ -53,12 +57,12 @@ return {
 					return 0.5 * use(preference)
 				end),
 				panel("Opaque panel", 0),
-				Host.CanvasGroup "AuthoredFade" {
+				Host.CanvasGroup("AuthoredFade")({
 					Size = UDim2.fromOffset(200, 96),
 					BackgroundTransparency = 1,
 					GroupTransparency = 0.5,
 					panel("Authored fade", 0),
-				},
+				}),
 				UI.Button "Open" {
 					label = "Open a dialog",
 					onActivate = function()
@@ -69,9 +73,7 @@ return {
 					isPresented = opened,
 					title = "Modal backdrop",
 					message = "This backdrop darkens as you lower Background transparency.",
-					actions = {
-						{ id = "Close", label = "Close", role = "cancel" :: "cancel" } :: AlertAction,
-					},
+					actions = closeActions,
 				},
 			}
 		end

@@ -6,16 +6,41 @@ local roblox = require("../../../tools/vendor/verify/src/roblox").datatypes
 
 local FACET = "../../src/ui/"
 
-local env = {}
-for key, value in roblox :: any do
+type Props = { [unknown]: unknown }
+type Source = Props | (unknown) -> Props
+type Axis = { key: string, values: { unknown }, props: Source?, implies: { [unknown]: Source }?, matrix: boolean? }
+type State = { name: string, props: Source? }
+type PageData = {
+	family: string,
+	alias: string?,
+	base: Source?,
+	axes: { Axis }?,
+	states: { State }?,
+	demonstrates: { string }?,
+	matrix: boolean?,
+	recipe: unknown,
+	facet: unknown,
+	scenarios: { string }?,
+}
+
+local function list<T>(items: { T }?): { T }
+	return items or {}
+end
+local function map<K, V>(items: { [K]: V }?): { [K]: V }
+	return items or {}
+end
+
+local env: { [string]: unknown } = {}
+for key, value in pairs(roblox) do
 	env[key] = value
 end
 env.require = function(path: string): unknown
 	local name = assert(string.match(path, "^%./([%w_]+)$"))
 	return Lute.chunk.load(fs.readFileToString(`src/{name}.luau`), { name = name, environment = env })()
 end
+type Catalog = { PAGE_DATA: { [string]: PageData } }
 local catalog =
-	Lute.chunk.load(fs.readFileToString("src/catalog.luau"), { name = "catalog", environment = env })() :: any
+	Lute.chunk.load(fs.readFileToString("src/catalog.luau"), { name = "catalog", environment = env })() :: Catalog
 
 local bodies: { [string]: string } = {}
 for _, entry in fs.listDirectory(FACET) do
@@ -23,7 +48,7 @@ for _, entry in fs.listDirectory(FACET) do
 	if string.match(name, "_types%.luau$") and name ~= "engine_types.luau" then
 		local source = fs.readFileToString(FACET .. name) .. "\nexport type __END = nil\n"
 		for start, typeName in string.gmatch(source, "()export type ([%w_]+)") do
-			local rest = string.sub(source, tonumber(start) :: number)
+			local rest = string.sub(source, assert(tonumber(start)))
 
 			local body = string.match(rest, "^export type [%w_]+[^\n]*=(.-)\nexport type ")
 				or string.match(rest, "^export type [%w_]+[^\n]*=(.-)\nreturn")
@@ -110,20 +135,129 @@ end
 local specs: { [string]: { [string]: string } } = {}
 local names = {}
 
-local groups: { [string]: boolean } = {}
-for group in string.gmatch(fs.readFileToString(FACET .. "control_types.luau"), ":: [%w_]+%.([%w_]+Controls)%)") do
-	groups[group] = true
+local function trim(text: string): string
+	return (string.gsub(text, "^%s*(.-)%s*$", "%1"))
 end
-for typeName, body in bodies do
-	if groups[typeName] then
-		for line in string.gmatch(body, "[^\n]+") do
-			local control, expr = string.match(line, "^\t([%a_][%w_]*): (.+),$")
-			if control then
-				local props = propsTypeOf(assert(expr))
-				specs[control] = if props then optionsOf(props) else {}
-				table.insert(names, control)
+
+local function arguments(list: string): { string }
+	local out: { string } = {}
+	local depth, start = 0, 1
+	for i = 1, #list do
+		local ch = string.sub(list, i, i)
+		if ch == "(" or ch == "<" or ch == "{" then
+			depth += 1
+		elseif ch == ")" or ch == "}" or (ch == ">" and string.sub(list, i - 1, i - 1) ~= "-") then
+			depth -= 1
+		elseif ch == "," and depth == 0 then
+			table.insert(out, trim(string.sub(list, start, i - 1)))
+			start = i + 1
+		end
+	end
+	table.insert(out, trim(string.sub(list, start)))
+	return out
+end
+
+type Shape = { fields: { [string]: string }, slots: { [string]: number } }
+type Instance = { shape: string, args: { string } }
+
+local origins: { [string]: { [string]: string } } = {}
+for _, entry in fs.listDirectory(FACET) do
+	local name = entry.name
+	if string.match(name, "_props%.luau$") then
+		local source = fs.readFileToString(FACET .. name)
+		local aliases: { [string]: string } = {}
+		for alias, typeName in string.gmatch(source, "\nlocal ([%w_]+) = %(nil :: unknown%) :: [%w_]+%.([%w_]+)") do
+			aliases[assert(alias)] = assert(typeName)
+		end
+		local function originOf(expression: string, field: string): string?
+			local alias = string.match(expression, "^typeof%(([%w_]+)%.[%w_]+%)$")
+			local optionTable = if alias
+				then aliases[alias]
+				else string.match(expression, "^typeof%(%(%(nil :: unknown%) :: [%w_]+%.([%w_]+)")
+			return if optionTable then optionsOf(optionTable)[field] or optionTable else nil
+		end
+		local shapes: { [string]: Shape } = {}
+		local instances: { [string]: Instance } = {}
+		local declarations = string.gsub(source, "\nexport type ", "\ntype ")
+		for _, chunk in string.split(declarations, "\ntype ") do
+			local typeName = string.match(chunk, "^([%w_]+)")
+			if typeName then
+				local params = string.split(string.match(chunk, "^[%w_]+<([^>]*)> = {") or "", ", ")
+				local shape: Shape = { fields = {}, slots = {} }
+				for line in string.gmatch(chunk, "[^\n]+") do
+					local field, expression = string.match(line, "^\t([%l_][%w_]*): (.+),$")
+					if field and expression then
+						local slot = table.find(params, expression)
+						if slot then
+							shape.slots[field] = slot
+						else
+							local origin = originOf(expression, field)
+							if origin then
+								shape.fields[field] = origin
+							end
+						end
+					end
+				end
+				origins[typeName] = shape.fields
+				if next(shape.slots) then
+					shapes[typeName] = shape
+				end
+				local target, list = string.match(chunk, "^[%w_]+[^\n]-%s=%s([%w_]+)(%b<>)")
+				if target and list then
+					instances[typeName] = { shape = target, args = arguments(string.sub(list, 2, -2)) }
+				end
 			end
 		end
+		for typeName, instance in instances do
+			local shape = shapes[instance.shape]
+			if shape then
+				local fields = table.clone(shape.fields)
+				for field, slot in shape.slots do
+					local argument = instance.args[slot]
+					local origin = if argument then originOf(argument, field) else nil
+					if origin then
+						fields[field] = origin
+					end
+				end
+				origins[typeName] = fields
+			end
+		end
+	end
+end
+local controlTypes = fs.readFileToString(FACET .. "control_types.luau")
+local constructors: { [string]: string } = {}
+local collecting: string? = nil
+for line in string.gmatch(controlTypes, "[^\n]+") do
+	local opened = string.match(line, "^type ([%w_]+Shapes) =")
+	if opened then
+		collecting = opened
+		constructors[opened] = ""
+	elseif collecting and string.sub(line, 1, 1) == "\t" then
+		constructors[collecting] ..= line
+	else
+		collecting = nil
+	end
+end
+local controlsBody = assert(string.match(controlTypes, "export type Controls = {\n(.-)\n}"))
+for line in string.gmatch(controlsBody, "[^\n]+") do
+	local control, expr = string.match(line, "^\t([%a_][%w_]*): (.+),$")
+	if control and expr then
+		local source: string = expr
+		if string.match(expr, "^[%w_]+Constructor$") then
+			local shapesName = string.gsub(expr, "Constructor$", "Shapes")
+			source = constructors[shapesName] or expr
+		end
+		local fields: { [string]: string } = {}
+		for propsName in string.gmatch(source, "%.([%w_]+)") do
+			local declared = origins[assert(propsName)]
+			if declared then
+				for field, origin in declared do
+					fields[field] = fields[field] or origin
+				end
+			end
+		end
+		specs[control] = fields
+		table.insert(names, control)
 	end
 end
 table.sort(names)
@@ -149,9 +283,9 @@ local stub = setmetatable({
 		return ANY
 	end,
 })
-local function keysOf(source: any, into: { [string]: boolean })
-	local ok, value = pcall(function()
-		return if type(source) == "function" then source(stub) else source
+local function keysOf(source: Source?, into: { [string]: boolean })
+	local ok, value = pcall(function(): Props?
+		return if typeof(source) == "function" then source(stub) else source
 	end)
 	if ok and type(value) == "table" then
 		for key in value do
@@ -165,17 +299,17 @@ local shownBy: { [string]: { [string]: boolean } } = {}
 for id, data in catalog.PAGE_DATA do
 	local shown: { [string]: boolean } = {}
 	keysOf(data.base, shown)
-	for _, axis in data.axes or {} do
+	for _, axis in list(data.axes) do
 		shown[axis.key] = true
 		keysOf(axis.props, shown)
-		for _, need in axis.implies or {} do
+		for _, need in map(axis.implies) do
 			keysOf(need, shown)
 		end
 	end
-	for _, st in data.states or {} do
+	for _, st in list(data.states) do
 		keysOf(st.props, shown)
 	end
-	for _, key in data.demonstrates or {} do
+	for _, key in list(data.demonstrates) do
 		shown[key] = true
 	end
 	shownBy[id] = shown
@@ -184,6 +318,42 @@ end
 local GLOBAL = { ref = "the root hook every constructor takes" }
 local ALLOW: { [string]: { [string]: string } } = {
 	environment = {},
+	Flash = {
+		color = "the reward sequence page drives Flash through UI.sequence",
+		mode = "the reward sequence page drives Flash through UI.sequence",
+		progress = "the reward sequence page drives Flash through UI.sequence",
+		target = "the reward sequence page drives Flash through UI.sequence",
+	},
+	NavigationSplitView = {
+		compactHeight = "the split view page shows its default columns",
+		compactWidth = "the split view page shows its default columns",
+		detailVisible = "the split view page shows its default columns",
+		maxSidebarHeight = "the split view page shows its default columns",
+		maxSidebarWidth = "the split view page shows its default columns",
+		minDetailHeight = "the split view page shows its default columns",
+		minDetailWidth = "the split view page shows its default columns",
+		minSidebarHeight = "the split view page shows its default columns",
+		minSidebarWidth = "the split view page shows its default columns",
+	},
+	Travel = {
+		content = "the Travel page drives these options from its custom demos",
+		destination = "the Travel page drives these options from its custom demos",
+		lift = "the Travel page drives these options from its custom demos",
+		motion = "the Travel page drives these options from its custom demos",
+		onLanded = "the Travel page drives these options from its custom demos",
+		onStarted = "the Travel page drives these options from its custom demos",
+		stagger = "the Travel page drives these options from its custom demos",
+		transparency = "the Travel page drives these options from its custom demos",
+	},
+	ZoomView = {
+		content = "the ZoomView page drives these options from its custom demo",
+		contentSize = "the ZoomView page drives these options from its custom demo",
+		controls = "the ZoomView page drives these options from its custom demo",
+		doubleTapZoom = "the ZoomView page drives these options from its custom demo",
+		focus = "the ZoomView page drives these options from its custom demo",
+		minZoom = "the ZoomView page drives these options from its custom demo",
+		zoom = "the ZoomView page drives these options from its custom demo",
+	},
 }
 
 if process.args[2] ~= "check" then
@@ -202,12 +372,12 @@ if process.args[2] ~= "check" then
 	end)
 	for _, id in ids do
 		local data = catalog.PAGE_DATA[id]
-		local axes, axisText = data.axes or {}, {}
+		local axes, axisText = list(data.axes), {}
 		for _, axis in axes do
 			table.insert(axisText, `{axis.key}({#axis.values})`)
 		end
 		local states = { "rest" }
-		for _, st in data.states or {} do
+		for _, st in list(data.states) do
 			table.insert(states, st.name)
 		end
 		local cells = if data.matrix == false then 0 else #states * (if axes[1] then #axes[1].values else 1)

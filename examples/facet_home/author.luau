@@ -6,10 +6,22 @@ local document = require("../../tools/designer/modules/document")
 local exporter = require("../../tools/designer/modules/export")
 local agent = require("../../tools/designer/modules/agent")
 local model = require("./model")
+type Props = { [string]: unknown }
+type Entry = { kind: string?, id: string, props: Props }
+type Section = { group: string?, columns: number?, items: { Entry } }
+type Operation = { op: string, node: string, property: string, value: unknown }
+type Column = {
+	id: string,
+	label: string,
+	width: number,
+	minWidth: number?,
+	priority: string | number,
+	sortable: boolean?,
+}
 local output = "examples/facet_home/designs/"
-local function design(name: string, title: string, subtitle: string, sections: { any })
+local function design(name: string, title: string, subtitle: string, sections: { Section })
 	local value = document.new(name)
-	local function add(parent: string, kind: string, label: string, props: any): string
+	local function add(parent: string, kind: string, label: string, props: Props): string
 		local id
 		value, id = document.insert(value, parent, kind)
 		value = document.change(value, id, "name", label)
@@ -64,7 +76,7 @@ local function design(name: string, title: string, subtitle: string, sections: {
 			end
 		end
 	end
-	local operations: { any } = {
+	local operations: { Operation } = {
 		{ op = "set", node = "Heading", property = "textRole", value = "title" },
 		{
 			op = "set",
@@ -88,14 +100,14 @@ local function design(name: string, title: string, subtitle: string, sections: {
 	)
 	fs.writeStringToFile(output .. name .. ".preview.luau", exporter.preview(name, name))
 end
-local slots = {}
+local slots: { Entry } = {}
 for index = 1, model.SLOTS do
 	table.insert(slots, { id = "Slot_" .. index, props = { label = "Place " .. index, appearance = "standard" } })
 end
-local function button(id: string, label: string, appearance: string?): any
+local function button(id: string, label: string, appearance: string?): Entry
 	return { id = id, props = { label = label, appearance = appearance or "standard" } }
 end
-local function text(id: string, label: string): any
+local function text(id: string, label: string): Entry
 	return { kind = "Text", id = id, props = { text = label, wrap = true } }
 end
 design("Home", "Make yourself at home.", "A calm place to create, play, and spend time together.", {
@@ -120,6 +132,18 @@ design("Home", "Make yourself at home.", "A calm place to create, play, and spen
 		},
 	},
 })
+local inventoryColumns: { Column } = {
+	{
+		id = "name",
+		label = "Furniture",
+		width = 220,
+		minWidth = 180,
+		priority = "always",
+		sortable = true,
+	},
+	{ id = "quantity", label = "Placed", width = 82, priority = 2 },
+	{ id = "finish", label = "Next finish", width = 110, priority = 1 },
+}
 design("Furnish", "A room that feels like you.", "Choose a piece. Find its place. Make it yours.", {
 	{
 		items = {
@@ -158,18 +182,7 @@ design("Furnish", "A room that feels like you.", "Choose a piece. Find its place
 						end
 						return rows
 					end)(),
-					columns = {
-						{
-							id = "name",
-							label = "Furniture",
-							width = 220,
-							minWidth = 180,
-							priority = "always",
-							sortable = true,
-						} :: any,
-						{ id = "quantity", label = "Placed", width = 82, priority = 2 } :: any,
-						{ id = "finish", label = "Next finish", width = 110, priority = 1 } :: any,
-					},
+					columns = inventoryColumns,
 					rowActions = {
 						{ id = "choose", label = "Choose", handler = "ChooseFurniture" },
 						{ id = "place", label = "Place here", handler = "PlaceFurniture" },

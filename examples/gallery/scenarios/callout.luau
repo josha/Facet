@@ -1,8 +1,12 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
+type Mark = { id: string, requested: BooleanCell, showing: BooleanCell, retired: BooleanCell }
 
 local COPY = {
 	title = "Two plates, and who raised them",
@@ -36,11 +40,10 @@ return {
 	title = "Coach marks and help",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 
@@ -53,7 +56,7 @@ return {
 			return COPY.pressed .. tostring(use(presses))
 		end)
 
-		local function plate(title: string, sub: string): any
+		local function plate(title: string, sub: string): Frame
 			return Host.Frame "Body" {
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
@@ -62,39 +65,37 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 4),
-				}) :: unknown,
-				UI.Text({
+				}),
+				UI.Text "Title" {
 					LayoutOrder = 1,
-					Name = "Title",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = title,
-					textRole = "body" :: "body",
+					textRole = "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
-				UI.Text({
+				},
+				UI.Text "Sub" {
 					LayoutOrder = 2,
-					Name = "Sub",
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = sub,
-					textRole = "caption" :: "caption",
+					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
-				}),
+				},
 			}
 		end
 
 		local generation = Compose.cell(1)
 
-		local function mark(id: string)
+		local function mark(id: string): Mark
 			return {
 				id = id,
 				requested = Compose.cell(false),
@@ -103,7 +104,7 @@ return {
 			}
 		end
 		local tip, second = mark("AvatarTip"), mark("ShareTip")
-		local function stateOf(entry: any): string
+		local function stateOf(entry: Mark): string
 			if entry.retired:peek() then
 				return "retired"
 			elseif entry.showing:peek() then
@@ -113,12 +114,12 @@ return {
 			end
 			return "waiting"
 		end
-		local function ask(entry: any)
+		local function ask(entry: Mark)
 			if not entry.retired:peek() then
 				entry.requested:set(true)
 			end
 		end
-		local function callbacks(entry: any, onRetire: (string) -> ())
+		local function callbacks(entry: Mark, onRetire: (string) -> ())
 			return {
 				onShow = function()
 					entry.showing:set(true)
@@ -163,16 +164,15 @@ return {
 					FillDirection = Enum.FillDirection.Horizontal,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 0),
-				}) :: unknown,
+				}),
 				anchor,
 				Compose.keyed({
 					from = function(use: Use)
 						return { use(generation) }
 					end,
 					render = function(): GuiObject
-						return UI.Callout({
+						return UI.Callout "AvatarTip" {
 							LayoutOrder = 2,
-							Name = "AvatarTip",
 							anchor = anchor,
 							content = function(): Instance
 								return plate(COPY.tipTitle, COPY.tipSub)
@@ -187,7 +187,7 @@ return {
 							onRetire = events.onRetire,
 							AnchorPoint = Vector2.new(0, 0),
 							Position = UDim2.new(0, 0, 0, 0),
-						})
+						}
 					end,
 				}),
 			}
@@ -210,16 +210,15 @@ return {
 					FillDirection = Enum.FillDirection.Horizontal,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 0),
-				}) :: unknown,
+				}),
 				anchor,
 				Compose.keyed({
 					from = function(use: Use)
 						return { use(generation) }
 					end,
 					render = function(): GuiObject
-						return UI.Callout({
+						return UI.Callout "ShareTip" {
 							LayoutOrder = 2,
-							Name = "ShareTip",
 							anchor = anchor,
 							content = function(): Instance
 								return plate(COPY.secondTitle, COPY.secondSub)
@@ -232,7 +231,7 @@ return {
 							onRetire = events.onRetire,
 							AnchorPoint = Vector2.new(0, 0),
 							Position = UDim2.new(0, 0, 0, 0),
-						})
+						}
 					end,
 				}),
 			}
@@ -281,7 +280,7 @@ return {
 			generation:set(generation:peek() + 1)
 		end
 
-		local function pick(id: string, label: string, onPress: () -> ()): any
+		local function pick(id: string, label: string, onPress: () -> ()): TextButton
 			return UI.Button({
 				Name = id,
 				label = label,
@@ -301,7 +300,7 @@ return {
 					PaddingBottom = UDim.new(0, 16),
 					PaddingLeft = UDim.new(0, 16),
 					PaddingRight = UDim.new(0, 16),
-				}) :: unknown,
+				}),
 				Host.UIListLayout({
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
@@ -312,7 +311,7 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					shareTip() :: unknown,
+					shareTip(),
 					avatarTip(),
 				},
 				UI.ScrollView "Page" {
@@ -321,37 +320,34 @@ return {
 					LayoutOrder = 2,
 					BackgroundTransparency = 1,
 					Size = UDim2.new(1, 0, 0, 0),
-					Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }) :: unknown,
+					Host.UIFlexItem({ FlexMode = Enum.UIFlexMode.Fill }),
 					ScrollBarThickness = 6,
-					UI.Text({
+					UI.Text "Title" {
 						LayoutOrder = 1,
-						Name = "Title",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.title,
-						textRole = "heading" :: "heading",
+						textRole = "heading",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					UI.Text({
+					},
+					UI.Text "Intro" {
 						LayoutOrder = 2,
-						Name = "Intro",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.intro,
-						role = "secondary" :: "secondary",
+						role = "secondary",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					Host.Frame({
+					},
+					Host.Frame "Picks" {
 						LayoutOrder = 3,
-						Name = "Picks",
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -360,7 +356,7 @@ return {
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 8),
 							Wraps = true,
-						}) :: unknown,
+						}),
 						pick("Show", COPY.show, function()
 							ask(tip)
 						end),
@@ -371,36 +367,33 @@ return {
 							featureUsed:set(true)
 						end),
 						pick("Reset", COPY.reset, resetSession),
-					}),
-					UI.Text({
+					},
+					UI.Text "Presses" {
 						LayoutOrder = 4,
-						Name = "Presses",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = pressLine,
-						textRole = "caption" :: "caption",
+						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					UI.Text({
+					},
+					UI.Text "ResetNote" {
 						LayoutOrder = 5,
-						Name = "ResetNote",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.resetNote,
-						textRole = "caption" :: "caption",
+						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
-					Host.Frame({
+					},
+					Host.Frame "Queue" {
 						LayoutOrder = 6,
-						Name = "Queue",
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -408,43 +401,40 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 4),
-						}) :: unknown,
+						}),
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
 						}),
-						UI.Text({
+						UI.Text "QueueTitle" {
 							LayoutOrder = 1,
-							Name = "QueueTitle",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = COPY.queueTitle,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-						UI.Text({
+						},
+						UI.Text "QueueBody" {
 							LayoutOrder = 2,
-							Name = "QueueBody",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = queueLine,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-					}),
-					Host.Frame({
+						},
+					},
+					Host.Frame "State" {
 						LayoutOrder = 7,
-						Name = "State",
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -452,56 +442,52 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 4),
-						}) :: unknown,
+						}),
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
 						}),
-						UI.Text({
+						UI.Text "StateTitle" {
 							LayoutOrder = 1,
-							Name = "StateTitle",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = COPY.stateTitle,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-						UI.Text({
+						},
+						UI.Text "StateBody" {
 							LayoutOrder = 2,
-							Name = "StateBody",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = stateLine,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-						UI.Text({
+						},
+						UI.Text "Reported" {
 							LayoutOrder = 3,
-							Name = "Reported",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = reported,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-					}),
-					Host.Frame({
+						},
+					},
+					Host.Frame "Save" {
 						LayoutOrder = 8,
-						Name = "Save",
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -509,43 +495,40 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 4),
-						}) :: unknown,
+						}),
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
 						}),
-						UI.Text({
+						UI.Text "SaveTitle" {
 							LayoutOrder = 1,
-							Name = "SaveTitle",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = COPY.saveTitle,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-						UI.Text({
+						},
+						UI.Text "SaveBody" {
 							LayoutOrder = 2,
-							Name = "SaveBody",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = saved,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-					}),
-					Host.Frame({
+						},
+					},
+					Host.Frame "Help" {
 						LayoutOrder = 9,
-						Name = "Help",
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
@@ -553,53 +536,50 @@ return {
 							FillDirection = Enum.FillDirection.Vertical,
 							SortOrder = Enum.SortOrder.LayoutOrder,
 							Padding = UDim.new(0, 4),
-						}) :: unknown,
+						}),
 						Host.UIPadding({
 							PaddingTop = UDim.new(0, 8),
 							PaddingBottom = UDim.new(0, 8),
 							PaddingLeft = UDim.new(0, 8),
 							PaddingRight = UDim.new(0, 8),
 						}),
-						UI.Text({
+						UI.Text "HelpTitle" {
 							LayoutOrder = 1,
-							Name = "HelpTitle",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = COPY.helpTitle,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-						UI.Text({
+						},
+						UI.Text "HelpBody" {
 							LayoutOrder = 2,
-							Name = "HelpBody",
 							BackgroundTransparency = 1,
 							BorderSizePixel = 0,
 							Size = UDim2.new(1, 0, 0, 0),
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = COPY.helpNote,
-							textRole = "caption" :: "caption",
+							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
 							TextXAlignment = Enum.TextXAlignment.Left,
-						}),
-					}),
-					UI.Text({
+						},
+					},
+					UI.Text "Note" {
 						LayoutOrder = 10,
-						Name = "Note",
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						Size = UDim2.new(1, 0, 0, 0),
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = COPY.note,
-						textRole = "caption" :: "caption",
+						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
 						TextXAlignment = Enum.TextXAlignment.Left,
-					}),
+					},
 				},
 			}
 		end

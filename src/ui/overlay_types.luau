@@ -45,7 +45,7 @@ export type Edge = "top" | "bottom" | "leading" | "trailing"
 export type Align = "start" | "center" | "end"
 
 export type DialogDismissReason = "close" | "outside" | "cancel" | "action"
-export type DialogSpec = Types.FrameProps & {
+export type DialogOptions = {
 	isPresented: Types.ValueBoolean,
 	onPresentedChange: ((boolean) -> ())?,
 	onDismiss: ((DialogDismissReason) -> ())?,
@@ -60,16 +60,14 @@ export type DialogSpec = Types.FrameProps & {
 	contentSelectable: boolean?,
 }
 
-export type DialogConstructor = ((DialogSpec) -> Frame) & ((string) -> (DialogSpec) -> Frame)
-
 export type PopoverDismissReason = "cancel" | "outside" | "trigger" | "anchorLost"
 export type PopoverSource = { node: GuiObject } | { rect: Rect }
-export type PopoverSpec = Types.FrameProps & {
+export type PopoverOptions = {
 	closeButton: boolean?,
 	isPresented: Types.ValueBoolean,
 	onPresentedChange: ((boolean) -> ())?,
 	onDismiss: ((PopoverDismissReason) -> ())?,
-	trigger: GuiButton?,
+	trigger: Types.GuiButtonInstance?,
 	source: PopoverSource?,
 	content: () -> Instance,
 	edge: Edge?,
@@ -86,7 +84,7 @@ export type PopoverSpec = Types.FrameProps & {
 }
 
 export type NoticeSeverity = "info" | "success" | "warning" | "error"
-export type NoticeSpec = Types.FrameProps & {
+export type NoticeOptions = {
 	message: Types.ValueString,
 	title: Types.ValueString?,
 	severity: NoticeSeverity?,
@@ -99,7 +97,7 @@ export type NoticeSpec = Types.FrameProps & {
 	controlSize: Value<Types.ControlSize?>?,
 }
 
-export type NavBarSpec = Types.FrameProps & {
+export type NavBarOptions = {
 	onBack: (() -> ())?,
 	backLabel: string?,
 	title: Types.ValueString?,
@@ -122,7 +120,7 @@ export type ToastDismissReason =
 	| "close"
 	| "cancel"
 export type ToastAction = { label: Types.ValueString, onActivate: () -> () }
-export type ToastSpec = Types.FrameProps & {
+export type ToastOptions = {
 	message: Types.ValueString?,
 	content: (() -> Instance)?,
 	icon: string?,
@@ -138,14 +136,6 @@ export type ToastSpec = Types.FrameProps & {
 	width: ("fill" | "hug")?,
 	fade: boolean?,
 	onDismiss: ((ToastDismissReason) -> ())?,
-}
-
-export type OverlayControls = {
-	Dialog: Types.Constructor<DialogSpec, Frame>,
-	Popover: Types.Constructor<PopoverSpec, GuiObject>,
-	Toast: Types.Constructor<ToastSpec, Frame>,
-	Notice: Types.Constructor<NoticeSpec, Frame>,
-	NavBar: Types.Constructor<NavBarSpec, Frame>,
 }
 
 return {}

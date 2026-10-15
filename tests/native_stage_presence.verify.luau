@@ -19,7 +19,10 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame "Cell" {
 						BackgroundColor3 = engine.types.Color3.new(0.2, 0.3, 0.4),
 						Attributes = { FacetCollectionRow = true },
-						UI.Image "Picture" { image = asset, BackgroundColor3 = engine.types.Color3.new(0.7, 0.2, 0.1) },
+						UI.Image "Picture" {
+							image = asset,
+							BackgroundColor3 = engine.types.Color3.new(0.7, 0.2, 0.1),
+						},
 						UI.Stage "Scene" {
 							content = function(runtime, world)
 								local part = runtime.constructors.Part "Complete" {}

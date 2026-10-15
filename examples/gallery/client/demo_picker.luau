@@ -1,39 +1,39 @@
 --!strict
-type Demo = { id: string, title: string, blurb: string?, kind: "example" | "fixture", module: string }
+type Demo = typeof(require("@repo/examples/types").Demo)
 local demos: { Demo } = {
 	{
 		id = "garage",
 		title = "Garage",
 		blurb = "Adaptive layouts and color controls for a 3D car configurator",
-		kind = "example" :: "example",
+		kind = "example",
 		module = "08_garage",
 	},
 	{
 		id = "sipworks",
 		title = "Sipworks",
 		blurb = "Navigation stacks and disclosures for browsing tea recipes",
-		kind = "example" :: "example",
+		kind = "example",
 		module = "14_sipworks",
 	},
 	{
 		id = "hud",
 		title = "Screen-anchored HUD",
 		blurb = "Screen regions that adapt and recover hidden HUD commands",
-		kind = "fixture" :: "fixture",
+		kind = "fixture",
 		module = "hud",
 	},
 	{
 		id = "ex02",
 		title = "Playlist",
 		blurb = "Table selection, sorting and row reordering for a playlist",
-		kind = "example" :: "example",
+		kind = "example",
 		module = "02_playlist_table",
 	},
 	{
 		id = "arcade",
 		title = "Arcade",
 		blurb = "Retained tabs and reactive state across four playable games",
-		kind = "example" :: "example",
+		kind = "example",
 		module = "13_arcade",
 	},
 	{
@@ -75,7 +75,7 @@ end
 
 function catalogue.boot(demo: string?, scenario: string?, example: number?): (string, Demo?)
 	if type(scenario) == "string" and scenario ~= "" then
-		return scenario, { id = scenario, title = scenario, kind = "fixture" :: "fixture", module = scenario }
+		return scenario, { id = scenario, title = scenario, kind = "fixture", module = scenario }
 	end
 	local name = if type(example) == "number" then EXAMPLES[example] else nil
 	if name then
@@ -83,7 +83,7 @@ function catalogue.boot(demo: string?, scenario: string?, example: number?): (st
 			{
 				id = name,
 				title = if example == 0 then "Playlist" elseif example == 5 then "Word Guess" else name,
-				kind = "example" :: "example",
+				kind = "example",
 				module = name,
 			}
 	end

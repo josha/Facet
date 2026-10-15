@@ -6,6 +6,7 @@ local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
 local Overlay = require("./overlay_types")
 local freeze = require("./freeze")
+local OverlayProps = require("./overlay_props")
 
 export type Component = () -> ComposeTypes.Child
 export type AppOptions = {
@@ -18,9 +19,10 @@ export type AppOptions = {
 	controlSize: Types.Value<Types.ControlSize?>?,
 	theme: Types.Value<ThemeTypes.ThemePackage>?,
 	icons: Types.Value<{ [string]: ThemeTypes.IconEntry }>?,
-	motionLevel: Types.Value<Types.MotionLevel>?,
+	motionLevel: (Types.Value<Types.MotionLevel> | Types.Value<Types.MotionLevel?>)?,
 	environment: Types.EnvironmentPreview?,
 	keyboardNavigation: boolean?,
+	translator: Types.Value<Translator?>?,
 	pressHaptic: (HapticEffect | Types.HapticKind)?,
 	onError: ((unknown) -> ())?,
 	runtime: Types.Runtime?,
@@ -59,6 +61,8 @@ export type App = {
 	UI: ControlTypes.Controls,
 	mount: (component: Component, parent: Instance?) -> (() -> (), ScreenGui),
 	refusal: (control: string, spec: unknown) -> string?,
+	construct: (control: string, spec: unknown) -> Instance,
+	controlNames: () -> { string },
 	presentAnchored: (
 		component: (ControlTypes.Controls) -> Instance,
 		options: AnchoredOptions
@@ -145,6 +149,7 @@ return function(
 		table.insert(stops, release)
 		return release, (root :: unknown) :: ScreenGui
 	end
+	local members = (UI :: unknown) :: { [string]: unknown }
 	local function refusal(control: string, spec: unknown): string?
 		assert(not disposed, "Facet app.refusal: the app is disposed")
 		local construct = ((UI :: unknown) :: { [string]: (unknown) -> Instance })[control]
@@ -161,6 +166,24 @@ return function(
 		end
 		local text = tostring(failure)
 		return string.match(text, "^[^\n]-:%d+: (.*)$") or text
+	end
+	local function construct(control: string, spec: unknown): Instance
+		assert(not disposed, "Facet app.construct: the app is disposed")
+		local member = if type(control) == "string" and string.match(control, "^%u") ~= nil
+			then members[control]
+			else nil
+		if type(member) ~= "function" then
+			error(`Facet app.construct: there is no control named '{tostring(control)}'`, 2)
+		end
+		return (member :: (unknown) -> Instance)(spec)
+	end
+	local function controlNames(): { string }
+		local names: { string } = {}
+		for name in members do
+			table.insert(names, name)
+		end
+		table.sort(names)
+		return names
 	end
 	local function presentAnchored(
 		component: (ControlTypes.Controls) -> Instance,
@@ -195,8 +218,9 @@ return function(
 		spec.content = function(): Instance
 			return component(UI)
 		end
+		spec.Name = "Anchored"
 		local stop, screen = mount(function(): ComposeTypes.Child
-			return UI.Popover "Anchored"((spec :: unknown) :: Overlay.PopoverSpec)
+			return UI.Popover((spec :: unknown) :: OverlayProps.PopoverSpec)
 		end)
 		release = stop
 		local function close()
@@ -242,7 +266,8 @@ return function(
 			toastLayer = layer
 		end
 		stop = runtime.mountFragment(function(): { ComposeTypes.Child }
-			return { UI.Toast(`Toast{id}`)((spec :: unknown) :: Overlay.ToastSpec) }
+			spec.Name = `Toast{id}`
+			return { UI.Toast((spec :: unknown) :: OverlayProps.ToastSpec) }
 		end, assert(toastLayer))
 		if not live then
 			stop()
@@ -273,6 +298,8 @@ return function(
 		UI = UI,
 		mount = mount,
 		refusal = refusal,
+		construct = construct,
+		controlNames = controlNames,
 		presentAnchored = presentAnchored,
 		presentToast = presentToast,
 		dispose = dispose,

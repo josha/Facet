@@ -1,10 +1,12 @@
 --!strict
 
-local foundation = require(assert(script.Parent).foundation) :: any
+type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
+
+local foundation = require(script.Parent.foundation)
 return {
 	id = foundation.id,
 	displayName = foundation.displayName,
-	build = function(themes: any): (any, any)
+	build = function(themes: Themes)
 		return foundation.build(themes, "foundation-dark")
 	end,
 }

@@ -4,6 +4,7 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 local COPY = {
 	title = "Paging",
 	results = "Results",
@@ -20,7 +21,7 @@ return {
 	title = "Paging",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
@@ -50,7 +51,7 @@ return {
 				Name = name,
 				LayoutOrder = order,
 				text = text,
-				textRole = role or "body" :: "body",
+				textRole = role or "body",
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				TextWrapped = true,
@@ -58,7 +59,7 @@ return {
 			})
 		end
 		local function section()
-			return Host.Frame "Paging" {
+			return Host.Frame("Paging")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -66,29 +67,27 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
+				}),
 				caption("Title", copy.title, 1, "heading"),
-				UI.Toggle({ Name = "Refuse", LayoutOrder = 2, label = copy.refuse, value = refuse }),
+				UI.Toggle "Refuse" { LayoutOrder = 2, label = copy.refuse, value = refuse },
 				caption("ResultsTitle", copy.results, 3, "label"),
 				caption("ResultsContext", function(use: Use)
 					local page = use(results)
 					local first = (page - 1) * PER_PAGE + 1
 					return `{copy.showing} {first}–{math.min(TOTAL, page * PER_PAGE)} {copy.of} {TOTAL}`
 				end, 4),
-				UI.Pagination({
-					Name = "Results",
+				UI.Pagination "Results" {
 					LayoutOrder = 5,
 					page = results,
 					pageCount = TOTAL // PER_PAGE,
 					showFirstLast = true,
 					onChange = accept(results),
-				}),
+				},
 				caption("FeedTitle", copy.feed, 6, "label"),
 				caption("FeedContext", function(use: Use)
 					return `{copy.loaded} {use(feed)}`
 				end, 7),
-				UI.Pagination({
-					Name = "Feed",
+				UI.Pagination "Feed" {
 					LayoutOrder = 8,
 					page = feed,
 					hasPrevious = function(use: Use)
@@ -98,26 +97,24 @@ return {
 						return use(feed) < 7
 					end,
 					onChange = accept(feed),
-				}),
+				},
 				caption("LabelTitle", copy.labelForm, 9, "label"),
-				UI.Pagination({
-					Name = "Label",
+				UI.Pagination "Label" {
 					LayoutOrder = 10,
 					page = label,
 					pageCount = 12,
-					form = "label" :: "label",
+					form = "label",
 					onChange = accept(label),
-				}),
+				},
 				caption("RtlTitle", copy.rtl, 11, "label"),
-				UI.Pagination({
-					Name = "Rtl",
+				UI.Pagination "Rtl" {
 					LayoutOrder = 12,
 					page = rtl,
 					pageCount = 30,
-					direction = "rtl" :: "rtl",
+					direction = "rtl",
 					onChange = accept(rtl),
-				}),
-			}
+				},
+			})
 		end
 		return {
 			section = section,

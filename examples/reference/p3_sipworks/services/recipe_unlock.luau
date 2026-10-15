@@ -2,13 +2,23 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 
+local clockModule = require("./clock")
+
 local unlock = {}
 
 unlock.AVAILABLE_AFTER = 1.0
 unlock.RESOLVE_AFTER = 0.6
 
-function unlock.new(opts: any)
-	local Compose: ComposeModule = opts.Compose
+export type Opts = {
+	Compose: ComposeModule,
+	batch: (() -> ()) -> (),
+	clock: clockModule.Clock,
+	startUnlocked: boolean?,
+	rejectAt: { number }?,
+}
+
+function unlock.new(opts: Opts)
+	local Compose = opts.Compose
 
 	local batch = opts.batch
 	local clock = opts.clock
@@ -30,7 +40,8 @@ function unlock.new(opts: any)
 		price = "149 Credits",
 	})
 
-	self.rejectAt = opts.rejectAt or { 1 }
+	local rejectAt: { number } = opts.rejectAt or { 1 }
+	self.rejectAt = rejectAt
 
 	local function armAvailability()
 		availability:set("pending")

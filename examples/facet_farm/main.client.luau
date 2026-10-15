@@ -58,13 +58,20 @@ local function follow(node: GuiObject?)
 	end
 end
 table.insert(watched, camera:GetPropertyChangedSignal("ViewportSize"):Connect(remeasure))
+local function guiObject(root: Instance?, name: string): GuiObject?
+	local node = if root then root:FindFirstChild(name, true) else nil
+	if node and node:IsA("GuiObject") then
+		return node
+	end
+	return nil
+end
 local function openArea(): Rect
 	local viewport = camera.ViewportSize
 	local top = guiService:GetGuiInset().Y
 	local left, right, bottom = 0, viewport.X, viewport.Y
 	local gui = game.Players.LocalPlayer.PlayerGui:FindFirstChild("FacetFarm")
-	local controls = gui and gui:FindFirstChild("Controls", true) :: GuiObject?
-	local hud = gui and gui:FindFirstChild("Hud", true) :: GuiObject?
+	local controls = guiObject(gui, "Controls")
+	local hud = guiObject(gui, "Hud")
 	if hud and hud.Visible then
 		top = math.max(top, hud.AbsolutePosition.Y + hud.AbsoluteSize.Y + guiService:GetGuiInset().Y)
 	end
@@ -124,8 +131,8 @@ app.mount(function()
 	local view = screens.farm(Facet, UI, app.runtime.constructors, types, farm)
 	task.defer(function()
 		local gui = game.Players.LocalPlayer.PlayerGui:WaitForChild("FacetFarm")
-		follow(gui:FindFirstChild("Controls", true) :: GuiObject?)
-		follow(gui:FindFirstChild("Hud", true) :: GuiObject?)
+		follow(guiObject(gui, "Controls"))
+		follow(guiObject(gui, "Hud"))
 		remeasure()
 	end)
 	return view
@@ -138,10 +145,11 @@ local SOUNDS: { [string]: { asset: string, volume: number } } = {
 }
 local effects: { [string]: Sound } = {}
 backdrop.runtime.mount(function()
+	local Host = Facet.host(backdrop.runtime)
 	local players = {}
 	for name, sound in SOUNDS do
-		local player = backdrop.runtime.constructors.Sound(name)({ SoundId = sound.asset, Volume = sound.volume })
-		effects[name] = player :: Sound
+		local player = Host.Sound(name)({ SoundId = sound.asset, Volume = sound.volume })
+		effects[name] = player
 		table.insert(players, player)
 	end
 	Compose.watch(function(use: Use)
@@ -169,9 +177,9 @@ backdrop.runtime.mount(function()
 	}
 end, game:GetService("SoundService"))
 backdrop.mount(function()
-	return screens.backdrop(backdrop.runtime.constructors, types, farm)
+	return screens.backdrop(Facet.host(backdrop.runtime), types, farm)
 end)
-local stopWorld = world.mount(app.runtime, Compose, farm, workspace)
+local stopWorld = world.mount(app.runtime, Facet.host(app.runtime), Compose, farm, workspace)
 local elapsed = 0
 local beat = runService.Heartbeat:Connect(function(step)
 	elapsed += step

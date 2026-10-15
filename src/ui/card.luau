@@ -1,24 +1,17 @@
 --!strict
 local Types = require("./types")
-local Content = require("./content_types")
-local Inputs = require("./input_types")
-local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local values = require("./content_values")
 local parts = require("./overlay_parts")
+local ContentProps = require("./content_props")
+local ControlTypes = require("./control_types")
+local InputProps = require("./input_props")
 local reducedMotion = require("./motion").reduced
 
 local ACTION_KEYS: { [string]: boolean } = { label = true, icon = true, onActivate = true, enabled = true, busy = true }
 local MENU_KEYS: { [string]: boolean } = { items = true, label = true }
 
-return function(
-	ctx: Types.Context,
-	UI: {
-		Card: Types.Constructor<Content.CardSpec, Frame>,
-		Button: Types.Constructor<Inputs.ButtonProps, TextButton>,
-		Menu: Nav.MenuConstructor,
-	}
-): ()
+return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	local Host, Compose, read, runtime = ctx.Host, ctx.Compose, ctx.read, ctx.runtime
 	local E, D2, D = ctx.types.Enum, ctx.types.UDim2, ctx.types.UDim
 	local function nonempty(value: unknown): boolean
@@ -28,16 +21,10 @@ return function(
 		return type(value) == "string"
 	end
 	local function within(node: Instance?, ancestor: Instance): boolean
-		while node do
-			if node == ancestor then
-				return true
-			end
-			node = node.Parent
-		end
-		return false
+		return node ~= nil and (node == ancestor or node:IsDescendantOf(ancestor))
 	end
 
-	UI.Card = ctx.construct("Card", function(spec: Content.CardSpec): Frame
+	UI.Card = ctx.construct("Card", function(spec: ContentProps.CardSpec): Frame
 		assert(
 			spec.artwork == nil or type(spec.artwork) == "function",
 			"Facet UI.Card: artwork must be a function that returns a GuiObject"
@@ -323,7 +310,7 @@ return function(
 		local body: GuiObject
 		if spec.onActivate then
 			local onActivate = spec.onActivate
-			local props: Inputs.ButtonProps = {
+			local props: InputProps.ButtonProps = {
 				Name = "Body",
 				LayoutOrder = 1,
 				label = "",
@@ -345,7 +332,7 @@ return function(
 				end,
 			}
 			for _, child in bodyChildren do
-				table.insert(props, child)
+				props[#props + 1] = child
 			end
 			local button = UI.Button(props)
 			button:AddTag("facet-panel")

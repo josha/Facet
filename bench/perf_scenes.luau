@@ -143,6 +143,17 @@ for _, name in workloads.ORDER do
 	local counts = sampling[name] or { 240, 60 }
 	table.insert(scenes, {
 		name = name,
+		memoryChurn = name == "settings-churn"
+			or name == "collection-mutation"
+			or name == "lab-collection-churn"
+			or name == "virtual-list-scroll"
+			or name == "lab-dense-scroll"
+			or name == "stylesheet-state-churn"
+			or name == "screen-lifecycle-churn"
+			or name == "async-image-grid"
+			or name == "alert-present-dismiss"
+			or name == "picker-menu-open-close"
+			or name == "radial-menu-open-close",
 		requirement = requirements[name] or "UI-PERF-001",
 		dataset = workloads.DATASETS[name],
 		samples = counts[1],

@@ -2,24 +2,23 @@
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Host = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type Destination = typeof(require("@repo/tools/typecheck/aliases").ZoomDestinationCell)
 
 return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 	local keys, items = C.cell({ 1, 2 }), C.cell({ 40 })
 	local targets: { [number]: GuiObject } = {}
 	local park = Host.Frame { Name = "Park", Size = UDim2.new(1, 0, 0, 64), ClipsDescendants = true }
-	local destination: Destination = C.cell(park :: GuiObject)
+	local parked: GuiObject = park
+	local destination: Destination = C.cell(parked)
 	local serial, generation = 40, 1
-	local grid = UI.VirtualGrid {
-		Name = "RecycledTargets",
+	local grid = UI.VirtualGrid "RecycledTargets" {
 		from = keys,
 		key = function(value: number): number
 			return value
 		end,
 		columns = 2,
 		itemSize = 64,
-		mode = "all" :: "all",
+		mode = "all",
 		Size = UDim2.new(1, 0, 0, 100),
 		render = function(current): GuiObject
 			local key = current:peek()
@@ -33,14 +32,12 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 			return target
 		end,
 	}
-	return UI.VStack(({
-		Name = "RecycledTravel",
-		width = "fill" :: "fill",
+	return UI.VStack "RecycledTravel" {
+		width = "fill",
 		gap = "s",
 		UI.HStack {
 			gap = "s",
-			UI.Button {
-				Name = "NewItem",
+			UI.Button "NewItem" {
 				label = "New item",
 				onActivate = function()
 					serial += 1
@@ -48,8 +45,7 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 					items:set({ serial })
 				end,
 			},
-			UI.Button {
-				Name = "ChooseTarget",
+			UI.Button "ChooseTarget" {
 				label = "Choose target",
 				onActivate = function()
 					local key = keys:peek()[1]
@@ -58,8 +54,7 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 					end
 				end,
 			},
-			UI.Button {
-				Name = "ReplaceTargets",
+			UI.Button "ReplaceTargets" {
 				label = "Replace targets",
 				onActivate = function()
 					generation += 2
@@ -67,16 +62,15 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 					destination:set(assert(targets[generation]))
 				end,
 			},
-			UI.Button {
-				Name = "RemoveTargets",
+			UI.Button "RemoveTargets" {
 				label = "Remove targets",
 				onActivate = function()
 					keys:set({})
 				end,
 			},
-		} :: unknown,
-		park :: unknown,
-		grid :: unknown,
+		},
+		park,
+		grid,
 		C.OrderedCollection {
 			from = items,
 			key = function(id: number): number
@@ -86,7 +80,7 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 				return UI.Travel {
 					Name = `Carrier{current:peek()}`,
 					destination = destination,
-					path = "arc" :: "arc",
+					path = "arc",
 					content = function(): GuiObject
 						return UI.Text {
 							Name = `Tile{current:peek()}`,
@@ -97,10 +91,10 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 					end,
 				}
 			end,
-		} :: unknown,
+		},
 		UI.Text {
 			text = "Choose a target. Replace its keys or remove it during travel or after landing. The carrier must disappear without an error. New item starts a fresh lifetime.",
 			wrap = true,
-		} :: unknown,
-	} :: unknown) :: StackProps)
+		},
+	}
 end

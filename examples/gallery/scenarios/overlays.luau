@@ -1,8 +1,15 @@
 --!strict
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
+type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
+type OverlayMedia = typeof(require("@repo/tools/typecheck/aliases").OverlayMedia)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 
 local COPY = {
 	title = "Overlays on request",
@@ -46,7 +53,7 @@ return {
 	title = "Overlays",
 	ledgerRows = {},
 	copy = COPY,
-	build = function(ctx: any)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Enum = Enum }
 		local UDim, UDim2, Enum = nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Enum
@@ -84,7 +91,7 @@ return {
 			status:set(COPY.status)
 		end
 
-		local function label(name: string, text: any, order: number, role: string?): any
+		local function label(name: string, text: TextValue, order: number, role: ("title" | "caption")?): GuiObject
 			return UI.Text({
 				Name = name,
 				LayoutOrder = order,
@@ -99,50 +106,51 @@ return {
 			})
 		end
 
-		local function body(text: string): () -> any
+		local function body(text: string): () -> GuiObject
 			return function()
 				return label("Body", text, 1)
 			end
 		end
 
-		local function tour(anchor: any): any
+		local function tour(anchor: GuiObject)
 			return Compose.keyed({
-				from = function(use: any)
+				from = function(use: Use)
 					return { `{use(tourSession)}:{use(tourStep)}` }
 				end,
 				render = function(): GuiObject
 					local step = tourStep:peek()
-					return UI.Callout({
-						Name = if step == 1 then "Tour" else `Tour{step}`,
+					local media: OverlayMedia = { image = ART, aspectRatio = 2, scaleMode = "crop" }
+					local actions: { OverlayAction } = {
+						{
+							id = "Later",
+							label = COPY.coachLater,
+							onActivate = function()
+								note("Last: tour later")
+							end,
+						},
+						{
+							id = "Go",
+							label = if step < TOUR_STEPS then COPY.coachGo else COPY.coachDone,
+							role = "default",
+							onActivate = function()
+								if step < TOUR_STEPS then
+									advancing = true
+									note(`Last: tour step {step + 1} of {TOUR_STEPS}`)
+								else
+									note("Last: tour finished")
+								end
+							end,
+						},
+					}
+					return UI.Callout(if step == 1 then "Tour" else `Tour{step}`)({
 						anchor = anchor,
 						isPresented = tourAsked,
 						title = COPY.coachTitle,
-						media = { image = ART, aspectRatio = 2, scaleMode = "crop" :: "crop" },
+						media = media,
 						content = body(COPY.coachBody),
 						steps = { index = step, count = TOUR_STEPS },
 						closeButton = true,
-						actions = {
-							{
-								id = "Later",
-								label = COPY.coachLater,
-								onActivate = function()
-									note("Last: tour later")
-								end,
-							},
-							{
-								id = "Go",
-								label = if step < TOUR_STEPS then COPY.coachGo else COPY.coachDone,
-								role = "default" :: "default",
-								onActivate = function()
-									if step < TOUR_STEPS then
-										advancing = true
-										note(`Last: tour step {step + 1} of {TOUR_STEPS}`)
-									else
-										note("Last: tour finished")
-									end
-								end,
-							},
-						},
+						actions = actions,
 						onRetire = function(reason: string)
 							if advancing then
 								advancing = false
@@ -167,7 +175,26 @@ return {
 				end,
 			}
 			local sourceRow = label("SourceRow", COPY.sourceRow, 8)
-			return Host.Frame "Overlays" {
+			local hero: OverlayMedia = { image = ART, aspectRatio = 2, scaleMode = "crop" }
+			local leaveActions: { DialogAction } = {
+				{
+					id = "Stay",
+					label = COPY.stay,
+					role = "cancel",
+					onActivate = function()
+						note("Last: stayed in the race")
+					end,
+				},
+				{
+					id = "Leave",
+					label = COPY.leave,
+					role = "destructive",
+					onActivate = function()
+						note("Last: left the race")
+					end,
+				},
+			}
+			return Host.Frame("Overlays")({
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
 				UI.ScrollView "Content" {
@@ -176,7 +203,7 @@ return {
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
 					ScrollBarThickness = 6,
-					label("Title", COPY.title, 1, "title") :: unknown,
+					label("Title", COPY.title, 1, "title"),
 					label("Intro", COPY.intro, 2),
 					label("Status", status, 3),
 					UI.Button "Reset" { LayoutOrder = 4, label = COPY.reset, onActivate = reset },
@@ -190,19 +217,20 @@ return {
 							end,
 							trigger = UI.Button "Filter" { label = COPY.filter, icon = "menu" },
 							content = function(): Instance
+								local filterOptions: { PickerOption } = {
+									{ value = "all", label = "All races" },
+									{ value = "friends", label = "Friends" },
+									{ value = "ranked", label = "Ranked" },
+								}
 								return UI.Picker "FilterBy" {
-									style = "radioGroup" :: "radioGroup",
+									style = "radioGroup",
 									selected = filterBy,
 									onChange = function(value: string)
 										filterBy:set(value)
 										note(`Last: filter {value}`)
 										filterOpen:set(false)
 									end,
-									options = {
-										{ value = "all", label = "All races" } :: PickerOption,
-										{ value = "friends", label = "Friends" } :: PickerOption,
-										{ value = "ranked", label = "Ranked" } :: PickerOption,
-									},
+									options = filterOptions,
 								}
 							end,
 						},
@@ -238,7 +266,7 @@ return {
 						end,
 						trigger = UI.Button "LockedButton" { label = COPY.locked },
 						content = function(): Instance
-							return Host.Frame "Body" {
+							return Host.Frame("Body")({
 								BackgroundTransparency = 1,
 								Size = UDim2.fromOffset(280, 0),
 								AutomaticSize = Enum.AutomaticSize.Y,
@@ -246,7 +274,7 @@ return {
 									FillDirection = Enum.FillDirection.Vertical,
 									SortOrder = Enum.SortOrder.LayoutOrder,
 									Padding = UDim.new(0, 8),
-								}) :: unknown,
+								}),
 								label("Line", COPY.lockedBody, 1),
 								UI.Toggle "Allow" { LayoutOrder = 2, label = COPY.allow, value = allowClose },
 								UI.Button "Close" {
@@ -258,7 +286,7 @@ return {
 										end
 									end,
 								},
-							}
+							})
 						end,
 					},
 					sourceRow,
@@ -275,11 +303,11 @@ return {
 							sourceOpen:set(nextValue)
 						end,
 						source = { node = sourceRow },
-						edge = "bottom" :: "bottom",
-						align = "start" :: "start",
+						edge = "bottom",
+						align = "start",
 						content = body(COPY.sourceBody),
 					},
-					Host.Frame "TourRow" {
+					Host.Frame("TourRow")({
 						LayoutOrder = 11,
 						BackgroundTransparency = 1,
 						Size = UDim2.new(1, 0, 0, 0),
@@ -287,10 +315,10 @@ return {
 						Host.UIListLayout({
 							FillDirection = Enum.FillDirection.Horizontal,
 							SortOrder = Enum.SortOrder.LayoutOrder,
-						}) :: unknown,
+						}),
 						tourButton,
 						tour(tourButton),
-					},
+					}),
 					UI.Button "DialogButton" {
 						LayoutOrder = 12,
 						label = COPY.dialog,
@@ -306,28 +334,11 @@ return {
 						onDismiss = function(reason: string)
 							note(`Last: dialog closed ({reason})`)
 						end,
-						hero = { image = ART, aspectRatio = 2, scaleMode = "crop" :: "crop" },
+						hero = hero,
 						title = COPY.dialogTitle,
 						content = body(COPY.dialogBody),
 						actionLabel = COPY.dialogLabel,
-						actions = {
-							{
-								id = "Stay",
-								label = COPY.stay,
-								role = "cancel" :: "cancel",
-								onActivate = function()
-									note("Last: stayed in the race")
-								end,
-							} :: OverlayAction,
-							{
-								id = "Leave",
-								label = COPY.leave,
-								role = "destructive" :: "destructive",
-								onActivate = function()
-									note("Last: left the race")
-								end,
-							} :: OverlayAction,
-						},
+						actions = leaveActions,
 					},
 					UI.Button "TermsButton" {
 						LayoutOrder = 13,
@@ -349,13 +360,13 @@ return {
 							note(`Last: terms closed ({reason})`)
 						end,
 						title = COPY.lockedDialogTitle,
-						width = "narrow" :: "narrow",
+						width = "narrow",
 						content = function(): Instance
 							return UI.Toggle "Read" { label = COPY.accept, value = termsRead }
 						end,
 					},
 				},
-			}
+			})
 		end
 
 		return {

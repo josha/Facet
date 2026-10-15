@@ -1,10 +1,12 @@
 --!strict
 
-type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ModelNativeProps = typeof(require("@repo/tools/typecheck/aliases").ModelNativeProps)
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
+type Piece = { name: string, size: Vector3, frame: CFrame, color: Color3, material: Enum.Material }
+type StandPiece = { name: string, size: Vector3, frame: CFrame }
 if not game:IsLoaded() then
 	game.Loaded:Wait()
 end
@@ -27,15 +29,17 @@ task.spawn(function()
 end)
 local Facet = require(storage:WaitForChild("Facet"))
 Facet = Facet.bind(Facet.Compose, Facet.Roblox)
-local Compose: ComposeModule = Facet.Compose
+local Compose = Facet.Compose
 local screens = require(storage.VirtualMonitors.screens)
 local scenes = require(storage.VirtualMonitors.scenes)
 local spatial = require(storage.VirtualMonitors.spatial)
 local theme = require(storage.VirtualMonitors.theme)
 local desktop = require(storage.VirtualMonitors.desktop)
 local modelModule = require(storage.VirtualMonitors.model)
+type Actions = modelModule.Actions
+type Game = modelModule.Game
 local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
-local Host = (runtime.constructors :: unknown) :: RobloxHost
+local Host = Facet.host(runtime)
 local lifetime = Compose.createRootOwner(function()
 	local model = modelModule.new(Compose)
 	Compose.cleanup(model.dispose)
@@ -46,7 +50,7 @@ local lifetime = Compose.createRootOwner(function()
 		return if use(reducedMotion) then "reduced" else "full"
 	end)
 	local function motionLevel(use: Use): "normal" | "limited" | "none"
-		return if use(reducedMotion) then "limited" :: "limited" else "normal" :: "normal"
+		return if use(reducedMotion) then "limited" else "normal"
 	end
 	local pressHaptic = Host.HapticEffect "PressHaptic" { Type = Enum.HapticEffectType.UIClick }
 	pressHaptic.Parent = players.LocalPlayer:WaitForChild("PlayerGui")
@@ -82,7 +86,7 @@ local lifetime = Compose.createRootOwner(function()
 			connection:Disconnect()
 		end)
 	end
-	local parts = {}
+	local parts: { [string]: Part } = {}
 	local stopWorld = runtime.mount(function()
 		modeMotion = runtime.tween(function(use: Use)
 			return if use(mode) == "Screen" then 1 else 0
@@ -94,16 +98,16 @@ local lifetime = Compose.createRootOwner(function()
 			return use(entrance)
 		end, { period = 0.8, damping = 0.9 })
 
-		local function moodColor(night, day)
-			local function goal(use: Use)
+		local function moodColor(night: Color3, day: Color3): (Use) -> Color3
+			local function goal(use: Use): Color3
 				return if use(dark) then night else day
 			end
 			local animated = runtime.spring(goal, { period = 0.55, damping = 1 })
-			return function(use: Use)
+			return function(use: Use): Color3
 				return if use(reducedMotion) then goal(use) else use(animated)
 			end
 		end
-		local children: any = { Name = "VirtualMonitors" }
+		local children: ModelNativeProps = {}
 		for index, name in screens.APPS do
 			local x, z, yaw = spatial.pose(index, #screens.APPS)
 			local frame = CFrame.new(x, spatial.HEIGHT, z) * CFrame.Angles(0, yaw, 0)
@@ -120,119 +124,100 @@ local lifetime = Compose.createRootOwner(function()
 				Material = Enum.Material.SmoothPlastic,
 			})
 			parts[name] = panel
-			table.insert(children, panel)
+			children[#children + 1] = panel
 			local screenHeight = 10.8 * screens.CANVAS.h / screens.CANVAS.w
-			local function arrived(offset: CFrame)
-				return function(use: Use)
+			local function arrived(offset: CFrame): (Use) -> CFrame
+				return function(use: Use): CFrame
 					local progress = if use(reducedMotion) then use(entrance) else use(arrival)
 					return frame * CFrame.new(0, -2 * (1 - progress), 1.5 * (1 - progress)) * offset
 				end
 			end
-			for _, piece in
+			local housing: { Piece } = {
 				{
-					{
-						name = "Bezel",
-						size = Vector3.new(11.04, screenHeight + 0.24, 0.1),
-						frame = CFrame.new(0, 0, 0.1),
-						color = Color3.fromRGB(14, 14, 17),
-						material = Enum.Material.Glass,
-					},
-					{
-						name = "Housing",
-						size = Vector3.new(11.04, screenHeight + 0.24, 0.22),
-						frame = CFrame.new(0, 0, 0.26),
-						color = Color3.fromRGB(58, 60, 66),
-						material = Enum.Material.Metal,
-					},
-					{
-						name = "Back",
-						size = Vector3.new(7.2, screenHeight * 0.62, 0.34),
-						frame = CFrame.new(0, -0.3, 0.52),
-						color = Color3.fromRGB(52, 54, 60),
-						material = Enum.Material.Metal,
-					},
-				}
-			do
-				table.insert(
-					children,
-					Host.Part({
-						Name = name .. piece.name,
-						Anchored = true,
-						CanCollide = false,
-						Size = piece.size,
-						CFrame = arrived(piece.frame),
-						Color = piece.color,
-						Material = piece.material,
-					})
-				)
-			end
-			for _, piece in
+					name = "Bezel",
+					size = Vector3.new(11.04, screenHeight + 0.24, 0.1),
+					frame = CFrame.new(0, 0, 0.1),
+					color = Color3.fromRGB(14, 14, 17),
+					material = Enum.Material.Glass,
+				},
 				{
-					{
-						name = "Neck",
-						size = Vector3.new(1.1, 6.6, 0.18),
-						frame = CFrame.new(0, -3.7, 0.86) * CFrame.Angles(math.rad(-4), 0, 0),
-					},
-					{ name = "Foot", size = Vector3.new(3.6, 0.14, 2.8), frame = CFrame.new(0, -6.93, 1.3) },
-				}
-			do
-				table.insert(
-					children,
-					Host.Part({
-						Name = name .. "Stand" .. piece.name,
-						Anchored = true,
-						CanCollide = false,
-						Size = piece.size,
-						CFrame = frame * piece.frame,
-						Color = Color3.fromRGB(170, 172, 178),
-						Material = Enum.Material.Metal,
-					})
-				)
-			end
-			table.insert(
-				children,
-				Host.Part({
-					Name = name .. "Glow",
+					name = "Housing",
+					size = Vector3.new(11.04, screenHeight + 0.24, 0.22),
+					frame = CFrame.new(0, 0, 0.26),
+					color = Color3.fromRGB(58, 60, 66),
+					material = Enum.Material.Metal,
+				},
+				{
+					name = "Back",
+					size = Vector3.new(7.2, screenHeight * 0.62, 0.34),
+					frame = CFrame.new(0, -0.3, 0.52),
+					color = Color3.fromRGB(52, 54, 60),
+					material = Enum.Material.Metal,
+				},
+			}
+			for _, piece in housing do
+				children[#children + 1] = Host.Part({
+					Name = name .. piece.name,
 					Anchored = true,
 					CanCollide = false,
-					Transparency = 1,
-					Size = Vector3.new(1, 1, 1),
-					CFrame = frame * CFrame.new(0, 0, 2.4),
-					Host.PointLight({
-						Color = if name == "Discover"
-							then Color3.fromRGB(120, 214, 182)
-							else Color3.fromRGB(170, 150, 255),
-						Brightness = function(use: Use)
-							return if use(dark) then 1.6 else 0.25
-						end,
-						Range = 22,
-						Shadows = false,
-					}),
+					Size = piece.size,
+					CFrame = arrived(piece.frame),
+					Color = piece.color,
+					Material = piece.material,
 				})
-			)
-		end
-		table.insert(
-			children,
-			Host.Part "Floor" {
-				Anchored = true,
-				Size = Vector3.new(200, 1, 200),
-				CFrame = CFrame.new(0, -0.5, 0),
-				Color = moodColor(Color3.fromRGB(74, 52, 38), Color3.fromRGB(176, 136, 98)),
-				Material = Enum.Material.Wood,
+			end
+			local stand: { StandPiece } = {
+				{
+					name = "Neck",
+					size = Vector3.new(1.1, 6.6, 0.18),
+					frame = CFrame.new(0, -3.7, 0.86) * CFrame.Angles(math.rad(-4), 0, 0),
+				},
+				{ name = "Foot", size = Vector3.new(3.6, 0.14, 2.8), frame = CFrame.new(0, -6.93, 1.3) },
 			}
-		)
-		table.insert(
-			children,
-			Host.Part "StudioBackdrop" {
+			for _, piece in stand do
+				children[#children + 1] = Host.Part({
+					Name = name .. "Stand" .. piece.name,
+					Anchored = true,
+					CanCollide = false,
+					Size = piece.size,
+					CFrame = frame * piece.frame,
+					Color = Color3.fromRGB(170, 172, 178),
+					Material = Enum.Material.Metal,
+				})
+			end
+			children[#children + 1] = Host.Part({
+				Name = name .. "Glow",
 				Anchored = true,
 				CanCollide = false,
-				Size = Vector3.new(180, 100, 1),
-				CFrame = CFrame.new(0, 30, 12),
-				Color = moodColor(Color3.fromRGB(46, 44, 56), Color3.fromRGB(222, 218, 210)),
-				Material = Enum.Material.Plaster,
-			}
-		)
-		return Host.Model(children)
+				Transparency = 1,
+				Size = Vector3.new(1, 1, 1),
+				CFrame = frame * CFrame.new(0, 0, 2.4),
+				Host.PointLight({
+					Color = if name == "Discover" then Color3.fromRGB(120, 214, 182) else Color3.fromRGB(170, 150, 255),
+					Brightness = function(use: Use)
+						return if use(dark) then 1.6 else 0.25
+					end,
+					Range = 22,
+					Shadows = false,
+				}),
+			})
+		end
+		children[#children + 1] = Host.Part "Floor" {
+			Anchored = true,
+			Size = Vector3.new(200, 1, 200),
+			CFrame = CFrame.new(0, -0.5, 0),
+			Color = moodColor(Color3.fromRGB(74, 52, 38), Color3.fromRGB(176, 136, 98)),
+			Material = Enum.Material.Wood,
+		}
+		children[#children + 1] = Host.Part "StudioBackdrop" {
+			Anchored = true,
+			CanCollide = false,
+			Size = Vector3.new(180, 100, 1),
+			CFrame = CFrame.new(0, 30, 12),
+			Color = moodColor(Color3.fromRGB(46, 44, 56), Color3.fromRGB(222, 218, 210)),
+			Material = Enum.Material.Plaster,
+		}
+		return Host.Model "VirtualMonitors"(children)
 	end, workspace)
 
 	Compose.cleanup(stopWorld)
@@ -241,8 +226,11 @@ local lifetime = Compose.createRootOwner(function()
 	local modeProgress = Compose.formula(function(use: Use)
 		return if use(reducedMotion) then (if use(mode) == "Screen" then 1 else 0) else use(modeMotion)
 	end)
-	local function sceneActions(spatial, package)
-		local actions = {
+	local function sceneActions(spatial: boolean, package: ThemePackage): Actions
+		local function active(use: Use): boolean
+			return if spatial then use(mode) == "Spatial" else use(mode) == "Screen"
+		end
+		local actions: Actions = {
 			model = model,
 			spatial = spatial,
 			theme = package,
@@ -250,20 +238,17 @@ local lifetime = Compose.createRootOwner(function()
 			motionLevel = motionLevel,
 			pressHaptic = pressHaptic,
 		}
-		local function active(use: Use): boolean
-			return if spatial then use(mode) == "Spatial" else use(mode) == "Screen"
-		end
-		actions.discoveryContent = function(sceneRuntime, target)
+		actions.discoveryContent = function(sceneRuntime: ComposeRuntime, target: WorldModel): (() -> ())?
 			return scenes.discovery(sceneRuntime, target)
 		end
-		actions.gameContent = function(current)
-			return function(sceneRuntime, target, live)
-				return scenes.card(sceneRuntime, target, current:peek(), motionPolicy, function(use: Use)
+		actions.gameContent = function(current: Readable<Game>)
+			return function(sceneRuntime: ComposeRuntime, target: WorldModel, live: Readable<boolean>): (() -> ())?
+				return scenes.card(sceneRuntime, target, current:peek(), motionPolicy, function(use: Use): boolean
 					return active(use) and use(live)
 				end)
 			end
 		end
-		actions.avatarContent = function(sceneRuntime, target)
+		actions.avatarContent = function(sceneRuntime: ComposeRuntime, target: WorldModel): (() -> ())?
 			return scenes.avatar(
 				sceneRuntime,
 				target,
@@ -291,8 +276,7 @@ local lifetime = Compose.createRootOwner(function()
 				end,
 			})
 			local views = screens.create(Facet, runtime, sceneActions(true, package))
-			return Host.SurfaceGui({
-				Name = name .. "Monitor",
+			return Host.SurfaceGui(name .. "Monitor")({
 				Adornee = Compose.static(parts[name]),
 				Face = Enum.NormalId.Front,
 				SizingMode = Enum.SurfaceGuiSizingMode.FixedSize,
@@ -306,7 +290,7 @@ local lifetime = Compose.createRootOwner(function()
 				Enabled = function(use: Use)
 					return use(modeProgress) < 1
 				end,
-				sheet :: unknown,
+				sheet,
 				Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 				views[name](),
 			})
@@ -338,7 +322,7 @@ local lifetime = Compose.createRootOwner(function()
 			ResetOnSpawn = false,
 			ScreenInsets = Enum.ScreenInsets.None,
 			Enabled = showing,
-			sheet :: unknown,
+			sheet,
 			Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
 			backdrop,
 		}
@@ -366,8 +350,7 @@ local lifetime = Compose.createRootOwner(function()
 			theme = desktopPackage,
 			motionLevel = motionLevel,
 			pressHaptic = pressHaptic,
-			player = players.LocalPlayer,
-		})()
+		}, players.LocalPlayer)()
 	end)
 	Compose.watch(function(use: Use)
 		if (use(viewport).width < 700 or guiService:IsTenFootInterface()) and not model.modeChosen then
@@ -436,18 +419,19 @@ local lifetime = Compose.createRootOwner(function()
 	}
 	Host.BindableFunction "VirtualMonitorsAPI" {
 		Parent = workspace,
-		OnInvoke = Compose.static(function(command, argument)
-			if command == "mode" and (argument == "Screen" or argument == "Spatial") then
+		OnInvoke = Compose.static(function(command: string, argument: unknown)
+			local text = if type(argument) == "string" then argument else nil
+			if command == "mode" and text and (text == "Screen" or text == "Spatial") then
 				model.modeChosen = true
-				mode:set(argument)
+				mode:set(text)
 			elseif command == "dark" then
 				dark:set(argument == true)
-			elseif command == "accent" and (argument == "sage" or argument == "clay" or argument == "iris") then
-				model.palette:set(argument)
-			elseif command == "focus" then
-				model.focus(argument)
-			elseif command == "tab" then
-				model.selectedTab:set(argument)
+			elseif command == "accent" and text and (text == "sage" or text == "clay" or text == "iris") then
+				model.palette:set(text)
+			elseif command == "focus" and text then
+				model.focus(text)
+			elseif command == "tab" and text then
+				model.selectedTab:set(text)
 			elseif command == "open" then
 				for _, item in model.catalog.items:peek() do
 					if item.id == argument then
@@ -463,7 +447,11 @@ local lifetime = Compose.createRootOwner(function()
 				local key = model.selectedTab:peek() .. ":" .. mode:peek()
 				local presentation = model.presentations[key]
 				if presentation then
-					presentation[command]:set(argument == true)
+					if command == "about" then
+						presentation.about:set(argument == true)
+					else
+						presentation.status:set(argument == true)
+					end
 				end
 			elseif command == "appearance" then
 				model.avatarSettingsExpanded:set(argument == true)
@@ -471,8 +459,8 @@ local lifetime = Compose.createRootOwner(function()
 				model.avatarTipsExpanded:set(argument == true)
 			elseif command == "motion" then
 				model.avatarPath:set(if argument == true then { { id = "motion", value = true } } else {})
-			elseif command == "chat" then
-				model.prompt(argument)
+			elseif command == "chat" and text then
+				model.prompt(text)
 				model.chat.send()
 			elseif command == "flap" then
 				model.flapPress()

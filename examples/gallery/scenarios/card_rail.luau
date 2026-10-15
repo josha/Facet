@@ -2,10 +2,25 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
-type CollectionStatusCell = typeof(require("@repo/tools/typecheck/aliases").CollectionStatusCell)
+type CollectionStatus = {
+	mode: "windowed" | "all",
+	direction: "horizontal" | "vertical",
+	total: number,
+	retained: number,
+	first: number,
+	last: number,
+	firstRow: number,
+	lastRow: number,
+	rowCount: number,
+	extent: number,
+	following: boolean,
+	desiredOffset: number?,
+	measured: number,
+}
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 local BADGES = { "Rally", "Drift", "Circuit", "Sprint", "Endurance" }
 local COPY = {
 	title = "Card rail — your racing collection",
@@ -18,7 +33,7 @@ local COPY = {
 return {
 	title = "Card rail (horizontal VirtualList)",
 	copy = COPY,
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Compose: ComposeModule, UI, Host = ctx.Compose, ctx.UI, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local copy = ctx.copy or COPY
@@ -30,12 +45,16 @@ return {
 				badge = BADGES[(index - 1) % #BADGES + 1],
 			}
 		end
-		local items, selected = Compose.cell(cards), Compose.cell(nil :: string | nil)
+		local noSelection: string? = nil
+		local items, selected = Compose.cell(cards), Compose.cell(noSelection)
 		local rails = {}
-		local function observe(node: GuiObject, property: string): VectorCell
-			local value = Compose.cell((node :: any)[property] :: Vector2)
+		local function observe(node: GuiObject, property: "TextBounds"): VectorCell
+			local function read(): Vector2
+				return if node:IsA("TextLabel") then node.TextBounds else ctx.types.Vector2.zero
+			end
+			local value = Compose.cell(read())
 			local connection = node:GetPropertyChangedSignal(property):Connect(function()
-				value:set((node :: any)[property])
+				value:set(read())
 			end)
 			Compose.cleanup(function()
 				connection:Disconnect()
@@ -59,14 +78,14 @@ return {
 			local nameProbe = UI.Text "NameMeasure" {
 				Visible = false,
 				text = "Livery 000",
-				textRole = "label" :: "label",
+				textRole = "label",
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
 			}
 			local badgeProbe = UI.Text "BadgeMeasure" {
 				Visible = false,
 				text = "Endurance",
-				textRole = "caption" :: "caption",
+				textRole = "caption",
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
 			}
@@ -77,30 +96,29 @@ return {
 					+ math.max(18, use(badgeBounds).Y)
 					+ 28
 			end)
-			local status = (function(): CollectionStatusCell
-				return Compose.cell({
-					mode = "windowed" :: "windowed" | "all",
-					direction = "horizontal" :: "horizontal" | "vertical",
-					total = 0,
-					retained = 0,
-					first = 0,
-					last = 0,
-					firstRow = 0,
-					lastRow = 0,
-					rowCount = 0,
-					extent = 0,
-					following = false,
-					measured = 0,
-				})
-			end)()
+			local initialStatus: CollectionStatus = {
+				mode = "windowed",
+				direction = "horizontal",
+				total = 0,
+				retained = 0,
+				first = 0,
+				last = 0,
+				firstRow = 0,
+				lastRow = 0,
+				rowCount = 0,
+				extent = 0,
+				following = false,
+				measured = 0,
+			}
+			local status = Compose.cell(initialStatus)
 			local node = UI.VirtualList({
 				Name = name,
 				from = items,
 				key = function(item)
 					return item.id
 				end,
-				direction = "horizontal" :: "horizontal" | "vertical",
-				itemSize = "cards" :: "cards",
+				direction = "horizontal",
+				itemSize = "cards",
 				gap = 8,
 				overscan = 2,
 				status = status,
@@ -136,7 +154,7 @@ return {
 							BackgroundTransparency = 1,
 							Size = D2.new(1, -16, 1, -16),
 							Position = D2.fromOffset(8, 8),
-							Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 2) }) :: unknown,
+							Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = D.new(0, 2) }),
 							Host.Frame "Preview" {
 								LayoutOrder = 1,
 								Size = D2.new(1, 0, 0, 0),
@@ -144,14 +162,14 @@ return {
 								Host.UIAspectRatioConstraint({
 									AspectRatio = 16 / 9,
 									DominantAxis = E.DominantAxis.Width,
-								}) :: unknown,
+								}),
 								track,
 							},
 							UI.Text "Name" {
 								text = function(use: Use)
 									return use(current).name
 								end,
-								textRole = "label" :: "label",
+								textRole = "label",
 								LayoutOrder = 2,
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
@@ -163,7 +181,7 @@ return {
 								text = function(use: Use)
 									return use(current).badge
 								end,
-								textRole = "caption" :: "caption",
+								textRole = "caption",
 								LayoutOrder = 3,
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
@@ -174,7 +192,7 @@ return {
 						},
 					})
 				end,
-				nameProbe :: unknown,
+				nameProbe,
 				badgeProbe,
 			})
 			rails[name] = { node = node, cardWidth = cardWidth, status = status }
@@ -187,7 +205,7 @@ return {
 					gap = 8,
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					label("Title", copy.title, 1, 24) :: unknown,
+					label("Title", copy.title, 1, 24),
 					label("Hint", copy.hint, 2, 14),
 					rail("Rail", 3),
 					label("Selected", function(use: Use)
@@ -207,7 +225,7 @@ return {
 			end,
 			report = function()
 				local result =
-					{ axis = "x" :: "x", shelves = 3, total = #items:peek(), selectedKey = selected:peek(), rails = {} }
+					{ axis = "x", shelves = 3, total = #items:peek(), selectedKey = selected:peek(), rails = {} }
 				for name, value in rails do
 					result.rails[name] = {
 						itemExtent = value.cardWidth:peek(),

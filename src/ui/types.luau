@@ -17,6 +17,19 @@ export type ValueBoolean = Engine.ValueBoolean
 export type ValueNumber = Engine.ValueNumber
 
 export type Constructor<P, N> = Engine.Constructor<P, N>
+export type GuiButtonInstance = GuiButton | TextButton | ImageButton
+export type GuiInstance =
+	GuiObject
+	| GuiButtonInstance
+	| GuiLabel
+	| TextLabel
+	| ImageLabel
+	| Frame
+	| ScrollingFrame
+	| CanvasGroup
+	| TextBox
+	| ViewportFrame
+	| VideoFrame
 export type Host = Engine.Host
 export type Attributes = Engine.Attributes
 export type AttributeValue = Engine.AttributeValue
@@ -26,7 +39,7 @@ export type Playback = typeof(((nil :: unknown) :: Runtime).timeline())
 export type ControlSize = "xsmall" | "compact" | "regular" | "large"
 export type SpaceStep = "xs" | "s" | "m" | "l" | "xl"
 export type Space = number | SpaceStep | string
-export type Sides = { top: Space?, right: Space?, bottom: Space?, left: Space? }
+export type Sides = { top: Space?, right: Space?, bottom: Space?, left: Space?, [string]: nil }
 export type Padding = Space | Sides
 export type Extent = number | "fill" | "hug"
 export type Align = "start" | "center" | "end" | "stretch"
@@ -143,7 +156,7 @@ export type Config = {
 	controlSize: Value<ControlSize?>?,
 	theme: Value<Theme.ThemePackage>?,
 	icons: Value<{ [string]: Theme.IconEntry }>?,
-	motionLevel: Value<MotionLevel>?,
+	motionLevel: (Value<MotionLevel> | Value<MotionLevel?>)?,
 	pressHaptic: (HapticEffect | HapticKind)?,
 	onError: ((unknown) -> ())?,
 	environment: EnvironmentPreview?,

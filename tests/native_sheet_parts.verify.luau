@@ -813,6 +813,27 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a plain detent id starts the sheet there and the sheet owns later detent changes", {
+			id = "native_sheet_parts::native Sheet: parts::a plain detent id starts the sheet there and the sheet owns later detent changes",
+			run = function()
+				local w = mount({ detent = "large" }, { motionLevel = "none" })
+				local panel = w.find("SheetPanel")
+				Verify.expect(panel.Size.Y.Offset):toBe(570)
+				Verify.expect((w.detent:peek())):toBe("medium")
+				w.stop()
+				local grown = mount({ detent = "medium" }, { motionLevel = "none" })
+				local before = grown.find("SheetPanel").Size.Y.Offset
+				grown.find("Grabber").Activated:Fire()
+				Verify.expect(grown.find("SheetPanel").Size.Y.Offset):toBe(570)
+				Verify.expect(before < 570):toBe(true)
+				Verify.expect((grown.detent:peek())):toBe("medium")
+				grown.stop()
+				local unknown = mount({ detent = "bogus" }, { motionLevel = "none" })
+				Verify.expect(unknown.find("SheetPanel").Size.Y.Offset):toBe(before)
+				unknown.stop()
+			end,
+		})
+
 		verifyHarness:case("refuses a malformed hug entry", {
 			id = "native_sheet_parts::native Sheet: parts::refuses a malformed hug entry",
 			run = function()
@@ -839,7 +860,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Compose.show(mounted, function()
-							return UI.Sheet "Sheet" {
+							return UI.Sheet "Sheet"({
 								isPresented = shown,
 								detent = Compose.cell("large"),
 								title = "T",
@@ -870,7 +891,7 @@ return function(verifyHarness: Verify.Harness)
 										end,
 									} :: OverlayAction,
 								},
-							}
+							})
 						end),
 					})
 				end)

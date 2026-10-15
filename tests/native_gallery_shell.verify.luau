@@ -8,6 +8,9 @@ return function(verifyHarness: Verify.Harness)
 	type MotionLevel = typeof(require("@repo/tools/typecheck/aliases").MotionLevel)
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
+	type ExampleContext = typeof(require("@repo/examples/types").Context)
+	type Built = typeof(require("@repo/examples/types").Built)
+	type DemoTab = typeof(require("@repo/examples/types").DemoTab)
 
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
@@ -37,7 +40,7 @@ return function(verifyHarness: Verify.Harness)
 		function input:GetFocusedTextBox()
 			return nil
 		end
-		local ctx = {
+		local ctx: any = {
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
@@ -87,18 +90,18 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("reports the selected retained leaf and propagates ancestor page visibility", {
 			id = "native_gallery_shell::native gallery shell parity::reports the selected retained leaf and propagates ancestor page visibility",
 			run = function()
-				local built, contexts, counts = nil, {}, {}
-				local function entry(id: string)
+				local built: any, contexts, counts = nil, {}, {}
+				local function entry(id: string): DemoTab
 					return {
 						id = id,
 						label = id,
 						scenario = {
-							build = function(ctx)
+							build = function(ctx: ExampleContext): Built
 								counts[id] = (counts[id] or 0) + 1
 								contexts[id] = ctx
 								local clicks = Compose.cell(0)
 								return {
-									screen = function()
+									screen = function(): Instance
 										return ctx.UI.Button({
 											Name = id .. "Action",
 											label = id,
@@ -109,7 +112,7 @@ return function(verifyHarness: Verify.Harness)
 											end,
 										})
 									end,
-									report = function()
+									report = function(): unknown
 										return { clicks = clicks:peek() }
 									end,
 								}
@@ -129,18 +132,18 @@ return function(verifyHarness: Verify.Harness)
 				button.Activated:Fire()
 				find(root, "b", "TextButton").Activated:Fire()
 				Verify.expect(built.report().active):toBe("b")
-				Verify.expect((contexts.a.pageVisible:peek())):toBe(false)
+				Verify.expect((assert(contexts.a.pageVisible):peek())):toBe(false)
 				find(root, "a", "TextButton").Activated:Fire()
 				Verify.expect(built.report().active):toBe("a")
 				Verify.expect(built.report().example.clicks):toBe(1)
 				Verify.expect((find(root, "aAction"))):toBe(button)
 				Verify.expect(counts.a):toBe(1)
-				Verify.expect((contexts.a.pageVisible:peek())):toBe(true)
+				Verify.expect((assert(contexts.a.pageVisible):peek())):toBe(true)
 				find(root, "other", "TextButton").Activated:Fire()
-				Verify.expect((contexts.a.pageVisible:peek())):toBe(false)
+				Verify.expect((assert(contexts.a.pageVisible):peek())):toBe(false)
 				Verify.expect(built.report().active):toBe("other")
 				ctx.pageVisible:set(false)
-				Verify.expect((contexts.other.pageVisible:peek())):toBe(false)
+				Verify.expect((assert(contexts.other.pageVisible):peek())):toBe(false)
 				stop()
 			end,
 		})

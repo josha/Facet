@@ -4,10 +4,12 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 return {
 	title = "Sensory feedback per control",
 	ledgerRows = {},
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule, Host = ctx.UI, ctx.Compose, ctx.Host
 		local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 		local playHaptics, selected, strength = Compose.cell(true), Compose.cell(false), Compose.cell(0.6)
@@ -15,10 +17,10 @@ return {
 			Compose.cell(0), Compose.cell("No feedback requested yet."), Compose.cell("Ready")
 		local history = {}
 		local effects: { [string]: HapticEffect } = {
-			press = Host.HapticEffect "PressEffect" { Type = E.HapticEffectType.UIClick },
-			release = Host.HapticEffect "ReleaseEffect" { Type = E.HapticEffectType.UIClick },
-			selection = Host.HapticEffect "SelectionEffect" { Type = E.HapticEffectType.UIHover },
-			custom = Host.HapticEffect "CustomEffect" { Type = E.HapticEffectType.Custom },
+			press = Host.HapticEffect("PressEffect")({ Type = E.HapticEffectType.UIClick }),
+			release = Host.HapticEffect("ReleaseEffect")({ Type = E.HapticEffectType.UIClick }),
+			selection = Host.HapticEffect("SelectionEffect")({ Type = E.HapticEffectType.UIHover }),
+			custom = Host.HapticEffect("CustomEffect")({ Type = E.HapticEffectType.Custom }),
 		}
 		Compose.watch(function(use: Use)
 			local amplitude = use(strength)
@@ -72,13 +74,12 @@ return {
 				TextXAlignment = E.TextXAlignment.Left,
 			})
 		end
-		local function row(name, title, description, control)
-			return Host.Frame({
-				Name = name,
+		local function row(name: string, title: string, description: string, control: Child)
+			return Host.Frame(name)({
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				BackgroundTransparency = 1,
-				Host.UIListLayout({ Padding = D.new(0, 6), SortOrder = E.SortOrder.LayoutOrder }) :: unknown,
+				Host.UIListLayout({ Padding = D.new(0, 6), SortOrder = E.SortOrder.LayoutOrder }),
 				text("Title", title, "strong"),
 				text("Description", description, "caption"),
 				control,
@@ -126,7 +127,7 @@ return {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
 					ScrollBarThickness = 6,
-					effects.press :: unknown,
+					effects.press,
 					effects.release,
 					effects.selection,
 					effects.custom,

@@ -408,8 +408,17 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 14, full = 36, release = 1 })
+		context:expect(tiers):toEqual({ fast = 15, full = 38, release = 1 })
 		context:expect(seen["perf"].tier):toBe("full")
+		context:expect(seen["perf-memory"].tier):toBe("full")
+		context:expect(seen["perf-memory"].after):toBeNil()
+		local order: { [string]: number } = {}
+		for index, producer in definition.producers do
+			order[producer.id] = index
+		end
+		context:expect(order["perf"] < order["perf-memory"]):toBe(true)
+		context:expect(assert(definition.policy).concurrency):toBe(1)
+		context:expect(seen["prove-perf-memory-gate"].tier):toBe("full")
 		context:expect(seen["prove-perf-gate"].tier):toBe("release")
 		local plan =
 			Lute.parse(fs.readFileToString("tests/plan.json")) :: { units: { { locator: string, requires: { string }? } } }

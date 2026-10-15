@@ -4,11 +4,25 @@ local Files = require("./files")
 local Json = require("./json")
 local Run = require("./run")
 local Loader = require("../../../tests/lib/loader")
+local Memory = require("../checks/perf_memory")
 
-local loader = Loader.new()
-local perf_runner = loader.require("bench/perf_runner.luau") :: typeof(require("../../../bench/perf_runner"))
-local perf_scenes = loader.require("bench/perf_scenes.luau") :: typeof(require("../../../bench/perf_scenes"))
-local perf_profiles = loader.require("bench/perf_profiles.luau") :: typeof(require("../../../bench/perf_profiles"))
+local perf_runner = (nil :: unknown) :: typeof(require("../../../bench/perf_runner"))
+local perf_scenes = (nil :: unknown) :: typeof(require("../../../bench/perf_scenes"))
+local perf_profiles = (nil :: unknown) :: typeof(require("../../../bench/perf_profiles"))
+local loaded = false
+local nativeApp = (nil :: unknown) :: typeof(require("../../../bench/native_app"))
+
+local function loadBench()
+	if loaded then
+		return
+	end
+	local loader = Loader.new()
+	perf_runner = loader.require("bench/perf_runner.luau") :: typeof(require("../../../bench/perf_runner"))
+	perf_scenes = loader.require("bench/perf_scenes.luau") :: typeof(require("../../../bench/perf_scenes"))
+	perf_profiles = loader.require("bench/perf_profiles.luau") :: typeof(require("../../../bench/perf_profiles"))
+	nativeApp = loader.require("bench/native_app.luau") :: typeof(require("../../../bench/native_app"))
+	loaded = true
+end
 
 local PerfRun = {}
 
@@ -62,7 +76,7 @@ end
 local function profiles(): { unknown }
 	local list: { unknown } = {}
 	for _, name in perf_profiles.list() do
-		table.insert(list, perf_profiles.get(name))
+		list[#list + 1] = perf_profiles.get(name)
 	end
 	return list
 end
@@ -71,7 +85,11 @@ local function injected(): ({ unknown }, string?, number)
 	local injectScene = Run.env("FACET_PERF_INJECT_REGRESSION")
 	local injectFactor = tonumber(Run.env("FACET_PERF_INJECT_FACTOR") or "") or 8
 	if injectScene == nil then
-		return perf_scenes, nil, injectFactor
+		local all: { unknown } = {}
+		for _, scene in perf_scenes do
+			table.insert(all, scene)
+		end
+		return all, nil, injectFactor
 	end
 	local found = false
 	local scenes: { unknown } = {}
@@ -80,7 +98,7 @@ local function injected(): ({ unknown }, string?, number)
 			found = true
 			local original = scene.run
 			local clone = table.clone(scene)
-			clone.run = function(state: unknown): unknown
+			clone.run = function(state)
 				local phases = original(state)
 				for _ = 2, injectFactor do
 					original(state)
@@ -266,10 +284,11 @@ local function ingest(report: { runs: { unknown }, [string]: unknown })
 end
 
 function PerfRun.run(baseline: boolean): number
+	loadBench()
 	local list = profiles()
 	local scenes, injectScene, injectFactor = injected()
 	print(`perf: {#scenes} scenes × {#list} profiles (reference = {perf_profiles.REFERENCE})`)
-	local report = perf_runner.run(scenes, list)
+	local report = perf_runner.run(scenes, list, { memory = true })
 	report.referenceProfile = perf_profiles.REFERENCE
 	if injectScene ~= nil then
 		report.injectedRegression = {
@@ -299,7 +318,10 @@ function PerfRun.run(baseline: boolean): number
 		entry.rows = present[entry.id] or 0
 	end
 	local result = perf_runner.checkBudgets(report, budgets) :: Check
-	report.status = if result.ok then "PASS" else "FAIL"
+	local memoryErrors = Memory.check(report)
+	local memoryGrowth = Memory.growth(report)
+	report.memory = { ok = #memoryErrors == 0, errors = memoryErrors, growth = memoryGrowth }
+	report.status = if result.ok and #memoryErrors == 0 then "PASS" else "FAIL"
 	report.budget = {
 		checked = true,
 		referenceProfile = budgets.referenceProfile,
@@ -336,6 +358,21 @@ function PerfRun.run(baseline: boolean): number
 		print(`  (device budget '{s.class}' not checked: {s.reason})`)
 	end
 	print("")
+	for _, trend in memoryGrowth do
+		print("  TREND [memory] " .. trend)
+	end
+	if #memoryGrowth > 0 then
+		print(`  NOTE: {#memoryGrowth} exact count(s) grew during churn. Growth is a trend, not a gate.`)
+		print("        Teardown must release every instance, connection and Compose registration.")
+		print("")
+	end
+	for _, problem in memoryErrors do
+		print("FAIL [memory] " .. problem)
+	end
+	if #memoryErrors > 0 then
+		print(`perf: FAIL — {#memoryErrors} exact resource count violation(s)`)
+		return 1
+	end
 	if not result.ok then
 		print(
 			`perf: FAIL_ENVIRONMENT — {#result.violations} host timing budget violation(s) [artifact: {ARTIFACT_PATH}]`
@@ -362,6 +399,7 @@ function PerfRun.run(baseline: boolean): number
 end
 
 function PerfRun.baselineScenes(names: { string }): number
+	loadBench()
 	if #names == 0 then
 		print("usage: lute run tools/facet perf baseline <scene> [<scene> ...]")
 		return 2
@@ -459,6 +497,7 @@ local function syntheticReport(scene: string, p95: number): { [string]: unknown 
 end
 
 function PerfRun.proveGate(): number
+	loadBench()
 	print(`perf prove-gate: injecting a {FACTOR}x regression into '{TARGET_SCENE}' and running the real gate…`)
 	local injectedCode, injectedOut = gate({
 		FACET_PERF_INJECT_REGRESSION = TARGET_SCENE,
@@ -603,6 +642,91 @@ function PerfRun.proveGate(): number
 		return 2
 	end
 	print(`perf prove-gate: PASS — trend, ceiling and class-refusal all fire; clean rerun restored [{ROW_PATH}]`)
+	return 0
+end
+
+function PerfRun.proveMemoryGate(): number
+	loadBench()
+	local proofs: { unknown } = {}
+	for _, kind in { "clean", "instances", "connections", "registrations" } do
+		local cleanup: { () -> () } = {}
+		local scene = {
+			name = "planted-" .. kind,
+			requirement = "UI-LIFE-002",
+			dataset = "one mount and unmount per iteration",
+			memoryChurn = true,
+			warmup = 0,
+			samples = 3,
+			setup = function()
+				return nativeApp()
+			end,
+			run = function(state: typeof(nativeApp()))
+				local stop = state.runtime.mount(function()
+					return state.Host.Frame({})
+				end, state.target)
+				stop()
+				if kind == "instances" then
+					local detached = state.engine.new("Folder")
+					table.insert(cleanup, function()
+						detached:Destroy()
+					end)
+				elseif kind == "connections" then
+					local connection = state.engine.heartbeat:Connect(function() end)
+					table.insert(cleanup, function()
+						connection:Disconnect()
+					end)
+				elseif kind == "registrations" then
+					local owner = state.Compose.createRootOwner(function()
+						state.Compose.cleanup(function() end)
+					end)
+					table.insert(cleanup, owner.dispose)
+				end
+			end,
+			teardown = function(state: typeof(nativeApp()))
+				state.dispose()
+			end,
+		}
+		local row = perf_runner.runScene(scene, perf_profiles.get(perf_profiles.REFERENCE), { memory = true })
+		local errors = Memory.check({ runs = { row } })
+		local growth = Memory.growth({ runs = { row } })
+		for _, stop in cleanup do
+			stop()
+		end
+		local path = `artifacts/performance-stress-places/memory-{kind}.json`
+		PerfRun.writeJson(path, { runs = { row } })
+		local command = Run.capture({ Run.lute(), "run", "tools/facet", "perf", "memory", path })
+		local teardown, reported = false, false
+		for _, problem in errors do
+			teardown = teardown
+				or string.find(problem, "teardown retains", 1, true) ~= nil
+					and string.find(problem, ` {kind};`, 1, true) ~= nil
+		end
+		for _, trend in growth do
+			reported = reported or string.find(trend, "grows " .. kind, 1, true) ~= nil
+		end
+		local passed = if kind == "clean"
+			then #errors == 0 and #growth == 0 and command.ok
+			else teardown and reported and not command.ok
+		table.insert(proofs, {
+			kind = kind,
+			passed = passed,
+			errors = errors,
+			growth = growth,
+			resources = row.resources,
+			exitCode = command.code,
+		})
+		print(`perf prove-memory-gate: {kind} {if passed then "PASS" else "FAIL"}`)
+		if not passed then
+			for _, problem in errors do
+				print(problem)
+			end
+			for _, trend in growth do
+				print(trend)
+			end
+			return 1
+		end
+	end
+	PerfRun.writeJson("artifacts/performance-stress-places/prove-memory-gate.json", { proofs = proofs })
 	return 0
 end
 

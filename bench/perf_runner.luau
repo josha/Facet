@@ -1,5 +1,6 @@
 --!strict
 local NativeEngine = require("../tests/lib/native_engine")
+local Compose = require("../src").Compose
 
 local system = require("@std/system")
 local Verify = require("../tools/vendor/verify/src/core")
@@ -202,6 +203,10 @@ end
 function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 	local warmup = (opts and opts.warmup) or scene.warmup or DEFAULT_WARMUP
 	local samples = (opts and opts.samples) or scene.samples or DEFAULT_SAMPLES
+	local auditing = opts and opts.memory == true
+	if auditing then
+		Compose.inspect.start({ maxOwners = math.huge, maxNodes = math.huge })
+	end
 
 	local state = scene.setup(profile)
 
@@ -214,6 +219,20 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 
 	local phaseSamples: { [string]: { number } } = { total = table.create(samples) }
 	local heapSeries = table.create(samples)
+	local resourceSeries = {}
+	local function resources(): { instances: number, connections: number, registrations: number }
+		local native = state.engine.census()
+		local snapshot = Compose.inspect.snapshot()
+		assert(snapshot.active and snapshot.droppedOwners == 0 and snapshot.droppedNodes == 0)
+		local registrations = 0
+		for _, roots in { snapshot.mounts, snapshot.detached } do
+			for _, owner in roots do
+				registrations += owner.totalHolding
+			end
+		end
+		return { instances = native.live, connections = native.connections, registrations = registrations }
+	end
+	local resourceStart = if auditing then resources() else nil
 
 	local heapFloorKb = gcinfo()
 
@@ -241,6 +260,9 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 			table.insert(bucket, (os.clock() - settleStart) * 1000)
 		end
 		heapSeries[i] = gcinfo()
+		if auditing then
+			table.insert(resourceSeries, resources())
+		end
 	end
 	local wallSeconds = os.clock() - wallStart
 	local allocGrowthKb = gcinfo() - heapFloorKb
@@ -274,6 +296,10 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 
 	if scene.teardown ~= nil then
 		scene.teardown(state)
+	end
+	local resourceEnd = if auditing then resources() else nil
+	if auditing then
+		Compose.inspect.stop()
 	end
 
 	local phases: { [string]: any } = {}
@@ -363,6 +389,15 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 		heapSlopeKbPerIter = slope(heapSeries),
 		liveRegistry = { registrations = registrations },
 		liveConnections = liveConnections,
+		resources = if auditing
+			then {
+				method = "separate instrumented pass with the scene warmup, sample count, workload and afterRun unchanged",
+				start = resourceStart,
+				iterations = resourceSeries,
+				teardown = resourceEnd,
+				churn = scene.memoryChurn == true,
+			}
+			else nil,
 		async = async,
 		extras = extras,
 
@@ -381,7 +416,17 @@ function perf_runner.run(scenes: { any }, profiles: { any }, opts: any?): any
 	local runs = {}
 	for _, scene in scenes do
 		for _, profile in profiles do
-			table.insert(runs, perf_runner.runScene(scene, profile, opts))
+			local timing = if opts then table.clone(opts) else nil
+			if timing then
+				timing.memory = nil
+			end
+			local row = perf_runner.runScene(scene, profile, timing)
+			if opts and opts.memory then
+				local settings = table.clone(opts)
+				settings.memory = true
+				row.resources = perf_runner.runScene(scene, profile, settings).resources
+			end
+			table.insert(runs, row)
 		end
 	end
 

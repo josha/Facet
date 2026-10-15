@@ -10,6 +10,100 @@ return function(verifyHarness: Verify.Harness)
 	local perf_runner = require("../bench/perf_runner")
 	local perf_profiles = require("../bench/perf_profiles")
 	local Compose = require("../src/vendor/compose/core")
+	local Memory = require("../tools/facet/checks/perf_memory")
+
+	verifyHarness:suite("exact performance resource gates", function()
+		verifyHarness:case("rejects each teardown leak and malformed count and reports churn growth", {
+			id = "native_perf_runner::exact performance resource gates::rejects each teardown leak and malformed count and reports churn growth",
+			run = function()
+				local function report(start: unknown, sample: unknown, final: unknown, churn: boolean): unknown
+					return {
+						runs = {
+							{
+								scene = "test",
+								device = "floorAndroid",
+								evidenceClass = "lute",
+								samples = 1,
+								resources = { start = start, iterations = { sample }, teardown = final, churn = churn },
+							},
+						},
+					}
+				end
+				local zero = { instances = 0, connections = 0, registrations = 0 }
+				expect(Memory.check(report(zero, zero, zero, true))):toEqual({})
+				expect(Memory.growth(report(zero, zero, zero, true))):toEqual({})
+				for _, name in { "instances", "connections", "registrations" } do
+					local leak: { [string]: number } = table.clone(zero)
+					leak[name] = 1
+					expect(Memory.check(report(zero, leak, zero, true))):toEqual({})
+					expect(Memory.growth(report(zero, leak, zero, true))):toEqual({
+						`test@floorAndroid: iteration 1 grows {name} from 0 to 1`,
+					})
+					expect(Memory.growth(report(zero, leak, zero, false))):toEqual({})
+					expect(Memory.check(report(zero, zero, leak, false))):toEqual({
+						`test@floorAndroid: teardown retains 1 {name}; expected zero`,
+					})
+					leak[name] = 0.5
+					expect(#Memory.check(report(zero, leak, zero, true))):toBe(1)
+				end
+				expect(#Memory.check({ runs = {} }) > 0):toBe(true)
+				expect(#Memory.check({ runs = { { evidenceClass = "lute" } } }) > 0):toBe(true)
+			end,
+		})
+		verifyHarness:case("reports churn growth below the warmed resource count as a trend", {
+			id = "native_perf_runner::exact performance resource gates::reports churn growth below the warmed resource count as a trend",
+			run = function()
+				local function counts(value: number)
+					return { instances = value, connections = value, registrations = value }
+				end
+				local report = {
+					runs = {
+						{
+							scene = "churn",
+							device = "floorAndroid",
+							evidenceClass = "lute",
+							samples = 3,
+							resources = {
+								start = counts(10),
+								iterations = { counts(8), counts(7), counts(8) },
+								teardown = counts(0),
+								churn = true,
+							},
+						},
+					},
+				}
+				expect(Memory.check(report)):toEqual({})
+				expect(Memory.growth(report)):toEqual({
+					"churn@floorAndroid: iteration 3 grows instances from 7 to 8",
+					"churn@floorAndroid: iteration 3 grows connections from 7 to 8",
+					"churn@floorAndroid: iteration 3 grows registrations from 7 to 8",
+				})
+			end,
+		})
+		verifyHarness:case(
+			"radial exits release registrations after every close and release all resources on teardown",
+			{
+				id = "native_perf_runner::exact performance resource gates::radial exits release registrations after every close and release all resources on teardown",
+				run = function()
+					local scenes = (require("../bench/perf_scenes") :: unknown) :: { { name: string } }
+					local found = false
+					for _, scene in scenes do
+						if scene.name == "radial-menu-open-close" then
+							found = true
+							local row = perf_runner.runScene(scene, perf_profiles.get(perf_profiles.REFERENCE), {
+								warmup = 2,
+								samples = 6,
+								memory = true,
+							})
+							expect(Memory.check({ runs = { row } })):toEqual({})
+							expect(Memory.growth({ runs = { row } })):toEqual({})
+						end
+					end
+					expect(found):toBe(true)
+				end,
+			}
+		)
+	end)
 
 	local function keys(tbl: any): { string }
 		local out = {}

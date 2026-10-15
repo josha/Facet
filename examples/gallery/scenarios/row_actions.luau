@@ -2,8 +2,9 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 local build = require("./collection_demo")
-local SEED = {
+local SEED: { build.Row } = {
 	{
 		id = "m1",
 		from = "Ari Foyer",
@@ -55,7 +56,7 @@ local SEED = {
 }
 return {
 	title = "Mail row actions",
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local Compose: ComposeModule, UI = ctx.Compose, ctx.UI
 		local selected = Compose.cell("list")
 		local tabs, surfaces = {}, {}
@@ -85,7 +86,8 @@ return {
 			report = function()
 				local result = { active = selected:peek(), surfaces = {} }
 				for kind, built in surfaces do
-					result.surfaces[kind] = built.report()
+					local surfaceReport = built.report
+					result.surfaces[kind] = if surfaceReport then surfaceReport() else nil
 				end
 				return result
 			end,

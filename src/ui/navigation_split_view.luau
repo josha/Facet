@@ -5,34 +5,14 @@ local Nav = require("./navigation_types")
 local parts = require("./overlay_parts")
 local scrollLock = require("./scroll_lock")
 local dragSession = require("./drag_session")
+local InputProps = require("./input_props")
+local NavigationProps = require("./navigation_props")
 
-export type Column = "sidebar" | "detail"
-export type Props = Shared.FrameProps & {
-	axis: ("x" | "y")?,
-	resizable: Shared.ValueBoolean?,
-	alwaysShowResizeHandle: Shared.ValueBoolean?,
-	sidebarHeight: Shared.Cell<number>?,
-	minSidebarHeight: number?,
-	maxSidebarHeight: number?,
-	minDetailHeight: number?,
-	compactHeight: number?,
-	sidebar: Nav.Content,
-	detail: Nav.Content,
-	detailVisible: Shared.ValueBoolean?,
-	preferredCompactColumn: Shared.Cell<Column>?,
-	sidebarWidth: Shared.Cell<number>?,
-	minSidebarWidth: number?,
-	maxSidebarWidth: number?,
-	minDetailWidth: number?,
-	compactWidth: number?,
-	backLabel: Shared.ValueString?,
-	detailLabel: Shared.ValueString?,
-}
-export type Constructor = Shared.Constructor<Props, Frame>
-export type Controls = { NavigationSplitView: Constructor }
+type Column = Nav.SplitColumn
+type Props = NavigationProps.NavigationSplitViewProps
 type Registry = {
-	NavigationSplitView: Constructor,
-	Button: Shared.Constructor<Inputs.ButtonProps, TextButton>,
+	NavigationSplitView: Shared.Constructor<Props, Frame>,
+	Button: Shared.Constructor<InputProps.ButtonProps, TextButton>,
 	adjustable: (GuiObject, Inputs.AdjustableOptions) -> (),
 }
 

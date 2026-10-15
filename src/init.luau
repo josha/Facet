@@ -2,6 +2,17 @@
 local Compose = require("@self/vendor/compose/core")
 local Roblox = require("@self/vendor/compose/roblox")
 local ControlTypes = require("@self/ui/control_types")
+local SharedTypes = require("@self/ui/types")
+local CollectionProps = require("@self/ui/collection_props")
+local ContentProps = require("@self/ui/content_props")
+local EffectProps = require("@self/ui/effect_props")
+local InputProps = require("@self/ui/input_props")
+local LayoutProps = require("@self/ui/layout_props")
+local MediaProps = require("@self/ui/media_props")
+local NavigationProps = require("@self/ui/navigation_props")
+local OverlayProps = require("@self/ui/overlay_props")
+local RadialProps = require("@self/ui/radial_props")
+local ZoomTravelProps = require("@self/ui/zoom_travel_props")
 local createControls: ControlTypes.Factory = require("@self/ui")
 local bindThemes = require("@self/ui/themes")
 local InputTypes = require("@self/ui/input_types")
@@ -19,10 +30,10 @@ local ThemeTypes = require("@self/ui/theme_types")
 local LayoutTypes = require("@self/ui/layout_types")
 local createApp = require("@self/ui/app")
 local OverlayTypes = require("@self/ui/overlay_types")
+local ColorPickerTypes = require("@self/ui/color_picker_types")
+local DateTimePickerTypes = require("@self/ui/date_time_picker_types")
 local civilDate = require("@self/ui/civil_date")
 local CivilTypes = require("@self/ui/civil_date_types")
-local DateTimePickerTypes = require("@self/ui/date_time_picker_types")
-local ColorPickerTypes = require("@self/ui/color_picker_types")
 local arithmetic = require("@self/ui/arithmetic")
 local adaptive = require("@self/ui/adaptive")
 local gamepadContention = require("@self/ui/gamepad_contention")
@@ -31,113 +42,175 @@ local richText = require("@self/ui/rich_text")
 local GestureTypes = require("@self/ui/gesture_arbitration")
 local EnvironmentTypes = require("@self/ui/environment_types")
 local freeze = require("@self/ui/freeze")
-local NavigationSplitView = require("@self/ui/navigation_split_view")
 local EffectTypes = require("@self/ui/effect_types")
 export type SequenceStep = EffectTypes.SequenceStep
 export type SequenceSpec = EffectTypes.SequenceSpec
 export type Sequence = EffectTypes.Sequence
-export type FlashProps = EffectTypes.FlashProps
+export type FlashProps = EffectProps.FlashProps
 local ZoomTravelTypes = require("@self/ui/zoom_travel_types")
-export type ZoomViewProps = ZoomTravelTypes.ZoomViewProps
+export type ZoomViewProps = ZoomTravelProps.ZoomViewProps
 export type ZoomControls = ZoomTravelTypes.ZoomControls
 export type ZoomRect = ZoomTravelTypes.Rect
-export type TravelProps = ZoomTravelTypes.TravelProps
-export type NavigationSplitViewProps = NavigationSplitView.Props
-export type ButtonProps = InputTypes.ButtonProps
-export type ToggleProps = InputTypes.ToggleProps
-export type TextInputProps = InputTypes.TextInputProps
-export type NumberInputProps = InputTypes.NumberInputProps
-export type StepperProps = InputTypes.StepperProps
-export type SliderProps = InputTypes.SliderProps
-export type RatingProps = InputTypes.RatingProps
-export type LevelPickerProps = InputTypes.LevelPickerProps
-export type ChipProps = InputTypes.ChipProps
-export type ShortcutHintProps = InputTypes.ShortcutHintProps
+export type TravelProps = ZoomTravelProps.TravelProps
+export type NavigationSplitViewProps = NavigationProps.NavigationSplitViewProps
+export type ButtonProps = InputProps.ButtonProps
+export type ToggleProps = InputProps.ToggleProps
+export type TextInputProps = InputProps.TextInputProps
+export type NumberInputProps = InputProps.NumberInputProps
+export type StepperProps = InputProps.StepperProps
+export type SliderProps = InputProps.SliderProps
+export type RatingProps = InputProps.RatingProps
+export type LevelPickerProps = InputProps.LevelPickerProps
+export type ChipProps = InputProps.ChipProps
+export type ShortcutHintProps = InputProps.ShortcutHintProps
+export type ToggleCellProps = InputProps.ToggleCellProps
+export type ToggleRequestProps = InputProps.ToggleRequestProps
+export type TextInputCellProps = InputProps.TextInputCellProps
+export type TextInputRequestProps = InputProps.TextInputRequestProps
+export type TextInputNumberCellProps = InputProps.TextInputNumberCellProps
+export type TextInputNumberRequestProps = InputProps.TextInputNumberRequestProps
+export type NumberInputCellProps = InputProps.NumberInputCellProps
+export type NumberInputRequestProps = InputProps.NumberInputRequestProps
+export type StepperCellProps = InputProps.StepperCellProps
+export type StepperRequestProps = InputProps.StepperRequestProps
+export type SliderCellProps = InputProps.SliderCellProps
+export type SliderRequestProps = InputProps.SliderRequestProps
+export type SliderRangeProps = InputProps.SliderRangeProps
+export type RatingCellProps = InputProps.RatingCellProps
+export type RatingRequestProps = InputProps.RatingRequestProps
+export type RatingReadOnlyProps = InputProps.RatingReadOnlyProps
+export type LevelPickerCellProps = InputProps.LevelPickerCellProps
+export type LevelPickerRequestProps = InputProps.LevelPickerRequestProps
+export type LevelPickerReadOnlyProps = InputProps.LevelPickerReadOnlyProps
+export type ChipCellProps = InputProps.ChipCellProps
+export type ChipRequestProps = InputProps.ChipRequestProps
+export type ChipRemovableProps = InputProps.ChipRemovableProps
+export type ShortcutHintKeysProps = InputProps.ShortcutHintKeysProps
+export type ShortcutHintActionProps = InputProps.ShortcutHintActionProps
+export type ButtonRole = InputTypes.ButtonRole
+export type TextCommitReason = InputTypes.TextCommitReason
+export type CommitReason = InputTypes.CommitReason
+export type ClearButtonMode = InputTypes.ClearButtonMode
 export type MenuItem<V = string> = NavigationTypes.MenuItem<V>
-export type MenuSpec<V = string> = NavigationTypes.MenuSpec<V>
+export type MenuSpec<V = string> = NavigationProps.MenuSpec<V>
 export type PickerOption<V = string> = NavigationTypes.PickerOption<V>
-export type PickerSpec<V = string> = NavigationTypes.PickerSpec<V>
-export type SplitButtonSpec<V = string> = NavigationTypes.SplitButtonSpec<V>
-export type ComboBoxSpec = NavigationTypes.ComboBoxSpec
-export type DisclosureGroupSpec = NavigationTypes.DisclosureGroupSpec
-export type CollapsibleViewSpec = NavigationTypes.CollapsibleViewSpec
+export type PickerSpec<V = string> = NavigationProps.PickerSpec<V>
+export type SinglePickerSpec<V = string> = NavigationProps.SinglePickerSpec<V>
+export type MultiplePickerSpec<V = string> = NavigationProps.MultiplePickerSpec<V>
+export type SplitButtonSpec<V = string> = NavigationProps.SplitButtonSpec<V>
+export type ComboBoxSpec = NavigationProps.ComboBoxSpec
+export type DisclosureGroupSpec = NavigationProps.DisclosureGroupSpec
+export type CollapsibleViewSpec = NavigationProps.CollapsibleViewSpec
 export type AlertAction<P = unknown> = NavigationTypes.AlertAction<P>
-export type AlertSpec<P = unknown> = NavigationTypes.AlertSpec<P>
+export type AlertSpec<P = unknown> = NavigationProps.AlertSpec<P>
 export type SheetDetent = NavigationTypes.SheetDetent
-export type SheetSpec = NavigationTypes.SheetSpec
-export type CalloutSpec = NavigationTypes.CalloutSpec
+export type SheetSpec = NavigationProps.SheetSpec
+export type CalloutSpec = NavigationProps.CalloutSpec
 export type Tab = NavigationTypes.Tab
-export type TabViewSpec = NavigationTypes.TabViewSpec
+export type TabViewSpec = NavigationProps.TabViewSpec
 export type NavigationEntry<P = unknown> = NavigationTypes.NavigationEntry<P>
 export type NavigationDestination<P = unknown> = NavigationTypes.NavigationDestination<P>
-export type NavigationStackSpec<P = unknown> = NavigationTypes.NavigationStackSpec<P>
-export type PageViewSpec = NavigationTypes.PageViewSpec
+export type NavigationStackSpec<P = unknown> = NavigationProps.NavigationStackSpec<P>
+export type PageViewSpec = NavigationProps.PageViewSpec
 export type RadialItem<V = string> = RadialTypes.RadialItem<V>
-export type RadialMenuSpec<V = string> = RadialTypes.RadialMenuSpec<V>
+export type RadialMenuSpec<V = string> = RadialProps.RadialMenuSpec<V>
 export type SlotControls<K> = CollectionTypes.SlotControls<K>
-export type KeyedCollectionSpec<V, K> = CollectionTypes.KeyedCollectionSpec<V, K>
-export type IdentityCollectionSpec<V> = CollectionTypes.IdentityCollectionSpec<V>
-export type CollectionSpec<V, K> = CollectionTypes.CollectionSpec<V, K>
+export type FocusControls<K> = CollectionTypes.FocusControls<K>
+export type CollectionPlacement = Compose.Placement
+export type KeyedCollectionSpec<V, K> = CollectionProps.KeyedCollectionSpec<V, K>
+export type IdentityCollectionSpec<V> = CollectionProps.IdentityCollectionSpec<V>
+export type CollectionSpec<V, K> = CollectionProps.CollectionSpec<V, K>
 export type RowAction = CollectionTypes.RowAction
-export type RowActionsOptions = CollectionTypes.RowActionsOptions
-export type RowActionsSpec = CollectionTypes.RowActionsSpec
+export type RowActionsOptions = CollectionProps.RowActionsOptions
+export type RowActionsSpec = CollectionProps.RowActionsSpec
 export type CellDraft = CollectionTypes.CellDraft
-export type CellEditorSpec = CollectionTypes.CellEditorSpec
+export type CellEditorSpec = CollectionProps.CellEditorSpec
 export type TableColumn<V, K> = CollectionTypes.TableColumn<V, K>
-export type KeyedTableSpec<V, K> = CollectionTypes.KeyedTableSpec<V, K>
-export type IdentityTableSpec<V> = CollectionTypes.IdentityTableSpec<V>
-export type TableSpec<V, K> = CollectionTypes.TableSpec<V, K>
-export type OutlineSpec<V, K> = CollectionTypes.OutlineSpec<V, K>
+export type KeyedTableSpec<V, K> = CollectionProps.KeyedTableSpec<V, K>
+export type IdentityTableSpec<V> = CollectionProps.IdentityTableSpec<V>
+export type TableSpec<V, K> = CollectionProps.TableSpec<V, K>
+export type OutlineSpec<V, K> = CollectionProps.OutlineSpec<V, K>
+export type KeyedOutlineSpec<V, K> = CollectionProps.KeyedOutlineSpec<V, K>
+export type IdentityOutlineSpec<V> = CollectionProps.IdentityOutlineSpec<V>
 export type HierarchyOptions<V, K> = CollectionTypes.HierarchyOptions<V, K>
-export type TextProps = MediaTypes.TextProps
-export type LabelProps = MediaTypes.LabelProps
-export type ImageProps = MediaTypes.ImageProps
-export type BadgeProps = MediaTypes.BadgeProps
-export type StatusIndicatorProps = MediaTypes.StatusIndicatorProps
-export type PathProps = MediaTypes.PathProps
+export type TextProps = MediaProps.TextProps
+export type LabelProps = MediaProps.LabelProps
+export type ImageProps = MediaProps.ImageProps
+export type BadgeProps = MediaProps.BadgeProps
+export type StatusIndicatorProps = MediaProps.StatusIndicatorProps
+export type PathProps = MediaProps.PathProps
 export type PathPoint = MediaTypes.PathPoint
-export type ProgressViewProps = MediaTypes.ProgressViewProps
-export type SkeletonProps = MediaTypes.SkeletonProps
+export type ProgressViewProps = MediaProps.ProgressViewProps
+export type SkeletonProps = MediaProps.SkeletonProps
 export type ImageResource = MediaTypes.ImageResource
-export type AsyncImageProps = MediaTypes.AsyncImageProps
-export type AvatarProps = MediaTypes.AvatarProps
+export type AsyncImageProps = MediaProps.AsyncImageProps
+export type AvatarProps = MediaProps.AvatarProps
 export type AvatarMember = MediaTypes.AvatarMember
-export type AvatarGroupProps = MediaTypes.AvatarGroupProps
-export type StageProps = MediaTypes.StageProps
-export type PaginationSpec = ContentTypes.PaginationSpec
-export type StepIndicatorSpec = ContentTypes.StepIndicatorSpec
+export type AvatarGroupProps = MediaProps.AvatarGroupProps
+export type StageProps = MediaProps.StageProps
+export type PaginationSpec = ContentProps.PaginationSpec
+export type StepIndicatorSpec = ContentProps.StepIndicatorSpec
 export type Step = ContentTypes.Step
-export type VoteSpec = ContentTypes.VoteSpec
-export type CardSpec = ContentTypes.CardSpec
+export type VoteSpec = ContentProps.VoteSpec
+export type CardSpec = ContentProps.CardSpec
 export type CardControls = ContentTypes.CardControls
+export type CardAction = ContentTypes.CardAction
+export type CardMenu = ContentTypes.CardMenu
 export type BadgeValue = ContentTypes.BadgeValue
 export type Space = LayoutTypes.Space
 export type Padding = LayoutTypes.Padding
 export type Extent = LayoutTypes.Extent
-export type StackProps = LayoutTypes.StackProps
-export type ScreenProps = LayoutTypes.ScreenProps
-export type ZStackProps = LayoutTypes.ZStackProps
-export type ScrollViewProps = LayoutTypes.ScrollViewProps
-export type GridProps = LayoutTypes.GridProps
-export type AdaptiveStackProps = LayoutTypes.AdaptiveStackProps
-export type ViewThatFitsProps = LayoutTypes.ViewThatFitsProps
-export type ErrorBoundaryProps = LayoutTypes.ErrorBoundaryProps
-export type DividerProps = LayoutTypes.DividerProps
-export type SpacerProps = LayoutTypes.SpacerProps
-export type CompositionProps = LayoutTypes.CompositionProps
-export type RegionProps = LayoutTypes.RegionProps
+export type StackProps = LayoutProps.StackProps
+export type ScreenProps = LayoutProps.ScreenProps
+export type ZStackProps = LayoutProps.ZStackProps
+export type ScrollViewProps = LayoutProps.ScrollViewProps
+export type GridProps = LayoutProps.GridProps
+export type AdaptiveStackProps = LayoutProps.AdaptiveStackProps
+export type ViewThatFitsProps = LayoutProps.ViewThatFitsProps
+export type ErrorBoundaryProps = LayoutProps.ErrorBoundaryProps
+export type DividerProps = LayoutProps.DividerProps
+export type SpacerProps = LayoutProps.SpacerProps
+export type CompositionProps = LayoutProps.CompositionProps
+export type RegionProps = LayoutProps.RegionProps
 export type Zone = LayoutTypes.Zone
 export type OverlayAction = OverlayTypes.Action
+export type DialogAction = OverlayTypes.DialogAction
+export type ActionRole = OverlayTypes.ActionRole
+export type ToastAction = OverlayTypes.ToastAction
+export type PopoverSource = OverlayTypes.PopoverSource
+export type OverlayRect = OverlayTypes.Rect
+export type DialogDismissReason = OverlayTypes.DialogDismissReason
+export type PopoverDismissReason = OverlayTypes.PopoverDismissReason
+export type ToastDismissReason = OverlayTypes.ToastDismissReason
+export type NoticeSeverity = OverlayTypes.NoticeSeverity
+export type ColorSwatch = ColorPickerTypes.Swatch
+export type ColorPickerMode = ColorPickerTypes.Mode
+export type ColorPickerDismissReason = ColorPickerTypes.DismissReason
+export type DateRangePreset = DateTimePickerTypes.Preset
+export type DateTimePickerDismissReason = DateTimePickerTypes.DismissReason
+export type ControlSize = MediaTypes.ControlSize
+export type Status = MediaTypes.Status
+export type TextRole = MediaTypes.TextRole
+export type Presence = MediaTypes.Presence
+export type ImageScaleMode = MediaTypes.ScaleMode
+export type ImageLoader = MediaTypes.ImageLoader
+export type VoteValue = ContentTypes.VoteValue
+export type StepState = ContentTypes.StepState
+export type PaginationForm = ContentTypes.PaginationForm
+export type TabPlacement = NavigationTypes.Placement
+export type TabSelectionIndicator = NavigationTypes.TabSelectionIndicator
 export type OverlayMedia = OverlayTypes.Media
 export type OverlayHero = OverlayTypes.Hero
-export type DialogSpec = OverlayTypes.DialogSpec
-export type PopoverSpec = OverlayTypes.PopoverSpec
-export type NoticeSpec = OverlayTypes.NoticeSpec
-export type NavBarSpec = OverlayTypes.NavBarSpec
-export type ToastSpec = OverlayTypes.ToastSpec
-export type DateTimePickerProps = DateTimePickerTypes.DateTimePickerProps
-export type ColorPickerProps = ColorPickerTypes.ColorPickerProps
+export type DialogSpec = OverlayProps.DialogSpec
+export type PopoverSpec = OverlayProps.PopoverSpec
+export type NoticeSpec = OverlayProps.NoticeSpec
+export type NavBarSpec = OverlayProps.NavBarSpec
+export type ToastSpec = OverlayProps.ToastSpec
+export type DateTimePickerProps = InputProps.DateTimePickerProps
+export type ColorPickerProps = InputProps.ColorPickerProps
 export type Controls = ControlTypes.Controls
+export type Host = SharedTypes.Host
+export type Child = SharedTypes.Child
 export type Environment = EnvironmentTypes.Environment
 export type InteractionClasses = EnvironmentTypes.InteractionClasses
 export type SafeInsets = EnvironmentTypes.SafeInsets
@@ -164,6 +237,10 @@ export type AnchoredOptions = createApp.AnchoredOptions
 export type ToastOptions = createApp.ToastOptions
 export type ControlOptions = ControlTypes.Config
 export type ThemePackage = ThemeTypes.ThemePackage
+export type ThemeDefinition = ThemeTypes.ThemeDefinition
+export type PalettePatch = ThemeTypes.PalettePatch
+export type PaletteExtra = ThemeTypes.PaletteExtra
+export type TypographyPatch = ThemeTypes.TypographyPatch
 export type CivilDate = CivilTypes.CivilDate
 export type CivilRange = CivilTypes.Range
 export type CivilLocale = CivilTypes.Locale
@@ -181,6 +258,7 @@ export type Facet = {
 	Compose: ComposeModule,
 	Roblox: ComposeRobloxModule,
 	controls: (Runtime, ControlOptions?) -> Controls,
+	host: (Runtime) -> Host,
 	app: (AppOptions?) -> App,
 	themes: ThemeTypes.Themes,
 	civilDate: CivilTypes.Module,
@@ -246,6 +324,12 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		Roblox = roblox,
 		controls = function(runtime: Runtime, options: ControlOptions?): Controls
 			return createControls(core, runtime, options)
+		end,
+		host = function(runtime: Runtime): Host
+			if type(runtime) ~= "table" or type(runtime.constructors) ~= "table" then
+				error("Facet.host: pass a Compose runtime", 2)
+			end
+			return (runtime.constructors :: unknown) :: Host
 		end,
 		app = function(options: AppOptions?): App
 			return createApp(core, roblox, createControls, themes, options)

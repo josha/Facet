@@ -29,6 +29,7 @@ export type Environment = Types.Environment
 type Resolved = Types.Resolved
 type State = Types.State
 local ATTRIBUTE_NAME_LIMIT = 100
+local metatableOf = (getmetatable :: unknown) :: (unknown) -> unknown
 
 local UNIVERSAL_EVENTS: { string } = {
 	"Changed",
@@ -208,9 +209,9 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		return guarded((body :: unknown) :: (...unknown) -> ...unknown)
 	end
 
-	local function newSignal<A...>(): Signal<A...>
+	local function newSignal<A...>(initialFires: number?): Signal<A...>
 		local live: { { handler: (A...) -> (), connected: boolean, connection: Connection } } = {}
-		local fired = 0
+		local fired = initialFires or 0
 		local signal = {} :: Signal<A...>
 		function signal:Connect(handler: (A...) -> ()): Connection
 			local connection = { Connected = true } :: Connection
@@ -233,6 +234,9 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		end
 		local function dispatch(_self: Signal<A...>, ...: A...)
 			fired += 1
+			if #live == 0 then
+				return
+			end
 			for _, record in table.clone(live) do
 				if record.connected then
 					local ok, thrown: unknown = pcall(record.handler, ...)
@@ -271,45 +275,52 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 	local function signalFor(state: State, key: string): Signal
 		local existing = state.signals[key]
 		if existing == nil then
-			existing = newSignal()
+			existing = newSignal(state.signalFires[key])
 			state.signals[key] = existing
+			state.signalFires[key] = nil
 		end
 		return existing
+	end
+
+	local function fireSignal(state: State, key: string, ...: unknown)
+		local signal = state.signals[key]
+		if signal ~= nil then
+			signal:Fire(...)
+		else
+			state.signalFires[key] = (state.signalFires[key] or 0) + 1
+		end
 	end
 
 	local function describe(state: State): string
 		return ("%s %q"):format(state.className, tostring(state.values.Name))
 	end
 
-	local function computedEntry(
-		className: string,
-		key: string
-	): { get: (object: Instance) -> unknown, writable: boolean }?
+	local function computedEntry(className: string, key: string): (((object: Instance) -> unknown)?, boolean)
 		local getters = settings.computed
-		if getters == nil then
-			return nil
+		if getters == nil or (next(getters) == nil and metatableOf(getters) == nil) then
+			return nil, false
 		end
 		local walk: string? = className
 		while walk ~= nil do
 			local entry = getters[walk .. "." .. key]
 			if entry ~= nil then
 				if type(entry) == "function" then
-					return { get = entry, writable = false }
+					return entry, false
 				end
-				return { get = entry.get, writable = entry.writable == true }
+				return entry.get, entry.writable == true
 			end
 			local spec = specs[walk]
 			walk = if spec ~= nil then spec.super else nil
 		end
-		return nil
+		return nil, false
 	end
 	local function computedFor(className: string, key: string): ((object: Instance) -> unknown)?
-		local entry = computedEntry(className, key)
-		return if entry ~= nil then entry.get else nil
+		local getter = computedEntry(className, key)
+		return getter
 	end
 	local function writableComputed(className: string, key: string): boolean
-		local entry = computedEntry(className, key)
-		return entry ~= nil and entry.writable
+		local _, writable = computedEntry(className, key)
+		return writable
 	end
 
 	local function defaultOf(className: string, class: Resolved, key: string): unknown
@@ -323,8 +334,8 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 	end
 
 	local function changed(object: Instance, state: State, property: string)
-		signalFor(state, "prop:" .. property):Fire()
-		signalFor(state, "Changed"):Fire(property)
+		fireSignal(state, "prop:" .. property)
+		fireSignal(state, "Changed", property)
 	end
 
 	local function subtree(object: Instance): { Instance }
@@ -363,7 +374,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		for _, descendant in objects do
 			for _, ancestor in before do
 				if table.find(after, ancestor) == nil then
-					signalFor(stateOf(ancestor), "DescendantRemoving"):Fire(descendant)
+					fireSignal(stateOf(ancestor), "DescendantRemoving", descendant)
 				end
 			end
 		end
@@ -382,21 +393,21 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			stateOf(descendant).removing = false
 		end
 		if previous ~= nil then
-			signalFor(stateOf(previous), "ChildRemoved"):Fire(object)
+			fireSignal(stateOf(previous), "ChildRemoved", object)
 		end
 		if parent ~= nil then
-			signalFor(stateOf(parent), "ChildAdded"):Fire(object)
+			fireSignal(stateOf(parent), "ChildAdded", object)
 		end
 		for _, descendant in objects do
 			for _, ancestor in after do
 				if table.find(before, ancestor) == nil then
-					signalFor(stateOf(ancestor), "DescendantAdded"):Fire(descendant)
+					fireSignal(stateOf(ancestor), "DescendantAdded", descendant)
 				end
 			end
 		end
 		changed(object, state, "Parent")
 		for _, descendant in objects do
-			signalFor(stateOf(descendant), "AncestryChanged"):Fire(object, parent)
+			fireSignal(stateOf(descendant), "AncestryChanged", object, parent)
 		end
 	end
 
@@ -433,7 +444,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		end
 		inject("destroy", describe(state), object, nil, nil)
 		state.destroying = true
-		signalFor(state, "Destroying"):Fire()
+		fireSignal(state, "Destroying")
 		move(object, state, nil)
 		for _, child in table.clone(state.children) do
 			destroy(child, stateOf(child))
@@ -717,8 +728,8 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 					return
 				end
 				state.attributes[name] = value
-				signalFor(state, "attr:" .. name):Fire()
-				signalFor(state, "AttributeChanged"):Fire(name)
+				fireSignal(state, "attr:" .. name)
+				fireSignal(state, "AttributeChanged", name)
 			end
 		elseif key == "GetAttribute" then
 			return function(_self: Instance, name: string): unknown
@@ -818,8 +829,8 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			setParent(object, state, value :: Instance?)
 			return
 		end
-		local writable = writableComputed(state.className, key)
-		if not writable and computedFor(state.className, key) ~= nil then
+		local getter, writable = computedEntry(state.className, key)
+		if not writable and getter ~= nil then
 			error(("%s is read-only on %s"):format(key, describe(state)), 3)
 		end
 		local declared = state.class.properties[key] ~= nil
@@ -885,6 +896,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 				attributes = {},
 				tags = {},
 				signals = {},
+				signalFires = {},
 				extras = {},
 				doubles = {},
 				destroyed = false,
@@ -1021,8 +1033,8 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		operation(function(object: Instance, key: string, value: unknown)
 			local state = stateOf(object)
 			local declared = state.class.properties[key] ~= nil
-			local writable = writableComputed(state.className, key)
-			if not writable and computedFor(state.className, key) ~= nil then
+			local getter, writable = computedEntry(state.className, key)
+			if not writable and getter ~= nil then
 				error(("%s is computed on %s"):format(key, describe(state)), 3)
 			end
 			if not declared and not writable and settings.undeclaredWrites ~= true then
@@ -1050,7 +1062,7 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 			if not state.class.events[event] then
 				memberError(state, event)
 			end
-			signalFor(state, event):Fire(...)
+			fireSignal(state, event, ...)
 		end) :: unknown
 	) :: (object: Instance, event: string, ...unknown) -> ()
 	environment.fakeOn = function<A..., R...>(object: Instance, name: string, handler: (Instance, A...) -> R...)

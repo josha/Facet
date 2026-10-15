@@ -23,6 +23,81 @@
   fallback. The API reference lists the keys.
 - The API reference says how an `action` ShortcutHint shows a touch binding:
   set the native `DisplayName` of the `Scriptable` binding.
+- Each control `Props` and `Spec` type is one flat table type. The type holds
+  the native root properties, the control options and the children. In the
+  named form, `UI.Button "Save" { ... }`, strict mode checks literal options,
+  callbacks and children of different classes without casts in both Luau
+  solvers. The direct form, `UI.Button { ... }`, calls an overloaded
+  constructor. The API reference tells when to use the named form or a typed
+  local for it. `lute run tools/facet types props` generates the flat types in
+  `src/ui/*_props.luau` from the option tables in `src/ui/*_types.luau`. The
+  names and the generic parameters of the root `Facet` types do not change.
+- The binding controls (`Toggle`, `TextInput`, `NumberInput`, `Stepper`,
+  `Slider`, `Rating`, `LevelPicker`, `Chip`, `ShortcutHint` and `Picker`)
+  have one constructor overload for each binding shape and one for the union,
+  in the direct and in the named form.
+- The generator writes one generic flat shape for each binding control. Each
+  binding shape type, such as `ToggleCellProps`, is an alias that gives that
+  shape its binding fields. The exported names, the fields and the overloads
+  do not change, and the generated props are 1,720 lines shorter.
+- The root module exports more types, so that a game can type a local without
+  a cast or an internal module: `Host`, `Child`, `DialogAction`, `ActionRole`,
+  `ToastAction`, `PopoverSource`, `OverlayRect`, `CardAction`, `CardMenu`,
+  `CollectionPlacement`, `FocusControls`, `SinglePickerSpec`,
+  `MultiplePickerSpec`, `KeyedOutlineSpec`, `IdentityOutlineSpec`, the binding
+  shapes (for example `ToggleCellProps` and `ToggleRequestProps`), the theme
+  types `ThemeDefinition`, `PalettePatch`, `PaletteExtra` and
+  `TypographyPatch`, and the value types `ButtonRole`, `TextCommitReason`,
+  `CommitReason`, `ClearButtonMode`, `ControlSize`, `Status`, `TextRole`,
+  `Presence`, `ImageScaleMode`, `ImageLoader`, `VoteValue`, `StepState`,
+  `PaginationForm`, `TabPlacement`, `TabSelectionIndicator`, `NoticeSeverity`,
+  `ColorSwatch`, `ColorPickerMode`, `ColorPickerDismissReason`,
+  `DateRangePreset`, `DateTimePickerDismissReason`, `DialogDismissReason`,
+  `PopoverDismissReason` and `ToastDismissReason`.
+- `Facet.host(runtime)` returns the runtime constructors with the `Host` type.
+- `app.construct(control, spec)` calls a constructor that data names, and
+  `app.controlNames()` returns the sorted member names of `app.UI`. Data-driven
+  tools, such as the Lab, use them in place of a cast to an untyped table.
+- Sheet `detent` accepts a detent id. With an id or without `detent`, the sheet
+  keeps the selected detent and starts at that id or at its first detent.
+- A class-valued option accepts a value of a subclass in the direct form in
+  the old solver. Examples are Menu and Popover `trigger`, Callout `anchor`,
+  Flash `target`, RowActions `content` and a navigation `content` instance.
+  Before, `UI.Flash { target = row }` with a `Frame` row needed
+  `row :: GuiObject`. The option type lists the GuiObject classes, and the old
+  solver matches each value to its own class.
+- Option types accept more values. `motionLevel` accepts a readable that gives
+  `nil`, and then the device setting applies. The StyleSheet `hover` option
+  accepts a readable that gives `nil`. StatusIndicator `name` accepts a
+  reactive value. TextInput and Chip `leading` and `trailing` accept any child.
+- Each large control module is split into one source file for each control.
+  The control builders share one constructor table type and the common
+  helpers. The public API does not change.
+- Facet Design gives each exported component a `Row` type and a `Data` type
+  for its `data` input in place of `any`. The data keys and the callback
+  arguments do not change. The source reader also reads a component from an
+  earlier export.
+- The examples, the documentation and the skills make controls without casts.
+  The examples have no `:: any` cast.
+- RadialMenu releases the exit timeline of each close. Before, each open and
+  close kept Compose registrations. In the radial perf scene, the registration
+  count grew from 91 to 211 over 120 samples. Now it stays at 63.
+- A collection root that has no size skips the descendant scan. In the
+  headless perf scenes, the p95 of `lab-collection-churn` drops to 0.37 of the
+  earlier value, `lab-dense-scroll` to 0.75, and `collection-mutation` and
+  `virtual-list-scroll` to 0.84.
+- RadialMenu label fitting makes fewer tables, and a label reuses its
+  `TextBounds` observation for the glyph floor.
+- `lute run tools/facet perf run` records exact counts of native instances,
+  native connections and Compose registrations in a separate instrumented
+  pass. The `perf-memory` producer requires zero of each count after teardown
+  in every scene. Count growth during churn is a reported trend, not a
+  failure. `lute run tools/facet perf prove-memory-gate` plants each kind of
+  leak and proves that the teardown gate fails.
+- The Verify pin moves to `eecccc4`. Its engine double makes an instance signal
+  only when code observes it, and a computed lookup costs less. The headless
+  perf scenes thus measure less engine double work. The radial-menu p95 drops
+  by 21% and the picker-menu p95 by 14%. Six scenes move under their budgets.
 
 - A native chrome shadow keeps the opacity of the fill that casts it. Before,
   a translucent Button, such as the `soft` appearance, kept the full shadow.

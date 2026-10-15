@@ -54,7 +54,7 @@ return function(verifyHarness: Verify.Harness)
 		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "Row",
-				UI.Card("C")(spec) :: unknown,
+				UI.Card "C"(spec) :: unknown,
 				UI.Button({ Name = "Next", label = "Next" }),
 			})
 		end, options or { motionLevel = "none" })
@@ -223,7 +223,7 @@ return function(verifyHarness: Verify.Harness)
 				local inputs: { InputObject | string } = {}
 				local released = 0
 				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Card "C" {
+					return UI.Card("C")({
 						title = "Afterlight",
 						artwork = function(): GuiObject
 							Compose.cleanup(function()
@@ -234,7 +234,7 @@ return function(verifyHarness: Verify.Harness)
 						onActivate = function(input: InputObject?)
 							table.insert(inputs, (input or "none") :: any)
 						end,
-					}
+					})
 				end, { motionLevel = "none" })
 				local artwork = world.find("Artwork")
 				local live = artwork:FindFirstChild("Preview")
@@ -347,7 +347,7 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame({
 						Name = "Row",
 						Compose.show(show, function()
-							return UI.Card("C")(cardSpec({}, {
+							return UI.Card "C"(cardSpec({}, {
 								onActivate = function()
 									show:set(false)
 								end,

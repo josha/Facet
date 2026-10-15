@@ -2,8 +2,11 @@
 
 local visible = require("./audit_visible")
 
-return function(lab: any, playerGui: PlayerGui, ids: { string }, options: any?): string
-	local opts = options or {}
+type Lab = { open: (string) -> unknown, report: () -> { errors: { [string]: string } } }
+type Options = { current: boolean?, visibleOnly: boolean?, node: Instance? }
+
+return function(lab: Lab, playerGui: PlayerGui, ids: { string }, options: Options?): string
+	local opts: Options = options or {}
 	local out = {}
 	for _, id in ids do
 		if not opts.current then
@@ -22,8 +25,12 @@ return function(lab: any, playerGui: PlayerGui, ids: { string }, options: any?):
 		local function scan()
 			local before = #lines
 			for _, node in scope:GetDescendants() do
-				if (node:IsA("TextLabel") or node:IsA("TextButton")) and visible(node) then
-					local label = node :: TextLabel
+				local text: (TextLabel | TextButton)? = if node:IsA("TextLabel")
+					then node
+					elseif node:IsA("TextButton") then node
+					else nil
+				if text and visible(text) then
+					local label = text
 					if label.Text ~= "" and label.TextTransparency < 1 then
 						if label.AbsoluteSize.X < 1 then
 							table.insert(lines, `text zero-width: {label:GetFullName()}`)
@@ -40,7 +47,7 @@ return function(lab: any, playerGui: PlayerGui, ids: { string }, options: any?):
 						local cell: Instance? = label.Parent
 						local clipped = false
 						while cell and not string.match(cell.Name, "^C%d+$") do
-							clipped = clipped or (cell:IsA("GuiObject") and (cell :: GuiObject).ClipsDescendants)
+							clipped = clipped or (cell:IsA("GuiObject") and cell.ClipsDescendants)
 							cell = cell.Parent
 						end
 						if clipped then
@@ -58,14 +65,16 @@ return function(lab: any, playerGui: PlayerGui, ids: { string }, options: any?):
 						end
 					end
 				end
+				local parent = node.Parent
 				if
 					node.Name == "Live"
 					and node:IsA("GuiObject")
 					and visible(node)
-					and node.Parent
-					and string.match(node.Parent.Name, "^C%d+$")
+					and parent
+					and parent:IsA("GuiObject")
+					and string.match(parent.Name, "^C%d+$")
 				then
-					local cell = node.Parent :: GuiObject
+					local cell = parent
 					local a, b = node.AbsolutePosition, cell.AbsolutePosition
 					if a.X + node.AbsoluteSize.X > b.X + cell.AbsoluteSize.X + 2 or a.X < b.X - 2 then
 						table.insert(
@@ -84,7 +93,7 @@ return function(lab: any, playerGui: PlayerGui, ids: { string }, options: any?):
 			end
 		end
 		if page:IsA("ScrollingFrame") and not opts.visibleOnly then
-			local scroll = page :: ScrollingFrame
+			local scroll = page
 			local original = scroll.CanvasPosition
 			local offset = 0
 			while true do

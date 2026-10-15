@@ -1,11 +1,21 @@
 --!strict
 
-return function(Compose: any, Host: any, node: GuiObject, available: any, vector: any?)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
+type Readable<T> = { peek: (Readable<T>) -> T }
+
+return function(
+	Compose: ComposeModule,
+	Host: Host,
+	node: GuiObject,
+	available: Readable<number>,
+	vector: typeof(Vector2)?
+): GuiObject
 	local Vector = vector or Vector2
 	Host.UISizeConstraint({
 		Parent = Compose.static(node),
 		Name = "MatrixLimit",
-		MaxSize = Compose.formula(function(use: any)
+		MaxSize = Compose.formula(function(use)
 			return Vector.new(math.max(0, use(available)), math.huge)
 		end),
 	})

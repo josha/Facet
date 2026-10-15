@@ -66,24 +66,32 @@ function geometry.sectors<V>(
 end
 
 function geometry.labelBounds(s: Radial.SectorShape, height: number): { w: number, h: number }
+	local innerSquared, outerSquared = s.inner * s.inner, s.outer * s.outer
+	local sine, cosine = math.sin(math.rad(s.angle)), math.cos(math.rad(s.angle))
+	local halfAngle = s.span / 2 - 2
+	local threshold = math.cos(math.rad(halfAngle))
+	local thresholdSquared = threshold * threshold
+	local function cornerFits(x: number, y: number): boolean
+		local radiusSquared = x * x + y * y
+		if radiusSquared > outerSquared or halfAngle < 0 then
+			return false
+		end
+		local projection = x * sine - y * cosine
+		if threshold >= 0 then
+			return projection >= 0 and projection * projection >= radiusSquared * thresholdSquared
+		end
+		return projection >= 0 or projection * projection <= radiusSquared * thresholdSquared
+	end
 	local function fits(width: number, h: number): boolean
 		local hx, hy = width / 2 + 3, h / 2 + 3
 		local nearX, nearY = math.max(0, math.abs(s.x) - hx), math.max(0, math.abs(s.y) - hy)
-		if nearX * nearX + nearY * nearY < s.inner * s.inner then
+		if nearX * nearX + nearY * nearY < innerSquared then
 			return false
 		end
-		for _, dx in { -hx, hx } do
-			for _, dy in { -hy, hy } do
-				local x, y = s.x + dx, s.y + dy
-				if x * x + y * y > s.outer * s.outer then
-					return false
-				end
-				if math.abs(geometry.delta(math.deg(math.atan2(x, -y)), s.angle)) > s.span / 2 - 2 then
-					return false
-				end
-			end
-		end
-		return true
+		return cornerFits(s.x - hx, s.y - hy)
+			and cornerFits(s.x - hx, s.y + hy)
+			and cornerFits(s.x + hx, s.y - hy)
+			and cornerFits(s.x + hx, s.y + hy)
 	end
 
 	if not fits(height, height) then

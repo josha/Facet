@@ -2,107 +2,232 @@
 local Shared = require("./types")
 local Commands = require("./command_types")
 local Effects = require("./effect_types")
-local ZoomTravel = require("./zoom_travel_types")
 local Inputs = require("./input_types")
-local Navigation = require("./navigation_types")
-local Collections = require("./collection_types")
-local Media = require("./media_types")
 local Content = require("./content_types")
-local Layout = require("./layout_types")
-local Overlay = require("./overlay_types")
-local Dates = require("./date_time_picker_types")
-local Colors = require("./color_picker_types")
 local Env = require("./environment_types")
+local LayoutProps = require("./layout_props")
+local MediaProps = require("./media_props")
+local InputProps = require("./input_props")
+local NavigationProps = require("./navigation_props")
+local RadialProps = require("./radial_props")
+local OverlayProps = require("./overlay_props")
+local CollectionProps = require("./collection_props")
+local ContentProps = require("./content_props")
+local EffectProps = require("./effect_props")
+local ZoomTravelProps = require("./zoom_travel_props")
 
-local NavigationSplitView = require("./navigation_split_view")
+type Constructor<P, N> = Shared.Constructor<P, N>
+
+type PickerShapes =
+	(<V>(NavigationProps.SinglePickerSpec<V>) -> GuiObject)
+	& (<V>(NavigationProps.MultiplePickerSpec<V>) -> GuiObject)
+	& (<V>(NavigationProps.PickerSpec<V>) -> GuiObject)
+export type PickerConstructor = PickerShapes & ((string) -> PickerShapes)
+type ToggleShapes =
+	((InputProps.ToggleCellProps) -> TextButton)
+	& ((InputProps.ToggleRequestProps) -> TextButton)
+	& ((InputProps.ToggleProps) -> TextButton)
+export type ToggleConstructor = ToggleShapes & ((string) -> ToggleShapes)
+type TextInputShapes =
+	((InputProps.TextInputCellProps) -> TextBox | Frame)
+	& ((InputProps.TextInputRequestProps) -> TextBox | Frame)
+	& ((InputProps.TextInputNumberCellProps) -> TextBox | Frame)
+	& ((InputProps.TextInputNumberRequestProps) -> TextBox | Frame)
+	& ((InputProps.TextInputProps) -> TextBox | Frame)
+export type TextInputConstructor = TextInputShapes & ((string) -> TextInputShapes)
+type NumberInputShapes =
+	((InputProps.NumberInputCellProps) -> TextBox | Frame)
+	& ((InputProps.NumberInputRequestProps) -> TextBox | Frame)
+	& ((InputProps.NumberInputProps) -> TextBox | Frame)
+export type NumberInputConstructor = NumberInputShapes & ((string) -> NumberInputShapes)
+type StepperShapes =
+	((InputProps.StepperCellProps) -> Frame)
+	& ((InputProps.StepperRequestProps) -> Frame)
+	& ((InputProps.StepperProps) -> Frame)
+export type StepperConstructor = StepperShapes & ((string) -> StepperShapes)
+type SliderShapes =
+	((InputProps.SliderCellProps) -> Frame)
+	& ((InputProps.SliderRequestProps) -> Frame)
+	& ((InputProps.SliderRangeProps) -> Frame)
+	& ((InputProps.SliderProps) -> Frame)
+export type SliderConstructor = SliderShapes & ((string) -> SliderShapes)
+type RatingShapes =
+	((InputProps.RatingCellProps) -> TextButton)
+	& ((InputProps.RatingRequestProps) -> TextButton)
+	& ((InputProps.RatingReadOnlyProps) -> TextButton)
+	& ((InputProps.RatingProps) -> TextButton)
+export type RatingConstructor = RatingShapes & ((string) -> RatingShapes)
+type LevelPickerShapes =
+	((InputProps.LevelPickerCellProps) -> TextButton)
+	& ((InputProps.LevelPickerRequestProps) -> TextButton)
+	& ((InputProps.LevelPickerReadOnlyProps) -> TextButton)
+	& ((InputProps.LevelPickerProps) -> TextButton)
+export type LevelPickerConstructor = LevelPickerShapes & ((string) -> LevelPickerShapes)
+type ChipShapes =
+	((InputProps.ChipCellProps) -> TextButton | Frame)
+	& ((InputProps.ChipRequestProps) -> TextButton | Frame)
+	& ((InputProps.ChipRemovableProps) -> TextButton | Frame)
+	& ((InputProps.ChipProps) -> TextButton | Frame)
+export type ChipConstructor = ChipShapes & ((string) -> ChipShapes)
+type ShortcutHintShapes =
+	((InputProps.ShortcutHintKeysProps) -> TextLabel | Frame)
+	& ((InputProps.ShortcutHintActionProps) -> TextLabel | Frame)
+	& ((InputProps.ShortcutHintProps) -> TextLabel | Frame)
+export type ShortcutHintConstructor = ShortcutHintShapes & ((string) -> ShortcutHintShapes)
+type MenuShapes = <V>(NavigationProps.MenuSpec<V>) -> GuiObject
+export type MenuConstructor = MenuShapes & ((string) -> MenuShapes)
+type SplitButtonShapes = <V>(NavigationProps.SplitButtonSpec<V>) -> Frame
+export type SplitButtonConstructor = SplitButtonShapes & ((string) -> SplitButtonShapes)
+type AlertShapes = <P>(NavigationProps.AlertSpec<P>) -> Frame
+export type AlertConstructor = AlertShapes & ((string) -> AlertShapes)
+type NavigationStackShapes = <P>(NavigationProps.NavigationStackSpec<P>) -> Frame
+export type NavigationStackConstructor = NavigationStackShapes & ((string) -> NavigationStackShapes)
+type RadialMenuShapes = <V>(RadialProps.RadialMenuSpec<V>) -> Frame
+export type RadialMenuConstructor = RadialMenuShapes & ((string) -> RadialMenuShapes)
+type CollectionShapes =
+	(<V, K>(spec: CollectionProps.KeyedCollectionSpec<V, K>) -> ScrollingFrame)
+	& (<V, _K>(spec: CollectionProps.IdentityCollectionSpec<V>) -> ScrollingFrame)
+export type CollectionConstructor = CollectionShapes & ((string) -> CollectionShapes)
+type OutlineShapes =
+	(<V, K>(spec: CollectionProps.KeyedOutlineSpec<V, K>) -> ScrollingFrame)
+	& (<V, _K>(spec: CollectionProps.IdentityOutlineSpec<V>) -> ScrollingFrame)
+export type OutlineConstructor = OutlineShapes & ((string) -> OutlineShapes)
+type TableShapes =
+	(<V, K>(spec: CollectionProps.KeyedTableSpec<V, K>) -> Frame)
+	& (<V, _K>(spec: CollectionProps.IdentityTableSpec<V>) -> Frame)
+export type TableConstructor = TableShapes & ((string) -> TableShapes)
 
 export type Controls = {
 	commandScope: typeof(((nil :: unknown) :: Commands.Controls).commandScope),
 	sequence: typeof(((nil :: unknown) :: Effects.Controls).sequence),
 	countUp: typeof(((nil :: unknown) :: Effects.Controls).countUp),
-	Flash: typeof(((nil :: unknown) :: Effects.Controls).Flash),
-	ZoomView: typeof(((nil :: unknown) :: ZoomTravel.Controls).ZoomView),
-	Travel: typeof(((nil :: unknown) :: ZoomTravel.Controls).Travel),
-	NavigationSplitView: typeof(((nil :: unknown) :: NavigationSplitView.Controls).NavigationSplitView),
-	Screen: typeof(((nil :: unknown) :: Layout.LayoutControls).Screen),
-	VStack: typeof(((nil :: unknown) :: Layout.LayoutControls).VStack),
-	HStack: typeof(((nil :: unknown) :: Layout.LayoutControls).HStack),
-	ZStack: typeof(((nil :: unknown) :: Layout.LayoutControls).ZStack),
-	ScrollView: typeof(((nil :: unknown) :: Layout.LayoutControls).ScrollView),
-	Grid: typeof(((nil :: unknown) :: Layout.LayoutControls).Grid),
-	AdaptiveStack: typeof(((nil :: unknown) :: Layout.LayoutControls).AdaptiveStack),
-	ViewThatFits: typeof(((nil :: unknown) :: Layout.LayoutControls).ViewThatFits),
-	ErrorBoundary: typeof(((nil :: unknown) :: Layout.LayoutControls).ErrorBoundary),
-	Divider: typeof(((nil :: unknown) :: Layout.LayoutControls).Divider),
-	Spacer: typeof(((nil :: unknown) :: Layout.LayoutControls).Spacer),
-	Composition: typeof(((nil :: unknown) :: Layout.LayoutControls).Composition),
-	Region: typeof(((nil :: unknown) :: Layout.LayoutControls).Region),
-	fill: typeof(((nil :: unknown) :: Layout.LayoutControls).fill),
-	Button: typeof(((nil :: unknown) :: Inputs.InputControls).Button),
-	Toggle: typeof(((nil :: unknown) :: Inputs.InputControls).Toggle),
-	TextInput: typeof(((nil :: unknown) :: Inputs.InputControls).TextInput),
-	NumberInput: typeof(((nil :: unknown) :: Inputs.InputControls).NumberInput),
-	Stepper: typeof(((nil :: unknown) :: Inputs.InputControls).Stepper),
-	Slider: typeof(((nil :: unknown) :: Inputs.InputControls).Slider),
-	Rating: typeof(((nil :: unknown) :: Inputs.InputControls).Rating),
-	LevelPicker: typeof(((nil :: unknown) :: Inputs.InputControls).LevelPicker),
-	Chip: typeof(((nil :: unknown) :: Inputs.InputControls).Chip),
-	ShortcutHint: typeof(((nil :: unknown) :: Inputs.InputControls).ShortcutHint),
-	Picker: typeof(((nil :: unknown) :: Navigation.NavigationControls).Picker),
-	Menu: typeof(((nil :: unknown) :: Navigation.NavigationControls).Menu),
-	RadialMenu: typeof(((nil :: unknown) :: Navigation.NavigationControls).RadialMenu),
-	SplitButton: typeof(((nil :: unknown) :: Navigation.NavigationControls).SplitButton),
-	ComboBox: typeof(((nil :: unknown) :: Navigation.NavigationControls).ComboBox),
-	DisclosureGroup: typeof(((nil :: unknown) :: Navigation.NavigationControls).DisclosureGroup),
-	CollapsibleView: typeof(((nil :: unknown) :: Navigation.NavigationControls).CollapsibleView),
-	Alert: typeof(((nil :: unknown) :: Navigation.NavigationControls).Alert),
-	Callout: typeof(((nil :: unknown) :: Navigation.NavigationControls).Callout),
-	Sheet: typeof(((nil :: unknown) :: Navigation.NavigationControls).Sheet),
-	NavigationStack: typeof(((nil :: unknown) :: Navigation.NavigationControls).NavigationStack),
-	PageView: typeof(((nil :: unknown) :: Navigation.NavigationControls).PageView),
-	TabView: typeof(((nil :: unknown) :: Navigation.NavigationControls).TabView),
-	VirtualList: typeof(((nil :: unknown) :: Collections.CollectionControls).VirtualList),
-	Outline: typeof(((nil :: unknown) :: Collections.CollectionControls).Outline),
-	VirtualGrid: typeof(((nil :: unknown) :: Collections.CollectionControls).VirtualGrid),
-	CellEditor: typeof(((nil :: unknown) :: Collections.CollectionControls).CellEditor),
-	Table: typeof(((nil :: unknown) :: Collections.CollectionControls).Table),
-	RowActions: typeof(((nil :: unknown) :: Collections.CollectionControls).RowActions),
-	Text: typeof(((nil :: unknown) :: Media.MediaControls).Text),
-	Label: typeof(((nil :: unknown) :: Media.MediaControls).Label),
-	Image: typeof(((nil :: unknown) :: Media.MediaControls).Image),
-	Badge: typeof(((nil :: unknown) :: Media.MediaControls).Badge),
-	StatusIndicator: typeof(((nil :: unknown) :: Media.MediaControls).StatusIndicator),
-	Path: typeof(((nil :: unknown) :: Media.MediaControls).Path),
-	ProgressView: typeof(((nil :: unknown) :: Media.MediaControls).ProgressView),
-	Skeleton: typeof(((nil :: unknown) :: Media.MediaControls).Skeleton),
-	AsyncImage: typeof(((nil :: unknown) :: Media.MediaControls).AsyncImage),
-	Avatar: typeof(((nil :: unknown) :: Media.MediaControls).Avatar),
-	AvatarGroup: typeof(((nil :: unknown) :: Media.MediaControls).AvatarGroup),
-	Stage: typeof(((nil :: unknown) :: Media.MediaControls).Stage),
-	Pagination: typeof(((nil :: unknown) :: Content.ContentControls).Pagination),
-	StepIndicator: typeof(((nil :: unknown) :: Content.ContentControls).StepIndicator),
-	Vote: typeof(((nil :: unknown) :: Content.ContentControls).Vote),
-	Card: typeof(((nil :: unknown) :: Content.ContentControls).Card),
-	badged: typeof(((nil :: unknown) :: Content.ContentControls).badged),
-	Dialog: typeof(((nil :: unknown) :: Overlay.OverlayControls).Dialog),
-	Popover: typeof(((nil :: unknown) :: Overlay.OverlayControls).Popover),
-	Notice: typeof(((nil :: unknown) :: Overlay.OverlayControls).Notice),
-	NavBar: typeof(((nil :: unknown) :: Overlay.OverlayControls).NavBar),
-	Toast: typeof(((nil :: unknown) :: Overlay.OverlayControls).Toast),
-	DateTimePicker: typeof(((nil :: unknown) :: Dates.DateTimePickerControls).DateTimePicker),
-	ColorPicker: typeof(((nil :: unknown) :: Colors.ColorPickerControls).ColorPicker),
+	Flash: Constructor<EffectProps.FlashProps, Frame>,
+	ZoomView: Constructor<ZoomTravelProps.ZoomViewProps, ScrollingFrame>,
+	Travel: Constructor<ZoomTravelProps.TravelProps, Frame>,
+	NavigationSplitView: Constructor<NavigationProps.NavigationSplitViewProps, Frame>,
+	Screen: Constructor<LayoutProps.ScreenProps, Frame>,
+	VStack: Constructor<LayoutProps.StackProps, Frame>,
+	HStack: Constructor<LayoutProps.StackProps, Frame>,
+	ZStack: Constructor<LayoutProps.ZStackProps, Frame>,
+	ScrollView: Constructor<LayoutProps.ScrollViewProps, ScrollingFrame>,
+	Grid: Constructor<LayoutProps.GridProps, Frame>,
+	AdaptiveStack: Constructor<LayoutProps.AdaptiveStackProps, Frame>,
+	ViewThatFits: Constructor<LayoutProps.ViewThatFitsProps, Frame>,
+	ErrorBoundary: Constructor<LayoutProps.ErrorBoundaryProps, Frame>,
+	Divider: Constructor<LayoutProps.DividerProps, Frame>,
+	Spacer: Constructor<LayoutProps.SpacerProps, Frame>,
+	Composition: Constructor<LayoutProps.CompositionProps, Frame>,
+	Region: Constructor<LayoutProps.RegionProps, Frame>,
+	fill: (weight: number?) -> UIFlexItem,
+	Button: Constructor<InputProps.ButtonProps, TextButton>,
+	Toggle: ToggleConstructor,
+	TextInput: TextInputConstructor,
+	NumberInput: NumberInputConstructor,
+	Stepper: StepperConstructor,
+	Slider: SliderConstructor,
+	Rating: RatingConstructor,
+	LevelPicker: LevelPickerConstructor,
+	Chip: ChipConstructor,
+	ShortcutHint: ShortcutHintConstructor,
+	Picker: PickerConstructor,
+	Menu: MenuConstructor,
+	RadialMenu: RadialMenuConstructor,
+	SplitButton: SplitButtonConstructor,
+	ComboBox: Constructor<NavigationProps.ComboBoxSpec, Frame>,
+	DisclosureGroup: Constructor<NavigationProps.DisclosureGroupSpec, Frame>,
+	CollapsibleView: Constructor<NavigationProps.CollapsibleViewSpec, TextButton>,
+	Alert: AlertConstructor,
+	Callout: Constructor<NavigationProps.CalloutSpec, Frame>,
+	Sheet: Constructor<NavigationProps.SheetSpec, Frame>,
+	NavigationStack: NavigationStackConstructor,
+	PageView: Constructor<NavigationProps.PageViewSpec, Frame>,
+	TabView: Constructor<NavigationProps.TabViewSpec, Frame>,
+	VirtualList: CollectionConstructor,
+	Outline: OutlineConstructor,
+	VirtualGrid: CollectionConstructor,
+	CellEditor: Constructor<CollectionProps.CellEditorSpec, Frame>,
+	Table: TableConstructor,
+	RowActions: Constructor<CollectionProps.RowActionsSpec, Frame>,
+	Text: Constructor<MediaProps.TextProps, GuiObject>,
+	Label: Constructor<MediaProps.LabelProps, GuiObject>,
+	Image: Constructor<MediaProps.ImageProps, GuiObject>,
+	Badge: Constructor<MediaProps.BadgeProps, GuiObject>,
+	StatusIndicator: Constructor<MediaProps.StatusIndicatorProps, TextLabel>,
+	Path: Constructor<MediaProps.PathProps, Frame>,
+	ProgressView: Constructor<MediaProps.ProgressViewProps, Frame>,
+	Skeleton: Constructor<MediaProps.SkeletonProps, Frame>,
+	AsyncImage: Constructor<MediaProps.AsyncImageProps, Frame>,
+	Avatar: Constructor<MediaProps.AvatarProps, TextButton>,
+	AvatarGroup: Constructor<MediaProps.AvatarGroupProps, Frame>,
+	Stage: Constructor<MediaProps.StageProps, ViewportFrame>,
+	Pagination: Constructor<ContentProps.PaginationSpec, Frame>,
+	StepIndicator: Constructor<ContentProps.StepIndicatorSpec, Frame>,
+	Vote: Constructor<ContentProps.VoteSpec, Frame>,
+	Card: Constructor<ContentProps.CardSpec, Frame>,
+	badged: Content.Badged,
+	Dialog: Constructor<OverlayProps.DialogSpec, Frame>,
+	Popover: Constructor<OverlayProps.PopoverSpec, GuiObject>,
+	Notice: Constructor<OverlayProps.NoticeSpec, Frame>,
+	NavBar: Constructor<OverlayProps.NavBarSpec, Frame>,
+	Toast: Constructor<OverlayProps.ToastSpec, Frame>,
+	DateTimePicker: Constructor<InputProps.DateTimePickerProps, Frame>,
+	ColorPicker: Constructor<InputProps.ColorPickerProps, Frame>,
 	environment: typeof(((nil :: unknown) :: Env.EnvironmentControls).environment),
 	focusRing: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusRing),
 	focusSection: typeof(((nil :: unknown) :: Env.EnvironmentControls).focusSection),
 	responder: typeof(((nil :: unknown) :: Env.EnvironmentControls).responder),
-	adjustable: typeof(((nil :: unknown) :: Inputs.InputControls).adjustable),
-	feedback: typeof(((nil :: unknown) :: Inputs.InputControls).feedback),
+	adjustable: (node: GuiObject, options: Inputs.AdjustableOptions) -> (),
+	feedback: (kind: Inputs.HapticKind) -> (),
 	gestureArbiter: typeof(((nil :: unknown) :: Env.EnvironmentControls).gestureArbiter),
 	draggable: typeof(((nil :: unknown) :: Env.EnvironmentControls).draggable),
 	dropTarget: typeof(((nil :: unknown) :: Env.EnvironmentControls).dropTarget),
 	worldAnchor: typeof(((nil :: unknown) :: Env.EnvironmentControls).worldAnchor),
 	scrollTo: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollTo),
 	scrollToVisible: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollToVisible),
+}
+export type BuilderControls = {
+	Button: Constructor<InputProps.ButtonProps, TextButton>,
+	Toggle: Constructor<InputProps.ToggleProps, TextButton>,
+	TextInput: Constructor<InputProps.TextInputProps, TextBox | Frame>,
+	NumberInput: Constructor<InputProps.NumberInputProps, TextBox | Frame>,
+	Chip: Constructor<InputProps.ChipProps, TextButton | Frame>,
+	ShortcutHint: Constructor<InputProps.ShortcutHintProps, TextLabel | Frame>,
+	Slider: Constructor<InputProps.SliderProps, Frame>,
+	ColorPicker: Constructor<InputProps.ColorPickerProps, Frame>,
+	DateTimePicker: Constructor<InputProps.DateTimePickerProps, Frame>,
+	Picker: PickerConstructor,
+	Menu: MenuConstructor,
+	SplitButton: SplitButtonConstructor,
+	ComboBox: Constructor<NavigationProps.ComboBoxSpec, Frame>,
+	RadialMenu: RadialMenuConstructor,
+	DisclosureGroup: Constructor<NavigationProps.DisclosureGroupSpec, Frame>,
+	CollapsibleView: Constructor<NavigationProps.CollapsibleViewSpec, TextButton>,
+	Alert: AlertConstructor,
+	Callout: Constructor<NavigationProps.CalloutSpec, Frame>,
+	Sheet: Constructor<NavigationProps.SheetSpec, Frame>,
+	NavigationStack: NavigationStackConstructor,
+	PageView: Constructor<NavigationProps.PageViewSpec, Frame>,
+	TabView: Constructor<NavigationProps.TabViewSpec, Frame>,
+	Dialog: Constructor<OverlayProps.DialogSpec, Frame>,
+	Popover: Constructor<OverlayProps.PopoverSpec, GuiObject>,
+	Notice: Constructor<OverlayProps.NoticeSpec, Frame>,
+	NavBar: Constructor<OverlayProps.NavBarSpec, Frame>,
+	Toast: Constructor<OverlayProps.ToastSpec, Frame>,
+	Table: TableConstructor,
+	CellEditor: Constructor<CollectionProps.CellEditorSpec, Frame>,
+	VirtualList: CollectionConstructor,
+	VirtualGrid: CollectionConstructor,
+	Outline: OutlineConstructor,
+	RowActions: Constructor<CollectionProps.RowActionsSpec, Frame>,
+	Avatar: Constructor<MediaProps.AvatarProps, TextButton>,
+	Badge: Constructor<MediaProps.BadgeProps, GuiObject>,
+	StatusIndicator: Constructor<MediaProps.StatusIndicatorProps, TextLabel>,
+	Card: Constructor<ContentProps.CardSpec, Frame>,
+	Pagination: Constructor<ContentProps.PaginationSpec, Frame>,
+	StepIndicator: Constructor<ContentProps.StepIndicatorSpec, Frame>,
+	Vote: Constructor<ContentProps.VoteSpec, Frame>,
+	badged: Content.Badged,
+	adjustable: (GuiObject, Inputs.AdjustableOptions) -> (),
 }
 export type ComposeModule = Shared.ComposeModule
 export type Runtime = Shared.Runtime

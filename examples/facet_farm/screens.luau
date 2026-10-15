@@ -3,20 +3,37 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RingPoint = typeof(require("@repo/tools/typecheck/aliases").RingPoint)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
+type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type Host = typeof(require("@repo/tools/typecheck/aliases").Host)
+type Constructors = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime.constructors)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type RadialItem = typeof(require("@repo/tools/typecheck/aliases").RadialItem)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local modelModule = require("./model")
 local theme = require("./theme")
 
+type Farm = modelModule.Farm
+type Plot = modelModule.Plot
+type Types = {
+	UDim: typeof(UDim),
+	UDim2: typeof(UDim2),
+	Vector2: typeof(Vector2),
+	Color3: typeof(Color3),
+	Enum: typeof(Enum),
+}
+
 local screens = {}
 
-local TOOLS = {
+local TOOLS: { PickerOption } = {
 	{ value = "plow", label = "Plow" },
 	{ value = "plant", label = "Plant" },
 	{ value = "harvest", label = "Harvest" },
 }
 
-function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
+function screens.farm(Facet: FacetModule, UI: FacetControls, Host: Constructors, types: Types, farm: Farm)
 	local Compose: ComposeModule = Facet.Compose
 	local shapes = Facet.pathShapes
 	local D2, E = types.UDim2, types.Enum
@@ -24,13 +41,13 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 		return theme.color(types.Color3, name)
 	end
 
-	local function line(x1: number, y1: number, x2: number, y2: number): { any }
+	local function line(x1: number, y1: number, x2: number, y2: number): { RingPoint }
 		return {
 			{ x = x1, y = y1, inX = 0, inY = 0, outX = 0, outY = 0 },
 			{ x = x2, y = y2, inX = 0, inY = 0, outX = 0, outY = 0 },
 		}
 	end
-	local function circle(cx: number, cy: number, radius: number): { any }
+	local function circle(cx: number, cy: number, radius: number): { RingPoint }
 		local points = shapes.ring({ radius = radius * 2 })
 		for index, point in points do
 			local moved: RingPoint = table.clone(point)
@@ -40,7 +57,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 		end
 		return points
 	end
-	local function stroke(name: string, points: { any }, color: string, thickness: number, closed: boolean?)
+	local function stroke(name: string, points: { RingPoint }, color: string, thickness: number, closed: boolean?)
 		return UI.Path(name)({
 			points = points,
 			tint = paint(color),
@@ -49,12 +66,12 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 			Size = D2.fromScale(1, 1),
 		})
 	end
-	local function art(name: string, parts: { any })
+	local function art(name: string, parts: { Child })
 		return UI.ZStack(name)({
 			AnchorPoint = types.Vector2.new(0.5, 0.5),
 			Position = D2.fromScale(0.5, 0.5),
 			Size = D2.fromScale(0.8, 0.8),
-			table.unpack((parts :: unknown) :: { unknown }),
+			table.unpack(parts),
 		})
 	end
 
@@ -72,7 +89,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 				stroke("LeafRight", circle(0.6, 0.46, 0.08), "sprout", 6, true),
 			})
 		elseif crop == "wheat" then
-			local parts = {}
+			local parts: { Child } = {}
 			for index, tip in { { 0.3, 0.3 }, { 0.5, 0.2 }, { 0.7, 0.3 } } do
 				table.insert(parts, stroke("Stalk" .. index, line(0.5, 0.88, tip[1], tip[2] + 0.08), "stalk", 3))
 				table.insert(parts, stroke("Grain" .. index, circle(tip[1], tip[2], 0.07), "wheat", 7, true))
@@ -102,7 +119,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 	end
 
 	local function plotView(index: number)
-		local function plot(use: Use): any
+		local function plot(use: Use): Plot
 			return use(farm.plots)[index]
 		end
 		local function stage(use: Use): string
@@ -115,7 +132,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 			elseif state == "plowed" then
 				return `Plot {index}, plowed`
 			end
-			local crop = modelModule.crop(current.crop).label
+			local crop = modelModule.crop(assert(current.crop)).label
 			return `Plot {index}, {crop} {if state == "ready"
 				then "ready"
 				elseif state == "withered" then "withered"
@@ -134,10 +151,10 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 				PaddingRight = types.UDim.new(0, 1),
 				PaddingTop = types.UDim.new(0, 1),
 				PaddingBottom = types.UDim.new(0, 1),
-			} :: unknown,
+			},
 			UI.ZStack "Tile" {
-				width = "fill" :: "fill",
-				height = "fill" :: "fill",
+				width = "fill",
+				height = "fill",
 				Host.Frame "Soil" {
 					Size = D2.new(1, -4, 1, -4),
 					Position = D2.fromOffset(2, 2),
@@ -148,14 +165,14 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 							if state == "grass" then "grass" elseif state == "withered" then "withered" else "plowed"
 						)
 					end,
-					Host.UICorner { CornerRadius = types.UDim.new(0, 12) } :: unknown,
+					Host.UICorner { CornerRadius = types.UDim.new(0, 12) },
 					Host.UIStroke {
 						Thickness = 3,
 						Color = function(use: Use)
 							return paint(if stage(use) == "grass" then "grassEdge" else "soilEdge")
 						end,
 					},
-				} :: unknown,
+				},
 				Compose.show(function(use: Use)
 					return stage(use) ~= "grass"
 				end, function()
@@ -176,9 +193,9 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 						)
 					end
 					return UI.ZStack "Furrows" {
-						width = "fill" :: "fill",
-						height = "fill" :: "fill",
-						table.unpack((rows :: unknown) :: { unknown }),
+						width = "fill",
+						height = "fill",
+						table.unpack(rows),
 					}
 				end),
 				Compose.keyed({
@@ -187,18 +204,18 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 						if state == "grass" or state == "plowed" then
 							return {}
 						end
-						return { plot(use).crop .. ":" .. state }
+						return { assert(plot(use).crop) .. ":" .. state }
 					end,
 					render = function(current): GuiObject
 						local crop, state = string.match(current:peek(), "^(%w+):(%w+)$")
-						return cropArt(crop :: string, state :: string)
+						return cropArt(assert(crop), assert(state))
 					end,
 				}),
 				Compose.show(function(use: Use)
 					return stage(use) == "growing"
 				end, function()
 					return UI.ProgressView "Growth" {
-						presentation = "circular" :: "circular",
+						presentation = "circular",
 						diameter = 22,
 						value = function(use: Use)
 							return modelModule.progress(plot(use), use(farm.now))
@@ -226,7 +243,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 		table.insert(plots, plotView(index))
 	end
 
-	local seedOptions = {}
+	local seedOptions: { PickerOption } = {}
 	for _, crop in modelModule.CROPS do
 		table.insert(seedOptions, {
 			value = crop.id,
@@ -236,7 +253,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 			end,
 		})
 	end
-	local toolItems = {}
+	local toolItems: { RadialItem } = {}
 	for _, tool in TOOLS do
 		table.insert(toolItems, { id = tool.value, label = tool.label, selected = farm.tool, value = tool.value })
 	end
@@ -325,51 +342,54 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 			end,
 		}
 	end
-	local function fill(): UIFlexItem
+	local function fill(): Child
 		return Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill }
 	end
+	local levelUpActions: { AlertAction } = {
+		{ id = "ok", label = "Keep farming" },
+	}
 
 	return UI.ZStack "FarmRoot" {
-		width = "fill" :: "fill",
-		height = "fill" :: "fill",
+		width = "fill",
+		height = "fill",
 		UI.Screen "Farm" {
 			gap = "s",
 			padding = { top = "s", right = "m", bottom = "s", left = "m" },
 			UI.HStack "Hud" {
-				width = "fill" :: "fill",
+				width = "fill",
 				gap = "m",
-				align = "center" :: "center",
+				align = "center",
 				padding = "s",
 				BackgroundColor3 = paint("meadow"),
 				BackgroundTransparency = function(use: Use)
 					return if use(farm.view) == "3d" then 0.1 else 1
 				end,
-				Host.UICorner { CornerRadius = types.UDim.new(0, 14) } :: unknown,
+				Host.UICorner { CornerRadius = types.UDim.new(0, 14) },
 				Visible = function(use: Use)
 					return not stacked(use)
 				end,
 				UI.VStack "Brand" {
 					gap = "xs",
-					UI.Text "Title" { text = "Facet Farm", textRole = "title" :: "title" } :: unknown,
+					UI.Text "Title" { text = "Facet Farm", textRole = "title" },
 					UI.Text "Tagline" {
 						text = "Plow · Plant · Harvest",
-						role = "secondary" :: "secondary",
-						textRole = "label" :: "label",
+						role = "secondary",
+						textRole = "label",
 					},
 				},
 				UI.Spacer {},
 				UI.HStack "Stats" {
 					gap = "s",
-					align = "center" :: "center",
-					coins() :: unknown,
+					align = "center",
+					coins(),
 					level(),
 					experience(240),
 				},
-			} :: unknown,
+			},
 			Host.Frame "Arena" {
 				BackgroundTransparency = 1,
 				Size = D2.fromScale(1, 0),
-				fill() :: unknown,
+				fill(),
 				Host.UIListLayout {
 					FillDirection = function(use: Use)
 						return if short(use) then E.FillDirection.Horizontal else E.FillDirection.Vertical
@@ -396,12 +416,12 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 						Scale = function(use: Use)
 							return 1 - 0.25 * math.clamp(blend(use) / 0.35, 0, 1)
 						end,
-					} :: unknown,
+					},
 					Host.Frame "Fence" {
 						Size = D2.fromScale(1, 1),
 						BorderSizePixel = 0,
 						BackgroundColor3 = paint("fence"),
-						Host.UICorner { CornerRadius = types.UDim.new(0, 22) } :: unknown,
+						Host.UICorner { CornerRadius = types.UDim.new(0, 22) },
 						Host.UIStroke { Thickness = 4, Color = paint("fenceEdge") },
 					},
 					UI.VStack "Plots" {
@@ -413,7 +433,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 							width = function(use: Use)
 								return cell(use) * modelModule.COLUMNS + (modelModule.COLUMNS - 1) * GAP
 							end,
-							table.unpack((plots :: unknown) :: { unknown }),
+							table.unpack(plots),
 						},
 					},
 				},
@@ -423,7 +443,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 					BackgroundTransparency = function(use: Use)
 						return if blend(use) >= 0.35 then 0.1 else 1
 					end,
-					Host.UICorner { CornerRadius = types.UDim.new(0, 16) } :: unknown,
+					Host.UICorner { CornerRadius = types.UDim.new(0, 16) },
 					Host.UIPadding {
 						PaddingLeft = types.UDim.new(0, 10),
 						PaddingRight = types.UDim.new(0, 10),
@@ -449,16 +469,16 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 						BackgroundTransparency = function(use: Use)
 							return if use(farm.view) == "3d" then 0.1 else 1
 						end,
-						Host.UICorner { CornerRadius = types.UDim.new(0, 12) } :: unknown,
+						Host.UICorner { CornerRadius = types.UDim.new(0, 12) },
 						Visible = stacked,
-						UI.Text "PocketTitle" { text = "Facet Farm", textRole = "heading" :: "heading" },
-						UI.HStack "PocketBadges" { gap = "xs", coins() :: unknown, level() },
+						UI.Text "PocketTitle" { text = "Facet Farm", textRole = "heading" },
+						UI.HStack "PocketBadges" { gap = "xs", coins(), level() },
 						experience(200),
 					},
 					UI.Picker "Tool" {
 						LayoutOrder = 1,
 						selected = farm.tool,
-						style = "segmented" :: "segmented",
+						style = "segmented",
 						options = TOOLS,
 						Size = function(use: Use)
 							return D2.fromOffset(if short(use) then 264 else 330, 44)
@@ -468,12 +488,12 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 					UI.HStack "Actions" {
 						LayoutOrder = 2,
 						gap = "s",
-						align = "center" :: "center",
+						align = "center",
 						UI.Picker "Seed" {
 							selected = farm.seed,
-							style = "menu" :: "menu",
+							style = "menu",
 							options = seedOptions,
-						} :: unknown,
+						},
 						UI.Button "HarvestAll" {
 							label = "Harvest all",
 							icon = "checkmark",
@@ -493,11 +513,11 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 							VerticalAlignment = E.VerticalAlignment.Center,
 							SortOrder = E.SortOrder.LayoutOrder,
 							Padding = types.UDim.new(0, 8),
-						} :: unknown,
+						},
 						UI.HStack "Shop" {
 							LayoutOrder = 1,
 							gap = "s",
-							align = "center" :: "center",
+							align = "center",
 							UI.Button "Market" {
 								label = function(use: Use)
 									return if short(use) then "Market" else "Seed market"
@@ -506,7 +526,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 								onActivate = function()
 									farm.marketOpen:set(true)
 								end,
-							} :: unknown,
+							},
 							UI.RadialMenu "QuickTools" {
 								label = "Tools",
 								items = toolItems,
@@ -515,11 +535,8 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 						UI.HStack "Settings" {
 							LayoutOrder = 2,
 							gap = "s",
-							align = "center" :: "center",
-							UI.Toggle "Music" {
-								label = "Music",
-								value = farm.music,
-							} :: unknown,
+							align = "center",
+							UI.Toggle "Music" { label = "Music", value = farm.music },
 							UI.Button "View" {
 								Host.Frame "WidthReserve" {
 									BackgroundTransparency = 1,
@@ -527,12 +544,12 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 									AutomaticSize = E.AutomaticSize.XY,
 									UI.Text "BoardWidth" {
 										text = "2D board",
-										textRole = "control" :: "control",
+										textRole = "control",
 										TextTransparency = 1,
 									},
 									UI.Text "FarmWidth" {
 										text = "3D farm",
-										textRole = "control" :: "control",
+										textRole = "control",
 										TextTransparency = 1,
 									},
 								},
@@ -553,9 +570,9 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 				detent = Compose.cell("medium"),
 				content = function(): Instance
 					return UI.VStack "Seeds" {
-						width = "fill" :: "fill",
+						width = "fill",
 						gap = "s",
-						table.unpack((marketRows() :: unknown) :: { unknown }),
+						table.unpack(marketRows()),
 					}
 				end,
 			},
@@ -565,16 +582,14 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 					return `Level {farm.level:peek()}!`
 				end,
 				message = "New seeds may be waiting in the market.",
-				actions = {
-					{ id = "ok", label = "Keep farming" } :: AlertAction,
-				},
+				actions = levelUpActions,
 			},
 			Compose.keyed({
 				from = function(use: Use)
 					local toast = use(farm.toast)
 					return if toast then { toast.serial } else {}
 				end,
-				render = function(current): GuiObject
+				render = function(current: Readable<number>): GuiObject
 					local serial = current:peek()
 					return UI.Toast("Toast" .. serial)({
 						isPresented = function(use: Use)
@@ -601,7 +616,7 @@ function screens.farm(Facet: any, UI: any, Host: any, types: any, farm: any)
 	}
 end
 
-function screens.backdrop(Host: any, types: any, farm: any)
+function screens.backdrop(Host: Host, types: Types, farm: Farm)
 	local function blend(use: Use): number
 		if farm.blend then
 			return use(farm.blend)

@@ -5,6 +5,8 @@ local botanicals = require("../content/botanicals")
 
 local catalog = {}
 
+export type Fact = { key: string, kind: "grams" | "mg" | "minutes" | "warmth", value: number }
+
 local function round(value: number, places: number): number
 	local factor = 10 ^ (places or 0)
 	return math.floor(value * factor + 0.5) / factor
@@ -17,15 +19,15 @@ function catalog.new()
 	self.botanicals = botanicals.list
 	self.WATER_ID = botanicals.WATER_ID
 
-	function self.blend(id: string): any
+	function self.blend(id: string): blends.Blend?
 		return blends.byId[id]
 	end
 
-	function self.botanical(id: string): any
+	function self.botanical(id: string): botanicals.Botanical?
 		return botanicals.byId[id]
 	end
 
-	function self.gramsOf(measure: any): number
+	function self.gramsOf(measure: blends.Measure): number
 		local botanical = botanicals.byId[measure.botanicalId]
 		if botanical == nil or botanical.water then
 			return 0
@@ -39,7 +41,7 @@ function catalog.new()
 		return 0
 	end
 
-	function self.caffeineOf(measure: any): number
+	function self.caffeineOf(measure: blends.Measure): number
 		local botanical = botanicals.byId[measure.botanicalId]
 		if botanical == nil then
 			return 0
@@ -101,12 +103,12 @@ function catalog.new()
 		return out
 	end
 
-	function self.recipeMeasures(blendId: string): { any }
+	function self.recipeMeasures(blendId: string): { blends.Measure }
 		local blend = blends.byId[blendId]
 		return if blend ~= nil then blend.measures else {}
 	end
 
-	function self.measureFor(blendId: string, botanicalId: string): any
+	function self.measureFor(blendId: string, botanicalId: string): blends.Measure?
 		local blend = blends.byId[blendId]
 		if blend == nil then
 			return nil
@@ -119,17 +121,17 @@ function catalog.new()
 		return nil
 	end
 
-	function self.factsFor(blendId: string, botanicalId: string): { { key: string, kind: string, value: number } }
+	function self.factsFor(blendId: string, botanicalId: string): { Fact }
 		local botanical = botanicals.byId[botanicalId]
 		local measure = self.measureFor(blendId, botanicalId)
 		if botanical == nil or measure == nil then
 			return {}
 		end
 		return {
-			{ key = "facts.leaf", kind = "grams" :: "grams", value = round(self.gramsOf(measure), 1) },
-			{ key = "facts.caffeine", kind = "mg" :: "mg", value = math.floor(self.caffeineOf(measure) + 0.5) },
-			{ key = "facts.steep", kind = "minutes" :: "minutes", value = botanical.steepMinutes },
-			{ key = "facts.warmth", kind = "warmth" :: "warmth", value = botanical.warmth },
+			{ key = "facts.leaf", kind = "grams", value = round(self.gramsOf(measure), 1) },
+			{ key = "facts.caffeine", kind = "mg", value = math.floor(self.caffeineOf(measure) + 0.5) },
+			{ key = "facts.steep", kind = "minutes", value = botanical.steepMinutes },
+			{ key = "facts.warmth", kind = "warmth", value = botanical.warmth },
 		}
 	end
 

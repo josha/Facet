@@ -4,6 +4,7 @@ local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local Facet = require("../src")
 local Shared = require("../src/ui/types")
 local ZoomTypes = require("../src/ui/zoom_travel_types")
+local ZoomTypesControls = require("../src/ui/control_types")
 local engineLib = require("./lib/native_engine")
 local geometry = require("../src/ui/zoom_geometry")
 local travelGeometry = require("../src/ui/travel_geometry")
@@ -539,7 +540,7 @@ return function(harness: Verify.Harness)
 			local config = { types = engine.types, userInputService = input }
 			local ctx = require("../src/ui/context")(C, runtime, config)
 			local drag = require("../src/ui/drag_session")(ctx)
-			local UI = ({} :: unknown) :: ZoomTypes.Controls
+			local UI = ({} :: unknown) :: ZoomTypesControls.Controls
 			require("../src/ui/zoom_view")(ctx, UI)
 			local zoom: Facet.Cell<number>
 			local view: ScrollingFrame
@@ -612,7 +613,7 @@ return function(harness: Verify.Harness)
 			local config = { types = engine.types, userInputService = input, services = { RunService = run } }
 			local ctx = require("../src/ui/context")(C, runtime, config)
 			local drag = require("../src/ui/drag_session")(ctx)
-			local UI = ({} :: unknown) :: ZoomTypes.Controls
+			local UI = ({} :: unknown) :: ZoomTypesControls.Controls
 			require("../src/ui/zoom_view")(ctx, UI)
 			local zoom, controls = C.cell(0.4), {} :: Facet.ZoomControls
 			local view: ScrollingFrame

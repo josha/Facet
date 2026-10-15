@@ -1,13 +1,26 @@
 --!strict
 
+type ExampleContext = typeof(require("@repo/examples/types").Context)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
-type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption)
+type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
+type StringPickerSpec = typeof(require("@repo/tools/typecheck/aliases").StringPickerSpec)
+type GridProps = typeof(require("@repo/tools/typecheck/aliases").GridProps)
+type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
+type Device = typeof(require("@repo/examples/types").Device)
+type Size = typeof(require("@repo/examples/types").Size)
+type ViewingDistance = typeof(require("@repo/examples/types").ViewingDistance)
+type MotionLevel = typeof(require("@repo/examples/types").MotionLevel)
+type CategoryLayout = typeof(require("@repo/examples/types").CategoryLayout)
+type ThemeModule = typeof(require("@repo/examples/types").ThemeModule)
+type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
 type Readable<T> = { peek: (Readable<T>) -> T }
+type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
 local catalogue = require("./demo_picker")
 local screen = {}
-local DEVICES = {
+local DEVICES: { [string]: Device } = {
 	phone = { width = 389, height = 762, displaySize = "Small", input = "Touch", rotates = true },
 	tablet = { width = 768, height = 1024, displaySize = "Small", input = "Touch", rotates = true },
 	tv = { width = 1920, height = 1080, displaySize = "Large", input = "Gamepad" },
@@ -17,31 +30,37 @@ screen.list = catalogue.list
 screen.next = catalogue.next
 screen.boot = catalogue.boot
 
-function screen.configure(ctx: { [string]: any })
-	local Compose: ComposeModule = ctx.Compose
+function screen.configure(ctx: ExampleContext)
+	local Compose = ctx.Compose
 	ctx.overlayParent = ctx.Host.Frame "PreviewOverlays" {
 		BackgroundTransparency = 1,
 		Size = ctx.types.UDim2.fromOffset(0, 0),
 		ZIndex = 100,
 	}
-	ctx.themeName = ctx.themeName or Compose.cell("Neutral")
-	ctx.viewingDistance = Compose.cell("automatic")
+	local themeName: Cell<string> = ctx.themeName or Compose.cell("Neutral")
+	ctx.themeName = themeName
+	local automaticDistance: ViewingDistance? = "automatic"
+	local viewingDistance: Cell<ViewingDistance?> = Compose.cell(automaticDistance)
+	ctx.viewingDistance = viewingDistance
 	ctx.categoryPlacement = Compose.cell("automatic")
-	ctx.categoryLayout = Compose.cell(nil)
-	ctx.devicePreview = Compose.cell("automatic")
-	ctx.orientationPreview = Compose.cell("portrait")
-	ctx.device = Compose.formula(function(use: Use)
-		local device = DEVICES[use(ctx.devicePreview)]
-		if device and device.rotates and use(ctx.orientationPreview) == "landscape" then
+	local noLayout: CategoryLayout? = nil
+	local categoryLayout: Cell<CategoryLayout?> = Compose.cell(noLayout)
+	ctx.categoryLayout = categoryLayout
+	local devicePreview, orientationPreview = Compose.cell("automatic"), Compose.cell("portrait")
+	ctx.devicePreview, ctx.orientationPreview = devicePreview, orientationPreview
+	local device = Compose.formula(function(use: Use): Device?
+		local chosen = DEVICES[use(devicePreview)]
+		if chosen and chosen.rotates and use(orientationPreview) == "landscape" then
 			return {
-				width = device.height,
-				height = device.width,
-				displaySize = device.displaySize,
-				input = device.input,
+				width = chosen.height,
+				height = chosen.width,
+				displaySize = chosen.displaySize,
+				input = chosen.input,
 			}
 		end
-		return device
+		return chosen
 	end)
+	ctx.device = device
 	local display = ctx.viewport
 	local gui = ctx.guiService
 	local inset = Compose.cell(0)
@@ -58,66 +77,81 @@ function screen.configure(ctx: { [string]: any })
 		end)
 	end
 	ctx.topInset = inset
-	ctx.metricScale = Compose.cell(nil)
-	ctx.previewScale = Compose.formula(function(use: Use)
-		local device = use(ctx.device)
-		if device and device.width and display then
+	local noMetric: Readable<number>? = nil
+	local metricScale: Cell<Readable<number>?> = Compose.cell(noMetric)
+	ctx.metricScale = metricScale
+	local previewScale = Compose.formula(function(use: Use): number
+		local chosen = use(device)
+		if chosen and chosen.width and chosen.height and display then
 			local size = use(display)
-			return math.min(1, size.width / device.width, (size.height - use(inset)) / device.height)
+			return math.min(1, size.width / chosen.width, (size.height - use(inset)) / chosen.height)
 		end
 		return 1
 	end)
+	ctx.previewScale = previewScale
 	if display then
-		ctx.previewViewport = Compose.formula(function(use: Use)
-			local device = use(ctx.device)
-			return if device and device.width then { width = device.width, height = device.height } else use(display)
+		local previewViewport = Compose.formula(function(use: Use): Size
+			local chosen = use(device)
+			return if chosen
+					and chosen.width
+					and chosen.height
+				then { width = chosen.width, height = chosen.height }
+				else use(display)
 		end)
-		ctx.sceneViewport = Compose.formula(function(use: Use)
-			local size = use(ctx.previewViewport)
-			local metric = use(ctx.metricScale)
-			local framed = use(ctx.device) and use(ctx.device).width
-			local scale = (if framed then 1 else use(ctx.previewScale)) * (if metric then use(metric) else 1)
+		ctx.previewViewport = previewViewport
+		ctx.sceneViewport = Compose.formula(function(use: Use): Size
+			local size = use(previewViewport)
+			local metric = use(metricScale)
+			local chosen = use(device)
+			local framed = chosen and chosen.width
+			local scale = (if framed then 1 else use(previewScale)) * (if metric then use(metric) else 1)
 			return { width = size.width / scale, height = size.height / scale }
 		end)
 	end
-	ctx.inputPreview = Compose.cell("automatic")
-	ctx.textPreview = Compose.cell("automatic")
-	local function previewInput(use: Use)
-		local preview = use(ctx.inputPreview)
+	local inputPreview, textPreview = Compose.cell("automatic"), Compose.cell("automatic")
+	ctx.inputPreview, ctx.textPreview = inputPreview, textPreview
+	local function previewInput(use: Use): string?
+		local preview = use(inputPreview)
 		if preview ~= "automatic" then
 			return preview
 		end
-		local device = use(ctx.device)
-		return device and device.input
+		local chosen = use(device)
+		return chosen and chosen.input
 	end
-	local function forced(input: string)
-		return function(use: Use)
+	local function forced(input: string): (Use) -> boolean?
+		return function(use: Use): boolean?
 			local preview = previewInput(use)
 			return if preview == nil then nil else preview == input
 		end
 	end
 	ctx.environment = {
-		viewingDistance = ctx.viewingDistance,
+		viewingDistance = viewingDistance,
 		preferredInput = previewInput,
 		touchEnabled = forced("Touch"),
 		gamepadEnabled = forced("Gamepad"),
 		mouseEnabled = forced("KeyboardAndMouse"),
 		keyboardEnabled = forced("KeyboardAndMouse"),
-		preferredTextSize = function(use: Use)
-			local preview = use(ctx.textPreview)
+		preferredTextSize = function(use: Use): string?
+			local preview = use(textPreview)
 			return if preview == "automatic" then nil else preview
 		end,
-		displaySize = function(use: Use)
-			local device = use(ctx.device)
-			return device and device.displaySize
+		displaySize = function(use: Use): string?
+			local chosen = use(device)
+			return chosen and chosen.displaySize
 		end,
-		viewportSize = function(use: Use)
-			local device = use(ctx.device)
-			return device and device.width and ctx.types.Vector2.new(device.width, device.height)
+		viewportSize = function(use: Use): Vector2?
+			local chosen = use(device)
+			return if chosen
+					and chosen.width
+					and chosen.height
+				then ctx.types.Vector2.new(chosen.width, chosen.height)
+				else nil
 		end,
 	}
 	ctx.hoverPreview = forced("KeyboardAndMouse")
-	ctx.motionPreference = Compose.cell(nil)
+	local followDevice: MotionLevel? = nil
+	local motionPreference: Cell<MotionLevel?> = Compose.cell(followDevice)
+	ctx.motionPreference = motionPreference
 	local nativeReduced = Compose.cell(gui and gui.ReducedMotionEnabled == true or false)
 	if gui then
 		local connection = gui:GetPropertyChangedSignal("ReducedMotionEnabled"):Connect(function()
@@ -127,36 +161,52 @@ function screen.configure(ctx: { [string]: any })
 			connection:Disconnect()
 		end)
 	end
-	local rank = { normal = 0, limited = 1, none = 2 }
-	ctx.motionLevel = Compose.formula(function(use: Use)
-		local device = if use(nativeReduced) then "limited" else "normal"
-		local chosen = use(ctx.motionPreference)
-		return if chosen and (rank[chosen] or 0) > rank[device] then chosen else device
-	end)
-	ctx.reducedMotion = Compose.formula(function(use: Use)
-		return use(ctx.motionLevel) ~= "normal"
-	end)
-	ctx.motionMode = Compose.cell("device")
+	local function levelOf(use: Use): MotionLevel
+		local chosen = use(motionPreference)
+		if chosen == "none" then
+			return "none"
+		elseif chosen == "limited" or use(nativeReduced) then
+			return "limited"
+		end
+		return "normal"
+	end
+	local initialLevel: MotionLevel = "normal"
+	local motionLevel: Cell<MotionLevel> = Compose.cell(initialLevel)
 	Compose.watch(function(use: Use)
-		ctx.motionMode:set(use(ctx.motionPreference) or "device")
+		motionLevel:set(levelOf(use))
+	end)
+	ctx.motionLevel = motionLevel
+	ctx.reducedMotion = Compose.formula(function(use: Use): boolean
+		return use(motionLevel) ~= "normal"
+	end)
+	local motionMode = Compose.cell("device")
+	ctx.motionMode = motionMode
+	Compose.watch(function(use: Use)
+		motionMode:set(use(motionPreference) or "device")
 	end)
 end
 
-function screen.preview(ctx: { [string]: any }, content: any, bounds: any)
+function screen.preview(ctx: ExampleContext, content: Instance, bounds: GuiObject): Frame
+	local overlayParent = assert(ctx.overlayParent)
 	local root = ctx.Host.Frame "PreviewRoot" {
 		Size = ctx.types.UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-		content :: unknown,
-		ctx.overlayParent,
+		content,
+		overlayParent,
 	}
 	local function measure()
 		local size = bounds.AbsoluteSize
 		local at = bounds.AbsolutePosition - root.AbsolutePosition
-		ctx.overlayParent.Size = ctx.types.UDim2.fromOffset(size.X, size.Y)
-		ctx.overlayParent.Position = ctx.types.UDim2.fromOffset(at.X, at.Y)
+		overlayParent.Size = ctx.types.UDim2.fromOffset(size.X, size.Y)
+		overlayParent.Position = ctx.types.UDim2.fromOffset(at.X, at.Y)
 	end
-	for _, entry in { { bounds, "AbsoluteSize" }, { bounds, "AbsolutePosition" }, { root, "AbsolutePosition" } } do
-		local connection = entry[1]:GetPropertyChangedSignal(entry[2]):Connect(measure)
+	local watched: { { node: GuiObject, property: string } } = {
+		{ node = bounds, property = "AbsoluteSize" },
+		{ node = bounds, property = "AbsolutePosition" },
+		{ node = root, property = "AbsolutePosition" },
+	}
+	for _, entry in watched do
+		local connection = entry.node:GetPropertyChangedSignal(entry.property):Connect(measure)
 		ctx.Compose.cleanup(function()
 			connection:Disconnect()
 		end)
@@ -165,7 +215,11 @@ function screen.preview(ctx: { [string]: any }, content: any, bounds: any)
 	return root
 end
 
-function screen.themePackages(themes, modules, load)
+function screen.themePackages(
+	themes: Themes,
+	modules: { Instance },
+	load: (ModuleScript) -> ThemeModule
+): { [string]: ThemePackage }
 	local packages: { [string]: ThemePackage } = {}
 	for _, module in modules do
 		if module:IsA("ModuleScript") then
@@ -186,36 +240,53 @@ function screen.themePackages(themes, modules, load)
 	return packages
 end
 
-function screen.setTheme(ctx: { [string]: any }, name: string)
-	local package = ctx.packages[name]
+function screen.setTheme(ctx: ExampleContext, name: string): boolean
+	local package = assert(ctx.packages)[name]
 	if not package then
 		return false
 	end
+	local themeName, themeMode, theme = assert(ctx.themeName), assert(ctx.themeMode), assert(ctx.theme)
 	ctx.runtime.reactor:batch(function()
-		ctx.themeName:set(name)
-		ctx.themeMode:set(package.style.defaultTheme)
-		ctx.theme:set(package)
+		themeName:set(name)
+		themeMode:set(package.style.defaultTheme)
+		theme:set(package)
 	end)
 	return true
 end
 
-function screen.resetAll(ctx: { [string]: any })
+function screen.resetAll(ctx: ExampleContext)
+	local devicePreview, orientationPreview = assert(ctx.devicePreview), assert(ctx.orientationPreview)
+	local inputPreview, textPreview = assert(ctx.inputPreview), assert(ctx.textPreview)
+	local viewingDistance = assert(ctx.viewingDistance)
 	ctx.runtime.reactor:batch(function()
-		ctx.devicePreview:set("automatic")
-		ctx.orientationPreview:set("portrait")
-		ctx.inputPreview:set("automatic")
-		ctx.textPreview:set("automatic")
-		ctx.viewingDistance:set("automatic")
+		devicePreview:set("automatic")
+		orientationPreview:set("portrait")
+		inputPreview:set("automatic")
+		textPreview:set("automatic")
+		viewingDistance:set("automatic")
 	end)
 end
 
-function screen.dispatch(ctx: { [string]: any }, command: string, argument: any?)
+export type Report = {
+	ok: boolean,
+	current: string,
+	mounted: string?,
+	error: string?,
+	theme: string,
+	palette: string,
+	demo: unknown,
+	panel: string?,
+}
+
+function screen.dispatch(ctx: ExampleContext, command: string, argument: unknown): Report
 	local ok = false
 	local demos = ctx.demos or catalogue.list()
+	local selection = assert(ctx.selection)
+	local word = if type(argument) == "string" then argument else nil
 	if command == "show" then
 		for _, demo in demos do
 			if demo.id == argument then
-				ctx.selection:set(argument)
+				selection:set(demo.id)
 				ok = true
 				break
 			end
@@ -223,75 +294,92 @@ function screen.dispatch(ctx: { [string]: any }, command: string, argument: any?
 	elseif command == "next" or command == "showNext" then
 		local index = 1
 		for position, demo in demos do
-			if demo.id == ctx.selection:peek() then
+			if demo.id == selection:peek() then
 				index = position
 				break
 			end
 		end
-		ctx.selection:set(demos[(index - 1 + (argument or 1)) % #demos + 1].id)
+		local step = if type(argument) == "number" then argument else 1
+		selection:set(demos[(index - 1 + step) % #demos + 1].id)
 		ok = true
 	elseif command == "theme" then
-		ok = screen.setTheme(ctx, argument or "")
+		ok = screen.setTheme(ctx, word or "")
 	elseif command == "device" then
-		ok = argument == "automatic" or DEVICES[argument] ~= nil
-		if ok then
-			ctx.devicePreview:set(argument)
+		ok = word == "automatic" or word ~= nil and DEVICES[word] ~= nil
+		if ok and word then
+			assert(ctx.devicePreview):set(word)
 		end
 	elseif command == "input" then
-		ok = argument == "automatic" or argument == "KeyboardAndMouse" or argument == "Touch" or argument == "Gamepad"
-		if ok then
-			ctx.inputPreview:set(argument)
+		ok = word == "automatic" or word == "KeyboardAndMouse" or word == "Touch" or word == "Gamepad"
+		if ok and word then
+			assert(ctx.inputPreview):set(word)
 		end
 	elseif command == "orientation" then
-		ok = argument == "portrait" or argument == "landscape"
-		if ok then
-			ctx.orientationPreview:set(argument)
+		ok = word == "portrait" or word == "landscape"
+		if ok and word then
+			assert(ctx.orientationPreview):set(word)
 		end
 	elseif command == "panel" and ctx.requestPanel then
-		ok = argument == nil or argument == "demos" or argument == "settings"
+		ok = argument == nil or word == "demos" or word == "settings"
 		if ok then
-			ctx.requestPanel(argument)
+			ctx.requestPanel(word)
 		end
 	elseif command == "tab" and ctx.currentSelect then
 		ok = ctx.currentSelect(argument) == true
 	elseif command == "report" then
 		ok = true
 	end
+	local panelOpen, panelSection = ctx.panelOpen, ctx.panelSection
 	return {
 		ok = ok,
-		current = ctx.selection:peek(),
-		mounted = ctx.active:peek(),
-		error = if ok then ctx.errorMessage:peek() else "Unknown gallery command or choice",
-		theme = ctx.themeName:peek(),
-		palette = ctx.themeMode:peek(),
+		current = selection:peek(),
+		mounted = assert(ctx.active):peek(),
+		error = if ok then assert(ctx.errorMessage):peek() else "Unknown gallery command or choice",
+		theme = assert(ctx.themeName):peek(),
+		palette = assert(ctx.themeMode):peek(),
 		demo = if command == "report" and ctx.currentReport then ctx.currentReport() else nil,
-		panel = if ctx.panelOpen and ctx.panelOpen:peek() then ctx.panelSection:peek() else nil,
+		panel = if panelOpen and panelSection and panelOpen:peek() then panelSection:peek() else nil,
 	}
 end
 
-function screen.build(ctx: any)
-	local Host, UI, Compose: ComposeModule = ctx.Host, ctx.UI, ctx.Compose
+local function motionChoice(value: string): MotionLevel?
+	if value == "normal" or value == "limited" or value == "none" then
+		return value
+	end
+	return nil
+end
+
+function screen.build(ctx: ExampleContext)
+	local Host, UI, Compose = ctx.Host, ctx.UI, ctx.Compose
 	if not ctx.reducedMotion then
 		screen.configure(ctx)
 	end
 	local UDim, UDim2, Enum = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
-	local selected = ctx.selection
+	local selected = assert(ctx.selection)
 	local environment = UI.environment()
-	ctx.metricScale:set(environment.metricScale)
-	ctx.sceneVisible = Compose.cell(false)
-	local themeName = ctx.themeName or Compose.cell("Neutral")
+	assert(ctx.metricScale):set(environment.metricScale)
+	local sceneVisible = Compose.cell(false)
+	ctx.sceneVisible = sceneVisible
+	local themeName: Cell<string> = ctx.themeName or Compose.cell("Neutral")
 	ctx.themeName = themeName
-	local active = Compose.cell(nil)
+	local nothing: string? = nil
+	local active: Cell<string?> = Compose.cell(nothing)
 	ctx.active = active
-	local errorMessage = Compose.cell(nil :: string | nil)
+	local errorMessage: Cell<string?> = Compose.cell(nothing)
 	ctx.errorMessage = errorMessage
-	local branches = {}
+	local themeMode, theme, packages = assert(ctx.themeMode), assert(ctx.theme), assert(ctx.packages)
+	local devicePreview, orientationPreview = assert(ctx.devicePreview), assert(ctx.orientationPreview)
+	local inputPreview, motionMode = assert(ctx.inputPreview), assert(ctx.motionMode)
+	local motionPreference, previewScale = assert(ctx.motionPreference), assert(ctx.previewScale)
+	local device, categoryLayout = assert(ctx.device), assert(ctx.categoryLayout)
+	local load = assert(ctx.load)
+	local branches: { [string]: () -> Instance } = {}
 	for _, demo in (ctx.demos or catalogue.list()) do
 		branches[demo.id] = function()
 			ctx.currentReport = nil
 			ctx.currentSelect = nil
 			local ok, result = pcall(function()
-				local definition = ctx.load(demo.kind, demo.module)
+				local definition = load(demo.kind, demo.module)
 				local pageContext = table.clone(ctx)
 				pageContext.viewport = ctx.previewViewport
 				pageContext.pageVisible = Compose.formula(function(use: Use)
@@ -327,33 +415,29 @@ function screen.build(ctx: any)
 			}
 		end
 	end
-	local tabs = {}
+	local tabs: { Tab } = {}
 	for _, demo in (ctx.demos or catalogue.list()) do
 		table.insert(tabs, { id = demo.id, label = demo.title, content = branches[demo.id] })
 	end
-	local demoOptions = {}
-	for _, tab in tabs do
-		table.insert(demoOptions, { value = tab.id, label = tab.label })
-	end
-	local themes = {}
-	for name, package in ctx.packages do
+	local themes: { { value: string, label: string } } = {}
+	for name, package in packages do
 		table.insert(themes, { value = name, label = package.identity and package.identity.displayName or name })
 	end
-	table.sort(themes, function(a, b)
+	table.sort(themes, function(a: { value: string, label: string }, b: { value: string, label: string }): boolean
 		return if a.value == "Neutral" then true elseif b.value == "Neutral" then false else a.label < b.label
 	end)
 	local measuredToolbar = Compose.cell(56)
 	local toolbarHeight = function(use: Use)
 		return use(measuredToolbar)
 	end
-	local COPY = {
+	local COPY: { [string]: string } = {
 		preview = "Preview as",
 		automatic = "Automatic",
 		desktop = "Desktop",
 		phone = "Phone",
 		tablet = "Tablet",
 		tv = "TV / 10-foot",
-		orientation = "Orientation" :: "Orientation",
+		orientation = "Orientation",
 		portrait = "Portrait",
 		landscape = "Landscape",
 		input = "Input",
@@ -364,86 +448,109 @@ function screen.build(ctx: any)
 		previewNote = "Phone and tablet layouts fit within this window. Automatic input follows the preview device, or your current device in Automatic preview.",
 		motionNote = "Limited fades instead of moving. None snaps. The device's Reduce Motion still applies on top of the game's choice. Informational motion keeps running, in 250 ms steps.",
 	}
-	local function options(values)
-		local list = {}
+	local function options(values: { string }): { StringPickerOption }
+		local list: { StringPickerOption } = {}
 		for _, value in values do
 			table.insert(list, { value = value, label = COPY[value] })
 		end
 		return list
 	end
 	local function caption(name: string, text)
-		return UI.Text(name)({ text = text, textRole = "caption" :: "caption", role = "secondary" :: "secondary" })
+		return UI.Text(name)({
+			text = text,
+			textRole = "caption",
+			role = "secondary",
+		})
 	end
 	local function note(name: string, text)
 		return UI.Text(name)({
 			text = text,
-			textRole = "caption" :: "caption",
-			role = "secondary" :: "secondary",
+			textRole = "caption",
+			role = "secondary",
 			TextWrapped = true,
 			Size = UDim2.new(1, 0, 0, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
 		})
 	end
 
-	local function displayPickers(style)
+	local function displayPickers(style: "automatic" | "menu"): Frame
+		local preview: StringPickerSpec = {
+			Name = "Preview",
+			label = COPY.preview,
+			style = style,
+			selected = devicePreview,
+			options = options({ "automatic", "desktop", "phone", "tablet", "tv" }),
+		}
+		local orientation: StringPickerSpec = {
+			Name = "Orientation",
+			label = COPY.orientation,
+			style = style,
+			selected = orientationPreview,
+			options = options({ "portrait", "landscape" }),
+			enabled = function(use: Use): boolean
+				local chosen = DEVICES[use(devicePreview)]
+				return chosen ~= nil and chosen.rotates == true
+			end,
+		}
+		local input: StringPickerSpec = {
+			Name = "Input",
+			label = COPY.input,
+			style = style,
+			selected = inputPreview,
+			options = options({ "automatic", "KeyboardAndMouse", "Touch", "Gamepad" }),
+		}
 		return UI.VStack "Pickers" {
 			gap = "s",
-			width = "fill" :: "fill",
-			UI.Picker "Preview" {
-				label = COPY.preview,
-				style = style,
-				selected = ctx.devicePreview,
-				options = options({ "automatic", "desktop", "phone", "tablet", "tv" }),
-			} :: unknown,
-			UI.Picker "Orientation" {
-				label = COPY.orientation,
-				style = style,
-				selected = ctx.orientationPreview,
-				options = options({ "portrait", "landscape" }),
-				enabled = function(use: Use)
-					local device = DEVICES[use(ctx.devicePreview)]
-					return device ~= nil and device.rotates == true
-				end,
-			},
-			UI.Picker "Input" {
-				label = COPY.input,
-				style = style,
-				selected = ctx.inputPreview,
-				options = options({ "automatic", "KeyboardAndMouse", "Touch", "Gamepad" }),
-			},
+			width = "fill",
+			UI.Picker(preview),
+			UI.Picker(orientation),
+			UI.Picker(input),
 		}
 	end
 	local function settingsContent()
-		local themeChips = {}
+		local packagesGrid: GridProps = { Name = "Packages", columns = 2, gap = "xs" }
 		for index, entry in themes do
-			table.insert(
-				themeChips,
-				UI.Button("P_" .. entry.value)({
-					LayoutOrder = index,
-					label = entry.label,
-					selected = function(use: Use)
-						return use(themeName) == entry.value
-					end,
-					onActivate = function()
-						if themeName:peek() ~= entry.value then
-							screen.setTheme(ctx, entry.value)
-						end
-					end,
-				})
-			)
+			packagesGrid[#packagesGrid + 1] = UI.Button("P_" .. entry.value)({
+				LayoutOrder = index,
+				label = entry.label,
+				selected = function(use: Use)
+					return use(themeName) == entry.value
+				end,
+				onActivate = function()
+					if themeName:peek() ~= entry.value then
+						screen.setTheme(ctx, entry.value)
+					end
+				end,
+			})
 		end
+		local motionOptions: { StringPickerOption } = {
+			{ value = "device", label = "Device" },
+			{ value = "normal", label = "Normal" },
+			{ value = "limited", label = "Limited" },
+			{ value = "none", label = "None" },
+		}
+		local motionSpec: StringPickerSpec = {
+			Name = "MotionMode",
+			label = "Motion",
+			style = "segmented",
+			selected = motionMode,
+			options = motionOptions,
+			onChange = function(value: string)
+				motionPreference:set(motionChoice(value))
+			end,
+		}
 		local build = ctx.buildStamp
 		return UI.VStack "Settings" {
 			gap = "m",
-			width = "fill" :: "fill",
+			width = "fill",
 			UI.VStack "Display" {
 				gap = "s",
-				width = "fill" :: "fill",
+				width = "fill",
 				Compose.show(UI.environment().isTenFoot, function()
 					return displayPickers("automatic")
 				end, function()
 					return displayPickers("menu")
-				end) :: unknown,
+				end),
 				UI.Button "ResetAll" {
 					label = COPY.resetAll,
 					onActivate = function()
@@ -451,38 +558,25 @@ function screen.build(ctx: any)
 					end,
 				},
 				note("Note", COPY.previewNote),
-			} :: unknown,
+			},
 			UI.VStack "Motion" {
 				gap = "xs",
-				width = "fill" :: "fill",
-				UI.Picker "MotionMode" {
-					label = "Motion",
-					style = "segmented" :: "segmented",
-					selected = ctx.motionMode,
-					options = {
-						{ value = "device", label = "Device" } :: PickerOption,
-						{ value = "normal", label = "Normal" } :: PickerOption,
-						{ value = "limited", label = "Limited" } :: PickerOption,
-						{ value = "none", label = "None" } :: PickerOption,
-					},
-					onChange = function(value)
-						ctx.motionPreference:set(if value == "device" then nil else value)
-					end,
-				} :: unknown,
+				width = "fill",
+				UI.Picker(motionSpec),
 				note("MotionNote", COPY.motionNote),
 			},
-			if type(build) == "string" and build ~= "" then caption("Build", `build {build}`) else nil :: unknown,
+			if type(build) == "string" and build ~= "" then caption("Build", `build {build}`) else nil,
 			UI.VStack "Choose" {
 				gap = "xs",
-				width = "fill" :: "fill",
-				caption("Title", "Theme") :: unknown,
-				UI.Grid "Packages" { columns = 2, gap = "xs", table.unpack((themeChips :: unknown) :: { unknown }) },
+				width = "fill",
+				caption("Title", "Theme"),
+				UI.Grid(packagesGrid),
 				UI.HStack "Mode" {
 					gap = "xs",
 					Compose.keyed({
 						from = function(use: Use): { string }
 							local names: { string } = {}
-							local palettes = use(ctx.theme).style.themes
+							local palettes = use(theme).style.themes
 							local available: { typeof(palettes[1]) } = if #palettes > 1 then palettes else {}
 							for _, palette in available do
 								table.insert(names, palette.name)
@@ -497,10 +591,10 @@ function screen.build(ctx: any)
 								label = name,
 								LayoutOrder = position,
 								selected = function(use: Use)
-									return use(ctx.themeMode) == name
+									return use(themeMode) == name
 								end,
 								onActivate = function()
-									ctx.themeMode:set(name)
+									themeMode:set(name)
 								end,
 							})
 						end,
@@ -512,9 +606,9 @@ function screen.build(ctx: any)
 	local panelOpen = Compose.cell(false)
 	local section = Compose.cell("demos")
 	ctx.panelOpen, ctx.panelSection = panelOpen, section
-	local titles = {}
-	for _, tab in tabs do
-		titles[tab.id] = tab.label
+	local titles: { [string]: string } = {}
+	for _, demo in (ctx.demos or catalogue.list()) do
+		titles[demo.id] = demo.title
 	end
 	local environmentFacts = UI.environment()
 	local gamepad = function(use: Use)
@@ -523,7 +617,7 @@ function screen.build(ctx: any)
 	local function closePanel()
 		panelOpen:set(false)
 	end
-	local function request(want)
+	local function request(want: string?)
 		local open = panelOpen:peek()
 		if want == nil then
 			if open then
@@ -540,7 +634,7 @@ function screen.build(ctx: any)
 	end
 	ctx.requestPanel = request
 	if ctx.inputTarget then
-		local function action(name: string, key, want)
+		local function action(name: string, key: Enum.KeyCode, want: string?)
 			return Host.InputAction(name)({
 				Type = Enum.InputActionType.Bool,
 				Pressed = function()
@@ -564,50 +658,45 @@ function screen.build(ctx: any)
 	end
 
 	local function demoList()
-		local demoButtons = {}
+		local demoList: StackProps = { Name = "DemoList", gap = "xs", align = "start", width = "fill" }
 		local demos = ctx.demos or catalogue.list()
 		for index, tab in tabs do
-			table.insert(
-				demoButtons,
-				UI.Button("Demo-" .. tab.id)({
-					LayoutOrder = index,
-					row = { title = tab.label, description = demos[index].blurb },
-					textSize = "strong",
-					appearance = function(use: Use)
-						return if use(selected) == tab.id then "standard" else "utility"
-					end,
-					trailingIcon = function(use: Use)
-						return if use(selected) == tab.id then "checkmark" else "chevron.trailing"
-					end,
-					selected = function(use: Use)
-						return use(selected) == tab.id
-					end,
-					onActivate = function()
-						selected:set(tab.id)
-						closePanel()
-					end,
-				})
-			)
+			demoList[#demoList + 1] = UI.Button("Demo-" .. tab.id)({
+				LayoutOrder = index,
+				row = { title = tab.label, description = demos[index].blurb },
+				textSize = "strong",
+				appearance = function(use: Use)
+					return if use(selected) == tab.id then "standard" else "utility"
+				end,
+				trailingIcon = function(use: Use)
+					return if use(selected) == tab.id then "checkmark" else "chevron.trailing"
+				end,
+				selected = function(use: Use)
+					return use(selected) == tab.id
+				end,
+				onActivate = function()
+					selected:set(tab.id)
+					closePanel()
+				end,
+			})
 		end
-		return UI.VStack "DemoList" {
-			gap = "xs",
-			align = "start" :: "start",
-			width = "fill" :: "fill",
-			table.unpack((demoButtons :: unknown) :: { unknown }),
-		}
+		return UI.VStack(demoList)
 	end
+	local sectionOptions: { StringPickerOption } = {
+		{ value = "demos", label = "Demos" },
+		{ value = "settings", label = "Settings" },
+	}
+	local sectionSpec: StringPickerSpec = {
+		Name = "Section",
+		style = "segmented",
+		selected = section,
+		options = sectionOptions,
+	}
 	local function panel()
 		return UI.VStack "ShowcasePanel" {
 			gap = "s",
-			width = "fill" :: "fill",
-			UI.Picker "Section" {
-				style = "segmented" :: "segmented",
-				selected = section,
-				options = {
-					{ value = "demos", label = "Demos" } :: PickerOption,
-					{ value = "settings", label = "Settings" } :: PickerOption,
-				},
-			},
+			width = "fill",
+			UI.Picker(sectionSpec),
 			Compose.show(function(use: Use)
 				return use(section) == "demos"
 			end, demoList, settingsContent),
@@ -616,8 +705,8 @@ function screen.build(ctx: any)
 	local function hint(name: string, text)
 		return UI.Text(name)({
 			text = text,
-			textRole = "caption" :: "caption",
-			role = "secondary" :: "secondary",
+			textRole = "caption",
+			role = "secondary",
 			Visible = gamepad,
 		})
 	end
@@ -629,7 +718,7 @@ function screen.build(ctx: any)
 			Padding = UDim.new(0, 8),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			VerticalAlignment = Enum.VerticalAlignment.Top,
-		}) :: unknown,
+		}),
 		hint("MenuHint", "LB"),
 		UI.CollapsibleView "Showcase" {
 			label = function(use: Use)
@@ -639,16 +728,16 @@ function screen.build(ctx: any)
 			content = panel,
 		},
 		Compose.show(function(use: Use)
-			local layout = use(ctx.categoryLayout)
+			local layout = use(categoryLayout)
 			return layout ~= nil and use(layout.available)
 		end, function()
 			return UI.Button "ToggleSidebar" {
 				label = function(use: Use)
-					local layout = use(ctx.categoryLayout)
+					local layout = use(categoryLayout)
 					return if layout and use(layout.placement) == "sidebar" then "Use top tabs" else "Use sidebar"
 				end,
 				onActivate = function()
-					local layout = ctx.categoryLayout:peek()
+					local layout = categoryLayout:peek()
 					if layout then
 						layout.toggle()
 					end
@@ -667,16 +756,16 @@ function screen.build(ctx: any)
 			PaddingRight = UDim.new(0, 12),
 			PaddingTop = UDim.new(0, 8),
 			PaddingBottom = UDim.new(0, 4),
-		}) :: unknown,
+		}),
 		Host.Frame "Column" {
 			AutomaticSize = Enum.AutomaticSize.XY,
 			BackgroundTransparency = 1,
-			Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
+			Host.UIListLayout({ Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 			row,
 		},
 	}
 	local rowSize = row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-		local scale = ctx.previewScale:peek()
+		local scale = previewScale:peek()
 		measuredToolbar:set(math.max(56, math.ceil(row.AbsoluteSize.Y / (if scale > 0 then scale else 1)) + 12))
 	end)
 	Compose.cleanup(function()
@@ -684,14 +773,14 @@ function screen.build(ctx: any)
 	end)
 	local root = Host.Frame "Gallery" {
 		Size = function(use: Use)
-			local device = use(ctx.device)
-			if device and device.width then
-				return UDim2.fromOffset(device.width, device.height)
+			local chosen = use(device)
+			if chosen and chosen.width and chosen.height then
+				return UDim2.fromOffset(chosen.width, chosen.height)
 			end
-			local inverse = 1 / use(ctx.previewScale)
+			local inverse = 1 / use(previewScale)
 			return UDim2.fromScale(inverse, inverse)
 		end,
-		Host.UIScale "ViewingDistance" { Scale = ctx.previewScale } :: unknown,
+		Host.UIScale "ViewingDistance" { Scale = previewScale },
 		Host.UIPadding "Overscan" {
 			PaddingTop = function(use: Use)
 				return UDim.new(0, use(environment.overscanInsets).top)
@@ -707,7 +796,7 @@ function screen.build(ctx: any)
 			end,
 		},
 		BackgroundTransparency = function(use: Use)
-			return if use(ctx.sceneVisible) then 1 else 0
+			return if use(sceneVisible) then 1 else 0
 		end,
 
 		toolbar,
@@ -716,7 +805,7 @@ function screen.build(ctx: any)
 			tabs = tabs,
 			retention = "top",
 			transition = false,
-			placement = "none" :: "none",
+			placement = "none",
 			Position = function(use: Use)
 				return UDim2.fromOffset(0, toolbarHeight(use))
 			end,
@@ -727,7 +816,8 @@ function screen.build(ctx: any)
 	}
 	root:AddTag("facet-surface")
 	Compose.watch(function(use: Use)
-		if use(ctx.device) and use(ctx.device).width then
+		local chosen = use(device)
+		if chosen and chosen.width then
 			root:AddTag("facet-floating")
 		else
 			root:RemoveTag("facet-floating")

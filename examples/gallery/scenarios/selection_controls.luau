@@ -8,14 +8,14 @@ type VoteCell = typeof(require("@repo/tools/typecheck/aliases").VoteCell)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Built = typeof(require("@repo/examples/types").Built)
 return {
 	title = "Choices and filters",
 	ledgerRows = { "CONTROL-SELECTION" },
-	build = function(ctx: ExampleContext)
+	build = function(ctx: ExampleContext): Built
 		local UI, Compose: ComposeModule = ctx.UI, ctx.Compose
 		local Host = ctx.Host
-		local Compose: ComposeModule = ctx.Compose
-		local nativeTypes = ctx.types or { UDim = UDim, UDim2 = UDim2, Vector2 = Vector2, Color3 = Color3, Enum = Enum }
+		local nativeTypes = ctx.types
 		local UDim, UDim2, Vector2, Color3, Enum =
 			nativeTypes.UDim, nativeTypes.UDim2, nativeTypes.Vector2, nativeTypes.Color3, nativeTypes.Enum
 		local signal = Compose.cell
@@ -66,17 +66,14 @@ return {
 			})
 		end
 		local function switch()
-			return UI.Toggle "Switch" {
-				label = "Enable choices",
-				value = enabled,
-			}
+			return UI.Toggle "Switch" { label = "Enable choices", value = enabled }
 		end
 		local function checkbox()
 			return UI.Toggle "Checkbox" {
 				label = "Include night races and their full race results",
 				value = checked,
 				mixed = mixed,
-				presentation = "checkbox" :: "checkbox",
+				presentation = "checkbox",
 				enabled = enabled,
 			}
 		end
@@ -84,9 +81,9 @@ return {
 			return UI.Toggle "PlainCheckbox" {
 				label = "Reduced motion",
 				value = checked,
-				presentation = "checkbox" :: "checkbox",
+				presentation = "checkbox",
 				appearance = "plain",
-				controlSize = "compact" :: "compact",
+				controlSize = "compact",
 				textSize = "label",
 				enabled = enabled,
 			}
@@ -95,7 +92,7 @@ return {
 			return UI.Toggle "Boost" {
 				label = "Boost mode",
 				value = boost,
-				presentation = "button" :: "button",
+				presentation = "button",
 				enabled = enabled,
 			}
 		end
@@ -104,29 +101,31 @@ return {
 			return UI.Picker "Radio" {
 				selected = selected,
 				options = choices,
-				style = "radioGroup" :: "radioGroup",
+				style = "radioGroup",
 				enabled = enabled,
 			}
 		end
 		local function segmented()
+			local options: { PickerOption } = {
+				{ value = "open", label = "Open" },
+				{ value = "club", label = "Club", enabled = club },
+			}
 			return UI.Picker "Segments" {
 				selected = selected,
-				options = {
-					{ value = "open", label = "Open" } :: PickerOption,
-					{ value = "club", label = "Club", enabled = club } :: PickerOption,
-				},
-				style = "segmented" :: "segmented",
+				options = options,
+				style = "segmented",
 				enabled = enabled,
 			}
 		end
 		local function popup()
+			local options: { PickerOption } = {
+				{ value = "open", label = "Open races" },
+				{ value = "club", label = "Club races", description = "Join a club to unlock.", enabled = club },
+			}
 			return UI.Picker "Popup" {
 				label = "Race group",
 				selected = selected,
-				options = {
-					{ value = "open", label = "Open races" } :: PickerOption,
-					{ value = "club", label = "Club races", description = "Join a club to unlock.", enabled = club } :: PickerOption,
-				},
+				options = options,
 				enabled = enabled,
 			}
 		end
@@ -144,33 +143,36 @@ return {
 			}
 		end
 		local function multi()
-			return UI.Menu {
-				trigger = UI.Button "Tags" {
-					label = "Scenery filters",
-					enabled = enabled,
-					onActivate = function() end,
-				} :: GuiObject,
-				items = {
-					{ id = "coastal", label = "Coastal", checked = tagCoastal } :: MenuItem,
-					{ id = "forest", label = "Forest", checked = tagForest } :: MenuItem,
-					{
-						id = "snow",
-						label = "Snow",
-						checked = tagSnow,
-						enabled = false,
-						description = "Winter routes are closed.",
-					} :: MenuItem,
+			local trigger: GuiObject = UI.Button "Tags" {
+				label = "Scenery filters",
+				enabled = enabled,
+				onActivate = function() end,
+			}
+			local items: { MenuItem } = {
+				{ id = "coastal", label = "Coastal", checked = tagCoastal },
+				{ id = "forest", label = "Forest", checked = tagForest },
+				{
+					id = "snow",
+					label = "Snow",
+					checked = tagSnow,
+					enabled = false,
+					description = "Winter routes are closed.",
 				},
 			}
+			return UI.Menu({
+				trigger = trigger,
+				items = items,
+			})
 		end
 		local function combo()
+			local options: { StringPickerOption } = {
+				{ id = "road", value = "road", label = "Road" },
+				{ id = "rally", value = "rally", label = "Rally" },
+			}
 			return UI.ComboBox "Vehicle" {
 				value = comboValue,
 				text = comboText,
-				options = {
-					{ id = "road", label = "Road" } :: StringPickerOption,
-					{ id = "rally", label = "Rally" } :: StringPickerOption,
-				},
+				options = options,
 				enabled = enabled,
 				acceptCustom = function(text)
 					return #text >= 3 and #text <= 24, "Use 3 to 24 characters."
@@ -181,7 +183,7 @@ return {
 			return signal(value)
 		end)("none")
 		local function votes()
-			return Host.Frame "Votes" {
+			return Host.Frame("Votes")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -190,7 +192,7 @@ return {
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
+				}),
 				UI.Vote "TrackVote" {
 					LayoutOrder = 1,
 					value = vote,
@@ -203,12 +205,12 @@ return {
 				},
 				UI.Vote "PastVote" {
 					LayoutOrder = 2,
-					value = "down" :: "down",
+					value = "down",
 					readOnly = true,
-					controlSize = "compact" :: "compact",
+					controlSize = "compact",
 				},
 				UI.Chip "VoteTag" { LayoutOrder = 3, label = "Rally", selected = signal(false) },
-			}
+			})
 		end
 		local function reset()
 			vote:set("none")
@@ -233,10 +235,10 @@ return {
 		local function driverField()
 			return UI.Picker "Driver" {
 				label = "Driver",
-				requiredMark = "required" :: "required",
+				requiredMark = "required",
 				hint = "Who takes the wheel for this race.",
 				errorText = driverError,
-				style = "menu" :: "menu",
+				style = "menu",
 				maxHeight = 220,
 				selected = driver,
 				options = DRIVERS,
@@ -244,38 +246,40 @@ return {
 			}
 		end
 		local function cards()
+			local options: { PickerOption } = {
+				{ value = "sprint", label = "Sprint", description = "Three short laps", meta = "3 laps" },
+				{ value = "endurance", label = "Endurance", description = "A long race", meta = "20 laps" },
+				{
+					value = "night",
+					label = "Night",
+					description = "Unlocks at level 10",
+					meta = "Soon",
+					enabled = false,
+				},
+			}
 			return UI.Picker "Mode" {
 				label = "Race mode",
-				style = "cards" :: "cards",
-				axis = "x" :: "x",
+				style = "cards",
+				axis = "x",
 				required = false,
 				selected = mode,
-				options = {
-					{ value = "sprint", label = "Sprint", description = "Three short laps", meta = "3 laps" } :: PickerOption,
-					{ value = "endurance", label = "Endurance", description = "A long race", meta = "20 laps" } :: PickerOption,
-					{
-						value = "night",
-						label = "Night",
-						description = "Unlocks at level 10",
-						meta = "Soon",
-						enabled = false,
-					} :: PickerOption,
-				},
+				options = options,
 				enabled = enabled,
 			}
 		end
 		local function lapStrip()
+			local options: { PickerOption } = {
+				{ value = "3", label = "3" },
+				{ value = "5", label = "5" },
+				{ value = "10", label = "10" },
+			}
 			return UI.Picker "Laps" {
-				style = "segmented" :: "segmented",
+				style = "segmented",
 				appearance = "stroke",
-				corners = "pill" :: "pill",
-				controlSize = "compact" :: "compact",
+				corners = "pill",
+				controlSize = "compact",
 				selected = laps,
-				options = {
-					{ value = "3", label = "3" } :: PickerOption,
-					{ value = "5", label = "5" } :: PickerOption,
-					{ value = "10", label = "10" } :: PickerOption,
-				},
+				options = options,
 				enabled = enabled,
 			}
 		end
@@ -286,7 +290,7 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				text = text,
-				textRole = "heading" :: "heading",
+				textRole = "heading",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
@@ -301,7 +305,7 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				text = text,
-				textRole = "caption" :: "caption",
+				textRole = "caption",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				TextXAlignment = Enum.TextXAlignment.Left,
@@ -309,7 +313,7 @@ return {
 		end
 
 		local function body()
-			return Host.Frame "Body" {
+			return Host.Frame("Body")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
@@ -317,7 +321,7 @@ return {
 					FillDirection = Enum.FillDirection.Vertical,
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 16),
-				}) :: unknown,
+				}),
 				UI.Text({
 
 					BackgroundTransparency = 1,
@@ -325,7 +329,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = "Choices and filters",
-					textRole = "title" :: "title",
+					textRole = "title",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -372,10 +376,10 @@ return {
 				heading("Vote on a track"),
 				caption("CapVote", "Vote · up, down or none (press again to clear), and a read-only one"),
 				votes(),
-			}
+			})
 		end
 		local function screen()
-			return Host.Frame "SelectionControls" {
+			return Host.Frame("SelectionControls")({
 				BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 1, 0),
 				UI.ScrollView "Content" {
@@ -385,7 +389,7 @@ return {
 					ScrollBarThickness = 6,
 					body(),
 				},
-			}
+			})
 		end
 		return {
 			screen = screen,

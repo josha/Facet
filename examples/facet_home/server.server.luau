@@ -5,11 +5,28 @@ local Facet = require(storage:WaitForChild("Facet"))
 local modules = storage:WaitForChild("FacetHome")
 local policy = require(modules:WaitForChild("model"))
 local world = require(modules:WaitForChild("world"))
+type Owner = typeof(require("@repo/tools/typecheck/aliases").Owner)
+type Session = {
+	origin: Vector3,
+	room: Model,
+	roomOwner: Owner,
+	draft: policy.Layout,
+	saved: policy.Layout,
+	cloud: boolean,
+	busy: boolean,
+	nextRequest: number,
+	nextSave: number,
+	furnitureOwner: Owner?,
+	furniture: Model?,
+	arrival: RBXScriptConnection?,
+}
+type Request = { action: unknown, slot: unknown, kind: unknown, palette: unknown }
+type Response = { ok: boolean, message: string, layout: policy.Layout?, origin: { number }?, cloud: boolean? }
 local assets = game:GetService("ServerStorage"):WaitForChild("FurnitureAssets")
 local runtime = Facet.Roblox.createRuntime()
-local Host = (runtime.constructors :: unknown) :: any
+local Host = Facet.host(runtime)
 local owner = Facet.Compose.createOwner(runtime.reactor)
-local function own(callback: () -> ...any): ...any
+local function own<T...>(callback: () -> T...): T...
 	return Facet.Compose.withOwner(owner, callback)
 end
 local root = own(function()
@@ -17,24 +34,27 @@ local root = own(function()
 end)
 root.Parent = workspace
 local remote = own(function()
-	return Host.RemoteFunction "FacetHomeRequest" {}
+	return runtime.constructors.RemoteFunction "FacetHomeRequest" {}
 end)
+assert(typeof(remote) == "Instance" and remote:IsA("RemoteFunction"), "Missing FacetHomeRequest")
 remote.Parent = storage
 local signal = own(function()
-	return Host.RemoteEvent "FacetHomeSelect" {}
+	return runtime.constructors.RemoteEvent "FacetHomeSelect" {}
 end)
+assert(typeof(signal) == "Instance" and signal:IsA("RemoteEvent"), "Missing FacetHomeSelect")
 signal.Parent = storage
 local storeOk, store = pcall(function()
 	return game:GetService("DataStoreService"):GetDataStore("FacetHome.Layout.v1")
 end)
-local sessions: { [Player]: any } = {}
+local sessions: { [Player]: Session } = {}
 local sequence = 0
-local function repaint(session: any)
+local function repaint(session: Session)
 	if session.furnitureOwner then
 		session.furnitureOwner.dispose()
 	end
-	session.furnitureOwner = Facet.Compose.createOwner(runtime.reactor)
-	Facet.Compose.withOwner(session.furnitureOwner, function()
+	local furnitureOwner = Facet.Compose.createOwner(runtime.reactor)
+	session.furnitureOwner = furnitureOwner
+	Facet.Compose.withOwner(furnitureOwner, function()
 		local pieces: { Instance } = {}
 		for key, item in session.draft.slots do
 			local at = CFrame.new(session.origin + world.position(assert(tonumber(key))))
@@ -45,22 +65,24 @@ local function repaint(session: any)
 			end)
 			table.insert(pieces, piece)
 		end
-		session.furniture = Host.Model("Furniture")(pieces)
-		session.furniture.Parent = session.room
+		local furniture = Host.Model "Furniture" { table.unpack(pieces) }
+		session.furniture = furniture
+		furniture.Parent = session.room
 	end)
 end
-local function open(player: Player): any
-	if sessions[player] then
-		return sessions[player]
+local function open(player: Player): Session
+	local existing = sessions[player]
+	if existing then
+		return existing
 	end
 	sequence += 1
 	local origin = Vector3.new(((sequence - 1) % 4) * 65, 0, ((sequence - 1) // 4) * 70)
 	local roomOwner = Facet.Compose.createOwner(runtime.reactor)
 	local room, markers = Facet.Compose.withOwner(roomOwner, function()
-		return world.room(Host, player, origin)
+		return world.room(Host, runtime.constructors.ProximityPrompt, player, origin)
 	end)
 	room.Parent = root
-	local session: any = {
+	local session: Session = {
 		origin = origin,
 		room = room,
 		roomOwner = roomOwner,
@@ -104,9 +126,14 @@ local function open(player: Player): any
 	end
 	return session
 end
-remote.OnServerInvoke = function(player: Player, request: any): any
+local function close(session: Session)
+	assert(session.arrival):Disconnect()
+	assert(session.furnitureOwner).dispose()
+	session.roomOwner.dispose()
+end
+remote.OnServerInvoke = function(player: Player, request: Request): Response
 	local ok, result = pcall(function()
-		return own(function()
+		return own(function(): Response
 			assert(type(request) == "table" and type(request.action) == "string", "Invalid request")
 			local session = open(player)
 			assert(not session.busy, "Home is busy. Try again")
@@ -155,17 +182,13 @@ end
 players.PlayerRemoving:Connect(function(player: Player)
 	local session = sessions[player]
 	if session then
-		session.arrival:Disconnect()
-		session.furnitureOwner.dispose()
-		session.roomOwner.dispose()
+		close(session)
 		sessions[player] = nil
 	end
 end)
 script.Destroying:Connect(function()
-	for _, session in sessions do
-		session.arrival:Disconnect()
-		session.furnitureOwner.dispose()
-		session.roomOwner.dispose()
+	for player in sessions do
+		close(sessions[player])
 	end
 	root:Destroy()
 	remote:Destroy()

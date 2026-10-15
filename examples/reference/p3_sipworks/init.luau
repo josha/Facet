@@ -6,7 +6,10 @@ type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").String
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 type ExampleContext = typeof(require("@repo/examples/types").Context)
+type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 local catalogService = require("@self/services/catalog")
+local blendsContent = require("@self/content/blends")
 local favoritesService = require("@self/services/favorites")
 local rewardsService = require("@self/services/rewards")
 local unlockService = require("@self/services/recipe_unlock")
@@ -18,10 +21,10 @@ local art = require("@self/content/art")
 local referenceView = require("./view")
 local Sipworks = { title = "Sipworks" }
 function Sipworks.build(ctx: ExampleContext)
-	local Compose: ComposeModule, UI, runtime = ctx.Compose, ctx.UI, ctx.runtime
+	local Compose, UI, runtime = ctx.Compose, ctx.UI, ctx.runtime
 	local view = referenceView(ctx)
 	local clock = clockService.new(0)
-	local function batch(body)
+	local function batch(body: () -> ())
 		runtime:batch(body)
 	end
 	local catalog = catalogService.new()
@@ -43,16 +46,16 @@ function Sipworks.build(ctx: ExampleContext)
 	local botanical, recipe = optionalString(nil), Compose.cell(false)
 	local selectedOpen, botanicalOpen = Compose.cell(false), Compose.cell(false)
 	local gathered = {}
-	local function text(key, params)
-		return function(use: Use)
+	local function text(key: string, params: i18nService.Params?): (Use) -> string
+		return function(use: Use): string
 			return i18n.at(use(i18n.locale), key, params)
 		end
 	end
-	local function blendName(id, use: Use)
-		local item = catalog.blend(id)
+	local function blendName(id: string, use: Use): string
+		local item = assert(catalog.blend(id))
 		return i18n.nameAt(use(i18n.locale), "blend", id, item.title)
 	end
-	local function botanicalName(item, use: Use)
+	local function botanicalName(item: { id: string, name: string }, use: Use): string
 		return i18n.nameAt(use(i18n.locale), "botanical", item.id, item.name)
 	end
 	local function paragraph(id: string, index: number, body: string)
@@ -60,15 +63,15 @@ function Sipworks.build(ctx: ExampleContext)
 			return i18n.nameAt(use(i18n.locale), "paragraph", id .. "#" .. index, body)
 		end
 	end
-	local function number(value, use: Use)
+	local function number(value: number, use: Use): string
 		return i18n.numberAt(use(i18n.locale), value)
 	end
-	local function openBlend(id)
+	local function openBlend(id: string)
 		selected:set(id)
 		recipe:set(false)
 		selectedOpen:set(true)
 	end
-	local function place(id, mode)
+	local function place(id: string, mode: string)
 		if mode == "redeem" and not rewards.canRedeem() then
 			return false
 		end
@@ -99,7 +102,7 @@ function Sipworks.build(ctx: ExampleContext)
 	Compose.cleanup(unlock.onResolved(function(ok)
 		notice:set(if ok then "notice.unlocked" else "notice.declined")
 	end))
-	local heartbeat = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
+	local heartbeat: RBXScriptSignal? = ctx.heartbeat or (if game then game:GetService("RunService").Heartbeat else nil)
 	if heartbeat then
 		local beat = heartbeat:Connect(clock.advance)
 		Compose.cleanup(function()
@@ -109,14 +112,14 @@ function Sipworks.build(ctx: ExampleContext)
 	Compose.cleanup(function()
 		clock.reset()
 	end)
-	local visible = Compose.formula(function(use: Use)
+	local visible = Compose.formula(function(use: Use): { blendsContent.Blend }
 		local locale, query, which = use(i18n.locale), use(search), use(section)
 		use(favorites.set)
-		local result = {}
+		local result: { blendsContent.Blend } = {}
 		for _, blend in catalog.blends do
 			if
 				(which ~= "favorites" or favorites.isFavorite(blend.id))
-				and catalog.matches(blend.id, query, function(kind, id, label)
+				and catalog.matches(blend.id, query, function(kind: string, id: string, label: string): string
 					return i18n.nameAt(locale, kind, id, label)
 				end)
 			then
@@ -149,7 +152,9 @@ function Sipworks.build(ctx: ExampleContext)
 			end),
 			UI.TextInput "Search" { value = search, placeholder = text("search.placeholder") },
 			view.column("Blends", {
-				view.list(visible, function(current)
+				view.watch(function(use: Use): { blendsContent.Blend }
+					return use(visible)
+				end, function(current: Readable<blendsContent.Blend>): GuiObject
 					local blend = current:peek()
 					return view.column(blend.id, {
 						view.text(art.of("blend", blend.id).mark, 24),
@@ -169,17 +174,25 @@ function Sipworks.build(ctx: ExampleContext)
 							favorites.toggle(blend.id)
 						end),
 					})
+				end, function(blend: blendsContent.Blend): string
+					return blend.id
 				end),
 			}),
 		})
 	end
-	local function recipeContent(id)
-		local rows = {
+	local function recipeContent(id: string): Frame
+		local rows: { Child } = {
 			view.text(text("recipe.title"), 24),
-			UI.Stepper "Batch" { value = batchSize, min = 1, max = 9, step = 1, label = text("recipe.batchSize") },
+			UI.Stepper "Batch" {
+				value = batchSize,
+				min = 1,
+				max = 9,
+				step = 1,
+				label = text("recipe.batchSize"),
+			},
 		}
 		for _, measure in catalog.recipeMeasures(id) do
-			local ingredient = catalog.botanical(measure.botanicalId)
+			local ingredient = assert(catalog.botanical(measure.botanicalId))
 			local key = id .. "/" .. ingredient.id
 			gathered[key] = gathered[key] or Compose.cell(false)
 			table.insert(
@@ -201,8 +214,8 @@ function Sipworks.build(ctx: ExampleContext)
 	end
 	local function detail(): Instance
 		local id = assert(selected:peek())
-		local blend = catalog.blend(id)
-		local children: { unknown } = { view.text(function(use: Use)
+		local blend = assert(catalog.blend(id))
+		local children: { Child } = { view.text(function(use: Use)
 			return blendName(id, use)
 		end, 26) }
 		for index, entry in blend.paragraphs do
@@ -219,7 +232,7 @@ function Sipworks.build(ctx: ExampleContext)
 			end)
 		)
 		for _, botanicalId in catalog.tileBotanicals(id) do
-			local item = catalog.botanical(botanicalId)
+			local item = assert(catalog.botanical(botanicalId))
 			table.insert(
 				children,
 				view.action(item.id, function(use: Use)
@@ -335,7 +348,7 @@ function Sipworks.build(ctx: ExampleContext)
 				)
 			end),
 			view.column("Recipes", {
-				view.list(catalog.blends, function(current)
+				view.list(catalog.blends, function(current: Readable<blendsContent.Blend>): GuiObject
 					local blend = current:peek()
 					return view.action(blend.id, function(use: Use)
 						return blendName(blend.id, use)
@@ -343,25 +356,28 @@ function Sipworks.build(ctx: ExampleContext)
 						openBlend(blend.id)
 						recipe:set(true)
 					end)
+				end, function(blend: blendsContent.Blend): string
+					return blend.id
 				end),
 			}),
 		})
 	end
-	local function screen()
+	local destinations: { Tab } = {
+		{ id = "menu", label = text("nav.menu"), content = menuPage },
+		{ id = "favorites", label = text("nav.favorites"), content = menuPage },
+		{ id = "rewards", label = text("nav.stamps"), content = stampsPage },
+		{ id = "book", label = text("nav.book"), content = bookPage },
+	}
+	local function screen(): Instance
 		return ctx.Host.Frame "Sipworks" {
 			BackgroundTransparency = 1,
 			Size = ctx.types.UDim2.fromScale(1, 1),
 			UI.TabView "Destinations" {
 				selection = section,
-				style = "sidebarAdaptable" :: "sidebarAdaptable",
+				style = "sidebarAdaptable",
 				Size = ctx.types.UDim2.new(1, 0, 1, -64),
-				tabs = {
-					{ id = "menu", label = text("nav.menu"), content = menuPage },
-					{ id = "favorites", label = text("nav.favorites"), content = menuPage },
-					{ id = "rewards", label = text("nav.stamps"), content = stampsPage },
-					{ id = "book", label = text("nav.book"), content = bookPage },
-				},
-			} :: unknown,
+				tabs = destinations,
+			},
 			UI.Text({
 				text = function(use: Use)
 					local key = use(notice)
@@ -385,9 +401,9 @@ function Sipworks.build(ctx: ExampleContext)
 				title = text("sheet.botanical"),
 				closeButton = text("common.done"),
 				content = function(): Instance
-					local item = catalog.botanical(assert(botanical:peek()))
+					local item = assert(catalog.botanical(assert(botanical:peek())))
 					local showFacts = Compose.cell(false)
-					local rows: { unknown } = {
+					local rows: { Child } = {
 						view.text(function(use: Use)
 							return botanicalName(item, use)
 						end, 26),
@@ -396,7 +412,7 @@ function Sipworks.build(ctx: ExampleContext)
 							showFacts:set(not showFacts:peek())
 						end),
 						Compose.show(showFacts, function()
-							local facts = {}
+							local facts: { Child } = {}
 							for _, fact in catalog.factsFor(assert(selected:peek()), item.id) do
 								table.insert(
 									facts,

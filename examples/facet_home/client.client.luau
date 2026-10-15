@@ -2,19 +2,26 @@
 
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
-type Furniture = { id: string, name: string, category: string }
+type DesignRow = { [string]: unknown }
+type DesignData = {
+	ChooseFurniture: ((DesignRow, unknown, InputObject?, number?) -> ())?,
+	InventoryRows: Readable<{ DesignRow }>?,
+	PlaceFurniture: ((DesignRow) -> ())?,
+}
 local storage, players = game:GetService("ReplicatedStorage"), game:GetService("Players")
 local Facet = require(storage:WaitForChild("Facet"))
 local modules = storage:WaitForChild("FacetHome")
 local policy = require(modules:WaitForChild("model"))
 local homeDock = require(modules:WaitForChild("dock"))
 local pages = modules:WaitForChild("designs")
-local remote = storage:WaitForChild("FacetHomeRequest") :: RemoteFunction
-local signal = storage:WaitForChild("FacetHomeSelect") :: RemoteEvent
+local remote = storage:WaitForChild("FacetHomeRequest")
+assert(remote:IsA("RemoteFunction"), "Missing FacetHomeRequest")
+local signal = storage:WaitForChild("FacetHomeSelect")
+assert(signal:IsA("RemoteEvent"), "Missing FacetHomeSelect")
 local player = players.LocalPlayer
 local Compose = Facet.Compose
 local runtime = Facet.Roblox.createRuntime()
-local Host = runtime.constructors
+local Host = Facet.host(runtime)
 local route, panelOpen = Compose.cell("Home"), Compose.cell(true)
 local palette, larger, immersive = Compose.cell("Light"), Compose.cell(false), Compose.cell(true)
 local chosen, place, finish = Compose.cell("sofa"), Compose.cell(1), Compose.cell("sage")
@@ -50,7 +57,7 @@ local function request(action: string)
 		end
 	end)
 end
-local function text(root: Instance, name: string, value: any)
+local function text(root: Instance, name: string, value: unknown)
 	local node = root:FindFirstChild(name, true)
 	assert(node and node:IsA("TextLabel"), "Missing authored text " .. name)
 	runtime.decorate(node, { Text = value })
@@ -102,7 +109,7 @@ local stop = runtime.mount(function()
 		Facet.themes.createStyleSheet(runtime, theme, { theme = palette, tenFoot = UI.environment().isTenFoot })
 	local function page(): GuiObject
 		local name = route:peek()
-		local components: { [string]: (Facet.Controls, { [string]: any }?) -> GuiObject } = {
+		local components: { [string]: (Facet.Controls, DesignData?) -> GuiObject } = {
 			Home = require(pages:WaitForChild("Home")),
 			Furnish = require(pages:WaitForChild("Furnish")),
 			Activities = require(pages:WaitForChild("Activities")),
@@ -110,34 +117,46 @@ local stop = runtime.mount(function()
 			Settings = require(pages:WaitForChild("Settings")),
 		}
 		local component = assert(components[name])
-		local inputs: { [string]: any } = {
-			InventoryRows = Compose.formula(function(use: Use)
-				local rows = {}
-				for _, item in policy.catalog do
-					if policy.matches(item, use(query)) then
-						local count = 0
-						for _, piece in use(layout).slots do
-							if piece.kind == item.id then
-								count += 1
-							end
+		local function chosenId(row: DesignRow): string?
+			local id = row.id
+			return if type(id) == "string" then id else nil
+		end
+		local inventoryRows = Compose.formula(function(use: Use): { DesignRow }
+			local rows: { DesignRow } = {}
+			for _, item in policy.catalog do
+				if policy.matches(item, use(query)) then
+					local count = 0
+					for _, piece in use(layout).slots do
+						if piece.kind == item.id then
+							count += 1
 						end
-						table.insert(rows, {
-							id = item.id,
-							name = item.name,
-							category = item.category,
-							quantity = count,
-							finish = use(finish),
-						})
 					end
+					local row: DesignRow = {
+						id = item.id,
+						name = item.name,
+						category = item.category,
+						quantity = count,
+						finish = use(finish),
+					}
+					table.insert(rows, row)
 				end
-				return rows
-			end),
-			ChooseFurniture = function(item: Furniture)
-				chosen:set(item.id)
+			end
+			return rows
+		end)
+		local inputs: DesignData = {
+			InventoryRows = inventoryRows,
+			ChooseFurniture = function(row: DesignRow)
+				local id = chosenId(row)
+				if id then
+					chosen:set(id)
+				end
 			end,
-			PlaceFurniture = function(item: Furniture)
-				chosen:set(item.id)
-				request("place")
+			PlaceFurniture = function(row: DesignRow)
+				local id = chosenId(row)
+				if id then
+					chosen:set(id)
+					request("place")
+				end
 			end,
 		}
 		local root = component(UI, inputs)
@@ -168,7 +187,8 @@ local stop = runtime.mount(function()
 				end
 				return label .. " · Place " .. use(place) .. " · " .. use(finish)
 			end)
-			local search = root:FindFirstChild("FurnitureSearch", true) :: TextBox
+			local search = root:FindFirstChild("FurnitureSearch", true)
+			assert(search and search:IsA("TextBox"), "Missing authored input FurnitureSearch")
 			local changed = search:GetPropertyChangedSignal("Text"):Connect(function()
 				query:set(search.Text)
 			end)
@@ -176,7 +196,8 @@ local stop = runtime.mount(function()
 				changed:Disconnect()
 			end)
 			runtime.decorate(search, { Text = query })
-			local empty = root:FindFirstChild("EmptyFurniture", true) :: GuiObject
+			local empty = root:FindFirstChild("EmptyFurniture", true)
+			assert(empty and empty:IsA("GuiObject"), "Missing authored text EmptyFurniture")
 			runtime.decorate(empty, {
 				Visible = function(use: Use)
 					for _, item in policy.catalog do
@@ -303,8 +324,7 @@ local stop = runtime.mount(function()
 			}),
 		},
 	}
-	local panelFrame = panel :: Frame
-	panelFrame:AddTag("facet-panel")
+	panel:AddTag("facet-panel")
 	Compose.watch(function(use: Use)
 		game:GetService("GuiService").TouchControlsEnabled = not use(panelOpen)
 	end)
@@ -332,7 +352,7 @@ local stop = runtime.mount(function()
 			changed:Disconnect()
 		end)
 	end
-	local dock = homeDock(runtime, UDim2, {
+	local dock = homeDock(Host, UDim2, {
 		UI.Button "HomeToggle" {
 			label = function(use: Use)
 				return if use(panelOpen) then "Explore" else "Open Home"
@@ -351,7 +371,7 @@ local stop = runtime.mount(function()
 			text = function(use: Use)
 				return use(status)
 			end,
-			textRole = "caption" :: "caption",
+			textRole = "caption",
 			Position = UDim2.fromOffset(132, 0),
 			Size = UDim2.new(1, -132, 0, 48),
 			AutomaticSize = Enum.AutomaticSize.None,
@@ -376,7 +396,8 @@ local function mountBoard(room: Instance)
 	if boardMounted or room:GetAttribute("OwnerUserId") ~= player.UserId then
 		return
 	end
-	local board = room:WaitForChild("HomeBoard") :: BasePart
+	local board = room:WaitForChild("HomeBoard")
+	assert(board:IsA("BasePart"), "Missing HomeBoard")
 	boardMounted = true
 	runtime.mount(function()
 		local theme = Facet.themes.define(Facet.themes.neutralPackage())
