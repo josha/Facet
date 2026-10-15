@@ -18,6 +18,7 @@ return function(verifyHarness: Verify.Harness)
 								outer = 150,
 								angle = angle,
 								span = span,
+								size = 150 - inner,
 							}
 							local box = g.labelBounds(shape, 40)
 							expect(box.w >= 0 and box.w <= 160 and box.h >= 0 and box.h <= 40):toBe(true)
