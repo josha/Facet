@@ -5,6 +5,7 @@ local process = require("@std/process")
 local Check = require("../../../../tools/play/host/check")
 local Play = require("../../../../tools/play/host/play")
 local QA = require("../../../../tools/play/host/qa")
+local Core = require("../../../../tools/vendor/verify/src/core")
 local Coherence = require("./coherence")
 local Cross = require("./cross")
 
@@ -46,9 +47,10 @@ local only = selected()
 
 local function cases(): { Play.Case }
 	local result: { Play.Case } = {}
+	local filter = only
 	table.insert(result, {
 		id = "idle-hub-needs-player-input",
-		run = function(qa, context)
+		run = function(qa: QA.QA, context: Core.Context)
 			local before = qa:call("racingState")
 			qa:sleep(3)
 			local after = qa:call("racingState")
@@ -73,7 +75,7 @@ local function cases(): { Play.Case }
 		end,
 	})
 	for _, system in systems do
-		if only ~= nil and not only[system.id] then
+		if filter ~= nil and not filter[system.id] then
 			continue
 		end
 		local function screen(name: string): string
@@ -137,7 +139,7 @@ local function cases(): { Play.Case }
 	})
 	table.insert(result, {
 		id = "selection-stays-valid",
-		run = function(qa, context)
+		run = function(qa: QA.QA, context: Core.Context)
 			Check.that(
 				context,
 				Check.number(qa:call("racingState"), "invalidSelections") == 0,
