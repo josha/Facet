@@ -2,8 +2,25 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+require(script.World).build()
+local RaceService = require(script.RaceService)
 local Ledger = require(script.Ledger)
 local handlers: { [string]: (string, { [string]: unknown }?) -> unknown } = {}
+local locks: { [Player]: boolean } = {}
+local function guarded<R, A...>(invoke: (Player, A...) -> R): (Player, A...) -> R
+	return function(player: Player, ...: A...): R
+		while locks[player] do
+			task.wait()
+		end
+		locks[player] = true
+		local ok, value = pcall(invoke, player, ...)
+		locks[player] = nil
+		if not ok then
+			error(value)
+		end
+		return value
+	end
+end
 do
 	local Players = game:GetService("Players")
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,13 +36,13 @@ do
 		return ShopService.getState(player)
 	end
 
-	purchase.OnServerInvoke = function(player: Player, itemId: unknown)
+	purchase.OnServerInvoke = guarded(function(player: Player, itemId: unknown)
 		local result = ShopService.purchase(player, itemId)
 		if result.ok then
 			require(script.InventoryService).give(player, result.item)
 		end
 		return result
-	end
+	end)
 
 	local function firstPlayer(): Player
 		local player = Players:GetPlayers()[1]
@@ -64,14 +81,14 @@ do
 	end
 
 	local remoteEquip = remotes:WaitForChild("Equip") :: RemoteFunction
-	remoteEquip.OnServerInvoke = function(player: Player, itemId: unknown)
+	remoteEquip.OnServerInvoke = guarded(function(player: Player, itemId: unknown)
 		return InventoryService.equip(player, itemId)
-	end
+	end)
 
 	local remoteUnequip = remotes:WaitForChild("Unequip") :: RemoteFunction
-	remoteUnequip.OnServerInvoke = function(player: Player, slot: unknown)
+	remoteUnequip.OnServerInvoke = guarded(function(player: Player, slot: unknown)
 		return InventoryService.unequip(player, slot)
-	end
+	end)
 
 	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
 		local options: { [string]: unknown } = args or {}
@@ -102,9 +119,9 @@ do
 	end
 
 	local remoteSaveSettings = remotes:WaitForChild("SaveSettings") :: RemoteFunction
-	remoteSaveSettings.OnServerInvoke = function(player: Player, patch: unknown)
+	remoteSaveSettings.OnServerInvoke = guarded(function(player: Player, patch: unknown)
 		return SettingsStore.save(player, patch)
-	end
+	end)
 
 	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
 		local options: { [string]: unknown } = args or {}
@@ -136,9 +153,9 @@ do
 		return CodesService.getState(player)
 	end
 
-	redeem.OnServerInvoke = function(player: Player, code: unknown)
+	redeem.OnServerInvoke = guarded(function(player: Player, code: unknown)
 		return CodesService.redeem(player, code)
-	end
+	end)
 
 	local function firstPlayer(): Player
 		local player = Players:GetPlayers()[1]
@@ -172,9 +189,9 @@ do
 		return RewardService.getState(player)
 	end
 
-	claim.OnServerInvoke = function(player: Player)
+	claim.OnServerInvoke = guarded(function(player: Player)
 		return RewardService.claim(player)
-	end
+	end)
 
 	local function firstPlayer(): Player
 		local player = Players:GetPlayers()[1]
@@ -220,17 +237,17 @@ do
 		return DialogueService.getState(player)
 	end
 
-	talk.OnServerInvoke = function(player: Player)
+	talk.OnServerInvoke = guarded(function(player: Player)
 		return DialogueService.talk(player)
-	end
+	end)
 
-	choose.OnServerInvoke = function(player: Player, choiceId: unknown)
+	choose.OnServerInvoke = guarded(function(player: Player, choiceId: unknown)
 		return DialogueService.choose(player, choiceId)
-	end
+	end)
 
-	leave.OnServerInvoke = function(player: Player)
+	leave.OnServerInvoke = guarded(function(player: Player)
 		return DialogueService.leave(player)
-	end
+	end)
 
 	local function firstPlayer(): Player
 		local player = Players:GetPlayers()[1]
@@ -270,9 +287,9 @@ do
 		return CrateService.getState(player)
 	end
 
-	open.OnServerInvoke = function(player: Player, crateId: unknown)
+	open.OnServerInvoke = guarded(function(player: Player, crateId: unknown)
 		return CrateService.open(player, crateId)
-	end
+	end)
 
 	local function firstPlayer(): Player
 		local player = Players:GetPlayers()[1]
@@ -312,17 +329,17 @@ do
 		return GarageService.getState(player)
 	end
 
-	spawnVehicle.OnServerInvoke = function(player: Player, vehicleId: unknown)
+	spawnVehicle.OnServerInvoke = guarded(function(player: Player, vehicleId: unknown)
 		return GarageService.spawn(player, vehicleId)
-	end
+	end)
 
-	exitVehicle.OnServerInvoke = function(player: Player)
+	exitVehicle.OnServerInvoke = guarded(function(player: Player)
 		return GarageService.exit(player)
-	end
+	end)
 
-	setFavorite.OnServerInvoke = function(player: Player, vehicleId: unknown, favorite: unknown)
+	setFavorite.OnServerInvoke = guarded(function(player: Player, vehicleId: unknown, favorite: unknown)
 		return GarageService.setFavorite(player, vehicleId, favorite)
-	end
+	end)
 
 	admin.OnInvoke = function(command: string, _args: { [string]: unknown }?): unknown
 		local player = Players:GetPlayers()[1]
@@ -355,17 +372,17 @@ do
 		return DriverService.getState(player)
 	end
 
-	buy.OnServerInvoke = function(player: Player, id: unknown)
+	buy.OnServerInvoke = guarded(function(player: Player, id: unknown)
 		return DriverService.buy(player, id)
-	end
+	end)
 
-	rent.OnServerInvoke = function(player: Player, id: unknown)
+	rent.OnServerInvoke = guarded(function(player: Player, id: unknown)
 		return DriverService.rent(player, id)
-	end
+	end)
 
-	equip.OnServerInvoke = function(player: Player, id: unknown)
+	equip.OnServerInvoke = guarded(function(player: Player, id: unknown)
 		return DriverService.equip(player, id)
-	end
+	end)
 
 	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
 		local options: { [string]: unknown } = args or {}
@@ -428,7 +445,10 @@ do
 			)
 			return RoundService.snapshot()
 		elseif command == "eliminate" then
-			return RoundService.eliminate(tostring(options.victim), tostring(options.by))
+			return RoundService.eliminate(tostring(options.victim), "lap " .. tostring(tonumber(options.lap) or 1))
+		elseif command == "laps" then
+			RoundService.setLaps(tostring(options.name), tonumber(options.laps) or 0)
+			return true
 		end
 		error("unknown admin command " .. tostring(command))
 	end
@@ -453,13 +473,13 @@ do
 		return QueueService.snapshot()
 	end
 
-	join.OnServerInvoke = function(player: Player, modeId: unknown)
+	join.OnServerInvoke = guarded(function(player: Player, modeId: unknown)
 		return QueueService.join(player, modeId)
-	end
+	end)
 
-	leave.OnServerInvoke = function(player: Player)
+	leave.OnServerInvoke = guarded(function(player: Player)
 		return QueueService.leave(player)
-	end
+	end)
 
 	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
 		local options: { [string]: unknown } = args or {}
@@ -509,17 +529,17 @@ do
 		return EconomyService.getState(player)
 	end
 
-	buyBoost.OnServerInvoke = function(player: Player)
+	buyBoost.OnServerInvoke = guarded(function(player: Player)
 		return EconomyService.buyBoost(player)
-	end
+	end)
 
-	claimQuest.OnServerInvoke = function(player: Player, questId: unknown)
+	claimQuest.OnServerInvoke = guarded(function(player: Player, questId: unknown)
 		return EconomyService.claimQuest(player, questId)
-	end
+	end)
 
-	buyOffer.OnServerInvoke = function(player: Player)
+	buyOffer.OnServerInvoke = guarded(function(player: Player)
 		return EconomyService.buyOffer(player)
-	end
+	end)
 
 	admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
 		local options: { [string]: unknown } = args or {}
@@ -561,7 +581,7 @@ local admin = Instance.new("BindableFunction")
 admin.Name = "AdminCommands"
 admin.Parent = ServerStorage
 local raceManual = false
-local lastPosition = 0
+
 local DialogueService = require(script.DialogueService)
 local raceLoadouts: { [Player]: { kart: string, driver: string } } = {}
 local positions: { string } = { "You", "Nova", "Pip", "Rook", "Zed", "Ivy", "Bolt", "Moss" }
@@ -582,24 +602,6 @@ local function hubState(player: Player): Hub.State
 	}
 end
 (remotes:WaitForChild("GetHubState") :: RemoteFunction).OnServerInvoke = hubState
-local locks: { [Player]: boolean } = {}
-for _, remote in remotes:GetChildren() do
-	if remote:IsA("RemoteFunction") and not string.match(remote.Name, "^Get") then
-		local invoke = remote.OnServerInvoke :: (Player, ...unknown) -> unknown
-		remote.OnServerInvoke = function(player: Player, ...: unknown): unknown
-			while locks[player] do
-				task.wait()
-			end
-			locks[player] = true
-			local ok, value = pcall(invoke, player, ...)
-			locks[player] = nil
-			if not ok then
-				error(value)
-			end
-			return value
-		end
-	end
-end
 admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknown
 	local options: { [string]: unknown } = args or {}
 	local player = Players:GetPlayers()[1]
@@ -643,7 +645,12 @@ admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknow
 			positions = nextPositions
 		end
 		return hubState(player)
-	elseif command == "phase" or command == "manual" or command == "eliminate" then
+	elseif command == "driving" then
+		raceManual = false
+		RoundService.setAutomatic(true)
+		RoundService.enter("Round", 90)
+		return true
+	elseif command == "phase" or command == "manual" or command == "eliminate" or command == "laps" then
 		if command == "manual" then
 			raceManual = true
 		end
@@ -669,9 +676,8 @@ task.spawn(function()
 		end
 		lastQueue = queue.phase
 		local round = RoundService.snapshot()
-		if round.phase == "Round" and not raceManual and os.clock() - lastPosition >= 5 then
-			lastPosition = os.clock()
-			table.insert(positions, table.remove(positions, 1) :: string)
+		if round.phase == "Round" and not raceManual then
+			positions = RaceService.positions()
 		end
 		if round.phase == "Round" and lastRound ~= round.round then
 			lastRound = round.round
@@ -723,10 +729,10 @@ task.spawn(function()
 	end
 end)
 local returnToHub = remotes:WaitForChild("ReturnToHub") :: RemoteFunction
-returnToHub.OnServerInvoke = function(_player: Player): boolean
+returnToHub.OnServerInvoke = guarded(function(_player: Player): boolean
 	if RoundService.snapshot().phase ~= "Results" then
 		return false
 	end
 	RoundService.enter("Intermission")
 	return true
-end
+end)

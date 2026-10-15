@@ -20,7 +20,7 @@ return function(
 	view: TabAccessoryView
 ): ()
 	local Host, Compose, runtime = ctx.Host, ctx.Compose, ctx.runtime
-	local E, D2 = ctx.types.Enum, ctx.types.UDim2
+	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local INSET = segmentMetrics.inset
 	local frame = view.frame
 	local placement, headHeight, footHeight, trailingWidth =
@@ -86,20 +86,24 @@ return function(
 					runtime.decorate(accessory, {
 						Name = "Accessory-" .. slot,
 						ZIndex = 5,
+						AnchorPoint = V2.new(
+							if slot == "trailing" then 1 else 0,
+							if slot == "foot" or slot == "aboveBar" then 1 else 0
+						),
 						Position = function(use: ComposeTypes.Use)
 							local place = use(placement)
 							if slot == "head" then
 								return D2.fromOffset(0, 0)
 							end
 							if slot == "foot" then
-								return D2.new(0, 0, 1, -use(footHeight))
+								return D2.fromScale(0, 1)
 							end
 							if slot == "aboveBar" then
-								return D2.new(0, 0, 1, -band(use) - bottomInset(use) - use(aboveHeight))
+								return D2.new(0, 0, 1, -band(use) - bottomInset(use))
 							end
 							return D2.new(
 								1,
-								-use(trailingWidth),
+								0,
 								if place == "topBar" then 0 else 1,
 								if metrics.segmentedTop(use)
 									then INSET

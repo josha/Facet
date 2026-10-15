@@ -178,27 +178,6 @@
                                                                 }
                                    },
                  "Workspace":  {
-                                   "Baseplate":  {
-                                                     "$className":  "Part",
-                                                     "$properties":  {
-                                                                         "Anchored":  true,
-                                                                         "Size":  [
-                                                                                      256,
-                                                                                      2,
-                                                                                      256
-                                                                                  ],
-                                                                         "Position":  [
-                                                                                          0,
-                                                                                          -1,
-                                                                                          0
-                                                                                      ],
-                                                                         "Color":  [
-                                                                                       0.38,
-                                                                                       0.6,
-                                                                                       0.35
-                                                                                   ]
-                                                                     }
-                                                 },
                                    "SpawnLocation":  {
                                                          "$className":  "SpawnLocation",
                                                          "$properties":  {

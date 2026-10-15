@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Ledger = require(script.Parent.Ledger)
+local RaceService = require(script.Parent.RaceService)
 local Round = require(ReplicatedStorage.Shared.Hub.Round)
 
 type State = Round.State
@@ -22,14 +23,6 @@ local BOTS: { { name: string, team: Round.Team } } = {
 	{ name = "Bolt", team = "Blue" },
 	{ name = "Moss", team = "Blue" },
 }
-local SCRIPT: { { victim: string, by: string } } = {
-	{ victim = "Moss", by = "Nova" },
-	{ victim = "Pip", by = "Ivy" },
-	{ victim = "Bolt", by = "Rook" },
-	{ victim = "Rook", by = "Zed" },
-	{ victim = "Ivy", by = "Nova" },
-}
-local AUTO_INTERVAL = 9
 local WIN_REWARD = 50
 local LOSS_REWARD = 20
 
@@ -45,8 +38,7 @@ local state: State = {
 	rewards = nil,
 }
 local automatic = true
-local scripted = 1
-local lastAuto = 0
+local raceComplete = false
 local log: { Round.Event } = {}
 
 for _, bot in BOTS do
@@ -101,11 +93,21 @@ local function enter(phase: Phase, seconds: number?, winner: (Round.Team | "Draw
 		end
 		state.winner = nil
 		state.rewards = nil
-		scripted = 1
-		lastAuto = os.clock()
+		raceComplete = false
+		RaceService.start(state.fighters, not automatic, function()
+			raceComplete = true
+		end)
 	elseif phase == "Results" then
 		local red, blue = alive("Red"), alive("Blue")
-		state.winner = winner or (if red > blue then "Red" elseif blue > red then "Blue" else "Draw")
+		state.winner = winner
+			or (
+				if automatic
+					then RaceService.winner()
+					elseif red > blue then "Red"
+					elseif blue > red then "Blue"
+					else "Draw"
+			)
+		RaceService.stop()
 		state.rewards = {
 			Red = if state.winner == "Red" then WIN_REWARD else LOSS_REWARD,
 			Blue = if state.winner == "Blue" then WIN_REWARD else LOSS_REWARD,
@@ -114,6 +116,7 @@ local function enter(phase: Phase, seconds: number?, winner: (Round.Team | "Draw
 			Ledger.reward(player, state.round, (state.rewards :: { Red: number, Blue: number }).Red)
 		end
 	elseif phase == "Intermission" then
+		RaceService.stop()
 		state.round += 1
 		state.winner = nil
 		state.rewards = nil
@@ -121,21 +124,18 @@ local function enter(phase: Phase, seconds: number?, winner: (Round.Team | "Draw
 	publish()
 end
 
-local function eliminate(victim: string, by: string): boolean
+local function eliminate(victim: string, lap: string): boolean
 	local target = find(victim)
-	if target == nil or target.eliminated or state.phase ~= "Round" then
+	if automatic or target == nil or target.eliminated or state.phase ~= "Round" then
 		return false
 	end
 	target.eliminated = true
-	local attacker = find(by)
-	if attacker ~= nil then
-		attacker.eliminations += 1
-	end
-	local entry: Round.Event = { kind = "elimination", victim = victim, by = by, at = workspace:GetServerTimeNow() }
+	RaceService.markOut(victim)
+	local entry: Round.Event = { kind = "elimination", victim = victim, by = lap, at = workspace:GetServerTimeNow() }
 	table.insert(log, entry)
 	event:FireAllClients(entry)
 	publish()
-	if alive("Red") == 0 or alive("Blue") == 0 then
+	if not automatic and (alive("Red") == 0 or alive("Blue") == 0) then
 		enter("Results")
 	end
 	return true
@@ -169,12 +169,20 @@ local function tick()
 		end
 		return
 	end
-	if automatic and state.phase == "Round" and os.clock() - lastAuto >= AUTO_INTERVAL then
-		lastAuto = os.clock()
-		local step = SCRIPT[scripted]
-		if step ~= nil then
-			scripted += 1
-			eliminate(step.victim, step.by)
+	if automatic and state.phase == "Round" then
+		local updated = false
+		for _, fighter in state.fighters do
+			local laps = RaceService.laps(fighter.name)
+			if fighter.eliminations ~= laps then
+				fighter.eliminations = laps
+				updated = true
+			end
+		end
+		if updated then
+			publish()
+		end
+		if raceComplete then
+			enter("Results")
 		end
 	end
 end
@@ -198,8 +206,16 @@ return {
 	snapshot = snapshot,
 	enter = enter,
 	eliminate = eliminate,
+	setLaps = function(name: string, laps: number)
+		assert(not automatic, "lap fixtures require manual mode")
+		local fighter = find(name)
+		assert(fighter, "unknown racer")
+		fighter.eliminations = math.clamp(math.floor(laps), 0, 3)
+		publish()
+	end,
 	setAutomatic = function(value: boolean)
 		automatic = value
+		RaceService.setManual(not value)
 	end,
 	events = function(): { Round.Event }
 		return table.clone(log)

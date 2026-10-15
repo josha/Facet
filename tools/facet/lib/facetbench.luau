@@ -62,6 +62,10 @@ function Bench.prepare(root: string)
 			path(stagedStarter .. "/src/" .. directory)
 		)
 	end
+	Files.copy(
+		path("eval/tasks/racing-hub/starter/src/client/Driving.client.luau"),
+		path(stagedStarter .. "/src/client/Driving.client.luau")
+	)
 	Files.copyTree(path("eval/extended-starter/src"), path(stagedStarter .. "/src"))
 	patch(root, stagedStarter, "eval/extended-starter/admin.patch")
 	sync(path(stagedStarter), starter)

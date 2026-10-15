@@ -1,6 +1,7 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GuiService = game:GetService("GuiService")
 local Round = require(ReplicatedStorage.Shared.Hub.Round)
 local Hub = require(ReplicatedStorage.Shared.Hub)
 local Garage = require(ReplicatedStorage.Shared.Hub.Garage)
@@ -10,6 +11,8 @@ local Kit = require(script.Parent.Kit)
 local function mount(context: Hub.Context)
 	local screen = Kit.screen(context.playerGui, "Hub")
 	local dock = Kit.hud(screen)
+	local commands = (dock.Parent :: ScrollingFrame).Parent :: Frame
+	commands.Name = "HubCommands"
 	local function button(parent: Instance, words: string, action: () -> ()): TextButton
 		local control = Kit.button(words)
 		control.Parent = parent
@@ -39,6 +42,7 @@ local function mount(context: Hub.Context)
 	local hub = context.hub.getState()
 	local economy = context.economy.getState()
 	local counters = Kit.create("Frame", {
+		Name = "PlayerStats",
 		BackgroundTransparency = 1,
 		Position = UDim2.fromOffset(16, 48),
 		Size = UDim2.fromOffset(170, 0),
@@ -50,8 +54,8 @@ local function mount(context: Hub.Context)
 	local income = label(counters, "")
 	local summary = Kit.create("Frame", {
 		BackgroundColor3 = Kit.colors.panel,
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromScale(0.5, 0.35),
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -8),
 		Size = UDim2.new(0.4, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Visible = false,
@@ -59,13 +63,6 @@ local function mount(context: Hub.Context)
 	}, { Kit.padding(8), Kit.list(Enum.FillDirection.Vertical, 8) }) :: Frame
 	local loadout = label(summary, "")
 	local raceWallet = label(summary, "")
-	local function phaseChanged(state: Round.State)
-		counters.Visible = state.phase == "Intermission"
-		dock.Visible = state.phase == "Intermission"
-		summary.Visible = state.phase == "Round"
-	end
-	context.round.onStateChanged(phaseChanged)
-	phaseChanged(context.round.getState())
 	local boosts = Kit.modal(screen, "Boosts", "Boosts")
 	local boostBody = body(boosts)
 	label(boostBody, "2x Coins for 30 seconds")
@@ -141,15 +138,42 @@ local function mount(context: Hub.Context)
 	local playButton = button(dock, "Play", function()
 		modes.setOpen(true)
 	end)
+	local previousPhase: Round.Phase? = nil
+	local function phaseChanged(state: Round.State)
+		counters.Visible = state.phase == "Intermission"
+		dock.Visible = state.phase == "Intermission"
+		summary.Visible = state.phase == "Round"
+		if previousPhase ~= state.phase then
+			if state.phase == "Round" then
+				GuiService.SelectedObject = nil
+			elseif state.phase == "Intermission" then
+				Kit.focus(playButton)
+			end
+		end
+		previousPhase = state.phase
+	end
+	context.round.onStateChanged(phaseChanged)
+	phaseChanged(context.round.getState())
 	local queueLabel = label(screen, "")
 	queueLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 	queueLabel.Position = UDim2.fromScale(0.5, 0.85)
 	queueLabel.Size = UDim2.new(0.6, 0, 0, 0)
 	queueLabel.TextXAlignment = Enum.TextXAlignment.Center
+	queueLabel.BackgroundColor3 = Kit.colors.panel
+	queueLabel.BackgroundTransparency = 0.05
+	queueLabel.FontFace = Kit.bold
+	Kit.corner(12).Parent = queueLabel
+	Kit.padding(Kit.space.medium).Parent = queueLabel
 	local leaveQueue = button(dock, "Leave Queue", function()
 		context.lobby.leave()
 	end)
 	local function renderQueue()
+		local racing = previousPhase == "Round"
+		queueLabel.Parent = if racing then commands else screen
+		queueLabel.AnchorPoint = if racing then Vector2.zero else Vector2.new(0.5, 0.5)
+		queueLabel.Position = if racing then UDim2.new() else UDim2.fromScale(0.5, 0.85)
+		queueLabel.Size = UDim2.new(if racing then 1 else 0.6, 0, 0, 0)
+		queueLabel.Visible = queue.phase ~= "Lobby"
 		playButton.Visible = queue.phase == "Lobby"
 		leaveQueue.Visible = queue.phase == "Queue" or queue.phase == "Countdown"
 		if queue.phase == "Countdown" then
@@ -174,6 +198,9 @@ local function mount(context: Hub.Context)
 	end
 	context.lobby.onStateChanged(function(next)
 		queue = next
+		renderQueue()
+	end)
+	context.round.onStateChanged(function()
 		renderQueue()
 	end)
 	local garageState = context.garage.getState()
@@ -410,9 +437,9 @@ local function mount(context: Hub.Context)
 		end
 		raceWallet.Text = Kit.number(hub.wallet.Coins) .. " Coins • " .. Kit.number(hub.wallet.Gems) .. " Gems"
 		loadout.Text = kartName
-			.. "\n"
+			.. " / "
 			.. driverName
-			.. "\nPosition "
+			.. " / Position "
 			.. tostring(table.find(hub.positions, "You") or 1)
 	end
 	context.hub.onStateChanged(function(next)

@@ -419,6 +419,7 @@ export type ModalOptions = {
 	onOutside: (() -> ())?,
 }
 export type OverlayOptions = {
+	parent: (() -> GuiBase2d?)?,
 	presence: ComposeTypes.PresenceOptions?,
 	motion: MotionTiming?,
 	identity: ((ComposeTypes.Use) -> number)?,

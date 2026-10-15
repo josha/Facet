@@ -8,6 +8,13 @@ local UserInputService = game:GetService("UserInputService")
 
 local Collect = require("../../../tools/vendor/verify/src/roblox/ui-audit-collect")
 local scrollTarget = require("./scroll_target")
+local racingDrive = require("../../../eval/validation/racing-hub/driving-probe")
+local invalidSelections = 0
+game:GetService("LogService").MessageOut:Connect(function(message: string)
+	if string.find(message, "SelectedObject", 1, true) and string.find(message, "invalid GuiObject", 1, true) then
+		invalidSelections += 1
+	end
+end)
 
 export type Rect = { x: number, y: number, width: number, height: number }
 
@@ -105,7 +112,7 @@ end
 local function safeArea(): ScreenGui
 	local current = state.safe
 	if current == nil or current.Parent == nil then
-		current = overlay(SAFE_NAME, Enum.ScreenInsets.DeviceSafeInsets)
+		current = overlay(SAFE_NAME, Enum.ScreenInsets.CoreUISafeInsets)
 		state.safe = current
 	end
 	return current :: ScreenGui
@@ -615,9 +622,15 @@ local function scrollers(): { ScrollingFrame }
 			table.insert(found, { scroller = object, area = window.width * window.height })
 		end
 	end)
-	table.sort(found, function(left, right): boolean
-		return left.area > right.area
-	end)
+	table.sort(
+		found,
+		function(
+			left: { scroller: ScrollingFrame, area: number },
+			right: { scroller: ScrollingFrame, area: number }
+		): boolean
+			return left.area > right.area
+		end
+	)
 	local ordered: { ScrollingFrame } = {}
 	for _, entry in found do
 		table.insert(ordered, entry.scroller)
@@ -743,6 +756,9 @@ local function gamepadPath(query: Query, limit: number): { [string]: unknown }
 			continue
 		end
 		for _, direction in ORDER do
+			if not node.Selectable or not node.Interactable or shownRect(node, false) == nil then
+				break
+			end
 			GuiService.SelectedObject = node
 			frames(1)
 			key(DIRECTIONS[direction])
@@ -755,7 +771,9 @@ local function gamepadPath(query: Query, limit: number): { [string]: unknown }
 			end
 		end
 	end
-	GuiService.SelectedObject = start
+	if start.Selectable and start.Interactable and shownRect(start, false) ~= nil then
+		GuiService.SelectedObject = start
+	end
 	frames(2)
 	if found == nil then
 		return { found = false, reason = "no selection path reaches the control", visited = count, labels = labels }
@@ -1195,6 +1213,23 @@ handlers.matches = function(request)
 	return { matches = selected ~= nil and target ~= nil and same(selected, target), selected = selectedInfo() }
 end
 
+handlers.racingDrive = function()
+	return racingDrive()
+end
+
+handlers.racingState = function()
+	local player = Players.LocalPlayer
+	assert(player)
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	return {
+		racing = player:GetAttribute("Racing") == true,
+		x = if root and root:IsA("BasePart") then root.Position.X else 0,
+		z = if root and root:IsA("BasePart") then root.Position.Z else 0,
+		invalidSelections = invalidSelections,
+	}
+end
+
 handlers.dump = function(request)
 	local inputList: { string } = {}
 	local raw = request.input
@@ -1216,6 +1251,41 @@ handlers.dump = function(request)
 		input = inputList,
 		safeAreaRoot = safeArea(),
 	})
+	local viewport = frame()
+	local offset = viewport.AbsolutePosition + Vector2.new(dump.screen.guiInset.left, dump.screen.guiInset.top)
+	local shifted: { [unknown]: boolean } = {}
+	local function translate(rect: Rect?)
+		if rect ~= nil and not shifted[rect] then
+			shifted[rect] = true
+			rect.x -= offset.X
+			rect.y -= offset.Y
+		end
+	end
+	for _, root in dump.roots do
+		if not root.world then
+			translate(root.rect)
+		end
+	end
+	for _, element in dump.elements do
+		local root = dump.roots[element.root]
+		if root ~= nil and not root.world then
+			translate(element.rect)
+			translate(element.clip)
+			translate(element.scrollClip)
+		end
+	end
+	translate(dump.screen.safeArea)
+	dump.screen.width = viewport.AbsoluteSize.X
+	dump.screen.height = viewport.AbsoluteSize.Y
+	local safe = dump.screen.safeArea
+	if safe ~= nil then
+		dump.screen.guiInset = {
+			left = safe.x,
+			top = safe.y,
+			right = dump.screen.width - safe.x - safe.width,
+			bottom = dump.screen.height - safe.y - safe.height,
+		}
+	end
 	return stash(HttpService:JSONEncode(dump))
 end
 

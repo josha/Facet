@@ -206,6 +206,29 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+		verifyHarness:case("completion keeps the natural size until native bounds change", {
+			id = "native_motion_rest::present at rest: callout::completion keeps the natural size until native bounds change",
+			run = function()
+				local w = presented()
+				w.at(w.find("Plus"), 10, 300)
+				local panel = w.find("CalloutPanel")
+				w.size(panel, 280, 120)
+				w.advance(FRAME, 3)
+				local scale = materialize.of(panel)
+				Verify.expect(scale.Scale < 1):toBe(true)
+				local anchor, position = panel.AnchorPoint, panel.Position
+				w.size(panel, 280 * scale.Scale, 120 * scale.Scale)
+				w.advance(1, 20)
+				Verify.expect(scale.Scale):toBe(1)
+				Verify.expect(panel.AnchorPoint):toBe(anchor)
+				Verify.expect(panel.Position):toBe(position)
+				w.size(panel, 280, 120)
+				Verify.expect(panel.AnchorPoint):toBe(anchor)
+				w.size(panel, 300, 140)
+				Verify.expect(panel.AnchorPoint == anchor):toBe(false)
+				w.stop()
+			end,
+		})
 	end)
 
 	verifyHarness:suite("present at rest: anchored popover", function()

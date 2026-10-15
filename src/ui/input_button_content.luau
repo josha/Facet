@@ -271,15 +271,14 @@ return function(
 	if glyph and spec.AutomaticSize == E.AutomaticSize.None and label == "" then
 		fillsGlyph = true
 		contentFrame.AutomaticSize = E.AutomaticSize.None
-		local box = ctx.observe.AbsoluteSize(contentFrame)
 		runtime.mount(function()
-			return Host.UISizeConstraint({
-				MaxSize = function(use: ComposeTypes.Use): Vector2
-					local room = use(box)
-					local side = math.max(1, math.min(room.X, room.Y))
-					return V2.new(side, side)
-				end,
+			return Host.UIAspectRatioConstraint({
+				AspectRatio = 1,
+				AspectType = E.AspectType.ScaleWithParentSize,
 			})
+		end, glyph)
+		runtime.mount(function()
+			return Host.UISizeConstraint({ MinSize = V2.new(1, 1) })
 		end, glyph)
 	end
 	p[#p + 1] = contentFrame

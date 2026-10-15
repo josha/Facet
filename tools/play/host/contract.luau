@@ -3,7 +3,7 @@
 local fs = require("@std/fs")
 local process = require("@std/process")
 
-local OWNED = { "src/server", "src/shared" }
+local OWNED = { "src/server", "src/shared", "src/client/Driving.client.luau" }
 
 local function normalized(text: string): string
 	return (string.gsub(text, "\r\n", "\n"))
@@ -16,6 +16,12 @@ local function compare(starter: string, workspace: string, relative: string, pro
 	end
 	if not fs.exists(workspace .. "/" .. relative) then
 		table.insert(problems, relative .. " was removed")
+		return
+	end
+	if fs.type(source) == "file" then
+		if normalized(fs.readFileToString(source)) ~= normalized(fs.readFileToString(workspace .. "/" .. relative)) then
+			table.insert(problems, relative .. " was changed")
+		end
 		return
 	end
 	for _, entry in fs.listDirectory(source) do

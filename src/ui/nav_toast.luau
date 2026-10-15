@@ -10,12 +10,13 @@ local motion = require("./motion")
 local reducedMotion = motion.reduced
 local reservations = require("./reservations")
 local OverlayProps = require("./overlay_props")
+local arrival = require("./overlay_arrival")
+local textMeasure = require("./text_measure")
 
 type Reason = Overlay.ToastDismissReason
 type Record = {
 	spec: OverlayProps.ToastSpec,
 	state: ComposeTypes.Cell<string>,
-	height: ComposeTypes.Cell<number>,
 	stack: Stack?,
 	id: number?,
 	pending: Reason?,
@@ -31,6 +32,9 @@ type Stack = {
 	stop: (() -> ())?,
 	lane: string,
 	layer: GuiBase2d,
+	container: Frame?,
+	owner: ComposeTypes.Owner?,
+	users: number,
 }
 
 local KEYS = {
@@ -170,7 +174,45 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			stop = nil,
 			lane = lane,
 			layer = layer,
-		}
+			container = nil,
+			owner = nil,
+			users = 0,
+		} :: Stack
+		if lane ~= "action" then
+			local scope = Compose.createRootOwner(function(owner)
+				stack.owner = owner
+				local _, container = runtime.mount(function()
+					local properties: Types.FrameNativeProps = {
+						Name = "ToastStack",
+						BackgroundTransparency = 1,
+						Size = D2.new(1, -32, 1, 0),
+						AnchorPoint = V2.new(0.5, 0),
+						Position = D2.fromScale(0.5, 0),
+						ZIndex = ROW_Z,
+						Host.UIPadding {
+							PaddingTop = function(use: ComposeTypes.Use)
+								return UD.new(0, MARGIN + (if lane == "top" then use(stack.inset) else 0))
+							end,
+							PaddingBottom = function(use: ComposeTypes.Use)
+								return UD.new(0, MARGIN + (if lane == "bottom" then use(stack.inset) else 0))
+							end,
+						},
+						Host.UIListLayout {
+							FillDirection = E.FillDirection.Vertical,
+							HorizontalAlignment = E.HorizontalAlignment.Center,
+							VerticalAlignment = if lane == "bottom"
+								then E.VerticalAlignment.Bottom
+								else E.VerticalAlignment.Top,
+							SortOrder = E.SortOrder.LayoutOrder,
+							Padding = UD.new(0, GAP),
+						},
+					}
+					return Host.Frame(properties)
+				end, layer)
+				stack.container = container :: Frame
+			end, runtime.reactor)
+			stack.owner = scope.owner
+		end
 		byLane[lane] = stack
 		return stack
 	end
@@ -320,9 +362,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		(ComposeTypes.Use) -> number
 	) -> number)
 		local toastTiming = ctx.motionTiming("toast")
+		local arrivalReady = arrival.ready(phase)
 		local present, fade, trail = ctx.motionEase("present"), ctx.motionEase("fade"), ctx.motionEase("trail")
 		local function shown(use: ComposeTypes.Use): number
-			return if phase and use(phase.exiting) then 0 elseif use(entered) then 1 else 0
+			return if (phase and use(phase.exiting)) or (arrivalReady and not use(arrivalReady))
+				then 0
+				elseif use(entered) then 1
+				else 0
 		end
 		local function seconds(_: ComposeTypes.Use): number
 			if level() == "limited" then
@@ -348,60 +394,34 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 	end
 
 	local function passiveRow(record: Record, stack: Stack, phase: Nav.PresencePhase?): Instance
-		local spec, layer = record.spec, stack.layer
+		local spec = record.spec
 		local bottom = spec.position == "bottom"
 		local hug = spec.width == "hug"
-		local extent = ctx.layoutSize(layer)
+		local contentHug = hug and spec.content ~= nil
+		local extent = if contentHug then ctx.layoutSize(stack.layer) else nil
+		local natural: ComposeTypes.Readable<Vector2>? = nil
 		local reduced = reducedMotion(ctx)
 		local level = motion.level(ctx)
 		local body: Instance
-		local measure: TextLabel? = nil
-		local hugWidth: ((ComposeTypes.Use) -> number)? = nil
 		if spec.content then
 			body = spec.content()
 		else
 			local message = spec.message
+			local messageNode = ctx.text({
+				Name = "Message",
+				Text = function(use: ComposeTypes.Use)
+					return read(message, use) or ""
+				end,
+				TextWrapped = true,
+				LayoutOrder = 1,
+				Size = D2.fromScale(1, 0),
+				AutomaticSize = E.AutomaticSize.Y,
+			})
 			if hug then
-				local probe = ctx.text({
-					Name = "MessageMeasure",
-					Text = function(use: ComposeTypes.Use)
-						return read(message, use) or ""
-					end,
-					TextWrapped = false,
-					TextTransparency = 1,
-					Size = D2.fromOffset(0, 0),
-					AutomaticSize = E.AutomaticSize.None,
-					Visible = false,
-				})
-				measure = probe
-				local natural = ctx.layoutBounds(probe, ctx.layoutUnit(probe))
-				hugWidth = function(use: ComposeTypes.Use): number
-					local package = ctx.read(ctx.config.theme, use)
-					local panel = if package and package.chrome then package.chrome.panel else nil
-					local insets = if panel then panel.contentInsets else nil
-					return math.ceil(use(natural).X)
-						+ 1
-						+ math.max(12, if insets then insets.left or 0 else 0)
-						+ math.max(12, if insets then insets.right or 0 else 0)
-						+ (if spec.icon then ctx.controlSize(nil, "iconSize", use) + 8 else 0)
-				end
+				natural = textMeasure.natural(ctx, messageNode)
 			end
-			body = withIcon(
-				spec.icon,
-				ctx.text({
-					Name = "Message",
-					Text = function(use: ComposeTypes.Use)
-						return read(message, use) or ""
-					end,
-					TextWrapped = true,
-					LayoutOrder = 1,
-					Size = D2.fromScale(1, 0),
-					AutomaticSize = E.AutomaticSize.Y,
-				}),
-				false
-			)
+			body = withIcon(spec.icon, messageNode, false)
 		end
-		local toastTiming, present = ctx.motionTiming("toast"), ctx.motionEase("present")
 		local entered = Compose.cell(false)
 		local slide, opacity = limitedSlide(phase, entered, level)
 		local function amount(use: ComposeTypes.Use): number
@@ -410,17 +430,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 			return use(slide)
 		end
-		local function target(use: ComposeTypes.Use): number
-			local offset = MARGIN + use(stack.inset)
-			for _, other in use(stack.order) do
-				if other == record then
-					break
-				end
-				offset += use(other.height) + GAP
-			end
-			return offset
-		end
-		local settle = runtime.tween(target, { seconds = toastTiming.enter, ease = present })
 		local props: Types.CanvasGroupNativeProps = {
 			Name = "ToastRow",
 			BackgroundTransparency = 0,
@@ -428,35 +437,35 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			Active = false,
 			Interactable = false,
 			ZIndex = ROW_Z,
-			AnchorPoint = V2.new(0.5, if bottom then 1 else 0),
-			AutomaticSize = if hug and hugWidth == nil then E.AutomaticSize.XY else E.AutomaticSize.Y,
+			AnchorPoint = function(use: ComposeTypes.Use)
+				return V2.new(0.5, if bottom then 0 else 1 - amount(use))
+			end,
+			AutomaticSize = if contentHug then E.AutomaticSize.XY else E.AutomaticSize.Y,
 			Size = function(use: ComposeTypes.Use)
-				local room = math.max(0, use(extent).X - 32)
-				if not hug then
-					return D2.fromOffset(room, 0)
-				end
-				return if hugWidth
-					then D2.fromOffset(math.min(HUG_MAX, room, hugWidth(use)), 0)
-					else D2.fromOffset(0, 0)
+				return if contentHug then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
 			end,
 			Position = function(use: ComposeTypes.Use)
-				local y = if reduced(use) then target(use) else use(settle)
-				local travel = (1 - amount(use)) * (use(record.height) + MARGIN + use(stack.inset))
-				local offset = y - travel
-				return if bottom then D2.new(0.5, 0, 1, -offset) else D2.new(0.5, 0, 0, offset)
+				local travel = (1 - amount(use)) * (MARGIN + use(stack.inset))
+				return D2.new(0.5, 0, if bottom then 1 - amount(use) else 0, if bottom then travel else -travel)
 			end,
 			body,
 		}
-		if measure then
-			props[#props + 1] = measure
-		end
 		props[#props + 1] = ctx.padding(12, 8)
 		props[#props + 1] = ctx.corner()
 		if hug then
 			props[#props + 1] = Host.UISizeConstraint({
 				Name = "WidthCap",
 				MaxSize = function(use: ComposeTypes.Use)
-					return V2.new(math.max(0, math.min(HUG_MAX, use(extent).X - 32)), math.huge)
+					if extent then
+						return V2.new(math.max(0, math.min(HUG_MAX, use(extent).X - 32)), math.huge)
+					end
+					local package = read(ctx.config.theme, use)
+					local panel = if package and package.chrome then package.chrome.panel else nil
+					local insets = if panel then panel.contentInsets else nil
+					local chrome = math.max(12, if insets then insets.left or 0 else 0)
+						+ math.max(12, if insets then insets.right or 0 else 0)
+						+ (if spec.icon then ctx.controlSize(nil, "iconSize", use) + 8 else 0)
+					return V2.new(math.min(HUG_MAX, if natural then use(natural).X + chrome else HUG_MAX), math.huge)
 				end,
 			})
 		end
@@ -465,14 +474,14 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		ctx.styled(row, "floating")
 		surfaces.skin(row, "panel")
 		ctx.fadeTo(row, function(use: ComposeTypes.Use)
+			local arrivalReady = arrival.ready(phase)
+			if arrivalReady and not use(arrivalReady) then
+				return 1
+			end
 			if spec.fade == false and level(use) == "normal" then
 				return 0
 			end
 			return 1 - opacity(use, amount)
-		end)
-		local measured = ctx.observe.AbsoluteSize(row)
-		Compose.watch(function(use: ComposeTypes.Use)
-			record.height:set(use(measured).Y)
 		end)
 		for _, node in row:GetDescendants() do
 			if node:IsA("GuiObject") then
@@ -485,7 +494,18 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				entered:set(true)
 			end
 		end)
-		return row
+		local slot = Host.Frame "ToastSlot" {
+			BackgroundTransparency = 1,
+			Size = D2.fromScale(1, 0),
+			AutomaticSize = E.AutomaticSize.Y,
+			LayoutOrder = function(use: ComposeTypes.Use): number
+				local index = table.find(use(stack.order), record) or 0
+				return if bottom then -index else index
+			end,
+			row,
+		}
+		slot:SetAttribute("FacetArrivalGroup", true)
+		return slot
 	end
 
 	local function actionRow(record: Record, stack: Stack, phase: Nav.PresencePhase?): Instance
@@ -634,8 +654,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end)
 		local measured = ctx.observe.AbsoluteSize(row)
 		runtime.decorate(row, {
+			AnchorPoint = function(use: ComposeTypes.Use)
+				return V2.new(0.5, amount(use))
+			end,
 			Position = function(use: ComposeTypes.Use)
-				local travel = (1 - amount(use)) * (use(measured).Y + 16 + use(stack.inset))
+				local travel = (1 - amount(use)) * (16 + use(stack.inset))
 				return D2.new(0.5, 0, 1, -16 - use(stack.inset) + travel)
 			end,
 			Interactable = function(use: ComposeTypes.Use)
@@ -742,7 +765,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local record: Record = {
 			spec = spec,
 			state = Compose.cell("idle"),
-			height = Compose.cell(0),
 			stack = nil,
 			id = nil,
 			pending = nil,
@@ -761,7 +783,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local collector = root:FindFirstAncestorWhichIsA("LayerCollector")
 			local layer = if collector then surfaces.parent(root) else nil
 			if record.stack == nil and layer then
-				record.stack = stackFor(layer :: GuiBase2d, if interactive then "action" else spec.position or "top")
+				local stack = stackFor(layer :: GuiBase2d, if interactive then "action" else spec.position or "top")
+				record.stack = stack
+				stack.users += 1
 				sync()
 			end
 		end
@@ -787,6 +811,19 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			record.torn = true
 			armed = false
 			dismiss(record, if spec.isPresented ~= nil then "cancel" else "manual")
+			local stack = record.stack
+			if stack then
+				stack.users -= 1
+				if stack.users == 0 then
+					if stack.owner then
+						stack.owner.dispose()
+					end
+					local lanes = stacks[stack.layer]
+					if lanes then
+						lanes[stack.lane] = nil
+					end
+				end
+			end
 		end)
 		surfaces.attach(root, {
 			surfaces.overlay(root, function(use: ComposeTypes.Use): boolean
@@ -795,6 +832,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local stack = assert(record.stack)
 				return if interactive then actionRow(record, stack, phase) else passiveRow(record, stack, phase)
 			end, {
+				parent = function(): GuiBase2d?
+					return if record.stack then record.stack.container else nil
+				end,
 				presence = {
 					exit = function()
 						local current = level()

@@ -262,7 +262,7 @@ return function(verifyHarness: Verify.Harness)
 	local function rows(world: any): { any }
 		local out = world.findAll("ToastRow")
 		table.sort(out, function(a, b)
-			return a.Position.Y.Offset < b.Position.Y.Offset
+			return a.Parent.LayoutOrder < b.Parent.LayoutOrder
 		end)
 		return out
 	end
@@ -310,12 +310,20 @@ return function(verifyHarness: Verify.Harness)
 				f.world.advance(0.1)
 				list = rows(f.world)
 				expect(list[1].AnchorPoint.Y):toBe(0)
-				expect(list[1].Position.Y.Offset):toBe(8)
-				expect(list[2].Position.Y.Offset):toBe(56)
+				local stack = list[1].Parent.Parent
+				local layout = stack:FindFirstChildWhichIsA("UIListLayout")
+				expect(stack.Name):toBe("ToastStack")
+				expect(list[2].Parent.Parent):toBe(stack)
+				expect(layout.FillDirection):toBe(f.world.Enum.FillDirection.Vertical)
+				expect(layout.Padding.Offset):toBe(8)
+				expect(list[1].Parent.LayoutOrder):toBe(1)
+				expect(list[2].Parent.LayoutOrder):toBe(2)
+				expect(stack:FindFirstChildWhichIsA("UIPadding").PaddingTop.Offset):toBe(8)
 				f.shown[1]:set(false)
 				f.world.advance(0.3)
 				expect((messages(f.world))):toBe("b")
-				expect(rows(f.world)[1].Position.Y.Offset):toBe(8)
+				expect(rows(f.world)[1].Parent.LayoutOrder):toBe(1)
+				expect(#stack:GetChildren()):toBe(3)
 				expect(f.reasons[1]):toBe("a:manual")
 				f.world.stop()
 			end,
@@ -336,7 +344,12 @@ return function(verifyHarness: Verify.Harness)
 				local function offsets(): string
 					local out = {}
 					for _, row in rows(f.world) do
-						table.insert(out, `{overlay.find(row, "Message").Text}:{row.Position.Y.Offset}`)
+						local stack = row.Parent.Parent
+						local padding = stack:FindFirstChildWhichIsA("UIPadding")
+						local bottom = stack:FindFirstChildWhichIsA("UIListLayout").VerticalAlignment
+							== f.world.Enum.VerticalAlignment.Bottom
+						local offset = if bottom then -padding.PaddingBottom.Offset else padding.PaddingTop.Offset
+						table.insert(out, `{overlay.find(row, "Message").Text}:{offset}`)
 					end
 					table.sort(out)
 					return table.concat(out, " ")
@@ -398,15 +411,19 @@ return function(verifyHarness: Verify.Harness)
 				)
 				f.world.advance(0.1)
 				local list = rows(f.world)
-				expect(list[1].Size.X.Offset):toBe(800 - 32)
+				expect(list[1].Size.X.Scale):toBe(1)
+				expect(list[1].Parent.Parent.Size.X.Offset):toBe(-32)
 				expect(list[1].Position.X.Scale):toBe(0.5)
 				expect(list[2].AutomaticSize):toBe(f.world.Enum.AutomaticSize.Y)
+				expect(list[2].Size.X.Scale):toBe(1)
 				expect(overlay.find(list[2], "WidthCap").MaxSize.X):toBe(560)
-				local probe = overlay.find(list[2], "MessageMeasure")
-				probe.TextBounds = Vector2.new(100, 16)
-				expect(list[2].Size.X.Offset):toBe(125)
-				probe.TextBounds = Vector2.new(2000, 16)
-				expect(list[2].Size.X.Offset):toBe(560)
+				local message = overlay.find(list[2], "Message")
+				expect(message.AutomaticSize):toBe(f.world.Enum.AutomaticSize.Y)
+				expect(overlay.find(list[2], "MessageMeasure")):toBe(nil)
+				message.TextBounds = Vector2.new(100, 16)
+				expect(list[2].Size.X.Offset):toBe(0)
+				message.TextBounds = Vector2.new(2000, 16)
+				expect(list[2].Size.X.Offset):toBe(0)
 				f.world.stop()
 			end,
 		})
@@ -428,10 +445,13 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(0.1)
 				local row = w.find("ToastRow")
 				expect((row:IsDescendantOf(presentation))):toBe(true)
-				expect(row.Size.X.Offset):toBe(358)
+				expect(row.Size.X.Scale):toBe(1)
+				expect(row.Parent.Parent.Size.X.Scale):toBe(1)
+				expect(row.Parent.Parent.Size.X.Offset):toBe(-32)
 				presentation.AbsoluteSize = Vector2.new(280, 720)
 				w.advance(0.1)
-				expect(row.Size.X.Offset):toBe(248)
+				expect(row.Size.X.Scale):toBe(1)
+				expect(row.Parent.Parent.Size.X.Offset):toBe(-32)
 				w.stop()
 			end,
 		})

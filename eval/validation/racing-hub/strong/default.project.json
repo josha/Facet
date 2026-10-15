@@ -173,32 +173,14 @@
                  "StarterPlayer":  {
                                        "StarterPlayerScripts":  {
                                                                     "Client":  {
-                                                                                   "$path":  "src/client"
+                                                                                   "$path":  "src/client",
+                                                                                   "Driving":  {
+                                                                                                   "$path":  "../../../tasks/racing-hub/starter/src/client/Driving.client.luau"
+                                                                                               }
                                                                                }
                                                                 }
                                    },
                  "Workspace":  {
-                                   "Baseplate":  {
-                                                     "$className":  "Part",
-                                                     "$properties":  {
-                                                                         "Anchored":  true,
-                                                                         "Size":  [
-                                                                                      256,
-                                                                                      2,
-                                                                                      256
-                                                                                  ],
-                                                                         "Position":  [
-                                                                                          0,
-                                                                                          -1,
-                                                                                          0
-                                                                                      ],
-                                                                         "Color":  [
-                                                                                       0.38,
-                                                                                       0.6,
-                                                                                       0.35
-                                                                                   ]
-                                                                     }
-                                                 },
                                    "SpawnLocation":  {
                                                          "$className":  "SpawnLocation",
                                                          "$properties":  {
