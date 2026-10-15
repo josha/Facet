@@ -89,11 +89,13 @@ local function roundFixture(): (RoundService, () -> number)
 	end
 end
 
-local function world(theme: string): { BasePart }
+local function world(theme: string?): ({ BasePart }, Lighting)
 	local engine = Engine.new()
 	local workspace = engine.new("Workspace") :: Workspace
-	workspace:SetAttribute("WorldTheme", theme)
-	local lighting = engine.new("Lighting")
+	if theme then
+		workspace:SetAttribute("WorldTheme", theme)
+	end
+	local lighting = engine.new("Lighting") :: Lighting
 	local globals: { [string]: unknown } = {
 		Vector3 = Engine.types.Vector3,
 		CFrame = Engine.types.CFrame,
@@ -127,7 +129,7 @@ local function world(theme: string): { BasePart }
 			table.insert(parts, object)
 		end
 	end
-	return parts
+	return parts, lighting
 end
 
 local function overlap(a: BasePart, b: BasePart): boolean
@@ -172,6 +174,57 @@ return function(harness: Verify.Harness)
 		t:expect(service.snapshot().racers[2].name):toBe("Driver")
 		t:expect(service.eliminate("Nova", "lap 1")):toBe(true)
 		t:expect(service.events()[1].by):toBe("lap 1")
+	end)
+	harness:case("night world keeps readable materials and a bounded static lighting setup", function(t)
+		local parts, lighting = world("scifi")
+		local lights = 0
+		local towers = 0
+		local seams = 0
+		for _, part in parts do
+			t:expect(part.Anchored):toBe(true)
+			t:expect(part.Name == "TreeTrunk" or part.Name == "TreeCrown"):toBe(false)
+			if part.Name == "Barrier" or part.Name == "FinishGantry" then
+				t:expect(part.Material):toBe(Engine.types.Enum.Material.Metal)
+			end
+			if part.Name == "BarrierEdge" or part.Name == "GantryTrim" or part.Name == "StartLight" then
+				t:expect(part.Material):toBe(Engine.types.Enum.Material.Neon)
+				t:expect(part.CanCollide):toBe(false)
+			end
+			if part.Name == "PlazaSeam" or part.Name == "DeckSeam" then
+				seams += 1
+			end
+			if part.Name == "TowerMast" then
+				towers += 1
+			end
+			for _, child in part:GetChildren() do
+				if child:IsA("Light") then
+					lights += 1
+					t:expect(child.Shadows):toBe(false)
+				end
+			end
+		end
+		t:expect(#parts):toBe(511)
+		t:expect(lights):toBe(4)
+		t:expect(towers):toBe(8)
+		t:expect(seams):toBe(12)
+		t:expect(lighting.Ambient.R > 0.4 and lighting.OutdoorAmbient.R > 0.5):toBe(true)
+		local sky = assert(lighting:FindFirstChildOfClass("Sky"))
+		t:expect(sky.CelestialBodiesShown and sky.StarCount >= 3000):toBe(true)
+		t:expect(sky.MoonAngularSize > 11):toBe(true)
+		t:expect(lighting:FindFirstChildOfClass("Atmosphere") ~= nil):toBe(true)
+		t:expect(lighting:FindFirstChildOfClass("BloomEffect") ~= nil):toBe(true)
+		t:expect(lighting:FindFirstChildOfClass("ColorCorrectionEffect") ~= nil):toBe(true)
+		local bright, daylight = world(nil)
+		local trees = 0
+		for _, part in bright do
+			if part.Name == "TreeCrown" then
+				trees += 1
+			end
+		end
+		t:expect(#bright):toBe(511)
+		t:expect(trees):toBe(24)
+		t:expect(daylight.ClockTime):toBe(12)
+		t:expect(daylight:FindFirstChildOfClass("Sky")):toBe(nil)
 	end)
 	harness:case("world decorations have no overlapping face coplanar with the road in either theme", function(t)
 		for _, theme in { "bright", "scifi" } do
