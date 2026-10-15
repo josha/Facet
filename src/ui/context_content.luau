@@ -158,6 +158,59 @@ return function(
 			end)
 			local wrapped, truncated = ctx.observeStyled.TextWrapped(label), ctx.observeStyled.TextTruncate(label)
 			local authored = ctx.observe.Size(label)
+			local wrappedHeight = Compose.cell(0)
+			local textService = services.TextService
+			if textService then
+				local lineHeight = ctx.observeStyled.LineHeight(label)
+				local serial, last = 0, ""
+				Compose.watch(function(use: ComposeTypes.Use)
+					local mode = use(automatic)
+					if not use(wrapped) or not (mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY) then
+						last = ""
+						if wrappedHeight:peek() ~= 0 then
+							wrappedHeight:set(0)
+						end
+						return
+					end
+					local wide = use(size).X / use(unit)
+					local text: string = use(content)
+					local font, points, spacing = use(styledFace) :: Font, use(styledSize) :: number, use(lineHeight)
+					local key = `{wide}|{text}|{points}|{spacing}|{font.Family}|{font.Weight.Name}|{font.Style.Name}`
+					if wide <= 0 or text == "" or key == last then
+						return
+					end
+					last = key
+					serial += 1
+					local ticket = serial
+					local function run(body: () -> ())
+						if task and task.spawn then
+							task.spawn(body)
+						else
+							body()
+						end
+					end
+					run(function()
+						local ok, measured = pcall(function()
+							local params = ((Host :: unknown) :: {
+								[string]: (props: { [string]: unknown }) -> Instance,
+							}).GetTextBoundsParams({
+								Text = text,
+								Font = font,
+								Size = points,
+								Width = wide,
+								RichText = label.RichText,
+							})
+							return (textService :: TextService):GetTextBoundsAsync(params :: GetTextBoundsParams)
+						end)
+						if ok and alive and ticket == serial and measured.Y > 0 then
+							local lineCount = math.max(1, math.round(measured.Y / points))
+							local inset = label:FindFirstChildWhichIsA("UIPadding")
+							local vertical = if inset then inset.PaddingTop.Offset + inset.PaddingBottom.Offset else 0
+							wrappedHeight:set(math.ceil(lineCount * points * math.max(spacing, 1)) + vertical)
+						end
+					end)
+				end)
+			end
 			local stopFloor, floor = runtime.mount(function()
 				return Host.UISizeConstraint "TextBoundsFloor" {
 					MaxSize = function(use: ComposeTypes.Use): Vector2
@@ -187,7 +240,7 @@ return function(
 								else 0,
 							if free and (mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY)
 								then math.ceil(glyph.Y)
-								else 0
+								else use(wrappedHeight)
 						)
 					end,
 				}

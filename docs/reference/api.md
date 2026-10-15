@@ -3972,11 +3972,11 @@ or `textRole` instead.
   removes it. `role` can be bound.
 - `textAlign` is `start`, `center` or `end` and sets `TextXAlignment`. It can
   be bound. `wrap` sets `TextWrapped`. `rich = true` sets `RichText`.
-- A wrapped text (`wrap`, `TextWrapped` or `lines`) with no `textSize` and
-  no native `TextSize` sets its native `TextSize` to the size of its role in
-  the effective theme package. The engine measures wrapped automatic-height
-  text with the native `TextSize`, not the styled one, so a two-line string
-  showed one clipped line in a hugging parent.
+- A wrapped text with automatic height measures its lines with
+  `TextService:GetTextBoundsAsync` at its styled font, size and line height,
+  and its `TextBoundsFloor` constraint keeps at least that height. The engine
+  sizes automatic text with the native `FontFace` and `TextSize`, not the
+  styled ones, so a styled two-line string could show one clipped line.
 - `direction` is `auto`, `ltr` or `rtl` and sets `TextDirection`.
 - `tint` sets `TextColor3` for a colour that no role gives.
 - `disclose = true` keeps a truncated value readable. Unwrapped text uses an
