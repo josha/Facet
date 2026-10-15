@@ -72,10 +72,13 @@ return function(verifyHarness: Verify.Harness)
 				local engine = engineLib.new()
 				local runtime = Roblox.createRuntime(engine)
 				local package = themes.neutralPackage()
-				package.rules = {
-					{ selector = ".facet-button:Hover::UIStroke", properties = { Thickness = 2 } },
-					{ selector = ".facet-button:Press::UIStroke", properties = { Thickness = 3 } },
+				local hoverProperties: FixtureThemeTypes.AuthoredRuleProperties = { Thickness = 2 }
+				local pressProperties: FixtureThemeTypes.AuthoredRuleProperties = { Thickness = 3 }
+				local rules: { FixtureThemeTypes.Rule } = {
+					{ selector = ".facet-button:Hover::UIStroke", properties = hoverProperties },
+					{ selector = ".facet-button:Press::UIStroke", properties = pressProperties },
 				}
+				package.rules = rules
 				local stop, sheet = runtime.mount(function()
 					return themes.createStyleSheet(runtime, package, { types = engine.types })
 				end, engine.new("Folder"))
