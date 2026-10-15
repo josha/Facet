@@ -2,8 +2,7 @@
 
 The owner selected short player prompts on 2026-10-15. `extended.json` is the
 headline: 11 chained tasks, two arms, seed 1 and five devices.
-`extended-spec.json` keeps the detailed briefs as a diagnostic. The original
-`brief.md` files are unchanged. `slice.json` uses its short prompt.
+`extended-spec.json` keeps the detailed briefs as a diagnostic. The `brief.md` files are diagnostic specs. `slice.json` uses its short prompt.
 
 Each play case has a tier. The universal cases run with their own
 navigation, server-state and geometry observations. The retained cases are

@@ -2,7 +2,10 @@
     "name":  "racing-hub",
     "tree":  {
                  "$className":  "DataModel",
-                 "Lighting": { "$properties": { "Technology": "Future" } },
+                 "Lighting": {
+                     "$className": "Lighting",
+                     "$properties": { "Technology": "Future" }
+                 },
                  "ReplicatedStorage":  {
                                            "Shared":  {
                                                           "$path":  "../../../tasks/racing-hub/starter/src/shared"
@@ -182,6 +185,7 @@
                                                                 }
                                    },
                  "Workspace":  {
+"$attributes": { "WorldTheme": "scifi" },
                                    "SpawnLocation":  {
                                                          "$className":  "SpawnLocation",
                                                          "$properties":  {

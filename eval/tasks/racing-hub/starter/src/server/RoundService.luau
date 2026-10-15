@@ -2,215 +2,240 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local Ledger = require(script.Parent.Ledger)
 local RaceService = require(script.Parent.RaceService)
 local Round = require(ReplicatedStorage.Shared.Hub.Round)
+local Rules = require(ReplicatedStorage.Shared.RaceRules)
 
 type State = Round.State
-type Fighter = Round.Fighter
+type Racer = Round.Racer
 type Phase = Round.Phase
-
-local function duration(phase: Phase): number
-	return if phase == "Round" then 90 elseif phase == "Results" then 10 else 20
-end
-local BOTS: { { name: string, team: Round.Team } } = {
-	{ name = "Nova", team = "Red" },
-	{ name = "Pip", team = "Red" },
-	{ name = "Rook", team = "Red" },
-	{ name = "Zed", team = "Blue" },
-	{ name = "Ivy", team = "Blue" },
-	{ name = "Bolt", team = "Blue" },
-	{ name = "Moss", team = "Blue" },
-}
-local WIN_REWARD = 50
-local LOSS_REWARD = 20
 
 local changed = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RoundStateChanged") :: RemoteEvent
 local event = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RoundEvent") :: RemoteEvent
-
+local function newRacer(name: string, position: number): Racer
+	return {
+		name = name,
+		position = position,
+		lap = 1,
+		lapCount = 3,
+		completedLaps = 0,
+		bestLap = nil,
+		gap = 0,
+		finished = false,
+		eliminated = false,
+	}
+end
 local state: State = {
 	round = 1,
 	phase = "Intermission",
-	endsAt = workspace:GetServerTimeNow() + duration("Intermission"),
-	fighters = {},
-	winner = nil,
+	endsAt = workspace:GetServerTimeNow() + 20,
+	racers = {},
+	mode = "race",
 	rewards = nil,
 }
+for index, name in { "Nova", "Pip", "Rook", "Zed", "Ivy", "Bolt", "Moss" } do
+	table.insert(state.racers, newRacer(name, index))
+end
 local automatic = true
 local raceComplete = false
+local knockoutLap = 0
 local log: { Round.Event } = {}
-
-for _, bot in BOTS do
-	table.insert(state.fighters, { name = bot.name, team = bot.team, eliminated = false, eliminations = 0 })
-end
-
 local function snapshot(): State
-	local fighters: { Fighter } = {}
-	for _, fighter in state.fighters do
-		table.insert(fighters, table.clone(fighter))
+	local copy = table.clone(state)
+	copy.racers = {}
+	for _, racer in state.racers do
+		table.insert(copy.racers, table.clone(racer))
 	end
-	return {
-		round = state.round,
-		phase = state.phase,
-		endsAt = state.endsAt,
-		fighters = fighters,
-		winner = state.winner,
-		rewards = if state.rewards ~= nil then table.clone(state.rewards) else nil,
-	}
+	copy.rewards = if state.rewards then table.clone(state.rewards) else nil
+	return copy
 end
-
 local function publish()
 	changed:FireAllClients(snapshot())
 end
-
-local function find(name: string): Fighter?
-	for _, fighter in state.fighters do
-		if fighter.name == name then
-			return fighter
+local function find(name: string): Racer?
+	for _, racer in state.racers do
+		if racer.name == name then
+			return racer
 		end
 	end
 	return nil
 end
-
-local function alive(team: Round.Team): number
-	local count = 0
-	for _, fighter in state.fighters do
-		if fighter.team == team and not fighter.eliminated then
-			count += 1
+local function rankFixtures()
+	table.sort(state.racers, function(a: Racer, b: Racer): boolean
+		if a.eliminated ~= b.eliminated then
+			return not a.eliminated
 		end
+		if a.completedLaps ~= b.completedLaps then
+			return a.completedLaps > b.completedLaps
+		end
+		return a.position < b.position
+	end)
+	for index, racer in state.racers do
+		racer.position = index
 	end
-	return count
 end
-
-local function enter(phase: Phase, seconds: number?, winner: (Round.Team | "Draw")?)
+local function enter(phase: Phase, seconds: number?)
+	if phase == "Results" and state.phase == "Results" then
+		return
+	end
 	state.phase = phase
-	state.endsAt = workspace:GetServerTimeNow() + (seconds or duration(phase))
+	state.endsAt = workspace:GetServerTimeNow()
+		+ (seconds or (if phase == "Round" then 90 elseif phase == "Results" then 10 else 20))
 	if phase == "Round" then
-		for _, fighter in state.fighters do
-			fighter.eliminated = false
-			fighter.eliminations = 0
+		table.sort(state.racers, function(a: Racer, b: Racer): boolean
+			local aPlayer = Players:FindFirstChild(a.name) ~= nil
+			local bPlayer = Players:FindFirstChild(b.name) ~= nil
+			if aPlayer ~= bPlayer then
+				return aPlayer
+			end
+			return a.name < b.name
+		end)
+		for index, racer in state.racers do
+			state.racers[index] = newRacer(racer.name, index)
 		end
-		state.winner = nil
 		state.rewards = nil
+		table.clear(log)
 		raceComplete = false
-		RaceService.start(state.fighters, not automatic, function()
+		knockoutLap = 0
+		RaceService.start(state.racers, not automatic, function()
 			raceComplete = true
 		end)
 	elseif phase == "Results" then
-		local red, blue = alive("Red"), alive("Blue")
-		state.winner = winner
-			or (
-				if automatic
-					then RaceService.winner()
-					elseif red > blue then "Red"
-					elseif blue > red then "Blue"
-					else "Draw"
-			)
-		RaceService.stop()
-		state.rewards = {
-			Red = if state.winner == "Red" then WIN_REWARD else LOSS_REWARD,
-			Blue = if state.winner == "Blue" then WIN_REWARD else LOSS_REWARD,
-		}
-		for _, player in Players:GetPlayers() do
-			Ledger.reward(player, state.round, (state.rewards :: { Red: number, Blue: number }).Red)
+		if automatic then
+			state.racers = RaceService.standings()
+		else
+			rankFixtures()
 		end
+		local rewards: { [string]: number } = {}
+		state.rewards = rewards
+		for _, racer in state.racers do
+			rewards[racer.name] = math.max(20, 55 - racer.position * 5)
+		end
+		for _, player in Players:GetPlayers() do
+			Ledger.reward(player, state.round, rewards[player.Name] or 20)
+		end
+		RaceService.stop()
 	elseif phase == "Intermission" then
 		RaceService.stop()
 		state.round += 1
-		state.winner = nil
 		state.rewards = nil
 	end
 	publish()
 end
-
 local function eliminate(victim: string, lap: string): boolean
 	local target = find(victim)
-	if automatic or target == nil or target.eliminated or state.phase ~= "Round" then
+	local completed = tonumber(string.match(lap, "%d+")) or 0
+	if automatic or target == nil or target.eliminated or state.phase ~= "Round" or completed < 1 then
 		return false
 	end
+	target.completedLaps = math.max(target.completedLaps, completed)
+	target.lap = math.min(3, completed + 1)
 	target.eliminated = true
 	RaceService.markOut(victim)
-	local entry: Round.Event = { kind = "elimination", victim = victim, by = lap, at = workspace:GetServerTimeNow() }
+	local entry: Round.Event =
+		{ kind = "elimination", victim = victim, by = "lap " .. tostring(completed), at = workspace:GetServerTimeNow() }
 	table.insert(log, entry)
 	event:FireAllClients(entry)
+	rankFixtures()
 	publish()
-	if not automatic and (alive("Red") == 0 or alive("Blue") == 0) then
-		enter("Results")
-	end
 	return true
 end
-
-local function join(player: Player)
-	if find(player.Name) == nil then
-		local fighter: Fighter = { name = player.Name, team = "Red", eliminated = false, eliminations = 0 }
-		table.insert(state.fighters, 1, fighter)
-		publish()
-	end
-end
-
-local function leave(player: Player)
-	for index, fighter in state.fighters do
-		if fighter.name == player.Name then
-			table.remove(state.fighters, index)
-			publish()
-			return
-		end
-	end
-end
-
 local function tick()
-	local now = workspace:GetServerTimeNow()
-	if state.phase ~= "Intermission" and now >= state.endsAt then
-		if state.phase == "Round" then
-			enter("Results")
-		else
-			enter("Intermission")
-		end
+	if state.phase ~= "Intermission" and workspace:GetServerTimeNow() >= state.endsAt then
+		enter(if state.phase == "Round" then "Results" else "Intermission")
 		return
 	end
 	if automatic and state.phase == "Round" then
-		local updated = false
-		for _, fighter in state.fighters do
-			local laps = RaceService.laps(fighter.name)
-			if fighter.eliminations ~= laps then
-				fighter.eliminations = laps
-				updated = true
+		local nextStandings = RaceService.standings()
+		if state.mode == "lap-knockout" then
+			local victim, lap = Rules.lapKnockout(nextStandings, knockoutLap)
+			knockoutLap = lap
+			if victim then
+				RaceService.markOut(victim)
+				local entry: Round.Event = {
+					kind = "elimination",
+					victim = victim,
+					by = "lap " .. tostring(lap),
+					at = workspace:GetServerTimeNow(),
+				}
+				table.insert(log, entry)
+				event:FireAllClients(entry)
 			end
 		end
-		if updated then
-			publish()
-		end
+		state.racers = RaceService.standings()
+		publish()
 		if raceComplete then
 			enter("Results")
 		end
 	end
 end
-
-local function start()
-	Players.PlayerAdded:Connect(join)
-	Players.PlayerRemoving:Connect(leave)
-	for _, player in Players:GetPlayers() do
-		join(player)
-	end
-	task.spawn(function()
-		while true do
-			tick()
-			task.wait(0.25)
-		end
-	end)
-end
-
 return {
-	start = start,
+	start = function()
+		local function join(player: Player)
+			if find(player.Name) == nil then
+				for _, racer in state.racers do
+					racer.position += 1
+				end
+				table.insert(state.racers, 1, newRacer(player.Name, 1))
+				publish()
+			end
+		end
+		Players.PlayerAdded:Connect(join)
+		Players.PlayerRemoving:Connect(function(player: Player)
+			for index, racer in state.racers do
+				if racer.name == player.Name then
+					table.remove(state.racers, index)
+					break
+				end
+			end
+			publish()
+		end)
+		for _, player in Players:GetPlayers() do
+			join(player)
+		end
+		task.spawn(function()
+			while true do
+				tick()
+				task.wait(0.25)
+			end
+		end)
+	end,
 	snapshot = snapshot,
 	enter = enter,
 	eliminate = eliminate,
 	setLaps = function(name: string, laps: number)
 		assert(not automatic, "lap fixtures require manual mode")
-		local fighter = find(name)
-		assert(fighter, "unknown racer")
-		fighter.eliminations = math.clamp(math.floor(laps), 0, 3)
+		local racer = find(name)
+		assert(racer, "unknown racer")
+		racer.completedLaps = math.clamp(math.floor(laps), 0, 3)
+		racer.lap = math.min(3, racer.completedLaps + 1)
+		racer.finished = racer.completedLaps == 3
+		rankFixtures()
+		publish()
+	end,
+	setMode = function(mode: Round.Mode)
+		state.mode = mode
+	end,
+	setPositions = function(names: { string })
+		assert(not automatic, "position fixtures require manual mode")
+		local ordered: { Racer } = {}
+		local seen: { [string]: boolean } = {}
+		for _, name in names do
+			local racer = find(name)
+			assert(racer and not seen[name], "unknown or repeated racer")
+			seen[name] = true
+			table.insert(ordered, racer)
+		end
+		for _, racer in state.racers do
+			if not seen[racer.name] then
+				table.insert(ordered, racer)
+			end
+		end
+		for position, racer in ordered do
+			racer.position = position
+		end
+		state.racers = ordered
 		publish()
 	end,
 	setAutomatic = function(value: boolean)

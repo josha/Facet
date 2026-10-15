@@ -9,3 +9,7 @@ Save applies the draft and shows Saved only after success. Reopen with the saved
 The game team supplies `src/shared/Extended.luau` in this turn. Use `Extended.client()` for `get`, `request(action, value)`, `onChanged`, and `now`. `request("livery", { body, accent, shade, decal })` accepts hue fractions from 0 to 1 and a shade fraction from 0 to 1. The server owns the saved design. Do not change the supplied server or shared files. Other systems in this contract are for later turns.
 
 All actions must work with mouse, touch, and console selection. Keep theme and device settings available. Keep all previous behavior.
+
+## Design direction
+
+Use a sci-fi neon identity with dark panels, cyan and violet accents, and readable pale text. Keep the world visible around the HUD.

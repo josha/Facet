@@ -210,14 +210,14 @@ local function cases(kind: string): { Play.Case }
 				qa:admin("laps", { name = "Moss", laps = 1 })
 				tap(qa, context, "Scoreboard")
 				Check.text(qa, context, "^laps$", "the scoreboard names its column")
-				Check.text(qa, context, "^team$", "the scoreboard has a Team column")
+				Check.text(qa, context, "^position$", "the scoreboard has a Position column")
 				Check.text(qa, context, "^racer$", "the scoreboard has a Racer column")
 				Check.that(context, ordered(qa, "Nova", "Moss"), "two completed laps rank above one")
 				Check.visible(qa, context, { text = "you", clipped = true }, "the scoreboard marks the local player")
 				Check.visible(
 					qa,
 					context,
-					{ exact = "out", near = "Zed", clipped = true },
+					{ pattern = "zed.*out$", near = "Zed", clipped = true },
 					"eliminated racers show OUT"
 				)
 				capture(qa, "scoreboard")

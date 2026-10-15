@@ -44,6 +44,44 @@ local function query(words: string): QA.Query
 	return { role = "button", text = string.lower(words) }
 end
 
+local function raceReadout(qa: QA.QA, position: number): boolean
+	for _, text in qa:texts() do
+		local normalized = string.lower(text)
+		for _, prefix in { "position", "place", "rank", "pos", "p" } do
+			if string.find(normalized, "%f[%a]" .. prefix .. "%s*[:#]?%s*" .. tostring(position) .. "%f[^%d]") then
+				return true
+			end
+		end
+		if string.find(normalized, tostring(position) .. "[snrt][tdh]") then
+			return true
+		end
+	end
+	return false
+end
+
+local function racers(qa: QA.QA): { unknown }
+	local value = qa:admin("system", { system = "round-hud", command = "state" })
+	local entries = Check.field(value, "state", "racers")
+	assert(type(entries) == "table", "the race contract supplies standings")
+	return entries :: { unknown }
+end
+
+local function finishOrder(qa: QA.QA, firstName: string, secondName: string): boolean
+	local first = qa:first({ text = firstName, clipped = true })
+	local second = qa:first({ text = secondName, clipped = true })
+	if not first or not second then
+		return false
+	end
+	if first.path == second.path then
+		local label = string.lower(first.label)
+		local a = string.find(label, string.lower(firstName), 1, true)
+		local b = string.find(label, string.lower(secondName), 1, true)
+		return a ~= nil and b ~= nil and a < b
+	end
+	return first.rect.y < second.rect.y - 4
+		or (math.abs(first.rect.y - second.rect.y) <= 4 and first.rect.x < second.rect.x)
+end
+
 local function helpCopy(qa: QA.QA): string
 	local texts = qa:texts()
 	for index, text in texts do
@@ -150,7 +188,8 @@ end
 local function cases(id: string): { Play.Case }
 	local result: { Play.Case } = {}
 	local function add(name: string, screen: string?, run: Play.CaseBody)
-		table.insert(result, { id = "universal/" .. name, tier = "universal", screen = screen, run = run })
+		local case: Play.Case = { id = "universal/" .. name, tier = "universal", screen = screen, run = run }
+		table.insert(result, case)
 	end
 	add("hub", "universal-hub", function(qa, context)
 		qa:admin("manual")
@@ -343,16 +382,52 @@ local function cases(id: string): { Play.Case }
 			qa:admin("phase", { phase = "Round", seconds = 120 })
 			qa:sleep(2)
 			local race = observe(qa, context, "universal-race")
+			Check.that(context, raceReadout(qa, 1), "the racer can read their position")
+			Check.that(
+				context,
+				qa:hasText("lap%s*%d+") ~= nil or qa:hasText("%d+%s*/%s*%d+%s*laps?") ~= nil,
+				"the racer can read their lap"
+			)
+			local entries = racers(qa)
+			local rival = tostring(Check.field(entries[2], "name"))
+			Check.visible(qa, context, { text = rival, clipped = true }, "the HUD shows race standings")
+			Check.absent(qa, context, "%d+%s*alive", "a kart race has no team counts")
+			qa:admin("laps", { name = rival, laps = 3 })
+			Check.that(
+				context,
+				Check.eventually(4, function()
+					return raceReadout(qa, 2)
+				end),
+				"position follows the live standings"
+			)
 			Check.that(context, Space.centerClear(race), "the road remains visible while driving")
 			Check.that(context, qa:selected() == nil, "passive HUD releases gamepad selection")
 			if index >= 4 then
 				press(qa, context, "Scoreboard")
 				observe(qa, context, "universal-scoreboard")
+				Check.that(
+					context,
+					finishOrder(qa, rival, tostring(Check.field(entries[1], "name"))),
+					"scoreboard follows server position order"
+				)
 				back(qa, context)
+				Check.that(context, qa:selected() == nil, "closing the scoreboard returns selection to driving")
 			end
 			qa:admin("phase", { phase = "Results", seconds = 120 })
 			qa:sleep(1)
 			observe(qa, context, "universal-results")
+			Check.visible(qa, context, { text = rival, clipped = true }, "results show the first finisher")
+			local result = qa:admin("system", { system = "round-hud", command = "state" })
+			local localName = tostring(Check.field(entries[1], "name"))
+			Check.that(context, finishOrder(qa, rival, localName), "results list racers in finish order")
+			local reward = Check.number(result, "state", "rewards", localName)
+			qa:reveal({ text = "coins", clipped = true })
+			Check.that(
+				context,
+				qa:hasText(tostring(reward) .. "%D*coins") ~= nil
+					or qa:hasText("coins%D*" .. tostring(reward) .. "%f[^%d]") ~= nil,
+				"results show the server currency reward"
+			)
 			press(qa, context, "hub")
 			Check.visible(qa, context, query("Shop"), "results return to the hub")
 		end)

@@ -5,3 +5,7 @@ Start from `hub-quick-chat` in the same arm and seed. Keep all earlier behavior 
 An upgrade costs `100 * (level + 1)` Coins and `5 * (level + 1)` Gems together. Show both costs and balances. Use Upgrade Speed, Upgrade Handling, and Upgrade Boost. Disable an action when either balance is too low or level 3 is reached. Explain the disabled state. Ask for confirmation with the stat and both prices. Cancel spends nothing. Confirm buys once, updates both balances, increases that bar, and shows the next price. Keep each kart's levels separate and preserve them across Close and reopen.
 
 Use `Extended.client()`. State has `wallet` and `levels[kartId]`, a three-number array in Speed, Handling, Boost order; absent entries mean level zero. Call `request("upgrade", { kart = kartId, stat = index })`. The server owns prices, funds, and levels and uses the hub wallet. Follow server changes, including a balance change while confirmation is open. Close or B returns one level and restores selection. Do not change server or shared files.
+
+## Design direction
+
+Use a sci-fi neon identity with dark panels, cyan and violet accents, and readable pale text. Keep the world visible around the HUD.

@@ -23,13 +23,13 @@ local Kit = {}
 
 Kit.colors = {
 	scrim = Color3.fromRGB(6, 8, 14),
-	panel = Color3.fromRGB(22, 26, 36),
-	card = Color3.fromRGB(36, 42, 56),
+	panel = Color3.fromRGB(15, 20, 38),
+	card = Color3.fromRGB(28, 35, 58),
 	cardRaised = Color3.fromRGB(48, 56, 74),
 	text = Color3.fromRGB(244, 246, 250),
 	muted = Color3.fromRGB(184, 192, 210),
-	primary = Color3.fromRGB(255, 196, 64),
-	primaryText = Color3.fromRGB(26, 20, 4),
+	primary = Color3.fromRGB(70, 235, 255),
+	primaryText = Color3.fromRGB(5, 24, 32),
 	secondary = Color3.fromRGB(58, 66, 86),
 	secondaryText = Color3.fromRGB(244, 246, 250),
 	success = Color3.fromRGB(34, 110, 70),

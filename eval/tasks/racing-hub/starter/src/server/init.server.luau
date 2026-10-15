@@ -3,7 +3,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 require(script.World).build()
-local RaceService = require(script.RaceService)
 local Ledger = require(script.Ledger)
 local handlers: { [string]: (string, { [string]: unknown }?) -> unknown } = {}
 local locks: { [Player]: boolean } = {}
@@ -437,15 +436,13 @@ do
 				then "Round"
 				elseif raw == "Results" then "Results"
 				else "Intermission"
-			local winner = options.winner
-			RoundService.enter(
-				phase,
-				tonumber(options.seconds),
-				if winner == "Red" or winner == "Blue" or winner == "Draw" then winner else nil
-			)
+			RoundService.enter(phase, tonumber(options.seconds))
 			return RoundService.snapshot()
 		elseif command == "eliminate" then
 			return RoundService.eliminate(tostring(options.victim), "lap " .. tostring(tonumber(options.lap) or 1))
+		elseif command == "mode" then
+			RoundService.setMode(if options.mode == "lap-knockout" then "lap-knockout" else "race")
+			return true
 		elseif command == "laps" then
 			RoundService.setLaps(tostring(options.name), tonumber(options.laps) or 0)
 			return true
@@ -580,14 +577,16 @@ local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local admin = Instance.new("BindableFunction")
 admin.Name = "AdminCommands"
 admin.Parent = ServerStorage
-local raceManual = false
 
 local DialogueService = require(script.DialogueService)
 local raceLoadouts: { [Player]: { kart: string, driver: string } } = {}
-local positions: { string } = { "You", "Nova", "Pip", "Rook", "Zed", "Ivy", "Bolt", "Moss" }
 local function hubState(player: Player): Hub.State
 	local progress = Ledger.progress(player)
 	local race = raceLoadouts[player] or { kart = progress.kart, driver = progress.driver }
+	local positions: { string } = {}
+	for _, racer in RoundService.snapshot().racers do
+		table.insert(positions, if racer.name == player.Name then "You" else racer.name)
+	end
 	return {
 		wallet = table.clone(Ledger.wallet(player)),
 		xp = progress.xp,
@@ -620,9 +619,6 @@ admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknow
 			then journals
 			else { state = hubState(player), systems = systems, journal = journals }
 	elseif command == "system" then
-		if options.system == "round-hud" and options.command == "manual" then
-			raceManual = true
-		end
 		local handler = handlers[tostring(options.system)]
 		assert(handler ~= nil, "unknown system")
 		local fields = if type(options.args) == "table" then options.args :: { [string]: unknown } else {}
@@ -640,20 +636,22 @@ admin.OnInvoke = function(command: string, args: { [string]: unknown }?): unknow
 			local nextPositions: { string } = {}
 			for _, name in options.names :: { unknown } do
 				assert(type(name) == "string", "invalid position")
-				table.insert(nextPositions, name)
+				table.insert(nextPositions, if name == "You" then player.Name else name)
 			end
-			positions = nextPositions
+			RoundService.setPositions(nextPositions)
 		end
 		return hubState(player)
 	elseif command == "driving" then
-		raceManual = false
 		RoundService.setAutomatic(true)
 		RoundService.enter("Round", 90)
 		return true
-	elseif command == "phase" or command == "manual" or command == "eliminate" or command == "laps" then
-		if command == "manual" then
-			raceManual = true
-		end
+	elseif
+		command == "phase"
+		or command == "manual"
+		or command == "eliminate"
+		or command == "laps"
+		or command == "mode"
+	then
 		return handlers["round-hud"](command, options)
 	elseif command == "advance" or command == "miss" then
 		return handlers["daily-rewards"](command, options)
@@ -676,9 +674,6 @@ task.spawn(function()
 		end
 		lastQueue = queue.phase
 		local round = RoundService.snapshot()
-		if round.phase == "Round" and not raceManual then
-			positions = RaceService.positions()
-		end
 		if round.phase == "Round" and lastRound ~= round.round then
 			lastRound = round.round
 			for _, player in Players:GetPlayers() do

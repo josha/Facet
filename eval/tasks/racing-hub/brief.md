@@ -8,7 +8,7 @@ I prepare my kart in the hub, get parts, choose a driver, and join a race. The m
 
 ## Design direction
 
-Use one visual identity for the whole game. Use a dark slate base, warm amber for main actions, pale text, and a small set of status colors. Use one font family with a small set of sizes and weights. Use a spacing scale based on 4 pixels. Use the same panel heading, action style, and top-right Close or Back position across the game. You can use equivalent colors and a suitable readable font. Keep the world visible around the HUD.
+Use one sci-fi neon identity for the whole game. Use a dark metallic base, cyan and violet neon accents for main actions, pale text, and a small set of status colors. Use one font family with a small set of sizes and weights. Use a spacing scale based on 4 pixels. Use the same panel heading, action style, and top-right Close or Back position across the game. You can use equivalent colors and a suitable readable font. Keep the world visible around the HUD.
 
 Use one route through the game. Close or Back returns one level. Each panel has one clear visible way back. The root hub has no Back command. On a console, B returns one level and selection returns to the control that opened that level. Keep state when the player closes a panel. Each screen must have a route back to the hub without a server reset.
 
@@ -33,9 +33,9 @@ Use one route through the game. Close or Back returns one level. Each panel has 
 
 - The mechanic has a Talk to Mechanic control when nearby. Show the speaker and the full line, with reply choices. The player can ask what needs a test, accept the job, decline, or Leave. Accept pays 50 Coins and one Starter Crate once. Goodbye reaches the last line and Close ends the talk. Walking away ends the talk. Keep the HUD current.
 - Play opens Solo (4 players) and Duo (6 players). Back returns to the hub. Joining shows `N/TOTAL` and `Need N more players`. Leave Queue cancels. A full queue shows `Match starts in N`. A player leaving stops the countdown. When it finishes, show Starting match, then the race HUD.
-- The kart race uses the Round phase. Show its timer as `M:SS`, position, the chosen kart and driver, Red and Blue racers, `N alive`, OUT marks, and the local name with You. Show the last four `VICTIM knocked out: last on LAP` lines. Show `You are out` when the local racer is out. Clear the feed for a new race. Every racer can drive all three laps. The server owns standings and scenario lap knockouts. The world team owns driving and the race camera. Keep gamepad selection free during driving, keep interactive UI away from the default touch thumbstick, and leave the central road view clear. Follow the driving rules in `TEAM_NOTES.md`.
+- The kart race uses the Round phase. Show its timer as `M:SS`, position, the chosen kart and driver, a live ordered leaderboard, the current lap and lap count, OUT marks, and the local name with You. Show the last four `VICTIM knocked out: last on LAP` lines. Show `You are out` when the local racer is out. Clear the feed for a new race. Every racer can drive all three laps. The server owns standings and scenario lap knockouts. The world team owns driving and the race camera. Keep gamepad selection free during driving, keep interactive UI away from the default touch thumbstick, and leave the central road view clear. Follow the driving rules in `TEAM_NOTES.md`.
 - Keep HUD text and controls clear of the Roblox top bar and device cutouts. A dialog or sheet dims the whole screen, including the area behind the top bar. Keep its text and controls inside the safe area. The queue countdown needs a readable backing over the world on every device.
-- Results shows `TEAM wins` or Draw, `You earned N Coins`, `5 Gems`, and `120 XP`. Apply server rewards once. Update level and daily race count. Back to hub returns to the lobby. Every currency counter must show the new balance. Intermission hides the results.
+- Results shows the finish order, `You earned N Coins`, `5 Gems`, and `120 XP`. Apply server rewards once. Update level and daily race count. Back to hub returns to the lobby. Every currency counter must show the new balance. Intermission hides the results.
 - Settings has Music and Sound Effects sliders from 0 to 100, Damage Numbers and Camera Shake toggles, Low/Medium/High graphics, and the read-only keyboard and gamepad controls table. Start from saved server values. Save changes and follow server updates. Reopen with the saved values. Sliders work with touch and gamepad steps.
 
 ## Contract
@@ -56,7 +56,7 @@ Use one route through the game. Close or Back returns one level. Each panel has 
 | `settings` | `defaults`, `presets`, `keybinds`, `get`, `save(patch)`, `onChanged`. Save returns `{ ok, reason?, field?, values }`. |
 | `economy` | `getState`, `buyBoost`, `claimQuest(questId)`, `buyOffer`, `serverNow`, `onStateChanged`. |
 | `lobby` | `modes`, `getState`, `join(modeId)`, `leave`, `serverNow`, `onStateChanged`. |
-| `round` | `localName`, `getState`, `serverNow`, `onStateChanged`, `onEvent`. State contains phase, timer end, racers, winner, and team rewards. |
+| `round` | `localName`, `getState`, `serverNow`, `onStateChanged`, `onEvent`. State contains phase, timer end, racers, mode, and rewards keyed by racer name. |
 
 The game model owns all state. Currency values in every client refer to one wallet. Results from requests carry the new system state. Subscribe to changes; rewards and grants can arrive while a panel is open. The server validates prices, funds, ownership, slots, code reuse, claims, proximity, rents, and queue state. Do not change `src/server`, `src/shared`, or the project contract.
 
@@ -75,7 +75,7 @@ The game model owns all state. Currency values in every client refer to one wall
 | Codes | Redeem, Continue, Invalid code, Code expired, Already redeemed |
 | Mechanic | Talk to Mechanic, I will help you., What needs a test?, Not today., Goodbye., Leave |
 | Queue | Solo, Duo, Leave Queue, Need N more players, Match starts in N, Starting match |
-| Race | Intermission, Round, Results, You, OUT, You are out, N alive, Position N |
+| Race | Intermission, Round, Results, You, OUT, You are out, Position N, Lap N/TOTAL |
 | Settings | Music, Sound Effects, Damage Numbers, Camera Shake, Low, Medium, High, On, Off |
 
 ## Done when
