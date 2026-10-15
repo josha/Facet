@@ -407,7 +407,7 @@ return function(
 				local left = if placement == "side"
 					then (if edge == "left" then 0 else size.X - width)
 					else (size.X - width) / 2
-				local keyboardHeight = keyboard(use)
+				local keyboardHeight = keyboard(use) * (if placement == "center" then 0.5 else 1)
 				return {
 					top = math.max(0, near.Y - top + keyboardHeight),
 					bottom = math.max(0, far.Y - (size.Y - top - height) - keyboardHeight),
