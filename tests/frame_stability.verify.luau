@@ -60,8 +60,11 @@ return function(harness: Verify.Harness)
 		label.TextFits = false
 		t:expect(clipping.inspect(root)[1].reason):toBe("TextFits is false")
 		label.TextFits = true
-		group.AbsoluteSize = engine.types.Vector2.new(100, 100)
 		root.AbsoluteSize = engine.types.Vector2.new(100, 100)
+		t:expect(#clipping.inspect(root)):toBe(0)
+		group.AbsoluteSize = engine.types.Vector2.new(100, 100)
+		t:expect(clipping.inspect(root)[1].ancestor):toBe(group:GetFullName())
+		root.AbsoluteSize = engine.types.Vector2.new(100, 95)
 		local faults = clipping.inspect(root)
 		t:expect(#faults):toBe(2)
 		t:expect(faults[1].ancestor):toBe(group:GetFullName())

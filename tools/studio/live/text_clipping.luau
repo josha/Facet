@@ -48,11 +48,17 @@ local function inspect(root: Instance): ({ Fault }, number)
 				},
 			})
 		end
+		local position, ending = node.AbsolutePosition, node.AbsolutePosition + node.AbsoluteSize
 		for _, clip in clips do
 			if clip:IsA("ScrollingFrame") then
+				local boundary = clip.AbsolutePosition + clip.AbsoluteSize
+				position = Vector2.new(
+					math.max(position.X, clip.AbsolutePosition.X),
+					math.max(position.Y, clip.AbsolutePosition.Y)
+				)
+				ending = Vector2.new(math.min(ending.X, boundary.X), math.min(ending.Y, boundary.Y))
 				continue
 			end
-			local position, ending = node.AbsolutePosition, node.AbsolutePosition + node.AbsoluteSize
 			local boundary = clip.AbsolutePosition + clip.AbsoluteSize
 			local overflow = {
 				math.max(0, clip.AbsolutePosition.X - position.X),
