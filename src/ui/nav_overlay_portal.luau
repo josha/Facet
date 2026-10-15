@@ -149,9 +149,25 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		if node:GetAttribute("FacetArrivalGroup") == true then
 			return node
 		end
-		return Host.CanvasGroup "OverlayArrival" {
+		local depths: { ComposeTypes.Readable<number> } = {}
+		for _, surface in surfaces do
+			local depth = Compose.cell(surface.ZIndex)
+			Compose.cleanup(assert(runtime.host.observation).observeProperty(surface, "ZIndex", function()
+				depth:set(surface.ZIndex)
+			end))
+			table.insert(depths, depth)
+		end
+		return ctx.fade {
+			Name = "OverlayArrival",
 			BackgroundTransparency = 1,
 			Size = ctx.types.UDim2.fromScale(1, 1),
+			ZIndex = function(use: ComposeTypes.Use): number
+				local highest = 1
+				for _, depth in depths do
+					highest = math.max(highest, use(depth))
+				end
+				return highest
+			end,
 			GroupTransparency = function(use: ComposeTypes.Use): number
 				return if use(ready) then 0 else 1
 			end,

@@ -77,6 +77,29 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("presented surfaces arrive styled", function()
+		verifyHarness:case("restores screen device clipping after the last modal closes", function()
+			local first, second = Compose.cell(false), Compose.cell(false)
+			local screen, _, stop = world(function(UI: FacetControls)
+				return UI.VStack {
+					UI.Alert "First" { isPresented = first, title = "First", actions = { { id = "ok", label = "OK" } } },
+					UI.Alert "Second" {
+						isPresented = second,
+						title = "Second",
+						actions = { { id = "ok", label = "OK" } },
+					},
+				}
+			end)
+			screen.ClipToDeviceSafeArea = true
+			first:set(true)
+			Verify.expect(screen.ClipToDeviceSafeArea):toBe(false)
+			second:set(true)
+			first:set(false)
+			Verify.expect(screen.ClipToDeviceSafeArea):toBe(false)
+			second:set(false)
+			Verify.expect(screen.ClipToDeviceSafeArea):toBe(true)
+			stop()
+		end)
+
 		verifyHarness:case("prepares a sliding row while its automatic layout slot has zero height", function()
 			local screen, frames, stop = world(function(UI: FacetControls)
 				return UI.Toast { message = "Saved", duration = 10 }
@@ -102,7 +125,8 @@ return function(verifyHarness: Verify.Harness)
 				}
 			end, true)
 			local group = screen:FindFirstChild("OverlayArrival", true)
-			Verify.expect(group.GroupTransparency):toBe(1)
+			Verify.expect(group.ZIndex):toBe(group:FindFirstChild("AlertModal", true).ZIndex)
+			Verify.expect(require("./lib/fade").of(group)):toBe(1)
 			for _, node in group:GetDescendants() do
 				if node:IsA("GuiObject") then
 					node.AbsoluteSize = engineLib.types.Vector2.new(210, 40)
@@ -110,14 +134,14 @@ return function(verifyHarness: Verify.Harness)
 			end
 			local render = assert(frames.PreRender)
 			render:Fire()
-			Verify.expect(group.GroupTransparency):toBe(1)
-			group:FindFirstChildWhichIsA("GuiObject").AbsoluteSize = engineLib.types.Vector2.new(236, 40)
+			Verify.expect(require("./lib/fade").of(group)):toBe(1)
+			group:FindFirstChild("AlertModal", true).AbsoluteSize = engineLib.types.Vector2.new(236, 40)
 			render:Fire()
-			Verify.expect(group.GroupTransparency):toBe(1)
+			Verify.expect(require("./lib/fade").of(group)):toBe(1)
 			for _ = 1, 4 do
 				render:Fire()
 			end
-			Verify.expect(group.GroupTransparency):toBe(0)
+			Verify.expect(require("./lib/fade").of(group)):toBe(0)
 			stop()
 			Verify.expect(render.count()):toBe(0)
 		end)
