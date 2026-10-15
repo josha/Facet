@@ -9,6 +9,11 @@ type TextProps = typeof(require("@repo/tools/typecheck/aliases").TextProps)
 type TextValue = typeof(require("@repo/tools/typecheck/aliases").TextPropsText)
 type StackProps = typeof(require("@repo/tools/typecheck/aliases").StackProps)
 type ScrollViewProps = typeof(require("@repo/tools/typecheck/aliases").ScrollViewProps)
+type DemoTab = typeof(require("@repo/examples/types").DemoTab)
+type Scenario = typeof(require("@repo/examples/types").Scenario)
+type DemoTabs = typeof(require("@repo/examples/gallery/scenarios/demo_tabs"))
+local loadDemoTabs: (Instance) -> DemoTabs = require
+local loadScenario: (Instance) -> Scenario = require
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -36,7 +41,7 @@ function browser.mount(opts: MountOpts): any
 	local Host = (app.runtime.constructors :: unknown) :: RobloxHost
 	local adaptive = Facet.adaptive
 	local scenarios = ReplicatedStorage:WaitForChild("FacetScenarios")
-	local demoTabs = require(scenarios:WaitForChild("demo_tabs")) :: any
+	local demoTabs = loadDemoTabs(scenarios:WaitForChild("demo_tabs"))
 
 	local state = {
 		top = Compose.cell("catalog"),
@@ -636,19 +641,16 @@ function browser.mount(opts: MountOpts): any
 				}
 			end),
 			when(ps.examples, function()
-				local entries = {}
+				local entries: { DemoTab } = {}
 				for _, name in page.data.scenarios do
 					local module = scenarios:FindFirstChild(name)
 					if module ~= nil then
-						table.insert(entries, { id = name, label = name, scenario = require(module) :: any })
+						table.insert(entries, { id = name, label = name, scenario = loadScenario(module) })
 					end
 				end
 				local scenarioCtx = table.clone(ctx)
 				scenarioCtx.UI = UI
 				local built = demoTabs(scenarioCtx, "Examples", entries)
-				if built.dispose then
-					Compose.cleanup(built.dispose)
-				end
 				return UI.VStack "Examples" { width = "fill", height = 600, built.screen() }
 			end),
 		}

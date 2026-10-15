@@ -3,6 +3,10 @@
 local Audit = require("./lab_audit")
 local Visible = require("./audit_visible")
 type ReservedKeys = typeof(require("@repo/src/ui/reserved_keys"))
+type VerifyCore = typeof(require("@repo/tools/vendor/verify/src/core"))
+type VerifyRoblox = typeof(require("@repo/tools/vendor/verify/src/roblox"))
+local loadCore: (Instance?) -> VerifyCore = require
+local loadRoblox: (Instance?) -> VerifyRoblox = require
 local Sweep = {}
 
 function Sweep.failure(node: Instance): string?
@@ -255,15 +259,15 @@ end
 function Sweep.run(lab: any, playerGui: PlayerGui, ids: { string }, supplied: any?): any
 	local deps = supplied or {}
 	local modules = game:GetService("ReplicatedStorage"):FindFirstChild("FacetVerify")
-	local Verify: any = deps.Verify or (require :: any)(assert(modules):FindFirstChild("core"))
-	local InputHost: any = deps.InputHost or (require :: any)(assert(modules):FindFirstChild("roblox")).inputHost
+	local Verify: VerifyCore = deps.Verify or loadCore(assert(modules):FindFirstChild("core"))
+	local InputHost = deps.InputHost or loadRoblox(assert(modules):FindFirstChild("roblox")).inputHost
 	local input = assert(deps.input or InputHost.native(), "native virtual input is unavailable")
 	local wait = deps.wait or task.wait
 	local gui = game:GetService("GuiService")
 	local frames = game:GetService("RunService")
 	local inputService = game:GetService("UserInputService")
 	local touchInset: Vector2? = nil
-	local virtual = game:GetService("UserInputService"):CreateVirtualInput() :: any
+	local virtual = game:GetService("UserInputService"):CreateVirtualInput() :: VirtualInput
 	local observations = {}
 	local currentRow: any = nil
 	local logged = game:GetService("LogService").MessageOut:Connect(function(message, kind)

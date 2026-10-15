@@ -9,6 +9,8 @@ type PickerOption = typeof(require("@repo/tools/typecheck/aliases").PickerOption
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
+type Signal = { Fire: (Signal) -> () }
+type FocusNode = { SelectionGained: Signal, SelectionLost: Signal }
 local motion = require("./motion_workloads")
 local workloads = {}
 workloads.VERSION = "native-perf-workloads/2"
@@ -88,11 +90,11 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 	local state = {
 		n = 0,
 		name = name,
-		selected = nil :: any,
+		selected = nil :: (Cell<string> | Cell<{ [string]: boolean? }>)?,
 		observed = {} :: { ObservedCell },
 		nodes = {},
 		close = nil :: (() -> ())?,
-		focused = nil :: any,
+		focused = nil :: FocusNode?,
 		surface = nil :: { panel: string, items: { [string]: boolean } }?,
 		controls = {},
 		status = Compose.cell({
@@ -273,7 +275,8 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 		return ctx.target:FindFirstChild(state.surface.panel, true)
 	end
 	local function transient(kind)
-		state.presented, state.selected = Compose.cell(false), Compose.cell("1")
+		local selected = Compose.cell("1")
+		state.presented, state.selected = Compose.cell(false), selected
 		state.surface = surfaces[kind]
 		state.presentation = kind
 		state.opens, state.closes, state.settled, state.surfaceItems, state.settleFrames = 0, 0, 0, 0, 0
@@ -323,10 +326,10 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 		end
 		return UI.Picker({
 			options = choices,
-			selected = state.selected,
+			selected = selected,
 			isPresented = state.presented,
 			onChange = function(value)
-				state.selected:set(value)
+				selected:set(value)
 			end,
 			style = "menu",
 		})
@@ -487,14 +490,15 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 					table.insert(children, label(`Menu item {index}`, 16))
 				end
 			else
-				state.selected = Compose.cell("normal")
+				local selected = Compose.cell("normal")
+				state.selected = selected
 				table.insert(children, label("Race setup", 18))
 				table.insert(
 					children,
 					UI.Picker({
 						label = "Difficulty",
 						style = "segmented",
-						selected = state.selected,
+						selected = selected,
 						textSize = function(use: Use)
 							return 16 * use(state.textSize)
 						end,
@@ -566,7 +570,8 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			state.list = viewport(Host.ScrollingFrame(children))
 			return state.list
 		elseif name == "adaptive-navigation-images" or name == "navigation-customization" then
-			state.selected = Compose.cell("garage")
+			local selected = Compose.cell("garage")
+			state.selected = selected
 			state.placement = Compose.cell("topBar")
 			state.contentBuilds = 0
 			state.tabs = {
@@ -621,7 +626,7 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 			end
 			return UI.TabView({
 				tabs = state.tabs,
-				selection = state.selected,
+				selection = selected,
 				customization = state.customization,
 				placement = state.placement,
 				style = "sidebarAdaptable",
@@ -1006,11 +1011,8 @@ local function createStandard(ctx: { [string]: any }, name: string, dataset: Dat
 	end
 	return state
 end
-function workloads.create(
-	ctx: { [string]: any },
-	name: string,
-	dataset: DatasetModule
-): typeof(motion.create(nil :: any, nil :: any, nil :: any)) | typeof(createStandard(nil :: any, "", nil :: any))
+type Workload = typeof(motion.create({}, "", nil)) | typeof(createStandard({}, "", require("./dataset")))
+function workloads.create(ctx: { [string]: any }, name: string, dataset: DatasetModule): Workload
 	if name == "dense-motion" or name == "control-motion" then
 		return motion.create(ctx, name, dataset)
 	end

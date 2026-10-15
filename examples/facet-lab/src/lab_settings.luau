@@ -65,19 +65,25 @@ function lab_settings.new(ctx: any, input: UserInputService): any
 		text = Compose.cell("automatic"),
 	}
 
-	local function live(object: Instance, property: string): any
-		local value = Compose.cell((object :: any)[property])
+	local function live(object: Instance, property: string, read: () -> unknown): any
+		local value = Compose.cell(read())
 		local connection = object:GetPropertyChangedSignal(property):Connect(function()
-			value:set((object :: any)[property])
+			value:set(read())
 		end)
 		Compose.cleanup(function()
 			connection:Disconnect()
 		end)
 		return value
 	end
-	local realTransparency = live(gui, "PreferredTransparency")
-	local realInput = live(input, "PreferredInput")
-	local realText = live(gui, "PreferredTextSize")
+	local realTransparency = live(gui, "PreferredTransparency", function()
+		return gui.PreferredTransparency
+	end)
+	local realInput = live(input, "PreferredInput", function()
+		return input.PreferredInput
+	end)
+	local realText = live(gui, "PreferredTextSize", function()
+		return gui.PreferredTextSize
+	end)
 
 	local function effectiveInput(use: any): string
 		local choice = use(cells.input)

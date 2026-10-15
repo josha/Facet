@@ -4,6 +4,8 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
+type ThemeModule = typeof(require("@repo/examples/types").ThemeModule)
+local loadTheme: (ModuleScript) -> ThemeModule = require
 
 if not game:IsLoaded() then
 	game.Loaded:Wait()
@@ -15,13 +17,13 @@ local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
-local Facet = require(ReplicatedStorage:WaitForChild("Facet")) :: any
-local showcase = require(ReplicatedStorage:WaitForChild("FacetShowcase"):WaitForChild("screen")) :: any
-local lab_settings = require(assert(script.Parent).lab_settings) :: any
-local catalog = require(assert(script.Parent).catalog) :: any
-local browser = require(assert(script.Parent).browser) :: any
-local lab_audit = require(assert(script.Parent).lab_audit) :: any
-local lab_sweep = require(assert(script.Parent).lab_sweep) :: any
+local Facet = require(ReplicatedStorage:WaitForChild("Facet"))
+local showcase = require(ReplicatedStorage:WaitForChild("FacetShowcase"):WaitForChild("screen"))
+local lab_settings = require(script.Parent.lab_settings)
+local catalog = require(script.Parent.catalog)
+local browser = require(script.Parent.browser)
+local lab_audit = require(script.Parent.lab_audit)
+local lab_sweep = require(script.Parent.lab_sweep)
 local Compose: ComposeModule = Facet.Compose
 
 pcall(function()
@@ -37,9 +39,7 @@ for _, folder in { ReplicatedStorage:WaitForChild("FacetThemes"), ReplicatedStor
 		table.insert(modules, module)
 	end
 end
-local packages = showcase.themePackages(Facet.themes, modules, function(module)
-	return require(module) :: any
-end)
+local packages = showcase.themePackages(Facet.themes, modules, loadTheme)
 packages.Neutral = assert(Facet.themes.define(Facet.themes.neutralPackage()))
 
 local lab: any

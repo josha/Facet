@@ -38,8 +38,9 @@ env.require = function(path: string): unknown
 	local name = assert(string.match(path, "^%./([%w_]+)$"))
 	return Lute.chunk.load(fs.readFileToString(`src/{name}.luau`), { name = name, environment = env })()
 end
+type Catalog = { PAGE_DATA: { [string]: PageData } }
 local catalog =
-	Lute.chunk.load(fs.readFileToString("src/catalog.luau"), { name = "catalog", environment = env })() :: any
+	Lute.chunk.load(fs.readFileToString("src/catalog.luau"), { name = "catalog", environment = env })() :: Catalog
 
 local bodies: { [string]: string } = {}
 for _, entry in fs.listDirectory(FACET) do
