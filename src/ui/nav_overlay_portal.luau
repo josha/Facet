@@ -127,6 +127,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 				filled = filled or (surface.AbsoluteSize.X > 0 and surface.AbsoluteSize.Y > 0)
 				for _, child in descendants do
 					if child:IsA("GuiObject") then
+						filled = filled or (child.Visible and child.AbsoluteSize.X > 0 and child.AbsoluteSize.Y > 0)
 						local value = `{child.AbsolutePosition}:{child.AbsoluteSize}:{child.Visible}`
 						if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
 							value ..= `:{child.TextBounds}`

@@ -77,6 +77,22 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("presented surfaces arrive styled", function()
+		verifyHarness:case("prepares a sliding row while its automatic layout slot has zero height", function()
+			local screen, frames, stop = world(function(UI: FacetControls)
+				return UI.Toast { message = "Saved", duration = 10 }
+			end, true)
+			local row = screen:FindFirstChild("ToastRow", true)
+			local slot = screen:FindFirstChild("ToastSlot", true)
+			Verify.expect(slot.AbsoluteSize.Y):toBe(0)
+			row.AbsoluteSize = engineLib.types.Vector2.new(210, 40)
+			local render = assert(frames.PreRender)
+			for _ = 1, 4 do
+				render:Fire()
+			end
+			Verify.expect(require("./lib/fade").of(row)):toBe(0)
+			stop()
+			Verify.expect(render.count()):toBe(0)
+		end)
 		verifyHarness:case("waits for deferred geometry before the first painted frame", function()
 			local screen, frames, stop = world(function(UI: FacetControls)
 				return UI.Alert {
