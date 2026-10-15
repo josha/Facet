@@ -7,6 +7,7 @@ These rules apply to every interface ticket in this project.
 - `src/server` holds the game model. It owns all game state and validates every request.
 - `src/shared` holds the network contract and the shared data. The client and the server both use it.
 - `src/client/Interface` is where the interface goes. `src/client/init.client.luau` calls `Interface.mount(context)` once when the player joins.
+- The world team owns the plaza, circuit, karts, driving, and race camera. `src/client/Driving.client.luau` is also out of scope. Keep its project mapping. Both interface arms use the same world and server.
 - `Packages` maps to `ReplicatedStorage.Packages`. Put third-party Luau packages there.
 - Do not change `src/server` or `src/shared`. The server team owns them. If the contract does not give you something, work with what it gives you.
 - Build the place with `rojo build default.project.json -o game.rbxlx`. The build must succeed.
@@ -32,6 +33,17 @@ Players use these devices. Every screen must work and read well on all of them:
 - Text must be readable: good contrast and no clipped or cut text.
 - A player with only a gamepad must reach and use every control with the D-pad (or left stick) and the A button. When a screen or a dialog opens and the player uses a gamepad, put the selection on a sensible control.
 - Roblox reserves the Escape key and the gamepad Start button for its own menu. Do not use them.
+
+## Driving and the race HUD
+
+The player walks in the hub. A race seats the player in a kart on the grid. The server returns the player to the plaza at the end of the race. The race camera follows the kart and restores the default camera in the hub.
+
+- Keyboard: WASD or arrow keys drive. Hold Left Shift during a turn, then release for a short boost.
+- Gamepad: the left thumbstick steers and the triggers drive. Hold X during a turn, then release for a short boost.
+- Touch: use the default Roblox thumbstick. Hold a sharp turn for at least 0.35 seconds, then ease the stick toward the center for a short boost. The same steering charge works on all devices.
+- Do not bind movement keys or gamepad driving inputs in the passive race HUD. Do not set `GuiService.SelectedObject` during driving. A panel that the player opens can use selection; closing it must release selection back to driving.
+- Keep interactive UI out of the lower-left thumbstick area: the left 35% of the bottom 40% of the screen. Keep the central third of the screen clear from 35% to 65% of screen height so the player can see the road. Use edge readouts for race information.
+- The server owns standings, finish order, eliminations, and rewards. Use the existing clients and remotes. Do not add a driving system, camera, world, or extra vehicle GUI.
 
 ## Words in the interface
 

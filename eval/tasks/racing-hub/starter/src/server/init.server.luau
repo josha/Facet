@@ -2,6 +2,8 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+require(script.World).build()
+local RaceService = require(script.RaceService)
 local Ledger = require(script.Ledger)
 local handlers: { [string]: (string, { [string]: unknown }?) -> unknown } = {}
 do
@@ -561,7 +563,7 @@ local admin = Instance.new("BindableFunction")
 admin.Name = "AdminCommands"
 admin.Parent = ServerStorage
 local raceManual = false
-local lastPosition = 0
+
 local DialogueService = require(script.DialogueService)
 local raceLoadouts: { [Player]: { kart: string, driver: string } } = {}
 local positions: { string } = { "You", "Nova", "Pip", "Rook", "Zed", "Ivy", "Bolt", "Moss" }
@@ -669,9 +671,8 @@ task.spawn(function()
 		end
 		lastQueue = queue.phase
 		local round = RoundService.snapshot()
-		if round.phase == "Round" and not raceManual and os.clock() - lastPosition >= 5 then
-			lastPosition = os.clock()
-			table.insert(positions, table.remove(positions, 1) :: string)
+		if round.phase == "Round" and not raceManual then
+			positions = RaceService.positions()
 		end
 		if round.phase == "Round" and lastRound ~= round.round then
 			lastRound = round.round
