@@ -114,6 +114,23 @@ the shared presentation helper holds only the measured box during motion.
 These checks catch layout changes and scrollbar flashes, not every paint or
 rasterization defect. Keep a visual pass for theme paint and device rendering.
 
+On the final frame, each visible text element must have `TextFits` set to
+`true`. Its bounds must stay inside each ancestor that clips descendants,
+including `CanvasGroup`, within 0.5 pixels. A failure names the text element,
+the clipping ancestor and the overflow. The planted label proves that the
+check rejects clipping. `frame_stability` applies the same check after each
+interaction reaches rest.
+
+The attachment cases check Help, Callout, Popover, Menu and Picker at each
+preferred text size and at wide and narrow widths. They check the panel gap,
+the tail position and the safe area. A narrow Picker uses its existing
+adaptive sheet presentation. Its sheet must stay inside the safe area.
+
+The modal scrim cases in `ports_overlays` run on desktop, `iphone_14` and
+`xbox`. They check the whole viewport, including core UI and device unsafe
+areas, within one pixel. They also check safe panel bounds and restoration
+of the screen's device clipping policy after the last modal closes.
+
 `table_resize` compares resized large headings with freshly created native
 text, including shrinking and widening columns under display scaling. It also
 checks that the header band reaches the outer scrollbar edge.

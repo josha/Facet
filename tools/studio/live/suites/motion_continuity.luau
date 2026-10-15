@@ -143,8 +143,8 @@ table.insert(cases, {
 				Host.CanvasGroup "ClippingGroup" {
 					Size = UDim2.fromOffset(160, 80),
 					Host.TextLabel "AncestorOverflow" {
-						Size = UDim2.fromOffset(150, 40),
-						Position = UDim2.fromOffset(20, 50),
+						Size = UDim2.fromOffset(170, 40),
+						Position = UDim2.fromOffset(20, 70),
 						Text = "Clipped",
 						TextSize = 24,
 					},
@@ -157,11 +157,13 @@ table.insert(cases, {
 			}
 		end)
 		local faults = clipping.inspect(stage)
+		local groupPath = t.find(stage, "ClippingGroup"):GetFullName()
+		local framePath = t.find(stage, "ClippingFault"):GetFullName()
 		local label, group, frame = false, false, false
 		for _, fault in faults do
 			label = label or string.find(fault.element, "TextOverflow", 1, true) ~= nil
-			group = group or string.find(fault.ancestor, "ClippingGroup", 1, true) ~= nil
-			frame = frame or string.find(fault.ancestor, "ClippingFault", 1, true) ~= nil
+			group = group or fault.ancestor == groupPath
+			frame = frame or fault.ancestor == framePath
 		end
 		t.check("rejects text that does not fit", label, faults)
 		t.check("rejects CanvasGroup clipping", group, faults)
@@ -235,7 +237,8 @@ do
 		run = function(t: any)
 			for _, motion in { "normal", "limited", "none" } do
 				for _, shape in { Vector2.new(960, 720), Vector2.new(390, 720) } do
-					for _, large in { false, true } do
+					for _, textSize in { "Medium", "Large", "Larger", "Largest" } do
+						local large = textSize ~= "Medium"
 						local copy = if large
 							then TEXT .. " Please confirm the selected driver and race details before continuing."
 							else TEXT
@@ -262,7 +265,7 @@ do
 							local function change(value: boolean)
 								open:set(value)
 							end
-							trigger = UI.Button "Trigger" {
+							trigger = UI.Button "Anchor" {
 								label = "Open",
 								Position = UDim2.fromOffset(40, 100),
 								help = if kind == "Help" then copy else nil,
@@ -359,7 +362,7 @@ do
 							environment = {
 								preferredInput = "Gamepad",
 								displaySize = "Large",
-								preferredTextSize = if large then "Largest" else "Medium",
+								preferredTextSize = textSize,
 							},
 						})
 						local layer = stage:FindFirstAncestorWhichIsA("LayerCollector")
@@ -421,19 +424,30 @@ do
 						local finalPanel = t.find(layer, names[kind])
 						t.check("settled panel exists", finalPanel ~= nil)
 						if finalPanel then
-							local faults = clipping.inspect(finalPanel)
-							t.check(
-								`{kind}/{motion}/{shape.X}/{if large then "Largest" else "Medium"} text is not clipped`,
-								#faults == 0,
-								faults
-							)
+							local faults, sampled = clipping.inspect(finalPanel)
+							t.check("settled panel has visible text", sampled > 0, sampled)
+							t.check(`{kind}/{motion}/{shape.X}/{textSize} text is not clipped`, #faults == 0, faults)
+							if
+								kind == "Help"
+								or kind == "Callout"
+								or kind == "Popover"
+								or (kind == "Menu" and shape.X >= 600)
+							then
+								local anchored = if kind == "Menu" then t.find(stage, "Trigger") else trigger
+								local tail = t.find(
+									layer,
+									if kind == "Help" then "HelpTail" elseif kind == "Callout" then "Arrow" else "Tail"
+								)
+								local gap = if kind == "Menu"
+									then 4
+									else (if kind == "Help" then 6 else 8) + theme.package.metrics.space.m * math.sqrt(
+										2
+									) / 2
+								geometry.attachment(t, finalPanel, anchored, t.find(stage, "Screen"), gap, tail)
+							end
 						end
-						checkFrames(
-							t,
-							`{kind}/{motion}/{shape.X}/{theme.name}/{if large then "large" else "standard"}`,
-							frames
-						)
-						if large and motion == "normal" then
+						checkFrames(t, `{kind}/{motion}/{shape.X}/{theme.name}/{textSize}`, frames)
+						if textSize == "Largest" and motion == "normal" then
 							if kind == "Help" then
 								game:GetService("GuiService").SelectedObject = nil
 							else
@@ -563,13 +577,21 @@ for _, kind in { "Help", "Callout", "Popover", "Menu", "Picker" } do
 						else
 							opened:set(true)
 						end
-						t.settle(90)
 						local name = if kind == "Help"
 							then "Help"
 							elseif kind == "Callout" then "CalloutPanel"
 							elseif kind == "Popover" then "Panel"
 							else "MenuPanel"
-						local panel = t.find(layer, name)
+						local panel
+						local started = os.clock()
+						repeat
+							t.settle(1)
+							panel = t.find(layer, name)
+						until (panel and os.clock() - started >= 1.2 and select(2, clipping.inspect(panel)) > 0)
+							or os.clock() - started >= 10
+						if panel then
+							t.stable(panel, 8)
+						end
 						t.note(
 							"attachment variant",
 							{ kind = kind, width = width, preference = preference.Name, x = location.X, y = location.Y }
@@ -585,7 +607,22 @@ for _, kind in { "Help", "Callout", "Popover", "Menu", "Picker" } do
 							local gap = if kind == "Menu" or kind == "Picker"
 								then 4
 								else (if kind == "Help" then 6 else 8) + side * math.sqrt(2) / 2
-							geometry.attachment(t, panel, anchor, t.find(stage, "Screen"), gap, tail)
+							local variant = `{kind}/{width}/{preference.Name}/{location.X}/{location.Y}`
+							if kind == "Picker" and width < 600 then
+								t.note(variant .. " presentation", "adaptive sheet")
+								t.inside(
+									variant .. " sheet stays inside safe area",
+									panel,
+									t.rect(t.find(stage, "Screen")),
+									0.5
+								)
+							else
+								geometry.attachment({
+									check = function(name: string, ok: boolean, detail: unknown?)
+										t.check(variant .. " " .. name, ok, detail)
+									end,
+								}, panel, anchor, t.find(stage, "Screen"), gap, tail)
+							end
 							local faults = clipping.inspect(panel)
 							t.check("anchored overlay text is not clipped", #faults == 0, faults)
 						end

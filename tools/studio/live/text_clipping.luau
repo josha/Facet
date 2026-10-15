@@ -1,15 +1,17 @@
 --!strict
-export type Fault = { element: string, ancestor: string, overflow: { number }, text: string }
+export type Fault = { element: string, ancestor: string, overflow: { number }, text: string, reason: string }
 
-local function inspect(root: Instance): { Fault }
+local function inspect(root: Instance): ({ Fault }, number)
 	local faults: { Fault } = {}
+	local sampled = 0
 	local nodes = root:GetDescendants()
 	table.insert(nodes, root)
 	for _, node in nodes do
 		if not (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox")) then
 			continue
 		end
-		if node.Text == "" or node.TextTransparency >= 1 then
+		local words = if node.Text ~= "" then node.Text elseif node:IsA("TextBox") then node.PlaceholderText else ""
+		if words == "" or node.TextTransparency >= 1 then
 			continue
 		end
 		local low, high = node.AbsolutePosition, node.AbsolutePosition + node.AbsoluteSize
@@ -33,11 +35,13 @@ local function inspect(root: Instance): { Fault }
 		if not visible or high.X <= low.X or high.Y <= low.Y then
 			continue
 		end
+		sampled += 1
 		if not node.TextFits then
 			table.insert(faults, {
 				element = node:GetFullName(),
 				ancestor = node:GetFullName(),
-				text = node.Text,
+				text = words,
+				reason = "TextFits is false",
 				overflow = {
 					math.max(0, node.TextBounds.X - node.AbsoluteSize.X),
 					math.max(0, node.TextBounds.Y - node.AbsoluteSize.Y),
@@ -54,19 +58,17 @@ local function inspect(root: Instance): { Fault }
 				math.max(0, ending.Y - boundary.Y),
 			}
 			if math.max(table.unpack(overflow)) > 0.5 then
-				table.insert(
-					faults,
-					{
-						element = node:GetFullName(),
-						ancestor = clip:GetFullName(),
-						overflow = overflow,
-						text = node.Text,
-					}
-				)
+				table.insert(faults, {
+					element = node:GetFullName(),
+					ancestor = clip:GetFullName(),
+					overflow = overflow,
+					text = words,
+					reason = "clipping ancestor overflow: left, top, right, bottom",
+				})
 			end
 		end
 	end
-	return faults
+	return faults, sampled
 end
 
 return { inspect = inspect }
