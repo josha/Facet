@@ -28,7 +28,16 @@ export type Instance = {
 	GetPropertyChangedSignal: (self: Instance, name: string) -> Signal<()>,
 }
 export type PropertyObservable = { GetPropertyChangedSignal: (self: PropertyObservable, name: string) -> Signal<()> }
-export type DataModel = { GetService: (self: DataModel, name: string) -> { Heartbeat: Signal<number> } }
+export type DataModel = {
+	GetService: (
+		self: DataModel,
+		name: string
+	) -> {
+		Heartbeat: Signal<number>,
+		PreRender: Signal<number>,
+		IsClient: (unknown) -> boolean,
+	},
+}
 
 export type Engine = {
 	new: (className: string) -> Instance,
@@ -95,7 +104,7 @@ local function ambient(): Engine
 		new = function(className: string): Instance
 			return instances.new(className)
 		end,
-		heartbeat = runService.Heartbeat,
+		heartbeat = if runService:IsClient() then runService.PreRender else runService.Heartbeat,
 		clock = globals.os.clock,
 		typeName = typeName,
 		destroy = function(object: unknown)

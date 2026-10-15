@@ -6,7 +6,7 @@ local Diagnostics = require "../diagnostics"
 local Easing = require "./easing"
 local Host = require "../host"
 local Owner = require "../ownership/owner"
-local Reactor = require "../reactive/reactor"
+local ownedFrame = require "../ownership/frame"
 local Spring = require "./spring"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
@@ -72,93 +72,7 @@ local function policyOf(value: ReducedMotion?, primitive: string): Types.Body<bo
 	return nil
 end
 
-type HubMember = {
-	active: boolean,
-	callback: (delta: number) -> (),
-}
-
-local function createMotion(
-	host: Host.Host,
-	ownerOf: (primitive: string) -> Owner.Owner,
-	reactor: Reactor.Reactor
-): Motion
-	local hubMembers: { HubMember } = {}
-	local hubLive = 0
-	local hubUnsubscribe: Host.Unsubscribe? = nil
-	local hubDispatching = false
-	local hubDelta = 0
-
-	local function runMembers(): ...unknown
-		local count = #hubMembers
-		for index = 1, count do
-			local member = hubMembers[index]
-			if member.active then
-				member.callback(hubDelta)
-			end
-		end
-	end
-
-	local function hubCompact()
-		if hubLive == #hubMembers then
-			return
-		end
-		local write = 0
-		for read = 1, #hubMembers do
-			local member = hubMembers[read]
-			if member.active then
-				write += 1
-				hubMembers[write] = member
-			end
-		end
-		for index = #hubMembers, write + 1, -1 do
-			hubMembers[index] = nil
-		end
-	end
-
-	local function hubStop()
-		if hubLive > 0 then
-			return
-		end
-		local active = hubUnsubscribe
-		if active ~= nil then
-			hubUnsubscribe = nil
-			active()
-		end
-	end
-
-	local function hubStep(delta: number)
-		hubDelta = delta
-		hubDispatching = true
-		local ok, err: unknown = pcall(reactor.batch, reactor, runMembers)
-		hubDispatching = false
-		hubCompact()
-		hubStop()
-		if not ok then
-			error(err, 0)
-		end
-	end
-
-	local function hubAdd(frames: Host.Frames, callback: (delta: number) -> ()): HubMember
-		local member: HubMember = { active = true, callback = callback }
-		table.insert(hubMembers, member)
-		hubLive += 1
-		if hubUnsubscribe == nil then
-			hubUnsubscribe = frames.onFrame(hubStep)
-		end
-		return member
-	end
-
-	local function hubRemove(member: HubMember)
-		if not member.active then
-			return
-		end
-		member.active = false
-		hubLive -= 1
-		if not hubDispatching then
-			hubCompact()
-			hubStop()
-		end
-	end
+local function createMotion(host: Host.Host, ownerOf: (primitive: string) -> Owner.Owner): Motion
 	local function animate<T>(
 		primitive: string,
 		source: Types.Body<T>,
@@ -184,9 +98,6 @@ local function createMotion(
 		local output: Types.Cell<T>
 		local typeName = ""
 
-		local hubMember: HubMember? = nil
-		local disposed = false
-
 		local function publish()
 			local normalise = codec.normalise
 			if normalise ~= nil then
@@ -195,36 +106,15 @@ local function createMotion(
 			output:set(codec.decode(current))
 		end
 
-		local function stop()
-			local active = hubMember
-			if active ~= nil then
-				hubMember = nil
-				hubRemove(active)
-			end
-		end
-
+		local pump: ownedFrame.Pump
 		local function onFrame(delta: number)
-			if disposed then
-				return
-			end
 			local arrived = advance(delta)
 			publish()
 			if arrived then
-				stop()
+				pump.stop()
 			end
 		end
-
-		local function start()
-			if disposed or hubMember ~= nil then
-				return
-			end
-			hubMember = hubAdd(frames, onFrame)
-		end
-
-		owner.own(function()
-			disposed = true
-			stop()
-		end)
+		pump = ownedFrame(owner, frames.onFrame, onFrame)
 
 		owner.watch(function(use)
 			local wanted = source(use)
@@ -264,7 +154,7 @@ local function createMotion(
 			end
 			codec.encode(wanted, target)
 			if reduced then
-				stop()
+				pump.stop()
 				if settleNow ~= nil then
 					settleNow()
 				end
@@ -278,7 +168,7 @@ local function createMotion(
 			if onRetarget ~= nil then
 				onRetarget()
 			end
-			start()
+			pump.start()
 		end)
 
 		return output
