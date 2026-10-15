@@ -5,6 +5,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local overlayPresence = require("./nav_overlay_presence")
 local rest = require("./rest")
 local fontReadiness = require("./font_readiness")
+local textMeasure = require("./text_measure")
 local arrival = require("./overlay_arrival")
 
 export type Portal = {
@@ -121,11 +122,13 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		local ready = rest(ctx, function(): (string, boolean, boolean?)
 			local signature: { string } = {}
 			local filled = false
+			local measured = true
 			for _, surface in surfaces do
 				local descendants = surface:GetDescendants()
 				table.insert(descendants, surface)
 				filled = filled or (surface.AbsoluteSize.X > 0 and surface.AbsoluteSize.Y > 0)
 				for _, child in descendants do
+					measured = measured and textMeasure.ready(child)
 					if child:IsA("GuiObject") then
 						filled = filled or (child.Visible and child.AbsoluteSize.X > 0 and child.AbsoluteSize.Y > 0)
 						local value = `{child.AbsolutePosition}:{child.AbsoluteSize}:{child.Visible}`
@@ -136,7 +139,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 					end
 				end
 			end
-			return table.concat(signature, ";"), filled, fontsReady()
+			return table.concat(signature, ";"), filled, fontsReady() and measured
 		end, nil, true)
 		Compose.watch(function(use: ComposeTypes.Use)
 			if use(ready) then
