@@ -690,10 +690,21 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(arrow.Visible):toBe(false)
 					panel.AbsoluteSize = w.Vector2.new(280, 120)
 					w.advance(1 / 60, 2)
-					w.advance(0.06)
+					Verify.expect(fadeKit.of(panel)):toBe(1)
 					Verify.expect(panel.Visible):toBe(true)
 					Verify.expect(arrow.Visible):toBe(true)
-					w.advance(0.06)
+					local previous, intermediate = 1, 0
+					for _ = 1, 8 do
+						w.advance(1 / 60)
+						local alpha = fadeKit.of(panel)
+						Verify.expect(alpha <= previous):toBe(true)
+						Verify.expect(panel.Visible):toBe(arrow.Visible)
+						if alpha > 0 and alpha < 1 then
+							intermediate += 1
+						end
+						previous = alpha
+					end
+					Verify.expect(intermediate > 0):toBe(true)
 					Verify.expect((fadeKit.of(panel))):toBe(0)
 					w.stop()
 				end,
