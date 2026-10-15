@@ -2,6 +2,10 @@
     "name":  "racing-hub",
     "tree":  {
                  "$className":  "DataModel",
+                 "Lighting": {
+                     "$className": "Lighting",
+                     "$properties": { "Technology": "Future" }
+                 },
                  "ReplicatedStorage":  {
                                            "Shared":  {
                                                           "$path":  "../../../tasks/racing-hub/starter/src/shared"
