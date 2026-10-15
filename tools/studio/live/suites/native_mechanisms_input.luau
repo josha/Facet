@@ -50,8 +50,7 @@ end
 add("held-button-destruction-cancels", {}, function(t)
 	local value = { down = 0, cancelled = 0, up = 0 }
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.Button {
-			Name = "Held",
+		return UI.Button "Held" {
 			label = "Hold then remove",
 			Size = UDim2.fromOffset(240, 80),
 			onPointerDown = function()
@@ -154,12 +153,11 @@ add("form-controls-traverse-in-document-order", {}, function(t)
 			Size = UDim2.fromOffset(360, 700),
 			BackgroundTransparency = 1,
 			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8) }) :: unknown,
-			UI.Button { Name = "First", label = "First", LayoutOrder = 1 },
-			UI.Slider { Name = "Volume", value = Compose.cell(0.5), LayoutOrder = 2 },
-			UI.Stepper { Name = "Laps", value = Compose.cell(3), min = 1, max = 9, LayoutOrder = 3 },
-			UI.Toggle { Name = "Music", value = Compose.cell(true), label = "Music", LayoutOrder = 4 },
-			UI.Picker {
-				Name = "Mode",
+			UI.Button "First" { label = "First", LayoutOrder = 1 },
+			UI.Slider "Volume" { value = Compose.cell(0.5), LayoutOrder = 2 },
+			UI.Stepper "Laps" { value = Compose.cell(3), min = 1, max = 9, LayoutOrder = 3 },
+			UI.Toggle "Music" { value = Compose.cell(true), label = "Music", LayoutOrder = 4 },
+			UI.Picker "Mode" {
 				style = "segmented" :: "segmented",
 				selected = Compose.cell("a"),
 				options = {
@@ -169,7 +167,7 @@ add("form-controls-traverse-in-document-order", {}, function(t)
 				indicator = "underline" :: "underline",
 				LayoutOrder = 5,
 			},
-			UI.Button { Name = "Last", label = "Last", LayoutOrder = 6 },
+			UI.Button "Last" { label = "Last", LayoutOrder = 6 },
 		}
 	end, { frames = 12 })
 	value.stage = stage
@@ -211,8 +209,7 @@ add("return-activates-the-selected-row", {}, function(t)
 		for index = 1, 30 do
 			rows[index] = { id = tostring(index) }
 		end
-		return UI.VirtualList {
-			Name = "List",
+		return UI.VirtualList "List" {
 			from = rows,
 			key = function(item)
 				return item.id
@@ -248,9 +245,8 @@ end, {
 add("open-tray-steps-sideways", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.RowActions {
-			Name = "Row",
-			content = UI.Button { Name = "Content", label = "Message", Size = UDim2.fromScale(1, 1) },
+		return UI.RowActions "Row" {
+			content = UI.Button "Content" { label = "Message", Size = UDim2.fromScale(1, 1) },
 			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
 			trailing = {
 				{ id = "archive", label = "Archive", onActivate = function() end },
@@ -302,9 +298,9 @@ add("tab-key-traversal", {}, function(t)
 			Size = UDim2.fromOffset(600, 60),
 			BackgroundTransparency = 1,
 			Host.UIListLayout({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) }) :: unknown,
-			UI.Button { Name = "A", label = "A" },
-			UI.Button { Name = "B", label = "B" },
-			UI.Button { Name = "C", label = "C" },
+			UI.Button "A" { label = "A" },
+			UI.Button "B" { label = "B" },
+			UI.Button "C" { label = "C" },
 		}
 	end, { frames = 10 })
 	GuiService.SelectedObject = t.find(stage, "A")

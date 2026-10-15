@@ -497,7 +497,7 @@ return function(harness: Verify.Harness)
 					end,
 					collectionId = "rack",
 					render = function(): GuiObject
-						return UI.Button { Name = "Tile", label = "Tile" }
+						return UI.Button "Tile" { label = "Tile" }
 					end,
 				}
 			end, screen)
@@ -575,12 +575,12 @@ return function(harness: Verify.Harness)
 						}
 					end,
 					render = function(): GuiObject
-						return UI.Button { Name = "Tile", label = "A" }
+						return UI.Button "Tile" { label = "A" }
 					end,
 				}
 			end, screen)
 			local stopTarget, target = runtime.mount(function()
-				local node = UI.Button { Name = "Target", label = "Place" }
+				local node = UI.Button "Target" { label = "Place" }
 				UI.dropTarget(node, {
 					onDrop = function()
 						drops += 1
@@ -659,8 +659,7 @@ return function(harness: Verify.Harness)
 						}
 					end,
 					render = function(current: Facet.Readable<{ id: number }>): GuiObject
-						return UI.Button {
-							Name = "Tile",
+						return UI.Button "Tile" {
 							label = function(use: Facet.Use)
 								return tostring(use(current).id)
 							end,
@@ -736,7 +735,7 @@ return function(harness: Verify.Harness)
 			input.InputEnded:Fire(scrollPointer)
 			touchAxis = "XY"
 			local stopTarget, target = runtime.mount(function()
-				local target = UI.Button { Name = "Destination", label = "Place here" }
+				local target = UI.Button "Destination" { label = "Place here" }
 				UI.dropTarget(target, {
 					onDrop = function(value)
 						Verify.expect(value):toBe(1)

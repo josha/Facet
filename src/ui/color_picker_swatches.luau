@@ -78,8 +78,7 @@ return function(
 				return true
 			end
 			return ctx.styled(
-				UI.Button({
-					Name = "Save",
+				UI.Button("Save")({
 					name = "Save colour",
 					appearance = "utility",
 					Size = D2.fromOffset(CELL, CELL),
@@ -130,8 +129,7 @@ return function(
 				local value = use(held)
 				return value ~= nil and color.same(value, use(source).color)
 			end
-			local node = UI.Button({
-				Name = key,
+			local node = UI.Button(key)({
 				name = function(use: Use): string
 					local entry = use(source)
 					local named = entry.label or color.hex(entry.color)
@@ -246,8 +244,7 @@ return function(
 		if removing then
 			table.insert(
 				parts,
-				UI.Button({
-					Name = "Edit",
+				UI.Button("Edit")({
 					label = function(use: Use): string
 						return if use(editing) then "Done" else "Edit"
 					end,

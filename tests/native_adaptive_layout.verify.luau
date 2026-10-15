@@ -130,7 +130,7 @@ return function(verifyHarness: Verify.Harness)
 							return UI.AdaptiveStack {
 								gap = 20,
 								Host.Frame { Name = "A" } :: unknown,
-								UI.Divider { Name = "Line" },
+								UI.Divider "Line" {},
 								Host.Frame { Name = "B", UI.fill() },
 								Host.Frame { Name = "C" },
 							}
@@ -180,7 +180,7 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_adaptive_layout::AdaptiveStack that fits::stays a row along a horizontal scroll axis, where the width is unbounded",
 				run = function()
 					local root, engine, stop = build(function(UI: FacetControls)
-						return UI.ScrollView { axis = "x" :: "x", UI.AdaptiveStack { Name = "Row" } }
+						return UI.ScrollView { axis = "x" :: "x", UI.AdaptiveStack "Row" {} }
 					end)
 					local row = root:FindFirstChild("Row")
 					sized(engine, row, 100, 40)

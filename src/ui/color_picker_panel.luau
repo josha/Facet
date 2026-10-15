@@ -165,8 +165,7 @@ return function(
 			table.insert(actions, UI.Button(cancelProps))
 			table.insert(
 				actions,
-				UI.Button({
-					Name = "Apply",
+				UI.Button("Apply")({
 					label = "Apply",
 					appearance = "emphasis",
 					onActivate = function()
@@ -180,8 +179,7 @@ return function(
 		elseif overlay then
 			table.insert(
 				actions,
-				UI.Button({
-					Name = "Done",
+				UI.Button("Done")({
 					label = "Done",
 					onActivate = function()
 						close("activate")

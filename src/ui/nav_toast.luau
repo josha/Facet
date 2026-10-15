@@ -544,8 +544,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			}),
 		})
 		local action = spec.action :: Overlay.ToastAction
-		local button = UI.Button {
-			Name = "Action",
+		local button = UI.Button "Action" {
 			label = action.label,
 			LayoutOrder = 2,
 			onActivate = function()
@@ -609,8 +608,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			rowProps[#rowProps + 1] = ctx.icon(spec.icon, { Name = "Icon", LayoutOrder = 0 })
 		end
 		if closable then
-			rowProps[#rowProps + 1] = UI.Button {
-				Name = "Close",
+			rowProps[#rowProps + 1] = UI.Button "Close" {
 				name = "Close",
 				icon = "close",
 				LayoutOrder = 3,

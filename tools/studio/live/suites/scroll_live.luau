@@ -22,8 +22,7 @@ end
 
 add("scroll-view-canvas-covers-rows-and-gaps", {}, function(t: any)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		return UI.ScrollView {
-			Name = "List",
+		return UI.ScrollView "List" {
 			gap = 10,
 			Size = UDim2.fromOffset(300, 100),
 			cell(Host, "A", UDim2.fromOffset(300, 40)) :: unknown,
@@ -49,8 +48,7 @@ add("horizontal-scroll-view-steps-along-x", {}, function(t: any)
 		for index = 1, 5 do
 			table.insert(cells, cell(Host, "Cell" .. index, UDim2.new(0, 60, 1, 0)))
 		end
-		return UI.ScrollView {
-			Name = "Rail",
+		return UI.ScrollView "Rail" {
 			axis = "x" :: "x",
 			gap = 10,
 			Size = UDim2.fromOffset(200, 120),
@@ -78,17 +76,14 @@ add("fill-stack-preserves-overflow-and-recovers", {}, function(t: any)
 		local C = t.Facet.Compose
 		local size = C.cell(Vector2.new(390, 600))
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-			return UI.ScrollView {
-				Name = "Viewport",
-				UI.VStack {
-					Name = "Page",
+			return UI.ScrollView "Viewport" {
+				UI.VStack "Page" {
 					width = "fill" :: "fill",
 					height = "fill" :: "fill",
 					gap = 0,
 					UI.fill() :: unknown,
 					Host.Frame { Name = "Header", Size = UDim2.new(1, 0, 0, 500) },
-					UI.VStack {
-						Name = "Pane",
+					UI.VStack "Pane" {
 						width = "fill" :: "fill",
 						height = "fill" :: "fill",
 						UI.fill() :: unknown,

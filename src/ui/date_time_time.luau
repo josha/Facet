@@ -57,8 +57,7 @@ return function(
 				number:set(n)
 				text:set(if v ~= nil then string.format("%02d", n) else "")
 			end)
-			return UI.NumberInput({
-				Name = name,
+			return UI.NumberInput(name)({
 				label = name,
 				Size = D2.new(0, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,

@@ -387,7 +387,7 @@ function Analyzer.publicNames(source: string): { string }
 end
 
 function Analyzer.named(code: string): string
-	local replaced = string.gsub(code, "UI%.([%w_]+)%({%s*", 'UI.%1({ Name = "Typed", ', 1)
+	local replaced = string.gsub(code, "UI%.([%w_]+)%({", 'UI.%1("Typed")({', 1)
 	return replaced
 end
 

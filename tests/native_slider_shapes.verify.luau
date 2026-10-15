@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -90,7 +89,7 @@ return function(verifyHarness: Verify.Harness)
 			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				Name = "Host",
 				Compose.show(w.visible, function()
-					return UI.Slider(named("Vol", merged))
+					return UI.Slider "Vol"(merged)
 				end),
 			})
 		end, screen)
@@ -653,8 +652,7 @@ return function(verifyHarness: Verify.Harness)
 				local before = engine.census()
 				local value = Compose.cell({ lower = 10, upper = 90 })
 				local stop = runtime.mount(function()
-					return UI.Slider({
-						Name = "Band",
+					return UI.Slider("Band")({
 						value = value,
 						min = 0,
 						max = 100,

@@ -201,7 +201,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, shared
 			}),
 		}
 		if spec.query then
-			table.insert(children, UI.TextInput { Name = "Search", value = spec.query, placeholder = "Search" })
+			table.insert(children, UI.TextInput "Search" { value = spec.query, placeholder = "Search" })
 		end
 		table.insert(
 			children,

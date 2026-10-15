@@ -480,7 +480,7 @@ return function(verifyHarness: Verify.Harness)
 				local UI = w.UI
 				local node: any
 				local stop, root: any = w.runtime.mount(function()
-					node = UI.ScrollView { Name = "Feed", UI.VStack { Name = "Rows" } }
+					node = UI.ScrollView "Feed" { UI.VStack "Rows" {} }
 					return node
 				end, w.engine.new("Folder"))
 				root.AbsoluteWindowSize = Roblox.Vector2.new(100, 100)
@@ -804,8 +804,8 @@ return function(verifyHarness: Verify.Harness)
 					local screen = w.engine.new("ScreenGui")
 					local log = {}
 					local stop, root: any = w.runtime.mount(function()
-						local card = w.UI.Button { Name = "Card", label = "Card" }
-						local slot = w.UI.Button { Name = "Slot", label = "Slot" }
+						local card = w.UI.Button "Card" { label = "Card" }
+						local slot = w.UI.Button "Slot" { label = "Slot" }
 						w.UI.draggable(card, { payload = "card" })
 						w.UI.dropTarget(slot, {
 							onDrop = function(payload, info)
@@ -839,8 +839,7 @@ return function(verifyHarness: Verify.Harness)
 					local V2, V3 = w.engine.types.Vector2, w.engine.types.Vector3
 					local log, opened = {}, 0
 					local stop, root: any = w.runtime.mount(function()
-						local card = w.UI.Button {
-							Name = "Card",
+						local card = w.UI.Button "Card" {
 							label = "Card",
 							onActivate = function()
 								opened += 1
@@ -1396,7 +1395,7 @@ return function(verifyHarness: Verify.Harness)
 						focusRing = if wanted then nil else false,
 					} :: any)
 					local stop = app.mount(function()
-						return app.UI.Button { Name = "Play", label = "Play" }
+						return app.UI.Button "Play" { label = "Play" }
 					end)
 					Verify.expect(`{wanted} {playerGui.SelectionImageObject == own}`):toBe(`{wanted} {not wanted}`)
 					stop()

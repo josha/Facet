@@ -307,8 +307,7 @@ return function<V, K>(ctx: Types.Context, UI: Controls, shared: Rows<V, K>): Col
 					onPresentedChange = function(value: boolean)
 						open:set(value)
 					end,
-					trigger = UI.Button {
-						Name = "Details",
+					trigger = UI.Button "Details" {
 						icon = "status.info",
 						name = "Show details",
 						appearance = "utility",

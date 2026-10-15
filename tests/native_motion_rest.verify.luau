@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -21,7 +20,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame {
-						UI.Button { Name = "Post", label = "Post", help = { body = "Posts it", title = "Posting" } },
+						UI.Button "Post" { label = "Post", help = { body = "Posts it", title = "Posting" } },
 					}
 				end)
 				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
@@ -43,7 +42,7 @@ return function(verifyHarness: Verify.Harness)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
 					Name = "Screen",
-					UI.Button { Name = "Post", label = "Post", help = "Posts this avatar to the Marketplace" },
+					UI.Button "Post" { label = "Post", help = "Posts this avatar to the Marketplace" },
 				})
 			end)
 			local post = w.find("Post")
@@ -160,12 +159,11 @@ return function(verifyHarness: Verify.Harness)
 	verifyHarness:suite("present at rest: callout", function()
 		local function presented(): any
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-				local anchor = UI.Button { Name = "Plus", label = "+" }
+				local anchor = UI.Button "Plus" { label = "+" }
 				return Host.Frame({
 					Name = "Editor",
 					Host.Frame({ Name = "Bar", anchor :: unknown }) :: unknown,
-					UI.Callout {
-						Name = "Tip",
+					UI.Callout "Tip" {
 						anchor = anchor :: GuiObject,
 						isPresented = true,
 						content = function(): Instance
@@ -217,17 +215,15 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local open = Compose.cell(true)
 					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						local anchor = UI.Button { Name = "Anchor", label = "Save" }
+						local anchor = UI.Button "Anchor" { label = "Save" }
 						return Host.Frame {
 							anchor :: unknown,
-							UI.Popover {
-								Name = "Pop",
+							UI.Popover "Pop" {
 								isPresented = open,
 								source = { node = anchor :: GuiObject },
 								edge = edge :: "bottom" | "leading" | "top" | "trailing",
 								content = function(): Instance
-									return UI.Button {
-										Name = "Save",
+									return UI.Button "Save" {
 										label = "Save",
 										onActivate = function()
 											open:set(false)
@@ -314,8 +310,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_motion_rest::present at rest: anchored popover::keeps fractional native content bounds during materialization",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Popover {
-						Name = "Pop",
+					return UI.Popover "Pop" {
 						isPresented = Compose.cell(true),
 						source = { rect = { x = 300, y = 200, w = 40, h = 40 } },
 						content = function(): Instance
@@ -344,8 +339,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_motion_rest::present at rest: anchored popover::placement reads the rested size while the panel fades in",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Popover {
-						Name = "Pop",
+					return UI.Popover "Pop" {
 						isPresented = Compose.cell(true),
 						source = { rect = { x = 300, y = 200, w = 40, h = 40 } },
 						edge = "bottom" :: "bottom",
@@ -500,7 +494,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Name = "Screen",
-						UI.Button { Name = "Post", label = "Post", help = "Posts it" },
+						UI.Button "Post" { label = "Post", help = "Posts it" },
 					})
 				end, { motionLevel = "none" })
 				local post = w.find("Post")
@@ -529,7 +523,7 @@ return function(verifyHarness: Verify.Harness)
 					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame({
 							Name = "Screen",
-							UI.Button { Name = "Post", label = "Post", help = "Posts it" },
+							UI.Button "Post" { label = "Post", help = "Posts it" },
 						})
 					end)
 					w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
@@ -556,7 +550,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Name = "Screen",
-						UI.Button { Name = "Post", label = "Post", help = "Posts it" },
+						UI.Button "Post" { label = "Post", help = "Posts it" },
 					})
 				end)
 				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
@@ -583,7 +577,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Name = "Screen",
-						UI.Button { Name = "Post", label = "Post", help = "Posts it" },
+						UI.Button "Post" { label = "Post", help = "Posts it" },
 					})
 				end)
 				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
@@ -619,7 +613,7 @@ return function(verifyHarness: Verify.Harness)
 	local function menu(spec: { [any]: any }): any
 		spec.label = spec.label or "Options"
 		return worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu(named("M", spec)) })
+			return Host.Frame({ Name = "S", Size = UDim2.fromOffset(800, 600), UI.Menu "M"(spec) })
 		end, {})
 	end
 
@@ -732,8 +726,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_motion_rest::present at rest: mobile controls::keeps the colour panel transparent while its swatches reflow",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls)
-					return UI.ColorPicker {
-						Name = "Colour",
+					return UI.ColorPicker "Colour" {
 						value = Compose.cell(require("./lib/native_engine").types.Color3.new(1, 0, 0)),
 						onChange = function() end,
 					}

@@ -29,8 +29,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, buildM
 			return read(spec.enabled, use) ~= false and read(spec.busy, use) ~= true
 		end
 		local function primary()
-			return UI.Button {
-				Name = "Primary",
+			return UI.Button "Primary" {
 				appearance = "utility",
 				label = spec.label,
 				onActivate = spec.onActivate,
@@ -47,8 +46,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, buildM
 				AutomaticSize = E.AutomaticSize.XY,
 				Compose.show(touch, function()
 					local suppressEcho = false
-					local trigger = UI.Button {
-						Name = "Primary",
+					local trigger = UI.Button "Primary" {
 						Size = if spec.Size then D2.fromScale(1, 1) else nil,
 						AutomaticSize = if spec.Size then E.AutomaticSize.None else nil,
 						label = spec.label,
@@ -96,11 +94,9 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, buildM
 							},
 							"divider"
 						),
-						UI.Menu {
-							Name = "Alternatives",
+						UI.Menu "Alternatives" {
 							trigger = function(): GuiObject
-								return UI.Button {
-									Name = "Trigger",
+								return UI.Button "Trigger" {
 									appearance = "utility",
 									icon = "chevron.down",
 									name = spec.menuLabel or "More options",

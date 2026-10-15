@@ -37,8 +37,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: s
 		local function chevron(use: ComposeTypes.Use): string
 			return if use(spec.expanded) then "chevron.down" else "chevron.trailing"
 		end
-		local header = UI.Button {
-			Name = "Header",
+		local header = UI.Button "Header" {
 			label = spec.label,
 			icon = if side == "leading" then chevron else spec.icon,
 			trailingIcon = if side == "trailing" then chevron else spec.icon,

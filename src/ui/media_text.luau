@@ -398,7 +398,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		end
 		if effective ~= "iconOnly" then
 			local titleSize: Media.TextSize = spec.textSize or "body"
-			table.insert(children, UI.Text({ Name = "Title", text = spec.title, textSize = titleSize }))
+			table.insert(children, UI.Text("Title")({ text = spec.title, textSize = titleSize }))
 		end
 		if spec.iconPosition == "trailing" then
 			local reversed: { ComposeTypes.Child } = {}

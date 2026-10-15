@@ -170,9 +170,8 @@ return function(verifyHarness: Verify.Harness)
 						local activations = 0
 						local w = session(function(UI: FacetControls, Host: RobloxHost)
 							return Host.Frame({
-								UI.Button { Name = "Plain", label = "x", onActivate = function() end } :: unknown,
-								UI.Button {
-									Name = "Held",
+								UI.Button "Plain" { label = "x", onActivate = function() end } :: unknown,
+								UI.Button "Held" {
 									label = "x",
 									pop = true,
 									repeatInterval = 0.1,
@@ -216,10 +215,9 @@ return function(verifyHarness: Verify.Harness)
 							local value, number = Compose.cell("2"), Compose.cell(2)
 							local w = session(function(UI: FacetControls, Host: RobloxHost)
 								return Host.Frame({
-									UI.Button { Name = "Pop", label = "Pop", pop = true, onActivate = function() end } :: unknown,
-									UI.Button { Name = "Busy", label = "Save", busy = true },
-									UI.TextInput {
-										Name = "Field",
+									UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end } :: unknown,
+									UI.Button "Busy" { label = "Save", busy = true },
+									UI.TextInput "Field" {
 										value = value,
 										numericValue = number,
 										presentation = "number" :: "number",

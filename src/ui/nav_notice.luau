@@ -255,8 +255,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			if link then
 				table.insert(
 					accessories,
-					UI.Button {
-						Name = "Link",
+					UI.Button "Link" {
 						label = link.label,
 						appearance = if emphasis then nil else "link",
 						controlSize = spec.controlSize,
@@ -372,8 +371,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 			local dismiss = spec.onDismiss
 			table.insert(
 				rowChildren,
-				UI.Button {
-					Name = "Close",
+				UI.Button "Close" {
 					name = "Close",
 					icon = "close",
 					controlSize = spec.controlSize,

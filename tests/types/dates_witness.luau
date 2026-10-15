@@ -6,8 +6,7 @@ local Compose = require("../../src/vendor/compose/core")
 return function(UI: DatesControls.Controls): ()
 	local noSession: Dates.CivilDate? = nil
 	local session = Compose.cell(noSession)
-	local single: Frame = UI.DateTimePicker({
-		Name = "Session",
+	local single: Frame = UI.DateTimePicker("Session")({
 		label = "Play session",
 		time = true,
 		minuteStep = 15,

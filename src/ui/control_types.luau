@@ -18,66 +18,84 @@ local ZoomTravelProps = require("./zoom_travel_props")
 
 type Constructor<P, N> = Shared.Constructor<P, N>
 
-export type PickerConstructor =
+type PickerShapes =
 	(<V>(NavigationProps.SinglePickerSpec<V>) -> GuiObject)
 	& (<V>(NavigationProps.MultiplePickerSpec<V>) -> GuiObject)
 	& (<V>(NavigationProps.PickerSpec<V>) -> GuiObject)
-export type ToggleConstructor =
+export type PickerConstructor = PickerShapes & ((string) -> PickerShapes)
+type ToggleShapes =
 	((InputProps.ToggleCellProps) -> TextButton)
 	& ((InputProps.ToggleRequestProps) -> TextButton)
 	& ((InputProps.ToggleProps) -> TextButton)
-export type TextInputConstructor =
+export type ToggleConstructor = ToggleShapes & ((string) -> ToggleShapes)
+type TextInputShapes =
 	((InputProps.TextInputCellProps) -> TextBox | Frame)
 	& ((InputProps.TextInputRequestProps) -> TextBox | Frame)
 	& ((InputProps.TextInputNumberCellProps) -> TextBox | Frame)
 	& ((InputProps.TextInputNumberRequestProps) -> TextBox | Frame)
 	& ((InputProps.TextInputProps) -> TextBox | Frame)
-export type NumberInputConstructor =
+export type TextInputConstructor = TextInputShapes & ((string) -> TextInputShapes)
+type NumberInputShapes =
 	((InputProps.NumberInputCellProps) -> TextBox | Frame)
 	& ((InputProps.NumberInputRequestProps) -> TextBox | Frame)
 	& ((InputProps.NumberInputProps) -> TextBox | Frame)
-export type StepperConstructor =
+export type NumberInputConstructor = NumberInputShapes & ((string) -> NumberInputShapes)
+type StepperShapes =
 	((InputProps.StepperCellProps) -> Frame)
 	& ((InputProps.StepperRequestProps) -> Frame)
 	& ((InputProps.StepperProps) -> Frame)
-export type SliderConstructor =
+export type StepperConstructor = StepperShapes & ((string) -> StepperShapes)
+type SliderShapes =
 	((InputProps.SliderCellProps) -> Frame)
 	& ((InputProps.SliderRequestProps) -> Frame)
 	& ((InputProps.SliderRangeProps) -> Frame)
 	& ((InputProps.SliderProps) -> Frame)
-export type RatingConstructor =
+export type SliderConstructor = SliderShapes & ((string) -> SliderShapes)
+type RatingShapes =
 	((InputProps.RatingCellProps) -> TextButton)
 	& ((InputProps.RatingRequestProps) -> TextButton)
 	& ((InputProps.RatingReadOnlyProps) -> TextButton)
 	& ((InputProps.RatingProps) -> TextButton)
-export type LevelPickerConstructor =
+export type RatingConstructor = RatingShapes & ((string) -> RatingShapes)
+type LevelPickerShapes =
 	((InputProps.LevelPickerCellProps) -> TextButton)
 	& ((InputProps.LevelPickerRequestProps) -> TextButton)
 	& ((InputProps.LevelPickerReadOnlyProps) -> TextButton)
 	& ((InputProps.LevelPickerProps) -> TextButton)
-export type ChipConstructor =
+export type LevelPickerConstructor = LevelPickerShapes & ((string) -> LevelPickerShapes)
+type ChipShapes =
 	((InputProps.ChipCellProps) -> TextButton | Frame)
 	& ((InputProps.ChipRequestProps) -> TextButton | Frame)
 	& ((InputProps.ChipRemovableProps) -> TextButton | Frame)
 	& ((InputProps.ChipProps) -> TextButton | Frame)
-export type ShortcutHintConstructor =
+export type ChipConstructor = ChipShapes & ((string) -> ChipShapes)
+type ShortcutHintShapes =
 	((InputProps.ShortcutHintKeysProps) -> TextLabel | Frame)
 	& ((InputProps.ShortcutHintActionProps) -> TextLabel | Frame)
 	& ((InputProps.ShortcutHintProps) -> TextLabel | Frame)
-export type MenuConstructor = <V>(NavigationProps.MenuSpec<V>) -> GuiObject
-export type SplitButtonConstructor = <V>(NavigationProps.SplitButtonSpec<V>) -> Frame
-export type AlertConstructor = <P>(NavigationProps.AlertSpec<P>) -> Frame
-export type NavigationStackConstructor = <P>(NavigationProps.NavigationStackSpec<P>) -> Frame
-export type RadialMenuConstructor = <V>(RadialProps.RadialMenuSpec<V>) -> Frame
-export type CollectionConstructor =
+export type ShortcutHintConstructor = ShortcutHintShapes & ((string) -> ShortcutHintShapes)
+type MenuShapes = <V>(NavigationProps.MenuSpec<V>) -> GuiObject
+export type MenuConstructor = MenuShapes & ((string) -> MenuShapes)
+type SplitButtonShapes = <V>(NavigationProps.SplitButtonSpec<V>) -> Frame
+export type SplitButtonConstructor = SplitButtonShapes & ((string) -> SplitButtonShapes)
+type AlertShapes = <P>(NavigationProps.AlertSpec<P>) -> Frame
+export type AlertConstructor = AlertShapes & ((string) -> AlertShapes)
+type NavigationStackShapes = <P>(NavigationProps.NavigationStackSpec<P>) -> Frame
+export type NavigationStackConstructor = NavigationStackShapes & ((string) -> NavigationStackShapes)
+type RadialMenuShapes = <V>(RadialProps.RadialMenuSpec<V>) -> Frame
+export type RadialMenuConstructor = RadialMenuShapes & ((string) -> RadialMenuShapes)
+type CollectionShapes =
 	(<V, K>(spec: CollectionProps.KeyedCollectionSpec<V, K>) -> ScrollingFrame)
 	& (<V, _K>(spec: CollectionProps.IdentityCollectionSpec<V>) -> ScrollingFrame)
-export type OutlineConstructor =
+export type CollectionConstructor = CollectionShapes & ((string) -> CollectionShapes)
+type OutlineShapes =
 	(<V, K>(spec: CollectionProps.KeyedOutlineSpec<V, K>) -> ScrollingFrame)
 	& (<V, _K>(spec: CollectionProps.IdentityOutlineSpec<V>) -> ScrollingFrame)
-export type TableConstructor =
+export type OutlineConstructor = OutlineShapes & ((string) -> OutlineShapes)
+type TableShapes =
 	(<V, K>(spec: CollectionProps.KeyedTableSpec<V, K>) -> Frame)
 	& (<V, _K>(spec: CollectionProps.IdentityTableSpec<V>) -> Frame)
+export type TableConstructor = TableShapes & ((string) -> TableShapes)
 
 export type Controls = {
 	commandScope: typeof(((nil :: unknown) :: Commands.Controls).commandScope),

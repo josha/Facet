@@ -262,24 +262,18 @@ for _, width in { 390, 1280 } do
 end
 
 local function button(UI: any, name: string, label: string?): any
-	return UI.Button({ Name = name, label = label or name })
+	return UI.Button(name)({ label = label or name })
 end
 
 interactive("chrome-strips-dpad", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.Screen {
-			Name = "Page",
+		return UI.Screen "Page" {
 			gap = "m",
-			UI.HStack { Name = "Bar", gap = "s", button(UI, "Left") :: unknown, button(UI, "Right") } :: unknown,
+			UI.HStack "Bar" { gap = "s", button(UI, "Left") :: unknown, button(UI, "Right") } :: unknown,
 			button(UI, "A", "Content A"),
 			button(UI, "B", "Content B"),
-			UI.HStack {
-				Name = "Foot",
-				gap = "s",
-				button(UI, "FootLeft", "Left") :: unknown,
-				button(UI, "FootRight", "Right"),
-			},
+			UI.HStack "Foot" { gap = "s", button(UI, "FootLeft", "Left") :: unknown, button(UI, "FootRight", "Right") },
 		}
 	end, { size = Vector2.new(900, 600), frames = 12 })
 	value.stage = stage
@@ -328,9 +322,8 @@ add("tab-scrolls-host-to-selection", {}, function(t)
 				AutomaticSize = Enum.AutomaticSize.None,
 			})
 		end
-		return UI.Screen {
-			Name = "S",
-			UI.ScrollView { Name = "List", height = 160, width = 300, table.unpack((rows :: unknown) :: { unknown }) },
+		return UI.Screen "S" {
+			UI.ScrollView "List" { height = 160, width = 300, table.unpack((rows :: unknown) :: { unknown }) },
 		}
 	end, { size = Vector2.new(400, 300), frames = 12 })
 	local action = newTraversal(before)
@@ -364,11 +357,9 @@ end)
 
 add("slider-selection-ring-on-track", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.Screen {
-			Name = "S",
-			UI.Button { Name = "Before", label = "Before" } :: unknown,
-			UI.Slider {
-				Name = "Vol",
+		return UI.Screen "S" {
+			UI.Button "Before" { label = "Before" } :: unknown,
+			UI.Slider "Vol" {
 				label = "Volume",
 				value = Compose.cell(0.5),
 				min = 0,
@@ -453,18 +444,16 @@ end, {
 interactive("slider-between-controls-by-arrows", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.Screen {
-			Name = "S",
-			UI.HStack { Name = "VolumeRow", gap = "s", button(UI, "Volume") :: unknown, button(UI, "Mute") } :: unknown,
-			UI.Slider {
-				Name = "Brightness",
+		return UI.Screen "S" {
+			UI.HStack "VolumeRow" { gap = "s", button(UI, "Volume") :: unknown, button(UI, "Mute") } :: unknown,
+			UI.Slider "Brightness" {
 				label = "Brightness",
 				value = Compose.cell(40),
 				min = 0,
 				max = 100,
 				Size = UDim2.fromOffset(400, 0),
 			},
-			UI.HStack { Name = "QualityRow", gap = "s", button(UI, "Quality") :: unknown, button(UI, "Apply") },
+			UI.HStack "QualityRow" { gap = "s", button(UI, "Quality") :: unknown, button(UI, "Apply") },
 		}
 	end, { size = Vector2.new(700, 400), frames = 12 })
 	value.stage = stage
@@ -611,42 +600,36 @@ interactive("hud-dpad-reaches-actions-1920", {}, hudDpad(Vector2.new(1920, 1080)
 local VIEWPORTS = { Vector2.new(390, 844), Vector2.new(667, 375) }
 
 local function formScreen(UI: any, Compose: any): any
-	return UI.Screen {
-		Name = "S",
-		UI.ScrollView {
-			Name = "Form",
+	return UI.Screen "S" {
+		UI.ScrollView "Form" {
 			gap = "s",
-			UI.Text { Name = "Heading", text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) } :: unknown,
-			UI.TextInput { Name = "Name", value = Compose.cell(""), placeholder = PSEUDO, Size = UDim2.new(1, 0, 0, 44) },
-			UI.Slider { Name = "Volume", label = PSEUDO, value = Compose.cell(0.5), min = 0, max = 1, step = 0.1 },
-			UI.TextInput {
-				Name = "Email",
+			UI.Text "Heading" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) } :: unknown,
+			UI.TextInput "Name" { value = Compose.cell(""), placeholder = PSEUDO, Size = UDim2.new(1, 0, 0, 44) },
+			UI.Slider "Volume" { label = PSEUDO, value = Compose.cell(0.5), min = 0, max = 1, step = 0.1 },
+			UI.TextInput "Email" {
 				value = Compose.cell(""),
 				placeholder = PSEUDO_SECONDARY,
 				Size = UDim2.new(1, 0, 0, 44),
 			},
-			UI.Text { Name = "Note", text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
-			UI.TextInput {
-				Name = "City",
+			UI.Text "Note" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
+			UI.TextInput "City" {
 				value = Compose.cell(""),
 				placeholder = PSEUDO_SECONDARY,
 				Size = UDim2.new(1, 0, 0, 44),
 			},
-			UI.TextInput {
-				Name = "Team",
+			UI.TextInput "Team" {
 				value = Compose.cell(""),
 				placeholder = PSEUDO_SECONDARY,
 				Size = UDim2.new(1, 0, 0, 44),
 			},
-			UI.Text { Name = "Terms", text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
-			UI.Toggle { Name = "Sound", label = PSEUDO, value = Compose.cell(true) },
-			UI.HStack {
-				Name = "Actions",
+			UI.Text "Terms" { text = PSEUDO, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) },
+			UI.Toggle "Sound" { label = PSEUDO, value = Compose.cell(true) },
+			UI.HStack "Actions" {
 				gap = "s",
 				wrap = true,
 				width = "fill" :: "fill",
-				UI.Button { Name = "Save", label = PSEUDO_ACTION, TextWrapped = true } :: unknown,
-				UI.Button { Name = "Later", label = PSEUDO_SECONDARY, TextWrapped = true },
+				UI.Button "Save" { label = PSEUDO_ACTION, TextWrapped = true } :: unknown,
+				UI.Button "Later" { label = PSEUDO_SECONDARY, TextWrapped = true },
 			},
 		},
 	}
@@ -764,10 +747,8 @@ add("action-label-wraps-before-truncating", {}, function(t)
 		for _, offset in OFFSETS do
 			local where = `{themeName} +{offset}`
 			local stage = t.mount(function(UI: FacetControls)
-				return UI.Screen {
-					Name = "S",
-					UI.Button {
-						Name = "Go",
+				return UI.Screen "S" {
+					UI.Button "Go" {
 						label = PSEUDO_ACTION,
 						TextWrapped = true,
 						Size = UDim2.fromOffset(150, 0),
@@ -804,10 +785,8 @@ add("fixed-px-action-draws-compact-form", {}, function(t)
 	local once = false
 	for _, offset in OFFSETS do
 		local stage = t.mount(function(UI: FacetControls)
-			return UI.Screen {
-				Name = "S",
-				UI.Button {
-					Name = "Save",
+			return UI.Screen "S" {
+				UI.Button "Save" {
 					label = PSEUDO_ACTION,
 					compactLabel = "OK",
 					Size = UDim2.fromOffset(88, 44),
@@ -840,9 +819,9 @@ add("mixed-script-lines-grow-monotonically", {}, function(t)
 			local where = `{themeName} +{offset}`
 			local stage = t.mount(function(UI: FacetControls)
 				local function line(name: string, text: string): any
-					return UI.Text({ Name = name, text = text, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) })
+					return UI.Text(name)({ text = text, TextWrapped = true, Size = UDim2.new(1, 0, 0, 0) })
 				end
-				return UI.Screen { Name = "S", line("Cjk", CJK) :: unknown, line("Emoji", EMOJI), line("Mixed", MIXED) }
+				return UI.Screen "S" { line("Cjk", CJK) :: unknown, line("Emoji", EMOJI), line("Mixed", MIXED) }
 			end, { size = Vector2.new(390, 844), theme = grown(t, base, offset), frames = 12 })
 			t.settle(6)
 			local found = t.offenders(stage, stage)
@@ -876,9 +855,8 @@ add("mixed-script-lines-grow-monotonically", {}, function(t)
 		local heights = {}
 		for _, offset in { 0, 14 } do
 			local stage = t.mount(function(UI: FacetControls)
-				return UI.Screen {
-					Name = "S",
-					UI.Text { Name = "Line", text = MIXED, TextWrapped = true, Size = UDim2.fromOffset(300, 0) },
+				return UI.Screen "S" {
+					UI.Text "Line" { text = MIXED, TextWrapped = true, Size = UDim2.fromOffset(300, 0) },
 				}
 			end, { size = Vector2.new(390, 400), theme = grown(t, themeNamed(t, themeName), offset), frames = 12 })
 			t.settle(4)
@@ -915,11 +893,10 @@ end
 add("role-fills-win-at-rest", {}, function(t)
 	for _, entry in shipped(t) do
 		local stage = t.mount(function(UI: FacetControls)
-			return UI.Screen {
-				Name = "S",
-				UI.Button { Name = "Delete", label = "Delete", role = "destructive" :: "destructive" } :: unknown,
-				UI.Button { Name = "Cancel", label = "Cancel", role = "cancel" :: "cancel" },
-				UI.Button { Name = "Plain", label = "Plain" },
+			return UI.Screen "S" {
+				UI.Button "Delete" { label = "Delete", role = "destructive" :: "destructive" } :: unknown,
+				UI.Button "Cancel" { label = "Cancel", role = "cancel" :: "cancel" },
+				UI.Button "Plain" { label = "Plain" },
 			}
 		end, { size = Vector2.new(400, 300), theme = entry.package, frames = 10 })
 		local danger = sheetRule(stage, ".facet-role-destructive")
@@ -964,21 +941,19 @@ end)
 add("circle-corner-wins-in-every-package", {}, function(t)
 	for _, entry in shipped(t) do
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-			return UI.Screen {
-				Name = "S",
+			return UI.Screen "S" {
 				gap = "s",
-				UI.Button { Name = "Plain", label = "x", shape = "circle" :: "circle" } :: unknown,
-				UI.Button {
-					Name = "Danger",
+				UI.Button "Plain" { label = "x", shape = "circle" :: "circle" } :: unknown,
+				UI.Button "Danger" {
 					label = "x",
 					shape = "circle" :: "circle",
 					role = "destructive" :: "destructive",
 				},
-				UI.Button { Name = "Picked", label = "x", shape = "circle" :: "circle", selected = Compose.cell(true) },
-				UI.Button { Name = "Soft", label = "x", shape = "circle" :: "circle", appearance = "soft" },
-				UI.Button { Name = "Strong", label = "x", shape = "circle" :: "circle", appearance = "emphasis" },
-				UI.Button { Name = "Icon", label = "Close", icon = "close", shape = "circle" :: "circle" },
-				UI.Button { Name = "Rect", label = "Save" },
+				UI.Button "Picked" { label = "x", shape = "circle" :: "circle", selected = Compose.cell(true) },
+				UI.Button "Soft" { label = "x", shape = "circle" :: "circle", appearance = "soft" },
+				UI.Button "Strong" { label = "x", shape = "circle" :: "circle", appearance = "emphasis" },
+				UI.Button "Icon" { label = "Close", icon = "close", shape = "circle" :: "circle" },
+				UI.Button "Rect" { label = "Save" },
 			}
 		end, { size = Vector2.new(400, 600), theme = entry.package, frames = 10 })
 		for _, name in { "Plain", "Danger", "Picked", "Soft", "Strong", "Icon" } do
@@ -1013,10 +988,8 @@ add("compact-label-ladder-every-package", {}, function(t)
 		local heights = {}
 		for _, width in { 400, 44 } do
 			local stage = t.mount(function(UI: FacetControls)
-				return UI.Screen {
-					Name = "S",
-					UI.Button {
-						Name = "Edit",
+				return UI.Screen "S" {
+					UI.Button "Edit" {
 						label = "Edit item",
 						compactLabel = "Ed",
 						Size = UDim2.fromOffset(width, 44),
@@ -1046,11 +1019,10 @@ end)
 add("level-picker-strip-target", {}, function(t)
 	for _, entry in shipped(t) do
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-			return UI.Screen {
-				Name = "S",
-				UI.LevelPicker { Name = "Bars", value = Compose.cell(3), count = 10 } :: unknown,
-				UI.LevelPicker { Name = "Glyphs", value = Compose.cell(2), count = 5, segment = "glyph" :: "glyph" },
-				UI.Rating { Name = "Stars", value = Compose.cell(3) },
+			return UI.Screen "S" {
+				UI.LevelPicker "Bars" { value = Compose.cell(3), count = 10 } :: unknown,
+				UI.LevelPicker "Glyphs" { value = Compose.cell(2), count = 5, segment = "glyph" :: "glyph" },
+				UI.Rating "Stars" { value = Compose.cell(3) },
 			}
 		end, { size = Vector2.new(600, 400), theme = entry.package, frames = 10 })
 		for _, name in { "Bars", "Glyphs", "Stars" } do
@@ -1107,15 +1079,13 @@ add("level-picker-showcase-marks-have-area", {}, function(t)
 	end
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		local value = Compose.cell(2)
-		return UI.Screen {
-			Name = "S",
-			UI.HStack {
-				Name = "Pair",
+		return UI.Screen "S" {
+			UI.HStack "Pair" {
 				gap = 8,
 				align = "center" :: "center",
 				width = "fill" :: "fill",
-				UI.LevelPicker { Name = "Quality", value = value, count = 10 } :: unknown,
-				UI.Stepper { Name = "QualityStep", value = value, min = 0, max = 10 },
+				UI.LevelPicker "Quality" { value = value, count = 10 } :: unknown,
+				UI.Stepper "QualityStep" { value = value, min = 0, max = 10 },
 			},
 		}
 	end, { size = Vector2.new(600, 300), frames = 12 })
@@ -1128,17 +1098,16 @@ end)
 add("rating-fits-a-table-cell", {}, function(t)
 	for _, entry in shipped(t) do
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-			return UI.Screen {
-				Name = "S",
+			return UI.Screen "S" {
 				Host.Frame "Cell" {
 					Size = UDim2.fromOffset(132, 48),
 					BackgroundTransparency = 1,
-					UI.Rating { Name = "Fill", value = Compose.cell(3), Size = UDim2.fromScale(1, 1) },
+					UI.Rating "Fill" { value = Compose.cell(3), Size = UDim2.fromScale(1, 1) },
 				} :: unknown,
 				Host.Frame "Plain" {
 					Size = UDim2.fromOffset(132, 48),
 					BackgroundTransparency = 1,
-					UI.Rating { Name = "Hug", value = Compose.cell(3) },
+					UI.Rating "Hug" { value = Compose.cell(3) },
 				},
 			}
 		end, { size = Vector2.new(400, 300), theme = entry.package, frames = 10 })
@@ -1183,7 +1152,7 @@ add("shortcut-hint-key-cap-anatomy", {}, function(t)
 		for _, offset in { 0, 14 } do
 			local where = `{entry.name} +{offset}`
 			local stage = t.mount(function(UI: FacetControls)
-				return UI.Screen { Name = "S", UI.ShortcutHint { Name = "Hint", keys = { { "K" } } } }
+				return UI.Screen "S" { UI.ShortcutHint "Hint" { keys = { { "K" } } } }
 			end, { size = Vector2.new(400, 300), theme = grown(t, entry.package, offset), frames = 10 })
 			local cap = t.find(stage, "Hint")
 			t.settle(4)
@@ -1225,10 +1194,8 @@ add("clear-button-trailing-and-centred", {}, function(t)
 	for _, framed in { false, true } do
 		local where = if framed then "field chrome" else "bare field"
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-			return UI.Screen {
-				Name = "S",
-				UI.TextInput {
-					Name = "Name",
+			return UI.Screen "S" {
+				UI.TextInput "Name" {
 					value = Compose.cell("typed"),
 					clearButton = true,
 					label = if framed then "Name" else nil,
@@ -1262,10 +1229,9 @@ add("slider-rest-idle-resize-clearance", {}, function(t)
 	local width = t.Facet.Compose.cell(Vector2.new(360, 200))
 	local value = t.Facet.Compose.cell(50)
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.Screen {
-			Name = "S",
+		return UI.Screen "S" {
 			padding = 0,
-			UI.Slider { Name = "Vol", label = "Vol", value = value, min = 0, max = 100, Size = UDim2.fromScale(1, 0) },
+			UI.Slider "Vol" { label = "Vol", value = value, min = 0, max = 100, Size = UDim2.fromScale(1, 0) },
 		}
 	end, { size = width, frames = 12 })
 	local track, fill, thumb = t.find(stage, "Track"), t.find(stage, "Fill"), t.find(stage, "Thumb")
@@ -1315,10 +1281,7 @@ add("slider-rest-idle-resize-clearance", {}, function(t)
 	t.cleanup()
 	local steps = t.Facet.Compose.cell(9)
 	local stepperStage = t.mount(function(UI: FacetControls)
-		return UI.Screen {
-			Name = "S",
-			UI.Stepper { Name = "Qty", label = "Volume", value = steps, min = 0, max = 100, step = 1 },
-		}
+		return UI.Screen "S" { UI.Stepper "Qty" { label = "Volume", value = steps, min = 0, max = 100, step = 1 } }
 	end, { size = Vector2.new(400, 200), frames = 12 })
 	local readout = t.find(t.find(stepperStage, "Qty"), "Value")
 	local increase = t.find(stepperStage, "Increase")

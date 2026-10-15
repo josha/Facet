@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -22,7 +21,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local function mount(spec: any, width: number?, options: { [string]: any }?): (any, any)
 		local world = worlds.new(function(UI: FacetControls)
-			return UI.StepIndicator(named("Steps", spec))
+			return UI.StepIndicator "Steps"(spec)
 		end, options)
 		local root = world.find("Steps")
 		world.resize(root, width or 900, 80)
@@ -225,8 +224,7 @@ return function(verifyHarness: Verify.Harness)
 				local show = Compose.cell(true)
 				local world = worlds.new(function(UI: FacetControls)
 					return Compose.show(show, function()
-						return UI.StepIndicator({
-							Name = "Steps",
+						return UI.StepIndicator("Steps")({
 							steps = workflow(),
 							current = "ship",
 							onSelect = function()

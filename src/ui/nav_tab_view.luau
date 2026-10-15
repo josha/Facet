@@ -700,8 +700,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers
 		})
 		surfaces.attach(root, {
 			Compose.show(collapsed, function()
-				return UI.Menu {
-					Name = "TabsMenu",
+				return UI.Menu "TabsMenu" {
 					Size = function(use: ComposeTypes.Use)
 						return D2.fromOffset(0, band(use))
 					end,

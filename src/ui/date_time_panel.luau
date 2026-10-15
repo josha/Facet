@@ -115,8 +115,7 @@ return function(
 			table.insert(children, presetRow())
 		end
 		local function action(name: string, words_: string, fn: () -> (), look: string?): TextButton
-			return UI.Button({
-				Name = name,
+			return UI.Button(name)({
 				label = words_,
 				onActivate = fn,
 				appearance = look,

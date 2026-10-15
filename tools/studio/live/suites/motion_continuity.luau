@@ -211,8 +211,7 @@ do
 						local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 							open = Compose.cell(false)
 							local function content(): Instance
-								return UI.Text {
-									Name = "Copy",
+								return UI.Text "Copy" {
 									text = copy,
 									TextSize = if large then 36 else 24,
 									TextWrapped = true,
@@ -223,8 +222,7 @@ do
 							local function change(value: boolean)
 								open:set(value)
 							end
-							trigger = UI.Button {
-								Name = "Trigger",
+							trigger = UI.Button "Trigger" {
 								label = "Open",
 								Position = UDim2.fromOffset(40, 100),
 								help = if kind == "Help" then copy else nil,

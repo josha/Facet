@@ -5,8 +5,7 @@ local Compose = require("../../src/vendor/compose/core")
 
 return function(UI: InputsControls.Controls, action: InputAction): ()
 	local text, value, checked = Compose.cell(""), Compose.cell(0.5), Compose.cell(false)
-	local button: TextButton = UI.Button({
-		Name = "Save",
+	local button: TextButton = UI.Button("Save")({
 		label = text,
 		onActivate = function(input, clicks)
 			local nativeInput: InputObject? = input
@@ -56,8 +55,7 @@ return function(UI: InputsControls.Controls, action: InputAction): ()
 		end,
 	})
 	local stepper: Frame = UI.Stepper({ value = value, min = 0, max = 1, step = 0.1 })
-	local slider: Frame = UI.Slider({
-		Name = "Volume",
+	local slider: Frame = UI.Slider("Volume")({
 		value = function(use: Compose.Use): number
 			return use(value)
 		end,

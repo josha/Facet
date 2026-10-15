@@ -349,15 +349,13 @@ local function stackProbe(t: any): any
 	local value: any = {}
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.path = Compose.cell({})
-		return UI.NavigationStack {
-			Name = "Journey",
+		return UI.NavigationStack "Journey" {
 			path = value.path,
 			backLabel = "Back",
 			root = {
 				title = "Plan",
 				content = function(): Instance
-					return UI.Button {
-						Name = "Next",
+					return UI.Button "Next" {
 						label = "Next",
 						onActivate = function()
 							local nextPath = table.clone(value.path:peek())
@@ -371,7 +369,7 @@ local function stackProbe(t: any): any
 				detail = {
 					title = "Detail",
 					content = function(): Instance
-						return UI.Button { Name = "Inner", label = "Inner" }
+						return UI.Button "Inner" { label = "Inner" }
 					end,
 				} :: Destination,
 			},
@@ -467,8 +465,7 @@ local function pagesProbe(t: any): any
 				content = Host.Frame "Course" {
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
-					UI.Button {
-						Name = "Play",
+					UI.Button "Play" {
 						label = "Play " .. id,
 						onActivate = function()
 							table.insert(value.played, id)
@@ -481,8 +478,8 @@ local function pagesProbe(t: any): any
 			Position = UDim2.fromOffset(20, 200),
 			Size = UDim2.fromOffset(340, 420),
 			BackgroundTransparency = 1,
-			UI.PageView { Name = "Courses", pages = pages, selection = value.selection } :: unknown,
-			UI.Button { Name = "Below", label = "Below", Position = UDim2.fromOffset(0, 440) },
+			UI.PageView "Courses" { pages = pages, selection = value.selection } :: unknown,
+			UI.Button "Below" { label = "Below", Position = UDim2.fromOffset(0, 440) },
 		}
 	end, { frames = 20 })
 	value.pages = t.find(value.stage, "Pages")
@@ -813,30 +810,26 @@ add("image-tile-slice-resample", {}, function(t)
 		modes = (function(value: "fill" | "fit" | "stretch" | "slice" | "tile" | "crop"): ImageModeCell
 			return Compose.cell(value)
 		end)("fit")
-		return UI.HStack {
-			Name = "Row",
-			UI.Image {
-				Name = "Tile",
+		return UI.HStack "Row" {
+			UI.Image "Tile" {
 				image = IMAGE,
 				scaleMode = "tile" :: "tile",
 				tileSize = { width = 16, height = 16 },
 				Size = UDim2.fromOffset(64, 64),
 			} :: unknown,
-			UI.Image {
-				Name = "Slice",
+			UI.Image "Slice" {
 				image = IMAGE,
 				scaleMode = "slice" :: "slice",
 				sliceCenter = { x0 = 4, y0 = 4, x1 = 12, y1 = 12 },
 				sliceScale = 2,
 				Size = UDim2.fromOffset(64, 64),
 			},
-			UI.Image {
-				Name = "Pixel",
+			UI.Image "Pixel" {
 				image = IMAGE,
 				resample = "pixelated" :: "pixelated",
 				Size = UDim2.fromOffset(64, 64),
 			},
-			UI.Image { Name = "Bound", image = IMAGE, scaleMode = modes, Size = UDim2.fromOffset(64, 64) },
+			UI.Image "Bound" { image = IMAGE, scaleMode = modes, Size = UDim2.fromOffset(64, 64) },
 		}
 	end, { frames = 20 })
 	local tile, slice, pixel, bound =
@@ -921,16 +914,10 @@ end)
 
 add("image-scale-mode-renders", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.HStack {
-			Name = "Row",
-			UI.Image { Name = "Fit", image = IMAGE, scaleMode = "fit" :: "fit", Size = UDim2.fromOffset(120, 40) } :: unknown,
-			UI.Image { Name = "Crop", image = IMAGE, scaleMode = "crop" :: "crop", Size = UDim2.fromOffset(120, 40) },
-			UI.Image {
-				Name = "Stretch",
-				image = IMAGE,
-				scaleMode = "stretch" :: "stretch",
-				Size = UDim2.fromOffset(120, 40),
-			},
+		return UI.HStack "Row" {
+			UI.Image "Fit" { image = IMAGE, scaleMode = "fit" :: "fit", Size = UDim2.fromOffset(120, 40) } :: unknown,
+			UI.Image "Crop" { image = IMAGE, scaleMode = "crop" :: "crop", Size = UDim2.fromOffset(120, 40) },
+			UI.Image "Stretch" { image = IMAGE, scaleMode = "stretch" :: "stretch", Size = UDim2.fromOffset(120, 40) },
 		}
 	end, { frames = 30 })
 	for _, name in { "Fit", "Crop", "Stretch" } do
@@ -956,8 +943,7 @@ add("icon-clamped-to-content-box", {}, function(t)
 		do
 			local where = `{entry.name} {case.key}`
 			local stage = t.mount(function(UI: FacetControls)
-				return UI.Button {
-					Name = "Back",
+				return UI.Button "Back" {
 					icon = "chevron.leading",
 					label = case.label,
 					Size = case.size,
@@ -1016,8 +1002,7 @@ local function sortable(t: any, count: number, editing: boolean?): any
 			Position = UDim2.fromOffset(20, 200),
 			Size = UDim2.fromOffset(320, 264),
 			BackgroundTransparency = 1,
-			UI.VirtualList {
-				Name = "Sortable",
+			UI.VirtualList "Sortable" {
 				from = value.rows,
 				key = "id",
 				itemSize = 44,
@@ -1293,25 +1278,18 @@ add("feedback-motion-is-paint-only", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.invalid = Compose.cell(false)
 		value.expanded = Compose.cell(false)
-		return UI.VStack {
-			Name = "Column",
+		return UI.VStack "Column" {
 			gap = "s",
-			UI.Text { Name = "Above", text = "Above" } :: unknown,
-			UI.Button { Name = "Pop", label = "Pop", pop = true, onActivate = function() end },
-			UI.Text { Name = "Middle", text = "Middle" },
-			UI.TextInput {
-				Name = "Field",
-				value = Compose.cell("abc"),
-				onChange = function() end,
-				invalid = value.invalid,
-			},
-			UI.Text { Name = "Lower", text = "Lower" },
-			UI.DisclosureGroup {
-				Name = "Group",
+			UI.Text "Above" { text = "Above" } :: unknown,
+			UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end },
+			UI.Text "Middle" { text = "Middle" },
+			UI.TextInput "Field" { value = Compose.cell("abc"), onChange = function() end, invalid = value.invalid },
+			UI.Text "Lower" { text = "Lower" },
+			UI.DisclosureGroup "Group" {
 				label = "Details",
 				expanded = value.expanded,
 				content = function(): Instance
-					return UI.Text { Name = "Inside", text = "Inside" }
+					return UI.Text "Inside" { text = "Inside" }
 				end,
 			},
 		}
@@ -1433,7 +1411,7 @@ add("radial-lift-is-paint-only", {}, function(t)
 				onSelect = function() end,
 			})
 		end
-		return UI.RadialMenu { Name = "Quick", isPresented = value.open, items = items }
+		return UI.RadialMenu "Quick" { isPresented = value.open, items = items }
 	end, { size = Vector2.new(800, 600), frames = 60, motionLevel = "normal" })
 	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
 	local panel = visibleNamed(t, gui, "RadialPanel")
@@ -1535,12 +1513,7 @@ add("ring-geometry-only-on-real-change", {}, function(t)
 				return UDim2.fromOffset(use(value.width), 200)
 			end,
 			BackgroundTransparency = 1,
-			UI.ProgressView {
-				Name = "Ring",
-				value = value.progress,
-				presentation = "circular" :: "circular",
-				diameter = 96,
-			},
+			UI.ProgressView "Ring" { value = value.progress, presentation = "circular" :: "circular", diameter = 96 },
 		}
 	end, { frames = 20 })
 	local fillPath = t.find(stage, "RingFill")
@@ -1585,11 +1558,10 @@ add("press-feedback-reaches-the-device", {}, function(t)
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			effect :: unknown,
-			Haptic.VStack {
-				Name = "Plain",
+			Haptic.VStack "Plain" {
 				Position = UDim2.fromOffset(600, 40),
-				Haptic.Button { Name = "Saves", label = "Save", haptic = true },
-				Haptic.Button { Name = "Quiet", label = "Quiet" },
+				Haptic.Button "Saves" { label = "Save", haptic = true },
+				Haptic.Button "Quiet" { label = "Quiet" },
 			},
 			Host.Frame "Demo" { Size = UDim2.new(0, 560, 1, 0), BackgroundTransparency = 1, built.screen() },
 		}
@@ -1638,8 +1610,7 @@ add("presence-retires-until-exit", {}, function(t)
 		return Host.Frame "Holder" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.Button {
-				Name = "Toggle",
+			UI.Button "Toggle" {
 				label = "Toggle",
 				onActivate = function()
 					value.shown:set(not value.shown:peek())
@@ -1725,14 +1696,12 @@ add("stack-pop-retires-until-motion-ends", {}, function(t)
 	local value: any = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.path = Compose.cell({})
-		return UI.NavigationStack {
-			Name = "Journey",
+		return UI.NavigationStack "Journey" {
 			path = value.path,
 			root = {
 				title = "Plan",
 				content = function(): Instance
-					return UI.Button {
-						Name = "Next",
+					return UI.Button "Next" {
 						label = "Next",
 						onActivate = function()
 							value.path:set({ { id = "detail", value = 1 } })
@@ -1744,7 +1713,7 @@ add("stack-pop-retires-until-motion-ends", {}, function(t)
 				detail = {
 					title = "Detail",
 					content = function(): Instance
-						return UI.Button { Name = "Inner", label = "Inner" }
+						return UI.Button "Inner" { label = "Inner" }
 					end,
 				} :: Destination,
 			},
@@ -1803,10 +1772,9 @@ local function hintProbe(t: any): any
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Host.InputContext "Hints" { value.action :: unknown, value.shifted } :: unknown,
-			UI.VStack {
-				Name = "Column",
-				UI.ShortcutHint { Name = "Hint", action = value.action } :: unknown,
-				UI.ShortcutHint { Name = "ShiftHint", action = value.shifted },
+			UI.VStack "Column" {
+				UI.ShortcutHint "Hint" { action = value.action } :: unknown,
+				UI.ShortcutHint "ShiftHint" { action = value.shifted },
 			},
 		}
 	end, { frames = 16 })
@@ -1901,8 +1869,7 @@ add(
 				Position = UDim2.fromOffset(40, 240),
 				Size = UDim2.fromOffset(200, 60),
 				BackgroundTransparency = 1,
-				UI.SplitButton {
-					Name = "Run",
+				UI.SplitButton "Run" {
 					Size = UDim2.fromOffset(148, 44),
 					AutomaticSize = Enum.AutomaticSize.None,
 					label = "Run",
@@ -1989,12 +1956,10 @@ local function multiline(t: any, touchDevice: boolean?): any
 			Position = UDim2.fromOffset(20, 200),
 			Size = UDim2.fromOffset(300, 200),
 			BackgroundTransparency = 1,
-			UI.VStack {
-				Name = "Column",
+			UI.VStack "Column" {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				UI.TextInput {
-					Name = "Notes",
+				UI.TextInput "Notes" {
 					value = value.text,
 					onChange = function(text)
 						value.text:set(text)
@@ -2005,7 +1970,7 @@ local function multiline(t: any, touchDevice: boolean?): any
 					multiline = true,
 					visibleLines = 4,
 				} :: unknown,
-				UI.Text { Name = "Below", text = "Below" },
+				UI.Text "Below" { text = "Below" },
 			},
 		}
 	end, { frames = 16 })
@@ -2098,8 +2063,7 @@ add("multiline-grows-with-hard-breaks", {}, function(t)
 			Size = UDim2.fromOffset(300, 400),
 			BackgroundTransparency = 1,
 			Host.UIListLayout({ SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-			UI.TextInput {
-				Name = "Notes",
+			UI.TextInput "Notes" {
 				value = value.text,
 				onChange = function(text)
 					value.text:set(text)
@@ -2107,7 +2071,7 @@ add("multiline-grows-with-hard-breaks", {}, function(t)
 				multiline = true,
 				LayoutOrder = 1,
 			},
-			UI.Text { Name = "Below", text = "Below", LayoutOrder = 2 },
+			UI.Text "Below" { text = "Below", LayoutOrder = 2 },
 		}
 	end, { frames = 16 })
 	local field = textBox(t.find(stage, "Notes"))
@@ -2161,8 +2125,7 @@ local function touchDragFixture(t: any, pickup: string?, axis: string?): any
 			ScrollingDirection = if axis == "Y" then Enum.ScrollingDirection.X else Enum.ScrollingDirection.Y,
 			BackgroundTransparency = 1,
 		}
-		value.source = UI.Button {
-			Name = "TouchDragSource",
+		value.source = UI.Button "TouchDragSource" {
 			label = "Pick up",
 			Size = UDim2.fromOffset(220, 90),
 			Position = UDim2.fromOffset(40, 100),

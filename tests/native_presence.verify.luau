@@ -12,8 +12,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local function dialog(shown: any, options: any?, unsized: boolean?): any
 		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-			return UI.Dialog {
-				Name = "D",
+			return UI.Dialog "D" {
 				isPresented = shown,
 				onPresentedChange = function(value: boolean)
 					shown:set(value)
@@ -93,8 +92,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local shown = Compose.cell(true)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Sheet {
-						Name = "S",
+					return UI.Sheet "S" {
 						isPresented = shown,
 						detent = Compose.cell("medium"),
 						title = "Race details",
@@ -144,12 +142,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local expanded = Compose.cell(false)
 				local w = overlay.new(function(UI: FacetControls)
-					return UI.DisclosureGroup {
-						Name = "Settings",
+					return UI.DisclosureGroup "Settings" {
 						label = "Appearance",
 						expanded = expanded,
 						content = function(): Instance
-							return UI.Button { Name = "Palette", label = "Palette" }
+							return UI.Button "Palette" { label = "Palette" }
 						end,
 					}
 				end, LIMITED)

@@ -76,13 +76,11 @@ return function(verifyHarness: Verify.Harness)
 						local opened = C.cell(false)
 						local w = fixture(function(UI: FacetControls, _, T)
 							return if kind == "color"
-								then UI.ColorPicker {
-									Name = "Picker",
+								then UI.ColorPicker "Picker" {
 									value = C.cell(T.Color3.new(1, 0, 0)),
 									isPresented = opened,
 								}
-								else UI.DateTimePicker {
-									Name = "Picker",
+								else UI.DateTimePicker "Picker" {
 									value = C.cell({ year = 2026, month = 9, day = 30 }),
 									onChange = function() end,
 									isPresented = opened,

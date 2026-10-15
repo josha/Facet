@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -244,14 +243,14 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end
 		local world = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-			local children: { unknown } = { UI.Button { Name = "Under", label = "Under" } }
+			local children: { unknown } = { UI.Button "Under" { label = "Under" } }
 			for index, spec in specs do
 				table.insert(
 					children,
 					Compose.show(function(use: Use)
 						return use(shown[index])
 					end, function()
-						return UI.Toast(named(`T{index}`, spec))
+						return UI.Toast(`T{index}`)(spec)
 					end)
 				)
 			end
@@ -461,7 +460,7 @@ return function(verifyHarness: Verify.Harness)
 					Compose.cleanup(function()
 						live -= 1
 					end)
-					return UI.Text { Name = "Line", text = "Saved" }
+					return UI.Text "Line" { text = "Saved" }
 				end, { key = "save", duration = 20 })
 				expect((type(toast.id))):toBe("number")
 				expect(live):toBe(1)

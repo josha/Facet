@@ -29,8 +29,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			direction: number,
 			allowed: (ComposeTypes.Use) -> boolean
 		)
-			local button = UI.Button({
-				Name = name,
+			local button = UI.Button(name)({
 				icon = glyph,
 				name = name,
 				haptic = true,

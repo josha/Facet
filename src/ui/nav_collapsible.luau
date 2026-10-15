@@ -87,7 +87,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: s
 						Compose.show(function(use: ComposeTypes.Use)
 							return read(spec.dismissButton, use) ~= false or use(preferred) == E.PreferredInput.Gamepad
 						end, function()
-							return UI.Button { Name = "Close", label = "Close", onActivate = collapse }
+							return UI.Button "Close" { label = "Close", onActivate = collapse }
 						end),
 						ctx.padding(16, 16),
 					}, { Name = "ExpandedBody", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })

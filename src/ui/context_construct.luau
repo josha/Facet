@@ -91,12 +91,17 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 		end
 		return (result :: unknown) :: P
 	end
-	function ctx.construct<F>(control: string, build: F): F
+	function ctx.construct<F>(control: string, build: F): F & ((string) -> F)
 		assert(type(build) == "function", "Facet constructor requires a builder")
 		local apply = (build :: unknown) :: ({ [unknown]: unknown }) -> unknown
-		local function construct(fields: { [unknown]: unknown }): unknown
+		local function construct(fields: { [unknown]: unknown }, name: string?): unknown
 			if type(fields) ~= "table" then
 				error(`Facet UI.{control}: expected a property table, got {typeof(fields)}`, 0)
+			end
+			if name then
+				fields = table.clone(fields)
+				assert(fields.Name == nil, "Facet: supply either a constructor name or Name")
+				fields.Name = name
 			end
 			local outer = building
 			building = control
@@ -142,10 +147,15 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 			end
 			return node
 		end
-		local function single(fields: { [unknown]: unknown }?): unknown
-			return construct(fields or {})
+		local function overloaded(first: { [unknown]: unknown } | string?): unknown
+			if type(first) == "string" then
+				return function(fields: { [unknown]: unknown }): unknown
+					return construct(fields, first)
+				end
+			end
+			return construct(first or {}, nil)
 		end
-		return (single :: unknown) :: F
+		return (overloaded :: unknown) :: F & ((string) -> F)
 	end
 	local function styled<N>(node: N & Instance, role: string): N & Instance
 		node:AddTag("facet-" .. string.lower(role))

@@ -260,7 +260,8 @@ return function(ctx: Types.Context, UI: Controls, shared: PickerParts.Parts, bui
 					end
 					choices = child
 				end
-				return ctx.column({ UI.Picker(choices) }, {
+				local picker = (UI.Picker :: unknown) :: (NavigationProps.PickerSpec<V>) -> GuiObject
+				return ctx.column({ picker(choices) }, {
 					Name = "PickerSearch",
 					Size = function(use: ComposeTypes.Use)
 						return D2.fromOffset(ctx.metric("controls.popup.panelWidth", use) - 16, 0)

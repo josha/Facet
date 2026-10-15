@@ -56,16 +56,14 @@ return function(
 				return nil
 			end
 			if explicit ~= nil and explicit ~= true then
-				return linkClose(UI.Button {
-					Name = "Close",
+				return linkClose(UI.Button "Close" {
 					label = explicit :: Types.Value<string>,
 					appearance = if overHero then "inverse" else "link",
 					LayoutOrder = 2,
 					onActivate = activate,
 				})
 			end
-			return linkClose(UI.Button {
-				Name = "Close",
+			return linkClose(UI.Button "Close" {
 				name = "Close",
 				Visible = if explicit == nil then canDismiss else true,
 				icon = "close",
@@ -91,14 +89,13 @@ return function(
 				if overHero then
 					table.insert(
 						children,
-						Host.Frame({
-							Name = "Strip",
+						Host.Frame "Strip" {
 							BackgroundTransparency = 1,
 							LayoutOrder = 0,
 							Size = function(use: ComposeTypes.Use)
 								return D2.new(1, 0, 0, math.max(44, ctx.metric("targetSizes.minimum", use)) + 8)
 							end,
-						})
+						}
 					)
 				end
 				local content = current.content

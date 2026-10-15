@@ -138,8 +138,7 @@ return function(
 		end, 5 * CELL)
 		upTarget:set(monthMenu)
 		local function arrow(name: string, icon: string, words_: string, delta: number): TextButton
-			return UI.Button({
-				Name = name,
+			return UI.Button(name)({
 				icon = icon,
 				name = words_,
 				shape = "circle" :: "circle",

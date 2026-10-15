@@ -25,7 +25,7 @@ return function(
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
-	local build: ControlTypes.RadialMenuConstructor = function<V>(spec: RadialProps.RadialMenuSpec<V>): Frame
+	local build = function<V>(spec: RadialProps.RadialMenuSpec<V>): Frame
 		assert(spec.items, "RadialMenu requires items")
 		local menu = createMenu(ctx, surfaces, spec)
 		local session = menu.session
@@ -86,8 +86,7 @@ return function(
 				end
 			end
 			surfaces.attach(root, {
-				UI.Button {
-					Name = "Launcher",
+				UI.Button "Launcher" {
 					AnchorPoint = if overAnchor then V2.new(0.5, 0.5) else nil,
 					Position = overAnchor,
 					label = spec.label or "Quick actions",

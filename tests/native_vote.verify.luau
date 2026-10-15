@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -17,7 +16,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local function mount(spec: any, extra: ((any) -> { any })?): any
 		return worlds.new(function(UI: FacetControls, Host: RobloxHost)
-			local children: { any } = { UI.Vote(named("V", spec)) }
+			local children: { any } = { UI.Vote "V"(spec) }
 			local additions: { any } = if extra then extra(UI) else {}
 			for _, node in additions do
 				table.insert(children, node)
@@ -120,8 +119,7 @@ return function(verifyHarness: Verify.Harness)
 					Compose.cell("none" :: "down" | "none" | "up")
 				local world = worlds.new(function(UI: FacetControls)
 					return Compose.show(show, function()
-						return UI.Vote({
-							Name = "V",
+						return UI.Vote("V")({
 							value = value,
 							onChange = function(nextValue: "down" | "none" | "up")
 								value:set(nextValue)

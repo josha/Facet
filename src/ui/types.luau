@@ -16,7 +16,7 @@ export type ValueString = Engine.ValueString
 export type ValueBoolean = Engine.ValueBoolean
 export type ValueNumber = Engine.ValueNumber
 
-export type Constructor<P, N> = (P) -> N
+export type Constructor<P, N> = Engine.Constructor<P, N>
 export type Host = Engine.Host
 export type Attributes = Engine.Attributes
 export type AttributeValue = Engine.AttributeValue
@@ -143,7 +143,7 @@ export type Config = {
 	controlSize: Value<ControlSize?>?,
 	theme: Value<Theme.ThemePackage>?,
 	icons: Value<{ [string]: Theme.IconEntry }>?,
-	motionLevel: Value<MotionLevel>?,
+	motionLevel: Value<MotionLevel?>?,
 	pressHaptic: (HapticEffect | HapticKind)?,
 	onError: ((unknown) -> ())?,
 	environment: EnvironmentPreview?,
@@ -233,7 +233,7 @@ export type Context = {
 	shiftActivation: (Instance, InputObject?) -> (() -> ())?,
 	playWhileShown: (Playback, Instance) -> (),
 	props: <P>(P, { string } | { [string]: boolean }?, unknown?) -> P,
-	construct: <F>(string, F) -> F,
+	construct: <F>(string, F) -> F & ((string) -> F),
 	styled: <N>(N & Instance, string) -> N & Instance,
 	padding: (number, number) -> UIPadding,
 	round: (ComposeTypes.Use?, UDim?) -> UDim,

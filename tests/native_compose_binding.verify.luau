@@ -158,17 +158,14 @@ return function(verifyHarness: Verify.Harness)
 						surface.Compose.cleanup(function()
 							cleaned += 1
 						end)
-						return UI.Screen {
-							Name = "Counter",
+						return UI.Screen "Counter" {
 							gap = "s",
-							UI.Text {
-								Name = "Count",
+							UI.Text "Count" {
 								text = function(use: Use)
 									return `Count {use(count)}`
 								end,
 							} :: unknown,
-							UI.Button {
-								Name = "Add",
+							UI.Button "Add" {
 								label = "Add one",
 								onActivate = function()
 									count:update(function(value)

@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -77,7 +76,7 @@ return function(verifyHarness: Verify.Harness)
 			return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 				Name = "Host",
 				Compose.show(w.visible, function()
-					return UI.NumberInput(named("Laps", merged))
+					return UI.NumberInput "Laps"(merged)
 				end),
 			})
 		end, screen)
@@ -126,7 +125,7 @@ return function(verifyHarness: Verify.Harness)
 								then true
 								elseif key == "prefix" or key == "suffix" then "$"
 								else 1
-							return UI.TextInput(named("T", spec))
+							return UI.TextInput "T"(spec)
 						end, engine.new("ScreenGui"))
 						stop()
 					end)

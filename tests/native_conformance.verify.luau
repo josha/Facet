@@ -339,13 +339,13 @@ return function(verifyHarness: Verify.Harness)
 		end
 		table.sort(names)
 		for _, name in names do
-			verifyHarness:case(`{name} preserves caller properties refs events and cleanup`, {
+			verifyHarness:case(`{name} preserves caller properties refs events and cleanup in both constructor forms`, {
 				id = "native_conformance::"
 					.. "native constructor conformance"
 					.. "::"
-					.. `{name} preserves caller properties refs events and cleanup`,
+					.. `{name} preserves caller properties refs events and cleanup in both constructor forms`,
 				run = function()
-					do
+					for _, named in { false, true } do
 						local engine = engineLib.new()
 						local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 						local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
@@ -363,8 +363,10 @@ return function(verifyHarness: Verify.Harness)
 							props[Compose.event("MouseEnter")] = function()
 								calls += 1
 							end
-							props.Name = "Caller"
-							return UI[name](props)
+							if not named then
+								props.Name = "Caller"
+							end
+							return if named then UI[name]("Caller")(props) else UI[name](props)
 						end, root)
 						assert(reference == node, "ref must identify returned root")
 						assert(refCalls == 1, `ref ran {refCalls} times for one build`)
@@ -385,25 +387,6 @@ return function(verifyHarness: Verify.Harness)
 						assert(after.live == baseline.live, `native instances leaked: {baseline.live} -> {after.live}`)
 						assert(after.connections == baseline.connections, "native connections leaked")
 					end
-				end,
-			})
-			verifyHarness:case(`{name} refuses a name string in place of its property table`, {
-				id = "native_conformance::"
-					.. "native constructor conformance"
-					.. "::"
-					.. `{name} refuses a name string in place of its property table`,
-				run = function()
-					local engine = engineLib.new()
-					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-					local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
-					local constructor = (UI :: unknown) :: { [string]: (unknown) -> unknown }
-					local ok, problem = pcall(constructor[name], "Caller")
-					Verify.expect(ok):toBe(false)
-					Verify.expect(
-						string.find(tostring(problem), "expected a property table, got string", 1, true) ~= nil
-					)
-						:toBe(true)
-					runtime:dispose()
 				end,
 			})
 		end

@@ -68,7 +68,7 @@ export type StatusIndicatorOptions = {
 	diameter: Types.ValueNumber?,
 	controlSize: Types.Value<ControlSize?>?,
 	cutout: boolean?,
-	name: string?,
+	name: Types.ValueString?,
 }
 export type PathPoint = { x: number, y: number, inX: number, inY: number, outX: number, outY: number }
 export type PathOptions = {

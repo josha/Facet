@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -941,8 +940,7 @@ return function(verifyHarness: Verify.Harness)
 				return Host.Frame({
 					Name = "Cell",
 					AutomaticSize = engine.types.Enum.AutomaticSize.XY,
-					UI.Slider({
-						Name = "Vol",
+					UI.Slider("Vol")({
 						label = "Vol",
 						value = Compose.cell(50),
 						min = 0,
@@ -998,8 +996,7 @@ return function(verifyHarness: Verify.Harness)
 						{ xsmall = 4, compact = 4, regular = 6, large = 6, none = 6 } :: { [string]: number }
 					do
 						local w = worlds.new(function(UI: FacetControls)
-							return UI.ProgressView({
-								Name = "P",
+							return UI.ProgressView("P")({
 								value = 0.5,
 								controlSize = if rung == "none"
 									then nil
@@ -1016,8 +1013,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_lab_audit::native lab audit: ProgressView rungs::a large ring shows its value in the gauge",
 			run = function()
 				local w = worlds.new(function(UI: FacetControls)
-					return UI.ProgressView({
-						Name = "P",
+					return UI.ProgressView("P")({
 						value = 0.65,
 						presentation = "circular" :: "circular",
 						showValue = true,
@@ -1038,8 +1034,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local ok, err = pcall(function()
 					worlds.new(function(UI: FacetControls)
-						return UI.ProgressView({
-							Name = "P",
+						return UI.ProgressView("P")({
 							value = 0.5,
 							controlSize = "compact" :: "compact",
 							thickness = 8,
@@ -1062,11 +1057,11 @@ return function(verifyHarness: Verify.Harness)
 					} :: { { [string]: any } }
 				do
 					Verify.expect(worlds.mountError(function(UI: FacetControls)
-						return UI.ProgressView(named("P", spec :: any))
+						return UI.ProgressView "P"(spec :: any)
 					end) ~= nil):toBe(true)
 				end
 				Verify.expect((worlds.mountError(function(UI: FacetControls)
-					return UI.ProgressView({ Name = "P", value = 0.5, endLabel = "Done" })
+					return UI.ProgressView("P")({ value = 0.5, endLabel = "Done" })
 				end))):toBeNil()
 			end,
 		})
@@ -1080,8 +1075,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, readOnly in { false, true } do
 					for _, rung in { "compact", "large" } :: { "compact" | "large" } do
 						local w = worlds.new(function(UI: FacetControls)
-							return UI.Vote({
-								Name = "V",
+							return UI.Vote("V")({
 								value = "up" :: "up",
 								readOnly = readOnly,
 								controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
@@ -1124,48 +1118,41 @@ return function(verifyHarness: Verify.Harness)
 						local w = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 							return Host.Frame({
 								Name = "Row",
-								UI.Button({
-									Name = "B",
+								UI.Button("B")({
 									label = "Settings",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 								}) :: unknown,
-								UI.Picker({
-									Name = "PM",
+								UI.Picker("PM")({
 									label = "Theme:",
 									style = "menu" :: "menu",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 									selected = Compose.cell("a"),
 									options = options,
 								}),
-								UI.Picker({
-									Name = "PS",
+								UI.Picker("PS")({
 									style = "segmented" :: "segmented",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 									selected = Compose.cell("a"),
 									options = options,
 								}),
-								UI.TextInput({
-									Name = "TI",
+								UI.TextInput("TI")({
 									value = Compose.cell("x"),
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 								}),
-								UI.Toggle({
-									Name = "TK",
+								UI.Toggle("TK")({
 									label = "Motion",
 									presentation = "checkbox" :: "checkbox",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 									value = Compose.cell(false),
 								}),
-								UI.Toggle({
-									Name = "TC",
+								UI.Toggle("TC")({
 									label = "Reduced Motion",
 									presentation = "checkbox" :: "checkbox",
 									appearance = "plain",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 									value = Compose.cell(false),
 								}),
-								UI.Toggle({
-									Name = "TS",
+								UI.Toggle("TS")({
 									label = "Music",
 									controlSize = rung :: "xsmall" | "compact" | "regular" | "large",
 									value = Compose.cell(false),
@@ -1210,8 +1197,7 @@ return function(verifyHarness: Verify.Harness)
 						{ "warning", "error", "accent", "neutral" } :: { "accent" | "error" | "neutral" | "warning" }
 					do
 						local w = worlds.new(function(UI: FacetControls)
-							return UI.Badge({
-								Name = "B",
+							return UI.Badge("B")({
 								label = "Ready",
 								appearance = "status" :: "status",
 								status = status :: "accent" | "error" | "neutral" | "warning",
@@ -1238,8 +1224,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_lab_audit::native lab audit: Badge status mark::an unplated utility badge draws no status mark",
 			run = function()
 				local w = worlds.new(function(UI: FacetControls)
-					return UI.Badge({
-						Name = "B",
+					return UI.Badge("B")({
 						label = "Ready",
 						appearance = "utility" :: "utility",
 						status = "success" :: "success",
@@ -1291,8 +1276,7 @@ return function(verifyHarness: Verify.Harness)
 				local sizes: { [string]: number } = {}
 				for _, rung in { "compact", "regular", "large", "none" } :: { "compact" | "large" | "none" | "regular" } do
 					local w = worlds.new(function(UI: FacetControls)
-						return UI.StepIndicator({
-							Name = "S",
+						return UI.StepIndicator("S")({
 							steps = {
 								{ id = "cart", label = "Cart" },
 								{ id = "pay", label = "Pay" },
@@ -1322,8 +1306,7 @@ return function(verifyHarness: Verify.Harness)
 					local carve = ((theme.chrome or {}).panel or {}).contentInsets or {}
 					for _, appearance in { "standard", "emphasis" } :: { "emphasis" | "standard" } do
 						local w = worlds.new(function(UI: FacetControls)
-							return UI.Notice({
-								Name = "Conn",
+							return UI.Notice("Conn")({
 								title = "Update available",
 								message = "A new track pack is ready.",
 								appearance = appearance :: "emphasis" | "standard",

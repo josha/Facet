@@ -34,8 +34,7 @@ return function<V, K>(
 		local function fraction(use: ComposeTypes.Use): number
 			return math.clamp(use(progress), 0, 1)
 		end
-		local button = UI.Button({
-			Name = "Edit",
+		local button = UI.Button("Edit")({
 			label = function(use: ComposeTypes.Use): string
 				return if read(editing, use) then "Done" else "Edit"
 			end,
@@ -111,8 +110,7 @@ return function<V, K>(
 			return preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Gamepad
 		end
 		local remove = if spec.deletable and editor
-			then UI.Button {
-				Name = "DeleteSelected",
+			then UI.Button "DeleteSelected" {
 				label = "Delete",
 				role = "destructive" :: InputTypes.ButtonRole,
 				Size = D2.new(0, 0, 1, 0),

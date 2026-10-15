@@ -97,8 +97,7 @@ return function<V>(
 		return D2.fromOffset(at.X, at.Y)
 	end
 	local hideLauncher: (() -> ())? = nil
-	local centerNode = UI.Button {
-		Name = "Center",
+	local centerNode = UI.Button "Center" {
 		corners = "pill" :: "pill",
 		appearance = "utility",
 		name = centerName,

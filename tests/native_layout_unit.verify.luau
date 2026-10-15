@@ -43,8 +43,7 @@ return function(verifyHarness: Verify.Harness)
 									{
 										id = "a",
 										content = function(): Instance
-											return UI.TabView {
-												Name = "Inner",
+											return UI.TabView "Inner" {
 												selection = Compose.cell("x"),
 												tabs = {
 													{ id = "x", label = "Swipe actions", content = Host.Frame "X" {} } :: FixtureNavigationTypes.Tab,
@@ -97,8 +96,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, copy in { 120, 250 } do
 					both(`Toast {copy}`, function(factor)
 						local w = overlay.new(function(UI: FacetControls)
-							return UI.Toast {
-								Name = "Saved",
+							return UI.Toast "Saved" {
 								isPresented = Compose.cell(true),
 								onPresentedChange = function() end,
 								message = "Saved to garage",

@@ -221,8 +221,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 				if closeButton then
 					table.insert(
 						header,
-						UI.Button {
-							Name = "Close",
+						UI.Button "Close" {
 							name = "Close",
 							icon = "close",
 							Size = D2.fromOffset(44, 44),

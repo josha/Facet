@@ -28,8 +28,8 @@ add("explicit-paint-beats-the-sheet", {}, function(t: any)
 			Size = UDim2.fromOffset(400, 60),
 			BackgroundTransparency = 1,
 			Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) } :: unknown,
-			UI.Button { Name = "Plain", label = "Plain" },
-			UI.Button { Name = "Painted", label = "Painted", BackgroundColor3 = red, BackgroundTransparency = 0 },
+			UI.Button "Plain" { label = "Plain" },
+			UI.Button "Painted" { label = "Painted", BackgroundColor3 = red, BackgroundTransparency = 0 },
 		}
 	end)
 	t.settle(10)
@@ -52,7 +52,7 @@ add("toggle-follows-a-live-palette", {}, function(t: any)
 	local context
 	local stage = t.mount(function(UI: FacetControls, _, _, ctx)
 		context = ctx
-		return UI.Toggle { Name = "Sound", label = "Sound", value = value }
+		return UI.Toggle "Sound" { label = "Sound", value = value }
 	end)
 	t.settle(10)
 	local node = first(stage, "Sound")
@@ -81,8 +81,7 @@ add("alert-title-is-centred", {}, function(t: any)
 		return Host.Frame "Host" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.Alert {
-				Name = "Confirm",
+			UI.Alert "Confirm" {
 				isPresented = t.Facet.Compose.cell(true),
 				title = "Save changes?",
 				message = "Your edits stay on this device until you save.",
@@ -124,14 +123,13 @@ add("path-strokes-in-theme-roles", {}, function(t: any)
 				Size = UDim2.fromOffset(300, 80),
 				BackgroundTransparency = 1,
 				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8) } :: unknown,
-				UI.Path {
-					Name = "Accent",
+				UI.Path "Accent" {
 					points = t.Facet.pathShapes.ring(),
 					role = "accent" :: "accent",
 					thickness = 3,
 					width = 64,
 				},
-				UI.Path { Name = "Content", points = t.Facet.pathShapes.needle(45), thickness = 2, width = 64 },
+				UI.Path "Content" { points = t.Facet.pathShapes.needle(45), thickness = 2, width = 64 },
 			}
 		end, { theme = theme.package, size = Vector2.new(400, 200) })
 		t.settle(8)

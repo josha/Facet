@@ -34,7 +34,7 @@ return function(
 			then { settings.motionLevel }
 			else motionLevels.published(runtime)
 		for _, source in sources do
-			local chosen = read(source :: Engine.Value<"normal" | "limited" | "none">, use)
+			local chosen = read(source :: Engine.Value<("normal" | "limited" | "none")?>, use)
 			if chosen ~= nil and motionLevels.resolve(chosen, false) == "none" then
 				return true
 			end

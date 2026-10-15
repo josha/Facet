@@ -260,8 +260,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: s
 				if spec.suppression then
 					actionBar = ctx.column({
 						actionBar,
-						UI.Toggle {
-							Name = "Suppression",
+						UI.Toggle "Suppression" {
 							value = spec.suppression.isSuppressed,
 							label = spec.suppression.label or "Do not show again",
 						},

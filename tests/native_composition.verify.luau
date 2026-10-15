@@ -43,8 +43,7 @@ return function(verifyHarness: Verify.Harness)
 			spec.Name = name
 			return UI.Region(spec)
 		end
-		return UI.Composition {
-			Name = "Hud",
+		return UI.Composition "Hud" {
 			gap = 8,
 			padding = 0,
 			topbar = topbar,
@@ -152,19 +151,16 @@ return function(verifyHarness: Verify.Harness)
 				local overlay = require("./lib/overlay_world")
 				local form = Compose.cell(1)
 				local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Composition {
-						Name = "Hud",
+					return UI.Composition "Hud" {
 						gap = 8,
 						padding = 0,
 						topbar = false,
-						UI.Region {
-							Name = "Rounds",
+						UI.Region "Rounds" {
 							zone = "topLeft" :: "topLeft",
 							rank = 1,
 							Host.Frame { Name = "RoundsFull" },
 						} :: unknown,
-						UI.Region {
-							Name = "Tasks",
+						UI.Region "Tasks" {
 							zone = "left" :: "left",
 							rank = 2,
 							form = form,
@@ -212,19 +208,16 @@ return function(verifyHarness: Verify.Harness)
 					for _, reveal in { true, false } do
 						local form = Compose.cell(1)
 						local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-							return UI.Composition {
-								Name = "Hud",
+							return UI.Composition "Hud" {
 								gap = 8,
 								padding = 0,
 								topbar = false,
-								UI.Region {
-									Name = "Rounds",
+								UI.Region "Rounds" {
 									zone = "topLeft" :: "topLeft",
 									rank = 1,
 									Host.Frame { Name = "RoundsFull" },
 								} :: unknown,
-								UI.Region {
-									Name = "Feed",
+								UI.Region "Feed" {
 									zone = "left" :: "left",
 									rank = 2,
 									mayDrop = true,
@@ -271,19 +264,16 @@ return function(verifyHarness: Verify.Harness)
 					local overlay = require("./lib/overlay_world")
 					local form = Compose.cell(1)
 					local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						return UI.Composition {
-							Name = "Hud",
+						return UI.Composition "Hud" {
 							gap = 8,
 							padding = 0,
 							topbar = false,
-							UI.Region {
-								Name = "Rounds",
+							UI.Region "Rounds" {
 								zone = "topLeft" :: "topLeft",
 								rank = 1,
 								Host.Frame { Name = "RoundsFull" },
 							} :: unknown,
-							UI.Region {
-								Name = "Feed",
+							UI.Region "Feed" {
 								zone = "left" :: "left",
 								rank = 2,
 								mayDrop = true,
@@ -326,20 +316,17 @@ return function(verifyHarness: Verify.Harness)
 					for _, reveal in { true, false } do
 						local feedForm, stayForm = Compose.cell(1), Compose.cell(1)
 						local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-							return UI.Composition {
-								Name = "Hud",
+							return UI.Composition "Hud" {
 								gap = 8,
 								padding = 0,
 								topbar = false,
-								UI.Region {
-									Name = "Stay",
+								UI.Region "Stay" {
 									zone = "left" :: "left",
 									rank = 1,
 									form = stayForm,
 									Host.Frame { Name = "StayFull" },
 								} :: unknown,
-								UI.Region {
-									Name = "Feed",
+								UI.Region "Feed" {
 									zone = "left" :: "left",
 									rank = 2,
 									mayDrop = true,
@@ -392,13 +379,11 @@ return function(verifyHarness: Verify.Harness)
 					local overlay = require("./lib/overlay_world")
 					local feedForm, otherForm = Compose.cell(1), Compose.cell(1)
 					local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-						return UI.Composition {
-							Name = "Hud",
+						return UI.Composition "Hud" {
 							gap = 8,
 							padding = 0,
 							topbar = false,
-							UI.Region {
-								Name = "Other",
+							UI.Region "Other" {
 								zone = "left" :: "left",
 								rank = 1,
 								mayDrop = true,
@@ -406,8 +391,7 @@ return function(verifyHarness: Verify.Harness)
 								Host.Frame { Name = "OtherFull" } :: unknown,
 								Host.Frame { Name = "OtherChip" },
 							} :: unknown,
-							UI.Region {
-								Name = "Feed",
+							UI.Region "Feed" {
 								zone = "left" :: "left",
 								rank = 2,
 								mayDrop = true,
@@ -447,13 +431,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local overlay = require("./lib/overlay_world")
 				local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Composition {
-						Name = "Hud",
+					return UI.Composition "Hud" {
 						gap = 8,
 						padding = 0,
 						topbar = false,
-						UI.Region {
-							Name = "Tasks",
+						UI.Region "Tasks" {
 							zone = "left" :: "left",
 							rank = 1,
 							Host.Frame { Name = "TasksFull" },

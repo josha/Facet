@@ -233,8 +233,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local statuses: { [string]: Media.Status } =
 				{ online = "success", away = "warning", busy = "error", offline = "neutral" }
 			runtime.mount(function()
-				return UI.StatusIndicator {
-					Name = "Presence",
+				return UI.StatusIndicator "Presence" {
 					diameter = 12,
 					cutout = true,
 					Visible = function(use: ComposeTypes.Use)

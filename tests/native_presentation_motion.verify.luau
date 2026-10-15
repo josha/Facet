@@ -20,8 +20,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_presentation_motion::native fade ownership::collects late Picker paint after the parent assignment finishes",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls)
-					return UI.Picker {
-						Name = "Modes",
+					return UI.Picker "Modes" {
 						label = "Mode",
 						style = "segmented" :: "segmented",
 						selected = Compose.cell("a"),
@@ -55,12 +54,11 @@ return function(verifyHarness: Verify.Harness)
 	local function dialogWorld(options: any?): (any, any)
 		local open = Compose.cell(false)
 		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
-			local opener = UI.Button { Name = "Opener", label = "About" }
+			local opener = UI.Button "Opener" { label = "About" }
 			gui.SelectedObject = opener
 			return Host.Frame({
 				opener :: unknown,
-				UI.Dialog {
-					Name = "About",
+				UI.Dialog "About" {
 					isPresented = open,
 					onPresentedChange = function(value: boolean)
 						open:set(value)
@@ -97,8 +95,7 @@ return function(verifyHarness: Verify.Harness)
 					local value = Compose.cell({ year = 2026, month = 10, day = 7, hour = 9, minute = 0 })
 					local w = overlay.new(function(UI, Host, engine, _, _)
 						return Host.Frame {
-							UI.DateTimePicker {
-								Name = "Session",
+							UI.DateTimePicker "Session" {
 								value = value,
 								onChange = function(nextValue)
 									value:set(nextValue)
@@ -155,8 +152,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local open = Compose.cell(false)
 				local w = overlay.new(function(UI: FacetControls)
-					return UI.Alert {
-						Name = "Reset",
+					return UI.Alert "Reset" {
 						isPresented = open,
 						title = "Reset look?",
 						actions = { { id = "cancel", label = "Cancel" } },
@@ -313,17 +309,16 @@ return function(verifyHarness: Verify.Harness)
 		local function tipsWorld(options: any?, outsideDismiss: boolean | Compose.Readable<boolean>?): (any, any)
 			local expanded = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
-				local view = UI.CollapsibleView {
-					Name = "Tips",
+				local view = UI.CollapsibleView "Tips" {
 					label = "Turn step sets the increment for Rotation and both Turn buttons.",
 					expanded = expanded,
 					outsideDismiss = outsideDismiss,
 					content = function(): Instance
-						return UI.Button { Name = "Detail", label = "Detail" }
+						return UI.Button "Detail" { label = "Detail" }
 					end,
 				}
 				gui.SelectedObject = view
-				return Host.Frame({ view :: unknown, UI.Button { Name = "Other", label = "Other" } })
+				return Host.Frame({ view :: unknown, UI.Button "Other" { label = "Other" } })
 			end, options)
 			return w, expanded
 		end
@@ -515,12 +510,11 @@ return function(verifyHarness: Verify.Harness)
 		local function disclosureWorld(options: any?): (any, any)
 			local expanded = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls)
-				return UI.DisclosureGroup {
-					Name = "Settings",
+				return UI.DisclosureGroup "Settings" {
 					label = "Appearance",
 					expanded = expanded,
 					content = function(): Instance
-						return UI.Button { Name = "Palette", label = "Palette" }
+						return UI.Button "Palette" { label = "Palette" }
 					end,
 				}
 			end, options)
@@ -599,8 +593,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local shown = Compose.cell(false)
 				local w = overlay.new(function(UI: FacetControls)
-					return UI.Toast {
-						Name = "Saved",
+					return UI.Toast "Saved" {
 						isPresented = shown,
 						message = "Saved",
 						action = { label = "Undo", onActivate = function() end },
@@ -638,8 +631,7 @@ return function(verifyHarness: Verify.Harness)
 			local closes: { number } = {}
 			local w = overlay.new(function(UI: FacetControls)
 				return Compose.show(shown, function()
-					return UI.Notice {
-						Name = "Offline",
+					return UI.Notice "Offline" {
 						message = "You are offline",
 						onDismiss = function()
 							table.insert(closes, 1)
@@ -747,8 +739,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local open = Compose.cell(false)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Popover {
-						Name = "Status",
+					return UI.Popover "Status" {
 						source = { rect = { x = 300, y = 20, w = 40, h = 40 } },
 						isPresented = open,
 						onPresentedChange = function(value: boolean)
@@ -792,8 +783,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local open = Compose.cell(true)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Popover {
-						Name = "Plain",
+					return UI.Popover "Plain" {
 						source = { rect = { x = 300, y = 20, w = 40, h = 40 } },
 						isPresented = open,
 						onPresentedChange = function(value: boolean)
@@ -899,8 +889,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = overlay.new(function(UI, Host)
 					return Host.Frame {
-						UI.Menu {
-							Name = "Commands",
+						UI.Menu "Commands" {
 							label = "Actions",
 							items = { { id = "save", label = "Save", onSelect = function() end } },
 						},
@@ -934,8 +923,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = overlay.new(function(UI, Host)
 					return Host.SurfaceGui "WorldUI" {
-						UI.Menu {
-							Name = "Commands",
+						UI.Menu "Commands" {
 							label = "Actions",
 							presentation = "sheet",
 							items = { { id = "save", label = "Save", onSelect = function() end } },
@@ -969,8 +957,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI, Host)
 					return Host.SurfaceGui "WorldUI" {
 						ClipsDescendants = false,
-						UI.Menu {
-							Name = "Commands",
+						UI.Menu "Commands" {
 							label = "Actions",
 							presentation = "sheet",
 							items = { { id = "save", label = "Save", onSelect = function() end } },

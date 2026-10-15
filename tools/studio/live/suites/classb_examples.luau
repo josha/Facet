@@ -509,10 +509,12 @@ add("playlist-320x640-edit-mode-cells", {}, function(t)
 	local stage = example(t, "02_playlist_table", Vector2.new(320, 640), function(ctx)
 		local base = ctx.UI
 		ctx.UI = setmetatable({
-			Table = function(spec)
-				local copy = table.clone(spec)
-				copy.editing = ctx.Compose.cell(true)
-				return base.Table(copy)
+			Table = function(name)
+				return function(spec)
+					local copy = table.clone(spec)
+					copy.editing = ctx.Compose.cell(true)
+					return base.Table(name)(copy)
+				end
 			end,
 		}, { __index = base })
 	end)

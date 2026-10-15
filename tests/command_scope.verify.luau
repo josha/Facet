@@ -21,9 +21,9 @@ return function(harness: Verify.Harness)
 			local first: GuiObject?, second: GuiObject?, chat: TextBox?
 			local letters, placed, returned = { "A", "A" }, 0, 0
 			local stop = runtime.mount(function()
-				local a = UI.Button { Name = "First", label = "First cell" }
-				local b = UI.Button { Name = "Second", label = "Second cell" }
-				local text = UI.TextInput { Name = "Chat", value = Facet.Compose.cell(""), placeholder = "Chat" }
+				local a = UI.Button "First" { label = "First cell" }
+				local b = UI.Button "Second" { label = "Second cell" }
+				local text = UI.TextInput "Chat" { value = Facet.Compose.cell(""), placeholder = "Chat" }
 				local children: { GuiObject } = { a, b, text }
 				local root = Host.Frame(children)
 				first, second = a, b
@@ -108,7 +108,7 @@ return function(harness: Verify.Harness)
 			local outside = engine.new("TextButton")
 			local calls = 0
 			local stop = runtime.mount(function()
-				local cell = UI.Button { Name = "Cell", label = "Cell", NextSelectionLeft = outside }
+				local cell = UI.Button "Cell" { label = "Cell", NextSelectionLeft = outside }
 				target = cell
 				local root = Host.Frame { cell }
 				local targets: { Facet.CommandTarget<number> } = { { key = 1, node = cell } }
@@ -165,7 +165,7 @@ return function(harness: Verify.Harness)
 			local target: GuiObject?
 			local outerCalls, innerCalls = 0, 0
 			local stop = runtime.mount(function()
-				local button = UI.Button { Name = "Cell", label = "Cell" }
+				local button = UI.Button "Cell" { label = "Cell" }
 				local inside = Host.Frame { button }
 				local root = Host.Frame { inside }
 				target = button

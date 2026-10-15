@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -53,7 +52,7 @@ return function(verifyHarness: Verify.Harness)
 			function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
 					Name = "Page",
-					UI.Button { Name = "Content", label = "Content" } :: unknown,
+					UI.Button "Content" { label = "Content" } :: unknown,
 					Compose.show(gate, function()
 						local nodes: { any } = {}
 						for index, entry in list do
@@ -67,7 +66,7 @@ return function(verifyHarness: Verify.Harness)
 							for key, value in (entry.spec or {} :: { [string]: any }) do
 								spec[key] = value
 							end
-							table.insert(nodes, UI.Toast(named(`S{index}`, spec)))
+							table.insert(nodes, UI.Toast(`S{index}`)(spec))
 						end
 						return Host.Frame({ Name = "Holder", table.unpack((nodes :: unknown) :: { unknown }) })
 					end),
@@ -472,8 +471,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local shown = Compose.cell(true)
 				local w = overlay.new(function(UI: FacetControls)
-					return UI.Toast {
-						Name = "S1",
+					return UI.Toast "S1" {
 						isPresented = shown,
 						message = "Saved",
 						action = UNDO,
@@ -637,8 +635,7 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame({
 						Compose.show(shown, function()
 							return Host.Frame({
-								UI.Toast {
-									Name = "A",
+								UI.Toast "A" {
 									message = "Kart sold",
 									action = {
 										label = "Undo",
@@ -652,8 +649,7 @@ return function(verifyHarness: Verify.Harness)
 										table.insert(reasons, reason)
 									end,
 								} :: unknown,
-								UI.Toast {
-									Name = "B",
+								UI.Toast "B" {
 									message = "Saved",
 									action = UNDO,
 									onDismiss = function(

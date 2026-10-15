@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -109,8 +108,8 @@ return function(verifyHarness: Verify.Harness)
 		local stop, screen: any = runtime.mount(function()
 			return Host.ScreenGui({
 				Host.Frame "Col" {
-					if o.build then o.build(UI, Host) else UI.ColorPicker(named("P", spec)) :: unknown,
-					UI.Button({ Name = "Other", label = "Other" }),
+					if o.build then o.build(UI, Host) else UI.ColorPicker "P"(spec) :: unknown,
+					UI.Button("Other")({ label = "Other" }),
 				},
 			})
 		end, target)
@@ -973,8 +972,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = world({}, {
 					build = function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame "Pickers" {
-							UI.ColorPicker({
-								Name = "P",
+							UI.ColorPicker("P")({
 								label = "Trim",
 								value = trim,
 								swatches = team,

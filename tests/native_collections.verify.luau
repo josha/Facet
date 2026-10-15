@@ -343,8 +343,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local stop, mountedRoot = runtime.mount(function()
 					local contents: FixtureEngineTypes.FrameNativeProps = {
-						UI.Picker {
-							Name = "Selector",
+						UI.Picker "Selector" {
 							selected = mode,
 							style = "segmented" :: "segmented",
 							options = {
@@ -822,8 +821,7 @@ return function(verifyHarness: Verify.Harness)
 				local stop, node: any = runtime.mount(function()
 					local spec: FixtureCollectionProps.RowActionsSpec = {
 						content = Host.Frame {
-							UI.Button {
-								Name = "Details",
+							UI.Button "Details" {
 								label = "Details",
 								onActivate = function()
 									activated += 1
@@ -923,8 +921,7 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function button(UI: SharedTypes.Controls, current: Compose.Readable<{ id: number, label: string }>): GuiObject
-		return UI.Button {
-			Name = "Action",
+		return UI.Button "Action" {
 			label = function(use: Use)
 				return use(current).label
 			end,
@@ -2997,7 +2994,7 @@ return function(verifyHarness: Verify.Harness)
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
 						fullSwipe = true,
-						content = UI.Button { Name = "Action", label = "Row" } :: GuiObject,
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
 						trailing = {
 							{
 								id = "delete",
@@ -3054,7 +3051,7 @@ return function(verifyHarness: Verify.Harness)
 						open = open,
 						coordinator = coordinator,
 						fullSwipe = true,
-						content = UI.Button { Name = "Action", label = "Row" } :: GuiObject,
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
 						trailing = {
 							{
 								id = "Delete",
@@ -3093,8 +3090,7 @@ return function(verifyHarness: Verify.Harness)
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
 						open = open,
-						content = UI.Button {
-							Name = "Mail",
+						content = UI.Button "Mail" {
 							label = "Mail",
 							onActivate = function()
 								activated += 1
@@ -3150,8 +3146,7 @@ return function(verifyHarness: Verify.Harness)
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
 						open = open,
-						content = UI.Button {
-							Name = "Mail",
+						content = UI.Button "Mail" {
 							label = "Mail",
 							onActivate = function()
 								activated += 1
@@ -3263,7 +3258,7 @@ return function(verifyHarness: Verify.Harness)
 								UI.RowActions({
 									Name = "Row",
 									open = open,
-									content = UI.Button { Name = "Mail", label = "Mail" } :: GuiObject,
+									content = UI.Button "Mail" { label = "Mail" } :: GuiObject,
 									trailing = {
 										{ id = "Delete", label = "Delete", onActivate = function() end } :: FixtureCollectionTypes.RowAction,
 									},
@@ -3551,7 +3546,7 @@ return function(verifyHarness: Verify.Harness)
 						return UI.RowActions {
 							open = open,
 							Size = engine.types.UDim2.fromOffset(300, 40),
-							content = UI.Button { Name = "Body", label = "Row" } :: GuiObject,
+							content = UI.Button "Body" { label = "Row" } :: GuiObject,
 							leading = if edge == "leading" then { action } else nil,
 							trailing = if edge == "trailing" then { action } else nil,
 						}
@@ -3591,7 +3586,7 @@ return function(verifyHarness: Verify.Harness)
 					return runtime.mount(function()
 						return UI.RowActions({
 							open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>,
-							content = UI.Button { Name = "Action", label = "Row" } :: GuiObject,
+							content = UI.Button "Action" { label = "Row" } :: GuiObject,
 							trailing = {
 								{
 									id = "Delete",
@@ -3638,7 +3633,7 @@ return function(verifyHarness: Verify.Harness)
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
 						open = open,
-						content = UI.Button { Name = "Action", label = "Row" } :: GuiObject,
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
 						trailing = {
 							{
 								id = "Archive",
@@ -3671,7 +3666,7 @@ return function(verifyHarness: Verify.Harness)
 					return UI.RowActions({
 						open = open,
 						reducedMotion = true,
-						content = UI.Button { Name = "Action", label = "Row" } :: GuiObject,
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
 						trailing = {
 							{
 								id = "Delete",
@@ -3710,7 +3705,7 @@ return function(verifyHarness: Verify.Harness)
 				local invoked = 0
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
-						content = UI.Button { Name = "Action", label = "Row" } :: GuiObject,
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
 						editing = editing,
 						open = open,
 						fullSwipe = { trailing = false },
@@ -3760,7 +3755,7 @@ return function(verifyHarness: Verify.Harness)
 				local invoked = 0
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
-						content = UI.Button { Name = "Action", label = "Row" } :: GuiObject,
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
 						leading = {
 							{
 								id = "Read",
@@ -4011,7 +4006,7 @@ return function(verifyHarness: Verify.Harness)
 					Compose.cell(true), Compose.cell(nil :: ("leading" | "trailing")?), 0
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
-						content = UI.Button { Name = "Action", label = "Row" } :: GuiObject,
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
 						open = open,
 						enabled = enabled,
 						trailing = {
@@ -4111,7 +4106,7 @@ return function(verifyHarness: Verify.Harness)
 					Compose.cell("trailing" :: ("leading" | "trailing")?), Compose.cell(true)
 				local stopActions, actions: any = runtime.mount(function()
 					return UI.RowActions({
-						content = UI.Button { Name = "Action", label = "Row" } :: GuiObject,
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
 						open = open,
 						editing = editing,
 						trailing = {
@@ -4497,7 +4492,7 @@ return function(verifyHarness: Verify.Harness)
 					Compose.cell(false), Compose.cell(nil :: ("leading" | "trailing")?), 0
 				local stop, node: any = runtime.mount(function()
 					return UI.RowActions({
-						content = UI.Button { Name = "Action", label = "Protected" } :: GuiObject,
+						content = UI.Button "Action" { label = "Protected" } :: GuiObject,
 						open = open,
 						editing = Compose.cell(true),
 						trailing = {
@@ -4690,8 +4685,7 @@ return function(verifyHarness: Verify.Harness)
 								label = "Rating",
 								width = 100,
 								render = function(): GuiObject
-									return UI.Button {
-										Name = "Star",
+									return UI.Button "Star" {
 										label = "*",
 										onActivate = function()
 											rating += 1
@@ -4973,7 +4967,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target = setup()
 				local stop, actions: any = runtime.mount(function()
 					return UI.RowActions({
-						content = UI.Button { Name = "Action", label = "Row" } :: GuiObject,
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
 						open = Compose.cell("trailing" :: "leading" | "trailing" | nil) :: FixtureComposeTypes.Cell<FixtureCollectionTypes.RowEdge?>,
 						trailing = {
 							{ id = "remove", label = "Remove", icon = "trash", role = "destructive" :: "destructive" } :: FixtureCollectionTypes.RowAction,
@@ -6449,8 +6443,7 @@ return function(verifyHarness: Verify.Harness)
 								reorders += 1
 							end,
 							render = function(current): GuiObject
-								return UI.Button {
-									Name = "Action",
+								return UI.Button "Action" {
 									label = "Row",
 									onActivate = function()
 										table.insert(activated, current:peek().id)
@@ -7433,8 +7426,7 @@ return function(verifyHarness: Verify.Harness)
 									width = 144,
 									priority = 2,
 									detailRender = function()
-										return UI.Button {
-											Name = "DetailRating",
+										return UI.Button "DetailRating" {
 											onActivate = function()
 												detailChanges += 1
 											end,

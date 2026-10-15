@@ -202,8 +202,7 @@ add("scroll-gutter-and-window", {}, function(t)
 	local count
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		count = Compose.cell(20)
-		return UI.ScrollView {
-			Name = "Scroll",
+		return UI.ScrollView "Scroll" {
 			width = 240,
 			height = 200,
 			align = "stretch" :: "stretch",
@@ -287,8 +286,7 @@ add("grid-hugs-its-lines", {}, function(t)
 			for index = 1, count do
 				table.insert(cells, box(Host, "Cell" .. index, 0, 0))
 			end
-			return UI.Grid {
-				Name = "Grid",
+			return UI.Grid "Grid" {
 				columns = 3,
 				gap = 8,
 				cellHeight = 40,
@@ -436,15 +434,13 @@ add("sibling-order-and-hit-testing", {}, function(t)
 		return Host.Frame "Pair" {
 			Size = UDim2.fromOffset(400, 300),
 			BackgroundTransparency = 1,
-			UI.Button {
-				Name = "Low",
+			UI.Button "Low" {
 				label = "Low",
 				Position = UDim2.fromOffset(20, 20),
 				Size = UDim2.fromOffset(160, 60),
 				ZIndex = 1,
 			} :: unknown,
-			UI.Button {
-				Name = "High",
+			UI.Button "High" {
 				label = "High",
 				Position = UDim2.fromOffset(80, 40),
 				Size = UDim2.fromOffset(160, 60),
@@ -465,7 +461,7 @@ add("sibling-order-and-hit-testing", {}, function(t)
 		return Host.Frame "Base" {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.Button { Name = "Behind", label = "Behind", Size = UDim2.fromOffset(200, 60) } :: unknown,
+			UI.Button "Behind" { label = "Behind", Size = UDim2.fromOffset(200, 60) } :: unknown,
 			UI.Alert({
 				isPresented = Compose.cell(true),
 				title = "On top",
@@ -505,7 +501,7 @@ add("sibling-order-and-hit-testing", {}, function(t)
 	end
 	if skinned then
 		stage = t.mount(function(UI: FacetControls)
-			return UI.Button { Name = "Art", label = "Art", Size = UDim2.fromOffset(200, 60) }
+			return UI.Button "Art" { label = "Art", Size = UDim2.fromOffset(200, 60) }
 		end, { size = Vector2.new(800, 600), theme = skinned.package, frames = 12 })
 		local art = t.find(stage, "Art")
 		local r = t.rect(art)

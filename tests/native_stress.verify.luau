@@ -118,7 +118,7 @@ return function(verifyHarness: Verify.Harness)
 					local shown = Compose.cell(false)
 					local stop = runtime.mount(function()
 						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-							UI.Button { Name = "Base", label = "Open" } :: unknown,
+							UI.Button "Base" { label = "Open" } :: unknown,
 							UI.Alert({
 								isPresented = shown,
 								title = "Confirm",
@@ -201,8 +201,7 @@ return function(verifyHarness: Verify.Harness)
 							overscan = 0,
 							status = status,
 							render = function(current): GuiObject
-								return UI.Button {
-									Name = "Value",
+								return UI.Button "Value" {
 									label = function(use: Use)
 										return use(current).label
 									end,
@@ -321,15 +320,14 @@ return function(verifyHarness: Verify.Harness)
 					local stop, panel: any = runtime.mount(function()
 						builds += 1
 						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-							UI.Button {
-								Name = "A",
+							UI.Button "A" {
 								label = "A",
 								onActivate = function()
 									activations += 1
 								end,
 							} :: unknown,
-							UI.Button { Name = "B", label = "B" },
-							UI.Stepper { Name = "Stepper", value = value, max = 10 },
+							UI.Button "B" { label = "B" },
+							UI.Stepper "Stepper" { value = value, max = 10 },
 						})
 					end, root)
 					local a, b, stepper = find(panel, "A"), find(panel, "B"), find(panel, "Stepper")
@@ -379,7 +377,7 @@ return function(verifyHarness: Verify.Harness)
 				local before = engine.census()
 				local text = Compose.cell("hello")
 				local stop = runtime.mount(function()
-					return UI.Text { Name = "Text", text = text }
+					return UI.Text "Text" { text = text }
 				end, root)
 				text:set("dirty now")
 				stop()
@@ -390,7 +388,7 @@ return function(verifyHarness: Verify.Harness)
 				local stopNotify, panel: any = runtime.mount(function()
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 						Compose.show(flag, function()
-							return UI.Text { Name = "On", text = "on" }
+							return UI.Text "On" { text = "on" }
 						end),
 					})
 				end, root)
@@ -416,12 +414,12 @@ return function(verifyHarness: Verify.Harness)
 				local sheet, alert = Compose.cell(false), Compose.cell(false)
 				local stop = runtime.mount(function()
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Button { Name = "Base", label = "Base" } :: unknown,
+						UI.Button "Base" { label = "Base" } :: unknown,
 						UI.Sheet({
 							isPresented = sheet,
 							detent = Compose.cell("medium"),
 							content = function(): Instance
-								return UI.Button { Name = "SheetAction", label = "Sheet" }
+								return UI.Button "SheetAction" { label = "Sheet" }
 							end,
 						}),
 						UI.Alert({

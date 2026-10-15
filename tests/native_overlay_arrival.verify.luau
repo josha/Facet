@@ -84,8 +84,7 @@ return function(verifyHarness: Verify.Harness)
 					local open = Compose.cell(false)
 					local screen, frames, stop = world(function(UI: FacetControls)
 						if kind == "Sheet" then
-							return UI.Sheet {
-								Name = "Market",
+							return UI.Sheet "Market" {
 								title = "Seeds",
 								isPresented = open,
 								detent = Compose.cell("medium"),
@@ -94,8 +93,7 @@ return function(verifyHarness: Verify.Harness)
 								end,
 							}
 						end
-						return UI.Alert {
-							Name = "Confirm",
+						return UI.Alert "Confirm" {
 							title = "Sell the crop?",
 							isPresented = open,
 							actions = { { id = "ok", label = "Sell" } :: FixtureNavigationTypes.AlertAction<any> },
@@ -117,8 +115,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local open = Compose.cell(false)
 				local _, frames, stop = world(function(UI: FacetControls)
-					return UI.Alert {
-						Name = "Confirm",
+					return UI.Alert "Confirm" {
 						title = "Sell the crop?",
 						isPresented = open,
 						actions = { { id = "ok", label = "Sell" } :: FixtureNavigationTypes.AlertAction<any> },
@@ -154,7 +151,7 @@ return function(verifyHarness: Verify.Harness)
 						local open = Compose.cell(false)
 						local stop, screen: any = runtime.mount(function()
 							return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
-								UI.Button { Name = "Opener", label = "Open" } :: unknown,
+								UI.Button "Opener" { label = "Open" } :: unknown,
 								if kind == "RadialMenu"
 									then UI.RadialMenu {
 										launcher = false,
@@ -168,7 +165,7 @@ return function(verifyHarness: Verify.Harness)
 										closeButton = false,
 										title = "Title",
 										content = function(): Instance
-											return UI.Button { Name = "Inside", label = "Inside" }
+											return UI.Button "Inside" { label = "Inside" }
 										end,
 									} :: unknown,
 							})

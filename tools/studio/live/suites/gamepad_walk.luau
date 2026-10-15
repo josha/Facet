@@ -264,21 +264,18 @@ add("value-control-limit-hands-the-move-to-the-engine", { "input-engine-handoff"
 		return Host.Frame({
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.Button({
-				Name = "Before",
+			UI.Button("Before")({
 				label = "Before",
 				Position = UDim2.fromOffset(40, 100),
 				Size = UDim2.fromOffset(120, 44),
 			}),
-			UI.Stepper({
-				Name = "Step",
+			UI.Stepper("Step")({
 				value = value,
 				max = 10,
 				Position = UDim2.fromOffset(220, 100),
 				Size = UDim2.fromOffset(240, 44),
 			}),
-			UI.Button({
-				Name = "After",
+			UI.Button("After")({
 				label = "After",
 				Position = UDim2.fromOffset(520, 100),
 				Size = UDim2.fromOffset(120, 44),
@@ -344,8 +341,7 @@ add("pad-table-edit-checkbox-reorder-done", {}, function(t: any)
 			{ id = "turbo", name = "Turbo Cascade" },
 		})
 		selection = C.cell({})
-		return UI.Table {
-			Name = "Tracks",
+		return UI.Table "Tracks" {
 			Position = UDim2.fromOffset(60, 80),
 			Size = UDim2.fromOffset(600, 360),
 			from = rows,
@@ -429,8 +425,7 @@ end, false)
 add("pad-radial-complete-labels-at-each-level", {}, function(t: any)
 	local fired = 0
 	local stage = t.mount(function(UI: any)
-		return UI.RadialMenu {
-			Name = "Tools",
+		return UI.RadialMenu "Tools" {
 			label = "Tools",
 			Position = UDim2.fromOffset(24, 240),
 			items = {
@@ -514,8 +509,7 @@ add("pad-rating-bounded-marks-and-all-values", {}, function(t: any)
 	local value
 	local stage = t.mount(function(UI: any, _: any, C: any)
 		value = C.cell(0)
-		return UI.Rating {
-			Name = "Rating",
+		return UI.Rating "Rating" {
 			Position = UDim2.fromOffset(80, 120),
 			Size = UDim2.fromOffset(180, 44),
 			count = 10,
@@ -552,12 +546,11 @@ end, false)
 add("pad-row-actions-menu-open-close-and-command", {}, function(t: any)
 	local fired = 0
 	local stage = t.mount(function(UI: any)
-		return UI.RowActions {
-			Name = "Actions",
+		return UI.RowActions "Actions" {
 			Position = UDim2.fromOffset(80, 140),
 			Size = UDim2.fromOffset(500, 60),
 			content = function()
-				return UI.Button { Name = "TrackButton", label = "Track" }
+				return UI.Button "TrackButton" { label = "Track" }
 			end,
 			trailing = {
 				{

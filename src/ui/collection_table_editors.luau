@@ -119,7 +119,7 @@ return function(ctx: Types.Context, UI: Controls)
 					propose(nextValue)
 					return false
 				end,
-			} :: unknown) :: NavigationProps.PickerSpec<unknown>)
+			} :: unknown) :: NavigationProps.SinglePickerSpec<unknown>)
 		else
 			local input = Compose.cell("")
 			local numeric = Compose.cell(tonumber(value()) or 0)

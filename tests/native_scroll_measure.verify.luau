@@ -26,8 +26,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local BUILDS: { [string]: (any, any) -> any } = {
 		Dialog = function(UI: FacetControls, Host: RobloxHost)
-			return UI.Dialog {
-				Name = "Long",
+			return UI.Dialog "Long" {
 				isPresented = Compose.cell(true),
 				onPresentedChange = noop,
 				title = "Leave the race?",
@@ -40,8 +39,7 @@ return function(verifyHarness: Verify.Harness)
 			}
 		end,
 		Sheet = function(UI: FacetControls, Host: RobloxHost)
-			return UI.Sheet {
-				Name = "Long",
+			return UI.Sheet "Long" {
 				isPresented = Compose.cell(true),
 				detent = Compose.cell("large"),
 				title = "Race details",
@@ -51,8 +49,7 @@ return function(verifyHarness: Verify.Harness)
 			}
 		end,
 		Popover = function(UI: FacetControls, Host: RobloxHost)
-			return UI.Popover {
-				Name = "Long",
+			return UI.Popover "Long" {
 				isPresented = Compose.cell(true),
 				source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
 				maxWidth = 320,
@@ -96,8 +93,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_scroll_measure::native overlay bodies: long wrapped text measures outside the scroll window::Sheet keeps a fill-height child scroll window inside its body",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Sheet {
-						Name = "Nested",
+					return UI.Sheet "Nested" {
 						isPresented = Compose.cell(true),
 						detent = Compose.cell("large"),
 						content = function(): Instance

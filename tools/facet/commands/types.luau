@@ -1378,14 +1378,14 @@ cases = function(): { Case.Case }
 					Case.equal(count, #lines - 6, "count"),
 					Case.equal(
 						Analyzer.named('local wrong: number = UI.Button({ label = "Save" })'),
-						'local wrong: number = UI.Button({ Name = "Typed", label = "Save" })',
+						'local wrong: number = UI.Button("Typed")({ label = "Save" })',
 						"named"
 					),
 					Case.expect(
-						string.find(source, 'UI.ThisControlDoesNotExist({ Name = "Typed"', 1, true) == nil,
+						string.find(source, 'UI.ThisControlDoesNotExist("Typed")', 1, true) == nil,
 						"the unknown control gained a named form"
 					),
-					Case.expect(string.find(source, 'UI.Badge({ Name = "Typed"', 1, true) ~= nil, "Badge has no named form")
+					Case.expect(string.find(source, 'UI.Badge("Typed")', 1, true) ~= nil, "Badge has no named form")
 				)
 			end,
 		},

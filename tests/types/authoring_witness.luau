@@ -17,14 +17,19 @@ local function panel(): Frame
 		{ id = "leave", label = "Leave", role = "destructive", onActivate = function() end },
 	}
 	local detents: { Facet.SheetDetent } = { "medium", "large" }
-	return UI.VStack {
-		Name = "Panel",
+	local start: { Facet.OverlayAction } = {
+		{ id = "start", label = "Start", role = "default", onActivate = function() end },
+	}
+	local swipe: { Facet.RowAction } = {
+		{ id = "delete", label = "Delete", role = "destructive", onActivate = function() end },
+	}
+	return UI.VStack "Panel" {
 		width = "fill",
 		align = "stretch",
 		distribute = "start",
 		gap = "s",
 		padding = "m",
-		UI.Text { Name = "Title", text = "Garage", textRole = "title", textAlign = "center" },
+		UI.Text "Title" { text = "Garage", textRole = "title", textAlign = "center" },
 		UI.Text {
 			text = function(use)
 				return `{use(count)} laps`
@@ -33,7 +38,7 @@ local function panel(): Frame
 			role = "secondary",
 		},
 		Host.UICorner { CornerRadius = UDim.new(0, 8) },
-		UI.HStack {
+		UI.HStack "Actions" {
 			gap = "xs",
 			UI.Button {
 				label = "Bump",
@@ -64,7 +69,9 @@ local function panel(): Frame
 			content = function()
 				return UI.Text { text = "Content" }
 			end,
+			actions = start,
 		},
+		UI.RowActions { content = UI.Text { text = "Row" }, trailing = swipe },
 		UI.Dialog { isPresented = open, title = "Leave the race?", actions = leave, width = "narrow" },
 	}
 end

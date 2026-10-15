@@ -22,7 +22,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					spec.labelPosition == nil or spec.labelPosition == "start" or spec.labelPosition == "end",
 					"Facet.ShortcutHint: labelPosition must be start or end"
 				)
-				local hint = UI.ShortcutHint(({
+				local keysHint = (UI.ShortcutHint :: unknown) :: (InputProps.ShortcutHintProps) -> TextLabel | Frame
+				local hint = keysHint(({
 					Name = "Keys",
 					action = spec.action,
 					keys = spec.keys,

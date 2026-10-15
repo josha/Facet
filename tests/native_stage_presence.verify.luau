@@ -19,13 +19,11 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame "Cell" {
 						BackgroundColor3 = engine.types.Color3.new(0.2, 0.3, 0.4),
 						Attributes = { FacetCollectionRow = true },
-						UI.Image {
-							Name = "Picture",
+						UI.Image "Picture" {
 							image = asset,
 							BackgroundColor3 = engine.types.Color3.new(0.7, 0.2, 0.1),
 						},
-						UI.Stage {
-							Name = "Scene",
+						UI.Stage "Scene" {
 							content = function(runtime, world)
 								local part = runtime.constructors.Part "Complete" {}
 								part.Parent = world
@@ -156,8 +154,7 @@ return function(verifyHarness: Verify.Harness)
 						Compose.show(function(use: Use)
 							return not use(original)
 						end, function()
-							return UI.Stage {
-								Name = "Replacement",
+							return UI.Stage "Replacement" {
 								lazy = true,
 								content = function()
 									replacement += 1

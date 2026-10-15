@@ -1637,9 +1637,9 @@ return function(verifyHarness: Verify.Harness)
 				local screen = engine.new("ScreenGui")
 				local stop = runtime.mount(function()
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Avatar { Name = "Passive", name = "Pat Lane" } :: unknown,
-						UI.Avatar { Name = "Ada", name = "Ada Quill", onActivate = function() end },
-						UI.Avatar { Name = "Bo", name = "Bo Lane", onActivate = function() end },
+						UI.Avatar "Passive" { name = "Pat Lane" } :: unknown,
+						UI.Avatar "Ada" { name = "Ada Quill", onActivate = function() end },
+						UI.Avatar "Bo" { name = "Bo Lane", onActivate = function() end },
 					})
 				end, screen)
 				local passive, ada, bo = find(screen, "Passive"), find(screen, "Ada"), find(screen, "Bo")
@@ -1667,8 +1667,7 @@ return function(verifyHarness: Verify.Harness)
 					roster[index] = { id = `p{index}`, name = `Player {index}` }
 				end
 				local stop = runtime.mount(function()
-					return UI.AvatarGroup {
-						Name = "Team",
+					return UI.AvatarGroup "Team" {
 						items = roster,
 						max = 3,
 						controlSize = "compact" :: "compact",
@@ -1697,8 +1696,7 @@ return function(verifyHarness: Verify.Harness)
 				local screen = engine.new("ScreenGui")
 				local calls = 0
 				local stop = runtime.mount(function()
-					return UI.AvatarGroup {
-						Name = "Team",
+					return UI.AvatarGroup "Team" {
 						items = { { id = "a", name = "A" }, { id = "b", name = "B" }, { id = "c", name = "C" } },
 						max = 1,
 						onOverflow = function()

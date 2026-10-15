@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -55,7 +54,7 @@ return function(verifyHarness: Verify.Harness)
 		local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 			return Host.Frame({
 				Name = "Row",
-				UI.Card(named("C", spec)) :: unknown,
+				UI.Card "C"(spec) :: unknown,
 				UI.Button({ Name = "Next", label = "Next" }),
 			})
 		end, options or { motionLevel = "none" })
@@ -224,8 +223,7 @@ return function(verifyHarness: Verify.Harness)
 				local inputs: { InputObject | string } = {}
 				local released = 0
 				local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Card {
-						Name = "C",
+					return UI.Card("C")({
 						title = "Afterlight",
 						artwork = function(): GuiObject
 							Compose.cleanup(function()
@@ -236,7 +234,7 @@ return function(verifyHarness: Verify.Harness)
 						onActivate = function(input: InputObject?)
 							table.insert(inputs, (input or "none") :: any)
 						end,
-					}
+					})
 				end, { motionLevel = "none" })
 				local artwork = world.find("Artwork")
 				local live = artwork:FindFirstChild("Preview")
@@ -261,8 +259,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for _, ratio in { 16 / 9, 1, 2 } do
 					local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-						return UI.Card {
-							Name = "C",
+						return UI.Card "C" {
 							title = "Afterlight",
 							imageAspectRatio = ratio,
 							artwork = function(): GuiObject
@@ -350,14 +347,11 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame({
 						Name = "Row",
 						Compose.show(show, function()
-							return UI.Card(named(
-								"C",
-								cardSpec({}, {
-									onActivate = function()
-										show:set(false)
-									end,
-								})
-							))
+							return UI.Card "C"(cardSpec({}, {
+								onActivate = function()
+									show:set(false)
+								end,
+							}))
 						end) :: unknown,
 						UI.Button({ Name = "Next", label = "Next" }),
 					})
@@ -810,8 +804,7 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 				local pickers = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Picker({
-							Name = "Icons",
+						UI.Picker("Icons")({
 							style = "segmented" :: "segmented",
 							selected = Compose.cell("a"),
 							options = {
@@ -819,8 +812,7 @@ return function(verifyHarness: Verify.Harness)
 								{ value = "b", label = "Sent", icon = "flag" } :: FixtureNavigationTypes.PickerOption<any>,
 							},
 						}) :: unknown,
-						UI.Picker({
-							Name = "Words",
+						UI.Picker("Words")({
 							style = "segmented" :: "segmented",
 							selected = Compose.cell("a"),
 							options = {

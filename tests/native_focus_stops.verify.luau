@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -113,7 +112,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local value = Compose.cell(6)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ UI.Stepper({ Name = "Volume", value = value, max = 10 }) })
+					return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
 				end)
 				local stepper = w.find("Volume")
 				Verify.expect((stepper:HasTag("facet-adjustable"))):toBe(true)
@@ -133,8 +132,8 @@ return function(verifyHarness: Verify.Harness)
 				local left, right = Compose.cell(8), Compose.cell(3)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Stepper({ Name = "A", value = left, max = 10 }) :: unknown,
-						UI.Stepper({ Name = "B", value = right, max = 10 }),
+						UI.Stepper("A")({ value = left, max = 10 }) :: unknown,
+						UI.Stepper("B")({ value = right, max = 10 }),
 					})
 				end)
 				local V = w.engine.types.Vector2
@@ -184,8 +183,8 @@ return function(verifyHarness: Verify.Harness)
 					local left, right = Compose.cell(10), Compose.cell(3)
 					local w = setup(function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame({
-							UI.Stepper({ Name = "A", value = left, max = 10 }) :: unknown,
-							UI.Stepper({ Name = "B", value = right, max = 10 }),
+							UI.Stepper("A")({ value = left, max = 10 }) :: unknown,
+							UI.Stepper("B")({ value = right, max = 10 }),
 						})
 					end)
 					local a = pair(w)
@@ -206,9 +205,9 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local w = setup(function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame({
-							UI.Stepper({ Name = "A", value = Compose.cell(10), max = 10 }) :: unknown,
-							UI.Stepper({ Name = "B", value = Compose.cell(3), max = 10 }),
-							UI.Button({ Name = "C", label = "C" }),
+							UI.Stepper("A")({ value = Compose.cell(10), max = 10 }) :: unknown,
+							UI.Stepper("B")({ value = Compose.cell(3), max = 10 }),
+							UI.Button("C")({ label = "C" }),
 						})
 					end)
 					local a = pair(w)
@@ -231,7 +230,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local value = Compose.cell(3)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame "Holder" { UI.Stepper({ Name = "A", value = value, max = 10 }) }
+					return Host.Frame "Holder" { UI.Stepper("A")({ value = value, max = 10 }) }
 				end)
 				w.gui.SelectedObject = w.find("A")
 				w.find("Holder").Interactable = false
@@ -249,7 +248,7 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local value = Compose.cell(3)
 					local w = setup(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame "Holder" { UI.Stepper({ Name = "A", value = value, max = 10 }) }
+						return Host.Frame "Holder" { UI.Stepper("A")({ value = value, max = 10 }) }
 					end)
 					w.gui.SelectedObject = w.find("A")
 					Verify.expect((w.action("IncreaseArrow"))):toBe(true)
@@ -268,7 +267,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local value = Compose.cell(3)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ UI.Stepper({ Name = "A", value = value, max = 10 }) })
+					return Host.Frame({ UI.Stepper("A")({ value = value, max = 10 }) })
 				end)
 				local E = w.engine.types.Enum
 				local function push(pad: any, x: number)
@@ -310,7 +309,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local value = Compose.cell(0)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ UI.Stepper({ Name = "Volume", value = value, max = 10 }) })
+					return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
 				end)
 				local stepper = w.find("Volume")
 				w.gui.SelectedObject = stepper
@@ -332,7 +331,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local value = Compose.cell(5)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ UI.Stepper({ Name = "Volume", value = value, max = 10 }) })
+					return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
 				end)
 				w.gui.SelectedObject = w.find("Volume")
 				w.stick(-0.9, 0.1)
@@ -357,7 +356,7 @@ return function(verifyHarness: Verify.Harness)
 				local value = Compose.cell(50)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Slider({ Name = "Rear", value = value, min = 0, max = 100, step = 10, axis = "y" :: "y" }),
+						UI.Slider("Rear")({ value = value, min = 0, max = 100, step = 10, axis = "y" :: "y" }),
 					})
 				end)
 				w.gui.SelectedObject = w.find("Rear")
@@ -372,7 +371,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local value = Compose.cell(5)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ UI.Stepper({ Name = "Volume", value = value, max = 20 }) })
+					return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 20 }) })
 				end)
 				w.gui.SelectedObject = w.find("Volume")
 				for _, x in { 0.51, 0.49, 0.51, 0.45, 0.52, 0.4, 0.51 } do
@@ -399,7 +398,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local value = Compose.cell(5)
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
-					return Host.Frame({ UI.Stepper({ Name = "Volume", value = value, max = 20 }) })
+					return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 20 }) })
 				end)
 				local E = w.engine.types.Enum
 				w.input.GetGamepadState = function()
@@ -423,7 +422,7 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local value = Compose.cell(5)
 					local w = setup(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({ UI.Stepper({ Name = "Volume", value = value, max = 20 }) })
+						return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 20 }) })
 					end)
 					local E = w.engine.types.Enum
 					w.input.GetGamepadState = function()
@@ -473,7 +472,7 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local value = Compose.cell(5)
 					local w = setup(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({ UI.Stepper({ Name = "Volume", value = value, max = 10 }) })
+						return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
 					end)
 					w.stick(-1, 0)
 					w.stickEnded()
@@ -657,7 +656,7 @@ return function(verifyHarness: Verify.Harness)
 							spec[key] = field
 						end
 						local w = setup(function(UI: FacetControls, Host: RobloxHost)
-							return Host.Frame({ UI.Slider(named("S", spec)) })
+							return Host.Frame({ UI.Slider "S"(spec) })
 						end)
 						local slider = w.find("S")
 						Verify.expect(slider.Selectable):toBe(true)
@@ -685,7 +684,7 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local value = Compose.cell(6)
 					local w = setup(function(UI: FacetControls, Host: RobloxHost)
-						return Host.Frame({ UI.Stepper({ Name = "Volume", value = value, max = 10 }) })
+						return Host.Frame({ UI.Stepper("Volume")({ value = value, max = 10 }) })
 					end)
 					local stepper = w.find("Volume")
 					Verify.expect((selectableInside(stepper))):toEqual({})
@@ -712,8 +711,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Slider({
-							Name = "Tilt",
+						UI.Slider("Tilt")({
 							value = Compose.cell({ lower = 20, upper = 60 }),
 							range = true :: true,
 							min = 0,
@@ -743,15 +741,13 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Slider({
-							Name = "Tilt",
+						UI.Slider("Tilt")({
 							value = Compose.cell({ lower = 20, upper = 60 }),
 							range = true :: true,
 							min = 0,
 							max = 100,
 						}) :: unknown,
-						UI.Button({
-							Name = "Save",
+						UI.Button("Save")({
 							label = "Save",
 							dialogAction = "default" :: "default",
 							onActivate = function() end,
@@ -785,7 +781,7 @@ return function(verifyHarness: Verify.Harness)
 				local value = Compose.cell({ lower = 20, upper = 60 })
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Slider({ Name = "Tilt", value = value, range = true :: true, min = 0, max = 100, step = 5 }),
+						UI.Slider("Tilt")({ value = value, range = true :: true, min = 0, max = 100, step = 5 }),
 					})
 				end)
 				local slider = w.find("Tilt")
@@ -827,8 +823,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = setup(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Rating({ Name = "Stars", value = Compose.cell(2), count = 5 }) :: unknown,
-						UI.LevelPicker({ Name = "Level", value = Compose.cell(1), count = 4 }),
+						UI.Rating("Stars")({ value = Compose.cell(2), count = 5 }) :: unknown,
+						UI.LevelPicker("Level")({ value = Compose.cell(1), count = 4 }),
 					})
 				end)
 				for _, name in { "Stars", "Level" } do

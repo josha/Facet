@@ -17,7 +17,7 @@ local function mountAndDispose()
 	})
 	local stop = runtime.mount(function()
 		return UI.VStack({
-			UI.Button { Name = "Save", label = "Save", help = { body = "Saves your setup" } },
+			UI.Button "Save" { label = "Save", help = { body = "Saves your setup" } },
 		})
 	end, engine.new("ScreenGui"))
 	stop()

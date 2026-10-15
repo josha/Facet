@@ -156,8 +156,7 @@ return function(
 					open:set(false)
 				end
 			end)
-			properties[#properties + 1] = UI.Popover {
-				Name = "Expand",
+			properties[#properties + 1] = UI.Popover "Expand" {
 				isPresented = open,
 				onPresentedChange = function(value: boolean)
 					open:set(value and form:peek() > 1)
@@ -471,8 +470,7 @@ return function(
 					V2.new(if column == 1 then 0 else 1, (row - 1) / 2)
 			end
 			runtime.mount(function()
-				return UI.Popover {
-					Name = "Hidden" .. frame.Name,
+				return UI.Popover("Hidden" .. frame.Name) {
 					isPresented = open,
 					onPresentedChange = function(value: boolean)
 						open:set(value and #dropped:peek() > 0)

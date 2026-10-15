@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type DialogAction = typeof(require("@repo/tools/typecheck/aliases").DialogAction)
@@ -69,9 +68,9 @@ return function(verifyHarness: Verify.Harness)
 
 	local function mount(specOf: (any, any) -> any, options: any?): any
 		return overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
-			local opener = UI.Button { Name = "Opener", label = "Open" }
+			local opener = UI.Button "Opener" { label = "Open" }
 			gui.SelectedObject = opener
-			return Host.Frame({ opener :: unknown, UI.Dialog(named("Confirm", specOf(UI, Host))) })
+			return Host.Frame({ opener :: unknown, UI.Dialog "Confirm"(specOf(UI, Host)) })
 		end, options)
 	end
 
@@ -144,12 +143,12 @@ return function(verifyHarness: Verify.Harness)
 				local innerOpen, innerLog, innerChange = caller()
 				local held = true
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
-					local opener = UI.Button { Name = "Opener", label = "Open" }
+					local opener = UI.Button "Opener" { label = "Open" }
 					gui.SelectedObject = opener
 					return Host.Frame({
 						opener :: unknown,
-						UI.Dialog(named("Outer", standard(outerOpen, outerLog, outerChange)(UI, Host))),
-						UI.Dialog(named("Inner", standard(innerOpen, innerLog, innerChange)(UI, Host))),
+						UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
+						UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
 					})
 				end, { motionLevel = "none" })
 				w.input.IsGamepadButtonDown = function(_, _, key)
@@ -215,12 +214,12 @@ return function(verifyHarness: Verify.Harness)
 				local outerOpen, outerLog, outerChange = caller()
 				local innerOpen, innerLog, innerChange = caller()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
-					local opener = UI.Button { Name = "Opener", label = "Open" }
+					local opener = UI.Button "Opener" { label = "Open" }
 					gui.SelectedObject = opener
 					return Host.Frame({
 						opener :: unknown,
-						UI.Dialog(named("Outer", standard(outerOpen, outerLog, outerChange)(UI, Host))),
-						UI.Dialog(named("Inner", standard(innerOpen, innerLog, innerChange)(UI, Host))),
+						UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
+						UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
 					})
 				end, { inputs = true, motionLevel = "none" })
 				w.advance(0.1)
@@ -264,11 +263,8 @@ return function(verifyHarness: Verify.Harness)
 				})
 				local stop = w.runtime.mount(function()
 					return ((w.runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
-						other.Dialog(
-							named(
-								"Second",
-								standard(secondOpen, secondLog, secondChange)(other, w.runtime.constructors)
-							)
+						other.Dialog "Second"(
+							standard(secondOpen, secondLog, secondChange)(other, w.runtime.constructors)
 						),
 					})
 				end, target)
@@ -908,8 +904,8 @@ return function(verifyHarness: Verify.Harness)
 					local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 						return Host.Frame({
 							Compose.show(shown, function()
-								return UI.Dialog(
-									named("Confirm", standard(open, log, change, { closeButton = true })(UI, Host))
+								return UI.Dialog "Confirm"(
+									standard(open, log, change, { closeButton = true })(UI, Host)
 								)
 							end),
 						})

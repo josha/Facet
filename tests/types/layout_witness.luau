@@ -22,7 +22,7 @@ local screen: Frame = UI.Screen({
 	distribute = "spaceBetween",
 	UI.Text({ text = "Title" }),
 })
-local named: Frame = UI.Screen({ Name = "Home", padding = 0 })
+local named: Frame = UI.Screen("Home")({ padding = 0 })
 local column: Frame = UI.VStack({
 	gap = "s",
 	width = width,
@@ -45,7 +45,7 @@ local page: ScrollingFrame = UI.ScrollView({
 	align = "stretch",
 	ScrollBarThickness = 6,
 })
-local sideways: ScrollingFrame = UI.ScrollView({ Name = "Rail", axis = "x" })
+local sideways: ScrollingFrame = UI.ScrollView("Rail")({ axis = "x" })
 local grid: Frame = UI.Grid({
 	maxWidth = 640,
 	columns = 3,
@@ -55,8 +55,7 @@ local grid: Frame = UI.Grid({
 	aspectRatio = 1,
 	align = "center",
 })
-local guarded: Frame = UI.ErrorBoundary({
-	Name = "Region",
+local guarded: Frame = UI.ErrorBoundary("Region")({
 	maxWidth = function(use: Facet.Use): number
 		return use(maximum)
 	end,
@@ -87,8 +86,7 @@ local spacer: Frame = UI.Spacer(spacerProps)
 local adaptive: Frame = UI.AdaptiveStack({ axis = "x", gap = "s" })
 local fits: Frame = UI.ViewThatFits({ UI.Text({ text = "Long" }), UI.Text({ text = "L" }) })
 local chosen: Facet.Cell<number> = Compose.cell(1)
-local region: Frame = UI.Region({
-	Name = "Tasks",
+local region: Frame = UI.Region("Tasks")({
 	zone = "left",
 	rank = 2,
 	mayDrop = true,
@@ -99,7 +97,7 @@ local region: Frame = UI.Region({
 	UI.Text({ text = "Tasks" }),
 	UI.Text({ text = "1/3" }),
 })
-local hud: Frame = UI.Composition({ Name = "Hud", gap = "s", padding = "m", topbar = visible, region })
+local hud: Frame = UI.Composition("Hud")({ gap = "s", padding = "m", topbar = visible, region })
 return {
 	adaptive = adaptive,
 	fits = fits,

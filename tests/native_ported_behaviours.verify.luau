@@ -87,8 +87,7 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					for _, target in { "card", "media" } do
 						local w = world(function(UI: FacetControls)
-							return UI.Card {
-								Name = "C",
+							return UI.Card "C" {
 								image = "rbxassetid://1",
 								title = "Track",
 								onActivate = function() end,
@@ -131,8 +130,7 @@ return function(verifyHarness: Verify.Harness)
 				})
 				local proposals = {}
 				local w = world(function(UI: FacetControls)
-					return UI.Table {
-						Name = "T",
+					return UI.Table "T" {
 						from = rows,
 						key = "id",
 						scrolls = false,
@@ -244,8 +242,7 @@ return function(verifyHarness: Verify.Harness)
 			local rows = Compose.cell({ { id = "a", ready = false } })
 			local proposals = {}
 			local w = world(function(UI: FacetControls)
-				return UI.Table {
-					Name = "T",
+				return UI.Table "T" {
 					from = rows,
 					key = "id",
 					scrolls = false,
@@ -329,8 +326,8 @@ return function(verifyHarness: Verify.Harness)
 						local label = "Allow friends to join my race from the lobby and choose their next race"
 						return Host.Frame {
 							Size = UDim2.fromOffset(180, 400),
-							UI.Button { Name = "BoundedLong", label = label, Size = UDim2.fromScale(1, 0) },
-							UI.Button { Name = "NaturalLong", label = label },
+							UI.Button "BoundedLong" { label = label, Size = UDim2.fromScale(1, 0) },
+							UI.Button "NaturalLong" { label = label },
 						}
 					end)
 					local bounded, natural = find(w.screen, "BoundedLong"), find(w.screen, "NaturalLong")
@@ -350,8 +347,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_ported_behaviours::StepIndicator room::the underline sits below the copy, and a long description counts toward the fit",
 			run = function()
 				local w = world(function(UI: FacetControls)
-					return UI.StepIndicator {
-						Name = "Steps",
+					return UI.StepIndicator "Steps" {
 						steps = {
 							{ id = "a", label = "Cart" },
 							{ id = "b", label = "Ship", description = "Address and speed of delivery for the order" },
@@ -446,7 +442,9 @@ return function(verifyHarness: Verify.Harness)
 				expect(node.ClassName):toBe("TextButton")
 				local ok, failure = pcall(app.construct, "environment", {})
 				expect(ok):toBe(false)
-				expect(string.find(tostring(failure), "there is no control named 'environment'", 1, true) ~= nil):toBe(true)
+				expect(string.find(tostring(failure), "there is no control named 'environment'", 1, true) ~= nil):toBe(
+					true
+				)
 				ok, failure = pcall(app.construct, "Missing", {})
 				expect(ok):toBe(false)
 				expect(string.find(tostring(failure), "there is no control named 'Missing'", 1, true) ~= nil):toBe(true)

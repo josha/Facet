@@ -299,8 +299,7 @@ add("range-knobs-flush", {}, function(t: any)
 			Position = UDim2.fromOffset(100, 60),
 			BackgroundTransparency = 1,
 			Host.UIListLayout({ Padding = UDim.new(0, 24), SortOrder = Enum.SortOrder.LayoutOrder }) :: unknown,
-			UI.Slider {
-				Name = "Band",
+			UI.Slider "Band" {
 				LayoutOrder = 1,
 				value = value.range,
 				range = true :: true,
@@ -313,8 +312,7 @@ add("range-knobs-flush", {}, function(t: any)
 					return art(if info.thumb == "lower" then 12 else 40)(info)
 				end,
 			},
-			UI.Slider {
-				Name = "Plain",
+			UI.Slider "Plain" {
 				LayoutOrder = 2,
 				value = value.single,
 				min = 0,
@@ -322,8 +320,7 @@ add("range-knobs-flush", {}, function(t: any)
 				step = 1,
 				Size = UDim2.fromOffset(420, 0),
 			},
-			UI.Slider {
-				Name = "Tall",
+			UI.Slider "Tall" {
 				LayoutOrder = 3,
 				value = value.vertical,
 				axis = "y" :: "y",
@@ -417,8 +414,7 @@ add("radial-tool-captions-near-phone-edge", {}, function(t: any)
 		return Host.Frame {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
-			UI.RadialMenu {
-				Name = "Tools",
+			UI.RadialMenu "Tools" {
 				Position = UDim2.fromOffset(16, 300),
 				label = "Tools",
 				items = {

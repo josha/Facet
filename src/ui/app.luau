@@ -19,7 +19,7 @@ export type AppOptions = {
 	controlSize: Types.Value<Types.ControlSize?>?,
 	theme: Types.Value<ThemeTypes.ThemePackage>?,
 	icons: Types.Value<{ [string]: ThemeTypes.IconEntry }>?,
-	motionLevel: Types.Value<Types.MotionLevel>?,
+	motionLevel: Types.Value<Types.MotionLevel?>?,
 	environment: Types.EnvironmentPreview?,
 	keyboardNavigation: boolean?,
 	pressHaptic: (HapticEffect | Types.HapticKind)?,

@@ -22,21 +22,18 @@ local function setup(t: Live): State
 	t.mount(function(UI: Controls, Host: Host, C: Compose): Instance
 		local letters, placed, returned = { "A", "A" }, 0, 0
 		local notice = C.cell("Select a cell. A or X places one A. Backspace or Y recalls it.")
-		local first = UI.Button {
-			Name = "FirstCell",
+		local first = UI.Button "FirstCell" {
 			label = "Cell 1",
 			Position = UDim2.fromOffset(20, 20),
 			Size = UDim2.fromOffset(120, 60),
 		}
-		local second = UI.Button {
-			Name = "SecondCell",
+		local second = UI.Button "SecondCell" {
 			label = "Cell 2",
 			Position = UDim2.fromOffset(160, 20),
 			Size = UDim2.fromOffset(120, 60),
 		}
 		first.NextSelectionRight, second.NextSelectionLeft = second, first
-		local chat = UI.TextInput {
-			Name = "Chat",
+		local chat = UI.TextInput "Chat" {
 			value = C.cell(""),
 			placeholder = "Type A here. It must stay in chat.",
 			Position = UDim2.fromOffset(20, 100),

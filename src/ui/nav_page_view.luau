@@ -164,8 +164,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers
 			local dots: { ComposeTypes.Child } = {}
 			for index, page in spec.pages do
 				local id = page.id
-				local dot = UI.Button({
-					Name = id,
+				local dot = UI.Button(id)({
 					name = `Page {index} of {#spec.pages}`,
 					LayoutOrder = index,
 					Size = D2.fromOffset(44, 44),
@@ -202,8 +201,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers
 			table.insert(
 				footer,
 				ctx.row({
-					UI.Button {
-						Name = "Previous",
+					UI.Button "Previous" {
 						label = "Previous",
 						enabled = function(use: ComposeTypes.Use)
 							return indexById[use(spec.selection)] > 1
@@ -212,8 +210,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, layers
 							step(-1)
 						end,
 					},
-					UI.Button {
-						Name = "Next",
+					UI.Button "Next" {
 						label = "Next",
 						enabled = function(use: ComposeTypes.Use)
 							return indexById[use(spec.selection)] < #spec.pages

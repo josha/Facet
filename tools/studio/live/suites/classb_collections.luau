@@ -93,8 +93,7 @@ add("cross-axis-fills-the-window", {}, function(t)
 			Host.Frame "Rail" {
 				Size = UDim2.fromOffset(600, 200),
 				BackgroundTransparency = 1,
-				UI.VirtualList {
-					Name = "Horizontal",
+				UI.VirtualList "Horizontal" {
 					from = rows(40),
 					key = "id",
 					itemSize = 120,
@@ -108,8 +107,7 @@ add("cross-axis-fills-the-window", {}, function(t)
 				Position = UDim2.fromOffset(640, 0),
 				Size = UDim2.fromOffset(320, 400),
 				BackgroundTransparency = 1,
-				UI.VirtualList {
-					Name = "Vertical",
+				UI.VirtualList "Vertical" {
 					from = rows(40),
 					key = "id",
 					itemSize = 48,
@@ -148,8 +146,7 @@ add("fill-column-floors-and-hit-order", {}, function(t)
 	local function mount(width: number, columns: { any }, widths: any?): any
 		t.cleanup()
 		return t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-			return UI.Table {
-				Name = "Racers",
+			return UI.Table "Racers" {
 				from = rows(6),
 				key = "id",
 				selectionMode = "single" :: "single",
@@ -231,8 +228,7 @@ add("fill-column-floors-and-hit-order", {}, function(t)
 	local widths
 	local sorted = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		widths = Compose.cell({})
-		return UI.Table {
-			Name = "Hits",
+		return UI.Table "Hits" {
 			from = rows(6),
 			key = "id",
 			selectionMode = "single" :: "single",
@@ -267,8 +263,7 @@ end)
 
 add("cell-insets-and-header-contrast", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.Table {
-			Name = "Racers",
+		return UI.Table "Racers" {
 			from = rows(4),
 			key = "id",
 			columns = {
@@ -367,8 +362,7 @@ add("page-scroll-moves-the-table-body", {}, function(t)
 				Position = UDim2.fromOffset(0, 200),
 				Size = UDim2.fromOffset(500, 600),
 				BackgroundTransparency = 1,
-				UI.Table {
-					Name = "Racers",
+				UI.Table "Racers" {
 					from = rows(12),
 					key = "id",
 					scrolls = false,
@@ -492,8 +486,7 @@ end)
 
 add("tray-actions-meet-the-touch-floor", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.RowActions {
-			Name = "Row",
+		return UI.RowActions "Row" {
 			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
 			Size = UDim2.new(0, 400, 0, 44),
 			content = UI.Text({ text = "Row" }),
@@ -561,8 +554,7 @@ local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 				PaddingRight = UDim.new(0, 17),
 				PaddingTop = UDim.new(0, 17),
 			}),
-			UI.RowActions {
-				Name = "Row",
+			UI.RowActions "Row" {
 				LayoutOrder = 1,
 				Size = UDim2.new(1, 0, 0, 70),
 				leading = if edge == "leading" then { action } else nil,
@@ -687,8 +679,7 @@ add("plate-decoration-stays-inside-the-band", {}, function(t)
 			open = (function(value: ("leading" | "trailing")?): SideCell
 				return Compose.cell(value)
 			end)(nil)
-			return UI.RowActions {
-				Name = "Row",
+			return UI.RowActions "Row" {
 				open = open,
 				Size = UDim2.new(0, 500, 0, 56),
 				content = UI.Button({ label = "Row", Size = UDim2.fromScale(1, 1) }),
@@ -768,8 +759,7 @@ interactive("tray-keys-and-hover", {}, function(t)
 		value.open = (function(value: ("leading" | "trailing")?): SideCell
 			return Compose.cell(value)
 		end)(nil)
-		return UI.RowActions {
-			Name = "Row",
+		return UI.RowActions "Row" {
 			open = value.open,
 			Size = UDim2.new(0, 500, 0, 56),
 			content = UI.Button({ Name = "Body", label = "Row body", Size = UDim2.fromScale(1, 1) }),
@@ -836,8 +826,7 @@ interactive("header-sort-keys", {}, function(t)
 		value.sort = (function(value: { column: string, direction: "ascending" | "descending" }?): SortCell
 			return Compose.cell(value)
 		end)(nil)
-		return UI.Table {
-			Name = "Racers",
+		return UI.Table "Racers" {
 			from = rows(8),
 			key = "id",
 			sort = value.sort,
@@ -901,8 +890,7 @@ end, {
 interactive("left-reaches-this-rows-minus", {}, function(t)
 	local value = { fired = {} }
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-		return UI.Table {
-			Name = "Racers",
+		return UI.Table "Racers" {
 			from = rows(6),
 			key = "id",
 			selectionMode = "single" :: "single",
@@ -944,8 +932,7 @@ end, {
 interactive("collapsed-column-leaves-the-ring", {}, function(t)
 	local value = {}
 	value.stage = t.mount(function(UI: FacetControls)
-		return UI.Table {
-			Name = "Racers",
+		return UI.Table "Racers" {
 			from = rows(6),
 			key = "id",
 			selectionMode = "single" :: "single",
@@ -1000,8 +987,7 @@ interactive("return-toggles-multi-selection", {}, function(t)
 	local value = {}
 	value.stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		value.selection = Compose.cell({})
-		return UI.Table {
-			Name = "Racers",
+		return UI.Table "Racers" {
 			from = rows(6),
 			key = "id",
 			selection = value.selection,
@@ -1039,8 +1025,7 @@ end, {
 interactive("horizontal-list-keys", {}, function(t)
 	local value = { activations = {} }
 	value.stage = t.mount(function(UI: FacetControls)
-		return UI.VirtualList {
-			Name = "Strip",
+		return UI.VirtualList "Strip" {
 			from = rows(40),
 			key = "id",
 			itemSize = 140,
@@ -1087,8 +1072,7 @@ interactive("drag-across-rows-after-page-scroll", {}, function(t)
 				Position = UDim2.fromOffset(0, 200),
 				Size = UDim2.fromOffset(500, 700),
 				BackgroundTransparency = 1,
-				UI.Table {
-					Name = "Racers",
+				UI.Table "Racers" {
 					from = rows(10),
 					key = "id",
 					scrolls = false,

@@ -329,12 +329,10 @@ local function startPicker(t: any, size: Vector2): any
 		return Host.Frame "Toolbar" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
-			UI.HStack {
-				Name = "Bar",
+			UI.HStack "Bar" {
 				gap = "s",
 				align = "center" :: "center",
-				UI.Picker {
-					Name = "Motion",
+				UI.Picker "Motion" {
 					label = "Motion",
 					style = "menu" :: "menu",
 					valueAlignment = "start" :: "start",
@@ -343,7 +341,7 @@ local function startPicker(t: any, size: Vector2): any
 					options = OPTIONS,
 					selected = Compose.cell("normal"),
 				} :: unknown,
-				UI.Button { Name = "Reset", label = "Reset" },
+				UI.Button "Reset" { label = "Reset" },
 			},
 		}
 	end, { size = size, frames = 20 })
@@ -418,8 +416,7 @@ end)
 add("tab-rung", {}, function(t: any)
 	desktop(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		return UI.TabView {
-			Name = "Pages",
+		return UI.TabView "Pages" {
 			placement = "topBar" :: "topBar",
 			controlSize = "compact" :: "compact",
 			selection = Compose.cell("a"),
@@ -480,8 +477,7 @@ interactive(
 		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 			value.size = Compose.cell(Vector2.new(1200, 800))
 			value.presented = Compose.cell(false)
-			return UI.Sheet {
-				Name = "Sheet",
+			return UI.Sheet "Sheet" {
 				isPresented = value.presented,
 				detent = Compose.cell("medium"),
 				placement = "adaptive" :: "adaptive",
@@ -548,8 +544,7 @@ interactive(
 			desktop(t)
 			t.cleanup()
 			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-				return UI.Sheet {
-					Name = "Sheet",
+				return UI.Sheet "Sheet" {
 					isPresented = Compose.cell(true),
 					detent = Compose.cell("medium"),
 					placement = "adaptive" :: "adaptive",
@@ -586,8 +581,7 @@ add("outline-indent", {}, function(t: any)
 		return Host.Frame "Board" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
-			UI.DisclosureGroup {
-				Name = "G",
+			UI.DisclosureGroup "G" {
 				label = "Components",
 				appearance = "outline" :: "outline",
 				textSize = "label" :: "label",
@@ -634,20 +628,17 @@ add("selection-marks", {}, function(t: any)
 	desktop(t)
 	local package = authored(t, "Ink", { selection = rgb(INK), onSelection = rgb(ON_INK) })
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
-		return UI.VStack {
-			Name = "Board",
+		return UI.VStack "Board" {
 			gap = "s",
-			UI.Chip { Name = "Pick", label = "Pick", selected = Compose.cell(true) } :: unknown,
-			UI.Toggle {
-				Name = "Check",
+			UI.Chip "Pick" { label = "Pick", selected = Compose.cell(true) } :: unknown,
+			UI.Toggle "Check" {
 				label = "Check",
 				presentation = "checkbox" :: "checkbox",
 				value = Compose.cell(true),
 			},
-			UI.Toggle { Name = "Sound", label = "Sound", value = Compose.cell(true) },
-			UI.Slider { Name = "Vol", value = Compose.cell(0.5), min = 0, max = 1 },
-			UI.TabView {
-				Name = "Pages",
+			UI.Toggle "Sound" { label = "Sound", value = Compose.cell(true) },
+			UI.Slider "Vol" { value = Compose.cell(0.5), min = 0, max = 1 },
+			UI.TabView "Pages" {
 				placement = "topBar" :: "topBar",
 				indicator = "underline" :: "underline",
 				selection = Compose.cell("a"),
@@ -714,8 +705,7 @@ interactive(
 			return Host.Frame "Board" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				UI.Chip {
-					Name = "Pick",
+				UI.Chip "Pick" {
 					label = "Pick",
 					selected = Compose.cell(true),
 					Position = UDim2.fromOffset(200, 200),
@@ -752,15 +742,13 @@ interactive(
 			return Host.Frame "Board" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				UI.Button {
-					Name = "More",
+				UI.Button "More" {
 					label = "Learn more",
 					appearance = "link" :: "link",
 					underline = "hover" :: "hover",
 					Position = UDim2.fromOffset(200, 200),
 				} :: unknown,
-				UI.Button {
-					Name = "Always",
+				UI.Button "Always" {
 					label = "Terms",
 					appearance = "link" :: "link",
 					underline = "always" :: "always",
@@ -828,8 +816,7 @@ interactive(
 				return Host.Frame "Board" {
 					BackgroundTransparency = 1,
 					Size = UDim2.fromScale(1, 1),
-					UI.Button {
-						Name = "Inv",
+					UI.Button "Inv" {
 						label = "Invert",
 						appearance = "inverse",
 						Position = UDim2.fromOffset(100 + (index - 1) * 400, 200),
@@ -944,17 +931,11 @@ add("dim-disabled-plates", {}, function(t: any)
 		end
 		table.insert(
 			rows,
-			UI.Toggle {
-				Name = "BoxOn",
-				label = "Box",
-				presentation = "checkbox" :: "checkbox",
-				value = Compose.cell(true),
-			}
+			UI.Toggle "BoxOn" { label = "Box", presentation = "checkbox" :: "checkbox", value = Compose.cell(true) }
 		)
 		table.insert(
 			rows,
-			UI.Toggle {
-				Name = "BoxOff",
+			UI.Toggle "BoxOff" {
 				label = "Box",
 				presentation = "checkbox" :: "checkbox",
 				value = Compose.cell(true),
@@ -1010,8 +991,7 @@ interactive(
 			return Host.Frame "Board" {
 				BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1),
-				UI.Button {
-					Name = "Tiny",
+				UI.Button "Tiny" {
 					label = "Go",
 					icon = "close",
 					controlSize = "xsmall" :: "xsmall",
@@ -1020,8 +1000,7 @@ interactive(
 						value.clicks += 1
 					end,
 				} :: unknown,
-				UI.Chip {
-					Name = "TinyChip",
+				UI.Chip "TinyChip" {
 					label = "Tag",
 					controlSize = "xsmall" :: "xsmall",
 					selected = value.chosen,
@@ -1076,8 +1055,8 @@ add("utility-stroke", {}, function(t: any)
 		return Host.Frame "Board" {
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
-			UI.Button { Name = "Util", label = "Utility", appearance = "utility", Position = UDim2.fromOffset(200, 200) } :: unknown,
-			UI.Button { Name = "Plain", label = "Standard", Position = UDim2.fromOffset(400, 200) },
+			UI.Button "Util" { label = "Utility", appearance = "utility", Position = UDim2.fromOffset(200, 200) } :: unknown,
+			UI.Button "Plain" { label = "Standard", Position = UDim2.fromOffset(400, 200) },
 		}
 	end, { theme = package, size = Vector2.new(800, 600), frames = 20 })
 	local button = t.find(stage, "Util")

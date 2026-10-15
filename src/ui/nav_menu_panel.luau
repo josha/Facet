@@ -204,8 +204,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces)
 			Compose.show(function()
 				return spec.query ~= nil
 			end, function()
-				return UI.TextInput {
-					Name = "Search",
+				return UI.TextInput "Search" {
 					value = assert(spec.query),
 					placeholder = "Search",
 					LayoutOrder = -2,
@@ -248,8 +247,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces)
 		}
 		if closeCommand ~= nil and closeCommand ~= false then
 			surfaces.attach(rows, {
-				UI.Button {
-					Name = "CloseCommand",
+				UI.Button "CloseCommand" {
 					Visible = function(use: ComposeTypes.Use)
 						return closeCommand == true or use(sheeted)
 					end,

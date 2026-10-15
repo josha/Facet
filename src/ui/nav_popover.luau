@@ -353,8 +353,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces): ()
 							HorizontalAlignment = E.HorizontalAlignment.Right,
 							SortOrder = E.SortOrder.LayoutOrder,
 						} :: Types.Child,
-						UI.Button {
-							Name = "CloseCommand",
+						UI.Button "CloseCommand" {
 							Visible = function(use: ComposeTypes.Use)
 								if spec.closeButton ~= nil then
 									return spec.closeButton

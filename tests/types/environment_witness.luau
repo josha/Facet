@@ -34,7 +34,7 @@ local function Screen(): Frame
 	UI.adjustable(list, dial)
 	local kind: Facet.HapticKind = "success"
 	UI.feedback(kind)
-	return UI.Screen({
+	return UI.Screen("Environment")({
 		ring,
 		UI.Text({
 			text = function(use: Facet.Use): string

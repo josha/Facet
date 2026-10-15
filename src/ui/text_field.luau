@@ -597,8 +597,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			`Facet.{control}: invalid clearButtonMode`
 		)
 		local clear = if mode ~= "never"
-			then UI.Button {
-				Name = "Clear",
+			then UI.Button "Clear" {
 				name = "Clear",
 				icon = "close",
 				appearance = "utility",
@@ -764,8 +763,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			end
 			if spec.stepButtons then
 				local function stepButton(name: string, glyph: string, direction: number, order: number)
-					local button = UI.Button({
-						Name = name,
+					local button = UI.Button(name)({
 						icon = glyph,
 						name = name,
 						repeatDelay = 0.4,

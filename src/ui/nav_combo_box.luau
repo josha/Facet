@@ -93,8 +93,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces)
 			spec.text:set(label(spec.value:peek()))
 			errorText:set("")
 		end
-		local created = UI.TextInput {
-			Name = "Editor",
+		local created = UI.TextInput "Editor" {
 			value = spec.text,
 			placeholder = spec.placeholder,
 			enabled = spec.enabled,
@@ -131,8 +130,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces)
 			BackgroundTransparency = 1,
 			Position = D2.new(1, -56, 0, 0),
 			Size = D2.new(0, 56, 1, 0),
-			UI.Button {
-				Name = "Trigger",
+			UI.Button "Trigger" {
 				label = "",
 				icon = "chevron.down",
 				enabled = spec.enabled,

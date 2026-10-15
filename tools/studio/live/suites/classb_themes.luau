@@ -84,7 +84,7 @@ add("skeleton-circle-round-sweep", {}, function(t)
 		return Host.Frame "Holder" {
 			Size = UDim2.fromOffset(300, 300),
 			BackgroundTransparency = 1,
-			UI.Skeleton { Name = "Circle", form = "circle" :: "circle" },
+			UI.Skeleton "Circle" { form = "circle" :: "circle" },
 		}
 	end, { size = Vector2.new(400, 400), motionLevel = "normal" })
 	local plate = t.find(stage, "Circle"):FindFirstChild("Placeholder1")
@@ -109,8 +109,7 @@ add("skeleton-band-contained", {}, function(t)
 		return Host.Frame "Offer" {
 			Size = UDim2.fromOffset(500, 200),
 			BackgroundTransparency = 1,
-			UI.Skeleton {
-				Name = "A",
+			UI.Skeleton "A" {
 				form = "box" :: "box",
 				Size = function(use: Use)
 					return UDim2.new(use(width), 0, 0, 0)
@@ -149,12 +148,11 @@ end)
 add("skeleton-parent-alignment", {}, function(t)
 	for _, align in { "center", "end", "start" } do
 		local stage = t.mount(function(UI: FacetControls)
-			return UI.VStack {
-				Name = "Col",
+			return UI.VStack "Col" {
 				width = "fill" :: "fill",
 				align = align :: "center" | "end" | "start" | "stretch",
-				UI.Skeleton { Name = "One", form = "line" :: "line", Size = UDim2.fromOffset(120, 0) } :: unknown,
-				UI.Skeleton { Name = "Many", form = "line" :: "line", lines = 3, Size = UDim2.fromOffset(120, 0) },
+				UI.Skeleton "One" { form = "line" :: "line", Size = UDim2.fromOffset(120, 0) } :: unknown,
+				UI.Skeleton "Many" { form = "line" :: "line", lines = 3, Size = UDim2.fromOffset(120, 0) },
 			}
 		end, { size = Vector2.new(500, 400) })
 		local col = t.find(stage, "Col")
@@ -187,9 +185,9 @@ add("stage-not-selectable", {}, function(t)
 				Size = UDim2.fromOffset(260, 200),
 				BackgroundTransparency = 1,
 				LayoutOrder = 1,
-				UI.Stage { Name = "Scene" },
+				UI.Stage "Scene" {},
 			},
-			UI.Button { Name = "After", label = "After", LayoutOrder = 2 },
+			UI.Button "After" { label = "After", LayoutOrder = 2 },
 		}
 	end, { size = Vector2.new(600, 500) })
 	local scene = t.find(stage, "Scene")
@@ -219,7 +217,7 @@ add("stage-panel-paint", {}, function(t)
 	local env
 	local stage = t.mount(function(UI: FacetControls, _, _, e)
 		env = e
-		return UI.Stage { Name = "Scene" }
+		return UI.Stage "Scene" {}
 	end, { size = Vector2.new(400, 300) })
 	local scene = t.find(stage, "Scene")
 	local package = env.theme:peek()
@@ -248,12 +246,11 @@ add("explicit-gradient-wins-across-swap", {}, function(t)
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
-			UI.Stage {
-				Name = "Card",
+			UI.Stage "Card" {
 				LayoutOrder = 1,
 				Host.UIGradient "ViewGradient" { Color = viewColor, Rotation = 45, Transparency = viewAlpha },
 			},
-			UI.Stage { Name = "Plain", LayoutOrder = 2 },
+			UI.Stage "Plain" { LayoutOrder = 2 },
 		}
 	end, { size = Vector2.new(600, 500), theme = glossy })
 	local card = t.find(stage, "Card")
@@ -299,7 +296,9 @@ end)
 add("skinned-selection-hugs-art", {}, function(t)
 	local ornate = themeNamed(t, "fantasy_ornate")
 	local stage = t.mount(function(UI: FacetControls)
-		return UI.VStack { Name = "Col", UI.Button { Name = "Skinned", label = "Ornate" } }
+		return UI.VStack "Col" {
+			UI.Button "Skinned" { label = "Ornate" },
+		}
 	end, { size = Vector2.new(500, 400), theme = ornate, frames = 20 })
 	local button = t.find(stage, "Skinned")
 	local skin = button:FindFirstChild("Skin", true)
@@ -364,7 +363,9 @@ add("selection-corners-follow-control", {}, function(t)
 	local ornate = themeNamed(t, "fantasy_ornate")
 	local stage = t.mount(function(UI: FacetControls, _, _, e)
 		env = e
-		return UI.VStack { Name = "Col", UI.Button { Name = "Target", label = "Target" } }
+		return UI.VStack "Col" {
+			UI.Button "Target" { label = "Target" },
+		}
 	end, { size = Vector2.new(500, 400), theme = neutral, frames = 20 })
 	local button = t.find(stage, "Target")
 	GuiService.SelectedObject = button
@@ -387,8 +388,7 @@ add("status-count-authored-height", {}, function(t)
 				return Host.Frame "Offer" {
 					Size = UDim2.fromOffset(100, 100),
 					BackgroundTransparency = 1,
-					UI.StatusIndicator {
-						Name = "Mark",
+					UI.StatusIndicator "Mark" {
 						count = 7,
 						cutout = cutout,
 						Size = UDim2.new(UDim.new(0, 40), height),
@@ -449,8 +449,7 @@ add("status-round-containment", {}, function(t)
 					Host.Frame "Offer" {
 						Size = UDim2.fromScale(offer[1] / 100, offer[2] / 100),
 						BackgroundTransparency = 1,
-						UI.StatusIndicator {
-							Name = "Mark",
+						UI.StatusIndicator "Mark" {
 							form = "ring" :: "ring",
 							cutout = cutout,
 							Size = UDim2.fromScale(1, 1),
@@ -476,9 +475,8 @@ add("status-round-containment", {}, function(t)
 				return UDim2.fromOffset(use(width), use(height))
 			end,
 			BackgroundTransparency = 1,
-			UI.StatusIndicator { Name = "Dot", form = "dot" :: "dot", Size = UDim2.fromScale(0.5, 0.5) } :: unknown,
-			UI.StatusIndicator {
-				Name = "Dash",
+			UI.StatusIndicator "Dot" { form = "dot" :: "dot", Size = UDim2.fromScale(0.5, 0.5) } :: unknown,
+			UI.StatusIndicator "Dash" {
 				form = "dash" :: "dash",
 				Size = UDim2.fromScale(0.5, 0.5),
 				Position = UDim2.fromScale(0.5, 0.5),
@@ -515,14 +513,12 @@ add("status-cutout-hairline", {}, function(t)
 					Size = UDim2.fromOffset(size * 3, size),
 					BackgroundTransparency = 1,
 					Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal } :: unknown,
-					UI.StatusIndicator {
-						Name = "Mark",
+					UI.StatusIndicator "Mark" {
 						form = form :: "dash" | "dot" | "ring" | "square",
 						diameter = size,
 						cutout = true,
 					},
-					UI.StatusIndicator {
-						Name = "Bare",
+					UI.StatusIndicator "Bare" {
 						form = form :: "dash" | "dot" | "ring" | "square",
 						diameter = size,
 					},

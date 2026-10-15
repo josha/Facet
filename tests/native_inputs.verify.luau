@@ -98,8 +98,7 @@ return function(verifyHarness: Verify.Harness)
 							local allowed = Compose.formula(function(use: Use)
 								return use(shown)
 							end)
-							return UI.Button {
-								Name = "Dismiss",
+							return UI.Button "Dismiss" {
 								label = "Dismiss",
 								enabled = allowed,
 								onActivate = function()
@@ -124,8 +123,7 @@ return function(verifyHarness: Verify.Harness)
 				local value, enabled = Compose.cell("Before"), Compose.cell(true)
 				local activated, nativeEvent = 0, 0
 				local node, stop = world(function(UI: FacetControls)
-					return UI.Button({
-						Name = "Continue",
+					return UI.Button("Continue")({
 						label = value,
 						enabled = enabled,
 						Attributes = { task = "continue" } :: FixtureEngineTypes.Attributes,
@@ -581,8 +579,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local cancels = 0
 				local node, stop, engine = world(function(UI: FacetControls)
-					return UI.Button {
-						Name = "Hold",
+					return UI.Button "Hold" {
 						label = "Hold",
 						onPointerCancel = function()
 							cancels += 1
@@ -608,9 +605,8 @@ return function(verifyHarness: Verify.Harness)
 				local busy, value, number = Compose.cell(false), Compose.cell("2"), Compose.cell(2)
 				local root, stop, engine = world(function(UI: FacetControls, engine, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Button { Name = "Pop", label = "Pop", pop = true, busy = busy, onActivate = function() end } :: unknown,
-						UI.TextInput {
-							Name = "Amount",
+						UI.Button "Pop" { label = "Pop", pop = true, busy = busy, onActivate = function() end } :: unknown,
+						UI.TextInput "Amount" {
 							value = value,
 							numericValue = number,
 							presentation = "number" :: "number",
@@ -649,8 +645,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local value, number, enabled, commits = Compose.cell("2"), Compose.cell(2), Compose.cell(true), 0
 				local node, stop = world(function(UI: FacetControls)
-					return UI.TextInput {
-						Name = "Amount",
+					return UI.TextInput "Amount" {
 						value = value,
 						numericValue = number,
 						presentation = "number" :: "number",
@@ -678,7 +673,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local corners = Compose.cell("square" :: "pill" | "square")
 				local node, stop = world(function(UI: FacetControls)
-					return UI.Button { Name = "Corners", label = "Corners", corners = corners }
+					return UI.Button "Corners" { label = "Corners", corners = corners }
 				end)
 				local corner = node:FindFirstChildWhichIsA("UICorner")
 				Verify.expect(corner.CornerRadius.Scale):toBe(0)
@@ -801,8 +796,8 @@ return function(verifyHarness: Verify.Harness)
 				local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
 					local Host = runtime.constructors
 					return Host.Frame {
-						UI.Button { Name = "Pop", label = "Pop", pop = true, onActivate = function() end } :: unknown,
-						UI.TextInput { Name = "Field", value = Compose.cell("abc"), invalid = invalid },
+						UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end } :: unknown,
+						UI.TextInput "Field" { value = Compose.cell("abc"), invalid = invalid },
 					}
 				end)
 				local button, field = find(node, "Pop"), find(node, "Field")
@@ -863,7 +858,7 @@ return function(verifyHarness: Verify.Harness)
 				local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
 					return runtime.constructors.Frame {
 						Name = "Row",
-						UI.Button { Name = "Sort", label = "Sorting", compactLabel = "Srt" },
+						UI.Button "Sort" { label = "Sorting", compactLabel = "Srt" },
 					}
 				end)
 				local sort = find(node, "Sort")
@@ -966,13 +961,12 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local node, stop, engine = world(function(UI: FacetControls, host, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Button {
-							Name = "Tight",
+						UI.Button "Tight" {
 							icon = "rbxassetid://1",
 							Size = host.types.UDim2.fromOffset(20, 20),
 							AutomaticSize = host.types.Enum.AutomaticSize.None,
 						} :: unknown,
-						UI.Button { Name = "Free", icon = "rbxassetid://1", label = "Free" },
+						UI.Button "Free" { icon = "rbxassetid://1", label = "Free" },
 					})
 				end)
 				local tight = find(node, "Tight")
@@ -1336,8 +1330,7 @@ return function(verifyHarness: Verify.Harness)
 						fallback :: unknown,
 						other,
 						Compose.show(show, function()
-							return UI.Chip {
-								Name = "Delayed",
+							return UI.Chip "Delayed" {
 								label = "Delayed",
 								removeFocusFallback = fallback :: GuiObject,
 								onRemove = function() end,
@@ -1442,12 +1435,12 @@ return function(verifyHarness: Verify.Harness)
 				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					UIref = UI
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Button { Name = "Saved", label = "Save", haptic = "success" :: "success" } :: unknown,
-						UI.Button { Name = "Again", label = "Save", haptic = "success" :: "success" },
-						UI.Button { Name = "Careful", label = "Sell", haptic = "warning" :: "warning" },
-						UI.Button { Name = "Live", label = "Try", haptic = kind },
-						UI.Button { Name = "Plain", label = "Go", haptic = true },
-						UI.Toggle { Name = "Sound", value = Compose.cell(true), label = "Sound" },
+						UI.Button "Saved" { label = "Save", haptic = "success" :: "success" } :: unknown,
+						UI.Button "Again" { label = "Save", haptic = "success" :: "success" },
+						UI.Button "Careful" { label = "Sell", haptic = "warning" :: "warning" },
+						UI.Button "Live" { label = "Try", haptic = kind },
+						UI.Button "Plain" { label = "Go", haptic = true },
+						UI.Toggle "Sound" { value = Compose.cell(true), label = "Sound" },
 					})
 				end, function()
 					return { pressHaptic = "selection" }
@@ -1484,7 +1477,7 @@ return function(verifyHarness: Verify.Harness)
 				end):toThrow()
 				stop()
 				node, stop = world(function(UI: FacetControls)
-					return UI.Button { Name = "Bare", label = "Go", haptic = true }
+					return UI.Button "Bare" { label = "Go", haptic = true }
 				end)
 				Verify.expect(node.PressHapticEffect):toBe(nil)
 				stop()
@@ -1502,8 +1495,8 @@ return function(verifyHarness: Verify.Harness)
 				}
 				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Slider { Name = "Stepped", value = stepped, min = 0, max = 100, step = 25 } :: unknown,
-						UI.Slider { Name = "Continuous", value = continuous },
+						UI.Slider "Stepped" { value = stepped, min = 0, max = 100, step = 25 } :: unknown,
+						UI.Slider "Continuous" { value = continuous },
 					})
 				end, function()
 					return { pressHaptic = effect }
@@ -1572,8 +1565,8 @@ return function(verifyHarness: Verify.Harness)
 				local firstEnabled = Compose.cell(false)
 				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Button { Name = "First", dialogAction = "default" :: "default", enabled = firstEnabled } :: unknown,
-						UI.Button { Name = "Second", dialogAction = "default" :: "default" },
+						UI.Button "First" { dialogAction = "default" :: "default", enabled = firstEnabled } :: unknown,
+						UI.Button "Second" { dialogAction = "default" :: "default" },
 					})
 				end)
 				local contexts = {}
@@ -1699,8 +1692,7 @@ return function(verifyHarness: Verify.Harness)
 				local value, commits = Compose.cell("line one\nline two"), 0
 				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.TextInput {
-							Name = "Editor",
+						UI.TextInput "Editor" {
 							value = value,
 							multiline = true,
 							onCommit = function()
@@ -1737,8 +1729,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.TextInput {
-							Name = "Notes",
+						UI.TextInput "Notes" {
 							value = Compose.cell("a\nb\n"),
 							onChange = function() end,
 							multiline = true,
@@ -1765,8 +1756,7 @@ return function(verifyHarness: Verify.Harness)
 				local value, reasons, input = Compose.cell("seed"), {}, nil
 				local node, stop = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.TextInput {
-							Name = "Name",
+						UI.TextInput "Name" {
 							value = value,
 							onCommit = function(_, reason)
 								table.insert(reasons, reason)
@@ -1806,16 +1796,14 @@ return function(verifyHarness: Verify.Harness)
 				local firstEnabled = Compose.cell(true)
 				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Button {
-							Name = "First",
+						UI.Button "First" {
 							label = "First",
 							enabled = firstEnabled,
 							onActivate = function()
 								activated += 1
 							end,
 						} :: unknown,
-						UI.Button {
-							Name = "Second",
+						UI.Button "Second" {
 							label = "Second",
 							onActivate = function()
 								activated += 10
@@ -1874,15 +1862,13 @@ return function(verifyHarness: Verify.Harness)
 				local gui, firstCalls, secondCalls = nil, 0, 0
 				local node, stop = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Button {
-							Name = "First",
+						UI.Button "First" {
 							label = "First",
 							onActivate = function()
 								firstCalls += 1
 							end,
 						} :: unknown,
-						UI.Button {
-							Name = "Second",
+						UI.Button "Second" {
 							label = "Second",
 							onActivate = function()
 								secondCalls += 1
@@ -1993,8 +1979,8 @@ return function(verifyHarness: Verify.Harness)
 				local enabled = Compose.cell(true)
 				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Stepper { Name = "Stepper", value = stepperValue, max = 10, enabled = enabled } :: unknown,
-						UI.Slider { Name = "Slider", value = sliderValue },
+						UI.Stepper "Stepper" { value = stepperValue, max = 10, enabled = enabled } :: unknown,
+						UI.Slider "Slider" { value = sliderValue },
 					})
 				end, function(engine)
 					gui = engine.new("GuiService")
@@ -2144,8 +2130,8 @@ return function(verifyHarness: Verify.Harness)
 				local gui
 				local node, stop = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
-						UI.Slider { Name = "Volume", value = value, step = 0.1 } :: unknown,
-						UI.Slider { Name = "Hidden", value = Compose.cell(0.5), thumb = "auto" :: "auto" },
+						UI.Slider "Volume" { value = value, step = 0.1 } :: unknown,
+						UI.Slider "Hidden" { value = Compose.cell(0.5), thumb = "auto" :: "auto" },
 					})
 				end, function(engine)
 					gui = engine.new("GuiService")
@@ -2346,7 +2332,7 @@ return function(verifyHarness: Verify.Harness)
 				local root, stop, engine = world(function(UI: FacetControls, engine, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 						Size = engine.types.UDim2.fromOffset(353, 44),
-						UI.Rating { Name = "Stars", value = value, count = 10, starSize = "large" :: "large" },
+						UI.Rating "Stars" { value = value, count = 10, starSize = "large" :: "large" },
 					})
 				end)
 				local V = engine.types.Vector2
@@ -2382,7 +2368,7 @@ return function(verifyHarness: Verify.Harness)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 						Name = "Column",
 						Size = engine.types.UDim2.fromOffset(144, 44),
-						UI.Rating { Name = "Stars", value = Compose.cell(3) },
+						UI.Rating "Stars" { value = Compose.cell(3) },
 					})
 				end, function(engine)
 					input = engine.new("UserInputService")
@@ -2415,7 +2401,7 @@ return function(verifyHarness: Verify.Harness)
 						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 							Name = "Pair",
 							Size = engine.types.UDim2.fromOffset(337, 44),
-							UI.LevelPicker { Name = "Bars", value = Compose.cell(2), count = 10 },
+							UI.LevelPicker "Bars" { value = Compose.cell(2), count = 10 },
 						})
 					end, function(engine)
 						input = engine.new("UserInputService")
@@ -2705,7 +2691,7 @@ return function(verifyHarness: Verify.Harness)
 						local world = setup(function(UI: FacetControls, Host: RobloxHost)
 							return Host.Frame "Card" {
 								Host.UIScale "Authored" { Scale = 0.8 } :: unknown,
-								UI.Button { Name = "Pop", label = "Pop", pop = true, onActivate = function() end },
+								UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end },
 							}
 						end, { motionLevel = "normal", theme = package })
 						local E = world.engine.types.Enum

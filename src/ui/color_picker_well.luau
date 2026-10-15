@@ -141,8 +141,7 @@ return function(
 	local layout = assert(row:FindFirstChildWhichIsA("UIListLayout"))
 	layout.VerticalAlignment = E.VerticalAlignment.Center
 	layout.HorizontalAlignment = if labelled then E.HorizontalAlignment.Left else E.HorizontalAlignment.Center
-	local well = UI.Button({
-		Name = "Well",
+	local well = UI.Button("Well")({
 		name = function(use: Use): string
 			return semanticName(use)
 		end,

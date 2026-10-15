@@ -279,9 +279,8 @@ local function screen()
 		Name = "Canary",
 		sheet :: unknown,
 		Host.StyleLink({ StyleSheet = Compose.static(sheet) }),
-		UI.Text({ Name = "Title", text = title }),
-		UI.Button({
-			Name = "Go",
+		UI.Text("Title")({ text = title }),
+		UI.Button("Go")({
 			label = "Go",
 			onActivate = function()
 				taps += 1

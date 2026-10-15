@@ -1,6 +1,5 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
-local named = require("./lib/named")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -34,7 +33,7 @@ return function(verifyHarness: Verify.Harness)
 			for key, value in (extra or {} :: { [string]: any }) do
 				spec[key] = if type(value) == "table" and value.__build then value.__build(UI, Host) else value
 			end
-			return UI.Sheet(named("Sheet", spec))
+			return UI.Sheet "Sheet"(spec)
 		end, o)
 		w.detent, w.shown = detent, shown
 		w.builds = function()
@@ -489,7 +488,7 @@ return function(verifyHarness: Verify.Harness)
 					header = false,
 					closeButton = true,
 					hero = built(function(UI: FacetControls)
-						return { height = 200, content = UI.Button { Name = "Top", label = "Top of hero" } }
+						return { height = 200, content = UI.Button "Top" { label = "Top of hero" } }
 					end),
 				})
 				local hero = w.find("Hero")
@@ -861,8 +860,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Compose.show(mounted, function()
-							return UI.Sheet {
-								Name = "Sheet",
+							return UI.Sheet "Sheet"({
 								isPresented = shown,
 								detent = Compose.cell("large"),
 								title = "T",
@@ -893,7 +891,7 @@ return function(verifyHarness: Verify.Harness)
 										end,
 									} :: OverlayAction,
 								},
-							}
+							})
 						end),
 					})
 				end)
@@ -922,8 +920,7 @@ return function(verifyHarness: Verify.Harness)
 				local failures = {}
 				local shown = Compose.cell(true)
 				local w = overlay.new(function(UI: FacetControls)
-					return UI.Sheet {
-						Name = "Sheet",
+					return UI.Sheet "Sheet" {
 						isPresented = shown,
 						detent = Compose.cell("medium"),
 						title = "T",
@@ -1144,8 +1141,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
 						Compose.show(mounted, function()
-							return UI.Sheet {
-								Name = "Sheet",
+							return UI.Sheet "Sheet" {
 								isPresented = Compose.cell(true),
 								detent = Compose.cell("medium"),
 								title = "T",
@@ -1301,8 +1297,8 @@ return function(verifyHarness: Verify.Harness)
 				do
 					extra.content = built(function(UI: FacetControls)
 						return UI.VStack {
-							UI.Button { Name = "First", label = "First" },
-							UI.Button { Name = "Second", label = "Second" },
+							UI.Button "First" { label = "First" },
+							UI.Button "Second" { label = "Second" },
 						}
 					end)
 					local w = mount(extra, WIDE)
@@ -1550,8 +1546,7 @@ return function(verifyHarness: Verify.Harness)
 				local theme = Compose.cell(fantasy)
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 					return Host.Frame({
-						UI.Dialog {
-							Name = "Confirm",
+						UI.Dialog "Confirm" {
 							isPresented = Compose.cell(true),
 							onPresentedChange = noop,
 							title = "Leave?",
@@ -1559,11 +1554,10 @@ return function(verifyHarness: Verify.Harness)
 								return Host.TextLabel "Line" { Text = "Body" }
 							end,
 						} :: unknown,
-						UI.Popover {
-							Name = "Tip",
+						UI.Popover "Tip" {
 							isPresented = Compose.cell(true),
 							onPresentedChange = noop,
-							trigger = UI.Button { Name = "Open", label = "Open" },
+							trigger = UI.Button "Open" { label = "Open" },
 							content = function(): Instance
 								return Host.TextLabel "PopLine" { Text = "Body" }
 							end,
@@ -1614,8 +1608,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::native panels: the theme title plaque carries the surface title::a surface without a title draws no plaque",
 			run = function()
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
-					return UI.Dialog {
-						Name = "Plain",
+					return UI.Dialog "Plain" {
 						isPresented = Compose.cell(true),
 						onPresentedChange = noop,
 						content = function(): Instance

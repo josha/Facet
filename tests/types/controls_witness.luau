@@ -44,7 +44,7 @@ local button: TextButton = UI.Button({
 	end,
 	onActivate = nothing,
 })
-local named: TextButton = UI.Button({ Name = "Save", label = "Save", onActivate = nothing })
+local named: TextButton = UI.Button("Save")({ label = "Save", onActivate = nothing })
 local toggle: TextButton = UI.Toggle({
 	value = enabled,
 	onChange = function(nextValue: boolean)
@@ -363,8 +363,7 @@ local outline: ScrollingFrame = UI.Outline {
 	onReorder = function(_keys: { string }, _slot: number, _parent: string?) end,
 	render = guiContent,
 }
-local namedOutline: ScrollingFrame = UI.Outline {
-	Name = "Hierarchy",
+local namedOutline: ScrollingFrame = UI.Outline "Hierarchy" {
 	from = treeRows,
 	key = function(item: TreeRow): string
 		return item.id

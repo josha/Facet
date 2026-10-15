@@ -117,8 +117,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					Compose.show(function(use: ComposeTypes.Use)
 						return read(spec.appearance, use) == "status"
 					end, function()
-						return UI.StatusIndicator {
-							Name = "Status",
+						return UI.StatusIndicator "Status" {
 							status = spec.status,
 							diameter = 8,
 							LayoutOrder = -1,
@@ -223,7 +222,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			spec,
 			{ "status", "form", "count", "max", "name", "diameter", "controlSize", "cutout" },
 			{
-				Attributes = if spec.name ~= nil then { AccessibleLabel = spec.name } :: Engine.Attributes else nil,
+				Attributes = if spec.name ~= nil
+					then ({ AccessibleLabel = spec.name } :: unknown) :: Engine.Attributes
+					else nil,
 				Size = function(use: ComposeTypes.Use)
 					return D2.fromOffset(
 						if spec.count ~= nil then 0 else size(use),

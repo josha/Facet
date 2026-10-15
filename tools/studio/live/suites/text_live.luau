@@ -56,8 +56,8 @@ add("button-labels-centred-in-every-package", {}, function(t: any)
 				Size = UDim2.fromOffset(600, 80),
 				BackgroundTransparency = 1,
 				Host.UIListLayout { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12) } :: unknown,
-				UI.Button { Name = "Word", label = "Play" },
-				UI.Button { Name = "Marked", label = "Next", icon = "chevron.down" },
+				UI.Button "Word" { label = "Play" },
+				UI.Button "Marked" { label = "Next", icon = "chevron.down" },
 			}
 		end, { theme = theme.package, size = Vector2.new(600, 200) })
 		t.settle(10)
@@ -88,8 +88,7 @@ add("described-toggle-fits-a-narrow-row", {}, function(t: any)
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 			Host.UIListLayout {} :: unknown,
-			UI.Toggle {
-				Name = "Hints",
+			UI.Toggle "Hints" {
 				row = {
 					title = "Show hints",
 					description = "Adds a short line of help under each control in this panel",
@@ -120,8 +119,7 @@ end)
 
 add("padded-text-draws-inside-its-inset", {}, function(t: any)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
-		return UI.Text {
-			Name = "Padded",
+		return UI.Text "Padded" {
 			text = "A padded paragraph that wraps across several lines inside its box",
 			Size = UDim2.fromOffset(200, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,

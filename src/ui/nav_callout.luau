@@ -181,8 +181,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: s
 					if spec.closeButton == true then
 						table.insert(
 							header,
-							UI.Button {
-								Name = "Close",
+							UI.Button "Close" {
 								name = "Close",
 								icon = "close",
 								Size = D2.fromOffset(44, 44),
@@ -250,8 +249,7 @@ return function(ctx: Types.Context, UI: Controls, surfaces: Nav.Surfaces, kit: s
 				else
 					table.insert(
 						rows,
-						UI.Button {
-							Name = "Dismiss",
+						UI.Button "Dismiss" {
 							label = spec.dismissLabel or "Got it",
 							onActivate = function()
 								retire("dismissed")
