@@ -66,6 +66,38 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native themes and media", function()
+		verifyHarness:case("keeps each fade stroke presence selector on its theme motion token", {
+			id = "native_themes_media::native themes and media::keeps each fade stroke presence selector on its theme motion token",
+			run = function()
+				local engine = engineLib.new()
+				local runtime = Roblox.createRuntime(engine)
+				local package = themes.neutralPackage()
+				package.rules = {
+					{ selector = ".facet-button:Hover::UIStroke", properties = { Thickness = 2 } },
+					{ selector = ".facet-button:Press::UIStroke", properties = { Thickness = 3 } },
+				}
+				local stop, sheet = runtime.mount(function()
+					return themes.createStyleSheet(runtime, package, { types = engine.types })
+				end, engine.new("Folder"))
+				local checked = 0
+				for _, child in (sheet :: StyleSheet):GetChildren() do
+					local rule = child :: StyleRule
+					if string.find(rule.Name, "presence", 1, true) then
+						for _, selector in string.split(rule.Selector, ", ") do
+							local role = if string.find(selector, ":Press", 1, true)
+								then "Press"
+								elseif string.find(selector, ":Hover", 1, true) then "Hover"
+								else "Normal"
+							Verify.expect(rule:GetPropertyTransitions().Transparency):toBe("$FacetMotion" .. role)
+							checked += 1
+						end
+					end
+				end
+				Verify.expect(checked > 0):toBe(true)
+				stop()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("keeps disabled emphasis text readable after a consumer changes its accent pair", {
 			id = "native_themes_media::native themes and media::keeps disabled emphasis text readable after a consumer changes its accent pair",
 			run = function()

@@ -133,7 +133,7 @@ return function(
 			rule(definition.selector, properties, true)
 		end
 		local present: { [string]: boolean } = {}
-		local presence: { string } = {}
+		local presence: { NativeRule } = {}
 		for _, definition in rules do
 			local selector = string.match(definition.selector, ", (.+)$") or definition.selector
 			if
@@ -142,18 +142,16 @@ return function(
 				and not present[selector]
 			then
 				present[selector] = true
-				table.insert(presence, selector)
+				table.insert(presence, {
+					id = selector .. ":presence",
+					selector = selector,
+					properties = { Transparency = 0 },
+					priority = #presence,
+				})
 			end
 		end
 		local ordered = { rules[1] }
-		if #presence > 0 then
-			table.insert(ordered, {
-				id = "facet-fade-presence",
-				selector = table.concat(presence, ", "),
-				properties = { Transparency = 0 },
-				priority = 10,
-			})
-		end
+		table.move(presence, 1, #presence, 2, ordered)
 		table.move(rules, 2, #rules, #ordered + 1, ordered)
 		local compact: { NativeRule } = {}
 		local function state(selector: string): string
