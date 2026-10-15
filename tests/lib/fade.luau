@@ -2,6 +2,9 @@
 local fade = {}
 
 function fade.of(node: any): number
+	if node:IsA("CanvasGroup") then
+		return node.GroupTransparency
+	end
 	local paint = node:FindFirstChild("FadePaint")
 	if paint then
 		return paint.Transparency.Keypoints[1].Value
