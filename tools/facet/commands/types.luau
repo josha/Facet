@@ -2,7 +2,6 @@
 
 local stringext = require("@std/stringext")
 local luau = require("@lute/luau")
-local net = require("@std/net")
 local path = require("@std/path")
 local process = require("@std/process")
 local system = require("@std/system")
@@ -11,6 +10,7 @@ local Analyzer = require("../lib/analyzer")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local ControlProps = require("../lib/control_props")
+local Definitions = require("../lib/definitions")
 local Files = require("../lib/files")
 local Generator = require("../lib/engine_generator")
 local Hash = require("../lib/hash")
@@ -209,28 +209,8 @@ local function prepareLuteTypes(): LuteTypes
 end
 
 local function definitions(lockFile: string): string
-	local lock = decodeFile(lockFile)
-	local digest = Json.stringField(lock, "sha256") or fail(lockFile .. " has no sha256")
-	local url = Json.stringField(lock, "url") or fail(lockFile .. " has no url")
 	local file = Files.join(ARTIFACTS, if lockFile == PLUGIN_LOCK then "roblox-plugin.d.luau" else "roblox.d.luau")
-	if Files.isFile(file) and Hash.sha256(Files.read(file)) == digest then
-		return file
-	end
-	local fetched, response = pcall(function(): net.Response
-		return net.request(url)
-	end)
-	if not fetched then
-		fail(("could not download the Roblox definitions from %s: %s"):format(url, tostring(response)))
-	end
-	local answer = response :: net.Response
-	if not answer.ok then
-		fail(("could not download the Roblox definitions from %s: HTTP %d"):format(url, answer.status))
-	end
-	if Hash.sha256(answer.body) ~= digest then
-		fail("Roblox definitions differ from their pinned SHA-256")
-	end
-	Files.write(file, answer.body)
-	return file
+	return Definitions.resolve(lockFile, file)
 end
 
 local function analyze(

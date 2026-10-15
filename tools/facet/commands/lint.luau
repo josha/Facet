@@ -4,6 +4,7 @@ local json = require("@std/json")
 local Analyzer = require("../lib/analyzer")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
+local Definitions = require("../lib/definitions")
 local Files = require("../lib/files")
 local Encoding = require("../lib/encoding")
 local Json = require("../lib/json")
@@ -21,7 +22,8 @@ finding names the rule, the line and the fix.
   paths           Luau files or directories. The default is src/client.
   --types         Also type-check the paths with luau-lsp in strict Roblox mode.
                   It makes a Rojo sourcemap of --project and uses the Roblox
-                  definitions in tools/typecheck/roblox.d.luau.
+                  definitions in tools/typecheck/roblox.d.luau, or downloads
+                  and checks the pinned definitions into artifacts/verify/types.
   --project FILE  The Rojo project for --types. The default is default.project.json.
   --solver NAME   The Luau type solver for --types: new (the default, as in
                   Studio) or old.
@@ -87,15 +89,16 @@ local function withHint(line: string, message: string): string
 end
 
 local function typeCheck(paths: { string }, project: string, solver: string): ({ Analyzer.Diagnostic }?, string?)
-	local definitions: string? = nil
+	local definitions = DEFINITIONS[2]
 	for _, candidate in DEFINITIONS do
 		if Files.isFile(candidate) then
 			definitions = candidate
 			break
 		end
 	end
-	if definitions == nil then
-		return nil, "no Roblox definitions; run lute run tools/facet types once, or add tools/typecheck/roblox.d.luau"
+	local resolved, result = pcall(Definitions.resolve, "tools/typecheck/roblox.lock.json", definitions)
+	if not resolved then
+		return nil, tostring(result)
 	end
 	if not Files.isFile(project) then
 		return nil, "no Rojo project at " .. project
