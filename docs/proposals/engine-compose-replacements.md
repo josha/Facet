@@ -9,7 +9,9 @@ control-specific policy. The dependency pin is in
 | Topic | Mechanism | Facet policy |
 | --- | --- | --- |
 | Effect sequences | Compose `runtime.sequence` and `runtime.tween` | Resolve theme timing tokens and control callbacks in `src/ui/effect_sequence.luau`. |
-| Environment observation | Native property signals and Compose `createSharedResource` | Preview values, input withholding, and selection policy in `src/ui/context_observe.luau`. |
+| Environment observation | Compose `runtime.observe` and native property signals | Preview values, input withholding, and selection policy in `src/ui/context_observe.luau`. |
+| Reveal readiness | Compose `runtime.settled` | Which native text and geometry facts must be ready before a control appears. |
+| Timers and deferred work | Compose `runtime.clock` and `runtime.scheduler` | Deadline formatting, text reveal and control cancellation. |
 | Focus ring lifetime | Native input events and Compose `runtime.connect` | Focus visibility in `src/ui/environment.luau`. |
 | Layout | UIListLayout, UIGridLayout, UIFlexItem, and UIPadding | Convert control specs and theme metrics. |
 | Virtual collections | Compose OrderedCollection | Row presentation, selection, and sort policy. |
@@ -23,9 +25,10 @@ Check the native API and the pinned Compose API before removing Facet policy.
 A similar method name does not prove equivalent behavior. Compare callback
 order, cancellation, resource cleanup, reduced motion, and interrupted motion.
 
-For geometry observation, preserve a shared read-before-publish pass and
-cancellation of deferred work. Native property signals report changes; they do
-not by themselves coordinate measurements across controls.
+For geometry observation, keep the frame and polling options on Compose
+`runtime.observe`. Compose owns the shared read-before-publish pass and
+cancellation. Native property signals report changes; they do not by themselves
+coordinate measurements across controls. Do not restore a Facet observation queue.
 
 For focus traversal, preserve modal scope, hidden-ancestor checks, document
 order, text focus, and entry selection. Native selection and directional links

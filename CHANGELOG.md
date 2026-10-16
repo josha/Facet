@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The Lab demonstrates reactive Button widths, a leading top-bar popup, live
+  Region strip alignment and the environment's thumb target. The architecture
+  guide explains app ownership, Compose observation and HUD form selection.
+- A Button with a subtitle or icon now releases its inner caption constraints
+  when a reactive width becomes zero. Its content hugs the text again and
+  returns to bounded layout when the width becomes positive.
 - A Button whose `Size` is reactive now keeps the width that `Size` gives it.
   Before, only a fixed `UDim2` counted as a set width, so a computed width
   left `AutomaticSize` at `XY` and a long label grew the button past it. Three

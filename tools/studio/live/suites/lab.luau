@@ -6,6 +6,36 @@ type Context = {
 	settle: (number) -> (),
 }
 local GuiService = game:GetService("GuiService")
+local function pointer(t: Context, playerGui: Instance)
+	local input = game:GetService("UserInputService")
+	local virtual = input:CreateVirtualInput()
+	local inset = GuiService:GetGuiInset()
+	if input.TouchEnabled and not input.MouseEnabled then
+		local shield = Instance.new("ScreenGui")
+		shield.DisplayOrder, shield.IgnoreGuiInset = 10000, true
+		local pad = Instance.new("TextButton")
+		pad.Size, pad.BackgroundTransparency, pad.Text = UDim2.fromScale(1, 1), 1, ""
+		pad.Parent, shield.Parent = shield, playerGui
+		t.settle(2)
+		local seen: Vector3? = nil
+		local connection = input.InputBegan:Connect(function(event)
+			if event.UserInputType == Enum.UserInputType.Touch then
+				seen = event.Position
+			end
+		end)
+		local probe = assert(workspace.CurrentCamera).ViewportSize / 2 + inset
+		virtual:SendMousePosition(probe)
+		virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, true)
+		t.settle(2)
+		virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, false)
+		t.settle(2)
+		connection:Disconnect()
+		shield:Destroy()
+		local observed = assert(seen, "Touch calibration needs a native Touch event")
+		inset = probe - Vector2.new(observed.X, observed.Y)
+	end
+	return virtual, inset
+end
 return {
 	{
 		id = "catalog-current",
@@ -47,6 +77,78 @@ return {
 		end,
 	},
 	{
+		id = "recent-layout-bindings",
+		contracts = { "UI.Button", "UI.Composition", "UI.Region", "UI.Popover" },
+		keepGallery = false,
+		run = function(t: Context)
+			local api = workspace:WaitForChild("FacetLabAPI", 20)
+			assert(api, "Lab starts")
+			local open = api:FindFirstChild("open") :: BindableFunction
+			local configure = api:FindFirstChild("configure") :: BindableFunction
+			local report = api:FindFirstChild("report") :: BindableFunction
+			local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+			local virtual, inset = pointer(t, playerGui)
+			local function press(button: GuiObject)
+				local ancestor = button.Parent
+				while ancestor do
+					if ancestor:IsA("ScrollingFrame") then
+						local offset = button.AbsolutePosition
+							+ button.AbsoluteSize / 2
+							- ancestor.AbsolutePosition
+							- ancestor.AbsoluteWindowSize / 2
+						ancestor.CanvasPosition += offset
+						t.settle(3)
+					end
+					ancestor = ancestor.Parent
+				end
+				local point = button.AbsolutePosition + button.AbsoluteSize / 2 + inset
+				virtual:SendMousePosition(point)
+				virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
+				t.settle(2)
+				virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
+				t.settle(30)
+			end
+			for _, state in { "reactive width (tap to change)", "reactive width with subtitle" } do
+				open:Invoke("Button")
+				configure:Invoke("-reactive width (tap to change)")
+				configure:Invoke("-reactive width with subtitle")
+				configure:Invoke("+" .. state)
+				t.settle(30)
+				local playground = t.find(t.find(playerGui, "Page_Button"), "Playground")
+				local button = t.find(playground, "Live"):FindFirstChildWhichIsA("GuiButton", true)
+				assert(button)
+				for _, width in { 140, 220, 0, 140 } do
+					t.check(state .. " width " .. width, button.Size.X.Offset == width)
+					t.check(
+						state .. " native sizing " .. width,
+						button.AutomaticSize == (if width == 0 then Enum.AutomaticSize.XY else Enum.AutomaticSize.Y)
+					)
+					for _, node in button:GetDescendants() do
+						if node:IsA("TextLabel") and node.Text ~= "" then
+							t.check(state .. " caption fits " .. width .. " " .. node.Name, node.TextFits)
+						end
+					end
+					press(button)
+				end
+			end
+			open:Invoke("Composition")
+			configure:Invoke("topbar=true")
+			t.settle(45)
+			local strip = playerGui:FindFirstChild("CompositionTopbar")
+			assert(strip, "real top bar mounts")
+			press(t.find(strip, "StripSettingsButton") :: GuiObject)
+			local state = game:GetService("HttpService"):JSONDecode(report:Invoke())
+			t.check("strip trigger commands the presentation cell", state.values.stripSettingsOpen == "true")
+			local overlays = t.find(playerGui, "PreviewOverlays")
+			local popup = t.find(overlays, "Popup")
+			t.check("popup is outside the top bar", not popup:IsDescendantOf(strip))
+			press(t.find(popup, "CloseCommand") :: GuiObject)
+			state = game:GetService("HttpService"):JSONDecode(report:Invoke())
+			t.check("Close commands the presentation cell", state.values.stripSettingsOpen == "false")
+			t.check("Lab has no refusals", state.totalErrors == 0)
+		end,
+	},
+	{
 		id = "world-image-drop",
 		contracts = { "UI.draggable", "UI.dropTarget" },
 		keepGallery = false,
@@ -60,33 +162,7 @@ return {
 			local top = api:FindFirstChild("top") :: BindableFunction
 			top:Invoke("drag-drop")
 			t.settle(90)
-			local input = game:GetService("UserInputService")
-			local virtual = input:CreateVirtualInput()
-			local inset = GuiService:GetGuiInset()
-			if input.TouchEnabled and not input.MouseEnabled then
-				local shield = Instance.new("ScreenGui")
-				shield.DisplayOrder, shield.IgnoreGuiInset = 10000, true
-				local pad = Instance.new("TextButton")
-				pad.Size, pad.BackgroundTransparency, pad.Text = UDim2.fromScale(1, 1), 1, ""
-				pad.Parent, shield.Parent = shield, playerGui
-				t.settle(2)
-				local seen: Vector3? = nil
-				local connection = input.InputBegan:Connect(function(event)
-					if event.UserInputType == Enum.UserInputType.Touch then
-						seen = event.Position
-					end
-				end)
-				local probe = assert(workspace.CurrentCamera).ViewportSize / 2 + inset
-				virtual:SendMousePosition(probe)
-				virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, true)
-				t.settle(2)
-				virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, false)
-				t.settle(2)
-				connection:Disconnect()
-				shield:Destroy()
-				local observed = assert(seen, "Touch calibration needs a native Touch event")
-				inset = probe - Vector2.new(observed.X, observed.Y)
-			end
+			local virtual, inset = pointer(t, playerGui)
 			local function click(node: GuiObject)
 				local at = node.AbsolutePosition + node.AbsoluteSize / 2 + inset
 				virtual:SendMousePosition(at)

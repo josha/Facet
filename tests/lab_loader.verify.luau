@@ -10,7 +10,8 @@ type Lab = {
 	state: { errors: { [string]: { [string]: string } } },
 	pageIds: () -> { string },
 	open: (string) -> { ok: boolean },
-	report: () -> { errors: { [string]: string }, missing: { string } },
+	configure: (string) -> { ok: boolean },
+	report: () -> { errors: { [string]: string }, missing: { string }, values: { [string]: string } },
 }
 type Catalog = { build: (Facet.Controls) -> unknown }
 type Settings = { new: (unknown, unknown) -> unknown }
@@ -158,6 +159,24 @@ return function(harness: Verify.Harness)
 			end
 		end
 		local failures: { string } = {}
+		Verify.expect(lab.open("Button").ok):toBe(true)
+		Verify.expect(lab.configure("+reactive width (tap to change)").ok):toBe(true)
+		local page = assert(target:FindFirstChild("Page_Button", true))
+		local playground = assert(page:FindFirstChild("Playground"))
+		local button = assert(playground:FindFirstChild("Live"):FindFirstChildWhichIsA("GuiButton", true))
+		local buttonSignal = ((button :: unknown) :: { Activated: engineLib.Signal<> }).Activated
+		for _, expected in { "220", "0", "140" } do
+			buttonSignal:Fire()
+			Verify.expect(lab.report().values.plainWidth):toBe(expected)
+		end
+		Verify.expect(lab.open("Composition").ok):toBe(true)
+		local composition = assert(target:FindFirstChild("Page_Composition", true))
+		local strip = assert(composition:FindFirstChild("Playground"):FindFirstChild("StripSettingsButton", true))
+		local stripSignal = ((strip :: unknown) :: { Activated: engineLib.Signal<> }).Activated
+		stripSignal:Fire()
+		Verify.expect(lab.report().values.stripSettingsOpen):toBe("true")
+		stripSignal:Fire()
+		Verify.expect(lab.report().values.stripSettingsOpen):toBe("false")
 		for location, message in refusals do
 			if location == "focusSection/helper" and message == "Facet UI.Button: unknown option 'width'." then
 				t:attach("baseline-focusSection", "text/plain", location .. ": " .. message)

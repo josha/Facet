@@ -36,6 +36,26 @@ Choose **Layout → ZoomView** to try pointer-centered zoom and camera capture
 when picking up collection items. **Layout → Travel** includes straight and
 arc paths, row shuffles, multiple items, and recycled destinations.
 
+Choose **Actions → Button** and select **reactive width (tap to change)** or
+**reactive width with subtitle**. Each press changes the width from 140 to 220
+pixels, then to a width that hugs the caption. The button's native automatic
+height and wrapping follow the current width. The **thumb target (touch)**
+state shows the larger target used for primary game actions.
+
+Choose **Layout → Composition** and enable **topbar**. The leading settings
+button opens a popup outside the strip. Resize the Studio viewport to test
+regions landing below the strip. The **room** option changes only the framed
+HUD, not Roblox's real top bar. In **Layout → Region**, select the **topbar**
+zone and compare its default centred position with **leading top bar**.
+The **Environment** page reports `thumbTarget` and compares `scaled(48)` with
+`scaled(48, "body")` as the preview text size changes.
+
+The coverage command checks declared options across all public controls. It
+does not prove layout or input behavior. Existing Timer, Typewriter, reward
+sequence, collection editing, picker and overlay pages exercise the other
+recent public changes. Internal type, observation and tooling changes do not
+need duplicate control pages. Check geometry and input in Studio.
+
 Table, VirtualList, and VirtualGrid start with a working **Editing** section.
 Rename items, create an item, select several items, reorder them, delete the
 selection, and Undo. Enable editing controls permission. Desktop names are

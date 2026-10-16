@@ -28,6 +28,9 @@ or row) keeps that width, and its label truncates at the end. A Button with
 `subtitle` or `hint` and an authored width also keeps that width: the label
 and the subtitle wrap inside it, and the Button grows in height.
 This also applies to a reactive `Size` with `AutomaticSize = None` or `Y`.
+With no authored `AutomaticSize`, a reactive `Size` selects `Y` while its X
+scale or offset is positive, and `XY` while neither is positive. The plain
+caption's wrapping follows that width. An explicit `AutomaticSize` wins.
 Its content stays inside the padding, and the label shrinks before the icon.
 An authored width never leaves less than one `control` em for the label inside
 the padding and the theme carve: the Button grows to that minimum. The minimum

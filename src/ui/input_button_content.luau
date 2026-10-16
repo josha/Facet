@@ -18,6 +18,16 @@ return function(
 	local runtime, Host, read = ctx.runtime, ctx.Host, ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local dynamic, hasText = kit.dynamic, kit.hasText
+	local liveWidth = bounded and spec.AutomaticSize == nil and dynamic(spec.Size)
+	local function sizing<T>(fixed: T, hug: T): Shared.Value<T>
+		if liveWidth then
+			return function(use: ComposeTypes.Use): T
+				local size = read(spec.Size, use) :: UDim2
+				return if size.X.Scale > 0 or size.X.Offset > 0 then fixed else hug
+			end
+		end
+		return if bounded then fixed else hug
+	end
 	local icon = ctx.icon
 	local fillsGlyph = false
 	local markRow: ((GuiObject) -> ())? = nil
@@ -151,16 +161,22 @@ return function(
 				Name = name,
 				Text = if live then words else words(),
 				Visible = if live then shown else shown(),
-				Size = if imageCard or stacked then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
-				AutomaticSize = if imageCard or stacked then E.AutomaticSize.Y else E.AutomaticSize.XY,
-				TextWrapped = imageCard or stacked,
+				Size = if imageCard
+					then D2.fromScale(1, 0)
+					elseif stacked then sizing(D2.fromScale(1, 0), D2.new())
+					else D2.new(),
+				AutomaticSize = if imageCard
+					then E.AutomaticSize.Y
+					elseif stacked then sizing(E.AutomaticSize.Y, E.AutomaticSize.XY)
+					else E.AutomaticSize.XY,
+				TextWrapped = if stacked then sizing(true, false) else imageCard,
 			})
 			if name == "Title" then
 				sized(made)
 				if bounded then
-					made.TextTruncate = E.TextTruncate.AtEnd
+					runtime.decorate(made, { TextTruncate = sizing(E.TextTruncate.AtEnd, E.TextTruncate.None) })
 					runtime.mount(function()
-						return Host.UIFlexItem({ FlexMode = E.UIFlexMode.Shrink })
+						return Host.UIFlexItem({ FlexMode = sizing(E.UIFlexMode.Shrink, E.UIFlexMode.None) })
 					end, made)
 				end
 			end
@@ -189,8 +205,13 @@ return function(
 				then ctx.column({ caption("Title", label), secondary() }, {
 					Name = "Captions",
 					Size = if imageCard then D2.new(1, 0, 0, 0) else D2.fromOffset(0, 0),
-					AutomaticSize = if imageCard or stacked then E.AutomaticSize.Y else E.AutomaticSize.XY,
-					(if stacked then Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }) else nil) :: ComposeTypes.Child,
+					AutomaticSize = if imageCard
+						then E.AutomaticSize.Y
+						elseif stacked then sizing(E.AutomaticSize.Y, E.AutomaticSize.XY)
+						else E.AutomaticSize.XY,
+					(if stacked
+						then Host.UIFlexItem({ FlexMode = sizing(E.UIFlexMode.Fill, E.UIFlexMode.None) })
+						else nil) :: ComposeTypes.Child,
 				})
 				else caption("Title", label)
 			if imageCard then
@@ -229,18 +250,18 @@ return function(
 				return if hasText(description, use) then D2.fromScale(0, 0) else D2.fromScale(0, 0.5)
 			end,
 			Size = if stacked
-				then D2.fromScale(1, 0)
+				then sizing(D2.fromScale(1, 0), D2.new())
 				elseif spec.TextXAlignment == nil then nil
 				else function(use: ComposeTypes.Use)
 					return if hasText(description, use) then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
 				end,
-			AutomaticSize = if stacked then E.AutomaticSize.Y else nil,
+			AutomaticSize = if stacked then sizing(E.AutomaticSize.Y, E.AutomaticSize.XY) else nil,
 		})
 		else ctx.row(content, {
 			Name = "Content",
 			ZIndex = 1,
-			Size = D2.fromScale(1, 1),
-			AutomaticSize = if bounded then E.AutomaticSize.None else nil,
+			Size = if liveWidth then sizing(D2.fromScale(1, 1), D2.new()) else D2.fromScale(1, 1),
+			AutomaticSize = if bounded then sizing(E.AutomaticSize.None, E.AutomaticSize.XY) else nil,
 		})
 	if not imageCard then
 		local layout = assert(contentFrame:FindFirstChildWhichIsA("UIListLayout"))
