@@ -23,6 +23,7 @@ export type Root = {
 	world: boolean,
 	screenInsets: string?,
 	ignoreGuiInset: boolean?,
+	zIndexBehavior: string?,
 	rect: Rect,
 }
 
@@ -30,6 +31,8 @@ export type Text = {
 	content: string,
 	size: number,
 	bounds: { width: number, height: number },
+	xAlignment: string?,
+	yAlignment: string?,
 	fits: boolean?,
 	scaled: boolean,
 	wrapped: boolean,
@@ -242,6 +245,7 @@ local function decode(value: unknown): Dump
 			world = boolean(entry.world, where .. ".world", false),
 			screenInsets = optionalText(entry.screenInsets, where .. ".screenInsets"),
 			ignoreGuiInset = optionalBoolean(entry.ignoreGuiInset, where .. ".ignoreGuiInset"),
+			zIndexBehavior = optionalText(entry.zIndexBehavior, where .. ".zIndexBehavior"),
 			rect = rect(entry.rect, where .. ".rect"),
 		})
 	end
@@ -277,6 +281,8 @@ local function decode(value: unknown): Dump
 			local bounds = object(t.bounds, where .. ".text.bounds")
 			textValue = {
 				content = text(t.content, where .. ".text.content"),
+				xAlignment = optionalText(t.xAlignment, where .. ".text.xAlignment"),
+				yAlignment = optionalText(t.yAlignment, where .. ".text.yAlignment"),
 				size = number(t.size, where .. ".text.size"),
 				bounds = {
 					width = number(bounds.width, where .. ".text.bounds.width"),

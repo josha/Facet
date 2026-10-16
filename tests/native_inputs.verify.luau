@@ -60,6 +60,29 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native input controls", function()
+		verifyHarness:case("floors default button widths on touch and releases the idle constraint", {
+			id = "native_inputs::native input controls::floors default button widths on touch and releases the idle constraint",
+			run = function()
+				local input: UserInputService
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button({ label = "All" })
+				end, function(engine)
+					input = engine.new("UserInputService")
+					input.TouchEnabled = false
+					input.GamepadEnabled = false
+					return { services = { UserInputService = input } }
+				end)
+				Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+				input.TouchEnabled = true
+				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(44)
+				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+				input.TouchEnabled = false
+				Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+				input.GamepadEnabled = true
+				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(44)
+				stop()
+			end,
+		})
 		verifyHarness:case("tracks modal portal eligibility after entering and leaving a modal", {
 			id = "native_inputs::native input controls::tracks modal portal eligibility after entering and leaving a modal",
 			run = function()
@@ -146,6 +169,28 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(engine.census().connections):toBe(before)
 				node.Text = "Released"
 				Verify.expect(second:peek()):toBe("Second")
+				for _, property in { "AbsoluteSize", "SelectedObject" } do
+					local gui = engine.new("GuiService")
+					local target: Instance = if property == "AbsoluteSize" then node else gui
+					local function observe(): Compose.Readable<unknown>
+						return if property == "AbsoluteSize"
+							then ctx.observe.AbsoluteSize(node)
+							else ctx.observe.SelectedObject(gui)
+					end
+					local a, b = Compose.createOwner(runtime.reactor), Compose.createOwner(runtime.reactor)
+					local baseline = engine.census().connections
+					local left, right = Compose.withOwner(a, observe), Compose.withOwner(b, observe)
+					Verify.expect(left):toBe(right)
+					Verify.expect(engine.census().connections):toBe(baseline + 1)
+					a.dispose()
+					local value: unknown = if property == "AbsoluteSize" then engine.types.Vector2.new(80, 40) else node
+					local properties = (target :: unknown) :: { [string]: unknown }
+					properties[property] = value
+					Verify.expect(right:peek()):toBe(value)
+					Verify.expect(engine.census().connections):toBe(baseline + 1)
+					b.dispose()
+					Verify.expect(engine.census().connections):toBe(baseline)
+				end
 				stop()
 				runtime:dispose()
 			end,
@@ -1035,14 +1080,14 @@ return function(verifyHarness: Verify.Harness)
 							actions += 1
 						end,
 					})
-				end, function()
+				end, function(engine)
+					local input = engine.new("UserInputService")
+					input.GetFocusedTextBox = function()
+						return if editing then {} else nil
+					end
 					return {
 						services = {
-							UserInputService = {
-								GetFocusedTextBox = function()
-									return if editing then {} else nil
-								end,
-							},
+							UserInputService = input,
 						},
 					}
 				end)

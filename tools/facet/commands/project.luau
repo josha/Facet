@@ -17,7 +17,7 @@ return {
 			return 2
 		end
 		local directory = invocation.positional[1]
-		if directory == nil then
+		if directory == nil or Files.absolute(directory) == Files.cwd() then
 			print(Project.report())
 		elseif Files.isDirectory(directory) then
 			print(table.concat(Files.walk(directory, { skip = { vendor = true, [".git"] = true } }), "\n"))

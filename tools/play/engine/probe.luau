@@ -8,7 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Collect = require("../../../tools/vendor/verify/src/roblox/ui-audit-collect")
 local scrollTarget = require("./scroll_target")
-local racingDrive = require("../../../eval/validation/racing-hub/driving-probe")
+local racingDrive = require("./racing_drive")
 local invalidSelections = 0
 game:GetService("LogService").MessageOut:Connect(function(message: string)
 	if string.find(message, "SelectedObject", 1, true) and string.find(message, "invalid GuiObject", 1, true) then
@@ -1444,7 +1444,32 @@ end
 
 handlers.perf = function(request: Request): unknown
 	local action = stringField(request, "action")
-	if action == "settle" then
+	if action == "geometry" then
+		local previous: { [Instance]: string } = {}
+		local changed: { [string]: { changes: number, first: string, last: string } } = {}
+		local untilTime = os.clock() + numberField(request, "seconds", 2)
+		repeat
+			for _, root in roots() do
+				for _, node in root:GetDescendants() do
+					if node:IsA("GuiObject") then
+						local value = `{node.AbsolutePosition}:{node.AbsoluteSize}:{node.Visible}`
+						local before = previous[node]
+						if before and before ~= value then
+							local path = node:GetFullName()
+							local record: { changes: number, first: string, last: string } = changed[path]
+								or { changes = 0, first = before, last = value }
+							record.changes += 1
+							record.last = value
+							changed[path] = record
+						end
+						previous[node] = value
+					end
+				end
+			end
+			RunService.RenderStepped:Wait()
+		until os.clock() >= untilTime
+		return changed
+	elseif action == "settle" then
 		return {
 			seconds = settle(numberField(request, "quiet", 1), numberField(request, "limit", 20)),
 			census = census(),

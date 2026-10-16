@@ -3,7 +3,6 @@ local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local reducedMotion = require("./motion").reduced
-local rest = require("./rest")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local NavigationProps = require("./navigation_props")
@@ -357,13 +356,18 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		)
 		local measured, rowSize = sizes[1], sizes[2]
 		local rowExtent = Compose.cell(rowSize:peek())
-		local rowRest = rest(ctx, function(): (string, boolean, boolean?)
-			local size = rowSize:peek()
-			local filled = size.X > 0 and size.Y > 0
-			return tostring(size), filled, filled
-		end, function(use: ComposeTypes.Use): string
-			return tostring(use(rowSize))
-		end, true)
+		local rowRest = ctx.runtime.settled {
+			sample = function(): string
+				return tostring(rowSize:peek())
+			end,
+			ready = function(): boolean
+				local size = rowSize:peek()
+				return size.X > 0 and size.Y > 0
+			end,
+			restart = function(use: ComposeTypes.Use): string
+				return tostring(use(rowSize))
+			end,
+		}
 		Compose.watch(function(use: ComposeTypes.Use)
 			local size = use(rowSize)
 			if not use(rested) or use(rowRest) then

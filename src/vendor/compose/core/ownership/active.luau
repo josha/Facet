@@ -49,18 +49,18 @@ local function current(): Owner.Owner?
 			end
 		end
 	end
-	if explicit == nil and ambiguous then
-		Diagnostics.raise("owner/no-active-owner", "resumer owners are ambiguous", {
-			contract = "a callback cannot infer the order of distinct resumer owners",
-			fix = "bind the child callback with Compose.bindOwner or activate its owner with Compose.withOwner",
-		})
-	end
 	local context = Graph.evaluationContext()
 	if context ~= nil then
 		local record = Owner.runScopeOf(context)
 		if record ~= nil and depth() <= record.base then
 			return (record :: unknown) :: Owner.Owner
 		end
+	end
+	if explicit == nil and ambiguous then
+		Diagnostics.raise("owner/no-active-owner", "resumer owners are ambiguous", {
+			contract = "a callback cannot infer the order of distinct resumer owners",
+			fix = "bind the child callback with Compose.bindOwner or activate its owner with Compose.withOwner",
+		})
 	end
 	return explicit or inherited
 end

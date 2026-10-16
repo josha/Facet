@@ -143,8 +143,9 @@ local function run(invocation: Cli.Invocation): number
 			print("facet audit: --dump needs exactly one --device")
 			return 2
 		end
-		local text, high = report(devices[1], saved, Look.load(saved), all)
-		print(text)
+		local loaded = Look.load(saved)
+		local text, high = report(devices[1], saved, loaded, all)
+		Cli.emit(invocation, (Look.audit(loaded, devices[1]) :: unknown) :: json.Value, text)
 		return if high then 1 else 0
 	end
 	local result = Look.run({

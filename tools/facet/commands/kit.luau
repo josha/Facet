@@ -8,6 +8,7 @@ local Files = require("../lib/files")
 local Hash = require("../lib/hash")
 local Json = require("../lib/json")
 local Run = require("../lib/run")
+local Lute = require("../../vendor/verify/src/lute")
 
 local USAGE = [[usage: lute run tools/facet kit --out DIR [--force] [--json]
 
@@ -314,10 +315,19 @@ local function cases(): { Case.Case }
 					{ cwd = out, timeout = 120 }
 				)
 				local help = Run.capture({ Run.lute(), "run", "tools/facet", "help" }, { cwd = out, timeout = 120 })
+				local probeOk, probeProblem = pcall(function(): boolean
+					Lute.place.build({
+						output = Files.join(out, "probe.rbxlx"),
+						roots = {},
+						modules = { Files.join(out, "tools/play/engine/probe.luau") },
+					})
+					return true
+				end)
 				local again = write(out, plan(), false)
 				Files.remove(out)
 				return Case.first(
 					Case.expect(docs.ok, "docs failed in the kit: " .. docs.stderr .. docs.stdout),
+					Case.expect(probeOk, "the standalone kit cannot bundle its play probe: " .. tostring(probeProblem)),
 					Case.expect(string.find(docs.stdout, "### Button", 1, true) ~= nil, "docs did not print Button"),
 					Case.expect(string.find(help.stdout, "lint", 1, true) ~= nil, "help does not list lint"),
 					Case.expect(string.find(help.stdout, "gate", 1, true) == nil, "help lists a maintainer command"),

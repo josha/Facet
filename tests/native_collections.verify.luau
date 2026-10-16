@@ -243,8 +243,8 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
-		verifyHarness:case("reads derived glyph and form geometry even when native styling emits no property signal", {
-			id = "native_collections::collection geometry publication::reads derived glyph and form geometry even when native styling emits no property signal",
+		verifyHarness:case("settles derived glyph and form geometry without property notifications", {
+			id = "native_collections::collection geometry publication::settles derived glyph and form geometry without property notifications",
 			run = function()
 				local engine, runtime, _, target = setup()
 				local node = engine.new("TextLabel")
@@ -258,19 +258,32 @@ return function(verifyHarness: Verify.Harness)
 					end
 					return readProperty(instance, property)
 				end
-				local observe = require("../src/ui/geometry_observation")
-				local glyphs: FixtureComposeTypes.Cell<unknown>? = nil
-				local box: FixtureComposeTypes.Cell<unknown>? = nil
+
+				local settled: FixtureComposeTypes.Readable<boolean>? = nil
+				local glyphs: FixtureComposeTypes.Readable<unknown>? = nil
+				local box: FixtureComposeTypes.Readable<unknown>? = nil
 				local stop = runtime.mount(function()
-					local frame = (engine.heartbeat :: unknown) :: RBXScriptSignal
-					glyphs = observe(Compose, runtime, node, "TextBounds", frame)
-					box = observe(Compose, runtime, node, "AbsoluteSize", frame)
+					glyphs = runtime.observe(node, "TextBounds")
+					box = runtime.observe(node, "AbsoluteSize")
+					settled = runtime.settled {
+						sample = function(): string
+							return `{observation.readProperty(node, "TextBounds")}:{observation.readProperty(
+								node,
+								"AbsoluteSize"
+							)}`
+						end,
+					}
 					return nil
 				end, target)
 				engine.heartbeat:Fire(0)
 				derived.TextBounds = V2.new(87, 12)
 				derived.AbsoluteSize = V2.new(40, 20)
 				engine.heartbeat:Fire(0)
+				Verify.expect(assert(settled):peek()):toBe(false)
+				engine.heartbeat:Fire(0)
+				Verify.expect(assert(settled):peek()):toBe(true)
+				node.TextBounds = derived.TextBounds
+				node.AbsoluteSize = derived.AbsoluteSize
 				Verify.expect(assert(glyphs):peek()):toBe(V2.new(87, 12))
 				Verify.expect(assert(box):peek()):toBe(V2.new(40, 20))
 				stop()
@@ -284,17 +297,17 @@ return function(verifyHarness: Verify.Harness)
 				local V2 = engine.types.Vector2
 				node.AbsoluteSize = V2.new(390, 200)
 				node.Parent = target
-				local observe = require("../src/ui/geometry_observation")
+
 				local beforePaint = engine.heartbeat
-				local size: FixtureComposeTypes.Cell<unknown>? = nil
+				local size: FixtureComposeTypes.Readable<unknown>? = nil
 				local stop = runtime.mount(function()
-					size = observe(Compose, runtime, node, "AbsoluteSize", (beforePaint :: unknown) :: RBXScriptSignal)
+					size = runtime.observe(node, "AbsoluteSize")
 					return nil
 				end, target)
 				local observed = assert(size)
 				Verify.expect(observed:peek()):toBe(V2.new(390, 200))
 				node.AbsoluteSize = V2.new(320, 160)
-				Verify.expect(observed:peek()):toBe(V2.new(390, 200))
+				Verify.expect(observed:peek()):toBe(V2.new(320, 160))
 				beforePaint:Fire(0)
 				Verify.expect(observed:peek()):toBe(V2.new(320, 160))
 				stop()

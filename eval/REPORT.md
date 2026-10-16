@@ -1,5 +1,13 @@
 # Headline report
 
+For the corrected one-run slice measurement, see the
+[slice report](reports/slice-2026-10-15.md). To repeat hidden checks on saved
+completed workspaces without invoking an agent, use
+`lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.
+Verify archives the previous check evidence and preserves agent metrics,
+transcripts, timestamps and build files. Then regenerate this report with
+`lute run eval/tools/report.luau artifacts/facetbench/slice --suite eval/slice.json`.
+
 The owner changed the headline on 2026-10-15 to `extended.json`: 22 runs and
 55 blind task/device/seed comparisons. The hub and ten follow-ups use short
 player prompts. `extended-spec.json` keeps the detailed briefs. The headline
@@ -10,11 +18,11 @@ unchanged. Missing universal scores fail closed. Both tier fractions appear
 in `headline.md`; diagnostic captures stay outside the judge's image set.
 
 See [the complete tier table and calibration commands](validation/vibe.md).
-No Studio calibration or agent measurement was run. The Verify change on
-`scoped-mcp` must be reviewed and pushed before re-pinning and applying
-`arms/studio-access.patch`. Both arms then get the same scoped Studio MCP;
-the Facet CLI remains available only in its arm. Runs remain sequential until
-native isolation is accepted. The current arm notes refuse a blind fallback.
+The extended run and five-device universal calibration have not been measured.
+The slice report records the current local Verify pin, two-device calibration
+and equal scoped Studio MCP setup. The owner must push the local Verify commits
+before a remote source can reproduce that pin. The Facet CLI remains available
+only in its arm. Runs remain sequential. The arm notes refuse a blind fallback.
 
 Run from the repository root after all 22 runs and 55 blind comparisons finish:
 

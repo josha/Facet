@@ -7,6 +7,17 @@ type Node = Compose.Node
 
 type DefaultCache = { [string]: unknown }
 
+local function connect<Args...>(signal: Engine.Signal<Args...>, handler: (Args...) -> ()): Compose.Unsubscribe
+	local connection = signal:Connect(handler)
+	local disconnected = false
+	return function()
+		if not disconnected then
+			disconnected = true
+			connection:Disconnect()
+		end
+	end
+end
+
 local function createHost(engine: Engine.Engine): Compose.Host
 	local defaults: DefaultCache = {}
 	local unsampleable: { [string]: true } = {}
@@ -122,15 +133,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 			)
 		end
 
-		local connection = signal:Connect(handler)
-		local disconnected = false
-		return function()
-			if disconnected then
-				return
-			end
-			disconnected = true
-			connection:Disconnect()
-		end
+		return connect(signal, handler)
 	end
 
 	local function classifyKey(node: Node, key: string): Compose.KeyKind
@@ -163,32 +166,12 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		return kind
 	end
 
-	local function readProperty(node: Node, key: string): unknown
-		return (node :: { [string]: unknown })[key]
-	end
-
 	local function observeProperty(node: Node, key: string, listener: () -> ()): Compose.Unsubscribe
-		local connection = engine.propertyChanged(node, key):Connect(listener)
-		local disconnected = false
-		return function()
-			if disconnected then
-				return
-			end
-			disconnected = true
-			connection:Disconnect()
-		end
+		return connect(engine.propertyChanged(node, key), listener)
 	end
 
 	local function onFrame(listener: (delta: number) -> ()): Compose.Unsubscribe
-		local connection = engine.heartbeat:Connect(listener)
-		local disconnected = false
-		return function()
-			if disconnected then
-				return
-			end
-			disconnected = true
-			connection:Disconnect()
-		end
+		return connect(engine.heartbeat, listener)
 	end
 
 	return {
@@ -207,7 +190,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 			classifyKey = classifyKey,
 		},
 		observation = {
-			readProperty = readProperty,
+			readProperty = readMember,
 			observeProperty = observeProperty,
 		},
 		naming = {

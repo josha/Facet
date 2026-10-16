@@ -3,7 +3,8 @@
 local Active = require "./ownership/active"
 local Diagnostics = require "./diagnostics"
 local Owner = require "./ownership/owner"
-local Timeline = require "./animation/timeline"
+local Host = require "./host"
+local ownedFrame = require "./ownership/frame"
 
 export type Cancel = () -> boolean
 
@@ -56,7 +57,7 @@ local function checkKey(key: unknown)
 end
 
 local function createSchedulers(
-	timeline: (options: Timeline.Options?) -> Timeline.Timeline,
+	host: Host.Host,
 	requireOwner: (operation: string) -> Owner.Owner
 ): (owner: Owner.Owner?) -> Scheduler
 	return function(explicit: Owner.Owner?): Scheduler
@@ -78,17 +79,14 @@ local function createSchedulers(
 		local keyed: { [unknown]: Entry } = {}
 		local count = 0
 		local sequence = 0
-		local clock: Timeline.Timeline
-
-		local created, failure: unknown = pcall(function()
-			Active.withOwner(scope, function()
-				clock = timeline { duration = 1, repeats = math.huge, autoplay = false }
-			end)
-		end)
-		if not created then
-			pcall(scope.dispose)
-			error(failure, 0)
+		local frames = host.frames
+		if frames == nil then
+			scope.dispose()
+			Diagnostics.raise("animation/no-frames", "a scheduler needs host.frames", {})
 		end
+		local loop = frames :: Host.Frames
+		local clock = 0
+		local pump: ownedFrame.Pump
 
 		local function retire(entry: Entry): boolean
 			if not entry.live then
@@ -101,7 +99,7 @@ local function createSchedulers(
 				keyed[entry.key] = nil
 			end
 			if count == 0 then
-				clock:pause()
+				pump.stop()
 			end
 			return true
 		end
@@ -138,6 +136,10 @@ local function createSchedulers(
 			Owner.raiseAll(failures)
 		end
 
+		pump = ownedFrame(scope, loop.onFrame, function(delta)
+			clock += delta
+			drain(clock)
+		end)
 		scope.own(function()
 			for entry in entries do
 				entry.live = false
@@ -146,7 +148,6 @@ local function createSchedulers(
 			table.clear(keyed)
 			count = 0
 		end)
-		scope.watchStatic(clock.elapsed, drain)
 
 		local function schedule(key: unknown, seconds: number, body: () -> ()): Cancel
 			checkDelay(seconds)
@@ -162,7 +163,7 @@ local function createSchedulers(
 			end
 			sequence += 1
 			local entry: Entry = {
-				due = clock.elapsed:peek() + seconds,
+				due = clock + seconds,
 				sequence = sequence,
 				key = key,
 				body = body,
@@ -174,7 +175,7 @@ local function createSchedulers(
 			end
 			count += 1
 			if count == 1 then
-				clock:play()
+				pump.start()
 			end
 			return function(): boolean
 				return retire(entry)

@@ -34,7 +34,7 @@ local USAGE = table.concat({
 	"",
 	"commands:",
 	"  plan   --suite eval.json [--task id]... [--arm id]... [--agent id]... [--seed n]...",
-	"  run    --suite eval.json [--evidence dir] [--workspaces dir] [--parallel n] [--fresh] [selection]",
+	"  run    --suite eval.json [--evidence dir] [--workspaces dir] [--parallel n] [--fresh|--checks-only] [selection]",
 	"  judge  --suite eval.json [--evidence dir] [--transport api|cli] [--model id] [--effort level]",
 	"         [--seed n] [--attempts n] [--fresh]",
 	"  report --suite eval.json --thresholds thresholds.json [--evidence dir] [--labels labels.json]",
@@ -44,7 +44,7 @@ local USAGE = table.concat({
 	"The judge command with --transport api reads the key from ANTHROPIC_API_KEY.",
 }, "\n")
 
-local SWITCHES: { [string]: boolean } = { fresh = true, help = true }
+local SWITCHES: { [string]: boolean } = { fresh = true, help = true, ["checks-only"] = true }
 
 local function parse(args: { string }): (Parsed?, string?)
 	local parsed: Parsed = { command = nil, flags = {}, positional = {}, switches = {} }
@@ -199,6 +199,7 @@ local function runCommand(parsed: Parsed, context: Context): number
 		selection = selection(parsed),
 		parallelism = numberFlag(parsed, "parallel"),
 		resume = not parsed.switches.fresh,
+		checksOnly = parsed.switches["checks-only"],
 	}
 	local passed = 0
 	local broken = 0

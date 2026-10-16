@@ -80,19 +80,14 @@ and human review. Do not call the references calibrated before that review.
 
 ## Scoped Studio MCP handoff
 
-The Verify change is on `scoped-mcp` at `C:/git/verify-wt/scoped-mcp`, based on
-main `ff2a119`, with tip `95466b1788d56246fd4ba9bab631e81c0979722d`. It provisions a new Studio for each agent run, exposes one
+Verify main has the change since `5c8e51d`. It provisions a new Studio for each agent run, exposes one
 immutable id through an MCP proxy, refuses other ids and unknown tools, and
 closes the Studio before hidden checks or after an adapter failure. It exposes
 play/stop, captures, execute_luau, input and console output. Input runs native
 VirtualInput code on Client. Images pass through as MCP images.
 
-The owner must review and push that branch before the Verify re-pin. No push
-or re-pin was done here. `arms/studio-access.json` is the identical setup for
-both arms. `arms/studio-access.patch` also adds the proxy executable to the
-snapshot selection. Apply it before the re-pin, then run only after the re-pin.
-`git apply --check eval/arms/studio-access.patch` checks
-the staged patch without enabling it. Direct MCP configuration does not need
+`arms/studio-access.json` is the identical setup for both arms. The Verify
+snapshot selection includes the proxy executable. Direct MCP configuration does not need
 plugins, so both arms keep plugins, computer use and browser use disabled.
 The Facet arm keeps its product CLI. Both arms use recorded adapter token
 usage for all shell and MCP calls, including cached tokens. No MCP text is
@@ -134,11 +129,9 @@ the hub and race. Check actual driving, mouse, touch and gamepad interaction,
 focus return, back routes, scrims and all visible text. Rotate and resize during
 the tutorial. The fixed-device sessions do not prove live rotation behavior.
 
-After the owner pushes Verify, re-pin it and activate the reviewed setup:
+Run the extended evaluation:
 
 ```sh
-git apply eval/arms/studio-access.patch
-lute run tools/facet sync verify --bump <reviewed-full-commit>
 lute run eval/tools/check.luau
 lute run eval/tools/shared-kit.luau
 lute run tools/facet kit --out artifacts/facetbench/arm-facet --force

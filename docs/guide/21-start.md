@@ -46,7 +46,37 @@ Control options use lower camel case. Native properties keep Roblox names.
 | Show status | `UI.Text "Status" { text = status, textRole = "caption", wrap = true }` | Text |
 | Arrange content | `UI.VStack "Body" { width = "fill", gap = "s", padding = "m", ... }`; `UI.HStack` for a row; `UI.fill()` for remaining space | Layout options |
 
-## Typed state and collections
+## Ownership, layout and checks
+
+Use `function(use: Facet.Use)` when a property reads different cell types.
+Type empty values before `Compose.cell`, for example
+`local balances: { [string]: number } = {}`. Give a collection spec the type
+`Facet.KeyedCollectionSpec<Entry, string>` before `UI.VirtualGrid "Items" (spec)`.
+For filtered collections, typed empty arrays and maps, run
+`lute run tools/facet docs "Typed state and collections"`.
+
+Use `Compose.show(condition, build)` for branches, `Compose.keyed({ from,
+key, render })` for keyed children, and `Compose.cleanup(fn)` for resources.
+Use `Host` for native objects. Native layout objects and constraints own layout.
+Use theme tokens for paint, type, gap, padding and motion. Text has no `width`
+option: put wrapped text in a stack with `width = "fill"`. Sheets own scrolling,
+Close and modal selection. Controls own input. Do not bind Escape or Start.
+
+Run `lute run tools/facet verify --tap TEXT...` after a coherent edit. It runs
+strict types, usage lint, a Rojo build, and one capture session for audit and
+screenshots on all five devices. Give each control in the path to a screen
+one `--tap`. Inspect the reported screenshots. Fix problems, then repeat only
+the affected checks. No separate audit or preview is needed for those screens.
+Without Studio, use `verify --static` and report the live evidence limit.
+The tools remove a UTF-8 BOM from application Luau files before engine tools
+read them. In Windows PowerShell 5.1, use `Set-Content -Encoding utf8`;
+the default encoding is not UTF-8. Other encodings need conversion.
+
+For other options, use `docs <Control>` or `docs --search TEXT`. A long section
+prints an excerpt and subsection names. Query a subsection before `--full`. Starter components
+are in `examples/blocks/`. Use `project [directory]` for file discovery.
+
+# Typed state and collections
 
 Use `function(use: Facet.Use)` for every reactive function that reads different
 cell types. `Facet.Use` is an exported type, not a runtime value or an import.
@@ -88,26 +118,3 @@ Put the collection in a bounded parent. VirtualGrid also takes
 for variable heights. Bind TextInput to `query`; Clear calls `query:set("")`.
 Show an empty result with `Compose.show(function(use: Facet.Use)
 return #use(filtered) == 0 end, buildEmpty)`.
-
-## Ownership, layout and checks
-
-Use `Compose.show(condition, build)` for branches, `Compose.keyed({ from,
-key, render })` for keyed children, and `Compose.cleanup(fn)` for resources.
-Use `Host` for native objects. Native layout objects and constraints own layout.
-Use theme tokens for paint, type, gap, padding and motion. Text has no `width`
-option: put wrapped text in a stack with `width = "fill"`. Sheets own scrolling,
-Close and modal selection. Controls own input. Do not bind Escape or Start.
-
-Run `lute run tools/facet verify --tap TEXT...` after a coherent edit. It runs
-strict types, usage lint, a Rojo build, and one capture session for audit and
-screenshots on all five devices. Give each control in the path to a screen
-one `--tap`. Inspect the reported screenshots. Fix problems, then repeat only
-the affected checks. No separate audit or preview is needed for those screens.
-Without Studio, use `verify --static` and report the live evidence limit.
-The tools remove a UTF-8 BOM from application Luau files before engine tools
-read them. In Windows PowerShell 5.1, use `Set-Content -Encoding utf8`;
-the default encoding is not UTF-8. Other encodings need conversion.
-
-For other options, use `docs <Control>` or `docs --search TEXT`. A long section
-prints an outline; `--full` prints its complete contract. Starter components
-are in `examples/blocks/`. Use `project [directory]` for file discovery.

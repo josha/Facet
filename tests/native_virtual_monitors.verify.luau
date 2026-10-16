@@ -41,7 +41,7 @@ return function(verifyHarness: Verify.Harness)
 
 	local function rule(sheet, selector)
 		for _, node in sheet:GetChildren() do
-			if node.Selector == selector then
+			if table.find(string.split(node.Selector, ", "), selector) ~= nil then
 				return styleProperties(node)
 			end
 		end

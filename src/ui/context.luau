@@ -51,14 +51,8 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	installContent(ctx, config, services, themes, live)
 	installNative(ctx, config, services, themes, observation.observeStyled)
 	installActions(ctx, config)
-	local selected: selection.Selection
-	function ctx.responder(root: Instance, options: Shared.ResponderOptions?): Shared.Responder
-		return selected.responder(root, options)
-	end
-	function ctx.spaceActivates(node: Instance): (ComposeTypes.Use) -> boolean
-		return selected.spaceActivates(node)
-	end
-	selected = selection(ctx)
+	local selected = selection(ctx)
+	ctx.responder, ctx.spaceActivates = selected.responder, selected.spaceActivates
 	track(selected.track)
 	return ctx
 end
