@@ -97,7 +97,7 @@ local function convert(source: string, target: string): (Inspection?, string?)
 	end
 	local inspection = inspect(raster :: Raster)
 	if not inspection.blank then
-		fs.writeStringToFile(target, buffer.tostring(Png.encode(raster :: Raster)))
+		fs.writeStringToFile(target, buffer.tostring(Png.encode(raster :: Raster, true)))
 	end
 	return inspection, nil
 end

@@ -3,6 +3,10 @@
 local Verify = require("../tools/vendor/verify/src/core")
 local Mount = require("../tools/play/engine/mount")
 local Play = require("../tools/play/host/play")
+local Output = require("../tools/facet/lib/verify_output")
+local Files = require("../tools/facet/lib/files")
+local Png = require("../tools/facet/lib/raster/png")
+local QA = require("../tools/play/host/qa")
 
 local function hud(): Mount.Snapshot
 	return {
@@ -14,6 +18,86 @@ local function hud(): Mount.Snapshot
 end
 
 return function(harness: Verify.Harness)
+	harness:case("dump transfer keeps the first chunk and checks the complete byte count", function(t)
+		local calls = 0
+		local text = QA.readDump(
+			{ token = "s1", count = 3, bytes = 6, first = "ab", automatic = true },
+			function(command, value)
+				calls += 1
+				t:expect(command):toBe("chunk")
+				local fields = value :: { [string]: unknown }
+				t:expect(fields.token):toBe("s1")
+				return if fields.index == 2 then "cd" else "ef"
+			end
+		)
+		t:expect(text):toBe("abcdef")
+		t:expect(calls):toBe(2)
+		t:expect(QA.readDump("direct", function()
+			error("unexpected call")
+		end)):toBe("direct")
+		local released = false
+		local ok = pcall(QA.readDump, { token = "s1", count = 2, first = "ab", automatic = true }, function(command)
+			if command == "release" then
+				released = true
+			end
+			return nil
+		end)
+		t:expect(ok):toBe(false)
+		t:expect(released):toBe(true)
+		local complete = pcall(QA.readDump, { count = 1, first = "ab", bytes = 3, automatic = true }, function()
+			return nil
+		end)
+		t:expect(complete):toBe(false)
+	end)
+	harness:case("capture summaries keep device order and project-relative directories", function(t)
+		local screens = {}
+		for _, device in { "desktop", "phone-portrait" } do
+			for index = 1, 8 do
+				table.insert(screens, {
+					device = device,
+					label = tostring(index),
+					png = Files.join(Files.cwd(), "artifacts/facet-verify/live/captures", device, `{index}.png`),
+				})
+			end
+		end
+		local lines = Output.captures(screens)
+		t:expect(#lines):toBe(2)
+		t:expect(lines[1]):toBe("desktop: 8 captures in artifacts/facet-verify/live/captures/desktop")
+		t:expect(lines[2]):toBe("phone-portrait: 8 captures in artifacts/facet-verify/live/captures/phone-portrait")
+		t:expect(#screens):toBe(16)
+		t:expect(Output.captures({ { device = "console", label = "start", problem = "failed" } })[1])
+			:toBe("console: 0 captures")
+	end)
+	harness:case("duration estimates include all devices taps captures and explicit waits", function(t)
+		t:expect(Output.estimate(5, 8, 2) > Output.estimate(5, 8, nil)):toBe(true)
+		t:expect(Output.estimate(5, 8, nil) > Output.estimate(1, 8, nil)):toBe(true)
+		t:expect(Output.estimate(5, 8, nil) > Output.estimate(5, 0, nil)):toBe(true)
+	end)
+	harness:case("fast capture PNGs preserve every channel and pixel", function(t)
+		for channels = 1, 4 do
+			local data = buffer.create(71 * 67 * channels)
+			for index = 0, buffer.len(data) - 1 do
+				buffer.writeu8(data, index, (index * 71) % 256)
+			end
+			local decoded = Png.decode(Png.encode({ width = 71, height = 67, channels = channels, data = data }, true))
+			t:expect(decoded.width):toBe(71)
+			t:expect(decoded.height):toBe(67)
+			t:expect(decoded.channels):toBe(channels)
+			t:expect(buffer.tostring(decoded.data)):toBe(buffer.tostring(data))
+		end
+	end)
+	harness:case("short settle windows still restart when layout changes", function(t)
+		local run = Mount.start(hud(), 0)
+		Mount.step(run, hud(), 0.09, 0.1)
+		t:expect(run.seconds):toBe(nil)
+		local changed = hud()
+		changed.neighbour.x = 90
+		Mount.step(run, changed, 0.1, 0.1)
+		Mount.step(run, changed, 0.19, 0.1)
+		t:expect(run.seconds):toBe(nil)
+		Mount.step(run, changed, 0.21, 0.1)
+		t:expect(run.seconds):toBe(0.1)
+	end)
 	harness:case("a settle timeout cannot become a valid overhead score", function(t)
 		local scores: { [string]: number } = {}
 		local failedMount: { [string]: unknown } = {}

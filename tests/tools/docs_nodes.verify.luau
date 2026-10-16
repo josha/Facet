@@ -134,7 +134,8 @@ return function(harness: Verify.Harness)
 		for _, item in nodes do
 			if item.kind == "card" then
 				local control = string.sub(item.path, 1, -6)
-				t:expect(table.concat(item.aliases, ",")):toBe(control .. ",UI." .. control)
+				t:expect(item.aliases[1]):toBe(control)
+				t:expect(item.aliases[2]):toBe("UI." .. control)
 			end
 			local output = DocsQuery.response(nodes, Cli.parse({ "docs", item.path, "--full" }))
 			t:expect(#output + 1 <= 4096):toBe(true)
@@ -143,5 +144,40 @@ return function(harness: Verify.Harness)
 		local search = DocsQuery.response(nodes, Cli.parse({ "docs", "--search", "detent" }, { "search" }))
 		t:expect(string.find(search, "Sheet.detents", 1, true) ~= nil):toBe(true)
 		t:expect(string.find(search, "Sheet.detents - ", 1, true) ~= nil):toBe(true)
+	end)
+	harness:case("missed names resolve to useful nodes and ambiguous names stay short", function(t)
+		local nodes = Index.load(".")
+		for _, pair in
+			{
+				{ "ProgressBar.card", "ProgressView.card" },
+				{ "Progress.card", "ProgressView.card" },
+				{ "Stack.layout", "Layout-options" },
+				{ "VStack.layout", "Layout-options" },
+				{ "Text.typography", "Text.textRole" },
+				{ "app", "Mounting.Facet.app" },
+				{ "Compose.show", "State" },
+				{ "Buton.card", "Button.card" },
+			}
+		do
+			local result = DocsQuery.response(nodes, Cli.parse({ "docs", pair[1] }))
+			t:expect(string.find(result, `Resolved '{pair[1]}' to {pair[2]}.`, 1, true) == 1):toBe(true)
+			t:expect(#result + 1 <= Index.responseBudget):toBe(true)
+		end
+		local ambiguous = { node("Alpha.one", "detail", "One."), node("Alpha.two", "detail", "Two.") }
+		local result = DocsQuery.response(ambiguous, Cli.parse({ "docs", "Alpha" }))
+		t:expect(string.find(result, "No documentation node", 1, true) == 1):toBe(true)
+		t:expect(string.find(result, "Alpha.one", 1, true) ~= nil):toBe(true)
+		t:expect(Index.nearest(ambiguous, "Alpha.owe")):toBe(nil)
+	end)
+	harness:case("the map and HUD route each screen task to its recipe", function(t)
+		local nodes = Index.load(".")
+		t:expect(string.find(assert(Index.find(nodes, "Map")).body, "every task recipe", 1, true) ~= nil):toBe(true)
+		local hud = assert(Index.find(nodes, "Tasks.hud"))
+		t:expect(table.find(hud.children, "Tasks.shop") ~= nil):toBe(true)
+		t:expect(table.find(hud.children, "Tasks.sheet") ~= nil):toBe(true)
+		local shop = assert(Index.find(nodes, "Tasks.shop"))
+		for _, name in { "UI.Sheet", "UI.VirtualList", "owned", "applyResult", "feedback", "onActivate" } do
+			t:expect(string.find(shop.body, name, 1, true) ~= nil):toBe(true)
+		end
 	end)
 end

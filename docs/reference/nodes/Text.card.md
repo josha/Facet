@@ -10,7 +10,8 @@ UI.Text "Text" { text = "Ready", wrap = true }
 
 Key options: `text`, `textRole`, `wrap`, `truncate`, `lines`.
 
-Put wrapped text in a stack with width = fill. Text has no width option.
+For wrapped text, set `width = "fill", align = "stretch"` on the parent VStack.
+Text has no width option. See [Layout-options](Layout-options.md) for native sizing.
 
 Related controls: [Controls](Controls.md).
 

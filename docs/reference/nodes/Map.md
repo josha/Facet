@@ -1,6 +1,7 @@
 # Facet documentation
 
-Start with one task recipe. Open a card or option node only for a missing detail.
+Open every task recipe that matches a part of your screen. For a HUD with a
+shop, open Tasks.hud and Tasks.shop. Open a card or option node only for a missing detail.
 Never reread a node already in context.
 
 Query: `lute run tools/facet docs <path>`. Search paths: `docs --search TEXT`.
@@ -23,4 +24,5 @@ Browse [Tasks](Tasks.md), [Controls](Controls.md),
 Control cards show small calls. Reference links lead to complete option groups.
 Use `docs Sheet.card`, then `docs Sheet.detents` only if that detail is missing.
 Use `project [directory]` to find application files.
-Use [Tools.verify](Tools.verify.md) for device checks and report paths.
+Use [Tools.verify](Tools.verify.md) for device checks, expected duration,
+capture directories and the verdict. Wait for the command to finish.
