@@ -2700,7 +2700,6 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(floor.MinSize):toBe(V2.new(120, 120))
 				h.input.TouchEnabled = false
 				h.input.KeyboardEnabled = true
-				-- off touch and pad the floor is gone, as for any Button (the constraint mounts only while it is above 0)
 				Verify.expect(find(root, "Drift"):FindFirstChild("TargetFloor")):toBe(nil)
 				stop()
 				h.dispose()
