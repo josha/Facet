@@ -200,7 +200,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			image = { defaultSize = 48 },
 			alert = { maxWidth = 560 },
 			popup = { panelWidth = 360 },
-			typography = { preferredSizeStep = 2 },
+			typography = { preferredSizeStep = 2, minimumSize = 14 },
 			dialog = { wideWidth = 800 },
 			snackbar = { maxWidth = 480 },
 			radial = { narrow = 48, regular = 64, wide = 88 },
@@ -212,7 +212,7 @@ local neutral: ThemeTypes.ThemePackage = {
 	rules = {},
 }
 for role, size in
-	{ caption = 12, label = 14, body = 16, heading = 20, title = 24, control = 18, strong = 16, numeral = 18 } :: { [string]: number }
+	{ caption = 14, label = 15, body = 16, heading = 20, title = 24, control = 18, strong = 16, numeral = 18 } :: { [string]: number }
 do
 	neutral.metrics.typography[role] = {
 		size = size,

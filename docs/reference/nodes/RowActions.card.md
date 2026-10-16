@@ -5,7 +5,8 @@ Expose actions beside a row.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-UI.RowActions "Item" { content = function() return UI.Text { text = "Kart" } end, trailing = { { id = "remove", label = "Remove", onActivate = function() print("Remove") end } } }
+local actions: { Facet.RowAction } = { { id = "remove", label = "Remove", onActivate = function() print("Remove") end } }
+UI.RowActions "Item" { content = function() return UI.Text { text = "Kart" } end, trailing = actions }
 ```
 
 Key options: `content`, `leading`, `trailing`, `editing`.

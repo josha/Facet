@@ -5,7 +5,11 @@ Choose a command from a radial menu.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-UI.RadialMenu "Actions" { label = "Actions", items = { { id = "open", label = "Open", onSelect = function() print("Open") end } } }
+local activate: () -> () = function() print("Open") end
+local command: Facet.RadialAction<string> = { id = "open", label = "Open", onSelect = activate }
+local items: { Facet.RadialItem<string> } = { command }
+local spec: Facet.RadialMenuSpec<string> = { label = "Actions", items = items }
+UI.RadialMenu "Actions" (spec)
 ```
 
 Key options: `items`, `preset`, `anchor`, `holdAction`.

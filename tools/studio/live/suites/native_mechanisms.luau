@@ -477,13 +477,13 @@ add("sibling-order-and-hit-testing", {}, function(t)
 		local behind = t.find(stage, "Behind")
 		local b = t.rect(behind)
 		hits = top(Vector2.new(b.x + b.w / 2, b.y + b.h / 2))
-		local scrimAt, behindAt = table.find(hits, "DismissOutside"), table.find(hits, "Behind")
+		local scrimAt, behindAt = table.find(hits, "DismissTarget"), table.find(hits, "Behind")
 		t.check(
 			"the scrim is hit before the covered background",
 			scrimAt ~= nil and (behindAt == nil or scrimAt < behindAt),
 			hits
 		)
-		local scrim = visibleNamed(t, stage, "DismissOutside")
+		local scrim = visibleNamed(t, stage, "DismissTarget")
 		t.check(
 			"the panel paints above its scrim",
 			scrim ~= nil and panel.ZIndex > scrim.ZIndex,

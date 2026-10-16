@@ -7,6 +7,9 @@ local surfaceKit = require("./nav_surface_kit")
 
 export type Modal = (() -> GuiObject, (string?) -> (), Nav.ModalOptions?) -> Frame
 local screens = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ScreenGui]: { count: number, clipped: boolean } }
+local touchControls = (
+	setmetatable({}, { __mode = "k" }) :: unknown
+) :: { [GuiService]: { count: number, enabled: boolean } }
 
 return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -75,11 +78,10 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			BackgroundTransparency = 1,
 			Active = true,
 			ZIndex = spec.ZIndex or 100,
-			Host.TextButton "DismissOutside" {
+			Host.Frame "Scrim" {
 				BorderSizePixel = 0,
 				Size = D2.fromScale(1, 1),
-				Active = true,
-				Text = "",
+				Active = false,
 				BackgroundTransparency = if spec.backgroundTransparency == nil
 					then nil
 					else function(use: ComposeTypes.Use)
@@ -89,8 +91,20 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 						return if value >= 1 then 1 else 1 - (1 - value * preferred(use)) * amount
 					end,
 				BackgroundColor3 = if spec.backgroundTransparency == nil then nil else ctx.types.Color3.new(0, 0, 0),
+				Selectable = false,
+				ZIndex = spec.ZIndex or 100,
+			} :: Instance,
+			Host.TextButton "DismissTarget" {
+				BorderSizePixel = 0,
+				Size = D2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Active = true,
+				Text = "",
 				AutoButtonColor = false,
 				Selectable = false,
+				Interactable = function(use: ComposeTypes.Use): boolean
+					return not focusIn(use)
+				end,
 				ZIndex = spec.ZIndex or 100,
 				Activated = function(input)
 					if root and not ctx.available(root) then
@@ -149,7 +163,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 		runtime.connect(root, "AncestryChanged", acquireScreen)
 		acquireScreen()
 		Compose.cleanup(releaseScreen)
-		local catcher = root:FindFirstChild("DismissOutside")
+		local catcher = root:FindFirstChild("Scrim")
 		if spec.backgroundTransparency == nil and catcher then
 			catcher:AddTag("facet-scrim")
 			if shown then
@@ -222,6 +236,34 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			})
 		end
 		local released = false
+		local heldTouch: GuiService? = nil
+		local function holdTouch()
+			if gui == nil or heldTouch ~= nil then
+				return
+			end
+			local lease = touchControls[gui]
+			if lease == nil then
+				lease = { count = 0, enabled = gui.TouchControlsEnabled }
+				touchControls[gui] = lease
+			end
+			lease.count += 1
+			heldTouch = gui
+			gui.TouchControlsEnabled = false
+		end
+		local function releaseTouch()
+			local service = heldTouch
+			heldTouch = nil
+			if service then
+				local lease = touchControls[service]
+				if lease then
+					lease.count -= 1
+					if lease.count == 0 then
+						touchControls[service] = nil
+						service.TouchControlsEnabled = lease.enabled
+					end
+				end
+			end
+		end
 		local landed = false
 		local owned = false
 		local function reclaimable(selected: Instance?): boolean
@@ -263,6 +305,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			table.insert(modals, root)
 			ctx.modalScopes:set(modals)
 			released = false
+			holdTouch()
 			lock()
 		end
 		claim()
@@ -271,6 +314,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				return
 			end
 			released = true
+			releaseTouch()
 			unlock()
 			local remaining = {}
 			for _, modal in ctx.modalScopes:peek() do

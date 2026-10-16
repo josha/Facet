@@ -10,7 +10,13 @@ end
 type Case = { id: string, setup: unknown? }
 type Pointer = { heldDrag: (Vector2, Vector2) -> (), up: (Vector2) -> (), cleanup: () -> () }
 type Catalog = { pointer: (unknown) -> Pointer, drivers: { [string]: unknown }, requirements: { [string]: string } }
-type Register = (unknown, string, { device: string, registerOnly: boolean }) -> Catalog
+type RegisterOptions = {
+	device: string,
+	registerOnly: boolean,
+	connectGamepad: (() -> ())?,
+	disconnectGamepad: (() -> ())?,
+}
+type Register = (unknown, string, RegisterOptions) -> Catalog
 
 return function(harness: Verify.Harness)
 	harness:case("Xbox drivers use native controller input for transfer recall zoom travel and shuffle", function(t)
@@ -113,6 +119,7 @@ return function(harness: Verify.Harness)
 			["zoom-gamepad"] = "ButtonR1,Stick2Right,ButtonY",
 			["travel-gamepad"] = "ButtonA,ButtonA",
 			["shuffle-gamepad"] = "ButtonA,ButtonA,ButtonA",
+			["sidebar-dpad-to-collections"] = "DPadDown",
 		}
 		for id, sequence in expected do
 			table.clear(buttons)
@@ -128,6 +135,40 @@ return function(harness: Verify.Harness)
 			t:expect(#steps > 0):toBe(true)
 			t:expect(catalog.requirements[id]):toBe("input-gamepad")
 		end
+		table.clear(buttons)
+		table.clear(steps)
+		local sidebar = catalog.drivers["sidebar-dpad-to-collections"] :: (unknown, unknown) -> ()
+		sidebar({
+			check = function(_name: string, passed: boolean)
+				t:expect(passed):toBe(true)
+			end,
+		}, { across = true })
+		t:expect(table.concat(buttons, ",")):toBe("DPadRight")
+		t:expect(steps[1]):toBe("afterRight")
+		local connected, disconnected = 0, 0
+		local hotplug = register(live, "in47", {
+			device = "none",
+			registerOnly = true,
+			connectGamepad = function()
+				connected += 1
+			end,
+			disconnectGamepad = function()
+				disconnected += 1
+			end,
+		})
+		local hotplugSteps: { [string]: string } = {
+			["text-edit-carries-gamepad-connect"] = "afterConnect",
+			["radial-hot-switch-keeps-open"] = "afterPlug,afterUnplug",
+			["input-fact-follows-device"] = "afterPlug",
+		}
+		for id, sequence in hotplugSteps do
+			table.clear(steps)
+			local driver = hotplug.drivers[id] :: () -> ()
+			driver()
+			t:expect(table.concat(steps, ",")):toBe(sequence)
+		end
+		t:expect(connected):toBe(3)
+		t:expect(disconnected):toBe(3)
 	end)
 	harness:case("interactive suites register drivers before capability selection", function(t)
 		local positions: { Vector2 } = {}
@@ -180,6 +221,26 @@ return function(harness: Verify.Harness)
 			}),
 		})() :: Register
 		local pointerCatalog = register({}, "", { device = "none", registerOnly = true })
+		local ordinary = Verify.createHarness({ source = "in24", prefixIds = false, now = os.clock })
+		ordinary:case("ordinary", function(context)
+			context:expect(true):toBe(true)
+		end)
+		local ordinaryReport = ordinary:run({ executor = "roblox-studio", capabilities = { "roblox-client" } })
+		local dispatched = false
+		local dispatch = (
+			register :: unknown
+		) :: (unknown, string, { device: string, registerOnly: boolean }) -> Verify.Report
+		local returned = dispatch({
+			cases = function()
+				return { { id = "ordinary", run = function() end } }
+			end,
+			report = function(suite: string)
+				dispatched = suite == "in24"
+				return ordinaryReport
+			end,
+		}, "in24", { device = "none", registerOnly = false })
+		t:expect(dispatched):toBe(true)
+		t:expect(returned.passed):toBe(1)
 		service.GamepadEnabled = true
 		service.PreferredInput = "Gamepad"
 		local catalogs = { pointerCatalog, register({}, "", { device = "keep", registerOnly = true }) }
@@ -207,6 +268,8 @@ return function(harness: Verify.Harness)
 				"zoom_travel",
 				"command_scope",
 				"reward_sequence",
+				"in47",
+				"in24",
 			}
 		do
 			local file = name .. ".luau"
@@ -246,5 +309,10 @@ return function(harness: Verify.Harness)
 		t:expect(catalogs[1].requirements["collection-immediate-touch-transfer"]):toBe("input-native-touch")
 		t:expect(catalogs[1].requirements["keyboard-gamepad-place-and-cancel"]):toBe("input-gamepad")
 		t:expect(catalogs[1].requirements["reserved-slots-pointer-recall"]):toBeNil()
+		for _, id in
+			{ "text-edit-carries-gamepad-connect", "radial-hot-switch-keeps-open", "input-fact-follows-device" }
+		do
+			t:expect(catalogs[1].requirements[id]):toBe("input-native-controller-connect")
+		end
 	end)
 end

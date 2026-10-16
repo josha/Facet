@@ -104,6 +104,7 @@ end
 
 function Analyzer.relative(path: string, root: string): string
 	local normalized = Files.normalize(Analyzer.withoutVerbatimPrefix(path))
+	normalized = string.match(normalized, "^[%./]+(%a:/.*)$") or normalized
 	local absolute = stringext.hasPrefix(normalized, "/") or string.match(normalized, "^%a:/") ~= nil
 	local resolved = Files.collapse(if absolute then normalized else Files.normalize(root) .. "/" .. normalized)
 	local base = Files.collapse(root)

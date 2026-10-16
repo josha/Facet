@@ -144,11 +144,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						end,
 					}
 				)
+				modal:SetAttribute("FacetArrivalGroup", true)
 				surfaces.attach(modal, { hub.centerHit, hub.centerNode, hub.previewPlate, hub.preview })
 				if hideLauncher then
 					hideLauncher()
 				end
-				local catcher = modal:FindFirstChild("DismissOutside")
+				local catcher = modal:FindFirstChild("Scrim")
 				if catcher then
 					if scrim == "dark" then
 						catcher:AddTag("facet-radial-scrim")
@@ -180,7 +181,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					end
 				end)
 				if spec.centerPassThrough and (spec.center == "empty" or spec.center == "content") then
-					local outside = modal:FindFirstChild("DismissOutside")
+					local outside = modal:FindFirstChild("DismissTarget")
 					if outside then
 						runtime.decorate(outside, { Visible = fallback })
 					end
@@ -274,5 +275,5 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		return root
 	end
-	UI.RadialMenu = ctx.construct("RadialMenu", build)
+	UI.RadialMenu = ctx.construct("RadialMenu", build) :: ControlTypes.RadialMenuConstructor
 end

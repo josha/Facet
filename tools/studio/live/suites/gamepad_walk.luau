@@ -94,6 +94,10 @@ local function walk(t: any, id: string, direction: string, limit: number, seen: 
 			lost += 1
 			break
 		end
+		t.check(
+			`{id} {selected.Name} reached by {direction} is on screen`,
+			t.visible(selected :: GuiObject) and t.clipped(selected :: GuiObject) ~= nil
+		)
 		if selected == previous then
 			stuck += 1
 			break
@@ -115,7 +119,6 @@ local function walk(t: any, id: string, direction: string, limit: number, seen: 
 	t.check(`{id} {direction} never drops the selection`, lost == 0, lost)
 	for node in visited do
 		seen[node] = true
-		t.check(`{id} {node.Name} reached by {direction} is on screen`, t.visible(node :: GuiObject))
 	end
 	GuiService.SelectedObject = nil
 	return #pool

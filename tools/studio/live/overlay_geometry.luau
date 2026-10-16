@@ -57,9 +57,15 @@ end
 
 local function scrim(t: Checks, catcher: GuiObject, viewport: GuiObject, safe: GuiObject, panel: GuiObject)
 	local low, high = catcher.AbsolutePosition, catcher.AbsolutePosition + catcher.AbsoluteSize
+	local clipping: { { path: string, position: { number }, size: { number } } } = {}
 	local at = catcher.Parent
 	while at do
 		if at:IsA("GuiObject") and (at.ClipsDescendants or at:IsA("CanvasGroup")) then
+			table.insert(clipping, {
+				path = at:GetFullName(),
+				position = { at.AbsolutePosition.X, at.AbsolutePosition.Y },
+				size = { at.AbsoluteSize.X, at.AbsoluteSize.Y },
+			})
 			low = Vector2.new(math.max(low.X, at.AbsolutePosition.X), math.max(low.Y, at.AbsolutePosition.Y))
 			local ending = at.AbsolutePosition + at.AbsoluteSize
 			high = Vector2.new(math.min(high.X, ending.X), math.min(high.Y, ending.Y))
@@ -68,7 +74,11 @@ local function scrim(t: Checks, catcher: GuiObject, viewport: GuiObject, safe: G
 	end
 	local v, ending = viewport.AbsolutePosition, viewport.AbsolutePosition + viewport.AbsoluteSize
 	local overflow = { low.X - v.X, low.Y - v.Y, ending.X - high.X, ending.Y - high.Y }
-	t.check("scrim covers complete viewport including unsafe areas", math.max(table.unpack(overflow)) <= 1, overflow)
+	t.check(
+		"scrim covers complete viewport including unsafe areas",
+		math.max(table.unpack(overflow)) <= 1,
+		{ overflow = overflow, clipping = clipping }
+	)
 	t.check(
 		"modal panel stays inside core and device safe insets",
 		inside(panel, safe.AbsolutePosition, safe.AbsolutePosition + safe.AbsoluteSize, 1),

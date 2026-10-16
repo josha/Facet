@@ -6,7 +6,8 @@ Inside an app mount, set `local UI = app.UI`.
 
 ```luau
 local selected = Facet.Compose.cell("solo")
-UI.Picker "Mode" { selected = selected, options = { { value = "solo", label = "Solo" } }, style = "segmented" }
+local options: { Facet.PickerOption<string> } = { { value = "solo", label = "Solo" } }
+UI.Picker "Mode" { selected = selected, options = options, style = "segmented" }
 ```
 
 Key options: `selected`, `options`, `style`, `query`.

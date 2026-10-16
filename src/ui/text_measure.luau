@@ -23,12 +23,16 @@ end
 local shared = (setmetatable({}, { __mode = "k" }) :: unknown) :: {
 	[Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.Readable<Vector2>>,
 }
+local readouts = (setmetatable({}, { __mode = "k" }) :: unknown) :: {
+	[Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.Readable<Vector2>>,
+}
 
 local function createNatural(
 	ctx: Types.Context,
 	label: TextLabel | TextButton | TextBox,
 	fallback: (() -> ComposeTypes.Readable<Vector2>)?,
-	revision: ComposeTypes.Cell<number>?
+	revision: ComposeTypes.Cell<number>?,
+	stable: boolean?
 ): ComposeTypes.Readable<Vector2>
 	local Compose, Host = ctx.Compose, ctx.Host
 	local service = ctx.config.services.TextService
@@ -45,6 +49,7 @@ local function createNatural(
 	local points = if revision then nil else ctx.observeStyled.TextSize(label)
 	local serial, alive = 0, true
 	local last: string? = nil
+	local metrics, widest, tallest = "", 0, 0
 	local thread: thread? = nil
 	local release: (() -> ())? = nil
 	local function cancel()
@@ -69,7 +74,11 @@ local function createNatural(
 		local markup = if rich then use(rich) else label.RichText
 		local face = if font then use(font) else label:GetStyled("FontFace") :: Font
 		local size = if points then use(points) else label:GetStyled("TextSize") :: number
-		local key = `{#words}:{words}|{markup}|{face.Family}|{face.Weight.Name}|{face.Style.Name}|{size}`
+		local geometry =
+			`{face.Family}|{face.Weight.Name}|{face.Style.Name}|{size}|{markup}|{label.AutomaticSize.Name}|{label:GetStyled(
+				"TextWrapped"
+			)}|{label:GetStyled("TextTruncate")}|{label:GetStyled("LineHeight")}`
+		local key = `{#words}:{words}|{geometry}`
 		if key == last then
 			return
 		end
@@ -79,9 +88,6 @@ local function createNatural(
 		cancel()
 		local completed = hold(label)
 		release = completed
-		if revision then
-			bounds:set(ctx.types.Vector2.new(math.huge, 0))
-		end
 		params.Text, params.RichText, params.Font, params.Size = words, markup, face, size
 		local function measure()
 			local ok, value = pcall(function(): Vector2
@@ -89,6 +95,13 @@ local function createNatural(
 			end)
 			if alive and ticket == serial then
 				if ok then
+					if stable then
+						if geometry ~= metrics then
+							metrics, widest, tallest = geometry, 0, 0
+						end
+						widest, tallest = math.max(widest, value.X), math.max(tallest, value.Y)
+						value = ctx.types.Vector2.new(widest, tallest)
+					end
 					bounds:set(value)
 				end
 				completed()
@@ -109,22 +122,26 @@ return {
 		ctx: Types.Context,
 		label: TextLabel | TextButton | TextBox,
 		fallback: (() -> ComposeTypes.Readable<Vector2>)?,
-		revision: ComposeTypes.Cell<number>?
+		revision: ComposeTypes.Cell<number>?,
+		stable: boolean?
 	): ComposeTypes.Readable<Vector2>
 		if ctx.config.services.TextService == nil then
 			return if fallback then fallback() else ctx.Compose.cell(ctx.types.Vector2.new(math.huge, 0))
 		end
-		local acquire = shared[label]
+		local resources: { [Instance]: ComposeTypes.AcquireSharedResource<ComposeTypes.Readable<Vector2>> } = if stable
+			then readouts
+			else shared
+		local acquire: ComposeTypes.AcquireSharedResource<ComposeTypes.Readable<Vector2>>? = resources[label]
 		if not acquire then
 			acquire = ctx.Compose.createSharedResource(function(): (ComposeTypes.Readable<Vector2>, (() -> ())?)
 				ctx.Compose.cleanup(function()
-					shared[label] = nil
+					resources[label] = nil
 				end)
-				return createNatural(ctx, label, nil, revision), nil
+				return createNatural(ctx, label, nil, revision, stable), nil
 			end)
-			shared[label] = acquire
+			resources[label] = acquire
 		end
-		return acquire()
+		return assert(acquire)()
 	end,
 	ready = function(node: Instance): boolean
 		if pending[node] ~= nil then

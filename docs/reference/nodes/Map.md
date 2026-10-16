@@ -23,3 +23,4 @@ Browse [Tasks](Tasks.md), [Controls](Controls.md),
 Control cards show small calls. Reference links lead to complete option groups.
 Use `docs Sheet.card`, then `docs Sheet.detents` only if that detail is missing.
 Use `project [directory]` to find application files.
+Use [Tools.verify](Tools.verify.md) for device checks and report paths.

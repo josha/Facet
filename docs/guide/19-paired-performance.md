@@ -39,3 +39,22 @@ usable timing. Do not estimate its missing result. Review host load and the
 benchmark yardstick before making a performance claim. Shared host load can
 change paired results. Headless results require separate Studio evidence for
 engine behavior.
+
+## Profile a saved racing hub
+
+```sh
+lute run --profile --profile-output artifacts/mount-profile.json tools/engine/profile_racing_hub_mount.luau <workspace> phone-portrait
+```
+
+Use `desktop` for the desktop viewport. An optional fourth argument selects a
+Facet source directory. The default is `src`.
+
+The profiler loads the saved Interface, Theme and Model modules. It uses the
+native engine double, fixed game state and no background tasks. It measures
+Luau construction work. It does not measure native layout, asynchronous text
+measurement or reveal readiness.
+
+Use `lute run tools/facet perf capture --workspace <workspace> --out <output>`
+for Studio evidence. Its mount time includes client startup and geometry
+settling. Live readouts and progress bars can keep geometry changing after
+construction completes. Read the geometry trace with the mount time.

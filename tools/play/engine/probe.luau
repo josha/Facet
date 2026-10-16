@@ -9,6 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local Collect = require("../../../tools/vendor/verify/src/roblox/ui-audit-collect")
 local scrollTarget = require("./scroll_target")
 local racingDrive = require("./racing_drive")
+local Mount = require("./mount")
 local frameStability = require("../../studio/live/frame_stability")
 local invalidSelections = 0
 game:GetService("LogService").MessageOut:Connect(function(message: string)
@@ -1464,19 +1465,121 @@ local function memory(): { [string]: number }
 	return result
 end
 
-local function settle(quiet: number, limit: number): number
-	local started = os.clock()
-	local lastChange = started
-	local previous = signature()
-	while os.clock() - lastChange < quiet and os.clock() - started < limit do
-		RunService.RenderStepped:Wait()
-		local current = signature()
-		if current ~= previous then
-			previous = current
-			lastChange = os.clock()
+local function mountSnapshot(identities: { [Instance]: number }, nextIdentity: { number }): Mount.Snapshot
+	local snapshot: Mount.Snapshot = {}
+	local function add(node: Instance)
+		if identities[node] == nil then
+			nextIdentity[1] += 1
+			identities[node] = nextIdentity[1]
+		end
+		local entry: Mount.Node = { parent = node.Parent, path = node:GetFullName(), identity = identities[node] }
+		if node:IsA("GuiBase2d") then
+			entry.x, entry.y = node.AbsolutePosition.X, node.AbsolutePosition.Y
+			entry.width, entry.height = node.AbsoluteSize.X, node.AbsoluteSize.Y
+			if node:IsA("TextLabel") or node:IsA("TextButton") then
+				entry.text = node.Text
+			end
+		end
+		snapshot[node] = entry
+	end
+	for _, root in roots() do
+		add(root)
+		for _, node in root:GetDescendants() do
+			add(node)
 		end
 	end
-	return lastChange - started
+	return snapshot
+end
+
+type LiveContent = {
+	path: string,
+	identity: number,
+	reason: string,
+	frames: number,
+	firstSeconds: number,
+	lastSeconds: number,
+	firstBefore: string,
+	firstAfter: string,
+	lastBefore: string,
+	lastAfter: string,
+}
+
+local function settle(quiet: number, limit: number, compareLegacy: boolean): { [string]: unknown }
+	local started = os.clock()
+	local identities: { [Instance]: number } = {}
+	local nextIdentity = { 0 }
+	local run = Mount.start(mountSnapshot(identities, nextIdentity), started)
+	local legacyPrevious = signature()
+	local legacyChange = started
+	local legacySeconds = nil :: number?
+	local live: {
+		[string]: {
+			path: string,
+			identity: number,
+			reason: string,
+			frames: number,
+			firstSeconds: number,
+			lastSeconds: number,
+			firstBefore: string,
+			firstAfter: string,
+			lastBefore: string,
+			lastAfter: string,
+		},
+	} =
+		{}
+	local frames = 0
+	while os.clock() - started < limit do
+		RunService.RenderStepped:Wait()
+		frames += 1
+		local now = os.clock()
+		local measuring = run.seconds == nil
+		local exclusions = Mount.step(run, mountSnapshot(identities, nextIdentity), now, quiet)
+		if measuring then
+			for _, exclusion in exclusions do
+				local key = tostring(exclusion.identity) .. ":" .. exclusion.reason
+				local entry: LiveContent = live[key]
+					or {
+						path = exclusion.path,
+						identity = exclusion.identity,
+						reason = exclusion.reason,
+						frames = 0,
+						firstSeconds = now - started,
+						lastSeconds = now - started,
+						firstBefore = exclusion.before,
+						firstAfter = exclusion.after,
+						lastBefore = exclusion.before,
+						lastAfter = exclusion.after,
+					}
+				entry.frames += 1
+				entry.lastSeconds = now - started
+				entry.lastBefore, entry.lastAfter = exclusion.before, exclusion.after
+				live[key] = entry
+			end
+		end
+		if compareLegacy and legacySeconds == nil then
+			local value = signature()
+			if value ~= legacyPrevious then
+				legacyChange = now
+			end
+			legacyPrevious = value
+			if now - legacyChange >= quiet then
+				legacySeconds = legacyChange - started
+			end
+		end
+		if run.seconds ~= nil and (not compareLegacy or legacySeconds ~= nil) then
+			break
+		end
+	end
+	return {
+		seconds = run.seconds or limit,
+		timedOut = run.seconds == nil,
+		frames = frames,
+		quiet = quiet,
+		limit = limit,
+		liveContent = live,
+		legacySeconds = if compareLegacy then legacySeconds or (legacyChange - started) else nil,
+		legacyTimedOut = if compareLegacy then legacySeconds == nil else nil,
+	}
 end
 
 handlers.perf = function(request: Request): unknown
@@ -1507,10 +1610,10 @@ handlers.perf = function(request: Request): unknown
 		until os.clock() >= untilTime
 		return changed
 	elseif action == "settle" then
-		return {
-			seconds = settle(numberField(request, "quiet", 1), numberField(request, "limit", 20)),
-			census = census(),
-		}
+		local result =
+			settle(numberField(request, "quiet", 1), numberField(request, "limit", 20), request.compareLegacy == true)
+		result.census = census()
+		return result
 	elseif action == "idle" then
 		sample()
 		local mark = #frameTimes

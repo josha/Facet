@@ -33,10 +33,13 @@ export type HostOptions = {
 	project: string?,
 	keep: boolean?,
 	quiet: boolean?,
+	compareMount: boolean?,
 }
 
 export type DevicePerf = {
 	mountSeconds: number?,
+	mount: { [string]: unknown }?,
+	legacyMountSeconds: number?,
 	idle: { [string]: unknown }?,
 	screens: { [string]: { [string]: unknown } },
 	final: { [string]: unknown }?,
@@ -341,10 +344,17 @@ local function open(options: HostOptions): Host
 			error("the screen is not in landscape", 0)
 		end
 		local settleCalled = os.clock()
-		local settled = probe(qa, { action = "settle", quiet = 1, limit = 20 })
-		local record: DevicePerf = { screens = {} }
+		local settled =
+			probe(qa, { action = "settle", quiet = 1, limit = 20, compareLegacy = options.compareMount == true })
+		local record: DevicePerf = { screens = {}, mount = settled }
 		if settled ~= nil and type(settled.seconds) == "number" then
 			record.mountSeconds = settleCalled - playStarted + (settled.seconds :: number)
+			if type(settled.legacySeconds) == "number" then
+				record.legacyMountSeconds = settleCalled - playStarted + (settled.legacySeconds :: number)
+			end
+			if settled.timedOut == true then
+				log("play: " .. device.id .. " mount hit the 20-second settle limit")
+			end
 		end
 		record.idle = probe(qa, { action = "idle", seconds = 2 })
 		perf[device.id] = record
@@ -442,7 +452,8 @@ local function perfScores(perf: { [string]: DevicePerf }, scores: { [string]: nu
 				scores[("perf.%s.%s"):format(device, name)] = value
 			end
 		end
-		put("mountSeconds", record.mountSeconds)
+		put("mountSeconds", if record.mount and record.mount.timedOut == true then nil else record.mountSeconds)
+		put("mountTimedOut", if record.mount and record.mount.timedOut == true then 1 else 0)
 		put("idleFrameP50Ms", number(record.idle, "frames", "p50"))
 		put("idleFrameP95Ms", number(record.idle, "frames", "p95"))
 		put("baseGuiObjects", number(record.idle, "census", "gui"))
@@ -662,4 +673,5 @@ return {
 	main = main,
 	open = open,
 	validateResults = validateResults,
+	perfScores = perfScores,
 }

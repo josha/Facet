@@ -3157,7 +3157,7 @@ local function centred(t: any, name: string, node: any, layer: any)
 end
 
 local function scrimOf(t: any, name: string, modal: any, layer: any)
-	local catcher = if modal then modal:FindFirstChild("DismissOutside", true) else nil
+	local catcher = if modal then modal:FindFirstChild("DismissTarget", true) else nil
 	if not catcher then
 		t.check(`{name} scrim found`, false)
 		return

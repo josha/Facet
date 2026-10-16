@@ -9,6 +9,12 @@ or a function of `use`. It is required. `label` and the native `Text` cause an
 error, and so do `color` and `font`, because the theme owns them. Use `role`
 or `textRole` instead.
 
+Unwrapped text with automatic size keeps its largest measured box while it
+stays mounted. Longer text can grow the box. Shorter text does not shrink it.
+A change to the font, text size or layout mode resets the reserved size.
+Wrapped text, truncated text and authored size constraints keep their native
+layout behavior.
+
 Open:
 
 - [Text-fit](Text-fit.md)

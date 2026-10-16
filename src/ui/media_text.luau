@@ -250,7 +250,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				end,
 			})
 		end
-		local label = textRole(ctx.text(ctx.props(spec, TEXT_KEYS, defaults)), roleSource)
+		local label = textRole(ctx.text(ctx.props(spec, TEXT_KEYS, defaults), true), roleSource)
 		if lines then
 			local styledSize = ctx.observeStyled.TextSize(label)
 			local styledLine = ctx.observeStyled.LineHeight(label)

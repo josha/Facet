@@ -5,7 +5,8 @@ Show a virtual row collection.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-UI.VirtualList "Rows" { from = { "Kart" }, key = function(item) return item end, itemSize = 44, render = function(current) return UI.Text { text = current } end }
+local spec: Facet.KeyedCollectionSpec<string, string> = { from = { "Kart" }, key = function(item) return item end, itemSize = 44, render = function(current) return UI.Text { text = current } end }
+UI.VirtualList "Rows" (spec)
 ```
 
 Key options: `from`, `key`, `render`, `itemSize`, `measure`.

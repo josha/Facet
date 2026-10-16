@@ -41,7 +41,7 @@ function DocsQuery.response(nodes: { DocsIndex.Node }, invocation: Cli.Invocatio
 		for _, match in DocsIndex.search(nodes, name, 5) do
 			table.insert(names, match.node.path)
 		end
-		return discovery(nodes, names)
+		return `No documentation node '{name}'.\n` .. discovery(nodes, names)
 	end
 	if #node.body + 1 > DocsIndex.responseBudget or Cli.switch(invocation, "outline") then
 		return discovery(nodes, node.children)

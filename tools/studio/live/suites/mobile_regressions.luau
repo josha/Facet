@@ -146,7 +146,7 @@ table.insert(cases, {
 		end, { size = Vector2.new(390, 740), environment = { preferredInput = "Touch" } })
 		open:set(true)
 		sample(t, t.find(stage, "ColorPickerModal"), "Colour picker")
-		t.check("scrim has no native border", t.find(stage, "DismissOutside").BorderSizePixel == 0)
+		t.check("scrim has no native border", t.find(stage, "Scrim").BorderSizePixel == 0)
 	end,
 })
 

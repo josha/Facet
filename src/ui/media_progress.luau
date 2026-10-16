@@ -101,7 +101,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				Text = function(use: ComposeTypes.Use)
 					return read(spec.endLabel, use) or ""
 				end,
-			})
+			}, true)
 			else nil
 		if spec.showValue then
 			readout = ctx.text({
@@ -115,7 +115,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						then spec.format(value :: number)
 						else tostring(math.floor(use(progress) * 100 + 0.5)) .. "%"
 				end,
-			})
+			}, true)
 		end
 		local direction = Compose.formula(function(use: ComposeTypes.Use): Theme.FillDirection
 			local package = read(ctx.config.theme, use)

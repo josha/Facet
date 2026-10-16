@@ -5,7 +5,8 @@ Show a group of players.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-UI.AvatarGroup "AvatarGroup" { items = { { id = "guest", name = "Guest", icon = "person" } } }
+local items: { Facet.AvatarMember } = { { id = "guest", name = "Guest", icon = "person" } }
+UI.AvatarGroup "Players" { items = items }
 ```
 
 Key options: `items`, `max`, `layout`, `onOverflow`.

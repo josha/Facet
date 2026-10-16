@@ -5,7 +5,8 @@ Show progress through named steps.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-UI.StepIndicator "Setup" { steps = { { id = "name", label = "Name" } }, current = "name" }
+local steps: { Facet.Step } = { { id = "name", label = "Name" } }
+UI.StepIndicator "Setup" { steps = steps, current = "name" }
 ```
 
 Key options: `steps`, `current`, `onSelect`.

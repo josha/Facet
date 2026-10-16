@@ -221,7 +221,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(w.gui.SelectedObject):toBe(before)
 				Verify.expect(w.find("Link").Selectable):toBe(true)
 				Verify.expect(w.find("Close").Selectable):toBe(true)
-				Verify.expect((w.find("DismissOutside"))):toBeNil()
+				Verify.expect((w.find("Scrim"))):toBeNil()
 				Verify.expect((w.find("ModalBack"))):toBeNil()
 				w.stop()
 			end,

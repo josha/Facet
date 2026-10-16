@@ -189,6 +189,10 @@ The mode calls `live.begin`, sends real native input, calls the case's named
 `live.step` functions, and saves the `live.finish` reports. Verify combines
 these reports. A missing input capability produces an unsupported result;
 it does not produce a setup-only pass. `--only TEXT` selects a case by id.
+If a suite has no matching interactive cases, the mode runs its normal cases.
+The `in47` controller arrival cases require an external driver to connect and
+disconnect the Controller Emulator during the case. Without that driver,
+they report the missing `input-native-controller-connect` capability.
 Run each suite separately. With `--studio ID`, the attached Studio must contain
 the current case modules. Building the runner's place file does not reload the
 attached place. Each report records the build commit in `environment.stamp`.

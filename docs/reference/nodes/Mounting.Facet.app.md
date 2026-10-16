@@ -1,5 +1,7 @@
 # Mounting.Facet.app
 
+<!-- aliases: Facet.app -->
+
 `Facet.app(options?)` is the short path to a screen. It uses only the public
 pieces below. It adds no service, solver, scene or render target.
 

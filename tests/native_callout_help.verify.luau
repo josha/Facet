@@ -51,7 +51,7 @@ return function(verifyHarness: Verify.Harness)
 	local function buttons(root: any): { string }
 		local out = {}
 		for _, node in root:GetDescendants() do
-			if node:IsA("TextButton") and node.Name ~= "DismissOutside" then
+			if node:IsA("TextButton") and node.Name ~= "DismissTarget" then
 				table.insert(out, `{node.Parent.Name}/{node.Name}`)
 			end
 		end

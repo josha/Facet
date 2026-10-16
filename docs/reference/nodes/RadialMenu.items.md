@@ -2,6 +2,11 @@
 
 The required `items` use the menu item model. The options are:
 
+Use `Facet.RadialAction<string>` for a command and
+`{ Facet.RadialItem<string> }` for its list. `Facet.RadialMenuSpec<string>`
+accepts command menus without generic inference. Other value types use the
+generic constructor overload.
+
 `isPresented`, `label`, `launcher`, `preset`, `distribution`, `navigation`,
 `expansion`, `center`, `centerLabel`, `centerContent`, `centerPassThrough`,
 `anchor`, `follow`, `clearance`, `ringWidth`, `contentFit`, `gestureSelection`,

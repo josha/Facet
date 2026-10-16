@@ -1,5 +1,7 @@
 # environment.viewingDistanceSource
 
+<!-- aliases: scaled | environment.scaled | metricScale -->
+
 environment.viewingDistanceSource option values and behavior.
 
 | Field | Source and value |

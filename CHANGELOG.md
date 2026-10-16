@@ -33,6 +33,14 @@
   pixels or less and `targetSizes.thumbLarge` (120 pixels) on a larger
   screen. These are the sizes of the Roblox touch jump button. Use it for the
   primary on-screen actions of a game.
+- `Facet.MenuCommand` and `Facet.RadialAction<V>` type command items. Menu,
+  SplitButton and RadialMenu have default string overloads and retain generic
+  value overloads.
+- Modal scrims are passive. Native dismiss targets stay inside the safe area,
+  and modal ownership suspends native gameplay touch controls.
+- Recipe and control card samples type-check with the consumer verifier.
+  Verification groups repeated findings and keeps a full report.
+
 - `UI.environment().scaled(value, relativeTo)` takes an optional type role.
   The length then also grows with the player's text size, by the same factor
   as text of that role, as SwiftUI's `@ScaledMetric(relativeTo:)` does. A

@@ -149,8 +149,11 @@ end, {
 
 add("sidebar-dpad-to-collections", {}, function(t)
 	local api = workspace:WaitForChild("FacetShowcaseAPI") :: any
-	api:Invoke("show", "all-controls")
-	api:Invoke("panel", "demos")
+	local shown = api:Invoke("show", "all-controls")
+	if shown.panel ~= "demos" then
+		api:Invoke("panel", "demos")
+	end
+	t.check("the Demos panel is open", api:Invoke("report").panel == "demos")
 	t.settle(10)
 	local gui = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery")
 	local tabs = gui:FindFirstChild("DemoList", true)
@@ -164,7 +167,7 @@ add("sidebar-dpad-to-collections", {}, function(t)
 		and peer ~= nil
 		and (peer :: GuiObject).AbsolutePosition.X > tab.AbsolutePosition.X + tab.AbsoluteSize.X / 2
 	t.note("demo strip axis", if across then "horizontal: press DPadRight" else "vertical: press DPadDown")
-	return {}
+	return { across = across }
 end, {
 	afterDown = function(t)
 		t.check("one DPadDown selects the collections tab", selectedName() == "Demo-collections", selectedName())
@@ -683,6 +686,136 @@ end, {
 			node ~= nil and node.GuiState == Enum.GuiState.Hover,
 			node and tostring(node.GuiState)
 		)
+	end,
+})
+
+table.insert(cases, {
+	id = "sheet-native-selection-order",
+	contracts = {},
+	run = function(t)
+		local value = modalFixture(t, true, {})
+		value.alert:set(false)
+		t.settle(30)
+		local panel = panelOf(value)
+		t.check("the sheet panel mounts", panel ~= nil)
+		if not panel then
+			return
+		end
+		local handle = panel:FindFirstChild("DragHandle", true)
+		t.note("passive sheet parts", { pill = panel:FindFirstChild("Pill", true), handle = handle })
+		t.check("the drag handle is a passive frame", handle ~= nil and handle:IsA("Frame") and not handle.Selectable)
+		for _, name in { "Grabber", "Close", "First", "Second", "Third" } do
+			local target = panel:FindFirstChild(name, true)
+			t.check(name .. " mounts", target ~= nil)
+			GuiService.SelectedObject = target
+			t.settle(2)
+			t.check(name .. " keeps native selection inside the panel", within(GuiService.SelectedObject, panel))
+			t.check(name .. " is visible", target ~= nil and t_visible(target))
+		end
+		local grabber = panel:FindFirstChild("Grabber", true)
+		local close = panel:FindFirstChild("Close", true)
+		t.check(
+			"the grabber links Down to Close",
+			grabber ~= nil and grabber:IsA("GuiObject") and grabber.NextSelectionDown == close
+		)
+		local watched = (value :: unknown) :: { connection: RBXScriptConnection }
+		watched.connection:Disconnect()
+		GuiService.SelectedObject = nil
+	end,
+})
+
+table.insert(cases, {
+	id = "demo-strip-native-selection-axis",
+	contracts = {},
+	keepGallery = true,
+	run = function(t)
+		t.device({ device = "xbox", input = Enum.PreferredInput.Gamepad })
+		local api = workspace:WaitForChild("FacetShowcaseAPI")
+		api:Invoke("show", "all-controls")
+		api:Invoke("panel", "demos")
+		t.settle(10)
+		local gui = Players.LocalPlayer.PlayerGui:WaitForChild("FacetGallery")
+		local tabs = gui:FindFirstChild("DemoList", true)
+		local tab = tabs and tabs:FindFirstChild("Demo-all-controls", true)
+		local peer = tabs and tabs:FindFirstChild("Demo-collections", true)
+		t.check("both demo tabs mount", tab ~= nil and peer ~= nil)
+		if not tab or not peer then
+			return
+		end
+		local across = peer.AbsolutePosition.X > tab.AbsolutePosition.X + tab.AbsoluteSize.X / 2
+		t.note("demo strip geometry", {
+			first = t.rect(tab),
+			next = t.rect(peer),
+			across = across,
+			down = tab.NextSelectionDown,
+			right = tab.NextSelectionRight,
+		})
+		GuiService.SelectedObject = tab
+		t.settle(2)
+		t.note(
+			"selection before move",
+			{ selected = GuiService.SelectedObject, expected = tab, clipped = t.clipped(tab) }
+		)
+		GuiService.SelectedObject = peer
+		for frame = 1, 4 do
+			t.settle(1)
+			local ancestors = {}
+			local at = peer.Parent
+			while at and not at:IsA("LayerCollector") do
+				if at:IsA("GuiObject") then
+					table.insert(ancestors, {
+						name = at.Name,
+						rect = t.rect(at),
+						visible = at.Visible,
+						canvas = if at:IsA("ScrollingFrame") then at.AbsoluteCanvasSize else nil,
+						window = if at:IsA("ScrollingFrame") then at.AbsoluteWindowSize else nil,
+						offset = if at:IsA("ScrollingFrame") then at.CanvasPosition else nil,
+					})
+				end
+				at = at.Parent
+			end
+			t.note("collections frame " .. frame, {
+				ancestors = ancestors,
+				rect = t.rect(peer),
+				clipped = t.clipped(peer),
+				selected = GuiService.SelectedObject,
+			})
+			t.check(
+				"the collections tab stays selected on frame " .. frame,
+				GuiService.SelectedObject == peer and t_visible(peer) and t.clipped(peer) ~= nil
+			)
+		end
+		GuiService.SelectedObject = nil
+	end,
+})
+
+table.insert(cases, {
+	id = "sidebar-selection-setup-keeps-open-panel",
+	contracts = {},
+	keepGallery = true,
+	run = function(t)
+		local api = workspace:WaitForChild("FacetShowcaseAPI")
+		local before = api:Invoke("report")
+		if before.panel ~= "demos" then
+			api:Invoke("panel", "demos")
+		end
+		t.settle(30)
+		t.check("the Demos panel is already open before setup", api:Invoke("report").panel == "demos")
+		for _, case in cases do
+			if case.id == "sidebar-dpad-to-collections" then
+				assert(case.setup)(t)
+				break
+			end
+		end
+		t.check("sidebar setup keeps the Demos panel open", api:Invoke("report").panel == "demos")
+		t.settle(30)
+		local selected = GuiService.SelectedObject
+		t.note("selection after repeated setup", selected)
+		t.check(
+			"the initial row stays selected after the panel settles",
+			selected ~= nil and selected.Name == "Demo-all-controls" and t_visible(selected)
+		)
+		GuiService.SelectedObject = nil
 	end,
 })
 

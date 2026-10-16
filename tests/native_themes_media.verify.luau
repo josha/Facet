@@ -1974,6 +1974,63 @@ return function(verifyHarness: Verify.Harness)
 			"scifi_hud",
 		}
 
+		verifyHarness:case("keeps every shipped typography scale readable on every device", {
+			id = "native_themes_media::typography::readable shipped scales",
+			run = function()
+				local packages = { themes.neutralPackage() }
+				for _, descriptor in
+					{
+						require("../examples/themes/classic_desktop"),
+						require("../examples/themes/compact_pointer"),
+						require("../examples/themes/fantasy_ornate"),
+						require("../examples/themes/fantasy_parchment"),
+						require("../examples/themes/glossy_mobile"),
+						require("../examples/themes/glossy_touch"),
+						require("../examples/themes/pixel_quest"),
+						require("../examples/themes/scifi_hud"),
+					}
+				do
+					table.insert(packages, (descriptor.build(themes)))
+				end
+				table.insert(packages, (assert(require("../examples/facet-lab/themes/foundation").build(themes))))
+				for _, package in packages do
+					for _, device in { "desktop", "phone-portrait", "phone-landscape", "tablet", "console" } do
+						local scaled = themes.forDistance(package, if device == "console" then "ten-foot" else "near")
+						local engine = engineLib.new()
+						local runtime = Roblox.createRuntime(engine)
+						local preference = Compose.cell("Medium")
+						context(
+							Compose,
+							runtime,
+							{ types = engine.types, environment = { preferredTextSize = preference } }
+						)
+						local stop, sheet = runtime.mount(function()
+							return themes.createStyleSheet(runtime, scaled, { types = engine.types })
+						end, engine.new("Folder"))
+						for _, role in themes.TYPE_ROLES do
+							Verify.expect(scaled.metrics.typography[role].size >= 14):toBe(true)
+							for _, size in { "Medium", "Large", "Larger", "Largest" } do
+								preference:set(size)
+								Verify.expect(
+									(style(sheet :: StyleSheet, ".facet-type-" .. role).TextSize :: number) >= 14
+								)
+									:toBe(true)
+							end
+						end
+						stop()
+						runtime:dispose()
+					end
+				end
+				local definition = themes.neutralPackage()
+				definition.metrics.typography.caption.size = 12
+				definition.metrics.typography.body.size = 15
+				local resolved = assert(themes.define(definition))
+				Verify.expect(resolved.metrics.typography.caption.size):toBe(14)
+				Verify.expect(resolved.metrics.typography.body.size):toBe(15)
+				Verify.expect(definition.metrics.typography.caption.size):toBe(12)
+			end,
+		})
+
 		local SCANNED_CALLS: { [string]: number? } = { styled = nil, paintedPart = 3 }
 
 		local function luminance(value: any): number

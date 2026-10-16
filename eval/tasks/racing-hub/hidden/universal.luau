@@ -276,11 +276,7 @@ local function cases(id: string): { Play.Case }
 				back(qa, context)
 			end
 			for _, words in { "close", "back", "cancel", "skip" } do
-				Check.that(
-					context,
-					qa:first({ role = "button", exact = words }) == nil,
-					"the route is no longer stuck on a child screen"
-				)
+				Check.gone(qa, context, { role = "button", exact = words }, "the route returns from a child screen")
 			end
 			local returned, detail = Actions.returned(qa, query(name))
 			Check.that(context, returned, "return to the opener: " .. detail)

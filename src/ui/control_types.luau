@@ -75,15 +75,17 @@ type ShortcutHintShapes =
 	& ((InputProps.ShortcutHintActionProps) -> TextLabel | Frame)
 	& ((InputProps.ShortcutHintProps) -> TextLabel | Frame)
 export type ShortcutHintConstructor = ShortcutHintShapes & ((string) -> ShortcutHintShapes)
-type MenuShapes = <V>(NavigationProps.MenuSpec<V>) -> GuiObject
+type MenuShapes = ((NavigationProps.MenuSpec<string>) -> GuiObject) & (<V>(NavigationProps.MenuSpec<V>) -> GuiObject)
 export type MenuConstructor = MenuShapes & ((string) -> MenuShapes)
-type SplitButtonShapes = <V>(NavigationProps.SplitButtonSpec<V>) -> Frame
+type SplitButtonShapes =
+	((NavigationProps.SplitButtonSpec<string>) -> Frame)
+	& (<V>(NavigationProps.SplitButtonSpec<V>) -> Frame)
 export type SplitButtonConstructor = SplitButtonShapes & ((string) -> SplitButtonShapes)
 type AlertShapes = <P>(NavigationProps.AlertSpec<P>) -> Frame
 export type AlertConstructor = AlertShapes & ((string) -> AlertShapes)
 type NavigationStackShapes = <P>(NavigationProps.NavigationStackSpec<P>) -> Frame
 export type NavigationStackConstructor = NavigationStackShapes & ((string) -> NavigationStackShapes)
-type RadialMenuShapes = <V>(RadialProps.RadialMenuSpec<V>) -> Frame
+type RadialMenuShapes = ((RadialProps.RadialMenuSpec<string>) -> Frame) & (<V>(RadialProps.RadialMenuSpec<V>) -> Frame)
 export type RadialMenuConstructor = RadialMenuShapes & ((string) -> RadialMenuShapes)
 type CollectionShapes =
 	(<V, K>(spec: CollectionProps.KeyedCollectionSpec<V, K>) -> ScrollingFrame)

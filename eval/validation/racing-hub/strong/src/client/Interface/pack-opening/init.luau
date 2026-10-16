@@ -94,7 +94,7 @@ local function mount(context: Context)
 		title.LayoutOrder = 1
 		title.Parent = card
 		local price = Kit.label(
-			("%d Gems  Ã‚Â·  %d cards"):format(crate.price, crate.cards),
+			("%d Gems  ·  %d cards"):format(crate.price, crate.cards),
 			Kit.size.body,
 			Kit.colors.primary,
 			true

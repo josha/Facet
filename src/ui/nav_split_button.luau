@@ -121,5 +121,5 @@ return function(
 				end),
 			})
 		)
-	end)
+	end) :: ControlTypes.SplitButtonConstructor
 end

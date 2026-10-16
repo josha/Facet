@@ -15,6 +15,74 @@ return function(verifyHarness: Verify.Harness)
 	local overlay = require("./lib/overlay_world")
 	local Vector2 = require("./lib/native_engine").types.Vector2
 
+	verifyHarness:case("uses native core safe insets without fullscreen content expansion", {
+		id = "native_presentation_motion::native app safe screen defaults",
+		run = function()
+			local world = require("../bench/native_app")()
+			local app = Facet.app({ runtime = world.runtime, types = world.types, parent = world.target })
+			local stop, screen = app.mount(function()
+				return app.UI.NavigationStack {
+					path = Compose.cell({}),
+					root = {
+						content = function()
+							return app.UI.Text { text = "Home" }
+						end,
+					},
+					destinations = {},
+				}
+			end)
+			Verify.expect(screen.ScreenInsets):toBe(world.types.Enum.ScreenInsets.CoreUISafeInsets)
+			Verify.expect(screen.SafeAreaCompatibility):toBe(world.types.Enum.SafeAreaCompatibility.None)
+			stop()
+			app.dispose()
+			world.dispose()
+		end,
+	})
+
+	verifyHarness:case("keeps modal input safe while scrim paint covers core UI and cutouts", {
+		id = "native_presentation_motion::safe modal input and fullscreen paint",
+		run = function()
+			for _, top in { 58, 106 } do
+				local w = overlay.new(function(UI, _, engine, gui)
+					local T = engine.types
+					gui.TopbarInset = T.Rect.new(164, 0, 800, top)
+					gui.GetGuiInset = function()
+						return T.Vector2.new(0, top), T.Vector2.new(0, 34)
+					end
+					gui.GetInsetArea = function(_, inset)
+						return if inset == T.Enum.ScreenInsets.None
+							then T.Rect.new(0, 0, 800, 844)
+							else T.Rect.new(0, top, 800, 810)
+					end
+					return UI.Composition {
+						UI.Region {
+							zone = "center",
+							rank = 1,
+							UI.Sheet {
+								isPresented = Compose.cell(true),
+								title = "Shop",
+								content = function()
+									return UI.Text { text = "Coins" }
+								end,
+							},
+						},
+					}
+				end, { motionLevel = "none" })
+				w.screen.ScreenInsets = w.Enum.ScreenInsets.CoreUISafeInsets
+				w.advance(0.1)
+				local catcher, scrim = w.find("DismissTarget"), w.find("Scrim")
+				Verify.expect(catcher.Position):toBe(w.engine.types.UDim2.new())
+				Verify.expect(catcher.Size):toBe(w.engine.types.UDim2.fromScale(1, 1))
+				Verify.expect(catcher.BackgroundTransparency):toBe(1)
+				Verify.expect(scrim:IsA("GuiButton")):toBe(false)
+				Verify.expect(scrim.Active):toBe(false)
+				Verify.expect(scrim.Position.Y.Offset):toBe(-top)
+				Verify.expect(scrim.Size.Y.Offset):toBe(top + 34)
+				w.stop()
+			end
+		end,
+	})
+
 	verifyHarness:suite("native fade ownership", function()
 		verifyHarness:case("collects late Picker paint after the parent assignment finishes", {
 			id = "native_presentation_motion::native fade ownership::collects late Picker paint after the parent assignment finishes",
@@ -112,7 +180,7 @@ return function(verifyHarness: Verify.Harness)
 					w.find("Open").Activated:Fire()
 					local surface = w.find("CalendarSurface")
 					local function scrimOpacity(): number
-						return (1 - w.find("DismissOutside").BackgroundTransparency) / 0.5
+						return (1 - w.find("Scrim").BackgroundTransparency) / 0.5
 					end
 					Verify.expect(fadeKit.of(surface)):toBe(1)
 					Verify.expect(scrimOpacity()):toBe(0)
@@ -137,7 +205,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(last):toBe(0)
 					Verify.expect(intermediate):toBe(level ~= "none")
 					Verify.expect(w.find("CalendarScroll").AutomaticCanvasSize):toBe(w.Enum.AutomaticSize.Y)
-					w.find("DismissOutside").Activated:Fire()
+					w.find("DismissTarget").Activated:Fire()
 					Verify.expect(w.find("Session"):GetAttribute("presented")):toBe(false)
 					w.advance(1, 60)
 					Verify.expect(w.find("CalendarSurface")):toBe(nil)
@@ -401,7 +469,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((plate:HasTag("facet-panel"))):toBe(true)
 					Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
 					Verify.expect(plate.Position):toBe(w.engine.types.UDim2.fromOffset(800 - 8 - 360, 600 - 8 - 200))
-					local backdrop = w.find("DismissOutside")
+					local backdrop = w.find("Scrim")
 					Verify.expect(backdrop.BackgroundTransparency):toBe(1)
 					Verify.expect((backdrop:HasTag("facet-scrim"))):toBe(false)
 					Verify.expect(trigger:FindFirstChildWhichIsA("UICorner", true) ~= nil):toBe(true)
@@ -416,7 +484,7 @@ return function(verifyHarness: Verify.Harness)
 				local w, expanded = tipsWorld({ motionLevel = "none" })
 				local trigger = w.find("Tips")
 				trigger.Activated:Fire()
-				w.find("DismissOutside").Activated:Fire()
+				w.find("DismissTarget").Activated:Fire()
 				Verify.expect((expanded:peek())):toBe(false)
 				Verify.expect((w.find("Expanded"))):toBeNil()
 				Verify.expect(w.gui.SelectedObject):toBe(trigger)
@@ -442,7 +510,7 @@ return function(verifyHarness: Verify.Harness)
 					local plate = w.find("Expanded")
 					plate.AbsolutePosition = w.Vector2.new(100, 100)
 					plate.AbsoluteSize = w.Vector2.new(360, 200)
-					local catcher = w.find("DismissOutside")
+					local catcher = w.find("DismissTarget")
 					catcher.Activated:Fire({
 						UserInputType = w.engine.types.Enum.UserInputType[kind],
 						Position = w.Vector2.new(450, 150),
@@ -464,7 +532,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, value in { false, Compose.cell(false) } :: { boolean | Compose.Cell<boolean> } do
 					local w, expanded = tipsWorld({ motionLevel = "none" }, value)
 					local function outside()
-						w.find("DismissOutside").Activated:Fire({
+						w.find("DismissTarget").Activated:Fire({
 							UserInputType = w.Enum.UserInputType.MouseButton1,
 							Position = w.Vector2.new(10000, 10000),
 						})
@@ -983,13 +1051,13 @@ return function(verifyHarness: Verify.Harness)
 				w.size(w.find("MenuRows"), 350, 124)
 				w.advance(1, 60)
 				w.find("Commands").Interactable = false
-				w.find("DismissOutside").Activated:Fire()
+				w.find("DismissTarget").Activated:Fire()
 				Verify.expect(panel:isDestroyed()):toBe(false)
 				local previous = panel.Position.Y.Offset
 				w.advance(0.05, 3)
 				Verify.expect(panel:isDestroyed()):toBe(false)
 				Verify.expect(panel.Position.Y.Offset > previous):toBe(true)
-				Verify.expect(w.find("DismissOutside").BackgroundTransparency > 0.5):toBe(true)
+				Verify.expect(w.find("Scrim").BackgroundTransparency > 0.5):toBe(true)
 				w.advance(0.3, 18)
 				Verify.expect(panel:isDestroyed()):toBe(true)
 				w.stop()
@@ -1016,7 +1084,7 @@ return function(verifyHarness: Verify.Harness)
 				w.size(panel, 366, 140)
 				w.advance(1, 60)
 				Verify.expect(layer.ClipsDescendants):toBe(true)
-				w.find("DismissOutside").Activated:Fire()
+				w.find("DismissTarget").Activated:Fire()
 				local resting = panel.Position.Y.Offset
 				w.advance(0.05, 3)
 				Verify.expect(panel.Position.Y.Offset > resting):toBe(true)
