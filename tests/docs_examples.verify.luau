@@ -22,6 +22,10 @@ return function(harness: Verify.Harness)
 			local parent = engine.new("Folder")
 			local createRuntime = (Facet.Roblox.createRuntime :: unknown) :: (unknown) -> Runtime
 			local runtime = createRuntime(engine)
+			local storage = engine.new("Folder")
+			local purchase = engine.new("RemoteFunction")
+			purchase.Name = "Purchase"
+			purchase.Parent = storage
 			local app = Facet.app({ runtime = runtime, types = engine.types, parent = parent, motionLevel = "none" })
 			local code = assert(string.match(item.body, "```luau\n(.-)\n```"), item.path)
 			local environment: { [string]: unknown } = {
@@ -33,6 +37,7 @@ return function(harness: Verify.Harness)
 				Color3 = engine.types.Color3,
 				Enum = engine.types.Enum,
 				UDim2 = engine.types.UDim2,
+				game = { ReplicatedStorage = storage },
 			}
 			local ok, failure = pcall(function()
 				if item.kind == "card" then

@@ -4144,9 +4144,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 		},
 		make = function(UI: FacetControls, p: Properties): Instance
-			local rows: Properties = { Name = "Sidebar", gap = "xs", width = 140 }
+			local rows: Properties = { Name = "Sidebar", gap = "xs", width = 140, align = "stretch" }
 			for index = 1, 4 do
-				table.insert(rows, UI.Button({ Name = `Row {index}`, label = `Row {index}`, width = "fill" }))
+				table.insert(rows, UI.Button({ Name = `Row {index}`, label = `Row {index}` }))
 			end
 			local sidebar = UI.VStack(rows)
 			UI.focusSection(sidebar, {

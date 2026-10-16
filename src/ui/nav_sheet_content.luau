@@ -30,6 +30,7 @@ return function(
 		local pad, standing, hugHeight, tallest = gesture.pad, gesture.standing, gesture.hugHeight, gesture.tallest
 		local regions: { GuiObject } = {}
 		local plaqued = Compose.cell(false)
+		local actionRegion: Frame? = nil
 		local hero = spec.hero
 		local sticky = hero ~= nil and hero.sticky == true
 		local overHero = spec.header == false and hero ~= nil
@@ -226,6 +227,8 @@ return function(
 			ScrollingDirection = E.ScrollingDirection.Y,
 			ScrollBarThickness = 6,
 			ClipsDescendants = true,
+			Selectable = false,
+			SelectionGroup = false,
 			flex :: Instance,
 		}
 		local body = parts.scroller(ctx, bodyProps, bodyChildren, { name = "SheetFlow" })
@@ -243,6 +246,7 @@ return function(
 			local previousUp: GuiObject? = nil
 			local function linkContent()
 				local nextEntry = surfaces.firstSelectable(body)
+					or (if actionRegion then surfaces.firstSelectable(actionRegion) else nil)
 				if nextEntry == command then
 					nextEntry = surfaces.firstSelectable(content)
 				end
@@ -284,12 +288,18 @@ return function(
 		end)
 		local actions = spec.actions or {}
 		if #actions > 0 then
-			table.insert(
-				regions,
-				parts.actions(ctx, UI, actions, spec.actionLayout, function(use: ComposeTypes.Use)
-					return math.max(0, use(panelWidth) - pad("left", use) - pad("right", use))
-				end, press).frame
-			)
+			local region = parts.actions(ctx, UI, actions, spec.actionLayout, function(use: ComposeTypes.Use)
+				return math.max(0, use(panelWidth) - pad("left", use) - pad("right", use))
+			end, press).frame
+			actionRegion = region
+			table.insert(regions, region)
+			if closeCommand and surfaces.firstSelectable(body) == nil then
+				local target = surfaces.firstSelectable(region)
+				if target then
+					closeCommand.NextSelectionDown = target
+					target.NextSelectionUp = closeCommand
+				end
+			end
 		end
 		local contentSize = ctx.observe.AbsoluteContentSize(bodyLayout)
 		local extra = if hero == nil or sticky then inset * 2 else 0

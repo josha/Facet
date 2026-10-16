@@ -233,7 +233,7 @@ return function(harness: Verify.Harness)
 		t:expect(table.find(hud.children, "Tasks.shop") ~= nil):toBe(true)
 		t:expect(table.find(hud.children, "Tasks.sheet") ~= nil):toBe(true)
 		local shop = assert(Index.find(nodes, "Tasks.shop"))
-		for _, name in { "UI.Sheet", "UI.VirtualList", "owned", "applyResult", "feedback", "onActivate" } do
+		for _, name in { "UI.Sheet", "C.keyed", "owned", "No items.", "Coins", "selected=filter", "onActivate" } do
 			t:expect(string.find(shop.body, name, 1, true) ~= nil):toBe(true)
 		end
 	end)

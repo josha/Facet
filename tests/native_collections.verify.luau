@@ -458,6 +458,73 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 	verifyHarness:suite("collection first layout", function()
+		verifyHarness:case("reserves the native automatic button height in a list row", {
+			id = "native_collections::automatic-button-extent",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local Host = (runtime.constructors :: unknown) :: FixtureEngineTypes.Host
+				local controls: FixtureComposeTypes.OrderedCollectionControls<string> = {}
+				local spec: FixtureCollectionProps.KeyedCollectionSpec<string, string> = {
+					from = { "all", "motors" },
+					key = function(item)
+						return item
+					end,
+					itemSize = 48,
+					mode = "all",
+					controls = controls,
+					render = function()
+						return Host.TextButton "Category" { AutomaticSize = engine.types.Enum.AutomaticSize.XY }
+					end,
+				}
+				local stop, node = runtime.mount(function()
+					return UI.VirtualList(spec)
+				end, target)
+				local button = assert((node :: Instance):FindFirstChild("Category", true))
+				local geometry = (button :: unknown) :: { AbsoluteSize: Vector2 }
+				geometry.AbsoluteSize = engine.types.Vector2.new(90, 66)
+				Verify.expect(assert(controls.placementOf)(2).offset):toBe(66)
+				stop()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("grows automatic list layouts past the estimate without shrinking fixed rows", {
+			id = "native_collections::automatic-row-extent",
+			run = function()
+				for _, measure in { "default", "fixed" } do
+					local engine, runtime, UI, target = setup()
+					local Host = (runtime.constructors :: unknown) :: FixtureEngineTypes.Host
+					local controls: FixtureComposeTypes.OrderedCollectionControls<string> = {}
+					local spec: FixtureCollectionProps.KeyedCollectionSpec<string, string> = {
+						from = { "one", "two" },
+						key = function(item)
+							return item
+						end,
+						itemSize = 64,
+						mode = "all",
+						controls = controls,
+						measure = if measure == "fixed" then false else nil,
+						render = function()
+							return Host.Frame "Row" {
+								Size = engine.types.UDim2.new(1, 0, 0, 0),
+								AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+								Host.UIListLayout {},
+							}
+						end,
+					}
+					local stop, node = runtime.mount(function()
+						return UI.VirtualList(spec)
+					end, target)
+					local row = assert((node :: Instance):FindFirstChild("Row", true)) :: GuiObject
+					local geometry = (row :: unknown) :: { AbsoluteSize: Vector2 }
+					geometry.AbsoluteSize = engine.types.Vector2.new(300, 140)
+					Verify.expect(assert(controls.placementOf)(2).offset):toBe(if measure == "fixed" then 64 else 140)
+					geometry.AbsoluteSize = engine.types.Vector2.new(300, 32)
+					Verify.expect(assert(controls.placementOf)(2).offset):toBe(64)
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
 		verifyHarness:case("paints complete rows on the first layout of an ordinary grid list table branch", {
 			id = "native_collections::collection first layout::paints complete rows on the first layout of an ordinary grid list table branch",
 			run = function()

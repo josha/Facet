@@ -417,6 +417,9 @@ return function(ctx: Shared.Context): Selection
 		local pending = false
 		local function recover(): ()
 			pending = false
+			if #ctx.modalScopes:peek() > 0 then
+				return
+			end
 			local current = service.SelectedObject
 			if current and shown(current) then
 				return

@@ -40,6 +40,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			ancestryOwner = nextOwner
 			Compose.withOwner(nextOwner, function()
 				local sources: { ComposeTypes.Readable<boolean> } = {}
+				local inputs: { [ComposeTypes.Readable<boolean>]: GuiObject } = {}
 				local at: Instance? = anchor
 				local attached = false
 				while at do
@@ -47,7 +48,10 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 						if at ~= anchor or anchor:GetAttribute("FacetOverlayPlaceholder") ~= true then
 							table.insert(sources, ctx.observe.Visible(at))
 						end
-						table.insert(sources, ctx.observe.Interactable(at))
+						local node = at
+						local interactive = ctx.observe.Interactable(node)
+						table.insert(sources, interactive)
+						inputs[interactive] = node
 					end
 					if at:IsA("LayerCollector") then
 						attached = true
@@ -59,7 +63,10 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 				Compose.watch(function(use: ComposeTypes.Use)
 					local enabled = attached
 					for _, source in sources do
-						if not use(source) then
+						local current = use(source)
+						local node = inputs[source]
+						local held = if node then node:GetAttribute("FacetModalInteractable") else nil
+						if not (if type(held) == "boolean" then held else current) then
 							enabled = false
 						end
 					end
