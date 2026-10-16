@@ -85,7 +85,7 @@ return function(
 			return if index then use(heights[index]).Y / use(unit) else 0
 		end
 		local function tech(use: Use): number
-			return if overlay then 6 * state.cellSize(use) + 5 * GAP else active(use)
+			return if overlay and #modes > 1 then 6 * state.cellSize(use) + 5 * GAP else active(use)
 		end
 		local extent = runtime.observe(techniqueNode, "AbsoluteSize") :: ComposeTypes.Readable<Vector2>
 		Compose.watch(function(use: Use)

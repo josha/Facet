@@ -22,11 +22,11 @@ The panel holds these parts in order:
    more modes.
 2. `Body`: the `Technique` frame. Each technique mounts on its first
    visit. Each mounted technique stays mounted until the panel closes. The
-   inactive techniques are not visible. An overlay reserves six rows of colour
-   cells, including the gaps, and shrinks to the available room. This keeps
+   inactive techniques are not visible. An overlay with multiple modes reserves
+   six rows of colour cells, including the gaps, and shrinks to the available room. This keeps
    its body height stable when the mode changes without constructing hidden
-   controls. Inline content follows the active technique's height. The native
-   scroll canvas follows only the active technique, so hidden content does not
+   controls. Inline content and single-mode overlays follow the active technique's
+   height. The native scroll canvas follows only the active technique, so hidden content does not
    add empty scrolling space. The swatch and brick
    grids are centred in the panel.
 3. `Opacity`: present only with `alpha`.

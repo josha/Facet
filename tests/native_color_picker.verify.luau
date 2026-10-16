@@ -387,6 +387,21 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a single mode keeps its natural height without reserving unused tabs", {
+			id = "native_color_picker::native ColorPicker well and panel::a single mode keeps its natural height without reserving unused tabs",
+			run = function()
+				local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+				local w = world({ value = cell, onChange = change, modes = { "sliders" } })
+				w.size(w.screen, 900, 900)
+				w.size(w.find("Well"), 44, 44)
+				w.open()
+				w.size(w.find("ShowSliders"), 380, 148)
+				expect(w.find("Modes")):toBe(nil)
+				expect(w.find("Body").Size.Y.Offset):toBe(148)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case(
 			"an accepted swatch commits once, marks the cell, and the swatch grid lays out rows of eight",
 			{
