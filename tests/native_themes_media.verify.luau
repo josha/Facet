@@ -479,6 +479,29 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
+		verifyHarness:case("calendar scroll padding reserves only the panel artwork", {
+			id = "native_themes_media::native themes and media::calendar scroll padding reserves only the panel artwork",
+			run = function()
+				local engine, runtime = setup()
+				for _, inset in { 0, 24 } do
+					local package = themes.neutralPackage()
+					package.chrome =
+						{ panel = { contentInsets = { left = inset, right = inset, top = inset, bottom = inset } } }
+					local stop, sheet = runtime.mount(function()
+						return themes.createStyleSheet(runtime, package, { types = engine.types })
+					end, engine.new("Folder"))
+					for _, side in { "Left", "Right", "Top", "Bottom" } do
+						Verify.expect(
+							(
+								style(sheet :: StyleSheet, ".facet-panel.facet-calendar-scroll::UIPadding")["Padding" .. side] :: UDim
+							).Offset
+						):toBe(inset)
+					end
+					stop()
+				end
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("pins artwork and captions to the observed automatic layout origin", {
 			id = "native_themes_media::native themes and media::pins artwork and captions to the observed automatic layout origin",
 			run = function()
