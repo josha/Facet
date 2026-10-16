@@ -232,22 +232,36 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			AutoButtonColor = false,
 		}
 		local authored = spec.Size
+		local function widthSet(size: UDim2): boolean
+			return size.X.Scale > 0 or size.X.Offset > 0
+		end
+		local liveWidth = spec.AutomaticSize == nil and dynamic(authored)
 		local bounded = (
 			spec.AutomaticSize == E.AutomaticSize.None
 			or spec.AutomaticSize == E.AutomaticSize.Y
-			or (
-				spec.AutomaticSize == nil
-				and typeof(authored) == "UDim2"
-				and ((authored :: UDim2).X.Scale > 0 or (authored :: UDim2).X.Offset > 0)
-			)
+			or liveWidth
+			or (spec.AutomaticSize == nil and typeof(authored) == "UDim2" and widthSet(authored :: UDim2))
 		)
 			and spec.image == nil
 			and spec.row == nil
 		if bounded and spec.AutomaticSize == nil then
-			defaults.AutomaticSize = E.AutomaticSize.Y
-			if not rich then
-				defaults.TextWrapped = spec.disclose ~= true
-					and (spec.TextTruncate == nil or spec.TextTruncate == E.TextTruncate.None)
+			local wraps = not rich
+				and spec.disclose ~= true
+				and (spec.TextTruncate == nil or spec.TextTruncate == E.TextTruncate.None)
+			if liveWidth then
+				defaults.AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
+					return if widthSet(read(authored, use) :: UDim2) then E.AutomaticSize.Y else E.AutomaticSize.XY
+				end
+				if wraps then
+					defaults.TextWrapped = function(use: ComposeTypes.Use): boolean
+						return widthSet(read(authored, use) :: UDim2)
+					end
+				end
+			else
+				defaults.AutomaticSize = E.AutomaticSize.Y
+				if not rich then
+					defaults.TextWrapped = wraps
+				end
 			end
 		end
 		if enabledProperty ~= true then

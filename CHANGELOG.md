@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- A Button whose `Size` is reactive now keeps the width that `Size` gives it.
+  Before, only a fixed `UDim2` counted as a set width, so a computed width
+  left `AutomaticSize` at `XY` and a long label grew the button past it. Three
+  cards sized to a third of a portrait phone ran off both edges. Now
+  `AutomaticSize` follows the live width: `Y` while it is set, `XY` while it is
+  zero. The caption wraps the same way.
 - `UI.environment().scaled(value, relativeTo)` takes an optional type role.
   The length then also grows with the player's text size, by the same factor
   as text of that role, as SwiftUI's `@ScaledMetric(relativeTo:)` does. A

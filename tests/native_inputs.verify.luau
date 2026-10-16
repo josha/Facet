@@ -1738,6 +1738,48 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("bounds a button to a reactive authored width", {
+			id = "native_inputs::native input controls::bounds a button to a reactive authored width",
+			run = function()
+				local width = Compose.cell(103)
+				local node, stop, engine = world(function(UI: FacetControls, host)
+					return UI.Button({
+						label = "Boost Board",
+						Size = function(use)
+							return host.types.UDim2.fromOffset(use(width), 0)
+						end,
+					})
+				end)
+				Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				Verify.expect(node.TextWrapped):toBe(true)
+				Verify.expect(node.Size.X.Offset):toBe(103)
+				width:set(0)
+				Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.XY)
+				Verify.expect(node.TextWrapped):toBe(false)
+				width:set(120)
+				Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("bounds a described button to a reactive authored width", {
+			id = "native_inputs::native input controls::bounds a described button to a reactive authored width",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls, host)
+					return UI.Button({
+						label = "Boost Board",
+						subtitle = "2 energy",
+						Size = function()
+							return host.types.UDim2.fromOffset(103, 0)
+						end,
+					})
+				end)
+				Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				Verify.expect(node.Size.X.Offset):toBe(103)
+				stop()
+			end,
+		})
+
 		verifyHarness:case("gives native dialog contexts ordered sink priority and live eligibility", {
 			id = "native_inputs::native input controls::gives native dialog contexts ordered sink priority and live eligibility",
 			run = function()
