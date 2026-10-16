@@ -6,15 +6,17 @@ local Track = require(game:GetService("ReplicatedStorage").Shared.RaceTrack)
 local Rules = require(game:GetService("ReplicatedStorage").Shared.RaceRules)
 local Round = require(game:GetService("ReplicatedStorage").Shared.Hub.Round)
 local Kart = require(script.Parent.Kart)
+local Opponents = require(game:GetService("ReplicatedStorage").Shared.Opponents)
 
 type Racer = {
 	name: string,
+	brain: Opponents.Driver,
+	bumpedAt: number,
 	bestLap: number?,
 	lapStarted: number,
 	kart: Kart.Kart,
 	player: Player?,
 	progress: number,
-	startProgress: number,
 	checkpoint: number,
 	lap: number,
 	finish: number,
@@ -30,6 +32,7 @@ local manual = false
 local startedAt = 0
 local elapsed = 0
 local accumulator = 0
+local simulationTime = 0
 local measuredSeconds = 0
 local measuredSteps = 0
 local measuredCost = 0
@@ -47,10 +50,27 @@ local palette = {
 	Color3.fromRGB(235, 225, 110),
 }
 
+local function bump(racer: Racer, other: Racer)
+	local root = other.kart.model.PrimaryPart
+	local body = racer.kart.model.PrimaryPart
+	if not active or manual or not other.player or not root or not body or elapsed - other.bumpedAt <= 0.7 then
+		return
+	end
+	other.bumpedAt = elapsed
+	racer.brain.speed *= 0.5
+	local offset = body.CFrame:PointToObjectSpace(root.Position)
+	local side = if offset.X >= 0 then 1 else -1
+	local velocity = root.AssemblyLinearVelocity
+	local impulse = body.CFrame.RightVector * side * 5 - Vector3.new(velocity.X, 0, velocity.Z) * 0.25
+	root:ApplyImpulse(impulse * root.AssemblyMass)
+	root:SetAttribute("BumpUntil", workspace:GetServerTimeNow() + 0.6)
+end
+
 local function markOut(name: string)
 	for _, racer in racers do
 		if racer.name == name then
 			racer.out = true
+			racer.brain.controlled = false
 			racer.kart.model:SetAttribute("StoppedProgress", racer.progress)
 			for _, object in racer.kart.model:GetDescendants() do
 				if object:IsA("BasePart") then
@@ -96,13 +116,16 @@ local function start(entries: { Round.Racer }, scenario: boolean, onComplete: ()
 	elapsed = 0
 	startedAt = workspace:GetServerTimeNow()
 	accumulator = 0
+	simulationTime = 0
 	reseatAt = 0
 	table.clear(names)
 	for index, entry in entries do
 		local player = Players:FindFirstChild(entry.name)
 		local driver = if player and player:IsA("Player") then player else nil
-		local lane = if index % 2 == 0 then -5 else 5
-		local progress = 0.05 - math.floor((index - 1) / 2) * 0.012
+		local brain = Opponents.create(index, Track.seed)
+		brain.controlled = driver == nil or manual
+		local lane = brain.lane
+		local progress = brain.progress
 		local kart = Kart.create(
 			entry.name .. "Kart",
 			palette[(index - 1) % #palette + 1],
@@ -111,27 +134,36 @@ local function start(entries: { Round.Racer }, scenario: boolean, onComplete: ()
 		)
 		local racer: Racer = {
 			name = entry.name,
+			brain = brain,
+			bumpedAt = -1,
 			bestLap = nil,
 			lapStarted = 0,
 			kart = kart,
 			player = driver,
 			progress = progress,
-			startProgress = progress,
 			checkpoint = 0,
 			lap = 0,
 			finish = math.huge,
-			speed = 0.047 + index * 0.0007,
+			speed = brain.pace,
 			lane = lane,
 			out = false,
 		}
 		if driver == nil or manual then
-			kart.model:SetAttribute("RaceStart", startedAt)
-			kart.model:SetAttribute("StartProgress", progress)
-			kart.model:SetAttribute("RaceSpeed", racer.speed)
-			kart.model:SetAttribute("RaceLane", lane)
+			kart.model:SetAttribute("RaceEpoch", startedAt)
+			kart.model:SetAttribute("Motion", Vector3.new(progress, lane, 0))
 		end
 		table.insert(racers, racer)
 		table.insert(ordered, racer)
+		local body = kart.model.PrimaryPart
+		if not driver and body then
+			body.Touched:Connect(function(hit: BasePart)
+				for _, other in racers do
+					if other.player and hit:IsDescendantOf(other.kart.model) then
+						bump(racer, other)
+					end
+				end
+			end)
+		end
 		if driver then
 			driver:SetAttribute("Racing", true)
 			driver:SetAttribute("RaceAutopilot", manual)
@@ -162,14 +194,52 @@ RunService.Heartbeat:Connect(function(dt: number)
 		return
 	end
 	accumulator += dt
-	if accumulator < 1 / 30 then
+	if accumulator < Opponents.step then
 		return
 	end
 	debug.profilebegin("SunfieldRaceStep")
 	local stepStarted = os.clock()
 	measuredSeconds += accumulator
 	elapsed = workspace:GetServerTimeNow() - startedAt
-	accumulator = 0
+	local field: { Opponents.Driver } = {}
+	for _, racer in racers do
+		local brain = racer.brain
+		brain.controlled = (racer.player == nil or manual) and not racer.out
+		local root = racer.kart.model.PrimaryPart
+		if not brain.controlled and root then
+			local t = Track.progress(root.Position)
+			brain.progress = t
+			brain.lane = Track.frame(t):PointToObjectSpace(root.Position).X
+			brain.targetLane = brain.lane
+			local frame = Track.frame(t)
+			brain.halfWidth = math.abs(frame.RightVector:Dot(root.CFrame.RightVector)) * root.Size.X / 2
+				+ math.abs(frame.RightVector:Dot(root.CFrame.LookVector)) * root.Size.Z / 2
+				+ 0.25
+		end
+		table.insert(field, brain)
+	end
+	while accumulator >= Opponents.step do
+		simulationTime += Opponents.step
+		Opponents.stepField(field, Opponents.step, simulationTime)
+		accumulator -= Opponents.step
+	end
+	for _, racer in racers do
+		if racer.brain.controlled then
+			local brain = racer.brain
+			racer.kart.model:PivotTo(Track.frame(brain.progress, brain.lane) * CFrame.new(0, 1, 0))
+			racer.kart.model:SetAttribute("Motion", Vector3.new(brain.progress, brain.lane, simulationTime))
+			for _, other in racers do
+				local root = other.kart.model.PrimaryPart
+				local body = racer.kart.model.PrimaryPart
+				if other.player and not manual and root and body and elapsed - other.bumpedAt > 0.7 then
+					local offset = body.CFrame:PointToObjectSpace(root.Position)
+					if math.abs(offset.X) < 7.7 and math.abs(offset.Z) < 7.2 and math.abs(offset.Y) < 3 then
+						bump(racer, other)
+					end
+				end
+			end
+		end
+	end
 	local reseat = elapsed >= reseatAt
 	if reseat then
 		reseatAt = elapsed + 0.5
@@ -191,15 +261,16 @@ RunService.Heartbeat:Connect(function(dt: number)
 			end
 		end
 		if racer.player == nil or manual then
-			racer.progress = math.min(Track.laps, elapsed * racer.speed + racer.startProgress)
+			racer.progress = math.min(Track.laps, racer.brain.progress)
+			racer.lane = racer.brain.lane
 			local previousLap = racer.lap
 			local lap = math.floor(racer.progress)
 			racer.lap = lap
 			racer.checkpoint = math.floor(racer.progress % 1 * Track.checkpoints)
 			if lap > previousLap then
-				local lapTime = (lap - racer.startProgress) / racer.speed - racer.lapStarted
+				local lapTime = elapsed - racer.lapStarted
 				racer.bestLap = math.min(racer.bestLap or math.huge, lapTime)
-				racer.lapStarted = (lap - racer.startProgress) / racer.speed
+				racer.lapStarted = elapsed
 			end
 		else
 			local root = racer.kart.model.PrimaryPart
@@ -216,9 +287,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 			end
 		end
 		if racer.progress >= Track.laps and racer.finish == math.huge then
-			racer.finish = if racer.player == nil or manual
-				then (Track.laps - racer.startProgress) / racer.speed
-				else elapsed
+			racer.finish = elapsed
 		end
 		if racer.finish ~= math.huge then
 			finished += 1

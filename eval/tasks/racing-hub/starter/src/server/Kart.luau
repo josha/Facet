@@ -2,6 +2,13 @@
 
 export type Kart = { model: Model, seat: VehicleSeat }
 local Kart = {}
+local PhysicsService = game:GetService("PhysicsService")
+for _, group in { "RaceBody", "RaceWheel" } do
+	if not PhysicsService:IsCollisionGroupRegistered(group) then
+		PhysicsService:RegisterCollisionGroup(group)
+	end
+end
+PhysicsService:CollisionGroupSetCollidable("RaceBody", "RaceWheel", false)
 
 function Kart.create(name: string, color: Color3, frame: CFrame, kinematic: boolean): Kart
 	local model = Instance.new("Model")
@@ -19,13 +26,14 @@ function Kart.create(name: string, color: Color3, frame: CFrame, kinematic: bool
 			end
 		end
 		object.Anchored = kinematic
-		object.CanCollide = not kinematic
+		object.CanCollide = label == "Chassis" or (not kinematic and label == "Wheel")
+		object.CollisionGroup = if label == "Wheel" then "RaceWheel" else "RaceBody"
 		object.TopSurface = Enum.SurfaceType.Smooth
 		object.BottomSurface = Enum.SurfaceType.Smooth
 		object.Parent = model
 		return object
 	end
-	local body = part("Chassis", Vector3.new(5, 0.7, 7), CFrame.new(0, 1, 0), color)
+	local body = part("Chassis", Vector3.new(7.6, 0.7, 7), CFrame.new(0, 1, 0), color)
 	body.RootPriority = 127
 	body.CustomPhysicalProperties = PhysicalProperties.new(1, 0.15, 0, 100, 100)
 	model.PrimaryPart = body

@@ -1,0 +1,51 @@
+# Themes.pixel_quest.assets.3
+
+Resolved assets tokens.
+
+| Token | Value |
+| --- | --- |
+| `assets.pixel_plate_selected.content` | `rbxassetid://140498947277552` |
+| `assets.pixel_plate_selected.fallback` | `native` |
+| `assets.pixel_plate_selected.preload` | `install` |
+| `assets.pixel_plate_selected.sliceCenter.x0` | `16` |
+| `assets.pixel_plate_selected.sliceCenter.x1` | `20` |
+| `assets.pixel_plate_selected.sliceCenter.y0` | `16` |
+| `assets.pixel_plate_selected.sliceCenter.y1` | `20` |
+| `assets.pixel_plate_selected.sliceScale` | `1` |
+| `assets.pixel_stepper_plate_default.content` | `rbxassetid://115416309466713` |
+| `assets.pixel_stepper_plate_default.fallback` | `native` |
+| `assets.pixel_stepper_plate_default.preload` | `install` |
+| `assets.pixel_stepper_plate_default.sliceCenter.x0` | `12` |
+| `assets.pixel_stepper_plate_default.sliceCenter.x1` | `16` |
+| `assets.pixel_stepper_plate_default.sliceCenter.y0` | `12` |
+| `assets.pixel_stepper_plate_default.sliceCenter.y1` | `16` |
+| `assets.pixel_stepper_plate_default.sliceScale` | `1` |
+| `assets.pixel_stepper_plate_pressed.content` | `rbxassetid://73383523712450` |
+| `assets.pixel_stepper_plate_pressed.fallback` | `native` |
+| `assets.pixel_stepper_plate_pressed.preload` | `install` |
+| `assets.pixel_stepper_plate_pressed.sliceCenter.x0` | `12` |
+| `assets.pixel_stepper_plate_pressed.sliceCenter.x1` | `16` |
+| `assets.pixel_stepper_plate_pressed.sliceCenter.y0` | `12` |
+| `assets.pixel_stepper_plate_pressed.sliceCenter.y1` | `16` |
+| `assets.pixel_stepper_plate_pressed.sliceScale` | `1` |
+| `assets.pixel_toggle_knob.content` | `rbxassetid://134826235649025` |
+| `assets.pixel_toggle_knob.fallback` | `native` |
+| `assets.pixel_toggle_knob.preload` | `install` |
+| `assets.pixel_toggle_track_off.content` | `rbxassetid://82727713033159` |
+| `assets.pixel_toggle_track_off.fallback` | `native` |
+| `assets.pixel_toggle_track_off.preload` | `install` |
+| `assets.pixel_toggle_track_off.sliceCenter.x0` | `12` |
+| `assets.pixel_toggle_track_off.sliceCenter.x1` | `16` |
+| `assets.pixel_toggle_track_off.sliceCenter.y0` | `12` |
+| `assets.pixel_toggle_track_off.sliceCenter.y1` | `20` |
+| `assets.pixel_toggle_track_off.sliceScale` | `1` |
+| `assets.pixel_toggle_track_on.content` | `rbxassetid://94324416211669` |
+| `assets.pixel_toggle_track_on.fallback` | `native` |
+| `assets.pixel_toggle_track_on.preload` | `install` |
+| `assets.pixel_toggle_track_on.sliceCenter.x0` | `12` |
+| `assets.pixel_toggle_track_on.sliceCenter.x1` | `16` |
+| `assets.pixel_toggle_track_on.sliceCenter.y0` | `12` |
+| `assets.pixel_toggle_track_on.sliceCenter.y1` | `20` |
+| `assets.pixel_toggle_track_on.sliceScale` | `1` |
+| `assets.search.content` | `rbxassetid://85188541706347` |
+| `assets.search.tintRole` | `content` |

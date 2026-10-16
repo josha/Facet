@@ -198,7 +198,7 @@ floor is the bottom of. Every glyph a control draws now comes from that one tabl
 
 ## P1d — eleven common glyphs (2026-09-18)
 
-The owner ruled a SMALL common set for the next controls (Notice/Badge/Snackbar,
+The set for the next controls is a small common set (Notice/Badge/Snackbar,
 DateTimePicker, Vote, Avatar, Pagination) — continuing this set, not parity with
 any reference design system's image catalog, and no art borrowed from one. Same
 generator, same style, same manifest, same resolver. Three families:

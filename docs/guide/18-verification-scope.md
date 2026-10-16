@@ -1,17 +1,12 @@
 # Verification scope
 
-The current suite is the evidence. It does not claim to equal the tests that
-existed before the native cutover. A passing run covers the cases and producers
+The current suite is the evidence. A passing run proves only the selected cases. A passing run covers the cases and producers
 that the runner selected. A focused run is not full evidence. Do not infer a
 performance improvement from a shorter verification time.
 
 ## Headless evidence
 
-The test cleanup keeps recent regression cases in the control specs.
-Historical mirror specs, repeated mount checks and usage inventories are
-removed. Input, layout and resource cleanup cases remain. Test counts do
-not measure coverage. Read the assertions and the result for the selected
-build.
+The control specs check input, layout policy, and resource cleanup. Test counts do not measure coverage. Read the assertions and results for the selected build.
 
 `tests/plan.json` lists the executable spec sources. The Verify gate runs the
 cases that these sources register. Reports record each case result and the

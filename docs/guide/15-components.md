@@ -55,7 +55,7 @@ end
 For an input value control, you can omit the change callback. The control then
 writes a writable cell. If you supply a callback, update the model in it to
 accept the request. Navigation controls have their own write-then-notify
-contracts. See the [API reference](../reference/api.md#menus-and-navigation).
+contracts. See the [API reference](../reference/nodes/Menus-and-navigation.md).
 
 ## Branches and keyed children
 
@@ -82,8 +82,8 @@ reordering or focus, use `Compose.keyed` with `from`, a key function and
 An existing key can receive a replacement item.
 
 For interactive data collections, including short editable lists, use Facet
-[VirtualList or VirtualGrid](../reference/api.md#virtuallist-and-virtualgrid),
-or [Table](../reference/api.md#table) for columns. These controls also accept a
+[VirtualList or VirtualGrid](../reference/nodes/VirtualList-and-VirtualGrid.md),
+or [Table](../reference/nodes/Table.reference.md) for columns. These controls also accept a
 field name as the key: `key = "id"`. Choose the interaction contract first.
 Then choose windowing or `mode = "all"` according to the collection size and
 lifetime requirements. See [interactive collections](14-choosing-controls.md#interactive-collections).
@@ -138,7 +138,7 @@ end
 The ScrollView puts a `UIListLayout` in its `ScrollingFrame` and sets the
 automatic canvas size. Thus each child fits the window beside the scroll bar.
 Use Host constructors directly for a layout that these constructors do not
-make. See the [layout reference](../reference/api.md#layout).
+make. See the [layout reference](../reference/nodes/Layout.md).
 
 ## Ownership and native references
 
@@ -178,7 +178,7 @@ theme StyleSheet has styled it, so its text never draws at the engine default
 size first. Reduced motion removes this motion. To use a
 crossfade in NavigationStack or TabView, supply `transition` with Compose tween
 options. To remove the motion, supply `transition = false`. The
-[motion table](../reference/api.md#motion) gives each duration and curve.
+[motion table](../reference/nodes/Motion.md) gives each duration and curve.
 
 ```luau
 local path = Compose.cell({})
@@ -194,6 +194,6 @@ Haptics are restrained. The `pressHaptic` of the controls plays only for a
 control that changes a state or a value, for example a Toggle or a Stepper
 step. To make a game-specific Button play it, set `haptic = true`.
 
-See the [native API contract](../reference/api.md#constructor-contract),
+See the [native API contract](../reference/nodes/Constructor-contract.md),
 [adaptive composition](15-adaptive-recipes.md) and
 [practical recipes](17-recipes.md).

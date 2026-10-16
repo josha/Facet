@@ -79,8 +79,7 @@ contract.
   `lute run tools/facet bench`, `lute run tools/facet package build` and `lute run tools/facet package status`.
 - Report baseline failures separately from regressions. Do not call a targeted
   run full evidence.
-- The current suite is the evidence. It does not claim to equal the tests that
-  existed before the native cutover. Read the
+- The current suite is the evidence. A passing run proves only the selected cases. Read the
   [verification scope](docs/guide/18-verification-scope.md).
 
 ## Internal showcase review

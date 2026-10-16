@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Hub = require(ReplicatedStorage.Shared.Hub)
 
 local function mount(context: Hub.Context)
-	require(script.HubPanels).mount(context)
+	local arrange = require(script.HubPanels).mount(context)
 	require(script.shop).mount(context)
 	require(script.inventory).mount(context)
 	require(script.settings).mount(context)
@@ -13,6 +13,7 @@ local function mount(context: Hub.Context)
 	require(script["npc-dialogue"]).mount(context)
 	require(script["pack-opening"]).mount(context)
 	require(script["round-hud"]).mount(context)
+	arrange()
 end
 
 return { mount = mount }

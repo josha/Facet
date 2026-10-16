@@ -53,12 +53,8 @@ local RULES = {
 }
 
 local COMMANDS = {
-	{ "docs <Control>...", "the contract of a control or topic, for example docs Sheet Toast" },
-	{ "docs --search TEXT", "the sections that mention TEXT" },
-	{
-		'docs "App and runtime setup" "Sheet and overlay focus" "Text wrapping and sizing" "Selection and gamepad focus" "Typed collections"',
-		"short answers to the common setup, focus, text, selection and collection type questions",
-	},
+	{ "docs <path>", "one task recipe, control card or option node" },
+	{ "docs --search TEXT", "node paths and one-line summaries" },
 	{ "lint [paths]", "Facet usage problems and strict types in your interface code" },
 	{ "preview [--device ID]...", "screenshots and an outline of a screen that you must see; not a flow test" },
 	{
@@ -82,21 +78,11 @@ local function version(): string
 	return string.match(Files.read("src/init.luau"), 'VERSION%s*=%s*"([^"]+)"') or "unknown"
 end
 
-local function sectionText(sections: { DocsIndex.Section }, name: string, file: string): string?
-	for _, match in DocsIndex.find(sections, name) do
-		if match.section.file == file then
-			return DocsIndex.extent(sections, match.section)
-		end
-	end
-	return nil
-end
-
 type Facts = { version: string, tokens: number, hasTasks: boolean }
 
 local function report(full: boolean?): (string, Facts)
-	local sections = DocsIndex.load(".")
-	local tasks = sectionText(sections, "Task to control", "docs/guide/14-choosing-controls.md")
-	local blocks = sectionText(sections, "Starter blocks", "examples/blocks/README.md")
+	local tasks = Files.read("docs/guide/14-choosing-controls.md")
+	local blocks = Files.read("examples/blocks/README.md")
 	if not full then
 		local text = table.concat({
 			("Facet %s: Roblox UI controls on Compose."):format(version()),
@@ -110,18 +96,18 @@ local function report(full: boolean?): (string, Facts)
 			"Compose.cleanup releases resources; Compose.show owns branches. Keep durable row state in the model.",
 			"",
 			"Task -> controls -> short recipe (lute run tools/facet docs NAME):",
-			'  HUD, panels -> Composition, Region, Sheet -> "HUD panels"',
-			'  Lists, tiles, filters -> VirtualList, VirtualGrid, Table -> "Collection screen"',
+			"  HUD, panels -> Composition, Region, Sheet -> Tasks.hud",
+			"  Lists, tiles, filters -> VirtualList, VirtualGrid, Table -> Tasks.shop",
 			"  Child pages -> NavigationStack; tabs -> TabView; confirmation -> Alert",
 			"  Settings -> Toggle, Slider, Picker; text entry -> TextInput",
-			'  Text fit -> "Text wrapping and sizing"; type errors -> "Reactive type errors"',
+			"  Text fit -> Text-fit; type errors -> Types",
 			"",
-			"Start with: lute run tools/facet docs (project files, recipes and call shapes in one response).",
+			"Start with: lute run tools/facet docs (the task map). Open one recipe, then a node for a missing detail.",
 			"Starter components: examples/blocks/. More controls and blocks: info --full.",
 			"Check a coherent edit: verify --tap TEXT... runs types, lint, build, audit and screenshots together.",
 			"Use verify --static without Studio. File discovery: project [directory]; rg and Git are optional.",
 		}, "\n")
-		return text, { version = version(), tokens = DocsIndex.tokens(text), hasTasks = tasks ~= nil }
+		return text, { version = version(), tokens = math.ceil(#text / 4), hasTasks = tasks ~= nil }
 	end
 	local lines: { string } = {
 		("Facet %s: Roblox UI controls on Compose and the native engine."):format(version()),
@@ -164,7 +150,7 @@ local function report(full: boolean?): (string, Facts)
 		table.insert(lines, ("- `lute run tools/facet %s`: %s."):format(entry[1], entry[2]))
 	end
 	local text = table.concat(lines, "\n")
-	return text, { version = version(), tokens = DocsIndex.tokens(text), hasTasks = tasks ~= nil }
+	return text, { version = version(), tokens = math.ceil(#text / 4), hasTasks = tasks ~= nil }
 end
 
 local function run(invocation: Cli.Invocation): number
@@ -213,7 +199,7 @@ local function cases(): { Case.Case }
 			run = function()
 				local sections = DocsIndex.load(".")
 				for _, name in { "Screen", "Button", "Sheet", "Text", "Mounting" } do
-					if #DocsIndex.find(sections, name) == 0 then
+					if DocsIndex.find(sections, name) == nil then
 						return `{name} has no section`
 					end
 				end

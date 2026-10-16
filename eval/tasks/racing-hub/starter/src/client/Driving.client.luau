@@ -3,40 +3,85 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Track = require(game:GetService("ReplicatedStorage").Shared.RaceTrack)
-local rivals: { Model } = {}
+type Rival = { model: Model, visual: Model?, samples: { Vector3 }, progress: number?, lane: number? }
+local rivals: { Rival } = {}
 local function watch(object: Instance)
 	if object:IsA("Model") then
-		table.insert(rivals, object)
+		table.insert(rivals, { model = object, samples = {} })
 	end
 end
 for _, object in workspace:GetChildren() do
 	watch(object)
 end
 workspace.ChildAdded:Connect(watch)
-RunService:BindToRenderStep("RaceRivals", Enum.RenderPriority.Camera.Value - 1, function()
-	local now = workspace:GetServerTimeNow()
+RunService:BindToRenderStep("RaceRivals", Enum.RenderPriority.Camera.Value - 1, function(dt: number)
+	local clock = workspace:GetServerTimeNow()
 	for index = #rivals, 1, -1 do
-		local model = rivals[index]
+		local rival = rivals[index]
+		local model = rival.model
 		if model.Parent == nil then
+			if rival.visual then
+				rival.visual:Destroy()
+			end
 			table.remove(rivals, index)
 			continue
 		end
-		local start = model:GetAttribute("RaceStart")
-		local origin = model:GetAttribute("StartProgress")
-		local rate = model:GetAttribute("RaceSpeed")
-		local lane = model:GetAttribute("RaceLane")
-		if
-			type(start) == "number"
-			and type(origin) == "number"
-			and type(rate) == "number"
-			and type(lane) == "number"
-		then
-			local stopped = model:GetAttribute("StoppedProgress")
-			local progress = if type(stopped) == "number"
-				then stopped
-				else math.min(Track.laps, math.max(0, now - start) * rate + origin)
-			model:PivotTo(Track.frame(progress % 1, lane) * CFrame.new(0, 1, 0))
+		local motion = model:GetAttribute("Motion")
+		local epoch = model:GetAttribute("RaceEpoch")
+		if typeof(motion) ~= "Vector3" or type(epoch) ~= "number" then
+			continue
 		end
+		local now = clock - epoch
+		local visual = rival.visual
+		if not visual then
+			local created = model:Clone() :: Model
+			created.Name = "RivalVisual"
+			created:SetAttribute("Motion", nil)
+			for _, object in created:GetDescendants() do
+				if object:IsA("BasePart") then
+					object.CanCollide = false
+					object.CanTouch = false
+					object.CanQuery = false
+				elseif object:IsA("Weld") and object.Name == "SeatWeld" then
+					object:Destroy()
+				end
+			end
+			rival.visual = created
+			visual = created
+			for _, object in model:GetDescendants() do
+				if object:IsA("BasePart") then
+					object.LocalTransparencyModifier = 1
+				end
+			end
+			created.Parent = workspace.CurrentCamera
+		end
+		assert(visual)
+		local samples = rival.samples
+		if samples[#samples] ~= motion then
+			table.insert(samples, motion)
+		end
+		while #samples > 2 do
+			table.remove(samples, 1)
+		end
+		local before = samples[1]
+		motion = samples[2] or before
+		local span = motion.Z - before.Z
+		local alpha = if span > 0 then math.clamp((now - before.Z) / span, 0, 1 + 0.1 / span) else 1
+		local stopped = model:GetAttribute("StoppedProgress")
+		local progress = if type(stopped) == "number" then stopped else before.X + (motion.X - before.X) * alpha
+		local lane = math.clamp(before.Y + (motion.Y - before.Y) * alpha, -8.25, 8.25)
+		local predicting = span > 0 and now < motion.Z + 0.1 and type(stopped) ~= "number"
+		local pace = if predicting then (motion.X - before.X) / span else 0
+		local lateral = if predicting then (motion.Y - before.Y) / span else 0
+		local blend = 1 - math.exp(-dt * 20)
+		local advanced = (rival.progress or progress) + pace * dt
+		local shifted = (rival.lane or lane) + lateral * dt
+		local visualProgress = advanced + (progress - advanced) * blend
+		local visualLane = math.clamp(shifted + (lane - shifted) * blend, -8.25, 8.25)
+		rival.progress = visualProgress
+		rival.lane = visualLane
+		local rendered = visual :: Model
+		rendered:PivotTo(Track.frame(visualProgress, visualLane) * CFrame.new(0, 1, 0))
 	end
 end)
 local ContextActionService = game:GetService("ContextActionService")
@@ -84,7 +129,12 @@ local function render(dt: number)
 				charge = 0
 			end
 			boost = math.max(0, boost - dt)
-			local target = seat.ThrottleFloat * (if boost > 0 then 66 else 46)
+			local bumpUntil = root:GetAttribute("BumpUntil")
+			local bumped = type(bumpUntil) == "number" and workspace:GetServerTimeNow() < bumpUntil
+			local target = seat.ThrottleFloat * (if bumped then 20 elseif boost > 0 then 66 else 46)
+			if bumped then
+				speed = math.clamp(speed, -20, 20)
+			end
 			speed += (target - speed) * math.min(1, dt * 3)
 			if
 				player:GetAttribute("RaceAutopilot") ~= true
@@ -105,7 +155,10 @@ local function render(dt: number)
 				end
 				local forward = root.CFrame.LookVector
 				local velocity = forward * speed
-				if drifting then
+				drive.MaxForce = if bumped then root.AssemblyMass * 25 else 18000
+				if bumped then
+					velocity = velocity:Lerp(root.AssemblyLinearVelocity, 0.65)
+				elseif drifting then
 					velocity = velocity:Lerp(root.AssemblyLinearVelocity, 0.25)
 				end
 				drive.PlaneVelocity = Vector2.new(velocity.X, velocity.Z)

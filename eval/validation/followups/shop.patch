@@ -57,17 +57,16 @@ index 6f5cb159..6d5dd3a4 100644
  	local balance = Kit.label("")
  	balance.Parent = list
  	local codes = Kit.button("Codes")
-@@ -31,6 +69,7 @@ local function mount(context: Context)
+@@ -31,4 +69,5 @@ local function mount(context: Context)
  	for _, item in api.catalog do
  		local card = Kit.card()
  		card.Parent = list
 +		cards[item.id] = card
  		Kit.list(Enum.FillDirection.Vertical, 8).Parent = card
- 		Kit.label(item.name, 20, nil, true).Parent = card
- 		Kit.label(item.description, 16).Parent = card
-@@ -38,7 +77,7 @@ local function mount(context: Context)
+@@ -38,8 +77,8 @@ local function mount(context: Context)
  		local action = Kit.button("Buy", "primary")
- 		action.Parent = card
+ 		action.Size = UDim2.fromOffset(110, 48)
+ 		action.Parent = row
  		actions[item.id] = action
 -		action.Activated:Connect(function()
 +		local function buy()

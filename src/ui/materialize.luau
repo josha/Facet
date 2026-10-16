@@ -120,6 +120,7 @@ local function materialize(
 						return
 					end
 					local size, automatic = group.Size, group.AutomaticSize
+					local anchor, position = group.AnchorPoint, group.Position
 					runtime.decorate(group, {
 						Size = function(use: ComposeTypes.Use)
 							return if moving(use) then content.Size else size
@@ -133,6 +134,16 @@ local function materialize(
 							return D2.fromScale(at.X, at.Y)
 						end,
 					})
+					Compose.cleanup(function()
+						if group.Parent ~= nil then
+							keepSelection(function()
+								group.AnchorPoint = anchor
+								group.Position = position
+								group.Size = size
+								group.AutomaticSize = automatic
+							end)
+						end
+					end)
 				end
 				freeze(parent)
 				runtime.connect(panel, "ChildAdded", function(child: Instance)

@@ -4,9 +4,11 @@ Build with Facet in `Packages/Facet`, mapped by Rojo to
 `ReplicatedStorage.Packages.Facet`. Do not add another UI library.
 
 Read `TEAM_NOTES.md`, the ticket and `.agents/skills/use-facet/SKILL.md`.
-Start with `lute run tools/facet docs`, then batch application contract reads.
-Use `docs <Control>` for a missing option and `project [directory]` for file
-discovery. Follow the skill for state, ownership, layout and Studio checks.
+Start with `lute run tools/facet docs` for the map. Open one task recipe.
+Open a card or option node only for a missing detail with `docs <path>`.
+Use `docs --search TEXT` to find paths. Never reread a node already in context.
+Use `project [directory]` for file discovery. Follow the skill for state,
+ownership, layout and Studio checks.
 Use one `Facet.app` and one mounted root, with Compose branches and portals.
 
 Run `lute run tools/facet verify --tap TEXT...` after a coherent edit. Inspect

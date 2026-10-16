@@ -32,10 +32,12 @@ local AUTHOR_COMMANDS = { "info", "docs", "project", "lint", "preview", "audit",
 local DEFINITIONS_LOCK = "tools/typecheck/roblox.lock.json"
 local DEFINITIONS_CACHE = "artifacts/verify/types/roblox.d.luau"
 local OWNED = {
+	"examples/themes",
 	"Packages/Facet",
 	"docs",
 	"tools/facet",
 	"tools/play",
+	"tools/studio/live/frame_stability.luau",
 	"tools/vendor/verify",
 	"tools/typecheck",
 	".agents/skills/use-facet",
@@ -132,7 +134,8 @@ local function plan(): Plan
 	tree(result, "src", "Packages/Facet", function(relative: string): boolean
 		return string.find(relative, "%.verify%.luau$") == nil
 	end)
-	result.copies["docs/reference/api.md"] = "docs/reference/api.md"
+	tree(result, "docs/reference", "docs/reference")
+	tree(result, "examples/themes", "examples/themes")
 	tree(result, "docs/guide", "docs/guide", DocsIndex.consumerGuide)
 	if Files.isDirectory("examples/blocks") then
 		tree(result, "examples/blocks", "examples/blocks")
@@ -150,7 +153,7 @@ local function plan(): Plan
 			end
 		end
 	end
-	local roots: { string } = { "tools/facet/init.luau" }
+	local roots: { string } = { "tools/facet/init.luau", "tools/play/engine/probe.luau" }
 	local present: { string } = {}
 	for _, name in AUTHOR_COMMANDS do
 		local path = ("tools/facet/commands/%s.luau"):format(name)
@@ -173,8 +176,8 @@ local function plan(): Plan
 	result.writes["tools/facet/commands/init.luau"] = commandsInit(present)
 	result.writes["tools/facet/README.md"] = [[# Facet author tools
 
-Start with `lute run tools/facet docs`. One response gives project files,
-task recipes, typed state, control call shapes and the verification command.
+Start with `lute run tools/facet docs` for the map. Open one task recipe,
+then a card or option node only for a missing detail. Do not reread a node.
 Use `lute run tools/facet project [directory]` to find application files.
 These commands need neither rg nor a Git checkout.
 Run `lute run tools/facet verify --tap TEXT...` for types, lint, build,
@@ -263,6 +266,12 @@ local function cases(): { Case.Case }
 					),
 					Case.expect(chosen.copies["tools/facet/commands/docs.luau"] ~= nil, "the docs command is missing"),
 					Case.expect(chosen.copies["tools/facet/lib/docs_index.luau"] ~= nil, "a command library is missing"),
+					Case.expect(chosen.copies["docs/reference/index.json"] ~= nil, "the node index is missing"),
+					Case.expect(
+						chosen.copies["docs/reference/nodes/Sheet.detents.md"] ~= nil,
+						"an option node is missing"
+					),
+					Case.expect(chosen.copies["docs/reference/nodes/Tasks.shop.md"] ~= nil, "a task recipe is missing"),
 					Case.expect(
 						chosen.copies["tools/facet/commands/gate.luau"] == nil,
 						"a maintainer command leaked in"
@@ -328,7 +337,10 @@ local function cases(): { Case.Case }
 				return Case.first(
 					Case.expect(docs.ok, "docs failed in the kit: " .. docs.stderr .. docs.stdout),
 					Case.expect(probeOk, "the standalone kit cannot bundle its play probe: " .. tostring(probeProblem)),
-					Case.expect(string.find(docs.stdout, "### Button", 1, true) ~= nil, "docs did not print Button"),
+					Case.expect(
+						string.find(docs.stdout, "# Button.card", 1, true) ~= nil,
+						"docs did not print the Button card"
+					),
 					Case.expect(string.find(help.stdout, "lint", 1, true) ~= nil, "help does not list lint"),
 					Case.expect(string.find(help.stdout, "gate", 1, true) == nil, "help lists a maintainer command"),
 					Case.expect(not again, "a second write replaced the kit without --force")

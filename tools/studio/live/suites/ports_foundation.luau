@@ -154,7 +154,9 @@ local function rulesOf(stage: Instance): { [string]: any }
 	local descendants: { Instance } = if sheet then sheet:GetDescendants() else {}
 	for _, node in descendants do
 		if node:IsA("StyleRule") then
-			found[(node :: any).Selector] = node
+			for selector in string.gmatch(node.Selector, "[^,]+") do
+				found[string.match(selector, "^%s*(.-)%s*$") :: string] = node
+			end
 		end
 	end
 	return found

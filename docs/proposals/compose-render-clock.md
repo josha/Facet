@@ -22,12 +22,12 @@ A Studio capture must record the real event order and paint samples.
 
 ## Boundary
 
-Time-based zoom and travel use the current Compose clock in this pull request.
+Time-based zoom and travel use the current Compose clock for time-based motion.
 Pointer contact uses no clock. Facet applies pinch scale and focus position
 inside TouchPinch, and mouse pan inside UIDragDetector.DragContinue.
 The input case checks each property before a clock step. Native touch pan
 remains ScrollingFrame policy. Do not change the generated Compose snapshot.
-The lead will take this proposal upstream.
+A general clock option belongs upstream in Compose.
 
 ## Proof for the option
 

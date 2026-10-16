@@ -13,7 +13,7 @@ an application.
 
 `Facet.app` mounts a ScreenGui into PlayerGui. To set other ScreenGui
 properties, such as the safe areas or the display order, mount your own
-ScreenGui with `runtime.mount`. See [Mounting](../reference/api.md#mounting).
+ScreenGui with `runtime.mount`. See [Mounting](../reference/nodes/Mounting.md).
 
 ```luau
 local Facet = require(game.ReplicatedStorage:WaitForChild("Facet"))

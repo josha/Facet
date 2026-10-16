@@ -15,9 +15,7 @@ repository:
 The tool checks each number that a person types against the repository before
 it sends anything.
 
-**No asset exists yet.** `assetId` and `creator` in `facet-package.json` are
-`null`. They stay `null` until the owner checkpoint. `create` and `publish` are
-fully implemented. Until then, they refuse to run.
+`facet-package.json` sets the asset ID, creator, publication route, and version records. `package status` compares the current source and build with the last receipt. A local build does not publish.
 
 ---
 
@@ -68,8 +66,7 @@ the distribution. Keep it the only one. It makes these files:
 
 - `build/Facet.rbxm`: the artifact. It is one `ModuleScript` named `Facet`
   with the whole shipped `src/` tree under it.
-- `build/Facet.rbxmx`: the same tree as XML. A binary `.rbxm` is LZ4-chunked,
-  and no tool can read its scripts as text.
+- `build/Facet.rbxmx`: the same tree as XML. Use this twin for direct source inspection.
 - `build/Facet.manifest.json`: the semantic manifest (see below).
 - `build/.stage/Distribution/`: the generated release metadata. Each build
   makes it again. Do not edit it by hand.
@@ -191,7 +188,7 @@ asset. There are two routes because the platform documentation supports the
 create half of the API path but not the update half. See *Why two routes*
 below.
 
-|  | `studio` (default) | `open-cloud` |
+|  | `studio` | `open-cloud` |
 |---|---|---|
 | create | Build the publisher place, print the Convert-to-Package steps, then `GET /v1/assets/{id}` to verify the id that a person gives back. | `POST /v1/assets` (multipart `request` + `fileContent`), poll `GET /v1/operations/{id}`. |
 | publish | Read the current version number of the asset, build the publisher place again, print the Publish-to-Package steps, then poll `GET /v1/assets/{id}/versions` until the number differs from that pre-publish baseline. | `PATCH /v1/assets/{id}`, poll `GET /v1/operations/{id}`. |
@@ -200,7 +197,7 @@ below.
 Both routes run **the same guards before they print an instruction or make a
 call.**
 
-The configured route is a recorded decision, not a default. `--route` can
+The configured route is explicit. `--route` can
 override it for one invocation, but only together with `--allow-route-override`.
 Otherwise the run refuses with `route-override`. `lute run tools/facet release` forwards its
 trailing arguments to `lute run tools/facet package publish`. Without that guard, a bare
@@ -209,9 +206,7 @@ Studio release into an unapproved `PATCH`.
 
 On the studio route, the tool reads the baseline **before** it prints the
 manual steps. It records a release only on a positive change from that
-baseline. A comparison with the last receipt was wrong: on a first publish,
-with no receipts, it accepted the version already on the asset and recorded a
-release that did not occur. If the tool cannot read the version list, it
+baseline. A receipt comparison alone cannot prove a new cloud revision. If the tool cannot read the version list, it
 refuses and asks for `--baseline-revision <n>`. It does not guess.
 
 ### rollback
@@ -226,8 +221,7 @@ be false. Both real mechanisms select an *existing* version:
 - **Open Cloud:** `POST /v1/assets/{id}/versions:rollback` with a multipart
   `assetVersion` of `assets/{id}/versions/{n}`.
 
-Nobody has proved that the two sequences are the same. Until the Studio spike
-answers that question, roll back on the route that published the version.
+Roll back through the route that published the version. Check the resulting package in Studio.
 
 ### stamp
 
@@ -238,7 +232,7 @@ lute run tools/facet package stamp --receipt package/receipts/<file>.json \
 
 The tool writes each receipt with `studio_verification.status = "pending"`. A
 person opens Studio, inserts the package by ID, checks it and stamps the
-receipt. Nothing automates this step, because no automation can do it.
+receipt. This command records a manual Studio check.
 
 ---
 
@@ -301,16 +295,7 @@ of another gate or without a build binding all refuse in the same way. All
 three mean that nothing authorizes a publish. `status` reports which of the
 three occurred.
 
-Each comparison is against a fact that this tool derives itself. Thus there is
-no shared recipe for the two sides to disagree about. Previously there was one:
-the guard compared a locally computed
-`sha256("facet-release-gate/1|" + version + "|" + commit + "|" + sourceHash)`
-against an `identity` field that no code wrote. This made `publish`
-unreachable. The self-test passed only because it made the file that it then
-read. The self-test now writes an evidence file in the expected format. The
-file has the real commit and source hash of this repository. The self-test
-asserts that this file clears every gate check. This proves the guard logic.
-The release tier writes the file.
+Each comparison uses repository data. The self-test writes an evidence file with the current commit and source hash. It checks that this file passes every gate check. The release tier writes the gate outcome.
 
 ---
 
@@ -334,7 +319,7 @@ There is one JSON file for each publish, at
   "publishedAt": "2026-…Z",
   "actor": "…",
   "route": "studio",
-  "toolchain": { "rojo": "…", "lune": "…" },
+  "toolchain": { "rojo": "…", "lute": "…" },
   "gateRun": { "schema": "…", "tier": "release", "status": "PASS", "commit": "…", "treeDirty": false, "sourceHash": "…", "completedAt": "…" },
   "studio_verification": { "status": "pending", "by": null, "date": null, "notes": null }
 }
@@ -407,34 +392,24 @@ Facet Luau runtime API.
 
 Choose ownership once. The Roblox Packages documentation is explicit:
 "Ownership transfers are not supported by the asset system". For this reason,
-`creator` is an owner-checkpoint field, and a dry run prints
+`creator` is a required configuration field. If it is absent, a dry run prints
 `<unset — owner checkpoint>`. It does not guess.
 
 ---
 
-## Why two routes
+## Platform boundary
 
-These points come from the Roblox Assets API usage guide
-(<https://create.roblox.com/docs/cloud/guides/usage-assets>, read 2026-08-30):
+`facet-package.json` selects `open-cloud`. If the configuration has no route,
+the tool uses `studio`. Both routes run the publication guards. A different
+route requires `--route` and `--allow-route-override`.
 
-- The supported-types table of the Assets API says that a Model "Will be
-  uploaded as packages". This one sentence is the only documented bridge
-  between Open Cloud and the Studio Package system.
-- The same guide says that only `.fbx` asset content can be updated at this
-  time. The Facet artifact is an `.rbxm`. Thus the API **create** path is
-  documented for this file type, and the **update** path is not.
-- Roblox warns two times that `.rbxm` and `.rbxmx` files edited outside Roblox
-  Studio might not upload or function.
-- `packages.md` does not mention Open Cloud. Nothing documents whether a Model
-  created through Open Cloud has a `PackageLink`. Nothing documents whether a
-  `PATCH` increments the Package version that `AutoUpdate` copies follow.
+The [Roblox Assets API guide](https://create.roblox.com/docs/cloud/guides/usage-assets)
+lists Model uploads as packages. It documents content updates for `.fbx` files.
+The Facet artifact is `.rbxm`. The tool implements an Open Cloud update request;
+that implementation does not prove the package behavior of an uploaded revision.
+Check the revision, PackageLink, and update behavior in Studio before release.
 
-Thus the default is `studio`. Mint and publish through the Studio UI, which is
-the only documented Package mechanism. Use the API only for the parts that it
-*does* document: reading the asset and its version list. The `open-cloud`
-route is fully implemented. It becomes active when the spike proves that it
-works.
-
-`AutoUpdate` is opt-in for each copy. It is *disabled and ignored* when a copy
-is locally modified. Mass updates skip such a copy and report it. They never
-overwrite it.
+Use the [Roblox package guide](https://create.roblox.com/docs/projects/assets/packages)
+for package permissions, local edits, and automatic updates. Test an update on
+an unmodified copy and a locally modified copy. Record the result on the
+publication receipt.

@@ -259,6 +259,44 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("lands keyboard selection when a fixed modal's first target becomes ready", {
+			id = "native_presentation_motion::presentation motion: Dialog and CollapsibleView::lands keyboard selection when a fixed modal's first target becomes ready",
+			run = function()
+				local open, ready = Compose.cell(false), Compose.cell(false)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
+					local opener = UI.Button "Opener" { label = "Open" }
+					gui.SelectedObject = opener
+					return Host.Frame {
+						opener :: unknown,
+						UI.Dialog "Late" {
+							isPresented = open,
+							closeButton = false,
+							content = function(): Instance
+								return Host.Frame {
+									Compose.show(ready, function(): Instance
+										return UI.Button "Target" { label = "Ready" }
+									end),
+								}
+							end,
+						},
+					}
+				end, { motionLevel = "none" })
+				w.input.GetLastInputType = function()
+					return w.Enum.UserInputType.Keyboard
+				end
+				open:set(true)
+				w.size(w.find("Panel"), 560, 300)
+				w.advance(0.3, 18)
+				Verify.expect(w.gui.SelectedObject == w.find("Opener")):toBe(true)
+				ready:set(true)
+				local target = w.find("Target")
+				w.size(target, 80, 44)
+				w.advance(FRAME, 3)
+				Verify.expect(w.gui.SelectedObject == target):toBe(true)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case(
 			"a dismissed dialog reverses faster, stops taking input and hands the selection back at once",
 			{

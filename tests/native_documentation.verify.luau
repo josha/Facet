@@ -9,7 +9,7 @@ return function(verifyHarness: Verify.Harness)
 	local Facet, engineLib = require("../src"), require("./lib/native_engine")
 	local entries = {}
 	local files = { "README.md", "docs/reference/api.md" }
-	for _, directory in { "docs/guide", "docs/extending" } do
+	for _, directory in { "docs/guide", "docs/extending", "docs/reference/nodes" } do
 		for _, entry in fs.listDirectory(directory) do
 			if string.match(entry.name, "%.md$") then
 				table.insert(files, directory .. "/" .. entry.name)

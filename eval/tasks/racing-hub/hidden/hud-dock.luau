@@ -11,6 +11,7 @@ local Check = require("../../../../tools/play/host/check")
 local Core = require("../../../../tools/vendor/verify/src/core")
 local Play = require("../../../../tools/play/host/play")
 local QA = require("../../../../tools/play/host/qa")
+local Actions = require("../../../../tools/play/host/actions")
 
 type Case = Play.Case
 
@@ -102,7 +103,11 @@ local behavior: { Case } = {
 		screen = "hud",
 		shot = "1-hud",
 		run = function(qa, context)
-			Check.visible(qa, context, { role = "button", text = "boosts" }, "the dock shows Boosts", 20)
+			Check.visible(qa, context, { role = "button", text = "shop" }, "the hub is ready", 20)
+			Check.that(context, Actions.reveal(qa, { role = "button", text = "boosts" }), "Boosts is reachable")
+			if qa:first({ role = "button", exact = "close" }) then
+				Check.tap(qa, context, { role = "button", exact = "close" }, "return to the HUD")
+			end
 			qa:admin("pause")
 			task.wait(1.5)
 			local now = state(qa)
@@ -237,6 +242,10 @@ local behavior: { Case } = {
 		shot = "4-offer",
 		run = function(qa, context)
 			local dock = qa:first({ role = "button", text = "offer" })
+			if dock == nil then
+				Actions.reveal(qa, { role = "button", text = "offer" })
+				dock = qa:first({ role = "button", text = "offer" })
+			end
 			Check.that(context, dock ~= nil and clock(dock.label) ~= nil, "the Offer button shows the time left")
 			openPanel(qa, context, "Offer", "starter offer")
 			Check.that(

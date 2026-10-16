@@ -17,6 +17,8 @@ return function(
 	local settings: { inset: boolean? } = options or {}
 	local Host = (runtime.constructors :: unknown) :: Engine.Host
 	local D2 = types.UDim2
+	local frame = if getfenv(0).game then { frame = true } else nil
+	local poll = if frame then { frame = true, poll = true } else nil
 	if target:FindFirstChildWhichIsA("UIPadding") == nil then
 		runtime.mount(function()
 			return Host.UIPadding({})
@@ -42,10 +44,10 @@ return function(
 		ZIndex = node.ZIndex,
 		container,
 	})
-	local scale = (runtime.observe(boundary, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
-	local size = (runtime.observe(target, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
-	local at = (runtime.observe(target, "AbsolutePosition") :: unknown) :: ComposeTypes.Cell<Vector2>
-	local boundaryAt = (runtime.observe(boundary, "AbsolutePosition") :: unknown) :: ComposeTypes.Cell<Vector2>
+	local scale = (runtime.observe(boundary, "AbsoluteSize", poll) :: unknown) :: ComposeTypes.Cell<Vector2>
+	local size = (runtime.observe(target, "AbsoluteSize", poll) :: unknown) :: ComposeTypes.Cell<Vector2>
+	local at = (runtime.observe(target, "AbsolutePosition", frame) :: unknown) :: ComposeTypes.Cell<Vector2>
+	local boundaryAt = (runtime.observe(boundary, "AbsolutePosition", frame) :: unknown) :: ComposeTypes.Cell<Vector2>
 	local insets = Compose.cell({} :: Insets)
 	local padding = Compose.cell(target:FindFirstChildWhichIsA("UIPadding"))
 	local function childChanged(child: Instance)

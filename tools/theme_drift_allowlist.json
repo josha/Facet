@@ -40,14 +40,14 @@
       "rule": "paint-color",
       "match": "ctx.types.Color3.new(0, 0, 0)",
       "status": "authored",
-      "reason": "Only an authored backgroundTransparency reaches this black plate; the catcher stays untagged so .facet-scrim cannot override the caller's value (commit 91702428), and unauthored scrims use the theme rule."
+      "reason": "Only an authored backgroundTransparency reaches this black plate; the catcher stays untagged so .facet-scrim cannot override the caller's value, and unauthored scrims use the theme rule."
     },
     {
       "path": "src/ui/slider.luau",
       "rule": "radius",
       "match": "return if contained then Host.UICorner({ CornerRadius = ctx.round }) else ctx.corner(3)",
       "status": "structural",
-      "reason": "The slider rail and fill are thin bars; radius 3 rounds their ends into a capsule, a shape rather than a theme corner size. The code moved here from inputs.luau. A contained rail is as thick as the knob and rounds fully into a pill. Both go square when the theme's radii.pill is 0 (ctx.round)."
+      "reason": "The slider rail and fill are thin bars; radius 3 rounds their ends into a capsule, a shape rather than a theme corner size. A contained rail is as thick as the knob and rounds fully into a pill. Both go square when the theme's radii.pill is 0 (ctx.round)."
     },
     {
       "path": "src/ui/nav_picker_options.luau",

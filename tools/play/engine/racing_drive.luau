@@ -33,7 +33,7 @@ return function(): { [string]: unknown }
 	local maxSteer = 0
 	local maxDistance = 0
 	local advanced = false
-	RunService:BindToRenderStep("RaceDrivingCheck", Enum.RenderPriority.Camera.Value, function()
+	RunService:BindToRenderStep("RaceDrivingCheck", Enum.RenderPriority.Camera.Value - 2, function()
 		local progress = Track.progress(root.Position)
 		local target = Track.point(progress + 0.025)
 		local direction = root.CFrame:VectorToObjectSpace(target - root.Position)

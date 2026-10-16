@@ -152,6 +152,21 @@ function Kit.button(text: string, style: Style?): TextButton
 	}, { Kit.corner(10), Kit.padding(Kit.space.small) }) :: TextButton
 end
 
+function Kit.badge(button: TextButton, text: string): TextLabel
+	local badge = Kit.label(text, Kit.size.small, Kit.colors.primaryText, true)
+	badge.AutomaticSize = Enum.AutomaticSize.None
+	badge.AnchorPoint = Vector2.new(1, 0.5)
+	badge.Position = UDim2.new(1, -4, 0.5, 0)
+	badge.Size = UDim2.fromOffset(64, 24)
+	badge.BackgroundTransparency = 0
+	badge.BackgroundColor3 = Kit.colors.primary
+	badge.TextXAlignment = Enum.TextXAlignment.Center
+	badge.ZIndex = 3
+	Kit.corner(12).Parent = badge
+	badge.Parent = button
+	return badge
+end
+
 function Kit.input(placeholder: string): TextBox
 	return Kit.create("TextBox", {
 		Text = "",
@@ -506,6 +521,10 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 			return
 		end
 		if open then
+			local overflow = stack[#stack]
+			if overflow ~= nil and overflow.title.Text == "More" then
+				overflow.setOpen(false)
+			end
 			previous = GuiService.SelectedObject
 			local top = stack[#stack]
 			if top ~= nil then
@@ -513,6 +532,9 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 				top.scrim.Visible = false
 			end
 			table.insert(stack, modal)
+			if sharedScreen then
+				sharedScreen:SetAttribute("ModalOpen", true)
+			end
 			modal.panel.ZIndex = 10 + #stack * 2
 			modal.scrim.ZIndex = modal.panel.ZIndex - 1
 			original(true, focus)
@@ -520,6 +542,9 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 			local index = table.find(stack, modal)
 			if index ~= nil then
 				table.remove(stack, index)
+			end
+			if sharedScreen then
+				sharedScreen:SetAttribute("ModalOpen", #stack > 0)
 			end
 			original(false)
 			local top = stack[#stack]

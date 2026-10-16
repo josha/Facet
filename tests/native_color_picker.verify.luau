@@ -1243,6 +1243,31 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("swatch columns follow the native target floor when input and width change", {
+			id = "native_color_picker::native ColorPicker panel fit::swatch columns follow the native target floor when input and width change",
+			run = function()
+				local value = Compose.cell(Color3.fromRGB(255, 0, 0))
+				local w = world(
+					{ value = value, style = "inline" :: "inline", modes = { "swatches" } },
+					{ tenFoot = true }
+				)
+				w.input.GamepadEnabled = true
+				w.size(w.find("Technique"), 556, 400)
+				expect(w.cells()[1].Size.X.Offset):toBe(66)
+				expect(w.cells()[1].Size.Y.Offset):toBe(66)
+				expect(w.find("Swatches").Size.X.Offset):toBe(556)
+				expect(#w.cells()):toBe(48)
+				w.size(w.find("Technique"), 276, 400)
+				expect(w.find("Swatches").Size.X.Offset):toBe(276)
+				expect(#w.cells()):toBe(24)
+				w.input.GamepadEnabled = false
+				expect(w.cells()[1].Size.X.Offset):toBe(44)
+				expect(w.find("Swatches").Size.X.Offset):toBe(236)
+				expect(#w.cells()):toBe(30)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("an inactive technique reserves at most the body's room, so a short one never scrolls", {
 			id = "native_color_picker::native ColorPicker panel fit::an inactive technique reserves at most the body's room, so a short one never scrolls",
 			run = function()

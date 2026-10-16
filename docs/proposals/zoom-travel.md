@@ -41,7 +41,7 @@ Compose `runtime.tween`, `runtime.ramp`, `runtime.timeline`, `Compose.portal`,
 motion, structure and lifetime. The pinned native animation clock is Heartbeat.
 A PreRender subscription applies the current transform before each paint.
 This pin does not offer a per-control render-clock tween. Time-based motion
-uses this clock for this pull request. Direct pinch updates inside TouchPinch.
+uses this clock for time-based motion. Direct pinch updates inside TouchPinch.
 Mouse pan updates inside UIDragDetector.DragContinue. Do not add a second
 animation scheduler. The separate Compose render-clock proposal records the
 one-frame measurement.
@@ -76,10 +76,3 @@ Add live pointer and gamepad cases. Sample PreRender, content identity and
 instance additions and removals. Inspect pinch, double tap, wheel, triggers,
 stick, clipped row travel and reduced motion on phone and desktop.
 Headless geometry does not prove engine layout, text paint or phone smoothness.
-
-Baseline: commit `6237c48`. The fast suite passes. The fast gate fails the
-screen-key-bindings and screen-key-bindings-selftest producers because
-`examples/facet-lab/src/lab_sweep.luau:288` reads `event.KeyCode`.
-Types pass: 690 targets, zero diagnostics, 181 negative probes rejected.
-Formatting passes. The first sandboxed type run failed at `lune setup`;
-the authorized declaration-generation run completed.

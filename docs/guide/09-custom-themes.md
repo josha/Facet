@@ -66,7 +66,7 @@ Each palette has `name`, `colors` and `extra`.
 - The required type roles are caption, label, body, heading, title, control,
   strong and numeral.
 
-The [API reference](../reference/api.md#themes) lists every color name.
+The [API reference](../reference/nodes/Themes.md) lists every color name.
 
 ## Apply and switch
 

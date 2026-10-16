@@ -398,7 +398,8 @@ return function(
 					Host.UIPadding(padding),
 				}
 				label:AddTag("facet-skin-caption-text")
-				local bounds = runtime.observe(label, "TextBounds")
+				local bounds =
+					runtime.observe(label, "TextBounds", if getfenv(0).game then { frame = true, poll = true } else nil)
 				Compose.watch(function(use: ComposeTypes.Use)
 					fit:set(use(bounds) :: Vector2)
 				end)

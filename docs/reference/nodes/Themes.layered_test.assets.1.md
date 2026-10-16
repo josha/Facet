@@ -1,0 +1,53 @@
+# Themes.layered_test.assets.1
+
+Resolved assets tokens.
+
+| Token | Value |
+| --- | --- |
+| `assets.ornate_bar_cap_end.content` | `rbxassetid://86593934806842` |
+| `assets.ornate_bar_cap_end.fallback` | `native` |
+| `assets.ornate_bar_cap_end.preload` | `install` |
+| `assets.ornate_bar_cap_start.content` | `rbxassetid://113767043260178` |
+| `assets.ornate_bar_cap_start.fallback` | `native` |
+| `assets.ornate_bar_cap_start.preload` | `install` |
+| `assets.ornate_bar_center.content` | `rbxassetid://73806369333659` |
+| `assets.ornate_bar_center.fallback` | `native` |
+| `assets.ornate_bar_center.preload` | `install` |
+| `assets.ornate_bar_fill.content` | `rbxassetid://111942785128400` |
+| `assets.ornate_bar_fill.fallback` | `native` |
+| `assets.ornate_bar_fill.preload` | `install` |
+| `assets.ornate_bar_fill.sliceCenter.x0` | `8` |
+| `assets.ornate_bar_fill.sliceCenter.x1` | `88` |
+| `assets.ornate_bar_fill.sliceCenter.y0` | `8` |
+| `assets.ornate_bar_fill.sliceCenter.y1` | `12` |
+| `assets.ornate_bar_fill.sliceScale` | `1` |
+| `assets.ornate_bar_track.content` | `rbxassetid://92904178783883` |
+| `assets.ornate_bar_track.fallback` | `native` |
+| `assets.ornate_bar_track.preload` | `install` |
+| `assets.ornate_bar_track.sliceCenter.x0` | `12` |
+| `assets.ornate_bar_track.sliceCenter.x1` | `84` |
+| `assets.ornate_bar_track.sliceCenter.y0` | `12` |
+| `assets.ornate_bar_track.sliceCenter.y1` | `16` |
+| `assets.ornate_bar_track.sliceScale` | `1` |
+| `assets.ornate_button_default.content` | `rbxassetid://112835782358182` |
+| `assets.ornate_button_default.fallback` | `native` |
+| `assets.ornate_button_default.preload` | `install` |
+| `assets.ornate_button_default.sliceCenter.x0` | `16` |
+| `assets.ornate_button_default.sliceCenter.x1` | `48` |
+| `assets.ornate_button_default.sliceCenter.y0` | `16` |
+| `assets.ornate_button_default.sliceCenter.y1` | `48` |
+| `assets.ornate_button_default.sliceScale` | `1` |
+| `assets.ornate_button_hover.content` | `rbxassetid://127234850374967` |
+| `assets.ornate_button_hover.fallback` | `native` |
+| `assets.ornate_button_hover.preload` | `install` |
+| `assets.ornate_button_hover.sliceCenter.x0` | `16` |
+| `assets.ornate_button_hover.sliceCenter.x1` | `48` |
+| `assets.ornate_button_hover.sliceCenter.y0` | `16` |
+| `assets.ornate_button_hover.sliceCenter.y1` | `48` |
+| `assets.ornate_button_hover.sliceScale` | `1` |
+| `assets.ornate_button_pressed.content` | `rbxassetid://90667263700535` |
+| `assets.ornate_button_pressed.fallback` | `native` |
+| `assets.ornate_button_pressed.preload` | `install` |
+| `assets.ornate_button_pressed.sliceCenter.x0` | `16` |
+| `assets.ornate_button_pressed.sliceCenter.x1` | `48` |
+| `assets.ornate_button_pressed.sliceCenter.y0` | `16` |

@@ -4,6 +4,7 @@ local Rule = require("./lib/rule")
 
 local rules: { Rule.Rule } = {
 	require("@self/plan"),
+	require("@self/docs_nodes"),
 	require("@self/facetbench_references"),
 	require("@self/architecture"),
 	require("@self/type_policy"),

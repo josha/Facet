@@ -4,6 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 local Lute = require("../tools/vendor/verify/src/lute")
 local Engine = require("./lib/native_engine")
 local Rules = require("../eval/tasks/racing-hub/starter/src/shared/RaceRules")
+local Opponents = require("../eval/tasks/racing-hub/starter/src/shared/Opponents")
 type RoundService = {
 	start: () -> (),
 	setAutomatic: (boolean) -> (),
@@ -132,10 +133,11 @@ local function world(theme: string?): ({ BasePart }, Lighting)
 	return parts, lighting
 end
 
-local function overlap(a: BasePart, b: BasePart): boolean
+type Footprint = { CFrame: CFrame, Size: Vector3 }
+local function overlap(a: Footprint, b: Footprint): boolean
 	local delta = b.CFrame.Position - a.CFrame.Position
 	for _, axis in { a.CFrame.RightVector, a.CFrame.LookVector, b.CFrame.RightVector, b.CFrame.LookVector } do
-		local function radius(part: BasePart): number
+		local function radius(part: Footprint): number
 			return math.abs(axis:Dot(part.CFrame.RightVector)) * part.Size.X / 2
 				+ math.abs(axis:Dot(part.CFrame.LookVector)) * part.Size.Z / 2
 		end
@@ -147,6 +149,104 @@ local function overlap(a: BasePart, b: BasePart): boolean
 end
 
 return function(harness: Verify.Harness)
+	harness:case("opponents keep swept footprints apart through a seeded full race with a player", function(t)
+		local globals: { [string]: unknown } = { Vector3 = Engine.types.Vector3, CFrame = Engine.types.CFrame }
+		local loader = Lute.loader.new({ globals = globals })
+		local track =
+			loader.require("eval/tasks/racing-hub/starter/src/shared/RaceTrack") :: typeof(require("../eval/tasks/racing-hub/starter/src/shared/RaceTrack"))
+		local size = Engine.types.Vector3.new(7.6, 2, 7)
+		local reach = 2 * math.sqrt((size.X / 2) ^ 2 + (size.Z / 2) ^ 2)
+		for _, seed in { 20261015, 17, 923 } do
+			local field: { Opponents.Driver } = {}
+			local replay: { Opponents.Driver } = {}
+			for index = 1, 8 do
+				field[index] = Opponents.create(index, seed)
+				replay[index] = Opponents.create(index, seed)
+			end
+			field[1].controlled = false
+			replay[1].controlled = false
+			local overtakes = 0
+			local changes = 0
+			for step = 1, 7200 do
+				local previous: { number } = {}
+				local earlier: { number } = {}
+				for index, driver in field do
+					previous[index] = driver.lane
+					earlier[index] = driver.progress
+				end
+				Opponents.stepField(field, Opponents.step, step * Opponents.step)
+				Opponents.stepField(replay, Opponents.step, step * Opponents.step)
+				local footprints: { Footprint } = {}
+				for index, driver in field do
+					footprints[index] = { CFrame = track.frame(driver.progress, driver.lane), Size = size }
+				end
+				for index, driver in field do
+					assert(
+						math.abs(driver.lane - previous[index]) <= Opponents.laneRate * Opponents.step + 1e-8,
+						"lane discontinuity"
+					)
+					assert(
+						driver.progress == replay[index].progress and driver.lane == replay[index].lane,
+						"seed replay diverged"
+					)
+					if driver.lane ~= previous[index] then
+						changes += 1
+					end
+					for otherIndex = index + 1, #field do
+						local other = field[otherIndex]
+						local a = footprints[index]
+						local b = footprints[otherIndex]
+						local dx = b.CFrame.Position.X - a.CFrame.Position.X
+						local dz = b.CFrame.Position.Z - a.CFrame.Position.Z
+						if dx * dx + dz * dz < reach * reach then
+							assert(
+								not overlap(a, b),
+								`footprints overlap seed {seed} step {step}: {index}/{otherIndex}`
+							)
+						end
+						if index > 1 and earlier[index] < earlier[otherIndex] and driver.progress > other.progress then
+							overtakes += 1
+						end
+					end
+				end
+			end
+			for index = 2, #field do
+				t:expect(field[index].progress >= 3):toBeTrueWith("opponent completes three laps")
+			end
+			t:expect(changes > 0):toBe(true)
+			t:expect(overtakes > 0):toBe(true)
+		end
+	end)
+	harness:case("opponents brake behind a player when every passing lane is blocked", function(t)
+		local field: { Opponents.Driver } = {}
+		for index = 1, 3 do
+			local blocker = Opponents.create(index, 17)
+			blocker.controlled = false
+			blocker.progress = 0.15
+			table.insert(field, blocker)
+		end
+		local follower = Opponents.create(4, 17)
+		follower.progress = 0.08
+		table.insert(field, follower)
+		for step = 1, 600 do
+			Opponents.stepField(field, Opponents.step, step * Opponents.step)
+		end
+		t:expect(follower.progress <= 0.15 - Opponents.gap + 1e-8):toBe(true)
+		t:expect(follower.speed < 0.0001):toBe(true)
+	end)
+	harness:case("a turned player reserves its wider footprint across adjacent lanes", function(t)
+		local player = Opponents.create(2, 17)
+		player.controlled = false
+		player.progress = 0.3
+		player.halfWidth = 5.5
+		local follower = Opponents.create(3, 17)
+		follower.progress = 0.2
+		for step = 1, 600 do
+			Opponents.stepField({ player, follower }, Opponents.step, step * Opponents.step)
+		end
+		t:expect(follower.progress <= player.progress - Opponents.gap + 1e-8):toBe(true)
+		t:expect(follower.speed < 0.0001):toBe(true)
+	end)
 	harness:case("race fixtures rank individual finishers and pay by position once", function(t)
 		local service, paid = roundFixture()
 		service.enter("Round", 120)
@@ -241,8 +341,15 @@ return function(harness: Verify.Harness)
 					end
 					local coplanar = math.abs(decoration.CFrame.Position.Y - decoration.Size.Y / 2 - surface) < 0.0001
 						or math.abs(decoration.CFrame.Position.Y + decoration.Size.Y / 2 - surface) < 0.0001
-					t:expect(not (coplanar and overlap(road, decoration)))
-						:toBeTrueWith(theme .. ": " .. decoration.Name)
+					t:expect(
+						not (
+								coplanar
+								and overlap(
+									{ CFrame = road.CFrame, Size = road.Size },
+									{ CFrame = decoration.CFrame, Size = decoration.Size }
+								)
+							)
+					):toBeTrueWith(theme .. ": " .. decoration.Name)
 				end
 			end
 		end
@@ -285,6 +392,8 @@ return function(harness: Verify.Harness)
 		local loader = Lute.loader.new({ globals = globals })
 		local track =
 			loader.require("eval/tasks/racing-hub/starter/src/shared/RaceTrack.luau") :: typeof(require("../eval/tasks/racing-hub/starter/src/shared/RaceTrack"))
+		local grid = Opponents.create(1, track.seed)
+		t:expect(track.progress(track.frame(grid.progress, grid.lane).Position) < 1 / track.checkpoints):toBe(true)
 		t:expect((track.point(0) - track.point(1)).Magnitude < 0.0001):toBe(true)
 		local before = (track.point(0) - track.point(-0.0001)).Unit
 		local after = (track.point(0.0001) - track.point(0)).Unit

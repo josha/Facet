@@ -47,6 +47,7 @@ export type State = {
 	hexError: Cell<string>,
 	placement: Cell<string>,
 	columns: Cell<number>,
+	cellSize: (Use?) -> number,
 	editing: Cell<boolean>,
 	saving: boolean,
 	removing: boolean,
@@ -420,6 +421,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 	local hexError = Compose.cell("")
 	local placement = Compose.cell(if style == "inline" then "inline" else "closed")
 	local columns = Compose.cell(MAX_COLUMNS)
+	local targetFloor = ctx.touchFloor()
 	local editing = Compose.cell(false)
 	local saving = spec.onSaveSwatch ~= nil
 	local removing = spec.onRemoveSwatch ~= nil
@@ -466,6 +468,9 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 		hexError = hexError,
 		placement = placement,
 		columns = columns,
+		cellSize = function(use: Use?): number
+			return math.max(Kit.CELL, targetFloor(use))
+		end,
 		editing = editing,
 		saving = saving,
 		removing = removing,

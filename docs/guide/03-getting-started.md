@@ -37,7 +37,7 @@ script.Destroying:Connect(app.dispose)
   to it. It returns a stop function.
 - `UI.Screen` fills the ScreenGui and pads its content by the `m` spacing
   step. `gap = "s"` puts the `s` step between the children. See
-  [Layout](../reference/api.md#layout).
+  [Layout](../reference/nodes/Layout.md).
 - `app.dispose` stops the mounts and disposes the runtime.
 - To use a theme package, give it one time: `Facet.app({ theme = package })`.
   The controls and the StyleSheet both use it. See [Styling](05-styling.md).
@@ -45,7 +45,7 @@ script.Destroying:Connect(app.dispose)
 `Facet.app` uses only public pieces: `Facet.Roblox.createRuntime`,
 `Facet.controls`, `Facet.themes.createStyleSheet`, `runtime.mount` and a
 StyleLink. When you need a different root, use these pieces directly. See
-[Mounting](../reference/api.md#mounting).
+[Mounting](../reference/nodes/Mounting.md).
 
 ## Test a screen without Studio
 
@@ -161,7 +161,7 @@ end)
   the control stops with an error that names the control. The error tells you
   to use `Facet.bind`.
 
-The [API reference](../reference/api.md#your-own-compose) gives the full
+The [API reference](../reference/nodes/Your-own-Compose.md) gives the full
 contract.
 
 ## Cleanup
@@ -173,7 +173,7 @@ the app stays yours. Call `runtime:dispose()` on it after `app.dispose()`.
 
 The runtime methods `dispose` and `batch` use a colon: `runtime:dispose()`. The
 fields of the app use a dot: `app.mount`, `app.dispose`. See
-[Call style](../reference/api.md#call-style).
+[Call style](../reference/nodes/Call-style.md).
 
 You can make persistent model cells outside the mounted component. See
 [Components](15-components.md) for state and ownership.

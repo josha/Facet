@@ -1,8 +1,7 @@
 # Real-world interface sources
 
 The FacetBench tasks copy player tasks and interactions from the interfaces of
-real Roblox games. They do not copy art, names or text. The sources were found
-in public Roblox game videos in October 2026. The repository holds no video,
+real Roblox games. They do not copy art, names or text. The sources are public Roblox game videos. The repository holds no video,
 frame or image from them.
 
 ## Source 1: a vehicle inventory in a tycoon game

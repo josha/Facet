@@ -353,9 +353,26 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			end)
 			local selection = ctx.observe.SelectedObject(gui)
 			local extent = ctx.observe.AbsoluteSize(panel)
+			local landing = runtime.settled({
+				ready = function(): boolean
+					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+					return landed
+						or (
+							target ~= nil
+							and target.AbsoluteSize.X > 0
+							and target.AbsoluteSize.Y > 0
+							and displayed(target)
+						)
+				end,
+				sample = function(): Vector2
+					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+					return if target then target.AbsoluteSize else V2.zero
+				end,
+			})
 			Compose.watch(function(use: ComposeTypes.Use)
 				local selected = use(selection) :: Instance?
 				use(extent)
+				use(landing)
 				local scopes = use(ctx.modalScopes)
 				if within(selected, root) then
 					landed = true

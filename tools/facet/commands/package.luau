@@ -561,7 +561,7 @@ local function decide(facts: Facts): Verdict
 		if not facts.allowRouteOverride then
 			refuse(
 				"route-override",
-				("--route %s overrides the configured route %s; the configured route is a recorded decision. Pass --allow-route-override to mean it."):format(
+				("--route %s overrides the configured route %s; the configured route is explicit. Pass --allow-route-override to mean it."):format(
 					str(argRoute),
 					str(facts.configRoute)
 				)
@@ -1537,7 +1537,7 @@ local function cmdPublish(env: Environment, arguments: Arguments): number
 	if route == "open-cloud" then
 		describeRequest(env, "PATCH", "/v1/assets/" .. assetId, request, env.model)
 		say("  NOTE: the usage guide says content updates currently work for .fbx only. This route is")
-		say("        implemented in full and unproved for .rbxm until the Studio spike says otherwise.")
+		say("        implemented; verify .rbxm package behavior in Studio before release.")
 	else
 		say("")
 		say("REQUEST THAT WOULD BE SENT")
@@ -1679,8 +1679,8 @@ local function cmdRollback(env: Environment): number
 	say(("  List the versions first: GET %s/v1/assets/%s/versions?maxPageSize=50"):format(Assets.BASE, assetId))
 	say("")
 	say("WHICH ONE. The two sequences are not proved to be the same sequence — the docs")
-	say("never reconcile Package versions with Asset revisions. Until the Studio spike")
-	say("answers that, roll back on the SAME route the version was published on.")
+	say("do not establish equivalent Package versions and Asset revisions.")
+	say("Roll back on the route that published the version.")
 	if receipt ~= nil then
 		say("")
 		say(

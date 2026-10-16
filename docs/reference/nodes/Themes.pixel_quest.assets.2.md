@@ -1,0 +1,54 @@
+# Themes.pixel_quest.assets.2
+
+Resolved assets tokens.
+
+| Token | Value |
+| --- | --- |
+| `assets.pixel_icon_chevron_up.content` | `rbxassetid://104690805635224` |
+| `assets.pixel_icon_chevron_up.fallback` | `native` |
+| `assets.pixel_icon_chevron_up.preload` | `lazy` |
+| `assets.pixel_icon_chevron_up_down.content` | `rbxassetid://70666797550533` |
+| `assets.pixel_icon_chevron_up_down.fallback` | `native` |
+| `assets.pixel_icon_chevron_up_down.preload` | `lazy` |
+| `assets.pixel_icon_cross.content` | `rbxassetid://76283014616825` |
+| `assets.pixel_icon_cross.fallback` | `native` |
+| `assets.pixel_icon_cross.preload` | `lazy` |
+| `assets.pixel_icon_edit.content` | `rbxassetid://120712594727107` |
+| `assets.pixel_icon_edit.fallback` | `native` |
+| `assets.pixel_icon_edit.preload` | `lazy` |
+| `assets.pixel_icon_minus.content` | `rbxassetid://139370520867356` |
+| `assets.pixel_icon_minus.fallback` | `native` |
+| `assets.pixel_icon_minus.preload` | `install` |
+| `assets.pixel_icon_minus.tintRole` | `accent` |
+| `assets.pixel_icon_more.content` | `rbxassetid://102030667154109` |
+| `assets.pixel_icon_more.fallback` | `native` |
+| `assets.pixel_icon_more.preload` | `lazy` |
+| `assets.pixel_icon_plus.content` | `rbxassetid://137937473154830` |
+| `assets.pixel_icon_plus.fallback` | `native` |
+| `assets.pixel_icon_plus.preload` | `install` |
+| `assets.pixel_icon_plus.tintRole` | `accent` |
+| `assets.pixel_icon_radio_off.content` | `rbxassetid://109254322652994` |
+| `assets.pixel_icon_radio_off.fallback` | `native` |
+| `assets.pixel_icon_radio_off.preload` | `lazy` |
+| `assets.pixel_icon_radio_on.content` | `rbxassetid://102134502378061` |
+| `assets.pixel_icon_radio_on.fallback` | `native` |
+| `assets.pixel_icon_radio_on.preload` | `lazy` |
+| `assets.pixel_panel.content` | `rbxassetid://122249249524085` |
+| `assets.pixel_panel.fallback` | `native` |
+| `assets.pixel_panel.preload` | `install` |
+| `assets.pixel_panel.sliceCenter.x0` | `24` |
+| `assets.pixel_panel.sliceCenter.x1` | `28` |
+| `assets.pixel_panel.sliceCenter.y0` | `24` |
+| `assets.pixel_panel.sliceCenter.y1` | `28` |
+| `assets.pixel_panel.sliceScale` | `1` |
+| `assets.pixel_plate_default.content` | `rbxassetid://70509734376718` |
+| `assets.pixel_plate_default.fallback` | `native` |
+| `assets.pixel_plate_default.preload` | `install` |
+| `assets.pixel_plate_default.sliceCenter.x0` | `16` |
+| `assets.pixel_plate_default.sliceCenter.x1` | `20` |
+| `assets.pixel_plate_default.sliceCenter.y0` | `16` |
+| `assets.pixel_plate_default.sliceCenter.y1` | `20` |
+| `assets.pixel_plate_default.sliceScale` | `1` |
+| `assets.pixel_plate_ornament.content` | `rbxassetid://112667248840646` |
+| `assets.pixel_plate_ornament.fallback` | `native` |
+| `assets.pixel_plate_ornament.preload` | `install` |

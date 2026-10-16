@@ -1,0 +1,53 @@
+# Themes.fantasy_ornate.assets.3
+
+Resolved assets tokens.
+
+| Token | Value |
+| --- | --- |
+| `assets.ornate_icon_minus.tintRole` | `accent` |
+| `assets.ornate_icon_plus.content` | `rbxassetid://137432148053328` |
+| `assets.ornate_icon_plus.fallback` | `native` |
+| `assets.ornate_icon_plus.preload` | `install` |
+| `assets.ornate_icon_plus.tintRole` | `accent` |
+| `assets.ornate_panel_fill.content` | `rbxassetid://81048500362779` |
+| `assets.ornate_panel_fill.fallback` | `native` |
+| `assets.ornate_panel_fill.preload` | `install` |
+| `assets.ornate_panel_fill.sliceCenter.x0` | `32` |
+| `assets.ornate_panel_fill.sliceCenter.x1` | `96` |
+| `assets.ornate_panel_fill.sliceCenter.y0` | `32` |
+| `assets.ornate_panel_fill.sliceCenter.y1` | `96` |
+| `assets.ornate_panel_fill.sliceScale` | `1` |
+| `assets.ornate_panel_frame.content` | `rbxassetid://104827392559065` |
+| `assets.ornate_panel_frame.fallback` | `native` |
+| `assets.ornate_panel_frame.preload` | `install` |
+| `assets.ornate_panel_frame.sliceCenter.x0` | `40` |
+| `assets.ornate_panel_frame.sliceCenter.x1` | `120` |
+| `assets.ornate_panel_frame.sliceCenter.y0` | `40` |
+| `assets.ornate_panel_frame.sliceCenter.y1` | `120` |
+| `assets.ornate_panel_frame.sliceScale` | `1` |
+| `assets.ornate_plaque.content` | `rbxassetid://117707325909741` |
+| `assets.ornate_plaque.fallback` | `native` |
+| `assets.ornate_plaque.preload` | `install` |
+| `assets.ornate_plaque.sliceCenter.x0` | `16` |
+| `assets.ornate_plaque.sliceCenter.x1` | `160` |
+| `assets.ornate_plaque.sliceCenter.y0` | `16` |
+| `assets.ornate_plaque.sliceCenter.y1` | `40` |
+| `assets.ornate_plaque.sliceScale` | `1` |
+| `assets.ornate_selection_default.content` | `rbxassetid://101901876687967` |
+| `assets.ornate_selection_default.fallback` | `native` |
+| `assets.ornate_selection_default.preload` | `install` |
+| `assets.ornate_selection_default.sliceCenter.x0` | `16` |
+| `assets.ornate_selection_default.sliceCenter.x1` | `48` |
+| `assets.ornate_selection_default.sliceCenter.y0` | `16` |
+| `assets.ornate_selection_default.sliceCenter.y1` | `48` |
+| `assets.ornate_selection_default.sliceScale` | `1` |
+| `assets.ornate_selection_selected.content` | `rbxassetid://74679464509477` |
+| `assets.ornate_selection_selected.fallback` | `native` |
+| `assets.ornate_selection_selected.preload` | `install` |
+| `assets.ornate_selection_selected.sliceCenter.x0` | `16` |
+| `assets.ornate_selection_selected.sliceCenter.x1` | `48` |
+| `assets.ornate_selection_selected.sliceCenter.y0` | `16` |
+| `assets.ornate_selection_selected.sliceCenter.y1` | `48` |
+| `assets.ornate_selection_selected.sliceScale` | `1` |
+| `assets.ornate_stepper_plate_default.content` | `rbxassetid://99012630527588` |
+| `assets.ornate_stepper_plate_default.fallback` | `native` |

@@ -27,16 +27,43 @@ local function mount(context: Context)
 	end)
 	local feedback, say = Kit.message(list)
 	local _ = feedback
+	balance.Parent = modal.body
+	balance.LayoutOrder = 1
+	feedback.Parent = modal.body
+	feedback.LayoutOrder = 2
+	list.LayoutOrder = 3
+	list.Size = UDim2.new(1, 0, 0, 0)
+	Kit.list(Enum.FillDirection.Vertical, 8).Parent = modal.body
+	Kit.create("UIFlexItem", { FlexMode = Enum.UIFlexMode.Fill, Parent = list })
 	local actions: { [string]: TextButton } = {}
 	for _, item in api.catalog do
 		local card = Kit.card()
 		card.Parent = list
 		Kit.list(Enum.FillDirection.Vertical, 8).Parent = card
-		Kit.label(item.name, 20, nil, true).Parent = card
-		Kit.label(item.description, 16).Parent = card
-		Kit.label(tostring(item.price) .. " " .. item.currency).Parent = card
+		local row = Kit.create("Frame", {
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			LayoutOrder = 1,
+			Parent = card,
+		}) :: Frame
+		local rowLayout = Kit.list(Enum.FillDirection.Horizontal, 8) :: UIListLayout
+		rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+		rowLayout.Parent = row
+		local info = Kit.create("Frame", {
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, -118, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			Parent = row,
+		}, { Kit.list(Enum.FillDirection.Vertical, 4) }) :: Frame
+		Kit.label(item.name, 20, nil, true).Parent = info
+		Kit.label(tostring(item.price) .. " " .. item.currency).Parent = info
+		local description = Kit.label(item.description, 16)
+		description.LayoutOrder = 2
+		description.Parent = card
 		local action = Kit.button("Buy", "primary")
-		action.Parent = card
+		action.Size = UDim2.fromOffset(110, 48)
+		action.Parent = row
 		actions[item.id] = action
 		action.Activated:Connect(function()
 			local result = api.purchase(item.id)

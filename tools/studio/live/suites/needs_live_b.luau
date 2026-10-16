@@ -56,12 +56,14 @@ local function alertCase(t: any, where: string, size: Vector2, message: string, 
 			actions = actions,
 		})
 	end, { size = size, theme = theme, frames = 4 })
-	local panel = visibleNamed(t, stage, "AlertPanel")
-	if not panel then
+	local panel = t.find(stage, "AlertPanel")
+	if panel then
+		t.stable(panel)
+	end
+	if not panel or not t.visible(panel) then
 		t.check(where .. " alert shown", false)
 		return nil
 	end
-	t.stable(panel)
 	local p = t.rect(panel)
 	t.inside(where .. " card inside the screen", p, stage, 1)
 	local buttons = {}
@@ -348,7 +350,7 @@ add("toast-wide-and-fit", {}, function(t)
 		return found
 	end
 	built.width:set("fill")
-	built.show("Supply drop", "A sponsor sent a crate to the garage.")
+	built.show("Supply drop", "A sponsor sent a crate to the garage.", { duration = 3600 })
 	t.settle(30)
 	local toast = rows()[1]
 	if toast then
@@ -365,7 +367,7 @@ add("toast-wide-and-fit", {}, function(t)
 	built.dismiss()
 	t.settle(30)
 	built.width:set("hug")
-	built.show("Notice", "A single transient message")
+	built.show("Notice", "A single transient message", { duration = 3600 })
 	t.settle(30)
 	local short = rows()[1]
 	local detail = short and t.find(short, "Detail")
@@ -375,7 +377,11 @@ add("toast-wide-and-fit", {}, function(t)
 		detail ~= nil and detail.TextBounds.Y <= detailSize * 1.5,
 		detail and detail.TextBounds
 	)
-	built.show("A very long sponsor message", string.rep("The crate holds tyres, fuel and a new livery. ", 4))
+	built.show(
+		"A very long sponsor message",
+		string.rep("The crate holds tyres, fuel and a new livery. ", 4),
+		{ duration = 3600 }
+	)
 	t.settle(30)
 	local found = {}
 	for _, node in rows() do
@@ -515,7 +521,10 @@ add("skinned-checkbox-stroke", {}, function(t)
 		local descendants: { Instance } = if sheet then sheet:GetDescendants() else {}
 		for _, node in descendants do
 			if node:IsA("StyleRule") then
-				found[node.Selector] = node
+				for part in string.gmatch(node.Selector, "[^,]+") do
+					local selector = assert(string.match(part, "^%s*(.-)%s*$"))
+					found[selector] = node
+				end
 			end
 		end
 		return found

@@ -1449,6 +1449,31 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps native selection scrolling ahead of a reactive batch", {
+			id = "native_environment::focus ring: the engine draws the theme's focus look::keeps native selection scrolling ahead of a reactive batch",
+			run = function()
+				local w, _, stop = ring(nil, { preferredInput = "Gamepad" })
+				w.input.GetLastInputType = function()
+					return w.Enum.UserInputType.Gamepad1
+				end
+				local V = w.engine.types.Vector2
+				local screen = w.engine.new("ScreenGui")
+				local list = w.engine.new("ScrollingFrame")
+				list.Parent = screen
+				list.AbsolutePosition, list.AbsoluteWindowSize = V.zero, V.new(300, 200)
+				list.AbsoluteCanvasSize = V.new(300, 2000)
+				local row = w.engine.new("TextButton")
+				row.Parent = list
+				row.AbsolutePosition, row.AbsoluteSize = V.new(0, 800), V.new(300, 44)
+				w.runtime.reactor:batch(function()
+					w.gui.SelectedObject = row
+					list.CanvasPosition = V.new(0, 644)
+				end)
+				Verify.expect(list.CanvasPosition.Y):toBe(644)
+				stop()
+			end,
+		})
+
 		verifyHarness:case("shares the one engine selection object among apps and gives back what was there before", {
 			id = "native_environment::focus ring: the engine draws the theme's focus look::shares the one engine selection object among apps and gives back what was there before",
 			run = function()

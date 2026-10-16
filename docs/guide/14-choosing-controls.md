@@ -198,7 +198,7 @@ For a user-ordered collection:
 - Preserve pointer dragging, touch pickup, and the keyboard/gamepad move paths.
   Supply an `editing` cell and an Edit control for a VirtualList when its
   non-pointer edit handles are needed. Read the full
-  [editable collection contract](../reference/api.md#editable-collections).
+  [editable collection contract](../reference/nodes/Editable-collections.md).
 - Do not replace the gesture with a pair of Up/Down buttons merely because the
   list is short or the rows are custom. Add such commands only for a requested
   or task-specific interaction; they can use the same model operation.

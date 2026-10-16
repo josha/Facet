@@ -1,0 +1,55 @@
+# Themes.pixel_quest.assets.1
+
+Resolved assets tokens.
+
+| Token | Value |
+| --- | --- |
+| `assets.flag.content` | `rbxassetid://109067109704366` |
+| `assets.flag.tintRole` | `content` |
+| `assets.menu.content` | `rbxassetid://119066409501208` |
+| `assets.menu.tintRole` | `content` |
+| `assets.pixel_bar_cap_heart.content` | `rbxassetid://100115790671157` |
+| `assets.pixel_bar_cap_heart.fallback` | `native` |
+| `assets.pixel_bar_cap_heart.preload` | `install` |
+| `assets.pixel_bar_fill.content` | `rbxassetid://118968463549709` |
+| `assets.pixel_bar_fill.fallback` | `native` |
+| `assets.pixel_bar_fill.preload` | `install` |
+| `assets.pixel_bar_fill.sliceCenter.x0` | `4` |
+| `assets.pixel_bar_fill.sliceCenter.x1` | `8` |
+| `assets.pixel_bar_fill.sliceCenter.y0` | `4` |
+| `assets.pixel_bar_fill.sliceCenter.y1` | `12` |
+| `assets.pixel_bar_fill.sliceScale` | `1` |
+| `assets.pixel_bar_track.content` | `rbxassetid://133548434345857` |
+| `assets.pixel_bar_track.fallback` | `native` |
+| `assets.pixel_bar_track.preload` | `install` |
+| `assets.pixel_bar_track.sliceCenter.x0` | `8` |
+| `assets.pixel_bar_track.sliceCenter.x1` | `12` |
+| `assets.pixel_bar_track.sliceCenter.y0` | `8` |
+| `assets.pixel_bar_track.sliceCenter.y1` | `24` |
+| `assets.pixel_bar_track.sliceScale` | `1` |
+| `assets.pixel_blank.content` | `rbxassetid://98713013227633` |
+| `assets.pixel_blank.fallback` | `native` |
+| `assets.pixel_blank.preload` | `install` |
+| `assets.pixel_field.content` | `rbxassetid://88009742569643` |
+| `assets.pixel_field.fallback` | `native` |
+| `assets.pixel_field.preload` | `install` |
+| `assets.pixel_field.sliceCenter.x0` | `16` |
+| `assets.pixel_field.sliceCenter.x1` | `20` |
+| `assets.pixel_field.sliceCenter.y0` | `16` |
+| `assets.pixel_field.sliceCenter.y1` | `20` |
+| `assets.pixel_field.sliceScale` | `1` |
+| `assets.pixel_icon_check.content` | `rbxassetid://93821473650946` |
+| `assets.pixel_icon_check.fallback` | `native` |
+| `assets.pixel_icon_check.preload` | `lazy` |
+| `assets.pixel_icon_check_off.content` | `rbxassetid://111516067571262` |
+| `assets.pixel_icon_check_off.fallback` | `native` |
+| `assets.pixel_icon_check_off.preload` | `lazy` |
+| `assets.pixel_icon_chevron_down.content` | `rbxassetid://135945017045204` |
+| `assets.pixel_icon_chevron_down.fallback` | `native` |
+| `assets.pixel_icon_chevron_down.preload` | `lazy` |
+| `assets.pixel_icon_chevron_left.content` | `rbxassetid://124829299432358` |
+| `assets.pixel_icon_chevron_left.fallback` | `native` |
+| `assets.pixel_icon_chevron_left.preload` | `lazy` |
+| `assets.pixel_icon_chevron_right.content` | `rbxassetid://135535101730897` |
+| `assets.pixel_icon_chevron_right.fallback` | `native` |
+| `assets.pixel_icon_chevron_right.preload` | `lazy` |

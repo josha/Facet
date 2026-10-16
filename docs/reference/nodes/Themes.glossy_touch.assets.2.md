@@ -1,0 +1,49 @@
+# Themes.glossy_touch.assets.2
+
+Resolved assets tokens.
+
+| Token | Value |
+| --- | --- |
+| `assets.glossy_selection_default.preload` | `install` |
+| `assets.glossy_selection_default.sliceCenter.x0` | `18` |
+| `assets.glossy_selection_default.sliceCenter.x1` | `54` |
+| `assets.glossy_selection_default.sliceCenter.y0` | `18` |
+| `assets.glossy_selection_default.sliceCenter.y1` | `26` |
+| `assets.glossy_selection_default.sliceScale` | `1` |
+| `assets.glossy_selection_selected.content` | `rbxassetid://92935254088612` |
+| `assets.glossy_selection_selected.fallback` | `native` |
+| `assets.glossy_selection_selected.preload` | `install` |
+| `assets.glossy_selection_selected.sliceCenter.x0` | `18` |
+| `assets.glossy_selection_selected.sliceCenter.x1` | `54` |
+| `assets.glossy_selection_selected.sliceCenter.y0` | `18` |
+| `assets.glossy_selection_selected.sliceCenter.y1` | `26` |
+| `assets.glossy_selection_selected.sliceScale` | `1` |
+| `assets.glossy_stepper_plate_default.content` | `rbxassetid://133233140281994` |
+| `assets.glossy_stepper_plate_default.fallback` | `native` |
+| `assets.glossy_stepper_plate_default.preload` | `install` |
+| `assets.glossy_stepper_plate_default.sliceCenter.x0` | `14` |
+| `assets.glossy_stepper_plate_default.sliceCenter.x1` | `30` |
+| `assets.glossy_stepper_plate_default.sliceCenter.y0` | `14` |
+| `assets.glossy_stepper_plate_default.sliceCenter.y1` | `30` |
+| `assets.glossy_stepper_plate_default.sliceScale` | `1` |
+| `assets.glossy_stepper_plate_pressed.content` | `rbxassetid://70897473278181` |
+| `assets.glossy_stepper_plate_pressed.fallback` | `native` |
+| `assets.glossy_stepper_plate_pressed.preload` | `install` |
+| `assets.glossy_stepper_plate_pressed.sliceCenter.x0` | `14` |
+| `assets.glossy_stepper_plate_pressed.sliceCenter.x1` | `30` |
+| `assets.glossy_stepper_plate_pressed.sliceCenter.y0` | `14` |
+| `assets.glossy_stepper_plate_pressed.sliceCenter.y1` | `30` |
+| `assets.glossy_stepper_plate_pressed.sliceScale` | `1` |
+| `assets.glossy_stripe_tile.content` | `rbxassetid://131357884608814` |
+| `assets.glossy_stripe_tile.fallback` | `native` |
+| `assets.glossy_stripe_tile.preload` | `install` |
+| `assets.glossy_toggle_knob.content` | `rbxassetid://126375261384779` |
+| `assets.glossy_toggle_knob.fallback` | `native` |
+| `assets.glossy_toggle_knob.preload` | `install` |
+| `assets.glossy_toggle_track_off.content` | `rbxassetid://133407056790088` |
+| `assets.glossy_toggle_track_off.fallback` | `native` |
+| `assets.glossy_toggle_track_off.preload` | `install` |
+| `assets.glossy_toggle_track_off.sliceCenter.x0` | `14` |
+| `assets.glossy_toggle_track_off.sliceCenter.x1` | `58` |
+| `assets.glossy_toggle_track_off.sliceCenter.y0` | `14` |
+| `assets.glossy_toggle_track_off.sliceCenter.y1` | `18` |

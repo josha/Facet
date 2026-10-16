@@ -54,7 +54,13 @@ local function sheetRule(stage: Instance, selector: string): { [string]: any }?
 	end
 	local found
 	for _, node in sheet:GetDescendants() do
-		if node:IsA("StyleRule") and node.Selector == selector then
+		local matches = false
+		if node:IsA("StyleRule") then
+			for part in string.gmatch(node.Selector, "[^,]+") do
+				matches = matches or string.match(part, "^%s*(.-)%s*$") == selector
+			end
+		end
+		if node:IsA("StyleRule") and matches then
 			found = {}
 			for key, value in node:GetProperties() do
 				local token = if type(value) == "string" and string.sub(value, 1, 1) == "$"
@@ -498,7 +504,7 @@ add("segment-accent-plate-image-themes", {}, function(t)
 					{ value = "reduced", label = "Reduced" } :: PickerOption,
 				},
 			}
-		end, { size = Vector2.new(600, 200), theme = entry.package, frames = 10 })
+		end, { size = Vector2.new(600, 200), theme = entry.package, motionLevel = "normal", frames = 10 })
 		local current = tagged(stage, "facet-segment-current")
 		local plate = sheetRule(stage, ".facet-segment-current")
 		local ink = sheetRule(stage, ".facet-segment-current >> .facet-button-caption")
@@ -667,7 +673,7 @@ add("tab-reorder-keeps-page-geometry", {}, function(t)
 	local order, builds = nil, 0
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
 		order = Compose.cell({ "home", "feed", "me" })
-		return UI.TabView "Tabs" {
+		return UI.TabView "TabsFixture" {
 			selection = Compose.cell("home"),
 			style = "sidebarAdaptable" :: "sidebarAdaptable",
 			placement = "bottomBar" :: "bottomBar",
@@ -704,7 +710,7 @@ add("tab-reorder-keeps-page-geometry", {}, function(t)
 			},
 		}
 	end, { size = Vector2.new(390, 700), frames = 15 })
-	local strip = t.find(stage, "Tabs"):FindFirstChild("Tabs")
+	local strip = t.find(stage, "TabsFixture"):FindFirstChild("Strip", true)
 	local body = t.find(stage, "HomeBody")
 	local content = t.find(stage, "Content")
 	local buttons =
@@ -759,7 +765,7 @@ add("tab-content-stretches-page", {}, function(t)
 	for _, size in { Vector2.new(390, 844), Vector2.new(1280, 720) } do
 		local where = `{size.X}x{size.Y}`
 		local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
-			return UI.TabView "Tabs" {
+			return UI.TabView "TabsFixture" {
 				selection = Compose.cell("home"),
 				style = "sidebarAdaptable" :: "sidebarAdaptable",
 				tabs = {
@@ -783,7 +789,7 @@ add("tab-content-stretches-page", {}, function(t)
 				},
 			}
 		end, { size = size, frames = 15 })
-		local root = t.find(stage, "Tabs")
+		local root = t.find(stage, "TabsFixture")
 		local content = root:FindFirstChild("Content")
 		local layer = content and content:FindFirstChild("home")
 		t.check(where .. " the page layer mounts", layer ~= nil)
@@ -801,7 +807,7 @@ add("tab-content-stretches-page", {}, function(t)
 				seen ~= nil and seen.x >= c.x - 0.5 and seen.r <= c.r + 0.5,
 				seen
 			)
-			local strip = root:FindFirstChild("Tabs")
+			local strip = root:FindFirstChild("Tabs", true)
 			t.check(
 				where .. " the page does not cover the strip",
 				strip ~= nil

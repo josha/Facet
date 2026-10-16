@@ -287,10 +287,12 @@ add("cell-insets-and-header-contrast", {}, function(t)
 		local found: UDim? = nil
 		for _, rule in if sheet then sheet:GetChildren() else {} do
 			if rule:IsA("StyleRule") then
-				local tag = string.match(rule.Selector, "^%.([%w%-]+)::UIPadding$")
-				local padding = if tag and node:HasTag(tag) then rule:GetProperty("PaddingLeft") else nil
-				if typeof(padding) == "UDim" then
-					found = padding
+				for selector in string.gmatch(rule.Selector, "[^,]+") do
+					local tag = string.match(selector, "^%s*%.([%w%-]+)::UIPadding%s*$")
+					local padding = if tag and node:HasTag(tag) then rule:GetProperty("PaddingLeft") else nil
+					if typeof(padding) == "UDim" then
+						found = padding
+					end
 				end
 			end
 		end
@@ -534,6 +536,9 @@ end)
 
 local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 	local fired = 0
+	local departing: GuiObject? = nil
+	local actionSize: UDim2? = nil
+	local actionVisible: boolean? = nil
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		local action = {
 			id = "delete",
@@ -541,6 +546,13 @@ local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 			role = "destructive" :: "destructive",
 			onActivate = function()
 				fired += 1
+				if departing then
+					actionSize = departing.Size
+					local content = departing:FindFirstChild("Content")
+					if content and content:IsA("GuiObject") then
+						actionVisible = content.Visible
+					end
+				end
 			end,
 		}
 		local list = {
@@ -581,6 +593,7 @@ local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 	end, { size = Vector2.new(900, 400), theme = entry.package, motionLevel = "normal", frames = 30 })
 	local where = `{entry.name} {edge} scroll={scroll}`
 	local row = t.find(stage, "Row")
+	departing = row
 	local nextFrame = t.find(stage, "Next")
 	local body = t.find(stage, "Body")
 	local content = row and row:FindFirstChild("Content")
@@ -631,10 +644,11 @@ local function departureCase(t: any, entry: any, edge: string, scroll: boolean)
 	end
 	t.note(where .. " frames", { frames = frames, collapsed = collapsedFrames })
 	t.check(
-		where .. " the row collapsed over several frames before the action ran",
-		collapsedFrames >= 2,
-		collapsedFrames
+		where .. " the row finished collapsing before the action ran",
+		actionSize ~= nil and actionSize.Y.Scale == 0 and actionSize.Y.Offset <= 0.5,
+		actionSize
 	)
+	t.check(where .. " the departing content is hidden when the action runs", actionVisible == false, actionVisible)
 	t.check(where .. " nothing of the departing row paints while the next row rises", #leaks == 0, leaks)
 	t.settle(10)
 	t.check(where .. " the action ran exactly once", fired == 1, fired)

@@ -89,7 +89,7 @@ The transition override and the reduced-motion input can be Compose readables.
 Keep custom screen paint in StyleRules. Then it follows the same theme
 transition as the controls.
 
-The [API reference](../reference/api.md#themes) has the full `createStyleSheet`
+The [API reference](../reference/nodes/Themes.md) has the full `createStyleSheet`
 contract. [Custom themes](09-custom-themes.md) explains how to make a
 game-owned theme package.
 

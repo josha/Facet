@@ -8,6 +8,7 @@ local Core = require("../../../../tools/vendor/verify/src/core")
 local Play = require("../../../../tools/play/host/play")
 local Check = require("../../../../tools/play/host/check")
 local QA = require("../../../../tools/play/host/qa")
+local Actions = require("../../../../tools/play/host/actions")
 local Space = require("./race-space")
 local Catalog = require("../starter/src/shared/Hub/Catalog")
 local Outcomes = require("./outcomes")
@@ -41,7 +42,7 @@ local panels = {
 local added = { "", "", "", "", "Livery", "Track Vote", "Quick Chat", "Upgrades", "Party", "Tutorial" }
 
 local function query(words: string): QA.Query
-	return { role = "button", text = string.lower(words) }
+	return { role = "button", text = string.lower(if words == "Daily Rewards" then "Rewards" else words) }
 end
 
 local function raceReadout(qa: QA.QA, position: number): boolean
@@ -96,7 +97,6 @@ local function helpCopy(qa: QA.QA): string
 end
 
 local function press(qa: QA.QA, context: Core.Context, words: string)
-	qa:reveal(query(words))
 	Check.tap(qa, context, query(words), "use " .. words)
 end
 
@@ -230,6 +230,25 @@ local function cases(id: string): { Play.Case }
 		Check.visible(qa, context, query("Shop"), "hub actions are available", 20)
 		Check.that(context, qa:first({ role = "button", exact = "back" }) == nil, "root has no Back action")
 		observe(qa, context, "universal-hub")
+		local overflow = Actions.overflow(qa)
+		if overflow ~= nil then
+			qa:call("frameStability", { action = "begin" })
+			Check.tap(qa, context, overflow, "open the overflow menu")
+			qa:sleep(0.5)
+			local stability = qa:call("frameStability", { action = "end" })
+			context:attach("hub-more-frame-stability", "application/json", Lute.encode(stability))
+			local faults = Check.field(stability, "faults")
+			Check.that(context, Check.number(stability, "frames") > 1, "menu stability observes rendered frames")
+			Check.that(
+				context,
+				type(faults) == "table" and #(faults :: { unknown }) == 0,
+				"More has no visible layout correction"
+			)
+			observe(qa, context, "universal-more")
+			back(qa, context)
+			local returned, detail = Actions.returned(qa, overflow)
+			Check.that(context, returned, "the overflow menu closes: " .. detail)
+		end
 	end)
 	local routes: { string } = if id == "racing-hub-slice"
 		then { "Shop", "Boosts", "Quests", "Offer" }
@@ -263,15 +282,8 @@ local function cases(id: string): { Play.Case }
 					"the route is no longer stuck on a child screen"
 				)
 			end
-			Check.visible(qa, context, query(name), "return to the opener")
-			if qa.device.mode == "gamepad" then
-				local selected = qa:selected()
-				Check.that(
-					context,
-					selected ~= nil and string.find(string.lower(selected.label), string.lower(name), 1, true) ~= nil,
-					"selection returns to the opener"
-				)
-			end
+			local returned, detail = Actions.returned(qa, query(name))
+			Check.that(context, returned, "return to the opener: " .. detail)
 		end)
 	end
 	for _, case in Outcomes.cases(index, { press = press, back = back }) do
