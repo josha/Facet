@@ -1,7 +1,7 @@
 # Headline report
 
 For the saved paired slice measurement, with both arms run fresh, see the
-[slice report](reports/slice-2026-10-16.md). To repeat hidden checks on saved
+[slice report](reports/slice.md). To repeat hidden checks on saved
 completed workspaces without invoking an agent, use
 `lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.
 Verify archives the previous check evidence and preserves agent metrics,
@@ -16,7 +16,7 @@ budgets. Spec failures do not gate it. Universal audits and the blind judge
 remain in the quality rules. The limits are in `overhead.json` and `thresholds.json`. Missing universal scores fail closed. Both tier fractions appear
 in `headline.md`; diagnostic captures stay outside the judge's image set.
 
-See [the tier table and calibration commands](README.md#check-tiers-and-calibration). The dated slice reports contain two-device calibration results. The Facet CLI is available only in the Facet arm. Runs are sequential. Missing scoped Studio tools cause setup failure.
+See [the tier table and calibration commands](README.md#check-tiers-and-calibration). The slice report contains two-device calibration results. The Facet CLI is available only in the Facet arm. Runtime rescoring is sequential. Missing scoped Studio tools cause setup failure.
 
 Run from the repository root after all 22 runs and 55 blind comparisons finish:
 
@@ -80,8 +80,6 @@ and last observation times in `mount.liveContent`. The saved-workspace command
 `lute run tools/facet facetbench mount WORKSPACE OUTPUT` records both definitions
 on the same frames as `mountSeconds` and `legacyMountSeconds`, with separate
 timeout flags. The mount ratio limit is 1.10.
-The [mount measurement](reports/mount-metric.md) records the two-device
-calibration, the three-capture samples and the live-content exclusions.
 
 The shared play host counts all descendants and roots of the game UI as
 `baseInstances`. It stops frame sampling between windows. This keeps the

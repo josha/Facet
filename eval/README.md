@@ -1,6 +1,6 @@
 # FacetBench
 
-The headline suite is [`extended.json`](extended.json). It uses short player prompts for the hub and ten chained follow-ups. [`extended-spec.json`](extended-spec.json) uses detailed diagnostic briefs. See [the slice report](reports/slice-2026-10-16.md) for a saved paired measurement.
+The headline suite is [`extended.json`](extended.json). It uses short player prompts for the hub and ten chained follow-ups. [`extended-spec.json`](extended-spec.json) uses detailed diagnostic briefs. See [the slice report](reports/slice.md) for a saved paired measurement and the built place of each arm.
 
 FacetBench measures how well AI coding agents build Roblox game interfaces. It compares two arms on the same game:
 
@@ -112,8 +112,6 @@ captures desktop and phone portrait in one owned Studio and closes it. It
 observes the current definition and the whole-screen geometry checksum on the
 same rendered frames. `legacyMountSeconds` and `mount.legacyTimedOut` preserve
 the comparison. The command runs no agent and changes no saved source.
-See the [mount measurement](reports/mount-metric.md) for the reference
-calibration, paired saved-build captures and audited live-content elements.
 
 ## Render preflight
 

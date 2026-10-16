@@ -2,6 +2,7 @@
 
 local Eval = require("../../tools/vendor/verify/src/agent-eval")
 local Universal = require("../tasks/racing-hub/hidden/universal")
+local Audit = require("../../tools/vendor/verify/src/roblox/ui-audit")
 
 type Run = Eval.RunResult
 export type Manifest = {
@@ -23,18 +24,18 @@ export type Overhead = { status: string, rules: { Rule } }
 export type Output = { markdown: string, quality: Eval.EvalReport, passed: boolean, problems: { string } }
 
 local stats = Eval.stats
-local UNIVERSAL_AUDIT: { [string]: boolean } = {
-	["text-truncated"] = true,
-	["text-clipped"] = true,
-	["contrast-low"] = true,
-	["offscreen"] = true,
-	["outside-safe-area"] = true,
-	["touch-target-small"] = true,
-	["interactive-overlap"] = true,
-	["gamepad-unreachable"] = true,
-	["focus-hidden"] = true,
-	["selection-link-broken"] = true,
+local DIAGNOSTIC_AUDIT: { [string]: boolean } = {
+	["press-feedback-missing"] = true,
+	["type-scale"] = true,
+	["spacing-scale"] = true,
+	["instance-count"] = true,
 }
+local UNIVERSAL_AUDIT: { [string]: boolean } = {}
+for rule in Audit.RULES do
+	if not DIAGNOSTIC_AUDIT[rule] then
+		UNIVERSAL_AUDIT[rule] = true
+	end
+end
 
 local function show(value: number?): string
 	return if value == nil then "missing" else ("%.3f"):format(value)
