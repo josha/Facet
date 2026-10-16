@@ -3,6 +3,7 @@
 local Verify = require("../../tools/vendor/verify/src/core")
 local Eval = require("../../tools/vendor/verify/src/agent-eval")
 local Headline = require("../../eval/tools/headline")
+local Audit = require("../../tools/vendor/verify/src/roblox/ui-audit")
 local Fixture = require("../fixtures/headline")
 
 return function(harness: Verify.Harness)
@@ -56,6 +57,31 @@ return function(harness: Verify.Harness)
 		end
 		runs[1].scores["play.universal.desktop.fraction"] = nil
 		t:expect(Headline.build(suite, runs, judgments, thresholds, overhead).passed):toBe(false)
+	end)
+	harness:case("every non-diagnostic audit rule counts in the headline", function(t)
+		local diagnostic = {
+			["press-feedback-missing"] = true,
+			["type-scale"] = true,
+			["spacing-scale"] = true,
+			["instance-count"] = true,
+		}
+		local directory = b.absolute("artifacts/facetbench/synthetic-audit-rules")
+		local suite = Fixture.write(directory, "pass")
+		local judgments = Eval.judge.load(directory, b.files, b.decode)
+		t:expect(Headline.build(suite, Eval.load(directory, b.files, b.decode), judgments, thresholds, overhead).passed)
+			:toBe(true)
+		for rule in Audit.RULES do
+			local runs = Eval.load(directory, b.files, b.decode)
+			for _, run in runs do
+				if run.arm == "facet" then
+					for _, audit in run.audits do
+						audit.rules[rule] = 10000
+					end
+				end
+			end
+			local passed = Headline.build(suite, runs, judgments, thresholds, overhead).passed
+			t:expect({ rule = rule, passed = passed }):toEqual({ rule = rule, passed = diagnostic[rule] == true })
+		end
 	end)
 	for _, mode in { "pass", "instances", "fail", "missing" } do
 		harness:case("headline report reads " .. mode .. " synthetic run directory", function(t)
