@@ -1,5 +1,7 @@
 # ProgressView.card
 
+<!-- aliases: ProgressView | UI.ProgressView | ProgressBar.card | Progress.card -->
+
 Show measured progress.
 
 Inside an app mount, set `local UI = app.UI`.

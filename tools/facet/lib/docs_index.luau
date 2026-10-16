@@ -171,6 +171,46 @@ function DocsIndex.search(nodes: { Node }, query: string, limit: number): { Matc
 	return matches
 end
 
+local function distance(left: string, right: string): number
+	local previous: { number } = {}
+	for index = 0, #right do
+		previous[index + 1] = index
+	end
+	for row = 1, #left do
+		local current = { row }
+		for column = 1, #right do
+			current[column + 1] = math.min(
+				current[column] + 1,
+				previous[column + 1] + 1,
+				previous[column] + (if string.sub(left, row, row) == string.sub(right, column, column) then 0 else 1)
+			)
+		end
+		previous = current
+	end
+	return previous[#right + 1]
+end
+
+function DocsIndex.nearest(nodes: { Node }, query: string): Node?
+	local wanted = normal(query)
+	if #wanted < 5 then
+		return nil
+	end
+	local best: Node? = nil
+	local score, runner = math.huge, math.huge
+	for _, node in nodes do
+		local value = distance(wanted, normal(node.path))
+		for _, alias in node.aliases do
+			value = math.min(value, distance(wanted, normal(alias)))
+		end
+		if value < score then
+			runner, score, best = score, value, node
+		else
+			runner = math.min(runner, value)
+		end
+	end
+	return if score <= 2 and runner - score >= 2 then best else nil
+end
+
 function DocsIndex.validate(nodes: { Node }): { string }
 	local findings: { string } = {}
 	local byPath: { [string]: Node } = {}

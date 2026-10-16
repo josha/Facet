@@ -5,8 +5,9 @@ description: Build, change, style or test Roblox game UI and Studio plugin inter
 
 # Use Facet
 
-Start with `lute run tools/facet docs` for `Map`. Open one task recipe,
-such as `lute run tools/facet docs Tasks.hud`.
+Start with `lute run tools/facet docs` for `Map`. Open every task recipe that
+matches a part of the screen. For a HUD with a shop, open `Tasks.hud` and
+`Tasks.shop`. For a panel with child pages, also open `Tasks.sheet`.
 Open a control card or option node only for a missing detail: `docs <path>`.
 Use `docs --search TEXT` to find paths and one-line summaries.
 Never reread a node already in context. Each call returns one bounded node.

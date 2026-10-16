@@ -1,8 +1,21 @@
 ### Layout options
 
-<!-- aliases: Layout options | layout-options -->
+<!-- aliases: Layout options | layout-options | Stack.layout | VStack.layout -->
 
 Layout-options option values and behavior.
+
+These options belong to containers. Text and Button size to their content.
+For a leaf's width, set `align = "stretch"` on its parent VStack. For height,
+use that option on its parent HStack. Put `UI.fill()` inside a leaf to share
+the parent's main axis. For explicit width, use native
+`Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y`.
+For explicit height, use `Size = UDim2.fromOffset(0, 48),
+AutomaticSize = Enum.AutomaticSize.X`. For a fixed box use native Size and
+`AutomaticSize = Enum.AutomaticSize.None`.
+Put gap, padding, align and distribute on the parent stack. For padding inside
+a leaf, add a native UIPadding child through Host. For a leaf width limit,
+add a native UISizeConstraint child with MaxSize. Name the constructor table
+`local Host = app.runtime.constructors`.
 
 | Option | Values | Native result |
 |---|---|---|
