@@ -5,11 +5,13 @@
   "arms": [
     {
       "id": "plain",
+                     "studio": {"build":["rojo","build","default.project.json","-o","{evidence}/agent.rbxlx"],"place":"{evidence}/agent.rbxlx"},
       "overlay": ["arms/shared", "../artifacts/facetbench/arm-shared", "arms/plain"],
       "instructions": "arms/plain/AGENTS.md"
     },
     {
       "id": "facet",
+                     "studio": {"build":["rojo","build","default.project.json","-o","{evidence}/agent.rbxlx"],"place":"{evidence}/agent.rbxlx"},
       "overlay": ["arms/shared", "../artifacts/facetbench/arm-shared", "arms/facet", "../artifacts/facetbench/arm-facet"],
       "instructions": "arms/facet/AGENTS.md"
     }

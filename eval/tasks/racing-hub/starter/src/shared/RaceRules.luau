@@ -1,5 +1,17 @@
 --!strict
 
+export type Racer = {
+	name: string,
+	position: number,
+	lap: number,
+	lapCount: number,
+	completedLaps: number,
+	bestLap: number?,
+	gap: number,
+	finished: boolean,
+	eliminated: boolean,
+}
+
 export type Progress = { checkpoint: number, lap: number, progress: number }
 export type Rank = { name: string, progress: number, finish: number, out: boolean }
 
@@ -30,4 +42,20 @@ local function ahead(a: Rank, b: Rank): boolean
 	return a.progress > b.progress
 end
 
-return { advance = advance, ahead = ahead }
+local function lapKnockout(racers: { Racer }, lastLap: number): (string?, number)
+	local lap = 0
+	local active = 0
+	local last: string? = nil
+	for _, racer in racers do
+		if not racer.eliminated then
+			active += 1
+			lap = math.max(lap, racer.completedLaps)
+			if not racer.finished then
+				last = racer.name
+			end
+		end
+	end
+	return if active > 1 and lap >= 1 and lap > lastLap then last else nil, math.max(lastLap, lap)
+end
+
+return { advance = advance, ahead = ahead, lapKnockout = lapKnockout }

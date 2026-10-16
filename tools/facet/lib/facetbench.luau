@@ -150,6 +150,7 @@ function Bench.prepare(root: string)
 		name = "extended-reference-type-context",
 		tree = {
 			["$className"] = "DataModel",
+			Lighting = { ["$properties"] = { Technology = "Future" } },
 			ReplicatedStorage = { Shared = shared },
 			ServerScriptService = { Server = server },
 			StarterPlayer = { StarterPlayerScripts = scripts },

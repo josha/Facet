@@ -12,6 +12,12 @@ function Kart.create(name: string, color: Color3, frame: CFrame, kinematic: bool
 		object.Size = size
 		object.CFrame = frame * offset
 		object.Color = tint
+		if workspace:GetAttribute("WorldTheme") == "scifi" then
+			object.Material = if label == "Nose" or label == "Spoiler" then Enum.Material.Neon else Enum.Material.Metal
+			if label == "Chassis" then
+				object.Color = Color3.fromRGB(30, 38, 58)
+			end
+		end
 		object.Anchored = kinematic
 		object.CanCollide = not kinematic
 		object.TopSurface = Enum.SurfaceType.Smooth

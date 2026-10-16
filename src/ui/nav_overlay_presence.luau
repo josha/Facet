@@ -6,6 +6,7 @@ local motion = require("./motion")
 local rest = require("./rest")
 local fontReadiness = require("./font_readiness")
 local arrival = require("./overlay_arrival")
+local textMeasure = require("./text_measure")
 
 export type Presence = {
 	appearance: (Nav.PresencePhase?, Nav.MotionTiming, ComposeTypes.Readable<boolean>?) -> Nav.Presence,
@@ -104,6 +105,7 @@ return function(ctx: Types.Context): Presence
 		local rested = rest(ctx, function(): (string, boolean, boolean?)
 			local parts: { string } = {}
 			local filled = false
+			local measured = true
 			local origin = nodes[1].AbsolutePosition
 			local descendants = nodes[1]:GetDescendants()
 			for _, node in nodes do
@@ -111,6 +113,7 @@ return function(ctx: Types.Context): Presence
 				filled = filled or (node.AbsoluteSize.X > 0 and node.AbsoluteSize.Y > 0)
 			end
 			for _, node in descendants do
+				measured = measured and textMeasure.ready(node)
 				if node:IsA("GuiObject") then
 					local value = `{node.AbsolutePosition - origin}:{node.AbsoluteSize}:{node.Visible}`
 					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
@@ -119,7 +122,7 @@ return function(ctx: Types.Context): Presence
 					table.insert(parts, value)
 				end
 			end
-			return table.concat(parts, ";"), filled, nodes[1].Visible and fontsReady()
+			return table.concat(parts, ";"), filled, nodes[1].Visible and fontsReady() and measured
 		end, restart)
 		local held: { ComposeTypes.Readable<Vector2> } = {}
 		for index, size in live do

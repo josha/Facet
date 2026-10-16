@@ -10,6 +10,7 @@ local surfaceKit = require("./nav_surface_kit")
 local overlayPresence = require("./nav_overlay_presence")
 local overlayPortal = require("./nav_overlay_portal")
 local popoverPlacement = require("./nav_popover_placement")
+local textMeasure = require("./text_measure")
 
 local HELP_DWELL = 0.45
 
@@ -189,14 +190,32 @@ return function(
 				local layer = assert(parent(anchor))
 				local at, bounds = ctx.observe.AbsolutePosition(anchor), ctx.observe.AbsoluteSize(anchor)
 				local extent, origin = ctx.observe.AbsoluteSize(layer), ctx.observe.AbsolutePosition(layer)
-				local label = ctx.text({
+				local widths = Compose.cell({} :: { ComposeTypes.Readable<Vector2> })
+				local function width(use: ComposeTypes.Use): UDim2
+					local widest = 0
+					for _, natural in use(widths) do
+						widest = math.max(widest, use(natural).X)
+					end
+					return D2.fromOffset(math.min(264, math.max(0, use(extent).X - 32), widest), 0)
+				end
+				local function wrap(label: TextLabel): TextLabel
+					local nextWidths = table.clone(widths:peek())
+					table.insert(nextWidths, textMeasure.natural(ctx, label))
+					widths:set(nextWidths)
+					runtime.decorate(label, {
+						TextWrapped = true,
+						Size = width,
+						AutomaticSize = E.AutomaticSize.Y,
+					})
+					return label
+				end
+				local label = wrap(ctx.text({
 					Name = "HelpText",
 					Text = function(use: ComposeTypes.Use)
 						return ctx.read(text, use) or ""
 					end,
 					TextWrapped = true,
-					Host.UISizeConstraint({ MaxSize = V2.new(264, math.huge) }) :: Types.Child,
-				})
+				}))
 				label:AddTag("facet-type-caption")
 				local panelProps: Types.CanvasGroupNativeProps = {
 					Name = plate and plate.name or "Help",
@@ -212,13 +231,13 @@ return function(
 					Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder, Padding = ctx.types.UDim.new(0, 4) })
 				if structured and structured.title ~= nil then
 					local title = structured.title
-					local heading = ctx.text({
+					local heading = wrap(ctx.text({
 						Name = "HelpTitle",
 						LayoutOrder = 1,
 						Text = function(use: ComposeTypes.Use)
 							return ctx.read(title, use) or ""
 						end,
-					})
+					}))
 					heading:AddTag("facet-type-heading")
 					panelProps[#panelProps + 1] = heading
 				end
@@ -234,11 +253,11 @@ return function(
 					for _, chord in structured.shortcut do
 						table.insert(chords, table.concat(chord, "+"))
 					end
-					local hint = ctx.text({
+					local hint = wrap(ctx.text({
 						Name = "HelpShortcut",
 						LayoutOrder = 3,
 						Text = table.concat(chords, " or "),
-					})
+					}))
 					hint:AddTag("facet-type-caption")
 					hint:AddTag("facet-secondary")
 					panelProps[#panelProps + 1] = hint

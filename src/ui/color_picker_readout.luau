@@ -142,7 +142,6 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 	end
 	local function readoutView(): Frame
 		local builders: { [string]: () -> Frame } = { rgb = rgbFields, hsv = hsvFields, hex = hexFields }
-		local heights: { ComposeTypes.Readable<Vector2> } = {}
 		local values: Shared.FrameNativeProps = {
 			Name = "Values",
 			Size = D2.new(1, 0, 0, 0),
@@ -151,27 +150,21 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 		}
 		for _, format in FORMATS do
 			local fields = builders[format.value]()
-			runtime.decorate(fields, {
-				Name = "Fields" .. format.label,
-				Visible = function(use: Use): boolean
+			fields.Name = "Content"
+			values[#values + 1] = Host.CanvasGroup("Fields" .. format.label)({
+				BackgroundTransparency = 1,
+				Size = D2.new(1, 0, 0, 0),
+				AutomaticSize = E.AutomaticSize.Y,
+				GroupTransparency = function(use: Use): number
+					return if use(formatCell) == format.value then 0 else 1
+				end,
+				Interactable = function(use: Use): boolean
 					return use(formatCell) == format.value
 				end,
+				fields,
 			})
-			values[#values + 1] = fields
-			table.insert(heights, ctx.observe.AbsoluteSize(fields))
 		end
 		local valuesNode = Host.Frame(values)
-		local unit = ctx.layoutUnit(valuesNode)
-		runtime.decorate(valuesNode, {
-			AutomaticSize = E.AutomaticSize.None,
-			Size = function(use: Use): UDim2
-				local height = 0
-				for _, size in heights do
-					height = math.max(height, use(size).Y / use(unit))
-				end
-				return D2.new(1, 0, 0, math.ceil(height))
-			end,
-		})
 		local formatProps: NavigationProps.SinglePickerSpec<string> = {
 			Name = "Format",
 			selected = formatCell,

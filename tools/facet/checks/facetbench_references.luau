@@ -7,7 +7,10 @@ local Case = require("../lib/case")
 local Bench = require("../lib/facetbench")
 local Definitions = require("../lib/definitions")
 
-local TURNS = Bench.turns
+local TURNS = { "racing-hub", "hub-shop-categories", "hub-garage-sort", "hub-settings-reset", "hub-race-scoreboard" }
+for _, id in Bench.turns do
+	table.insert(TURNS, id)
+end
 
 local function overlay(source: string, destination: string)
 	for _, relative in Files.walk(source) do
@@ -36,11 +39,15 @@ local function check(context: Rule.Context): { string }
 			overlay(context.path("eval/validation/racing-hub/strong/src"), Files.join(workspace, "src"))
 			overlay(context.path("eval/validation/followups/strong"), workspace)
 			overlay(context.path(Bench.starter), workspace)
-			for earlier = 1, index do
+			for earlier = 6, index do
 				overlay(context.path("eval/validation/" .. TURNS[earlier] .. "/strong"), workspace)
 			end
 			if arm == "weak" then
-				overlay(context.path("eval/validation/" .. id .. "/weak"), workspace)
+				if index <= 5 then
+					overlay(context.path("eval/validation/racing-hub/weak/src"), Files.join(workspace, "src"))
+				else
+					overlay(context.path("eval/validation/" .. id .. "/weak"), workspace)
+				end
 			end
 			local commands = {
 				{ "lute", "run", "tools/play/host/contract.luau", Bench.starter, relative },

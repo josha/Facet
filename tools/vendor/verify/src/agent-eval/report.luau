@@ -1,5 +1,7 @@
 --!strict
 
+local Text = require "../core/format"
+
 local Core = require "../core"
 local Judge = require "./judge"
 local Random = require "./random"
@@ -236,24 +238,9 @@ local function runValue(result: Result.RunResult, name: string): number?
 			end
 		end
 		return sum / #result.audits
-	elseif name == "inputTokens" then
-		return metrics.inputTokens
-	elseif name == "cacheCreationTokens" then
-		return metrics.cacheCreationTokens
-	elseif name == "cacheReadTokens" then
-		return metrics.cacheReadTokens
-	elseif name == "outputTokens" then
-		return metrics.outputTokens
-	elseif name == "totalTokens" then
-		return metrics.totalTokens
-	elseif name == "costUsd" then
-		return metrics.costUsd
-	elseif name == "turns" then
-		return metrics.turns
-	elseif name == "wallSeconds" then
-		return metrics.wallSeconds
 	end
-	return nil
+	local value = ((metrics :: unknown) :: { [string]: unknown })[name]
+	return if type(value) == "number" then value else nil
 end
 
 local function meanOf(runs: { Result.RunResult }, name: string): number?
@@ -318,9 +305,7 @@ local function judgeScore(judgment: Judge.Judgment, arm: string, other: string?)
 	return nil
 end
 
-local function mean(values: { number }): number?
-	return Stats.mean(values)
-end
+local mean = Stats.mean
 
 local function build(
 	suite: string,
@@ -576,34 +561,25 @@ local function build(
 				outcome.reason = if bound == "atLeast" or bound == "atMost"
 					then "the estimate is undefined"
 					else "the interval is undefined"
-			elseif bound == "atLeast" then
-				outcome.passed = (value :: number) >= threshold
-				outcome.reason = ("the estimate %.4g %s %.4g"):format(
-					value :: number,
-					if outcome.passed then "is at least" else "is below",
-					threshold
-				)
-			elseif bound == "atMost" then
-				outcome.passed = (value :: number) <= threshold
-				outcome.reason = ("the estimate %.4g %s %.4g"):format(
-					value :: number,
-					if outcome.passed then "is at most" else "is above",
-					threshold
-				)
-			elseif bound == "lower" then
-				outcome.passed = (value :: number) > threshold
-				outcome.reason = ("the %d%% lower bound %.4g %s %.4g"):format(
-					math.floor(thresholds.confidence * 100 + 0.5),
-					value :: number,
-					if outcome.passed then "is above" else "is not above",
-					threshold
-				)
 			else
-				outcome.passed = (value :: number) < threshold
-				outcome.reason = ("the %d%% upper bound %.4g %s %.4g"):format(
-					math.floor(thresholds.confidence * 100 + 0.5),
-					value :: number,
-					if outcome.passed then "is below" else "is not below",
+				local minimum = bound == "lower" or bound == "atLeast"
+				local inclusive = bound == "atLeast" or bound == "atMost"
+				outcome.passed = if minimum
+					then value > threshold or (inclusive and value == threshold)
+					else value < threshold or (inclusive and value == threshold)
+				local accepted = if inclusive
+					then (if minimum then "is at least" else "is at most")
+					else (if minimum then "is above" else "is below")
+				local rejected = if inclusive
+					then (if minimum then "is below" else "is above")
+					else (if minimum then "is not above" else "is not below")
+				local subject = if inclusive
+					then "the estimate"
+					else ("the %d%% %s bound"):format(math.floor(thresholds.confidence * 100 + 0.5), bound)
+				outcome.reason = ("%s %.4g %s %.4g"):format(
+					subject,
+					value,
+					if outcome.passed then accepted else rejected,
 					threshold
 				)
 			end
@@ -685,102 +661,89 @@ local function markdown(report: EvalReport): string
 		"",
 		("Treatment arm: `%s`. Baseline arm: `%s`."):format(report.thresholds.treatment, report.thresholds.baseline),
 	}
+	local add = Text.append(lines)
 	for _, section in report.agents do
-		table.insert(lines, "")
-		table.insert(lines, ("## Agent `%s`"):format(section.agent))
-		table.insert(lines, "")
-		table.insert(lines, ("Paired tasks: %d."):format(section.pairedTasks))
-		table.insert(lines, "")
-		table.insert(
-			lines,
-			"| Arm | Runs | Pass rate | Audit score | Audit violations | Judge win rate | Total tokens | Output tokens | Cost (USD) | Turns | Turn latency p50 (s) | Turn latency p95 (s) | Wall time (s) | Time to first pass (s) |"
-		)
-		table.insert(
-			lines,
-			"| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
-		)
+		add ""
+		add("## Agent `%s`", section.agent)
+		add ""
+		add("Paired tasks: %d.", section.pairedTasks)
+		add ""
+		add "| Arm | Runs | Pass rate | Audit score | Audit violations | Judge win rate | Total tokens | Output tokens | Cost (USD) | Turns | Turn latency p50 (s) | Turn latency p95 (s) | Wall time (s) | Time to first pass (s) |"
+		add "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
 		for _, arm in section.arms do
-			table.insert(
-				lines,
-				("| `%s` | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |"):format(
-					arm.arm,
-					arm.runs,
-					show(arm.passRate),
-					show(arm.auditScore, 1),
-					show(arm.auditViolations, 1),
-					show(arm.judgeWinRate),
-					show(arm.totalTokens, 0),
-					show(arm.outputTokens, 0),
-					show(arm.costUsd, 4),
-					show(arm.turns, 1),
-					show(arm.turnLatencyP50, 2),
-					show(arm.turnLatencyP95, 2),
-					show(arm.wallSeconds, 1),
-					show(arm.timeToFirstPassSeconds, 1)
-				)
+			add(
+				"| `%s` | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |",
+				arm.arm,
+				arm.runs,
+				show(arm.passRate),
+				show(arm.auditScore, 1),
+				show(arm.auditViolations, 1),
+				show(arm.judgeWinRate),
+				show(arm.totalTokens, 0),
+				show(arm.outputTokens, 0),
+				show(arm.costUsd, 4),
+				show(arm.turns, 1),
+				show(arm.turnLatencyP50, 2),
+				show(arm.turnLatencyP95, 2),
+				show(arm.wallSeconds, 1),
+				show(arm.timeToFirstPassSeconds, 1)
 			)
 		end
-		table.insert(lines, "")
-		table.insert(lines, ("### `%s` compared with `%s`"):format(section.treatment, section.baseline))
-		table.insert(lines, "")
-		table.insert(lines, "| Metric | Statistic | Estimate | Lower | Upper | Tasks |")
-		table.insert(lines, "| --- | --- | ---: | ---: | ---: | ---: |")
+		add ""
+		add("### `%s` compared with `%s`", section.treatment, section.baseline)
+		add ""
+		add "| Metric | Statistic | Estimate | Lower | Upper | Tasks |"
+		add "| --- | --- | ---: | ---: | ---: | ---: |"
 		for _, comparison in section.comparisons do
-			table.insert(
-				lines,
-				("| %s | %s | %s | %s | %s | %d |"):format(
-					comparison.metric,
-					comparison.statistic,
-					show(comparison.estimate),
-					show(comparison.lower),
-					show(comparison.upper),
-					comparison.tasks
-				)
+			add(
+				"| %s | %s | %s | %s | %s | %d |",
+				comparison.metric,
+				comparison.statistic,
+				show(comparison.estimate),
+				show(comparison.lower),
+				show(comparison.upper),
+				comparison.tasks
 			)
 		end
-		table.insert(lines, "")
-		table.insert(lines, "### Thresholds")
-		table.insert(lines, "")
-		table.insert(lines, "| Rule | Metric | Bound | Threshold | Value | Result | Reason |")
-		table.insert(lines, "| --- | --- | --- | ---: | ---: | --- | --- |")
+		add ""
+		add "### Thresholds"
+		add ""
+		add "| Rule | Metric | Bound | Threshold | Value | Result | Reason |"
+		add "| --- | --- | --- | ---: | ---: | --- | --- |"
 		for _, rule in section.rules do
-			table.insert(
-				lines,
-				("| `%s` | %s | %s | %s | %s | %s | %s |"):format(
-					rule.id,
-					rule.metric,
-					rule.bound,
-					show(rule.threshold),
-					show(rule.value),
-					if rule.passed then "PASS" else "FAIL",
-					rule.reason
-				)
+			add(
+				"| `%s` | %s | %s | %s | %s | %s | %s |",
+				rule.id,
+				rule.metric,
+				rule.bound,
+				show(rule.threshold),
+				show(rule.value),
+				if rule.passed then "PASS" else "FAIL",
+				rule.reason
 			)
 		end
 	end
 	if report.calibration ~= nil then
 		local calibration = report.calibration :: Judge.Calibration
-		table.insert(lines, "")
-		table.insert(lines, "## Judge calibration")
-		table.insert(lines, "")
-		table.insert(
-			lines,
-			("Compared: %d. Agreement: %s. Cohen's kappa: %s. Unlabeled judgments: %d. Labels without a judgment: %d."):format(
-				calibration.compared,
-				show(calibration.agreement),
-				show(calibration.kappa),
-				#calibration.unlabeled,
-				#calibration.unjudged
-			)
+		add ""
+		add "## Judge calibration"
+		add ""
+		add(
+			"Compared: %d. Agreement: %s. Cohen's kappa: %s. Unlabeled judgments: %d. Labels without a judgment: %d.",
+			calibration.compared,
+			show(calibration.agreement),
+			show(calibration.kappa),
+			#calibration.unlabeled,
+			#calibration.unjudged
 		)
 	end
-	table.insert(lines, "")
-	table.insert(lines, "## Limitations")
-	table.insert(lines, "")
+	add ""
+	add "## Limitations"
+	add ""
 	for _, limitation in report.limitations do
-		table.insert(lines, "- " .. limitation)
+		add("- " .. limitation)
 	end
-	table.insert(lines, "")
+	add ""
 	return table.concat(lines, "\n")
 end
 

@@ -8,8 +8,10 @@ local Files = require "./files"
 local Install = require "./studio-install"
 local Mcp = require "./studio-mcp"
 local Progress = require "./studio-progress"
+local ProgressChannel = require "../roblox/progress-channel"
 local Reply = require "./studio-reply"
 local Wire = require "./wire"
+local Logs = require "./studio-logs"
 
 export type StudioInfo = { id: string, name: string }
 
@@ -119,50 +121,22 @@ local function unsent(detail: string, refused: boolean?, expired: boolean?): Res
 end
 
 local function mcpTransport(executable: string, directory: string): Transport
-	local connection: Mcp.Connection? = nil
-	local generation = 0
-	local wasLost = false
-	local function open(limit: number): (Mcp.Connection?, string?)
-		generation += 1
-		local opened, value: unknown =
-			pcall(Mcp.connect, executable, ("%s/mcp-%d"):format(directory, generation), limit)
-		if not opened then
-			return nil, tostring(value)
-		end
-		wasLost = false
-		return value :: Mcp.Connection, nil
-	end
-	local function drop()
-		local active = connection
-		connection = nil
-		if active ~= nil then
-			active.close()
-		end
-	end
+	local connection = Mcp.connect(executable, directory, math.huge)
 	return {
 		call = function(tool, argumentsJson, deadline, replaySafe)
-			if connection == nil then
-				local fresh, problem = open(deadline)
-				if fresh == nil then
-					if wasLost then
-						return { status = "unsent", detail = "session_lost: " .. (problem or Mcp.EXITED), lost = true }
-					end
-					return { status = "unsent", detail = problem }
-				end
-				connection = fresh
+			local exchange = connection.callRaw(tool, argumentsJson, deadline, replaySafe)
+			if exchange.lost == true then
+				return {
+					status = exchange.status,
+					detail = "session_lost: " .. (exchange.detail or Mcp.EXITED),
+					lost = true,
+				}
 			end
-			local first = (connection :: Mcp.Connection).callRaw(tool, argumentsJson, deadline, replaySafe)
-			if first.lost ~= true then
-				return first
-			end
-			drop()
-			wasLost = true
-			return { status = first.status, detail = "session_lost: " .. (first.detail or Mcp.EXITED), lost = true }
+			return exchange
 		end,
-		close = drop,
+		close = connection.close,
 	}
 end
-
 local function discovered(text: string): { StudioInfo }
 	local seen: { [string]: string } = {}
 	local function visit(value: unknown)
@@ -458,7 +432,6 @@ local function attach(options: Options): (Session?, Refusal?)
 		if found == nil then
 			return {
 				response = response,
-				report = nil,
 				problem = "engine did not return the run-bound report envelope: " .. (outcome.text or ""):sub(1, 1000),
 			}
 		end
@@ -507,6 +480,70 @@ local function describe(label: string, response: Response): string
 	return ("%s: %s (%s)"):format(label, response.detail or "failed", response.delivery)
 end
 
+export type SessionRun = {
+	code: string,
+	context: string?,
+	progressFile: string?,
+	finalCapture: boolean?,
+}
+
+local function runSession(opened: Session, options: SessionRun, directory: string, runId: string): Core.BatchOutcome
+	if options.context ~= "Edit" then
+		for _, model in { "Server", "Client" } do
+			local prepared = opened.execute(model, Logs.source)
+			if not prepared.ok then
+				return {
+					status = if prepared.expired then "timed_out" else "faulted",
+					detail = describe("install " .. model .. " logs", prepared),
+				}
+			end
+		end
+	end
+	local token = string.format("%q", runId)
+	local progressPath = options.progressFile
+	local listening: Progress.Listener? = nil
+	local injected = ""
+	if progressPath ~= nil and progressPath ~= "" then
+		listening = Progress.listener(progressPath, runId, function(): string
+			local read = opened.execute(options.context or "Server", ProgressChannel.read)
+			if not read.ok or read.text == nil then
+				error(describe("progress history read", read), 0)
+			end
+			return read.text
+		end)
+		injected = "local progressToken = " .. string.format("%q", (listening :: Progress.Listener).token) .. "; "
+	end
+	local result = opened.report(
+		options.context or "Server",
+		"local runId = " .. token .. "; " .. injected .. options.code,
+		runId,
+		if listening ~= nil then (listening :: Progress.Listener).poll else nil
+	)
+	if listening ~= nil then
+		(listening :: Progress.Listener).finish()
+	end
+	if result.report == nil then
+		return {
+			status = if result.response.expired then "timed_out" else "faulted",
+			detail = if result.response.ok then result.problem or "no report" else describe("execute", result.response),
+		}
+	end
+	local found = result.report
+	if options.finalCapture then
+		local image = opened.capture { directory = directory, stem = "final" }
+		local last = found.results[#found.results]
+		if not image.ok or image.artifact == nil or last == nil then
+			return { status = "faulted", detail = describe("capture", image) }
+		end
+		table.insert(last.artifacts, {
+			name = "final Studio view",
+			reference = image.artifact.reference,
+			mediaType = image.artifact.mediaType,
+		})
+	end
+	return { status = "returned", report = found }
+end
+
 local function run(options: RunOptions): Core.BatchOutcome
 	if options.code == "" then
 		return { status = "faulted", detail = "attached run requires code" }
@@ -540,53 +577,7 @@ local function run(options: RunOptions): Core.BatchOutcome
 				return
 			end
 		end
-		local token = string.format("%q", directory)
-		local progressPath = options.progressFile
-		local listening: Progress.Listener? = nil
-		local injected = ""
-		if progressPath ~= nil and progressPath ~= "" then
-			listening = Progress.listener(progressPath, directory, function(): string
-				local read = opened.console()
-				if not read.ok or read.text == nil then
-					error(describe("console read", read), 0)
-				end
-				return read.text
-			end)
-			injected = "local progressToken = " .. string.format("%q", (listening :: Progress.Listener).token) .. "; "
-		end
-		local result = opened.report(
-			options.context or "Server",
-			"local runId = " .. token .. "; " .. injected .. options.code,
-			directory,
-			if listening ~= nil then (listening :: Progress.Listener).poll else nil
-		)
-		if listening ~= nil then
-			(listening :: Progress.Listener).finish()
-		end
-		if result.report == nil then
-			outcome = {
-				status = if result.response.expired then "timed_out" else "faulted",
-				detail = if result.response.ok
-					then result.problem or "no report"
-					else describe("execute", result.response),
-			}
-			return
-		end
-		local found = result.report
-		if options.finalCapture then
-			local image = opened.capture { directory = directory, stem = "final" }
-			local last = found.results[#found.results]
-			if not image.ok or image.artifact == nil or last == nil then
-				outcome = { status = "faulted", detail = describe("capture", image) }
-				return
-			end
-			table.insert(last.artifacts, {
-				name = "final Studio view",
-				reference = image.artifact.reference,
-				mediaType = image.artifact.mediaType,
-			})
-		end
-		outcome = { status = "returned", report = found }
+		outcome = runSession(opened, options, directory, directory)
 	end)
 	if not body then
 		outcome = { status = "faulted", detail = "attached run raised: " .. tostring(thrown) }
@@ -605,6 +596,7 @@ end
 
 return {
 	attach = attach,
+	runSession = runSession,
 	run = run,
 	digest = digest,
 	transport = mcpTransport,

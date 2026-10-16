@@ -45,6 +45,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "hud-garage-button",
+		tier = "spec",
 		run = function(qa, context)
 			Check.visible(qa, context, HUD, "the HUD shows a Garage button", 20)
 			qa:capture("1-hud")
@@ -52,6 +53,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "filters-by-category",
+		tier = "spec",
 		screen = "garage",
 		shot = "2-garage",
 		run = function(qa, context)
@@ -76,6 +78,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "filters-by-rarity",
+		tier = "spec",
 		screen = "filters",
 		shot = "3-filters",
 		run = function(qa, context)
@@ -94,6 +97,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "cancels-filters",
+		tier = "spec",
 		run = function(qa, context)
 			filter(qa, context, "Common")
 			Check.tap(qa, context, { role = "button", exact = "cancel" }, "cancel the filters")
@@ -110,6 +114,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-details",
+		tier = "spec",
 		screen = "details",
 		shot = "4-details",
 		run = function(qa, context)
@@ -130,6 +135,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "marks-a-favorite",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, { role = "button", text = "favorite" }, "make the Aero Kart a favorite")
 			Check.that(
@@ -143,6 +149,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "spawns-the-vehicle",
+		tier = "spec",
 		screen = "vehicle",
 		shot = "5-vehicle",
 		run = function(qa, context)
@@ -172,6 +179,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "leaves-the-vehicle",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, { role = "button", text = "leave vehicle" }, "leave the vehicle")
 			Check.that(
@@ -186,6 +194,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "explains-an-empty-filter",
+		tier = "spec",
 		run = function(qa, context)
 			open(qa, context)
 			tab(qa, context, "Coast")

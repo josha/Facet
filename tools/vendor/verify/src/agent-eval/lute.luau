@@ -1,6 +1,6 @@
 --!strict
 
-local crypto = require "@lute/crypto"
+local sha256 = require "../lute/hash"
 local fs = require "@std/fs"
 local json = require "@std/json"
 local net = require "@std/net"
@@ -14,10 +14,12 @@ local Bounded = require "../lute/bounded"
 local Gate = require "../gate"
 local LuteGate = require "../lute/gate"
 local Model = require "./model"
-local Paths = require "./paths"
+local Paths = require "../codec/path"
 local Powershell = require "../lute/powershell"
 local Services = require "./services"
 local Wire = require "../lute/wire"
+local Studio = require "../lute/studio"
+local Install = require "../lute/studio-install"
 
 export type Options = {
 	workspaces: string?,
@@ -139,18 +141,7 @@ end
 local function absolute(path: string): string
 	local value = Paths.normalize(path)
 	local full = if Paths.absolute(value) then value else cwd() .. "/" .. value
-	local prefix = string.match(full, "^%a:/") or (if string.sub(full, 1, 1) == "/" then "/" else "")
-	local parts: { string } = {}
-	for part in string.gmatch(string.sub(full, #prefix + 1), "[^/]+") do
-		if part == ".." then
-			if #parts > 0 then
-				table.remove(parts)
-			end
-		elseif part ~= "." then
-			table.insert(parts, part)
-		end
-	end
-	return prefix .. table.concat(parts, "/")
+	return Paths.collapse(full)
 end
 
 local function moduleDirectory(): string
@@ -160,15 +151,6 @@ local function moduleDirectory(): string
 end
 
 local STAMP = Paths.join(moduleDirectory(), "stamp.luau")
-
-local function sha256(bytes: string): string
-	local value = crypto.digest(crypto.hash.sha256, bytes)
-	local out: { string } = {}
-	for index = 0, buffer.len(value) - 1 do
-		table.insert(out, string.format("%02x", buffer.readu8(value, index)))
-	end
-	return table.concat(out)
-end
 
 local function isDirectory(path: string): boolean
 	return fs.exists(path) and fs.type(path) == "dir"
@@ -363,12 +345,65 @@ local function decode(text: string): unknown
 	return Wire.parse(text)
 end
 
+local function studio(
+	workspace: string,
+	directory: string,
+	place: string,
+	build: { string },
+	seconds: number
+): { config: string, close: () -> () }
+	assert(#build > 0, "scoped Studio requires a build command")
+	local built = execute(if system.win32 then nil else "sh") {
+		argv = build,
+		cwd = workspace,
+		deadlineSeconds = math.min(seconds, 300),
+	}
+	assert(built.started and built.exitcode == 0 and not built.timedOut, "Studio build failed: " .. built.stderr)
+	local installed, missing = Install.locate()
+	assert(installed ~= nil, missing)
+	local launched, problem =
+		Studio.launch { place = place, directory = directory .. "/studio", runSeconds = seconds + 300 }
+	assert(launched ~= nil, problem)
+	local opened = launched
+	local scopeFile = directory .. "/studio-scope.json"
+	local config = directory .. "/mcp.json"
+	local script = absolute(Paths.join(moduleDirectory(), "../../tools/scoped-studio-mcp.luau"))
+	local ok, reason = pcall(function()
+		files.write(
+			scopeFile,
+			encode {
+				studio = opened.session.studio,
+				executable = installed.mcp,
+				directory = directory .. "/studio-proxy",
+				seconds = seconds,
+			}
+		)
+		files.write(
+			config,
+			encode { mcpServers = { studio = { command = "lute", args = { "run", script, scopeFile } } } }
+		)
+	end)
+	if not ok then
+		opened.close()
+		error(reason, 0)
+	end
+	return {
+		config = config,
+		close = function()
+			local closed = opened.close()
+			files.remove(scopeFile)
+			assert(#closed.survivors == 0 and closed.session.acknowledged, "scoped Studio cleanup failed")
+		end,
+	}
+end
+
 local function services(options: Options?): Services.Services
 	local given: Options = options or {}
 	local workspaces =
 		absolute(given.workspaces or Paths.join(Paths.normalize(tostring(system.tmpdir())), "verify-agent-eval"))
 	local started = time.now()
 	return {
+		studio = studio,
 		files = files,
 		execute = execute(given.shell or (if system.win32 then nil else "sh")),
 		checks = checks,

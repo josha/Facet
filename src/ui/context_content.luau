@@ -3,10 +3,12 @@ local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
+local textMeasure = require("./text_measure")
 
-local function attachLayout(ctx: Shared.Context, label: TextLabel)
+local function attachLayout(ctx: Shared.Context, label: TextLabel | TextButton)
 	local Compose, runtime, types, Host = ctx.Compose, ctx.runtime, ctx.types, ctx.Host
 	local Enum, services = types.Enum, ctx.config.services
+	local writable = (label :: unknown) :: { FontFace: Font, TextSize: number, AutomaticSize: Enum.AutomaticSize }
 	local previousFace: Font?, previousSize: number? = nil, nil
 	local frames = services.RunService
 	local pending: RBXScriptConnection? = nil
@@ -20,13 +22,13 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel)
 			local resetFace, resetSize =
 				metrics == true and label.FontFace ~= face, metrics == true and label.TextSize ~= points
 			if resetFace then
-				label.FontFace = face
+				writable.FontFace = face
 			end
 			if resetSize then
-				label.TextSize = points
+				writable.TextSize = points
 			end
-			label.AutomaticSize = Enum.AutomaticSize.None
-			label.AutomaticSize = automatic
+			writable.AutomaticSize = Enum.AutomaticSize.None
+			writable.AutomaticSize = automatic
 			if resetFace then
 				label:ResetPropertyToDefault("FontFace")
 			end
@@ -130,13 +132,24 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel)
 							) or (services.TextService ~= nil and label:GetStyled("TextWrapped") == true)
 						)
 				end, function()
+					local nativeBounds = if services.TextService
+						then textMeasure.natural(ctx, label, nil, revision)
+						else nil
 					local unit = ctx.layoutUnit(label, "TextBoundsUnit")
 					local wrappedHeight = Compose.cell(0)
 					local serial, last = 0, ""
 					local active = true
+					local release: (() -> ())? = nil
+					local function finish()
+						if release then
+							release()
+							release = nil
+						end
+					end
 					if services.TextService then
 						Compose.cleanup(function()
 							active = false
+							finish()
 						end)
 						Compose.watch(function(use: ComposeTypes.Use)
 							use(revision)
@@ -148,9 +161,16 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel)
 								serial += 1
 								last = ""
 								wrappedHeight:set(0)
+								finish()
 								return
 							end
 							local wide = use(size).X / use(unit)
+							local padding = label:FindFirstChildWhichIsA("UIPadding")
+							if padding then
+								local left = padding:GetStyled("PaddingLeft") :: UDim
+								local right = padding:GetStyled("PaddingRight") :: UDim
+								wide -= left.Offset + right.Offset + wide * (left.Scale + right.Scale)
+							end
 							local text = label.Text
 							local font, points, spacing =
 								label:GetStyled("FontFace") :: Font,
@@ -158,12 +178,22 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel)
 								label:GetStyled("LineHeight") :: number
 							local key =
 								`{wide}|{text}|{points}|{spacing}|{font.Family}|{font.Weight.Name}|{font.Style.Name}`
-							if wide <= 0 or text == "" or key == last then
+							if wide <= 0 or text == "" then
+								serial += 1
+								last = ""
+								wrappedHeight:set(0)
+								finish()
+								return
+							end
+							if key == last then
 								return
 							end
 							last = key
 							serial += 1
 							local ticket = serial
+							wrappedHeight:set(0)
+							finish()
+							release = textMeasure.hold(label)
 							local params = ((Host :: unknown) :: {
 								[string]: (props: { [string]: unknown }) -> Instance,
 							}).GetTextBoundsParams({
@@ -183,12 +213,16 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel)
 									local lineCount = math.max(1, math.round(measured.Y / points))
 									local inset = label:FindFirstChildWhichIsA("UIPadding")
 									local vertical = if inset
-										then inset.PaddingTop.Offset + inset.PaddingBottom.Offset
+										then (inset:GetStyled("PaddingTop") :: UDim).Offset + (inset:GetStyled(
+											"PaddingBottom"
+										) :: UDim).Offset
 										else 0
 									wrappedHeight:set(
-										math.ceil(measured.Y + (lineCount - 1) * points * (math.max(spacing, 1) - 1))
-											+ vertical
+										measured.Y + (lineCount - 1) * points * (math.max(spacing, 1) - 1) + vertical
 									)
+								end
+								if ticket == serial then
+									finish()
 								end
 							end
 							if task and task.spawn then
@@ -206,13 +240,21 @@ local function attachLayout(ctx: Shared.Context, label: TextLabel)
 					runtime.decorate(constraint, {
 						[Compose.group({ "MaxSize", "MinSize" })] = function(use: ComposeTypes.Use): (Vector2, Vector2)
 							use(revision)
-							local mode, glyph, authoredSize = label.AutomaticSize, use(bounds) / use(unit), label.Size
+							local mode, glyph, authoredSize =
+								label.AutomaticSize,
+								if nativeBounds then use(nativeBounds) else use(bounds) / use(unit),
+								label.Size
 							local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
 							local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
 							local free = label:GetStyled("TextWrapped") == false
 								and label:GetStyled("TextTruncate") == Enum.TextTruncate.None
 							freeX, freeY = freeX and free, freeY and free
-							local x, y = math.ceil(glyph.X), math.ceil(glyph.Y)
+							freeY = freeY and (nativeBounds == nil or label:GetStyled("LineHeight") == 1)
+							local known = glyph.X < math.huge
+							freeX, freeY = freeX and known, freeY and known
+							local x, y =
+								if nativeBounds then glyph.X else math.ceil(glyph.X),
+								if nativeBounds then glyph.Y else math.ceil(glyph.Y)
 							local maximum = types.Vector2.new(
 								if freeX
 										and glyph.X > 0
@@ -256,6 +298,9 @@ return function(
 	local Compose, runtime, types, Host = ctx.Compose, ctx.runtime, ctx.types, ctx.Host
 	local Enum = types.Enum
 	local layout = layoutKit.attach((ctx :: unknown) :: Shared.Context)
+	function ctx.textLayout(label: TextLabel | TextButton)
+		attachLayout(ctx, label)
+	end
 	function ctx.padding(horizontal: number, vertical: number): UIPadding
 		local sides: Shared.Sides = { top = vertical, right = horizontal, bottom = vertical, left = horizontal }
 		return assert(layout.insets(sides))

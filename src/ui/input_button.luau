@@ -512,13 +512,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 							local grows = use(sizing)
 							return grows ~= E.AutomaticSize.X and grows ~= E.AutomaticSize.XY
 						end, function()
+							local words = ctx.observe.Text(node)
 							local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
-							local words, points, face =
-								ctx.observe.Text(node),
-								ctx.observeStyled.TextSize(node),
-								ctx.observeStyled.FontFace(node)
+							local points, face = ctx.observeStyled.TextSize(node), ctx.observeStyled.FontFace(node)
 							local measured: string? = nil
 							Compose.watch(function(use: ComposeTypes.Use)
+								if use(words) == "" then
+									node:RemoveTag("facet-button-tight")
+									return
+								end
 								use(box)
 								use(fits)
 								local width, whole = node.AbsoluteSize.X, node.TextFits and use(captionFits)

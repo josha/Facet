@@ -79,8 +79,28 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		return value
 	end
 
-	local function arrive(node: Instance, arrived: ComposeTypes.Cell<boolean>): Instance
+	local function arrive(build: () -> Instance, arrived: ComposeTypes.Cell<boolean>): Instance
 		local frames = ctx.config.services and ctx.config.services.RunService
+		local built: Instance? = nil
+		local wrapper: CanvasGroup? = nil
+		if frames and frames.PreRender then
+			wrapper = Host.CanvasGroup "OverlayArrival" {
+				BackgroundTransparency = 1,
+				Size = ctx.types.UDim2.fromScale(1, 1),
+				GroupTransparency = function(use: ComposeTypes.Use): number
+					return if use(arrived) then 0 else 1
+				end,
+				Interactable = arrived,
+				Compose.fragment(function(): { unknown }
+					local node = build()
+					built = node
+					return { node }
+				end),
+			}
+		else
+			built = build()
+		end
+		local node = assert(built)
 		if frames == nil then
 			arrived:set(true)
 			return node
@@ -149,15 +169,25 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		if node:GetAttribute("FacetArrivalGroup") == true then
 			return node
 		end
-		return Host.CanvasGroup "OverlayArrival" {
-			BackgroundTransparency = 1,
-			Size = ctx.types.UDim2.fromScale(1, 1),
-			GroupTransparency = function(use: ComposeTypes.Use): number
-				return if use(ready) then 0 else 1
+		local depths: { ComposeTypes.Readable<number> } = {}
+		for _, surface in surfaces do
+			local depth = Compose.cell(surface.ZIndex)
+			Compose.cleanup(assert(runtime.host.observation).observeProperty(surface, "ZIndex", function()
+				depth:set(surface.ZIndex)
+			end))
+			table.insert(depths, depth)
+		end
+		local group = assert(wrapper)
+		runtime.decorate(group, {
+			ZIndex = function(use: ComposeTypes.Use): number
+				local highest = 1
+				for _, depth in depths do
+					highest = math.max(highest, use(depth))
+				end
+				return highest
 			end,
-			Interactable = ready,
-			node,
-		}
+		})
+		return group
 	end
 	local function parent(anchor: Instance): GuiBase2d?
 		local layer = (ctx.config.overlayParent or anchor:FindFirstAncestorWhichIsA("LayerCollector")) :: GuiBase2d?
@@ -213,24 +243,26 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 					local arrived = Compose.cell(services == nil or services.PreRender == nil)
 					local entering: Nav.PresencePhase = phase or { exiting = Compose.cell(false) }
 					arrival.bind(entering, arrived)
-					local node = build(entering)
-					local scope: Instance? = anchor
-					while scope and scope ~= target do
-						local link = scope:FindFirstChildWhichIsA("StyleLink")
-						if link then
-							local observe = (
-								ctx.observe :: unknown
-							) :: { StyleSheet: (StyleLink) -> ComposeTypes.Cell<StyleSheet?> }
-							local sheet = observe.StyleSheet(link :: StyleLink)
-							local Links = (Host :: unknown) :: { StyleLink: ({ StyleSheet: unknown }) -> Instance }
-							runtime.mountFragment(function()
-								return { Links.StyleLink { StyleSheet = sheet } }
-							end, node)
-							break
+					return arrive(function()
+						local node = build(entering)
+						local scope: Instance? = anchor
+						while scope and scope ~= target do
+							local link = scope:FindFirstChildWhichIsA("StyleLink")
+							if link then
+								local observe = (
+									ctx.observe :: unknown
+								) :: { StyleSheet: (StyleLink) -> ComposeTypes.Cell<StyleSheet?> }
+								local sheet = observe.StyleSheet(link :: StyleLink)
+								local Links = (Host :: unknown) :: { StyleLink: ({ StyleSheet: unknown }) -> Instance }
+								runtime.mountFragment(function()
+									return { Links.StyleLink { StyleSheet = sheet } }
+								end, node)
+								break
+							end
+							scope = scope.Parent
 						end
-						scope = scope.Parent
-					end
-					return arrive(node, arrived)
+						return node
+					end, arrived)
 				end
 				if options and options.failure then
 					return Host.Folder({

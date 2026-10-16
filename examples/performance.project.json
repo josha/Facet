@@ -80,7 +80,7 @@
     },
     "Lighting": {
       "$properties": {
-        "Technology": "Unified",
+        "Technology": "Future",
         "LightingStyle": "Soft",
         "PrioritizeLightingQuality": false
       }

@@ -4,6 +4,7 @@ local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
+local anchoredPlacement = require("./overlay_placement")
 local Overlay = require("./overlay_types")
 local NavigationProps = require("./navigation_props")
 local surfaceParts = require("./nav_surface_parts")
@@ -316,20 +317,31 @@ return function(
 					local x = at.X - offset.X
 					local y = at.Y - offset.Y
 					local align = read(spec.align, use) or "center"
-					local left = if align == "leading"
-						then x
-						elseif align == "trailing" then x + bounds.X - box.X
-						else x + (bounds.X - box.X) / 2
-					local roomAbove = y >= box.Y + 16
-					local roomBelow = y + bounds.Y + box.Y + 16 <= offer.Y
 					local edge = read(spec.edge, use)
 						or (if preferred and use(preferred) == E.PreferredInput.Touch then "top" else "bottom")
-					local above = if edge == "top" then roomAbove or not roomBelow else roomAbove and not roomBelow
-					local top = if above then y - box.Y - lift(use) else y + bounds.Y + lift(use)
 					local gutter = ctx.metric("space.s", use)
+					local solved = anchoredPlacement.solve({
+						source = { x = x, y = y, w = bounds.X, h = bounds.Y },
+						size = { w = box.X, h = box.Y },
+						safe = {
+							x = gutter,
+							y = gutter,
+							w = math.max(0, offer.X - gutter * 2),
+							h = math.max(0, offer.Y - gutter * 2),
+						},
+						edge = edge,
+						align = if align == "leading" then "start" elseif align == "trailing" then "end" else "center",
+						gap = lift(use),
+						tail = if tailed then parts.tailSize(ctx, use) * math.sqrt(2) else 0,
+						tailInset = ctx.metric("radii.panel", use),
+					})
 					return {
-						left = math.clamp(left, gutter, math.max(gutter, offer.X - box.X - gutter)),
-						top = math.clamp(top, gutter, math.max(gutter, offer.Y - box.Y - gutter)),
+						left = solved.x,
+						top = solved.y,
+						edge = solved.edge,
+						tailX = solved.tailX,
+						tailY = solved.tailY,
+						tailSuppressed = solved.tailSuppressed,
 					}
 				end)
 				local panelGeometry: Types.FrameNativeProps = {
@@ -338,10 +350,20 @@ return function(
 					end,
 					Size = function(use: ComposeTypes.Use)
 						local box = held(use)
-						return D2.fromOffset(
-							math.min(280, math.max(44, use(extent).X - 2 * ctx.metric("space.s", use))),
-							if box then math.ceil(box.Y) else 0
+						local at, bounds, offset, offer = use(position), use(size), use(origin), use(extent)
+						local gutter = ctx.metric("space.s", use)
+						local width = anchoredPlacement.width(
+							{ x = at.X - offset.X, y = at.Y - offset.Y, w = bounds.X, h = bounds.Y },
+							{ w = 280, h = use(measured).Y },
+							{
+								x = gutter,
+								y = gutter,
+								w = math.max(0, offer.X - gutter * 2),
+								h = math.max(0, offer.Y - gutter * 2),
+							},
+							lift(use)
 						)
+						return D2.fromOffset(width, if box then math.ceil(box.Y) else 0)
 					end,
 					ZIndex = function(use: ComposeTypes.Use): number
 						return above(use, 95)
@@ -354,9 +376,14 @@ return function(
 					function(use: ComposeTypes.Use): (Vector2, Vector2)
 						local at, anchorAt, anchorSize, offset, box =
 							use(placement), use(position), use(size), use(origin), use(measured)
-						local center = anchorAt.X - offset.X + anchorSize.X / 2 - at.left
-						local above = anchorAt.Y - offset.Y >= at.top + box.Y
-						return V2.new(at.left, at.top), V2.new(math.clamp(center, 0, box.X), if above then box.Y else 0)
+						local centerX = anchorAt.X - offset.X + anchorSize.X / 2 - at.left
+						local centerY = anchorAt.Y - offset.Y + anchorSize.Y / 2 - at.top
+						local pivot = if at.edge == "bottom"
+							then V2.new(math.clamp(centerX, 0, box.X), 0)
+							elseif at.edge == "top" then V2.new(math.clamp(centerX, 0, box.X), box.Y)
+							elseif at.edge == "right" then V2.new(0, math.clamp(centerY, 0, box.Y))
+							else V2.new(box.X, math.clamp(centerY, 0, box.Y))
+						return V2.new(at.left, at.top), pivot
 					end,
 					{
 						pinned = true,
@@ -370,17 +397,11 @@ return function(
 						ctx,
 						"Arrow",
 						function(use: ComposeTypes.Use): (Vector2?, string)
-							local at, bounds, offset, box, place =
-								use(position), use(size), use(origin), use(measured), use(placement)
-							local inset = parts.tailSize(ctx, use)
-							local x = math.clamp(
-								at.X - offset.X + bounds.X / 2 - place.left,
-								inset,
-								math.max(inset, box.X - inset)
-							)
-							local below = at.Y - offset.Y < place.top
-							return V2.new(place.left + x, if below then place.top else place.top + box.Y),
-								if below then "bottom" else "top"
+							local place = use(placement)
+							if place.tailSuppressed or place.tailX == nil or place.tailY == nil then
+								return nil, place.edge
+							end
+							return V2.new(place.tailX, place.tailY), place.edge
 						end,
 						presence.opacity,
 						function(use: ComposeTypes.Use): number

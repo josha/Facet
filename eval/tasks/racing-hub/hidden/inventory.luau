@@ -46,6 +46,7 @@ end
 local behavior: { Case } = {
 	{
 		id = "hud-inventory-button",
+		tier = "spec",
 		run = function(qa, context)
 			Check.visible(qa, context, { role = "button", text = "inventory" }, "the HUD shows an Inventory button", 20)
 			qa:capture("1-hud")
@@ -53,6 +54,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "lists-owned-items",
+		tier = "spec",
 		screen = "grid",
 		shot = "2-grid",
 		run = function(qa, context)
@@ -75,6 +77,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-item-details",
+		tier = "spec",
 		screen = "details",
 		shot = "3-details",
 		run = function(qa, context)
@@ -88,6 +91,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "equips-item",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(
 				qa,
@@ -107,6 +111,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "replaces-slot",
+		tier = "spec",
 		run = function(qa, context)
 			inspect(qa, context, "Starter Motor", "reliable motor")
 			Check.visible(
@@ -120,6 +125,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "unequips-item",
+		tier = "spec",
 		run = function(qa, context)
 			inspect(qa, context, "City Wheels", "daily hub runs")
 			Check.tap(qa, context, { role = "button", text = "unequip" }, "unequip the City Wheels")
@@ -135,6 +141,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "shows-new-item-from-server",
+		tier = "spec",
 		run = function(qa, context)
 			qa:admin("give", { item = "flame_wheels" })
 			Check.that(context, owns(qa, "flame_wheels"), "the server gave the Flame Wheels")
@@ -149,6 +156,7 @@ local behavior: { Case } = {
 	},
 	{
 		id = "closes-inventory",
+		tier = "spec",
 		run = function(qa, context)
 			Check.tap(qa, context, { role = "button", text = "close" }, "close the inventory")
 			Check.gone(qa, context, { text = "Frost Motor" }, "the inventory closes", 4)

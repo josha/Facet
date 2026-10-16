@@ -4,7 +4,7 @@ local Adapters = require "./adapters"
 local Audit = require "../roblox/ui-audit"
 local Gate = require "../gate"
 local Model = require "./model"
-local Paths = require "./paths"
+local Paths = require "../codec/path"
 local Result = require "./result"
 local Schema = require "./schema"
 local Services = require "./services"
@@ -172,7 +172,6 @@ local function auditOptions(raw: { [string]: unknown }, device: Model.Device?): 
 		maxSpacingValues = Schema.optionalNumber(raw.maxSpacingValues, label .. ".maxSpacingValues", 0, true),
 		maxInstances = Schema.optionalNumber(raw.maxInstances, label .. ".maxInstances", 0, true),
 		pressFeedback = optionalFlag "pressFeedback",
-		weights = nil,
 		ruleCap = Schema.optionalNumber(raw.ruleCap, label .. ".ruleCap", 0),
 		maxViolations = Schema.optionalNumber(raw.maxViolations, label .. ".maxViolations", 0, true),
 	}
@@ -230,12 +229,7 @@ local function create(options: Options): () -> Summary
 			cacheReadTokens = 0,
 			outputTokens = 0,
 			totalTokens = 0,
-			costUsd = nil,
 			wallSeconds = 0,
-			agentSeconds = nil,
-			apiSeconds = nil,
-			toolSeconds = nil,
-			startupSeconds = nil,
 			turnLatencies = {},
 			turnIntervals = {},
 			toolCalls = 0,
@@ -260,27 +254,20 @@ local function create(options: Options): () -> Summary
 			order = spec.order,
 			parent = spec.parent,
 			status = "provision_failed",
-			detail = nil,
 			passed = false,
 			checksPassed = false,
 			exceeded = {},
 			metrics = emptyMetrics(),
 			session = {
-				model = nil,
-				session = nil,
-				version = nil,
-				finish = nil,
 				usageSource = "none",
 				tools = {},
 				mcpServers = {},
-				result = nil,
 				malformed = 0,
 			},
 			checks = {},
 			scores = {},
 			audits = {},
 			captures = {},
-			timeToPassSeconds = nil,
 			startedAt = startedAt,
 			finishedAt = startedAt,
 			directory = directory,
@@ -403,8 +390,6 @@ local function create(options: Options): () -> Summary
 				required = instance.check.required,
 				status = "failed",
 				passed = false,
-				seconds = nil,
-				detail = nil,
 				cases = {},
 				scores = {},
 			}
@@ -559,6 +544,7 @@ local function create(options: Options): () -> Summary
 		files.makeDirectory(directory)
 		local workspace = Paths.join(services.workspaces, ("%s/%s"):format(suite.id, spec.path))
 		local finished = false
+		local closeStudio: (() -> ())? = nil
 		local ok, problem = pcall(function(): string?
 			local source = spec.task.starter
 			if spec.task.from ~= nil then
@@ -596,6 +582,25 @@ local function create(options: Options): () -> Summary
 				local values = { workspace = workspace, evidence = directory }
 				files.write(mcpConfig :: string, substitute(files.read(spec.arm.setup.mcp :: string), values))
 			end
+			local studio = spec.arm.setup.studio
+			if studio ~= nil then
+				assert(mcpConfig == nil, "a scoped Studio run cannot load another MCP configuration")
+				assert(services.studio ~= nil, "this host cannot provision a scoped Studio")
+				local values = { workspace = workspace, evidence = directory }
+				local build: { string } = {}
+				for _, word in studio.build do
+					table.insert(build, substitute(word, values))
+				end
+				local provisioned = services.studio(
+					workspace,
+					directory,
+					substitute(studio.place, values),
+					build,
+					spec.task.budgets.wallSeconds
+				)
+				closeStudio = provisioned.close
+				mcpConfig = provisioned.config
+			end
 			local adapter = options.adapters[spec.agent.adapter]
 			if adapter == nil then
 				result.status = "unsupported"
@@ -627,6 +632,10 @@ local function create(options: Options): () -> Summary
 			}
 			log(("run %s: agent %s started"):format(spec.id, adapter.id))
 			local outcome = adapter.run(request, services)
+			if closeStudio ~= nil then
+				closeStudio()
+				closeStudio = nil
+			end
 			files.write(Paths.join(directory, "transcript.jsonl"), stampedText(outcome.lines))
 			files.write(Paths.join(directory, "agent.stderr.txt"), outcome.stderr)
 			finishMetrics(result, outcome)
@@ -643,6 +652,16 @@ local function create(options: Options): () -> Summary
 			finished = true
 			return nil
 		end)
+		if closeStudio ~= nil then
+			local cleaned, cleanupProblem = pcall(function(): string?
+				(closeStudio :: () -> ())()
+				return nil
+			end)
+			if not cleaned then
+				ok = false
+				problem = tostring(cleanupProblem)
+			end
+		end
 		if not ok then
 			result.detail = tostring(problem)
 			if not finished then

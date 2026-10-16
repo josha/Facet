@@ -2,25 +2,21 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Rules = require(ReplicatedStorage.Shared.RaceRules)
 
 export type Phase = "Intermission" | "Round" | "Results"
 
-export type Team = "Red" | "Blue"
+export type Mode = "race" | "lap-knockout"
 
-export type Fighter = {
-	name: string,
-	team: Team,
-	eliminated: boolean,
-	eliminations: number,
-}
+export type Racer = Rules.Racer
 
 export type State = {
 	round: number,
 	phase: Phase,
 	endsAt: number,
-	fighters: { Fighter },
-	winner: (Team | "Draw")?,
-	rewards: { Red: number, Blue: number }?,
+	racers: { Racer },
+	mode: Mode,
+	rewards: { [string]: number }?,
 }
 
 export type Event = {

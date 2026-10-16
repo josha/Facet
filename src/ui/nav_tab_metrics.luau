@@ -37,7 +37,6 @@ export type TabMetrics = {
 	stripLayout: UIListLayout,
 	stripContent: ComposeTypes.Cell<Vector2>,
 	railWidth: (ComposeTypes.Use) -> number,
-	segmentWidth: (ComposeTypes.Use) -> (number, number),
 	floatingSize: (ComposeTypes.Use) -> UDim2,
 	floatingPosition: (ComposeTypes.Use) -> UDim2,
 }
@@ -154,9 +153,7 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 			return if use(placement) == "sidebar" then E.FillDirection.Vertical else E.FillDirection.Horizontal
 		end,
 		SortOrder = E.SortOrder.LayoutOrder,
-		HorizontalAlignment = function(use: ComposeTypes.Use)
-			return if use(stripOverflows) then E.HorizontalAlignment.Left else E.HorizontalAlignment.Center
-		end,
+		HorizontalAlignment = E.HorizontalAlignment.Center,
 		VerticalAlignment = function(use: ComposeTypes.Use)
 			return if use(placement) == "sidebar" then E.VerticalAlignment.Top else E.VerticalAlignment.Center
 		end,
@@ -190,13 +187,6 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 		local insets = if skin then skin.contentInsets else nil
 		local carve = if insets then (insets.left or 0) + (insets.right or 0) else 0
 		return math.ceil(label + glyph + 2 * ctx.controlSize(spec.controlSize, "paddingX", use) + carve) + 16 + plate
-	end
-	local function segmentWidth(use: ComposeTypes.Use): (number, number)
-		local unit = use(layoutUnit)
-		local scale = if unit > 0 then unit else 1
-		local room = use(dimensions).X - use(trailingWidth) / scale
-		local width = math.ceil(math.min(room, use(stripContent).X / scale + 2 * INSET))
-		return width, math.max(0, math.floor((room - width) / 2))
 	end
 	local function floatingSize(use: ComposeTypes.Use): UDim2
 		return if use(placement) == "sidebar"
@@ -244,7 +234,6 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 		stripLayout = stripLayout,
 		stripContent = stripContent,
 		railWidth = railWidth,
-		segmentWidth = segmentWidth,
 		floatingSize = floatingSize,
 		floatingPosition = floatingPosition,
 	}

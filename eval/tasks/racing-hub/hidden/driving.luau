@@ -10,6 +10,7 @@ local scenario: Play.Scenario = {
 			cases = {
 				{
 					id = "native-seat-driving",
+					tier = "spec",
 					timeoutSeconds = 90,
 					run = function(qa, context)
 						qa:admin("driving")

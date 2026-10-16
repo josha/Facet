@@ -95,7 +95,7 @@ local function world(
 	local tree: Json.Object = {
 		["$className"] = "DataModel",
 		Lighting = {
-			["$properties"] = { Technology = "Unified", LightingStyle = "Soft", PrioritizeLightingQuality = false },
+			["$properties"] = { Technology = "Future", LightingStyle = "Soft", PrioritizeLightingQuality = false },
 		},
 		Workspace = {
 			["$attributes"] = attributes,

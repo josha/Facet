@@ -303,19 +303,30 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				"cutout"
 			)
 		end
+		if spec.count ~= nil and spec.Size ~= nil then
+			native[#native + 1] = Host.Frame "CountWidthFloor" {
+				BackgroundTransparency = 1,
+				Size = function(use: ComposeTypes.Use): UDim2
+					local package = read(ctx.config.theme, use)
+					local recipe = if package and package.chrome then package.chrome.badge else nil
+					local insets = if recipe then recipe.contentInsets else nil
+					local horizontal = math.max(8, if insets then insets.left or 0 else 0)
+						+ math.max(8, if insets then insets.right or 0 else 0)
+					local vertical = math.max(3, if insets then insets.top or 0 else 0)
+						+ math.max(3, if insets then insets.bottom or 0 else 0)
+					return D2.new(0, 100000, 1, vertical - horizontal)
+				end,
+				Host.UIAspectRatioConstraint {
+					AspectRatio = 1,
+					AspectType = E.AspectType.FitWithinMaxSize,
+					DominantAxis = E.DominantAxis.Height,
+				},
+			}
+			native[#native + 1] = Host.UIListLayout { HorizontalAlignment = E.HorizontalAlignment.Center }
+		end
 		local node = ctx.styled(Host.TextLabel(native), "text")
 		ctx.styled(node, "badge")
 		statusTag(node, spec.status)
-		if spec.count ~= nil and spec.Size ~= nil then
-			local absolute: ComposeTypes.Readable<Vector2> = ctx.observe.AbsoluteSize(node)
-			runtime.mount(function()
-				return Host.UISizeConstraint({
-					MinSize = function(use: ComposeTypes.Use)
-						return V2.new(use(absolute).Y, 0)
-					end,
-				})
-			end, node)
-		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			if form(use) == "ring" then
 				node:AddTag("facet-status-hollow")

@@ -74,6 +74,58 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Sheet: placement, width, title and close", function()
+		verifyHarness:case("arrival wrapper releases supplied hero content before destroying its ancestors", {
+			id = "native_sheet_parts::arrival-keeps-hero",
+			run = function()
+				local banner: Instance? = nil
+				local w = mount({
+					header = false,
+					hero = built(function(_, Host: RobloxHost)
+						banner = Host.TextLabel "Banner" { Text = "Lobby" }
+						return { height = 140, content = banner }
+					end),
+				}, { runService = true, preRender = true, motionLevel = "none" })
+				for _ = 1, 3 do
+					Verify.expect(w.find("OverlayArrival") ~= nil):toBe(true)
+					w.shown:set(false)
+					w.advance(2, 60)
+					Verify.expect(w.find("OverlayArrival") == nil):toBe(true)
+					local retained = (assert(banner) :: unknown) :: { isDestroyed: (unknown) -> boolean }
+					Verify.expect(retained:isDestroyed()):toBe(false)
+					w.shown:set(true)
+					w.advance(1 / 30, 2)
+					Verify.expect(assert(banner):IsDescendantOf(w.find("Hero"))):toBe(true)
+				end
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("hero close preserves the grabber route and enters body controls without self links", {
+			id = "native_sheet_parts::hero-close-selection",
+			run = function()
+				for _, interactiveBody in { false, true } do
+					local w = mount({
+						header = false,
+						hero = { height = 140, image = "rbxassetid://1" },
+						actions = { { id = "Join", label = "Join", onActivate = noop } },
+						content = built(function(UI, Host)
+							return if interactiveBody
+								then UI.Button "Continue" { label = "Continue" }
+								else Host.TextLabel "Copy" { Text = "Lobby details" }
+						end),
+					})
+					local close, grabber = w.find("Close"), w.find("Grabber")
+					Verify.expect(grabber.NextSelectionDown == close):toBe(true)
+					Verify.expect(close.NextSelectionUp == grabber):toBe(true)
+					Verify.expect(close.NextSelectionDown == close):toBe(false)
+					if interactiveBody then
+						Verify.expect(close.NextSelectionDown == w.find("Continue")):toBe(true)
+					end
+					w.stop()
+				end
+			end,
+		})
+
 		verifyHarness:case("keeps pinned regions in layout units under an ancestor scale", {
 			id = "native_sheet_parts::native Sheet: placement, width, title and close::keeps pinned regions in layout units under an ancestor scale",
 			run = function()
