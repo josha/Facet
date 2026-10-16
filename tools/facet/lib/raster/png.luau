@@ -316,7 +316,7 @@ local function chunk(kind: string, body: buffer): buffer
 	return out
 end
 
-function Png.encode(image: Image): buffer
+function Png.encode(image: Image, fast: boolean?): buffer
 	local colorType = TYPE_BY_CHANNELS[image.channels]
 	if colorType == nil then
 		error("png: images need 1 to 4 channels", 2)
@@ -326,8 +326,17 @@ function Png.encode(image: Image): buffer
 	writeU32(header, 4, image.height)
 	buffer.writeu8(header, 8, 8)
 	buffer.writeu8(header, 9, colorType)
-	local filtered = filterRows(image.data, image.width, image.height, image.channels)
-	local compressed = Zlib.compress(filtered)
+	local filtered: buffer
+	if fast then
+		local stride = image.width * image.channels
+		filtered = buffer.create((stride + 1) * image.height)
+		for row = 0, image.height - 1 do
+			buffer.copy(filtered, row * (stride + 1) + 1, image.data, row * stride, stride)
+		end
+	else
+		filtered = filterRows(image.data, image.width, image.height, image.channels)
+	end
+	local compressed = Zlib.compress(filtered, if fast then { stored = true } else nil)
 	local pieces = { chunk("IHDR", header) }
 	local offset = 0
 	local total = buffer.len(compressed)

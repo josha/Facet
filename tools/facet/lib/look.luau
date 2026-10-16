@@ -8,6 +8,7 @@ local Encoding = require("./encoding")
 local Play = require("../../play/host/play")
 local QA = require("../../play/host/qa")
 local Wire = require("../../vendor/verify/src/lute/wire")
+local Json = require("./json")
 
 export type Step = { tap: string?, wait: number? }
 
@@ -30,6 +31,7 @@ export type Options = {
 	steps: { Step },
 	out: string,
 	keep: boolean?,
+	basePlace: string?,
 }
 
 export type Line = { text: string, y: number, x: number }
@@ -70,8 +72,12 @@ function Look.run(options: Options): Result
 		project = options.project,
 		keep = options.keep,
 		quiet = true,
+		performance = false,
+		reusePlay = true,
+		basePlace = options.basePlace,
 	})
 	local result: Result = { screens = {}, problem = nil, out = out, log = host.lines }
+	local timings = host.timings
 	local built, problem = host.build()
 	if not built then
 		result.problem = problem
@@ -84,24 +90,43 @@ function Look.run(options: Options): Result
 			continue
 		end
 		local qa = value :: QA.QA
-		local function shoot(label: string, failure: string?, tap: { text: string, found: boolean, target: string? }?)
+		local function shoot(
+			label: string,
+			failure: string?,
+			tap: { text: string, found: boolean, target: string? }?,
+			inline: unknown
+		)
 			local screen: Screen = { device = device, label = label, problem = failure }
 			if tap ~= nil then
 				screen.tap = tap.text
 				screen.found = tap.found
 				screen.target = tap.target
 			end
+			local started = os.clock()
 			local captured, capture = pcall(function(): boolean
 				qa:capture(label)
 				return true
 			end)
+			timings.capture = (timings.capture or 0) + os.clock() - started
 			if not captured then
 				screen.problem = (screen.problem or "") .. " capture: " .. tostring(capture)
 			end
+			started = os.clock()
 			local dumped, dump = pcall(function(): boolean
-				qa:dump(label)
+				if inline ~= nil then
+					local text = QA.readDump(inline, function(command, fields)
+						return qa:call(command, fields)
+					end)
+					Look.decode(text)
+					local directory = Files.join(out, "dumps", device)
+					Files.makeDirectory(directory)
+					Files.write(Files.join(directory, label .. ".json"), text)
+				else
+					qa:dump(label)
+				end
 				return true
 			end)
+			timings.dump = (timings.dump or 0) + os.clock() - started
 			if not dumped then
 				screen.problem = (screen.problem or "") .. " dump: " .. tostring(dump)
 			end
@@ -113,22 +138,51 @@ function Look.run(options: Options): Result
 		end
 		shoot("1-start", nil)
 		for index, step in options.steps do
+			local started = os.clock()
 			local failure: string? = nil
 			local tapped: { text: string, found: boolean, target: string? }? = nil
 			local text = step.tap
+			local inline: unknown = nil
 			if text ~= nil then
-				qa:waitFor({ text = text, clipped = true }, 4)
-				local ok, detail = qa:tap({ text = text })
-				tapped = { text = text, found = ok, target = if ok then detail else nil }
+				local answered, response = pcall(qa.call, qa, "preview", {
+					query = { text = text },
+					mode = Devices.get(device).mode,
+					wait = step.wait,
+					device = device,
+					input = Devices.get(device).input,
+				})
+				local fields: { [string]: unknown } = if answered and type(response) == "table"
+					then response :: { [string]: unknown }
+					else {}
+				local tap: { [string]: unknown } = if type(fields.tap) == "table"
+					then fields.tap :: { [string]: unknown }
+					else { reason = tostring(response) }
+				local info: { [string]: unknown } = if type(tap.info) == "table"
+					then tap.info :: { [string]: unknown }
+					else {}
+				local ok = tap.tapped == true and tap.activated ~= false
+				tapped = { text = text, found = ok, target = if ok then tostring(info.label or text) else nil }
 				if not ok then
-					failure = ("tap %q: %s"):format(text, detail)
+					failure = ("tap %q: %s"):format(text, tostring(tap.reason or "control did not respond"))
+				end
+				if fields.settled ~= true then
+					failure = (failure or "") .. " interface did not settle"
+				end
+				inline = fields.dump
+			elseif step.wait ~= nil then
+				qa:sleep(step.wait)
+			else
+				local settled = qa:call("perf", { action = "settle", quiet = 0.1, limit = 20 })
+				if type(settled) ~= "table" or (settled :: { [string]: unknown }).timedOut ~= false then
+					failure = (failure or "") .. " interface did not settle"
 				end
 			end
-			qa:sleep(step.wait or 1.5)
-			shoot(("%d-%s"):format(index + 1, slug(text or "wait")), failure, tapped)
+			timings.tap = (timings.tap or 0) + os.clock() - started
+			shoot(("%d-%s"):format(index + 1, slug(text or "wait")), failure, tapped, inline)
 		end
 	end
 	host.close()
+	Files.write(Files.join(out, "timings.json"), Json.encode(timings))
 	return result
 end
 

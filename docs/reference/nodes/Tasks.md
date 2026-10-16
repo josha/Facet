@@ -1,6 +1,6 @@
 # Game UI tasks
 
-Open one complete recipe. Each recipe names its controls.
+Open every recipe that matches a part of your screen. Each recipe names its controls.
 
 Open:
 

@@ -6,4 +6,4 @@ Open:
 
 - [Contracts](Contracts.md)
 - [Compose.portal](Compose.portal.md)
-- [Tools.verify](Tools.verify.md)
+- [Tools.verify](Tools.verify.md): expected duration, device capture summaries and verdict.
