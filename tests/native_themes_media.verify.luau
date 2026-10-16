@@ -1325,6 +1325,37 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
+		verifyHarness:case("defers reactive control decoration until a theme needs it", {
+			id = "native_themes_media::native themes and media::defers reactive control decoration until a theme needs it",
+			run = function()
+				local engine, runtime = setup()
+				local selected = Compose.cell(themes.neutralPackage())
+				local ctx = context(Compose, runtime, { types = engine.types, theme = selected })
+				local stop, target = runtime.mount(function()
+					local node = ctx.Host.Frame({ Size = engine.types.UDim2.fromOffset(200, 44) })
+					ctx.skin(node, "control")
+					return node
+				end, engine.new("Folder"))
+				local node = target :: Frame
+				Verify.expect(#node:GetDescendants()):toBe(1)
+				Verify.expect(node:FindFirstChild("SkinBoundary", true)):toBeNil()
+				local art = themes.neutralPackage()
+				assert(art.assets).image = { content = "rbxassetid://30" }
+				assert(art.chrome).control = { kind = "nineSlice" :: "nineSlice", asset = "image", shadow = "raised" }
+				selected:set(art)
+				local image = assert(node:FindFirstChild("control1", true)) :: ImageLabel
+				Verify.expect(image.Image):toBe("rbxassetid://30")
+				Verify.expect(node:FindFirstChild("ChromeShadow") ~= nil):toBe(true)
+				selected:set(themes.neutralPackage())
+				Verify.expect(image.Visible):toBe(false)
+				selected:set(art)
+				Verify.expect(node:FindFirstChild("control1", true)):toBe(image)
+				Verify.expect(image.Visible):toBe(true)
+				stop()
+				Verify.expect(node.Parent):toBeNil()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("skips static empty skin graphs while retaining later reactive art and shadows", {
 			id = "native_themes_media::native themes and media::skips static empty skin graphs while retaining later reactive art and shadows",
 			run = function()

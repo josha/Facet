@@ -37,6 +37,16 @@ owner; they must not create a second source of model state.
 
 UI and 3D content use the same runtime and the same ownership rules.
 
+Create optional decoration with `Compose.show` when the theme first needs it.
+Retain reusable art for later theme changes. A plain reactive theme must not
+allocate image bounds and geometry subscriptions before it has image art.
+
+Use known container width when a control first creates responsive content.
+Keep that content while native bounds are zero during mounting. Native size
+observations correct the layout when bounds arrive. Small overlay measurement
+sets use `runtime.observe` directly, so placement does not wait for another
+frame. High-volume geometry observations can use Compose frame coalescing.
+
 `UI.Composition` selects among the native forms supplied to `UI.Region`.
 Roblox measures the forms. Facet uses their bounds and declared ranks to
 choose a form, land a top-bar region or drop an optional region. This is HUD

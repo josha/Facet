@@ -477,7 +477,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		}))
 		local rootSize = ctx.layoutSize(root, unit)
 		Compose.watch(function(use: ComposeTypes.Use)
-			offered:set(use(rootSize).X)
+			local width = use(rootSize).X
+			if width > 0 then
+				offered:set(width)
+			end
 		end)
 		local function neighbour(): GuiObject?
 			local layer = root:FindFirstAncestorWhichIsA("LayerCollector")

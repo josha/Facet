@@ -30,6 +30,19 @@ return function(
 	local enabled, touch, presented, requestPresented, close =
 		state.enabled, state.touch, state.presented, state.requestPresented, state.close
 
+	local function panelWidth(use: Use, offer: Vector2, sheet: boolean, tenFoot: boolean): number
+		local wide = MAX_COLUMNS * state.cellSize(use)
+			+ (MAX_COLUMNS - 1) * GAP
+			+ surfaces.inset(PAD, "left", nil, use)
+			+ surfaces.inset(PAD, "right", nil, use)
+		if sheet then
+			return if tenFoot
+				then (if offer.X > 0 then math.min(wide, offer.X - 2 * PAD) else wide)
+				else offer.X - 2 * PAD
+		end
+		return if offer.X > 0 then math.min(wide, math.max(CELL, offer.X - 2 * MARGIN)) else wide
+	end
+
 	local function place(
 		use: Use,
 		view: PanelView,
@@ -50,14 +63,10 @@ return function(
 			)
 		end
 		local natural = view.chrome(use) + view.tech(use)
-		local wide = MAX_COLUMNS * state.cellSize(use)
-			+ (MAX_COLUMNS - 1) * GAP
-			+ surfaces.inset(PAD, "left", nil, use)
-			+ surfaces.inset(PAD, "right", nil, use)
+		local w = panelWidth(use, offer, sheet(use), tenFoot)
 		if sheet(use) then
 			local h = if offer.Y > 0 then math.min(natural, offer.Y - 2 * PAD) else natural
 			if tenFoot then
-				local w = if offer.X > 0 then math.min(wide, offer.X - 2 * PAD) else wide
 				return {
 					edge = "center",
 					x = math.max(PAD, (offer.X - w) / 2),
@@ -66,9 +75,8 @@ return function(
 					h = h,
 				}
 			end
-			return { edge = "sheet", x = PAD, y = math.max(PAD, offer.Y - h - PAD), w = offer.X - 2 * PAD, h = h }
+			return { edge = "sheet", x = PAD, y = math.max(PAD, offer.Y - h - PAD), w = w, h = h }
 		end
-		local w = if offer.X > 0 then math.min(wide, math.max(CELL, offer.X - 2 * MARGIN)) else wide
 		local below = offer.Y - (corner.Y + size.Y + GAP) - MARGIN
 		local above = corner.Y - GAP - MARGIN
 		local x = math.clamp(corner.X, MARGIN, math.max(MARGIN, offer.X - w - MARGIN))
@@ -198,7 +206,11 @@ return function(
 				return tenFoot(use) or (touch(use) and offer.X > 0 and offer.X < 600)
 			end
 			local room = Compose.cell(math.huge)
-			local view = panelView(true, sheet, room)
+			local width = Compose.formula(function(use: Use): number
+				local offer = use(extent)
+				return if offer.X > 0 then panelWidth(use, offer, sheet(use), tenFoot(use)) else 0
+			end)
+			local view = panelView(true, sheet, room, width:peek())
 			local where = Compose.formula(function(use: Use): Placement
 				return place(use, view, sheet, extent, origin, at, bounds, tenFoot(use))
 			end)

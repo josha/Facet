@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- ColorPicker starts its palette at the available panel width and retains it
+  through zero bounds during mounting. Panel measurements update directly
+  from native size changes, which removes a frame of opening delay.
+- Controls with a plain reactive theme defer decoration bounds and their
+  observations until a theme first needs art or shadows. Later theme changes
+  retain the same art. The live picker suite records construction time,
+  reveal time and frames, and checks that the first visible layout is stable.
+- Automatic Picker and Pagination keep their last measured width while native
+  bounds are zero. A temporary zero width no longer rebuilds the Picker form
+  or adds page buttons that the next layout removes.
+
 - The Lab demonstrates reactive Button widths, a leading top-bar popup, live
   Region strip alignment and the environment's thumb target. The architecture
   guide explains app ownership, Compose observation and HUD form selection.
