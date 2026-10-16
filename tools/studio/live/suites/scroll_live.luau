@@ -229,4 +229,89 @@ table.insert(cases, {
 	},
 })
 
+add("selected-scroll-rows", {}, function(t)
+	local gui = game:GetService("GuiService")
+	local select
+	local stage = t.mount(function(UI: FacetControls, _: RobloxHost, C)
+		local target = C.cell(nil :: GuiObject?)
+		C.watch(function(use)
+			gui.SelectedObject = use(target)
+		end)
+		select = function(node: GuiObject)
+			target:set(node)
+		end
+		local rows = {}
+		for index = 1, 16 do
+			table.insert(rows, UI.Button("Row" .. index)({ label = "Row " .. index, Size = UDim2.fromOffset(260, 44) }))
+		end
+		return UI.ScrollView "List" { Size = UDim2.fromOffset(300, 200), gap = 8, table.unpack(rows) }
+	end, { size = Vector2.new(400, 400), frames = 30 })
+	require(game:GetService("ReplicatedStorage").FacetLive).press({ "Tab" })
+	local list = t.find(stage, "List")
+	for _, index in { 1, 5, 10, 16, 10, 5, 1 } do
+		local row = t.find(list, "Row" .. index)
+		select(row)
+		local samples = {}
+		for frame = 1, 6 do
+			t.settle(1)
+			local top = row.AbsolutePosition.Y - list.AbsolutePosition.Y
+			table.insert(samples, { top = top, canvas = list.CanvasPosition.Y })
+			t.check(
+				"row " .. index .. " frame " .. frame,
+				top >= -1 and top + row.AbsoluteSize.Y <= list.AbsoluteWindowSize.Y + 1,
+				samples
+			)
+		end
+		t.note("row " .. index, samples)
+	end
+	gui.SelectedObject = nil
+end)
+
+add("compact-gallery-selected-rects", {}, function(t)
+	local gui = game:GetService("GuiService")
+	for _, page in { "garage", "hud" } do
+		local stage, context = t.gallery({ size = Vector2.new(390, 400), demo = page })
+		context.dispatch("input", "Gamepad")
+		t.settle(30)
+		require(game:GetService("ReplicatedStorage").FacetLive).press({ "Tab" })
+		local nodes = {}
+		for _, node in stage:GetDescendants() do
+			if
+				node:IsA("GuiButton")
+				and node.Selectable
+				and t.visible(node)
+				and node:FindFirstAncestorWhichIsA("ScrollingFrame")
+			then
+				table.insert(nodes, node)
+			end
+		end
+		table.sort(nodes, function(a, b)
+			return a.AbsolutePosition.Y < b.AbsolutePosition.Y
+		end)
+		for _, node in nodes do
+			gui.SelectedObject = node
+			local samples = {}
+			for frame = 1, 6 do
+				t.settle(1)
+				local ancestor = node:FindFirstAncestorWhichIsA("ScrollingFrame")
+				local top = node.AbsolutePosition.Y - ancestor.AbsolutePosition.Y
+				table.insert(samples, {
+					top = top,
+					h = node.AbsoluteSize.Y,
+					window = ancestor.AbsoluteWindowSize.Y,
+					canvas = ancestor.CanvasPosition.Y,
+					path = node:GetFullName(),
+				})
+				t.check(
+					page .. " " .. node.Name .. " frame " .. frame,
+					top >= -1 and top + node.AbsoluteSize.Y <= ancestor.AbsoluteWindowSize.Y + 1,
+					samples
+				)
+			end
+			t.note(page .. " " .. node.Name, samples)
+		end
+		gui.SelectedObject = nil
+	end
+end)
+
 return cases

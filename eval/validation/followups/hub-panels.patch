@@ -105,7 +105,7 @@ index c9d8bd3f..b5c12ae5 100644
  		end
  	end
  	local garageButton = button(dock, "Garage", function()
-@@ -436,6 +473,61 @@ local function mount(context: Hub.Context)
+@@ -436,4 +473,59 @@ local function mount(context: Hub.Context)
  		end
  	end)
  	Kit.focus(playButton)
@@ -164,6 +164,4 @@ index c9d8bd3f..b5c12ae5 100644
 +			Enum.KeyCode.Tab
 +		)
 +	scoreboardRender(context.round.getState())
- end
- 
- return { mount = mount }
+ 	return function()

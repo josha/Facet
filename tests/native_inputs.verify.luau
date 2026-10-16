@@ -1165,6 +1165,34 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("reserves nonzero icon content inside theme insets", {
+			id = "native_inputs::native input controls::reserves nonzero icon content inside theme insets",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls, host)
+					return UI.Button "Tight" {
+						icon = "rbxassetid://1",
+						Size = host.types.UDim2.fromOffset(20, 20),
+						AutomaticSize = host.types.Enum.AutomaticSize.None,
+					}
+				end, function()
+					return {
+						theme = {
+							identity = {},
+							chrome = {
+								control = {
+									kind = "native",
+									contentInsets = { left = 12, right = 13, top = 14, bottom = 15 },
+								},
+							},
+						},
+					}
+				end)
+				local floor = node:FindFirstChild("ContentFloor")
+				Verify.expect(floor.MinSize):toBe(engine.types.Vector2.new(26, 30))
+				stop()
+			end,
+		})
+
 		verifyHarness:case("blocks background held repeats when a Compose-owned modal becomes active", {
 			id = "native_inputs::native input controls::blocks background held repeats when a Compose-owned modal becomes active",
 			run = function()

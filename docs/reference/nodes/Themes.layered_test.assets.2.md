@@ -1,0 +1,54 @@
+# Themes.layered_test.assets.2
+
+Resolved assets tokens.
+
+| Token | Value |
+| --- | --- |
+| `assets.ornate_button_pressed.sliceCenter.y1` | `48` |
+| `assets.ornate_button_pressed.sliceScale` | `1` |
+| `assets.ornate_corner_bl.content` | `rbxassetid://130569583845489` |
+| `assets.ornate_corner_bl.fallback` | `native` |
+| `assets.ornate_corner_bl.preload` | `install` |
+| `assets.ornate_corner_br.content` | `rbxassetid://86251498610726` |
+| `assets.ornate_corner_br.fallback` | `native` |
+| `assets.ornate_corner_br.preload` | `install` |
+| `assets.ornate_corner_tl.content` | `rbxassetid://83669367091366` |
+| `assets.ornate_corner_tl.fallback` | `native` |
+| `assets.ornate_corner_tl.preload` | `install` |
+| `assets.ornate_corner_tr.content` | `rbxassetid://108150811338158` |
+| `assets.ornate_corner_tr.fallback` | `native` |
+| `assets.ornate_corner_tr.preload` | `install` |
+| `assets.ornate_edge_rail.content` | `rbxassetid://138849576571840` |
+| `assets.ornate_edge_rail.fallback` | `native` |
+| `assets.ornate_edge_rail.preload` | `install` |
+| `assets.ornate_field.content` | `rbxassetid://106727123624605` |
+| `assets.ornate_field.fallback` | `native` |
+| `assets.ornate_field.preload` | `install` |
+| `assets.ornate_field.sliceCenter.x0` | `16` |
+| `assets.ornate_field.sliceCenter.x1` | `48` |
+| `assets.ornate_field.sliceCenter.y0` | `16` |
+| `assets.ornate_field.sliceCenter.y1` | `48` |
+| `assets.ornate_field.sliceScale` | `1` |
+| `assets.ornate_panel_fill.content` | `rbxassetid://81048500362779` |
+| `assets.ornate_panel_fill.fallback` | `native` |
+| `assets.ornate_panel_fill.preload` | `install` |
+| `assets.ornate_panel_fill.sliceCenter.x0` | `32` |
+| `assets.ornate_panel_fill.sliceCenter.x1` | `96` |
+| `assets.ornate_panel_fill.sliceCenter.y0` | `32` |
+| `assets.ornate_panel_fill.sliceCenter.y1` | `96` |
+| `assets.ornate_panel_fill.sliceScale` | `1` |
+| `assets.ornate_panel_frame.content` | `rbxassetid://104827392559065` |
+| `assets.ornate_panel_frame.fallback` | `native` |
+| `assets.ornate_panel_frame.preload` | `install` |
+| `assets.ornate_panel_frame.sliceCenter.x0` | `40` |
+| `assets.ornate_panel_frame.sliceCenter.x1` | `120` |
+| `assets.ornate_panel_frame.sliceCenter.y0` | `40` |
+| `assets.ornate_panel_frame.sliceCenter.y1` | `120` |
+| `assets.ornate_panel_frame.sliceScale` | `1` |
+| `assets.ornate_plaque.content` | `rbxassetid://117707325909741` |
+| `assets.ornate_plaque.fallback` | `native` |
+| `assets.ornate_plaque.preload` | `install` |
+| `assets.ornate_selection_default.content` | `rbxassetid://101901876687967` |
+| `assets.ornate_selection_default.fallback` | `native` |
+| `assets.ornate_selection_default.preload` | `install` |
+| `assets.ornate_selection_default.sliceCenter.x0` | `12` |

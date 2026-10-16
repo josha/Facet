@@ -132,8 +132,4 @@ Do not add Python or Lune programs.
 
 ## Versioning
 
-`src/init.luau` is the only version authority. Version 0.12.0 is the native
-cutover. It removes the former application, scene, layout and compatibility
-APIs in one break. Do not add migration shims or a second supported
-architecture. Describe the public effects of each later change in the
-changelog.
+`src/init.luau` is the only version authority. Use only the current API. Do not add compatibility shims or a second supported architecture. Describe public behavior changes in the changelog.

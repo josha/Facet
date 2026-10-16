@@ -38,6 +38,7 @@ export type TweenOptions = Animation.TweenOptions
 export type RampOptions = RampModule.Options
 export type Ramp<T> = RampModule.Ramp<T>
 export type Scheduler = SchedulerModule.Scheduler
+export type ObserveOptions = observe.Options
 export type ClockOptions = clock.Options
 export type SettledOptions<T, R = unknown> = settled.Options<T, R>
 export type SequenceOptions = sequence.Options
@@ -70,7 +71,7 @@ export type Runtime = {
 	timeline: (options: TimelineModule.Options?) -> TimelineModule.Timeline,
 	ramp: <T>(initial: T, options: RampModule.Options?) -> RampModule.Ramp<T>,
 	scheduler: (owner: Owner.Owner?) -> SchedulerModule.Scheduler,
-	observe: (node: Node, property: string) -> Types.Readable<unknown>,
+	observe: (node: Node, property: string, options: ObserveOptions?) -> Types.Readable<unknown>,
 	settled: <T, R>(options: settled.Options<T, R>) -> Types.Readable<boolean>,
 	clock: (options: clock.Options?) -> Types.Readable<number>,
 	sequence: (options: sequence.Options) -> sequence.Sequence,
@@ -584,7 +585,7 @@ local function createRuntime(host: Host.Host): Runtime
 		timeline = timelines.timeline,
 		ramp = ramp,
 		scheduler = scheduler,
-		observe = observe(host, requireOwner),
+		observe = observe(host, requireOwner, reactor),
 		settled = settled(host, requireOwner),
 		clock = clock(host, requireOwner),
 		sequence = sequence(timelines.timeline, requireOwner),

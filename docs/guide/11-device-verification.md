@@ -45,9 +45,7 @@ an attached Studio. For a gamepad Studio, use `--device keep`.
 ## What to record
 
 Record the build revision, the scenario, the observed interactions and the
-engine errors. Keep benchmark evidence and live evidence separate. A pre-cutover
-screenshot or a passing subset does not prove the behavior of this
-architecture.
+engine errors. Keep benchmark evidence and live evidence separate. A screenshot or a passing subset does not prove all control behavior.
 
 The [verification scope](18-verification-scope.md) lists the live evidence
 that is still outstanding.
@@ -138,7 +136,7 @@ checks that the header band reaches the outer scrollbar edge.
 ### Run the suites
 
 Run `lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME]
-[--deadline SECONDS]` in the worktree. The command does these steps for each
+[--deadline SECONDS]` from the repository root. The command does these steps for each
 suite:
 
 1. It builds `build/Facet-Live.rbxlx` from the gallery, the live modules and
@@ -180,19 +178,21 @@ an attachment with the directory `atlas` in `tests/fixtures/focus_atlas`. It
 writes an attachment with the directory `live` in `artifacts/studio-live`.
 
 The suites `needs_live_input`, `native_mechanisms_input` and `weak3_pointer`
-use interactive cases. Use the runner's native input mode with an attached
+use interactive cases. The runner's native input mode can start its own
 Studio:
 
 ```sh
-lute run tools/lute/studio_live.luau native_mechanisms_input needs_live_input weak3_pointer --studio ID --device none --interactive --tag pointer
+lute run tools/lute/studio_live.luau native_mechanisms_input --device none --interactive --tag pointer
 ```
 
 The mode calls `live.begin`, sends real native input, calls the case's named
 `live.step` functions, and saves the `live.finish` reports. Verify combines
 these reports. A missing input capability produces an unsupported result;
 it does not produce a setup-only pass. `--only TEXT` selects a case by id.
-The attached Studio must contain the current case modules. Building the
-runner's place file does not reload the attached place.
+Run each suite separately. With `--studio ID`, the attached Studio must contain
+the current case modules. Building the runner's place file does not reload the
+attached place. Each report records the build commit in `environment.stamp`.
+A `+dirty` suffix means that tracked files had changes when the place was built.
 
 Gamepad suites (`focus_walk`, `focus_opened`, `focus_probe`, `gamepad_walk`) and interactive
 gamepad cases need the Controller Emulator. Turn it on in the attached

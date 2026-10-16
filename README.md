@@ -8,7 +8,7 @@ and takes its look from a theme you can replace without touching a screen.
 Facet builds on the Roblox engine. Controls are ordinary Instances, and the
 engine does layout, text, scrolling, selection and styling.
 
-See all controls/layouts/options [live here](https://www.roblox.com/games/120259284556766/Facet-Lab) and this [showcase with examples in context](https://www.roblox.com/games/77767184583039/Facet-Showcase). 
+See all controls/layouts/options [live here](https://www.roblox.com/games/120259284556766/Facet-Lab) and this [showcase with examples in context](https://www.roblox.com/games/77767184583039/Facet-Showcase).
 
 ## A working screen
 
@@ -61,7 +61,7 @@ Facet draws client-side user interface on native Roblox targets. Mount into:
   up to and uses.
 
 For a target that is not a `ScreenGui`, use the runtime directly, as the
-[API reference](docs/reference/api.md#native-targets-and-boundaries) shows.
+[API reference](../docs/reference/nodes/Native-targets-and-boundaries.md) shows.
 `UI.Stage` holds embedded 3D content, and `UI.worldAnchor` places a control
 beside an object in the world. The
 [Virtual Monitors showcase](examples/virtual_monitors) uses all of these.
@@ -79,8 +79,7 @@ controls create Instances only when a client mounts them.
   cannot see a low-end processor, memory pressure, thermals or battery.
 
 [The verification scope](docs/guide/18-verification-scope.md) states what a run
-covers. The current suite is the evidence. It does not claim to equal the tests
-that existed before the native cutover.
+covers. The current suite is the evidence. A passing run proves only the selected cases.
 
 ## Installing
 
@@ -184,7 +183,7 @@ credential that is never stored in this repository.
 Facet's state, animation and lifetimes come from
 [Compose](https://github.com/voidmeld/compose), which Facet includes as
 `Facet.Compose`. A game that already uses Compose can pass its own copy with
-[`Facet.bind`](docs/reference/api.md#your-own-compose), so its state and Facet
+[`Facet.bind`](../docs/reference/nodes/Your-own-Compose.md#your-own-compose), so its state and Facet
 share one reactive graph.
 
 ## Versioning

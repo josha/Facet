@@ -1,0 +1,54 @@
+# Themes.fantasy_ornate.assets.2
+
+Resolved assets tokens.
+
+| Token | Value |
+| --- | --- |
+| `assets.ornate_button_pressed.sliceCenter.y1` | `48` |
+| `assets.ornate_button_pressed.sliceScale` | `1` |
+| `assets.ornate_corner_bl.content` | `rbxassetid://130569583845489` |
+| `assets.ornate_corner_bl.fallback` | `native` |
+| `assets.ornate_corner_bl.preload` | `install` |
+| `assets.ornate_corner_br.content` | `rbxassetid://86251498610726` |
+| `assets.ornate_corner_br.fallback` | `native` |
+| `assets.ornate_corner_br.preload` | `install` |
+| `assets.ornate_corner_tl.content` | `rbxassetid://83669367091366` |
+| `assets.ornate_corner_tl.fallback` | `native` |
+| `assets.ornate_corner_tl.preload` | `install` |
+| `assets.ornate_corner_tr.content` | `rbxassetid://108150811338158` |
+| `assets.ornate_corner_tr.fallback` | `native` |
+| `assets.ornate_corner_tr.preload` | `install` |
+| `assets.ornate_edge_rail.content` | `rbxassetid://138849576571840` |
+| `assets.ornate_edge_rail.fallback` | `native` |
+| `assets.ornate_edge_rail.preload` | `install` |
+| `assets.ornate_field.content` | `rbxassetid://106727123624605` |
+| `assets.ornate_field.fallback` | `native` |
+| `assets.ornate_field.preload` | `install` |
+| `assets.ornate_field.sliceCenter.x0` | `16` |
+| `assets.ornate_field.sliceCenter.x1` | `48` |
+| `assets.ornate_field.sliceCenter.y0` | `16` |
+| `assets.ornate_field.sliceCenter.y1` | `48` |
+| `assets.ornate_field.sliceScale` | `1` |
+| `assets.ornate_icon_check.content` | `rbxassetid://107294339133126` |
+| `assets.ornate_icon_check.fallback` | `native` |
+| `assets.ornate_icon_check.preload` | `lazy` |
+| `assets.ornate_icon_check.tintRole` | `content` |
+| `assets.ornate_icon_chevron_down.content` | `rbxassetid://115385031782859` |
+| `assets.ornate_icon_chevron_down.fallback` | `native` |
+| `assets.ornate_icon_chevron_down.preload` | `lazy` |
+| `assets.ornate_icon_chevron_down.tintRole` | `content` |
+| `assets.ornate_icon_chevron_right.content` | `rbxassetid://105245349364481` |
+| `assets.ornate_icon_chevron_right.fallback` | `native` |
+| `assets.ornate_icon_chevron_right.preload` | `lazy` |
+| `assets.ornate_icon_chevron_right.tintRole` | `content` |
+| `assets.ornate_icon_cross.content` | `rbxassetid://102422912531329` |
+| `assets.ornate_icon_cross.fallback` | `native` |
+| `assets.ornate_icon_cross.preload` | `lazy` |
+| `assets.ornate_icon_cross.tintRole` | `content` |
+| `assets.ornate_icon_gear.content` | `rbxassetid://136119216057736` |
+| `assets.ornate_icon_gear.fallback` | `native` |
+| `assets.ornate_icon_gear.preload` | `lazy` |
+| `assets.ornate_icon_gear.tintRole` | `content` |
+| `assets.ornate_icon_minus.content` | `rbxassetid://85685383372532` |
+| `assets.ornate_icon_minus.fallback` | `native` |
+| `assets.ornate_icon_minus.preload` | `install` |

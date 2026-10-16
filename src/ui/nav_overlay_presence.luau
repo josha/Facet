@@ -101,6 +101,7 @@ return function(ctx: Types.Context): Presence
 			live[index] = ctx.observe.AbsoluteSize(node)
 		end
 		local fontsReady = fontReadiness(ctx, nodes)
+		local sampled: { Vector2 } = {}
 		local snapshot, complete, allowed = "", false, nil :: boolean?
 		local rested = ctx.runtime.settled {
 			sample = function(): string
@@ -112,9 +113,11 @@ return function(ctx: Types.Context): Presence
 				local measured = true
 				local origin = nodes[1].AbsolutePosition
 				local descendants = nodes[1]:GetDescendants()
-				for _, node in nodes do
+				for index, node in nodes do
 					table.insert(descendants, node)
-					filled = filled or (node.AbsoluteSize.X > 0 and node.AbsoluteSize.Y > 0)
+					local size = node.AbsoluteSize
+					sampled[index] = size
+					filled = filled or (size.X > 0 and size.Y > 0)
 				end
 				for _, node in descendants do
 					measured = measured and textMeasure.ready(node)
@@ -137,8 +140,10 @@ return function(ctx: Types.Context): Presence
 			timeout = ctx.metric("motion.restLimit"),
 		}
 		local held: { ComposeTypes.Readable<Vector2> } = {}
+		local naturalSizes: { ComposeTypes.Cell<Vector2> } = {}
 		for index, size in live do
 			local natural = Compose.cell(size:peek())
+			naturalSizes[index] = natural
 			held[index] = natural
 			Compose.watch(function(use: ComposeTypes.Use)
 				local value = use(size)
@@ -149,6 +154,9 @@ return function(ctx: Types.Context): Presence
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			if use(rested) then
+				for index, natural in naturalSizes do
+					natural:set(sampled[index])
+				end
 				ready:set(true)
 			end
 		end)

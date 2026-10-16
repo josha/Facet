@@ -9,6 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local Collect = require("../../../tools/vendor/verify/src/roblox/ui-audit-collect")
 local scrollTarget = require("./scroll_target")
 local racingDrive = require("./racing_drive")
+local frameStability = require("../../studio/live/frame_stability")
 local invalidSelections = 0
 game:GetService("LogService").MessageOut:Connect(function(message: string)
 	if string.find(message, "SelectedObject", 1, true) and string.find(message, "invalid GuiObject", 1, true) then
@@ -867,6 +868,39 @@ end
 
 local handlers: { [string]: (Request) -> unknown } = {}
 
+local stabilityConnection: RBXScriptConnection? = nil
+local stabilityTracker = frameStability.new()
+handlers.frameStability = function(request): unknown
+	if stabilityConnection then
+		stabilityConnection:Disconnect()
+		stabilityConnection = nil
+	end
+	if stringField(request, "action") == "begin" then
+		stabilityTracker = frameStability.new()
+		local identities: { [Instance]: number } = {}
+		local serial = 0
+		stabilityConnection = RunService.RenderStepped:Connect(function()
+			local samples: { frameStability.Sample } = {}
+			each(function(object)
+				if shownRect(object, false) == nil then
+					return
+				end
+				if identities[object] == nil then
+					serial += 1
+					identities[object] = serial
+				end
+				local position, size = object.AbsolutePosition, object.AbsoluteSize
+				table.insert(samples, {
+					path = object:GetFullName() .. "#" .. tostring(identities[object]),
+					rect = { position.X, position.Y, size.X, size.Y },
+				})
+			end)
+			frameStability.push(stabilityTracker, samples)
+		end)
+	end
+	return { frames = stabilityTracker.frame, seen = stabilityTracker.seen, faults = stabilityTracker.faults }
+end
+
 handlers.touchControls = function(): unknown
 	local gui = playerGui()
 	local touch = gui:FindFirstChild("TouchGui")
@@ -1122,7 +1156,10 @@ handlers.reveal = function(request)
 end
 
 handlers.key = function(request: Request): unknown
-	local ok, problem = pcall(key, keyCode(stringField(request, "key")))
+	local ok, problem = pcall(function(): boolean
+		key(keyCode(stringField(request, "key")))
+		return true
+	end)
 	if not ok then
 		return { pressed = false, reason = tostring(problem) }
 	end

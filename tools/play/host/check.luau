@@ -4,20 +4,19 @@ local task = require("@std/task")
 
 local Core = require("../../../tools/vendor/verify/src/core")
 local QA = require("./qa")
+local Actions = require("./actions")
 
 local function that(context: Core.Context, condition: boolean, detail: string)
 	context:expect(condition):toBeTrueWith(detail)
 end
 
 local function tap(qa: QA.QA, context: Core.Context, query: QA.Query, what: string)
-	local wide = table.clone(query)
-	wide.clipped = true
-	qa:waitFor(wide, 4)
-	local ok, detail = qa:tap(query)
+	local ok, detail = Actions.tap(qa, query)
 	that(context, ok, ("%s: %s"):format(what, detail))
 end
 
 local function visible(qa: QA.QA, context: Core.Context, query: QA.Query, what: string, seconds: number?): QA.Info
+	Actions.reveal(qa, query)
 	local found = qa:waitFor(query, seconds)
 	that(context, found ~= nil, ("%s: nothing visible matches %s"):format(what, QA.describe(query)))
 	return found :: QA.Info

@@ -166,6 +166,21 @@ function Kit.button(text: string, style: Style?): TextButton
 	}, { Kit.corner(10), Kit.padding(Kit.space.small) }) :: TextButton
 end
 
+function Kit.badge(button: TextButton, text: string): TextLabel
+	local badge = Kit.label(text, Kit.size.small, Kit.colors.primaryText, true)
+	badge.AutomaticSize = Enum.AutomaticSize.None
+	badge.AnchorPoint = Vector2.new(1, 0.5)
+	badge.Position = UDim2.new(1, -4, 0.5, 0)
+	badge.Size = UDim2.fromOffset(64, 24)
+	badge.BackgroundTransparency = 0
+	badge.BackgroundColor3 = Kit.colors.primary
+	badge.TextXAlignment = Enum.TextXAlignment.Center
+	badge.ZIndex = 3
+	Kit.corner(12).Parent = badge
+	badge.Parent = button
+	return badge
+end
+
 function Kit.input(placeholder: string): TextBox
 	return Kit.create("TextBox", {
 		Text = "",
@@ -517,6 +532,7 @@ function Kit.hud(screen: ScreenGui): Frame
 	end
 	local frame = Kit.create("Frame", {
 		BackgroundTransparency = 1,
+		Visible = false,
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -16, 0, 96),
 		Size = UDim2.new(0, 156, 1, -112),
@@ -524,12 +540,56 @@ function Kit.hud(screen: ScreenGui): Frame
 	}) :: Frame
 	local scroll = Kit.scroller()
 	scroll.Parent = frame
+	scroll.ScrollingEnabled = false
+	scroll.ScrollBarThickness = 0
 	local body = Kit.create("Frame", {
 		BackgroundTransparency = 1,
 		Size = UDim2.new(1, -8, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Parent = scroll,
-	}, { Kit.list(Enum.FillDirection.Vertical, 8) }) :: Frame
+	}) :: Frame
+	local layout = Kit.create("UIGridLayout", {
+		CellSize = UDim2.fromOffset(148, 48),
+		CellPadding = UDim2.fromOffset(8, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		FillDirectionMaxCells = 1,
+		Parent = body,
+	}) :: UIGridLayout
+	local function resize()
+		local size = screen.AbsoluteSize
+		local landscape = UserInputService.TouchEnabled and size.X > size.Y and size.Y < 600
+		local parent = screen.Parent
+		local touchGui = if parent then parent:FindFirstChild("TouchGui") else nil
+		local jump = if touchGui then touchGui:FindFirstChild("JumpButton", true) else nil
+		local height = if landscape then 188 else 216
+		local top = if landscape then 36 elseif UserInputService.TouchEnabled then 48 else 96
+		if touchGui then
+			for _, control in touchGui:GetDescendants() do
+				if
+					control:IsA("GuiObject")
+					and (control.Name == "JumpButton" or string.find(control.Name, "ThumbstickFrame"))
+				then
+					local right = screen.AbsolutePosition.X + size.X - 16
+					if
+						control.AbsolutePosition.X < right
+						and control.AbsolutePosition.X + control.AbsoluteSize.X > right - 156
+					then
+						top = math.min(top, control.AbsolutePosition.Y - screen.AbsolutePosition.Y - 16 - height)
+					end
+				end
+			end
+		end
+		frame.AnchorPoint = Vector2.new(1, 0)
+		frame.Position = UDim2.new(1, -16, 0, top)
+		frame.Size = UDim2.fromOffset(156, height)
+		layout.CellSize = UDim2.fromOffset(148, if landscape then 44 else 48)
+		layout.CellPadding = UDim2.fromOffset(8, if landscape then 4 else 8)
+		layout.FillDirectionMaxCells = 1
+		frame.Visible = not UserInputService.TouchEnabled or jump ~= nil
+	end
+	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+	game:GetService("RunService").PreRender:Connect(resize)
+	resize()
 	dock = body
 	return body
 end
@@ -544,6 +604,10 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 			return
 		end
 		if open then
+			local overflow = stack[#stack]
+			if overflow ~= nil and overflow.title.Text == "More" then
+				overflow.setOpen(false)
+			end
 			previous = GuiService.SelectedObject
 			local top = stack[#stack]
 			if top ~= nil then
@@ -552,6 +616,9 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 				top.backdrop.Visible = false
 			end
 			table.insert(stack, modal)
+			if sharedScreen then
+				sharedScreen:SetAttribute("ModalOpen", true)
+			end
 			modal.panel.ZIndex = 10 + #stack * 2
 			modal.scrim.ZIndex = modal.panel.ZIndex - 1
 			(modal.backdrop.Parent :: ScreenGui).DisplayOrder = #stack * 2 - 1
@@ -562,6 +629,9 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 			local index = table.find(stack, modal)
 			if index ~= nil then
 				table.remove(stack, index)
+			end
+			if sharedScreen then
+				sharedScreen:SetAttribute("ModalOpen", #stack > 0)
 			end
 			original(false)
 			modalControls()

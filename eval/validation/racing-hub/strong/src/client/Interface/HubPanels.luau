@@ -11,6 +11,87 @@ local Kit = require(script.Parent.Kit)
 local function mount(context: Hub.Context)
 	local screen = Kit.screen(context.playerGui, "Hub")
 	local dock = Kit.hud(screen)
+	local readouts =
+		Kit.create("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = screen }) :: Frame
+	local function coverReadouts()
+		readouts.Visible = screen:GetAttribute("ModalOpen") ~= true
+	end
+	screen:GetAttributeChangedSignal("ModalOpen"):Connect(coverReadouts)
+	coverReadouts()
+	local status = Kit.create("Frame", {
+		Name = "HubStatus",
+		BackgroundTransparency = 1,
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.fromOffset(260, 0),
+		Parent = readouts,
+	}, { Kit.list(Enum.FillDirection.Vertical, 8) }) :: Frame
+	status.LayoutOrder = 2
+	local leftColumn = Kit.create("Frame", {
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(16, 48),
+		Size = UDim2.fromOffset(186, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = readouts,
+	}, { Kit.list(Enum.FillDirection.Vertical, 8) }) :: Frame
+	local more = Kit.modal(screen, "More", "More", Vector2.new(360, 680))
+	local moreButton = Kit.button("More")
+	moreButton.LayoutOrder = 4
+	moreButton.Parent = dock
+	moreButton.Activated:Connect(function()
+		more.setOpen(true)
+	end)
+	local menuScroll = Kit.scroller()
+	menuScroll.Parent = more.body
+	Kit.list(Enum.FillDirection.Vertical, 12).Parent = menuScroll
+	local destinations: { [string]: Frame } = {}
+	for index, group in
+		{
+			{ "Progress", "Quests", "Rewards", "Boosts", "Offer" },
+			{ "Collection", "Drivers", "Crates", "Inventory" },
+			{ "Account", "Codes", "Settings" },
+		}
+	do
+		local section = Kit.create("Frame", {
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, -8, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			LayoutOrder = index,
+			Parent = menuScroll,
+		}, { Kit.list(Enum.FillDirection.Vertical, 8) }) :: Frame
+		local heading = Kit.label(group[1], Kit.size.small, Kit.colors.muted, true)
+		heading.Parent = section
+		for order = 2, #group do
+			destinations[group[order]] = section
+		end
+	end
+	local notice = Kit.create("Frame", {
+		Name = "Attention",
+		BackgroundColor3 = Kit.colors.primary,
+		BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -8, 0, 8),
+		Size = UDim2.fromOffset(8, 8),
+		Parent = moreButton,
+	}, { Kit.corner(4) }) :: Frame
+	local function menuLayout()
+		local panelScreen = more.panel.Parent :: ScreenGui
+		local scale = if Kit.isTenFoot() then 1.25 else 1
+		local size = panelScreen.AbsoluteSize / scale
+		local phone = game:GetService("UserInputService").TouchEnabled and math.min(size.X, size.Y) < 600
+		if phone then
+			more.panel.AnchorPoint = Vector2.new(0.5, 0.5)
+			more.panel.Position = UDim2.fromScale(0.5, 0.5)
+			more.panel.Size = UDim2.fromOffset(math.min(480, size.X - 32), math.min(680, size.Y - 32))
+		else
+			more.panel.AnchorPoint = Vector2.new(1, 0)
+			more.panel.Position = UDim2.fromOffset((moreButton.AbsolutePosition.X - 12) / scale, 96 / scale)
+			more.panel.Size = UDim2.fromOffset(360, math.min(680, size.Y - 112))
+		end
+	end
+	moreButton:GetPropertyChangedSignal("AbsolutePosition"):Connect(menuLayout)
+	local menuScreen = more.panel.Parent :: ScreenGui
+	menuScreen:GetPropertyChangedSignal("AbsoluteSize"):Connect(menuLayout)
+	menuLayout()
 	local commands = (dock.Parent :: ScrollingFrame).Parent :: Frame
 	commands.Name = "HubCommands"
 	local function button(parent: Instance, words: string, action: () -> ()): TextButton
@@ -43,12 +124,48 @@ local function mount(context: Hub.Context)
 	local economy = context.economy.getState()
 	local counters = Kit.create("Frame", {
 		Name = "PlayerStats",
-		BackgroundTransparency = 1,
+		BackgroundTransparency = 0,
+		BackgroundColor3 = Kit.colors.panel,
+		BorderSizePixel = 0,
 		Position = UDim2.fromOffset(16, 48),
 		Size = UDim2.fromOffset(170, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Parent = screen,
-	}, { Kit.list(Enum.FillDirection.Vertical, 8) }) :: Frame
+		Parent = readouts,
+	}, { Kit.list(Enum.FillDirection.Vertical, 8), Kit.padding(12), Kit.corner(12) }) :: Frame
+	counters.LayoutOrder = 1
+	local counterLayout = counters:FindFirstChildOfClass("UIListLayout") :: UIListLayout
+	local counterPadding = counters:FindFirstChildOfClass("UIPadding") :: UIPadding
+	local function hudLayout()
+		local size = screen.AbsoluteSize
+		local touch = game:GetService("UserInputService").TouchEnabled
+		local landscape = touch and size.X > size.Y and size.Y < 600
+		local portrait = touch and size.X < 600
+		leftColumn.Visible = portrait
+		counters.Parent = if portrait then leftColumn else readouts
+		status.Parent = if portrait then leftColumn else readouts
+		counters.AnchorPoint = Vector2.zero
+		counters.Position = UDim2.fromOffset(16, if landscape then 36 else 48)
+		counters.Size = UDim2.fromOffset(if landscape then 484 else 186, 0)
+		counterLayout.FillDirection = if landscape then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical
+		counterPadding.PaddingTop = UDim.new(0, if landscape then 8 else 12)
+		counterPadding.PaddingBottom = counterPadding.PaddingTop
+		counterPadding.PaddingLeft = UDim.new(0, if landscape then 8 else 12)
+		counterPadding.PaddingRight = counterPadding.PaddingLeft
+		for _, child in counters:GetChildren() do
+			if child:IsA("TextLabel") then
+				child.Size = if landscape then UDim2.fromOffset(148, 0) else UDim2.new(1, 0, 0, 0)
+			end
+		end
+		status.AnchorPoint = if landscape or portrait then Vector2.zero else Vector2.new(0.5, 0)
+		status.Position = if landscape
+			then UDim2.fromOffset(370, 150)
+			elseif touch and size.X < 600 then UDim2.new(0.5, 0, 0, 328)
+			elseif touch then UDim2.fromScale(0.6, 0.72)
+			else UDim2.fromScale(0.5, 0.72)
+		status.Size = UDim2.fromOffset(if landscape then 180 elseif portrait then 186 else 260, 0)
+	end
+	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(hudLayout)
+	hudLayout()
 	local wallet = label(counters, "")
 	local progress = label(counters, "")
 	local income = label(counters, "")
@@ -56,7 +173,7 @@ local function mount(context: Hub.Context)
 		BackgroundColor3 = Kit.colors.panel,
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -8, 0, 52),
-		Size = UDim2.new(0.46, -8, 0.2, 0),
+		Size = UDim2.new(0.46, -8, 0.18, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
 		ScrollBarThickness = 4,
@@ -67,7 +184,10 @@ local function mount(context: Hub.Context)
 		Parent = screen,
 	}, { Kit.padding(8), Kit.list(Enum.FillDirection.Vertical, 8) }) :: ScrollingFrame
 	local function raceLayout()
-		summary.Size = UDim2.new(if screen.AbsoluteSize.X < 600 then 0.46 else 0.28, -8, 0.2, 0)
+		local size = screen.AbsoluteSize
+		local landscape = game:GetService("UserInputService").TouchEnabled and size.X > size.Y and size.Y < 600
+		summary.Position = UDim2.new(1, -8, 0, if landscape then 64 + size.Y * 0.18 else 52)
+		summary.Size = UDim2.new(if size.X < 600 then 0.46 else 0.28, -8, 0.18, 0)
 	end
 	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(raceLayout)
 	raceLayout()
@@ -78,6 +198,7 @@ local function mount(context: Hub.Context)
 	local boostBody = body(boosts)
 	label(boostBody, "2x Coins for 30 seconds")
 	local boostTimer = label(boostBody, "")
+	local boostIncome = label(boostBody, "")
 	local boostBuy = button(boostBody, "Buy for 10 Gems", function()
 		context.economy.buyBoost()
 	end)
@@ -94,6 +215,7 @@ local function mount(context: Hub.Context)
 	local offerButton = button(dock, "Offer", function()
 		offer.setOpen(true)
 	end)
+	local offerBadge = Kit.badge(offerButton, "")
 	button(dock, "Boosts", function()
 		boosts.setOpen(true)
 	end)
@@ -104,8 +226,15 @@ local function mount(context: Hub.Context)
 		wallet.Text = Kit.short(economy.coins) .. " Coins\n" .. Kit.short(economy.gems) .. " Gems"
 		progress.Text = ("Level %d\nXP %d / 100\nRaces %d"):format(hub.level, hub.xp % 100, hub.races)
 		income.Text = ("+%d/s\nZone 2 %s / 5K"):format(economy.perSecond, Kit.short(economy.zoneProgress))
+		boostIncome.Text = ("Income +%d/s"):format(economy.perSecond)
 		local left = economy.offer.endsAt - context.hub.serverNow()
-		offerButton.Text = "Offer " .. Kit.clock(left)
+		local attention = not economy.offer.bought and left > 0 or not context.rewards.getState().claimedToday
+		for _, quest in economy.quests do
+			attention = attention or not quest.claimed and quest.progress >= quest.goal
+		end
+		notice.Visible = attention
+		offerBadge.Text = Kit.clock(left)
+		offerBadge.Visible = not economy.offer.bought and left > 0
 		offerTimer.Text = "Ends in " .. Kit.clock(left)
 		offerBuy.Text = if economy.offer.bought then "Bought" else "Buy"
 		offerBuy.Interactable = not economy.offer.bought and left > 0
@@ -132,6 +261,9 @@ local function mount(context: Hub.Context)
 		renderEconomy()
 		renderQuests()
 	end)
+	context.rewards.onStateChanged(function()
+		renderEconomy()
+	end)
 	context.hub.onStateChanged(function(next)
 		hub = next
 		renderEconomy()
@@ -149,9 +281,13 @@ local function mount(context: Hub.Context)
 	local playButton = button(dock, "Play", function()
 		modes.setOpen(true)
 	end)
+	playButton.LayoutOrder = 1
+	playButton.BackgroundColor3 = Kit.colors.primary
+	playButton.TextColor3 = Kit.colors.primaryText
 	local previousPhase: Round.Phase? = nil
 	local function phaseChanged(state: Round.State)
 		counters.Visible = state.phase == "Intermission"
+		status.Visible = state.phase == "Intermission"
 		dock.Visible = state.phase == "Intermission"
 		summary.Visible = state.phase == "Round"
 		if previousPhase ~= state.phase then
@@ -165,10 +301,8 @@ local function mount(context: Hub.Context)
 	end
 	context.round.onStateChanged(phaseChanged)
 	phaseChanged(context.round.getState())
-	local queueLabel = label(screen, "")
-	queueLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-	queueLabel.Position = UDim2.fromScale(0.5, 0.85)
-	queueLabel.Size = UDim2.new(0.6, 0, 0, 0)
+	local queueLabel = label(status, "")
+	queueLabel.LayoutOrder = 2
 	queueLabel.TextXAlignment = Enum.TextXAlignment.Center
 	queueLabel.BackgroundColor3 = Kit.colors.panel
 	queueLabel.BackgroundTransparency = 0.05
@@ -178,15 +312,17 @@ local function mount(context: Hub.Context)
 	local leaveQueue = button(dock, "Leave Queue", function()
 		context.lobby.leave()
 	end)
+	leaveQueue.LayoutOrder = 1
+	leaveQueue.BackgroundColor3 = Kit.colors.primary
+	leaveQueue.TextColor3 = Kit.colors.primaryText
 	local function renderQueue()
 		local racing = previousPhase == "Round"
-		queueLabel.Parent = if racing then summary else screen
-		queueLabel.AnchorPoint = if racing then Vector2.zero else Vector2.new(0.5, 0.5)
-		queueLabel.Position = if racing then UDim2.new() else UDim2.fromScale(0.5, 0.85)
-		queueLabel.Size = UDim2.new(if racing then 1 else 0.6, 0, 0, 0)
+		queueLabel.Parent = if racing then summary else status
+		queueLabel.Size = UDim2.new(1, 0, 0, 0)
 		queueLabel.Visible = queue.phase ~= "Lobby"
-		playButton.Visible = queue.phase == "Lobby"
-		leaveQueue.Visible = queue.phase == "Queue" or queue.phase == "Countdown"
+		playButton.Visible = queue.phase == "Lobby" and context.garage.getState().spawned == nil
+		leaveQueue.Visible = (queue.phase == "Queue" or queue.phase == "Countdown")
+			and context.garage.getState().spawned == nil
 		if queue.phase == "Countdown" then
 			queueLabel.Text = ("%d/%d\nMatch starts in %d"):format(
 				queue.players,
@@ -300,23 +436,28 @@ local function mount(context: Hub.Context)
 		end
 	end
 	local garageButton = button(dock, "Garage", function()
-		if garageState.spawned == nil then
-			renderGarage()
-			garage.setOpen(true)
-		end
+		renderGarage()
+		garage.setOpen(true)
 	end)
-	local vehicle = label(counters, "")
+	garageButton.LayoutOrder = 3
+	local vehicle = label(status, "")
+	vehicle.LayoutOrder = 3
 	local exit = button(dock, "Leave Vehicle", function()
 		context.garage.exit()
 	end)
+	exit.LayoutOrder = 1
+	exit.BackgroundColor3 = Kit.colors.primary
+	exit.TextColor3 = Kit.colors.primaryText
 	local function renderVehicle()
 		exit.Visible = garageState.spawned ~= nil
-		garageButton.Visible = garageState.spawned == nil
+		renderQueue()
 		vehicle.Text = if garageState.spawned ~= nil then "Drive: W A S D\nExit: Leave Vehicle" else ""
+		vehicle.Visible = garageState.spawned ~= nil
 	end
 	context.garage.onStateChanged(function(next)
 		garageState = next
 		renderVehicle()
+		hudLayout()
 		if detail.isOpen() then
 			renderDetail()
 		end
@@ -474,6 +615,42 @@ local function mount(context: Hub.Context)
 		end
 	end)
 	Kit.focus(playButton)
+	return function()
+		local orders = {
+			Quests = 1,
+			Rewards = 2,
+			Boosts = 3,
+			Offer = 4,
+			Drivers = 1,
+			Crates = 2,
+			Inventory = 3,
+			Codes = 1,
+			Settings = 2,
+		}
+		for _, control in dock:GetChildren() do
+			if control:IsA("TextButton") then
+				local words = string.match(control.Text, "^%S+") or control.Text
+				local destination = destinations[words]
+				if destination then
+					control.BackgroundColor3 = Kit.colors.secondary
+					control.TextColor3 = Kit.colors.secondaryText
+					control.TextXAlignment = Enum.TextXAlignment.Center
+					control.LayoutOrder = orders[words] or 0
+					control.Parent = destination
+				elseif words == "Shop" then
+					control.BackgroundColor3 = Kit.colors.secondary
+					control.TextColor3 = Kit.colors.secondaryText
+					control.LayoutOrder = 2
+				elseif words == "Talk" then
+					control.Parent = status
+					control.LayoutOrder = 1
+					control.Size = UDim2.new(1, 0, 0, 48)
+				end
+			end
+		end
+		menuLayout()
+		hudLayout()
+	end
 end
 
 return { mount = mount }

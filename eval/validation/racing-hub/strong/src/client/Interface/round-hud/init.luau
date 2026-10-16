@@ -21,7 +21,7 @@ local function mount(context: Context)
 	timer.Parent = screen
 	local standings = Kit.create("ScrollingFrame", {
 		Position = UDim2.fromOffset(8, 52),
-		Size = UDim2.new(0.46, -8, 0.2, 0),
+		Size = UDim2.new(0.46, -8, 0.18, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
 		ScrollingDirection = Enum.ScrollingDirection.Y,
@@ -44,7 +44,11 @@ local function mount(context: Context)
 	feed.Position = UDim2.new()
 	feed.Size = UDim2.new(1, 0, 0, 0)
 	local function layout()
-		standings.Size = UDim2.new(if screen.AbsoluteSize.X < 600 then 0.46 else 0.28, -8, 0.2, 0)
+		local size = screen.AbsoluteSize
+		local landscape = game:GetService("UserInputService").TouchEnabled and size.X > size.Y and size.Y < 600
+		standings.AnchorPoint = if landscape then Vector2.new(1, 0) else Vector2.zero
+		standings.Position = if landscape then UDim2.new(1, -8, 0, 52) else UDim2.fromOffset(8, 52)
+		standings.Size = UDim2.new(if size.X < 600 then 0.46 else 0.28, -8, 0.18, 0)
 	end
 	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
 	layout()

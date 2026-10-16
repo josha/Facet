@@ -89,7 +89,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local function shown(use: ComposeTypes.Use): boolean
 			return read(indicator, use) ~= "underline"
 				and not reduced(use)
-				and use(sliding) ~= use(currentOrder)
 				and use(currentOrder) > 0
 				and use(rect) ~= nil
 		end

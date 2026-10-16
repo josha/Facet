@@ -67,7 +67,7 @@ Extend existing `UI.draggable` and `UI.dropTarget`. Add a source `hitArea` for a
 bounded pickup node. Add target `landing(info)` for a screen rectangle and
 `travel = true` for theme-timed travel on accepted drops. Source `returnTravel = true` keeps the recess during return or cancel travel.
 Existing sources keep positional return and accepted shrink feedback. These
-now use the same shared Travel engine. Keep existing drop and pending confirmation rules. Keep the source
+use the shared Travel engine. Keep existing drop and pending confirmation rules. Keep the source
 recess and destination slot until travel ends. The preview receives the current
 screen contact directly in the input callback. There is no tween during capture.
 

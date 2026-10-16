@@ -12,7 +12,7 @@ type PanelView = Panel.PanelView
 type Spec = InputProps.ColorPickerProps
 type Placement = { edge: string, x: number, y: number, w: number, h: number }
 
-local CELL, GAP, PAD, MARGIN, GRID_WIDTH = Kit.CELL, Kit.GAP, Kit.PAD, Kit.MARGIN, Kit.GRID_WIDTH
+local CELL, GAP, PAD, MARGIN, MAX_COLUMNS = Kit.CELL, Kit.GAP, Kit.PAD, Kit.MARGIN, Kit.MAX_COLUMNS
 
 return function(
 	ctx: Shared.Context,
@@ -50,7 +50,10 @@ return function(
 			)
 		end
 		local natural = view.chrome(use) + view.tech(use)
-		local wide = GRID_WIDTH + surfaces.inset(PAD, "left", nil, use) + surfaces.inset(PAD, "right", nil, use)
+		local wide = MAX_COLUMNS * state.cellSize(use)
+			+ (MAX_COLUMNS - 1) * GAP
+			+ surfaces.inset(PAD, "left", nil, use)
+			+ surfaces.inset(PAD, "right", nil, use)
 		if sheet(use) then
 			local h = if offer.Y > 0 then math.min(natural, offer.Y - 2 * PAD) else natural
 			if tenFoot then

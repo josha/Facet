@@ -16,8 +16,7 @@ type Measure = (Use) -> number
 export type PanelView = { panel: Frame, chrome: Measure, tech: Measure }
 export type Panel = (boolean, (Use) -> boolean, ComposeTypes.Readable<number>) -> PanelView
 
-local MODE_LABEL, CELL, GAP, PAD, SPACE, MAX_COLUMNS =
-	Kit.MODE_LABEL, Kit.CELL, Kit.GAP, Kit.PAD, Kit.SPACE, Kit.MAX_COLUMNS
+local MODE_LABEL, GAP, PAD, SPACE, MAX_COLUMNS = Kit.MODE_LABEL, Kit.GAP, Kit.PAD, Kit.SPACE, Kit.MAX_COLUMNS
 
 return function(
 	ctx: Shared.Context,
@@ -91,7 +90,11 @@ return function(
 		local width = ctx.observe.AbsoluteSize(techniqueNode)
 		Compose.watch(function(use: Use)
 			local w = use(width).X / use(unit)
-			columns:set(if w > 0 then math.clamp(math.floor((w + GAP) / (CELL + GAP)), 1, MAX_COLUMNS) else MAX_COLUMNS)
+			columns:set(
+				if w > 0
+					then math.clamp(math.floor((w + GAP) / (state.cellSize(use) + GAP)), 1, MAX_COLUMNS)
+					else MAX_COLUMNS
+			)
 		end)
 		local measured: { { node: GuiObject, size: ComposeTypes.Readable<Vector2> } } = {}
 		local function measure(node: GuiObject): GuiObject

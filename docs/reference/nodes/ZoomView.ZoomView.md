@@ -1,0 +1,37 @@
+# ZoomView.ZoomView
+
+`UI.ZoomView(spec) -> ScrollingFrame` wraps one stable content tree. Required:
+`contentSize` (a Vector2 in layout pixels, or a readable) and `content()` (a
+factory that returns a GuiObject). The factory runs once. Native `Size` sets
+the viewport. The control uses one UIScale and native scrolling.
+
+- `zoom`: an optional writable number cell. Scale 1 is the authored size.
+  Without it, the view starts at fit. A zoom must be positive and finite.
+- `focus`: an optional content point, or a readable. A change centres that
+  point. Zoom keeps the current point fixed on screen until an edge stops it.
+- `minZoom`: a positive finite scale. Without it, the minimum is fit.
+  `maxZoom` is 4 by default. `minZoom` cannot exceed `maxZoom`.
+- `doubleTapZoom`: the closer scale for a double tap. The default is twice
+  fit, bounded by `maxZoom`. Double tap toggles fit and that scale around the
+  contact point.
+- `enabled`: a boolean or readable, default true.
+- `controls`: an optional `ZoomControls` table. The control sets `fit()` and
+  `zoomTo({ x, y, w, h })` and `zoomAt(scale, screenPoint?)`. These calls return false while disabled or locked
+  by a child drag, except for one call inside its `onStart` capture scope.
+  The rectangle uses content pixels. `zoomAt` holds a point in screen pixels.
+  Without a point, it uses the captured pointer or armed source centre; outside
+  capture it uses the viewport centre. Call `zoomAt(2)` in `onStart` to zoom at
+  pickup, and `fit()` in `onEnd` to reverse after release. The functions are
+  cleared when the owner ends.
+
+Mouse pan follows native MouseMovement events while the original button is
+held. Pointer pan and wheel pan apply in that input callback. Ctrl-wheel uses
+the pointer in the inset viewport; ZoomView converts GetMouseLocation with
+GuiService.GetGuiInset. Pinch Begin captures the focus without changing scale.
+A positive Change scale updates the complete content transform at once.
+
+While the pointer is over the visible board, ZoomView holds native wheel
+scroll on its own ScrollingFrame and its scroll ancestors. Plain wheel pans
+the board vertically; Shift-wheel pans horizontally. Ctrl-wheel zooms.
+Pointer exit, focus loss, disable and disposal release these holds. A clipped
+board, an overlaid control or a nested scroller does not claim this wheel.

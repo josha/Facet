@@ -68,12 +68,6 @@ jobs:
       - name: Formatting
         run: stylua --check src tests tools bench examples
 
-      - name: Fast tier
-        shell: bash
-        run: |
-          mkdir -p artifacts/verify
-          lute run tools/facet gate fast 2>&1 | tee artifacts/verify/ci-fast.log
-
       - name: Full tier
         shell: bash
         run: |

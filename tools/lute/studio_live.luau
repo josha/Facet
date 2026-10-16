@@ -65,7 +65,13 @@ end
 
 local project = json.deserialize(fs.readFileToString("examples/gallery.project.json")) :: any
 project.name = "Facet-Live"
-project.tree.Workspace["$attributes"] = { Facet_Demos = fs.readFileToString("tools/studio/live/fixture_demos.json") }
+local revision = process.run({ "git", "rev-parse", "HEAD" })
+local status = process.run({ "git", "status", "--porcelain", "--untracked-files=no" })
+assert(revision.ok and status.ok, "cannot record the live build revision")
+project.tree.Workspace["$attributes"] = {
+	Facet_Demos = fs.readFileToString("tools/studio/live/fixture_demos.json"),
+	Facet_SourceStamp = string.gsub(revision.stdout, "%s+$", "") .. (if status.stdout == "" then "" else "+dirty"),
+}
 project.tree.ReplicatedStorage.FacetLive = { ["$path"] = "../tools/studio/live" }
 project.tree.ReplicatedStorage.FacetVerify = { ["$path"] = "../tools/vendor/verify/src" }
 project.tree.ReplicatedStorage.FacetConsumerScreen = { ["$path"] = "consumer/src/screen.luau" }
@@ -132,7 +138,6 @@ if placeOnly then
 end
 
 local failed = false
-assert(not interactive or studio ~= nil, "--interactive requires --studio ID")
 assert(not casesFromTree or studio ~= nil, "--cases-from-tree requires --studio ID")
 for _, suite in suites do
 	local options =

@@ -26,7 +26,7 @@ src/
 assets/
 examples/
 docs/guide/
-docs/reference/api.md
+docs/reference/
 docs/reference/constitution.md
 docs/extending/
 docs/MAINTAINERS.md

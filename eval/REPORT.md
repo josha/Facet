@@ -1,6 +1,6 @@
 # Headline report
 
-For the corrected one-run slice measurement, see the
+For the saved one-run slice measurement, see the
 [slice report](reports/slice-2026-10-15.md). To repeat hidden checks on saved
 completed workspaces without invoking an agent, use
 `lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.
@@ -8,21 +8,15 @@ Verify archives the previous check evidence and preserves agent metrics,
 transcripts, timestamps and build files. Then regenerate this report with
 `lute run eval/tools/report.luau artifacts/facetbench/slice --suite eval/slice.json`.
 
-The owner changed the headline on 2026-10-15 to `extended.json`: 22 runs and
+The headline suite is `extended.json`: 22 runs and
 55 blind task/device/seed comparisons. The hub and ten follow-ups use short
 player prompts. `extended-spec.json` keeps the detailed briefs. The headline
 run pass rate uses the universal tier, contract integrity, completion and
 budgets. Spec failures do not gate it. Universal audits and the blind judge
-remain in the quality rules. Overhead limits and all other thresholds stay
-unchanged. Missing universal scores fail closed. Both tier fractions appear
+remain in the quality rules. The limits are in `overhead.json` and `thresholds.json`. Missing universal scores fail closed. Both tier fractions appear
 in `headline.md`; diagnostic captures stay outside the judge's image set.
 
-See [the complete tier table and calibration commands](validation/vibe.md).
-The extended run and five-device universal calibration have not been measured.
-The slice report records the current local Verify pin, two-device calibration
-and equal scoped Studio MCP setup. The owner must push the local Verify commits
-before a remote source can reproduce that pin. The Facet CLI remains available
-only in its arm. Runs remain sequential. The arm notes refuse a blind fallback.
+See [the tier table and calibration commands](README.md#check-tiers-and-calibration). The dated slice reports contain two-device calibration results. The Facet CLI is available only in the Facet arm. Runs are sequential. Missing scoped Studio tools cause setup failure.
 
 Run from the repository root after all 22 runs and 55 blind comparisons finish:
 
@@ -46,30 +40,30 @@ game manifest, overhead policy and markdown layout. No general statistics or
 rendering capability is missing for this report. No Verify change is needed.
 Any future general capability belongs upstream in Verify, without Facet names.
 
-## Inventory at PR3
+## Measurement inventory
 
 | Measurement | Recorded evidence | Measurement host |
 | --- | --- | --- |
-| Hidden check pass rate per device | `result.scores["play.fraction.<device>"]`; `checks[].cases` keeps case outcomes. `passRate` in Verify is the fraction of whole runs that pass, not the case fraction. | Cases run in the real Studio client and server. Verify aggregates headlessly. |
+| Hidden check pass rate per device | `result.scores["play.universal.<device>.fraction"]`; `checks[].cases` keeps case outcomes. `passRate` in Verify is the fraction of whole runs that pass, not the case fraction. | Cases run in the real Studio client and server. Verify aggregates headlessly. |
 | UI audit violations | `result.audits[].rules`; Verify uses mean violations per audited screen. The dump is in `checks/dumps/<device>/<screen>.json`. | Properties come from Studio. Audit analysis is headless. |
 | Blind comparison | Exists. `judgments.json` and `judgments/` record a task, device and seed comparison in both image orders. | External model judges Studio captures. No headless rendering. Human calibration is separate. |
 | Tokens | `metrics.inputTokens`, `cacheCreationTokens`, `cacheReadTokens`, `outputTokens`, `totalTokens`. Input excludes cached input. | Headless transcript parser. |
 | Wall and turn latency | `metrics.wallSeconds`, `turnLatencies`, `turnIntervals`, `agentSeconds`, `toolSeconds`. Verify computes p50 and p95. | Host wall clock and time-stamped agent output. Not an engine measurement. |
 | Type check | `scores["types.passed"]`, `scores["types.errors"]`, the `types` check result and logs. It is non-required. | Headless luau-lsp with pinned Roblox definitions. |
 | Control usage | `eval/tools/coverage.luau` scans saved client source and writes `usage.json`. It counts Facet calls and helpers. It is descriptive and does not enter a verdict. Plain has no Facet controls by definition. | Headless static scan, not runtime activation coverage. |
-| Instances | `play.perf.<device>.baseGuiObjects`, `baseComponents`, `peakGuiObjects`, `peakComponents`, `instanceDelta`, `guiObjectDelta`. PR3 has no total game UI instance count. | Real Studio census. `Stats.InstanceCount` covers the whole client; the UI census excludes engine and probe roots. |
+| Instances | `play.perf.<device>.baseGuiObjects`, `baseComponents`, `peakGuiObjects`, `peakComponents`, `instanceDelta`, `guiObjectDelta`. `baseInstances` counts all game UI roots and descendants. | Real Studio census. `Stats.InstanceCount` covers the whole client; the UI census excludes engine and probe roots. |
 | Mount | `play.perf.<device>.mountSeconds`: play start through probe readiness and UI geometry settling. Includes joining, host calls and fixed host waits. It is not isolated `Interface.mount` CPU time. | Studio play host wall time plus engine settle observation. |
 | Steady and active frames | `idleFrameP50Ms`, `idleFrameP95Ms`; `activeFrameP50Ms` is the mean of screen medians and `activeFrameP95Ms` is the maximum screen p95. Raw windows are in `checks/perf.json`. | Real Studio `RunService.RenderStepped` delta. Whole-client frame pacing, not isolated UI CPU time or physical device evidence. |
-| Memory return | PR3 has `heapDeltaKb`, `guiMbDelta` and instance deltas from mounted idle to immediate session end. It does not establish a returned hub or wait for collection. | Real Studio `gcinfo()`, `Stats.InstanceCount`, and `Stats:GetMemoryUsageMbForTag`. |
+| Memory return | `heapDeltaKb`, `guiMbDelta` and instance deltas compare mounted idle with the returned-hub sample after the return wait. | Real Studio `gcinfo()`, `Stats.InstanceCount`, and `Stats:GetMemoryUsageMbForTag`. |
 | Seed dollar cost | `metrics.costUsd` when an adapter supplies it. Codex does not supply it. | Headless adapter data. Missing USD remains unpriced. Seed token totals and wall time are always shown; billing needs external cost evidence. |
 
 All eight rules in `thresholds.json` already have producers. Judge rules need
 the separate `judge` stage. A report must not turn absent judgments into ties
 or absent audits into zero violations.
 
-## Added measurements and rules
+## Overhead measurements and rules
 
-The shared play host now counts all descendants and roots of the game UI as
+The shared play host counts all descendants and roots of the game UI as
 `baseInstances`. It stops frame sampling between windows. This keeps the
 probe's frame array from growing across the whole scenario.
 
@@ -83,12 +77,12 @@ tracking also leaves GUI memory absent. No forced collection is used.
 The spec producer uses fresh game sessions with separate performance evidence.
 A diagnostic failure or timeout cannot change the headline memory result.
 
-This is a hub retention check. It is not an unmount test. The owner must verify
+This is a hub retention check. It is not an unmount test. Verify
 that Close and Back return each implementation to the hub in Studio. Controls
 with other labels, a confirmation or a route without a return control need
 review. The same procedure applies to both arms.
 
-> **Confirmed by the owner on 2026-10-15.** These limits are in
+> These limits are in
 > `overhead.json`; they are separate from the approved quality rules.
 > Require the upper 95% bound of Facet/plain to be at most **1.10 for mount
 > time**, and **1.05 for idle frame p50 and p95** on every
@@ -117,10 +111,7 @@ independent games. The report states this limitation.
 
 ## Studio validation
 
-No Studio was launched for this change. First use the 11-turn reference
-calibration loop in [the vibe handoff](validation/vibe.md). The agent commands
-below require the reviewed Verify re-pin and Studio access patch. Use an
-authenticated Studio host with the MCP enabled:
+Use the 11-turn reference calibration loop in [the evaluation guide](README.md#studio-calibration-commands). Use an authenticated Studio host with the MCP enabled:
 
 ```sh
 lute run eval/tools/shared-kit.luau

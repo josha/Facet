@@ -285,7 +285,7 @@ local function build(
 	table.insert(lines, "")
 	table.insert(
 		lines,
-		"> Limits confirmed by the owner on 2026-10-15. Each overhead rule requires the upper 95% bound of Facet/plain to be at most its limit on every device. Memory also requires every seed in both arms to return within 5% of its own mounted baseline. Instances are reported, not gated. No unmount or forced garbage collection is claimed."
+		"> Limits come from eval/overhead.json. Each overhead rule requires the upper 95% bound of Facet/plain to be at most its limit on every device. Memory also requires every seed in both arms to return within 5% of its own mounted baseline. Instances are reported, not gated. No unmount or forced garbage collection is claimed."
 	)
 	table.insert(lines, "")
 	table.insert(lines, "| Agent | Device | Metric | Limit | Result | Ratio | 95% interval | Tasks |")

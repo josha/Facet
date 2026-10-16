@@ -5,17 +5,12 @@ description: Build, change, style or test Roblox game UI and Studio plugin inter
 
 # Use Facet
 
-Start with `lute run tools/facet docs`. One bounded response gives the project
-files, task recipes, controls, call shapes and typed state patterns. Read the
-application contracts and existing components together in your next call.
-Use `project [directory]` for file discovery; rg and Git are optional.
-For options outside the recipes, use `docs <Control>` or `docs --search TEXT`.
-Long sections give an excerpt and subsection names. Query the subsection that
-answers the missing option. Use `--full` only when that excerpt is insufficient;
-do not batch full references. Do not reread a contract already in context.
-Do not read the documentation folder or dependency source in full. Read one
-matching starter in `examples/blocks/` only if the recipe does not fit.
-
+Start with `lute run tools/facet docs` for the map. Open one task recipe.
+Open a control card or option node only for a missing detail: `docs <path>`.
+Use `docs --search TEXT` to find paths and one-line summaries.
+Never reread a node already in context. Each call returns one bounded node.
+Use `project [directory]` for file discovery. Read one matching starter in
+`examples/blocks/` only if the recipe does not fit.
 ## Build
 
 - Make one `Facet.app({ name, parent })` and one `app.mount(component)`.

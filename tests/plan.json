@@ -6,6 +6,9 @@
     "batchCount": 1
   },
   "units": [
+    { "id": "tools/docs_nodes", "locator": "tests/tools/docs_nodes.verify.luau", "requires": ["lute"] },
+    { "id": "docs_examples", "locator": "tests/docs_examples.verify.luau", "requires": ["lute"] },
+    { "id": "play_actions", "locator": "tests/play_actions.verify.luau", "requires": ["lute"] },
     { "id": "native_text_measure", "locator": "tests/native_text_measure.verify.luau", "requires": ["local-luau"] },
     { "id": "frame_stability", "locator": "tests/frame_stability.verify.luau", "requires": ["local-luau"] },
     { "id": "racing_track", "locator": "tests/racing_track.verify.luau", "requires": ["local-luau"] },

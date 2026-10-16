@@ -1,0 +1,49 @@
+# Themes.classic_desktop.style.2
+
+Resolved style tokens.
+
+| Token | Value |
+| --- | --- |
+| `style.themes.1.extra.controlHover.r` | `0.9333333333333333` |
+| `style.themes.1.extra.controlPressed.b` | `0.7294117647058823` |
+| `style.themes.1.extra.controlPressed.g` | `0.7607843137254902` |
+| `style.themes.1.extra.controlPressed.r` | `0.7764705882352941` |
+| `style.themes.1.extra.controlSelected.b` | `0.8862745098039215` |
+| `style.themes.1.extra.controlSelected.g` | `0.7764705882352941` |
+| `style.themes.1.extra.controlSelected.r` | `0.7058823529411765` |
+| `style.themes.1.extra.disabledContentOpacity` | `0.45` |
+| `style.themes.1.extra.hairline.b` | `0.35294117647058826` |
+| `style.themes.1.extra.hairline.g` | `0.3686274509803922` |
+| `style.themes.1.extra.hairline.r` | `0.3764705882352941` |
+| `style.themes.1.extra.hairlineOpacity` | `0.55` |
+| `style.themes.1.extra.scrimOpacity` | `0.4` |
+| `style.themes.1.name` | `Day` |
+| `style.themes.2.colors.accent.b` | `0.9254901960784314` |
+| `style.themes.2.colors.accent.g` | `0.6588235294117647` |
+| `style.themes.2.colors.accent.r` | `0.47843137254901963` |
+| `style.themes.2.colors.content.b` | `0.8784313725490196` |
+| `style.themes.2.colors.content.g` | `0.9019607843137255` |
+| `style.themes.2.colors.content.r` | `0.9098039215686274` |
+| `style.themes.2.colors.contentStrong.b` | `0.9607843137254902` |
+| `style.themes.2.colors.contentStrong.g` | `0.9764705882352941` |
+| `style.themes.2.colors.contentStrong.r` | `0.9803921568627451` |
+| `style.themes.2.colors.danger.b` | `0.4549019607843137` |
+| `style.themes.2.colors.danger.g` | `0.4549019607843137` |
+| `style.themes.2.colors.danger.r` | `0.8941176470588236` |
+| `style.themes.2.colors.onAccent.b` | `0.10196078431372549` |
+| `style.themes.2.colors.onAccent.g` | `0.06274509803921569` |
+| `style.themes.2.colors.onAccent.r` | `0.047058823529411764` |
+| `style.themes.2.colors.onDanger.b` | `0.0392156862745098` |
+| `style.themes.2.colors.onDanger.g` | `0.0392156862745098` |
+| `style.themes.2.colors.onDanger.r` | `0.10980392156862745` |
+| `style.themes.2.colors.onSuccess.b` | `0.054901960784313725` |
+| `style.themes.2.colors.onSuccess.g` | `0.10196078431372549` |
+| `style.themes.2.colors.onSuccess.r` | `0.0392156862745098` |
+| `style.themes.2.colors.onWarning.b` | `0.01568627450980392` |
+| `style.themes.2.colors.onWarning.g` | `0.0784313725490196` |
+| `style.themes.2.colors.onWarning.r` | `0.10980392156862745` |
+| `style.themes.2.colors.success.b` | `0.5490196078431373` |
+| `style.themes.2.colors.success.g` | `0.8` |
+| `style.themes.2.colors.success.r` | `0.49411764705882355` |
+| `style.themes.2.colors.surface.b` | `0.1411764705882353` |
+| `style.themes.2.colors.surface.g` | `0.14901960784313725` |

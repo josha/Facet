@@ -267,7 +267,7 @@ local function publish(version: string, commit: string, assetId: string, extra: 
 	Files.write(CONFIG, updated)
 	print(`release: {CONFIG} updated`)
 	print(studioSteps(assetId, version, fullCommit, latest))
-	print("release: done. Nothing was pushed; commit the receipt yourself.")
+	print("release: done. Commit the receipt to record the release.")
 	return finish(0)
 end
 

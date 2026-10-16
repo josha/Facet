@@ -271,6 +271,19 @@ return function(
 	if glyph and spec.AutomaticSize == E.AutomaticSize.None and label == "" then
 		fillsGlyph = true
 		contentFrame.AutomaticSize = E.AutomaticSize.None
+		p[#p + 1] = Host.UISizeConstraint "ContentFloor" {
+			MinSize = function(use: ComposeTypes.Use): Vector2
+				local package = read(ctx.config.theme, use)
+				local skin = package and package.chrome and package.chrome.control
+				local insets: ThemeTypes.Insets = if read(spec.appearance, use) == "utility"
+					then {}
+					else (if skin then skin.contentInsets or {} else {})
+				return V2.new(
+					1 + (insets.left or 0) + (insets.right or 0),
+					1 + (insets.top or 0) + (insets.bottom or 0)
+				)
+			end,
+		}
 		runtime.mount(function()
 			return Host.UIAspectRatioConstraint({
 				AspectRatio = 1,

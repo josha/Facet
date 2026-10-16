@@ -86,7 +86,7 @@ directories that `.gitignore` excludes.
 | `examples/` | The starter blocks in `examples/blocks`, the gallery, the Facet Lab, the consumer project, the reference apps, the virtual monitors, the example themes and the performance lab. | `lute run tools/facet check scenario-requires` |
 | `bench/` | The benchmark scenes, profiles and baselines. | `lute run tools/facet bench` |
 | `tools/` | The Verify gate runner, the Lute maintainer commands and checks, the native engine double programs and the Studio tools. | `lute run tools/facet check --all` |
-| `docs/` | The guide, the extension playbooks, the reference, this map and the historical plans. | `lute run tools/facet check doc-style` |
+| `docs/` | The guide, the extension playbooks, the reference, this map and the proposals. | `lute run tools/facet check doc-style` |
 | `assets/` | The icon images and the theme art. The generators in `tools/facet/art/` make them, and the package build includes them. | `lute run tools/facet art all --check` |
 | `package/` | The Roblox Package configuration and the publish receipts. See [the package interface](../package/README.md). | `lute run tools/facet package status` |
 | `skills/` | The agent skills for Compose and for Facet. | None. A reviewer reads them with the guide. |
@@ -139,8 +139,7 @@ Studio evidence. The live runner uses Verify to produce case reports.
 Hand-written observations do not replace those reports. The `plan` producer
 checks that `tests/plan.json` lists each spec file on disk exactly once. When
 you retire tests of removed mechanisms, keep the behavior coverage of each control family.
-The current suite is the evidence. It does not claim to equal the tests that
-existed before the native cutover. The
+The current suite is the evidence. A passing run proves only the selected cases. The
 [verification scope](guide/18-verification-scope.md) describes the checks and
 their limits.
 

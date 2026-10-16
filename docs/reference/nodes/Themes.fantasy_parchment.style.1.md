@@ -1,0 +1,49 @@
+# Themes.fantasy_parchment.style.1
+
+Resolved style tokens.
+
+| Token | Value |
+| --- | --- |
+| `style.defaultTheme` | `Daylight` |
+| `style.themes.1.colors.accent.b` | `0.10196078431372549` |
+| `style.themes.1.colors.accent.g` | `0.2823529411764706` |
+| `style.themes.1.colors.accent.r` | `0.47843137254901963` |
+| `style.themes.1.colors.content.b` | `0.10196078431372549` |
+| `style.themes.1.colors.content.g` | `0.1568627450980392` |
+| `style.themes.1.colors.content.r` | `0.20392156862745098` |
+| `style.themes.1.colors.contentStrong.b` | `0.06274509803921569` |
+| `style.themes.1.colors.contentStrong.g` | `0.10980392156862745` |
+| `style.themes.1.colors.contentStrong.r` | `0.14901960784313725` |
+| `style.themes.1.colors.danger.b` | `0.10980392156862745` |
+| `style.themes.1.colors.danger.g` | `0.1411764705882353` |
+| `style.themes.1.colors.danger.r` | `0.5490196078431373` |
+| `style.themes.1.colors.onAccent.b` | `0.8784313725490196` |
+| `style.themes.1.colors.onAccent.g` | `0.9568627450980393` |
+| `style.themes.1.colors.onAccent.r` | `0.9882352941176471` |
+| `style.themes.1.colors.onDanger.b` | `0.9098039215686274` |
+| `style.themes.1.colors.onDanger.g` | `0.9490196078431372` |
+| `style.themes.1.colors.onDanger.r` | `1` |
+| `style.themes.1.colors.onSuccess.b` | `0.8784313725490196` |
+| `style.themes.1.colors.onSuccess.g` | `0.9568627450980393` |
+| `style.themes.1.colors.onSuccess.r` | `0.9882352941176471` |
+| `style.themes.1.colors.onWarning.b` | `0.06274509803921569` |
+| `style.themes.1.colors.onWarning.g` | `0.10980392156862745` |
+| `style.themes.1.colors.onWarning.r` | `0.14901960784313725` |
+| `style.themes.1.colors.success.b` | `0.17254901960784313` |
+| `style.themes.1.colors.success.g` | `0.41568627450980394` |
+| `style.themes.1.colors.success.r` | `0.2901960784313726` |
+| `style.themes.1.colors.surface.b` | `0.6901960784313725` |
+| `style.themes.1.colors.surface.g` | `0.8235294117647058` |
+| `style.themes.1.colors.surface.r` | `0.8862745098039215` |
+| `style.themes.1.colors.surfaceStrong.b` | `0.7764705882352941` |
+| `style.themes.1.colors.surfaceStrong.g` | `0.8862745098039215` |
+| `style.themes.1.colors.surfaceStrong.r` | `0.9333333333333333` |
+| `style.themes.1.colors.warning.b` | `0.12549019607843137` |
+| `style.themes.1.colors.warning.g` | `0.5254901960784314` |
+| `style.themes.1.colors.warning.r` | `0.7450980392156863` |
+| `style.themes.1.extra.contentSecondary.b` | `0.22745098039215686` |
+| `style.themes.1.extra.contentSecondary.g` | `0.3215686274509804` |
+| `style.themes.1.extra.contentSecondary.r` | `0.39215686274509803` |
+| `style.themes.1.extra.control.b` | `0.611764705882353` |
+| `style.themes.1.extra.control.g` | `0.7607843137254902` |
+| `style.themes.1.extra.control.r` | `0.8392156862745098` |

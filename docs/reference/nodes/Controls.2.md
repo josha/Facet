@@ -1,0 +1,26 @@
+# Controls.2
+
+Open one card.
+
+- [HStack.card](HStack.card.md)
+- [Image.card](Image.card.md)
+- [Label.card](Label.card.md)
+- [LevelPicker.card](LevelPicker.card.md)
+- [Menu.card](Menu.card.md)
+- [NavBar.card](NavBar.card.md)
+- [NavigationSplitView.card](NavigationSplitView.card.md)
+- [NavigationStack.card](NavigationStack.card.md)
+- [Notice.card](Notice.card.md)
+- [NumberInput.card](NumberInput.card.md)
+- [Outline.card](Outline.card.md)
+- [PageView.card](PageView.card.md)
+- [Pagination.card](Pagination.card.md)
+- [Path.card](Path.card.md)
+- [Picker.card](Picker.card.md)
+- [Popover.card](Popover.card.md)
+- [ProgressView.card](ProgressView.card.md)
+- [RadialMenu.card](RadialMenu.card.md)
+- [Rating.card](Rating.card.md)
+- [Region.card](Region.card.md)
+- [RowActions.card](RowActions.card.md)
+- [Screen.card](Screen.card.md)

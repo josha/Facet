@@ -1,27 +1,27 @@
-# Native Compose and Roblox performance evidence
+# Benchmarks
 
-`lute run tools/facet bench` runs the same named microbenchmark subjects and CPU yardstick against the unchanged `baseline.json`. `lute run tools/facet perf run` runs all 27 controlled scene names against the unchanged `perf_budgets.json`. `tests/native_perf.verify.luau` checks the registry against every versioned controlled budget and exercises every subject, including teardown.
+Run `lute run tools/facet bench` from the repository root. The command runs
+microbenchmarks with Verify sampling and compares them with `baseline.json`.
+Run `lute run tools/facet perf run` for the performance scene matrix.
 
-The workload data generator remains `perf-dataset/1`, with the same deterministic seed and image keys. The live performance lab and controlled headless scenes share the native workload constructors. The lab also offers fully mounted native lists, row-count ramps, resizing and host movement.
+## Scope
 
-Dense rows retain the original AsyncImage, two text labels, Ready Toggle, percentage Stepper and Open button. Value and toggle cells survive virtual eviction by item key. Open exposes the complete identity and description. Native flex wrapping and measured row extents accommodate engine text preferences; the original 56px desktop and 152px compact heights remain minimum estimates, with a 4px row gap.
+Headless durations include Compose reconciliation, bindings, control policy,
+engine-boundary property writes, and simulated events. Roblox performs native
+layout, text measurement, selection, image loading, and StyleSheet resolution.
+The engine double does not perform that work. Faster headless numbers do not
+prove total interface speed or physical device performance.
 
-The architecture changes what a headless duration measures. It includes Compose reconciliation, bindings, control policy, engine-boundary property writes and simulated events. Roblox now performs layout, text measurement, selection, image fetching and StyleSheet resolution. Lune does not perform that work, so faster Lune numbers cannot establish total UI speed or device performance. The report explicitly leaves native geometry and private Compose registration/connection counts unmeasured. Actual descendant counts come from the engine boundary.
+The benchmark fixture keeps mutable properties, events, and ownership separate
+for each node. It caches immutable reflected defaults. It releases destroyed
+nodes from diagnostic history and allocates ancestry and destruction signals
+only when observed. Authored nodes and updates remain in the workload.
 
-The dense HUD retains its native button activation, boosts model and committed text readout. Its input-to-visible phase ends when that native Text property updates; it measures synchronous dispatch and binding work, not input hardware, Engine rendering or scan-out latency.
+A CPU yardstick drift above 15 percent makes the microbenchmark verdict
+`FAIL_ENVIRONMENT`. Heap samples depend on collector phase. Use deterministic
+workload cases to check sampling, state changes, image ownership, and teardown.
+Read the recorded baseline metric and regression factor before comparing rows.
 
-The benchmark engine fixture keeps independent mutable properties, events and ownership for every node. It caches immutable reflected class defaults, does not retain destroyed nodes in its diagnostic creation history, and does not allocate unobserved ancestry or destruction signals. Subscribed event ordering and disconnection remain tested. Those changes remove measurement overhead without skipping authored nodes or updates; they are fixture changes, not Roblox engine optimizations. A CPU yardstick drift above 15% makes the microbenchmark gate fail as unstable evidence.
-
-No thresholds have been reset. Older captures keep their original workload and row versions; the native shared workload and row implementations have new versions. Compare workload dimensions and timing scope before interpreting a numerical difference. Studio/emulator captures remain development evidence, not physical-device performance results.
-
-The original shadow storm refreshed and linted 100 unchanged shadows; it did not mutate their properties. The native subject retains the same population and steps the runtime without mutations. Facet's removed presenter refresh and style scanner contribute no work; Engine shadow painting remains unmeasured. Its headless result cannot be presented as a shadow rendering speedup. A separate behavioral test verifies native shadow mutations.
-
-The microbenchmarks retain 100 unbatched HUD writes, 200 sparse chains, 50 keyed mutation entries, 50 mounted text writes, the 3,281 authored-view ramp (with additional native layout Instances), the eight-row/two-column Table, eight resize moves, the 24-character typing buffer, and 100 animated rows. Inherited mount state now uses the engine CanvasGroup. Both animation subjects retain one shared source and 100 bound animated rows. Explicit animation writes the shared height target; declarative animation derives height from a shared boolean. The removed Facet parent-animation APIs have no direct timing equivalent. The CPU yardstick and sample counts remain unchanged.
-
-Deterministic workload tests check sampling, state changes, image ownership
-and accounting, retained navigation pages, settling, theme art and native motion.
-The sampling case in `tests/native_perf.verify.luau` checks the sample count and
-warmup of each controlled scene. The timing commands execute the current scenes
-and compare their results with the unchanged budgets.
-
-A trend-budget pass is not performance parity. Compare raw timings with their historical observed values as well as normalized microbenchmark ratios. Identify increases above 10% separately from the unchanged regression thresholds, and state whether the original and candidate were measured in the same window.
+Use [paired performance](../docs/guide/19-paired-performance.md) to compare two
+source trees. Engine geometry, frame pacing, and physical device costs need
+separate live evidence. A passing benchmark does not replace that evidence.

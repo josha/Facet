@@ -3,13 +3,24 @@ local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local preferredInput = require("./preferred_input")
 
+local GEOMETRY: { [string]: ComposeTypes.ObserveOptions } = {
+	AbsoluteSize = { frame = true, poll = true },
+	AbsolutePosition = { frame = true },
+	AbsoluteContentSize = { frame = true },
+	AbsoluteWindowSize = { frame = true, poll = true },
+	AbsoluteCanvasSize = { frame = true },
+	TextBounds = { frame = true, poll = true },
+	TextFits = { frame = true },
+}
+
 export type Observation = {
 	preview: { [string]: unknown },
 	observeStyled: (Instance, string) -> ComposeTypes.Cell<unknown>,
 }
 
-return function(ctx: Shared.Context, config: Shared.Config, _services: Shared.Services): Observation
+return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Services): Observation
 	local Compose, runtime, Enum = ctx.Compose, ctx.runtime, ctx.types.Enum
+	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
 	local sharedObservations: { [Instance]: { [string]: ComposeTypes.AcquireSharedResource<ComposeTypes.Cell<unknown>> } } =
 		{}
 	local preview: { [string]: unknown } = (config.environment or {}) :: { [string]: unknown }
@@ -57,7 +68,12 @@ return function(ctx: Shared.Context, config: Shared.Config, _services: Shared.Se
 		local selection = property == "SelectedObject"
 		local preferred = property == "PreferredInput" and node == config.userInputService
 		if not selection and not preferred then
-			return (previewed(property, runtime.observe(node, property)) :: unknown) :: ComposeTypes.Cell<unknown>
+			return (
+				previewed(
+					property,
+					runtime.observe(node, property, if framed then GEOMETRY[property] else nil)
+				) :: unknown
+			) :: ComposeTypes.Cell<unknown>
 		end
 		local byProperty = sharedObservations[node]
 		if byProperty == nil then
@@ -69,8 +85,10 @@ return function(ctx: Shared.Context, config: Shared.Config, _services: Shared.Se
 			acquire = Compose.createSharedResource(function(): (ComposeTypes.Cell<unknown>, (() -> ())?)
 				local cell: ComposeTypes.Cell<unknown>? = nil
 				local scope = Compose.createRootOwner(function()
-					local source = runtime.observe(node, property)
-					local value = Compose.cell(source:peek())
+					local observation = assert(runtime.host.observation)
+					local source = if selection then nil else runtime.observe(node, property)
+					local initial = if source then source:peek() else observation.readProperty(node, property)
+					local value = Compose.cell(initial)
 					local stopNudges: (() -> ())? = nil
 					local function clearNudges()
 						if stopNudges then
@@ -78,8 +96,8 @@ return function(ctx: Shared.Context, config: Shared.Config, _services: Shared.Se
 							stopNudges = nil
 						end
 					end
-					local publish: (unknown) -> ()
-					publish = function(current: unknown)
+					local publish: (unknown, boolean?) -> ()
+					publish = function(current: unknown, changed: boolean?)
 						local keys, gui = config.userInputService, config.guiService
 						if
 							selection
@@ -108,21 +126,28 @@ return function(ctx: Shared.Context, config: Shared.Config, _services: Shared.Se
 						then
 							stopNudges = stopNudges
 								or preferredInput.nudges(node :: UserInputService, Enum, function()
-									publish(source:peek())
+									publish(assert(source):peek())
 								end)
 							return
 						end
 						clearNudges()
 						value:set(current)
-						if selection then
+						if selection and changed ~= false then
 							for _, hook in ctx.selectionHooks do
 								hook(current)
 							end
 						end
 					end
-					Compose.watch(function(use: ComposeTypes.Use)
-						publish(use(source))
-					end)
+					if selection then
+						Compose.cleanup(observation.observeProperty(node, property, function()
+							publish(observation.readProperty(node, property))
+						end))
+						publish(initial, false)
+					else
+						Compose.watch(function(use: ComposeTypes.Use)
+							publish(use(assert(source)))
+						end)
+					end
 					Compose.cleanup(clearNudges)
 					Compose.cleanup(function()
 						byProperty[property] = nil

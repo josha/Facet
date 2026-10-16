@@ -1,0 +1,30 @@
+# Themes.fantasy_parchment_stub.assets
+
+Resolved assets tokens.
+
+| Token | Value |
+| --- | --- |
+| `assets.parchment_button.contentId` | `rbxassetid://87220434497053` |
+| `assets.parchment_button.fallback` | `native` |
+| `assets.parchment_button.preload` | `install` |
+| `assets.parchment_button.sliceCenter.x0` | `16` |
+| `assets.parchment_button.sliceCenter.x1` | `48` |
+| `assets.parchment_button.sliceCenter.y0` | `16` |
+| `assets.parchment_button.sliceCenter.y1` | `48` |
+| `assets.parchment_button.sliceScale` | `1` |
+| `assets.parchment_field.contentId` | `rbxassetid://73053023436561` |
+| `assets.parchment_field.fallback` | `native` |
+| `assets.parchment_field.preload` | `lazy` |
+| `assets.parchment_field.sliceCenter.x0` | `16` |
+| `assets.parchment_field.sliceCenter.x1` | `48` |
+| `assets.parchment_field.sliceCenter.y0` | `16` |
+| `assets.parchment_field.sliceCenter.y1` | `48` |
+| `assets.parchment_field.sliceScale` | `1` |
+| `assets.parchment_panel.contentId` | `rbxassetid://78012779616687` |
+| `assets.parchment_panel.fallback` | `native` |
+| `assets.parchment_panel.preload` | `install` |
+| `assets.parchment_panel.sliceCenter.x0` | `40` |
+| `assets.parchment_panel.sliceCenter.x1` | `104` |
+| `assets.parchment_panel.sliceCenter.y0` | `40` |
+| `assets.parchment_panel.sliceCenter.y1` | `104` |
+| `assets.parchment_panel.sliceScale` | `1` |

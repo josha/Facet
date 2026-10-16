@@ -1,0 +1,50 @@
+# Themes.compact_pointer.assets.2
+
+Resolved assets tokens.
+
+| Token | Value |
+| --- | --- |
+| `assets.compact_panel.content` | `rbxassetid://113956274031174` |
+| `assets.compact_panel.fallback` | `native` |
+| `assets.compact_panel.preload` | `install` |
+| `assets.compact_panel.sliceCenter.x0` | `12` |
+| `assets.compact_panel.sliceCenter.x1` | `36` |
+| `assets.compact_panel.sliceCenter.y0` | `12` |
+| `assets.compact_panel.sliceCenter.y1` | `36` |
+| `assets.compact_panel.sliceScale` | `1` |
+| `assets.compact_stepper_plate_default.content` | `rbxassetid://96206949435730` |
+| `assets.compact_stepper_plate_default.fallback` | `native` |
+| `assets.compact_stepper_plate_default.preload` | `install` |
+| `assets.compact_stepper_plate_default.sliceCenter.x0` | `7` |
+| `assets.compact_stepper_plate_default.sliceCenter.x1` | `15` |
+| `assets.compact_stepper_plate_default.sliceCenter.y0` | `7` |
+| `assets.compact_stepper_plate_default.sliceCenter.y1` | `15` |
+| `assets.compact_stepper_plate_default.sliceScale` | `1` |
+| `assets.compact_stepper_plate_pressed.content` | `rbxassetid://129313878988790` |
+| `assets.compact_stepper_plate_pressed.fallback` | `native` |
+| `assets.compact_stepper_plate_pressed.preload` | `install` |
+| `assets.compact_stepper_plate_pressed.sliceCenter.x0` | `7` |
+| `assets.compact_stepper_plate_pressed.sliceCenter.x1` | `15` |
+| `assets.compact_stepper_plate_pressed.sliceCenter.y0` | `7` |
+| `assets.compact_stepper_plate_pressed.sliceCenter.y1` | `15` |
+| `assets.compact_stepper_plate_pressed.sliceScale` | `1` |
+| `assets.compact_toggle_knob.content` | `rbxassetid://75181583166364` |
+| `assets.compact_toggle_knob.fallback` | `native` |
+| `assets.compact_toggle_knob.preload` | `install` |
+| `assets.compact_toggle_track_off.content` | `rbxassetid://140310035261723` |
+| `assets.compact_toggle_track_off.fallback` | `native` |
+| `assets.compact_toggle_track_off.preload` | `install` |
+| `assets.compact_toggle_track_off.sliceCenter.x0` | `8` |
+| `assets.compact_toggle_track_off.sliceCenter.x1` | `28` |
+| `assets.compact_toggle_track_off.sliceCenter.y0` | `8` |
+| `assets.compact_toggle_track_off.sliceCenter.y1` | `10` |
+| `assets.compact_toggle_track_off.sliceScale` | `1` |
+| `assets.compact_toggle_track_on.content` | `rbxassetid://75560406065820` |
+| `assets.compact_toggle_track_on.fallback` | `native` |
+| `assets.compact_toggle_track_on.preload` | `install` |
+| `assets.compact_toggle_track_on.sliceCenter.x0` | `8` |
+| `assets.compact_toggle_track_on.sliceCenter.x1` | `28` |
+| `assets.compact_toggle_track_on.sliceCenter.y0` | `8` |
+| `assets.compact_toggle_track_on.sliceCenter.y1` | `10` |
+| `assets.compact_toggle_track_on.sliceScale` | `1` |
+| `assets.search.content` | `rbxassetid://85188541706347` |

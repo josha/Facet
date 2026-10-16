@@ -43,8 +43,7 @@ editable immediately; touch and gamepad use Edit/Done. The examples use
 CellEditor and the containers' shared selection and editing APIs.
 
 Choose **Lab → Drag and drop demo** (or search for it) to drag a portrait onto
-a 3D canvas or a color onto the canvas or block. This demo was moved from
-Showcase's File library. The draggable and dropTarget pages also link to it.
+a 3D canvas or a color onto the canvas or block. The draggable and dropTarget pages also link to it.
 The demo includes legal-target feedback, return/completion motion, Undo, Reset,
 and keyboard/gamepad destination actions. Touch dragging starts when the
 finger moves; a tap offers destination buttons. Short layouts keep space for

@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "0e4848e793a2caede121d6dad0b21ecba8185c04",
+  "commit": "e3c942cb1490f8b7bfc1af59e40cb20d447cd233",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -27,7 +27,7 @@
     "core/frames.luau": "f5150b120e9ff1399f0b789afa0655b2fdb48b159bf7b14f25a627147fb3b111",
     "core/geometry.luau": "2ff2290214177aab2e4ea759f7ee60a9468860913f5e24207bb6dd1404b9a603",
     "core/host.luau": "dd8dc0050a9f2e83d7e525047f82a4bf63c7ed94398d976655d76df428eedf4d",
-    "core/init.luau": "cbc21dcd70c747675f89ad4ab7802d89476e38d7ab68a6de7d57e21d83eb094a",
+    "core/init.luau": "da88cb4740cd4d20e7f6137149f36c5b97a6d5c0ede7e114b16e71d2b1af5a21",
     "core/keyed-cache.luau": "9c2c0c3e02116592d189e6f2c2a33396d95c8fdb4b98896ae9e3e7673be85929",
     "core/ownership/active.luau": "4341c7a77a235841ecc8a4fabcbaf645db6d9411a6ee3c2c7fa7b5c577b16ed9",
     "core/ownership/cache-options.luau": "c2f55031a0a1aaa3ac6489b8b79ff27e8c8fb6e785d1fdea2cca8a1d1265dc8c",
@@ -54,9 +54,9 @@
     "core/runtime/block.luau": "9fd3cfa73e32a719f04b39a1373e410445b9853a54f63f4255a80f1eef373ec0",
     "core/runtime/children.luau": "6ff5b60fba7a516b30dcb1532373537054c79139f0a260f58078c22dd4d869af",
     "core/runtime/clock.luau": "ecde70fd5f617b26cf07d25a5c2a8a02705bc29cdc9357fb847bee371c10797f",
-    "core/runtime/init.luau": "7d050e5ff360d1c0a5f5470a7188d494fcf73d0975c1708b3f173ac9a986f67c",
+    "core/runtime/init.luau": "5df5adb8c61f743c7455c4dfe07843eadb58ed1d8b4ee19fb7c82f18b52c8b84",
     "core/runtime/keys.luau": "81e0cde861d2f321171a8a9f4d9fb9bb55187d4f5f3f19cbdfd68c6123f7f6bf",
-    "core/runtime/observe.luau": "3f51b3147fd1100acdc3b17f8e25358107a9eca185790f31f77e64048d523ff0",
+    "core/runtime/observe.luau": "166533fe651718a89896bffc589523b28a9ee0fda1d5a2cf95dece3b1d4ca7fa",
     "core/runtime/props.luau": "7ecec5575121f00ef2afa5b0574bd1a1d07c54a8f3313a70ead2752a2cae9e82",
     "core/runtime/sequence.luau": "1258043680e89945c5daad79937bab1e3e74e7960be18262075ff237e6d2b79d",
     "core/runtime/settled.luau": "bab870a9fdc192c624b1df3d828ac08eb532e8d38c92ce4d42cfec50fe43f98b",
@@ -89,8 +89,8 @@
   },
   "docs": {
     "SKILL.md": "5b00d1daf8a47f8d97e5af9ab3044aca442fa027064015c8e7ffb584b074c7f1",
-    "references/api.md": "9edca057d9ce66081f3ff3a40f9282923408b05709cc6c64fd531289ca731027",
-    "references/consumer-guides.md": "32d9f462abe6f5c35966231b419c097927aed3e0359781efd425dd2a8d5b03ab",
-    "references/ownership.md": "9a3aaa8b9c582238e5c6ce64fcc1bbfad5cbf2a0b8cf4bd42492662287355480"
+    "references/api.md": "815852915c487c7fee3b1aeb226fecc06c3e7d95fb7702da25784a2c697ffc84",
+    "references/consumer-guides.md": "93ab6895ab5895e4605d0e912c257f2d2ea425eef2fb97c9b8dcc6e9b5f01a0a",
+    "references/ownership.md": "fc33bf9b0863a1b78abc76128525ff113ce0584538eb4d08e5fd93bb435f38d7"
   }
 }

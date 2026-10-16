@@ -26,21 +26,11 @@ local function mount(context: Context)
 	local screen = Kit.screen(context.playerGui, "RewardsInterface")
 	local scale = Kit.scale(screen)
 	local hud = Kit.hud(screen)
-	local openButton = Kit.button("Rewards", "primary")
+	local openButton = Kit.button("Rewards")
 	openButton.Name = "OpenRewards"
 	openButton.Parent = hud
-	local badge = Kit.label("Ready", Kit.size.small, Kit.colors.dangerText, true)
+	local badge = Kit.badge(openButton, "Ready")
 	badge.Name = "Ready"
-	badge.AutomaticSize = Enum.AutomaticSize.None
-	badge.AnchorPoint = Vector2.new(1, 0)
-	badge.Position = UDim2.new(1, 6, 0, -16)
-	badge.Size = UDim2.fromOffset(56, 22)
-	badge.BackgroundTransparency = 0
-	badge.BackgroundColor3 = Kit.colors.danger
-	badge.TextXAlignment = Enum.TextXAlignment.Center
-	badge.ZIndex = 3
-	Kit.corner(11).Parent = badge
-	badge.Parent = openButton
 
 	local modal = Kit.modal(screen, "RewardsPanel", "Daily Rewards", Vector2.new(1180, 640))
 	modal.hides(openButton)
@@ -117,7 +107,8 @@ local function mount(context: Context)
 				Name = "Day" .. entry.day,
 				LayoutOrder = entry.day,
 				BackgroundColor3 = if big then Kit.colors.cardRaised else Kit.colors.card,
-				Size = if narrow then UDim2.new(1, 0, 0, 72) else UDim2.fromOffset(if big then 180 else 140, 188),
+				Size = if narrow then UDim2.new(1, 0, 0, 0) else UDim2.fromOffset(if big then 180 else 140, 188),
+				AutomaticSize = if narrow then Enum.AutomaticSize.Y else Enum.AutomaticSize.None,
 				Parent = track,
 			}, {
 				Kit.corner(12),
@@ -127,26 +118,33 @@ local function mount(context: Context)
 					Thickness = if big then 2 else 1,
 				}),
 			}) :: Frame
+			if narrow then
+				Kit.list(Enum.FillDirection.Vertical, 4).Parent = frame
+			end
 			local title = Kit.label("Day " .. entry.day, Kit.size.body, Kit.colors.text, true)
 			title.AutomaticSize = Enum.AutomaticSize.None
-			title.Size = if narrow then UDim2.new(0.3, 0, 0.5, 0) else UDim2.new(1, 0, 0, 24)
+			title.Size = UDim2.new(1, 0, 0, 24)
+			title.LayoutOrder = 1
 			title.Parent = frame
 			local reward = Kit.label(describe(entry.reward), Kit.size.body, Kit.colors.primary, true)
 			reward.AutomaticSize = Enum.AutomaticSize.None
-			reward.Size = if narrow then UDim2.new(0.4, 0, 0.5, 0) else UDim2.new(1, 0, 0, 48)
-			reward.Position = if narrow then UDim2.fromScale(0, 0.5) else UDim2.fromOffset(0, 28)
+			reward.Size = UDim2.new(1, 0, 0, 48)
+			reward.LayoutOrder = 2
+			reward.Position = UDim2.fromOffset(0, 28)
 			reward.Parent = frame
 			local label = Kit.label("", Kit.size.small, Kit.colors.muted, true)
 			label.Name = "State"
 			label.AutomaticSize = Enum.AutomaticSize.None
-			label.Size = if narrow then UDim2.new(0.3, 0, 1, 0) else UDim2.new(1, 0, 0, 24)
-			label.Position = if narrow then UDim2.fromScale(0.32, 0) else UDim2.fromOffset(0, 80)
+			label.Size = UDim2.new(1, 0, 0, 24)
+			label.LayoutOrder = 3
+			label.Position = UDim2.fromOffset(0, 80)
 			label.Parent = frame
 			local button = Kit.button("Claim", "primary")
 			button.Name = "Claim"
-			button.AnchorPoint = if narrow then Vector2.new(1, 0.5) else Vector2.new(0, 1)
-			button.Position = if narrow then UDim2.fromScale(1, 0.5) else UDim2.fromScale(0, 1)
-			button.Size = if narrow then UDim2.fromOffset(110, 48) else UDim2.new(1, 0, 0, 48)
+			button.AnchorPoint = if narrow then Vector2.zero else Vector2.new(0, 1)
+			button.Position = if narrow then UDim2.new() else UDim2.fromScale(0, 1)
+			button.Size = UDim2.new(1, 0, 0, 48)
+			button.LayoutOrder = 4
 			button.Visible = false
 			button.Parent = frame
 			button.Activated:Connect(claim)

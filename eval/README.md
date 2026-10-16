@@ -1,13 +1,6 @@
 # FacetBench
 
-The headline is now [`extended.json`](extended.json): short player prompts for
-the hub and ten chained follow-ups. [`extended-spec.json`](extended-spec.json)
-keeps the detailed briefs as a diagnostic. The headline uses universal checks
-and the blind judge; exact-spec results are reported without gating. See the
-[tier counts, scoped Studio MCP handoff and calibration commands](validation/vibe.md).
-The [slice report](reports/slice-2026-10-15.md) records the harness correction,
-reference calibration and re-scored saved builds. The earlier
-[slice run receipt](validation/slice-run.md) is historical evidence.
+The headline suite is [`extended.json`](extended.json). It uses short player prompts for the hub and ten chained follow-ups. [`extended-spec.json`](extended-spec.json) uses detailed diagnostic briefs. See [the slice report](reports/slice-2026-10-15.md) for a saved paired measurement.
 
 FacetBench measures how well AI coding agents build Roblox game interfaces. It compares two arms on the same game:
 
@@ -90,6 +83,21 @@ The frame time is the whole client frame, including the probe. Both arms run the
 
 The play host is shared with the `preview` and `audit` author commands. It is in [`tools/play`](../tools/play).
 
+## Render preflight
+
+Eval place projects use `Lighting.Technology = Future`. The corpus check
+rejects missing technology and `Compatibility`.
+
+Check a place before agent measurement:
+
+```sh
+lute run tools/facet facetbench render eval/validation/racing-hub/strong/default.project.json artifacts/facetbench/render
+```
+
+The command builds the place and starts an owned Studio. It checks a viewport
+larger than 1 by 1 and advancing rendered frames, records the observation, and
+closes that Studio. This check does not replace reference calibration.
+
 ## Devices
 
 | Device | Real in Studio | Approximated |
@@ -105,7 +113,7 @@ The play host is shared with the `preview` and `audit` author commands. It is in
 For the finished headline run, use `lute run eval/tools/report.luau <evidence directory>`.
 It writes `headline.md` with rule intervals, task medians, overhead ratios and
 seed costs. See [the report inventory, confirmed overhead limits and Studio
-validation steps](REPORT.md). The owner confirmed the limits on 2026-10-15.
+validation steps](REPORT.md).
 Instances are reported, not gated. The headline passes only when all quality
 and overhead rules pass and no required evidence is missing.
 
@@ -133,7 +141,7 @@ Install Roblox Studio, sign in, and turn on the Studio MCP server. Install the t
 
 | Suite | Use | Tasks | Seeds and devices |
 | --- | --- | --- | --- |
-| [`games.json`](games.json) | The earlier five-task corpus. | The racing hub and four independent follow-ups. | Seeds 1 to 3, five devices. |
+| [`games.json`](games.json) | Five tasks with independent follow-ups. | The racing hub and four independent follow-ups. | Seeds 1 to 3, five devices. |
 | [`slice.json`](slice.json) | The fast loop while Facet changes. | `racing-hub/slice`. | Seed 1, desktop and phone portrait. |
 | [`extended.json`](extended.json) | The headline with vibe prompts and universal gates. | Hub and ten chained follow-ups. | Seed 1, five devices. |
 | [`extended-spec.json`](extended-spec.json) | Detailed-spec diagnostic with both check tiers. | The same 11 tasks. | Seed 1, five devices. |
@@ -151,7 +159,7 @@ lute run eval/tools/report.luau artifacts/facetbench/extended
 - `plan` lists the runs. It starts nothing.
 - `run` runs the agents and the hidden checks. Each play check starts its own Studio, so keep `--parallel 1`.
 - `judge` compares the screenshots of both arms for each task, device and seed. With `--transport api`, it reads `ANTHROPIC_API_KEY`. Calibrate the judge with human labels before you rely on its win rate.
-- `report` writes `report.json` and `report.md` and exits 1 when the verdict is `FAIL`.
+- `report` writes `quality.json` and `headline.md` and exits 1 when the verdict is `FAIL`.
 
 To run the play check on one workspace:
 
@@ -163,7 +171,7 @@ lute run eval/tasks/racing-hub/hidden/play.luau --workspace <workspace> --output
 
 ## Validation
 
-[`validation/racing-hub`](validation/racing-hub) holds the plain-Roblox `strong` and `weak` reference interfaces. The strong interface has one hub, one wallet, and shared navigation. The weak interface differs in two files: missing selection paths and panels that are too wide for phones in `Kit.luau`, stale purchase states in `shop/init.luau`, and a central race timer in `round-hud/init.luau`; the suite reads its other files from `strong`. Run it when Studio is available:
+[`validation/racing-hub`](validation/racing-hub) holds the plain-Roblox `strong` and `weak` reference interfaces. The strong interface has one hub, one wallet, and shared navigation. The weak interface differs in three files: missing selection paths and panels that are too wide for phones in `Kit.luau`, stale purchase states in `shop/init.luau`, and a central race timer in `round-hud/init.luau`; the suite reads its other files from `strong`. Run it when Studio is available:
 
 ```sh
 lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/validation/games.json --parallel 1
@@ -173,18 +181,157 @@ The gate producer `facetbench` runs [`tools/check.luau`](tools/check.luau). It l
 
 ## Limits
 
-The [extended handoff](validation/extended.md) records the earlier six-turn
-work. The [vibe handoff](validation/vibe.md) supersedes its suite, tier and
-calibration policy. The detailed briefs remain diagnostic.
-
-
 - A pass proves that the hidden checks accepted the final workspace in Studio on this host. It proves nothing about real phones, real consoles or real gamepads.
 - The checks find elements by visible text. An interface that shows the right words in an unusual structure can still fail a check.
 - The play check reads the contract state through a server hook of the starter. An agent that breaks the starter project can fail the check for that reason.
-- The audit reads properties. It does not see style rules, rendered pixels or animation, and its selection path is an approximation.
+- The audit reads native and resolved styled properties. It does not see rendered pixels or animation. Its selection path is an approximation.
 - Captures come from the Studio viewport through the MCP capture tool. Their size depends on the Studio window.
 - `VirtualInput` refuses a key that Roblox binds to a core action, for example Tab while the Roblox player list is on. The scoreboard turn asks for the player list to be off, and the check reports a refused key as a failure with the reason.
 
-The starter also contains the shared playable kart world. See [the racing world handoff](validation/scenery.md) for builds, controls, costs, and scenario determinism. The world team owns this code; eval agents still build only the interface.
+The starter contains a shared playable kart world. Eval agents build only the interface. See [the reference guide](validation/racing-hub/README.md) for the race contract, controls, world, and driving checks.
 
-See [the individual race handoff](validation/race.md) for the race contract, sci-fi world, headless calibration, and Studio commands.
+## Check tiers and calibration
+
+Each play case has a tier. The universal cases run with their own
+navigation, server-state and geometry observations. The retained cases are
+spec diagnostics because they include exact copy, formats, counts or sequences.
+Universal cases do not depend on those diagnostic cases passing. Follow-up
+universal cases retain earlier player outcomes. The diagnostic play report can
+fail while the headline run passes. The report tool requires the universal
+scores, the contract, agent completion, budgets, complete universal audits,
+blind judgments and the existing quality and overhead rules. Use that tool for
+the headline. Verify's raw `passed` field is not the headline pass rate.
+
+| Turn | Universal play | Spec play | Universal audits | Spec audits |
+| --- | ---: | ---: | ---: | ---: |
+| racing-hub | 17 | 138 | 16 | 39 |
+| hub-shop-categories | 18 | 140 | 16 | 41 |
+| hub-garage-sort | 19 | 142 | 16 | 43 |
+| hub-settings-reset | 20 | 144 | 16 | 44 |
+| hub-race-scoreboard | 20 | 145 | 16 | 45 |
+| hub-livery-editor | 22 | 147 | 17 | 47 |
+| hub-track-vote | 24 | 149 | 18 | 49 |
+| hub-quick-chat | 26 | 151 | 19 | 51 |
+| hub-upgrades | 28 | 153 | 20 | 53 |
+| hub-party-invite | 30 | 155 | 21 | 55 |
+| hub-first-time-tutorial | 31 | 158 | 22 | 58 |
+| racing-hub slice | 6 | 24 | 5 | 6 |
+
+Counts are per device. The headline uses all five devices; the slice uses two.
+The table excludes one build case in each producer and the contract and type commands.
+
+The play build case and the unchanged-contract command are universal integrity
+checks. Strict types are diagnostic. Each `audit-universal-*` is universal;
+the other audits are spec diagnostics. The required `play` producer runs only
+universal cases. The non-required `spec` producer runs the original cases in
+fresh game sessions. Both write reports, scores and `tiers.json`.
+The score names are `play.universal.<device>.fraction`, `.passed`, `.total`
+and `spec.fraction.<device>`. Diagnostic captures
+are kept in `checks/spec-captures`; only universal captures enter the blind
+judge. The full original briefs remain available to the spec agent.
+
+Within universal screen audits, clipping, truncation, contrast, offscreen
+content, safe areas, touch targets, interactive overlap, gamepad reachability,
+hidden focus and broken selection links are universal. Type scale, spacing
+scale, instance budgets and press feedback are diagnostic. Their violations
+remain in the raw audit reports but do not enter the headline audit metric.
+Synthetic tests prove that even large failures in those four categories do
+not gate the headline.
+
+Each producer owns its process, Studio, game state and performance observations.
+Universal purchases and race rewards cannot change the starter state expected
+by the exact-spec cases. Diagnostic failures, timeouts and performance scores
+do not enter the universal verdict. Their evidence remains under `checks/spec`.
+
+Touch observations read `PlayerGui.TouchGui.TouchControlFrame` at runtime.
+They use the visible ThumbstickFrame or DynamicThumbstickFrame, JumpButton and
+each bound CAS button. The probe uses AbsolutePosition and AbsoluteSize in the
+same viewport coordinates as the UI dump. The check runs in the hub, open
+panels, the queue, the race and results. It checks both interactive controls
+and text. It requires the TouchControlFrame to be observable on touch devices;
+an absent probe is not a pass. Rectangle attachments preserve the measured
+controls for review. The weak hub Kit puts a button on the actual jump button.
+CAS buttons remain available to the player driver and the audit. A reserved
+button and its own labels do not collide with themselves; other UI still fails.
+The other weak turns retain their faults; several also disable their Close
+action. Tutorial Back still fails to return to the earlier step.
+
+The predicates use GuiObject.AbsolutePosition, AbsoluteSize,
+ContextActionService:GetAllBoundActionInfo() and GetButton(). Compose's
+geometry.overlaps and firstClear operate on supplied rectangles; they do not
+observe Roblox's default controls. Its component ownership and state APIs do
+not supply those observations either.
+The references use native Instances. The existing audit is a property audit: rendered
+occlusion, text legibility and physical controller behavior still need Studio
+and human review. Do not call the references calibrated before that review.
+
+## Scoped Studio MCP access
+
+Verify provisions a new Studio for each agent run, exposes one
+immutable id through an MCP proxy, refuses other ids and unknown tools, and
+closes the Studio before hidden checks or after an adapter failure. It exposes
+play/stop, captures, execute_luau, input and console output. Input runs native
+VirtualInput code on Client. Images pass through as MCP images.
+
+`arms/studio-access.json` is the identical setup for both arms. The Verify
+snapshot selection includes the proxy executable. Direct MCP configuration does not need
+plugins, so both arms keep plugins, computer use and browser use disabled.
+The Facet arm keeps its product CLI. Both arms use recorded adapter token
+usage for all shell and MCP calls, including cached tokens. No MCP text is
+counted twice and no MCP call is free.
+
+The team notes require a setup failure if scoped tools are absent. Keep `--parallel 1`. Native isolation evidence is required before parallel runs.
+
+## Studio calibration commands
+
+First assemble and check the references:
+
+```sh
+lute run tools/facet facetbench prepare
+lute run tools/facet check facetbench-references
+```
+
+Then run every turn and arm sequentially in PowerShell:
+
+```powershell
+$turns = @('racing-hub','hub-shop-categories','hub-garage-sort','hub-settings-reset','hub-race-scoreboard','hub-livery-editor','hub-track-vote','hub-quick-chat','hub-upgrades','hub-party-invite','hub-first-time-tutorial')
+foreach ($turn in $turns) {
+  $task = if ([Array]::IndexOf($turns, $turn) -in 1..4) { "eval/tasks/extended/$turn" } else { "eval/tasks/$turn" }
+  foreach ($arm in @('strong','weak')) {
+    $out = "artifacts/facetbench/calibration/$turn/$arm"
+    lute run "$task/hidden/play.luau" --workspace "artifacts/facetbench/reference-headless/$turn/$arm" --outputs "$out/checks" --captures "$out/captures" --report "$out/report.json" --run "calibrate-$turn-$arm" --scores "$out/scores.json" --devices desktop,phone-portrait,phone-landscape,tablet,console
+  }
+}
+```
+
+Read the tier scores for every device. Each strong reference must pass every
+universal case; each weak turn must fail a universal case. These commands run
+only the universal tier. Add `--tier spec` with a separate output directory to
+inspect the original diagnostic cases from a fresh game state.
+Inspect the touch rectangle attachments, especially phone landscape, in both
+the hub and race. Check actual driving, mouse, touch and gamepad interaction,
+focus return, back routes, scrims and all visible text. Rotate and resize during
+the tutorial. The fixed-device sessions do not prove live rotation behavior.
+
+Run the extended evaluation:
+
+```sh
+lute run eval/tools/check.luau
+lute run eval/tools/shared-kit.luau
+lute run tools/facet kit --out artifacts/facetbench/arm-facet --force
+lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/extended.json --parallel 1 --fresh
+lute run tools/vendor/verify/tools/agent-eval.luau judge --suite eval/extended.json --transport api
+lute run eval/tools/report.luau artifacts/facetbench/extended
+```
+
+Before agent measurement, test two owned Studios and an unrelated open Studio
+with the proxy. Each run must list only itself, refuse the other's id for every
+tool, and refuse unknown tools. Test adapter failure and timeout cleanup. Run
+Verify's native gate on that authenticated host. Do not enable parallelism on
+headless evidence alone.
+
+For the diagnostic suite use `eval/extended-spec.json`, then:
+
+```sh
+lute run eval/tools/report.luau artifacts/facetbench/extended-spec --suite eval/extended-spec.json
+```

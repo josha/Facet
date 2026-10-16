@@ -83,17 +83,20 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 		local built: Instance? = nil
 		local wrapper: Frame? = nil
 		if frames and frames.PreRender then
-			wrapper = Host.Frame "OverlayArrival" {
+			wrapper = ctx.fade({
+				Name = "OverlayArrival",
 				BackgroundTransparency = 1,
 				Size = ctx.types.UDim2.fromScale(1, 1),
-				Visible = arrived,
+				GroupTransparency = function(use: ComposeTypes.Use): number
+					return if use(arrived) then 0 else 1
+				end,
 				Interactable = arrived,
 				Compose.fragment(function(): { unknown }
 					local node = build()
 					built = node
 					return { node }
 				end),
-			}
+			}, false, false)
 		else
 			built = build()
 		end

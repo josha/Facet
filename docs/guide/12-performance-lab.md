@@ -5,8 +5,8 @@
 Run `lute run tools/facet bench` when no verification or build runs at the same time.
 
 When you change the implementation, keep the population, mutation and
-lifecycle intent of each workload. Do not compare a removed Facet layout phase
-directly to the total native frame time. Engine layout is now outside the
+lifecycle intent of each workload. Do not compare headless workload time
+directly to the total native frame time. Engine layout is outside the
 headless CPU measurement.
 
 ## Workloads

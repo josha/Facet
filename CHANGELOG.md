@@ -1811,7 +1811,7 @@ Focus and enablement:
   surface such as Facet's own sliding selection indicator. Its rule is
   `TextColor3 = $OnAccent`, the theme contract's one gated partner for `$Accent`,
   and it brings no background, so the chip it sits on is still the only plate on
-  screen. See [api.md — semantic roles](docs/reference/api.md#button).
+  screen. See [api.md — semantic roles](../docs/reference/nodes/Button.reference.md).
 - **`enabled` and `tint` on the layout containers, where they apply to the whole
   subtree.** `enabled = false` on a `Screen`, stack, `ScrollView`, `Grid`,
   `Anchor`, `AdaptiveStack` or `Composition` disables everything under it: every

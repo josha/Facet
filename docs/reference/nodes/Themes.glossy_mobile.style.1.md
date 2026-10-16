@@ -1,0 +1,51 @@
+# Themes.glossy_mobile.style.1
+
+Resolved style tokens.
+
+| Token | Value |
+| --- | --- |
+| `style.defaultTheme` | `Daylight` |
+| `style.themes.1.colors.accent.b` | `0.7843137254901961` |
+| `style.themes.1.colors.accent.g` | `0.3764705882352941` |
+| `style.themes.1.colors.accent.r` | `0.047058823529411764` |
+| `style.themes.1.colors.content.b` | `0.1568627450980392` |
+| `style.themes.1.colors.content.g` | `0.10980392156862745` |
+| `style.themes.1.colors.content.r` | `0.08627450980392157` |
+| `style.themes.1.colors.contentStrong.b` | `0.0784313725490196` |
+| `style.themes.1.colors.contentStrong.g` | `0.047058823529411764` |
+| `style.themes.1.colors.contentStrong.r` | `0.03137254901960784` |
+| `style.themes.1.colors.danger.b` | `0.17254901960784313` |
+| `style.themes.1.colors.danger.g` | `0.10196078431372549` |
+| `style.themes.1.colors.danger.r` | `0.7215686274509804` |
+| `style.themes.1.colors.onAccent.b` | `1` |
+| `style.themes.1.colors.onAccent.g` | `1` |
+| `style.themes.1.colors.onAccent.r` | `1` |
+| `style.themes.1.colors.onDanger.b` | `1` |
+| `style.themes.1.colors.onDanger.g` | `1` |
+| `style.themes.1.colors.onDanger.r` | `1` |
+| `style.themes.1.colors.onSuccess.b` | `1` |
+| `style.themes.1.colors.onSuccess.g` | `1` |
+| `style.themes.1.colors.onSuccess.r` | `1` |
+| `style.themes.1.colors.onWarning.b` | `0.00784313725490196` |
+| `style.themes.1.colors.onWarning.g` | `0.054901960784313725` |
+| `style.themes.1.colors.onWarning.r` | `0.0784313725490196` |
+| `style.themes.1.colors.success.b` | `0.2823529411764706` |
+| `style.themes.1.colors.success.g` | `0.4549019607843137` |
+| `style.themes.1.colors.success.r` | `0.054901960784313725` |
+| `style.themes.1.colors.surface.b` | `0.9803921568627451` |
+| `style.themes.1.colors.surface.g` | `0.9529411764705882` |
+| `style.themes.1.colors.surface.r` | `0.9333333333333333` |
+| `style.themes.1.colors.surfaceStrong.b` | `1` |
+| `style.themes.1.colors.surfaceStrong.g` | `1` |
+| `style.themes.1.colors.surfaceStrong.r` | `1` |
+| `style.themes.1.colors.warning.b` | `0.06274509803921569` |
+| `style.themes.1.colors.warning.g` | `0.596078431372549` |
+| `style.themes.1.colors.warning.r` | `0.8470588235294118` |
+| `style.themes.1.extra.chromeGradient.control.alpha.1.t` | `0` |
+| `style.themes.1.extra.chromeGradient.control.alpha.1.v` | `0.02` |
+| `style.themes.1.extra.chromeGradient.control.alpha.2.t` | `0.48` |
+| `style.themes.1.extra.chromeGradient.control.alpha.2.v` | `0.13999999999999999` |
+| `style.themes.1.extra.chromeGradient.control.alpha.3.t` | `0.52` |
+| `style.themes.1.extra.chromeGradient.control.alpha.3.v` | `0.22` |
+| `style.themes.1.extra.chromeGradient.control.alpha.4.t` | `1` |
+| `style.themes.1.extra.chromeGradient.control.alpha.4.v` | `0.22` |

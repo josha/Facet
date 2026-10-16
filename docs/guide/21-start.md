@@ -1,5 +1,10 @@
 # Start a game screen
 
+Start with `lute run tools/facet docs` for the map. Open one task recipe.
+Open a control card or option node only for a missing detail with `docs <path>`.
+Use `docs --search TEXT` to find paths and summaries.
+Never reread a node already in context. Use `project [directory]` for file discovery.
+
 Use one app and one mounted root. The server owns game state and validates
 requests. The component owns local state. Keep durable row state in the model.
 
@@ -71,10 +76,6 @@ Without Studio, use `verify --static` and report the live evidence limit.
 The tools remove a UTF-8 BOM from application Luau files before engine tools
 read them. In Windows PowerShell 5.1, use `Set-Content -Encoding utf8`;
 the default encoding is not UTF-8. Other encodings need conversion.
-
-For other options, use `docs <Control>` or `docs --search TEXT`. A long section
-prints an excerpt and subsection names. Query a subsection before `--full`. Starter components
-are in `examples/blocks/`. Use `project [directory]` for file discovery.
 
 # Typed state and collections
 

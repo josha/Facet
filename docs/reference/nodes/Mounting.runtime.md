@@ -1,0 +1,13 @@
+# Mounting.runtime
+
+| Field | Contract |
+|---|---|
+| `runtime` | `options.runtime`, or a new runtime from `Facet.Roblox.createRuntime()`. |
+| `UI` | `Facet.controls(runtime, options)`. |
+| `mount(component, parent?)` | Mounts a ScreenGui into `parent`, `options.parent` or the PlayerGui of the local player. The ScreenGui holds a StyleSheet from `Facet.themes.createStyleSheet(runtime, options.theme)`, a StyleLink to that sheet, and the result of `component()`. In a PlayerGui it also mounts `UI.focusRing(playerGui)` (see [environment](environment.md)). It returns the stop function and the ScreenGui. |
+| `refusal(control, spec)` | Asks whether the control `UI[control]` takes `spec`. It returns the words of the error that the constructor raises, or nil when the constructor accepts the spec. It builds the control under a temporary Compose owner and releases it at once, so nothing mounts. A refusal that only a later update can raise, such as a readable that changes to a refused value, is not answered. An unknown control name is an error. Use it to offer only the combinations that a control accepts, for example in a catalog or an editor. |
+| `construct(control, spec)` | Calls the constructor `UI[control]` with `spec` and returns its root. `control` must name a constructor, which starts with a capital letter. Call it inside a Compose owner, as you call the constructor itself. The constructor checks `spec` at run time and raises its usual errors. Use it when data selects the control, for example in a catalog or an editor. In other code, call the constructor directly, so that strict mode checks the properties. |
+| `controlNames()` | Returns the sorted names of the members of `UI`: the constructors and the helper functions. |
+| `presentToast(component, options?)` | Shows `component(app.UI)` as a `UI.Toast` in the app's shared toast ScreenGui and returns `{ id, dismiss() }`. See [Toast](Toast.reference.md). |
+| `presentAnchored(component, options)` | Shows `component(app.UI)` in a `UI.Popover` against `options.source` (`{ node }` or `{ rect }`), in its own ScreenGui from `mount`. `options` takes the Popover placement keys (`edge`, `align`, `gap`, `crossOffset`, `tail`, `maxWidth`, `maxHeight`), `modal`, `cancelPolicy` and `onDismiss`. The panel is always anchored, never a sheet. It returns `close, screen`. A dismissal (Cancel, an outside tap, a lost source node) or `close()` reports `onDismiss` once and stops the mount. Use it for a coach mark or a custom anchored panel that no control owns. |
+| `dispose()` | Stops each mount of the app. Then it disposes the runtime if the app made it. A second call does nothing. |

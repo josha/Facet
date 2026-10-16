@@ -1,0 +1,53 @@
+# Themes.neutral.style.2
+
+Resolved style tokens.
+
+| Token | Value |
+| --- | --- |
+| `style.themes.1.extra.controlHover.r` | `0.19215686274509805` |
+| `style.themes.1.extra.controlPressed.b` | `0.18823529411764706` |
+| `style.themes.1.extra.controlPressed.g` | `0.1450980392156863` |
+| `style.themes.1.extra.controlPressed.r` | `0.13333333333333333` |
+| `style.themes.1.extra.controlSelected.b` | `0.3607843137254902` |
+| `style.themes.1.extra.controlSelected.g` | `0.22745098039215686` |
+| `style.themes.1.extra.controlSelected.r` | `0.17647058823529413` |
+| `style.themes.1.extra.disabledContentOpacity` | `0.4` |
+| `style.themes.1.extra.hairline.b` | `1` |
+| `style.themes.1.extra.hairline.g` | `1` |
+| `style.themes.1.extra.hairline.r` | `1` |
+| `style.themes.1.extra.hairlineOpacity` | `0.92` |
+| `style.themes.1.extra.scrimOpacity` | `0.45` |
+| `style.themes.1.name` | `Dark` |
+| `style.themes.2.colors.accent.b` | `0.8235294117647058` |
+| `style.themes.2.colors.accent.g` | `0.3843137254901961` |
+| `style.themes.2.colors.accent.r` | `0.17254901960784313` |
+| `style.themes.2.colors.content.b` | `0.1607843137254902` |
+| `style.themes.2.colors.content.g` | `0.12549019607843137` |
+| `style.themes.2.colors.content.r` | `0.10980392156862745` |
+| `style.themes.2.colors.contentStrong.b` | `0.0784313725490196` |
+| `style.themes.2.colors.contentStrong.g` | `0.054901960784313725` |
+| `style.themes.2.colors.contentStrong.r` | `0.047058823529411764` |
+| `style.themes.2.colors.danger.b` | `0.10980392156862745` |
+| `style.themes.2.colors.danger.g` | `0.10980392156862745` |
+| `style.themes.2.colors.danger.r` | `0.7254901960784313` |
+| `style.themes.2.colors.onAccent.b` | `1` |
+| `style.themes.2.colors.onAccent.g` | `1` |
+| `style.themes.2.colors.onAccent.r` | `1` |
+| `style.themes.2.colors.onDanger.b` | `1` |
+| `style.themes.2.colors.onDanger.g` | `1` |
+| `style.themes.2.colors.onDanger.r` | `1` |
+| `style.themes.2.colors.onSuccess.b` | `1` |
+| `style.themes.2.colors.onSuccess.g` | `1` |
+| `style.themes.2.colors.onSuccess.r` | `1` |
+| `style.themes.2.colors.onWarning.b` | `0.023529411764705882` |
+| `style.themes.2.colors.onWarning.g` | `0.08627450980392157` |
+| `style.themes.2.colors.onWarning.r` | `0.10980392156862745` |
+| `style.themes.2.colors.success.b` | `0.22745098039215686` |
+| `style.themes.2.colors.success.g` | `0.4196078431372549` |
+| `style.themes.2.colors.success.r` | `0.08235294117647059` |
+| `style.themes.2.colors.surface.b` | `0.9725490196078431` |
+| `style.themes.2.colors.surface.g` | `0.9568627450980393` |
+| `style.themes.2.colors.surface.r` | `0.9490196078431372` |
+| `style.themes.2.colors.surfaceStrong.b` | `1` |
+| `style.themes.2.colors.surfaceStrong.g` | `1` |
+| `style.themes.2.colors.surfaceStrong.r` | `1` |

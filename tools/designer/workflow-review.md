@@ -1,13 +1,11 @@
 # Facet Design workflow review
 
-Date: 2026-10-01.
-
 This review records the editor workflows, their evidence, and the remaining checks.
 
 | Workflow | Facet Design evidence | Remaining work |
 | --- | --- | --- |
-| Insert native controls | All 63 public constructors have adapters. Insert supports live search, Clear, and empty results. | Live previews now cover the insert gallery; test more control interactions. |
-| Select and edit | Native input selects canvas controls and opens Inspector. Text edits update the canvas and exported Luau. | 1,000 field definitions now cover all constructors; custom game behavior remains outside the inspector. |
+| Insert native controls | All 63 public constructors have adapters. Insert supports live search, Clear, and empty results. | Live previews cover the insert gallery; test more control interactions. |
+| Select and edit | Native input selects canvas controls and opens Inspector. Text edits update the canvas and exported Luau. | 1,000 field definitions cover all constructors; custom game behavior remains outside the inspector. |
 | Edit layout | Containers expose dimensions, spacing, padding, and alignment. Layers can move between containers. | Side padding, native colors, constraints, and more layout fields are editable. |
 | Undo and redo | History stores documents and selection. Reset, Undo, and Redo pass native input checks. Template and saved-design loads retain history. | Check a long editing session on a physical phone. |
 | Preview appearance | Device, orientation, palette, text size, and comparison settings use native Facet rendering. | 96 edited template, device, palette, and text-size combinations mount in Studio; physical devices remain. |

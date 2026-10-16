@@ -1,5 +1,6 @@
 {
   "producers": [
+    {"id": "docs-nodes", "tier": "fast", "run": "lute run tools/facet check docs-nodes", "why": "documentation nodes fit byte budgets and every node is reachable from the map"},
     {"id": "architecture", "tier": "fast", "run": "lute run tools/facet check architecture", "why": "source modules require only the layers the architecture allows"},
     {"id": "plan", "tier": "fast", "run": "lute run tools/facet check plan", "why": "tests/plan.json lists every Verify file under tests exactly once"},
     {"id": "vendor", "tier": "fast", "run": "lute run tools/facet check vendor", "why": "the Compose and Verify snapshots match their pins file for file, and the notices and COMPOSE_COMMIT name the pins"},

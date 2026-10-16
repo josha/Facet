@@ -7,31 +7,28 @@ local Files = require("../../tools/facet/lib/files")
 local Json = require("../../tools/facet/lib/json")
 
 return function(harness: Verify.Harness)
-	harness:case(
-		"first docs call contains bounded recipes, project discovery and recoverable heading suggestions",
-		function()
-			local first = Run.capture({ Run.lute(), "run", "tools/facet", "docs" })
-			Verify.expect(first.ok):toBe(true)
-			Verify.expect(#first.stdout < 12000):toBe(true)
-			for _, text in
-				{
-					"Facet.Use",
-					"VirtualGrid",
-					"KeyedCollectionSpec",
-					"--static",
-					"rg and Git are optional",
-					"[string]: number",
-				}
-			do
-				Verify.expect(string.find(first.stdout, text, 1, true) ~= nil):toBe(true)
-			end
-			for _, heading in { "Theme packages", "Sizing and layout" } do
-				local result = Run.capture({ Run.lute(), "run", "tools/facet", "docs", heading })
-				Verify.expect(result.ok):toBe(true)
-				Verify.expect(string.find(result.stdout, "Closest sections:", 1, true) ~= nil):toBe(true)
-			end
+	harness:case("first docs call contains the small task map and recoverable node discovery", function()
+		local first = Run.capture({ Run.lute(), "run", "tools/facet", "docs" })
+		Verify.expect(first.ok):toBe(true)
+		Verify.expect(#first.stdout <= 2048):toBe(true)
+		for _, text in
+			{
+				"Tasks.shop",
+				"Tasks.sheet",
+				"Controls",
+				"Themes.index",
+				"Sheet.detents",
+				"project [directory]",
+			}
+		do
+			Verify.expect(string.find(first.stdout, text, 1, true) ~= nil):toBe(true)
 		end
-	)
+		for _, heading in { "Theme packages", "Sizing and layout" } do
+			local result = Run.capture({ Run.lute(), "run", "tools/facet", "docs", heading })
+			Verify.expect(result.ok):toBe(true)
+			Verify.expect(string.find(result.stdout, "Open one path", 1, true) ~= nil):toBe(true)
+		end
+	end)
 	harness:case(
 		"verify accepts BOM and mixed public reactive types and audits saved evidence without Studio",
 		function(context)
@@ -117,7 +114,7 @@ end)
 			Verify.expect(string.find(weak.stdout, "[text-truncated]", 1, true) ~= nil):toBe(true)
 		end
 	)
-	harness:case("author docs bound broad reads and print a shared control section once", function()
+	harness:case("author docs bound broad reads and return paths for a batch", function()
 		local compact = Run.capture({
 			Run.lute(),
 			"run",
@@ -137,22 +134,27 @@ end)
 			"Typed collections",
 		})
 		Verify.expect(compact.ok):toBe(true)
-		Verify.expect(#compact.stdout < 12000):toBe(true)
-		Verify.expect(string.find(compact.stdout, "--full", 1, true) ~= nil):toBe(true)
+		Verify.expect(#compact.stdout <= 4096):toBe(true)
+		Verify.expect(string.find(compact.stdout, "Open one path", 1, true) ~= nil):toBe(true)
 		local full = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "VirtualList", "VirtualGrid", "--full" })
 		Verify.expect(full.ok):toBe(true)
-		local _, headings = string.gsub(full.stdout, "### VirtualList and VirtualGrid", "")
-		Verify.expect(headings):toBe(1)
-		Verify.expect(string.find(full.stdout, "minColumnWidth", 1, true) ~= nil):toBe(true)
+		local _, lists = string.gsub(full.stdout, "VirtualList.card %-", "")
+		local _, grids = string.gsub(full.stdout, "VirtualGrid.card %-", "")
+		Verify.expect(lists):toBe(1)
+		Verify.expect(grids):toBe(1)
+		Verify.expect(string.find(full.stdout, "```luau", 1, true) == nil):toBe(true)
+		local card = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "VirtualGrid.card" })
+		Verify.expect(card.ok):toBe(true)
+		Verify.expect(string.find(card.stdout, "minColumnWidth", 1, true) ~= nil):toBe(true)
 	end)
 	harness:case("author setup and task recipes fit a short first read", function()
 		local info = Run.capture({ Run.lute(), "run", "tools/facet", "info" })
 		Verify.expect(info.ok):toBe(true)
 		Verify.expect(#info.stdout < 3200):toBe(true)
-		local recipes = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "HUD panels", "Collection screen" })
+		local recipes = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "Tasks.shop" })
 		Verify.expect(recipes.ok):toBe(true)
-		Verify.expect(#recipes.stdout < 4000):toBe(true)
-		Verify.expect(string.find(recipes.stdout, "Facet.Use", 1, true) ~= nil):toBe(true)
+		Verify.expect(#recipes.stdout <= 2048):toBe(true)
+		Verify.expect(string.find(recipes.stdout, "KeyedCollectionSpec", 1, true) ~= nil):toBe(true)
 	end)
 	harness:case(
 		"lint keeps all error locations and full details when it shortens cyclic type errors",

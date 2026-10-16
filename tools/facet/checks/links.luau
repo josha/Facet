@@ -40,7 +40,11 @@ local function isArchived(path: string): boolean
 	if ARCHIVED_FILES[path] then
 		return true
 	end
-	if stringext.hasPrefix(path, REFERENCE) and not PUBLIC_REFERENCE[path] then
+	if
+		stringext.hasPrefix(path, REFERENCE)
+		and not PUBLIC_REFERENCE[path]
+		and not stringext.hasPrefix(path, "docs/reference/nodes/")
+	then
 		return true
 	end
 	for _, prefix in ARCHIVED_PREFIXES do

@@ -26,7 +26,7 @@ on main also had:
 - A scroll container is not a selection stop.
 - A value control keeps Left and Right for its value.
 
-See [Selection](../reference/api.md#selection) for the full rules.
+See [Selection](../reference/nodes/Selection.md) for the full rules.
 
 ## Focus navigation: engine facts
 
@@ -38,7 +38,7 @@ the focus atlases in `tests/fixtures/focus_atlas`.
 | Id | Question | Measured (D-pad / stick / arrows) | Facet relies on the engine, or custom code |
 |---|---|---|---|
 | `F1` | Overlap or distance? | A candidate that overlaps the move's cross axis wins over a nearer one that does not (D-pad and stick). Among overlapping candidates the nearest leading edge wins, even with a large centre offset. | Engine. |
-| `F2` | Up from Boost on a form column (`M2`) | Plain frames: Rear (D-pad and stick). The Showcase went to a toolbar button or to Boost's own track before `E2` and `F4` were fixed; it now reaches Rear. The stick does not move from Rear Up or Right when the only target is far off its axis (the D-pad takes it). | Engine; no column rule. |
+| `F2` | Up from Boost on a form column (`M2`) | Plain frames: Rear (D-pad and stick). The Showcase reaches Rear. The stick does not move from Rear Up or Right when the only target is far off its axis (the D-pad takes it). | Engine; no column rule. |
 | `F3` | Does the stick honour links? | Yes. A self-link holds the stick, a link to C moves it to C. | Engine (value controls pin their axis with a self-link). |
 | `F4` | Is a drag detector's parent a stop? | Yes. An enabled `UIDragDetector` makes its `Selectable = false` parent a D-pad and stick target. `Enabled = false` removes it. | Custom: Slider detectors are off while the gamepad is the preferred input. |
 | `F5` | What do SelectionGroups do? | Members win over a nearer outside candidate. `Stop` holds the selection; `NextSelection*` on the group frame is ignored under `Stop`; a link on the member crosses `Stop`. Nested: an inner `Stop` holds, and an outer `Stop` holds through an inner `Escape`. | Engine. |
@@ -92,7 +92,7 @@ item being mounted.
 
 World-fixed UI is a flat two-dimensional SurfaceGui. Facet does not add VR,
 gaze input, hand input or declarative three-dimensional layout. See
-[native targets and boundaries](../reference/api.md#native-targets-and-boundaries).
+[native targets and boundaries](../reference/nodes/Native-targets-and-boundaries.md).
 
 A game can attach `UI.commandScope(root, spec)` to an existing board. Supply
 `targets` with keys and native nodes, and one handler for each command. The

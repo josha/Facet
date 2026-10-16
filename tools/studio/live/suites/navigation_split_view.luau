@@ -439,8 +439,8 @@ local cases: { any } = {
 						Compose.cleanup(function()
 							observation.readProperty = read
 						end)
-						firstSize = env.runtime.observe(first, "AbsoluteSize")
-						secondSize = env.runtime.observe(second, "AbsoluteSize")
+						firstSize = env.runtime.observe(first, "AbsoluteSize", { frame = true })
+						secondSize = env.runtime.observe(second, "AbsoluteSize", { frame = true })
 						local other = t.Facet.Roblox.createRuntime()
 						local subscriber = Compose.createRootOwner(function()
 							Compose.watch(function(use: any)

@@ -10,7 +10,7 @@ type Item = Kit.Item
 type Paint = Kit.Paint
 export type Swatches = { swatchesView: () -> Frame, brickView: () -> Frame }
 
-local CELL, GAP, SPACE = Kit.CELL, Kit.GAP, Kit.SPACE
+local GAP, SPACE = Kit.GAP, Kit.SPACE
 local SAVE_KEY = "\0save"
 
 return function(
@@ -80,7 +80,10 @@ return function(
 				UI.Button("Save")({
 					name = "Save colour",
 					appearance = "utility",
-					Size = D2.fromOffset(CELL, CELL),
+					Size = function(use: Use)
+						local side = state.cellSize(use)
+						return D2.fromOffset(side, side)
+					end,
 					AutomaticSize = E.AutomaticSize.None,
 					LayoutOrder = function(use: Use)
 						return use(index)
@@ -137,7 +140,10 @@ return function(
 						else named
 				end,
 				appearance = "utility",
-				Size = D2.fromOffset(CELL, CELL),
+				Size = function(use: Use)
+					local side = state.cellSize(use)
+					return D2.fromOffset(side, side)
+				end,
 				AutomaticSize = E.AutomaticSize.None,
 				LayoutOrder = function(use: Use)
 					return use(index)
@@ -189,7 +195,7 @@ return function(
 			BackgroundTransparency = 1,
 			Size = function(use: Use)
 				local n = math.max(1, math.min(use(columns), #items(use)))
-				return D2.fromOffset(n * CELL + (n - 1) * GAP, 0)
+				return D2.fromOffset(n * state.cellSize(use) + (n - 1) * GAP, 0)
 			end,
 			AutomaticSize = E.AutomaticSize.Y,
 			Host.UIListLayout({

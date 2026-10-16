@@ -1,0 +1,54 @@
+# Themes.compact_pointer.assets.1
+
+Resolved assets tokens.
+
+| Token | Value |
+| --- | --- |
+| `assets.compact_bar_fill.content` | `rbxassetid://117421457462709` |
+| `assets.compact_bar_fill.fallback` | `native` |
+| `assets.compact_bar_fill.preload` | `install` |
+| `assets.compact_bar_fill.sliceCenter.x0` | `3` |
+| `assets.compact_bar_fill.sliceCenter.x1` | `45` |
+| `assets.compact_bar_fill.sliceCenter.y0` | `3` |
+| `assets.compact_bar_fill.sliceCenter.y1` | `5` |
+| `assets.compact_bar_fill.sliceScale` | `1` |
+| `assets.compact_bar_track.content` | `rbxassetid://139498496637253` |
+| `assets.compact_bar_track.fallback` | `native` |
+| `assets.compact_bar_track.preload` | `install` |
+| `assets.compact_bar_track.sliceCenter.x0` | `4` |
+| `assets.compact_bar_track.sliceCenter.x1` | `44` |
+| `assets.compact_bar_track.sliceCenter.y0` | `4` |
+| `assets.compact_bar_track.sliceCenter.y1` | `6` |
+| `assets.compact_bar_track.sliceScale` | `1` |
+| `assets.compact_button_default.content` | `rbxassetid://125945402308792` |
+| `assets.compact_button_default.fallback` | `native` |
+| `assets.compact_button_default.preload` | `install` |
+| `assets.compact_button_default.sliceCenter.x0` | `8` |
+| `assets.compact_button_default.sliceCenter.x1` | `24` |
+| `assets.compact_button_default.sliceCenter.y0` | `8` |
+| `assets.compact_button_default.sliceCenter.y1` | `14` |
+| `assets.compact_button_default.sliceScale` | `1` |
+| `assets.compact_button_hover.content` | `rbxassetid://119001630381133` |
+| `assets.compact_button_hover.fallback` | `native` |
+| `assets.compact_button_hover.preload` | `install` |
+| `assets.compact_button_hover.sliceCenter.x0` | `8` |
+| `assets.compact_button_hover.sliceCenter.x1` | `24` |
+| `assets.compact_button_hover.sliceCenter.y0` | `8` |
+| `assets.compact_button_hover.sliceCenter.y1` | `14` |
+| `assets.compact_button_hover.sliceScale` | `1` |
+| `assets.compact_button_pressed.content` | `rbxassetid://109265822114166` |
+| `assets.compact_button_pressed.fallback` | `native` |
+| `assets.compact_button_pressed.preload` | `install` |
+| `assets.compact_button_pressed.sliceCenter.x0` | `8` |
+| `assets.compact_button_pressed.sliceCenter.x1` | `24` |
+| `assets.compact_button_pressed.sliceCenter.y0` | `8` |
+| `assets.compact_button_pressed.sliceCenter.y1` | `14` |
+| `assets.compact_button_pressed.sliceScale` | `1` |
+| `assets.compact_field.content` | `rbxassetid://90201834768221` |
+| `assets.compact_field.fallback` | `native` |
+| `assets.compact_field.preload` | `install` |
+| `assets.compact_field.sliceCenter.x0` | `8` |
+| `assets.compact_field.sliceCenter.x1` | `24` |
+| `assets.compact_field.sliceCenter.y0` | `8` |
+| `assets.compact_field.sliceCenter.y1` | `14` |
+| `assets.compact_field.sliceScale` | `1` |
