@@ -1205,6 +1205,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "draft (Cancel / Apply)", props = properties { draft = true } },
 			{ name = "brick colours", props = properties { modes = { "swatches", "brick" } } },
 			{
+				name = "all colour modes",
+				props = properties { modes = { "swatches", "spectrum", "sliders", "brick" } },
+			},
+			{
 				name = "alpha",
 				props = function(c: Context)
 					local alpha = c.cell("alpha", 0.8)
