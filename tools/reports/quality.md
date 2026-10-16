@@ -1,8 +1,7 @@
 # Game UI quality work
 
-The work branch is `iter/quality`. It starts at `6492055d`. The validation
-baseline is the same commit in `C:/git/facet-wt/quality-baseline`.
-No agent evaluation, publication or push was run.
+The work starts at `6492055d`. The validation baseline is a separate checkout
+of the same commit. No agent evaluation or publication was run.
 
 ## Audit evidence
 
@@ -193,8 +192,8 @@ receives the runner's consistent-regression flag.
 The Sheet frame case is `all-controls/actions/sheets/phone/Medium`, with
 `FacetFrameStabilityMountOnly=true`. Its first failure is the gallery's
 `actions.TabBand.Tabs.Strip.buttons` moving by `[-76, 0, 0, 0]` on frame two.
-The baseline report is in
-`C:/git/facet-wt/quality-baseline/artifacts/studio-live/frame_stability-quality-baseline-sheet.json`.
+The baseline report is
+`artifacts/studio-live/frame_stability-quality-baseline-sheet.json` in that checkout.
 The candidate report is
 `artifacts/studio-live/frame_stability-quality-sheet-mount.json`.
 This is not a complete passing frame-stability suite. Earlier broad and short
