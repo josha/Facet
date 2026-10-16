@@ -2,6 +2,7 @@
 local Cli = require("../lib/cli")
 local DocsIndex = require("../lib/docs_index")
 local DocsQuery = require("../lib/docs_query")
+local Props = require("../lib/docs_props")
 
 local USAGE = [[usage: lute run tools/facet docs [path] [--outline] [--search TEXT] [--list]
 
@@ -13,6 +14,7 @@ Multiple paths return query names only. --search returns paths and summaries.
 Examples:
   lute run tools/facet docs Tasks.hud
   lute run tools/facet docs Sheet.card
+  lute run tools/facet docs Picker.props
   lute run tools/facet docs Sheet --outline
   lute run tools/facet docs --search detent]]
 
@@ -23,7 +25,26 @@ local function run(invocation: Cli.Invocation): number
 		print(USAGE)
 		return 2
 	end
-	print(DocsQuery.response(DocsIndex.load("."), invocation))
+	local nodes = DocsIndex.load(".")
+	for name, options in Props.load(".") do
+		local aliases = { name .. ".options" }
+		if name == "Stack" then
+			table.insert(aliases, name)
+		end
+		for _, option in options do
+			table.insert(aliases, name .. "." .. option.name)
+		end
+		table.insert(nodes, {
+			path = name .. ".props",
+			file = "",
+			kind = "detail",
+			summary = "Typed options and defaults for " .. name .. ".",
+			aliases = aliases,
+			children = {},
+			body = Props.render(name, options),
+		})
+	end
+	print(DocsQuery.response(nodes, invocation))
 	return 0
 end
 

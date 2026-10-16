@@ -6,6 +6,77 @@ local Path = require("@std/path")
 
 local Output = {}
 
+export type Filter = { device: string?, rule: string?, step: string?, page: number? }
+
+local function finding(line: string): (string?, string?, string?, string?)
+	local device, step, body = string.match(line, "^(%S+) ([^:]+): (.+)$")
+	if device == nil or step == nil or body == nil then
+		return nil
+	end
+	local rule = string.match(body, "^%a+ %[(.-)%]")
+		or (if string.sub(body, 1, 8) == "problem:" then "problem" else nil)
+	return device, step, rule, body
+end
+
+function Output.query(lines: { string }, filter: Filter): { string }
+	local matches: { string } = {}
+	for _, line in lines do
+		local device, step, rule, body = finding(line)
+		if
+			device
+			and step
+			and rule
+			and body
+			and (filter.device == nil or filter.device == device)
+			and (filter.rule == nil or filter.rule == rule)
+			and (filter.step == nil or filter.step == step)
+		then
+			table.insert(matches, device .. "/" .. step .. ": " .. body)
+		end
+	end
+	local pages: { { string } } = { {} }
+	local bytes = 0
+	for _, line in matches do
+		local short = if #line > 700 then string.sub(line, 1, 680) .. " [shortened]" else line
+		if bytes + #short + 1 > 3500 or #pages[#pages] >= 20 then
+			table.insert(pages, {})
+			bytes = 0
+		end
+		table.insert(pages[#pages], short)
+		bytes += #short + 1
+	end
+	local page = filter.page or 1
+	local output =
+		{ `report: {#matches} matching findings; page {page}/{#pages}. Capture: live/captures/<device>/<step>.png` }
+	local selected: { string } = pages[page] or {}
+	for _, line in selected do
+		table.insert(output, line)
+	end
+	if page < #pages then
+		table.insert(output, `More matching findings: repeat this query with --page {page + 1}.`)
+	end
+	return output
+end
+
+function Output.queries(lines: { string }, out: string): { string }
+	local seen: { [string]: boolean } = {}
+	local result: { string } = {}
+	for _, line in lines do
+		local device, _, rule = finding(line)
+		if device and rule then
+			local key = device .. "\0" .. rule
+			if not seen[key] then
+				seen[key] = true
+				table.insert(
+					result,
+					`lute run tools/facet verify --report --out "{out}" --device {device} --rule {rule}`
+				)
+			end
+		end
+	end
+	return result
+end
+
 function Output.estimate(devices: number, taps: number, wait: number?): number
 	return math.ceil(15 + devices * (5 + (taps + 1) + taps * (wait or 0.3)))
 end
@@ -53,7 +124,7 @@ function Output.compact(lines: { string }): { string }
 	end
 	for index, finding in order do
 		if index > 12 then
-			table.insert(output, `{#order - 12} more unique findings; read report.txt in --out.`)
+			table.insert(output, `{#order - 12} more unique findings; use the report queries below.`)
 			break
 		end
 		local labels = groups[finding]
@@ -76,6 +147,7 @@ function Output.summarize(screens: { Look.Screen }): ({ string }, boolean)
 		if screen.problem ~= nil or (screen.tap ~= nil and screen.found ~= true) then
 			failed = true
 			table.insert(lines, label .. ": problem: " .. (screen.problem or "tap did not find its control"))
+			continue
 		end
 		if screen.dump == nil then
 			failed = true

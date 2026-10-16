@@ -37,6 +37,7 @@ export type HostOptions = {
 	performance: boolean?,
 	reusePlay: boolean?,
 	basePlace: string?,
+	requireInterface: boolean?,
 }
 
 export type DevicePerf = {
@@ -361,7 +362,7 @@ local function open(options: HostOptions): Host
 		local settle = os.clock() + 20
 		while os.clock() < settle do
 			local value = qa:call("ping")
-			if type(value) == "table" and (tonumber((value :: { [string]: unknown }).roots) or 0) > 0 then
+			if QA.interfaceMounted(value, options.requireInterface) then
 				break
 			end
 			task.wait(0.5)
@@ -371,6 +372,11 @@ local function open(options: HostOptions): Host
 		end
 		local final = qa:call("ping")
 		local fields: { [string]: unknown } = if type(final) == "table" then final :: { [string]: unknown } else {}
+		if options.requireInterface and not QA.interfaceMounted(fields, true) then
+			qa.mountProblem = "interface did not mount; dependent steps stopped"
+			current = { device = device.id, qa = qa }
+			return qa
+		end
 		local viewport: { [string]: unknown } = if type(fields.viewport) == "table"
 			then fields.viewport :: { [string]: unknown }
 			else {}

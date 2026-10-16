@@ -199,16 +199,18 @@ return {
 				continue
 			end
 			local rect = clipped(clipped(element.rect, element.clip), element.scrollClip)
-			if
-				rect.width > 1
-				and rect.height > 1
-				and (
-					rect.x < left - 1
-					or rect.y < top - 1
-					or rect.x + rect.width > right + 1
-					or rect.y + rect.height > bottom + 1
-				)
-			then
+			local outside = rect.x < left - 1
+				or rect.y < top - 1
+				or rect.x + rect.width > right + 1
+				or rect.y + rect.height > bottom + 1
+			local strip = screen.topbarSafeArea
+			if outside and strip ~= nil then
+				outside = rect.x < strip.x - 1
+					or rect.y < strip.y - 1
+					or rect.x + rect.width > strip.x + strip.width + 1
+					or rect.y + rect.height > strip.y + strip.height + 1
+			end
+			if rect.width > 1 and rect.height > 1 and outside then
 				return false
 			end
 		end

@@ -83,8 +83,15 @@ local function mount(context: Hub.Context)
 			more.panel.Position = UDim2.fromScale(0.5, 0.5)
 			more.panel.Size = UDim2.fromOffset(math.min(480, size.X - 32), math.min(680, size.Y - 32))
 		else
-			more.panel.AnchorPoint = Vector2.new(1, 0)
-			more.panel.Position = UDim2.fromOffset((moreButton.AbsolutePosition.X - 12) / scale, 96 / scale)
+			more.panel.AnchorPoint = Vector2.zero
+			more.panel.Position = UDim2.fromOffset(
+				math.max(
+					Kit.space.large,
+					(moreButton.AbsolutePosition.X + moreButton.AbsoluteSize.X - panelScreen.AbsolutePosition.X) / scale
+						- 360
+				),
+				Kit.size.body * 4
+			)
 			more.panel.Size = UDim2.fromOffset(360, math.min(680, size.Y - 112))
 		end
 	end
@@ -92,7 +99,7 @@ local function mount(context: Hub.Context)
 	local menuScreen = more.panel.Parent :: ScreenGui
 	menuScreen:GetPropertyChangedSignal("AbsoluteSize"):Connect(menuLayout)
 	menuLayout()
-	local commands = (dock.Parent :: ScrollingFrame).Parent :: Frame
+	local commands = dock.Parent :: Frame
 	commands.Name = "HubCommands"
 	local function button(parent: Instance, words: string, action: () -> ()): TextButton
 		local control = Kit.button(words)
@@ -136,24 +143,27 @@ local function mount(context: Hub.Context)
 	local counterLayout = counters:FindFirstChildOfClass("UIListLayout") :: UIListLayout
 	local counterPadding = counters:FindFirstChildOfClass("UIPadding") :: UIPadding
 	local function hudLayout()
-		local size = screen.AbsoluteSize
+		local size = screen.AbsoluteSize / (if Kit.isTenFoot() then 1.25 else 1)
 		local touch = game:GetService("UserInputService").TouchEnabled
 		local landscape = touch and size.X > size.Y and size.Y < 600
 		local portrait = touch and size.X < 600
 		leftColumn.Visible = portrait
-		counters.Parent = if portrait then leftColumn else readouts
+		leftColumn.AnchorPoint = Vector2.new(1, 0)
+		leftColumn.Position = UDim2.new(1, -Kit.space.large, 0, Kit.size.body * 9)
+		counters.Parent = readouts
 		status.Parent = if portrait then leftColumn else readouts
-		counters.AnchorPoint = Vector2.zero
-		counters.Position = UDim2.fromOffset(16, if landscape then 36 else 48)
-		counters.Size = UDim2.fromOffset(if landscape then 484 else 186, 0)
-		counterLayout.FillDirection = if landscape then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical
-		counterPadding.PaddingTop = UDim.new(0, if landscape then 8 else 12)
+		counters.AnchorPoint = Vector2.new(1, 0)
+		counters.Position = UDim2.new(1, -Kit.space.large, 0, Kit.size.body * 4)
+		local width = math.min(484, size.X - Kit.space.large * 2)
+		counters.Size = UDim2.fromOffset(width, 0)
+		counterLayout.FillDirection = Enum.FillDirection.Horizontal
+		counterPadding.PaddingTop = UDim.new(0, Kit.space.small)
 		counterPadding.PaddingBottom = counterPadding.PaddingTop
-		counterPadding.PaddingLeft = UDim.new(0, if landscape then 8 else 12)
+		counterPadding.PaddingLeft = UDim.new(0, Kit.space.small)
 		counterPadding.PaddingRight = counterPadding.PaddingLeft
 		for _, child in counters:GetChildren() do
 			if child:IsA("TextLabel") then
-				child.Size = if landscape then UDim2.fromOffset(148, 0) else UDim2.new(1, 0, 0, 0)
+				child.Size = UDim2.fromOffset((width - Kit.space.small * 4) / 3, 0)
 			end
 		end
 		status.AnchorPoint = if landscape or portrait then Vector2.zero else Vector2.new(0.5, 0)
@@ -650,6 +660,111 @@ local function mount(context: Hub.Context)
 		end
 		menuLayout()
 		hudLayout()
+		local sections: { GuiObject } = {}
+		for _, child in menuScroll:GetChildren() do
+			if child:IsA("GuiObject") then
+				table.insert(sections, child)
+			end
+		end
+		table.sort(sections, function(a: GuiObject, b: GuiObject)
+			return a.LayoutOrder < b.LayoutOrder
+		end)
+		local menuButtons: { TextButton } = { more.close }
+		for _, section in sections do
+			local controls: { TextButton } = {}
+			for _, child in section:GetChildren() do
+				if child:IsA("TextButton") then
+					table.insert(controls, child)
+				end
+			end
+			table.sort(controls, function(a: TextButton, b: TextButton)
+				return a.LayoutOrder < b.LayoutOrder
+			end)
+			for _, control in controls do
+				table.insert(menuButtons, control)
+			end
+		end
+		for index, control in menuButtons do
+			control.NextSelectionUp = menuButtons[index - 1] or control
+			control.NextSelectionDown = menuButtons[index + 1] or control
+			control.NextSelectionLeft = control
+			control.NextSelectionRight = control
+		end
+		local glyphs = {
+			Play = { { 0.3, 0.5, 0.7, 90 }, { 0.5, 0.35, 0.7, 30 }, { 0.5, 0.65, 0.7, -30 } },
+			Shop = {
+				{ 0.2, 0.6, 0.6, 90 },
+				{ 0.8, 0.6, 0.6, 90 },
+				{ 0.5, 0.9, 0.6, 0 },
+				{ 0.5, 0.3, 0.6, 0 },
+				{ 0.35, 0.2, 0.2, 90 },
+				{ 0.65, 0.2, 0.2, 90 },
+				{ 0.5, 0.1, 0.3, 0 },
+			},
+			Garage = {
+				{ 0.5, 0.5, 0.8, 0 },
+				{ 0.5, 0.7, 0.8, 0 },
+				{ 0.2, 0.6, 0.2, 90 },
+				{ 0.8, 0.6, 0.2, 90 },
+				{ 0.3, 0.8, 0.2, 90 },
+				{ 0.7, 0.8, 0.2, 90 },
+				{ 0.35, 0.35, 0.4, -60 },
+				{ 0.65, 0.35, 0.4, 60 },
+				{ 0.5, 0.2, 0.2, 0 },
+			},
+			More = { { 0.2, 0.5, 0.12, 0 }, { 0.5, 0.5, 0.12, 0 }, { 0.8, 0.5, 0.12, 0 } },
+		}
+		for _, control in dock:GetChildren() do
+			if control:IsA("TextButton") then
+				local row = Kit.create("Frame", {
+					Name = "HudAction",
+					BackgroundTransparency = 1,
+					LayoutOrder = control.LayoutOrder,
+					Visible = control.Visible,
+					Parent = dock,
+				}) :: Frame
+				control:GetPropertyChangedSignal("Visible"):Connect(function()
+					row.Visible = control.Visible
+				end)
+				control.Parent = row
+				control.TextTransparency = 1
+				control.TextTruncate = Enum.TextTruncate.None
+				local corner = control:FindFirstChildOfClass("UICorner") :: UICorner
+				corner.CornerRadius = UDim.new(0.5, 0)
+				local padding = control:FindFirstChildOfClass("UIPadding")
+				if padding then
+					padding:Destroy()
+				end
+				Kit.create("UIAspectRatioConstraint", { AspectRatio = 1, Parent = control })
+				local caption = Kit.label(control.Text, Kit.size.body, Kit.colors.text, true)
+				caption.Name = "ActionLabel"
+				caption.AutomaticSize = Enum.AutomaticSize.None
+				caption.TextXAlignment = Enum.TextXAlignment.Center
+				caption.BackgroundTransparency = 0
+				caption.BackgroundColor3 = Kit.colors.panel
+				Kit.corner(Kit.space.small / 2).Parent = caption
+				caption.Parent = control
+				local symbol = Kit.create("Frame", {
+					Name = "ActionIcon",
+					BackgroundTransparency = 1,
+					Position = UDim2.fromScale(0.25, 0.25),
+					Size = UDim2.fromScale(0.5, 0.5),
+					Parent = control,
+				})
+				for _, line in glyphs[control.Text] or glyphs.Play do
+					Kit.create("Frame", {
+						BackgroundColor3 = control.TextColor3,
+						BorderSizePixel = 0,
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						Position = UDim2.fromScale(line[1], line[2]),
+						Size = UDim2.new(line[3], 0, 0, Kit.space.small / 4),
+						Rotation = line[4],
+						Parent = symbol,
+					})
+				end
+				control.Text = ""
+			end
+		end
 	end
 end
 

@@ -43,6 +43,8 @@ export type Environment = {
 	overscanInsets: Types.Readable<SafeInsets>,
 	navPlacement: Types.Readable<Adaptive.NavPlacement>,
 	safeInsets: Types.Readable<SafeInsets>,
+	topbarInset: Types.Readable<Rect>,
+	topbarControlDiameter: Types.Readable<number>,
 	preferredTextSize: Types.Readable<string>,
 	reducedMotion: Types.Readable<boolean>,
 	motionLevel: Types.Readable<Types.MotionLevel>,

@@ -4,6 +4,8 @@ local Index = require("../../tools/facet/lib/docs_index")
 local DocsQuery = require("../../tools/facet/lib/docs_query")
 local Cli = require("../../tools/facet/lib/cli")
 local Files = require("../../tools/facet/lib/files")
+local Props = require("../../tools/facet/lib/docs_props")
+local Run = require("../../tools/facet/lib/run")
 
 local function node(path: string, kind: string, body: string, children: { string }?): Index.Node
 	return {
@@ -18,6 +20,61 @@ local function node(path: string, kind: string, body: string, children: { string
 end
 
 return function(harness: Verify.Harness)
+	harness:case("control option near misses select the typed list without source output", function(t)
+		for _, query in { "Stack", "Picker.style", "UI.Picker.props", "Button.missingOption" } do
+			local result = Run.capture({ Run.lute(), "run", "tools/facet", "docs", query })
+			t:expect(result.ok):toBe(true)
+			t:expect(string.find(result.stdout, ".props", 1, true) ~= nil):toBe(true)
+			t:expect((string.find(result.stdout, "export type", 1, true))):toBe(nil)
+			t:expect(#result.stdout < 4096):toBe(true)
+		end
+	end)
+	harness:case("typed option lookup follows public types in the repository and author kit", function(t)
+		local lookup = Props.load(".")
+		for _, control in
+			{
+				"VStack",
+				"HStack",
+				"Stack",
+				"Picker",
+				"Button",
+				"Card",
+				"Sheet",
+				"VirtualList",
+				"Table",
+				"ColorPicker",
+				"NavigationStack",
+			}
+		do
+			local options = assert(lookup[control], control)
+			t:expect(#options > 0):toBe(true)
+			local output = Props.render(control, options)
+			t:expect((string.find(output, "typeof(", 1, true))):toBe(nil)
+			t:expect(#output < 4096):toBe(true)
+		end
+		local picker = Props.render("Picker", lookup.Picker)
+		for _, field in
+			{ 'style: ("automatic" | "menu"', "selected: Cell<V>", "options: Value<{ PickerOption<V> }>", "onChange:" }
+		do
+			t:expect(string.find(picker, field, 1, true) ~= nil):toBe(true)
+		end
+		local root = Files.temporaryDirectory("facet-props")
+		t:defer(function()
+			Files.remove(root)
+		end)
+		Files.write(
+			Files.join(root, "Packages/Facet/ui/control_types.luau"),
+			'local Props = require("./sample")\nexport type Controls = { Sample: Constructor<Props.Sample, Frame> }'
+		)
+		Files.write(
+			Files.join(root, "Packages/Facet/ui/sample.luau"),
+			"export type Sample = { required: string, optional: number?, Size: UDim2? }"
+		)
+		local sample = Props.render("Sample", assert(Props.load(root).Sample))
+		t:expect(string.find(sample, "required: string = required", 1, true) ~= nil):toBe(true)
+		t:expect(string.find(sample, "optional: number? = omitted", 1, true) ~= nil):toBe(true)
+		t:expect((string.find(sample, "Size:", 1, true))):toBe(nil)
+	end)
 	harness:case("node files supply paths, kinds, sentences, aliases and ordered links without a manifest", function(t)
 		local root = Files.temporaryDirectory("facet-docs")
 		t:defer(function()

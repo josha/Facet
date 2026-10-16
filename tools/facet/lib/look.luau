@@ -59,13 +59,13 @@ local function slug(text: string): string
 	return string.sub((string.gsub(lowered, "^%-+", "")), 1, 24)
 end
 
-function Look.run(options: Options): Result
+function Look.run(options: Options, open: ((Play.HostOptions) -> Play.Host)?): Result
 	Encoding.normalize({ "src" })
 	local out = Files.absolute(options.out)
 	if Files.exists(out) then
 		Files.remove(out)
 	end
-	local host = Play.open({
+	local host = (open or Play.open)({
 		workspace = Files.cwd(),
 		outputs = out,
 		captures = out .. "/captures",
@@ -75,6 +75,7 @@ function Look.run(options: Options): Result
 		performance = false,
 		reusePlay = true,
 		basePlace = options.basePlace,
+		requireInterface = true,
 	})
 	local result: Result = { screens = {}, problem = nil, out = out, log = host.lines }
 	local timings = host.timings
@@ -136,7 +137,10 @@ function Look.run(options: Options): Result
 			screen.dump = if fs.exists(json) then json else nil
 			table.insert(result.screens, screen)
 		end
-		shoot("1-start", nil)
+		shoot("1-start", qa.mountProblem)
+		if qa.mountProblem ~= nil then
+			continue
+		end
 		for index, step in options.steps do
 			local started = os.clock()
 			local failure: string? = nil
@@ -179,6 +183,9 @@ function Look.run(options: Options): Result
 			end
 			timings.tap = (timings.tap or 0) + os.clock() - started
 			shoot(("%d-%s"):format(index + 1, slug(text or "wait")), failure, tapped, inline)
+			if failure ~= nil then
+				break
+			end
 		end
 	end
 	host.close()

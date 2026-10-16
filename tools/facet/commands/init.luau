@@ -23,6 +23,7 @@ local commands: { Cli.Command } = {
 	require("@self/info"),
 	require("@self/docs"),
 	require("@self/context-ledger"),
+	require("@self/author-replay"),
 	require("@self/project"),
 	require("@self/lint"),
 	require("@self/preview"),
