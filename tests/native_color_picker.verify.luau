@@ -313,9 +313,9 @@ return function(verifyHarness: Verify.Harness)
 		)
 
 		verifyHarness:case(
-			"every technique shares the tallest picker's height and a long brick list scrolls inside it, on a pointer panel and a phone sheet",
+			"every technique shares a bounded height and a long brick list scrolls inside it, on a pointer panel and a phone sheet",
 			{
-				id = "native_color_picker::native ColorPicker well and panel::every technique shares the tallest picker's height and a long brick list scrolls inside it, on a pointer panel and a phone sheet",
+				id = "native_color_picker::native ColorPicker well and panel::every technique shares a bounded height and a long brick list scrolls inside it, on a pointer panel and a phone sheet",
 				run = function()
 					for _, case in
 						{
@@ -345,16 +345,11 @@ return function(verifyHarness: Verify.Harness)
 							})[mode]
 							w.size(w.find("Show" .. label), 300, heights[index])
 						end
-						local tallest = 0
-						for index, mode in case.modes do
-							if mode ~= "brick" then
-								tallest = math.max(tallest, heights[index])
-							end
-						end
+						local reserved = 6 * 44 + 5 * 4
 						for index, mode in case.modes do
 							w.find("Modes/" .. mode).Activated:Fire()
 							expect((w.attr("mode"))):toBe(mode)
-							expect(`{case.w} {mode} {w.find("Body").Size.Y.Offset}`):toBe(`{case.w} {mode} {tallest}`)
+							expect(`{case.w} {mode} {w.find("Body").Size.Y.Offset}`):toBe(`{case.w} {mode} {reserved}`)
 							expect(w.find("Technique").Size.Y.Offset):toBe(heights[index])
 						end
 						w.stop()
@@ -380,7 +375,7 @@ return function(verifyHarness: Verify.Harness)
 					return w.find("Body").Size.Y.Offset
 				end
 				local before = height()
-				expect(before):toBe(290)
+				expect(before):toBe(6 * 44 + 5 * 4)
 				w.size(w.screen, 900, 420)
 				expect(height() < before):toBe(true)
 				w.size(w.screen, 900, 900)
@@ -1177,6 +1172,51 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native ColorPicker cells, tabs and readout", function()
+		verifyHarness:case("modes and formats mount on first visit and release on close", {
+			id = "native_color_picker::native ColorPicker cells, tabs and readout::modes and formats mount on first visit and release on close",
+			run = function()
+				local cell, _, change = caller(Color3.fromRGB(255, 0, 0))
+				local opened = Compose.cell(false)
+				local w = world({
+					value = cell,
+					onChange = change,
+					isPresented = opened,
+					modes = { "swatches", "spectrum", "sliders", "brick" },
+				})
+				local closed = w.engine.census()
+				opened:set(true)
+				local swatches, rgb = w.find("Swatches"), w.find("FieldR")
+				expect(swatches ~= nil and rgb ~= nil):toBe(true)
+				for _, path in { "ShowSpectrum", "ShowSliders", "ShowBricks", "FieldsHSV", "FieldsHex" } do
+					expect(#w.find(path):GetChildren()):toBe(0)
+				end
+				for _, mode in { "spectrum", "sliders", "brick" } do
+					w.find("Modes/" .. mode).Activated:Fire()
+					local label = ({ spectrum = "Spectrum", sliders = "Sliders", brick = "Bricks" })[mode]
+					expect(#w.find("Show" .. label):GetChildren() > 0):toBe(true)
+				end
+				for _, format in { "hsv", "hex" } do
+					w.find("Format/" .. format).Activated:Fire()
+					expect(w.find(if format == "hsv" then "FieldH" else "FieldHex") ~= nil):toBe(true)
+				end
+				w.find("Modes/swatches").Activated:Fire()
+				w.find("Format/rgb").Activated:Fire()
+				expect(w.find("Swatches")):toBe(swatches)
+				expect(w.find("FieldR")):toBe(rgb)
+				w.find("Modes/sliders").Activated:Fire()
+				w.find("Format/hex").Activated:Fire()
+				opened:set(false)
+				expect(w.find("Panel")):toBe(nil)
+				local released = w.engine.census()
+				expect(released.live):toBe(closed.live)
+				expect(released.connections):toBe(closed.connections)
+				opened:set(true)
+				expect(w.find("Sliders") ~= nil and w.find("FieldHex") ~= nil):toBe(true)
+				expect(w.find("Swatches")):toBe(nil)
+				expect(w.find("FieldR")):toBe(nil)
+				w.stop()
+			end,
+		})
 		verifyHarness:case("the readout leads with a wide preview and lays its fields out in equal columns", {
 			id = "native_color_picker::native ColorPicker cells, tabs and readout::the readout leads with a wide preview and lays its fields out in equal columns",
 			run = function()
@@ -1299,11 +1339,11 @@ return function(verifyHarness: Verify.Harness)
 				w.open()
 				w.size(w.find("Modes"), 380, 44)
 				w.size(w.find("Readout"), 380, 140)
-				w.size(w.find("ShowSwatches"), 380, 290)
+				w.size(w.find("ShowSwatches"), 380, 180)
 				w.size(w.find("ShowBricks"), 380, 800)
 				local body = w.find("Body").Size.Y.Offset
 				expect(body < 800):toBe(true)
-				expect(w.find("Technique").Size.Y.Offset):toBe(body)
+				expect(w.find("Technique").Size.Y.Offset):toBe(180)
 				w.find("Modes/brick").Activated:Fire()
 				expect(w.find("Technique").Size.Y.Offset):toBe(800)
 				expect(w.find("Body").Size.Y.Offset):toBe(body)

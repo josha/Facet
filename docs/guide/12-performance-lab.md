@@ -42,7 +42,7 @@ Deferring unused theme decoration reduced these connection counts:
 | Toggle | 23 | 3 |
 | Slider | 43 | 14 |
 | Open Picker | 104 | 68 |
-| Open ColorPicker | 1045 | 840 |
+| Open ColorPicker | 1045 | 616 |
 
 These counts come from the engine double. They do not measure frame time.
 The same audit checked Menu, Sheet, Dialog, Card and VirtualList fixtures,
@@ -57,6 +57,26 @@ milliseconds and frames, checks the first visible layout, checks swatch identity
 and checks panel cleanup. It starts from the presentation state change. It does
 not include touch dispatch latency. Device simulation does not measure physical
 phone CPU speed.
+
+ColorPicker now constructs only the selected mode and value format. The other
+controls mount on first visit and remain until close. Against `6aaaf6a8`, the
+open picker with a plain reactive theme uses 460 instances instead of 700,
+616 connections instead of 840, and 3062 Compose holdings instead of 4074.
+The resource ceilings record these lower counts. The Lab's "all colour modes"
+state includes all four modes in one picker.
+
+In a paired Studio run with a 390 by 844 touch layout, three openings had a
+median construction time of 21.54 ms instead of 30.49 ms, and a median reveal
+time of 50.28 ms instead of 66.85 ms. Both used three readiness frames. These
+are host measurements, not physical iPhone measurements.
+
+Run `lute run tools/lute/studio_live.luau ports_pickers --only color-first-visit`
+to check first visits with native input. This case measures from pointer
+release to visible content, checks that the panel stays in place, and checks
+that returning to a mode or format keeps the same controls.
+In the same comparison, first visits to Spectrum, Sliders, HSV and Hex took
+35–38 ms instead of 34–35 ms. Each visit appeared in two frames. Returning to
+Swatches and RGB also took two frames and retained the original controls.
 
 ## Baselines and failures
 

@@ -20,12 +20,14 @@ The panel holds these parts in order:
 
 1. `Modes`: a `UI.Picker` of the techniques. It is present only with two or
    more modes.
-2. `Body`: the `Technique` frame. The Bricks technique mounts on its first
+2. `Body`: the `Technique` frame. Each technique mounts on its first
    visit. Each mounted technique stays mounted until the panel closes. The
-   inactive techniques are not visible. The frame is as tall as the tallest technique,
-   so the panel keeps one height when the tab changes. In a scrolling body,
-   an inactive technique reserves at most the height of the body, so a short
-   technique has nothing below it to scroll to. The swatch and brick
+   inactive techniques are not visible. An overlay reserves six rows of colour
+   cells, including the gaps, and shrinks to the available room. This keeps
+   its body height stable when the mode changes without constructing hidden
+   controls. Inline content follows the active technique's height. The native
+   scroll canvas follows only the active technique, so hidden content does not
+   add empty scrolling space. The swatch and brick
    grids are centred in the panel.
 3. `Opacity`: present only with `alpha`.
 4. `Readout`: the `Preview` swatch, the `Format` picker (RGB, HSV and Hex) and
@@ -33,8 +35,9 @@ The panel holds these parts in order:
    picker fills the rest of the row. Each format has a row (`FieldsRGB`,
    `FieldsHSV` or `FieldsHex`) with equal columns and native `HorizontalFlex`.
    Each field has its label above it. The `Hex` field takes the whole row.
-   The rows stay mounted; only the selected format is visible. The readout
-   reserves the tallest row, so the panel does not move when the format changes.
+   Each row mounts on its first visit and stays mounted until the panel closes;
+   only the selected format is visible. Native layout reserves the tallest
+   visited row, including validation messages.
    On a touch screen, the readout comes before the body, so the finger does not
    cover it.
 5. `Actions`: Cancel and Apply, or Done on a sheet.

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- ColorPicker constructs each mode and value format on its first visit and
+  retains it until the panel closes. Overlay bodies reserve six rows of colour
+  cells and use native scrolling for overflow. Inline bodies follow the active
+  mode's height.
+
 - ColorPicker starts its palette at the available panel width and retains it
   through zero bounds during mounting. Panel measurements update directly
   from native size changes, which removes a frame of opening delay.
