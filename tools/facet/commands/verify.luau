@@ -1,6 +1,7 @@
 --!strict
 
 local Cli = require("../lib/cli")
+local Case = require("../lib/case")
 local Encoding = require("../lib/encoding")
 local Files = require("../lib/files")
 local Look = require("../lib/look")
@@ -8,7 +9,7 @@ local Run = require("../lib/run")
 
 local USAGE = [[usage: lute run tools/facet verify [paths...] [--project FILE] [--static]
     [--device ID]... [--tap TEXT]... [--wait SECONDS] [--out DIR]
-    [--dump FILE --device ID]
+    [--dump FILE --device ID] [--verbose]
 
 Runs strict types, usage lint and a Rojo build. One Studio session supplies
 both the audit and preview screenshots on all five devices. Prints only
@@ -16,7 +17,36 @@ problems and screenshot paths. --static skips Studio and reports that limit.
 --dump audits saved evidence instead of starting Studio; it needs one device.
 UTF-8 BOMs in application Luau files are removed before engine tools read them.
 The exit code is 1 for a failed check, missed tap, missing capture or high or
-medium audit finding. Saved evidence does not prove current live behavior.]]
+medium audit finding. Repeated findings are grouped; at most 12 unique findings
+are printed. report.txt in --out keeps every finding. --verbose prints them all.
+Saved evidence does not prove current live behavior.]]
+
+local function compact(lines: { string }): { string }
+	local output: { string } = {}
+	local order: { string } = {}
+	local groups: { [string]: { string } } = {}
+	for _, line in lines do
+		local label, finding = string.match(line, "^(.-): (%a+ %[[^%]]+%].*)$")
+		if label and finding then
+			if groups[finding] == nil then
+				groups[finding] = {}
+				table.insert(order, finding)
+			end
+			table.insert(groups[finding], label)
+		else
+			table.insert(output, line)
+		end
+	end
+	for index, finding in order do
+		if index > 12 then
+			table.insert(output, `{#order - 12} more unique findings; read report.txt in --out.`)
+			break
+		end
+		local labels = groups[finding]
+		table.insert(output, labels[1] .. (if #labels > 1 then ` (+{#labels - 1} screens)` else "") .. ": " .. finding)
+	end
+	return output
+end
 
 local function summarize(screens: { Look.Screen }): ({ string }, boolean)
 	local lines: { string } = {}
@@ -58,7 +88,9 @@ local function summarize(screens: { Look.Screen }): ({ string }, boolean)
 end
 
 local function run(invocation: Cli.Invocation): number
-	if Cli.unknownFlags(invocation, { "project", "static", "device", "tap", "wait", "out", "dump" }) ~= nil then
+	if
+		Cli.unknownFlags(invocation, { "project", "static", "device", "tap", "wait", "out", "dump", "verbose" }) ~= nil
+	then
 		print(USAGE)
 		return 2
 	end
@@ -128,6 +160,10 @@ local function run(invocation: Cli.Invocation): number
 		end
 	end
 	local lines, problems = summarize(screens)
+	Files.write(Files.join(out, "report.txt"), table.concat(lines, "\n") .. "\n")
+	if not Cli.switch(invocation, "verbose") then
+		lines = compact(lines)
+	end
 	if #lines > 0 then
 		print(table.concat(lines, "\n"))
 	end
@@ -139,5 +175,32 @@ return {
 	summary = "Run types, lint, build, audit and screenshots together.",
 	usage = USAGE,
 	values = { "project", "device", "tap", "wait", "out", "dump" },
+	cases = function(): { Case.Case }
+		return {
+			{
+				name = "duplicate findings keep their count and distinct findings stay available in the report",
+				run = function(): string?
+					local lines = {
+						"screenshot a.png",
+						"console shop: medium [rule] App.Control: detail",
+						"console offer: medium [rule] App.Control: detail",
+					}
+					for index = 1, 13 do
+						table.insert(lines, `desktop start: high [rule] App.Control{index}: detail`)
+					end
+					local result = compact(lines)
+					return Case.first(
+						Case.equal(#result, 14, "bounded output"),
+						Case.equal(
+							result[2],
+							"console shop (+1 screens): medium [rule] App.Control: detail",
+							"grouped finding"
+						),
+						Case.equal(#lines, 16, "full report preserved")
+					)
+				end,
+			},
+		}
+	end,
 	run = run,
 } :: Cli.Command

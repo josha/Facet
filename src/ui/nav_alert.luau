@@ -504,7 +504,7 @@ return function(
 							end,
 						})
 						surfaces.attach(panel, { corner })
-						local backdrop = modal:FindFirstChild("DismissOutside")
+						local backdrop = modal:FindFirstChild("Scrim")
 						local preferred = surfaces.preference()
 						runtime.decorate(backdrop, {
 							BackgroundTransparency = function(use: ComposeTypes.Use)

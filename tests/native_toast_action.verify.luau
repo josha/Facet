@@ -618,7 +618,7 @@ return function(verifyHarness: Verify.Harness)
 				a.shown:set(true)
 				local w = mount({ { c = a } })
 				w.find("Close").Activated:Fire()
-				Verify.expect((w.find("DismissOutside"))):toBeNil()
+				Verify.expect((w.find("Scrim"))):toBeNil()
 				Verify.expect((w.find("ModalBack"))):toBeNil()
 				w.stop()
 			end,

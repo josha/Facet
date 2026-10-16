@@ -66,6 +66,12 @@ Each palette has `name`, `colors` and `extra`.
 - The required type roles are caption, label, body, heading, title, control,
   strong and numeral.
 
+`define` raises the typography scale when its smallest role is below 14 pixels.
+Distinct sizes stay in order, at least one pixel apart. Sizes above the floor
+stay unchanged when that order permits. The `controls.typography.minimumSize`
+token can raise this floor. Distance scaling and the player's preferred text
+size apply to the resolved scale.
+
 The [API reference](../reference/nodes/Themes.md) lists every color name.
 
 ## Apply and switch

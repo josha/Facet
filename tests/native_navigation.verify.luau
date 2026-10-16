@@ -2560,7 +2560,7 @@ return function(verifyHarness: Verify.Harness)
 					},
 				})
 				find(world.screen, "branch").Activated:Fire()
-				find(world.screen, "DismissOutside").Activated:Fire()
+				find(world.screen, "DismissTarget").Activated:Fire()
 				Verify.expect((shown:peek())):toBe(false)
 				world.stop()
 			end,
@@ -3849,7 +3849,7 @@ return function(verifyHarness: Verify.Harness)
 				local panel = find(world.screen, "SheetPanel")
 				panel.AbsolutePosition = world.engine.types.Vector2.new(100, 100)
 				panel.AbsoluteSize = world.engine.types.Vector2.new(200, 200)
-				local backdrop = find(world.screen, "DismissOutside")
+				local backdrop = find(world.screen, "DismissTarget")
 				backdrop.Activated:Fire({ Position = world.engine.types.Vector2.new(90, 150) })
 				Verify.expect((outer:peek())):toBe(true)
 				inner:set(true)
@@ -3857,7 +3857,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((outer:peek())):toBe(true)
 				local top
 				for _, node in world.screen:GetDescendants() do
-					if node.Name == "DismissOutside" and node ~= backdrop then
+					if node.Name == "DismissTarget" and node ~= backdrop then
 						top = node
 					end
 				end

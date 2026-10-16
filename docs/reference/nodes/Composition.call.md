@@ -1,5 +1,8 @@
 # Composition.call
 
+Put presented Sheet and Dialog controls beside Composition in Screen. A
+Region measures HUD content and does not define a modal viewport.
+
 `UI.Composition(spec) -> Frame` places ranked regions at the edges and
 corners of the screen, as a game HUD does. `UI.Region(spec) -> Frame` is one
 of those regions. Put the composition in a ScreenGui, or in any Frame that

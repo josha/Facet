@@ -22,7 +22,7 @@ end)
 script.Destroying:Connect(app.dispose)
 ```
 
-Screen keeps the device safe area. Native selection and control input handle activation. Use UI.environment for available room and preferred input. Do not branch on the device. Do not bind Escape or gamepad Start.
+Facet.app sets ScreenGui.ScreenInsets to Enum.ScreenInsets.CoreUISafeInsets and disables fullscreen compatibility expansion. Presented content stays inside the core UI and device safe area. Modal scrim paint covers the full screen; its dismissal button stays inside the safe area. Composition uses GuiService.TopbarInset and Enum.ScreenInsets.TopbarSafeInsets for a topbar region. Native selection and control input handle activation. Use UI.environment for available room and preferred input. Do not branch on the device. Do not bind Escape or gamepad Start.
 
 Open:
 

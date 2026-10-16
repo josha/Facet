@@ -323,9 +323,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		press(t, { "DPadDown", "DPadDown", "DPadDown", "DPadDown", "DPadDown", "DPadDown" })
 		live.step("afterDpad")
 	end
-	drivers["sidebar-dpad-to-collections"] = function(t)
-		press(t, { "DPadDown" })
-		live.step("afterDown")
+	drivers["sidebar-dpad-to-collections"] = function(t, value)
+		press(t, { if value.across then "DPadRight" else "DPadDown" })
+		live.step(if value.across then "afterRight" else "afterDown")
 	end
 	drivers["power-off-traversal"] = function(t, value)
 		press(t, { "DPadDown", "DPadDown", "DPadDown", "DPadDown", "DPadDown", "DPadDown" })
@@ -641,7 +641,31 @@ return function(live: any, suite: string, options: { [string]: any }): any
 	local requirements = {
 		["collection-immediate-touch-transfer"] = "input-native-touch",
 		["tray-grows-with-text-size"] = "input-native-settings",
+		["text-edit-carries-gamepad-connect"] = "input-native-controller-connect",
+		["radial-hot-switch-keeps-open"] = "input-native-controller-connect",
+		["input-fact-follows-device"] = "input-native-controller-connect",
 	}
+	drivers["text-edit-carries-gamepad-connect"] = function()
+		options.connectGamepad()
+		live.step("afterConnect")
+		options.disconnectGamepad()
+	end
+	drivers["radial-hot-switch-keeps-open"] = function()
+		options.connectGamepad()
+		live.step("afterPlug")
+		options.disconnectGamepad()
+		live.step("afterUnplug")
+	end
+	drivers["input-fact-follows-device"] = function()
+		options.connectGamepad()
+		live.step("afterPlug")
+		options.disconnectGamepad()
+	end
+	drivers["hover-arrives-with-a-mouse"] = function()
+		game:GetService("StudioDeviceSimulatorService"):StopSimulationAsync()
+		settle(60)
+		live.step("afterDesktop")
+	end
 	for id in gamepad do
 		requirements[id] = "input-gamepad"
 	end
@@ -651,6 +675,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 	local capabilities = { "roblox-client", "input-pointer" }
 	if type(options.changeNativeTextSize) == "function" then
 		table.insert(capabilities, "input-native-settings")
+	end
+	if type(options.connectGamepad) == "function" and type(options.disconnectGamepad) == "function" then
+		table.insert(capabilities, "input-native-controller-connect")
 	end
 	if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
 		table.insert(capabilities, "input-native-touch")
@@ -760,7 +787,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		end
 		table.insert(reports, Verify.decode(HttpService:JSONDecode(live.finish())))
 	end
-	assert(selected > 0, "no interactive cases matched the selection")
+	if selected == 0 then
+		return Verify.decode(live.report(suite, options))
+	end
 	table.insert(
 		reports,
 		unavailable:run({ executor = "roblox-studio", capabilities = capabilities, environment = { suite = suite } })

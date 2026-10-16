@@ -5,7 +5,11 @@ Open contextual commands.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-UI.Menu "Actions" { label = "Actions", items = { { label = "Open", onSelect = function() print("Open") end } } }
+local activate: () -> () = function() print("Open") end
+local command: Facet.MenuCommand = { id = "open", label = "Open", onSelect = activate }
+local items: { Facet.MenuItem<string> } = { command }
+local spec: Facet.MenuSpec<string> = { label = "Actions", items = items }
+UI.Menu "Actions" (spec)
 ```
 
 Key options: `items`, `trigger`, `presentation`, `closeButton`.

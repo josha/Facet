@@ -5,7 +5,8 @@ Show a virtual tile collection.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-UI.VirtualGrid "Tiles" { from = { "Kart" }, key = function(item) return item end, minColumnWidth = 180, itemSize = 64, render = function(current) return UI.Text { text = current } end }
+local spec: Facet.KeyedCollectionSpec<string, string> = { from = { "Kart" }, key = function(item) return item end, minColumnWidth = 180, itemSize = 64, render = function(current) return UI.Text { text = current } end }
+UI.VirtualGrid "Tiles" (spec)
 ```
 
 Key options: `from`, `key`, `render`, `minColumnWidth`, `itemSize`.

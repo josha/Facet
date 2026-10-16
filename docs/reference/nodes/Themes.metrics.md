@@ -2,6 +2,10 @@
 
 Optional theme metrics for tabs, control sizes, targets and shortcuts.
 
+- `controls.typography.minimumSize`: the smallest text role size, at least 14
+  pixels. `define` raises smaller sizes and preserves the order of distinct
+  sizes. The resolved scale then follows viewing distance and preferred text size.
+
 - `radii.tab`: the corner radius for filled top tabs. Their track adds 2 pixels
   to a positive radius. A value of 0 makes both square. Facet Neutral uses 999
   for pills. Sidebar and bottom tabs keep their usual corners.

@@ -9,6 +9,211 @@ local ComposeTypes = require("../src/vendor/compose/core")
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 return function(harness: Verify.Harness)
+	harness:case("stable badge floors include changing native padding without clipping", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local service = {
+			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
+				return engine.types.Vector2.new(#params.Text * params.Size, params.Size)
+			end,
+		}
+		local ctx = context(
+			Facet.Compose,
+			runtime,
+			{
+				types = engine.types,
+				services = { TextService = (service :: unknown) :: TextService },
+			} :: Shared.Config
+		)
+		local label: TextLabel? = nil
+		local inset: UIPadding? = nil
+		local stop = runtime.mount(function()
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local node = Host.TextLabel {
+				Text = "88888",
+				TextSize = 16,
+				Size = engine.types.UDim2.fromOffset(0, 0),
+				AutomaticSize = engine.types.Enum.AutomaticSize.XY,
+			}
+			label = node
+			ctx.textLayout(node, true, true)
+			inset = Host.UIPadding {
+				PaddingLeft = engine.types.UDim.new(0, 8),
+				PaddingRight = engine.types.UDim.new(0, 8),
+				PaddingTop = engine.types.UDim.new(0, 3),
+				PaddingBottom = engine.types.UDim.new(0, 3),
+			}
+			assert(inset).Parent = node
+			return node
+		end, engine.new("ScreenGui"))
+		local node = assert(label)
+		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
+		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(96, 22))
+		node.Text = "1"
+		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(96, 22))
+		assert(inset).PaddingLeft = engine.types.UDim.new(0, 12)
+		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(100, 22))
+		assert(inset).Parent = nil
+		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(80, 16))
+		stop()
+		runtime:dispose()
+		t:expect(engine.census().connections):toBe(0)
+	end)
+	harness:case("mounted readout floors grow without shrinking and reset with font metrics", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local service = {
+			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
+				return engine.types.Vector2.new(#params.Text * params.Size, params.Size)
+			end,
+		}
+		local ctx = context(
+			Facet.Compose,
+			runtime,
+			{
+				types = engine.types,
+				services = { TextService = (service :: unknown) :: TextService },
+			} :: Shared.Config
+		)
+		local label: TextLabel? = nil
+		local function mount()
+			return runtime.mount(function()
+				label = ctx.text({ Text = "1000", TextSize = 16 }, true)
+				return label
+			end, engine.new("ScreenGui"))
+		end
+		local stop = mount()
+		local node = assert(label)
+		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
+		t:expect(floor.MinSize.X):toBe(64)
+		for _, text in { "9", "111", "", "8888" } do
+			node.Text = text
+			t:expect(floor.MinSize.X):toBe(64)
+			t:expect(floor.MaxSize.X):toBe(64)
+		end
+		node.Text = "10000"
+		t:expect(floor.MinSize.X):toBe(80)
+		node.Text = "1"
+		t:expect(floor.MinSize.X):toBe(80)
+		node.TextSize = 12
+		t:expect(floor.MinSize.X):toBe(12)
+		node.TextWrapped = true
+		node.Text = "xx"
+		t:expect(floor.MinSize.X):toBe(0)
+		node.TextWrapped = false
+		t:expect(floor.MinSize.X):toBe(24)
+		stop()
+		stop = mount()
+		t:expect((assert(assert(label):FindFirstChild("TextBoundsFloor")) :: UISizeConstraint).MinSize.X):toBe(64)
+		stop()
+		runtime:dispose()
+		t:expect(engine.census().connections):toBe(0)
+	end)
+	harness:case("native metric floors do not schedule a reflow for each live readout", function(t)
+		local engine = engineLib.new({
+			getStyled = function(node: { [string]: unknown }, property: string): unknown
+				return if property == "TextSize" then 24 else node[property]
+			end,
+		})
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local service = {
+			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
+				return engine.types.Vector2.new(#params.Text * params.Size, params.Size)
+			end,
+		}
+		local ctx = context(
+			Facet.Compose,
+			runtime,
+			{
+				types = engine.types,
+				services = {
+					TextService = (service :: unknown) :: TextService,
+					RunService = ({ Heartbeat = engine.heartbeat } :: unknown) :: RunService,
+				},
+			} :: Shared.Config
+		)
+		local label: TextLabel? = nil
+		local stop = runtime.mount(function()
+			label = ctx.text { Text = "Coins 100", TextSize = 16 }
+			return label
+		end, engine.new("ScreenGui"))
+		engine.heartbeat:Fire(1 / 60)
+		local node = assert(label)
+		local writes = 0
+		local connection = engine.onWrite(function(target: Instance, property: string, _value: unknown)
+			if target == node and property == "AutomaticSize" then
+				writes += 1
+			end
+		end)
+		node.Text = "Coins 101"
+		node.AbsoluteSize = engine.types.Vector2.new(216, 24)
+		node.TextBounds = engine.types.Vector2.new(9000, 999)
+		engine.heartbeat:Fire(1 / 60)
+		t:expect(writes):toBe(0)
+		t:expect((assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint).MinSize.X):toBe(216)
+		local Host = (runtime.constructors :: unknown) :: RobloxHost
+		local stopOverride = runtime.mount(function()
+			return Host.UISizeConstraint { Name = "Authored" }
+		end, node)
+		writes = 0
+		node.Text = "Coins 102"
+		engine.heartbeat:Fire(1 / 60)
+		t:expect(writes):toBe(2)
+		stopOverride()
+		connection:Disconnect()
+		stop()
+		runtime:dispose()
+		t:expect(engine.census().connections):toBe(0)
+	end)
+	harness:case("text updates retain the measured floor until replacement metrics arrive", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local service = {
+			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
+				return engine.types.Vector2.new(80, if params.Width > 0 then 32 else 16)
+			end,
+		}
+		local ctx = context(
+			Facet.Compose,
+			runtime,
+			{
+				types = engine.types,
+				services = { TextService = (service :: unknown) :: TextService },
+			} :: Shared.Config
+		)
+		local labels: { TextLabel } = {}
+		local stop = runtime.mount(function()
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			for _, wrapped in { false, true } do
+				local label = ctx.text {
+					Text = "Coins 100",
+					TextWrapped = wrapped,
+					TextSize = 16,
+					Size = engine.types.UDim2.fromOffset(if wrapped then 120 else 0, 0),
+					AutomaticSize = if wrapped
+						then engine.types.Enum.AutomaticSize.Y
+						else engine.types.Enum.AutomaticSize.XY,
+				}
+				label.AbsoluteSize = engine.types.Vector2.new(120, 32)
+				table.insert(labels, label)
+			end
+			return Host.Frame { table.unpack(labels) }
+		end, engine.new("ScreenGui"))
+		local writes = 0
+		local connection = engine.onWrite(function(node: Instance, property: string, _value: unknown)
+			if node.Name == "TextBoundsFloor" and (property == "MinSize" or property == "MaxSize") then
+				writes += 1
+			end
+		end)
+		for _, label in labels do
+			label.Text = "Coins 101"
+		end
+		t:expect(writes):toBe(0)
+		connection:Disconnect()
+		stop()
+		runtime:dispose()
+		t:expect(engine.census().connections):toBe(0)
+	end)
 	harness:case("wrapped glyph floors preserve fractional native heights", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)

@@ -1,7 +1,7 @@
 # Headline report
 
-For the saved one-run slice measurement, see the
-[slice report](reports/slice-2026-10-15.md). To repeat hidden checks on saved
+For the saved paired slice measurement, with both arms run fresh, see the
+[slice report](reports/slice-2026-10-16.md). To repeat hidden checks on saved
 completed workspaces without invoking an agent, use
 `lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.
 Verify archives the previous check evidence and preserves agent metrics,
@@ -52,7 +52,7 @@ Any future general capability belongs upstream in Verify, without Facet names.
 | Type check | `scores["types.passed"]`, `scores["types.errors"]`, the `types` check result and logs. It is non-required. | Headless luau-lsp with pinned Roblox definitions. |
 | Control usage | `eval/tools/coverage.luau` scans saved client source and writes `usage.json`. It counts Facet calls and helpers. It is descriptive and does not enter a verdict. Plain has no Facet controls by definition. | Headless static scan, not runtime activation coverage. |
 | Instances | `play.perf.<device>.baseGuiObjects`, `baseComponents`, `peakGuiObjects`, `peakComponents`, `instanceDelta`, `guiObjectDelta`. `baseInstances` counts all game UI roots and descendants. | Real Studio census. `Stats.InstanceCount` covers the whole client; the UI census excludes engine and probe roots. |
-| Mount | `play.perf.<device>.mountSeconds`: play start through probe readiness and UI geometry settling. Includes joining, host calls and fixed host waits. It is not isolated `Interface.mount` CPU time. | Studio play host wall time plus engine settle observation. |
+| Mount | `play.perf.<device>.mountSeconds`: play start through the start of the first complete layout run that stays stable for one second of rendered frames, excluding only each element's own live content or fill changes. Includes joining, probe readiness, host calls and fixed host waits. | Studio play host wall time plus per-object engine layout observations. |
 | Steady and active frames | `idleFrameP50Ms`, `idleFrameP95Ms`; `activeFrameP50Ms` is the mean of screen medians and `activeFrameP95Ms` is the maximum screen p95. Raw windows are in `checks/perf.json`. | Real Studio `RunService.RenderStepped` delta. Whole-client frame pacing, not isolated UI CPU time or physical device evidence. |
 | Memory return | `heapDeltaKb`, `guiMbDelta` and instance deltas compare mounted idle with the returned-hub sample after the return wait. | Real Studio `gcinfo()`, `Stats.InstanceCount`, and `Stats:GetMemoryUsageMbForTag`. |
 | Seed dollar cost | `metrics.costUsd` when an adapter supplies it. Codex does not supply it. | Headless adapter data. Missing USD remains unpriced. Seed token totals and wall time are always shown; billing needs external cost evidence. |
@@ -62,6 +62,26 @@ the separate `judge` stage. A report must not turn absent judgments into ties
 or absent audits into zero violations.
 
 ## Overhead measurements and rules
+
+Mount compares every measured UI object's identity, parent, absolute position
+and absolute size each frame. Structure changes restart the stable run. A
+TextLabel or TextButton with a Text change in that frame is live content. An
+element can change size on one axis inside a fixed-size parent if its own
+position stays fixed. Other geometry changes, including two-axis reflow and
+neighbour movement from a live counter, restart the run. The same rules apply
+to both arms and to strong and weak references. An empty screen cannot settle.
+
+The settle limit is 20 seconds. Failure-bound captures keep `mount.timedOut`,
+the `mountTimedOut` score and a host log entry. Their value uses the bound.
+The raw bound stays in `perf.json`. A timeout emits no valid `mountSeconds`
+score, so the existing missing-evidence rule fails closed.
+`checks/perf.json` keeps excluded element paths, reasons, frame counts and first
+and last observation times in `mount.liveContent`. The saved-workspace command
+`lute run tools/facet facetbench mount WORKSPACE OUTPUT` records both definitions
+on the same frames as `mountSeconds` and `legacyMountSeconds`, with separate
+timeout flags. The mount ratio limit is 1.10.
+The [mount measurement](reports/mount-metric.md) records the two-device
+calibration, the three-capture samples and the live-content exclusions.
 
 The shared play host counts all descendants and roots of the game UI as
 `baseInstances`. It stops frame sampling between windows. This keeps the

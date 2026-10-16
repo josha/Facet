@@ -1019,7 +1019,7 @@ return function(verifyHarness: Verify.Harness)
 					local modal = world.find("Modal")
 					Verify.expect(modal.Parent):toBe(world.screen)
 					Verify.expect(modal.ZIndex >= 100):toBe(true)
-					Verify.expect((world.find("DismissOutside"):HasTag("facet-scrim"))):toBe(true)
+					Verify.expect((world.find("Scrim"):HasTag("facet-scrim"))):toBe(true)
 					local near = pointer(world, 330, 250)
 					world.find("RadialPanel").InputBegan:Fire(near)
 					world.input.InputEnded:Fire(near)
@@ -1117,7 +1117,7 @@ return function(verifyHarness: Verify.Harness)
 							scrim = case.scrim,
 							items = compass(function() end),
 						})
-						local scrim = world.find("DismissOutside")
+						local scrim = world.find("Scrim")
 						Verify.expect(`{case.scrim}:{scrim:HasTag("facet-scrim")}:{scrim:HasTag("facet-radial-scrim")}`)
 							:toBe(`{case.scrim}:{case.base}:{case.ring}`)
 						Verify.expect(scrim.Visible):toBe(true)
@@ -1145,7 +1145,7 @@ return function(verifyHarness: Verify.Harness)
 							centerLabel = if type(label) == "string" then label else nil,
 							items = compass(function() end),
 						})
-						local scrim = world.find("DismissOutside")
+						local scrim = world.find("Scrim")
 						Verify.expect(
 							scrim:HasTag("facet-scrim") and scrim:HasTag("facet-radial-scrim") and scrim.Visible
 						)

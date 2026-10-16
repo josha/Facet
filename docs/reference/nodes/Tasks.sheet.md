@@ -39,6 +39,10 @@ script.Destroying:Connect(app.dispose)
 
 Sheet owns Close, scrolling and modal selection. NavigationStack owns child-page Back. Its root has no Back command.
 
+Modal presentation hides native gameplay touch controls through
+`GuiService.TouchControlsEnabled` and restores the prior setting when the last
+modal closes. The game owns custom touch actions.
+
 Open:
 
 - [NavigationStack.reference](NavigationStack.reference.md)

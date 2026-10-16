@@ -314,4 +314,52 @@ add("compact-gallery-selected-rects", {}, function(t)
 	end
 end)
 
+add("sipworks-native-selection-reveals-cards", {}, function(t)
+	local gui = game:GetService("GuiService")
+	for _, size in { Vector2.new(1688, 792), Vector2.new(390, 400) } do
+		local stage, context = t.gallery({ size = size, demo = "sipworks" })
+		context.dispatch("input", "Gamepad")
+		t.settle(30)
+		require(game:GetService("ReplicatedStorage").FacetLive).press({ "Tab" })
+		local seen: { [Instance]: boolean } = {}
+		local count = 0
+		for _ = 1, 20 do
+			local nodes: { GuiObject } = {}
+			for _, node in stage:GetDescendants() do
+				if
+					node.Name == "Body"
+					and node:IsA("GuiButton")
+					and node.Selectable
+					and t.visible(node)
+					and not seen[node]
+				then
+					table.insert(nodes, node)
+				end
+			end
+			table.sort(nodes, function(a, b)
+				return a.AbsolutePosition.Y < b.AbsolutePosition.Y
+			end)
+			local node = nodes[1]
+			if not node then
+				break
+			end
+			seen[node] = true
+			count += 1
+			gui.SelectedObject = node
+			for frame = 1, 8 do
+				t.settle(1)
+				local clipped = t.clipped(node)
+				t.check(
+					`{size} card {count} frame {frame} stays visible and selected`,
+					t.visible(node) and gui.SelectedObject == node and clipped ~= nil,
+					{ path = node:GetFullName(), rect = t.rect(node), clipped = clipped }
+				)
+			end
+		end
+		t.check("the probe reaches recipe cards", count >= 5, count)
+		gui.SelectedObject = nil
+		t.cleanup()
+	end
+end)
+
 return cases

@@ -337,6 +337,7 @@ type LevelPickerCellProps
 type LevelPickerProps
 type LevelPickerReadOnlyProps
 type LevelPickerRequestProps
+type MenuCommand
 type MenuItem
 type MenuSpec
 type MultiplePickerSpec
@@ -371,6 +372,7 @@ type PopoverSource
 type PopoverSpec
 type Presence
 type ProgressViewProps
+type RadialAction
 type RadialItem
 type RadialMenuSpec
 type RatingCellProps

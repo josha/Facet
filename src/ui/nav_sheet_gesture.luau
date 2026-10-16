@@ -556,7 +556,7 @@ return function(
 		end)
 		local grabber = Host.TextButton "Grabber" {
 			SelectionOrder = -2,
-			Attributes = { FacetFocusPart = "Pill" } :: Types.Attributes,
+			Attributes = { FacetFocusPart = "DragHandle" } :: Types.Attributes,
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = function(use: ComposeTypes.Use): UDim2
 				local side = from(use)
@@ -600,7 +600,7 @@ return function(
 			end,
 			detector("UIDragDetector", "grip"),
 			ctx.styled(
-				Host.Frame "Pill" {
+				Host.Frame "DragHandle" {
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = D2.fromScale(0.5, 0.5),
 					Size = function(use: ComposeTypes.Use)

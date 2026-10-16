@@ -15,6 +15,8 @@ down. A future start shows zero until a full elapsed second has passed.
 Native TextLabel properties, events, children and `ref` also apply. Timer uses
 Text and leaves the font to the theme.
 
+The unwrapped readout keeps its largest measured box while mounted, as Text does.
+
 The Compose scheduler updates each displayed second and stops at completion.
 Unmount cancels scheduled work. `onComplete()` runs once when a deadline is
 reached, including an expired initial deadline. A changed deadline starts a

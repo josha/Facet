@@ -479,6 +479,102 @@ add({
 	end,
 })
 for _, viewport in viewports do
+	add({
+		id = `live-readouts-keep-neighbours/{viewport.name}`,
+		contracts = {},
+		keepGallery = false,
+		run = function(t: T)
+			local update: ((string, number, number) -> ())? = nil
+			local rows: { { readout: GuiObject, neighbour: GuiObject } } = {}
+			t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+				local words, progress = Compose.cell("88888"), Compose.cell(1)
+				local now = 1
+				update = function(text: string, value: number, at: number)
+					words:set(text)
+					progress:set(value)
+					now = at
+				end
+				local children: { Instance } = {}
+				for index, control in
+					{
+						UI.Text { text = words },
+						UI.Timer {
+							deadline = 6000,
+							now = function(): number
+								return now
+							end,
+						},
+						UI.ProgressView { value = progress, showValue = true, endLabel = "ready" },
+						UI.Badge { label = words },
+					}
+				do
+					local neighbour = Host.Frame "Neighbour" { Size = UDim2.fromOffset(20, 20) }
+					control.LayoutOrder, neighbour.LayoutOrder = 1, 2
+					table.insert(rows, { readout = control, neighbour = neighbour :: GuiObject })
+					table.insert(
+						children,
+						Host.Frame({
+							Position = UDim2.fromOffset(0, (index - 1) * 60),
+							AutomaticSize = Enum.AutomaticSize.XY,
+							Size = UDim2.fromOffset(0, 0),
+							Host.UIListLayout {
+								FillDirection = Enum.FillDirection.Horizontal,
+								SortOrder = Enum.SortOrder.LayoutOrder,
+							},
+							control,
+							neighbour,
+						} :: FrameNativeProps)
+					)
+				end
+				return Host.Frame { Size = UDim2.fromScale(1, 1), table.unpack(children) }
+			end, { size = Vector2.new(viewport.width, viewport.height), frames = 30 })
+			local value = assert(rows[3].readout:FindFirstChild("Value", true)) :: TextLabel
+			local ending = assert(rows[3].readout:FindFirstChild("EndLabel", true)) :: TextLabel
+			table.insert(rows, { readout = value :: GuiObject, neighbour = ending :: GuiObject })
+			local boxes: { { size: Vector2, position: Vector2 } } = {}
+			for index, row in rows do
+				boxes[index] = { size = row.readout.AbsoluteSize, position = row.neighbour.AbsolutePosition }
+				if row.readout:IsA("TextLabel") then
+					t.check(`readout {index} fits its initial text`, row.readout.TextFits, row.readout.TextBounds)
+				end
+			end
+			for _, value in { "1", "111", "88888", "9" } do
+				local faults: { [number]: { frame: number, size: Vector2, position: Vector2 } } = {}
+				assert(update)(value, 0.09, 5999)
+				for frame = 1, 30 do
+					RunService.PreRender:Wait()
+					RunService.Heartbeat:Wait()
+					for index, row in rows do
+						if
+							faults[index] == nil
+							and (
+								row.readout.AbsoluteSize ~= boxes[index].size
+								or row.neighbour.AbsolutePosition ~= boxes[index].position
+							)
+						then
+							faults[index] = {
+								frame = frame,
+								size = row.readout.AbsoluteSize,
+								position = row.neighbour.AbsolutePosition,
+							}
+						end
+					end
+				end
+				for index in rows do
+					t.check(
+						`readout {index} keeps its box and neighbour for {value}`,
+						faults[index] == nil,
+						faults[index]
+					)
+				end
+			end
+			t.check("text updates while its box stays reserved", (rows[1].readout :: TextLabel).Text == "9")
+			t.check("timer updates while its box stays reserved", (rows[2].readout :: TextLabel).Text == "0:01")
+			t.check("badge updates while its box stays reserved", (rows[4].readout :: TextLabel).Text == "9")
+			t.check("progress updates while its box stays reserved", value.Text == "9%")
+			t.cleanup()
+		end,
+	})
 	for _, textSize in { "Medium", "Largest" } do
 		add({
 			id = `native-segment-caption/{viewport.name}/{textSize}`,

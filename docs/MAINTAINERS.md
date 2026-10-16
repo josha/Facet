@@ -31,6 +31,11 @@ selects the shortest path.
 reachability from `Map`. Marker lines count toward the source byte budget.
 Queries omit marker lines and keep the response byte limit.
 
+`docs-samples` type-checks every Luau fence in task recipes and control cards.
+It adds strict mode and the app mount context for a card. It uses the same
+consumer analyzer, solver flags and pinned Roblox definitions as `facet verify`.
+Failures name the Markdown file and source line.
+
 ## Structure
 
 The public root exports Compose, its Roblox host, the control factory, the
@@ -142,7 +147,7 @@ stylesheet rules.
 
 ## Gate producers
 
-The gate has 36 producers: 13 fast, 22 full and 1 release. `tool-specs`
+The gate has 40 producers: 15 fast, 24 full and 1 release. `tool-specs`
 includes the planted-fault proofs for types, public surface and memory.
 `vendor` checks both dependency pins. `standalone-builds` builds the example
 and reference places. `theme-artifacts` builds and probes themes.

@@ -69,6 +69,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			}
 		)
 		local node = ctx.styled(Host.TextLabel(native), "text")
+		ctx.textLayout(node, true, true)
 		local pill: GuiObject = node
 		if spec.icon then
 			node.Name = "Label"

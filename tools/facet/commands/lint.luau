@@ -4,7 +4,7 @@ local json = require("@std/json")
 local Analyzer = require("../lib/analyzer")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
-local Definitions = require("../lib/definitions")
+local ConsumerTypes = require("../lib/consumer_types")
 local Files = require("../lib/files")
 local Encoding = require("../lib/encoding")
 local Json = require("../lib/json")
@@ -36,8 +36,6 @@ finding names the rule, the line and the fix.
 
 The exit code is 1 when there is an error, and 0 when there are only warnings.]]
 
-local DEFINITIONS = { "tools/typecheck/roblox.d.luau", "artifacts/verify/types/roblox.d.luau" }
-
 local function sources(paths: { string }): { string }
 	local found: { string } = {}
 	for _, given in paths do
@@ -58,14 +56,17 @@ end
 local SPEC_TYPES = { "CollectionSpec", "OutlineSpec", "TableSpec" }
 
 local function hint(message: string): string?
+	if string.find(message, "ThemeDefinition", 1, true) ~= nil then
+		return "give the definition a Facet.ThemeDefinition type. Put palette lists in style.themes and type roles in metrics.typography. Read docs Tasks.theme."
+	end
 	if string.find(message, "Cannot add indexer to table", 1, true) ~= nil then
 		return 'this table has fixed fields. Narrow the key to a literal branch, for example if key == "Credits" then value.Credits else value.Tokens. For an open map you own, type the initial value as { [string]: number } before Compose.cell; do not cast a server record.'
 	end
 	if string.find(message, "Unknown type 'Facet.Use'", 1, true) ~= nil then
 		return "require the Facet root into local Facet in this module; Facet.Use is an exported type. Do not require a Use submodule or read Facet.Use as a value."
 	end
-	if string.find(message, "Readable", 1, true) ~= nil and string.find(message, "(*CYCLE*)", 1, true) ~= nil then
-		return 'if this property reads cells of different types, use function(use: Facet.Use). See docs "Reactive type errors".'
+	if string.find(message, "Readable", 1, true) ~= nil then
+		return "annotate reactive callbacks with function(use: Facet.Use) and type option lists before passing them. Read docs Types.reactive."
 	end
 	if string.find(message, "not valid UTF-8", 1, true) ~= nil or string.find(message, "U+feff", 1, true) ~= nil then
 		return "save the file as UTF-8 without a byte order mark. In Windows PowerShell 5.1, Set-Content and Out-File use the system code page, and -Encoding utf8 adds a byte order mark; use [System.IO.File]::WriteAllText(path, text, (New-Object System.Text.UTF8Encoding $false))."
@@ -87,75 +88,6 @@ end
 local function withHint(line: string, message: string): string
 	local found = hint(message)
 	return if found ~= nil then line .. "\n    hint: " .. found else line
-end
-
-local function typeCheck(paths: { string }, project: string, solver: string): ({ Analyzer.Diagnostic }?, string?)
-	local definitions = DEFINITIONS[2]
-	for _, candidate in DEFINITIONS do
-		if Files.isFile(candidate) then
-			definitions = candidate
-			break
-		end
-	end
-	local resolved, result = pcall(Definitions.resolve, "tools/typecheck/roblox.lock.json", definitions)
-	if not resolved then
-		return nil, tostring(result)
-	end
-	if not Files.isFile(project) then
-		return nil, "no Rojo project at " .. project
-	end
-	local directory = Files.temporaryDirectory("facet-lint")
-	local sourcemap = Files.join(directory, "sourcemap.json")
-	local built = Run.capture({ "rojo", "sourcemap", project, "--absolute", "-o", sourcemap }, { timeout = 120 })
-	if not built.ok then
-		return nil, "rojo sourcemap failed: " .. built.stderr
-	end
-	local function plain(node: unknown)
-		local filePaths: Json.Array = Json.arrayField(node, "filePaths") or {}
-		for index, file in filePaths do
-			if type(file) == "string" then
-				filePaths[index] = Analyzer.withoutVerbatimPrefix(file)
-			end
-		end
-		local children: Json.Array = Json.arrayField(node, "children") or {}
-		for _, child in children do
-			plain(child)
-		end
-	end
-	local tree = Json.decode(Files.read(sourcemap))
-	plain(tree)
-	Files.write(sourcemap, Json.encode(tree))
-	local argv = {
-		"luau-lsp",
-		"analyze",
-		"--platform",
-		"roblox",
-		"--definitions=" .. (definitions :: string),
-		"--sourcemap=" .. sourcemap,
-		"--flag:LuauTarjanChildLimit=100000",
-		"--flag:LuauSolverV2=" .. (if solver == "old" then "false" else "true"),
-	}
-	for _, path in paths do
-		table.insert(argv, path)
-	end
-	local analyzed = Run.capture(argv, { timeout = 300 })
-	pcall(Files.remove, directory)
-	local parsed = Analyzer.parse(analyzed.stdout .. "\n" .. analyzed.stderr, Files.cwd())
-	if not analyzed.ok and (#parsed == 0 or analyzed.timedOut or analyzed.code ~= 1) then
-		return nil, `analyzer failed (exit {analyzed.code}): {analyzed.stdout}{analyzed.stderr}`
-	end
-	local owned: { Analyzer.Diagnostic } = {}
-	for _, diagnostic in parsed do
-		local file = Files.normalize(diagnostic.file)
-		for _, path in paths do
-			local root = Files.normalize(path)
-			if file == root or string.sub(file, 1, #root + 1) == root .. "/" then
-				table.insert(owned, diagnostic)
-				break
-			end
-		end
-	end
-	return owned, nil
 end
 
 local CONTROL_TYPES = { "Packages/Facet/ui/control_types.luau", "src/ui/control_types.luau" }
@@ -238,7 +170,7 @@ local function run(invocation: Cli.Invocation): number
 	local diagnostics: { Analyzer.Diagnostic } = {}
 	local problem: string? = nil
 	if Cli.switch(invocation, "types") then
-		local checked, failure = typeCheck(
+		local checked, failure = ConsumerTypes.check(
 			paths,
 			Cli.flag(invocation, "project") or "default.project.json",
 			Cli.flag(invocation, "solver") or "new"

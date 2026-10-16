@@ -178,8 +178,10 @@ for _, name in names do
 		properties.PreferredTransparency = 1
 		properties.GuiNavigationEnabled = true
 		properties.AutoSelectGuiEnabled = true
+		properties.TouchControlsEnabled = true
 		class.DefaultProperties.GuiNavigationEnabled = true
 		class.DefaultProperties.AutoSelectGuiEnabled = true
+		class.DefaultProperties.TouchControlsEnabled = true
 	end
 	local ui = VerifyRoblox.uiFakes.classes[name]
 	local events = table.clone(eventNames)

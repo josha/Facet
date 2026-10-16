@@ -6,6 +6,7 @@
     "batchCount": 1
   },
   "units": [
+    { "id": "play_mount", "locator": "tests/play_mount.verify.luau", "requires": ["lute"] },
     { "id": "tools/docs_nodes", "locator": "tests/tools/docs_nodes.verify.luau", "requires": ["lute"] },
     { "id": "docs_examples", "locator": "tests/docs_examples.verify.luau", "requires": ["lute"] },
     { "id": "play_actions", "locator": "tests/play_actions.verify.luau", "requires": ["lute"] },

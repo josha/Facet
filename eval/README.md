@@ -1,6 +1,6 @@
 # FacetBench
 
-The headline suite is [`extended.json`](extended.json). It uses short player prompts for the hub and ten chained follow-ups. [`extended-spec.json`](extended-spec.json) uses detailed diagnostic briefs. See [the slice report](reports/slice-2026-10-15.md) for a saved paired measurement.
+The headline suite is [`extended.json`](extended.json). It uses short player prompts for the hub and ten chained follow-ups. [`extended-spec.json`](extended-spec.json) uses detailed diagnostic briefs. See [the slice report](reports/slice-2026-10-16.md) for a saved paired measurement.
 
 FacetBench measures how well AI coding agents build Roblox game interfaces. It compares two arms on the same game:
 
@@ -70,7 +70,7 @@ The probe measures the interface in play mode on each device. It counts only the
 
 | Score | What it covers |
 | --- | --- |
-| `mountSeconds` | Seconds from the start of play until the interface stops changing for one second. It includes the time that the engine needs to join the player, which is the same for both arms. |
+| `mountSeconds` | Seconds from play start to the start of the first complete, stable layout run. The probe confirms the run over one second of rendered frames, with a 20-second failure bound. It includes player join, probe readiness, host calls and fixed host waits. |
 | `baseGuiObjects`, `baseComponents` | GuiObjects and UIComponent instances at rest after mount. |
 | `peakGuiObjects`, `peakComponents` | The largest counts at the end of a case that names a screen. |
 | `idleFrameP50Ms`, `idleFrameP95Ms` | The median and the 95th percentile of the client frame time (the `RenderStepped` delta) over two idle seconds after mount. |
@@ -82,6 +82,38 @@ The probe measures the interface in play mode on each device. It counts only the
 The frame time is the whole client frame, including the probe. Both arms run the same game, place, device and cases, so the difference between the arms is the difference of the interfaces. `lute run eval/tools/overhead.luau <evidence directory>` prints each metric for each task, device and arm, the ratio of the treatment arm to the baseline arm, and the median ratio. `lute run eval/tools/coverage.luau <evidence directory>...` writes `usage.json` for each Facet run and prints which Facet controls the runs use and which no run uses.
 
 The play host is shared with the `preview` and `audit` author commands. It is in [`tools/play`](../tools/play).
+
+Mount uses the same probe for both arms and both references. Each measured UI
+object must exist and have a measured size. The probe compares object identity,
+parent, absolute position and absolute size each frame. An addition, removal,
+replacement, reparenting or other layout movement restarts the stable run.
+An empty screen cannot settle. Zero sizes remain valid for hidden objects and
+empty progress fills; later size changes are compared on each frame.
+
+Live content does not restart the run when only its own content or fill changes.
+The probe excludes a TextLabel or TextButton whose Text changed in that frame.
+It also excludes an element whose size changes on one axis, whose position
+stays fixed and whose parent size stays fixed. Any other resize or a neighbour
+moving still restarts the run. The one-axis rule also covers text sizing when
+the parent size and the element position stay fixed. These rules use no arm,
+library or instance-name filter.
+
+Each device's `perf.json` record keeps `mount.liveContent` with each excluded
+element's identity, full path, reason, frame count and first and last observation
+times, with before and after geometry and text samples.
+`mount.timedOut` and the `mountTimedOut` score identify failure-bound captures;
+their mount value uses the 20-second bound. The host also logs these captures.
+The raw bound is retained in `perf.json`; a timed-out capture emits no valid
+`mountSeconds` score, so the existing missing-evidence rule fails closed.
+The 1.10 Facet/plain mount limit remains in `overhead.json`.
+
+For a saved workspace, `lute run tools/facet facetbench mount WORKSPACE OUTPUT`
+captures desktop and phone portrait in one owned Studio and closes it. It
+observes the current definition and the whole-screen geometry checksum on the
+same rendered frames. `legacyMountSeconds` and `mount.legacyTimedOut` preserve
+the comparison. The command runs no agent and changes no saved source.
+See the [mount measurement](reports/mount-metric.md) for the reference
+calibration, paired saved-build captures and audited live-content elements.
 
 ## Render preflight
 

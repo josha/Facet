@@ -154,6 +154,31 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				)
 			end
 		end
+		local minimum = math.max(
+			neutral.metrics.controls.typography.minimumSize,
+			support.numericMetric(package.metrics, "controls.typography.minimumSize") or 0
+		)
+		local sizes: { number } = {}
+		for _, entry in package.metrics.typography do
+			if type(entry) == "table" and type(entry.size) == "number" and entry.size > 0 then
+				if not table.find(sizes, entry.size) then
+					table.insert(sizes, entry.size)
+				end
+			end
+		end
+		table.sort(sizes)
+		local resolved: { [number]: number } = {}
+		local previous = minimum - 1
+		for _, size in sizes do
+			local value = math.max(size, previous + 1)
+			resolved[size] = value
+			previous = value
+		end
+		for _, entry in package.metrics.typography do
+			if type(entry) == "table" and type(entry.size) == "number" and resolved[entry.size] then
+				entry.size = resolved[entry.size]
+			end
+		end
 		local space = (package.metrics :: { space: unknown }).space
 		if type(space) ~= "table" then
 			table.insert(errors, { field = "metrics.space", message = "Spacing steps must be a table of pixel sizes" })

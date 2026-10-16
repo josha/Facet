@@ -1005,6 +1005,8 @@ end)
 add("sheet-room-hug-hero-short", {}, function(t)
 	t.note("not checked", "the on-screen keyboard lift (the runner has no on-screen keyboard)")
 	for _, entry in { { "desktop" :: unknown, Vector2.new(1280, 720) }, { "phone" :: unknown, Vector2.new(390, 844) } } do
+		t.device({ device = "hd_1080" })
+		GuiService.SelectedObject = nil
 		local where, size = entry[1] :: any, entry[2] :: any
 		local stage, built = scenario(t, "sheet", size)
 		built.steps.lobby()
@@ -1063,6 +1065,8 @@ add("sheet-room-hug-hero-short", {}, function(t)
 		end
 		t.cleanup()
 	end
+	t.device({ device = "hd_1080" })
+	GuiService.SelectedObject = nil
 	local stage, built = scenario(t, "sheet", Vector2.new(640, 120))
 	built.steps.lobby()
 	t.settle(30)
@@ -1765,6 +1769,7 @@ local function grown(t: any, base: any, offset: number): any
 end
 
 add("sheet-hug-follows-live-copy", {}, function(t)
+	t.device({ device = "hd_1080" })
 	local copy, builds, themeCell = nil, 0, nil
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
 		themeCell = env.theme
@@ -1988,7 +1993,8 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 				opened:set(true)
 				t.settle(90)
 				local layer = layerOf(stage)
-				local catcher = t.find(layer, "DismissOutside")
+				local catcher = t.find(layer, "DismissTarget")
+				local scrim = t.find(layer, "Scrim")
 				local panel = t.find(
 					layer,
 					if kind == "Alert"
@@ -2002,7 +2008,12 @@ for _, device in { "desktop", "iphone_14", "xbox" } do
 				)
 				t.check("modal panel and scrim are presented", catcher ~= nil and panel ~= nil and t.visible(panel))
 				if catcher and panel then
-					geometry.scrim(t, catcher, viewport, safe, panel)
+					geometry.scrim(t, scrim, viewport, safe, panel)
+					t.check(
+						"dismissal input stays inside safe bounds",
+						catcher.AbsolutePosition.Y >= safe.AbsolutePosition.Y - 1
+					)
+					t.check("fullscreen scrim has no input", not scrim:IsA("GuiButton") and not scrim.Active)
 					t.check(
 						"scrim can paint into device unsafe areas",
 						host.ScreenInsets == Enum.ScreenInsets.None or not host.ClipToDeviceSafeArea

@@ -308,7 +308,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 	end
 	UI.Menu = ctx.construct("Menu", function<V>(spec: NavigationProps.MenuSpec<V>): GuiObject
 		return buildMenu(spec, false)
-	end)
+	end) :: ControlTypes.MenuConstructor
 	registerPicker(ctx, UI, surfaces, buildMenu)
 	registerSplitButton(ctx, UI, surfaces, buildMenu)
 	registerComboBox(ctx, UI, surfaces)

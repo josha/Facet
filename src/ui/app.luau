@@ -120,6 +120,13 @@ return function(
 				props[key] = value
 			end
 			props.Name = props.Name or settings.name or "Facet"
+			local enums = if settings.types then settings.types.Enum else Enum
+			if props.ScreenInsets == nil and props.IgnoreGuiInset == nil then
+				props.ScreenInsets = enums.ScreenInsets.CoreUISafeInsets
+			end
+			if props.SafeAreaCompatibility == nil then
+				props.SafeAreaCompatibility = enums.SafeAreaCompatibility.None
+			end
 			if props.ResetOnSpawn == nil then
 				props.ResetOnSpawn = false
 			end

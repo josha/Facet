@@ -769,7 +769,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((fadeKit.of(panel))):toBe(1)
 				w.advance(FRAME)
 				Verify.expect((fadeKit.of(panel))):toBe(0)
-				Verify.expect(w.find("DismissOutside").BorderSizePixel):toBe(0)
+				Verify.expect(w.find("Scrim").BorderSizePixel):toBe(0)
 				w.stop()
 			end,
 		})

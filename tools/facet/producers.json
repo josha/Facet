@@ -1,5 +1,7 @@
 {
   "producers": [
+    {"id": "docs-samples", "tier": "fast", "run": "lute run tools/facet check docs-samples", "why": "every recipe and control card Luau sample type-checks with the consumer verifier settings"},
+    {"id": "text-encoding", "tier": "fast", "run": "lute run tools/facet check text-encoding", "why": "tracked text files are UTF-8 encoded once"},
     {"id": "docs-nodes", "tier": "fast", "run": "lute run tools/facet check docs-nodes", "why": "documentation nodes fit byte budgets and every node is reachable from the map"},
     {"id": "architecture", "tier": "fast", "run": "lute run tools/facet check architecture", "why": "source modules require only the layers the architecture allows"},
     {"id": "plan", "tier": "fast", "run": "lute run tools/facet check plan", "why": "tests/plan.json lists every Verify file under tests exactly once"},

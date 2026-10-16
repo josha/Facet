@@ -1331,7 +1331,10 @@ return function(verifyHarness: Verify.Harness)
 		local WIDE = { room = Vector2.new(1200, 800), motionLevel = "none" }
 		local function grip(w: any): (any, any, any)
 			local handle = w.find("Grabber")
-			return handle, w.find("Pill"), sheetInsets(w)
+			local part = w.find("DragHandle")
+			Verify.expect(part.ClassName):toBe("Frame")
+			Verify.expect(part.Selectable):toBe(false)
+			return handle, part, sheetInsets(w)
 		end
 
 		verifyHarness:case("links the native grabber to the Header Close selection stop", {
@@ -1547,7 +1550,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((insetSides(w))):toBe("70 46 42 46")
 				local bar = w.find("Grabber").Position.Y.Offset
 				Verify.expect(bar - 10 >= 30 and bar + 10 <= 58):toBe(true)
-				Verify.expect((w.find("Grabber"):GetAttribute("FacetFocusPart"))):toBe("Pill")
+				Verify.expect((w.find("Grabber"):GetAttribute("FacetFocusPart"))):toBe("DragHandle")
 				w.stop()
 				local side = mount({ placement = "side" :: "side" }, { theme = fantasy, room = Vector2.new(1200, 800) })
 				Verify.expect((insetSides(side))):toBe("42 46 42 74")

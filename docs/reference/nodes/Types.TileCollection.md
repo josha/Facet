@@ -1,5 +1,7 @@
 # Types.TileCollection
 
+<!-- aliases: Typed collections -->
+
 Types.TileCollection contract and option values.
 
 The pinned Compose module includes `TileCollection`, which owns the nonempty cells

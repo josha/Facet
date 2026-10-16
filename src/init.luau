@@ -102,6 +102,7 @@ export type TextCommitReason = InputTypes.TextCommitReason
 export type CommitReason = InputTypes.CommitReason
 export type ClearButtonMode = InputTypes.ClearButtonMode
 export type MenuItem<V = string> = NavigationTypes.MenuItem<V>
+export type MenuCommand = NavigationTypes.MenuCommand
 export type MenuSpec<V = string> = NavigationProps.MenuSpec<V>
 export type PickerOption<V = string> = NavigationTypes.PickerOption<V>
 export type PickerSpec<V = string> = NavigationProps.PickerSpec<V>
@@ -123,6 +124,7 @@ export type NavigationDestination<P = unknown> = NavigationTypes.NavigationDesti
 export type NavigationStackSpec<P = unknown> = NavigationProps.NavigationStackSpec<P>
 export type PageViewSpec = NavigationProps.PageViewSpec
 export type RadialItem<V = string> = RadialTypes.RadialItem<V>
+export type RadialAction<V = string> = RadialTypes.RadialAction<V>
 export type RadialMenuSpec<V = string> = RadialProps.RadialMenuSpec<V>
 export type SlotControls<K> = CollectionTypes.SlotControls<K>
 export type FocusControls<K> = CollectionTypes.FocusControls<K>

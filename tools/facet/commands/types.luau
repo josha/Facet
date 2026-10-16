@@ -342,6 +342,11 @@ end
 
 local NEGATIVE_PROBES: { { string } } = {
 	{ "Button label", "UI.Button({ label = 42 })" },
+	{ "Menu command callback", 'local item: Facet.MenuCommand = { label = "Open", onSelect = 42 }' },
+	{
+		"Radial command callback",
+		'local item: Facet.RadialAction<string> = { id = "open", label = "Open", onSelect = 42 }',
+	},
 	{ "Button native size", 'UI.Button({ label = "Save", Size = "large" })' },
 	{ "Button native visibility", 'UI.Button({ label = "Save", Visible = "yes" })' },
 	{ "Button nullable label", "UI.Button({ label = nullableText })" },
@@ -1295,6 +1300,11 @@ cases = function(): { Case.Case }
 						Analyzer.relative("../../../Users/bacon/.lute/typedefs/1.0.1/std/fs.luau", root),
 						"C:/Users/bacon/.lute/typedefs/1.0.1/std/fs.luau",
 						"outside"
+					),
+					Case.equal(
+						Analyzer.relative("../../../../t:/fixture/samples/a.luau", root),
+						"t:/fixture/samples/a.luau",
+						"another drive"
 					),
 					Case.equal(Analyzer.relative("/repo/src/a.luau", "/repo"), "src/a.luau", "posix"),
 					Case.equal(
