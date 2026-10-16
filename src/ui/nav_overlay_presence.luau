@@ -3,7 +3,6 @@ local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local motion = require("./motion")
-local rest = require("./rest")
 local fontReadiness = require("./font_readiness")
 local arrival = require("./overlay_arrival")
 local textMeasure = require("./text_measure")
@@ -102,28 +101,41 @@ return function(ctx: Types.Context): Presence
 			live[index] = ctx.observe.AbsoluteSize(node)
 		end
 		local fontsReady = fontReadiness(ctx, nodes)
-		local rested = rest(ctx, function(): (string, boolean, boolean?)
-			local parts: { string } = {}
-			local filled = false
-			local measured = true
-			local origin = nodes[1].AbsolutePosition
-			local descendants = nodes[1]:GetDescendants()
-			for _, node in nodes do
-				table.insert(descendants, node)
-				filled = filled or (node.AbsoluteSize.X > 0 and node.AbsoluteSize.Y > 0)
-			end
-			for _, node in descendants do
-				measured = measured and textMeasure.ready(node)
-				if node:IsA("GuiObject") then
-					local value = `{node.AbsolutePosition - origin}:{node.AbsoluteSize}:{node.Visible}`
-					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-						value ..= `:{node.TextBounds}`
-					end
-					table.insert(parts, value)
+		local snapshot, complete, allowed = "", false, nil :: boolean?
+		local rested = ctx.runtime.settled {
+			sample = function(): string
+				return snapshot
+			end,
+			ready = function(): boolean
+				local parts: { string } = {}
+				local filled = false
+				local measured = true
+				local origin = nodes[1].AbsolutePosition
+				local descendants = nodes[1]:GetDescendants()
+				for _, node in nodes do
+					table.insert(descendants, node)
+					filled = filled or (node.AbsoluteSize.X > 0 and node.AbsoluteSize.Y > 0)
 				end
-			end
-			return table.concat(parts, ";"), filled, nodes[1].Visible and fontsReady() and measured
-		end, restart)
+				for _, node in descendants do
+					measured = measured and textMeasure.ready(node)
+					if node:IsA("GuiObject") then
+						local value = `{node.AbsolutePosition - origin}:{node.AbsoluteSize}:{node.Visible}`
+						if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+							value ..= `:{node.TextBounds}`
+						end
+						table.insert(parts, value)
+					end
+				end
+				snapshot, complete, allowed =
+					table.concat(parts, ";"), filled, nodes[1].Visible and fontsReady() and measured
+				return allowed ~= false
+			end,
+			equals = function(a: string, b: string): boolean
+				return complete and a == b
+			end,
+			restart = restart,
+			timeout = ctx.metric("motion.restLimit"),
+		}
 		local held: { ComposeTypes.Readable<Vector2> } = {}
 		for index, size in live do
 			local natural = Compose.cell(size:peek())
@@ -161,48 +173,23 @@ return function(ctx: Types.Context): Presence
 		shown: () -> boolean
 	): ComposeTypes.PresenceOptions
 		local level = motion.level(ctx)
-		local owner = assert(Compose.currentOwner())
-		type Pending = {
-			completed: ComposeTypes.Readable<boolean>,
-			scope: ComposeTypes.Owner?,
-		}
-		local pending: ComposeTypes.Cell<Pending?> = Compose.cell(nil :: Pending?)
-		local function release(entry: Pending?)
-			if entry and entry.scope then
-				entry.scope.dispose()
-			end
-		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			local entry = use(pending)
-			if entry and use(entry.completed) then
-				pending:set(nil)
-				release(entry)
-			end
-		end)
-		Compose.cleanup(function()
-			release(pending:peek())
-		end)
-		local function begin(
-			completed: ComposeTypes.Readable<boolean>,
-			scope: ComposeTypes.Owner?
-		): ComposeTypes.Exiting
-			release(pending:peek())
-			pending:set({ completed = completed, scope = scope })
-			return { completed = completed }
-		end
+		local scheduler = runtime.scheduler()
 		return {
 			exit = function()
 				local current = level()
 				if not shown() or not attached(anchor) or current == "none" then
-					return begin(Compose.cell(true), nil)
+					scheduler.cancel("exit")
+					return { completed = Compose.cell(true) }
 				end
-				local scope = owner.createChild()
-				local timeline = Compose.withOwner(scope, function()
-					return runtime.timeline({
-						duration = if current == "limited" then ctx.metric("motion.reducedFade") else timing.exit,
-					})
-				end)
-				return begin(timeline.completed, scope)
+				local completed = Compose.cell(false)
+				scheduler.replace(
+					"exit",
+					if current == "limited" then ctx.metric("motion.reducedFade") else timing.exit,
+					function()
+						completed:set(true)
+					end
+				)
+				return { completed = completed }
 			end,
 		}
 	end

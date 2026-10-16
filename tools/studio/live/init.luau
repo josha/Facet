@@ -8,12 +8,15 @@ type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
+local LogService = game:GetService("LogService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local storage = game:GetService("ReplicatedStorage")
 
 local Verify = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("core"))
-local VerifyRoblox = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("roblox"))
+local VerifyRoblox: typeof(require("@repo/tools/vendor/verify/src/roblox")) = (require :: any)(
+	storage:WaitForChild("FacetVerify"):WaitForChild("roblox")
+)
 
 local live = {}
 
@@ -637,6 +640,8 @@ end
 
 function live.report(suite: string, options: { [string]: any }?): any
 	local config: { [string]: any } = options or {}
+	local runId = if type(config.runId) == "string" then config.runId else nil
+	local progressToken = if type(config.progressToken) == "string" then config.progressToken else nil
 	local Facet = (require :: any)(storage:WaitForChild("Facet"))
 	local themes = themeModules(Facet)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -710,10 +715,11 @@ function live.report(suite: string, options: { [string]: any }?): any
 		environment = reportEnvironment(suite),
 		capabilities = capabilities,
 		selection = { ids = selected },
-		progress = if config.runId and config.progressToken
-			then VerifyRoblox.progressChannel.publisher(config.runId, config.progressToken, function(value)
-				return HttpService:JSONEncode(value)
-			end, print)
+		progress = if runId and progressToken
+			then VerifyRoblox.progressChannel.publisher(runId, progressToken, function(message, context)
+				LogService:GetLogger(VerifyRoblox.progressChannel.LOGGER)
+					:Info(message, context :: { [string]: unknown })
+			end)
 			else nil,
 	})
 	return report

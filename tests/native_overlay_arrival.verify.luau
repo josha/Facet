@@ -43,6 +43,9 @@ return function(verifyHarness: Verify.Harness)
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local frames = { Heartbeat = signal(), PreRender = if render then signal() else nil }
+		if render then
+			engine.heartbeat = assert(frames.PreRender)
+		end
 		local UI = Facet.controls(
 			runtime,
 			{

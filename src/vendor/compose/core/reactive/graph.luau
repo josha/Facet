@@ -67,6 +67,7 @@ export type Reactor = {
 }
 
 local PRODUCER, CONSUMER, OBSERVED, PREVIOUS, NEXT = 1, 2, 3, 4, 5
+local observations = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Producer]: (boolean) -> () }
 
 type Evaluation = { consumer: Consumer?, order: number }
 
@@ -119,6 +120,10 @@ local function attach(producer: Producer, consumer: Consumer): Edge
 		producer.subscribers = edge
 	end
 	producer.lastSubscriber = edge
+	local observed = observations[producer]
+	if tail == nil and observed then
+		observed(true)
+	end
 	return edge
 end
 
@@ -138,6 +143,10 @@ local function detach(edge: Edge)
 	end
 	edge[PREVIOUS] = nil
 	edge[NEXT] = nil
+	local observed = observations[producer]
+	if producer.subscribers == nil and observed then
+		observed(false)
+	end
 end
 
 local function trim(consumer: Consumer, from: number)
@@ -438,6 +447,7 @@ local function countNotification(producer: Producer)
 end
 
 return {
+	observations = observations,
 	PRODUCER = PRODUCER,
 	CONSUMER = CONSUMER,
 	OBSERVED = OBSERVED,

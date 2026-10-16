@@ -4284,7 +4284,7 @@ return function(verifyHarness: Verify.Harness)
 				world.engine.heartbeat:Fire(1 / 60)
 				world.engine.heartbeat:Fire(1 / 60)
 				Verify.expect(materialize.of(help).Scale):toBe(1)
-				Verify.expect(fadeKit.of(help) > 0 and fadeKit.of(help) < 1):toBe(true)
+				Verify.expect(fadeKit.of(help)):toBe(1)
 				local position, anchorPoint = help.Position, help.AnchorPoint
 				local restOrigin = text.AbsolutePosition - help.AbsolutePosition
 				local previous, intermediate = 1, 0

@@ -179,73 +179,75 @@ local function refuseNodeValue(host: Host.Host, node: Node, key: string, value: 
 	})
 end
 
-local function writeOnce(host: Host.Host, node: Node, owner: Owner.Owner, key: string, value: unknown)
-	local before = propertyBindings[node]
+type Target = {
+	registry: Registry,
+	write: (Node, string, unknown) -> (),
+	clear: Clear,
+	host: Host.Host,
+	prefix: string,
+	deduplicate: boolean,
+}
+
+local function writeOnce(target: Target, node: Node, owner: Owner.Owner, key: string, value: unknown)
+	local registry, write, clear = target.registry, target.write, target.clear
+	local before = registry[node]
 	local previous = if before ~= nil then before[key] else nil
-	host.render.setProperty(node, key, value)
-	local current = propertyBindings[node]
+	write(node, key, value)
+	local current = registry[node]
 	if (if current ~= nil then current[key] else nil) ~= previous then
 		return
 	end
 	if Nodes.isDestructible(node) then
-		retire(propertyBindings, node, key)
+		retire(registry, node, key)
 		return
 	end
-	local bindings, binding = bindingFor(propertyBindings, node)
-	local cleanup = singleCleanup(propertyBindings, node, bindings, key, binding, host.render.clearProperty :: Clear)
+	local bindings, binding = bindingFor(registry, node)
+	local cleanup = singleCleanup(registry, node, bindings, key, binding, clear)
 	replace(bindings, key, binding)
 	binding.dispose = owner.own(cleanup)
 end
 
-local function bind(host: Host.Host, node: Node, owner: Owner.Owner, key: string, source: Types.Source<unknown>)
-	local render = host.render
-	local setProperty = render.setProperty
-	local bindings, binding = bindingFor(propertyBindings, node)
+local function bind(target: Target, node: Node, owner: Owner.Owner, key: string, source: Types.Source<unknown>)
+	local registry, write, clear = target.registry, target.write, target.clear
+	local deduplicate = target.deduplicate
+	local bindings, binding = bindingFor(registry, node)
 	local previous = bindings[key]
-	local initial = true
+	local written: unknown = UNWRITTEN
 	local function publish(value: unknown)
-		if initial then
-			if not beginWrite(propertyBindings, node, bindings, key, binding, previous) then
-				initial = false
-				if binding.dispose ~= nil then
+		if written == UNWRITTEN then
+			if not beginWrite(registry, node, bindings, key, binding, previous) then
+				written = value
+				if binding.dispose then
 					binding.dispose()
 				end
 				return
 			end
-			local ok, err: unknown = pcall(setProperty, node, key, value)
+			local ok, err: unknown = pcall(write, node, key, value)
 			finishWrite(bindings, key, binding, ok)
 			if not ok then
 				error(err, 0)
 			end
-			initial = false
-		elseif binding.active then
-			setProperty(node, key, value)
-		else
+		elseif not binding.active or (deduplicate and value == written) then
 			return
+		else
+			write(node, key, value)
 		end
+		written = value
 		if statsOn.enabled then
 			profile.hostWrite()
 		end
 	end
-	local cleanup = singleCleanup(propertyBindings, node, bindings, key, binding, render.clearProperty :: Clear)
+	local cleanup = singleCleanup(registry, node, bindings, key, binding, clear)
 	if statsOn.enabled then
-		profile.naming(("%s.%s"):format(Host.describeNode(host, node), key))
+		profile.naming(("%s.%s%s"):format(Host.describeNode(target.host, node), target.prefix, key))
 	end
 	if cellModule.isReadable(source) then
 		binding.dispose = owner.watchStatic(source :: Types.Readable<unknown>, publish, cleanup)
 	else
 		local body = source :: Types.Body<unknown>
 		binding.dispose = owner.watchTerminal(function(use)
-			if initial then
+			if written == UNWRITTEN or binding.active then
 				publish(body(use))
-			elseif binding.active then
-				local value = body(use)
-				if binding.active then
-					setProperty(node, key, value)
-					if statsOn.enabled then
-						profile.hostWrite()
-					end
-				end
 			end
 		end, cleanup)
 	end
@@ -420,88 +422,6 @@ local function refuseNodeAttribute(host: Host.Host, node: Node, name: string, va
 	})
 end
 
-local function writeAttributeOnce(
-	host: Host.Host,
-	node: Node,
-	owner: Owner.Owner,
-	write: SetAttribute,
-	name: string,
-	value: unknown
-)
-	local before = attributeBindings[node]
-	local previous = if before ~= nil then before[name] else nil
-	writeAttribute(host, node, write, name, value)
-	local current = attributeBindings[node]
-	if (if current ~= nil then current[name] else nil) ~= previous then
-		return
-	end
-	if Nodes.isDestructible(node) then
-		retire(attributeBindings, node, name)
-		return
-	end
-	local bindings, binding = bindingFor(attributeBindings, node)
-	local cleanup = singleCleanup(attributeBindings, node, bindings, name, binding, write)
-	replace(bindings, name, binding)
-	binding.dispose = owner.own(cleanup)
-end
-
-local function bindAttribute(
-	host: Host.Host,
-	node: Node,
-	owner: Owner.Owner,
-	write: SetAttribute,
-	name: string,
-	source: Types.Source<unknown>
-)
-	local written: unknown = UNWRITTEN
-	local bindings, binding = bindingFor(attributeBindings, node)
-	local previous = bindings[name]
-	local function publish(value: unknown)
-		local initial = written == UNWRITTEN
-		if initial then
-			if not beginWrite(attributeBindings, node, bindings, name, binding, previous) then
-				written = value
-				if binding.dispose ~= nil then
-					binding.dispose()
-				end
-				return
-			end
-			local ok, err: unknown = pcall(writeAttribute, host, node, write, name, value)
-			finishWrite(bindings, name, binding, ok)
-			if not ok then
-				error(err, 0)
-			end
-		elseif not binding.active or value == written then
-			return
-		else
-			writeAttribute(host, node, write, name, value)
-		end
-		written = value
-		if statsOn.enabled then
-			profile.hostWrite()
-		end
-	end
-	local cleanup = singleCleanup(attributeBindings, node, bindings, name, binding, write)
-	if statsOn.enabled then
-		profile.naming(("%s.%s.%s"):format(Host.describeNode(host, node), ATTRIBUTES, name))
-	end
-	if cellModule.isReadable(source) then
-		binding.dispose = owner.watchStatic(source :: Types.Readable<unknown>, publish, cleanup)
-	else
-		local body = source :: Types.Body<unknown>
-		binding.dispose = owner.watchTerminal(function(use)
-			publish(body(use))
-		end, cleanup)
-	end
-	if statsOn.enabled then
-		profile.naming(nil)
-	end
-	previous = nil
-	if binding.remaining == 0 then
-		(binding.dispose :: () -> ())()
-	end
-end
-
 local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, source: unknown, onKey: (string) -> ())
 	if type(source) ~= "table" then
 		Diagnostics.raise(
@@ -536,28 +456,47 @@ local function applyAttributes(host: Host.Host, node: Node, owner: Owner.Owner, 
 
 	table.sort(names)
 
-	local write = attributeWriter(host, node)
+	local rawWrite = attributeWriter(host, node)
+	local function write(target: Node, name: string, value: unknown)
+		writeAttribute(host, target, rawWrite, name, value)
+	end
+	local target: Target = {
+		registry = attributeBindings,
+		write = write,
+		clear = rawWrite,
+		host = host,
+		prefix = "Attributes.",
+		deduplicate = true,
+	}
 	for _, name in names do
 		onKey(("%s.%s"):format(ATTRIBUTES, name))
 		local value = table_[name]
 
 		local literal, isStatic = Keys.readStatic(value)
 		if isStatic then
-			writeAttributeOnce(host, node, owner, write, name, literal)
+			writeOnce(target, node, owner, name, literal)
 			continue
 		end
 
 		if cellModule.isReadable(value) or type(value) == "function" then
-			bindAttribute(host, node, owner, write, name, value :: Types.Source<unknown>)
+			bind(target, node, owner, name, value :: Types.Source<unknown>)
 			continue
 		end
 
 		refuseNodeAttribute(host, node, name, value)
-		writeAttributeOnce(host, node, owner, write, name, value)
+		writeOnce(target, node, owner, name, value)
 	end
 end
 
 local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Owner, onKey: (string) -> ())
+	local target: Target = {
+		registry = propertyBindings,
+		write = host.render.setProperty,
+		clear = host.render.clearProperty :: Clear,
+		host = host,
+		prefix = "",
+		deduplicate = false,
+	}
 	local length = #props
 
 	for key, value in props do
@@ -585,10 +524,10 @@ local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Own
 				end
 				subscribe(host, node, owner, marker.name, value :: (...unknown) -> ())
 			elseif type(value) == "function" or cellModule.isReadable(value) then
-				bind(host, node, owner, marker.name, value :: Types.Source<unknown>)
+				bind(target, node, owner, marker.name, value :: Types.Source<unknown>)
 			else
 				refuseNodeValue(host, node, marker.name, value)
-				writeOnce(host, node, owner, marker.name, value)
+				writeOnce(target, node, owner, marker.name, value)
 			end
 			continue
 		end
@@ -612,12 +551,12 @@ local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Own
 
 		local literal, isStatic = Keys.readStatic(value)
 		if isStatic then
-			writeOnce(host, node, owner, name, literal)
+			writeOnce(target, node, owner, name, literal)
 			continue
 		end
 
 		if cellModule.isReadable(value) then
-			bind(host, node, owner, name, value :: Types.Source<unknown>)
+			bind(target, node, owner, name, value :: Types.Source<unknown>)
 			continue
 		end
 
@@ -625,13 +564,13 @@ local function apply(host: Host.Host, node: Node, props: Props, owner: Owner.Own
 			if classify(host, node, name) == "event" then
 				subscribe(host, node, owner, name, value :: (...unknown) -> ())
 			else
-				bind(host, node, owner, name, value :: Types.Source<unknown>)
+				bind(target, node, owner, name, value :: Types.Source<unknown>)
 			end
 			continue
 		end
 
 		refuseNodeValue(host, node, name, value)
-		writeOnce(host, node, owner, name, value)
+		writeOnce(target, node, owner, name, value)
 	end
 end
 

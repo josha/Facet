@@ -146,6 +146,28 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(engine.census().connections):toBe(before)
 				node.Text = "Released"
 				Verify.expect(second:peek()):toBe("Second")
+				for _, property in { "AbsoluteSize", "SelectedObject" } do
+					local gui = engine.new("GuiService")
+					local target: Instance = if property == "AbsoluteSize" then node else gui
+					local function observe(): Compose.Readable<unknown>
+						return if property == "AbsoluteSize"
+							then ctx.observe.AbsoluteSize(node)
+							else ctx.observe.SelectedObject(gui)
+					end
+					local a, b = Compose.createOwner(runtime.reactor), Compose.createOwner(runtime.reactor)
+					local baseline = engine.census().connections
+					local left, right = Compose.withOwner(a, observe), Compose.withOwner(b, observe)
+					Verify.expect(left):toBe(right)
+					Verify.expect(engine.census().connections):toBe(baseline + 1)
+					a.dispose()
+					local value: unknown = if property == "AbsoluteSize" then engine.types.Vector2.new(80, 40) else node
+					local properties = (target :: unknown) :: { [string]: unknown }
+					properties[property] = value
+					Verify.expect(right:peek()):toBe(value)
+					Verify.expect(engine.census().connections):toBe(baseline + 1)
+					b.dispose()
+					Verify.expect(engine.census().connections):toBe(baseline)
+				end
 				stop()
 				runtime:dispose()
 			end,

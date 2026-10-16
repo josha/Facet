@@ -4,25 +4,14 @@ local Diagnostics = require "../diagnostics"
 local Host = require "../host"
 local Owner = require "../ownership/owner"
 local Types = require "../reactive/types"
+local ownedFrame = require "../ownership/frame"
 
 export type Pump = {
 	update: (pending: boolean) -> (),
 }
 
 local function create(owner: Owner.Owner, host: Host.Host, tick: Types.Cell<number>, primitive: string): Pump
-	local unsubscribe: (() -> ())? = nil
-
-	local function stop()
-		if unsubscribe ~= nil then
-			unsubscribe()
-			unsubscribe = nil
-		end
-	end
-
-	local function start()
-		if unsubscribe ~= nil then
-			return
-		end
+	local pump = ownedFrame(owner, function(body)
 		local frames = host.frames
 		if frames == nil then
 			Diagnostics.raise(
@@ -35,20 +24,18 @@ local function create(owner: Owner.Owner, host: Host.Host, tick: Types.Cell<numb
 				}
 			)
 		end
-		unsubscribe = (frames :: Host.Frames).onFrame(function()
-			tick:update(function(value)
-				return value + 1
-			end)
+		return (frames :: Host.Frames).onFrame(body)
+	end, function()
+		tick:update(function(value)
+			return value + 1
 		end)
-	end
-
-	owner.own(stop)
+	end)
 	return {
 		update = function(pending: boolean)
 			if pending then
-				start()
+				pump.start()
 			else
-				stop()
+				pump.stop()
 			end
 		end,
 	}

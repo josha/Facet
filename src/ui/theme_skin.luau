@@ -3,7 +3,6 @@ local ComposeTypes = require("../vendor/compose/core")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
 local decoration = require("./native_decoration")
-local observeGeometry = require("./geometry_observation")
 local support = require("./theme_support")
 
 local read, typesFor, deeplyFrozen, shadowPresets =
@@ -399,7 +398,7 @@ return function(
 					Host.UIPadding(padding),
 				}
 				label:AddTag("facet-skin-caption-text")
-				local bounds = observeGeometry(Compose, runtime, label, "TextBounds")
+				local bounds = runtime.observe(label, "TextBounds")
 				Compose.watch(function(use: ComposeTypes.Use)
 					fit:set(use(bounds) :: Vector2)
 				end)

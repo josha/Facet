@@ -17,6 +17,11 @@ local Props = require "@self/props"
 local Root = require "./ownership/root"
 local Types = require "./reactive/types"
 local Weak = require "./weak"
+local shareFrames = require "./frames"
+local observe = require "@self/observe"
+local settled = require "@self/settled"
+local clock = require "@self/clock"
+local sequence = require "@self/sequence"
 
 export type Node = Host.Node
 type Dispose = Types.Dispose
@@ -33,6 +38,11 @@ export type TweenOptions = Animation.TweenOptions
 export type RampOptions = RampModule.Options
 export type Ramp<T> = RampModule.Ramp<T>
 export type Scheduler = SchedulerModule.Scheduler
+export type ClockOptions = clock.Options
+export type SettledOptions<T, R = unknown> = settled.Options<T, R>
+export type SequenceOptions = sequence.Options
+export type SequenceStep = sequence.Step
+export type Sequence = sequence.Sequence
 
 export type Component = () -> Node
 
@@ -60,6 +70,10 @@ export type Runtime = {
 	timeline: (options: TimelineModule.Options?) -> TimelineModule.Timeline,
 	ramp: <T>(initial: T, options: RampModule.Options?) -> RampModule.Ramp<T>,
 	scheduler: (owner: Owner.Owner?) -> SchedulerModule.Scheduler,
+	observe: (node: Node, property: string) -> Types.Readable<unknown>,
+	settled: <T, R>(options: settled.Options<T, R>) -> Types.Readable<boolean>,
+	clock: (options: clock.Options?) -> Types.Readable<number>,
+	sequence: (options: sequence.Options) -> sequence.Sequence,
 
 	reactor: Reactor.Reactor,
 
@@ -76,6 +90,23 @@ local function createRuntime(host: Host.Host): Runtime
 	local rootOwner = Owner.createOwner(reactor)
 	local runtimeDisposed = false
 	Host.validate(host)
+	local supplied = host
+	local frameSource: Host.Frames? = nil
+	local shared: Host.Frames? = nil
+	host = (
+		setmetatable({}, {
+			__index = function(_, key: string): unknown
+				if key == "frames" then
+					if supplied.frames ~= frameSource then
+						frameSource = supplied.frames
+						shared = if frameSource then shareFrames(frameSource, reactor) else nil
+					end
+					return shared
+				end
+				return ((supplied :: unknown) :: { [string]: unknown })[key]
+			end,
+		}) :: unknown
+	) :: Host.Host
 	local render = host.render
 
 	local function requireOwner(operation: string): Owner.Owner
@@ -503,10 +534,10 @@ local function createRuntime(host: Host.Host): Runtime
 		return node
 	end
 
-	local motion = Animation.createMotion(host, requireOwner, reactor)
+	local motion = Animation.createMotion(host, requireOwner)
 	local timelines = TimelineModule.createTimelines(host, requireOwner)
 	local ramp = RampModule.createRamps(motion.tween, requireOwner)
-	local scheduler = SchedulerModule.createSchedulers(timelines.timeline, requireOwner)
+	local scheduler = SchedulerModule.createSchedulers(host, requireOwner)
 
 	local function watch(_self: Runtime, body: (use: Types.Use) -> (), label: string?): Types.Dispose
 		local active = Active.current()
@@ -524,7 +555,7 @@ local function createRuntime(host: Host.Host): Runtime
 	})
 
 	return {
-		host = host,
+		host = supplied,
 		reactor = reactor,
 		watch = watch,
 		batch = function<T...>(_self: Runtime, body: () -> T...): T...
@@ -553,6 +584,10 @@ local function createRuntime(host: Host.Host): Runtime
 		timeline = timelines.timeline,
 		ramp = ramp,
 		scheduler = scheduler,
+		observe = observe(host, requireOwner),
+		settled = settled(host, requireOwner),
+		clock = clock(host, requireOwner),
+		sequence = sequence(timelines.timeline, requireOwner),
 	}
 end
 
