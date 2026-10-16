@@ -1,5 +1,7 @@
 ### badged
 
+<!-- aliases: badged | badged -->
+
 `UI.badged(host, value, direction?) -> Frame` puts a count or a dot on the
 corner of a host, such as a Button, an icon Button or an Avatar. It returns a
 Frame named `<host name>+badge` that hugs the host and takes its

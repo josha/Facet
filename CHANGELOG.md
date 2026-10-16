@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+- A Button whose `Size` is reactive now keeps the width that `Size` gives it.
+  Before, only a fixed `UDim2` counted as a set width, so a computed width
+  left `AutomaticSize` at `XY` and a long label grew the button past it. Three
+  cards sized to a third of a portrait phone ran off both edges. Now
+  `AutomaticSize` follows the live width: `Y` while it is set, `XY` while it is
+  zero. The caption wraps the same way.
+- A Composition moves a `topbar` region to the `top` zone when the strip of
+  the Roblox top bar cannot hold it at its last form. The region with the
+  highest rank moves first, so the others stay in the strip. Before, the
+  regions stayed in the strip and covered the Roblox buttons on a portrait
+  phone.
+- A `topbar` Region with `leading = true` sits at the start of the strip,
+  beside the Roblox buttons. The other strip regions stay centred in the rest
+  of the strip. The strip regions now sit in the 44 pixel row of the Roblox
+  buttons, on the same centre line. Before, they were centred in the full
+  58 pixel band, 5 pixels above the Roblox buttons.
+- When a `top` or `bottom` zone cannot fit between the corner zones of its row
+  and no region can give way, the zone moves below the top corners or above
+  the bottom corners and uses the full width. Before, it covered the corner
+  regions.
+- A Composition warns once for each region that does not fit at its last form
+  for two seconds while nothing else can give way.
+- A Popover, Menu or other overlay that a `topbar` region opens shows in the
+  ScreenGui of the composition. Before, the narrow strip clipped it.
+- The center lane of a Composition draws above the side lanes.
+- `Button` accepts `target = "thumb"`. On touch, its `TargetFloor` keeps the
+  button at least `UI.environment().thumbTarget` on both axes. That value is
+  `targetSizes.thumb` (70 pixels) when the short edge of the screen is 500
+  pixels or less and `targetSizes.thumbLarge` (120 pixels) on a larger
+  screen. These are the sizes of the Roblox touch jump button. Use it for the
+  primary on-screen actions of a game.
 - `UI.environment().scaled(value, relativeTo)` takes an optional type role.
   The length then also grows with the player's text size, by the same factor
   as text of that role, as SwiftUI's `@ScaledMetric(relativeTo:)` does. A

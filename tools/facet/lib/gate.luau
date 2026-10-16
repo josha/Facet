@@ -21,6 +21,7 @@ export type Entry = {
 	why: string,
 	producer: Gate.ProducerDraft?,
 	deadlineSeconds: number?,
+	timing: boolean?,
 }
 
 type Unit = { id: string, locator: string, requires: { string }? }
@@ -144,6 +145,9 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?): 
 		if deferrable and producer.kind ~= "tests" then
 			local exit: { [number]: Gate.ExitClass } = { [2] = "deferred" }
 			producer.exit = exit
+		end
+		if entry.timing and not referenceHost then
+			producer.requires = { "reference-host" }
 		end
 		producer.tier = entry.tier
 		producer.tags = { environment }

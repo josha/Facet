@@ -1,5 +1,7 @@
 #### Native state
 
+<!-- aliases: Native state | native-state -->
+
 `ref` receives the root Frame. The root has the `facet-date-time-picker` tag
 and these attributes: `month` (for example `2026-09`), `dual`, `route`
 (`inline`, `popover` or `sheet`), `presented`, `text`, `typedError` and

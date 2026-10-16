@@ -1,5 +1,7 @@
 # RadialMenu.donut
 
+RadialMenu.donut option values and behavior.
+
 - A full ring (`donut` or `circle`) with `center = "back"` (the default) has
   one control in the centre hole. It is Close at the root and Back in a
   submenu; Back goes up one level and Close closes.

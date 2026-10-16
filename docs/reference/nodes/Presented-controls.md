@@ -1,5 +1,7 @@
 ## Presented controls
 
+<!-- aliases: Presented controls | presented-controls -->
+
 A Sheet or Dialog title shows in the theme's title plaque when the panel art
 has one, and the header title then hides. Without a title the plaque is not
 drawn.

@@ -29,8 +29,9 @@ Composition options:
 - `gap`: the space between the regions of one zone, between the three lanes
   and between the zones of one lane. The default is `s`.
 - `padding`: the space inside the edges. The default is `s`.
-- `topbar`: a boolean or a readable. The default is `true`. See `topbar` below.
+- `topbar`: a boolean or a readable. The default is `true`.
+  See [Composition.adaptation](Composition.adaptation.md) for top-bar behavior.
 - The children are `UI.Region` nodes. A `UI.fill()` child is also allowed, so
   the composition can take the free height of a stack.
 
-Region options:
+See [Composition.regions](Composition.regions.md) for region options.

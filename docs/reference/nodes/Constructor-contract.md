@@ -1,5 +1,7 @@
 ## Constructor contract
 
+<!-- aliases: Constructor contract | constructor-contract -->
+
 `UI.Button(spec)` and `UI.Button("Name")(spec)` are equivalent construction
 forms. The second form sets the name. Every constructor returns a native
 Instance. `ref = function(instance) ... end` receives that root. Make controls

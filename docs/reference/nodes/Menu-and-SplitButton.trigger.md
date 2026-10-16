@@ -1,5 +1,7 @@
 # Menu-and-SplitButton.trigger
 
+Menu-and-SplitButton.trigger option values and behavior.
+
 - `trigger` attaches the menu to a node that you make. The node can be any
   GuiObject, or a function that returns one. Menu returns that same node, with
   the input actions and the overlay of the menu attached. Menu adds no wrapper,

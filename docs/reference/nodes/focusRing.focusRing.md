@@ -1,5 +1,7 @@
 # focusRing.focusRing
 
+focusRing.focusRing contract and option values.
+
 `UI.focusRing(playerGui) -> Frame` sets `PlayerGui.SelectionImageObject` to
 one selection object that the engine draws on the selected control, so the
 engine owns where the focus is and when it moves. The theme package supplies

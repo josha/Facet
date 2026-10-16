@@ -1,5 +1,7 @@
 ### ViewThatFits
 
+<!-- aliases: ViewThatFits | viewthatfits -->
+
 `UI.ViewThatFits(spec) -> Frame` shows the first child that fits and hides the
 others. Each child is a candidate, in order of preference. The last candidate
 shows when none fits. It needs at least one candidate. Options: `width` and

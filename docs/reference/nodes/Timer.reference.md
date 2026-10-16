@@ -1,5 +1,7 @@
 ### Timer
 
+<!-- aliases: Timer | timer -->
+
 `UI.Timer(spec: TimerProps) -> TextLabel` shows a deadline or elapsed time.
 Set exactly one of `deadline` or `start`. Each accepts a number, a Compose
 readable or a function of `use`. A changed value updates the same label.

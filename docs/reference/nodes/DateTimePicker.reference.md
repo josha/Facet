@@ -1,5 +1,7 @@
 ### DateTimePicker
 
+<!-- aliases: DateTimePicker | datetimepicker -->
+
 `UI.DateTimePicker(spec)` returns a Frame. The player uses it to choose a
 calendar date, a date range, or a date with a time. For a count of days, use
 `UI.NumberInput`. For a few fixed dates, use `UI.Picker`.

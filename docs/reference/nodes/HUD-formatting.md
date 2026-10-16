@@ -1,5 +1,7 @@
 ### HUD formatting
 
+<!-- aliases: HUD formatting | hud-formatting -->
+
 `Facet.format` is a frozen namespace of pure functions. No runtime is required.
 All three functions refuse NaN and infinity with an error.
 

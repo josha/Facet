@@ -1,5 +1,7 @@
 ### StepIndicator
 
+<!-- aliases: StepIndicator | stepindicator -->
+
 StepIndicator shows where a workflow is. It shows a list of step states. It
 is not a number control. It requires `steps` (an array or a readable) and
 `current` (a step id, `nil` or a readable). A step is `{ id, label,

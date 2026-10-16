@@ -1,5 +1,7 @@
 # Mounting.AppOptions
 
+Set application options with `AppOptions`.
+
 `AppOptions` accepts every `controls` option (see [Factory options](Factory-options.md))
 and these fields:
 

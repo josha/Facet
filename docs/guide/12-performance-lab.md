@@ -40,9 +40,11 @@ timings together with their host context. A change of runner does not prove a
 runtime speedup.
 
 The timing budgets block a run only on a reference host, which runs
-`lute run tools/facet gate full --reference-host`. On every other host, CI included, a
-failed timing budget is a `deferred` producer. The report shows it, and the run
-continues. A release run blocks on it everywhere. The workload checks
+`lute run tools/facet gate full --reference-host`. On every other host, CI included, the
+`bench` timing producer requires the reference host, so the gate reports it as
+`deferred` without running it. A failed `perf` timing budget is a `deferred`
+producer; `perf` still runs, because `perf-scenes` and `perf-memory` read its
+records. A release run blocks on both everywhere. The workload checks
 (`perf-scenes`) do not measure time. They block on every host.
 
 The budgets and workloads stay checked in. Each full run makes its own

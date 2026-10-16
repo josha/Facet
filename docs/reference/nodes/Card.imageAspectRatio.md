@@ -1,5 +1,7 @@
 # Card.imageAspectRatio
 
+Card.imageAspectRatio option values and behavior.
+
 - The artwork frame is as wide as the card. Its height is the measured card
   width divided by `imageAspectRatio`.
 - `artwork` is a factory that returns a GuiObject, such as a `Stage` preview.

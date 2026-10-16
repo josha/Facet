@@ -1,5 +1,7 @@
 #### The calendar
 
+<!-- aliases: The calendar | the-calendar -->
+
 The `Calendar` frame holds these parts in order:
 
 1. `Header`: `Previous`, the `Month` and `Year` menus, and `Next`.

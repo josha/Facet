@@ -1,5 +1,7 @@
 ### AdaptiveStack
 
+<!-- aliases: AdaptiveStack | adaptivestack -->
+
 `UI.AdaptiveStack(spec) -> Frame` is a stack that changes its axis. The
 children stay mounted when it turns, so they keep their state, focus and
 scroll position. Options: `axis`, `gap`, `padding`, `align`, `distribute`,

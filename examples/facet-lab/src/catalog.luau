@@ -369,6 +369,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				props = properties { row = { description = "Shown in the garage", icon = "settings", value = "On" } },
 			},
 			{ name = "hint line", props = properties { hint = "Saves your setup" } },
+			{ name = "thumb target (touch)", props = properties { label = "DRIFT", target = "thumb" } },
 			{
 				name = "subtitle in a fixed 117 width (wraps)",
 				props = merged(fixed(117), { label = "Boost Board", subtitle = "HELP · 2 energy", icon = "settings" }),
@@ -5176,6 +5177,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				UI.Region "UnderTest" {
 					zone = p.zone,
 					rank = p.rank,
+					leading = if p.zone == "topbar" then true else nil,
 					mayDrop = p.mayDrop,
 					reveal = p.reveal,
 					form = form,
@@ -5208,7 +5210,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				plate,
 			})
 		end,
-		demonstrates = { "form", "expand" },
+		demonstrates = { "form", "expand", "leading" },
 	},
 
 	environment = {

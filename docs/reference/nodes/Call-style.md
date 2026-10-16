@@ -1,5 +1,9 @@
 ### Call style
 
+<!-- aliases: Call style | call-style -->
+
+Call-style contract and option values.
+
 Use a dot for fields that are plain functions: `Facet.app`, `app.mount`,
 `app.dispose`, `runtime.mount`, `runtime.mountFragment`, `runtime.decorate`
 `runtime.spring` and `runtime.tween`. Use a colon for the Compose runtime

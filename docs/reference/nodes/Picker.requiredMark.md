@@ -1,5 +1,7 @@
 # Picker.requiredMark
 
+Picker.requiredMark option values and behavior.
+
 - `requiredMark`, `hint` and `errorText`: as on [TextInput](Field-chrome.md). The
   message line shows under the picker in each style. An error adds the
   `facet-invalid` tag to a menu trigger. The picker does not move.

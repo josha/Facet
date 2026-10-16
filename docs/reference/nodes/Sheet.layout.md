@@ -1,5 +1,7 @@
 # Sheet.layout
 
+Placement, width, header, hero, pinned actions, body padding, scroll policy and Close.
+
 - `placement`: `automatic` (the default, the bottom edge), `adaptive`,
   `bottom`, `center` or `side`. On a ten-foot screen `automatic` and
   `adaptive` centre the sheet, and they dock it again when the screen is near. `adaptive` docks the sheet at the side edge

@@ -1,5 +1,7 @@
 ### Pagination
 
+<!-- aliases: Pagination | pagination -->
+
 Pagination selects one page of numbered results. It does not fetch data.
 It requires `page` (a number or a readable) and `onChange(nextPage)`.
 

@@ -1,5 +1,7 @@
 ### Callout
 
+<!-- aliases: Callout | callout -->
+
 Callout requires a native `anchor` with a separate parent and `onRetire`. The
 callout borrows the anchor. When a native ancestor of the anchor is hidden, the
 callout is suspended. `seen`, `sessions`, `afterSessions`, `featureUsed` and

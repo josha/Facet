@@ -1,5 +1,7 @@
 ### Grid
 
+<!-- aliases: Grid | grid -->
+
 `UI.Grid(spec) -> Frame` puts its children in a `UIGridLayout`. `columns` is
 required. It must be a whole number, 1 or more. The grid divides its width into
 that number of cells. Each cell gets its share of the gaps, rounded up to a

@@ -1,5 +1,9 @@
 ### Instances you hand to a presenter
 
+<!-- aliases: Instances you hand to a presenter | instances-you-hand-to-a-presenter -->
+
+Instances-you-hand-to-a-presenter contract and option values.
+
 A Sheet (`content`, `header`, `hero.content`), DisclosureGroup, CollapsibleView,
 Callout and NavigationStack destination accept an Instance as well as a
 factory. The presenter parents that Instance while it is shown and detaches it

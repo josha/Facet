@@ -1,5 +1,7 @@
 # Motion.reveal.enter
 
+Motion.reveal.enter option values and behavior.
+
 | Control | Enter | Exit |
 |---|---|---|
 | Notice | The height opens from 0, 0.25 seconds (`reveal.enter`), Cubic Out. | After a press on its close button, the height closes to 0 in 0.2 seconds (`reveal.exit`). Then `onDismiss` runs. |

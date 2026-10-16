@@ -1,5 +1,9 @@
 #### Techniques
 
+<!-- aliases: Techniques | techniques -->
+
+Techniques option values and behavior.
+
 - `swatches`: the `Swatches` grid of 44 by 44 cells, at most 8 in a row. A
   press on a cell proposes its colour. The chosen cell shows `Check`. Each
   cell has the `facet-color-cell` tag and no padding, so its swatch is square.

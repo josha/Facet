@@ -1,5 +1,7 @@
 # Button.appearance
 
+Button.appearance option values and behavior.
+
 - `appearance`, `role`, `selected`, `name`, `hint` and `pop`. `appearance` is
   `standard`, `emphasis`, `soft`, `utility`, `link` or `inverse`. `inverse` is a
   light plate on a dark theme, and a dark plate on a light theme. It uses the
@@ -34,6 +36,11 @@
   carve (`chrome.control.contentInsets`) is added to that padding on each
   side, so the label and a Menu or Picker disclosure icon sit inside the
   frame. A framed TextInput adds the `field` carve the same way.
+- `target`: `hit` (the default) or `thumb`. On touch, a `thumb` Button has a
+  `TargetFloor` of `UI.environment().thumbTarget` on both axes, with any
+  `controlSize`. Use it for primary game actions that the player presses with
+  a thumb while playing, such as Jump, Drift or Fire.
+  With another input, it keeps the usual floor.
 - `textSize`: a type role (`caption`, `label`, `body`, `heading`, `title`,
   `control`, `strong` or `numeral`) or a number of pixels, or a readable of
   one. A role adds the `facet-type-<role>` tag to the label, and a number sets

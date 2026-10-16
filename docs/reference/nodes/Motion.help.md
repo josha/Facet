@@ -1,5 +1,7 @@
 # Motion.help
 
+Motion.help option values and behavior.
+
 | Control | Enter | Exit |
 |---|---|---|
 | Button `help` | The panel grows from 0.9 to 1 about its tail point, and fades in once, over the theme's `motion.normal` (0.2 seconds by default), Cubic Out (`easing.present`), from `materialize.anchored`. The panel, its text and its tail appear on the same first styled frame. | The reverse, over `motion.fast`. |

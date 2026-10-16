@@ -1,5 +1,7 @@
 ### Menu and SplitButton
 
+<!-- aliases: Menu and SplitButton | menu-and-splitbutton -->
+
 Open one option group below. Each group gives part of this contract.
 
 Open:

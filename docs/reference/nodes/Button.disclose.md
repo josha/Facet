@@ -1,5 +1,7 @@
 # Button.disclose
 
+Button.disclose option values and behavior.
+
 - `disclose`: `true` lets a player read the whole label of a text Button
   that truncates. With an authored width the label keeps one line and
   truncates at the end instead of wrapping. The label shows in the help panel (named `Disclosure`) on the

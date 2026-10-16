@@ -1,5 +1,7 @@
 ### Rating and LevelPicker
 
+<!-- aliases: Rating and LevelPicker | rating-and-levelpicker -->
+
 Both take a numeric `value`, a positive integer `count` (default `5`),
 `allowZero` (default true), `readOnly`, `enabled` and `onChange`. The
 `value` and `semanticValue` attributes stay in the range from the minimum to

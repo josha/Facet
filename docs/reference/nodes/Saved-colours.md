@@ -1,5 +1,7 @@
 #### Saved colours
 
+<!-- aliases: Saved colours | saved-colours -->
+
 The control keeps no colours of its own. `swatches` stays yours.
 
 - With `onSaveSwatch`, the grid ends with a `Save` cell named "Save colour".

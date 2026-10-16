@@ -1,5 +1,7 @@
 # CellEditor.draft
 
+`draft` is an optional writable cell containing nil or `{ text: string, original: unknown, error: string? }`.
+
 `draft` is an optional writable cell containing nil or
 `{ text: string, original: unknown, error: string? }`. It is valid only for text
 and number editors. Keep one draft per record and field outside the render

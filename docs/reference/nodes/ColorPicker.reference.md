@@ -1,5 +1,7 @@
 ### ColorPicker
 
+<!-- aliases: ColorPicker | colorpicker -->
+
 `UI.ColorPicker(spec)` returns a Frame. The player uses it to choose any
 colour, for example the paint of a kart. For a few named colours, use
 `UI.Picker`. A fixed palette also fits `modes = { "swatches" }`.

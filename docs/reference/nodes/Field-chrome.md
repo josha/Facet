@@ -1,5 +1,7 @@
 #### Field chrome
 
+<!-- aliases: Field chrome | field-chrome -->
+
 A field can have these field chrome options: `label`, `requiredMark`, `hint`,
 `errorText`, `leading`, `trailing`, `controlSize`, `appearance` and `corners`.
 A field without search presentation, chrome options, number units, step buttons or `visibleLines`

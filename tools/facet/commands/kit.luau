@@ -266,7 +266,11 @@ local function cases(): { Case.Case }
 					),
 					Case.expect(chosen.copies["tools/facet/commands/docs.luau"] ~= nil, "the docs command is missing"),
 					Case.expect(chosen.copies["tools/facet/lib/docs_index.luau"] ~= nil, "a command library is missing"),
-					Case.expect(chosen.copies["docs/reference/index.json"] ~= nil, "the node index is missing"),
+					Case.expect(chosen.copies["docs/reference/nodes/Map.md"] ~= nil, "the documentation map is missing"),
+					Case.expect(
+						chosen.copies["tools/facet/lib/markdown.luau"] ~= nil,
+						"the node link parser is missing"
+					),
 					Case.expect(
 						chosen.copies["docs/reference/nodes/Sheet.detents.md"] ~= nil,
 						"an option node is missing"

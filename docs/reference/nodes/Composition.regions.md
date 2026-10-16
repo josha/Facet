@@ -1,5 +1,7 @@
 # Composition.regions
 
+Region zones, ranking, stacking and stable HUD layout.
+
 - `zone` is required: `topLeft`, `top`, `topRight`, `left`, `center`,
   `right`, `bottomLeft`, `bottom`, `bottomRight` or `topbar`.
 - `rank` is required: a whole number, 1 or more. Rank 1 is the most
@@ -8,6 +10,9 @@
 - `form`: a writable cell. The composition writes the index of the form that
   shows, or 0 when the region is hidden. Read it to offer the hidden content in
   another place, such as a sheet.
+- `leading`: a boolean. The default is `false`. Only a `topbar` region can lead.
+  A leading region sits at the start of the strip, beside the Roblox buttons.
+  The other strip regions stay centred in the remaining space.
 - `reveal`: a boolean, default `true`. While the region shows a reduced form,
   a tap, click or `A` on that form opens the richest form in a Popover
   anchored at the region (`compact = "popover"`, so a phone keeps it in
@@ -30,4 +35,4 @@
   is necessary. Give each form a pixel or `hug` size. A form that fills its
   parent has no size of its own.
 
-Layout:
+See [Composition.layout](Composition.layout.md) for layout rules.

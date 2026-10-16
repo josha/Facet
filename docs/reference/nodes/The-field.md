@@ -1,5 +1,7 @@
 #### The field
 
+<!-- aliases: The field | the-field -->
+
 The field is the `Field` plate in the field chrome. When the preferred input
 is keyboard and mouse, the field holds a native TextBox named `Entry`.
 Otherwise, it holds a button named `Show`. The calendar button `Open` is 44

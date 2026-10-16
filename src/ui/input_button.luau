@@ -64,6 +64,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		"onPointerCancel",
 		"textSize",
 		"underline",
+		"target",
 	})
 	local CONTROL_RUNGS = { "xsmall", "compact", "regular", "large" }
 	local rungTags: { string } = {}
@@ -79,6 +80,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		assert(
 			spec.shape == nil or spec.shape == "rect" or spec.shape == "circle",
 			"Facet.Button: shape must be rect or circle"
+		)
+		assert(
+			spec.target == nil or spec.target == "hit" or spec.target == "thumb",
+			"Facet.Button: target must be hit or thumb"
 		)
 		local function cornerRadius(use: ComposeTypes.Use?): UDim
 			local corners = read(spec.corners, use)
@@ -232,22 +237,36 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			AutoButtonColor = false,
 		}
 		local authored = spec.Size
+		local function widthSet(size: UDim2): boolean
+			return size.X.Scale > 0 or size.X.Offset > 0
+		end
+		local liveWidth = spec.AutomaticSize == nil and dynamic(authored)
 		local bounded = (
 			spec.AutomaticSize == E.AutomaticSize.None
 			or spec.AutomaticSize == E.AutomaticSize.Y
-			or (
-				spec.AutomaticSize == nil
-				and typeof(authored) == "UDim2"
-				and ((authored :: UDim2).X.Scale > 0 or (authored :: UDim2).X.Offset > 0)
-			)
+			or liveWidth
+			or (spec.AutomaticSize == nil and typeof(authored) == "UDim2" and widthSet(authored :: UDim2))
 		)
 			and spec.image == nil
 			and spec.row == nil
 		if bounded and spec.AutomaticSize == nil then
-			defaults.AutomaticSize = E.AutomaticSize.Y
-			if not rich then
-				defaults.TextWrapped = spec.disclose ~= true
-					and (spec.TextTruncate == nil or spec.TextTruncate == E.TextTruncate.None)
+			local wraps = not rich
+				and spec.disclose ~= true
+				and (spec.TextTruncate == nil or spec.TextTruncate == E.TextTruncate.None)
+			if liveWidth then
+				defaults.AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
+					return if widthSet(read(authored, use) :: UDim2) then E.AutomaticSize.Y else E.AutomaticSize.XY
+				end
+				if wraps then
+					defaults.TextWrapped = function(use: ComposeTypes.Use): boolean
+						return widthSet(read(authored, use) :: UDim2)
+					end
+				end
+			else
+				defaults.AutomaticSize = E.AutomaticSize.Y
+				if not rich then
+					defaults.TextWrapped = wraps
+				end
 			end
 		end
 		if enabledProperty ~= true then
@@ -255,7 +274,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			defaults.Interactable = enabledProperty
 		end
 		local p = ctx.props(spec, buttonKeys, defaults)
-		local targetFloor = if ctx.config.userInputService ~= nil then ctx.touchFloor() else nil
+		local thumb = spec.target == "thumb" and ctx.config.userInputService ~= nil
+		local targetFloor: ((ComposeTypes.Use?) -> number)? = if thumb
+			then ctx.thumbFloor(if UI.environment ~= nil
+				then UI.environment().thumbTarget
+				else Compose.formula(function(use: ComposeTypes.Use): number
+					return ctx.metric("targetSizes.thumb", use)
+				end))
+			elseif ctx.config.userInputService ~= nil then ctx.touchFloor()
+			else nil
 		local constrainedCaption = bounded
 			and spec.label ~= nil
 			and spec.shape ~= "circle"

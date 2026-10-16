@@ -1,5 +1,7 @@
 ## Collections
 
+<!-- aliases: Collections | collections -->
+
 Open:
 
 - [Card.reference](Card.reference.md)

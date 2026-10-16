@@ -1,5 +1,7 @@
 # Dialog.title
 
+Dialog.title option values and behavior.
+
 - `title`, `actionLabel`: strings or bound strings. An empty bound title hides
   until it has text.
 - `content`: a factory for the one body. The body scrolls between the pinned

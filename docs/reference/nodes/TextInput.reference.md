@@ -1,5 +1,7 @@
 ### TextInput
 
+<!-- aliases: TextInput | textinput -->
+
 `value` is the string model. Roblox TextBox owns editing, IME, the caret, the
 text selection and focus. `onChange(text)` handles user edits. An external
 model update does not send it. `onCommit(value, reason)` receives `submit` or

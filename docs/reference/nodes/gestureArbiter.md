@@ -1,5 +1,7 @@
 ### gestureArbiter
 
+<!-- aliases: gestureArbiter | gesturearbiter -->
+
 `UI.gestureArbiter(surface) -> GestureBinding` shares the pointer decision with
 `UI.draggable`, collection drags and ScrollView. Call it inside a Compose owner.
 The binding stops its contacts when that owner ends. Control factories on the

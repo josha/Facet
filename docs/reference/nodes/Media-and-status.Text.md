@@ -1,5 +1,7 @@
 # Media-and-status.Text
 
+<!-- kind: index -->
+
 Open one control contract.
 
 - [Text.summary](Text.summary.md)

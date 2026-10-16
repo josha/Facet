@@ -1,5 +1,7 @@
 ### Vote
 
+<!-- aliases: Vote | vote -->
+
 Vote is up, down or none over your value. It requires `value` (`up`, `down`
 or `none`, or a readable of one) and `onChange(next)`, unless `readOnly` is
 true. `summary` is your own text, such as "99% liked". The optional

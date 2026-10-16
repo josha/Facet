@@ -1,5 +1,7 @@
 ## Effect sequences
 
+<!-- aliases: Effect sequences | effect-sequences -->
+
 `UI.sequence(spec) -> Sequence` owns an ordered effect sequence. It creates
 no GUI. `steps` is an array of `SequenceStep`. A step accepts:
 

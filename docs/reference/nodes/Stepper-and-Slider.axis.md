@@ -1,5 +1,7 @@
 # Stepper-and-Slider.axis
 
+Stepper-and-Slider.axis option values and behavior.
+
 - `axis`: `x` (the default) or `y`. A `y` track runs from bottom to top. Its
   arrows are Up and Down, and Left and Right do not change it. The arrow that
   moves the selection onto a slider does not also change the value.

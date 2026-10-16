@@ -1,5 +1,7 @@
 # environment.luau
 
+environment.luau option values and behavior.
+
 ```luau
 local function Apps(tabs, selection)
 	local env = UI.environment()

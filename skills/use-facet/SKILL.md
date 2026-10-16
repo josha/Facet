@@ -5,7 +5,8 @@ description: Build, change, style or test Roblox game UI and Studio plugin inter
 
 # Use Facet
 
-Start with `lute run tools/facet docs` for the map. Open one task recipe.
+Start with `lute run tools/facet docs` for `Map`. Open one task recipe,
+such as `lute run tools/facet docs Tasks.hud`.
 Open a control card or option node only for a missing detail: `docs <path>`.
 Use `docs --search TEXT` to find paths and one-line summaries.
 Never reread a node already in context. Each call returns one bounded node.
@@ -35,6 +36,28 @@ Use `project [directory]` for file discovery. Read one matching starter in
   controls for size changes. Do not branch on the device. For a length the
   game owns, use `UI.environment().scaled(64)`. Add a type role,
   `scaled(64, "body")`, when the length sits beside text.
+- Give each region forms from the richest to the narrowest. The narrowest
+  form must fit a portrait phone, about 320 pixels wide. For example, a row of
+  buttons, then the main button over the others, then one column. Let the
+  Composition choose the form. Do not choose a layout in a region with
+  `isCompact`, `isLandscape` or a fixed `AdaptiveStack` axis. A plain HStack
+  never wraps. The Composition warns when a region does not fit at its last
+  form. Fix each warning.
+- Put a command that the Roblox top bar can hold, such as a settings gear, in
+  a `topbar` region. Use `leading = true` to put it beside the Roblox buttons.
+  Open `Composition.regions` for options and `Composition.adaptation` for strip
+  layout. Open `Composition.layout.step-down` for fallback and fit warnings.
+  Use one `docs <path>` call for each node that you need.
+- Let a text box hug its text, or use `textSize = { fit = ... }` in a box of
+  fixed size. A label can be twice as long in another language.
+- The Composition measures each form with its scale. To pop part of a region,
+  put the `UIScale` on an inner frame inside a holder of fixed size. Then a
+  pop does not move the region to another place or form.
+- Give the primary actions that a player presses with a thumb, such as Jump
+  or Drift, `target = "thumb"`. Size their art from
+  `UI.environment().thumbTarget`, not from the screen width.
+  Open `Button.appearance` for `target`, `environment.environment` for
+  `thumbTarget` or `Themes.metrics` for theme options.
 - Use native InputAction and InputContext for game commands. Controls own
   their input and selection. Do not bind Escape or the gamepad Start button.
 - Keep `AutoLocalize` on for fixed text. Use `Translator:FormatByKey` and the

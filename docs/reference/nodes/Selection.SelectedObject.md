@@ -1,5 +1,7 @@
 # Selection.SelectedObject
 
+Selection.SelectedObject option values and behavior.
+
 - Entry. When nothing is selected, the first D-pad press selects the first
   control of the active screen in layout order. An open modal is the active
   screen. The press does not move a selection that already exists.

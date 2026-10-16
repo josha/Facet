@@ -1,5 +1,7 @@
 ### Notice
 
+<!-- aliases: Notice | notice -->
+
 `UI.Notice` returns the notice Frame. It keeps a status in the page until the
 state changes. It is never modal.
 

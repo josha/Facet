@@ -1,5 +1,7 @@
 ### VirtualList and VirtualGrid
 
+<!-- aliases: VirtualList and VirtualGrid | virtuallist-and-virtualgrid -->
+
 Open one option group below. Each group gives part of this contract.
 
 Open:

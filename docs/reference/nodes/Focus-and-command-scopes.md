@@ -1,5 +1,7 @@
 ## Focus and command scopes
 
+<!-- aliases: Focus and command scopes | focus-and-command-scopes -->
+
 `UI.commandScope(root, spec) -> CommandScope<K>` attaches commands to an
 existing GuiObject. `targets` is a value or readable array of `{ key, node }`.
 Each key and node must be unique. A node can contain native selection targets.

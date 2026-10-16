@@ -1,5 +1,7 @@
 ### PageView
 
+<!-- aliases: PageView | pageview -->
+
 PageView requires a writable `selection` and `pages` with unique ids and
 content factories. It supplies page navigation, indicators, and previous and
 next actions. Use it for a sequential set of peer pages. TabView is for named

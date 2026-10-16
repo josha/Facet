@@ -1,5 +1,7 @@
 ### Text
 
+<!-- aliases: Text | text -->
+
 Open one option group below. Each group gives part of this contract.
 
 `UI.Text(spec) -> TextLabel` shows plain text. `text` is a string, a readable

@@ -1,5 +1,7 @@
 ### Selection
 
+<!-- aliases: Selection | selection -->
+
 Open one option group below. Each group gives part of this contract.
 
 The controls use `GuiService.SelectedObject` for keyboard and gamepad focus.

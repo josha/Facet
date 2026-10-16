@@ -1,5 +1,7 @@
 ### Typewriter
 
+<!-- aliases: Typewriter | typewriter -->
+
 `UI.Typewriter(spec: TypewriterProps) -> TextLabel` takes the Text options and
 reveals the full `text` through native `MaxVisibleGraphemes`. It never slices
 the string. It counts graphemes in engine `ContentText`, so rich-text tags and

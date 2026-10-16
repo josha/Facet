@@ -1,5 +1,7 @@
 # TabView.tabBottomTrack
 
+TabView.tabBottomTrack option values and behavior.
+
 | Group | Fields and neutral values |
 | --- | --- |
 | `tabBottomTrack` | `height = 64`, `sideInset = 16`, `bottomInset = 12`, `radius = 20`, `contentGap = 8` |

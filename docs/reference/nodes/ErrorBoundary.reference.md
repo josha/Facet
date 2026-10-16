@@ -1,5 +1,7 @@
 ### ErrorBoundary
 
+<!-- aliases: ErrorBoundary | errorboundary -->
+
 `UI.ErrorBoundary(spec) -> Frame` contains a failure in the region that it
 builds. `view()` builds the region. `fallback(failure, retry)` builds the
 content that replaces the region after a failure. Both are required.

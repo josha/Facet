@@ -1,5 +1,7 @@
 # Themes.tokens
 
+Native color tokens, metric rule values and palette changes.
+
 - Palette color rules reference native `$FacetColor_<role>` tokens. The
   StyleSheet attributes hold the resolved colors. A palette change updates
   these attributes and keeps the color rules. `StyleRule:GetProperties()`

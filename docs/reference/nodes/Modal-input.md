@@ -1,5 +1,7 @@
 ### Modal input
 
+<!-- aliases: Modal input | modal-input -->
+
 Dialog, Alert, Sheet, Popover, Menu and the other modal
 surfaces put an Active full-screen root and an Active scrim button over the
 layer. Thus a press, a tap or a drag under the modal does not reach the

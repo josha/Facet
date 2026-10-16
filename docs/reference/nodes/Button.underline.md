@@ -1,5 +1,7 @@
 # Button.underline
 
+Button.underline option values and behavior.
+
 - `underline`: `always` or `hover`, for a plain text button only. The label
   uses RichText and shows underlined always, or while the pointer is on the
   button, while it is pressed and while it has the gamepad or keyboard

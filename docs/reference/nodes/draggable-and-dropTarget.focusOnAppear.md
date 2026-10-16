@@ -1,5 +1,7 @@
 # draggable-and-dropTarget.focusOnAppear
 
+draggable-and-dropTarget.focusOnAppear option values and behavior.
+
 - `focusOnAppear = true` selects the first selectable item in `group`
   (`GuiService:Select(group)`) when `group` arrives in a ScreenGui.
   `focusOnAppear = "Save"` selects the descendant with that name. The claim

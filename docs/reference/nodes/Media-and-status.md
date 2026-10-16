@@ -1,5 +1,7 @@
 ## Media and status
 
+<!-- aliases: Media and status | media-and-status -->
+
 Open one option group below. Each group gives part of this contract.
 
 Open:

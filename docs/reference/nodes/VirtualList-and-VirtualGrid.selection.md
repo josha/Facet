@@ -1,5 +1,7 @@
 # VirtualList-and-VirtualGrid.selection
 
+VirtualList-and-VirtualGrid.selection option values and behavior.
+
 - `selection` is a writable key-set map.
 - `selectionMode` defaults to single when you supply `selection` or its
   callback. Otherwise it defaults to none.

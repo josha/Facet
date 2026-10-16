@@ -1,5 +1,7 @@
 ### ScrollView
 
+<!-- aliases: ScrollView | scrollview -->
+
 `UI.ScrollView(spec) -> ScrollingFrame` scrolls its children. It fills its
 parent by default. It contains a `UIListLayout` and sets `AutomaticCanvasSize`
 and `ScrollingDirection` for its axis. Thus the content fits the scroll window

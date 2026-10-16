@@ -1,5 +1,9 @@
 ### Layout options
 
+<!-- aliases: Layout options | layout-options -->
+
+Layout-options option values and behavior.
+
 | Option | Values | Native result |
 |---|---|---|
 | `gap` | a spacing step or a number of pixels | `UIListLayout.Padding` |

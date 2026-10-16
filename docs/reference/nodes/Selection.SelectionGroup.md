@@ -1,5 +1,7 @@
 # Selection.SelectionGroup
 
+Selection.SelectionGroup option values and behavior.
+
 - Grids and lanes. The engine walks a grid in two dimensions. Use the native
   properties for the rest: `SelectionGroup = true` on a container keeps the
   arrows inside it, and `SelectionBehaviorUp`, `Down`, `Left` and `Right`

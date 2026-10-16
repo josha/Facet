@@ -1,5 +1,7 @@
 ### NavigationStack
 
+<!-- aliases: NavigationStack | navigationstack -->
+
 NavigationStack requires a writable `path`, `root` and `destinations`. The path
 is an array of `{ id, value }` entries. `root` and each `destinations[id]` are
 `{ title, content }`. Destination content receives the entry.

@@ -1,5 +1,7 @@
 ### Label
 
+<!-- aliases: Label | label -->
+
 `UI.Label(spec) -> Frame` shows an icon and a title in a row. The title is the
 accessible name in every presentation. The root has the `AccessibleLabel`
 attribute, which follows a bound title.

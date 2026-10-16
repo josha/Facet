@@ -1,5 +1,7 @@
 # draggable-and-dropTarget.operation
 
+draggable-and-dropTarget.operation option values and behavior.
+
 - `operation`: `"move"` by default; also accepts `"copy"`, `"apply"`, or a
   readable value. An explicit source operation list must include it.
 - `accepts(payload, info) -> (legal, reason?)`: checked during hover and at

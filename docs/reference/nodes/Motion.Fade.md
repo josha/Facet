@@ -1,5 +1,7 @@
 # Motion.Fade
 
+Motion.Fade option values and behavior.
+
 - A modal panel keeps its CanvasGroup named `Fade` for its complete lifetime.
   Its children do not change parent at the end of an entrance. Alert, Dialog,
   Popover and floating Menu use a cross-fade at their final size. This avoids

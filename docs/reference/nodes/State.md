@@ -1,5 +1,7 @@
 ### State
 
+<!-- aliases: State | state -->
+
 Readables and `function(use)` bodies bind reactive properties. The caller owns
 the state. An input value control writes a writable cell when the related
 callback is absent. If you supply `onChange` or `onToggle`, the callback is a

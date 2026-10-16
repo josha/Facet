@@ -1,5 +1,7 @@
 ### Settings rows
 
+<!-- aliases: Settings rows | settings-rows -->
+
 The `row` form of Button, Toggle and Slider is one list row. The row has the
 `facet-list-row` tag and one `Content` frame. `Content` holds the
 `LeadingIcon`, then a `Captions` column that fills the width, then the

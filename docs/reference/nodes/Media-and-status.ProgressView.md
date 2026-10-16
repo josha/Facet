@@ -1,5 +1,7 @@
 # Media-and-status.ProgressView
 
+<!-- kind: index -->
+
 Open one control contract.
 
 - [ProgressView.reference](ProgressView.reference.md)

@@ -1,5 +1,7 @@
 #### Proposals and commits
 
+<!-- aliases: Proposals and commits | proposals-and-commits-1 -->
+
 The value belongs to you. A pick sends a proposal to `onChange` or
 `onRangeChange`. The calendar shows only the value that you then hold. If you
 refuse a pick, the calendar does not change.

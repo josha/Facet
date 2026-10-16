@@ -1,5 +1,7 @@
 # Types.ToggleCellProps
 
+Types.ToggleCellProps option values and behavior.
+
 - The binding shapes of each binding control, for example
   `ToggleCellProps`, `ToggleRequestProps`, `TextInputCellProps`,
   `TextInputRequestProps`, `TextInputNumberCellProps`,

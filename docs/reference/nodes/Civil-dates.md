@@ -1,5 +1,7 @@
 ## Civil dates
 
+<!-- aliases: Civil dates | civil-dates -->
+
 `Facet.civilDate` is the calendar that `UI.DateTimePicker` keeps its values in.
 A `CivilDate` is `{ year, month, day, hour?, minute? }` in no time zone. A
 `CivilRange` is `{ start?, finish? }`.
