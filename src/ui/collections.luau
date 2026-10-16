@@ -263,7 +263,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local scale = use(view.unitSize).X
-			local dimensions, at = use(size), use(position)
+			use(size)
+			use(position)
+			local dimensions, at = root.AbsoluteWindowSize, root.CanvasPosition
 			use(ancestryVersion)
 			local ancestor = use(mountParent)
 			if dimensions.X <= 0 or dimensions.Y <= 0 then
