@@ -6,6 +6,7 @@ return function(verifyHarness: Verify.Harness)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 	type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayAction)
+	type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
 
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
@@ -74,6 +75,95 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Sheet: placement, width, title and close", function()
+		verifyHarness:case("keeps background input blocked through a nested Sheet", {
+			id = "native_sheet_parts::nested-modal-native-input",
+			run = function()
+				local shown, child = Compose.cell(false), Compose.cell(false)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					local props: FrameNativeProps = {
+						Host.TextButton "HUDAction" { Text = "Shop", Selectable = true },
+						UI.Sheet "Shop" {
+							isPresented = shown,
+							title = "Shop",
+							content = function()
+								local body: FrameNativeProps = {
+									UI.Button "ParentAction" { label = "More" },
+									UI.Sheet "More" {
+										isPresented = child,
+										title = "More",
+										content = function()
+											return UI.Button "ChildAction" { label = "Buy" }
+										end,
+									},
+								}
+								return Host.Frame(body)
+							end,
+						},
+					}
+					return Host.Frame(props)
+				end)
+				shown:set(true)
+				child:set(true)
+				Verify.expect(w.find("HUDAction").Interactable):toBe(false)
+				Verify.expect(w.find("ParentAction").Interactable):toBe(false)
+				Verify.expect(w.find("ChildAction").Interactable):toBe(true)
+				child:set(false)
+				Verify.expect(w.find("HUDAction").Interactable):toBe(false)
+				Verify.expect(w.find("ParentAction").Interactable):toBe(true)
+				shown:set(false)
+				Verify.expect(w.find("HUDAction").Interactable):toBe(true)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("blocks native background actions and restores them after closing", {
+			id = "native_sheet_parts::modal-native-input",
+			run = function()
+				local shown = Compose.cell(false)
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					local props: FrameNativeProps = {
+						Host.TextButton "HUDAction" { Text = "Shop", Selectable = true, Interactable = true },
+						Host.TextButton "DisabledAction" {
+							Text = "Unavailable",
+							Selectable = false,
+							Interactable = false,
+						},
+						UI.Sheet "Shop" {
+							isPresented = shown,
+							title = "Shop",
+							content = function()
+								return UI.Button "Buy" { label = "Buy" }
+							end,
+						},
+					}
+					return Host.Frame(props)
+				end)
+				local button = w.find("HUDAction")
+				for _ = 1, 2 do
+					shown:set(true)
+					Verify.expect(button.Interactable):toBe(false)
+					Verify.expect(button.Selectable):toBe(false)
+					Verify.expect(w.find("Buy").Interactable):toBe(true)
+					shown:set(false)
+					Verify.expect(button.Interactable):toBe(true)
+					Verify.expect(button.Selectable):toBe(true)
+					Verify.expect(w.find("DisabledAction").Interactable):toBe(false)
+					Verify.expect(w.find("DisabledAction").Selectable):toBe(false)
+				end
+				w.stop()
+			end,
+		})
+		verifyHarness:case("routes Close to footer actions when the body has only text", {
+			id = "native_sheet_parts::text-body-footer-selection",
+			run = function()
+				local w = mount({ actions = { { id = "Buy", label = "Buy", onActivate = noop } } })
+				Verify.expect(w.find("SheetContent").Selectable):toBe(false)
+				Verify.expect(w.find("SheetContent").SelectionGroup):toBe(false)
+				Verify.expect(w.find("Room").SelectionGroup):toBe(false)
+				Verify.expect(w.find("Close").NextSelectionDown):toBe(w.find("Buy"))
+				Verify.expect(w.find("Buy").NextSelectionUp):toBe(w.find("Close"))
+				w.stop()
+			end,
+		})
 		verifyHarness:case("arrival wrapper releases supplied hero content before destroying its ancestors", {
 			id = "native_sheet_parts::arrival-keeps-hero",
 			run = function()

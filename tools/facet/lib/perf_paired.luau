@@ -336,6 +336,94 @@ function Paired.benchTables(
 	return lines
 end
 
+local function percent(text: string): string
+	local ratio = tonumber(text)
+	if ratio == nil then
+		return "n/a"
+	end
+	local change = (ratio - 1) * 100
+	return ("%s%.1f%%"):format(if change < 0 then "-" else "+", math.abs(change))
+end
+
+function Paired.summary(lines: { string }, first: string, second: string): { string }
+	local scenes, benches, unavailable = 0, 0, 0
+	local slower: { string } = {}
+	local kind: string? = nil
+	for _, line in lines do
+		if string.sub(line, 1, 8) == "| Scene " then
+			kind = "scene"
+			continue
+		elseif string.sub(line, 1, 17) == "| Microbenchmark " then
+			kind = "bench"
+			continue
+		elseif string.sub(line, 1, 4) == "|---" then
+			continue
+		elseif string.sub(line, 1, 1) ~= "|" then
+			kind = nil
+			continue
+		elseif kind == nil then
+			continue
+		end
+		local cells: { string } = {}
+		for _, value in string.split(line, "|") do
+			table.insert(cells, (string.gsub(value, "^%s*(.-)%s*$", "%1")))
+		end
+		table.remove(cells, 1)
+		table.remove(cells)
+		local name, flag = cells[1], cells[#cells]
+		if kind == "scene" then
+			scenes += 1
+		else
+			benches += 1
+		end
+		if string.find(flag, "unavailable", 1, true) then
+			unavailable += 1
+		elseif string.find(flag, second .. " slower (", 1, true) then
+			local which = string.match(flag, "%((.-)%)") or ""
+			table.insert(
+				slower,
+				("| %s%s | %s | %s | %s |"):format(
+					name,
+					if kind == "bench" then " (microbenchmark)" else "",
+					percent(cells[4]),
+					percent(cells[8]),
+					which
+				)
+			)
+		end
+	end
+	local measured = ("%d scenes%s"):format(
+		scenes,
+		if benches > 0 then (" and %d microbenchmarks"):format(benches) else ""
+	)
+	local summary: { string } = {}
+	if #slower == 0 then
+		table.insert(summary, "### Paired performance: PASS")
+		table.insert(summary, "")
+		table.insert(summary, ("%s is not consistently slower than %s in any of %s."):format(second, first, measured))
+	else
+		table.insert(summary, "### Paired performance: FAIL")
+		table.insert(summary, "")
+		table.insert(
+			summary,
+			("%s is consistently slower than %s in %d of %s."):format(second, first, #slower, measured)
+		)
+		table.insert(summary, "")
+		table.insert(summary, "| Slower | p50 change | p95 change | Slower at |")
+		table.insert(summary, "|---|---:|---:|---|")
+		for _, row in slower do
+			table.insert(summary, row)
+		end
+	end
+	if unavailable > 0 then
+		table.insert(summary, "")
+		table.insert(summary, ("%d measurements were unavailable; see the full table."):format(unavailable))
+	end
+	table.insert(summary, "")
+	table.insert(summary, "Consistently slower means the median ratio is above 1.05 and every paired round is slower.")
+	return summary
+end
+
 function Paired.benchRound(name: string, label: string): number?
 	if string.sub(name, 1, #label + 7) ~= "bench-" .. label .. "-" or string.sub(name, -5) ~= ".json" then
 		return nil

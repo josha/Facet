@@ -38,6 +38,36 @@ export type Line = { text: string, y: number, x: number }
 
 local Look = {}
 
+function Look.presentationProblems(dump: Audit.Dump): { Audit.Violation }
+	local problems: { Audit.Violation } = {}
+	for _, element in dump.elements do
+		if not element.visible or not element.selectionGroup or not string.match(element.path, "%.SheetPanel$") then
+			continue
+		end
+		local root = dump.roots[element.root]
+		local room = if root
+			then root.rect
+			else { x = 0, y = 0, width = dump.screen.width, height = dump.screen.height }
+		local rect = element.rect
+		if
+			rect.width <= 0
+			or rect.height <= 0
+			or rect.x < room.x - 1
+			or rect.y < room.y - 1
+			or rect.x + rect.width > room.x + room.width + 1
+			or rect.y + rect.height > room.y + room.height + 1
+		then
+			table.insert(problems, {
+				rule = "modal-presentation",
+				severity = "high",
+				path = element.path,
+				detail = "the Sheet has not entered the player viewport",
+			})
+		end
+	end
+	return problems
+end
+
 Look.DEVICES = (function(): { string }
 	local ids: { string } = {}
 	for _, device in Devices.list do
@@ -173,6 +203,28 @@ function Look.run(options: Options, open: ((Play.HostOptions) -> Play.Host)?): R
 					failure = (failure or "") .. " interface did not settle"
 				end
 				inline = fields.dump
+				if inline ~= nil then
+					local presented, reason = pcall(function()
+						local deadline = os.clock() + 20
+						while true do
+							local encoded = QA.readDump(inline, function(command, values)
+								return qa:call(command, values)
+							end)
+							inline = encoded
+							if #Look.presentationProblems(Look.decode(encoded)) == 0 then
+								break
+							end
+							local remaining = deadline - os.clock()
+							assert(remaining > 0, "Sheet presentation did not enter the player viewport")
+							qa:call("perf", { action = "settle", quiet = 0.3, limit = remaining, compareLegacy = true })
+							inline =
+								qa:call("dump", { inline = true, device = device, input = Devices.get(device).input })
+						end
+					end)
+					if not presented then
+						failure = (failure or "") .. " presentation: " .. tostring(reason)
+					end
+				end
 			elseif step.wait ~= nil then
 				qa:sleep(step.wait)
 			else
@@ -377,10 +429,20 @@ end
 
 function Look.audit(dump: Audit.Dump, device: string): Audit.Report
 	local known = Devices.get(device)
-	return Audit.analyze(dump, {
+	local report = Audit.analyze(dump, {
 		touch = table.find(known.input, "touch") ~= nil,
 		gamepad = table.find(known.input, "gamepad") ~= nil,
 	})
+	local problems = Look.presentationProblems(dump)
+	for _, problem in problems do
+		table.insert(report.violations, problem)
+	end
+	if #problems > 0 then
+		local penalty = #problems * report.options.weights.high
+		report.rules["modal-presentation"] = { count = #problems, severity = "high", penalty = penalty }
+		report.score = math.max(0, report.score - penalty)
+	end
+	return report
 end
 
 return Look

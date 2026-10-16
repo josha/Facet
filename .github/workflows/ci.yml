@@ -163,13 +163,18 @@ jobs:
         run: |
           mkdir -p artifacts
           lute run tools/facet perf paired run --out artifacts/perf-paired --rounds 3 --skip-bench base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE"
-          if lute run tools/facet perf paired report artifacts/perf-paired base pr --gate | tee artifacts/perf-paired-report.txt; then
+          if lute run tools/facet perf paired report artifacts/perf-paired base pr --gate --summary artifacts/perf-paired-summary.md | tee artifacts/perf-paired-report.txt; then
+            cat artifacts/perf-paired-summary.md >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           scenes=$(sed -n 's/^paired gate: FAIL - pr is consistently slower in //p' artifacts/perf-paired-report.txt | tr -d ' ')
           echo "Rechecking $scenes with six rounds."
+          { echo "First pass flagged: $scenes. Rechecking them with six rounds."; echo; } >> "$GITHUB_STEP_SUMMARY"
           lute run tools/facet perf paired run --out artifacts/perf-paired-recheck --rounds 6 --skip-bench --scenes "$scenes" base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE"
-          lute run tools/facet perf paired report artifacts/perf-paired-recheck base pr --gate | tee artifacts/perf-paired-recheck-report.txt
+          status=0
+          lute run tools/facet perf paired report artifacts/perf-paired-recheck base pr --gate --summary artifacts/perf-paired-recheck-summary.md | tee artifacts/perf-paired-recheck-report.txt || status=$?
+          cat artifacts/perf-paired-recheck-summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit $status
 
       - name: Save the paired results
         if: always()

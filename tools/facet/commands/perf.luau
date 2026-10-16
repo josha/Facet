@@ -35,8 +35,8 @@ subcommands:
   place [--no-build]            build examples/performance.project.json and check the place
   paired run --out DIR [--rounds N] [--scenes a,b] [--skip-bench] LABEL=WORKTREE...
                                 run the paired scenes and the bench in each worktree, round by round
-  paired report DIR FIRST SECOND [--gate]
-                                print the paired scene and microbenchmark tables; --gate exits 1 when SECOND is consistently slower
+  paired report DIR FIRST SECOND [--gate] [--summary FILE]
+                                print a results summary and the paired scene and microbenchmark tables; --gate exits 1 when SECOND is consistently slower; --summary appends the summary and tables as Markdown
   aggregate [--all] [--layout] DUMP.html...
                                 read a MicroProfiler HTML dump's aggregate timer table
   spec-timings [OUTCOME.json] [OUTPUT.tsv]
@@ -453,12 +453,30 @@ local function pairedReport(invocation: Cli.Invocation): number
 	for _, line in Paired.benchTables(benchesFor(out, first), benchesFor(out, second), first, second) do
 		table.insert(lines, line)
 	end
+	local summary = Paired.summary(lines, first, second)
+	for _, line in summary do
+		print(line)
+	end
+	print("")
 	local slower: { string } = {}
 	for _, line in lines do
 		print(line)
 		if string.find(line, second .. " slower (", 1, true) then
 			table.insert(slower, (string.match(line, "^| ([^|]+) |") or line))
 		end
+	end
+	local target = Cli.flag(invocation, "summary")
+	if target ~= nil then
+		local page = table.clone(summary)
+		table.insert(page, "")
+		table.insert(page, "<details><summary>Full paired tables</summary>")
+		table.insert(page, "")
+		table.move(lines, 1, #lines, #page + 1, page)
+		table.insert(page, "")
+		table.insert(page, "</details>")
+		table.insert(page, "")
+		local existing = if Files.isFile(target) then Files.read(target) else ""
+		Files.write(target, existing .. table.concat(page, "\n") .. "\n")
 	end
 	if Cli.switch(invocation, "gate") and #slower > 0 then
 		print(("paired gate: FAIL - %s is consistently slower in %s"):format(second, table.concat(slower, ", ")))
@@ -1098,6 +1116,32 @@ CASES.paired = function(): { Case.Case }
 			end,
 		},
 		{
+			name = "paired: the summary states the verdict and lists slower scenes as percent changes",
+			run = function(): string?
+				local lines = {
+					"| Scene | base p50 | cand p50 | p50 ratio | p50 paired range | base p95 | cand p95 | p95 ratio | p95 paired range | base p95 spread | cand p95 spread | Flag |",
+					"|---|---:|---:|---:|---|---:|---:|---:|---|---|---|---|",
+					"| dense-hud | 1.0000 | 1.3750 | 1.375 | 1.25-1.50 | 2.1000 | 2.1000 | 1.000 | 1.00-1.00 | 2.0000-2.2000 | 2.0000-2.2000 | cand slower (p50) |",
+					"| calm | 1.0000 | 0.9000 | 0.900 | 0.85-0.95 | 2.0000 | 1.9000 | 0.950 | 0.90-1.00 | 2.0000-2.0000 | 1.9000-1.9000 |  |",
+					"| shadow-storm | n/a | 1.0000 | n/a | n/a | n/a | 1.0000 | n/a | n/a | n/a | 1.0000-1.0000 | base unavailable (crashed) |",
+				}
+				local failing = Paired.summary(lines, "base", "cand")
+				local passing = Paired.summary({ lines[1], lines[2], lines[4] }, "base", "cand")
+				return Case.first(
+					Case.equal(failing[1], "### Paired performance: FAIL", "fail verdict"),
+					Case.equal(failing[3], "cand is consistently slower than base in 1 of 3 scenes.", "fail count"),
+					Case.equal(failing[7], "| dense-hud | +37.5% | +0.0% | p50 |", "slower row"),
+					Case.equal(failing[9], "1 measurements were unavailable; see the full table.", "unavailable"),
+					Case.equal(passing[1], "### Paired performance: PASS", "pass verdict"),
+					Case.equal(
+						passing[3],
+						"cand is not consistently slower than base in any of 1 scenes.",
+						"pass count"
+					)
+				)
+			end,
+		},
+		{
 			name = "paired: the microbenchmark table skips the yardstick flag and lists each bench run",
 			run = function(): string?
 				local lines = Paired.benchTables(
@@ -1314,7 +1358,7 @@ local function allCases(): { Case.Case }
 	return cases
 end
 
-local VALUES = { "out", "rounds", "scenes", "workspace", "devices", "tap" }
+local VALUES = { "out", "rounds", "scenes", "workspace", "devices", "tap", "summary" }
 
 local KNOWN = {
 	"selftest",
@@ -1330,6 +1374,7 @@ local KNOWN = {
 	"devices",
 	"tap",
 	"gate",
+	"summary",
 }
 
 local function run(invocation: Cli.Invocation): number

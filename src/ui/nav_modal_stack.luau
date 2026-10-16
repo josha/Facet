@@ -4,6 +4,7 @@ local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local scrollLock = require("./scroll_lock")
 local surfaceKit = require("./nav_surface_kit")
+local modalInput = require("./nav_modal_input")
 
 export type Modal = (() -> GuiObject, (string?) -> (), Nav.ModalOptions?) -> Frame
 local screens = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ScreenGui]: { count: number, clipped: boolean } }
@@ -102,9 +103,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				Text = "",
 				AutoButtonColor = false,
 				Selectable = false,
-				Interactable = function(use: ComposeTypes.Use): boolean
-					return not focusIn(use)
-				end,
+				Interactable = true,
 				ZIndex = spec.ZIndex or 100,
 				Activated = function(input)
 					if root and not ctx.available(root) then
@@ -288,11 +287,13 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				scrollLock.release(layer, root)
 			end
 		end
+		local relocateInput: () -> () = function() end
 		local function lock()
 			local layer = if released then nil else root:FindFirstAncestorWhichIsA("LayerCollector")
 			if layer == locked then
 				return
 			end
+			relocateInput()
 			unlock()
 			if layer then
 				locked = layer
@@ -309,6 +310,9 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			lock()
 		end
 		claim()
+		local releaseInput, locateInput = modalInput.acquire(ctx, root)
+		relocateInput = locateInput
+		Compose.cleanup(releaseInput)
 		local function release()
 			if released then
 				return
@@ -322,6 +326,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					table.insert(remaining, modal)
 				end
 			end
+			modalInput.release(root)
 			ctx.modalScopes:set(remaining)
 			if gui then
 				if reclaimable(gui.SelectedObject) then
@@ -362,6 +367,19 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 		)
 		if gui then
 			local guiService: GuiService = gui
+			if kit.input then
+				runtime.connect(kit.input, "LastInputTypeChanged", function(value: Enum.UserInputType)
+					if
+						value == E.UserInputType.MouseMovement
+						or value == E.UserInputType.MouseButton1
+						or value == E.UserInputType.Touch
+					then
+						if within(guiService.SelectedObject, root) then
+							guiService.SelectedObject = nil
+						end
+					end
+				end)
+			end
 			local mounted = ctx.observe.Parent(root)
 			local ancestry = Compose.cell(0)
 			runtime.connect(root, "AncestryChanged", function()

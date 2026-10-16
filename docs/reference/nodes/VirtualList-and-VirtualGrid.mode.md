@@ -13,7 +13,7 @@ VirtualList-and-VirtualGrid.mode option values and behavior.
 | `minColumnWidth` | VirtualGrid only: a positive minimum tile width. Computes columns from the available cross-axis space and gaps. Do not combine it with `columns`. |
 | `rowActions` | The same action factory and permission rules as Table. |
 | `overscan` | `2`. |
-| `measure` | `false`; set to observe the rendered native `AbsoluteSize`. |
+| `measure` | Set `true` to observe the rendered native `AbsoluteSize`, or `false` to keep fixed estimates. Without it, an automatic list row with a native UIListLayout, text or button can grow past `itemSize`. It never shrinks below the estimate. |
 | `measured` | An optional readable map from key to extent; overrides observed measurements. |
 | `follow` | `none` or `end`, or a readable of one, with an optional `followThreshold`. |
 | `status` | An optional writable Compose collection status cell. A cell that holds `nil` is filled with the empty status record. |

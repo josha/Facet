@@ -134,6 +134,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		end
 		return inside(node, {})
 	end
+	ctx.withinModal = withinModal
 	function ctx.available(node: Instance, use: ComposeTypes.Use?): boolean
 		local at: Instance? = node
 		while at do

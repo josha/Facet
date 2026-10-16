@@ -797,7 +797,8 @@ add("outline-disclosure-indent", {}, function(t)
 		)
 		t.check("the expanded header wears no selected wash", not header:HasTag("facet-selected"), header:GetTags())
 		t.check("the group is an outline", group:HasTag("facet-disclosure-outline"), group:GetTags())
-		t.near("the title draws at the label role (14 px)", styled(title, "TextSize"), 14, 0.01)
+		local typography = t.Facet.themes.neutralPackage().metrics.typography
+		t.near("the title draws at the label role", styled(title, "TextSize"), typography.label.size, 0.01)
 		t.check("the row is below the header", row.AbsolutePosition.Y >= t.rect(header).b - 0.5)
 	end
 end)

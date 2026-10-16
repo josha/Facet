@@ -31,6 +31,170 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native modal: the scrim sinks input", function()
+		verifyHarness:case("modal content mounting does not repeat the outside control walk", function()
+			local open = Compose.cell(false)
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				local children: { Instance } = {}
+				for index = 1, 200 do
+					table.insert(children, Host.TextButton({ Name = `Outside{index}`, Selectable = true }))
+				end
+				table.insert(children, dialog(UI, Host, "Many controls", open))
+				return Host.Frame({ table.unpack(children) })
+			end, { motionLevel = "none" })
+			local walks, writes = 0, 0
+			local descendants = w.screen.GetDescendants
+			w.screen.GetDescendants = function(screen)
+				walks += 1
+				return descendants(screen)
+			end
+			local children = w.screen.GetChildren
+			w.screen.GetChildren = function(screen)
+				walks += 1
+				return children(screen)
+			end
+			local stop = w.engine.onWrite(function(node, property)
+				if
+					string.match(node.Name, "^Outside%d+$") and (property == "Interactable" or property == "Selectable")
+				then
+					writes += 1
+				end
+			end)
+			open:set(true)
+			Verify.expect(walks <= 4):toBe(true)
+			Verify.expect(writes):toBe(400)
+			for index = 1, 200 do
+				local button = w.find(`Outside{index}`)
+				Verify.expect(button.Interactable):toBe(false)
+				Verify.expect(button.Selectable):toBe(false)
+			end
+			local parent = w.find("Outside1").Parent
+			local late = w.engine.new("TextButton")
+			local modal = modalOf(w, "Many controls")
+			local before = walks
+			late.Parent = parent
+			Verify.expect(late.Interactable):toBe(false)
+			Verify.expect(late.Selectable):toBe(false)
+			for _ = 1, 200 do
+				local label = w.engine.new("TextLabel")
+				label.Parent = modal
+			end
+			Verify.expect(walks):toBe(before)
+			open:set(false)
+			for index = 1, 200 do
+				local button = w.find(`Outside{index}`)
+				Verify.expect(button.Interactable):toBe(true)
+				Verify.expect(button.Selectable):toBe(true)
+			end
+			Verify.expect(late.Interactable):toBe(true)
+			Verify.expect(late.Selectable):toBe(true)
+			stop:Disconnect()
+			w.stop()
+		end)
+		verifyHarness:case("nested modal leases restore each outside control's values", function()
+			local outer, inner = Compose.cell(false), Compose.cell(false)
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({
+					Host.TextButton "Enabled" { Interactable = true, Selectable = true },
+					Host.TextButton "Disabled" { Interactable = false, Selectable = false },
+					dialog(UI, Host, "Outer", outer),
+					dialog(UI, Host, "Inner", inner),
+				})
+			end, { motionLevel = "none" })
+			local enabled, disabled = w.find("Enabled"), w.find("Disabled")
+			outer:set(true)
+			inner:set(true)
+			outer:set(false)
+			Verify.expect(enabled.Interactable):toBe(false)
+			Verify.expect(enabled.Selectable):toBe(false)
+			disabled.Interactable = true
+			disabled.Selectable = true
+			Verify.expect(disabled.Interactable):toBe(false)
+			Verify.expect(disabled.Selectable):toBe(false)
+			inner:set(false)
+			Verify.expect(enabled.Interactable):toBe(true)
+			Verify.expect(enabled.Selectable):toBe(true)
+			Verify.expect(disabled.Interactable):toBe(true)
+			Verify.expect(disabled.Selectable):toBe(true)
+			disabled.Interactable = false
+			disabled.Selectable = false
+			outer:set(true)
+			outer:set(false)
+			Verify.expect(disabled.Interactable):toBe(false)
+			Verify.expect(disabled.Selectable):toBe(false)
+			w.stop()
+		end)
+		verifyHarness:case("moving a leased control into the top modal releases every nested owner", function()
+			local outer, inner = Compose.cell(false), Compose.cell(false)
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({
+					Host.TextButton "Move" { Interactable = true, Selectable = true },
+					dialog(UI, Host, "Outer", outer),
+					dialog(UI, Host, "Inner", inner),
+				})
+			end, { motionLevel = "none" })
+			local button = w.find("Move")
+			local parent = button.Parent
+			outer:set(true)
+			inner:set(true)
+			Verify.expect(button.Interactable):toBe(false)
+			button.Parent = nil
+			button.Parent = modalOf(w, "Inner")
+			Verify.expect(button.Interactable):toBe(true)
+			Verify.expect(button.Selectable):toBe(true)
+			button.Parent = nil
+			button.Parent = parent
+			Verify.expect(button.Interactable):toBe(false)
+			Verify.expect(button.Selectable):toBe(false)
+			inner:set(false)
+			Verify.expect(button.Interactable):toBe(false)
+			outer:set(false)
+			Verify.expect(button.Interactable):toBe(true)
+			Verify.expect(button.Selectable):toBe(true)
+			w.stop()
+		end)
+		verifyHarness:case("portal leases follow the anchor across modal ancestry changes", function()
+			local open = Compose.cell(false)
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({
+					Host.Frame "Outside" {},
+					UI.Dialog({
+						isPresented = open,
+						onPresentedChange = function(value: boolean)
+							open:set(value)
+						end,
+						title = "Portal",
+						content = function(): Instance
+							local anchor = Host.TextButton "PortalAnchor" { Selectable = true }
+							return Host.Frame({
+								anchor :: Instance,
+								UI.Callout({
+									anchor = anchor,
+									isPresented = true,
+									content = function(): Instance
+										return Host.TextButton "PortalAction" { Selectable = true }
+									end,
+									onRetire = function() end,
+								}),
+							})
+						end,
+					}),
+				})
+			end, { motionLevel = "none" })
+			open:set(true)
+			local anchor, action = w.find("PortalAnchor"), w.find("PortalAction")
+			local parent = anchor.Parent
+			Verify.expect(action ~= nil):toBe(true)
+			Verify.expect(action.Interactable):toBe(true)
+			Verify.expect(action.Selectable):toBe(true)
+			anchor.Parent = w.find("Outside")
+			Verify.expect(action.Interactable):toBe(false)
+			Verify.expect(action.Selectable):toBe(false)
+			anchor.Parent = parent
+			Verify.expect(action.Interactable):toBe(true)
+			Verify.expect(action.Selectable):toBe(true)
+			open:set(false)
+			w.stop()
+		end)
 		verifyHarness:case("native touch controls stay hidden until the last modal releases its prior state", function()
 			for _, enabled in { true, false } do
 				local outer, inner = Compose.cell(false), Compose.cell(false)
@@ -83,7 +247,7 @@ return function(verifyHarness: Verify.Harness)
 				open:set(true)
 				local scrim = w.find("Scrim")
 				local target = w.find("DismissTarget")
-				Verify.expect(target.Position):toBe(w.engine.types.UDim2.fromOffset(0, 0))
+				Verify.expect(target.Position):toBe(w.engine.types.UDim2.new())
 				Verify.expect(target.Size):toBe(w.engine.types.UDim2.fromScale(1, 1))
 				Verify.expect(scrim.Position):toBe(w.engine.types.UDim2.fromOffset(0, -87))
 				Verify.expect(scrim.Size):toBe(w.engine.types.UDim2.new(1, 0, 1, 87))
@@ -91,10 +255,10 @@ return function(verifyHarness: Verify.Harness)
 				w.gui.TopbarInset = w.engine.types.Rect.new(0, 0, 100, 60)
 				Verify.expect(scrim.Position):toBe(w.engine.types.UDim2.fromOffset(-12, -60))
 				Verify.expect(scrim.Size):toBe(w.engine.types.UDim2.new(1, 20, 1, 80))
-				Verify.expect(target.Position):toBe(w.engine.types.UDim2.fromOffset(0, 0))
+				Verify.expect(target.Position):toBe(w.engine.types.UDim2.new())
 				Verify.expect(target.Size):toBe(w.engine.types.UDim2.fromScale(1, 1))
 				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
-				Verify.expect(target.Interactable):toBe(false)
+				Verify.expect(target.Interactable):toBe(true)
 				Verify.expect(target.Selectable):toBe(false)
 				w.input.PreferredInput = w.Enum.PreferredInput.Touch
 				Verify.expect(target.Interactable):toBe(true)
