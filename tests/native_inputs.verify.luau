@@ -60,6 +60,29 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native input controls", function()
+		verifyHarness:case("floors default button widths on touch and releases the idle constraint", {
+			id = "native_inputs::native input controls::floors default button widths on touch and releases the idle constraint",
+			run = function()
+				local input: UserInputService
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button({ label = "All" })
+				end, function(engine)
+					input = engine.new("UserInputService")
+					input.TouchEnabled = false
+					input.GamepadEnabled = false
+					return { services = { UserInputService = input } }
+				end)
+				Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+				input.TouchEnabled = true
+				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(44)
+				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+				input.TouchEnabled = false
+				Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+				input.GamepadEnabled = true
+				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(44)
+				stop()
+			end,
+		})
 		verifyHarness:case("tracks modal portal eligibility after entering and leaving a modal", {
 			id = "native_inputs::native input controls::tracks modal portal eligibility after entering and leaving a modal",
 			run = function()
@@ -1057,14 +1080,14 @@ return function(verifyHarness: Verify.Harness)
 							actions += 1
 						end,
 					})
-				end, function()
+				end, function(engine)
+					local input = engine.new("UserInputService")
+					input.GetFocusedTextBox = function()
+						return if editing then {} else nil
+					end
 					return {
 						services = {
-							UserInputService = {
-								GetFocusedTextBox = function()
-									return if editing then {} else nil
-								end,
-							},
+							UserInputService = input,
 						},
 					}
 				end)
