@@ -1,5 +1,7 @@
 # Facet API
 
+<!-- aliases: Facet API | facet-api -->
+
 Facet supplies controls that use the Compose Roblox runtime. Compose makes and
 owns the native tree. Roblox supplies layout, text editing, scrolling, selection
 and styling. This reference describes the `0.12.0` surface.

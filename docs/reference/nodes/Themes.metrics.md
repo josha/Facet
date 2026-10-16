@@ -1,11 +1,17 @@
 # Themes.metrics
 
+Optional theme metrics for tabs, control sizes, targets and shortcuts.
+
 - `radii.tab`: the corner radius for filled top tabs. Their track adds 2 pixels
   to a positive radius. A value of 0 makes both square. Facet Neutral uses 999
   for pills. Sidebar and bottom tabs keep their usual corners.
 - `controlSizes.xsmall = { height, paddingX, iconSize }`. Without it, each
   field is `2 * compact - regular`, and not less than 0. `define` refuses an
   `xsmall` entry that does not have all three numbers.
+- `targetSizes.thumb` and `targetSizes.thumbLarge`: primary on-screen action
+  sizes for the thumb on a phone and on a larger screen.
+  The neutral values are 70 and 120. `define` refuses a value below
+  `targetSizes.minimum`.
 - `targetSizes.pointer`: a row height from 24 to `targetSizes.minimum`. Floating
   Menu and Picker menu rows use it while the input is pointer-only. `define`
   refuses a value outside that range.

@@ -1,5 +1,7 @@
 # Factory-options.keyboardNavigation
 
+Factory-options.keyboardNavigation option values and behavior.
+
 - `keyboardNavigation`: `true` (the default) binds Tab traversal and Space
   next to Return on a selected Button. `false` binds neither: Return still
   activates. Use `false` for an app whose keys belong to the game (see

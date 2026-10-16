@@ -1,5 +1,7 @@
 # Themes.definition
 
+Themes.definition option values and behavior.
+
 - `neutralPackage()` returns a mutable copy of the neutral theme package. It
   declares two palettes, `Dark` (the default) and `Light`. Both palettes pass
   the contrast gate of `define`.

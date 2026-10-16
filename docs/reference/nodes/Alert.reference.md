@@ -1,5 +1,7 @@
 ### Alert
 
+<!-- aliases: Alert | alert -->
+
 Supply a writable boolean `isPresented`, or a writable `item` cell where `nil`
 means hidden. Also supply `title`, `message` and `actions`. The alert captures
 the item payload for the active presentation and gives it to the content and

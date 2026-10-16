@@ -1,5 +1,7 @@
 ## Adaptive environment
 
+<!-- aliases: Adaptive environment | adaptive-environment -->
+
 Open:
 
 - [Facet-adaptive](Facet-adaptive.md)

@@ -1,5 +1,7 @@
 ### NumberInput
 
+<!-- aliases: NumberInput | numberinput -->
+
 `UI.NumberInput(spec)` is `UI.TextInput` with `presentation = "number"`. It
 refuses `presentation`. `value` (the editable string) and `numericValue` (the
 committed number) are cells that you own. Each TextInput option applies. These

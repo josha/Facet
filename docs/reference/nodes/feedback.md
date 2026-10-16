@@ -1,5 +1,7 @@
 ### feedback
 
+<!-- aliases: feedback | feedback -->
+
 `UI.feedback(kind)` plays one of the named feedback kinds at once. See
 [Haptics](Haptics.md) for the kinds and their engine effects.
 

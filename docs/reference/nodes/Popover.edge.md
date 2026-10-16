@@ -1,5 +1,7 @@
 # Popover.edge
 
+Popover.edge contract and option values.
+
 Placement options: `edge` (`top`, `bottom`, `leading` or `trailing`), `align`
 (`start`, `center` or `end`), `gap` (pixels, default 8) and `crossOffset`
 (pixels along the alignment axis). Without an authored `edge`, an anchored

@@ -35,8 +35,8 @@ subcommands:
   place [--no-build]            build examples/performance.project.json and check the place
   paired run --out DIR [--rounds N] [--scenes a,b] [--skip-bench] LABEL=WORKTREE...
                                 run the paired scenes and the bench in each worktree, round by round
-  paired report DIR FIRST SECOND
-                                print the paired scene and microbenchmark tables
+  paired report DIR FIRST SECOND [--gate]
+                                print the paired scene and microbenchmark tables; --gate exits 1 when SECOND is consistently slower
   aggregate [--all] [--layout] DUMP.html...
                                 read a MicroProfiler HTML dump's aggregate timer table
   spec-timings [OUTCOME.json] [OUTPUT.tsv]
@@ -449,11 +449,20 @@ local function pairedReport(invocation: Cli.Invocation): number
 			table.insert(entries, Json.asObject(Json.decode(line)) or Json.object())
 		end
 	end
-	for _, line in Paired.sceneTable(entries, first, second) do
-		print(line)
-	end
+	local lines = Paired.sceneTable(entries, first, second)
 	for _, line in Paired.benchTables(benchesFor(out, first), benchesFor(out, second), first, second) do
+		table.insert(lines, line)
+	end
+	local slower: { string } = {}
+	for _, line in lines do
 		print(line)
+		if string.find(line, second .. " slower (", 1, true) then
+			table.insert(slower, (string.match(line, "^| ([^|]+) |") or line))
+		end
+	end
+	if Cli.switch(invocation, "gate") and #slower > 0 then
+		print(("paired gate: FAIL - %s is consistently slower in %s"):format(second, table.concat(slower, ", ")))
+		return 1
 	end
 	return 0
 end
@@ -1320,6 +1329,7 @@ local KNOWN = {
 	"workspace",
 	"devices",
 	"tap",
+	"gate",
 }
 
 local function run(invocation: Cli.Invocation): number

@@ -1,5 +1,7 @@
 ### responder
 
+<!-- aliases: responder | responder -->
+
 `UI.responder(root, options?) -> Responder` declares how the surface `root`
 (a GuiObject or a LayerCollector) shares the keyboard with the game. Call it
 inside a component or a Compose owner; it stops when the owner ends. It works

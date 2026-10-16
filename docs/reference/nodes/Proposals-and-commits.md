@@ -1,5 +1,7 @@
 #### Proposals and commits
 
+<!-- aliases: Proposals and commits | proposals-and-commits -->
+
 The colour belongs to you. Each change sends a proposal to `onChange`. The
 control shows only the colour that you then hold. If you refuse a change,
 nothing paints.

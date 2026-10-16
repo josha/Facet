@@ -201,6 +201,10 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 	end
 	local function parent(anchor: Instance): GuiBase2d?
 		local layer = (ctx.config.overlayParent or anchor:FindFirstAncestorWhichIsA("LayerCollector")) :: GuiBase2d?
+		local host = if layer then ctx.overlayHosts[layer] else nil
+		if host and host:IsA("LayerCollector") then
+			layer = host :: GuiBase2d
+		end
 		if layer and layer:IsA("SurfaceGui") and not layer.ClipsDescendants then
 			layer.ClipsDescendants = true
 		end

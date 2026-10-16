@@ -1,5 +1,7 @@
 ### Facet.gamepadContention
 
+<!-- aliases: Facet.gamepadContention | facetgamepadcontention -->
+
 `Facet.gamepadContention` reports whether the engine's legacy player scripts
 hold input that the controls need. Every probe is guarded: without an engine
 it answers `false` and never throws. Nothing warns on its own; call them from

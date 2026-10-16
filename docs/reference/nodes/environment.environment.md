@@ -15,6 +15,10 @@ environment keeps the last real size.
 
 | Field | Source and value |
 |---|---|
+| `thumbTarget` | The size in pixels of a primary on-screen action for the thumb. It is `targetSizes.thumb` (70 in the neutral package) when the screen's short edge is 500 pixels or less. Otherwise it is `targetSizes.thumbLarge` (120). These match the Roblox touch jump button sizes. A rotation does not change it. |
+
+| Field | Source and value |
+|---|---|
 | `sizeClass`, `heightClass`, `orientation`, `axis` | `adaptive` applied to the viewport. On a ten-foot display (`isTenFoot`) `sizeClass` stops at `"regular"` and `heightClass` at `"medium"`, so a television never takes the densest arrangement. |
 
 | Field | Source and value |

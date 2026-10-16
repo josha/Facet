@@ -1,5 +1,7 @@
 ### Reserved collection slots
 
+<!-- aliases: Reserved collection slots | reserved-collection-slots -->
+
 VirtualList and VirtualGrid accept `slots: Value<{ K }>` with unique item keys.
 The keys define the slot order. A key absent from `from` shows a non-selectable
 recess. When that item returns to `from`, it uses its reserved slot. Items not

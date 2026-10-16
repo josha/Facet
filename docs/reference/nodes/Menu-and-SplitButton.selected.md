@@ -1,5 +1,7 @@
 # Menu-and-SplitButton.selected
 
+Menu-and-SplitButton.selected option values and behavior.
+
 - A level whose `selected` group holds one of its rows opens with the
   selection on that row, and scrolls that row to the center of the list. A
   `checked` item does not move the landing.

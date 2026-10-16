@@ -1,5 +1,7 @@
 # Menu-and-SplitButton.edge
 
+Menu-and-SplitButton.edge option values and behavior.
+
 - When the player navigates by selection, an open menu selects its first
   enabled item. If an enabled selected item holds the value of its group, the
   menu selects that item instead. Back and Left close one level and return the selection to the

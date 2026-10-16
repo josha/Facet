@@ -1,5 +1,7 @@
 # Themes.skin
 
+Themes.skin option values and behavior.
+
 - `skin(runtime, packageOrReadable, slot, options?)` builds native control
   artwork. The options include `state`, `selected`, `target`, `label`,
   `onCaption`, `ZIndex` and injected `types`. When a state has no art of its

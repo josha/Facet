@@ -1,5 +1,7 @@
 ### scrollTo and scrollToVisible
 
+<!-- aliases: scrollTo and scrollToVisible | scrollto-and-scrolltovisible -->
+
 `UI.scrollTo(frame, position, options?) -> boolean` moves a native
 `ScrollingFrame` to a position. `position` is `"top"`, `"bottom"`, a `Vector2`
 or `{ x?, y? }`. An omitted axis keeps its value. The canvas limits clamp the

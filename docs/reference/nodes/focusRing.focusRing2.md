@@ -1,5 +1,7 @@
 # focusRing.focusRing2
 
+focusRing.focusRing2 contract and option values.
+
 At ten feet the look is larger: a ring is twice as thick, brackets, art
 outsets and slices are 1.5 times, a glow blurs 1.6 times and is more opaque,
 and the whole look stands 3 pixels off the control, so it lifts clear of the

@@ -1,5 +1,7 @@
 ### Options and native properties
 
+<!-- aliases: Options and native properties | options-and-native-properties -->
+
 Control-specific options use lower camel case. Native properties keep their
 Roblox names: `Size`, `Position`, `AutomaticSize`, `LayoutOrder`, `Visible`,
 `TextSize` and the others. The control forwards native events, Compose property

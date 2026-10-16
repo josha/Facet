@@ -1,5 +1,7 @@
 # VirtualList-and-VirtualGrid.mode
 
+VirtualList-and-VirtualGrid.mode option values and behavior.
+
 | Option | Default and meaning |
 |---|---|
 | `mode` | `windowed`; `all` deliberately mounts the entire collection. |

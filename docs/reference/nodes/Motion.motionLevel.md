@@ -1,5 +1,7 @@
 # Motion.motionLevel
 
+Motion.motionLevel option values and behavior.
+
 - The motion level (`motionLevel`, or `GuiService.ReducedMotionEnabled` for
   `"limited"`) changes this motion:
   - `"normal"`: the motion above.

@@ -1,5 +1,7 @@
 ### focusSection
 
+<!-- aliases: focusSection | focussection -->
+
 `UI.focusSection(group, options?)` makes the GuiObject `group` an entry
 region for directional navigation. Call it inside a component or a Compose
 owner; it stops when the owner ends. It reads and writes

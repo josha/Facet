@@ -1,5 +1,7 @@
 ### worldAnchor
 
+<!-- aliases: worldAnchor | worldanchor -->
+
 `UI.worldAnchor(options) -> { anchor, dispose }` projects a world object to a
 screen anchor for a `RadialMenu` `anchor` or a marker. It reads the camera on
 each `RunService.Heartbeat`. It creates no Instances.

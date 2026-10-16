@@ -1,5 +1,7 @@
 ## Path shapes
 
+<!-- aliases: Path shapes | path-shapes -->
+
 `Facet.pathShapes` makes the normalized points that `UI.Path` strokes. The points
 are in a unit box, with the angle 0 at 12 o'clock and positive angles clockwise.
 

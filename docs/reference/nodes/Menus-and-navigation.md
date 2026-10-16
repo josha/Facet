@@ -1,5 +1,7 @@
 ## Menus and navigation
 
+<!-- aliases: Menus and navigation | menus-and-navigation -->
+
 Open:
 
 - [ComboBox.reference](ComboBox.reference.md)

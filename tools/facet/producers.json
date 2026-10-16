@@ -32,7 +32,7 @@
     {"id": "package-status", "tier": "full", "environment": "package", "run": "lute run tools/facet package status", "why": "the package receipts agree with the published state"},
     {"id": "package-canary", "tier": "full", "environment": "package", "run": "lute run tools/engine/package_canary.luau", "why": "the built package loads and mounts in a fresh place"},
     {"id": "theme-artifacts", "tier": "full", "run": "lute run tools/facet check theme-artifacts", "why": "built theme artifacts pass the probe and their manifest"},
-    {"id": "bench", "tier": "full", "environment": "perf", "run": "lute run tools/facet bench", "why": "benchmark scenes run within their recorded costs"},
+    {"id": "bench", "tier": "full", "environment": "perf", "timing": true, "run": "lute run tools/facet bench", "why": "benchmark scenes run within their recorded costs"},
     {"id": "perf", "tier": "full", "environment": "perf", "run": "lute run tools/facet perf run", "why": "performance scenes stay within their trend budgets on the reference host"},
     {"id": "perf-memory", "tier": "full", "run": "lute run tools/facet perf memory", "why": "every scene releases native instances, connections and Compose registrations at teardown"},
     {"id": "perf-footprint", "tier": "full", "run": "lute run tools/facet perf footprint", "why": "each measured control fits its resource ceilings and releases all resources"},

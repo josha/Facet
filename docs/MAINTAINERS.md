@@ -8,6 +8,29 @@ exists. This page does not repeat them.
 A check compares each table on this page with the tree. See
 [How this page stays true](#how-this-page-stays-true).
 
+## Documentation nodes
+
+`facet docs` derives its index from Markdown files in `docs/reference/nodes`.
+The file name without `.md` is the query path. `Map` is the map. `Tasks.*`
+nodes are recipes. `*.card` nodes are control cards. `Controls`, `Controls.N`,
+`Tasks`, `Reference`, `*.index` and `Themes.*.tokens` are indexes. Other names
+that start with a letter and contain only letters, digits, dots, underscores
+or hyphens are details. Use `<!-- kind: index -->` for an index whose name
+does not identify its kind.
+
+Each node needs a title and a short first sentence. The first sentence is its
+search summary. Links to nodes supply children in source order. Repeated links
+remain in that order. Code examples and external links do not supply children.
+Control cards derive their aliases from the control name and `UI.` plus that
+name. Keep other search aliases on one line:
+`<!-- aliases: first name | second name -->`.
+An exact control card or path takes priority over an alias. A shared alias
+selects the shortest path.
+
+`docs-nodes` checks titles, kinds, summaries, source byte budgets and
+reachability from `Map`. Marker lines count toward the source byte budget.
+Queries omit marker lines and keep the response byte limit.
+
 ## Structure
 
 The public root exports Compose, its Roblox host, the control factory, the

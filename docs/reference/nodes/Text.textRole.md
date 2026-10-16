@@ -1,5 +1,7 @@
 # Text.textRole
 
+Text.textRole option values and behavior.
+
 - `textRole` sets the type role tag, for example `facet-type-title`. The
   default is `body`. `textSize` can give the role instead, as a role name.
   Both together cause an error.

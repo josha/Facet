@@ -1,5 +1,7 @@
 ### Chip and ShortcutHint
 
+<!-- aliases: Chip and ShortcutHint | chip-and-shortcuthint -->
+
 Chip takes `label` and either a boolean `selected` or `onRemove`.
 `onToggle(next)` is controlled. The other options are `editing`,
 `removeLabel`, `removeFocusFallback`, and native `leading` and `trailing`

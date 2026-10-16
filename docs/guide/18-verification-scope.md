@@ -37,8 +37,9 @@ A complete tier means that all selected commands were attempted. It does not
 prove fresh Studio evidence for every control or physical device behavior.
 The `release` tier requires the complete gate with no deferrals.
 
-Timing budgets stop the run on the reference host. On other hosts, a failed
-timing budget is reported as `deferred`. A deferral is not a passing measurement.
+Timing budgets stop the run on the reference host. On other hosts, `bench` is
+reported as `deferred` without running, and a failed `perf` timing budget is
+reported as `deferred`. A deferral is not a passing measurement.
 Compare performance reports only with their workload and host limits in view.
 See [paired performance](19-paired-performance.md) for the comparison method.
 

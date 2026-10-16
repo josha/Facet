@@ -1,5 +1,7 @@
 ## Layout
 
+<!-- aliases: Layout | layout -->
+
 The layout constructors make ordinary native containers. A container is a
 `Frame` or a `ScrollingFrame` with a `UIListLayout` or a `UIGridLayout`, and a
 `UIPadding` when you set `padding`. Roblox does the layout. Facet adds no

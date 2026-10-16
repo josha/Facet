@@ -1,5 +1,7 @@
 # draggable-and-dropTarget.payload
 
+draggable-and-dropTarget.payload option values and behavior.
+
 - `payload`: required. The value every target receives. A function is called
   with the source at pickup.
 - `enabled`: a boolean or a readable. While false the source cannot be picked

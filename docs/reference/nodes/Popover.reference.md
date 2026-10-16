@@ -1,5 +1,7 @@
 ### Popover
 
+<!-- aliases: Popover | popover -->
+
 Open one option group below. Each group gives part of this contract.
 
 Open:

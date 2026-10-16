@@ -1,5 +1,9 @@
 ### Haptics
 
+<!-- aliases: Haptics | haptics -->
+
+Use `pressHaptic` for controls that change state or value.
+
 `pressHaptic` plays only for a control that changes a state or a value:
 
 - Toggle and a Chip with `selected`.

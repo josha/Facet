@@ -1,5 +1,7 @@
 # Themes.palette
 
+Optional semantic colors and their defaults.
+
 - `selection` and `onSelection`: the color of an on or chosen mark and the
   color on it. The switch track and knob, the checkbox box and tick, the slider
   fill and the tab and segment underline (`facet-selection-indicator`) use

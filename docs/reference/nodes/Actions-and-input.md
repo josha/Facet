@@ -1,5 +1,7 @@
 ## Actions and input
 
+<!-- aliases: Actions and input | actions-and-input -->
+
 Open:
 
 - [Button.reference](Button.reference.md)

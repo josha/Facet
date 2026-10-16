@@ -1,5 +1,7 @@
 #### The well and the panel
 
+<!-- aliases: The well and the panel | the-well-and-the-panel -->
+
 A well with a `label` is a form row. The `Well` button holds `Title`, the
 `Swatch`, the `Value` text and `Chevron`. A well without a label is the
 swatch alone, 44 by 44 pixels. The `label` attribute of the well names the

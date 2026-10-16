@@ -1,5 +1,7 @@
 ### Facet.adaptive
 
+<!-- aliases: Facet.adaptive | facetadaptive -->
+
 `Facet.adaptive` holds pure decisions. They take numbers and never a device
 name.
 

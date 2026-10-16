@@ -1,5 +1,7 @@
 ### draggable and dropTarget
 
+<!-- aliases: draggable and dropTarget | draggable-and-droptarget -->
+
 Open one option group below. Each group gives part of this contract.
 
 Open:

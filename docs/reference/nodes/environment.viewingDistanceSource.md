@@ -1,5 +1,7 @@
 # environment.viewingDistanceSource
 
+environment.viewingDistanceSource option values and behavior.
+
 | Field | Source and value |
 |---|---|
 | `viewingDistanceSource` | `"authored"` when the `viewingDistance` option is `"near"` or `"ten-foot"`, else `"inferred"`. |

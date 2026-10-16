@@ -1,5 +1,7 @@
 ### Screen
 
+<!-- aliases: Screen | screen -->
+
 `UI.Screen(spec) -> Frame` is the root of a screen. It fills its parent
 (`width` and `height` are `"fill"`) and stacks its children vertically. It has
 `padding = "m"` by default. The ScreenGui `ScreenInsets` property keeps the

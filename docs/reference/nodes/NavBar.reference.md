@@ -1,5 +1,9 @@
 ### NavBar
 
+<!-- aliases: NavBar | navbar -->
+
+`UI.NavBar` returns the bar Frame: `{ onBack?, backLabel?, title?, titleSize?, leading?, center?, trailing?, gap?, padding?, surface? }`.
+
 `UI.NavBar` returns the bar Frame: `{ onBack?, backLabel?, title?, titleSize?,
 leading?, center?, trailing?, gap?, padding?, surface? }`. `surface` paints a
 background plate: `surface`, `panel` or `pane`, the theme roles of the same

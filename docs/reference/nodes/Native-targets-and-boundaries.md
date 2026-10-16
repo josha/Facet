@@ -1,5 +1,7 @@
 ## Native targets and boundaries
 
+<!-- aliases: Native targets and boundaries | native-targets-and-boundaries -->
+
 Use the ordinary Compose Roblox constructors to mount:
 
 - a ScreenGui into PlayerGui,

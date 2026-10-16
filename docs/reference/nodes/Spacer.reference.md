@@ -1,5 +1,7 @@
 ### Spacer
 
+<!-- aliases: Spacer | spacer -->
+
 `UI.Spacer(spec) -> Frame` takes the free space along the main axis of its
 stack. It is a transparent Frame with a `UIFlexItem` in `Fill` mode.
 `minLength` is a number of pixels or a spacing step, such as `"m"`, and can be

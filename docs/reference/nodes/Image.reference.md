@@ -1,5 +1,7 @@
 ### Image
 
+<!-- aliases: Image | image -->
+
 `UI.Image(spec) -> ImageLabel` shows an image. `image` is an asset string and
 can be bound. It can be empty. The default size is a square of the regular
 control height. A native `Size` replaces it.

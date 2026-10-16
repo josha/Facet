@@ -1,6 +1,5 @@
 --!strict
 local Files = require("./files")
-local Json = require("./json")
 local Markdown = require("./markdown")
 
 export type Node = {
@@ -11,6 +10,7 @@ export type Node = {
 	aliases: { string },
 	children: { string },
 	body: string,
+	bytes: number?,
 }
 export type Match = { node: Node, score: number }
 local DocsIndex = {}
@@ -43,21 +43,76 @@ function DocsIndex.consumerGuide(name: string): boolean
 		and string.match(name, "%d%d%d%d%-%d%d%-%d%d") == nil
 end
 
+local function kind(path: string, body: string): string
+	local marker = string.match(body, "\n<!%-%- kind: ([%w]+) %-%->\n")
+	if marker then
+		return marker
+	elseif path == "Map" then
+		return "map"
+	elseif
+		path == "Controls"
+		or path == "Tasks"
+		or path == "Reference"
+		or string.match(path, "^Controls%.%d+$")
+		or string.match(path, "%.index$")
+		or string.match(path, "^Themes%.[%w_]+%.tokens$")
+	then
+		return "index"
+	elseif string.match(path, "^Tasks%.[%w_-]+$") then
+		return "recipe"
+	elseif string.match(path, "^[%w_-]+%.card$") then
+		return "card"
+	elseif string.match(path, "^[%a][%w_.-]*$") then
+		return "detail"
+	end
+	return "unknown"
+end
+
 function DocsIndex.load(root: string): { Node }
-	local manifest = Files.join(root, "docs/reference/index.json")
-	local records = assert(Json.asArray(Json.decode(Files.read(manifest))), "documentation index must be an array")
 	local nodes: { Node } = {}
-	for _, record in records do
-		local file = assert(Json.stringField(record, "file"), "node file is missing")
+	local directory = "docs/reference/nodes"
+	for _, relative in Files.walk(Files.join(root, directory)) do
+		if Files.extension(relative) ~= ".md" then
+			continue
+		end
+		local file = Files.join(directory, relative)
+		local path = Files.stem(relative)
+		local source = Files.text(Files.join(root, file))
+		local aliases: { string } = {}
+		local aliasLine = string.match(source, "\n<!%-%- aliases: ([^\n]-) %-%->\n")
+		if aliasLine then
+			aliases = string.split(aliasLine, " | ")
+		elseif string.match(path, "^[%w_-]+%.card$") then
+			local control = string.sub(path, 1, -6)
+			aliases = { control, "UI." .. control }
+		end
+		local body = string.gsub(source, "<!%-%- aliases: [^\n]- %-%->\n\n?", "")
+		body = string.gsub(body, "<!%-%- kind: [^\n]- %-%->\n\n?", "")
+		local prose = string.match(body, "^#+ [^\n]+\n%s*(.*)$") or ""
+		local paragraph = string.match(prose, "^(.-)\n\n") or prose
+		paragraph = string.gsub(paragraph, "%s+", " ")
+		local summary = string.match(paragraph, "^(.-[.!?])%s") or paragraph
 		table.insert(nodes, {
-			path = assert(Json.stringField(record, "path"), "node path is missing"),
+			path = path,
 			file = file,
-			kind = assert(Json.stringField(record, "kind"), "node kind is missing"),
-			summary = assert(Json.stringField(record, "summary"), "node summary is missing"),
-			aliases = assert(Json.strings(Json.field(record, "aliases")), "node aliases are missing"),
-			children = assert(Json.strings(Json.field(record, "children")), "node children are missing"),
-			body = (string.gsub(Files.read(Files.join(root, file)), "\r\n", "\n")),
+			kind = kind(path, source),
+			summary = summary,
+			aliases = aliases,
+			children = {},
+			body = body,
+			bytes = #source,
 		})
+	end
+	for _, node in nodes do
+		for _, link in Markdown.links(node.body) do
+			if not Markdown.isExternal(link.target) then
+				local target = string.match(link.target, "^([^#]+)") or ""
+				local file = Markdown.normalize(Files.parent(node.file) .. "/" .. target)
+				if Files.parent(file) == directory and Files.extension(file) == ".md" then
+					table.insert(node.children, Files.stem(file))
+				end
+			end
+		end
 	end
 	return nodes
 end
@@ -78,14 +133,17 @@ function DocsIndex.find(nodes: { Node }, query: string): Node?
 			return node
 		end
 	end
+	local aliased: Node? = nil
 	for _, node in nodes do
 		for _, alias in node.aliases do
 			if normal(alias) == wanted then
-				return node
+				if aliased == nil or #node.path < #aliased.path then
+					aliased = node
+				end
 			end
 		end
 	end
-	return nil
+	return aliased
 end
 
 function DocsIndex.search(nodes: { Node }, query: string, limit: number): { Match }
@@ -126,13 +184,17 @@ function DocsIndex.validate(nodes: { Node }): { string }
 		end
 		byPath[node.path] = node
 		byFile[node.file] = node
+		if not string.match(node.body, "^#+ [^\n]+\n") then
+			table.insert(findings, node.path .. ": missing title")
+		end
 		local budget = DocsIndex.budget(node.kind)
+		local bytes = node.bytes or #node.body
 		if budget == nil then
 			table.insert(findings, node.path .. ": unknown kind " .. node.kind)
-		elseif #node.body > budget then
-			table.insert(findings, node.path .. ": " .. #node.body .. " bytes exceeds " .. budget)
+		elseif bytes > budget then
+			table.insert(findings, node.path .. ": " .. bytes .. " bytes exceeds " .. budget)
 		end
-		if #node.summary > 160 or string.find(node.summary, "\n", 1, true) then
+		if node.summary == "" or #node.summary > 160 or string.find(node.summary, "\n", 1, true) then
 			table.insert(findings, node.path .. ": summary must be one line of at most 160 bytes")
 		end
 	end

@@ -1,5 +1,7 @@
 ### Divider
 
+<!-- aliases: Divider | divider -->
+
 `UI.Divider(spec) -> Frame` is a hairline that separates the items of a stack.
 It gets its direction from the stack that holds it. In a `VStack` it is a
 horizontal line that fills the width. In an `HStack` it is a vertical line that

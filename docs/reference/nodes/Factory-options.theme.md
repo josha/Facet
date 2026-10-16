@@ -1,5 +1,7 @@
 # Factory-options.theme
 
+Factory-options.theme option values and behavior.
+
 - `theme`: a theme package or a readable of one. The controls use it for
   metrics, artwork and icon resolution. At ten feet (`adaptive.isTenFoot`)
   they use `themes.forDistance(theme, "ten-foot")`, so every metric length,

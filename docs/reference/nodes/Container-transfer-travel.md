@@ -1,5 +1,7 @@
 ### Container transfer travel
 
+<!-- aliases: Container transfer travel | container-transfer-travel -->
+
 `DraggableSpec.hitArea` is an optional GuiObject for bounded pickup. Its measured
 screen rectangle includes its leading edges and excludes its trailing edges.
 Use the cell's fixed hit node when tile paint grows on hover. The contact keeps

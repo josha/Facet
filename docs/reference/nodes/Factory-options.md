@@ -1,5 +1,7 @@
 ### Factory options
 
+<!-- aliases: Factory options | factory-options -->
+
 Open one option group below. Each group gives part of this contract.
 
 `controls` accepts these options:

@@ -1,5 +1,7 @@
 # Editable-collections.autoscroll
 
+Editable-collections.autoscroll option values and behavior.
+
 - Pointer: drag a row, or one of the selected rows to move them all, more than
   6 pixels along a list, or in either direction in a grid. There is no handle.
   The drag shows native copies of the selected cells, stacked up to three deep.

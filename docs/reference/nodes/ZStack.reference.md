@@ -1,5 +1,7 @@
 ### ZStack
 
+<!-- aliases: ZStack | zstack -->
+
 `UI.ZStack(spec) -> Frame` puts its children on top of each other. It has no
 layout object. A later child gets a higher `ZIndex`. A child that sets its own
 `ZIndex` keeps it. `alignH` and `alignV` (`start`, `center` or `end`) set the

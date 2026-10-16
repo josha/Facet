@@ -579,6 +579,7 @@ export type CollapsibleViewSpec = {
 	onPointerDown: typeof(buttonInput.onPointerDown),
 	onPointerUp: typeof(buttonInput.onPointerUp),
 	onPointerCancel: typeof(buttonInput.onPointerCancel),
+	target: typeof(buttonInput.target),
 	expanded: typeof(collapsibleView.expanded),
 	content: typeof(collapsibleView.content),
 	initialFocus: typeof(collapsibleView.initialFocus),

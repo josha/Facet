@@ -1,5 +1,7 @@
 # Toast.position
 
+Toast.position option values and behavior.
+
 - `position`: `top` (the default) or `bottom`, the edge that the stack docks
   to. Each edge of a layer has its own stack. The stack docks clear of the
   app's reserved chrome on that edge: the deepest `FacetInsetTop` or

@@ -1,5 +1,7 @@
 ### Your own Compose
 
+<!-- aliases: Your own Compose | your-own-compose -->
+
 A game that already uses Compose must use one Compose instance for its state
 and for Facet. Two instances make two reactive graphs. A value from one graph
 does not reliably update a reader in the other graph.

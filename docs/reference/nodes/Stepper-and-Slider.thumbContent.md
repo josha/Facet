@@ -1,5 +1,7 @@
 # Stepper-and-Slider.thumbContent
 
+Stepper-and-Slider.thumbContent option values and behavior.
+
 - The track is at least 44 pixels long. A cell that fits its content keeps a
   track that you can drag.
 - Each knob travels inside the rail by half of its own art size. At the

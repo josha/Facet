@@ -1,5 +1,7 @@
 ### adjustable
 
+<!-- aliases: adjustable | adjustable -->
+
 `UI.adjustable(node, options)` gives a game control the keyboard and gamepad
 adjustment of the Slider and the Stepper. `UI.adjustable` makes `node` the
 selection stop; give it no selectable descendants. While the selection is on

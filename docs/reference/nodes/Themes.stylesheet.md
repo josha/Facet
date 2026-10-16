@@ -1,5 +1,7 @@
 # Themes.stylesheet
 
+StyleSheet ownership, options, input paint, distance, asset loading and motion timing.
+
 - Make the sheet inside a Compose owner. Parent it as a numeric child. A
   StyleLink only references the sheet. It does not parent it.
 - The options are:

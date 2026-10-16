@@ -1,5 +1,7 @@
 ### Toggle
 
+<!-- aliases: Toggle | toggle -->
+
 `value` is a boolean source. `onChange(next)` requests a new value. Without it,
 the control updates the writable cell. `presentation` is `switch`, `checkbox` or
 `button`. The checkbox presentation supports `mixed`. A read-only `value` or

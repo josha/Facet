@@ -1,5 +1,9 @@
 #### Shared models and views
 
+<!-- aliases: Shared models and views | shared-models-and-views -->
+
+Shared-models-and-views contract and option values.
+
 All three containers accept `from`, stable `key`, `selection`, `selectionMode`,
 `editing`, `disabled`, `selectable`, `rowActions`, `onActivate`, and model-owned
 delete/reorder callbacks. List and grid use `render`; Table columns can use the

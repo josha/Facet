@@ -4,6 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Base commit for the paired performance comparison
+        required: true
+      candidate:
+        description: Candidate commit for the paired performance comparison
+        required: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,6 +23,7 @@ permissions:
 jobs:
   platform:
     name: Verify (${{ matrix.os }})
+    if: github.event_name != 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -96,7 +105,7 @@ jobs:
   verify:
     name: Verify
     needs: platform
-    if: always()
+    if: always() && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Every platform passed
@@ -105,3 +114,68 @@ jobs:
             echo "A platform job did not pass: ${{ needs.platform.result }}"
             exit 1
           fi
+
+  paired-perf:
+    name: Paired performance
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.candidate || github.sha }}
+
+      - name: Check out the base beside it
+        run: git worktree add "$RUNNER_TEMP/base" "${{ inputs.base || github.event.pull_request.base.sha }}"
+
+      - name: Install Rokit
+        env:
+          GITHUB_PAT: ${{ github.token }}
+        run: |
+          curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+
+      - name: Install the pinned toolchains
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          rokit authenticate github --token "$GITHUB_TOKEN"
+          for directory in "$GITHUB_WORKSPACE" "$RUNNER_TEMP/base"; do
+            for attempt in 1 2 3; do
+              if (cd "$directory" && rokit install --no-trust-check); then
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                exit 1
+              fi
+              echo "Toolchain download failed; retrying in 10 seconds ($attempt/3)."
+              sleep 10
+            done
+          done
+
+      - name: Compare the pull request with its base
+        run: |
+          mkdir -p artifacts
+          lute run tools/facet perf paired run --out artifacts/perf-paired --rounds 3 --skip-bench base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE"
+          if lute run tools/facet perf paired report artifacts/perf-paired base pr --gate | tee artifacts/perf-paired-report.txt; then
+            exit 0
+          fi
+          scenes=$(sed -n 's/^paired gate: FAIL - pr is consistently slower in //p' artifacts/perf-paired-report.txt | tr -d ' ')
+          echo "Rechecking $scenes with six rounds."
+          lute run tools/facet perf paired run --out artifacts/perf-paired-recheck --rounds 6 --skip-bench --scenes "$scenes" base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE"
+          lute run tools/facet perf paired report artifacts/perf-paired-recheck base pr --gate | tee artifacts/perf-paired-recheck-report.txt
+
+      - name: Save the paired results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paired-performance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/perf-paired*
+          if-no-files-found: warn
+          retention-days: 7

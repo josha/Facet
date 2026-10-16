@@ -1,5 +1,9 @@
 ## Public entry points
 
+<!-- aliases: Public entry points | public-entry-points -->
+
+Public-entry-points option values and behavior.
+
 | Export | Contract |
 |---|---|
 | `VERSION` | The package version string. |

@@ -1766,6 +1766,48 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("bounds a button to a reactive authored width", {
+			id = "native_inputs::native input controls::bounds a button to a reactive authored width",
+			run = function()
+				local width = Compose.cell(103)
+				local node, stop, engine = world(function(UI: FacetControls, host)
+					return UI.Button({
+						label = "Boost Board",
+						Size = function(use)
+							return host.types.UDim2.fromOffset(use(width), 0)
+						end,
+					})
+				end)
+				Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				Verify.expect(node.TextWrapped):toBe(true)
+				Verify.expect(node.Size.X.Offset):toBe(103)
+				width:set(0)
+				Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.XY)
+				Verify.expect(node.TextWrapped):toBe(false)
+				width:set(120)
+				Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("bounds a described button to a reactive authored width", {
+			id = "native_inputs::native input controls::bounds a described button to a reactive authored width",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls, host)
+					return UI.Button({
+						label = "Boost Board",
+						subtitle = "2 energy",
+						Size = function()
+							return host.types.UDim2.fromOffset(103, 0)
+						end,
+					})
+				end)
+				Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				Verify.expect(node.Size.X.Offset):toBe(103)
+				stop()
+			end,
+		})
+
 		verifyHarness:case("gives native dialog contexts ordered sink priority and live eligibility", {
 			id = "native_inputs::native input controls::gives native dialog contexts ordered sink priority and live eligibility",
 			run = function()
@@ -2704,6 +2746,35 @@ return function(verifyHarness: Verify.Harness)
 			end
 			return nil
 		end
+
+		verifyHarness:case("keeps a thumb-target Button at the thumb size of the screen's short edge on touch", {
+			id = "native_inputs::native input controls::keeps a thumb-target Button at the thumb size of the screen's short edge on touch",
+			run = function()
+				local viewport = Compose.cell(engineLib.new().types.Vector2.new(359, 718))
+				local h = harness({ environment = { viewportSize = viewport } })
+				h.input.TouchEnabled = true
+				h.input.KeyboardEnabled = false
+				local root, stop = mount(h, function()
+					return h.UI.Button "Drift" {
+						label = "DRIFT",
+						target = "thumb" :: "thumb",
+						onActivate = function() end,
+					}
+				end)
+				local V2 = h.engine.types.Vector2
+				local floor = find(root, "Drift"):FindFirstChild("TargetFloor")
+				Verify.expect(floor.MinSize):toBe(V2.new(70, 70))
+				viewport:set(V2.new(718, 359))
+				Verify.expect(floor.MinSize):toBe(V2.new(70, 70))
+				viewport:set(V2.new(1024, 768))
+				Verify.expect(floor.MinSize):toBe(V2.new(120, 120))
+				h.input.TouchEnabled = false
+				h.input.KeyboardEnabled = true
+				Verify.expect(find(root, "Drift"):FindFirstChild("TargetFloor")):toBe(nil)
+				stop()
+				h.dispose()
+			end,
+		})
 
 		type Compound = { class: string?, name: string?, tags: { string }, state: string? }
 		type Selector = { parts: { Compound }, combinators: { string }, pseudo: string? }
