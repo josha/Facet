@@ -353,6 +353,18 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "discloses a truncated label", props = merged(fixed(120, 44), { label = LONG, disclose = true }) },
 			{ name = "fixed 140×64", props = fixed(140, 64) },
 			{
+				name = "reactive width (tap to change)",
+				props = function(c: Context)
+					return require("./button_width_demo")(c, false)
+				end,
+			},
+			{
+				name = "reactive width with subtitle",
+				props = function(c: Context)
+					return require("./button_width_demo")(c, true)
+				end,
+			},
+			{
 				name = "compact label (short room)",
 				props = merged(fixed(110, 44), { label = LONG, compactLabel = "Save" }),
 			},
@@ -5010,15 +5022,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		family = "layout",
 		fills = true,
 		alias = "Composition (HUD zones)",
-		purpose = "A game HUD layout. The framed plate is a small screen holding six UI.Region children: "
-			.. "Menu (top-left), Round (top), Weapons (top-right), Strip (Roblox top-bar strip), Ready (bottom) "
-			.. "and FPS (bottom-right). When the zones do not fit, the region with the HIGHEST rank number "
-			.. "steps down to its shorter form first; a `mayDrop` region then hides. The caption above the "
-			.. "plate names the form each region shows right now. A region showing its short form can be "
-			.. "tapped: its `expand` opens the full form in place, anchored to it.",
-		note = "Controls — room: the plate's width (200 crowds the zones so you can watch them give way); "
-			.. "gap: space between regions in one zone; padding: inset from the plate's edges; topbar: "
-			.. "put the Strip region in Roblox's real top bar instead of the top zone.",
+		purpose = "A HUD with ranked regions. Narrow the plate: higher ranks give way first. "
+			.. "The caption names each form; tap a short form to expand it.",
+		note = "Room sets the plate width; gap and padding set spacing. Enable topbar for the real Roblox strip. "
+			.. "The leading Settings button opens a popup. Resize Studio to see strip regions land in the top zone.",
 		alternatives = "A Screen with stacks when nothing competes for the same edge.",
 		scenarios = { "hud", "radial_menu" },
 		snippet = 'UI.Composition { UI.Region { zone = "topLeft", rank = 1, full, short }, … }',
@@ -5087,6 +5094,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				)
 			)
 			table.insert(p, region("Strip", "topbar", 5, true, UI.Badge({ label = "Top bar strip" })))
+			table.insert(p, require("./topbar_demo")(c))
 			table.insert(
 				p,
 				region("Ready", "bottom", 1, false, UI.Button({ label = "Ready up", appearance = "emphasis" }))
@@ -5124,15 +5132,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		family = "layout",
 		fills = true,
 		alias = "Region (a Composition zone member)",
-		purpose = "One HUD element inside a Composition. The framed plate holds two regions: a fixed rank 1 "
-			.. "'Neighbour' at the top, and the region under test, which has a full form and a short form "
-			.. "(richest first). The caption reads which form shows. When the short form shows, tap it: "
-			.. "`expand` opens the full content in place, anchored to the region.",
-		note = "Controls — zone: the edge or corner the region sits in; rank: its priority (1 keeps the full "
-			.. "form longest, higher numbers give way first); room: the plate's width (200 crowds it); "
-			.. "mayDrop (a state): it may hide entirely when even the short form does not fit. `form` is the "
-			.. "cell the composition writes: 1 full, 2 short, 0 hidden. A hidden mayDrop region is revealed "
-			.. 'by the zone\'s "…" button; reveal = false (a state) opts out.',
+		purpose = "A full and short form compete with a rank 1 neighbour. Narrow the plate to change forms; "
+			.. "tap a short form to expand it. Choose topbar to compare leading and centred placement in the real strip.",
+		note = "Higher ranks give way first. Form is 1 for full, 2 for short, 0 for hidden. "
+			.. 'A hidden mayDrop region has a "…" reveal button unless reveal is false.',
 		alternatives = "A plain child of a Screen when it never competes for room.",
 		scenarios = { "hud" },
 		snippet = 'UI.Region { zone = "topRight", rank = 2, mayDrop = true, form = formCell, full, short }',
@@ -5163,12 +5166,13 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "mayDrop", props = properties { mayDrop = true } },
 			{ name = "noReveal", props = properties { mayDrop = true, reveal = false } },
+			{ name = "leading top bar", props = properties { zone = "topbar", leading = true } },
 		},
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local form = c.cell("form", 1)
 			local room = p.room or "fill"
 			local composition = UI.Composition({
-				topbar = false,
+				topbar = p.zone == "topbar",
 				UI.Region "Neighbour" {
 					zone = "top",
 					rank = 1,
@@ -5177,7 +5181,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				UI.Region "UnderTest" {
 					zone = p.zone,
 					rank = p.rank,
-					leading = if p.zone == "topbar" then true else nil,
+					leading = if p.zone == "topbar" then p.leading else nil,
 					mayDrop = p.mayDrop,
 					reveal = p.reveal,
 					form = form,
@@ -5257,6 +5261,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						env.motionLevel
 					)}`,
 					`safe insets t{inset.top} l{inset.left} b{inset.bottom} r{inset.right}`,
+					`thumb target {use(env.thumbTarget)}`,
 				}, "\n"))
 			end)
 			local atLeast = env.atLeast("regular")

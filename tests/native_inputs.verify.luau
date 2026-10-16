@@ -1793,17 +1793,38 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("bounds a described button to a reactive authored width", {
 			id = "native_inputs::native input controls::bounds a described button to a reactive authored width",
 			run = function()
+				local width = Compose.cell(103)
 				local node, stop, engine = world(function(UI: FacetControls, host)
 					return UI.Button({
 						label = "Boost Board",
 						subtitle = "2 energy",
-						Size = function()
-							return host.types.UDim2.fromOffset(103, 0)
+						Size = function(use)
+							return host.types.UDim2.fromOffset(use(width), 0)
 						end,
 					})
 				end)
 				Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
 				Verify.expect(node.Size.X.Offset):toBe(103)
+				local content, captions = find(node, "Content"), find(node, "Captions")
+				local title, description = find(node, "Title"), find(node, "Description")
+				width:set(0)
+				Verify.expect(node.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.XY)
+				for _, child in { content, captions, title, description } do
+					Verify.expect(child.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.XY)
+					Verify.expect(child.Size.X.Scale):toBe(0)
+				end
+				Verify.expect(title.TextWrapped):toBe(false)
+				Verify.expect(description.TextWrapped):toBe(false)
+				Verify.expect(title.TextTruncate):toBe(engine.types.Enum.TextTruncate.None)
+				Verify.expect(captions:FindFirstChildWhichIsA("UIFlexItem").FlexMode)
+					:toBe(engine.types.Enum.UIFlexMode.None)
+				width:set(120)
+				Verify.expect(content.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				Verify.expect(content.Size.X.Scale):toBe(1)
+				Verify.expect(title.TextWrapped):toBe(true)
+				Verify.expect(description.TextWrapped):toBe(true)
+				Verify.expect(captions:FindFirstChildWhichIsA("UIFlexItem").FlexMode)
+					:toBe(engine.types.Enum.UIFlexMode.Fill)
 				stop()
 			end,
 		})
