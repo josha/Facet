@@ -379,7 +379,10 @@ return function(
 			local container = Host.Frame(props)
 			local measured = ctx.observe.AbsoluteSize(container)
 			Compose.watch(function(use: ComposeTypes.Use)
-				width:set(use(measured).X)
+				local available = use(measured).X
+				if available > 0 then
+					width:set(available)
+				end
 			end)
 			return container
 		end

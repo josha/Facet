@@ -14,7 +14,7 @@ local createReadout = require("./color_picker_readout")
 type Use = ComposeTypes.Use
 type Measure = (Use) -> number
 export type PanelView = { panel: Frame, chrome: Measure, tech: Measure }
-export type Panel = (boolean, (Use) -> boolean, ComposeTypes.Readable<number>) -> PanelView
+export type Panel = (boolean, (Use) -> boolean, ComposeTypes.Readable<number>, number?) -> PanelView
 
 local MODE_LABEL, GAP, PAD, SPACE, MAX_COLUMNS = Kit.MODE_LABEL, Kit.GAP, Kit.PAD, Kit.SPACE, Kit.MAX_COLUMNS
 
@@ -36,7 +36,16 @@ return function(
 	local readoutView = createReadout(ctx, UI, kit, state)
 	local swatchesView, slidersView, brickView = swatches.swatchesView, sliders.slidersView, swatches.brickView
 
-	local function panelView(overlay: boolean, sheet: (Use) -> boolean, room: ComposeTypes.Readable<number>): PanelView
+	local function panelView(
+		overlay: boolean,
+		sheet: (Use) -> boolean,
+		room: ComposeTypes.Readable<number>,
+		width: number?
+	): PanelView
+		if width and width > 0 then
+			local available = width - surfaces.inset(PAD, "left") - surfaces.inset(PAD, "right")
+			columns:set(math.clamp(math.floor((available + GAP) / (state.cellSize() + GAP)), 1, MAX_COLUMNS))
+		end
 		local builders: { [string]: () -> Frame } =
 			{ swatches = swatchesView, spectrum = planeView, sliders = slidersView, brick = brickView }
 		local shows: { Frame } = {}
@@ -67,7 +76,7 @@ return function(
 		end
 		local heights: { ComposeTypes.Readable<Vector2> } = {}
 		for _, show in shows do
-			table.insert(heights, ctx.observe.AbsoluteSize(show))
+			table.insert(heights, runtime.observe(show, "AbsoluteSize") :: ComposeTypes.Readable<Vector2>)
 		end
 		local techniqueNode = Host.Frame(technique)
 		local unit = ctx.layoutUnit(techniqueNode)
@@ -87,18 +96,16 @@ return function(
 			local index = table.find(modes, use(modeCell))
 			return if index then use(heights[index]).Y / use(unit) else 0
 		end
-		local width = ctx.observe.AbsoluteSize(techniqueNode)
+		local extent = runtime.observe(techniqueNode, "AbsoluteSize") :: ComposeTypes.Readable<Vector2>
 		Compose.watch(function(use: Use)
-			local w = use(width).X / use(unit)
-			columns:set(
-				if w > 0
-					then math.clamp(math.floor((w + GAP) / (state.cellSize(use) + GAP)), 1, MAX_COLUMNS)
-					else MAX_COLUMNS
-			)
+			local w = use(extent).X / use(unit)
+			if w > 0 then
+				columns:set(math.clamp(math.floor((w + GAP) / (state.cellSize(use) + GAP)), 1, MAX_COLUMNS))
+			end
 		end)
 		local measured: { { node: GuiObject, size: ComposeTypes.Readable<Vector2> } } = {}
 		local function measure(node: GuiObject): GuiObject
-			local size: ComposeTypes.Readable<Vector2> = ctx.observe.AbsoluteSize(node)
+			local size = runtime.observe(node, "AbsoluteSize") :: ComposeTypes.Readable<Vector2>
 			table.insert(measured, { node = node, size = size })
 			return node
 		end

@@ -261,6 +261,27 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native ColorPicker well and panel", function()
+		verifyHarness:case("starts the phone palette at its available width and retains it through zero geometry", {
+			id = "native_color_picker::native ColorPicker well and panel::starts the phone palette at its available width and retains it through zero geometry",
+			run = function()
+				local w = world({ value = Compose.cell(Color3.fromRGB(255, 0, 0)) }, {
+					preferred = Roblox.Enum.PreferredInput.Touch,
+				})
+				w.size(w.screen, 390, 844)
+				w.open()
+				expect(w.attr("columns")):toBe(7)
+				local first = w.cells()[2]
+				w.size(w.find("Technique"), 342, 264)
+				expect(w.cells()[2]):toBe(first)
+				w.size(w.find("Technique"), 0, 0)
+				expect(w.attr("columns")):toBe(7)
+				expect(w.cells()[2]):toBe(first)
+				w.size(w.find("Technique"), 300, 264)
+				expect(w.attr("columns")):toBe(6)
+				expect(#w.cells()):toBe(36)
+				w.stop()
+			end,
+		})
 		verifyHarness:case(
 			"the well opens an anchored panel on a roomy pointer screen; a refused swatch never paints",
 			{

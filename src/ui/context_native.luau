@@ -277,22 +277,25 @@ return function(
 		if config.theme == nil then
 			return nil, nil
 		end
+		local function hasSkin(use: ComposeTypes.Use?): boolean
+			local package = ctx.read(config.theme, use) :: Theme.ThemePackage?
+			local recipe = package and (package.chrome or {})[slot]
+			return recipe ~= nil and (recipe.kind ~= "native" and recipe.kind ~= "none" or recipe.shadow ~= nil)
+		end
 		if not Compose.isReadable(config.theme) and type(config.theme) ~= "function" then
-			local package = config.theme :: Theme.ThemePackage
-			local recipe = (package.chrome or {})[slot]
-			if recipe == nil or ((recipe.kind == "native" or recipe.kind == "none") and recipe.shadow == nil) then
+			if not hasSkin() then
 				return nil, nil
 			end
 		end
-		local state = ctx.observe.GuiState(node)
 		local stateOptions: Shared.SkinStateOptions = skinOptions or {}
-		local background = observeStyled(node, "BackgroundTransparency")
-		local dispose, art = runtime.mount(function()
+		local function createSkin(): Frame
+			local state = ctx.observe.GuiState(node)
+			local background = observeStyled(node, "BackgroundTransparency")
 			return themes.skin(runtime, config.theme, slot, {
 				types = types,
 				target = node,
 				shadowTransparency = function(use: ComposeTypes.Use)
-					local package = ctx.read(config.theme, use)
+					local package = ctx.read(config.theme, use) :: Theme.ThemePackage?
 					local recipe = package and (package.chrome or {})[slot]
 					local fill = if recipe and recipe.kind == "native"
 						then math.clamp(use(background) :: number, 0, 1)
@@ -326,6 +329,22 @@ return function(
 				end,
 				ZIndex = 0,
 			})
+		end
+		local dispose, art = runtime.mount(function()
+			if hasSkin() then
+				return createSkin()
+			end
+			local needed = false
+			return Host.Frame "SkinHost" {
+				Size = types.UDim2.fromOffset(0, 0),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				ZIndex = 0,
+				Compose.show(function(use: ComposeTypes.Use): boolean
+					needed = needed or hasSkin(use)
+					return needed
+				end, createSkin),
+			}
 		end, node)
 		if art and node:FindFirstChildWhichIsA("UIGridStyleLayout") then
 			local _, chrome = runtime.mount(function()

@@ -2476,6 +2476,62 @@ local function openPanel(t: any, layer: any): any
 	return panel
 end
 
+add("color-open-readiness", {}, function(t)
+	t.device({ device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait })
+	local present: ((boolean) -> ())? = nil
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		local opened = Compose.cell(false)
+		present = function(value: boolean)
+			opened:set(value)
+		end
+		return Host.Frame "WellHost" {
+			Size = UDim2.new(1, -32, 0, 44),
+			Position = UDim2.fromOffset(16, 16),
+			BackgroundTransparency = 1,
+			UI.ColorPicker {
+				label = "Accent",
+				value = Compose.cell(Color3.fromRGB(60, 94, 246)),
+				isPresented = opened,
+			},
+		}
+	end, { size = Vector2.new(390, 844), environment = { preferredInput = "Touch" } })
+	for attempt = 1, 3 do
+		local started = os.clock()
+		assert(present)(true)
+		local constructed = (os.clock() - started) * 1000
+		local panel = assert(stage:FindFirstChild("Panel", true)) :: Frame
+		local swatches = assert(panel:FindFirstChild("Swatches", true))
+		local original: { Instance } = swatches:GetChildren()
+		local ready = 0
+		for frame = 1, 12 do
+			t.settle(1)
+			if panel:FindFirstChild("Fade") == nil then
+				ready = frame
+				break
+			end
+		end
+		local visibleMs = (os.clock() - started) * 1000
+		t.check("picker reveals without the readiness timeout", ready > 0 and ready <= 8, ready)
+		t.note(`open {attempt}`, { constructMs = constructed, visibleMs = visibleMs, frames = ready })
+		local stablePosition, stableSize = panel.AbsolutePosition, panel.AbsoluteSize
+		for _ = 1, 6 do
+			t.settle(1)
+			t.check(
+				"revealed panel does not move",
+				panel.AbsolutePosition == stablePosition and panel.AbsoluteSize == stableSize
+			)
+		end
+		for _, child in original do
+			if child:IsA("TextButton") then
+				t.check("initial phone swatches survive layout", child.Parent == swatches, child.Name)
+			end
+		end
+		assert(present)(false)
+		t.settle(3)
+		t.check("close releases the panel", stage:FindFirstChild("Panel", true) == nil)
+	end
+end)
+
 add("color-hidden-technique-size", {}, function(t)
 	for
 		_,

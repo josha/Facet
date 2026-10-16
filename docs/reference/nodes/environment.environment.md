@@ -12,6 +12,8 @@ environment keeps the last real size.
 | Field | Source and value |
 |---|---|
 | `viewportSize`, `viewportWidth`, `viewportHeight` | The viewport: layout units for a `GuiBase2d` source, pixels for a camera. |
+| `topbarInset` | The available top-bar rectangle from `GuiService.TopbarInset`, in screen pixels. |
+| `topbarControlDiameter` | The rounded top-bar height times 0.75, or 0.5 when `GuiService:IsTenFootInterface()` is true. Use it for an action beside the Roblox controls. |
 
 | Field | Source and value |
 |---|---|

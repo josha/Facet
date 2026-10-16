@@ -24,9 +24,15 @@ local function fire(node: Instance, event: string)
 	local signals = (node :: unknown) :: { [string]: { Fire: (unknown) -> () } }
 	signals[event]:Fire()
 end
-local function sample(name: string, build: (State) -> Instance, activate: ((Instance) -> ())?)
+local function measure(name: string, build: (State) -> Instance, activate: ((Instance) -> ())?, themed: boolean?)
 	local state = nativeApp()
 	local Compose, runtime, Host = state.Compose, state.runtime, state.Host
+	if themed then
+		state.UI = state.Facet.controls(runtime, {
+			types = state.types,
+			theme = Compose.cell(state.Facet.themes.neutralPackage()),
+		})
+	end
 	Compose.inspect.start({ maxOwners = math.huge, maxNodes = math.huge })
 	local function census(): Counts
 		local native = state.engine.census()
@@ -92,6 +98,11 @@ local function sample(name: string, build: (State) -> Instance, activate: ((Inst
 	Compose.inspect.stop()
 end
 
+local function sample(name: string, build: (State) -> Instance, activate: ((Instance) -> ())?)
+	measure(name, build, activate)
+	measure(name .. "-reactive-theme", build, activate, true)
+end
+
 sample("Button", function(state)
 	return state.UI.Button({ label = "Save", onActivate = function() end })
 end)
@@ -142,6 +153,14 @@ sample("Picker-open", function(state)
 	})
 end, function(node)
 	fire(assert(node:FindFirstChild("Trigger", true)), "Activated")
+end)
+sample("ColorPicker", function(state)
+	return state.UI.ColorPicker({ value = state.Compose.cell(state.types.Color3.fromRGB(60, 94, 246)) })
+end)
+sample("ColorPicker-open", function(state)
+	return state.UI.ColorPicker({ value = state.Compose.cell(state.types.Color3.fromRGB(60, 94, 246)) })
+end, function(node)
+	fire(assert(node:FindFirstChild("Well", true)), "Activated")
 end)
 for count = 1, 2 do
 	sample(`Menu-{count}-rows`, function(state)
