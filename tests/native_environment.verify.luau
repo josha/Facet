@@ -124,6 +124,72 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("publishes the engine topbar rectangle without scaling and releases its observation", {
+			id = "native_environment::environment: reactive facts from engine sources::publishes the engine topbar rectangle without scaling and releases its observation",
+			run = function()
+				local w = world()
+				local screen = w.engine.new("ScreenGui")
+				screen.AbsoluteSize = Roblox.Vector2.new(390, 844)
+				local nativeConsole = false
+				w.gui.IsTenFootInterface = function()
+					return nativeConsole
+				end
+				local env: { topbarInset: Readable<Rect>, topbarControlDiameter: Readable<number> }? = nil
+				local reads = 0
+				local stop = owned(w.runtime, function()
+					local facts = w.UI.environment(screen)
+					env = facts
+					Compose.watch(function(use: Use)
+						use(facts.topbarInset)
+						reads += 1
+					end)
+				end)
+				local facts = assert(env)
+				w.gui.TopbarInset = Roblox.Rect.new(164, 0, 390, 58)
+				local inset = facts.topbarInset:peek()
+				Verify.expect(inset.Min.X):toBe(164)
+				Verify.expect(inset.Height):toBe(58)
+				Verify.expect(facts.topbarControlDiameter:peek()):toBe(44)
+				nativeConsole = true
+				w.gui.TopbarInset = Roblox.Rect.new(193, 0, 1920, 87)
+				Verify.expect(facts.topbarControlDiameter:peek()):toBe(44)
+				nativeConsole = false
+				local initialReads = reads
+				w.gui.TopbarInset = Roblox.Rect.new(200, 24, 844, 96)
+				w.input.GamepadEnabled = true
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				inset = facts.topbarInset:peek()
+				Verify.expect(inset.Min.Y):toBe(24)
+				Verify.expect(inset.Height):toBe(72)
+				Verify.expect(facts.topbarControlDiameter:peek()):toBe(54)
+				Verify.expect(reads > initialReads):toBe(true)
+				local before = reads
+				stop()
+				w.gui.TopbarInset = Roblox.Rect.new()
+				Verify.expect(reads):toBe(before)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("returns an empty topbar rectangle without GuiService", {
+			id = "native_environment::environment: reactive facts from engine sources::returns an empty topbar rectangle without GuiService",
+			run = function()
+				local w = world()
+				local UI = Facet.controls(w.runtime, { types = w.engine.types })
+				local stop = owned(w.runtime, function()
+					local facts = UI.environment()
+					local inset = facts.topbarInset:peek()
+					Verify.expect(facts.topbarControlDiameter:peek()):toBe(0)
+					Verify.expect(inset.Min.X):toBe(0)
+					Verify.expect(inset.Min.Y):toBe(0)
+					Verify.expect(inset.Width):toBe(0)
+					Verify.expect(inset.Height):toBe(0)
+				end)
+				stop()
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("publishes safe insets, display size, preferred text size and reduced motion", {
 			id = "native_environment::environment: reactive facts from engine sources::publishes safe insets, display size, preferred text size and reduced motion",
 			run = function()

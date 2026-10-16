@@ -5242,6 +5242,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				local size = use(env.viewportSize)
 				local ic = use(env.interactionClasses)
 				local inset = use(env.safeInsets)
+				local topbar = use(env.topbarInset)
 				text:set(table.concat({
 					`viewport {math.floor(size.X)}×{math.floor(size.Y)} ({use(env.viewportWidth)} wide, {use(
 						env.viewportHeight
@@ -5261,6 +5262,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						env.motionLevel
 					)}`,
 					`safe insets t{inset.top} l{inset.left} b{inset.bottom} r{inset.right}`,
+					`topbar {topbar.Width}×{topbar.Height} at {topbar.Min.X},{topbar.Min.Y}`,
+					`topbar control diameter {use(env.topbarControlDiameter)}`,
 					`thumb target {use(env.thumbTarget)}`,
 				}, "\n"))
 			end)

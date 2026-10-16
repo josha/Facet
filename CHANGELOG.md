@@ -12,6 +12,8 @@
 - Automatic Picker and Pagination keep their last measured width while native
   bounds are zero. A temporary zero width no longer rebuilds the Picker form
   or adds page buttons that the next layout removes.
+- The Lab environment display and API reference include the native top-bar
+  rectangle and control diameter.
 
 - The Lab demonstrates reactive Button widths, a leading top-bar popup, live
   Region strip alignment and the environment's thumb target. The architecture

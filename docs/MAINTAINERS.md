@@ -31,6 +31,12 @@ selects the shortest path.
 reachability from `Map`. Marker lines count toward the source byte budget.
 Queries omit marker lines and keep the response byte limit.
 
+`docs <Control>.props` derives option names and types from the public property
+types. It works in the repository and in an author kit. Lowercase fields are
+Facet options. Native properties keep their engine names. The output marks
+required inputs, known defaults and omitted inputs that use control or theme
+policy. A control name with an unknown option selects its `.props` list.
+
 `docs-samples` type-checks every Luau fence in task recipes and control cards.
 It adds strict mode and the app mount context for a card. It uses the same
 consumer analyzer, solver flags and pinned Roblox definitions as `facet verify`.

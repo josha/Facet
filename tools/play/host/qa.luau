@@ -55,6 +55,7 @@ export type Context = {
 }
 
 export type QA = {
+	mountProblem: string?,
 	device: Devices.Device,
 	viewport: { width: number, height: number },
 	call: (self: QA, command: string, fields: unknown?) -> unknown,
@@ -501,7 +502,16 @@ local function create(context: Context, device: Devices.Device): QA
 	return qa
 end
 
+local function interfaceMounted(value: unknown, requireContent: boolean?): boolean
+	if type(value) ~= "table" then
+		return false
+	end
+	local fields = value :: { [string]: unknown }
+	return (tonumber(fields.roots) or 0) > 0 and (not requireContent or fields.mounted ~= false)
+end
+
 return {
+	interfaceMounted = interfaceMounted,
 	create = create,
 	describe = describe,
 	readDump = readDump,

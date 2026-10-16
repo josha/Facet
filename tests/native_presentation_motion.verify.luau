@@ -413,6 +413,53 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("CollapsibleView in place", function()
+		verifyHarness:case("keeps selection input available while its prepared panel reveals", function()
+			local expanded = Compose.cell(false)
+			local w = overlay.new(function(UI: FacetControls)
+				return UI.CollapsibleView "Tips" {
+					expanded = expanded,
+					content = function(): Instance
+						return UI.VStack {
+							UI.Button "First" { label = "First" },
+							UI.Button "Second" { label = "Second" },
+						}
+					end,
+				}
+			end, { runService = true, preRender = true, inputs = true })
+			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+			expanded:set(true)
+			local panel, first = w.find("Expanded"), w.find("First")
+			w.size(panel, 360, 200)
+			w.size(w.find("ExpandedBody"), 360, 200)
+			w.size(first, 328, 44)
+			Verify.expect(fadeKit.of(panel)):toBe(1)
+			w.advance(1 / 60, 1)
+			Verify.expect(fadeKit.of(panel)):toBe(1)
+			for _ = 1, 6 do
+				for _, node in panel:GetDescendants() do
+					if node:IsA("GuiObject") then
+						node.AbsolutePosition += w.Vector2.new(0, 1)
+					end
+				end
+				panel.AbsolutePosition += w.Vector2.new(0, 1)
+				w.advance(1 / 60, 1)
+			end
+			w.gui.SelectedObject = first
+			local at: Instance? = first
+			while at and not at:IsA("LayerCollector") do
+				if at:IsA("GuiObject") then
+					Verify.expect(at.Interactable):toBe(true)
+				end
+				at = at.Parent
+			end
+			w.input.InputBegan:Fire({ KeyCode = w.Enum.KeyCode.DPadDown, UserInputType = w.Enum.UserInputType.Gamepad1 })
+			Verify.expect(w.gui.SelectedObject):toBe(first)
+			w.advance(1, 60)
+			Verify.expect(fadeKit.of(panel)):toBe(0)
+			w.find("Close").Activated:Fire()
+			Verify.expect(expanded:peek()):toBe(false)
+			w.stop()
+		end)
 		local function tipsWorld(options: any?, outsideDismiss: boolean | Compose.Readable<boolean>?): (any, any)
 			local expanded = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)

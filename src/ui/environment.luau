@@ -513,6 +513,21 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return enumName(use(textRaw), "Medium")
 		end)
 		local topbar = watched(gui, "TopbarInset", nil)
+		local topbarInset = derived(function(use): Rect
+			local inset = use(topbar)
+			return if typeof(inset) == "Rect" then inset :: Rect else ctx.types.Rect.new()
+		end)
+		local topbarControlDiameter = derived(function(use): number
+			use(viewportSize)
+			local nativeTenFoot = false
+			if gui then
+				local ok, value = pcall(function()
+					return gui:IsTenFootInterface()
+				end)
+				nativeTenFoot = ok and value == true
+			end
+			return math.round(use(topbarInset).Height * (if nativeTenFoot then 0.5 else 0.75))
+		end)
 		local safeInsets = derived(function(use): Env.SafeInsets
 			use(viewportSize)
 			use(topbar)
@@ -645,6 +660,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				})
 			end) :: unknown) :: ComposeTypes.Readable<adaptive.NavPlacement>,
 			safeInsets = safeInsets,
+			topbarInset = topbarInset,
+			topbarControlDiameter = topbarControlDiameter,
 			preferredTextSize = preferredTextSize,
 			reducedMotion = derived(function(use): boolean
 				return level(use) ~= "normal"

@@ -9,6 +9,8 @@ Start with `lute run tools/facet docs` for `Map`. Open every task recipe that
 matches a part of the screen. For a HUD with a shop, open `Tasks.hud` and
 `Tasks.shop`. For a panel with child pages, also open `Tasks.sheet`.
 Open a control card or option node only for a missing detail: `docs <path>`.
+Use `docs <Control>.props` for typed options and defaults. Do not read package
+source to find option types.
 Use `docs --search TEXT` to find paths and one-line summaries.
 Never reread a node already in context. Each call returns one bounded node.
 Use `project [directory]` for file discovery. Read one matching starter in
@@ -32,11 +34,14 @@ Use `project [directory]` for file discovery. Read one matching starter in
 - The theme owns paint, type, spacing and motion. Use `textRole`,
   `appearance`, `gap` and `padding` tokens. Use `wrap = true` for long text in
   a stack with `width = "fill"`. Do not set `TextScaled`.
-- Keep all HUD groups in one Composition. Use stable region widths and
+- Keep core-safe HUD groups in one Composition. Use stable region widths and
   smaller forms before you let a region drop. Use `UI.environment` or adaptive
   controls for size changes. Do not branch on the device. For a length the
   game owns, use `UI.environment().scaled(64)`. Add a type role,
   `scaled(64, "body")`, when the length sits beside text.
+- Use `Tasks.hud` for HUD actions: a top-right horizontal row of circles in
+  TopbarSafeInsets. Keep each readable label below the strip and inside its
+  Button's descendants. Open `HUD-actions` for native sizing and selection.
 - Give each region forms from the richest to the narrowest. The narrowest
   form must fit a portrait phone, about 320 pixels wide. For example, a row of
   buttons, then the main button over the others, then one column. Let the
@@ -70,6 +75,9 @@ Run `lute run tools/facet verify --tap TEXT...` after a coherent edit. It runs
 strict types, usage lint, a Rojo build, audit and screenshots in one command.
 Give one `--tap` for each control in the path to a screen. It uses one capture
 session across all five devices and prints only problems and screenshot paths.
+During repairs, add `--device ID` to check the affected device. Run one complete
+final sweep without `--device`. Use the printed `verify --report` queries to
+read findings. Add `--step ID` for one capture. Do not read the full report.
 Inspect those screenshots and fix high and medium findings. Repeat checks only
 after changes or an unresolved problem; separate audit and preview calls are
 not needed for the same screens. Do not read dump files. If Studio is

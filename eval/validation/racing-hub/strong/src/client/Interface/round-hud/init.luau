@@ -13,8 +13,9 @@ local function mount(context: Context)
 	local screen = Kit.screen(context.playerGui, "RoundInterface")
 	Kit.scale(screen)
 	local timer = Kit.label("", Kit.size.heading, Kit.colors.primary, true)
-	timer.Size = UDim2.new(1, -16, 0, 0)
-	timer.Position = UDim2.fromOffset(8, 8)
+	timer.AnchorPoint = Vector2.new(0.5, 0)
+	timer.Size = UDim2.new(1, -Kit.space.large * 2, 0, 0)
+	timer.Position = UDim2.new(0.5, 0, 0, Kit.size.heading * 2)
 	timer.TextXAlignment = Enum.TextXAlignment.Center
 	timer.BackgroundColor3 = Kit.colors.panel
 	timer.BackgroundTransparency = 0
@@ -45,6 +46,8 @@ local function mount(context: Context)
 	feed.Size = UDim2.new(1, 0, 0, 0)
 	local function layout()
 		local size = screen.AbsoluteSize
+		local scale = if Kit.isTenFoot() then 1.25 else 1
+		timer.Size = UDim2.fromOffset(math.min(260, size.X / scale - Kit.space.large * 2), 0)
 		local landscape = game:GetService("UserInputService").TouchEnabled and size.X > size.Y and size.Y < 600
 		standings.AnchorPoint = if landscape then Vector2.new(1, 0) else Vector2.zero
 		standings.Position = if landscape then UDim2.new(1, -8, 0, 52) else UDim2.fromOffset(8, 52)

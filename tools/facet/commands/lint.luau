@@ -82,7 +82,9 @@ local function hint(message: string): string?
 	local option = string.match(message, "^Expected this to be 'EventKey | number', but got '\"([^\"]+)\"'")
 	if option ~= nil then
 		return Static.layoutHint(option)
-			or ("%s is not an option of this control. Run docs <Control> for its options."):format(option)
+			or ("%s is not an option of this control. Run lute run tools/facet docs <Control>.props for typed options."):format(
+				option
+			)
 	end
 	return nil
 end

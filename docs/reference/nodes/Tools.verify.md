@@ -21,11 +21,25 @@ Every capture is kept. Audit output groups repeated findings. The verdict is
 The full `report.txt`, interface dumps and captures are under `--out`
 (default `artifacts/facet-verify`). Static and total times are in `timings.json`.
 Live phase times are in `live/timings.json`.
+Read findings with `lute run tools/facet verify --report --device desktop
+--rule text-fit`. Use the rule ID from the output. Add `--step 2-shop` for one
+capture. Use `--out DIR` for another saved run. Each query prints at most 4096
+bytes. If it has more findings, repeat it with the printed `--page N`.
+Capture IDs use `device/step`; their images are in
+`live/captures/<device>/<step>.png` under `--out`. The default output ends with
+an exact query for each failing device and rule. Queries do not start Studio
+or change the saved report. Do not read the full report during repairs.
 Use `--verbose` for each capture path and every finding. A failed or missing
 tap, capture, type check, build, or high or medium audit finding gives exit code 1.
 
 Each tap waits for stable layout before capture. Use `--wait SECONDS` to set
 an explicit delay after each tap.
+If the interface does not mount or a tap fails, the device stops its dependent
+steps and keeps the root failure capture. Other devices still run.
+
+During repairs, use `--device ID` for focused checks. After the repairs, run
+one complete final sweep without `--device`. For option errors, use
+`lute run tools/facet docs <Control>.props` instead of reading package source.
 
 `--static` checks types, usage and build, and reports that it skipped Studio.
 `--dump FILE --device ID` audits saved evidence and does not prove current

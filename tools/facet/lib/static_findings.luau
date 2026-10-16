@@ -50,6 +50,7 @@ function Static.render(findings: { Finding }, warningCounts: boolean?): { string
 		table.insert(group, finding)
 	end
 	local lines: { string } = {}
+	local optionQueries: { string } = {}
 	for _, group in groups do
 		local first = group[1]
 		if warningCounts and first.severity == "warning" then
@@ -57,12 +58,35 @@ function Static.render(findings: { Finding }, warningCounts: boolean?): { string
 			continue
 		end
 		local message = first.message
-		if #message > 600 then
-			message = string.sub(message, 1, 400) .. " ... [shortened]"
+		if #message > 240 then
+			message = string.sub(message, 1, 200) .. " ... [shortened]"
 		end
 		table.insert(lines, `{first.severity} [{first.rule}] {message} ({#group} finding(s))`)
 		if first.hint then
 			table.insert(lines, "    hint: " .. first.hint)
+		end
+		if first.rule == "types" then
+			local control = string.match(first.message, "([%w_]+)Props") or string.match(first.message, "([%w_]+)Spec")
+			local aliases = {
+				TextButton = "Button",
+				TextLabel = "Text",
+				Frame = "<Control>",
+				GuiObject = "<Control>",
+				ScrollingFrame = "ScrollView",
+				Collection = "VirtualList",
+				KeyedCollection = "VirtualList",
+				IdentityCollection = "VirtualList",
+				KeyedTable = "Table",
+				IdentityTable = "Table",
+				KeyedOutline = "Outline",
+				IdentityOutline = "Outline",
+			}
+			local query = "options: lute run tools/facet docs "
+				.. (if control then aliases[control] or control else "<Control>")
+				.. ".props"
+			if not table.find(optionQueries, query) then
+				table.insert(optionQueries, query)
+			end
 		end
 		for index = 1, math.min(5, #group) do
 			table.insert(lines, "    " .. group[index].location)
@@ -70,6 +94,9 @@ function Static.render(findings: { Finding }, warningCounts: boolean?): { string
 		if #group > 5 then
 			table.insert(lines, `    and {#group - 5} more`)
 		end
+	end
+	for _, query in optionQueries do
+		table.insert(lines, query)
 	end
 	return lines
 end

@@ -27,6 +27,8 @@ environment.viewingDistanceSource option values and behavior.
 | Field | Source and value |
 |---|---|
 | `safeInsets` | `{ top, left, bottom, right }` from `GuiService:GetGuiInset()`. It updates when the viewport or `GuiService.TopbarInset` changes. |
+| `topbarInset` | A `Rect` from `GuiService.TopbarInset` in engine pixels. It updates when that property changes and keeps its screen coordinates with a custom environment source. It is an empty `Rect` when GuiService or the property is unavailable. The component owns the observation. It gives the free band, not the menu button bounds. See [HUD-actions](HUD-actions.md). |
+| `topbarControlDiameter` | A derived diameter in physical pixels: round the top-bar band height times `0.75`, or times `0.5` when `GuiService:IsTenFootInterface()` reports native console UI. Thus bands of 58 and 87 pixels both give 44. It is 0 for an empty band. It follows the band and viewport. This uses native console UI, not the environment's inferred viewing distance. See [HUD-actions](HUD-actions.md). |
 
 | Field | Source and value |
 |---|---|
