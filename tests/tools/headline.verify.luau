@@ -9,6 +9,19 @@ return function(harness: Verify.Harness)
 	local b = Eval.lute
 	local thresholds = Eval.report.decodeThresholds(b.decode(b.files.read("eval/thresholds.json")))
 	local overhead = b.decode(b.files.read("eval/overhead.json")) :: Headline.Overhead
+	harness:case("zero recorded universal cases report a harness error even with numeric scores", function(t)
+		local directory = b.absolute("artifacts/facetbench/synthetic-unrecorded")
+		local suite = Fixture.write(directory, "pass")
+		local runs = Eval.load(directory, b.files, b.decode)
+		for _, check in runs[1].checks do
+			if check.check == "play" then
+				check.cases = {}
+			end
+		end
+		local output = Headline.build(suite, runs, Eval.judge.load(directory, b.files, b.decode), thresholds, overhead)
+		t:expect(output.passed):toBe(false)
+		t:expect(string.find(output.markdown, "harness error: universal case records", 1, true) ~= nil):toBe(true)
+	end)
 	harness:case("spec failures do not gate and missing universal evidence fails closed", function(t)
 		local directory = b.absolute("artifacts/facetbench/synthetic-tiers")
 		local suite = Fixture.write(directory, "pass")

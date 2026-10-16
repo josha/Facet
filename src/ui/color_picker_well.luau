@@ -6,7 +6,6 @@ local InputProps = require("./input_props")
 local Kit = require("./color_picker_kit")
 local PickerState = require("./color_picker_state")
 local Panel = require("./color_picker_panel")
-local rest = require("./rest")
 
 type Use = ComposeTypes.Use
 type PanelView = Panel.PanelView
@@ -223,24 +222,31 @@ return function(
 					end,
 				} :: Shared.Attributes,
 			})
-			local settled = rest(ctx, function(): (string, boolean)
-				local spot = where:peek()
-				local technique = view.panel:FindFirstChild("Technique", true) :: GuiObject
-				local size = technique.AbsoluteSize
-				local modes = view.panel:FindFirstChild("Modes", true)
-				local strip = if modes then modes:FindFirstChildWhichIsA("UIListLayout", true) else nil
-				local wrapped = true
-				local rows = ""
-				if modes and modes:IsA("GuiObject") and strip then
-					local picker = strip.Parent
-					local held = if picker and picker:IsA("GuiObject") then picker.AbsoluteSize.Y else 0
-					wrapped = strip.AbsoluteContentSize.Y <= held + 1
-					rows = `{strip.AbsoluteContentSize.Y}:{held}`
-				end
-				local position, bounds = view.panel.AbsolutePosition, view.panel.AbsoluteSize
-				return `{spot.x}:{spot.y}:{spot.w}:{spot.h}:{columns:peek()}:{size}:{rows}:{position}:{bounds}`,
-					wrapped and size.X > 0 and size.Y > 0 and spot.w > 0 and spot.h > 0
-			end)
+			local complete = false
+			local settled = ctx.runtime.settled {
+				sample = function(): string
+					local spot = where:peek()
+					local technique = view.panel:FindFirstChild("Technique", true) :: GuiObject
+					local size = technique.AbsoluteSize
+					local modes = view.panel:FindFirstChild("Modes", true)
+					local strip = if modes then modes:FindFirstChildWhichIsA("UIListLayout", true) else nil
+					local wrapped = true
+					local rows = ""
+					if modes and modes:IsA("GuiObject") and strip then
+						local picker = strip.Parent
+						local held = if picker and picker:IsA("GuiObject") then picker.AbsoluteSize.Y else 0
+						wrapped = strip.AbsoluteContentSize.Y <= held + 1
+						rows = `{strip.AbsoluteContentSize.Y}:{held}`
+					end
+					local position, bounds = view.panel.AbsolutePosition, view.panel.AbsoluteSize
+					complete = wrapped and size.X > 0 and size.Y > 0 and spot.w > 0 and spot.h > 0
+					return `{spot.x}:{spot.y}:{spot.w}:{spot.h}:{columns:peek()}:{size}:{rows}:{position}:{bounds}`
+				end,
+				equals = function(a: string, b: string): boolean
+					return complete and a == b
+				end,
+				timeout = ctx.metric("motion.restLimit"),
+			}
 			ctx.fadeTo(view.panel, function(use: Use): number
 				return if use(settled) then 0 else 1
 			end)

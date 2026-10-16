@@ -1,7 +1,6 @@
 --!strict
 local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
-local rest = require("./rest")
 local motion = require("./motion")
 
 return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: Types.Value<number>?)
@@ -50,45 +49,37 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 			local observed = (ctx.observe :: unknown) :: { [string]: (Instance) -> ComposeTypes.Cell<unknown> }
 			local loaded = if node:IsA("ImageLabel") then observed.IsLoaded(node) else nil
 			local image = if node:IsA("ImageLabel") then observed.Image(node) else nil
-			local assetOwner: ComposeTypes.Owner? = nil
 			Compose.watch(function(use: ComposeTypes.Use)
 				if image then
 					use(image)
 				end
-				if assetOwner then
-					assetOwner.dispose()
-				end
-				local asset = nextScope.createChild()
-				assetOwner = asset
-				Compose.withOwner(asset, function()
-					local fetched = Compose.cell(false)
-					local provider = ctx.config.services and ctx.config.services.ContentProvider
-					if provider and node:IsA("ImageLabel") and node.Image ~= "" and task then
-						local thread = task.defer(function()
-							pcall(function()
-								provider:PreloadAsync(
-									{ node },
-									function(_content: string, status: Enum.AssetFetchStatus)
-										if
-											not asset.isDisposed()
-											and status == ctx.types.Enum.AssetFetchStatus.Success
-										then
-											fetched:set(true)
-										end
-									end
-								)
+				local asset = assert(Compose.currentOwner())
+				local fetched = Compose.cell(false)
+				local provider = ctx.config.services and ctx.config.services.ContentProvider
+				if provider and node:IsA("ImageLabel") and node.Image ~= "" and task then
+					local thread = task.defer(function()
+						pcall(function()
+							provider:PreloadAsync({ node }, function(_content: string, status: Enum.AssetFetchStatus)
+								if not asset.isDisposed() and status == ctx.types.Enum.AssetFetchStatus.Success then
+									fetched:set(true)
+								end
 							end)
 						end)
-						Compose.cleanup(function()
-							if coroutine.status(thread) ~= "dead" then
-								task.cancel(thread)
-							end
-						end)
-					end
-					node:SetAttribute("FacetMediaReady", false)
-					local ready = rest(ctx, function(): (string, boolean, boolean?)
+					end)
+					Compose.cleanup(function()
+						if coroutine.status(thread) ~= "dead" then
+							task.cancel(thread)
+						end
+					end)
+				end
+				node:SetAttribute("FacetMediaReady", false)
+				local ready = ctx.runtime.settled {
+					sample = function(): string
+						return tostring(size:peek())
+					end,
+					ready = function(): boolean
 						local box = size:peek()
-						local filled = box.X > 0
+						return box.X > 0
 							and box.Y > 0
 							and node:GetAttribute("FacetBuilt") ~= false
 							and (
@@ -97,45 +88,45 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 								or loaded:peek() == true
 								or fetched:peek()
 							)
-						return tostring(box), filled, filled
-					end, function(use: ComposeTypes.Use): string
+					end,
+					restart = function(use: ComposeTypes.Use): string
 						return if image then tostring(use(image)) else tostring(use(size))
-					end, true)
-					Compose.watch(function(read: ComposeTypes.Use)
-						node:SetAttribute("FacetMediaReady", read(ready))
-					end)
-					local amount = ctx.runtime.tween(function(use: ComposeTypes.Use): number
-						return if use(ready) then 1 else 0
-					end, {
-						seconds = function(use: ComposeTypes.Use): number
-							return ctx.motionTiming("reveal", use).enter
-						end,
-						ease = ctx.motionEase("fade"),
-						reducedMotion = motion.reduced(ctx),
-					})
-					local color = ctx.observeStyled.BackgroundColor3(surface or (row :: GuiObject))
-					ctx.runtime.decorate(node, {
-						ImageTransparency = function(use: ComposeTypes.Use): number
-							return 1 - (1 - (ctx.read(authored, use) or 0)) * use(amount)
-						end,
-						BackgroundTransparency = if node:IsA("ViewportFrame")
-							then nil
-							else function(use: ComposeTypes.Use): number
-								return background * use(amount)
-							end,
-						BackgroundColor3 = if node:IsA("ViewportFrame")
-							then nil
-							else function(use: ComposeTypes.Use): Color3
-								local progress = use(amount)
-								local target = backgroundColor
-								local placeholder = use(color)
-								if background >= 1 then
-									return if progress < 1 then placeholder else target
-								end
-								return placeholder:Lerp(target, progress)
-							end,
-					})
+					end,
+				}
+				Compose.watch(function(read: ComposeTypes.Use)
+					node:SetAttribute("FacetMediaReady", read(ready))
 				end)
+				local amount = ctx.runtime.tween(function(use: ComposeTypes.Use): number
+					return if use(ready) then 1 else 0
+				end, {
+					seconds = function(use: ComposeTypes.Use): number
+						return ctx.motionTiming("reveal", use).enter
+					end,
+					ease = ctx.motionEase("fade"),
+					reducedMotion = motion.reduced(ctx),
+				})
+				local color = ctx.observeStyled.BackgroundColor3(surface or (row :: GuiObject))
+				ctx.runtime.decorate(node, {
+					ImageTransparency = function(use: ComposeTypes.Use): number
+						return 1 - (1 - (ctx.read(authored, use) or 0)) * use(amount)
+					end,
+					BackgroundTransparency = if node:IsA("ViewportFrame")
+						then nil
+						else function(use: ComposeTypes.Use): number
+							return background * use(amount)
+						end,
+					BackgroundColor3 = if node:IsA("ViewportFrame")
+						then nil
+						else function(use: ComposeTypes.Use): Color3
+							local progress = use(amount)
+							local target = backgroundColor
+							local placeholder = use(color)
+							if background >= 1 then
+								return if progress < 1 then placeholder else target
+							end
+							return placeholder:Lerp(target, progress)
+						end,
+				})
 			end)
 		end)
 	end

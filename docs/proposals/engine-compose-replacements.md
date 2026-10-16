@@ -54,7 +54,7 @@ be replaced. See proposal B.
 
 ### 3. Geometry observation queue: about 70 lines, high risk
 
-Source: [geometry_observation.luau](../../src/ui/geometry_observation.luau),
+Source: [geometry_observation.luau](https://github.com/josha/Facet/blob/9d8821b197c4a737dadf4a073d7272ec8b1119d8/src/ui/geometry_observation.luau),
 lines 6–126. A shared queue reads all geometry before it publishes cells.
 It also samples derived properties before paint and cancels deferred work.
 
@@ -100,7 +100,7 @@ proposal D. Risk is high for mixed static and dynamic children.
 
 ### 6. Overlay geometry readiness: about 50 lines, medium risk
 
-Source: [rest.luau](../../src/ui/rest.luau), lines 14–85, and
+Source: [rest.luau](https://github.com/josha/Facet/blob/9d8821b197c4a737dadf4a073d7272ec8b1119d8/src/ui/rest.luau), lines 14–85, and
 [nav_overlay_presence.luau](../../src/ui/nav_overlay_presence.luau),
 lines 96–145. Facet waits for repeated geometry, font readiness and visibility,
 then holds measured extents during an appearance transition.

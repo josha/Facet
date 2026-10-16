@@ -1132,6 +1132,29 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-selected >> .facet-text-input >> .facet-text", { TextColor3 = c("content") })
 	rule(".facet-tab-filled.facet-skinned", if selectedArt then {} else { BackgroundTransparency = 0 })
 	rule(".facet-tab-filled > #SkinBoundary", if selectedArt then {} else { Visible = false })
+	for _, pair in
+		{
+			{ "facet-accent", "onAccent", "accent" },
+			{ "facet-role-destructive", "onDanger", "danger" },
+			{ "facet-appearance-inverse", "onInverse", "inverseSurface" },
+		}
+	do
+		local ink, background = color(types, source(pair[2])), color(types, source(pair[3]))
+		if ink and background then
+			if extra.dimDisabledPlates then
+				local surface = color(types, source("surface"))
+				if surface then
+					background = background:Lerp(surface, extra.disabledContentOpacity or 0.4)
+				end
+			end
+			local opacity = support.readableTransparency(ink, background, extra.disabledContentOpacity or 0.4)
+			local selector = "." .. pair[1] .. ".facet-disabled"
+			rule(
+				selector .. ", " .. selector .. " >> .facet-button-caption, " .. selector .. " >> .facet-text",
+				{ TextTransparency = opacity }
+			)
+		end
+	end
 	return kit.finish()
 end
 

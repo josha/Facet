@@ -2,7 +2,6 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Engine = require("./engine_types")
 type Insets = { [string]: UDim }
-local observeGeometry = require("./geometry_observation")
 
 return function(
 	Compose: typeof(ComposeTypes),
@@ -43,53 +42,35 @@ return function(
 		ZIndex = node.ZIndex,
 		container,
 	})
-	local scale = (observeGeometry(Compose, runtime, boundary, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
-	local size = (observeGeometry(Compose, runtime, target, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
-	local at = (observeGeometry(Compose, runtime, target, "AbsolutePosition") :: unknown) :: ComposeTypes.Cell<Vector2>
-	local boundaryAt = (
-		observeGeometry(Compose, runtime, boundary, "AbsolutePosition") :: unknown
-	) :: ComposeTypes.Cell<Vector2>
+	local scale = (runtime.observe(boundary, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
+	local size = (runtime.observe(target, "AbsoluteSize") :: unknown) :: ComposeTypes.Cell<Vector2>
+	local at = (runtime.observe(target, "AbsolutePosition") :: unknown) :: ComposeTypes.Cell<Vector2>
+	local boundaryAt = (runtime.observe(boundary, "AbsolutePosition") :: unknown) :: ComposeTypes.Cell<Vector2>
 	local insets = Compose.cell({} :: Insets)
-	local connections: { RBXScriptConnection }, paddingConnections: { RBXScriptConnection } = {}, {}
-	local function disconnectPadding()
-		for _, connection in paddingConnections do
-			connection:Disconnect()
+	local padding = Compose.cell(target:FindFirstChildWhichIsA("UIPadding"))
+	local function childChanged(child: Instance)
+		if child:IsA("UIPadding") then
+			padding:set(target:FindFirstChildWhichIsA("UIPadding"))
 		end
-		table.clear(paddingConnections)
 	end
-	local function paddingChanged()
-		disconnectPadding()
-		local padding = target:FindFirstChildWhichIsA("UIPadding")
-		if padding == nil then
+	runtime.connect(target, "ChildAdded", childChanged)
+	runtime.connect(target, "ChildRemoved", childChanged)
+	Compose.watch(function(use)
+		local current = use(padding)
+		if current == nil then
 			insets:set({})
 			return
 		end
 		local function refresh()
 			local values: Insets = {}
 			for _, side in { "Left", "Right", "Top", "Bottom" } do
-				values[side] = padding:GetStyled("Padding" .. side) :: UDim
+				values[side] = current:GetStyled("Padding" .. side) :: UDim
 			end
 			insets:set(values)
 		end
-		for _, side in { "Left", "Right", "Top", "Bottom" } do
-			table.insert(paddingConnections, padding:GetStyledPropertyChangedSignal("Padding" .. side):Connect(refresh))
-			table.insert(paddingConnections, padding:GetPropertyChangedSignal("Padding" .. side):Connect(refresh))
-		end
+		runtime.connect(current, "StyledPropertiesChanged", refresh)
+		runtime.connect(current, "Changed", refresh)
 		refresh()
-	end
-	local function childChanged(child: Instance)
-		if child:IsA("UIPadding") then
-			paddingChanged()
-		end
-	end
-	table.insert(connections, target.ChildAdded:Connect(childChanged))
-	table.insert(connections, target.ChildRemoved:Connect(childChanged))
-	paddingChanged()
-	Compose.cleanup(function()
-		disconnectPadding()
-		for _, connection in connections do
-			connection:Disconnect()
-		end
 	end)
 	local bounds = Compose.formula(function(use)
 		local rendered, factor, padding = use(size), use(scale), use(insets)
@@ -116,9 +97,7 @@ return function(
 	end)
 	if target:IsA("ScrollingFrame") then
 		local frame = target :: ScrollingFrame
-		local canvas = (
-			observeGeometry(Compose, runtime, frame, "CanvasPosition") :: unknown
-		) :: ComposeTypes.Cell<Vector2>
+		local canvas = (runtime.observe(frame, "CanvasPosition") :: unknown) :: ComposeTypes.Cell<Vector2>
 		runtime.decorate(boundary, {
 			Position = function(use: ComposeTypes.Use): UDim2
 				local rendered: Vector2, factor: Vector2, at: Vector2 = use(size), use(scale), use(canvas)

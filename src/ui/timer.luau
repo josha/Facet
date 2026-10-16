@@ -32,20 +32,18 @@ return function(ctx: Shared.Context, UI: Controls.Controls)
 				target ~= nil and target == target and math.abs(target) < math.huge,
 				"Facet Timer requires a finite time"
 			)
-			local scheduler = runtime.scheduler()
-			local active = true
-			C.cleanup(function()
-				active = false
-			end)
 			completed:set(false)
-			local tick: () -> ()
-			tick = function()
-				if not active then
+			local clock = runtime.clock(
+				if spec.now then {} elseif spec.deadline ~= nil then { deadline = target } else { start = target }
+			)
+			C.watch(function(read: Shared.Use)
+				if read(completed) then
 					return
 				end
-				local at = now()
-				assert(at == at and math.abs(at) < math.huge, "Facet Timer clock must be finite")
-				local delta = if spec.deadline ~= nil then target - at else at - target
+				local elapsed = read(clock)
+				local at = if spec.now then now() else nil
+				assert(at == nil or (at == at and math.abs(at) < math.huge), "Facet Timer clock must be finite")
+				local delta = if at ~= nil then (if spec.deadline ~= nil then target - at else at - target) else elapsed
 				local seconds = math.max(0, if spec.deadline ~= nil then math.ceil(delta) else math.floor(delta))
 				text:set(format.duration(seconds, { hours = spec.hours }))
 				if spec.deadline ~= nil and delta <= 0 then
@@ -53,12 +51,8 @@ return function(ctx: Shared.Context, UI: Controls.Controls)
 					if spec.onComplete then
 						spec.onComplete()
 					end
-					return
 				end
-				local delay = if spec.deadline ~= nil then delta - seconds + 1 else seconds + 1 - delta
-				scheduler.after(delay, tick)
-			end
-			tick()
+			end)
 		end)
 		return label
 	end)

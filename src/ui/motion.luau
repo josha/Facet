@@ -2,7 +2,6 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 
-type Acquire = ComposeTypes.AcquireSharedResource<ComposeTypes.Cell<boolean>>
 export type Level = Shared.MotionLevel
 
 local RANK = { normal = 0, limited = 1, none = 2 }
@@ -62,15 +61,7 @@ end
 local function level(ctx: Shared.Context): (ComposeTypes.Use?) -> Level
 	local config = ctx.config
 	local gui = config.guiService
-	local native: ComposeTypes.Cell<boolean>? = nil
-	if gui then
-		local acquire: Acquire = (ctx.reducedMotion :: Acquire?)
-			or ctx.Compose.createSharedResource(function(): (ComposeTypes.Cell<boolean>, (() -> ())?)
-				return ctx.observe.ReducedMotionEnabled(gui), nil
-			end)
-		ctx.reducedMotion = acquire
-		native = acquire()
-	end
+	local native = if gui then ctx.observe.ReducedMotionEnabled(gui) else nil
 	return function(use: ComposeTypes.Use?): Level
 		return resolve(
 			ctx.read(config.motionLevel, use),

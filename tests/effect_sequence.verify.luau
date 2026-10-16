@@ -73,6 +73,7 @@ return function(harness: Verify.Harness)
 					},
 				},
 				onCompleted = function()
+					t:expect(sequence.completed:peek() and not sequence.running:peek()):toBe(true)
 					finished += 1
 				end,
 			}

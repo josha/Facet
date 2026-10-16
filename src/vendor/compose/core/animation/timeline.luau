@@ -3,6 +3,7 @@
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
 local Owner = require "../ownership/owner"
+local ownedFrame = require "../ownership/frame"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
 
@@ -75,8 +76,6 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 		local completed = cellModule.cell(false)
 
 		local clock = 0
-		local unsubscribe: Host.Unsubscribe? = nil
-		local disposed = false
 
 		local function publish(): boolean
 			local since = clock - delay
@@ -111,12 +110,9 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 			return finished
 		end
 
+		local pump: ownedFrame.Pump
 		local function stop()
-			local active = unsubscribe
-			if active ~= nil then
-				unsubscribe = nil
-				active()
-			end
+			pump.stop()
 			if moving:peek() then
 				moving:set(false)
 			end
@@ -127,9 +123,6 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 		end
 
 		local function onFrame(delta: number)
-			if disposed then
-				return
-			end
 			publishAtomically(function()
 				clock += delta * scale
 				if publish() then
@@ -140,17 +133,15 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 		end
 
 		local function start()
-			if disposed or unsubscribe ~= nil or completed:peek() then
+			if owner.isDisposed() or moving:peek() or completed:peek() then
 				return
 			end
-			unsubscribe = loop.onFrame(onFrame)
+			pump.start()
 			moving:set(true)
 		end
 
-		owner.own(function()
-			disposed = true
-			stop()
-		end)
+		pump = ownedFrame(owner, loop.onFrame, onFrame)
+		owner.own(stop)
 
 		local self = {} :: Timeline
 		self.progress = progress
@@ -167,7 +158,7 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 		end
 
 		function self.seek(_self: Timeline, seconds: number)
-			if disposed then
+			if owner.isDisposed() then
 				return
 			end
 			publishAtomically(function()
@@ -181,7 +172,7 @@ local function createTimelines(host: Host.Host, ownerOf: (primitive: string) -> 
 		end
 
 		function self.restart()
-			if disposed then
+			if owner.isDisposed() then
 				return
 			end
 			publishAtomically(function()

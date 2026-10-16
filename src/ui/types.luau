@@ -286,7 +286,6 @@ export type Context = {
 	spaceActivates: (Instance) -> (Use) -> boolean,
 	layoutKit: unknown?,
 	showHelp: unknown?,
-	reducedMotion: unknown?,
 }
 
 return {}

@@ -11,6 +11,7 @@ type State = typeof(nativeApp())
 type Counts = { instances: number, connections: number, holdings: number }
 type Sample = {
 	name: string,
+	mountSeconds: number,
 	active: Counts,
 	idle: Counts,
 	teardown: Counts,
@@ -45,12 +46,14 @@ local function sample(name: string, build: (State) -> Instance, activate: ((Inst
 		return screen
 	end, state.target)
 	local baseline = census()
+	local started = os.clock()
 	local stop, node = runtime.mount(function()
 		return build(state)
 	end, screen)
 	if activate then
 		activate(node :: Instance)
 	end
+	local mountSeconds = os.clock() - started
 	local function delta(): Counts
 		local counts = census()
 		return {
@@ -77,10 +80,15 @@ local function sample(name: string, build: (State) -> Instance, activate: ((Inst
 	stop()
 	state.dispose()
 	local teardown = census()
-	table.insert(
-		samples,
-		{ name = name, active = active, idle = idle, teardown = teardown, classes = classes, tree = tree }
-	)
+	table.insert(samples, {
+		name = name,
+		mountSeconds = mountSeconds,
+		active = active,
+		idle = idle,
+		teardown = teardown,
+		classes = classes,
+		tree = tree,
+	})
 	Compose.inspect.stop()
 end
 
@@ -200,8 +208,13 @@ end
 
 local path = process.args[2] or "artifacts/perf-footprint.json"
 Files.write(path, Json.encode({ schema = "facet-perf-footprint/1", samples = samples }, { indent = 2 }))
-print("| Control | Instances | Connections | Holdings |")
-print("|---|---:|---:|---:|")
+print("| Control | Instances | Connections | Holdings | Mount ms |")
+print("|---|---:|---:|---:|---:|")
 for _, row in samples do
-	print(`| {row.name} | {row.idle.instances} | {row.idle.connections} | {row.idle.holdings} |`)
+	print(
+		`| {row.name} | {row.idle.instances} | {row.idle.connections} | {row.idle.holdings} | {string.format(
+			"%.3f",
+			row.mountSeconds * 1000
+		)} |`
+	)
 end

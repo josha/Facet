@@ -130,11 +130,13 @@ return function(
 		local indicator = spec.dragIndicator or "automatic"
 		local BASE: { [string]: number } = { top = 12, bottom = 12, left = 16, right = 16 }
 		local RESERVED: { [string]: string } = { bottom = "top", right = "left", left = "right" }
+		local safeInsets: ComposeTypes.Readable<{ [string]: number }>?
 		local function reserve(side: string, use: ComposeTypes.Use?): number
 			return BASE[side] + (if indicator ~= "hidden" and RESERVED[from(use)] == side then HANDLE + 8 else 0)
 		end
 		local function pad(side: string, use: ComposeTypes.Use?): number
-			return surfaces.inset(0, side, nil, use) + reserve(side, use)
+			local safe = if safeInsets then readSource(safeInsets, use)[side] or 0 else 0
+			return surfaces.inset(0, side, nil, use) + reserve(side, use) + safe
 		end
 		local function available(use: ComposeTypes.Use?): number
 			local get: ComposeTypes.Use = use
@@ -381,6 +383,38 @@ return function(
 		end
 		local function standing(use: ComposeTypes.Use?): number
 			return math.max(painted(use), lowest(use))
+		end
+		local gui = ctx.config.guiService
+		if gui and gui.GetInsetArea and layer and layer:IsA("ScreenGui") then
+			local screen = layer :: ScreenGui
+			local band = ctx.observe.TopbarInset(gui)
+			safeInsets = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
+				use(band)
+				local size, scale, placement = use(extent), math.max(use(unit), 0.001), use(placed)
+				local ok, container, safe = pcall(function(): (Rect, Rect)
+					return gui:GetInsetArea(screen.ScreenInsets), gui:GetInsetArea(E.ScreenInsets.CoreUISafeInsets)
+				end)
+				if not ok then
+					return {}
+				end
+				local near, far = (safe.Min - container.Min) / scale, (container.Max - safe.Max) / scale
+				local height = standing(use)
+				local width = math.min(parts.width(ctx, spec.width, use), size.X)
+				local top = if placement == "side"
+					then 0
+					elseif placement == "center" then (size.Y - height) / 2
+					else size.Y - height
+				local left = if placement == "side"
+					then (if edge == "left" then 0 else size.X - width)
+					else (size.X - width) / 2
+				local keyboardHeight = keyboard(use) * (if placement == "center" then 0.5 else 1)
+				return {
+					top = math.max(0, near.Y - top + keyboardHeight),
+					bottom = math.max(0, far.Y - (size.Y - top - height) - keyboardHeight),
+					left = math.max(0, near.X - left),
+					right = math.max(0, far.X - (size.X - left - width)),
+				}
+			end)
 		end
 		local watchedDetent = detent:peek()
 		Compose.watch(function(use: ComposeTypes.Use)

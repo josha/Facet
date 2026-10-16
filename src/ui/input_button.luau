@@ -267,7 +267,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				else Compose.formula(function(use: ComposeTypes.Use): number
 					return ctx.metric("targetSizes.thumb", use)
 				end))
-			elseif spec.controlSize ~= nil and ctx.config.userInputService ~= nil then ctx.touchFloor()
+			elseif ctx.config.userInputService ~= nil then ctx.touchFloor()
 			else nil
 		local constrainedCaption = bounded
 			and spec.label ~= nil
@@ -280,9 +280,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					local skin = package and package.chrome and package.chrome.control
 					local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
 					local minimum = if targetFloor then targetFloor(use) else 0
-					if ctx.controlSize(spec.controlSize, "height", use) >= minimum then
-						minimum = 0
-					end
 					local leadingGlyph, trailingGlyph = read(spec.icon, use), read(spec.trailingIcon, use)
 					local glyphs = (if leadingGlyph ~= nil and leadingGlyph ~= "" then 1 else 0)
 						+ (if trailingGlyph ~= nil and trailingGlyph ~= "" then 1 else 0)
@@ -972,15 +969,18 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		if targetFloor and not constrainedCaption then
 			local floor = targetFloor
-			runtime.mount(function()
-				return Host.UISizeConstraint "TargetFloor" {
-					MinSize = function(use: ComposeTypes.Use): Vector2
-						local minimum = floor(use)
-						if not thumb and ctx.controlSize(spec.controlSize, "height", use) >= minimum then
-							return V2.zero
-						end
-						return V2.new(minimum, minimum)
-					end,
+			runtime.mountFragment(function()
+				return {
+					Compose.show(function(use: ComposeTypes.Use): boolean
+						return floor(use) > 0
+					end, function()
+						return Host.UISizeConstraint "TargetFloor" {
+							MinSize = function(use: ComposeTypes.Use): Vector2
+								local minimum = floor(use)
+								return V2.new(minimum, minimum)
+							end,
+						}
+					end),
 				}
 			end, node)
 		end

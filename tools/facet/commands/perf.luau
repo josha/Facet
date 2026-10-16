@@ -27,6 +27,8 @@ subcommands:
   metrics                       check the metric rows of artifacts/phase-4/perf.json (exit 2 when it is absent)
   memory [REPORT.json]          gate exact teardown counts and report resource growth during churn
   footprint [REPORT.json]       measure control resources and check the committed ceilings
+  capture --workspace DIR --out DIR [--devices a,b] [--tap TEXT]...
+                                capture a built game in owned Studio sessions, without an agent
   profile SCENE [TRACE.json]    sample the unchanged scene with the Lute profiler
   prove-memory-gate             plant native and Compose leaks and prove that the teardown gate fails
   scenes [--themes]             check that each production (or theme-swap) scene did its work
@@ -1303,13 +1305,26 @@ local function allCases(): { Case.Case }
 	return cases
 end
 
-local VALUES = { "out", "rounds", "scenes" }
+local VALUES = { "out", "rounds", "scenes", "workspace", "devices", "tap" }
 
-local KNOWN = { "selftest", "themes", "no-build", "out", "rounds", "scenes", "skip-bench", "all", "layout" }
+local KNOWN = {
+	"selftest",
+	"themes",
+	"no-build",
+	"out",
+	"rounds",
+	"scenes",
+	"skip-bench",
+	"all",
+	"layout",
+	"workspace",
+	"devices",
+	"tap",
+}
 
 local function run(invocation: Cli.Invocation): number
 	local subcommand = invocation.positional[1]
-	if subcommand == nil or CASES[subcommand] == nil then
+	if subcommand == nil or (CASES[subcommand] == nil and subcommand ~= "capture") then
 		print(USAGE)
 		return 2
 	end
@@ -1317,6 +1332,9 @@ local function run(invocation: Cli.Invocation): number
 	if unknown ~= nil then
 		print(("facet perf: unknown option %s\n\n%s"):format(unknown, USAGE))
 		return 2
+	end
+	if subcommand == "capture" then
+		return require("./perf_capture")(invocation)
 	end
 	if Cli.switch(invocation, "selftest") then
 		return Case.report("perf " .. subcommand, CASES[subcommand])

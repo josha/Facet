@@ -2,10 +2,13 @@
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
+	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 	local Compose = require("../src/vendor/compose/core")
+	local Facet = require("../src")
+	local engineLib = require("./lib/native_engine")
 	local overlay = require("./lib/overlay_world")
 	local reservations = require("../src/ui/reservations")
 	local Vector2 = require("./lib/native_engine").types.Vector2
@@ -17,6 +20,40 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native NavBar overflow", function()
+		verifyHarness:case("publishes a deferred affixed reservation on the configured native frame", {
+			id = "native_notice_navbar::native NavBar overflow::publishes a deferred affixed reservation on the configured native frame",
+			run = function()
+				local engine = engineLib.new()
+				local frames = engineLib.new().heartbeat
+				local host = Facet.Roblox.createHost(engine)
+				local observation = assert(host.observation)
+				local observe = observation.observeProperty
+				observation.observeProperty = function(node, property, listener)
+					return observe(node, property, function()
+						if property ~= "AbsoluteSize" or (node :: Instance).Name ~= "Banner" then
+							listener()
+						end
+					end)
+				end
+				local runtime: ComposeRuntime = Compose.createRuntime(host)
+				local UI = Facet.controls(runtime, {
+					types = engine.types,
+					services = { RunService = ({ Heartbeat = frames } :: unknown) :: RunService },
+				})
+				local screen = engine.new("ScreenGui")
+				local stop, node = runtime.mount(function()
+					return UI.Notice "Banner" { placement = "affixed", message = "Saved" }
+				end, screen)
+				local banner = (node :: unknown) :: { AbsoluteSize: Vector2 }
+				banner.AbsoluteSize = Vector2.new(800, 96)
+				Verify.expect(screen:GetAttribute("FacetInsetTop")):toBe(0)
+				frames:Fire(1 / 60)
+				Verify.expect(screen:GetAttribute("FacetInsetTop")):toBe(96)
+				stop()
+				runtime:dispose()
+				Verify.expect(engineLib.connections(frames)):toBe(0)
+			end,
+		})
 		verifyHarness:case("sizes the wrapped filter viewport from its native list instead of the automatic canvas", {
 			id = "native_notice_navbar::native NavBar overflow::sizes the wrapped filter viewport from its native list instead of the automatic canvas",
 			run = function()
