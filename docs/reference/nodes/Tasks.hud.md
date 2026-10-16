@@ -32,6 +32,8 @@ measured HUD region does not set the modal's available room.
 
 Open:
 
+- [Tasks.shop](Tasks.shop.md) for browsing, purchases, owned state and feedback.
+- [Tasks.sheet](Tasks.sheet.md) for a panel with Close and child-page Back.
 - [Button.card](Button.card.md)
 - [Composition.card](Composition.card.md)
 - [HUD-formatting](HUD-formatting.md)

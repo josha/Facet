@@ -129,6 +129,34 @@ local function describe(query: Query): string
 	return Lute.encode(query)
 end
 
+local function readDump(value: unknown, call: (string, unknown) -> unknown): string
+	if type(value) == "string" then
+		return value
+	end
+	local meta = record(value)
+	local token = tostring(meta.token)
+	local count = tonumber(meta.count) or 0
+	assert(count >= 1, "the dump has no chunks")
+	local pieces: { string } = {}
+	if type(meta.first) == "string" then
+		table.insert(pieces, meta.first)
+	end
+	local ok, problem = pcall(function()
+		for index = #pieces + 1, count do
+			local piece = call("chunk", { token = token, index = index })
+			assert(type(piece) == "string", "a dump chunk is not text")
+			table.insert(pieces, piece)
+		end
+	end)
+	if meta.automatic ~= true or not ok then
+		pcall(call, "release", { token = token })
+	end
+	assert(ok, tostring(problem))
+	local text = table.concat(pieces)
+	assert(meta.bytes == nil or #text == meta.bytes, "dump byte count differs")
+	return text
+end
+
 local function create(context: Context, device: Devices.Device): QA
 	local session = context.session
 	local qa = {} :: QA
@@ -450,21 +478,12 @@ local function create(context: Context, device: Devices.Device): QA
 	end
 
 	function qa.dump(self: QA, screen: string)
-		local meta = record(self:call("dump", { device = self.device.id, input = self.device.input }))
-		local token = tostring(meta.token)
-		local count = tonumber(meta.count) or 0
-		local pieces: { string } = {}
-		for index = 1, count do
-			local piece = self:call("chunk", { token = token, index = index })
-			if type(piece) ~= "string" then
-				error("a dump chunk is not text", 0)
+		local text = readDump(
+			self:call("dump", { device = self.device.id, input = self.device.input, inline = true }),
+			function(command, fields)
+				return self:call(command, fields)
 			end
-			table.insert(pieces, piece)
-		end
-		pcall(function()
-			self:call("release", { token = token })
-		end)
-		local text = table.concat(pieces)
+		)
 		Audit.decode(Lute.parse(text))
 		local directory = context.outputs .. "/dumps/" .. self.device.id
 		fs.createDirectory(directory, { makeParents = true })
@@ -485,4 +504,5 @@ end
 return {
 	create = create,
 	describe = describe,
+	readDump = readDump,
 }

@@ -5,8 +5,8 @@ local DocsQuery = require("../lib/docs_query")
 
 local USAGE = [[usage: lute run tools/facet docs [path] [--outline] [--search TEXT] [--list]
 
-Start with the map. Open one task recipe, then one card or option node for a
-missing detail. Do not read a node that is already in context.
+Start with the map. Open every task recipe that matches a part of the screen,
+then a card or option node for a missing detail. Do not reread a node in context.
 Each response has a 4096-byte limit. --full uses the same limit.
 Multiple paths return query names only. --search returns paths and summaries.
 

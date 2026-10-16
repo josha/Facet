@@ -5,8 +5,73 @@ local Loader = require("../lib/loader")
 local Run = require("../../tools/facet/lib/run")
 local Files = require("../../tools/facet/lib/files")
 local Json = require("../../tools/facet/lib/json")
+local Static = require("../../tools/facet/lib/static_findings")
+local Analyzer = require("../../tools/facet/lib/analyzer")
 
 return function(harness: Verify.Harness)
+	harness:case("static output groups by rule message and hint and bounds locations", function(t)
+		local findings: { Static.Finding } = {}
+		for index = 1, 8 do
+			table.insert(findings, {
+				rule = "types",
+				severity = "error",
+				message = "Wrong width",
+				hint = "Use Size",
+				location = `a.luau:{index}`,
+			})
+		end
+		table.insert(
+			findings,
+			{ rule = "types", severity = "error", message = "Wrong width", hint = "Use fill", location = "b.luau:1" }
+		)
+		local text = table.concat(Static.render(findings), "\n")
+		local _, messages = string.gsub(text, "Wrong width", "")
+		t:expect(messages):toBe(2)
+		t:expect(string.find(text, "(8 finding(s))", 1, true) ~= nil):toBe(true)
+		t:expect(string.find(text, "and 3 more", 1, true) ~= nil):toBe(true)
+		t:expect((string.find(text, "a.luau:6", 1, true))):toBe(nil)
+		t:expect(#findings):toBe(9)
+		for _, option in { "width", "height", "gap", "padding", "align", "distribute", "maxWidth" } do
+			t:expect(Static.layoutHint(option) ~= nil):toBe(true)
+		end
+		t:expect(Static.layoutHint("unknown")):toBe(nil)
+	end)
+	harness:case("live static warnings print counts and a report path without advice or locations", function(t)
+		local warning: Static.Finding =
+			{ rule = "raw-input", severity = "warning", message = "Advice", location = "a:1" }
+		local result = table.concat(Static.render({ warning, warning }, true), "\n")
+		t:expect(result):toBe("warning [raw-input] 2 finding(s); read artifacts/facet-lint/report.txt")
+		t:expect(string.find(table.concat(Static.render({ warning }), "\n"), "Advice", 1, true) ~= nil):toBe(true)
+	end)
+	harness:case("only stack cascades explained by nested child option errors are hidden", function(t)
+		local source = 'UI.VStack "Rows" {\n UI.Text { width = "fill" },\n}\nUI.VStack { gap = false }'
+		local function diagnostic(line: number, column: number, message: string): Analyzer.Diagnostic
+			return { file = "a.luau", line = line, column = column, kind = "TypeError", message = message }
+		end
+		local diagnostics = {
+			diagnostic(1, 1, "None of the overloads for function"),
+			diagnostic(1, 1, "Available overloads: (StackProps) -> Frame"),
+			diagnostic(2, 12, "Expected this to be 'EventKey | number', but got '\"width\"'"),
+			diagnostic(4, 1, "None of the overloads for function"),
+			diagnostic(4, 1, "Available overloads: (StackProps) -> Frame"),
+		}
+		local hidden = Static.cascades(diagnostics, { ["a.luau"] = source })
+		t:expect(hidden[1]):toBe(true)
+		t:expect(hidden[2]):toBe(true)
+		t:expect(hidden[3]):toBe(nil)
+		t:expect(hidden[4]):toBe(nil)
+		t:expect(hidden[5]):toBe(nil)
+		t:expect(#diagnostics):toBe(5)
+		for _, diagnostic in diagnostics do
+			diagnostic.file = "c:/project/a.luau"
+		end
+		t:expect(Static.cascades(diagnostics, { ["C:/Project/a.luau"] = source })[1]):toBe(true)
+		for _, diagnostic in diagnostics do
+			diagnostic.file = "a.luau"
+		end
+		diagnostics[3].file = "other.luau"
+		t:expect((next(Static.cascades(diagnostics, { ["a.luau"] = source })))):toBe(nil)
+	end)
 	harness:case("first docs call contains the small task map and recoverable node discovery", function()
 		local first = Run.capture({ Run.lute(), "run", "tools/facet", "docs" })
 		Verify.expect(first.ok):toBe(true)
@@ -23,11 +88,12 @@ return function(harness: Verify.Harness)
 		do
 			Verify.expect(string.find(first.stdout, text, 1, true) ~= nil):toBe(true)
 		end
-		for _, heading in { "Theme packages", "Sizing and layout" } do
-			local result = Run.capture({ Run.lute(), "run", "tools/facet", "docs", heading })
-			Verify.expect(result.ok):toBe(true)
-			Verify.expect(string.find(result.stdout, "Open one path", 1, true) ~= nil):toBe(true)
-		end
+		local theme = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "Theme packages" })
+		Verify.expect(theme.ok):toBe(true)
+		Verify.expect(string.find(theme.stdout, "Resolved 'Theme packages' to Tasks.theme.", 1, true) ~= nil):toBe(true)
+		local layout = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "Sizing and layout" })
+		Verify.expect(layout.ok):toBe(true)
+		Verify.expect(string.find(layout.stdout, "Open one path", 1, true) ~= nil):toBe(true)
 	end)
 	harness:case(
 		"verify accepts BOM and mixed public reactive types and audits saved evidence without Studio",
@@ -44,6 +110,10 @@ local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local Compose = Facet.Compose
 local app = Facet.app()
 local UI = app.UI
+local Host = app.runtime.constructors
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function() end)
+UserInputService.InputBegan:Connect(function() end)
 type Entry = { id: string, title: string }
 local initial: { Entry } = {}
 local entries = Compose.cell(initial)
@@ -52,6 +122,26 @@ local initialBalances: { [string]: number } = { Credits = 0 }
 local balances = Compose.cell(initialBalances)
 local key = Compose.cell("Credits")
 app.mount(function()
+        UI.VStack "Width" { width = "fill", align = "stretch", UI.Text "Child" { text = "Ready",} }
+        UI.HStack "Height" { height = 64, align = "stretch", UI.Text "Child" { text = "Ready",} }
+        UI.HStack "GrowWidth" { width = "fill", UI.Text "Child" { text = "Ready", UI.fill() } }
+        UI.VStack "GrowHeight" { height = "fill", UI.Text "Child" { text = "Ready", UI.fill() } }
+        UI.Text "NativeWidth" { text = "Ready", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y }
+        UI.Text "NativeHeight" { text = "Ready", Size = UDim2.fromOffset(0, 48), AutomaticSize = Enum.AutomaticSize.X }
+        UI.Text "Fixed" { text = "Ready", Size = UDim2.fromOffset(160, 48), AutomaticSize = Enum.AutomaticSize.None }
+        UI.VStack "ContainerOptions" { gap = "s", padding = "m", align = "center", distribute = "start", maxWidth = 480, UI.Text "Child" { text = "Ready",} }
+        UI.Text "NativePadding" { text = "Ready", Host.UIPadding { PaddingLeft = UDim.new(0, 8) } }
+        UI.Text "NativeLimit" { text = "Ready", Host.UISizeConstraint { MaxSize = Vector2.new(480, math.huge) } }
+        UI.VStack "Width" { width = "fill", align = "stretch", UI.Button "Child" {} }
+        UI.HStack "Height" { height = 64, align = "stretch", UI.Button "Child" {} }
+        UI.HStack "GrowWidth" { width = "fill", UI.Button "Child" { UI.fill() } }
+        UI.VStack "GrowHeight" { height = "fill", UI.Button "Child" { UI.fill() } }
+        UI.Button "NativeWidth" { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y }
+        UI.Button "NativeHeight" { Size = UDim2.fromOffset(0, 48), AutomaticSize = Enum.AutomaticSize.X }
+        UI.Button "Fixed" { Size = UDim2.fromOffset(160, 48), AutomaticSize = Enum.AutomaticSize.None }
+        UI.VStack "ContainerOptions" { gap = "s", padding = "m", align = "center", distribute = "start", maxWidth = 480, UI.Button "Child" {} }
+        UI.Button "NativePadding" { Host.UIPadding { PaddingLeft = UDim.new(0, 8) } }
+        UI.Button "NativeLimit" { Host.UISizeConstraint { MaxSize = Vector2.new(480, math.huge) } }
     local spec: Facet.KeyedCollectionSpec<Entry, string> = {
         from = entries, key = "id", itemSize = 64,
         render = function(current)
@@ -102,16 +192,54 @@ end)
 			Verify.expect(Files.read(source)):toBe(text)
 			Verify.expect(string.find(static.stdout, "not checked (--static)", 1, true) ~= nil):toBe(true)
 			Verify.expect(string.find(static.stdout, "facet lint:", 1, true) == nil):toBe(true)
+			Verify.expect(string.find(static.stdout, "verify: PASS", 1, true) ~= nil):toBe(true)
+			Verify.expect(string.find(static.stdout, "Let controls own activation", 1, true) ~= nil):toBe(true)
 			table.remove(command)
 			for _, argument in { "--dump", dump, "--device", "desktop" } do
 				table.insert(command, argument)
 			end
 			local saved = Run.capture(command)
 			Verify.expect(string.find(saved.stdout, "saved evidence only", 1, true) ~= nil):toBe(true)
+			Verify.expect(
+				string.find(
+					saved.stdout,
+					"warning [raw-input] 2 finding(s); read artifacts/facet-lint/report.txt",
+					1,
+					true
+				) ~= nil
+			):toBe(true)
+			Verify.expect({
+				output = "saved",
+				found = string.find(saved.stdout, "Let controls own activation", 1, true),
+			}):toEqual({ output = "saved" })
 			Files.write(dump, Look.sample(true))
 			local weak = Run.capture(command)
 			Verify.expect(weak.ok):toBe(false)
+			Verify.expect(string.find(weak.stdout, "verify: FAIL", 1, true) ~= nil):toBe(true)
 			Verify.expect(string.find(weak.stdout, "[text-truncated]", 1, true) ~= nil):toBe(true)
+			Verify.expect({ output = "weak", found = string.find(weak.stdout, "Let controls own activation", 1, true) })
+				:toEqual({ output = "weak" })
+			local children: { string } = {}
+			for index = 1, 8 do
+				table.insert(children, ('UI.Text "Bad%d" { text = "Bad", width = "fill" },'):format(index))
+			end
+			Files.write(
+				source,
+				text .. "\napp.mount(function() return UI.VStack {\n" .. table.concat(children, "\n") .. "\n} end)\n"
+			)
+			local invalid =
+				Run.capture({ Run.lute(), "run", "tools/facet", "lint", source, "--types", "--project", project })
+			Verify.expect(invalid.ok):toBe(false)
+			Verify.expect(string.find(invalid.stdout, "and 3 more", 1, true) ~= nil):toBe(true)
+			Verify.expect({ output = "invalid", found = string.find(invalid.stdout, "Available overloads", 1, true) })
+				:toEqual({ output = "invalid" })
+			Verify.expect({ output = "invalid", found = string.find(invalid.stdout, "None of the overloads", 1, true) })
+				:toEqual({ output = "invalid" })
+			local report = Files.read("artifacts/facet-lint/report.txt")
+			Verify.expect(string.find(report, "Available overloads", 1, true) ~= nil):toBe(true)
+			Verify.expect(string.find(report, "None of the overloads", 1, true) ~= nil):toBe(true)
+			local _, widths = string.gsub(report, "got '\"width\"'", "")
+			Verify.expect(widths):toBe(8)
 		end
 	)
 	harness:case("author docs bound broad reads and return paths for a batch", function()
@@ -221,11 +349,12 @@ end)
 			Verify.expect(string.find(compact.stdout, "function(use: Facet.Use)", 1, true) ~= nil):toBe(true)
 			Verify.expect(string.find(compact.stdout, "[shortened]", 1, true) ~= nil):toBe(true)
 			Verify.expect(#compact.stdout < #full.stdout):toBe(true)
-			local _, compactLocations = string.gsub(compact.stdout, ": error %[types%]", "")
+			local report = Files.read("artifacts/facet-lint/report.txt")
+			local _, reportLocations = string.gsub(report, ": error %[types%]", "")
 			local _, fullLocations = string.gsub(full.stdout, ": error %[types%]", "")
-			Verify.expect(compactLocations):toBe(fullLocations)
-			Verify.expect(string.find(Files.read("artifacts/facet-lint/types.txt"), "(*CYCLE*)", 1, true) ~= nil)
-				:toBe(true)
+			Verify.expect(reportLocations):toBe(fullLocations)
+			Verify.expect(string.find(compact.stdout, "artifacts/facet-lint/report.txt", 1, true) ~= nil):toBe(true)
+			Verify.expect(string.find(report, "(*CYCLE*)", 1, true) ~= nil):toBe(true)
 		end
 	)
 	harness:case("the public surface checker detects removed, added and changed exports", function()

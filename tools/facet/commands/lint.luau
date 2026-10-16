@@ -10,6 +10,7 @@ local Encoding = require("../lib/encoding")
 local Json = require("../lib/json")
 local Run = require("../lib/run")
 local UsageLint = require("../lib/usage_lint")
+local Static = require("../lib/static_findings")
 
 local USAGE =
 	[[usage: lute run tools/facet lint [paths...] [--types] [--verbose] [--project FILE] [--solver new|old] [--rules] [--usage] [--json]
@@ -30,7 +31,7 @@ finding names the rule, the line and the fix.
   --rules         Lists the rules and exits.
   --verbose       Print source lines, repeated rule advice and full type errors.
                   The default shortens long type errors
-                  and saves their full text to artifacts/facet-lint/types.txt.
+                  and groups repeated findings. artifacts/facet-lint/report.txt keeps every finding.
   --usage         Lists the Facet controls and helpers that the paths use, with
                   counts, read from the source. It does not run the code.
 
@@ -80,7 +81,8 @@ local function hint(message: string): string?
 	end
 	local option = string.match(message, "^Expected this to be 'EventKey | number', but got '\"([^\"]+)\"'")
 	if option ~= nil then
-		return ("%s is not an option of this control. Run docs <Control> for its options."):format(option)
+		return Static.layoutHint(option)
+			or ("%s is not an option of this control. Run docs <Control> for its options."):format(option)
 	end
 	return nil
 end
@@ -132,7 +134,8 @@ local function usageReport(invocation: Cli.Invocation, sources: { { file: string
 end
 
 local function run(invocation: Cli.Invocation): number
-	local unknown = Cli.unknownFlags(invocation, { "types", "verbose", "project", "solver", "rules", "usage" })
+	local unknown =
+		Cli.unknownFlags(invocation, { "types", "verbose", "project", "solver", "rules", "usage", "warning-counts" })
 	if unknown ~= nil then
 		print("facet lint: unknown flags " .. unknown)
 		print(USAGE)
@@ -180,49 +183,54 @@ local function run(invocation: Cli.Invocation): number
 	end
 	local errors = 0
 	local lines: { string } = {}
-	local rules: { [string]: boolean } = {}
+	local grouped: { Static.Finding } = {}
+	local details: { string } = {}
+	local sourceByFile: { [string]: string } = {}
+	for _, source in sources do
+		sourceByFile[source.file] = source.source
+	end
+	local hidden = Static.cascades(diagnostics, sourceByFile)
 	for _, finding in findings do
 		if finding.severity == "error" then
 			errors += 1
 		end
-		local label = ("%s:%d: %s [%s]"):format(finding.file, finding.line, finding.severity, finding.rule)
-		if not rules[finding.rule] or Cli.switch(invocation, "verbose") then
-			label ..= " " .. finding.message
-		end
-		if Cli.switch(invocation, "verbose") then
-			label ..= "\n    " .. finding.text
-		end
-		rules[finding.rule] = true
-		table.insert(lines, label)
-	end
-	local details: { string } = {}
-	local hints: { [string]: boolean } = {}
-	local shortened = false
-	for _, diagnostic in diagnostics do
-		errors += 1
-		local full = ("%s:%d:%d: error [types] %s"):format(
-			diagnostic.file,
-			diagnostic.line,
-			diagnostic.column,
-			diagnostic.message
-		)
+		local location = ("%s:%d"):format(finding.file, finding.line)
+		local full = location
+			.. ": "
+			.. finding.severity
+			.. " ["
+			.. finding.rule
+			.. "] "
+			.. finding.message
+			.. "\n    "
+			.. finding.text
 		table.insert(details, full)
-		if #diagnostic.message > 600 and not Cli.switch(invocation, "verbose") then
-			local prefix = string.sub(diagnostic.message, 1, 400)
-			table.insert(lines, string.sub(full, 1, #full - #diagnostic.message) .. prefix .. " ... [shortened]")
-			shortened = true
-		else
-			table.insert(lines, full)
-		end
-		local fix = hint(diagnostic.message)
-		if fix ~= nil and not hints[fix] then
-			table.insert(lines, "    hint: " .. fix)
-			hints[fix] = true
+		table.insert(
+			grouped,
+			{ rule = finding.rule, severity = finding.severity, message = finding.message, location = location }
+		)
+	end
+	for index, diagnostic in diagnostics do
+		errors += 1
+		local location = ("%s:%d:%d"):format(diagnostic.file, diagnostic.line, diagnostic.column)
+		local full = location .. ": error [types] " .. diagnostic.message
+		table.insert(details, withHint(full, diagnostic.message))
+		if not hidden[index] then
+			table.insert(grouped, {
+				rule = "types",
+				severity = "error",
+				message = diagnostic.message,
+				hint = hint(diagnostic.message),
+				location = location,
+			})
 		end
 	end
-	if shortened then
-		Files.write("artifacts/facet-lint/types.txt", table.concat(details, "\n"))
-		table.insert(lines, "Full type errors: artifacts/facet-lint/types.txt (or run lint --types --verbose).")
+	Files.write("artifacts/facet-lint/report.txt", table.concat(details, "\n") .. "\n")
+	lines = if Cli.switch(invocation, "verbose")
+		then table.clone(details)
+		else Static.render(grouped, Cli.switch(invocation, "warning-counts"))
+	if #details > 0 then
+		table.insert(lines, "Full static findings: artifacts/facet-lint/report.txt")
 	end
 	if problem ~= nil then
 		errors += 1

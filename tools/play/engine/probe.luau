@@ -43,7 +43,7 @@ export type Info = {
 
 type Request = { command: string, [string]: unknown }
 
-type Stash = { pieces: { string }, bytes: number }
+type Stash = { pieces: { string }, bytes: number, automatic: boolean? }
 
 local FRAME_NAME = "QAProbeFrame"
 local SAFE_NAME = "QAProbeSafeArea"
@@ -55,7 +55,7 @@ local EXCLUDED: { [string]: boolean } = {
 	Chat = true,
 	BubbleChat = true,
 }
-local CHUNK = 24000
+local CHUNK = 48000
 local DIRECTIONS: { [string]: Enum.KeyCode } = {
 	up = Enum.KeyCode.Up,
 	down = Enum.KeyCode.Down,
@@ -810,7 +810,10 @@ local function visibleTexts(): { { text: string, rect: Rect } }
 	return found
 end
 
-local function stash(text: string): { token: string, count: number, bytes: number }
+local function stash(
+	text: string,
+	first: boolean?
+): { token: string, count: number, bytes: number, first: string?, automatic: boolean? }
 	state.serial += 1
 	local token = "s" .. tostring(state.serial)
 	local pieces: { string } = {}
@@ -831,8 +834,8 @@ local function stash(text: string): { token: string, count: number, bytes: numbe
 	if #pieces == 0 then
 		table.insert(pieces, "")
 	end
-	state.stashes[token] = { pieces = pieces, bytes = #text }
-	return { token = token, count = #pieces, bytes = #text }
+	state.stashes[token] = { pieces = pieces, bytes = #text, automatic = first }
+	return { token = token, count = #pieces, bytes = #text, first = if first then pieces[1] else nil, automatic = first }
 end
 
 local function inputs(): { [string]: boolean }
@@ -1366,7 +1369,8 @@ handlers.dump = function(request)
 			bottom = dump.screen.height - safe.y - safe.height,
 		}
 	end
-	return stash(HttpService:JSONEncode(dump))
+	local text = HttpService:JSONEncode(dump)
+	return if request.inline == true and #text <= CHUNK then text else stash(text, request.inline == true)
 end
 
 local Stats = game:GetService("Stats")
@@ -1634,14 +1638,73 @@ handlers.perf = function(request: Request): unknown
 end
 
 handlers.chunk = function(request)
-	local entry = state.stashes[stringField(request, "token")]
+	local token = stringField(request, "token")
+	local entry = state.stashes[token]
 	assert(entry ~= nil, "unknown stash")
-	return entry.pieces[numberField(request, "index", 1)]
+	local index = numberField(request, "index", 1)
+	local piece = entry.pieces[index]
+	if entry.automatic and index == #entry.pieces then
+		state.stashes[token] = nil
+	end
+	return piece
 end
 
 handlers.release = function(request)
 	state.stashes[stringField(request, "token")] = nil
 	return true
+end
+
+handlers.preview = function(request: Request): unknown
+	local query = queryOf(request.query)
+	local wide = table.clone(query)
+	wide.clipped = true
+	local deadline = os.clock() + 4
+	while resolve(wide) == nil and os.clock() < deadline do
+		RunService.RenderStepped:Wait()
+	end
+	local tapped: { [string]: unknown } = { tapped = false, reason = "no visible control matches" }
+	if request.mode == "gamepad" then
+		for _ = 1, 4 do
+			if GuiService.SelectedObject == nil then
+				GuiService:Select(playerGui())
+				frames(2)
+			end
+			local selected, target = GuiService.SelectedObject, targetOf(query)
+			if selected == nil or selectedInfo() == nil then
+				tapped.reason = "nothing on the screen can be selected with a gamepad"
+				break
+			end
+			if target == nil or not same(selected, target) then
+				local route = gamepadPath(query, 80)
+				if route.found ~= true or type(route.path) ~= "table" then
+					tapped.reason = route.reason
+					break
+				end
+				for _, direction in route.path :: { string } do
+					key(DIRECTIONS[direction])
+				end
+			end
+			local now, destination = GuiService.SelectedObject, targetOf(query)
+			if now ~= nil and destination ~= nil and same(now, destination) then
+				tapped = { tapped = true, activated = true, info = selectedInfo() }
+				key(Enum.KeyCode.Return)
+				break
+			end
+			tapped.reason = "gamepad navigation did not settle on the target"
+		end
+	else
+		reveal(query, if request.mode == "touch" then "touch" else "wheel")
+		tapped = handlers.tap(request) :: { [string]: unknown }
+	end
+	local wait = request.wait
+	local settled = true
+	if type(wait) == "number" then
+		task.wait(wait)
+	else
+		settled = settle(0.1, 20, false).timedOut == false
+	end
+	request.inline = true
+	return { tap = tapped, settled = settled, dump = handlers.dump(request) }
 end
 
 local function call(encoded: string): string

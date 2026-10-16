@@ -34,6 +34,9 @@ export type HostOptions = {
 	keep: boolean?,
 	quiet: boolean?,
 	compareMount: boolean?,
+	performance: boolean?,
+	reusePlay: boolean?,
+	basePlace: string?,
 }
 
 export type DevicePerf = {
@@ -54,6 +57,7 @@ export type Host = {
 	close: () -> (),
 	log: (line: string) -> (),
 	lines: { string },
+	timings: { [string]: number },
 	shots: { QA.Shot },
 }
 
@@ -159,6 +163,7 @@ local function open(options: HostOptions): Host
 	local lines: { string } = {}
 	local shots: { QA.Shot } = {}
 	local built = false
+	local timings: { [string]: number } = {}
 	local buildProblem: string? = nil
 	local launched: Lute.StudioLaunched? = nil
 	local launchProblem: string? = nil
@@ -173,17 +178,22 @@ local function open(options: HostOptions): Host
 		return if ok and type(value) == "table" then value :: { [string]: unknown } else nil
 	end
 
-	local function finishDevice()
+	local function finishDevice(): boolean
+		if options.performance == false and not options.reusePlay then
+			return false
+		end
 		local active = current
 		if active ~= nil and perf[active.device] ~= nil then
 			local record = perf[active.device]
 			local ok = pcall(function()
 				for _ = 1, 8 do
 					local query: QA.Query = { exact = "Close", role = "button" }
-					if active.qa:first(query) == nil then
+					local target = active.qa:first(query)
+					if target == nil then
 						query.exact = "Back"
+						target = active.qa:first(query)
 					end
-					if active.qa:first(query) == nil then
+					if target == nil then
 						record.returned = true
 						break
 					end
@@ -191,14 +201,24 @@ local function open(options: HostOptions): Host
 						then active.qa:gamepadActivate(query)
 						else active.qa:tap(query)
 					assert(activated, "return control did not activate")
-					active.qa:sleep(0.5)
+					if options.performance == false then
+						local settled = active.qa:call("perf", { action = "settle", quiet = 0.1, limit = 20 })
+						assert(
+							type(settled) == "table" and (settled :: { [string]: unknown }).timedOut == false,
+							"return control did not settle"
+						)
+					else
+						active.qa:sleep(0.5)
+					end
 				end
 			end)
-			if ok and record.returned then
+			if ok and record.returned and options.performance ~= false then
 				active.qa:sleep(5)
 				record.final = probe(active.qa, { action = "idle", seconds = 2 })
 			end
+			return ok and record.returned == true
 		end
+		return false
 	end
 	local problems: { [string]: string } = {}
 
@@ -214,23 +234,30 @@ local function open(options: HostOptions): Host
 	end
 
 	local function stopPlay()
+		local started = os.clock()
 		if playing and launched ~= nil then
 			local response = session().play(false)
 			if not response.ok then
 				log("play: stopping play failed: " .. tostring(response.detail))
 			end
 			playing = false
-			task.wait(2)
+			if options.performance ~= false then
+				task.wait(2)
+			end
 		end
+		timings.stop = (timings.stop or 0) + os.clock() - started
 	end
 
 	local function buildPlace(): (boolean, string?)
+		local started = os.clock()
 		local project = options.workspace .. "/" .. (options.project or "default.project.json")
-		local output = build .. "/game.rbxlx"
-		local result = process.run({ "rojo", "build", project, "-o", output }, { cwd = options.workspace })
-		if not result.ok then
-			buildProblem = "rojo build failed: " .. result.stderr .. result.stdout
-			return false, buildProblem
+		local output = options.basePlace or build .. "/game.rbxlx"
+		if options.basePlace == nil then
+			local result = process.run({ "rojo", "build", project, "-o", output }, { cwd = options.workspace })
+			if not result.ok then
+				buildProblem = "rojo build failed: " .. result.stderr .. result.stdout
+				return false, buildProblem
+			end
 		end
 		local ok, problem = pcall(function(): boolean
 			Lute.place.build({
@@ -247,6 +274,7 @@ local function open(options: HostOptions): Host
 			return false, buildProblem
 		end
 		built = true
+		timings.build = os.clock() - started
 		return true, nil
 	end
 
@@ -255,6 +283,7 @@ local function open(options: HostOptions): Host
 			error("blocked: the workspace did not build: " .. tostring(buildProblem), 0)
 		end
 		if launched == nil and launchProblem == nil then
+			local started = os.clock()
 			local opened, problem = Lute.studio.launch({
 				place = placePath,
 				directory = options.outputs .. "/studio",
@@ -263,6 +292,7 @@ local function open(options: HostOptions): Host
 				launchSeconds = 240,
 			})
 			launched = opened
+			timings.launch = os.clock() - started
 			launchProblem = problem
 			if opened ~= nil then
 				log(("play: Studio %d opened %s"):format(opened.pid, opened.name))
@@ -271,16 +301,33 @@ local function open(options: HostOptions): Host
 		if launched == nil then
 			error("blocked: Studio is not available: " .. tostring(launchProblem), 0)
 		end
-		finishDevice()
-		stopPlay()
+		local previous = current
+		local resetStarted = os.clock()
+		local returned = finishDevice()
+		timings.reset = (timings.reset or 0) + os.clock() - resetStarted
+		local reused = returned
+			and options.reusePlay == true
+			and playing
+			and previous ~= nil
+			and previous.qa.device.mode ~= "gamepad"
+			and device.mode ~= "gamepad"
+		if not reused then
+			stopPlay()
+		end
 		current = nil
-		local simulated = session().execute("Edit", simulatorCode(device))
+		local setupStarted = os.clock()
+		local simulated = session().execute(if reused then "Client" else "Edit", simulatorCode(device))
 		if not simulated.ok then
 			error("the device simulator did not accept " .. device.preset .. ": " .. tostring(simulated.detail), 0)
 		end
-		local started = session().play(true)
-		if not started.ok then
-			error("play did not start: " .. tostring(started.detail), 0)
+		timings.setup = (timings.setup or 0) + os.clock() - setupStarted
+		if not reused then
+			local playCall = os.clock()
+			local started = session().play(true)
+			timings.play = (timings.play or 0) + os.clock() - playCall
+			if not started.ok then
+				error("play did not start: " .. tostring(started.detail), 0)
+			end
 		end
 		playing = true
 		local playStarted = os.clock()
@@ -319,7 +366,9 @@ local function open(options: HostOptions): Host
 			end
 			task.wait(0.5)
 		end
-		task.wait(2)
+		if options.performance ~= false then
+			task.wait(2)
+		end
 		local final = qa:call("ping")
 		local fields: { [string]: unknown } = if type(final) == "table" then final :: { [string]: unknown } else {}
 		local viewport: { [string]: unknown } = if type(fields.viewport) == "table"
@@ -344,8 +393,12 @@ local function open(options: HostOptions): Host
 			error("the screen is not in landscape", 0)
 		end
 		local settleCalled = os.clock()
-		local settled =
-			probe(qa, { action = "settle", quiet = 1, limit = 20, compareLegacy = options.compareMount == true })
+		local settled = probe(qa, {
+			action = "settle",
+			quiet = if options.performance == false then 0.1 else 1,
+			limit = 20,
+			compareLegacy = options.compareMount == true,
+		})
 		local record: DevicePerf = { screens = {}, mount = settled }
 		if settled ~= nil and type(settled.seconds) == "number" then
 			record.mountSeconds = settleCalled - playStarted + (settled.seconds :: number)
@@ -356,7 +409,10 @@ local function open(options: HostOptions): Host
 				log("play: " .. device.id .. " mount hit the 20-second settle limit")
 			end
 		end
-		record.idle = probe(qa, { action = "idle", seconds = 2 })
+		if options.performance ~= false then
+			record.idle = probe(qa, { action = "idle", seconds = 2 })
+		end
+		timings.ready = (timings.ready or 0) + os.clock() - playStarted
 		perf[device.id] = record
 		current = { device = device.id, qa = qa }
 		return qa
@@ -402,7 +458,9 @@ local function open(options: HostOptions): Host
 	end
 
 	local function close()
-		finishDevice()
+		if options.performance ~= false then
+			finishDevice()
+		end
 		stopPlay()
 		local opened = launched
 		if opened == nil then
@@ -412,7 +470,9 @@ local function open(options: HostOptions): Host
 			log("play: keeping Studio " .. opened.name)
 			return
 		end
+		local closeStarted = os.clock()
 		local closed = opened.close()
+		timings.teardown = os.clock() - closeStarted
 		if not closed.session.acknowledged then
 			log("play: Studio cleanup was not acknowledged: " .. tostring(closed.session.detail))
 		end
@@ -428,6 +488,7 @@ local function open(options: HostOptions): Host
 		close = close,
 		log = log,
 		lines = lines,
+		timings = timings,
 		shots = shots,
 		measure = measure,
 		perf = perf,

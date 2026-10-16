@@ -1,5 +1,7 @@
 # Text.textRole
 
+<!-- aliases: Text.typography -->
+
 Text.textRole option values and behavior.
 
 - `textRole` sets the type role tag, for example `facet-type-title`. The
