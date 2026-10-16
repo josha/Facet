@@ -9,7 +9,13 @@ local function discovery(nodes: { DocsIndex.Node }, names: { string }, reserved:
 	local size = #lines[1] + 1
 	for _, name in names do
 		local found = DocsIndex.find(nodes, name)
-		local line = if found then found.path .. " - " .. found.summary else name .. " - no exact node; use --search"
+		local control = string.match(name, "^([%w_]+)%.") or name
+		local props = DocsIndex.find(nodes, control .. ".props")
+		local line = if found
+			then found.path .. " - " .. found.summary
+			else name .. " - no exact node; " .. (if props
+				then "use docs " .. props.path
+				else "use --search or docs <Control>.props for typed options")
 		if size + #line + 1 + (reserved or 0) > DocsIndex.responseBudget then
 			break
 		end
@@ -36,6 +42,12 @@ function DocsQuery.response(nodes: { DocsIndex.Node }, invocation: Cli.Invocatio
 	end
 	local name = invocation.positional[1] or "Map"
 	local node = DocsIndex.find(nodes, name)
+	if node == nil then
+		local control = string.match(name, "^([%w_]+)%.")
+		if control then
+			node = DocsIndex.find(nodes, control .. ".props")
+		end
+	end
 	local resolved = node ~= nil and string.lower(node.path) ~= string.lower(name)
 	if node ~= nil and node.kind == "card" then
 		local control = string.lower(string.sub(node.path, 1, -6))

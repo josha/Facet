@@ -1,6 +1,6 @@
 ### Layout options
 
-<!-- aliases: Layout options | layout-options | Stack.layout | VStack.layout -->
+<!-- aliases: Layout options | layout-options | Stack | Stack.layout | VStack.layout -->
 
 Layout-options option values and behavior.
 

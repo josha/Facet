@@ -530,64 +530,73 @@ function Kit.hud(screen: ScreenGui): Frame
 	if dock ~= nil then
 		return dock :: Frame
 	end
+	local topbar = Kit.create("ScreenGui", {
+		Name = "HubActions",
+		ResetOnSpawn = false,
+		ScreenInsets = Enum.ScreenInsets.TopbarSafeInsets,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		Parent = screen.Parent,
+	}) :: ScreenGui
 	local frame = Kit.create("Frame", {
 		BackgroundTransparency = 1,
 		Visible = false,
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -16, 0, 96),
-		Size = UDim2.new(0, 156, 1, -112),
-		Parent = screen,
+		Size = UDim2.fromOffset(0, 0),
+		Parent = topbar,
 	}) :: Frame
-	local scroll = Kit.scroller()
-	scroll.Parent = frame
-	scroll.ScrollingEnabled = false
-	scroll.ScrollBarThickness = 0
 	local body = Kit.create("Frame", {
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, -8, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		Parent = scroll,
+		Size = UDim2.fromScale(1, 1),
+		Parent = frame,
 	}) :: Frame
-	local layout = Kit.create("UIGridLayout", {
-		CellSize = UDim2.fromOffset(148, 48),
-		CellPadding = UDim2.fromOffset(8, 8),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		FillDirectionMaxCells = 1,
-		Parent = body,
-	}) :: UIGridLayout
+	Kit.list(Enum.FillDirection.Horizontal, Kit.space.small, Enum.HorizontalAlignment.Right).Parent = body
+	body.SelectionGroup = true
 	local function resize()
-		local size = screen.AbsoluteSize
-		local landscape = UserInputService.TouchEnabled and size.X > size.Y and size.Y < 600
-		local parent = screen.Parent
-		local touchGui = if parent then parent:FindFirstChild("TouchGui") else nil
-		local jump = if touchGui then touchGui:FindFirstChild("JumpButton", true) else nil
-		local height = if landscape then 188 else 216
-		local top = if landscape then 36 elseif UserInputService.TouchEnabled then 48 else 96
-		if touchGui then
-			for _, control in touchGui:GetDescendants() do
-				if
-					control:IsA("GuiObject")
-					and (control.Name == "JumpButton" or string.find(control.Name, "ThumbstickFrame"))
-				then
-					local right = screen.AbsolutePosition.X + size.X - 16
-					if
-						control.AbsolutePosition.X < right
-						and control.AbsolutePosition.X + control.AbsoluteSize.X > right - 156
-					then
-						top = math.min(top, control.AbsolutePosition.Y - screen.AbsolutePosition.Y - 16 - height)
+		local scale = if Kit.isTenFoot() then 1.25 else 1
+		local band = GuiService.TopbarInset.Height
+		local diameter = (
+			if band > 0
+				then math.round(band * (if GuiService:IsTenFootInterface() then 0.5 else 0.75))
+				else Kit.size.body + Kit.space.medium * 2
+		)
+		local labelHeight = Kit.size.body * scale * 1.5
+		local width = 0
+		local actions: { TextButton } = {}
+		for _, row in body:GetChildren() do
+			if row:IsA("Frame") and row.Name == "HudAction" then
+				local control = row:FindFirstChildWhichIsA("TextButton")
+				local caption = if control then control:FindFirstChild("ActionLabel") else nil
+				if control and caption and caption:IsA("TextLabel") then
+					local cellWidth =
+						math.max(diameter, Kit.size.body * scale * (if caption.Text == "Garage" then 3.25 else 2.5))
+					local captionHeight = if string.find(caption.Text, " ") then labelHeight * 2 else labelHeight
+					caption.TextSize = Kit.size.body * scale
+					row.Size = UDim2.fromOffset(cellWidth, diameter + captionHeight)
+					control.Position = UDim2.fromOffset((cellWidth - diameter) / 2, 0)
+					control.Size = UDim2.fromOffset(diameter, diameter)
+					caption.Position = UDim2.fromOffset((diameter - cellWidth) / 2, diameter + Kit.space.small / 2)
+					caption.Size = UDim2.fromOffset(cellWidth, captionHeight)
+					if row.Visible then
+						width += cellWidth + Kit.space.small
+						table.insert(actions, control)
 					end
 				end
 			end
 		end
-		frame.AnchorPoint = Vector2.new(1, 0)
-		frame.Position = UDim2.new(1, -16, 0, top)
-		frame.Size = UDim2.fromOffset(156, height)
-		layout.CellSize = UDim2.fromOffset(148, if landscape then 44 else 48)
-		layout.CellPadding = UDim2.fromOffset(8, if landscape then 4 else 8)
-		layout.FillDirectionMaxCells = 1
-		frame.Visible = not UserInputService.TouchEnabled or jump ~= nil
+		table.sort(actions, function(a: TextButton, b: TextButton)
+			return (a.Parent :: Frame).LayoutOrder < (b.Parent :: Frame).LayoutOrder
+		end)
+		for index, control in actions do
+			control.NextSelectionLeft = actions[index - 1]
+			control.NextSelectionRight = actions[index + 1]
+		end
+		frame.Position = UDim2.new(1, 0, 0, band - Kit.space.small / 4 - diameter)
+		frame.Size =
+			UDim2.fromOffset(math.max(0, width - Kit.space.small), diameter + labelHeight + Kit.space.small / 2)
+		frame.Visible = screen:GetAttribute("ModalOpen") ~= true
 	end
 	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+	screen:GetAttributeChangedSignal("ModalOpen"):Connect(resize)
 	game:GetService("RunService").PreRender:Connect(resize)
 	resize()
 	dock = body

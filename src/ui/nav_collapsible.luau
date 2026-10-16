@@ -198,6 +198,7 @@ return function(
 							appearance = progress,
 						}
 					)
+					modal:SetAttribute("FacetArrivalGroup", true)
 					surfaces.keep(spec.content)
 					return modal
 				end, {

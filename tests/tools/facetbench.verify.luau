@@ -251,6 +251,13 @@ return function(harness: Verify.Harness)
 			action.rect = { x = size[3] + 16, y = 0, width = 44, height = 44 }
 			dump.elements = { action }
 			t:expect(not RaceSpace.safeContent(dump)):toBeTrueWith("unlabelled actions also clear the core UI")
+			dump.screen.topbarSafeArea = { x = size[3] + 164, y = 0, width = size[1] - size[3] - 164, height = 58 }
+			t:expect(not RaceSpace.safeContent(dump)):toBeTrueWith("an action over the core buttons stays unsafe")
+			action.rect = { x = size[1] - 60, y = 7, width = 44, height = 44 }
+			t:expect(RaceSpace.safeContent(dump)):toBeTrueWith("an action inside the free top-bar strip is safe")
+			action.rect = { x = size[1] - 60, y = 7, width = 44, height = 70 }
+			t:expect(not RaceSpace.safeContent(dump)):toBeTrueWith("an action across the top-bar edge is unsafe")
+			dump.screen.topbarSafeArea = nil
 			dump.elements = { element }
 			element.interactive = true
 			element.selectable = true

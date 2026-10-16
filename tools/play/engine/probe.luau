@@ -47,9 +47,11 @@ type Stash = { pieces: { string }, bytes: number, automatic: boolean? }
 
 local FRAME_NAME = "QAProbeFrame"
 local SAFE_NAME = "QAProbeSafeArea"
+local TOPBAR_NAME = "QAProbeTopbarArea"
 local EXCLUDED: { [string]: boolean } = {
 	[FRAME_NAME] = true,
 	[SAFE_NAME] = true,
+	[TOPBAR_NAME] = true,
 	TouchGui = true,
 	Freecam = true,
 	Chat = true,
@@ -64,11 +66,19 @@ local DIRECTIONS: { [string]: Enum.KeyCode } = {
 }
 local ORDER = { "down", "right", "up", "left" }
 
-local state: { input: VirtualInput?, frame: ScreenGui?, safe: ScreenGui?, stashes: { [string]: Stash }, serial: number } =
+local state: {
+	input: VirtualInput?,
+	frame: ScreenGui?,
+	safe: ScreenGui?,
+	topbar: ScreenGui?,
+	stashes: { [string]: Stash },
+	serial: number,
+} =
 	{
 		input = nil,
 		frame = nil,
 		safe = nil,
+		topbar = nil,
 		stashes = {},
 		serial = 0,
 	}
@@ -116,6 +126,15 @@ local function safeArea(): ScreenGui
 	if current == nil or current.Parent == nil then
 		current = overlay(SAFE_NAME, Enum.ScreenInsets.CoreUISafeInsets)
 		state.safe = current
+	end
+	return current :: ScreenGui
+end
+
+local function topbarArea(): ScreenGui
+	local current = state.topbar
+	if current == nil or current.Parent == nil then
+		current = overlay(TOPBAR_NAME, Enum.ScreenInsets.TopbarSafeInsets)
+		state.topbar = current
 	end
 	return current :: ScreenGui
 end
@@ -951,9 +970,18 @@ handlers.ping = function()
 	local gui = playerGui()
 	frame()
 	safeArea()
+	topbarArea()
+	local mounted = false
+	for _, root in roots() do
+		if root:FindFirstChildWhichIsA("GuiObject", true) ~= nil then
+			mounted = true
+			break
+		end
+	end
 	return {
 		ready = true,
 		roots = #roots(),
+		mounted = mounted,
 		viewport = viewport(),
 		inputs = inputs(),
 		loaded = game:IsLoaded(),
@@ -1333,6 +1361,7 @@ handlers.dump = function(request)
 		scale = 1,
 		input = inputList,
 		safeAreaRoot = safeArea(),
+		topbarSafeAreaRoot = topbarArea(),
 	})
 	local viewport = frame()
 	local offset = viewport.AbsolutePosition + Vector2.new(dump.screen.guiInset.left, dump.screen.guiInset.top)
@@ -1358,6 +1387,7 @@ handlers.dump = function(request)
 		end
 	end
 	translate(dump.screen.safeArea)
+	translate(dump.screen.topbarSafeArea)
 	dump.screen.width = viewport.AbsoluteSize.X
 	dump.screen.height = viewport.AbsoluteSize.Y
 	local safe = dump.screen.safeArea

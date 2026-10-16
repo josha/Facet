@@ -7,6 +7,8 @@ local Output = require("../tools/facet/lib/verify_output")
 local Files = require("../tools/facet/lib/files")
 local Png = require("../tools/facet/lib/raster/png")
 local QA = require("../tools/play/host/qa")
+local Look = require("../tools/facet/lib/look")
+local Run = require("../tools/facet/lib/run")
 
 local function hud(): Mount.Snapshot
 	return {
@@ -18,6 +20,128 @@ local function hud(): Mount.Snapshot
 end
 
 return function(harness: Verify.Harness)
+	harness:case("saved report CLI queries need no project and preserve the saved bytes", function(t)
+		local root = Files.temporaryDirectory("facet-report-query")
+		t:defer(function()
+			Files.remove(root)
+		end)
+		local report = "desktop 2-shop: high [text-fit] App.Shop: clipped\nconsole 3-close: problem: route failed\n"
+		Files.write(Files.join(root, "report.txt"), report)
+		local result = Run.capture({
+			Run.lute(),
+			"run",
+			"tools/facet",
+			"verify",
+			"--report",
+			"--out",
+			root,
+			"--device",
+			"desktop",
+			"--rule",
+			"text-fit",
+			"--step",
+			"2-shop",
+		})
+		t:expect(result.ok):toBe(true)
+		t:expect(string.find(result.stdout, "desktop/2-shop", 1, true) ~= nil):toBe(true)
+		t:expect((string.find(result.stdout, "console", 1, true))):toBe(nil)
+		t:expect(Files.read(Files.join(root, "report.txt"))):toBe(report)
+	end)
+	harness:case("readiness rejects an empty application root before dependent taps", function(t)
+		t:expect(QA.interfaceMounted({ roots = 1, mounted = false }, true)):toBe(false)
+		t:expect(QA.interfaceMounted({ roots = 0, mounted = false }, true)):toBe(false)
+		t:expect(QA.interfaceMounted({ roots = 1, mounted = true }, true)):toBe(true)
+		t:expect(QA.interfaceMounted({ roots = 1 }, false)):toBe(true)
+		t:expect(QA.interfaceMounted(nil, true)):toBe(false)
+	end)
+	harness:case("report queries intersect filters keep capture IDs and page within a byte bound", function(t)
+		local lines = {
+			"screenshot C:/long/path/desktop/2-shop.png",
+			"desktop 2-shop: high [text-fit] App.Shop: clipped",
+			"console 2-shop: high [text-fit] App.Shop: clipped",
+			"desktop 3-close: medium [target] App.Close: small",
+		}
+		local queried =
+			table.concat(Output.query(lines, { device = "desktop", rule = "text-fit", step = "2-shop" }), "\n")
+		t:expect(string.find(queried, "desktop/2-shop: high [text-fit]", 1, true) ~= nil):toBe(true)
+		t:expect((string.find(queried, "console", 1, true))):toBe(nil)
+		t:expect((string.find(queried, "C:/long", 1, true))):toBe(nil)
+		t:expect(#Output.queries(lines, "artifacts/check")):toBe(3)
+		for index = 1, 80 do
+			table.insert(lines, `desktop 2-shop: high [text-fit] App.{index}: ` .. string.rep("x", 800))
+		end
+		local first = table.concat(Output.query(lines, { device = "desktop", rule = "text-fit" }), "\n")
+		local second = table.concat(Output.query(lines, { device = "desktop", rule = "text-fit", page = 2 }), "\n")
+		t:expect(#first < 4096 and #second < 4096):toBe(true)
+		t:expect(first ~= second):toBe(true)
+		t:expect(string.find(first, "--page 2", 1, true) ~= nil):toBe(true)
+		t:expect(#Output.query(lines, { device = "tablet" })):toBe(1)
+	end)
+	harness:case(
+		"mount and route failures retain one root capture and stop only the dependent device steps",
+		function(t)
+			local root = Files.temporaryDirectory("facet-look-stop")
+			t:defer(function()
+				Files.remove(root)
+			end)
+			local calls: { [string]: number } = {}
+			local shots: { [string]: number } = {}
+			local closed = false
+			local result = Look.run({
+				project = "unused",
+				devices = { "desktop", "console", "tablet" },
+				steps = Look.parseSteps({ "Shop", "Buy", "Close" }),
+				out = root,
+			}, function(options)
+				t:expect(options.requireInterface):toBe(true)
+				return {
+					build = function()
+						return true, nil
+					end,
+					enter = function(device)
+						calls[device], shots[device] = 0, 0
+						return (
+							{
+								mountProblem = if device == "desktop" then "interface did not mount" else nil,
+								call = function()
+									calls[device] += 1
+									return {
+										tap = {
+											tapped = device ~= "console",
+											reason = "no selection path reaches the control",
+										},
+										settled = true,
+										dump = Look.sample(false),
+									}
+								end,
+								capture = function()
+									shots[device] += 1
+								end,
+								dump = function() end,
+							} :: unknown
+						) :: QA.QA
+					end,
+					close = function()
+						closed = true
+					end,
+					measure = function() end,
+					perf = {},
+					lines = {},
+					timings = {},
+					shots = {},
+					log = function() end,
+				}
+			end)
+			t:expect(calls.desktop):toBe(0)
+			t:expect(calls.console):toBe(1)
+			t:expect(calls.tablet):toBe(3)
+			t:expect(shots.desktop):toBe(1)
+			t:expect(shots.console):toBe(2)
+			t:expect(closed):toBe(true)
+			local summary = table.concat(Output.summarize({ result.screens[1] }), "\n")
+			t:expect(summary):toBe("desktop 1-start: problem: interface did not mount")
+		end
+	)
 	harness:case("dump transfer keeps the first chunk and checks the complete byte count", function(t)
 		local calls = 0
 		local text = QA.readDump(
