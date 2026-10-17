@@ -6,9 +6,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local reducedMotion = require("./motion").reduced
 local NavigationProps = require("./navigation_props")
 local pageLayers = require("./nav_page_layers")
-local pageTouch = require("./nav_page_touch")
-
-local FLING_SPEED = 1200
+local contacts = require("./input_contacts")
 
 return function(
 	ctx: Types.Context,
@@ -20,40 +18,26 @@ return function(
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local content, checkedSelection = layers.content, layers.checkedSelection
 	UI.PageView = ctx.construct("PageView", function(spec: NavigationProps.PageViewSpec): Frame
+		assert(
+			spec.indicatorPlacement == nil
+				or spec.indicatorPlacement == "footer"
+				or spec.indicatorPlacement == "overlay",
+			"PageView.indicatorPlacement must be footer or overlay"
+		)
+		local overlayIndicators = spec.indicatorPlacement == "overlay"
 		local byId = checkedSelection(spec.selection, spec.pages, "PageView")
 		local indexById: { [string]: number } = {}
 		for index, page in spec.pages do
 			indexById[page.id] = index
 		end
 		local footerHeight = (if spec.summary ~= false then 24 else 0)
-			+ (if spec.indicators ~= false then 48 else 0)
+			+ (if spec.indicators ~= false and not overlayIndicators then 48 else 0)
 			+ (if spec.controls ~= false then 48 else 0)
 		local pageNodes: { [string]: Frame } = {}
 		local reduced = reducedMotion(ctx)
-		local fling = Compose.cell(false)
-		local flingStyle, pageStyle = ctx.motionStyle("fling"), ctx.motionStyle("page")
-		local layout = Host.UIPageLayout "PagesLayout" {
-			Animated = function(use: ComposeTypes.Use)
-				return not reduced(use)
-			end,
-			EasingStyle = function(use: ComposeTypes.Use)
-				return if use(fling) then flingStyle else pageStyle
-			end,
-			EasingDirection = E.EasingDirection.Out,
-			TweenTime = ctx.metric("motion.durations.pageTurn"),
-			Circular = false,
-			FillDirection = E.FillDirection.Horizontal,
-			SortOrder = E.SortOrder.LayoutOrder,
-			GamepadInputEnabled = true,
-			TouchInputEnabled = true,
-			ScrollWheelInputEnabled = function(use: ComposeTypes.Use): boolean
-				return ctx.read(spec.scrollWheel, use) == true
-			end,
-		}
 		local hugs = spec.AutomaticSize == E.AutomaticSize.Y or spec.AutomaticSize == E.AutomaticSize.XY
 		local tallest = Compose.cell(0)
 		local heights: { ComposeTypes.Readable<Vector2> } = {}
-		local children: { Types.Child } = { layout }
 		for index, page in spec.pages do
 			local body = content(page.content, nil)
 			if hugs and body:IsA("GuiObject") then
@@ -66,70 +50,128 @@ return function(
 				body,
 			})
 			pageNodes[page.id] = node
-			table.insert(children, node)
 		end
-		local pages = Host.Frame "Pages" {
+		local width = Compose.cell(1)
+		local effectiveInput = ctx.effectiveInput()
+		local function nativeScroll(use: ComposeTypes.Use): boolean
+			return effectiveInput(use) == "Touch" or ctx.read(spec.scrollWheel, use) == true
+		end
+		local function Page(current: ComposeTypes.Readable<Nav.Tab>): GuiObject
+			return assert(pageNodes[current:peek().id])
+		end
+		local pages = UI.VirtualList "Pages" {
+			from = spec.pages,
+			key = function(page: Nav.Tab): string
+				return page.id
+			end,
+			render = Page,
+			mode = "all",
+			direction = "horizontal",
+			itemSize = width,
+			gap = 0,
+			snap = "item",
+			Active = nativeScroll,
+			ScrollingEnabled = nativeScroll,
+			ScrollBarThickness = 0,
+			Selectable = true,
+			ElasticBehavior = E.ElasticBehavior.Never,
 			BackgroundTransparency = 1,
 			Size = function(use: ComposeTypes.Use)
 				return if hugs then D2.new(1, 0, 0, use(tallest)) else D2.new(1, 0, 1, -footerHeight)
 			end,
 			ClipsDescendants = true,
 		}
-		surfaces.attach(pages, children)
-		local pressed: { x: number, at: number }? = nil
+		local held = Compose.cell(false)
+		local target: number? = nil
 		local paused = if spec.autoAdvanceSeconds ~= nil then Compose.cell(false) else nil
 		local hovering = false
-		local function pointer(input: InputObject): boolean
-			return input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1
-		end
-		local function begin(input: InputObject)
-			if pointer(input) then
-				pressed = { x = input.Position.X, at = os.clock() }
-				if paused then
-					paused:set(true)
-				end
+		contacts(ctx, pages, function()
+			target = nil
+			held:set(true)
+			UI.scrollTo(pages, pages.CanvasPosition, { animated = false })
+			if paused then
+				paused:set(true)
 			end
-		end
-		local function finish(input: InputObject)
-			local start = pressed
-			pressed = nil
+		end, function()
+			held:set(false)
 			if paused then
 				paused:set(hovering)
 			end
-			if start and pointer(input) then
-				local seconds = math.max(os.clock() - start.at, 1 / 120)
-				fling:set(math.abs(input.Position.X - start.x) / seconds > FLING_SPEED)
-			end
-		end
-		runtime.connect(pages, "InputBegan", begin)
-		runtime.connect(pages, "InputEnded", finish)
-		pageTouch(ctx, pages, begin, finish)
-		local changing = false
+		end)
 		local parent = ctx.observe.Parent(pages)
 		local available = surfaces.available(pages)
-		Compose.watch(function(use: ComposeTypes.Use)
-			local id = use(spec.selection)
-			assert(byId[id], "PageView.selection must name a declared page")
-			if use(parent) and use(available) then
-				changing = true
-				layout:JumpTo(pageNodes[id])
-				changing = false
-			end
-		end)
-		local size = ctx.observe.AbsoluteSize(pages)
+		local gui = surfaces.service("GuiService")
+		local focusPending = false
+		local unit = ctx.layoutUnit(pages)
+		local size = ctx.observe.AbsoluteWindowSize(pages)
+		local canvasSize = ctx.observe.AbsoluteCanvasSize(pages)
+		local initialized = Compose.cell(false)
+		local wasAvailable, lastWidth = false, 0
 		Compose.watch(function(use: ComposeTypes.Use)
 			local box = use(size)
+			local id = use(spec.selection)
+			assert(byId[id], "PageView.selection must name a declared page")
+			local scale = use(unit)
 			if box.X <= 0 or not use(parent) or not use(available) then
+				wasAvailable = false
+				initialized:set(false)
 				return
 			end
-			local animated = layout.Animated
-			layout.Animated = false
-			changing = true
-			layout:JumpTo(pageNodes[spec.selection:peek()])
-			changing = false
-			layout.Animated = animated
+			local resized = lastWidth ~= box.X
+			width:set(box.X / math.max(scale, 0.001))
+			if math.abs(use(canvasSize).X - box.X * #spec.pages) > 0.5 then
+				initialized:set(false)
+				return
+			end
+			target = (indexById[id] - 1) * box.X
+			if gui and surfaces.within(gui.SelectedObject, pages) then
+				focusPending = true
+			end
+			initialized:set(true)
+			UI.scrollTo(pages, V2.new(target, 0), { animated = wasAvailable and not resized and not reduced(use) })
+			wasAvailable, lastWidth = true, box.X
 		end)
-		local gui = surfaces.service("GuiService")
+		local position = ctx.observe.CanvasPosition(pages)
+		Compose.watch(function(use: ComposeTypes.Use)
+			local at = use(position).X
+			local box = use(size)
+			if
+				not use(initialized)
+				or not use(available)
+				or use(held)
+				or box.X <= 0
+				or (target and math.abs(at - target) > 0.5)
+			then
+				return
+			end
+			target = nil
+			local index = math.clamp(math.floor(at / box.X + 0.5) + 1, 1, #spec.pages)
+			if math.abs(at - (index - 1) * box.X) < 0.5 then
+				local id = spec.pages[index].id
+				if spec.selection:peek() ~= id then
+					spec.selection:set(id)
+				end
+				local page = pageNodes[id]
+				local selected = if gui then gui.SelectedObject else nil
+				if gui and ((focusPending and selected == nil) or surfaces.within(selected, pages)) then
+					focusPending = false
+					if not surfaces.within(selected, page) then
+						local nextControl: GuiObject? = nil
+						for _, node in page:GetChildren() do
+							nextControl = surfaces.firstSelectable(node)
+							if nextControl then
+								break
+							end
+						end
+						if nextControl == nil then
+							page.Selectable = true
+							nextControl = page
+						end
+						gui.SelectedObject = nextControl
+					end
+				end
+			end
+		end)
 		if paused then
 			local interaction = paused
 			local later = runtime.scheduler()
@@ -140,7 +182,7 @@ return function(
 			end)
 			runtime.connect(pages, "MouseLeave", function()
 				hovering = false
-				interaction:set(pressed ~= nil)
+				interaction:set(held:peek())
 			end)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local seconds = ctx.read(spec.autoAdvanceSeconds, use)
@@ -156,29 +198,11 @@ return function(
 					return
 				end
 				later.replace("advance", seconds, function()
-					fling:set(false)
 					spec.selection:set(spec.pages[indexById[id] % #spec.pages + 1].id)
 				end)
 			end)
 		end
-		local current = ctx.observe.CurrentPage(layout)
-		Compose.watch(function(use: ComposeTypes.Use)
-			local page = use(current)
-			if
-				gui
-				and page
-				and gui.SelectedObject
-				and surfaces.within(gui.SelectedObject, pages)
-				and not surfaces.within(gui.SelectedObject, page)
-			then
-				gui.SelectedObject = surfaces.firstSelectable(page)
-			end
-			if not changing and page and byId[page.Name] and page.Name ~= spec.selection:peek() then
-				spec.selection:set(page.Name)
-			end
-		end)
 		local function step(amount: number): ()
-			fling:set(false)
 			local at = math.clamp(indexById[spec.selection:peek()] + amount, 1, #spec.pages)
 			spec.selection:set(spec.pages[at].id)
 		end
@@ -195,6 +219,7 @@ return function(
 			end, { priority = 1500, capture = true })
 		end
 		local footer: { Types.Child } = {}
+		local indicatorRow: GuiObject? = nil
 		if spec.summary ~= false then
 			table.insert(
 				footer,
@@ -225,14 +250,14 @@ return function(
 						)
 					end,
 					LayoutOrder = index,
-					Size = D2.fromOffset(44, 44),
+					Size = D2.fromOffset(if overlayIndicators then 24 else 44, 44),
+					target = if overlayIndicators then "inline" else "hit",
 					AutomaticSize = E.AutomaticSize.None,
 					BackgroundTransparency = 1,
 					selected = function(use: ComposeTypes.Use): boolean
 						return use(spec.selection) == id
 					end,
 					onActivate = function()
-						fling:set(false)
 						spec.selection:set(id)
 					end,
 				})
@@ -251,9 +276,21 @@ return function(
 				end, dot)
 				table.insert(dots, dot)
 			end
-			local row = ctx.row(dots, { Name = "Indicators" })
+			local rowProps: Types.FrameProps = { Name = "Indicators" }
+			if overlayIndicators then
+				rowProps.AnchorPoint = V2.new(0.5, 1)
+				rowProps.Position = function(use: ComposeTypes.Use): UDim2
+					return if hugs then D2.new(0.5, 0, 0, use(tallest)) else D2.new(0.5, 0, 1, -footerHeight)
+				end
+				rowProps.ZIndex = 2
+			end
+			local row = ctx.row(dots, rowProps)
 			assert(row:FindFirstChildWhichIsA("UIListLayout")).Padding = ctx.types.UDim.new(0, 0)
-			table.insert(footer, row)
+			if overlayIndicators then
+				indicatorRow = row
+			else
+				table.insert(footer, row)
+			end
 		end
 		if spec.controls ~= false then
 			table.insert(
@@ -289,19 +326,26 @@ return function(
 			AutomaticSize = E.AutomaticSize.None,
 		})
 		assert(column:FindFirstChildWhichIsA("UIListLayout")).HorizontalAlignment = E.HorizontalAlignment.Center
-		local root = Host.Frame(
-			ctx.props(
-				spec,
-				{ "pages", "selection", "indicators", "summary", "controls", "autoAdvanceSeconds", "scrollWheel" },
-				{
-					Name = "PageView",
-					BackgroundTransparency = 1,
-					Size = D2.fromScale(1, 1),
-					pages,
-					column,
-				}
-			)
-		)
+		local defaults: Types.FrameProps = {
+			Name = "PageView",
+			BackgroundTransparency = 1,
+			Size = D2.fromScale(1, 1),
+			pages,
+			column,
+		}
+		if indicatorRow then
+			defaults[#defaults + 1] = indicatorRow
+		end
+		local root = Host.Frame(ctx.props(spec, {
+			"pages",
+			"selection",
+			"indicators",
+			"indicatorPlacement",
+			"summary",
+			"controls",
+			"autoAdvanceSeconds",
+			"scrollWheel",
+		}, defaults))
 		if hugs then
 			local unit = ctx.layoutUnit(root)
 			Compose.watch(function(use: ComposeTypes.Use)

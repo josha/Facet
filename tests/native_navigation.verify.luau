@@ -95,65 +95,62 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
-		verifyHarness:case("nested PageView lends ancestor input only to a horizontal touch and restores it", function()
+		verifyHarness:case("overlay indicators stay over the page and leave the footer empty", function()
+			local chosen = Compose.cell("one")
 			local world = setup(function(UI: FacetControls)
-				local function card(): Instance
-					return UI.Button "InteractiveCard" { label = "Course" }
-				end
-				return UI.ScrollView "ParentScroll" {
-					UI.PageView {
-						selection = Compose.cell("one"),
-						pages = { { id = "one", content = card }, { id = "two", content = card } },
+				return UI.PageView {
+					selection = chosen,
+					pages = {
+						{ id = "one", content = UI.Text { text = "One" } },
+						{ id = "two", content = UI.Text { text = "Two" } },
+					},
+					indicatorPlacement = "overlay",
+					controls = false,
+					summary = false,
+				}
+			end)
+			local pages, dots, footer =
+				find(world.screen, "Pages"), find(world.screen, "Indicators"), find(world.screen, "Footer")
+			Verify.expect(pages.Size.Y.Scale):toBe(1)
+			Verify.expect(pages.Size.Y.Offset):toBe(0)
+			Verify.expect(dots.Parent):toBe(pages.Parent)
+			Verify.expect(dots.AnchorPoint.Y):toBe(1)
+			Verify.expect(dots.Position.Y.Scale):toBe(1)
+			Verify.expect(footer.Size.Y.Offset):toBe(0)
+			world.input.TouchEnabled = true
+			for _, id in { "one", "two" } do
+				local button = find(dots, id)
+				Verify.expect(button.Size.X.Offset):toBe(24)
+				Verify.expect(button:FindFirstChild("TargetFloor").MinSize.X):toBe(24)
+				Verify.expect(button:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+			end
+			find(dots, "two").Activated:Fire()
+			Verify.expect(chosen:peek()):toBe("two")
+			world.stop()
+		end)
+		verifyHarness:case("keyboard paging keeps focus on pages without an interactive child", function()
+			local chosen = Compose.cell("one")
+			local world = setup(function(UI: FacetControls)
+				return UI.PageView {
+					selection = chosen,
+					pages = {
+						{ id = "one", content = UI.Button "FirstCard" { label = "First" } },
+						{ id = "two", content = UI.Text { text = "Read this tip" } },
+						{ id = "three", content = UI.Button "LastCard" { label = "Last" } },
 					},
 				}
 			end)
-			local parent = find(world.screen, "ParentScroll")
-			local card = find(world.screen, "InteractiveCard")
-			local E, V3 = world.engine.types.Enum, world.engine.types.Vector3
-			local pointer = world.engine.new("InputObject")
-			pointer.UserInputType, pointer.UserInputState = E.UserInputType.Touch, E.UserInputState.Begin
-			pointer.Position = V3.new(200, 50, 0)
-			card.InputBegan:Fire(pointer)
-			pointer.Position = V3.new(198, 80, 0)
-			world.input.InputChanged:Fire(pointer)
-			Verify.expect(parent.Active and parent.ScrollingEnabled):toBe(true)
-			world.input.InputEnded:Fire(pointer)
-			world.engine.heartbeat:Fire(1 / 60)
-			pointer = world.engine.new("InputObject")
-			pointer.UserInputType, pointer.UserInputState = E.UserInputType.Touch, E.UserInputState.Begin
-			pointer.Position = V3.new(200, 50, 0)
-			card.InputBegan:Fire(pointer)
-			pointer.Position = V3.new(170, 52, 0)
-			world.input.InputChanged:Fire(pointer)
-			Verify.expect(parent.Active):toBe(false)
-			Verify.expect(parent.ScrollingEnabled):toBe(false)
-			world.input.InputEnded:Fire(pointer)
-			world.engine.heartbeat:Fire(1 / 60)
-			Verify.expect(parent.Active and parent.ScrollingEnabled):toBe(true)
-			world.stop()
-		end)
-		verifyHarness:case("ending a PageView owner releases a borrowed native scroller", function()
-			local shown = Compose.cell(true)
-			local world = setup(function(UI: FacetControls)
-				local function pager(): Instance
-					local function card(): Instance
-						return UI.Button "BorrowingCard" { label = "Course" }
-					end
-					return UI.PageView { selection = Compose.cell("one"), pages = { { id = "one", content = card } } }
-				end
-				return UI.ScrollView "ParentScroll" { Compose.show(shown, pager) }
-			end)
-			local parent = find(world.screen, "ParentScroll")
-			local pointer = world.engine.new("InputObject")
-			pointer.UserInputType = world.engine.types.Enum.UserInputType.Touch
-			pointer.UserInputState = world.engine.types.Enum.UserInputState.Begin
-			pointer.Position = world.engine.types.Vector3.new(200, 50, 0)
-			find(world.screen, "BorrowingCard").InputBegan:Fire(pointer)
-			pointer.Position = world.engine.types.Vector3.new(160, 50, 0)
-			world.input.InputChanged:Fire(pointer)
-			Verify.expect(parent.Active):toBe(false)
-			shown:set(false)
-			Verify.expect(parent.Active and parent.ScrollingEnabled):toBe(true)
+			local pages, V2, E = find(world.screen, "Pages"), world.engine.types.Vector2, world.engine.types.Enum
+			pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(960, 160)
+			world.gui.SelectedObject = find(world.screen, "FirstCard")
+			for index = 1, 2 do
+				local input = world.engine.new("InputObject")
+				input.KeyCode, input.UserInputType = E.KeyCode.Right, E.UserInputType.Keyboard
+				world.input.InputBegan:Fire(input)
+				world.input.InputEnded:Fire(input)
+				Verify.expect(chosen:peek()):toBe(if index == 1 then "two" else "three")
+				Verify.expect(world.gui.SelectedObject.Name):toBe(if index == 1 then "two" else "LastCard")
+			end
 			world.stop()
 		end)
 		verifyHarness:case("PageView owns automatic advance and restarts after input and pauses", {
@@ -178,12 +175,12 @@ return function(verifyHarness: Verify.Harness)
 					}
 					return UI.PageView "TimedCards"(props)
 				end)
-				local layout = find(world.screen, "PagesLayout")
-				Verify.expect(layout.ScrollWheelInputEnabled):toBe(false)
+				local viewport = find(world.screen, "Pages")
+				Verify.expect(viewport.ScrollingEnabled):toBe(false)
 				wheel:set(true)
-				Verify.expect(layout.ScrollWheelInputEnabled):toBe(true)
+				Verify.expect(viewport.ScrollingEnabled):toBe(true)
 				wheel:set(false)
-				Verify.expect(layout.ScrollWheelInputEnabled):toBe(false)
+				Verify.expect(viewport.ScrollingEnabled):toBe(false)
 				world.engine.heartbeat:Fire(19)
 				Verify.expect(chosen:peek()):toBe("one")
 				world.engine.heartbeat:Fire(1)
@@ -227,30 +224,19 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local pages = find(world.screen, "Pages")
-				pages.AbsoluteSize = world.engine.types.Vector2.new(320, 160)
-				local layout = find(world.screen, "PagesLayout")
-				local jump = layout.JumpTo
-				local jumps: { boolean } = {}
-				layout.JumpTo = function(self: UIPageLayout, page: Instance)
-					table.insert(jumps, self.Animated)
-					jump(self, page)
-				end
+				pages.AbsoluteWindowSize = world.engine.types.Vector2.new(320, 160)
+				pages.AbsoluteCanvasSize = world.engine.types.Vector2.new(640, 160)
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
 				shown:set(false)
 				chosen:set("one")
-				Verify.expect(#jumps):toBe(0)
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
 				shown:set(true)
-				Verify.expect(#jumps > 0):toBe(true)
-				Verify.expect(jumps[#jumps]):toBe(false)
-				Verify.expect(layout.CurrentPage.Name):toBe("one")
-				Verify.expect(layout.Animated):toBe(true)
+				Verify.expect(pages.CanvasPosition.X):toBe(0)
 				world.screen.Enabled = false
-				local previous = #jumps
 				chosen:set("two")
-				Verify.expect(#jumps):toBe(previous)
+				Verify.expect(pages.CanvasPosition.X):toBe(0)
 				world.screen.Enabled = true
-				Verify.expect(#jumps > previous):toBe(true)
-				Verify.expect(jumps[#jumps]):toBe(false)
-				Verify.expect(layout.CurrentPage.Name):toBe("two")
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
 				local connections = world.engine.census().connections
 				for _ = 1, 8 do
 					shown:set(false)
@@ -1256,8 +1242,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("uses native page layout for model navigation and engine swipes", {
-			id = "native_navigation::native navigation controls::uses native page layout for model navigation and engine swipes",
+		verifyHarness:case("uses native canvas scrolling for model navigation and completed swipes", {
+			id = "native_navigation::native navigation controls::uses native canvas scrolling for model navigation and completed swipes",
 			run = function()
 				local selection = Compose.cell("one")
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
@@ -1269,11 +1255,13 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end)
+				local pages = find(world.screen, "Pages")
+				pages.AbsoluteWindowSize = world.engine.types.Vector2.new(320, 160)
+				pages.AbsoluteCanvasSize = world.engine.types.Vector2.new(640, 160)
 				find(world.screen, "Next").Activated:Fire()
 				Verify.expect((selection:peek())):toBe("two")
-				local layout = find(world.screen, "PagesLayout")
-				Verify.expect(layout.CurrentPage.Name):toBe("two")
-				layout:JumpTo(find(find(world.screen, "Pages"), "one"))
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
+				pages.CanvasPosition = world.engine.types.Vector2.zero
 				Verify.expect((selection:peek())):toBe("one")
 				world.stop()
 			end,
@@ -1306,42 +1294,44 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("eases between pages with Cubic Out, and a fast swipe with Quint Out, never overshooting", {
-			id = "native_navigation::native navigation controls::eases between pages with Cubic Out, and a fast swipe with Quint Out, never overshooting",
-			run = function()
-				local selection = Compose.cell("one")
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					return UI.PageView({
-						selection = selection,
-						pages = {
-							{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-							{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						},
-					})
-				end)
-				local Enum = world.engine.types.Enum
-				local layout = find(world.screen, "PagesLayout")
-				Verify.expect(layout.EasingStyle):toBe(Enum.EasingStyle.Cubic)
-				Verify.expect(layout.EasingDirection):toBe(Enum.EasingDirection.Out)
-				local pages = find(world.screen, "Pages")
-				local function swipe(distance: number)
-					local V3 = world.engine.types.Vector3
-					pages.InputBegan:Fire({ UserInputType = Enum.UserInputType.Touch, Position = V3.new(300, 100, 0) })
-					pages.InputEnded:Fire({
-						UserInputType = Enum.UserInputType.Touch,
-						Position = V3.new(300 - distance, 100, 0),
-					})
-				end
-				swipe(1)
-				Verify.expect(layout.EasingStyle):toBe(Enum.EasingStyle.Cubic)
-				swipe(300)
-				Verify.expect(layout.EasingStyle):toBe(Enum.EasingStyle.Quint)
-				Verify.expect(layout.EasingStyle ~= Enum.EasingStyle.Back):toBe(true)
-				find(world.screen, "Next").Activated:Fire()
-				Verify.expect(layout.EasingStyle):toBe(Enum.EasingStyle.Cubic)
-				world.stop()
-			end,
-		})
+		verifyHarness:case(
+			"keeps native drag position while card descendants hold contacts and snaps only after all release",
+			{
+				id = "native_navigation::native navigation controls::keeps native drag position while card descendants hold contacts and snaps only after all release",
+				run = function()
+					local selection = Compose.cell("one")
+					local world = setup(function(UI: FacetControls)
+						return UI.PageView({
+							selection = selection,
+							pages = {
+								{ id = "one", title = "One", content = UI.Button "CardOne" { label = "One" } },
+								{ id = "two", title = "Two", content = UI.Button "CardTwo" { label = "Two" } },
+							},
+						})
+					end)
+					local pages = find(world.screen, "Pages")
+					local V2, E = world.engine.types.Vector2, world.engine.types.Enum
+					pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(640, 160)
+					local first, second = world.engine.new("InputObject"), world.engine.new("InputObject")
+					first.UserInputType, second.UserInputType = E.UserInputType.Touch, E.UserInputType.Touch
+					find(world.screen, "CardOne").InputBegan:Fire(first)
+					pages.CanvasPosition = V2.new(120, 0)
+					world.engine.heartbeat:Fire(1)
+					Verify.expect(pages.CanvasPosition.X):toBe(120)
+					Verify.expect(selection:peek()):toBe("one")
+					find(world.screen, "CardOne").InputBegan:Fire(second)
+					world.input.InputEnded:Fire(first)
+					world.engine.heartbeat:Fire(1)
+					Verify.expect(pages.CanvasPosition.X):toBe(120)
+					world.input.InputEnded:Fire(second)
+					for _ = 1, 120 do
+						world.engine.heartbeat:Fire(0.016)
+					end
+					Verify.expect(pages.CanvasPosition.X):toBe(0)
+					world.stop()
+				end,
+			}
+		)
 
 		verifyHarness:case("snaps the showing page into place without motion when the pages frame resizes", {
 			id = "native_navigation::native navigation controls::snaps the showing page into place without motion when the pages frame resizes",
@@ -1355,15 +1345,12 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end)
-				local layout = find(world.screen, "PagesLayout")
-				local writes = {}
-				layout:GetPropertyChangedSignal("Animated"):Connect(function()
-					table.insert(writes, tostring(layout.Animated))
-				end)
-				Verify.expect(layout.Animated):toBe(true)
-				find(world.screen, "Pages").AbsoluteSize = world.engine.types.Vector2.new(640, 240)
-				Verify.expect((table.concat(writes, ","))):toBe("false,true")
-				Verify.expect(layout.CurrentPage.Name):toBe("two")
+				local pages = find(world.screen, "Pages")
+				local V2 = world.engine.types.Vector2
+				pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(640, 160)
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
+				pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(640, 240), V2.new(1280, 240)
+				Verify.expect(pages.CanvasPosition.X):toBe(640)
 				world.stop()
 			end,
 		})
@@ -1391,6 +1378,9 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local Enum = world.engine.types.Enum
 				local play = find(world.screen, "PlayOne")
+				local pages = find(world.screen, "Pages")
+				pages.AbsoluteWindowSize = world.engine.types.Vector2.new(320, 160)
+				pages.AbsoluteCanvasSize = world.engine.types.Vector2.new(640, 160)
 				world.gui.SelectedObject = play
 				Verify.expect(play.NextSelectionRight):toBe(play)
 				world.input.InputBegan:Fire({
@@ -2800,6 +2790,9 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end)
+				local pages = find(pager.screen, "Pages")
+				pages.AbsoluteWindowSize = pager.engine.types.Vector2.new(320, 160)
+				pages.AbsoluteCanvasSize = pager.engine.types.Vector2.new(640, 160)
 				pager.gui.SelectedObject = find(pager.screen, "PageOne")
 				selection:set("two")
 				Verify.expect(pager.gui.SelectedObject.Name):toBe("PageTwo")
@@ -3421,7 +3414,11 @@ return function(verifyHarness: Verify.Harness)
 				find(world.screen, "ModalBack").Pressed:Fire()
 				Verify.expect((errorValue:peek())):toBe(nil)
 				world.gui.ReducedMotionEnabled = true
-				Verify.expect(find(world.screen, "PagesLayout").Animated):toBe(false)
+				local pages = find(world.screen, "Pages")
+				local V2 = world.engine.types.Vector2
+				pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(640, 160)
+				page:set("b")
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
 				world.stop()
 			end,
 		})

@@ -29,12 +29,22 @@ the page is available. Returning to a page does not reset its selection.
 The indicators are a row of dots, one button per page, named by the page id.
 The current page's dot is painted in the accent colour. Each dot's accessible
 name is `Page n of m`. `indicators = false` hides them.
+Use `indicatorPlacement = "overlay"` to place the dots inside the lower edge
+of the page. The default is `"footer"`. Overlay dots use compact inline targets,
+24 pixels wide and at least 44 pixels high with the default theme. Each target
+remains separate. They do not reserve a row below the page. Leave space in page
+content for them.
 
 While the selection is on a control in a page, Left and Right (and the D-pad
 Left and Right) page back and forward. The selection then moves into the new
 page. Up and Down leave the pages.
 
-The native `UIPageLayout` moves between pages over 0.3 seconds, Cubic Out, with
-no overshoot, for Previous, Next, a dot and the arrow keys. A swipe released
-faster than 1200 pixels a second settles with Quint Out (`styles.fling`)
-instead, which decelerates harder and never overshoots.
+Facet's horizontal VirtualList owns native scrolling and item snapping.
+The page follows a held touch directly. Snapping waits until all contacts end,
+including contacts that start on a child button. A vertical gesture can scroll
+the surrounding page. The model selection changes when a page reaches its
+boundary. Previous, Next, dots and arrow keys use the shared scroll reveal
+motion. Reduced motion lands without animation. A new contact cancels a
+programmatic scroll. Resize and return from a hidden ancestor restore the
+selected page without animation. Keyboard focus moves after the new page
+lands, and a page with no interactive child remains a navigation target.

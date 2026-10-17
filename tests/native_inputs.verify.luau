@@ -60,6 +60,31 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native input controls", function()
+		verifyHarness:case("inline targets keep touch height while compacting adjacent choices", function()
+			local input: UserInputService
+			local node, stop = world(function(UI, engine)
+				return UI.Button {
+					name = "Page one",
+					target = "inline",
+					Size = engine.types.UDim2.fromOffset(24, 44),
+					AutomaticSize = engine.types.Enum.AutomaticSize.None,
+				}
+			end, function(engine)
+				input = engine.new("UserInputService")
+				input.TouchEnabled = true
+				input.GamepadEnabled = false
+				return { services = { UserInputService = input } }
+			end)
+			local floor = node:FindFirstChild("TargetFloor")
+			Verify.expect(floor.MinSize.X):toBe(24)
+			Verify.expect(floor.MinSize.Y):toBe(44)
+			input.TouchEnabled = false
+			Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+			input.GamepadEnabled = true
+			Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(24)
+			Verify.expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+			stop()
+		end)
 		verifyHarness:case("a new press releases consumption left by an earlier control", function()
 			local activation = require("../src/ui/activation")
 			local press = {}

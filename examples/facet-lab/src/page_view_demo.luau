@@ -14,6 +14,7 @@ return function(c: Context): PageViewSpec
 			label = name,
 			content = function(): Instance
 				return c.UI.Button {
+					Size = UDim2.fromScale(1, 1),
 					label = function(use): string
 						return `{name} course{if use(chosen) == name then " · selected" else ""}`
 					end,

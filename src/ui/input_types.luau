@@ -53,7 +53,7 @@ export type ButtonInputOptions = {
 	onPointerDown: ((InputObject) -> ())?,
 	onPointerUp: ((InputObject) -> ())?,
 	onPointerCancel: (() -> ())?,
-	target: ("hit" | "thumb")?,
+	target: ("hit" | "thumb" | "inline")?,
 }
 export type ButtonOptions = {
 	glyph: (() -> GuiObject)?,
