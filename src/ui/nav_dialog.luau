@@ -165,7 +165,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					return math.max(0, math.min(parts.width(ctx, spec.width, use), use(extent).X - 2 * margin(use)))
 				end
 				local function roomPx(use: ComposeTypes.Use): number
-					return math.max(0, use(extent).Y - keyboard(use) - 4 * margin(use))
+					local available = math.max(0, use(extent).Y - keyboard(use))
+					local minimum = math.min(ctx.metric("targetSizes.minimum", use), math.max(0, available - 32))
+					return math.max(minimum, available - 4 * margin(use))
 				end
 				local regions: { GuiObject } = {}
 				if spec.hero then

@@ -96,12 +96,14 @@ local function toolbarChecks(t: any, where: string, page: any)
 	end
 	if collection:IsA("ScrollingFrame") then
 		local before = collection.CanvasPosition
-		collection.CanvasPosition = Vector2.new(0, 200)
+		collection.CanvasPosition = Vector2.new(200, 200)
 		t.settle(10)
 		local moved = collection.CanvasPosition
 		t.check(
 			where .. " collection scrolls",
-			moved.Y > before.Y or moved.X > before.X or collection.AbsoluteCanvasSize.Y <= c.h,
+			moved.Y > before.Y
+				or moved.X > before.X
+				or (collection.AbsoluteCanvasSize.Y <= c.h + 0.5 and collection.AbsoluteCanvasSize.X <= c.w + 0.5),
 			{
 				before = before,
 				after = moved,

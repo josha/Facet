@@ -1569,6 +1569,7 @@ function browser.mount(opts: MountOpts)
 				values = values,
 				examples = ps.examples:peek(),
 				errors = state.errors[page.id] or {} :: { [string]: string },
+				pageErrors = state.errors,
 				totalErrors = total,
 				missing = cat.missing,
 				log = ps.log:peek(),

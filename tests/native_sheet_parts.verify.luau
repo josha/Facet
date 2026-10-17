@@ -961,6 +961,96 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("appears when fonts finish after the preparation clock", function(t)
+			local prepare = require("../src/ui/font_readiness")
+			local environment = getfenv(prepare)
+			local originalTask = environment.task
+			local pending: { thread } = {}
+			local waiting: { thread } = {}
+			environment.task = {
+				defer = function(callback: () -> ()): thread
+					local work = coroutine.create(callback)
+					table.insert(pending, work)
+					return work
+				end,
+				cancel = function(work: thread)
+					coroutine.close(work)
+				end,
+			}
+			t:defer(function()
+				environment.task = originalTask
+			end)
+			local engine = require("./lib/native_engine").new()
+			local now = 0
+			engine.clock = function()
+				return now
+			end
+			local Facet = require("../src")
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local provider = {
+				PreloadAsync = function(_self: unknown, _sources: { string })
+					table.insert(waiting, coroutine.running())
+					coroutine.yield()
+				end,
+			}
+			local UI = Facet.controls(runtime, {
+				types = engine.types,
+				motionLevel = "none",
+				services = { ContentProvider = (provider :: unknown) :: ContentProvider },
+			})
+			local stop, mounted = runtime.mount(function()
+				return Host.ScreenGui {
+					UI.Sheet {
+						isPresented = Compose.cell(true),
+						detent = Compose.cell("medium"),
+						title = "Details",
+						content = function()
+							return Host.TextLabel { Text = "Sheet content" }
+						end,
+					},
+				}
+			end, engine.new("Folder"))
+			local screen = mounted :: ScreenGui
+			t:defer(function()
+				stop()
+				runtime:dispose()
+			end)
+			screen.AbsoluteSize = Vector2.new(800, 600)
+			local sheet = assert(overlay.find(screen, "Sheet"))
+			t:expect(sheet:GetAttribute("FacetError")):toBe(nil)
+			local modal = assert(overlay.find(screen, "Modal")) :: Frame
+			modal.AbsoluteSize = Vector2.new(800, 600)
+			local panel = assert(overlay.find(screen, "SheetPanel")) :: Frame
+			local function advance()
+				now += 1 / 60
+				engine.heartbeat:Fire(1 / 60)
+				while #pending > 0 do
+					local queued = pending
+					pending = {}
+					for _, work in queued do
+						if coroutine.status(work) == "suspended" then
+							t:expect((coroutine.resume(work))):toBe(true)
+						end
+					end
+				end
+			end
+			for _ = 1, 40 do
+				advance()
+			end
+			t:expect(#waiting > 0):toBe(true)
+			t:expect(panel.Position.Y.Offset):toBe(panel.Size.Y.Offset)
+			for _, work in waiting do
+				if coroutine.status(work) == "suspended" then
+					t:expect((coroutine.resume(work))):toBe(true)
+				end
+			end
+			for _ = 1, 5 do
+				advance()
+			end
+			t:expect(panel.Position.Y.Offset):toBe(0)
+		end)
+
 		verifyHarness:case("a late text size change, such as a font that loads, holds the sheet off screen", {
 			id = "native_sheet_parts::native Sheet: parts::a late text size change, such as a font that loads, holds the sheet off screen",
 			run = function()

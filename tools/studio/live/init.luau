@@ -12,6 +12,7 @@ local LogService = game:GetService("LogService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local storage = game:GetService("ReplicatedStorage")
+local TAP_SECONDS = 3 / 60
 
 local Verify = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("core"))
 local VerifyRoblox: typeof(require("@repo/tools/vendor/verify/src/roblox")) = (require :: any)(
@@ -454,6 +455,15 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				end,
 			}
 			screen.configure(context)
+			local viewportSize = context.environment.viewportSize
+			context.environment.viewportSize = function(use)
+				local chosen = viewportSize(use)
+				if chosen ~= nil then
+					return chosen
+				end
+				local size = use(env.viewport)
+				return Vector2.new(size.width, size.height)
+			end
 			context.motionPreference:set("none")
 			if config.preferredTextSize then
 				context.textPreview:set(config.preferredTextSize)
@@ -676,9 +686,13 @@ function live.report(suite: string, options: { [string]: any }?): any
 				for _, gui in playerGui:GetChildren() do
 					if
 						gui:IsA("ScreenGui")
-						and string.sub(gui.Name, 1, 12) == "FacetGallery"
 						and gui.Enabled
-						and not (if case.probe then false else caseKeepGallery)
+						and (
+							(
+								string.sub(gui.Name, 1, 12) == "FacetGallery"
+								and not (if case.probe then false else caseKeepGallery)
+							) or (string.sub(gui.Name, 1, 9) == "Facet_Lab" and suite ~= "lab")
+						)
 					then
 						gui.Enabled = false
 						table.insert(hidden, gui)
@@ -737,11 +751,18 @@ function live.begin(suite: string, id: string): string
 	assert(chosen and chosen.setup, "no interactive case " .. id)
 	local record = { id = chosen.id, contracts = chosen.contracts or {}, checks = {}, notes = {}, steps = {} }
 	local t = newCase(Facet, themeModules(Facet), record)
-	if not chosen.keepGallery then
+	do
 		local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 		local hidden = {}
 		for _, gui in playerGui:GetChildren() do
-			if gui:IsA("ScreenGui") and string.sub(gui.Name, 1, 12) == "FacetGallery" and gui.Enabled then
+			if
+				gui:IsA("ScreenGui")
+				and gui.Enabled
+				and (
+					(string.sub(gui.Name, 1, 12) == "FacetGallery" and not chosen.keepGallery)
+					or string.sub(gui.Name, 1, 9) == "Facet_Lab"
+				)
+			then
 				gui.Enabled = false
 				table.insert(hidden, gui)
 			end
@@ -875,8 +896,12 @@ function live.press(names: { string }, frames: number?): string
 	for _, name in names do
 		local key = PAD_KEYS[name] or (Enum.KeyCode :: any)[name]
 		virtual:SendKey(true, key, false)
-		for _ = 1, frames or 3 do
-			RunService.RenderStepped:Wait()
+		if frames then
+			for _ = 1, frames do
+				RunService.RenderStepped:Wait()
+			end
+		else
+			task.wait(TAP_SECONDS)
 		end
 		virtual:SendKey(false, key, false)
 		for _ = 1, frames or 8 do

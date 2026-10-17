@@ -339,12 +339,9 @@ end)
 
 local function paddingOf(node: Instance): (number, number, number, number)
 	local padding = node:FindFirstChildWhichIsA("UIPadding")
-	if not padding then
-		return 0, 0, 0, 0
-	end
 	local size = (node :: any).AbsoluteSize
 	local function px(name: string, extent: number): number
-		local value = (padding :: any):GetStyled(name)
+		local value = if padding then padding:GetStyled(name) else node:GetStyled(name, "::UIPadding")
 		return value.Scale * extent + value.Offset
 	end
 	return px("PaddingLeft", size.X), px("PaddingRight", size.X), px("PaddingTop", size.Y), px("PaddingBottom", size.Y)

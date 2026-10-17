@@ -131,6 +131,7 @@ return {
 					press(button)
 				end
 			end
+			t.note("Button report", game:GetService("HttpService"):JSONDecode(report:Invoke()))
 			open:Invoke("Composition")
 			configure:Invoke("topbar=true")
 			t.settle(45)
@@ -145,6 +146,7 @@ return {
 			press(t.find(popup, "CloseCommand") :: GuiObject)
 			state = game:GetService("HttpService"):JSONDecode(report:Invoke())
 			t.check("Close commands the presentation cell", state.values.stripSettingsOpen == "false")
+			t.note("Lab report", state)
 			t.check("Lab has no refusals", state.totalErrors == 0)
 		end,
 	},
@@ -190,10 +192,16 @@ return {
 				virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
 				t.settle(2)
 				for step = 1, 30 do
+					projected = camera:WorldToScreenPoint(canvas.Position + Vector3.new(0, offset, 0.05))
+					destination = Vector2.new(projected.X, projected.Y)
 					virtual:SendMousePosition(point:Lerp(destination + inset, step / 30))
 					t.settle(1)
 				end
 				t.settle(10)
+				projected = camera:WorldToScreenPoint(canvas.Position + Vector3.new(0, offset, 0.05))
+				destination = Vector2.new(projected.X, projected.Y)
+				virtual:SendMousePosition(destination + inset)
+				t.settle(2)
 				virtual:SendMouseButton(destination + inset, Enum.UserInputType.MouseButton1, false)
 				t.settle(30)
 				local decal = canvas:FindFirstChildWhichIsA("Decal")

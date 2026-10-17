@@ -8,13 +8,34 @@ local HttpService = game:GetService("HttpService")
 local Verify = (require :: any)(game.ReplicatedStorage:WaitForChild("FacetVerify"):WaitForChild("core"))
 
 return function(live: any, suite: string, options: { [string]: any }): any
-	local keyboardInput = UserInputService.KeyboardEnabled
-		and UserInputService.PreferredInput ~= Enum.PreferredInput.Gamepad
+	if not options.registerOnly and suite ~= "haptics_pair" then
+		local interactive = false
+		for _, case in live.cases(suite) do
+			if case.setup and (not options.only or string.find(case.id, options.only, 1, true)) then
+				interactive = true
+				break
+			end
+		end
+		if not interactive then
+			return live.report(suite, options)
+		end
+	end
 	local function settle(frames: number?)
 		for _ = 1, frames or 8 do
 			RunService.RenderStepped:Wait()
 		end
 	end
+	if not options.registerOnly and options.device ~= "keep" then
+		local simulator = game:GetService("StudioDeviceSimulatorService")
+		if options.device == nil or options.device == "none" then
+			simulator:StopSimulationAsync()
+		else
+			simulator:SetDeviceAsync(options.device)
+		end
+		settle(60)
+	end
+	local keyboardInput = UserInputService.KeyboardEnabled
+		and UserInputService.PreferredInput ~= Enum.PreferredInput.Gamepad
 	local function centre(node: GuiObject): Vector2
 		return node.AbsolutePosition + node.AbsoluteSize / 2
 	end
@@ -163,6 +184,448 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		return Vector2.new(at[1], at[2])
 	end
 	local drivers: { [string]: (any, any, any) -> () } = {}
+	drivers["tray-keys-and-hover"] = function(t, value, io)
+		press(t, { "Right" })
+		live.step("afterRight")
+		press(t, { "Return" })
+		live.step("afterReturn")
+		io.move(centre(assert(value.tray:FindFirstChild("flag"))))
+		live.step("afterHover")
+	end
+	drivers["header-sort-keys"] = function(t)
+		for _, action in
+			{
+				{ "Return", "afterReturn" },
+				{ "Return", "afterReturnAgain" },
+				{ "Right", "afterRight" },
+				{ "Return", "afterReturnLaps" },
+				{ "Down", "afterDown" },
+				{ "Up", "afterUp" },
+			}
+		do
+			press(t, { action[1] })
+			live.step(action[2])
+		end
+	end
+	drivers["left-reaches-this-rows-minus"] = function(t)
+		press(t, { "Left" })
+		live.step("afterLeft")
+		press(t, { "Return" })
+		live.step("afterReturn")
+	end
+	drivers["collapsed-column-leaves-the-ring"] = function(t)
+		press(t, { "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab" })
+		live.step("afterWalk")
+		press(t, { "Return" })
+		live.step("afterReturn")
+	end
+	drivers["return-toggles-multi-selection"] = function(t)
+		for _, action in
+			{
+				{ "Return", "afterReturn" },
+				{ "Down", "afterDown" },
+				{ "Return", "afterReturnTwo" },
+				{ "Return", "afterReturnThree" },
+			}
+		do
+			press(t, { action[1] })
+			live.step(action[2])
+		end
+	end
+	drivers["horizontal-list-keys"] = function(t)
+		press(t, { "Right" })
+		live.step("afterRight")
+		press(t, { "Return" })
+		live.step("afterReturn")
+	end
+	drivers["drag-across-rows-after-page-scroll"] = function(_, value, io)
+		local start = Vector2.new(value.start[1], value.start[2]) - GuiService:GetGuiInset()
+		io.down(start)
+		io.move(start + Vector2.new(0, math.floor(value.height)))
+		local finish = start + Vector2.new(0, math.floor(value.height * 2.2))
+		io.move(finish)
+		io.up(finish)
+		live.step("afterDrag")
+	end
+	drivers["segment-fill-follows-track"] = function()
+		live.step("capture")
+	end
+	drivers["navigation-back-pointer"] = function(_, value, io)
+		io.move(centre(value.back))
+		live.step("hovered")
+		io.click(centre(value.back))
+		live.step("clicked")
+	end
+	drivers["path-clipped-in-scroll"] = function()
+		live.step("scrolled")
+	end
+	drivers["files-linked-input"] = function(t, value, io)
+		local api = workspace:WaitForChild("FacetShowcaseAPI") :: BindableFunction
+		api:Invoke("device", "desktop")
+		settle(20)
+		local detail = value.root:FindFirstChild("Detail")
+		if detail == nil or not detail.Visible then
+			local menu = assert(t.find(value.layer, "ViewOptions"))
+			io.click(centre(menu:FindFirstChild("Trigger", true) or menu))
+			settle(8)
+			local panel = assert(t.find(Players.LocalPlayer.PlayerGui, "MenuPanel"))
+			io.click(centre(assert(t.find(panel, "linked"))))
+			settle(20)
+		end
+		live.step("wide")
+		GuiService.SelectedObject = value.root.Resize
+		press(t, { "Period", "Period" })
+		live.step("resized")
+		local function firstStop(root: Instance): GuiObject
+			for _, node in root:GetDescendants() do
+				if node:IsA("GuiObject") and node.Selectable and t.visible(node) then
+					return node
+				end
+			end
+			error("split pane has no selection stop")
+		end
+		GuiService.SelectedObject = firstStop(value.root.Sidebar)
+		settle(4)
+		GuiService.SelectedObject = firstStop(value.root.Detail)
+		settle(4)
+		t.note(
+			"pane crossing",
+			"Native SelectedObject changes from sidebar to detail; resize and Back use native input."
+		)
+		live.step("divider")
+		api:Invoke("device", "phone")
+		settle(20)
+		if not value.root.Detail.Visible then
+			io.click(centre(assert(value.root.NavigationBar:FindFirstChild("ShowDetail"))))
+			settle(12)
+		end
+		live.step("compact")
+		io.click(centre(assert(t.find(value.root.NavigationBar, "Back"))))
+		settle(12)
+		live.step("back")
+		api:Invoke("device", "automatic")
+	end
+	drivers["files-nested-touch-handoff"] = function(t, value, io)
+		(workspace:WaitForChild("FacetShowcaseAPI") :: BindableFunction):Invoke("device", "phone")
+		settle(30)
+		local function swipe(direction: number)
+			local window = assert(t.clipped(value.inner), "file list has no visible touch area")
+			local start = Vector2.new(window.x + window.w / 2, window.y + window.h / 2)
+			local finish = start + Vector2.new(0, direction * math.min(120, window.h / 3))
+			io.heldDrag(start, finish)
+			io.up(finish)
+		end
+		live.step("top")
+		swipe(1)
+		live.step("upstream")
+		live.step("bottom")
+		swipe(-1)
+		live.step("downstream")
+	end
+	drivers["chrome-strips-dpad"] = function(t)
+		for _, action in
+			{
+				{ "Up", "afterUp" },
+				{ "Right", "afterRight" },
+				{ "Left", "afterLeft" },
+				{ "Down", "afterDown" },
+				{ "Down", "afterDown2" },
+				{ "Down", "afterDown3" },
+				{ "Right", "afterRight2" },
+			}
+		do
+			press(t, { action[1] })
+			live.step(action[2])
+		end
+	end
+	drivers["form-controls-reach-by-arrows"] = function(t)
+		for _ = 1, 30 do
+			press(t, { "Down" })
+		end
+		live.step("afterDowns")
+	end
+	drivers["slider-between-controls-by-arrows"] = function(t)
+		press(t, { "Down" })
+		live.step("afterDown")
+		press(t, { "Up" })
+		live.step("afterUp")
+		press(t, { "Down" })
+		live.step("afterVolumeDown")
+	end
+	for _, width in { 390, 1920 } do
+		drivers["hud-dpad-reaches-actions-" .. width] = function(t, value)
+			press(t, { if value.vertical then "Up" else "Left" })
+			live.step("afterWalk")
+			press(t, { "Return" })
+			live.step("afterOpen")
+			press(t, { "Return" })
+			live.step("afterPick")
+		end
+	end
+	drivers["recipe-rail-tab-scrolls-tail"] = function(t)
+		press(t, { "Right" })
+		live.step("afterRight")
+		for _ = 1, 40 do
+			press(t, { "Down" })
+		end
+		live.step("afterWalk")
+		for _ = 1, 40 do
+			press(t, { "Down" })
+		end
+		live.step("afterAccordion")
+	end
+	drivers["showcase-rail-tail-inside-clips"] = function(t)
+		for _, action in
+			{
+				{ "Return", "afterReturnActions" },
+				{ "Return", "afterReturnRecipes" },
+				{ "Right", "afterRight" },
+				{ "Return", "afterReturnChip" },
+			}
+		do
+			press(t, { action[1] })
+			live.step(action[2])
+		end
+	end
+	drivers["inner-tabs-widen-to-engine-words"] = function(t)
+		press(t, { "Return" })
+		live.step("afterReturn")
+	end
+	drivers["dense-menu-and-picker-rows"] = function(_, value, io)
+		live.step("pointer")
+		io.click(centre(assert(value.panel:FindFirstChild("b", true))))
+		live.step("clicked")
+		live.step("touch")
+		live.step("gamepad")
+		live.step("desktop")
+		io.click(point(value, "trigger") - GuiService:GetGuiInset())
+		live.step("picker")
+		live.step("pickertouch")
+	end
+	drivers["sheet-adaptive"] = function()
+		live.step("phone")
+		live.step("narrow")
+	end
+	drivers["selection-mark-hover"] = function(_, value, io)
+		io.move(centre(value.chip))
+		live.step("hovered")
+	end
+	drivers["underline-live"] = function(_, value, io)
+		live.step("rest")
+		io.move(centre(value.more))
+		live.step("hovered")
+		io.move(Vector2.new(20, 500))
+		live.step("left")
+		live.step("selected")
+	end
+	drivers["inverse-paint"] = function(_, value, io)
+		local dark, light = centre(value.buttons.Dark), centre(value.buttons.Light)
+		io.move(dark)
+		live.step("darkhover")
+		io.down(dark)
+		live.step("darkpress")
+		io.up(dark)
+		io.move(light)
+		live.step("lighthover")
+		io.down(light)
+		live.step("lightpress")
+		io.up(light)
+	end
+	drivers["xsmall-rung"] = function(_, value, io)
+		io.click(point(value, "Tiny") - GuiService:GetGuiInset())
+		live.step("button")
+		io.click(point(value, "TinyChip") - GuiService:GetGuiInset())
+		live.step("chip")
+	end
+	drivers["pagination-neighbours-arrive-and-land"] = function(t)
+		press(t, { "Down" })
+		live.step("afterDown")
+	end
+	drivers["card-hover-reveals-inside-the-envelope"] = function(_, _, io)
+		io.move(point(shared.FacetLiveSession.record.notes, "hover point"))
+		live.step("afterHover")
+	end
+	drivers["card-keys-enter-and-stay-inside"] = function(t)
+		for _, action in
+			{
+				{ "ButtonA", "afterReturn" },
+				{ "DPadRight", "afterRight" },
+				{ "DPadRight", "afterRightAgain" },
+				{ "DPadDown", "afterDown" },
+				{ "ButtonB", "afterBack" },
+			}
+		do
+			press(t, { action[1] })
+			live.step(action[2])
+		end
+		press(t, { "ButtonA", "DPadRight", "ButtonY" })
+		live.step("afterMenuY")
+		press(t, { "ButtonB" })
+		live.step("afterMenuBack")
+	end
+	drivers["menu-lands-on-selected-and-walks-bounded"] = function(t)
+		for _ = 1, 11 do
+			press(t, { "Down" })
+		end
+		live.step("afterDown")
+	end
+	drivers["choices-vote-row-inside-the-page"] = function(t)
+		press(t, { "Return" })
+		live.step("afterReturn")
+	end
+	drivers["badge-seal-sits-on-the-corner"] = function(_, _, io)
+		local notes = shared.FacetLiveSession.record.notes
+		io.click(point(notes, "Inbox seal point"))
+		live.step("afterInbox")
+		io.click(point(notes, "Alerts seal point"))
+		live.step("afterAlerts")
+	end
+	local clickCases: { [string]: { string } } = {
+		["fields-control-size"] = { "click", "afterClick" },
+		["pickers-avatar-row-press"] = { "avatar", "afterClick" },
+		["plain-checkbox-row-tap"] = { "click", "click" },
+	}
+	for id, action in clickCases do
+		drivers[id] = function(_, _, io)
+			io.click(point(shared.FacetLiveSession.record.notes, action[1]))
+			live.step(action[2])
+		end
+	end
+	drivers["fields-visible-lines"] = function(_, _, io)
+		io.text("x")
+		live.step("afterType")
+	end
+	drivers["fields-select-on-focus"] = function(_, _, io)
+		for _, action in { { "clickAll", "afterAll" }, { "clickEnd", "afterEnd" }, { "clickNone", "afterNone" } } do
+			io.click(point(shared.FacetLiveSession.record.notes, action[1]))
+			live.step(action[2])
+		end
+	end
+	drivers["number-step-buttons"] = function(t)
+		press(t, { "Right" })
+		live.step("afterRight")
+		press(t, { "Right" })
+		live.step("afterRightAgain")
+	end
+	drivers["slider-landing-live"] = function(t)
+		press(t, { "Up" })
+		live.step("afterUp")
+		press(t, { "Up" })
+		live.step("afterSecondUp")
+	end
+	drivers["slider-rotation-live"] = function(_, _, io)
+		for _, action in
+			{
+				{ "click0", "afterTurn0" },
+				{ "click135", "afterTurn135" },
+				{ "click270", "afterTurn270Scrolled" },
+			}
+		do
+			io.click(point(shared.FacetLiveSession.record.notes, action[1]))
+			live.step(action[2])
+		end
+	end
+	drivers["slider-thumb-auto-live"] = function(_, _, io)
+		io.move(point(shared.FacetLiveSession.record.notes, "hover"))
+		live.step("afterHover")
+		io.move(point(shared.FacetLiveSession.record.notes, "away"))
+		live.step("afterLeave")
+	end
+	drivers["dtp-icon-toggle"] = function(_, _, io)
+		for _, step in { "afterOpen", "afterClose", "afterReopen" } do
+			io.click(point(shared.FacetLiveSession.record.notes, "icon"))
+			live.step(step)
+		end
+	end
+	drivers["dtp-native-navigation"] = function(t)
+		for _, action in
+			{
+				{ "Up", "afterUpWalk" },
+				{ "Down", "afterDownWalk" },
+				{ "Down", "afterDraftDown" },
+				{ "Down", "afterInlineDown" },
+			}
+		do
+			press(t, { action[1], action[1], action[1] })
+			live.step(action[2])
+		end
+	end
+	drivers["dtp-menu-centred"] = function(t)
+		press(t, { "Return" })
+		live.step("afterReturn")
+	end
+	drivers["chip-edit-live"] = function(t)
+		press(t, { "Delete" })
+		live.step("afterDelete")
+	end
+	drivers["color-grid-wraps-two-dimensions"] = function(t)
+		press(t, { "DPadDown" })
+		live.step("afterDown")
+		press(t, { "DPadRight" })
+		live.step("afterRight")
+	end
+	for _, id in { "dtp-ten-foot-pad-open-and-back", "color-ten-foot-pad-open-and-back" } do
+		drivers[id] = function(t)
+			press(t, { "ButtonA" })
+			live.step("afterOpen")
+			press(t, { "ButtonB" })
+			live.step("afterBack")
+		end
+	end
+	drivers["color-ten-foot-center"] = function(t)
+		for _ = 1, 8 do
+			press(t, { "DPadDown" })
+		end
+		live.step("afterDown")
+		for _ = 1, 8 do
+			press(t, { "StickUp" })
+		end
+		live.step("afterUp")
+	end
+	drivers["dialog-body-pad-scrolls-then-moves"] = function(t)
+		press(t, { "DPadDown" })
+		live.step("afterDown")
+		for _ = 1, 15 do
+			press(t, { "DPadDown" })
+		end
+		live.step("afterDownMany")
+	end
+	drivers["menu-real-pad-opens-and-closes"] = function(t)
+		for _ = 1, 2 do
+			press(t, { "ButtonA" })
+			live.step("opened")
+			press(t, { "ButtonB" })
+			live.step("closed")
+		end
+	end
+	drivers["popover-real-pad-and-trigger-click"] = function(t, value, io)
+		press(t, { "ButtonA" })
+		live.step("opened")
+		press(t, { "ButtonB" })
+		live.step("cancelled")
+		live.step("reopen")
+		io.click(centre(value.trigger))
+		live.step("clicked")
+	end
+	local shortRooms: { [string]: string } =
+		{ ["dialog-short-room-pad-walk"] = "Leave", ["sheet-short-room-pad-walk"] = "Join" }
+	for id, _last in shortRooms do
+		drivers[id] = function(t, value)
+			local last: GuiObject? = nil
+			for _, node in value.panel:GetDescendants() do
+				if node:IsA("GuiButton") and (last == nil or node.AbsolutePosition.Y > last.AbsolutePosition.Y) then
+					last = node
+				end
+			end
+			for _ = 1, 40 do
+				if GuiService.SelectedObject == last then
+					break
+				end
+				press(t, { "DPadDown" })
+			end
+			live.step("walked")
+		end
+	end
 	drivers["changed-controls-board"] = function(t, value, io)
 		io.pointerAction(centre(t.find(value.stage, "ReviewScroll")), { Wheel = -40 })
 		live.step("held")
@@ -448,16 +911,23 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			live.step("afterRelease")
 		end
 	end
-	drivers["shuffle-pointer"] = function(_, value, io)
+	drivers["shuffle-pointer"] = function(t, value, io)
 		local button = assert(value.row.Parent:FindFirstChild("Shuffle", true))
+		local activated = 0
+		local watch = button.Activated:Connect(function()
+			activated += 1
+		end)
+		t.note("shuffle button", t.rect(button))
 		io.click(centre(button))
 		settle(240)
+		t.note("shuffle activations", activated)
 		live.step("afterShuffle")
 		io.click(centre(button))
 		settle(8)
 		io.click(centre(button))
 		settle(240)
 		live.step("afterInterrupt")
+		watch:Disconnect()
 	end
 	drivers["shuffle-gamepad"] = function(t, value)
 		GuiService.SelectedObject = assert(value.row.Parent:FindFirstChild("Shuffle", true))
@@ -619,7 +1089,17 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		settle(60)
 		live.step("afterChange")
 	end
-	local gamepad = {
+	local gamepad: { [string]: boolean } = {
+		["color-grid-wraps-two-dimensions"] = true,
+		["dialog-body-pad-scrolls-then-moves"] = true,
+		["menu-real-pad-opens-and-closes"] = true,
+		["popover-real-pad-and-trigger-click"] = true,
+		["dialog-short-room-pad-walk"] = true,
+		["sheet-short-room-pad-walk"] = true,
+		["dtp-ten-foot-pad-open-and-back"] = true,
+		["color-ten-foot-pad-open-and-back"] = true,
+		["color-ten-foot-center"] = true,
+		["card-keys-enter-and-stay-inside"] = true,
 		["shuffle-gamepad"] = true,
 		["board-command-gamepad"] = true,
 		["reward-gamepad"] = true,
@@ -638,13 +1118,43 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		["alert-selection-stays-inside"] = true,
 		["confirm-dialog-left-right"] = true,
 	}
-	local requirements = {
+	local requirements: { [string]: string } = {
+		["fields-visible-lines"] = "input-keyboard",
+		["number-step-buttons"] = "input-keyboard",
+		["slider-landing-live"] = "input-keyboard",
+		["files-linked-input"] = "input-keyboard",
+		["files-nested-touch-handoff"] = "input-native-touch",
+		["dtp-native-navigation"] = "input-keyboard",
+		["dtp-menu-centred"] = "input-keyboard",
+		["chip-edit-live"] = "input-keyboard",
+		["pagination-neighbours-arrive-and-land"] = "input-keyboard",
+		["menu-lands-on-selected-and-walks-bounded"] = "input-keyboard",
+		["choices-vote-row-inside-the-page"] = "input-keyboard",
 		["collection-immediate-touch-transfer"] = "input-native-touch",
 		["tray-grows-with-text-size"] = "input-native-settings",
 		["text-edit-carries-gamepad-connect"] = "input-native-controller-connect",
 		["radial-hot-switch-keeps-open"] = "input-native-controller-connect",
 		["input-fact-follows-device"] = "input-native-controller-connect",
 	}
+	local keyboardCases: { string } = {
+		"tray-keys-and-hover",
+		"header-sort-keys",
+		"left-reaches-this-rows-minus",
+		"collapsed-column-leaves-the-ring",
+		"return-toggles-multi-selection",
+		"horizontal-list-keys",
+		"chrome-strips-dpad",
+		"form-controls-reach-by-arrows",
+		"slider-between-controls-by-arrows",
+		"hud-dpad-reaches-actions-390",
+		"hud-dpad-reaches-actions-1920",
+		"recipe-rail-tab-scrolls-tail",
+		"showcase-rail-tail-inside-clips",
+		"inner-tabs-widen-to-engine-words",
+	}
+	for _, id in keyboardCases do
+		requirements[id] = "input-keyboard"
+	end
 	drivers["text-edit-carries-gamepad-connect"] = function()
 		options.connectGamepad()
 		live.step("afterConnect")
@@ -738,6 +1248,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		local touch = case.id == "touch-drag-scrolls-reorderable-list"
 			or case.id == "mail-swipe-and-tap"
 			or case.id == "collection-immediate-touch-transfer"
+			or case.id == "files-nested-touch-handoff"
 		if options.device ~= "keep" then
 			local simulator = game:GetService("StudioDeviceSimulatorService") :: any
 			if touch then
@@ -756,6 +1267,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 					error("Controller Emulator consumes Tab; run the keyboard phase outside console emulation", 0)
 				end,
 			})
+		end
+		if required == "input-keyboard" then
+			live.press({ "LeftShift" })
 		end
 		local began, problem = pcall(live.begin, suite, case.id)
 		if not began then

@@ -688,6 +688,20 @@ return function(verifyHarness: Verify.Harness)
 		end)
 
 		verifyHarness:suite("Screen", function()
+			verifyHarness:case("unmounts a screen while overscan remains active", function()
+				local engine, runtime, UI = make({ environment = { viewingDistance = "ten-foot" } }, {
+					recordCreated = true,
+				})
+				local layer = engine.new("ScreenGui")
+				layer.AbsoluteSize = engine.types.Vector2.new(1920, 1080)
+				local stop = runtime.mount(function()
+					return UI.Screen { padding = 0 }
+				end, layer)
+				local before = #engine.made
+				stop()
+				Verify.expect(#engine.made):toBe(before)
+				runtime:dispose()
+			end)
 			verifyHarness:case("fills its parent, pads the content by the m step and stacks vertically", {
 				id = "native_layout::Screen::fills its parent, pads the content by the m step and stacks vertically",
 				run = function()

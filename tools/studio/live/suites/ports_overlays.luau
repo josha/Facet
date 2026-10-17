@@ -269,7 +269,7 @@ end)
 interactive(
 	"dialog-body-pad-scrolls-then-moves",
 	{},
-	"afterDown: press Down once (arrow keys drive the same native selection as the D-pad); afterDownMany: press Down 15 more times",
+	"afterDown: press DPadDown once; afterDownMany: press DPadDown 15 more times",
 	function(t)
 		local value = { visits = {} }
 		device(t, { device = "xbox" })
@@ -1644,6 +1644,14 @@ interactive(
 		walked = function(t, value)
 			t.settle(10)
 			local last = lowestAction(value.panel, { "Stay", "Leave" })
+			t.note("short dialog scroll", {
+				room = t.rect(value.room),
+				window = value.room.AbsoluteWindowSize,
+				canvas = value.room.AbsoluteCanvasSize,
+				position = value.room.CanvasPosition,
+				enabled = value.room.ScrollingEnabled,
+				selected = selectedName(),
+			})
 			t.check("the pad reached the last action", GuiService.SelectedObject == last, selectedName())
 			t.check("the room scrolled", value.room.CanvasPosition.Y > 0, value.room.CanvasPosition)
 			t.check(

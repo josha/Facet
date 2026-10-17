@@ -132,7 +132,7 @@ return function(harness: Verify.Harness)
 				return UI.badged(UI.Button { Name = "Saved", label = "Saved" }, 1)
 			end)
 			local seal = overlay.find(world.screen, "CornerBadge")
-			Verify.expect(seal.AnchorPoint.Y < 0.5 and seal.AnchorPoint.X > 0.5):toBe(true)
+			Verify.expect(seal.AnchorPoint):toBe(world.engine.types.Vector2.new(0.5, 0.5))
 			Verify.expect(seal.Parent.Position.Y.Scale):toBe(0)
 			world.stop()
 		end,

@@ -52,7 +52,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					return UI.Badge({
 						Name = "CornerBadge",
 						label = text,
-						AnchorPoint = V2.new(0.7, 0.4),
+						AnchorPoint = V2.new(0.5, 0.5),
 						Position = D2.fromScale(0, 0),
 						ZIndex = host.ZIndex + 2,
 					})
