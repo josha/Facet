@@ -11,7 +11,6 @@ local installEnvironment = require("./context_environment")
 local installContent = require("./context_content")
 local installNative = require("./context_native")
 local installActions = require("./context_actions")
-local activation = require("./activation")
 
 return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, options: Shared.Config?): Shared.Context
 	local config, types, services = resolveConfig(Compose, runtime, options)
@@ -55,15 +54,6 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	installActions(ctx, config)
 	local selected = selection(ctx)
 	ctx.responder, ctx.spaceActivates = selected.responder, selected.spaceActivates
-	local acquireInput = Compose.createSharedResource(function()
-		if config.userInputService then
-			runtime.connect(config.userInputService, "InputBegan", activation.release)
-		end
-		return nil
-	end)
-	track(function(node: Instance)
-		acquireInput()
-		selected.track(node)
-	end)
+	track(selected.track)
 	return ctx
 end
