@@ -30,10 +30,12 @@ local function inputWorld()
 	local view: ScrollingFrame
 	local outer: ScrollingFrame
 	local zoom = C.cell(2)
+	local controls: ZoomTypes.ZoomControls = {}
 	local enabled = C.cell(true)
 	local player = engine.new("PlayerGui")
 	local stop = runtime.mount(function()
 		view = UI.ZoomView {
+			controls = controls,
 			enabled = enabled,
 			zoom = zoom,
 			contentSize = V2.new(1000, 1000),
@@ -69,6 +71,7 @@ local function inputWorld()
 		outer = outer,
 		enabled = enabled,
 		zoom = zoom,
+		controls = controls,
 		scale = scale,
 		event = event,
 		setMouse = function(point: Vector2)
@@ -86,6 +89,22 @@ end
 
 return function(harness: Verify.Harness)
 	harness:suite("zoom and travel", function()
+		harness:case("fit and rectangle zoom wait for a measured viewport", function(t)
+			local world = inputWorld()
+			t:defer(world.stop)
+			local V2 = world.engine.types.Vector2
+			for _, bounds in { V2.zero, V2.new(0, 400), V2.new(400, 0) } do
+				world.view.AbsoluteWindowSize = bounds
+				t:expect(assert(world.controls.fit)()):toBe(false)
+				t:expect(assert(world.controls.zoomTo)({ x = 400, y = 400, w = 200, h = 200 })):toBe(false)
+				t:expect(world.zoom:peek()):toBe(2)
+			end
+			world.view.AbsoluteWindowSize = V2.new(400, 400)
+			t:expect(assert(world.controls.fit)()):toBe(true)
+			t:expect(world.zoom:peek()):toBe(0.4)
+			t:expect(assert(world.controls.zoomTo)({ x = 400, y = 400, w = 200, h = 200 })):toBe(true)
+			t:expect(world.zoom:peek()):toBe(2)
+		end)
 		harness:case("holds a focus point on every scale sample and clamps each edge", function(t)
 			for index = 0, 120 do
 				local scale = 0.5 + index / 120 * 2
