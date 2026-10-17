@@ -398,6 +398,7 @@ local function clampCase(t: any, direction: "horizontal" | "vertical", kind: str
 			from = rows(200),
 			key = "id",
 			itemSize = 40,
+			measure = false,
 			direction = direction,
 			render = function(current)
 				return UI.Text({ Name = "Text", text = current:peek().name, Size = UDim2.fromScale(1, 1) })
@@ -717,7 +718,9 @@ add("plate-decoration-stays-inside-the-band", {}, function(t)
 					sampled += 1
 					narrowest = math.min(narrowest, band.w)
 					plateWidth = math.min(plateWidth, plate.AbsoluteSize.X)
-					for _, node in plate:GetDescendants() do
+					local paint = plate:GetDescendants()
+					table.insert(paint, plate)
+					for _, node in paint do
 						if node:IsA("GuiObject") and t.visible(node) and node.AbsoluteSize.X > 0.5 then
 							local raw = t.rect(node)
 							overhang = math.max(overhang, band.x - raw.x, raw.r - band.r)

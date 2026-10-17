@@ -330,6 +330,11 @@ return function(
 				ZIndex = 0,
 			})
 		end
+		if node:FindFirstChildWhichIsA("UIPadding") == nil then
+			runtime.mount(function()
+				return Host.UIPadding({})
+			end, node)
+		end
 		local dispose, art = runtime.mount(function()
 			if hasSkin() then
 				return createSkin()

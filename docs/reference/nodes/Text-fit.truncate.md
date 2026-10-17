@@ -23,6 +23,8 @@ sets the band. A size is a pixel number or a type role name. The default `cap`
 is the `textRole` of the label, or `body`. The default `floor` is `caption`.
 Role sizes come from the theme package and follow a theme change. Another
 `textSize` value, or another key in `fit`, causes an error.
+If the box cannot hold the text at the floor, the engine keeps the floor.
+The text can then clip.
 
 The AsyncImage loader receives `(source, resolve, reject)`. It can return a
 cancellation. A superseded result cannot replace the current image. Loading and
