@@ -9,7 +9,7 @@ type Layer = {
 	connections: { RBXScriptConnection },
 }
 
-type Hold = { count: number, saved: boolean, watch: RBXScriptConnection }
+type Hold = { count: number, saved: boolean, watch: RBXScriptConnection, inputCount: number, active: boolean? }
 
 local layers = setmetatable({} :: { [Instance]: Layer }, { __mode = "k" })
 local holds = setmetatable({} :: { [ScrollingFrame]: Hold }, { __mode = "k" })
@@ -23,6 +23,7 @@ local function take(frame: ScrollingFrame)
 	end
 	local created: Hold = {
 		count = 1,
+		inputCount = 0,
 		saved = frame.ScrollingEnabled,
 		watch = frame:GetPropertyChangedSignal("ScrollingEnabled"):Connect(function()
 			local held = holds[frame]
@@ -161,18 +162,34 @@ function scrollLock.own(frame: ScrollingFrame, ctx: Types.Context?)
 	end
 end
 
-local function holdAncestors(node: Instance, ownedOnly: boolean): () -> ()
+local function holdAncestors(node: Instance, ownedOnly: boolean, input: boolean?): () -> ()
 	local held: { ScrollingFrame } = {}
 	local at = node.Parent
 	while at do
 		if at:IsA("ScrollingFrame") and (not ownedOnly or owned[at]) then
 			take(at)
+			if input then
+				local current = assert(holds[at])
+				if current.inputCount == 0 then
+					current.active = at.Active
+					at.Active = false
+				end
+				current.inputCount += 1
+			end
 			table.insert(held, at)
 		end
 		at = at.Parent
 	end
 	return function()
 		for _, frame in held do
+			if input then
+				local current = assert(holds[frame])
+				current.inputCount -= 1
+				if current.inputCount == 0 then
+					frame.Active = current.active == true
+					current.active = nil
+				end
+			end
 			give(frame)
 		end
 		table.clear(held)
@@ -185,6 +202,10 @@ end
 
 function scrollLock.holdAncestors(node: Instance): () -> ()
 	return holdAncestors(node, false)
+end
+
+function scrollLock.holdInputAncestors(node: Instance): () -> ()
+	return holdAncestors(node, false, true)
 end
 
 return scrollLock
