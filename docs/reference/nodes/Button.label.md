@@ -18,3 +18,10 @@ and its `AutomaticSize` grows on the Y axis. For example,
 Set it to `true` to use Roblox automatic button coloring.
 
 Presentation options:
+
+`glyph = function(): GuiObject` supplies a native leading visual instead of
+`icon`. It runs once in the Button's Compose owner. The native content row
+places and sizes the result from the control icon metric; keep `label` for
+visible text and `name` for an icon-only accessible name. The result can contain
+`UI.Path` controls. The theme applies action, selection and disabled colours
+to those paths. Do not set both `glyph` and `icon` or `row.icon`.
