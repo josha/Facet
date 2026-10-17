@@ -35,6 +35,12 @@ local PADDING = 8
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
+	local function geometry(
+		node: GuiBase2d,
+		property: "AbsoluteSize" | "AbsolutePosition"
+	): ComposeTypes.Readable<Vector2>
+		return (runtime.observe(node, property) :: unknown) :: ComposeTypes.Readable<Vector2>
+	end
 
 	local function finite(value: unknown): boolean
 		return type(value) == "number" and value == value and math.abs(value) < math.huge
@@ -262,12 +268,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			local settled = Compose.cell(false)
 			local presence = surfaces.appearance(phase, popoverTiming, settled)
 			local layer = assert(surfaces.parent(root))
-			local extent = ctx.observe.AbsoluteSize(layer)
-			local origin = ctx.observe.AbsolutePosition(layer)
+			local extent = geometry(layer, "AbsoluteSize")
+			local origin = geometry(layer, "AbsolutePosition")
 			local sourceAt: ComposeTypes.Readable<Vector2>, sourceSize: ComposeTypes.Readable<Vector2>
 			local anchorNode = node or spec.trigger
 			if anchorNode then
-				sourceAt, sourceSize = ctx.observe.AbsolutePosition(anchorNode), ctx.observe.AbsoluteSize(anchorNode)
+				sourceAt, sourceSize = geometry(anchorNode, "AbsolutePosition"), geometry(anchorNode, "AbsoluteSize")
 			else
 				sourceAt, sourceSize = Compose.cell(V2.zero), Compose.cell(V2.zero)
 			end

@@ -29,6 +29,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local declared = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Declared }
+	local function layoutSize(node: GuiBase2d, scale: ComposeTypes.Readable<number>?): ComposeTypes.Readable<Vector2>
+		local size = (runtime.observe(node, "AbsoluteSize") :: unknown) :: ComposeTypes.Readable<Vector2>
+		local unit = scale or ctx.layoutUnit(node)
+		return Compose.formula(function(use: ComposeTypes.Use): Vector2
+			return use(size) / use(unit)
+		end)
+	end
 
 	UI.Region = ctx.construct("Region", function(spec: LayoutProps.RegionProps): Frame
 		local zone, rank = spec.zone, spec.rank
@@ -98,7 +105,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				type(child) ~= "string" and type(child.IsA) == "function" and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first"
 			)
-			local observed, settled = ctx.layoutSize(child), Compose.cell(V2.zero)
+			local observed, settled = layoutSize(child), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size = use(observed)
 				if use(scale) == 1 and not (index == 1 and use(hosted)) then
@@ -494,7 +501,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		local safeUnit = ctx.layoutUnit(safe)
 		local floor = ctx.hitFloor()
-		local safeBox = ctx.layoutSize(safe, safeUnit)
+		local safeBox = layoutSize(safe, safeUnit)
 		for zone, children in members do
 			local revealing = false
 			for _, region in children do
@@ -506,7 +513,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local cell = resolver.CELLS[zone]
 			local column, row = cell[1], cell[2]
 			local frame = zones[zone]
-			local zoneSize = ctx.observe.AbsoluteSize(frame)
+			local zoneSize = (runtime.observe(frame, "AbsoluteSize") :: unknown) :: ComposeTypes.Readable<Vector2>
 			local anchor = V2.new((column - 1) / 2, (row - 1) / 2)
 			local dropped = Compose.formula(function(use: ComposeTypes.Use): { Frame }
 				local list = {}
@@ -633,14 +640,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				}
 			end, safe)
 		end
-		local box = ctx.layoutSize(safe, safeUnit)
+		local box = layoutSize(safe, safeUnit)
 		local warned: { [Frame]: boolean } = {}
 		local overflowing: { [Frame]: boolean } = {}
 		local streaks: { [Frame]: number } = {}
 		local later = runtime.scheduler()
 		local last: Vector2? = nil
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
-		local stripSize = if stripGui then ctx.layoutSize(stripGui, stripUnit) else nil
+		local stripSize = if stripGui then layoutSize(stripGui, stripUnit) else nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local extent = use(box)
 			local rides = riding(use)

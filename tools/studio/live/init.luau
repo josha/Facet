@@ -12,7 +12,6 @@ local LogService = game:GetService("LogService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local storage = game:GetService("ReplicatedStorage")
-local TAP_SECONDS = 3 / 60
 
 local Verify = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("core"))
 local VerifyRoblox: typeof(require("@repo/tools/vendor/verify/src/roblox")) = (require :: any)(
@@ -739,8 +738,9 @@ function live.report(suite: string, options: { [string]: any }?): any
 	return report
 end
 
-function live.begin(suite: string, id: string): string
+function live.begin(suite: string, id: string, config: { device: string? }?): string
 	live.release()
+	baselineDevice = if config then config.device or "none" else baselineDevice
 	local Facet = (require :: any)(storage:WaitForChild("Facet"))
 	local chosen
 	for _, case in live.cases(suite) do
@@ -896,12 +896,8 @@ function live.press(names: { string }, frames: number?): string
 	for _, name in names do
 		local key = PAD_KEYS[name] or (Enum.KeyCode :: any)[name]
 		virtual:SendKey(true, key, false)
-		if frames then
-			for _ = 1, frames do
-				RunService.RenderStepped:Wait()
-			end
-		else
-			task.wait(TAP_SECONDS)
+		for _ = 1, frames or 3 do
+			RunService.RenderStepped:Wait()
 		end
 		virtual:SendKey(false, key, false)
 		for _ = 1, frames or 8 do

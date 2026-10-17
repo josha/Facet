@@ -36,7 +36,7 @@ local function inspect(root: Instance): ({ Fault }, number)
 			continue
 		end
 		sampled += 1
-		if not node.TextFits and node.TextTruncate == Enum.TextTruncate.None then
+		if not node:IsA("TextBox") and not node.TextFits and node.TextTruncate == Enum.TextTruncate.None then
 			table.insert(faults, {
 				element = node:GetFullName(),
 				ancestor = node:GetFullName(),
