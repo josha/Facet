@@ -10,6 +10,7 @@ local motion = require("./motion")
 local reducedMotion = motion.reduced
 local NavigationProps = require("./navigation_props")
 local sheetDetents = require("./nav_sheet_detents")
+local keyboardInset = require("./keyboard_inset")
 
 type Detent = sheetDetents.Detent
 type Prepared = sheetDetents.Prepared
@@ -92,15 +93,9 @@ return function(
 		local reduce = reducedMotion(ctx)
 		local level = motion.level(ctx)
 		local unit = Compose.cell(1)
-		local keyboard: (ComposeTypes.Use) -> number = function()
-			return 0
-		end
-		if input and input.GetPropertyChangedSignal then
-			local visible = ctx.observe.OnScreenKeyboardVisible(input)
-			local size = ctx.observe.OnScreenKeyboardSize(input)
-			keyboard = function(use: ComposeTypes.Use): number
-				return if use(visible) == true then use(size).Y / use(unit) else 0
-			end
+		local keyboardPixels = keyboardInset.reader(ctx, input)
+		local function keyboard(use: ComposeTypes.Use): number
+			return keyboardPixels(use) / use(unit)
 		end
 		local layer = if anchor then surfaces.parent(anchor) else ctx.config.overlayParent
 		local initial = if layer and layer:IsA("GuiBase2d") then (layer :: GuiBase2d).AbsoluteSize else V2.zero

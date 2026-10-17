@@ -8,6 +8,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local freeze = require("./freeze")
 local OverlayProps = require("./overlay_props")
+local keyboardInset = require("./keyboard_inset")
 
 local KEYS = {
 	"isPresented",
@@ -30,20 +31,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 
 	local function blank(value: unknown): boolean
 		return type(value) ~= "string" or string.match(value, "%S") == nil
-	end
-
-	local function keyboardHeight(input: UserInputService?): (ComposeTypes.Use) -> number
-		if input == nil or not input.GetPropertyChangedSignal then
-			return function()
-				return 0
-			end
-		end
-		local visible = ctx.observe.OnScreenKeyboardVisible(input)
-		local size = ctx.observe.OnScreenKeyboardSize(input)
-		return function(use: ComposeTypes.Use): number
-			local extent = use(size)
-			return if use(visible) == true and typeof(extent) == "Vector2" then (extent :: Vector2).Y else 0
-		end
 	end
 
 	UI.Dialog = ctx.construct("Dialog", function(spec: OverlayProps.DialogSpec): Frame
@@ -167,7 +154,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local layer = assert(surfaces.parent(root))
 				local unit = ctx.layoutUnit(layer)
 				local extent = ctx.layoutSize(layer, unit)
-				local keyboardPixels = keyboardHeight(input)
+				local keyboardPixels = keyboardInset.reader(ctx, input)
 				local function keyboard(use: ComposeTypes.Use): number
 					return keyboardPixels(use) / use(unit)
 				end

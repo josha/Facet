@@ -41,3 +41,8 @@ When the pinned regions and a short body do not fit the panel, every region
 moves into one scrolling column named `Room`. Thus each action stays
 reachable. The on-screen keyboard height comes off the room, and the panel
 sits above the keyboard.
+
+When a pointer dismisses the keyboard from a TextInput, keep that clearance
+until the native InputObject ends or cancels and Compose publishes its next
+frame. This keeps an accessory button under the same touch while Roblox
+handles activation or cancellation. Keyboard submission releases it directly.
