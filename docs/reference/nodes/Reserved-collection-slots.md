@@ -14,6 +14,8 @@ strings. A key function can return another key type.
 It returns the native slot anchor while that slot is retained. Pass that node
 to `UI.Travel.destination` for a programmatic Recall. Use `mode = "all"` when
 every reserved slot must have an anchor. The function clears on disposal.
+The transparent anchor stays visible when occupied. Only its recess paint hides,
+so content landed by Travel stays visible after a recalled item returns.
 
 ```luau
 local slots = Compose.cell({ "A", "M", "I", "G", "O", "S", "E" })

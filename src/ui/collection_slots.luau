@@ -88,32 +88,39 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 				return assert(last)
 			end)
 			local recess: GuiObject = ctx.styled(
-				Host.Frame {
-					Name = "ReservedSlot",
+				Host.Frame "ReservedSlot" {
 					Visible = function(use: ComposeTypes.Use): boolean
 						return itemForKey(use) == nil
 					end,
 					Interactable = false,
 					Selectable = false,
-					Attributes = { FacetReservedKey = tostring(key) } :: EngineTypes.Attributes,
-					Position = function(use: ComposeTypes.Use): UDim2
-						local at = use(placement)
-						return if horizontal
-							then D2.fromOffset(at.offset, at.crossOffset)
-							else D2.fromOffset(at.crossOffset, at.offset)
-					end,
-					Size = function(use: ComposeTypes.Use): UDim2
-						local at = use(placement)
-						return if horizontal
-							then D2.fromOffset(at.size, at.crossSize)
-							else D2.fromOffset(at.crossSize, at.size)
-					end,
+					Size = D2.fromScale(1, 1),
 				},
 				"fill"
 			)
-			slotNodes[key] = recess
+			local attributes: EngineTypes.Attributes = { FacetReservedKey = tostring(key) }
+			local anchor = Host.Frame "SlotAnchor" {
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Selectable = false,
+				Attributes = attributes,
+				Position = function(use: ComposeTypes.Use): UDim2
+					local at = use(placement)
+					return if horizontal
+						then D2.fromOffset(at.offset, at.crossOffset)
+						else D2.fromOffset(at.crossOffset, at.offset)
+				end,
+				Size = function(use: ComposeTypes.Use): UDim2
+					local at = use(placement)
+					return if horizontal
+						then D2.fromOffset(at.size, at.crossSize)
+						else D2.fromOffset(at.crossSize, at.size)
+				end,
+				recess,
+			}
+			slotNodes[key] = anchor
 			Compose.cleanup(function()
-				if slotNodes[key] == recess then
+				if slotNodes[key] == anchor then
 					slotNodes[key] = nil
 				end
 			end)
@@ -126,7 +133,7 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 				end, function()
 					return renderItem(current, placement, key)
 				end),
-				recess,
+				anchor,
 			}
 			return Host.Frame(shellProps)
 		end
