@@ -181,6 +181,19 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					end
 				end)
 				if spec.centerPassThrough and (spec.center == "empty" or spec.center == "content") then
+					runtime.decorate(modal, { Active = fallback })
+					if anchorGui then
+						surfaces.attach(modal, {
+							Compose.show(function(use: ComposeTypes.Use): boolean
+								return not use(fallback)
+							end, function()
+								ctx.modalPortal(anchorGui, modal)
+								return Compose.fragment(function()
+									return {}
+								end)
+							end),
+						})
+					end
 					local outside = modal:FindFirstChild("DismissTarget")
 					if outside then
 						runtime.decorate(outside, { Visible = fallback })
