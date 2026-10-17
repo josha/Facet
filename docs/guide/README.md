@@ -6,7 +6,9 @@ Facet is a library of UI controls. The controls use Compose and Roblox.
 - Roblox owns native layout, text editing, scrolling, selection and styling.
 - Facet owns interaction rules and adaptive control presentation.
 
-Start with [a working screen](03-getting-started.md) and
+Start with [game UI design](../reference/nodes/Design.guide.md) to choose the
+information hierarchy, interactions and controls. Then build
+[a working screen](03-getting-started.md) and read
 [components](15-components.md). Use the [control chooser](14-choosing-controls.md)
 to select a control. Then read the exact contract of that control in the
 [API reference](../reference/api.md).

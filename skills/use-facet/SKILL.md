@@ -5,7 +5,22 @@ description: Build, change, style or test Roblox game UI and Studio plugin inter
 
 # Use Facet
 
-Start with `lute run tools/facet docs` for `Map`. Open every task recipe that
+## Design
+
+Read [Designing game interfaces with Facet](references/GAME_UI_DESIGN_GUIDE.md)
+before planning, building, changing or reviewing UI. Its foundations are required
+reading unless already in context. Use its task map to read the chapters relevant
+to the work; do not load every chapter by default. For a new screen, also read
+the design workflow. For a local decision, use the control index and compare
+the nearest alternatives.
+
+Choose from the player's task, information hierarchy and interaction, then map
+the choice to Facet controls and options. Define compact forms and input behavior
+where affected. Keep the work within the user's scope.
+
+## Find implementation details
+
+After the design guide, use `lute run tools/facet docs` for `Map`. Open every task recipe that
 matches a part of the screen. For a HUD with a shop, open `Tasks.hud` and
 `Tasks.shop`. For a panel with child pages, also open `Tasks.sheet`.
 Open a control card or option node only for a missing detail: `docs <path>`.
@@ -15,6 +30,7 @@ Use `docs --search TEXT` to find paths and one-line summaries.
 Never reread a node already in context. Each call returns one bounded node.
 Use `project [directory]` for file discovery. Read one matching starter in
 `examples/blocks/` only if the recipe does not fit.
+
 ## Build
 
 - Make one `Facet.app({ name, parent })` and one `app.mount(component)`.
@@ -82,6 +98,9 @@ Inspect those screenshots and fix high and medium findings. Repeat checks only
 after changes or an unresolved problem; separate audit and preview calls are
 not needed for the same screens. Do not read dump files. If Studio is
 unavailable, report that limit once and use `verify --static`.
+Review the rendered result against the design guide: hierarchy, overlap,
+legibility, compact forms, reachable actions and truthful feedback. Passing
+technical checks alone does not establish design quality.
 The tools remove a UTF-8 BOM from application Luau files before engine tools
 read them. In Windows PowerShell 5.1 use `Set-Content -Encoding utf8`.
 
