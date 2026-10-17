@@ -976,6 +976,15 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingTop = types.UDim.new(0, 0),
 		PaddingBottom = types.UDim.new(0, 0),
 	})
+	local calendarInsets: ThemeTypes.Insets = if package.chrome and package.chrome.panel
+		then package.chrome.panel.contentInsets or {}
+		else {}
+	rule(".facet-panel.facet-calendar-scroll::UIPadding", {
+		PaddingLeft = types.UDim.new(0, calendarInsets.left or 0),
+		PaddingRight = types.UDim.new(0, calendarInsets.right or 0),
+		PaddingTop = types.UDim.new(0, calendarInsets.top or 0),
+		PaddingBottom = types.UDim.new(0, calendarInsets.bottom or 0),
+	})
 	rule(".facet-calendar-day:Hover", { BackgroundTransparency = 0, BackgroundColor3 = c("controlHover") })
 	rule(".facet-calendar-day:Press", { BackgroundTransparency = 0, BackgroundColor3 = c("controlPressed") })
 	rule(".facet-calendar-band", { BackgroundColor3 = c("controlSelected"), BackgroundTransparency = 0 })
@@ -1162,15 +1171,6 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			)
 		end
 	end
-	local calendarInsets: ThemeTypes.Insets = if package.chrome and package.chrome.panel
-		then package.chrome.panel.contentInsets or {}
-		else {}
-	rule(".facet-panel.facet-calendar-scroll::UIPadding", {
-		PaddingLeft = types.UDim.new(0, calendarInsets.left or 0),
-		PaddingRight = types.UDim.new(0, calendarInsets.right or 0),
-		PaddingTop = types.UDim.new(0, calendarInsets.top or 0),
-		PaddingBottom = types.UDim.new(0, calendarInsets.bottom or 0),
-	})
 	return kit.finish()
 end
 
