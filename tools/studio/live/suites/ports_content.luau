@@ -2085,15 +2085,28 @@ add("recipe-dividers-start-at-the-text", {}, function(t)
 	end
 	local f, l, r, b, h = t.rect(full), t.rect(leading), t.rect(trailing), t.rect(both), t.rect(heavy)
 	local inset = t.rect(text).x - t.rect(t.find(leadingRow, "Row")).x
+	local function nativeInset(name: string): number
+		local row = t.find(t.find(card, name), "Row")
+		local title = t.find(row, "Title")
+		return UDim.new(0, math.max(0, title.AbsolutePosition.X - row.AbsolutePosition.X)).Offset
+	end
+	local leadingInset, trailingInset, bothInset =
+		nativeInset("DividerLeading"), nativeInset("DividerTrailing"), nativeInset("DividerBoth")
 	t.note("text inset", inset)
+	t.note("native text offsets", { leading = leadingInset, trailing = trailingInset, both = bothInset })
 	t.check("the inset is the icon and its gap, not zero", inset > 8, inset)
-	t.near("a leading inset starts at the text", l.x, t.rect(text).x, 0.5)
-	t.near("a leading inset starts one icon and gap in", l.x - f.x, inset, 0.5)
+	t.near(
+		"a leading inset starts at the native text offset",
+		l.x,
+		t.rect(t.find(leadingRow, "Row")).x + leadingInset,
+		0.5
+	)
+	t.near("a leading inset starts one native icon and gap in", l.x - f.x, leadingInset, 0.5)
 	t.near("a leading inset keeps the full trailing end", l.r, f.r, 0.5)
 	t.near("a trailing inset keeps the full leading start", r.x, f.x, 0.5)
-	t.near("a trailing inset stops one icon and gap short", r.r, f.r - inset, 0.5)
-	t.near("both insets start where the leading one does", b.x, l.x, 0.5)
-	t.near("both insets end where the trailing one does", b.r, r.r, 0.5)
+	t.near("a trailing inset stops one native icon and gap short", r.r, f.r - trailingInset, 0.5)
+	t.near("both insets start at their row's native text offset", b.x, f.x + bothInset, 0.5)
+	t.near("both insets end at their row's native trailing offset", b.r, f.r - bothInset, 0.5)
 	t.check("the full line sits inside the card", f.x >= box.x - 0.5 and f.r <= box.r + 0.5, { f, box })
 	t.near("the heavy line is three hairlines", h.h, 3 * f.h, 0.5)
 end)

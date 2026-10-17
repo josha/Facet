@@ -98,7 +98,7 @@ return function(ctx: Types.Context): Presence
 	): ({ ComposeTypes.Readable<Vector2> }, ComposeTypes.Readable<boolean>)
 		local live: { ComposeTypes.Readable<Vector2> } = {}
 		for index, node in nodes do
-			live[index] = ctx.observe.AbsoluteSize(node)
+			live[index] = (runtime.observe(node, "AbsoluteSize") :: unknown) :: ComposeTypes.Readable<Vector2>
 		end
 		local fontsReady = fontReadiness(ctx, nodes)
 		local sampled: { Vector2 } = {}
@@ -147,8 +147,9 @@ return function(ctx: Types.Context): Presence
 			held[index] = natural
 			Compose.watch(function(use: ComposeTypes.Use)
 				local value = use(size)
-				if not use(rested) or amount() >= 1 then
-					natural:set(value)
+				local resting = use(rested)
+				if not resting or amount() >= 1 then
+					natural:set(if resting then nodes[index].AbsoluteSize else value)
 				end
 			end)
 		end

@@ -54,7 +54,7 @@ return function(
 			BackgroundTransparency = 1,
 		}
 		for _, mode in modes do
-			local visited = Compose.cell(mode ~= "brick" or modeCell:peek() == mode)
+			local visited = Compose.cell(modeCell:peek() == mode)
 			if not visited:peek() then
 				Compose.watch(function(use: Use)
 					if use(modeCell) == mode then
@@ -80,21 +80,12 @@ return function(
 		end
 		local techniqueNode = Host.Frame(technique)
 		local unit = ctx.layoutUnit(techniqueNode)
-		local function tech(use: Use): number
-			local tallest, list = 0, 0
-			for index, size in heights do
-				local h = use(size).Y / use(unit)
-				if modes[index] == "brick" then
-					list = h
-				else
-					tallest = math.max(tallest, h)
-				end
-			end
-			return if tallest > 0 then tallest else list
-		end
 		local function active(use: Use): number
 			local index = table.find(modes, use(modeCell))
 			return if index then use(heights[index]).Y / use(unit) else 0
+		end
+		local function tech(use: Use): number
+			return if overlay and #modes > 1 then 6 * state.cellSize(use) + 5 * GAP else active(use)
 		end
 		local extent = runtime.observe(techniqueNode, "AbsoluteSize") :: ComposeTypes.Readable<Vector2>
 		Compose.watch(function(use: Use)

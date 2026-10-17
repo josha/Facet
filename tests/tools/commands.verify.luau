@@ -58,6 +58,21 @@ return function(harness: Verify.Harness)
 		t:expect(#output < 400):toBe(true)
 		t:expect(#finding.message > 800):toBe(true)
 	end)
+	harness:case("verify rejects a Sheet captured before it enters the viewport", function(t)
+		local Look = require("../../tools/facet/lib/look")
+		local dump = Look.decode(Look.sample(false))
+		local panel = dump.elements[1]
+		panel.path = "PlayerGui.Sample.Modal.SheetPanel"
+		panel.selectionGroup = true
+		t:expect(#Look.presentationProblems(dump)):toBe(0)
+		panel.rect.y = dump.screen.height
+		t:expect(#Look.presentationProblems(dump)):toBe(1)
+		local found = false
+		for _, finding in Look.audit(dump, "desktop").violations do
+			found = found or finding.rule == "modal-presentation"
+		end
+		t:expect(found):toBe(true)
+	end)
 	harness:case("static output groups by rule message and hint and bounds locations", function(t)
 		local findings: { Static.Finding } = {}
 		for index = 1, 8 do
@@ -331,7 +346,7 @@ end)
 		local recipes = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "Tasks.shop" })
 		Verify.expect(recipes.ok):toBe(true)
 		Verify.expect(#recipes.stdout <= 2048):toBe(true)
-		Verify.expect(string.find(recipes.stdout, "KeyedCollectionSpec", 1, true) ~= nil):toBe(true)
+		Verify.expect(string.find(recipes.stdout, "Facet.Readable<Item>", 1, true) ~= nil):toBe(true)
 	end)
 	harness:case(
 		"lint keeps all error locations and full details when it shortens cyclic type errors",

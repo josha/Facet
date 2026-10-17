@@ -239,6 +239,7 @@ export type DisclosureGroupOptions = {
 	indent: (number | Types.SpaceStep)?,
 }
 export type CollapsibleViewOptions = {
+	glyph: (() -> GuiObject)?,
 	expanded: ComposeTypes.Cell<boolean>,
 	content: Content,
 	initialFocus: string?,
@@ -329,6 +330,7 @@ export type Tab = {
 	badgeAnchor: Value<"topLeading" | "topTrailing" | "bottomLeading" | "bottomTrailing">?,
 	label: Types.ValueString?,
 	icon: Types.ValueString?,
+	glyph: (() -> GuiObject)?,
 	content: Content,
 	section: string?,
 	required: boolean?,

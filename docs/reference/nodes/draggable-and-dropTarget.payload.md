@@ -25,6 +25,11 @@ draggable-and-dropTarget.payload option values and behavior.
 - `statusLabels`: show operation, rejection and pending text. Default `true`.
   Set `false` to hide these labels. Armed input instructions remain visible.
   Collection sources set this in the spec returned by `drag(items, keys)`.
+- `previewScale`: a positive finite magnification for the carried preview.
+  Default `1` keeps the source size. The native UIScale enlarges the preview
+  around its captured contact point without changing the source or hit targets.
+  Collection drag factories accept the same option. A successful landing and a
+  cancelled return settle at the destination or source size through Travel.
 
 The source also accepts `operations = { "copy", "move", "apply" }`, a
 `valid()` predicate, `onStart(payload, mode)`, and `onEnd(accepted, reason)`.

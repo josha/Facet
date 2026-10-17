@@ -42,6 +42,9 @@ return function<V>(
 	local transparency, panel = paint.transparency, paint.panel
 	local ringNavigation = spec.center == "empty" or spec.center == "content"
 	local function showCenter(use: ComposeTypes.Use): boolean
+		if corner and spec.center == "empty" and spec.centerPassThrough and not use(fallback) then
+			return false
+		end
 		if corner or use(fallback) or not ringNavigation then
 			return true
 		end

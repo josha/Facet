@@ -2539,6 +2539,84 @@ add("color-open-readiness", {}, function(t)
 	end
 end)
 
+add("color-first-visit", {}, function(t)
+	t.device({ device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait })
+	type Virtual = {
+		SendMousePosition: (Virtual, Vector2) -> (),
+		SendMouseButton: (Virtual, Vector2, Enum.UserInputType, boolean) -> (),
+	}
+	local input = game:GetService("UserInputService")
+	local service = (input :: unknown) :: { CreateVirtualInput: (UserInputService) -> Virtual }
+	local virtual = service.CreateVirtualInput(input)
+	local inset = GuiService:GetGuiInset()
+	local seen: Vector2? = nil
+	local connection = input.InputBegan:Connect(function(event)
+		seen = Vector2.new(event.Position.X, event.Position.Y)
+	end)
+	local probe = Vector2.new(8, 160)
+	virtual:SendMousePosition(probe)
+	virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, true)
+	t.settle(2)
+	virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, false)
+	t.settle(2)
+	connection:Disconnect()
+	if seen then
+		inset = probe - seen
+	end
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		return Host.Frame {
+			Size = UDim2.new(1, -32, 0, 44),
+			Position = UDim2.fromOffset(16, 16),
+			UI.ColorPicker { label = "Accent", value = Compose.cell(Color3.fromRGB(60, 94, 246)), isPresented = true },
+		}
+	end, { size = Vector2.new(390, 844), environment = { preferredInput = "Touch" } })
+	local panel = assert(stage:FindFirstChild("Panel", true)) :: Frame
+	t.stable(panel)
+	local position, size = panel.AbsolutePosition, panel.AbsoluteSize
+	local swatches = panel:FindFirstChild("Swatches", true)
+	local rgb = panel:FindFirstChild("FieldR", true)
+	for _, visit in
+		{
+			{ "Modes", "spectrum", "ShowSpectrum" },
+			{ "Modes", "sliders", "ShowSliders" },
+			{ "Modes", "swatches", "ShowSwatches" },
+			{ "Format", "hsv", "FieldsHSV" },
+			{ "Format", "hex", "FieldsHex" },
+			{ "Format", "rgb", "FieldsRGB" },
+		}
+	do
+		local picker = assert(panel:FindFirstChild(visit[1], true))
+		local button = assert(picker:FindFirstChild(visit[2], true)) :: GuiButton
+		local point = button.AbsolutePosition + button.AbsoluteSize / 2 + inset
+		point = Vector2.new(math.floor(point.X + 0.5), math.floor(point.Y + 0.5))
+		virtual:SendMousePosition(point)
+		virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
+		t.settle(1)
+		local started = os.clock()
+		virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
+		local ready = 0
+		for frame = 1, 12 do
+			t.settle(1)
+			local content = panel:FindFirstChild(visit[3], true) :: GuiObject?
+			if
+				content
+				and #content:GetChildren() > 0
+				and content.AbsoluteSize.Y > 0
+				and (if content:IsA("CanvasGroup") then content.GroupTransparency == 0 else content.Visible)
+			then
+				ready = frame
+				break
+			end
+		end
+		t.note(visit[2], { visibleMs = (os.clock() - started) * 1000, frames = ready })
+		t.check(`{visit[2]} appears after native input`, ready > 0 and ready <= 8, ready)
+		t.settle(6)
+		t.check(`{visit[2]} keeps the panel steady`, panel.AbsolutePosition == position and panel.AbsoluteSize == size)
+	end
+	t.check("returning retains the swatches", panel:FindFirstChild("Swatches", true) == swatches)
+	t.check("returning retains the RGB fields", panel:FindFirstChild("FieldR", true) == rgb)
+end)
+
 add("color-hidden-technique-size", {}, function(t)
 	for
 		_,
@@ -2553,7 +2631,7 @@ add("color-hidden-technique-size", {}, function(t)
 	}
 	in
 		{
-			{ name = "900x900 pointer", device = { device = "xbox", width = 900, height = 900 } },
+			{ name = "900x900 ten-foot", device = { device = "xbox", width = 900, height = 900 } },
 			{
 				name = "390x844 touch",
 				device = { device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait },
@@ -2622,9 +2700,9 @@ add("color-hidden-technique-size", {}, function(t)
 					local show = technique:FindFirstChild(name)
 					local height = if show then show.AbsoluteSize.Y else -1
 					sizes[name] = { height = height, visible = show and show.Visible }
-					if name == "ShowBricks" and ALL_MODES[index] ~= "brick" then
+					if name ~= SHOWS[index] then
 						t.check(
-							`{screen.name} tab {ALL_MODES[index]}: the unvisited Bricks grid is not mounted`,
+							`{screen.name} tab {ALL_MODES[index]}: unvisited {name} is not mounted`,
 							show ~= nil and #show:GetChildren() == 0 and height == 0,
 							height
 						)
@@ -2640,13 +2718,6 @@ add("color-hidden-technique-size", {}, function(t)
 					end
 				end
 				local shownShow = technique:FindFirstChild(SHOWS[index])
-				local tallestPicker = 0
-				for _, name in SHOWS do
-					local show = technique:FindFirstChild(name)
-					if show and name ~= "ShowBricks" then
-						tallestPicker = math.max(tallestPicker, show.AbsoluteSize.Y)
-					end
-				end
 				t.near(
 					`{screen.name} tab {ALL_MODES[index]}: Technique is as tall as the shown technique`,
 					technique.AbsoluteSize.Y,
@@ -2654,9 +2725,9 @@ add("color-hidden-technique-size", {}, function(t)
 					1
 				)
 				t.near(
-					`{screen.name} tab {ALL_MODES[index]}: Body is as tall as the tallest technique that is not the brick list`,
+					`{screen.name}: the body reserves six rows at the device target size`,
 					body.AbsoluteSize.Y,
-					tallestPicker,
+					if screen.device.device == "xbox" then 416 else 284,
 					1
 				)
 				panels[index], bodies[index] = panel.AbsoluteSize.Y, body.AbsoluteSize.Y

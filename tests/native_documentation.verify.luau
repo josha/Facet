@@ -123,12 +123,16 @@ return function(verifyHarness: Verify.Harness)
 					env.script = { Destroying = engine.heartbeat }
 					env.request = { FireServer = noop }
 					env.reply = { OnClientEvent = engine.heartbeat }
+					local purchase = engine.new("RemoteFunction")
 					env.game = {
 						ReplicatedStorage = {
 							Facet = "Facet",
 							Packages = { Facet = "Facet", Compose = { core = "ComposeCore", roblox = "ComposeRoblox" } },
 							WaitForChild = function()
 								return "Facet"
+							end,
+							FindFirstChild = function(_, name: string)
+								return if name == "Purchase" then purchase else nil
 							end,
 						},
 						Players = {

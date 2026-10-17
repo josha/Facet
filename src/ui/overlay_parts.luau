@@ -427,6 +427,7 @@ function parts.room(
 		props[#props + 1] = region
 	end
 	props.Selectable = false
+	props.SelectionGroup = false
 	local frame = Host.ScrollingFrame(props)
 	scrollLock.own(frame, ctx)
 	parts.reach(ctx, frame, tight)

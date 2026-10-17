@@ -101,6 +101,17 @@ local function properties(values: Properties): Properties
 	return values
 end
 
+local function nativeGlyph(c: Context): Properties
+	local function ring(): GuiObject
+		return c.UI.Path "NativeGlyph" {
+			points = c.Facet.pathShapes.ring({ radius = 0.75 }),
+			thickness = 2,
+			closed = true,
+		}
+	end
+	return { glyph = ring }
+end
+
 local function implied(choices: { [string]: Source }): { [string]: Source }
 	return choices
 end
@@ -350,6 +361,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 		},
 		states = {
+			{ name = "native glyph", props = nativeGlyph },
 			{ name = "discloses a truncated label", props = merged(fixed(120, 44), { label = LONG, disclose = true }) },
 			{ name = "fixed 140×64", props = fixed(140, 64) },
 			{
@@ -1204,6 +1216,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "error", props = properties { errorText = "Too dark" } },
 			{ name = "draft (Cancel / Apply)", props = properties { draft = true } },
 			{ name = "brick colours", props = properties { modes = { "swatches", "brick" } } },
+			{
+				name = "all colour modes",
+				props = properties { modes = { "swatches", "spectrum", "sliders", "brick" } },
+			},
 			{
 				name = "alpha",
 				props = function(c: Context)
@@ -3320,6 +3336,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "appearance", values = { "standard", "emphasis", "soft", "utility" } } },
 		states = {
+			{ name = "native glyph", props = nativeGlyph },
 			DISABLED,
 			{ name = "icon", props = properties { icon = "settings" } },
 			{ name = "dismiss button", props = properties { dismissButton = true } },
@@ -4140,7 +4157,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 		},
 		make = function(UI: FacetControls, p: Properties): Instance
-			local rows: Properties = { Name = "Sidebar", gap = "xs", width = 140 }
+			local rows: Properties = { Name = "Sidebar", gap = "xs", width = 140, align = "stretch" }
 			for index = 1, 4 do
 				table.insert(
 					rows,

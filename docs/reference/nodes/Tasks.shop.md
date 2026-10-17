@@ -1,57 +1,49 @@
 # Tasks.shop
 
-Open a modal shop list with buy actions, owned state and feedback.
+Open a modal shop.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
-local Compose = Facet.Compose
-local app = Facet.app({ name = "Game" })
-local UI = app.UI
-type Item = { id: string, title: string, owned: boolean }
-local items: { Item } = { { id = "kart", title = "Kart", owned = false } }
-local entries = Compose.cell(items)
-local open = Compose.cell(false)
-local feedback = Compose.cell("")
-local function applyResult(id: string, owned: boolean, message: string)
-  entries:update(function(rows)
-  local nextRows = table.clone(rows)
-  for i, row in rows do
-    if row.id == id then nextRows[i] = { id = id, title = row.title, owned = owned } end
-  end
-  return nextRows
-  end)
-  feedback:set(message)
-end
-local function purchase(id: string)
-  print("Request purchase", id)
-end
-local spec: Facet.KeyedCollectionSpec<Item, string> = {
-  from = entries, key = "id", itemSize = 64,
-  render = function(current)
-  return UI.Button "Buy" {
-    label = function(use) local row = use(current)
-    return row.title .. (if row.owned then " - Owned" else " - Buy") end,
-    enabled = function(use) return not use(current).owned end,
-    onActivate = function() purchase(current:peek().id) end,
-  }
-  end,
+local C=Facet.Compose
+local app = Facet.app({})
+local UI=app.UI
+local open,filter,status=C.cell(false),C.cell("All"),C.cell("")
+local owned=C.cell({} :: {[string]:boolean})
+local buy=assert(game.ReplicatedStorage:FindFirstChild("Purchase")) :: RemoteFunction
+type Item={id:string,label:string,kind:string}
+local items:{Item}={{id="kart",label="Kart / 250 Coins",kind="Karts"}}
+local rows=C.formula(function(use:Facet.Use):{Item}
+local rows={} for _,item in items do
+if use(filter)=="All" or item.kind==use(filter) then table.insert(rows,item) end
+end return rows end)
+local options:{Facet.PickerOption<string>}={
+{value="All",label="All"},{value="Karts",label="Karts"},{value="Other",label="Other"},
 }
 app.mount(function()
-  return UI.Screen "Root" {
-  UI.Button "Shop" { label = "Shop", onActivate = function() open:set(true) end },
-  UI.Sheet "ShopPanel" {
-    title = "Shop", isPresented = open, closeButton = "Close",
-    content = function() return UI.VStack "Items" {
-    width = "fill", gap = "s", align = "stretch",
-    UI.Text "Result" { text = feedback, wrap = true },
-    UI.VirtualList "Parts" (spec),
-    } end,
-  },
-  }
+return UI.Screen "Root" {
+UI.Button {label="Shop",onActivate=function() open:set(true) end},
+UI.Sheet {title="Shop",isPresented=open,closeButton="Close",
+content=function() return UI.VStack "Rows" {width="fill",align="stretch",gap="s",
+UI.Picker {selected=filter,options=options,style="menu"},
+UI.Text {text=status,wrap=true},
+UI.Text {text="No items.",Visible=function(use:Facet.Use) return #use(rows)==0 end},
+C.keyed {from=rows,key=function(item:Item) return item.id end,
+render=function(row:Facet.Readable<Item>) local item=row:peek()
+return UI.VStack "Rows" {align="stretch",gap="xs",
+UI.Text {text=item.label,wrap=true},
+UI.Button {
+label=function(use:Facet.Use) return if use(owned)[item.id] then "Owned" else "Buy" end,
+enabled=function(use:Facet.Use) return not use(owned)[item.id] end,
+onActivate=function()
+local bought:boolean,text:string=buy:InvokeServer(item.id)
+owned:update(function(value) value=table.clone(value) value[item.id]=bought return value end)
+status:set(text)
+end,
+}, }
+end }, } end,
+}, }
 end)
 script.Destroying:Connect(app.dispose)
 ```
 
-Send purchase to the server. It checks price, balance and ownership.
-Call applyResult with its response, including failures.
-[Tasks.sheet](Tasks.sheet.md) covers child pages.
+The server checks price, balance and ownership. Return bought and text. See [Tasks.sheet](Tasks.sheet.md).

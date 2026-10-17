@@ -2,13 +2,20 @@
 local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 
-return function(ctx: Types.Context, root: GuiObject): ComposeTypes.Readable<boolean>
+return function(
+	ctx: Types.Context,
+	root: GuiObject,
+	measure: ((ComposeTypes.Use, Vector2) -> ())?
+): ComposeTypes.Readable<boolean>
 	local size = ctx.observe.AbsoluteSize(root)
 	local ready = ctx.Compose.cell(false)
 	local owner = assert(ctx.Compose.currentOwner())
 	local scope: ComposeTypes.Owner? = nil
 	ctx.Compose.watch(function(use: ComposeTypes.Use)
 		local box = use(size)
+		if measure then
+			measure(use, box)
+		end
 		if box.X <= 0 or box.Y <= 0 then
 			if scope then
 				scope.dispose()

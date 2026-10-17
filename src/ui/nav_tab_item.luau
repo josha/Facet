@@ -62,7 +62,10 @@ return function(
 						.. (if badge ~= nil and badge ~= "" then ` ({badge})` else "")
 				end,
 				icon = tab.icon,
-				subtitle = if tab.badge ~= nil and tab.icon == nil
+				glyph = tab.glyph,
+				subtitle = if tab.badge ~= nil
+						and tab.icon == nil
+						and tab.glyph == nil
 					then function(): string
 						return ""
 					end
@@ -158,7 +161,7 @@ return function(
 				local function budget(use: ComposeTypes.Use): (number, number, number, boolean)
 					local width = use(natural).X
 					local unit = use(layoutUnit)
-					local glyphWidth = if not stacked(use) and use(current).icon
+					local glyphWidth = if not stacked(use) and (use(current).icon or use(current).glyph)
 						then (ctx.controlSize(spec.controlSize, "iconSize", use) + ctx.metric("space.xs", use)) * unit
 						else 0
 					local padded = use(room).X
@@ -221,7 +224,11 @@ return function(
 				end)
 				button:SetAttribute("FacetTextFit", true)
 			end
-			local glyph = button:FindFirstChild("LeadingIcon", true) :: GuiObject?
+			local leading = button:FindFirstChild(if tab.glyph then "LeadingGlyph" else "LeadingIcon", true)
+			local glyph: GuiObject? = if leading and leading:IsA("GuiObject") then leading else nil
+			if glyph and tab.glyph then
+				glyph:AddTag("facet-tab-glyph")
+			end
 			local rowContent = button:FindFirstChild("Content")
 			local flow = rowContent and rowContent:FindFirstChildWhichIsA("UIListLayout")
 			local title = rowContent and rowContent:FindFirstChild("Title") :: TextLabel?

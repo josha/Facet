@@ -56,6 +56,7 @@ export type ButtonInputOptions = {
 	target: ("hit" | "thumb")?,
 }
 export type ButtonOptions = {
+	glyph: (() -> GuiObject)?,
 	selected: Shared.ValueBoolean?,
 	onActivate: ((InputObject?, number?) -> ())?,
 }

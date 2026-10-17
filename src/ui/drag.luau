@@ -50,6 +50,10 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.draggable must run inside a component or Compose owner")
 		assert(spec.payload ~= nil, "Facet UI.draggable needs a payload")
 		assert(
+			spec.previewScale == nil or (spec.previewScale > 0 and spec.previewScale < math.huge),
+			"Facet UI.draggable previewScale must be positive and finite"
+		)
+		assert(
 			spec.touchPickup == nil or spec.touchPickup == "longPress" or spec.touchPickup == "immediate",
 			"Facet UI.draggable touchPickup must be longPress or immediate"
 		)

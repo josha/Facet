@@ -28,6 +28,12 @@ Use an empty output directory for a new comparison.
 
 ## Read the report
 
+The report starts with a summary. The summary gives the verdict (PASS or
+FAIL), the number of measured scenes and microbenchmarks, and a table of each
+consistently slower measurement with its p50 and p95 change in percent. The
+full tables follow. `--summary FILE` appends the summary and the full tables
+to `FILE` as Markdown. The CI job writes them to the job summary page.
+
 - `p50` and `p95` are medians of the per-run percentiles, in milliseconds.
 - `ratio` divides the second tree's median by the first tree's median.
 - `paired range` is the minimum and maximum ratio within matching rounds.

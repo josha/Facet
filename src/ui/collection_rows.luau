@@ -395,22 +395,6 @@ return function<V, K>(
 						end, node)
 					end)
 					local content = mountedContent :: CanvasGroup
-					local ready = Compose.withOwner(contentOwner, function()
-						return preparePaint(ctx, content)
-					end)
-					preparing[node] = {
-						ready = ready,
-						painted = painted,
-						required = function(): boolean
-							local at, window = placement:peek(), viewport:peek()
-							return spec.mode == "all"
-								or window.size <= 0
-								or (at.offset + at.size > window.offset and at.offset < window.offset + window.size)
-						end,
-					}
-					waiting:update(function(value)
-						return value + 1
-					end)
 					local parked: Instance? = nil
 					local previousParent: Instance? = node.Parent
 					local released = false
@@ -446,8 +430,25 @@ return function<V, K>(
 						lease.release()
 					end
 					wireSelection(content, key)
-					if spec.measure or (tree and not tree.columnar) then
-						local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteSize(measuredNode)
+					local measureRow: ((ComposeTypes.Use, Vector2) -> ())? = nil
+					local automatic = measuredNode.AutomaticSize
+					local natural = (
+						measuredNode:FindFirstChildWhichIsA("UIListLayout") ~= nil
+						or measuredNode:IsA("GuiButton")
+						or measuredNode:IsA("TextLabel")
+						or measuredNode:IsA("TextBox")
+					)
+						and (automatic == E.AutomaticSize.XY or automatic == (if horizontal
+							then E.AutomaticSize.X
+							else E.AutomaticSize.Y))
+						and read(spec.contentOverflow) ~= "clip"
+					if
+						spec.measure
+						or (tree and not tree.columnar)
+						or (spec.measure == nil and tree == nil and kind == "list" and natural)
+					then
+						local inferred = spec.measure == nil and tree == nil
+						local size = if inferred then nil else observe.AbsoluteSize(measuredNode)
 						local lift = measuredNode:FindFirstChildWhichIsA("UIScale")
 						local layoutUnit = if measuredNode:GetAttribute("FacetBody")
 							then measuredNode:FindFirstChild("LayoutUnit")
@@ -465,22 +466,33 @@ return function<V, K>(
 							measurementUnit.Parent = measuredNode
 						end
 						local paintedSize = if measurementUnit then observe.AbsoluteSize(measurementUnit) else nil
-						local factor: ComposeTypes.Readable<number> = if lift
-							then observe.Scale(lift)
-							else Compose.cell(1)
-						Compose.watch(function(use: ComposeTypes.Use)
+						local factor = if lift then observe.Scale(lift) else nil
+						local function measure(use: ComposeTypes.Use, box: Vector2?)
+							if spec.measure == nil and tree == nil then
+								local automatic = measuredNode.AutomaticSize
+								local axis = if horizontal then E.AutomaticSize.X else E.AutomaticSize.Y
+								if automatic ~= axis and automatic ~= E.AutomaticSize.XY then
+									return
+								end
+							end
 							local ancestors = use(view.unitSize).X
 							if ancestors <= 0 then
 								ancestors = 1
 							end
-							local liftScale = use(factor)
+							local liftScale = if factor then use(factor) else 1
 							local painted = if paintedSize then use(paintedSize).X else 0
 							local scale = math.max(if painted > 0 then painted else liftScale * ancestors, 0.001)
-							local dimensions = use(size)
+							local dimensions = box or use(assert(size))
 							local extent = (if horizontal then dimensions.X else dimensions.Y) / scale
 								+ (if editor and not horizontal then use(editor.header) else 0)
 								+ (if actionHeight and not horizontal then use(actionHeight) else 0)
 							extent = math.round(extent)
+							if spec.measure == nil and tree == nil and read(spec.contentOverflow, use) ~= "clip" then
+								local estimate = read(spec.itemSize or 40, use)
+								if type(estimate) == "number" then
+									extent = math.max(estimate, extent)
+								end
+							end
 							local previous = measured:peek()[key]
 							if previous and liftScale ~= 1 and math.abs(extent - previous) <= 1 then
 								return
@@ -490,8 +502,31 @@ return function<V, K>(
 								nextSizes[key] = extent
 								measured:set(nextSizes)
 							end
-						end)
+						end
+						if inferred then
+							measureRow = measure
+						else
+							Compose.watch(function(use: ComposeTypes.Use)
+								measure(use)
+							end)
+						end
 					end
+					local ready = Compose.withOwner(contentOwner, function()
+						return preparePaint(ctx, if measureRow then measuredNode else content, measureRow)
+					end)
+					preparing[node] = {
+						ready = ready,
+						painted = painted,
+						required = function(): boolean
+							local at, window = placement:peek(), viewport:peek()
+							return spec.mode == "all"
+								or window.size <= 0
+								or (at.offset + at.size > window.offset and at.offset < window.offset + window.size)
+						end,
+					}
+					waiting:update(function(value)
+						return value + 1
+					end)
 					Compose.cleanup(function()
 						if gui and State.belongsTo(gui.SelectedObject, node) then
 							view.focusOwned = true

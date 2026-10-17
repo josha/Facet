@@ -149,8 +149,14 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 			BackgroundTransparency = 1,
 		}
 		for _, format in FORMATS do
-			local fields = builders[format.value]()
-			fields.Name = "Content"
+			local visited = Compose.cell(formatCell:peek() == format.value)
+			if not visited:peek() then
+				Compose.watch(function(use: Use)
+					if use(formatCell) == format.value then
+						visited:set(true)
+					end
+				end)
+			end
 			values[#values + 1] = Host.CanvasGroup("Fields" .. format.label)({
 				BackgroundTransparency = 1,
 				Size = D2.new(1, 0, 0, 0),
@@ -161,7 +167,11 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 				Interactable = function(use: Use): boolean
 					return use(formatCell) == format.value
 				end,
-				fields,
+				Compose.show(visited, function()
+					local fields = builders[format.value]()
+					fields.Name = "Content"
+					return fields
+				end),
 			})
 		end
 		local valuesNode = Host.Frame(values)

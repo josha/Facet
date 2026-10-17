@@ -183,40 +183,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			AutomaticSize = E.AutomaticSize.Y,
 		}))
 		table.insert(copy, message)
-		local textService = ctx.config.services and ctx.config.services.TextService
-		if textService then
-			local width, unit = ctx.observe.AbsoluteSize(message), ctx.layoutUnit(message)
-			local face = ctx.observeStyled.FontFace(message)
-			local points = ctx.observeStyled.TextSize(message)
-			local serial, last = 0, ""
-			Compose.watch(function(use: ComposeTypes.Use)
-				local wide = use(width).X / use(unit)
-				local text: string = read(spec.message, use) or ""
-				local font, size = use(face) :: Font, use(points) :: number
-				local key = `{wide}|{text}|{size}|{font.Family}|{font.Weight.Name}`
-				if wide <= 0 or text == "" or key == last then
-					return
-				end
-				last = key
-				serial += 1
-				local ticket = serial
-				task.spawn(function()
-					local ok, bounds = pcall(function()
-						local params = ((Host :: unknown) :: { [string]: (props: { [string]: unknown }) -> Instance }).GetTextBoundsParams({
-							Text = text,
-							Font = font,
-							Size = size,
-							Width = wide,
-						})
-						return (textService :: TextService):GetTextBoundsAsync(params :: GetTextBoundsParams)
-					end)
-					if ok and ticket == serial and message.Parent ~= nil and bounds.Y > 0 then
-						message.AutomaticSize = E.AutomaticSize.None
-						message.Size = D2.new(1, 0, 0, bounds.Y)
-					end
-				end)
-			end)
-		end
 		local measure = ctx.text({
 			Name = "MessageMeasure",
 			Text = function(use: ComposeTypes.Use)

@@ -619,10 +619,12 @@ add("outline-indent", {}, function(t: any)
 	t.check("the header title exists", title ~= nil)
 	if title then
 		local neutral = t.Facet.themes.neutralPackage()
-		local expected = neutral.metrics.typography.label.size
+		local label = neutral.metrics and neutral.metrics.typography and neutral.metrics.typography.label
+		local expected = if label then label.size else nil
 		local size = styled(title, "TextSize")
 		t.note("label role", expected)
-		t.near("the title is at the label type size", size, expected, 0.01)
+		t.check("the neutral theme has a label type size", type(expected) == "number", expected)
+		t.near("the title is at the label type size", size, expected or 0, 0.01)
 	end
 end)
 
