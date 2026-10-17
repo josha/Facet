@@ -127,6 +127,7 @@ return function(harness: Verify.Harness)
 				motionLevel = "none",
 				guiService = gui,
 				userInputService = input,
+				services = { Workspace = world, GuiService = gui, UserInputService = input },
 			}
 			C.cleanup(app.dispose)
 			lab = browser.mount {

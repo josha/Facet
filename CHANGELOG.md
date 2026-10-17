@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- DiegeticScreen moves existing application layers onto a native world display
+  with one reversible camera shot. UI instances, state, safe-area canvases and
+  source hosts survive the transition. The consumer supplies the room and
+  camera framing. VR entry is unavailable.
+
 - ColorPicker constructs each mode and value format on its first visit and
   retains it until the panel closes. Overlay bodies with multiple modes reserve
   six rows of colour cells and use native scrolling for overflow. Inline bodies

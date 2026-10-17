@@ -16,6 +16,7 @@ local CollectionProps = require("./collection_props")
 local ContentProps = require("./content_props")
 local EffectProps = require("./effect_props")
 local ZoomTravelProps = require("./zoom_travel_props")
+local DiegeticTypes = require("./diegetic_types")
 
 type Constructor<P, N> = Shared.Constructor<P, N>
 
@@ -101,6 +102,7 @@ type TableShapes =
 export type TableConstructor = TableShapes & ((string) -> TableShapes)
 
 export type Controls = {
+	DiegeticScreen: Constructor<DiegeticTypes.DiegeticScreenProps, Folder>,
 	Timer: Constructor<HudProps.TimerProps, TextLabel>,
 	Typewriter: Constructor<HudProps.TypewriterProps, TextLabel>,
 	commandScope: typeof(((nil :: unknown) :: Commands.Controls).commandScope),
@@ -191,6 +193,7 @@ export type Controls = {
 	scrollToVisible: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollToVisible),
 }
 export type BuilderControls = {
+	DiegeticScreen: Constructor<DiegeticTypes.DiegeticScreenProps, Folder>,
 	Button: Constructor<InputProps.ButtonProps, TextButton>,
 	Toggle: Constructor<InputProps.ToggleProps, TextButton>,
 	TextInput: Constructor<InputProps.TextInputProps, TextBox | Frame>,
