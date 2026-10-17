@@ -29,6 +29,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		assert(positive(zoom:peek()), "Facet UI.ZoomView: zoom must be positive and finite")
 		local reduce = reducedMotion(ctx)
 		local ramp = runtime.ramp(zoom:peek(), { ease = ctx.motionEase("zoom") })
+		local translation = runtime.ramp(V2.zero, { ease = ctx.motionEase("zoom") })
 		local drag = sessionOf(ctx)
 		local arbiter = arbiterOf(ctx)
 		local contacts: { [InputObject]: boolean } = {}
@@ -131,6 +132,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			return math.clamp(value, math.max(minimum, 0.001), max)
 		end
 		local function capture(point: Vector2?)
+			translation.retarget(V2.zero, 0)
 			local area, size = window(), extent()
 			screenPoint = point or area / 2
 			contentPoint = V2.new(
@@ -147,6 +149,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 					screenPoint.Y
 				)
 			)
+		end
+		local function focusAt(point: Vector2)
+			local area, size = window(), extent()
+			contentPoint, screenPoint = point, area / 2
+			local x = geometry.axis(area.X, size.X, applied, contentPoint.X, screenPoint.X)
+			local y = geometry.axis(area.Y, size.Y, applied, contentPoint.Y, screenPoint.Y)
+			translation.retarget(V2.new(x, y) - root.CanvasPosition, 0)
 		end
 		local press: InputObject? = nil
 		local mouseOrigin, mouseCanvas = V2.zero, V2.zero
@@ -243,6 +252,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			zoom:set(next)
 			proposing = false
 			ramp.retarget(next, if direct or reduce() then 0 else ctx.metric("motion.durations.zoom"))
+			translation.retarget(V2.zero, if direct or reduce() then 0 else ctx.metric("motion.durations.zoom"))
 			return true
 		end
 		local function fit(): boolean
@@ -253,7 +263,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			if area.X <= 0 or area.Y <= 0 then
 				return false
 			end
-			contentPoint, screenPoint = size / 2, area / 2
+			focusAt(size / 2)
 			return request(geometry.fit(area.X, area.Y, size.X, size.Y), nil, true)
 		end
 		local function zoomTo(rect: Types.Rect): boolean
@@ -265,7 +275,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				return false
 			end
 			local target = geometry.rectangle(area.X, area.Y, rect)
-			contentPoint, screenPoint = V2.new(rect.x + rect.w / 2, rect.y + rect.h / 2), area / 2
+			focusAt(V2.new(rect.x + rect.w / 2, rect.y + rect.h / 2))
 			return request(target, nil, true)
 		end
 		local function zoomAt(value: number, point: Vector2?): boolean
@@ -360,11 +370,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			end
 			local x, insetX = geometry.axis(area.X, size.X, value, contentPoint.X, screenPoint.X)
 			local y, insetY = geometry.axis(area.Y, size.Y, value, contentPoint.Y, screenPoint.Y)
+			local offset = if reduce() then V2.zero else translation.value:peek()
 			applying = true
 			scaler.Scale = value
 			canvas.Position = D2.fromOffset(insetX, insetY)
 			root.CanvasSize = D2.fromOffset(math.max(area.X, size.X * value), math.max(area.Y, size.Y * value))
-			root.CanvasPosition = V2.new(x, y)
+			root.CanvasPosition = V2.new(
+				math.clamp(x - offset.X, 0, math.max(0, size.X * value - area.X)),
+				math.clamp(y - offset.Y, 0, math.max(0, size.Y * value - area.Y))
+			)
 			applied = value
 			root:SetAttribute("FacetZoom", value)
 			applying = false
@@ -392,9 +406,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 						capture()
 					end
 					if focus and (focus ~= lastFocus or not proposing) then
-						contentPoint, screenPoint = focus, window() / 2
+						focusAt(focus)
 					end
 					ramp.retarget(clamp(next), if reduce(use) then 0 else ctx.metric("motion.durations.zoom", use))
+					translation.retarget(V2.zero, if reduce(use) then 0 else ctx.metric("motion.durations.zoom", use))
 				end
 				lastZoom = next
 				lastFocus = focus
