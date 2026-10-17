@@ -16,6 +16,11 @@ local function materialize(
 	if paintOnly then
 		return
 	end
+	if panel:FindFirstChildWhichIsA("UIPadding") == nil then
+		runtime.mount(function()
+			return Host.UIPadding {}
+		end, panel)
+	end
 	local measured = supplied or ctx.layoutSize(panel)
 	local clips = panel.ClipsDescendants
 	local natural = Compose.cell(V2.zero)

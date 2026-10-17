@@ -23,6 +23,7 @@ return function(verifyHarness: Verify.Harness)
 			local runtime: ComposeRuntime = Roblox.createRuntime((engine :: unknown) :: Roblox.Engine)
 			local cached = Compose.cell(engine.types.Vector2.new(280, 120))
 			local ready = Compose.cell(false)
+			local progress = 0
 			local held: Readable<Vector2>? = nil
 			local stop, mounted = runtime.mount(function()
 				local ctx = context(Compose, runtime, { types = engine.types })
@@ -31,7 +32,7 @@ return function(verifyHarness: Verify.Harness)
 					return cached
 				end
 				local sizes = presence(ctx).atRest(function(): number
-					return 0
+					return progress
 				end, ready, { panel })
 				held = sizes[1]
 				return panel
@@ -44,6 +45,48 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(ready:peek()):toBe(true)
 			Verify.expect(cached:peek()):toBe(engine.types.Vector2.new(280, 120))
 			Verify.expect(assert(held):peek()):toBe(engine.types.Vector2.new(280, 140))
+			progress = 1
+			cached:set(engine.types.Vector2.new(270, 130))
+			Verify.expect(assert(held):peek()):toBe(engine.types.Vector2.new(280, 140))
+			geometry.AbsoluteSize = engine.types.Vector2.new(280, 160)
+			Verify.expect(assert(held):peek()):toBe(engine.types.Vector2.new(280, 160))
+			cached:set(engine.types.Vector2.new(280, 160))
+			Verify.expect(assert(held):peek()):toBe(engine.types.Vector2.new(280, 160))
+			stop()
+			runtime:dispose()
+		end,
+	})
+
+	verifyHarness:case("reserves native styled padding before materializing content", {
+		id = "native_compose_contract::reserves native styled padding before materializing content",
+		run = function()
+			local context = require("../src/ui/context")
+			local materialize = require("../src/ui/materialize")
+			local engine = engineLib.new()
+			local runtime: ComposeRuntime = Roblox.createRuntime((engine :: unknown) :: Roblox.Engine)
+			local scale = Compose.cell(1)
+			local stop, mounted = runtime.mount(function()
+				local ctx = context(Compose, runtime, { types = engine.types })
+				local panel = ctx.Host.Frame { ctx.Host.Frame "Copy" {} }
+				materialize(ctx, panel, {
+					Size = engine.types.UDim2.fromOffset(280, 120),
+					AutomaticSize = engine.types.Enum.AutomaticSize.None,
+				}, function(use)
+					return use(scale)
+				end, nil, false, Compose.cell(engine.types.Vector2.new(280, 120)))
+				return panel
+			end, engine.new("ScreenGui"))
+			local panel = (mounted :: unknown) :: Frame
+			local padding = assert(panel:FindFirstChildWhichIsA("UIPadding")) :: UIPadding
+			padding.PaddingLeft, padding.PaddingRight = engine.types.UDim.new(0, 16), engine.types.UDim.new(0, 16)
+			padding.PaddingTop, padding.PaddingBottom = engine.types.UDim.new(0, 8), engine.types.UDim.new(0, 8)
+			scale:set(0.9)
+			local content = assert(panel:FindFirstChild("PresentationContent")) :: Frame
+			Verify.expect(content.Size):toBe(engine.types.UDim2.fromOffset(248, 104))
+			Verify.expect(content:FindFirstChild("Copy") ~= nil):toBe(true)
+			scale:set(1)
+			Verify.expect(panel:FindFirstChildWhichIsA("UIPadding")):toBe(padding)
+			Verify.expect(panel:FindFirstChild("Copy") ~= nil):toBe(true)
 			stop()
 			runtime:dispose()
 		end,

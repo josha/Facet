@@ -687,6 +687,8 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, { runService = true })
 					local panel, arrow = w.find("CalloutPanel"), w.find("Arrow")
+					local content = w.find("CalloutContent")
+					local contentSize, contentAutomatic = content.Size, content.AutomaticSize
 					Verify.expect(panel.Visible):toBe(false)
 					Verify.expect(arrow.Visible):toBe(false)
 					panel.AbsoluteSize = w.Vector2.new(280, 120)
@@ -698,6 +700,8 @@ return function(verifyHarness: Verify.Harness)
 					for _ = 1, math.ceil(themes.neutralPackage().metrics.motion.fast * 60) + 1 do
 						w.advance(1 / 60)
 						local alpha = fadeKit.of(panel)
+						Verify.expect(content.Size):toBe(contentSize)
+						Verify.expect(content.AutomaticSize):toBe(contentAutomatic)
 						Verify.expect(alpha <= previous):toBe(true)
 						Verify.expect(panel.Visible):toBe(arrow.Visible)
 						if alpha > 0 and alpha < 1 then

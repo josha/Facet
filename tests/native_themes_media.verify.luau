@@ -1337,7 +1337,8 @@ return function(verifyHarness: Verify.Harness)
 					return node
 				end, engine.new("Folder"))
 				local node = target :: Frame
-				Verify.expect(#node:GetDescendants()):toBe(1)
+				Verify.expect(#node:GetDescendants()):toBe(2)
+				Verify.expect(node:FindFirstChildWhichIsA("UIPadding") ~= nil):toBe(true)
 				Verify.expect(node:FindFirstChild("SkinBoundary", true)):toBeNil()
 				local art = themes.neutralPackage()
 				assert(art.assets).image = { content = "rbxassetid://30" }
