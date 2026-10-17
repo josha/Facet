@@ -45,7 +45,9 @@ return function(
 			SortOrder = E.SortOrder.LayoutOrder,
 			GamepadInputEnabled = true,
 			TouchInputEnabled = true,
-			ScrollWheelInputEnabled = false,
+			ScrollWheelInputEnabled = function(use: ComposeTypes.Use): boolean
+				return ctx.read(spec.scrollWheel, use) == true
+			end,
 		}
 		local hugs = spec.AutomaticSize == E.AutomaticSize.Y or spec.AutomaticSize == E.AutomaticSize.XY
 		local tallest = Compose.cell(0)
@@ -74,17 +76,25 @@ return function(
 		}
 		surfaces.attach(pages, children)
 		local pressed: { x: number, at: number }? = nil
+		local paused = if spec.autoAdvanceSeconds ~= nil then Compose.cell(false) else nil
+		local hovering = false
 		local function pointer(input: InputObject): boolean
 			return input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1
 		end
 		runtime.connect(pages, "InputBegan", function(input: InputObject)
 			if pointer(input) then
 				pressed = { x = input.Position.X, at = os.clock() }
+				if paused then
+					paused:set(true)
+				end
 			end
 		end)
 		runtime.connect(pages, "InputEnded", function(input: InputObject)
 			local start = pressed
 			pressed = nil
+			if paused then
+				paused:set(hovering)
+			end
 			if start and pointer(input) then
 				local seconds = math.max(os.clock() - start.at, 1 / 120)
 				fling:set(math.abs(input.Position.X - start.x) / seconds > FLING_SPEED)
@@ -115,6 +125,37 @@ return function(
 			layout.Animated = animated
 		end)
 		local gui = surfaces.service("GuiService")
+		if paused then
+			local interaction = paused
+			local later = runtime.scheduler()
+			local focused = if gui then ctx.observe.SelectedObject(gui) else nil
+			runtime.connect(pages, "MouseEnter", function()
+				hovering = true
+				interaction:set(true)
+			end)
+			runtime.connect(pages, "MouseLeave", function()
+				hovering = false
+				interaction:set(pressed ~= nil)
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local seconds = ctx.read(spec.autoAdvanceSeconds, use)
+				local id = use(spec.selection)
+				local held = use(interaction)
+				local selected = if focused then use(focused) else nil
+				later.cancel("advance")
+				if seconds == nil then
+					return
+				end
+				assert(seconds > 0 and seconds < math.huge, "PageView.autoAdvanceSeconds must be finite and positive")
+				if held or (selected and surfaces.within(selected, pages)) or #spec.pages < 2 then
+					return
+				end
+				later.replace("advance", seconds, function()
+					fling:set(false)
+					spec.selection:set(spec.pages[indexById[id] % #spec.pages + 1].id)
+				end)
+			end)
+		end
 		local current = ctx.observe.CurrentPage(layout)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local page = use(current)
@@ -243,13 +284,19 @@ return function(
 			AutomaticSize = E.AutomaticSize.None,
 		})
 		assert(column:FindFirstChildWhichIsA("UIListLayout")).HorizontalAlignment = E.HorizontalAlignment.Center
-		local root = Host.Frame(ctx.props(spec, { "pages", "selection", "indicators", "summary", "controls" }, {
-			Name = "PageView",
-			BackgroundTransparency = 1,
-			Size = D2.fromScale(1, 1),
-			pages,
-			column,
-		}))
+		local root = Host.Frame(
+			ctx.props(
+				spec,
+				{ "pages", "selection", "indicators", "summary", "controls", "autoAdvanceSeconds", "scrollWheel" },
+				{
+					Name = "PageView",
+					BackgroundTransparency = 1,
+					Size = D2.fromScale(1, 1),
+					pages,
+					column,
+				}
+			)
+		)
 		if hugs then
 			local unit = ctx.layoutUnit(root)
 			Compose.watch(function(use: ComposeTypes.Use)
