@@ -1,5 +1,8 @@
 # Facet documentation
 
+Before UI work, open [Design.guide](Design.guide.md) and read the required
+design foundations and relevant chapters in the use-facet skill.
+
 Open every task recipe that matches a part of your screen. For a HUD with a
 shop, open Tasks.hud and Tasks.shop. Open a card or option node only for a missing detail.
 Never reread a node already in context.

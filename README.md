@@ -140,8 +140,12 @@ covers this route.
 
 ## Documentation
 
+Agents building or reviewing UI must use the [use-facet skill](skills/use-facet/SKILL.md).
+It starts with the design guide, then routes to the relevant controls and checks.
+
 | Document | What it is |
 |---|---|
+| [Designing game interfaces with Facet](skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md) | Design principles, game flows, control choices, adaptive interaction and review. |
 | [`docs/guide/README.md`](docs/guide/README.md) | **Start here.** The guide in reading order, with the capability catalog. |
 | [`docs/guide/14-choosing-a-ui-library.md`](docs/guide/14-choosing-a-ui-library.md) | A comparison of Facet with other Roblox UI libraries. |
 | [`tools/designer/README.md`](tools/designer/README.md) | Facet Design: visual editing, code sync, and human/agent design workflows. |
