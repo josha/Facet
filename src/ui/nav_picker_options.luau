@@ -150,9 +150,23 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 		end
 		local segmentInput = ctx.effectiveInput()
+		local function authoredHeight(use: ComposeTypes.Use?): number?
+			local size = read(spec.Size, use)
+			local automatic = read(spec.AutomaticSize, use)
+			if
+				size
+				and size.Y.Scale == 0
+				and size.Y.Offset > 0
+				and automatic ~= E.AutomaticSize.Y
+				and automatic ~= E.AutomaticSize.XY
+			then
+				return size.Y.Offset
+			end
+			return nil
+		end
 		local function stripHeight(use: ComposeTypes.Use?): number
 			local rung = ctx.controlSize(spec.controlSize, "height", use)
-			if spec.controlSize == nil or segmentInput(use) == "Touch" then
+			if (spec.controlSize == nil and authoredHeight(use) == nil) or segmentInput(use) == "Touch" then
 				rung = math.max(rung, 44 + 2 * segmentMetrics.inset)
 			end
 			local package = read(ctx.config.theme, use)
@@ -230,23 +244,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						Size = function(use: ComposeTypes.Use)
 							if across(use) then
 								local height = stripHeight(use)
-								if spec.controlSize == nil then
-									height = math.max(height, 44 + 2 * segmentMetrics.inset)
-								end
-								local authored = read(spec.Size, use)
-								local automatic = read(spec.AutomaticSize, use)
-								if
-									authored
-									and authored.Y.Scale == 0
-									and authored.Y.Offset > 0
-									and automatic ~= E.AutomaticSize.Y
-									and automatic ~= E.AutomaticSize.XY
-								then
-									height = math.max(
-										authored.Y.Offset,
-										if segmentInput(use) == "Touch" then 44 + 2 * segmentMetrics.inset else 0
-									)
-								end
+								height = math.max(authoredHeight(use) or 0, height)
 								return D2.fromOffset(0, math.max(0, height - 2 * segmentMetrics.inset))
 							end
 							local height = if spec.controlSize ~= nil
@@ -701,7 +699,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 									rung,
 									44 + 2 * segmentMetrics.inset
 								)
-								elseif spec.controlSize ~= nil then rung
+								elseif spec.controlSize ~= nil or authoredHeight(use) ~= nil then rung
 								else rung + 2 * segmentMetrics.inset
 						)
 					end,

@@ -30,8 +30,6 @@ local KEYS = {
 	"contentInset",
 	"scrollPolicy",
 }
-local SETTLE_LIMIT = 20
-
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
 	local readSource = ctx.readSource
@@ -174,7 +172,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 		end)
 		if frames and not ready:peek() then
-			local panelSize = ctx.observe.AbsoluteSize(panel)
 			local function contentGeometry(): string
 				local origin = panel.AbsolutePosition
 				local signature: { string } = {}
@@ -190,33 +187,28 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				return table.concat(signature, ";")
 			end
 			local fontsReady = fontReadiness(ctx, { panel })
-			local started = Compose.cell(false)
-			local clock = runtime.tween(function(use: ComposeTypes.Use): number
-				return if use(started) then 1 else 0
-			end, { seconds = SETTLE_LIMIT / 60 })
-			started:set(true)
-			local previous: string? = nil
-			Compose.watch(function(use: ComposeTypes.Use)
-				local elapsed = use(clock)
-				local finished = elapsed >= 1
-				if ready:peek() or elapsed <= 0 then
-					return
-				end
-				local signature = if measured:peek()
-					then string.format(
+			local settled = runtime.settled {
+				ready = fontsReady,
+				sample = function(): string
+					return string.format(
 						"%d %d %d %d %d %s",
 						extent:peek().X,
 						extent:peek().Y,
-						panelSize:peek().X,
+						panel.AbsoluteSize.X,
 						contentSize:peek().Y,
 						room.pinned:peek(),
 						contentGeometry()
 					)
-					else nil
-				if fontsReady() and (finished or (signature ~= nil and signature == previous)) then
+				end,
+				equals = function(left: string, right: string): boolean
+					return measured:peek() and left == right
+				end,
+				timeout = ctx.metric("motion.restLimit"),
+			}
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(settled) then
 					ready:set(true)
 				end
-				previous = signature
 			end)
 		end
 		surfaces.keep(spec.content, spec.header, spec.hero and spec.hero.content)

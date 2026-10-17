@@ -259,6 +259,8 @@ add("label-text-size-fit-real-engine", {}, function(t)
 	local body = base.metrics.typography.body.size
 	local caption = base.metrics.typography.caption.size
 	local title = base.metrics.typography.title.size
+	local offset = 14
+	local fitWidth, grownWidth = 0, 0
 	t.note("theme role sizes", { body = body, caption = caption, title = title })
 	local go = fitBox(t, "Go", 240, 52, "fit")
 	t.check("a fitting label mounts with TextScaled", go ~= nil and go.TextScaled == true)
@@ -268,22 +270,24 @@ add("label-text-size-fit-real-engine", {}, function(t)
 		t.near("a label that fits paints the cap (body)", painted, body, 0)
 	end
 	t.cleanup()
-	local long = fitBox(t, SPONSOR, 80, 24, "fit")
-	local fittingWidth = 80
+	local blocked = fitBox(t, SPONSOR, 80, 24, "fit")
+	if blocked then
+		local floorBounds = boundsAt(blocked, caption, 0)
+		fitWidth = math.floor((floorBounds.X + boundsAt(blocked, body, 0).X) / 2)
+		grownWidth = math.floor((boundsAt(blocked, caption + offset, 0).X + boundsAt(blocked, body + offset, 0).X) / 2)
+		local band = blocked:FindFirstChildOfClass("UITextSizeConstraint")
+		t.check("the caption floor cannot fit the original 80 px box", floorBounds.X > 80, floorBounds)
+		t.check("an impossible box preserves the native caption floor", band ~= nil and band.MinTextSize == caption)
+		t.check("an impossible box reports its overflow", not blocked.TextFits, blocked.TextBounds)
+	end
+	t.cleanup()
+	local long = fitBox(t, SPONSOR, fitWidth, 24, "fit")
 	if long then
 		local painted = paintedSize(long)
-		local floorBounds = boundsAt(long, caption)
-		fittingWidth = math.ceil((boundsAt(long, caption, 0).X + boundsAt(long, body, 0).X) / 2)
-		local floorFits = fitsAt(long, caption)
-		t.note("caption floor bounds in 80 px", floorBounds)
-		t.note("Sponsor painted in 80x24", { painted, long.TextBounds, long.AbsoluteSize, long.TextFits })
+		t.note("Sponsor painted in the feasible band", { painted, long.TextBounds, long.AbsoluteSize, long.TextFits })
 		t.check("the size comes down from the cap", painted < body, { painted = painted, cap = body })
-		t.check(
-			"the 80x24 box fits the text when the caption floor fits",
-			long.TextFits == floorFits and (if floorFits then fitsAt(long, painted) else painted == caption),
-			{ painted = painted, floor = caption, floorBounds = floorBounds, fits = long.TextFits }
-		)
-		t.check("one size larger would not fit, so the label cannot grow", not fitsAt(long, painted + 1), painted)
+		t.check("the painted size fits the reserved box", fitsAt(long, painted) and long.TextFits, long.TextBounds)
+		t.check("one size larger would not fit, so it is the largest that fits", not fitsAt(long, painted + 1), painted)
 		t.check("the painted size never goes under the caption floor", painted >= caption, painted)
 		t.inside("the reserved box holds the painted line", {
 			x = long.AbsolutePosition.X,
@@ -295,7 +299,7 @@ add("label-text-size-fit-real-engine", {}, function(t)
 		}, long)
 	end
 	t.cleanup()
-	local fitting = fitBox(t, SPONSOR, fittingWidth, 24, "fit")
+	local fitting = fitBox(t, SPONSOR, fitWidth, 24, "fit")
 	if fitting then
 		local painted = paintedSize(fitting)
 		t.note(
@@ -344,31 +348,41 @@ add("label-text-size-fit-real-engine", {}, function(t)
 		)
 	end
 	t.cleanup()
-	local offset = 14
 	local raised = grown(t, base, offset)
 	local raisedGo = fitBox(t, "Go", 240, 52, "fit", raised)
 	if raisedGo then
 		t.near("under the +14 theme a fitting label paints the grown cap", paintedSize(raisedGo), body + offset, 0)
 	end
 	t.cleanup()
-	local plain = fitBox(t, SPONSOR, 160, 52, "fit")
+	local raisedBlocked = fitBox(t, SPONSOR, 160, 52, "fit", raised)
+	if raisedBlocked then
+		local band = raisedBlocked:FindFirstChildOfClass("UITextSizeConstraint")
+		t.check(
+			"the grown caption floor cannot fit the original 160 px box",
+			boundsAt(raisedBlocked, caption + offset, 0).X > 160
+		)
+		t.check("the grown impossible box preserves its floor", band ~= nil and band.MinTextSize == caption + offset)
+		t.check("the grown impossible box reports its overflow", not raisedBlocked.TextFits, raisedBlocked.TextBounds)
+	end
+	t.cleanup()
+	local plain = fitBox(t, SPONSOR, grownWidth, 52, "fit")
 	local plainSize = if plain then paintedSize(plain) else 0
 	t.cleanup()
-	local raisedLong = fitBox(t, SPONSOR, 160, 52, "fit", raised)
+	local raisedLong = fitBox(t, SPONSOR, grownWidth, 52, "fit", raised)
 	if raisedLong then
 		local painted = paintedSize(raisedLong)
 		t.note(
-			"Sponsor at 160 px plain and +14",
+			"Sponsor at the grown width plain and +14",
 			{ plain = plainSize, raised = painted, bounds = raisedLong.TextBounds }
 		)
 		t.check("the +14 theme grows the painted size above the plain one", painted > plainSize, { plainSize, painted })
 		t.check(
-			"the +14 theme steps down below its grown cap when 160 px cannot hold it",
+			"the +14 theme steps down below its grown cap when the box cannot hold it",
 			painted < body + offset,
 			painted
 		)
 		t.check(
-			"the grown painted text still fits its 160x52 box",
+			"the grown painted text still fits its reserved box",
 			raisedLong.TextFits and fitsAt(raisedLong, painted),
 			raisedLong.TextBounds
 		)

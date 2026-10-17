@@ -646,8 +646,14 @@ add("underline-follows-rehomed-strip", {}, function(t)
 			t.check(label .. ": the underline is inside the chosen option", button.Name == id, button.Name)
 			local a, b = t.rect(line), t.rect(button)
 			local pad = button:FindFirstChildWhichIsA("UIPadding")
-			local left = if pad then pad:GetStyled("PaddingLeft").Offset else 0
-			local right = if pad then pad:GetStyled("PaddingRight").Offset else 0
+			local leftInset = if pad
+				then pad:GetStyled("PaddingLeft")
+				else button:GetStyled("PaddingLeft", "::UIPadding")
+			local rightInset = if pad
+				then pad:GetStyled("PaddingRight")
+				else button:GetStyled("PaddingRight", "::UIPadding")
+			local left = leftInset.Scale * b.w + leftInset.Offset
+			local right = rightInset.Scale * b.w + rightInset.Offset
 			t.near(label .. ": the underline starts at the option's content edge", a.x, b.x + left, 0.5)
 			t.near(label .. ": the underline spans the option's content box", a.w, b.w - left - right, 0.5)
 			t.near(label .. ": the underline sits on the option's bottom edge", a.b, b.b, 0.5)

@@ -314,6 +314,21 @@ return function(verifyHarness: Verify.Harness)
 				compact.stop()
 			end,
 		})
+		verifyHarness:case("authored heights keep segments inside the track floor", {
+			id = "native_picker_fields::native Picker segmented vocabulary and the radio mark::authored heights keep segments inside the track floor",
+			run = function()
+				local size = Compose.cell(nil :: UDim2?)
+				local w = world({ style = "segmented" :: "segmented", Size = size })
+				for _, height in { 44, 80, 20 } do
+					size:set(w.engine.types.UDim2.fromOffset(360, height))
+					local minimum = find(w.screen, "TargetFloor").MinSize.Y
+					for _, key in { "easy", "normal", "hard" } do
+						expect(find(w.screen, key).Size.Y.Offset):toBe(math.max(minimum, height) - 6)
+					end
+				end
+				w.stop()
+			end,
+		})
 	end)
 
 	verifyHarness:suite("native Picker cards", function()

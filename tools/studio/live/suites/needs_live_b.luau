@@ -393,13 +393,17 @@ add("toast-wide-and-fit", {}, function(t)
 			t.near(`fit toast {index} centred on the screen`, r.x + r.w / 2, s.x + s.w / 2, 1)
 			t.check(`fit toast {index} at most 560 wide`, r.w <= 560.5, r.w)
 		end
-		table.sort(found, function(a, b)
-			return a.w < b.w
-		end)
+		local long = nil
+		for _, node in rows() do
+			local title = t.find(node, "Title")
+			if title and title.Text == "A very long sponsor message" then
+				long = node
+			end
+		end
 		t.check(
 			"long toast is taller than the short one",
-			found[#found].h > found[1].h,
-			{ found[1].h, found[#found].h }
+			short ~= nil and long ~= nil and long.AbsoluteSize.Y > short.AbsoluteSize.Y,
+			{ short = short and short.AbsoluteSize, long = long and long.AbsoluteSize }
 		)
 	else
 		t.check("two fit toasts found", false, { toasts = #found })

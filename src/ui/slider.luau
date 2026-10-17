@@ -322,8 +322,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 		local preferred = if input
 			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
 			else Compose.cell(nil :: Enum.PreferredInput?)
+		local lastInput = Compose.cell(nil :: Enum.UserInputType?)
+		if input and input.GetLastInputType then
+			lastInput:set(input:GetLastInputType())
+			runtime.connect(input, "LastInputTypeChanged", function(kind: Enum.UserInputType)
+				lastInput:set(kind)
+			end)
+		end
 		local function pointerDrag(use: ComposeTypes.Use): boolean
-			return h.enabled(spec, use) and use(preferred) ~= E.PreferredInput.Gamepad
+			return h.enabled(spec, use)
+				and use(preferred) ~= E.PreferredInput.Gamepad
+				and use(lastInput) ~= E.UserInputType.Keyboard
 		end
 		local degrees = function(use: ComposeTypes.Use?): number
 			local turn = read(spec.rotation, use)

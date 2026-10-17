@@ -28,6 +28,7 @@ type TravelState = {
 	content: GuiObject,
 	destination: DestinationCell,
 	samples: { Vector2 },
+	sampleTimes: { number },
 	additions: number,
 	removals: number,
 }
@@ -284,11 +285,13 @@ local function travelSetup(t: Live): TravelState
 			samples = {},
 			additions = 0,
 			removals = 0,
+			sampleTimes = {},
 		}
 		local sample = RunService.PreRender:Connect(function()
 			if content then
 				state.content = content
 				table.insert(state.samples, content.AbsolutePosition)
+				table.insert(state.sampleTimes, os.clock())
 			end
 		end)
 		C.cleanup(function()
@@ -318,6 +321,7 @@ local function travelSetup(t: Live): TravelState
 		}
 	end, { frames = 12, motionLevel = "normal" })
 	table.clear(state.samples)
+	table.clear(state.sampleTimes)
 	return state
 end
 
@@ -346,7 +350,12 @@ local function afterLanding(t: Live, state: TravelState)
 	end
 	t.check("no whole-route jump", maximum < 100, maximum)
 	t.note("travel render samples", state.samples)
+	t.note(
+		"travel frames at " .. state.destination:peek().Name,
+		{ positions = state.samples, seconds = state.sampleTimes }
+	)
 	table.clear(state.samples)
+	table.clear(state.sampleTimes)
 end
 
 type RecycleState = {

@@ -557,9 +557,17 @@ local function hudDpad(size: Vector2)
 		t.stable(stage)
 		value.stage, value.built = stage, built
 		value.health = built.report().health
-		GuiService.SelectedObject = t.find(stage, "Tick")
+		value.vertical = built.report().forms.Rounds == "column"
+		local suffix = if value.vertical then "Column" else ""
+		local report = t.find(stage, "Report" .. suffix)
+		value.trigger = t.find(stage, "HudActions" .. suffix .. "Trigger")
+		GuiService.SelectedObject = report
 		t.settle(2)
-		t.check("Advance clock holds the selection at the start", selectedName() == "Tick", selectedName())
+		t.check(
+			"Report holds the selection at the start",
+			report ~= nil and GuiService.SelectedObject == report,
+			selectedName()
+		)
 		watchSelection(value)
 		return value
 	end
@@ -569,8 +577,16 @@ local hudSteps = {
 	afterWalk = function(t: any, value: any)
 		local names = visitedNames(value)
 		t.note("arrow visits", names)
-		t.check("the arrows reach the HUD actions trigger", table.find(names, "HudActionsTrigger") ~= nil, names)
-		t.check("the trigger holds the selection", selectedName() == "HudActionsTrigger", selectedName())
+		t.check(
+			"the arrows reach the HUD actions trigger",
+			value.trigger ~= nil and table.find(names, value.trigger.Name) ~= nil,
+			names
+		)
+		t.check(
+			"the trigger holds the selection",
+			value.trigger ~= nil and GuiService.SelectedObject == value.trigger,
+			selectedName()
+		)
 	end,
 	afterOpen = function(t: any, value: any)
 		local selected = GuiService.SelectedObject
@@ -589,7 +605,11 @@ local hudSteps = {
 			value.built.report().health < value.health,
 			value.built.report().health
 		)
-		t.check("the selection returns to the trigger", selectedName() == "HudActionsTrigger", selectedName())
+		t.check(
+			"the selection returns to the trigger",
+			value.trigger ~= nil and GuiService.SelectedObject == value.trigger,
+			selectedName()
+		)
 		GuiService.SelectedObject = nil
 	end,
 }

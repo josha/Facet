@@ -113,23 +113,28 @@ local cases: { Case } = {
 						)
 						local stop, fresh = runtime.mount(function()
 							local padding = heading:FindFirstChildWhichIsA("UIPadding")
+							local function inset(name: string): UDim
+								return if padding
+									then padding:GetStyled(name)
+									else heading:GetStyled(name, "::UIPadding")
+							end
 							return Host.TextLabel "FreshHeading" {
 								Text = heading.Text,
 								TextSize = heading:GetStyled("TextSize"),
 								FontFace = heading:GetStyled("FontFace"),
-								TextWrapped = heading.TextWrapped,
-								TextTruncate = heading.TextTruncate,
+								TextWrapped = heading:GetStyled("TextWrapped"),
+								TextTruncate = heading:GetStyled("TextTruncate"),
+								LineHeight = heading:GetStyled("LineHeight"),
+								RichText = heading:GetStyled("RichText"),
 								Size = UDim2.fromOffset(heading.AbsoluteSize.X / scale, heading.AbsoluteSize.Y / scale),
 								TextTransparency = 1,
 								BackgroundTransparency = 1,
-								if padding
-									then Host.UIPadding {
-										PaddingLeft = padding:GetStyled("PaddingLeft"),
-										PaddingRight = padding:GetStyled("PaddingRight"),
-										PaddingTop = padding:GetStyled("PaddingTop"),
-										PaddingBottom = padding:GetStyled("PaddingBottom"),
-									}
-									else nil :: unknown,
+								Host.UIPadding {
+									PaddingLeft = inset("PaddingLeft"),
+									PaddingRight = inset("PaddingRight"),
+									PaddingTop = inset("PaddingTop"),
+									PaddingBottom = inset("PaddingBottom"),
+								} :: unknown,
 							}
 						end, container)
 						t.settle(3)

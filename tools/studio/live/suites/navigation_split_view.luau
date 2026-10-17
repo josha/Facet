@@ -662,7 +662,7 @@ local cases: { any } = {
 				local selected = GuiService.SelectedObject
 				t.check("Back restores sidebar focus", selected ~= nil and selected:IsDescendantOf(s.root.Sidebar))
 				t.check("can reopen linked view", t.find(s.root, "ShowDetail") ~= nil)
-				t.check("folder root has no Back", not t.find(s.root.Parent.Parent.NavigationBar, "Back"))
+				t.check("folder root has no Back", not t.find(t.find(s.root.Sidebar, "Folders"), "Back"))
 			end,
 		},
 	},

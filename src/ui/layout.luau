@@ -121,6 +121,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local owner = assert(Compose.currentOwner())
 		local observing: ComposeTypes.Owner? = nil
 		local function locate()
+			if owner.isDisposed() then
+				return
+			end
 			if observing then
 				observing.dispose()
 				observing = nil
