@@ -121,6 +121,38 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Notice: inline copy, accessories and close", function()
+		verifyHarness:case("keeps native automatic message height with a text measurement service", function(t)
+			local engine = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local height = 16 + 2 / 3
+			local service = {
+				GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
+					return engine.types.Vector2.new(80, if params.Width > 0 then height else params.Size)
+				end,
+			}
+			local UI = Facet.controls(runtime, {
+				types = engine.types,
+				services = { TextService = (service :: unknown) :: TextService },
+			})
+			local content = Compose.cell("Saved")
+			local stop, node = runtime.mount(function()
+				return UI.Notice { message = content }
+			end, engine.new("ScreenGui"))
+			local message = overlay.find(node, "Message")
+			for _, width in { 200, 953 + 1 / 3, 100 } do
+				message.AbsoluteSize = Vector2.new(width, 16)
+				content:set(`Saved at {width}`)
+				local floor = message:FindFirstChild("TextBoundsFloor")
+				t:expect(message.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+				t:expect(message.Size.Y.Offset):toBe(0)
+				t:expect(message.TextWrapped):toBe(true)
+				t:expect(floor.MinSize.Y):toBe(Vector2.new(0, height).Y)
+				height += 16
+			end
+			stop()
+			runtime:dispose()
+			t:expect(engine.census().connections):toBe(0)
+		end)
 		verifyHarness:case("paints the severity icon, title and message, and the close reports the press only", {
 			id = "native_notice_navbar::native Notice: inline copy, accessories and close::paints the severity icon, title and message, and the close reports the press only",
 			run = function()

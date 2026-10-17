@@ -200,29 +200,44 @@ end)
 local TextService = game:GetService("TextService")
 local SPONSOR = "Sponsor a Race"
 
-local function boundsAt(label: any, size: number): Vector2
+local function boundsAt(label: TextLabel, size: number, width: number?): Vector2
 	local params = Instance.new("GetTextBoundsParams")
 	params.Text = label.ContentText
 	params.Font = label:GetStyled("FontFace")
 	params.Size = size
-	params.Width = label.AbsoluteSize.X
-	return TextService:GetTextBoundsAsync(params)
+	params.Width = width or label.AbsoluteSize.X
+	local bounds = TextService:GetTextBoundsAsync(params)
+	params:Destroy()
+	return bounds
 end
 
-local function paintedSize(label: any): number
+local function paintedSize(label: TextLabel): number
 	local target = label.TextBounds
+	local probe = Instance.new("TextLabel")
+	probe.Text = label.ContentText
+	probe.FontFace = label:GetStyled("FontFace") :: Font
+	probe.LineHeight = label:GetStyled("LineHeight") :: number
+	probe.TextWrapped = label.TextWrapped
+	probe.Size = UDim2.fromOffset(label.AbsoluteSize.X, label.AbsoluteSize.Y)
+	probe.TextTransparency = 1
+	probe.Parent = label.Parent
+	local band = label:FindFirstChildOfClass("UITextSizeConstraint")
 	local best, gap = 0, math.huge
-	for size = 1, 100 do
-		local b = boundsAt(label, size)
+	for size = 1, if band then band.MaxTextSize else 100 do
+		probe.TextSize = size
+		game:GetService("RunService").RenderStepped:Wait()
+		local b = probe.TextBounds
 		local miss = math.abs(b.X - target.X) + math.abs(b.Y - target.Y)
-		if miss < gap then
+		if probe.TextFits == label.TextFits and miss < gap then
 			best, gap = size, miss
 		end
 	end
+	probe:Destroy()
+	assert(gap == 0, "painted bounds must match a native fixed-size label")
 	return best
 end
 
-local function fitsAt(label: any, size: number): boolean
+local function fitsAt(label: TextLabel, size: number): boolean
 	local b = boundsAt(label, size)
 	return b.X <= label.AbsoluteSize.X + 0.5 and b.Y <= label.AbsoluteSize.Y + 0.5
 end
@@ -254,12 +269,21 @@ add("label-text-size-fit-real-engine", {}, function(t)
 	end
 	t.cleanup()
 	local long = fitBox(t, SPONSOR, 80, 24, "fit")
+	local fittingWidth = 80
 	if long then
 		local painted = paintedSize(long)
+		local floorBounds = boundsAt(long, caption)
+		fittingWidth = math.ceil((boundsAt(long, caption, 0).X + boundsAt(long, body, 0).X) / 2)
+		local floorFits = fitsAt(long, caption)
+		t.note("caption floor bounds in 80 px", floorBounds)
 		t.note("Sponsor painted in 80x24", { painted, long.TextBounds, long.AbsoluteSize, long.TextFits })
 		t.check("the size comes down from the cap", painted < body, { painted = painted, cap = body })
-		t.check("the painted size fits the 80x24 box", fitsAt(long, painted) and long.TextFits, long.TextBounds)
-		t.check("one size larger would not fit, so it is the largest that fits", not fitsAt(long, painted + 1), painted)
+		t.check(
+			"the 80x24 box fits the text when the caption floor fits",
+			long.TextFits == floorFits and (if floorFits then fitsAt(long, painted) else painted == caption),
+			{ painted = painted, floor = caption, floorBounds = floorBounds, fits = long.TextFits }
+		)
+		t.check("one size larger would not fit, so the label cannot grow", not fitsAt(long, painted + 1), painted)
 		t.check("the painted size never goes under the caption floor", painted >= caption, painted)
 		t.inside("the reserved box holds the painted line", {
 			x = long.AbsolutePosition.X,
@@ -269,6 +293,26 @@ add("label-text-size-fit-real-engine", {}, function(t)
 			r = long.AbsolutePosition.X + long.TextBounds.X,
 			b = long.AbsolutePosition.Y + long.TextBounds.Y,
 		}, long)
+	end
+	t.cleanup()
+	local fitting = fitBox(t, SPONSOR, fittingWidth, 24, "fit")
+	if fitting then
+		local painted = paintedSize(fitting)
+		t.note(
+			"Sponsor in a box between the floor and cap widths",
+			{ painted, fitting.TextBounds, fitting.AbsoluteSize, fitting.TextFits }
+		)
+		t.check(
+			"the full caption fits when the box can hold the floor",
+			fitting.TextFits and fitsAt(fitting, painted),
+			fitting.TextBounds
+		)
+		t.check(
+			"the fitting caption uses the largest allowed size",
+			painted == body or not fitsAt(fitting, painted + 1),
+			painted
+		)
+		t.check("the fitting caption stays in the theme band", painted >= caption and painted <= body, painted)
 	end
 	t.cleanup()
 	local floored = fitBox(t, "Sponsorship", 40, 52, { fit = { cap = "title", floor = 12 } })

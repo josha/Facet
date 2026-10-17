@@ -216,6 +216,11 @@ a separate tag: `list-keyboard-and-dpad`, `scroll-into-view-by-gamepad`,
 `confirm-dialog-left-right`. Run the pointer and touch cases with
 `--device none` as shown above.
 
+Turn the Controller Emulator off before you run the keyboard cases. The
+emulator maps keyboard keys to gamepad buttons. With the emulator on, keyboard
+cases in `native_mechanisms_input`, `needs_live_input` and `command_scope`
+receive no key presses and fail.
+
 The interactive driver requires real Gamepad1 events for the gamepad steps.
 Keyboard emulator mappings without Controller Emulator are not gamepad
 evidence. `tray-grows-with-text-size` needs a human change in Roblox Settings
