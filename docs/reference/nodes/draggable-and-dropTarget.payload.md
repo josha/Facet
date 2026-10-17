@@ -36,6 +36,9 @@ draggable-and-dropTarget.payload option values and behavior.
 
 The source also accepts `operations = { "copy", "move", "apply" }`, a
 `valid()` predicate, `onStart(payload, mode)`, and `onEnd(accepted, reason)`.
+A custom preview is copied before `onStart` runs, including for collections.
+The callback can hide the original visual without hiding the captured copy.
+It runs once per pickup. Use `onEnd` to restore any presentation state.
 `valid` is checked during the session and before completion. The game owns
 payload validation and model changes. Pointer previews preserve the proportional
 pickup point under the mouse or touch contact. Collection stacks use the grabbed
