@@ -60,6 +60,31 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native input controls", function()
+		verifyHarness:case("a new press releases consumption left by an earlier control", function()
+			local activation = require("../src/ui/activation")
+			local press = {}
+			activation.consume(press)
+			local input
+			local calls = 0
+			local node, stop = world(function(UI: FacetControls)
+				return UI.Button({
+					label = "Next",
+					onActivate = function()
+						calls += 1
+					end,
+				})
+			end, function(engine)
+				input = engine.new("UserInputService")
+				return { services = { UserInputService = input } }
+			end)
+			node.Activated:Fire(press)
+			Verify.expect(calls):toBe(0)
+			input.InputBegan:Fire(press)
+			node.Activated:Fire(press)
+			Verify.expect(calls):toBe(1)
+			activation.release(press)
+			stop()
+		end)
 		verifyHarness:case("floors default button widths on touch and releases the idle constraint", {
 			id = "native_inputs::native input controls::floors default button widths on touch and releases the idle constraint",
 			run = function()

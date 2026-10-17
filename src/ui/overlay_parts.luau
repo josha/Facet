@@ -517,9 +517,15 @@ function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: Compo
 		if not use(active) then
 			untrack()
 		elseif tracking == nil then
-			settled = gui.SelectedObject
+			local window, canvas = V2.zero, V2.zero
 			tracking = frames.onFrame(function()
-				settled = gui.SelectedObject
+				local selected = gui.SelectedObject
+				local resized = window ~= scroller.AbsoluteWindowSize or canvas ~= scroller.AbsoluteCanvasSize
+				if selected and selected:IsDescendantOf(scroller) and (selected ~= settled or resized) then
+					reveal(selected)
+				end
+				window, canvas = scroller.AbsoluteWindowSize, scroller.AbsoluteCanvasSize
+				settled = selected
 			end)
 		end
 	end)

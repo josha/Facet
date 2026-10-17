@@ -303,6 +303,43 @@ return function(harness: Verify.Harness)
 		runtime:dispose()
 		t:expect(engine.census().connections):toBe(0)
 	end)
+	harness:case("wrapped line spacing rounds its native height floor up", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local service = {
+			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
+				return engine.types.Vector2.new(219, if params.Width > 0 then 360 else 36)
+			end,
+		}
+		local ctx = context(
+			Facet.Compose,
+			runtime,
+			{
+				types = engine.types,
+				services = { TextService = (service :: unknown) :: TextService },
+			} :: Shared.Config
+		)
+		local label: TextLabel? = nil
+		local stop = runtime.mount(function()
+			label = ctx.text {
+				Text = "Wrapped body copy",
+				TextSize = 36,
+				LineHeight = 1.45,
+				TextWrapped = true,
+				Size = engine.types.UDim2.new(1, 0, 0, 0),
+				AutomaticSize = engine.types.Enum.AutomaticSize.Y,
+			}
+			return label
+		end, engine.new("ScreenGui"))
+		local node = assert(label)
+		node.AbsoluteSize = engine.types.Vector2.new(228, 20)
+		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
+		t:expect(floor.MinSize.Y):toBe(506)
+		stop()
+		runtime:dispose()
+		t:expect(engine.census().connections):toBe(0)
+	end)
+
 	harness:case("wrapped text height is pending until its native measurement completes", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)

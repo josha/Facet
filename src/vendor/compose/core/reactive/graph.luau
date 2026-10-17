@@ -213,10 +213,12 @@ local function settleTouched()
 		return
 	end
 
+	local pending = touched
+	touched = {}
 	local errors: { string }? = nil
 	for index = 1, count do
-		local reactor = touched[index]
-		touched[index] = nil
+		local reactor = pending[index]
+		pending[index] = nil
 		local ok, err: unknown = pcall(reactor.settle, reactor)
 		if not ok then
 			if errors == nil then

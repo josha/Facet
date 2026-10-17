@@ -33,6 +33,9 @@ return function(verifyHarness: Verify.Harness)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		local E = engine.types.Enum
 		input.PreferredInput = o.preferred or E.PreferredInput.KeyboardAndMouse
+		input.GetLastInputType = function()
+			return E.UserInputType.MouseMovement
+		end
 		local held: { [any]: boolean } = {}
 		local services: any = {
 			GuiService = gui,
@@ -153,6 +156,30 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Slider axis", function()
+		verifyHarness:case(
+			"keyboard navigation removes drag detector focus stops and pointer input restores dragging",
+			{
+				id = "native_slider_shapes::native Slider axis::keyboard navigation removes drag detector focus stops and pointer input restores dragging",
+				run = function()
+					for _, spec in { {}, { range = true } } do
+						local w = world(spec)
+						local function enabled(value: boolean)
+							for _, node in w.node:GetDescendants() do
+								if node:IsA("UIDragDetector") then
+									expect(node.Enabled):toBe(value)
+								end
+							end
+						end
+						enabled(true)
+						w.input.LastInputTypeChanged:Fire(w.E.UserInputType.Keyboard)
+						enabled(false)
+						w.input.LastInputTypeChanged:Fire(w.E.UserInputType.MouseMovement)
+						enabled(true)
+						w.stop()
+					end
+				end,
+			}
+		)
 		verifyHarness:case("a vertical track fills from the bottom edge and the thumb climbs as the value rises", {
 			id = "native_slider_shapes::native Slider axis::a vertical track fills from the bottom edge and the thumb climbs as the value rises",
 			run = function()

@@ -1283,7 +1283,12 @@ add("feedback-motion-is-paint-only", {}, function(t)
 			UI.Text "Above" { text = "Above" } :: unknown,
 			UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end },
 			UI.Text "Middle" { text = "Middle" },
-			UI.TextInput "Field" { value = Compose.cell("abc"), onChange = function() end, invalid = value.invalid },
+			UI.TextInput "Field" {
+				value = Compose.cell("abc"),
+				onChange = function() end,
+				invalid = value.invalid,
+				hint = "Check this value.",
+			},
 			UI.Text "Lower" { text = "Lower" },
 			UI.DisclosureGroup "Group" {
 				label = "Details",
