@@ -83,8 +83,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			"Facet.Button: shape must be rect or circle"
 		)
 		assert(
-			spec.target == nil or spec.target == "hit" or spec.target == "thumb",
-			"Facet.Button: target must be hit or thumb"
+			spec.target == nil or spec.target == "hit" or spec.target == "thumb" or spec.target == "inline",
+			"Facet.Button: target must be hit, thumb or inline"
 		)
 		local function cornerRadius(use: ComposeTypes.Use?): UDim
 			local corners = read(spec.corners, use)
@@ -289,6 +289,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			and spec.label ~= nil
 			and spec.shape ~= "circle"
 			and (spec.AutomaticSize == nil or rich)
+		local function targetWidth(minimum: number, use: ComposeTypes.Use?): number
+			return if spec.target == "inline" then math.min(minimum, ctx.metric("targetSizes.inline", use)) else minimum
+		end
 		if constrainedCaption then
 			p[#p + 1] = Host.UISizeConstraint({
 				MinSize = function(use: ComposeTypes.Use): Vector2
@@ -311,7 +314,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						else glyphs * glyphSide + math.max(0, glyphs - 1) * contentGap
 					return V2.new(
 						math.max(
-							minimum,
+							targetWidth(minimum, use),
 							2 * ctx.controlSize(spec.controlSize, "paddingX", use)
 								+ (carve.left or 0)
 								+ (carve.right or 0)
@@ -993,7 +996,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						return Host.UISizeConstraint "TargetFloor" {
 							MinSize = function(use: ComposeTypes.Use): Vector2
 								local minimum = floor(use)
-								return V2.new(minimum, minimum)
+								return V2.new(targetWidth(minimum, use), minimum)
 							end,
 						}
 					end),

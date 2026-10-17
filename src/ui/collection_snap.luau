@@ -3,6 +3,7 @@ local reducedMotion = require("./motion").reduced
 local settling = require("./settle")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
+local contacts = require("./input_contacts")
 type SnapOptions = { direction: ComposeTypes.OrderedCollectionDirection?, reducedMotion: Types.Value<boolean>? }
 return function<K>(
 	ctx: Types.Context,
@@ -15,7 +16,7 @@ return function<K>(
 	frameworkWrite: () -> boolean,
 	enabled: (() -> boolean)?
 ): ()
-	local Compose, runtime, E = ctx.Compose, ctx.runtime, ctx.types.Enum
+	local Compose, runtime = ctx.Compose, ctx.runtime
 	local frames = assert(runtime.host.frames)
 	local clock = frames.now
 	local idle, target = 0, 0
@@ -149,33 +150,21 @@ return function<K>(
 			waitForRest()
 		end
 	end))
-	local function begin(input: InputObject): ()
-		if input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1 then
-			cancel()
-			held, gestureStart, previous, previousTime, velocity =
-				true, viewport:peek().offset, viewport:peek().offset, clock(), 0
-		end
+	local function begin(): ()
+		cancel()
+		held, gestureStart, previous, previousTime, velocity =
+			true, viewport:peek().offset, viewport:peek().offset, clock(), 0
 	end
-	local function finish(input: InputObject): ()
-		if
-			held
-			and (input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1)
-		then
+	local function finish(cancelled: boolean): ()
+		if held then
 			held = false
-			if input.UserInputState == E.UserInputState.Cancel then
+			if cancelled then
 				cancel()
 			else
 				waitForRest()
 			end
 		end
 	end
-	runtime.connect(root, "InputBegan", begin)
-	runtime.connect(ctx.config.userInputService or root, "InputEnded", finish)
-	if ctx.config.userInputService then
-		runtime.connect(ctx.config.userInputService, "WindowFocusReleased", function()
-			held = false
-			cancel()
-		end)
-	end
+	contacts(ctx, root, begin, finish)
 	Compose.cleanup(cancel)
 end

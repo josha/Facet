@@ -107,7 +107,7 @@ local neutral: ThemeTypes.ThemePackage = {
 		space = { xs = 4, s = 8, m = 16, l = 24, xl = 40, tight = 6, gutter = 8 },
 		radii = { control = 8, panel = 12, pill = 999, tab = 999 },
 		strokes = { hairline = 1 },
-		targetSizes = { minimum = 44, thumb = 70, thumbLarge = 120 },
+		targetSizes = { minimum = 44, inline = 24, thumb = 70, thumbLarge = 120 },
 		controlSizes = {
 			compact = { height = 36, paddingX = 8, iconSize = 16 },
 			regular = { height = 44, paddingX = 12, iconSize = 20 },

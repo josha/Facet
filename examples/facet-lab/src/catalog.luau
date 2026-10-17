@@ -349,6 +349,18 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "hint line", props = properties { hint = "Saves your setup" } },
 			{ name = "thumb target (touch)", props = properties { label = "DRIFT", target = "thumb" } },
 			{
+				name = "inline target (touch)",
+				props = function(c: Context): Properties
+					return merged(
+						merged(
+							fixed(24, 44),
+							{ label = "", target = "inline", controlSize = "xsmall", name = "Page one" }
+						),
+						nativeGlyph(c)
+					)
+				end,
+			},
+			{
 				name = "subtitle in a fixed 117 width (wraps)",
 				props = merged(fixed(117), { label = "Boost Board", subtitle = "HELP · 2 energy", icon = "settings" }),
 			},
@@ -3084,6 +3096,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "no summary", props = properties { summary = false } },
 			{ name = "no controls", props = properties { controls = false } },
 			{ name = "no indicators", props = properties { indicators = false } },
+			{
+				name = "overlay indicators",
+				props = properties { indicatorPlacement = "overlay", summary = false, controls = false },
+			},
 		},
 	},
 	Pagination = {
