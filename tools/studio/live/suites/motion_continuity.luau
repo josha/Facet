@@ -439,6 +439,23 @@ do
 						if finalPanel then
 							local faults, sampled = clipping.inspect(finalPanel)
 							t.check("settled panel has visible text", sampled > 0, sampled)
+							if sampled == 0 then
+								local hidden = {}
+								local at: Instance? = finalPanel
+								while at do
+									if at:IsA("GuiObject") then
+										table.insert(hidden, {
+											path = at:GetFullName(),
+											visible = at.Visible,
+											size = tostring(at.AbsoluteSize),
+											position = tostring(at.AbsolutePosition),
+											transparency = if at:IsA("CanvasGroup") then at.GroupTransparency else nil,
+										})
+									end
+									at = at.Parent
+								end
+								t.note(`{kind}/{motion}/{shape.X}/{theme.name}/{textSize} hidden panel`, hidden)
+							end
 							t.check(`{kind}/{motion}/{shape.X}/{textSize} text is not clipped`, #faults == 0, faults)
 							if
 								kind == "Help"
