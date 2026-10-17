@@ -13,6 +13,7 @@ local only: string? = nil
 local tag = "launched"
 local deadline = 600
 local placeOnly = false
+local noProgress = false
 local interactive = false
 local casesFromTree = false
 local studio: string? = nil
@@ -43,6 +44,8 @@ while index <= #process.args do
 		studio = process.args[index]
 	elseif argument == "--place" then
 		placeOnly = true
+	elseif argument == "--no-progress" then
+		noProgress = true
 	elseif argument == "--cases-from-tree" then
 		casesFromTree = true
 	elseif argument == "--interactive" then
@@ -57,7 +60,7 @@ while index <= #process.args do
 end
 if #suites == 0 and not placeOnly then
 	print(
-		"usage: lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME] [--deadline SECONDS] [--studio ID] [--device NAME] [--interactive] [--cases-from-tree] [--shared NAME=JSON]"
+		"usage: lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME] [--deadline SECONDS] [--studio ID] [--device NAME] [--interactive] [--cases-from-tree] [--shared NAME=JSON] [--no-progress]"
 	)
 	print("       lute run tools/lute/studio_live.luau --place")
 	process.exit(2)
@@ -172,12 +175,13 @@ for _, suite in suites do
 		"for _, case in report.results do if case.origin and case.origin.environment then case.origin.environment.caseSource = report.environment.caseSource end end",
 		"return game:GetService('HttpService'):JSONEncode(channel.envelope(runId, report))",
 	}, "\n")
+	local progressFile = if noProgress then nil else `artifacts/studio-live/{suite}-{tag}.progress.jsonl`
 	local outcome = if studio
 		then Lute.studio.run({
 			code = code,
 			context = "Client",
 			deadlineSeconds = deadline,
-			progressFile = `artifacts/studio-live/{suite}-{tag}.progress.jsonl`,
+			progressFile = progressFile,
 			attach = {
 				studioId = studio,
 				runSeconds = deadline,
@@ -192,7 +196,7 @@ for _, suite in suites do
 			worker = "tools/vendor/verify/tools/studio-worker.luau",
 			context = "Client",
 			deadlineSeconds = deadline,
-			progressFile = `artifacts/studio-live/{suite}-{tag}.progress.jsonl`,
+			progressFile = progressFile,
 		})
 	local returned = outcome.report
 	if outcome.status ~= "returned" or returned == nil then
