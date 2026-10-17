@@ -7,6 +7,10 @@ content factories. It supplies page navigation, indicators, and previous and
 next actions. Use it for a sequential set of peer pages. TabView is for named
 destinations. NavigationStack is for a drill-down path.
 
+A retained PageView restores its selected page without animation when its
+ancestors become available again. Selection changes while hidden wait until
+the page is available. Returning to a page does not reset its selection.
+
 The indicators are a row of dots, one button per page, named by the page id.
 The current page's dot is painted in the accent colour. Each dot's accessible
 name is `Page n of m`. `indicators = false` hides them.
