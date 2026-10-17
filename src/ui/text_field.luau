@@ -4,6 +4,7 @@ local reducedMotion = require("./motion").reduced
 local arithmetic = require("./arithmetic")
 local fieldChrome = require("./field_chrome")
 local textPress = require("./text_press")
+local keyboardInset = require("./keyboard_inset")
 local measuredScroll = require("./measured_scroll")
 local InputTypes = require("./input_types")
 local Shared = require("./types")
@@ -234,6 +235,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 		local writing, disposed, snapshot = false, false, read(spec.value)
 		local scrubbing: Scrub? = nil
 		local node: TextBox
+		local fieldOwner = assert(Compose.currentOwner())
 		local function updateValue(value: string): ()
 			if read(spec.value) == value then
 				return
@@ -549,6 +551,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			end
 		end
 		nativeProps.FocusLost = function(enterPressed, input)
+			keyboardInset.capture(ctx, ctx.config.userInputService, node, input, fieldOwner)
 			if scrubbing ~= nil then
 				editing:set(false)
 			elseif input and (input.KeyCode == E.KeyCode.Escape or input.KeyCode == E.KeyCode.ButtonB) then
@@ -1128,6 +1131,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			}))
 		end
 		Compose.cleanup(function()
+			keyboardInset.release(ctx, node)
 			endScrub(true)
 			disposed = true
 		end)

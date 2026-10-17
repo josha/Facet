@@ -755,6 +755,77 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keyboard dismissal keeps the native pointer target still through release or cancellation", {
+			id = "native_sheet_parts::native Sheet: parts::keyboard dismissal keeps the native pointer target still through release or cancellation",
+			run = function()
+				for _, kind in { "Touch", "MouseButton1" } do
+					for _, ending in { "End", "Cancel", "Destroy" } do
+						local w = mount({
+							content = built(function(UI: FacetControls)
+								local function Composer(): Instance
+									return UI.TextInput "Message" {
+										value = Compose.cell("Draft"),
+										trailing = UI.Button "Send" { label = "Send", onActivate = noop },
+									}
+								end
+								return Composer
+							end),
+						}, { detent = "large", motionLevel = "none" })
+						local panel, field = w.find("SheetPanel"), w.find("Field")
+						w.input.OnScreenKeyboardSize = Vector2.new(800, 250)
+						w.input.OnScreenKeyboardVisible = true
+						local connections = w.engine.census().connections
+						local press = w.engine.new("InputObject")
+						press.UserInputType = w.engine.types.Enum.UserInputType[kind]
+						press.UserInputState = w.engine.types.Enum.UserInputState.Begin
+						field.FocusLost:Fire(false, press)
+						w.input.OnScreenKeyboardSize = Vector2.new(0, 0)
+						Verify.expect(panel.Position.Y.Offset):toBe(-250)
+						w.input.OnScreenKeyboardVisible = false
+						Verify.expect(panel.Position.Y.Offset):toBe(-250)
+						if ending == "Destroy" then
+							w.stop()
+							press.UserInputState = w.engine.types.Enum.UserInputState.End
+							w.advance(1 / 60, 2)
+						else
+							press.UserInputState = w.engine.types.Enum.UserInputState[ending]
+							Verify.expect(panel.Position.Y.Offset):toBe(-250)
+							w.advance(1 / 60, 2)
+							Verify.expect(panel.Position.Y.Offset):toBe(0)
+							Verify.expect(w.engine.census().connections):toBe(connections)
+							w.stop()
+						end
+						Verify.expect(w.engine.census().connections):toBe(0)
+					end
+				end
+			end,
+		})
+
+		verifyHarness:case("keyboard submission releases its clearance without waiting for a pointer", {
+			id = "native_sheet_parts::native Sheet: parts::keyboard submission releases its clearance without waiting for a pointer",
+			run = function()
+				local w = mount({
+					content = built(function(UI: FacetControls)
+						local function Composer(): Instance
+							return UI.TextInput "Message" { value = Compose.cell("Draft") }
+						end
+						return Composer
+					end),
+				}, { detent = "large", motionLevel = "none" })
+				w.input.OnScreenKeyboardSize = Vector2.new(800, 250)
+				w.input.OnScreenKeyboardVisible = true
+				local press = w.engine.new("InputObject")
+				press.UserInputType = w.engine.types.Enum.UserInputType.Keyboard
+				press.KeyCode = w.engine.types.Enum.KeyCode.Return
+				press.UserInputState = w.engine.types.Enum.UserInputState.End
+				w.find("Message").FocusLost:Fire(true, press)
+				w.input.OnScreenKeyboardSize = Vector2.new(0, 0)
+				w.input.OnScreenKeyboardVisible = false
+				Verify.expect(w.find("SheetPanel").Position.Y.Offset):toBe(0)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("refuses malformed header, hero, actions and inset before mounting", {
 			id = "native_sheet_parts::native Sheet: parts::refuses malformed header, hero, actions and inset before mounting",
 			run = function()
