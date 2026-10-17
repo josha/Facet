@@ -62,6 +62,24 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native nested scroll handoff", function()
+		verifyHarness:case("overlapping native input leases retain each scroller's original state", function()
+			local w = world()
+			w.middle.Active = false
+			w.root.ScrollingEnabled = false
+			local first = scrollLock.holdInputAncestors(w.inner)
+			local second = scrollLock.holdInputAncestors(w.inner)
+			Verify.expect(w.root.Active):toBe(false)
+			Verify.expect(w.middle.ScrollingEnabled):toBe(false)
+			first()
+			Verify.expect(w.root.Active):toBe(false)
+			Verify.expect(w.middle.ScrollingEnabled):toBe(false)
+			second()
+			Verify.expect(w.root.Active):toBe(true)
+			Verify.expect(w.root.ScrollingEnabled):toBe(false)
+			Verify.expect(w.middle.Active):toBe(false)
+			Verify.expect(w.middle.ScrollingEnabled):toBe(true)
+			w.stop()
+		end)
 		verifyHarness:case("keeps a moving inner pane, then yields at either edge until touch release", {
 			id = "native_scroll_chain::native nested scroll handoff::keeps a moving inner pane, then yields at either edge until touch release",
 			run = function()

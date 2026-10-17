@@ -6,6 +6,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local reducedMotion = require("./motion").reduced
 local NavigationProps = require("./navigation_props")
 local pageLayers = require("./nav_page_layers")
+local pageTouch = require("./nav_page_touch")
 
 local FLING_SPEED = 1200
 
@@ -81,15 +82,15 @@ return function(
 		local function pointer(input: InputObject): boolean
 			return input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1
 		end
-		runtime.connect(pages, "InputBegan", function(input: InputObject)
+		local function begin(input: InputObject)
 			if pointer(input) then
 				pressed = { x = input.Position.X, at = os.clock() }
 				if paused then
 					paused:set(true)
 				end
 			end
-		end)
-		runtime.connect(pages, "InputEnded", function(input: InputObject)
+		end
+		local function finish(input: InputObject)
 			local start = pressed
 			pressed = nil
 			if paused then
@@ -99,7 +100,10 @@ return function(
 				local seconds = math.max(os.clock() - start.at, 1 / 120)
 				fling:set(math.abs(input.Position.X - start.x) / seconds > FLING_SPEED)
 			end
-		end)
+		end
+		runtime.connect(pages, "InputBegan", begin)
+		runtime.connect(pages, "InputEnded", finish)
+		pageTouch(ctx, pages, begin, finish)
 		local changing = false
 		local parent = ctx.observe.Parent(pages)
 		local available = surfaces.available(pages)

@@ -11,6 +11,11 @@ destinations. NavigationStack is for a drill-down path.
 so a PageView can sit inside a vertically scrolling page. This option can be
 bound. Touch swipes, indicators and keyboard navigation remain available.
 
+A horizontal touch inside a page temporarily releases input from enclosing
+scrollers so the native page layout can handle the swipe. Vertical contacts
+stay with the list. The original scroller state returns after release, cancel,
+focus loss or owner cleanup. Interactive card content uses the same policy.
+
 `autoAdvanceSeconds = 20` advances to the next page every20 seconds and wraps
 after the last page. Give a readable that returns nil to pause an inactive
 carousel. The interval restarts after a manual selection or a pause. Hovering,
