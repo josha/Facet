@@ -7,12 +7,20 @@ type PageViewSpec = typeof(require("@repo/tools/typecheck/aliases").PageViewSpec
 type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 return function(c: Context): PageViewSpec
 	local pages: { Tab } = {}
+	local chosen = c.cell("chosen-course", "")
 	for _, name in { "Coast", "Canyon", "City" } do
 		table.insert(pages, {
 			id = name,
 			label = name,
 			content = function(): Instance
-				return c.UI.Text({ text = `{name} course` })
+				return c.UI.Button {
+					label = function(use): string
+						return `{name} course{if use(chosen) == name then " · selected" else ""}`
+					end,
+					onActivate = function()
+						chosen:set(name)
+					end,
+				}
 			end,
 		})
 	end
