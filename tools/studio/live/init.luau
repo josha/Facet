@@ -454,6 +454,15 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				end,
 			}
 			screen.configure(context)
+			local viewportSize = context.environment.viewportSize
+			context.environment.viewportSize = function(use)
+				local chosen = viewportSize(use)
+				if chosen ~= nil then
+					return chosen
+				end
+				local size = use(env.viewport)
+				return Vector2.new(size.width, size.height)
+			end
 			context.motionPreference:set("none")
 			if config.preferredTextSize then
 				context.textPreview:set(config.preferredTextSize)
