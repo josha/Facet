@@ -194,7 +194,7 @@ return function(
 			else spec.content :: Instance
 		local scrollViewport: Frame? = nil
 		local bodyContent = content
-		if content:IsA("ScrollingFrame") and content.Size.Y.Scale > 0 then
+		if content:IsA("GuiObject") and content.Size.Y.Scale > 0 then
 			scrollViewport = Host.Frame "SheetScrollViewport" {
 				BackgroundTransparency = 1,
 				Size = D2.new(1, 0, 0, 0),

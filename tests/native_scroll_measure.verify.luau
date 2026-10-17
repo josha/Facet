@@ -89,6 +89,29 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native overlay bodies: long wrapped text measures outside the scroll window", function()
+		verifyHarness:case("Sheet keeps a fill-height Frame inside its body during keyboard resize", {
+			id = "native_scroll_measure::native overlay bodies: long wrapped text measures outside the scroll window::Sheet keeps a fill-height Frame inside its body during keyboard resize",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet "Conversation" {
+						isPresented = Compose.cell(true),
+						detent = "large",
+						content = function(): Instance
+							return Host.Frame "Page" { Size = UDim2.fromScale(1, 1) }
+						end,
+					}
+				end)
+				w.advance(1 / 60, 4)
+				local body, page = w.find("SheetContent"), w.find("Page")
+				body.AbsoluteWindowSize = Vector2.new(400, 500)
+				Verify.expect(page.Size.Y.Scale):toBe(1)
+				Verify.expect(page.Parent.Size.Y.Offset):toBe(484)
+				body.AbsoluteWindowSize = Vector2.new(300, 250)
+				Verify.expect(page.Parent.Size.Y.Offset):toBe(234)
+				Verify.expect(page.AutomaticSize):toBe(Enum.AutomaticSize.None)
+				w.stop()
+			end,
+		})
 		verifyHarness:case("Sheet keeps a fill-height child scroll window inside its body", {
 			id = "native_scroll_measure::native overlay bodies: long wrapped text measures outside the scroll window::Sheet keeps a fill-height child scroll window inside its body",
 			run = function()

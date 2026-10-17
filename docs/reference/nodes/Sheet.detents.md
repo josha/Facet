@@ -16,4 +16,7 @@ The body uses a native vertical ScrollingFrame named `SheetContent`. Thus
 content taller than the selected detent stays reachable, and the sheet chrome
 stays fixed.
 
+A fill-height GuiObject receives the body viewport height. This includes a
+Frame that composes a fixed composer with its own scrolling message list.
+
 Layout options:
