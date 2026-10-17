@@ -46,6 +46,14 @@ local function acquire(ctx: Types.Context, root: GuiObject): (() -> (), () -> ()
 		end
 		return false
 	end
+	local function containsScope(node: Instance): boolean
+		for scope in excluded do
+			if scope:IsDescendantOf(node) then
+				return true
+			end
+		end
+		return false
+	end
 	local function restore(node: GuiObject)
 		if not held[node] then
 			return
@@ -69,6 +77,9 @@ local function acquire(ctx: Types.Context, root: GuiObject): (() -> (), () -> ()
 	end
 	local function hold(node: Instance)
 		if not node:IsA("GuiObject") then
+			return
+		end
+		if containsScope(node) then
 			return
 		end
 		if not (node:IsA("GuiButton") or node:IsA("TextBox") or node.Selectable) or held[node] then
@@ -146,7 +157,7 @@ local function acquire(ctx: Types.Context, root: GuiObject): (() -> (), () -> ()
 			end
 		end
 		for node in held do
-			if top == nil or inside(node) or node.Parent == nil then
+			if top == nil or inside(node) or containsScope(node) or node.Parent == nil then
 				restore(node)
 			end
 		end
