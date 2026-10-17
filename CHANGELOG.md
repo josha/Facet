@@ -7,6 +7,9 @@
   source hosts survive the transition. The consumer supplies the room and
   camera framing. VR entry is unavailable.
 
+- DateTimePicker keeps Done and the draft actions inside the calendar by
+  removing duplicate padding from its scroll container.
+
 - ColorPicker constructs each mode and value format on its first visit and
   retains it until the panel closes. Overlay bodies with multiple modes reserve
   six rows of colour cells and use native scrolling for overflow. Inline bodies
