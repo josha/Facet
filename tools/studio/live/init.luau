@@ -13,7 +13,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local storage = game:GetService("ReplicatedStorage")
 local TAP_SECONDS = 3 / 60
-local RELEASE_SECONDS = 8 / 60
 
 local Verify = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("core"))
 local VerifyRoblox: typeof(require("@repo/tools/vendor/verify/src/roblox")) = (require :: any)(
@@ -905,12 +904,8 @@ function live.press(names: { string }, frames: number?): string
 			task.wait(TAP_SECONDS)
 		end
 		virtual:SendKey(false, key, false)
-		if frames then
-			for _ = 1, frames do
-				RunService.RenderStepped:Wait()
-			end
-		else
-			task.wait(RELEASE_SECONDS)
+		for _ = 1, frames or 8 do
+			RunService.RenderStepped:Wait()
 		end
 		local selected = GuiService.SelectedObject
 		table.insert(selections, `{name}>{if selected then selected.Name else "nil"}`)
