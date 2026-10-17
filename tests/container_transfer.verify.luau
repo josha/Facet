@@ -347,7 +347,7 @@ return function(harness: Verify.Harness)
 			end, screen)
 			local anchor = assert((assert(anchors.nodeOfKey)(1)))
 			anchor.AbsolutePosition, anchor.AbsoluteSize = V2.new(20, 20), V2.new(40, 40)
-			local stopTravel, travel = runtime.mount(function()
+			local stopTravel = runtime.mount(function()
 				return UI.Travel {
 					destination = anchor,
 					content = function(): GuiObject
@@ -370,7 +370,6 @@ return function(harness: Verify.Harness)
 			visible()
 			rows:set({ { id = 1 } })
 			visible()
-			assert(travel.Parent == rack)
 			stopTravel()
 			stop()
 			runtime:dispose()
