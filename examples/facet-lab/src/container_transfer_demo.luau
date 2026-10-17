@@ -47,6 +47,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 	local noFlights: { Flight } = {}
 	local flights = C.cell(noFlights)
 	local slotControls: SlotControls = {}
+	local carriedFaces: { [string]: GuiObject } = {}
 	local boardNodes: { [number]: GuiObject } = {}
 	local rackNode: ScrollingFrame?
 	local issued: { [unknown]: Payload } = {}
@@ -176,6 +177,7 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 		drag = function(items: { Tile }, keys: { string }): DraggableSpec
 			return {
 				payload = issue({ collection = "rack", items = items, keys = keys }),
+				preview = if items[1] then carriedFaces[items[1].id] else nil,
 				touchPickup = options.touchPickup,
 				touchDragAxis = options.touchDragAxis,
 				returnTravel = true,
@@ -236,7 +238,8 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 			end,
 		},
 		render = function(current: FacetReadable<Tile>): GuiObject
-			return UI.Button {
+			local id = current:peek().id
+			local face = UI.Button {
 				label = function(use: Use)
 					return use(current).letter
 				end,
@@ -247,6 +250,13 @@ return function(UI: UI, Host: Host, C: Compose, types: Types, options: Options):
 					notice:set("Pressed rack " .. current:peek().letter)
 				end,
 			}
+			carriedFaces[id] = face
+			C.cleanup(function()
+				if carriedFaces[id] == face then
+					carriedFaces[id] = nil
+				end
+			end)
+			return face
 		end,
 	}
 	rackNode = rack
