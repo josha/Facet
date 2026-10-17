@@ -3120,19 +3120,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		alternatives = "Pagination for result pages.",
 		scenarios = { "page_view" },
 		snippet = 'UI.PageView { selection = page, pages = { { id = "a", label = "A", content = view } } }',
-		base = function(c: Context)
-			local pages = {}
-			for _, name in { "Coast", "Canyon", "City" } do
-				table.insert(pages, {
-					id = name,
-					label = name,
-					content = function(): Instance
-						return c.UI.Text({ text = `{name} course` })
-					end,
-				})
-			end
-			return { selection = c.cell("page", "Coast"), pages = pages, Size = UDim2.fromScale(1, 1) }
-		end,
+		base = require("./page_view_demo"),
 		axes = {},
 		states = {
 			{
