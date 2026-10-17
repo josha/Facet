@@ -5,6 +5,11 @@ Roblox engine. Read [the API reference](docs/reference/api.md) and
 [the architecture](docs/guide/02-architecture.md) before you change a public
 contract.
 
+For UI design, implementation, examples or review, use the
+[use-facet skill](skills/use-facet/SKILL.md). Read its required
+[game UI design guide](skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md)
+and the task chapters before choosing controls or layouts.
+
 ## Rules for code
 
 - Do not use the `any` type in `src` outside `src/vendor`. Use concrete types or narrow `unknown`. The `any` budgets for examples, tools, tests and bench can only decrease. Run `lute run tools/facet check type-policy` to check this rule.

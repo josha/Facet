@@ -176,7 +176,8 @@ local function plan(): Plan
 	result.writes["tools/facet/commands/init.luau"] = commandsInit(present)
 	result.writes["tools/facet/README.md"] = [[# Facet author tools
 
-Start with `lute run tools/facet docs` for the map. Open one task recipe,
+Start with `lute run tools/facet docs Design.guide` for the required design
+reading in the use-facet skill. Then open the map and matching task recipes,
 then a card or option node only for a missing detail. Do not reread a node.
 Use `lute run tools/facet project [directory]` to find application files.
 These commands need neither rg nor a Git checkout.
@@ -196,7 +197,7 @@ audit and screenshot paths. Use `--static` when Studio is unavailable.
 	tree(result, "tools/vendor/verify/src", "tools/vendor/verify/src")
 	result.copies["tools/vendor/verify/LICENSE"] = "tools/vendor/verify/LICENSE"
 	definitions(result)
-	result.copies[".agents/skills/use-facet/SKILL.md"] = "skills/use-facet/SKILL.md"
+	tree(result, "skills/use-facet", ".agents/skills/use-facet")
 	tree(result, "skills/compose", ".agents/skills/compose")
 	return result
 end
@@ -337,8 +338,20 @@ local function cases(): { Case.Case }
 					return true
 				end)
 				local again = write(out, plan(), false)
+				local missingReferences: { string } = {}
+				for _, relative in Files.walk("skills/use-facet/references") do
+					local source = Files.join("skills/use-facet/references", relative)
+					local target = Files.join(out, ".agents/skills/use-facet/references", relative)
+					if not Files.isFile(target) or Files.read(target) ~= Files.read(source) then
+						table.insert(missingReferences, relative)
+					end
+				end
 				Files.remove(out)
 				return Case.first(
+					Case.expect(
+						#missingReferences == 0,
+						"skill references missing or changed: " .. table.concat(missingReferences, ", ")
+					),
 					Case.expect(docs.ok, "docs failed in the kit: " .. docs.stderr .. docs.stdout),
 					Case.expect(probeOk, "the standalone kit cannot bundle its play probe: " .. tostring(probeProblem)),
 					Case.expect(
