@@ -456,6 +456,82 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a corner menu can leave an empty centre for its caller's toggle", {
+			id = "native_radial_controls::native radial interaction policies::a corner menu can leave an empty centre for its caller's toggle",
+			run = function()
+				local world = setup({
+					preset = "bottom-right",
+					launcher = false,
+					center = "empty",
+					centerPassThrough = true,
+					items = compass(function() end),
+				})
+				Verify.expect(world.find("Center").Visible):toBe(false)
+				Verify.expect(world.find("CenterHit").Visible):toBe(false)
+				Verify.expect(world.find("Modal").Active):toBe(false)
+				Verify.expect(world.find("DismissTarget").Visible):toBe(false)
+				Verify.expect(world.find("DismissTop").Visible):toBe(true)
+				world.find("DismissTop").Activated:Fire()
+				Verify.expect(world.opened:peek()):toBe(false)
+				world.stop()
+			end,
+		})
+		verifyHarness:case("an empty pass-through centre preserves only its anchor's input ownership", {
+			id = "native_radial_controls::native radial interaction policies::an empty pass-through centre preserves only its anchor's input ownership",
+			run = function()
+				local engine = engines.new()
+				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+				local UI = controls(Compose, runtime, { types = engine.types, motionLevel = "none" })
+				local opened = Compose.cell(false)
+				local activations = 0
+				local stop, screen = runtime.mount(function()
+					local anchor = UI.Button "Toggle" {
+						label = "Toggle actions",
+						onActivate = function()
+							activations += 1
+							opened:set(not opened:peek())
+						end,
+					}
+					local options: RadialProps.RadialMenuSpec<string> = {
+						anchor = anchor,
+						isPresented = opened,
+						launcher = false,
+						preset = "bottom-right",
+						center = "empty",
+						centerPassThrough = true,
+						items = compass(function() end),
+					}
+					return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor) {
+						runtime.constructors.ScrollingFrame "AnchorContainer" {
+							Selectable = true,
+							anchor,
+						},
+						UI.Button "Unrelated" { label = "Unrelated" },
+						UI.RadialMenu(options),
+					}
+				end, engine.new("Folder"))
+				local screenGui = (screen :: unknown) :: ScreenGui
+				local anchor = screenGui:FindFirstChild("Toggle", true)
+				local unrelated = screenGui:FindFirstChild("Unrelated", true)
+				assert(anchor and anchor:IsA("TextButton") and unrelated and unrelated:IsA("TextButton"))
+				local container = anchor.Parent
+				assert(container and container:IsA("ScrollingFrame"))
+				local activated = (anchor.Activated :: unknown) :: { Fire: (unknown) -> () }
+				for _ = 1, 3 do
+					activated:Fire()
+					Verify.expect(opened:peek()):toBe(true)
+					Verify.expect(anchor.Interactable):toBe(true)
+					Verify.expect(container.Interactable):toBe(true)
+					Verify.expect(unrelated.Interactable):toBe(false)
+					activated:Fire()
+					Verify.expect(opened:peek()):toBe(false)
+					Verify.expect(unrelated.Interactable):toBe(true)
+				end
+				Verify.expect(activations):toBe(6)
+				stop()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("a corner menu keeps its launcher's room while the launcher hides under the open ring", {
 			id = "native_radial_controls::native radial interaction policies::a corner menu keeps its launcher's room while the launcher hides under the open ring",
 			run = function()

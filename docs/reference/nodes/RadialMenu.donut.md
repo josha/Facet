@@ -13,12 +13,19 @@ RadialMenu.donut option values and behavior.
   root, and `close` shows Close there. With `empty` or `content` the centre
   holds no control, except on a compass ring with no free slot: then Back/Close
   sits in the centre.
-- A corner preset never puts it on the arc or uses `center`: the control on
+- A corner preset never puts it on the arc: the default control on
   the corner, over the launcher, is Close at the root and Back in a submenu.
   It grows out of the launcher, which it hides while the ring shows: it opens
   at the launcher's size with the launcher's glyph, and shrinks to its own size as that glyph crossfades to
   Close or Back. As the ring closes it grows back into the launcher the same
   way.
+- A corner preset with `center = "empty"` and `centerPassThrough = true`
+  leaves the centre free for the caller's toggle. It hides both the small
+  centre button and its extra hit target. The caller supplies a named,
+  accessible close action. Outside taps and Cancel still close the menu.
+  When `anchor` is a GuiObject, that anchor remains interactive in the centre
+  while the rest of the page stays blocked. The list fallback keeps its
+  Back/Close control and blocks the anchor.
 - The list fallback has one round Back/Close control at the top right, above
   the list, for every preset and `center`.
 
