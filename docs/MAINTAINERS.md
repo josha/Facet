@@ -153,7 +153,8 @@ stylesheet rules.
 
 ## Gate producers
 
-The gate has 40 producers: 15 fast, 24 full and 1 release. `tool-specs`
+The gate declares each producer and tier in
+[`tools/facet/producers.json`](../tools/facet/producers.json). `tool-specs`
 includes the planted-fault proofs for types, public surface and memory.
 `vendor` checks both dependency pins. `standalone-builds` builds the example
 and reference places. `theme-artifacts` builds and probes themes.

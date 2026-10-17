@@ -1,8 +1,8 @@
 # Verification scope
 
-The current suite is the evidence. A passing run proves only the selected cases. A passing run covers the cases and producers
-that the runner selected. A focused run is not full evidence. Do not infer a
-performance improvement from a shorter verification time.
+The current suite is the evidence. A passing run proves only the cases and
+producers that the runner selected. A focused run is not full evidence. Do not
+infer a performance improvement from a shorter verification time.
 
 ## Headless evidence
 

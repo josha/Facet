@@ -1271,7 +1271,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		if required == "input-keyboard" then
 			live.press({ "LeftShift" })
 		end
-		local began, problem = pcall(live.begin, suite, case.id)
+		local began, problem = pcall(live.begin, suite, case.id, options)
 		if not began then
 			table.insert(
 				reports,

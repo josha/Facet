@@ -139,8 +139,8 @@ Run `lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME]
 [--deadline SECONDS]` from the repository root. The command does these steps for each
 suite:
 
-1. It builds `build/Facet-Live.rbxlx` from the gallery, the live modules and
-   the vendored Verify source.
+1. It builds a separate `build/Facet-Live-<process-id>.rbxlx` for each runner
+   process from the gallery, live modules and vendored Verify source.
 2. Verify starts a new Studio process with a copy of that place and starts a
    playtest. The command does not use a Studio that is open.
 3. The suite runs in the Client data model. Each check is one Verify step.

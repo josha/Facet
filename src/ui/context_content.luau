@@ -135,11 +135,18 @@ local function attachLayout(
 		local box, glyph, mode = use(size), use(bounds), label.AutomaticSize
 		local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
 		local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
+		local measured = measuredFloor()
+		local stale = measured
+			and freeX
+			and glyph.X > 0
+			and glyph.Y > 0
+			and glyph.X <= box.X
+			and glyph.Y <= box.Y
+			and not label.TextFits
 		if
-			not measuredFloor()
-			and box.X > 0
+			box.X > 0
 			and box.Y > 0
-			and ((freeX and glyph.X > box.X) or (freeY and glyph.Y > box.Y))
+			and (stale or (not measured and ((freeX and glyph.X > box.X) or (freeY and glyph.Y > box.Y))))
 		then
 			deferReflow()
 		end

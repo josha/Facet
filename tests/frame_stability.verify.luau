@@ -13,6 +13,41 @@ local function inspector(engine: engineLib.Engine): typeof(clipping)
 end
 
 return function(harness: Verify.Harness)
+	harness:case(
+		"native text editing permits a scrolling draft and retains viewport and caption clipping checks",
+		function(t)
+			local engine = engineLib.new()
+			local clipping = inspector(engine)
+			local root = engine.new("Frame")
+			root.AbsoluteSize = engine.types.Vector2.new(100, 100)
+			root.ClipsDescendants = true
+			local field = engine.new("TextBox")
+			field.Parent = root
+			field.Text = "A draft longer than its editing viewport"
+			field.AbsoluteSize = engine.types.Vector2.new(80, 20)
+			field.TextBounds = engine.types.Vector2.new(200, 20)
+			field.TextFits = false
+			field.TextTruncate = engine.types.Enum.TextTruncate.None
+			t:expect(#clipping.inspect(root)):toBe(0)
+			field.AbsolutePosition = engine.types.Vector2.new(40, 0)
+			local faults = clipping.inspect(root)
+			t:expect(#faults):toBe(1)
+			t:expect(faults[1].ancestor):toBe(root:GetFullName())
+			field.AbsolutePosition = engine.types.Vector2.zero
+			local label = engine.new("TextLabel")
+			label.Parent = root
+			label.Text = field.Text
+			label.AbsoluteSize = field.AbsoluteSize
+			label.TextBounds = field.TextBounds
+			label.TextFits = false
+			label.TextTruncate = engine.types.Enum.TextTruncate.None
+			faults = clipping.inspect(root)
+			t:expect(#faults):toBe(1)
+			t:expect(faults[1].element):toBe(label:GetFullName())
+			t:expect(faults[1].reason):toBe("TextFits is false")
+			root:Destroy()
+		end
+	)
 	harness:case("deliberate ellipsis permits text overflow but retains ancestor clipping checks", function(t)
 		local engine = engineLib.new()
 		local clipping = inspector(engine)
