@@ -1086,6 +1086,8 @@ export type PageViewSpec = {
 	ref: typeof(frame.ref),
 	selection: typeof(pageView.selection),
 	pages: typeof(pageView.pages),
+	autoAdvanceSeconds: typeof(pageView.autoAdvanceSeconds),
+	scrollWheel: typeof(pageView.scrollWheel),
 	indicators: typeof(pageView.indicators),
 	summary: typeof(pageView.summary),
 	controls: typeof(pageView.controls),

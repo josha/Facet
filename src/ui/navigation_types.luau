@@ -391,6 +391,8 @@ export type NavigationStackOptions<P = unknown> = {
 export type PageViewOptions = {
 	selection: ComposeTypes.Cell<string>,
 	pages: { Tab },
+	autoAdvanceSeconds: Value<number?>?,
+	scrollWheel: Value<boolean>?,
 	indicators: boolean?,
 	summary: boolean?,
 	controls: boolean?,

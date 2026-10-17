@@ -7,6 +7,16 @@ content factories. It supplies page navigation, indicators, and previous and
 next actions. Use it for a sequential set of peer pages. TabView is for named
 destinations. NavigationStack is for a drill-down path.
 
+`scrollWheel = true` opts into native mouse-wheel paging. It is off by default
+so a PageView can sit inside a vertically scrolling page. This option can be
+bound. Touch swipes, indicators and keyboard navigation remain available.
+
+`autoAdvanceSeconds = 20` advances to the next page every20 seconds and wraps
+after the last page. Give a readable that returns nil to pause an inactive
+carousel. The interval restarts after a manual selection or a pause. Hovering,
+holding a contact, or focusing a control inside a page pauses automatic advance.
+Compose owns the scheduled work and cancels it when PageView ends. Omit the
+option for manual navigation only. The interval must be finite and positive.
 A retained PageView restores its selected page without animation when its
 ancestors become available again. Selection changes while hidden wait until
 the page is available. Returning to a page does not reset its selection.
