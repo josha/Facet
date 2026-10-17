@@ -95,6 +95,67 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
+		verifyHarness:case("nested PageView lends ancestor input only to a horizontal touch and restores it", function()
+			local world = setup(function(UI: FacetControls)
+				local function card(): Instance
+					return UI.Button "InteractiveCard" { label = "Course" }
+				end
+				return UI.ScrollView "ParentScroll" {
+					UI.PageView {
+						selection = Compose.cell("one"),
+						pages = { { id = "one", content = card }, { id = "two", content = card } },
+					},
+				}
+			end)
+			local parent = find(world.screen, "ParentScroll")
+			local card = find(world.screen, "InteractiveCard")
+			local E, V3 = world.engine.types.Enum, world.engine.types.Vector3
+			local pointer = world.engine.new("InputObject")
+			pointer.UserInputType, pointer.UserInputState = E.UserInputType.Touch, E.UserInputState.Begin
+			pointer.Position = V3.new(200, 50, 0)
+			card.InputBegan:Fire(pointer)
+			pointer.Position = V3.new(198, 80, 0)
+			world.input.InputChanged:Fire(pointer)
+			Verify.expect(parent.Active and parent.ScrollingEnabled):toBe(true)
+			world.input.InputEnded:Fire(pointer)
+			world.engine.heartbeat:Fire(1 / 60)
+			pointer = world.engine.new("InputObject")
+			pointer.UserInputType, pointer.UserInputState = E.UserInputType.Touch, E.UserInputState.Begin
+			pointer.Position = V3.new(200, 50, 0)
+			card.InputBegan:Fire(pointer)
+			pointer.Position = V3.new(170, 52, 0)
+			world.input.InputChanged:Fire(pointer)
+			Verify.expect(parent.Active):toBe(false)
+			Verify.expect(parent.ScrollingEnabled):toBe(false)
+			world.input.InputEnded:Fire(pointer)
+			world.engine.heartbeat:Fire(1 / 60)
+			Verify.expect(parent.Active and parent.ScrollingEnabled):toBe(true)
+			world.stop()
+		end)
+		verifyHarness:case("ending a PageView owner releases a borrowed native scroller", function()
+			local shown = Compose.cell(true)
+			local world = setup(function(UI: FacetControls)
+				local function pager(): Instance
+					local function card(): Instance
+						return UI.Button "BorrowingCard" { label = "Course" }
+					end
+					return UI.PageView { selection = Compose.cell("one"), pages = { { id = "one", content = card } } }
+				end
+				return UI.ScrollView "ParentScroll" { Compose.show(shown, pager) }
+			end)
+			local parent = find(world.screen, "ParentScroll")
+			local pointer = world.engine.new("InputObject")
+			pointer.UserInputType = world.engine.types.Enum.UserInputType.Touch
+			pointer.UserInputState = world.engine.types.Enum.UserInputState.Begin
+			pointer.Position = world.engine.types.Vector3.new(200, 50, 0)
+			find(world.screen, "BorrowingCard").InputBegan:Fire(pointer)
+			pointer.Position = world.engine.types.Vector3.new(160, 50, 0)
+			world.input.InputChanged:Fire(pointer)
+			Verify.expect(parent.Active):toBe(false)
+			shown:set(false)
+			Verify.expect(parent.Active and parent.ScrollingEnabled):toBe(true)
+			world.stop()
+		end)
 		verifyHarness:case("PageView owns automatic advance and restarts after input and pauses", {
 			id = "native_navigation::native navigation controls::PageView owns automatic advance and restarts after input and pauses",
 			run = function()
