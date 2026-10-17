@@ -95,6 +95,58 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
+		verifyHarness:case(
+			"PageView restores a retained selection without animation when its ancestor returns",
+			function()
+				local shown = Compose.cell(true)
+				local chosen = Compose.cell("two")
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					local function page(): Instance
+						return UI.Text { text = "Card" }
+					end
+					return Host.Frame "Retained" {
+						Visible = shown,
+						UI.PageView {
+							selection = chosen,
+							pages = { { id = "one", content = page }, { id = "two", content = page } },
+						},
+					}
+				end)
+				local pages = find(world.screen, "Pages")
+				pages.AbsoluteSize = world.engine.types.Vector2.new(320, 160)
+				local layout = find(world.screen, "PagesLayout")
+				local jump = layout.JumpTo
+				local jumps: { boolean } = {}
+				layout.JumpTo = function(self: UIPageLayout, page: Instance)
+					table.insert(jumps, self.Animated)
+					jump(self, page)
+				end
+				shown:set(false)
+				chosen:set("one")
+				Verify.expect(#jumps):toBe(0)
+				shown:set(true)
+				Verify.expect(#jumps > 0):toBe(true)
+				Verify.expect(jumps[#jumps]):toBe(false)
+				Verify.expect(layout.CurrentPage.Name):toBe("one")
+				Verify.expect(layout.Animated):toBe(true)
+				world.screen.Enabled = false
+				local previous = #jumps
+				chosen:set("two")
+				Verify.expect(#jumps):toBe(previous)
+				world.screen.Enabled = true
+				Verify.expect(#jumps > previous):toBe(true)
+				Verify.expect(jumps[#jumps]):toBe(false)
+				Verify.expect(layout.CurrentPage.Name):toBe("two")
+				local connections = world.engine.census().connections
+				for _ = 1, 8 do
+					shown:set(false)
+					shown:set(true)
+				end
+				Verify.expect(world.engine.census().connections):toBe(connections)
+				world.stop()
+				Verify.expect(world.engine.census().connections):toBe(0)
+			end
+		)
 		verifyHarness:case("Button owns its native leading glyph through caption and availability changes", {
 			id = "native_navigation::native navigation controls::Button owns its native leading glyph through caption and availability changes",
 			run = function()

@@ -92,10 +92,11 @@ return function(
 		end)
 		local changing = false
 		local parent = ctx.observe.Parent(pages)
+		local available = surfaces.available(pages)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local id = use(spec.selection)
 			assert(byId[id], "PageView.selection must name a declared page")
-			if use(parent) then
+			if use(parent) and use(available) then
 				changing = true
 				layout:JumpTo(pageNodes[id])
 				changing = false
@@ -104,7 +105,7 @@ return function(
 		local size = ctx.observe.AbsoluteSize(pages)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local box = use(size)
-			if box.X <= 0 or not use(parent) then
+			if box.X <= 0 or not use(parent) or not use(available) then
 				return
 			end
 			local animated = layout.Animated
