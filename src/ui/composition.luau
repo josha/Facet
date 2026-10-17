@@ -368,6 +368,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local watched: RBXScriptConnection? = nil
 			local function locate()
 				local host = root:FindFirstAncestorWhichIsA("ScreenGui")
+				if not host then
+					local surface = root:FindFirstAncestorWhichIsA("SurfaceGui")
+					local source = if surface then ctx.overlayHosts[surface] else nil
+					if source and source:IsA("ScreenGui") then
+						host = source
+					end
+				end
 				if host ~= screen:peek() then
 					if watched then
 						watched:Disconnect()
