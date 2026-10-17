@@ -39,6 +39,20 @@ Use `project [directory]` for file discovery. Read one matching starter in
 - Use named constructors: `UI.Button "Save" { label = "Save" }`. Use strict
   Luau without `any` casts. Control options use lower camel case; native
   properties keep their Roblox names.
+- Build each element from a Facet control when one shows that kind of
+  information. A meter, gauge, charge or row of pips is a `ProgressView`
+  (`segments` for pips, `trail` for a loss). Standings and results are a
+  `Table`. A clock is a `Timer`. A short status mark is a `Badge` or a
+  `StatusIndicator`. A brief acknowledgement is a `Toast`. Text is `Text` or
+  `Label` with a `textRole`. Do not draw these with native Frames, list
+  layouts and fixed sizes: a copy does not get the theme, scaled metrics,
+  reduced motion, accessible names or compact forms. Use `Host` objects only
+  for content that no control shows, such as a minimap, a 3D view or art.
+- When a control does not have an option that the game needs, such as a
+  color for each segment, add the option to Facet or a rule to the theme and
+  report it. Do not replace the control with native objects. Before you
+  extend a hand-built element, find its control in the control index and
+  replace the element.
 - Use `Facet.Compose`: `cell` for local state, `formula` for derived values,
   `show` for branches, `keyed` for children and `cleanup` to release resources.
   Read cells with `use(cell)` in property functions and `cell:peek()` in
@@ -82,8 +96,16 @@ Use `project [directory]` for file discovery. Read one matching starter in
   `thumbTarget` or `Themes.metrics` for theme options.
 - Use native InputAction and InputContext for game commands. Controls own
   their input and selection. Do not bind Escape or the gamepad Start button.
-- Keep `AutoLocalize` on for fixed text. Use `Translator:FormatByKey` and the
-  `translator` option for formatted text. Turn AutoLocalize off for player text.
+- Get every string that a player sees from a localization key, fixed words
+  too. Keep the English source in one keyed table that builds the
+  `LocalizationTable`. Read each string with `translator:FormatByKey(key, args)`
+  in a readable and give the result to the control. Do not write a
+  player-facing string literal in UI code, also not with `AutoLocalize` on: a
+  literal has no key, no check finds it when the table does not have it, and
+  it does not change when the table changes. Add a check that each key in the
+  code is in the table. Set `AutoLocalize = false` on a label that shows a
+  translated string or text that players write. Give the app the `translator`
+  option for the strings that Facet makes.
 
 ## Check
 
