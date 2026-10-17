@@ -239,6 +239,7 @@ export type DisclosureGroupOptions = {
 	indent: (number | Types.SpaceStep)?,
 }
 export type CollapsibleViewOptions = {
+	glyph: (() -> GuiObject)?,
 	expanded: ComposeTypes.Cell<boolean>,
 	content: Content,
 	initialFocus: string?,

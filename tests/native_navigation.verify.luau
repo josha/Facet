@@ -148,10 +148,57 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(chosen:peek()):toBe("one")
 			end,
 		})
-		verifyHarness:case("owns native glyphs in icon-only tabs and keeps accessible names", {
-			id = "native_navigation::native navigation controls::owns native glyphs in icon-only tabs and keeps accessible names",
+		verifyHarness:case("Button owns its native leading glyph through caption and availability changes", {
+			id = "native_navigation::native navigation controls::Button owns its native leading glyph through caption and availability changes",
+			run = function()
+				local label = Compose.cell("Create game")
+				local enabled = Compose.cell(true)
+				local created, cleaned, invoked = 0, 0, 0
+				local world = setup(function(UI: FacetControls)
+					local function glyph(): GuiObject
+						created += 1
+						Compose.cleanup(function()
+							cleaned += 1
+						end)
+						return UI.Path "CreateGlyph" {
+							points = {
+								{ x = 0.2, y = 0.2, inX = 0, inY = 0, outX = 0, outY = 0 },
+								{ x = 0.8, y = 0.8, inX = 0, inY = 0, outX = 0, outY = 0 },
+							},
+						}
+					end
+					return UI.Button "Create" {
+						glyph = glyph,
+						label = label,
+						enabled = enabled,
+						onActivate = function()
+							invoked += 1
+						end,
+					}
+				end)
+				local button = find(world.screen, "Create")
+				local glyph = find(button, "CreateGlyph")
+				Verify.expect(glyph.Parent.Name):toBe("LeadingGlyph")
+				button.Activated:Fire(nil, 1)
+				Verify.expect(invoked):toBe(1)
+				label:set("Another game")
+				enabled:set(false)
+				button.Activated:Fire(nil, 1)
+				Verify.expect(invoked):toBe(1)
+				Verify.expect(find(button, "Title").Text):toBe("Another game")
+				Verify.expect(find(button, "CreateGlyph")):toBe(glyph)
+				Verify.expect(created):toBe(1)
+				world.stop()
+				Verify.expect(cleaned):toBe(1)
+			end,
+		})
+		verifyHarness:case("owns native glyphs across icon-only and labelled tabs and keeps accessible names", {
+			id = "native_navigation::native navigation controls::owns native glyphs across icon-only and labelled tabs and keeps accessible names",
 			run = function()
 				local chosen = Compose.cell("games")
+				local iconOnly = Compose.cell(true)
+				type Placement = "bottomBar" | "sidebar"
+				local placement = Compose.cell<<Placement>>("bottomBar")
 				local created = 0
 				local cleaned = 0
 				local world = setup(function(UI: FacetControls)
@@ -176,8 +223,8 @@ return function(verifyHarness: Verify.Harness)
 					}
 					local props: NavigationProps.TabViewSpec = {
 						selection = chosen,
-						placement = "bottomBar",
-						iconOnly = true,
+						placement = placement,
+						iconOnly = iconOnly,
 						tabs = tabs,
 					}
 					return UI.TabView "NativeTabs"(props)
@@ -187,10 +234,22 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(created):toBe(2)
 				Verify.expect(button.Text):toBe("")
 				Verify.expect(button:GetAttribute("label")):toBe("Games (2)")
-				Verify.expect(glyph.AnchorPoint.X):toBe(0.5)
-				Verify.expect(glyph.Position.X.Scale):toBe(0.5)
-				Verify.expect(glyph.Size.X.Offset > 0):toBe(true)
+				local leading = find(button, "LeadingGlyph")
+				Verify.expect(find(button, "Content"):FindFirstChild("Title") ~= nil):toBe(true)
+				Verify.expect(glyph.Parent):toBe(leading)
+				Verify.expect(glyph.Size.X.Scale):toBe(1)
+				Verify.expect(leading.Size.X.Offset > 0):toBe(true)
 				chosen:set("profile")
+				Verify.expect(created):toBe(2)
+				iconOnly:set(false)
+				placement:set("sidebar")
+				Verify.expect(find(button, "Title").Text):toBe("Games")
+				Verify.expect(find(button, "Title").Visible):toBe(true)
+				Verify.expect(find(button, "NativeGlyph")):toBe(glyph)
+				Verify.expect(created):toBe(2)
+				iconOnly:set(true)
+				placement:set("bottomBar")
+				Verify.expect(find(button, "Title").Visible):toBe(false)
 				Verify.expect(created):toBe(2)
 				world.stop()
 				Verify.expect(cleaned):toBe(2)
