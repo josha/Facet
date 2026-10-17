@@ -248,7 +248,9 @@ local function attachLayout(
 										) :: UDim).Offset
 										else 0
 									wrappedHeight:set(
-										measured.Y + (lineCount - 1) * points * (math.max(spacing, 1) - 1) + vertical
+										measured.Y
+											+ math.ceil((lineCount - 1) * points * (math.max(spacing, 1) - 1))
+											+ vertical
 									)
 								end
 								if ticket == serial then
