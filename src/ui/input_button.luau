@@ -50,6 +50,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		"role",
 		"dialogAction",
 		"icon",
+		"glyph",
 		"trailingIcon",
 		"image",
 		"imageAspectRatio",
@@ -211,6 +212,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			selectedForKeyboard = assert(fallbackSelection)
 		end
 		local rich = spec.icon ~= nil
+			or spec.glyph ~= nil
 			or spec.trailingIcon ~= nil
 			or spec.image ~= nil
 			or spec.row ~= nil
@@ -295,7 +297,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
 					local minimum = if targetFloor then targetFloor(use) else 0
 					local leadingGlyph, trailingGlyph = read(spec.icon, use), read(spec.trailingIcon, use)
-					local glyphs = (if leadingGlyph ~= nil and leadingGlyph ~= "" then 1 else 0)
+					local glyphs = (if spec.glyph or (leadingGlyph ~= nil and leadingGlyph ~= "") then 1 else 0)
 						+ (if trailingGlyph ~= nil and trailingGlyph ~= "" then 1 else 0)
 					local glyphSide = ctx.controlSize(
 						if spec.controlSize ~= nil then spec.controlSize else ctx.config.controlSize,

@@ -175,7 +175,7 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 		local unit = use(layoutUnit)
 		local glyph = 0
 		for _, tab in use(visibleTabs) do
-			if tab.icon then
+			if tab.icon or tab.glyph then
 				glyph = ctx.controlSize(spec.controlSize, "iconSize", use) + ctx.metric("space.xs", use)
 				break
 			end

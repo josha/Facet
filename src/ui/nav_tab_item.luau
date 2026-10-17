@@ -62,7 +62,10 @@ return function(
 						.. (if badge ~= nil and badge ~= "" then ` ({badge})` else "")
 				end,
 				icon = tab.icon,
-				subtitle = if tab.badge ~= nil and tab.icon == nil
+				glyph = tab.glyph,
+				subtitle = if tab.badge ~= nil
+						and tab.icon == nil
+						and tab.glyph == nil
 					then function(): string
 						return ""
 					end
@@ -106,23 +109,6 @@ return function(
 				end,
 			})
 			button:AddTag("facet-tab-item")
-			local nativeGlyph: GuiObject? = nil
-			if tab.glyph then
-				assert(read(spec.iconOnly) == true, "TabView tab.glyph requires iconOnly")
-				assert(tab.icon == nil, "TabView tab chooses icon or glyph")
-				local created = tab.glyph()
-				created:AddTag("facet-tab-glyph")
-				runtime.decorate(created, {
-					AnchorPoint = V2.new(0.5, 0.5),
-					Position = D2.fromScale(0.5, 0.5),
-					Size = function(use: ComposeTypes.Use): UDim2
-						local side = ctx.controlSize(spec.controlSize, "iconSize", use)
-						return D2.fromOffset(side, side)
-					end,
-				})
-				surfaces.attach(button, { created })
-				nativeGlyph = created
-			end
 			do
 				local measure = ctx.text({
 					Name = "LabelMeasure",
@@ -175,7 +161,7 @@ return function(
 				local function budget(use: ComposeTypes.Use): (number, number, number, boolean)
 					local width = use(natural).X
 					local unit = use(layoutUnit)
-					local glyphWidth = if not stacked(use) and use(current).icon
+					local glyphWidth = if not stacked(use) and (use(current).icon or use(current).glyph)
 						then (ctx.controlSize(spec.controlSize, "iconSize", use) + ctx.metric("space.xs", use)) * unit
 						else 0
 					local padded = use(room).X
@@ -238,12 +224,10 @@ return function(
 				end)
 				button:SetAttribute("FacetTextFit", true)
 			end
-			local glyph: GuiObject? = nativeGlyph
-			if glyph == nil then
-				local leading = button:FindFirstChild("LeadingIcon", true)
-				if leading and leading:IsA("GuiObject") then
-					glyph = leading
-				end
+			local leading = button:FindFirstChild(if tab.glyph then "LeadingGlyph" else "LeadingIcon", true)
+			local glyph: GuiObject? = if leading and leading:IsA("GuiObject") then leading else nil
+			if glyph and tab.glyph then
+				glyph:AddTag("facet-tab-glyph")
 			end
 			local rowContent = button:FindFirstChild("Content")
 			local flow = rowContent and rowContent:FindFirstChildWhichIsA("UIListLayout")
