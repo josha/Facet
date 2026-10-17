@@ -197,14 +197,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 										local service = input
 										for _, code in { use(primary), use(secondary), use(key) } do
 											if code and code ~= kit.noKey then
-												local ok, found = true, ""
-												if service and service.GetStringForKeyCode then
+												local ok, found = true, keyNames[code.Name] or ""
+												if found == "" and service and service.GetStringForKeyCode then
 													ok, found = pcall(function(): string
 														return service:GetStringForKeyCode(code)
 													end)
 												end
 												local text = if ok and type(found) == "string" then found else ""
-												if text == "" then
+												if string.match(text, "^%s*$") then
 													text = keyNames[code.Name] or code.Name
 												end
 												table.insert(keys, text)
