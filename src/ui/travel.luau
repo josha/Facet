@@ -125,7 +125,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 			local root = at
 			local function clear(slot: GuiObject): boolean
 				local current: Instance? = slot
-				while current and current ~= root do
+				while current do
 					if
 						current:FindFirstChildWhichIsA("UIScale")
 						or (current:IsA("GuiObject") and (current :: GuiObject).ClipsDescendants)
@@ -225,6 +225,18 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 				spec.onLanded(destination)
 			end
 		end
+		local function raise()
+			local floor = restingDepth
+			local container = parent
+			if container then
+				for _, sibling in container:GetChildren() do
+					if sibling:IsA("GuiObject") and sibling ~= node then
+						floor = math.max(floor, sibling.ZIndex)
+					end
+				end
+			end
+			node.ZIndex = floor + motion.depth
+		end
 		motion = engine(ctx, {
 			initial = values,
 			carrier = node,
@@ -239,16 +251,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 			sample = paint,
 			complete = land,
 			start = function()
-				local floor = restingDepth
-				local container = parent
-				if container then
-					for _, sibling in container:GetChildren() do
-						if sibling:IsA("GuiObject") and sibling ~= node then
-							floor = math.max(floor, (sibling :: GuiObject).ZIndex)
-						end
-					end
-				end
-				node.ZIndex = floor + motion.depth
 				if spec.onStarted then
 					spec.onStarted(destination)
 				end
@@ -297,6 +299,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 			inPlace = same ~= nil
 			parent = same or overlay
 			if not parent then
+				if previous == nil and not moving then
+					land()
+				end
 				return
 			end
 			if not units[parent] then
@@ -311,6 +316,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 				liftStart = lifted
 				moving = true
 				values[5] = 0
+				raise()
+				paint(values)
 				motion.rebase(values)
 				anchor:SetAttribute("FacetTravelMoving", true)
 				motion.retarget()
@@ -318,6 +325,12 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 		end
 		local portal = surfaces.overlay(anchor, true, function(): Instance
 			overlay = surfaces.parent(anchor)
+			if overlay and not units[overlay] then
+				local container = overlay
+				Compose.withOwner(owner, function()
+					units[container] = ctx.layoutUnit(container)
+				end)
+			end
 			local holder = Host.Folder { Name = "TravelPortal" }
 			runtime.connect(holder, "ChildAdded", function(child: Instance)
 				if child:IsA("StyleLink") then
