@@ -390,14 +390,17 @@ do
 						}
 						local frames = {}
 						local started = os.clock()
-						while os.clock() - started < 1.2 do
+						local firstVisible: number? = nil
+						while os.clock() - started < 10 and (firstVisible == nil or os.clock() - firstVisible < 1.2) do
 							rendered(t)
 							local panel = t.find(layer, names[kind])
 							if panel and panel:IsA("GuiObject") then
 								local fade = panel:FindFirstChild("FadePaint")
 									or panel:FindFirstChild("PresentationFade")
 								local alpha = if fade then fade.Transparency.Keypoints[1].Value else 0
-								if alpha < 0.95 and t.visible(panel) then
+								local _, sampled = clipping.inspect(panel)
+								if alpha < 0.95 and t.visible(panel) and sampled > 0 then
+									firstVisible = firstVisible or os.clock()
 									local frame = snapshot(
 										panel,
 										kind ~= "Sheet"
@@ -417,6 +420,10 @@ do
 								end
 							end
 						end
+						t.note(
+							`{kind}/{motion}/{shape.X}/{theme.name}/{textSize} first visible text after seconds`,
+							if firstVisible then firstVisible - started else nil
+						)
 						if kind == "Toast" then
 							local row = t.find(layer, "ToastRow")
 							local message = row and t.find(row, "Message")
@@ -432,6 +439,23 @@ do
 						if finalPanel then
 							local faults, sampled = clipping.inspect(finalPanel)
 							t.check("settled panel has visible text", sampled > 0, sampled)
+							if sampled == 0 then
+								local hidden = {}
+								local at: Instance? = finalPanel
+								while at do
+									if at:IsA("GuiObject") then
+										table.insert(hidden, {
+											path = at:GetFullName(),
+											visible = at.Visible,
+											size = tostring(at.AbsoluteSize),
+											position = tostring(at.AbsolutePosition),
+											transparency = if at:IsA("CanvasGroup") then at.GroupTransparency else nil,
+										})
+									end
+									at = at.Parent
+								end
+								t.note(`{kind}/{motion}/{shape.X}/{theme.name}/{textSize} hidden panel`, hidden)
+							end
 							t.check(`{kind}/{motion}/{shape.X}/{textSize} text is not clipped`, #faults == 0, faults)
 							if
 								kind == "Help"

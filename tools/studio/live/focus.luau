@@ -132,12 +132,10 @@ local function settle(root: Instance): { [string]: { number } }
 				local at, size = node.AbsolutePosition, node.AbsoluteSize
 				table.insert(
 					parts,
-					`{node:GetFullName()}:{at.X},{at.Y},{size.X},{size.Y}:{node.Visible}:{node.Selectable}:{node.Interactable}:{node.BackgroundTransparency}`
+					`{node:GetFullName()}:{at.X},{at.Y},{size.X},{size.Y}:{node.Visible}:{node.Selectable}:{node.Interactable}`
 				)
 				if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-					table.insert(parts, `{node.Text}:{node.TextTransparency}`)
-				elseif node:IsA("ImageLabel") or node:IsA("ImageButton") then
-					table.insert(parts, tostring(node.ImageTransparency))
+					table.insert(parts, node.Text)
 				end
 			end
 			if node:IsA("CanvasGroup") then
@@ -151,7 +149,7 @@ local function settle(root: Instance): { [string]: { number } }
 			return scrollOffsets(root)
 		end
 	end
-	error("focus walk did not reach visual rest", 2)
+	error("focus walk did not reach layout rest", 2)
 end
 
 focus.settle = settle

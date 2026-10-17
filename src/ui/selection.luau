@@ -2,6 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Env = require("./environment_types")
+local activation = require("./activation")
 
 type Level = { child: Instance, parent: Instance, siblings: { Instance } }
 type Snapshot = { node: GuiObject, levels: { Level }, modal: boolean }
@@ -373,10 +374,10 @@ return function(ctx: Shared.Context): Selection
 	local acquire = Compose.createSharedResource(function(): (nil, (() -> ())?)
 		local service = gui
 		local keys = input
-		if service == nil or keys == nil then
-			return nil, nil
-		end
-		if not service.GetPropertyChangedSignal then
+		if service == nil or keys == nil or not service.GetPropertyChangedSignal then
+			if keys then
+				runtime.connect(keys, "InputBegan", activation.release)
+			end
 			return nil, nil
 		end
 		local selectedObject = ctx.observe.SelectedObject(service)
@@ -506,6 +507,7 @@ return function(ctx: Shared.Context): Selection
 			end
 		end)
 		runtime.connect(keys, "InputBegan", function(event: InputObject)
+			activation.release(event)
 			if table.find(directionKeys, event.KeyCode) then
 				enter()
 			end
@@ -606,7 +608,7 @@ return function(ctx: Shared.Context): Selection
 	end)
 
 	local function track(node: Instance): ()
-		if gui == nil then
+		if gui == nil and input == nil then
 			return
 		end
 		registry[node] = true

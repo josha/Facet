@@ -316,10 +316,20 @@ end)
 
 add("sipworks-native-selection-reveals-cards", {}, function(t)
 	local gui = game:GetService("GuiService")
-	for _, size in { Vector2.new(1688, 792), Vector2.new(390, 400) } do
+	for _, sample in
+		{
+			{ size = Vector2.new(1688, 792), distance = "ten-foot" },
+			{ size = Vector2.new(390, 400), distance = "near" },
+		}
+	do
+		local size = sample.size
 		local stage, context = t.gallery({ size = size, demo = "sipworks" })
+		context.viewingDistance:set(sample.distance)
 		context.dispatch("input", "Gamepad")
 		t.settle(30)
+		local viewport = context.environmentFacts.viewportSize:peek()
+		t.near(`{size} preview viewport width`, viewport.X, size.X, 0.5)
+		t.near(`{size} preview viewport height`, viewport.Y, size.Y, 0.5)
 		require(game:GetService("ReplicatedStorage").FacetLive).press({ "Tab" })
 		local seen: { [Instance]: boolean } = {}
 		local count = 0
@@ -360,6 +370,15 @@ add("sipworks-native-selection-reveals-cards", {}, function(t)
 		gui.SelectedObject = nil
 		t.cleanup()
 	end
+	local errors = {}
+	for _, message in game:GetService("LogService"):GetLogHistory() do
+		if
+			message.messageType == Enum.MessageType.MessageError and string.find(message.message, "LayoutUnit", 1, true)
+		then
+			table.insert(errors, message.message)
+		end
+	end
+	t.check("screens release layout probes without native errors", #errors == 0, errors)
 end)
 
 return cases

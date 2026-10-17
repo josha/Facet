@@ -43,7 +43,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				if full then
 					boxes = {}
 					for _, child in panel:GetChildren() do
-						if child:IsA("GuiObject") and child.Visible then
+						if child:IsA("GuiObject") and child.Visible and child.Name ~= "OutlineFade" then
 							table.insert(boxes, child)
 						end
 					end
@@ -106,6 +106,14 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				Interactable = true,
 				ZIndex = spec.ZIndex or 100,
 				Activated = function(input)
+					if
+						input
+						and input.UserInputType
+						and input.UserInputType ~= E.UserInputType.MouseButton1
+						and input.UserInputType ~= E.UserInputType.Touch
+					then
+						return
+					end
 					if root and not ctx.available(root) then
 						return
 					end

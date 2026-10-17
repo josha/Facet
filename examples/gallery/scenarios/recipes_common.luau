@@ -2,7 +2,6 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
-type VectorCell = typeof(require("@repo/tools/typecheck/aliases").VectorCell)
 type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
 type ExampleContext = typeof(require("@repo/examples/types").Context)
 type Built = typeof(require("@repo/examples/types").Built)
@@ -193,15 +192,8 @@ return {
 			local package: ThemePackage = if ctx.theme then use(ctx.theme) else Facet.themes.neutralPackage()
 			return package.metrics
 		end
-		local function observePosition(node: GuiObject): VectorCell
-			local value = Compose.cell(node.AbsolutePosition)
-			local connection = node:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
-				value:set(node.AbsolutePosition)
-			end)
-			Compose.cleanup(function()
-				connection:Disconnect()
-			end)
-			return value
+		local function observePosition(node: GuiObject): Readable<Vector2>
+			return (ctx.runtime.observe(node, "AbsolutePosition", { frame = true }) :: unknown) :: Readable<Vector2>
 		end
 		local function dividerExample(
 			id: string,
