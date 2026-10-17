@@ -19,6 +19,9 @@ the viewport. The control uses one UIScale and native scrolling.
   `zoomTo({ x, y, w, h })` and `zoomAt(scale, screenPoint?)`. These calls return false while disabled or locked
   by a child drag, except for one call inside its `onStart` capture scope.
   The rectangle uses content pixels. `zoomAt` holds a point in screen pixels.
+  `fit()` and `zoomTo()` also return false while either viewport dimension is
+  zero. They leave the current zoom unchanged; call again after layout measures
+  the viewport.
   Without a point, it uses the captured pointer or armed source centre; outside
   capture it uses the viewport centre. Call `zoomAt(2)` in `onStart` to zoom at
   pickup, and `fit()` in `onEnd` to reverse after release. The functions are
