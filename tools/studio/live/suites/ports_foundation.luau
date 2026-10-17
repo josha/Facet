@@ -488,7 +488,7 @@ interactive(
 					return Host.Frame { Name = "Copy", BackgroundTransparency = 1, Size = UDim2.fromOffset(200, 120) }
 				end,
 			}
-		end, { size = Vector2.new(1200, 800), frames = 12 })
+		end, { size = Vector2.new(1200, 800), motionLevel = "normal", frames = 12 })
 		value.stage = stage
 		value.presented:set(true)
 		local samples = {}
@@ -619,10 +619,10 @@ add("outline-indent", {}, function(t: any)
 	t.check("the header title exists", title ~= nil)
 	if title then
 		local neutral = t.Facet.themes.neutralPackage()
-		local expected = neutral.metrics and neutral.metrics.typeRoles and neutral.metrics.typeRoles.label
+		local expected = neutral.metrics.typography.label.size
 		local size = styled(title, "TextSize")
 		t.note("label role", expected)
-		t.near("the title is at the label type size", size, 14, 0.01)
+		t.near("the title is at the label type size", size, expected, 0.01)
 	end
 end)
 
@@ -1020,8 +1020,12 @@ interactive(
 				t.near(`{name} plate is 28 px`, node.AbsoluteSize.Y, 28, 0.5)
 				t.check(`{name} carries xsmall`, node:GetAttribute("controlSize") == "xsmall")
 				local padding = node:FindFirstChildWhichIsA("UIPadding")
-				local left = padding and styled(padding, "PaddingLeft")
-				local right = padding and styled(padding, "PaddingRight")
+				local left = if padding
+					then styled(padding, "PaddingLeft")
+					else node:GetStyled("PaddingLeft", "::UIPadding")
+				local right = if padding
+					then styled(padding, "PaddingRight")
+					else node:GetStyled("PaddingRight", "::UIPadding")
 				t.check(
 					`{name} side padding is 4 px`,
 					left ~= nil and right ~= nil and left.Offset == 4 and right.Offset == 4,

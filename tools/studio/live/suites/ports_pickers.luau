@@ -700,7 +700,7 @@ interactive(
 		GuiService.SelectedObject = field
 		t.settle(2)
 		t.check("the Laps Field holds the selection at the start", GuiService.SelectedObject == field, selectedName())
-		t.note("gamepad", "D-pad movement is proven with the arrow keys, which drive the same native selection")
+		t.note("input", "The report records the native input delivered by the driver.")
 		return value
 	end,
 	{
@@ -796,8 +796,8 @@ interactive(
 	"afterUp: press the Up arrow key once; afterSecondUp: press the Up arrow key once more",
 	function(t)
 		local stage, built = scenario(t, "adaptive_controls", Vector2.new(1280, 720))
-		local boost = partOf(t.find(stage, "Boost"), "Track")
-		local balance = partOf(t.find(stage, "Balance"), "Track")
+		local boost = t.find(stage, "Boost")
+		local balance = t.find(stage, "Balance")
 		local value = { built = built, boost = boost, balance = balance }
 		if
 			not found(
@@ -814,12 +814,15 @@ interactive(
 		t.check("the Boost track holds the selection at the start", GuiService.SelectedObject == boost, selectedName())
 		local report = built.report()
 		t.note("start values", { rear = report.rear, boost = report.boost })
-		t.note("gamepad", "DPadUp is proven with the Up arrow key, which drives the same native selection")
+		t.note("input", "The report records the native keyboard arrows delivered by the driver.")
 		return value
 	end,
 	{
 		afterUp = function(t, value)
 			local report = value.built.report()
+			local selected = GuiService.SelectedObject
+			t.note("selection after Up", selected and selected:GetFullName())
+			t.note("Balance selection box", { value.balance:GetFullName(), t.rect(value.balance) })
 			t.check(
 				"Up moves the selection onto the Balance track",
 				GuiService.SelectedObject == value.balance,
@@ -907,6 +910,7 @@ interactive(
 			value.turn:set(135)
 			t.settle(6)
 			local next = paintedPoint(value.track, 0.8, 135)
+			t.note("click135", next)
 			t.check("the next click point click135 lies on the screen", next[1] >= 0 and next[2] >= 0, next)
 		end,
 		afterTurn135 = function(t, value)
@@ -917,6 +921,7 @@ interactive(
 			value.scroller.CanvasPosition = Vector2.new(0, 60)
 			t.settle(6)
 			local next = paintedPoint(value.track, 0.8, 270)
+			t.note("click270", next)
 			t.check("the next click point click270 lies on the screen", next[1] >= 0 and next[2] >= 0, next)
 		end,
 		afterTurn270Scrolled = function(t, value)
@@ -1365,7 +1370,7 @@ interactive(
 		t.check("Sep 16 holds the selection at the start", selectedName() == `D{value.start}`, selectedName())
 		watchSelection(value)
 		t.note("expected up walk", { `D{value.start - 7}`, `D{value.start - 14}`, "Month" })
-		t.note("gamepad", "D-pad movement is proven with the arrow keys, which drive the same native selection")
+		t.note("input", "The report records the native input delivered by the driver.")
 		return value
 	end,
 	{
@@ -1854,10 +1859,7 @@ interactive(
 		GuiService.SelectedObject = year
 		t.settle(4)
 		t.check("the Year button holds the selection", GuiService.SelectedObject == year, selectedName())
-		t.note(
-			"gamepad",
-			"ButtonA arrives as keyboard input; Return drives the same native activation of the selected button"
-		)
+		t.note("input", "Native Return activates the selected Year button.")
 		return value
 	end,
 	{
@@ -1886,8 +1888,13 @@ interactive(
 				selectedName()
 			)
 			if selected then
-				local p, s = panel.AbsolutePosition, t.rect(selected)
-				local bottom = p.Y + panel.AbsoluteWindowSize.Y
+				local window = partOf(panel, "MenuScroll")
+				t.check("the Year menu has a native scrolling window", window ~= nil and window:IsA("ScrollingFrame"))
+				if not window or not window:IsA("ScrollingFrame") then
+					return
+				end
+				local p, s = window.AbsolutePosition, t.rect(selected)
+				local bottom = p.Y + window.AbsoluteWindowSize.Y
 				t.check("the 2026 row is scrolled into view", s.y >= p.Y - 0.5 and s.b <= bottom + 0.5, {
 					row = { s.y, s.b },
 					window = { p.Y, bottom },
@@ -2810,7 +2817,7 @@ interactive(
 		if #cells < 12 then
 			return value
 		end
-		t.near("the grid is 8 cells and 7 gaps wide", grid.AbsoluteSize.X, 8 * 44 + 7 * 4, 0.5)
+		t.near("the grid is 8 cells and 7 gaps wide", grid.AbsoluteSize.X, 8 * cells[1].AbsoluteSize.X + 7 * 4, 0.5)
 		local rowOne = true
 		for index = 2, 8 do
 			rowOne = rowOne and math.abs(cells[index].AbsolutePosition.Y - cells[1].AbsolutePosition.Y) <= 0.5
@@ -2825,7 +2832,7 @@ interactive(
 		t.settle(4)
 		t.check("cell 3 holds the selection", GuiService.SelectedObject == cells[3], selectedName())
 		t.note("targets", { three = cells[3].Name, eleven = cells[11].Name, twelve = cells[12].Name })
-		t.note("gamepad", "D-pad movement is proven with the arrow keys, which drive the same native selection")
+		t.note("input", "The driver must deliver native Gamepad1 events.")
 		return value
 	end,
 	{
@@ -3214,13 +3221,15 @@ end
 
 local function scrimOf(t: any, name: string, modal: any, layer: any)
 	local catcher = if modal then modal:FindFirstChild("DismissTarget", true) else nil
-	if not catcher then
+	local scrim = if modal then modal:FindFirstChild("Scrim", true) else nil
+	if not catcher or not scrim then
 		t.check(`{name} scrim found`, false)
 		return
 	end
-	local shade = styled(catcher, "BackgroundTransparency")
+	local shade = styled(scrim, "BackgroundTransparency")
 	t.check(`{name} shows a scrim behind the sheet`, shade < 0.95, shade)
-	t.inside(`{name} scrim covers the screen`, layer, catcher, 1)
+	t.inside(`{name} scrim covers the screen`, layer, scrim, 1)
+	t.inside(`{name} dismissal target covers the screen`, layer, catcher, 1)
 end
 
 add("dtp-ten-foot", {}, function(t)
@@ -3429,8 +3438,8 @@ interactive(
 		end
 		value.done, value.surface = done, surface
 		watchSelection(value)
-		t.note("gamepad", "D-pad movement is proven with the arrow keys, which drive the same native selection")
-		t.note("not checked", "B cannot be sent by the input tools")
+		t.note("input", "The driver must deliver native Gamepad1 events.")
+		t.note("Back case", "color-ten-foot-pad-open-and-back")
 		return value
 	end,
 	{

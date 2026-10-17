@@ -31,6 +31,22 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native modal: the scrim sinks input", function()
+		verifyHarness:case("outside dismissal accepts pointer input while gamepad remains preferred", function()
+			local open = Compose.cell(false)
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame({ dialog(UI, Host, "About", open) })
+			end)
+			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+			open:set(true)
+			local target = w.find("DismissTarget")
+			Verify.expect(target.Interactable):toBe(true)
+			Verify.expect(target.Selectable):toBe(false)
+			target.Activated:Fire({ UserInputType = w.Enum.UserInputType.Gamepad1 })
+			Verify.expect(open:peek()):toBe(true)
+			target.Activated:Fire({ UserInputType = w.Enum.UserInputType.MouseButton1 })
+			Verify.expect(open:peek()):toBe(false)
+			w.stop()
+		end)
 		verifyHarness:case("native touch controls stay hidden until the last modal releases its prior state", function()
 			for _, enabled in { true, false } do
 				local outer, inner = Compose.cell(false), Compose.cell(false)
@@ -94,7 +110,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(target.Position):toBe(w.engine.types.UDim2.fromOffset(0, 0))
 				Verify.expect(target.Size):toBe(w.engine.types.UDim2.fromScale(1, 1))
 				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
-				Verify.expect(target.Interactable):toBe(false)
+				Verify.expect(target.Interactable):toBe(true)
 				Verify.expect(target.Selectable):toBe(false)
 				w.input.PreferredInput = w.Enum.PreferredInput.Touch
 				Verify.expect(target.Interactable):toBe(true)

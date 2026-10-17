@@ -797,7 +797,12 @@ add("outline-disclosure-indent", {}, function(t)
 		)
 		t.check("the expanded header wears no selected wash", not header:HasTag("facet-selected"), header:GetTags())
 		t.check("the group is an outline", group:HasTag("facet-disclosure-outline"), group:GetTags())
-		t.near("the title draws at the label role (14 px)", styled(title, "TextSize"), 14, 0.01)
+		t.near(
+			"the title draws at the label role",
+			styled(title, "TextSize"),
+			t.Facet.themes.neutralPackage().metrics.typography.label.size,
+			0.01
+		)
 		t.check("the row is below the header", row.AbsolutePosition.Y >= t.rect(header).b - 0.5)
 	end
 end)
@@ -1074,7 +1079,12 @@ interactive(
 		if found(t, "the Box row and its label were found", { "row", "words" }, { row = row, words = words }) then
 			t.stable(row)
 			t.near("the plain compact row solves at 36 px", row.AbsoluteSize.Y, 36, 0.5)
-			t.near("the label draws at the label role (14 px)", styled(words, "TextSize"), 14, 0.01)
+			t.near(
+				"the label draws at the label role",
+				styled(words, "TextSize"),
+				t.Facet.themes.neutralPackage().metrics.typography.label.size,
+				0.01
+			)
 			t.check("the label fits its row", t.fits(words) and words.AbsoluteSize.Y <= row.AbsoluteSize.Y + 0.5)
 			t.check("the row is plain", row:HasTag("facet-toggle-plain"), row:GetTags())
 			t.note("click", click(row))

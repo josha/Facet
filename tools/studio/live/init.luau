@@ -676,9 +676,13 @@ function live.report(suite: string, options: { [string]: any }?): any
 				for _, gui in playerGui:GetChildren() do
 					if
 						gui:IsA("ScreenGui")
-						and string.sub(gui.Name, 1, 12) == "FacetGallery"
 						and gui.Enabled
-						and not (if case.probe then false else caseKeepGallery)
+						and (
+							(
+								string.sub(gui.Name, 1, 12) == "FacetGallery"
+								and not (if case.probe then false else caseKeepGallery)
+							) or (string.sub(gui.Name, 1, 9) == "Facet_Lab" and suite ~= "lab")
+						)
 					then
 						gui.Enabled = false
 						table.insert(hidden, gui)
@@ -737,11 +741,18 @@ function live.begin(suite: string, id: string): string
 	assert(chosen and chosen.setup, "no interactive case " .. id)
 	local record = { id = chosen.id, contracts = chosen.contracts or {}, checks = {}, notes = {}, steps = {} }
 	local t = newCase(Facet, themeModules(Facet), record)
-	if not chosen.keepGallery then
+	do
 		local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 		local hidden = {}
 		for _, gui in playerGui:GetChildren() do
-			if gui:IsA("ScreenGui") and string.sub(gui.Name, 1, 12) == "FacetGallery" and gui.Enabled then
+			if
+				gui:IsA("ScreenGui")
+				and gui.Enabled
+				and (
+					(string.sub(gui.Name, 1, 12) == "FacetGallery" and not chosen.keepGallery)
+					or string.sub(gui.Name, 1, 9) == "Facet_Lab"
+				)
+			then
 				gui.Enabled = false
 				table.insert(hidden, gui)
 			end

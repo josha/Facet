@@ -717,6 +717,8 @@ add("plate-decoration-stays-inside-the-band", {}, function(t)
 					sampled += 1
 					narrowest = math.min(narrowest, band.w)
 					plateWidth = math.min(plateWidth, plate.AbsoluteSize.X)
+					local plateBounds = t.rect(plate)
+					overhang = math.max(overhang, band.x - plateBounds.x, plateBounds.r - band.r)
 					for _, node in plate:GetDescendants() do
 						if node:IsA("GuiObject") and t.visible(node) and node.AbsoluteSize.X > 0.5 then
 							local raw = t.rect(node)
@@ -912,6 +914,7 @@ interactive("left-reaches-this-rows-minus", {}, function(t)
 			columns = { { id = "name", label = "Name" }, { id = "laps", label = "Laps", width = 120 } },
 			rowActions = function(_, key): RowActions?
 				return {
+					editing = Compose.cell(true),
 					trailing = {
 						{
 							id = "delete",
@@ -952,7 +955,7 @@ interactive("collapsed-column-leaves-the-ring", {}, function(t)
 			selectionMode = "single" :: "single",
 			columns = {
 				{ id = "name", label = "Name", minWidth = 200 },
-				{ id = "laps", label = "Laps", width = 120, minWidth = 120 },
+				{ id = "laps", label = "Laps", width = 120, minWidth = 120, priority = 1 },
 			},
 		}
 	end, { size = Vector2.new(280, 500), frames = 24 })
@@ -1104,7 +1107,7 @@ interactive("drag-across-rows-after-page-scroll", {}, function(t)
 	page.CanvasPosition = Vector2.new(0, 120)
 	t.settle(4)
 	value.body = t.find(value.stage, "Body")
-	local handle = rowOf(value.body, "r1"):FindFirstChild("Move", true)
+	local handle = rowOf(value.body, "r1"):FindFirstChild("RowHit", true)
 	value.height = rowOf(value.body, "r1").AbsoluteSize.Y
 	local start = screenCenter(handle)
 	value.start = start

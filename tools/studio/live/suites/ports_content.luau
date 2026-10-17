@@ -74,7 +74,9 @@ local function screenPoint(x: number, y: number): { number }
 end
 
 local function windowRect(frame: any): any
-	local at, size = frame.AbsolutePosition, frame.AbsoluteWindowSize
+	local window = if frame:IsA("ScrollingFrame") then frame else frame:FindFirstChild("MenuScroll", true) or frame
+	local at = window.AbsolutePosition
+	local size = if window:IsA("ScrollingFrame") then window.AbsoluteWindowSize else window.AbsoluteSize
 	return { x = at.X, y = at.Y, w = size.X, h = size.Y, r = at.X + size.X, b = at.Y + size.Y }
 end
 
@@ -417,7 +419,7 @@ interactive(
 		t.check("the Refuse toggle and the Results row are found", value.refuse ~= nil and value.results ~= nil)
 		GuiService.SelectedObject = value.refuse
 		t.check("the Refuse toggle holds the selection", selectedName() == "Refuse", selectedName())
-		t.note("gamepad", "D-pad Down moves the same native selection as the Down arrow key")
+		t.note("input", "The report records the native Down arrow delivered by the driver.")
 		return value
 	end,
 	{
@@ -1108,10 +1110,20 @@ interactive(
 			t.settle(10)
 			t.check("the hovered card reports hover", target.card:GetAttribute("FacetHovered") == true)
 			t.check("the hovered card reveals", target.card:GetAttribute("FacetRevealed") == true)
+			local plate = target.reveal and target.reveal:FindFirstChild("Plate", true)
+			local fade = target.reveal and target.reveal:FindFirstChild("Fade")
+			local paint = target.reveal and target.reveal:FindFirstChild("FadePaint")
+			local transparency = if fade and fade:IsA("CanvasGroup")
+				then fade.GroupTransparency
+				elseif paint and paint:IsA("UIGradient") then paint.Transparency.Keypoints[1].Value
+				else 0
 			t.check(
 				"the plate paints",
-				target.reveal ~= nil and target.reveal.GroupTransparency < 0.01,
-				target.reveal and target.reveal.GroupTransparency
+				plate ~= nil
+					and t.visible(plate)
+					and plate:GetStyled("BackgroundTransparency") < 1
+					and transparency < 0.01,
+				transparency
 			)
 			local card, body = t.rect(target.card), t.rect(target.body)
 			for _, pair in { { "Play", target.primary }, { "More", target.more } } do
@@ -1154,11 +1166,7 @@ interactive(
 			GuiService.SelectedObject = parts.hit
 		end
 		t.check("the g1 cell holds the selection", selectedName() == "RowHit", selectedName())
-		t.note("gamepad", "D-pad Right and Down move the same native selection as the arrow keys")
-		t.note(
-			"not checked",
-			"ButtonA, ButtonB and ButtonY: the input tools cannot send them; Return is the same native activation as A, and leaveActions is the function that B runs"
-		)
+		t.note("input", "The driver must deliver native Gamepad1 buttons and D-pad events.")
 		return value
 	end,
 	{

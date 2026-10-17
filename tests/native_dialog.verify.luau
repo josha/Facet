@@ -752,6 +752,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(w.gui.SelectedObject):toBe(stay)
 				Verify.expect(room.ScrollingEnabled):toBe(false)
 				Verify.expect(body.ScrollingEnabled):toBe(true)
+				w.screen.AbsoluteSize = Vector2.new(320, 90)
+				Verify.expect(room.Size.Y.Offset):toBe(44)
 				w.stop()
 			end,
 		})
