@@ -17,6 +17,9 @@ carousel. The interval restarts after a manual selection or a pause. Hovering,
 holding a contact, or focusing a control inside a page pauses automatic advance.
 Compose owns the scheduled work and cancels it when PageView ends. Omit the
 option for manual navigation only. The interval must be finite and positive.
+A retained PageView restores its selected page without animation when its
+ancestors become available again. Selection changes while hidden wait until
+the page is available. Returning to a page does not reset its selection.
 
 The indicators are a row of dots, one button per page, named by the page id.
 The current page's dot is painted in the accent colour. Each dot's accessible
