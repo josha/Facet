@@ -353,12 +353,12 @@ return function(ctx: Types.Context): Drag.Service
 			else session.source.AbsolutePosition + session.source.AbsoluteSize / 2
 		point = (point or session.origin)
 			- session.pickupSize / 2
-			+ ghost.AnchorPoint * (session.previewSize :: Vector2)
+			+ ghost.AnchorPoint * ((session.previewSize :: Vector2) / (session.spec.previewScale or 1))
 		local from, goal = ghost.Position, localPoint(ghost, point)
 		local scale: UIScale?
 		local stopScale: (() -> ())?
 		local originalScale = 1
-		if accepted then
+		if accepted or session.spec.previewScale ~= nil then
 			scale = ghost:FindFirstChildWhichIsA("UIScale")
 			if not scale then
 				local stop, mounted = ctx.runtime.mount(function()
@@ -387,7 +387,12 @@ return function(ctx: Types.Context): Drag.Service
 		returning[session.source] = stop
 		stopMotion = travel(ctx, assert(ghost.Parent), function(progress)
 			if scale then
-				scale.Scale = originalScale * (1 - progress)
+				scale.Scale = if accepted
+					then originalScale * (1 - progress)
+					else originalScale * (1 + (1 / (session.spec.previewScale or 1) - 1) * progress)
+				if not accepted then
+					ghost.Position = from:Lerp(goal, progress)
+				end
 			else
 				ghost.Position = from:Lerp(goal, progress)
 			end
@@ -430,12 +435,12 @@ return function(ctx: Types.Context): Drag.Service
 			else session.source.AbsolutePosition + session.source.AbsoluteSize / 2
 		point = (point or session.origin)
 			- session.pickupSize / 2
-			+ ghost.AnchorPoint * (session.previewSize :: Vector2)
+			+ ghost.AnchorPoint * ((session.previewSize :: Vector2) / (session.spec.previewScale or 1))
 		local from, goal = ghost.Position, localPoint(ghost, point)
 		local scale: UIScale?
 		local stopScale: (() -> ())?
 		local originalScale = 1
-		if accepted then
+		if accepted or session.spec.previewScale ~= nil then
 			scale = ghost:FindFirstChildWhichIsA("UIScale")
 			if not scale then
 				local stop, mounted = ctx.runtime.mount(function()
@@ -464,7 +469,12 @@ return function(ctx: Types.Context): Drag.Service
 		returning[session.source] = stop
 		stopMotion = travel(ctx, assert(ghost.Parent), function(progress)
 			if scale then
-				scale.Scale = originalScale * (1 - progress)
+				scale.Scale = if accepted
+					then originalScale * (1 - progress)
+					else originalScale * (1 + (1 / (session.spec.previewScale or 1) - 1) * progress)
+				if not accepted then
+					ghost.Position = from:Lerp(goal, progress)
+				end
 			else
 				ghost.Position = from:Lerp(goal, progress)
 			end
@@ -618,10 +628,11 @@ return function(ctx: Types.Context): Drag.Service
 				state:set(table.clone(session))
 				local from = ghost.Position
 				local previewSize = session.previewSize or session.pickupSize
+				local lift = session.spec.previewScale or 1
 				local goalExtent = V2.new(
 					rect.w * (if session.pickupSize.X > 0 then previewSize.X / session.pickupSize.X else 1),
 					rect.h * (if session.pickupSize.Y > 0 then previewSize.Y / session.pickupSize.Y else 1)
-				)
+				) / lift
 				local goal = localPoint(ghost, V2.new(rect.x, rect.y) + ghost.AnchorPoint * goalExtent)
 				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
 				local capturedScale = nativeScale(ghost)
@@ -797,7 +808,9 @@ return function(ctx: Types.Context): Drag.Service
 				ghost.Name, ghost.ZIndex, ghost.AnchorPoint = "DragGhost", 1000, anchor
 				ghost:SetAttribute("FacetDragFeedback", true)
 				ghost.Parent = layer
-				local capturedScale = effectiveScale(preview or source, layer)
+				local lift = spec.previewScale or 1
+				assert(lift > 0 and lift < math.huge, "Facet drag previewScale must be positive and finite")
+				local capturedScale = effectiveScale(preview or source, layer) * lift
 				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
 				if scaler then
 					scaler.Scale = capturedScale
@@ -806,9 +819,9 @@ return function(ctx: Types.Context): Drag.Service
 						return ctx.Host.UIScale { Scale = capturedScale }
 					end, ghost)
 				end
-				ghost.Size = localExtent(ghost, source.AbsoluteSize)
+				ghost.Size = localExtent(ghost, source.AbsoluteSize * lift)
 				local active = created
-				active.previewSize = source.AbsoluteSize
+				active.previewSize = source.AbsoluteSize * lift
 				ghost.Position = localPoint(ghost, (created).position or (created).origin)
 				active.ghost = ghost
 				raiseStatus(ghost)
@@ -904,6 +917,8 @@ return function(ctx: Types.Context): Drag.Service
 		local size = image.Size
 		local unit = body:FindFirstChild("LayoutUnit") :: GuiObject?
 		local scale = if unit and unit.AbsoluteSize.X > 0 then unit.AbsoluteSize.X else 1
+		local lift = current.spec.previewScale or 1
+		assert(lift > 0 and lift < math.huge, "Facet drag previewScale must be positive and finite")
 		local extent = V2.new(
 			size.X.Offset * scale + size.X.Scale * body.AbsoluteWindowSize.X,
 			size.Y.Offset * scale + size.Y.Scale * body.AbsoluteWindowSize.Y
@@ -922,12 +937,12 @@ return function(ctx: Types.Context): Drag.Service
 		)
 		ghost:SetAttribute("FacetDragFeedback", true)
 		ghost.Parent = layer
-		if scale ~= 1 then
+		if scale * lift ~= 1 then
 			current.stopPreview = ctx.runtime.mount(function()
-				return ctx.Host.UIScale { Scale = scale }
+				return ctx.Host.UIScale { Scale = scale * lift }
 			end, ghost)
 		end
-		current.previewSize = extent
+		current.previewSize = extent * lift
 		current.armedPreview = if current.mode == "armed" then image else nil
 		ghost.Position = localPoint(ghost, current.position or current.origin)
 		current.ghost = ghost

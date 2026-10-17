@@ -90,6 +90,7 @@ export type DraggableSpec = {
 	touchPickup: ("longPress" | "immediate")?,
 	touchDragAxis: ("X" | "Y" | "XY")?,
 	statusLabels: boolean?,
+	previewScale: number?,
 	hitArea: GuiObject?,
 	returnTravel: boolean?,
 	operations: { DropOperation }?,

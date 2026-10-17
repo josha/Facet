@@ -86,6 +86,62 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("shared drop sessions", function()
+		verifyHarness:case("a magnified preview returns at the natural source scale", {
+			id = "native_drag_session::shared drop sessions::a magnified preview returns at the natural source scale",
+			run = function()
+				local w = fixture()
+				local V2 = w.engine.types.Vector2
+				w.source.AbsolutePosition, w.source.AbsoluteSize = V2.new(20, 30), V2.new(50, 60)
+				w.session.begin(w.source, { payload = "A", previewScale = 1.3, returnTravel = true }, "pointer")
+				local ghost = w.screen:FindFirstChild("DragGhost")
+				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
+				local lastScale, samples = 1.3, 0
+				local stop = w.engine.onWrite(function(node, key, value)
+					if node == scaler and key == "Scale" and type(value) == "number" then
+						lastScale = value
+						samples += 1
+					end
+				end)
+				w.session.update(V2.new(300, 300))
+				w.session.finish(false)
+				for _ = 1, 60 do
+					w.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(samples > 1):toBe(true)
+				Verify.expect(math.abs(lastScale - 1) < 0.000001):toBe(true)
+				Verify.expect(ghost.Parent):toBe(nil)
+				stop:Disconnect()
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("magnifies a held preview around its captured contact", {
+			id = "native_drag_session::shared drop sessions::magnifies a held preview around its captured contact",
+			run = function()
+				local w = fixture()
+				local V2 = w.engine.types.Vector2
+				w.source.AbsolutePosition, w.source.AbsoluteSize = V2.new(20, 30), V2.new(50, 60)
+				local pickup = V2.new(30, 75)
+				w.session.begin(
+					w.source,
+					{ payload = "A", previewScale = 1.3 },
+					"pointer",
+					nil,
+					nil,
+					{ position = pickup, source = w.source }
+				)
+				local ghost = w.screen:FindFirstChild("DragGhost")
+				Verify.expect(ghost:FindFirstChildWhichIsA("UIScale").Scale):toBe(1.3)
+				Verify.expect(ghost.AnchorPoint):toBe(V2.new(0.2, 0.75))
+				Verify.expect(V2.new(ghost.Position.X.Offset, ghost.Position.Y.Offset)):toBe(pickup)
+				Verify.expect(ghost.Size.X.Offset):toBe(50)
+				Verify.expect(ghost.Size.Y.Offset):toBe(60)
+				w.session.update(pickup + V2.new(25, 40))
+				Verify.expect(V2.new(ghost.Position.X.Offset, ghost.Position.Y.Offset)):toBe(pickup + V2.new(25, 40))
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("anchors stacked previews to the picked card rather than the whole collection or stack", {
 			id = "native_drag_session::shared drop sessions::anchors stacked previews to the picked card rather than the whole collection or stack",
 			run = function()
