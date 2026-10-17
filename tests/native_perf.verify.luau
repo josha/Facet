@@ -13,6 +13,25 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native benchmark workload contract", function()
+		verifyHarness:case("keeps calendar metrics stable across palette-only theme switches", {
+			id = "native_perf::native benchmark workload contract::keeps calendar metrics stable across palette-only theme switches",
+			run = function()
+				local scene = registered["theme-swap-flat"]
+				local state = scene.setup(profiles.get("floorAndroid"))
+				local ok, err = pcall(function()
+					for _ = 1, 2 do
+						local measurement = assert(scene.extras(state).themeSwap)
+						Verify.expect(measurement.metricChanges):toBe(0)
+						Verify.expect(measurement.imageChanges):toBe(0)
+						Verify.expect(measurement.paintChanges > 0):toBe(true)
+						Verify.expect(measurement.controlsRetained):toBe(true)
+					end
+				end)
+				scene.teardown(state)
+				assert(ok, err)
+			end,
+		})
+
 		verifyHarness:case("keeps every controlled sampling cadence fixed to the historical inventory", {
 			id = "native_perf::native benchmark workload contract::keeps every controlled sampling cadence fixed to the historical inventory",
 			run = function()

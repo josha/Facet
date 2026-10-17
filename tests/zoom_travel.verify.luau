@@ -89,6 +89,42 @@ end
 
 return function(harness: Verify.Harness)
 	harness:suite("zoom and travel", function()
+		harness:case("rectangle focus retargets from the painted viewport at unchanged scale", function(t)
+			local world = inputWorld()
+			t:defer(world.stop)
+			local before = world.view.CanvasPosition
+			assert(world.controls.zoomTo)({ x = 700, y = 700, w = 200, h = 200 })
+			world.engine.heartbeat:Fire(0)
+			t:expect(math.floor((world.view.CanvasPosition - before).Magnitude * 1000)):toBe(0)
+			for _ = 1, 4 do
+				world.engine.heartbeat:Fire(0.016)
+			end
+			local partial = world.view.CanvasPosition
+			t:expect(partial.X > before.X and partial.X < 1400):toBe(true)
+			assert(world.controls.zoomTo)({ x = 0, y = 0, w = 200, h = 200 })
+			world.engine.heartbeat:Fire(0)
+			t:expect(math.floor((world.view.CanvasPosition - partial).Magnitude * 1000)):toBe(0)
+			for _ = 1, 30 do
+				world.engine.heartbeat:Fire(0.016)
+			end
+			t:expect(world.view.CanvasPosition.X):toBe(0)
+			t:expect(world.view.CanvasPosition.Y):toBe(0)
+			t:expect(world.scale.Scale):toBe(2)
+		end)
+		harness:case("fit starts from a panned viewport without a position jump", function(t)
+			local world = inputWorld()
+			t:defer(world.stop)
+			world.view.CanvasPosition = world.engine.types.Vector2.new(1200, 300)
+			local before = world.view.CanvasPosition
+			assert(world.controls.fit)()
+			world.engine.heartbeat:Fire(0)
+			t:expect((world.view.CanvasPosition - before).Magnitude < 0.001):toBe(true)
+			for _ = 1, 30 do
+				world.engine.heartbeat:Fire(0.016)
+			end
+			t:expect(world.scale.Scale):toBe(0.4)
+			t:expect(world.view.CanvasPosition.Magnitude):toBe(0)
+		end)
 		harness:case("fit and rectangle zoom wait for a measured viewport", function(t)
 			local world = inputWorld()
 			t:defer(world.stop)

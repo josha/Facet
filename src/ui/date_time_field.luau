@@ -277,6 +277,9 @@ return function(
 			local surface: Frame
 			local settled = Compose.cell(false)
 			local shown = surfaces.appearance(phase, ctx.motionTiming("popover"), settled)
+			local function carve(side: string, use: Use): number
+				return surfaces.inset(0, side, nil, use)
+			end
 			local modal = surfaces.modal(function()
 				panel = panelView(routeOf)
 				local scroll = Host.ScrollingFrame "CalendarScroll" {
@@ -300,6 +303,7 @@ return function(
 					scroll :: Shared.Child,
 				}
 				ctx.styled(scroll, "panel")
+				ctx.styled(scroll, "calendar-scroll")
 				ctx.styled(scroll, "floating")
 				surfaces.skin(scroll)
 				return surface
@@ -325,7 +329,7 @@ return function(
 			runtime.decorate(panel, {
 				Size = function(use: Use)
 					if sheet(use) then
-						return D2.new(1, 0, 0, 0)
+						return D2.new(1, -carve("left", use) - carve("right", use), 0, 0)
 					end
 					local width = if use(dual) then 2 * 7 * CELL + GAP else 7 * CELL
 					return D2.fromOffset(width + 32, 0)
@@ -333,11 +337,8 @@ return function(
 			})
 			local geometry: Shared.CanvasGroupNativeProps = {
 				Size = function(use: Use)
-					local function carve(side: string): number
-						return surfaces.inset(0, side, nil, use)
-					end
 					local offer = use(extent) :: Vector2
-					local height = (use(content) :: Vector2).Y + carve("top") + carve("bottom")
+					local height = (use(content) :: Vector2).Y + carve("top", use) + carve("bottom", use)
 					if offer.Y > 0 then
 						height = math.min(height, offer.Y - 16)
 					end
@@ -345,7 +346,7 @@ return function(
 						return D2.new(1, -24, 0, height)
 					end
 					local width = if use(dual) then 2 * 7 * CELL + GAP else 7 * CELL
-					return D2.fromOffset(width + 32 + carve("left") + carve("right"), height)
+					return D2.fromOffset(width + 32 + carve("left", use) + carve("right", use), height)
 				end,
 				Position = function(use: Use)
 					local at, size, offer, box, offset =
