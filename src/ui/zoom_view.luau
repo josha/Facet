@@ -250,6 +250,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				return false
 			end
 			local area, size = window(), extent()
+			if area.X <= 0 or area.Y <= 0 then
+				return false
+			end
 			contentPoint, screenPoint = size / 2, area / 2
 			return request(geometry.fit(area.X, area.Y, size.X, size.Y), nil, true)
 		end
@@ -258,6 +261,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				return false
 			end
 			local area = window()
+			if area.X <= 0 or area.Y <= 0 then
+				return false
+			end
 			local target = geometry.rectangle(area.X, area.Y, rect)
 			contentPoint, screenPoint = V2.new(rect.x + rect.w / 2, rect.y + rect.h / 2), area / 2
 			return request(target, nil, true)
