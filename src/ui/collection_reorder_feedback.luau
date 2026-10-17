@@ -116,10 +116,9 @@ return function<V, K>(
 		for layer = layers, 1, -1 do
 			local original = rowNodes[previewKeys[layer]] or source
 			local parent = if original then original.Parent else nil
-			local painted = if parent
-					and parent:IsA("Frame")
-					and parent:HasTag("facet-tablerow")
-				then parent
+			local painted: GuiObject? = if layer == 1 and move.preview
+				then move.preview
+				elseif parent and parent:IsA("Frame") and parent:HasTag("facet-tablerow") then parent
 				else original
 			local copy = if painted then painted:Clone() else nil
 			if copy then

@@ -30,6 +30,9 @@ draggable-and-dropTarget.payload option values and behavior.
   around its captured contact point without changing the source or hit targets.
   Collection drag factories accept the same option. A successful landing and a
   cancelled return settle at the destination or source size through Travel.
+- `preview`: an optional visual to copy for the carried preview. Use it when
+  Travel paints the item outside its logical slot. The source still owns pickup,
+  bounds and drop validation. Collections use this visual for the first item.
 
 The source also accepts `operations = { "copy", "move", "apply" }`, a
 `valid()` predicate, `onStart(payload, mode)`, and `onEnd(accepted, reason)`.
