@@ -106,6 +106,23 @@ return function(
 				end,
 			})
 			button:AddTag("facet-tab-item")
+			local nativeGlyph: GuiObject? = nil
+			if tab.glyph then
+				assert(read(spec.iconOnly) == true, "TabView tab.glyph requires iconOnly")
+				assert(tab.icon == nil, "TabView tab chooses icon or glyph")
+				local created = tab.glyph()
+				created:AddTag("facet-tab-glyph")
+				runtime.decorate(created, {
+					AnchorPoint = V2.new(0.5, 0.5),
+					Position = D2.fromScale(0.5, 0.5),
+					Size = function(use: ComposeTypes.Use): UDim2
+						local side = ctx.controlSize(spec.controlSize, "iconSize", use)
+						return D2.fromOffset(side, side)
+					end,
+				})
+				surfaces.attach(button, { created })
+				nativeGlyph = created
+			end
 			do
 				local measure = ctx.text({
 					Name = "LabelMeasure",
@@ -221,7 +238,13 @@ return function(
 				end)
 				button:SetAttribute("FacetTextFit", true)
 			end
-			local glyph = button:FindFirstChild("LeadingIcon", true) :: GuiObject?
+			local glyph: GuiObject? = nativeGlyph
+			if glyph == nil then
+				local leading = button:FindFirstChild("LeadingIcon", true)
+				if leading and leading:IsA("GuiObject") then
+					glyph = leading
+				end
+			end
 			local rowContent = button:FindFirstChild("Content")
 			local flow = rowContent and rowContent:FindFirstChildWhichIsA("UIListLayout")
 			local title = rowContent and rowContent:FindFirstChild("Title") :: TextLabel?

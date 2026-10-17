@@ -329,6 +329,7 @@ export type Tab = {
 	badgeAnchor: Value<"topLeading" | "topTrailing" | "bottomLeading" | "bottomTrailing">?,
 	label: Types.ValueString?,
 	icon: Types.ValueString?,
+	glyph: (() -> GuiObject)?,
 	content: Content,
 	section: string?,
 	required: boolean?,

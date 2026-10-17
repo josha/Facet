@@ -148,6 +148,54 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(chosen:peek()):toBe("one")
 			end,
 		})
+		verifyHarness:case("owns native glyphs in icon-only tabs and keeps accessible names", {
+			id = "native_navigation::native navigation controls::owns native glyphs in icon-only tabs and keeps accessible names",
+			run = function()
+				local chosen = Compose.cell("games")
+				local created = 0
+				local cleaned = 0
+				local world = setup(function(UI: FacetControls)
+					local function glyph(): GuiObject
+						created += 1
+						Compose.cleanup(function()
+							cleaned += 1
+						end)
+						return UI.Path "NativeGlyph" {
+							points = {
+								{ x = 0.2, y = 0.2, inX = 0, inY = 0, outX = 0, outY = 0 },
+								{ x = 0.8, y = 0.8, inX = 0, inY = 0, outX = 0, outY = 0 },
+							},
+						}
+					end
+					local function page(): Instance
+						return UI.Text { text = "Page" }
+					end
+					local tabs: { Navigation.Tab } = {
+						{ id = "games", label = "Games", glyph = glyph, badge = 2, content = page },
+						{ id = "profile", label = "Profile", glyph = glyph, content = page },
+					}
+					local props: NavigationProps.TabViewSpec = {
+						selection = chosen,
+						placement = "bottomBar",
+						iconOnly = true,
+						tabs = tabs,
+					}
+					return UI.TabView "NativeTabs"(props)
+				end)
+				local button = find(world.screen, "games")
+				local glyph = find(button, "NativeGlyph")
+				Verify.expect(created):toBe(2)
+				Verify.expect(button.Text):toBe("")
+				Verify.expect(button:GetAttribute("label")):toBe("Games (2)")
+				Verify.expect(glyph.AnchorPoint.X):toBe(0.5)
+				Verify.expect(glyph.Position.X.Scale):toBe(0.5)
+				Verify.expect(glyph.Size.X.Offset > 0):toBe(true)
+				chosen:set("profile")
+				Verify.expect(created):toBe(2)
+				world.stop()
+				Verify.expect(cleaned):toBe(2)
+			end,
+		})
 		verifyHarness:case("touch never retains selection through command scopes or focus restoration", {
 			id = "native_navigation::native navigation controls::touch never retains selection through command scopes or focus restoration",
 			run = function()

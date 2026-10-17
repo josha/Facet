@@ -865,6 +865,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	)
 	rule(".facet-tab-filled >> .facet-button-caption", { TextColor3 = c("onAccent") })
 	rule(".facet-tab-filled >> .facet-icon", { ImageColor3 = c("onAccent") })
+	rule(".facet-tab-filled >> .facet-tab-glyph >> .facet-path", { Color3 = c("onAccent") })
 	rule(".facet-stepper-track", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-stepper-track::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
 	rule(".facet-skinned > #Content > .facet-stepper-track", { BackgroundTransparency = 1 })
