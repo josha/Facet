@@ -95,6 +95,59 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
+		verifyHarness:case("PageView owns automatic advance and restarts after input and pauses", {
+			id = "native_navigation::native navigation controls::PageView owns automatic advance and restarts after input and pauses",
+			run = function()
+				local chosen = Compose.cell("one")
+				local seconds = Compose.cell<<number?>>(20)
+				local wheel = Compose.cell(false)
+				local world = setup(function(UI: FacetControls)
+					local function page(): Instance
+						return UI.Text { text = "Card" }
+					end
+					local tabs: { Navigation.Tab } = {
+						{ id = "one", content = page },
+						{ id = "two", content = page },
+					}
+					local props: NavigationProps.PageViewSpec = {
+						selection = chosen,
+						pages = tabs,
+						autoAdvanceSeconds = seconds,
+						scrollWheel = wheel,
+					}
+					return UI.PageView "TimedCards"(props)
+				end)
+				local layout = find(world.screen, "PagesLayout")
+				Verify.expect(layout.ScrollWheelInputEnabled):toBe(false)
+				wheel:set(true)
+				Verify.expect(layout.ScrollWheelInputEnabled):toBe(true)
+				wheel:set(false)
+				Verify.expect(layout.ScrollWheelInputEnabled):toBe(false)
+				world.engine.heartbeat:Fire(19)
+				Verify.expect(chosen:peek()):toBe("one")
+				world.engine.heartbeat:Fire(1)
+				Verify.expect(chosen:peek()):toBe("two")
+				chosen:set("one")
+				world.engine.heartbeat:Fire(19)
+				Verify.expect(chosen:peek()):toBe("one")
+				local pages = find(world.screen, "Pages")
+				pages.MouseEnter:Fire(0, 0)
+				world.engine.heartbeat:Fire(30)
+				Verify.expect(chosen:peek()):toBe("one")
+				pages.MouseLeave:Fire(0, 0)
+				world.engine.heartbeat:Fire(20)
+				Verify.expect(chosen:peek()):toBe("two")
+				seconds:set(nil)
+				world.engine.heartbeat:Fire(60)
+				Verify.expect(chosen:peek()):toBe("two")
+				seconds:set(20)
+				world.engine.heartbeat:Fire(20)
+				Verify.expect(chosen:peek()):toBe("one")
+				world.stop()
+				world.engine.heartbeat:Fire(60)
+				Verify.expect(chosen:peek()):toBe("one")
+			end,
+		})
 		verifyHarness:case(
 			"PageView restores a retained selection without animation when its ancestor returns",
 			function()

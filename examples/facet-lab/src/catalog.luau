@@ -3120,21 +3120,13 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		alternatives = "Pagination for result pages.",
 		scenarios = { "page_view" },
 		snippet = 'UI.PageView { selection = page, pages = { { id = "a", label = "A", content = view } } }',
-		base = function(c: Context)
-			local pages = {}
-			for _, name in { "Coast", "Canyon", "City" } do
-				table.insert(pages, {
-					id = name,
-					label = name,
-					content = function(): Instance
-						return c.UI.Text({ text = `{name} course` })
-					end,
-				})
-			end
-			return { selection = c.cell("page", "Coast"), pages = pages, Size = UDim2.fromScale(1, 1) }
-		end,
+		base = require("./page_view_demo"),
 		axes = {},
 		states = {
+			{
+				name = "rotating carousel",
+				props = properties { autoAdvanceSeconds = 20, scrollWheel = true, controls = false, summary = false },
+			},
 			{ name = "no summary", props = properties { summary = false } },
 			{ name = "no controls", props = properties { controls = false } },
 			{ name = "no indicators", props = properties { indicators = false } },
