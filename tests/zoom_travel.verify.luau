@@ -409,6 +409,16 @@ return function(harness: Verify.Harness)
 			t:expect(w.outer.ScrollingEnabled):toBe(true)
 		end)
 
+		harness:case("releases the mouse scroll hold for touch during an ownerless frame callback", function(t)
+			local w = inputWorld()
+			t:defer(w.stop)
+			t:expect(w.view.ScrollingEnabled):toBe(false)
+			w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Touch
+			w.engine.heartbeat:Fire(0.016)
+			t:expect(w.view.ScrollingEnabled):toBe(true)
+			t:expect(w.outer.ScrollingEnabled):toBe(true)
+		end)
+
 		harness:case("keeps pinch scroll ownership across a mouse to touch switch", function(t)
 			local w = inputWorld()
 			t:defer(w.stop)

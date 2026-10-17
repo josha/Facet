@@ -46,6 +46,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		local captureTarget: number? = nil
 		local stick = V2.zero
 		local input, gui = ctx.config.userInputService, ctx.config.guiService
+		local effectiveInput = ctx.effectiveInput()
 		local function extent(): Vector2
 			local size = ctx.read(spec.contentSize)
 			assert(
@@ -173,7 +174,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			DragStyle = E.UIDragDetectorDragStyle.TranslatePlane,
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 			Enabled = function(use: Shared.Use): boolean
-				return ctx.read(spec.enabled, use) ~= false and ctx.effectiveInput()(use) == "KeyboardAndMouse"
+				return ctx.read(spec.enabled, use) ~= false and effectiveInput(use) == "KeyboardAndMouse"
 			end,
 			DragStart = function(position: Vector2)
 				if press == nil then
@@ -418,7 +419,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			then
 				return false
 			end
-			if ctx.effectiveInput()() ~= "KeyboardAndMouse" or not inside(mousePoint()) then
+			if effectiveInput() ~= "KeyboardAndMouse" or not inside(mousePoint()) then
 				return false
 			end
 			local at: Instance? = root.Parent

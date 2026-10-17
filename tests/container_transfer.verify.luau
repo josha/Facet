@@ -12,6 +12,47 @@ local engineLib = require("./lib/native_engine")
 local ComposeTypes = require("../src/vendor/compose/core")
 
 return function(harness: Verify.Harness)
+	harness:case("a horizontal transfer list permits native pickup across its layout axis", function()
+		local worlds = require("./lib/content_world")
+		local started = 0
+		local w = worlds.new(function(UI: Facet.Controls)
+			local List = UI.VirtualList "Rack"
+			return List {
+				from = { 1 },
+				key = function(item: number): number
+					return item
+				end,
+				direction = "horizontal",
+				mode = "all",
+				itemSize = 52,
+				reorderable = true,
+				drag = function(): Facet.DraggableSpec
+					return {
+						payload = "A",
+						onStart = function()
+							started += 1
+						end,
+					}
+				end,
+				render = function(): GuiObject
+					return UI.Button "Tile" { label = "A" }
+				end,
+			}
+		end)
+		local tile = w.find("Tile")
+		local E, V2, V3 = w.engine.types.Enum, w.engine.types.Vector2, w.engine.types.Vector3
+		tile.AbsolutePosition, tile.AbsoluteSize = V2.new(20, 200), V2.new(52, 52)
+		local detector = tile:FindFirstChildWhichIsA("UIDragDetector")
+		local pointer = w.engine.new("InputObject")
+		pointer.UserInputType, pointer.UserInputState = E.UserInputType.MouseButton1, E.UserInputState.Begin
+		pointer.Position = V3.new(46, 226, 0)
+		tile.InputBegan:Fire(pointer)
+		detector.DragStart:Fire(V2.new(46, 226))
+		detector.DragContinue:Fire(V2.new(46, 206))
+		Verify.expect(started):toBe(1)
+		w.stop()
+	end)
+
 	local function fixture()
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)

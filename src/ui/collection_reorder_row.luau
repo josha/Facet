@@ -311,6 +311,7 @@ return function<V, K>(
 				and (position - rowOrigin).Magnitude >= 6
 				and (
 					grid
+					or spec.drag ~= nil
 					or math.abs(axis(position) - axis(rowOrigin))
 						>= math.abs(crossAxis(position) - crossAxis(rowOrigin))
 				)
@@ -408,6 +409,7 @@ return function<V, K>(
 					and gesture.pendingInput.UserInputType == E.UserInputType.MouseButton1
 					and (
 						grid
+						or spec.drag ~= nil
 						or math.abs(axis(position) - axis(rowOrigin))
 							>= math.abs(crossAxis(position) - crossAxis(rowOrigin))
 					)
