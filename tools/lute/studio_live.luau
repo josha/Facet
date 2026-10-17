@@ -5,8 +5,8 @@ local process = require("@std/process")
 local Lute = require("../vendor/verify/src/lute")
 local Verify = require("../vendor/verify/src/core")
 
-local PLACE = "build/Facet-Live.rbxlx"
-local PROJECT = "examples/.live.project.json"
+local PLACE = `build/Facet-Live-{process.pid()}.rbxlx`
+local PROJECT = `examples/.live-{process.pid()}.project.json`
 
 local suites: { string } = {}
 local only: string? = nil
@@ -64,6 +64,9 @@ if #suites == 0 and not placeOnly then
 	)
 	print("       lute run tools/lute/studio_live.luau --place")
 	process.exit(2)
+end
+if placeOnly then
+	PLACE = "build/Facet-Live.rbxlx"
 end
 
 local project = json.deserialize(fs.readFileToString("examples/gallery.project.json")) :: any
