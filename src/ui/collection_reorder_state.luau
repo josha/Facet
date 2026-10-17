@@ -234,6 +234,9 @@ return function<V, K>(
 			end
 		end
 		moving:set(nil)
+		if move and move.preview then
+			move.preview:Destroy()
+		end
 		if restore and move and gui then
 			local row = rowNodes[move.key]
 			local handle = row and row:FindFirstChild("Move")
@@ -368,7 +371,7 @@ return function<V, K>(
 			gesture.recycled = false
 			activation.consume(gesture.captured)
 			local nextMove: Move<V, K> = {
-				preview = options.preview,
+				preview = if options.preview then options.preview:Clone() else nil,
 				key = key,
 				keys = keys,
 				included = indices,
