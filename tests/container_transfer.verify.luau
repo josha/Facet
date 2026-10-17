@@ -12,6 +12,52 @@ local engineLib = require("./lib/native_engine")
 local ComposeTypes = require("../src/vendor/compose/core")
 
 return function(harness: Verify.Harness)
+	harness:case("a transfer list carries a separate visual instead of its empty logical slot", function()
+		local worlds = require("./lib/content_world")
+		local w = worlds.new(function(UI: Facet.Controls, _Host, engine)
+			local visual = UI.Text "PaintedTile" { text = "E", Size = engine.types.UDim2.fromOffset(52, 52) }
+			return UI.ZStack {
+				visual,
+				UI.VirtualList "Rack" {
+					from = { 1 },
+					key = function(value: number): number
+						return value
+					end,
+					direction = "horizontal",
+					mode = "all",
+					itemSize = 52,
+					reorderable = true,
+					drag = function(): Facet.DraggableSpec
+						return { payload = "E", preview = visual, touchPickup = "immediate", touchDragAxis = "XY" }
+					end,
+					render = function(): GuiObject
+						return UI.ZStack "EmptySlot" { width = "fill", height = "fill" }
+					end,
+				},
+			}
+		end)
+		local E, V2, V3 = w.engine.types.Enum, w.engine.types.Vector2, w.engine.types.Vector3
+		local source = w.find("EmptySlot")
+		source.AbsolutePosition, source.AbsoluteSize = V2.new(20, 200), V2.new(52, 52)
+		local body = w.find("Rack")
+		body.AbsoluteWindowSize, body.AbsoluteSize = V2.new(390, 52), V2.new(390, 52)
+		local pointer = w.engine.new("InputObject")
+		pointer.UserInputType, pointer.UserInputState = E.UserInputType.Touch, E.UserInputState.Begin
+		pointer.Position = V3.new(46, 226, 0)
+		source.InputBegan:Fire(pointer)
+		pointer.Position = V3.new(46, 206, 0)
+		w.input.InputChanged:Fire(pointer)
+		local ghost = assert(w.find("DragGhost"))
+		local readable = false
+		for _, node in ghost:GetDescendants() do
+			if node:IsA("TextLabel") and node.Text == "E" then
+				readable = true
+			end
+		end
+		Verify.expect(readable):toBe(true)
+		Verify.expect(w.find("PaintedTile").Parent ~= ghost):toBe(true)
+		w.stop()
+	end)
 	harness:case("a horizontal transfer list permits native pickup across its layout axis", function()
 		local worlds = require("./lib/content_world")
 		local started = 0

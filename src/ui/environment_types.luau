@@ -91,6 +91,7 @@ export type DraggableSpec = {
 	touchDragAxis: ("X" | "Y" | "XY")?,
 	statusLabels: boolean?,
 	previewScale: number?,
+	preview: GuiObject?,
 	hitArea: GuiObject?,
 	returnTravel: boolean?,
 	operations: { DropOperation }?,

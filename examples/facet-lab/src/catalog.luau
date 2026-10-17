@@ -21,62 +21,16 @@ type Readable<T> = { peek: (Readable<T>) -> T }
 type Cell<T> = Readable<T> & { set: (Cell<T>, T) -> (), update: (Cell<T>, (T) -> T) -> () }
 type Use = <T>(Readable<T>) -> T
 
-export type Context = {
-	UI: FacetControls,
-	Compose: ComposeModule,
-	Facet: FacetModule,
-	Host: RobloxHost,
-	types: RobloxTypes,
-	app: App,
-	logical: Readable<{ width: number, height: number }>,
-	cell: CellFactory,
-	log: (string) -> (...unknown) -> (),
-}
-export type Properties = { [any]: any }
-export type Builder = (Context) -> Properties
-export type Source = Properties | Builder
-export type Axis = {
-	key: string,
-	values: { unknown },
-	matrix: boolean?,
-	props: Source?,
-	implies: { [string]: Source }?,
-}
-export type State = {
-	name: string,
-	props: Source,
-	across: (string | boolean)?,
-	matrixOnly: boolean?,
-	cellWidth: number?,
-	cellHeight: number?,
-}
-export type Make = (FacetControls, never, Context) -> Instance
-export type Valid = (never) -> boolean
-export type PageDefinition = {
-	family: string,
-	title: string?,
-	alias: string?,
-	purpose: string,
-	note: string?,
-	alternatives: string?,
-	snippet: string?,
-	scenarios: { string }?,
-	demonstrates: { string }?,
-	surface: string?,
-	host: string?,
-	recipe: boolean?,
-	facet: boolean?,
-	matrix: boolean?,
-	fills: boolean?,
-	stateAxis: string?,
-	cellWidth: number?,
-	cellHeight: number?,
-	base: Builder?,
-	axes: { Axis },
-	states: { State },
-	make: Make?,
-	valid: Valid?,
-}
+local CatalogTypes = require("./catalog_types")
+export type Context = CatalogTypes.Context
+export type Properties = CatalogTypes.Properties
+export type Builder = CatalogTypes.Builder
+export type Source = CatalogTypes.Source
+export type Axis = CatalogTypes.Axis
+export type State = CatalogTypes.State
+export type Make = CatalogTypes.Make
+export type Valid = CatalogTypes.Valid
+export type PageDefinition = CatalogTypes.PageDefinition
 
 local catalog = {}
 
@@ -6076,40 +6030,9 @@ PAGE_DATA.gestureArbiter = {
 	end,
 }
 
-PAGE_DATA.ZoomView = {
-	family = "layout",
-	purpose = "Inspect a large board and keep the pointed cell fixed while zooming.",
-	alternatives = "Use ScrollView for content that only scrolls.",
-	snippet = "UI.ZoomView { contentSize = Vector2.new(780, 780), zoom = zoom, content = Board }",
-	base = function()
-		return { maxZoom = 4, enabled = true, captureCamera = false, collectionCapture = false }
-	end,
-	axes = {
-		{ key = "captureCamera", values = { false, true } },
-		{ key = "collectionCapture", values = { false, true } },
-		{ key = "maxZoom", values = { 1, 2, 4 } },
-		{ key = "enabled", values = { true, false } },
-	},
-	states = {
-		{ name = "zoom at capture", props = properties { captureCamera = true } },
-		{ name = "collection pickup camera", props = properties { collectionCapture = true } },
-		{ name = "disabled", props = properties { enabled = false } },
-		{ name = "fit limit", props = properties { maxZoom = 1 } },
-	},
-	make = function(UI: FacetControls, p: Properties, c: Context): Instance
-		if p.collectionCapture then
-			return require("./zoom_collection_demo")(UI, c.Host, c.Compose)
-		end
-		return require("./zoom_travel_demo").zoom(
-			UI,
-			c.Host,
-			c.Compose,
-			p.maxZoom or 4,
-			p.enabled ~= false,
-			p.captureCamera == true
-		)
-	end,
-}
+PAGE_DATA.DiegeticScreen = require("./diegetic_demo")
+
+PAGE_DATA.ZoomView = require("./zoom_page")
 
 PAGE_DATA.Travel = {
 	family = "layout",

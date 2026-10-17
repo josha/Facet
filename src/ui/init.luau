@@ -40,5 +40,6 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	require("@self/effect_flash")(ctx, UI, surfaces)
 	require("@self/zoom_view")(ctx, UI)
 	require("@self/travel")(ctx, UI, surfaces)
+	require("@self/diegetic_screen")(ctx, UI)
 	return freeze(UI)
 end
