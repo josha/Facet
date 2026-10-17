@@ -20,7 +20,7 @@ return function(verifyHarness: Verify.Harness)
 				local state = scene.setup(profiles.get("floorAndroid"))
 				local ok, err = pcall(function()
 					for _ = 1, 2 do
-						local measurement = scene.extras(state).themeSwap
+						local measurement = assert(scene.extras(state).themeSwap)
 						Verify.expect(measurement.metricChanges):toBe(0)
 						Verify.expect(measurement.imageChanges):toBe(0)
 						Verify.expect(measurement.paintChanges > 0):toBe(true)
