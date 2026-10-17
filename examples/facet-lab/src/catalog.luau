@@ -101,6 +101,17 @@ local function properties(values: Properties): Properties
 	return values
 end
 
+local function nativeGlyph(c: Context): Properties
+	local function ring(): GuiObject
+		return c.UI.Path "NativeGlyph" {
+			points = c.Facet.pathShapes.ring({ radius = 0.75 }),
+			thickness = 2,
+			closed = true,
+		}
+	end
+	return { glyph = ring }
+end
+
 local function implied(choices: { [string]: Source }): { [string]: Source }
 	return choices
 end
@@ -350,6 +361,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 		},
 		states = {
+			{ name = "native glyph", props = nativeGlyph },
 			{ name = "discloses a truncated label", props = merged(fixed(120, 44), { label = LONG, disclose = true }) },
 			{ name = "fixed 140×64", props = fixed(140, 64) },
 			{
@@ -3324,6 +3336,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "appearance", values = { "standard", "emphasis", "soft", "utility" } } },
 		states = {
+			{ name = "native glyph", props = nativeGlyph },
 			DISABLED,
 			{ name = "icon", props = properties { icon = "settings" } },
 			{ name = "dismiss button", props = properties { dismissButton = true } },

@@ -127,6 +127,7 @@ return function(
 	end
 	local row: InputTypes.Row = spec.row or {}
 	local leading = spec.icon or row.icon
+	assert(not (leading and spec.glyph), "Facet.Button chooses icon or glyph")
 	if leading then
 		table.insert(
 			content,
@@ -141,13 +142,34 @@ return function(
 			}, iconState)
 		)
 	end
-	local label = row.title or spec.label or (if leading then nil else spec.name) or ""
+	if spec.glyph then
+		local node = spec.glyph()
+		assert(node:IsA("GuiObject"), "Facet.Button glyph must return a GuiObject")
+		runtime.decorate(node, {
+			AnchorPoint = V2.zero,
+			Position = D2.fromScale(0, 0),
+			Size = D2.fromScale(1, 1),
+			AutomaticSize = E.AutomaticSize.None,
+		})
+		local frame = Host.Frame "LeadingGlyph" {
+			BackgroundTransparency = 1,
+			Size = function(use: ComposeTypes.Use): UDim2
+				local side = ctx.controlSize(spec.controlSize, "iconSize", use)
+				return D2.fromOffset(side, side)
+			end,
+			node,
+		}
+		frame:AddTag("facet-button-glyph")
+		table.insert(content, frame)
+	end
+	local hasLeading = leading ~= nil or spec.glyph ~= nil
+	local label = row.title or spec.label or (if hasLeading then nil else spec.name) or ""
 	local description = row.description or spec.subtitle or spec.hint
 	local stacked = bounded and description ~= nil and not spec.row and not imageCard
 	local lead = #content
 	local rowCaptions: { GuiObject } = {}
-	local wordless = leading ~= nil and description == nil and not dynamic(label) and label == ""
-	if not (spec.shape == "circle" and spec.icon) and not wordless then
+	local wordless = hasLeading and description == nil and not dynamic(label) and label == ""
+	if not (spec.shape == "circle" and (spec.icon or spec.glyph)) and not wordless then
 		local function caption(name: string, text: Shared.Value<string>): TextLabel
 			local live = dynamic(text)
 			local function words(use: ComposeTypes.Use?): string

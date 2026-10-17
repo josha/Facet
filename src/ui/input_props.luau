@@ -179,6 +179,7 @@ export type ButtonProps = {
 	onPointerUp: typeof(buttonInput.onPointerUp),
 	onPointerCancel: typeof(buttonInput.onPointerCancel),
 	target: typeof(buttonInput.target),
+	glyph: typeof(button.glyph),
 	selected: typeof(button.selected),
 	onActivate: typeof(button.onActivate),
 	[number | Engine.EventKey]: Compose.Child,
