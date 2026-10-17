@@ -164,6 +164,7 @@ controls(runtime).ComboBox : function
 controls(runtime).Composition : function
 controls(runtime).DateTimePicker : function
 controls(runtime).Dialog : function
+controls(runtime).DiegeticScreen : function
 controls(runtime).DisclosureGroup : function
 controls(runtime).Divider : function
 controls(runtime).ErrorBoundary : function
@@ -297,6 +298,7 @@ type DateTimePickerProps
 type DialogAction
 type DialogDismissReason
 type DialogSpec
+type DiegeticScreenProps
 type DisclosureGroupSpec
 type DividerProps
 type DraggableSpec

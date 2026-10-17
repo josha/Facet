@@ -86,6 +86,21 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("shared drop sessions", function()
+		verifyHarness:case("a separate carried visual keeps the logical pickup geometry", function()
+			local w = fixture()
+			local V2 = w.engine.types.Vector2
+			w.source.AbsolutePosition, w.source.AbsoluteSize = V2.new(20, 30), V2.new(52, 52)
+			local face = w.engine.new("TextLabel")
+			face.Parent, face.Text = w.screen, "E"
+			face.AbsolutePosition, face.AbsoluteSize = V2.new(400, 300), V2.new(52, 52)
+			w.session.begin(w.source, { payload = "tile", preview = face, previewScale = 1.9 }, "pointer")
+			local ghost = assert(w.screen:FindFirstChild("DragGhost"))
+			Verify.expect(ghost.Text):toBe("E")
+			Verify.expect(ghost.AnchorPoint):toEqual(V2.new(0.5, 0.5))
+			Verify.expect(ghost.Position):toEqual(w.engine.types.UDim2.fromOffset(46, 56))
+			Verify.expect(face.Parent):toBe(w.screen)
+			w.stop()
+		end)
 		verifyHarness:case("a magnified preview returns at the natural source scale", {
 			id = "native_drag_session::shared drop sessions::a magnified preview returns at the natural source scale",
 			run = function()

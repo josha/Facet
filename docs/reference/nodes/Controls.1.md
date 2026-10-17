@@ -19,6 +19,7 @@ Open one card.
 - [Composition.card](Composition.card.md)
 - [DateTimePicker.card](DateTimePicker.card.md)
 - [Dialog.card](Dialog.card.md)
+- [DiegeticScreen.reference](DiegeticScreen.reference.md)
 - [DisclosureGroup.card](DisclosureGroup.card.md)
 - [Divider.card](Divider.card.md)
 - [ErrorBoundary.card](ErrorBoundary.card.md)

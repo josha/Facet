@@ -793,7 +793,8 @@ return function(ctx: Types.Context): Drag.Service
 		if preview ~= false then
 			local layer = source:FindFirstAncestorWhichIsA("LayerCollector")
 			if layer then
-				local ghost = (preview or source):Clone()
+				local visual = spec.preview or preview or source
+				local ghost = visual:Clone()
 				local nodes = ghost:GetDescendants()
 				table.insert(nodes, ghost)
 				for _, node in nodes do
@@ -810,7 +811,7 @@ return function(ctx: Types.Context): Drag.Service
 				ghost.Parent = layer
 				local lift = spec.previewScale or 1
 				assert(lift > 0 and lift < math.huge, "Facet drag previewScale must be positive and finite")
-				local capturedScale = effectiveScale(preview or source, layer) * lift
+				local capturedScale = effectiveScale(visual, layer) * lift
 				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
 				if scaler then
 					scaler.Scale = capturedScale

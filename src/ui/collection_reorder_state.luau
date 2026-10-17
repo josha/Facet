@@ -13,6 +13,7 @@ local DragTypes = require("./drag_types")
 local Env = require("./environment_types")
 local reducedMotion = require("./motion").reduced
 export type Move<V, K> = {
+	preview: GuiObject?,
 	key: K,
 	keys: { K },
 	included: { [K]: boolean },
@@ -367,6 +368,7 @@ return function<V, K>(
 			gesture.recycled = false
 			activation.consume(gesture.captured)
 			local nextMove: Move<V, K> = {
+				preview = options.preview,
 				key = key,
 				keys = keys,
 				included = indices,
