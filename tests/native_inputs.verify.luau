@@ -1384,6 +1384,32 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("names whitespace and named keys instead of showing the layout character", {
+			id = "native_inputs::native input controls::names whitespace and named keys instead of showing the layout character",
+			run = function()
+				local action, binding, keyCodes
+				local node, stop = world(function(UI: FacetControls, engine)
+					action, binding = engine.new("InputAction"), engine.new("InputBinding")
+					keyCodes = engine.types.Enum.KeyCode
+					binding.KeyCode, binding.DisplayName = keyCodes.Space, ""
+					action.PreferredBinding = binding
+					return UI.ShortcutHint({ action = action })
+				end, function(engine)
+					local input = engine.new("UserInputService")
+					input.GetStringForKeyCode = function(_self: unknown, code: EnumItem): string
+						return if code.Name == "Space" then " " elseif code.Name == "Q" then "A" else ""
+					end
+					return { services = { UserInputService = input } }
+				end)
+				Verify.expect(find(node, "Key").Text):toBe("Space")
+				binding.KeyCode = keyCodes.LeftShift
+				Verify.expect(find(node, "Key").Text):toBe("Shift")
+				binding.KeyCode = keyCodes.Q
+				Verify.expect(find(node, "Key").Text):toBe("A")
+				stop()
+			end,
+		})
+
 		verifyHarness:case("keeps an authored circle axis dominant instead of fitting inside a zero box", {
 			id = "native_inputs::native input controls::keeps an authored circle axis dominant instead of fitting inside a zero box",
 			run = function()

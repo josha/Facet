@@ -97,6 +97,8 @@ For a new mechanic, stage complexity through coherent tasks, not by concealing c
 
 Use the same term for the same object/action throughout navigation, buttons, tutorials, and errors. Prefer a concrete verb to “OK” when the consequence matters. Error copy should identify the failed action, useful reason, and recovery. Avoid exposing implementation codes as the player's explanation.
 
+Get every player-facing string from a localization key, fixed words included. Keep the English source in one keyed table that builds the experience's `LocalizationTable`, and read strings through the `Translator` by key. A literal such as `"WRONG WAY"` in UI code depends on `AutoLocalize` finding an entry with exactly that source text. Nothing checks that the entry exists, and a later edit to either copy breaks the match without an error. Keys make a missing translation a failed check instead of English on a translated screen.
+
 Localize complete formatted messages, including plurals and value order; do not assemble translated fragments as if every language shares a sentence structure. Facet's translator integration supports formatted control strings; the game's own messages need corresponding complete localized forms. Keep player names and player-authored text separate from automatic localization.
 
 Test long labels, large numbers, varying date/number formats, mixed-direction text, missing art, and unbroken user strings. Truncate only where recovery preserves the needed identity; two names that become the same prefix are no longer useful choices. Reserve reading room for captions and chat without covering controls. Use `richText.escape` when rendering player/server text inside rich formatting so it cannot alter the intended visual structure.
