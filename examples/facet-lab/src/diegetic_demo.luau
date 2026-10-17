@@ -1,10 +1,12 @@
 --!strict
+local CatalogTypes = require("./catalog_types")
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Context = {
 	UI: typeof(require("@repo/tools/typecheck/aliases").FacetControls),
 	Host: typeof(require("@repo/tools/typecheck/aliases").RobloxHost),
 	Compose: typeof(require("@repo/tools/typecheck/aliases").ComposeModule),
 }
-return function(c: Context, fieldOfView: number, motion: string): Frame
+local function Demo(c: Context, fieldOfView: number, motion: string): Frame
 	local UI, Host, Compose = c.UI, c.Host, c.Compose
 	local layer = Compose.cell<<ScreenGui?>>(nil)
 	local presented = Compose.cell(false)
@@ -68,3 +70,20 @@ return function(c: Context, fieldOfView: number, motion: string): Frame
 	end)
 	return frame
 end
+
+local page: CatalogTypes.PageDefinition = {
+	family = "layout",
+	purpose = "Move the same live Lab page onto a world display and return without losing its state.",
+	alternatives = "Use Stage for a separate 3D preview inside a page.",
+	matrix = false,
+	demonstrates = { "layers", "isPresented", "scene", "surface", "bounds", "camera", "onUnavailable" },
+	axes = { { key = "fieldOfView", values = { 40, 60 } } },
+	states = {
+		{ name = "room reveal", props = { motion = "move" } },
+		{ name = "quick return", props = { motion = "quick" } },
+	},
+	make = function(_UI: FacetControls, p: { fieldOfView: number?, motion: string? }, c: Context): Instance
+		return Demo(c, p.fieldOfView or 48, p.motion or "move")
+	end,
+}
+return page
