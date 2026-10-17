@@ -3123,6 +3123,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = {},
 		states = {
+			{
+				name = "rotating carousel",
+				props = properties { autoAdvanceSeconds = 20, scrollWheel = true, controls = false, summary = false },
+			},
 			{ name = "no summary", props = properties { summary = false } },
 			{ name = "no controls", props = properties { controls = false } },
 			{ name = "no indicators", props = properties { indicators = false } },
