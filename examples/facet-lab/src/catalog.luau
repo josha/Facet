@@ -6084,6 +6084,22 @@ PAGE_DATA.gestureArbiter = {
 	end,
 }
 
+PAGE_DATA.DiegeticScreen = {
+	family = "layout",
+	purpose = "Move the same live Lab page onto a world display and return without losing its state.",
+	alternatives = "Use Stage for a separate 3D preview inside a page.",
+	matrix = false,
+	demonstrates = { "layers", "isPresented", "scene", "surface", "bounds", "camera", "onUnavailable" },
+	axes = { { key = "fieldOfView", values = { 40, 60 } } },
+	states = {
+		{ name = "room reveal", props = properties { motion = "move" } },
+		{ name = "quick return", props = properties { motion = "quick" } },
+	},
+	make = function(_UI: FacetControls, p: Properties, c: Context): Instance
+		return require("./diegetic_demo")(c, p.fieldOfView or 48, p.motion or "move")
+	end,
+}
+
 PAGE_DATA.ZoomView = {
 	family = "layout",
 	purpose = "Inspect a large board and keep the pointed cell fixed while zooming.",

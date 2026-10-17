@@ -2,6 +2,8 @@
 local Compose = require("@self/vendor/compose/core")
 local Roblox = require("@self/vendor/compose/roblox")
 local ControlTypes = require("@self/ui/control_types")
+local DiegeticTypes = require("@self/ui/diegetic_types")
+export type DiegeticScreenProps = DiegeticTypes.DiegeticScreenProps
 local SharedTypes = require("@self/ui/types")
 local CollectionProps = require("@self/ui/collection_props")
 local ContentProps = require("@self/ui/content_props")
