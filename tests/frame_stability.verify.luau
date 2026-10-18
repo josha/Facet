@@ -13,6 +13,41 @@ local function inspector(engine: engineLib.Engine): typeof(clipping)
 end
 
 return function(harness: Verify.Harness)
+	harness:case(
+		"native text editing permits a scrolling draft and retains viewport and caption clipping checks",
+		function(t)
+			local engine = engineLib.new()
+			local clipping = inspector(engine)
+			local root = engine.new("Frame")
+			root.AbsoluteSize = engine.types.Vector2.new(100, 100)
+			root.ClipsDescendants = true
+			local field = engine.new("TextBox")
+			field.Parent = root
+			field.Text = "A draft longer than its editing viewport"
+			field.AbsoluteSize = engine.types.Vector2.new(80, 20)
+			field.TextBounds = engine.types.Vector2.new(200, 20)
+			field.TextFits = false
+			field.TextTruncate = engine.types.Enum.TextTruncate.None
+			t:expect(#clipping.inspect(root)):toBe(0)
+			field.AbsolutePosition = engine.types.Vector2.new(40, 0)
+			local faults = clipping.inspect(root)
+			t:expect(#faults):toBe(1)
+			t:expect(faults[1].ancestor):toBe(root:GetFullName())
+			field.AbsolutePosition = engine.types.Vector2.zero
+			local label = engine.new("TextLabel")
+			label.Parent = root
+			label.Text = field.Text
+			label.AbsoluteSize = field.AbsoluteSize
+			label.TextBounds = field.TextBounds
+			label.TextFits = false
+			label.TextTruncate = engine.types.Enum.TextTruncate.None
+			faults = clipping.inspect(root)
+			t:expect(#faults):toBe(1)
+			t:expect(faults[1].element):toBe(label:GetFullName())
+			t:expect(faults[1].reason):toBe("TextFits is false")
+			root:Destroy()
+		end
+	)
 	harness:case("deliberate ellipsis permits text overflow but retains ancestor clipping checks", function(t)
 		local engine = engineLib.new()
 		local clipping = inspector(engine)
@@ -62,6 +97,8 @@ return function(harness: Verify.Harness)
 		root.AbsoluteSize = engine.types.Vector2.new(100, 100)
 		t:expect(#clipping.inspect(root)):toBe(0)
 		group.AbsoluteSize = engine.types.Vector2.new(100, 100)
+		t:expect(#clipping.inspect(root)):toBe(0)
+		group.AbsoluteSize = engine.types.Vector2.new(100, 95)
 		t:expect(clipping.inspect(root)[1].ancestor):toBe(group:GetFullName())
 		root.AbsoluteSize = engine.types.Vector2.new(100, 95)
 		local faults = clipping.inspect(root)
@@ -69,6 +106,32 @@ return function(harness: Verify.Harness)
 		t:expect(faults[1].ancestor):toBe(group:GetFullName())
 		t:expect(faults[2].ancestor):toBe(root:GetFullName())
 		root:Destroy()
+	end)
+	harness:case("padded unwrapped glyphs prove fit while real padding overflow still fails", function(t)
+		local engine = engineLib.new()
+		local clipping = inspector(engine)
+		local label = engine.new("TextButton")
+		label.Text, label.TextFits = "A padded caption", false
+		label.AbsoluteSize = engine.types.Vector2.new(100, 30)
+		label.TextBounds = engine.types.Vector2.new(75, 20)
+		local padding = engine.new("UIPadding")
+		padding.PaddingLeft, padding.PaddingRight = engine.types.UDim.new(0, 10), engine.types.UDim.new(0, 10)
+		padding.Parent = label
+		t:expect(#clipping.inspect(label)):toBe(0)
+		padding.PaddingLeft = engine.types.UDim.new(0, 26)
+		t:expect(clipping.inspect(label)[1].reason):toBe("TextFits is false")
+		padding.PaddingLeft = engine.types.UDim.new(0, 10)
+		label.TextWrapped = true
+		t:expect(clipping.inspect(label)[1].reason):toBe("TextFits is false")
+		label.TextWrapped = false
+		local scale = engine.new("UIScale")
+		scale.Scale, scale.Parent = 2, label
+		label.AbsoluteSize = engine.types.Vector2.new(200, 60)
+		label.TextBounds = engine.types.Vector2.new(150, 40)
+		t:expect(#clipping.inspect(label)):toBe(0)
+		padding.PaddingRight = engine.types.UDim.new(0.1, 16)
+		t:expect(clipping.inspect(label)[1].reason):toBe("TextFits is false")
+		label:Destroy()
 	end)
 	harness:case("explicit state changes start a new baseline and retain earlier faults", function(t)
 		local tracker = stability.new()

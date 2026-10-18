@@ -127,8 +127,16 @@ local function settle(root: Instance): { [string]: { number } }
 	while os.clock() - started < 6 do
 		task.wait()
 		local parts = {}
+		local tracked: { [Instance]: boolean } = {}
+		for _, stop in focus.stops(root) do
+			local at: Instance? = stop
+			while at and at ~= root do
+				tracked[at] = true
+				at = at.Parent
+			end
+		end
 		for _, node in root:GetDescendants() do
-			if node:IsA("GuiObject") then
+			if tracked[node] and node:IsA("GuiObject") then
 				local at, size = node.AbsolutePosition, node.AbsoluteSize
 				table.insert(
 					parts,
@@ -138,7 +146,7 @@ local function settle(root: Instance): { [string]: { number } }
 					table.insert(parts, node.Text)
 				end
 			end
-			if node:IsA("CanvasGroup") then
+			if tracked[node] and node:IsA("CanvasGroup") then
 				table.insert(parts, tostring(node.GroupTransparency))
 			end
 		end
@@ -374,6 +382,7 @@ function focus.walk(
 	local queue: { string } = if resumePaths then table.clone(resumePaths) else order(stops, paths)
 	local queued: { [string]: boolean } = {}
 	local reveals: { [string]: string? } = {}
+	local revealKeys: { [string]: string? } = {}
 	local function owner(path: string): string?
 		local content = string.match(path, "^(.-/Items/[^/]+/Content)/Card/")
 		return if content then content .. "/RowHit" else nil
@@ -391,7 +400,7 @@ function focus.walk(
 			reveals[entry.path] = owner(entry.path)
 		end
 	end
-	local function discover(source: string?)
+	local function discover(source: string?, key: string?)
 		if atlas == nil or (onPage and not onPage()) then
 			return
 		end
@@ -404,11 +413,13 @@ function focus.walk(
 		end
 		table.sort(added)
 		for _, path in added do
-			assert(#queue < 512, "focus walk exceeded 512 dynamic stops")
 			queued[path] = true
 			table.insert(queue, path)
 			if source then
 				reveals[path] = owner(path) or source
+				if owner(path) == nil then
+					revealKeys[path] = key
+				end
 			end
 			local builder = builders[atlas]
 			if builder then
@@ -431,6 +442,12 @@ function focus.walk(
 		if node == nil and reveal then
 			select(reveal, depth + 1)
 			node = current(root)[path]
+			local key = revealKeys[path]
+			if node == nil and key then
+				live().press({ key })
+				settle(root)
+				node = current(root)[path]
+			end
 		end
 		if node and pcall(function()
 			GuiService.SelectedObject = node
@@ -475,7 +492,7 @@ function focus.walk(
 				settle(root)
 				local now = GuiService.SelectedObject
 				local after, named = current(root)
-				discover(path)
+				discover(path, key)
 				local target = if now and now ~= node then named[now] or pathOf(now, root) else nil
 				row[key] = target
 				seen[key] = if atlas then focus.scene(atlas, after, view[key]) else nil
@@ -601,7 +618,15 @@ end
 function focus.opened(
 	root: Instance,
 	trigger: GuiObject,
-	keys: { open: string, close: string, moves: { string }, up: number?, closeFrom: string? }
+	keys: {
+		open: string,
+		close: string,
+		moves: { string },
+		up: number?,
+		closeFrom: string?,
+		onPage: (() -> boolean)?,
+		restorePage: (() -> ())?,
+	}
 ): { [string]: any }
 	local before = {}
 	for _, node in focus.stops(root) do
@@ -666,6 +691,9 @@ function focus.opened(
 		paths[trigger] = report.trigger
 	end
 	local function reopen()
+		if keys.onPage and not keys.onPage() and keys.restorePage then
+			keys.restorePage()
+		end
 		local presses = 0
 		gather(1)
 		while #inside > 0 and presses < 4 do
@@ -678,7 +706,7 @@ function focus.opened(
 		live().press({ keys.open }, 2)
 		gather(4, true)
 	end
-	local moves = focus.walk(root, walked, paths, keys.moves, nil, reopen)
+	local moves = focus.walk(root, walked, paths, keys.moves, nil, reopen, nil, keys.onPage)
 	if keys.up then
 		local up = live().signal("focus-upstream", function()
 			return focus.walkUp(root, walked, paths, keys.up, nil, reopen)

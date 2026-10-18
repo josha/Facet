@@ -8,6 +8,7 @@ local reducedMotion = require("./motion").reduced
 local resolver = require("./composition_resolve")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
+local presentationReadiness = require("./presentation_readiness")
 
 type Declared = {
 	zone: Layout.Zone,
@@ -81,6 +82,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local declared = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Declared }
+	local function layoutSize(node: GuiBase2d, scale: ComposeTypes.Readable<number>?): ComposeTypes.Readable<Vector2>
+		local size = ctx.observe.AbsoluteSize(node)
+		local unit = scale or ctx.layoutUnit(node)
+		return Compose.formula(function(use: ComposeTypes.Use): Vector2
+			return use(size) / use(unit)
+		end)
+	end
 
 	UI.Region = ctx.construct("Region", function(spec: LayoutProps.RegionProps): Frame
 		local zone, rank = spec.zone, spec.rank
@@ -150,7 +158,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				type(child) ~= "string" and type(child.IsA) == "function" and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first"
 			)
-			local observed, settled = ctx.layoutSize(child), Compose.cell(V2.zero)
+			local observed, settled = layoutSize(child), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size = use(observed)
 				if use(scale) == 1 and not (index == 1 and use(hosted)) then
@@ -406,13 +414,38 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			table.unpack(placed),
 		}
 		properties[#properties + 1] = safe
-		local root = kit.plain(Host.Frame(properties), spec)
+		local frames = ctx.config.services.RunService
+		local preparing = frames ~= nil and frames.PreRender ~= nil and runtime.host.frames ~= nil
+		local root = kit.plain(
+			if preparing
+				then ctx.fade((properties :: unknown) :: Types.CanvasGroupNativeProps, false, false)
+				else Host.Frame(properties),
+			spec
+		)
+		if preparing then
+			ctx.fadeTo(root, 1)
+			root:SetAttribute("FacetPreparing", true)
+			local roots: { GuiObject } = {}
+			for _, region in regions do
+				table.insert(roots, region)
+			end
+			local ready = presentationReadiness(ctx, roots)
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(ready) then
+					ctx.fadeTo(root, 0)
+					root:SetAttribute("FacetPreparing", false)
+				end
+			end)
+		end
 		kit.underTopbar(root, under)
 		local riding: (ComposeTypes.Use) -> boolean = function()
 			return false
 		end
 		local landed: ComposeTypes.Cell<{ boolean }> = Compose.cell({} :: { boolean })
 		local stripGui: ScreenGui? = nil
+		local topbarBand = if #stripRegions > 0 and ctx.config.guiService
+			then ctx.observe.TopbarInset(ctx.config.guiService)
+			else nil
 		if #stripRegions > 0 then
 			local screen: ComposeTypes.Cell<ScreenGui?> = Compose.cell(nil :: ScreenGui?)
 			local holder: ComposeTypes.Cell<Instance?> = Compose.cell(nil :: Instance?)
@@ -450,7 +483,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				end
 			end)
 			locate()
-			local band = if ctx.config.guiService then ctx.observe.TopbarInset(ctx.config.guiService) else nil
+			local band = topbarBand
 			riding = function(use: ComposeTypes.Use): boolean
 				local rect: Rect? = if band then use(band) else nil
 				return read(spec.topbar, use) ~= false and use(holder) ~= nil and rect ~= nil and rect.Width > 0
@@ -546,7 +579,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		local safeUnit = ctx.layoutUnit(safe)
 		local floor = ctx.hitFloor()
-		local safeBox = ctx.layoutSize(safe, safeUnit)
+		local safeBox = layoutSize(safe, safeUnit)
 		for zone, children in members do
 			local revealing = false
 			for _, region in children do
@@ -685,7 +718,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				}
 			end, safe)
 		end
-		local box = ctx.layoutSize(safe, safeUnit)
+		local box = layoutSize(safe, safeUnit)
 		local warned: { [Frame]: boolean } = {}
 		local overflowing: { [Frame]: boolean } = {}
 		local streaks: { [Frame]: number } = {}
@@ -697,7 +730,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			live[root] = nil
 		end)
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
-		local stripSize = if stripGui then ctx.layoutSize(stripGui, stripUnit) else nil
+		local stripSize = if stripGui then layoutSize(stripGui, stripUnit) else nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local extent = use(box)
 			local rides = riding(use)
@@ -712,6 +745,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				list[index] = { zone = entry.zone, rank = entry.rank, mayDrop = entry.mayDrop, sizes = measured }
 			end
 			local strip = if stripSize and rides then use(stripSize) else nil
+			if strip and (strip.X <= 0 or strip.Y <= 0) and topbarBand and stripUnit then
+				local inset = use(topbarBand)
+				strip = V2.new(inset.Width, inset.Height) / use(stripUnit)
+			end
 			local band = if strip
 				then {
 					x = strip.X - 2 * kit.spacing(gap, use),

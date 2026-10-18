@@ -243,6 +243,12 @@ export type Context = {
 	overlayHosts: { [Instance]: Instance },
 	thumbFloor: (Readable<number>) -> (Use?) -> number,
 	observe: Observe,
+	observeNative: {
+		AbsoluteContentSize: (UIGridStyleLayout) -> ComposeTypes.Cell<Vector2>,
+		AbsoluteSize: (GuiBase2d) -> ComposeTypes.Cell<Vector2>,
+		AbsoluteWindowSize: (ScrollingFrame) -> ComposeTypes.Cell<Vector2>,
+		TextBounds: (TextBox | TextButton | TextLabel) -> ComposeTypes.Cell<Vector2>,
+	},
 	observeStyled: Observe,
 	shiftRoute: (Instance, () -> ()) -> (),
 	whenSelected: (Instance, Instance, () -> ()) -> (),

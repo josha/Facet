@@ -9,6 +9,7 @@ local ControlTypes = require("./control_types")
 local NavigationProps = require("./navigation_props")
 local reducedMotion = require("./motion").reduced
 local surfaceParts = require("./nav_surface_parts")
+local arrival = require("./overlay_arrival")
 
 return function(
 	ctx: Types.Context,
@@ -386,8 +387,12 @@ return function(
 						then ctx.observe.AbsoluteSize(source)
 						else Compose.cell(V2.zero)
 					local origin = ctx.observe.AbsolutePosition(modal)
+					local arrived = arrival.ready(phase)
 					local progress = runtime.tween(function(use: ComposeTypes.Use)
-						return if use(phase.exiting) then 0 elseif use(ready) then 1 else 0
+						return if use(phase.exiting)
+							then 0
+							elseif use(ready) and (arrived == nil or use(arrived)) then 1
+							else 0
 					end, { seconds = transition.seconds or ctx.metric("motion.normal"), ease = transition.ease })
 					local function amount(use: ComposeTypes.Use): number
 						return if reduce(use) then 1 else use(progress)

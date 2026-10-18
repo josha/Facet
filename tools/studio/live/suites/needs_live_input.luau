@@ -306,6 +306,7 @@ add("tray-grows-with-text-size", {}, function(t)
 		return UI.RowActions "Row" {
 			content = UI.Text({ text = "Message", Size = UDim2.fromScale(1, 1) }),
 			open = Compose.cell("trailing" :: "leading" | "trailing" | nil),
+			onOpenChange = function() end,
 			trailing = {
 				{
 					id = "delete",

@@ -377,96 +377,109 @@ add("gallery-previews-keep-page-and-pad-routes", {}, function(t)
 end)
 
 add("card-rail-distant-and-shelves", {}, function(t)
-	local live = (require :: any)(assert(script.Parent).Parent)
-	local http = game:GetService("HttpService")
-	local results = {}
-	for _, run in
-		{
-			{ name = "phone near", size = Vector2.new(390, 844), distance = "near" },
-			{ name = "desktop near", size = Vector2.new(1920, 1080), distance = "near" },
-			{ name = "desktop distant", size = Vector2.new(1920, 1080), distance = "ten-foot" },
-		}
-	do
-		local stage, context = t.gallery({ size = run.size, demo = "collections" })
-		context.viewingDistance:set(run.distance)
-		context.inputPreview:set(if run.name == "phone near" then "Touch" else "Gamepad")
-		t.settle(20)
-		for _, tab in { "grids", "cards" } do
-			local button = visibleNamed(t, stage, tab)
-			if button then
-				GuiService.SelectedObject = button
-				t.settle(2)
-				live.press({ "ButtonA" })
-				t.settle(20)
-			end
+	local reentrant = 0
+	local first: string? = nil
+	local connection = game:GetService("LogService").MessageOut:Connect(function(message: string)
+		if string.find(message, "Maximum event re-entrancy depth exceeded", 1, true) then
+			reentrant += 1
+			first = first or message
 		end
-		local rail = visibleNamed(t, stage, "Rail")
-		local weekend = visibleNamed(t, stage, "WeekendRail")
-		t.check(`{run.name} the Rail and WeekendRail shelves show`, rail ~= nil and weekend ~= nil)
-		if rail and weekend then
-			t.stable(rail)
-			local window = t.rect(rail)
-			local count, width = 0, 0
-			for _, node in rail:GetDescendants() do
-				if node:IsA("GuiObject") and string.match(node.Name, "^Card_c%d+$") and t.visible(node) then
-					local r = t.rect(node)
-					if r.x >= window.x - 0.5 and r.r <= window.r + 0.5 then
-						count += 1
-						width = r.w
-					end
+	end)
+	local ok, problem = xpcall(function()
+		local live = (require :: any)(assert(script.Parent).Parent)
+		local http = game:GetService("HttpService")
+		local results = {}
+		for _, run in
+			{
+				{ name = "phone near", size = Vector2.new(390, 844), distance = "near" },
+				{ name = "desktop near", size = Vector2.new(1920, 1080), distance = "near" },
+				{ name = "desktop distant", size = Vector2.new(1920, 1080), distance = "ten-foot" },
+			}
+		do
+			local stage, context = t.gallery({ size = run.size, demo = "collections" })
+			context.viewingDistance:set(run.distance)
+			context.inputPreview:set(if run.name == "phone near" then "Touch" else "Gamepad")
+			t.settle(20)
+			for _, tab in { "grids", "cards" } do
+				local button = visibleNamed(t, stage, tab)
+				if button then
+					GuiService.SelectedObject = button
+					t.settle(2)
+					live.press({ "ButtonA" })
+					t.settle(20)
 				end
 			end
-			local first = rail:FindFirstChild("Card_c1", true)
-			local title = first and first:FindFirstChild("Name", true)
-			results[run.name] = {
-				perView = count,
-				width = width,
-				window = rail.AbsoluteWindowSize.X,
-				textSize = title and title:GetStyled("TextSize"),
-			}
-			t.check(`{run.name} the card name is measured`, title ~= nil and title:IsA("TextLabel"))
-			t.check(
-				`{run.name} the viewing distance reaches the controls`,
-				context.environmentFacts.isTenFoot:peek() == (run.distance == "ten-foot")
-			)
-			t.note(`{run.name} cards per view and card width`, results[run.name])
-			if first then
-				GuiService.SelectedObject = first
-				t.settle(2)
-				local moved = http:JSONDecode(live.press({ "DPadDown" }))
-				local now = GuiService.SelectedObject
+			local rail = visibleNamed(t, stage, "Rail")
+			local weekend = visibleNamed(t, stage, "WeekendRail")
+			t.check(`{run.name} the Rail and WeekendRail shelves show`, rail ~= nil and weekend ~= nil)
+			if rail and weekend then
+				t.stable(rail)
+				local window = t.rect(rail)
+				local count, width = 0, 0
+				for _, node in rail:GetDescendants() do
+					if node:IsA("GuiObject") and string.match(node.Name, "^Card_c%d+$") and t.visible(node) then
+						local r = t.rect(node)
+						if r.x >= window.x - 0.5 and r.r <= window.r + 0.5 then
+							count += 1
+							width = r.w
+						end
+					end
+				end
+				local first = rail:FindFirstChild("Card_c1", true)
+				local title = first and first:FindFirstChild("Name", true)
+				results[run.name] = {
+					perView = count,
+					width = width,
+					window = rail.AbsoluteWindowSize.X,
+					textSize = title and title:GetStyled("TextSize"),
+				}
+				t.check(`{run.name} the card name is measured`, title ~= nil and title:IsA("TextLabel"))
 				t.check(
-					`{run.name} real DPadDown moves from the first shelf to the Weekend shelf`,
-					now ~= nil and now:IsDescendantOf(weekend),
-					moved.selections
+					`{run.name} the viewing distance reaches the controls`,
+					context.environmentFacts.isTenFoot:peek() == (run.distance == "ten-foot")
 				)
-			else
-				t.check(`{run.name} the first card is mounted`, false)
+				t.note(`{run.name} cards per view and card width`, results[run.name])
+				if first then
+					GuiService.SelectedObject = first
+					t.settle(2)
+					local moved = http:JSONDecode(live.press({ "DPadDown" }))
+					local now = GuiService.SelectedObject
+					t.check(
+						`{run.name} real DPadDown moves from the first shelf to the Weekend shelf`,
+						now ~= nil and now:IsDescendantOf(weekend),
+						moved.selections
+					)
+				else
+					t.check(`{run.name} the first card is mounted`, false)
+				end
+			end
+			GuiService.SelectedObject = nil
+			t.cleanup()
+		end
+		local phone, near, far = results["phone near"], results["desktop near"], results["desktop distant"]
+		if phone and near and far then
+			t.check("a phone shows one card per view", phone.perView == 1, phone)
+			t.check(
+				"the distant preview draws larger card text",
+				far.textSize ~= nil and near.textSize ~= nil and far.textSize > near.textSize,
+				{ near = near, far = far }
+			)
+			for _, run in { near, far } do
+				local expectedCount = math.max(1, math.floor((run.window + 8) / 208))
+				t.check("the desktop shelf keeps the configured minimum card width", run.width >= 200, run)
+				t.check("the desktop shelf fits whole cards to its native window", run.perView == expectedCount, run)
+				t.near(
+					"whole card widths share the window with the configured gaps",
+					run.width,
+					math.floor((run.window - 8 * (expectedCount - 1)) / expectedCount),
+					1
+				)
 			end
 		end
-		GuiService.SelectedObject = nil
-		t.cleanup()
-	end
-	local phone, near, far = results["phone near"], results["desktop near"], results["desktop distant"]
-	if phone and near and far then
-		t.check("a phone shows one card per view", phone.perView == 1, phone)
-		t.check(
-			"the distant preview draws larger card text",
-			far.textSize ~= nil and near.textSize ~= nil and far.textSize > near.textSize,
-			{ near = near, far = far }
-		)
-		for _, run in { near, far } do
-			local expectedCount = math.max(1, math.floor((run.window + 8) / 208))
-			t.check("the desktop shelf keeps the configured minimum card width", run.width >= 200, run)
-			t.check("the desktop shelf fits whole cards to its native window", run.perView == expectedCount, run)
-			t.near(
-				"whole card widths share the window with the configured gaps",
-				run.width,
-				math.floor((run.window - 8 * (expectedCount - 1)) / expectedCount),
-				1
-			)
-		end
-	end
+	end, debug.traceback)
+	connection:Disconnect()
+	assert(ok, problem)
+	t.check("card shelves produce no native layout re-entrancy", reentrant == 0, { count = reentrant, first = first })
 end)
 
 local PICKER_STYLES = { "automatic", "segmented", "inline", "radioGroup", "navigationLink", "menu" }

@@ -610,6 +610,15 @@ return {
 					accordionItem("Rewards", "Rewards", "Podium finishes bank currency toward the next kart unlock."),
 				}),
 			})
+			local rail = assert(root:FindFirstChild("RailChips"))
+			local row = assert(rail:FindFirstChild("Row"))
+			local empty = assert(root:FindFirstChild("EmptyCollection"))
+			local action = assert(empty:FindFirstChild("Action")) :: GuiObject
+			for _, chip in row:GetChildren() do
+				if chip:IsA("GuiObject") and chip.Selectable then
+					chip.NextSelectionDown = action
+				end
+			end
 			return root
 		end
 		local function reset()

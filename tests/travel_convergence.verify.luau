@@ -7,6 +7,48 @@ local travelEngine = require("../src/ui/travel_engine")
 local context = require("../src/ui/context")
 
 return function(harness: Verify.Harness)
+	harness:case("Travel owns style links added after the portal mounts", function(t)
+		local native = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(native)
+		local screen = native.new("ScreenGui")
+		screen.Parent = native.new("Folder")
+		local slot = native.new("Frame")
+		slot.Parent = screen
+		slot.AbsoluteSize = native.types.Vector2.new(60, 60)
+		local visual: Frame? = nil
+		local stop = runtime.mount(function()
+			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
+			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			return UI.Travel {
+				destination = slot,
+				content = function(): GuiObject
+					local face = Host.Frame {}
+					visual = face
+					return face
+				end,
+			}
+		end, screen)
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		local holder: Folder? = nil
+		for _, node in native.made do
+			if node.Name == "TravelPortal" then
+				holder = node
+			end
+		end
+		local source = native.new("StyleLink")
+		local first, second = native.new("StyleSheet"), native.new("StyleSheet")
+		source.StyleSheet = first
+		source.Parent = assert(holder)
+		local copy = assert(assert(visual):FindFirstChildWhichIsA("StyleLink")) :: StyleLink
+		t:expect(copy.StyleSheet):toBe(first)
+		source.StyleSheet = second
+		t:expect(copy.StyleSheet):toBe(second)
+		stop()
+		t:expect(engineLib.connections(source.Changed)):toBe(0)
+	end)
 	harness:case("arc travel escapes clipping above a shared slot container", function(t)
 		for _, clipAt in { "rack", "items" } do
 			local native = engineLib.new()

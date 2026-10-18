@@ -36,7 +36,35 @@ local function inspect(root: Instance): ({ Fault }, number)
 			continue
 		end
 		sampled += 1
-		if not node.TextFits and node.TextTruncate == Enum.TextTruncate.None then
+		local paddingFits = false
+		local padding = node:FindFirstChildWhichIsA("UIPadding")
+		if
+			padding
+			and not node.TextWrapped
+			and not node.TextScaled
+			and node.TextBounds.X > 0
+			and node.TextBounds.Y > 0
+		then
+			local unit, owner = 1, node :: Instance?
+			while owner do
+				local scale = owner:FindFirstChildWhichIsA("UIScale")
+				if scale then
+					unit *= scale.Scale
+				end
+				owner = owner.Parent
+			end
+			local left, right = padding:GetStyled("PaddingLeft") :: UDim, padding:GetStyled("PaddingRight") :: UDim
+			local top, bottom = padding:GetStyled("PaddingTop") :: UDim, padding:GetStyled("PaddingBottom") :: UDim
+			local width = node.AbsoluteSize.X * (1 - left.Scale - right.Scale) - (left.Offset + right.Offset) * unit
+			local height = node.AbsoluteSize.Y * (1 - top.Scale - bottom.Scale) - (top.Offset + bottom.Offset) * unit
+			paddingFits = node.TextBounds.X <= width + 0.5 and node.TextBounds.Y <= height + 0.5
+		end
+		if
+			not node:IsA("TextBox")
+			and not node.TextFits
+			and not paddingFits
+			and node.TextTruncate == Enum.TextTruncate.None
+		then
 			table.insert(faults, {
 				element = node:GetFullName(),
 				ancestor = node:GetFullName(),
@@ -57,6 +85,10 @@ local function inspect(root: Instance): ({ Fault }, number)
 					math.max(position.Y, clip.AbsolutePosition.Y)
 				)
 				ending = Vector2.new(math.min(ending.X, boundary.X), math.min(ending.Y, boundary.Y))
+			end
+		end
+		for _, clip in clips do
+			if clip:IsA("ScrollingFrame") then
 				continue
 			end
 			local boundary = clip.AbsolutePosition + clip.AbsoluteSize

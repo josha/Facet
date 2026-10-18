@@ -1137,6 +1137,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		["input-fact-follows-device"] = "input-native-controller-connect",
 	}
 	local keyboardCases: { string } = {
+		"board-typing-pointer-and-text-entry",
+		"return-and-space-activate-once",
+		"shift-return-opens-row-menu",
 		"tray-keys-and-hover",
 		"header-sort-keys",
 		"left-reaches-this-rows-minus",
@@ -1155,6 +1158,11 @@ return function(live: any, suite: string, options: { [string]: any }): any
 	for _, id in keyboardCases do
 		requirements[id] = "input-keyboard"
 	end
+	requirements["touch-drag-scrolls-reorderable-list"] = "input-native-touch"
+	requirements["mail-swipe-and-tap"] = "input-native-touch"
+	requirements["slider-rotation-live"] = "input-mouse"
+	requirements["zoom-pointer"] = "input-mouse"
+	requirements["zoom-collection-capture-camera"] = "input-mouse"
 	drivers["text-edit-carries-gamepad-connect"] = function()
 		options.connectGamepad()
 		live.step("afterConnect")
@@ -1183,6 +1191,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		return { drivers = drivers, requirements = requirements, pointer = pointer }
 	end
 	local capabilities = { "roblox-client", "input-pointer" }
+	if UserInputService.MouseEnabled then
+		table.insert(capabilities, "input-mouse")
+	end
 	if type(options.changeNativeTextSize) == "function" then
 		table.insert(capabilities, "input-native-settings")
 	end
@@ -1254,8 +1265,10 @@ return function(live: any, suite: string, options: { [string]: any }): any
 			if touch then
 				simulator:SetDeviceAsync("iphone_14")
 				simulator:SetOrientationAsync(Enum.ScreenOrientation.Portrait)
-			else
+			elseif options.device == nil or options.device == "none" then
 				simulator:StopSimulationAsync()
+			else
+				simulator:SetDeviceAsync(options.device)
 			end
 			settle(60)
 		end
@@ -1271,7 +1284,7 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		if required == "input-keyboard" then
 			live.press({ "LeftShift" })
 		end
-		local began, problem = pcall(live.begin, suite, case.id)
+		local began, problem = pcall(live.begin, suite, case.id, options)
 		if not began then
 			table.insert(
 				reports,

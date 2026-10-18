@@ -33,7 +33,7 @@ A change to those modules needs a rebuilt place. To check a corrected case
 against that same built control, add `--cases-from-tree` to the live runner:
 
 ```sh
-lute run tools/lute/studio_live.luau classb_collections --studio STUDIO_ID --device none --tag review --cases-from-tree --only fill-column-floors-and-hit-order
+lute run tools/facet studio live classb_collections --studio STUDIO_ID --device none --tag review --cases-from-tree --only fill-column-floors-and-hit-order
 ```
 
 This option loads the suite cases from the working tree into the existing
@@ -47,8 +47,8 @@ an attached Studio. For a gamepad Studio, use `--device keep`.
 Record the build revision, the scenario, the observed interactions and the
 engine errors. Keep benchmark evidence and live evidence separate. A screenshot or a passing subset does not prove all control behavior.
 
-The [verification scope](18-verification-scope.md) lists the live evidence
-that is still outstanding.
+The [verification scope](18-verification-scope.md) explains what each kind of
+evidence proves.
 
 ## Live assertion harness
 
@@ -112,8 +112,10 @@ the shared presentation helper holds only the measured box during motion.
 These checks catch layout changes and scrollbar flashes, not every paint or
 rasterization defect. Keep a visual pass for theme paint and device rendering.
 
-On the final frame, each visible text element must have `TextFits` set to
-`true`. Its bounds must stay inside each ancestor that clips descendants,
+On the final frame, each visible text element must fit its content box. The
+check uses `TextFits` and native glyph bounds. Padded, unwrapped text can pass
+when the glyphs fit even if the engine reports `TextFits = false`. Its bounds
+must stay inside each ancestor that clips descendants,
 including `CanvasGroup`, within 0.5 pixels. A failure names the text element,
 the clipping ancestor and the overflow. The planted label proves that the
 check rejects clipping. `frame_stability` applies the same check after each
@@ -135,12 +137,12 @@ checks that the header band reaches the outer scrollbar edge.
 
 ### Run the suites
 
-Run `lute run tools/lute/studio_live.luau SUITE... [--only TEXT] [--tag NAME]
+Run `lute run tools/facet studio live SUITE... [--only TEXT] [--tag NAME]
 [--deadline SECONDS]` from the repository root. The command does these steps for each
 suite:
 
-1. It builds `build/Facet-Live.rbxlx` from the gallery, the live modules and
-   the vendored Verify source.
+1. It builds a separate `build/Facet-Live-<process-id>.rbxl` for each runner
+   process from the gallery, live modules and vendored Verify source.
 2. Verify starts a new Studio process with a copy of that place and starts a
    playtest. The command does not use a Studio that is open.
 3. The suite runs in the Client data model. Each check is one Verify step.
@@ -148,7 +150,9 @@ suite:
 
 The command saves each report as `artifacts/studio-live/<suite>-<tag>.json`.
 The default tag is `launched`. Use a tag that names the viewport and the text
-size, for example `portrait-largest`. The `--only` option selects cases by id.
+size, for example `portrait-largest`. The `--only` option selects cases by id text. Use `--case ID` for an exact id.
+Repeat `--case` to select more than one case. Verify records only the selected
+cases. These options do not make a focused run full evidence.
 The command exits with 1 when a case does not pass or an attachment is
 refused. It writes the step events of the run in
 `artifacts/studio-live/<suite>-<tag>.progress.jsonl`.
@@ -168,13 +172,31 @@ with `--studio ID` when the Controller Emulator is on, because a stop of the
 emulation also turns off the Controller Emulator. A case that needs a device
 calls `t.device`. The report environment records `preferredInput`.
 
+For the desktop Lab checks, turn off device simulation in Edit mode and use
+a wide viewport before Play starts. Build its fixture with
+`lute run tools/facet studio live lab --place`, then use `--studio ID` to run
+it. The Lab creates its runtime at startup. A later change from a console
+profile to desktop does not change the ten-foot interface fact that the
+runtime read at startup.
+
+If report transfer stops after the engine finishes, use `--studio ID` with
+`--resume-run ID` and one suite. Use the Verify run id from the progress file.
+The command uses Verify to retrieve that saved report. It does not rerun the
+cases. Keep that Studio in Play until the report is saved.
+
+The controller cases require the Virtual controller panel to be on. The device
+profile alone does not enable its key mappings. The input driver rejects a
+controller key when Studio delivers keyboard input instead.
+
 A case with `probe = true` records measurements only. It passes when it
 records a note.
 
 Each case attaches its measurements as `notes.json`. The command writes the
 attachments of a case in `artifacts/studio-live/<suite>-<tag>/<case id>/`. A
 case saves other JSON with `live.save(name, json, dir)`. The command writes
-an attachment with the directory `atlas` in `tests/fixtures/focus_atlas`. It
+an attachment with the directory `atlas` in both the run directory and
+`tests/fixtures/focus_atlas`. The run copy keeps its original data when a later
+recording updates the fixture. It
 writes an attachment with the directory `live` in `artifacts/studio-live`.
 
 The suites `needs_live_input`, `native_mechanisms_input` and `weak3_pointer`
@@ -182,7 +204,7 @@ use interactive cases. The runner's native input mode can start its own
 Studio:
 
 ```sh
-lute run tools/lute/studio_live.luau native_mechanisms_input --device none --interactive --tag pointer
+lute run tools/facet studio live native_mechanisms_input --device hd_1080 --interactive --tag pointer
 ```
 
 The mode calls `live.begin`, sends real native input, calls the case's named
@@ -205,16 +227,17 @@ cases. The complete walks can take more than ten minutes. The example sets
 the deadline to six hours for each suite:
 
 ```sh
-lute run tools/lute/studio_live.luau needs_live_input --studio ID --device keep --interactive --tag controller-sidebar --only sidebar-dpad-to-collections
-lute run tools/lute/studio_live.luau focus_walk focus_opened focus_probe gamepad_walk --studio ID --device keep --tag controller --deadline 21600
+lute run tools/facet studio live needs_live_input --studio ID --device keep --interactive --tag controller-sidebar --only sidebar-dpad-to-collections
+lute run tools/facet studio live focus_walk focus_opened focus_probe gamepad_walk --studio ID --device keep --tag controller --deadline 21600
 ```
 
 Run the same command for each controller case with its exact `--only` id and
 a separate tag: `list-keyboard-and-dpad`, `scroll-into-view-by-gamepad`,
 `sidebar-dpad-to-collections`, `power-off-traversal`,
 `sheet-traps-and-orders-selection`, `alert-selection-stays-inside`,
-`confirm-dialog-left-right`. Run the pointer and touch cases with
-`--device none` as shown above.
+`confirm-dialog-left-right`. Run the keyboard and pointer cases with
+`--device hd_1080`. Some cases mount a stage that is 844 pixels high, and the
+window of a Studio without emulation can be smaller.
 
 Turn the Controller Emulator off before you run the keyboard cases. The
 emulator maps keyboard keys to gamepad buttons. With the emulator on, keyboard
@@ -243,7 +266,7 @@ without its required input and steps.
 Build the live place with the current cases before this run:
 
 ```sh
-lute run tools/lute/studio_live.luau in24 --studio ID --device none --tag touch-pickup --only draggable-
+lute run tools/facet studio live in24 --studio ID --device none --tag touch-pickup --only draggable-
 ```
 
 The cases select a touch device and require native Touch events. They check
@@ -259,7 +282,7 @@ start separate playtests and lose this state. Use the paired native input
 mode:
 
 ```sh
-lute run tools/lute/studio_live.luau haptics_pair --studio ID --device none --interactive --tag haptics
+lute run tools/facet studio live haptics_pair --studio ID --device none --interactive --tag haptics
 ```
 
 The runner mounts the setup, uses real pointer input on Press, Release,
@@ -378,8 +401,10 @@ atlas: each stop's rectangle, links, value-control axis, and the chain of
 SelectionGroups and ScrollingFrames around it. It then selects each stop and
 presses DPadDown, DPadLeft and DPadRight, and the stick in four directions,
 recording where the engine moved the selection and the scroll offsets at the
-moment of the press. The walk waits for geometry, visibility and transparency
-to reach rest before it records a scene. It adds stops that become visible
+moment of the press. The walk waits for each focus stop and its ancestors to
+reach rest in geometry, visibility and transparency before it records a scene.
+Activity art can keep moving inside a stable control. The frame-stability
+suite checks all painted geometry. The walk adds stops that become visible
 later to its work list. When selection reveals commands, the walk selects the
 same row again to restore those commands before it visits them. For an
 adjustable control, it repeats input along the value axis until selection

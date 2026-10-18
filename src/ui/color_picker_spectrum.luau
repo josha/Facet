@@ -1,4 +1,5 @@
 --!strict
+local pointerDragOf = require("./pointer_drag")
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Nav = require("./navigation_types")
@@ -30,6 +31,7 @@ return function(
 	local bubble, hueSlider = sliders.bubble, sliders.hueSlider
 
 	local function planeView(): Frame
+		local pointerInput = pointerDragOf(ctx)
 		local hueChannel = Compose.formula(function(use: Use): number
 			return use(canon).h
 		end)
@@ -113,7 +115,7 @@ return function(
 			Host.UIDragDetector "Drag" {
 				ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 				Enabled = function(use: Use)
-					return interactive(use)
+					return interactive(use) and pointerInput(use)
 				end,
 				DragStart = beginDrag,
 				DragContinue = function(position: Vector2)

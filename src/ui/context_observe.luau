@@ -178,6 +178,9 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 	end
 	ctx.selectionHooks = {}
 	ctx.observe = observers(observe)
+	ctx.observeNative = observers(function(node: Instance, property: string): ComposeTypes.Cell<unknown>
+		return (runtime.observe(node, property) :: unknown) :: ComposeTypes.Cell<unknown>
+	end)
 	local function observeStyled(node: Instance, property: string): ComposeTypes.Cell<unknown>
 		local initial: unknown = node:GetStyled(property)
 		local value = Compose.cell(initial)

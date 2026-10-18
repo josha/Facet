@@ -989,7 +989,11 @@ return function(verifyHarness: Verify.Harness)
 			local runtime = Facet.Roblox.createRuntime(engine)
 			local Host = (runtime.constructors :: unknown) :: RobloxHost
 			local provider = {
-				PreloadAsync = function(_self: unknown, _sources: { string })
+				PreloadAsync = function(_self: unknown, sources: { Instance })
+					for _, source in sources do
+						t:expect(source:IsA("TextLabel") or source:IsA("TextButton") or source:IsA("TextBox"))
+							:toBe(true)
+					end
 					table.insert(waiting, coroutine.running())
 					coroutine.yield()
 				end,

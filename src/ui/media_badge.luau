@@ -232,7 +232,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						if form(use) == "dash" then math.max(3, size(use) / 3) else size(use)
 					)
 				end,
-				AutomaticSize = if spec.count ~= nil then E.AutomaticSize.X else nil,
+				AutomaticSize = if spec.count ~= nil
+					then (if spec.Size == nil then E.AutomaticSize.XY else E.AutomaticSize.X)
+					else nil,
 				Text = function(use: ComposeTypes.Use)
 					local count = read(spec.count, use)
 					if count == nil then
