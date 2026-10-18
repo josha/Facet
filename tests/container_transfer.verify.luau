@@ -15,7 +15,14 @@ return function(harness: Verify.Harness)
 	harness:case("a transfer list carries a separate visual instead of its empty logical slot", function()
 		local worlds = require("./lib/content_world")
 		local w = worlds.new(function(UI: Facet.Controls, _Host, engine)
-			local visual = UI.Text "PaintedTile" { text = "E", Size = engine.types.UDim2.fromOffset(52, 52) }
+			local held = Facet.Compose.cell(false)
+			local visual = UI.Text "PaintedTile" {
+				text = "E",
+				Size = engine.types.UDim2.fromOffset(52, 52),
+				Visible = function(use: Facet.Use): boolean
+					return not use(held)
+				end,
+			}
 			return UI.ZStack {
 				visual,
 				UI.VirtualList "Rack" {
@@ -28,7 +35,18 @@ return function(harness: Verify.Harness)
 					itemSize = 52,
 					reorderable = true,
 					drag = function(): Facet.DraggableSpec
-						return { payload = "E", preview = visual, touchPickup = "immediate", touchDragAxis = "XY" }
+						return {
+							payload = "E",
+							preview = visual,
+							touchPickup = "immediate",
+							touchDragAxis = "XY",
+							onStart = function()
+								held:set(true)
+							end,
+							onEnd = function()
+								held:set(false)
+							end,
+						}
 					end,
 					render = function(): GuiObject
 						return UI.ZStack "EmptySlot" { width = "fill", height = "fill" }
@@ -42,12 +60,15 @@ return function(harness: Verify.Harness)
 		local body = w.find("Rack")
 		body.AbsoluteWindowSize, body.AbsoluteSize = V2.new(390, 52), V2.new(390, 52)
 		local pointer = w.engine.new("InputObject")
+		local painted = w.find("PaintedTile")
 		pointer.UserInputType, pointer.UserInputState = E.UserInputType.Touch, E.UserInputState.Begin
 		pointer.Position = V3.new(46, 226, 0)
 		source.InputBegan:Fire(pointer)
 		pointer.Position = V3.new(46, 206, 0)
 		w.input.InputChanged:Fire(pointer)
 		local ghost = assert(w.find("DragGhost"))
+		Verify.expect(painted.Visible):toBe(false)
+		Verify.expect(assert(ghost:FindFirstChild("Reorderable", true)).Visible):toBe(true)
 		local readable = false
 		for _, node in ghost:GetDescendants() do
 			if node:IsA("TextLabel") and node.Text == "E" then
@@ -56,6 +77,9 @@ return function(harness: Verify.Harness)
 		end
 		Verify.expect(readable):toBe(true)
 		Verify.expect(w.find("PaintedTile").Parent ~= ghost):toBe(true)
+		pointer.UserInputState = E.UserInputState.End
+		w.input.InputEnded:Fire(pointer)
+		Verify.expect(painted.Visible):toBe(true)
 		w.stop()
 	end)
 	harness:case("a horizontal transfer list permits native pickup across its layout axis", function()
