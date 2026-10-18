@@ -565,7 +565,6 @@ export type CollapsibleViewSpec = {
 	imageAspectRatio: typeof(buttonVisual.imageAspectRatio),
 	imageFraming: typeof(buttonVisual.imageFraming),
 	subtitle: typeof(buttonVisual.subtitle),
-	caption: typeof(buttonVisual.caption),
 	hint: typeof(buttonVisual.hint),
 	help: typeof(buttonVisual.help),
 	disclose: typeof(buttonVisual.disclose),

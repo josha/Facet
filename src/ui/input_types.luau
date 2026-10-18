@@ -37,7 +37,6 @@ export type ButtonVisualOptions = {
 	imageAspectRatio: number?,
 	imageFraming: ("fit" | "crop")?,
 	subtitle: Shared.ValueString?,
-	caption: Shared.ValueString?,
 	hint: Shared.ValueString?,
 	help: Help?,
 	disclose: boolean?,
@@ -57,6 +56,7 @@ export type ButtonInputOptions = {
 	target: ("hit" | "thumb" | "inline")?,
 }
 export type ButtonOptions = {
+	caption: Shared.ValueString?,
 	glyph: (() -> GuiObject)?,
 	selected: Shared.ValueBoolean?,
 	onActivate: ((InputObject?, number?) -> ())?,
