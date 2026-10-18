@@ -716,9 +716,16 @@ return function(verifyHarness: Verify.Harness)
 					{ zone = "bottomRight" :: "bottomRight", rank = 1, mayDrop = false, sizes = { wide(60, 60) } }
 				forms, _, shift, overflow = resolver.resolve(369, 687, 8, { bar, corner })
 				Verify.expect(forms[1]):toBe(1)
+				Verify.expect(forms[2]):toBe(1)
 				Verify.expect(shift.bottom):toBe(68)
-				Verify.expect(#overflow):toBe(1)
-				Verify.expect(overflow[1]):toBe(1)
+				Verify.expect(#overflow):toBe(0)
+				local chip: Declared =
+					{ zone = "bottomLeft" :: "bottomLeft", rank = 4, mayDrop = true, sizes = { wide(60, 60) } }
+				forms, _, shift, overflow = resolver.resolve(369, 687, 8, { bar, chip })
+				Verify.expect(forms[1]):toBe(1)
+				Verify.expect(forms[2]):toBe(0)
+				Verify.expect(shift.bottom):toBe(0)
+				Verify.expect(#overflow):toBe(0)
 
 				local declared: { Declared } = {
 					bar,
@@ -794,7 +801,7 @@ return function(verifyHarness: Verify.Harness)
 						local layer = engine.new("ScreenGui")
 						layer.Parent = parent
 						local root: Frame
-						runtime.mount(function()
+						local stop = runtime.mount(function()
 							local Host = runtime.constructors
 							root = UI.Composition(name) {
 								gap = 8,
@@ -813,16 +820,16 @@ return function(verifyHarness: Verify.Harness)
 						end, layer)
 						sized(engine, root:FindFirstChild(name .. "Full", true), 120, 44)
 						sized(engine, root:FindFirstChild("Zones"), 844, 390)
-						return root, layer
+						return root, layer, stop
 					end
-					hud("Score", "topLeft", screens)
-					hud("Chat", "topLeft", screens)
+					local _, _, stopScore = hud("Score", "topLeft", screens)
+					local _, _, stopChat = hud("Chat", "topLeft", screens)
 					hud("Map", "topRight", screens)
 					hud("Other", "topLeft", elsewhere)
 					engine.heartbeat:Fire(2.5)
 					Verify.expect(#warnings):toBe(1)
 					Verify.expect(warnings[1]):toBe(
-						"Facet Composition: 'Chat' and 'Score' both place regions in the topLeft zone. Compositions lay out their regions separately, so these can overlap. Keep a screen's HUD in one Composition."
+						"Facet Composition: Compositions 'Chat' and 'Score' both place regions in the topLeft zone of one screen. Each Composition lays out only its own regions, so the regions can overlap. Keep the HUD of a screen in one Composition"
 					)
 					local _, hiddenLayer = hud("Quest", "topRight", screens)
 					hiddenLayer.Enabled = false
@@ -831,6 +838,22 @@ return function(verifyHarness: Verify.Harness)
 					hud("Banner", "bottom", screens)
 					engine.heartbeat:Fire(2.5)
 					Verify.expect(#warnings):toBe(1)
+					hiddenLayer.Enabled = true
+					engine.heartbeat:Fire(1)
+					Verify.expect(#warnings):toBe(1)
+					engine.heartbeat:Fire(1.5)
+					Verify.expect(#warnings):toBe(2)
+					Verify.expect(string.find(warnings[2], "'Quest' and 'Map'", 1, true) ~= nil):toBe(true)
+					stopScore()
+					stopChat()
+					hud("Again", "topLeft", screens)
+					engine.heartbeat:Fire(2.5)
+					Verify.expect(#warnings):toBe(2)
+					local _, movedLayer = hud("Moved", "bottom", elsewhere)
+					movedLayer.Parent = screens
+					engine.heartbeat:Fire(2.5)
+					Verify.expect(#warnings):toBe(3)
+					Verify.expect(string.find(warnings[3], "'Moved' and 'Banner'", 1, true) ~= nil):toBe(true)
 					runtime:dispose()
 				end)
 				env.warn = nil

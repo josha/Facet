@@ -3,18 +3,20 @@
 ## Unreleased
 
 - A `top`, `center` or `bottom` region can use the full width of the
-  composition when both side zones of its row are empty. Before, the zone
-  kept `gap` free on both sides for side zones that were not there. A 361
-  pixel `bottom` region on a portrait phone 369 pixels wide, with `gap` 8,
-  then did not fit, stepped down and caused a fit warning. A zone that moves
-  below or above its corners still keeps `gap` on both sides.
+  composition when both side zones of its row are empty, or when it moves
+  below or above its corners. Before, the zone kept `gap` free on both sides
+  for side zones that were not there. A 361 pixel `bottom` region on a
+  portrait phone 369 pixels wide, with `gap` 8, then did not fit, stepped
+  down and caused a fit warning. The side regions of a row also give way
+  first when the center zone fits the full width alone.
 - A Composition warns once for each pair of Compositions and zone when
-  another enabled Composition in a ScreenGui with the same parent places a
-  visible region in the same zone for two seconds. Each Composition lays out
-  only its own regions, so the regions can overlap. Regions with a zero size,
-  hidden regions and regions in the top bar strip do not cause the warning.
-  Facet does not move the regions apart: put the HUD of a screen in one
-  Composition.
+  another Composition on the same screen places a visible region in the same
+  zone for two seconds. Two Compositions are on the same screen when their
+  layers are the same or have the same parent. Each Composition lays out
+  only its own regions, so the regions can overlap. A disabled layer, a
+  hidden Composition, a hidden region, a region with a zero size and a
+  region in the top bar strip do not cause the warning. Facet does not move
+  the regions apart: put the HUD of a screen in one Composition.
 - An expanded CollapsibleView always reserves the width of its vertical scroll
   bar. Before, the bar appeared and went away when content that wraps changed
   height at the boundary. The content width then changed by the bar width, and

@@ -56,7 +56,6 @@ local function resolve(
 	end
 	local stack: Stacked = stacked or { top = false, bottom = false }
 	local lane = (width - 2 * gap) / 3
-	local full = width - 2 * gap
 	while true do
 		local zoneW: { [number]: number }, zoneH: { [number]: number }, members: { [number]: { number } } = {}, {}, {}
 		for index, region in regions do
@@ -121,12 +120,12 @@ local function resolve(
 					room = if side > 0 then math.max(lane, width - 2 * (side + gap)) else width
 					local wide = zoneW[key] or 0
 					if edge and stack[edge] then
-						room = full
+						room = width
 					elseif wide > room then
 						if edge then
 							squeezed[edge] = true
 						end
-						if wide <= full and (zoneH[key] or 0) <= height then
+						if wide <= width and (zoneH[key] or 0) <= height then
 							local spare = (width - wide) / 2 - gap
 							fail(4 + row, spare)
 							fail(12 + row, spare)
