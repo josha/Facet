@@ -8,6 +8,7 @@ local Theme = require("./theme_types")
 local parts = require("./overlay_parts")
 local reservations = require("./reservations")
 local motion = require("./motion")
+local presentationReady = require("./presentation_readiness")
 local freeze = require("./freeze")
 local OverlayProps = require("./overlay_props")
 
@@ -102,6 +103,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		end
 		local actions: { Overlay.Action } = spec.actions or {}
 		parts.checkActions(ctx, where, spec.actions, 2, { "Link", "Close" })
+		local frames = runtime.host.frames
+		local runService = ctx.config.services.RunService
+		local prepares = frames ~= nil and runService ~= nil and runService.PreRender ~= nil
+		local preparing = Compose.cell(prepares)
 		local level = motion.level(ctx)
 		local reveal = ctx.motionTiming("reveal")
 		local present = Compose.cell(false)
@@ -118,6 +123,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return if use(present) then 1 else 0
 		end, { seconds = ctx.metric("motion.reducedFade"), ease = ctx.motionEase("fade") })
 		local function progress(use: ComposeTypes.Use?): number
+			if read(preparing, use) then
+				return 1
+			end
 			local current = level(use)
 			if current == "limited" then
 				return 1
@@ -286,7 +294,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local body = ctx.fade(bodyProps)
 		table.insert(rowChildren, body)
 		local gui = surfaces.service("GuiService")
-		local frames = runtime.host.frames
 		local noticeOwner = assert(Compose.currentOwner())
 		local root: Frame
 		local stopWaiting: (() -> ())? = nil
@@ -353,6 +360,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			ZIndex = if placement == "affixed" then 50 else nil,
 		}
 		local native = (ctx.props(spec, NOTICE_KEYS, defaults) :: unknown) :: { [unknown]: unknown }
+		local restVisible = native.Visible
+		native.Visible = function(use: ComposeTypes.Use): boolean
+			return not use(preparing) and read(restVisible, use) ~= false
+		end
 		local restSize, restAutomatic, restClip, restInteractable =
 			native.Size, native.AutomaticSize, native.ClipsDescendants, native.Interactable
 		local inset = Host.UIPadding({
@@ -398,7 +409,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return not use(leaving) and read(restInteractable, use) ~= false
 		end
 		root = Host.Frame((native :: unknown) :: Types.FrameNativeProps)
-		present:set(true)
+		if not prepares then
+			present:set(true)
+		end
 		surfaces.attach(root, {
 			inset,
 			ctx.corner(),
@@ -423,6 +436,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		Compose.watch(function(use: ComposeTypes.Use)
 			root:SetAttribute("NoticeAccessories", if use(beside) then "beside" else "below")
 		end)
+		if prepares then
+			local ready = presentationReady(ctx, { root })
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(ready) and preparing:peek() then
+					preparing:set(false)
+					present:set(true)
+				end
+			end)
+		end
 		if placement == "affixed" then
 			local owner = assert(Compose.currentOwner())
 			local token = {}
@@ -448,6 +470,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						return
 					end
 					current = layer
+					local visible = ctx.observe.Visible(root)
 					local origin = ctx.observe.AbsolutePosition(layer)
 					local height = ctx.observe.AbsoluteSize(layer)
 					local function publish()
@@ -469,6 +492,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						use(at)
 						use(origin)
 						use(extent)
+						use(visible)
 						publish()
 						if frames then
 							local stop: (() -> ())? = nil

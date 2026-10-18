@@ -51,7 +51,7 @@ Those page and disclosure controls already defer content through Compose.
 ColorPicker, automatic Picker and Pagination now retain responsive content
 through temporary zero bounds.
 
-Run `lute run tools/lute/studio_live.luau ports_pickers --only color-open-readiness`
+Run `lute run tools/facet studio live ports_pickers --only color-open-readiness`
 to measure ColorPicker construction and reveal separately. The case records
 milliseconds and frames, checks the first visible layout, checks swatch identity,
 and checks panel cleanup. It starts from the presentation state change. It does
@@ -70,7 +70,7 @@ median construction time of 21.54 ms instead of 30.49 ms, and a median reveal
 time of 50.28 ms instead of 66.85 ms. Both used three readiness frames. These
 are host measurements, not physical iPhone measurements.
 
-Run `lute run tools/lute/studio_live.luau ports_pickers --only color-first-visit`
+Run `lute run tools/facet studio live ports_pickers --only color-first-visit`
 to check first visits with native input. This case measures from pointer
 release to visible content, checks that the panel stays in place, and checks
 that returning to a mode or format keeps the same controls.

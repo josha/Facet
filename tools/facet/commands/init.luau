@@ -29,6 +29,7 @@ local commands: { Cli.Command } = {
 	require("@self/preview"),
 	require("@self/audit"),
 	require("@self/verify"),
+	require("@self/studio"),
 	require("@self/kit"),
 }
 

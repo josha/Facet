@@ -389,6 +389,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					Text = function(use: ComposeTypes.Use)
 						return if spec.overflow == "ellipsis" then "…" else "+" .. tostring(#use(items) - maximum)
 					end,
+					TextScaled = true,
 					Selectable = spec.onOverflow ~= nil,
 					AutoButtonColor = false,
 					Activated = function()
@@ -398,6 +399,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						end
 					end,
 					Host.UICorner({ CornerRadius = ctx.round }),
+					Host.UITextSizeConstraint {
+						MaxTextSize = function(use: ComposeTypes.Use): number
+							return math.max(8, math.floor(size(use) * 0.4 + 0.5))
+						end,
+					},
 					Host.UISizeConstraint({
 						MinSize = function(use: ComposeTypes.Use): Vector2
 							local minimum = floor(use)

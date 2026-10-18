@@ -36,7 +36,7 @@ return function(ctx: Types.Context, root: GuiObject, onBegin: () -> (), onEnd: (
 	for _, node in root:GetDescendants() do
 		listen(node)
 	end
-	runtime.connect(root, "DescendantAdded", listen)
+	runtime.connect(root, "DescendantAdded", ctx.Compose.bindOwner(listen))
 	runtime.connect(root, "InputEnded", finish)
 	local input = ctx.config.userInputService
 	if input then

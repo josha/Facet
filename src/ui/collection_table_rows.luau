@@ -206,6 +206,14 @@ return function<V, K>(
 					if render then
 						local measured = if custom then content:GetChildren()[1] :: GuiObject else content
 						local size = ctx.observe.AbsoluteSize(measured)
+						local settled = if runtime.host.frames
+							then runtime.settled {
+								restart = size,
+								sample = function(): Vector2
+									return measured.AbsoluteSize
+								end,
+							}
+							else Compose.cell(true)
 						local automatic = ctx.observe.AutomaticSize(measured)
 						local authored = ctx.observe.Size(measured)
 						Compose.watch(function(use: ComposeTypes.Use)
@@ -216,7 +224,10 @@ return function<V, K>(
 								or use(authored).Y.Scale == 0
 							then
 								local height = use(size).Y / use(unitScale) + CELL_PADDING
-								if height > 0 and cellHeights:peek()[definition.id] ~= height then
+								if
+									(use(size).Y > 0 or (use(settled) and measured.AbsoluteSize.Y == 0))
+									and cellHeights:peek()[definition.id] ~= height
+								then
 									local nextHeights = table.clone(cellHeights:peek())
 									nextHeights[definition.id] = height
 									cellHeights:set(nextHeights)
@@ -233,10 +244,12 @@ return function<V, K>(
 									"PaddingRight"
 								) :: UDim).Offset
 								else math.max(CELL_PADDING, use(metrics.textInsetSize).X / use(unitScale))
-							setPrimaryMeasure(key, math.ceil(use(natural).X / use(unitScale)) + inset)
-						end)
-						Compose.cleanup(function()
-							setPrimaryMeasure(key, nil)
+							setPrimaryMeasure(
+								key,
+								assert(undisclosed),
+								math.ceil(use(natural).X / use(unitScale)),
+								inset
+							)
 						end)
 					end
 					if not render then

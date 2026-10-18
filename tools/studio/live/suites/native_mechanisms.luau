@@ -96,10 +96,17 @@ local OFF_SCREEN_BY_DESIGN = {
 
 local function fitRun(t: any, kind: string, name: string, size: Vector2, theme: any, label: string)
 	local where = `{label} {kind}/{name} {size.X}x{size.Y}`
+	local errors: { [string]: number } = {}
+	local messages = game:GetService("LogService").MessageOut:Connect(function(message: string, level: Enum.MessageType)
+		if level == Enum.MessageType.MessageError then
+			errors[message] = (errors[message] or 0) + 1
+		end
+	end)
 	local stage, _, problem, controls = mountModule(t, kind, name, size, theme)
 	t.check(where .. " mounts", stage ~= nil, problem and string.sub(problem, 1, 300))
 	if not stage then
 		t.cleanup()
+		messages:Disconnect()
 		return
 	end
 	t.settle(10)
@@ -173,6 +180,8 @@ local function fitRun(t: any, kind: string, name: string, size: Vector2, theme: 
 	t.check(where .. " no undisclosed text clip", #found.clipped == 0, found.clipped)
 	t.check(where .. " no visible selectable control has a zero rectangle", #zero == 0, zero)
 	t.cleanup()
+	messages:Disconnect()
+	t.check(where .. " has no native errors", next(errors) == nil, errors)
 end
 
 add("every-scenario-and-example-fits", {}, function(t)
@@ -196,6 +205,19 @@ add("every-scenario-and-example-fits", {}, function(t)
 		end
 	end
 	t.note("preferred text size", t.environment.preferredTextSize)
+end)
+
+add("native-identity-adaptive-layout", { "UI.Picker", "UI.AvatarGroup" }, function(t)
+	local registry = (require :: (ModuleScript) -> { order: { string } })(
+		storage:WaitForChild("FacetScenarios") :: ModuleScript
+	)
+	local neutral = t.themes[1]
+	for _, name in registry.order do
+		fitRun(t, "scenario", name, Vector2.new(390, 844), neutral.package, neutral.name)
+		if name == "identity" then
+			break
+		end
+	end
 end)
 
 add("scroll-gutter-and-window", {}, function(t)
@@ -539,6 +561,15 @@ add("sibling-order-and-hit-testing", {}, function(t)
 		t.cleanup()
 	end
 	t.near("a shadow does not enter layout", sizes[true], sizes[false], 0.01)
+end)
+
+add("native-fixture-preserves-xml-codec", {}, function(t)
+	local xml = (require :: (ModuleScript) -> typeof(require("@repo/tools/vendor/verify/src/codec/xml")))(
+		storage.FacetVerify.codec.xml
+	)
+	local ending = "]]" .. ">"
+	local root = xml.parse("<root><![CDATA[left" .. ending .. "<![CDATA[>right" .. ending .. "</root>")
+	t.check("the native fixture preserves the complete XML codec source", root.text == "left>right", root.text)
 end)
 
 return cases

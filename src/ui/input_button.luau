@@ -543,7 +543,27 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 								local metrics = `{width}|{use(words)}|{use(points)}|{use(face)}`
 								if metrics ~= measured and node:HasTag("facet-button-tight") then
 									measured = metrics
-									node:RemoveTag("facet-button-tight")
+									local drawn = node.TextBounds.X
+									local unit = 1
+									local at: Instance? = node
+									while at do
+										local transform = at:FindFirstChildWhichIsA("UIScale")
+										if transform then
+											unit *= transform.Scale
+										end
+										at = at.Parent
+									end
+									local package = read(ctx.config.theme, use)
+									local skin = package and package.chrome and package.chrome.control
+									local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
+									local padding = (
+										2 * ctx.controlSize(spec.controlSize, "paddingX", use)
+										+ (carve.left or 0)
+										+ (carve.right or 0)
+									) * unit
+									if drawn == 0 or (whole and drawn + padding <= width) then
+										node:RemoveTag("facet-button-tight")
+									end
 								end
 								if not whole and width > 0 and not node:HasTag("facet-button-tight") then
 									measured = metrics
@@ -707,7 +727,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		if spec.compactLabel then
 			assert(not rich, "Facet.Button: compactLabel requires a text button")
-			local size = ctx.observe.AbsoluteSize(node)
+			local size = ctx.observeNative.AbsoluteSize(node)
 			local measure: TextLabel
 			runtime.mount(function()
 				measure = ctx.text({
@@ -721,7 +741,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return measure
 			end, node)
 			local unit = ctx.layoutUnit(node)
-			local bounds = ctx.layoutBounds(measure, unit)
+			local bounds = ctx.observeNative.TextBounds(measure)
 			local automatic = ctx.observe.AutomaticSize(node)
 			local parent = ctx.observe.Parent(node)
 			local available = Compose.cell(0)
@@ -757,7 +777,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						then use(available) / scale
 						else use(size).X / scale
 					local compact = width > 0
-						and use(bounds).X > width - 2 * ctx.controlSize(spec.controlSize, "paddingX", use)
+						and use(bounds).X / scale > width - 2 * ctx.controlSize(spec.controlSize, "paddingX", use)
 					return read(if compact then spec.compactLabel else spec.label, use)
 				end,
 			})

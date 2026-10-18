@@ -1,4 +1,5 @@
 --!strict
+local pointerDragOf = require("./pointer_drag")
 local activation = require("./activation")
 local scrollLock = require("./scroll_lock")
 local reducedMotion = require("./motion").reduced
@@ -42,6 +43,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			spec.actionPlacement == nil or spec.actionPlacement == "trailing" or spec.actionPlacement == "bottom",
 			"RowActions.actionPlacement must be trailing or bottom"
 		)
+		local pointer = pointerDragOf(ctx)
 		local bottom = spec.actionPlacement == "bottom"
 		local leading: Types.Value<{ RowAction }> = spec.leading or {}
 		local trailing: Types.Value<{ RowAction }> = spec.trailing or {}
@@ -325,7 +327,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 							else ctx.observe.TextBounds(button)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local size, action = use(bounds), use(current)
-							local width = (if size then size.X else 0)
+							local width = math.ceil(if size then size.X else 0)
 								+ 32
 								+ (if action.icon then ctx.controlSize(nil, "iconSize", use) + 8 else 0)
 							local id = edge .. ":" .. action.id
@@ -556,6 +558,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		end
 		local function swipeDetector(use: ComposeTypes.Use): boolean
 			return swipeable(use)
+				and pointer(use)
 				and not touchFirst(use)
 				and not (preferred ~= nil and readSource(preferred, use) == E.PreferredInput.Gamepad)
 		end
@@ -948,7 +951,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 							else ctx.observe.TextBounds(button)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local size = use(bounds)
-							editWidth:set(math.min(use(dimensions).X, math.max(72, (if size then size.X else 0) + 32)))
+							editWidth:set(
+								math.min(use(dimensions).X, math.max(72, math.ceil(if size then size.X else 0) + 32))
+							)
 						end)
 						return button
 					end),

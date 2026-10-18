@@ -1212,7 +1212,7 @@ cases = function(): { Case.Case }
 					"tools/facet/init.luau",
 					"tests/lute/worker.luau",
 					"tests/a.verify.luau",
-					"tools/lute/studio_live.luau",
+					"tools/facet/commands/studio.luau",
 					"bench/perf_runner.luau",
 					"tools/vendor/verify/src/lute/host.luau",
 					"tools/vendor/verify/src/core/init.luau",
@@ -1228,7 +1228,7 @@ cases = function(): { Case.Case }
 					Case.same(lute, {
 						"tools/facet/init.luau",
 						"tests/lute/worker.luau",
-						"tools/lute/studio_live.luau",
+						"tools/facet/commands/studio.luau",
 						"tools/vendor/verify/src/lute/host.luau",
 						"tools/vendor/verify/tools/studio-worker.luau",
 					}, "lute")

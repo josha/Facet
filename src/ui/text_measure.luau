@@ -118,6 +118,9 @@ end
 
 return {
 	hold = hold,
+	pending = function(node: Instance): boolean
+		return pending[node] ~= nil
+	end,
 	natural = function(
 		ctx: Types.Context,
 		label: TextLabel | TextButton | TextBox,

@@ -9,7 +9,7 @@ local function attachLayout(
 	ctx: Shared.Context,
 	label: TextLabel | TextButton,
 	stable: boolean?,
-	includePadding: boolean?
+	watchPadding: boolean?
 )
 	local Compose, runtime, types, Host = ctx.Compose, ctx.runtime, ctx.types, ctx.Host
 	local Enum, services = types.Enum, ctx.config.services
@@ -79,7 +79,10 @@ local function attachLayout(
 		end
 	end
 	local revision = Compose.cell(0)
-	local size, bounds = ctx.observe.AbsoluteSize(label), ctx.observe.TextBounds(label)
+	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
+	local size =
+		runtime.observe(label, "AbsoluteSize", if framed then { frame = true, poll = true } else nil) :: ComposeTypes.Readable<Vector2>
+	local bounds = ctx.observe.TextBounds(label)
 	local function invalidate()
 		if not refreshing then
 			revision:set(revision:peek() + 1)
@@ -112,7 +115,7 @@ local function attachLayout(
 		end
 	end)
 	refreshMetrics()
-	if includePadding then
+	if watchPadding then
 		local function observePadding(child: Instance)
 			if child:IsA("UIPadding") then
 				runtime.connect(child, "StyledPropertiesChanged", invalidate)
@@ -135,11 +138,18 @@ local function attachLayout(
 		local box, glyph, mode = use(size), use(bounds), label.AutomaticSize
 		local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
 		local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
+		local measured = measuredFloor()
+		local stale = measured
+			and freeX
+			and glyph.X > 0
+			and glyph.Y > 0
+			and glyph.X <= box.X
+			and glyph.Y <= box.Y
+			and not label.TextFits
 		if
-			not measuredFloor()
-			and box.X > 0
+			box.X > 0
 			and box.Y > 0
-			and ((freeX and glyph.X > box.X) or (freeY and glyph.Y > box.Y))
+			and (stale or (not measured and ((freeX and glyph.X > box.X) or (freeY and glyph.Y > box.Y))))
 		then
 			deferReflow()
 		end
@@ -313,7 +323,7 @@ local function attachLayout(
 									y = tallest
 								end
 							end
-							local padding = if includePadding then label:FindFirstChildWhichIsA("UIPadding") else nil
+							local padding = label:FindFirstChildWhichIsA("UIPadding")
 							if padding then
 								local left, right =
 									padding:GetStyled("PaddingLeft") :: UDim, padding:GetStyled("PaddingRight") :: UDim
@@ -365,8 +375,8 @@ return function(
 	local Compose, runtime, types, Host = ctx.Compose, ctx.runtime, ctx.types, ctx.Host
 	local Enum = types.Enum
 	local layout = layoutKit.attach((ctx :: unknown) :: Shared.Context)
-	function ctx.textLayout(label: TextLabel | TextButton, stable: boolean?, includePadding: boolean?)
-		attachLayout(ctx, label, stable, includePadding)
+	function ctx.textLayout(label: TextLabel | TextButton, stable: boolean?, watchPadding: boolean?)
+		attachLayout(ctx, label, stable, watchPadding)
 	end
 	function ctx.padding(horizontal: number, vertical: number): UIPadding
 		local sides: Shared.Sides = { top = vertical, right = horizontal, bottom = vertical, left = horizontal }

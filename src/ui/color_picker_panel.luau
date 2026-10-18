@@ -87,13 +87,6 @@ return function(
 		local function tech(use: Use): number
 			return if overlay and #modes > 1 then 6 * state.cellSize(use) + 5 * GAP else active(use)
 		end
-		local extent = runtime.observe(techniqueNode, "AbsoluteSize") :: ComposeTypes.Readable<Vector2>
-		Compose.watch(function(use: Use)
-			local w = use(extent).X / use(unit)
-			if w > 0 then
-				columns:set(math.clamp(math.floor((w + GAP) / (state.cellSize(use) + GAP)), 1, MAX_COLUMNS))
-			end
-		end)
 		local measured: { { node: GuiObject, size: ComposeTypes.Readable<Vector2> } } = {}
 		local function measure(node: GuiObject): GuiObject
 			local size = runtime.observe(node, "AbsoluteSize") :: ComposeTypes.Readable<Vector2>
@@ -122,25 +115,41 @@ return function(
 			end,
 		})
 		table.insert(children, measure(readout))
-		local body = Host.ScrollingFrame "Body" {
+		local bodyProps: Shared.ScrollingFrameNativeProps = {
+			Name = "Body",
 			LayoutOrder = 3,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Selectable = false,
-			ScrollBarThickness = 4,
-			VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
-			ScrollingDirection = E.ScrollingDirection.Y,
-			AutomaticCanvasSize = E.AutomaticSize.Y,
-			CanvasSize = D2.fromOffset(0, 0),
+			ClipsDescendants = true,
 			Size = function(use: Use)
 				local height = math.ceil(tech(use))
 				return D2.new(1, 0, 0, if overlay then math.min(height, math.max(0, use(room))) else height)
 			end,
 			techniqueNode :: Shared.Child,
 		}
+		local body: GuiObject
+		if overlay then
+			bodyProps.ScrollBarThickness = 4
+			bodyProps.VerticalScrollBarInset = E.ScrollBarInset.ScrollBar
+			bodyProps.ScrollingDirection = E.ScrollingDirection.Y
+			bodyProps.AutomaticCanvasSize = E.AutomaticSize.Y
+			bodyProps.CanvasSize = D2.fromOffset(0, 0)
+			body = Host.ScrollingFrame(bodyProps)
+		else
+			body = Host.Frame((bodyProps :: unknown) :: Shared.FrameNativeProps)
+		end
+		local window =
+			runtime.observe(body, if overlay then "AbsoluteWindowSize" else "AbsoluteSize") :: ComposeTypes.Readable<Vector2>
+		Compose.watch(function(use: Use)
+			local w = use(window).X / use(unit)
+			if w > 0 then
+				columns:set(math.clamp(math.floor((w + GAP) / (state.cellSize(use) + GAP)), 1, MAX_COLUMNS))
+			end
+		end)
 		runtime.decorate(techniqueNode, {
 			Size = function(use: Use)
-				return D2.new(1, 0, 0, active(use))
+				return D2.fromOffset(use(window).X / use(unit), active(use))
 			end,
 		})
 		table.insert(children, body)

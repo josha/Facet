@@ -28,10 +28,12 @@ return function<K>(
 		return target
 	end, ctx.motionSpring("control"), reduced)
 	local held, running, writing = false, false, false
+	local gestureMoved = false
 	local stopWait: ComposeTypes.Dispose? = nil
 	local previous, previousTime, velocity, gestureStart = 0, clock(), 0, 0
 	local function cancel()
 		running = false
+		gestureMoved = false
 		glide.halt()
 		if stopWait then
 			stopWait()
@@ -57,6 +59,8 @@ return function<K>(
 		return low
 	end
 	local function settle()
+		local movedByContact = gestureMoved
+		gestureMoved = false
 		if enabled and not enabled() then
 			return
 		end
@@ -80,7 +84,7 @@ return function<K>(
 				desired, distance = boundary, difference
 			end
 		end
-		if math.abs(velocity) > 350 and clock() - previousTime < 0.25 then
+		if movedByContact and math.abs(velocity) > 350 and clock() - previousTime < 0.25 then
 			if velocity > 0 and desired <= gestureStart then
 				local nextIndex = lowerBound(gestureStart + 0.01, current.total)
 				desired = if nextIndex <= current.total
@@ -142,6 +146,9 @@ return function<K>(
 			gestureStart = previous
 		end
 		local now = clock()
+		if held then
+			gestureMoved = true
+		end
 		if now > previousTime then
 			velocity = (offset - previous) / (now - previousTime)
 		end

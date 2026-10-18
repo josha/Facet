@@ -214,7 +214,7 @@ return function(harness: Verify.Harness)
 		runtime:dispose()
 		t:expect(engine.census().connections):toBe(0)
 	end)
-	harness:case("wrapped glyph floors preserve fractional native heights", function(t)
+	harness:case("wrapped glyph floors use native width and preserve fractional heights", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)
 		local height = 47.2
@@ -231,9 +231,15 @@ return function(harness: Verify.Harness)
 				services = { TextService = (service :: unknown) :: TextService },
 			} :: Shared.Config
 		)
+		local observeSize = ctx.observe.AbsoluteSize
+		local stale = Facet.Compose.cell(engine.types.Vector2.zero)
+		ctx.observe.AbsoluteSize = function(node: GuiBase2d)
+			return if node.Name == "WrappedCaption" then stale else observeSize(node)
+		end
 		local mounted: TextLabel? = nil
 		local stop = runtime.mount(function()
 			local node = ctx.text {
+				Name = "WrappedCaption",
 				Text = "Wrapped caption",
 				TextSize = 16,
 				TextWrapped = true,
@@ -250,6 +256,7 @@ return function(harness: Verify.Harness)
 		height = 19.2
 		node.Text = "Short"
 		t:expect(floor.MinSize.Y):toBe(engine.types.Vector2.new(0, height).Y)
+		t:expect(stale:peek()):toBe(engine.types.Vector2.zero)
 		stop()
 		runtime:dispose()
 		t:expect(engine.census().connections):toBe(0)

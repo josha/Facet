@@ -6,6 +6,9 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local GuiService = game:GetService("GuiService")
+local Verify = (require :: (ModuleScript) -> typeof(require("@repo/tools/vendor/verify/src/core")))(
+	game.ReplicatedStorage.FacetVerify.core
+)
 
 type Case = {
 	id: string,
@@ -116,13 +119,15 @@ local function pointerScreen(t: any, width: number, height: number)
 	)
 end
 
-local function scenario(t: any, name: string, size: Vector2?, theme: any?): (any, any)
+local function scenario(t: any, name: string, size: Vector2?, theme: any?): (any, any, FacetControls)
 	local built
+	local controls: FacetControls? = nil
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		controls = UI
 		built = t.scenario(name).build(t.context(UI, Host, Compose, env))
 		return if type(built) == "function" then built() else built.screen()
 	end, { size = size, theme = theme, frames = 20 })
-	return stage, built
+	return stage, built, assert(controls)
 end
 
 local function layerOf(stage: any): any
@@ -1243,6 +1248,27 @@ interactive(
 				value.root:GetAttribute("presented") == true,
 				value.root:GetAttribute("presented")
 			)
+			local screen = value.root:FindFirstAncestorWhichIsA("LayerCollector")
+			local ready = Verify.waitUntil({
+				name = "calendar presentation",
+				deadlineSeconds = 4,
+				pollSeconds = 1 / 60,
+				probe = function(): (boolean, unknown)
+					local surface = if screen then screen:FindFirstChild("CalendarSurface", true) else nil
+					local at: Instance? = surface
+					while at and at ~= screen do
+						if at:IsA("GuiObject") and (not at.Visible or not at.Interactable) then
+							return false, at.Name
+						end
+						if at:IsA("CanvasGroup") and at.GroupTransparency >= 1 then
+							return false, at.Name
+						end
+						at = at.Parent
+					end
+					return surface ~= nil, "CalendarSurface"
+				end,
+			}, { now = os.clock, sleep = task.wait })
+			t.check("the calendar becomes visible and interactive before the next click", ready.ok, ready)
 		end,
 		afterClose = function(t, value)
 			t.settle(6)
@@ -2286,7 +2312,7 @@ interactive(
 )
 
 add("picker-cards-live", {}, function(t)
-	local stage = scenario(t, "selection_controls", Vector2.new(390, 844))
+	local stage, _, UI = scenario(t, "selection_controls", Vector2.new(390, 844))
 	local mode = t.find(stage, "Mode")
 	local cards: { [string]: any } = {}
 	for _, key in { "sprint", "endurance", "night" } do
@@ -2297,9 +2323,16 @@ add("picker-cards-live", {}, function(t)
 	end
 	t.stable(cards.night)
 	local rows = {}
-	for key, card in cards do
+	for _, card in cards do
 		local r = t.rect(card)
 		rows[math.floor(r.y + 0.5)] = true
+	end
+	for _, key in { "sprint", "endurance", "night" } do
+		local card = cards[key]
+		UI.scrollToVisible(card, nil, { animated = false })
+		t.stable(card)
+		local r = t.rect(card)
+		t.inside(`{key} card is visible in the screen`, card, stage, 1)
 		t.check(`{key} card stays inside the 390 px screen`, r.x >= -0.5 and r.r <= 390.5, { r.x, r.r })
 		local description = partOf(card, "Description")
 		if description then
@@ -2586,7 +2619,11 @@ add("color-first-visit", {}, function(t)
 		}
 	do
 		local picker = assert(panel:FindFirstChild(visit[1], true))
-		local button = assert(picker:FindFirstChild(visit[2], true)) :: GuiButton
+		local button = assert(visibleNamed(t, picker, visit[2]), `visible {visit[2]} option was not found`) :: GuiButton
+		local activated = false
+		local activation = button.Activated:Connect(function()
+			activated = true
+		end)
 		local point = button.AbsolutePosition + button.AbsoluteSize / 2 + inset
 		point = Vector2.new(math.floor(point.X + 0.5), math.floor(point.Y + 0.5))
 		virtual:SendMousePosition(point)
@@ -2608,6 +2645,8 @@ add("color-first-visit", {}, function(t)
 				break
 			end
 		end
+		activation:Disconnect()
+		t.check(`{visit[2]} receives native activation`, activated)
 		t.note(visit[2], { visibleMs = (os.clock() - started) * 1000, frames = ready })
 		t.check(`{visit[2]} appears after native input`, ready > 0 and ready <= 8, ready)
 		t.settle(6)

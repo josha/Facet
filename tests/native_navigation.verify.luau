@@ -54,6 +54,8 @@ return function(verifyHarness: Verify.Harness)
 			theme: any?,
 			pressHaptic: ((any) -> HapticEffect)?,
 			motionLevel: Shared.Value<Shared.MotionLevel>?,
+			runService: boolean?,
+			preRender: boolean?,
 		}?
 	)
 		local engine = engines.new()
@@ -63,9 +65,16 @@ return function(verifyHarness: Verify.Harness)
 			return nil
 		end
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+		local runService = if options and (options.runService or options.preRender)
+			then { Heartbeat = engine.heartbeat, PreRender = if options.preRender then engine.heartbeat else nil }
+			else nil
 		local UI = controls(Compose, runtime, {
 			types = engine.types,
-			services = { GuiService = gui, UserInputService = input },
+			services = {
+				GuiService = gui,
+				UserInputService = input,
+				RunService = (runService :: unknown) :: RunService?,
+			},
 			theme = options and options.theme,
 			pressHaptic = options and options.pressHaptic and options.pressHaptic(engine),
 			motionLevel = options and options.motionLevel,
@@ -1314,7 +1323,10 @@ return function(verifyHarness: Verify.Harness)
 					pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(640, 160)
 					local first, second = world.engine.new("InputObject"), world.engine.new("InputObject")
 					first.UserInputType, second.UserInputType = E.UserInputType.Touch, E.UserInputType.Touch
-					find(world.screen, "CardOne").InputBegan:Fire(first)
+					local artwork = world.engine.new("Frame")
+					artwork.Name = "LateArtwork"
+					artwork.Parent = find(world.screen, "CardOne")
+					artwork.InputBegan:Fire(first)
 					pages.CanvasPosition = V2.new(120, 0)
 					world.engine.heartbeat:Fire(1)
 					Verify.expect(pages.CanvasPosition.X):toBe(120)
@@ -1329,6 +1341,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					Verify.expect(pages.CanvasPosition.X):toBe(0)
 					world.stop()
+					Verify.expect(world.engine.census().connections):toBe(0)
 				end,
 			}
 		)
@@ -2714,6 +2727,207 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+		verifyHarness:case("uses the native navigation width before its framed observation publishes", {
+			id = "native_navigation::native navigation controls::uses the native navigation width before its framed observation publishes",
+			run = function()
+				local engine = engines.new()
+				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+				local ctx = require("../src/ui/context")(Compose, runtime, { types = engine.types })
+				local UI = ({} :: unknown) :: SharedTypes.Controls
+				require("../src/ui/layout")(ctx, UI)
+				require("../src/ui/inputs")(ctx, UI)
+				require("../src/ui/nav_pages")(ctx, UI, require("../src/ui/nav_modal")(ctx))
+				local observeSize = ctx.observe.AbsoluteSize
+				local stale = Compose.cell(engine.types.Vector2.zero)
+				ctx.observe.AbsoluteSize = function(node: GuiBase2d)
+					return if node.Name == "NavigationBar" then stale else observeSize(node)
+				end
+				local Host = (runtime.constructors :: unknown) :: RobloxHost
+				local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<unknown> })
+				local stop, mounted = runtime.mount(function()
+					return Host.ScreenGui {
+						UI.NavigationStack {
+							path = path,
+							root = {
+								title = "Recipe book",
+								content = function(): GuiBase2d
+									return Host.Frame {}
+								end,
+							},
+							destinations = {},
+						},
+					}
+				end, engine.new("Folder"))
+				local screen = (mounted :: unknown) :: ScreenGui
+				local bar = assert(screen:FindFirstChild("NavigationBar", true)) :: Frame
+				local title = assert(bar:FindFirstChild("Title")) :: TextLabel
+				local geometry = (bar :: unknown) :: { AbsoluteSize: Vector2 }
+				geometry.AbsoluteSize = engine.types.Vector2.new(1024, 44)
+				Verify.expect(title:HasTag("facet-type-title")):toBe(true)
+				Verify.expect(title:HasTag("facet-type-heading")):toBe(false)
+				Verify.expect(stale:peek()):toBe(engine.types.Vector2.zero)
+				stop()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case(
+			"resolves an automatic picker from native width and text bounds before framed observations",
+			{
+				id = "native_navigation::native navigation controls::resolves an automatic picker from native width and text bounds before framed observations",
+				run = function()
+					local engine = engines.new()
+					local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+					local input = engine.new("UserInputService")
+					input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+					local ctx = require("../src/ui/context")(Compose, runtime, {
+						types = engine.types,
+						services = { UserInputService = input },
+					})
+					local UI = ({} :: unknown) :: SharedTypes.Controls
+					require("../src/ui/layout")(ctx, UI)
+					require("../src/ui/inputs")(ctx, UI)
+					require("../src/ui/nav_menu")(ctx, UI, require("../src/ui/nav_modal")(ctx))
+					local observeSize, observeBounds = ctx.observe.AbsoluteSize, ctx.observe.TextBounds
+					local stale = Compose.cell(engine.types.Vector2.zero)
+					ctx.observe.AbsoluteSize = function(node: GuiBase2d)
+						return if node.Name == "Auto" then stale else observeSize(node)
+					end
+					ctx.observe.TextBounds = function(node: TextBox | TextButton | TextLabel)
+						return if node.Name == "LabelMeasure" then stale else observeBounds(node)
+					end
+					local stop, mounted = runtime.mount(function()
+						return UI.Picker "Auto" {
+							selected = Compose.cell("a"),
+							options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
+						}
+					end, engine.new("ScreenGui"))
+					local picker = (mounted :: unknown) :: Frame
+					local measure = assert(picker:FindFirstChild("LabelMeasure")) :: TextLabel
+					local geometry = (picker :: unknown) :: { AbsoluteSize: Vector2 }
+					local metrics = (measure :: unknown) :: { TextBounds: Vector2 }
+					geometry.AbsoluteSize = engine.types.Vector2.new(120, 44)
+					metrics.TextBounds = engine.types.Vector2.new(500, 18)
+					Verify.expect(picker:FindFirstChild("Trigger", true) ~= nil):toBe(true)
+					geometry.AbsoluteSize = engine.types.Vector2.new(1000, 44)
+					Verify.expect(picker:FindFirstChild("Trigger", true) == nil):toBe(true)
+					metrics.TextBounds = engine.types.Vector2.new(1200, 18)
+					Verify.expect(picker:FindFirstChild("Trigger", true) ~= nil):toBe(true)
+					Verify.expect(stale:peek()):toBe(engine.types.Vector2.zero)
+					stop()
+					runtime:dispose()
+				end,
+			}
+		)
+		verifyHarness:case("retains styled automatic picker forms and disables hidden choices", {
+			id = "native_navigation::native navigation controls::retains styled automatic picker forms and disables hidden choices",
+			run = function()
+				local selected, opened = Compose.cell("a"), Compose.cell(false)
+				local options = Compose.cell({ { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } })
+				local world = setup(function(UI: FacetControls)
+					return UI.Picker "Auto" {
+						selected = selected,
+						isPresented = opened,
+						options = options,
+					}
+				end, { runService = true })
+				local picker = find(world.screen, "Auto")
+				local segmented, menu, inline
+				local count = 0
+				for _, child in picker:GetChildren() do
+					if child.Name == "Presentation" then
+						count += 1
+						if child:HasTag("facet-segmented") then
+							segmented = child
+						elseif find(child, "Trigger") then
+							menu = child
+						else
+							inline = child
+						end
+					end
+				end
+				Verify.expect(count):toBe(3)
+				Verify.expect(segmented.Visible):toBe(true)
+				Verify.expect(menu.Visible):toBe(false)
+				Verify.expect(inline.Visible):toBe(false)
+				local hidden = find(inline, "b")
+				Verify.expect(hidden.Interactable):toBe(false)
+				hidden.Activated:Fire()
+				Verify.expect(selected:peek()):toBe("a")
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+				picker.AbsoluteSize = world.engine.types.Vector2.new(120, 44)
+				find(picker, "LabelMeasure").TextBounds = world.engine.types.Vector2.new(500, 18)
+				Verify.expect(menu.Visible):toBe(true)
+				Verify.expect(segmented.Visible):toBe(false)
+				find(menu, "Trigger").Activated:Fire()
+				Verify.expect(opened:peek()):toBe(true)
+				picker.AbsoluteSize = world.engine.types.Vector2.new(1000, 44)
+				Verify.expect(segmented.Visible):toBe(true)
+				Verify.expect(menu.Visible):toBe(false)
+				Verify.expect(opened:peek()):toBe(false)
+				picker.AbsoluteSize = world.engine.types.Vector2.new(120, 44)
+				find(menu, "Trigger").Activated:Fire()
+				Verify.expect(opened:peek()):toBe(true)
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+				Verify.expect(inline.Visible):toBe(true)
+				Verify.expect(menu.Visible):toBe(false)
+				Verify.expect(opened:peek()):toBe(false)
+				hidden.Activated:Fire()
+				Verify.expect(selected:peek()):toBe("b")
+				picker.AbsoluteSize = world.engine.types.Vector2.new(1000, 44)
+				Verify.expect(segmented.Visible):toBe(true)
+				Verify.expect(segmented.Parent):toBe(picker)
+				Verify.expect(hidden.Interactable):toBe(false)
+				local many = {}
+				for index = 1, 7 do
+					table.insert(many, { value = tostring(index), label = "Choice " .. tostring(index) })
+				end
+				options:set(many)
+				count = 0
+				for _, child in picker:GetChildren() do
+					if child.Name == "Presentation" then
+						count += 1
+					end
+				end
+				Verify.expect(count):toBe(1)
+				Verify.expect(menu.Parent):toBe(picker)
+				Verify.expect(menu.Visible):toBe(true)
+				world.stop()
+				Verify.expect(world.engine.census().connections):toBe(0)
+			end,
+		})
+
+		verifyHarness:case("reveals the navigation title after its initial styled bounds settle", {
+			id = "native_navigation::native navigation controls::reveals the navigation title after its initial styled bounds settle",
+			run = function()
+				local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<unknown> })
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return UI.NavigationStack {
+						path = path,
+						root = { title = "Recipe book", content = Host.Frame {} },
+						destinations = {},
+					}
+				end, { runService = true })
+				local bar = find(world.screen, "NavigationBar") :: Frame
+				local title = assert(bar:FindFirstChild("Title")) :: TextLabel
+				local box = (bar :: unknown) :: { AbsoluteSize: Vector2 }
+				local text = (title :: unknown) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
+				box.AbsoluteSize = world.engine.types.Vector2.new(1024, 44)
+				text.AbsoluteSize = box.AbsoluteSize
+				Verify.expect(title.Visible):toBe(false)
+				text.TextBounds = world.engine.types.Vector2.new(100, 20)
+				world.engine.heartbeat:Fire(1 / 60)
+				text.TextBounds = world.engine.types.Vector2.new(120, 24)
+				world.engine.heartbeat:Fire(1 / 60)
+				Verify.expect(title.Visible):toBe(false)
+				for _ = 1, 4 do
+					world.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(title.Visible):toBe(true)
+				box.AbsoluteSize = world.engine.types.Vector2.new(390, 44)
+				Verify.expect(title.Visible):toBe(true)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("sizes the navigation bar title by the stack's width class", {
 			id = "native_navigation::native navigation controls::sizes the navigation bar title by the stack's width class",
 			run = function()
@@ -3987,6 +4201,63 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(source, "Scene").CurrentCamera.Parent):toBe(find(source, "Scene"))
 				Verify.expect((find(world.screen, "ExternalCamera"):isDestroyed())):toBe(false)
 				world.stop()
+			end,
+		})
+
+		verifyHarness:case("starts source expansion after the native overlay becomes visible", {
+			id = "native_navigation::native navigation controls::starts source expansion after the native overlay becomes visible",
+			run = function()
+				local shown = Compose.cell(false)
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					local source = Host.Frame "Card" {}
+					return Host.Frame {
+						source,
+						UI.Alert {
+							isPresented = shown,
+							surface = "fullScreen",
+							transition = { source = source :: GuiObject, seconds = 0.4 },
+						},
+					}
+				end, { preRender = true })
+				local V2 = world.engine.types.Vector2
+				local source = find(world.screen, "Card")
+				source.AbsoluteSize = V2.new(120, 80)
+				shown:set(true)
+				local panel = find(world.screen, "AlertPanel")
+				local modal = find(world.screen, "AlertModal")
+				local wrapper = find(world.screen, "OverlayArrival")
+				modal.AbsoluteSize = V2.new(800, 600)
+				local release = require("../src/ui/text_measure").hold(find(panel, "OK"))
+				for _ = 1, 8 do
+					world.engine.heartbeat:Fire(0.1)
+				end
+				Verify.expect(fadeKit.of(wrapper)):toBe(1)
+				release()
+				for _, node in world.screen:GetDescendants() do
+					if node:IsA("TextLabel") or node:IsA("TextButton") then
+						node.TextBounds = V2.new(40, 20)
+					end
+				end
+				for _ = 1, 20 do
+					if fadeKit.of(wrapper) == 0 then
+						break
+					end
+					world.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(fadeKit.of(wrapper)):toBe(0)
+				Verify.expect(panel.Size.X.Offset < 800):toBe(true)
+				local width = panel.Size.X.Offset
+				world.engine.heartbeat:Fire(0.1)
+				Verify.expect(panel.Size.X.Offset > width and panel.Size.X.Offset < 800):toBe(true)
+				world.engine.heartbeat:Fire(0.4)
+				Verify.expect(panel.Size.X.Offset):toBe(800)
+				shown:set(false)
+				world.engine.heartbeat:Fire(0.1)
+				Verify.expect(panel.Size.X.Offset < 800 and panel.Size.X.Offset > 120):toBe(true)
+				world.engine.heartbeat:Fire(0.4)
+				Verify.expect(find(world.screen, "AlertPanel")):toBe(nil)
+				world.stop()
+				Verify.expect(world.engine.census().connections):toBe(0)
 			end,
 		})
 

@@ -4,6 +4,8 @@ local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
 type PageReport = { current: string?, demo: { active: string? }? }
 type PageIdentity = (PageReport) -> string
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local pageIdentity = (require :: (ModuleScript) -> PageIdentity)(storage.FacetLive.focus_page :: ModuleScript)
 
 type Case = {
@@ -13,6 +15,7 @@ type Case = {
 	setup: ((any) -> any)?,
 	steps: { [string]: (any, any) -> () }?,
 	keepGallery: boolean?,
+	input: string?,
 }
 local cases: { Case } = {}
 
@@ -48,24 +51,72 @@ local function pages(): { { id: string, tab: string? } }
 end
 
 table.insert(cases, {
-	id = "focus-walk",
+	id = "focus-rest-tracks-targets-while-activity-runs",
 	contracts = {},
-	run = function(t: any)
-		local live = (require :: any)(storage.FacetLive)
-		local focus = shared.FacetFocusRecorder or (require :: any)(storage.FacetLive.focus)
-		local layer = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery")
-		local options = shared.FacetFocusWalk or {}
-		local prefix = if options.device then `{options.device}--` else ""
-		api("device", options.device or "automatic")
-		for index, page in pages() do
-			local name = if page.tab then `{page.id}/{page.tab}` else page.id
-			if
-				(options.only and not string.find(name, options.only, 1, true))
-				or (options.pages and not table.find(options.pages, name))
-				or index < (options.start or 1)
-			then
-				continue
-			end
+	input = "pointer",
+	run = function(t)
+		local focus = (require :: (ModuleScript) -> typeof(require("../focus")))(storage.FacetLive.focus)
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+			return Host.Frame {
+				Size = UDim2.fromScale(1, 1),
+				UI.ProgressView "Activity" { Size = UDim2.fromOffset(280, 6) } :: unknown,
+				UI.Button "Target" {
+					label = "Continue",
+					Position = UDim2.fromOffset(0, 60),
+					Size = UDim2.fromOffset(160, 44),
+				},
+			}
+		end, { motionLevel = "normal" })
+		local fill = assert(t.find(stage, "Fill1"))
+		local previous, moving = fill.AbsolutePosition, false
+		local run = game:GetService("RunService")
+		local activity = run.PreRender:Connect(function()
+			local now = fill.AbsolutePosition
+			moving = moving or now ~= previous
+			previous = now
+		end)
+		local settled, detail = pcall(focus.settle, stage)
+		activity:Disconnect()
+		local scale = Instance.new("UIScale")
+		scale.Parent = assert(t.find(stage, "Target"))
+		local alternate = false
+		local motion = run.PreRender:Connect(function()
+			alternate = not alternate
+			scale.Scale = if alternate then 0.99 else 1
+		end)
+		local unstable = pcall(focus.settle, stage)
+		motion:Disconnect()
+		scale:Destroy()
+		local restored, restoredDetail = pcall(focus.settle, stage)
+		t.check("activity art is moving during the focus rest check", moving)
+		t.check("stable focus geometry settles while activity art moves", settled, detail)
+		t.check("a moving focus target still fails the rest check", not unstable)
+		t.check("the restored target settles again", restored, restoredDetail)
+		t.cleanup()
+	end,
+})
+
+local selection = shared.FacetFocusWalk or {}
+for index, page in pages() do
+	local name = if page.tab then `{page.id}/{page.tab}` else page.id
+	if
+		(selection.only and not string.find(name, selection.only, 1, true))
+		or (selection.pages and not table.find(selection.pages, name))
+		or index < (selection.start or 1)
+	then
+		continue
+	end
+	table.insert(cases, {
+		id = `focus-walk/{name}`,
+		contracts = {},
+		input = if shared.FacetFocusWalk and shared.FacetFocusWalk.keys == true then "pointer" else "gamepad",
+		run = function(t: any)
+			local live = (require :: any)(storage.FacetLive)
+			local focus = shared.FacetFocusRecorder or (require :: any)(storage.FacetLive.focus)
+			local layer = (Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui):WaitForChild("FacetGallery")
+			local options = shared.FacetFocusWalk or {}
+			local prefix = if options.device then `{options.device}--` else ""
+			api("device", options.device or "automatic")
 			local function open()
 				api("show", page.id)
 				t.settle(30)
@@ -171,8 +222,8 @@ table.insert(cases, {
 			end
 			live.save(file, HttpService:JSONEncode(atlas), "atlas")
 			t.note(`{name} stops`, #atlas.stops)
-		end
-	end,
-})
+		end,
+	})
+end
 
 return cases

@@ -12,6 +12,7 @@ return function(verifyHarness: Verify.Harness)
 	local FixtureCollectionTypes = require("../src/ui/collection_types")
 	local FixtureCollectionProps = require("../src/ui/collection_props")
 	local FixtureEnvironmentTypes = require("../src/ui/environment_types")
+	local FixtureNavigationTypes = require("../src/ui/navigation_types")
 	local FixtureEngineTypes = require("../src/ui/engine_types")
 	type Readable<T> = { peek: (Readable<T>) -> T }
 	type Use = <T>(Readable<T>) -> T
@@ -315,6 +316,89 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 	verifyHarness:suite("collection viewport coherence", function()
+		verifyHarness:case("selected tabs reveal native content before the next frame", function(t)
+			local engine, runtime, UI, target, _, ctx = setup()
+			local V2 = engine.types.Vector2
+			local stale = Compose.cell(V2.zero)
+			ctx.observe.AbsoluteContentSize = function()
+				return stale
+			end
+			local selected = Compose.cell("b")
+			local tabs: { FixtureNavigationTypes.Tab } = {
+				{
+					id = "a",
+					label = "One",
+					content = function(): Instance
+						return UI.Button { label = "One" }
+					end,
+				},
+				{
+					id = "b",
+					label = "Two",
+					content = function(): Instance
+						return UI.Button { label = "Two" }
+					end,
+				},
+			}
+			local stop, root = runtime.mount(function()
+				return UI.TabView {
+					selection = selected,
+					placement = "topBar",
+					tabs = tabs,
+				}
+			end, target)
+			local bar = assert((root :: Frame):FindFirstChild("Tabs", true)) :: ScrollingFrame
+			local strip = assert(bar:FindFirstChild("Strip"))
+			local button = assert(strip:FindFirstChild("b")) :: TextButton
+			local layout = assert(strip:FindFirstChildWhichIsA("UIListLayout"))
+			local scroll = bar:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+				runtime.host.render.setProperty(button, "AbsolutePosition", V2.new(160 - bar.CanvasPosition.X, 0))
+			end)
+			runtime.host.render.setProperty(bar, "AbsoluteSize", V2.new(100, 44))
+			runtime.host.render.setProperty(button, "AbsoluteSize", V2.new(80, 44))
+			runtime.host.render.setProperty(button, "AbsolutePosition", V2.new(160, 0))
+			runtime.host.render.setProperty(layout, "AbsoluteContentSize", V2.new(240, 44))
+			t:expect(bar.CanvasPosition.X):toBe(140)
+			t:expect(selected:peek()):toBe("b")
+			scroll:Disconnect()
+			stop()
+			runtime:dispose()
+			t:expect(engine.census().connections):toBe(0)
+		end)
+
+		verifyHarness:case("row widths follow the native scrolling window before the next frame", function(t)
+			local engine, runtime, UI, target, _, ctx = setup()
+			local V2 = engine.types.Vector2
+			local stale = Compose.cell(V2.new(200, 100))
+			ctx.observe.AbsoluteWindowSize = function(_node: Instance)
+				return stale
+			end
+			local list: ScrollingFrame? = nil
+			local stop = runtime.mount(function()
+				list = UI.VirtualList {
+					from = { { id = "one", label = "One" } },
+					key = "id",
+					itemSize = 44,
+					render = function(): GuiObject
+						return UI.Button { label = "One" }
+					end,
+				}
+				return list
+			end, target)
+			local node = assert(list)
+			runtime.host.render.setProperty(node, "AbsoluteWindowSize", V2.new(200, 100))
+			stale:set(V2.new(200, 120))
+			local row = assert(assert(node:FindFirstChild("Items")):FindFirstChild("one")) :: Frame
+			t:expect(row.Size.X.Offset):toBe(200)
+			runtime.host.render.setProperty(node, "AbsoluteWindowSize", V2.new(194, 100))
+			t:expect(row.Size.X.Offset):toBe(194)
+			runtime.host.render.setProperty(node, "AbsoluteWindowSize", V2.new(200, 100))
+			t:expect(row.Size.X.Offset):toBe(200)
+			stop()
+			runtime:dispose()
+			t:expect(engine.census().connections):toBe(0)
+		end)
+
 		verifyHarness:case("keeps end-follow when native clamping precedes the size observation", {
 			id = "native_collections::collection viewport coherence::keeps end-follow when native clamping precedes the size observation",
 			run = function()
@@ -374,6 +458,120 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 	verifyHarness:suite("collection prepared paint", function()
+		verifyHarness:case("the first paint of an unprepared measured cell uses its completed extent", {
+			id = "native_collections::collection prepared paint::the first paint of an unprepared measured cell uses its completed extent",
+			run = function()
+				local engine, runtime, _, target, _, ctx = setup()
+				local V2 = engine.types.Vector2
+				local node = engine.new("Frame")
+				local text = engine.new("TextLabel")
+				text.Text = "Measured caption"
+				text.AbsoluteSize = V2.new(200, 24)
+				text.TextBounds = V2.new(180, 20)
+				text.Parent = node
+				node.AbsoluteSize = V2.zero
+				node.Parent = target
+				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local stop = runtime.mount(function()
+					ready = require("../src/ui/collection_paint")(ctx, node, nil, true)
+					return nil
+				end, target)
+				local painted: { number } = {}
+				local function frame()
+					engine.heartbeat:Fire(0)
+					if assert(ready):peek() then
+						table.insert(painted, node.AbsoluteSize.Y)
+					end
+				end
+				node.AbsoluteSize = V2.new(240, 40)
+				frame()
+				node.AbsoluteSize = V2.new(240, 44)
+				for _ = 1, 4 do
+					frame()
+				end
+				Verify.expect(#painted > 0):toBe(true)
+				for _, height in painted do
+					Verify.expect(height):toBe(44)
+				end
+				stop()
+			end,
+		})
+		verifyHarness:case("prepares measured content while its scroll position keeps changing", {
+			id = "native_collections::collection prepared paint::prepares measured content while its scroll position keeps changing",
+			run = function()
+				local engine, runtime, _, target, _, ctx = setup()
+				local V2 = engine.types.Vector2
+				local node = engine.new("Frame")
+				local text = engine.new("TextLabel")
+				text.Text = "Measured caption"
+				text.AbsoluteSize = V2.new(200, 24)
+				text.TextBounds = V2.new(180, 20)
+				text.Parent = node
+				node.AbsoluteSize = V2.zero
+				node.Parent = target
+				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local stop = runtime.mount(function()
+					ready = require("../src/ui/collection_paint")(ctx, node, nil, true)
+					return nil
+				end, target)
+				node.AbsoluteSize = V2.new(240, 44)
+				for index = 1, 4 do
+					node.AbsolutePosition = V2.new(0, -index * 20)
+					engine.heartbeat:Fire(0)
+				end
+				Verify.expect(assert(ready):peek()):toBe(true)
+				stop()
+			end,
+		})
+		verifyHarness:case("keeps already measured cells immediate when layout preparation is requested", {
+			id = "native_collections::collection prepared paint::keeps already measured cells immediate when layout preparation is requested",
+			run = function()
+				local engine, runtime, _, target, _, ctx = setup()
+				local node = engine.new("Frame")
+				local text = engine.new("TextLabel")
+				text.Text = "Measured caption"
+				text.TextWrapped = true
+				text.AutomaticSize = engine.types.Enum.AutomaticSize.Y
+				text.TextFits = false
+				text.AbsoluteSize = engine.types.Vector2.new(200, 24)
+				text.TextBounds = engine.types.Vector2.new(180, 20)
+				text.Parent = node
+				node.AbsoluteSize = engine.types.Vector2.new(240, 44)
+				node.Parent = target
+				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local stop = runtime.mount(function()
+					ready = require("../src/ui/collection_paint")(ctx, node, nil, true)
+					return nil
+				end, target)
+				Verify.expect(assert(ready):peek()):toBe(true)
+				stop()
+			end,
+		})
+		verifyHarness:case("keeps a cell hidden while its text measurement is pending", {
+			id = "native_collections::collection prepared paint::keeps a cell hidden while its text measurement is pending",
+			run = function()
+				local engine, runtime, _, target, _, ctx = setup()
+				local node = engine.new("Frame")
+				local text = engine.new("TextLabel")
+				text.Text = "Measured caption"
+				text.AbsoluteSize = engine.types.Vector2.new(200, 24)
+				text.TextBounds = engine.types.Vector2.new(180, 20)
+				text.Parent = node
+				node.AbsoluteSize = engine.types.Vector2.new(240, 44)
+				node.Parent = target
+				local release = require("../src/ui/text_measure").hold(text)
+				local ready: FixtureComposeTypes.Readable<boolean>? = nil
+				local stop = runtime.mount(function()
+					ready = require("../src/ui/collection_paint")(ctx, node)
+					return nil
+				end, target)
+				Verify.expect(assert(ready):peek()):toBe(false)
+				release()
+				engine.heartbeat:Fire(0)
+				Verify.expect(assert(ready):peek()):toBe(true)
+				stop()
+			end,
+		})
 		verifyHarness:case("paints an already measured cell without waiting for another render callback", {
 			id = "native_collections::collection prepared paint::paints an already measured cell without waiting for another render callback",
 			run = function()
@@ -4306,6 +4504,60 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("ignores stale zero table cell bounds and accepts a real zero height", {
+			id = "native_collections::Compose native collections::ignores stale zero table cell bounds and accepts a real zero height",
+			run = function()
+				local engine, runtime, UI, target, _, ctx = setup()
+				local Host = runtime.constructors
+				local observed = Compose.cell(engine.types.Vector2.zero)
+				local original = ctx.observe.AbsoluteSize
+				ctx.observe.AbsoluteSize = function(node: GuiBase2d)
+					return if node.Name == "DelayedHeight" then observed else original(node)
+				end
+				local controls: FixtureComposeTypes.OrderedCollectionControls<number> = {}
+				local stop, mounted = runtime.mount(function()
+					return UI.Table {
+						from = { 1, 2 },
+						key = function(item: number): number
+							return item
+						end,
+						controls = controls,
+						columns = {
+							{
+								id = "content",
+								render = function(): GuiObject
+									return (
+										Host.Frame {
+											Name = "DelayedHeight",
+											Size = engine.types.UDim2.fromOffset(200, 60),
+										} :: unknown
+									) :: GuiObject
+								end,
+							},
+						},
+					}
+				end, target)
+				local node = (mounted :: unknown) :: Frame
+				local body = (assert(node:FindFirstChild("Body")) :: unknown) :: { AbsoluteWindowSize: Vector2 }
+				body.AbsoluteWindowSize = engine.types.Vector2.new(200, 200)
+				local minimum = assert(controls.placementOf)(2).offset
+				local measured = (
+					assert(node:FindFirstChild("DelayedHeight", true)) :: unknown
+				) :: { AbsoluteSize: Vector2 }
+				measured.AbsoluteSize = engine.types.Vector2.new(200, 60)
+				observed:set(engine.types.Vector2.new(200, 60))
+				Verify.expect(assert(controls.placementOf)(2).offset):toBe(76)
+				observed:set(engine.types.Vector2.zero)
+				Verify.expect(assert(controls.placementOf)(2).offset):toBe(76)
+				measured.AbsoluteSize = engine.types.Vector2.zero
+				observed:set(engine.types.Vector2.new(200, 0))
+				engine.heartbeat:Fire(1 / 60)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(assert(controls.placementOf)(2).offset):toBe(minimum)
+				stop()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("adapts table row and header height from native text bounds and preferred input", {
 			id = "native_collections::Compose native collections::adapts table row and header height from native text bounds and preferred input",
 			run = function()
@@ -4339,7 +4591,12 @@ return function(verifyHarness: Verify.Harness)
 				header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = engine.types.Vector2.new(800, 102)
 				Verify.expect(body.CanvasSize.X.Offset):toBe(400)
 				body.CanvasPosition = engine.types.Vector2.new(80, 0)
-				Verify.expect(header.Position.X.Offset):toBe(-40)
+				Verify.expect(header.Position.X.Offset):toBe(0)
+				Verify.expect(header:IsA("ScrollingFrame")):toBe(true)
+				Verify.expect(header.CanvasPosition.X):toBe(80)
+				Verify.expect(header.CanvasSize.X.Offset):toBe(400)
+				header.CanvasPosition = engine.types.Vector2.new(60, 0)
+				Verify.expect(body.CanvasPosition.X):toBe(60)
 				body.CanvasPosition = engine.types.Vector2.zero
 				node:FindFirstChild("LayoutUnit").AbsoluteSize = engine.types.Vector2.one
 
@@ -4351,6 +4608,13 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((body:FindFirstChild("1", true))):toBe(row)
 				node:FindFirstChild("Sort", true).TextBounds = engine.types.Vector2.new(100, 20)
 				Verify.expect(body.Position.Y.Offset):toBe(44)
+				local value = row:FindFirstChild("Value", true)
+				value.Text = ""
+				value.TextBounds = engine.types.Vector2.zero
+				Verify.expect(assert(controls.placementOf)(2).offset):toBe(56)
+				value.Text = "Restored"
+				value.TextBounds = engine.types.Vector2.new(100, 60)
+				Verify.expect(assert(controls.placementOf)(2).offset):toBe(76)
 				stop()
 				runtime:dispose()
 			end,
@@ -4376,9 +4640,9 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				actions.AbsoluteSize = engine.types.Vector2.new(500, 40)
-				actions:FindFirstChild("Remove", true).TextBounds = engine.types.Vector2.new(210, 20)
-				Verify.expect(actions:FindFirstChild("trailing").Size.X.Offset):toBe(242)
-				actions:FindFirstChild("Delete", true).TextBounds = engine.types.Vector2.new(190, 20)
+				actions:FindFirstChild("Remove", true).TextBounds = engine.types.Vector2.new(210.667, 20)
+				Verify.expect(actions:FindFirstChild("trailing").Size.X.Offset):toBe(243)
+				actions:FindFirstChild("Delete", true).TextBounds = engine.types.Vector2.new(190.667, 20)
 				Verify.expect(actions:FindFirstChild("Content").Position.X.Offset):toBe(-20)
 				actions:FindFirstChild("Remove", true).TextBounds = engine.types.Vector2.new(30, 20)
 				Verify.expect(actions:FindFirstChild("trailing").Size.X.Offset):toBe(88)
@@ -4658,6 +4922,27 @@ return function(verifyHarness: Verify.Harness)
 				advance(0.2)
 				Verify.expect(large.CanvasPosition.Y):toBe(23)
 				stopLarge()
+				stop, node = runtime.mount(function()
+					return UI.VirtualList({
+						from = records(20),
+						key = key,
+						itemSize = 40,
+						snap = "item" :: "item",
+						reducedMotion = true,
+						render = function(current): GuiObject
+							return button(UI, current)
+						end,
+					})
+				end, target)
+				node.AbsoluteWindowSize = engine.types.Vector2.new(200, 100)
+				node.AbsoluteCanvasSize = engine.types.Vector2.new(200, 800)
+				now += 1
+				node.CanvasPosition = engine.types.Vector2.new(0, 80)
+				now += 0.001
+				node.CanvasPosition = engine.types.Vector2.new(0, 40)
+				advance(0.2)
+				Verify.expect(node.CanvasPosition.Y):toBe(40)
+				stop()
 				runtime:dispose()
 			end,
 		})
@@ -4844,6 +5129,46 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("Table compact width", function()
+		verifyHarness:case("prepares shared column geometry before the first table paint", {
+			id = "native_collections::Table compact width::prepares shared column geometry before the first table paint",
+			run = function()
+				local engine, runtime, UI, target, _, ctx = setup()
+				ctx.config.services.RunService = ({ Heartbeat = engine.heartbeat } :: unknown) :: RunService
+				local stop, mounted = runtime.mount(function()
+					return UI.Table {
+						from = { { id = "a", name = "Alpha" } },
+						key = "id",
+						columns = { { id = "name", label = "Name" } },
+					}
+				end, target)
+				local node = (mounted :: unknown) :: Frame
+				local geometry = (node :: unknown) :: { AbsoluteSize: Vector2 }
+				geometry.AbsoluteSize = engine.types.Vector2.new(300, 200)
+				local header = assert(node:FindFirstChild("Header", true)) :: Frame
+				for _, child in node:GetDescendants() do
+					if child:IsA("GuiObject") then
+						local box = (child :: unknown) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
+						box.AbsoluteSize = engine.types.Vector2.new(100, 20)
+						if child:IsA("TextLabel") or child:IsA("TextButton") then
+							box.TextBounds = engine.types.Vector2.new(50, 16)
+						end
+					end
+				end
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(node:FindFirstChild("FadePaint") ~= nil):toBe(true)
+				local columns = (header :: unknown) :: { AbsoluteSize: Vector2 }
+				columns.AbsoluteSize = engine.types.Vector2.new(200, 20)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(node:FindFirstChild("FadePaint") ~= nil):toBe(true)
+				for _ = 1, 8 do
+					engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(node:FindFirstChild("FadePaint") == nil):toBe(true)
+				stop()
+				runtime:dispose()
+				Verify.expect(engine.census().connections):toBe(0)
+			end,
+		})
 		verifyHarness:case("keeps every column in a narrow table and paints the header band across its columns", {
 			id = "native_collections::Table compact width::keeps every column in a narrow table and paints the header band across its columns",
 			run = function()
@@ -4913,6 +5238,40 @@ return function(verifyHarness: Verify.Harness)
 				body.AbsoluteWindowSize = engine.types.Vector2.new(800, 200)
 				body.Parent.AbsoluteSize = body.AbsoluteWindowSize
 				Verify.expect(node:FindFirstChild("Header").Size.X.Offset):toBe(1000)
+				stop()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("matches the header to the body scroll window while no vertical scrollbar shows", {
+			id = "native_collections::Table under a scaled ancestor::matches the header to the body scroll window while no vertical scrollbar shows",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local stop, mounted = runtime.mount(function()
+					return UI.Table({
+						from = { { id = 1, name = "Neon" } },
+						key = key,
+						columns = {
+							{ id = "name", label = "Name", width = 260 },
+							{ id = "rating", label = "Rating", width = 140 },
+						},
+					})
+				end, target)
+				local node = mounted :: Instance
+				type Probe = {
+					ScrollBarThickness: number,
+					AbsoluteSize: Vector2,
+					AbsoluteWindowSize: Vector2,
+					Parent: { AbsoluteSize: Vector2 },
+				}
+				local body = (assert(node:FindFirstChild("Body")) :: unknown) :: Probe
+				local header = assert(node:FindFirstChild("Header")) :: GuiObject
+				body.ScrollBarThickness = 6
+				body.AbsoluteSize = engine.types.Vector2.new(180, 200)
+				body.AbsoluteWindowSize = body.AbsoluteSize
+				body.Parent.AbsoluteSize = body.AbsoluteSize
+				Verify.expect(header.Size.X.Offset):toBe(180)
+				body.AbsoluteWindowSize = engine.types.Vector2.new(174, 200)
+				Verify.expect(header.Size.X.Offset):toBe(174)
 				stop()
 				runtime:dispose()
 			end,
@@ -5719,12 +6078,13 @@ return function(verifyHarness: Verify.Harness)
 				local header = node:FindFirstChild("Header")
 				Verify.expect(header.Size.X.Offset):toBe(359)
 				node:FindFirstChild("Edit", true).Activated:Fire()
-				Verify.expect(header.Size.X.Offset):toBe(306)
+				Verify.expect(header.Size.X.Offset):toBe(271)
 				Verify.expect(header:FindFirstChild("name"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X)
 					:toBe(90)
 				assert(ctx.config.userInputService).PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
-				Verify.expect(header.Size.X.Offset):toBe(306)
+				Verify.expect(header.Size.X.Offset):toBe(271)
 				header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V2.new(306, 44)
+				Verify.expect(header.CanvasSize.X.Offset):toBe(306)
 				Verify.expect(body.CanvasSize.X.Offset):toBe(306 + 88)
 				local lane = body:FindFirstChild("1", true):FindFirstChild("Row", true)
 				local painted = lane:FindFirstAncestorWhichIsA("Frame")
@@ -5733,6 +6093,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 				Verify.expect(lane.Size.X.Offset):toBe(306)
 				body.CanvasPosition = V2.new(35, 0)
+				Verify.expect(header.CanvasPosition.X):toBe(35)
 				Verify.expect(lane.Position.X.Offset):toBe(-35)
 				Verify.expect(painted.Position.X.Offset):toBe(35)
 				Verify.expect(lane.Parent.ClipsDescendants):toBe(true)
@@ -5791,7 +6152,9 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					node:FindFirstChild("Body").AbsoluteWindowSize = V2.new(200, 200)
 					local header = node:FindFirstChild("Header")
-					Verify.expect(header.Size.X.Offset):toBe(6 * 48)
+					Verify.expect(header.Size.X.Offset):toBe(200)
+					header:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = V2.new(6 * 48, 44)
+					Verify.expect(header.CanvasSize.X.Offset):toBe(6 * 48)
 					for index = 1, 6 do
 						Verify.expect(
 							header:FindFirstChild(`c{index}`):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X
@@ -7761,6 +8124,80 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
+			verifyHarness:case("retains a measured column width while its row is outside the viewport", {
+				id = "native_collections::Table narrow column policy::retains a measured column width while its row is outside the viewport",
+				run = function()
+					local wide = { id = "wide", name = "A long name" }
+					local short = { id = "short", name = "Short" }
+					local rows = Compose.cell({ wide, short })
+					local w = stage(function(UI)
+						return UI.Table {
+							from = rows,
+							key = "id",
+							itemSize = 40,
+							overscan = 0,
+							columns = {
+								{ id = "name", minWidth = 90 },
+								{ id = "artist", minWidth = 72, priority = "always" },
+							},
+						}
+					end)
+					local body = w.node:FindFirstChild("Body")
+					body.AbsoluteWindowSize = w.engine.types.Vector2.new(400, 40)
+					local items = body:FindFirstChild("Items")
+					local row = assert(items:FindFirstChild("wide"))
+					cellRow(row):FindFirstChild("name"):FindFirstChild("Undisclosed", true).TextBounds =
+						w.engine.types.Vector2.new(200, 16)
+					local header = w.node:FindFirstChild("Header"):FindFirstChild("name")
+					local widest = header.Size.X.Offset
+					body.CanvasPosition = w.engine.types.Vector2.new(0, 40)
+					Verify.expect(items:FindFirstChild("wide") == nil):toBe(true)
+					Verify.expect(header.Size.X.Offset):toBe(widest)
+					rows:set({ short })
+					Verify.expect(header.Size.X.Offset < widest):toBe(true)
+					w.stop()
+				end,
+			})
+			verifyHarness:case("restores measured text widths after an empty filter and rejects changed text", {
+				id = "native_collections::Table narrow column policy::restores measured text widths after an empty filter and rejects changed text",
+				run = function()
+					local wide = { id = "wide", name = "A long name" }
+					local rows = Compose.cell({ wide })
+					local w = stage(function(UI)
+						return UI.Table {
+							from = rows,
+							key = "id",
+							columns = {
+								{ id = "name", minWidth = 90 },
+								{ id = "artist", minWidth = 72, priority = "always" },
+							},
+						}
+					end)
+					local body = w.node:FindFirstChild("Body")
+					body.AbsoluteWindowSize = w.engine.types.Vector2.new(400, 240)
+					local function label()
+						return cellRow(body:FindFirstChild("Items"):FindFirstChild("wide"))
+							:FindFirstChild("name")
+							:FindFirstChild("Undisclosed", true)
+					end
+					label().TextBounds = w.engine.types.Vector2.new(200, 16)
+					local header = w.node:FindFirstChild("Header"):FindFirstChild("name")
+					local width = header.Size.X.Offset
+					rows:set({})
+					Verify.expect(header.Size.X.Offset < width):toBe(true)
+					rows:set({ wide })
+					Verify.expect(header.Size.X.Offset):toBe(width)
+					label().TextBounds = w.engine.types.Vector2.zero
+					Verify.expect(header.Size.X.Offset):toBe(width)
+					rows:set({ { id = "wide", name = "Different" } })
+					Verify.expect(header.Size.X.Offset < width):toBe(true)
+					rows:set({ wide })
+					Verify.expect(header.Size.X.Offset):toBe(width)
+					w.node:FindFirstChild("CellTextInsets").TextSize = 24
+					Verify.expect(header.Size.X.Offset < width):toBe(true)
+					w.stop()
+				end,
+			})
 			verifyHarness:case("releases removed text measurements and keeps the remaining widest row", {
 				id = "native_collections::Table narrow column policy::releases removed text measurements and keeps the remaining widest row",
 				run = function()

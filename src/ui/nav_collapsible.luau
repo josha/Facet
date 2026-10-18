@@ -139,7 +139,7 @@ return function(
 							end,
 							ScrollingDirection = E.ScrollingDirection.Y,
 							ScrollBarThickness = 4,
-							VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
+							VerticalScrollBarInset = E.ScrollBarInset.Always,
 							Selectable = false,
 							column,
 						},

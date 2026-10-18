@@ -2,6 +2,7 @@
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local storage = game:GetService("ReplicatedStorage")
+local pageIdentity = require(storage.FacetLive.focus_page)
 
 local PAD = {
 	open = "ButtonA",
@@ -45,7 +46,13 @@ local CASES: {
 		{ id = "color-picker", show = "all-controls", tab = "inputs/pickers", trigger = "Well" },
 		{ id = "callout", show = "all-controls", tab = "actions/help", trigger = "Show", anchor = "Plus" },
 		{ id = "radial", show = "radial-menu", trigger = "Launcher" },
-		{ id = "demo-popover", show = "all-controls", trigger = "Showcase", anywhere = true },
+		{
+			id = "demo-popover",
+			show = "all-controls",
+			tab = "actions/shortcuts",
+			trigger = "Showcase",
+			anywhere = true,
+		},
 	}
 
 local function api(command: string, argument: any): any
@@ -59,12 +66,20 @@ type Case = {
 	setup: ((any) -> any)?,
 	steps: { [string]: (any, any) -> () }?,
 	keepGallery: boolean?,
+	input: string?,
+	requires: { string }?,
 }
 local cases: { Case } = {}
 for _, spec in CASES do
 	table.insert(cases, {
 		id = "opened-" .. spec.id,
 		contracts = {},
+		input = if shared.FacetFocusOpened and shared.FacetFocusOpened.keys == true then "pointer" else "gamepad",
+		requires = if shared.FacetFocusOpened
+				and shared.FacetFocusOpened.keys == true
+				and not spec.inline
+			then { "native-escape-key" }
+			else nil,
 		run = function(t: any)
 			local live = (require :: any)(storage.FacetLive)
 			local focus = (require :: any)(storage.FacetLive.focus)
@@ -145,6 +160,19 @@ for _, spec in CASES do
 				t.check("the plate closes from its action", table.find(focus.stops(root), action) == nil)
 				t.check("focus returns to the anchor", gui.SelectedObject == anchor, tostring(gui.SelectedObject))
 				return
+			end
+			local identity = pageIdentity(api("report", nil))
+			keys.onPage = function(): boolean
+				return pageIdentity(api("report", nil)) == identity
+			end
+			keys.restorePage = function()
+				game:GetService("GuiService").SelectedObject = nil
+				api("show", spec.show)
+				if spec.tab then
+					api("tab", string.split(spec.tab, "/")[1])
+					api("tab", spec.tab)
+				end
+				t.settle(30)
 			end
 			local report = focus.opened(root, trigger, keys)
 			local errors: { string } = {}

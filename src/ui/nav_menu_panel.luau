@@ -645,17 +645,24 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		})
 		local focusIn = surfaces.selecting()
 		local placed = ctx.observe.Parent(modal)
+		local windowSize = ctx.observe.AbsoluteSize(scroller)
+		local rowLayout = rows:FindFirstChildWhichIsA("UIListLayout")
+		local laidOut = if rowLayout then ctx.observe.AbsoluteContentSize(rowLayout) else Compose.cell(V2.zero)
 		Compose.watch(function(use: ComposeTypes.Use)
-			local rows = use(current)
+			local items = use(current)
 			use(placed)
 			if gui and not nonmodal and focusIn(use) then
 				local target = if pendingFocus then surfaces.firstSelectable(panel, pendingFocus) else nil
 				if not target then
-					local chosen = landing(rows)
+					local chosen = landing(items)
 					target = if chosen then surfaces.firstSelectable(panel, chosen) else nil
+					if chosen and not target and rows:FindFirstChild(chosen) == nil then
+						use(laidOut)
+						return
+					end
 				end
 				if not target then
-					for _, item in rows do
+					for _, item in items do
 						if item.divider ~= true and read(item.enabled, use) ~= false then
 							local live = actionItem(item)
 							local chosen = if live.selected
@@ -671,7 +678,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					end
 				end
 				if not target then
-					for _, item in rows do
+					for _, item in items do
 						if not item.divider and read(item.enabled, use) ~= false then
 							target = surfaces.firstSelectable(panel, tostring(item.id))
 							if target then
@@ -694,9 +701,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 		end
 		Compose.cleanup(stopSettling)
-		local windowSize = ctx.observe.AbsoluteSize(scroller)
-		local rowLayout = rows:FindFirstChildWhichIsA("UIListLayout")
-		local laidOut = if rowLayout then ctx.observe.AbsoluteContentSize(rowLayout) else Compose.cell(V2.zero)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local content = use(laidOut) :: Vector2?
 			local level = table.concat(use(path), "/") .. "@" .. tostring(if content then content.Y else 0)

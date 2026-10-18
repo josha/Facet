@@ -11,17 +11,7 @@ return function(verifyHarness: Verify.Harness)
 	local FAMILIES = { "dpad", "stick", "keys" }
 
 	local function load(file: string): any
-		local atlas = Lute.parse(fs.readFileToString(`{DIR}/{file}`)) :: any
-		local keys = `{DIR}/{string.sub(file, 1, -6)}--keys.json`
-		if fs.exists(keys) then
-			local pass = Lute.parse(fs.readFileToString(keys)) :: any
-			atlas.moves.keys = pass.moves.keys
-			if pass.scenes then
-				atlas.scenes = atlas.scenes or {}
-				atlas.scenes.keys = pass.scenes.keys
-			end
-		end
-		return atlas
+		return Lute.parse(fs.readFileToString(`{DIR}/{file}`)) :: any
 	end
 
 	local function entryOf(atlas: any, container: string): string?
@@ -204,7 +194,7 @@ return function(verifyHarness: Verify.Harness)
 	end
 	table.sort(atlases)
 	for _, file in atlases do
-		if string.sub(file, -5) ~= ".json" or string.find(file, "--keys.json", 1, true) then
+		if string.sub(file, -5) ~= ".json" then
 			continue
 		end
 		local atlas = load(file)

@@ -2,9 +2,11 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local CollectionTypes = require("./collection_types")
+local Metrics = require("./collection_table_metrics")
 export type Columns<V, K> = {
 	viewportWidth: ComposeTypes.Cell<number>,
-	setPrimaryMeasure: (K, number?) -> (),
+	fillWidth: ComposeTypes.Cell<number>,
+	setPrimaryMeasure: (K, TextLabel, number, number) -> (),
 	minimumOf: (CollectionTypes.TableColumn<V, K>) -> number,
 	collapsed: ComposeTypes.Formula<{ [string]: boolean }>,
 	disclosureWidth: ComposeTypes.Formula<number>,
@@ -24,16 +26,36 @@ return function<V, K>(
 	spec: CollectionTypes.TableShape<V, K>,
 	widths: ComposeTypes.Cell<{ [string]: number }>,
 	truncatedRows: ComposeTypes.Cell<{ [K]: { [string]: boolean } }>,
-	touchRows: (ComposeTypes.Use) -> boolean
+	metrics: Metrics.Metrics,
+	rows: ComposeTypes.Readable<{ V }>,
+	keyOf: (V, number) -> K,
+	field: (V, CollectionTypes.TableColumn<V, K>) -> unknown,
+	unitScale: ComposeTypes.Readable<number>
 ): Columns<V, K>
 	local Compose, Host = ctx.Compose, ctx.Host
 	local read = ctx.read
 	local readSource = ctx.readSource
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local viewportWidth = Compose.cell(0)
+	local fillWidth = Compose.cell(0)
 	local primaryNatural = Compose.cell(0)
 	local primaryMeasures: { [K]: number? } = {}
 	local primaryCounts: { [number]: number? } = {}
+	local textCache: ComposeTypes.KeyedCache<string, { width: number }> = Compose.createKeyedCache {
+		maxRetained = 512,
+		build = function(_: string): { width: number }
+			return { width = 0 }
+		end,
+		destroy = function(_: { width: number }) end,
+	}
+	local font = ctx.observeStyled.FontFace(metrics.textInsets)
+	local points = ctx.observeStyled.TextSize(metrics.textInsets)
+	local function typography(face: Font, size: number, scale: number): string
+		return `{face.Family}:{face.Weight.Value}:{face.Style.Value}:{size}:{scale}`
+	end
+	local function contentKey(text: string, style: string): string
+		return `{#text}:{text}:{style}`
+	end
 	local function setPrimaryMeasure(key: K, width: number?)
 		local before = primaryMeasures[key]
 		if before == width then
@@ -61,6 +83,37 @@ return function<V, K>(
 	local function minimumOf(column: CollectionTypes.TableColumn<V, K>): number
 		return column.minWidth or 48
 	end
+	Compose.watch(function(use: ComposeTypes.Use)
+		local columns = read(spec.columns, use)
+		local primary = columns[1]
+		local style = typography(use(font), use(points), use(unitScale))
+		local padding = metrics.textInsets:FindFirstChildWhichIsA("UIPadding")
+		local inset = if padding
+			then (padding:GetStyled("PaddingLeft") :: UDim).Offset + (padding:GetStyled("PaddingRight") :: UDim).Offset
+			else math.max(metrics.cellPadding, use(metrics.textInsetSize).X / use(unitScale))
+		local current = use(rows)
+		if textCache.size() == 0 then
+			return
+		end
+		local valid: { [K]: boolean } = {}
+		for index, item in current do
+			local key = keyOf(item, index)
+			valid[key] = true
+			local value = if primary then field(item, primary) else nil
+			local text = if value == nil then "" else tostring(value)
+			local cached = if primary
+					and primary.render == nil
+					and primary.editor == nil
+				then textCache.peek(contentKey(text, style))
+				else nil
+			setPrimaryMeasure(key, if cached then cached.width + inset else nil)
+		end
+		for key in primaryMeasures do
+			if not valid[key] then
+				setPrimaryMeasure(key, nil)
+			end
+		end
+	end)
 	local function boundedWidth(column: CollectionTypes.TableColumn<V, K>, width: number): number
 		return math.clamp(width, minimumOf(column), column.maxWidth or 1000000)
 	end
@@ -137,7 +190,8 @@ return function<V, K>(
 		return if fixed ~= nil then boundedWidth(column, fixed) else nil
 	end
 	local allocatedWidths = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
-		local offer = use(viewportWidth)
+		local filled = use(fillWidth)
+		local offer = if filled > 0 then filled else use(viewportWidth)
 		if offer <= 0 then
 			return {}
 		end
@@ -205,7 +259,7 @@ return function<V, K>(
 	local function textWrap(column: CollectionTypes.TableColumn<V, K>, use: ComposeTypes.Use): boolean
 		local value = column.wrap
 		assert(value == nil or type(value) == "boolean", "Facet.Table column.wrap must be a boolean")
-		return if value == nil then touchRows(use) else value
+		return if value == nil then metrics.touchRows(use) else value
 	end
 	local function columnFrame(
 		current: ComposeTypes.Readable<CollectionTypes.TableColumn<V, K>>,
@@ -248,7 +302,18 @@ return function<V, K>(
 	end
 	return {
 		viewportWidth = viewportWidth,
-		setPrimaryMeasure = setPrimaryMeasure,
+		fillWidth = fillWidth,
+		setPrimaryMeasure = function(key: K, label: TextLabel, width: number, inset: number)
+			if width <= 0 then
+				return
+			end
+			local style =
+				typography(label:GetStyled("FontFace") :: Font, label:GetStyled("TextSize") :: number, unitScale:peek())
+			textCache.get(contentKey(label.Text, style)).width = width
+			if style == typography(font:peek(), points:peek(), unitScale:peek()) then
+				setPrimaryMeasure(key, width + inset)
+			end
+		end,
 		minimumOf = minimumOf,
 		collapsed = collapsed,
 		disclosureWidth = disclosureWidth,

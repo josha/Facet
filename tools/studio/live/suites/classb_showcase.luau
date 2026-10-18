@@ -65,8 +65,9 @@ local function stop(value: any)
 	GuiService.SelectedObject = nil
 end
 
-local function monitors(t: any, size: Vector2, app: string, options: { [string]: any }?): any
+local function monitors(t: any, size: Vector2?, app: string, options: { [string]: any }?): any
 	local config = options or {}
+	local motionLevel = if options then options.motionLevel else nil
 	local folder = storage:WaitForChild("VirtualMonitors")
 	local screens = (require :: any)(folder:WaitForChild("screens"))
 	local theme = (require :: any)(folder:WaitForChild("theme"))
@@ -82,8 +83,8 @@ local function monitors(t: any, size: Vector2, app: string, options: { [string]:
 			model = model,
 			spatial = false,
 			theme = package,
-			reducedMotion = Compose.cell(true),
-			motionLevel = "none",
+			reducedMotion = Compose.cell(motionLevel ~= "normal"),
+			motionLevel = motionLevel or "none",
 		}
 		local views = screens.create(t.Facet, env.runtime, actions)
 		if app == "Desktop" then
@@ -332,6 +333,83 @@ add("vm-saved-shelf-takes-the-column", {}, function(t)
 		t.check(`{where} the Games grid returns on the Browse shelf`, t.find(stage, "Games") ~= nil)
 		t.cleanup()
 	end
+end)
+
+add("vm-card-expansion-paints-before-it-finishes", {}, function(t)
+	endDevice(t)
+	local value = monitors(t, nil, "Discover", { motionLevel = "normal" })
+	local card = assert(t.find(value.stage, "Game_1"))
+	local body = assert(t.find(card, "Body"))
+	local gui = assert(value.stage:FindFirstAncestorWhichIsA("LayerCollector"))
+	local samples = {}
+	local closing = false
+	local connection = game:GetService("RunService").PreRender:Connect(function()
+		local panel = gui:FindFirstChild("AlertPanel", true)
+		if panel and panel:IsA("GuiObject") then
+			local painted = true
+			local at: Instance? = panel
+			while at and at ~= gui do
+				if at:IsA("GuiObject") then
+					painted = painted and at.Visible
+					if at:IsA("CanvasGroup") then
+						painted = painted and at.GroupTransparency < 1
+					end
+					local gradient = at:FindFirstChildWhichIsA("UIGradient")
+					if gradient and gradient.Enabled then
+						local masked = true
+						for _, point in gradient.Transparency.Keypoints do
+							masked = masked and point.Value >= 1
+						end
+						painted = painted and not masked
+					end
+				end
+				at = at.Parent
+			end
+			table.insert(samples, { width = panel.AbsoluteSize.X, painted = painted, closing = closing })
+		end
+	end)
+	local virtual = game:GetService("UserInputService"):CreateVirtualInput()
+	local function click(node: GuiObject)
+		local at = node.AbsolutePosition + node.AbsoluteSize / 2 + GuiService:GetGuiInset()
+		virtual:SendMousePosition(at)
+		t.settle(2)
+		virtual:SendMouseButton(at, Enum.UserInputType.MouseButton1, true)
+		t.settle(2)
+		virtual:SendMouseButton(at, Enum.UserInputType.MouseButton1, false)
+	end
+	local sourceWidth = card.AbsoluteSize.X
+	click(body)
+	t.settle(45)
+	local panel = gui:FindFirstChild("AlertPanel", true)
+	t.check("tapping the card opens its detail", panel ~= nil)
+	local growing, shrinking = 0, 0
+	if panel and panel:IsA("GuiObject") then
+		local destination = panel.AbsoluteSize.X
+		for _, sample in samples do
+			if sample.painted and sample.width > sourceWidth + 2 and sample.width < destination - 2 then
+				growing += 1
+			end
+		end
+		closing = true
+		click(assert(buttonNamed(panel, "close")))
+		t.settle(30)
+		for _, sample in samples do
+			if
+				sample.closing
+				and sample.painted
+				and sample.width > sourceWidth + 2
+				and sample.width < destination - 2
+			then
+				shrinking += 1
+			end
+		end
+		t.check("closing releases the detail", gui:FindFirstChild("AlertPanel", true) == nil)
+	end
+	connection:Disconnect()
+	t.attach("card-motion.json", samples)
+	t.check("the expansion paints intermediate rectangles", growing > 0, growing)
+	t.check("the return paints intermediate rectangles", shrinking > 0, shrinking)
+	t.cleanup()
 end)
 
 add("vm-detail-information-scrolls", {}, function(t)

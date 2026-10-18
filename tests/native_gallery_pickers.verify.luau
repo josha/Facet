@@ -182,12 +182,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 				expect((find(find(s.node, "Accent"), "Well"))):toBeNil()
 				expect((find(find(s.node, "Fog"), "Well"))):toBeNil()
-				local kartBody
-				for _, node in s.node:GetDescendants() do
-					if node.Name == "Body" and not node:IsA("ScrollingFrame") then
-						kartBody = kartBody or node
-					end
-				end
+				local kartBody = assert(find(s.node, "Pickers"):FindFirstChild("Body"))
 				expect(find(kartBody, "Title").Text):toBe("Kart body")
 				expect(find(s.node, "Committed").Text):toBe("Committed: nothing yet")
 				local trim = find(s.node, "Trim")

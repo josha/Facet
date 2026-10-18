@@ -310,6 +310,17 @@ return function(harness: Verify.Harness)
 		t:expect(catalogs[1].requirements["keyboard-gamepad-place-and-cancel"]):toBe("input-gamepad")
 		t:expect(catalogs[1].requirements["reserved-slots-pointer-recall"]):toBeNil()
 		for _, id in
+			{ "board-typing-pointer-and-text-entry", "return-and-space-activate-once", "shift-return-opens-row-menu" }
+		do
+			t:expect(catalogs[2].requirements[id]):toBe("input-keyboard")
+		end
+		for _, id in { "touch-drag-scrolls-reorderable-list", "mail-swipe-and-tap" } do
+			t:expect(catalogs[2].requirements[id]):toBe("input-native-touch")
+		end
+		for _, id in { "slider-rotation-live", "zoom-pointer", "zoom-collection-capture-camera" } do
+			t:expect(catalogs[2].requirements[id]):toBe("input-mouse")
+		end
+		for _, id in
 			{ "text-edit-carries-gamepad-connect", "radial-hot-switch-keeps-open", "input-fact-follows-device" }
 		do
 			t:expect(catalogs[1].requirements[id]):toBe("input-native-controller-connect")

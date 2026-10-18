@@ -23,7 +23,7 @@ pixels into the logical units used by the existing layout and drag paths.
 
 ## Verify in Studio
 
-Run `lute run tools/lute/studio_live.luau ports_overlays --cases-from-tree --studio STUDIO_ID --device none`.
+Run `lute run tools/facet studio live ports_overlays --cases-from-tree --studio STUDIO_ID --device none`.
 Check overlay entrance, interruption, and exit at compact and wide sizes.
 Inspect text wrapping and shadows during motion. Check table resize geometry
 with an ancestor UIScale. Repeat with preferred text sizes and reduced motion.

@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+- An expanded CollapsibleView always reserves the width of its vertical scroll
+  bar. Before, the bar appeared and went away when content that wraps changed
+  height at the boundary. The content width then changed by the bar width, and
+  a press could move a control from under the pointer.
+- A Menu selects its chosen row when it opens, also when that row mounts after
+  the panel. Before, a long menu could select its first row and leave the
+  chosen row out of view.
+- The Table header, its rows and its fill columns use the same width as the
+  native scroll window of the body. Before, they were narrower than the body
+  by the scroll bar width while no vertical scroll bar showed. Column visibility still uses the width without
+  the scroll bar, so columns do not hide and show when vertical overflow
+  changes.
+- A Composition observes zone and layout sizes once each frame. Before,
+  synchronous size observations in the HUD could exceed the engine event
+  re-entrancy depth during a resize.
+- Travel keeps the style link of its portal when a StyleLink arrives after
+  the portal mounts, and releases it with its owner.
+- Screens, navigation titles, notices and tab content wait for native font
+  and layout readiness before they show. A Composition prepares under a fade
+  until its regions are ready.
+- Slider, ColorPicker, Table column resize, row actions and drag sources use
+  one native `UIDragDetector` pointer ownership. An inline ColorPicker no
+  longer nests a scrolling selection inside its page.
+- The Table header scrolls with the body through native canvas positions.
+- PageView quantizes fractional page positions to whole pixels. Clipped text
+  reports its painted glyph bounds.
+- Button, shortcut hint and row action text keep their minimum sizes when the
+  text size grows. Avatar uses native text scaling. StatusIndicator keeps its
+  width. An indeterminate progress bar does not change the layout of its row.
+
 - DiegeticScreen moves existing application layers onto a native world display
   with one reversible camera shot. UI instances, state, safe-area canvases and
   source hosts survive the transition. The consumer supplies the room and
