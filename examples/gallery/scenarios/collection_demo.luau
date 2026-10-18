@@ -502,7 +502,7 @@ return function(ctx: ExampleContext, options: Options): Built
 				columns = options.columns or mailColumns,
 			}
 			collection = tableView
-			local found = tableView:FindFirstChild("Body")
+			local found = tableView:FindFirstChild("Body", true)
 			body = if found and found:IsA("ScrollingFrame") then found else nil
 		else
 			local itemSize: number | (Use) -> number = if options.horizontal

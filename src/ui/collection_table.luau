@@ -14,6 +14,7 @@ local CollectionTypes = require("./collection_types")
 local tableEditors = require("./collection_table_editors")
 local CollectionProps = require("./collection_props")
 local ControlTypes = require("./control_types")
+local preparePaint = require("./collection_paint")
 
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList: ListTypes.BuildList): ()
 	local lists = layoutKit.of(ctx)
@@ -189,6 +190,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			else Compose.formula(function(use: ComposeTypes.Use): { V }
 				return sortRows(read(spec.from, use), use)
 			end)
+		local layout = createColumns(ctx, spec, widths, truncatedRows, metrics, ordered, keyOf, field, unitScale)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local valid: { [K]: boolean } = {}
 			for index, item in read(if tree then tree.all else spec.from, use) do
@@ -207,7 +209,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 				rowMeasures:set(sizes)
 			end
 		end)
-		local layout = createColumns(ctx, spec, widths, truncatedRows, metrics.touchRows)
 		local viewportWidth, narrowest, disclosureWidth = layout.viewportWidth, layout.narrowest, layout.disclosureWidth
 		local headerCells = createHeader(ctx, UI, spec, sort, widths, headerMeasures, metrics, layout)
 		local editor: reorder.Editor<V, K>? = nil
@@ -224,15 +225,18 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		local window = Compose.cell(V2.zero)
 		local scrolledX = Compose.cell(0)
 		local function laneWidth(use: ComposeTypes.Use): number?
-			local width = use(window).X
-			return if width > 0
-				then math.max(use(narrowest), width - reorderGutter(use) - trailingGutter(use) - use(disclosureWidth))
-				else nil
+			local width = use(layout.fillWidth)
+			return if width > 0 then math.max(use(narrowest), width - use(disclosureWidth)) else nil
 		end
 		local headerLayout = lists.list({}, false)
-		local headerProps: Types.FrameProps = {
+		local headerProps: Types.ScrollingFrameProps = {
 			Name = "Header",
 			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Selectable = false,
+			ScrollingDirection = E.ScrollingDirection.X,
+			ScrollBarThickness = 0,
+			CanvasSize = D2.fromOffset(0, 0),
 			Visible = spec.header ~= false,
 			Size = function(use: ComposeTypes.Use)
 				return D2.new(1, 0, 0, use(headerHeight))
@@ -240,7 +244,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			headerLayout :: ComposeTypes.Child,
 			headerCells,
 		}
-		local header = Host.Frame(headerProps)
+		local header = Host.ScrollingFrame(headerProps)
 		local headerExtent = ctx.observe.AbsoluteContentSize(headerLayout)
 		local selectable = (
 			spec.selectionMode or (if spec.selection or spec.onSelectionChange then "single" else "none")
@@ -264,6 +268,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			ClipsDescendants = spec.scrolls ~= false,
 			mode = if spec.scrolls == false then "all" :: ComposeTypes.OrderedCollectionMode else spec.mode,
 			ScrollingDirection = E.ScrollingDirection.XY,
+			VerticalScrollBarInset = if spec.scrolls == false then E.ScrollBarInset.None else E.ScrollBarInset.Always,
 			CanvasSize = function(use: ComposeTypes.Use)
 				return D2.fromOffset(
 					use(headerExtent).X / use(unitScale)
@@ -376,29 +381,57 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			Visible = false,
 		})
 		local position, rendered = ctx.observe.CanvasPosition(body), ctx.observe.AbsoluteWindowSize(body)
+		local outerSize = ctx.observe.AbsoluteSize(body)
+		local scrollBar = runtime.observe(body, "ScrollBarThickness") :: ComposeTypes.Readable<number>
 		local unitSize = ctx.observe.AbsoluteSize(unit)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local scale = use(unitSize).X
 			unitScale:set(if scale > 0 then scale else 1)
 			local size = use(rendered)
-			window:set(if scale > 0 then size / scale else size)
+			local logical = if scale > 0 then size / scale else size
+			local outer = use(outerSize).X
+			if spec.scrolls ~= false and outer > 0 then
+				logical = V2.new(math.min(logical.X, math.max(0, outer / use(unitScale) - use(scrollBar))), logical.Y)
+			end
+			window:set(logical)
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(position)
-			viewportWidth:set(use(window).X - reorderGutter(use) - trailingGutter(use))
+			viewportWidth:set(math.max(0, use(window).X - reorderGutter(use) - trailingGutter(use)))
 			coordinator:set(nil)
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			layout.fillWidth:set(
+				math.max(0, (use(rendered) / use(unitScale)).X - reorderGutter(use) - trailingGutter(use))
+			)
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			scrolledX:set(use(position).X / use(unitScale))
 		end)
+		local headerCanvas = ctx.observe.AbsoluteCanvasSize(header)
+		runtime.connect(header, "Changed", function(property: string)
+			if property == "CanvasPosition" and header.CanvasPosition.X ~= body.CanvasPosition.X then
+				body.CanvasPosition = V2.new(header.CanvasPosition.X, body.CanvasPosition.Y)
+			end
+		end)
 		runtime.decorate(header, {
 			Position = function(use: ComposeTypes.Use)
-				return D2.fromOffset(reorderGutter(use) - use(scrolledX), use(toolbarHeight))
+				return D2.fromOffset(reorderGutter(use), use(toolbarHeight))
+			end,
+			CanvasSize = function(use: ComposeTypes.Use)
+				return D2.fromOffset(use(headerExtent).X / use(unitScale), use(headerHeight))
+			end,
+			CanvasPosition = function(use: ComposeTypes.Use)
+				use(headerCanvas)
+				return V2.new(use(position).X, 0)
 			end,
 			Size = function(use: ComposeTypes.Use)
-				local lane = laneWidth(use)
-				return if lane
-					then D2.fromOffset(lane, use(headerHeight))
+				local width = (use(rendered) / use(unitScale)).X
+				return if width > 0
+					then D2.fromOffset(
+						math.max(0, width - reorderGutter(use) - trailingGutter(use) - use(disclosureWidth)),
+						use(headerHeight)
+					)
 					else D2.new(
 						1,
 						-reorderGutter(use) - trailingGutter(use) - use(disclosureWidth),
@@ -407,37 +440,43 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 					)
 			end,
 		})
-		local root = ctx.styled(
-			Host.Frame(ctx.props(spec, behavior, {
-				Size = function(use: ComposeTypes.Use)
-					return if spec.scrolls == false
-						then D2.new(1, 0, 0, use(contentExtent) + use(topHeight))
-						else D2.fromScale(1, 1)
-				end,
-				BackgroundTransparency = 1,
-				ClipsDescendants = spec.scrolls ~= false,
-				unit :: ComposeTypes.Child,
-				textInsets :: ComposeTypes.Child,
-				ctx.styled(
-					Host.Frame({
-						Name = "HeaderBand",
-						Visible = spec.header ~= false,
-						Position = function(use: ComposeTypes.Use)
-							return D2.fromOffset(0, use(toolbarHeight))
-						end,
-						Size = function(use: ComposeTypes.Use)
-							return D2.new(1, 0, 0, use(headerHeight))
-						end,
-					}),
-					"TableHead"
-				) :: ComposeTypes.Child,
-				header,
-				createToolbar(ctx, UI, spec, editing, editor, metrics),
-				body,
-				if editor then editor.overlay() else nil,
-			})),
-			"Table"
-		)
+		local prepare = ctx.config.services.RunService ~= nil
+		local ready = Compose.cell(not prepare)
+		local props = ctx.props(spec, behavior, {
+			Size = function(use: ComposeTypes.Use)
+				return if spec.scrolls == false
+					then D2.new(1, 0, 0, use(contentExtent) + use(topHeight))
+					else D2.fromScale(1, 1)
+			end,
+			BackgroundTransparency = 1,
+			ClipsDescendants = spec.scrolls ~= false,
+			unit :: ComposeTypes.Child,
+			textInsets :: ComposeTypes.Child,
+			ctx.styled(
+				Host.Frame({
+					Name = "HeaderBand",
+					Visible = spec.header ~= false,
+					Position = function(use: ComposeTypes.Use)
+						return D2.fromOffset(0, use(toolbarHeight))
+					end,
+					Size = function(use: ComposeTypes.Use)
+						return D2.new(1, 0, 0, use(headerHeight))
+					end,
+				}),
+				"TableHead"
+			) :: ComposeTypes.Child,
+			header,
+			createToolbar(ctx, UI, spec, editing, editor, metrics),
+			body,
+			if editor then editor.overlay() else nil,
+		})
+		local fading = (props :: unknown) :: Types.CanvasGroupNativeProps
+		if prepare then
+			fading.GroupTransparency = function(use: ComposeTypes.Use): number
+				return if use(ready) then 0 else 1
+			end
+		end
+		local root = ctx.styled(if prepare then ctx.fade(fading) else Host.Frame(props), "Table")
 		local function seedWindow()
 			if body.AbsoluteWindowSize.X > 0 and body.AbsoluteWindowSize.Y > 0 then
 				return
@@ -469,6 +508,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 		end
 		runtime.connect(root, "AncestryChanged", seedWindow)
 		seedWindow()
+		if prepare then
+			local painted = preparePaint(ctx, root, nil, true)
+			Compose.watch(function(use: ComposeTypes.Use)
+				ready:set(use(painted))
+			end)
+		end
 		return root
 	end
 	local function constructor<V, K>(spec: CollectionProps.TableSpec<V, K>): Frame

@@ -115,6 +115,38 @@ add("described-toggle-fits-a-narrow-row", {}, function(t: any)
 	)
 	t.check("the description ends before the trailing switch", words.r <= mark.x + 1, { words.r, mark.x })
 	t.check("the label column is more than twice the switch", words.w > mark.w * 2, { words.w, mark.w })
+	t.cleanup()
+	local sides: { "leading" | "trailing" } = { "leading", "trailing" }
+	for _, side in sides do
+		local copy = "Keep frames aligned with the display"
+		local hinted = t.mount(function(UI: FacetControls)
+			return UI.Toggle "Hinted" {
+				label = "Vertical sync",
+				hint = copy,
+				value = t.Facet.Compose.cell(true),
+				controlSize = "large",
+				indicatorPosition = side :: "leading" | "trailing",
+				Size = UDim2.fromOffset(280, 0),
+			}
+		end, {
+			theme = chosen.package,
+			size = Vector2.new(320, 400),
+			environment = { preferredTextSize = "Largest" },
+		})
+		local label = assert(drawn(hinted, copy))
+		local switch = assert(t.find(hinted, "Indicator"))
+		local toggle = assert(t.find(hinted, "Hinted"))
+		local bounds, text, indicator = t.rect(toggle), t.rect(label), t.rect(switch)
+		t.check(`the {side} hinted toggle keeps its width`, math.abs(bounds.w - 280) <= 1, bounds)
+		t.check(`the {side} hint draws all text`, label.TextFits, { label.TextBounds, label.AbsoluteSize })
+		t.inside(`the {side} hint stays inside the toggle`, label, toggle, 1)
+		t.check(
+			`the {side} indicator stays beside the hint`,
+			if side == "leading" then indicator.r <= text.x + 1 else text.r <= indicator.x + 1,
+			{ text, indicator }
+		)
+		t.cleanup()
+	end
 end)
 
 add("padded-text-draws-inside-its-inset", {}, function(t: any)

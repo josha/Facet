@@ -170,7 +170,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local digitBounds, ellipsisBounds, widestBounds =
 			ctx.layoutBounds(digits, unit), ctx.layoutBounds(ellipsis, unit), ctx.layoutBounds(widest, unit)
 		local offered = Compose.cell(0)
-		local function slotWidth(page: number, use: ComposeTypes.Use?): number
+		local function pageWidth(page: number, use: ComposeTypes.Use?): number
 			local digit = readSource(digitBounds, use).X / 10
 			local package = read(ctx.config.theme, use)
 			local skin = package and package.chrome and package.chrome.control
@@ -178,7 +178,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			local chrome = 2 * ctx.controlSize("compact", "paddingX", use)
 				+ (if carve then carve.left or 0 else 0)
 				+ (if carve then carve.right or 0 else 0)
-			return math.max(floor(use), math.ceil(digit * #tostring(page) + chrome))
+			return math.max(ctx.controlSize("compact", "height", use), math.ceil(digit * #tostring(page) + chrome))
+		end
+		local function slotWidth(page: number, use: ComposeTypes.Use?): number
+			return math.max(floor(use), pageWidth(page, use))
 		end
 		local entries = Compose.formula(function(use: ComposeTypes.Use): { Entry }
 			local st = use(state)
@@ -318,6 +321,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						controlSize = "compact" :: Types.ControlSize,
 						AnchorPoint = V2.new(0.5, 0.5),
 						Position = D2.fromScale(0.5, 0.5),
+						Size = function(use: ComposeTypes.Use)
+							return D2.fromOffset(pageWidth(page, use), ctx.controlSize("compact", "height", use))
+						end,
+						AutomaticSize = E.AutomaticSize.None,
 						selected = function(use: ComposeTypes.Use)
 							return use(state).current == page
 						end,
@@ -325,14 +332,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						onActivate = function()
 							propose("page", page)
 						end,
-						Host.UISizeConstraint "SlotLimit" {
-							MinSize = function(use: ComposeTypes.Use)
-								return V2.new(ctx.controlSize("compact", "height", use), 0)
-							end,
-							MaxSize = function(use: ComposeTypes.Use)
-								return V2.new(slotWidth(page, use), math.huge)
-							end,
-						},
 					})
 					pageButtons[page] = button
 					watchFocus(button)

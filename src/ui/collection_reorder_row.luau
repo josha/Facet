@@ -1,4 +1,5 @@
 --!strict
+local pointerDragOf = require("./pointer_drag")
 local policy = require("./collection_policy")
 local activation = require("./activation")
 local scrollLock = require("./scroll_lock")
@@ -18,6 +19,7 @@ return function<V, K>(
 	local ctx, UI, spec, gesture = shared.ctx, shared.UI, shared.spec, shared.gesture
 	local Compose, Host = ctx.Compose, ctx.Host
 	local read = ctx.read
+	local pointerInput = pointerDragOf(ctx)
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local moving, selection, sort = shared.moving, shared.selection, shared.sort
 	local grid, reorderable, preferred = shared.grid, shared.reorderable, shared.preferred
@@ -97,7 +99,7 @@ return function<V, K>(
 								and use(preferred) == E.PreferredInput.Gamepad
 								and handleNode ~= nil
 								and rawequal(selected, handleNode)
-							return movable(use(current)) and read(sort, use) == nil and not held
+							return pointerInput(use) and movable(use(current)) and read(sort, use) == nil and not held
 						end,
 						DragStart = function(position)
 							position = pointerOf(ctx, position)
@@ -331,6 +333,7 @@ return function<V, K>(
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 			Enabled = function(use: ComposeTypes.Use)
 				return reorderable
+					and pointerInput(use)
 					and movable(use(current))
 					and read(sort, use) == nil
 					and (

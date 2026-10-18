@@ -1117,6 +1117,45 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("compact captions resolve native width and glyph bounds before the next frame", function(t)
+			local engine = engineLib.new()
+			local runtime = Roblox.createRuntime(engine)
+			local ctx = context(Compose, runtime, { types = engine.types })
+			local UI = ({} :: unknown) :: SharedTypes.Controls
+			local stale = Compose.cell(engine.types.Vector2.zero)
+			ctx.observe.AbsoluteSize = function()
+				return stale
+			end
+			ctx.observe.TextBounds = function()
+				return stale
+			end
+			register(ctx, UI)
+			local button: TextButton? = nil
+			local stop = runtime.mount(function()
+				button = UI.Button {
+					label = "Continue to checkout",
+					compactLabel = "Continue",
+					Size = engine.types.UDim2.fromOffset(110, 44),
+					AutomaticSize = engine.types.Enum.AutomaticSize.None,
+				}
+				return button
+			end, engine.new("ScreenGui"))
+			local node = assert(button)
+			local measure = assert(node:FindFirstChild("FullLabelMeasure"))
+			local glyphs = (measure :: unknown) :: { TextBounds: Vector2 }
+			local box = (node :: unknown) :: { AbsoluteSize: Vector2 }
+			glyphs.TextBounds = engine.types.Vector2.new(180, 20)
+			box.AbsoluteSize = engine.types.Vector2.new(110, 44)
+			t:expect(node.Text):toBe("Continue")
+			box.AbsoluteSize = engine.types.Vector2.new(240, 44)
+			t:expect(node.Text):toBe("Continue to checkout")
+			glyphs.TextBounds = engine.types.Vector2.new(300, 20)
+			t:expect(node.Text):toBe("Continue")
+			stop()
+			runtime:dispose()
+			t:expect(engine.census().connections):toBe(0)
+		end)
+
 		verifyHarness:case("deduplicates shortcut/default bindings and yields shortcuts during native text editing", {
 			id = "native_inputs::native input controls::deduplicates shortcut/default bindings and yields shortcuts during native text editing",
 			run = function()

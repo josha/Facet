@@ -1,13 +1,80 @@
 --!strict
 local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
+local textMeasure = require("./text_measure")
 
 return function(
 	ctx: Types.Context,
 	root: GuiObject,
-	measure: ((ComposeTypes.Use, Vector2) -> ())?
+	measure: ((ComposeTypes.Use, Vector2) -> ())?,
+	rest: boolean?
 ): ComposeTypes.Readable<boolean>
 	local size = ctx.observe.AbsoluteSize(root)
+	local function sample(): boolean
+		local box = root.AbsoluteSize
+		if box.X <= 0 or box.Y <= 0 then
+			return false
+		end
+		local filled = true
+		for _, node in root:GetDescendants() do
+			if node:IsA("GuiObject") then
+				local visible = node.Visible
+				local parent = node.Parent
+				while visible and parent and parent ~= root do
+					if parent:IsA("GuiObject") then
+						visible = parent.Visible
+					end
+					parent = parent.Parent
+				end
+				if visible then
+					filled = filled
+						and node:GetAttribute("FacetBuilt") ~= false
+						and (not node:IsA("ViewportFrame") or node:GetAttribute("FacetMediaReady") ~= false)
+					if
+						(node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
+						and node.Text ~= ""
+						and node.TextTransparency < 1
+					then
+						filled = filled
+							and not textMeasure.pending(node)
+							and node.AbsoluteSize.X > 0
+							and node.AbsoluteSize.Y > 0
+							and node.TextBounds.X > 0
+							and node.TextBounds.Y > 0
+					end
+				end
+			end
+		end
+		return filled
+	end
+	if rest and ctx.runtime.host.frames and not sample() then
+		return ctx.runtime.settled {
+			restart = function(use: ComposeTypes.Use): boolean
+				local box = use(size)
+				if measure then
+					measure(use, box)
+				end
+				return box.X > 0 and box.Y > 0
+			end,
+			ready = sample,
+			sample = function(): string
+				local values = { tostring(root.AbsoluteSize) }
+				local parent = root.Parent
+				if parent and parent:IsA("GuiObject") then
+					table.insert(values, tostring(parent.AbsoluteSize))
+				end
+				for _, node in root:GetDescendants() do
+					if node:IsA("GuiObject") then
+						table.insert(values, tostring(node.AbsoluteSize))
+						if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+							table.insert(values, tostring(node.TextBounds))
+						end
+					end
+				end
+				return table.concat(values, "|")
+			end,
+		}
+	end
 	local ready = ctx.Compose.cell(false)
 	local owner = assert(ctx.Compose.currentOwner())
 	local scope: ComposeTypes.Owner? = nil
@@ -29,42 +96,6 @@ return function(
 		local nextScope = owner.createChild()
 		scope = nextScope
 		ctx.Compose.withOwner(nextScope, function()
-			local function sample(): boolean
-				local box = root.AbsoluteSize
-				if box.X <= 0 or box.Y <= 0 then
-					return false
-				end
-				local filled = true
-				for _, node in root:GetDescendants() do
-					if node:IsA("GuiObject") then
-						local visible = node.Visible
-						local parent = node.Parent
-						while visible and parent and parent ~= root do
-							if parent:IsA("GuiObject") then
-								visible = parent.Visible
-							end
-							parent = parent.Parent
-						end
-						if visible then
-							filled = filled
-								and node:GetAttribute("FacetBuilt") ~= false
-								and (not node:IsA("ViewportFrame") or node:GetAttribute("FacetMediaReady") ~= false)
-							if
-								(node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox"))
-								and node.Text ~= ""
-								and node.TextTransparency < 1
-							then
-								filled = filled
-									and node.AbsoluteSize.X > 0
-									and node.AbsoluteSize.Y > 0
-									and node.TextBounds.X > 0
-									and node.TextBounds.Y > 0
-							end
-						end
-					end
-				end
-				return filled
-			end
 			local render = ctx.config.services.RunService and ctx.config.services.RunService.PreRender
 			local frames = ctx.runtime.host.frames
 			local stop: (() -> ())? = nil

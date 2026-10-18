@@ -3,6 +3,7 @@ local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local motion = require("./motion")
+local presentationReadiness = require("./presentation_readiness")
 
 export type PageLayers = {
 	content: <P>(Instance | ((Nav.NavigationEntry<P>?) -> Instance), Nav.NavigationEntry<P>?) -> Instance,
@@ -54,15 +55,17 @@ return function(ctx: Types.Context): PageLayers
 		end
 		checkTransition(transition)
 		local mounted = Compose.cell(false)
+		local frames = ctx.config.services.RunService
+		local arrived = Compose.cell(frames == nil or frames.PreRender == nil or runtime.host.frames == nil)
 		local level = motion.level(ctx)
 		local opacity = runtime.tween(function(use: ComposeTypes.Use)
-			return if (immediate or use(mounted)) and use(state).top then 1 else 0
+			return if (immediate or use(arrived) and use(mounted)) and use(state).top then 1 else 0
 		end, transition)
 		local function still(use: ComposeTypes.Use): boolean
 			return level(use) == "none"
 		end
 		properties.GroupTransparency = function(use: ComposeTypes.Use)
-			return if still(use) then 0 else 1 - use(opacity)
+			return if not use(arrived) then 1 elseif still(use) then 0 else 1 - use(opacity)
 		end
 		properties.Visible = function(use: ComposeTypes.Use)
 			return use(state).top or not still(use) and use(opacity) > 0
@@ -71,6 +74,16 @@ return function(ctx: Types.Context): PageLayers
 			return use(state).top
 		end
 		local panel = ctx.fade(properties, nil, if properties.BackgroundTransparency == 1 then false else nil)
+		if not arrived:peek() and runtime.host.frames then
+			local ready = presentationReadiness(ctx, { panel })
+			panel:SetAttribute("FacetPreparing", true)
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(ready) then
+					arrived:set(true)
+					panel:SetAttribute("FacetPreparing", false)
+				end
+			end)
+		end
 		local parent = ctx.observe.Parent(panel)
 		Compose.watch(function(use: ComposeTypes.Use)
 			mounted:set(use(parent) ~= nil)

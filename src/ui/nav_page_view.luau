@@ -105,6 +105,9 @@ return function(
 		local unit = ctx.layoutUnit(pages)
 		local size = ctx.observe.AbsoluteWindowSize(pages)
 		local canvasSize = ctx.observe.AbsoluteCanvasSize(pages)
+		local function pageOffset(index: number, box: Vector2, canvas: Vector2): number
+			return math.clamp((index - 1) * box.X, 0, math.max(0, canvas.X - box.X))
+		end
 		local initialized = Compose.cell(false)
 		local wasAvailable, lastWidth = false, 0
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -119,11 +122,13 @@ return function(
 			end
 			local resized = lastWidth ~= box.X
 			width:set(box.X / math.max(scale, 0.001))
-			if math.abs(use(canvasSize).X - box.X * #spec.pages) > 0.5 then
+			local canvas = use(canvasSize)
+			local expected = D2.fromOffset(box.X / math.max(scale, 0.001) * #spec.pages, 0).X.Offset * scale
+			if math.abs(canvas.X - expected) > 0.5 then
 				initialized:set(false)
 				return
 			end
-			target = (indexById[id] - 1) * box.X
+			target = pageOffset(indexById[id], box, canvas)
 			if gui and surfaces.within(gui.SelectedObject, pages) then
 				focusPending = true
 			end
@@ -146,7 +151,7 @@ return function(
 			end
 			target = nil
 			local index = math.clamp(math.floor(at / box.X + 0.5) + 1, 1, #spec.pages)
-			if math.abs(at - (index - 1) * box.X) < 0.5 then
+			if math.abs(at - pageOffset(index, box, use(canvasSize))) < 0.5 then
 				local id = spec.pages[index].id
 				if spec.selection:peek() ~= id then
 					spec.selection:set(id)

@@ -49,47 +49,53 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 			if spec.keys then
 				local cap = ctx.styled(
-					ctx.text(props(spec, semantic, {
-						Text = function(use: ComposeTypes.Use)
-							local chords: { { string } } = read(assert(spec.keys), use)
-							assert(
-								type(chords) == "table" and #chords > 0,
-								"Facet.ShortcutHint: keys must be a nonempty list of chords"
-							)
-							local parts: { string } = {}
-							for _, chord in chords do
+					ctx.styled(
+						Host.TextLabel(props(spec, semantic, {
+							Text = function(use: ComposeTypes.Use)
+								local chords: { { string } } = read(assert(spec.keys), use)
 								assert(
-									type(chord) == "table" and #chord > 0,
-									"Facet.ShortcutHint: chords cannot be empty"
+									type(chords) == "table" and #chords > 0,
+									"Facet.ShortcutHint: keys must be a nonempty list of chords"
 								)
-								for _, key in chord do
+								local parts: { string } = {}
+								for _, chord in chords do
 									assert(
-										type(key) == "string" and key ~= "",
-										"Facet.ShortcutHint: key names must be nonempty strings"
+										type(chord) == "table" and #chord > 0,
+										"Facet.ShortcutHint: chords cannot be empty"
 									)
+									for _, key in chord do
+										assert(
+											type(key) == "string" and key ~= "",
+											"Facet.ShortcutHint: key names must be nonempty strings"
+										)
+									end
+									table.insert(parts, table.concat(chord, "+"))
 								end
-								table.insert(parts, table.concat(chord, "+"))
-							end
-							local separator = read(spec.separator, use) or " / "
-							assert(
-								type(separator) == "string" and separator ~= "",
-								"Facet.ShortcutHint: separator must be a nonempty string"
-							)
-							if string.find(separator, "^%a+$") then
-								separator = ` {separator} `
-							end
-							return table.concat(parts, separator)
-						end,
-						Size = function(use: ComposeTypes.Use)
-							local side = ctx.controlSize(spec.controlSize, "iconSize", use) + 8
-							return D2.fromOffset(side, side)
-						end,
-						AutomaticSize = E.AutomaticSize.XY,
-						BackgroundTransparency = 0,
-						TextXAlignment = E.TextXAlignment.Center,
-					})),
+								local separator = read(spec.separator, use) or " / "
+								assert(
+									type(separator) == "string" and separator ~= "",
+									"Facet.ShortcutHint: separator must be a nonempty string"
+								)
+								if string.find(separator, "^%a+$") then
+									separator = ` {separator} `
+								end
+								return table.concat(parts, separator)
+							end,
+							Size = function(use: ComposeTypes.Use)
+								local side = ctx.controlSize(spec.controlSize, "iconSize", use) + 8
+								return D2.fromOffset(side, side)
+							end,
+							AutomaticSize = E.AutomaticSize.XY,
+							BackgroundTransparency = 0,
+							BorderSizePixel = 0,
+							TextXAlignment = E.TextXAlignment.Center,
+							Host.UIPadding({}),
+						})),
+						"Text"
+					),
 					"shortcut-hint"
 				)
+				ctx.textLayout(cap, nil, true)
 				if spec.Size == nil then
 					local bounds = ctx.layoutBounds(cap, ctx.layoutUnit(cap, "CapUnit"))
 					runtime.decorate(cap, {

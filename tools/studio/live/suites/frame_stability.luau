@@ -4,6 +4,7 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
@@ -55,9 +56,9 @@ local function masked(node: Instance): boolean
 	return false
 end
 
-local function visible(node: GuiObject, root: Instance): boolean
+local function visiblePoint(node: GuiObject, root: Instance): Vector2?
 	if node.AbsoluteSize.X <= 0 or node.AbsoluteSize.Y <= 0 then
-		return false
+		return nil
 	end
 	local at: Instance? = node
 	local low, high = node.AbsolutePosition, node.AbsolutePosition + node.AbsoluteSize
@@ -67,19 +68,53 @@ local function visible(node: GuiObject, root: Instance): boolean
 				not at:GetStyled("Visible")
 				or (at:IsA("CanvasGroup") and (at:GetStyled("GroupTransparency") :: number) >= 1)
 			then
-				return false
+				return nil
 			end
 			if at:GetStyled("ClipsDescendants") then
 				local position, ending = at.AbsolutePosition, at.AbsolutePosition + at.AbsoluteSize
 				low = Vector2.new(math.max(low.X, position.X), math.max(low.Y, position.Y))
 				high = Vector2.new(math.min(high.X, ending.X), math.min(high.Y, ending.Y))
 				if low.X >= high.X or low.Y >= high.Y then
-					return false
+					return nil
 				end
 			end
 		end
 		if at == root then
-			return true
+			return (low + high) / 2
+		end
+		at = at.Parent
+	end
+	return nil
+end
+
+local function visible(node: GuiObject, root: Instance): boolean
+	return visiblePoint(node, root) ~= nil
+end
+
+local function activate(node: GuiButton, point: Vector2)
+	local keyboard = node.Selectable
+	if keyboard then
+		virtual:SendKey(true, Enum.KeyCode.Return, false)
+	else
+		virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
+	end
+	for _ = 1, 2 do
+		RunService.PreRender:Wait()
+	end
+	if keyboard then
+		virtual:SendKey(false, Enum.KeyCode.Return, false)
+	else
+		virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
+	end
+end
+
+local function activityPaint(node: GuiObject): boolean
+	local at: Instance? = node
+	local fill = false
+	while at do
+		fill = fill or string.match(at.Name, "^Fill%d+$") ~= nil
+		if at:HasTag("facet-progress-indeterminate") then
+			return fill
 		end
 		at = at.Parent
 	end
@@ -111,6 +146,7 @@ local function snapshot(root: GuiObject, identities: { [Instance]: number }, ser
 					paints = true
 				end
 			end
+			paints = paints and not activityPaint(node)
 			if identities[node] == nil then
 				serial[1] += 1
 				identities[node] = serial[1]
@@ -153,26 +189,102 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 	local paths, indices, identities, serial = trace.paths, trace.indices, trace.identities, trace.serial
 	trace.observations += 1
 	local observation = trace.observations
+	local nativeDiagnostics: { { unknown } } = {}
+	local previousEnvironment: string? = nil
 	local previousState: { [Instance]: string } = {}
 	local previousModel: { [Instance]: string } = {}
 	local stateEvents: { { frame: number, path: string, before: string, after: string } } = {}
 	local active = true
+	local buttons: { [GuiButton]: boolean } = {}
+	local activations: { RBXScriptConnection } = {}
 	local function sampleFrame()
 		if not active then
 			return
 		end
 		local stage = root()
 		if stage then
+			local inset, safeInset = GuiService:GetGuiInset()
+			local camera = workspace.CurrentCamera
+			local environment = {
+				tostring(inset),
+				tostring(safeInset),
+				tostring(GuiService.TopbarInset),
+				tostring(if camera then camera.ViewportSize else nil),
+			}
+			for _, layer in Players.LocalPlayer:WaitForChild("PlayerGui"):GetChildren() do
+				if layer:IsA("ScreenGui") and layer.Name == "CompositionTopbar" then
+					table.insert(environment, tostring(layer.AbsoluteSize))
+				end
+			end
+			local currentEnvironment = table.concat(environment, "|")
+			if previousEnvironment ~= nil and previousEnvironment ~= currentEnvironment then
+				table.insert(stateEvents, {
+					frame = tracker.frame + 1,
+					path = "native environment",
+					before = previousEnvironment,
+					after = currentEnvironment,
+				})
+			end
+			previousEnvironment = currentEnvironment
+			local diagnostic: { unknown } = {}
 			local currentState: { [Instance]: string } = {}
 			local currentModel: { [Instance]: string } = {}
 			local modelChanged = false
 			for _, node in stage:GetDescendants() do
-				local model = {}
+				if node:IsA("GuiButton") and not buttons[node] then
+					buttons[node] = true
+					table.insert(
+						activations,
+						node.Activated:Connect(function()
+							stability.stateChange(tracker)
+							table.insert(stateEvents, {
+								frame = tracker.frame + 1,
+								path = node:GetFullName(),
+								before = "idle",
+								after = "Activated",
+							})
+						end)
+					)
+				end
+				if
+					shared.FacetFrameStabilityDiagnostics == true
+					and tracker.frame < 30
+					and node:IsA("ScrollingFrame")
+				then
+					table.insert(diagnostic, {
+						path = node:GetFullName(),
+						window = tostring(node.AbsoluteWindowSize),
+						canvas = tostring(node.AbsoluteCanvasSize),
+						inset = tostring(node.VerticalScrollBarInset),
+					})
+				end
+				if
+					shared.FacetFrameStabilityDiagnostics == true
+					and tracker.frame < 30
+					and node:IsA("TextLabel")
+					and (node.Name == "Day" or node.Name == "Description")
+				then
+					table.insert(diagnostic, {
+						path = node:GetFullName(),
+						text = node.Text,
+						bounds = tostring(node.TextBounds),
+						size = tostring(node.AbsoluteSize),
+						font = tostring(node:GetStyled("FontFace")),
+						points = node:GetStyled("TextSize"),
+					})
+				end
+				local model = { `Visible={node:IsA("GuiObject") and node.Visible}` }
 				for _, attribute in { "value", "selected", "busy", "label", "ToastVisible" } do
 					local value = node:GetAttribute(attribute)
 					if value ~= nil then
 						table.insert(model, `{attribute}={value}`)
 					end
+				end
+				if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+					table.insert(model, `Text={node.Text}`)
+				end
+				if node:IsA("ScrollingFrame") then
+					table.insert(model, `CanvasPosition={node.CanvasPosition}`)
 				end
 				if #model > 0 then
 					local state = table.concat(model, "|")
@@ -204,6 +316,9 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 						)
 					end
 				end
+			end
+			if #diagnostic > 0 then
+				table.insert(nativeDiagnostics, diagnostic)
 			end
 			previousState = currentState
 			previousModel = currentModel
@@ -254,18 +369,32 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 			stability.push(tracker, painted)
 		end
 	end
+	local sampleError: string? = nil
 	local connection = RunService.PreRender:Connect(function()
-		task.defer(sampleFrame)
+		task.defer(function()
+			local ok, problem = xpcall(function()
+				sampleFrame()
+				return nil
+			end, debug.traceback)
+			if not ok then
+				sampleError = tostring(problem)
+				active = false
+			end
+		end)
 	end)
 	local ok, problem = pcall(function()
 		change()
 		repeat
 			RunService.PreRender:Wait()
-		until (tracker.quiet >= 30 and tracker.frame >= 60) or tracker.frame >= 600
+		until sampleError ~= nil or (tracker.quiet >= 30 and tracker.frame >= 60) or tracker.frame >= 600
 	end)
 	connection:Disconnect()
+	for _, activation in activations do
+		activation:Disconnect()
+	end
 	active = false
 	assert(ok, tostring(problem))
+	assert(sampleError == nil, sampleError)
 	local final = root()
 	if final and not negative then
 		local faults = clipping.inspect(final:FindFirstAncestorWhichIsA("LayerCollector") or final)
@@ -307,6 +436,16 @@ local function observe(t: T, name: string, root: () -> GuiObject?, change: () ->
 	t.note(name .. " faults", { count = #tracker.faults, first = tracker.faults[1], attachments = faultParts })
 	t.note(name .. " sample phase", "after render callbacks")
 	t.note(name .. " state events", stateEvents)
+	if #nativeDiagnostics > 0 then
+		t.note(name .. " native diagnostics", nativeDiagnostics)
+	end
+	if
+		not negative
+		and (#tracker.faults > 0 or tracker.quiet < 30)
+		and shared.FacetFrameStabilityStopOnFault == true
+	then
+		error("frame stability diagnostic stopped at the first unstable observation")
+	end
 	return tracker
 end
 
@@ -343,6 +482,89 @@ local cases: { Case } = {}
 local function add(case: Case)
 	table.insert(cases, case)
 end
+
+add({
+	id = "native-pointer-only-clipped-target",
+	contracts = {},
+	keepGallery = false,
+	run = function(t: T)
+		local activated = false
+		local stage = t.mount(function(_UI: FacetControls, Host: RobloxHost)
+			return Host.Frame "Clip" {
+				Size = UDim2.fromOffset(60, 44),
+				ClipsDescendants = true,
+				Host.TextButton "PointerOnly" {
+					Position = UDim2.fromOffset(40, 0),
+					Size = UDim2.fromOffset(100, 44),
+					Selectable = false,
+					Text = "",
+					Activated = function()
+						activated = true
+					end,
+				},
+			}
+		end)
+		local button = assert(stage:FindFirstChild("PointerOnly", true)) :: TextButton
+		local point = assert(visiblePoint(button, stage)) + GuiService:GetGuiInset()
+		observe(t, "clipped pointer activation", function()
+			return stage
+		end, function()
+			virtual:SendMousePosition(point)
+			activate(button, point)
+		end)
+		t.check("native pointer activation reaches the clipped nonselectable button", activated)
+		t.cleanup()
+	end,
+})
+for _, lateResize in { false, true } do
+	add({
+		id = if lateResize
+			then "negative-indeterminate-progress-layout-resize"
+			else "native-indeterminate-progress-layout",
+		contracts = {},
+		keepGallery = false,
+		run = function(t: T)
+			local progress: GuiObject? = nil
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+				progress = UI.ProgressView "Activity" { Size = UDim2.fromOffset(240, 6) }
+				return Host.Frame {
+					Size = UDim2.fromOffset(320, 60),
+					progress :: GuiObject,
+					Host.TextButton "Neighbour" {
+						Position = UDim2.fromOffset(250, 0),
+						Size = UDim2.fromOffset(60, 44),
+						Text = "Next",
+					},
+				}
+			end, { frames = 30 })
+			local root = assert(progress)
+			local fill = assert(root:FindFirstChild("Fill1", true)) :: Frame
+			local before, moving = fill.AbsolutePosition, false
+			local watch = RunService.PreRender:Connect(function()
+				moving = moving or fill.AbsolutePosition ~= before
+			end)
+			local tracker = observe(t, "activity layout", function()
+				return stage
+			end, function()
+				if lateResize then
+					RunService.PreRender:Wait()
+					RunService.Heartbeat:Wait()
+					root.Size = UDim2.fromOffset(241, 6)
+				end
+			end, lateResize)
+			watch:Disconnect()
+			t.check("indeterminate paint keeps moving", moving)
+			if lateResize then
+				t.check(
+					"activity does not hide its layout resize",
+					tracker.faults[1] ~= nil and string.find(tracker.faults[1].path, "Activity", 1, true) ~= nil
+				)
+			end
+			t.cleanup()
+		end,
+	})
+end
+
 local negative: Case = {
 	id = "negative-one-frame-late-resize",
 	contracts = {},
@@ -366,6 +588,51 @@ local negative: Case = {
 	end,
 }
 add(negative)
+add({
+	id = "negative-late-resize-after-native-activation",
+	contracts = {},
+	keepGallery = false,
+	run = function(t: T)
+		local button: TextButton? = nil
+		local activated = false
+		local stage = t.mount(function(UI: FacetControls)
+			button = UI.Button "Late" {
+				label = "Continue",
+				Size = UDim2.fromOffset(100, 44),
+				AutomaticSize = Enum.AutomaticSize.None,
+				onActivate = function()
+					activated = true
+					local node = assert(button)
+					node.Size = UDim2.fromOffset(120, 44)
+					task.defer(function()
+						RunService.PreRender:Wait()
+						RunService.Heartbeat:Wait()
+						node.Size = UDim2.fromOffset(121, 44)
+					end)
+				end,
+			}
+			return assert(button)
+		end, { frames = 20 })
+		GuiService.SelectedObject = assert(button)
+		local tracker = observe(t, "activation negative", function()
+			return stage
+		end, function()
+			virtual:SendKey(true, Enum.KeyCode.Return, false)
+			for _ = 1, 2 do
+				RunService.PreRender:Wait()
+			end
+			virtual:SendKey(false, Enum.KeyCode.Return, false)
+		end, true)
+		t.check("native activation reaches the button", activated)
+		t.check("activation negative retains only the late resize", #tracker.faults == 1, tracker.faults)
+		t.check(
+			"activation negative catches one pixel",
+			tracker.faults[1] ~= nil and tracker.faults[1].delta[3] == 1,
+			tracker.faults
+		)
+		t.cleanup()
+	end,
+})
 add({
 	id = "negative-late-resize-after-explicit-state-change",
 	contracts = {},
@@ -400,6 +667,281 @@ add({
 		t.cleanup()
 	end,
 })
+for _, lateResize in { false, true } do
+	add({
+		id = if lateResize then "negative-late-resize-after-text-change" else "native-text-change-starts-a-new-state",
+		contracts = {},
+		keepGallery = false,
+		run = function(t: T)
+			local stage: GuiObject? = nil
+			local label: TextLabel? = nil
+			local tracker = observe(t, "text state", function()
+				return stage
+			end, function()
+				stage = t.mount(function(_UI: FacetControls, Host: RobloxHost)
+					label = Host.TextLabel "Copy" {
+						Size = UDim2.fromOffset(100, 24),
+						Text = "A",
+					}
+					return label :: TextLabel
+				end, { frames = 0 })
+				RunService.PreRender:Wait()
+				RunService.Heartbeat:Wait()
+				local node = assert(label)
+				node.Text = "Different text"
+				RunService.PreRender:Wait()
+				RunService.Heartbeat:Wait()
+				if lateResize then
+					node.Size = UDim2.fromOffset(101, 24)
+				end
+			end, lateResize)
+			if lateResize then
+				t.check("a text change does not hide the next frame resize", #tracker.faults == 1, tracker.faults)
+				t.check(
+					"the text state catches one pixel",
+					tracker.faults[1] ~= nil and tracker.faults[1].delta[3] == 1
+				)
+			end
+			t.cleanup()
+		end,
+	})
+end
+for _, lateResize in { false, true } do
+	add({
+		id = if lateResize
+			then "negative-late-resize-after-scroll-change"
+			else "native-scroll-change-starts-a-new-state",
+		contracts = {},
+		keepGallery = false,
+		run = function(t: T)
+			local stage: GuiObject? = nil
+			local scroller: ScrollingFrame? = nil
+			local child: Frame? = nil
+			local tracker = observe(t, "scroll state", function()
+				return stage
+			end, function()
+				stage = t.mount(function(_UI: FacetControls, Host: RobloxHost)
+					child = Host.Frame "Paint" {
+						Size = UDim2.fromOffset(80, 20),
+						Position = UDim2.fromOffset(30, 0),
+					}
+					scroller = Host.ScrollingFrame {
+						Size = UDim2.fromOffset(100, 60),
+						CanvasSize = UDim2.fromOffset(300, 60),
+						ScrollingDirection = Enum.ScrollingDirection.X,
+						ScrollBarThickness = 0,
+						child :: Frame,
+					}
+					return scroller :: ScrollingFrame
+				end, { frames = 0 })
+				RunService.PreRender:Wait()
+				RunService.Heartbeat:Wait()
+				assert(scroller).CanvasPosition = Vector2.new(20, 0)
+				RunService.PreRender:Wait()
+				RunService.Heartbeat:Wait()
+				if lateResize then
+					assert(child).Size = UDim2.fromOffset(81, 20)
+				end
+			end, lateResize)
+			if lateResize then
+				t.check("a scroll change does not hide the next frame resize", #tracker.faults == 1, tracker.faults)
+				t.check(
+					"the scroll state catches one pixel",
+					tracker.faults[1] ~= nil and tracker.faults[1].delta[3] == 1
+				)
+			end
+			t.cleanup()
+		end,
+	})
+end
+for _, lateResize in { false, true } do
+	add({
+		id = if lateResize
+			then "negative-late-resize-after-visibility-change"
+			else "native-visibility-change-starts-a-new-state",
+		contracts = {},
+		keepGallery = false,
+		run = function(t: T)
+			local stage: GuiObject? = nil
+			local child: Frame? = nil
+			local tracker = observe(t, "visibility state", function()
+				return stage
+			end, function()
+				stage = t.mount(function(_UI: FacetControls, Host: RobloxHost)
+					child = Host.Frame "Paint" {
+						Size = UDim2.fromOffset(80, 20),
+						Visible = false,
+					}
+					return Host.Frame { BackgroundTransparency = 1, child :: Frame }
+				end, { frames = 0 })
+				RunService.PreRender:Wait()
+				RunService.Heartbeat:Wait()
+				assert(child).Visible = true
+				RunService.PreRender:Wait()
+				RunService.Heartbeat:Wait()
+				if lateResize then
+					assert(child).Size = UDim2.fromOffset(81, 20)
+				end
+			end, lateResize)
+			if lateResize then
+				t.check("a visibility change does not hide the next frame resize", #tracker.faults == 1, tracker.faults)
+				t.check(
+					"the visibility state catches one pixel",
+					tracker.faults[1] ~= nil and tracker.faults[1].delta[3] == 1
+				)
+			end
+			t.cleanup()
+		end,
+	})
+end
+add({
+	id = "native-notice-insertion-keeps-first-visible-neighbours",
+	contracts = {},
+	keepGallery = false,
+	run = function(t: T)
+		local show: (() -> ())? = nil
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			local shown = Compose.cell(false)
+			show = function()
+				shown:set(true)
+			end
+			return Host.Frame {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 16) } :: unknown,
+				UI.Text { text = "Updates", textRole = "heading", LayoutOrder = 1 } :: unknown,
+				Compose.show(shown, function()
+					return UI.Notice "Update" {
+						LayoutOrder = 2,
+						appearance = "emphasis",
+						title = "Update available",
+						message = "A new track pack is ready to install.",
+						link = { label = "Release notes", onActivate = function() end },
+						actions = { { id = "Install", label = "Install", onActivate = function() end } },
+						onDismiss = function() end,
+					}
+				end),
+				UI.Button "Below" { label = "Continue", LayoutOrder = 3 },
+			}
+		end, { size = Vector2.new(768, 1024), environment = { preferredTextSize = "Largest" }, frames = 60 })
+		observe(t, "notice insertion", function()
+			return stage
+		end, assert(show))
+		local notice = assert(stage:FindFirstChild("Update", true)) :: Frame
+		local action = assert(notice:FindFirstChild("Install", true)) :: GuiObject
+		t.check("the prepared notice is visible", visible(notice, stage))
+		t.check("the notice action is visible and selectable", visible(action, stage) and action.Selectable)
+		t.check("the notice has its full content height", notice.AbsoluteSize.Y > 44, notice.AbsoluteSize)
+		t.cleanup()
+	end,
+})
+
+for _, textSize in { "Medium", "Largest" } do
+	add({
+		id = "native-calendar-first-visible-glyphs/" .. textSize,
+		contracts = {},
+		keepGallery = false,
+		run = function(t: T)
+			local show: (() -> ())? = nil
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+				local shown = Compose.cell(false)
+				show = function()
+					shown:set(true)
+				end
+				return Host.Frame {
+					BackgroundTransparency = 1,
+					Position = UDim2.fromOffset(24, 24),
+					Size = UDim2.fromOffset(360, 100),
+					UI.DateTimePicker "Date" {
+						label = "Race day",
+						value = { year = 2026, month = 10, day = 17 },
+						isPresented = shown,
+						onPresentedChange = function(value: boolean)
+							shown:set(value)
+						end,
+						onChange = function() end,
+					},
+				}
+			end, { size = Vector2.new(768, 1024), environment = { preferredTextSize = textSize }, frames = 60 })
+			observe(t, "calendar insertion", function()
+				return stage
+			end, assert(show))
+			local surface = assert(stage:FindFirstChild("CalendarSurface", true)) :: GuiObject
+			t.check("the prepared calendar is visible", visible(surface, stage))
+			local days = 0
+			for _, node in surface:GetDescendants() do
+				if node:IsA("TextLabel") and node.Name == "Day" and visible(node, stage) then
+					days += 1
+				end
+			end
+			t.check("the calendar paints its day grid", days >= 28, days)
+			t.cleanup()
+		end,
+	})
+	add({
+		id = "native-calendar-time-validation-placement/" .. textSize,
+		contracts = {},
+		keepGallery = false,
+		run = function(t: T)
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+				return Host.Frame {
+					Position = UDim2.fromOffset(24, 900),
+					Size = UDim2.fromOffset(360, 100),
+					UI.DateTimePicker "Date" {
+						label = "Starts",
+						value = { year = 2026, month = 10, day = 17, hour = 12, minute = 30 },
+						onChange = function() end,
+						time = true,
+						isPresented = Compose.cell(true),
+					},
+				}
+			end, { size = Vector2.new(768, 1024), environment = { preferredTextSize = textSize }, frames = 60 })
+			local surface = assert(stage:FindFirstChild("CalendarSurface", true))
+			local hour = assert(surface:FindFirstChild("Hour", true))
+			local field = assert(hour:FindFirstChild("Field", true)) :: TextBox
+			local live = (require :: (ModuleScript) -> { press: ({ string }, number?) -> string })(
+				game:GetService("ReplicatedStorage").FacetLive :: ModuleScript
+			)
+			observe(t, "calendar time validation", function()
+				return stage
+			end, function()
+				field:CaptureFocus()
+				field.Text = "invalid"
+				live.press({ "Return" })
+			end)
+			local validation = assert(hour:FindFirstChild("Validation", true)) :: TextLabel
+			t.check("the calendar shows the invalid time message", validation.Text ~= "" and visible(validation, stage))
+			t.cleanup()
+		end,
+	})
+end
+
+add({
+	id = "negative-native-sample-errors-fail-the-observation",
+	contracts = {},
+	keepGallery = false,
+	run = function(t: T)
+		local stage = t.mount(function(_UI: FacetControls, Host: RobloxHost)
+			return Host.Frame { Size = UDim2.fromOffset(80, 20) }
+		end, { frames = 0 })
+		local samples = 0
+		local ok, problem = pcall(function()
+			observe(t, "sample failure", function()
+				samples += 1
+				if samples == 2 then
+					error("native sample failure")
+				end
+				return stage
+			end, function() end)
+		end)
+		t.check(
+			"a native sample error fails the observation",
+			not ok and string.find(tostring(problem), "native sample failure", 1, true) ~= nil
+		)
+		t.cleanup()
+	end,
+})
+
 add({
 	id = "negative-gradient-mask-does-not-hide-a-late-visible-resize",
 	contracts = {},
@@ -826,6 +1368,8 @@ for _, page in pages() do
 								{
 									size = node.AbsoluteSize,
 									window = parent.AbsoluteWindowSize,
+									visible = visible(node, stage :: GuiObject),
+									path = node:GetFullName(),
 								}
 							)
 						end
@@ -905,6 +1449,25 @@ for _, page in pages() do
 					local scrolled: { [string]: Vector2 } = {}
 					local escapeTried = false
 					while true do
+						local changedPage = loaded.active:peek() ~= page.id
+						if page.tab and not changedPage then
+							local report =
+								loaded.dispatch("report", nil) :: { demo: { selected: { [string]: string } }? }
+							local selected = if report.demo then report.demo.selected else nil
+							local parts = string.split(page.tab, "/")
+							changedPage = selected == nil
+								or selected.Categories ~= parts[1]
+								or selected[parts[1]] ~= parts[2]
+						end
+						if changedPage then
+							observe(t, "restore requested page", root, function()
+								loaded.dispatch("show", page.id)
+								if page.tab then
+									loaded.dispatch("tab", string.split(page.tab, "/")[1])
+									loaded.dispatch("tab", page.tab)
+								end
+							end)
+						end
 						local target: GuiObject? = nil
 						local overlayVisible = false
 						for _, node in (stage :: GuiObject):GetDescendants() do
@@ -978,10 +1541,12 @@ for _, page in pages() do
 						escapeTried = false
 						local path = node:GetFullName()
 						visited[path] = true
-						observe(t, path .. " select", root, function()
-							GuiService.SelectedObject = node
-						end)
-						local point = node.AbsolutePosition + node.AbsoluteSize / 2 + GuiService:GetGuiInset()
+						if node.Selectable then
+							observe(t, path .. " select", root, function()
+								GuiService.SelectedObject = node
+							end)
+						end
+						local point = assert(visiblePoint(node, assert(stage))) + GuiService:GetGuiInset()
 						observe(t, path .. " hover", root, function()
 							virtual:SendMousePosition(point)
 						end)
@@ -989,20 +1554,20 @@ for _, page in pages() do
 							observe(t, path .. " text", root, function()
 								node.Text ..= " stability"
 							end)
-						else
+						elseif node:IsA("GuiButton") then
 							observe(t, path .. " activate", root, function()
-								virtual:SendKey(true, Enum.KeyCode.Return, false)
-								virtual:SendKey(false, Enum.KeyCode.Return, false)
+								activate(node, point)
 							end)
-							if node:GetAttribute("value") ~= nil then
-								for _, key in
-									{ Enum.KeyCode.Right, Enum.KeyCode.Left, Enum.KeyCode.Up, Enum.KeyCode.Down }
-								do
-									observe(t, path .. " " .. key.Name, root, function()
-										virtual:SendKey(true, key, false)
-										virtual:SendKey(false, key, false)
-									end)
-								end
+						end
+						if node.Selectable and node:GetAttribute("value") ~= nil then
+							for _, key in { Enum.KeyCode.Right, Enum.KeyCode.Left, Enum.KeyCode.Up, Enum.KeyCode.Down } do
+								observe(t, path .. " " .. key.Name, root, function()
+									virtual:SendKey(true, key, false)
+									for _ = 1, 2 do
+										RunService.PreRender:Wait()
+									end
+									virtual:SendKey(false, key, false)
+								end)
 							end
 						end
 					end

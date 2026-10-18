@@ -241,7 +241,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				local icons: { ComposeTypes.Child } = if leading
 					then { ctx.icon(leading, { Name = "LeadingIcon" }) }
 					else {}
-				if spec.row then
+				if spec.row or spec.hint then
 					if not trailing then
 						table.insert(icons, indicator)
 					end

@@ -4,6 +4,10 @@ type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetContro
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 local storage = game:GetService("ReplicatedStorage")
+type KeyInput = {
+	SendKey: (KeyInput, boolean, Enum.KeyCode, boolean) -> (),
+	SendTextInput: (KeyInput, string) -> (),
+}
 
 type Case = {
 	id: string,
@@ -503,6 +507,60 @@ add("playlist-header-titles-and-pinned-column", {}, function(t)
 		rating.r >= band.r - 1,
 		{ rating = rating.r, band = band.r }
 	)
+end)
+
+add("playlist-filter-clears-with-native-keyboard", {}, function(t)
+	local stage = example(t, "02_playlist_table", Vector2.new(900, 640))
+	local filter = assert(stage:FindFirstChild("Filter", true))
+	local field = if filter:IsA("TextBox") then filter else filter:FindFirstChildWhichIsA("TextBox", true)
+	assert(field)
+	local tracks = assert(stage:FindFirstChild("Tracks", true))
+	local body = assert(tracks:FindFirstChild("Body", true))
+	local empty = assert(stage:FindFirstChild("EmptyResult", true)) :: GuiObject
+	local function rowCount(): number
+		local items = assert(body:FindFirstChild("Items"))
+		local count = 0
+		for _, node in items:GetChildren() do
+			if node:IsA("GuiObject") and node.Visible then
+				count += 1
+			end
+		end
+		return count
+	end
+	local full = rowCount()
+	t.check("the full playlist has rows", full > 0, full)
+	local input = (game:GetService("UserInputService") :: unknown) :: { CreateVirtualInput: (unknown) -> KeyInput }
+	local virtual = input:CreateVirtualInput()
+	field:CaptureFocus()
+	t.settle(2)
+	t.check("the filter accepts native text focus", field:IsFocused())
+	virtual:SendTextInput("zzz")
+	t.settle(2)
+	virtual:SendKey(true, Enum.KeyCode.Return, false)
+	t.settle(2)
+	virtual:SendKey(false, Enum.KeyCode.Return, false)
+	t.settle(2)
+	t.check("Return finishes native editing", not field:IsFocused())
+	t.settle(20)
+	t.check("an unmatched filter shows the empty state", empty.Visible and rowCount() == 0)
+	local clear = assert(filter:FindFirstChild("Clear", true)) :: GuiButton
+	local gui = game:GetService("GuiService")
+	gui.SelectedObject = clear
+	t.settle(2)
+	t.check("Clear accepts native selection", gui.SelectedObject == clear)
+	local activated = 0
+	local connection = clear.Activated:Connect(function()
+		activated += 1
+	end)
+	virtual:SendKey(true, Enum.KeyCode.Return, false)
+	t.settle(2)
+	virtual:SendKey(false, Enum.KeyCode.Return, false)
+	t.settle(20)
+	connection:Disconnect()
+	t.note("native Activated arrivals", activated)
+	t.check("Return clears the filter value", field.Text == "", field.Text)
+	t.check("Clear removes the empty state", not empty.Visible)
+	t.check("Clear restores the full playlist", rowCount() == full, { before = full, after = rowCount() })
 end)
 
 add("playlist-320x640-edit-mode-cells", {}, function(t)

@@ -26,7 +26,7 @@ return function(verifyHarness: Verify.Harness)
 		return nil
 	end
 
-	local function mount(name: string, size: { width: number, height: number }?)
+	local function mount(name: string, size: { width: number, height: number }?, nativePaint: boolean?)
 		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target, guiService = engine.new("Folder"), engine.new("GuiService")
@@ -53,7 +53,13 @@ return function(verifyHarness: Verify.Harness)
 				types = engine.types,
 				viewport = viewport,
 				guiService = guiService,
-				services = { GuiService = guiService, UserInputService = inputService },
+				services = {
+					GuiService = guiService,
+					UserInputService = inputService,
+					RunService = if nativePaint
+						then ({ Heartbeat = engine.heartbeat } :: unknown) :: RunService
+						else nil,
+				},
 				inputParent = target,
 				motionLevel = "none",
 				environment = {
@@ -122,6 +128,17 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native gallery collections", function()
+		verifyHarness:case("mounts table commands while native paint preparation owns the body", {
+			id = "native_gallery_collections::native gallery collections::mounts table commands while native paint preparation owns the body",
+			run = function()
+				local _, node, stop, engine = mount("table_virtualized", nil, true)
+				local body = find(node, "Body")
+				Verify.expect(body:IsA("ScrollingFrame")):toBe(true)
+				viewport(body, engine, 800, 440)
+				Verify.expect(find(node, "ToolbarScroll") ~= nil):toBe(true)
+				stop()
+			end,
+		})
 		verifyHarness:case("reveals distant entrants selects an unmounted range and moves keyed rows", {
 			id = "native_gallery_collections::native gallery collections::reveals distant entrants selects an unmounted range and moves keyed rows",
 			run = function()
@@ -1163,7 +1180,7 @@ return function(verifyHarness: Verify.Harness)
 					local function prepare(world: any): any
 						local body = find(world.node, "Body")
 						body.AbsoluteSize = vector(world.engine, 900, 288)
-						body.AbsoluteWindowSize = vector(world.engine, 900, 288)
+						body.AbsoluteWindowSize = vector(world.engine, 900 - body.ScrollBarThickness, 288)
 						return body
 					end
 
@@ -1220,7 +1237,8 @@ return function(verifyHarness: Verify.Harness)
 							local row = find(body, "neon")
 							local cells = find(row, "Row")
 							Verify.expect(header.Position.X.Offset):toBe(find(row, "Cells").Position.X.Offset)
-							Verify.expect(header.Size.X.Offset):toBe(900 + find(row, "Cells").Size.X.Offset)
+							Verify.expect(header.Size.X.Offset)
+								:toBe(body.AbsoluteWindowSize.X + find(row, "Cells").Size.X.Offset)
 							local E = world.engine.types.Enum
 							local allocated = 0
 							for _, id in { "name", "artist", "rating" } do

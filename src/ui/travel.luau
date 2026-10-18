@@ -332,17 +332,21 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, surfaces: Nav.Su
 				end)
 			end
 			local holder = Host.Folder { Name = "TravelPortal" }
-			runtime.connect(holder, "ChildAdded", function(child: Instance)
-				if child:IsA("StyleLink") then
-					local source = child :: StyleLink
-					styleCopy.StyleSheet = source.StyleSheet
-					runtime.connect(source, "Changed", function(property: string)
-						if property == "StyleSheet" and not owner.isDisposed() then
-							styleCopy.StyleSheet = source.StyleSheet
-						end
-					end)
-				end
-			end)
+			runtime.connect(
+				holder,
+				"ChildAdded",
+				Compose.bindOwner(function(child: Instance)
+					if child:IsA("StyleLink") then
+						local source = child :: StyleLink
+						styleCopy.StyleSheet = source.StyleSheet
+						runtime.connect(source, "Changed", function(property: string)
+							if property == "StyleSheet" and not owner.isDisposed() then
+								styleCopy.StyleSheet = source.StyleSheet
+							end
+						end)
+					end
+				end)
+			)
 			retarget()
 			return holder
 		end)

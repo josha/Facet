@@ -387,17 +387,21 @@ end, {
 })
 
 local function pager(t: any, size: any, reduced: boolean): (any, any)
-	local value = {}
-	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+	local value = { pageNodes = {} :: { [string]: GuiObject } }
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value.selection = Compose.cell("one")
 		local pages = {}
 		for _, id in { "one", "two", "three" } do
+			local page = Host.Frame(id) {
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				UI.Button "Play" { label = "Play " .. id },
+			}
+			value.pageNodes[id] = page
 			table.insert(pages, {
 				id = id,
 				label = id,
-				content = function(): Instance
-					return UI.Button "Play" { label = "Play " .. id }
-				end,
+				content = page,
 			})
 		end
 		return UI.PageView "Pager" { selection = value.selection, pages = pages }
@@ -409,20 +413,21 @@ add("pageview-resize-during-travel", {}, function(t)
 	local size = t.Facet.Compose.cell(Vector2.new(600, 400))
 	local stage, value = pager(t, size, false)
 	local pages = t.find(stage, "Pages")
-	local layout = pages:FindFirstChildWhichIsA("UIPageLayout")
-	local three = pages:FindFirstChild("three")
-	t.check("the pager animates page travel", layout.Animated == true, layout.Animated)
+	local three = value.pageNodes.three
+	local before = pages.CanvasPosition.X
 	value.selection:set("three")
 	t.settle(2)
+	local travel = pages.CanvasPosition.X
+	t.check(
+		"the pager animates page travel",
+		travel > before + 0.5 and travel < pages.AbsoluteWindowSize.X * 2 - 0.5,
+		{ before = before, travel = travel, target = pages.AbsoluteWindowSize.X * 2 }
+	)
 	size:set(Vector2.new(400, 600))
 	t.settle(90)
 	t.check("the requested page survives the resize", value.selection:peek() == "three", value.selection:peek())
-	t.check(
-		"the layout rests on the requested page",
-		layout.CurrentPage == three,
-		layout.CurrentPage and layout.CurrentPage.Name
-	)
-	t.check("the page is the same instance", pages:FindFirstChild("three") == three)
+	t.near("the layout rests on the requested page", pages.CanvasPosition.X, pages.AbsoluteWindowSize.X * 2, 0.5)
+	t.check("the page is the same instance", three:IsDescendantOf(pages))
 	t.near("the page fills the new width", three.AbsoluteSize.X, 400, 0.5)
 	t.near("the requested page is on screen", three.AbsolutePosition.X, pages.AbsolutePosition.X, 0.5)
 	size:set(Vector2.new(900, 500))
@@ -430,11 +435,11 @@ add("pageview-resize-during-travel", {}, function(t)
 	t.settle(3)
 	size:set(Vector2.new(500, 700))
 	t.settle(90)
-	local two = pages:FindFirstChild("two")
+	local two = value.pageNodes.two
 	t.check(
 		"a second travel keeps its page through a class flip",
-		value.selection:peek() == "two" and layout.CurrentPage == two,
-		layout.CurrentPage and layout.CurrentPage.Name
+		value.selection:peek() == "two" and math.abs(pages.CanvasPosition.X - pages.AbsoluteWindowSize.X) <= 0.5,
+		{ selection = value.selection:peek(), canvas = pages.CanvasPosition }
 	)
 	t.near("the second page is on screen", two.AbsolutePosition.X, pages.AbsolutePosition.X, 0.5)
 	t.near("the second page fills the portrait width", two.AbsoluteSize.X, 500, 0.5)
@@ -463,7 +468,7 @@ add("pageview-fixed-in-scroller", {}, function(t)
 	local outer = t.find(stage, "Outer")
 	local pagerNode = t.find(stage, "Pager")
 	local pages = t.find(pagerNode, "Pages")
-	local one = pages:FindFirstChild("one")
+	local one = t.find(pages, "one")
 	t.near("the pager keeps its fixed 360 px height", pagerNode.AbsoluteSize.Y, 360, 0.5)
 	t.check(
 		"the page viewport is bounded and positive",
@@ -1100,5 +1105,48 @@ end, {
 		t.check("after a scroll rows 3 and 4 are whole", shown[3] == "whole" and shown[4] == "whole", shown)
 	end,
 })
+
+add("pageview-fractional-window-keeps-keyboard-routes", {}, function(t)
+	local buttons: { GuiObject } = {}
+	local selected: (() -> string)? = nil
+	local stage = t.mount(function(UI: FacetControls, _: RobloxHost, Compose: ComposeModule)
+		local selection = Compose.cell("one")
+		selected = function(): string
+			return selection:peek()
+		end
+		local pages: { Tab } = {}
+		for index, id in { "one", "two", "three" } do
+			local button = UI.Button(id) { label = id }
+			buttons[index] = button
+			pages[index] = { id = id, content = button }
+		end
+		return UI.PageView {
+			selection = selection,
+			pages = pages,
+			Size = UDim2.fromScale(0.8, 1),
+		}
+	end, { size = Vector2.new(389, 360) })
+	local pages = assert(stage:FindFirstChild("Pages", true)) :: ScrollingFrame
+	local live = (require :: (ModuleScript) -> { press: ({ string }, number?) -> string })(
+		game:GetService("ReplicatedStorage").FacetLive :: ModuleScript
+	)
+	GuiService.SelectedObject = buttons[1]
+	for index, id in { "two", "three", "two", "one" } do
+		live.press({ if index <= 2 then "Right" else "Left" })
+		t.settle(30)
+		local expected = if id == "one" then 1 elseif id == "two" then 2 else 3
+		t.check(`fractional page {index} updates the model`, assert(selected)() == id)
+		t.check(`fractional page {index} retains native selection`, GuiService.SelectedObject == buttons[expected])
+		if id == "three" then
+			t.near(
+				"the last fractional page reaches the native canvas end",
+				pages.CanvasPosition.X,
+				pages.AbsoluteCanvasSize.X - pages.AbsoluteWindowSize.X,
+				0.5
+			)
+		end
+	end
+	t.cleanup()
+end)
 
 return cases

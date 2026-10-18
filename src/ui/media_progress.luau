@@ -505,6 +505,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			})
 		)
 		if timeline then
+			root:AddTag("facet-progress-indeterminate")
 			ctx.playWhileShown(timeline, root)
 		end
 		return root

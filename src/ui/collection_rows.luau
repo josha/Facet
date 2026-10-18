@@ -512,7 +512,12 @@ return function<V, K>(
 						end
 					end
 					local ready = Compose.withOwner(contentOwner, function()
-						return preparePaint(ctx, if measureRow then measuredNode else content, measureRow)
+						return preparePaint(
+							ctx,
+							if measureRow then measuredNode else content,
+							measureRow,
+							spec.measure == true or measureRow ~= nil
+						)
 					end)
 					preparing[node] = {
 						ready = ready,

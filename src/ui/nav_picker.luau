@@ -215,6 +215,7 @@ return function(
 		)
 		local style = spec.style or "automatic"
 		if style == "automatic" then
+			local retained = ctx.config.services.RunService ~= nil and spec.query == nil
 			local input = surfaces.service("UserInputService")
 			local preferred = if input
 				then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
@@ -236,7 +237,7 @@ return function(
 				Visible = false,
 			})
 			measure:AddTag("facet-type-control")
-			local labelBounds = ctx.observe.TextBounds(measure)
+			local labelBounds = ctx.observeNative.TextBounds(measure)
 
 			local resolved = Compose.formula(function(use: ComposeTypes.Use): Nav.PickerStyle
 				if spec.query then
@@ -272,10 +273,32 @@ return function(
 			})
 			props[#props + 1] = Compose.keyed({
 				from = function(use: ComposeTypes.Use)
-					return { use(resolved) }
+					local chosen = use(resolved)
+					if not retained then
+						return { chosen }
+					end
+					local choices: { Nav.PickerStyle } = { "menu" }
+					local list: { Nav.PickerOption<V> } = read(spec.options, use)
+					if #list <= 6 then
+						table.insert(choices, "inline")
+					end
+					local described = false
+					for _, option in list do
+						described = described or option.description ~= nil
+					end
+					if #list <= 4 and not described then
+						table.insert(choices, "segmented")
+					end
+					return choices
 				end,
 				render = function(current: ComposeTypes.Readable<Nav.PickerStyle>)
 					local presentation: Nav.PickerStyle = current:peek()
+					local function active(use: ComposeTypes.Use): boolean
+						return use(resolved) == presentation
+					end
+					local function enabled(use: ComposeTypes.Use): boolean
+						return active(use) and read(spec.enabled, use) ~= false
+					end
 					local automatic = props.AutomaticSize
 					local size = derive(function(use: ComposeTypes.Use?)
 						local sizing = read(automatic, use)
@@ -291,13 +314,14 @@ return function(
 							placeholder = spec.placeholder,
 							label = spec.label,
 							required = spec.required,
-							enabled = spec.enabled,
+							enabled = if retained then enabled else spec.enabled,
 							indicator = spec.indicator,
 							axis = spec.axis,
 							sizing = spec.sizing,
 							iconOnly = spec.iconOnly,
 							textSize = spec.textSize,
 							Name = "Presentation",
+							Visible = if retained then active else nil,
 							style = presentation,
 							isPresented = opened,
 							AutomaticSize = automatic,
@@ -335,13 +359,14 @@ return function(
 							placeholder = spec.placeholder,
 							label = spec.label,
 							required = spec.required,
-							enabled = spec.enabled,
+							enabled = if retained then enabled else spec.enabled,
 							indicator = spec.indicator,
 							axis = spec.axis,
 							sizing = spec.sizing,
 							iconOnly = spec.iconOnly,
 							textSize = spec.textSize,
 							Name = "Presentation",
+							Visible = if retained then active else nil,
 							style = presentation,
 							isPresented = opened,
 							AutomaticSize = automatic,
@@ -377,7 +402,7 @@ return function(
 			})
 			props[#props + 1] = measure
 			local container = Host.Frame(props)
-			local measured = ctx.observe.AbsoluteSize(container)
+			local measured = ctx.observeNative.AbsoluteSize(container)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local available = use(measured).X
 				if available > 0 then
