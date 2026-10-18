@@ -86,6 +86,14 @@ Use `project [directory]` for file discovery. Read one matching starter in
   Use one `docs <path>` call for each node that you need.
 - Let a text box hug its text, or use `textSize = { fit = ... }` in a box of
   fixed size. A label can be twice as long in another language.
+- A bar `ProgressView` fills the width of its container. In a box that hugs
+  its content, give the bar a width, such as
+  `Size = UDim2.fromOffset(width, 0)` with a `scaled` width. A fill child
+  does not size a hug box, so the box can take the width of the slot where
+  the Composition measures it, and stay that wide.
+- A `show` branch disposes the formulas that its content makes, `scaled`
+  results too, when it hides. Make them inside the branch. Do not keep them
+  in a table outside the branch for the next time it shows.
 - The Composition measures each form with its scale. To pop part of a region,
   put the `UIScale` on an inner frame inside a holder of fixed size. Then a
   pop does not move the region to another place or form.
