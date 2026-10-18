@@ -284,7 +284,8 @@ function parts.actions(
 	local form = parts.stackedForm(ctx)
 	local stacked = Compose.formula(function(use: ComposeTypes.Use): boolean
 		local mode = modeOf(use)
-		if mode == "stacked" or #actions > 2 or (mode ~= "row" and form(use)) then
+		-- `row` keeps any number of actions in a row while their full labels fit; `automatic` stacks three or more
+		if mode == "stacked" or (mode ~= "row" and (#actions > 2 or form(use))) then
 			return true
 		end
 		if ctx.read(ctx.config.controlSize, use) == "large" then
