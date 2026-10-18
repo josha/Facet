@@ -20,6 +20,9 @@ Form selection, zone fallback, fit warnings and resize motion.
 - A region can still fail to fit at its last form when nothing else can give
   way. The composition then warns once in the output and names the region.
   Give that region a smaller form, `mayDrop = true` or a higher rank number.
+- Each Composition lays out only its own regions. When two Compositions on
+  one screen place visible regions in the same zone for two seconds, the
+  composition warns once for that pair and zone. Put the HUD in one Composition.
 - The decision uses only the measured sizes and the size of the composition.
   Thus a rotation, a resize or a text size change gives the same forms as a
   new mount of the same size.

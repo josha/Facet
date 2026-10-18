@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- A `top`, `center` or `bottom` region can use the full width of the
+  composition when both side zones of its row are empty. Before, the zone
+  kept `gap` free on both sides for side zones that were not there. A 361
+  pixel `bottom` region on a portrait phone 369 pixels wide, with `gap` 8,
+  then did not fit, stepped down and caused a fit warning. A zone that moves
+  below or above its corners still keeps `gap` on both sides.
+- A Composition warns once for each pair of Compositions and zone when
+  another enabled Composition in a ScreenGui with the same parent places a
+  visible region in the same zone for two seconds. Each Composition lays out
+  only its own regions, so the regions can overlap. Regions with a zero size,
+  hidden regions and regions in the top bar strip do not cause the warning.
+  Facet does not move the regions apart: put the HUD of a screen in one
+  Composition.
+
 - DiegeticScreen moves existing application layers onto a native world display
   with one reversible camera shot. UI instances, state, safe-area canvases and
   source hosts survive the transition. The consumer supplies the room and

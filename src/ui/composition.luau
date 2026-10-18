@@ -24,6 +24,58 @@ local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 local ENGINE_BUTTON = 44
 local ENGINE_MARGIN = 2
 
+type Clash = { other: Instance, zone: string }
+
+local live = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [string]: boolean } }
+local told = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [Instance]: { [string]: boolean } } }
+
+local function screenOf(root: Instance): Instance?
+	local layer = root:FindFirstAncestorWhichIsA("LayerCollector")
+	if layer == nil or not (layer :: LayerCollector).Enabled or not (root :: GuiObject).Visible then
+		return nil
+	end
+	return layer.Parent
+end
+
+local function clashes(root: Instance): { Clash }
+	local found: { Clash } = {}
+	local mine = live[root]
+	local parent = if mine then screenOf(root) else nil
+	if mine == nil or parent == nil then
+		return found
+	end
+	for other, zones in live do
+		if other ~= root and screenOf(other) == parent then
+			for zone in mine do
+				if zones[zone] then
+					table.insert(found, { other = other, zone = zone })
+				end
+			end
+		end
+	end
+	return found
+end
+
+local function wasTold(a: Instance, b: Instance, zone: string): boolean
+	local byOther = told[a]
+	local zones = if byOther then byOther[b] else nil
+	return zones ~= nil and zones[zone] == true
+end
+
+local function tell(a: Instance, b: Instance, zone: string)
+	for _, edge in { { a, b }, { b, a } } do
+		local from, to = edge[1], edge[2]
+		local byOther = told[from]
+		if byOther == nil then
+			byOther = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [string]: boolean } }
+			told[from] = byOther
+		end
+		local zones = byOther[to] or {}
+		zones[zone] = true
+		byOther[to] = zones
+	end
+end
+
 return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
 	local kit = layoutKit.of(ctx)
@@ -639,6 +691,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local streaks: { [Frame]: number } = {}
 		local later = runtime.scheduler()
 		local last: Vector2? = nil
+		local checking = false
+		live[root] = {}
+		Compose.cleanup(function()
+			live[root] = nil
+		end)
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
 		local stripSize = if stripGui then ctx.layoutSize(stripGui, stripUnit) else nil
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -706,6 +763,31 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			for index, region in regions do
 				declared[region].animate = resized
 				declared[region].form:set(chosen[index])
+			end
+			local placed = table.clone(chosen)
+			for index, region in regions do
+				if not region.Visible then
+					placed[index] = 0
+				end
+			end
+			live[root] = if extent.X > 0 and extent.Y > 0 then resolver.occupied(list, placed, down, rides) else {}
+			local unseen = false
+			for _, clash in clashes(root) do
+				unseen = unseen or not wasTold(root, clash.other, clash.zone)
+			end
+			if unseen and not checking then
+				checking = true
+				later.after(2, function()
+					checking = false
+					for _, clash in clashes(root) do
+						if not wasTold(root, clash.other, clash.zone) then
+							tell(root, clash.other, clash.zone)
+							warn(
+								`Facet Composition: '{root.Name}' and '{clash.other.Name}' both place regions in the {clash.zone} zone. Compositions lay out their regions separately, so these can overlap. Keep a screen's HUD in one Composition.`
+							)
+						end
+					end
+				end)
 			end
 		end)
 		return root

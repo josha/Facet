@@ -694,6 +694,148 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("lets a center-lane zone use the full width when both side zones of its row are empty", {
+			id = "native_composition::Composition::lets a center-lane zone use the full width when both side zones of its row are empty",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local function wide(x: number, y: number)
+					return { x = x, y = y }
+				end
+				local bar: Declared =
+					{ zone = "bottom" :: "bottom", rank = 3, mayDrop = false, sizes = { wide(361, 46) } }
+				local forms, _, shift, overflow = resolver.resolve(369, 687, 8, { bar })
+				Verify.expect(forms[1]):toBe(1)
+				Verify.expect(#overflow):toBe(0)
+				Verify.expect(shift.bottom):toBe(0)
+				local corner: Declared =
+					{ zone = "bottomRight" :: "bottomRight", rank = 1, mayDrop = false, sizes = { wide(60, 60) } }
+				forms, _, shift, overflow = resolver.resolve(369, 687, 8, { bar, corner })
+				Verify.expect(forms[1]):toBe(1)
+				Verify.expect(shift.bottom):toBe(68)
+				Verify.expect(#overflow):toBe(1)
+				Verify.expect(overflow[1]):toBe(1)
+
+				local declared: { Declared } = {
+					bar,
+					{
+						zone = "bottom" :: "bottom",
+						rank = 2,
+						mayDrop = false,
+						sizes = { wide(1256, 73), wide(375, 50), wide(244, 73) },
+					},
+					{
+						zone = "center" :: "center",
+						rank = 1,
+						mayDrop = false,
+						sizes = { wide(560, 140), wide(300, 140) },
+					},
+					{ zone = "topLeft" :: "topLeft", rank = 2, mayDrop = false, sizes = { wide(52, 52) } },
+					{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { wide(100, 39) } },
+					{
+						zone = "topRight" :: "topRight",
+						rank = 2,
+						mayDrop = true,
+						sizes = { wide(96, 96), wide(60, 60) },
+					},
+					{ zone = "topbar" :: "topbar", rank = 1, mayDrop = false, sizes = { wide(0, 0) } },
+				}
+				forms, _, shift, overflow = resolver.resolve(369, 687, 8, declared, { x = 221, y = 44 })
+				Verify.expect(#overflow):toBe(0)
+				Verify.expect(shift.bottom):toBe(0)
+				Verify.expect(forms[1]):toBe(1)
+				Verify.expect(forms[2]):toBe(3)
+				Verify.expect(forms[3]):toBe(2)
+			end,
+		})
+
+		verifyHarness:case("lists the zones that hold a visible region outside the top bar strip", {
+			id = "native_composition::Composition::lists the zones that hold a visible region outside the top bar strip",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local declared: { Declared } = {
+					{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { { x = 120, y = 44 } } },
+					{ zone = "topRight" :: "topRight", rank = 1, mayDrop = true, sizes = { { x = 96, y = 96 } } },
+					{ zone = "bottom" :: "bottom", rank = 1, mayDrop = false, sizes = { { x = 0, y = 0 } } },
+					{ zone = "topbar" :: "topbar", rank = 1, mayDrop = false, sizes = { { x = 44, y = 44 } } },
+				}
+				local zones = resolver.occupied(declared, { 1, 0, 1, 1 }, { false, false, false, false }, true)
+				Verify.expect(zones.topLeft):toBe(true)
+				Verify.expect(zones.topRight):toBeNil()
+				Verify.expect(zones.bottom):toBeNil()
+				Verify.expect(zones.top):toBeNil()
+				zones = resolver.occupied(declared, { 1, 0, 1, 1 }, { false, false, false, true }, true)
+				Verify.expect(zones.top):toBe(true)
+			end,
+		})
+
+		verifyHarness:case("warns once when two Compositions on one screen place regions in the same zone", {
+			id = "native_composition::Composition::warns once when two Compositions on one screen place regions in the same zone",
+			run = function()
+				local env = (getfenv(require("../src/ui/composition")) :: unknown) :: { [string]: unknown }
+				local warnings: { string } = {}
+				env.warn = function(...)
+					local parts = {}
+					for index = 1, select("#", ...) do
+						table.insert(parts, tostring((select(index, ...))))
+					end
+					table.insert(warnings, table.concat(parts, " "))
+				end
+				local ok, err = pcall(function()
+					local engine, runtime, UI = make()
+					local screens = engine.new("Folder")
+					local elsewhere = engine.new("Folder")
+					local function hud(name: string, zone: "topLeft" | "topRight" | "bottom", parent: unknown)
+						local layer = engine.new("ScreenGui")
+						layer.Parent = parent
+						local root: Frame
+						runtime.mount(function()
+							local Host = runtime.constructors
+							root = UI.Composition(name) {
+								gap = 8,
+								padding = 0,
+								topbar = false,
+								UI.Region {
+									Name = name .. "Region",
+									zone = zone,
+									rank = 1,
+									Host.Frame {
+										Name = name .. "Full",
+									},
+								},
+							}
+							return root
+						end, layer)
+						sized(engine, root:FindFirstChild(name .. "Full", true), 120, 44)
+						sized(engine, root:FindFirstChild("Zones"), 844, 390)
+						return root, layer
+					end
+					hud("Score", "topLeft", screens)
+					hud("Chat", "topLeft", screens)
+					hud("Map", "topRight", screens)
+					hud("Other", "topLeft", elsewhere)
+					engine.heartbeat:Fire(2.5)
+					Verify.expect(#warnings):toBe(1)
+					Verify.expect(warnings[1]):toBe(
+						"Facet Composition: 'Chat' and 'Score' both place regions in the topLeft zone. Compositions lay out their regions separately, so these can overlap. Keep a screen's HUD in one Composition."
+					)
+					local _, hiddenLayer = hud("Quest", "topRight", screens)
+					hiddenLayer.Enabled = false
+					local empty = hud("Toast", "bottom", screens)
+					sized(engine, empty:FindFirstChild("ToastFull", true), 0, 0)
+					hud("Banner", "bottom", screens)
+					engine.heartbeat:Fire(2.5)
+					Verify.expect(#warnings):toBe(1)
+					runtime:dispose()
+				end)
+				env.warn = nil
+				if not ok then
+					error(err, 0)
+				end
+			end,
+		})
+
 		verifyHarness:case(
 			"refuses an unknown anchor, a rank that is not a whole number, and a child that is not a Region",
 			{

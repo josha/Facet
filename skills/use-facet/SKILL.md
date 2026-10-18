@@ -64,8 +64,9 @@ Use `project [directory]` for file discovery. Read one matching starter in
 - The theme owns paint, type, spacing and motion. Use `textRole`,
   `appearance`, `gap` and `padding` tokens. Use `wrap = true` for long text in
   a stack with `width = "fill"`. Do not set `TextScaled`.
-- Keep core-safe HUD groups in one Composition. Use stable region widths and
-  smaller forms before you let a region drop. Use `UI.environment` or adaptive
+- Keep core-safe HUD groups in one Composition. Facet warns when two
+  Compositions on one screen place regions in the same zone. Use stable
+  region widths and smaller forms before you let a region drop. Use `UI.environment` or adaptive
   controls for size changes. Do not branch on the device. For a length the
   game owns, use `UI.environment().scaled(64)`. Add a type role,
   `scaled(64, "body")`, when the length sits beside text.

@@ -9,7 +9,8 @@ Region measurement, authored sizes and layout boundaries.
   zone stays at its edge and must fit its third.
 - A center-lane zone (`top`, `center`, `bottom`) can also use the width that
   the side zones of its row leave free. Its width must not exceed the full
-  width minus twice the wider side zone of that row and twice `gap`. Thus a
+  width minus twice the wider side zone of that row and twice `gap`. When
+  both side zones of its row are empty, it can use the full width. Thus a
   wide `top` or `bottom` region fits on a phone when the corners of its row
   are empty or narrow. When the side zones of its row squeeze a center zone
   that fits the row alone, the side regions that are wider than the room the
