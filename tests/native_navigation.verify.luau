@@ -2770,6 +2770,27 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
+		verifyHarness:case("reveals a Composition in a host that never lays out", {
+			id = "native_navigation::native navigation controls::reveals a Composition in a host that never lays out",
+			run = function()
+				local world = setup(function(UI: SharedTypes.Controls)
+					return UI.Composition "HUD" {
+						UI.Region "Status" { zone = "topRight", rank = 1, UI.Text { text = "Ready" } },
+					}
+				end, { preRender = true })
+				local root = assert(world.screen:FindFirstChild("HUD", true)) :: Instance
+				Verify.expect(root:GetAttribute("FacetPreparing")):toBe(true)
+				for _ = 1, 30 do
+					world.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(root:GetAttribute("FacetPreparing")):toBe(true)
+				for _ = 1, 60 do
+					world.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(root:GetAttribute("FacetPreparing")):toBe(false)
+				world.stop()
+			end,
+		})
 		verifyHarness:case(
 			"resolves an automatic picker from native width and text bounds before framed observations",
 			{

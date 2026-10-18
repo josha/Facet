@@ -37,6 +37,7 @@ export type ButtonVisualOptions = {
 	imageAspectRatio: number?,
 	imageFraming: ("fit" | "crop")?,
 	subtitle: Shared.ValueString?,
+	caption: Shared.ValueString?,
 	hint: Shared.ValueString?,
 	help: Help?,
 	disclose: boolean?,

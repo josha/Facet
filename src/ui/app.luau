@@ -59,7 +59,7 @@ export type Toast = { id: number, dismiss: () -> boolean }
 export type App = {
 	runtime: Types.Runtime,
 	UI: ControlTypes.Controls,
-	mount: (component: Component, parent: Instance?) -> (() -> (), ScreenGui),
+	mount: (component: Component, parent: Instance?, screen: Engine.ScreenGuiNativeProps?) -> (() -> (), ScreenGui),
 	refusal: (control: string, spec: unknown) -> string?,
 	construct: (control: string, spec: unknown) -> Instance,
 	controlNames: () -> { string },
@@ -98,9 +98,14 @@ return function(
 	local Links = (runtime.constructors :: unknown) :: StyleLinkHost
 	local stops: { () -> () } = {}
 	local disposed = false
-	local function mount(component: Component, parent: Instance?): (() -> (), ScreenGui)
+	local function mount(
+		component: Component,
+		parent: Instance?,
+		screen: Engine.ScreenGuiNativeProps?
+	): (() -> (), ScreenGui)
 		assert(not disposed, "Facet app.mount: the app is disposed")
 		assert(type(component) == "function", "Facet app.mount: expected a component function")
+		assert(screen == nil or type(screen) == "table", "Facet app.mount: screen takes native ScreenGui properties")
 		local target = parent or settings.parent or playerGui()
 		local stop, root = runtime.mount(function(): ComposeTypes.Child
 			local sheetOptions: ThemeTypes.ThemeOptions = table.clone(settings.sheet or {})
@@ -115,9 +120,11 @@ return function(
 			end
 			local sheet = themes.createStyleSheet(runtime, settings.theme, sheetOptions)
 			local props: { [unknown]: unknown } = {}
-			for key, value in ((settings.screen or {}) :: unknown) :: { [unknown]: unknown } do
-				assert(type(key) == "string", "Facet app: screen takes native ScreenGui properties only")
-				props[key] = value
+			for _, source in { settings.screen or {}, screen or {} } do
+				for key, value in (source :: unknown) :: { [unknown]: unknown } do
+					assert(type(key) == "string", "Facet app: screen takes native ScreenGui properties only")
+					props[key] = value
+				end
 			end
 			props.Name = props.Name or settings.name or "Facet"
 			local enums = if settings.types then settings.types.Enum else Enum

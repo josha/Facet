@@ -32,6 +32,13 @@ or change the saved report. Do not read the full report during repairs.
 Use `--verbose` for each capture path and every finding. A failed or missing
 tap, capture, type check, build, or high or medium audit finding gives exit code 1.
 
+`--tap TEXT` taps a visible ScreenGui element whose text contains TEXT, at
+the centre of its visible rectangle. Text in a SurfaceGui or BillboardGui is
+not a tap target. When more than one element matches, it taps the one nearest
+the top of the screen, then the one nearest the left edge. Give each action its
+own visible name. A `caption` is part of its Button, so a tap on the caption
+activates it.
+
 Each tap waits for stable layout before capture. Use `--wait SECONDS` to set
 an explicit delay after each tap.
 If the interface does not mount or a tap fails, the device stops its dependent

@@ -385,7 +385,11 @@ local function anchors(text: string): { { object: GuiObject, rect: Rect } }
 	local wanted = normalize(text)
 	each(function(object)
 		local own = ownText(object)
-		if own ~= nil and string.find(normalize(own), wanted, 1, true) ~= nil then
+		if
+			own ~= nil
+			and object:FindFirstAncestorWhichIsA("ScreenGui") ~= nil
+			and string.find(normalize(own), wanted, 1, true) ~= nil
+		then
 			local rect = shownRect(object, true)
 			if rect ~= nil then
 				table.insert(found, { object = object, rect = rect })
@@ -403,7 +407,7 @@ local function search(query: Query): { Candidate }
 	local candidates: { Candidate } = {}
 	local near = if query.near ~= nil then anchors(query.near :: string) else nil
 	each(function(object)
-		if not roleMatches(object, query.role) then
+		if object:FindFirstAncestorWhichIsA("ScreenGui") == nil or not roleMatches(object, query.role) then
 			return
 		end
 		local text = label(object)

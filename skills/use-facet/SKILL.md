@@ -24,8 +24,10 @@ After the design guide, use `lute run tools/facet docs` for `Map`. Open every ta
 matches a part of the screen. For a HUD with a shop, open `Tasks.hud` and
 `Tasks.shop`. For a panel with child pages, also open `Tasks.sheet`.
 Open a control card or option node only for a missing detail: `docs <path>`.
-Use `docs <Control>.props` for typed options and defaults. Do not read package
-source to find option types.
+Use `docs <Control>.props` for typed options and defaults. Learn Facet and its
+tools from the docs, not from their source. Read the source only to diagnose a
+suspected Facet bug, when observed behavior contradicts a doc node. Name that
+behavior and node first, then report the gap.
 Use `docs --search TEXT` to find paths and one-line summaries.
 Never reread a node already in context. Each call returns one bounded node.
 Use `project [directory]` for file discovery. Read one matching starter in

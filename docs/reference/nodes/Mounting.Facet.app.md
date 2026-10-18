@@ -19,3 +19,27 @@ script.Destroying:Connect(app.dispose)
 ```
 
 The app has these fields:
+
+- `UI`: the controls.
+- `runtime`: the Compose runtime of the app.
+- `mount(component, parent?, screen?)`: mounts `component()` in a new
+  ScreenGui and returns `stop, screenGui`. The default parent is the
+  `parent` option or the PlayerGui. `screen` sets native ScreenGui properties
+  for this ScreenGui only. They replace the `screen` option of the app.
+- `presentAnchored(component, options)`: shows a popover at `options.source`
+  in its own ScreenGui and returns `close, screenGui`.
+- `presentToast(component, options?)`: shows a toast and returns
+  `{ id, dismiss }`.
+- `construct(control, spec)`, `refusal(control, spec)` and `controlNames()`:
+  make one control by name, return the error a spec would raise, and list the
+  control names.
+- `dispose()`: stops every mount. It disposes the runtime when the app made it.
+
+Use one `mount` for each screen layer. For example, keep the top-bar actions
+in a ScreenGui with `TopbarSafeInsets` and the rest of the HUD in the default
+`CoreUISafeInsets`:
+
+```luau
+app.mount(function() return UI.HStack "Actions" {} end, nil, { ScreenInsets = Enum.ScreenInsets.TopbarSafeInsets, DisplayOrder = 2 })
+app.mount(function() return UI.Composition "HUD" {} end)
+```
