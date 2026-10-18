@@ -479,6 +479,22 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
+		verifyHarness:case("gives a text badge a native padding child for its status dot inset", {
+			id = "native_themes_media::native themes and media::gives a text badge a native padding child for its status dot inset",
+			run = function()
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+				local UI = require("../src").controls(runtime, { types = engine.types })
+				local badge: GuiObject? = nil
+				local stop = runtime.mount(function()
+					badge = UI.Badge "Coins" { label = "120 coins", appearance = "status", status = "warning" }
+					return badge
+				end, engine.new("Folder"))
+				Verify.expect(assert(badge):FindFirstChildWhichIsA("UIPadding") ~= nil):toBe(true)
+				stop()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("calendar scroll padding reserves only the panel artwork", {
 			id = "native_themes_media::native themes and media::calendar scroll padding reserves only the panel artwork",
 			run = function()

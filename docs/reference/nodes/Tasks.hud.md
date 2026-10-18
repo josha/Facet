@@ -20,9 +20,8 @@ app.mount(function()
       Size = function(use: Facet.Use): UDim2
         return UDim2.fromOffset(diameter(use), diameter(use))
       end,
+      caption = name,
       onActivate = function() print(name) end,
-      UI.Text { text = name, textRole = "body", AnchorPoint = Vector2.new(0.5, 0),
-        Position = function(use: Facet.Use): UDim2 return UDim2.new(0.5, 0, 1, use(gap)) end },
     }
   end
   return UI.VStack "HUD" {

@@ -316,6 +316,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		},
 		states = {
 			{ name = "native glyph", props = nativeGlyph },
+			{
+				name = "circle with caption",
+				props = properties { shape = "circle", icon = "settings", caption = "Settings" },
+			},
 			{ name = "discloses a truncated label", props = merged(fixed(120, 44), { label = LONG, disclose = true }) },
 			{ name = "fixed 140×64", props = fixed(140, 64) },
 			{

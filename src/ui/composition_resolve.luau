@@ -56,7 +56,6 @@ local function resolve(
 	end
 	local stack: Stacked = stacked or { top = false, bottom = false }
 	local lane = (width - 2 * gap) / 3
-	local full = width - 2 * gap
 	while true do
 		local zoneW: { [number]: number }, zoneH: { [number]: number }, members: { [number]: { number } } = {}, {}, {}
 		for index, region in regions do
@@ -118,15 +117,15 @@ local function resolve(
 				if column == 2 then
 					local edge = if row == 1 then "top" elseif row == 3 then "bottom" else nil
 					local side = math.max(zoneW[4 + row] or 0, zoneW[12 + row] or 0)
-					room = math.max(lane, width - 2 * (side + gap))
+					room = if side > 0 then math.max(lane, width - 2 * (side + gap)) else width
 					local wide = zoneW[key] or 0
 					if edge and stack[edge] then
-						room = full
+						room = width
 					elseif wide > room then
 						if edge then
 							squeezed[edge] = true
 						end
-						if wide <= full and (zoneH[key] or 0) <= height then
+						if wide <= width and (zoneH[key] or 0) <= height then
 							local spare = (width - wide) / 2 - gap
 							fail(4 + row, spare)
 							fail(12 + row, spare)
@@ -207,7 +206,27 @@ local function resolve(
 	end
 end
 
+local function occupied(
+	regions: { Declared },
+	forms: { number },
+	landed: { boolean },
+	riding: boolean
+): { [string]: boolean }
+	local zones: { [string]: boolean } = {}
+	for index, region in regions do
+		local form = forms[index] or 0
+		local size = if form > 0 then region.sizes[form] else nil
+		local inStrip = region.zone == "topbar" and riding and not landed[index]
+		if size and size.x > 0 and size.y > 0 and not inStrip then
+			local home: string = if region.zone == "topbar" then "top" else region.zone
+			zones[home] = true
+		end
+	end
+	return zones
+end
+
 return {
 	CELLS = CELLS,
+	occupied = occupied,
 	resolve = resolve,
 }

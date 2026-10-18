@@ -45,8 +45,11 @@ outside the action stack.
 
 ## Selection and input
 
-Make only Buttons selectable. Make each label a descendant of its Button.
-Place each label fully below the strip, in the core UI safe area. Keep the
+Make only Buttons selectable. Give each Button its name with `caption`. The
+caption shows below the circle and is part of the Button: a tap or click on
+the caption activates the Button. A separate Text below the circle does not
+activate it. Place each caption fully below the strip, in the core UI safe
+area. Keep the
 Button's own rectangle fully inside the strip and do not clip its descendants.
 No painted rectangle may cross the strip's bottom edge. Set
 SelectionGroup on the row. Use native left and right selection links when

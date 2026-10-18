@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+- A status Badge without an icon keeps its dot inside the pill. Before, the
+  text size floor ignored the padding that the theme gives the dot, so the dot
+  covered the first letters of the label.
+- `Button` accepts `caption`: text centred below the Button that activates it.
+  A HUD action can show its name under a circle icon, and a tap on the name
+  opens the action. Before, the documented HUD row put a separate Text below
+  the circle, and a tap on that text did nothing.
+- Screens, stacks, tab views and Compositions reveal after about one second
+  when their roots never receive a size, for example in a host without a
+  layout engine. Before, they stayed hidden.
+- `verify --tap` and the play probe tap only ScreenGui text. Text on a
+  SurfaceGui or BillboardGui sign no longer takes a tap from a HUD button.
+- The Verify text-truncated audit rule ignores a false `TextFits` on text
+  without a `TextTruncate` mode when its bounds fit.
+
+- A `top`, `center` or `bottom` region can use the full width of the
+  composition when both side zones of its row are empty, or when it moves
+  below or above its corners. Before, the zone kept `gap` free on both sides
+  for side zones that were not there. A 361 pixel `bottom` region on a
+  portrait phone 369 pixels wide, with `gap` 8, then did not fit, stepped
+  down and caused a fit warning. The side regions of a row also give way
+  first when the center zone fits the full width alone.
+- A Composition warns once for each pair of Compositions and zone when
+  another Composition on the same screen places a visible region in the same
+  zone for two seconds. Two Compositions are on the same screen when their
+  layers are the same or have the same parent. Each Composition lays out
+  only its own regions, so the regions can overlap. A disabled layer, a
+  hidden Composition, a hidden region, a region with a zero size and a
+  region in the top bar strip do not cause the warning. Facet does not move
+  the regions apart: put the HUD of a screen in one Composition.
 - An expanded CollapsibleView always reserves the width of its vertical scroll
   bar. Before, the bar appeared and went away when content that wraps changed
   height at the boundary. The content width then changed by the bar width, and

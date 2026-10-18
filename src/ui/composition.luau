@@ -9,6 +9,7 @@ local resolver = require("./composition_resolve")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 local presentationReadiness = require("./presentation_readiness")
+local reservations = require("./reservations")
 
 type Declared = {
 	zone: Layout.Zone,
@@ -20,6 +21,7 @@ type Declared = {
 	animate: boolean,
 	reveal: { host: (Instance) -> (), back: () -> () }?,
 }
+type Placement = { regions: { resolver.Declared }, forms: { number }, landed: { boolean }, riding: boolean }
 
 local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 local ENGINE_BUTTON = 44
@@ -672,6 +674,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local streaks: { [Frame]: number } = {}
 		local later = runtime.scheduler()
 		local last: Vector2? = nil
+		local placement: ComposeTypes.Cell<Placement?> = Compose.cell(nil :: Placement?)
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
 		local stripSize = if stripGui then layoutSize(stripGui, stripUnit) else nil
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -743,6 +746,83 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			for index, region in regions do
 				declared[region].animate = resized
 				declared[region].form:set(chosen[index])
+			end
+			placement:set(
+				if extent.X > 0 and extent.Y > 0
+					then { regions = list, forms = chosen, landed = down, riding = rides }
+					else nil
+			)
+		end)
+		local ancestry = Compose.cell(0)
+		local function moved()
+			ancestry:set(ancestry:peek() + 1)
+		end
+		runtime.connect(root, "AncestryChanged", moved)
+		local shown = ctx.observe.Visible(root)
+		local regionShown: { ComposeTypes.Readable<unknown> } = {}
+		for index, region in regions do
+			regionShown[index] = ctx.observe.Visible(region)
+		end
+		local claimed: LayerCollector? = nil
+		local claimedParent: Instance? = nil
+		local enabling: RBXScriptConnection? = nil
+		local checking = false
+		local function report()
+			checking = false
+			local layer = claimed
+			if layer == nil then
+				return
+			end
+			for _, contest in reservations.contests(layer, root) do
+				reservations.note(root, contest.token, contest.zone)
+				warn(
+					`Facet Composition: Compositions '{root.Name}' and '{contest.token.Name}' both place regions in the {contest.zone} zone of one screen. Each Composition lays out only its own regions, so the regions can overlap. Keep the HUD of a screen in one Composition`
+				)
+			end
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(ancestry)
+			local layer = root:FindFirstAncestorWhichIsA("LayerCollector") :: LayerCollector?
+			if layer ~= claimed then
+				if enabling then
+					enabling:Disconnect()
+					enabling = nil
+				end
+				if claimed then
+					reservations.clearZones(claimed, root)
+				end
+				claimed = layer
+				if layer then
+					enabling = layer:GetPropertyChangedSignal("Enabled"):Connect(moved)
+				end
+			end
+			local now = use(placement)
+			if layer == nil then
+				return
+			end
+			local held: { [string]: boolean } = {}
+			if now and layer.Enabled and use(shown) ~= false then
+				local forms = table.clone(now.forms)
+				for index in forms do
+					if use(regionShown[index]) == false then
+						forms[index] = 0
+					end
+				end
+				held = resolver.occupied(now.regions, forms, now.landed, now.riding)
+			end
+			local changed = reservations.setZones(layer, root, held) or layer.Parent ~= claimedParent
+			claimedParent = layer.Parent
+			if changed and not checking and #reservations.contests(layer, root) > 0 then
+				checking = true
+				later.after(2, report)
+			end
+		end)
+		Compose.cleanup(function()
+			if enabling then
+				enabling:Disconnect()
+			end
+			if claimed then
+				reservations.clearZones(claimed, root)
 			end
 		end)
 		return root

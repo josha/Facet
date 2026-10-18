@@ -2,9 +2,13 @@
 local reservations = {}
 
 export type Edge = "top" | "bottom"
+export type Contest = { token: Instance, zone: string }
 type Entry = { edge: Edge, y: number, h: number }
+type Zones = { [string]: boolean }
 
 local layers = setmetatable({} :: { [Instance]: { [unknown]: Entry } }, { __mode = "k" })
+local claims = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [Instance]: Zones } }
+local noted = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [Instance]: Zones } }
 
 local function publish(layer: Instance)
 	local entries: { [unknown]: Entry } = layers[layer] or {}
@@ -64,6 +68,80 @@ function reservations.clear(layer: Instance, token: unknown)
 	if entries and entries[token] then
 		entries[token] = nil
 		publish(layer)
+	end
+end
+
+function reservations.setZones(layer: Instance, token: Instance, zones: Zones): boolean
+	local held = claims[layer]
+	if held == nil then
+		held = {}
+		claims[layer] = held
+	end
+	local list = assert(held)
+	local before = list[token]
+	local same = before ~= nil
+	if before then
+		for zone in before do
+			same = same and zones[zone] == true
+		end
+		for zone in zones do
+			same = same and before[zone] == true
+		end
+	end
+	list[token] = zones
+	return not same
+end
+
+function reservations.clearZones(layer: Instance, token: Instance)
+	local held = claims[layer]
+	if held then
+		held[token] = nil
+		if next(held) == nil then
+			claims[layer] = nil
+		end
+	end
+end
+
+function reservations.contests(layer: Instance, token: Instance): { Contest }
+	local found: { Contest } = {}
+	local held = claims[layer]
+	local mine = if held then held[token] else nil
+	if mine == nil or next(mine) == nil then
+		return found
+	end
+	local parent = layer.Parent
+	local seen = noted[token]
+	for candidate, entries in claims do
+		local shared = candidate == layer or (parent ~= nil and candidate.Parent == parent)
+		local shown = candidate == layer or not candidate:IsA("LayerCollector") or (candidate :: LayerCollector).Enabled
+		if shared and shown then
+			for other, zones in entries do
+				local told = if seen then seen[other] else nil
+				if other ~= token then
+					for zone in mine do
+						if zones[zone] and not (told and told[zone]) then
+							table.insert(found, { token = other, zone = zone })
+						end
+					end
+				end
+			end
+		end
+	end
+	return found
+end
+
+function reservations.note(token: Instance, other: Instance, zone: string)
+	for _, pair in { { token, other }, { other, token } } do
+		local from, to = pair[1], pair[2]
+		local byOther = noted[from]
+		if byOther == nil then
+			byOther = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Zones }
+			noted[from] = byOther
+		end
+		local list = assert(byOther)
+		local zones = list[to] or {}
+		zones[zone] = true
+		list[to] = zones
 	end
 end
 
