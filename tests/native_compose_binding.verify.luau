@@ -124,34 +124,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("mounts screen layers with their own native ScreenGui properties", {
-			id = "native_compose_binding::Facet on the consumer's Compose instance::mounts screen layers with their own native ScreenGui properties",
-			run = function()
-				local engine = engineLib.new()
-				local E = engine.types.Enum
-				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-				local parent = engine.new("Folder")
-				local app = Facet.app({
-					runtime = runtime,
-					types = engine.types,
-					parent = parent,
-					screen = { DisplayOrder = 1 },
-				})
-				local stopTop, top = app.mount(function()
-					return app.UI.Text { text = "Shop" }
-				end, nil, { ScreenInsets = E.ScreenInsets.TopbarSafeInsets, DisplayOrder = 2 })
-				local stopHud, hud = app.mount(function()
-					return app.UI.Text { text = "Coins" }
-				end)
-				Verify.expect(top.ScreenInsets):toBe(E.ScreenInsets.TopbarSafeInsets)
-				Verify.expect(top.DisplayOrder):toBe(2)
-				Verify.expect(hud.ScreenInsets):toBe(E.ScreenInsets.CoreUISafeInsets)
-				Verify.expect(hud.DisplayOrder):toBe(1)
-				stopTop()
-				stopHud()
-				app.dispose()
-			end,
-		})
 		verifyHarness:case("mounts a component through Facet.app with one theme install and releases it", {
 			id = "native_compose_binding::Facet on the consumer's Compose instance::mounts a component through Facet.app with one theme install and releases it",
 			run = function()

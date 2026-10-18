@@ -22,10 +22,10 @@ The app has these fields:
 
 - `UI`: the controls.
 - `runtime`: the Compose runtime of the app.
-- `mount(component, parent?, screen?)`: mounts `component()` in a new
-  ScreenGui and returns `stop, screenGui`. The default parent is the
-  `parent` option or the PlayerGui. `screen` sets native ScreenGui properties
-  for this ScreenGui only. They replace the `screen` option of the app.
+- `mount(component, parent?)`: mounts `component()` in a new ScreenGui and
+  returns `stop, screenGui`. The default parent is the `parent` option or the
+  PlayerGui. The `screen` option of the app sets native ScreenGui properties,
+  for example `ScreenInsets`.
 - `presentAnchored(component, options)`: shows a popover at `options.source`
   in its own ScreenGui and returns `close, screenGui`.
 - `presentToast(component, options?)`: shows a toast and returns
@@ -35,11 +35,6 @@ The app has these fields:
   control names.
 - `dispose()`: stops every mount. It disposes the runtime when the app made it.
 
-Use one `mount` for each screen layer. For example, keep the top-bar actions
-in a ScreenGui with `TopbarSafeInsets` and the rest of the HUD in the default
-`CoreUISafeInsets`:
-
-```luau
-app.mount(function() return UI.HStack "Actions" {} end, nil, { ScreenInsets = Enum.ScreenInsets.TopbarSafeInsets, DisplayOrder = 2 })
-app.mount(function() return UI.Composition "HUD" {} end)
-```
+Call `mount` one time. Each screen, HUD element and overlay is a branch of
+that tree. A Sheet, Dialog, Popover and Toast present in their own layer from
+inside the tree.

@@ -2,13 +2,13 @@
 
 ## Unreleased
 
+- A status Badge without an icon keeps its dot inside the pill. Before, the
+  text size floor ignored the padding that the theme gives the dot, so the dot
+  covered the first letters of the label.
 - `Button` accepts `caption`: text centred below the Button that activates it.
   A HUD action can show its name under a circle icon, and a tap on the name
   opens the action. Before, the documented HUD row put a separate Text below
   the circle, and a tap on that text did nothing.
-- `app.mount(component, parent?, screen?)` takes native ScreenGui properties
-  for one layer. A HUD can keep its top-bar actions in a `TopbarSafeInsets`
-  ScreenGui and the rest in the default `CoreUISafeInsets` ScreenGui.
 - Screens, stacks, tab views and Compositions reveal after about one second
   when their roots never receive a size, for example in a host without a
   layout engine. Before, they stayed hidden.
