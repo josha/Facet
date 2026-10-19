@@ -16,6 +16,7 @@ export type RuleKit = {
 	extra: ThemeTypes.PaletteExtra,
 	source: (string) -> ThemeTypes.RGB?,
 	c: (string) -> string?,
+	derived: (string, Color3?) -> string?,
 	resolved: (string) -> Color3?,
 	f: (ThemeTypes.FontSpec | Font) -> Font,
 	rule: (string, ThemeTypes.RuleProperties, boolean?) -> (),
