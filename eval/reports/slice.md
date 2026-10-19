@@ -52,6 +52,11 @@ Each place is built from the arm's final workspace with Rojo.
 
 ## How to climb
 
+The goal is for Facet to deliver beautiful, cross-platform, themeable game UI
+for fewer tokens and less time than the plain engine. On this slice, Facet is
+already more correct across devices and uses fewer tokens. Time and look are the
+open climbs: most Facet time is tool time, and the judge prefers the Plain look.
+
 Each turn is one Facet arm run on this slice and one Facet PR:
 
 1. Run `agent-eval run --suite eval/slice.json --seed 1 --fresh --arm facet`.
