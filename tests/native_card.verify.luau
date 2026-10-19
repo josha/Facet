@@ -197,6 +197,20 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Card", function()
+		verifyHarness:case("shows a text card with no art when image and artwork are absent", {
+			id = "native_card::native Card::shows a text card with no art when image and artwork are absent",
+			run = function()
+				local world, card = mount({ title = "Sport Motor", caption = "250 Coins" })
+				Verify.expect(world.find("Artwork").Visible):toBe(false)
+				Verify.expect(world.find("Artwork").Size):toBe(UDim2.new(1, 0, 0, 0))
+				Verify.expect(world.find("Title"):FindFirstChildWhichIsA("UIPadding").PaddingTop.Offset > 0):toBe(true)
+				Verify.expect(world.find("Caption").Text):toBe("250 Coins")
+				Verify.expect(table.find(card:GetTags(), "facet-card-text") ~= nil):toBe(true)
+				Verify.expect(table.find(card:GetTags(), "facet-panel") ~= nil):toBe(true)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("omits absent caption and action-cancel resources", {
 			id = "native_card::native Card::omits absent caption and action-cancel resources",
 			run = function()

@@ -1,49 +1,45 @@
 # Tasks.shop
 
-Open a modal shop.
+Sell items: a card grid, one column on a phone.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
-local C=Facet.Compose
+local C = Facet.Compose
 local app = Facet.app({})
-local UI=app.UI
-local open,filter,status=C.cell(false),C.cell("All"),C.cell("")
-local owned=C.cell({} :: {[string]:boolean})
-local buy=assert(game.ReplicatedStorage:FindFirstChild("Purchase")) :: RemoteFunction
-type Item={id:string,label:string,kind:string}
-local items:{Item}={{id="kart",label="Kart / 250 Coins",kind="Karts"}}
-local rows=C.formula(function(use:Facet.Use):{Item}
-local rows={} for _,item in items do
-if use(filter)=="All" or item.kind==use(filter) then table.insert(rows,item) end
-end return rows end)
-local options:{Facet.PickerOption<string>}={
-{value="All",label="All"},{value="Karts",label="Karts"},{value="Other",label="Other"},
-}
+local UI = app.UI
+type Item = { id: string, name: string, price: number }
+local items: { Item } = { { id = "kart", name = "Kart", price = 250 } }
+local open, coins = C.cell(false), C.cell(300)
+local owned = C.cell({} :: { [string]: boolean })
+local buy = assert(game.ReplicatedStorage:FindFirstChild("Purchase")) :: RemoteFunction
 app.mount(function()
-return UI.Screen "Root" {
-UI.Button {label="Shop",onActivate=function() open:set(true) end},
-UI.Sheet {title="Shop",isPresented=open,closeButton="Close",
-content=function() return UI.VStack "Rows" {width="fill",align="stretch",gap="s",
-UI.Picker {selected=filter,options=options,style="menu"},
-UI.Text {text=status,wrap=true},
-UI.Text {text="No items.",Visible=function(use:Facet.Use) return #use(rows)==0 end},
-C.keyed {from=rows,key=function(item:Item) return item.id end,
-render=function(row:Facet.Readable<Item>) local item=row:peek()
-return UI.VStack "Rows" {align="stretch",gap="xs",
-UI.Text {text=item.label,wrap=true},
-UI.Button {
-label=function(use:Facet.Use) return if use(owned)[item.id] then "Owned" else "Buy" end,
-enabled=function(use:Facet.Use) return not use(owned)[item.id] end,
-onActivate=function()
-local bought:boolean,text:string=buy:InvokeServer(item.id)
-owned:update(function(value) value=table.clone(value) value[item.id]=bought return value end)
-status:set(text)
-end,
-}, }
-end }, } end,
-}, }
+  local env = UI.environment()
+  local grid: Facet.KeyedCollectionSpec<Item, string> = {
+    from = items, key = "id", minColumnWidth = env.scaled(220), itemSize = env.scaled(132),
+    render = function(row: Facet.Readable<Item>)
+      local it = row:peek()
+      local function need(use: Facet.Use): number return math.max(0, it.price - use(coins)) end
+      return UI.Card(it.id) { title = it.name,
+        caption = function(use: Facet.Use): string
+          return `{it.price} Coins` .. (if need(use) > 0 then ` · Need {need(use)} more` else "")
+        end,
+        primaryAction = {
+          label = function(use: Facet.Use): string return if use(owned)[it.id] then "Owned" else "Buy" end,
+          enabled = function(use: Facet.Use): boolean return not use(owned)[it.id] and need(use) == 0 end,
+          onActivate = function()
+            local ok: boolean = buy:InvokeServer(it.id)
+            owned:update(function(v) v = table.clone(v) v[it.id] = ok return v end)
+          end,
+        } }
+    end,
+  }
+  return UI.VStack "Hud" {
+    UI.Button "Shop" { label = "Shop", onActivate = function() open:set(true) end },
+    UI.Sheet "ShopPanel" { title = "Shop", isPresented = open, closeButton = "Close",
+      placement = "center", width = "wide", detents = { "large" },
+      content = function() return UI.VirtualGrid "Items"(grid) end },
+  }
 end)
-script.Destroying:Connect(app.dispose)
 ```
 
-The server checks price, balance and ownership. Return bought and text. See [Tasks.sheet](Tasks.sheet.md).
+Add a segmented `Picker` for categories. See [Tasks.sheet](Tasks.sheet.md).

@@ -19,11 +19,15 @@ Set it to `true` to use Roblox automatic button coloring.
 
 Presentation options:
 
-`caption` shows text centred below the Button in the body type role, for
-example the name under a circle icon button in a HUD row. The caption is a
-native TextButton that is not selectable. A tap or click on it activates the
-Button with the same `enabled` and `busy` rules. Keep `label` or `name` for the
-accessible name. A caption sets `ClipsDescendants` to `false` on the Button.
+`caption` shows text centred below the Button in the caption type role, for
+example the name under a circle icon button in a HUD row. The caption takes
+no space in the layout and can be wider than the Button. In a row of
+captioned Buttons, set `gap` to at least the widest caption minus the Button
+width, for example `gap = "m"` for one-word names under compact circles.
+The caption is a native TextLabel inside the Button. It names the Button for
+the player and for tools such as `verify --tap`, which press the Button that
+holds the matched text. The player presses the Button itself. Keep `label` or
+`name` for the accessible name. A caption sets `ClipsDescendants` to `false` on the Button.
 
 `glyph = function(): GuiObject` supplies a native leading visual instead of
 `icon`. It runs once in the Button's Compose owner. The native content row

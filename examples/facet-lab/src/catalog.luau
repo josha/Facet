@@ -4738,6 +4738,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = { ALIGN, DISTRIBUTE, GAP },
 		states = {
 			{ name = "wrap (narrow)", props = properties { wrap = true, width = 120, height = "hug" }, across = false },
+			{ name = "panel surface", props = properties { surface = "panel", padding = "s" }, across = false },
 		},
 	},
 	VStack = {
@@ -4753,6 +4754,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = { ALIGN, DISTRIBUTE, GAP },
 		states = {
 			{ name = "wrap (short)", props = properties { wrap = true, height = 80, width = "hug" }, across = false },
+			{ name = "panel surface", props = properties { surface = "panel", padding = "s" }, across = false },
 		},
 	},
 	ZStack = {

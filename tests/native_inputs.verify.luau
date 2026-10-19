@@ -1483,8 +1483,8 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
-		verifyHarness:case("activates from a caption below a circle and respects disabled", {
-			id = "native_inputs::native input controls::activates from a caption below a circle and respects disabled",
+		verifyHarness:case("names a circle with a caption label inside the Button and respects disabled", {
+			id = "native_inputs::native input controls::names a circle with a caption label inside the Button and respects disabled",
 			run = function()
 				local count, enabled = 0, Compose.cell(true)
 				local node, stop = world(function(UI: FacetControls)
@@ -1500,13 +1500,14 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local caption = find(node, "Caption")
-				Verify.expect(find(caption, "Text").Text):toBe("Shop")
-				Verify.expect(caption.Selectable):toBe(false)
+				Verify.expect(caption.Text):toBe("Shop")
+				Verify.expect(caption.ClassName):toBe("TextLabel")
+				Verify.expect(caption.Parent):toBe(node)
 				Verify.expect(node.ClipsDescendants):toBe(false)
-				caption.Activated:Fire()
+				node.Activated:Fire()
 				Verify.expect(count):toBe(1)
 				enabled:set(false)
-				caption.Activated:Fire()
+				node.Activated:Fire()
 				Verify.expect(count):toBe(1)
 				stop()
 			end,

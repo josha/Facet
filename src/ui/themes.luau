@@ -374,6 +374,16 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		then ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control.contentInsets or {}
 		else {}
 
+	rule(".facet-sheet >> .facet-card-body, .facet-panel >> .facet-card-body", { BackgroundColor3 = c("control") })
+	rule(".facet-sheet >> .facet-card-text, .facet-panel >> .facet-card-text", { BackgroundColor3 = c("control") })
+	rule(".facet-card-text >> .facet-panel", { BackgroundTransparency = 1 })
+	rule(".facet-card-text::UIPadding", {
+		PaddingBottom = types.UDim.new(0, package.metrics.space.s),
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+	})
+
 	rule(".facet-panel.facet-card-body::UIPadding", {
 		PaddingLeft = types.UDim.new(0, 0),
 		PaddingRight = types.UDim.new(0, 0),
@@ -1103,10 +1113,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			if plate == nil or base == nil then
 				return c(role)
 			end
-			return types.Color3.new(
-				plate.r + (base.r - plate.r) * dim,
-				plate.g + (base.g - plate.g) * dim,
-				plate.b + (base.b - plate.b) * dim
+			return kit.derived(
+				role .. "Disabled",
+				types.Color3.new(
+					plate.r + (base.r - plate.r) * dim,
+					plate.g + (base.g - plate.g) * dim,
+					plate.b + (base.b - plate.b) * dim
+				)
 			)
 		end
 		for _, entry in

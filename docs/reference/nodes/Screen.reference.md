@@ -3,7 +3,10 @@
 <!-- aliases: Screen | screen -->
 
 `UI.Screen(spec) -> Frame` is the root of a screen. It fills its parent
-(`width` and `height` are `"fill"`) and stacks its children vertically. It has
+(`width` and `height` are `"fill"`) and stacks its children vertically. A
+stack places each child, so a child `Position` or `AnchorPoint` has no effect.
+For a HUD at a corner or an edge, return the HUD as the root of the mount, as
+[Tasks.hud](Tasks.hud.md) does, or use a Composition region. The Screen has
 `padding = "m"` by default. The ScreenGui `ScreenInsets` property keeps the
 screen inside the device safe area. The content never sits under the engine top
 bar: when the screen reaches into the `GuiService.TopbarInset` band, the covered

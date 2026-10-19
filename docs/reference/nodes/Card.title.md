@@ -2,8 +2,9 @@
 
 Card shows one item of a browsable collection: artwork, a title and an
 optional caption, with a primary action and a More menu that show on
-engagement. It requires `title` and `image` (nonempty strings or readables).
-`artwork` can replace `image`. The other options are `caption`,
+engagement. It requires `title` (a nonempty string or readable). `image` or
+`artwork` adds art; without either, the Card is a text card with padded title
+and caption, for example a shop item. The other options are `caption`,
 `imageAspectRatio` (default `16/9`),
 `imageFraming` (`fit` or `crop`), `onActivate`, `primaryAction = { label,
 icon?, onActivate, enabled?, busy? }`, `menu = { items, label? }`, `reveal`

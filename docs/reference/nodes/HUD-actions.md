@@ -46,9 +46,9 @@ outside the action stack.
 ## Selection and input
 
 Make only Buttons selectable. Give each Button its name with `caption`. The
-caption shows below the circle and is part of the Button: a tap or click on
-the caption activates the Button. A separate Text below the circle does not
-activate it. Place each caption fully below the strip, in the core UI safe
+caption shows below the circle and is a label inside the Button, so the name
+and the action stay one control. A separate Text below the circle is not part
+of the Button. Place each caption fully below the strip, in the core UI safe
 area. Keep the
 Button's own rectangle fully inside the strip and do not clip its descendants.
 No painted rectangle may cross the strip's bottom edge. Set
@@ -63,3 +63,10 @@ engine behavior from a native engine double.
 
 - [Button.underline](Button.underline.md)
 - [Composition.regions](Composition.regions.md)
+
+## Readouts
+
+Put readouts on a stack with `surface = "panel"`, so they read over any scene.
+Use short numbers (`Facet.format.compact`, such as `1.18K`) on the HUD and full
+numbers in panels. A bar `ProgressView` in a hug stack needs a width. Put a
+timer in its action caption, such as "Offer 24:51".

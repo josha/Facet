@@ -970,6 +970,21 @@ handlers.touchControls = function(): unknown
 	return { available = controlFrame ~= nil, rectangles = rectangles }
 end
 
+local function clientErrors(): { string }
+	local found: { string } = {}
+	local ok, history = pcall(function()
+		return game:GetService("LogService"):GetLogHistory()
+	end)
+	if ok then
+		for _, entry in history do
+			if entry.messageType == Enum.MessageType.MessageError then
+				table.insert(found, string.sub(entry.message, 1, 300))
+			end
+		end
+	end
+	return found
+end
+
 handlers.ping = function()
 	local gui = playerGui()
 	frame()
@@ -990,6 +1005,7 @@ handlers.ping = function()
 		inputs = inputs(),
 		loaded = game:IsLoaded(),
 		gui = gui:GetFullName(),
+		errors = clientErrors(),
 	}
 end
 
@@ -1020,6 +1036,13 @@ handlers.tap = function(request: Request): unknown
 	local covered: { string } = {}
 	for index = query.index or 1, #found do
 		local target = found[index]
+		local owner = if target.object:IsA("GuiButton")
+			then nil
+			else target.object:FindFirstAncestorWhichIsA("GuiButton")
+		local ownerRect = if owner then shownRect(owner, false) else nil
+		if owner and ownerRect then
+			target = { object = owner, rect = ownerRect, score = target.score, distance = target.distance }
+		end
 		local point, covering = reachable(target.object, target.rect)
 		if point ~= nil then
 			local activated, attempts = press(target.object, point)
@@ -1366,6 +1389,7 @@ handlers.dump = function(request)
 		input = inputList,
 		safeAreaRoot = safeArea(),
 		topbarSafeAreaRoot = topbarArea(),
+		failureAttributes = { "FacetError" },
 	})
 	local viewport = frame()
 	local offset = viewport.AbsolutePosition + Vector2.new(dump.screen.guiInset.left, dump.screen.guiInset.top)

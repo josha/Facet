@@ -29,10 +29,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			spec.artwork == nil or type(spec.artwork) == "function",
 			"Facet UI.Card: artwork must be a function that returns a GuiObject"
 		)
-		assert(
-			nonempty(read(spec.image)) or (spec.artwork ~= nil and spec.image == nil),
-			"Facet UI.Card: image is required: a nonempty image string, or artwork"
-		)
+		assert(spec.image == nil or nonempty(read(spec.image)), "Facet UI.Card: image must be a nonempty image string")
+		local media = spec.image ~= nil or spec.artwork ~= nil
 		assert(nonempty(read(spec.title)), "Facet UI.Card: title is required: a nonempty string")
 		assert(spec.caption == nil or text(read(spec.caption)), "Facet UI.Card: caption must be a string")
 		local ratio = spec.imageAspectRatio or 16 / 9
@@ -230,7 +228,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			LayoutOrder = 1,
 			BackgroundTransparency = 1,
 			Image = image,
-			Size = D2.new(1, 0, 0, 100000),
+			Visible = media,
+			Size = if media then D2.new(1, 0, 0, 100000) else D2.new(1, 0, 0, 0),
 			ScaleType = if spec.imageFraming == "fit" then E.ScaleType.Fit else E.ScaleType.Crop,
 			Host.UIAspectRatioConstraint {
 				AspectRatio = ratio,
@@ -263,6 +262,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			return Host.UIPadding({
 				PaddingLeft = side,
 				PaddingRight = side,
+				PaddingTop = if media or bottom then nil else side,
 				PaddingBottom = if bottom then side else nil,
 			})
 		end
@@ -492,7 +492,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			"ringTarget",
 		}, {
 			Name = "Card",
-			BackgroundTransparency = 1,
+			BackgroundTransparency = if media then 1 else nil,
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			MouseEnter = function()
@@ -525,6 +525,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			body :: Types.Child,
 			plate :: Types.Child,
 		}))
+		if not media then
+			ctx.styled(card, "panel")
+			card:AddTag("facet-card-text")
+		end
 		root = card
 		local extent = ctx.observe.AbsoluteSize(card)
 		if spec.onActivate then
