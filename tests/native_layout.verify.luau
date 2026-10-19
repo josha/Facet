@@ -104,7 +104,7 @@ return function(verifyHarness: Verify.Harness)
 				local V2 = engine.types.Vector2
 				full.AbsoluteSize = V2.new(147, 26)
 				compact.AbsoluteSize = V2.new(32, 20)
-				root:FindFirstChild("Zones").AbsoluteSize = V2.new(166, 200)
+				root:FindFirstChild("Zones").AbsoluteSize = V2.new(80, 200)
 				Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
 				compact.AbsoluteSize = V2.new(39, 26)
 				Verify.expect(region.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
@@ -112,7 +112,7 @@ return function(verifyHarness: Verify.Harness)
 				local trigger = region:FindFirstChildWhichIsA("TextButton", true)
 				Verify.expect(trigger.Size):toBe(engine.types.UDim2.fromScale(1, 1))
 				root:FindFirstChild("Zones").AbsoluteSize = V2.new(1079, 745)
-				root:FindFirstChild("Zones").AbsoluteSize = V2.new(166, 200)
+				root:FindFirstChild("Zones").AbsoluteSize = V2.new(80, 200)
 				Verify.expect(region.Size):toBe(engine.types.UDim2.fromOffset(44, 44))
 				stop()
 			end,
@@ -135,7 +135,7 @@ return function(verifyHarness: Verify.Harness)
 				local V2 = engine.types.Vector2
 				root:FindFirstChild("Zones"):FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(100, 1)
 				full.AbsoluteSize, compact.AbsoluteSize = V2.new(90, 35), V2.new(41.5, 35)
-				root:FindFirstChild("Zones").AbsoluteSize = V2.new(166, 200)
+				root:FindFirstChild("Zones").AbsoluteSize = V2.new(80, 200)
 				Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
 				local trigger = region:FindFirstChildWhichIsA("TextButton", true)
 				local initial = trigger.Size
@@ -153,6 +153,34 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(trigger.Size):toBe(initial)
 				end
 				stop()
+			end,
+		})
+	end)
+
+	verifyHarness:suite("stack surfaces", function()
+		verifyHarness:case("paints a stack with the named theme plate and rejects an unknown surface", {
+			id = "native_layout::stack surfaces::paints a stack with the named theme plate and rejects an unknown surface",
+			run = function()
+				local root, _, stop = build(nil, function(UI: FacetControls)
+					return UI.VStack "Readouts" { surface = "panel", padding = "s" }
+				end)
+				Verify.expect(table.find(root:GetTags(), "facet-panel") ~= nil):toBe(true)
+				stop()
+				local plain, _, stopPlain = build(nil, function(UI: FacetControls)
+					return UI.HStack "Row" {}
+				end)
+				Verify.expect(table.find(plain:GetTags(), "facet-panel")):toBe(nil)
+				stopPlain()
+				local ok, problem = true, ""
+				local _, _, stopBad = build(nil, function(UI: FacetControls)
+					ok, problem = pcall(function()
+						UI.VStack({ surface = "glass" :: any })
+					end)
+					return UI.VStack({})
+				end)
+				stopBad()
+				Verify.expect(ok):toBe(false)
+				Verify.expect(string.find(tostring(problem), "surface must be", 1, true) ~= nil):toBe(true)
 			end,
 		})
 	end)

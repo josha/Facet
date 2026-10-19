@@ -37,7 +37,10 @@ end)
 script.Destroying:Connect(app.dispose)
 ```
 
-Sheet owns Close, scrolling and modal selection. NavigationStack owns child-page Back. Its root has no Back command.
+Sheet owns Close, scrolling and modal selection. NavigationStack owns child-page Back. Its root has no Back command. Give every panel the same `placement`, `width` and `detents`, so Close stays in one place.
+
+Use the exact product words of the design in the panel, for example the
+offer text "2x Coins for 30 seconds", so the panel says what the HUD promised.
 
 Modal presentation hides native gameplay touch controls through
 `GuiService.TouchControlsEnabled` and restores the prior setting when the last

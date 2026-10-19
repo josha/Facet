@@ -520,25 +520,16 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		activation.mark(node)
 		Compose.cleanup(activation.provide(node, activate))
 		if spec.caption ~= nil then
-			local text = ctx.text({ Name = "Text", Text = spec.caption })
-			text:AddTag("facet-type-body")
-			local caption = Host.TextButton "Caption" {
-				Text = "",
-				AutoButtonColor = false,
-				Selectable = false,
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				Size = D2.fromOffset(0, 0),
+			local caption = ctx.text({
+				Name = "Caption",
+				Text = spec.caption,
 				AutomaticSize = E.AutomaticSize.XY,
 				AnchorPoint = V2.new(0.5, 0),
 				Position = function(use: ComposeTypes.Use): UDim2
 					return D2.new(0.5, 0, 1, ctx.metric("space.xs", use))
 				end,
-				Activated = function(...)
-					activation.trigger(node, ...)
-				end,
-				text,
-			}
+			})
+			caption:AddTag("facet-type-caption")
 			node.ClipsDescendants = false
 			caption.Parent = node
 		end

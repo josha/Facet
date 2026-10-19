@@ -58,8 +58,9 @@ Each palette has `name`, `colors` and `extra`.
   `tableHeader`, `tableRow` and `tableRowAlternate` paint the Table header
   band, rows and alternate rows. Without them they are `control`, `control`
   and `controlHover`.
-- `dimDisabledPlates = true` fades the plate of a disabled control with its
-  text, by `disabledContentOpacity`. Without it only the text dims.
+- `dimDisabledPlates` fades the plate of a disabled control with its text,
+  by `disabledContentOpacity`. The neutral package sets it. Set it to `false`
+  to dim only the text.
   `strongHairlineOpacity` sets how visible `facet-divider-strong` is.
   `artTint` multiplies the control, field and panel art of a palette, for a
   dark palette over light art.

@@ -237,6 +237,7 @@ controls(runtime).scrollToVisible : function
 controls(runtime).sequence : function
 controls(runtime).worldAnchor : function
 type ActionRole
+type Activate
 type Adaptive
 type AdaptiveStackProps
 type AdjustableOptions
@@ -399,6 +400,7 @@ type SheetSpec
 type ShortcutHintActionProps
 type ShortcutHintKeysProps
 type ShortcutHintProps
+type Sides
 type SinglePickerSpec
 type SkeletonProps
 type SliderCellProps
@@ -449,6 +451,10 @@ type TypewriterControls
 type TypewriterProps
 type TypographyPatch
 type Use
+type Value
+type ValueBoolean
+type ValueNumber
+type ValueString
 type ViewThatFitsProps
 type VoteSpec
 type VoteValue

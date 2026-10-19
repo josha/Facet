@@ -114,6 +114,10 @@ local function resolve(
 			local top, middle, bottom = column * 4 + 1, column * 4 + 2, column * 4 + 3
 			for row, key in { top, middle, bottom } do
 				local room = lane
+				if column ~= 2 and row ~= 2 and (zoneW[8 + row] or 0) == 0 then
+					local opposite = zoneW[(if column == 1 then 12 else 4) + row] or 0
+					room = math.max(lane, if opposite > 0 then width - opposite - gap else width)
+				end
 				if column == 2 then
 					local edge = if row == 1 then "top" elseif row == 3 then "bottom" else nil
 					local side = math.max(zoneW[4 + row] or 0, zoneW[12 + row] or 0)

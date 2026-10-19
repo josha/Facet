@@ -2,13 +2,44 @@
 
 ## Unreleased
 
+- A corner zone in the top or bottom row can use the row width that an empty
+  center zone and the other corner leave. Before, it had to fit a third of
+  the screen, so a portrait phone dropped HUD content beside a short dock.
+- `Facet.Value`, `Facet.ValueString`, `Facet.ValueBoolean`, `Facet.ValueNumber`
+  and `Facet.Activate` are exported, so helpers can name the option types that
+  props cards show.
+- `VStack` and `HStack` take `surface = "surface" | "panel" | "pane"`: the theme
+  plate of that role. A HUD can put its readouts on a panel so they read over
+  any scene.
+- A `Card` without `image` or `artwork` is a text card with a padded title and
+  caption. Before, it raised an error, so a shop item without art needed a
+  hand-built panel.
+- The neutral package fades the plate of a disabled control. Before, a
+  disabled emphasis Button kept its full accent fill and looked enabled.
+- A Card inside a Sheet or panel uses the `control` plate, so it stays visible
+  on the sheet surface.
+- A root Composition keeps its zones inside the TV safe area at ten feet.
+  Before, only `UI.Screen` added the overscan margins, so a HUD dock sat at
+  the edge of a TV.
+- `Facet.Sides` is exported for typed padding tables. The new type solver
+  does not check a table literal inside `padding`, which also takes a
+  readable; a typed local does.
+- `docs <Control>.props` lists the small named table types an option uses,
+  such as `Sides`, and `docs Icons.names` lists every icon name.
+- `lint --types` reuses its result while the sources, the Facet package and
+  the project do not change.
+- `verify` fails on a control that failed to render (`FacetError`), names the
+  client error when the interface does not mount, and taps the Button that
+  holds a matched text. The Button `caption` is now a label inside it.
+- `Tasks.shop`, `Tasks.hud` and `Tasks.theme` show a card grid shop with
+  shortfall reasons, backed HUD readouts and a game identity theme.
 - A status Badge without an icon keeps its dot inside the pill. Before, the
   text size floor ignored the padding that the theme gives the dot, so the dot
   covered the first letters of the label.
-- `Button` accepts `caption`: text centred below the Button that activates it.
-  A HUD action can show its name under a circle icon, and a tap on the name
-  opens the action. Before, the documented HUD row put a separate Text below
-  the circle, and a tap on that text did nothing.
+- `Button` accepts `caption`: a label centred below the Button, inside it.
+  A HUD action can show its name under a circle icon, and `verify --tap NAME`
+  presses that Button. Before, the documented HUD row put a separate Text
+  below the circle, and a tap on that text did nothing.
 - Screens, stacks, tab views and Compositions reveal after about one second
   when their roots never receive a size, for example in a host without a
   layout engine. Before, they stayed hidden.

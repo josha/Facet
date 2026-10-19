@@ -24,7 +24,8 @@ After the design guide, use `lute run tools/facet docs` for `Map`. Open every ta
 matches a part of the screen. For a HUD with a shop, open `Tasks.hud` and
 `Tasks.shop`. For a panel with child pages, also open `Tasks.sheet`.
 Open a control card or option node only for a missing detail: `docs <path>`.
-Use `docs <Control>.props` for typed options and defaults. Learn Facet and its
+Use `docs <Control>.props` for typed options and defaults and `docs Icons.names`
+for icon names. Learn Facet and its
 tools from the docs, not from their source. Read the source only to diagnose a
 suspected Facet bug, when observed behavior contradicts a doc node. Name that
 behavior and node first, then report the gap.
@@ -51,7 +52,9 @@ Use `project [directory]` for file discovery. Read one matching starter in
   (`segments` for pips, `trail` for a loss). Standings and results are a
   `Table`. A clock is a `Timer`. A short status mark is a `Badge` or a
   `StatusIndicator`. A brief acknowledgement is a `Toast`. Text is `Text` or
-  `Label` with a `textRole`. Do not draw these with native Frames, list
+  `Label` with a `textRole`. A backing behind HUD readouts is a stack with
+  `surface = "panel"`. A shop or store item is a `Card`; without art it is a
+  text card with a title, a caption and a primary action. Do not draw these with native Frames, list
   layouts and fixed sizes: a copy does not get the theme, scaled metrics,
   reduced motion, accessible names or compact forms. Use `Host` objects only
   for content that no control shows, such as a minimap, a 3D view or art.
@@ -68,14 +71,19 @@ Use `project [directory]` for file discovery. Read one matching starter in
 - Use VirtualList, VirtualGrid or Table for interactive collections. Keep
   durable row state in the model. The server owns game state and validates
   requests. Show the result that the server returns.
-- The theme owns paint, type, spacing and motion. Use `textRole`,
-  `appearance`, `gap` and `padding` tokens. Use `wrap = true` for long text in
+- The theme owns paint, type, spacing and motion. Turn the art direction of
+  the brief into a theme with `Tasks.theme`: palette roles, one font, plates
+  that stay visible over the scene and at most a stroke on the outer panel.
+  Use `textRole`, `appearance`, `gap` and `padding` tokens. Give a padding
+  table a type first: `local inset: Facet.Sides = { top = "xl" }`. Use `wrap = true` for long text in
   a stack with `width = "fill"`. Do not set `TextScaled`.
 - Keep core-safe HUD groups in one Composition. Facet warns when two
   Compositions on one screen place regions in the same zone. Use stable
   region widths and smaller forms before you let a region drop. Use
   `UI.environment` or adaptive controls for size changes. Do not branch on
   the device. For a length the game owns, use `UI.environment().scaled(64)`.
+  A root Composition keeps its zones inside the TV safe area; do not offset a
+  zone by hand.
   Add a type role, `scaled(64, "body")`, when the length sits beside text.
 - Use `Tasks.hud` for HUD actions: a top-right horizontal row of circles in
   TopbarSafeInsets. Keep each readable label below the strip and inside its

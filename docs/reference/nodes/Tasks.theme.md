@@ -1,22 +1,37 @@
 # Tasks.theme
 
-<!-- aliases: themePackage | ThemeDefinition | custom theme | theme definition -->
+<!-- aliases: themePackage | ThemeDefinition | custom theme | theme definition | visual identity | art direction -->
 
-Mount a themed game root.
-
-Controls: Screen, Text, Button.
+Give the game its own look: palette, font, plates and strokes.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
+local function rgb(r: number, g: number, b: number) return { r = r / 255, g = g / 255, b = b / 255 } end
 local definition: Facet.ThemeDefinition = {
     base = Facet.themes.neutralPackage(),
-    identity = { id = "game", displayName = "Game" },
-    style = { defaultTheme = "Dark", themes = {
-        { name = "Dark", colors = {
-            accent = { r = 0.4, g = 0.8, b = 1 }, onAccent = { r = 0, g = 0, b = 0 },
-        } },
+    identity = { id = "neon-hub", displayName = "Neon Hub" },
+    style = { defaultTheme = "Neon", themes = {
+        { name = "Neon",
+          colors = {
+            surface = rgb(10, 14, 24), surfaceStrong = rgb(16, 22, 36),
+            content = rgb(220, 240, 250),
+            accent = rgb(40, 220, 255), onAccent = rgb(4, 12, 20),
+          },
+          extra = {
+            control = rgb(30, 44, 66), controlSelected = rgb(60, 40, 110),
+            contentSecondary = rgb(150, 185, 205),
+            hairline = rgb(40, 220, 255), hairlineOpacity = 0.4,
+          } },
     } },
-    metrics = { typography = { body = { size = 18 } }, space = { m = 16 } },
+    metrics = {
+        typography = {
+            body = { size = 16, font = { family = "rbxasset://fonts/families/Michroma.json" } },
+        },
+    },
+    rules = {
+        { selector = ".facet-sheet::UIStroke",
+          properties = { Color = { role = "accent" }, Transparency = 0.5, Thickness = 1 } },
+    },
 }
 local theme, report = Facet.themes.define(definition)
 assert(report.ok and theme, "Invalid game theme")
@@ -25,17 +40,12 @@ local UI = app.UI
 
 app.mount(function()
     return UI.Screen "Root" {
-        UI.Text "Title" { text = "Ready", textRole = "title" },
-        UI.Button "Play" { label = "Play", appearance = "emphasis" },
+        UI.VStack "Card" { surface = "panel", padding = "m", gap = "s",
+            UI.Text "Title" { text = "Ready", textRole = "title" },
+            UI.Button "Play" { label = "Play", appearance = "emphasis" },
+        },
     }
 end)
-script.Destroying:Connect(app.dispose)
 ```
 
-Facet.app installs the native StyleSheet and StyleLink. A definition derives from its base. Put palettes in `style.themes` as a list. Colors use `r`, `g`, `b` channels from 0 to 1. Type roles go in `metrics.typography`; each role has `size` and an optional `font = { family, weight, style }`. Check the report before passing the package to the app. Use semantic roles and tokens for paint, type, spacing and motion.
-
-Open:
-
-- [Mounting](Mounting.md)
-- [Themes.index](Themes.index.md)
-- [Themes.tokens](Themes.tokens.md)
+Next: [Theme-identity](Theme-identity.md), [Themes.tokens](Themes.tokens.md).

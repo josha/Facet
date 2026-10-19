@@ -116,6 +116,26 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Composition", function()
+		verifyHarness:case("keeps every zone inside the TV safe area when it is the screen root", {
+			id = "native_composition::Composition::keeps every zone inside the TV safe area when it is the screen root",
+			run = function()
+				local root, engine, _, _, stop = mount({ environment = { viewingDistance = "ten-foot" } })
+				local T = engine.types
+				local inset = root:FindFirstChildWhichIsA("UIPadding")
+				Verify.expect(math.abs(inset.PaddingLeft.Scale - 90 / 1920) < 1e-6):toBe(true)
+				Verify.expect(math.abs(inset.PaddingRight.Scale - 90 / 1920) < 1e-6):toBe(true)
+				Verify.expect(math.abs(inset.PaddingBottom.Scale - 60 / 1080) < 1e-6):toBe(true)
+				Verify.expect(math.abs(inset.PaddingTop.Scale - 60 / 1080) < 1e-6):toBe(true)
+				local holder = engine.new("Frame")
+				holder.Parent = root.Parent
+				root.Parent = holder
+				Verify.expect(inset.PaddingLeft):toBe(T.UDim.new(0, inset.PaddingLeft.Offset))
+				stop()
+				local near, _, _, _, stopNear = mount()
+				Verify.expect(near:FindFirstChildWhichIsA("UIPadding").PaddingLeft.Scale):toBe(0)
+				stopNear()
+			end,
+		})
 		verifyHarness:case(
 			"rides the free strip of the top bar in a TopbarSafeInsets ScreenGui, or leads the top zone",
 			{
@@ -647,6 +667,28 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("lets a corner zone use the row width that an empty center and the other corner leave", {
+			id = "native_composition::Composition::lets a corner zone use the row width that an empty center and the other corner leave",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local wallet: Declared = {
+					zone = "topLeft" :: "topLeft",
+					rank = 2,
+					mayDrop = false,
+					sizes = { { x = 200, y = 90 }, { x = 110, y = 40 } },
+				}
+				local dock: Declared =
+					{ zone = "topRight" :: "topRight", rank = 1, mayDrop = false, sizes = { { x = 120, y = 60 } } }
+				Verify.expect(resolver.resolve(390, 800, 8, { wallet, dock })[1]):toBe(1)
+				local banner: Declared =
+					{ zone = "top" :: "top", rank = 3, mayDrop = true, sizes = { { x = 60, y = 30 } } }
+				Verify.expect(resolver.resolve(390, 800, 8, { wallet, dock, banner })[1]):toBe(2)
+				local side: Declared =
+					{ zone = "left" :: "left", rank = 2, mayDrop = true, sizes = { { x = 200, y = 60 } } }
+				Verify.expect(resolver.resolve(390, 800, 8, { side })[1]):toBe(0)
+			end,
+		})
 		verifyHarness:case("lets a center-lane zone use the width that the side zones of its row leave free", {
 			id = "native_composition::Composition::lets a center-lane zone use the width that the side zones of its row leave free",
 			run = function()

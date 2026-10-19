@@ -297,6 +297,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local gap: Types.Value<Types.Space> = if spec.gap == nil then "s" else spec.gap
 		local base: Types.Value<Types.Padding> = if spec.padding == nil then "s" else spec.padding
 		local under = Compose.cell(0)
+		local direct = Compose.cell(false)
+		local distant = ctx.tenFoot()
+		local overscan = ctx.config.environment and ctx.config.environment.overscanInsets
+		local FRACTION = { top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
 		properties.BorderSizePixel = 0
 		properties.Size = if properties.Size == nil then D2.fromScale(1, 1) else properties.Size
 		properties[#properties + 1] = kit.insets(function(use: ComposeTypes.Use): Types.Padding
@@ -304,12 +308,22 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local sides: Types.Sides = if type(value) == "table"
 				then value :: Types.Sides
 				else { top = value, right = value, bottom = value, left = value }
-			return {
-				top = kit.spacing(sides.top, use) + use(under),
-				right = sides.right,
-				bottom = sides.bottom,
-				left = sides.left,
-			}
+			local margins = read(overscan, use)
+			local framed = use(direct)
+			local function side(name: "top" | "right" | "bottom" | "left", pixels: number): UDim
+				if framed and type(margins) == "table" then
+					return D.new(0, pixels + ((margins :: { [string]: number })[name] or 0))
+				end
+				return D.new(if framed and margins == nil and distant(use) then FRACTION[name] else 0, pixels)
+			end
+			return (
+				{
+					top = side("top", kit.spacing(sides.top, use) + use(under)),
+					right = side("right", kit.spacing(sides.right, use)),
+					bottom = side("bottom", kit.spacing(sides.bottom, use)),
+					left = side("left", kit.spacing(sides.left, use)),
+				} :: unknown
+			) :: Types.Padding
 		end)
 		local members: { [string]: { Frame } } = {}
 		local stripRegions: { Frame } = {}
@@ -372,6 +386,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				else Host.Frame(properties),
 			spec
 		)
+		local function placed()
+			local parent: Instance? = root.Parent
+			direct:set(if parent then parent:IsA("LayerCollector") else false)
+		end
+		placed()
+		runtime.connect(root, "AncestryChanged", placed)
 		if preparing then
 			ctx.fadeTo(root, 1)
 			root:SetAttribute("FacetPreparing", true)

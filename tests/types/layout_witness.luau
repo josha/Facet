@@ -98,7 +98,15 @@ local region: Frame = UI.Region("Tasks")({
 	UI.Text({ text = "1/3" }),
 })
 local hud: Frame = UI.Composition("Hud")({ gap = "s", padding = "m", topbar = visible, region })
+local compactInset = true
+local topInset: Facet.Sides = { top = "xl" }
+local optionalInset: Facet.Sides = { top = if compactInset then "xl" else nil, right = 0, bottom = 0, left = 0 }
+local paddedTop: Frame = UI.VStack("PaddedTop")({ padding = topInset })
+local paddedOptional: Frame = UI.VStack("PaddedOptional")({ padding = optionalInset })
+
 return {
+	paddedTop = paddedTop,
+	paddedOptional = paddedOptional,
 	adaptive = adaptive,
 	fits = fits,
 	hud = hud,

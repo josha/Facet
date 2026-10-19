@@ -69,6 +69,7 @@ local neutral: ThemeTypes.ThemePackage = {
 					hairline = rgb(255, 255, 255),
 					hairlineOpacity = 0.92,
 					disabledContentOpacity = 0.4,
+					dimDisabledPlates = true,
 					scrimOpacity = 0.45,
 				},
 			},
@@ -97,6 +98,7 @@ local neutral: ThemeTypes.ThemePackage = {
 					hairline = rgb(10, 12, 18),
 					hairlineOpacity = 0.92,
 					disabledContentOpacity = 0.4,
+					dimDisabledPlates = true,
 					scrimOpacity = 0.45,
 				},
 			},
@@ -373,6 +375,16 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	local buttonInsets: ThemeTypes.Insets = if ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control
 		then ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control.contentInsets or {}
 		else {}
+
+	rule(".facet-sheet >> .facet-card-body, .facet-panel >> .facet-card-body", { BackgroundColor3 = c("control") })
+	rule(".facet-sheet >> .facet-card-text, .facet-panel >> .facet-card-text", { BackgroundColor3 = c("control") })
+	rule(".facet-card-text >> .facet-panel", { BackgroundTransparency = 1 })
+	rule(".facet-card-text::UIPadding", {
+		PaddingBottom = types.UDim.new(0, package.metrics.space.s),
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+	})
 
 	rule(".facet-panel.facet-card-body::UIPadding", {
 		PaddingLeft = types.UDim.new(0, 0),

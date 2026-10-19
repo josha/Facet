@@ -15,7 +15,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	local kit = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local UI: ControlTypes.Controls = controls or ({} :: ControlTypes.Controls)
-	local flowKeys = { "gap", "padding", "align", "distribute", "wrap", "width", "height" }
+	local flowKeys = { "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface" }
+	local PLATES: { [string]: string } = { surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" }
 	local function containerProps(spec: unknown, keys: { string }): { [unknown]: unknown }
 		local maxWidth = (spec :: { maxWidth: Types.ValueNumber? }).maxWidth
 		if maxWidth == nil then
@@ -51,8 +52,14 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		return containerProps(named, keys), children
 	end
 	local function stack(spec: LayoutProps.StackProps, vertical: boolean): Frame
+		local plate = PLATES[spec.surface or ""]
+		assert(spec.surface == nil or plate ~= nil, "Facet stack: surface must be surface, panel or pane")
 		local properties, children = split(spec, flowKeys)
-		return kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, spec, vertical)
+		local frame = kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, spec, vertical)
+		if plate then
+			frame:AddTag(plate)
+		end
+		return frame
 	end
 
 	UI.VStack = ctx.construct("VStack", function(spec: LayoutProps.StackProps): Frame

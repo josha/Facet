@@ -13,6 +13,7 @@ export type Edge = Types.Edge
 export type Axis = "x" | "y" | "xy"
 export type StackOptions = {
 	padding: Types.Value<Padding>?,
+	surface: ("surface" | "panel" | "pane")?,
 	width: Types.Value<Extent>?,
 	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,

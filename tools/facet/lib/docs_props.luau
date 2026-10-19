@@ -9,7 +9,7 @@ type Module = {
 	imports: { [string]: string },
 	locals: { [string]: string },
 }
-export type Option = { name: string, type: string }
+export type Option = { name: string, type: string, shapes: { string }? }
 local Props = {}
 local DEFAULTS: { [string]: { [string]: string } } = {
 	Stack = {
@@ -83,6 +83,7 @@ function Props.load(root: string): { [string]: { Option } }
 		end
 		return owner, name
 	end
+	local shapes: { [string]: string } = {}
 	local function expand(owner: Module, raw: string, depth: number): string
 		if depth > 3 then
 			return raw
@@ -91,6 +92,12 @@ function Props.load(root: string): { [string]: { Option } }
 		for word in string.gmatch(raw, "[%a_][%w_.]*") do
 			local target, name = reference(owner, word)
 			local node = target.types[name]
+			if node and Luau.tag(node) == "table" and string.match(name, "^%u") then
+				local value = text(target, node)
+				if #value < 200 and not string.find(value, "typeof", 1, true) then
+					shapes[name] = name .. " = " .. (string.gsub(expand(target, value, depth + 1), "[%w_]+%.", ""))
+				end
+			end
 			if node and Luau.tag(node) ~= "table" and Luau.tag(node) ~= "function" then
 				local value = text(target, node)
 				if
@@ -177,6 +184,7 @@ function Props.load(root: string): { [string]: { Option } }
 		end
 		if owner and owner.types[key] then
 			local collected: { [string]: string } = {}
+			table.clear(shapes)
 			fields(owner, owner.types[key], collected, 0)
 			local options: { Option } = {}
 			for field, kind in collected do
@@ -203,11 +211,42 @@ function Props.load(root: string): { [string]: { Option } }
 					return a.name < b.name
 				end)
 			end
+			for _, option in options do
+				local used: { string } = {}
+				for shape, line in shapes do
+					if string.find(option.type, "%f[%w_]" .. shape .. "%f[^%w_]") then
+						table.insert(used, line)
+					end
+				end
+				if #used > 0 then
+					table.sort(used)
+					option.shapes = used
+				end
+			end
 			result[name] = options
 		end
 	end
 	result.Stack = result.VStack
 	return result
+end
+
+function Props.icons(root: string): string
+	local directory = if Files.isDirectory(Files.join(root, "Packages/Facet/ui")) then "Packages/Facet/ui" else "src/ui"
+	local names: { string } = {}
+	local source = Files.text(Files.join(root, directory, "icons.luau"))
+	for name in string.gmatch(source, '\n\t%["([%w_.]+)"%] = ') do
+		table.insert(names, name)
+	end
+	for name in string.gmatch(source, "\n\t([%a_][%w_]*) = table%.freeze") do
+		table.insert(names, name)
+	end
+	table.sort(names)
+	return "# Icons.names\n"
+		.. "Names for `icon` on Button, Label, Badge, Notice, Chip and the other controls with an icon option. "
+		.. "`NAME.fill` uses NAME when no filled art exists. "
+		.. "A theme package or the `icons` factory option can add a name or replace its art. "
+		.. "An unknown name shows no icon, so take each name from this list.\n"
+		.. table.concat(names, ", ")
 end
 
 function Props.render(name: string, options: { Option }): string
@@ -233,6 +272,16 @@ function Props.render(name: string, options: { Option }): string
 						else "required"
 				)
 		)
+	end
+	local listed: { [string]: boolean } = {}
+	for _, option in options do
+		local shapes: { string } = option.shapes or {}
+		for _, line in shapes do
+			if not listed[line] then
+				listed[line] = true
+				table.insert(lines, line)
+			end
+		end
 	end
 	return table.concat(lines, "\n")
 end
