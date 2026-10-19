@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A Button's pop feedback paint wears the Button's tags while it moves, so the
+  theme's rules reach it: its corner, outline and child text styles. Before, a
+  rounded `pop = true` Button flashed square for the length of the pop.
 - A labelled Sheet Close shows the close icon beside its label, as a utility
   button. Before, it was a bare text link that players did not read as Close.
 - `Tasks.hud` puts the action row and the readouts in `topRight` regions of
