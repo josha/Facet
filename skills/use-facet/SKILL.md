@@ -41,6 +41,11 @@ Use `project [directory]` for file discovery. Read one matching starter in
 - Use named constructors: `UI.Button "Save" { label = "Save" }`. Use strict
   Luau without `any` casts. Control options use lower camel case; native
   properties keep their Roblox names.
+- Take each option's values from `docs <Control>.props`, not from another
+  option: `controlSize` is `xsmall`, `compact`, `regular` or `large`, and
+  `default` is a `role`. Through an `any` cast a wrong value fails only when
+  its branch mounts, which may be a narrow form that a wide screen never
+  shows.
 - Build each element from a Facet control when one shows that kind of
   information. A meter, gauge, charge or row of pips is a `ProgressView`
   (`segments` for pips, `trail` for a loss). Standings and results are a
