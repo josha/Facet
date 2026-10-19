@@ -227,6 +227,76 @@ return function(
 			elseif string.find(selector, ":Hover", 1, true) then "hover"
 			else "normal"
 	end
+	local tagService: CollectionService? = settings.collectionService
+	if tagService == nil then
+		local globals = getfenv(0)
+		tagService = globals.game and globals.game:GetService("CollectionService")
+	end
+	local present: { [string]: boolean } = {}
+	local awaited: { [string]: RBXScriptConnection } = {}
+	local arrivals = Compose.cell(0)
+	local alternativesOf: { [string]: { { string } } } = {}
+	local function classesIn(selector: string): { { string } }
+		local cached = alternativesOf[selector]
+		if cached then
+			return cached
+		end
+		local alternatives: { { string } } = {}
+		for _, part in string.split(selector, ",") do
+			local classes: { string } = {}
+			for class in string.gmatch(part, "%.([%w_%-]+)") do
+				table.insert(classes, class)
+			end
+			table.insert(alternatives, classes)
+		end
+		alternativesOf[selector] = alternatives
+		return alternatives
+	end
+	local function inUse(service: CollectionService, class: string): boolean
+		if present[class] then
+			return true
+		end
+		if not awaited[class] then
+			if #service:GetTagged(class) > 0 then
+				present[class] = true
+				return true
+			end
+			awaited[class] = service:GetInstanceAddedSignal(class):Connect(function()
+				local connection = awaited[class]
+				if connection and not present[class] then
+					present[class] = true
+					connection:Disconnect()
+					arrivals:set(arrivals:peek() + 1)
+				end
+			end)
+		end
+		return false
+	end
+	local function wanted(selector: string): boolean
+		local service = tagService
+		if service == nil then
+			return true
+		end
+		for _, classes in classesIn(selector) do
+			local complete = true
+			for _, class in classes do
+				if not inUse(service, class) then
+					complete = false
+					break
+				end
+			end
+			if complete then
+				return true
+			end
+		end
+		return false
+	end
+	Compose.cleanup(function()
+		for _, connection in awaited do
+			connection:Disconnect()
+		end
+		table.clear(awaited)
+	end)
 	local definitions: { [string]: NativeRule } = {}
 	type CompiledRules = {
 		package: ThemeTypes.ThemePackage,
@@ -368,6 +438,7 @@ return function(
 		end
 	end
 	local written: { [string]: TweenInfo } = {}
+	local initialIds: { [string]: boolean }? = nil
 	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
 		Compose.keyed({
 			from = ids,
@@ -382,7 +453,17 @@ return function(
 				local record: MountedRule =
 					{ node = node, priority = initial.priority, timing = TOKENS[stateOf(initial.selector)] }
 				mounted[id] = record
-				apply(record, initial)
+				local known = initialIds
+				if known ~= nil and not known[id] and task then
+					node:SetProperties(initial.properties)
+					task.defer(function()
+						if mounted[id] == record then
+							apply(record, definitions[id] or initial)
+						end
+					end)
+				else
+					apply(record, initial)
+				end
 				Compose.cleanup(function()
 					if mounted[id] == record then
 						mounted[id] = nil
@@ -420,10 +501,11 @@ return function(
 		local textOffset = if textChoice ~= nil
 			then (textRank(textChoice) - textRank(read(nativeTextSize, use))) * typography.preferredSizeStep
 			else 0
+		use(arrivals)
 		local previousIds = ids:peek()
-		local structureChanged = #previousIds ~= #current
+		local nextIds: { string } = {}
 		table.clear(definitions)
-		for index, compiledDefinition in current do
+		for _, compiledDefinition in current do
 			local definition = if textOffset ~= 0
 				then withTextSize(compiledDefinition, textOffset)
 				else compiledDefinition
@@ -431,19 +513,31 @@ return function(
 				definition = withPreference(definition, preference)
 			end
 			definitions[definition.id] = definition
-			if previousIds[index] ~= definition.id then
-				structureChanged = true
-			end
-			local record = mounted[definition.id]
-			if record then
-				apply(record, definition)
+			if wanted(definition.selector) then
+				table.insert(nextIds, definition.id)
+				local record = mounted[definition.id]
+				if record then
+					apply(record, definition)
+				end
 			end
 		end
-		if structureChanged then
-			local nextIds = {}
-			for _, definition in current do
-				table.insert(nextIds, definition.id)
+		local structureChanged = #previousIds ~= #nextIds
+		if not structureChanged then
+			for index, id in nextIds do
+				if previousIds[index] ~= id then
+					structureChanged = true
+					break
+				end
 			end
+		end
+		if initialIds == nil then
+			local first: { [string]: boolean } = {}
+			for _, id in nextIds do
+				first[id] = true
+			end
+			initialIds = first
+		end
+		if structureChanged then
 			ids:set(nextIds)
 		end
 	end)

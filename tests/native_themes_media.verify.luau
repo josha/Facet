@@ -157,6 +157,81 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("mounts a rule only once an instance carries every class its selector names", {
+			id = "native_themes_media::native themes and media::mounts a rule only once an instance carries every class its selector names",
+			run = function()
+				local engine, runtime = setup()
+				type Listener = { callback: (Instance) -> (), connected: boolean }
+				local tagged: { [string]: boolean } = { ["facet-text"] = true }
+				local listeners: { [string]: { Listener } } = {}
+				local fake = {
+					GetTagged = function(_: unknown, class: string): { Instance }
+						return if tagged[class] then { engine.new("Frame") } else {}
+					end,
+					GetInstanceAddedSignal = function(_: unknown, class: string)
+						return {
+							Connect = function(_: unknown, callback: (Instance) -> ())
+								local listener: Listener = { callback = callback, connected = true }
+								listeners[class] = listeners[class] or {}
+								table.insert(listeners[class], listener)
+								return {
+									Disconnect = function()
+										listener.connected = false
+									end,
+								}
+							end,
+						}
+					end,
+				}
+				local function arrive(class: string)
+					tagged[class] = true
+					local waiting: { Listener } = listeners[class] or {}
+					for _, listener in waiting do
+						if listener.connected then
+							listener.callback(engine.new("Frame"))
+						end
+					end
+				end
+				local function has(sheet: StyleSheet, selector: string): boolean
+					for _, child in sheet:GetChildren() do
+						if table.find(string.split((child :: StyleRule).Selector, ", "), selector) ~= nil then
+							return true
+						end
+					end
+					return false
+				end
+				local stopAll, everything = runtime.mount(function()
+					return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
+				end, engine.new("Folder"))
+				local stop, result = runtime.mount(function()
+					return themes.createStyleSheet(runtime, themes.neutralPackage(), {
+						types = engine.types,
+						collectionService = (fake :: unknown) :: CollectionService,
+					})
+				end, engine.new("Folder"))
+				local sheet = result :: StyleSheet
+				Verify.expect(has(sheet, ".facet-text")):toBe(true)
+				Verify.expect(has(sheet, ".facet-validation")):toBe(false)
+				Verify.expect(#sheet:GetChildren() < #(everything :: StyleSheet):GetChildren()):toBe(true)
+				arrive("facet-validation")
+				Verify.expect(has(sheet, ".facet-validation")):toBe(true)
+				Verify.expect(style(sheet, ".facet-validation").TextColor3)
+					:toBe(style(everything :: StyleSheet, ".facet-validation").TextColor3)
+				stop()
+				local open = 0
+				for _, list in listeners do
+					for _, listener in list do
+						if listener.connected then
+							open += 1
+						end
+					end
+				end
+				Verify.expect(open):toBe(0)
+				stopAll()
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case(
 			"keeps palette roles distinct and updates their native tokens without rewriting color rules",
 			{
