@@ -560,6 +560,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-role-onIndicator >> .facet-button-glyph >> .facet-path", { Color3 = c("onAccent") })
 	rule(".facet-disabled >> .facet-button-glyph >> .facet-path", { Color3 = c("contentSecondary") })
 	rule(".facet-progress-ring-fill", { Color3 = c("accent") })
+	rule(".facet-progress-gauge-needle", { Color3 = c("content") })
+	rule(".facet-progress-gauge-hub", { BackgroundColor3 = c("content"), BackgroundTransparency = 0 })
 	rule(".facet-icon", { ImageColor3 = c("content"), BackgroundTransparency = 1 })
 	rule(".facet-role-destructive >> .facet-icon", { ImageColor3 = c("onDanger") })
 	rule(".facet-selected >> .facet-icon", { ImageColor3 = onSelected })

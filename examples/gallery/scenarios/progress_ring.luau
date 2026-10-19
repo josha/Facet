@@ -9,8 +9,9 @@ type Built = typeof(require("@repo/examples/types").Built)
 
 local COPY = {
 	title = "Progress and activity",
-	caption = "Adjust progress to compare the bar and ring. Activity indicators keep moving while work is running.",
+	caption = "Adjust progress to compare the bar, ring and gauge. Activity indicators keep moving while work is running.",
 	determinate = "Downloading",
+	gauge = "Boost",
 	indeterminate = "Working",
 	loading = "Loading tracks",
 	spinner = "Spinner (dots)",
@@ -119,6 +120,14 @@ return {
 						label = COPY.determinate,
 						value = progress,
 						presentation = "circular",
+						diameter = 120,
+						showValue = true,
+						format = percent,
+					},
+					UI.ProgressView "Gauge" {
+						label = COPY.gauge,
+						value = progress,
+						presentation = "gauge",
 						diameter = 120,
 						showValue = true,
 						format = percent,
