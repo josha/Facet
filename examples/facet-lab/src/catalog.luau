@@ -1887,7 +1887,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		family = "status",
 		cellWidth = 240,
 		alias = "Progress · Loading",
-		purpose = "Determinate or indeterminate progress as a bar, ring or spinner; segments and a damage trail.",
+		purpose = "Determinate or indeterminate progress as a bar, ring, gauge with a needle or spinner; segments and a damage trail.",
 		alternatives = "Skeleton for content that is still loading.",
 		scenarios = { "progress_ring" },
 		snippet = 'UI.ProgressView { value = 0.4, presentation = "bar" }',
@@ -1897,7 +1897,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = {
 			{
 				key = "presentation",
-				values = { "bar", "circular", "spinner" },
+				values = { "bar", "circular", "gauge", "spinner" },
 				implies = implied { spinner = { value = NONE } },
 			},
 			{ key = "controlSize", values = { DEFAULT, "xsmall", "compact", "regular", "large" } },
@@ -1940,10 +1940,22 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				across = false,
 				matrixOnly = true,
 			},
+			{ name = "gauge, value shown", props = properties { presentation = "gauge", showValue = true } },
+			{ name = "gauge sweep 180", props = properties { presentation = "gauge", sweep = 180 } },
+			{ name = "gauge sweep 300", props = properties { presentation = "gauge", sweep = 300 } },
+			{ name = "gauge without needle", props = properties { presentation = "gauge", needle = false } },
+			{
+				name = "gauge sizes",
+				props = properties { presentation = "gauge" },
+				across = "controlSize",
+				matrixOnly = true,
+			},
 		},
 		valid = function(p: Properties)
 			local shape = p.presentation or "bar"
 			return not (shape == "spinner" and p.value ~= nil)
+				and not (shape == "gauge" and p.value == nil)
+				and not ((p.sweep ~= nil or p.needle ~= nil) and shape ~= "gauge")
 				and not (p.showValue and p.value == nil)
 				and not (p.segments ~= nil and shape ~= "bar")
 				and not (p.diameter ~= nil and shape == "bar")
