@@ -50,6 +50,22 @@ desktop (confidence 0.88) and on phone portrait (confidence 0.62).
 
 Each place is built from the arm's final workspace with Rojo.
 
+## How to climb
+
+Each turn is one Facet arm run on this slice and one Facet PR:
+
+1. Run `agent-eval run --suite eval/slice.json --seed 1 --fresh --arm facet`.
+2. Read the hidden checks, the judge, the captures, the agent time per tool and
+   `lute run eval/tools/internals.luau <run directory>`. Each read of Facet or
+   tool source names a doc gap or a bug.
+3. Fix the causes in Facet, its recipes or its tools. Do not change the eval
+   to pass.
+4. Rerun the Facet arm, then the judge against the saved Plain run.
+
+Across three turns on this slice, the Facet arm went from hitting the 60-minute
+wall with 31 to 38 source reads to finishing in 33 minutes with 14.4M tokens,
+fewer than Plain, and every universal check passing.
+
 ## Hill-climbing opportunities
 
 Each item names a Facet, tool or eval change that the run evidence supports.
