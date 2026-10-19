@@ -9,6 +9,10 @@
   (default 240) filled to the value with a needle on it and a hub over its root.
   `needle = false` leaves the arc.  A game's speedometer or hype meter is a
   ProgressView now, not hand-drawn frames.
+- A `VStack`, `HStack` or `AdaptiveStack` with `padding` grows that padding to
+  hold its children's shadows. Before, a themed Button's drop plate hung past
+  the edge of a tightly padded plate, because the stack sized itself from the
+  children's boxes only.
 - A labelled Sheet Close shows the close icon beside its label, as a utility
   button. Before, it was a bare text link that players did not read as Close.
 - `Tasks.hud` puts the action row and the readouts in `topRight` regions of

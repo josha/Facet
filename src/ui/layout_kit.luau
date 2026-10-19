@@ -5,9 +5,11 @@ local Shared = require("./types")
 local Theme = require("./theme_types")
 
 export type Place = (GuiObject, number) -> ()
+export type Room = { top: number, right: number, bottom: number, left: number }
 export type Kit = {
 	spacing: (Shared.Value<Shared.Space>?, ComposeTypes.Use?) -> number,
-	insets: (Shared.Value<Shared.Padding>?) -> UIPadding?,
+	insets: (Shared.Value<Shared.Padding>?, ComposeTypes.Readable<Room>?) -> UIPadding?,
+	shadowRoom: (GuiObject, ComposeTypes.Cell<Room>) -> (),
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Value<UDim2>, Shared.Value<Enum.AutomaticSize>),
 	list: (Shared.Flow, Shared.Value<boolean>) -> UIListLayout,
 	underTopbar: (GuiObject, ComposeTypes.Cell<number>) -> (),
@@ -75,7 +77,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			return types.UDim.new(0, kit.spacing(value, use))
 		end, value, if type(read(value)) == "string" then config.theme else nil)
 	end
-	function kit.insets(padding: Shared.Value<Shared.Padding>?): UIPadding?
+	function kit.insets(padding: Shared.Value<Shared.Padding>?, room: ComposeTypes.Readable<Room>?): UIPadding?
 		if padding == nil then
 			return nil
 		end
@@ -94,11 +96,13 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			end
 			return derive(function(use)
 				local value: unknown = pick(use)
+				local extra = if room and use then (use(room) :: Room)[name] elseif room then room:peek()[name] else 0
 				if typeof(value) == "UDim" then
-					return value :: UDim
+					local given = value :: UDim
+					return if extra > 0 then types.UDim.new(given.Scale, given.Offset + extra) else given
 				end
-				return types.UDim.new(0, kit.spacing(value :: Shared.Space?, use))
-			end, padding, if type(pick(nil)) == "string" then config.theme else nil)
+				return types.UDim.new(0, kit.spacing(value :: Shared.Space?, use) + extra)
+			end, padding, if type(pick(nil)) == "string" then config.theme else nil, room)
 		end
 		return Host.UIPadding({
 			PaddingTop = side("top"),
@@ -106,6 +110,100 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			PaddingBottom = side("bottom"),
 			PaddingLeft = side("left"),
 		})
+	end
+	function kit.shadowRoom(frame: GuiObject, room: ComposeTypes.Cell<Room>)
+		local function measure()
+			local top, right, bottom, left = 0, 0, 0, 0
+			for _, child in frame:GetChildren() do
+				if child:IsA("GuiObject") and child.Visible then
+					for _, item in child:GetChildren() do
+						if item:IsA("UIShadow") and item.Enabled then
+							local shadow = item :: UIShadow
+							local blur = shadow.BlurRadius.Offset
+							local ox, oy = shadow.Offset.X.Offset, shadow.Offset.Y.Offset
+							local sx, sy = shadow.Spread.X.Offset, shadow.Spread.Y.Offset
+							top = math.max(top, -oy + sy + blur)
+							bottom = math.max(bottom, oy + sy + blur)
+							left = math.max(left, -ox + sx + blur)
+							right = math.max(right, ox + sx + blur)
+						end
+					end
+				end
+			end
+			local now = room:peek()
+			if now.top ~= top or now.right ~= right or now.bottom ~= bottom or now.left ~= left then
+				room:set({ top = top, right = right, bottom = bottom, left = left })
+			end
+		end
+		local owner = assert(Compose.currentOwner(), "Facet stack shadow room needs an owner")
+		local function connect(node: Instance, event: string, handler: (...unknown) -> ()): () -> ()
+			return Compose.withOwner(owner, function(): () -> ()
+				return runtime.connect(node, event, handler)
+			end)
+		end
+		local stops: { [Instance]: { () -> () } } = {}
+		local function forget(item: Instance)
+			local list = stops[item]
+			if list then
+				for _, stop in list do
+					stop()
+				end
+			end
+			stops[item] = nil
+		end
+		local function watchShadow(item: Instance)
+			if item:IsA("UIShadow") and stops[item] == nil then
+				stops[item] = { connect(item, "Changed", measure) }
+			end
+		end
+		local function watchChild(child: Instance)
+			if not child:IsA("GuiObject") or stops[child] ~= nil then
+				return
+			end
+			stops[child] = {
+				connect(child, "Changed", function(property: unknown)
+					if property == "Visible" then
+						measure()
+					end
+				end),
+				connect(child, "ChildAdded", function(added: unknown)
+					local item = added :: Instance
+					if item:IsA("UIShadow") then
+						watchShadow(item)
+						measure()
+					end
+				end),
+				connect(child, "ChildRemoved", function(removed: unknown)
+					local item = removed :: Instance
+					if item:IsA("UIShadow") then
+						forget(item)
+						measure()
+					end
+				end),
+			}
+			for _, item in child:GetChildren() do
+				watchShadow(item)
+			end
+		end
+		for _, child in frame:GetChildren() do
+			watchChild(child)
+		end
+		connect(frame, "ChildAdded", function(added: unknown)
+			local child = added :: Instance
+			watchChild(child)
+			measure()
+		end)
+		connect(frame, "ChildRemoved", function(removed: unknown)
+			local child = removed :: Instance
+			if child:IsA("GuiObject") then
+				for _, item in child:GetChildren() do
+					forget(item)
+				end
+				forget(child)
+				measure()
+			end
+		end)
+		measure()
 	end
 	local function valid(value: unknown, names: { [string]: boolean }): boolean
 		return type(value) == "string" and names[value] == true
@@ -384,12 +482,16 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			Size = size,
 			AutomaticSize = automatic,
 		}
-		return kit.plain(
-			Host.Frame(
-				kit.assemble(native, properties, { kit.list(flow, vertical), kit.insets(flow.padding) }, children)
-			),
-			properties
+		local room: ComposeTypes.Cell<Room>? = if flow.padding ~= nil
+			then Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 } :: Room)
+			else nil
+		local frame = Host.Frame(
+			kit.assemble(native, properties, { kit.list(flow, vertical), kit.insets(flow.padding, room) }, children)
 		)
+		if room then
+			kit.shadowRoom(frame, room)
+		end
+		return kit.plain(frame, properties)
 	end
 	function kit.underTopbar(frame: GuiObject, under: ComposeTypes.Cell<number>)
 		local gui = config.guiService
