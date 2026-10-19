@@ -25,7 +25,7 @@ local definition: Facet.ThemeDefinition = {
     } },
     metrics = {
         typography = {
-            body = { size = 16, font = { family = "rbxasset://fonts/families/Michroma.json" } },
+            body = { size = 18, font = { family = "rbxasset://fonts/families/Michroma.json" } },
         },
     },
     rules = {
