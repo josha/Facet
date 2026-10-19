@@ -85,9 +85,9 @@ Use `project [directory]` for file discovery. Read one matching starter in
   A root Composition keeps its zones inside the TV safe area; do not offset a
   zone by hand.
   Add a type role, `scaled(64, "body")`, when the length sits beside text.
-- Use `Tasks.hud` for HUD actions: a top-right horizontal row of circles in
-  TopbarSafeInsets. Keep each readable label below the strip and inside its
-  Button's descendants. Open `HUD-actions` for native sizing and selection.
+- Use `Tasks.hud` for HUD actions: a row of captioned circles and a readout
+  panel in `topRight` regions of one Composition. Do not make another
+  ScreenGui for the HUD. Open `HUD-actions` for sizing and selection.
 - Give each region forms from the richest to the narrowest. The narrowest
   form must fit a portrait phone, about 320 pixels wide. For example, a row of
   buttons, then the main button over the others, then one column. Let the
@@ -123,7 +123,9 @@ Use `project [directory]` for file discovery. Read one matching starter in
 - Get every string that a player sees from a localization key, fixed words
   too. Keep the English source in one keyed table that builds the
   `LocalizationTable`. Read each string with `translator:FormatByKey(key, args)`
-  in a readable and give the result to the control. Do not write a
+  in a readable and give the result to the control. Pass every argument to
+  `FormatByKey` as a string, for example `tostring(count)`; a number argument
+  raises an error. Do not write a
   player-facing string literal in UI code, also not with `AutoLocalize` on: a
   literal has no key, no check finds it when the table does not have it, and
   it does not change when the table changes. Add a check that each key in the

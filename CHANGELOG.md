@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- A labelled Sheet Close shows the close icon beside its label, as a utility
+  button. Before, it was a bare text link that players did not read as Close.
+- `Tasks.hud` puts the action row and the readouts in `topRight` regions of
+  one Composition, with caption room below the row. Before, a HUD in its own
+  `TopbarSafeInsets` ScreenGui could slide under the top bar and lost the
+  theme and focus paint.
+- `Tools.verify` explains `focus-hidden`; `Theme-identity` gives minimum text
+  sizes for 1080p.
+- A disabled Button fades its plate by default, with one transparency rule.
+  Before, a disabled emphasis Button kept its full accent fill and looked
+  enabled. `dimDisabledPlates = false` keeps the old look.
 - A corner zone in the top or bottom row can use the row width that an empty
   center zone and the other corner leave. Before, it had to fit a third of
   the screen, so a portrait phone dropped HUD content beside a short dock.

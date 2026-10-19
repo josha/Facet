@@ -56,3 +56,13 @@ Open:
 
 - [Types.reactive](Types.reactive.md)
 - [Tasks.safe-layout](Tasks.safe-layout.md)
+
+## focus-hidden
+
+On a gamepad device, `focus-hidden` reports a selectable control whose
+selection image draws nothing: its own `SelectionImageObject`, or else the
+PlayerGui `SelectionImageObject`. Facet sets the PlayerGui image to its focus
+ring, so every ScreenGui under the PlayerGui shares it. The ring draws while
+gamepad or keyboard input is active. A control that sets its own empty
+`SelectionImageObject`, or a theme focus ring with no visible paint, causes the
+finding. Fix the control or the theme; do not read the audit source.

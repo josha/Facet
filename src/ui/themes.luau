@@ -1105,6 +1105,9 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-appearance-link.facet-selected >> .facet-text", { TextColor3 = linkInk })
 		rule(".facet-appearance-link.facet-selected >> .facet-icon", { ImageColor3 = linkInk })
 	end
+	if extra.dimDisabledPlates ~= true and extra.dimDisabledPlates ~= false then
+		rule(".facet-button.facet-disabled", { BackgroundTransparency = 0.6 })
+	end
 	if extra.dimDisabledPlates == true then
 		local dim = extra.disabledContentOpacity or 0.4
 		local page = source("surface")

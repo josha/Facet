@@ -430,9 +430,18 @@ return function(verifyHarness: Verify.Harness)
 				local label = Compose.cell("Fertig")
 				local named = mount({ closeButton = label })
 				local close = named.find("Close")
-				Verify.expect(close.Text):toBe("Fertig")
+				local function shown(): { string }
+					local texts: { string } = {}
+					for _, node in close:GetDescendants() do
+						if node:IsA("TextLabel") and node.Text ~= "" then
+							table.insert(texts, node.Text)
+						end
+					end
+					return texts
+				end
+				Verify.expect(table.find(shown(), "Fertig") ~= nil or close.Text == "Fertig"):toBe(true)
 				label:set("Schliessen")
-				Verify.expect(close.Text):toBe("Schliessen")
+				Verify.expect(table.find(shown(), "Schliessen") ~= nil or close.Text == "Schliessen"):toBe(true)
 				close.Activated:Fire()
 				Verify.expect((named.shown:peek())):toBe(false)
 				named.stop()
