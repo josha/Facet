@@ -636,13 +636,19 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			Size = size,
 			AutomaticSize = automatic,
 		}
+		local room = if spec.padding ~= nil then Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 }) else nil
 		local node = kit.plain(
-			Host.Frame(kit.assemble(native, properties, { layout, kit.insets(spec.padding) }, children, function(child)
-				shown[child] = ctx.observe.Visible(child)
-				tracked(child, sizes, parents, members)
-			end)),
+			Host.Frame(
+				kit.assemble(native, properties, { layout, kit.insets(spec.padding, room) }, children, function(child)
+					shown[child] = ctx.observe.Visible(child)
+					tracked(child, sizes, parents, members)
+				end)
+			),
 			properties
 		)
+		if room then
+			kit.shadowRoom(node, room)
+		end
 		local box, holder, content =
 			ctx.observe.AbsoluteSize(node), ctx.observe.Parent(node), ctx.observe.AbsoluteContentSize(layout)
 		local rowNeed, lastCount = 0, 0
