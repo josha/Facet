@@ -34,6 +34,13 @@
   holds a matched text. The Button `caption` is now a label inside it.
 - `Tasks.shop`, `Tasks.hud` and `Tasks.theme` show a card grid shop with
   shortfall reasons, backed HUD readouts and a game identity theme.
+- A theme StyleSheet mounts a StyleRule only when an instance in the place
+  carries every class that one of its selectors names. It adds the rule when
+  the last class arrives, and it keeps the rule. A rule without a class is
+  always mounted. Before, each sheet mounted every rule of the theme. A game
+  with three Facet screens mounted 1566 rules, and 50 of them matched an
+  instance. The `collectionService` option supplies the service that the
+  sheet asks. Without a DataModel, the sheet mounts every rule.
 - A status Badge without an icon keeps its dot inside the pill. Before, the
   text size floor ignored the padding that the theme gives the dot, so the dot
   covered the first letters of the label.
