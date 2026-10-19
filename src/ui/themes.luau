@@ -69,7 +69,6 @@ local neutral: ThemeTypes.ThemePackage = {
 					hairline = rgb(255, 255, 255),
 					hairlineOpacity = 0.92,
 					disabledContentOpacity = 0.4,
-					dimDisabledPlates = true,
 					scrimOpacity = 0.45,
 				},
 			},
@@ -98,7 +97,6 @@ local neutral: ThemeTypes.ThemePackage = {
 					hairline = rgb(10, 12, 18),
 					hairlineOpacity = 0.92,
 					disabledContentOpacity = 0.4,
-					dimDisabledPlates = true,
 					scrimOpacity = 0.45,
 				},
 			},
@@ -1115,10 +1113,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			if plate == nil or base == nil then
 				return c(role)
 			end
-			return types.Color3.new(
-				plate.r + (base.r - plate.r) * dim,
-				plate.g + (base.g - plate.g) * dim,
-				plate.b + (base.b - plate.b) * dim
+			return kit.derived(
+				role .. "Disabled",
+				types.Color3.new(
+					plate.r + (base.r - plate.r) * dim,
+					plate.g + (base.g - plate.g) * dim,
+					plate.b + (base.b - plate.b) * dim
+				)
 			)
 		end
 		for _, entry in

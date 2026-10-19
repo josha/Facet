@@ -20,7 +20,7 @@ local definition: Facet.ThemeDefinition = {
           extra = {
             control = rgb(30, 44, 66), controlSelected = rgb(60, 40, 110),
             contentSecondary = rgb(150, 185, 205),
-            hairline = rgb(40, 220, 255), hairlineOpacity = 0.4,
+            hairline = rgb(40, 220, 255), hairlineOpacity = 0.4, dimDisabledPlates = true,
           } },
     } },
     metrics = {

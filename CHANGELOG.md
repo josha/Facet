@@ -14,8 +14,9 @@
 - A `Card` without `image` or `artwork` is a text card with a padded title and
   caption. Before, it raised an error, so a shop item without art needed a
   hand-built panel.
-- The neutral package fades the plate of a disabled control. Before, a
-  disabled emphasis Button kept its full accent fill and looked enabled.
+- Faded disabled plates use palette tokens, so a theme swap updates their
+  colors without rewriting rules. `Tasks.theme` turns them on, so a disabled
+  Buy no longer looks enabled.
 - A Card inside a Sheet or panel uses the `control` plate, so it stays visible
   on the sheet surface.
 - A root Composition keeps its zones inside the TV safe area at ten feet.

@@ -62,6 +62,14 @@ return function(
 		end
 		return if tokens[token] ~= nil then "$" .. token else nil
 	end
+	local function derived(name: string, value: Color3?): string?
+		if value == nil then
+			return nil
+		end
+		local token = "FacetColor_" .. name
+		tokens[token] = value
+		return "$" .. token
+	end
 	local function f(value: ThemeTypes.FontSpec | Font): Font
 		if typeof(value) == "Font" then
 			return value
@@ -196,6 +204,7 @@ return function(
 		extra = extra,
 		source = source,
 		c = c,
+		derived = derived,
 		resolved = function(role: string): Color3?
 			local token = c(role)
 			return if token then tokens[string.sub(token, 2)] else nil

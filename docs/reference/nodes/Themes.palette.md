@@ -18,7 +18,7 @@ Optional semantic colors and their defaults.
 - `tableHeader`, `tableRow` and `tableRowAlternate`: the Table header band,
   its rows and its alternate rows. Without them they are `control`, `control`
   and `controlHover`.
-- `dimDisabledPlates` (on in the neutral package): a disabled Button fades its plate toward
+- `dimDisabledPlates = true`: a disabled Button fades its plate toward
   `surface` by `disabledContentOpacity`, in addition to its text. This applies
   to the standard, selected, emphasis, soft, inverse and destructive plates and
   to the Toggle indicator. Without it only the text dims.
