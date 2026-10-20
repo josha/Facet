@@ -2,7 +2,7 @@
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
-local motion = require("./motion")
+local transitions = require("./transition")
 
 export type PageLayers = {
 	content: <P>(Instance | ((Nav.NavigationEntry<P>?) -> Instance), Nav.NavigationEntry<P>?) -> Instance,
@@ -25,15 +25,7 @@ return function(ctx: Types.Context): PageLayers
 	): Instance
 		return if type(builder) == "function" then builder(entry) else builder
 	end
-	local function checkTransition(transition: Nav.Transition | false?): ()
-		if transition == nil or transition == false then
-			return
-		end
-		assert(type(transition) == "table", "Navigation transition uses Compose tween options")
-		for key in transition do
-			assert(key == "seconds" or key == "ease", "Navigation transition uses Compose tween options: seconds, ease")
-		end
-	end
+	local checkTransition = transitions.check
 	local function layer(
 		properties: Types.CanvasGroupNativeProps & Types.FrameNativeProps,
 		state: ComposeTypes.Readable<ComposeTypes.LayerStackState>,
@@ -52,32 +44,46 @@ return function(ctx: Types.Context): PageLayers
 			end
 			return node
 		end
-		checkTransition(transition)
-		local mounted = Compose.cell(false)
-		local level = motion.level(ctx)
-		local opacity = runtime.tween(function(use: ComposeTypes.Use)
-			return if (immediate or use(mounted)) and use(state).top then 1 else 0
-		end, transition)
-		local function still(use: ComposeTypes.Use): boolean
-			return level(use) == "none"
+		local presented = Compose.formula(function(use: ComposeTypes.Use): boolean
+			return use(state).top
+		end)
+		local moving = transitions.create(ctx, transition, presented, immediate)
+		local content: Frame? = nil
+		if transition.apply then
+			content = Host.Frame {
+				Name = "TransitionContent",
+				BackgroundTransparency = 1,
+				Size = ctx.types.UDim2.fromScale(1, 1),
+			}
+			local children: { Types.Child } = {}
+			local entries = (properties :: unknown) :: { [unknown]: unknown }
+			for index, child in entries do
+				if type(index) == "number" then
+					children[index] = child :: Types.Child
+				end
+			end
+			for index in entries do
+				if type(index) == "number" then
+					properties[index] = nil
+				end
+			end
+			runtime.mountFragment(function()
+				return children
+			end, content)
+			properties[1] = content
 		end
 		properties.GroupTransparency = function(use: ComposeTypes.Use)
-			return if still(use) then 0 else 1 - use(opacity)
+			return 1 - use(moving.opacity)
 		end
-		properties.Visible = function(use: ComposeTypes.Use)
-			return use(state).top or not still(use) and use(opacity) > 0
-		end
+		properties.Visible = moving.visible
 		properties.Interactable = function(use: ComposeTypes.Use)
-			return use(state).top
+			return use(state).top and (transition.apply == nil or use(moving.opacity) == 1)
 		end
 		local panel = ctx.fade(properties, nil, if properties.BackgroundTransparency == 1 then false else nil)
-		local parent = ctx.observe.Parent(panel)
-		Compose.watch(function(use: ComposeTypes.Use)
-			mounted:set(use(parent) ~= nil)
-		end)
+		moving.apply(content or panel, panel)
 		if hidden then
 			Compose.watch(function(use: ComposeTypes.Use)
-				if not use(state).top and (still(use) or use(opacity) == 0) then
+				if use(moving.completed) then
 					hidden()
 				end
 			end)

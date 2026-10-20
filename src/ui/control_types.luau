@@ -13,6 +13,7 @@ local NavigationProps = require("./navigation_props")
 local RadialProps = require("./radial_props")
 local OverlayProps = require("./overlay_props")
 local CollectionProps = require("./collection_props")
+local SpatialProps = require("./spatial_grid_props")
 local ContentProps = require("./content_props")
 local EffectProps = require("./effect_props")
 local ZoomTravelProps = require("./zoom_travel_props")
@@ -92,6 +93,8 @@ type CollectionShapes =
 	(<V, K>(spec: CollectionProps.KeyedCollectionSpec<V, K>) -> ScrollingFrame)
 	& (<V, _K>(spec: CollectionProps.IdentityCollectionSpec<V>) -> ScrollingFrame)
 export type CollectionConstructor = CollectionShapes & ((string) -> CollectionShapes)
+export type SpatialGridShape = <V, K>(SpatialProps.SpatialGridSpec<V, K>) -> Frame
+export type SpatialGridConstructor = SpatialGridShape & ((string) -> SpatialGridShape)
 type OutlineShapes =
 	(<V, K>(spec: CollectionProps.KeyedOutlineSpec<V, K>) -> ScrollingFrame)
 	& (<V, _K>(spec: CollectionProps.IdentityOutlineSpec<V>) -> ScrollingFrame)
@@ -152,6 +155,7 @@ export type Controls = {
 	VirtualList: CollectionConstructor,
 	Outline: OutlineConstructor,
 	VirtualGrid: CollectionConstructor,
+	SpatialGrid: SpatialGridConstructor,
 	CellEditor: Constructor<CollectionProps.CellEditorSpec, Frame>,
 	Table: TableConstructor,
 	RowActions: Constructor<CollectionProps.RowActionsSpec, Frame>,
@@ -225,6 +229,7 @@ export type BuilderControls = {
 	CellEditor: Constructor<CollectionProps.CellEditorSpec, Frame>,
 	VirtualList: CollectionConstructor,
 	VirtualGrid: CollectionConstructor,
+	SpatialGrid: SpatialGridConstructor,
 	Outline: OutlineConstructor,
 	RowActions: Constructor<CollectionProps.RowActionsSpec, Frame>,
 	Avatar: Constructor<MediaProps.AvatarProps, TextButton>,

@@ -2485,7 +2485,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	},
 	Sheet = {
 		family = "overlays",
-		demonstrates = { "isPresented" },
+		demonstrates = { "isPresented", "transition" },
 		matrix = false,
 		alias = "Sheet (Root · Header · Content · Actions · FullBleed)",
 		purpose = "A draggable panel with detents; bottom, side, centre or adaptive placement.",
@@ -6033,6 +6033,8 @@ PAGE_DATA.gestureArbiter = {
 PAGE_DATA.DiegeticScreen = require("./diegetic_demo")
 
 PAGE_DATA.ZoomView = require("./zoom_page")
+PAGE_DATA.SpatialGrid = require("./spatial_grid_demo")
+PAGE_DATA.CustomTransitions = require("./custom_transition_demo")
 
 PAGE_DATA.Travel = {
 	family = "layout",

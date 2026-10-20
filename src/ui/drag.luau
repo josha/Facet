@@ -177,10 +177,10 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		detector.Parent = source
 		ctx.runtime.connect(source, "InputBegan", function(value: InputObject)
 			if value.UserInputType == E.UserInputType.MouseButton1 or value.UserInputType == E.UserInputType.Touch then
-				if active then
+				eligible = false
+				if active or activation.consumed(value) then
 					return
 				end
-				eligible = false
 				local at = ctx.types.Vector2.new(value.Position.X, value.Position.Y)
 				local hit = spec.hitArea or source
 				local offset, size = at - hit.AbsolutePosition, hit.AbsoluteSize
@@ -261,6 +261,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				if
 					value == pressed
 					and spec.armOnTap
+					and eligible == true
+					and not activation.consumed(value)
 					and value.UserInputState ~= E.UserInputState.Cancel
 					and value.UserInputType == E.UserInputType.Touch
 					and not dragged
@@ -327,17 +329,17 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		if not focusTarget then
 			return
 		end
-		local function drop(): boolean
+		local function drop(position: Vector2?): boolean
 			local current = service.state:peek()
 			if not current or current.mode ~= "armed" then
 				return false
 			end
-			service.commit(target)
+			service.commit(target, position)
 			return true
 		end
 		ctx.runtime.connect(focusTarget, "InputBegan", function(value: InputObject)
 			if value.UserInputType == E.UserInputType.MouseButton1 or value.UserInputType == E.UserInputType.Touch then
-				if drop() then
+				if drop(if value.Position then ctx.types.Vector2.new(value.Position.X, value.Position.Y) else nil) then
 					activation.consume(value)
 				end
 			end

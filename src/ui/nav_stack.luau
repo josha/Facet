@@ -78,7 +78,7 @@ return function(
 				gui.SelectedObject = nil
 			end
 			local departing = leaving:peek()
-			if table.find(list, top) == nil and animated and not reduce() then
+			if table.find(list, top) == nil and (animated or timing ~= nil) and level() ~= "none" then
 				leaving:set(top)
 			elseif departing and table.find(list, departing) then
 				leaving:set(nil)
@@ -275,16 +275,30 @@ return function(
 					}
 					local panel: GuiObject
 					if timing then
-						panel = layer({
-							Name = entry.id,
-							BackgroundTransparency = 1,
-							Size = D2.fromScale(1, 1),
-							Visible = function(use: ComposeTypes.Use)
-								return use(state).top
+						panel = layer(
+							{
+								Name = entry.id,
+								BackgroundTransparency = 1,
+								Size = D2.fromScale(1, 1),
+								Visible = function(use: ComposeTypes.Use)
+									return use(state).top
+								end,
+								navigationBar,
+								destinationFrame,
+							},
+							Compose.formula(function(use: ComposeTypes.Use): ComposeTypes.LayerStackState
+								local value = table.clone(use(state))
+								value.top = use(role) == "top"
+								return value
+							end),
+							timing,
+							function()
+								if leaving:peek() == entry then
+									leaving:set(nil)
+								end
 							end,
-							navigationBar,
-							destinationFrame,
-						}, state, timing)
+							not stackReady
+						)
 					else
 						panel = ctx.fade({
 							Name = entry.id,
@@ -352,7 +366,12 @@ return function(
 							root:SetAttribute("FacetSelectionOwner", true)
 							gui.SelectedObject = nil
 						end
-						if use(role) == "exiting" and offset(use) >= 1 and leaving:peek() == entry then
+						if
+							timing == nil
+							and use(role) == "exiting"
+							and offset(use) >= 1
+							and leaving:peek() == entry
+						then
 							leaving:set(nil)
 						end
 					end)

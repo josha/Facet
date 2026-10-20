@@ -66,20 +66,30 @@ function activation.listen(node: Instance, listener: Listener): () -> ()
 	end
 end
 
-local interceptors = setmetatable({} :: { [Instance]: (unknown) -> boolean }, { __mode = "k" })
+local interceptors = setmetatable({} :: { [Instance]: { (unknown) -> boolean } }, { __mode = "k" })
 
 function activation.intercept(node: Instance, listener: (unknown) -> boolean): () -> ()
-	interceptors[node] = listener
+	local listeners = interceptors[node] or {}
+	interceptors[node] = listeners
+	table.insert(listeners, listener)
 	return function()
-		if interceptors[node] == listener then
-			interceptors[node] = nil
+		local index = table.find(listeners, listener)
+		if index then
+			table.remove(listeners, index)
 		end
 	end
 end
 
 function activation.intercepted(node: Instance, input: unknown): boolean
-	local listener = interceptors[node]
-	return listener ~= nil and listener(input)
+	local listeners = interceptors[node]
+	if listeners then
+		for index = #listeners, 1, -1 do
+			if listeners[index](input) then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 local activators = setmetatable({} :: { [Instance]: Listener }, { __mode = "k" })

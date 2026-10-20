@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- SpatialGrid places keyed items in explicit rectangular footprints. It uses
+  native grid cells and the shared drag session, including tap placement,
+  keyboard/gamepad confirmation, overlap checks and pending drops. A button
+  can now compose pickup and destination activation handlers.
+- Sheet, TabView and NavigationStack accept `transition.apply(content, phase)`
+  for authored native transforms. Shared progress reverses on interruption,
+  retains departures and adapts to reduced motion. The lab adds an inventory,
+  a hinged journal and a staggered menu; the design guide documents their use.
+
 - DiegeticScreen moves existing application layers onto a native world display
   with one reversible camera shot. UI instances, state, safe-area canvases and
   source hosts survive the transition. The consumer supplies the room and

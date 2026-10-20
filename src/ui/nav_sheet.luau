@@ -8,6 +8,8 @@ local NavigationProps = require("./navigation_props")
 local sheetDetents = require("./nav_sheet_detents")
 local sheetGesture = require("./nav_sheet_gesture")
 local sheetContent = require("./nav_sheet_content")
+local transitions = require("./transition")
+local arrival = require("./overlay_arrival")
 
 type Prepared = sheetDetents.Prepared
 
@@ -29,6 +31,7 @@ local KEYS = {
 	"actionLayout",
 	"contentInset",
 	"scrollPolicy",
+	"transition",
 }
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -48,6 +51,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		phase: Nav.PresencePhase?,
 		anchor: GuiObject?
 	): Frame
+		transitions.check(spec.transition)
 		local gesture = gestureFor(spec, detent, prepared, request, phase, anchor)
 		local placed, edge, ready, toward = gesture.placed, gesture.edge, gesture.ready, gesture.toward
 		local pulled, painted, keyboard, standing = gesture.pulled, gesture.painted, gesture.keyboard, gesture.standing
@@ -62,7 +66,40 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			return if placement == "side" then (if edge == "left" then 0 else 1) else 0.5,
 				if placement == "center" then 0.5 else 1
 		end
-		local shown = surfaces.appearance(phase, ctx.motionTiming("sheet"), ready)
+		local shown: Nav.Presence
+		local moving: transitions.Motion? = nil
+		if spec.transition ~= nil then
+			local arrived = arrival.ready(phase)
+			moving = transitions.create(
+				ctx,
+				if spec.transition == false then {} else spec.transition,
+				Compose.formula(function(use: Types.Use): boolean
+					return phase == nil or not use(phase.exiting)
+				end),
+				false,
+				Compose.formula(function(use: Types.Use): boolean
+					return use(ready) and (arrived == nil or use(arrived))
+				end),
+				spec.transition == false
+			)
+			local custom = assert(moving)
+			if phase then
+				transitions.completions[phase] = custom.completed
+				Compose.cleanup(function()
+					transitions.completions[phase] = nil
+				end)
+			end
+			shown = {
+				travel = function(): number
+					return 1
+				end,
+				opacity = function(use: Types.Use?): number
+					return ctx.read(custom.opacity, use)
+				end,
+			}
+		else
+			shown = surfaces.appearance(phase, ctx.motionTiming("sheet"), ready)
+		end
 		local function travel(use: ComposeTypes.Use): (number, number)
 			local rest = 1 - shown.travel(use)
 			if rest <= 0 then
@@ -104,13 +141,41 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				return D2.fromOffset(use(panelWidth), standing(use))
 			end,
 			GroupTransparency = function(use: ComposeTypes.Use)
-				return if not use(ready) then 1 elseif level(use) == "limited" then 1 - shown.opacity(use) else 0
+				return if moving
+					then 0
+					elseif not use(ready) then 1
+					elseif level(use) == "limited" then 1 - shown.opacity(use)
+					else 0
 			end,
 		}
 		for _, child in { handle, room.frame, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
 			panelProps[#panelProps + 1] = child
 		end
 		local panel = ctx.fade(panelProps, true)
+		local presentation: GuiObject = panel
+		if moving then
+			local custom = moving
+			presentation = ctx.fade({
+				Name = "SheetTransition",
+				BackgroundTransparency = 1,
+				AnchorPoint = panelProps.AnchorPoint,
+				Position = panelProps.Position,
+				Size = panelProps.Size,
+				GroupTransparency = function(use: Types.Use): number
+					return 1 - use(custom.opacity)
+				end,
+				Interactable = function(use: Types.Use): boolean
+					return use(custom.opacity) == 1 and (phase == nil or not use(phase.exiting))
+				end,
+				panel,
+			}, nil, false)
+			runtime.decorate(panel, {
+				AnchorPoint = V2.zero,
+				Position = D2.fromScale(0, 0),
+				Size = D2.fromScale(1, 1),
+			})
+			custom.apply(panel)
+		end
 		ctx.styled(panel, "sheet")
 		runtime.decorate(panel, {
 			Attributes = {
@@ -127,7 +192,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end,
 		})
 		local overlay = surfaces.modal(function()
-			return panel
+			return presentation
 		end, function()
 			if not canDismiss() then
 				return

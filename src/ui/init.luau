@@ -34,6 +34,7 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	require("@self/color_picker")(ctx, UI, surfaces)
 	require("@self/environment")(ctx, UI)
 	require("@self/drag")(ctx, UI)
+	require("@self/spatial_grid")(ctx, UI)
 	require("@self/scrolling")(ctx, UI)
 	require("@self/navigation_split_view")(ctx, UI, surfaces)
 	require("@self/effect_sequence")(ctx, UI)

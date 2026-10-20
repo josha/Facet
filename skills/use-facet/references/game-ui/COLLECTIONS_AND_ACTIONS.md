@@ -68,6 +68,12 @@ It shares collection selection, editing, actions, and focus behavior with `Virtu
 
 Use `slots` to reserve positions for specific item keys, such as pieces temporarily removed from a rack. An absent key leaves a nonselectable recess; that item returns to its reserved position. These are reservations by item identity, not automatically typed equipment sockets. Release a reservation deliberately when the collection should compact. `slotControls` exposes retained slot anchors for `Travel`; use a deliberately small all-mounted collection if every anchor must exist. Do not make precision dragging the only way to move an item.
 
+## SpatialGrid
+
+Use `SpatialGrid` when inventory placement is part of the task. Each keyed item has a one-based `{ column, row, width, height }` placement. The control checks rectangular footprints and uses the existing draggable/dropTarget interaction for pointer, touch, keyboard and gamepad. Update the model from `drop.onDrop` using `info.placement`; keep stacking, rotation, equip rules and server authority in the game. The lab's two-container inventory demonstrates this boundary.
+
+Preserve usable cell sizes on small screens. Scroll the board or present containers vertically; do not shrink the complete inventory until cells become hard to select. Distinguish the carried item, candidate footprint, occupied cells and rejection reason. Test a large item at every edge, a move over its own former cells, a conflicting update during a carry, cancellation and a refused server response.
+
 ## Table
 
 Use `Table` for records with shared attributes that players compare across rows. Column identity is the reason to use it; item count and spreadsheet-like styling are not.
