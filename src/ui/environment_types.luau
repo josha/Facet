@@ -73,6 +73,7 @@ export type ScrollRect = { x: number, y: number, w: number, h: number }
 export type DropOperation = "copy" | "move" | "apply"
 export type DropDestination = GuiObject | BasePart | Model
 export type DropInsertion = { collection: unknown, beforeKey: unknown?, afterKey: unknown?, slot: number }
+export type DropPlacement = { column: number, row: number, width: number, height: number }
 export type DropInfo = {
 	source: GuiObject,
 	target: DropDestination,
@@ -81,6 +82,7 @@ export type DropInfo = {
 	position: Vector2?,
 	hit: RaycastResult?,
 	insertion: DropInsertion?,
+	placement: DropPlacement?,
 	complete: (accepted: boolean, reason: string?) -> boolean,
 }
 export type DraggableSpec = {

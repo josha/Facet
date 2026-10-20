@@ -626,6 +626,7 @@ return function(
 					)
 					panels[id] = panel
 					local shown = ctx.observe.Visible(panel)
+					local interactable = ctx.observe.Interactable(panel)
 					local attached = Compose.cell(0)
 					runtime.connect(panel, "AncestryChanged", function()
 						attached:set(attached:peek() + 1)
@@ -634,6 +635,7 @@ return function(
 						use(attached)
 						if
 							not use(shown)
+							or not use(interactable)
 							or not use(state).top
 							or handoff ~= id
 							or not gui

@@ -49,6 +49,10 @@ Use named theme timings rather than unrelated literal delays for every component
 
 Respect `motionLevel`: `normal` permits the designed motion, `limited` removes most travel/scale/slide in favor of restrained state changes or fades, and `none` makes presentation and paint changes immediate. Custom transitions and authored effects must be checked explicitly. Reduced motion must preserve the same information and result; it is not a slower version of every animation.
 
+For Sheet, TabView and NavigationStack, use `transition.apply(content, phase)` to bind custom native transforms to `phase.progress`. It runs once in the retained content's owner. Progress moves between absent (0) and present (1), and reverses from its current value when interrupted. `motion` selects a theme duration; `seconds` and `ease` can override it. Facet owns departure lifetime, the outer fade and input gating. Limited motion rests the custom transform at 1 and uses a short fade. No motion changes visibility immediately.
+
+This supports a journal opening, staggered menu rows and item-detail entrances without adding a component for each visual treatment. Bind child delays as portions of the same progress range. Keep the resting geometry responsive. Use images or a Stage for perspective artwork; a 2D scale-and-rotation treatment does not supply true 3D projection. Reusable particles and other engine effects are outside this transition contract. Test a close during entry, a reopen during exit, rapid page changes, owner removal, resizing and focus return.
+
 ### CountUp and Flash
 
 `UI.countUp(value)` interpolates a finite number or readable using the theme's `countUp` duration/easing. A new target starts from the current displayed amount; reduced motion shows the new amount immediately. Use it for a reward tally or a summary whose animation clarifies accumulation.

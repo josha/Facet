@@ -51,3 +51,7 @@ spring. `transition = { seconds, ease }` replaces the slide with a crossfade
 that uses those Compose tween options.
 `transition = false` disables motion. The pages that are present when the
 stack mounts show without motion.
+
+Add `transition.apply` to author motion from the shared presentation progress.
+See [Custom-transitions](Custom-transitions.md) for the callback, lifetime and
+reduced-motion contract.
