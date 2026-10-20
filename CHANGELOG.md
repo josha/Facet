@@ -10,6 +10,10 @@
   for authored native transforms. Shared progress reverses on interruption,
   retains departures and adapts to reduced motion. The lab adds an inventory,
   a hinged journal and a staggered menu; the design guide documents their use.
+- A Button's pop feedback paint shows one frame after it takes the Button's
+  tags. Roblox applies a tag's styles a frame late, so a paint tagged and shown
+  in the same frame drew square for that frame: a rounded `pop = true` Button
+  flashed square when it was tapped.
 - A Button's pop feedback paint wears the Button's tags while it moves, so the
   theme's rules reach it: its corner, outline and child text styles. Before, a
   rounded `pop = true` Button flashed square for the length of the pop.

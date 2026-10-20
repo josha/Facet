@@ -39,7 +39,7 @@ return function(
 		AnchorPoint = V2.new(0.5, 0.5),
 		Position = D2.fromScale(0.5, 0.5),
 		AutomaticSize = E.AutomaticSize.None,
-		Visible = moving,
+		Visible = false,
 		Text = "",
 		scale,
 	}
@@ -97,54 +97,87 @@ return function(
 					end
 					worn = current
 				end)
-				local children = node:GetChildren()
-				local selected = if ctx.config.guiService then ctx.config.guiService.SelectedObject else nil
-				for _, child in children do
-					if
-						child ~= boundary
-						and (
-							child:IsA("GuiObject")
-							or child:IsA("UIGridStyleLayout")
-							or child:IsA("UICorner")
-							or child:IsA("UIStroke")
-							or child:IsA("UIGradient")
-							or child:IsA("UIShadow")
-						)
-					then
-						(child :: Instance).Parent = paint
-					end
-				end
-				if selected and ctx.config.guiService then
-					ctx.config.guiService.SelectedObject = selected
-				end
-				local padding = node:FindFirstChildWhichIsA("UIPadding")
-				local observePadding = (
-					ctx.observeStyled :: unknown
-				) :: { [string]: (Instance) -> ComposeTypes.Cell<UDim> }
-				if padding then
-					runtime.mount(function()
-						return Host.UIPadding({
-							PaddingLeft = observePadding["PaddingLeft"](padding),
-							PaddingRight = observePadding["PaddingRight"](padding),
-							PaddingTop = observePadding["PaddingTop"](padding),
-							PaddingBottom = observePadding["PaddingBottom"](padding),
-						})
-					end, paint)
-				end
 				Compose.cleanup(function()
-					for _, child in children do
-						if child.Parent == paint then
-							child.Parent = node
-						end
-					end
 					for tag in worn do
 						paint:RemoveTag(tag)
 					end
-					if selected and ctx.config.guiService then
-						ctx.config.guiService.SelectedObject = selected
-					end
 				end)
-				return Host.UIGradient "FeedbackMask" { Transparency = ctx.types.NumberSequence.new(1) }
+				local unmount: (() -> ())? = nil
+				local function dress()
+					paint.Visible = true
+					unmount = runtime.mountFragment(function()
+						local children = node:GetChildren()
+						local selected = if ctx.config.guiService then ctx.config.guiService.SelectedObject else nil
+						for _, child in children do
+							if
+								child ~= boundary
+								and (
+									child:IsA("GuiObject")
+									or child:IsA("UIGridStyleLayout")
+									or child:IsA("UICorner")
+									or child:IsA("UIStroke")
+									or child:IsA("UIGradient")
+									or child:IsA("UIShadow")
+								)
+							then
+								(child :: Instance).Parent = paint
+							end
+						end
+						if selected and ctx.config.guiService then
+							ctx.config.guiService.SelectedObject = selected
+						end
+						local padding = node:FindFirstChildWhichIsA("UIPadding")
+						local observePadding = (
+							ctx.observeStyled :: unknown
+						) :: { [string]: (Instance) -> ComposeTypes.Cell<UDim> }
+						if padding then
+							runtime.mount(function()
+								return Host.UIPadding({
+									PaddingLeft = observePadding["PaddingLeft"](padding),
+									PaddingRight = observePadding["PaddingRight"](padding),
+									PaddingTop = observePadding["PaddingTop"](padding),
+									PaddingBottom = observePadding["PaddingBottom"](padding),
+								})
+							end, paint)
+						end
+						Compose.cleanup(function()
+							for _, child in children do
+								if child.Parent == paint then
+									child.Parent = node
+								end
+							end
+							if selected and ctx.config.guiService then
+								ctx.config.guiService.SelectedObject = selected
+							end
+						end)
+						return { Host.UIGradient "FeedbackMask" { Transparency = ctx.types.NumberSequence.new(1) } }
+					end, node)
+				end
+				local frames = ctx.config.services.RunService
+				local connection: RBXScriptConnection? = nil
+				if frames then
+					connection = frames.Heartbeat:Connect(function()
+						if connection then
+							connection:Disconnect()
+							connection = nil
+						end
+						dress()
+					end)
+				else
+					dress()
+				end
+				Compose.cleanup(function()
+					if connection then
+						connection:Disconnect()
+					end
+					if unmount then
+						unmount()
+					end
+					paint.Visible = false
+				end)
+				return Compose.fragment(function()
+					return {}
+				end)
 			end),
 		}
 	end, node)
