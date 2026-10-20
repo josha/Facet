@@ -24,16 +24,13 @@ return function(harness: Verify.Harness)
 		for _, returned in { false, true } do
 			for _, value in { 0, 20 } do
 				local scores: { [string]: number } = {}
-				Play.perfScores(
-					{
-						desktop = {
-							returned = returned,
-							final = { memory = { luaHeapKb = value, guiMb = value } },
-							screens = {},
-						},
+				Play.perfScores({
+					desktop = {
+						returned = returned,
+						final = { memory = { luaHeapKb = value, guiMb = value } },
+						screens = {},
 					},
-					scores
-				)
+				}, scores)
 				for _, name in { "finalHeapKb", "finalGuiMb" } do
 					t:expect(scores["perf.desktop." .. name]):toBe(if returned and value > 0 then value else nil)
 				end
