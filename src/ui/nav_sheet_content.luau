@@ -55,7 +55,8 @@ return function(
 			if explicit ~= nil and explicit ~= true then
 				return linkClose(UI.Button "Close" {
 					label = explicit :: Types.Value<string>,
-					appearance = if overHero then "inverse" else "link",
+					icon = "close",
+					appearance = if overHero then "inverse" else "utility",
 					LayoutOrder = 2,
 					onActivate = activate,
 				})

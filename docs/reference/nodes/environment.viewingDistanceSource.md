@@ -18,7 +18,7 @@ environment.viewingDistanceSource option values and behavior.
 
 | Field | Source and value |
 |---|---|
-| `overscanInsets` | `{ top, left, bottom, right }` in pixels. At ten feet it is the console profile as a proportion of the viewport (`adaptive.overscanInsets`): 60/1080 of the height and 90/1920 of the width, so 1920 by 1080 reserves 60 and 90. Near, it is zero. The `overscanInsets` option wins; `"none"` is zero. `UI.Screen` adds it to its padding. |
+| `overscanInsets` | `{ top, left, bottom, right }` in pixels. At ten feet it is the console profile as a proportion of the viewport (`adaptive.overscanInsets`): 60/1080 of the height and 90/1920 of the width, so 1920 by 1080 reserves 60 and 90. Near, it is zero. The `overscanInsets` option wins; `"none"` is zero. `UI.Screen` and a root Composition add it to their padding. The type is `Facet.SafeInsets`; read it with `use(env.overscanInsets).left`. |
 
 | Field | Source and value |
 |---|---|

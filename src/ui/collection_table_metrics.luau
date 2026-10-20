@@ -102,10 +102,11 @@ return function<V, K>(
 		local observed: ComposeTypes.Readable<Vector2> = if node:IsA("TextLabel")
 			then ctx.observe.TextBounds(node)
 			else ctx.observe.TextBounds(node)
+		local text = ctx.observe.Text(node)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local bounds = use(observed)
 			local height = bounds.Y / use(unitScale) + extra
-			if height > 0 and cell:peek()[id] ~= height then
+			if (bounds.Y > 0 or use(text) == "") and cell:peek()[id] ~= height then
 				local nextHeights = table.clone(cell:peek())
 				nextHeights[id] = height
 				cell:set(nextHeights)

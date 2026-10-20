@@ -8,8 +8,8 @@ Dialog.title option values and behavior.
   header, hero, action label and actions.
 - `hero`: the shared media shape.
 - `actionLayout`: `automatic`, `row` or `stacked`. `automatic` puts two short
-  actions in a row and stacks three or more. A row that cannot show the full
-  labels also stacks. The row gives each action an equal share of its width,
+  actions in a row and stacks three or more. `row` keeps any number in a row.
+  A row that cannot show the full labels stacks. The row gives each action an equal share of its width,
   so the longest label decides. The actions of an Alert, a Dialog and a Sheet
   also stack on a ten-foot screen (`ctx.tenFoot()`) or at the `Larger` and
   `Largest` preferred text sizes, each full width.

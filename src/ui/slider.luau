@@ -1,4 +1,5 @@
 --!strict
+local pointerDragOf = require("./pointer_drag")
 local valueModel = require("./input_value")
 local InputTypes = require("./input_types")
 local Shared = require("./types")
@@ -318,21 +319,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 				"Facet.Slider: editing a read-only value requires onChange"
 			)
 		end
-		local input = ctx.config.services.UserInputService
-		local preferred = if input
-			then ctx.observe.PreferredInput(input) :: ComposeTypes.Readable<Enum.PreferredInput?>
-			else Compose.cell(nil :: Enum.PreferredInput?)
-		local lastInput = Compose.cell(nil :: Enum.UserInputType?)
-		if input and input.GetLastInputType then
-			lastInput:set(input:GetLastInputType())
-			runtime.connect(input, "LastInputTypeChanged", function(kind: Enum.UserInputType)
-				lastInput:set(kind)
-			end)
-		end
+		local pointer, preferred = pointerDragOf(ctx)
 		local function pointerDrag(use: ComposeTypes.Use): boolean
-			return h.enabled(spec, use)
-				and use(preferred) ~= E.PreferredInput.Gamepad
-				and use(lastInput) ~= E.UserInputType.Keyboard
+			return h.enabled(spec, use) and pointer(use)
 		end
 		local degrees = function(use: ComposeTypes.Use?): number
 			local turn = read(spec.rotation, use)
@@ -700,21 +689,19 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, h: Helpers): ()
 				track,
 			}
 		end
-		local state = ctx.observe.GuiState(track)
+		local state = if mode ~= "always" and mode ~= "none" then ctx.observe.GuiState(track) else nil
+		local previousInput = preferred:peek()
 		Compose.watch(function(use: ComposeTypes.Use)
-			hovered:set(use(state) == E.GuiState.Hover)
+			if state then
+				hovered:set(use(state) == E.GuiState.Hover)
+			end
+			local currentInput = use(preferred)
+			if currentInput ~= previousInput then
+				previousInput = currentInput
+				cancel()
+			end
 		end)
 		local trackLabel = (if spec.row then spec.row.title else nil) or spec.label
-		if input then
-			local first = true
-			Compose.watch(function(use: ComposeTypes.Use)
-				use(preferred)
-				if not first then
-					cancel()
-				end
-				first = false
-			end)
-		end
 		if enabledLive(spec) then
 			Compose.watch(function(use: ComposeTypes.Use)
 				if not h.enabled(spec, use) then

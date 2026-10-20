@@ -66,6 +66,12 @@ local function hint(message: string): string?
 	if string.find(message, "Unknown type 'Facet.Use'", 1, true) ~= nil then
 		return "require the Facet root into local Facet in this module; Facet.Use is an exported type. Do not require a Use submodule or read Facet.Use as a value."
 	end
+	if string.find(message, "(InputObject?, number?) -> ()", 1, true) ~= nil then
+		return "type a callback that you pass to onActivate as Facet.Activate, for example local function action(onActivate: Facet.Activate). Read docs Button.props."
+	end
+	if string.find(message, "Sides", 1, true) ~= nil then
+		return 'give a padding table a type on a local, for example local inset: Facet.Sides = { top = "xl" }, and pass padding = inset. A literal inside the options does not check, because padding also takes a readable. Read docs Layout-options.'
+	end
 	if string.find(message, "Readable", 1, true) ~= nil then
 		return "annotate reactive callbacks with function(use: Facet.Use) and type option lists before passing them. Read docs Types.reactive."
 	end

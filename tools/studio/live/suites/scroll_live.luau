@@ -2,6 +2,9 @@
 
 type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+type Readable<T> = { peek: (Readable<T>) -> T }
+type Use = <T>(Readable<T>) -> T
 type Case = {
 	id: string,
 	contracts: { string },
@@ -246,7 +249,7 @@ add("selected-scroll-rows", {}, function(t)
 		end
 		return UI.ScrollView "List" { Size = UDim2.fromOffset(300, 200), gap = 8, table.unpack(rows) }
 	end, { size = Vector2.new(400, 400), frames = 30 })
-	require(game:GetService("ReplicatedStorage").FacetLive).press({ "Tab" })
+	require(game:GetService("ReplicatedStorage").FacetLive).press({ "LeftShift" })
 	local list = t.find(stage, "List")
 	for _, index in { 1, 5, 10, 16, 10, 5, 1 } do
 		local row = t.find(list, "Row" .. index)
@@ -273,7 +276,7 @@ add("compact-gallery-selected-rects", {}, function(t)
 		local stage, context = t.gallery({ size = Vector2.new(390, 400), demo = page })
 		context.dispatch("input", "Gamepad")
 		t.settle(30)
-		require(game:GetService("ReplicatedStorage").FacetLive).press({ "Tab" })
+		require(game:GetService("ReplicatedStorage").FacetLive).press({ "LeftShift" })
 		local nodes = {}
 		for _, node in stage:GetDescendants() do
 			if
@@ -330,7 +333,7 @@ add("sipworks-native-selection-reveals-cards", {}, function(t)
 		local viewport = context.environmentFacts.viewportSize:peek()
 		t.near(`{size} preview viewport width`, viewport.X, size.X, 0.5)
 		t.near(`{size} preview viewport height`, viewport.Y, size.Y, 0.5)
-		require(game:GetService("ReplicatedStorage").FacetLive).press({ "Tab" })
+		require(game:GetService("ReplicatedStorage").FacetLive).press({ "LeftShift" })
 		local seen: { [Instance]: boolean } = {}
 		local count = 0
 		for _ = 1, 20 do
@@ -379,6 +382,178 @@ add("sipworks-native-selection-reveals-cards", {}, function(t)
 		end
 	end
 	t.check("screens release layout probes without native errors", #errors == 0, errors)
+end)
+
+add("table-header-uses-native-scroll-window", {}, function(t)
+	local stage = t.mount(function(UI: FacetControls)
+		return UI.Table "Data" {
+			from = { { id = "one", name = "First" } },
+			key = "id",
+			Size = UDim2.fromOffset(180, 200),
+			columns = {
+				{ id = "name", label = "Name", width = 260 },
+				{ id = "id", label = "Identifier", width = 140 },
+			},
+		}
+	end, { size = Vector2.new(400, 300), frames = 60 })
+	local tableNode = assert(stage:FindFirstChild("Data"))
+	local body = assert(tableNode:FindFirstChild("Body")) :: ScrollingFrame
+	local header = assert(tableNode:FindFirstChild("Header")) :: ScrollingFrame
+	t.check("the header uses a native scroll window", header:IsA("ScrollingFrame"))
+	t.near("the header window matches the body window", header.AbsoluteWindowSize.X, body.AbsoluteWindowSize.X, 1)
+	t.check("the columns keep their full width", header.AbsoluteCanvasSize.X >= 400)
+	body.CanvasPosition = Vector2.new(10000, 0)
+	t.settle(6)
+	t.check("the body scrolls sideways", body.CanvasPosition.X > 0)
+	t.near("the header follows the body", header.CanvasPosition.X, body.CanvasPosition.X, 0.5)
+	body.CanvasPosition = Vector2.zero
+	t.settle(6)
+	local last = assert(header:FindFirstChild("id")):FindFirstChild("Sort") :: GuiObject
+	game:GetService("GuiService").SelectedObject = last
+	t.settle(12)
+	t.near("native selection keeps both windows aligned", header.CanvasPosition.X, body.CanvasPosition.X, 0.5)
+	t.check("the selected heading is visible", t.clipped(last) ~= nil)
+	game:GetService("GuiService").SelectedObject = nil
+end)
+
+add("table-columns-stay-stable-when-vertical-overflow-changes", {}, function(t)
+	local setRows: ((number) -> ())? = nil
+	local stage = t.mount(function(UI: FacetControls, _Host: RobloxHost, Compose: ComposeModule)
+		local count = Compose.cell(1)
+		setRows = function(value: number)
+			count:set(value)
+		end
+		return UI.Table "Data" {
+			from = function(use: Use)
+				local rows = {}
+				for index = 1, use(count) do
+					table.insert(rows, { id = tostring(index), name = "Track" })
+				end
+				return rows
+			end,
+			key = "id",
+			Size = UDim2.fromOffset(354, 200),
+			columns = {
+				{ id = "name", label = "Name", minWidth = 220 },
+				{ id = "id", label = "Rating", minWidth = 130, priority = 1 },
+			},
+		}
+	end, { size = Vector2.new(400, 300), frames = 60 })
+	local tableNode = assert(stage:FindFirstChild("Data"))
+	local body = assert(tableNode:FindFirstChild("Body")) :: ScrollingFrame
+	local rating = assert(assert(tableNode:FindFirstChild("Header")):FindFirstChild("id")) :: GuiObject
+	local shown = rating.Visible
+	t.check("the first collection fits vertically", body.AbsoluteCanvasSize.Y <= body.AbsoluteWindowSize.Y)
+	assert(setRows)(20)
+	t.settle(60)
+	t.check("the expanded collection scrolls vertically", body.AbsoluteCanvasSize.Y > body.AbsoluteWindowSize.Y)
+	t.check("vertical overflow preserves the responsive columns", rating.Visible == shown)
+	assert(setRows)(1)
+	t.settle(60)
+	t.check("removing vertical overflow preserves the responsive columns", rating.Visible == shown)
+end)
+
+add("keyboard-selection-keeps-pointer-drag-surfaces-out-of-navigation", {}, function(t)
+	local stage = t.mount(
+		function(
+			UI: FacetControls,
+			_Host: RobloxHost,
+			Compose: typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
+		)
+			return UI.Table "Data" {
+				from = { { id = "one", name = "First" }, { id = "two", name = "Second" } },
+				key = "id",
+				Size = UDim2.fromOffset(400, 250),
+				columns = {
+					{ id = "name", label = "Name", width = 180 },
+					{ id = "id", label = "Identifier", width = 140 },
+				},
+				selection = Compose.cell({} :: { [string]: boolean }),
+				selectionMode = "single" :: "single",
+				reorderable = true,
+				onReorder = function() end,
+				rowActions = function(): typeof(require("@repo/tools/typecheck/aliases").RowActionsOptions)
+					return { trailing = { { id = "delete", label = "Delete", onActivate = function() end } } }
+				end,
+			}
+		end,
+		{ size = Vector2.new(500, 400), frames = 60 }
+	)
+	local gui = game:GetService("GuiService")
+	local input = game:GetService("UserInputService")
+	type Virtual = { SendMousePosition: (Virtual, Vector2) -> () }
+	local virtual = ((input :: unknown) :: { CreateVirtualInput: (unknown) -> Virtual }):CreateVirtualInput()
+	local live = require(game:GetService("ReplicatedStorage").FacetLive)
+	local first = assert(stage:FindFirstChild("one", true)):FindFirstChild("RowHit", true) :: GuiObject
+	local second = assert(stage:FindFirstChild("two", true)):FindFirstChild("RowHit", true) :: GuiObject
+	local detector = assert(stage:FindFirstChild("FacetCollectionDrag", true)) :: UIDragDetector
+	local inset = gui:GetGuiInset()
+	for index, key in { "Up", "Down", "Left", "Right" } do
+		virtual:SendMousePosition(stage.AbsolutePosition + inset + Vector2.new(8 + index, 8))
+		t.settle(3)
+		t.check("pointer movement enables native drag", detector.Enabled)
+		gui.SelectedObject = first
+		t.settle(2)
+		live.press({ key })
+		t.settle(3)
+		local selected = gui.SelectedObject
+		t.check("keyboard selection uses a selectable target", selected ~= nil and selected.Selectable, selected)
+		t.check("keyboard navigation disables pointer drag", not detector.Enabled)
+		if key == "Down" then
+			t.check("Down reaches the next row", selected == second, selected)
+		end
+	end
+	local header = assert(assert(stage:FindFirstChild("Data")):FindFirstChild("Header"))
+	local firstColumn = assert(header:FindFirstChild("name")) :: GuiObject
+	local firstHeading = assert(firstColumn:FindFirstChild("Sort")) :: GuiObject
+	local secondHeading = assert(assert(header:FindFirstChild("id")):FindFirstChild("Sort")) :: GuiObject
+	gui.SelectedObject = firstHeading
+	live.press({ "Right" })
+	t.settle(3)
+	t.check("Right reaches the next heading", gui.SelectedObject == secondHeading)
+	local lastColumn = secondHeading.Parent :: GuiObject
+	local width = lastColumn.AbsoluteSize.X
+	live.press({ "Period" })
+	t.settle(3)
+	t.check("a heading keeps keyboard resize", lastColumn.AbsoluteSize.X > width)
+	live.press({ "Comma" })
+	t.settle(3)
+	t.near("keyboard resize can restore the width", lastColumn.AbsoluteSize.X, width, 1)
+	virtual:SendMousePosition(stage.AbsolutePosition + inset + Vector2.new(20, 8))
+	t.settle(3)
+	t.check("pointer drag resumes after keyboard navigation", detector.Enabled)
+	gui.SelectedObject = nil
+end)
+
+add("inline-color-picker-keeps-keyboard-selection-in-the-page", {}, function(t)
+	local stage = t.mount(function(UI: FacetControls, _Host: RobloxHost, Compose: ComposeModule)
+		return UI.ScrollView "Page" {
+			Size = UDim2.fromOffset(380, 190),
+			gap = 16,
+			UI.Toggle "Before" { label = "Refuse changes", value = Compose.cell(false) } :: unknown,
+			UI.ColorPicker "Accent" {
+				label = "Accent",
+				style = "inline" :: "inline",
+				modes = { "spectrum" :: "spectrum" },
+				value = Color3.new(1, 0, 0),
+				onChange = function() end,
+			},
+		}
+	end, { size = Vector2.new(500, 400), frames = 60 })
+	local gui = game:GetService("GuiService")
+	local live = require(game:GetService("ReplicatedStorage").FacetLive)
+	local before = assert(stage:FindFirstChild("Before", true)) :: GuiObject
+	local plane = assert(assert(stage:FindFirstChild("Plane", true)):FindFirstChild("Surface")) :: GuiObject
+	live.press({ "LeftShift" })
+	gui.SelectedObject = plane
+	t.settle(10)
+	live.press({ "Up" })
+	t.settle(10)
+	t.check("Up leaves the inline technique for the previous page control", gui.SelectedObject == before)
+	live.press({ "Down" })
+	t.settle(10)
+	t.check("Down returns to the inline technique", gui.SelectedObject == plane)
+	gui.SelectedObject = nil
 end)
 
 return cases

@@ -316,6 +316,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		},
 		states = {
 			{ name = "native glyph", props = nativeGlyph },
+			{
+				name = "circle with caption",
+				props = properties { shape = "circle", icon = "settings", caption = "Settings" },
+			},
 			{ name = "discloses a truncated label", props = merged(fixed(120, 44), { label = LONG, disclose = true }) },
 			{ name = "fixed 140×64", props = fixed(140, 64) },
 			{
@@ -348,6 +352,18 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 			{ name = "hint line", props = properties { hint = "Saves your setup" } },
 			{ name = "thumb target (touch)", props = properties { label = "DRIFT", target = "thumb" } },
+			{
+				name = "inline target (touch)",
+				props = function(c: Context): Properties
+					return merged(
+						merged(
+							fixed(24, 44),
+							{ label = "", target = "inline", controlSize = "xsmall", name = "Page one" }
+						),
+						nativeGlyph(c)
+					)
+				end,
+			},
 			{
 				name = "subtitle in a fixed 117 width (wraps)",
 				props = merged(fixed(117), { label = "Boost Board", subtitle = "HELP · 2 energy", icon = "settings" }),
@@ -1871,7 +1887,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		family = "status",
 		cellWidth = 240,
 		alias = "Progress · Loading",
-		purpose = "Determinate or indeterminate progress as a bar, ring or spinner; segments and a damage trail.",
+		purpose = "Determinate or indeterminate progress as a bar, ring, gauge with a needle or spinner; segments and a damage trail.",
 		alternatives = "Skeleton for content that is still loading.",
 		scenarios = { "progress_ring" },
 		snippet = 'UI.ProgressView { value = 0.4, presentation = "bar" }',
@@ -1881,7 +1897,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = {
 			{
 				key = "presentation",
-				values = { "bar", "circular", "spinner" },
+				values = { "bar", "circular", "gauge", "spinner" },
 				implies = implied { spinner = { value = NONE } },
 			},
 			{ key = "controlSize", values = { DEFAULT, "xsmall", "compact", "regular", "large" } },
@@ -1924,10 +1940,22 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				across = false,
 				matrixOnly = true,
 			},
+			{ name = "gauge, value shown", props = properties { presentation = "gauge", showValue = true } },
+			{ name = "gauge sweep 180", props = properties { presentation = "gauge", sweep = 180 } },
+			{ name = "gauge sweep 300", props = properties { presentation = "gauge", sweep = 300 } },
+			{ name = "gauge without needle", props = properties { presentation = "gauge", needle = false } },
+			{
+				name = "gauge sizes",
+				props = properties { presentation = "gauge" },
+				across = "controlSize",
+				matrixOnly = true,
+			},
 		},
 		valid = function(p: Properties)
 			local shape = p.presentation or "bar"
 			return not (shape == "spinner" and p.value ~= nil)
+				and not (shape == "gauge" and p.value == nil)
+				and not ((p.sweep ~= nil or p.needle ~= nil) and shape ~= "gauge")
 				and not (p.showValue and p.value == nil)
 				and not (p.segments ~= nil and shape ~= "bar")
 				and not (p.diameter ~= nil and shape == "bar")
@@ -3084,6 +3112,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "no summary", props = properties { summary = false } },
 			{ name = "no controls", props = properties { controls = false } },
 			{ name = "no indicators", props = properties { indicators = false } },
+			{
+				name = "overlay indicators",
+				props = properties { indicatorPlacement = "overlay", summary = false, controls = false },
+			},
 		},
 	},
 	Pagination = {
@@ -4718,6 +4750,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = { ALIGN, DISTRIBUTE, GAP },
 		states = {
 			{ name = "wrap (narrow)", props = properties { wrap = true, width = 120, height = "hug" }, across = false },
+			{ name = "panel surface", props = properties { surface = "panel", padding = "s" }, across = false },
 		},
 	},
 	VStack = {
@@ -4733,6 +4766,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		axes = { ALIGN, DISTRIBUTE, GAP },
 		states = {
 			{ name = "wrap (short)", props = properties { wrap = true, height = 80, width = "hug" }, across = false },
+			{ name = "panel surface", props = properties { surface = "panel", padding = "s" }, across = false },
 		},
 	},
 	ZStack = {

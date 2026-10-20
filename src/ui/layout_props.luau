@@ -86,6 +86,7 @@ export type StackProps = {
 	Style: typeof(frame.Style),
 	ref: typeof(frame.ref),
 	padding: typeof(stack.padding),
+	surface: typeof(stack.surface),
 	width: typeof(stack.width),
 	maxWidth: typeof(stack.maxWidth),
 	height: typeof(stack.height),

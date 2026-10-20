@@ -80,6 +80,23 @@ return function(
 	runtime.mountFragment(function()
 		return {
 			Compose.show(moving, function()
+				local worn: { [string]: boolean } = {}
+				Compose.watch(function(use: ComposeTypes.Use)
+					use(factor)
+					local current: { [string]: boolean } = {}
+					for _, tag in node:GetTags() do
+						current[tag] = true
+						if not worn[tag] then
+							paint:AddTag(tag)
+						end
+					end
+					for tag in worn do
+						if not current[tag] then
+							paint:RemoveTag(tag)
+						end
+					end
+					worn = current
+				end)
 				local children = node:GetChildren()
 				local selected = if ctx.config.guiService then ctx.config.guiService.SelectedObject else nil
 				for _, child in children do
@@ -119,6 +136,9 @@ return function(
 						if child.Parent == paint then
 							child.Parent = node
 						end
+					end
+					for tag in worn do
+						paint:RemoveTag(tag)
 					end
 					if selected and ctx.config.guiService then
 						ctx.config.guiService.SelectedObject = selected

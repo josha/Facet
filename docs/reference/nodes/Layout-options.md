@@ -21,11 +21,16 @@ add a native UISizeConstraint child with MaxSize. Name the constructor table
 |---|---|---|
 | `gap` | a spacing step or a number of pixels | `UIListLayout.Padding` |
 | `padding` | a spacing step, a number, or `{ top?, right?, bottom?, left? }` | a `UIPadding` child |
+| `surface` | `"surface"`, `"panel"` or `"pane"` (VStack and HStack) | the theme plate: paint, corner and inner padding of that role, for example a backing behind HUD readouts |
 | `width`, `height` | `"fill"`, `"hug"` or a number of pixels | `Size` and `AutomaticSize` |
 | `maxWidth` | a finite number of pixels, 0 or more | `UISizeConstraint.MaxSize.X` |
 | `align` | `start`, `center`, `end` or `stretch` | cross-axis alignment, `ItemLineAlignment` and the cross-axis flex |
 | `distribute` | `start`, `center`, `end`, `spaceBetween`, `spaceAround` or `spaceEvenly` | main-axis alignment and `HorizontalFlex` or `VerticalFlex` |
 
+- In strict mode, give a sides table a type on a local, then pass the local:
+  `local inset: Facet.Sides = { top = "xl", left = 8 }` and `padding = inset`.
+  A table literal inside the options does not check, because `padding` also
+  takes a readable.
 - The spacing steps are `xs`, `s`, `m`, `l` and `xl`. They come from
   `metrics.space` of the theme package in the `theme` factory option. The
   neutral values are 4, 8, 16, 24 and 40 pixels. A package without a step uses

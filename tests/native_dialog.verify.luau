@@ -824,6 +824,14 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(actionButton(w2, "Stay").TextTruncate):toBe(w2.Enum.TextTruncate.AtEnd)
 					w2.stop()
 					local open3, log3, change3 = caller()
+					local open4, log4, change4 = caller()
+					local w4 = mount(
+						standard(open4, log4, change4, { actions = three(), actionLayout = "row", width = "wide" }),
+						{ size = Vector2.new(844, 390) }
+					)
+					Verify.expect(w4.find("Actions"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
+						:toBe(w4.Enum.FillDirection.Horizontal)
+					w4.stop()
 					local w3 = mount(standard(open3, log3, change3, { actionLayout = "stacked" }))
 					Verify.expect(w3.find("Actions"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
 						:toBe(w3.Enum.FillDirection.Vertical)

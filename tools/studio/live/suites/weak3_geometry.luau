@@ -260,7 +260,7 @@ add("label-text-size-fit-real-engine", {}, function(t)
 	local caption = base.metrics.typography.caption.size
 	local title = base.metrics.typography.title.size
 	local offset = 14
-	local fitWidth, grownWidth = 0, 0
+	local fitWidth, grownWidth, grownBlockedWidth = 0, 0, 0
 	t.note("theme role sizes", { body = body, caption = caption, title = title })
 	local go = fitBox(t, "Go", 240, 52, "fit")
 	t.check("a fitting label mounts with TextScaled", go ~= nil and go.TextScaled == true)
@@ -275,6 +275,7 @@ add("label-text-size-fit-real-engine", {}, function(t)
 		local floorBounds = boundsAt(blocked, caption, 0)
 		fitWidth = math.floor((floorBounds.X + boundsAt(blocked, body, 0).X) / 2)
 		grownWidth = math.floor((boundsAt(blocked, caption + offset, 0).X + boundsAt(blocked, body + offset, 0).X) / 2)
+		grownBlockedWidth = math.max(1, math.floor(boundsAt(blocked, caption + offset, 0).X) - 1)
 		local band = blocked:FindFirstChildOfClass("UITextSizeConstraint")
 		t.check("the caption floor cannot fit the original 80 px box", floorBounds.X > 80, floorBounds)
 		t.check("an impossible box preserves the native caption floor", band ~= nil and band.MinTextSize == caption)
@@ -354,12 +355,12 @@ add("label-text-size-fit-real-engine", {}, function(t)
 		t.near("under the +14 theme a fitting label paints the grown cap", paintedSize(raisedGo), body + offset, 0)
 	end
 	t.cleanup()
-	local raisedBlocked = fitBox(t, SPONSOR, 160, 52, "fit", raised)
+	local raisedBlocked = fitBox(t, SPONSOR, grownBlockedWidth, 52, "fit", raised)
 	if raisedBlocked then
 		local band = raisedBlocked:FindFirstChildOfClass("UITextSizeConstraint")
 		t.check(
-			"the grown caption floor cannot fit the original 160 px box",
-			boundsAt(raisedBlocked, caption + offset, 0).X > 160
+			"the grown caption floor cannot fit the reserved box",
+			boundsAt(raisedBlocked, caption + offset, 0).X > grownBlockedWidth
 		)
 		t.check("the grown impossible box preserves its floor", band ~= nil and band.MinTextSize == caption + offset)
 		t.check("the grown impossible box reports its overflow", not raisedBlocked.TextFits, raisedBlocked.TextBounds)

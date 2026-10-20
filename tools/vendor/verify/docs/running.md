@@ -13,7 +13,7 @@ A passing run proves only what the host can observe.
 | --- | --- | --- | --- | --- |
 | Simulator | `--host simulator` (default) | The case in the Lute process, over the [simulated environment](api.md#simulated-environment). | Lute. | Proves Luau logic over the declared surface. It proves no rendering, physics, replication or input. |
 | Lute worker | `Lute.host` | One Lute process per batch. | Lute. See [platform support](#platform-support). | Proves Luau logic under Lute. See [Lute workers](execution.md#lute-workers). |
-| Studio, launched | `--host studio` | A disposable Studio on a copy of an XML place. | Installed, authenticated Studio with its MCP tools. macOS reference. See [platform support](#platform-support) for Windows. | One Studio per run. Supports 1 to 8 clients. Saves a final view for one client. See [native Studio execution](execution.md#native-studio-execution). |
+| Studio, launched | `--host studio` | A disposable Studio on a copy of a binary or XML Roblox place. | Installed, authenticated Studio with its MCP tools. macOS reference. See [platform support](#platform-support) for Windows. | One Studio per run. Supports 1 to 8 clients. Saves a final view for one client. See [native Studio execution](execution.md#native-studio-execution). |
 | Studio, attached | `attach` option of `Lute.platform.run` | The case in a Studio that the developer already has open. | An open Studio and an `authorize` function. | No isolation. No `players`. The command line cannot attach. See [attached Studio](execution.md#attached-studio). |
 | Player | `--host player` | The case in a published place, through the signed-in Player. | A published test place and a closed Player. macOS only. | One client per machine. No durable screenshots. See [published Player execution](execution.md#published-player-execution). |
 | Open Cloud | `--host open-cloud` | The case as a Luau execution task on an exact place version. | A caller module for `request` and `authorize`. | Server only. No input, physics, replication, rendering, audio or capture. See [Open Cloud execution](execution.md#open-cloud-execution). |
@@ -40,7 +40,7 @@ The first two commands run the same assertions against simulated and native inst
 [The entry](../examples/platform-entry.luau) chooses the host binding.
 It exports a function that receives `simulator`, `studio` or `player` and returns `{ cases, options, now }`.
 On Studio and Open Cloud runs the function also receives the run ID as a second argument. It is nil on the simulator and the Player.
-During a Studio run, `ReplicatedStorage` holds the attribute `VerifyRun` with the run ID. A multiplayer run sets it on the test server before the entry runs, so clients read it by replication. Prefer the second argument on the server.
+During a Studio run, `ReplicatedStorage` holds the attribute `VerifyRun` with a short token derived from the run ID; engine attribute strings are limited to 50 characters and a run ID can be a long path. A multiplayer run sets it on the test server before the entry runs, so clients read it by replication and can use it as a shared run identity. The server entry receives the full run ID as its second argument.
 
 - `cases` holds `Core.NamedCase` values with explicit unique IDs.
 - `options` is `Core.RunOptions`.
@@ -64,7 +64,7 @@ Do not also set `options.selection`. Each case declares a finite timeout and the
 | `--output directory` | Parent for unique evidence directories. Defaults to `.verify`. |
 | `--framework directory` | Framework checkout. Inferred from the path of this command. |
 | `--root directory` | Additional mounted module directory. Repeat as needed. Verify follows literal imports automatically. |
-| `--place fixture.rbxlx` | Existing Studio fixture that contains the mounted entry. Without it, the command builds an isolated floor and spawn fixture. |
+| `--place file` | Existing binary (`.rbxl`) or XML (`.rbxlx`) Studio fixture that contains the mounted entry. Without it, the command builds an isolated floor and spawn fixture. |
 | `--base-place place.rbxlx` | Merge the mounted modules and entry scripts into a copy of this XML place. Do not combine it with `--place`. |
 | `--context Server\|Client` | Studio execution side. Defaults to Server. |
 | `--players count` | Studio server with 1 to 8 clients. |
@@ -132,7 +132,7 @@ A watchdog process reads the file. A `started` event with no `finished` event na
 A file with no new line for too long means a stalled run.
 A launched Studio run reads Logger history on every poll of the detached run. See [native Studio execution](execution.md#native-studio-execution).
 An attached Studio run reports progress the same way. Pass `progressFile` or `onProgress`. See [attached Studio](execution.md#attached-studio).
-A Studio run emits each event in the context of the VerifyProgress Logger, with a run token. The host reads GetLogHistory directly through execute_luau, validates the context and run identity, orders events and ignores repeats. Roblox bounds the history; sequence gaps, invalid contexts and failed reads produce `<progressFile>.diagnostics` and a limitation on the first case.
+A Studio run emits each event in the context of the VerifyProgress Logger, with a run token. The host reads GetLogHistory through bounded pages of newer events for that token. It validates the context and run identity, orders events and ignores repeats. `Roblox.progressChannel.readPage(token, afterSequence)` generates one page read. Each response stays within 32 KiB; an event larger than the page is refused. Roblox bounds the history; sequence gaps, invalid contexts and failed reads produce `<progressFile>.diagnostics` and a limitation on the first case.
 `onProgress` receives the same events in order after the run returns, because a worker process blocks the caller.
 A run with no listener and no file behaves as before. The report is the same, and progress never proves a pass.
 

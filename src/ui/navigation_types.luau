@@ -404,6 +404,7 @@ export type PageViewOptions = {
 	autoAdvanceSeconds: Value<number?>?,
 	scrollWheel: Value<boolean>?,
 	indicators: boolean?,
+	indicatorPlacement: ("footer" | "overlay")?,
 	summary: boolean?,
 	controls: boolean?,
 }

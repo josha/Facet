@@ -454,24 +454,26 @@ add("pad-stack-activate-and-back", {}, function(t)
 end)
 
 local function pagesProbe(t: any): any
-	local value: any = { played = {} }
+	local value: any = { played = {}, pageNodes = {} }
 	value.stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
 		value.selection = Compose.cell("one")
 		local pages = {}
 		for _, id in { "one", "two", "three" } do
+			local page = Host.Frame "Course" {
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				UI.Button "Play" {
+					label = "Play " .. id,
+					onActivate = function()
+						table.insert(value.played, id)
+					end,
+				},
+			}
+			value.pageNodes[id] = page
 			table.insert(pages, {
 				id = id,
 				label = id,
-				content = Host.Frame "Course" {
-					BackgroundTransparency = 1,
-					Size = UDim2.fromScale(1, 1),
-					UI.Button "Play" {
-						label = "Play " .. id,
-						onActivate = function()
-							table.insert(value.played, id)
-						end,
-					},
-				},
+				content = page,
 			})
 		end
 		return Host.Frame "Holder" {
@@ -483,12 +485,11 @@ local function pagesProbe(t: any): any
 		}
 	end, { frames = 20 })
 	value.pages = t.find(value.stage, "Pages")
-	value.layout = value.pages and value.pages:FindFirstChildWhichIsA("UIPageLayout")
 	return value
 end
 
 local function playOf(value: any, id: string): any
-	local page = value.pages and value.pages:FindFirstChild(id)
+	local page = value.pageNodes[id]
 	return page and page:FindFirstChild("Play", true)
 end
 
@@ -558,7 +559,7 @@ add(
 	onPhone(function(t)
 		local io = device(t)
 		local value = pagesProbe(t)
-		if not (value.pages and value.layout) then
+		if not (value.pages and value.pages:IsA("ScrollingFrame")) then
 			t.check("the pages mount", false)
 			return
 		end
@@ -567,16 +568,27 @@ add(
 			local y = r.y + r.h * 0.7
 			local from = r.x + r.w * 0.5 + r.w * fraction / 2
 			local to = r.x + r.w * 0.5 - r.w * fraction / 2
-			io.drag(Vector2.new(from, y), Vector2.new(to, y), 12, hold)
+			local before = value.selection:peek()
+			io.down(Vector2.new(from, y))
+			local started = os.clock()
+			local progress = 0
+			repeat
+				progress = math.min((os.clock() - started) / 0.8, 1)
+				io.move(Vector2.new(from + (to - from) * progress, y))
+			until progress == 1
+			if math.abs(fraction) > 0.1 then
+				t.check("a held swipe keeps the model page until release", value.selection:peek() == before)
+			end
+			if hold then
+				t.settle(hold)
+				t.check("holding the contact still does not snap the page", value.selection:peek() == before)
+			end
+			io.up(Vector2.new(to, y))
 			t.settle(90)
 		end
 		swipe(0.6)
 		t.check("one swipe left advances one page", value.selection:peek() == "two", value.selection:peek())
-		t.check(
-			"the layout shows page two",
-			value.layout.CurrentPage and value.layout.CurrentPage.Name == "two",
-			value.layout.CurrentPage
-		)
+		t.near("the layout shows page two", value.pageNodes.two.AbsolutePosition.X, value.pages.AbsolutePosition.X, 0.5)
 		swipe(0.6, 30)
 		t.check(
 			"a swipe held still before release advances one page",
@@ -596,8 +608,9 @@ add(
 		t.settle(90)
 		t.check(
 			"an owner reversal is not swallowed",
-			value.selection:peek() == "two" and value.layout.CurrentPage.Name == "two",
-			value.layout.CurrentPage
+			value.selection:peek() == "two"
+				and math.abs(value.pageNodes.two.AbsolutePosition.X - value.pages.AbsolutePosition.X) <= 0.5,
+			{ selection = value.selection:peek(), page = value.pageNodes.two.AbsolutePosition }
 		)
 	end)
 )

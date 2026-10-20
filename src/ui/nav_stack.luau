@@ -10,6 +10,9 @@ local adaptive = require("./adaptive")
 local ControlTypes = require("./control_types")
 local NavigationProps = require("./navigation_props")
 local pageLayers = require("./nav_page_layers")
+local fontReadiness = require("./font_readiness")
+local textMeasure = require("./text_measure")
+local presentationReadiness = require("./presentation_readiness")
 
 return function(
 	ctx: Types.Context,
@@ -158,6 +161,9 @@ return function(
 						return if at == nil then "exiting" elseif at == #list then "top" else "covered"
 					end)
 					local entering = Compose.cell(stackReady and animated and not reduce())
+					local frames = ctx.config.services.RunService
+					local prepares = runtime.host.frames ~= nil and frames ~= nil and frames.PreRender ~= nil
+					local prepared = Compose.cell(not prepares)
 					local function target(use: ComposeTypes.Use): number
 						return if use(role) == "exiting" or use(entering) and not reduce(use) then 1 else 0
 					end
@@ -171,12 +177,10 @@ return function(
 							end,
 						})
 						else Compose.cell(0)
-					entering:set(false)
 					local fading = Compose.cell(stackReady and animated and level() == "limited")
 					local arrival = runtime.tween(function(use: ComposeTypes.Use): number
 						return if use(fading) then 0 else 1
 					end, { seconds = ctx.metric("motion.reducedFade"), ease = ctx.motionEase("fade") })
-					fading:set(false)
 					local function offset(use: ComposeTypes.Use?): number
 						if not animated or reduce(use) then
 							return if read(role, use) == "exiting" then 1 else 0
@@ -210,7 +214,10 @@ return function(
 						local place, moved = placement(use)
 						return if place == "beneath" then moved + parallax * (1 - moved) else 1
 					end
+					local prepareTitle = runtime.host.frames ~= nil and ctx.config.services.RunService ~= nil
+					local titleReady = Compose.cell(not prepareTitle)
 					local title = ctx.text({
+						Visible = titleReady,
 						Name = "Title",
 						Text = destination.title or "",
 						Size = D2.fromScale(1, 1),
@@ -241,12 +248,31 @@ return function(
 							})
 						end),
 					}
-					local barSize = ctx.observe.AbsoluteSize(navigationBar)
+					local barSize = ctx.observeNative.AbsoluteSize(navigationBar)
 					Compose.watch(function(use: ComposeTypes.Use)
 						local large = entry == rootEntry and adaptive.sizeClass(use(barSize).X) ~= "compact"
 						title:RemoveTag(if large then "facet-type-heading" else "facet-type-title")
 						title:AddTag(if large then "facet-type-title" else "facet-type-heading")
 					end)
+					if prepareTitle then
+						local fontsReady = fontReadiness(ctx, { title })
+						local settled = runtime.settled {
+							ready = function(): boolean
+								return navigationBar.AbsoluteSize.X > 0
+									and fontsReady()
+									and textMeasure.ready(title)
+									and (title.Text == "" or title.TextBounds.X > 0 and title.TextBounds.Y > 0)
+							end,
+							sample = function(): string
+								return `{navigationBar.AbsoluteSize}:{title.AbsoluteSize}:{title.TextBounds}:{title:GetStyled(
+									"TextSize"
+								)}:{title:GetStyled("FontFace")}`
+							end,
+						}
+						Compose.watch(function(use: ComposeTypes.Use)
+							titleReady:set(use(settled))
+						end)
+					end
 					local destinationFrame = Host.Frame "Destination" {
 						BackgroundTransparency = 1,
 						Position = function(use: ComposeTypes.Use)
@@ -303,7 +329,10 @@ return function(
 						panel = ctx.fade({
 							Name = entry.id,
 							GroupTransparency = function(use: ComposeTypes.Use)
-								return if level(use) == "limited" then 1 - use(arrival) else 0
+								return if not use(prepared)
+									then 1
+									elseif level(use) == "limited" then 1 - use(arrival)
+									else 0
 							end,
 							BackgroundTransparency = function(use: ComposeTypes.Use)
 								return if use(moving)
@@ -332,7 +361,7 @@ return function(
 								return place == "beneath" or place == "front" and use(role) ~= "covered"
 							end,
 							Interactable = function(use: ComposeTypes.Use)
-								return use(role) == "top"
+								return use(prepared) and use(role) == "top"
 							end,
 							Host.Frame "Page" {
 								BackgroundTransparency = 1,
@@ -356,6 +385,21 @@ return function(
 								}
 							end) :: Types.Child,
 						})
+					end
+					if prepares and not timing then
+						panel:SetAttribute("FacetPreparing", true)
+						local ready = presentationReadiness(ctx, { destinationFrame, navigationBar })
+						Compose.watch(function(use: ComposeTypes.Use)
+							if use(ready) then
+								prepared:set(true)
+								panel:SetAttribute("FacetPreparing", false)
+								entering:set(false)
+								fading:set(false)
+							end
+						end)
+					else
+						entering:set(false)
+						fading:set(false)
 					end
 					Compose.watch(function(use: ComposeTypes.Use)
 						if not use(moving) then

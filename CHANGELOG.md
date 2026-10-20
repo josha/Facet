@@ -10,6 +10,126 @@
   for authored native transforms. Shared progress reverses on interruption,
   retains departures and adapts to reduced motion. The lab adds an inventory,
   a hinged journal and a staggered menu; the design guide documents their use.
+- A Button's pop feedback paint wears the Button's tags while it moves, so the
+  theme's rules reach it: its corner, outline and child text styles. Before, a
+  rounded `pop = true` Button flashed square for the length of the pop.
+- `ProgressView` takes `presentation = "gauge"`: a dial, an arc of `sweep` degrees
+  (default 240) filled to the value with a needle on it and a hub over its root.
+  `needle = false` leaves the arc.  A game's speedometer or hype meter is a
+  ProgressView now, not hand-drawn frames.
+- A `VStack`, `HStack` or `AdaptiveStack` with `padding` grows that padding to
+  hold its children's shadows. Before, a themed Button's drop plate hung past
+  the edge of a tightly padded plate, because the stack sized itself from the
+  children's boxes only.
+- A labelled Sheet Close shows the close icon beside its label, as a utility
+  button. Before, it was a bare text link that players did not read as Close.
+- `Tasks.hud` puts the action row and the readouts in `topRight` regions of
+  one Composition, with caption room below the row. Before, a HUD in its own
+  `TopbarSafeInsets` ScreenGui could slide under the top bar and lost the
+  theme and focus paint.
+- `Tools.verify` explains `focus-hidden`; `Theme-identity` gives minimum text
+  sizes for 1080p.
+- A disabled Button fades its plate by default, with one transparency rule.
+  Before, a disabled emphasis Button kept its full accent fill and looked
+  enabled. `dimDisabledPlates = false` keeps the old look.
+- A corner zone in the top or bottom row can use the row width that an empty
+  center zone and the other corner leave. Before, it had to fit a third of
+  the screen, so a portrait phone dropped HUD content beside a short dock.
+- `Facet.Value`, `Facet.ValueString`, `Facet.ValueBoolean`, `Facet.ValueNumber`
+  and `Facet.Activate` are exported, so helpers can name the option types that
+  props cards show.
+- `VStack` and `HStack` take `surface = "surface" | "panel" | "pane"`: the theme
+  plate of that role. A HUD can put its readouts on a panel so they read over
+  any scene.
+- A `Card` without `image` or `artwork` is a text card with a padded title and
+  caption. Before, it raised an error, so a shop item without art needed a
+  hand-built panel.
+- Faded disabled plates use palette tokens, so a theme swap updates their
+  colors without rewriting rules. `Tasks.theme` turns them on, so a disabled
+  Buy no longer looks enabled.
+- A Card inside a Sheet or panel uses the `control` plate, so it stays visible
+  on the sheet surface.
+- A root Composition keeps its zones inside the TV safe area at ten feet.
+  Before, only `UI.Screen` added the overscan margins, so a HUD dock sat at
+  the edge of a TV.
+- `Facet.Sides` is exported for typed padding tables. The new type solver
+  does not check a table literal inside `padding`, which also takes a
+  readable; a typed local does.
+- `docs <Control>.props` lists the small named table types an option uses,
+  such as `Sides`, and `docs Icons.names` lists every icon name.
+- `lint --types` reuses its result while the sources, the Facet package and
+  the project do not change.
+- `verify` fails on a control that failed to render (`FacetError`), names the
+  client error when the interface does not mount, and taps the Button that
+  holds a matched text. The Button `caption` is now a label inside it.
+- `Tasks.shop`, `Tasks.hud` and `Tasks.theme` show a card grid shop with
+  shortfall reasons, backed HUD readouts and a game identity theme.
+- A theme StyleSheet mounts a StyleRule only when an instance in the place
+  carries every class that one of its selectors names. It adds the rule when
+  the last class arrives, and it keeps the rule. A rule without a class is
+  always mounted. Before, each sheet mounted every rule of the theme. A game
+  with three Facet screens mounted 1566 rules, and 50 of them matched an
+  instance. The `collectionService` option supplies the service that the
+  sheet asks. Without a DataModel, the sheet mounts every rule.
+- A status Badge without an icon keeps its dot inside the pill. Before, the
+  text size floor ignored the padding that the theme gives the dot, so the dot
+  covered the first letters of the label.
+- `Button` accepts `caption`: a label centred below the Button, inside it.
+  A HUD action can show its name under a circle icon, and `verify --tap NAME`
+  presses that Button. Before, the documented HUD row put a separate Text
+  below the circle, and a tap on that text did nothing.
+- Screens, stacks, tab views and Compositions reveal after about one second
+  when their roots never receive a size, for example in a host without a
+  layout engine. Before, they stayed hidden.
+- `verify --tap` and the play probe tap only ScreenGui text. Text on a
+  SurfaceGui or BillboardGui sign no longer takes a tap from a HUD button.
+- The Verify text-truncated audit rule ignores a false `TextFits` on text
+  without a `TextTruncate` mode when its bounds fit.
+
+- A `top`, `center` or `bottom` region can use the full width of the
+  composition when both side zones of its row are empty, or when it moves
+  below or above its corners. Before, the zone kept `gap` free on both sides
+  for side zones that were not there. A 361 pixel `bottom` region on a
+  portrait phone 369 pixels wide, with `gap` 8, then did not fit, stepped
+  down and caused a fit warning. The side regions of a row also give way
+  first when the center zone fits the full width alone.
+- A Composition warns once for each pair of Compositions and zone when
+  another Composition on the same screen places a visible region in the same
+  zone for two seconds. Two Compositions are on the same screen when their
+  layers are the same or have the same parent. Each Composition lays out
+  only its own regions, so the regions can overlap. A disabled layer, a
+  hidden Composition, a hidden region, a region with a zero size and a
+  region in the top bar strip do not cause the warning. Facet does not move
+  the regions apart: put the HUD of a screen in one Composition.
+- An expanded CollapsibleView always reserves the width of its vertical scroll
+  bar. Before, the bar appeared and went away when content that wraps changed
+  height at the boundary. The content width then changed by the bar width, and
+  a press could move a control from under the pointer.
+- A Menu selects its chosen row when it opens, also when that row mounts after
+  the panel. Before, a long menu could select its first row and leave the
+  chosen row out of view.
+- The Table header, its rows and its fill columns use the same width as the
+  native scroll window of the body. Before, they were narrower than the body
+  by the scroll bar width while no vertical scroll bar showed. Column visibility still uses the width without
+  the scroll bar, so columns do not hide and show when vertical overflow
+  changes.
+- A Composition observes zone and layout sizes once each frame. Before,
+  synchronous size observations in the HUD could exceed the engine event
+  re-entrancy depth during a resize.
+- Travel keeps the style link of its portal when a StyleLink arrives after
+  the portal mounts, and releases it with its owner.
+- Screens, navigation titles, notices and tab content wait for native font
+  and layout readiness before they show. A Composition prepares under a fade
+  until its regions are ready.
+- Slider, ColorPicker, Table column resize, row actions and drag sources use
+  one native `UIDragDetector` pointer ownership. An inline ColorPicker no
+  longer nests a scrolling selection inside its page.
+- The Table header scrolls with the body through native canvas positions.
+- PageView quantizes fractional page positions to whole pixels. Clipped text
+  reports its painted glyph bounds.
+- Button, shortcut hint and row action text keep their minimum sizes when the
+  text size grows. Avatar uses native text scaling. StatusIndicator keeps its
+  width. An indeterminate progress bar does not change the layout of its row.
 
 - DiegeticScreen moves existing application layers onto a native world display
   with one reversible camera shot. UI instances, state, safe-area canvases and

@@ -316,6 +316,7 @@ export type ThemeOptions = {
 	tenFoot: Engine.ValueBoolean?,
 	transition: Engine.Value<(TweenInfo | false)?>?,
 	contentProvider: ContentProvider?,
+	collectionService: CollectionService?,
 }
 export type SkinOptions = {
 	types: Engine.RobloxTypes?,

@@ -1107,4 +1107,26 @@ interactive(
 	}
 )
 
+add("notice-preparation-preserves-visible-motion", {}, function(t)
+	local stage = t.mount(function(UI: FacetControls)
+		return UI.Notice "Arrival" {
+			title = "Update available",
+			message = "A new track pack is ready to install.",
+			actions = { { id = "Install", label = "Install", onActivate = function() end } },
+		}
+	end, { size = Vector2.new(768, 600), motionLevel = "normal", frames = 0 })
+	local notice = assert(stage:FindFirstChild("Arrival", true)) :: Frame
+	local first: number? = nil
+	local largest = 0
+	for _ = 1, 240 do
+		t.settle(1)
+		if notice.Visible and notice.AbsoluteSize.Y > 0 then
+			first = first or notice.AbsoluteSize.Y
+			largest = math.max(largest, notice.AbsoluteSize.Y)
+		end
+	end
+	t.check("the prepared notice becomes visible", notice.Visible and largest > 44, largest)
+	t.check("the visible notice keeps its arrival motion", first ~= nil and largest - first > 1, { first, largest })
+end)
+
 return cases

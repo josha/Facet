@@ -8,6 +8,14 @@ local InputProps = require("./input_props")
 local NavigationProps = require("./navigation_props")
 local surfaceParts = require("./nav_surface_parts")
 
+type CollapsibleButtonSpec = InputProps.ButtonProps & {
+	content: Nav.Content?,
+	expanded: ComposeTypes.Cell<boolean>?,
+	initialFocus: string?,
+	dismissButton: Nav.Value<boolean>?,
+	outsideDismiss: Nav.Value<boolean>?,
+}
+
 return function(
 	ctx: Types.Context,
 	UI: ControlTypes.BuilderControls,
@@ -24,14 +32,7 @@ return function(
 				type(spec.expanded) == "table" and spec.expanded.set,
 				"CollapsibleView.expanded requires a writable Compose cell"
 			)
-			local buttonSpec: InputProps.ButtonProps & {
-				content: Nav.Content?,
-				expanded: ComposeTypes.Cell<boolean>?,
-				initialFocus: string?,
-				dismissButton: Nav.Value<boolean>?,
-				outsideDismiss: Nav.Value<boolean>?,
-			} =
-				table.clone(spec)
+			local buttonSpec = (table.clone(spec) :: unknown) :: CollapsibleButtonSpec
 			buttonSpec.content = nil
 			buttonSpec.expanded = nil
 			buttonSpec.initialFocus = nil
@@ -139,7 +140,7 @@ return function(
 							end,
 							ScrollingDirection = E.ScrollingDirection.Y,
 							ScrollBarThickness = 4,
-							VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
+							VerticalScrollBarInset = E.ScrollBarInset.Always,
 							Selectable = false,
 							column,
 						},

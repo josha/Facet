@@ -3,11 +3,58 @@
 local Analyzer = require("./analyzer")
 local Definitions = require("./definitions")
 local Files = require("./files")
+local Hash = require("./hash")
 local Json = require("./json")
 local Run = require("./run")
 
 local ConsumerTypes = {}
 local DEFINITIONS = { "tools/typecheck/roblox.d.luau", "artifacts/verify/types/roblox.d.luau" }
+local CACHE = "artifacts/facet-lint/types-cache.json"
+
+local function fingerprint(paths: { string }, project: string, solver: string, definitions: string): string
+	local parts: { string } = { solver, definitions, Files.read(project) }
+	local roots = table.clone(paths)
+	for _, root in { "src", "Packages" } do
+		if Files.isDirectory(root) and table.find(roots, root) == nil then
+			table.insert(roots, root)
+		end
+	end
+	for _, root in roots do
+		if Files.isFile(root) then
+			table.insert(parts, root .. "|" .. Files.read(root))
+		elseif Files.isDirectory(root) then
+			for _, file in Files.walk(root) do
+				if string.match(file, "%.luau?$") then
+					table.insert(parts, root .. "/" .. file .. "|" .. Files.read(Files.join(root, file)))
+				end
+			end
+		end
+	end
+	table.sort(parts)
+	return Hash.sha256(table.concat(parts, "\n"))
+end
+
+local function cached(key: string): { Analyzer.Diagnostic }?
+	if not Files.isFile(CACHE) then
+		return nil
+	end
+	local ok, stored = pcall(Json.decode, Files.read(CACHE))
+	if not ok or Json.stringField(stored, "key") ~= key then
+		return nil
+	end
+	local found: { Analyzer.Diagnostic } = {}
+	local entries: Json.Array = Json.arrayField(stored, "diagnostics") or {}
+	for _, entry in entries do
+		table.insert(found, {
+			file = Json.stringField(entry, "file") or "",
+			line = Json.numberField(entry, "line") or 0,
+			column = Json.numberField(entry, "column") or 0,
+			kind = Json.stringField(entry, "kind") or "",
+			message = Json.stringField(entry, "message") or "",
+		})
+	end
+	return found
+end
 
 function ConsumerTypes.check(paths: { string }, project: string, solver: string): ({ Analyzer.Diagnostic }?, string?)
 	local definitions = DEFINITIONS[2]
@@ -23,6 +70,11 @@ function ConsumerTypes.check(paths: { string }, project: string, solver: string)
 	end
 	if not Files.isFile(project) then
 		return nil, "no Rojo project at " .. project
+	end
+	local key = fingerprint(paths, project, solver, definitions :: string)
+	local reused = cached(key)
+	if reused then
+		return reused, nil
 	end
 	local directory = Files.temporaryDirectory("facet-lint")
 	local sourcemap = Files.join(directory, "sourcemap.json")
@@ -75,6 +127,20 @@ function ConsumerTypes.check(paths: { string }, project: string, solver: string)
 			end
 		end
 	end
+	local entries = Json.array()
+	for _, diagnostic in owned do
+		local entry = Json.object()
+		Json.set(entry, "file", diagnostic.file)
+		Json.set(entry, "line", diagnostic.line)
+		Json.set(entry, "column", diagnostic.column)
+		Json.set(entry, "kind", diagnostic.kind)
+		Json.set(entry, "message", diagnostic.message)
+		table.insert(entries, entry)
+	end
+	local stored = Json.object()
+	Json.set(stored, "key", key)
+	Json.set(stored, "diagnostics", entries)
+	Files.write(CACHE, Json.encode(stored))
 	return owned, nil
 end
 

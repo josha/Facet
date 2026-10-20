@@ -13,6 +13,7 @@ local pageLayers = require("./nav_page_layers")
 local tabMetrics = require("./nav_tab_metrics")
 local tabItem = require("./nav_tab_item")
 local tabAccessories = require("./nav_tab_accessories")
+local presentationReadiness = require("./presentation_readiness")
 type SelectionLinks = {
 	NextSelectionLeft: GuiObject?,
 	NextSelectionRight: GuiObject?,
@@ -97,7 +98,7 @@ return function(
 			end
 			return result
 		end)
-		local root = Host.Frame(ctx.props(spec, {
+		local properties = ctx.props(spec, {
 			"selection",
 			"tabs",
 			"sections",
@@ -122,7 +123,15 @@ return function(
 			"enabled",
 			"onChange",
 			"controlSize",
-		}, { Name = "TabView", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) }))
+		}, { Name = "TabView", BackgroundTransparency = 1, Size = D2.fromScale(1, 1) })
+		local frames = ctx.config.services.RunService
+		local preparing = frames ~= nil and frames.PreRender ~= nil and runtime.host.frames ~= nil
+		local root = if preparing
+			then ctx.fade((properties :: unknown) :: Types.CanvasGroupNativeProps, false, false)
+			else Host.Frame(properties)
+		if preparing then
+			ctx.fadeTo(root, 1)
+		end
 		local layoutUnit = ctx.layoutUnit(root)
 		local dimensions = ctx.layoutSize(root, layoutUnit)
 		local function locate()
@@ -851,6 +860,16 @@ return function(
 				if gui and button and (accessory ~= nil or inChrome(current)) and current ~= button then
 					accessory = nil
 					gui.SelectedObject = button
+				end
+			end)
+		end
+		if preparing then
+			root:SetAttribute("FacetPreparing", true)
+			local ready = presentationReadiness(ctx, { root })
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(ready) then
+					ctx.fadeTo(root, 0)
+					root:SetAttribute("FacetPreparing", false)
 				end
 			end)
 		end

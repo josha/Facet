@@ -32,6 +32,13 @@ or change the saved report. Do not read the full report during repairs.
 Use `--verbose` for each capture path and every finding. A failed or missing
 tap, capture, type check, build, or high or medium audit finding gives exit code 1.
 
+`--tap TEXT` taps a visible ScreenGui element whose text contains TEXT, at
+the centre of its visible rectangle. Text in a SurfaceGui or BillboardGui is
+not a tap target. When more than one element matches, it taps the one nearest
+the top of the screen, then the one nearest the left edge. Give each action its
+own visible name. A text inside a Button, such as its `caption`, taps the
+Button that holds it.
+
 Each tap waits for stable layout before capture. Use `--wait SECONDS` to set
 an explicit delay after each tap.
 If the interface does not mount or a tap fails, the device stops its dependent
@@ -49,3 +56,13 @@ Open:
 
 - [Types.reactive](Types.reactive.md)
 - [Tasks.safe-layout](Tasks.safe-layout.md)
+
+## focus-hidden
+
+On a gamepad device, `focus-hidden` reports a selectable control whose
+selection image draws nothing: its own `SelectionImageObject`, or else the
+PlayerGui `SelectionImageObject`. Facet sets the PlayerGui image to its focus
+ring, so every ScreenGui under the PlayerGui shares it. The ring draws while
+gamepad or keyboard input is active. A control that sets its own empty
+`SelectionImageObject`, or a theme focus ring with no visible paint, causes the
+finding. Fix the control or the theme; do not read the audit source.

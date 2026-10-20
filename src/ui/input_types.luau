@@ -53,9 +53,10 @@ export type ButtonInputOptions = {
 	onPointerDown: ((InputObject) -> ())?,
 	onPointerUp: ((InputObject) -> ())?,
 	onPointerCancel: (() -> ())?,
-	target: ("hit" | "thumb")?,
+	target: ("hit" | "thumb" | "inline")?,
 }
 export type ButtonOptions = {
+	caption: Shared.ValueString?,
 	glyph: (() -> GuiObject)?,
 	selected: Shared.ValueBoolean?,
 	onActivate: ((InputObject?, number?) -> ())?,

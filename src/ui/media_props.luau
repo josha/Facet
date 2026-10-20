@@ -620,6 +620,8 @@ export type ProgressViewProps = {
 	min: typeof(progressView.min),
 	max: typeof(progressView.max),
 	presentation: typeof(progressView.presentation),
+	sweep: typeof(progressView.sweep),
+	needle: typeof(progressView.needle),
 	label: typeof(progressView.label),
 	endLabel: typeof(progressView.endLabel),
 	showValue: typeof(progressView.showValue),

@@ -54,6 +54,8 @@ return function(verifyHarness: Verify.Harness)
 			theme: any?,
 			pressHaptic: ((any) -> HapticEffect)?,
 			motionLevel: Shared.Value<Shared.MotionLevel>?,
+			runService: boolean?,
+			preRender: boolean?,
 		}?
 	)
 		local engine = engines.new()
@@ -63,9 +65,16 @@ return function(verifyHarness: Verify.Harness)
 			return nil
 		end
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+		local runService = if options and (options.runService or options.preRender)
+			then { Heartbeat = engine.heartbeat, PreRender = if options.preRender then engine.heartbeat else nil }
+			else nil
 		local UI = controls(Compose, runtime, {
 			types = engine.types,
-			services = { GuiService = gui, UserInputService = input },
+			services = {
+				GuiService = gui,
+				UserInputService = input,
+				RunService = (runService :: unknown) :: RunService?,
+			},
 			theme = options and options.theme,
 			pressHaptic = options and options.pressHaptic and options.pressHaptic(engine),
 			motionLevel = options and options.motionLevel,
@@ -95,65 +104,62 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native navigation controls", function()
-		verifyHarness:case("nested PageView lends ancestor input only to a horizontal touch and restores it", function()
+		verifyHarness:case("overlay indicators stay over the page and leave the footer empty", function()
+			local chosen = Compose.cell("one")
 			local world = setup(function(UI: FacetControls)
-				local function card(): Instance
-					return UI.Button "InteractiveCard" { label = "Course" }
-				end
-				return UI.ScrollView "ParentScroll" {
-					UI.PageView {
-						selection = Compose.cell("one"),
-						pages = { { id = "one", content = card }, { id = "two", content = card } },
+				return UI.PageView {
+					selection = chosen,
+					pages = {
+						{ id = "one", content = UI.Text { text = "One" } },
+						{ id = "two", content = UI.Text { text = "Two" } },
+					},
+					indicatorPlacement = "overlay",
+					controls = false,
+					summary = false,
+				}
+			end)
+			local pages, dots, footer =
+				find(world.screen, "Pages"), find(world.screen, "Indicators"), find(world.screen, "Footer")
+			Verify.expect(pages.Size.Y.Scale):toBe(1)
+			Verify.expect(pages.Size.Y.Offset):toBe(0)
+			Verify.expect(dots.Parent):toBe(pages.Parent)
+			Verify.expect(dots.AnchorPoint.Y):toBe(1)
+			Verify.expect(dots.Position.Y.Scale):toBe(1)
+			Verify.expect(footer.Size.Y.Offset):toBe(0)
+			world.input.TouchEnabled = true
+			for _, id in { "one", "two" } do
+				local button = find(dots, id)
+				Verify.expect(button.Size.X.Offset):toBe(24)
+				Verify.expect(button:FindFirstChild("TargetFloor").MinSize.X):toBe(24)
+				Verify.expect(button:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+			end
+			find(dots, "two").Activated:Fire()
+			Verify.expect(chosen:peek()):toBe("two")
+			world.stop()
+		end)
+		verifyHarness:case("keyboard paging keeps focus on pages without an interactive child", function()
+			local chosen = Compose.cell("one")
+			local world = setup(function(UI: FacetControls)
+				return UI.PageView {
+					selection = chosen,
+					pages = {
+						{ id = "one", content = UI.Button "FirstCard" { label = "First" } },
+						{ id = "two", content = UI.Text { text = "Read this tip" } },
+						{ id = "three", content = UI.Button "LastCard" { label = "Last" } },
 					},
 				}
 			end)
-			local parent = find(world.screen, "ParentScroll")
-			local card = find(world.screen, "InteractiveCard")
-			local E, V3 = world.engine.types.Enum, world.engine.types.Vector3
-			local pointer = world.engine.new("InputObject")
-			pointer.UserInputType, pointer.UserInputState = E.UserInputType.Touch, E.UserInputState.Begin
-			pointer.Position = V3.new(200, 50, 0)
-			card.InputBegan:Fire(pointer)
-			pointer.Position = V3.new(198, 80, 0)
-			world.input.InputChanged:Fire(pointer)
-			Verify.expect(parent.Active and parent.ScrollingEnabled):toBe(true)
-			world.input.InputEnded:Fire(pointer)
-			world.engine.heartbeat:Fire(1 / 60)
-			pointer = world.engine.new("InputObject")
-			pointer.UserInputType, pointer.UserInputState = E.UserInputType.Touch, E.UserInputState.Begin
-			pointer.Position = V3.new(200, 50, 0)
-			card.InputBegan:Fire(pointer)
-			pointer.Position = V3.new(170, 52, 0)
-			world.input.InputChanged:Fire(pointer)
-			Verify.expect(parent.Active):toBe(false)
-			Verify.expect(parent.ScrollingEnabled):toBe(false)
-			world.input.InputEnded:Fire(pointer)
-			world.engine.heartbeat:Fire(1 / 60)
-			Verify.expect(parent.Active and parent.ScrollingEnabled):toBe(true)
-			world.stop()
-		end)
-		verifyHarness:case("ending a PageView owner releases a borrowed native scroller", function()
-			local shown = Compose.cell(true)
-			local world = setup(function(UI: FacetControls)
-				local function pager(): Instance
-					local function card(): Instance
-						return UI.Button "BorrowingCard" { label = "Course" }
-					end
-					return UI.PageView { selection = Compose.cell("one"), pages = { { id = "one", content = card } } }
-				end
-				return UI.ScrollView "ParentScroll" { Compose.show(shown, pager) }
-			end)
-			local parent = find(world.screen, "ParentScroll")
-			local pointer = world.engine.new("InputObject")
-			pointer.UserInputType = world.engine.types.Enum.UserInputType.Touch
-			pointer.UserInputState = world.engine.types.Enum.UserInputState.Begin
-			pointer.Position = world.engine.types.Vector3.new(200, 50, 0)
-			find(world.screen, "BorrowingCard").InputBegan:Fire(pointer)
-			pointer.Position = world.engine.types.Vector3.new(160, 50, 0)
-			world.input.InputChanged:Fire(pointer)
-			Verify.expect(parent.Active):toBe(false)
-			shown:set(false)
-			Verify.expect(parent.Active and parent.ScrollingEnabled):toBe(true)
+			local pages, V2, E = find(world.screen, "Pages"), world.engine.types.Vector2, world.engine.types.Enum
+			pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(960, 160)
+			world.gui.SelectedObject = find(world.screen, "FirstCard")
+			for index = 1, 2 do
+				local input = world.engine.new("InputObject")
+				input.KeyCode, input.UserInputType = E.KeyCode.Right, E.UserInputType.Keyboard
+				world.input.InputBegan:Fire(input)
+				world.input.InputEnded:Fire(input)
+				Verify.expect(chosen:peek()):toBe(if index == 1 then "two" else "three")
+				Verify.expect(world.gui.SelectedObject.Name):toBe(if index == 1 then "two" else "LastCard")
+			end
 			world.stop()
 		end)
 		verifyHarness:case("PageView owns automatic advance and restarts after input and pauses", {
@@ -178,12 +184,12 @@ return function(verifyHarness: Verify.Harness)
 					}
 					return UI.PageView "TimedCards"(props)
 				end)
-				local layout = find(world.screen, "PagesLayout")
-				Verify.expect(layout.ScrollWheelInputEnabled):toBe(false)
+				local viewport = find(world.screen, "Pages")
+				Verify.expect(viewport.ScrollingEnabled):toBe(false)
 				wheel:set(true)
-				Verify.expect(layout.ScrollWheelInputEnabled):toBe(true)
+				Verify.expect(viewport.ScrollingEnabled):toBe(true)
 				wheel:set(false)
-				Verify.expect(layout.ScrollWheelInputEnabled):toBe(false)
+				Verify.expect(viewport.ScrollingEnabled):toBe(false)
 				world.engine.heartbeat:Fire(19)
 				Verify.expect(chosen:peek()):toBe("one")
 				world.engine.heartbeat:Fire(1)
@@ -227,30 +233,19 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local pages = find(world.screen, "Pages")
-				pages.AbsoluteSize = world.engine.types.Vector2.new(320, 160)
-				local layout = find(world.screen, "PagesLayout")
-				local jump = layout.JumpTo
-				local jumps: { boolean } = {}
-				layout.JumpTo = function(self: UIPageLayout, page: Instance)
-					table.insert(jumps, self.Animated)
-					jump(self, page)
-				end
+				pages.AbsoluteWindowSize = world.engine.types.Vector2.new(320, 160)
+				pages.AbsoluteCanvasSize = world.engine.types.Vector2.new(640, 160)
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
 				shown:set(false)
 				chosen:set("one")
-				Verify.expect(#jumps):toBe(0)
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
 				shown:set(true)
-				Verify.expect(#jumps > 0):toBe(true)
-				Verify.expect(jumps[#jumps]):toBe(false)
-				Verify.expect(layout.CurrentPage.Name):toBe("one")
-				Verify.expect(layout.Animated):toBe(true)
+				Verify.expect(pages.CanvasPosition.X):toBe(0)
 				world.screen.Enabled = false
-				local previous = #jumps
 				chosen:set("two")
-				Verify.expect(#jumps):toBe(previous)
+				Verify.expect(pages.CanvasPosition.X):toBe(0)
 				world.screen.Enabled = true
-				Verify.expect(#jumps > previous):toBe(true)
-				Verify.expect(jumps[#jumps]):toBe(false)
-				Verify.expect(layout.CurrentPage.Name):toBe("two")
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
 				local connections = world.engine.census().connections
 				for _ = 1, 8 do
 					shown:set(false)
@@ -1256,8 +1251,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("uses native page layout for model navigation and engine swipes", {
-			id = "native_navigation::native navigation controls::uses native page layout for model navigation and engine swipes",
+		verifyHarness:case("uses native canvas scrolling for model navigation and completed swipes", {
+			id = "native_navigation::native navigation controls::uses native canvas scrolling for model navigation and completed swipes",
 			run = function()
 				local selection = Compose.cell("one")
 				local world = setup(function(UI: FacetControls, Host: RobloxHost)
@@ -1269,11 +1264,13 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end)
+				local pages = find(world.screen, "Pages")
+				pages.AbsoluteWindowSize = world.engine.types.Vector2.new(320, 160)
+				pages.AbsoluteCanvasSize = world.engine.types.Vector2.new(640, 160)
 				find(world.screen, "Next").Activated:Fire()
 				Verify.expect((selection:peek())):toBe("two")
-				local layout = find(world.screen, "PagesLayout")
-				Verify.expect(layout.CurrentPage.Name):toBe("two")
-				layout:JumpTo(find(find(world.screen, "Pages"), "one"))
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
+				pages.CanvasPosition = world.engine.types.Vector2.zero
 				Verify.expect((selection:peek())):toBe("one")
 				world.stop()
 			end,
@@ -1306,42 +1303,48 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("eases between pages with Cubic Out, and a fast swipe with Quint Out, never overshooting", {
-			id = "native_navigation::native navigation controls::eases between pages with Cubic Out, and a fast swipe with Quint Out, never overshooting",
-			run = function()
-				local selection = Compose.cell("one")
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					return UI.PageView({
-						selection = selection,
-						pages = {
-							{ id = "one", title = "One", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-							{ id = "two", title = "Two", content = Host.Frame({}) } :: FixtureNavigationTypes.Tab,
-						},
-					})
-				end)
-				local Enum = world.engine.types.Enum
-				local layout = find(world.screen, "PagesLayout")
-				Verify.expect(layout.EasingStyle):toBe(Enum.EasingStyle.Cubic)
-				Verify.expect(layout.EasingDirection):toBe(Enum.EasingDirection.Out)
-				local pages = find(world.screen, "Pages")
-				local function swipe(distance: number)
-					local V3 = world.engine.types.Vector3
-					pages.InputBegan:Fire({ UserInputType = Enum.UserInputType.Touch, Position = V3.new(300, 100, 0) })
-					pages.InputEnded:Fire({
-						UserInputType = Enum.UserInputType.Touch,
-						Position = V3.new(300 - distance, 100, 0),
-					})
-				end
-				swipe(1)
-				Verify.expect(layout.EasingStyle):toBe(Enum.EasingStyle.Cubic)
-				swipe(300)
-				Verify.expect(layout.EasingStyle):toBe(Enum.EasingStyle.Quint)
-				Verify.expect(layout.EasingStyle ~= Enum.EasingStyle.Back):toBe(true)
-				find(world.screen, "Next").Activated:Fire()
-				Verify.expect(layout.EasingStyle):toBe(Enum.EasingStyle.Cubic)
-				world.stop()
-			end,
-		})
+		verifyHarness:case(
+			"keeps native drag position while card descendants hold contacts and snaps only after all release",
+			{
+				id = "native_navigation::native navigation controls::keeps native drag position while card descendants hold contacts and snaps only after all release",
+				run = function()
+					local selection = Compose.cell("one")
+					local world = setup(function(UI: FacetControls)
+						return UI.PageView({
+							selection = selection,
+							pages = {
+								{ id = "one", title = "One", content = UI.Button "CardOne" { label = "One" } },
+								{ id = "two", title = "Two", content = UI.Button "CardTwo" { label = "Two" } },
+							},
+						})
+					end)
+					local pages = find(world.screen, "Pages")
+					local V2, E = world.engine.types.Vector2, world.engine.types.Enum
+					pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(640, 160)
+					local first, second = world.engine.new("InputObject"), world.engine.new("InputObject")
+					first.UserInputType, second.UserInputType = E.UserInputType.Touch, E.UserInputType.Touch
+					local artwork = world.engine.new("Frame")
+					artwork.Name = "LateArtwork"
+					artwork.Parent = find(world.screen, "CardOne")
+					artwork.InputBegan:Fire(first)
+					pages.CanvasPosition = V2.new(120, 0)
+					world.engine.heartbeat:Fire(1)
+					Verify.expect(pages.CanvasPosition.X):toBe(120)
+					Verify.expect(selection:peek()):toBe("one")
+					find(world.screen, "CardOne").InputBegan:Fire(second)
+					world.input.InputEnded:Fire(first)
+					world.engine.heartbeat:Fire(1)
+					Verify.expect(pages.CanvasPosition.X):toBe(120)
+					world.input.InputEnded:Fire(second)
+					for _ = 1, 120 do
+						world.engine.heartbeat:Fire(0.016)
+					end
+					Verify.expect(pages.CanvasPosition.X):toBe(0)
+					world.stop()
+					Verify.expect(world.engine.census().connections):toBe(0)
+				end,
+			}
+		)
 
 		verifyHarness:case("snaps the showing page into place without motion when the pages frame resizes", {
 			id = "native_navigation::native navigation controls::snaps the showing page into place without motion when the pages frame resizes",
@@ -1355,15 +1358,12 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end)
-				local layout = find(world.screen, "PagesLayout")
-				local writes = {}
-				layout:GetPropertyChangedSignal("Animated"):Connect(function()
-					table.insert(writes, tostring(layout.Animated))
-				end)
-				Verify.expect(layout.Animated):toBe(true)
-				find(world.screen, "Pages").AbsoluteSize = world.engine.types.Vector2.new(640, 240)
-				Verify.expect((table.concat(writes, ","))):toBe("false,true")
-				Verify.expect(layout.CurrentPage.Name):toBe("two")
+				local pages = find(world.screen, "Pages")
+				local V2 = world.engine.types.Vector2
+				pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(640, 160)
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
+				pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(640, 240), V2.new(1280, 240)
+				Verify.expect(pages.CanvasPosition.X):toBe(640)
 				world.stop()
 			end,
 		})
@@ -1391,6 +1391,9 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local Enum = world.engine.types.Enum
 				local play = find(world.screen, "PlayOne")
+				local pages = find(world.screen, "Pages")
+				pages.AbsoluteWindowSize = world.engine.types.Vector2.new(320, 160)
+				pages.AbsoluteCanvasSize = world.engine.types.Vector2.new(640, 160)
 				world.gui.SelectedObject = play
 				Verify.expect(play.NextSelectionRight):toBe(play)
 				world.input.InputBegan:Fire({
@@ -2724,6 +2727,228 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
+		verifyHarness:case("uses the native navigation width before its framed observation publishes", {
+			id = "native_navigation::native navigation controls::uses the native navigation width before its framed observation publishes",
+			run = function()
+				local engine = engines.new()
+				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+				local ctx = require("../src/ui/context")(Compose, runtime, { types = engine.types })
+				local UI = ({} :: unknown) :: SharedTypes.Controls
+				require("../src/ui/layout")(ctx, UI)
+				require("../src/ui/inputs")(ctx, UI)
+				require("../src/ui/nav_pages")(ctx, UI, require("../src/ui/nav_modal")(ctx))
+				local observeSize = ctx.observe.AbsoluteSize
+				local stale = Compose.cell(engine.types.Vector2.zero)
+				ctx.observe.AbsoluteSize = function(node: GuiBase2d)
+					return if node.Name == "NavigationBar" then stale else observeSize(node)
+				end
+				local Host = (runtime.constructors :: unknown) :: RobloxHost
+				local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<unknown> })
+				local stop, mounted = runtime.mount(function()
+					return Host.ScreenGui {
+						UI.NavigationStack {
+							path = path,
+							root = {
+								title = "Recipe book",
+								content = function(): GuiBase2d
+									return Host.Frame {}
+								end,
+							},
+							destinations = {},
+						},
+					}
+				end, engine.new("Folder"))
+				local screen = (mounted :: unknown) :: ScreenGui
+				local bar = assert(screen:FindFirstChild("NavigationBar", true)) :: Frame
+				local title = assert(bar:FindFirstChild("Title")) :: TextLabel
+				local geometry = (bar :: unknown) :: { AbsoluteSize: Vector2 }
+				geometry.AbsoluteSize = engine.types.Vector2.new(1024, 44)
+				Verify.expect(title:HasTag("facet-type-title")):toBe(true)
+				Verify.expect(title:HasTag("facet-type-heading")):toBe(false)
+				Verify.expect(stale:peek()):toBe(engine.types.Vector2.zero)
+				stop()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("reveals a Composition in a host that never lays out", {
+			id = "native_navigation::native navigation controls::reveals a Composition in a host that never lays out",
+			run = function()
+				local world = setup(function(UI: SharedTypes.Controls)
+					return UI.Composition "HUD" {
+						UI.Region "Status" { zone = "topRight", rank = 1, UI.Text { text = "Ready" } },
+					}
+				end, { preRender = true })
+				local root = assert(world.screen:FindFirstChild("HUD", true)) :: Instance
+				Verify.expect(root:GetAttribute("FacetPreparing")):toBe(true)
+				for _ = 1, 30 do
+					world.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(root:GetAttribute("FacetPreparing")):toBe(true)
+				for _ = 1, 60 do
+					world.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(root:GetAttribute("FacetPreparing")):toBe(false)
+				world.stop()
+			end,
+		})
+		verifyHarness:case(
+			"resolves an automatic picker from native width and text bounds before framed observations",
+			{
+				id = "native_navigation::native navigation controls::resolves an automatic picker from native width and text bounds before framed observations",
+				run = function()
+					local engine = engines.new()
+					local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+					local input = engine.new("UserInputService")
+					input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+					local ctx = require("../src/ui/context")(Compose, runtime, {
+						types = engine.types,
+						services = { UserInputService = input },
+					})
+					local UI = ({} :: unknown) :: SharedTypes.Controls
+					require("../src/ui/layout")(ctx, UI)
+					require("../src/ui/inputs")(ctx, UI)
+					require("../src/ui/nav_menu")(ctx, UI, require("../src/ui/nav_modal")(ctx))
+					local observeSize, observeBounds = ctx.observe.AbsoluteSize, ctx.observe.TextBounds
+					local stale = Compose.cell(engine.types.Vector2.zero)
+					ctx.observe.AbsoluteSize = function(node: GuiBase2d)
+						return if node.Name == "Auto" then stale else observeSize(node)
+					end
+					ctx.observe.TextBounds = function(node: TextBox | TextButton | TextLabel)
+						return if node.Name == "LabelMeasure" then stale else observeBounds(node)
+					end
+					local stop, mounted = runtime.mount(function()
+						return UI.Picker "Auto" {
+							selected = Compose.cell("a"),
+							options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
+						}
+					end, engine.new("ScreenGui"))
+					local picker = (mounted :: unknown) :: Frame
+					local measure = assert(picker:FindFirstChild("LabelMeasure")) :: TextLabel
+					local geometry = (picker :: unknown) :: { AbsoluteSize: Vector2 }
+					local metrics = (measure :: unknown) :: { TextBounds: Vector2 }
+					geometry.AbsoluteSize = engine.types.Vector2.new(120, 44)
+					metrics.TextBounds = engine.types.Vector2.new(500, 18)
+					Verify.expect(picker:FindFirstChild("Trigger", true) ~= nil):toBe(true)
+					geometry.AbsoluteSize = engine.types.Vector2.new(1000, 44)
+					Verify.expect(picker:FindFirstChild("Trigger", true) == nil):toBe(true)
+					metrics.TextBounds = engine.types.Vector2.new(1200, 18)
+					Verify.expect(picker:FindFirstChild("Trigger", true) ~= nil):toBe(true)
+					Verify.expect(stale:peek()):toBe(engine.types.Vector2.zero)
+					stop()
+					runtime:dispose()
+				end,
+			}
+		)
+		verifyHarness:case("retains styled automatic picker forms and disables hidden choices", {
+			id = "native_navigation::native navigation controls::retains styled automatic picker forms and disables hidden choices",
+			run = function()
+				local selected, opened = Compose.cell("a"), Compose.cell(false)
+				local options = Compose.cell({ { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } })
+				local world = setup(function(UI: FacetControls)
+					return UI.Picker "Auto" {
+						selected = selected,
+						isPresented = opened,
+						options = options,
+					}
+				end, { runService = true })
+				local picker = find(world.screen, "Auto")
+				local segmented, menu, inline
+				local count = 0
+				for _, child in picker:GetChildren() do
+					if child.Name == "Presentation" then
+						count += 1
+						if child:HasTag("facet-segmented") then
+							segmented = child
+						elseif find(child, "Trigger") then
+							menu = child
+						else
+							inline = child
+						end
+					end
+				end
+				Verify.expect(count):toBe(3)
+				Verify.expect(segmented.Visible):toBe(true)
+				Verify.expect(menu.Visible):toBe(false)
+				Verify.expect(inline.Visible):toBe(false)
+				local hidden = find(inline, "b")
+				Verify.expect(hidden.Interactable):toBe(false)
+				hidden.Activated:Fire()
+				Verify.expect(selected:peek()):toBe("a")
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+				picker.AbsoluteSize = world.engine.types.Vector2.new(120, 44)
+				find(picker, "LabelMeasure").TextBounds = world.engine.types.Vector2.new(500, 18)
+				Verify.expect(menu.Visible):toBe(true)
+				Verify.expect(segmented.Visible):toBe(false)
+				find(menu, "Trigger").Activated:Fire()
+				Verify.expect(opened:peek()):toBe(true)
+				picker.AbsoluteSize = world.engine.types.Vector2.new(1000, 44)
+				Verify.expect(segmented.Visible):toBe(true)
+				Verify.expect(menu.Visible):toBe(false)
+				Verify.expect(opened:peek()):toBe(false)
+				picker.AbsoluteSize = world.engine.types.Vector2.new(120, 44)
+				find(menu, "Trigger").Activated:Fire()
+				Verify.expect(opened:peek()):toBe(true)
+				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+				Verify.expect(inline.Visible):toBe(true)
+				Verify.expect(menu.Visible):toBe(false)
+				Verify.expect(opened:peek()):toBe(false)
+				hidden.Activated:Fire()
+				Verify.expect(selected:peek()):toBe("b")
+				picker.AbsoluteSize = world.engine.types.Vector2.new(1000, 44)
+				Verify.expect(segmented.Visible):toBe(true)
+				Verify.expect(segmented.Parent):toBe(picker)
+				Verify.expect(hidden.Interactable):toBe(false)
+				local many = {}
+				for index = 1, 7 do
+					table.insert(many, { value = tostring(index), label = "Choice " .. tostring(index) })
+				end
+				options:set(many)
+				count = 0
+				for _, child in picker:GetChildren() do
+					if child.Name == "Presentation" then
+						count += 1
+					end
+				end
+				Verify.expect(count):toBe(1)
+				Verify.expect(menu.Parent):toBe(picker)
+				Verify.expect(menu.Visible):toBe(true)
+				world.stop()
+				Verify.expect(world.engine.census().connections):toBe(0)
+			end,
+		})
+
+		verifyHarness:case("reveals the navigation title after its initial styled bounds settle", {
+			id = "native_navigation::native navigation controls::reveals the navigation title after its initial styled bounds settle",
+			run = function()
+				local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<unknown> })
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return UI.NavigationStack {
+						path = path,
+						root = { title = "Recipe book", content = Host.Frame {} },
+						destinations = {},
+					}
+				end, { runService = true })
+				local bar = find(world.screen, "NavigationBar") :: Frame
+				local title = assert(bar:FindFirstChild("Title")) :: TextLabel
+				local box = (bar :: unknown) :: { AbsoluteSize: Vector2 }
+				local text = (title :: unknown) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
+				box.AbsoluteSize = world.engine.types.Vector2.new(1024, 44)
+				text.AbsoluteSize = box.AbsoluteSize
+				Verify.expect(title.Visible):toBe(false)
+				text.TextBounds = world.engine.types.Vector2.new(100, 20)
+				world.engine.heartbeat:Fire(1 / 60)
+				text.TextBounds = world.engine.types.Vector2.new(120, 24)
+				world.engine.heartbeat:Fire(1 / 60)
+				Verify.expect(title.Visible):toBe(false)
+				for _ = 1, 4 do
+					world.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(title.Visible):toBe(true)
+				box.AbsoluteSize = world.engine.types.Vector2.new(390, 44)
+				Verify.expect(title.Visible):toBe(true)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("sizes the navigation bar title by the stack's width class", {
 			id = "native_navigation::native navigation controls::sizes the navigation bar title by the stack's width class",
 			run = function()
@@ -2800,6 +3025,9 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end)
+				local pages = find(pager.screen, "Pages")
+				pages.AbsoluteWindowSize = pager.engine.types.Vector2.new(320, 160)
+				pages.AbsoluteCanvasSize = pager.engine.types.Vector2.new(640, 160)
 				pager.gui.SelectedObject = find(pager.screen, "PageOne")
 				selection:set("two")
 				Verify.expect(pager.gui.SelectedObject.Name):toBe("PageTwo")
@@ -3421,7 +3649,11 @@ return function(verifyHarness: Verify.Harness)
 				find(world.screen, "ModalBack").Pressed:Fire()
 				Verify.expect((errorValue:peek())):toBe(nil)
 				world.gui.ReducedMotionEnabled = true
-				Verify.expect(find(world.screen, "PagesLayout").Animated):toBe(false)
+				local pages = find(world.screen, "Pages")
+				local V2 = world.engine.types.Vector2
+				pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(640, 160)
+				page:set("b")
+				Verify.expect(pages.CanvasPosition.X):toBe(320)
 				world.stop()
 			end,
 		})
@@ -3990,6 +4222,63 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(source, "Scene").CurrentCamera.Parent):toBe(find(source, "Scene"))
 				Verify.expect((find(world.screen, "ExternalCamera"):isDestroyed())):toBe(false)
 				world.stop()
+			end,
+		})
+
+		verifyHarness:case("starts source expansion after the native overlay becomes visible", {
+			id = "native_navigation::native navigation controls::starts source expansion after the native overlay becomes visible",
+			run = function()
+				local shown = Compose.cell(false)
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					local source = Host.Frame "Card" {}
+					return Host.Frame {
+						source,
+						UI.Alert {
+							isPresented = shown,
+							surface = "fullScreen",
+							transition = { source = source :: GuiObject, seconds = 0.4 },
+						},
+					}
+				end, { preRender = true })
+				local V2 = world.engine.types.Vector2
+				local source = find(world.screen, "Card")
+				source.AbsoluteSize = V2.new(120, 80)
+				shown:set(true)
+				local panel = find(world.screen, "AlertPanel")
+				local modal = find(world.screen, "AlertModal")
+				local wrapper = find(world.screen, "OverlayArrival")
+				modal.AbsoluteSize = V2.new(800, 600)
+				local release = require("../src/ui/text_measure").hold(find(panel, "OK"))
+				for _ = 1, 8 do
+					world.engine.heartbeat:Fire(0.1)
+				end
+				Verify.expect(fadeKit.of(wrapper)):toBe(1)
+				release()
+				for _, node in world.screen:GetDescendants() do
+					if node:IsA("TextLabel") or node:IsA("TextButton") then
+						node.TextBounds = V2.new(40, 20)
+					end
+				end
+				for _ = 1, 20 do
+					if fadeKit.of(wrapper) == 0 then
+						break
+					end
+					world.engine.heartbeat:Fire(1 / 60)
+				end
+				Verify.expect(fadeKit.of(wrapper)):toBe(0)
+				Verify.expect(panel.Size.X.Offset < 800):toBe(true)
+				local width = panel.Size.X.Offset
+				world.engine.heartbeat:Fire(0.1)
+				Verify.expect(panel.Size.X.Offset > width and panel.Size.X.Offset < 800):toBe(true)
+				world.engine.heartbeat:Fire(0.4)
+				Verify.expect(panel.Size.X.Offset):toBe(800)
+				shown:set(false)
+				world.engine.heartbeat:Fire(0.1)
+				Verify.expect(panel.Size.X.Offset < 800 and panel.Size.X.Offset > 120):toBe(true)
+				world.engine.heartbeat:Fire(0.4)
+				Verify.expect(find(world.screen, "AlertPanel")):toBe(nil)
+				world.stop()
+				Verify.expect(world.engine.census().connections):toBe(0)
 			end,
 		})
 

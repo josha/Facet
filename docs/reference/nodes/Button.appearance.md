@@ -36,11 +36,16 @@ Button.appearance option values and behavior.
   carve (`chrome.control.contentInsets`) is added to that padding on each
   side, so the label and a Menu or Picker disclosure icon sit inside the
   frame. A framed TextInput adds the `field` carve the same way.
-- `target`: `hit` (the default) or `thumb`. On touch, a `thumb` Button has a
+- `target`: `hit` (the default), `thumb` or `inline`. On touch, a `thumb` Button has a
   `TargetFloor` of `UI.environment().thumbTarget` on both axes, with any
   `controlSize`. Use it for primary game actions that the player presses with
   a thumb while playing, such as Jump, Drift or Fire.
   With another input, it keeps the usual floor.
+  Use `inline` for adjacent choices within a compact horizontal control, such as
+  page indicators. It keeps the usual minimum height and uses
+  `metrics.targetSizes.inline` as the minimum width (24 pixels by default).
+  Keep the targets separate. This option does not enlarge or overlap hit areas.
+  The inline width must be at least 24 and no larger than `targetSizes.minimum`.
 - `textSize`: a type role (`caption`, `label`, `body`, `heading`, `title`,
   `control`, `strong` or `numeral`) or a number of pixels, or a readable of
   one. A role adds the `facet-type-<role>` tag to the label, and a number sets

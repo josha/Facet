@@ -34,6 +34,14 @@ StyleSheet ownership, options, input paint, distance, asset loading and motion t
     every entry in `package.assets` except those marked `preload = "lazy"`,
     off the calling thread, so a panel that
     first opens later already has its art.
+  - `collectionService`: the CollectionService that tells the sheet which
+    classes instances carry. If you omit it, the sheet uses the engine's
+    CollectionService. Without one, the sheet mounts every rule.
+- The sheet mounts a rule only when an instance carries every class that one
+  of the rule's selectors names. When the last class arrives, the sheet adds
+  the rule with its properties, and adds its transitions one frame later, so
+  the new paint does not animate. The sheet keeps a rule that it mounted. A
+  rule whose selectors name no class is always mounted.
 - Colors and opacity use native StyleRule transitions. `:Press` rules use
   `metrics.motion.press` (0.08 seconds), `:Hover` rules use
   `metrics.motion.hover` (0.15 seconds), and other rules use

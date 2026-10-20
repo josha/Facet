@@ -1090,6 +1090,7 @@ export type PageViewSpec = {
 	autoAdvanceSeconds: typeof(pageView.autoAdvanceSeconds),
 	scrollWheel: typeof(pageView.scrollWheel),
 	indicators: typeof(pageView.indicators),
+	indicatorPlacement: typeof(pageView.indicatorPlacement),
 	summary: typeof(pageView.summary),
 	controls: typeof(pageView.controls),
 	[number | Engine.EventKey]: Compose.Child,

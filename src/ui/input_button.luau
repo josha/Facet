@@ -56,6 +56,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		"imageAspectRatio",
 		"imageFraming",
 		"subtitle",
+		"caption",
 		"row",
 		"name",
 		"hint",
@@ -83,8 +84,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			"Facet.Button: shape must be rect or circle"
 		)
 		assert(
-			spec.target == nil or spec.target == "hit" or spec.target == "thumb",
-			"Facet.Button: target must be hit or thumb"
+			spec.target == nil or spec.target == "hit" or spec.target == "thumb" or spec.target == "inline",
+			"Facet.Button: target must be hit, thumb or inline"
 		)
 		local function cornerRadius(use: ComposeTypes.Use?): UDim
 			local corners = read(spec.corners, use)
@@ -289,6 +290,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			and spec.label ~= nil
 			and spec.shape ~= "circle"
 			and (spec.AutomaticSize == nil or rich)
+		local function targetWidth(minimum: number, use: ComposeTypes.Use?): number
+			return if spec.target == "inline" then math.min(minimum, ctx.metric("targetSizes.inline", use)) else minimum
+		end
 		if constrainedCaption then
 			p[#p + 1] = Host.UISizeConstraint({
 				MinSize = function(use: ComposeTypes.Use): Vector2
@@ -311,7 +315,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						else glyphs * glyphSide + math.max(0, glyphs - 1) * contentGap
 					return V2.new(
 						math.max(
-							minimum,
+							targetWidth(minimum, use),
 							2 * ctx.controlSize(spec.controlSize, "paddingX", use)
 								+ (carve.left or 0)
 								+ (carve.right or 0)
@@ -515,6 +519,20 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		activation.mark(node)
 		Compose.cleanup(activation.provide(node, activate))
+		if spec.caption ~= nil then
+			local caption = ctx.text({
+				Name = "Caption",
+				Text = spec.caption,
+				AutomaticSize = E.AutomaticSize.XY,
+				AnchorPoint = V2.new(0.5, 0),
+				Position = function(use: ComposeTypes.Use): UDim2
+					return D2.new(0.5, 0, 1, ctx.metric("space.xs", use))
+				end,
+			})
+			caption:AddTag("facet-type-caption")
+			node.ClipsDescendants = false
+			caption.Parent = node
+		end
 		if not rich then
 			sized(node)
 			if spec.shape ~= "circle" then
@@ -540,7 +558,27 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 								local metrics = `{width}|{use(words)}|{use(points)}|{use(face)}`
 								if metrics ~= measured and node:HasTag("facet-button-tight") then
 									measured = metrics
-									node:RemoveTag("facet-button-tight")
+									local drawn = node.TextBounds.X
+									local unit = 1
+									local at: Instance? = node
+									while at do
+										local transform = at:FindFirstChildWhichIsA("UIScale")
+										if transform then
+											unit *= transform.Scale
+										end
+										at = at.Parent
+									end
+									local package = read(ctx.config.theme, use)
+									local skin = package and package.chrome and package.chrome.control
+									local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
+									local padding = (
+										2 * ctx.controlSize(spec.controlSize, "paddingX", use)
+										+ (carve.left or 0)
+										+ (carve.right or 0)
+									) * unit
+									if drawn == 0 or (whole and drawn + padding <= width) then
+										node:RemoveTag("facet-button-tight")
+									end
 								end
 								if not whole and width > 0 and not node:HasTag("facet-button-tight") then
 									measured = metrics
@@ -704,7 +742,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		if spec.compactLabel then
 			assert(not rich, "Facet.Button: compactLabel requires a text button")
-			local size = ctx.observe.AbsoluteSize(node)
+			local size = ctx.observeNative.AbsoluteSize(node)
 			local measure: TextLabel
 			runtime.mount(function()
 				measure = ctx.text({
@@ -718,7 +756,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return measure
 			end, node)
 			local unit = ctx.layoutUnit(node)
-			local bounds = ctx.layoutBounds(measure, unit)
+			local bounds = ctx.observeNative.TextBounds(measure)
 			local automatic = ctx.observe.AutomaticSize(node)
 			local parent = ctx.observe.Parent(node)
 			local available = Compose.cell(0)
@@ -754,7 +792,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						then use(available) / scale
 						else use(size).X / scale
 					local compact = width > 0
-						and use(bounds).X > width - 2 * ctx.controlSize(spec.controlSize, "paddingX", use)
+						and use(bounds).X / scale > width - 2 * ctx.controlSize(spec.controlSize, "paddingX", use)
 					return read(if compact then spec.compactLabel else spec.label, use)
 				end,
 			})
@@ -993,7 +1031,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						return Host.UISizeConstraint "TargetFloor" {
 							MinSize = function(use: ComposeTypes.Use): Vector2
 								local minimum = floor(use)
-								return V2.new(minimum, minimum)
+								return V2.new(targetWidth(minimum, use), minimum)
 							end,
 						}
 					end),

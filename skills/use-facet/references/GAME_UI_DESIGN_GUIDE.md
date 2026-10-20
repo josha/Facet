@@ -230,6 +230,20 @@ Use these decisive questions:
 
 Use the task chapters for the configuration tradeoffs. The [control index](game-ui/CONTROL_INDEX.md) provides a complete route from each Facet control to its design guidance.
 
+### Use the control, not a copy of it
+
+A HUD often grows from native frames: a bar made from two frames, a row of round frames for charge pips, a list of rows for standings, a plate with a word in it for every callout. Each copy works on the day it is written. It does not get the theme's paint and type, scaled metrics at ten feet, reduced motion, an accessible name, a compact form or the next fix to the control. The game then has two visual languages, and the hand-built one drifts.
+
+| What the player reads | Control | Not |
+| --- | --- | --- |
+| How full: health, charge, energy, a gauge of collected items | `ProgressView`; `segments` for pips or discrete units; `trail` for a loss | Two frames with a scaled fill; a row of circles |
+| How long: a countdown, a race clock, a remaining effect | `Timer`, or a `ProgressView` for the time left | A text label set every frame |
+| Who is where: standings, results, a scoreboard | `Table`, bounded | Rows of hand-placed labels |
+| A short state of an object: safe, new, ready | `Badge` or `StatusIndicator` with a word | A colored frame alone |
+| An acknowledgement that can expire | `Toast` with `key` and `priority` | A chip shown by a timer |
+
+Use native objects through `Host` only for content that no control shows: a minimap, a 3D view, illustration. When a control lacks something the game needs, for example a different color for each charge tier, extend the control or its theme rules. That fix then serves every screen. Do not replace the control with a native copy to get one look.
+
 ### Worked decisions across different game tasks
 
 | Task | Design reasoning | Control decisions |

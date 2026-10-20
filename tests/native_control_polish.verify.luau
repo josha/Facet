@@ -432,7 +432,10 @@ return function(verifyHarness: Verify.Harness)
 					}
 				do
 					arrive()
+					expect((key:HasTag("facet-button-tight"))):toBe(true)
+					key.AbsoluteSize = w.V2.new(120, 44)
 					expect((key:HasTag("facet-button-tight"))):toBe(false)
+					key.AbsoluteSize = w.V2.new(30, 44)
 					key.TextFits = false
 					expect((key:HasTag("facet-button-tight"))):toBe(true)
 					key.TextFits = true

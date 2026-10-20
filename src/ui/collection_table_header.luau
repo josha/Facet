@@ -1,4 +1,5 @@
 --!strict
+local pointerDragOf = require("./pointer_drag")
 local ControlTypes = require("./control_types")
 local activation = require("./activation")
 local scrollLock = require("./scroll_lock")
@@ -23,6 +24,7 @@ return function<V, K>(
 	local readSource = ctx.readSource
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local input, preferredInput = metrics.input, metrics.preferredInput
+	local pointerInput = pointerDragOf(ctx)
 	local function setWidths(value: { [string]: number }): ()
 		if spec.onWidthsChange then
 			spec.onWidthsChange(value)
@@ -110,9 +112,7 @@ return function<V, K>(
 							return "Resize " .. tostring(read(value.label or value.id, use))
 						end) :: Types.Value<Types.AttributeValue?>,
 					},
-					Selectable = function(use: ComposeTypes.Use)
-						return not (preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Gamepad)
-					end,
+					Selectable = false,
 					AnchorPoint = V2.new(0.5, 0),
 					Position = D2.fromScale(1, 0),
 					Size = function(use: ComposeTypes.Use)
@@ -127,7 +127,7 @@ return function<V, K>(
 					ZIndex = 3,
 					Host.UIDragDetector({
 						Enabled = function(use: ComposeTypes.Use): boolean
-							return not (preferredInput ~= nil and use(preferredInput) == E.PreferredInput.Gamepad)
+							return pointerInput(use)
 						end,
 						DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
 						DragAxis = V2.new(1, 0),

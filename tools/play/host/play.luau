@@ -373,7 +373,10 @@ local function open(options: HostOptions): Host
 		local final = qa:call("ping")
 		local fields: { [string]: unknown } = if type(final) == "table" then final :: { [string]: unknown } else {}
 		if options.requireInterface and not QA.interfaceMounted(fields, true) then
+			local errors = if type(fields.errors) == "table" then fields.errors :: { unknown } else {}
+			local first = errors[1]
 			qa.mountProblem = "interface did not mount; dependent steps stopped"
+				.. (if type(first) == "string" then "; client error: " .. first else "")
 			current = { device = device.id, qa = qa }
 			return qa
 		end

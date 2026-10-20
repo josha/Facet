@@ -252,7 +252,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 				return overlayReorder(true)
 			end, root)
 		end
-		local size: ComposeTypes.Cell<Vector2> = observe.AbsoluteWindowSize(root)
+		local size: ComposeTypes.Cell<Vector2> = ctx.observeNative.AbsoluteWindowSize(root)
 		local position: ComposeTypes.Cell<Vector2> = observe.CanvasPosition(root)
 		local mountParent = observe.Parent(root)
 		local ancestryVersion = Compose.cell(0)

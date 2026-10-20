@@ -16,6 +16,9 @@ local Reply = require "./studio-reply"
 local Install = require "./studio-install"
 local Launch = require "./studio-launch"
 local Logs = require "./studio-logs"
+local Identity = require "./studio-identity"
+
+export type Identity = Identity.Identity
 
 local CALL_SECONDS = 30
 
@@ -32,6 +35,7 @@ export type Options = {
 	deadlineSeconds: number?,
 	directory: string?,
 	progressFile: string?,
+	identity: Identity?,
 }
 
 local function worker(path: string)
@@ -63,14 +67,24 @@ local function worker(path: string)
 	local ok, reason = pcall(function()
 		local id = session.studio.id
 		local token = string.format("%q", runId)
+		local runToken = Detached.tokenFor(runId)
+		local attribute = string.format("%q", runToken)
 		local edit = Reply.texts(call("execute_luau", {
 			studio_id = id,
 			datamodel_type = "Edit",
 			code = "game:GetService('ReplicatedStorage'):SetAttribute('VerifyRun', "
-				.. token
+				.. attribute
 				.. "); return game:GetService('ReplicatedStorage'):GetAttribute('VerifyRun')",
 		}))
-		assert(string.find(edit, runId, 1, true) ~= nil, "Studio did not acknowledge run identity")
+		assert(string.find(edit, runToken, 1, true) ~= nil, "Studio did not acknowledge run identity")
+		if fields.identity ~= nil then
+			local configured = session.execute("Edit", Identity.source(Identity.read(fields.identity)))
+			assert(configured.ok, configured.detail)
+			assert(
+				string.find(Reply.texts(configured.result), "verify-studio-identity-ok", 1, true),
+				"Studio did not acknowledge place identity"
+			)
+		end
 		local installedLogs = session.execute("Edit", Logs.install)
 		assert(installedLogs.ok, installedLogs.detail)
 		local progressToken = Detached.tokenFor(runId)
@@ -80,7 +94,7 @@ local function worker(path: string)
 		if type(players) == "number" then
 			assert(players >= 1 and players <= 8 and players % 1 == 0, "Studio multiplayer supports 1 to 8 clients")
 			local source = "game:GetService('ReplicatedStorage'):SetAttribute('VerifyRun', "
-				.. token
+				.. attribute
 				.. "); local runId = "
 				.. token
 				.. "; local progressToken = "
@@ -103,7 +117,7 @@ local function worker(path: string)
 			call("start_stop_play", { studio_id = id, is_start = true })
 			datamodel = textField "context"
 			code = "assert(game:GetService('ReplicatedStorage'):GetAttribute('VerifyRun') == "
-				.. token
+				.. attribute
 				.. ", 'wrong Verify run'); local runId = "
 				.. token
 				.. "; local progressToken = "
@@ -142,6 +156,10 @@ local function worker(path: string)
 end
 
 local function run(options: Options): Core.BatchOutcome
+	assert(options.identity == nil or options.attach == nil, "Studio identity requires a launched disposable Studio")
+	if options.identity ~= nil then
+		Identity.read(options.identity)
+	end
 	if options.attach ~= nil then
 		return Attach.run {
 			attach = options.attach,
@@ -177,14 +195,14 @@ local function run(options: Options): Core.BatchOutcome
 	end
 	local directory = Files.claimDirectory(options.directory or Files.temporary "verify-studio")
 	local input = directory .. "/request"
+	local source = fs.readFileToString(place)
+	local extension = assert(Launch.extension(source), "Studio launcher requires a Roblox XML or binary place")
 	local placeName = "Verify-"
 		.. tostring(process.pid())
 		.. "-"
 		.. (string.match(directory, if system.win32 then "[^/\\]+$" else "[^/]+$") :: string)
-		.. ".rbxlx"
+		.. extension
 	local placePath = directory .. "/" .. placeName
-	local source = fs.readFileToString(place)
-	assert(string.find(source, "<roblox", 1, true) ~= nil, "Studio launcher requires an XML rbxlx place")
 	fs.writeStringToFile(placePath, source)
 	fs.writeStringToFile(
 		input,
@@ -192,6 +210,7 @@ local function run(options: Options): Core.BatchOutcome
 			finalCapture = options.finalCapture,
 			players = options.players,
 			directory = directory,
+			identity = options.identity,
 			runId = directory,
 			place = placePath,
 			placeName = placeName,

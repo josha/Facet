@@ -107,7 +107,7 @@ local neutral: ThemeTypes.ThemePackage = {
 		space = { xs = 4, s = 8, m = 16, l = 24, xl = 40, tight = 6, gutter = 8 },
 		radii = { control = 8, panel = 12, pill = 999, tab = 999 },
 		strokes = { hairline = 1 },
-		targetSizes = { minimum = 44, thumb = 70, thumbLarge = 120 },
+		targetSizes = { minimum = 44, inline = 24, thumb = 70, thumbLarge = 120 },
 		controlSizes = {
 			compact = { height = 36, paddingX = 8, iconSize = 16 },
 			regular = { height = 44, paddingX = 12, iconSize = 20 },
@@ -374,6 +374,16 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		then ((package.chrome or {}) :: { [string]: ThemeTypes.SkinLayer }).control.contentInsets or {}
 		else {}
 
+	rule(".facet-sheet >> .facet-card-body, .facet-panel >> .facet-card-body", { BackgroundColor3 = c("control") })
+	rule(".facet-sheet >> .facet-card-text, .facet-panel >> .facet-card-text", { BackgroundColor3 = c("control") })
+	rule(".facet-card-text >> .facet-panel", { BackgroundTransparency = 1 })
+	rule(".facet-card-text::UIPadding", {
+		PaddingBottom = types.UDim.new(0, package.metrics.space.s),
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+	})
+
 	rule(".facet-panel.facet-card-body::UIPadding", {
 		PaddingLeft = types.UDim.new(0, 0),
 		PaddingRight = types.UDim.new(0, 0),
@@ -550,6 +560,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-role-onIndicator >> .facet-button-glyph >> .facet-path", { Color3 = c("onAccent") })
 	rule(".facet-disabled >> .facet-button-glyph >> .facet-path", { Color3 = c("contentSecondary") })
 	rule(".facet-progress-ring-fill", { Color3 = c("accent") })
+	rule(".facet-progress-gauge-needle", { Color3 = c("content") })
+	rule(".facet-progress-gauge-hub", { BackgroundColor3 = c("content"), BackgroundTransparency = 0 })
 	rule(".facet-icon", { ImageColor3 = c("content"), BackgroundTransparency = 1 })
 	rule(".facet-role-destructive >> .facet-icon", { ImageColor3 = c("onDanger") })
 	rule(".facet-selected >> .facet-icon", { ImageColor3 = onSelected })
@@ -1095,6 +1107,9 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-appearance-link.facet-selected >> .facet-text", { TextColor3 = linkInk })
 		rule(".facet-appearance-link.facet-selected >> .facet-icon", { ImageColor3 = linkInk })
 	end
+	if extra.dimDisabledPlates ~= true and extra.dimDisabledPlates ~= false then
+		rule(".facet-button.facet-disabled", { BackgroundTransparency = 0.6 })
+	end
 	if extra.dimDisabledPlates == true then
 		local dim = extra.disabledContentOpacity or 0.4
 		local page = source("surface")
@@ -1103,10 +1118,13 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 			if plate == nil or base == nil then
 				return c(role)
 			end
-			return types.Color3.new(
-				plate.r + (base.r - plate.r) * dim,
-				plate.g + (base.g - plate.g) * dim,
-				plate.b + (base.b - plate.b) * dim
+			return kit.derived(
+				role .. "Disabled",
+				types.Color3.new(
+					plate.r + (base.r - plate.r) * dim,
+					plate.g + (base.g - plate.g) * dim,
+					plate.b + (base.b - plate.b) * dim
+				)
 			)
 		end
 		for _, entry in

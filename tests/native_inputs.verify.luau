@@ -60,6 +60,31 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native input controls", function()
+		verifyHarness:case("inline targets keep touch height while compacting adjacent choices", function()
+			local input: UserInputService
+			local node, stop = world(function(UI, engine)
+				return UI.Button {
+					name = "Page one",
+					target = "inline",
+					Size = engine.types.UDim2.fromOffset(24, 44),
+					AutomaticSize = engine.types.Enum.AutomaticSize.None,
+				}
+			end, function(engine)
+				input = engine.new("UserInputService")
+				input.TouchEnabled = true
+				input.GamepadEnabled = false
+				return { services = { UserInputService = input } }
+			end)
+			local floor = node:FindFirstChild("TargetFloor")
+			Verify.expect(floor.MinSize.X):toBe(24)
+			Verify.expect(floor.MinSize.Y):toBe(44)
+			input.TouchEnabled = false
+			Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+			input.GamepadEnabled = true
+			Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(24)
+			Verify.expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+			stop()
+		end)
 		verifyHarness:case("a new press releases consumption left by an earlier control", function()
 			local activation = require("../src/ui/activation")
 			local press = {}
@@ -1022,6 +1047,40 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("styles pop feedback paint with the control's tags while it moves", {
+			id = "native_inputs::native input controls::styles pop feedback paint with the control's tags while it moves",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
+					local Host = runtime.constructors
+					return Host.Frame {
+						UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end } :: unknown,
+					}
+				end)
+				local button = find(node, "Pop")
+				button.AbsoluteSize = engine.types.Vector2.new(80, 44)
+				button:AddTag("game-round")
+				local paint = find(button, "FeedbackPaint")
+				Verify.expect(paint:HasTag("facet-button")):toBe(false)
+				button.Activated:Fire()
+				engine.heartbeat:Fire(0.06)
+				engine.heartbeat:Fire(0.02)
+				Verify.expect(paint:FindFirstChild("Pop").Scale > 1):toBe(true)
+				local function sorted(tags: { string }): string
+					table.sort(tags)
+					return table.concat(tags, ",")
+				end
+				Verify.expect(sorted(paint:GetTags())):toBe(sorted(button:GetTags()))
+				Verify.expect(paint:HasTag("game-round")):toBe(true)
+				button:RemoveTag("game-round")
+				engine.heartbeat:Fire(0.02)
+				Verify.expect(paint:HasTag("game-round")):toBe(false)
+				engine.heartbeat:Fire(1)
+				Verify.expect(paint.Visible):toBe(false)
+				Verify.expect(#paint:GetTags()):toBe(0)
+				stop()
+			end,
+		})
+
 		verifyHarness:case("restarts Compose pop feedback and obeys live reduced motion", {
 			id = "native_inputs::native input controls::restarts Compose pop feedback and obeys live reduced motion",
 			run = function()
@@ -1091,6 +1150,45 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+
+		verifyHarness:case("compact captions resolve native width and glyph bounds before the next frame", function(t)
+			local engine = engineLib.new()
+			local runtime = Roblox.createRuntime(engine)
+			local ctx = context(Compose, runtime, { types = engine.types })
+			local UI = ({} :: unknown) :: SharedTypes.Controls
+			local stale = Compose.cell(engine.types.Vector2.zero)
+			ctx.observe.AbsoluteSize = function()
+				return stale
+			end
+			ctx.observe.TextBounds = function()
+				return stale
+			end
+			register(ctx, UI)
+			local button: TextButton? = nil
+			local stop = runtime.mount(function()
+				button = UI.Button {
+					label = "Continue to checkout",
+					compactLabel = "Continue",
+					Size = engine.types.UDim2.fromOffset(110, 44),
+					AutomaticSize = engine.types.Enum.AutomaticSize.None,
+				}
+				return button
+			end, engine.new("ScreenGui"))
+			local node = assert(button)
+			local measure = assert(node:FindFirstChild("FullLabelMeasure"))
+			local glyphs = (measure :: unknown) :: { TextBounds: Vector2 }
+			local box = (node :: unknown) :: { AbsoluteSize: Vector2 }
+			glyphs.TextBounds = engine.types.Vector2.new(180, 20)
+			box.AbsoluteSize = engine.types.Vector2.new(110, 44)
+			t:expect(node.Text):toBe("Continue")
+			box.AbsoluteSize = engine.types.Vector2.new(240, 44)
+			t:expect(node.Text):toBe("Continue to checkout")
+			glyphs.TextBounds = engine.types.Vector2.new(300, 20)
+			t:expect(node.Text):toBe("Continue")
+			stop()
+			runtime:dispose()
+			t:expect(engine.census().connections):toBe(0)
+		end)
 
 		verifyHarness:case("deduplicates shortcut/default bindings and yields shortcuts during native text editing", {
 			id = "native_inputs::native input controls::deduplicates shortcut/default bindings and yields shortcuts during native text editing",
@@ -1359,6 +1457,32 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("names whitespace and named keys instead of showing the layout character", {
+			id = "native_inputs::native input controls::names whitespace and named keys instead of showing the layout character",
+			run = function()
+				local action, binding, keyCodes
+				local node, stop = world(function(UI: FacetControls, engine)
+					action, binding = engine.new("InputAction"), engine.new("InputBinding")
+					keyCodes = engine.types.Enum.KeyCode
+					binding.KeyCode, binding.DisplayName = keyCodes.Space, ""
+					action.PreferredBinding = binding
+					return UI.ShortcutHint({ action = action })
+				end, function(engine)
+					local input = engine.new("UserInputService")
+					input.GetStringForKeyCode = function(_self: unknown, code: EnumItem): string
+						return if code.Name == "Space" then " " elseif code.Name == "Q" then "A" else ""
+					end
+					return { services = { UserInputService = input } }
+				end)
+				Verify.expect(find(node, "Key").Text):toBe("Space")
+				binding.KeyCode = keyCodes.LeftShift
+				Verify.expect(find(node, "Key").Text):toBe("Shift")
+				binding.KeyCode = keyCodes.Q
+				Verify.expect(find(node, "Key").Text):toBe("A")
+				stop()
+			end,
+		})
+
 		verifyHarness:case("keeps an authored circle axis dominant instead of fitting inside a zero box", {
 			id = "native_inputs::native input controls::keeps an authored circle axis dominant instead of fitting inside a zero box",
 			run = function()
@@ -1390,6 +1514,35 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				Verify.expect(node:FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectType)
 					:toBe(engine.types.Enum.AspectType.FitWithinMaxSize)
+				stop()
+			end,
+		})
+		verifyHarness:case("names a circle with a caption label inside the Button and respects disabled", {
+			id = "native_inputs::native input controls::names a circle with a caption label inside the Button and respects disabled",
+			run = function()
+				local count, enabled = 0, Compose.cell(true)
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Button({
+						name = "Shop",
+						icon = "view.grid",
+						shape = "circle" :: "circle",
+						caption = "Shop",
+						enabled = enabled,
+						onActivate = function()
+							count += 1
+						end,
+					})
+				end)
+				local caption = find(node, "Caption")
+				Verify.expect(caption.Text):toBe("Shop")
+				Verify.expect(caption.ClassName):toBe("TextLabel")
+				Verify.expect(caption.Parent):toBe(node)
+				Verify.expect(node.ClipsDescendants):toBe(false)
+				node.Activated:Fire()
+				Verify.expect(count):toBe(1)
+				enabled:set(false)
+				node.Activated:Fire()
+				Verify.expect(count):toBe(1)
 				stop()
 			end,
 		})

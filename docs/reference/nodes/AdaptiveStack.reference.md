@@ -21,6 +21,8 @@ scroll position. Options: `axis`, `gap`, `padding`, `align`, `distribute`,
 - With `align = "stretch"` a column keeps the row width that it last measured,
   because stretched children fill the column. It measures the row again when a
   child is added or removed.
+- With `padding`, the stack grows it to hold its children's shadows, as
+  VStack and HStack do.
 - The stack compares against its width inside its `padding`. Directly in a
   `ScrollView` that scrolls horizontally, the width is unbounded and the stack
   stays a row.

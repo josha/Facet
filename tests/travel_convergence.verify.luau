@@ -7,6 +7,106 @@ local travelEngine = require("../src/ui/travel_engine")
 local context = require("../src/ui/context")
 
 return function(harness: Verify.Harness)
+	harness:case("Travel owns style links added after the portal mounts", function(t)
+		local native = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(native)
+		local screen = native.new("ScreenGui")
+		screen.Parent = native.new("Folder")
+		local slot = native.new("Frame")
+		slot.Parent = screen
+		slot.AbsoluteSize = native.types.Vector2.new(60, 60)
+		local visual: Frame? = nil
+		local stop = runtime.mount(function()
+			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
+			local Host = (runtime.constructors :: unknown) :: Shared.Host
+			return UI.Travel {
+				destination = slot,
+				content = function(): GuiObject
+					local face = Host.Frame {}
+					visual = face
+					return face
+				end,
+			}
+		end, screen)
+		t:defer(function()
+			stop()
+			runtime:dispose()
+		end)
+		local holder: Folder? = nil
+		for _, node in native.made do
+			if node.Name == "TravelPortal" then
+				holder = node
+			end
+		end
+		local source = native.new("StyleLink")
+		local first, second = native.new("StyleSheet"), native.new("StyleSheet")
+		source.StyleSheet = first
+		source.Parent = assert(holder)
+		local copy = assert(assert(visual):FindFirstChildWhichIsA("StyleLink")) :: StyleLink
+		t:expect(copy.StyleSheet):toBe(first)
+		source.StyleSheet = second
+		t:expect(copy.StyleSheet):toBe(second)
+		stop()
+		t:expect(engineLib.connections(source.Changed)):toBe(0)
+	end)
+	harness:case("arc travel escapes clipping above a shared slot container", function(t)
+		for _, clipAt in { "rack", "items" } do
+			local native = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(native)
+			local screen: ScreenGui = native.new("ScreenGui")
+			screen.Parent = native.new("Folder")
+			local rack: ScrollingFrame = native.new("ScrollingFrame")
+			local items: Frame = native.new("Frame")
+			local first: GuiObject = native.new("Frame")
+			local second: GuiObject = native.new("Frame")
+			rack.Parent, items.Parent = screen, rack
+			first.Parent, second.Parent = items, items
+			rack.ClipsDescendants = clipAt == "rack"
+			items.ClipsDescendants = clipAt == "items"
+			first.AbsolutePosition = native.types.Vector2.new(20, 70)
+			second.AbsolutePosition = native.types.Vector2.new(180, 70)
+			first.AbsoluteSize = native.types.Vector2.new(44, 44)
+			second.AbsoluteSize = native.types.Vector2.new(44, 44)
+			local destination = Facet.Compose.cell(first)
+			local visual: GuiObject? = nil
+			local starts = 0
+			local stop = runtime.mount(function()
+				local UI = Facet.controls(runtime, { types = native.types })
+				return UI.Travel {
+					destination = destination,
+					path = "arc",
+					lift = true,
+					stagger = 2,
+					onStarted = function()
+						starts += 1
+					end,
+					content = function(): GuiObject
+						local face = UI.Text { text = "E" }
+						visual = face
+						return face
+					end,
+				}
+			end, items)
+			t:defer(function()
+				stop()
+				runtime:dispose()
+			end)
+			destination:set(second)
+			local face = assert(visual)
+			t:expect(face:IsDescendantOf(rack)):toBe(false)
+			t:expect(face.Parent ~= first and face.Parent ~= second):toBe(true)
+			first.Visible = false
+			native.heartbeat:Fire(0.001)
+			t:expect(starts):toBe(0)
+			t:expect(face.Visible):toBe(true)
+			native.heartbeat:Fire(0.12)
+			t:expect(face.Position.Y.Offset < 70):toBe(true)
+			for _ = 1, 60 do
+				native.heartbeat:Fire(1 / 60)
+			end
+			t:expect(face.Parent == second):toBe(true)
+		end
+	end)
 	harness:case("Travel keeps automatic text at the slot size throughout motion", function(t)
 		local native = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(native)

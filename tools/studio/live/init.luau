@@ -12,14 +12,13 @@ local LogService = game:GetService("LogService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local storage = game:GetService("ReplicatedStorage")
-local TAP_SECONDS = 3 / 60
 
 local Verify = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("core"))
 local VerifyRoblox: typeof(require("@repo/tools/vendor/verify/src/roblox")) = (require :: any)(
 	storage:WaitForChild("FacetVerify"):WaitForChild("roblox")
 )
 
-local live = {}
+local live = { caseSelection = true }
 
 local function round(value: number): number
 	return math.floor(value * 100 + 0.5) / 100
@@ -592,12 +591,18 @@ local function baseline()
 			simulated = true
 		end
 	end)
-	local viewport, steady = workspace.CurrentCamera.ViewportSize, 0
+	local viewport, topbar, inset, steady =
+		workspace.CurrentCamera.ViewportSize, GuiService.TopbarInset, GuiService:GetGuiInset(), 0
 	for frame = 1, 240 do
 		RunService.RenderStepped:Wait()
 		local now = workspace.CurrentCamera.ViewportSize
-		steady = if now == viewport then steady + 1 else 0
-		viewport = now
+		local band, origin = GuiService.TopbarInset, GuiService:GetGuiInset()
+		local registered, enabled = pcall(function(): boolean
+			return game:GetService("StarterGui"):GetCore("TopbarEnabled")
+		end)
+		local coreReady = simulated or registered and (enabled == false or band.Min.X > 0 and band.Width > 0)
+		steady = if coreReady and now == viewport and band == topbar and origin == inset then steady + 1 else 0
+		viewport, topbar, inset = now, band, origin
 		if not simulated and input.PreferredInput ~= Enum.PreferredInput.KeyboardAndMouse and frame % 10 == 1 then
 			steady = 0
 			pcall(function()
@@ -609,9 +614,12 @@ local function baseline()
 			break
 		end
 	end
+	assert(steady >= 30, "native viewport and CoreGui insets did not settle before the live case")
 end
 
-local ATTACHMENTS = { maxBytes = 4194304, maxCount = 512, maxTotalBytes = 33554432 }
+local ATTACHMENTS = (require :: (ModuleScript) -> typeof(require("@repo/tools/studio/live/attachment_limits")))(
+	script:WaitForChild("attachment_limits") :: ModuleScript
+)
 local active: any = nil
 
 local function attachNotes(context: any, record: { [string]: any })
@@ -633,7 +641,7 @@ local GAMEPAD_CASES: { [string]: boolean } = {
 
 local function inputCapability(): string
 	local input = game:GetService("UserInputService")
-	return if baselineDevice == "keep" and input.GamepadEnabled then "input-gamepad" else "input-pointer"
+	return if baselineDevice ~= "none" and input.GamepadEnabled then "input-gamepad" else "input-pointer"
 end
 
 local function inputRequirement(suite: string, case: { [string]: any }): string
@@ -678,9 +686,13 @@ function live.report(suite: string, options: { [string]: any }?): any
 		if not config.only or string.find(case.id, config.only, 1, true) then
 			table.insert(selected, case.id)
 		end
+		local requirements = { "roblox-client", inputRequirement(suite, case) }
+		for _, requirement in case.requires or {} do
+			table.insert(requirements, requirement)
+		end
 		harness:case(case.id, {
 			id = case.id,
-			requires = { "roblox-client", inputRequirement(suite, case) },
+			requires = requirements,
 			run = function(context: any)
 				local caseKeepGallery = if case.keepGallery == nil then keepGallery else case.keepGallery
 				for _, gui in playerGui:GetChildren() do
@@ -710,7 +722,11 @@ function live.report(suite: string, options: { [string]: any }?): any
 					end
 				end)
 				baseline()
-				local ran, problem = xpcall(case.run, debug.traceback, t)
+				local ran, problem = xpcall(function()
+					context:step(case.id, function()
+						case.run(t)
+					end)
+				end, debug.traceback)
 				attachNotes(context, record)
 				if not ran then
 					error(problem, 0)
@@ -728,7 +744,7 @@ function live.report(suite: string, options: { [string]: any }?): any
 		executor = "roblox-studio",
 		environment = reportEnvironment(suite),
 		capabilities = capabilities,
-		selection = { ids = selected },
+		selection = { ids = config.ids or selected },
 		progress = if runId and progressToken
 			then VerifyRoblox.progressChannel.publisher(runId, progressToken, function(message, context)
 				LogService:GetLogger(VerifyRoblox.progressChannel.LOGGER)
@@ -739,8 +755,9 @@ function live.report(suite: string, options: { [string]: any }?): any
 	return report
 end
 
-function live.begin(suite: string, id: string): string
+function live.begin(suite: string, id: string, config: { device: string? }?): string
 	live.release()
+	baselineDevice = if config then config.device or "none" else baselineDevice
 	local Facet = (require :: any)(storage:WaitForChild("Facet"))
 	local chosen
 	for _, case in live.cases(suite) do
@@ -893,25 +910,37 @@ function live.press(names: { string }, frames: number?): string
 		end
 	end)
 	local selections: { string } = {}
+	local undelivered: { string } = {}
 	for _, name in names do
+		local first = #seen + 1
 		local key = PAD_KEYS[name] or (Enum.KeyCode :: any)[name]
 		virtual:SendKey(true, key, false)
-		if frames then
-			for _ = 1, frames do
-				RunService.RenderStepped:Wait()
-			end
-		else
-			task.wait(TAP_SECONDS)
+		for _ = 1, frames or 3 do
+			RunService.RenderStepped:Wait()
 		end
 		virtual:SendKey(false, key, false)
 		for _ = 1, frames or 8 do
 			RunService.RenderStepped:Wait()
+		end
+		if PAD_KEYS[name] then
+			local delivered = false
+			for index = first, #seen do
+				delivered = delivered or string.sub(seen[index], 1, 9) == "Gamepad1:"
+			end
+			if not delivered then
+				table.insert(undelivered, name)
+			end
 		end
 		local selected = GuiService.SelectedObject
 		table.insert(selections, `{name}>{if selected then selected.Name else "nil"}`)
 	end
 	connection:Disconnect()
 	moved:Disconnect()
+	assert(
+		#undelivered == 0,
+		"native controller input was not delivered; enable Studio Virtual controller: "
+			.. table.concat(undelivered, ", ")
+	)
 	local session = shared.FacetLiveSession
 	if session then
 		local notes = session.record.notes

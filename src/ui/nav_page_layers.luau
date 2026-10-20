@@ -3,6 +3,7 @@ local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local transitions = require("./transition")
+local presentationReadiness = require("./presentation_readiness")
 
 export type PageLayers = {
 	content: <P>(Instance | ((Nav.NavigationEntry<P>?) -> Instance), Nav.NavigationEntry<P>?) -> Instance,
@@ -47,7 +48,9 @@ return function(ctx: Types.Context): PageLayers
 		local presented = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return use(state).top
 		end)
-		local moving = transitions.create(ctx, transition, presented, immediate)
+		local frames = ctx.config.services.RunService
+		local arrived = Compose.cell(frames == nil or frames.PreRender == nil or runtime.host.frames == nil)
+		local moving = transitions.create(ctx, transition, presented, immediate, if immediate then nil else arrived)
 		local content: Frame? = nil
 		if transition.apply then
 			content = Host.Frame {
@@ -73,14 +76,24 @@ return function(ctx: Types.Context): PageLayers
 			properties[1] = content
 		end
 		properties.GroupTransparency = function(use: ComposeTypes.Use)
-			return 1 - use(moving.opacity)
+			return if not use(arrived) then 1 else 1 - use(moving.opacity)
 		end
 		properties.Visible = moving.visible
 		properties.Interactable = function(use: ComposeTypes.Use)
-			return use(state).top and (transition.apply == nil or use(moving.opacity) == 1)
+			return use(arrived) and use(state).top and (transition.apply == nil or use(moving.opacity) == 1)
 		end
 		local panel = ctx.fade(properties, nil, if properties.BackgroundTransparency == 1 then false else nil)
 		moving.apply(content or panel, panel)
+		if not arrived:peek() and runtime.host.frames then
+			local ready = presentationReadiness(ctx, { panel })
+			panel:SetAttribute("FacetPreparing", true)
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(ready) then
+					arrived:set(true)
+					panel:SetAttribute("FacetPreparing", false)
+				end
+			end)
+		end
 		if hidden then
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(moving.completed) then

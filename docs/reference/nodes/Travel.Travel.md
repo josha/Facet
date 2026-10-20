@@ -9,6 +9,9 @@ Travel measures the shared container, clipping and scale boundaries at the
 change. With a safe common container, it moves in place. The parent stays the
 same. A clip, scale or native layout boundary routes through the overlay,
 then lands in the new slot. The consumer sets no route flag. Keep slots mounted.
+Clipping ancestors above the shared container also require the overlay. Content
+is promoted at once, including while it waits for a stagger delay, so a hidden
+old slot cannot hide a waiting tile. The start callback still follows the delay.
 Slots are borrowed. Compose owns the visual and the anchor in one child owner.
 Destroying the current slot, visual or anchor ends Travel and releases its
 frame lease. Later destination changes cannot restart that destroyed visual.

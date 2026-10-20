@@ -8,6 +8,8 @@ local reducedMotion = require("./motion").reduced
 local resolver = require("./composition_resolve")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
+local presentationReadiness = require("./presentation_readiness")
+local reservations = require("./reservations")
 
 type Declared = {
 	zone: Layout.Zone,
@@ -19,6 +21,7 @@ type Declared = {
 	animate: boolean,
 	reveal: { host: (Instance) -> (), back: () -> () }?,
 }
+type Placement = { regions: { resolver.Declared }, forms: { number }, landed: { boolean }, riding: boolean }
 
 local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 local ENGINE_BUTTON = 44
@@ -29,6 +32,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local declared = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: Declared }
+	local function layoutSize(node: GuiBase2d, scale: ComposeTypes.Readable<number>?): ComposeTypes.Readable<Vector2>
+		local size = ctx.observe.AbsoluteSize(node)
+		local unit = scale or ctx.layoutUnit(node)
+		return Compose.formula(function(use: ComposeTypes.Use): Vector2
+			return use(size) / use(unit)
+		end)
+	end
 
 	UI.Region = ctx.construct("Region", function(spec: LayoutProps.RegionProps): Frame
 		local zone, rank = spec.zone, spec.rank
@@ -98,7 +108,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				type(child) ~= "string" and type(child.IsA) == "function" and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first"
 			)
-			local observed, settled = ctx.layoutSize(child), Compose.cell(V2.zero)
+			local observed, settled = layoutSize(child), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size = use(observed)
 				if use(scale) == 1 and not (index == 1 and use(hosted)) then
@@ -287,6 +297,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local gap: Types.Value<Types.Space> = if spec.gap == nil then "s" else spec.gap
 		local base: Types.Value<Types.Padding> = if spec.padding == nil then "s" else spec.padding
 		local under = Compose.cell(0)
+		local direct = Compose.cell(false)
+		local distant = ctx.tenFoot()
+		local overscan = ctx.config.environment and ctx.config.environment.overscanInsets
+		local FRACTION = { top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
 		properties.BorderSizePixel = 0
 		properties.Size = if properties.Size == nil then D2.fromScale(1, 1) else properties.Size
 		properties[#properties + 1] = kit.insets(function(use: ComposeTypes.Use): Types.Padding
@@ -294,12 +308,22 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local sides: Types.Sides = if type(value) == "table"
 				then value :: Types.Sides
 				else { top = value, right = value, bottom = value, left = value }
-			return {
-				top = kit.spacing(sides.top, use) + use(under),
-				right = sides.right,
-				bottom = sides.bottom,
-				left = sides.left,
-			}
+			local margins = read(overscan, use)
+			local framed = use(direct)
+			local function side(name: "top" | "right" | "bottom" | "left", pixels: number): UDim
+				if framed and type(margins) == "table" then
+					return D.new(0, pixels + ((margins :: { [string]: number })[name] or 0))
+				end
+				return D.new(if framed and margins == nil and distant(use) then FRACTION[name] else 0, pixels)
+			end
+			return (
+				{
+					top = side("top", kit.spacing(sides.top, use) + use(under)),
+					right = side("right", kit.spacing(sides.right, use)),
+					bottom = side("bottom", kit.spacing(sides.bottom, use)),
+					left = side("left", kit.spacing(sides.left, use)),
+				} :: unknown
+			) :: Types.Padding
 		end)
 		local members: { [string]: { Frame } } = {}
 		local stripRegions: { Frame } = {}
@@ -354,13 +378,44 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			table.unpack(placed),
 		}
 		properties[#properties + 1] = safe
-		local root = kit.plain(Host.Frame(properties), spec)
+		local frames = ctx.config.services.RunService
+		local preparing = frames ~= nil and frames.PreRender ~= nil and runtime.host.frames ~= nil
+		local root = kit.plain(
+			if preparing
+				then ctx.fade((properties :: unknown) :: Types.CanvasGroupNativeProps, false, false)
+				else Host.Frame(properties),
+			spec
+		)
+		local function placed()
+			local parent: Instance? = root.Parent
+			direct:set(if parent then parent:IsA("LayerCollector") else false)
+		end
+		placed()
+		runtime.connect(root, "AncestryChanged", placed)
+		if preparing then
+			ctx.fadeTo(root, 1)
+			root:SetAttribute("FacetPreparing", true)
+			local roots: { GuiObject } = {}
+			for _, region in regions do
+				table.insert(roots, region)
+			end
+			local ready = presentationReadiness(ctx, roots)
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(ready) then
+					ctx.fadeTo(root, 0)
+					root:SetAttribute("FacetPreparing", false)
+				end
+			end)
+		end
 		kit.underTopbar(root, under)
 		local riding: (ComposeTypes.Use) -> boolean = function()
 			return false
 		end
 		local landed: ComposeTypes.Cell<{ boolean }> = Compose.cell({} :: { boolean })
 		local stripGui: ScreenGui? = nil
+		local topbarBand = if #stripRegions > 0 and ctx.config.guiService
+			then ctx.observe.TopbarInset(ctx.config.guiService)
+			else nil
 		if #stripRegions > 0 then
 			local screen: ComposeTypes.Cell<ScreenGui?> = Compose.cell(nil :: ScreenGui?)
 			local holder: ComposeTypes.Cell<Instance?> = Compose.cell(nil :: Instance?)
@@ -398,7 +453,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				end
 			end)
 			locate()
-			local band = if ctx.config.guiService then ctx.observe.TopbarInset(ctx.config.guiService) else nil
+			local band = topbarBand
 			riding = function(use: ComposeTypes.Use): boolean
 				local rect: Rect? = if band then use(band) else nil
 				return read(spec.topbar, use) ~= false and use(holder) ~= nil and rect ~= nil and rect.Width > 0
@@ -494,7 +549,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		local safeUnit = ctx.layoutUnit(safe)
 		local floor = ctx.hitFloor()
-		local safeBox = ctx.layoutSize(safe, safeUnit)
+		local safeBox = layoutSize(safe, safeUnit)
 		for zone, children in members do
 			local revealing = false
 			for _, region in children do
@@ -633,14 +688,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				}
 			end, safe)
 		end
-		local box = ctx.layoutSize(safe, safeUnit)
+		local box = layoutSize(safe, safeUnit)
 		local warned: { [Frame]: boolean } = {}
 		local overflowing: { [Frame]: boolean } = {}
 		local streaks: { [Frame]: number } = {}
 		local later = runtime.scheduler()
 		local last: Vector2? = nil
+		local placement: ComposeTypes.Cell<Placement?> = Compose.cell(nil :: Placement?)
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
-		local stripSize = if stripGui then ctx.layoutSize(stripGui, stripUnit) else nil
+		local stripSize = if stripGui then layoutSize(stripGui, stripUnit) else nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local extent = use(box)
 			local rides = riding(use)
@@ -655,6 +711,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				list[index] = { zone = entry.zone, rank = entry.rank, mayDrop = entry.mayDrop, sizes = measured }
 			end
 			local strip = if stripSize and rides then use(stripSize) else nil
+			if strip and (strip.X <= 0 or strip.Y <= 0) and topbarBand and stripUnit then
+				local inset = use(topbarBand)
+				strip = V2.new(inset.Width, inset.Height) / use(stripUnit)
+			end
 			local band = if strip
 				then {
 					x = strip.X - 2 * kit.spacing(gap, use),
@@ -706,6 +766,83 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			for index, region in regions do
 				declared[region].animate = resized
 				declared[region].form:set(chosen[index])
+			end
+			placement:set(
+				if extent.X > 0 and extent.Y > 0
+					then { regions = list, forms = chosen, landed = down, riding = rides }
+					else nil
+			)
+		end)
+		local ancestry = Compose.cell(0)
+		local function moved()
+			ancestry:set(ancestry:peek() + 1)
+		end
+		runtime.connect(root, "AncestryChanged", moved)
+		local shown = ctx.observe.Visible(root)
+		local regionShown: { ComposeTypes.Readable<unknown> } = {}
+		for index, region in regions do
+			regionShown[index] = ctx.observe.Visible(region)
+		end
+		local claimed: LayerCollector? = nil
+		local claimedParent: Instance? = nil
+		local enabling: RBXScriptConnection? = nil
+		local checking = false
+		local function report()
+			checking = false
+			local layer = claimed
+			if layer == nil then
+				return
+			end
+			for _, contest in reservations.contests(layer, root) do
+				reservations.note(root, contest.token, contest.zone)
+				warn(
+					`Facet Composition: Compositions '{root.Name}' and '{contest.token.Name}' both place regions in the {contest.zone} zone of one screen. Each Composition lays out only its own regions, so the regions can overlap. Keep the HUD of a screen in one Composition`
+				)
+			end
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(ancestry)
+			local layer = root:FindFirstAncestorWhichIsA("LayerCollector") :: LayerCollector?
+			if layer ~= claimed then
+				if enabling then
+					enabling:Disconnect()
+					enabling = nil
+				end
+				if claimed then
+					reservations.clearZones(claimed, root)
+				end
+				claimed = layer
+				if layer then
+					enabling = layer:GetPropertyChangedSignal("Enabled"):Connect(moved)
+				end
+			end
+			local now = use(placement)
+			if layer == nil then
+				return
+			end
+			local held: { [string]: boolean } = {}
+			if now and layer.Enabled and use(shown) ~= false then
+				local forms = table.clone(now.forms)
+				for index in forms do
+					if use(regionShown[index]) == false then
+						forms[index] = 0
+					end
+				end
+				held = resolver.occupied(now.regions, forms, now.landed, now.riding)
+			end
+			local changed = reservations.setZones(layer, root, held) or layer.Parent ~= claimedParent
+			claimedParent = layer.Parent
+			if changed and not checking and #reservations.contests(layer, root) > 0 then
+				checking = true
+				later.after(2, report)
+			end
+		end)
+		Compose.cleanup(function()
+			if enabling then
+				enabling:Disconnect()
+			end
+			if claimed then
+				reservations.clearZones(claimed, root)
 			end
 		end)
 		return root

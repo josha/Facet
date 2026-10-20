@@ -92,7 +92,7 @@ shows each job.
 | Hide and keep the space | A `CanvasGroup` with `GroupTransparency = 1` and `Interactable = false` |
 | Remove from the layout | `Compose.show`, or `Visible = false` in a `UIListLayout`. The siblings close up |
 | Alignment | `alignH` and `alignV` on a `UI.ZStack`, or `align` and `distribute` on a stack |
-| Gap and padding | `gap` spaces the siblings. `padding = { left = 32, top = 8, right = 8, bottom = 8 }` moves only the named edges |
+| Gap and padding | `gap` spaces the siblings. `padding = inset`, with `local inset: Facet.Sides = { left = 32, top = 8 }`, moves only the named edges |
 | Wrap and clip | `wrap = true` on a stack. A `UI.ScrollView` with `axis = "x"` keeps one line reachable. `ClipsDescendants` cuts at the edge |
 | Rounding, border and shadow | `UICorner`, `UIStroke` and `UIShadow` children. A `UICorner` rounds every corner with one radius |
 

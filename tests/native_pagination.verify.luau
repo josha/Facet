@@ -198,9 +198,10 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((text(wideRoot))):toBe("previous 1 … 4999 [5000] 5001 … 9999 next")
 					Verify.expect(wide.find("Slot-5000").Size.X.Offset >= 44):toBe(true)
 					Verify.expect(wide.find("Slot-5000").Size.X.Offset):toBe(56)
-					Verify.expect(wide.find("Page-5000"):FindFirstChild("SlotLimit").MaxSize.X):toBe(56)
+					Verify.expect(wide.find("Page-5000").Size.X.Offset):toBe(56)
+					Verify.expect(wide.find("Page-5000").AutomaticSize.Name):toBe("None")
 					local compact = require("../src").themes.neutralPackage().metrics.controlSizes.compact.height
-					Verify.expect(wide.find("Page-1"):FindFirstChild("SlotLimit").MinSize.X):toBe(compact)
+					Verify.expect(wide.find("Page-1").Size.X.Offset):toBe(compact)
 					wide.stop()
 					local expected = {
 						[360] = "previous 1 … 4999 [5000] 5001 next",
@@ -354,7 +355,7 @@ return function(verifyHarness: Verify.Harness)
 				local carve = package.chrome.control.contentInsets
 				local padding = 2 * package.metrics.controlSizes.compact.paddingX
 				local page = world.find("Page-200")
-				local available = page:FindFirstChild("SlotLimit").MaxSize.X - padding - carve.left - carve.right
+				local available = page.Size.X.Offset - padding - carve.left - carve.right
 				Verify.expect(available >= 24):toBe(true)
 				world.resize(root, 350, 60)
 				local reserved = 0

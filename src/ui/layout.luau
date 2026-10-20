@@ -15,7 +15,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	local kit = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local UI: ControlTypes.Controls = controls or ({} :: ControlTypes.Controls)
-	local flowKeys = { "gap", "padding", "align", "distribute", "wrap", "width", "height" }
+	local flowKeys = { "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface" }
+	local PLATES: { [string]: string } = { surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" }
 	local function containerProps(spec: unknown, keys: { string }): { [unknown]: unknown }
 		local maxWidth = (spec :: { maxWidth: Types.ValueNumber? }).maxWidth
 		if maxWidth == nil then
@@ -51,8 +52,14 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		return containerProps(named, keys), children
 	end
 	local function stack(spec: LayoutProps.StackProps, vertical: boolean): Frame
+		local plate = PLATES[spec.surface or ""]
+		assert(spec.surface == nil or plate ~= nil, "Facet stack: surface must be surface, panel or pane")
 		local properties, children = split(spec, flowKeys)
-		return kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, spec, vertical)
+		local frame = kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, spec, vertical)
+		if plate then
+			frame:AddTag(plate)
+		end
+		return frame
 	end
 
 	UI.VStack = ctx.construct("VStack", function(spec: LayoutProps.StackProps): Frame
@@ -629,13 +636,19 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			Size = size,
 			AutomaticSize = automatic,
 		}
+		local room = if spec.padding ~= nil then Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 }) else nil
 		local node = kit.plain(
-			Host.Frame(kit.assemble(native, properties, { layout, kit.insets(spec.padding) }, children, function(child)
-				shown[child] = ctx.observe.Visible(child)
-				tracked(child, sizes, parents, members)
-			end)),
+			Host.Frame(
+				kit.assemble(native, properties, { layout, kit.insets(spec.padding, room) }, children, function(child)
+					shown[child] = ctx.observe.Visible(child)
+					tracked(child, sizes, parents, members)
+				end)
+			),
 			properties
 		)
+		if room then
+			kit.shadowRoom(node, room)
+		end
 		local box, holder, content =
 			ctx.observe.AbsoluteSize(node), ctx.observe.Parent(node), ctx.observe.AbsoluteContentSize(layout)
 		local rowNeed, lastCount = 0, 0

@@ -197,6 +197,7 @@ export type Controls = {
 	scrollToVisible: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollToVisible),
 }
 export type BuilderControls = {
+	scrollTo: typeof(((nil :: unknown) :: Env.EnvironmentControls).scrollTo),
 	DiegeticScreen: Constructor<DiegeticTypes.DiegeticScreenProps, Folder>,
 	Button: Constructor<InputProps.ButtonProps, TextButton>,
 	Toggle: Constructor<InputProps.ToggleProps, TextButton>,

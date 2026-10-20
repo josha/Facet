@@ -1,4 +1,5 @@
 --!strict
+local pointerDragOf = require("./pointer_drag")
 local Shared = require("./types")
 local Env = require("./environment_types")
 local activation = require("./activation")
@@ -133,12 +134,13 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				then ctx.types.Vector2.new(pressed.Position.X, pressed.Position.Y)
 				else position
 		end
+		local pointerInput = pointerDragOf(ctx)
 		local detector = Host.UIDragDetector({
 			Name = "FacetDragDetector",
 			DragStyle = E.UIDragDetectorDragStyle.TranslatePlane,
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
 			Enabled = function(use)
-				return enabled(use) and ctx.effectiveInput()(use) ~= "Touch"
+				return enabled(use) and pointerInput(use) and ctx.effectiveInput()(use) ~= "Touch"
 			end,
 			DragStart = function(position)
 				origin = if eligible == false then nil else pointerOf(ctx, position)

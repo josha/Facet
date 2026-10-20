@@ -34,7 +34,8 @@ Placement, width, header, hero, pinned actions, body padding, scroll policy and 
   header when interactive dismissal is enabled. This also applies when a
   grabber is visible. Its
   accessible name is `Close`, and its target is 44 pixels. `true` always shows
-  that icon button. A label shows a text button with that label. `false` shows
+  that icon button. A label shows a button with the close icon and that label, so it reads as
+  Close in any language and still shows the word. `false` shows
   none; Back, Escape and the backdrop still close the sheet.
 
 When the pinned regions and a short body do not fit the panel, every region

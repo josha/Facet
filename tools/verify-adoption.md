@@ -31,7 +31,7 @@ policy and small bindings.
   a control reads, and host load does not change a result.
 - `Lute.studio.run` runs the live suites of `tools/studio/live`. It starts a
   new Studio process for each suite, runs the cases in the Client data model
-  and returns the report. `tools/lute/studio_live.luau` builds the place and
+  and returns the report. `lute run tools/facet studio live` builds the place and
   calls it. A case sends JSON to the host with `context:attach`, and
   `Lute.attachments.materialize` writes the files.
 

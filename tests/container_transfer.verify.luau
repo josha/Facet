@@ -15,7 +15,14 @@ return function(harness: Verify.Harness)
 	harness:case("a transfer list carries a separate visual instead of its empty logical slot", function()
 		local worlds = require("./lib/content_world")
 		local w = worlds.new(function(UI: Facet.Controls, _Host, engine)
-			local visual = UI.Text "PaintedTile" { text = "E", Size = engine.types.UDim2.fromOffset(52, 52) }
+			local held = Facet.Compose.cell(false)
+			local visual = UI.Text "PaintedTile" {
+				text = "E",
+				Size = engine.types.UDim2.fromOffset(52, 52),
+				Visible = function(use: Facet.Use): boolean
+					return not use(held)
+				end,
+			}
 			return UI.ZStack {
 				visual,
 				UI.VirtualList "Rack" {
@@ -28,7 +35,18 @@ return function(harness: Verify.Harness)
 					itemSize = 52,
 					reorderable = true,
 					drag = function(): Facet.DraggableSpec
-						return { payload = "E", preview = visual, touchPickup = "immediate", touchDragAxis = "XY" }
+						return {
+							payload = "E",
+							preview = visual,
+							touchPickup = "immediate",
+							touchDragAxis = "XY",
+							onStart = function()
+								held:set(true)
+							end,
+							onEnd = function()
+								held:set(false)
+							end,
+						}
 					end,
 					render = function(): GuiObject
 						return UI.ZStack "EmptySlot" { width = "fill", height = "fill" }
@@ -42,12 +60,15 @@ return function(harness: Verify.Harness)
 		local body = w.find("Rack")
 		body.AbsoluteWindowSize, body.AbsoluteSize = V2.new(390, 52), V2.new(390, 52)
 		local pointer = w.engine.new("InputObject")
+		local painted = w.find("PaintedTile")
 		pointer.UserInputType, pointer.UserInputState = E.UserInputType.Touch, E.UserInputState.Begin
 		pointer.Position = V3.new(46, 226, 0)
 		source.InputBegan:Fire(pointer)
 		pointer.Position = V3.new(46, 206, 0)
 		w.input.InputChanged:Fire(pointer)
 		local ghost = assert(w.find("DragGhost"))
+		Verify.expect(painted.Visible):toBe(false)
+		Verify.expect(assert(ghost:FindFirstChild("Reorderable", true)).Visible):toBe(true)
 		local readable = false
 		for _, node in ghost:GetDescendants() do
 			if node:IsA("TextLabel") and node.Text == "E" then
@@ -56,6 +77,9 @@ return function(harness: Verify.Harness)
 		end
 		Verify.expect(readable):toBe(true)
 		Verify.expect(w.find("PaintedTile").Parent ~= ghost):toBe(true)
+		pointer.UserInputState = E.UserInputState.End
+		w.input.InputEnded:Fire(pointer)
+		Verify.expect(painted.Visible):toBe(true)
 		w.stop()
 	end)
 	harness:case("a horizontal transfer list permits native pickup across its layout axis", function()
@@ -294,7 +318,9 @@ return function(harness: Verify.Harness)
 			local function recessFor(key: number): GuiObject
 				for _, child in body:GetDescendants() do
 					if child:GetAttribute("FacetReservedKey") == tostring(key) then
-						return child :: GuiObject
+						local paint = child:FindFirstChild("ReservedSlot")
+						assert(paint and paint:IsA("GuiObject"))
+						return paint
 					end
 				end
 				error("missing reserved slot " .. key)
@@ -304,11 +330,15 @@ return function(harness: Verify.Harness)
 			Verify.expect(assert(controls.indexOfKey)(3)):toBe(3)
 			Verify.expect(assert(controls.placementOf)(3).crossOffset):toBe(original.crossOffset)
 			Verify.expect(recessFor(2).Visible):toBe(true)
-			Verify.expect(assert(anchors.nodeOfKey)(2)):toBe(recessFor(2))
+			local anchor = assert((assert(anchors.nodeOfKey)(2)))
+			Verify.expect(anchor):toBe(recessFor(2).Parent)
+			Verify.expect(anchor.Visible):toBe(true)
 			rows:set({ { id = 1 }, { id = 3 }, { id = 2 } })
 			engine.heartbeat:Fire(0.016)
 			Verify.expect(assert(controls.indexOfKey)(2)):toBe(2)
 			Verify.expect(recessFor(2).Visible):toBe(false)
+			Verify.expect(assert(anchors.nodeOfKey)(2)):toBe(anchor)
+			Verify.expect(anchor.Visible):toBe(true)
 			rows:set({ { id = 1 }, { id = 3 } })
 			slots:set({ 1, 3 })
 			Verify.expect(assert(controls.indexOfKey)(3)):toBe(2)
@@ -316,6 +346,56 @@ return function(harness: Verify.Harness)
 			Verify.expect(assert(anchors.nodeOfKey)(2)):toBe(nil)
 			stop()
 			Verify.expect(anchors.nodeOfKey):toBe(nil)
+			runtime:dispose()
+		end)
+		harness:case("Travel faces stay visible when landing in an occupied reserved slot under clipping", function()
+			local engine = engineLib.new()
+			local C, V2 = Facet.Compose, engine.types.Vector2
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
+			local anchors: Facet.SlotControls<number> = {}
+			local rows = C.cell({ { id = 1 } })
+			local screen = engine.new("ScreenGui")
+			local stop, rack = runtime.mount(function()
+				return UI.VirtualList {
+					from = rows,
+					key = "id",
+					slots = { 1 },
+					slotControls = anchors,
+					mode = "all",
+					itemSize = 40,
+					render = function(): GuiObject
+						return UI.ZStack { width = "fill", height = "fill" }
+					end,
+				}
+			end, screen)
+			local anchor = assert((assert(anchors.nodeOfKey)(1)))
+			anchor.AbsolutePosition, anchor.AbsoluteSize = V2.new(20, 20), V2.new(40, 40)
+			local stopTravel = runtime.mount(function()
+				return UI.Travel {
+					destination = anchor,
+					content = function(): GuiObject
+						return UI.Text "TravelFace" { text = "A" }
+					end,
+				}
+			end, rack)
+			engine.heartbeat:Fire(1)
+			local face = assert(screen:FindFirstChild("TravelFace", true))
+			assert(face.Parent == anchor, "The face must settle into its public slot anchor")
+			local function visible()
+				local at: Instance? = face
+				while at do
+					assert(not at:IsA("GuiObject") or at.Visible, "A slot anchor must not hide its Travel content")
+					at = at.Parent
+				end
+			end
+			visible()
+			rows:set({})
+			visible()
+			rows:set({ { id = 1 } })
+			visible()
+			stopTravel()
+			stop()
 			runtime:dispose()
 		end)
 		harness:case("F-026 reserved slots reflow on frames and provide zoomed recall landing", function()
@@ -539,7 +619,10 @@ return function(harness: Verify.Harness)
 			for _ = 1, 240 do
 				engine.heartbeat:Fire(1 / 60)
 			end
-			Verify.expect(assert(recess).Visible):toBe(false)
+			Verify.expect(assert(recess).Visible):toBe(true)
+			local paint = assert(recess):FindFirstChild("ReservedSlot")
+			assert(paint and paint:IsA("GuiObject"))
+			Verify.expect(paint.Visible):toBe(false)
 			stop()
 			runtime:dispose()
 		end)

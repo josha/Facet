@@ -207,19 +207,18 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		end
 		local targets = (package.metrics :: { targetSizes: unknown }).targetSizes
 		local sizes: { [string]: unknown } = if type(targets) == "table" then targets :: { [string]: unknown } else {}
-		local pointer, minimum = sizes.pointer, sizes.minimum
-		if
-			pointer ~= nil
-			and (
-				type(pointer) ~= "number"
-				or (pointer :: number) < 24
-				or (type(minimum) == "number" and (pointer :: number) > (minimum :: number))
-			)
-		then
-			table.insert(errors, {
-				field = "metrics.targetSizes.pointer",
-				message = "targetSizes.pointer must be from 24 to targetSizes.minimum",
-			})
+		local minimum = sizes.minimum
+		for _, name in { "pointer", "inline" } do
+			local value = sizes[name]
+			if
+				value ~= nil
+				and (type(value) ~= "number" or value < 24 or (type(minimum) == "number" and value > minimum))
+			then
+				table.insert(errors, {
+					field = "metrics.targetSizes." .. name,
+					message = `targetSizes.{name} must be from 24 to targetSizes.minimum`,
+				})
+			end
 		end
 		for _, name in { "thumb", "thumbLarge" } do
 			local value = sizes[name]

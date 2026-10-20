@@ -309,7 +309,7 @@ add("picker-long-labels", {}, function(t)
 			end, { size = Vector2.new(width, 300) })
 			local picker = t.find(stage, "Auto")
 			t.stable(picker)
-			local presentation = picker:FindFirstChild("Presentation")
+			local presentation = visibleNamed(t, picker, "Presentation")
 			local segmented = presentation ~= nil and presentation:HasTag("facet-segmented")
 			local clipped, labels = 0, 0
 			for _, node in picker:GetDescendants() do

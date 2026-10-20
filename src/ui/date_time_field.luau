@@ -1,7 +1,6 @@
 --!strict
 local civil = require("./civil_date")
 local fieldChrome = require("./field_chrome")
-local materialize = require("./materialize")
 local Shared = require("./types")
 local Nav = require("./navigation_types")
 local DTP = require("./date_time_picker_types")
@@ -322,7 +321,6 @@ return function(
 				end,
 			})
 			local content = ctx.observe.AbsoluteSize(panel)
-			local measured = ctx.observe.AbsoluteSize(surface)
 			local function sheet(use: Use): boolean
 				return use(route) == "sheet" and not atTenFoot
 			end
@@ -335,26 +333,25 @@ return function(
 					return D2.fromOffset(width + 32, 0)
 				end,
 			})
+			local function surfaceSize(use: Use): UDim2
+				local offer = use(extent) :: Vector2
+				local height = (use(content) :: Vector2).Y + carve("top", use) + carve("bottom", use)
+				if offer.Y > 0 then
+					height = math.min(height, offer.Y - 16)
+				end
+				if sheet(use) then
+					return D2.new(1, -24, 0, height)
+				end
+				local width = if use(dual) then 2 * 7 * CELL + GAP else 7 * CELL
+				return D2.fromOffset(width + 32 + carve("left", use) + carve("right", use), height)
+			end
 			local geometry: Shared.CanvasGroupNativeProps = {
-				Size = function(use: Use)
-					local offer = use(extent) :: Vector2
-					local height = (use(content) :: Vector2).Y + carve("top", use) + carve("bottom", use)
-					if offer.Y > 0 then
-						height = math.min(height, offer.Y - 16)
-					end
-					if sheet(use) then
-						return D2.new(1, -24, 0, height)
-					end
-					local width = if use(dual) then 2 * 7 * CELL + GAP else 7 * CELL
-					return D2.fromOffset(width + 32 + carve("left", use) + carve("right", use), height)
-				end,
+				Size = surfaceSize,
 				Position = function(use: Use)
-					local at, size, offer, box, offset =
-						use(position) :: Vector2,
-						use(bounds) :: Vector2,
-						use(extent) :: Vector2,
-						use(measured) :: Vector2,
-						use(origin) :: Vector2
+					local at, size, offer, offset =
+						use(position) :: Vector2, use(bounds) :: Vector2, use(extent) :: Vector2, use(origin) :: Vector2
+					local desired = surfaceSize(use)
+					local box = V2.new(offer.X * desired.X.Scale + desired.X.Offset, desired.Y.Offset)
 					if use(route) == "sheet" then
 						if atTenFoot then
 							return D2.fromOffset(math.max(8, (offer.X - box.X) / 2), math.max(8, (offer.Y - box.Y) / 2))
@@ -382,10 +379,6 @@ return function(
 			}
 			runtime.decorate(surface, geometry)
 			surfaces.atRest(shown.travel, settled, { surface, panel })
-			materialize(ctx, surface, geometry, function(use: Use): number
-				local from = ctx.metric("motion.materialize.anchored", use)
-				return if use(settled) then from + (1 - from) * shown.travel(use) else 1
-			end, nil, true)
 			return modal
 		end, { motion = ctx.motionTiming("popover") }),
 	})

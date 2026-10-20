@@ -10,7 +10,8 @@ UI.Composition "Composition" { UI.Region "Status" { zone = "topRight", rank = 1,
 
 Key options: `gap`, `padding`.
 
-Keep HUD groups in one Composition.
+Keep HUD groups in one Composition. Facet warns when two Compositions on one
+screen place regions in the same zone.
 
 Related controls: [Controls](Controls.md).
 

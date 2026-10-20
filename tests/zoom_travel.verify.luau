@@ -794,8 +794,10 @@ return function(harness: Verify.Harness)
 			local camera: Facet.ZoomControls = {}
 			local view: ScrollingFrame
 			local rack: ScrollingFrame
+			local preview: Frame
 			local started, ended = false, false
 			local stop = runtime.mount(function()
+				preview = Host.Frame { Name = "CarriedTile", Size = native.types.UDim2.fromOffset(60, 60) }
 				view = UI.ZoomView {
 					controls = camera,
 					contentSize = V2.new(1000, 1000),
@@ -814,6 +816,7 @@ return function(harness: Verify.Harness)
 					drag = function(_items: { number }, _keys: { number }): Facet.DraggableSpec
 						return {
 							payload = "collection tile",
+							preview = preview,
 							onStart = function()
 								started = true
 								t:expect(assert(camera.zoomAt)(2, V2.new(200, 200))):toBe(true)
