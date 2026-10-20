@@ -102,6 +102,7 @@ local function run(invocation: Cli.Invocation): number
 	project.tree.ReplicatedStorage.Lab = {
 		["$className"] = "Folder",
 		drag_drop_demo = { ["$path"] = "facet-lab/src/drag_drop_demo.luau" },
+		journal_demo = { ["$path"] = "facet-lab/src/journal_demo.luau" },
 	}
 	project.tree.ReplicatedStorage.LabThemes = { ["$path"] = "facet-lab/themes" }
 	if table.find(suites, "lab") then

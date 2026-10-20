@@ -447,6 +447,18 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				if within(selected, root) then
 					landed = true
 					owned = true
+					local target = selected :: GuiObject
+					local interactable = use(ctx.observe.Interactable(target))
+					local visible = use(ctx.observe.Visible(target))
+					if
+						not (interactable and visible)
+						and scopes[#scopes] == root
+						and use(rootInteractive)
+						and use(panelInteractive)
+						and not (exiting and use(exiting))
+					then
+						gui.SelectedObject = if focusIn(use) then firstSelectable(panel) else nil
+					end
 					return
 				end
 				if

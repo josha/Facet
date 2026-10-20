@@ -13,7 +13,9 @@ export type PageLayers = {
 		ComposeTypes.Readable<ComposeTypes.LayerStackState>,
 		Nav.Transition | false?,
 		(() -> ())?,
-		boolean?
+		boolean?,
+		ComposeTypes.Cell<boolean>?,
+		ComposeTypes.Readable<boolean>?
 	) -> GuiObject,
 	checkedSelection: (ComposeTypes.Cell<string>, { Nav.Tab }, string) -> { [string]: Nav.Tab },
 }
@@ -32,7 +34,9 @@ return function(ctx: Types.Context): PageLayers
 		state: ComposeTypes.Readable<ComposeTypes.LayerStackState>,
 		transition: Nav.Transition | false?,
 		hidden: (() -> ())?,
-		immediate: boolean?
+		immediate: boolean?,
+		prepared: ComposeTypes.Cell<boolean>?,
+		groupReady: ComposeTypes.Readable<boolean>?
 	): GuiObject
 		if transition == nil or transition == false then
 			local node = Host.Frame(properties)
@@ -48,9 +52,28 @@ return function(ctx: Types.Context): PageLayers
 		local presented = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return use(state).top
 		end)
+		local animatedPresented: ComposeTypes.Readable<boolean> = presented
+		if groupReady then
+			local synchronized = Compose.cell(presented:peek())
+			Compose.watch(function(use: ComposeTypes.Use)
+				if use(groupReady) then
+					synchronized:set(use(presented))
+				end
+			end)
+			animatedPresented = synchronized
+		end
 		local frames = ctx.config.services.RunService
-		local arrived = Compose.cell(frames == nil or frames.PreRender == nil or runtime.host.frames == nil)
-		local moving = transitions.create(ctx, transition, presented, immediate, if immediate then nil else arrived)
+		local arrived: ComposeTypes.Cell<boolean> = prepared or Compose.cell(false)
+		arrived:set(frames == nil or frames.PreRender == nil or runtime.host.frames == nil)
+		local moving = transitions.create(
+			ctx,
+			transition,
+			presented,
+			immediate,
+			if immediate then nil else arrived,
+			nil,
+			animatedPresented
+		)
 		local content: Frame? = nil
 		if transition.apply then
 			content = Host.Frame {
@@ -76,11 +99,14 @@ return function(ctx: Types.Context): PageLayers
 			properties[1] = content
 		end
 		properties.GroupTransparency = function(use: ComposeTypes.Use)
-			return if not use(arrived) then 1 else 1 - use(moving.opacity)
+			return if not use(arrived) then 1 else use(moving.transparency)
 		end
 		properties.Visible = moving.visible
 		properties.Interactable = function(use: ComposeTypes.Use)
-			return use(arrived) and use(state).top and (transition.apply == nil or use(moving.opacity) == 1)
+			return use(arrived)
+				and use(state).top
+				and not use(moving.interacting)
+				and ((transition.apply == nil and transition.progress == nil) or use(moving.opacity) == 1)
 		end
 		local panel = ctx.fade(properties, nil, if properties.BackgroundTransparency == 1 then false else nil)
 		moving.apply(content or panel, panel)

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Custom transitions accept `fade = false` for opaque page turns and reveals.
+  A nullable readable `progress` holds a transition under native drag input;
+  clearing it settles from the held position through Compose.
+  Input gating, retention and reduced-motion fading still follow progress.
+  The Lab journal now turns a curved, shaded leaf across a fixed spine with front/back content,
+  a moving shadow, finger-following swipes and Previous/Next actions.
+  Page content stays visible through the turn. Custom tab layers start together
+  after native preparation, so the book does not jump at the handoff.
+  The opaque fold keeps the page gradient and covers the stationary spine shadow.
+- Modal selection moves to an available action when the selected action becomes
+  disabled or hidden. This keeps page navigation reachable with gamepad input.
+
 - SpatialGrid places keyed items in explicit rectangular footprints. It uses
   native grid cells and the shared drag session, including tap placement,
   keyboard/gamepad confirmation, overlap checks and pending drops. A button

@@ -1,5 +1,6 @@
 --!strict
 local Catalog = require("./catalog_types")
+local journal = require("./journal_demo")
 type Controls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 type Transition = typeof(require("@repo/tools/typecheck/aliases").Transition)
 type Phase = typeof(require("@repo/tools/typecheck/aliases").TransitionContext)
@@ -19,7 +20,7 @@ return {
 		return {}
 	end,
 	alias = "Custom transitions",
-	purpose = "Use the same presentation progress for a book opening and a staggered menu.",
+	purpose = "Turn an opaque page across a book spine, or stagger menu rows, with shared presentation progress.",
 	alternatives = "Use default transitions unless the motion explains the screen.",
 	snippet = "transition = { apply = function(content, phase) runtime.decorate(content, { Rotation = function(use) return -8 * (1 - use(phase.progress)) end }) end }",
 	demonstrates = { "transition" },
@@ -28,21 +29,7 @@ return {
 	make = function(UI: Controls, _: never, c: Catalog.Context): Instance
 		local Host, runtime, D2 = c.Host, c.app.runtime, c.types.UDim2
 		local opened, selected = c.cell("opened", false), c.cell("selected", "Journal")
-		local book: Transition = {
-			motion = "pageTurn",
-			apply = function(content: GuiObject, phase: Phase)
-				runtime.decorate(content, {
-					AnchorPoint = c.types.Vector2.new(0, 0.5),
-					Position = D2.fromScale(0, 0.5),
-					Size = function(use: Use): UDim2
-						return D2.fromScale(0.12 + 0.88 * use(phase.progress), 1)
-					end,
-					Rotation = function(use: Use): number
-						return -8 * (1 - use(phase.progress))
-					end,
-				})
-			end,
-		}
+		local journalSpread = c.cell("journalSpread", "crossing")
 		local menu: Transition = {
 			motion = "pageTurn",
 			apply = function(content: GuiObject, phase: Phase)
@@ -86,7 +73,7 @@ return {
 			height = "fill",
 			gap = 12,
 			UI.Text {
-				text = "Switch tabs to compare staggered motion. Open the journal for a hinged 2D opening. Reduced motion uses a fade.",
+				text = "Switch tabs to compare staggered motion. Open the journal to turn a page forward and back. Reduced motion uses a fade.",
 				wrap = true,
 				Size = D2.fromScale(1, 0),
 				AutomaticSize = c.types.Enum.AutomaticSize.Y,
@@ -118,29 +105,13 @@ return {
 			} :: unknown,
 			UI.Sheet {
 				title = "Field journal",
+				closeButton = "Close journal",
 				isPresented = opened,
-				placement = "center",
+				placement = "bottom",
 				width = "wide",
-				transition = book,
+				detents = { "hug" :: "hug" },
 				content = function(): Instance
-					return UI.VStack "JournalContent" {
-						width = "fill",
-						height = "hug",
-						gap = 12,
-						UI.Text { text = "Chapter 1 · The crossing", textRole = "heading" } :: unknown,
-						UI.Text {
-							text = "The route ahead is clear. This panel uses ordinary Roblox transforms driven by shared presentation progress.",
-							wrap = true,
-							Size = D2.fromScale(1, 0),
-							AutomaticSize = c.types.Enum.AutomaticSize.Y,
-						} :: unknown,
-						UI.Button {
-							label = "Close journal",
-							onActivate = function()
-								opened:set(false)
-							end,
-						} :: unknown,
-					}
+					return journal(UI, runtime, c.Compose, c.types, journalSpread)
 				end,
 			} :: unknown,
 		}

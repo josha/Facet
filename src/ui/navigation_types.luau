@@ -18,6 +18,8 @@ export type Transition = {
 	seconds: Types.ValueNumber?,
 	ease: ComposeTypes.Easing?,
 	motion: string?,
+	fade: boolean?,
+	progress: ComposeTypes.Readable<number?>?,
 	apply: ((GuiObject, TransitionContext) -> ())?,
 }
 export type SourceTransition = { seconds: Types.ValueNumber?, ease: ComposeTypes.Easing?, source: Value<GuiObject?>? }

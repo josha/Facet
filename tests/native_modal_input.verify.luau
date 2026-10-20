@@ -31,6 +31,28 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native modal: the scrim sinks input", function()
+		verifyHarness:case("moves gamepad focus when the selected modal action becomes disabled", function()
+			local open, enabled = Compose.cell(false), Compose.cell(true)
+			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+				return UI.Dialog {
+					isPresented = open,
+					title = "Pages",
+					closeButton = false,
+					content = function(): Instance
+						return Host.Frame {
+							UI.Button "Previous" { label = "Previous" },
+							UI.Button "Next" { label = "Next", enabled = enabled },
+						}
+					end,
+				}
+			end, { motionLevel = "none" })
+			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+			open:set(true)
+			w.gui.SelectedObject = w.find("Next")
+			enabled:set(false)
+			Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Previous")
+			w.stop()
+		end)
 		verifyHarness:case("outside dismissal accepts pointer input while gamepad remains preferred", function()
 			local open = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
