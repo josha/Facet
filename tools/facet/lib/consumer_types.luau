@@ -21,7 +21,7 @@ local function fingerprint(
 	version: string
 ): string
 	local parts: { string } = {
-		"consumer-types-v2",
+		"consumer-types-v3",
 		"luau-lsp",
 		version,
 		solver,
@@ -31,24 +31,80 @@ local function fingerprint(
 		Files.read(project),
 		table.concat(FLAGS, "\n"),
 	}
-	if Files.isFile(".luaurc") then
-		table.insert(parts, Files.read(".luaurc"))
-	end
-	local roots = table.clone(paths)
-	for _, root in { "src", "Packages" } do
-		if Files.isDirectory(root) and table.find(roots, root) == nil then
-			table.insert(roots, root)
+	local seen: { [string]: boolean } = {}
+	local configs: { [string]: boolean } = {}
+	local function ancestors(file: string)
+		local directory = Files.parent(Files.absolute(file))
+		while not configs[directory] do
+			configs[directory] = true
+			local config = Files.join(directory, ".luaurc")
+			if Files.isFile(config) then
+				table.insert(parts, config .. "|" .. Files.read(config))
+			end
+			local parent = Files.parent(directory)
+			if parent == directory then
+				break
+			end
+			directory = parent
 		end
 	end
-	for _, root in roots do
-		if Files.isFile(root) then
-			table.insert(parts, root .. "|" .. Files.read(root))
-		elseif Files.isDirectory(root) then
-			for _, file in Files.walk(root) do
-				if string.match(file, "%.luau?$") or string.match(file, "%.luaurc$") then
-					table.insert(parts, root .. "/" .. file .. "|" .. Files.read(Files.join(root, file)))
+	local source: (string) -> ()
+	local function mappings(node: unknown, base: string)
+		local object = Json.asObject(node)
+		if object == nil then
+			return
+		end
+		local mapped = Json.stringField(object, "$path")
+		if mapped then
+			local normalized = Files.normalize(mapped)
+			source(
+				if string.sub(normalized, 1, 1) == "/" or string.match(normalized, "^%a:/")
+					then normalized
+					else Files.collapse(Files.join(base, normalized))
+			)
+		end
+		for _, key in Json.keys(object) do
+			if string.sub(key, 1, 1) ~= "$" then
+				mappings(object[key], base)
+			end
+		end
+	end
+	source = function(file: string)
+		local absolute = Files.absolute(file)
+		if seen[absolute] then
+			return
+		end
+		seen[absolute] = true
+		ancestors(file)
+		if Files.isDirectory(file) then
+			for _, relative in Files.walk(file) do
+				if
+					string.match(relative, "%.luau?$")
+					or string.match(relative, "%.json$")
+					or string.match(relative, "%.luaurc$")
+					or string.match(relative, "%.rbxm[x]?$")
+				then
+					source(Files.join(file, relative))
 				end
 			end
+		elseif Files.isFile(file) then
+			local contents = Files.read(file)
+			table.insert(parts, absolute .. "|" .. contents)
+			if absolute == Files.absolute(project) or string.match(file, "%.project%.json$") then
+				local document = Json.tryDecode(contents)
+				mappings(Json.field(document, "tree"), Files.parent(file))
+			end
+		else
+			table.insert(parts, absolute .. "|missing")
+		end
+	end
+	source(project)
+	for _, root in paths do
+		source(root)
+	end
+	for _, root in { "src", "Packages" } do
+		if Files.isDirectory(root) then
+			source(root)
 		end
 	end
 	table.sort(parts)

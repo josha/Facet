@@ -13,25 +13,49 @@ return function(harness: Verify.Harness)
 	harness:case("consumer type cache reuses only matching analyzer, definitions and configuration", function(t)
 		local sources: { [string]: string } = {
 			["sample.luau"] = "--!strict\nlocal value: number = 1\n",
-			["default.project.json"] = "{}",
+			["default.project.json"] = '{"tree":{"Shared":{"$path":"shared"}}}',
+			["shared/model.luau"] = "return 1",
+			["shared/default.project.json"] = '{"tree":{"External":{"$path":"../external"}}}',
+			["external/model.luau"] = "return 1",
 			["tools/typecheck/roblox.d.luau"] = "declare value: number",
 			["tools/typecheck/roblox.lock.json"] = '{"analyzerVersion":"1.69.0"}',
 			[".luaurc"] = '{"languageMode":"strict"}',
 		}
 		local version, available, analyses = "1.69.0", true, 0
+		local function relative(file: string): string
+			return Analyzer.relative(file, Files.cwd())
+		end
 		local fakeFiles = {
 			absolute = Files.absolute,
+			parent = Files.parent,
+			normalize = Files.normalize,
+			collapse = Files.collapse,
 			cwd = Files.cwd,
 			join = Files.join,
-			walk = Files.walk,
-			isFile = function(file: string): boolean
-				return sources[file] ~= nil
+			walk = function(directory: string): { string }
+				local found: { string } = {}
+				local prefix = relative(directory) .. "/"
+				for file in sources do
+					if string.sub(file, 1, #prefix) == prefix then
+						table.insert(found, string.sub(file, #prefix + 1))
+					end
+				end
+				return found
 			end,
-			isDirectory = function(_: string): boolean
+			isFile = function(file: string): boolean
+				return sources[relative(file)] ~= nil
+			end,
+			isDirectory = function(directory: string): boolean
+				local prefix = relative(directory) .. "/"
+				for file in sources do
+					if string.sub(file, 1, #prefix) == prefix then
+						return true
+					end
+				end
 				return false
 			end,
 			read = function(file: string): string
-				return (assert(sources[file], file))
+				return (assert(sources[relative(file)], file))
 			end,
 			write = function(file: string, text: string)
 				sources[file] = text
@@ -122,6 +146,26 @@ return function(harness: Verify.Harness)
 		t:expect(checked()[1].message):toBe("planted-4")
 		t:expect(checked()[1].message):toBe("planted-4")
 		t:expect(analyses):toBe(4)
+		sources["shared/model.luau"] = "return 'changed'"
+		t:expect(checked()[1].message):toBe("planted-5")
+		sources["external/model.luau"] = "return 'nested mapping changed'"
+		t:expect(checked()[1].message):toBe("planted-6")
+		sources["ui/sample.luau"] = sources["sample.luau"]
+		local function standalone(): { Analyzer.Diagnostic }
+			local diagnostics, failure = consumer.check({ "ui/sample.luau" }, "default.project.json", "new")
+			t:expect(failure):toBe(nil)
+			return assert(diagnostics)
+		end
+		standalone()
+		t:expect(analyses):toBe(7)
+		sources["ui/.luaurc"] = '{"languageMode":"strict"}'
+		standalone()
+		t:expect(analyses):toBe(8)
+		sources["ui/.luaurc"] = '{"languageMode":"nonstrict"}'
+		standalone()
+		t:expect(analyses):toBe(9)
+		standalone()
+		t:expect(analyses):toBe(9)
 	end)
 	harness:case("author replay counts a requested saved report without running a project", function(t)
 		local root = Files.temporaryDirectory("facet-author-replay")

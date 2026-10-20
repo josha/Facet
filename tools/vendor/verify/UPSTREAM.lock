@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "e079c111ff611ae8d88ec863df37344d6c02b42b",
+  "commit": "424f5adedf50c82b3c3a92844abbbbd3ca26a8b5",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "2e08694bef737336852a6331bc12685fd83477cb9277abc8cd5561b418f13c61",
@@ -100,7 +100,7 @@
     "src/lute/studio-launch.luau": "e7cd0871682956988c39ff088109132e22a74c271ef5e302fcd7ef11f5271bab",
     "src/lute/studio-logs.luau": "9be858bfbb44524f28c9fb7b7af68d34c65ecdf76c5141d31b377036e8df1105",
     "src/lute/studio-mcp.luau": "8ca62f3afa487bb96f4df8491fb03b05baa833ed9af3cd1460865a697615ba4e",
-    "src/lute/studio-processes.luau": "6837d97a7e4f15f5739665ab592ff4fe1e0cdfeeee67c64c42b6ae45d48eef0e",
+    "src/lute/studio-processes.luau": "863f8e23d129c25e99ad59569c28fff453e647842b6f220eb9d201c64b96fccf",
     "src/lute/studio-progress.luau": "2107c8f1af61b75f6c7ec97a357e051d5be20d691878f11b43663bfa6059cbd0",
     "src/lute/studio-reconnect.luau": "e01f057299bc4f4bd8cc4c68cd1c6c45a0121fd1b34987a074b00ff16e520b21",
     "src/lute/studio-reflection.luau": "438edbef14d44f88225b0f7ca6dbf09ebf08726d0b5717dc7acd68537373a580",

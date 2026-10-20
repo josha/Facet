@@ -4,12 +4,13 @@ For the historical Claude paired slice measurement, with a reused Plain run
 and a fresh Facet run, see the [slice report](reports/slice.md). The Sol
 measurement is pending. The saved slice has two simulated devices and no valid
 Facet memory-return measurements; it does not prove the overhead bounds below.
-To repeat hidden checks on saved
-completed workspaces without invoking an agent, use
+After the Sol slice runs complete, repeat their hidden checks without invoking
+an agent with
 `lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.
 Verify archives the previous check evidence and preserves agent metrics,
 transcripts, timestamps and build files. Then regenerate this report with
-`lute run eval/tools/report.luau artifacts/facetbench/slice --suite eval/slice.json`.
+`lute run eval/tools/report.luau artifacts/facetbench/slice-sol61-medium --suite eval/slice.json`.
+These commands use the current Sol suite, not the historical Claude workspaces.
 
 The headline suite is `extended.json`: 22 runs and
 55 blind task/device/seed comparisons. The hub and ten follow-ups use short
