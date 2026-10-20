@@ -12,6 +12,13 @@ Turn the art direction of a game into a theme that reads over its world.
   more, captions and HUD labels at 15 or more, and HUD numbers at 20 or more.
   Smaller text reads as unfinished on a TV and is hard to read on a phone. Check clocks and numbers in the chosen font: some display fonts
   draw a colon so thin that "24:51" reads as "2451" at small sizes.
+- Set `font.family` for each typography role. A `body` override does not
+  change all roles. The recipe patches the base font tables and keeps their
+  weight, style and line height. `strong` derives from an authored `body`, and
+  `numeral` from an authored `control`, unless you set those roles too.
+- Use `label` for item names, `caption` for supporting facts and `numeral`
+  for important balances or rewards. Check headings, main values and captions
+  together with long translated text over the game world.
 - Stroke at most the outer frame of a large panel, such as a Sheet. A stroke
   on every card or panel inside it reads as noise.
 - `rules` add native StyleSheet rules. `{ role = "accent" }` and

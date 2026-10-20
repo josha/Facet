@@ -1030,37 +1030,30 @@ end
 
 handlers.tap = function(request: Request): unknown
 	local query = queryOf(request.query)
-	local found = search(query)
-	if #found == 0 then
-		return { tapped = false, reason = "no visible element matches" }
+	local target = targetOf(query)
+	if target == nil then
+		return { tapped = false, reason = "no element matches" }
 	end
-	local covered: { string } = {}
-	for index = query.index or 1, #found do
-		local target = found[index]
-		local owner = if target.object:IsA("GuiButton")
-			then nil
-			else target.object:FindFirstAncestorWhichIsA("GuiButton")
-		local ownerRect = if owner then shownRect(owner, false) else nil
-		if owner and ownerRect then
-			target = { object = owner, rect = ownerRect, score = target.score, distance = target.distance }
-		end
-		local point, covering = reachable(target.object, target.rect)
-		if point ~= nil then
-			local activated, attempts = press(target.object, point)
-			return {
-				tapped = true,
-				activated = activated,
-				attempts = attempts,
-				info = describe(target.object, target.rect),
-				point = { x = point.X, y = point.Y },
-			}
-		end
-		table.insert(covered, ("%s is covered by %s"):format(label(target.object), tostring(covering)))
-		if query.index ~= nil or index >= 4 then
-			break
-		end
+	local owner = if target:IsA("GuiButton") then nil else target:FindFirstAncestorWhichIsA("GuiButton")
+	if owner then
+		target = owner
 	end
-	return { tapped = false, reason = table.concat(covered, "; ") }
+	local rect = shownRect(target, false)
+	if rect == nil then
+		return { tapped = false, reason = "the matched element is not visible" }
+	end
+	local point, covering = reachable(target, rect)
+	if point == nil then
+		return { tapped = false, reason = ("%s is covered by %s"):format(label(target), tostring(covering)) }
+	end
+	local activated, attempts = press(target, point)
+	return {
+		tapped = true,
+		activated = activated,
+		attempts = attempts,
+		info = describe(target, rect),
+		point = { x = point.X, y = point.Y },
+	}
 end
 
 handlers.point = function(request)
@@ -1766,8 +1759,11 @@ handlers.preview = function(request: Request): unknown
 			tapped.reason = "gamepad navigation did not settle on the target"
 		end
 	else
-		reveal(query, if request.mode == "touch" then "touch" else "wheel")
-		tapped = handlers.tap(request) :: { [string]: unknown }
+		if reveal(query, if request.mode == "touch" then "touch" else "wheel").revealed then
+			tapped = handlers.tap(request) :: { [string]: unknown }
+		else
+			tapped.reason = "the matched control could not be revealed"
+		end
 	end
 	local wait = request.wait
 	local settled = true

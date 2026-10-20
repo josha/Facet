@@ -17,6 +17,14 @@ memory limits remain unmet; frame samples measure cadence. The completed blind
 judge preferred Plain on both devices in both image orders, including all
 four polish judgments. Required-check success does not establish the headline
 goals or a visual-quality win for this pair.
+The [fourth fresh pair](reports/slice-sol61-medium-4.md) again passed 13/13
+Facet universal checks versus Plain's 1/13. Facet used 1.426 times the tokens
+and 1.084 times the author wall time. The ratios narrowed as Facet's run
+shortened and Plain's grew; this does not isolate a causal improvement.
+Efficiency and memory goals remain unmet, and the diagnostic Plain phone
+return has missing final memory. Plain again won both blind comparisons in
+both image orders, including all four polish judgments; Facet retained
+fitness strengths without an overall visual-quality win for this pair.
 To diagnose a saved Sol workspace, repeat its hidden checks without invoking
 an agent:
 `lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.

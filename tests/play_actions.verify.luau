@@ -5,6 +5,7 @@ local Actions = require("../tools/play/host/actions")
 local QA = require("../tools/play/host/qa")
 local Universal = require("../eval/tasks/racing-hub/hidden/universal")
 local Play = require("../tools/play/host/play")
+local Devices = require("../tools/play/host/devices")
 
 local function fixture(
 	mode: string,
@@ -113,6 +114,41 @@ local function fixture(
 end
 
 return function(harness: Verify.Harness)
+	for _, device in { "desktop", "phone-portrait" } do
+		harness:case(device .. " failed reveal never taps a different matching button", function(t)
+			local qa = QA.create(
+				(
+						{
+							session = {},
+							probe = "probe",
+							outputs = "out",
+							captures = "captures",
+							scratch = "scratch",
+							shots = {},
+							log = function(_message: string) end,
+						} :: unknown
+					) :: QA.Context,
+				Devices.get(device)
+			)
+			local commands: { string } = {}
+			local revealed = false
+			qa.call = function(_self: QA.QA, command: string, _fields: unknown?): unknown
+				table.insert(commands, command)
+				if command == "reveal" then
+					return { revealed = revealed }
+				end
+				return { tapped = true, activated = true }
+			end
+			local query: QA.Query = { role = "button", text = "Buy", near = "Selected item" }
+			local tapped, reason = qa:tap(query)
+			t:expect(tapped):toBe(false)
+			t:expect(string.find(reason, "could not be revealed", 1, true) ~= nil):toBe(true)
+			t:expect(commands):toEqual({ "reveal" })
+			revealed = true
+			t:expect((qa:tap(query))):toBe(true)
+			t:expect(commands):toEqual({ "reveal", "reveal", "tap" })
+		end)
+	end
 	for _, mode in { "mouse", "touch" } do
 		harness:case(mode .. " input preparation sends no selection or key input", function(t)
 			local qa = fixture(mode, true, false, false, false)
