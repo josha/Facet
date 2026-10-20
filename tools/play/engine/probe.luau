@@ -10,6 +10,7 @@ local Collect = require("../../../tools/vendor/verify/src/roblox/ui-audit-collec
 local scrollTarget = require("./scroll_target")
 local racingDrive = require("./racing_drive")
 local Mount = require("./mount")
+local MemoryReady = require("./memory_ready")
 local frameStability = require("../../studio/live/frame_stability")
 local invalidSelections = 0
 game:GetService("LogService").MessageOut:Connect(function(message: string)
@@ -1677,11 +1678,25 @@ handlers.perf = function(request: Request): unknown
 		result.census = census()
 		return result
 	elseif action == "idle" then
+		local readiness = MemoryReady.waitFor(
+			Stats.MemoryTrackingEnabled,
+			function(): number?
+				local ok, value = pcall(function(): number
+					return Stats:GetMemoryUsageMbForTag(Enum.DeveloperMemoryTag.Gui)
+				end)
+				return if ok then value else nil
+			end,
+			os.clock,
+			function()
+				RunService.RenderStepped:Wait()
+			end,
+			20
+		)
 		sample()
 		local mark = #frameTimes
 		task.wait(numberField(request, "seconds", 2))
 		stopSampling()
-		return { frames = frameStats(mark), census = census(), memory = memory() }
+		return { frames = frameStats(mark), census = census(), memory = memory(), memoryReadiness = readiness }
 	elseif action == "begin" then
 		sample()
 		perfMark = #frameTimes

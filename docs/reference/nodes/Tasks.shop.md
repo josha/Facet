@@ -1,6 +1,6 @@
 # Tasks.shop
 
-Sell items: a card grid, one column on a phone.
+A shop grid, one column on phones.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -42,5 +42,5 @@ app.mount(function()
 end)
 ```
 
-Allow Buy with low funds. See [Tasks.purchase](Tasks.purchase.md) for server feedback.
-Add a segmented `Picker` for categories. See [Tasks.sheet](Tasks.sheet.md).
+Allow Buy with low funds. [Feedback](Tasks.purchase.md).
+Categories use a segmented `Picker`. [Panels](Tasks.sheet.md).

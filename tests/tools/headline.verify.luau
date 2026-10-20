@@ -143,7 +143,7 @@ return function(harness: Verify.Harness)
 				for _, run in runs do
 					if run.arm == "facet" then
 						local key = "play.perf." .. device.id .. "." .. rule.metric
-						run.scores[key] *= 1.11
+						run.scores[key] = assert(run.scores[key]) * 1.11
 					end
 				end
 				local output = Headline.build(suite, runs, judgments, thresholds, overhead)
@@ -162,7 +162,8 @@ return function(harness: Verify.Harness)
 			for _, run in runs do
 				if run.arm == "facet" then
 					for _, device in suite.tasks[1].devices do
-						run.scores["play.perf." .. device.id .. "." .. name] *= 2
+						local key = "play.perf." .. device.id .. "." .. name
+						run.scores[key] = assert(run.scores[key]) * 2
 					end
 				end
 			end
@@ -190,8 +191,10 @@ return function(harness: Verify.Harness)
 					local key = "play.perf.desktop." .. name
 					if mode == "return-failed" then
 						run.scores["play.perf.desktop.returned"] = 0
+					elseif mode == "zero" then
+						run.scores[key] = 0
 					else
-						run.scores[key] = if mode == "zero" then 0 else nil
+						run.scores[key] = nil
 					end
 					local output = Headline.build(suite, runs, judgments, thresholds, overhead)
 					t:expect(output.passed):toBe(false)

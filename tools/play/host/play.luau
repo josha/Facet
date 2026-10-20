@@ -511,7 +511,8 @@ local function perfScores(perf: { [string]: DevicePerf }, scores: { [string]: nu
 		put("baseInstances", number(record.idle, "census", "instances"))
 		put("returned", if record.returned then 1 else 0)
 		if record.returned then
-			for metric, property in { finalHeapKb = "luaHeapKb", finalGuiMb = "guiMb" } do
+			local finalMetrics: { [string]: string } = { finalHeapKb = "luaHeapKb", finalGuiMb = "guiMb" }
+			for metric, property in finalMetrics do
 				local value = number(record.final, "memory", property)
 				if value ~= nil and value > 0 and value < math.huge then
 					put(metric, value)

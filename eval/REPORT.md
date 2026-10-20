@@ -97,6 +97,11 @@ five seconds, then records the same two-second idle window used at mount.
 `heapReturnRatio` and `guiReturnRatio` divide final memory by mounted memory.
 A failed return leaves these measurements absent. Disabled category memory
 tracking also leaves GUI memory absent. No forced collection is used.
+Before each idle window, the probe waits at most 20 seconds for the first
+positive finite GUI memory reading, unless tracking is disabled. This wait is
+outside mount timing and the fixed sample window. `memoryReadiness` records
+attempts, elapsed time, tracking and timeout. The actual window's memory sample
+is preserved, including zero or missing values.
 `finalHeapKb` and `finalGuiMb` report positive post-return samples only after
 a successful return. Their Facet/plain ratios compare retained usage directly.
 Return ratios compare growth against each arm's own mounted hub; equal return
