@@ -33,13 +33,18 @@ return function(
 			return if moving(use) then E.AutomaticSize.None else ctx.read(geometry.AutomaticSize, use) or automatic
 		end,
 	})
+	local frames = ctx.config.services.RunService
+	local dressed = Compose.cell(frames == nil)
+	local function showing(use: ComposeTypes.Use): boolean
+		return moving(use) and use(dressed)
+	end
 	local paintProps: Types.TextLabelNativeProps = {
 		Name = "FeedbackPaint",
 		Size = D2.fromScale(1, 1),
 		AnchorPoint = V2.new(0.5, 0.5),
 		Position = D2.fromScale(0.5, 0.5),
 		AutomaticSize = E.AutomaticSize.None,
-		Visible = moving,
+		Visible = showing,
 		Text = "",
 		scale,
 	}
@@ -77,12 +82,60 @@ return function(
 	runtime.mount(function()
 		return boundary
 	end, node)
+	local guiState = ctx.observe.GuiState(node)
+	local engaged = Compose.cell(false)
+	local release: RBXScriptConnection? = nil
+	Compose.watch(function(use: ComposeTypes.Use)
+		local state = use(guiState)
+		if release then
+			release:Disconnect()
+			release = nil
+		end
+		if state == E.GuiState.Hover or state == E.GuiState.Press then
+			engaged:set(true)
+		elseif frames and engaged:peek() then
+			release = frames.Heartbeat:Connect(function()
+				if release then
+					release:Disconnect()
+					release = nil
+				end
+				engaged:set(false)
+			end)
+		else
+			engaged:set(false)
+		end
+	end)
+	Compose.cleanup(function()
+		if release then
+			release:Disconnect()
+		end
+	end)
+	local function wearing(use: ComposeTypes.Use): boolean
+		return moving(use) or use(engaged)
+	end
 	runtime.mountFragment(function()
 		return {
-			Compose.show(moving, function()
+			Compose.show(wearing, function()
 				local worn: { [string]: boolean } = {}
+				if frames then
+					local connection: RBXScriptConnection? = nil
+					connection = frames.Heartbeat:Connect(function()
+						if connection then
+							connection:Disconnect()
+							connection = nil
+						end
+						dressed:set(true)
+					end)
+					Compose.cleanup(function()
+						if connection then
+							connection:Disconnect()
+						end
+						dressed:set(false)
+					end)
+				end
 				Compose.watch(function(use: ComposeTypes.Use)
 					use(factor)
+					use(engaged)
 					local current: { [string]: boolean } = {}
 					for _, tag in node:GetTags() do
 						current[tag] = true
@@ -97,6 +150,16 @@ return function(
 					end
 					worn = current
 				end)
+				Compose.cleanup(function()
+					for tag in worn do
+						paint:RemoveTag(tag)
+					end
+				end)
+				return Compose.fragment(function()
+					return {}
+				end)
+			end),
+			Compose.show(showing, function()
 				local children = node:GetChildren()
 				local selected = if ctx.config.guiService then ctx.config.guiService.SelectedObject else nil
 				for _, child in children do
@@ -136,9 +199,6 @@ return function(
 						if child.Parent == paint then
 							child.Parent = node
 						end
-					end
-					for tag in worn do
-						paint:RemoveTag(tag)
 					end
 					if selected and ctx.config.guiService then
 						ctx.config.guiService.SelectedObject = selected
