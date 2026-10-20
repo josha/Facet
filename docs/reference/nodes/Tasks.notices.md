@@ -18,8 +18,8 @@ app.mount(function()
         },
     }
 end)
-app.presentToast(function(UI)
-    return UI.Text { text = "Settings saved" }
+app.presentToast(function(UI: Facet.Controls): Instance
+    return UI.Text "Saved" { text = "Settings saved" }
 end, { key = "save" })
 script.Destroying:Connect(app.dispose)
 ```

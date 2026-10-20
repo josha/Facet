@@ -37,11 +37,12 @@ mountWallet({
 })
 ```
 
-The local cell demonstrates the client adapter. Use the game's client in production.
-`getState()` returns its current
+The cell demonstrates the client adapter. `getState()` returns the current
 server snapshot without yielding. `onStateChanged()` reports each new snapshot
-in a new table and returns a disconnect function. Subscribe before reading the snapshot again
-so mounting does not miss an update. Compose disconnects when the mount ends.
+in a new table and returns a disconnect function. For a native connection, return
+`function() connection:Disconnect() end`; do not give `C.cleanup` an
+`RBXScriptConnection`. Subscribe before reading the snapshot again so mounting
+does not miss an update. Compose disconnects when the mount ends.
 The game owns the XP limit and all other game rules. Apply this state pattern
 to the readouts in [Tasks.hud](Tasks.hud.md); keep one HUD Composition.
 Localize the sample labels with the game's translator.

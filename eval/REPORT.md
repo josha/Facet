@@ -1,16 +1,21 @@
 # Headline report
 
 For the historical Claude paired slice measurement, with a reused Plain run
-and a fresh Facet run, see the [slice report](reports/slice.md). The Sol
-measurement is pending. The saved slice has two simulated devices and no valid
-Facet memory-return measurements; it does not prove the overhead bounds below.
-After the Sol slice runs complete, repeat their hidden checks without invoking
-an agent with
+and a fresh Facet run, see the [slice report](reports/slice.md). The
+[first fresh Sol pair](reports/slice-sol61-medium.md) passed required Facet
+behavior but failed the efficiency and memory goals. It has no blind judge
+verdict because the judge account reached its quota. It does not prove the
+overhead bounds below.
+To diagnose a saved Sol workspace, repeat its hidden checks without invoking
+an agent:
 `lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.
 Verify archives the previous check evidence and preserves agent metrics,
-transcripts, timestamps and build files. Then regenerate this report with
+transcripts, timestamps and build files. To generate its headline, use
 `lute run eval/tools/report.luau artifacts/facetbench/slice-sol61-medium --suite eval/slice.json`.
 These commands use the current Sol suite, not the historical Claude workspaces.
+Rechecking cannot measure author efficiency improvements. The first Sol pair's
+recorded turn-event gaps are not model latency evidence; see its report before
+interpreting timing percentiles. Run both arms fresh after shared fixes.
 
 The headline suite is `extended.json`: 22 runs and
 55 blind task/device/seed comparisons. The hub and ten follow-ups use short
@@ -21,6 +26,11 @@ remain in the quality rules. The limits are in `overhead.json` and `thresholds.j
 in `headline.md`; diagnostic captures stay outside the judge's image set.
 
 See [the tier table and calibration commands](README.md#check-tiers-and-calibration). The slice report contains two-device checks and blind comparisons; it does not record human judge calibration. The Facet CLI is available only in the Facet arm. Runtime rescoring is sequential. Missing scoped Studio tools cause setup failure.
+
+Before console mount settling and captures, the shared host selects a native
+control, when available, and sends one Right directional key through VirtualInput. The Xbox
+simulator preset alone does not establish the last input type. This prepares
+the emulated navigation path; it does not prove physical controller input.
 
 Run from the repository root after all 22 runs and 55 blind comparisons finish:
 

@@ -381,6 +381,10 @@ local function open(options: HostOptions): Host
 		elseif device.orientation == "landscape" and portrait then
 			error("the screen is not in landscape", 0)
 		end
+		local prepared, inputProblem = Actions.prepareInput(qa)
+		if not prepared then
+			error("input preparation failed: " .. inputProblem, 0)
+		end
 		local settleCalled = os.clock()
 		local settled = probe(qa, {
 			action = "settle",

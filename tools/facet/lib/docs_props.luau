@@ -34,6 +34,10 @@ local DEFAULTS: { [string]: { [string]: string } } = {
 	Screen = { chrome = '"device"', width = '"fill"', height = '"fill"', padding = '"m"' },
 	ScrollView = { axis = '"y"', width = '"fill"', height = "by axis and children" },
 }
+local GUIDANCE: { [string]: { [string]: string } } = {
+	Toast = { closeButton = "Requires action; a toast without an action is display-only." },
+	Picker = { options = "Type the list as { Facet.PickerOption<V> }. For a typed example, open Picker.card." },
+}
 
 function Props.load(root: string): { [string]: { Option } }
 	local directory = if Files.isDirectory(Files.join(root, "Packages/Facet/ui")) then "Packages/Facet/ui" else "src/ui"
@@ -272,6 +276,12 @@ function Props.render(name: string, options: { Option }): string
 						else "required"
 				)
 		)
+	end
+	local guidance = GUIDANCE[name]
+	for _, option in options do
+		if guidance and guidance[option.name] then
+			table.insert(lines, option.name .. ": " .. guidance[option.name])
+		end
 	end
 	local listed: { [string]: boolean } = {}
 	for _, option in options do
