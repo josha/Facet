@@ -149,6 +149,10 @@ unavailable, report that limit once and use `verify --static`.
 Review the rendered result against the design guide: hierarchy, overlap,
 legibility, compact forms, reachable actions and truthful feedback. Passing
 technical checks alone does not establish design quality.
+For temporary surfaces, list the built-in dismissal routes before adding Close,
+Cancel or Done. Remove duplicate visible exits that add no task value, while
+preserving a discoverable route for each input. Check the grabber's actual
+behavior at every detent; a drag indicator alone does not prove dismissal works.
 The tools remove a UTF-8 BOM from application Luau files before engine tools
 read them. In Windows PowerShell 5.1 use `Set-Content -Encoding utf8`.
 

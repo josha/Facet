@@ -105,7 +105,7 @@ return {
 			} :: unknown,
 			UI.Sheet {
 				title = "Field journal",
-				closeButton = "Close journal",
+				closeButton = false,
 				isPresented = opened,
 				placement = "bottom",
 				width = "wide",

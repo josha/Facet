@@ -226,11 +226,15 @@ local function journal(t: Live, motion: string)
 		t.device({ device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait })
 	end
 	local chosen: () -> string
+	local presented: () -> boolean
 	local open: () -> ()
 	local width = math.min(640, workspace.CurrentCamera.ViewportSize.X - 48)
 	local stage = t.mount(function(UI: Controls, _Host: Host, C: Compose, env): Instance
 		local selected = C.cell("crossing")
 		local shown = C.cell(false)
+		presented = function(): boolean
+			return shown:peek()
+		end
 		open = function()
 			shown:set(true)
 		end
@@ -242,7 +246,7 @@ local function journal(t: Live, motion: string)
 		)
 		return UI.Sheet {
 			title = "Field journal",
-			closeButton = "Close journal",
+			closeButton = false,
 			isPresented = shown,
 			placement = "bottom",
 			width = "wide",
@@ -445,6 +449,10 @@ local function journal(t: Live, motion: string)
 	end
 	monitor:Disconnect()
 	watch:Disconnect()
+	t.check("the journal has no duplicate header Close", stage:FindFirstChild("Close", true) == nil)
+	activate(t.find(stage, "Grabber"))
+	t.settle(60)
+	t.check("the one-detent grabber closes the journal", not presented())
 end
 
 return {
