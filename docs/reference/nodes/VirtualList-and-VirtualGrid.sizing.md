@@ -1,7 +1,9 @@
 # VirtualList-and-VirtualGrid.sizing
 
-For a short collection inside a content-sized Sheet, bind its viewport height
-to its published `CanvasSize`. Do not calculate rows from the outer width:
+For a short, bounded collection inside a content-sized Sheet, use `mode = "all"`
+and bind its viewport height to its published `CanvasSize`. This keeps the
+collection layout active at zero height, so an empty collection can refill.
+Do not calculate rows from the outer width:
 the native scrollbar inset and the grid's paint gutters reduce the space for
 columns. `mode = "all"` changes row lifetime, not viewport size.
 
@@ -15,7 +17,7 @@ local UI, runtime = app.UI, app.runtime
 app.mount(function()
   local env, height = UI.environment(), C.cell(1)
   local spec: Facet.KeyedCollectionSpec<string, string> = {
-    from = { "Amber", "Blue" }, key = function(item) return item end,
+    from = { "Amber", "Blue" }, key = function(item) return item end, mode = "all",
     minColumnWidth = env.scaled(220), itemSize = env.scaled(132),
     gap = env.scaled(16), VerticalScrollBarInset = Enum.ScrollBarInset.Always,
     render = function(current) return UI.Text { text = current } end,
@@ -35,6 +37,7 @@ end)
 ```
 
 `CanvasSize` includes paint gutters. Compose owns the observation and watch.
-For large collections, keep a bounded viewport and let the collection scroll.
+For large or unbounded collections, keep `mode = "windowed"`, give the viewport
+a bounded height and let the collection scroll. Do not size it to all items.
 `AutomaticCanvasSize` changes canvas size, not viewport size; native child
 measurement cannot measure unmounted rows.

@@ -11,8 +11,7 @@ local app = Facet.app({ name = "Game" })
 local UI = app.UI
 local open = Compose.cell(false)
 type Route = { id: string, value: string }
-local initial: { Route } = {}
-local path = Compose.cell(initial)
+local path = Compose.cell({} :: { Route })
 app.mount(function()
     return UI.Screen "Root" {
         UI.Button "Open" { label = "Details", onActivate = function() open:set(true) end },
@@ -40,11 +39,11 @@ script.Destroying:Connect(app.dispose)
 Sheet owns Close, scrolling and modal selection. NavigationStack owns Back;
 its root has no Back.
 
-Keep Close in its header position. Size `width` and `detents` for
-content and viewport. Short tasks need less room than collections.
+Keep Close in its header. `hug` needs an intrinsically sized short body.
+NavigationStack fills its viewport; use a bounded detent.
+Keep large collections in bounded scrolling viewports.
 
-Use Popover for anchored actions, DisclosureGroup for inline facts,
-and NavigationStack for child pages.
+Use Popover for anchored actions and DisclosureGroup for inline facts.
 
 Modals use `GuiService.TouchControlsEnabled` to hide native touch controls
 and restore them when the last modal closes. The game owns custom touch actions.

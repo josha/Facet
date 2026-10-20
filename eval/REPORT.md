@@ -6,6 +6,10 @@ and a fresh Facet run, see the [slice report](reports/slice.md). The
 behavior but failed the efficiency and memory goals. A separate Sol judge
 preferred Facet overall, while Plain won polish. The Claude judge reached its
 quota. This pair does not prove the overhead bounds below.
+The [second attempt](reports/slice-sol61-medium-2.md) ended with a Facet author
+capacity error. Its missing usage and incorrect adapter success status prevent
+an efficiency claim. Native checks still found memory limits unmet and changes
+in frame pacing that need separate timing validation.
 To diagnose a saved Sol workspace, repeat its hidden checks without invoking
 an agent:
 `lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.

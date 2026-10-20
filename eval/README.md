@@ -182,13 +182,13 @@ Run from the repository root:
 ```sh
 lute run tools/vendor/verify/tools/agent-eval.luau plan   --suite eval/extended.json
 lute run tools/vendor/verify/tools/agent-eval.luau run    --suite eval/extended.json --seed 1
-lute run tools/vendor/verify/tools/agent-eval.luau judge  --suite eval/extended.json --transport codex --model gpt-6.1-sol --effort medium
+lute run tools/vendor/verify/tools/agent-eval.luau judge  --suite eval/extended.json --provider openai --transport cli --model gpt-6.1-sol --effort medium
 lute run eval/tools/report.luau artifacts/facetbench/extended
 ```
 
 - `plan` lists the runs. It starts nothing.
 - `run` runs the agents and the hidden checks. Each play check starts its own Studio, so keep `--parallel 1`.
-- `judge` compares the screenshots of both arms for each task, device and seed. The command above uses Sol 6.1 Medium through Codex with neutral attached images and no accepted tool calls. Its cache identity includes the transport, model and effort. The alternative `--transport api` uses Claude and reads `ANTHROPIC_API_KEY`. Do not combine different judge models as one preference result. Calibrate the judge with human labels before you rely on its win rate.
+- `judge` compares the screenshots of both arms for each task, device and seed. The command above uses Sol 6.1 Medium through Codex with neutral attached images and no accepted tool calls. Its cache identity includes the provider, transport, model and configured effort. The default `--provider anthropic --transport api` uses Claude and reads `ANTHROPIC_API_KEY`. Changing a suite's judge provider also needs an explicit model when the suite has a model. Do not combine different judge models as one preference result. Calibrate the judge with human labels before you rely on its win rate.
 - `report` writes `quality.json` and `headline.md` and exits 1 when the verdict is `FAIL`.
 
 To run the play check on one workspace:
@@ -350,7 +350,7 @@ lute run eval/tools/check.luau
 lute run eval/tools/shared-kit.luau
 lute run tools/facet kit --out artifacts/facetbench/arm-facet --force
 lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/extended.json --parallel 1 --fresh
-lute run tools/vendor/verify/tools/agent-eval.luau judge --suite eval/extended.json --transport codex --model gpt-6.1-sol --effort medium
+lute run tools/vendor/verify/tools/agent-eval.luau judge --suite eval/extended.json --provider openai --transport cli --model gpt-6.1-sol --effort medium
 lute run eval/tools/report.luau artifacts/facetbench/extended
 ```
 
