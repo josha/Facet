@@ -24,6 +24,18 @@ export type Overhead = { status: string, rules: { Rule } }
 export type Output = { markdown: string, quality: Eval.EvalReport, passed: boolean, problems: { string } }
 
 local stats = Eval.stats
+local OVERHEAD_COLUMNS = {
+	"baseInstances",
+	"mountSeconds",
+	"idleFrameP50Ms",
+	"idleFrameP95Ms",
+	"activeFrameP50Ms",
+	"activeFrameP95Ms",
+	"finalHeapKb",
+	"finalGuiMb",
+	"heapReturnRatio",
+	"guiReturnRatio",
+}
 local DIAGNOSTIC_AUDIT: { [string]: boolean } = {
 	["press-feedback-missing"] = true,
 	["type-scale"] = true,
@@ -47,6 +59,12 @@ end
 
 local function metric(run: Run, device: string, name: string): number?
 	local value = run.scores[("play.perf.%s.%s"):format(device, name)]
+	if
+		(name == "finalHeapKb" or name == "finalGuiMb")
+		and (run.scores["play.perf." .. device .. ".returned"] ~= 1 or value == nil or value <= 0)
+	then
+		return nil
+	end
 	return if value ~= nil and value == value and math.abs(value) < math.huge and value >= 0 then value else nil
 end
 
@@ -385,7 +403,7 @@ local function build(
 	table.insert(lines, "")
 	table.insert(
 		lines,
-		"Per-task values are medians over seeds. Pass is the run pass rate; audit is violations per audited screen. Overhead cells show arm medians and arm/plain ratios across all devices and seeds: instances / mount seconds / idle p50 ms / heap return / GUI return. The device rules above prevent a device regression from being hidden by these medians."
+		"Per-task values are medians over seeds. Pass is the run pass rate; audit is violations per audited screen. Overhead cells show arm medians and arm/plain ratios across all devices and seeds: instances / mount seconds / idle p50 and p95 ms / active p50 and p95 ms / post-return heap KB and GUI MB / heap return and GUI return. Post-return usage compares arms; return ratios measure growth from each arm's mounted hub. The device rules above prevent a device regression from being hidden by these medians."
 	)
 	table.insert(lines, "")
 	table.insert(lines, "| Agent | Task | Arm | Pass | Audit | Tokens | Wall s | Overhead values | Overhead ratios |")
@@ -427,9 +445,7 @@ local function build(
 					end
 				end
 				local values, ratios = {}, {}
-				for _, name in
-					{ "baseInstances", "mountSeconds", "idleFrameP50Ms", "heapReturnRatio", "guiReturnRatio" }
-				do
+				for _, name in OVERHEAD_COLUMNS do
 					local value = stats.median(overhead[name] or {})
 					if arm == thresholds.baseline and value ~= nil then
 						baselines[name] = value
@@ -472,7 +488,7 @@ local function build(
 		for _, arm in { thresholds.baseline, thresholds.treatment } do
 			local v = armValues[arm]
 			local values, ratios = {}, {}
-			for _, name in { "baseInstances", "mountSeconds", "idleFrameP50Ms", "heapReturnRatio", "guiReturnRatio" } do
+			for _, name in OVERHEAD_COLUMNS do
 				table.insert(values, show(stats.median(armOverheads[arm][name] or {})))
 				table.insert(ratios, show(stats.median(armRatios[arm][name] or {})))
 			end
@@ -574,7 +590,7 @@ local function build(
 	table.insert(lines, "")
 	table.insert(
 		lines,
-		"Codex does not report USD cost. Missing USD is unpriced, never zero. Input excludes cached input; total includes cache reads and writes. Frame time is the whole Studio client, not isolated UI CPU time. Mount includes joining, probe readiness and host waits. Memory compares the returned hub after five idle seconds with the mounted hub; it does not prove unmount cleanup. Confirm the return state in Studio."
+		"Codex does not report USD cost. Missing USD is unpriced, never zero. Input excludes cached input; total includes cache reads and writes. Frame time is the whole Studio client, not isolated UI CPU time. Mount includes joining, probe readiness and host waits. Post-return memory compares whole-client heap and GUI usage across arms after five idle seconds. Memory return ratios compare that sample with each arm's mounted hub; neither proves unmount cleanup. Confirm the return state in Studio."
 	)
 	table.insert(lines, "")
 	for _, limitation in quality.limitations do

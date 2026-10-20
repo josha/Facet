@@ -30,8 +30,7 @@ end)
 ```
 
 Both regions stack in the core safe area; `captionRoom` keeps the captions
-clear of the readouts. Do not make another ScreenGui. Set cells from the server state, for example
-`client.onStateChanged(function(s) coins:set(s.coins) end)`.
+clear of the readouts. Do not make another ScreenGui. Replace the sample cells with server state as shown in [Tasks.state](Tasks.state.md).
 
 - [HUD-actions](HUD-actions.md)
 - [Tasks.shop](Tasks.shop.md)

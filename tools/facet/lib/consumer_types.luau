@@ -10,9 +10,30 @@ local Run = require("./run")
 local ConsumerTypes = {}
 local DEFINITIONS = { "tools/typecheck/roblox.d.luau", "artifacts/verify/types/roblox.d.luau" }
 local CACHE = "artifacts/facet-lint/types-cache.json"
+local LOCK = "tools/typecheck/roblox.lock.json"
+local FLAGS = { "--flag:LuauTarjanChildLimit=100000" }
 
-local function fingerprint(paths: { string }, project: string, solver: string, definitions: string): string
-	local parts: { string } = { solver, definitions, Files.read(project) }
+local function fingerprint(
+	paths: { string },
+	project: string,
+	solver: string,
+	definitions: string,
+	version: string
+): string
+	local parts: { string } = {
+		"consumer-types-v2",
+		"luau-lsp",
+		version,
+		solver,
+		definitions,
+		Files.read(definitions),
+		Files.read(LOCK),
+		Files.read(project),
+		table.concat(FLAGS, "\n"),
+	}
+	if Files.isFile(".luaurc") then
+		table.insert(parts, Files.read(".luaurc"))
+	end
 	local roots = table.clone(paths)
 	for _, root in { "src", "Packages" } do
 		if Files.isDirectory(root) and table.find(roots, root) == nil then
@@ -24,7 +45,7 @@ local function fingerprint(paths: { string }, project: string, solver: string, d
 			table.insert(parts, root .. "|" .. Files.read(root))
 		elseif Files.isDirectory(root) then
 			for _, file in Files.walk(root) do
-				if string.match(file, "%.luau?$") then
+				if string.match(file, "%.luau?$") or string.match(file, "%.luaurc$") then
 					table.insert(parts, root .. "/" .. file .. "|" .. Files.read(Files.join(root, file)))
 				end
 			end
@@ -57,6 +78,15 @@ local function cached(key: string): { Analyzer.Diagnostic }?
 end
 
 function ConsumerTypes.check(paths: { string }, project: string, solver: string): ({ Analyzer.Diagnostic }?, string?)
+	local reported = Run.capture({ "luau-lsp", "--version" })
+	if not reported.ok then
+		return nil, "Pinned luau-lsp is missing; run rokit install"
+	end
+	local version = string.gsub(reported.stdout, "%s+$", "")
+	local expected = Json.stringField(Json.decode(Files.read(LOCK)), "analyzerVersion")
+	if version ~= expected then
+		return nil, `Analyzer {version} differs from the pinned toolchain; run rokit install`
+	end
 	local definitions = DEFINITIONS[2]
 	for _, candidate in DEFINITIONS do
 		if Files.isFile(candidate) then
@@ -64,14 +94,14 @@ function ConsumerTypes.check(paths: { string }, project: string, solver: string)
 			break
 		end
 	end
-	local resolved, result = pcall(Definitions.resolve, "tools/typecheck/roblox.lock.json", definitions)
+	local resolved, result = pcall(Definitions.resolve, LOCK, definitions)
 	if not resolved then
 		return nil, tostring(result)
 	end
 	if not Files.isFile(project) then
 		return nil, "no Rojo project at " .. project
 	end
-	local key = fingerprint(paths, project, solver, definitions :: string)
+	local key = fingerprint(paths, project, solver, definitions :: string, version)
 	local reused = cached(key)
 	if reused then
 		return reused, nil
@@ -104,9 +134,11 @@ function ConsumerTypes.check(paths: { string }, project: string, solver: string)
 		"roblox",
 		"--definitions=" .. (definitions :: string),
 		"--sourcemap=" .. sourcemap,
-		"--flag:LuauTarjanChildLimit=100000",
 		"--flag:LuauSolverV2=" .. (if solver == "old" then "false" else "true"),
 	}
+	for _, flag in FLAGS do
+		table.insert(argv, flag)
+	end
 	for _, path in paths do
 		table.insert(argv, path)
 	end

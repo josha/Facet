@@ -26,3 +26,35 @@ or data replacement keeps removed painted rows until the replacement rows
 in the viewport are ready. Equal keys retain their native instances. An empty
 result removes the old rows. Offscreen overscan does not delay visible rows.
 Use `ZIndexBehavior = Enum.ZIndexBehavior.Sibling` on the ScreenGui or SurfaceGui.
+
+For a short collection inside a content-sized Sheet, bind its viewport height
+to its published `CanvasSize`. Do not calculate rows from the outer width:
+the native scrollbar inset and the grid's paint gutters reduce the space for
+columns. `mode = "all"` changes row lifetime, not viewport size.
+
+In one Compose owner, use the app's `UI`, `runtime`, `Compose` and `env`.
+Supply `items` and `renderItem`. Keep the scrollbar inset stable:
+
+```luau
+local height = Compose.cell(1)
+local grid = UI.VirtualGrid "Items" {
+  from = items, key = "id", minColumnWidth = env.scaled(220),
+  itemSize = env.scaled(132), gap = env.scaled(16), render = renderItem,
+  VerticalScrollBarInset = Enum.ScrollBarInset.Always,
+  Size = function(use: Facet.Use): UDim2
+    return UDim2.new(1, 0, 0, use(height))
+  end,
+}
+local canvas = runtime.observe(grid, "CanvasSize")
+Compose.watch(function(use: Facet.Use)
+  local size = use(canvas)
+  assert(typeof(size) == "UDim2")
+  height:set(size.Y.Offset)
+end)
+return grid
+```
+
+`CanvasSize` includes paint gutters. Compose owns the observation and watch.
+For large collections, keep a bounded viewport and let the collection scroll.
+`AutomaticCanvasSize` changes canvas size, not viewport size; native child
+measurement cannot measure unmounted rows.

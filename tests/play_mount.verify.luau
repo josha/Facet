@@ -20,6 +20,30 @@ local function hud(): Mount.Snapshot
 end
 
 return function(harness: Verify.Harness)
+	harness:case("post-return usage scores require a returned hub and positive memory samples", function(t)
+		for _, returned in { false, true } do
+			for _, value in { 0, 20 } do
+				local scores: { [string]: number } = {}
+				Play.perfScores(
+					{
+						desktop = {
+							returned = returned,
+							final = { memory = { luaHeapKb = value, guiMb = value } },
+							screens = {},
+						},
+					},
+					scores
+				)
+				for _, name in { "finalHeapKb", "finalGuiMb" } do
+					t:expect(scores["perf.desktop." .. name]):toBe(if returned and value > 0 then value else nil)
+				end
+			end
+		end
+		local scores: { [string]: number } = {}
+		Play.perfScores({ desktop = { returned = true, screens = {} } }, scores)
+		t:expect(scores["perf.desktop.finalHeapKb"]):toBe(nil)
+		t:expect(scores["perf.desktop.finalGuiMb"]):toBe(nil)
+	end)
 	harness:case("saved report CLI queries need no project and preserve the saved bytes", function(t)
 		local root = Files.temporaryDirectory("facet-report-query")
 		t:defer(function()

@@ -144,4 +144,30 @@ local function returned(qa: QA.QA, query: QA.Query): (boolean, string)
 	return true, "the action is reachable again through overflow"
 end
 
-return { reveal = reveal, tap = tap, returned = returned, overflow = overflow }
+local function returnToRoot(qa: QA.QA): (boolean, string)
+	for _ = 1, 8 do
+		local query: QA.Query = { exact = "Close", role = "button" }
+		if qa:first(query) == nil then
+			query.exact = "Back"
+			if qa:first(query) == nil then
+				return true, "return controls are absent"
+			end
+		end
+		local activated, detail
+		if qa.device.mode == "gamepad" then
+			activated, detail = qa:gamepadActivate(query)
+		else
+			activated, detail = qa:tap(query)
+		end
+		if not activated and qa:first(query) ~= nil then
+			return false, detail
+		end
+		local settled = qa:call("perf", { action = "settle", quiet = 0.1, limit = 20 })
+		if type(settled) ~= "table" or (settled :: { [string]: unknown }).timedOut ~= false then
+			return false, "return control did not settle"
+		end
+	end
+	return false, "return controls remain after eight attempts"
+end
+
+return { reveal = reveal, tap = tap, returned = returned, overflow = overflow, returnToRoot = returnToRoot }

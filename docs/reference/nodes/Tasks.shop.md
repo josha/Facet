@@ -25,7 +25,7 @@ app.mount(function()
         end,
         primaryAction = {
           label = function(use: Facet.Use): string return if use(owned)[it.id] then "Owned" else "Buy" end,
-          enabled = function(use: Facet.Use): boolean return not use(owned)[it.id] and need(use) == 0 end,
+          enabled = function(use: Facet.Use): boolean return not use(owned)[it.id] end,
           onActivate = function()
             local ok: boolean = buy:InvokeServer(it.id)
             owned:update(function(v) v = table.clone(v) v[it.id] = ok return v end)
@@ -42,4 +42,5 @@ app.mount(function()
 end)
 ```
 
+Allow Buy with low funds. See [Tasks.purchase](Tasks.purchase.md) for server feedback.
 Add a segmented `Picker` for categories. See [Tasks.sheet](Tasks.sheet.md).

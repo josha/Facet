@@ -1,6 +1,6 @@
 # FacetBench slice
 
-This record holds one run per arm on the racing-hub slice, seed 1, with
+This historical Claude baseline holds one run per arm on the racing-hub slice, seed 1, with
 `eval/slice.json`. Both arms use Claude Opus 5.5 (`claude-opus-5-5`) at medium
 effort through the Claude Code CLI, the same wall budget of 3,600 seconds, the
 same scoped Studio MCP tools and the same disallowed tools (web search, web
@@ -10,6 +10,9 @@ One seed per arm does not establish a general quality, cost or speed claim.
 The Plain run is reused from an earlier fresh run with the same starter, brief
 and checks; the Facet run is fresh on the kit of Facet at the merge of
 josha/Facet#147.
+
+The Sol measurement is pending. These numbers do not measure the current Sol
+agent or prove the behavior of later Facet changes.
 
 ## Results
 
@@ -39,9 +42,28 @@ desktop (confidence 0.88) and on phone portrait (confidence 0.62).
   currency icons and shortfall lines, and dock tiles with status. Facet has a
   flat look, a shop that shows about two cards in a short scroll area, a faint
   HUD, small text and empty panel space.
-- Phone portrait: the judge credits Facet with larger touch targets, panel
-  tabs and shortfall text, and faults its HUD for stale values (0 Coins and
+- Phone portrait: the judge credits Plain with larger touch targets, panel
+  tabs and shortfall text, and faults Plain's HUD for stale values (0 Coins and
   `LV --` while the panels show the wallet) and its slightly clipped cards.
+  Facet shows live values, but its dock captions crowd or clip, its panels
+  have weak visual identity, and unfinished quests look actionable.
+
+Both image orders support these arm assignments in
+`artifacts/facetbench/slice/judgments.json`. The phone confidence is 0.62 in
+one order and 0.60 in the other. No human calibration is recorded here.
+
+## Runtime evidence limits
+
+The saved idle frame p50 Facet/plain ratios are 0.998 on desktop and 0.996
+on phone portrait; p95 ratios are 0.937 and 1.010. These are single Studio
+samples on two simulated devices. They do not establish a five-device or
+physical-device frame-cost bound.
+
+Retained-memory evidence is missing. Facet records `returned = 0` on both
+devices and has no heap or GUI memory return ratios. Its desktop mounted GUI
+memory sample is zero. Plain's desktop heap return ratio is 1.212, above the
+1.05 own-baseline limit. The saved run therefore does not prove the required
+retained-memory bound. See each arm's `result.json` and `checks/perf.json`.
 
 ## Places
 
@@ -93,8 +115,9 @@ Each item names a Facet, tool or eval change that the run evidence supports.
    collections to their items in a hug container.
 5. **Exit motion in captures.** A capture right after Close can catch the exit
    transition and report a backdrop finding. Wait for exit motion to settle.
-6. **Live HUD state.** The phone HUD showed placeholder values. Show in
-   `Tasks.hud` how the first server state and each change set the HUD cells.
+6. **Live HUD state.** Plain's phone HUD showed placeholder values. Facet's
+   saved HUD reads wallet cells and shows live values. Preserve that behavior;
+   the judge evidence does not identify a stale-state defect in Facet.
 7. **Exact wording.** Spec cases look for brief text such as
    "Buy for 10 Gems", "+5/s" and "Ends in M:SS". Put the brief's exact
    product words in the recipes and panel examples.

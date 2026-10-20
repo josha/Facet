@@ -35,7 +35,7 @@ local function fixture(
 				else not hidden and (flat and page == "hub" or page == "menu")
 			local matches = if query.pattern
 				then string.find(string.lower(word), query.pattern) ~= nil
-				else string.lower(word) == (query.exact or query.text)
+				else string.lower(word) == string.lower(query.exact or query.text or "")
 			if visible and matches then
 				return info(word)
 			end
@@ -104,6 +104,77 @@ local function fixture(
 end
 
 return function(harness: Verify.Harness)
+	for _, mode in { "mouse", "touch", "gamepad" } do
+		harness:case(mode .. " return rechecks an outgoing control that disappears before activation", function(t)
+			local qa = fixture(mode, true, false, false, false)
+			local target = qa:first({ exact = "quests" })
+			local present, settles = true, 0
+			qa.first = function(_self: QA.QA, query: QA.Query): QA.Info?
+				return if present and query.exact == "Close" then target else nil
+			end
+			qa.tap = function(_self: QA.QA, _query: QA.Query): (boolean, string)
+				present = false
+				return false, "no visible element matches"
+			end
+			qa.gamepadActivate = qa.tap
+			qa.call = function(_self: QA.QA, _command: string, _fields: unknown?): unknown
+				settles += 1
+				return { timedOut = false }
+			end
+			t:expect((Actions.returnToRoot(qa))):toBe(true)
+			t:expect(settles):toBe(1)
+		end)
+	end
+	harness:case("return fails when the queried control remains unactivatable", function(t)
+		local qa = fixture("mouse", true, false, false, false)
+		qa:tap({ exact = "quests" })
+		qa.tap = function(_self: QA.QA, _query: QA.Query): (boolean, string)
+			return false, "control is covered"
+		end
+		local returned, detail = Actions.returnToRoot(qa)
+		t:expect(returned):toBe(false)
+		t:expect(detail):toBe("control is covered")
+	end)
+	harness:case("return follows Back after an outgoing Close disappears", function(t)
+		local qa = fixture("mouse", true, false, false, false)
+		local target = qa:first({ exact = "quests" })
+		local current, taps = "Close", {}
+		qa.first = function(_self: QA.QA, query: QA.Query): QA.Info?
+			return if query.exact == current then target else nil
+		end
+		qa.tap = function(_self: QA.QA, query: QA.Query): (boolean, string)
+			table.insert(taps, query.exact)
+			if current == "Close" then
+				current = "Back"
+				return false, "no visible element matches"
+			end
+			current = ""
+			return true, "activated"
+		end
+		qa.call = function(_self: QA.QA, _command: string, _fields: unknown?): unknown
+			return { timedOut = false }
+		end
+		t:expect((Actions.returnToRoot(qa))):toBe(true)
+		t:expect(table.concat(taps, ",")):toBe("Close,Back")
+	end)
+	for _, timedOut in { false, true } do
+		harness:case(
+			if timedOut
+				then "return fails when native settlement times out"
+				else "return attempts are bounded for a trapping control",
+			function(t)
+				local qa = fixture("mouse", true, false, false, not timedOut)
+				qa:tap({ exact = "quests" })
+				local attempts = 0
+				qa.call = function(_self: QA.QA, _command: string, _fields: unknown?): unknown
+					attempts += 1
+					return { timedOut = timedOut }
+				end
+				t:expect((Actions.returnToRoot(qa))):toBe(false)
+				t:expect(attempts):toBe(if timedOut then 1 else 8)
+			end
+		)
+	end
 	harness:case("text visibility does not scroll or open overflow", function(t)
 		local qa = fixture("mouse", false, true, false, false)
 		local reveals = 0
