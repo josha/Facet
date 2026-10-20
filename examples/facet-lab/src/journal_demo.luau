@@ -207,7 +207,7 @@ return function(UI: Controls, runtime: Runtime, C: Compose, types: Types, select
 	gesture = UI.ZStack "JournalGesture" {
 		width = "fill",
 		height = function(use: Use): number
-			return math.clamp(use(environment.viewportHeight) / use(environment.metricScale) - 220, 200, 320)
+			return math.clamp(use(environment.viewportHeight) / use(environment.metricScale) - 220, 240, 320)
 		end,
 		Host.UIDragDetector "PageSwipe" {
 			ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
