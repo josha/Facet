@@ -45,3 +45,7 @@ the labels to the leading edge. The tabs of a top bar are centred in it.
 `onChange(id)` reports a user selection. A programmatic selection change does
 not look like user input. The control owns scroll and focus restoration and
 shoulder navigation.
+
+Use `transition.apply` for a custom page entrance and exit. See
+[Custom-transitions](Custom-transitions.md). Default fades keep incoming
+content interactive; custom transitions enable it when the presentation rests.

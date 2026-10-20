@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- SpatialGrid places keyed items in explicit rectangular footprints. It uses
+  native grid cells and the shared drag session, including tap placement,
+  keyboard/gamepad confirmation, overlap checks and pending drops. A button
+  can now compose pickup and destination activation handlers.
+- Sheet, TabView and NavigationStack accept `transition.apply(content, phase)`
+  for authored native transforms. Shared progress reverses on interruption,
+  retains departures and adapts to reduced motion. The lab adds an inventory,
+  a hinged journal and a staggered menu; the design guide documents their use.
 - A Button's pop feedback paint shows one frame after it takes the Button's
   tags. Roblox applies a tag's styles a frame late, so a paint tagged and shown
   in the same frame drew square for that frame: a rounded `pop = true` Button

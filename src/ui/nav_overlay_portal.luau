@@ -6,6 +6,7 @@ local overlayPresence = require("./nav_overlay_presence")
 local fontReadiness = require("./font_readiness")
 local textMeasure = require("./text_measure")
 local arrival = require("./overlay_arrival")
+local transitions = require("./transition")
 
 export type Portal = {
 	available: (GuiObject) -> ComposeTypes.Readable<boolean>,
@@ -251,6 +252,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 				end)
 			end
 			local age: ComposeTypes.Readable<number>? = nil
+			local activePhase: Nav.PresencePhase? = nil
 			local function render(phase: Nav.PresencePhase?): Instance
 				if phase then
 					age = runtime.timeline({ duration = 0.001 }).elapsed
@@ -259,6 +261,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 					local services = ctx.config.services.RunService
 					local arrived = Compose.cell(services == nil or services.PreRender == nil)
 					local entering: Nav.PresencePhase = phase or { exiting = Compose.cell(false) }
+					activePhase = entering
 					arrival.bind(entering, arrived)
 					return arrive(function()
 						local node = build(entering)
@@ -297,6 +300,16 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 					return elapsed ~= nil and elapsed:peek() > 0
 				end)
 				else nil
+			if presence then
+				local fallback = presence.exit
+				presence = {
+					exit = function(nodes)
+						local phase = activePhase
+						local completed = if phase then transitions.completions[phase] else nil
+						return if completed then { completed = completed } else fallback(nodes)
+					end,
+				}
+			end
 			local function presentation(): Types.Child
 				return if presence
 					then Compose.presence(condition, render, presence)

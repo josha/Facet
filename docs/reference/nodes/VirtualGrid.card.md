@@ -13,6 +13,9 @@ Key options: `from`, `key`, `render`, `minColumnWidth`, `itemSize`.
 
 itemSize is the estimated tile height.
 
+For items that span several cells and have explicit positions, use
+[SpatialGrid.card](SpatialGrid.card.md).
+
 Related controls: [Controls](Controls.md).
 
 Open:

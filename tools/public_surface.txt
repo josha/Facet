@@ -198,6 +198,7 @@ controls(runtime).ShortcutHint : function
 controls(runtime).Skeleton : function
 controls(runtime).Slider : function
 controls(runtime).Spacer : function
+controls(runtime).SpatialGrid : function
 controls(runtime).SplitButton : function
 controls(runtime).Stage : function
 controls(runtime).StatusIndicator : function
@@ -410,6 +411,8 @@ type SliderRequestProps
 type SlotControls
 type Space
 type SpacerProps
+type SpatialGridSpec
+type SpatialPlacement
 type SplitButtonSpec
 type StackProps
 type StageProps
@@ -446,6 +449,8 @@ type ToastSpec
 type ToggleCellProps
 type ToggleProps
 type ToggleRequestProps
+type Transition
+type TransitionContext
 type TravelProps
 type TypewriterControls
 type TypewriterProps

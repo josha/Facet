@@ -741,6 +741,7 @@ export type SheetSpec = {
 	ZIndex: typeof(frame.ZIndex),
 	Style: typeof(frame.Style),
 	ref: typeof(frame.ref),
+	transition: typeof(sheet.transition),
 	isPresented: typeof(sheet.isPresented),
 	detent: typeof(sheet.detent),
 	detents: typeof(sheet.detents),

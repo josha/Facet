@@ -27,6 +27,13 @@ end
 
 local FAMILIES: { Family } = {
 	{
+		output = "src/ui/spatial_grid_props.luau",
+		modules = { Spatial = "./spatial_grid_types" },
+		recipes = {
+			{ name = "SpatialGridSpec", params = "V, K", native = "FrameProps", parts = { "Spatial.Options<V, K>" } },
+		},
+	},
+	{
 		output = "src/ui/hud_props.luau",
 		modules = { Hud = "./hud_types", Media = "./media_types" },
 		recipes = {

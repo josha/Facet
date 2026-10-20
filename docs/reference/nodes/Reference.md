@@ -6,4 +6,5 @@ Open:
 
 - [Contracts](Contracts.md)
 - [Compose.portal](Compose.portal.md)
+- [Custom-transitions](Custom-transitions.md)
 - [Tools.verify](Tools.verify.md): expected duration, device capture summaries and verdict.

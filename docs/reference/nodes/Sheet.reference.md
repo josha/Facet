@@ -10,3 +10,4 @@ Open:
 - [Sheet.drag](Sheet.drag.md)
 - [Sheet.grabber](Sheet.grabber.md)
 - [Sheet.layout](Sheet.layout.md)
+- [Custom transitions](Custom-transitions.md)
