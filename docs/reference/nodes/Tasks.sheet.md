@@ -37,14 +37,17 @@ end)
 script.Destroying:Connect(app.dispose)
 ```
 
-Sheet owns Close, scrolling and modal selection. NavigationStack owns child-page Back. Its root has no Back command. Give every panel the same `placement`, `width` and `detents`, so Close stays in one place.
+Sheet owns Close, scrolling and modal selection. NavigationStack owns Back;
+its root has no Back.
 
-Use the exact product words of the design in the panel, for example the
-offer text "2x Coins for 30 seconds", so the panel says what the HUD promised.
+Keep Close in its header position. Size `width` and `detents` for
+content and viewport. Short tasks need less room than collections.
 
-Modal presentation hides native gameplay touch controls through
-`GuiService.TouchControlsEnabled` and restores the prior setting when the last
-modal closes. The game owns custom touch actions.
+Use Popover for anchored actions, DisclosureGroup for inline facts,
+and NavigationStack for child pages.
+
+Modals use `GuiService.TouchControlsEnabled` to hide native touch controls
+and restore them when the last modal closes. The game owns custom touch actions.
 
 Open:
 

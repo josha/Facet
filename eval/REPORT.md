@@ -3,9 +3,9 @@
 For the historical Claude paired slice measurement, with a reused Plain run
 and a fresh Facet run, see the [slice report](reports/slice.md). The
 [first fresh Sol pair](reports/slice-sol61-medium.md) passed required Facet
-behavior but failed the efficiency and memory goals. It has no blind judge
-verdict because the judge account reached its quota. It does not prove the
-overhead bounds below.
+behavior but failed the efficiency and memory goals. A separate Sol judge
+preferred Facet overall, while Plain won polish. The Claude judge reached its
+quota. This pair does not prove the overhead bounds below.
 To diagnose a saved Sol workspace, repeat its hidden checks without invoking
 an agent:
 `lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.

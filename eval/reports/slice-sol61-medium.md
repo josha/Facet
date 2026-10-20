@@ -59,8 +59,20 @@ declared limits and the five-task minimum.
 ## Missing and invalid evidence
 
 The Claude CLI judge returned a weekly quota error until October 24. Neither
-presentation order produced a verdict on either device. These comparisons are
-missing, not losses for either arm. There is no blind preference result.
+presentation order produced a verdict on either device. These Claude comparisons
+are missing, not losses for either arm.
+
+A separate Sol 6.1 Medium judge preferred Facet overall on both devices in both
+orders. Its transport identity is `codex:gpt-6.1-sol:medium`. The raw traces show
+completed turns and no tool calls. All 40 neutral image copies match their source
+SHA256 hashes. The failed Claude evidence remains separate. This pair has no
+human judge calibration and does not establish a preference across tasks.
+
+Plain won the polish criterion in all four presentations. Desktop hierarchy and
+panel proportions also favored Plain. Facet's overall preference depends on its
+complete panel coverage and feedback; Plain's repeated Shop captures include
+the cleanup cascade described above. Do not interpret the overall score as a
+polish win or as proof that every Plain panel is missing.
 
 This Verify revision counts Codex tool-event gaps as model turns. The recorded
 turn-latency percentiles are invalid evidence of model response speed. The
@@ -80,16 +92,33 @@ request and Codex timing corrections. Its native test reports an eight-second
 action as uncertain after five seconds, then observes that it ran exactly once
 through a fresh transport to the same Studio.
 
+Verify `e6ac25c2` adds the separately keyed Codex judge and accepts a successful
+completed turn after transient reconnect errors. A terminal error still fails.
+Its 19 portable producers pass; the two native producers are deferred because
+this change does not alter the native launcher. Its base native gate is the
+21-producer run above. Both presentation orders ran through the public CLI,
+and a repeated request reused the matching cache without model calls.
+
 The original toast pattern also fails in an isolated seven-line example. An
 explicit callback return type and a named Text constructor pass. The shared
 recipe now uses that form. State and option guidance now cover native connection
 cleanup, Toast's action requirement and typed Picker options.
+
+Sheet guidance now sizes width and detents for content and viewport, while
+keeping Close in a consistent header position. Short tasks need less room
+than collections. This addresses a shared source of oversized panels; a new
+paired run must test the result.
 
 A valid native console probe found KeyboardAndMouse input under the Xbox
 simulator preset. Selecting a control left the ring transparent. One emulated
 directional input made it visible without changing Facet. The host now sends
 that input before console settling and captures. Native replay changed all
 three probe controls from hidden to visible indicators. The audit rule is unchanged.
+
+The Facet full-tier run on `1b94d735` passed all 38 runnable producers.
+Reference-host timing checks were deferred. Two later standalone benchmark
+attempts failed the environment check with 40.2% and 35.6% CPU yardstick drift.
+Both remain recorded; neither is evidence of a control regression or a timing pass.
 
 Failed-case cleanup now uses Verify's deferred cleanup, including an unnamed
 `×` fallback. It retains the original failure and records cleanup failures
