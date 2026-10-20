@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+- Custom transitions accept `fade = false` for opaque page turns and reveals.
+  A nullable readable `progress` holds a transition under native drag input;
+  clearing it settles from the held position through Compose.
+  Input gating, retention and reduced-motion fading still follow progress.
+  The Lab journal now turns a curved, shaded leaf across a fixed spine with front/back content,
+  a moving shadow, finger-following swipes and Previous/Next actions.
+  Page content stays visible through the turn. Custom tab layers start together
+  after native preparation, so the book does not jump at the handoff.
+  The opaque fold keeps the page gradient and covers the stationary spine shadow.
+- Modal selection moves to an available action when the selected action becomes
+  disabled or hidden. This keeps page navigation reachable with gamepad input.
+
+- SpatialGrid places keyed items in explicit rectangular footprints. It uses
+  native grid cells and the shared drag session, including tap placement,
+  keyboard/gamepad confirmation, overlap checks and pending drops. A button
+  can now compose pickup and destination activation handlers.
+- Sheet, TabView and NavigationStack accept `transition.apply(content, phase)`
+  for authored native transforms. Shared progress reverses on interruption,
+  retains departures and adapts to reduced motion. The lab adds an inventory,
+  a hinged journal and a staggered menu; the design guide documents their use.
+- A Button's pop feedback paint shows one frame after it takes the Button's
+  tags. Roblox applies a tag's styles a frame late, so a paint tagged and shown
+  in the same frame drew square for that frame: a rounded `pop = true` Button
+  flashed square when it was tapped.
+- A Button's pop feedback paint wears the Button's tags while it moves, so the
+  theme's rules reach it: its corner, outline and child text styles. Before, a
+  rounded `pop = true` Button flashed square for the length of the pop.
+- `ProgressView` takes `presentation = "gauge"`: a dial, an arc of `sweep` degrees
+  (default 240) filled to the value with a needle on it and a hub over its root.
+  `needle = false` leaves the arc.  A game's speedometer or hype meter is a
+  ProgressView now, not hand-drawn frames.
+- A `VStack`, `HStack` or `AdaptiveStack` with `padding` grows that padding to
+  hold its children's shadows. Before, a themed Button's drop plate hung past
+  the edge of a tightly padded plate, because the stack sized itself from the
+  children's boxes only.
 - A labelled Sheet Close shows the close icon beside its label, as a utility
   button. Before, it was a bare text link that players did not read as Close.
 - `Tasks.hud` puts the action row and the readouts in `topRight` regions of

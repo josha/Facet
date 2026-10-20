@@ -1047,6 +1047,40 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("styles pop feedback paint with the control's tags while it moves", {
+			id = "native_inputs::native input controls::styles pop feedback paint with the control's tags while it moves",
+			run = function()
+				local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
+					local Host = runtime.constructors
+					return Host.Frame {
+						UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end } :: unknown,
+					}
+				end)
+				local button = find(node, "Pop")
+				button.AbsoluteSize = engine.types.Vector2.new(80, 44)
+				button:AddTag("game-round")
+				local paint = find(button, "FeedbackPaint")
+				Verify.expect(paint:HasTag("facet-button")):toBe(false)
+				button.Activated:Fire()
+				engine.heartbeat:Fire(0.06)
+				engine.heartbeat:Fire(0.02)
+				Verify.expect(paint:FindFirstChild("Pop").Scale > 1):toBe(true)
+				local function sorted(tags: { string }): string
+					table.sort(tags)
+					return table.concat(tags, ",")
+				end
+				Verify.expect(sorted(paint:GetTags())):toBe(sorted(button:GetTags()))
+				Verify.expect(paint:HasTag("game-round")):toBe(true)
+				button:RemoveTag("game-round")
+				engine.heartbeat:Fire(0.02)
+				Verify.expect(paint:HasTag("game-round")):toBe(false)
+				engine.heartbeat:Fire(1)
+				Verify.expect(paint.Visible):toBe(false)
+				Verify.expect(#paint:GetTags()):toBe(0)
+				stop()
+			end,
+		})
+
 		verifyHarness:case("restarts Compose pop feedback and obeys live reduced motion", {
 			id = "native_inputs::native input controls::restarts Compose pop feedback and obeys live reduced motion",
 			run = function()

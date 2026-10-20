@@ -1,9 +1,8 @@
 # VirtualGrid.card
 
-Show a virtual tile collection.
+Virtual tiles.
 
-Inside an app mount, set `local UI = app.UI`. A bounded VStack can hold a header
-and a grid:
+Inside an app mount, set `local UI = app.UI`. Use a bounded stack:
 
 ```luau
 local spec: Facet.KeyedCollectionSpec<string, string> = {
@@ -21,9 +20,10 @@ UI.VStack "Browser" { height = "fill", gap = "s",
 Put [fill](fill.md) in the grid spec, not `render`, to use the height left after
 headers and gaps. Without flex, the grid uses the full parent height.
 
-`itemSize` estimates tile height. Set `measure = true` for wrapping or changing
-text Cards. Native measurements replace estimates; a row uses its tallest tile.
-Otherwise spacing stays at the estimate.
+`measure = true` replaces `itemSize` estimates with native heights for
+wrapping or changing text Cards. Each row uses its tallest tile. Otherwise
+estimates set spacing.
 
-Open [options](VirtualList-and-VirtualGrid.md) or
+For explicit positions and multi-cell items, use [SpatialGrid](SpatialGrid.card.md).
+[Options](VirtualList-and-VirtualGrid.md) or
 [content sizing](VirtualList-and-VirtualGrid.sizing.md).

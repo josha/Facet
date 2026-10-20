@@ -66,7 +66,7 @@ export type Service = {
 	finish: (boolean?, string?) -> (),
 	hover: (Instance?, RaycastResult?) -> (),
 	update: (Vector2) -> (),
-	commit: (Instance?) -> boolean,
+	commit: (Instance?, Vector2?) -> boolean,
 	begin: (
 		GuiObject,
 		SourceSpec,

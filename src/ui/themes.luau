@@ -139,7 +139,7 @@ local neutral: ThemeTypes.ThemePackage = {
 				sequence = 0.3,
 				countUp = 0.3,
 				tabFade = 0.2,
-				pageTurn = 0.3,
+				pageTurn = 0.65,
 				popoverSheetExit = 0.2,
 				rowDeparture = 0.24,
 				cardFade = 0.15,
@@ -560,6 +560,8 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-role-onIndicator >> .facet-button-glyph >> .facet-path", { Color3 = c("onAccent") })
 	rule(".facet-disabled >> .facet-button-glyph >> .facet-path", { Color3 = c("contentSecondary") })
 	rule(".facet-progress-ring-fill", { Color3 = c("accent") })
+	rule(".facet-progress-gauge-needle", { Color3 = c("content") })
+	rule(".facet-progress-gauge-hub", { BackgroundColor3 = c("content"), BackgroundTransparency = 0 })
 	rule(".facet-icon", { ImageColor3 = c("content"), BackgroundTransparency = 1 })
 	rule(".facet-role-destructive >> .facet-icon", { ImageColor3 = c("onDanger") })
 	rule(".facet-selected >> .facet-icon", { ImageColor3 = onSelected })

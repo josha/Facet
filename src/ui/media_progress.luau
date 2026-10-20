@@ -19,9 +19,20 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		local motionReduced = reducedMotion(ctx)
 		local presentation = spec.presentation or "bar"
 		assert(
-			presentation == "bar" or presentation == "circular" or presentation == "spinner",
-			"Facet ProgressView presentation must be bar, circular or spinner"
+			presentation == "bar" or presentation == "circular" or presentation == "gauge" or presentation == "spinner",
+			"Facet ProgressView presentation must be bar, circular, gauge or spinner"
 		)
+		assert(spec.sweep == nil or presentation == "gauge", "Facet ProgressView sweep requires the gauge presentation")
+		assert(
+			spec.needle == nil or presentation == "gauge",
+			"Facet ProgressView needle requires the gauge presentation"
+		)
+		local sweep = spec.sweep or 240
+		assert(
+			type(sweep) == "number" and sweep >= 60 and sweep <= 330,
+			"Facet ProgressView sweep must be a number of degrees from 60 to 330"
+		)
+		assert(presentation ~= "gauge" or spec.value ~= nil, "Facet ProgressView gauge requires a value")
 		assert(spec.segments == nil or presentation == "bar", "Facet ProgressView segments require bar presentation")
 		assert(
 			spec.diameter == nil or presentation ~= "bar",
@@ -369,10 +380,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 							math.round(diameter(use) * 0.08)
 						)
 				end
+				local gauge = presentation == "gauge"
 				for _, isTrack in { true, false } do
 					local path = ctx.styled(
 						Host.Path2D({
-							Name = if isTrack then "RingTrack" else "RingFill",
+							Name = if gauge
+								then (if isTrack then "GaugeTrack" else "GaugeFill")
+								elseif isTrack then "RingTrack"
+								else "RingFill",
 							Thickness = thickness,
 							Closed = false,
 							ZIndex = if isTrack then 1 else 2,
@@ -386,8 +401,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						local pixels = diameter(use)
 						assert(pixels > 0, "Facet ProgressView diameter must be positive")
 						local radius = math.max(0, 1 - thickness(use) / pixels)
-						local points: { pathShapes.PathPoint } = if isTrack
-							then pathShapes.ring({ radius = radius })
+						local points: { pathShapes.PathPoint } = if gauge
+							then pathShapes.arc(
+								-sweep / 2,
+								if isTrack then sweep else math.max(use(progress) * sweep, 0.5),
+								{ radius = radius }
+							)
+							elseif isTrack then pathShapes.ring({ radius = radius })
 							else pathShapes.arc(
 								if indeterminate then use(progress) * 360 else 0,
 								if indeterminate then 90 else use(progress) * 360,
@@ -408,9 +428,51 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					end)
 					native[#native + 1] = path
 				end
+				if gauge and spec.needle ~= false then
+					local needle = ctx.styled(
+						Host.Path2D({
+							Name = "GaugeNeedle",
+							Thickness = thickness,
+							Closed = false,
+							ZIndex = 3,
+						}),
+						"progress-gauge-needle"
+					)
+					Compose.watch(function(use: ComposeTypes.Use)
+						local pixels = diameter(use)
+						local reach = math.max(0, 1 - 2.5 * thickness(use) / pixels)
+						local nativePoints: { Path2DControlPoint } = {}
+						for _, point in pathShapes.needle(-sweep / 2 + use(progress) * sweep, { radius = reach }) do
+							table.insert(
+								nativePoints,
+								types.Path2DControlPoint.new(
+									D2.fromScale(point.x, point.y),
+									D2.fromScale(point.inX, point.inY),
+									D2.fromScale(point.outX, point.outY)
+								)
+							)
+						end
+						needle:SetControlPoints(nativePoints)
+					end)
+					native[#native + 1] = needle
+					native[#native + 1] = ctx.styled(
+						Host.Frame("GaugeHub")({
+							AnchorPoint = V2.new(0.5, 0.5),
+							Position = D2.fromScale(0.5, 0.5),
+							BorderSizePixel = 0,
+							ZIndex = 4,
+							Size = function(use: ComposeTypes.Use)
+								local hub = math.max(6, math.round(thickness(use) * 1.6))
+								return D2.fromOffset(hub, hub)
+							end,
+							Host.UICorner({ CornerRadius = ctx.round }),
+						}),
+						"progress-gauge-hub"
+					)
+				end
 			end
 			content = Host.Frame(native)
-			if readout and presentation == "circular" then
+			if readout and (presentation == "circular" or presentation == "gauge") then
 				local bounds = ctx.observe.TextBounds(readout)
 				local centered = Compose.formula(function(use: ComposeTypes.Use)
 					local measured, innerDiameter = use(bounds), diameter(use) * 0.6
@@ -491,6 +553,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				"segments",
 				"trail",
 				"controlSize",
+				"sweep",
+				"needle",
 			}, {
 				Size = fixed(function(use: ComposeTypes.Use)
 					return if presentation == "bar"

@@ -14,7 +14,7 @@ Each call returns one bounded node. Link labels below are query paths.
 | --- | --- |
 | Read currency and use HUD actions | [Tasks.hud](Tasks.hud.md) |
 | Browse and buy shop items | [Tasks.shop](Tasks.shop.md) |
-| Open modal details with Close and Back | [Tasks.sheet](Tasks.sheet.md) |
+| Open modal details with dismissal and child-page Back | [Tasks.sheet](Tasks.sheet.md) |
 | Change pages or segmented choices | [Tasks.tabs](Tasks.tabs.md) |
 | Set the game theme | [Tasks.theme](Tasks.theme.md) |
 | Read progress and timers | [Tasks.progress](Tasks.progress.md) |

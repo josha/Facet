@@ -1746,6 +1746,91 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("draws a gauge arc and a needle that follow the value across the sweep", {
+			id = "native_themes_media::native themes and media::draws a gauge arc and a needle that follow the value across the sweep",
+			run = function()
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+				local package = Compose.cell(themes.neutralPackage())
+				local UI = media(context(Compose, runtime, { types = engine.types, theme = package }))
+				local value = Compose.cell(0)
+				local made: { sheet: StyleSheet?, meter: Instance? } = { sheet = nil, meter = nil }
+				local stop = runtime.mount(function()
+					made.sheet = themes.createStyleSheet(runtime, package, { types = engine.types })
+					made.meter = UI.ProgressView({
+						presentation = "gauge" :: "gauge",
+						value = value,
+						max = 100,
+						sweep = 180,
+						diameter = 100,
+						thickness = 6,
+					})
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						made.sheet :: unknown,
+						made.meter,
+					})
+				end, engine.new("Folder"))
+				local meter = made.meter :: Instance
+				local sheet = made.sheet :: StyleSheet
+				local trackFound = meter:FindFirstChild("GaugeTrack", true)
+				local fill = meter:FindFirstChild("GaugeFill", true)
+				local needleFound = meter:FindFirstChild("GaugeNeedle", true)
+				local hub = meter:FindFirstChild("GaugeHub", true)
+				Verify.expect(trackFound ~= nil and fill ~= nil and needleFound ~= nil and hub ~= nil):toBe(true)
+				local track = trackFound :: Path2D
+				local needle = needleFound :: Path2D
+				Verify.expect((meter:FindFirstChild("RingTrack", true))):toBe(nil)
+				local function tip(): (number, number)
+					local points = needle:GetControlPoints()
+					local p = points[#points].Position
+					return p.X.Scale, p.Y.Scale
+				end
+				local x0, y0 = tip()
+				Verify.expect(x0 < 0.2 and math.abs(y0 - 0.5) < 0.01):toBe(true)
+				value:set(50)
+				local x1, y1 = tip()
+				Verify.expect(math.abs(x1 - 0.5) < 0.01 and y1 < 0.2):toBe(true)
+				value:set(100)
+				local x2, y2 = tip()
+				Verify.expect(x2 > 0.8 and math.abs(y2 - 0.5) < 0.01):toBe(true)
+				local trackPoints = track:GetControlPoints()
+				Verify.expect(trackPoints[1].Position.X.Scale < 0.1):toBe(true)
+				Verify.expect(trackPoints[#trackPoints].Position.X.Scale > 0.9):toBe(true)
+				Verify.expect(style(sheet, ".facet-progress-gauge-needle").Color3 ~= nil):toBe(true)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("refuses a needle or a sweep outside the gauge", {
+			id = "native_themes_media::native themes and media::refuses a needle or a sweep outside the gauge",
+			run = function()
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+				local UI = media(context(Compose, runtime, { types = engine.types }))
+				local function mount(build: () -> unknown)
+					local stop = runtime.mount(build, engine.new("Folder"))
+					stop()
+				end
+				Verify.expect(function()
+					mount(function()
+						return UI.ProgressView({ presentation = "circular" :: "circular", value = 0.5, sweep = 180 })
+					end)
+				end):toThrow("sweep requires the gauge presentation")
+				Verify.expect(function()
+					mount(function()
+						return UI.ProgressView({ presentation = "gauge" :: "gauge", value = 0.5, sweep = 20 })
+					end)
+				end):toThrow("sweep must be")
+				Verify.expect(function()
+					mount(function()
+						return UI.ProgressView({ presentation = "gauge" :: "gauge" })
+					end)
+				end):toThrow("gauge requires a value")
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("bounds idle skin slots and disposes every retained native owner", {
 			id = "native_themes_media::native themes and media::bounds idle skin slots and disposes every retained native owner",
 			run = function()

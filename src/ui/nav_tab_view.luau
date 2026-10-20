@@ -545,6 +545,16 @@ return function(
 					else V2.new(math.max(0, bar.CanvasPosition.X + delta), bar.CanvasPosition.Y)
 			end
 		end)
+		local prepared: { [string]: ComposeTypes.Cell<boolean> } = {}
+		local groupReady: ComposeTypes.Readable<boolean>? = nil
+		if spec.transition and (spec.transition.apply or spec.transition.progress) then
+			for id in byId do
+				prepared[id] = Compose.cell(false)
+			end
+			groupReady = Compose.formula(function(use: ComposeTypes.Use): boolean
+				return use(prepared[use(spec.selection)])
+			end)
+		end
 		local layers = Host.Frame "Content" {
 			BackgroundTransparency = 1,
 
@@ -622,10 +632,13 @@ return function(
 								visited:set(retained)
 							end
 							else nil,
-						not tabsReady
+						not tabsReady,
+						prepared[id],
+						groupReady
 					)
 					panels[id] = panel
 					local shown = ctx.observe.Visible(panel)
+					local interactable = ctx.observe.Interactable(panel)
 					local attached = Compose.cell(0)
 					runtime.connect(panel, "AncestryChanged", function()
 						attached:set(attached:peek() + 1)
@@ -634,6 +647,7 @@ return function(
 						use(attached)
 						if
 							not use(shown)
+							or not use(interactable)
 							or not use(state).top
 							or handoff ~= id
 							or not gui

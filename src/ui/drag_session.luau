@@ -583,9 +583,12 @@ return function(ctx: Types.Context): Drag.Service
 		end
 		service.hover(hitTest(position))
 	end
-	function service.commit(target: Instance?): boolean
+	function service.commit(target: Instance?, position: Vector2?): boolean
 		if not current or current.pending then
 			return false
+		end
+		if position then
+			current.position = position
 		end
 		if target == nil and current.mode == "pointer" and current.position then
 			service.hover(hitTest(current.position))

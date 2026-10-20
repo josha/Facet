@@ -6,6 +6,8 @@
     "batchCount": 1
   },
   "units": [
+    { "id": "custom_transition", "locator": "tests/custom_transition.verify.luau", "requires": ["local-luau"] },
+    { "id": "spatial_grid", "locator": "tests/spatial_grid.verify.luau", "requires": ["local-luau"] },
     { "id": "native_diegetic_screen", "locator": "tests/native_diegetic_screen.verify.luau", "requires": ["local-luau"] },
 { "id": "play_mount", "locator": "tests/play_mount.verify.luau", "requires": ["lute"] },
     { "id": "tools/docs_nodes", "locator": "tests/tools/docs_nodes.verify.luau", "requires": ["lute"] },

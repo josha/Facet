@@ -155,6 +155,12 @@ Set destination `travel = true` when visibly traveling to the destination before
 
 `landing(info)` supplies the destination rectangle in screen pixels when the GUI target's measured rectangle is not the correct landing location, such as a particular insertion slot. A world target needs an explicit landing rectangle for screen travel. Keep that landing related to the visible destination; a flourish ending at a different point weakens the operation's meaning.
 
+A swipe-controlled page is navigation, not an item drop. Use TabView with
+`transition.progress` and a native `UIDragDetector` on a stable parent.
+The [motion chapter](MOTION_AND_FEEDBACK.md) explains direct progress,
+release settlement and cancellation. Keep explicit navigation buttons for
+keyboard and gamepad. Do not create a second page control or animation loop.
+
 ## Worked design: inventory part to equipment slot
 
 The player needs to inspect a part, see where it fits, preview a replacement, and equip deliberately. In a spacious inventory, a grid and visible equipment targets make drag-and-drop useful. In a compact layout with the destination on another page, selecting the part and pressing Equip opens a clearer destination chooser.

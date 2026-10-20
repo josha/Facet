@@ -12,7 +12,7 @@ UI.ProgressView "ProgressView" { value = 0.8 }
 
 Key options: `value`, `min`, `max`, `presentation`.
 
-Use diameter only with circular or spinner presentation.
+Use diameter only with circular, gauge or spinner presentation.  A gauge is a dial: an arc of `sweep` degrees (240) with a needle on the value.
 
 Related controls: [Controls](Controls.md).
 

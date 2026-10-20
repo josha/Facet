@@ -10,7 +10,18 @@ export type Content = Instance | Types.GuiInstance | (() -> Instance)
 export type Indicator = "automatic" | "pill" | "underline" | "none"
 export type TabSelectionIndicator = Indicator | "mark"
 export type Placement = "automatic" | "topBar" | "sidebar" | "bottomBar" | "bottomBarCompact" | "none"
-export type Transition = ComposeTypes.TweenOptions
+export type TransitionContext = {
+	progress: ComposeTypes.Readable<number>,
+	isPresented: ComposeTypes.Readable<boolean>,
+}
+export type Transition = {
+	seconds: Types.ValueNumber?,
+	ease: ComposeTypes.Easing?,
+	motion: string?,
+	fade: boolean?,
+	progress: ComposeTypes.Readable<number?>?,
+	apply: ((GuiObject, TransitionContext) -> ())?,
+}
 export type SourceTransition = { seconds: Types.ValueNumber?, ease: ComposeTypes.Easing?, source: Value<GuiObject?>? }
 export type MenuTrigger = "activate" | "secondary" | "longPress" | "keyboard" | "gamepad"
 export type OptionAvatar = MenuAvatar
@@ -282,6 +293,7 @@ export type SheetDetent =
 	| { id: string, fraction: number, height: nil }
 	| { id: string, fraction: nil, height: number }
 export type SheetOptions = {
+	transition: Transition | false?,
 	isPresented: ComposeTypes.Cell<boolean>,
 	detent: (ComposeTypes.Cell<string> | string)?,
 	detents: { SheetDetent }?,

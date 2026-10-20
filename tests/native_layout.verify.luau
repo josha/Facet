@@ -719,6 +719,74 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 			)
+			verifyHarness:case("grows a padded stack's padding to hold its children's shadows", {
+				id = "native_layout::VStack and HStack::grows a padded stack's padding to hold its children's shadows",
+				run = function()
+					local root, engine, stop = build(nil, function(UI: FacetControls, C)
+						return UI.HStack {
+							padding = { top = 3, bottom = 3, left = 8, right = 8 },
+							(C.Frame :: FrameConstructor) { Name = "Plated" },
+						}
+					end)
+					local T = engine.types
+					local padding = child(root, "UIPadding")
+					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
+					local plated = root:FindFirstChild("Plated")
+					local plate = engine.new("UIShadow")
+					plate.Offset = T.UDim2.new(0, 0, 0, 5)
+					plate.Parent = plated
+					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 8))
+					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 3))
+					Verify.expect(padding.PaddingLeft):toBe(T.UDim.new(0, 8))
+					plate.Spread = T.UDim2.new(0, 1, 0, 1)
+					plate.BlurRadius = T.UDim.new(0, 2)
+					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 11))
+					Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 3))
+					Verify.expect(padding.PaddingRight):toBe(T.UDim.new(0, 11))
+					plated.Visible = false
+					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
+					plated.Visible = true
+					plate.Enabled = false
+					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
+					plate.Enabled = true
+					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 11))
+					plate.Parent = nil
+					Verify.expect(padding.PaddingBottom):toBe(T.UDim.new(0, 3))
+					Verify.expect(padding.PaddingRight):toBe(T.UDim.new(0, 8))
+					stop()
+				end,
+			})
+			verifyHarness:case("grows a padded AdaptiveStack's padding to hold its children's shadows", {
+				id = "native_layout::VStack and HStack::grows a padded AdaptiveStack's padding to hold its children's shadows",
+				run = function()
+					local root, engine, stop = build(nil, function(UI: FacetControls, C)
+						return UI.AdaptiveStack {
+							padding = 4,
+							(C.Frame :: FrameConstructor) { Name = "Plated" },
+						}
+					end)
+					local padding = child(root, "UIPadding")
+					local plate = engine.new("UIShadow")
+					plate.Offset = engine.types.UDim2.new(0, 0, 0, 5)
+					plate.Parent = root:FindFirstChild("Plated")
+					Verify.expect(padding.PaddingBottom):toBe(engine.types.UDim.new(0, 9))
+					Verify.expect(padding.PaddingTop):toBe(engine.types.UDim.new(0, 4))
+					stop()
+				end,
+			})
+			verifyHarness:case("leaves a stack without padding unpadded under shadowed children", {
+				id = "native_layout::VStack and HStack::leaves a stack without padding unpadded under shadowed children",
+				run = function()
+					local root, engine, stop = build(nil, function(UI: FacetControls, C)
+						return UI.VStack { (C.Frame :: FrameConstructor) { Name = "Plated" } }
+					end)
+					local plate = engine.new("UIShadow")
+					plate.Offset = engine.types.UDim2.new(0, 0, 0, 5)
+					plate.Parent = root:FindFirstChild("Plated")
+					Verify.expect((child(root, "UIPadding"))):toBe(nil)
+					stop()
+				end,
+			})
 		end)
 
 		verifyHarness:suite("Screen", function()

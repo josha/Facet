@@ -25,6 +25,14 @@ Efficiency and memory goals remain unmet, and the diagnostic Plain phone
 return has missing final memory. Plain again won both blind comparisons in
 both image orders, including all four polish judgments; Facet retained
 fitness strengths without an overall visual-quality win for this pair.
+The [fifth fresh pair](reports/slice-sol61-medium-5.md) passed 13/13 Facet
+universal and 40/49 diagnostic checks, but Plain's required universal run
+failed with a closed Studio MCP connection and has missing universal scores.
+Facet used 1.995 times the tokens and 1.380 times the author wall time.
+The standard judge's two forfeits involved no blind model call. A separate,
+reduced hub-and-shop comparison preferred Plain on desktop and Facet on phone
+in both orders, with Facet winning all four polish judgments. It cannot
+replace the failed host evidence or establish the headline goals.
 To diagnose a saved Sol workspace, repeat its hidden checks without invoking
 an agent:
 `lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.
