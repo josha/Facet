@@ -1081,30 +1081,6 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("dresses pop feedback paint while the control is pressed, before it moves", {
-			id = "native_inputs::native input controls::dresses pop feedback paint while the control is pressed, before it moves",
-			run = function()
-				local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
-					local Host = runtime.constructors
-					return Host.Frame {
-						UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end } :: unknown,
-					}
-				end)
-				local button = find(node, "Pop")
-				button.AbsoluteSize = engine.types.Vector2.new(80, 44)
-				local paint = find(button, "FeedbackPaint")
-				Verify.expect(paint:HasTag("facet-button")):toBe(false)
-				button.GuiState = engine.types.Enum.GuiState.Press
-				engine.heartbeat:Fire(0.016)
-				Verify.expect(paint:HasTag("facet-button")):toBe(true)
-				Verify.expect(paint.Visible):toBe(false)
-				button.GuiState = engine.types.Enum.GuiState.Idle
-				engine.heartbeat:Fire(0.016)
-				Verify.expect(#paint:GetTags()):toBe(0)
-				stop()
-			end,
-		})
-
 		verifyHarness:case("restarts Compose pop feedback and obeys live reduced motion", {
 			id = "native_inputs::native input controls::restarts Compose pop feedback and obeys live reduced motion",
 			run = function()

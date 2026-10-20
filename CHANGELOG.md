@@ -2,11 +2,10 @@
 
 ## Unreleased
 
-- A Button's pop feedback paint takes the Button's tags when the Button is
-  hovered or pressed, and shows one frame after it has them. Roblox applies a
-  tag's styles a frame late, so a paint tagged in the frame the pop began drew
-  square for that frame: a rounded `pop = true` Button flashed square when it
-  was tapped.
+- A Button's pop feedback paint shows one frame after it takes the Button's
+  tags. Roblox applies a tag's styles a frame late, so a paint tagged and shown
+  in the same frame drew square for that frame: a rounded `pop = true` Button
+  flashed square when it was tapped.
 - A Button's pop feedback paint wears the Button's tags while it moves, so the
   theme's rules reach it: its corner, outline and child text styles. Before, a
   rounded `pop = true` Button flashed square for the length of the pop.
