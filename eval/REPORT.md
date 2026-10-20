@@ -10,6 +10,13 @@ The [second attempt](reports/slice-sol61-medium-2.md) ended with a Facet author
 capacity error. Its missing usage and incorrect adapter success status prevent
 an efficiency claim. Native checks still found memory limits unmet and changes
 in frame pacing that need separate timing validation.
+The [third fresh pair](reports/slice-sol61-medium-3.md) completed both authors.
+Facet passed 13/13 universal checks versus Plain's 1/13, but used 4.568 times
+the tokens and 3.062 times the author wall time. Diagnostic coverage and
+memory limits remain unmet; frame samples measure cadence. The completed blind
+judge preferred Plain on both devices in both image orders, including all
+four polish judgments. Required-check success does not establish the headline
+goals or a visual-quality win for this pair.
 To diagnose a saved Sol workspace, repeat its hidden checks without invoking
 an agent:
 `lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.

@@ -12,7 +12,7 @@ app.mount(function()
   local env = UI.environment()
   local captionRoom: Facet.Sides = { bottom = "l" }
   local function action(name: string, icon: string, caption: Facet.ValueString?): TextButton
-    return UI.Button(name) { icon = icon, shape = "circle", controlSize = "compact",
+    return UI.Button(name) { icon = icon, shape = "circle", controlSize = "regular",
       caption = caption or name, onActivate = function() end }
   end
   return UI.Composition "HUD" {
@@ -22,7 +22,7 @@ app.mount(function()
         action("Offer", "clock", function(use) return "Offer " .. use(left) end) } },
     UI.Region "Wallet" { zone = "topRight", rank = 2,
       UI.VStack "Readouts" { surface = "panel", padding = "s", gap = "xs",
-        UI.Text { text = function(use: Facet.Use) return Facet.format.compact(use(coins)) .. " Coins" end },
+        UI.Text { textRole = "title", text = function(use: Facet.Use) return Facet.format.compact(use(coins)) .. " Coins" end },
         UI.ProgressView "XP" { label = "Level 3", value = xp, max = 100,
           Size = function(use: Facet.Use): UDim2 return UDim2.fromOffset(use(env.scaled(160)), 0) end } } },
   }

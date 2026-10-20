@@ -39,6 +39,9 @@ Use `project [directory]` for file discovery. Read one matching starter in
 - Make one `Facet.app({ name, parent })` and one `app.mount(component)`.
   Use `app.UI` for controls. Name `app.runtime.constructors` `Host` for native
   objects. Each screen is a Compose branch or portal of this tree.
+- Put Host-created objects in their parent's positional child list, such as
+  `Host.InputContext { action }`. Do not pass an owned object as `Parent`.
+  `Parent` can point to an existing engine object, such as the player's PlayerGui.
 - Use named constructors: `UI.Button "Save" { label = "Save" }`. Use strict
   Luau without `any` casts. Control options use lower camel case; native
   properties keep their Roblox names.

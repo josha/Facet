@@ -1,6 +1,6 @@
 # Tasks.shop
 
-A shop grid, one column on phones.
+Shop grid; one column on phones.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -15,7 +15,7 @@ local buy = assert(game.ReplicatedStorage:FindFirstChild("Purchase")) :: RemoteF
 app.mount(function()
   local env = UI.environment()
   local grid: Facet.KeyedCollectionSpec<Item, string> = {
-    from = items, key = "id", minColumnWidth = env.scaled(220), itemSize = env.scaled(132),
+    from = items, key = "id", measure = true, minColumnWidth = env.scaled(220), itemSize = env.scaled(132),
     render = function(row: Facet.Readable<Item>)
       local it = row:peek()
       local function need(use: Facet.Use): number return math.max(0, it.price - use(coins)) end
@@ -42,5 +42,5 @@ app.mount(function()
 end)
 ```
 
-Allow Buy with low funds. [Feedback](Tasks.purchase.md).
-Categories use a segmented `Picker`. [Panels](Tasks.sheet.md).
+Allow low-funds Buy. [Feedback](Tasks.purchase.md).
+Categories: segmented `Picker`. [Panels](Tasks.sheet.md).

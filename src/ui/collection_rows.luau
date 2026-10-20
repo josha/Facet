@@ -24,7 +24,7 @@ return function<V, K>(
 	local read = ctx.read
 	local readSource = ctx.readSource
 	local observe = ctx.observe
-	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
+	local D2, D, V2, E = ctx.types.UDim2, ctx.types.UDim, ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
 	local spec, tree = view.spec, view.tree
 	local kind: ComposeTypes.OrderedCollectionLayoutKind = view.kind
@@ -366,6 +366,58 @@ return function<V, K>(
 								children.BackgroundTransparency = nil
 							end
 							local groupProperties = (children :: unknown) :: Types.CanvasGroupNativeProps
+							local surface: Frame? = nil
+							if
+								kind == "grid"
+								and tree == nil
+								and rendered:GetAttribute("FacetBody") ~= nil
+								and read(spec.contentOverflow) ~= "clip"
+							then
+								local cardSize = observe.AbsoluteSize(rendered)
+								local cardLift = rendered:FindFirstChildWhichIsA("UIScale")
+								local lift = if cardLift then observe.Scale(cardLift) else nil
+								local function edges(use: ComposeTypes.Use): (number, number)
+									if read(spec.contentOverflow, use) == "clip" then
+										return 0, 0
+									end
+									local unit = math.max(use(view.unitSize).X * (if lift then use(lift) else 1), 0.001)
+									local height = use(cardSize).Y / unit
+									local growth = math.max(0, ctx.metric("motion.materialize.lift", use) - 1)
+									return crossEdge(use), math.max(view.mainEdge(use), math.ceil(height * growth))
+								end
+								children.Name = "Surface"
+								children.Attributes = nil
+								children.AutomaticSize = E.AutomaticSize.XY
+								surface = Host.Frame(children)
+								local function crossPadding(use: ComposeTypes.Use): UDim
+									local x = edges(use)
+									return D.new(0, x)
+								end
+								local function mainPadding(use: ComposeTypes.Use): UDim
+									local _, y = edges(use)
+									return D.new(0, y)
+								end
+								groupProperties = {
+									Name = "Content",
+									BackgroundTransparency = 1,
+									Attributes = { FacetCollectionRow = true } :: EngineTypes.Attributes,
+									Position = function(use: ComposeTypes.Use): UDim2
+										local x, y = edges(use)
+										return D2.fromOffset(-x, -y)
+									end,
+									Size = function(use: ComposeTypes.Use): UDim2
+										local x, y = edges(use)
+										return D2.new(1, 2 * x, 1, 2 * y)
+									end,
+									Host.UIPadding {
+										PaddingLeft = crossPadding,
+										PaddingRight = crossPadding,
+										PaddingTop = mainPadding,
+										PaddingBottom = mainPadding,
+									},
+									surface,
+								}
+							end
 							groupProperties.GroupTransparency = function(use: ComposeTypes.Use): number
 								return if use(painted) then 0 else 1
 							end
@@ -373,11 +425,12 @@ return function<V, K>(
 								then E.AutomaticSize.None
 								else E.AutomaticSize.XY
 							local content = Host.CanvasGroup(groupProperties)
-							policy.drop(ctx, spec, current, key, content, kind == "grid" or horizontal)
+							local logical = surface or content
+							policy.drop(ctx, spec, current, key, logical, kind == "grid" or horizontal)
 							if paintSelection then
-								ctx.styled(content, "TableRow")
+								ctx.styled(logical, "TableRow")
 								if kind == "grid" or horizontal then
-									ctx.skin(content, "control", {
+									ctx.skin(logical, "control", {
 										selected = function(use: ComposeTypes.Use): boolean
 											return use(selection)[key] == true
 										end,
@@ -385,9 +438,9 @@ return function<V, K>(
 								end
 								Compose.watch(function(use: ComposeTypes.Use)
 									if use(selection)[key] == true then
-										content:AddTag("facet-selected")
+										logical:AddTag("facet-selected")
 									else
-										content:RemoveTag("facet-selected")
+										logical:RemoveTag("facet-selected")
 									end
 								end)
 							end

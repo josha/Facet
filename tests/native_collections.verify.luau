@@ -2109,6 +2109,52 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("reserves both paint edges for an unmeasured Card without changing the row estimate", {
+			run = function()
+				local engine, runtime, UI, target, _, ctx = setup { motionLevel = "normal" }
+				require("../src/ui/card")(ctx, UI)
+				local stop, mounted = runtime.mount(function()
+					return UI.VirtualGrid {
+						from = { { id = "card" } },
+						key = "id",
+						columns = 1,
+						itemSize = 132,
+						render = function(): GuiObject
+							return UI.Card {
+								Name = "Card",
+								title = "Upgrade",
+								caption = "Details",
+								primaryAction = { label = "Buy", onActivate = function() end },
+							}
+						end,
+					}
+				end, target)
+				local grid = (mounted :: unknown) :: ScrollingFrame
+				((grid :: unknown) :: { AbsoluteWindowSize: Vector2 }).AbsoluteWindowSize =
+					engine.types.Vector2.new(320, 280)
+				local card = assert(grid:FindFirstChild("Card", true)) :: Frame
+				(assert(card:FindFirstChild("Lift")) :: UIScale).Scale = 1.04
+				((card :: unknown) :: { AbsoluteSize: Vector2 }).AbsoluteSize = engine.types.Vector2.new(300, 520)
+				local group = assert(card:FindFirstAncestor("Content")) :: CanvasGroup
+				local padding = assert(group:FindFirstChildWhichIsA("UIPadding")) :: UIPadding
+				Verify.expect(padding.PaddingTop.Offset >= 20):toBe(true)
+				Verify.expect(padding.PaddingBottom.Offset):toBe(padding.PaddingTop.Offset)
+				Verify.expect(group.Position.Y.Offset + padding.PaddingTop.Offset):toBe(0)
+				Verify.expect(group.Size.Y.Offset - padding.PaddingTop.Offset - padding.PaddingBottom.Offset):toBe(0)
+				Verify.expect(group:GetAttribute("FacetCollectionRow")):toBe(true)
+				local paintRoots = 0
+				for _, node in group:GetDescendants() do
+					if node:GetAttribute("FacetCollectionRow") then
+						paintRoots += 1
+					end
+				end
+				Verify.expect(paintRoots):toBe(0)
+				Verify.expect((assert(group.Parent) :: Frame).Size.Y.Offset):toBe(132)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("reserves the themed Card lift envelope at every grid corner and the canvas end", {
 			id = "native_collections::Compose native collections::reserves the themed Card lift envelope at every grid corner and the canvas end",
 			run = function()
