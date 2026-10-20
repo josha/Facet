@@ -1,6 +1,6 @@
 # Tasks.sheet
 
-Open a modal Sheet with Close and child-page Back.
+Open a temporary task with sheet dismissal and child-page Back.
 
 Controls: Screen, Button, Sheet, NavigationStack, Text.
 
@@ -17,7 +17,8 @@ app.mount(function()
     return UI.Screen "Root" {
         UI.Button "Open" { label = "Details", onActivate = function() open:set(true) end },
         UI.Sheet "Panel" {
-            title = "Details", isPresented = open, closeButton = "Close",
+            title = "Details", isPresented = open,
+            detents = { "hug" }, closeButton = false,
             content = function()
                 return UI.NavigationStack "Pages" {
                     path = path,
@@ -37,17 +38,18 @@ end)
 script.Destroying:Connect(app.dispose)
 ```
 
-Sheet owns Close, scrolling and modal selection. NavigationStack owns child-page Back. Its root has no Back command. Give every panel the same `placement`, `width` and `detents`, so Close stays in one place.
+Sheet owns dismissal and scrolling; NavigationStack owns child-page Back.
+Its root has no Back command. Here the one-detent grabber closes on tap/click,
+Return or gamepad A, so the header Close is redundant. Before reusing
+`closeButton = false`, read [Sheet.layout](Sheet.layout.md) and test every
+input's exit and return focus.
 
-Use the exact product words of the design in the panel, for example the
-offer text "2x Coins for 30 seconds", so the panel says what the HUD promised.
-
-Modal presentation hides native gameplay touch controls through
-`GuiService.TouchControlsEnabled` and restores the prior setting when the last
-modal closes. The game owns custom touch actions.
+Match the panel's words to its trigger. Modals hide native touch controls and
+restore them on exit; the game owns custom touch actions.
 
 Open:
 
 - [NavigationStack.reference](NavigationStack.reference.md)
 - [Sheet.card](Sheet.card.md)
 - [Sheet.detents](Sheet.detents.md)
+- [Sheet.grabber](Sheet.grabber.md)

@@ -49,9 +49,37 @@ Use named theme timings rather than unrelated literal delays for every component
 
 Respect `motionLevel`: `normal` permits the designed motion, `limited` removes most travel/scale/slide in favor of restrained state changes or fades, and `none` makes presentation and paint changes immediate. Custom transitions and authored effects must be checked explicitly. Reduced motion must preserve the same information and result; it is not a slower version of every animation.
 
-For Sheet, TabView and NavigationStack, use `transition.apply(content, phase)` to bind custom native transforms to `phase.progress`. It runs once in the retained content's owner. Progress moves between absent (0) and present (1), and reverses from its current value when interrupted. `motion` selects a theme duration; `seconds` and `ease` can override it. Facet owns departure lifetime, the outer fade and input gating. Limited motion rests the custom transform at 1 and uses a short fade. No motion changes visibility immediately.
+For an opaque page turn, use `fade = false` on the custom transition. Keep the
+book and its spine still, and turn a leaf with distinct front and back content.
+Keep text at its resting width so it does not reflow as the leaf narrows.
+Keep the print visible on the turning face; only the edge should hide it.
+Move the back-face print with the leaf's outer edge so the reverse side is
+recognizable before it lies flat.
+Keep the leaf opaque and above the stationary pages and spine shadow.
+Use the same paper gradient at rest and on the fold.
+Use the page artwork, fold shape and changing shadow to show depth; a width
+wipe alone does not look like paper turning. Check intermediate frames, both
+directions and reversal before the turn ends.
+Limited motion still uses a short fade; no motion shows the destination at once.
 
-This supports a journal opening, staggered menu rows and item-detail entrances without adding a component for each visual treatment. Bind child delays as portions of the same progress range. Keep the resting geometry responsive. Use images or a Stage for perspective artwork; a 2D scale-and-rotation treatment does not supply true 3D projection. Reusable particles and other engine effects are outside this transition contract. Test a close during entry, a reopen during exit, rapid page changes, owner removal, resizing and focus return.
+For a page that follows a finger, supply a nullable Compose cell as
+`transition.progress`. Native `UIDragDetector` events write normalized progress
+directly. Place the detector on a stable parent outside the transitioning page
+layers, because Facet blocks page content input during the gesture.
+Use `runtime:batch` to start with progress 0 and a provisional destination.
+Clear progress to `nil` on release to let the existing Compose tween settle.
+Restore the original selection in the same batch when cancelled.
+The game supplies distance and velocity thresholds; Facet owns retention,
+input gating and motion adaptation. Keep Previous/Next buttons for keyboard
+and gamepad. Under reduced motion, defer selection until release.
+Read [Custom transitions](../../../../docs/reference/nodes/Custom-transitions.md)
+and its journal example before implementing this pattern.
+Test a slow hold, a short cancelled drag, direction reversal, a quick flick,
+release outside the page, resizing and closing during a drag.
+
+For Sheet, TabView and NavigationStack, use `transition.apply(content, phase)` to bind custom native transforms to `phase.progress`. It runs once in the retained content's owner. Progress moves between absent (0) and present (1), and reverses from its current value when interrupted. `motion` selects a theme duration; `seconds` and `ease` can override it. Facet owns departure lifetime, the optional outer fade and input gating. Limited motion rests the custom transform at 1 and uses a short fade. No motion changes visibility immediately.
+
+This supports a journal page turn, staggered menu rows and item-detail entrances without adding a component for each visual treatment. Bind child delays as portions of the same progress range. Keep the resting geometry responsive. Use images or a Stage for perspective artwork; a 2D scale-and-rotation treatment does not supply true 3D projection. Reusable particles and other engine effects are outside this transition contract. Test a close during entry, a reopen during exit, rapid page changes, owner removal, resizing and focus return.
 
 ### CountUp and Flash
 

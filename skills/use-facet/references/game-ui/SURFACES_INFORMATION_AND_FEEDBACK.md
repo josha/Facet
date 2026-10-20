@@ -85,7 +85,17 @@ Use `Sheet` for a temporary task that belongs to the current context: filtering 
 - `scrollPolicy = "always"` keeps body content reachable at each height. `"atLargestDetent"` requires expansion before scrolling; use only when that relationship is clear and the expansion route is accessible.
 - `header` should identify the task. A `hero` may scroll or stay pinned; a large sticky image can steal the working area. `contentInset = "none"` is for content intentionally owning its interior spacing, not a shortcut to make an overcrowded form fit.
 - `actions` are pinned task commands; they do **not** automatically close the sheet. Close after accepted completion when appropriate, and keep rejected work available. `actionLayout` must accommodate full labels and the smallest room.
-- `interactiveDismissDisabled` also blocks Back and backdrop dismissal. Use it only when the task requires protection and explicit actions provide a usable way out. Do not trap a player while a failed request remains pending. `closeButton` and `dragIndicator` need to tell a consistent dismissal story.
+- `interactiveDismissDisabled` also blocks Back and backdrop dismissal. Use it only when the task requires protection and explicit actions provide a usable way out. Do not trap a player while a failed request remains pending.
+
+Choose the visible exit after checking the built-in routes. A visible grabber on
+a one-detent sheet closes on tap/click, Return or gamepad A. For a read-only task
+with interactive dismissal enabled, use `closeButton = false` when a second
+visible exit adds no value. A detent is a height, not evidence of an accessible
+exit. With several detents, Return/A first expands the sheet. Keep an explicit
+Close when a direct exit is needed, the grabber is hidden, or interactive
+dismissal is disabled. Do not force a labeled Close merely because a recipe
+has one. Test the chosen route and return focus with touch, pointer, keyboard
+and gamepad.
 
 Check software-keyboard and short-height layouts. Facet can move pinned regions into a scrolling column when necessary; verify all actions remain reachable. Native gameplay controls may be suppressed by modal presentation, but custom gameplay controls still require correct integration.
 

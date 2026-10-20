@@ -162,10 +162,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				Position = panelProps.Position,
 				Size = panelProps.Size,
 				GroupTransparency = function(use: Types.Use): number
-					return 1 - use(custom.opacity)
+					return use(custom.transparency)
 				end,
 				Interactable = function(use: Types.Use): boolean
-					return use(custom.opacity) == 1 and (phase == nil or not use(phase.exiting))
+					return not use(custom.interacting)
+						and use(custom.opacity) == 1
+						and (phase == nil or not use(phase.exiting))
 				end,
 				panel,
 			}, nil, false)

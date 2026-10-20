@@ -38,6 +38,14 @@ Placement, width, header, hero, pinned actions, body padding, scroll policy and 
   Close in any language and still shows the word. `false` shows
   none; Back, Escape and the backdrop still close the sheet.
 
+Choose Close deliberately. A visible grabber on a one-detent, dismissible
+sheet already closes by tap/click, Return or gamepad A. For a simple read-only
+task, use `closeButton = false` to avoid a second visible exit. A detent alone
+does not prove this is safe: check the grabber, dismissal policy and each input
+route. Keep Close when it adds a needed direct exit, including a hidden grabber,
+several detents that consume activation for resizing, or disabled interactive
+dismissal. Do not add a labeled Close by copying a recipe.
+
 When the pinned regions and a short body do not fit the panel, every region
 moves into one scrolling column named `Room`. Thus each action stays
 reachable. The on-screen keyboard height comes off the room, and the panel

@@ -17,3 +17,6 @@ with explicit cell footprints. `Facet.SpatialGridSpec<V, K>` types the control;
 Use [custom transitions](nodes/Custom-transitions.md) to bind native transforms
 to retained presentation progress. `Facet.Transition` and
 `Facet.TransitionContext` type the options and callback context.
+For pointer-driven transitions, bind a nullable Compose cell to
+`Transition.progress`; native drag input holds it and clearing it resumes
+the control's settlement.
