@@ -18,3 +18,4 @@ Related controls: [Controls](Controls.md).
 Open:
 
 - [VirtualList-and-VirtualGrid](VirtualList-and-VirtualGrid.md)
+- [VirtualList-and-VirtualGrid.sizing](VirtualList-and-VirtualGrid.sizing.md)

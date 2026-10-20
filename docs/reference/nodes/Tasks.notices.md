@@ -15,14 +15,23 @@ app.mount(function()
         UI.VStack "Status" {
             width = "fill", gap = "s",
             UI.Notice "Network" { message = "Connection restored", severity = "success" },
-            UI.Toast "Saved" { message = "Settings saved", key = "save" },
         },
     }
 end)
+app.presentToast(function(UI)
+    return UI.Text { text = "Settings saved" }
+end, { key = "save" })
 script.Destroying:Connect(app.dispose)
 ```
 
-Mount an unbound Toast once per result. For a bound Toast that can close, provide onPresentedChange. Use Notice for status that stays visible.
+Call `app.presentToast` after the game confirms a result. It owns the toast's
+mount and stops it when the toast retires. Its `key` groups repeated results.
+The sample shows one confirmed result after mounting the screen.
+
+Use `UI.Toast` when a component owns its presentation. Mount an unbound Toast
+once per result; retirement hides its row but keeps its anchor until unmount.
+For a bound Toast that can close, provide `onPresentedChange`. Use Notice for
+status that stays visible. Localize the sample messages with the game translator.
 
 Open:
 
