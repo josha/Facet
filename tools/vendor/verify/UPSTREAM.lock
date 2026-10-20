@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "424f5adedf50c82b3c3a92844abbbbd3ca26a8b5",
+  "commit": "9d9d7f60324b86689be0ea781fd3c384b89d85ac",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "2e08694bef737336852a6331bc12685fd83477cb9277abc8cd5561b418f13c61",
@@ -12,7 +12,7 @@
     "docs/laws.md": "f06803ded6d724de53073e1de08575e650f5c270fd83eec85bb6b92a2e415cba",
     "docs/lint.md": "c5cd8188df7ccb8f91f57ac15fa398769f33d112781c38017af41edfbb5a3a02",
     "docs/running.md": "8be02e064047654703514badaa018a55177c6d148be643dccf593805202a2056",
-    "docs/scoped-studio-mcp.md": "1b4f45420f2c6bda64f5644af3173c16068fb31960300febd18f565fc045a72c",
+    "docs/scoped-studio-mcp.md": "5b0af5cceb131494f2247695abd806ff748e8f431c5bf58353e1b104b6979c30",
     "docs/studio-parallel.md": "4721197f6dda9603254859736574d90814a17766eb74a991e828d38b09ed8aa8",
     "license.luau": "6895ff52a3e5583fabbf3f961d94eece335df5f24d2753189473daf8873e8f36",
     "src/agent-eval/adapters.luau": "eee10a1b26ea5dbfbf4ca2d3726d4d6f56c47326446de4812d1a6ae7bd4aeefc",
@@ -153,7 +153,7 @@
     "tools/export-studio-probes.luau": "785084148033733ccecd22f40951760c8d8392edbf3941267b5e8a37fc911fc4",
     "tools/export-studio-reflection.luau": "75efdec2d56eadddd696d814a6afaf850933b7e7eab10f73bcaa6eaced0529e0",
     "tools/lib/studio-edit.luau": "ea84e1707580f4da34f9a954fdec15efcf280438e44f70decfc877d4d286537f",
-    "tools/scoped-studio-mcp.luau": "496d2eded344590446a16e3e0e807aa282efb4d871418d02f6902118ddef529d",
+    "tools/scoped-studio-mcp.luau": "b93f18cc616982e2ddd5af96e0d60765e3124954d27e100248f6f9ebd706509d",
     "tools/studio-worker.luau": "c1f786634e21fe891af1d2ccb963b79558d25a44f7d5859b7293216218186e9d"
   },
   "docs": {
