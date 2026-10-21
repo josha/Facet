@@ -25,6 +25,8 @@ script.Destroying:Connect(app.dispose)
 ```
 
 Persist settings through the game model. Use row and hint for settings with descriptions.
+Bind accepted values to their game effects, such as SoundGroup.Volume, camera
+motion, and effect visibility. A saved number alone does not apply a setting.
 
 Open:
 

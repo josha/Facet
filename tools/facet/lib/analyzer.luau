@@ -43,8 +43,6 @@ Analyzer.LUTE_RUNTIME = {
 	"tools/lute/",
 	"tools/vendor/verify/src/lute/",
 	"tools/vendor/verify/tools/",
-	"eval/lib/host/",
-	"eval/tools/",
 }
 
 Analyzer.LUTE_PATTERNS = { "^eval/tasks/[^/]+/hidden/" }

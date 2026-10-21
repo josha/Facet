@@ -1,0 +1,17 @@
+{
+    "key": "a93de4e4434adce6c20039c98bca6d2f8c3dbe53809df8a829bfd5839a1d3609",
+    "judgment": {
+        "a": "plain",
+        "presentations": [],
+        "b": "facet",
+        "id": "run/codex-sol/seed-1/phone-portrait/plain~facet",
+        "device": "phone-portrait",
+        "order": "b-first",
+        "criteria": [],
+        "seed": 1,
+        "status": "skipped",
+        "agent": "codex-sol",
+        "task": "run",
+        "detail": "neither run produced screenshots"
+    }
+}

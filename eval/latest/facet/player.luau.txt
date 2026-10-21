@@ -1,0 +1,50 @@
+--!strict
+
+local Play = require("../../../../../../../../../tools/play/host/play")
+local QA = require("../../../../../../../../../tools/play/host/qa")
+
+local function tap(qa: QA.QA, label: string): boolean
+	qa:reveal({ exact = label })
+	local ok = qa:tap({ exact = label })
+	qa:sleep(0.7)
+	return ok
+end
+
+local sessions: { Play.Session } = {}
+for _, device in { "desktop", "phone-portrait", "phone-landscape", "tablet", "console" } do
+	table.insert(sessions, {
+		device = device,
+		cases = {
+			{ id = "diagnostic/garage-search", run = function(qa, t)
+				qa:sleep(3)
+				if qa:first({ exact = "Skip" }) then tap(qa, "Skip") end
+				if qa:reveal({ exact = "Close / Back" }) then tap(qa, "Close / Back") end
+				qa:capture("hub")
+				qa:dump("hub")
+				if qa:first({ exact = "Garage" }) == nil then
+					t:expect(tap(qa, "Menu")):toBeTrueWith("open compact destinations")
+				end
+				t:expect(tap(qa, "Garage")):toBeTrueWith("open Garage")
+				qa:capture("garage")
+				qa:dump("garage")
+				t:expect(qa:reveal({ exact = "Inspect" })):toBeTrueWith("Garage collection mounts")
+				t:expect(qa:typeText({ role = "input" }, "missing-kart", true)):toBeTrueWith("search absent kart")
+				t:expect(qa:waitText("no karts match", 3) ~= nil):toBeTrueWith("filtered empty state")
+				t:expect(tap(qa, "Clear search")):toBeTrueWith("clear filter")
+				t:expect(qa:reveal({ exact = "Inspect" })):toBeTrueWith("collection restored")
+				t:expect(tap(qa, "Close / Back")):toBeTrueWith("close Garage")
+			end },
+			{ id = "diagnostic/livery-entry", run = function(qa, t)
+				if qa:reveal({ exact = "Close / Back" }) then tap(qa, "Close / Back") end
+				t:expect(tap(qa, "Menu")):toBeTrueWith("open Menu")
+				t:expect(tap(qa, "Livery")):toBeTrueWith("open Livery")
+				qa:capture("livery")
+				qa:dump("livery")
+				t:expect(qa:reveal({ exact = "Save design" })):toBeTrueWith("Livery editor mounts")
+				t:expect(tap(qa, "Close / Back")):toBeTrueWith("close Livery")
+			end },
+		},
+	})
+end
+
+Play.main({ sessions = sessions }, debug.info(1, "s"))

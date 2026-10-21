@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "id": "facetbench-run",
+  "tasks": [
+    "tasks/run"
+  ],
+  "arms": [
+    {
+      "id": "plain",
+      "studio": {
+        "build": [
+          "rojo",
+          "build",
+          "default.project.json",
+          "-o",
+          "{evidence}/agent.rbxlx"
+        ],
+        "place": "{evidence}/agent.rbxlx",
+        "keep": true
+      },
+      "overlay": [
+        "../artifacts/facetbench/run-inputs",
+        "arms/plain"
+      ],
+      "instructions": "arms/plain/AGENTS.md"
+    },
+    {
+      "id": "facet",
+      "studio": {
+        "build": [
+          "rojo",
+          "build",
+          "default.project.json",
+          "-o",
+          "{evidence}/agent.rbxlx"
+        ],
+        "place": "{evidence}/agent.rbxlx",
+        "keep": true
+      },
+      "overlay": [
+        "../artifacts/facetbench/run-inputs",
+        "arms/facet",
+        "../artifacts/facetbench/arm-facet"
+      ],
+      "instructions": "../artifacts/facetbench/facet-instructions.md"
+    }
+  ],
+  "agents": [
+    {
+      "id": "codex-sol",
+      "adapter": "codex",
+      "model": "gpt-6.1-sol",
+      "options": {
+        "effort": "medium",
+        "persistSession": true,
+        "arguments": [
+          "--ignore-user-config",
+          "--disable",
+          "shell_tool",
+          "--disable",
+          "view_image",
+          "--disable",
+          "apps",
+          "--disable",
+          "image_generation",
+          "--disable",
+          "multi_agent",
+          "--disable",
+          "computer_use",
+          "--disable",
+          "browser_use",
+          "--disable",
+          "plugins",
+          "--disable",
+          "goals",
+          "--disable",
+          "sleep_tool",
+          "--disable",
+          "tool_suggest"
+        ],
+        "sandbox": "read-only",
+        "config": [
+          "web_search=\"disabled\"",
+          "model_catalog_json=\".codex-model-catalog.json\"",
+          "mcp_servers.studio.default_tools_approval_mode=\"approve\""
+        ]
+      }
+    }
+  ],
+  "seeds": [
+    1
+  ],
+  "parallelism": 1,
+  "evidence": "../artifacts/facetbench/run",
+  "budgets": {
+    "wallSeconds": 1800
+  },
+  "devices": [
+    {
+      "id": "desktop",
+      "width": 1920,
+      "height": 1080,
+      "scale": 1,
+      "input": [
+        "mouse",
+        "keyboard"
+      ]
+    },
+    {
+      "id": "phone-portrait",
+      "width": 390,
+      "height": 844,
+      "scale": 1,
+      "input": [
+        "touch"
+      ]
+    },
+    {
+      "id": "phone-landscape",
+      "width": 844,
+      "height": 390,
+      "scale": 1,
+      "input": [
+        "touch"
+      ]
+    },
+    {
+      "id": "tablet",
+      "width": 1180,
+      "height": 820,
+      "scale": 1,
+      "input": [
+        "touch"
+      ]
+    },
+    {
+      "id": "console",
+      "width": 1920,
+      "height": 1080,
+      "scale": 1,
+      "input": [
+        "gamepad"
+      ]
+    }
+  ],
+  "judge": {
+    "provider": "openai",
+    "transport": "cli",
+    "model": "gpt-6.1-sol",
+    "seed": 20261014
+  }
+}

@@ -181,4 +181,116 @@ add("padded-text-draws-inside-its-inset", {}, function(t: any)
 	t.check("the text wraps to more than one line", label.TextBounds.Y > label.TextSize * 1.5, label.TextBounds.Y)
 end)
 
+add("wrapped-region-readouts-use-the-offered-column-width", {}, function(t)
+	local stage = t.mount(function(UI: FacetControls)
+		return UI.Composition "HUD" {
+			UI.Region "Wallet" {
+				zone = "topLeft",
+				rank = 1,
+				UI.VStack "Readouts" {
+					width = 260,
+					padding = "m",
+					gap = "s",
+					UI.Text "Balance" { text = "2,400 coins / 100 gems", wrap = true },
+					UI.Text "Status" { text = "Progress saved in this session", wrap = true },
+				},
+				UI.Text { text = "2,400" },
+			},
+		}
+	end, { size = Vector2.new(800, 600) })
+	t.settle(20)
+	local wallet = t.find(stage, "Wallet") :: Frame
+	local readouts = t.find(stage, "Readouts") :: Frame
+	local balance = t.find(stage, "Balance") :: TextLabel
+	local status = t.find(stage, "Status") :: TextLabel
+	t.check("the rich form fits", wallet:GetAttribute("FacetForm") == 1, wallet:GetAttribute("FacetForm"))
+	t.check("the column keeps its authored width", math.abs(readouts.AbsoluteSize.X - 260) <= 1, readouts.AbsoluteSize)
+	for _, label in { balance, status } do
+		t.check(`{label.Name} uses the column width`, label.AbsoluteSize.X > 200, label.AbsoluteSize)
+		t.check(`{label.Name} avoids a character-wide column`, label.AbsoluteSize.Y < 60, label.AbsoluteSize)
+		t.check(`{label.Name} fits`, label.TextFits, { label.TextBounds, label.AbsoluteSize })
+	end
+end)
+
+add("wrapped-text-resizes-and-keeps-explicit-sizing", {}, function(t)
+	local stage = t.mount(function(UI: FacetControls)
+		return UI.VStack "Column" {
+			width = 320,
+			gap = "s",
+			UI.Text "Paragraph" {
+				text = "Choose a kart, compare its handling and acceleration, then enter the next race with your friends.",
+				wrap = true,
+			},
+			UI.Text "Explicit" {
+				text = "Ready",
+				wrap = true,
+				Size = UDim2.fromOffset(100, 40),
+				AutomaticSize = Enum.AutomaticSize.None,
+			},
+			UI.Text "Unwrapped" { text = "Ready" },
+			UI.Text "NativeOverride" { text = "Ready", wrap = true, TextWrapped = false },
+		}
+	end, { size = Vector2.new(400, 500) })
+	t.settle(20)
+	local column = t.find(stage, "Column") :: Frame
+	local paragraph = t.find(stage, "Paragraph") :: TextLabel
+	local explicit = t.find(stage, "Explicit") :: TextLabel
+	local unwrapped = t.find(stage, "Unwrapped") :: TextLabel
+	local override = t.find(stage, "NativeOverride") :: TextLabel
+	local wideHeight = paragraph.AbsoluteSize.Y
+	t.near("paragraph fills the wide column", paragraph.AbsoluteSize.X, 320, 1)
+	t.check("the wide paragraph fits", paragraph.TextFits)
+	column.Size = UDim2.fromOffset(180, 0)
+	t.settle(20)
+	t.near("paragraph follows the narrow column", paragraph.AbsoluteSize.X, 180, 1)
+	t.check("the narrow paragraph grows vertically", paragraph.AbsoluteSize.Y > wideHeight)
+	t.check("the narrow paragraph fits", paragraph.TextFits)
+	t.check("explicit sizing remains exact", explicit.AbsoluteSize == Vector2.new(100, 40), explicit.AbsoluteSize)
+	t.check("unwrapped text hugs its content", unwrapped.AbsoluteSize.X < 100, unwrapped.AbsoluteSize)
+	t.check("native wrapping override keeps content sizing", not override.TextWrapped and override.AbsoluteSize.X < 100)
+end)
+
+add("styled-caption-does-not-hide-the-composition", {}, function(t)
+	t.device({ device = "hd_1080" })
+	local Facet: typeof(require("@repo/tools/typecheck/aliases").FacetModule) = t.Facet
+	local theme, report = Facet.themes.define({
+		base = Facet.themes.neutralPackage(),
+		identity = { id = "caption-readiness", displayName = "Caption readiness" },
+		style = { defaultTheme = "Caption", themes = { { name = "Caption", colors = {} } } },
+	})
+	assert(report.ok and theme)
+	local notice = Facet.Compose.cell("Welcome to ION Circuit · session progress stays until you leave")
+	local app = Facet.app({ name = "CaptionReadiness", theme = theme })
+	local UI = app.UI
+	local _, stage = app.mount(function()
+		return UI.Composition "HUD" {
+			UI.Region "Feedback" {
+				zone = "top",
+				rank = 1,
+				UI.VStack "Panel" {
+					surface = "panel",
+					padding = "s",
+					width = 360,
+					UI.Text "Caption" {
+						text = notice,
+						textRole = "caption",
+						wrap = true,
+						AutoLocalize = false,
+					},
+				},
+			},
+		}
+	end)
+	t.settle(120)
+	notice:set("Confirmed · session saved")
+	t.settle(120)
+	local hud = t.find(stage, "HUD") :: Frame
+	local fade = t.find(hud, "Fade") :: CanvasGroup?
+	local caption = t.find(hud, "Caption") :: TextLabel
+	t.check("the HUD finishes preparation", hud:GetAttribute("FacetPreparing") ~= true)
+	t.check("the HUD is drawn", fade == nil or fade.GroupTransparency == 0, if fade then fade.GroupTransparency else 0)
+	t.check("the caption fits", caption.TextFits, { caption.TextBounds, caption.AbsoluteSize })
+	app.dispose()
+end)
+
 return cases

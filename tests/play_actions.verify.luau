@@ -3,8 +3,8 @@
 local Verify = require("../tools/vendor/verify/src/core")
 local Actions = require("../tools/play/host/actions")
 local QA = require("../tools/play/host/qa")
-local Universal = require("../eval/tasks/racing-hub/hidden/universal")
-local Play = require("../tools/play/host/play")
+local Route = require("../tools/play/host/route")
+local Check = require("../tools/play/host/check")
 local Devices = require("../tools/play/host/devices")
 
 local function fixture(
@@ -417,14 +417,12 @@ return function(harness: Verify.Harness)
 					qa.call = function(_self: QA.QA, _command: string, _fields: unknown?): unknown
 						return { timedOut = false }
 					end
-					local route: Play.Case? = nil
-					for _, candidate in Universal.scenario("racing-hub-slice").sessions[1].cases do
-						if candidate.id == "universal/route-universal-" .. string.lower(action) then
-							route = candidate
-							break
-						end
-					end
-					local chosen = assert(route)
+					local screen = "universal-" .. string.lower(action)
+					local chosen = Route.case("route-" .. screen, screen, function(active, context)
+						Check.tap(active, context, { role = "button", text = string.lower(action) }, "use " .. action)
+						active:sleep(0.5)
+						active:dump(screen)
+					end)
 					local host: Verify.CaseHost = {
 						name = "universal-cleanup",
 						capabilities = {},

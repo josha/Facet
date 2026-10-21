@@ -5,12 +5,16 @@ Show text.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-UI.Text "Text" { text = "Ready", wrap = true }
+UI.Text "Text" { text = "Ready" }
 ```
 
 Key options: `text`, `textRole`, `wrap`, `truncate`, `lines`.
 
-For wrapped text, set `width = "fill", align = "stretch"` on the parent VStack.
+For a paragraph, use `wrap = true`. Wrapped text fills its parent's width and
+grows vertically by default. Give the parent a numeric width, or
+`width = "fill"` inside a bounded parent. Explicit native `Size` and
+`AutomaticSize` override these defaults. Short readouts can hug their text
+without wrapping.
 Text has no width option. See [Layout-options](Layout-options.md) for native sizing.
 
 Related controls: [Controls](Controls.md).

@@ -1,0 +1,30 @@
+[
+  {
+    "sha256": "3958ed9cd6cdb683adac93b7b72027ee223933181aef5b3ca10322b6254155dd",
+    "screen": "hub",
+    "arm": "facet",
+    "device": "desktop",
+    "path": "inputs/facet/hub.png"
+  },
+  {
+    "sha256": "04f062926fea8c938a67e59f0a5679656ac9fe3c2aac77c3f5c3e70b40144554",
+    "screen": "garage",
+    "arm": "facet",
+    "device": "desktop",
+    "path": "inputs/facet/garage.png"
+  },
+  {
+    "sha256": "44a2185ce28bf3eec4530da090729c8e8476f41ca9702ca8e6a1e14f99aab216",
+    "screen": "hub",
+    "arm": "plain",
+    "device": "desktop",
+    "path": "inputs/plain/hub.png"
+  },
+  {
+    "sha256": "75d15725fe90e54c922d1f144222764d52cd6ab5d299daf27dce7f006b5661ee",
+    "screen": "garage",
+    "arm": "plain",
+    "device": "desktop",
+    "path": "inputs/plain/garage.png"
+  }
+]

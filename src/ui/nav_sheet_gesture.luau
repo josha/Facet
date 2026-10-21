@@ -209,12 +209,15 @@ return function(
 		local canDismiss = function(use: ComposeTypes.Use?): boolean
 			return read(spec.interactiveDismissDisabled, use) ~= true
 		end
-		local function close(reason: string)
+		local function close(reason: string): boolean
 			if request then
-				request(reason)
+				return request(reason)
+			elseif spec.onPresentedChange then
+				spec.onPresentedChange(false)
 			else
 				spec.isPresented:set(false)
 			end
+			return not spec.isPresented:peek()
 		end
 		local function interactive(reason: string)
 			if canDismiss() then
@@ -347,9 +350,7 @@ return function(
 			local choice = release.choose(stops(), height, speed, selected().id, canDismiss())
 			if choice == "dismiss" then
 				session = nil
-				if request == nil then
-					spec.isPresented:set(false)
-				elseif not request("drag") then
+				if not close("drag") then
 					select(selected().id)
 				end
 				return
@@ -470,10 +471,7 @@ return function(
 			local speed = velocity(current.samples)
 			local width = math.min(parts.width(ctx, spec.width), extent:peek().X)
 			if canDismiss() and (amount > width / 3 or speed > 600) then
-				if request == nil then
-					spec.isPresented:set(false)
-					return
-				elseif request("drag") then
+				if close("drag") then
 					return
 				end
 			end

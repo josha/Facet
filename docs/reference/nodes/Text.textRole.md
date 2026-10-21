@@ -13,6 +13,10 @@ Text.textRole option values and behavior.
   removes it. `role` can be bound.
 - `textAlign` is `start`, `center` or `end` and sets `TextXAlignment`. It can
   be bound. `wrap` sets `TextWrapped`. `rich = true` sets `RichText`.
+- `wrap = true` or native `TextWrapped = true` defaults to full parent width
+  and automatic height. Give the parent a bounded width. Explicit native
+  `Size` and `AutomaticSize` take precedence. Fitted text keeps its fitting
+  defaults. A native `TextWrapped = false` overrides `wrap = true`.
 - A wrapped text with automatic height measures its lines with
   `TextService:GetTextBoundsAsync` at its styled font, size and line height,
   and its `TextBoundsFloor` constraint keeps at least that height. The engine

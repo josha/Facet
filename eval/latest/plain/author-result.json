@@ -1,0 +1,98 @@
+{
+    "arm": "plain",
+    "scores": [],
+    "captures": [],
+    "order": 1,
+    "adapter": "codex",
+    "schemaVersion": 1,
+    "startedAt": 1792612050,
+    "tier": "game",
+    "status": "timed_out",
+    "suite": "facetbench-run",
+    "task": "run",
+    "checksPassed": false,
+    "directory": "C:/git/Facet/artifacts/facetbench/studio-run-1/runs/run/plain/codex-sol/seed-1",
+    "detail": "the agent exceeded its wall-clock budget",
+    "checks": [
+        {
+            "seconds": 0.57858,
+            "required": true,
+            "id": "submission",
+            "passed": false,
+            "scores": [],
+            "cases": [
+                {
+                    "id": "submission/unchanged",
+                    "status": "failed",
+                    "detail": "Error opening file C:/git/Facet/artifacts/facetbench/studio-run-1/runs/run/plain/codex-sol/seed-1/submission/submission.verify.json: no such file or directory"
+                }
+            ],
+            "check": "submission",
+            "kind": "verify",
+            "status": "failed",
+            "detail": "exited 1: Verify receipt v1 — submission-integrity\r\n  availableCases: 1\r\n  caseSelection: all\r\n  failed      submission/unchanged\r\n              case/failed: Error opening file C:/git/Facet/artifacts/facetbench/studio-run-1/runs/run/plain/codex-sol/seed-1/submission/submission.verify.json: no such file or directory\r\n0 passed, 1 failed, 0 skipped, 0 unsupported, 0 timed out, 0 cancelled (1 total)\r\n"
+        },
+        {
+            "seconds": 0.000001,
+            "required": true,
+            "id": "play",
+            "passed": false,
+            "scores": [],
+            "cases": [],
+            "check": "play",
+            "kind": "verify",
+            "status": "blocked",
+            "detail": "blocked by submission (failed)"
+        },
+        {
+            "seconds": 0.000001,
+            "required": true,
+            "id": "submission-unchanged",
+            "passed": false,
+            "scores": [],
+            "cases": [],
+            "check": "submission-unchanged",
+            "kind": "verify",
+            "status": "blocked",
+            "detail": "blocked by play (blocked)"
+        }
+    ],
+    "id": "run/plain/codex-sol/1",
+    "passed": false,
+    "audits": [],
+    "seed": 1,
+    "metrics": {
+        "startupSeconds": 0.281366,
+        "toolCalls": 101,
+        "turnIntervals": [],
+        "permissionDenials": 0,
+        "cacheCreationTokens": 0,
+        "totalTokens": 0,
+        "messages": 5,
+        "subagentMessages": 0,
+        "toolErrors": 9,
+        "wallSeconds": 600.1588134765625,
+        "turnLatencies": [],
+        "toolSeconds": 64.6558400000001,
+        "cacheReadTokens": 0,
+        "turns": 0,
+        "inputTokens": 0,
+        "outputTokens": 0
+    },
+    "exceeded": [
+        "wallSeconds"
+    ],
+    "finishedAt": 1792612662,
+    "model": "gpt-6.1-sol",
+    "agent": "codex-sol",
+    "session": {
+        "usageSource": "none",
+        "mcpServers": [],
+        "result": "The live race now shows the kart correctly, tracks real lap progress, and runs cleanly. Purchases, equipment, code redemption, and free-crate consumption have also been accepted by the server during testing. Progress is explicitly session-only.\n",
+        "model": "gpt-6.1-sol",
+        "tools": [],
+        "malformed": 0,
+        "session": "01a16001-4f83-7580-9ca0-b15ea67ba52c"
+    },
+    "digest": "59015b0176ab1ac40aa8f4be3ac07bd1b28e161d4d92a97defb4b6d155180741"
+}

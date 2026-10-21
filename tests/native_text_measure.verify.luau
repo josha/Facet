@@ -456,6 +456,38 @@ return function(harness: Verify.Harness)
 		runtime:dispose()
 	end)
 
+	harness:case("completed wrapped measurements tolerate a stale native fit flag", function(t)
+		local engine = engineLib.new()
+		local node = engine.new("TextLabel")
+		node.Text = "Saved"
+		node.TextWrapped = true
+		node.AutomaticSize = engine.types.Enum.AutomaticSize.Y
+		node.TextFits = false
+		node.TextBounds = engine.types.Vector2.new(90, 14)
+		node.AbsoluteSize = engine.types.Vector2.new(100, 14)
+		t:expect(measure.ready(node)):toBe(false)
+		local floor = engine.new("UISizeConstraint")
+		floor.Name = "TextBoundsFloor"
+		floor.MinSize = engine.types.Vector2.new(0, 14)
+		floor.Parent = node
+		t:expect(measure.ready(node)):toBe(true)
+		local release = measure.hold(node)
+		t:expect(measure.ready(node)):toBe(false)
+		release()
+		node.AbsoluteSize = engine.types.Vector2.new(100, 13)
+		t:expect(measure.ready(node)):toBe(false)
+		node.AbsoluteSize = engine.types.Vector2.new(80, 14)
+		t:expect(measure.ready(node)):toBe(false)
+		local unit = engine.new("Frame")
+		unit.Name = "TextBoundsUnit"
+		unit.AbsoluteSize = engine.types.Vector2.new(200, 2)
+		unit.Parent = node
+		node.TextBounds = engine.types.Vector2.new(180, 28)
+		node.AbsoluteSize = engine.types.Vector2.new(200, 28)
+		t:expect(measure.ready(node)):toBe(true)
+		floor.MinSize = engine.types.Vector2.new(0, 28)
+		t:expect(measure.ready(node)):toBe(false)
+	end)
 	harness:case("natural text metrics use native font inputs and ignore rendered geometry", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)

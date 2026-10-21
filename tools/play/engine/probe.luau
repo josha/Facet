@@ -284,6 +284,14 @@ local function label(object: GuiObject): string
 		end
 		visit(object, 1)
 	end
+	if #pieces == 0 then
+		for _, name in { "AccessibleLabel", "label", "FacetLabel" } do
+			local value = object:GetAttribute(name)
+			if type(value) == "string" and value ~= "" then
+				return value
+			end
+		end
+	end
 	return table.concat(pieces, " ")
 end
 

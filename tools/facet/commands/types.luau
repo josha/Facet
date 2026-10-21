@@ -270,8 +270,6 @@ local function analyze(
 end
 
 local function projects(): { Analyzer.Project }
-	local Bench = require("../lib/facetbench")
-	Bench.prepare(Files.cwd())
 	local listed = Run.git(PROJECTS)
 	if not listed.ok then
 		fail("git ls-files failed: " .. stringext.trim(listed.stderr))
@@ -279,13 +277,10 @@ local function projects(): { Analyzer.Project }
 	local names: { string } = {}
 	local seen: { [string]: boolean } = {}
 	for _, project in string.split(listed.stdout, "\0") do
-		if project ~= "" and not seen[project] then
+		if project ~= "" and not seen[project] and Files.isFile(project) then
 			seen[project] = true
 			table.insert(names, project)
 		end
-	end
-	if not seen[Bench.project] then
-		table.insert(names, Bench.project)
 	end
 	table.sort(names)
 	local root = Files.cwd()

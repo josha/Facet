@@ -158,7 +158,26 @@ return {
 				and node.TextTruncate.Name == "None"
 				and (automatic == "Y" or automatic == "XY")
 			then
-				return node.TextFits
+				if node.TextFits ~= false then
+					return node.TextFits
+				end
+				local floor = node:FindFirstChild("TextBoundsFloor")
+				local unit = node:FindFirstChild("TextBoundsUnit")
+				if not (floor and floor:IsA("UISizeConstraint")) then
+					return false
+				end
+				local scale = if unit
+						and unit:IsA("GuiObject")
+						and unit.AbsoluteSize.X > 0
+					then unit.AbsoluteSize.X / 100
+					else 1
+				local required = floor.MinSize.Y * scale
+				local bounds, size = node.TextBounds, node.AbsoluteSize
+				return required > 0
+					and size.Y + 0.001 >= required
+					and bounds.Y > 0
+					and bounds.Y <= size.Y + 0.001
+					and bounds.X <= size.X + 0.001
 			end
 		end
 		return true

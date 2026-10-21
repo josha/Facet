@@ -305,7 +305,9 @@ return function(harness: Verify.Harness)
 				"Controls",
 				"Themes.index",
 				"Sheet.detents",
-				"project [directory]",
+				"ServerStorage.FacetDocs",
+				"<Control>.card",
+				"<Control>.props",
 			}
 		do
 			Verify.expect(string.find(first.stdout, text, 1, true) ~= nil):toBe(true)

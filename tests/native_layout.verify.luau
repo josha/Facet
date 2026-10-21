@@ -242,7 +242,11 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_layout::native text layout::owns a glyph floor only while text can grow without wrapping or truncation",
 			run = function()
 				local root, engine, stop = build(nil, function(UI: FacetControls)
-					return UI.Text { text = "Inventory", wrap = true }
+					return UI.Text {
+						text = "Inventory",
+						wrap = true,
+						AutomaticSize = engineLib.types.Enum.AutomaticSize.XY,
+					}
 				end)
 				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
 				Verify.expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)

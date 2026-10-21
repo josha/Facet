@@ -10,6 +10,34 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
 end
 
+add("stage-draft-preview", {}, function(t)
+	local color = t.Facet.Compose.cell(Color3.fromRGB(40, 210, 230))
+	local root = t.mount(function(UI)
+		return UI.Stage "Preview" {
+			Size = UDim2.fromOffset(320, 180),
+			camera = CFrame.lookAt(Vector3.new(4, 3, 6), Vector3.zero),
+			content = function(runtime, world)
+				local Host = runtime.constructors
+				local part = Host.Part "Object" {
+					Anchored = true,
+					Size = Vector3.new(2, 2, 2),
+					Color = color,
+				}
+				part.Parent = world
+				return nil
+			end,
+		}
+	end, { frames = 30 })
+	local preview = t.find(root, "Preview")
+	local camera = preview.CurrentCamera
+	local part = t.find(root, "Object")
+	t.check("stage owns its native camera", camera ~= nil and camera.Parent == preview)
+	t.check("preview object belongs to the world", part ~= nil and part.Parent:IsA("WorldModel"))
+	color:set(Color3.fromRGB(235, 50, 70))
+	t.settle(4)
+	t.check("draft changes update the retained preview", part.Color == color:peek() and t.find(root, "Object") == part)
+end)
+
 local function interactive(
 	id: string,
 	contracts: { string },

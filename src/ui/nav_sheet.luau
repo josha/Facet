@@ -19,6 +19,7 @@ local KEYS = {
 	"detent",
 	"detents",
 	"isPresented",
+	"onPresentedChange",
 	"interactiveDismissDisabled",
 	"dragIndicator",
 	"placement",
@@ -283,6 +284,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 	end
 
 	UI.Sheet = ctx.construct("Sheet", function(spec: NavigationProps.SheetSpec): Frame
+		assert(
+			spec.onPresentedChange == nil or type(spec.onPresentedChange) == "function",
+			"Sheet.onPresentedChange must be a function"
+		)
 		local prepared = prepare(spec)
 		local detent = writableDetent(spec, prepared)
 		assert(

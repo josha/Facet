@@ -6,7 +6,7 @@ local rules: { Rule.Rule } = {
 	require("@self/plan"),
 	require("@self/docs_nodes"),
 	require("@self/docs_samples"),
-	require("@self/facetbench_references"),
+	require("@self/facetbench"),
 	require("@self/architecture"),
 	require("@self/type_policy"),
 	require("@self/vendor"),

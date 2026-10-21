@@ -408,7 +408,8 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 16, full = 24, release = 1 })
+		context:expect(tiers):toEqual({ fast = 16, full = 23, release = 2 })
+		context:expect(seen["run-comparison"].tier):toBe("release")
 		context:expect(seen["docs-nodes"].tier):toBe("fast")
 		context:expect(seen["text-encoding"].tier):toBe("fast")
 		context:expect(seen["perf"].tier):toBe("full")

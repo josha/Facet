@@ -1,0 +1,17 @@
+{
+    "key": "a86f4b313c265ab21754d9cd81514649239d6affeca42a5ec4eec8ebd082a46b",
+    "judgment": {
+        "a": "plain",
+        "presentations": [],
+        "b": "facet",
+        "id": "run/codex-sol/seed-1/tablet/plain~facet",
+        "device": "tablet",
+        "order": "a-first",
+        "criteria": [],
+        "seed": 1,
+        "status": "skipped",
+        "agent": "codex-sol",
+        "task": "run",
+        "detail": "neither run produced screenshots"
+    }
+}

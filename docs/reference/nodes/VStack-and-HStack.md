@@ -7,6 +7,13 @@ Frame` stacks them horizontally. Both hug their content by default. Options:
 `gap`, `padding`, `align`, `distribute`, `wrap`, `width` and `height`. `wrap`
 sets `UIListLayout.Wraps`. The shared props type is `StackProps`.
 
+Bound a form or collection body with `width = "fill"`. A fill-width field
+needs a parent with a defined width; placing two such fields in a hugging
+HStack does not divide the available width. Stack fields vertically, or give
+each a bounded width and use native flex through [fill](fill.md) to share a row.
+Use [AdaptiveStack](AdaptiveStack.reference.md) for short intrinsic-width actions
+that should turn into a column when they cannot fit.
+
 A stack with `padding` has an edge, so it keeps its children's shadows inside
 it. Each side of its `UIPadding` grows by the farthest a direct child's
 `UIShadow` reaches past that child on that side (offset, spread and blur). A

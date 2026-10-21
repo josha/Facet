@@ -66,6 +66,7 @@ export type Host = {
 
 type Arguments = {
 	workspace: string,
+	place: string?,
 	outputs: string,
 	captures: string,
 	report: string,
@@ -122,9 +123,13 @@ local function arguments(): Arguments
 		devices = chosen
 	end
 	local scores: string? = values.scores
+	local place = if values.place ~= nil then absolute(values.place) else nil
 	assert(values.tier == nil or values.tier == "universal" or values.tier == "spec", "invalid --tier")
 	return {
-		workspace = required("workspace"),
+		workspace = if values.workspace ~= nil
+			then required("workspace")
+			else directoryOf((assert(place, "--place or --workspace is required"))),
+		place = place,
 		outputs = required("outputs"),
 		captures = required("captures"),
 		report = required("report"),
@@ -350,7 +355,7 @@ local function open(options: HostOptions): Host
 		local settle = os.clock() + 20
 		while os.clock() < settle do
 			local value = qa:call("ping")
-			if QA.interfaceMounted(value, options.requireInterface) then
+			if QA.viewportReady(value) and QA.interfaceMounted(value, options.requireInterface) then
 				break
 			end
 			task.wait(0.5)
@@ -360,6 +365,9 @@ local function open(options: HostOptions): Host
 		end
 		local final = qa:call("ping")
 		local fields: { [string]: unknown } = if type(final) == "table" then final :: { [string]: unknown } else {}
+		if not QA.viewportReady(fields) then
+			error("blocked: Studio has no rendered viewport; wake and maximize the window before evaluating", 0)
+		end
 		if options.requireInterface and not QA.interfaceMounted(fields, true) then
 			local errors = if type(fields.errors) == "table" then fields.errors :: { unknown } else {}
 			local first = errors[1]
@@ -519,6 +527,9 @@ local function perfScores(perf: { [string]: DevicePerf }, scores: { [string]: nu
 		put("mountTimedOut", if record.mount and record.mount.timedOut == true then 1 else 0)
 		put("idleFrameP50Ms", number(record.idle, "frames", "p50"))
 		put("idleFrameP95Ms", number(record.idle, "frames", "p95"))
+		for _, metric in { "frames", "p50", "p95" } do
+			put("idle." .. metric, number(record.idle, "frames", metric))
+		end
 		put("baseGuiObjects", number(record.idle, "census", "gui"))
 		put("baseComponents", number(record.idle, "census", "components"))
 		put("baseInstances", number(record.idle, "census", "instances"))
@@ -540,7 +551,10 @@ local function perfScores(perf: { [string]: DevicePerf }, scores: { [string]: nu
 			end
 		end
 		local peakGui, peakComponents, p50Sum, p50Count, p95Max = nil :: number?, nil :: number?, 0, 0, nil :: number?
-		for _, screen in record.screens do
+		for name, screen in record.screens do
+			for _, metric in { "frames", "p50", "p95" } do
+				put(name .. "." .. metric, number(screen, "frames", metric))
+			end
 			local gui, components = number(screen, "census", "gui"), number(screen, "census", "components")
 			local p50, p95 = number(screen, "frames", "p50"), number(screen, "frames", "p95")
 			if gui ~= nil then
@@ -604,6 +618,7 @@ local function main(scenario: Scenario, entrySource: string, universal: Scenario
 	local taskName = string.match(taskDirectory, "([^/]+)$") or "task"
 	local host = open({
 		workspace = args.workspace,
+		basePlace = args.place,
 		outputs = args.outputs,
 		captures = args.captures,
 		keep = args.keep,

@@ -234,7 +234,10 @@ return function(harness: Verify.Harness)
 	end)
 	harness:case("the map and HUD route each screen task to its recipe", function(t)
 		local nodes = Index.load(".")
-		t:expect(string.find(assert(Index.find(nodes, "Map")).body, "every task recipe", 1, true) ~= nil):toBe(true)
+		local map = assert(Index.find(nodes, "Map"))
+		for _, recipe in { "Tasks.hud", "Tasks.shop", "Tasks.sheet", "Tasks.settings", "Tasks.safe-layout" } do
+			t:expect(table.find(map.children, recipe) ~= nil):toBe(true)
+		end
 		local hud = assert(Index.find(nodes, "Tasks.hud"))
 		t:expect(table.find(hud.children, "Tasks.shop") ~= nil):toBe(true)
 		t:expect(table.find(hud.children, "Tasks.sheet") ~= nil):toBe(true)

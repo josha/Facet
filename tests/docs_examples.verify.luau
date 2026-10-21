@@ -34,6 +34,8 @@ return function(harness: Verify.Harness)
 				app = app,
 				Compose = Facet.Compose,
 				Vector2 = engine.types.Vector2,
+				Vector3 = engine.types.Vector3,
+				CFrame = engine.types.CFrame,
 				Color3 = engine.types.Color3,
 				Enum = engine.types.Enum,
 				UDim2 = engine.types.UDim2,

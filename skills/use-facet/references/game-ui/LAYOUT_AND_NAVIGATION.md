@@ -38,6 +38,7 @@ Use `Composition` when several HUD groups share space and must yield by importan
 - Supply region forms from richest to smallest, with measurable content sizes. A form that fills all offered space cannot communicate its intrinsic requirement. Each form must still answer a useful player question.
 - `mayDrop = true` permits the region to disappear from the main view. Never apply it to an immediate required action without an equally immediate usable alternative.
 - `reveal` exposes reduced/hidden information through Facet's reveal affordances. Keep it unless nothing meaningful was omitted or another discoverable route exists. `expand` supplies the expanded content when the default richest form is unsuitable.
+- Smaller forms must preserve access to the richer form's tasks. A passive summary can use the built-in reveal. If the smaller form contains a button, that button owns its press: a Menu button must open the navigation choices, not one destination that hides the others.
 - Bind `form` when other UI must react to the chosen form; `0` means hidden. Do not treat every nonzero value as an authored form index: reveal affordances can add another form.
 - `leading` concerns a topbar region. `Composition.topbar`, `padding`, and `gap` should express an intentional top band and spacing, not compensate for unrelated absolute positioning.
 
@@ -50,6 +51,7 @@ Use `VStack` for a reading sequence or vertically grouped controls. Use `HStack`
 - `gap` communicates relationships; tighter within a unit, larger between sections. `padding` gives the group an interior boundary.
 - `align` works across the stack; `distribute` works along it. Use `spaceBetween` for genuinely opposing ends such as a label and value, not to scatter a form evenly through every screen height.
 - `width`/`height = "hug"` express content size; `"fill"` accepts offered space. Give a long reading column a width constraint and let its height grow. Give a scrolling collection a bounded remaining height.
+- Wrapped text fills its parent width by default. Give the column a bounded width so text can grow vertically. Keep short readouts unwrapped when they should size from their text.
 - `wrap` is off by default. Explicit wrapping can suit independent chips; use `AdaptiveStack` or authored alternatives when a complete row should become a column. Verify reading and focus order after wrapping.
 
 Do not align separate records by inserting spaces into text or by giving every row unrelated offsets. Use shared layout or a table when alignment carries meaning.

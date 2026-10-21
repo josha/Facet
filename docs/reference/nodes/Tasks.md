@@ -1,6 +1,7 @@
 # Game UI tasks
 
-Open every recipe that matches a part of your screen. Each recipe names its controls.
+Choose a recipe for the structure you need. Reuse its pattern across similar
+pages; read another recipe only for a missing pattern. Each recipe names its controls.
 
 Open:
 

@@ -1,8 +1,6 @@
 # Tasks.sheet
 
-A Sheet with dismissal and child-page Back.
-
-Controls: Sheet and NavigationStack.
+Modal pages with dismissal and Back.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -38,6 +36,8 @@ script.Destroying:Connect(app.dispose)
 ```
 
 Sheet owns dismissal and scrolling; NavigationStack owns child-page Back.
+Sheet content runs at construction. Reading a route with `peek()` there does
+not switch pages. Use NavigationStack or [Compose branches](State.md).
 The root has no Back. The one-detent grabber closes on tap/click,
 Return or gamepad A. For `closeButton = false`, read
 [Sheet.layout](Sheet.layout.md) and test each input's exit and return focus.
@@ -52,6 +52,3 @@ restore them on exit; the game owns custom touch actions.
 Open:
 
 - [NavigationStack.reference](NavigationStack.reference.md)
-- [Sheet.card](Sheet.card.md)
-- [Sheet.detents](Sheet.detents.md)
-- [Sheet.grabber](Sheet.grabber.md)
