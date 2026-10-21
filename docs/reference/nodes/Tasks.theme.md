@@ -40,6 +40,7 @@ local definition: Facet.ThemeDefinition = {
 local theme, report = Facet.themes.define(definition)
 assert(report.ok and theme, "Invalid game theme")
 local app = Facet.app({ name = "Game", theme = theme })
+script.Destroying:Connect(app.dispose)
 ```
 
 Next: [Theme-identity](Theme-identity.md), [Themes.tokens](Themes.tokens.md).

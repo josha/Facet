@@ -4,11 +4,11 @@ Shop.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
-local C, app = Facet.Compose, Facet.app()
-local UI, runtime = app.UI, app.runtime
+local app = Facet.app({})
+local C, UI = Facet.Compose, app.UI
 type Item = { id: string, name: string, price: number }
 local coins, owned = C.cell(300), C.cell({} :: { [string]: boolean })
-local buy = game.ReplicatedStorage:WaitForChild("Purchase") :: RemoteFunction
+local buy = assert(game.ReplicatedStorage:FindFirstChild("Purchase")) :: RemoteFunction
 app.mount(function()
   local height, env = C.cell(1), UI.environment()
   local spec: Facet.KeyedCollectionSpec<Item, string> = {
@@ -16,7 +16,7 @@ app.mount(function()
     mode = "all", measure = true, minColumnWidth = env.scaled(220),
     itemSize = env.scaled(132), gap = env.scaled(16), VerticalScrollBarInset = Enum.ScrollBarInset.Always,
     Size = function(use) return UDim2.new(1, 0, 0, use(height)) end,
-    render = function(row, _, key)
+    render = function(row: Facet.Readable<Item>, _, key)
       return UI.Card(key) {
         title = function(use) return use(row).name end,
         caption = function(use: Facet.Use)
@@ -29,7 +29,7 @@ app.mount(function()
           label = function(use) return if use(owned)[key] then "Owned" else "Buy" end,
           enabled = function(use) return not use(owned)[key] end,
           onActivate = function()
-            if buy:InvokeServer(key) then
+            if buy:InvokeServer(key).accepted then
               owned:update(function(v) v = table.clone(v) v[key] = true return v end)
             end
           end,
@@ -40,12 +40,8 @@ app.mount(function()
   return UI.Sheet { title = "Shop", width = "wide", isPresented = C.cell(true), detents = { "hug" },
     content = function()
       local grid = UI.VirtualGrid(spec)
-      local canvas = runtime.observe(grid, "CanvasSize")
-      C.watch(function(use)
-        local size = use(canvas)
-        assert(typeof(size) == "UDim2")
-        height:set(size.Y.Offset)
-      end)
+      local canvas = app.runtime.observe(grid, "CanvasSize")
+      C.watch(function(use) height:set((use(canvas) :: UDim2).Y.Offset) end)
       return grid
     end }
 end)

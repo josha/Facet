@@ -36,3 +36,4 @@ end)
 Keep gameplay controls clear: [safe layout](Tasks.safe-layout.md).
 Choose zones and captions: [HUD actions](HUD-actions.md).
 Bind [server state](Tasks.state.md).
+Open a [shop](Tasks.shop.md) or [sheet](Tasks.sheet.md).
