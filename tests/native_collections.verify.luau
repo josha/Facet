@@ -2854,7 +2854,7 @@ return function(verifyHarness: Verify.Harness)
 					local function wraps()
 						return node:FindFirstChild("1", true):FindFirstChild("Value", true).TextWrapped
 					end
-					Verify.expect((height())):toBe(56)
+					Verify.expect((height())):toBe(84)
 					Verify.expect((wraps())):toBe(false)
 					gui.ViewportDisplaySize = E.DisplaySize.Medium
 					Verify.expect((height())):toBe(44)

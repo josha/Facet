@@ -40,6 +40,7 @@ return function(verifyHarness: Verify.Harness)
 			return keys[code.Name] == true
 		end
 		local viewport = Compose.cell(size or { width = 1280, height = 720 })
+		local baseline = engine.census()
 		local ctx = {
 			Facet = Facet,
 			Compose = Compose,
@@ -71,7 +72,6 @@ return function(verifyHarness: Verify.Harness)
 			}),
 		}
 		local built
-		local baseline = engine.census()
 		local stop, node: any = runtime.mount(function()
 			built = requireDynamic("../examples/gallery/scenarios/" .. name).build(ctx)
 			return ctx.Host.ScreenGui({ built.screen() })

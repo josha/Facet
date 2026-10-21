@@ -48,7 +48,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	end
 	local themeMetrics = installMetrics(ctx, config, themes)
 	local observation = installObservation(ctx, config, services)
-	installEnvironment(ctx, config, themes, observation.preview, themeMetrics.metricAt, themeMetrics.setDistance, live)
+	installEnvironment(ctx, config, themes, observation.preview, themeMetrics.metricAt, themeMetrics.setDistance)
 	installContent(ctx, config, services, themes, live)
 	installNative(ctx, config, services, themes, observation.observeStyled)
 	installActions(ctx, config)
