@@ -119,7 +119,12 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 						child.Parent = slot
 					end
 				end
-				runtime.connect(source, "ChildAdded", transfer)
+				local transfers = runtime.scheduler()
+				runtime.connect(source, "ChildAdded", function(child: Instance)
+					transfers.replace(child, 0, function()
+						transfer(child)
+					end)
+				end)
 				if moved then
 					for _, child in source:GetChildren() do
 						transfer(child)
