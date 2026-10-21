@@ -54,6 +54,7 @@ game screens and Studio plugin interfaces.
 | Drag data between separate controls or targets | draggable and dropTarget; use collection reordering for row order. |
 | Present an ordered reward | sequence with Travel, countUp and Flash. The game supplies callbacks and data. |
 | Inspect a large board at different scales | ZoomView. |
+| Reveal a skill tree after purchases | ZoomView with keyed Buttons at game-owned positions. Keep prerequisites and purchases in the game model. See [Ascent](../../examples/gallery/examples/16_ascent.luau). |
 | Moving items within or between containers | Travel. Set each item's destination slot. For a rack shuffle, use arc, lift and stagger. |
 
 ## Compose in the existing screen

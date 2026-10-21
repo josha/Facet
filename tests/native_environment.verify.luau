@@ -1352,6 +1352,22 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("native selection artwork replaces the theme glow", function(t)
+			local glowing = define({ kind = "glow" :: "glow", blurRadius = { offset = 26 }, transparency = 0.25 })
+			local w, _, stop = ring(glowing, { preferredInput = "Gamepad" })
+			t:defer(stop)
+			local target = w.engine.new("TextButton")
+			target.Parent = w.engine.new("ScreenGui")
+			w.gui.SelectedObject = target
+			t:expect(target:FindFirstChild("FacetFocusGlow") ~= nil):toBe(true)
+			local custom = w.engine.new("Frame")
+			target.SelectionImageObject = custom
+			t:expect(target:FindFirstChild("FacetFocusGlow")):toBeNil()
+			t:expect(target.SelectionImageObject):toBe(custom)
+			target.SelectionImageObject = nil
+			t:expect(target:FindFirstChild("FacetFocusGlow") ~= nil):toBe(true)
+		end)
+
 		verifyHarness:case("takes the shape of the selected control: its own corner, a pill, or the theme's square", {
 			id = "native_environment::focus ring: the engine draws the theme's focus look::takes the shape of the selected control: its own corner, a pill, or the theme's square",
 			run = function()

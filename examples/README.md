@@ -20,6 +20,7 @@ host mounts them with the runtime pieces that `Facet.app` uses.
 
 | Task | Example |
 |---|---|
+| Inspect and unlock a growing skill tree | [Ascent](gallery/examples/16_ascent.luau) |
 | Interactive control catalog and device previews | [Facet Lab](facet-lab/README.md) |
 | Small complete client | [Standalone consumer](consumer/src/screen.luau) |
 | Editable local state | [Temperature converter](gallery/examples/01_temperature_converter.luau) |
@@ -51,7 +52,7 @@ to rebuild the maintained examples, including
 
 ## Tests
 
-The showcase has five main demos: Garage, Sipworks, Screen-anchored HUD,
+The showcase has six main demos: Ascent, Garage, Sipworks, Screen-anchored HUD,
 Playlist and Arcade. Arcade contains Word Guess, Crossword,
 Match 3 and Outpost. Control, collection and motion fixtures are available
 for the lab and regression tests. `tests/native_gallery.verify.luau` mounts those pages. It exercises the
@@ -69,13 +70,15 @@ layouts between sidebar and top tabs without resetting the current demo.
 
 | Demo | First thing to try | Source |
 |---|---|---|
+| Ascent | Inspect an upgrade, unlock it, then explore the new branch | [Ascent](gallery/examples/16_ascent.luau) |
 | Garage | Change the car, paint and wheels, then save and restore a preset | [Garage](gallery/examples/08_garage.luau) |
 | Sipworks | Open a recipe, check ingredients, follow a botanical to related blends, then go Back | [Sipworks](gallery/examples/14_sipworks.luau) |
 | Screen-anchored HUD | Resize the screen, reveal tucked-away zones, change equipment and open HUD actions | [HUD](gallery/scenarios/hud.luau) |
 | Playlist | Sort, rate and reorder tracks | [Playlist](gallery/examples/02_playlist_table.luau) |
 | Arcade | Choose Word Guess, Crossword, Match 3 or the Outpost power puzzle | [Arcade](gallery/examples/13_arcade.luau) |
 
-Each main demo has a distinct role: Garage is a live 3D configurator with
+Each main demo has a distinct role: Ascent is a growing skill tree with direct tile
+inspection and unlock actions; Garage is a live 3D configurator with
 anchored preset naming and inline saved cars; Sipworks is a searchable recipe
 library with animated drill-down and checklists; Playlist demonstrates sortable,
 editable, reorderable data; Arcade contains playable games and Outpost's world
@@ -91,6 +94,27 @@ SurfaceGui terminal.
 [Showcase artwork](../assets/showcase/README.md) records the generated G-rated
 illustrations, their original files and Roblox asset IDs. No purchases or
 account sign-in are needed to try the showcase.
+
+### Ascent composition
+
+Ascent uses `ZoomView` for the camera, keyed Compose children for stable tile
+identity, and Facet `Button` controls for inspection and purchase. Native frames
+form the hex artwork and connectors. `Path` draws the emblems. Compose tweens
+animate branch reveals and selection. `UI.sequence` runs accepted-unlock
+feedback. Motion and colors come from the active theme.
+
+The [model](gallery/examples/skill_tree/model.luau) owns positions, prerequisites,
+points and purchases. It is a local demonstration. A game must validate purchases
+on its server and show pending and rejected requests. The UI must reveal a branch
+only after an accepted purchase. The example's keyed English copy builds a
+native `LocalizationTable`; add translated entries for the supported locales.
+
+The map takes the available space, with a compact benefit and cost strip below.
+Tap a tile to inspect it, then activate its visible unlock action to spend points.
+Gamepad focus inspects; A unlocks. Directional selection links use the authored
+tile positions. Focusing a tile moves the camera without spending points.
+The artwork is larger than each native button's hit rectangle, so adjacent tiles do not steal input. Check target size
+at the minimum zoom when changing tile artwork or spacing.
 
 ## Word Guess
 
