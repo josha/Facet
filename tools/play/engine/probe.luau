@@ -621,17 +621,20 @@ local function nudge(scroller: ScrollingFrame, window: Rect, deltaX: number, del
 		local finish = middle - Vector2.new(moveX / 2, moveY / 2)
 		device:SendMousePosition(start)
 		device:SendMouseButton(start, Enum.UserInputType.MouseButton1, true, 0)
-		for step = 1, 8 do
-			frames(1)
-			device:SendMousePosition(start:Lerp(finish, step / 8))
-		end
-		frames(1)
-		device:SendMouseButton(finish, Enum.UserInputType.MouseButton1, false, 0)
-		frames(10)
-		for _ = 1, 180 do
-			if scroller:GetScrollVelocity().Magnitude <= 1 then
+		local started = os.clock()
+		while true do
+			local progress = math.clamp((os.clock() - started) / 0.2, 0, 1)
+			device:SendMousePosition(start:Lerp(finish, progress))
+			if progress >= 1 then
 				break
 			end
+			frames(1)
+		end
+		task.wait(0.1)
+		device:SendMouseButton(finish, Enum.UserInputType.MouseButton1, false, 0)
+		frames(10)
+		local deadline = os.clock() + 3
+		while scroller:GetScrollVelocity().Magnitude > 1 and os.clock() < deadline do
 			frames(1)
 		end
 	else
@@ -1035,6 +1038,23 @@ end
 
 handlers.texts = function()
 	return visibleTexts()
+end
+
+handlers.reachable = function(request: Request): unknown
+	local target = targetOf(queryOf(request.query))
+	if target == nil then
+		return { reachable = false, reason = "no visible element matches" }
+	end
+	local owner = if target:IsA("GuiButton") then nil else target:FindFirstAncestorWhichIsA("GuiButton")
+	if owner then
+		target = owner
+	end
+	local rect = shownRect(target, false)
+	if rect == nil then
+		return { reachable = false, reason = "the matched element is not visible" }
+	end
+	local point, covering = reachable(target, rect)
+	return { reachable = point ~= nil, reason = covering }
 end
 
 handlers.tap = function(request: Request): unknown

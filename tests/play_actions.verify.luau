@@ -114,6 +114,176 @@ local function fixture(
 end
 
 return function(harness: Verify.Harness)
+	for _, mode in { "mouse", "touch", "gamepad" } do
+		for _, label in { "Home", "01  Overview" } do
+			harness:case(
+				mode .. " persistent " .. label .. " preserves root dismissal and checks actual reachability",
+				function(t)
+					local qa = fixture(mode, true, false, false, false)
+					local template = assert(qa:first({ exact = "Quests" }))
+					local open, child, covered, ambiguous = true, false, false, false
+					local rootTaps, dismissTaps, hubTaps, hits, selections, coveredActivations = 0, 0, 0, 0, 0, 0
+					local function find(query: QA.Query): QA.Info?
+						for _, words in { label, "Shop", "×", "Back", "N / G • HUB", "Close" } do
+							local visible = if words == "N / G • HUB"
+								then not open
+								elseif words == "Back" then covered and not ambiguous
+								elseif words == "Close" then ambiguous
+								else open
+							local normalized = string.lower(words)
+							local matches = if query.pattern
+								then string.find(normalized, query.pattern) ~= nil
+								else normalized == string.lower(query.exact or query.text or "")
+							if visible and matches then
+								local result = table.clone(template)
+								result.label = words
+								return result
+							end
+						end
+						return nil
+					end
+					qa.first = function(_self: QA.QA, query: QA.Query): QA.Info?
+						return find(query)
+					end
+					qa.reveal = function(_self: QA.QA, query: QA.Query): boolean
+						return find(query) ~= nil
+					end
+					local function activate(query: QA.Query): (boolean, string)
+						local target = find(query)
+						if target == nil then
+							return false, "missing"
+						end
+						if target.label == "Back" then
+							covered = false
+						elseif covered and mode ~= "gamepad" then
+							return false, "control is covered"
+						elseif target.label == label then
+							if covered then
+								coveredActivations += 1
+								return true, "background gamepad activation"
+							end
+							rootTaps += 1
+							child = false
+						elseif target.label == "N / G • HUB" then
+							hubTaps += 1
+							open = true
+						elseif target.label == "×" or target.label == "Close" then
+							dismissTaps += 1
+							open = false
+						end
+						return true, "activated"
+					end
+					qa.tap = function(_self: QA.QA, query: QA.Query): (boolean, string)
+						return activate(query)
+					end
+					qa.reachable = function(_self: QA.QA, query: QA.Query): (boolean, string)
+						hits += 1
+						return find(query) ~= nil and not covered, "native hit result"
+					end
+					qa.gamepadActivate = qa.tap
+					qa.gamepadSelect = function(_self: QA.QA, query: QA.Query): (boolean, string)
+						selections += 1
+						return find(query) ~= nil, "selection route"
+					end
+					qa.call = function(_self: QA.QA, _command: string, _fields: unknown?): unknown
+						return { timedOut = false }
+					end
+					local navigation = Actions.captureRoot(qa)
+					t:expect(assert(navigation.root).exact):toBe(label)
+					child = true
+					t:expect((Actions.returnToRoot(qa, navigation))):toBe(true)
+					t:expect(child):toBe(false)
+					t:expect(open):toBe(true)
+					t:expect(dismissTaps):toBe(0)
+					t:expect(rootTaps):toBe(1)
+					local visibleFirst = qa.first
+					local visibleReveal = qa.reveal
+					local scrolledAway = true
+					local scrolledTarget = label
+					qa.first = function(self: QA.QA, query: QA.Query): QA.Info?
+						if scrolledAway and query.exact == scrolledTarget then
+							return nil
+						end
+						return visibleFirst(self, query)
+					end
+					qa.reveal = function(self: QA.QA, query: QA.Query): boolean
+						if query.exact == scrolledTarget then
+							scrolledAway = false
+						end
+						return visibleReveal(self, query)
+					end
+					t:expect((Actions.returnToRoot(qa, navigation))):toBe(true)
+					t:expect(scrolledAway):toBe(false)
+					t:expect(rootTaps):toBe(2)
+					scrolledTarget = "Shop"
+					scrolledAway = true
+					t:expect((Actions.returned(qa, { exact = "Shop", role = "button" }, nil, navigation))):toBe(true)
+					t:expect(scrolledAway):toBe(false)
+					open = false
+					t:expect((Actions.returnToRoot(qa, navigation))):toBe(true)
+					t:expect(hubTaps):toBe(1)
+					t:expect(rootTaps):toBe(3)
+					covered = true
+					t:expect((Actions.returned(qa, { exact = "Shop", role = "button" }, nil, navigation))):toBe(false)
+					t:expect((Actions.returnToRoot(qa, navigation))):toBe(true)
+					t:expect(rootTaps):toBe(4)
+					t:expect(dismissTaps):toBe(0)
+					t:expect((Actions.returned(qa, { exact = "Shop", role = "button" }, nil, navigation))):toBe(true)
+					t:expect(hits > 0 and (if mode == "gamepad" then selections > 0 else selections == 0)):toBe(true)
+					ambiguous = true
+					local reserved = Actions.captureRoot(qa)
+					covered = true
+					local recovered, detail = Actions.returnToRoot(qa, reserved)
+					t:expect(recovered):toBe(false)
+					t:expect(string.find(detail, "ambiguous", 1, true) ~= nil):toBe(true)
+					t:expect(dismissTaps):toBe(0)
+					t:expect(coveredActivations):toBe(0)
+				end
+			)
+		end
+	end
+	for _, mode in { "mouse", "touch", "gamepad" } do
+		harness:case(mode .. " persistent navigation preserves the compact overflow return path", function(t)
+			local qa = fixture(mode, false, true, false, false)
+			qa.reachable = function(self: QA.QA, query: QA.Query): (boolean, string)
+				return self:first(query) ~= nil, "native hit result"
+			end
+			local navigation: Actions.Navigation = {
+				root = { role = "button", exact = "Home" },
+				reserved = { ["×"] = true },
+			}
+			t:expect((Actions.returned(qa, { role = "button", exact = "Quests" }, nil, navigation))):toBe(true)
+			t:expect(qa:first({ exact = "Close" })):toBe(nil)
+			t:expect(qa:first({ exact = "More" }) ~= nil):toBe(true)
+		end)
+	end
+	harness:case("QA reachability preserves a native occlusion rejection without activation", function(t)
+		local qa = fixture("mouse", true, false, false, false)
+		local query: QA.Query = { role = "button", text = "Shop" }
+		local created = QA.create(
+			(
+					{
+						session = {},
+						probe = "probe",
+						outputs = "out",
+						captures = "captures",
+						scratch = "scratch",
+						shots = {},
+						log = function(_message: string) end,
+					} :: unknown
+				) :: QA.Context,
+			Devices.get("desktop")
+		)
+		created.call = function(_self: QA.QA, command: string, fields: unknown?): unknown
+			t:expect(command):toBe("reachable")
+			t:expect((fields :: { query: QA.Query }).query):toBe(query)
+			return { reachable = false, reason = "covered by modal" }
+		end
+		local reachable, reason = created:reachable(query)
+		t:expect(reachable):toBe(false)
+		t:expect(reason):toBe("covered by modal")
+		t:expect((Actions.returnToRoot(qa))):toBe(true)
+	end)
 	for _, device in { "desktop", "phone-portrait" } do
 		harness:case(device .. " failed reveal never taps a different matching button", function(t)
 			local qa = QA.create(
