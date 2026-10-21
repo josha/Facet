@@ -268,7 +268,7 @@ return function(harness: Verify.Harness)
 		local size = Facet.Compose.cell(engine.types.Vector2.new(80, 18))
 		local observe = runtime.observe
 		runtime.observe = function(node, property, options)
-			if node.Name == "Wallet" then
+			if (node :: Instance).Name == "Wallet" then
 				if property == "Text" then
 					return words
 				elseif property == "AbsoluteSize" then
