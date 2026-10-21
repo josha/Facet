@@ -2,6 +2,13 @@
 type Demo = typeof(require("@repo/examples/types").Demo)
 local demos: { Demo } = {
 	{
+		id = "ascent",
+		title = "Ascent",
+		blurb = "A growing skill tree with themed tiles, unlock feedback and spatial navigation",
+		kind = "example",
+		module = "16_ascent",
+	},
+	{
 		id = "garage",
 		title = "Garage",
 		blurb = "Adaptive layouts and color controls for a 3D car configurator",

@@ -21,4 +21,5 @@ A value control is one stop; its look is drawn on its value part through
 `FacetFocusPart` (a Slider's thumb or track, a range Slider's adjusted
 handle). Each segment of a segmented Picker is its own selected object. A game control that needs its own look
 sets `SelectionImageObject` on that control; the engine then draws that
-object for it.
+object for it. Facet also omits its theme glow for that control, including
+when the override changes while the control has focus.

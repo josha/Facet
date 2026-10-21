@@ -165,6 +165,28 @@ Use `busy` to communicate a pending request and prevent unintended repetition. U
 
 `repeatDelay`/`repeatInterval` fit intentionally repeatable adjustment, not purchases or invitations. Pointer down/up/cancel hooks suit a genuine hold interaction; design interruption and cancellation, not only successful release. `haptic`, `pop`, and other feedback should reinforce a meaningful action rather than animate every navigation step.
 
+## Skill trees and growing maps
+
+Use `ZoomView` with keyed `Button` children for an authored skill tree. Keep node
+positions and prerequisites in the game model. Use `SpatialGrid` when items
+occupy cells, not to place a graph. Revealing nodes must preserve existing tile
+identity and the player's camera position.
+
+Selecting a tile shows its benefit, cost and prerequisite before spending points.
+The selected tile can become an explicit unlock action; a remote purchase button
+is not required. On touch, first tap inspects and a second activation commits.
+Gamepad focus inspects and A commits. Reveal new nodes only after acceptance.
+Keep the map large on small screens and use a compact persistent detail strip;
+a hover tooltip alone does not work across inputs. Set native directional
+selection links from the graph's positions and keep the focused tile in view.
+
+Artwork can extend beyond the native rectangular button. Keep adjacent targets
+separate and test them at minimum zoom. Use theme colors and motion tokens for
+state feedback. Preserve labels or emblems as well as color for locked,
+available, selected and owned states. Apply the shared guidance on
+[matching feedback to the visible target](INPUT_FOCUS_AND_ACCESS.md#match-feedback-to-the-visible-target).
+Check reduced motion and all input modes.
+
 ## SplitButton
 
 Use `SplitButton` when one clear primary verb has related alternatives, such as Play with alternate match entry commands. `onActivate` performs the primary action; `items` contains the alternatives. If choices are peers, use `Menu` or visible buttons instead.

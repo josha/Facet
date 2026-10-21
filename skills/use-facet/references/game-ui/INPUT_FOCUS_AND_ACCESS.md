@@ -20,6 +20,33 @@ Modals isolate their covered interface, but custom gameplay actions and separate
 
 Focus answers “What will the next activation affect?” It is different from the selected record, equipped item, or checked value. Keep the focused target unmistakable against every state and background. Facet's app mount installs `UI.focusRing` behavior; style the shared focus chrome instead of drawing a competing ring for each ordinary control.
 
+### Match feedback to the visible target
+
+The visible artwork, hit area, and focus indicator serve different purposes.
+Artwork identifies the object. The hit area makes activation reliable. The focus
+indicator identifies the next activation target. They must describe the same
+object, but need not have the same bounds. Keep hit areas large enough to use
+without overlapping adjacent commands. Shape and place the indicator around the
+visible target so it does not cross its content or appear to select a neighbor.
+Reserve content space inside the artwork's contour, including padding along
+sloped or curved edges. Fitting text in the rectangular bounds alone does not
+prove it fits the visible surface. Keep state effects within that contour unless
+an outward effect has a clear purpose and space reserved around it.
+
+Use the shared focus treatment when it fits the control. For custom artwork,
+native `SelectionImageObject` supplies a replacement. If the indicator must be
+composed inside the control, drive its focus state from native selection events
+and keep the native selection artwork visible. Preserve the distinction between
+focus and persistent selection when focus moves elsewhere. Do not add a second
+competing focus treatment.
+
+Check the indicator through scaling, clipping, animation, theme changes, and
+near and distant viewing. Test focus entering and leaving the control as well
+as moving between its neighbors. A shape that looks correct in one still image
+does not establish a usable focus route.
+
+### Keep the route predictable
+
 Use `UI.focusSection` when a coherent region needs deliberate entry and return behavior:
 
 - `entry = "restore"` returns to the remembered useful item; `preferred` provides a first-entry fallback.
