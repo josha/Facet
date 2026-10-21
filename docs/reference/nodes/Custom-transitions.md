@@ -53,14 +53,14 @@ derive large motion directly from `isPresented`; use `progress` so this
 adaptation applies to the authored effect.
 
 Use this hook for a 2D page turn, staggered menu rows, item detail
-entrances, and matching page exits. The Custom transitions lab page shows an
-opaque leaf turning across a fixed spine, with a bound cover, shaded paper,
+entrances, and matching page exits. The Custom transitions lab page opens
+directly on an interactive journal: an opaque leaf turns across a fixed spine,
+with a bound cover, shaded paper,
 a curved fold, pointer/touch dragging, and Previous/Next actions. The print stays
 visible on each face and clips at the turning edge. It does not fade or reflow.
 This native 2D treatment does not project text onto a curved 3D surface. The fold
 is example artwork made from native Frames; it is not a Facet effect API.
 The neutral theme's `pageTurn` duration is 0.65 seconds.
-The other example is a staggered menu.
 Roblox GuiObjects do not supply arbitrary 3D
 perspective: use authored images or a Stage/ViewportFrame for a true 3D book.
 Engine particle effects remain separate from this presentation contract.

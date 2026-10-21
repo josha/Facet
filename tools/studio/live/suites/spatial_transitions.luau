@@ -220,7 +220,7 @@ local function transitions(t: Live, motion: string)
 	t.note("motion", motion)
 end
 
-local function journal(t: Live, motion: string)
+local function journal(t: Live, motion: string, inline: boolean?)
 	t.settle(30)
 	if Input.TouchEnabled and not Input.MouseEnabled then
 		t.device({ device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait })
@@ -244,6 +244,15 @@ local function journal(t: Live, motion: string)
 		local build = (require :: (Instance) -> typeof(require("../../../../examples/facet-lab/src/journal_demo")))(
 			game:GetService("ReplicatedStorage"):WaitForChild("Lab"):WaitForChild("journal_demo")
 		)
+		if inline then
+			return UI.Screen "JournalPage" {
+				UI.ScrollView {
+					width = "fill",
+					height = "fill",
+					build(UI, env.runtime, C, env.types, selected),
+				},
+			}
+		end
 		return UI.Sheet {
 			title = "Field journal",
 			closeButton = false,
@@ -255,7 +264,11 @@ local function journal(t: Live, motion: string)
 				return build(UI, env.runtime, C, env.types, selected)
 			end,
 		}
-	end, { size = Vector2.new(width, 520), motionLevel = motion, frames = 30 })
+	end, {
+		size = Vector2.new(width, if inline then math.min(520, workspace.CurrentCamera.ViewportSize.Y) else 520),
+		motionLevel = motion,
+		frames = 30,
+	})
 	open()
 	t.settle(60)
 	local nextPage, previous = t.find(stage, "NextPage"), t.find(stage, "PreviousPage")
@@ -450,12 +463,22 @@ local function journal(t: Live, motion: string)
 	monitor:Disconnect()
 	watch:Disconnect()
 	t.check("the journal has no duplicate header Close", stage:FindFirstChild("Close", true) == nil)
-	activate(t.find(stage, "Grabber"))
-	t.settle(60)
-	t.check("the one-detent grabber closes the journal", not presented())
+	if inline then
+		t.check("the inline journal needs no Sheet", stage:FindFirstChild("SheetPanel", true) == nil)
+	else
+		activate(t.find(stage, "Grabber"))
+		t.settle(60)
+		t.check("the one-detent grabber closes the journal", not presented())
+	end
 end
 
 return {
+	{
+		id = "inline-journal-page-turn",
+		run = function(t: Live)
+			journal(t, "normal", true)
+		end,
+	},
 	{
 		id = "pad-journal-page-turn",
 		run = function(t: Live)

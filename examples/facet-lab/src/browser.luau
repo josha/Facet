@@ -655,6 +655,9 @@ function browser.mount(opts: MountOpts)
 		local axes = list(data.axes)
 		local variants, sizing, states = {}, {}, {}
 		if data.matrix == false then
+			if #axes == 0 and #list(data.states) == 0 then
+				return {}
+			end
 			return {
 				section("Examples", "Examples", {
 					caption("One presents at a time: set it up in Controls and open it in the Playground."),
