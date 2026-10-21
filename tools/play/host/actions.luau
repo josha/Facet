@@ -4,6 +4,16 @@ local QA = require("./qa")
 
 local returns = { "close", "back", "cancel", "skip", "return" }
 
+local function prepareInput(qa: QA.QA): (boolean, string)
+	if qa.device.mode ~= "gamepad" then
+		return true, "no gamepad preparation needed"
+	end
+	if qa:autoSelect() == nil then
+		return true, "no selectable control"
+	end
+	return qa:press("Right")
+end
+
 local function focused(qa: QA.QA, query: QA.Query): boolean
 	local selected, target = qa:selected(), qa:first(query)
 	if selected == nil or target == nil or selected.path ~= target.path then
@@ -101,7 +111,7 @@ local function tap(qa: QA.QA, query: QA.Query): (boolean, string)
 	return false, "the overflow action did not open a panel"
 end
 
-local function returned(qa: QA.QA, query: QA.Query): (boolean, string)
+local function returned(qa: QA.QA, query: QA.Query, requireFocus: boolean?): (boolean, string)
 	if not root(qa) then
 		return false, "the route is still on a child screen"
 	end
@@ -113,7 +123,7 @@ local function returned(qa: QA.QA, query: QA.Query): (boolean, string)
 		end
 		opener = menu
 	end
-	if qa.device.mode == "gamepad" then
+	if qa.device.mode == "gamepad" and requireFocus ~= false then
 		if not focused(qa, opener) then
 			return false, "selection did not return to the hub opener"
 		end
@@ -136,7 +146,7 @@ local function returned(qa: QA.QA, query: QA.Query): (boolean, string)
 	if not closed or not root(qa) or qa:first(opener) == nil then
 		return false, "the overflow menu traps the player"
 	end
-	if qa.device.mode == "gamepad" then
+	if qa.device.mode == "gamepad" and requireFocus ~= false then
 		if not focused(qa, opener) then
 			return false, "closing overflow did not restore hub focus"
 		end
@@ -144,4 +154,41 @@ local function returned(qa: QA.QA, query: QA.Query): (boolean, string)
 	return true, "the action is reachable again through overflow"
 end
 
-return { reveal = reveal, tap = tap, returned = returned, overflow = overflow }
+local function returnToRoot(qa: QA.QA): (boolean, string)
+	for _ = 1, 8 do
+		local query: QA.Query? = nil
+		for _, word in { "Close", "Back", "Cancel", "Skip", "Return", "×" } do
+			local candidate: QA.Query = { exact = word, role = "button" }
+			if qa:first(candidate) ~= nil then
+				query = candidate
+				break
+			end
+		end
+		if query == nil then
+			return true, "return controls are absent"
+		end
+		local activated, detail
+		if qa.device.mode == "gamepad" then
+			activated, detail = qa:gamepadActivate(query)
+		else
+			activated, detail = qa:tap(query)
+		end
+		if not activated and qa:first(query) ~= nil then
+			return false, detail
+		end
+		local settled = qa:call("perf", { action = "settle", quiet = 0.1, limit = 20 })
+		if type(settled) ~= "table" or (settled :: { [string]: unknown }).timedOut ~= false then
+			return false, "return control did not settle"
+		end
+	end
+	return false, "return controls remain after eight attempts"
+end
+
+return {
+	prepareInput = prepareInput,
+	reveal = reveal,
+	tap = tap,
+	returned = returned,
+	overflow = overflow,
+	returnToRoot = returnToRoot,
+}

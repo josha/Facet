@@ -39,6 +39,9 @@ Use `project [directory]` for file discovery. Read one matching starter in
 - Make one `Facet.app({ name, parent })` and one `app.mount(component)`.
   Use `app.UI` for controls. Name `app.runtime.constructors` `Host` for native
   objects. Each screen is a Compose branch or portal of this tree.
+- Put Host-created objects in their parent's positional child list, such as
+  `Host.InputContext { action }`. Do not pass an owned object as `Parent`.
+  `Parent` can point to an existing engine object, such as the player's PlayerGui.
 - Use named constructors: `UI.Button "Save" { label = "Save" }`. Use strict
   Luau without `any` casts. Control options use lower camel case; native
   properties keep their Roblox names.
@@ -135,11 +138,13 @@ Use `project [directory]` for file discovery. Read one matching starter in
 
 ## Check
 
-Run `lute run tools/facet verify --tap TEXT...` after a coherent edit. It runs
-strict types, usage lint, a Rojo build, audit and screenshots in one command.
-Give one `--tap` for each control in the path to a screen. It uses one capture
-session across all five devices and prints only problems and screenshot paths.
-During repairs, add `--device ID` to check the affected device. Run one complete
+For the first implementation, run `lute run tools/facet verify --static` and fix
+its errors. Check the first live mount with `verify --device desktop --tap TEXT...`.
+The live command runs strict types, usage lint, a Rojo build, audit and screenshots.
+Give one `--tap` for each control in the path to a screen. Without `--device`,
+it uses one capture session across all five devices. It prints only problems
+and screenshot paths.
+During repairs, use `--device ID` to check the affected device. Run one complete
 final sweep without `--device`. Use the printed `verify --report` queries to
 read findings. Add `--step ID` for one capture. Do not read the full report.
 Inspect those screenshots and fix high and medium findings. Repeat checks only

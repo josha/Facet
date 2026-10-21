@@ -1,6 +1,6 @@
 # Tasks.shop
 
-Sell items: a card grid, one column on a phone.
+Shop grid; one column on phones.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -15,7 +15,7 @@ local buy = assert(game.ReplicatedStorage:FindFirstChild("Purchase")) :: RemoteF
 app.mount(function()
   local env = UI.environment()
   local grid: Facet.KeyedCollectionSpec<Item, string> = {
-    from = items, key = "id", minColumnWidth = env.scaled(220), itemSize = env.scaled(132),
+    from = items, key = "id", measure = true, minColumnWidth = env.scaled(220), itemSize = env.scaled(132),
     render = function(row: Facet.Readable<Item>)
       local it = row:peek()
       local function need(use: Facet.Use): number return math.max(0, it.price - use(coins)) end
@@ -25,7 +25,7 @@ app.mount(function()
         end,
         primaryAction = {
           label = function(use: Facet.Use): string return if use(owned)[it.id] then "Owned" else "Buy" end,
-          enabled = function(use: Facet.Use): boolean return not use(owned)[it.id] and need(use) == 0 end,
+          enabled = function(use: Facet.Use): boolean return not use(owned)[it.id] end,
           onActivate = function()
             local ok: boolean = buy:InvokeServer(it.id)
             owned:update(function(v) v = table.clone(v) v[it.id] = ok return v end)
@@ -42,4 +42,5 @@ app.mount(function()
 end)
 ```
 
-Add a segmented `Picker` for categories. See [Tasks.sheet](Tasks.sheet.md).
+Allow low-funds Buy. [Feedback](Tasks.purchase.md).
+Categories: segmented `Picker`. [Panels](Tasks.sheet.md).

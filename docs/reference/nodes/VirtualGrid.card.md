@@ -1,23 +1,29 @@
 # VirtualGrid.card
 
-Show a virtual tile collection.
+Virtual tiles.
 
-Inside an app mount, set `local UI = app.UI`.
+Inside an app mount, set `local UI = app.UI`. Use a bounded stack:
 
 ```luau
-local spec: Facet.KeyedCollectionSpec<string, string> = { from = { "Kart" }, key = function(item) return item end, minColumnWidth = 180, itemSize = 64, render = function(current) return UI.Text { text = current } end }
-UI.VirtualGrid "Tiles" (spec)
+local spec: Facet.KeyedCollectionSpec<string, string> = {
+    UI.fill(), from = { "Kart" }, key = function(item) return item end,
+    minColumnWidth = 180, itemSize = 64,
+    render = function(current) return UI.Text { text = current } end,
+}
+local grid: ScrollingFrame = UI.VirtualGrid "Tiles" (spec)
+UI.VStack "Browser" { height = "fill", gap = "s",
+    UI.Text { text = "Parts" },
+    grid,
+}
 ```
 
-Key options: `from`, `key`, `render`, `minColumnWidth`, `itemSize`.
+Put [fill](fill.md) in the grid spec, not `render`, to use the height left after
+headers and gaps. Without flex, the grid uses the full parent height.
 
-itemSize is the estimated tile height.
+`measure = true` replaces `itemSize` estimates with native heights for
+wrapping or changing text Cards. Each row uses its tallest tile. Otherwise
+estimates set spacing.
 
-For items that span several cells and have explicit positions, use
-[SpatialGrid.card](SpatialGrid.card.md).
-
-Related controls: [Controls](Controls.md).
-
-Open:
-
-- [VirtualList-and-VirtualGrid](VirtualList-and-VirtualGrid.md)
+For explicit positions and multi-cell items, use [SpatialGrid](SpatialGrid.card.md).
+[Options](VirtualList-and-VirtualGrid.md) or
+[content sizing](VirtualList-and-VirtualGrid.sizing.md).

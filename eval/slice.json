@@ -22,13 +22,7 @@
         "../artifacts/facetbench/arm-shared",
         "arms/plain"
       ],
-      "instructions": "arms/plain/AGENTS.md",
-      "disallowedTools": [
-        "WebSearch",
-        "WebFetch",
-        "Task",
-        "Agent"
-      ]
+      "instructions": "arms/plain/AGENTS.md"
     },
     {
       "id": "facet",
@@ -48,23 +42,32 @@
         "arms/facet",
         "../artifacts/facetbench/arm-facet"
       ],
-      "instructions": "arms/facet/AGENTS.md",
-      "disallowedTools": [
-        "WebSearch",
-        "WebFetch",
-        "Task",
-        "Agent"
-      ]
+      "instructions": "arms/facet/AGENTS.md"
     }
   ],
   "agents": [
     {
-      "id": "claude-opus",
-      "adapter": "claude-code",
-      "model": "claude-opus-5-5",
+      "id": "codex-sol",
+      "adapter": "codex",
+      "model": "gpt-6.1-sol",
       "options": {
         "effort": "medium",
-        "settingSources": "project"
+        "arguments": [
+          "--approve-for-me",
+          "--ignore-user-config",
+          "--disable",
+          "apps",
+          "--disable",
+          "image_generation",
+          "--disable",
+          "multi_agent",
+          "--disable",
+          "computer_use",
+          "--disable",
+          "browser_use",
+          "--disable",
+          "plugins"
+        ]
       }
     }
   ],
@@ -72,7 +75,7 @@
     1
   ],
   "parallelism": 1,
-  "evidence": "../artifacts/facetbench/slice",
+  "evidence": "../artifacts/facetbench/slice-sol61-medium",
   "budgets": {
     "wallSeconds": 3600,
     "maxCostUsd": 40

@@ -1,12 +1,48 @@
 # Headline report
 
-For the saved paired slice measurement, with both arms run fresh, see the
-[slice report](reports/slice.md). To repeat hidden checks on saved
-completed workspaces without invoking an agent, use
+For the historical Claude paired slice measurement, with a reused Plain run
+and a fresh Facet run, see the [slice report](reports/slice.md). The
+[first fresh Sol pair](reports/slice-sol61-medium.md) passed required Facet
+behavior but failed the efficiency and memory goals. A separate Sol judge
+preferred Facet overall, while Plain won polish. The Claude judge reached its
+quota. This pair does not prove the overhead bounds below.
+The [second attempt](reports/slice-sol61-medium-2.md) ended with a Facet author
+capacity error. Its missing usage and incorrect adapter success status prevent
+an efficiency claim. Native checks still found memory limits unmet and changes
+in frame pacing that need separate timing validation.
+The [third fresh pair](reports/slice-sol61-medium-3.md) completed both authors.
+Facet passed 13/13 universal checks versus Plain's 1/13, but used 4.568 times
+the tokens and 3.062 times the author wall time. Diagnostic coverage and
+memory limits remain unmet; frame samples measure cadence. The completed blind
+judge preferred Plain on both devices in both image orders, including all
+four polish judgments. Required-check success does not establish the headline
+goals or a visual-quality win for this pair.
+The [fourth fresh pair](reports/slice-sol61-medium-4.md) again passed 13/13
+Facet universal checks versus Plain's 1/13. Facet used 1.426 times the tokens
+and 1.084 times the author wall time. The ratios narrowed as Facet's run
+shortened and Plain's grew; this does not isolate a causal improvement.
+Efficiency and memory goals remain unmet, and the diagnostic Plain phone
+return has missing final memory. Plain again won both blind comparisons in
+both image orders, including all four polish judgments; Facet retained
+fitness strengths without an overall visual-quality win for this pair.
+The [fifth fresh pair](reports/slice-sol61-medium-5.md) passed 13/13 Facet
+universal and 40/49 diagnostic checks, but Plain's required universal run
+failed with a closed Studio MCP connection and has missing universal scores.
+Facet used 1.995 times the tokens and 1.380 times the author wall time.
+The standard judge's two forfeits involved no blind model call. A separate,
+reduced hub-and-shop comparison preferred Plain on desktop and Facet on phone
+in both orders, with Facet winning all four polish judgments. It cannot
+replace the failed host evidence or establish the headline goals.
+To diagnose a saved Sol workspace, repeat its hidden checks without invoking
+an agent:
 `lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.
 Verify archives the previous check evidence and preserves agent metrics,
-transcripts, timestamps and build files. Then regenerate this report with
-`lute run eval/tools/report.luau artifacts/facetbench/slice --suite eval/slice.json`.
+transcripts, timestamps and build files. To generate its headline, use
+`lute run eval/tools/report.luau artifacts/facetbench/slice-sol61-medium --suite eval/slice.json`.
+These commands use the current Sol suite, not the historical Claude workspaces.
+Rechecking cannot measure author efficiency improvements. The first Sol pair's
+recorded turn-event gaps are not model latency evidence; see its report before
+interpreting timing percentiles. Run both arms fresh after shared fixes.
 
 The headline suite is `extended.json`: 22 runs and
 55 blind task/device/seed comparisons. The hub and ten follow-ups use short
@@ -16,7 +52,12 @@ budgets. Spec failures do not gate it. Universal audits and the blind judge
 remain in the quality rules. The limits are in `overhead.json` and `thresholds.json`. Missing universal scores fail closed. Both tier fractions appear
 in `headline.md`; diagnostic captures stay outside the judge's image set.
 
-See [the tier table and calibration commands](README.md#check-tiers-and-calibration). The slice report contains two-device calibration results. The Facet CLI is available only in the Facet arm. Runtime rescoring is sequential. Missing scoped Studio tools cause setup failure.
+See [the tier table and calibration commands](README.md#check-tiers-and-calibration). The slice report contains two-device checks and blind comparisons; it does not record human judge calibration. The Facet CLI is available only in the Facet arm. Runtime rescoring is sequential. Missing scoped Studio tools cause setup failure.
+
+Before console mount settling and captures, the shared host selects a native
+control, when available, and sends one Right directional key through VirtualInput. The Xbox
+simulator preset alone does not establish the last input type. This prepares
+the emulated navigation path; it does not prove physical controller input.
 
 Run from the repository root after all 22 runs and 55 blind comparisons finish:
 
@@ -55,6 +96,7 @@ Any future general capability belongs upstream in Verify, without Facet names.
 | Mount | `play.perf.<device>.mountSeconds`: play start through the start of the first complete layout run that stays stable for one second of rendered frames, excluding only each element's own live content or fill changes. Includes joining, probe readiness, host calls and fixed host waits. | Studio play host wall time plus per-object engine layout observations. |
 | Steady and active frames | `idleFrameP50Ms`, `idleFrameP95Ms`; `activeFrameP50Ms` is the mean of screen medians and `activeFrameP95Ms` is the maximum screen p95. Raw windows are in `checks/perf.json`. | Real Studio `RunService.RenderStepped` delta. Whole-client frame pacing, not isolated UI CPU time or physical device evidence. |
 | Memory return | `heapDeltaKb`, `guiMbDelta` and instance deltas compare mounted idle with the returned-hub sample after the return wait. | Real Studio `gcinfo()`, `Stats.InstanceCount`, and `Stats:GetMemoryUsageMbForTag`. |
+| Retained usage | `finalHeapKb` and `finalGuiMb` record positive heap and GUI memory in the returned hub. | The same final Studio sample; whole-client usage, not isolated UI allocation. |
 | Seed dollar cost | `metrics.costUsd` when an adapter supplies it. Codex does not supply it. | Headless adapter data. Missing USD remains unpriced. Seed token totals and wall time are always shown; billing needs external cost evidence. |
 
 All eight rules in `thresholds.json` already have producers. Judge rules need
@@ -92,6 +134,15 @@ five seconds, then records the same two-second idle window used at mount.
 `heapReturnRatio` and `guiReturnRatio` divide final memory by mounted memory.
 A failed return leaves these measurements absent. Disabled category memory
 tracking also leaves GUI memory absent. No forced collection is used.
+Before each idle window, the probe waits at most 20 seconds for the first
+positive finite GUI memory reading, unless tracking is disabled. This wait is
+outside mount timing and the fixed sample window. `memoryReadiness` records
+attempts, elapsed time, tracking and timeout. The actual window's memory sample
+is preserved, including zero or missing values.
+`finalHeapKb` and `finalGuiMb` report positive post-return samples only after
+a successful return. Their Facet/plain ratios compare retained usage directly.
+Return ratios compare growth against each arm's own mounted hub; equal return
+ratios do not imply equal retained usage.
 The spec producer uses fresh game sessions with separate performance evidence.
 A diagnostic failure or timeout cannot change the headline memory result.
 
@@ -103,8 +154,9 @@ review. The same procedure applies to both arms.
 > These limits are in
 > `overhead.json`; they are separate from the approved quality rules.
 > Require the upper 95% bound of Facet/plain to be at most **1.10 for mount
-> time**, and **1.05 for idle frame p50 and p95** on every
-> device. Require **1.05 for heap and GUI memory return ratios**, with every seed
+> time**, and **1.05 for idle and active frame p50 and p95** on every
+> device. Require **1.05 for post-return heap and GUI memory usage** and
+> **1.05 for heap and GUI memory return ratios**, with every seed
 > of each arm also at most **1.05 of its own mounted baseline**.
 > `baseInstances` is **reported, not gated**, with a ratio and 95% interval
 > for each device. It also stays in the per-task overhead cells.

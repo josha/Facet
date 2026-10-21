@@ -10,24 +10,101 @@ local Run = require("./run")
 local ConsumerTypes = {}
 local DEFINITIONS = { "tools/typecheck/roblox.d.luau", "artifacts/verify/types/roblox.d.luau" }
 local CACHE = "artifacts/facet-lint/types-cache.json"
+local LOCK = "tools/typecheck/roblox.lock.json"
+local FLAGS = { "--flag:LuauTarjanChildLimit=100000" }
 
-local function fingerprint(paths: { string }, project: string, solver: string, definitions: string): string
-	local parts: { string } = { solver, definitions, Files.read(project) }
-	local roots = table.clone(paths)
-	for _, root in { "src", "Packages" } do
-		if Files.isDirectory(root) and table.find(roots, root) == nil then
-			table.insert(roots, root)
+local function fingerprint(
+	paths: { string },
+	project: string,
+	solver: string,
+	definitions: string,
+	version: string
+): string
+	local parts: { string } = {
+		"consumer-types-v3",
+		"luau-lsp",
+		version,
+		solver,
+		definitions,
+		Files.read(definitions),
+		Files.read(LOCK),
+		Files.read(project),
+		table.concat(FLAGS, "\n"),
+	}
+	local seen: { [string]: boolean } = {}
+	local configs: { [string]: boolean } = {}
+	local function ancestors(file: string)
+		local directory = Files.parent(Files.absolute(file))
+		while not configs[directory] do
+			configs[directory] = true
+			local config = Files.join(directory, ".luaurc")
+			if Files.isFile(config) then
+				table.insert(parts, config .. "|" .. Files.read(config))
+			end
+			local parent = Files.parent(directory)
+			if parent == directory then
+				break
+			end
+			directory = parent
 		end
 	end
-	for _, root in roots do
-		if Files.isFile(root) then
-			table.insert(parts, root .. "|" .. Files.read(root))
-		elseif Files.isDirectory(root) then
-			for _, file in Files.walk(root) do
-				if string.match(file, "%.luau?$") then
-					table.insert(parts, root .. "/" .. file .. "|" .. Files.read(Files.join(root, file)))
+	local source: (string) -> ()
+	local function mappings(node: unknown, base: string)
+		local object = Json.asObject(node)
+		if object == nil then
+			return
+		end
+		local mapped = Json.stringField(object, "$path")
+		if mapped then
+			local normalized = Files.normalize(mapped)
+			source(
+				if string.sub(normalized, 1, 1) == "/" or string.match(normalized, "^%a:/")
+					then normalized
+					else Files.collapse(Files.join(base, normalized))
+			)
+		end
+		for _, key in Json.keys(object) do
+			if string.sub(key, 1, 1) ~= "$" then
+				mappings(object[key], base)
+			end
+		end
+	end
+	source = function(file: string)
+		local absolute = Files.absolute(file)
+		if seen[absolute] then
+			return
+		end
+		seen[absolute] = true
+		ancestors(file)
+		if Files.isDirectory(file) then
+			for _, relative in Files.walk(file) do
+				if
+					string.match(relative, "%.luau?$")
+					or string.match(relative, "%.json$")
+					or string.match(relative, "%.luaurc$")
+					or string.match(relative, "%.rbxm[x]?$")
+				then
+					source(Files.join(file, relative))
 				end
 			end
+		elseif Files.isFile(file) then
+			local contents = Files.read(file)
+			table.insert(parts, absolute .. "|" .. contents)
+			if absolute == Files.absolute(project) or string.match(file, "%.project%.json$") then
+				local document = Json.tryDecode(contents)
+				mappings(Json.field(document, "tree"), Files.parent(file))
+			end
+		else
+			table.insert(parts, absolute .. "|missing")
+		end
+	end
+	source(project)
+	for _, root in paths do
+		source(root)
+	end
+	for _, root in { "src", "Packages" } do
+		if Files.isDirectory(root) then
+			source(root)
 		end
 	end
 	table.sort(parts)
@@ -57,6 +134,15 @@ local function cached(key: string): { Analyzer.Diagnostic }?
 end
 
 function ConsumerTypes.check(paths: { string }, project: string, solver: string): ({ Analyzer.Diagnostic }?, string?)
+	local reported = Run.capture({ "luau-lsp", "--version" })
+	if not reported.ok then
+		return nil, "Pinned luau-lsp is missing; run rokit install"
+	end
+	local version = string.gsub(reported.stdout, "%s+$", "")
+	local expected = Json.stringField(Json.decode(Files.read(LOCK)), "analyzerVersion")
+	if version ~= expected then
+		return nil, `Analyzer {version} differs from the pinned toolchain; run rokit install`
+	end
 	local definitions = DEFINITIONS[2]
 	for _, candidate in DEFINITIONS do
 		if Files.isFile(candidate) then
@@ -64,14 +150,14 @@ function ConsumerTypes.check(paths: { string }, project: string, solver: string)
 			break
 		end
 	end
-	local resolved, result = pcall(Definitions.resolve, "tools/typecheck/roblox.lock.json", definitions)
+	local resolved, result = pcall(Definitions.resolve, LOCK, definitions)
 	if not resolved then
 		return nil, tostring(result)
 	end
 	if not Files.isFile(project) then
 		return nil, "no Rojo project at " .. project
 	end
-	local key = fingerprint(paths, project, solver, definitions :: string)
+	local key = fingerprint(paths, project, solver, definitions :: string, version)
 	local reused = cached(key)
 	if reused then
 		return reused, nil
@@ -104,9 +190,11 @@ function ConsumerTypes.check(paths: { string }, project: string, solver: string)
 		"roblox",
 		"--definitions=" .. (definitions :: string),
 		"--sourcemap=" .. sourcemap,
-		"--flag:LuauTarjanChildLimit=100000",
 		"--flag:LuauSolverV2=" .. (if solver == "old" then "false" else "true"),
 	}
+	for _, flag in FLAGS do
+		table.insert(argv, flag)
+	end
 	for _, path in paths do
 		table.insert(argv, path)
 	end
