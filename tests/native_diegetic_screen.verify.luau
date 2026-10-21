@@ -186,6 +186,8 @@ return function(harness: Verify.Harness)
 		Verify.expect(fullCanvas.ZIndex < safeCanvas.ZIndex):toBe(true)
 		local later = world.engine.new("Frame")
 		later.Parent = app
+		Verify.expect(later.Parent):toBe(app)
+		world.step(1)
 		Verify.expect(later.Parent):toBe(content.Parent)
 		world.presented:set(false)
 		world.step(240)
