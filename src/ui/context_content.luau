@@ -188,6 +188,7 @@ local function attachLayout(
 						end
 					end
 					if services.TextService then
+						local words = runtime.observe(label, "Text", if framed then { frame = true } else nil)
 						Compose.cleanup(function()
 							active = false
 							finish()
@@ -212,7 +213,7 @@ local function attachLayout(
 								local right = padding:GetStyled("PaddingRight") :: UDim
 								wide -= left.Offset + right.Offset + wide * (left.Scale + right.Scale)
 							end
-							local text = label.Text
+							local text = use(words) :: string
 							local font, points, spacing =
 								label:GetStyled("FontFace") :: Font,
 								label:GetStyled("TextSize") :: number,
