@@ -1,46 +1,50 @@
 # Tasks.shop
 
-Shop grid; one column on phones.
+Shop.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
-local C = Facet.Compose
 local app = Facet.app({})
-local UI = app.UI
+local C, UI = Facet.Compose, app.UI
 type Item = { id: string, name: string, price: number }
-local items: { Item } = { { id = "kart", name = "Kart", price = 250 } }
-local open, coins = C.cell(false), C.cell(300)
-local owned = C.cell({} :: { [string]: boolean })
+local coins, owned = C.cell(300), C.cell({} :: { [string]: boolean })
 local buy = assert(game.ReplicatedStorage:FindFirstChild("Purchase")) :: RemoteFunction
 app.mount(function()
-  local env = UI.environment()
-  local grid: Facet.KeyedCollectionSpec<Item, string> = {
-    from = items, key = "id", measure = true, minColumnWidth = env.scaled(220), itemSize = env.scaled(132),
-    render = function(row: Facet.Readable<Item>)
-      local it = row:peek()
-      local function need(use: Facet.Use): number return math.max(0, it.price - use(coins)) end
-      return UI.Card(it.id) { title = it.name,
-        caption = function(use: Facet.Use): string
-          return `{it.price} Coins` .. (if need(use) > 0 then ` · Need {need(use)} more` else "")
+  local height, env = C.cell(1), UI.environment()
+  local spec: Facet.KeyedCollectionSpec<Item, string> = {
+    from = { { id = "kart", name = "Kart", price = 250 } }, key = "id",
+    mode = "all", measure = true, minColumnWidth = env.scaled(220),
+    itemSize = env.scaled(132), gap = env.scaled(16), VerticalScrollBarInset = Enum.ScrollBarInset.Always,
+    Size = function(use) return UDim2.new(1, 0, 0, use(height)) end,
+    render = function(row: Facet.Readable<Item>, _, key)
+      return UI.Card(key) {
+        title = function(use) return use(row).name end,
+        caption = function(use: Facet.Use)
+          local price = use(row).price
+          local need = price - use(coins)
+          return `{price} Coins` .. (if not use(owned)[key] and need > 0
+            then ` · Need {need} more` else "")
         end,
         primaryAction = {
-          label = function(use: Facet.Use): string return if use(owned)[it.id] then "Owned" else "Buy" end,
-          enabled = function(use: Facet.Use): boolean return not use(owned)[it.id] end,
+          label = function(use) return if use(owned)[key] then "Owned" else "Buy" end,
+          enabled = function(use) return not use(owned)[key] end,
           onActivate = function()
-            local ok: boolean = buy:InvokeServer(it.id)
-            owned:update(function(v) v = table.clone(v) v[it.id] = ok return v end)
+            if buy:InvokeServer(key).accepted then
+              owned:update(function(v) v = table.clone(v) v[key] = true return v end)
+            end
           end,
-        } }
+        },
+      }
     end,
   }
-  return UI.VStack "Hud" {
-    UI.Button "Shop" { label = "Shop", onActivate = function() open:set(true) end },
-    UI.Sheet "ShopPanel" { title = "Shop", isPresented = open, closeButton = "Close",
-      placement = "center", width = "wide", detents = { "large" },
-      content = function() return UI.VirtualGrid "Items"(grid) end },
-  }
+  return UI.Sheet { title = "Shop", width = "wide", isPresented = C.cell(true), detents = { "hug" },
+    content = function()
+      local grid = UI.VirtualGrid(spec)
+      local canvas = app.runtime.observe(grid, "CanvasSize")
+      C.watch(function(use) height:set((use(canvas) :: UDim2).Y.Offset) end)
+      return grid
+    end }
 end)
 ```
 
-Allow low-funds Buy. [Feedback](Tasks.purchase.md).
-Categories: segmented `Picker`. [Panels](Tasks.sheet.md).
+[Purchase](Tasks.purchase.md).
