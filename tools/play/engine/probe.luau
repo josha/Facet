@@ -470,7 +470,16 @@ local function blocker(point: Vector2): GuiObject?
 			continue
 		end
 		if (object:IsA("GuiButton") or object:IsA("TextBox") or object.Active) and object.Interactable then
-			if shownRect(object, false) ~= nil then
+			local interactive = true
+			local ancestor = object.Parent
+			while ancestor and not ancestor:IsA("LayerCollector") do
+				if ancestor:IsA("GuiObject") and not ancestor.Interactable then
+					interactive = false
+					break
+				end
+				ancestor = ancestor.Parent
+			end
+			if interactive and shownRect(object, false) ~= nil then
 				return object
 			end
 		end

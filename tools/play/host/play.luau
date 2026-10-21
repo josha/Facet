@@ -174,10 +174,13 @@ local function open(options: HostOptions): Host
 	local playing = false
 	local perf: { [string]: DevicePerf } = {}
 
-	local function probe(qa: QA.QA, fields: { [string]: unknown }): { [string]: unknown }?
+	local function probe(qa: QA.QA, fields: { [string]: unknown }, required: boolean?): { [string]: unknown }?
 		local ok, value = pcall(function(): unknown
 			return qa:call("perf", fields)
 		end)
+		if not ok and required then
+			error(value, 0)
+		end
 		return if ok and type(value) == "table" then value :: { [string]: unknown } else nil
 	end
 
@@ -391,7 +394,7 @@ local function open(options: HostOptions): Host
 			quiet = if options.performance == false then 0.1 else 1,
 			limit = 20,
 			compareLegacy = options.compareMount == true,
-		})
+		}, true)
 		local record: DevicePerf = { screens = {}, mount = settled }
 		if settled ~= nil and type(settled.seconds) == "number" then
 			record.mountSeconds = settleCalled - playStarted + (settled.seconds :: number)
@@ -403,7 +406,7 @@ local function open(options: HostOptions): Host
 			end
 		end
 		if options.performance ~= false then
-			record.idle = probe(qa, { action = "idle", seconds = 2 })
+			record.idle = probe(qa, { action = "idle", seconds = 2 }, true)
 		end
 		timings.ready = (timings.ready or 0) + os.clock() - playStarted
 		perf[device.id] = record
