@@ -142,6 +142,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			use(partRevision)
 			if observation and target and target:IsA("GuiObject") then
 				Compose.cleanup(observation.observeProperty(target, "AbsoluteSize", bump))
+				Compose.cleanup(observation.observeProperty(target, "SelectionImageObject", bump))
 				local reach = target:GetAttributeChangedSignal("FacetFocusHeight"):Connect(bump)
 				local named = target:GetAttributeChangedSignal("FacetFocusPart"):Connect(function()
 					partRevision:set(partRevision:peek() + 1)
@@ -359,7 +360,12 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					from = function(use: ComposeTypes.Use): { GuiObject }
 						use(partRevision)
 						local target = use(selected) :: GuiObject?
-						return if target and layer(use).kind == "glow" then { partOf(target) or target } else {}
+						use(reshaped)
+						return if target
+								and not target.SelectionImageObject
+								and layer(use).kind == "glow"
+							then { partOf(target) or target }
+							else {}
 					end,
 					render = function(item: ComposeTypes.Readable<GuiObject>): Folder
 						runtime.mount(function()

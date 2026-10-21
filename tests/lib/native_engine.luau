@@ -85,7 +85,33 @@ local function owner(probe: (any) -> any): any
 	end
 	error("the value was not created by a native engine fixture", 3)
 end
+local localization: { [unknown]: { { Key: string, Source: string, Values: { [string]: string } } } } = {}
+setmetatable(localization, { __mode = "k" })
 local doubles: { [string]: any } = {
+	SetEntries = function(object: unknown, entries: { { Key: string, Source: string, Values: { [string]: string } } })
+		localization[object] = entries
+	end,
+	GetTranslator = function(object: unknown, locale: string)
+		return {
+			FormatByKey = function(_self: unknown, key: string, arguments: { [string]: unknown }): string
+				for _, entry in assert(localization[object]) do
+					if entry.Key == key then
+						return (
+							string.gsub(
+								entry.Values[locale] or entry.Source,
+								"{([%w_]+)}",
+								function(name: string): string
+									return tostring(arguments[name])
+								end
+							)
+						)
+					end
+				end
+				error("Unknown localization key: " .. key)
+			end,
+		}
+	end,
+
 	isDestroyed = function(object)
 		return owner(function(environment)
 			return not environment.isAlive(object)

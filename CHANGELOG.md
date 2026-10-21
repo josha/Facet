@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- A control's native `SelectionImageObject` replaces the theme focus glow,
+  including when the override changes while focused.
+- The Ascent showcase adds a growing skill tree with direct tile inspection and
+  unlock actions, pan and zoom, and touch and gamepad navigation.
+
 - Custom transitions accept `fade = false` for opaque page turns and reveals.
   A nullable readable `progress` holds a transition under native drag input;
   clearing it settles from the held position through Compose.
