@@ -198,25 +198,12 @@ local function cases(id: string): { Play.Case }
 					return true
 				end)
 				if not ok then
-					for _ = 1, 8 do
-						local found: QA.Query? = nil
-						for _, word in { "Close", "Back", "Cancel", "Skip", "Return" } do
-							local candidate: QA.Query = { role = "button", exact = string.lower(word) }
-							if qa:first(candidate) ~= nil then
-								found = candidate
-								break
-							end
-						end
-						if found == nil then
-							break
-						end
-						local recovered, detail = qa:tap(found)
-						qa:log("cleanup after " .. name .. ": " .. tostring(recovered) .. " " .. detail)
-						if not recovered then
-							break
-						end
-						qa:sleep(0.5)
-					end
+					context:defer(function()
+						local recovered, detail = Actions.returnToRoot(qa)
+						Check.that(context, recovered, "cleanup after " .. name .. ": " .. detail)
+						local returned, returnDetail = Actions.returned(qa, query("Shop"), false)
+						Check.that(context, returned, "cleanup restores the hub: " .. returnDetail)
+					end)
 					error(problem, 0)
 				end
 			end,

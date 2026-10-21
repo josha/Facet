@@ -110,6 +110,9 @@ local function cases(chosen: { [string]: boolean }?): { Play.Case }
 					scoped.dump = function(_self: QA.QA, name: string)
 						qa:dump(screen(name))
 						Coherence.observe(qa.device.id, screen(name))
+						if qa:first({ role = "button", exact = "close" }) ~= nil then
+							Coherence.returnControl(qa, context)
+						end
 					end
 					case.run(scoped, context)
 				end,

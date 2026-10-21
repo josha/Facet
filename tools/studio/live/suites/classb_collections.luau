@@ -6,9 +6,14 @@ type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModu
 type SideCell = typeof(require("@repo/tools/typecheck/aliases").SideCell)
 type SortCell = typeof(require("@repo/tools/typecheck/aliases").SortCell)
 type RowActions = typeof(require("@repo/tools/typecheck/aliases").RowActions)
+type BooleanCell = typeof(require("@repo/tools/typecheck/aliases").BooleanCell)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local VerifyRoblox = (require :: (Instance) -> typeof(require("@repo/tools/vendor/verify/src/roblox")))(
+	game:GetService("ReplicatedStorage"):WaitForChild("FacetVerify"):WaitForChild("roblox")
+)
 
 type Case = {
 	id: string,
@@ -84,6 +89,190 @@ local function theme(t: any, pattern: string): any
 	end
 	return nil
 end
+
+add("purchase-card-keeps-its-paint-inside-the-row", {}, function(t)
+	for _, config in
+		{
+			{ name = "desktop/normal", motion = "normal", width = 600, height = 400 },
+			{ name = "desktop/none", motion = "none", width = 600, height = 400 },
+			{ name = "portrait/normal", motion = "normal", width = 320, height = 600 },
+			{ name = "portrait/none", motion = "none", width = 320, height = 600 },
+			{ name = "wrapped/estimated", motion = "normal", width = 600, height = 900, wrapped = true },
+			{ name = "wrapped/measured", motion = "normal", width = 600, height = 900, wrapped = true, measure = true },
+		}
+	do
+		local motion = config.name
+		local owned: BooleanCell? = nil
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+			local state = Compose.cell(false)
+			owned = state
+			return Host.Frame "Purchase" {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				UI.VirtualGrid "Parts" {
+					from = { { id = "purchase" } },
+					key = "id",
+					columns = 1,
+					itemSize = 132,
+					gap = 12,
+					crossGap = 12,
+					contentOverflow = "visible",
+					measure = config.measure,
+					Size = UDim2.fromOffset(math.min(320, config.width - 80), math.max(280, config.height - 80)),
+					Position = UDim2.fromOffset(40, 40),
+					selectable = function(): boolean
+						return false
+					end,
+					render = function(): GuiObject
+						return UI.Card "PurchaseCard" {
+							title = if config.wrapped then string.rep("Upgrade specification ", 30) else "Upgrade",
+							reveal = "always",
+							caption = function(use: Use): string
+								return if use(state) then "Owned · 350 Coins" else "350 Coins"
+							end,
+							primaryAction = {
+								label = function(use: Use): string
+									return if use(state) then "Owned" else "Buy"
+								end,
+								enabled = function(use: Use): boolean
+									return not use(state)
+								end,
+								onActivate = function()
+									state:set(true)
+								end,
+							},
+						}
+					end,
+				},
+			}
+		end, { size = Vector2.new(config.width, config.height), motionLevel = config.motion, frames = 0 })
+		local card = assert(stage:FindFirstChild("PurchaseCard", true)) :: GuiObject
+		local primary = assert(card:FindFirstChild("Primary", true)) :: TextButton
+		local paint = assert(card:FindFirstAncestor("Content")) :: CanvasGroup
+		local paintedFrames = 0
+		for frame = 1, 30 do
+			t.settle(1)
+			if paint.GroupTransparency == 0 then
+				paintedFrames += 1
+				local ready = true
+				for _, node in card:GetDescendants() do
+					if (node:IsA("TextLabel") or node:IsA("TextButton")) and node.Text ~= "" then
+						ready = ready
+							and node.AbsoluteSize.X > 0
+							and node.AbsoluteSize.Y > 0
+							and node.TextBounds.X > 0
+							and node.TextBounds.Y > 0
+					end
+				end
+				t.check(motion .. " frame " .. frame .. " reveals only prepared text", ready)
+			end
+		end
+		t.check(motion .. " produces painted frames", paintedFrames > 0)
+		local row = assert(assert(stage:FindFirstChild("Items", true)):FindFirstChild("purchase")) :: GuiObject
+		local rowPosition, rowSize = row.AbsolutePosition, row.AbsoluteSize
+		local function sample(phase: string)
+			local geometry: { { [string]: unknown } } = {}
+			local clippingGroups = 0
+			local nodes = card:GetDescendants()
+			table.insert(nodes, card)
+			for _, node in nodes do
+				if
+					not node:IsA("GuiObject")
+					or (node ~= card and node.Name ~= "Title" and node.Name ~= "Caption" and node.Name ~= "Primary")
+				then
+					continue
+				end
+				local clips: { { [string]: unknown } } = {}
+				local ancestor = node.Parent
+				while ancestor and ancestor ~= stage.Parent do
+					if ancestor:IsA("GuiObject") and (ancestor:IsA("CanvasGroup") or ancestor.ClipsDescendants) then
+						if node == card and ancestor:IsA("CanvasGroup") then
+							clippingGroups += 1
+							local minimum = ancestor.AbsolutePosition
+							local maximum = minimum + ancestor.AbsoluteSize
+							local ending = node.AbsolutePosition + node.AbsoluteSize
+							t.check(
+								motion .. "/" .. phase .. " keeps the whole card inside " .. ancestor.Name,
+								node.AbsolutePosition.X >= minimum.X - 0.5
+									and node.AbsolutePosition.Y >= minimum.Y - 0.5
+									and ending.X <= maximum.X + 0.5
+									and ending.Y <= maximum.Y + 0.5,
+								{ card = t.rect(node), clip = t.rect(ancestor) }
+							)
+						end
+						local clip: { [string]: unknown } = {
+							name = ancestor.Name,
+							class = ancestor.ClassName,
+							position = { ancestor.AbsolutePosition.X, ancestor.AbsolutePosition.Y },
+							size = { ancestor.AbsoluteSize.X, ancestor.AbsoluteSize.Y },
+						}
+						table.insert(clips, clip)
+					end
+					ancestor = ancestor.Parent
+				end
+				local entry: { [string]: unknown } = {
+					name = node.Name,
+					position = { node.AbsolutePosition.X, node.AbsolutePosition.Y },
+					size = { node.AbsoluteSize.X, node.AbsoluteSize.Y },
+					clips = clips,
+				}
+				if node:IsA("TextLabel") or node:IsA("TextButton") then
+					entry.text = node.Text
+					entry.bounds = { node.TextBounds.X, node.TextBounds.Y }
+					entry.alignment = { node.TextXAlignment.Name, node.TextYAlignment.Name }
+					local padding = node:FindFirstChildWhichIsA("UIPadding")
+					if padding then
+						entry.padding = {
+							padding:GetStyled("PaddingLeft"),
+							padding:GetStyled("PaddingRight"),
+							padding:GetStyled("PaddingTop"),
+							padding:GetStyled("PaddingBottom"),
+						}
+					end
+				end
+				table.insert(geometry, entry)
+			end
+			local audit = VerifyRoblox.uiAudit.analyze(VerifyRoblox.uiAudit.collect { roots = { stage } })
+			t.check(motion .. "/" .. phase .. " samples the atomic row paint boundary", clippingGroups > 0)
+			t.check(motion .. "/" .. phase .. " paints the prepared card", t.visible(card))
+			t.check(motion .. "/" .. phase .. " publishes the atomic paint group", paint.GroupTransparency == 0)
+			local clipped = 0
+			for _, violation in audit.violations do
+				if violation.rule == "text-clipped" then
+					clipped += 1
+				end
+			end
+			t.check(
+				motion .. "/" .. phase .. " keeps visible text inside clipping ancestors",
+				clipped == 0,
+				audit.violations
+			)
+			t.note(motion .. "/" .. phase, {
+				geometry = geometry,
+				findings = audit.violations,
+				engaged = card:GetAttribute("FacetEngaged"),
+				hovered = card:GetAttribute("FacetHovered"),
+				focus = card:GetAttribute("FacetFocusWithin"),
+				pressing = card:GetAttribute("FacetPressing"),
+			})
+			t.near(motion .. "/" .. phase .. " keeps row x", row.AbsolutePosition.X, rowPosition.X, 0.5)
+			t.near(motion .. "/" .. phase .. " keeps row y", row.AbsolutePosition.Y, rowPosition.Y, 0.5)
+			t.near(motion .. "/" .. phase .. " keeps row width", row.AbsoluteSize.X, rowSize.X, 0.5)
+			t.near(motion .. "/" .. phase .. " keeps row height", row.AbsoluteSize.Y, rowSize.Y, 0.5)
+		end
+		sample("rest")
+		GuiService.SelectedObject = primary
+		t.settle(45)
+		t.check(motion .. " keeps the selected primary", GuiService.SelectedObject == primary)
+		sample("selected")
+		assert(owned):set(true)
+		t.settle(45)
+		t.check(motion .. " purchase changes the primary label", primary.Text == "Owned", primary.Text)
+		sample("owned")
+		GuiService.SelectedObject = nil
+		t.cleanup()
+	end
+end)
 
 add("cross-axis-fills-the-window", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)

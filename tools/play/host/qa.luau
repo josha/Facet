@@ -300,7 +300,9 @@ local function create(context: Context, device: Devices.Device): QA
 		if self.device.mode == "gamepad" then
 			return self:gamepadActivate(query)
 		end
-		self:reveal(query)
+		if not self:reveal(query) then
+			return false, ("the matched control could not be revealed: %s"):format(describe(query))
+		end
 		local value = record(self:call("tap", { query = query }))
 		if value.tapped ~= true then
 			return false,

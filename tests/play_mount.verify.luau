@@ -2,6 +2,7 @@
 
 local Verify = require("../tools/vendor/verify/src/core")
 local Mount = require("../tools/play/engine/mount")
+local MemoryReady = require("../tools/play/engine/memory_ready")
 local Play = require("../tools/play/host/play")
 local Output = require("../tools/facet/lib/verify_output")
 local Files = require("../tools/facet/lib/files")
@@ -20,6 +21,70 @@ local function hud(): Mount.Snapshot
 end
 
 return function(harness: Verify.Harness)
+	harness:case("GUI collector readiness stops at the first positive sample without retaining it", function(t)
+		local now, calls = 0, 0
+		local values = { 0, 0, 20, 10 }
+		local readiness = MemoryReady.waitFor(true, function(): number?
+			calls += 1
+			return values[calls]
+		end, function()
+			return now
+		end, function()
+			now += 1
+		end, 5)
+		t:expect(readiness):toEqual({ ready = true, attempts = 3, elapsed = 2, tracking = true, timedOut = false })
+		t:expect(calls):toBe(3)
+		local scores: { [string]: number } = {}
+		local idle: { [string]: unknown } = { memory = { guiMb = 0 }, memoryReadiness = readiness }
+		local final: { [string]: unknown } = { memory = { guiMb = 10 } }
+		local desktop: Play.DevicePerf = { returned = true, idle = idle, final = final, screens = {} }
+		local perf: { [string]: Play.DevicePerf } = {}
+		perf.desktop = desktop
+		Play.perfScores(perf, scores)
+		t:expect(scores["perf.desktop.guiReturnRatio"]):toBe(nil)
+		t:expect(scores["perf.desktop.finalGuiMb"]):toBe(10)
+	end)
+	harness:case("disabled GUI tracking does not wait and zero samples time out", function(t)
+		for _, tracking in { false, true } do
+			local now, calls = 0, 0
+			local readiness = MemoryReady.waitFor(tracking, function(): number?
+				calls += 1
+				return 0
+			end, function()
+				return now
+			end, function()
+				now += 1
+			end, 2)
+			t:expect(readiness):toEqual({
+				ready = false,
+				attempts = if tracking then 3 else 0,
+				elapsed = if tracking then 2 else 0,
+				tracking = tracking,
+				timedOut = tracking,
+			})
+			t:expect(calls):toBe(if tracking then 3 else 0)
+		end
+	end)
+	harness:case("post-return usage scores require a returned hub and positive memory samples", function(t)
+		for _, returned in { false, true } do
+			for _, value in { 0, 20 } do
+				local scores: { [string]: number } = {}
+				local final: { [string]: unknown } = { memory = { luaHeapKb = value, guiMb = value } }
+				local desktop: Play.DevicePerf = { returned = returned, final = final, screens = {} }
+				local perf: { [string]: Play.DevicePerf } = {}
+				perf.desktop = desktop
+				Play.perfScores(perf, scores)
+				for _, name in { "finalHeapKb", "finalGuiMb" } do
+					t:expect(scores["perf.desktop." .. name]):toBe(if returned and value > 0 then value else nil)
+				end
+			end
+		end
+		local scores: { [string]: number } = {}
+		local perf: { [string]: Play.DevicePerf } = { desktop = { returned = true, screens = {} } }
+		Play.perfScores(perf, scores)
+		t:expect(scores["perf.desktop.finalHeapKb"]):toBe(nil)
+		t:expect(scores["perf.desktop.finalGuiMb"]):toBe(nil)
+	end)
 	harness:case("saved report CLI queries need no project and preserve the saved bytes", function(t)
 		local root = Files.temporaryDirectory("facet-report-query")
 		t:defer(function()

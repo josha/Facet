@@ -108,8 +108,14 @@ return function(harness: Verify.Harness)
 						true
 					) ~= nil
 				):toBe(true)
-				t:expect(string.find(output.markdown, "10000.000 / 10.000 / 16.000 / 1.000 / 1.000", 1, true) ~= nil)
-					:toBe(true)
+				t:expect(
+					string.find(
+						output.markdown,
+						"10000.000 / 10.000 / 16.000 / 17.000 / 16.000 / 18.000 / 1000.000 / 20.000 / 1.000 / 1.000",
+						1,
+						true
+					) ~= nil
+				):toBe(true)
 			end
 			if mode == "fail" then
 				t:expect(
@@ -137,13 +143,63 @@ return function(harness: Verify.Harness)
 				for _, run in runs do
 					if run.arm == "facet" then
 						local key = "play.perf." .. device.id .. "." .. rule.metric
-						run.scores[key] *= 1.11
+						run.scores[key] = assert(run.scores[key]) * 1.11
 					end
 				end
 				local output = Headline.build(suite, runs, judgments, thresholds, overhead)
 				t:expect(output.passed):toBe(false)
 				t:expect(string.find(output.markdown, device.id .. "/" .. rule.metric .. ": FAIL", 1, true) ~= nil)
 					:toBe(true)
+			end
+		end
+	end)
+	harness:case("constant memory return ratios cannot hide higher retained usage", function(t)
+		local directory = b.absolute("artifacts/facetbench/synthetic-retention-fail")
+		local suite = Fixture.write(directory, "pass")
+		local judgments = Eval.judge.load(directory, b.files, b.decode)
+		for _, name in { "finalHeapKb", "finalGuiMb" } do
+			local runs = Eval.load(directory, b.files, b.decode)
+			for _, run in runs do
+				if run.arm == "facet" then
+					for _, device in suite.tasks[1].devices do
+						local key = "play.perf." .. device.id .. "." .. name
+						run.scores[key] = assert(run.scores[key]) * 2
+					end
+				end
+			end
+			local output = Headline.build(suite, runs, judgments, thresholds, overhead)
+			t:expect(output.passed):toBe(false)
+			t:expect(string.find(output.markdown, "desktop/" .. name .. ": FAIL", 1, true) ~= nil):toBe(true)
+		end
+	end)
+	harness:case("post-return usage needs positive complete samples and a successful return", function(t)
+		local directory = b.absolute("artifacts/facetbench/synthetic-retention-fail")
+		local suite = Fixture.write(directory, "pass")
+		local judgments = Eval.judge.load(directory, b.files, b.decode)
+		for _, name in { "finalHeapKb", "finalGuiMb" } do
+			for _, mode in { "missing", "zero", "return-failed" } do
+				for _, arm in { "plain", "facet" } do
+					local runs = Eval.load(directory, b.files, b.decode)
+					local selected: Eval.RunResult? = nil
+					for _, candidate in runs do
+						if candidate.arm == arm then
+							selected = candidate
+							break
+						end
+					end
+					local run = assert(selected)
+					local key = "play.perf.desktop." .. name
+					if mode == "return-failed" then
+						run.scores["play.perf.desktop.returned"] = 0
+					elseif mode == "zero" then
+						run.scores[key] = 0
+					else
+						run.scores[key] = nil
+					end
+					local output = Headline.build(suite, runs, judgments, thresholds, overhead)
+					t:expect(output.passed):toBe(false)
+					t:expect(string.find(output.markdown, "desktop/" .. name .. ": FAIL", 1, true) ~= nil):toBe(true)
+				end
 			end
 		end
 	end)

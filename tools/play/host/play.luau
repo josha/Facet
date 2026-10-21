@@ -9,6 +9,7 @@ local Core = require("../../../tools/vendor/verify/src/core")
 local Lute = require("../../../tools/vendor/verify/src/lute")
 
 local Devices = require("./devices")
+local Actions = require("./actions")
 local QA = require("./qa")
 
 export type CaseBody = (qa: QA.QA, context: Core.Context) -> ()
@@ -48,6 +49,7 @@ export type DevicePerf = {
 	screens: { [string]: { [string]: unknown } },
 	final: { [string]: unknown }?,
 	returned: boolean?,
+	returnProblem: string?,
 }
 
 export type Host = {
@@ -186,33 +188,11 @@ local function open(options: HostOptions): Host
 		local active = current
 		if active ~= nil and perf[active.device] ~= nil then
 			local record = perf[active.device]
-			local ok = pcall(function()
-				for _ = 1, 8 do
-					local query: QA.Query = { exact = "Close", role = "button" }
-					local target = active.qa:first(query)
-					if target == nil then
-						query.exact = "Back"
-						target = active.qa:first(query)
-					end
-					if target == nil then
-						record.returned = true
-						break
-					end
-					local activated = if active.device == "console"
-						then active.qa:gamepadActivate(query)
-						else active.qa:tap(query)
-					assert(activated, "return control did not activate")
-					if options.performance == false then
-						local settled = active.qa:call("perf", { action = "settle", quiet = 0.1, limit = 20 })
-						assert(
-							type(settled) == "table" and (settled :: { [string]: unknown }).timedOut == false,
-							"return control did not settle"
-						)
-					else
-						active.qa:sleep(0.5)
-					end
-				end
+			local ok, returned, detail = pcall(function()
+				return Actions.returnToRoot(active.qa)
 			end)
+			record.returned = ok and returned == true
+			record.returnProblem = if record.returned then nil else if ok then detail else tostring(returned)
 			if ok and record.returned and options.performance ~= false then
 				active.qa:sleep(5)
 				record.final = probe(active.qa, { action = "idle", seconds = 2 })
@@ -401,6 +381,10 @@ local function open(options: HostOptions): Host
 		elseif device.orientation == "landscape" and portrait then
 			error("the screen is not in landscape", 0)
 		end
+		local prepared, inputProblem = Actions.prepareInput(qa)
+		if not prepared then
+			error("input preparation failed: " .. inputProblem, 0)
+		end
 		local settleCalled = os.clock()
 		local settled = probe(qa, {
 			action = "settle",
@@ -530,6 +514,15 @@ local function perfScores(perf: { [string]: DevicePerf }, scores: { [string]: nu
 		put("baseComponents", number(record.idle, "census", "components"))
 		put("baseInstances", number(record.idle, "census", "instances"))
 		put("returned", if record.returned then 1 else 0)
+		if record.returned then
+			local finalMetrics: { [string]: string } = { finalHeapKb = "luaHeapKb", finalGuiMb = "guiMb" }
+			for metric, property in finalMetrics do
+				local value = number(record.final, "memory", property)
+				if value ~= nil and value > 0 and value < math.huge then
+					put(metric, value)
+				end
+			end
+		end
 		local returnMetrics: { [string]: string } = { heapReturnRatio = "luaHeapKb", guiReturnRatio = "guiMb" }
 		for metric, property in returnMetrics do
 			local before, after = number(record.idle, "memory", property), number(record.final, "memory", property)

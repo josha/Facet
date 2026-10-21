@@ -7,8 +7,166 @@ local Files = require("../../tools/facet/lib/files")
 local Json = require("../../tools/facet/lib/json")
 local Static = require("../../tools/facet/lib/static_findings")
 local Analyzer = require("../../tools/facet/lib/analyzer")
+local Lute = require("../../tools/vendor/verify/src/lute")
 
 return function(harness: Verify.Harness)
+	harness:case("consumer type cache reuses only matching analyzer, definitions and configuration", function(t)
+		local sources: { [string]: string } = {
+			["sample.luau"] = "--!strict\nlocal value: number = 1\n",
+			["default.project.json"] = '{"tree":{"Shared":{"$path":"shared"}}}',
+			["shared/model.luau"] = "return 1",
+			["shared/default.project.json"] = '{"tree":{"External":{"$path":"../external"}}}',
+			["external/model.luau"] = "return 1",
+			["tools/typecheck/roblox.d.luau"] = "declare value: number",
+			["tools/typecheck/roblox.lock.json"] = '{"analyzerVersion":"1.69.0"}',
+			[".luaurc"] = '{"languageMode":"strict"}',
+		}
+		local version, available, analyses = "1.69.0", true, 0
+		local function relative(file: string): string
+			return Analyzer.relative(file, Files.cwd())
+		end
+		local fakeFiles = {
+			absolute = Files.absolute,
+			parent = Files.parent,
+			normalize = Files.normalize,
+			collapse = Files.collapse,
+			cwd = Files.cwd,
+			join = Files.join,
+			walk = function(directory: string): { string }
+				local found: { string } = {}
+				local prefix = relative(directory) .. "/"
+				for file in sources do
+					if string.sub(file, 1, #prefix) == prefix then
+						table.insert(found, string.sub(file, #prefix + 1))
+					end
+				end
+				return found
+			end,
+			isFile = function(file: string): boolean
+				return sources[relative(file)] ~= nil
+			end,
+			isDirectory = function(directory: string): boolean
+				local prefix = relative(directory) .. "/"
+				for file in sources do
+					if string.sub(file, 1, #prefix) == prefix then
+						return true
+					end
+				end
+				return false
+			end,
+			read = function(file: string): string
+				return (assert(sources[relative(file)], file))
+			end,
+			write = function(file: string, text: string)
+				sources[file] = text
+			end,
+			temporaryDirectory = function(_: string): string
+				return "scratch"
+			end,
+			remove = function(_: string) end,
+		}
+		local function capture(argv: { string }, _: Run.Options?): Run.Result
+			if argv[2] == "--version" then
+				return {
+					ok = available,
+					code = if available then 0 else 127,
+					stdout = version .. "\n",
+					stderr = "",
+					timedOut = false,
+				}
+			end
+			if argv[1] == "rojo" then
+				sources[argv[#argv]] = "{}"
+				return { ok = true, code = 0, stdout = "", stderr = "", timedOut = false }
+			end
+			analyses += 1
+			return {
+				ok = false,
+				code = 1,
+				stdout = `sample.luau(1,1): TypeError: planted-{analyses}`,
+				stderr = "",
+				timedOut = false,
+			}
+		end
+		local fakeRun = { capture = capture }
+		local requireHost = (require :: unknown) :: (string) -> unknown
+		local loader = Lute.loader.new({
+			hostPaths = {
+				"tools/facet/lib/analyzer",
+				"tools/facet/lib/definitions",
+				"tools/facet/lib/files",
+				"tools/facet/lib/hash",
+				"tools/facet/lib/json",
+				"tools/facet/lib/run",
+			},
+			requireHost = function(module: string): unknown
+				if module == "tools/facet/lib/files" then
+					return fakeFiles
+				end
+				if module == "tools/facet/lib/run" then
+					return fakeRun
+				end
+				if module == "tools/facet/lib/definitions" then
+					return {
+						resolve = function(_: string, file: string): string
+							return file
+						end,
+					}
+				end
+				return requireHost("../../" .. module)
+			end,
+		})
+		local consumer = loader.require("tools/facet/lib/consumer_types.luau") :: {
+			check: ({ string }, string, string) -> ({ Analyzer.Diagnostic }?, string?),
+		}
+		local function checked(): { Analyzer.Diagnostic }
+			local diagnostics, problem = consumer.check({ "sample.luau" }, "default.project.json", "new")
+			t:expect(problem):toBe(nil)
+			return assert(diagnostics)
+		end
+		t:expect(checked()[1].message):toBe("planted-1")
+		t:expect(checked()[1].message):toBe("planted-1")
+		t:expect(analyses):toBe(1)
+		version = "1.68.0"
+		local mismatch, problem = consumer.check({ "sample.luau" }, "default.project.json", "new")
+		t:expect(mismatch):toBe(nil)
+		t:expect(string.find(problem or "", "differs from the pinned toolchain", 1, true) ~= nil):toBe(true)
+		available = false
+		local missing, unavailable = consumer.check({ "sample.luau" }, "default.project.json", "new")
+		t:expect(missing):toBe(nil)
+		t:expect(string.find(unavailable or "", "missing", 1, true) ~= nil):toBe(true)
+		t:expect(analyses):toBe(1)
+		available, version = true, "1.69.0"
+		sources["tools/typecheck/roblox.d.luau"] = "declare value: string"
+		t:expect(checked()[1].message):toBe("planted-2")
+		sources[".luaurc"] = '{"languageMode":"nonstrict"}'
+		t:expect(checked()[1].message):toBe("planted-3")
+		version = "1.70.0"
+		sources["tools/typecheck/roblox.lock.json"] = '{"analyzerVersion":"1.70.0"}'
+		t:expect(checked()[1].message):toBe("planted-4")
+		t:expect(checked()[1].message):toBe("planted-4")
+		t:expect(analyses):toBe(4)
+		sources["shared/model.luau"] = "return 'changed'"
+		t:expect(checked()[1].message):toBe("planted-5")
+		sources["external/model.luau"] = "return 'nested mapping changed'"
+		t:expect(checked()[1].message):toBe("planted-6")
+		sources["ui/sample.luau"] = sources["sample.luau"]
+		local function standalone(): { Analyzer.Diagnostic }
+			local diagnostics, failure = consumer.check({ "ui/sample.luau" }, "default.project.json", "new")
+			t:expect(failure):toBe(nil)
+			return assert(diagnostics)
+		end
+		standalone()
+		t:expect(analyses):toBe(7)
+		sources["ui/.luaurc"] = '{"languageMode":"strict"}'
+		standalone()
+		t:expect(analyses):toBe(8)
+		sources["ui/.luaurc"] = '{"languageMode":"nonstrict"}'
+		standalone()
+		t:expect(analyses):toBe(9)
+		standalone()
+		t:expect(analyses):toBe(9)
+	end)
 	harness:case("author replay counts a requested saved report without running a project", function(t)
 		local root = Files.temporaryDirectory("facet-author-replay")
 		t:defer(function()

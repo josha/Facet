@@ -14,6 +14,7 @@ type Metric = { id: string, label: string }
 local METRICS: { Metric } = {
 	{ id = "mountSeconds", label = "Mount s" },
 	{ id = "idleFrameP50Ms", label = "Idle frame p50 ms" },
+	{ id = "idleFrameP95Ms", label = "Idle frame p95 ms" },
 	{ id = "activeFrameP50Ms", label = "Active frame p50 ms" },
 	{ id = "activeFrameP95Ms", label = "Active frame p95 ms" },
 	{ id = "baseGuiObjects", label = "GuiObjects" },
@@ -22,6 +23,8 @@ local METRICS: { Metric } = {
 	{ id = "instanceDelta", label = "Instances left" },
 	{ id = "guiObjectDelta", label = "GuiObjects left" },
 	{ id = "heapDeltaKb", label = "Heap delta KB" },
+	{ id = "finalHeapKb", label = "Post-return heap KB" },
+	{ id = "finalGuiMb", label = "Post-return GUI MB" },
 }
 
 type Run = { task: string, arm: string, scores: { [string]: number }, passed: boolean }

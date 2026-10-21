@@ -26,3 +26,6 @@ or data replacement keeps removed painted rows until the replacement rows
 in the viewport are ready. Equal keys retain their native instances. An empty
 result removes the old rows. Offscreen overscan does not delay visible rows.
 Use `ZIndexBehavior = Enum.ZIndexBehavior.Sibling` on the ScreenGui or SurfaceGui.
+
+For a short grid inside a content-sized Sheet, use
+[VirtualList-and-VirtualGrid.sizing](VirtualList-and-VirtualGrid.sizing.md).
