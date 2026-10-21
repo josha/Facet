@@ -61,6 +61,113 @@ return function(harness: Verify.Harness)
 			)
 		):toBe(false)
 	end)
+	harness:case("opaque modal branches hide HUD text without hiding actual text overlaps", function(t)
+		local value = Audit.decode({
+			schemaVersion = 1,
+			screen = { width = 390, height = 844, scale = 1, input = { "touch" } },
+			roots = {
+				{
+					index = 1,
+					class = "ScreenGui",
+					path = "Gui",
+					enabled = true,
+					world = false,
+					zIndexBehavior = "Sibling",
+					rect = { x = 0, y = 0, width = 390, height = 844 },
+				},
+			},
+			elements = {
+				{
+					index = 1,
+					root = 1,
+					class = "Frame",
+					path = "Gui.HUD",
+					rect = { x = 0, y = 0, width = 390, height = 844 },
+					visible = true,
+					zIndex = 1,
+					order = 1,
+					background = { color = { r = 0, g = 0, b = 0 }, transparency = 1 },
+				},
+				{
+					index = 2,
+					parent = 1,
+					root = 1,
+					class = "TextLabel",
+					path = "Gui.HUD.Balance",
+					rect = { x = 112, y = 232, width = 191, height = 18 },
+					visible = true,
+					zIndex = 1,
+					order = 2,
+					background = { color = { r = 0, g = 0, b = 0 }, transparency = 1 },
+					text = {
+						content = "Balance",
+						size = 18,
+						bounds = { width = 191, height = 18 },
+						color = { r = 1, g = 1, b = 1 },
+						transparency = 0,
+					},
+				},
+				{
+					index = 3,
+					root = 1,
+					class = "Frame",
+					path = "Gui.Modal",
+					rect = { x = 0, y = 0, width = 390, height = 844 },
+					visible = true,
+					zIndex = 100,
+					order = 3,
+					background = { color = { r = 0, g = 0, b = 0 }, transparency = 1 },
+				},
+				{
+					index = 4,
+					parent = 3,
+					root = 1,
+					class = "Frame",
+					path = "Gui.Modal.Panel",
+					rect = { x = 0, y = 123, width = 390, height = 668 },
+					visible = true,
+					zIndex = 1,
+					order = 4,
+					background = { color = { r = 0, g = 0, b = 0 }, transparency = 0 },
+				},
+				{
+					index = 5,
+					parent = 4,
+					root = 1,
+					class = "TextLabel",
+					path = "Gui.Modal.Panel.Category",
+					rect = { x = 24, y = 229, width = 115, height = 18 },
+					visible = true,
+					zIndex = 1,
+					order = 5,
+					background = { color = { r = 0, g = 0, b = 0 }, transparency = 1 },
+					text = {
+						content = "Part category",
+						size = 18,
+						bounds = { width = 115, height = 18 },
+						color = { r = 1, g = 1, b = 1 },
+						transparency = 0,
+					},
+				},
+			},
+		})
+		local modal, panel = value.elements[3], value.elements[4]
+		t:expect(RaceSpace.textClear(value)):toBe(true)
+		panel.background.transparency = 0.5
+		t:expect(RaceSpace.textClear(value)):toBe(false)
+		panel.background.transparency = 0
+		modal.zIndex = 0
+		t:expect(RaceSpace.textClear(value)):toBe(false)
+		modal.zIndex = 100
+		panel.rect.width = 120
+		t:expect(RaceSpace.textClear(value)):toBe(false)
+		panel.rect.width = 390
+		local collision = table.clone(value.elements[5])
+		collision.index, collision.path, collision.order = 6, "Gui.Modal.Panel.Collision", 6
+		table.insert(value.elements, collision)
+		t:expect(RaceSpace.textClear(value)):toBe(false)
+	end)
+
 	harness:case("race progress requires ordered checkpoints and a forward finish crossing", function(t)
 		local racer = { checkpoint = 0, lap = 0, progress = 0 }
 		t:expect(Rules.advance(racer, 0.8, true, 16)):toBe(false)
