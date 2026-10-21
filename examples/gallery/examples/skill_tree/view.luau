@@ -201,7 +201,7 @@ return function(ctx: Context)
 			H.Frame "Emblem" {
 				ZIndex = 8,
 				Size = D2.fromOffset(48, 48),
-				Position = D2.fromScale(0.5, 0.29),
+				Position = D2.fromScale(0.5, 0.27),
 				AnchorPoint = V2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				C.show(function(use: Use)
@@ -214,7 +214,7 @@ return function(ctx: Context)
 				end, function()
 					return art.icon(ctx, node.icon, function(use: Use)
 						return if use(status) == "owned" then color("onAccent", use) else color("contentStrong", use)
-					end, 44)
+					end, 36)
 				end),
 			},
 			UI.Text "SkillName" {
@@ -228,7 +228,7 @@ return function(ctx: Context)
 				truncate = "end",
 				AutoLocalize = false,
 				Size = D2.fromOffset(120, 24),
-				Position = D2.new(0.5, 0, 0, 74),
+				Position = D2.new(0.5, 0, 0, 70),
 				AnchorPoint = V2.new(0.5, 0),
 				ZIndex = 8,
 			},

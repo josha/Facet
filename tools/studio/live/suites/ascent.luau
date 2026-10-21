@@ -57,7 +57,8 @@ local function textLayout(t: Live, theme: string)
 			end
 			t.check(
 				theme .. " text rows have a gap",
-				status.AbsolutePosition.Y - name.AbsolutePosition.Y - name.AbsoluteSize.Y >= 7 * scale
+				status.AbsolutePosition.Y - name.AbsolutePosition.Y - name.AbsoluteSize.Y >= 7 * scale,
+				{ gap = status.AbsolutePosition.Y - name.AbsolutePosition.Y - name.AbsoluteSize.Y, scale = scale }
 			)
 		end
 	end
@@ -141,6 +142,10 @@ local function pointer(t: Live)
 	)
 	watch:Disconnect()
 	t.check("test receives native input", delivered >= 7, { touch = touch, delivered = delivered })
+	for _ = 1, 8 do
+		tap("ZoomOut")
+	end
+	t.check("minimum zoom is exercised", math.abs(api("report").demo.zoom - 0.65) < 0.001)
 	for _, theme in { "Neutral", "scifi_hud", "pixel_quest", "fantasy_ornate", "glossy_mobile", "classic_desktop" } do
 		t.check(theme .. " applies", api("theme", theme).ok)
 		t.settle(24)
