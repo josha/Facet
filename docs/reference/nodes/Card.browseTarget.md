@@ -16,33 +16,51 @@ The root has the attributes `FacetReveal`, `FacetRevealed`, `FacetEngaged`,
 `FacetHovered`, `FacetFocusWithin`, `FacetPressing`, `FacetBrowsing`,
 `FacetEntered`, `FacetMenuOpen` and `FacetBody` (`button` or `informational`).
 
+For a shop or another task with a frequent primary action, use
+`reveal = "always"`. A player must not need hover to discover Buy. This keeps
+the action visible; it does not connect the collection's browse stop to the
+card's action group. Connect collection `onActivate` to `enterActions()` and
+return its `RowHit` from `browseTarget` as below. Gamepad A enters the action
+group without buying. Back returns to the same browse stop.
+
 ```luau
-local controls = {}
-local cards = {}
-UI.VirtualGrid {
+type Item = { id: string, title: string }
+local controls: { [string]: Facet.CardControls } = {}
+local cards: { [string]: Frame } = {}
+local spec: Facet.KeyedCollectionSpec<Item, string> = {
     from = games,
     key = "id",
     columns = 3,
     itemSize = 320,
     measure = true,
     gap = 16,
-    onActivate = function(_item, key) local entry = controls[key]; if entry then entry.enterActions() end end,
+    onActivate = function(_item, key)
+        local entry = controls[key]
+        if entry and entry.enterActions then entry.enterActions() end
+    end,
     render = function(current, _placement, key)
         controls[key] = {}
         local card = UI.Card {
             image = art,
             title = function(use) return use(current).title end,
+            reveal = "always",
             controls = controls[key],
             browseTarget = function()
                 local node = cards[key]
-                return node and node.Parent and node.Parent:FindFirstChild("RowHit")
+                local hit = node and node.Parent and node.Parent:FindFirstChild("RowHit")
+                return if hit and hit:IsA("GuiObject") then hit else nil
             end,
             primaryAction = { label = "Play", onActivate = function() play(key) end },
             menu = { items = { { id = "hide", label = "Not interested", onSelect = function() hide(key) end } } },
         }
         cards[key] = card
-        Compose.cleanup(function() cards[key], controls[key] = nil, nil end)
+        Facet.Compose.cleanup(function() cards[key], controls[key] = nil, nil end)
         return card
     end,
 }
+local grid = UI.VirtualGrid(spec)
 ```
+
+`games` supplies the item records; `art`, `play` and `hide` belong to the game.
+See the complete [shop recipe](Tasks.shop.md). Check entering actions, unavailable actions,
+Back, filtering the focused item out and returning after a purchase.
