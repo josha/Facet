@@ -64,7 +64,10 @@ return function(
 	end
 	local authored = config.theme
 	ctx.runtime:watch(function()
-		local distance = ctx.tenFoot()
+		local distant = Compose.formula(ctx.tenFoot())
+		local function distance(use: ComposeTypes.Use?): boolean
+			return ctx.readSource(distant, use)
+		end
 		setDistance(distance)
 		if authored ~= nil then
 			config.theme = Compose.formula(function(use: ComposeTypes.Use): Theme.ThemePackage
