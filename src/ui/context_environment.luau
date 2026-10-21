@@ -10,8 +10,7 @@ return function(
 	themes: Theme.Themes,
 	preview: { [string]: unknown },
 	metricAt: (unknown, string) -> number?,
-	setDistance: ((ComposeTypes.Use?) -> boolean) -> (),
-	live: (unknown) -> boolean
+	setDistance: ((ComposeTypes.Use?) -> boolean) -> ()
 )
 	local Compose = ctx.Compose
 	function ctx.pointerOnly(): (ComposeTypes.Use?) -> boolean
@@ -63,59 +62,19 @@ return function(
 			})
 		end
 	end
-	local interface = false
-	if config.guiService then
-		pcall(function()
-			interface = (config.guiService :: GuiService):IsTenFootInterface() == true
-		end)
-	end
-	local function distantNow(use: ComposeTypes.Use?): boolean
-		local gui, input = config.guiService, config.userInputService
-		local function fact(key: string, service: Instance?, property: string): unknown
-			local value = ctx.read(preview[key], use)
-			if value == nil and service ~= nil then
-				value = (
-					(
-						service :: unknown
-					) :: { ViewportDisplaySize: Enum.DisplaySize?, MouseEnabled: boolean?, TouchEnabled: boolean? }
-				)[property]
-			end
-			return value
-		end
-		local display = fact("displaySize", gui, "ViewportDisplaySize")
-		return adaptive.isTenFoot({
-			viewingDistance = ctx.viewingDistance(use),
-			tenFootInterface = interface,
-			displaySize = if typeof(display) == "EnumItem" then (display :: EnumItem).Name else display :: string?,
-			mouse = fact("mouseEnabled", input, "MouseEnabled") == true,
-			touch = fact("touchEnabled", input, "TouchEnabled") == true,
-		})
-	end
 	local authored = config.theme
-	local previewLive = false
-	for _, key in { "viewingDistance", "displaySize", "mouseEnabled", "touchEnabled" } do
-		previewLive = previewLive or live(preview[key])
-	end
-	local distance: (ComposeTypes.Use?) -> boolean
-	if previewLive then
-		local distant = Compose.formula(distantNow)
-		distance = function(use: ComposeTypes.Use?): boolean
+	ctx.runtime:watch(function()
+		local distant = Compose.formula(ctx.tenFoot())
+		local function distance(use: ComposeTypes.Use?): boolean
 			return ctx.readSource(distant, use)
 		end
-	else
-		local fixed = distantNow()
-		distance = function(): boolean
-			return fixed
+		setDistance(distance)
+		if authored ~= nil then
+			config.theme = Compose.formula(function(use: ComposeTypes.Use): Theme.ThemePackage
+				return themes.forDistance(ctx.read(authored, use), if distance(use) then "ten-foot" else "near")
+			end)
 		end
-	end
-	setDistance(distance)
-	if live(authored) or (authored ~= nil and previewLive) then
-		config.theme = Compose.formula(function(use: ComposeTypes.Use): Theme.ThemePackage
-			return themes.forDistance(ctx.read(authored, use), if distance(use) then "ten-foot" else "near")
-		end)
-	elseif authored ~= nil then
-		config.theme = themes.forDistance(authored :: Theme.ThemePackage, if distantNow() then "ten-foot" else "near")
-	end
+	end)
 	function ctx.hitFloor(): (ComposeTypes.Use?) -> number
 		local pointerOnly = ctx.pointerOnly()
 		return function(use: ComposeTypes.Use?): number
