@@ -237,6 +237,20 @@ return {
 			local size = assert(workspace.CurrentCamera).ViewportSize
 			t.check("portrait touch emulator is active", Input.TouchEnabled and size.Y > size.X, size)
 			pointer(t)
+			for _, orientation in { Enum.ScreenOrientation.LandscapeLeft, Enum.ScreenOrientation.Portrait } do
+				Players.LocalPlayer.PlayerGui.ScreenOrientation = orientation
+				simulator:SetOrientationAsync(orientation)
+				t.settle(30)
+				local selected = find("Skill_" .. api("report").demo.selected)
+				local bounds = t.clipped(selected)
+				t.check(
+					"rotation keeps the inspected tile visible",
+					bounds ~= nil
+						and bounds.w >= selected.AbsoluteSize.X - 1
+						and bounds.h >= selected.AbsoluteSize.Y - 1,
+					bounds
+				)
+			end
 		end,
 	},
 	{ id = "ascent-pointer-touch-and-themes", contracts = {}, keepGallery = true, run = pointer },

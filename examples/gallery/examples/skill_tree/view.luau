@@ -254,8 +254,13 @@ return function(ctx: Context)
 			},
 		}
 		local selectionImage = H.Frame "HexFocus" {
-			Size = D2.fromScale(1, 1),
-			BackgroundTransparency = 1,
+			Size = D2.fromScale(0.3, 0.025),
+			Position = D2.fromScale(0.35, 1.025),
+			AnchorPoint = V2.new(0.5, 0.5),
+			BackgroundColor3 = function(use: Use)
+				return color(if use(status) == "owned" then "onAccent" else "contentStrong", use)
+			end,
+			BorderSizePixel = 0,
 		}
 		local button = UI.Button("Skill_" .. node.id) {
 			name = text("inspect", { name = text(node.id .. "Name") }),
@@ -478,11 +483,11 @@ return function(ctx: Context)
 		measure()
 		local mapView = assert(map)
 		runtime.connect(mapView, "Changed", function(property: string)
-			if property ~= "AbsoluteSize" or not camera.zoomTo then
+			if property ~= "AbsoluteWindowSize" or not camera.zoomTo then
 				return
 			end
 			local scale = if ctx.previewScale then ctx.previewScale:peek() else 1
-			local size = mapView.AbsoluteSize / math.max(0.01, scale) / zoom:peek()
+			local size = mapView.AbsoluteWindowSize / math.max(0.01, scale) / zoom:peek()
 			if size.X <= 0 or size.Y <= 0 then
 				return
 			end

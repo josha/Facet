@@ -35,10 +35,10 @@ an outward effect has a clear purpose and space reserved around it.
 
 Use the shared focus treatment when it fits the control. For custom artwork,
 native `SelectionImageObject` supplies a replacement. If the indicator must be
-composed inside the control, drive its focus state from native selection events.
-Use a transparent replacement only while providing an equivalent visible focus
-indicator. Preserve the distinction between focus and persistent selection when
-focus moves elsewhere. Do not add a second competing focus treatment.
+composed inside the control, drive its focus state from native selection events
+and keep the native selection artwork visible. Preserve the distinction between
+focus and persistent selection when focus moves elsewhere. Do not add a second
+competing focus treatment.
 
 Check the indicator through scaling, clipping, animation, theme changes, and
 near and distant viewing. Test focus entering and leaving the control as well
