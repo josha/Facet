@@ -38,6 +38,40 @@ add("stage-draft-preview", {}, function(t)
 	t.check("draft changes update the retained preview", part.Color == color:peek() and t.find(root, "Object") == part)
 end)
 
+add("card-list-lift-keeps-layout-stable", {}, function(t)
+	local stage = t.mount(function(UI)
+		return UI.VStack "TrackVotes" {
+			width = 420,
+			gap = "m",
+			UI.Card "Harbor" {
+				title = "Harbor Sprint",
+				caption = "Fast coastal circuit",
+				primaryAction = { label = "Vote Harbor", onActivate = function() end },
+			},
+			UI.Card "Midnight" {
+				title = "Midnight Circuit",
+				caption = "Technical city circuit",
+				primaryAction = { label = "Vote Midnight", onActivate = function() end },
+			},
+		}
+	end, { size = Vector2.new(900, 600), motionLevel = "normal", frames = 40 })
+	local card = t.find(stage, "Harbor")
+	local neighbor = t.find(stage, "Midnight")
+	local before, neighborBefore = t.rect(card), t.rect(neighbor)
+	GuiService.SelectedObject = t.find(card, "Primary")
+	t.settle(60)
+	local after, neighborAfter = t.rect(card), t.rect(neighbor)
+	t.check("focused card engages the shared lift", card:GetAttribute("FacetLifting") == true)
+	t.note("card before and after lift", { before = before, after = after })
+	t.note("neighbor before and after lift", { before = neighborBefore, after = neighborAfter })
+	t.near("lift preserves the horizontal center", after.x + after.w / 2, before.x + before.w / 2, 0.5)
+	t.near("lift preserves the vertical center", after.y + after.h / 2, before.y + before.h / 2, 0.5)
+	t.near("lift does not move the next card", neighborAfter.y, neighborBefore.y, 0.5)
+	GuiService.SelectedObject = nil
+	t.settle(60)
+	t.near("card width returns after leaving", t.rect(card).w, before.w, 0.5)
+end)
+
 local function interactive(
 	id: string,
 	contracts: { string },

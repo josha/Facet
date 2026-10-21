@@ -68,8 +68,12 @@ checks do not cover the complete Garage or Livery acceptance rows.
   devices. A preview or editor mounting does not prove its complete task.
 - Improve visual hierarchy and density. Use labeled filters, readable comparison
   statistics, meaningful glyphs, and a clear primary commitment.
-- Fix the reported track-vote Card hover expansion. It is not yet independently
-  reproduced or fixed in this checkpoint.
+- Fix the reported track-vote Card hover expansion. A native two-card list test
+  now reproduces movement in the shared lift path through focus: the first
+  card's center moves right and down, and the next card moves down. See
+  `library-card-lift/before.verify.json` and `library-card-lift/notes.json`.
+  This test uses the current library, not a repaired submission. Pointer hover
+  itself and the eventual repair still need verification.
 - Apply settings to actual game effects, provide distinct voted track outcomes,
   anchored onboarding, and complete crate reveal behavior. The author reported
   these as incomplete.
