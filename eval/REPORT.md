@@ -1,24 +1,26 @@
 # Headline report
 
 The latest reports are the [Opus slice](reports/slice.md) and
-[Sol 6.1 Medium slice](reports/slice-sol61-medium-6.md).
+[Sol 6.1 Medium slice](reports/slice-sol61-medium-7.md).
 
 The Opus measurement passed Facet's universal checks on both devices and used
 fewer tokens than Plain, but took more author time. The blind judge preferred
 Plain on both devices. Retained-memory evidence is incomplete. Its Plain run
 was reused; its Facet run was fresh. See the report for the measured scope.
 
-The latest Sol pair failed the headline rules. Facet passed 9/13 universal
-cases and 33/49 spec cases, against Plain's 1/13 and 31/49. Both runs failed
-the required tier. Facet used 4.02 times the total tokens and 1.89 times the
-author time. The separate Sol 6.1 Medium blind judge preferred Plain on desktop
-and Facet on phone, with no forfeits. Memory exceeded the requested bound;
-concurrent workloads also limit time, frame and memory comparisons. This
-one-task slice does not establish the full corpus claim. Both final Sol
-places and the evidence limits are linked in its report.
+The latest Sol slice used one fresh Facet author and reused Plain6. Both saved
+workspaces replayed the same corrected checks. Facet passed 13/13 universal
+cases and 37/49 spec cases, against Plain's 1/13 and 30/49. Facet used 2.74
+times the total tokens and 1.53 times the author time. It improved on Facet6,
+but failed the headline efficiency goals. The separate Sol 6.1 Medium blind
+judge preferred Plain on desktop and Facet on phone, with no forfeits. Phone
+heap and mount costs exceeded the requested bounds. The timing environment
+was not stable, and one task does not establish the corpus claim. Both final
+Sol places, remaining interaction failures and evidence limits are linked
+in the report. Idle Sheet motion is under separate post-run investigation.
 
 To generate the latest Sol headline after its checks and judge finish, use
-`lute run eval/tools/report.luau artifacts/facetbench/slice-sol61-medium-6 --suite eval/slice.json`.
+`lute run eval/tools/report.luau artifacts/facetbench/slice-sol61-medium-7 --suite eval/slice.json`.
 
 The headline suite is `extended.json`: 22 runs and
 55 blind task/device/seed comparisons. The hub and ten follow-ups use short
