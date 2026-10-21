@@ -28,6 +28,10 @@ indicator identifies the next activation target. They must describe the same
 object, but need not have the same bounds. Keep hit areas large enough to use
 without overlapping adjacent commands. Shape and place the indicator around the
 visible target so it does not cross its content or appear to select a neighbor.
+Reserve content space inside the artwork's contour, including padding along
+sloped or curved edges. Fitting text in the rectangular bounds alone does not
+prove it fits the visible surface. Keep state effects within that contour unless
+an outward effect has a clear purpose and space reserved around it.
 
 Use the shared focus treatment when it fits the control. For custom artwork,
 native `SelectionImageObject` supplies a replacement. If the indicator must be

@@ -33,6 +33,35 @@ local function start(t: Live)
 	local report = api("report")
 	t.check("Ascent has no mount error", report.error == nil, report)
 end
+local function textLayout(t: Live, theme: string)
+	for _, node in find("SkillTreeCanvas"):GetChildren() do
+		local gem = node:FindFirstChild("Gem")
+		if gem then
+			local face = assert(gem:FindFirstChild("Face")) :: GuiObject
+			local center = face.AbsolutePosition + face.AbsoluteSize / 2
+			local scale = face.AbsoluteSize.X / 164
+			local name = assert(gem:FindFirstChild("SkillName")) :: TextLabel
+			local status = assert(gem:FindFirstChild("SkillStatus")) :: TextLabel
+			for _, label in { name, status } do
+				for _, corner in { Vector2.zero, Vector2.new(1, 0), Vector2.new(0, 1), Vector2.one } do
+					local point = label.AbsolutePosition + label.AbsoluteSize * corner - center
+					t.check(
+						theme .. " " .. node.Name .. " " .. label.Name .. " has inset hex bounds",
+						math.abs(point.Y) <= face.AbsoluteSize.Y / 2 - 7 * scale
+							and math.abs(point.X) + math.abs(point.Y) / math.sqrt(3)
+								<= face.AbsoluteSize.X / 2 - 7 * scale,
+						point
+					)
+				end
+				t.check(theme .. " text fits vertically", label.TextBounds.Y <= label.AbsoluteSize.Y + 1)
+			end
+			t.check(
+				theme .. " text rows have a gap",
+				status.AbsolutePosition.Y - name.AbsolutePosition.Y - name.AbsoluteSize.Y >= 7 * scale
+			)
+		end
+	end
+end
 local function pointer(t: Live)
 	local virtual = ((Input :: unknown) :: { CreateVirtualInput: (unknown) -> Virtual }):CreateVirtualInput()
 	start(t)
@@ -115,6 +144,7 @@ local function pointer(t: Live)
 	for _, theme in { "Neutral", "scifi_hud", "pixel_quest", "fantasy_ornate", "glossy_mobile", "classic_desktop" } do
 		t.check(theme .. " applies", api("theme", theme).ok)
 		t.settle(24)
+		textLayout(t, theme)
 		local button = find("UpgradeBenefit")
 		t.check(
 			theme .. " keeps upgrade details visible",
@@ -174,6 +204,7 @@ local function gamepad(t: Live)
 		api("theme", theme)
 		t.settle(20)
 		local tile = find("Skill_nova")
+		textLayout(t, theme)
 		local outline = assert(tile.Parent):FindFirstChild("HexFocusOutline", true)
 		t.check("selected hex outline survives " .. theme, outline ~= nil and t.visible(outline :: GuiObject))
 		t.check("custom focus replaces rectangular glow in " .. theme, tile:FindFirstChild("FacetFocusGlow") == nil)

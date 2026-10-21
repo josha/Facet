@@ -171,7 +171,7 @@ return function(ctx: Context)
 				else color("accent", use)
 		end
 		local body = H.Frame "Gem" {
-			Size = D2.fromOffset(152, 132),
+			Size = D2.fromOffset(180, 156),
 			Position = D2.fromScale(0.5, 0.5),
 			AnchorPoint = V2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
@@ -185,36 +185,23 @@ return function(ctx: Context)
 					return (0.3 + 0.7 * use(enter)) * (1 + 0.045 * use(emphasis))
 				end,
 			},
-			art.hex(ctx, "Edge", 152, function(use: Use)
+			art.hex(ctx, "Edge", 180, function(use: Use)
 				local strength = if use(selected) then 1 elseif use(status) == "locked" then 0.13 else 0.8
-				return color("surfaceStrong", use):Lerp(ink(use), strength)
+				local edge = color("surfaceStrong", use):Lerp(ink(use), strength)
+				return if use(last) == node.id and not use(reduced)
+					then edge:Lerp(color("contentStrong", use), use(flash) * 0.7)
+					else edge
 			end, 3),
-			art.hex(ctx, "Bevel", 146, function(use: Use)
+			art.hex(ctx, "Bevel", 174, function(use: Use)
 				return color("surface", use):Lerp(ink(use), 0.18)
 			end, 4),
-			art.hex(ctx, "Face", 136, function(use: Use)
+			art.hex(ctx, "Face", 164, function(use: Use)
 				return color("surfaceStrong", use):Lerp(ink(use), if use(status) == "owned" then 0.75 else 0.12)
 			end, 5),
-			C.show(function(use: Use)
-				return use(last) == node.id and use(flash) > 0 and not use(reduced)
-			end, function()
-				return H.Frame "UnlockRing" {
-					Size = D2.fromScale(1, 1),
-					BackgroundTransparency = 1,
-					H.UIScale {
-						Scale = function(use: Use)
-							return 1 + 0.16 * use(flash)
-						end,
-					},
-					art.hex(ctx, "Light", 157, function(use: Use)
-						return color("surfaceStrong", use):Lerp(color("accent", use), use(flash) * 0.75)
-					end, 2),
-				}
-			end),
 			H.Frame "Emblem" {
 				ZIndex = 8,
 				Size = D2.fromOffset(48, 48),
-				Position = D2.fromScale(0.5, 0.31),
+				Position = D2.fromScale(0.5, 0.29),
 				AnchorPoint = V2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				C.show(function(use: Use)
@@ -237,10 +224,11 @@ return function(ctx: Context)
 				text = text(node.id .. "Name"),
 				textRole = "control",
 				textAlign = "center",
-				wrap = true,
+				wrap = false,
+				truncate = "end",
 				AutoLocalize = false,
-				Size = D2.fromOffset(124, 34),
-				Position = D2.new(0.5, 0, 0.55, 0),
+				Size = D2.fromOffset(120, 24),
+				Position = D2.new(0.5, 0, 0, 74),
 				AnchorPoint = V2.new(0.5, 0),
 				ZIndex = 8,
 			},
@@ -256,9 +244,11 @@ return function(ctx: Context)
 				end,
 				textRole = "caption",
 				textAlign = "center",
+				wrap = false,
+				truncate = "end",
 				AutoLocalize = false,
-				Size = D2.fromOffset(120, 20),
-				Position = D2.new(0.5, 0, 0.8, 0),
+				Size = D2.fromOffset(92, 20),
+				Position = D2.new(0.5, 0, 0, 106),
 				AnchorPoint = V2.new(0.5, 0),
 				ZIndex = 8,
 			},
@@ -273,7 +263,7 @@ return function(ctx: Context)
 			label = "",
 			appearance = "utility",
 			BackgroundTransparency = 1,
-			Size = D2.fromOffset(116, 104),
+			Size = D2.fromOffset(136, 120),
 			AnchorPoint = V2.new(0.5, 0.5),
 			Position = D2.fromScale(0.5, 0.5),
 			ZIndex = 10,
@@ -307,7 +297,7 @@ return function(ctx: Context)
 		end)
 		local parent = if node.parent then model.byId[node.parent] else node
 		local root = H.Frame("Node_" .. node.id) {
-			Size = D2.fromOffset(152, 132),
+			Size = D2.fromOffset(180, 156),
 			AnchorPoint = V2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Position = function(use: Use)
