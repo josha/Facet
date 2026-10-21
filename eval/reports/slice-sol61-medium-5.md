@@ -173,3 +173,25 @@ Evidence is in
 `artifacts/facetbench/sol61-preflight/perf-required-boundary-35544/result.json`.
 The injected response tests error handling. It does not reproduce or resolve
 the original 120-second transport timeout.
+
+## Follow-up: quest gamepad entry
+
+A separate disposable copy removed only the author's manual claim-selection
+links. Actual `Gamepad1` D-pad Down input moved from Close into the eligible
+Claim action. Button A claimed the reward, changing Gems from 40 to 45 and
+showing Claimed. D-pad Up returned to Close, and Button A closed the Sheet.
+This was controller-emulator input with recorded native events, not the
+probe's keyboard-arrow approximation. The owned Studio was maximized and
+closed after the check.
+
+The static audit omitted the selectable collection container because it was
+not a button or text box. Verify now includes selectable containers as
+navigation vertices while counting only actions in its action metrics.
+Reanalyzing the same saved quest dump changes reachable actions from one to
+two and accepts the Close-to-collection link. Two other invalid-link findings
+remain. The audit does not model arbitrary selection callbacks; native input
+proves this tested flow.
+
+Evidence is under `artifacts/quest-entry` in the isolated diagnostic worktree:
+`native-controller-evidence.json` and `static-transit-comparison.json`.
+This follow-up does not change the original evaluation scores.
