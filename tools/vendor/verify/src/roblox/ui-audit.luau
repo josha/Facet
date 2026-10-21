@@ -168,6 +168,40 @@ local function round(value: number): number
 	return math.floor(value + 0.5)
 end
 
+local function orderedAbove(roots: { [number]: Root }, elements: { Element }, left: Element, right: Element): boolean
+	if left.root ~= right.root then
+		return (roots[left.root].displayOrder or 0) > (roots[right.root].displayOrder or 0)
+	end
+	if roots[left.root].zIndexBehavior == "Global" then
+		return if left.zIndex ~= right.zIndex then left.zIndex > right.zIndex else left.order > right.order
+	end
+	local leftBranch, rightBranch = { left }, { right }
+	local function parents(branch: { Element })
+		local parent = branch[1].parent
+		while parent do
+			table.insert(branch, 1, elements[parent])
+			parent = elements[parent].parent
+		end
+	end
+	parents(leftBranch)
+	parents(rightBranch)
+	for index = 1, math.min(#leftBranch, #rightBranch) do
+		local a, b = leftBranch[index], rightBranch[index]
+		if a.index ~= b.index then
+			return if a.zIndex ~= b.zIndex then a.zIndex > b.zIndex else a.order > b.order
+		end
+	end
+	return false
+end
+
+local function isAbove(dump: Dump, left: Element, right: Element): boolean
+	local roots: { [number]: Root } = {}
+	for _, root in dump.roots do
+		roots[root.index] = root
+	end
+	return orderedAbove(roots, dump.elements, left, right)
+end
+
 local function analyze(dump: Dump, options: Options?): Report
 	local resolved = resolve(options, dump.screen)
 	local violations: { Violation } = {}
@@ -252,29 +286,17 @@ local function analyze(dump: Dump, options: Options?): Report
 		return false
 	end
 	local function above(left: Element, right: Element): boolean
-		if left.root ~= right.root then
-			return (roots[left.root].displayOrder or 0) > (roots[right.root].displayOrder or 0)
-		end
-		if roots[left.root].zIndexBehavior == "Global" then
-			return if left.zIndex ~= right.zIndex then left.zIndex > right.zIndex else left.order > right.order
-		end
-		local leftBranch, rightBranch = { left }, { right }
-		local function parents(branch: { Element })
-			local parent = branch[1].parent
-			while parent do
-				table.insert(branch, 1, dump.elements[parent])
-				parent = dump.elements[parent].parent
+		return orderedAbove(roots, dump.elements, left, right)
+	end
+	local function canInteract(element: Element): boolean
+		local cursor: Element? = element
+		while cursor do
+			if not cursor.interactable then
+				return false
 			end
+			cursor = if cursor.parent then dump.elements[cursor.parent] else nil
 		end
-		parents(leftBranch)
-		parents(rightBranch)
-		for index = 1, math.min(#leftBranch, #rightBranch) do
-			local a, b = leftBranch[index], rightBranch[index]
-			if a.index ~= b.index then
-				return if a.zIndex ~= b.zIndex then a.zIndex > b.zIndex else a.order > b.order
-			end
-		end
-		return false
+		return true
 	end
 	local backdrops: { [number]: boolean } = {}
 	for _, element in dump.elements do
@@ -283,7 +305,7 @@ local function analyze(dump: Dump, options: Options?): Report
 			shown == nil
 			or not element.interactive
 			or not element.active
-			or not element.interactable
+			or not canInteract(element)
 			or element.selectable
 			or not onScreen(element)
 			or not inside(roots[element.root].rect, shown, EDGE)
@@ -316,7 +338,7 @@ local function analyze(dump: Dump, options: Options?): Report
 		end
 		for index in backdrops do
 			if above(dump.elements[index], element) then
-				if element.interactive and element.interactable and not backdrops[element.index] then
+				if element.interactive and canInteract(element) and not backdrops[element.index] then
 					add(
 						"action-covered",
 						element,
@@ -460,7 +482,7 @@ local function analyze(dump: Dump, options: Options?): Report
 				typeSizes[round(textValue.size)] = true
 			end
 			local overBlack, overWhite = background(element)
-			local inactive = element.interactive and not element.interactable
+			local inactive = element.interactive and not canInteract(element)
 			if overBlack == nil or overWhite == nil then
 				metrics.contrastUnknown += 1
 			elseif not inactive then
@@ -638,7 +660,7 @@ local function analyze(dump: Dump, options: Options?): Report
 			if
 				other == nil
 				and right.interactive
-				and right.interactable
+				and canInteract(right)
 				and not backdrops[right.index]
 				and (right.background.transparency < 1 or (right.image ~= nil and right.image.transparency < 1))
 			then
@@ -684,18 +706,22 @@ local function analyze(dump: Dump, options: Options?): Report
 	if resolved.gamepad then
 		local nodes: { Element } = {}
 		local isNode: { [number]: boolean } = {}
-		for _, element in interactive do
-			if backdrops[element.index] then
+		for _, element in dump.elements do
+			if backdrops[element.index] or visibleRects[element.index] == nil or not onScreen(element) then
 				continue
 			end
-			if element.selectable and element.interactable then
+			if element.selectable and canInteract(element) then
 				table.insert(nodes, element)
 				isNode[element.index] = true
-			elseif element.interactable then
+			elseif element.interactive and canInteract(element) then
 				add("gamepad-unreachable", element, "the control is not selectable", nil)
 			end
 		end
-		metrics.selectable = #nodes
+		for _, node in nodes do
+			if node.interactive then
+				metrics.selectable += 1
+			end
+		end
 		local function groupOf(element: Element): Element?
 			local cursor: Element? = element
 			while cursor ~= nil do
@@ -784,6 +810,9 @@ local function analyze(dump: Dump, options: Options?): Report
 				end
 			end
 			for _, node in nodes do
+				if not node.interactive then
+					continue
+				end
 				if reached[node.index] then
 					metrics.reachable += 1
 				else
@@ -882,4 +911,5 @@ return {
 	analyze = analyze,
 	contrastRatio = ratio,
 	intersect = Dump.intersect,
+	isAbove = isAbove,
 }

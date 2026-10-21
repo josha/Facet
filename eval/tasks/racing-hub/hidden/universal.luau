@@ -187,23 +187,29 @@ end
 
 local function cases(id: string): { Play.Case }
 	local result: { Play.Case } = {}
+	local navigation: Actions.Navigation? = nil
 	local function add(name: string, screen: string?, run: Play.CaseBody)
 		local case: Play.Case = {
 			id = "universal/" .. name,
 			tier = "universal",
 			screen = screen,
 			run = function(qa, context)
+				if navigation == nil and name ~= "hub" then
+					navigation = Actions.captureRoot(qa)
+				end
 				local ok, problem = pcall(function(): boolean
 					run(qa, context)
 					return true
 				end)
 				if not ok then
-					context:defer(function()
-						local recovered, detail = Actions.returnToRoot(qa)
-						Check.that(context, recovered, "cleanup after " .. name .. ": " .. detail)
-						local returned, returnDetail = Actions.returned(qa, query("Shop"), false)
-						Check.that(context, returned, "cleanup restores the hub: " .. returnDetail)
-					end)
+					if navigation ~= nil then
+						context:defer(function()
+							local recovered, detail = Actions.returnToRoot(qa, navigation)
+							Check.that(context, recovered, "cleanup after " .. name .. ": " .. detail)
+							local returned, returnDetail = Actions.returned(qa, query("Shop"), false, navigation)
+							Check.that(context, returned, "cleanup restores the hub: " .. returnDetail)
+						end)
+					end
 					error(problem, 0)
 				end
 			end,
@@ -214,6 +220,9 @@ local function cases(id: string): { Play.Case }
 		qa:admin("manual")
 		qa:admin("system", { system = "hud-dock", command = "pause" })
 		qa:admin("phase", { phase = "Intermission", seconds = 600 })
+		local settled = qa:call("perf", { action = "settle", quiet = 0.1, limit = 20 })
+		Check.that(context, Check.field(settled, "timedOut") == false, "the hub settles before navigation is captured")
+		navigation = Actions.captureRoot(qa)
 		Check.visible(qa, context, query("Shop"), "hub actions are available", 20)
 		Check.that(context, qa:first({ role = "button", exact = "back" }) == nil, "root has no Back action")
 		observe(qa, context, "universal-hub")
@@ -259,13 +268,19 @@ local function cases(id: string): { Play.Case }
 				press(qa, context, "Back")
 				Check.that(context, helpCopy(qa) == first, "Back restores the previous help step")
 				press(qa, context, "Skip")
+				Check.gone(qa, context, { role = "button", exact = "skip" }, "Skip dismisses the tutorial")
+			elseif navigation ~= nil and navigation.root ~= nil then
+				local returned, detail = Actions.returnToRoot(qa, navigation)
+				Check.that(context, returned, "return to the hub: " .. detail)
 			else
 				back(qa, context)
 			end
-			for _, words in { "close", "back", "cancel", "skip" } do
-				Check.gone(qa, context, { role = "button", exact = words }, "the route returns from a child screen")
+			if navigation == nil or navigation.root == nil then
+				for _, words in { "close", "back", "cancel", "skip" } do
+					Check.gone(qa, context, { role = "button", exact = words }, "the route returns from a child screen")
+				end
 			end
-			local returned, detail = Actions.returned(qa, query(name))
+			local returned, detail = Actions.returned(qa, query(name), nil, navigation)
 			Check.that(context, returned, "return to the opener: " .. detail)
 		end)
 	end

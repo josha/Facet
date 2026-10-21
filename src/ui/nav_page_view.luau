@@ -115,13 +115,15 @@ return function(
 			local id = use(spec.selection)
 			assert(byId[id], "PageView.selection must name a declared page")
 			local scale = use(unit)
+			if box.X > 0 then
+				width:set(box.X / math.max(scale, 0.001))
+			end
 			if box.X <= 0 or not use(parent) or not use(available) then
 				wasAvailable = false
 				initialized:set(false)
 				return
 			end
 			local resized = lastWidth ~= box.X
-			width:set(box.X / math.max(scale, 0.001))
 			local canvas = use(canvasSize)
 			local expected = D2.fromOffset(box.X / math.max(scale, 0.001) * #spec.pages, 0).X.Offset * scale
 			if math.abs(canvas.X - expected) > 0.5 then

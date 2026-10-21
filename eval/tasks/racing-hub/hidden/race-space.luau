@@ -69,11 +69,7 @@ local function occluded(dump: Audit.Dump, element: Audit.Element, rect: Audit.Re
 			continue
 		end
 		local root, other = dump.roots[element.root], dump.roots[cover.root]
-		local above = root ~= nil and other ~= nil and other.displayOrder > root.displayOrder
-		if cover.root == element.root then
-			above = cover.zIndex > element.zIndex
-		end
-		if not above then
+		if root == nil or other == nil or not Audit.isAbove(dump, cover, element) then
 			continue
 		end
 		local area = clipped(clipped(cover.rect, cover.clip), cover.scrollClip)

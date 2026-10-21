@@ -170,14 +170,17 @@ local function open(options: HostOptions): Host
 	local buildProblem: string? = nil
 	local launched: Lute.StudioLaunched? = nil
 	local launchProblem: string? = nil
-	local current: { device: string, qa: QA.QA }? = nil
+	local current: { device: string, qa: QA.QA, navigation: Actions.Navigation? }? = nil
 	local playing = false
 	local perf: { [string]: DevicePerf } = {}
 
-	local function probe(qa: QA.QA, fields: { [string]: unknown }): { [string]: unknown }?
+	local function probe(qa: QA.QA, fields: { [string]: unknown }, required: boolean?): { [string]: unknown }?
 		local ok, value = pcall(function(): unknown
 			return qa:call("perf", fields)
 		end)
+		if not ok and required then
+			error(value, 0)
+		end
 		return if ok and type(value) == "table" then value :: { [string]: unknown } else nil
 	end
 
@@ -188,8 +191,13 @@ local function open(options: HostOptions): Host
 		local active = current
 		if active ~= nil and perf[active.device] ~= nil then
 			local record = perf[active.device]
+			if active.navigation == nil then
+				record.returned = false
+				record.returnProblem = "the initial interface did not settle; root navigation was not captured"
+				return false
+			end
 			local ok, returned, detail = pcall(function()
-				return Actions.returnToRoot(active.qa)
+				return Actions.returnToRoot(active.qa, active.navigation)
 			end)
 			record.returned = ok and returned == true
 			record.returnProblem = if record.returned then nil else if ok then detail else tostring(returned)
@@ -391,7 +399,7 @@ local function open(options: HostOptions): Host
 			quiet = if options.performance == false then 0.1 else 1,
 			limit = 20,
 			compareLegacy = options.compareMount == true,
-		})
+		}, true)
 		local record: DevicePerf = { screens = {}, mount = settled }
 		if settled ~= nil and type(settled.seconds) == "number" then
 			record.mountSeconds = settleCalled - playStarted + (settled.seconds :: number)
@@ -402,12 +410,13 @@ local function open(options: HostOptions): Host
 				log("play: " .. device.id .. " mount hit the 20-second settle limit")
 			end
 		end
+		local navigation = if settled ~= nil and settled.timedOut == false then Actions.captureRoot(qa) else nil
 		if options.performance ~= false then
-			record.idle = probe(qa, { action = "idle", seconds = 2 })
+			record.idle = probe(qa, { action = "idle", seconds = 2 }, true)
 		end
 		timings.ready = (timings.ready or 0) + os.clock() - playStarted
 		perf[device.id] = record
-		current = { device = device.id, qa = qa }
+		current = { device = device.id, qa = qa, navigation = navigation }
 		return qa
 	end
 

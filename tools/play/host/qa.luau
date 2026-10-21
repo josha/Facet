@@ -68,6 +68,7 @@ export type QA = {
 	hasText: (self: QA, pattern: string) -> string?,
 	waitText: (self: QA, pattern: string, seconds: number?) -> string?,
 	reveal: (self: QA, query: Query) -> boolean,
+	reachable: (self: QA, query: Query) -> (boolean, string),
 	tap: (self: QA, query: Query) -> (boolean, string),
 	press: (self: QA, key: string) -> (boolean, string),
 	typeText: (self: QA, query: Query, text: string, submit: boolean?) -> (boolean, string),
@@ -294,6 +295,11 @@ local function create(context: Context, device: Devices.Device): QA
 
 	function qa.reveal(self: QA, query: Query): boolean
 		return record(self:call("reveal", { query = query, mode = self.device.mode })).revealed == true
+	end
+
+	function qa.reachable(self: QA, query: Query): (boolean, string)
+		local value = record(self:call("reachable", { query = query }))
+		return value.reachable == true, tostring(value.reason or "the target is not occluded")
 	end
 
 	function qa.tap(self: QA, query: Query): (boolean, string)

@@ -341,6 +341,32 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		verifyHarness:case("native pointer changes keep metric paths aligned with viewing distance", {
+			id = "native_environment::environment: viewing distance, metric scale and overscan::native pointer changes keep metric paths aligned with viewing distance",
+			run = function()
+				for _, options in { {}, { theme = Facet.themes.neutralPackage() } } do
+					local w, env, stop = console(options)
+					local made: { typeof(env.scaled(0)) } = {}
+					local stopScaled = owned(w.runtime, function()
+						table.insert(made, env.scaled("controlSizes.regular.height"))
+					end)
+					local height = made[1]
+					Verify.expect((env.metricScale:peek())):toBe(1.5)
+					local distant = height:peek()
+					local connections = w.engine.census().connections
+					w.input.MouseEnabled = true
+					Verify.expect((env.metricScale:peek())):toBe(1)
+					Verify.expect((height:peek())):toBe(distant / 1.5)
+					w.input.MouseEnabled = false
+					Verify.expect((env.metricScale:peek())):toBe(1.5)
+					Verify.expect((height:peek())):toBe(distant)
+					Verify.expect(w.engine.census().connections):toBe(connections)
+					stopScaled()
+					stop()
+					Verify.expect(w.engine.census().connections):toBe(0)
+				end
+			end,
+		})
 		verifyHarness:case("scaled relative to a type role follows the player's text size like that role", {
 			id = "native_environment::environment: viewing distance, metric scale and overscan::scaled relative to a type role follows the player's text size like that role",
 			run = function()

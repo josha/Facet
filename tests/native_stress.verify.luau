@@ -24,12 +24,13 @@ return function(verifyHarness: Verify.Harness)
 		input.GetFocusedTextBox = function()
 			return nil
 		end
+		local before = engine.census()
 		local UI = Facet.controls(runtime, {
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
 			motionLevel = "none",
 		})
-		return engine, runtime, root, UI, input, gui
+		return engine, runtime, root, UI, input, gui, before
 	end
 
 	local function find(node: any, name: string): any
@@ -113,8 +114,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_stress::native stress invariants::returns all instances and connections to baseline through 200 modal cycles twice",
 			run = function()
 				for replay = 1, 2 do
-					local engine, runtime, root, UI = world()
-					local before = engine.census()
+					local engine, runtime, root, UI, _, _, before = world()
 					local shown = Compose.cell(false)
 					local stop = runtime.mount(function()
 						return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
@@ -144,8 +144,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_stress::native stress invariants::reclaims detached and pooled rows through 100 structural cycles twice",
 			run = function()
 				for replay = 1, 2 do
-					local engine, runtime, root, UI = world()
-					local before = engine.census()
+					local engine, runtime, root, UI, _, _, before = world()
 					local initial = { { id = "a" }, { id = "b" }, { id = "c" } }
 					local source = Compose.cell(initial)
 					local stop, node: any = runtime.mount(function()
@@ -184,8 +183,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for seed = 1, 400 do
 					local rng = random(260720 + seed)
-					local engine, runtime, root, UI = world()
-					local before = engine.census()
+					local engine, runtime, root, UI, _, _, before = world()
 					local rows = {}
 					for index = 1, 80 do
 						rows[index] = { id = index, label = tostring(index) }
@@ -256,8 +254,7 @@ return function(verifyHarness: Verify.Harness)
 						{ "保存", "مرحبا", "Café", "👩‍🚀", "é", "Long translated label with spaces" }
 					for seed = 1, 200 do
 						local rng = random(845101 + seed)
-						local engine, runtime, root, UI = world()
-						local before = engine.census()
+						local engine, runtime, root, UI, _, _, before = world()
 						local text, size, enabled = Compose.cell("Initial"), Compose.cell(16), Compose.cell(true)
 						local activations, field, button = 0, nil, nil
 						local stop, panel: any = runtime.mount(function()
@@ -314,8 +311,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for seed = 1, 200 do
 					local rng = random(917359 + seed)
-					local engine, runtime, root, UI, input, gui = world()
-					local before = engine.census()
+					local engine, runtime, root, UI, input, gui, before = world()
 					local builds, activations, value = 0, 0, Compose.cell(3)
 					local stop, panel: any = runtime.mount(function()
 						builds += 1
@@ -373,16 +369,16 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("disposes with pending changes, twice, and from inside a change notification", {
 			id = "native_stress::native stress invariants::disposes with pending changes, twice, and from inside a change notification",
 			run = function()
-				local engine, runtime, root, UI = world()
-				local before = engine.census()
+				local engine, runtime, root, UI, _, _, before = world()
 				local text = Compose.cell("hello")
+				local factory = engine.census()
 				local stop = runtime.mount(function()
 					return UI.Text "Text" { text = text }
 				end, root)
 				text:set("dirty now")
 				stop()
 				stop()
-				sameCensus(engine, before, "dispose with a pending change, then again")
+				sameCensus(engine, factory, "dispose with a pending change, then again")
 				local flag = Compose.cell(false)
 				local disposed = 0
 				local stopNotify, panel: any = runtime.mount(function()
@@ -409,8 +405,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("keeps the top modal active and selected when a covered modal dismisses, 50 times", {
 			id = "native_stress::native stress invariants::keeps the top modal active and selected when a covered modal dismisses, 50 times",
 			run = function()
-				local engine, runtime, root, UI, _, gui = world()
-				local before = engine.census()
+				local engine, runtime, root, UI, _, gui, before = world()
 				local sheet, alert = Compose.cell(false), Compose.cell(false)
 				local stop = runtime.mount(function()
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({

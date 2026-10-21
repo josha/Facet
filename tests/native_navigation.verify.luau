@@ -1276,6 +1276,30 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("PageView measures pages while its ancestor blocks input for presentation", function()
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame "PreparingPage" {
+					Interactable = false,
+					UI.PageView {
+						selection = Compose.cell("one"),
+						pages = {
+							{ id = "one", label = "One", content = Host.Frame "FirstBody" {} },
+							{ id = "two", label = "Two", content = Host.Frame "SecondBody" {} },
+						},
+					},
+				}
+			end)
+			local pages = find(world.screen, "Pages")
+			pages.AbsoluteWindowSize = world.engine.types.Vector2.new(320, 160)
+			local row = find(pages, "Items"):FindFirstChild("one")
+			Verify.expect(row.Size.X.Offset):toBe(320)
+			Verify.expect(find(world.screen, "PreparingPage").Interactable):toBe(false)
+			pages.AbsoluteWindowSize = world.engine.types.Vector2.new(480, 160)
+			Verify.expect(row.Size.X.Offset):toBe(480)
+			world.stop()
+			Verify.expect(world.engine.census().connections):toBe(0)
+		end)
+
 		verifyHarness:case("hugs its tallest page and centres the footer under it when its height is automatic", {
 			id = "native_navigation::native navigation controls::hugs its tallest page and centres the footer under it when its height is automatic",
 			run = function()

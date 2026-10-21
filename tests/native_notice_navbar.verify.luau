@@ -24,7 +24,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_notice_navbar::native NavBar overflow::publishes a deferred affixed reservation on the configured native frame",
 			run = function()
 				local engine = engineLib.new()
-				local frames = engineLib.new().heartbeat
+				local frameEngine = engineLib.new()
+				local frames = frameEngine.heartbeat
 				local host = Facet.Roblox.createHost(engine)
 				local observation = assert(host.observation)
 				local observe = observation.observeProperty
@@ -51,7 +52,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(screen:GetAttribute("FacetInsetTop")):toBe(96)
 				stop()
 				runtime:dispose()
-				Verify.expect(engineLib.connections(frames)):toBe(0)
+				Verify.expect(frameEngine.census().connections):toBe(0)
 			end,
 		})
 		verifyHarness:case("sizes the wrapped filter viewport from its native list instead of the automatic canvas", {

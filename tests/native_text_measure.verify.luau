@@ -261,6 +261,67 @@ return function(harness: Verify.Harness)
 		runtime:dispose()
 		t:expect(engine.census().connections):toBe(0)
 	end)
+	harness:case("wrapped text and width share a frame before publishing a height floor", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local words = Facet.Compose.cell("Small")
+		local size = Facet.Compose.cell(engine.types.Vector2.new(80, 18))
+		local observe = runtime.observe
+		runtime.observe = function(node, property, options)
+			if (node :: Instance).Name == "Wallet" then
+				if property == "Text" then
+					return words
+				elseif property == "AbsoluteSize" then
+					return size
+				end
+			end
+			return observe(node, property, options)
+		end
+		local service = {
+			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
+				local width = if params.Text == "Small" then 80 else 96
+				return engine.types.Vector2.new(width, if params.Width > 0 and params.Width < width then 40 else 18)
+			end,
+		}
+		local ctx = context(
+			Facet.Compose,
+			runtime,
+			{
+				types = engine.types,
+				services = { TextService = (service :: unknown) :: TextService },
+			} :: Shared.Config
+		)
+		local label: TextLabel? = nil
+		local stop = runtime.mount(function()
+			local node = ctx.text {
+				Name = "Wallet",
+				Text = "Small",
+				TextWrapped = true,
+				AutomaticSize = engine.types.Enum.AutomaticSize.XY,
+			}
+			label = node
+			return node
+		end, engine.new("ScreenGui"))
+		local node = assert(label)
+		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
+		local tall = 0
+		engine.onWrite(function(target, property, value)
+			if target == floor and property == "MinSize" and value.Y == 40 then
+				tall += 1
+			end
+		end)
+		node.Text = "Larger"
+		t:expect(floor.MinSize.Y):toBe(18)
+		runtime:batch(function()
+			words:set("Larger")
+			size:set(engine.types.Vector2.new(96, 18))
+		end)
+		t:expect(tall):toBe(0)
+		t:expect(floor.MinSize.Y):toBe(18)
+		stop()
+		runtime:dispose()
+		t:expect(engine.census().connections):toBe(0)
+	end)
 	harness:case("text readiness retains every outstanding measurement", function(t)
 		local engine = engineLib.new()
 		local label = engine.new("TextLabel")

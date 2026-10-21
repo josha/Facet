@@ -75,8 +75,9 @@ Use `project [directory]` for file discovery. Read one matching starter in
   durable row state in the model. The server owns game state and validates
   requests. Show the result that the server returns.
 - The theme owns paint, type, spacing and motion. Turn the art direction of
-  the brief into a theme with `Tasks.theme`: palette roles, one font, plates
-  that stay visible over the scene and at most a stroke on the outer panel.
+  the brief into a theme with `Tasks.theme`: palette roles, readable type and
+  surfaces that stay visible over the scene. Use quiet boundaries to group
+  items and stronger emphasis for the current action or selection.
   Use `textRole`, `appearance`, `gap` and `padding` tokens. Give a padding
   table a type first: `local inset: Facet.Sides = { top = "xl" }`. Use `wrap = true` for long text in
   a stack with `width = "fill"`. Do not set `TextScaled`.
@@ -88,9 +89,10 @@ Use `project [directory]` for file discovery. Read one matching starter in
   A root Composition keeps its zones inside the TV safe area; do not offset a
   zone by hand.
   Add a type role, `scaled(64, "body")`, when the length sits beside text.
-- Use `Tasks.hud` for HUD actions: a row of captioned circles and a readout
-  panel in `topRight` regions of one Composition. Do not make another
-  ScreenGui for the HUD. Open `HUD-actions` for sizing and selection.
+- Use `Tasks.hud` as a starting point. Choose zones from the game's sight lines
+  and controls. Captioned circles suit recognizable icons; labeled buttons
+  suit commands that need words. Keep navigation and readouts distinct in one
+  Composition. Open `HUD-actions` for sizing and selection.
 - Give each region forms from the richest to the narrowest. The narrowest
   form must fit a portrait phone, about 320 pixels wide. For example, a row of
   buttons, then the main button over the others, then one column. Let the
