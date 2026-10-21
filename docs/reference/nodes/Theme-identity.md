@@ -31,8 +31,9 @@ Turn the art direction of a game into a theme that reads over its world.
   harder to scan and hides the game world. Use a content-sized Sheet for a
   short offer; use a bounded viewport when the player needs to browse a large
   collection. See [Sheet.detents](Sheet.detents.md).
-- Stroke at most the outer frame of a large panel, such as a Sheet. A stroke
-  on every card or panel inside it reads as noise.
+- Use quiet boundaries when they help separate items from their container.
+  Reserve strong outlines for the current selection or action; equal bright
+  strokes on every nested panel erase that hierarchy.
 - `rules` add native StyleSheet rules. `{ role = "accent" }` and
   `{ metric = "..." }` follow palette and distance changes.
 - Check `report` before you pass the package to the app.

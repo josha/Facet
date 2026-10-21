@@ -1,12 +1,14 @@
 # HUD-actions
 
-Keep HUD actions in one horizontal selection row at the top-right safe edge.
+Group related HUD actions and protect the game view.
 
-Use the row in [Tasks.hud](Tasks.hud.md). Each action is a circle `Button` with
-an icon and a `caption`. Put the row and the readouts in `topRight` regions of
-one Composition: the row first, the readouts below it. The Composition keeps
-both inside the core UI safe area and the TV safe area, so the row never sits
-under the Roblox top bar. Do not make a second ScreenGui for the HUD.
+The example in [Tasks.hud](Tasks.hud.md) uses circle Buttons with icon captions
+and readouts in `topRight` regions of one Composition. This is one arrangement.
+Choose zones from the player's task and the sight lines that must stay clear.
+Use labeled Buttons when an icon would be ambiguous. Keep related navigation
+in one selection group and distinguish it from passive readouts.
+Composition protects core UI and TV safe areas. Do not make a second
+ScreenGui for the HUD.
 
 ## Size and position
 

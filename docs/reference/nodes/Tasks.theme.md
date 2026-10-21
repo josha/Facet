@@ -40,23 +40,6 @@ local definition: Facet.ThemeDefinition = {
 local theme, report = Facet.themes.define(definition)
 assert(report.ok and theme, "Invalid game theme")
 local app = Facet.app({ name = "Game", theme = theme })
-local UI = app.UI
-
-app.mount(function()
-  return UI.Screen "Root" {
-    UI.VStack "Card" { surface = "panel", padding = "l", gap = "m",
-      UI.Text "Context" { text = "NEXT RACE", textRole = "caption", role = "secondary" },
-      UI.Text "Title" { text = "Ready to race", textRole = "title" },
-      UI.Text "Detail" { text = "Your selected kart is equipped.", textRole = "body" },
-      UI.Button "Play" { label = "Play", appearance = "emphasis" },
-    },
-  }
-end)
 ```
-
-This example keeps bold headings and numbers, uses semibold item labels and
-keeps body text regular. Its size roles separate context, title and detail. Keep that
-hierarchy when you change the palette. Test a price, countdown, long item
-name and disabled action together before applying a display font to every role.
 
 Next: [Theme-identity](Theme-identity.md), [Themes.tokens](Themes.tokens.md).
