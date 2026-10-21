@@ -1393,6 +1393,11 @@ add("feedback-motion-is-paint-only", {}, function(t)
 		t.note("caret turn", { samples = #turns, final = caret.Rotation })
 		t.check("the caret turns", #turns > 1, #turns)
 		t.check("the caret turn moves no header text and resizes nothing above", stopHeader() == 0)
+		local deadline = os.clock() + 2
+		while caret.Rotation ~= 0 and os.clock() < deadline do
+			t.settle(1)
+		end
+		t.check("the expanded disclosure reaches its resting angle", caret.Rotation == 0, caret.Rotation)
 	end
 	t.settle(20)
 	local stopIdle = churnWatch(stage, {

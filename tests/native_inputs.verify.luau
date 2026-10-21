@@ -1019,17 +1019,22 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_inputs::native input controls::keeps pop and rejection scales below stable layout slots",
 			run = function()
 				local invalid = Compose.cell(false)
+				local gui: GuiService
 				local node, stop, engine = world(function(UI: FacetControls, engine, runtime)
 					local Host = runtime.constructors
 					return Host.Frame {
 						UI.Button "Pop" { label = "Pop", pop = true, onActivate = function() end } :: unknown,
 						UI.TextInput "Field" { value = Compose.cell("abc"), invalid = invalid },
 					}
+				end, function(engine)
+					gui = engine.new("GuiService")
+					return { services = { GuiService = gui } }
 				end)
 				local button, field = find(node, "Pop"), find(node, "Field")
 				button.AbsoluteSize = engine.types.Vector2.new(80, 44)
 				field.AbsoluteSize = engine.types.Vector2.new(120, 44)
 				local beforeButton, beforeField = button.Size, field.Size
+				gui.SelectedObject = button
 				button.Activated:Fire()
 				invalid:set(true)
 				engine.heartbeat:Fire(0.08)
@@ -1039,7 +1044,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(field, "FeedbackPaint"):FindFirstChild("ValidationPulse").Scale < 1):toBe(true)
 				Verify.expect(button.Size):toBe(engine.types.UDim2.fromOffset(80, 44))
 				Verify.expect(field.Size):toBe(engine.types.UDim2.fromOffset(120, 44))
+				gui.SelectedObject = nil
 				engine.heartbeat:Fire(1)
+				Verify.expect(gui.SelectedObject):toBe(nil)
 				Verify.expect(button.Size):toBe(beforeButton)
 				Verify.expect(field.Size):toBe(beforeField)
 				stop()

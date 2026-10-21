@@ -39,14 +39,22 @@ add("stage-draft-preview", {}, function(t)
 end)
 
 add("card-list-lift-keeps-layout-stable", {}, function(t)
+	local width = t.Facet.Compose.cell(420)
+	local caption = t.Facet.Compose.cell("Fast coastal circuit")
+	local votes = 0
 	local stage = t.mount(function(UI)
 		return UI.VStack "TrackVotes" {
-			width = 420,
+			width = width,
 			gap = "m",
 			UI.Card "Harbor" {
 				title = "Harbor Sprint",
-				caption = "Fast coastal circuit",
-				primaryAction = { label = "Vote Harbor", onActivate = function() end },
+				caption = caption,
+				primaryAction = {
+					label = "Vote Harbor",
+					onActivate = function()
+						votes += 1
+					end,
+				},
 			},
 			UI.Card "Midnight" {
 				title = "Midnight Circuit",
@@ -66,10 +74,61 @@ add("card-list-lift-keeps-layout-stable", {}, function(t)
 	t.note("neighbor before and after lift", { before = neighborBefore, after = neighborAfter })
 	t.near("lift preserves the horizontal center", after.x + after.w / 2, before.x + before.w / 2, 0.5)
 	t.near("lift preserves the vertical center", after.y + after.h / 2, before.y + before.h / 2, 0.5)
-	t.near("lift does not move the next card", neighborAfter.y, neighborBefore.y, 0.5)
+	t.near("lift does not move the next card beyond native pixel rounding", neighborAfter.y, neighborBefore.y, 1)
+	local paint = card:FindFirstChild("FeedbackPaint", true) or card
+	local visual = t.rect(paint)
+	t.check("engagement still visually enlarges the card", visual.w > before.w + 1)
+	t.near("lifted paint stays centered horizontally", visual.x + visual.w / 2, before.x + before.w / 2, 0.5)
+	t.near("lifted paint stays centered vertically", visual.y + visual.h / 2, before.y + before.h / 2, 0.5)
+	width:set(320)
+	t.settle(60)
+	t.near("engaged card follows a narrower parent", t.rect(card).w, 320, 0.5)
+	local compact = t.rect(card)
+	caption:set(string.rep("Fast coastal circuit with tight corners. ", 8))
+	t.settle(60)
+	t.check("engaged card grows for longer content", t.rect(card).h > compact.h + 10)
+	caption:set("Fast coastal circuit")
+	t.settle(60)
+	t.near("engaged card shrinks when content returns", t.rect(card).h, compact.h, 1)
 	GuiService.SelectedObject = nil
 	t.settle(60)
-	t.near("card width returns after leaving", t.rect(card).w, before.w, 0.5)
+	t.near("card keeps the new width after leaving", t.rect(card).w, 320, 0.5)
+	local virtual = UserInputService:CreateVirtualInput()
+	local inset = GuiService:GetGuiInset()
+	local body = t.find(card, "Body")
+	local rested, nextRested = t.rect(card), t.rect(neighbor)
+	local displacement = 0
+	local watch = game:GetService("RunService").PreRender:Connect(function()
+		displacement = math.max(displacement, math.abs(neighbor.AbsolutePosition.Y - nextRested.y))
+	end)
+	virtual:SendMousePosition(body.AbsolutePosition + body.AbsoluteSize / 2 + inset)
+	t.settle(60)
+	t.check("native pointer hover engages the card", card:GetAttribute("FacetHovered") == true)
+	t.near("hover keeps the layout width", t.rect(card).w, rested.w, 1)
+	t.near("hover keeps the next card in place", t.rect(neighbor).y, nextRested.y, 1)
+	local primary = t.find(card, "Primary")
+	local target = primary.AbsolutePosition + primary.AbsoluteSize / 2 + inset
+	virtual:SendMousePosition(target)
+	virtual:SendMouseButton(target, Enum.UserInputType.MouseButton1, true)
+	t.settle(2)
+	virtual:SendMouseButton(target, Enum.UserInputType.MouseButton1, false)
+	t.settle(8)
+	t.check("lifted primary action accepts one native click", votes == 1, votes)
+	virtual:SendMousePosition(Vector2.new(800, 550) + inset)
+	t.settle(60)
+	watch:Disconnect()
+	t.check("hover animation keeps neighboring layout stable", displacement <= 1, displacement)
+	t.check("native pointer exit releases hover", card:GetAttribute("FacetHovered") == false)
+	t.note("card after pointer exit", {
+		selected = if GuiService.SelectedObject then GuiService.SelectedObject:GetFullName() else "none",
+		engaged = card:GetAttribute("FacetEngaged"),
+		focused = card:GetAttribute("FacetFocusWithin"),
+		lifting = card:GetAttribute("FacetLifting"),
+	})
+	GuiService.SelectedObject = nil
+	t.settle(60)
+	t.check("card leaves engagement after focus clears", card:GetAttribute("FacetEngaged") == false)
+	t.check("idle card releases its temporary paint layer", card:FindFirstChild("FeedbackLayer", true) == nil)
 end)
 
 local function interactive(
