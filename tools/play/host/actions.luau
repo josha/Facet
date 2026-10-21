@@ -4,6 +4,43 @@ local QA = require("./qa")
 
 local returns = { "close", "back", "cancel", "skip", "return" }
 
+export type Navigation = { root: QA.Query?, reserved: { [string]: boolean } }
+
+local function semanticRoot(qa: QA.QA, words: { string }): QA.Query?
+	for _, word in words do
+		local query: QA.Query = { role = "button", pattern = "%f[%a]" .. word .. "%s*$" }
+		local found = qa:first(query)
+		if found ~= nil then
+			return { role = "button", exact = found.label }
+		end
+	end
+	return nil
+end
+
+local function captureRoot(qa: QA.QA): Navigation
+	local reserved: { [string]: boolean } = {}
+	for _, word in { "Close", "Back", "Cancel", "Skip", "Return", "×" } do
+		if qa:first({ role = "button", exact = word }) ~= nil then
+			reserved[string.lower(word)] = true
+		end
+	end
+	return { root = semanticRoot(qa, { "home", "overview" }), reserved = reserved }
+end
+
+local function available(qa: QA.QA, query: QA.Query): (boolean, string)
+	if not qa:reveal(query) then
+		return false, "the navigation action cannot be revealed"
+	end
+	local reachable, detail = qa:reachable(query)
+	if not reachable then
+		return false, detail
+	end
+	if qa.device.mode == "gamepad" then
+		return qa:gamepadSelect(query)
+	end
+	return true, detail
+end
+
 local function prepareInput(qa: QA.QA): (boolean, string)
 	if qa.device.mode ~= "gamepad" then
 		return true, "no gamepad preparation needed"
@@ -111,40 +148,55 @@ local function tap(qa: QA.QA, query: QA.Query): (boolean, string)
 	return false, "the overflow action did not open a panel"
 end
 
-local function returned(qa: QA.QA, query: QA.Query, requireFocus: boolean?): (boolean, string)
-	if not root(qa) then
+local function returned(qa: QA.QA, query: QA.Query, requireFocus: boolean?, navigation: Navigation?): (boolean, string)
+	local persistent = navigation ~= nil and navigation.root ~= nil
+	if not persistent and not root(qa) then
 		return false, "the route is still on a child screen"
 	end
 	local opener = query
-	if qa:first(query) == nil then
+	if qa:first(query) == nil and not (persistent and qa:reveal(query)) then
 		local menu = overflow(qa)
 		if menu == nil then
 			return false, "the action has no visible opener or overflow route"
 		end
 		opener = menu
 	end
-	if qa.device.mode == "gamepad" and requireFocus ~= false then
+	if not persistent and qa.device.mode == "gamepad" and requireFocus ~= false then
 		if not focused(qa, opener) then
 			return false, "selection did not return to the hub opener"
 		end
 	end
 	if opener == query then
+		if persistent then
+			return available(qa, query)
+		end
 		return qa:reveal(query), "the direct opener is reachable"
 	end
 	if not reveal(qa, query) then
 		return false, "the action is missing from the overflow menu"
 	end
-	if qa.device.mode == "gamepad" then
+	if persistent then
+		local reachable, detail = available(qa, query)
+		if not reachable then
+			return false, detail
+		end
+	elseif qa.device.mode == "gamepad" then
 		local reachable, detail = qa:gamepadSelect(query)
 		if not reachable then
 			return false, detail
 		end
 	end
+	if navigation ~= nil and navigation.root ~= nil and navigation.reserved.close then
+		return false, "the menu return label is shared with the initial root; recovery is ambiguous"
+	end
 	local closed = if qa.device.mode == "gamepad"
 		then qa:press("Backspace")
 		else qa:tap({ role = "button", exact = "close" })
-	if not closed or not root(qa) or qa:first(opener) == nil then
+	if not closed or (not persistent and not root(qa)) or qa:first(opener) == nil then
 		return false, "the overflow menu traps the player"
+	end
+	if persistent then
+		return available(qa, opener)
 	end
 	if qa.device.mode == "gamepad" and requireFocus ~= false then
 		if not focused(qa, opener) then
@@ -154,17 +206,50 @@ local function returned(qa: QA.QA, query: QA.Query, requireFocus: boolean?): (bo
 	return true, "the action is reachable again through overflow"
 end
 
-local function returnToRoot(qa: QA.QA): (boolean, string)
+local function returnToRoot(qa: QA.QA, navigation: Navigation?): (boolean, string)
 	for _ = 1, 8 do
+		if navigation ~= nil and navigation.root ~= nil then
+			local initial = navigation.root
+			local target: QA.Query? = navigation.root
+			local ready = available(qa, initial)
+			if not ready and qa:first(initial) == nil then
+				target = semanticRoot(qa, { "hub" })
+				ready = target ~= nil and available(qa, target)
+			end
+			if target ~= nil and ready then
+				local activated = qa:tap(target)
+				if activated then
+					local settled = qa:call("perf", { action = "settle", quiet = 0.1, limit = 20 })
+					if type(settled) ~= "table" or (settled :: { [string]: unknown }).timedOut ~= false then
+						return false, "root navigation did not settle"
+					end
+					if target ~= navigation.root then
+						continue
+					end
+					return available(qa, navigation.root)
+				end
+			end
+		end
 		local query: QA.Query? = nil
+		local reserved = false
 		for _, word in { "Close", "Back", "Cancel", "Skip", "Return", "×" } do
 			local candidate: QA.Query = { exact = word, role = "button" }
 			if qa:first(candidate) ~= nil then
+				if navigation ~= nil and navigation.reserved[string.lower(word)] then
+					reserved = true
+					continue
+				end
 				query = candidate
 				break
 			end
 		end
 		if query == nil then
+			if reserved then
+				return false, "a return label is shared with the initial root; recovery is ambiguous"
+			end
+			if navigation ~= nil and navigation.root ~= nil then
+				return false, "the captured root navigation is not reachable"
+			end
 			return true, "return controls are absent"
 		end
 		local activated, detail
@@ -185,6 +270,7 @@ local function returnToRoot(qa: QA.QA): (boolean, string)
 end
 
 return {
+	captureRoot = captureRoot,
 	prepareInput = prepareInput,
 	reveal = reveal,
 	tap = tap,
