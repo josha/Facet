@@ -129,3 +129,69 @@ purchase flows, replace the original forfeits, or repair the failed host
 run. These screenshot judgments do not prove transaction behavior or general
 library quality. This fifth pair does not establish the full or extended
 suite goals.
+
+## Follow-up: outgoing Sheet input
+
+A disposable copy of the Facet workspace removed the four authored `C.show`
+wrappers to test persistent Sheets. The saved evaluation workspace and scores
+were not changed. Studio was maximized.
+
+The default Shop-to-Close preview completed in 0.1254 seconds. The outgoing
+modal remained parented with `Interactable = false`. Its dismissal button
+still had `Interactable = true` and appeared first in native hit-test results.
+An immediate native click activated Boosts once and the dismissal button zero
+times. The old modal was still parented after that click. The reported
+`action-covered` finding therefore did not describe native input blocking.
+
+The probe now checks ancestor interactivity when classifying a blocker. With
+the exact patched probe loaded in a fresh play session, an open modal still
+blocked Boosts. Close followed by Boosts succeeded with no added wait or change
+to settlement policy. The follow-up does not establish a new paired score or
+measure a reduction in author time.
+
+Native traces are in the isolated diagnostic worktree under
+`artifacts/sheet-short-settle/native-hit-and-census.json` and
+`artifacts/sheet-short-settle/native-patch-and-plateau.json`.
+
+In that modified workspace, visiting four routes increased native StyleRules
+from 29 to 59 and retained four disabled activation contexts. GUI class counts
+returned to their initial values. Counts stayed constant over a further
+12.2 seconds. Removing the authored wrappers changes ownership, so these
+counts do not attribute the original pair's memory difference. They establish
+a bounded retention lead, not a leak or a measured memory improvement.
+
+## Follow-up: setup failure propagation
+
+Required mount and idle probes now propagate their original error into the
+host's existing device-failure handling. A native integration check injected
+one failed response at the public session boundary. The first entry preserved
+the exact error; a second entry was blocked with no additional execute call.
+No idle or scene probe ran after the injected failure. A separate normal
+native run completed mount, idle and scene sampling. Both owned Studios closed.
+
+Evidence is in
+`artifacts/facetbench/sol61-preflight/perf-required-boundary-35544/result.json`.
+The injected response tests error handling. It does not reproduce or resolve
+the original 120-second transport timeout.
+
+## Follow-up: quest gamepad entry
+
+A separate disposable copy removed only the author's manual claim-selection
+links. Actual `Gamepad1` D-pad Down input moved from Close into the eligible
+Claim action. Button A claimed the reward, changing Gems from 40 to 45 and
+showing Claimed. D-pad Up returned to Close, and Button A closed the Sheet.
+This was controller-emulator input with recorded native events, not the
+probe's keyboard-arrow approximation. The owned Studio was maximized and
+closed after the check.
+
+The static audit omitted the selectable collection container because it was
+not a button or text box. Verify now includes selectable containers as
+navigation vertices while counting only actions in its action metrics.
+Reanalyzing the same saved quest dump changes reachable actions from one to
+two and accepts the Close-to-collection link. Two other invalid-link findings
+remain. The audit does not model arbitrary selection callbacks; native input
+proves this tested flow.
+
+Evidence is under `artifacts/quest-entry` in the isolated diagnostic worktree:
+`native-controller-evidence.json` and `static-transit-comparison.json`.
+This follow-up does not change the original evaluation scores.

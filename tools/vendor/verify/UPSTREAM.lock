@@ -1,11 +1,11 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "329434a482be372a47f4ae9adde4ff7b5bb7681c",
+  "commit": "66e86ca14218be7e9ed25822d4d812b0c52453d7",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "2e08694bef737336852a6331bc12685fd83477cb9277abc8cd5561b418f13c61",
     "docs/README.md": "2073c2d92a65a8ca1e5beb439abc17ef574f6634861ba621fbc8472eb785179b",
-    "docs/agent-eval.md": "eaaffbb5a283bf5ca9820d1b7a715d6780f9302cf74d955040e1eb79cc691af5",
+    "docs/agent-eval.md": "814541d57de92af5089916465e81c68674de6a4a88915d01205b63dd96f5aa26",
     "docs/api.md": "1a4590a523e5d45bab436563e3cdedd0b1827d54a69af91ad35b2a5e729efb04",
     "docs/execution.md": "06e627efc308979c3c45531e8118b85dde0124ad64ddf39ed5e318b20cb3bb7c",
     "docs/experience.md": "219dbf3e21a966278080c896b9bb83e146a0c04a3c9e91d215602a0663b8d9dd",
@@ -147,7 +147,7 @@
     "src/roblox/scheduler.luau": "5f9f6a4a632bb84b276bb1a84977fad81f388e07c39128ff6c466276717c9cd2",
     "src/roblox/ui-audit-collect.luau": "3e8c3be7b01a3642deca81bdb6739ce18198b493f0bfb5dfece52f1770e1d680",
     "src/roblox/ui-audit-dump.luau": "ffa12f448e7d319f8209c840dd7371438056d569f9db5daa20fe26a46f768bf3",
-    "src/roblox/ui-audit.luau": "479e4a77ceb531220933dadada6dc5f96158cf67ac2f75185eb5f36f37942c96",
+    "src/roblox/ui-audit.luau": "f042bb1129cd482e434f68826b7d7587179c4e81d9bc039fe1d50ca8e44c7ec5",
     "src/roblox/ui-fakes.luau": "ba46c035ce20a4bb96beea7dba5c1c98555d5daa5df8fb06e5880ce298e3c8f2",
     "tools/agent-eval.luau": "31a4f5152818e509624c2defaf77cf56dea3d3774749b940876420edbcd1174e",
     "tools/export-studio-probes.luau": "785084148033733ccecd22f40951760c8d8392edbf3941267b5e8a37fc911fc4",
