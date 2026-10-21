@@ -1768,6 +1768,25 @@ handlers.preview = function(request: Request): unknown
 			tapped.reason = "gamepad navigation did not settle on the target"
 		end
 	else
+		if query.role == nil and query.index == nil then
+			local aggregate = resolve(wide)
+			if
+				aggregate ~= nil
+				and not aggregate.object:IsA("GuiButton")
+				and not aggregate.object:IsA("TextBox")
+				and ownText(aggregate.object) == nil
+			then
+				local buttons = table.clone(wide)
+				buttons.role = "button"
+				local button = resolve(buttons)
+				if button ~= nil and button.object:IsDescendantOf(aggregate.object) then
+					query = table.clone(query)
+					query.role = "button"
+					request = table.clone(request)
+					request.query = query
+				end
+			end
+		end
 		if reveal(query, if request.mode == "touch" then "touch" else "wheel").revealed then
 			tapped = handlers.tap(request) :: { [string]: unknown }
 		else

@@ -36,8 +36,9 @@ tap, capture, type check, build, or high or medium audit finding gives exit code
 the centre of its visible rectangle. Text in a SurfaceGui or BillboardGui is
 not a tap target. When more than one element matches, it taps the one nearest
 the top of the screen, then the one nearest the left edge. Give each action its
-own visible name. A text inside a Button, such as its `caption`, taps the
-Button that holds it.
+own visible name. A matching button takes priority over a selectable container
+that only collects its children's text. A text inside a Button, such as its
+`caption`, taps the Button that holds it.
 
 Each tap waits for stable layout before capture. Use `--wait SECONDS` to set
 an explicit delay after each tap.
