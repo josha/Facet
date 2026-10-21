@@ -1,48 +1,24 @@
 # Headline report
 
-For the historical Claude paired slice measurement, with a reused Plain run
-and a fresh Facet run, see the [slice report](reports/slice.md). The
-[first fresh Sol pair](reports/slice-sol61-medium.md) passed required Facet
-behavior but failed the efficiency and memory goals. A separate Sol judge
-preferred Facet overall, while Plain won polish. The Claude judge reached its
-quota. This pair does not prove the overhead bounds below.
-The [second attempt](reports/slice-sol61-medium-2.md) ended with a Facet author
-capacity error. Its missing usage and incorrect adapter success status prevent
-an efficiency claim. Native checks still found memory limits unmet and changes
-in frame pacing that need separate timing validation.
-The [third fresh pair](reports/slice-sol61-medium-3.md) completed both authors.
-Facet passed 13/13 universal checks versus Plain's 1/13, but used 4.568 times
-the tokens and 3.062 times the author wall time. Diagnostic coverage and
-memory limits remain unmet; frame samples measure cadence. The completed blind
-judge preferred Plain on both devices in both image orders, including all
-four polish judgments. Required-check success does not establish the headline
-goals or a visual-quality win for this pair.
-The [fourth fresh pair](reports/slice-sol61-medium-4.md) again passed 13/13
-Facet universal checks versus Plain's 1/13. Facet used 1.426 times the tokens
-and 1.084 times the author wall time. The ratios narrowed as Facet's run
-shortened and Plain's grew; this does not isolate a causal improvement.
-Efficiency and memory goals remain unmet, and the diagnostic Plain phone
-return has missing final memory. Plain again won both blind comparisons in
-both image orders, including all four polish judgments; Facet retained
-fitness strengths without an overall visual-quality win for this pair.
-The [fifth fresh pair](reports/slice-sol61-medium-5.md) passed 13/13 Facet
-universal and 40/49 diagnostic checks, but Plain's required universal run
-failed with a closed Studio MCP connection and has missing universal scores.
-Facet used 1.995 times the tokens and 1.380 times the author wall time.
-The standard judge's two forfeits involved no blind model call. A separate,
-reduced hub-and-shop comparison preferred Plain on desktop and Facet on phone
-in both orders, with Facet winning all four polish judgments. It cannot
-replace the failed host evidence or establish the headline goals.
-To diagnose a saved Sol workspace, repeat its hidden checks without invoking
-an agent:
-`lute run tools/vendor/verify/tools/agent-eval.luau run --suite eval/slice.json --checks-only --parallel 1`.
-Verify archives the previous check evidence and preserves agent metrics,
-transcripts, timestamps and build files. To generate its headline, use
-`lute run eval/tools/report.luau artifacts/facetbench/slice-sol61-medium --suite eval/slice.json`.
-These commands use the current Sol suite, not the historical Claude workspaces.
-Rechecking cannot measure author efficiency improvements. The first Sol pair's
-recorded turn-event gaps are not model latency evidence; see its report before
-interpreting timing percentiles. Run both arms fresh after shared fixes.
+The latest reports are the [Opus slice](reports/slice.md) and
+[Sol 6.1 Medium slice](reports/slice-sol61-medium-6.md).
+
+The Opus measurement passed Facet's universal checks on both devices and used
+fewer tokens than Plain, but took more author time. The blind judge preferred
+Plain on both devices. Retained-memory evidence is incomplete. Its Plain run
+was reused; its Facet run was fresh. See the report for the measured scope.
+
+The latest Sol pair failed the headline rules. Facet passed 9/13 universal
+cases and 33/49 spec cases, against Plain's 1/13 and 31/49. Both runs failed
+the required tier. Facet used 4.02 times the total tokens and 1.89 times the
+author time. The separate Sol 6.1 Medium blind judge preferred Plain on desktop
+and Facet on phone, with no forfeits. Memory exceeded the requested bound;
+concurrent workloads also limit time, frame and memory comparisons. This
+one-task slice does not establish the full corpus claim. Both final Sol
+places and the evidence limits are linked in its report.
+
+To generate the latest Sol headline after its checks and judge finish, use
+`lute run eval/tools/report.luau artifacts/facetbench/slice-sol61-medium-6 --suite eval/slice.json`.
 
 The headline suite is `extended.json`: 22 runs and
 55 blind task/device/seed comparisons. The hub and ten follow-ups use short

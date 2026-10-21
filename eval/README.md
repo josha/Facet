@@ -1,6 +1,6 @@
 # FacetBench
 
-The headline suite is [`extended.json`](extended.json). It uses short player prompts for the hub and ten chained follow-ups. [`extended-spec.json`](extended-spec.json) uses detailed diagnostic briefs. See [the slice report](reports/slice.md) for a saved paired measurement and the built place of each arm.
+The headline suite is [`extended.json`](extended.json). It uses short player prompts for the hub and ten chained follow-ups. [`extended-spec.json`](extended-spec.json) uses detailed diagnostic briefs. See the latest [Opus slice](reports/slice.md) and [Sol 6.1 Medium slice](reports/slice-sol61-medium-6.md) reports for measured results and the playable places of each arm.
 
 FacetBench measures how well AI coding agents build Roblox game interfaces. It compares two arms on the same game:
 
