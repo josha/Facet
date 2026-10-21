@@ -8,9 +8,12 @@ Set the game's palette, font, plates and strokes.
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local function rgb(r: number, g: number, b: number) return { r = r / 255, g = g / 255, b = b / 255 } end
 local typography: { [string]: Facet.TypographyPatch } = {}
-local sizes: { [string]: number } = { caption = 15, label = 18, body = 18, control = 18, strong = 18, numeral = 20, heading = 20, title = 24 }
+local sizes: { [string]: number } = { caption = 15, label = 18, body = 18, control = 18, strong = 18, numeral = 24, heading = 22, title = 28 }
 for role, size in sizes do
-  typography[role] = { size = size, font = { family = "rbxasset://fonts/families/Michroma.json" } }
+  typography[role] = { size = size, font = {
+    family = "rbxasset://fonts/families/BuilderSans.json",
+    weight = if role == "label" then "SemiBold" else nil,
+  } }
 end
 local definition: Facet.ThemeDefinition = {
   base = Facet.themes.neutralPackage(),
@@ -41,12 +44,19 @@ local UI = app.UI
 
 app.mount(function()
   return UI.Screen "Root" {
-    UI.VStack "Card" { surface = "panel", padding = "m", gap = "s",
-      UI.Text "Title" { text = "Ready", textRole = "title" },
+    UI.VStack "Card" { surface = "panel", padding = "l", gap = "m",
+      UI.Text "Context" { text = "NEXT RACE", textRole = "caption", role = "secondary" },
+      UI.Text "Title" { text = "Ready to race", textRole = "title" },
+      UI.Text "Detail" { text = "Your selected kart is equipped.", textRole = "body" },
       UI.Button "Play" { label = "Play", appearance = "emphasis" },
     },
   }
 end)
 ```
+
+This example keeps bold headings and numbers, uses semibold item labels and
+keeps body text regular. Its size roles separate context, title and detail. Keep that
+hierarchy when you change the palette. Test a price, countdown, long item
+name and disabled action together before applying a display font to every role.
 
 Next: [Theme-identity](Theme-identity.md), [Themes.tokens](Themes.tokens.md).

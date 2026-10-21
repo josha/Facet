@@ -36,13 +36,20 @@ engine behavior from a native engine double.
 ## Readouts
 
 Put readouts on a stack with `surface = "panel"`, so they read over any scene.
-Give the main resource value `textRole = "title"`; use `caption` for its rate
-or explanation. Check that the value and action labels remain legible at the
+Give the main resource value `textRole = "numeral"`; use `caption` for its
+currency label, rate or explanation. Keep the number separate from secondary
+progress and status. Check that the value and action labels remain legible at the
 full desktop viewport, as well as on a phone.
 Use short numbers (`Facet.format.compact`, such as `1.18K`) on the HUD and full
 numbers in panels. A bar `ProgressView` in a hug stack needs a width. Put a
 timer in its action caption, such as "Offer 24:51". Set the HUD cells from the
 server state when it changes, so the HUD and the panels show the same values.
+
+Give a tall readout a shorter form, not only a narrower one. Keep the same
+balance and progress readable in that form. Test portrait, landscape, then
+portrait again while movement controls are visible. Core UI safe insets do
+not describe gameplay touch-control bounds; see
+[Tasks.safe-layout](Tasks.safe-layout.md).
 
 - [Button.underline](Button.underline.md)
 - [Composition.regions](Composition.regions.md)
