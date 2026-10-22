@@ -10,6 +10,16 @@
   hides it while another region of the zone has content, so two readouts with
   an empty region between them share a row. Before, the hidden gap made the
   row too wide and the second readout wrapped.
+- Composition `rows`: the regions of one `top` or `bottom` row take the
+  height of the tallest one. The default is `"match"`; `"fit"` keeps each
+  region at its own height.
+- A bar ProgressView without a label shows its value and its `endLabel` on
+  the bar's row, after the bar. Before, they went on a line below the bar.
+- A stack with `align = "stretch"` that hugs its children measures them again
+  when one grows or shrinks. Before, Roblox kept the old width, so a coin
+  readout could overflow its plate or a column stayed too wide.
+- A badged control fills its badge wrapper, so it stretches with the stack
+  around it. The badge corner is in a `Seal` folder in the wrapper.
 - A stack with `surface = "panel"` applies the theme's `chrome.panel` recipe,
   as Dialog and Alert do. A theme can give HUD panels a shadow with
   `chrome.panel = { kind = "native", shadow = "raised" }`.

@@ -1658,6 +1658,27 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps the value and end label of an unlabelled bar on the bar's row", {
+			id = "native_themes_media::native themes and media::keeps the value and end label of an unlabelled bar on the bar's row",
+			run = function()
+				local engine, runtime, UI = setup()
+				local stop, meter: any = runtime.mount(function()
+					return UI.ProgressView({ value = 0.4, showValue = true, endLabel = "mowed" })
+				end, engine.new("Folder"))
+				local line, track = meter:FindFirstChild("Line"), meter:FindFirstChild("Track", true)
+				Verify.expect(line ~= nil):toBe(true)
+				Verify.expect(track.Parent):toBe(line)
+				Verify.expect(track:FindFirstChildWhichIsA("UIFlexItem").FlexMode)
+					:toBe(engine.types.Enum.UIFlexMode.Fill)
+				Verify.expect(meter:FindFirstChild("Value", true).Parent):toBe(line)
+				Verify.expect(meter:FindFirstChild("EndLabel", true).Parent):toBe(line)
+				local layout = line:FindFirstChildWhichIsA("UIListLayout")
+				Verify.expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Horizontal)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("cancels pending damage trails for reduced motion and releases their clock", {
 			id = "native_themes_media::native themes and media::cancels pending damage trails for reduced motion and releases their clock",
 			run = function()

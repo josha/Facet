@@ -105,6 +105,12 @@ that same copy and use the returned Facet table throughout the context.
   report it. Do not replace the control with native objects. Before you
   extend a hand-built element, find its control in the control index and
   replace the element.
+- Give layout intent, such as hug, fill, `align = "stretch"` or a zone, and
+  let Facet size the result. When a Facet layout looks wrong, fix the control
+  in Facet and add a test. Examples are a readout that wraps below its bar, a
+  number that overflows its plate, a row of panels with different heights and
+  a stretched column with different widths. Do not measure and set sizes in
+  the game to hide the fault.
 - Use `Facet.Compose`: `cell` for local state, `formula` for derived values,
   `show` for branches, `keyed` for children and `cleanup` to release resources.
   Read cells with `use(cell)` in property functions and `cell:peek()` in
@@ -150,7 +156,12 @@ that same copy and use the returned Facet table throughout the context.
 - Give each HUD group its own region. Put readouts that share a sight line,
   such as level progress and a timed goal, in one `top` or `bottom` zone.
   That zone shows them side by side while the row has room and wraps a region
-  to a new row when it does not. Do not stack two groups in one region.
+  to a new row when it does not. Do not stack two groups in one region. The
+  regions of one row take one height (Composition `rows`). The region content
+  takes that height. Make the panel the region content, or hold it in an
+  HStack with `align = "stretch"`. Give the panel `distribute = "center"`.
+  A region that is empty, such as a match scoreboard between matches, takes
+  no room.
 - Give HUD panels depth and state through the theme. A theme
   `chrome.panel = { kind = "native", shadow = "raised" }` gives every
   `surface = "panel"` stack, Dialog and Alert the shadow. Use
@@ -170,6 +181,8 @@ that same copy and use the returned Facet table throughout the context.
   Read one referenced node for each missing detail.
 - Let a text box hug its text, or use `textSize = { fit = ... }` in a box of
   fixed size. A label can be twice as long in another language.
+- A bar `ProgressView` without a label shows its value and `endLabel` on the
+  bar's row. Do not add a separate Text for a percentage.
 - A bar `ProgressView` fills the width of its container. In a box that hugs
   its content, give the bar a width, such as
   `Size = UDim2.fromOffset(width, 0)` with a `scaled` width. A fill child

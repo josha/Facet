@@ -886,6 +886,48 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case("gives the regions of a top row the height of the tallest one unless rows is fit", {
+			id = "native_composition::Composition::gives the regions of a top row the height of the tallest one unless rows is fit",
+			run = function()
+				local engine, runtime, UI = make()
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local rows = Compose.cell("match" :: "match" | "fit")
+				local root: Frame
+				runtime.mount(function()
+					local Host = runtime.constructors
+					root = UI.Composition {
+						gap = 8,
+						padding = 0,
+						topbar = false,
+						rows = rows,
+						UI.Region { Name = "Planet", zone = "top", rank = 1, Host.Frame { Name = "PlanetFull" } },
+						UI.Region { Name = "Order", zone = "top", rank = 2, Host.Frame { Name = "OrderFull" } },
+					}
+					return root
+				end, layer)
+				local planet, order = root:FindFirstChild("PlanetFull", true), root:FindFirstChild("OrderFull", true)
+				local function lift(node: any): number
+					return (node:FindFirstChild("RowMatch") :: UISizeConstraint).MinSize.Y
+				end
+				sized(engine, planet, 230, 60)
+				sized(engine, order, 240, 40)
+				sized(engine, root:FindFirstChild("Zones"), 1280, 720)
+				Verify.expect(lift(order)):toBe(60)
+				Verify.expect(lift(planet)):toBe(0)
+				sized(engine, order, 240, 60)
+				sized(engine, planet, 230, 30)
+				Verify.expect(lift(order)):toBe(30)
+				sized(engine, order, 240, 40)
+				Verify.expect(lift(planet)):toBe(40)
+				Verify.expect(lift(order)):toBe(0)
+				rows:set("fit")
+				Verify.expect(lift(planet)):toBe(0)
+				Verify.expect(lift(order)):toBe(0)
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("lists the zones that hold a visible region outside the top bar strip", {
 			id = "native_composition::Composition::lists the zones that hold a visible region outside the top bar strip",
 			run = function()

@@ -185,6 +185,39 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("stack stretch regrowth", function()
+		verifyHarness:case("releases the stretch for a frame when a child's content grows or shrinks", {
+			id = "native_layout::stack stretch regrowth::releases the stretch for a frame when a child's content grows or shrinks",
+			run = function()
+				local root, engine, stop = build(nil, function(UI, Host)
+					return UI.VStack { align = "stretch", Host.Frame { Name = "Row", Host.Frame { Name = "Inner" } } }
+				end, {})
+				local E, V = engine.types.Enum, engine.types.Vector2
+				local list = child(root, "UIListLayout")
+				local row = root:FindFirstChild("Row")
+				local inner = row:FindFirstChild("Inner")
+				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.Fill)
+				row.AbsoluteSize = V.new(50, 20)
+				inner.AbsoluteSize = V.new(80, 20)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.None)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.Fill)
+				row.AbsoluteSize = V.new(51, 20)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.Fill)
+				inner.AbsoluteSize = V.new(40, 20)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.None)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.Fill)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.Fill)
+				stop()
+			end,
+		})
+	end)
+
 	verifyHarness:suite("stack surface corners", function()
 		local function insets(make: (FacetControls) -> unknown): string
 			local root, _, stop = build(nil, function(UI: FacetControls)

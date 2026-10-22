@@ -116,5 +116,11 @@ export type RegionOptions = {
 	reveal: boolean?,
 	leading: boolean?,
 }
-export type CompositionOptions = { gap: Space?, padding: Padding?, topbar: Engine.ValueBoolean? }
+export type CompositionRows = "match" | "fit"
+export type CompositionOptions = {
+	gap: Space?,
+	padding: Padding?,
+	topbar: Engine.ValueBoolean?,
+	rows: Engine.Value<CompositionRows>?,
+}
 return {}

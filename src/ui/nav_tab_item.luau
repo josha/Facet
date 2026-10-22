@@ -311,7 +311,8 @@ return function(
 				runtime.mount(function()
 					return corner
 				end, icon)
-				local holder = corner:FindFirstChild("Corner")
+				local seal = corner:FindFirstChild("Seal")
+				local holder = if seal then seal:FindFirstChild("Corner") else nil
 				if holder then
 					runtime.decorate(holder, {
 						Position = function(use: ComposeTypes.Use): UDim2

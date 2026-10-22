@@ -543,6 +543,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		elseif spec.label then
 			table.insert(children, UI.Text({ text = spec.label }))
 		end
+		if presentation == "bar" and #trailing > 0 and direction:peek() ~= "ttb" and direction:peek() ~= "btt" then
+			Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }).Parent = content
+			local line: { ComposeTypes.Child } = { content }
+			for _, node in trailing do
+				table.insert(line, node)
+			end
+			content = ctx.row(line, { Name = "Line", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
+			local layout = content:FindFirstChildWhichIsA("UIListLayout")
+			if layout then
+				layout.VerticalAlignment = E.VerticalAlignment.Center
+			end
+			trailing = {}
+		end
 		table.insert(children, content)
 		for _, node in trailing do
 			table.insert(children, node)

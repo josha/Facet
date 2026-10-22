@@ -935,6 +935,7 @@ export type CompositionProps = {
 	gap: typeof(composition.gap),
 	padding: typeof(composition.padding),
 	topbar: typeof(composition.topbar),
+	rows: typeof(composition.rows),
 	[number | Engine.EventKey]: Compose.Child,
 }
 

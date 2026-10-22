@@ -19,6 +19,7 @@ type Declared = {
 	sizes: { ComposeTypes.Cell<Vector2> },
 	form: ComposeTypes.Cell<number>,
 	yielding: ComposeTypes.Cell<boolean>,
+	lift: ComposeTypes.Cell<number>,
 	leading: boolean,
 	animate: boolean,
 	reveal: { host: (Instance) -> (), back: () -> () }?,
@@ -78,6 +79,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			return if reduced(use) then 1 else rest + (1 - rest) * present(use(pop.progress))
 		end)
 		local yielding = Compose.cell(false)
+		local lift = Compose.cell(0)
 		local properties = (
 			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand", "reveal", "leading" }, {
 				BorderSizePixel = 0,
@@ -111,6 +113,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				type(child) ~= "string" and type(child.IsA) == "function" and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first"
 			)
+			if child:FindFirstChildWhichIsA("UISizeConstraint") == nil then
+				Host.UISizeConstraint({
+					Name = "RowMatch",
+					MinSize = function(use: ComposeTypes.Use): Vector2
+						return V2.new(0, use(lift))
+					end,
+				}).Parent =
+					child
+			end
 			local observed, settled = layoutSize(child), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size = use(observed)
@@ -227,6 +238,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			sizes = sizes,
 			form = form,
 			yielding = yielding,
+			lift = lift,
 			leading = spec.leading == true,
 			animate = false,
 			reveal = if spec.reveal ~= false and spec.mayDrop == true
@@ -295,7 +307,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	end
 
 	UI.Composition = ctx.construct("Composition", function(spec: LayoutProps.CompositionProps): Frame
-		local properties = (ctx.props(spec, { "gap", "padding", "topbar" }) :: unknown) :: Types.FrameNativeProps
+		local properties = (ctx.props(spec, { "gap", "padding", "topbar", "rows" }) :: unknown) :: Types.FrameNativeProps
 		local regions: { Frame } = {}
 		local helpers: { Instance } = {}
 		for index = 1, #properties do
@@ -807,6 +819,56 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				declared[region].animate = resized
 				declared[region].form:set(chosen[index])
 				declared[region].yielding:set(empty[index] == true and filled[list[index].zone] == true)
+			end
+			local lifts: { [number]: number } = {}
+			if read(spec.rows, use) ~= "fit" then
+				local spacing = kit.spacing(gap, use)
+				for _, edge in { "top", "bottom" } do
+					local room = if edge == "top" then packed.top else packed.bottom
+					local used = -1
+					if edge == "top" then
+						for index, entry in list do
+							local size = if chosen[index] > 0 then entry.sizes[chosen[index]] else nil
+							if entry.zone == "topbar" and down[index] and size then
+								used = math.max(used, size.x)
+							end
+						end
+					end
+					local line: { number } = {}
+					local function close()
+						local tallest, height = nil :: number?, 0
+						for _, index in line do
+							local region = regions[index]
+							local measured = list[index].sizes[chosen[index]].y
+							local held = declared[region].lift:peek()
+							if (held == 0 or measured > held + 0.5) and measured > height then
+								tallest, height = index, measured
+							end
+						end
+						for _, index in line do
+							lifts[index] = if #line > 1 and tallest ~= nil and index ~= tallest then height else 0
+						end
+						table.clear(line)
+					end
+					for index, entry in list do
+						local size = if chosen[index] > 0 then entry.sizes[chosen[index]] else nil
+						if entry.zone == edge and size and not empty[index] then
+							if used >= 0 and used + spacing + size.x > room + 0.5 then
+								close()
+								used = -1
+							end
+							used = if used < 0 then size.x else used + spacing + size.x
+							table.insert(line, index)
+						end
+					end
+					close()
+				end
+			end
+			for index, region in regions do
+				local value = lifts[index] or 0
+				if declared[region].lift:peek() ~= value then
+					declared[region].lift:set(value)
+				end
 			end
 			placement:set(
 				if extent.X > 0 and extent.Y > 0

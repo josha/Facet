@@ -24,6 +24,7 @@ export type Kit = {
 		Shared.Extent?,
 		Shared.Extent?
 	) -> Frame,
+	regrow: (Frame, UIListLayout) -> (),
 }
 
 local layoutKit = {}
@@ -485,13 +486,148 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local room: ComposeTypes.Cell<Room>? = if flow.padding ~= nil
 			then Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 } :: Room)
 			else nil
-		local frame = Host.Frame(
-			kit.assemble(native, properties, { kit.list(flow, vertical), kit.insets(flow.padding, room) }, children)
-		)
+		local list = kit.list(flow, vertical)
+		local frame = Host.Frame(kit.assemble(native, properties, { list, kit.insets(flow.padding, room) }, children))
 		if room then
 			kit.shadowRoom(frame, room)
 		end
+		if flow.align == "stretch" or live(flow.align) then
+			kit.regrow(frame, list)
+		end
 		return kit.plain(frame, properties)
+	end
+	function kit.regrow(frame: Frame, list: UIListLayout)
+		local frames = config.services and config.services.RunService
+		if frames == nil then
+			return
+		end
+		local function span(node: GuiObject, column: boolean): (number, number)
+			local at, size = node.AbsolutePosition, node.AbsoluteSize
+			return if column then at.X else at.Y, if column then size.X else size.Y
+		end
+		local function needs(column: boolean): string
+			local key: { string } = {}
+			for _, child in frame:GetChildren() do
+				if not child:IsA("GuiObject") or not child.Visible then
+					continue
+				end
+				local start = span(child, column)
+				local pad = child:FindFirstChildWhichIsA("UIPadding")
+				local sides = if pad == nil
+					then 0
+					elseif column then pad.PaddingLeft.Offset + pad.PaddingRight.Offset
+					else pad.PaddingTop.Offset + pad.PaddingBottom.Offset
+				local need = 0
+				local inner = child:FindFirstChildWhichIsA("UIListLayout")
+				if inner then
+					local content = inner.AbsoluteContentSize
+					need = (if column then content.X else content.Y) + sides
+				end
+				if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+					local bounds = child.TextBounds
+					need = math.max(need, (if column then bounds.X else bounds.Y) + sides)
+				end
+				for _, inside in child:GetChildren() do
+					if inside:IsA("GuiObject") and inside.Visible then
+						local at, size = span(inside, column)
+						need = math.max(need, at + size - start)
+					end
+				end
+				table.insert(key, tostring(math.round(need)))
+			end
+			return table.concat(key, ",")
+		end
+		local released: string? = nil
+		local pending = false
+		local releasing = false
+		local function check()
+			pending = false
+			if releasing or frame.Parent == nil then
+				return
+			end
+			local column = list.FillDirection == Enum.FillDirection.Vertical
+			local property = if column then "HorizontalFlex" else "VerticalFlex"
+			local flex = ((list :: unknown) :: { [string]: Enum.UIFlexAlignment })[property]
+			if flex ~= Enum.UIFlexAlignment.Fill then
+				return
+			end
+			local key = needs(column)
+			if key == released then
+				return
+			end
+			released, releasing = key, true
+			local native = (list :: unknown) :: { [string]: Enum.UIFlexAlignment }
+			native[property] = Enum.UIFlexAlignment.None
+			local connection: RBXScriptConnection? = nil
+			connection = frames.Heartbeat:Connect(function()
+				if connection then
+					connection:Disconnect()
+				end
+				releasing = false
+				if native[property] == Enum.UIFlexAlignment.None then
+					native[property] = Enum.UIFlexAlignment.Fill
+				end
+			end)
+		end
+		local function schedule()
+			if pending then
+				return
+			end
+			pending = true
+			local connection: RBXScriptConnection? = nil
+			connection = frames.Heartbeat:Connect(function()
+				if connection then
+					connection:Disconnect()
+				end
+				check()
+			end)
+		end
+		local watched: { [Instance]: { RBXScriptConnection } } = {}
+		local function forget(child: Instance)
+			for _, connection in watched[child] or {} do
+				connection:Disconnect()
+			end
+			watched[child] = nil
+		end
+		local function watch(child: Instance)
+			if watched[child] or not child:IsA("GuiObject") then
+				return
+			end
+			local connections: { RBXScriptConnection } = {}
+			watched[child] = connections
+			local function track(node: Instance)
+				if node:IsA("GuiObject") then
+					table.insert(connections, node:GetPropertyChangedSignal("AbsoluteSize"):Connect(schedule))
+					if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
+						table.insert(connections, node:GetPropertyChangedSignal("TextBounds"):Connect(schedule))
+					end
+				elseif node:IsA("UIListLayout") then
+					table.insert(connections, node:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(schedule))
+				end
+			end
+			track(child)
+			for _, inside in child:GetChildren() do
+				track(inside)
+			end
+			table.insert(
+				connections,
+				child.ChildAdded:Connect(function(inside: Instance)
+					track(inside)
+					schedule()
+				end)
+			)
+			schedule()
+		end
+		for _, child in frame:GetChildren() do
+			watch(child)
+		end
+		runtime.connect(frame, "ChildAdded", watch)
+		runtime.connect(frame, "ChildRemoved", forget)
+		Compose.cleanup(function()
+			for child in watched do
+				forget(child)
+			end
+		end)
 	end
 	function kit.underTopbar(frame: GuiObject, under: ComposeTypes.Cell<number>)
 		local gui = config.guiService
