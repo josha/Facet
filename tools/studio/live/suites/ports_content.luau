@@ -131,6 +131,60 @@ add("card-list-lift-keeps-layout-stable", {}, function(t)
 	t.check("idle card releases its temporary paint layer", card:FindFirstChild("FeedbackLayer", true) == nil)
 end)
 
+add("hug-sheet-card-hover-keeps-layout-stable", {}, function(t)
+	local shown = t.Facet.Compose.cell(true)
+	local stage = t.mount(function(UI)
+		return UI.Sheet {
+			title = "Upgrades",
+			isPresented = shown,
+			placement = "center",
+			detents = { "hug" },
+			width = "wide",
+			content = function()
+				return UI.AdaptiveStack "UpgradeCards" {
+					gap = "m",
+					width = "fill",
+					UI.Card "Blade" {
+						title = "Blade Width",
+						caption = "Level 1 of 5  ·  6 > 7.5 studs",
+						Size = UDim2.fromOffset(210, 0),
+						primaryAction = { label = "60", onActivate = function() end },
+					},
+					UI.Card "Speed" {
+						title = "Speed",
+						caption = "Level 1 of 5  ·  24 > 27.5 speed",
+						Size = UDim2.fromOffset(210, 0),
+						primaryAction = { label = "60", onActivate = function() end },
+					},
+				}
+			end,
+		}
+	end, { size = Vector2.new(900, 650), motionLevel = "normal", frames = 80 })
+	local layer = stage:FindFirstAncestorWhichIsA("LayerCollector")
+	local panel, card = t.find(layer, "SheetPanel"), t.find(layer, "Speed")
+	GuiService.SelectedObject = nil
+	local virtual = UserInputService:CreateVirtualInput()
+	local inset = GuiService:GetGuiInset()
+	virtual:SendMousePosition(Vector2.new(5, 5) + inset)
+	t.settle(80)
+	local before, rested = t.rect(panel), t.rect(card)
+	local movement = 0
+	local watch = game:GetService("RunService").PreRender:Connect(function()
+		movement = math.max(movement, math.abs(panel.AbsoluteSize.Y - before.h))
+	end)
+	local body = t.find(card, "Body")
+	virtual:SendMousePosition(body.AbsolutePosition + body.AbsoluteSize / 2 + inset)
+	t.settle(80)
+	t.check("pointer engages card", card:GetAttribute("FacetHovered") == true)
+	t.note("hover geometry", { before = before, after = t.rect(panel), cardBefore = rested, cardAfter = t.rect(card) })
+	t.near("hover preserves hugging sheet height", t.rect(panel).h, before.h, 1)
+	t.near("hover preserves card layout height", t.rect(card).h, rested.h, 1)
+	virtual:SendMousePosition(Vector2.new(5, 5) + inset)
+	t.settle(80)
+	watch:Disconnect()
+	t.check("hover and exit keep sheet stable on every frame", movement <= 1, movement)
+end)
+
 local function interactive(
 	id: string,
 	contracts: { string },

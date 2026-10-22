@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Centered Sheets show Close without a grabber or drag resizing. Docked Sheets
+  use a grabber by default; explicit Close replaces it. Hidden grabbers reserve
+  no gutter and do not take keyboard or gamepad selection.
+
 - `app.presentToast` places passive results in the requested top or bottom
   stack, including when the toast mounts before its anchor is parented.
 - A control's native `SelectionImageObject` replaces the theme focus glow,

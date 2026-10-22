@@ -1,6 +1,6 @@
 # Tasks.sheet
 
-Modal pages with dismissal and Back.
+Modal pages with Back.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -15,7 +15,7 @@ app.mount(function()
     UI.Button "Open" { label = "Details", onActivate = function() open:set(true) end },
     UI.Sheet "Panel" {
       title = "Details", isPresented = open,
-      detents = { "medium" }, closeButton = false,
+      detents = { "medium" },
       content = function()
         return UI.NavigationStack "Pages" {
           path = path,
@@ -39,7 +39,8 @@ Sheet owns dismissal and scrolling; NavigationStack owns child-page Back.
 Sheet content runs at construction. Reading a route with `peek()` there does
 not switch pages. Use NavigationStack or [Compose branches](State.md).
 The root has no Back. The one-detent grabber closes on tap/click,
-Return or gamepad A. For `closeButton = false`, read
+Return or gamepad A. When placement centers the sheet, Close replaces the
+grabber. Leave `closeButton` absent to keep that adaptation. Read
 [Sheet.layout](Sheet.layout.md) and test each input's exit and return focus.
 
 NavigationStack fills its viewport; use a bounded detent. `hug` needs an

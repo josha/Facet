@@ -830,6 +830,7 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Sheet({
 						isPresented = opened,
 						detent = Compose.cell("medium" :: Navigation.SheetDetent),
+						placement = "center",
 						content = function(): Instance
 							return Host.Frame({})
 						end,
@@ -2495,11 +2496,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(world.screen, "Close").Parent.Name):toBe("Header")
 				local grabber = find(world.screen, "Grabber")
 				Verify.expect((grabber:GetAttribute("AccessibleLabel"))):toBe("Resize: Medium")
-				Verify.expect(grabber.Selectable):toBe(true)
+				Verify.expect(grabber.Selectable or grabber.Visible):toBe(false)
 				Verify.expect(grabber.Size.Y.Offset >= 44 and grabber.Size.X.Offset >= 44):toBe(true)
-				grabber.Activated:Fire()
-				Verify.expect((detent:peek())):toBe("large")
-				Verify.expect((grabber:GetAttribute("AccessibleLabel"))):toBe("Close sheet")
+				Verify.expect((detent:peek())):toBe("medium")
 				find(world.screen, "Close").Activated:Fire()
 				Verify.expect((presented:peek())):toBe(false)
 				world.stop()

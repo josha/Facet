@@ -84,6 +84,7 @@ return function(verifyHarness: Verify.Harness)
 					local w = mount({
 						detents = { "medium" },
 						placement = if route == "SideDrag" then "side" else "bottom",
+						closeButton = if route == "Close" then true else nil,
 						onPresentedChange = function(nextValue: boolean)
 							Verify.expect(nextValue):toBe(false)
 							requests += 1
@@ -201,7 +202,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("routes Close to footer actions when the body has only text", {
 			id = "native_sheet_parts::text-body-footer-selection",
 			run = function()
-				local w = mount({ actions = { { id = "Buy", label = "Buy", onActivate = noop } } })
+				local w =
+					mount({ placement = "center", actions = { { id = "Buy", label = "Buy", onActivate = noop } } })
 				Verify.expect(w.find("SheetContent").Selectable):toBe(false)
 				Verify.expect(w.find("SheetContent").SelectionGroup):toBe(false)
 				Verify.expect(w.find("Room").SelectionGroup):toBe(false)
@@ -236,12 +238,13 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("hero close preserves the grabber route and enters body controls without self links", {
+		verifyHarness:case("hero close replaces the grabber and enters body controls without self links", {
 			id = "native_sheet_parts::hero-close-selection",
 			run = function()
 				for _, interactiveBody in { false, true } do
 					local w = mount({
 						header = false,
+						closeButton = true,
 						hero = { height = 140, image = "rbxassetid://1" },
 						actions = { { id = "Join", label = "Join", onActivate = noop } },
 						content = built(function(UI, Host)
@@ -251,8 +254,8 @@ return function(verifyHarness: Verify.Harness)
 						end),
 					})
 					local close, grabber = w.find("Close"), w.find("Grabber")
-					Verify.expect(grabber.NextSelectionDown == close):toBe(true)
-					Verify.expect(close.NextSelectionUp == grabber):toBe(true)
+					Verify.expect(grabber.Visible or grabber.Selectable):toBe(false)
+					Verify.expect(close.NextSelectionUp == grabber):toBe(false)
 					Verify.expect(close.NextSelectionDown == close):toBe(false)
 					if interactiveBody then
 						Verify.expect(close.NextSelectionDown == w.find("Continue")):toBe(true)
@@ -1544,11 +1547,11 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Sheet: the grabber is the close and resize control", function()
-		verifyHarness:case("a sheet shows Close beside its resize and close grabber", {
-			id = "native_sheet_parts::native Sheet: the grabber is the close and resize control::a sheet shows Close beside its resize and close grabber",
+		verifyHarness:case("a docked sheet uses its grabber without a duplicate Close", {
+			id = "native_sheet_parts::docked-single-dismissal",
 			run = function()
 				local w = mount()
-				Verify.expect(w.find("Close").Visible):toBe(true)
+				Verify.expect(w.find("Close").Visible):toBe(false)
 				local grabber = w.find("Grabber")
 				Verify.expect(grabber.Selectable):toBe(true)
 				Verify.expect((grabber:GetAttribute("AccessibleLabel"))):toBe("Resize: Medium")
@@ -1582,8 +1585,15 @@ return function(verifyHarness: Verify.Harness)
 					w.input.TouchEnabled = false
 					shown:set(true)
 					Verify.expect((w.find("SheetPanel"):GetAttribute("FacetPlacement"))):toBe("center")
+					Verify.expect(w.find("Grabber").Visible or w.find("Grabber").Selectable):toBe(false)
+					Verify.expect(w.find("Close").Visible):toBe(true)
+					Verify.expect(w.find("Grabber"):FindFirstChildWhichIsA("UIDragDetector").Enabled):toBe(false)
+					local centeredInsets = sheetInsets(w)
+					Verify.expect(centeredInsets.top):toBe(centeredInsets.bottom)
 					w.input.MouseEnabled = true
 					Verify.expect((w.find("SheetPanel"):GetAttribute("FacetPlacement"))):toBe("bottom")
+					Verify.expect(w.find("Grabber").Visible and w.find("Grabber").Selectable):toBe(true)
+					Verify.expect(w.find("Close").Visible):toBe(false)
 					w.stop()
 				end,
 			}
@@ -1647,23 +1657,21 @@ return function(verifyHarness: Verify.Harness)
 			return handle, part, sheetInsets(w)
 		end
 
-		verifyHarness:case("links the native grabber to the Header Close selection stop", {
-			id = "native_sheet_parts::native Sheet: the grabber sits on the edge the sheet came from::links the native grabber to the Header Close selection stop",
+		verifyHarness:case("explicit Close replaces the grabber without a hidden selection link", {
+			id = "native_sheet_parts::explicit-close-replaces-grabber",
 			run = function()
-				local w = mount(nil, WIDE)
+				local w = mount({ closeButton = true }, WIDE)
 				local grabber, close = w.find("Grabber"), w.find("Close")
-				Verify.expect(grabber.NextSelectionDown):toBe(close)
-				Verify.expect(grabber.NextSelectionRight):toBe(close)
-				Verify.expect(close.NextSelectionUp):toBe(grabber)
-				Verify.expect(close.NextSelectionLeft):toBe(grabber)
+				Verify.expect(grabber.Visible or grabber.Selectable):toBe(false)
+				Verify.expect(close.NextSelectionUp == grabber or close.NextSelectionLeft == grabber):toBe(false)
 				close.Activated:Fire()
 				Verify.expect(w.shown:peek()):toBe(false)
 				w.stop()
 			end,
 		})
 
-		verifyHarness:case("keeps Close between the grabber and content in every native Sheet selection route", {
-			id = "native_sheet_parts::native Sheet: the grabber sits on the edge the sheet came from::keeps Close between the grabber and content in every native Sheet selection route",
+		verifyHarness:case("links the visible dismissal control directly to content in every placement", {
+			id = "native_sheet_parts::visible-dismissal-selection",
 			run = function()
 				for _, extra in
 					{
@@ -1684,17 +1692,18 @@ return function(verifyHarness: Verify.Harness)
 					local w = mount(extra, WIDE)
 					local grabber, close, first = w.find("Grabber"), w.find("Close"), w.find("First")
 					local panel = w.find("SheetPanel")
-					Verify.expect(close.Visible and close.Selectable):toBe(true)
-					Verify.expect(grabber.NextSelectionDown):toBe(close)
-					Verify.expect(close.NextSelectionDown):toBe(first)
-					Verify.expect(first.NextSelectionUp):toBe(close)
-					Verify.expect(close.SelectionOrder < first.SelectionOrder):toBe(true)
-					Verify.expect(close:IsDescendantOf(panel)):toBe(true)
+					local command = if grabber.Visible then grabber else close
+					Verify.expect(close.Visible ~= grabber.Visible):toBe(true)
+					Verify.expect(command.Selectable):toBe(true)
+					Verify.expect(command.NextSelectionDown):toBe(first)
+					Verify.expect(first.NextSelectionUp):toBe(command)
+					Verify.expect(command.SelectionOrder < first.SelectionOrder):toBe(true)
+					Verify.expect(command:IsDescendantOf(panel)):toBe(true)
 					Verify.expect(panel.SelectionGroup):toBe(true)
 					for _, direction in { "Up", "Down", "Left", "Right" } do
 						Verify.expect(panel["SelectionBehavior" .. direction]):toBe(w.Enum.SelectionBehavior.Stop)
 					end
-					close.Activated:Fire()
+					command.Activated:Fire({ UserInputType = w.Enum.UserInputType.MouseButton1 })
 					Verify.expect(w.shown:peek()):toBe(false)
 					w.stop()
 				end

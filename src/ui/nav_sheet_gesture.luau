@@ -32,6 +32,7 @@ export type Gesture = {
 	keyboard: (ComposeTypes.Use) -> number,
 	extent: ComposeTypes.Cell<Vector2>,
 	placed: ComposeTypes.Formula<string>,
+	showGrabber: (ComposeTypes.Use?) -> boolean,
 	reserve: (string, ComposeTypes.Use?) -> number,
 	pad: (string, ComposeTypes.Use?) -> number,
 	hugHeight: ComposeTypes.Cell<number?>,
@@ -123,11 +124,16 @@ return function(
 			return if read(placed, use) == "side" then edge else "bottom"
 		end
 		local indicator = spec.dragIndicator or "automatic"
+		local function showGrabber(use: ComposeTypes.Use?): boolean
+			return read(placed, use) ~= "center"
+				and indicator ~= "hidden"
+				and (spec.closeButton == nil or spec.closeButton == false)
+		end
 		local BASE: { [string]: number } = { top = 12, bottom = 12, left = 16, right = 16 }
 		local RESERVED: { [string]: string } = { bottom = "top", right = "left", left = "right" }
 		local safeInsets: ComposeTypes.Readable<{ [string]: number }>?
 		local function reserve(side: string, use: ComposeTypes.Use?): number
-			return BASE[side] + (if indicator ~= "hidden" and RESERVED[from(use)] == side then HANDLE + 8 else 0)
+			return BASE[side] + (if showGrabber(use) and RESERVED[from(use)] == side then HANDLE + 8 else 0)
 		end
 		local function pad(side: string, use: ComposeTypes.Use?): number
 			local safe = if safeInsets then readSource(safeInsets, use)[side] or 0 else 0
@@ -413,18 +419,6 @@ return function(
 			end)
 		end
 		local watchedDetent = detent:peek()
-		Compose.watch(function(use: ComposeTypes.Use)
-			local id = use(detent)
-			if id ~= watchedDetent then
-				watchedDetent = id
-				if session then
-					endSession()
-				end
-			end
-		end)
-		Compose.cleanup(function()
-			session = nil
-		end)
 		local pull = Compose.cell(0)
 		local pulling: { origin: number, moved: boolean, samples: { { height: number, at: number } } }? = nil
 		local held = Compose.cell(false)
@@ -479,6 +473,7 @@ return function(
 			pull:set(0)
 		end
 		Compose.cleanup(function()
+			session = nil
 			pulling = nil
 		end)
 		local function detector(name: string, source: "grip" | "panel"): Instance
@@ -503,11 +498,16 @@ return function(
 					return if source == "grip" and from(use) ~= "bottom" then V2.new(1, 0) else V2.new(0, 1)
 				end,
 				ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-				Enabled = if source == "panel" and preferred
-					then function(use: ComposeTypes.Use): boolean
-						return use(preferred) ~= E.PreferredInput.Gamepad
-					end
-					else nil,
+				Enabled = if source == "grip"
+						and gui
+						and gui.GetPropertyChangedSignal
+						and preferred
+					then nil
+					else function(use: ComposeTypes.Use): boolean
+						return use(placed) ~= "center"
+							and (source ~= "grip" or showGrabber(use))
+							and (source ~= "panel" or preferred == nil or use(preferred) ~= E.PreferredInput.Gamepad)
+					end,
 				DragStart = function(position: Vector2)
 					if sideways() then
 						if pulling == nil then
@@ -559,7 +559,7 @@ return function(
 					elseif side == "left" then D2.new(1, -offset, 0.5, 0)
 					else D2.new(0, offset, 0.5, 0)
 			end,
-			Visible = indicator ~= "hidden",
+			Visible = showGrabber,
 			Size = function(use: ComposeTypes.Use)
 				return if from(use) == "bottom" then D2.fromOffset(88, 44) else D2.fromOffset(44, 88)
 			end,
@@ -567,9 +567,6 @@ return function(
 			ZIndex = 2,
 			Text = "",
 			AutoButtonColor = false,
-			Selectable = function(use: ComposeTypes.Use)
-				return #detents > 1 or canDismiss(use)
-			end,
 			Activated = function(input: InputObject?)
 				if now() - dragged < 0.3 then
 					return
@@ -611,7 +608,7 @@ return function(
 			local pad = preferred
 			runtime.decorate(assert(grabber:FindFirstChildWhichIsA("UIDragDetector")), {
 				Enabled = function(use: ComposeTypes.Use): boolean
-					return not (use(pad) == E.PreferredInput.Gamepad and use(selection) == grabber)
+					return showGrabber(use) and not (use(pad) == E.PreferredInput.Gamepad and use(selection) == grabber)
 				end,
 			})
 		end
@@ -621,6 +618,9 @@ return function(
 		end
 		UI.adjustable(grabber, {
 			axis = "horizontal",
+			enabled = function(use: ComposeTypes.Use): boolean
+				return showGrabber(use) and (#detents > 1 or canDismiss(use))
+			end,
 			onAdjust = function(direction: number)
 				local target = stepTo(direction)
 				if target then
@@ -632,6 +632,13 @@ return function(
 			end,
 		})
 		Compose.watch(function(use: ComposeTypes.Use)
+			local id = use(detent)
+			if id ~= watchedDetent then
+				watchedDetent = id
+				if session then
+					endSession()
+				end
+			end
 			grabber:SetAttribute(
 				"AccessibleLabel",
 				if nextUp(use) then "Resize: " .. word(selected(use).id) else "Close sheet"
@@ -644,6 +651,7 @@ return function(
 			keyboard = keyboard,
 			extent = extent,
 			placed = placed,
+			showGrabber = showGrabber,
 			reserve = reserve,
 			pad = pad,
 			hugHeight = hugHeight,
