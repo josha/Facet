@@ -88,7 +88,7 @@ add("sheet-placement-dismissal", {}, function(t)
 						onActivate = function()
 							shown:set(true)
 						end,
-					},
+					} :: Instance,
 					UI.Sheet {
 						title = "Upgrades",
 						placement = placement :: "center" | "bottom" | "side",
