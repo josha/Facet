@@ -55,9 +55,7 @@ function extentMatch.step(
 			entries[key] = entry
 		end
 		local size, own = measured[key] or 0, content[key] or 0
-		local stable = close(size, entry.lastSize)
-			and close(entry.min, entry.lastMin)
-			and close(own, entry.lastContent)
+		local stable = close(size, entry.lastSize) and close(entry.min, entry.lastMin) and close(own, entry.lastContent)
 		entry.quiet = if stable then entry.quiet + 1 else 0
 		if entry.quiet < needed then
 			settled = false
@@ -93,17 +91,17 @@ function extentMatch.step(
 		end
 	end
 	local mins: { [unknown]: number } = {}
-	local goal = if widest == nil
-		then 0
-		elseif entries[widest].min > 0 then largest
-		else measured[widest] or largest
+	local goal = if widest == nil then 0 elseif entries[widest].min > 0 then largest else measured[widest] or largest
 	for _, key in members do
 		local entry = entries[key]
 		local outgrown = entry.min > 0 and entry.corrected and (measured[key] or 0) > goal + 0.5
 		if outgrown then
 			entry.offset = nil
 		end
-		local value = if #members < 2 or key == widest or outgrown or natural[key] >= goal - 0.5
+		local value = if #members < 2
+				or key == widest
+				or outgrown
+				or natural[key] >= goal - 0.5
 			then 0
 			else math.max(0.5, goal - (entry.offset or 0))
 		entry.corrected = value > 0 and entry.offset ~= nil

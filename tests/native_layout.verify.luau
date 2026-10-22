@@ -545,7 +545,12 @@ return function(verifyHarness: Verify.Harness)
 				local holder, engine, stop = build(nil, function(UI, Host)
 					return Host.Frame {
 						Name = "Holder",
-						UI.WorldMarker "Marker" { anchor = point, edge = edge, margin = margin, Host.Frame { Name = "Pin" } },
+						UI.WorldMarker "Marker" {
+							anchor = point,
+							edge = edge,
+							margin = margin,
+							Host.Frame { Name = "Pin" },
+						},
 					}
 				end)
 				local V = engine.types.Vector2
