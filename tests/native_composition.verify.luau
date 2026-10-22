@@ -826,8 +826,8 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(forms[1]):toBe(1)
 					Verify.expect(forms[2]):toBe(1)
 					Verify.expect(#overflow):toBe(0)
-					_, _, _, _, rows = resolver.resolve(400, 900, 8, { planet, order })
-					Verify.expect(rows.top):toBe(240)
+					local _, _, _, _, narrow = resolver.resolve(400, 900, 8, { planet, order })
+					Verify.expect(narrow.top):toBe(240)
 					local view: Declared =
 						{ zone = "center" :: "center", rank = 2, mayDrop = false, sizes = { wide(300, 200) } }
 					forms = resolver.resolve(1280, 400, 8, { planet, order, wallet, menu, view })
@@ -837,8 +837,8 @@ return function(verifyHarness: Verify.Harness)
 						{ zone = "bottom" :: "bottom", rank = 4, mayDrop = true, sizes = { wide(300, 24) } }
 					local notice: Declared =
 						{ zone = "bottom" :: "bottom", rank = 5, mayDrop = true, sizes = { wide(200, 40) } }
-					_, _, _, _, rows = resolver.resolve(1280, 720, 8, { hint, notice })
-					Verify.expect(rows.bottom):toBe(508)
+					local _, _, _, _, bottom = resolver.resolve(1280, 720, 8, { hint, notice })
+					Verify.expect(bottom.bottom):toBe(508)
 
 					local engine, runtime, UI = make()
 					local layer = engine.new("ScreenGui")
