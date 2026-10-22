@@ -9,15 +9,20 @@ export type Entry = {
 	quiet: number,
 	corrected: boolean,
 }
-export type State = { [unknown]: Entry }
+export type State = { entries: { [unknown]: Entry }, waited: number }
 
 local extentMatch = {}
 
 function extentMatch.new(): State
-	return (setmetatable({}, { __mode = "k" }) :: unknown) :: State
+	return { entries = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [unknown]: Entry }, waited = 0 }
+end
+
+function extentMatch.forget(state: State, key: unknown)
+	state.entries[key] = nil
 end
 
 local QUIET = 2
+local PATIENCE = 8
 
 local function close(a: number?, b: number?): boolean
 	return a ~= nil and b ~= nil and math.abs(a - b) < 0.5
@@ -31,10 +36,11 @@ function extentMatch.step(
 	quiet: number?
 ): ({ [unknown]: number }, boolean)
 	local needed = if quiet == nil then QUIET else quiet
+	local entries = state.entries
 	local settled = true
 	local natural: { [unknown]: number } = {}
 	for _, key in members do
-		local entry = state[key]
+		local entry = entries[key]
 		if entry == nil then
 			entry = {
 				min = 0,
@@ -46,7 +52,7 @@ function extentMatch.step(
 				quiet = 0,
 				corrected = false,
 			}
-			state[key] = entry
+			entries[key] = entry
 		end
 		local size, own = measured[key] or 0, content[key] or 0
 		local stable = close(size, entry.lastSize)
@@ -58,20 +64,24 @@ function extentMatch.step(
 		end
 		entry.lastSize, entry.lastMin, entry.lastContent = size, entry.min, own
 	end
-	if not settled then
+	if not settled and state.waited < PATIENCE then
+		state.waited += 1
 		local held: { [unknown]: number } = {}
 		for _, key in members do
-			held[key] = state[key].min
+			held[key] = entries[key].min
 		end
 		return held, false
 	end
+	state.waited = 0
 	for _, key in members do
-		local entry = state[key]
+		local entry = entries[key]
 		local size, own = measured[key] or 0, content[key] or 0
-		if entry.min <= 0 then
-			entry.bias = size - own
-		elseif own + entry.bias < size - 0.5 then
-			entry.offset = size - entry.min
+		if entry.quiet >= needed then
+			if entry.min <= 0 then
+				entry.bias = size - own
+			elseif own + entry.bias < size - 0.5 then
+				entry.offset = size - entry.min
+			end
 		end
 		natural[key] = own + entry.bias
 	end
@@ -85,10 +95,10 @@ function extentMatch.step(
 	local mins: { [unknown]: number } = {}
 	local goal = if widest == nil
 		then 0
-		elseif state[widest].min > 0 then largest
+		elseif entries[widest].min > 0 then largest
 		else measured[widest] or largest
 	for _, key in members do
-		local entry = state[key]
+		local entry = entries[key]
 		local outgrown = entry.min > 0 and entry.corrected and (measured[key] or 0) > goal + 0.5
 		if outgrown then
 			entry.offset = nil

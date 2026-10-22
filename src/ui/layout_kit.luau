@@ -701,11 +701,11 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	function kit.frameless(): boolean
 		return config.services == nil or config.services.RunService == nil
 	end
-	function kit.nextFrame(callback: () -> ())
+	function kit.nextFrame(callback: () -> ()): () -> ()
 		local frames = config.services and config.services.RunService
 		if frames == nil then
 			callback()
-			return
+			return function() end
 		end
 		local connection: RBXScriptConnection? = nil
 		connection = frames.Heartbeat:Connect(function()
@@ -714,18 +714,27 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			end
 			callback()
 		end)
+		return function()
+			if connection then
+				connection:Disconnect()
+			end
+		end
 	end
 	function kit.match(frame: Frame, column: boolean, active: (ComposeTypes.Use?) -> boolean)
 		local owner = assert(Compose.currentOwner(), "Facet stack matching needs an owner")
 		local frames = config.services and config.services.RunService
 		local axis: "x" | "y" = if column then "x" else "y"
 		local floors = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: (number) -> boolean }
+		local unliftable = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: boolean }
 		local unit = ctx.layoutUnit(frame, "MatchUnit")
 		local function extent(node: GuiObject): number
 			local scale = unit:peek()
 			return (if column then node.AbsoluteSize.X else node.AbsoluteSize.Y) / (if scale > 0 then scale else 1)
 		end
 		local state = extentMatch.new()
+		local SETTLE_FRAMES = 30
+		local settling = 0
+		local seen: { [unknown]: number } = {}
 		local function check(): boolean
 			if owner.isDisposed() then
 				return true
@@ -734,30 +743,60 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			local measured: { [unknown]: number } = {}
 			local natural: { [unknown]: number } = {}
 			local scale = unit:peek()
+			local fresh = false
 			for _, child in frame:GetChildren() do
-				if child:IsA("GuiObject") and child.Visible and floors[child] then
+				if child:IsA("GuiObject") and child.Visible and floors[child] and not unliftable[child] then
 					table.insert(members, child)
 					measured[child] = extent(child)
-					natural[child] = kit.intrinsic(child, column, if scale > 0 then scale else 1)
+					local own = kit.intrinsic(child, column, if scale > 0 then scale else 1)
+					natural[child] = own
+					local before = seen[child]
+					if before == nil or math.abs(before - own) >= 0.5 then
+						fresh = true
+					end
 				end
 			end
+			local count = 0
+			for key in seen do
+				count += 1
+				if natural[key] == nil then
+					fresh = true
+				end
+			end
+			if count ~= #members then
+				fresh = true
+			end
+			table.clear(seen)
+			for key, own in natural do
+				seen[key] = own
+			end
+			local on = active()
+			if fresh then
+				settling = 0
+			end
+			if on and settling >= SETTLE_FRAMES then
+				return true
+			end
+			settling += 1
 			local mins: { [unknown]: number }, settled = {}, true
-			if active() then
+			if on then
 				mins, settled = extentMatch.step(state, members, measured, natural, if frames then nil else 0)
 			end
 			for child, lift in floors do
-				local value = if child.Parent == frame and child.Visible then mins[child] or 0 else 0
+				local member = child.Parent == frame and child.Visible and not unliftable[child]
+				local value = if member then mins[child] or 0 else 0
 				if not lift(value) and value > 0 then
-					state[child] = nil
+					unliftable[child] = true
+					extentMatch.forget(state, child)
+					settling = 0
+				elseif value <= 0 and (not member or not on) then
+					extentMatch.forget(state, child)
 				end
 			end
 			return settled
 		end
-		local pending, settling, SETTLE_FRAMES = false, 0, 30
-		local function schedule(again: boolean?)
-			if not again then
-				settling = 0
-			end
+		local pending = false
+		local function schedule()
 			if pending or owner.isDisposed() then
 				return
 			end
@@ -772,9 +811,8 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					connection:Disconnect()
 				end
 				pending = false
-				if not check() and settling < SETTLE_FRAMES then
-					settling += 1
-					schedule(true)
+				if not check() then
+					schedule()
 				end
 			end)
 		end
@@ -794,6 +832,10 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			if lift then
 				lift(0)
 			end
+			if child:IsA("GuiObject") then
+				unliftable[child :: GuiObject] = nil
+			end
+			extentMatch.forget(state, child)
 			schedule()
 		end
 		local function watch(child: Instance)

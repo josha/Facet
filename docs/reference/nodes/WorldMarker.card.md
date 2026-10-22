@@ -5,8 +5,10 @@ Point to a world target, also from the screen edge when it is off screen.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-local binding = UI.worldAnchor({ target = patch, offscreen = "retain" })
-UI.WorldMarker "Patch" { anchor = binding.anchor, UI.Badge { label = "Golden grass" } }
+local function PatchMarker(patch: BasePart)
+	local binding = UI.worldAnchor({ target = patch, offscreen = "retain" })
+	return UI.WorldMarker "Patch" { anchor = binding.anchor, UI.Badge { label = "Golden grass" } }
+end
 ```
 
 Key options: `anchor`, `edge`, `margin`, `arrow`.

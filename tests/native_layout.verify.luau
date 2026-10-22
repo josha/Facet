@@ -298,6 +298,26 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(widest < 200):toBe(true)
 			end,
 		})
+		verifyHarness:case("matches the steady children while another one keeps changing", {
+			id = "native_layout::stack stretch matching::matches the steady children while another one keeps changing",
+			run = function()
+				local extentMatch = require("../src/ui/extent_match")
+				local state = extentMatch.new()
+				local narrow, wide, pulsing = {}, {}, {}
+				local members = { narrow, wide, pulsing }
+				local lift = 0
+				for frame = 1, 40 do
+					local mins = extentMatch.step(
+						state,
+						members,
+						{ [narrow] = math.max(50, lift), [wide] = 80, [pulsing] = 10 + frame % 2 },
+						{ [narrow] = 50, [wide] = 80, [pulsing] = 10 + frame % 2 }
+					)
+					lift = mins[narrow] or 0
+				end
+				Verify.expect(lift):toBe(80)
+			end,
+		})
 		verifyHarness:case("stretches a fixed-width stack natively", {
 			id = "native_layout::stack stretch matching::stretches a fixed-width stack natively",
 			run = function()
@@ -542,12 +562,18 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(y):toBe(300)
 				Verify.expect(marker:GetAttribute("Clamped")):toBe(false)
 				Verify.expect(arrow.Visible):toBe(false)
+				point:set({ visible = true, x = 400.4, y = 300.3, onscreen = true })
+				x, y = at()
+				Verify.expect(x):toBe(400)
+				Verify.expect(y):toBe(300)
 				point:set({ visible = true, x = 1600, y = 300, onscreen = false })
 				x, y = at()
 				Verify.expect(x):toBe(770)
 				Verify.expect(y):toBe(300)
 				Verify.expect(marker:GetAttribute("Clamped")):toBe(true)
 				Verify.expect(arrow.Visible):toBe(true)
+				Verify.expect(arrow.Rotation):toBe(0)
+				point:set({ visible = true, x = 1600, y = 310, onscreen = false })
 				Verify.expect(arrow.Rotation):toBe(0)
 				point:set({ visible = true, x = 400, y = -900, onscreen = false })
 				x, y = at()

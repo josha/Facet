@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Native chrome (a `native` or `none` recipe, such as a theme fill with a
+  shadow) gives its control no extra box. Before, a decoration frame covered
+  the padded control at the control's last size. A hugging panel grew past a
+  `MinSize` by its own padding and never shrank back, so matched widths
+  overshot and stayed wide.
+- `UI.WorldMarker` holds still: it moves in whole pixels and ignores motion
+  under one pixel and turns under about 1.5 degrees, so a still camera gives a
+  still marker.
 - A bar ProgressView rounds its fill with the same radius as its track, so
   the fill no longer ends square inside a rounded track.
 - `UI.WorldMarker` shows its children at a world target from a `worldAnchor`

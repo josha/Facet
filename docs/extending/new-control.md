@@ -46,6 +46,11 @@ observation, styles and input actions. It does not own another scene.
 - A `MinSize` does not always set the final size. With padding or a
   scale-sized automatic child, a node grows past it. Measure what a size
   constraint does; do not predict it.
+- Decoration must not size its host. A child that covers a hugging
+  (`AutomaticSize`) parent at the parent's own size holds the parent at that
+  size: the parent grows past a `MinSize` by its padding and cannot shrink.
+  Give chrome, overlays and hit areas of a hugging control no box (zero size)
+  while they draw nothing, and test that the control shrinks after a lift.
 - Learn only from settled readings. After you change a constraint or the
   content changes, the native sizes can be stale for one or more frames.
   Do not learn from a reading, or change a constraint again, until the same

@@ -764,13 +764,20 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
 		local stripSize = if stripGui then layoutSize(stripGui, stripUnit) else nil
 		local heights = extentMatch.new()
-		local pulse, seenPulse, settling, pulsing = Compose.cell(0), 0, 0, false
+		local pulse, settling, lastStep = Compose.cell(0), 0, -1
+		local cancelPulse: (() -> ())? = nil
+		local lastMins: { [unknown]: number } = {}
+		local seenContent: { [unknown]: number } = {}
+		Compose.cleanup(function()
+			if cancelPulse then
+				cancelPulse()
+				cancelPulse = nil
+			end
+		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local beat = use(pulse)
-			if beat == seenPulse then
-				settling = 0
-			end
-			seenPulse = beat
+			local stepping = beat ~= lastStep or kit.frameless()
+			lastStep = beat
 			local unsettled = false
 			local extent = use(box)
 			local rides = riding(use)
@@ -887,21 +894,33 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 							local scale = if size > 0 then content.AbsoluteSize.Y / size else 1
 							table.insert(members, region)
 							measured[region] = size
-							natural[region] = kit.intrinsic(content, false, if scale > 0 then scale else 1)
+							local own = kit.intrinsic(content, false, if scale > 0 then scale else 1)
+							natural[region] = own
+							local before = seenContent[region]
+							if before == nil or math.abs(before - own) >= 0.5 then
+								settling = 0
+							end
+							seenContent[region] = own
 						end
-						local mins, done = extentMatch.step(
-							heights,
-							members,
-							measured,
-							natural,
-							if kit.frameless() then 0 else nil
-						)
+						local mins, done = lastMins, settling >= SETTLE_PASSES
+						if stepping and not done then
+							mins, done = extentMatch.step(
+								heights,
+								members,
+								measured,
+								natural,
+								if kit.frameless() then 0 else nil
+							)
+							for _, key in members do
+								lastMins[key] = mins[key]
+							end
+						end
 						unsettled = unsettled or not done
 						for _, index in line do
 							local region = regions[index]
 							local floor = declared[region].floors[chosen[index]]
 							if floor and not floor() and declared[region].lift:peek() > 0 then
-								heights[region] = nil
+								extentMatch.forget(heights, region)
 							end
 							lifts[index] = mins[region] or 0
 						end
@@ -922,16 +941,22 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				end
 			end
 			for index, region in regions do
-				local value = lifts[index] or 0
-				if declared[region].lift:peek() ~= value then
-					declared[region].lift:set(value)
+				local value = lifts[index]
+				if value == nil then
+					extentMatch.forget(heights, region)
+					lastMins[region] = nil
+					seenContent[region] = nil
+				end
+				if declared[region].lift:peek() ~= (value or 0) then
+					declared[region].lift:set(value or 0)
 				end
 			end
-			if unsettled and not pulsing and settling < SETTLE_PASSES and not kit.frameless() then
+			if stepping then
 				settling += 1
-				pulsing = true
-				kit.nextFrame(function()
-					pulsing = false
+			end
+			if unsettled and cancelPulse == nil and settling < SETTLE_PASSES and not kit.frameless() then
+				cancelPulse = kit.nextFrame(function()
+					cancelPulse = nil
 					pulse:set(pulse:peek() + 1)
 				end)
 			end

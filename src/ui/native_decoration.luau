@@ -9,12 +9,13 @@ return function(
 	types: Engine.RobloxTypes,
 	target: GuiObject?,
 	node: GuiObject,
-	options: { inset: boolean? }?
+	options: { inset: boolean?, active: ComposeTypes.Readable<boolean>? }?
 ): GuiObject
 	if target == nil then
 		return node
 	end
-	local settings: { inset: boolean? } = options or {}
+	local settings: { inset: boolean?, active: ComposeTypes.Readable<boolean>? } = options or {}
+	local active = settings.active
 	local Host = (runtime.constructors :: unknown) :: Engine.Host
 	local D2 = types.UDim2
 	local frame = if getfenv(0).game then { frame = true } else nil
@@ -121,6 +122,9 @@ return function(
 	end
 	runtime.decorate(container, {
 		Size = function(use)
+			if active and not use(active) then
+				return D2.fromOffset(0, 0)
+			end
 			local box: { width: number, height: number } = use(bounds)
 			return if settings.inset
 				then D2.fromOffset(math.ceil(box.width - 1e-3), math.ceil(box.height - 1e-3))

@@ -9,6 +9,8 @@ local layoutKit = require("./layout_kit")
 type Props = HudProps.WorldMarkerProps
 
 local EDGES: { [string]: boolean } = { clamp = true, hide = true }
+local STILL_PIXELS = 1
+local STILL_RADIANS = 0.025
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Host, Compose, read, types, runtime = ctx.Host, ctx.Compose, ctx.read, ctx.types, ctx.runtime
@@ -82,14 +84,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		Compose.watch(function(use: ComposeTypes.Use)
 			root:SetAttribute("Clamped", use(clamped))
 		end)
-		local watched: { [Instance]: RBXScriptConnection } = {}
+		local watched: { [Instance]: { RBXScriptConnection } } = {}
 		local unit = ctx.layoutUnit(root, "MarkerUnit")
 		local function measure()
 			local widest, tallest = 0, 0
 			for _, child in root:GetChildren() do
 				if child:IsA("GuiObject") and child.Visible then
-					widest = math.max(widest, child.AbsoluteSize.X)
-					tallest = math.max(tallest, child.AbsoluteSize.Y)
+					if child.Size.X.Scale == 0 then
+						widest = math.max(widest, child.AbsoluteSize.X)
+					end
+					if child.Size.Y.Scale == 0 then
+						tallest = math.max(tallest, child.AbsoluteSize.Y)
+					end
 				end
 			end
 			local factor = unit:peek()
@@ -101,7 +107,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		local function track(child: Instance)
 			if child:IsA("GuiObject") and watched[child] == nil then
-				watched[child] = child:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
+				watched[child] = {
+					child:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure),
+					child:GetPropertyChangedSignal("Visible"):Connect(measure),
+				}
 			end
 			measure()
 		end
@@ -110,16 +119,43 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		runtime.connect(root, "ChildAdded", track)
 		runtime.connect(root, "ChildRemoved", function(child: Instance)
-			local connection = watched[child]
-			if connection then
-				connection:Disconnect()
+			local connections = watched[child]
+			if connections then
+				for _, connection in connections do
+					connection:Disconnect()
+				end
 				watched[child] = nil
 			end
 			measure()
 		end)
-		Compose.cleanup(function()
-			for _, connection in watched do
+		local geometry = Compose.cell(0)
+		local holding: { RBXScriptConnection } = {}
+		local function release()
+			for _, connection in holding do
 				connection:Disconnect()
+			end
+			table.clear(holding)
+		end
+		local function bump()
+			geometry:set(geometry:peek() + 1)
+		end
+		local function hold()
+			release()
+			local parent = root.Parent
+			if parent and parent:IsA("GuiObject") then
+				table.insert(holding, parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(bump))
+				table.insert(holding, parent:GetPropertyChangedSignal("AbsolutePosition"):Connect(bump))
+			end
+			bump()
+		end
+		runtime.connect(root, "AncestryChanged", hold)
+		hold()
+		Compose.cleanup(function()
+			release()
+			for _, connections in watched do
+				for _, connection in connections do
+					connection:Disconnect()
+				end
 			end
 			table.clear(watched)
 		end)
@@ -128,7 +164,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local point = read(spec.anchor, use) :: Env.WorldAnchorPoint
 			local edge = read(spec.edge, use) or "clamp"
 			assert(EDGES[edge] == true, "Facet WorldMarker edge must be clamp or hide")
-			local extent = use(size)
+			use(geometry)
+			local factor = use(unit)
+			local scale = if factor > 0 then factor else 1
+			local extent = use(size) / scale
 			local requested = read(spec.margin, use)
 			local function side(key: "top" | "right" | "bottom" | "left"): number
 				if type(requested) == "table" then
@@ -144,22 +183,27 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end
 			local holder = parent :: GuiObject
 			local x, y = point.x :: number, point.y :: number
-			local layer = root:FindFirstAncestorWhichIsA("ScreenGui")
 			local gui = ctx.config.guiService
-			if layer and not layer.IgnoreGuiInset and gui then
+			if gui and root:FindFirstAncestorWhichIsA("ScreenGui") then
 				local ok, inset = pcall(gui.GetGuiInset, gui)
 				if ok and typeof(inset) == "Vector2" then
 					x, y = x - inset.X, y - inset.Y
 				end
 			end
-			local origin, room = holder.AbsolutePosition, holder.AbsoluteSize
-			x, y = x - origin.X, y - origin.Y
+			local origin, room = holder.AbsolutePosition, holder.AbsoluteSize / scale
+			x, y = (x - origin.X) / scale, (y - origin.Y) / scale
 			local half = extent / 2
 			local left, top = side("left") + half.X, side("top") + half.Y
 			local right, bottom = room.X - side("right") - half.X, room.Y - side("bottom") - half.Y
 			local inside = point.onscreen ~= false and x >= left and x <= right and y >= top and y <= bottom
+			local function place(at: Vector2)
+				local snapped = V2.new(math.round(at.X), math.round(at.Y))
+				if (snapped - placed:peek()).Magnitude >= STILL_PIXELS or not shown:peek() then
+					placed:set(snapped)
+				end
+			end
 			if inside then
-				placed:set(V2.new(x, y))
+				place(V2.new(x, y))
 				clamped:set(false)
 				shown:set(true)
 				return
@@ -174,20 +218,24 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				dy = 1
 			end
 			local spanX, spanY = math.max(0, (right - left) / 2), math.max(0, (bottom - top) / 2)
-			local scale = math.min(
+			local reachEdge = math.min(
 				if math.abs(dx) > 0.001 then spanX / math.abs(dx) else math.huge,
 				if math.abs(dy) > 0.001 then spanY / math.abs(dy) else math.huge
 			)
-			local angle = math.atan2(dy, dx)
-			placed:set(V2.new(cx + dx * scale, cy + dy * scale))
-			heading:set(angle)
+			local turned = math.atan2(dy, dx)
+			local delta = (turned - heading:peek() + math.pi) % (2 * math.pi) - math.pi
+			if math.abs(delta) >= STILL_RADIANS or not clamped:peek() then
+				heading:set(turned)
+			end
+			local angle = heading:peek()
+			place(V2.new(cx + dx * reachEdge, cy + dy * reachEdge))
 			local inset = pad() / 2
 			local cos, sin = math.cos(angle), math.sin(angle)
 			local reach = math.min(
 				if math.abs(cos) > 0.001 then math.max(0, half.X - inset) / math.abs(cos) else math.huge,
 				if math.abs(sin) > 0.001 then math.max(0, half.Y - inset) / math.abs(sin) else math.huge
 			)
-			arrow.Position = D2.new(0.5, cos * reach, 0.5, sin * reach)
+			arrow.Position = D2.new(0.5, math.round(cos * reach), 0.5, math.round(sin * reach))
 			clamped:set(true)
 			shown:set(true)
 		end)
