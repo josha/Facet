@@ -125,7 +125,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     defaults:
       run:
         shell: bash
@@ -182,8 +182,26 @@ jobs:
       - name: Compare the candidate with its base
         run: |
           mkdir -p artifacts
-          lute run tools/facet perf paired run --out artifacts/perf-paired --rounds 3 base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE"
-          if lute run tools/facet perf paired report artifacts/perf-paired base pr --rounds 3 --gate --summary artifacts/perf-paired-summary.md | tee artifacts/perf-paired-report.txt; then
+          calibration_retries=0
+          paired_run() {
+            local prefix="$1" rounds="$2" status
+            paired_output="$prefix"
+            while true; do
+              if lute run tools/facet perf paired run --out "$paired_output" --rounds "$rounds" base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE"; then
+                return 0
+              else
+                status=$?
+              fi
+              if [ "$status" -ne 75 ] || [ "$calibration_retries" -ge 1 ]; then
+                return "$status"
+              fi
+              calibration_retries=$((calibration_retries + 1))
+              echo "CPU calibration was invalid. Retrying the complete $rounds-round comparison once; preserving $paired_output." | tee -a "$GITHUB_STEP_SUMMARY"
+              paired_output="$prefix-calibration-retry"
+            done
+          }
+          paired_run artifacts/perf-paired 3
+          if lute run tools/facet perf paired report "$paired_output" base pr --rounds 3 --gate --summary artifacts/perf-paired-summary.md | tee artifacts/perf-paired-report.txt; then
             cat artifacts/perf-paired-summary.md >> "$GITHUB_STEP_SUMMARY"
             exit 0
           else
@@ -195,9 +213,9 @@ jobs:
           fi
           echo "Rechecking every scene and microbenchmark with six rounds."
           { echo "First pass found a statistical slowdown. Rechecking the complete paired suite with six rounds."; echo; } >> "$GITHUB_STEP_SUMMARY"
-          lute run tools/facet perf paired run --out artifacts/perf-paired-recheck --rounds 6 base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE"
+          paired_run artifacts/perf-paired-recheck 6
           status=0
-          lute run tools/facet perf paired report artifacts/perf-paired-recheck base pr --rounds 6 --gate --summary artifacts/perf-paired-recheck-summary.md | tee artifacts/perf-paired-recheck-report.txt || status=$?
+          lute run tools/facet perf paired report "$paired_output" base pr --rounds 6 --gate --summary artifacts/perf-paired-recheck-summary.md | tee artifacts/perf-paired-recheck-report.txt || status=$?
           cat artifacts/perf-paired-recheck-summary.md >> "$GITHUB_STEP_SUMMARY"
           exit $status
 

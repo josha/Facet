@@ -337,6 +337,12 @@ return function(): number
 	Files.write(ARTIFACT, Json.encode({
 		schema = "facet-bench/1",
 		status = if errored or failed then "FAIL" else "PASS",
+		failureKind = if errored
+			then "execution"
+			elseif drifted then "calibration"
+			elseif failed then "regression"
+			else nil,
+		expectedMeasurements = #subjects + 2,
 		environment = "lute-headless (trend screening only; device authoritative per design §14.3)",
 		warmup = WARMUP,
 		samples = SAMPLES,

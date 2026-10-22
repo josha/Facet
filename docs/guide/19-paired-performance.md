@@ -38,6 +38,12 @@ The required Verify job accepts only success from every platform. CI
 rechecks the full suite with six rounds only after a statistical slowdown;
 an execution or measurement failure cannot become a narrowed passing recheck.
 
+Invalid CPU calibration exits 75 only when all benchmark measurements exist
+and no scenario failed. CI permits one calibration retry per job. It repeats
+the same complete round count in a new directory and retains the first attempt.
+A second invalid calibration fails the job. This retry does not apply to a
+valid slowdown, a scenario error or missing evidence.
+
 The CPU yardstick compares its median before and after the benchmarks. A
 change above 15% invalidates the run. This checks typical CPU rate. It does
 not prove stable scheduling or stable tail latency. The artifact retains the

@@ -15,7 +15,7 @@ local function positive(value: unknown): boolean
 	return type(value) == "number" and value > 0 and value < math.huge
 end
 
-function Paired.benchOutcome(code: number, document: unknown): { string }
+function Paired.benchOutcome(code: number, document: unknown): ({ string }, boolean)
 	local errors: { string } = {}
 	if code ~= 0 then
 		table.insert(errors, `benchmark command exited {code}`)
@@ -40,8 +40,9 @@ function Paired.benchOutcome(code: number, document: unknown): { string }
 	local rows = Json.arrayField(document, "results")
 	if rows == nil or #rows == 0 then
 		table.insert(errors, "benchmark measurements are missing")
-		return errors
+		return errors, false
 	end
+	local validMeasurements = true
 	local names: { [string]: boolean } = {}
 	for _, row in rows do
 		local name = Json.stringField(row, "name")
@@ -49,6 +50,7 @@ function Paired.benchOutcome(code: number, document: unknown): { string }
 			Json.numberField(row, "p50_ms"), Json.numberField(row, "p95_ms"), Json.numberField(row, "p99_ms")
 		local samples = Json.numberField(row, "samples")
 		if name == nil or name == "" or names[name] then
+			validMeasurements = false
 			table.insert(errors, "benchmark measurement has a missing or duplicate name")
 		else
 			names[name] = true
@@ -63,10 +65,21 @@ function Paired.benchOutcome(code: number, document: unknown): { string }
 			or samples < 1
 			or samples % 1 ~= 0
 		then
+			validMeasurements = false
 			table.insert(errors, `benchmark {name or "unknown"} has invalid measurements`)
 		end
 	end
-	return errors
+	local calibration = validMeasurements
+		and code == 2
+		and Json.field(document, "schema") == "facet-bench/1"
+		and Json.field(document, "status") == "FAIL"
+		and Json.field(document, "proofStatus") == "unstable-cpu-rate"
+		and Json.field(document, "failureKind") == "calibration"
+		and Json.numberField(document, "expectedMeasurements") == #rows
+		and positive(Json.field(document, "yardstickP95Ms"))
+		and positive(drift)
+		and (drift :: number) > 15
+	return errors, calibration
 end
 
 function Paired.validate(

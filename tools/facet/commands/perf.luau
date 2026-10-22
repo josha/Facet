@@ -433,12 +433,12 @@ local function pairedRun(invocation: Cli.Invocation): number
 						document = decoded
 					end
 				end
-				local errors = Paired.benchOutcome(bench.code, document)
+				local errors, calibration = Paired.benchOutcome(bench.code, document)
 				if #errors > 0 then
 					for _, detail in errors do
 						print(`paired run: {entry.label} round {round}: {detail}`)
 					end
-					return 2
+					return if calibration then 75 else 2
 				end
 			end
 			append(log, ("round %d %s end %s\n"):format(round, entry.label, os.date("%H:%M:%S")))
@@ -1155,6 +1155,35 @@ end
 
 CASES.paired = function(): { Case.Case }
 	return {
+		{
+			name = "paired: only complete calibration failures permit an infrastructure retry",
+			run = function(): string?
+				local document = requiredBench(1, "base").document
+				Json.set(document, "status", "FAIL")
+				Json.set(document, "proofStatus", "unstable-cpu-rate")
+				Json.set(document, "failureKind", "calibration")
+				Json.set(document, "expectedMeasurements", 1)
+				Json.set(document, "yardstickMedianDriftPct", 16)
+				local errors, retry = Paired.benchOutcome(2, document)
+				local _, crashed = Paired.benchOutcome(1, document)
+				Json.set(document, "failureKind", "execution")
+				local _, execution = Paired.benchOutcome(2, document)
+				Json.set(document, "failureKind", "regression")
+				local _, regression = Paired.benchOutcome(2, document)
+				Json.set(document, "failureKind", "calibration")
+				Json.set(document, "expectedMeasurements", 2)
+				local _, incomplete = Paired.benchOutcome(2, document)
+				Json.set(document, "expectedMeasurements", 1)
+				local rows = assert(Json.arrayField(document, "results"))
+				Json.set(assert(Json.asObject(rows[1])), "p95_ms", 0)
+				local _, malformed = Paired.benchOutcome(2, document)
+				return Case.first(
+					Case.expect(#errors > 0 and retry, "calibration failure must remain invalid and retryable"),
+					Case.expect(not crashed and not execution and not regression, "non-calibration failure retried"),
+					Case.expect(not incomplete and not malformed, "invalid measurements retried")
+				)
+			end,
+		},
 		{
 			name = "paired: one benchmark command loads each tree's own source",
 			run = function(): string?
