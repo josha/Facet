@@ -44,6 +44,9 @@ the same complete round count in a new directory and retains the first attempt.
 A second invalid calibration fails the job. This retry does not apply to a
 valid slowdown, a scenario error or missing evidence.
 
+Each round reverses the arm order. The six-round comparison runs each arm
+first three times, so one arm does not always follow the other's workload.
+
 The CPU yardstick compares its median before and after the benchmarks. A
 change above 15% invalidates the run. This checks typical CPU rate. It does
 not prove stable scheduling or stable tail latency. The artifact retains the

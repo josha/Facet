@@ -383,7 +383,8 @@ local function pairedRun(invocation: Cli.Invocation): number
 	end
 	Files.makeDirectory(out)
 	for round = 1, rounds do
-		for _, entry in trees do
+		for position = 1, #trees do
+			local entry = trees[Paired.armIndex(round, position, #trees)]
 			local target = Files.join(entry.tree, "bench/paired_scene.luau")
 			if not samePath(target, runner) then
 				Files.write(target, Files.read(runner))
@@ -1155,6 +1156,21 @@ end
 
 CASES.paired = function(): { Case.Case }
 	return {
+		{
+			name = "paired: consecutive rounds counterbalance every arm without dropping measurements",
+			run = function(): string?
+				local sequence = {}
+				for round = 1, 6 do
+					for position = 1, 2 do
+						table.insert(sequence, tostring(Paired.armIndex(round, position, 2)))
+					end
+				end
+				return Case.expect(
+					table.concat(sequence) == "122112211221",
+					"paired arms must alternate AB/BA for all six rounds"
+				)
+			end,
+		},
 		{
 			name = "paired: only complete calibration failures permit an infrastructure retry",
 			run = function(): string?

@@ -11,6 +11,10 @@ type Cell = { first: number?, second: number?, ratio: number?, paired: { number 
 
 local Paired = {}
 
+function Paired.armIndex(round: number, position: number, count: number): number
+	return if round % 2 == 1 then position else count + 1 - position
+end
+
 local function positive(value: unknown): boolean
 	return type(value) == "number" and value > 0 and value < math.huge
 end
