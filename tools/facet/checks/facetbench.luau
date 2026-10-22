@@ -14,7 +14,28 @@ local function check(context: Rule.Context): { string }
 	end
 	local source = context.path("eval/run.json")
 	local loaded, value = pcall(function()
-		return Eval.decodeSuite(Json.decode(Files.read(source)), Files.absolute(source), Eval.lute.loader())
+		local loader = Eval.lute.loader()
+		local files = loader.files
+		local generated = {
+			[Files.absolute(context.path("artifacts/facetbench/run-inputs"))] = true,
+			[Files.absolute(context.path("artifacts/facetbench/arm-facet"))] = true,
+		}
+		local instructions = Files.absolute(context.path("artifacts/facetbench/facet-instructions.md"))
+		local contractFiles = table.clone(files)
+		contractFiles.exists = function(path: string): boolean
+			local absolute = Files.absolute(path)
+			return generated[absolute] == true or absolute == instructions or files.exists(path)
+		end
+		contractFiles.read = function(path: string): string
+			if Files.absolute(path) == instructions then
+				return Files.read(context.path("eval/arms/facet/AGENTS.md"))
+					.. "\n\n"
+					.. Files.read(context.path("skills/use-facet/SKILL.md"))
+			end
+			return files.read(path)
+		end
+		loader.files = contractFiles
+		return Eval.decodeSuite(Json.decode(Files.read(source)), Files.absolute(source), loader)
 	end)
 	if not loaded then
 		return { "run does not load: " .. tostring(value) }
@@ -113,14 +134,12 @@ local function cases(): { Rule.Case }
 						"eval/tasks/run/brief.md",
 						"eval/arms/plain/AGENTS.md",
 						"eval/arms/facet/AGENTS.md",
+						"skills/use-facet/SKILL.md",
 					}
 				do
 					files[relative] = Files.read(relative)
 				end
 				files["eval/tasks/run/starter/.gitkeep"] = ""
-				files["artifacts/facetbench/run-inputs/.gitkeep"] = ""
-				files["artifacts/facetbench/arm-facet/.gitkeep"] = ""
-				files["artifacts/facetbench/facet-instructions.md"] = Files.read("eval/arms/facet/AGENTS.md")
 				return Rule.within(files, function(context)
 					local initial = check(context)
 					if #initial ~= 0 then
@@ -128,6 +147,19 @@ local function cases(): { Rule.Case }
 					end
 					local suitePath = context.path("eval/run.json")
 					local suiteSource = Files.read(suitePath)
+					Files.write(
+						suitePath,
+						(
+							string.gsub(
+								suiteSource,
+								"artifacts/facetbench/run%-inputs",
+								"artifacts/facetbench/missing-inputs"
+							)
+						)
+					)
+					if not Rule.contains(check(context), "names a missing path") then
+						return "an unknown generated input path was accepted"
+					end
 					Files.write(suitePath, (string.gsub(suiteSource, '"shell_tool"', '"unused_feature"')))
 					if not Rule.contains(check(context), "must disable shell_tool") then
 						return "filesystem tools were accepted"

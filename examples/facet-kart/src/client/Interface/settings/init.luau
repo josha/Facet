@@ -1,6 +1,6 @@
 --!strict
 
-local ContextActionService = game:GetService("ContextActionService")
+local inputs = script.Parent.Parent.KartInput
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -200,27 +200,22 @@ local function mount(context: Context)
 				save(field, current)
 			end
 		end)
-		local actionName = "SettingsSlider" .. field
+		local inputContext = inputs:FindFirstChild(field) :: InputContext
+		local decrease = inputContext:FindFirstChild("Decrease") :: InputAction
+		local increase = inputContext:FindFirstChild("Increase") :: InputAction
+		decrease.Pressed:Connect(function()
+			show(current - STEP)
+			save(field, current)
+		end)
+		increase.Pressed:Connect(function()
+			show(current + STEP)
+			save(field, current)
+		end)
 		track.SelectionGained:Connect(function()
-			ContextActionService:BindActionAtPriority(
-				actionName,
-				function(_: string, inputState: Enum.UserInputState, input: InputObject): Enum.ContextActionResult
-					if inputState ~= Enum.UserInputState.Begin then
-						return Enum.ContextActionResult.Sink
-					end
-					local direction = if input.KeyCode == Enum.KeyCode.DPadLeft then -1 else 1
-					show(current + direction * STEP)
-					save(field, current)
-					return Enum.ContextActionResult.Sink
-				end,
-				false,
-				Enum.ContextActionPriority.High.Value,
-				Enum.KeyCode.DPadLeft,
-				Enum.KeyCode.DPadRight
-			)
+			inputContext.Enabled = true
 		end)
 		track.SelectionLost:Connect(function()
-			ContextActionService:UnbindAction(actionName)
+			inputContext.Enabled = false
 		end)
 		local made: Slider = {
 			track = track,

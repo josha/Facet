@@ -84,7 +84,7 @@ RunService:BindToRenderStep("RaceRivals", Enum.RenderPriority.Camera.Value - 1, 
 		rendered:PivotTo(Track.frame(visualProgress, visualLane) * CFrame.new(0, 1, 0))
 	end
 end)
-local ContextActionService = game:GetService("ContextActionService")
+local driftContext = script.Parent.KartInput.Drift
 local player = Players.LocalPlayer
 local holding = false
 local charge = 0
@@ -95,10 +95,12 @@ local savedType = Enum.CameraType.Custom
 local savedSubject: (BasePart | Humanoid)? = nil
 local savedFov = 70
 
-local function drift(_name: string, state: Enum.UserInputState): Enum.ContextActionResult
-	holding = state == Enum.UserInputState.Begin or state == Enum.UserInputState.Change
-	return Enum.ContextActionResult.Sink
-end
+driftContext.Hold.Pressed:Connect(function()
+	holding = true
+end)
+driftContext.Hold.Released:Connect(function()
+	holding = false
+end)
 
 local function render(dt: number)
 	local camera = workspace.CurrentCamera
@@ -188,10 +190,10 @@ end
 local function phase()
 	local racing = player:GetAttribute("Racing") == true
 	if racing then
-		ContextActionService:BindAction("KartDrift", drift, false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonX)
+		driftContext.Enabled = true
 		RunService:BindToRenderStep("KartDrive", Enum.RenderPriority.Camera.Value, render)
 	else
-		ContextActionService:UnbindAction("KartDrift")
+		driftContext.Enabled = false
 		RunService:UnbindFromRenderStep("KartDrive")
 		local camera = workspace.CurrentCamera
 		if previous and camera then

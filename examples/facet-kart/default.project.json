@@ -178,6 +178,7 @@
                                        "StarterPlayerScripts":  {
                                                                     "Client":  {
                                                                                    "$path":  "src/client",
+"KartInput": { "$path": "input.project.json" },
                                                                                    "Driving":  {
                                                                                                    "$path":  "src/client/Driving.client.luau"
                                                                                                }

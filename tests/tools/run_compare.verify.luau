@@ -65,6 +65,25 @@ local function status(runs: { Eval.RunResult }, id: string, judgments: { Eval.Ju
 end
 
 return function(harness: Core.Harness)
+	harness:case("completion accepts the thirty-minute boundary but rejects overruns", function(t)
+		local facet = result("facet")
+		for _, id in { "submission", "submission-unchanged" } do
+			table.insert(facet.checks, {
+				id = id,
+				check = id,
+				kind = "verify",
+				required = true,
+				status = "passed",
+				passed = true,
+				cases = { { id = "submission/unchanged", status = "passed" } },
+				scores = {},
+			})
+		end
+		facet.metrics.wallSeconds = 1800
+		t:expect(status({ facet }, "facet/completion")):toBe("passed")
+		facet.metrics.wallSeconds = 1800.01
+		t:expect(status({ facet }, "facet/completion")):toBe("failed")
+	end)
 	harness:case("submission preserves place bytes and refuses changed or corrupt evidence", function(t)
 		local root = Files.temporaryDirectory("facet-submission-")
 		t:defer(function()

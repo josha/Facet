@@ -1,0 +1,16 @@
+{
+  "renderSeconds": 0.0128274,
+  "commit": "a86af51aee8ef5e5f50f8d67359048fd72bc8760",
+  "viewport": [
+    1939.33337,
+    946
+  ],
+  "renderFrames": 3,
+  "studio": {
+    "name": "Plain-30m.rbxlx",
+    "id": "feca3044-f073-4275-ab47-2f56ed6361fd"
+  },
+  "authorStarted": false,
+  "maximized": true,
+  "place": "C:/git/Facet/artifacts/facetbench/run-30m-1/Plain-30m.rbxlx"
+}

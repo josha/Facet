@@ -102,8 +102,7 @@ function Kit.usesGamepad(): boolean
 	if Kit.isTenFoot() then
 		return true
 	end
-	local last = UserInputService:GetLastInputType()
-	return last == Enum.UserInputType.Gamepad1
+	return UserInputService.PreferredInput == Enum.PreferredInput.Gamepad
 end
 
 function Kit.focus(target: GuiObject?)
@@ -476,11 +475,13 @@ local sharedScreen: ScreenGui? = nil
 local sharedScale: UIScale? = nil
 local dock: Frame? = nil
 local stack: { Modal } = {}
+local backContext = script.Parent.Parent.KartInput.Back
 local panels: { [string]: Modal } = {}
 local backs: { [Modal]: () -> () } = {}
 type Controls = { Enable: (Controls) -> (), Disable: (Controls) -> () }
 local controls: Controls? = nil
 local function modalControls()
+	backContext.Enabled = #stack > 0
 	if not UserInputService.TouchEnabled then
 		return
 	end
@@ -662,18 +663,16 @@ function Kit.modal(screen: ScreenGui, name: string, title: string, maxSize: Vect
 	modal.panel.SelectionBehaviorRight = Enum.SelectionBehavior.Stop
 	return modal
 end
-game:GetService("ContextActionService")
-	:BindActionAtPriority("HubBack", function(_: string, state: Enum.UserInputState): Enum.ContextActionResult
-		if state == Enum.UserInputState.Begin and #stack > 0 then
-			local top = stack[#stack]
-			local back = backs[top]
-			if back ~= nil then
-				back()
-			else
-				top.setOpen(false)
-			end
-			return Enum.ContextActionResult.Sink
-		end
-		return Enum.ContextActionResult.Pass
-	end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.ButtonB, Enum.KeyCode.Backspace)
+backContext.Close.Pressed:Connect(function()
+	local top = stack[#stack]
+	if top == nil then
+		return
+	end
+	local back = backs[top]
+	if back ~= nil then
+		back()
+	else
+		top.setOpen(false)
+	end
+end)
 return Kit

@@ -1,5 +1,9 @@
 # Checkpoint validation
 
+The final CI repair is under validation. Gate `gate-1792626881-77900-1`
+is running. Do not treat this checkpoint as merge-ready until its result and
+the PR checks are recorded below. The earlier result follows for provenance.
+
 The full repository gate did not pass. This checkpoint does not establish
 a clean full gate or an eval pass.
 

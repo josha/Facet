@@ -6,7 +6,9 @@ race HUD, results, server state, circuit, karts, and seeded opponents.
 
 This project uses plain Luau and native Roblox Instances. The existing
 interface and game behavior are preserved. It does not require a UI package.
-`Packages` has no installed packages.
+`Packages` has no installed packages. Native InputContexts in
+`input.project.json` own drift, modal Back, and selected settings-slider
+actions. The game enables each context only while its task is active.
 
 From this directory, install the pinned tools and build the place:
 

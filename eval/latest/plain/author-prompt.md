@@ -1,6 +1,6 @@
 # Build a complete kart racing game
 
-You have one uninterrupted attempt and a hard limit of **10 minutes (600 seconds)**. Build, play, inspect, and improve the game during that time. The author process stops at the deadline. The evaluator freezes the place's Edit data model at that point. There are no follow-up prompts, extensions, or repairs after submission. Finish early if the game is ready.
+You have one uninterrupted attempt and a hard limit of **30 minutes (1800 seconds)**. Build, play, inspect, and improve the game during that time. The author process stops at the deadline. The evaluator freezes the place's Edit data model at that point. There are no follow-up prompts, extensions, or repairs after submission. Finish early if the game is ready.
 
 Start from the blank place open in your supplied Roblox Studio. Studio MCP is your only tool access. Create the world, driving, server logic, game data, and interface directly in the place. Deliver a game that can be played immediately in Studio. Make persistent changes in the Edit data model; Play-only changes are not submitted. Use Play, input, console output, and captures to test. Keep this Studio open; the evaluator handles saving and freezing the place. There is no filesystem project, shell, source sync, or build command for you to use. Use the interface technology specified in your instructions. Do not copy an existing game or inspect another submission or evaluator state.
 
@@ -78,4 +78,4 @@ blocking layer over the highlighted action.
 
 Support desktop mouse and keyboard, portrait and landscape phones, tablet touch, and a controller-only console interface. Adapt the layout while preserving the task. Use readable text, safe areas, useful touch targets, clear focus, and reliable Back and Close routes. Respect larger text and reduced motion. Keep controls and important text clear of Roblox's top bar, cutouts, and actual touch controls. Do not bind Roblox's reserved Escape or gamepad Start input.
 
-Check the real game in the supplied Studio, including compact layouts and the route from hub to race and back. Fix the most important problems within the ten-minute window. The final response should briefly state what works and what remains incomplete; it cannot substitute for the saved game.
+Check the real game in the supplied Studio, including compact layouts and the route from hub to race and back. Fix the most important problems within the thirty-minute window. The final response should briefly state what works and what remains incomplete; it cannot substitute for the saved game.

@@ -77,7 +77,7 @@ local function cases(results: { Eval.RunResult }, judgments: { Eval.Judgment }):
 		t:expect(run.passed):toBe(true)
 		t:expect(run.checksPassed):toBe(true)
 		t:expect(#run.exceeded):toBe(0)
-		t:expect(positive(run.metrics.wallSeconds) <= 600):toBe(true)
+		t:expect(positive(run.metrics.wallSeconds) <= 1800):toBe(true)
 		for _, id in { "submission", "submission-unchanged" } do
 			local found: Eval.CheckResult? = nil
 			for _, check in run.checks do

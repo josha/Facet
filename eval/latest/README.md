@@ -1,90 +1,75 @@
-# Latest checkpoint evidence
+# Latest paired run
 
-This checkpoint does **not** pass the eval. It preserves the latest Facet
-submission and the most recent Studio-only Plain baseline. Older submissions
-and Opus evidence are not part of this checkpoint.
+**Verdict: FAIL.** Both authors finished within the 1,800-second limit. Facet
+used 3.21 times Plain's total tokens and 1.38 times its wall time. This fails
+the efficiency requirements. Beauty, complete player outcomes, and runtime
+overhead are not independently established for this pair.
 
 ## Author results
 
-| Arm | Author | Limit | Recorded duration | Total tokens | Tool errors |
-| --- | --- | --- | --- | --- | --- |
-| Facet | Sol 6.1 Medium | 600 seconds | 398.90 seconds | 1,167,736 | 2 |
-| Plain | Sol 6.1 Medium | 600 seconds | 600.16 seconds; timed out | Unavailable | 9 |
+| Measurement | Plain | Facet | Required Facet result |
+| --- | ---: | ---: | --- |
+| Wall time | 1,115.47 s | 1,544.00 s | At most 669.28 s (60% of Plain) |
+| Total tokens, including cache reads | 4,056,603 | 13,014,739 | At most 2,028,301 (50% of Plain) |
+| Cache-read tokens | 3,915,776 | 12,783,488 | Included in total |
+| Uncached input tokens | 90,200 | 171,083 | Included in total |
+| Output tokens | 50,627 | 60,168 | Included in total |
+| Completed turn latency | 1,113.99 s | 1,542.60 s | Lower than Plain |
+| Tool calls | 111 | 222 | Diagnostic |
+| Tool errors | 5 | 6 | Diagnostic |
+| Permission denials | 0 | 0 | Diagnostic |
 
-Facet tokens include 1,076,608 cache-read tokens, 69,974 uncached input tokens,
-and 21,154 output tokens. Plain's zero counters in its original result mean
-unavailable usage, not zero cost. Its missing final turn also prevents a turn
-latency comparison. This evidence does not establish the efficiency thresholds.
+Both arms used Sol 6.1 Medium, one prompt, a blank place, Studio MCP only,
+and the same 30-minute deadline. Facet additionally received the library and
+consumer skill. Both Studios were maximized. The recorded native viewport
+was 1939.33337 by 946. No author was coached or resumed. Library source was
+from commit `a86af51aee8ef5e5f50f8d67359048fd72bc8760`.
 
-Both authors started from blank places and had Studio tools only. Facet added
-the installed library and public consumer guidance. The Plain baseline used
-the earlier scoped tool descriptions. Facet used the corrected argument schemas
-and native input examples. This is an iterative diagnostic comparison, not a
-fresh matched pair under identical tooling.
+The author results are unchanged originals. Their `passed: false` fields
+include checks attempted before submission sealing. Separate submission
+receipts record the subsequent seal. Neither receipt proves the game's
+required player outcomes. Paths in the original results identify the local
+artifact workspace; the preserved places are linked below.
 
-The next comparison uses a 1,800-second limit for both arms. That change does
-not extend, resume, or relabel these historical submissions.
+## What this evidence proves
 
-## Blind visual judgment
+- Both authors completed one turn within the deadline and reported usage.
+- Both submissions were saved and sealed. Facet's 930 supplied source and
+  documentation entries were unchanged.
+- Both authors used screenshots and native input. They reported a completed
+  race and return to the hub, purchases, and livery cancellation. These are
+  author observations, not independent functional acceptance.
+- The efficiency thresholds failed. A better visual judgment cannot change
+  this overall verdict.
 
-The Sol 6.1 Medium judge compared desktop Hub and Garage captures in both
-presentation orders. It preferred Plain in both orders and on all six criteria.
-Four other device comparisons were skipped because matched captures were not
-supplied. This is one comparison containing two screens, not two independent
-wins. It does not establish a whole-game preference rate.
+The required independent player checks cover 29 outcomes on five devices.
+They have not been completed for this pair. The new pair has no blind visual
+judgment and no matched frame-time or retained-memory measurements. The
+less-than-5% overhead requirement remains unproven. The library benchmark
+in [validation](validation.md) is a different measurement.
 
-The judge cited Plain's clearer primary race action, labeled filters, stronger
-typography, and consistent spacing. Facet's ambiguous repeated `All` selectors,
-small statistics, competing scrollbars, and panel reaching the screen edge were
-the main defects. The full judgments are in `judge/observations`.
+The earlier 600-second submissions, captures, and judge observations have
+been removed from this checkpoint. They do not describe these new games.
+The `author-preview.png` files are captures from during authoring. They are
+not final matched visual-judge inputs.
 
-The judge used the current full-game brief, whose time limit now says 30 minutes.
-Both pictured submissions were authored under the earlier 10-minute limit.
-Treat the judgment as a diagnostic of the displayed UI, not a verdict on the
-upcoming 30-minute comparison.
+## Preserved submissions
 
-## Player evidence
+| Arm | Place | Original result | Seal | Author preview |
+| --- | --- | --- | --- | --- |
+| Plain | [game](plain/game.rbxl) | [result](plain/author-result.json) | [receipt](plain/submission.verify.json) | [preview](plain/author-preview.png) |
+| Facet | [game](facet/game.rbxl) | [result](facet/author-result.json) | [receipt](facet/submission.verify.json) | [preview](facet/author-preview.png) |
 
-The frozen places and integrity reports are retained under each arm. Player
-checks operate on instrumented copies. The author result is preserved verbatim;
-its initial missing-seal failure precedes the later independent evaluation.
+SHA-256 of the exact saved place bytes:
 
-The attached player checks are diagnostic subsets, not the full acceptance
-suite. They must not be reported as complete game coverage. Initial Facet checks
-included an incorrect case-sensitive search pattern and did not follow the
-compact Menu route. Those evaluator failures are superseded by the final checks.
-Source for the checks is retained as `player.luau.txt`.
+- Plain: `29b6cb775b958ac59407a02ccde94ae64e1e4280a22650924e25f253f5e40aae`
+- Facet: `3d8ad4ca84534883f8cb337d53074455b4eac2f382ede191e52c5b5b0ddf461a`
 
-The corrected Facet report has **8 passed and 3 failed cases**, including one
-build pass. Garage search and clear pass on desktop, portrait phone, tablet,
-and console. Livery entry and return pass on desktop, portrait phone, and tablet.
-Landscape cannot reach Menu for either task. Console reaches Livery but cannot
-close it. Console actions use the existing gamepad selection driver. These
-checks do not cover the complete Garage or Livery acceptance rows.
+The files contain Studio XML despite their `.rbxl` extension. Git preserves
+their exact bytes. The [Plain preflight](plain/preflight.json),
+[Facet preflight](facet/preflight.json), and
+[supplied-content comparison](facet/supplied-content.json) record setup checks.
 
-## Gaps to close
-
-- Complete all acceptance rows, rejection paths, and return paths across five
-  devices. A preview or editor mounting does not prove its complete task.
-- Improve visual hierarchy and density. Use labeled filters, readable comparison
-  statistics, meaningful glyphs, and a clear primary commitment.
-- Re-evaluate track voting with the repaired library. The native two-card list
-  regression now passes focus, pointer hover, click, parent resize, content
-  growth and shrink, and release of the temporary paint layer. Grid corner
-  checks also pass. See `library-card-lift/before.verify.json`,
-  `library-card-lift/after.verify.json`, and `library-card-lift/after.notes.json`.
-  The repair also prevents feedback cleanup from restoring an old selection.
-  These are library checks; the frozen submission has not been repaired or
-  credited with these results. Full-game and performance acceptance remain open.
-- Apply settings to actual game effects, provide distinct voted track outcomes,
-  anchored onboarding, and complete crate reveal behavior. The author reported
-  these as incomplete.
-- Verify selected previews, livery effects, driving, rewards, and repeated play
-  independently. Author claims and server calls are not player-flow evidence.
-- Collect a fresh matched Plain/Facet pair, complete author usage, and blind
-  judgments for equivalent states across all devices.
-- Establish frame-time and retained-memory overhead below 5%. Current observations
-  are insufficient; repository checks and screenshots cannot prove this claim.
-
-No submitted game was repaired after authoring. Library and guidance changes
-after a submission apply only to later attempts.
+See [next improvements](next-improvements.md) for the trace analysis and
+[validation](validation.md) for repository and library evidence. No further
+author run is authorized for this checkpoint.

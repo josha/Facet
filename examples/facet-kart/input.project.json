@@ -1,0 +1,122 @@
+{
+  "tree": {
+    "$className": "Folder",
+    "Drift": {
+      "$className": "InputContext",
+      "$properties": {
+        "Enabled": false,
+        "Priority": 2000,
+        "Sink": true
+      },
+      "Hold": {
+        "$className": "InputAction",
+        "$properties": {
+          "Type": "Bool"
+        },
+        "Keyboard": {
+          "$className": "InputBinding",
+          "$properties": {
+            "KeyCode": "LeftShift"
+          }
+        },
+        "Gamepad": {
+          "$className": "InputBinding",
+          "$properties": {
+            "KeyCode": "ButtonX"
+          }
+        }
+      }
+    },
+    "Back": {
+      "$className": "InputContext",
+      "$properties": {
+        "Enabled": false,
+        "Priority": 3000,
+        "Sink": true
+      },
+      "Close": {
+        "$className": "InputAction",
+        "$properties": {
+          "Type": "Bool"
+        },
+        "Keyboard": {
+          "$className": "InputBinding",
+          "$properties": {
+            "KeyCode": "Backspace"
+          }
+        },
+        "Gamepad": {
+          "$className": "InputBinding",
+          "$properties": {
+            "KeyCode": "ButtonB"
+          }
+        }
+      }
+    },
+    "musicVolume": {
+      "$className": "InputContext",
+      "$properties": {
+        "Enabled": false,
+        "Priority": 3000,
+        "Sink": true
+      },
+      "Decrease": {
+        "$className": "InputAction",
+        "$properties": {
+          "Type": "Bool"
+        },
+        "Gamepad": {
+          "$className": "InputBinding",
+          "$properties": {
+            "KeyCode": "DPadLeft"
+          }
+        }
+      },
+      "Increase": {
+        "$className": "InputAction",
+        "$properties": {
+          "Type": "Bool"
+        },
+        "Gamepad": {
+          "$className": "InputBinding",
+          "$properties": {
+            "KeyCode": "DPadRight"
+          }
+        }
+      }
+    },
+    "effectsVolume": {
+      "$className": "InputContext",
+      "$properties": {
+        "Enabled": false,
+        "Priority": 3000,
+        "Sink": true
+      },
+      "Decrease": {
+        "$className": "InputAction",
+        "$properties": {
+          "Type": "Bool"
+        },
+        "Gamepad": {
+          "$className": "InputBinding",
+          "$properties": {
+            "KeyCode": "DPadLeft"
+          }
+        }
+      },
+      "Increase": {
+        "$className": "InputAction",
+        "$properties": {
+          "Type": "Bool"
+        },
+        "Gamepad": {
+          "$className": "InputBinding",
+          "$properties": {
+            "KeyCode": "DPadRight"
+          }
+        }
+      }
+    }
+  },
+  "name": "KartInput"
+}
