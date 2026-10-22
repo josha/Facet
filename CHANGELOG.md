@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- A stack with a rounded `surface` keeps its content clear of its corners: when
+  both paddings at a corner are less than the theme corner radius, the larger
+  grows to the radius. A progress bar in a short pill no longer runs into the
+  curve. Padded `panel` and `surface` stacks with small padding get wider.
+- A text Card lifted inside a layout keeps its panel and its color. The theme
+  rule that clears the Card's inner Body and Plate panels no longer matches the
+  lift paint. A `panel` stack placed inside a text Card is no longer cleared.
+- A Card whose lift ends while its paint is still scaling (for example when
+  reduced motion turns on, or the pointer crosses cards quickly) returns to its
+  hug height. Before, it could keep `AutomaticSize.None` and collapse to zero
+  height, so a list of cards overlapped and a hugging Sheet shrank.
+- A Card lifted inside a layout keeps its rest height in the first frames of
+  the lift. Before, it took the height of the still-empty lift paint for a
+  frame, so its action button flashed above and then below the Card.
+
 - Centered Sheets show Close without a grabber or drag resizing. Docked Sheets
   use a grabber by default; explicit Close replaces it. Hidden grabbers reserve
   no gutter and do not take keyboard or gamepad selection.

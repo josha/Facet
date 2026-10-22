@@ -16,6 +16,7 @@ return function(
 	local factor = ctx.observe.Scale(scale)
 	local natural = Compose.cell(V2.zero)
 	local painted: ComposeTypes.Readable<Vector2>? = nil
+	local dressed = Compose.cell(false)
 	local function axes(use: ComposeTypes.Use): (boolean, boolean)
 		local value = ctx.read(geometry.AutomaticSize, use) or automatic
 		return value == E.AutomaticSize.X or value == E.AutomaticSize.XY,
@@ -40,9 +41,8 @@ return function(
 			if not geometry.reflow then
 				return D2.fromOffset(rest.X, rest.Y)
 			end
-			local observed = if painted then use(painted) else rest
-			local extent =
-				V2.new(if observed.X > 0 then observed.X else rest.X, if observed.Y > 0 then observed.Y else rest.Y)
+			local observed = if painted and use(dressed) then use(painted) else rest
+			local extent = V2.new(math.max(observed.X, rest.X), math.max(observed.Y, rest.Y))
 			local x, y = axes(use)
 			return D2.new(
 				if x then 0 else base.X.Scale,
@@ -55,6 +55,10 @@ return function(
 			return if moving(use) then E.AutomaticSize.None else ctx.read(geometry.AutomaticSize, use) or automatic
 		end,
 	})
+	Compose.cleanup(function()
+		node.Size = ctx.read(geometry.Size) or size
+		node.AutomaticSize = ctx.read(geometry.AutomaticSize) or automatic
+	end)
 	local paintProps: Types.TextLabelNativeProps = {
 		Name = "FeedbackPaint",
 		Size = if geometry.reflow
@@ -135,6 +139,7 @@ return function(
 				local unmount: (() -> ())? = nil
 				local function dress()
 					paint.Visible = true
+					dressed:set(true)
 					unmount = runtime.mountFragment(function()
 						local children = node:GetChildren()
 						local selected = if ctx.config.guiService then ctx.config.guiService.SelectedObject else nil
@@ -207,6 +212,7 @@ return function(
 						unmount()
 					end
 					paint.Visible = false
+					dressed:set(false)
 				end)
 				return Compose.fragment(function()
 					return {}

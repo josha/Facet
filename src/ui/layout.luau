@@ -51,11 +51,51 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		end
 		return containerProps(named, keys), children
 	end
+	local CORNERS: { [string]: string } = { surface = "radii.control", panel = "radii.panel" }
+	local SIDES: { "top" | "right" | "bottom" | "left" } = { "top", "right", "bottom", "left" }
+	local function clearCorners(padding: Types.Value<Types.Padding>, metric: string): Types.Value<Types.Padding>
+		return function(use: ComposeTypes.Use): Types.Padding
+			local value = read(padding, use)
+			local given: { [string]: unknown } = if type(value) == "table"
+				then value :: { [string]: unknown }
+				else { top = value, right = value, bottom = value, left = value }
+			local pixels: { [string]: number } = {}
+			for _, name in SIDES do
+				local side = given[name]
+				if typeof(side) == "UDim" then
+					if (side :: UDim).Scale ~= 0 then
+						return value
+					end
+					pixels[name] = (side :: UDim).Offset
+				else
+					pixels[name] = kit.spacing(side :: Types.Space?, use)
+				end
+			end
+			local radius = ctx.metric(metric, use)
+			local grown = table.clone(pixels)
+			local reach = math.ceil(radius)
+			for _, corner in { { "top", "left" }, { "top", "right" }, { "bottom", "left" }, { "bottom", "right" } } do
+				local vertical, horizontal = corner[1], corner[2]
+				local bleed = pixels[vertical] == 0 and pixels[horizontal] == 0
+				if not bleed and pixels[vertical] < radius and pixels[horizontal] < radius then
+					local grow = if pixels[horizontal] >= pixels[vertical] then horizontal else vertical
+					grown[grow] = math.max(grown[grow], reach)
+				end
+			end
+			return { top = grown.top, right = grown.right, bottom = grown.bottom, left = grown.left }
+		end
+	end
 	local function stack(spec: LayoutProps.StackProps, vertical: boolean): Frame
 		local plate = PLATES[spec.surface or ""]
 		assert(spec.surface == nil or plate ~= nil, "Facet stack: surface must be surface, panel or pane")
 		local properties, children = split(spec, flowKeys)
-		local frame = kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, spec, vertical)
+		local metric = CORNERS[spec.surface or ""]
+		local flow: Types.Flow = spec
+		if metric and spec.padding ~= nil then
+			flow = table.clone(spec) :: Types.Flow
+			flow.padding = clearCorners(spec.padding, metric)
+		end
+		local frame = kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, vertical)
 		if plate then
 			frame:AddTag(plate)
 		end

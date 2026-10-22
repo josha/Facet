@@ -114,6 +114,13 @@ Roblox does the layout.
 
 - Write `gap` and `padding` as spacing steps: `xs`, `s`, `m`, `l` or `xl`.
   The steps come from the theme package. A number is a pixel value.
+- A stack with `surface = "panel"` or `surface = "surface"` keeps its content
+  out of its rounded corners. When both paddings at a corner are less than the
+  theme corner radius, the larger padding grows to the radius. When they are
+  equal, the side padding grows. A pill with
+  `padding = { top = "xs", bottom = "xs", left = "s", right = "s" }` gets side
+  padding equal to the radius when the radius is more than `s`. Padding of 0
+  on both sides of a corner stays 0.
 - The containers set `LayoutOrder` from the order of the children. Do not
   write it.
 - Set `width` or `height` to `"fill"`, `"hug"` or a number of pixels.
