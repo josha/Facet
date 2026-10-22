@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `app.presentToast` places passive results in the requested top or bottom
+  stack, including when the toast mounts before its anchor is parented.
 - A control's native `SelectionImageObject` replaces the theme focus glow,
   including when the override changes while focused.
 - The Ascent showcase adds a growing skill tree with direct tile inspection and

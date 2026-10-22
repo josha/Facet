@@ -20,13 +20,15 @@ app.mount(function()
 end)
 app.presentToast(function(UI: Facet.Controls): Instance
     return UI.Text "Saved" { text = "Settings saved" }
-end, { key = "save" })
+end, { key = "save", position = "bottom", width = "hug" })
 script.Destroying:Connect(app.dispose)
 ```
 
 Call `app.presentToast` after the game confirms a result. It owns the toast's
 mount and stops it when the toast retires. Its `key` groups repeated results.
 The sample shows one confirmed result after mounting the screen.
+Choose `position = "top"` or `"bottom"` to keep the result clear of the active
+task. Both presentation routes use the same edge stacks and chrome reservations.
 
 Use `UI.Toast` when a component owns its presentation. Mount an unbound Toast
 once per result; retirement hides its row but keeps its anchor until unmount.

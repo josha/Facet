@@ -773,6 +773,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			row = nil,
 		}
 		local armed = wanted(record)
+		local ready = Compose.cell(false)
 		local function sync()
 			if armed and record.stack and record.id == nil then
 				armed = false
@@ -786,6 +787,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local stack = stackFor(layer :: GuiBase2d, if interactive then "action" else spec.position or "top")
 				record.stack = stack
 				stack.users += 1
+				ready:set(true)
 				sync()
 			end
 		end
@@ -826,28 +828,30 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 		end)
 		surfaces.attach(root, {
-			surfaces.overlay(root, function(use: ComposeTypes.Use): boolean
-				return use(record.state) == "shown" and read(visible, use) ~= false
-			end, function(phase)
-				local stack = assert(record.stack)
-				return if interactive then actionRow(record, stack, phase) else passiveRow(record, stack, phase)
-			end, {
-				parent = function(): GuiBase2d?
-					return if record.stack then record.stack.container else nil
-				end,
-				presence = {
-					exit = function()
-						local current = level()
-						if current == "none" then
-							return { completed = Compose.cell(true) }
-						end
-						local seconds = if current == "limited"
-							then ctx.metric("motion.reducedFade")
-							else ctx.metric("motion.toast.exit")
-						return { completed = runtime.timeline({ duration = seconds }).completed }
+			Compose.show(ready, function()
+				return surfaces.overlay(root, function(use: ComposeTypes.Use): boolean
+					return use(record.state) == "shown" and read(visible, use) ~= false
+				end, function(phase)
+					local stack = assert(record.stack)
+					return if interactive then actionRow(record, stack, phase) else passiveRow(record, stack, phase)
+				end, {
+					parent = function(): GuiBase2d?
+						return if record.stack then record.stack.container else nil
 					end,
-				},
-			}),
+					presence = {
+						exit = function()
+							local current = level()
+							if current == "none" then
+								return { completed = Compose.cell(true) }
+							end
+							local seconds = if current == "limited"
+								then ctx.metric("motion.reducedFade")
+								else ctx.metric("motion.toast.exit")
+							return { completed = runtime.timeline({ duration = seconds }).completed }
+						end,
+					},
+				})
+			end),
 		})
 		Compose.watch(function(use: ComposeTypes.Use)
 			local state = use(record.state)
