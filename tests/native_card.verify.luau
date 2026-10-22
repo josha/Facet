@@ -578,7 +578,7 @@ return function(verifyHarness: Verify.Harness)
 			local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({
 					Name = "Stack",
-					Host.UIListLayout({}),
+					Host.UIListLayout({}) :: unknown,
 					UI.Card "C"(spec) :: unknown,
 				})
 			end, {
