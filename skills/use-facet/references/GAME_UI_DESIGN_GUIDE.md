@@ -36,6 +36,17 @@ lines. Fingers and controls also occupy space. A modal sets input ownership;
 the game still decides whether movement stops. Do not cover an urgent action
 with a reward, instruction, or purchase offer.
 
+Find the focus area before you place UI. It is the part of the world that the
+camera makes the player watch. With a follow camera, it is the avatar or the
+vehicle and the space in front of it, usually the middle of the screen and the
+band above it. Keep the focus area clear on every screen and in every
+orientation. This applies to UI that is attached to the world too: a tag or a
+bar over the avatar covers the space in front of it. Keep such a tag small,
+and on a short screen put it below or beside the avatar. On a landscape phone
+the top rows use a large part of the height, so a row that wraps can reach the
+focus area. Render the layout on a phone in both orientations and look at what
+the UI covers.
+
 Use safe screen edges deliberately; reserve the center for play. The top-right
 area below the engine top bar is a useful home for secondary destinations such
 as Garage, Shop, and Menu when it clears the game's sight lines. Keep the group

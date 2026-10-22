@@ -147,6 +147,10 @@ that same copy and use the returned Facet table throughout the context.
   A root Composition keeps its zones inside the TV safe area; do not offset a
   zone by hand.
   Add a type role, `scaled(64, "body")`, when the length sits beside text.
+- Find the focus area first: the part of the world that the camera makes the
+  player watch, such as the avatar and the space in front of it. Keep it clear
+  on every screen and orientation, also with UI attached to the avatar, such
+  as a BillboardGui tag. Read the focus area in the design guide.
 - Use `Tasks.hud` as a starting point. Choose zones from the game's sight lines
   and controls. Consider `topRight` below the engine top bar for secondary
   navigation; preserve its destinations in a compact Menu. Let Composition
