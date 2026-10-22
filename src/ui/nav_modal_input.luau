@@ -114,6 +114,9 @@ local function acquire(ctx: Types.Context, root: GuiObject): (() -> (), () -> ()
 					if state.writing then
 						return
 					end
+					if (if property == "Interactable" then node.Interactable else node.Selectable) == false then
+						return
+					end
 					if property == "Interactable" then
 						state.interactable = node.Interactable
 					else
