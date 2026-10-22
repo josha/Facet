@@ -25,6 +25,13 @@ runs in a new Lute process. Each round also runs the calling tree's benchmark
 command with the target tree as its working directory, unless `--skip-bench`
 is set. Both trees use the same measurement code and load their own source.
 
+CI also gives both trees the candidate's engine reflection snapshot. This is
+test-engine data, not Facet source. CI saves the original base snapshot and
+the shared snapshot in `artifacts/perf-paired-fixtures` and logs their hashes.
+Only the temporary base checkout is changed. Facet and Compose source remain
+at their respective revisions. For local comparisons, prepare isolated trees
+with the same reflection snapshot before running the command.
+
 Results stay in the output directory. `scenes.jsonl` holds scene rows.
 `bench-<label>-<round>.json` holds benchmark data. `log.txt` records progress.
 Use an empty output directory for a new comparison.

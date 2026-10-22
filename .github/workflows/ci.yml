@@ -162,6 +162,14 @@ jobs:
           fi
           git worktree add "$RUNNER_TEMP/base" "$BASE_REF"
 
+      - name: Use the same engine reflection data
+        run: |
+          mkdir -p artifacts/perf-paired-fixtures
+          cp "$RUNNER_TEMP/base/tests/fixtures/roblox-reflection.json" artifacts/perf-paired-fixtures/base-original.json
+          cp tests/fixtures/roblox-reflection.json artifacts/perf-paired-fixtures/shared.json
+          cp artifacts/perf-paired-fixtures/shared.json "$RUNNER_TEMP/base/tests/fixtures/roblox-reflection.json"
+          sha256sum artifacts/perf-paired-fixtures/*.json
+
       - name: Install Rokit
         env:
           GITHUB_PAT: ${{ github.token }}
