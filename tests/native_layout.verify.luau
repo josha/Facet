@@ -185,6 +185,78 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("stack surface corners", function()
+		local function insets(make: (FacetControls) -> unknown, width: number?, height: number?): string
+			local root, engine, stop = build(nil, function(UI: FacetControls)
+				return make(UI)
+			end)
+			if width and height then
+				root.AbsoluteSize = engine.types.Vector2.new(width, height)
+			end
+			local padding = child(root, "UIPadding")
+			local text = if padding
+				then `{padding.PaddingTop.Offset} {padding.PaddingRight.Offset} {padding.PaddingBottom.Offset} {padding.PaddingLeft.Offset}`
+				else "none"
+			stop()
+			return text
+		end
+		local function pill(UI: FacetControls): unknown
+			return UI.VStack "Tag" { surface = "panel", padding = { top = 4, bottom = 4, left = 8, right = 8 } }
+		end
+
+		verifyHarness:case(
+			"widens a rounded surface's longer padding to its corner radius so content clears the curve",
+			{
+				id = "native_layout::stack surface corners::widens a rounded surface's longer padding to its corner radius so content clears the curve",
+				run = function()
+					Verify.expect(insets(pill)):toBe("4 12 4 12")
+					Verify.expect(insets(pill, 100, 18)):toBe("4 9 4 9")
+					Verify.expect(insets(function(UI: FacetControls): unknown
+						return UI.VStack "Tall" {
+							surface = "panel",
+							padding = { top = 8, bottom = 8, left = 4, right = 4 },
+						}
+					end)):toBe("12 4 12 4")
+					Verify.expect(insets(function(UI: FacetControls): unknown
+						return UI.HStack "Chip" { surface = "surface", padding = 4 }
+					end)):toBe("4 8 4 8")
+				end,
+			}
+		)
+
+		verifyHarness:case("keeps the padding of a surface that already clears its corners, bleeds or has no corners", {
+			id = "native_layout::stack surface corners::keeps the padding of a surface that already clears its corners, bleeds or has no corners",
+			run = function()
+				local cases: { [string]: (FacetControls) -> unknown } = {
+					["12 12 12 12"] = function(UI: FacetControls): unknown
+						return UI.VStack "Roomy" { surface = "panel", padding = 12 }
+					end,
+					["16 4 16 4"] = function(UI: FacetControls): unknown
+						return UI.VStack "Deep" {
+							surface = "panel",
+							padding = { top = 16, bottom = 16, left = 4, right = 4 },
+						}
+					end,
+					["0 0 0 0"] = function(UI: FacetControls): unknown
+						return UI.VStack "Bleed" { surface = "panel", padding = 0 }
+					end,
+					["4 4 4 4"] = function(UI: FacetControls): unknown
+						return UI.VStack "Pane" { surface = "pane", padding = 4 }
+					end,
+					none = function(UI: FacetControls): unknown
+						return UI.VStack "Bare" { surface = "panel" }
+					end,
+				}
+				for expected, make in cases do
+					Verify.expect(insets(make)):toBe(expected)
+				end
+				Verify.expect(insets(function(UI: FacetControls): unknown
+					return UI.VStack "Plain" { padding = 4 }
+				end)):toBe("4 4 4 4")
+			end,
+		})
+	end)
+
 	verifyHarness:suite("phone layout policy", function()
 		verifyHarness:case("reserves a visible horizontal scroll hint below overflowing genre chips", {
 			id = "native_layout::phone layout policy::reserves a visible horizontal scroll hint below overflowing genre chips",

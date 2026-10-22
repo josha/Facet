@@ -55,6 +55,10 @@ return function(
 			return if moving(use) then E.AutomaticSize.None else ctx.read(geometry.AutomaticSize, use) or automatic
 		end,
 	})
+	Compose.cleanup(function()
+		node.Size = ctx.read(geometry.Size) or size
+		node.AutomaticSize = ctx.read(geometry.AutomaticSize) or automatic
+	end)
 	local paintProps: Types.TextLabelNativeProps = {
 		Name = "FeedbackPaint",
 		Size = if geometry.reflow

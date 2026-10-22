@@ -362,6 +362,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			body = ctx.styled(Host.Frame(props), "panel")
 		end
 		ctx.styled(body, "card-body")
+		body:AddTag("facet-card-part")
 		local actionEnabled = function(use: ComposeTypes.Use?): boolean
 			return enabled(use) and read(revealed, use)
 		end
@@ -458,6 +459,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			}),
 			"panel"
 		)
+		plateLayer:AddTag("facet-card-part")
 		local plate = ctx.fade {
 			Name = "Reveal",
 			LayoutOrder = 2,
@@ -543,7 +545,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					ctx,
 					assert(root),
 					Host.UIScale { Name = "PaintLift", Scale = scale },
-					{ Size = spec.Size, AutomaticSize = spec.AutomaticSize, reflow = true }
+					{ Size = spec.Size, AutomaticSize = spec.AutomaticSize or E.AutomaticSize.Y, reflow = true }
 				)
 				return Compose.fragment(function()
 					return {}
