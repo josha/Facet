@@ -10,6 +10,7 @@ local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 local presentationReadiness = require("./presentation_readiness")
 local regionPresence = require("./region_presence")
+local extentMatch = require("./extent_match")
 local reservations = require("./reservations")
 
 type Declared = {
@@ -20,7 +21,10 @@ type Declared = {
 	form: ComposeTypes.Cell<number>,
 	yielding: ComposeTypes.Cell<boolean>,
 	lift: ComposeTypes.Cell<number>,
+	floors: { () -> boolean },
+	contents: { GuiObject },
 	leading: boolean,
+	trailing: boolean,
 	animate: boolean,
 	reveal: { host: (Instance) -> (), back: () -> () }?,
 }
@@ -67,6 +71,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			spec.leading == nil or (type(spec.leading) == "boolean" and (spec.leading == false or zone == "topbar")),
 			"Facet Region leading must be a boolean, and only a topbar region can lead"
 		)
+		assert(
+			spec.trailing == nil or (type(spec.trailing) == "boolean" and (spec.trailing == false or zone == "topbar")),
+			"Facet Region trailing must be a boolean, and only a topbar region can trail"
+		)
+		assert(not (spec.leading and spec.trailing), "Facet Region cannot both lead and trail")
 		local form: ComposeTypes.Cell<number> = spec.form or Compose.cell(1)
 		form:set(1)
 		local reduced = reducedMotion(ctx)
@@ -81,14 +90,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local yielding = Compose.cell(false)
 		local lift = Compose.cell(0)
 		local properties = (
-			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand", "reveal", "leading" }, {
-				BorderSizePixel = 0,
-				Size = D2.new(),
-				AutomaticSize = E.AutomaticSize.XY,
-				Visible = function(use: ComposeTypes.Use): boolean
-					return use(form) > 0 and not use(yielding)
-				end,
-			}) :: unknown
+			ctx.props(
+				spec,
+				{ "zone", "rank", "mayDrop", "form", "expand", "reveal", "leading", "trailing" },
+				{
+					BorderSizePixel = 0,
+					Size = D2.new(),
+					AutomaticSize = E.AutomaticSize.XY,
+					Visible = function(use: ComposeTypes.Use): boolean
+						return use(form) > 0 and not use(yielding)
+					end,
+				}
+			) :: unknown
 		) :: Types.FrameNativeProps
 		local open, hosted = Compose.cell(false), Compose.cell(false)
 		local richest = properties[1] :: GuiObject?
@@ -107,21 +120,20 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			)
 		end
 		local sizes: { ComposeTypes.Cell<Vector2> } = {}
+		local floors: { () -> boolean } = {}
+		local contents: { GuiObject } = {}
 		for index = 1, #properties do
 			local child = properties[index] :: GuiObject
+			contents[index] = child
 			assert(
 				type(child) ~= "string" and type(child.IsA) == "function" and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first"
 			)
-			if child:FindFirstChildWhichIsA("UISizeConstraint") == nil then
-				Host.UISizeConstraint({
-					Name = "RowMatch",
-					MinSize = function(use: ComposeTypes.Use): Vector2
-						return V2.new(0, use(lift))
-					end,
-				}).Parent =
-					child
-			end
+			floors[index] = kit.follow(child, "y", function(use: ComposeTypes.Use?): number
+				local raised = if use then use(lift) else lift:peek()
+				local away = if use then use(hosted) else hosted:peek()
+				return if away and index == 1 then 0 else raised
+			end)
 			local observed, settled = layoutSize(child), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size = use(observed)
@@ -221,6 +233,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local node = kit.plain(Host.Frame(properties), spec)
 		regionPresence[node] = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return use(form) > 0
+				and read(((spec :: unknown) :: { Visible: Types.Value<boolean>? }).Visible, use) ~= false
 		end)
 		local shown: number? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -239,7 +252,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			form = form,
 			yielding = yielding,
 			lift = lift,
+			floors = floors,
+			contents = contents,
 			leading = spec.leading == true,
+			trailing = spec.trailing == true,
 			animate = false,
 			reveal = if spec.reveal ~= false and spec.mayDrop == true
 				then { host = hostInto, back = returnHome }
@@ -510,9 +526,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				})
 				return Host.Frame(name)(fields)
 			end
-			local leadsAny = false
+			local leadsAny, trailsAny = false, false
 			for _, region in stripRegions do
 				leadsAny = leadsAny or declared[region].leading
+				trailsAny = trailsAny or declared[region].trailing
 			end
 			local leadingRow = row("Leading", E.HorizontalAlignment.Left, {
 				LayoutOrder = 1,
@@ -524,6 +541,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				LayoutOrder = 2,
 				Size = D2.fromScale(0, 1),
 				Host.UIFlexItem({ FlexMode = E.UIFlexMode.Fill }),
+			})
+			local trailingRow = row("Trailing", E.HorizontalAlignment.Right, {
+				LayoutOrder = 3,
+				Size = D2.new(),
+				AutomaticSize = E.AutomaticSize.XY,
+				Visible = trailsAny,
 			})
 			local topbarZone = row("Topbar", E.HorizontalAlignment.Left, {
 				Size = D2.fromScale(1, 1),
@@ -543,10 +566,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				}),
 				leadingRow,
 				middleRow,
+				trailingRow,
 			})
 			local landing = assert(landedZone)
 			for _, region in stripRegions do
-				local home = if declared[region].leading then leadingRow else middleRow
+				local home = if declared[region].leading
+					then leadingRow
+					elseif declared[region].trailing then trailingRow
+					else middleRow
 				local order = assert(table.find(regions, region))
 				runtime.decorate(region, {
 					Parent = function(use: ComposeTypes.Use): Instance?
@@ -735,6 +762,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local placement: ComposeTypes.Cell<Placement?> = Compose.cell(nil :: Placement?)
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
 		local stripSize = if stripGui then layoutSize(stripGui, stripUnit) else nil
+		local heights = extentMatch.new()
 		Compose.watch(function(use: ComposeTypes.Use)
 			local extent = use(box)
 			local rides = riding(use)
@@ -805,6 +833,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			overflowing = still
 			local resized = last ~= nil and last.X > 0 and last ~= extent
 			last = extent
+			local stripped = band ~= nil and strip ~= nil and strip.X > 0
+			local function placed(index: number): string
+				local zone = list[index].zone
+				return if zone == "topbar" and (down[index] or not stripped) then "top" else zone
+			end
 			local filled: { [string]: boolean } = {}
 			local empty: { [number]: boolean } = {}
 			for index, entry in list do
@@ -812,13 +845,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				if size and (size.x <= 0 or size.y <= 0) then
 					empty[index] = true
 				elseif size then
-					filled[entry.zone] = true
+					filled[placed(index)] = true
 				end
 			end
 			for index, region in regions do
 				declared[region].animate = resized
 				declared[region].form:set(chosen[index])
-				declared[region].yielding:set(empty[index] == true and filled[list[index].zone] == true)
+				declared[region].yielding:set(empty[index] == true and filled[placed(index)] == true)
 			end
 			local lifts: { [number]: number } = {}
 			if read(spec.rows, use) ~= "fit" then
@@ -829,24 +862,33 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					if edge == "top" then
 						for index, entry in list do
 							local size = if chosen[index] > 0 then entry.sizes[chosen[index]] else nil
-							if entry.zone == "topbar" and down[index] and size then
+							if entry.zone == "topbar" and placed(index) == "top" and size and not empty[index] then
 								used = math.max(used, size.x)
 							end
 						end
 					end
 					local line: { number } = {}
 					local function close()
-						local tallest, height = nil :: number?, 0
+						local members: { unknown } = {}
+						local measured: { [unknown]: number } = {}
+						local natural: { [unknown]: number } = {}
 						for _, index in line do
 							local region = regions[index]
-							local measured = list[index].sizes[chosen[index]].y
-							local held = declared[region].lift:peek()
-							if (held == 0 or measured > held + 0.5) and measured > height then
-								tallest, height = index, measured
-							end
+							local size = list[index].sizes[chosen[index]].y
+							local content = declared[region].contents[chosen[index]]
+							local scale = if size > 0 then content.AbsoluteSize.Y / size else 1
+							table.insert(members, region)
+							measured[region] = size
+							natural[region] = kit.intrinsic(content, false, if scale > 0 then scale else 1)
 						end
+						local mins = extentMatch.step(heights, members, measured, natural)
 						for _, index in line do
-							lifts[index] = if #line > 1 and tallest ~= nil and index ~= tallest then height else 0
+							local region = regions[index]
+							local floor = declared[region].floors[chosen[index]]
+							if floor and not floor() and declared[region].lift:peek() > 0 then
+								heights[region] = nil
+							end
+							lifts[index] = mins[region] or 0
 						end
 						table.clear(line)
 					end

@@ -3,7 +3,6 @@ local ControlTypes = require("./control_types")
 local Types = require("./types")
 local Content = require("./content_types")
 local ComposeTypes = require("../vendor/compose/core")
-local layoutKit = require("./layout_kit")
 
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
@@ -37,7 +36,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local list = Host.UIListLayout({
 			FillDirection = E.FillDirection.Vertical,
 			SortOrder = E.SortOrder.LayoutOrder,
-			HorizontalFlex = E.UIFlexAlignment.Fill,
 		})
 		local wrapper = Host.Frame(host.Name .. "+badge")({
 			BackgroundTransparency = 1,
@@ -55,7 +53,18 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					Position = D2.fromScale(if direction == "rtl" then 0 else 1, 0),
 					ZIndex = host.ZIndex + 2,
 					Compose.show(function(use: ComposeTypes.Use): boolean
-						return text(use) ~= ""
+						return read(value, use) == true
+					end, function()
+						return UI.StatusIndicator({
+							Name = "CornerDot",
+							form = "dot",
+							AnchorPoint = V2.new(0.5, 0.5),
+							Position = D2.fromScale(0, 0),
+							ZIndex = host.ZIndex + 2,
+						})
+					end),
+					Compose.show(function(use: ComposeTypes.Use): boolean
+						return read(value, use) ~= true and text(use) ~= ""
 					end, function()
 						return UI.Badge({
 							Name = "CornerBadge",
@@ -68,7 +77,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				},
 			} :: Types.Child,
 		})
-		layoutKit.of(ctx).regrow(wrapper, list)
 		return wrapper
 	end
 end

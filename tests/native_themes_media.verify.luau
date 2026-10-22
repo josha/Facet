@@ -1662,10 +1662,11 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_themes_media::native themes and media::keeps the value and end label of an unlabelled bar on the bar's row",
 			run = function()
 				local engine, runtime, UI = setup()
-				local stop, meter: any = runtime.mount(function()
+				local stop, meter = runtime.mount(function()
 					return UI.ProgressView({ value = 0.4, showValue = true, endLabel = "mowed" })
 				end, engine.new("Folder"))
-				local line, track = meter:FindFirstChild("Line"), meter:FindFirstChild("Track", true)
+				local root = meter :: Instance
+				local line, track = root:FindFirstChild("Line"), root:FindFirstChild("Track", true)
 				Verify.expect(line ~= nil):toBe(true)
 				Verify.expect(track.Parent):toBe(line)
 				Verify.expect(track:FindFirstChildWhichIsA("UIFlexItem").FlexMode)

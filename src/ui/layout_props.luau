@@ -863,6 +863,7 @@ export type RegionProps = {
 	expand: typeof(region.expand),
 	reveal: typeof(region.reveal),
 	leading: typeof(region.leading),
+	trailing: typeof(region.trailing),
 	[number | Engine.EventKey]: Compose.Child,
 }
 export type CompositionProps = {

@@ -1,4 +1,5 @@
 --!strict
+local sizeFloor = require("./size_floor")
 local reducedMotion = require("./motion").reduced
 local decoration = require("./native_decoration")
 local feedbackPaint = require("./feedback_paint")
@@ -1028,10 +1029,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					Compose.show(function(use: ComposeTypes.Use): boolean
 						return floor(use) > 0
 					end, function()
+						local extra = sizeFloor.of(node, Compose.cell)
 						return Host.UISizeConstraint "TargetFloor" {
 							MinSize = function(use: ComposeTypes.Use): Vector2
 								local minimum = floor(use)
-								return V2.new(targetWidth(minimum, use), minimum)
+								return V2.new(
+									math.max(targetWidth(minimum, use), use(extra.x)),
+									math.max(minimum, use(extra.y))
+								)
 							end,
 						}
 					end),

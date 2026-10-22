@@ -185,34 +185,89 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
-	verifyHarness:suite("stack stretch regrowth", function()
-		verifyHarness:case("releases the stretch for a frame when a child's content grows or shrinks", {
-			id = "native_layout::stack stretch regrowth::releases the stretch for a frame when a child's content grows or shrinks",
+	verifyHarness:suite("stack stretch matching", function()
+		verifyHarness:case("gives the children of a hugging stretch stack the width of the widest one", {
+			id = "native_layout::stack stretch matching::gives the children of a hugging stretch stack the width of the widest one",
 			run = function()
 				local root, engine, stop = build(nil, function(UI, Host)
-					return UI.VStack { align = "stretch", Host.Frame { Name = "Row", Host.Frame { Name = "Inner" } } }
+					return UI.VStack {
+						align = "stretch",
+						Host.Frame { Name = "Row", Host.Frame { Name = "RowInner" } },
+						Host.Frame { Name = "Other", Host.Frame { Name = "OtherInner" } },
+					}
 				end, {})
 				local E, V = engine.types.Enum, engine.types.Vector2
 				local list = child(root, "UIListLayout")
-				local row = root:FindFirstChild("Row")
-				local inner = row:FindFirstChild("Inner")
-				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.Fill)
-				row.AbsoluteSize = V.new(50, 20)
-				inner.AbsoluteSize = V.new(80, 20)
-				engine.heartbeat:Fire(1 / 60)
+				local row, other = root:FindFirstChild("Row"), root:FindFirstChild("Other")
+				row.AutomaticSize, other.AutomaticSize = E.AutomaticSize.XY, E.AutomaticSize.XY
+				local function floor(node: Instance): number
+					local match = node:FindFirstChild("Lift") :: UISizeConstraint?
+					return if match then match.MinSize.X else 0
+				end
+				local function size(node: Instance, inner: number, outer: number)
+					local holder = node :: Frame
+					local content = holder:FindFirstChildWhichIsA("Frame") :: Frame
+					((content :: unknown) :: { AbsoluteSize: Vector2 }).AbsoluteSize = V.new(inner, 20);
+					((holder :: unknown) :: { AbsoluteSize: Vector2 }).AbsoluteSize = V.new(outer, 20)
+				end
 				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.None)
+				size(row, 80, 80)
+				size(other, 50, 50)
 				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.Fill)
-				row.AbsoluteSize = V.new(51, 20)
+				Verify.expect(floor(other)):toBe(80)
+				Verify.expect(floor(row)):toBe(0)
+				size(other, 50, 80)
 				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.Fill)
-				inner.AbsoluteSize = V.new(40, 20)
+				Verify.expect(floor(other)):toBe(80)
+				size(row, 30, 30)
 				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.None)
-				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.Fill)
-				engine.heartbeat:Fire(1 / 60)
-				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.Fill)
+				Verify.expect(floor(row)):toBe(50)
+				Verify.expect(floor(other)):toBe(0)
+				stop()
+			end,
+		})
+		verifyHarness:case("learns a lifted child's overshoot and follows growth and shrinking", {
+			id = "native_layout::stack stretch matching::learns a lifted child's overshoot and follows growth and shrinking",
+			run = function()
+				local extentMatch = require("../src/ui/extent_match")
+				local state = extentMatch.new()
+				local coin, button = {}, {}
+				local members = { coin, button }
+				local function step(a: number, b: number, naturalA: number, naturalB: number): (number, number)
+					local mins = extentMatch.step(
+						state,
+						members,
+						{ [coin] = a, [button] = b },
+						{ [coin] = naturalA, [button] = naturalB }
+					)
+					return mins[coin] or 0, mins[button] or 0
+				end
+				local a, b = step(91, 103.5, 91, 103.5)
+				Verify.expect(a):toBe(103.5)
+				Verify.expect(b):toBe(0)
+				a = step(139.5, 103.5, 91, 103.5)
+				Verify.expect(a):toBe(67.5)
+				a = step(103.5, 103.5, 91, 103.5)
+				Verify.expect(a):toBe(67.5)
+				a, b = step(162.5, 103.5, 162.5, 103.5)
+				Verify.expect(a):toBe(0)
+				Verify.expect(b):toBe(162.5)
+				_, b = step(162.5, 178.5, 162.5, 103.5)
+				Verify.expect(b):toBe(146.5)
+				_, b = step(162.5, 162.5, 162.5, 103.5)
+				Verify.expect(b):toBe(146.5)
+				a, b = step(91, 162.5, 91, 103.5)
+				Verify.expect(b):toBe(0)
+				Verify.expect(a):toBe(67.5)
+			end,
+		})
+		verifyHarness:case("stretches a fixed-width stack natively", {
+			id = "native_layout::stack stretch matching::stretches a fixed-width stack natively",
+			run = function()
+				local root, engine, stop = build(nil, function(UI, Host)
+					return UI.VStack { align = "stretch", width = 200, Host.Frame { Name = "Row" } }
+				end, {})
+				Verify.expect(child(root, "UIListLayout").HorizontalFlex):toBe(engine.types.Enum.UIFlexAlignment.Fill)
 				stop()
 			end,
 		})
@@ -839,6 +894,7 @@ return function(verifyHarness: Verify.Harness)
 					local root, engine, stop = build(nil, function(UI: FacetControls)
 						return UI.HStack {
 							align = align,
+							height = 40,
 							distribute = "spaceBetween" :: "spaceBetween",
 							UI.Text { text = "A" },
 						}

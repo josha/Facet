@@ -875,19 +875,19 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("mirrors the seal to the top-left in rtl and shows true as a dot", {
-			id = "native_card::native Card::mirrors the seal to the top-left in rtl and shows true as a dot",
+		verifyHarness:case("mirrors the seal to the top-left in rtl and shows true as a status dot", {
+			id = "native_card::native Card::mirrors the seal to the top-left in rtl and shows true as a status dot",
 			run = function()
 				local world = worlds.new(function(UI: FacetControls)
 					return UI.badged(UI.Button({ Name = "Inbox", label = "Inbox" }), true, "rtl")
 				end)
 				local wrapper = world.find("Inbox+badge")
 				Verify.expect(world.find("Corner", wrapper).Position):toBe(UDim2.fromScale(0, 0))
-				Verify.expect(world.find("CornerBadge", wrapper).AnchorPoint):toBe(world.V2(0.5, 0.5))
-				Verify.expect(world.find("CornerBadge", wrapper).Text):toBe("•")
+				Verify.expect(world.find("CornerDot", wrapper).AnchorPoint):toBe(world.V2(0.5, 0.5))
+				Verify.expect(world.find("CornerDot", wrapper).Text):toBe("")
+				Verify.expect(world.find("CornerBadge", wrapper)):toBeNil()
 				Verify.expect(world.find("Corner", wrapper).Parent:IsA("Folder")):toBe(true)
-				Verify.expect(wrapper:FindFirstChildWhichIsA("UIListLayout").HorizontalFlex)
-					:toBe(world.engine.types.Enum.UIFlexAlignment.Fill)
+				Verify.expect(wrapper:FindFirstChildWhichIsA("UIListLayout") ~= nil):toBe(true)
 				world.stop()
 				Verify.expect(worlds.mountError(function(UI: FacetControls)
 					return UI.badged(UI.Button({ label = "Inbox" }), 1, "up" :: any)

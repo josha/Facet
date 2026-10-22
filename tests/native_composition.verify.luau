@@ -226,7 +226,7 @@ return function(verifyHarness: Verify.Harness)
 				local T = engine.types
 				local layer = engine.new("ScreenGui")
 				layer.Parent = engine.new("Folder")
-				local lead, middle
+				local lead, middle, trail
 				runtime.mount(function()
 					local Host = runtime.constructors
 					lead = UI.Region {
@@ -237,12 +237,22 @@ return function(verifyHarness: Verify.Harness)
 						Host.Frame { Name = "GearFull" },
 					}
 					middle = UI.Region { Name = "Info", zone = "topbar", rank = 1, Host.Frame { Name = "InfoFull" } }
-					return UI.Composition { gap = 8, padding = 0, lead, middle }
+					trail = UI.Region {
+						Name = "Menu",
+						zone = "topbar",
+						rank = 1,
+						trailing = true,
+						Host.Frame { Name = "MenuFull" },
+					}
+					return UI.Composition { gap = 8, padding = 0, lead, middle, trail }
 				end, layer)
 				gui.TopbarInset = T.Rect.new(164, 0, 844, 58)
 				Verify.expect(lead.Parent.Name):toBe("Leading")
 				Verify.expect(middle.Parent.Name):toBe("Middle")
+				Verify.expect(trail.Parent.Name):toBe("Trailing")
 				Verify.expect(lead.Parent.Parent):toBe(middle.Parent.Parent)
+				Verify.expect(trail.Parent.Parent):toBe(middle.Parent.Parent)
+				Verify.expect(trail.Parent.LayoutOrder > middle.Parent.LayoutOrder):toBe(true)
 				runtime:dispose()
 			end,
 		})
@@ -901,24 +911,46 @@ return function(verifyHarness: Verify.Harness)
 						padding = 0,
 						topbar = false,
 						rows = rows,
-						UI.Region { Name = "Planet", zone = "top", rank = 1, Host.Frame { Name = "PlanetFull" } },
-						UI.Region { Name = "Order", zone = "top", rank = 2, Host.Frame { Name = "OrderFull" } },
+						UI.Region {
+							Name = "Planet",
+							zone = "top",
+							rank = 1,
+							Host.Frame {
+								Name = "PlanetFull",
+								AutomaticSize = engine.types.Enum.AutomaticSize.XY,
+								Host.Frame { Name = "PlanetInner" },
+							},
+						},
+						UI.Region {
+							Name = "Order",
+							zone = "top",
+							rank = 2,
+							Host.Frame {
+								Name = "OrderFull",
+								AutomaticSize = engine.types.Enum.AutomaticSize.XY,
+								Host.Frame { Name = "OrderInner" },
+							},
+						},
 					}
 					return root
 				end, layer)
 				local planet, order = root:FindFirstChild("PlanetFull", true), root:FindFirstChild("OrderFull", true)
-				local function lift(node: any): number
-					return (node:FindFirstChild("RowMatch") :: UISizeConstraint).MinSize.Y
+				local function lift(node: Instance): number
+					local floor = node:FindFirstChild("Lift") :: UISizeConstraint?
+					return if floor then floor.MinSize.Y else 0
 				end
-				sized(engine, planet, 230, 60)
-				sized(engine, order, 240, 40)
+				local function size(node: Instance, width: number, inner: number, outer: number)
+					sized(engine, node:FindFirstChildWhichIsA("Frame"), width, inner)
+					sized(engine, node, width, outer)
+				end
+				size(planet, 230, 60, 60)
+				size(order, 240, 40, 40)
 				sized(engine, root:FindFirstChild("Zones"), 1280, 720)
 				Verify.expect(lift(order)):toBe(60)
 				Verify.expect(lift(planet)):toBe(0)
-				sized(engine, order, 240, 60)
-				sized(engine, planet, 230, 30)
-				Verify.expect(lift(order)):toBe(30)
-				sized(engine, order, 240, 40)
+				size(order, 240, 40, 60)
+				Verify.expect(lift(order)):toBe(60)
+				size(planet, 230, 30, 30)
 				Verify.expect(lift(planet)):toBe(40)
 				Verify.expect(lift(order)):toBe(0)
 				rows:set("fit")

@@ -15,11 +15,20 @@
   region at its own height.
 - A bar ProgressView without a label shows its value and its `endLabel` on
   the bar's row, after the bar. Before, they went on a line below the bar.
-- A stack with `align = "stretch"` that hugs its children measures them again
-  when one grows or shrinks. Before, Roblox kept the old width, so a coin
-  readout could overflow its plate or a column stayed too wide.
-- A badged control fills its badge wrapper, so it stretches with the stack
-  around it. The badge corner is in a `Seal` folder in the wrapper.
+- A stack with `align = "stretch"` that hugs its children matches them itself:
+  each child takes the natural width of the widest one (a UISizeConstraint on
+  the child's plate), and follows it as content grows or shrinks. Roblox's
+  native Fill inside a hugging list kept stale widths, so a coin readout could
+  overflow its plate, a column stayed too wide or a stretched panel collapsed.
+  A stack with a fixed or `fill` cross size still stretches natively.
+- A `topbar` Region accepts `trailing = true`: it sits at the far end of the
+  top bar strip, such as a menu button, while leading regions sit beside the
+  Roblox buttons and the others stay centred.
+- `UI.badged(host, true)` shows a StatusIndicator dot (`CornerDot`) instead of
+  a "•" character in a text pill.
+- A badged control's wrapper lays the control out with a list, so it follows
+  the control's size at once. The badge corner is in a `Seal` folder in the
+  wrapper. A host's own `Position` inside the wrapper no longer applies.
 - A stack with `surface = "panel"` applies the theme's `chrome.panel` recipe,
   as Dialog and Alert do. A theme can give HUD panels a shadow with
   `chrome.panel = { kind = "native", shadow = "raised" }`.

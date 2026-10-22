@@ -5051,6 +5051,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "room", values = { "fill", 300, 200 } },
 			{ key = "gap", values = { DEFAULT, "xs", "m" } },
 			{ key = "padding", values = { DEFAULT, 0, "l" } },
+			{ key = "rows", values = { DEFAULT, "fit" }, matrix = false },
 
 			{ key = "topbar", values = { false, true }, matrix = false },
 		},
@@ -5180,6 +5181,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "mayDrop", props = properties { mayDrop = true } },
 			{ name = "noReveal", props = properties { mayDrop = true, reveal = false } },
 			{ name = "leading top bar", props = properties { zone = "topbar", leading = true } },
+			{ name = "trailing top bar", props = properties { zone = "topbar", trailing = true } },
 		},
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local form = c.cell("form", 1)
@@ -5195,6 +5197,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					zone = p.zone,
 					rank = p.rank,
 					leading = if p.zone == "topbar" then p.leading else nil,
+					trailing = if p.zone == "topbar" then p.trailing else nil,
 					mayDrop = p.mayDrop,
 					reveal = p.reveal,
 					form = form,
@@ -5227,7 +5230,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				plate,
 			})
 		end,
-		demonstrates = { "form", "expand", "leading" },
+		demonstrates = { "form", "expand", "leading", "trailing" },
 	},
 
 	environment = {

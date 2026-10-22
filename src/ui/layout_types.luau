@@ -115,6 +115,7 @@ export type RegionOptions = {
 	expand: (() -> Instance)?,
 	reveal: boolean?,
 	leading: boolean?,
+	trailing: boolean?,
 }
 export type CompositionRows = "match" | "fit"
 export type CompositionOptions = {

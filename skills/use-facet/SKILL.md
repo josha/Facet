@@ -169,13 +169,21 @@ that same copy and use the returned Facet table throughout the context.
   its text, icons and bars take the status colours.
 - Give each region forms from the richest to the narrowest. The narrowest
   form must fit a portrait phone, about 320 pixels wide. For example, a row of
-  buttons, then the main button over the others, then one column. Let the
-  Composition choose the form. Do not choose a layout in a region with
+  buttons, then the main button over the others, then one column. A narrower
+  form makes its parts smaller or moves them. It keeps each panel and each
+  button apart: do not put a button inside a readout's panel to save room.
+  Let the Composition choose the form. Do not choose a layout in a region with
   `isCompact`, `isLandscape` or a fixed `AdaptiveStack` axis. A plain HStack
   never wraps. The Composition warns when a region does not fit at its last
   form. Fix each warning.
-- Put a command that the Roblox top bar can hold, such as a settings gear, in
-  a `topbar` region. Use `leading = true` to put it beside the Roblox buttons.
+- The row of the Roblox top bar is screen space for the HUD too. Do not push
+  every zone below it. Put compact pieces in `topbar` regions, level with the
+  Roblox buttons: a menu or settings button, a coin readout, a short status.
+  Use `leading = true` beside the Roblox buttons and `trailing = true` at the
+  far edge. The strip is as wide as `GuiService.TopbarInset` leaves free, and
+  that space shrinks when Roblox shows more buttons, such as voice chat or a
+  larger chat button. Give each strip region a form 44 pixels tall. Let the
+  Composition move a region below the bar when the strip cannot hold it.
   Open `Composition.regions` for options and `Composition.adaptation` for strip
   layout. Open `Composition.layout.step-down` for fallback and fit warnings.
   Read one referenced node for each missing detail.

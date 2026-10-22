@@ -15,6 +15,9 @@ Region zones, ranking, stacking and stable HUD layout.
   another place, such as a sheet.
 - `leading`: a boolean. The default is `false`. Only a `topbar` region can lead.
   A leading region sits at the start of the strip, beside the Roblox buttons.
+- `trailing`: a boolean. The default is `false`. Only a `topbar` region can
+  trail, and a region cannot both lead and trail. A trailing region sits at the
+  end of the strip, at the far edge from the Roblox buttons.
   The other strip regions stay centred in the remaining space.
 - `reveal`: a boolean, default `true`. While the region shows a reduced form,
   a tap, click or `A` on that form opens the richest form in a Popover
