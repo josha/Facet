@@ -2184,7 +2184,8 @@ interactive(
 		for _, name in { "Inbox", "Alerts", "Friend" } do
 			local wrapper = t.find(scroller, name .. "+badge")
 			local host = wrapper and wrapper:FindFirstChild(name)
-			local cornerFrame = wrapper and wrapper:FindFirstChild("Corner")
+			local folder = wrapper and wrapper:FindFirstChild("Seal")
+			local cornerFrame = folder and folder:FindFirstChild("Corner")
 			local seal = cornerFrame and t.find(cornerFrame, "CornerBadge")
 			t.check(`{name} host and seal found`, host ~= nil and seal ~= nil)
 			if host and seal and cornerFrame then

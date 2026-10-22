@@ -213,6 +213,7 @@ export type SkinLayer = {
 	outset: number?,
 	sliceScale: number?,
 	pulse: boolean?,
+	span: ("track" | "fill")?,
 }
 export type SkinLayerPatch = {
 	kind: SkinKind?,
@@ -247,6 +248,7 @@ export type SkinLayerPatch = {
 	outset: number?,
 	sliceScale: number?,
 	pulse: boolean?,
+	span: ("track" | "fill")?,
 }
 export type StyleValue =
 	boolean

@@ -9,7 +9,9 @@ Form selection, zone fallback, fit warnings and resize motion.
   that do not fit shows its next form. After its last form, a region with
   `mayDrop` hides. With equal ranks, the later region gives way first.
 - When a zone is too wide, only its regions that are wider than the room of
-  the zone give way. A narrow region cannot make the zone narrower.
+  the zone give way. A narrow region cannot make the zone narrower. A `top`
+  or `bottom` zone first wraps a region to a new row. Its regions give way
+  only when a single region is too wide or the rows are too tall.
 - The composition repeats this until every lane fits or no region can give
   way. It never scales content down.
 - A `top` or `bottom` zone can remain too wide for the space between its row's

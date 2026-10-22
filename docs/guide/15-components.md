@@ -121,6 +121,9 @@ Roblox does the layout.
   `padding = { top = "xs", bottom = "xs", left = "s", right = "s" }` gets side
   padding equal to the radius when the radius is more than `s`. Padding of 0
   on both sides of a corner stays 0.
+- `status` on a stack paints its plate in a status colour, such as
+  `status = "warning"`. Text, icons and bars inside the stack take the
+  readable colour for that status. The value can be a cell.
 - The containers set `LayoutOrder` from the order of the children. Do not
   write it.
 - Set `width` or `height` to `"fill"`, `"hug"` or a number of pixels.

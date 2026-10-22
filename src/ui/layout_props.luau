@@ -87,6 +87,7 @@ export type StackProps = {
 	ref: typeof(frame.ref),
 	padding: typeof(stack.padding),
 	surface: typeof(stack.surface),
+	status: typeof(stack.status),
 	width: typeof(stack.width),
 	maxWidth: typeof(stack.maxWidth),
 	height: typeof(stack.height),
@@ -862,6 +863,7 @@ export type RegionProps = {
 	expand: typeof(region.expand),
 	reveal: typeof(region.reveal),
 	leading: typeof(region.leading),
+	trailing: typeof(region.trailing),
 	[number | Engine.EventKey]: Compose.Child,
 }
 export type CompositionProps = {
@@ -934,6 +936,7 @@ export type CompositionProps = {
 	gap: typeof(composition.gap),
 	padding: typeof(composition.padding),
 	topbar: typeof(composition.topbar),
+	rows: typeof(composition.rows),
 	[number | Engine.EventKey]: Compose.Child,
 }
 

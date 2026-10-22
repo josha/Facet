@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+- The `top` and `bottom` Composition zones put their regions side by side in
+  rows. A region wraps to a new row only when it does not fit beside the
+  regions before it. Before, every zone stacked its regions vertically, so
+  two short readouts in `top` took two rows on a wide screen.
+- An empty Composition region no longer takes a `gap` in its zone. The zone
+  hides it while another region of the zone has content, so two readouts with
+  an empty region between them share a row. Before, the hidden gap made the
+  row too wide and the second readout wrapped.
+- Composition `rows`: the regions of one `top` or `bottom` row take the
+  height of the tallest one. The default is `"match"`; `"fit"` keeps each
+  region at its own height.
+- A bar ProgressView without a label shows its value and its `endLabel` on
+  the bar's row, after the bar. Before, they went on a line below the bar.
+- A stack with `align = "stretch"` that hugs its children matches them itself:
+  each child takes the natural width of the widest one (a UISizeConstraint on
+  the child's plate), and follows it as content grows or shrinks. Roblox's
+  native Fill inside a hugging list kept stale widths, so a coin readout could
+  overflow its plate, a column stayed too wide or a stretched panel collapsed.
+  A stack with a fixed or `fill` cross size still stretches natively.
+- A `topbar` Region accepts `trailing = true`: it sits at the far end of the
+  top bar strip, such as a menu button, while leading regions sit beside the
+  Roblox buttons and the others stay centred.
+- `UI.badged(host, true)` shows a StatusIndicator dot (`CornerDot`) instead of
+  a "•" character in a text pill.
+- A badged control's wrapper lays the control out with a list, so it follows
+  the control's size at once. The badge corner is in a `Seal` folder in the
+  wrapper. A host's own `Position` inside the wrapper no longer applies.
+- A stack with `surface = "panel"` applies the theme's `chrome.panel` recipe,
+  as Dialog and Alert do. A theme can give HUD panels a shadow with
+  `chrome.panel = { kind = "native", shadow = "raised" }`.
+- Stacks accept `status`. The plate takes the status colour, and text, icons
+  and ProgressView bars inside it take the readable partner colour.
+- A `barFill` recipe accepts `span = "fill"`: the fill art is sized to the
+  filled length instead of the track, so tapered art keeps both ends.
 - ZoomView leaves rapid activation of child controls to those controls instead
   of also zooming. Ascent keeps the view stable during tile inspection,
   purchase and branch growth, and moves only to reveal an offscreen focused tile.

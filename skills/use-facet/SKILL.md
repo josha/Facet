@@ -67,6 +67,12 @@ Keep focus, selection, equipped, unavailable and pending states distinct beyond 
 actual object with Stage when appearance is the decision; bind it to the draft. Do not replace the
 preview with a summary.
 
+Give layout intent with hug, fill, stretch and zones. Fix a shared sizing fault in Facet rather
+than measuring and setting sizes in game code to hide it. Give each HUD group its own Region;
+groups in one top or bottom zone share a row and wrap when needed. Keep panels and actions
+distinct in smaller forms. Use panel surfaces, theme chrome and semantic status for depth and
+state. See `Composition.layout` for row sizing and `Tasks.theme` for the visual system.
+
 Bound task width before fill collections or wrapped text; let wrapped text grow vertically. Let
 short readouts hug. Do not set `TextScaled`. Use one Composition for competing core-safe HUD
 groups, with measurable forms from richest to narrowest. Keep Region nodes stable and put
@@ -76,7 +82,13 @@ room; do not add device switches. Fix fit warnings. Use environment-scaled lengt
 where relevant. See `Composition.regions`, `HUD-actions` and `ProgressView.reference` for form
 sizing.
 
-Protect sight lines, device/TV safe areas and native movement controls. Give primary thumb
+Use the free top-bar strip for compact navigation or readouts instead of pushing every group
+below it. Give strip regions a form 44 pixels tall and let Composition handle the changing
+`GuiService.TopbarInset` and fallback. See `Composition.adaptation` for strip layout.
+
+Protect the camera's focus area, including from UI attached to the avatar, and keep what the
+player watches outside the area covered by a held thumb. Check both phone orientations.
+Protect device/TV safe areas and native movement controls. Give primary thumb
 gameplay actions `target = "thumb"` and size their art from `UI.environment().thumbTarget`. Show
 gameplay commands only in applicable states. Use native InputAction/InputContext for game
 commands; controls own their input and selection. Do not bind Escape or gamepad Start. Make

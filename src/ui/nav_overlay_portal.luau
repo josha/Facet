@@ -3,6 +3,7 @@ local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local overlayPresence = require("./nav_overlay_presence")
+local regionPresence = require("./region_presence")
 local fontReadiness = require("./font_readiness")
 local textMeasure = require("./text_measure")
 local arrival = require("./overlay_arrival")
@@ -47,7 +48,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 				while at do
 					if at:IsA("GuiObject") then
 						if at ~= anchor or anchor:GetAttribute("FacetOverlayPlaceholder") ~= true then
-							table.insert(sources, ctx.observe.Visible(at))
+							table.insert(sources, regionPresence[at] or ctx.observe.Visible(at))
 						end
 						local node = at
 						local interactive = ctx.observe.Interactable(node)

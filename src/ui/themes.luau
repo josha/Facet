@@ -598,19 +598,30 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		voice = "voice",
 		contrast = "contentStrong",
 	}
-	for status, role in statusRoles do
-		local partner = if status == "neutral"
+	local function partnerOf(status: string): string
+		return if status == "neutral"
 			then "surface"
 			elseif status == "error" then "onDanger"
 			elseif status == "info" or status == "accent" then "onAccent"
 			elseif status == "warning" or status == "voice" then "onWarning"
 			elseif status == "contrast" then "surface"
 			else "onSuccess"
+	end
+	for status, role in statusRoles do
+		local partner = partnerOf(status)
 		rule(".facet-status-" .. status, { BackgroundColor3 = c(role), TextColor3 = c(partner) })
 		rule(".facet-status-" .. status .. " > .facet-status-ring", { Color = c(role) })
 		rule(".facet-icon-" .. status, { ImageColor3 = c(role), BackgroundTransparency = 1 })
 		rule(".facet-status-" .. status .. " > .facet-text", { TextColor3 = c(partner) })
 		rule(".facet-status-" .. status .. " > .facet-icon", { ImageColor3 = c(partner) })
+	end
+	rule(".facet-status-surface", { BackgroundTransparency = 0 })
+	rule(".facet-status-surface >> .facet-track", { BackgroundTransparency = 0.7 })
+	for status in statusRoles do
+		local partner = c(partnerOf(status))
+		local surface = ".facet-status-surface.facet-status-" .. status
+		rule(`{surface} >> .facet-text, {surface} >> .facet-icon`, { TextColor3 = partner, ImageColor3 = partner })
+		rule(`{surface} >> .facet-fill, {surface} >> .facet-track`, { BackgroundColor3 = partner })
 	end
 	rule(".facet-status-hollow", { BackgroundTransparency = 1 })
 	rule(".facet-badge-utility", { BackgroundTransparency = 1, TextColor3 = c("contentSecondary") })

@@ -83,6 +83,38 @@ return function(verifyHarness: Verify.Harness)
 		end,
 	})
 
+	verifyHarness:case("presents a Sheet from an empty region that its zone hides", {
+		id = "native_presentation_motion::presents a Sheet from an empty region that its zone hides",
+		run = function()
+			local w = overlay.new(function(UI, Host)
+				return UI.Composition {
+					gap = 8,
+					padding = 0,
+					topbar = false,
+					UI.Region "Planet" { zone = "top", rank = 1, Host.Frame { Name = "PlanetFull" } },
+					UI.Region "Shop" {
+						zone = "top",
+						rank = 2,
+						UI.Sheet {
+							isPresented = Compose.cell(true),
+							title = "Shop",
+							content = function()
+								return UI.Text { text = "Coins" }
+							end,
+						},
+					},
+				}
+			end, { motionLevel = "none" })
+			w.find("PlanetFull").AbsoluteSize = w.engine.types.Vector2.new(200, 40)
+			w.find("Zones").AbsoluteSize = w.engine.types.Vector2.new(800, 600)
+			w.advance(0.1)
+			Verify.expect(w.find("Shop").Visible):toBe(false)
+			Verify.expect(w.find("Planet").Visible):toBe(true)
+			Verify.expect(w.find("DismissTarget") ~= nil):toBe(true)
+			w.stop()
+		end,
+	})
+
 	verifyHarness:suite("native fade ownership", function()
 		verifyHarness:case("collects late Picker paint after the parent assignment finishes", {
 			id = "native_presentation_motion::native fade ownership::collects late Picker paint after the parent assignment finishes",

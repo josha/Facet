@@ -6,7 +6,10 @@ Keep Region nodes as direct Composition children. Put `Compose.show` inside
 a stable stack or frame form, not around the Region.
 
 - `zone` is required: `topLeft`, `top`, `topRight`, `left`, `center`,
-  `right`, `bottomLeft`, `bottom`, `bottomRight` or `topbar`.
+  `right`, `bottomLeft`, `bottom`, `bottomRight` or `topbar`. Give two
+  readouts that share a sight line, such as level progress and a timed goal,
+  their own regions in one `top` or `bottom` zone. They show side by side
+  when the row has room.
 - `rank` is required: a whole number, 1 or more. Rank 1 is the most
   important region.
 - `mayDrop`: when `true`, the region can hide completely after its last form.
@@ -15,6 +18,9 @@ a stable stack or frame form, not around the Region.
   another place, such as a sheet.
 - `leading`: a boolean. The default is `false`. Only a `topbar` region can lead.
   A leading region sits at the start of the strip, beside the Roblox buttons.
+- `trailing`: a boolean. The default is `false`. Only a `topbar` region can
+  trail, and a region cannot both lead and trail. A trailing region sits at the
+  end of the strip, at the far edge from the Roblox buttons.
   The other strip regions stay centred in the remaining space.
 - `reveal`: a boolean, default `true`. While the region shows a reduced form,
   a tap, click or `A` on that form opens the richest form in a Popover

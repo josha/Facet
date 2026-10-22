@@ -7,7 +7,8 @@ Top-bar strip layout, fallback and overlays.
   second ScreenGui with `ScreenInsets = TopbarSafeInsets`, in the parent of its
   own ScreenGui. That ScreenGui has the same `DisplayOrder`, follows the
   `Enabled` of the host and links the same StyleSheet. The regions sit side
-  by side. Leading regions sit beside the Roblox buttons.
+  by side. Leading regions sit beside the Roblox buttons. Trailing regions
+  (`trailing = true`) sit at the far end of the strip, such as a menu button.
   The other regions stay centred in the remaining space.
   Regions step down when their total width with the gaps does not fit the strip,
   or when a region is taller than the strip row.
@@ -31,5 +32,6 @@ Top-bar strip layout, fallback and overlays.
 - A Popover, Menu or other overlay from a strip region shows in the composition's
   ScreenGui. Thus the narrow strip does not clip it.
 - In the strip, the `Topbar` Frame holds a `Leading` row for leading regions.
-  Its `Middle` row centres the other regions.
+  Its `Middle` row centres the other regions, and its `Trailing` row holds the
+  trailing regions at the end.
   In the `top` zone, a `Landed` Frame holds the regions that moved.

@@ -36,6 +36,14 @@ upload manifests and the provenance with the theme package.
 
 The semantic slots include `control`, `field`, `panel`, `badge`, `barTrack` and
 `barFill`. A slot with a native or none recipe makes no extra image layers.
+A `shadow` on a native recipe still adds a `UIShadow`. The `panel` slot
+applies to Dialog, Alert and a stack with `surface = "panel"`, so
+`chrome.panel = { kind = "native", shadow = "raised" }` gives HUD panels a
+shadow.
+
+By default the `barFill` art is the size of the whole track, and the fill
+clips it. Set `span = "fill"` on the `barFill` recipe to size the art to the
+filled length. Then art with tapered ends shows both ends at every value.
 
 State-dependent assets select the art for the hover, pressed, disabled and
 selected behavior. Native rules still style the content and the engine
