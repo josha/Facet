@@ -1668,12 +1668,14 @@ return function(verifyHarness: Verify.Harness)
 				local root = meter :: Instance
 				local line, track = root:FindFirstChild("Line"), root:FindFirstChild("Track", true)
 				Verify.expect(line ~= nil):toBe(true)
-				Verify.expect(track.Parent):toBe(line)
-				Verify.expect(track:FindFirstChildWhichIsA("UIFlexItem").FlexMode)
-					:toBe(engine.types.Enum.UIFlexMode.Fill)
-				Verify.expect(meter:FindFirstChild("Value", true).Parent):toBe(line)
-				Verify.expect(meter:FindFirstChild("EndLabel", true).Parent):toBe(line)
-				local layout = line:FindFirstChildWhichIsA("UIListLayout")
+				local row = line :: Instance
+				local bar = track :: Instance
+				Verify.expect(bar.Parent):toBe(row)
+				local flex = bar:FindFirstChildWhichIsA("UIFlexItem") :: UIFlexItem
+				Verify.expect(flex.FlexMode):toBe(engine.types.Enum.UIFlexMode.Fill)
+				Verify.expect((root:FindFirstChild("Value", true) :: Instance).Parent):toBe(row)
+				Verify.expect((root:FindFirstChild("EndLabel", true) :: Instance).Parent):toBe(row)
+				local layout = row:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout
 				Verify.expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Horizontal)
 				stop()
 				runtime:dispose()

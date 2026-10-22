@@ -5147,7 +5147,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		fills = true,
 		alias = "Region (a Composition zone member)",
 		purpose = "A full and short form compete with a rank 1 neighbour. Narrow the plate to change forms; "
-			.. "tap a short form to expand it. Choose topbar to compare leading and centred placement in the real strip.",
+			.. "tap a short form to expand it. Choose topbar to compare strip placements.",
 		note = "Higher ranks give way first. Form is 1 for full, 2 for short, 0 for hidden. "
 			.. 'A hidden mayDrop region has a "…" reveal button unless reveal is false.',
 		alternatives = "A plain child of a Screen when it never competes for room.",
@@ -5181,7 +5181,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "mayDrop", props = properties { mayDrop = true } },
 			{ name = "noReveal", props = properties { mayDrop = true, reveal = false } },
 			{ name = "leading top bar", props = properties { zone = "topbar", leading = true } },
-			{ name = "trailing top bar", props = properties { zone = "topbar", trailing = true } },
+			{ name = "trailing", props = properties { zone = "topbar", trailing = true } },
 		},
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local form = c.cell("form", 1)
