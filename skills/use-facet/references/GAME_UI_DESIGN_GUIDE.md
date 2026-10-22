@@ -32,7 +32,12 @@ state, and action together. Use alignment, spacing, scale, contrast, and motion
 to express those relationships.
 
 Protect the road, aiming area, hazards, characters, and other required sight
-lines. Fingers and controls also occupy space. A modal sets input ownership;
+lines. Fingers and controls also occupy space. On a touch screen, a thumb
+covers its control and the area above it while the player holds it: the
+thumbstick area at the lower left and the action buttons at the lower right.
+Keep what the player must watch while touching, such as the avatar, the space
+in front of it and a readout of the current action, out of those areas. A
+modal sets input ownership;
 the game still decides whether movement stops. Do not cover an urgent action
 with a reward, instruction, or purchase offer.
 
