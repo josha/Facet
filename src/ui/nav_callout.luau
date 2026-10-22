@@ -266,6 +266,12 @@ return function(
 					)
 				end
 				table.insert(rows, ctx.padding(12, 12))
+				local content = ctx.column(rows, {
+					Name = "CalloutContent",
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+				})
+				assert(content:FindFirstChildWhichIsA("UIListLayout")).HorizontalFlex = E.UIFlexAlignment.Fill
 				local panel = ctx.styled(
 					ctx.fade {
 						Name = "CalloutPanel",
@@ -275,11 +281,7 @@ return function(
 						Size = D2.fromOffset(280, 0),
 						AutomaticSize = E.AutomaticSize.Y,
 						ctx.corner() :: Types.Child,
-						ctx.column(rows, {
-							Name = "CalloutContent",
-							Size = D2.new(1, 0, 0, 0),
-							AutomaticSize = E.AutomaticSize.Y,
-						}) :: Types.Child,
+						content :: Types.Child,
 					},
 					"callout"
 				)

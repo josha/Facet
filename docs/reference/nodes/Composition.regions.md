@@ -34,6 +34,8 @@ Region zones, ranking, stacking and stable HUD layout.
 - The children are the forms of the region, richest first. At least one form
   is necessary. Give each form a pixel or `hug` size. A form that fills its
   parent has no size of its own.
+  Each form must be a concrete GuiObject. Put `Compose.show` or other reactive
+  children inside a stable stack or frame; do not pass a factory as a form.
 
 A smaller form must keep routes to the richer form's tasks. Use passive text
 or an icon for the built-in reveal, or make a button open all omitted choices.

@@ -105,8 +105,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		for index = 1, #properties do
 			local child = properties[index] :: GuiObject
 			assert(
-				type(child) ~= "string" and type(child.IsA) == "function" and child:IsA("GuiObject"),
-				"Facet Region forms must be GuiObjects, richest first"
+				(type(child) == "table" or typeof(child) == "Instance")
+					and type(child.IsA) == "function"
+					and child:IsA("GuiObject"),
+				"Facet Region forms must be GuiObjects, richest first. Put reactive children inside a stable form."
 			)
 			local observed, settled = layoutSize(child), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)

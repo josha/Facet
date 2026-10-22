@@ -48,7 +48,9 @@ does not require reading every recipe before building.
 Open a control card or option node only for a missing detail.
 Use `<Control>.card` for a control's entry point,
 `<Control>.props` for typed options and defaults, and `Icons.names`
-for icon names. Learn Facet and its
+for icon names. These two node types are generated. Read them from
+`FacetDocs` in Studio, or run `lute run tools/facet docs <node>` with shell access;
+they have no source Markdown file. Learn Facet and its
 tools from the docs, not from their source. Read the source only to diagnose a
 suspected Facet bug, when observed behavior contradicts a doc node. Name that
 behavior and node first, then report the gap.

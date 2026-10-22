@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local LayoutProps = require("../src/ui/layout_props")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -904,6 +905,22 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
+
+		verifyHarness:case("reports invalid form values at the Region boundary", function(t)
+			local candidates: { unknown } = { false, 42, "form", {}, function() end }
+			for _, candidate in candidates do
+				local engine, runtime, UI = make()
+				local ok, message = pcall(function()
+					runtime.mount(function()
+						return UI.Region(({ zone = "top", rank = 1, candidate } :: unknown) :: LayoutProps.RegionProps)
+					end, engine.new("ScreenGui"))
+				end)
+				runtime:dispose()
+				t:expect(ok):toBe(false)
+				t:expect(string.find(tostring(message), "Facet Region forms must be GuiObjects", 1, true) ~= nil)
+					:toBe(true)
+			end
+		end)
 
 		verifyHarness:case(
 			"refuses an unknown anchor, a rank that is not a whole number, and a child that is not a Region",

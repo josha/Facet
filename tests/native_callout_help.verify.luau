@@ -207,6 +207,34 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Callout: rich parts", function()
+		verifyHarness:case("fixed width teaching content uses the plate's bounded native cross axis", function(t)
+			local w = mount(function(_, Host: RobloxHost)
+				return {
+					title = "Open garage",
+					content = function()
+						return Host.Frame "HelpText" {
+							Size = NativeEngine.types.UDim2.fromOffset(260, 0),
+							AutomaticSize = NativeEngine.types.Enum.AutomaticSize.Y,
+							Host.TextLabel "Instruction" {
+								Text = "Open the garage to choose a vehicle and review its upgrades.",
+								TextWrapped = true,
+								Size = NativeEngine.types.UDim2.fromScale(1, 0),
+								AutomaticSize = NativeEngine.types.Enum.AutomaticSize.Y,
+							},
+						}
+					end,
+				}
+			end)
+			local content = w.find("CalloutContent")
+			local layout = content:FindFirstChildWhichIsA("UIListLayout")
+			t:expect(layout.FillDirection):toBe(w.Enum.FillDirection.Vertical)
+			t:expect(layout.HorizontalFlex):toBe(w.Enum.UIFlexAlignment.Fill)
+			t:expect(content.Size.X.Scale):toBe(1)
+			t:expect(content.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+			t:expect(w.find("HelpText").Parent):toBe(content)
+			t:expect(w.find("Instruction").TextWrapped):toBe(true)
+			w.stop()
+		end)
 		verifyHarness:case(
 			"the full composition paints every part, and one or two actions replace the bottom dismiss",
 			{

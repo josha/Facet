@@ -53,6 +53,7 @@ return function(harness: Verify.Harness)
 			t:expect(#output < 4096):toBe(true)
 		end
 		local icons = Props.icons(".")
+		t:expect(string.find(icons, "An unknown name causes an error", 1, true) ~= nil):toBe(true)
 		for _, name in { "view.grid", "chevron.up", "speaker", "status.warning" } do
 			t:expect(string.find(icons, name, 1, true) ~= nil):toBe(true)
 		end

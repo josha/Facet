@@ -7,6 +7,8 @@ type Destination = typeof(require("@repo/tools/typecheck/aliases").Destination)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type ImageModeCell = typeof(require("@repo/tools/typecheck/aliases").ImageModeCell)
 type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
@@ -1418,6 +1420,201 @@ add("feedback-motion-is-paint-only", {}, function(t)
 	local idle = stopIdle()
 	t.note("idle writes", idle)
 	t.check("a settled surface writes nothing across 60 idle frames", total(idle) == 0, idle)
+end)
+
+add("card-lift-keeps-every-layout-frame", {}, function(t)
+	local io = device(t)
+	local stage = t.mount(function(UI: FacetControls)
+		local children: { Instance } = {}
+		for _, id in { "Cyan", "Violet", "Amber" } do
+			table.insert(
+				children,
+				UI.Card(id) {
+					title = id,
+					image = if id == "Amber" then "rbxassetid://1" else nil,
+					imageAspectRatio = 8,
+					caption = "Compare this track and choose your vote.",
+					primaryAction = { label = "Vote", onActivate = function() end },
+				}
+			)
+		end
+		return UI.VStack "Cards" { width = 740, gap = "m", table.unpack(children) }
+	end, { size = Vector2.new(800, 600), frames = 30, motionLevel = "normal" })
+	local cards: { GuiObject } = {}
+	for _, id in { "Cyan", "Violet", "Amber" } do
+		local card = t.find(stage, id)
+		assert(card and card:IsA("GuiObject"))
+		table.insert(cards, card)
+	end
+	io.move(Vector2.new(1, 1))
+	t.settle(30)
+	local rest = {}
+	for index, card in cards do
+		rest[index] = t.rect(card)
+	end
+	local faults = {}
+	local faultCount = 0
+	local watch = game:GetService("RunService").PreRender:Connect(function()
+		for index, card in cards do
+			local box, base = t.rect(card), rest[index]
+			if math.abs(box.y - base.y) > 1 or math.abs(box.h - base.h) > 1 then
+				faultCount += 1
+				if #faults < 12 then
+					table.insert(faults, { card = card.Name, rest = base, actual = box })
+				end
+			end
+		end
+	end)
+	for _ = 1, 2 do
+		for _, card in cards do
+			io.move(centre(card))
+			t.settle(24)
+			t.check(`{card.Name} acknowledges pointer entry`, card:GetAttribute("FacetHovered") == true)
+		end
+		io.move(Vector2.new(1, 1))
+		t.settle(30)
+	end
+	watch:Disconnect()
+	t.note("card layout frame faults", faults)
+	t.check("every lift frame preserves all card slots", faultCount == 0, { count = faultCount, samples = faults })
+end)
+
+add("sheet-reserves-card-feedback-clearance", {}, function(t)
+	local io = device(t)
+	local Compose: ComposeModule = t.Facet.Compose
+	local size = Compose.cell(Vector2.new(1024, 900))
+	local function package(lift: number): ThemePackage
+		local theme: ThemePackage = t.Facet.themes.neutralPackage()
+		local materialize = assert(theme.metrics.motion.materialize)
+		local springs = assert(theme.metrics.motion.springs)
+		materialize.lift = lift
+		springs.snappy.damping = 0.55
+		return theme
+	end
+	local setTheme: (ThemePackage) -> () = function() end
+	local stage = t.mount(function(UI: FacetControls, _host, _compose, env)
+		setTheme = function(nextTheme: ThemePackage)
+			env.theme:set(nextTheme)
+		end
+		return UI.Sheet {
+			title = "Tracks",
+			placement = "center",
+			width = "wide",
+			isPresented = Compose.cell(true),
+			detents = { { id = "body", height = 700 } } :: { SheetDetent },
+			content = function(): Instance
+				local children: { Instance } = {}
+				for _, id in { "Cyan", "Violet", "Amber" } do
+					table.insert(
+						children,
+						UI.Card(id) {
+							title = id,
+							caption = "Compare this track and choose your vote.",
+							primaryAction = { label = "Vote", onActivate = function() end },
+						}
+					)
+				end
+				return UI.VStack "Cards" { width = "fill", gap = "m", table.unpack(children) }
+			end,
+		}
+	end, { size = size, theme = package(1.04), frames = 60, motionLevel = "normal" })
+	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
+	local body = t.find(gui, "SheetContent") :: ScrollingFrame
+	local cards: { GuiObject } = {}
+	for _, id in { "Cyan", "Violet", "Amber" } do
+		local card = t.find(gui, id)
+		assert(card and card:IsA("GuiObject"))
+		table.insert(cards, card)
+	end
+	local faults = {}
+	local faultCount = 0
+	local phase = "wide"
+	local checking = false
+	local peak = 1
+	local watch = game:GetService("RunService").PreRender:Connect(function()
+		if not checking then
+			return
+		end
+		local clip = t.rect(body)
+		for _, card in cards do
+			local paint = card:FindFirstChild("FeedbackPaint", true)
+			if paint and paint:IsA("GuiObject") and paint.Visible then
+				local scale = paint:FindFirstChild("PaintLift")
+				if scale and scale:IsA("UIScale") then
+					peak = math.max(peak, scale.Scale)
+				end
+				local box = t.rect(paint)
+				if box.x < clip.x - 0.5 or box.r > clip.r + 0.5 then
+					faultCount += 1
+					if #faults < 12 then
+						table.insert(faults, { phase = phase, card = card.Name, paint = box, clip = clip })
+					end
+				end
+			end
+		end
+	end)
+	for _, mode in { "wide", "compact", "changed theme" } do
+		checking = false
+		phase = mode
+		io.move(Vector2.new(1, 1))
+		local deadline = os.clock() + 2
+		local function resting(): boolean
+			for _, card in cards do
+				if card:FindFirstChild("FeedbackPaint", true) then
+					return false
+				end
+			end
+			return true
+		end
+		while not resting() and os.clock() < deadline do
+			t.settle(1)
+		end
+		t.check(`{mode} starts with resting cards`, resting())
+		if mode == "compact" then
+			size:set(Vector2.new(360, 700))
+		elseif mode == "changed theme" then
+			size:set(Vector2.new(1024, 900))
+			setTheme(package(1.12))
+		end
+		t.settle(60)
+		peak = 1
+		checking = true
+		for _, card in cards do
+			body.CanvasPosition = Vector2.new(
+				0,
+				math.max(0, body.CanvasPosition.Y + card.AbsolutePosition.Y - body.AbsolutePosition.Y - 40)
+			)
+			t.settle(12)
+			io.move(centre(card))
+			t.settle(30)
+			t.check(`{mode} {card.Name} acknowledges pointer entry`, card:GetAttribute("FacetHovered") == true)
+		end
+		local target = if mode == "changed theme" then 1.12 else 1.04
+		local peakDeadline = os.clock() + 2
+		while peak <= target and os.clock() < peakDeadline do
+			t.settle(1)
+		end
+		t.check(`{mode} includes the spring overshoot`, peak > target, peak)
+		t.note(`{mode} peak scale`, peak)
+	end
+	phase = "active resize"
+	GuiService.SelectedObject = t.find(cards[3], "Primary")
+	io.move(Vector2.new(1, 1))
+	for _, viewport in { Vector2.new(360, 700), Vector2.new(1024, 900) } do
+		size:set(viewport)
+		t.settle(60)
+		t.check("selection keeps the resized card engaged", cards[3]:GetAttribute("FacetLifting") == true)
+	end
+	GuiService.SelectedObject = nil
+	io.move(Vector2.new(1, 1))
+	t.settle(40)
+	watch:Disconnect()
+	t.note("feedback clipping frames", faults)
+	t.check(
+		"card feedback stays inside each Sheet viewport at every frame",
+		faultCount == 0,
+		{ count = faultCount, samples = faults }
+	)
 end)
 
 add("radial-lift-is-paint-only", {}, function(t)

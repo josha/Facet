@@ -207,6 +207,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(world.find("Caption").Text):toBe("250 Coins")
 				Verify.expect(table.find(card:GetTags(), "facet-card-text") ~= nil):toBe(true)
 				Verify.expect(table.find(card:GetTags(), "facet-panel") ~= nil):toBe(true)
+				Verify.expect(card:FindFirstChildWhichIsA("UIPadding") ~= nil):toBe(true)
 				world.stop()
 			end,
 		})
@@ -643,6 +644,21 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
+
+		verifyHarness:case("keeps fractional rest bounds and their measurement probe outside the lifted paint", {
+			id = "native_card::native Card::keeps fractional rest bounds and their measurement probe outside the lifted paint",
+			run = function()
+				local world = stacked(Compose.cell(false))
+				local root = world.find("C")
+				root.AbsoluteSize = world.V2(230, 137.4)
+				hover(root, true)
+				settle(world, 0.1)
+				Verify.expect(root.Size.Y.Offset >= 137.4):toBe(true)
+				Verify.expect(root:FindFirstChild("FeedbackUnit") ~= nil):toBe(true)
+				Verify.expect(world.find("FeedbackPaint"):FindFirstChild("FeedbackUnit", true)):toBe(nil)
+				world.stop()
+			end,
+		})
 
 		verifyHarness:case(
 			"keeps a lifted text card's panel and its color on its paint and clears only the parts inside it",

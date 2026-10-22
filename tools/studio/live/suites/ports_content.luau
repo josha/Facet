@@ -799,9 +799,29 @@ add("steps-underline-follows-and-springs", {}, function(t)
 			t.near(`{id} shares the row's height`, r.h, first.h, 0.5)
 		end
 	end
+	local spring = t.themes[1].package.metrics.motion.springs.control
+	local function settledUnderline(where: string, id: string)
+		local line, cell = t.find(indicator, "Underline"), cells[id]
+		local started, calm, frames = os.clock(), 0, 0
+		local limit = spring.period * 8 * math.max(spring.damping, 1 / spring.damping)
+		repeat
+			t.settle(1)
+			frames += 1
+			local aligned = line ~= nil
+				and cell ~= nil
+				and math.abs(line.AbsolutePosition.X - cell.AbsolutePosition.X) <= 0.5
+				and math.abs(line.AbsoluteSize.X - cell.AbsoluteSize.X) <= 0.5
+			calm = if aligned then calm + 1 else 0
+		until calm >= 4 or os.clock() - started >= limit
+		t.note(
+			`{where} {id} underline settlement`,
+			{ seconds = os.clock() - started, frames = frames, spring = spring }
+		)
+		t.check(`{where} {id} underline reaches its native target within the theme spring deadline`, calm >= 4)
+	end
 	for _, id in STEP_IDS do
 		built.steps.select(id)
-		t.settle(45)
+		settledUnderline("motion on", id)
 		underlineCheck(t, "motion on", indicator, id)
 	end
 	local line = t.find(indicator, "Underline")
@@ -824,7 +844,7 @@ add("steps-underline-follows-and-springs", {}, function(t)
 		end
 		t.note("underline positions between review and cart", count)
 		t.check("the underline passes through several positions on its way to Cart", count >= 3, count)
-		t.settle(20)
+		settledUnderline("after the spring", "cart")
 		underlineCheck(t, "after the spring", indicator, "cart")
 	end
 	t.cleanup()
