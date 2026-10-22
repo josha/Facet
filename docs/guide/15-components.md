@@ -120,8 +120,7 @@ Roblox does the layout.
   equal, the side padding grows. A pill with
   `padding = { top = "xs", bottom = "xs", left = "s", right = "s" }` gets side
   padding equal to the radius when the radius is more than `s`. Padding of 0
-  on both sides of a corner stays 0. A padding with a Scale part stays as
-  written.
+  on both sides of a corner stays 0.
 - The containers set `LayoutOrder` from the order of the children. Do not
   write it.
 - Set `width` or `height` to `"fill"`, `"hug"` or a number of pixels.

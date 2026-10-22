@@ -576,20 +576,19 @@ return function(verifyHarness: Verify.Harness)
 			spec.image = nil
 			spec.onActivate = nil
 			local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-				local stack = Host.Frame({
+				return Host.Frame({
 					Name = "Stack",
 					Host.UIListLayout({}),
 					UI.Card "C"(spec) :: unknown,
 				})
-				if container then
-					stack:AddTag(container)
-				end
-				return stack
 			end, {
 				motionLevel = Compose.formula(function(use: FixtureComposeTypes.Use): string
 					return if use(reduced) then "none" else "normal"
 				end),
 			})
+			if container then
+				world.find("Stack"):AddTag(container)
+			end
 			world.find("C").AbsoluteSize = world.V2(230, 137)
 			return world
 		end

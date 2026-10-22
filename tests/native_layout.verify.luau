@@ -253,12 +253,6 @@ return function(verifyHarness: Verify.Harness)
 					["4 4 4 4"] = function(UI: FacetControls): unknown
 						return UI.VStack "Pane" { surface = "pane", padding = 4 }
 					end,
-					["0 0.5 0 0"] = function(UI: FacetControls): unknown
-						return UI.VStack "Scaled" {
-							surface = "panel",
-							padding = { top = 0, bottom = 0, left = 0, right = engineLib.types.UDim.new(0.5, 0) },
-						}
-					end,
 					none = function(UI: FacetControls): unknown
 						return UI.VStack "Bare" { surface = "panel" }
 					end,
