@@ -40,6 +40,7 @@
     {"id": "perf-footprint", "tier": "full", "run": "lute run tools/facet perf footprint", "why": "each measured control fits its resource ceilings and releases all resources"},
     {"id": "perf-scenes", "tier": "full", "environment": "perf", "run": "lute run tools/facet perf scenes", "why": "every performance scene mounts and settles"},
     {"id": "perf-place", "tier": "full", "environment": "studio", "run": "lute run tools/facet perf place --no-build", "why": "the performance place matches the scene list"},
+    {"id": "studio-live", "tier": "full", "environment": "studio", "capabilities": ["native-studio"], "report": {"minimum": 1}, "deadlineSeconds": 21600, "run": "lute run tools/facet studio live --all --complete --deadline 1800 --report {report} --run-id {run}", "why": "every committed live suite runs its automatic and interactive registrations; unsupported native input and missing host hooks fail coverage"},
     {"id": "prove-perf-gate", "tier": "release", "environment": "perf", "run": "lute run tools/facet perf prove-gate", "why": "the performance gate fails on a planted regression"}
   ]
 }

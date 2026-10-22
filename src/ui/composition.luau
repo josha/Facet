@@ -283,11 +283,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			else
 				assert(
 					type(child) == "table" or typeof(child) == "Instance",
-					"Facet Composition children must be UI.Region nodes"
+					"Facet Composition children must be UI.Region nodes. Put Compose.show inside a stable Region form, not around the Region."
 				)
 				assert(
 					type(child.IsA) == "function" and child:IsA("UIFlexItem"),
-					"Facet Composition children must be UI.Region nodes or a UIFlexItem"
+					"Facet Composition children must be UI.Region nodes or a UIFlexItem. Put Compose.show inside a stable Region form, not around the Region."
 				)
 				table.insert(helpers, child)
 			end

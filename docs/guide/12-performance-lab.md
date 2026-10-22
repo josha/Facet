@@ -86,18 +86,23 @@ fact does not permit you to reset a threshold or to remove the workload.
 
 ## CI host
 
-CI runs the full tier on the `ubuntu-latest` runner. The CPU and the
-architecture of the host affect these wall-clock measurements. Compare captured
-timings together with their host context. A change of runner does not prove a
-runtime speedup.
+CI runs portable checks on Linux, macOS and Windows. It also requires the full
+tier on a calibrated native reference host. The CPU and the architecture affect
+wall-clock measurements. Confirm same-source timing spread before selecting
+reference hardware. Compare captured timings with their host context. A change
+of runner does not prove a runtime speedup.
 
 The timing budgets block a run only on a reference host, which runs
-`lute run tools/facet gate full --reference-host`. On every other host, CI included, the
+`lute run tools/facet gate full --reference-host`. On every other host, the
 `bench` timing producer requires the reference host, so the gate reports it as
 `deferred` without running it. A failed `perf` timing budget is a `deferred`
 producer; `perf` still runs, because `perf-scenes` and `perf-memory` read its
 records. A release run blocks on both everywhere. The workload checks
 (`perf-scenes`) do not measure time. They block on every host.
+
+The required native CI job also supplies `--studio-host --require-complete`.
+It fails when a full-tier producer is deferred or unsupported, or when the run
+is narrowed. See the [native CI guide](../../tools/studio/CI.md) for host setup.
 
 The budgets and workloads stay checked in. Each full run makes its own
 performance report before it validates that report.

@@ -2,6 +2,9 @@
 
 Region zones, ranking, stacking and stable HUD layout.
 
+Keep Region nodes as direct Composition children. Put `Compose.show` inside
+a stable stack or frame form, not around the Region.
+
 - `zone` is required: `topLeft`, `top`, `topRight`, `left`, `center`,
   `right`, `bottomLeft`, `bottom`, `bottomRight` or `topbar`.
 - `rank` is required: a whole number, 1 or more. Rank 1 is the most
@@ -42,4 +45,6 @@ or an icon for the built-in reveal, or make a button open all omitted choices.
 A button that opens one destination consumes its press and does not open the
 region's reveal Popover.
 
-See [Composition.layout](Composition.layout.md) for layout rules.
+See [Composition.layout](Composition.layout.md) for layout rules and
+[Composition.layout.step-down](Composition.layout.step-down.md) for fit warnings
+and stable measurement during motion.

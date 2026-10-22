@@ -29,6 +29,9 @@ Form selection, zone fallback, fit warnings and resize motion.
 - The decision uses only the measured sizes and the size of the composition.
   Thus a rotation, a resize or a text size change gives the same forms as a
   new mount of the same size.
+- The composition measures each form with its scale. To animate part of a
+  region with `UIScale`, put it on an inner frame inside a holder of fixed
+  size. This keeps the animation from changing the region's size or form.
 - When the size of the composition changes, for example on a rotation, a
   region that changes form scales from 0.94 to 1 in 0.15 seconds, Cubic
   Out, from the edge of its zone. The first layout after a mount does not

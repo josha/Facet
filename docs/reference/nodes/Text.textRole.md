@@ -8,7 +8,7 @@ Text.textRole option values and behavior.
   default is `body`. `textSize` can give the role instead, as a role name.
   Both together cause an error.
 - `textSize` as a number sets `TextSize` in pixels. `"fit"` and
-  `{ fit = { cap, floor } }` fit the text to its box. See below.
+  `{ fit = { cap, floor } }` fit the text to its box. See [Text-fit](Text-fit.md).
 - `role = "secondary"` adds the `facet-secondary` tag. `role = "content"`
   removes it. `role` can be bound.
 - `textAlign` is `start`, `center` or `end` and sets `TextXAlignment`. It can

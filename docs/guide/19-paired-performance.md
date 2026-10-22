@@ -11,11 +11,13 @@ heavy processes. Run from the repository root:
 
 ```sh
 lute run tools/facet perf paired run --out artifacts/paired --rounds 5 base=<base-tree> candidate=<candidate-tree>
-lute run tools/facet perf paired report artifacts/paired base candidate
+lute run tools/facet perf paired report artifacts/paired base candidate --rounds 5 --gate
 ```
 
-Use `--scenes dense-hud,screen-lifecycle-churn` to select scenes. Use
-`--skip-bench` to omit the microbenchmarks. The default scene list is
+Use `--scenes dense-hud,screen-lifecycle-churn` to select scenes. Pass the same
+selection to `run` and `report`. Use `--skip-bench` on both commands only when
+microbenchmarks are outside the selected scope. The report names that omission;
+it does not prove complete performance coverage. The default scene list is
 `tools/facet/lib/perf_paired.luau`.
 
 The runner copies `bench/paired_scene.luau` into each target tree. Each scene
@@ -25,6 +27,13 @@ runs in a new Lute process. Each round also runs the target tree's
 Results stay in the output directory. `scenes.jsonl` holds scene rows.
 `bench-<label>-<round>.json` holds benchmark data. `log.txt` records progress.
 Use an empty output directory for a new comparison.
+
+The report requires the expected round count. Missing rounds, failed commands,
+unstable benchmark reports and unavailable measurements fail with exit 2.
+Only complete measurements can reach the relative slowdown gate, which exits 1
+for a consistent slowdown. CI requires all scenes and microbenchmarks. It
+rechecks the full suite with six rounds only after a statistical slowdown;
+an execution or measurement failure cannot become a narrowed passing recheck.
 
 ## Read the report
 

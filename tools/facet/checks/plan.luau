@@ -4,31 +4,31 @@ local Files = require("../lib/files")
 local Json = require("../lib/json")
 local Rule = require("../lib/rule")
 
-local function specSources(context: Rule.Context): ({ [string]: string }, { string })
+local function specSources(context: Rule.Context, root: string, suffix: string): ({ [string]: string }, { string })
 	local sources: { [string]: string } = {}
 	local failures: { string } = {}
-	for _, relative in Files.walk(context.path("tests")) do
-		if string.sub(relative, -12) == ".verify.luau" then
-			sources[string.sub(relative, 1, -13)] = "tests/" .. relative
+	for _, relative in Files.walk(context.path(root)) do
+		if string.sub(relative, -#suffix) == suffix then
+			sources[string.sub(relative, 1, -#suffix - 1)] = root .. "/" .. relative
 		end
 	end
 	return sources, failures
 end
 
-local function check(context: Rule.Context): { string }
-	local path = context.path("tests/plan.json")
+local function checkPlan(context: Rule.Context, catalog: string, root: string, suffix: string): { string }
+	local path = context.path(catalog)
 	if not Files.isFile(path) then
-		return { "cannot read tests/plan.json: the file does not exist" }
+		return { "cannot read " .. catalog .. ": the file does not exist" }
 	end
 	local plan, problem = Json.tryDecode(Files.read(path))
 	if problem ~= nil then
-		return { "cannot read tests/plan.json: " .. problem }
+		return { "cannot read " .. catalog .. ": " .. problem }
 	end
 	local units = Json.arrayField(plan, "units")
 	if units == nil then
 		return { "Verify plan must contain a units list" }
 	end
-	local sources, failures = specSources(context)
+	local sources, failures = specSources(context, root, suffix)
 	local declared: { [string]: boolean } = {}
 	local locators: { [string]: boolean } = {}
 	for index, unit in units do
@@ -69,6 +69,16 @@ local function check(context: Rule.Context): { string }
 	return failures
 end
 
+local function check(context: Rule.Context): { string }
+	local failures = checkPlan(context, "tests/plan.json", "tests", ".verify.luau")
+	if Files.isDirectory(context.path("tools/studio/live")) then
+		for _, failure in checkPlan(context, "tools/studio/live/plan.json", "tools/studio/live/suites", ".luau") do
+			table.insert(failures, failure)
+		end
+	end
+	return failures
+end
+
 local function plan(units: { { [string]: string } }): string
 	local encoded: { unknown } = {}
 	for _, unit in units do
@@ -91,6 +101,25 @@ end
 
 local function cases(): { Rule.Case }
 	return {
+		{
+			name = "live source additions and removals must update the committed plan",
+			run = function()
+				return Rule.within({
+					["tools/studio/live/suites/added.luau"] = "return {}",
+					["tools/studio/live/plan.json"] = plan({
+						{ id = "removed", locator = "tools/studio/live/suites/removed.luau" },
+					}),
+				}, function(context)
+					return same(
+						checkPlan(context, "tools/studio/live/plan.json", "tools/studio/live/suites", ".luau"),
+						{
+							"Verify plan spec is not on disk: removed",
+							"spec is missing from the Verify plan: added",
+						}
+					)
+				end)
+			end,
+		},
 		{
 			name = "every nested Verify file is accepted once",
 			run = function()
@@ -190,7 +219,7 @@ end
 
 local rule: Rule.Rule = {
 	name = "plan",
-	summary = "tests/plan.json lists each spec file on disk exactly once.",
+	summary = "The committed Verify plans list each test and live suite source exactly once.",
 	check = check,
 	cases = cases,
 }

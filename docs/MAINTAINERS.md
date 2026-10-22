@@ -164,6 +164,11 @@ and reference places. `theme-artifacts` builds and probes themes.
 plate samples. `perf` reports budgets and metrics; `perf-scenes` checks both
 production and theme scenes. `perf-place` keeps its Studio environment.
 
+`studio-live` uses the committed [live source plan](../tools/studio/live/plan.json).
+The `plan` producer checks its source coverage. The [CI guide](../tools/studio/CI.md)
+defines complete native runs, hosted CI coverage and the final Verify job.
+Hosted CI uses the engine double; native Studio coverage remains deferred.
+
 The Lab option check reads field origins from the props generator and its
 option tables. Run the [Lab coverage tool](../examples/facet-lab/tools/coverage.luau)
 with `fields` from `examples/facet-lab` to list each control, field and origin.

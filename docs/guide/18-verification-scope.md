@@ -13,6 +13,16 @@ cases that these sources register. Reports record each case result and the
 selected tier. A native engine double checks control policy, state and resource
 ownership. It does not prove engine layout, paint or real input behavior.
 
+The reflection fixture keeps its base capture version, `0.742.0.7421053`.
+Only the missing `Player` class metadata was added from Studio
+`0.744.0.7441077` on 2026-10-22. The capture used Verify's
+`tools/export-studio-reflection.luau` with `--classes Player,PlayerGui`.
+The source capture SHA-256 is
+`b85145d325b6c4975ca6817a0b9070500968a6843021f0b5bf86be6ce5e47da0`.
+Existing class metadata, enum values and defaults stay unchanged. `Player`
+remains `NotCreatable` and has no captured instance defaults. This metadata
+does not supply native player behavior.
+
 `lute run tools/facet check plan` checks that the plan lists every spec file on disk
 exactly once. It rejects missing files, duplicate IDs and incorrect source
 paths. The `plan` producer runs this check. The `suite` producer runs the

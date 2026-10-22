@@ -148,6 +148,21 @@ return function<V, K>(
 			end
 		end
 		return hidden
+	end, function(current: { [string]: boolean }?, incoming: { [string]: boolean }): boolean
+		if current == nil then
+			return false
+		end
+		for id, hidden in current do
+			if incoming[id] ~= hidden then
+				return false
+			end
+		end
+		for id, hidden in incoming do
+			if current[id] ~= hidden then
+				return false
+			end
+		end
+		return true
 	end)
 	local disclosureWidth = Compose.formula(function(use: ComposeTypes.Use)
 		if next(use(collapsed)) ~= nil then
