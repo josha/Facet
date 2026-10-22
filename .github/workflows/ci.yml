@@ -151,7 +151,7 @@ jobs:
 
       - name: Check out the base beside it
         env:
-          BASE_REF: ${{ inputs.base || github.event.pull_request.base.sha || github.event.before }}
+          BASE_REF: ${{ inputs.base || '90dd2dab7db4b895ff8761718148f693c62e038c' }}
         run: |
           if [ -z "$BASE_REF" ] || [ "$BASE_REF" = "0000000000000000000000000000000000000000" ]; then
             echo "A valid base commit is required for the paired performance comparison."

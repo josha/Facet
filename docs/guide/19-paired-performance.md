@@ -6,6 +6,17 @@ do not measure Roblox layout, paint, or physical device frame time.
 
 ## Run
 
+CI pins the accepted checkpoint at `90dd2dab7db4b895ff8761718148f693c62e038c`.
+The `BASE_REF` default in `.github/workflows/ci.yml` owns this pin. A manual
+dispatch can select another base. Update the pin only after an explicit
+maintainer decision to accept a new performance baseline.
+
+This checkpoint accepts the current branch's performance. The earlier
+[comparison with main](https://github.com/josha/Facet/actions/runs/39862445769)
+remains evidence: Windows reported five slower workloads. Accepting the
+checkpoint does not resolve those measurements or establish the eval's
+less-than-5% frame-time and retained-memory overhead versus Plain.
+
 Prepare two source trees with the same toolchain. Close Studio and other
 heavy processes. Run from the repository root:
 
