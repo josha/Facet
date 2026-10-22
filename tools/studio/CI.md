@@ -42,7 +42,7 @@ producers are deferred.
 The **CI** workflow runs platform checks and paired performance checks on free
 GitHub-hosted runners for each pull request and push to main. The final **Verify**
 job requires both job matrices to succeed on Linux, macOS and Windows. Each
-performance job compares the pinned checkpoint and candidate on the same runner. A failed,
+performance job compares the base and candidate on the same runner. A failed,
 cancelled or skipped required job
 fails Verify. The manual CI dispatch uses its base and candidate revisions for
 the performance comparison and checks the candidate on each platform.
@@ -68,10 +68,9 @@ with native conformance cases, then re-pin them here. Keep the original case
 assertions and reject unsupported behavior. A double result proves only the
 modeled behavior; it does not replace native rendering or input evidence.
 
-Push and pull request comparisons use the accepted checkpoint pinned in
-`.github/workflows/ci.yml`. A manual dispatch requires an explicit base and
-candidate. See [paired performance](../../docs/guide/19-paired-performance.md)
-for the pin and its evidence limits. An unavailable base fails the comparison.
+Push comparisons use the previous commit from the push event. A manual dispatch
+requires an explicit base and candidate. An absent base or an initial push with
+no previous commit fails the comparison; it does not report a performance pass.
 
 The current live driver has four explicit host gaps: a native text-size setting
 change, and controller connection changes in three cases. Controller cases also
