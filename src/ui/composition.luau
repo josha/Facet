@@ -126,8 +126,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local child = properties[index] :: GuiObject
 			contents[index] = child
 			assert(
-				type(child) ~= "string" and type(child.IsA) == "function" and child:IsA("GuiObject"),
-				"Facet Region forms must be GuiObjects, richest first"
+				(type(child) == "table" or typeof(child) == "Instance")
+					and type(child.IsA) == "function"
+					and child:IsA("GuiObject"),
+				"Facet Region forms must be GuiObjects, richest first. Put reactive children inside a stable form."
 			)
 			floors[index] = kit.follow(child, "y", function(use: ComposeTypes.Use?): number
 				local raised = if use then use(lift) else lift:peek()
@@ -333,11 +335,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			else
 				assert(
 					type(child) == "table" or typeof(child) == "Instance",
-					"Facet Composition children must be UI.Region nodes"
+					"Facet Composition children must be UI.Region nodes. Put Compose.show inside a stable Region form, not around the Region."
 				)
 				assert(
 					type(child.IsA) == "function" and child:IsA("UIFlexItem"),
-					"Facet Composition children must be UI.Region nodes or a UIFlexItem"
+					"Facet Composition children must be UI.Region nodes or a UIFlexItem. Put Compose.show inside a stable Region form, not around the Region."
 				)
 				table.insert(helpers, child)
 			end

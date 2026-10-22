@@ -5,10 +5,194 @@ local Json = require("./json")
 export type Rounds = { [number]: Json.Object }
 
 export type Bench = { path: string, round: number, document: Json.Object }
+export type Scope = { rounds: number, scenes: { string }, bench: boolean }
 
 type Cell = { first: number?, second: number?, ratio: number?, paired: { number } }
 
 local Paired = {}
+
+function Paired.armIndex(round: number, position: number, count: number): number
+	return if round % 2 == 1 then position else count + 1 - position
+end
+
+local function positive(value: unknown): boolean
+	return type(value) == "number" and value > 0 and value < math.huge
+end
+
+function Paired.benchOutcome(code: number, document: unknown): ({ string }, boolean)
+	local errors: { string } = {}
+	if code ~= 0 then
+		table.insert(errors, `benchmark command exited {code}`)
+	end
+	if
+		Json.field(document, "schema") ~= "facet-bench/1"
+		or Json.field(document, "status") ~= "PASS"
+		or Json.field(document, "proofStatus") ~= "stable-cpu-rate-trend"
+	then
+		table.insert(errors, "benchmark report is missing, failed or unstable")
+	end
+	local drift = Json.numberField(document, "yardstickMedianDriftPct")
+	if
+		not positive(Json.field(document, "yardstickP95Ms"))
+		or drift == nil
+		or drift ~= drift
+		or drift < 0
+		or drift > 15
+	then
+		table.insert(errors, "benchmark yardstick is missing or unstable")
+	end
+	local rows = Json.arrayField(document, "results")
+	if rows == nil or #rows == 0 then
+		table.insert(errors, "benchmark measurements are missing")
+		return errors, false
+	end
+	local validMeasurements = true
+	local names: { [string]: boolean } = {}
+	for _, row in rows do
+		local name = Json.stringField(row, "name")
+		local p50, p95, p99 =
+			Json.numberField(row, "p50_ms"), Json.numberField(row, "p95_ms"), Json.numberField(row, "p99_ms")
+		local samples = Json.numberField(row, "samples")
+		if name == nil or name == "" or names[name] then
+			validMeasurements = false
+			table.insert(errors, "benchmark measurement has a missing or duplicate name")
+		else
+			names[name] = true
+		end
+		if
+			not positive(p50)
+			or not positive(p95)
+			or not positive(p99)
+			or (p50 ~= nil and p95 ~= nil and p50 > p95)
+			or (p95 ~= nil and p99 ~= nil and p95 > p99)
+			or samples == nil
+			or samples < 1
+			or samples % 1 ~= 0
+		then
+			validMeasurements = false
+			table.insert(errors, `benchmark {name or "unknown"} has invalid measurements`)
+		end
+	end
+	local calibration = validMeasurements
+		and code == 2
+		and Json.field(document, "schema") == "facet-bench/1"
+		and Json.field(document, "status") == "FAIL"
+		and Json.field(document, "proofStatus") == "unstable-cpu-rate"
+		and Json.field(document, "failureKind") == "calibration"
+		and Json.numberField(document, "expectedMeasurements") == #rows
+		and positive(Json.field(document, "yardstickP95Ms"))
+		and positive(drift)
+		and (drift :: number) > 15
+	return errors, calibration
+end
+
+function Paired.validate(
+	scope: Scope,
+	entries: { Json.Object },
+	firstBenches: { Bench },
+	secondBenches: { Bench },
+	first: string,
+	second: string
+): { string }
+	local errors: { string } = {}
+	local selected: { [string]: boolean } = {}
+	for _, scene in scope.scenes do
+		selected[scene] = true
+	end
+	local seen: { [string]: boolean } = {}
+	for _, entry in entries do
+		local label, round = Json.stringField(entry, "label"), Json.numberField(entry, "round")
+		if label ~= first and label ~= second then
+			continue
+		end
+		local row = Json.field(entry, "row")
+		local scene = Json.stringField(row, "scene")
+		if
+			round == nil
+			or round < 1
+			or round > scope.rounds
+			or round % 1 ~= 0
+			or scene == nil
+			or not selected[scene]
+		then
+			table.insert(errors, "scene result is outside the expected comparison scope")
+			continue
+		end
+		local key = `{label}\0{round}\0{scene}`
+		local p50, p95 = Json.numberField(row, "p50"), Json.numberField(row, "p95")
+		if
+			seen[key]
+			or Json.field(row, "status") ~= "ok"
+			or not positive(p50)
+			or not positive(p95)
+			or (p50 ~= nil and p95 ~= nil and p50 > p95)
+		then
+			table.insert(errors, `{label} round {round} scene {scene} is duplicate or unavailable`)
+		end
+		seen[key] = true
+	end
+	for _, label in { first, second } do
+		for round = 1, scope.rounds do
+			for _, scene in scope.scenes do
+				if not seen[`{label}\0{round}\0{scene}`] then
+					table.insert(errors, `{label} round {round} scene {scene} is missing`)
+				end
+			end
+		end
+	end
+	local expected: { [string]: boolean }? = nil
+	for index, benches in { firstBenches, secondBenches } do
+		local label = if index == 1 then first else second
+		local rounds: { [number]: boolean } = {}
+		for _, bench in benches do
+			if
+				not scope.bench
+				or bench.round < 1
+				or bench.round > scope.rounds
+				or bench.round % 1 ~= 0
+				or rounds[bench.round]
+			then
+				table.insert(errors, `{label} benchmark round {bench.round} is outside the expected comparison scope`)
+			end
+			rounds[bench.round] = true
+			for _, detail in Paired.benchOutcome(0, bench.document) do
+				table.insert(errors, `{label} round {bench.round}: {detail}`)
+			end
+			local names: { [string]: boolean } = {}
+			for _, row in Json.arrayField(bench.document, "results") or Json.array() do
+				local name = Json.stringField(row, "name")
+				if name then
+					names[name] = true
+				end
+			end
+			if expected then
+				for name in expected do
+					if not names[name] then
+						table.insert(errors, `{label} round {bench.round}: benchmark {name} is missing`)
+					end
+				end
+				for name in names do
+					if not expected[name] then
+						table.insert(
+							errors,
+							`{label} round {bench.round}: benchmark {name} has no matching measurement`
+						)
+					end
+				end
+			else
+				expected = names
+			end
+		end
+		if scope.bench then
+			for round = 1, scope.rounds do
+				if not rounds[round] then
+					table.insert(errors, `{label} benchmark round {round} is missing`)
+				end
+			end
+		end
+	end
+	return errors
+end
 
 Paired.SCENES = {
 	"hud-binding-storm",
@@ -314,8 +498,8 @@ function Paired.benchTables(
 		)
 	end
 	table.insert(lines, "")
-	table.insert(lines, "| Bench run | Yardstick p95 ms | Yardstick drift % |")
-	table.insert(lines, "|---|---:|---:|")
+	table.insert(lines, "| Bench run | Yardstick p95 ms | Yardstick p95 drift % | CPU median drift % |")
+	table.insert(lines, "|---|---:|---:|---:|")
 	for _, benches in { firstBenches, secondBenches } do
 		local ordered = table.clone(benches)
 		table.sort(ordered, function(a: Bench, b: Bench): boolean
@@ -325,10 +509,11 @@ function Paired.benchTables(
 			local stem = string.match(bench.path, "([^/\\]+)%.json$") or bench.path
 			table.insert(
 				lines,
-				("| %s | %.4f | %.1f |"):format(
+				("| %s | %.4f | %.1f | %.1f |"):format(
 					string.sub(stem, 7),
 					numeric(Json.field(bench.document, "yardstickP95Ms")),
-					numeric(Json.field(bench.document, "yardstickDriftPct"))
+					numeric(Json.field(bench.document, "yardstickDriftPct")),
+					numeric(Json.field(bench.document, "yardstickMedianDriftPct"))
 				)
 			)
 		end

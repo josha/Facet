@@ -2,6 +2,9 @@
 
 Region zones, ranking, stacking and stable HUD layout.
 
+Keep Region nodes as direct Composition children. Put `Compose.show` inside
+a stable stack or frame form, not around the Region.
+
 - `zone` is required: `topLeft`, `top`, `topRight`, `left`, `center`,
   `right`, `bottomLeft`, `bottom`, `bottomRight` or `topbar`. Give two
   readouts that share a sight line, such as level progress and a timed goal,
@@ -40,10 +43,14 @@ Region zones, ranking, stacking and stable HUD layout.
 - The children are the forms of the region, richest first. At least one form
   is necessary. Give each form a pixel or `hug` size. A form that fills its
   parent has no size of its own.
+  Each form must be a concrete GuiObject. Put `Compose.show` or other reactive
+  children inside a stable stack or frame; do not pass a factory as a form.
 
 A smaller form must keep routes to the richer form's tasks. Use passive text
 or an icon for the built-in reveal, or make a button open all omitted choices.
 A button that opens one destination consumes its press and does not open the
 region's reveal Popover.
 
-See [Composition.layout](Composition.layout.md) for layout rules.
+See [Composition.layout](Composition.layout.md) for layout rules and
+[Composition.layout.step-down](Composition.layout.step-down.md) for fit warnings
+and stable measurement during motion.

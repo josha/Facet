@@ -9,16 +9,18 @@ return function(
 	types: Engine.RobloxTypes,
 	target: GuiObject?,
 	node: GuiObject,
-	options: { inset: boolean? }?
+	options: { inset: boolean?, immediate: boolean? }?
 ): GuiObject
 	if target == nil then
 		return node
 	end
-	local settings: { inset: boolean? } = options or {}
+	local settings: { inset: boolean?, immediate: boolean? } = options or {}
 	local Host = (runtime.constructors :: unknown) :: Engine.Host
 	local D2 = types.UDim2
-	local frame = if getfenv(0).game then { frame = true } else nil
-	local poll = if frame then { frame = true, poll = true } else nil
+	local frame: ComposeTypes.ObserveOptions? = if not settings.immediate and getfenv(0).game
+		then { frame = true }
+		else nil
+	local poll: ComposeTypes.ObserveOptions? = if frame then { frame = true, poll = true } else nil
 	if target:FindFirstChildWhichIsA("UIPadding") == nil then
 		runtime.mount(function()
 			return Host.UIPadding({})

@@ -17,6 +17,8 @@ export type Entry = {
 	run: string?,
 	plan: string?,
 	requires: string?,
+	capabilities: { string }?,
+	report: Gate.ReportExpectation?,
 	after: { string }?,
 	why: string,
 	producer: Gate.ProducerDraft?,
@@ -47,7 +49,7 @@ local TOOL_WORKER = "tests/lute/worker.luau"
 local TOOL_REQUIREMENT = "lute"
 
 local USAGE = table.concat({
-	"usage: lute run tools/facet gate [affected|fast|full|release] [--reference-host] [--only PRODUCER]... [--case ID]... [--file SPEC]... [--name TEXT] [--rerun] [--explain ID] [--list]",
+	"usage: lute run tools/facet gate [affected|fast|full|release] [--reference-host] [--studio-host] [--require-complete] [--only PRODUCER]... [--case ID]... [--file SPEC]... [--name TEXT] [--rerun] [--explain ID] [--list]",
 	"       lute run tools/facet gate spec SPEC... [--tier release] [--case ID]... [--name TEXT]",
 }, "\n")
 
@@ -113,7 +115,7 @@ local function planned(entry: Entry, claimed: { [string]: boolean }): { string }
 	return names
 end
 
-local function define(entries: { Entry }, referenceHost: boolean, id: string?): Gate.Draft
+local function define(entries: { Entry }, referenceHost: boolean, id: string?, studioHost: boolean?): Gate.Draft
 	local producers: { Gate.ProducerDraft } = {}
 	local deferrals: { [string]: string } = {}
 	local claimed: { [string]: boolean } = {}
@@ -125,7 +127,9 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?): 
 	for _, entry in entries do
 		local environment = entry.environment or "deterministic"
 		local reason = DEFERRAL[environment]
-		local deferrable = reason ~= nil and not (environment == "perf" and referenceHost)
+		local deferrable = reason ~= nil
+			and not (environment == "perf" and referenceHost)
+			and not (environment == "studio" and studioHost == true)
 		if deferrable then
 			deferrals[entry.id] = reason
 		end
@@ -140,14 +144,20 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?): 
 				kind = entry.kind or "command",
 				argv = string.split(assert(entry.run, "a producer needs a command: " .. entry.id), " "),
 				deadlineSeconds = entry.deadlineSeconds,
+				report = entry.report,
 			}
 		end
 		if deferrable and producer.kind ~= "tests" then
 			local exit: { [number]: Gate.ExitClass } = { [2] = "deferred" }
 			producer.exit = exit
 		end
+		if entry.capabilities then
+			producer.requires = table.clone(entry.capabilities)
+		end
 		if entry.timing and not referenceHost then
-			producer.requires = { "reference-host" }
+			local requirements = producer.requires or {}
+			table.insert(requirements, "reference-host")
+			producer.requires = requirements
 		end
 		producer.tier = entry.tier
 		producer.tags = { environment }
@@ -162,12 +172,35 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?): 
 	}
 end
 
-local function draft(referenceHost: boolean): Gate.Draft
+local function draft(referenceHost: boolean, studioHost: boolean?): Gate.Draft
 	local catalog: Catalog = decode(CATALOG)
-	return define(catalog.producers, referenceHost)
+	return define(catalog.producers, referenceHost, nil, studioHost)
 end
 
-local function releasable(code: number, tier: string, outcome: Gate.Outcome?): number
+local function releasable(code: number, tier: string, outcome: Gate.Outcome?, requireComplete: boolean?): number
+	if code == 0 and requireComplete then
+		if outcome == nil then
+			print("gate: required tier has no recorded Verify outcome")
+			return 1
+		end
+		local acceptance = outcome.acceptance
+		local scope = outcome.scope
+		if
+			acceptance.verdict == "failed"
+			or #acceptance.failed > 0
+			or #acceptance.deferred > 0
+			or #acceptance.deselected > 0
+			or #acceptance.notSelected ~= #acceptance.skippedByTier
+			or #scope.ids > 0
+			or #scope.tags > 0
+			or #scope.cases > 0
+			or #scope.sources > 0
+			or scope.nameContains ~= nil
+		then
+			print("gate: required tier has failed, deferred, unsupported or narrowed evidence")
+			return 1
+		end
+	end
 	if code == 0 and tier == "release" and outcome ~= nil and not outcome.acceptance.releasable then
 		print("gate: the release tier is not releasable with a deferral or a narrowed run")
 		return 1
@@ -193,6 +226,8 @@ local function main(arguments: { string }): number
 	local focused = arguments[1] == "spec"
 	local tier = "full"
 	local referenceHost = false
+	local studioHost = false
+	local requireComplete = false
 	local names: { string } = {}
 	local flags: { string } = {}
 	local index = if focused then 2 else 1
@@ -205,6 +240,10 @@ local function main(arguments: { string }): number
 			tier = arguments[index]
 		elseif argument == "--reference-host" then
 			referenceHost = true
+		elseif argument == "--studio-host" then
+			studioHost = true
+		elseif argument == "--require-complete" then
+			requireComplete = true
 		elseif focused and string.sub(argument, 1, 2) ~= "--" and #flags == 0 then
 			table.insert(names, argument)
 		else
@@ -221,6 +260,10 @@ local function main(arguments: { string }): number
 		print(USAGE)
 		return 2
 	end
+	if requireComplete and (focused or (tier ~= "full" and tier ~= "release") or #flags > 0) then
+		print("gate: --require-complete requires the full or release tier without query, filter or rerun flags")
+		return 2
+	end
 	local selectedTiers: { string } = if focused and tier ~= "release" then { "fast" } else TIERS[tier]
 	for _, name in selectedTiers do
 		table.insert(flags, "--tier")
@@ -228,18 +271,20 @@ local function main(arguments: { string }): number
 	end
 	local gate: Gate.Draft = if focused
 		then { id = "facet-specs", producers = { tests("specs", names) } }
-		else draft(referenceHost)
+		else draft(referenceHost, studioHost)
 	local options: Lute.GateOptions = {
 		directory = if focused then DIRECTORY .. "-specs" else DIRECTORY,
 		build = build(),
+		capabilities = if studioHost then { "native-studio" } else {},
 		environment = {
-			tier = tier,
+			tier = tostring(tier),
 			referenceHost = tostring(referenceHost),
+			studioHost = tostring(studioHost),
 		},
 	}
 	print(`Facet verification gate: {tier}.`)
 	local code = Lute.gate.cli(gate, flags, { options = options, usage = USAGE })
-	return releasable(code, tier, (Lute.gate.last(Gate.define(gate), options)))
+	return releasable(code, tier, (Lute.gate.last(Gate.define(gate), options)), requireComplete)
 end
 
 return table.freeze({

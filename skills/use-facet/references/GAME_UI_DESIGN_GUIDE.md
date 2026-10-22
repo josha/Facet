@@ -129,10 +129,10 @@ A contextual command set is not automatically a modal. Use selection for an
 object under consideration; do not equip or buy it merely because it gained
 focus. Expose frequent important actions directly.
 
-Size the surface and its content together. A short task can fit its content;
-a browsing task should use the available room for its collection. Avoid a large
-surface around a short, fixed-height list. Reuse item components without forcing
-every task into the same layout.
+Budget the decision area from height as well as width. Keep selected identity,
+decisive facts and the next action together; let previews and secondary content
+yield space. Short tasks can fit their content; browsing tasks need room for
+their collections. Reuse components without forcing every task into one layout.
 
 A temporary task does not imply a draggable surface. For a floating task
 panel, use Sheet with `placement = "center"`: Close is visible and there is

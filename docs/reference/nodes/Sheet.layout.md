@@ -28,8 +28,9 @@ Placement, width, header, hero, pinned actions, body padding, scroll policy and 
   They stay pinned below the body and never close the sheet. `actionLayout`
   is `automatic`, `row` or `stacked`. Cancel runs an enabled `role = "cancel"`
   action first.
-- `contentInset`: `standard` (8 pixels) or `none`. It changes only the body
-  padding.
+- `contentInset`: `standard` or `none`. Standard body padding is 8 pixels
+  vertically. Horizontal padding is at least 8 pixels and grows with themed
+  feedback. `none` removes all body padding.
 - `scrollPolicy`: `always` (the default) keeps the body scrolling at every
   height. `atLargestDetent` stops the body scroll below the tallest detent.
 - `closeButton`: absent, `true`, `false`, or a string or readable label.

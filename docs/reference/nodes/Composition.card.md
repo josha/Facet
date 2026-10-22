@@ -12,6 +12,8 @@ Key options: `gap`, `padding`.
 
 Keep HUD groups in one Composition. Facet warns when two Compositions on one
 screen place regions in the same zone.
+Region forms must be concrete GuiObjects. Put reactive children inside each
+stable form instead of passing a factory as the form.
 
 Related controls: [Controls](Controls.md).
 

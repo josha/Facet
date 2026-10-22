@@ -555,6 +555,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		if not media then
 			ctx.styled(card, "panel")
 			card:AddTag("facet-card-text")
+			runtime.mount(function()
+				return Host.UIPadding({})
+			end, card)
 		end
 		root = card
 		local extent = if spec.onActivate or spec.controls then ctx.observe.AbsoluteSize(card) else nil

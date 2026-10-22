@@ -187,8 +187,24 @@ return function(
 			end
 		end
 		local inset = if spec.contentInset == "none" then 0 else 8
+		local panelWidth = Compose.formula(function(use: ComposeTypes.Use): number
+			return math.max(0, math.min(parts.width(ctx, spec.width, use), use(extent).X))
+		end)
+		local function contentPadding(): UIPadding
+			local function horizontal(use: ComposeTypes.Use): UDim
+				local growth = math.max(0, ctx.metric("motion.materialize.lift", use) - 1)
+				local width = math.max(0, use(panelWidth) - pad("left", use) - pad("right", use))
+				return if width * growth > inset then ctx.types.UDim.new(growth, 0) else ctx.types.UDim.new(0, inset)
+			end
+			return Host.UIPadding {
+				PaddingLeft = if inset == 0 then ctx.types.UDim.new(0, 0) else horizontal,
+				PaddingRight = if inset == 0 then ctx.types.UDim.new(0, 0) else horizontal,
+				PaddingTop = ctx.types.UDim.new(0, inset),
+				PaddingBottom = ctx.types.UDim.new(0, inset),
+			}
+		end
 		local bodyLayout = Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder })
-		local bodyPadding = ctx.padding(inset, inset)
+		local bodyPadding = contentPadding()
 		local bodyChildren: { Types.Child } = { bodyLayout }
 		local content: Instance = if type(spec.content) == "function"
 			then (spec.content :: () -> Instance)()
@@ -213,7 +229,7 @@ return function(
 				AutomaticSize = E.AutomaticSize.Y,
 			}
 			inner[#inner + 1] = Host.UIListLayout({ SortOrder = E.SortOrder.LayoutOrder })
-			inner[#inner + 1] = ctx.padding(inset, inset)
+			inner[#inner + 1] = contentPadding()
 			inner[#inner + 1] = bodyContent
 			table.insert(bodyChildren, Host.Frame(inner))
 		else
@@ -301,9 +317,6 @@ return function(
 				action.onActivate()
 			end
 		end
-		local panelWidth = Compose.formula(function(use: ComposeTypes.Use): number
-			return math.max(0, math.min(parts.width(ctx, spec.width, use), use(extent).X))
-		end)
 		local actions = spec.actions or {}
 		if #actions > 0 then
 			local region = parts.actions(ctx, UI, actions, spec.actionLayout, function(use: ComposeTypes.Use)

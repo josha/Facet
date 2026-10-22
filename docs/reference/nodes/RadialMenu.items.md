@@ -19,8 +19,9 @@ native GuiObject `anchor`, the launcher sits over the centre of that object.
 
 `holdAction` is a native InputAction Instance that the caller owns. The control
 subscribes to its `Pressed` and `Released` events. It does not accept an action
-name, and it does not define key bindings. Parent the action under a native
-InputContext and declare the InputBindings there.
+name, and it does not define key bindings. Put InputBindings inside the
+InputAction, and put that action inside a native InputContext. Use Host
+positional children for this ownership tree.
 
 `completion` sets what item activation does: close, stay, return to the root,
 or go back. You can navigate nested items. Checked and selected items update

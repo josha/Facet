@@ -9,6 +9,7 @@ local Gate = require("../vendor/verify/src/gate")
 local Files = require("../facet/lib/files")
 local Run = require("../facet/lib/run")
 local gate = require("../facet/lib/gate")
+local Cli = require("../facet/lib/cli")
 
 local harness = Verify.createHarness({ source = "facet-verify-integration", now = os.clock })
 local directory = `artifacts/verify/integration-{os.time()}-{math.random(1, 1e9)}`
@@ -104,7 +105,7 @@ local function reporter(id: string, mode: string, expectation: Gate.ReportExpect
 			`local Verify = require("{VERIFY}/core")`,
 			"local mode, path, run = process.args[2], process.args[3], process.args[4]",
 			'local harness = Verify.createHarness({ now = os.clock, source = "reporter", prefixIds = false })',
-			'harness:case("one", { id = "one", run = function(context) context:expect(mode ~= "failing"):toBe(true) end })',
+			'harness:case("one", { id = "one", requires = if mode == "unsupported" then { "native-hook" } else nil, run = function(context) context:expect(mode ~= "failing"):toBe(true) end })',
 			'local report = harness:run({ executor = "fixture", environment = { runtime = "lute" } })',
 			'if mode == "empty" then fs.writeStringToFile(path, "")',
 			'elseif mode == "malformed" then fs.writeStringToFile(path, "{ not json")',
@@ -303,6 +304,194 @@ harness:suite("Suite execution through the Verify gate", function()
 	end)
 end)
 
+harness:suite("Facet live CI policy", function()
+	harness:case("required complete gates reject queries and focused runs before execution", function(context)
+		for _, arguments in
+			{
+				{ "full", "--require-complete", "--list" },
+				{ "full", "--require-complete", "--only", "studio-live" },
+				{ "full", "--require-complete", "--rerun" },
+				{ "fast", "--require-complete" },
+				{ "spec", "native", "--require-complete" },
+			}
+		do
+			context:expect(gate.main(arguments)):toBe(2)
+		end
+	end)
+	local function studioCommand(report: Verify.Report, onRun: ((string) -> ())?, sourcePlan: string?): Cli.Command
+		local native = (table.clone(Lute) :: unknown) :: { [string]: unknown }
+		native.studio = {
+			run = function(options: { code: string })
+				if onRun then
+					onRun(options.code)
+				end
+				return { status = "returned", report = report }
+			end,
+		}
+		local environment: { [string]: unknown } = {
+			print = function() end,
+			require = function(module: string): unknown
+				if module == "@std/fs" then
+					return {
+						readFileToString = function(path: string): string
+							return if sourcePlan and path == "tools/studio/live/plan.json"
+								then sourcePlan
+								else fs.readFileToString(path)
+						end,
+						exists = function()
+							return true
+						end,
+						listDirectory = function()
+							return {}
+						end,
+						writeStringToFile = function() end,
+						remove = function() end,
+					}
+				elseif module == "@std/process" then
+					return {
+						pid = function()
+							return 1
+						end,
+						run = function()
+							return { ok = true, stdout = "revision", stderr = "" }
+						end,
+					}
+				elseif module == "@std/json" then
+					return json
+				elseif module == "../../vendor/verify/src/lute" then
+					return native
+				elseif module == "../../vendor/verify/src/core" then
+					return Verify
+				elseif module == "../../studio/live/attachment_limits" then
+					return {}
+				end
+				return {}
+			end,
+		}
+		return Lute.chunk.load(
+				fs.readFileToString("tools/facet/commands/studio.luau"),
+				{ environment = environment }
+			)() :: Cli.Command
+	end
+	harness:case("all mode runs the committed source plan and keeps haptics in one session", function(context)
+		local cases = Verify.createHarness({ source = "fixture", now = os.clock, prefixIds = false })
+		cases:case("passed", { id = "passed", run = function() end })
+		local report = cases:run({ executor = "fixture", environment = {} })
+		local codes: { string } = {}
+		local command = studioCommand(
+			report,
+			function(code)
+				table.insert(codes, code)
+			end,
+			Lute.encode({
+				units = {
+					{ id = "included", locator = "tools/studio/live/suites/included.luau" },
+					{ id = "haptics_setup", locator = "tools/studio/live/suites/haptics_setup.luau" },
+					{ id = "haptics_verify", locator = "tools/studio/live/suites/haptics_verify.luau" },
+				},
+			})
+		)
+		context:expect(command.run(Cli.parse({ "studio", "live", "--all", "--complete" }))):toBe(0)
+		context:expect(#codes):toBe(2)
+		context:expect(string.find(codes[1], 'drive(live, "haptics_pair"', 1, true) ~= nil):toBe(true)
+		context:expect(string.find(codes[2], 'drive(live, "included"', 1, true) ~= nil):toBe(true)
+	end)
+	harness:case("complete commands fail unsupported and empty reports and reject narrowing", function(context)
+		local cases = Verify.createHarness({ source = "command-fixture", now = os.clock, prefixIds = false })
+		cases:case("passed", { id = "passed", run = function() end })
+		cases:case("hook", { id = "hook", requires = { "native-hook" }, run = function() end })
+		local report = cases:run({ executor = "fixture", environment = {} })
+		context:expect(studioCommand(report).run(Cli.parse({ "studio", "live", "mixed", "--complete" }))):toBe(1)
+		context:expect(studioCommand(report).run(Cli.parse({ "studio", "live", "mixed" }))):toBe(0)
+		local empty = Verify.createHarness({ source = "empty", now = os.clock })
+			:run({ executor = "fixture", environment = {} })
+		context:expect(studioCommand(empty).run(Cli.parse({ "studio", "live", "empty", "--complete" }))):toBe(1)
+		for _, filter in { { "--only", "part" }, { "--case", "passed" }, { "--resume-run", "old" }, { "--place" } } do
+			local arguments = { "studio", "live", "mixed", "--complete" }
+			for _, argument in filter do
+				table.insert(arguments, argument)
+			end
+			context
+				:expect(function()
+					studioCommand(report).run(Cli.parse(arguments))
+				end)
+				:toThrow()
+		end
+	end)
+	local function driver(): (unknown, string, { [string]: unknown }) -> Verify.Report
+		local storage: { [string]: unknown } = { FacetLive = { zoom_travel_drivers = "travel" } }
+		storage.WaitForChild = function(_: unknown, name: string): unknown
+			return if name == "core" then "verify" else storage
+		end
+		local services: { [string]: unknown } = {
+			Players = {},
+			GuiService = {},
+			RunService = {},
+			UserInputService = { KeyboardEnabled = true, MouseEnabled = true, PreferredInput = "keyboard" },
+			HttpService = {},
+		}
+		local environment: { [string]: unknown } = {
+			game = {
+				ReplicatedStorage = storage,
+				GetService = function(_: unknown, name: string): unknown
+					return assert(services[name], name)
+				end,
+			},
+			Enum = { PreferredInput = { Gamepad = "gamepad" } },
+			require = function(module: unknown): unknown
+				return if module == "verify"
+					then Verify
+					else function(): { [string]: unknown }
+						return {}
+					end
+			end,
+		}
+		local load =
+			Lute.chunk.load(fs.readFileToString("tools/studio/live/interactive.luau"), { environment = environment })
+		return load() :: (unknown, string, { [string]: unknown }) -> Verify.Report
+	end
+	harness:case("complete mixed suites retain automatic and unsupported interactive registrations", function(context)
+		local selected: unknown = nil
+		local automatic = Verify.createHarness({ source = "mixed", now = os.clock, prefixIds = false })
+		automatic:case("automatic", { id = "automatic", run = function() end })
+		local report = driver()({
+			cases = function(): { unknown }
+				return {
+					{ id = "automatic", run = function() end },
+					{ id = "tray-grows-with-text-size", setup = function() end },
+				}
+			end,
+			report = function(_: string, options: { ids: { string } })
+				selected = options.ids
+				return automatic:run({ executor = "fixture", environment = {} })
+			end,
+		}, "mixed", { complete = true, device = "keep" })
+		context:expect(selected):toEqual({ "automatic" })
+		context:expect(report.total):toBe(2)
+		context:expect(report.passed):toBe(1)
+		context:expect(report.unsupported):toBe(1)
+		context:expect(report.results[2].id):toBe("tray-grows-with-text-size")
+	end)
+	harness:case("complete mode rejects a suite with no registrations", function(context)
+		context
+			:expect(function()
+				driver()({
+					cases = function()
+						return {}
+					end,
+				}, "empty", { complete = true, device = "keep" })
+			end)
+			:toThrow()
+	end)
+	harness:case("portable hosts defer declared Studio coverage without running it", function(context)
+		local entry = command("native", 1, "studio")
+		entry.capabilities = { "native-studio" }
+		local outcome = runGate({ entry })
+		context:expect(status(outcome, "native")):toBe("deferred")
+		context:expect(outcome.acceptance.releasable):toBe(false)
+	end)
+end)
+
 harness:suite("Facet gate through Verify", function()
 	harness:case("classifies pass, failure and environment deferral by producer class", function(context)
 		local entries = {
@@ -342,14 +531,18 @@ harness:suite("Facet gate through Verify", function()
 		context:expect(completeTier(full)):toBe(true)
 		context:expect(status(full, "gate")):toBe("not_selected")
 		context:expect(gate.releasable(0, "full", full)):toBe(0)
+		context:expect(gate.releasable(0, "full", full, true)):toBe(0)
 		context:expect(gate.releasable(0, "release", full)):toBe(1)
 		local focused = runGate(clean, { tier = "full", rerun = "fast" })
 		context:expect(completeTier(focused)):toBe(false)
 		context:expect(focused.acceptance.verdict):toBe("selected")
+		context:expect(gate.releasable(0, "full", focused, true)):toBe(1)
 		local deferred = { command("fast", 0), command("live", 2, "studio", "full") }
 		local lower = runGate(deferred, { tier = "full" })
 		context:expect(lower.acceptance.deferred):toEqual({ "live" })
 		context:expect(lower.acceptance.verdict ~= "failed"):toBe(true)
+		context:expect(gate.releasable(0, "full", lower, true)):toBe(1)
+		context:expect(gate.releasable(0, "full", nil, true)):toBe(1)
 		local blocked = runGate(deferred, { tier = "release" })
 		context:expect(blocked.acceptance.verdict):toBe("deferred")
 		context:expect(blocked.acceptance.releasable):toBe(false)
@@ -372,9 +565,11 @@ harness:suite("Facet gate through Verify", function()
 			reporter("short", "valid", { minimum = 2 }),
 			reporter("absent-case", "valid", { cases = { "one", "two" } }),
 			reporter("failing", "failing"),
+			reporter("unsupported", "unsupported"),
 			reporter("contradicts", "contradicts"),
 		})
 		context:expect(status(outcome, "accepted")):toBe("passed")
+		context:expect(status(outcome, "unsupported") ~= "passed"):toBe(true)
 		for _, id in { "missing", "empty", "malformed", "stale", "short", "absent-case", "failing", "contradicts" } do
 			context:expect(`{id}: {status(outcome, id)}`):toBe(`{id}: failed`)
 		end
@@ -408,7 +603,9 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 16, full = 23, release = 2 })
+		context:expect(tiers):toEqual({ fast = 16, full = 24, release = 2 })
+		context:expect(seen["studio-live"].requires):toEqual({ "native-studio" })
+		context:expect(seen["studio-live"].report):toEqual({ minimum = 1 })
 		context:expect(seen["run-comparison"].tier):toBe("release")
 		context:expect(seen["docs-nodes"].tier):toBe("fast")
 		context:expect(seen["text-encoding"].tier):toBe("fast")

@@ -22,6 +22,10 @@ local function run(invocation: Cli.Invocation): number
 	local placeOnly = false
 	local noProgress = false
 	local interactive = false
+	local complete = false
+	local all = false
+	local reportPath: string? = nil
+	local reportRun: string? = nil
 	local casesFromTree = false
 	local studio: string? = nil
 	local resumeRun: string? = nil
@@ -68,6 +72,17 @@ local function run(invocation: Cli.Invocation): number
 			casesFromTree = true
 		elseif argument == "--interactive" then
 			interactive = true
+		elseif argument == "--complete" then
+			complete = true
+			interactive = true
+		elseif argument == "--all" then
+			all = true
+		elseif argument == "--report" then
+			index += 1
+			reportPath = assert(invocation.arguments[index], "--report needs a path")
+		elseif argument == "--run-id" then
+			index += 1
+			reportRun = assert(invocation.arguments[index], "--run-id needs a run id")
 		elseif argument == "--deadline" then
 			index += 1
 			deadline = assert(tonumber(invocation.arguments[index]), "--deadline needs seconds")
@@ -76,10 +91,41 @@ local function run(invocation: Cli.Invocation): number
 		end
 		index += 1
 	end
+	assert(
+		not complete or (#caseIds == 0 and only == nil and resumeRun == nil),
+		"--complete forbids case filters and resume"
+	)
+	assert(not all or #suites == 0, "--all cannot be combined with suite names")
+	assert(not all or complete, "--all requires --complete")
+	assert(not complete or not placeOnly, "--complete cannot build a place without running cases")
+	assert((reportPath == nil) == (reportRun == nil), "--report and --run-id are required together")
+	if all then
+		local plan = (Lute.parse(fs.readFileToString("tools/studio/live/plan.json")) :: unknown) :: Verify.PlanDraft
+		assert(#plan.units > 0, "the committed live plan has no sources")
+		local haptics = 0
+		for _, unit in plan.units do
+			assert(
+				unit.locator == `tools/studio/live/suites/{unit.id}.luau`,
+				"live plan source ID differs from its locator"
+			)
+			assert(fs.exists(unit.locator), "live plan source is missing: " .. unit.locator)
+			if unit.id ~= "haptics_setup" and unit.id ~= "haptics_verify" then
+				table.insert(suites, unit.id)
+			else
+				haptics += 1
+			end
+		end
+		assert(haptics == 0 or haptics == 2, "the live plan must retain both haptics sources")
+		if haptics == 2 then
+			table.insert(suites, "haptics_pair")
+		end
+		table.sort(suites)
+	end
 	if #suites == 0 and not placeOnly then
 		print(
-			"usage: lute run tools/facet studio live SUITE... [--only TEXT] [--case ID]... [--tag NAME] [--deadline SECONDS] [--studio ID] [--device NAME] [--interactive] [--cases-from-tree] [--resume-run ID] [--shared NAME=JSON] [--no-progress]"
+			"usage: lute run tools/facet studio live SUITE... [--complete] [--only TEXT] [--case ID]... [--tag NAME] [--deadline SECONDS] [--studio ID] [--device NAME] [--interactive] [--cases-from-tree] [--resume-run ID] [--shared NAME=JSON] [--no-progress]"
 		)
+		print("       lute run tools/facet studio live --all --complete [--report PATH --run-id ID]")
 		print("       lute run tools/facet studio live --place")
 		return 2
 	end
@@ -163,6 +209,7 @@ local function run(invocation: Cli.Invocation): number
 	end
 
 	local failed = false
+	local payloads: { Verify.ShardPayload } = {}
 	assert(not casesFromTree or studio ~= nil, "--cases-from-tree requires --studio ID")
 	assert(resumeRun == nil or (studio ~= nil and #suites == 1), "--resume-run requires --studio ID and one suite")
 	assert(
@@ -178,7 +225,7 @@ local function run(invocation: Cli.Invocation): number
 			`\{ runId = runId, progressToken = progressToken, device = {string.format("%q", device)}, ids = {if #selectedIds
 					> 0
 				then "{" .. table.concat(selectedIds, ",") .. "}"
-				else "nil"}, only = {if only then string.format("%q", only) else "nil"} }`
+				else "nil"}, only = {if only then string.format("%q", only) else "nil"}, complete = {tostring(complete)} }`
 		local code = table.concat({
 			table.concat(sharedValues, "\n"),
 			"local storage = game:GetService('ReplicatedStorage')",
@@ -254,6 +301,7 @@ local function run(invocation: Cli.Invocation): number
 		local returned = outcome.report
 		if outcome.status ~= "returned" or returned == nil then
 			print(`{suite}: {outcome.status} {outcome.detail or ""}`)
+			table.insert(payloads, { id = suite, error = tostring(outcome.detail or outcome.status) })
 			failed = true
 			continue
 		end
@@ -273,6 +321,7 @@ local function run(invocation: Cli.Invocation): number
 			end,
 		})
 		write(`artifacts/studio-live/{suite}-{tag}.json`, Lute.encode(report))
+		table.insert(payloads, { id = suite, report = report })
 		print(Verify.format(report))
 		for _, issue in issues do
 			print("attachment: " .. issue)
@@ -280,7 +329,17 @@ local function run(invocation: Cli.Invocation): number
 		print(
 			`{suite}: {report.passed} passed, {report.failed} failed, {report.unsupported} unsupported of {report.total}; artifacts/studio-live/{suite}-{tag}.json`
 		)
-		failed = failed or report.passed + report.unsupported ~= report.total or report.passed == 0 or #issues > 0
+		failed = failed
+			or (if complete then report.passed ~= report.total else report.passed + report.unsupported ~= report.total)
+			or report.passed == 0
+			or #issues > 0
+	end
+	if reportPath and reportRun then
+		Lute.gate.writeReport(
+			reportPath,
+			reportRun,
+			Verify.compose(payloads, "roblox-studio", { complete = tostring(complete) })
+		)
 	end
 	return if failed then 1 else 0
 end
@@ -288,7 +347,7 @@ end
 local command: Cli.Command = {
 	name = "studio",
 	summary = "Run live Studio suites through Verify.",
-	usage = "usage: lute run tools/facet studio live SUITE... [--only TEXT | --case ID] [--studio ID] [--tag NAME]",
+	usage = "usage: lute run tools/facet studio live SUITE... [--complete] [--only TEXT | --case ID] [--studio ID] [--tag NAME] | --all --complete",
 	run = run,
 }
 return command
