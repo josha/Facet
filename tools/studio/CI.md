@@ -41,7 +41,9 @@ producers are deferred.
 
 The **CI** workflow runs platform checks and paired performance checks on free
 GitHub-hosted runners for each pull request and push to main. The final **Verify**
-job requires both jobs to succeed. A failed, cancelled or skipped required job
+job requires both job matrices to succeed on Linux, macOS and Windows. Each
+performance job compares the base and candidate on the same runner. A failed,
+cancelled or skipped required job
 fails Verify. The manual CI dispatch uses its base and candidate revisions for
 the performance comparison and checks the candidate on each platform.
 

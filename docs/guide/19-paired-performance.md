@@ -31,7 +31,9 @@ Use an empty output directory for a new comparison.
 The report requires the expected round count. Missing rounds, failed commands,
 unstable benchmark reports and unavailable measurements fail with exit 2.
 Only complete measurements can reach the relative slowdown gate, which exits 1
-for a consistent slowdown. CI requires all scenes and microbenchmarks. It
+for a consistent slowdown. CI requires all scenes and microbenchmarks on Linux,
+macOS and Windows. Each host compares the base and candidate on the same runner.
+The required Verify job accepts only success from every platform. CI
 rechecks the full suite with six rounds only after a statistical slowdown;
 an execution or measurement failure cannot become a narrowed passing recheck.
 
