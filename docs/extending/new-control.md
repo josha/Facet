@@ -30,6 +30,28 @@ observation, styles and input actions. It does not own another scene.
 - Use native layouts for geometry.
 - Use the motion functions of the runtime for animation.
 
+## Layout rules
+
+- Facet's model and the native layout must agree. When Facet decides
+  something about layout, such as that an empty region takes no room or
+  where a row wraps, make the native tree do the same: hide what the model
+  leaves out, and size what the model sizes.
+- Native automatic size does not follow every change. A container that hugs
+  children that it also stretches (Fill flex, `ItemLineAlignment.Stretch`)
+  keeps stale sizes and can collapse to zero. A Frame with `AutomaticSize` and
+  no layout object can stay one step behind an automatic-size child. Give a
+  wrapper a list layout. To make hugging children match, use `kit.match`: it
+  measures each child's natural size from its content (`kit.intrinsic`) and
+  raises the others with a UISizeConstraint.
+- A `MinSize` does not always set the final size. With padding or a
+  scale-sized automatic child, a node grows past it. Measure what a size
+  constraint does; do not predict it.
+- Test that content can grow and shrink after it mounts, not only that the
+  first layout is correct.
+- Make the common game layout the default: a value sits beside its bar, and
+  the panels of one HUD row have one height. A game must not need to measure
+  or set pixel sizes for a common layout to look right.
+
 ## Scaffolding
 
 1. Run `lute run tools/facet scaffold control lower_snake_name`. The

@@ -2,6 +2,8 @@
 local ComposeTypes = require("../vendor/compose/core")
 local bindThemes = require("./themes")
 local Shared = require("./types")
+local extentMatch = require("./extent_match")
+local sizeFloor = require("./size_floor")
 local Theme = require("./theme_types")
 
 export type Place = (GuiObject, number) -> ()
@@ -11,7 +13,7 @@ export type Kit = {
 	insets: (Shared.Value<Shared.Padding>?, ComposeTypes.Readable<Room>?) -> UIPadding?,
 	shadowRoom: (GuiObject, ComposeTypes.Cell<Room>) -> (),
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Value<UDim2>, Shared.Value<Enum.AutomaticSize>),
-	list: (Shared.Flow, Shared.Value<boolean>) -> UIListLayout,
+	list: (Shared.Flow, Shared.Value<boolean>, boolean?) -> UIListLayout,
 	underTopbar: (GuiObject, ComposeTypes.Cell<number>) -> (),
 	ordered: ({ ComposeTypes.Child }, Place?) -> { ComposeTypes.Child },
 	assemble: <P>(P, unknown?, { Instance? }, { ComposeTypes.Child }, Place?) -> P,
@@ -24,6 +26,11 @@ export type Kit = {
 		Shared.Extent?,
 		Shared.Extent?
 	) -> Frame,
+	liftTarget: (GuiObject) -> GuiObject,
+	intrinsic: (GuiObject, boolean, number) -> number,
+	lifter: (GuiObject, "x" | "y") -> (number) -> boolean,
+	follow: (GuiObject, "x" | "y", (ComposeTypes.Use?) -> number) -> () -> boolean,
+	match: (Frame, boolean, (ComposeTypes.Use?) -> boolean) -> (),
 }
 
 local layoutKit = {}
@@ -249,7 +256,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	local function edge<T>(value: Shared.Align | Shared.Distribute, start: T, center: T, finish: T): T
 		return if value == "center" then center elseif value == "end" then finish else start
 	end
-	function kit.list(flow: Shared.Flow, vertical: Shared.Value<boolean>): UIListLayout
+	function kit.list(flow: Shared.Flow, vertical: Shared.Value<boolean>, matched: boolean?): UIListLayout
 		local function column(use: ComposeTypes.Use?): boolean
 			return read(vertical, use) == true
 		end
@@ -306,7 +313,11 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				return edge(if column(use) then distribute(use) else align(use), V.Top, V.Center, V.Bottom)
 			end, vertical, flow.align, flow.distribute)
 		end
-		local cross = if flow.align ~= nil and (live(flow.align) or align(nil) == "stretch") then flow.align else nil
+		local cross = if not matched
+				and flow.align ~= nil
+				and (live(flow.align) or align(nil) == "stretch")
+			then flow.align
+			else nil
 		local main = if flow.distribute ~= nil and (live(flow.distribute) or spread[distribute(nil)])
 			then flow.distribute
 			else nil
@@ -485,13 +496,311 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local room: ComposeTypes.Cell<Room>? = if flow.padding ~= nil
 			then Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 } :: Room)
 			else nil
-		local frame = Host.Frame(
-			kit.assemble(native, properties, { kit.list(flow, vertical), kit.insets(flow.padding, room) }, children)
-		)
+		local column = if live(vertical) then nil else read(vertical) == true
+		local across: unknown = if column == nil
+			then false
+			elseif column then read(flow.width) or width
+			else read(flow.height) or height
+		local matched = (flow.align == "stretch" or live(flow.align))
+			and (across == nil or across == "hug")
+			and not live(if column then flow.width else flow.height)
+		local list = kit.list(flow, vertical, matched)
+		local frame = Host.Frame(kit.assemble(native, properties, { list, kit.insets(flow.padding, room) }, children))
 		if room then
 			kit.shadowRoom(frame, room)
 		end
+		if matched then
+			kit.match(frame, column == true, function(use: ComposeTypes.Use?): boolean
+				return read(flow.align, use) == "stretch"
+			end)
+		end
 		return kit.plain(frame, properties)
+	end
+	local PLATES = { "facet-panel", "facet-surface", "facet-pane" }
+	local function plated(node: Instance): boolean
+		for _, tag in PLATES do
+			if node:HasTag(tag) then
+				return true
+			end
+		end
+		return false
+	end
+	function kit.liftTarget(node: GuiObject): GuiObject
+		local at = node
+		while at:IsA("Frame") and not plated(at) and at:FindFirstChildWhichIsA("UIGridStyleLayout") do
+			local only: GuiObject? = nil
+			local count = 0
+			for _, child in at:GetChildren() do
+				if child:IsA("GuiObject") and child.Visible then
+					count += 1
+					only = child
+				end
+			end
+			if count ~= 1 or only == nil then
+				break
+			end
+			at = only
+		end
+		return at
+	end
+	local mounted = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: boolean }
+	local FLOORS: { [string]: boolean } = { Lift = true, TargetFloor = true }
+	local function floorOf(target: GuiObject, owner: ComposeTypes.Owner): sizeFloor.Floor?
+		for _, child in target:GetChildren() do
+			if child:IsA("UISizeConstraint") and not FLOORS[child.Name] then
+				return nil
+			end
+		end
+		local floor = sizeFloor.of(target, Compose.cell)
+		if not mounted[target] and target:FindFirstChild("TargetFloor") == nil then
+			mounted[target] = true
+			Compose.withOwner(owner, function()
+				runtime.mount(function()
+					return Host.UISizeConstraint "Lift" {
+						MinSize = function(use: ComposeTypes.Use): Vector2
+							return types.Vector2.new(use(floor.x), use(floor.y))
+						end,
+					}
+				end, target)
+			end)
+		end
+		return floor
+	end
+	local function lifted(node: GuiObject, horizontal: boolean): boolean
+		local floor = sizeFloor.peek(node)
+		return floor ~= nil and (if horizontal then floor.x:peek() else floor.y:peek()) > 0
+	end
+	function kit.intrinsic(node: GuiObject, horizontal: boolean, scale: number): number
+		local function pixels(value: Vector2): number
+			return (if horizontal then value.X else value.Y) / scale
+		end
+		local pad = node:FindFirstChildWhichIsA("UIPadding")
+		local sides = if pad == nil
+			then 0
+			elseif horizontal then pad.PaddingLeft.Offset + pad.PaddingRight.Offset
+			else pad.PaddingTop.Offset + pad.PaddingBottom.Offset
+		local text = 0
+		if (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox")) and node.Text ~= "" then
+			text = pixels(node.TextBounds)
+		end
+		local list = node:FindFirstChildWhichIsA("UIListLayout")
+		local along = list ~= nil and ((list.FillDirection == Enum.FillDirection.Horizontal) == horizontal)
+		local stretched = false
+		if list and not along then
+			local cross = if list.FillDirection == Enum.FillDirection.Vertical
+				then list.HorizontalFlex
+				else list.VerticalFlex
+			stretched = cross ~= Enum.UIFlexAlignment.None or list.ItemLineAlignment == Enum.ItemLineAlignment.Stretch
+		end
+		local total, count = 0, 0
+		for _, child in node:GetChildren() do
+			if child:IsA("GuiObject") and child.Visible then
+				local size = child.Size
+				local scaled = (if horizontal then size.X.Scale else size.Y.Scale) ~= 0
+				local flexed = list ~= nil
+					and (stretched or (along and child:FindFirstChildWhichIsA("UIFlexItem") ~= nil))
+				local extent = if scaled
+						or flexed
+						or lifted(child, horizontal)
+					then kit.intrinsic(child, horizontal, scale)
+					else pixels(child.AbsoluteSize)
+				if list and along then
+					total += extent
+					count += 1
+				elseif list then
+					total = math.max(total, extent)
+				else
+					local offset = if horizontal then child.Position.X.Offset else child.Position.Y.Offset
+					total = math.max(total, extent + math.max(0, offset))
+				end
+			end
+		end
+		if list and along and count > 1 then
+			total += list.Padding.Offset * (count - 1)
+		end
+		local own = if horizontal then node.Size.X.Offset else node.Size.Y.Offset
+		return math.max(own, text + sides, total + sides)
+	end
+	function kit.lifter(source: GuiObject, axis: "x" | "y"): (number) -> boolean
+		local owner = assert(Compose.currentOwner(), "Facet lift needs an owner")
+		local target: GuiObject? = nil
+		local function aimed(value: number): GuiObject?
+			if value <= 0 or owner.isDisposed() then
+				return nil
+			end
+			local aim = kit.liftTarget(source)
+			local automatic = aim.AutomaticSize
+			if
+				automatic ~= Enum.AutomaticSize.XY
+				and automatic ~= (if axis == "x" then Enum.AutomaticSize.X else Enum.AutomaticSize.Y)
+			then
+				return nil
+			end
+			return aim
+		end
+		local function release()
+			local held = if target then sizeFloor.peek(target) else nil
+			if held then
+				held[axis]:set(0)
+			end
+			target = nil
+		end
+		Compose.cleanup(release)
+		return function(value: number): boolean
+			local aim = aimed(value)
+			local floor = if aim then floorOf(aim, owner) else nil
+			if aim ~= target or floor == nil then
+				release()
+			end
+			if aim == nil or floor == nil then
+				return false
+			end
+			target = aim
+			floor[axis]:set(value)
+			return true
+		end
+	end
+	function kit.follow(source: GuiObject, axis: "x" | "y", value: (ComposeTypes.Use?) -> number): () -> boolean
+		local frames = config.services and config.services.RunService
+		local owner = assert(Compose.currentOwner(), "Facet lift needs an owner")
+		local lift = kit.lifter(source, axis)
+		local applied = false
+		local pending = false
+		local function apply()
+			pending = false
+			if not owner.isDisposed() then
+				applied = lift(value())
+			end
+		end
+		local function later()
+			if pending then
+				return
+			end
+			if frames == nil then
+				apply()
+				return
+			end
+			pending = true
+			local connection: RBXScriptConnection? = nil
+			connection = frames.Heartbeat:Connect(function()
+				if connection then
+					connection:Disconnect()
+				end
+				apply()
+			end)
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			applied = lift(value(use))
+		end)
+		runtime.connect(source, "DescendantAdded", later)
+		runtime.connect(source, "DescendantRemoving", later)
+		return function(): boolean
+			return applied
+		end
+	end
+	function kit.match(frame: Frame, column: boolean, active: (ComposeTypes.Use?) -> boolean)
+		local owner = assert(Compose.currentOwner(), "Facet stack matching needs an owner")
+		local frames = config.services and config.services.RunService
+		local axis: "x" | "y" = if column then "x" else "y"
+		local floors = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: (number) -> boolean }
+		local unit = ctx.layoutUnit(frame, "MatchUnit")
+		local function extent(node: GuiObject): number
+			local scale = unit:peek()
+			return (if column then node.AbsoluteSize.X else node.AbsoluteSize.Y) / (if scale > 0 then scale else 1)
+		end
+		local state = extentMatch.new()
+		local function check()
+			if owner.isDisposed() then
+				return
+			end
+			local members: { unknown } = {}
+			local measured: { [unknown]: number } = {}
+			local natural: { [unknown]: number } = {}
+			local scale = unit:peek()
+			for _, child in frame:GetChildren() do
+				if child:IsA("GuiObject") and child.Visible and floors[child] then
+					table.insert(members, child)
+					measured[child] = extent(child)
+					natural[child] = kit.intrinsic(child, column, if scale > 0 then scale else 1)
+				end
+			end
+			local mins = if active() then extentMatch.step(state, members, measured, natural) else {}
+			for child, lift in floors do
+				local value = if child.Parent == frame and child.Visible then mins[child] or 0 else 0
+				if not lift(value) and value > 0 then
+					state[child] = nil
+				end
+			end
+		end
+		local pending = false
+		local function schedule()
+			if pending or owner.isDisposed() then
+				return
+			end
+			if frames == nil then
+				check()
+				return
+			end
+			pending = true
+			local connection: RBXScriptConnection? = nil
+			connection = frames.Heartbeat:Connect(function()
+				if connection then
+					connection:Disconnect()
+				end
+				pending = false
+				check()
+			end)
+		end
+		local watched: { [Instance]: { RBXScriptConnection } } = {}
+		local function forget(child: Instance)
+			local connections = watched[child]
+			if connections then
+				for _, connection in connections do
+					connection:Disconnect()
+				end
+			end
+			watched[child] = nil
+			local lift = if child:IsA("GuiObject") then floors[child] else nil
+			if lift then
+				lift(0)
+			end
+			schedule()
+		end
+		local function watch(child: Instance)
+			if watched[child] or not child:IsA("GuiObject") then
+				return
+			end
+			local node = child :: GuiObject
+			if floors[node] == nil then
+				floors[node] = Compose.withOwner(owner, function(): (number) -> boolean
+					return kit.lifter(node, axis)
+				end)
+			end
+			watched[child] = {
+				node:GetPropertyChangedSignal("AbsoluteSize"):Connect(schedule),
+				node:GetPropertyChangedSignal("Visible"):Connect(schedule),
+				node.DescendantAdded:Connect(schedule),
+				node.DescendantRemoving:Connect(schedule),
+			}
+			schedule()
+		end
+		for _, child in frame:GetChildren() do
+			watch(child)
+		end
+		runtime.connect(frame, "ChildAdded", watch)
+		runtime.connect(frame, "ChildRemoved", forget)
+		Compose.watch(function(use: ComposeTypes.Use)
+			active(use)
+			schedule()
+		end)
+		Compose.cleanup(function()
+			for _, connections in watched do
+				for _, connection in connections do
+					connection:Disconnect()
+				end
+			end
+			table.clear(watched)
+		end)
 	end
 	function kit.underTopbar(frame: GuiObject, under: ComposeTypes.Cell<number>)
 		local gui = config.guiService

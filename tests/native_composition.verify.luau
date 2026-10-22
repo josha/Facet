@@ -226,7 +226,7 @@ return function(verifyHarness: Verify.Harness)
 				local T = engine.types
 				local layer = engine.new("ScreenGui")
 				layer.Parent = engine.new("Folder")
-				local lead, middle
+				local lead, middle, trail
 				runtime.mount(function()
 					local Host = runtime.constructors
 					lead = UI.Region {
@@ -237,12 +237,22 @@ return function(verifyHarness: Verify.Harness)
 						Host.Frame { Name = "GearFull" },
 					}
 					middle = UI.Region { Name = "Info", zone = "topbar", rank = 1, Host.Frame { Name = "InfoFull" } }
-					return UI.Composition { gap = 8, padding = 0, lead, middle }
+					trail = UI.Region {
+						Name = "Menu",
+						zone = "topbar",
+						rank = 1,
+						trailing = true,
+						Host.Frame { Name = "MenuFull" },
+					}
+					return UI.Composition { gap = 8, padding = 0, lead, middle, trail }
 				end, layer)
 				gui.TopbarInset = T.Rect.new(164, 0, 844, 58)
 				Verify.expect(lead.Parent.Name):toBe("Leading")
 				Verify.expect(middle.Parent.Name):toBe("Middle")
+				Verify.expect(trail.Parent.Name):toBe("Trailing")
 				Verify.expect(lead.Parent.Parent):toBe(middle.Parent.Parent)
+				Verify.expect(trail.Parent.Parent):toBe(middle.Parent.Parent)
+				Verify.expect(trail.Parent.LayoutOrder > middle.Parent.LayoutOrder):toBe(true)
 				runtime:dispose()
 			end,
 		})
@@ -799,6 +809,155 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(forms[1]):toBe(1)
 				Verify.expect(forms[2]):toBe(3)
 				Verify.expect(forms[3]):toBe(2)
+			end,
+		})
+
+		verifyHarness:case(
+			"lays the top and bottom zones out side by side and wraps a region only when the row is full",
+			{
+				id = "native_composition::Composition::lays the top and bottom zones out side by side and wraps a region only when the row is full",
+				run = function()
+					local resolver = require("../src/ui/composition_resolve")
+					type Declared = resolver.Declared
+					local function wide(x: number, y: number)
+						return { x = x, y = y }
+					end
+					local planet: Declared =
+						{ zone = "top" :: "top", rank = 1, mayDrop = false, sizes = { wide(230, 60), wide(110, 30) } }
+					local order: Declared =
+						{ zone = "top" :: "top", rank = 3, mayDrop = true, sizes = { wide(240, 60), wide(120, 30) } }
+					local wallet: Declared =
+						{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { wide(150, 90) } }
+					local menu: Declared =
+						{ zone = "topRight" :: "topRight", rank = 2, mayDrop = false, sizes = { wide(44, 44) } }
+					local forms, _, _, overflow, rows = resolver.resolve(1280, 720, 8, { planet, order, wallet, menu })
+					Verify.expect(rows.top):toBe(478)
+					Verify.expect(rows.bottom):toBe(0)
+					Verify.expect(forms[1]):toBe(1)
+					Verify.expect(forms[2]):toBe(1)
+					Verify.expect(#overflow):toBe(0)
+					local _, _, _, _, narrow = resolver.resolve(400, 900, 8, { planet, order })
+					Verify.expect(narrow.top):toBe(240)
+					local view: Declared =
+						{ zone = "center" :: "center", rank = 2, mayDrop = false, sizes = { wide(300, 200) } }
+					forms = resolver.resolve(1280, 400, 8, { planet, order, wallet, menu, view })
+					Verify.expect(forms[1]):toBe(1)
+					Verify.expect(forms[2]):toBe(1)
+					local hint: Declared =
+						{ zone = "bottom" :: "bottom", rank = 4, mayDrop = true, sizes = { wide(300, 24) } }
+					local notice: Declared =
+						{ zone = "bottom" :: "bottom", rank = 5, mayDrop = true, sizes = { wide(200, 40) } }
+					local _, _, _, _, bottom = resolver.resolve(1280, 720, 8, { hint, notice })
+					Verify.expect(bottom.bottom):toBe(508)
+
+					local engine, runtime, UI = make()
+					local layer = engine.new("ScreenGui")
+					layer.Parent = engine.new("Folder")
+					local root: Frame
+					runtime.mount(function()
+						local Host = runtime.constructors
+						root = UI.Composition {
+							gap = 8,
+							padding = 0,
+							topbar = false,
+							UI.Region { Name = "Planet", zone = "top", rank = 1, Host.Frame { Name = "PlanetFull" } },
+							UI.Region { Name = "Duel", zone = "top", rank = 2, Host.Frame { Name = "DuelFull" } },
+							UI.Region { Name = "Order", zone = "top", rank = 3, Host.Frame { Name = "OrderFull" } },
+							UI.Region { Name = "Wallet", zone = "topLeft", rank = 1, Host.Frame { Name = "WalletFull" } },
+						}
+						return root
+					end, layer)
+					sized(engine, root:FindFirstChild("PlanetFull", true), 230, 60)
+					sized(engine, root:FindFirstChild("OrderFull", true), 240, 60)
+					sized(engine, root:FindFirstChild("WalletFull", true), 150, 90)
+					sized(engine, root:FindFirstChild("Zones"), 1280, 720)
+					local top = root:FindFirstChild("Top", true) :: Frame
+					local list = top:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout
+					local T = engine.types
+					Verify.expect(list.FillDirection):toBe(T.Enum.FillDirection.Horizontal)
+					Verify.expect(list.Wraps):toBe(true)
+					Verify.expect(top.Size):toBe(T.UDim2.fromOffset(478, 0))
+					Verify.expect(top.AutomaticSize):toBe(T.Enum.AutomaticSize.Y)
+					local duel = top:FindFirstChild("Duel") :: Frame
+					Verify.expect(duel.Visible):toBe(false)
+					Verify.expect((top:FindFirstChild("Planet") :: Frame).Visible):toBe(true)
+					sized(engine, root:FindFirstChild("DuelFull", true), 100, 40)
+					Verify.expect(duel.Visible):toBe(true)
+					sized(engine, root:FindFirstChild("DuelFull", true), 0, 0)
+					Verify.expect(duel.Visible):toBe(false)
+					local left = root:FindFirstChild("TopLeft", true) :: Frame
+					local column = left:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout
+					Verify.expect(column.FillDirection):toBe(T.Enum.FillDirection.Vertical)
+					Verify.expect(column.Wraps):toBe(false)
+					sized(engine, root:FindFirstChild("Zones"), 600, 900)
+					Verify.expect(top.Size):toBe(T.UDim2.fromOffset(240, 0))
+					runtime:dispose()
+				end,
+			}
+		)
+
+		verifyHarness:case("gives the regions of a top row the height of the tallest one unless rows is fit", {
+			id = "native_composition::Composition::gives the regions of a top row the height of the tallest one unless rows is fit",
+			run = function()
+				local engine, runtime, UI = make()
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local rows = Compose.cell("match" :: "match" | "fit")
+				local root: Frame
+				runtime.mount(function()
+					local Host = runtime.constructors
+					root = UI.Composition {
+						gap = 8,
+						padding = 0,
+						topbar = false,
+						rows = rows,
+						UI.Region {
+							Name = "Planet",
+							zone = "top",
+							rank = 1,
+							Host.Frame {
+								Name = "PlanetFull",
+								AutomaticSize = engine.types.Enum.AutomaticSize.XY,
+								Host.Frame { Name = "PlanetInner" },
+							},
+						},
+						UI.Region {
+							Name = "Order",
+							zone = "top",
+							rank = 2,
+							Host.Frame {
+								Name = "OrderFull",
+								AutomaticSize = engine.types.Enum.AutomaticSize.XY,
+								Host.Frame { Name = "OrderInner" },
+							},
+						},
+					}
+					return root
+				end, layer)
+				local planet = assert(root:FindFirstChild("PlanetFull", true))
+				local order = assert(root:FindFirstChild("OrderFull", true))
+				local function lift(node: Instance): number
+					local floor = node:FindFirstChild("Lift") :: UISizeConstraint?
+					return if floor then floor.MinSize.Y else 0
+				end
+				local function size(node: Instance, width: number, inner: number, outer: number)
+					sized(engine, assert(node:FindFirstChildWhichIsA("Frame")), width, inner)
+					sized(engine, node, width, outer)
+				end
+				size(planet, 230, 60, 60)
+				size(order, 240, 40, 40)
+				sized(engine, assert(root:FindFirstChild("Zones")), 1280, 720)
+				Verify.expect(lift(order)):toBe(60)
+				Verify.expect(lift(planet)):toBe(0)
+				size(order, 240, 40, 60)
+				Verify.expect(lift(order)):toBe(60)
+				size(planet, 230, 30, 30)
+				Verify.expect(lift(planet)):toBe(40)
+				Verify.expect(lift(order)):toBe(0)
+				rows:set("fit")
+				Verify.expect(lift(planet)):toBe(0)
+				Verify.expect(lift(order)):toBe(0)
+				runtime:dispose()
 			end,
 		})
 

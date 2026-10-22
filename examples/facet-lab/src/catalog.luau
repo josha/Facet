@@ -4754,6 +4754,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "wrap (narrow)", props = properties { wrap = true, width = 120, height = "hug" }, across = false },
 			{ name = "panel surface", props = properties { surface = "panel", padding = "s" }, across = false },
+			{
+				name = "warning status",
+				props = properties { surface = "panel", status = "warning", padding = "s" },
+				across = false,
+			},
 		},
 	},
 	VStack = {
@@ -4770,6 +4775,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "wrap (short)", props = properties { wrap = true, height = 80, width = "hug" }, across = false },
 			{ name = "panel surface", props = properties { surface = "panel", padding = "s" }, across = false },
+			{
+				name = "success status",
+				props = properties { surface = "panel", status = "success", padding = "s" },
+				across = false,
+			},
 		},
 	},
 	ZStack = {
@@ -5041,6 +5051,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "room", values = { "fill", 300, 200 } },
 			{ key = "gap", values = { DEFAULT, "xs", "m" } },
 			{ key = "padding", values = { DEFAULT, 0, "l" } },
+			{ key = "rows", values = { DEFAULT, "fit" }, matrix = false },
 
 			{ key = "topbar", values = { false, true }, matrix = false },
 		},
@@ -5136,7 +5147,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		fills = true,
 		alias = "Region (a Composition zone member)",
 		purpose = "A full and short form compete with a rank 1 neighbour. Narrow the plate to change forms; "
-			.. "tap a short form to expand it. Choose topbar to compare leading and centred placement in the real strip.",
+			.. "tap a short form to expand it. Choose topbar to compare strip placements.",
 		note = "Higher ranks give way first. Form is 1 for full, 2 for short, 0 for hidden. "
 			.. 'A hidden mayDrop region has a "…" reveal button unless reveal is false.',
 		alternatives = "A plain child of a Screen when it never competes for room.",
@@ -5170,6 +5181,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "mayDrop", props = properties { mayDrop = true } },
 			{ name = "noReveal", props = properties { mayDrop = true, reveal = false } },
 			{ name = "leading top bar", props = properties { zone = "topbar", leading = true } },
+			{ name = "trailing", props = properties { zone = "topbar", trailing = true } },
 		},
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local form = c.cell("form", 1)
@@ -5185,6 +5197,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					zone = p.zone,
 					rank = p.rank,
 					leading = if p.zone == "topbar" then p.leading else nil,
+					trailing = if p.zone == "topbar" then p.trailing else nil,
 					mayDrop = p.mayDrop,
 					reveal = p.reveal,
 					form = form,
@@ -5217,7 +5230,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				plate,
 			})
 		end,
-		demonstrates = { "form", "expand", "leading" },
+		demonstrates = { "form", "expand", "leading", "trailing" },
 	},
 
 	environment = {

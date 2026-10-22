@@ -105,6 +105,12 @@ that same copy and use the returned Facet table throughout the context.
   report it. Do not replace the control with native objects. Before you
   extend a hand-built element, find its control in the control index and
   replace the element.
+- Give layout intent, such as hug, fill, `align = "stretch"` or a zone, and
+  let Facet size the result. When a Facet layout looks wrong, fix the control
+  in Facet and add a test. Examples are a readout that wraps below its bar, a
+  number that overflows its plate, a row of panels with different heights and
+  a stretched column with different widths. Do not measure and set sizes in
+  the game to hide the fault.
 - Use `Facet.Compose`: `cell` for local state, `formula` for derived values,
   `show` for branches, `keyed` for children and `cleanup` to release resources.
   Read cells with `use(cell)` in property functions and `cell:peek()` in
@@ -141,26 +147,55 @@ that same copy and use the returned Facet table throughout the context.
   A root Composition keeps its zones inside the TV safe area; do not offset a
   zone by hand.
   Add a type role, `scaled(64, "body")`, when the length sits beside text.
+- Find the focus area first: the part of the world that the camera makes the
+  player watch, such as the avatar and the space in front of it. Keep it clear
+  on every screen and orientation, also with UI attached to the avatar, such
+  as a BillboardGui tag. On touch screens, keep it also out of the area that a
+  thumb covers on a held control. Read the focus area in the design guide.
 - Use `Tasks.hud` as a starting point. Choose zones from the game's sight lines
   and controls. Consider `topRight` below the engine top bar for secondary
   navigation; preserve its destinations in a compact Menu. Let Composition
   apply the safe area. Captioned circles suit recognizable icons; labeled buttons
   suit commands that need words. Keep navigation and readouts distinct in one
   Composition. Open `HUD-actions` for sizing and selection.
+- Give each HUD group its own region. Put readouts that share a sight line,
+  such as level progress and a timed goal, in one `top` or `bottom` zone.
+  That zone shows them side by side while the row has room and wraps a region
+  to a new row when it does not. Do not stack two groups in one region. The
+  regions of one row take one height (Composition `rows`). The region content
+  takes that height. Make the panel the region content, or hold it in an
+  HStack with `align = "stretch"`. Give the panel `distribute = "center"`.
+  A region that is empty, such as a match scoreboard between matches, takes
+  no room.
+- Give HUD panels depth and state through the theme. A theme
+  `chrome.panel = { kind = "native", shadow = "raised" }` gives every
+  `surface = "panel"` stack, Dialog and Alert the shadow. Use
+  `status = "warning"` on a stack for a state, such as a full bag: the plate,
+  its text, icons and bars take the status colours.
 - Give each region forms from the richest to the narrowest. The narrowest
   form must fit a portrait phone, about 320 pixels wide. For example, a row of
-  buttons, then the main button over the others, then one column. Let the
-  Composition choose the form. Do not choose a layout in a region with
+  buttons, then the main button over the others, then one column. A narrower
+  form makes its parts smaller or moves them. It keeps each panel and each
+  button apart: do not put a button inside a readout's panel to save room.
+  Let the Composition choose the form. Do not choose a layout in a region with
   `isCompact`, `isLandscape` or a fixed `AdaptiveStack` axis. A plain HStack
   never wraps. The Composition warns when a region does not fit at its last
   form. Fix each warning.
-- Put a command that the Roblox top bar can hold, such as a settings gear, in
-  a `topbar` region. Use `leading = true` to put it beside the Roblox buttons.
+- The row of the Roblox top bar is screen space for the HUD too. Do not push
+  every zone below it. Put compact pieces in `topbar` regions, level with the
+  Roblox buttons: a menu or settings button, a coin readout, a short status.
+  Use `leading = true` beside the Roblox buttons and `trailing = true` at the
+  far edge. The strip is as wide as `GuiService.TopbarInset` leaves free, and
+  that space shrinks when Roblox shows more buttons, such as voice chat or a
+  larger chat button. Give each strip region a form 44 pixels tall. Let the
+  Composition move a region below the bar when the strip cannot hold it.
   Open `Composition.regions` for options and `Composition.adaptation` for strip
   layout. Open `Composition.layout.step-down` for fallback and fit warnings.
   Read one referenced node for each missing detail.
 - Let a text box hug its text, or use `textSize = { fit = ... }` in a box of
   fixed size. A label can be twice as long in another language.
+- A bar `ProgressView` without a label shows its value and `endLabel` on the
+  bar's row. Do not add a separate Text for a percentage.
 - A bar `ProgressView` fills the width of its container. In a box that hugs
   its content, give the bar a width, such as
   `Size = UDim2.fromOffset(width, 0)` with a `scaled` width. A fill child

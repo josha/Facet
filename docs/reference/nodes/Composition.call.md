@@ -34,6 +34,11 @@ Composition options:
 - `padding`: the space inside the edges. The default is `s`.
 - `topbar`: a boolean or a readable. The default is `true`.
   See [Composition.adaptation](Composition.adaptation.md) for top-bar behavior.
+- `rows`: `"match"` or `"fit"`. The default is `"match"`: the regions that
+  share a row of the `top` or `bottom` zone take the height of the tallest one,
+  so a set of HUD readouts reads as one row. `"fit"` keeps each region at its
+  own height. A region whose content has its own `UISizeConstraint` keeps its
+  height.
 - The children are `UI.Region` nodes. A `UI.fill()` child is also allowed, so
   the composition can take the free height of a stack.
 

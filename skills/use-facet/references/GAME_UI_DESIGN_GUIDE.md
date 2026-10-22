@@ -32,9 +32,25 @@ state, and action together. Use alignment, spacing, scale, contrast, and motion
 to express those relationships.
 
 Protect the road, aiming area, hazards, characters, and other required sight
-lines. Fingers and controls also occupy space. A modal sets input ownership;
+lines. Fingers and controls also occupy space. On a touch screen, a thumb
+covers its control and the area above it while the player holds it: the
+thumbstick area at the lower left and the action buttons at the lower right.
+Keep what the player must watch while touching, such as the avatar, the space
+in front of it and a readout of the current action, out of those areas. A
+modal sets input ownership;
 the game still decides whether movement stops. Do not cover an urgent action
 with a reward, instruction, or purchase offer.
+
+Find the focus area before you place UI. It is the part of the world that the
+camera makes the player watch. With a follow camera, it is the avatar or the
+vehicle and the space in front of it, usually the middle of the screen and the
+band above it. Keep the focus area clear on every screen and in every
+orientation. This applies to UI that is attached to the world too: a tag or a
+bar over the avatar covers the space in front of it. Keep such a tag small,
+and on a short screen put it below or beside the avatar. On a landscape phone
+the top rows use a large part of the height, so a row that wraps can reach the
+focus area. Render the layout on a phone in both orientations and look at what
+the UI covers.
 
 Use safe screen edges deliberately; reserve the center for play. The top-right
 area below the engine top bar is a useful home for secondary destinations such
@@ -79,6 +95,8 @@ Reduce decoration, reflow groups, shorten summaries, then move optional detail.
 Never silently lose a task, its terms, the selected object, or an exit.
 
 Use one `Composition` for competing HUD groups and a `Region` for each group.
+The `top` and `bottom` zones put their regions side by side while the row has
+room, so two readouts use a wide screen and wrap or step down on a phone.
 Lower `rank` numbers have priority. Supply measurable forms from richest to
 smallest; rank alone cannot make an oversized form fit. Use a numeric or hug
 width for a region form, not a fill width that depends on the space being

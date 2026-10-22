@@ -1338,6 +1338,35 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
+		verifyHarness:case("sizes spanning progress fill art to the filled length so both ends of the art show", {
+			id = "native_themes_media::native themes and media::sizes spanning progress fill art to the filled length so both ends of the art show",
+			run = function()
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+				local package = themes.neutralPackage()
+				package.assets = { fill = { content = "rbxassetid://1" } }
+				assert(package.chrome).barFill =
+					{ kind = "nineSlice" :: "nineSlice", asset = "fill", span = "fill" :: "fill" }
+				local UI = media(context(Compose, runtime, { types = engine.types, theme = package }))
+				local value = Compose.cell(0.25)
+				local holder = engine.new("Folder")
+				local stop = runtime.mount(function()
+					return UI.ProgressView({ value = value, thickness = 12 })
+				end, holder)
+				local fill = holder:FindFirstChild("Fill1", true)
+				Verify.expect(fill.Size.X.Scale):toBe(0.25)
+				fill.AbsoluteSize = engine.types.Vector2.new(25, 6)
+				fill:FindFirstChild("SkinBoundary").AbsoluteSize = engine.types.Vector2.new(1, 1)
+				Verify.expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(1)
+				Verify.expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(25)
+				value:set(0.5)
+				fill.AbsoluteSize = engine.types.Vector2.new(50, 6)
+				Verify.expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(1)
+				Verify.expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(50)
+				stop()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("applies rich native skin slots to editable fields toggles steppers and sliders", {
 			id = "native_themes_media::native themes and media::applies rich native skin slots to editable fields toggles steppers and sliders",
 			run = function()
@@ -1624,6 +1653,30 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(gauge.ClipsDescendants):toBe(false)
 				value:set(1)
 				Verify.expect(readout.Text):toBe("100%")
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		verifyHarness:case("keeps the value and end label of an unlabelled bar on the bar's row", {
+			id = "native_themes_media::native themes and media::keeps the value and end label of an unlabelled bar on the bar's row",
+			run = function()
+				local engine, runtime, UI = setup()
+				local stop, meter = runtime.mount(function()
+					return UI.ProgressView({ value = 0.4, showValue = true, endLabel = "mowed" })
+				end, engine.new("Folder"))
+				local root = meter :: Instance
+				local line, track = root:FindFirstChild("Line"), root:FindFirstChild("Track", true)
+				Verify.expect(line ~= nil):toBe(true)
+				local row = line :: Instance
+				local bar = track :: Instance
+				Verify.expect(bar.Parent):toBe(row)
+				local flex = bar:FindFirstChildWhichIsA("UIFlexItem") :: UIFlexItem
+				Verify.expect(flex.FlexMode):toBe(engine.types.Enum.UIFlexMode.Fill)
+				Verify.expect((root:FindFirstChild("Value", true) :: Instance).Parent):toBe(row)
+				Verify.expect((root:FindFirstChild("EndLabel", true) :: Instance).Parent):toBe(row)
+				local layout = row:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout
+				Verify.expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Horizontal)
 				stop()
 				runtime:dispose()
 			end,

@@ -15,7 +15,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	local kit = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local UI: ControlTypes.Controls = controls or ({} :: ControlTypes.Controls)
-	local flowKeys = { "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface" }
+	local flowKeys = { "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface", "status" }
 	local PLATES: { [string]: string } = { surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" }
 	local function containerProps(spec: unknown, keys: { string }): { [unknown]: unknown }
 		local maxWidth = (spec :: { maxWidth: Types.ValueNumber? }).maxWidth
@@ -98,6 +98,29 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local frame = kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, vertical)
 		if plate then
 			frame:AddTag(plate)
+		end
+		if spec.surface == "panel" then
+			ctx.skin(frame, "panel")
+		end
+		if spec.status ~= nil then
+			local worn: string? = nil
+			Compose.watch(function(use: ComposeTypes.Use)
+				local status = read(spec.status, use)
+				local tag = if status then "facet-status-" .. status else nil
+				if tag == worn then
+					return
+				end
+				if worn then
+					frame:RemoveTag(worn)
+				end
+				if tag then
+					frame:AddTag(tag)
+					frame:AddTag("facet-status-surface")
+				else
+					frame:RemoveTag("facet-status-surface")
+				end
+				worn = tag
+			end)
 		end
 		return frame
 	end

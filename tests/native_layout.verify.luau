@@ -185,6 +185,94 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("stack stretch matching", function()
+		verifyHarness:case("gives the children of a hugging stretch stack the width of the widest one", {
+			id = "native_layout::stack stretch matching::gives the children of a hugging stretch stack the width of the widest one",
+			run = function()
+				local root, engine, stop = build(nil, function(UI, Host)
+					return UI.VStack {
+						align = "stretch",
+						Host.Frame { Name = "Row", Host.Frame { Name = "RowInner" } },
+						Host.Frame { Name = "Other", Host.Frame { Name = "OtherInner" } },
+					}
+				end, {})
+				local E, V = engine.types.Enum, engine.types.Vector2
+				local list = child(root, "UIListLayout")
+				local row, other = root:FindFirstChild("Row"), root:FindFirstChild("Other")
+				row.AutomaticSize, other.AutomaticSize = E.AutomaticSize.XY, E.AutomaticSize.XY
+				local function floor(node: Instance): number
+					local match = node:FindFirstChild("Lift") :: UISizeConstraint?
+					return if match then match.MinSize.X else 0
+				end
+				local function size(node: Instance, inner: number, outer: number)
+					local holder = node :: Frame
+					local content = holder:FindFirstChildWhichIsA("Frame") :: Frame
+					((content :: unknown) :: { AbsoluteSize: Vector2 }).AbsoluteSize = V.new(inner, 20);
+					((holder :: unknown) :: { AbsoluteSize: Vector2 }).AbsoluteSize = V.new(outer, 20)
+				end
+				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.None)
+				size(row, 80, 80)
+				size(other, 50, 50)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(floor(other)):toBe(80)
+				Verify.expect(floor(row)):toBe(0)
+				size(other, 50, 80)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(floor(other)):toBe(80)
+				size(row, 30, 30)
+				engine.heartbeat:Fire(1 / 60)
+				Verify.expect(floor(row)):toBe(50)
+				Verify.expect(floor(other)):toBe(0)
+				stop()
+			end,
+		})
+		verifyHarness:case("learns a lifted child's overshoot and follows growth and shrinking", {
+			id = "native_layout::stack stretch matching::learns a lifted child's overshoot and follows growth and shrinking",
+			run = function()
+				local extentMatch = require("../src/ui/extent_match")
+				local state = extentMatch.new()
+				local coin, button = {}, {}
+				local members = { coin, button }
+				local function step(a: number, b: number, naturalA: number, naturalB: number): (number, number)
+					local mins = extentMatch.step(
+						state,
+						members,
+						{ [coin] = a, [button] = b },
+						{ [coin] = naturalA, [button] = naturalB }
+					)
+					return mins[coin] or 0, mins[button] or 0
+				end
+				local a, b = step(91, 103.5, 91, 103.5)
+				Verify.expect(a):toBe(103.5)
+				Verify.expect(b):toBe(0)
+				a = step(139.5, 103.5, 91, 103.5)
+				Verify.expect(a):toBe(67.5)
+				a = step(103.5, 103.5, 91, 103.5)
+				Verify.expect(a):toBe(67.5)
+				a, b = step(162.5, 103.5, 162.5, 103.5)
+				Verify.expect(a):toBe(0)
+				Verify.expect(b):toBe(162.5)
+				a, b = step(162.5, 178.5, 162.5, 103.5)
+				Verify.expect(b):toBe(146.5)
+				a, b = step(162.5, 162.5, 162.5, 103.5)
+				Verify.expect(b):toBe(146.5)
+				a, b = step(91, 162.5, 91, 103.5)
+				Verify.expect(b):toBe(0)
+				Verify.expect(a):toBe(67.5)
+			end,
+		})
+		verifyHarness:case("stretches a fixed-width stack natively", {
+			id = "native_layout::stack stretch matching::stretches a fixed-width stack natively",
+			run = function()
+				local root, engine, stop = build(nil, function(UI, Host)
+					return UI.VStack { align = "stretch", width = 200, Host.Frame { Name = "Row" } }
+				end, {})
+				Verify.expect(child(root, "UIListLayout").HorizontalFlex):toBe(engine.types.Enum.UIFlexAlignment.Fill)
+				stop()
+			end,
+		})
+	end)
+
 	verifyHarness:suite("stack surface corners", function()
 		local function insets(make: (FacetControls) -> unknown): string
 			local root, _, stop = build(nil, function(UI: FacetControls)
@@ -265,6 +353,77 @@ return function(verifyHarness: Verify.Harness)
 				end)):toBe("4 4 4 4")
 			end,
 		})
+	end)
+
+	verifyHarness:suite("stack surface chrome and status", function()
+		type Status = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
+		local styleRules = require("./lib/style_rules")
+
+		verifyHarness:case("gives a panel stack the theme's panel chrome, such as its shadow", {
+			id = "native_layout::stack surface chrome and status::gives a panel stack the theme's panel chrome, such as its shadow",
+			run = function()
+				local package = Facet.themes.neutralPackage()
+				assert(package.chrome).panel = { kind = "native" :: "native", shadow = "raised" }
+				local panel, _, stop = build({ theme = package }, function(UI: FacetControls)
+					return UI.VStack "Card" { surface = "panel", padding = "m", UI.Text { text = "A" } }
+				end)
+				Verify.expect(panel:FindFirstChildWhichIsA("UIShadow") ~= nil):toBe(true)
+				stop()
+				local plain, _, stopPlain = build({ theme = package }, function(UI: FacetControls)
+					return UI.VStack "Plain" { padding = "m", UI.Text { text = "A" } }
+				end)
+				Verify.expect(plain:FindFirstChildWhichIsA("UIShadow")):toBe(nil)
+				stopPlain()
+				local bare, _, stopBare = build(nil, function(UI: FacetControls)
+					return UI.VStack "Bare" { surface = "panel", padding = "m", UI.Text { text = "A" } }
+				end)
+				Verify.expect(bare:FindFirstChildWhichIsA("UIShadow")):toBe(nil)
+				stopBare()
+			end,
+		})
+
+		verifyHarness:case(
+			"tints a status stack and the text, icons and progress inside it, and follows a status change",
+			{
+				id = "native_layout::stack surface chrome and status::tints a status stack and the text, icons and progress inside it, and follows a status change",
+				run = function()
+					local status = Compose.cell("warning" :: Status?)
+					local root, engine, stop, runtime = build(nil, function(UI: FacetControls)
+						return UI.VStack "Tag" {
+							surface = "panel",
+							status = status,
+							padding = "s",
+							UI.VStack "Inner" {
+								UI.Text "Count" { text = "5 / 20" },
+								UI.ProgressView "Bin" { value = 0.5 },
+							},
+						}
+					end)
+					local _, sheet = runtime.mount(function()
+						return Facet.themes.createStyleSheet(
+							runtime,
+							Facet.themes.neutralPackage(),
+							{ types = engine.types }
+						)
+					end, engine.new("Folder"))
+					local count = root:FindFirstChild("Count", true)
+					local fill = root:FindFirstChild("Fill1", true)
+					Verify.expect(root:HasTag("facet-status-surface")):toBe(true)
+					Verify.expect(root:HasTag("facet-status-warning")):toBe(true)
+					Verify.expect(styleRules.resolve(sheet, root, "BackgroundColor3")):toBe("$FacetColor_warning")
+					Verify.expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_onWarning")
+					Verify.expect(styleRules.resolve(sheet, fill, "BackgroundColor3")):toBe("$FacetColor_onWarning")
+					status:set("success")
+					Verify.expect(root:HasTag("facet-status-warning")):toBe(false)
+					Verify.expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_onSuccess")
+					status:set(nil)
+					Verify.expect(root:HasTag("facet-status-surface")):toBe(false)
+					Verify.expect(root:HasTag("facet-status-success")):toBe(false)
+					Verify.expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_content")
+					stop()
+				end,
+			}
+		)
 	end)
 
 	verifyHarness:suite("phone layout policy", function()
@@ -735,6 +894,7 @@ return function(verifyHarness: Verify.Harness)
 					local root, engine, stop = build(nil, function(UI: FacetControls)
 						return UI.HStack {
 							align = align,
+							height = 40,
 							distribute = "spaceBetween" :: "spaceBetween",
 							UI.Text { text = "A" },
 						}

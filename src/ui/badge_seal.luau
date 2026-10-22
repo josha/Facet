@@ -33,30 +33,48 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 		local text = function(use: ComposeTypes.Use): string
 			return words(read(value, use))
 		end
+		local list = Host.UIListLayout({
+			FillDirection = E.FillDirection.Vertical,
+			SortOrder = E.SortOrder.LayoutOrder,
+		})
 		local wrapper = Host.Frame(host.Name .. "+badge")({
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			LayoutOrder = host.LayoutOrder,
 			Size = D2.fromOffset(0, 0),
 			AutomaticSize = E.AutomaticSize.XY,
+			list :: Types.Child,
 			host :: Types.Child,
-			Host.Frame "Corner" {
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				Size = D2.fromOffset(0, 0),
-				Position = D2.fromScale(if direction == "rtl" then 0 else 1, 0),
-				ZIndex = host.ZIndex + 2,
-				Compose.show(function(use: ComposeTypes.Use): boolean
-					return text(use) ~= ""
-				end, function()
-					return UI.Badge({
-						Name = "CornerBadge",
-						label = text,
-						AnchorPoint = V2.new(0.5, 0.5),
-						Position = D2.fromScale(0, 0),
-						ZIndex = host.ZIndex + 2,
-					})
-				end),
+			Host.Folder "Seal" {
+				Host.Frame "Corner" {
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = D2.fromOffset(0, 0),
+					Position = D2.fromScale(if direction == "rtl" then 0 else 1, 0),
+					ZIndex = host.ZIndex + 2,
+					Compose.show(function(use: ComposeTypes.Use): boolean
+						return read(value, use) == true
+					end, function()
+						return UI.StatusIndicator({
+							Name = "CornerDot",
+							form = "dot",
+							AnchorPoint = V2.new(0.5, 0.5),
+							Position = D2.fromScale(0, 0),
+							ZIndex = host.ZIndex + 2,
+						})
+					end),
+					Compose.show(function(use: ComposeTypes.Use): boolean
+						return read(value, use) ~= true and text(use) ~= ""
+					end, function()
+						return UI.Badge({
+							Name = "CornerBadge",
+							label = text,
+							AnchorPoint = V2.new(0.5, 0.5),
+							Position = D2.fromScale(0, 0),
+							ZIndex = host.ZIndex + 2,
+						})
+					end),
+				},
 			} :: Types.Child,
 		})
 		return wrapper
