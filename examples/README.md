@@ -112,7 +112,11 @@ native `LocalizationTable`; add translated entries for the supported locales.
 The map takes the available space, with a compact benefit and cost strip below.
 Tap a tile to inspect it, then activate its visible unlock action to spend points.
 Gamepad focus inspects; A unlocks. Directional selection links use the authored
-tile positions. Focusing a tile moves the camera without spending points.
+tile positions. Inspection and purchase preserve the view. Focus moves the
+camera only to reveal an offscreen tile, without changing scale or spending points.
+Rapid tile activation does not invoke the background double-tap zoom gesture.
+Canvas bounds include all authored nodes, so revealing a branch does not shift
+the board's centered margins.
 The artwork is larger than each native button's hit rectangle, so adjacent tiles do not steal input. Check target size
 at the minimum zoom when changing tile artwork or spacing.
 

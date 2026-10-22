@@ -13,7 +13,8 @@ the viewport. The control uses one UIScale and native scrolling.
   `maxZoom` is 4 by default. `minZoom` cannot exceed `maxZoom`.
 - `doubleTapZoom`: the closer scale for a double tap. The default is twice
   fit, bounded by `maxZoom`. Double tap toggles fit and that scale around the
-  contact point.
+  contact point on the board background. Buttons, text boxes, nested scrollers
+  and active child surfaces own their taps; rapid activation does not zoom.
 - `enabled`: a boolean or readable, default true.
 - `controls`: an optional `ZoomControls` table. The control sets `fit()` and
   `zoomTo({ x, y, w, h })` and `zoomAt(scale, screenPoint?)`. These calls return false while disabled or locked

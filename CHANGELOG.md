@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- ZoomView leaves rapid activation of child controls to those controls instead
+  of also zooming. Ascent keeps the view stable during tile inspection,
+  purchase and branch growth, and moves only to reveal an offscreen focused tile.
+
 - A stack with a rounded `surface` keeps its content clear of its corners: when
   both paddings at a corner are less than the theme corner radius, the larger
   grows to the radius. A progress bar in a short pill no longer runs into the
