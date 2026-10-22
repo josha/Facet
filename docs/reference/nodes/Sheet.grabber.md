@@ -1,5 +1,9 @@
 # Sheet.grabber
 
+Docked sheets show a grabber unless `dragIndicator = "hidden"` or an explicit
+`closeButton` replaces it. Centered sheets never show one. Hidden grabbers do
+not reserve space or participate in selection.
+
 The grabber is also a selectable button. A tap or click closes the sheet
 (with `interactiveDismissDisabled` it grows the sheet instead). The engine
 gives a press on the grabber to its drag detector and never fires the button's

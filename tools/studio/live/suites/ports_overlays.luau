@@ -30,6 +30,7 @@ add("sheet-guarded-dismissal", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.Sheet {
 			title = "Draft",
+			placement = "center",
 			isPresented = shown,
 			detents = { "medium" } :: { SheetDetent },
 			onPresentedChange = function(nextValue: boolean)
@@ -71,6 +72,101 @@ add("sheet-guarded-dismissal", {}, function(t)
 	virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
 	t.settle(30)
 	t.check("accepting the request closes the sheet", requests == 3 and not shown:peek())
+end)
+
+add("sheet-placement-dismissal", {}, function(t)
+	for _, theme in { t.themes[1], t.themes[#t.themes] } do
+		for _, placement in { "center", "bottom", "side" } do
+			local shown = t.Facet.Compose.cell(false)
+			local purchases = 0
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+				return Host.Frame {
+					BackgroundTransparency = 1,
+					Size = UDim2.fromScale(1, 1),
+					UI.Button "OpenTask" {
+						label = "Upgrades",
+						onActivate = function()
+							shown:set(true)
+						end,
+					},
+					UI.Sheet {
+						title = "Upgrades",
+						placement = placement :: "center" | "bottom" | "side",
+						detents = { "hug" } :: { SheetDetent },
+						isPresented = shown,
+						content = function()
+							return UI.VStack {
+								width = "fill",
+								gap = "m",
+								UI.Text { text = "Choose an upgrade for your next run.", wrap = true },
+								UI.Button "Purchase" {
+									label = "Upgrade speed",
+									onActivate = function()
+										purchases += 1
+									end,
+								},
+							}
+						end,
+					},
+				}
+			end, { theme = theme.package, motionLevel = "normal", frames = 30 })
+			local trigger = t.find(stage, "OpenTask")
+			GuiService.SelectedObject = trigger
+			t.settle(4)
+			local virtual = UserInputService:CreateVirtualInput()
+			local inset = GuiService:GetGuiInset()
+			local probe = trigger.AbsolutePosition + trigger.AbsoluteSize / 2 + inset
+			local observed: Vector3? = nil
+			local calibration = UserInputService.InputBegan:Connect(function(event)
+				if event.UserInputType == Enum.UserInputType.Touch then
+					observed = event.Position
+				end
+			end)
+			virtual:SendMousePosition(probe)
+			virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, true)
+			t.settle(3)
+			virtual:SendMouseButton(probe, Enum.UserInputType.MouseButton1, false)
+			t.settle(3)
+			calibration:Disconnect()
+			if observed then
+				local point = observed :: Vector3
+				inset = probe - Vector2.new(point.X, point.Y)
+			end
+			shown:set(true)
+			t.settle(70)
+			local layer = stage:FindFirstAncestorWhichIsA("LayerCollector")
+			local panel = t.find(layer, "SheetPanel")
+			local close, grabber = t.find(panel, "Close"), t.find(panel, "Grabber")
+			local command = if placement == "center" then close else grabber
+			local other = if placement == "center" then grabber else close
+			local where = theme.name .. "/" .. placement
+			t.check(where .. " has one visible exit", t.visible(command) and not t.visible(other))
+			t.check(where .. " links exit directly to content", command.NextSelectionDown == t.find(panel, "Purchase"))
+			t.check(where .. " only docked panels drag", t.find(panel, "PanelDrag").Enabled == (placement ~= "center"))
+			local point = command.AbsolutePosition + command.AbsoluteSize / 2 + inset
+			local received: string? = nil
+			local input = UserInputService.InputBegan:Connect(function(event)
+				if
+					event.UserInputType == Enum.UserInputType.Touch
+					or event.UserInputType == Enum.UserInputType.MouseButton1
+				then
+					received = event.UserInputType.Name
+				end
+			end)
+			virtual:SendMousePosition(point)
+			virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
+			t.settle(3)
+			virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
+			t.settle(70)
+			input:Disconnect()
+			t.note(where .. " input", received)
+			t.check(where .. " native input closes", not shown:peek())
+			t.check(
+				where .. " releases modal selection",
+				GuiService.SelectedObject == nil or not GuiService.SelectedObject:IsDescendantOf(panel)
+			)
+		end
+	end
 end)
 
 local function interactive(

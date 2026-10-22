@@ -2539,7 +2539,6 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						}),
 					}))
 				end,
-				closeButton = false,
 			}
 		end,
 		axes = {

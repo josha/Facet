@@ -35,13 +35,13 @@ return function(
 		local sticky = hero ~= nil and hero.sticky == true
 		local overHero = spec.header == false and hero ~= nil
 		local closeCommand: TextButton? = nil
+		local function showClose(use: ComposeTypes.Use?): boolean
+			return spec.closeButton ~= false
+				and (spec.closeButton ~= nil or (not gesture.showGrabber(use) and canDismiss(use)))
+		end
 		local function linkClose(button: TextButton): TextButton
 			closeCommand = button
 			button.SelectionOrder = -1
-			grabber.NextSelectionDown = button
-			grabber.NextSelectionRight = button
-			button.NextSelectionUp = grabber
-			button.NextSelectionLeft = grabber
 			return button
 		end
 		local function closeControl(): TextButton?
@@ -63,7 +63,7 @@ return function(
 			end
 			return linkClose(UI.Button "Close" {
 				name = "Close",
-				Visible = if explicit == nil then canDismiss else true,
+				Visible = showClose,
 				icon = "close",
 				appearance = if overHero then "inverse" else nil,
 				LayoutOrder = 2,
@@ -241,35 +241,52 @@ return function(
 				end,
 			})
 		end
-		if closeCommand then
-			local command = closeCommand
+		local function linkDismissal()
 			local entry: GuiObject? = nil
+			local command: GuiObject? = nil
 			local previousUp: GuiObject? = nil
-			local function linkContent()
+			local function linkContent(use: ComposeTypes.Use?)
+				local nextCommand = if gesture.showGrabber(use)
+					then grabber
+					elseif showClose(use) then closeCommand
+					else nil
 				local nextEntry = surfaces.firstSelectable(body)
 					or (if actionRegion then surfaces.firstSelectable(actionRegion) else nil)
-				if nextEntry == command then
+				if nextEntry == nextCommand then
 					nextEntry = surfaces.firstSelectable(content)
 				end
-				if nextEntry == entry then
+				if nextEntry == entry and nextCommand == command then
 					return
 				end
-				if entry and entry.NextSelectionUp == command then
+				if command and entry and entry.NextSelectionUp == command then
 					local links = (entry :: unknown) :: { NextSelectionUp: GuiObject? }
 					links.NextSelectionUp = previousUp
 				end
+				if command then
+					local links = (
+						command :: unknown
+					) :: { NextSelectionDown: GuiObject?, NextSelectionRight: GuiObject? }
+					links.NextSelectionDown, links.NextSelectionRight = nil, nil
+				end
 				entry = nextEntry
-				local outgoing = (command :: unknown) :: { NextSelectionDown: GuiObject? }
-				outgoing.NextSelectionDown = nextEntry
-				if nextEntry then
+				command = nextCommand
+				if command then
+					local outgoing = (
+						command :: unknown
+					) :: { NextSelectionDown: GuiObject?, NextSelectionRight: GuiObject? }
+					outgoing.NextSelectionDown, outgoing.NextSelectionRight = nextEntry, nextEntry
+				end
+				if nextEntry and command then
 					previousUp = nextEntry.NextSelectionUp
 					nextEntry.NextSelectionUp = command
 				end
 			end
-			linkContent()
-			runtime.connect(body, "DescendantAdded", linkContent)
+			Compose.watch(linkContent)
+			runtime.connect(body, "DescendantAdded", function()
+				linkContent(nil)
+			end)
 			Compose.cleanup(function()
-				if entry and entry.NextSelectionUp == command then
+				if command and entry and entry.NextSelectionUp == command then
 					local links = (entry :: unknown) :: { NextSelectionUp: GuiObject? }
 					links.NextSelectionUp = previousUp
 				end
@@ -294,14 +311,8 @@ return function(
 			end, press).frame
 			actionRegion = region
 			table.insert(regions, region)
-			if closeCommand and surfaces.firstSelectable(body) == nil then
-				local target = surfaces.firstSelectable(region)
-				if target then
-					closeCommand.NextSelectionDown = target
-					target.NextSelectionUp = closeCommand
-				end
-			end
 		end
+		linkDismissal()
 		local contentSize = ctx.observe.AbsoluteContentSize(bodyLayout)
 		local extra = if hero == nil or sticky then inset * 2 else 0
 		local function natural(use: ComposeTypes.Use): number

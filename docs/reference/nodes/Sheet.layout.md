@@ -11,6 +11,9 @@ Placement, width, header, hero, pinned actions, body padding, scroll policy and 
   A side sheet docks to `edge` (`left` or `right`, default `right`). `edge`
   also applies to `adaptive`. Its detents stay vertical. It slides in from its edge and leaves
   toward it. Under reduced motion it arrives and leaves at once.
+  `center` presents a floating task panel with Close and no grabber or drag
+  resizing. Use it for a bounded task such as comparing upgrades. Detents
+  still set its height; use one `hug` detent for short intrinsic content.
 - `width`: `automatic`, `narrow` or `wide`. These are the Dialog widths:
   `controls.alert.maxWidth`, `controls.popup.panelWidth` and
   `controls.dialog.wideWidth`. The safe room bounds each one.
@@ -31,20 +34,20 @@ Placement, width, header, hero, pinned actions, body padding, scroll policy and 
   height. `atLargestDetent` stops the body scroll below the tallest detent.
 - `closeButton`: absent, `true`, `false`, or a string or readable label.
   Absent shows an icon-only Close button in the trailing corner of the
-  header when interactive dismissal is enabled. This also applies when a
-  grabber is visible. Its
+  header when interactive dismissal is enabled and there is no grabber. Its
   accessible name is `Close`, and its target is 44 pixels. `true` always shows
-  that icon button. A label shows a button with the close icon and that label, so it reads as
+  that icon button and hides the grabber. A label also hides the grabber and shows a button with the close icon and that label, so it reads as
   Close in any language and still shows the word. `false` shows
   none; Back, Escape and the backdrop still close the sheet.
 
-Choose Close deliberately. A visible grabber on a one-detent, dismissible
-sheet already closes by tap/click, Return or gamepad A. For a simple read-only
-task, use `closeButton = false` to avoid a second visible exit. A detent alone
-does not prove this is safe: check the grabber, dismissal policy and each input
-route. Keep Close when it adds a needed direct exit, including a hidden grabber,
-several detents that consume activation for resizing, or disabled interactive
-dismissal. Do not add a labeled Close by copying a recipe.
+Use one visible dismissal control. A centered sheet has Close. A docked sheet
+has a grabber by default. Explicit Close replaces the grabber, and a hidden
+grabber reserves no gutter. Leave `closeButton` absent so the control can adapt
+when placement changes. Use `false` only when task actions provide a clear exit
+in every placement. With disabled interactive dismissal, supply an explicit
+Close or task action. A multi-detent grabber expands on Return/A before it
+closes at the tallest detent; Back/Escape still provides direct dismissal.
+Test the visible exit, Back and return focus on each input.
 
 When the pinned regions and a short body do not fit the panel, every region
 moves into one scrolling column named `Room`. Thus each action stays

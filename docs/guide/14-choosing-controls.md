@@ -31,7 +31,7 @@ game screens and Studio plugin interfaces.
 | Expand a compact preview | CollapsibleView. |
 | Ask for a brief confirmation | Alert. |
 | Ask for a decision that needs a body, a picture or more than two actions | Dialog. |
-| Do a substantial temporary task | Sheet. |
+| Do a temporary task in a modal panel | Sheet; choose centered or docked placement for the task. |
 | Show short content or a small task for one control | Popover. |
 | Teach a contextual action | Callout anchored to the action. |
 | Keep a status in the page until the state changes | Notice. |
@@ -112,6 +112,10 @@ Use Popover for a short form that names a saved item.
 Connect the Popover to the Save button.
 Use CollapsibleView to expand a compact power display.
 Use Sheet for a larger temporary task, such as equipment management.
+Task size does not imply edge docking. Use `placement = "center"` for a
+floating task panel with Close. Use a docked sheet when dragging between useful
+task heights helps the player. A centered sheet has no grabber; a visible
+grabber replaces Close. Leave `closeButton` absent for adaptive placement.
 Use NavigationStack to move between related recipes or field guide pages.
 
 For a search field, set `presentation = "search"`.

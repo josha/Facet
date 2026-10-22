@@ -220,6 +220,10 @@ For temporary surfaces, list the built-in dismissal routes before adding Close,
 Cancel or Done. Remove duplicate visible exits that add no task value, while
 preserving a discoverable route for each input. Check the grabber's actual
 behavior at every detent; a drag indicator alone does not prove dismissal works.
+Choose Sheet placement separately from task size. A centered task panel uses
+Close without a grabber; a docked sheet uses a grabber without a duplicate
+Close. Leave `closeButton` absent for adaptive placement. Check that hover,
+press and focus do not resize a hugging surface or move nearby targets.
 
 ## Keep context small
 

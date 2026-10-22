@@ -79,7 +79,7 @@ The owner changes `isPresented` in response to `onPresentedChange`; Dialog does 
 
 Use `Sheet` for a temporary task that belongs to the current context: filtering inventory, editing a loadout draft, or inspecting and configuring an item. A task with deep history and repeated independent visits deserves a destination.
 
-- `placement = "automatic"` generally docks at the bottom and centers for distant viewing. `"adaptive"` can also use the side when room and input support it. Force `bottom`, `side`, or `center` for an intentional composition; `edge` chooses the side.
+- Choose placement separately from task duration. Use `placement = "center"` for a floating task panel, such as a compact comparison or configuration task. It shows Close without a grabber or drag resizing. Dock at an edge when dragging between useful heights or dismissing toward that edge helps the task. `"automatic"` generally docks at the bottom and centers for distant viewing. `"adaptive"` can also use the side when room and input support it; `edge` chooses the side.
 - Choose `width = "narrow"`, `"wide"`, or `"automatic"` based on reading and comparison. More width should expose useful relationships, not stretch short labels across empty space.
 - `detents` define useful task heights: a summary and an expanded working area, not arbitrary fractions. `medium`, `large`, `hug`, or custom fraction/height entries must each leave the current task intelligible. `detent` preserves the chosen height. A side sheet's detents remain vertical.
 - `scrollPolicy = "always"` keeps body content reachable at each height. `"atLargestDetent"` requires expansion before scrolling; use only when that relationship is clear and the expansion route is accessible.
@@ -88,15 +88,19 @@ Use `Sheet` for a temporary task that belongs to the current context: filtering 
 - `onPresentedChange` guards dismissal. Leave `isPresented` unchanged while asking whether to discard a dirty draft. Route custom Cancel actions and other exits through the same guard. See `Sheet.dismissal` for the state pattern.
 - `interactiveDismissDisabled` also blocks Back and backdrop dismissal. Use it only when the task requires protection and explicit actions provide a usable way out. Do not trap a player while a failed request remains pending.
 
-Choose the visible exit after checking the built-in routes. A visible grabber on
-a one-detent sheet closes on tap/click, Return or gamepad A. For a read-only task
-with interactive dismissal enabled, use `closeButton = false` when a second
-visible exit adds no value. A detent is a height, not evidence of an accessible
-exit. With several detents, Return/A first expands the sheet. Keep an explicit
-Close when a direct exit is needed, the grabber is hidden, or interactive
-dismissal is disabled. Do not force a labeled Close merely because a recipe
-has one. Test the chosen route and return focus with touch, pointer, keyboard
-and gamepad.
+Use one visible dismissal control. Centered sheets show Close; docked sheets
+show a grabber by default. Explicit Close replaces the grabber. Leave
+`closeButton` absent so adaptive placement retains the right exit. Use `false`
+only when task actions provide a clear exit in every placement. A visible
+grabber on a one-detent sheet closes on tap/click, Return or gamepad A. With
+several detents, Return/A expands before closing at the tallest detent;
+Back/Escape still closes directly. With disabled interactive dismissal, supply
+an explicit Close or task action. Test the chosen route and return focus with
+touch, pointer, keyboard and gamepad.
+
+Let content changes determine intrinsic size. Hover, press and focus are
+feedback, not new content; they must not resize a hugging sheet or move its
+neighbors. Verify this during the animation, not only after it settles.
 
 Check software-keyboard and short-height layouts. Facet can move pinned regions into a scrolling column when necessary; verify all actions remain reachable. Native gameplay controls may be suppressed by modal presentation, but custom gameplay controls still require correct integration.
 

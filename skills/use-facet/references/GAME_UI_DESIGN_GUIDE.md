@@ -103,7 +103,7 @@ the entire screen down.
 | Open deeper task detail | NavigationStack or NavigationSplitView |
 | Expand optional facts in the flow | DisclosureGroup |
 | Show content anchored to an object | Popover |
-| Temporarily own attention for a task | Sheet |
+| Temporarily own attention for a task | Sheet; choose centered or docked placement deliberately |
 | Read amount, time, status, acknowledgement | ProgressView, Timer, Badge/StatusIndicator, Toast |
 
 Compare the nearest alternatives. A setting is a value, not a navigation tab.
@@ -115,6 +115,14 @@ Size the surface and its content together. A short task can fit its content;
 a browsing task should use the available room for its collection. Avoid a large
 surface around a short, fixed-height list. Reuse item components without forcing
 every task into the same layout.
+
+A temporary task does not imply a draggable surface. For a floating task
+panel, use Sheet with `placement = "center"`: Close is visible and there is
+no grabber. Dock at an edge when drag resizing or edge dismissal helps the
+task. Use one visible exit: a grabber or Close. Leave `closeButton` absent so
+Facet can change that exit with placement. Use one `hug` detent for a short
+intrinsic body; use a bounded height and scrolling for a collection. Hover,
+press and focus feedback must not resize the surface or move nearby targets.
 
 Establish width at the task boundary. A stack that contains a collection or
 wrapped task text should fill its bounded surface, for example

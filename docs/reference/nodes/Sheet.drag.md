@@ -1,6 +1,8 @@
 # Sheet.drag
 
-Native drag detection resizes the sheet. The grabber detector starts a drag at
+Native drag detection resizes docked sheets. Centered sheets do not drag or
+show a grabber. Their detents set height without a visible resize affordance.
+The grabber detector starts a drag at
 once. A second detector on the panel starts a drag only after 6 pixels, or 14
 pixels on touch. A release goes to the detent nearest to the released height
 plus 0.15 seconds of its velocity. A hold before the release has no velocity.
@@ -12,7 +14,7 @@ limits the drag resists. `interactiveDismissDisabled` holds the sheet near its
 lowest detent and blocks Back and the backdrop. An outside detent change
 during a drag ends the drag. Only one drag runs at a time.
 
-The grabber sits on the edge that the sheet came from. A bottom or center
+The grabber sits on the edge that the sheet came from. A bottom
 sheet has a horizontal bar at the top. A side sheet from the right has a
 vertical bar on its left edge, and a side sheet from the left has one on its
 right edge. The grabber sits in its own gutter at that edge, just inside the inner edge
