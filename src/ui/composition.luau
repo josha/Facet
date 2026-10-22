@@ -33,6 +33,7 @@ type Placement = { regions: { resolver.Declared }, forms: { number }, landed: { 
 local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 local ENGINE_BUTTON = 44
 local ENGINE_MARGIN = 2
+local SETTLE_PASSES = 30
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
@@ -763,7 +764,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local stripUnit = if stripGui then ctx.layoutUnit(stripGui) else nil
 		local stripSize = if stripGui then layoutSize(stripGui, stripUnit) else nil
 		local heights = extentMatch.new()
+		local pulse, seenPulse, settling, pulsing = Compose.cell(0), 0, 0, false
 		Compose.watch(function(use: ComposeTypes.Use)
+			local beat = use(pulse)
+			if beat == seenPulse then
+				settling = 0
+			end
+			seenPulse = beat
+			local unsettled = false
 			local extent = use(box)
 			local rides = riding(use)
 			local list: { resolver.Declared } = {}
@@ -881,7 +889,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 							measured[region] = size
 							natural[region] = kit.intrinsic(content, false, if scale > 0 then scale else 1)
 						end
-						local mins = extentMatch.step(heights, members, measured, natural)
+						local mins, done = extentMatch.step(
+							heights,
+							members,
+							measured,
+							natural,
+							if kit.frameless() then 0 else nil
+						)
+						unsettled = unsettled or not done
 						for _, index in line do
 							local region = regions[index]
 							local floor = declared[region].floors[chosen[index]]
@@ -911,6 +926,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				if declared[region].lift:peek() ~= value then
 					declared[region].lift:set(value)
 				end
+			end
+			if unsettled and not pulsing and settling < SETTLE_PASSES and not kit.frameless() then
+				settling += 1
+				pulsing = true
+				kit.nextFrame(function()
+					pulsing = false
+					pulse:set(pulse:peek() + 1)
+				end)
 			end
 			placement:set(
 				if extent.X > 0 and extent.Y > 0

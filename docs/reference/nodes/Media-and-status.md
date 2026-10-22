@@ -15,4 +15,5 @@ Open:
 - [Text.reference](Text.reference.md)
 - [Timer.reference](Timer.reference.md)
 - [Typewriter.reference](Typewriter.reference.md)
+- [WorldMarker.reference](WorldMarker.reference.md)
 - [badged](badged.md)

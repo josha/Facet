@@ -15,6 +15,7 @@ game screens and Studio plugin interfaces.
 |---|---|
 | Show currency or score counters | Text with Facet.format.compact or Facet.format.grouped. |
 | Show a round deadline or elapsed time | Timer; Facet.format.duration for a fixed duration. |
+| Point to a world target that can be off screen | WorldMarker with a `worldAnchor` that has `offscreen = "retain"`. |
 | Reveal an NPC dialogue line with Skip | Typewriter. |
 | Do one action | Button. |
 | Do a primary action that has alternatives | SplitButton. |

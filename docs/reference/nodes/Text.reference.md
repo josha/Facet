@@ -9,8 +9,9 @@ or a function of `use`. It is required. `label` and the native `Text` cause an
 error, and so do `color` and `font`, because the theme owns them. Use `role`
 or `textRole` instead.
 
-Unwrapped text with automatic size keeps its largest measured box while it
-stays mounted. Longer text can grow the box. Shorter text does not shrink it.
+Unwrapped text with automatic size keeps its largest measured box while its
+text keeps the same length, so a counting number does not jitter. Text with a
+different length fits again: a wallet that falls from 1,000,000 to 12 shrinks.
 A change to the font, text size or layout mode resets the reserved size.
 Wrapped text, truncated text and authored size constraints keep their native
 layout behavior.

@@ -698,6 +698,23 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			return applied
 		end
 	end
+	function kit.frameless(): boolean
+		return config.services == nil or config.services.RunService == nil
+	end
+	function kit.nextFrame(callback: () -> ())
+		local frames = config.services and config.services.RunService
+		if frames == nil then
+			callback()
+			return
+		end
+		local connection: RBXScriptConnection? = nil
+		connection = frames.Heartbeat:Connect(function()
+			if connection then
+				connection:Disconnect()
+			end
+			callback()
+		end)
+	end
 	function kit.match(frame: Frame, column: boolean, active: (ComposeTypes.Use?) -> boolean)
 		local owner = assert(Compose.currentOwner(), "Facet stack matching needs an owner")
 		local frames = config.services and config.services.RunService
@@ -709,9 +726,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			return (if column then node.AbsoluteSize.X else node.AbsoluteSize.Y) / (if scale > 0 then scale else 1)
 		end
 		local state = extentMatch.new()
-		local function check()
+		local function check(): boolean
 			if owner.isDisposed() then
-				return
+				return true
 			end
 			local members: { unknown } = {}
 			local measured: { [unknown]: number } = {}
@@ -724,16 +741,23 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					natural[child] = kit.intrinsic(child, column, if scale > 0 then scale else 1)
 				end
 			end
-			local mins = if active() then extentMatch.step(state, members, measured, natural) else {}
+			local mins: { [unknown]: number }, settled = {}, true
+			if active() then
+				mins, settled = extentMatch.step(state, members, measured, natural, if frames then nil else 0)
+			end
 			for child, lift in floors do
 				local value = if child.Parent == frame and child.Visible then mins[child] or 0 else 0
 				if not lift(value) and value > 0 then
 					state[child] = nil
 				end
 			end
+			return settled
 		end
-		local pending = false
-		local function schedule()
+		local pending, settling, SETTLE_FRAMES = false, 0, 30
+		local function schedule(again: boolean?)
+			if not again then
+				settling = 0
+			end
 			if pending or owner.isDisposed() then
 				return
 			end
@@ -748,8 +772,14 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					connection:Disconnect()
 				end
 				pending = false
-				check()
+				if not check() and settling < SETTLE_FRAMES then
+					settling += 1
+					schedule(true)
+				end
 			end)
+		end
+		local function changed()
+			schedule()
 		end
 		local watched: { [Instance]: { RBXScriptConnection } } = {}
 		local function forget(child: Instance)
@@ -777,10 +807,10 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				end)
 			end
 			watched[child] = {
-				node:GetPropertyChangedSignal("AbsoluteSize"):Connect(schedule),
-				node:GetPropertyChangedSignal("Visible"):Connect(schedule),
-				node.DescendantAdded:Connect(schedule),
-				node.DescendantRemoving:Connect(schedule),
+				node:GetPropertyChangedSignal("AbsoluteSize"):Connect(changed),
+				node:GetPropertyChangedSignal("Visible"):Connect(changed),
+				node.DescendantAdded:Connect(changed),
+				node.DescendantRemoving:Connect(changed),
 			}
 			schedule()
 		end

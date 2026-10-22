@@ -1,6 +1,7 @@
 --!strict
 local Shared = require("./types")
 local Media = require("./media_types")
+local Env = require("./environment_types")
 
 export type TimerControls = { completed: Shared.Readable<boolean>? }
 export type TimerOptions = {
@@ -20,6 +21,13 @@ export type TypewriterControls = {
 export type TypewriterOptions = {
 	onRevealed: (() -> ())?,
 	controls: TypewriterControls?,
+}
+export type WorldMarkerEdge = "clamp" | "hide"
+export type WorldMarkerOptions = {
+	anchor: Shared.Readable<Env.WorldAnchorPoint>,
+	edge: Shared.Value<WorldMarkerEdge>?,
+	margin: Shared.Value<Shared.Padding>?,
+	arrow: Shared.Value<boolean>?,
 }
 
 return {}

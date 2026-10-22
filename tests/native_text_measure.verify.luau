@@ -49,7 +49,7 @@ return function(harness: Verify.Harness)
 		local node = assert(label)
 		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(96, 22))
-		node.Text = "1"
+		node.Text = "12345"
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(96, 22))
 		assert(inset).PaddingLeft = engine.types.UDim.new(0, 12)
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(100, 22))
@@ -59,12 +59,13 @@ return function(harness: Verify.Harness)
 		runtime:dispose()
 		t:expect(engine.census().connections):toBe(0)
 	end)
-	harness:case("mounted readout floors grow without shrinking and reset with font metrics", function(t)
+	harness:case("mounted readout floors hold their widest value until the length changes and reset with font metrics", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)
 		local service = {
 			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
-				return engine.types.Vector2.new(#params.Text * params.Size, params.Size)
+				local _, narrow = string.gsub(params.Text, "1", "")
+				return engine.types.Vector2.new((#params.Text - narrow / 2) * params.Size, params.Size)
 			end,
 		}
 		local ctx = context(
@@ -85,18 +86,22 @@ return function(harness: Verify.Harness)
 		local stop = mount()
 		local node = assert(label)
 		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
-		t:expect(floor.MinSize.X):toBe(64)
-		for _, text in { "9", "111", "", "8888" } do
-			node.Text = text
-			t:expect(floor.MinSize.X):toBe(64)
-			t:expect(floor.MaxSize.X):toBe(64)
+		t:expect(floor.MinSize.X):toBe(56)
+		for _, sample in { { "1111", 56 }, { "9999", 64 }, { "1011", 64 } } do
+			node.Text = sample[1]
+			t:expect(floor.MinSize.X):toBe(sample[2])
+			t:expect(floor.MaxSize.X):toBe(sample[2])
 		end
+		node.Text = "9"
+		t:expect(floor.MinSize.X):toBe(16)
 		node.Text = "10000"
-		t:expect(floor.MinSize.X):toBe(80)
+		t:expect(floor.MinSize.X):toBe(72)
+		node.Text = "11111"
+		t:expect(floor.MinSize.X):toBe(72)
 		node.Text = "1"
-		t:expect(floor.MinSize.X):toBe(80)
+		t:expect(floor.MinSize.X):toBe(8)
 		node.TextSize = 12
-		t:expect(floor.MinSize.X):toBe(12)
+		t:expect(floor.MinSize.X):toBe(6)
 		node.TextWrapped = true
 		node.Text = "xx"
 		t:expect(floor.MinSize.X):toBe(0)
@@ -104,7 +109,7 @@ return function(harness: Verify.Harness)
 		t:expect(floor.MinSize.X):toBe(24)
 		stop()
 		stop = mount()
-		t:expect((assert(assert(label):FindFirstChild("TextBoundsFloor")) :: UISizeConstraint).MinSize.X):toBe(64)
+		t:expect((assert(assert(label):FindFirstChild("TextBoundsFloor")) :: UISizeConstraint).MinSize.X):toBe(56)
 		stop()
 		runtime:dispose()
 		t:expect(engine.census().connections):toBe(0)

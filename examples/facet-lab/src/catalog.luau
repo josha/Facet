@@ -1887,7 +1887,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		family = "status",
 		cellWidth = 240,
 		alias = "Progress · Loading",
-		purpose = "Determinate or indeterminate progress as a bar, ring, gauge with a needle or spinner; segments and a damage trail.",
+		purpose = "Determinate or indeterminate progress: a bar, ring, needle gauge or spinner; segments and a damage trail.",
 		alternatives = "Skeleton for content that is still loading.",
 		scenarios = { "progress_ring" },
 		snippet = 'UI.ProgressView { value = 0.4, presentation = "bar" }',
@@ -4904,7 +4904,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				gap = "xs",
 				width = "fill",
 				UI.Text(merged(plain, {
-					text = "The plate is the Screen's box (it fills this cell as it fills a ScreenGui); its padding is the gap to the plate edge.",
+					text = "The plate is the Screen's box (it fills this cell like a ScreenGui); its padding is the gap to the plate edge.",
 					textRole = "caption",
 				})),
 				UI.VStack({ width = "fill", height = 260, screen :: unknown }),
@@ -5237,7 +5237,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		host = "Screen",
 		family = "facet",
 		alias = "Environment (size class, input, safe area)",
-		purpose = "Readables of the engine facts a screen adapts to: viewport, size and height class, orientation, input, display size, safe insets, text size, reduced motion.",
+		purpose = "Engine facts a screen adapts to: viewport, size and height class, orientation, input, display size, safe insets, text size, reduced motion.",
 		alternatives = "Observe one container's AbsoluteSize for a local decision.",
 		snippet = "local env = UI.environment(); env.sizeClass, env.interactionClasses, …",
 		base = function()
@@ -5985,7 +5985,7 @@ PAGE_DATA.Outline = {
 	cellWidth = 340,
 	cellHeight = 280,
 	purpose = "Expand nested groups, select rows, and edit items in one hierarchy.",
-	note = "Use the disclosure arrows to expand a group. Left/Right also collapses/expands the focused row. Try selection and expansion settings below; events appear in the log.",
+	note = "Expand a group with its arrow; Left/Right collapse or expand the focused row. Selection and expansion settings are below; events go to the log.",
 	alternatives = "VirtualList for flat rows. Table with children for hierarchy with columns.",
 	snippet = 'UI.Outline { from = roots, key = "id", children = "children", expanded = expanded, render = renderCell }',
 	base = function(c: Context)
@@ -6081,6 +6081,7 @@ PAGE_DATA.gestureArbiter = {
 }
 
 PAGE_DATA.DiegeticScreen = require("./diegetic_demo")
+PAGE_DATA.WorldMarker = require("./world_marker_demo")
 
 PAGE_DATA.ZoomView = require("./zoom_page")
 PAGE_DATA.SpatialGrid = require("./spatial_grid_demo")

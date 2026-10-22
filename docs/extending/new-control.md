@@ -46,8 +46,18 @@ observation, styles and input actions. It does not own another scene.
 - A `MinSize` does not always set the final size. With padding or a
   scale-sized automatic child, a node grows past it. Measure what a size
   constraint does; do not predict it.
+- Learn only from settled readings. After you change a constraint or the
+  content changes, the native sizes can be stale for one or more frames.
+  Do not learn from a reading, or change a constraint again, until the same
+  constraint and content give the same size on consecutive frames. A loop
+  that reacts to each stale frame oscillates or grows without limit.
+  `kit.match` and Composition row matching do this through `extent_match`.
+- A value that holds space to stop jitter must give the space back. A
+  readout keeps its widest width only while its text keeps the same length,
+  and fits again when the length changes.
 - Test that content can grow and shrink after it mounts, not only that the
-  first layout is correct.
+  first layout is correct. Give the test engine one frame of layout lag, and
+  check a large drop, such as 1,000,000 to 12.
 - Make the common game layout the default: a value sits beside its bar, and
   the panels of one HUD row have one height. A game must not need to measure
   or set pixel sizes for a common layout to look right.

@@ -151,7 +151,10 @@ that same copy and use the returned Facet table throughout the context.
   player watch, such as the avatar and the space in front of it. Keep it clear
   on every screen and orientation, also with UI attached to the avatar, such
   as a BillboardGui tag. On touch screens, keep it also out of the area that a
-  thumb covers on a held control. Read the focus area in the design guide.
+  thumb covers on a held control. Only critical information about the
+  interaction with the world, such as a marker on the goal that the player looks
+  for (`UI.WorldMarker`), can cover part of it while it applies. Read the focus
+  area in the design guide.
 - Use `Tasks.hud` as a starting point. Choose zones from the game's sight lines
   and controls. Consider `topRight` below the engine top bar for secondary
   navigation; preserve its destinations in a compact Menu. Let Composition

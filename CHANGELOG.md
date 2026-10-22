@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- A bar ProgressView rounds its fill with the same radius as its track, so
+  the fill no longer ends square inside a rounded track.
+- `UI.WorldMarker` shows its children at a world target from a `worldAnchor`
+  binding. When the target is off screen or behind the camera, the marker
+  stays at the edge of its parent with an arrow toward the target, or hides
+  with `edge = "hide"`.
+- Stack and Composition row matching learn only from settled readings. A
+  child's size and content must stay the same for two frames before the match
+  learns from it or changes a constraint, and a lifted child that stays wider
+  than the target after one correction is released and measured again.
+  Before, a reading that lagged one frame behind a change was taken as final:
+  the widths of a coin readout and a button could flip every frame, grow
+  without limit or stay unmatched.
+- A text readout (`UI.Text`, badges) keeps its widest width only while its
+  text keeps the same length, and fits again when the length changes. A
+  counting number still does not jitter. Before, the width never shrank, so a
+  wallet that fell from 1,000,000 to 12 coins kept its widest plate.
+
 - The `top` and `bottom` Composition zones put their regions side by side in
   rows. A region wraps to a new row only when it does not fit beside the
   regions before it. Before, every zone stacked its regions vertically, so

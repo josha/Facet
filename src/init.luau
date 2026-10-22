@@ -16,6 +16,7 @@ local HudProps = require("@self/ui/hud_props")
 local HudTypes = require("@self/ui/hud_types")
 local format = require("@self/ui/format")
 export type TimerProps = HudProps.TimerProps
+export type WorldMarkerProps = HudProps.WorldMarkerProps
 export type TimerControls = HudTypes.TimerControls
 export type TypewriterProps = HudProps.TypewriterProps
 export type TypewriterControls = HudTypes.TypewriterControls

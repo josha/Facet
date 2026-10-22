@@ -52,6 +52,14 @@ the top rows use a large part of the height, so a row that wraps can reach the
 focus area. Render the layout on a phone in both orientations and look at what
 the UI covers.
 
+Critical information about the player's interaction with the world is the
+exception. A marker on the goal that the player looks for, or a warning about a
+hazard ahead, can cover part of the focus area while it applies, because the
+player needs it more than the view behind it. Attach it to its target
+(`UI.WorldMarker`), keep it small, and remove it when the player reaches the
+target. Status, totals and menus are not critical in this sense; keep them at
+the edges.
+
 Use safe screen edges deliberately; reserve the center for play. The top-right
 area below the engine top bar is a useful home for secondary destinations such
 as Garage, Shop, and Menu when it clears the game's sight lines. Keep the group

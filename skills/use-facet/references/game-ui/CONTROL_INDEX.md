@@ -75,6 +75,7 @@ This index covers all 71 public controls in the inspected Facet 0.12.0 reference
 | [VirtualGrid](COLLECTIONS_AND_ACTIONS.md#virtualgrid) | Browse and select repeated objects by appearance. |
 | [VirtualList](COLLECTIONS_AND_ACTIONS.md#virtuallist) | Browse and manage repeated items mainly one at a time. |
 | [Vote](CHOICES_AND_INPUT.md#vote) | Express an up/down/no-vote judgment. |
+| [WorldMarker](INPUT_FOCUS_AND_ACCESS.md#connect-world-information-without-losing-reliability) | Point to a world target, also from the screen edge when it is off screen. |
 | [ZStack](LAYOUT_AND_NAVIGATION.md#zstack) | Layer parts of one intentional visual object. |
 | [ZoomView](LAYOUT_AND_NAVIGATION.md#zoomview-and-path) | Inspect a stable spatial structure at useful scales. |
 

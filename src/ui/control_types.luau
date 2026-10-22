@@ -105,6 +105,7 @@ type TableShapes =
 export type TableConstructor = TableShapes & ((string) -> TableShapes)
 
 export type Controls = {
+	WorldMarker: Constructor<HudProps.WorldMarkerProps, Frame>,
 	DiegeticScreen: Constructor<DiegeticTypes.DiegeticScreenProps, Folder>,
 	Timer: Constructor<HudProps.TimerProps, TextLabel>,
 	Typewriter: Constructor<HudProps.TypewriterProps, TextLabel>,

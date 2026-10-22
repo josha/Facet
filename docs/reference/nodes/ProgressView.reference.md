@@ -2,7 +2,7 @@
 
 ProgressView.reference option values and behavior.
 
-The unwrapped value and end label keep their largest measured boxes while mounted.
+The unwrapped value and end label keep their largest measured boxes while their text keeps the same length, as Text does.
 
 | Control | Main contract |
 |---|---|

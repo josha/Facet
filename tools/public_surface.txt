@@ -218,6 +218,7 @@ controls(runtime).ViewThatFits : function
 controls(runtime).VirtualGrid : function
 controls(runtime).VirtualList : function
 controls(runtime).Vote : function
+controls(runtime).WorldMarker : function
 controls(runtime).ZStack : function
 controls(runtime).ZoomView : function
 controls(runtime).adjustable : function
@@ -465,6 +466,7 @@ type VoteSpec
 type VoteValue
 type WorldAnchor
 type WorldAnchorOptions
+type WorldMarkerProps
 type ZStackProps
 type Zone
 type ZoomControls
