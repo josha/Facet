@@ -339,6 +339,8 @@ return function(): number
 		normalizedBy = YARDSTICK,
 		yardstickP95Ms = yardstickP95,
 		yardstickDriftPct = yardstickDriftPct,
+		yardstickBefore = collected.yardstickBefore,
+		yardstickAfter = collected.yardstickAfter,
 		proofStatus = if drifted then "unstable-host" else "stable-host-trend",
 		comparisonMode = if baselineHasNorm then "normalized" else "raw-legacy",
 		results = results,
