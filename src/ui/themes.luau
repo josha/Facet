@@ -615,8 +615,6 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-status-" .. status .. " > .facet-text", { TextColor3 = c(partner) })
 		rule(".facet-status-" .. status .. " > .facet-icon", { ImageColor3 = c(partner) })
 	end
-	-- A status stack takes its plate colour from the `.facet-status-*` rule above, which follows the plate rules.
-	-- Each theme swap repaints every rule, so the descendant rules share selectors to keep the count small.
 	rule(".facet-status-surface", { BackgroundTransparency = 0 })
 	rule(".facet-status-surface >> .facet-track", { BackgroundTransparency = 0.7 })
 	for status in statusRoles do
