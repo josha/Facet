@@ -615,14 +615,15 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		rule(".facet-status-" .. status .. " > .facet-text", { TextColor3 = c(partner) })
 		rule(".facet-status-" .. status .. " > .facet-icon", { ImageColor3 = c(partner) })
 	end
-	for status, role in statusRoles do
-		local partner = partnerOf(status)
+	-- A status stack takes its plate colour from the `.facet-status-*` rule above, which follows the plate rules.
+	-- Each theme swap repaints every rule, so the descendant rules share selectors to keep the count small.
+	rule(".facet-status-surface", { BackgroundTransparency = 0 })
+	rule(".facet-status-surface >> .facet-track", { BackgroundTransparency = 0.7 })
+	for status in statusRoles do
+		local partner = c(partnerOf(status))
 		local surface = ".facet-status-surface.facet-status-" .. status
-		rule(surface, { BackgroundColor3 = c(role), BackgroundTransparency = 0 })
-		rule(surface .. " >> .facet-text", { TextColor3 = c(partner) })
-		rule(surface .. " >> .facet-icon", { ImageColor3 = c(partner) })
-		rule(surface .. " >> .facet-fill", { BackgroundColor3 = c(partner) })
-		rule(surface .. " >> .facet-track", { BackgroundColor3 = c(partner), BackgroundTransparency = 0.7 })
+		rule(`{surface} >> .facet-text, {surface} >> .facet-icon`, { TextColor3 = partner, ImageColor3 = partner })
+		rule(`{surface} >> .facet-fill, {surface} >> .facet-track`, { BackgroundColor3 = partner })
 	end
 	rule(".facet-status-hollow", { BackgroundTransparency = 1 })
 	rule(".facet-badge-utility", { BackgroundTransparency = 1, TextColor3 = c("contentSecondary") })
