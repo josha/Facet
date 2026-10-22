@@ -493,7 +493,7 @@ return function(harness: Verify.Harness)
 			t:expect(w.outer.ScrollingEnabled):toBe(true)
 		end)
 
-		harness:case("a touch double tap that lands on a child control toggles the zoom", function(t)
+		harness:case("a touch double tap on board content toggles zoom only inside the viewport", function(t)
 			local w = inputWorld()
 			t:defer(w.stop)
 			local V2, E = w.engine.types.Vector2, w.engine.types.Enum
@@ -520,6 +520,42 @@ return function(harness: Verify.Harness)
 				w.engine.heartbeat:Fire(0.016)
 			end
 			t:expect(w.scale.Scale):toBe(outside)
+		end)
+
+		harness:case("child controls keep rapid pointer and touch activation without camera movement", function(t)
+			for _, className in { "TextButton", "TextBox", "Frame" } do
+				for _, touch in { false, true } do
+					local w = inputWorld()
+					t:defer(w.stop)
+					local V2, E = w.engine.types.Vector2, w.engine.types.Enum
+					local child = w.engine.new(className) :: GuiObject
+					child.Active = true
+					child.Parent = w.view:FindFirstChild("ZoomContent")
+					local label = w.engine.new("TextLabel")
+					label.Parent = child
+					w.player.GetGuiObjectsAtPosition = function()
+						return { label, child, w.view }
+					end
+					local before = w.view.CanvasPosition
+					for _ = 1, 2 do
+						local pointer = w.event(
+							if touch then E.UserInputType.Touch else E.UserInputType.MouseButton1,
+							V2.new(220, 180),
+							E.UserInputState.Begin
+						)
+						w.input.InputBegan:Fire(pointer, true)
+						pointer.UserInputState = E.UserInputState.End
+						w.input.InputEnded:Fire(pointer, true)
+					end
+					for _ = 1, 40 do
+						w.engine.heartbeat:Fire(0.016)
+						t:expect(w.scale.Scale):toBe(2)
+						t:expect((w.view.CanvasPosition - before).Magnitude < 0.001):toBe(true)
+					end
+					t:expect(assert(w.controls.zoomAt)(1.5)):toBe(true)
+					t:expect(w.zoom:peek()):toBe(1.5)
+				end
+			end
 		end)
 
 		harness:case("native detector release clears child capture before the camera end callback", function(t)

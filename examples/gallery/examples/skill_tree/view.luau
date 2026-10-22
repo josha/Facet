@@ -76,8 +76,30 @@ return function(ctx: Context)
 		local nextState = table.clone(state:peek())
 		nextState.selected = id
 		state:set(nextState)
-		focus:set(V2.new(node.x, node.y))
 		return true
+	end
+	local function reveal(id: string)
+		local view, button = map, nodes[id]
+		if not view or not button or not camera.zoomTo then
+			return
+		end
+		local area = view.AbsoluteWindowSize
+		if area.X <= 0 or area.Y <= 0 then
+			return
+		end
+		local offset = button.AbsolutePosition - view.AbsolutePosition
+		if
+			offset.X >= 0
+			and offset.Y >= 0
+			and offset.X + button.AbsoluteSize.X <= area.X
+			and offset.Y + button.AbsoluteSize.Y <= area.Y
+		then
+			return
+		end
+		local scale = if ctx.previewScale then ctx.previewScale:peek() else 1
+		local size = area / math.max(0.01, scale) / zoom:peek()
+		local node = model.byId[id]
+		camera.zoomTo({ x = node.x - size.X / 2, y = node.y - size.Y / 2, w = size.X, h = size.Y })
 	end
 	local function buy()
 		local before = state:peek()
@@ -130,14 +152,14 @@ return function(ctx: Context)
 		end
 		return result
 	end)
-	local contentSize = C.formula(function(use: Use): Vector2
+	local function boardSize(): Vector2
 		local x, y = 0, 0
-		for _, node in use(visible) do
+		for _, node in model.nodes do
 			x = math.max(x, node.x + 110)
 			y = math.max(y, node.y + 110)
 		end
 		return V2.new(x, y)
-	end)
+	end
 	local function tile(current: Readable<Node>): GuiObject
 		local node = current:peek()
 		local status = C.formula(function(use: Use)
@@ -290,7 +312,7 @@ return function(ctx: Context)
 			[C.event("SelectionGained")] = function()
 				hovering:set(true)
 				select(node.id)
-				focus:set(V2.new(node.x, node.y))
+				reveal(node.id)
 			end,
 			[C.event("SelectionLost")] = function()
 				hovering:set(false)
@@ -357,7 +379,7 @@ return function(ctx: Context)
 	end
 	local function screen(): Instance
 		map = UI.ZoomView "SkillMap" {
-			contentSize = contentSize,
+			contentSize = boardSize(),
 			content = board,
 			zoom = zoom,
 			focus = focus,
@@ -483,16 +505,9 @@ return function(ctx: Context)
 		measure()
 		local mapView = assert(map)
 		runtime.connect(mapView, "Changed", function(property: string)
-			if property ~= "AbsoluteWindowSize" or not camera.zoomTo then
-				return
+			if property == "AbsoluteWindowSize" then
+				reveal(state:peek().selected)
 			end
-			local scale = if ctx.previewScale then ctx.previewScale:peek() else 1
-			local size = mapView.AbsoluteWindowSize / math.max(0.01, scale) / zoom:peek()
-			if size.X <= 0 or size.Y <= 0 then
-				return
-			end
-			local node = model.byId[state:peek().selected]
-			camera.zoomTo({ x = node.x - size.X / 2, y = node.y - size.Y / 2, w = size.X, h = size.Y })
 		end)
 		runtime.connect(root, "Changed", function(property: string)
 			if property == "AbsoluteSize" then
@@ -544,7 +559,11 @@ return function(ctx: Context)
 	return {
 		screen = screen,
 		select = function(value: unknown): boolean
-			return type(value) == "string" and select(value)
+			if type(value) ~= "string" or not select(value) then
+				return false
+			end
+			reveal(value)
+			return true
 		end,
 		report = function()
 			local current = state:peek()

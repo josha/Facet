@@ -75,12 +75,12 @@ local function pointer(t: Live)
 		end
 	end)
 	local offset = Gui:GetGuiInset()
-	local function at(position: Vector2)
+	local function at(position: Vector2, framesAfter: number?)
 		virtual:SendMousePosition(position)
 		virtual:SendMouseButton(position, Enum.UserInputType.MouseButton1, true)
 		t.settle(2)
 		virtual:SendMouseButton(position, Enum.UserInputType.MouseButton1, false)
-		t.settle(30)
+		t.settle(framesAfter or 30)
 	end
 	local function tap(name: string)
 		local node = find(name)
@@ -98,12 +98,33 @@ local function pointer(t: Live)
 		t.settle(20)
 	end
 	tap("ResetTree")
+	local view = find("SkillMap") :: ScrollingFrame
+	if not touch then
+		local extent, position = view.CanvasSize, view.CanvasPosition
+		tap("Skill_stride")
+		tap("Skill_stride")
+		t.check("right branch unlocks", table.find(api("report").demo.owned, "stride") ~= nil)
+		t.check("branch growth preserves canvas bounds", view.CanvasSize == extent)
+		t.check("branch growth preserves view position", (view.CanvasPosition - position).Magnitude < 1)
+		tap("ResetTree")
+	end
 	local before = api("report").demo
-	tap("Skill_spark")
+	local tile = find("Skill_spark")
+	local point = tile.AbsolutePosition + tile.AbsoluteSize / 2 + offset
+	local position, scale = view.CanvasPosition, view:GetAttribute("FacetZoom")
+	local movement, zoomChanged = 0, false
+	local sample = game:GetService("RunService").PreRender:Connect(function()
+		movement = math.max(movement, (view.CanvasPosition - position).Magnitude)
+		zoomChanged = zoomChanged or view:GetAttribute("FacetZoom") ~= scale
+	end)
+	at(point, 2)
 	local inspected = api("report")
 	t.check("first tap inspects without spending", inspected.demo ~= nil and inspected.demo.points == 18, inspected)
 	assert(inspected.demo, game:GetService("HttpService"):JSONEncode(inspected))
-	tap("Skill_spark")
+	at(point)
+	sample:Disconnect()
+	t.check("rapid tile activation preserves camera scale", not zoomChanged, api("report"))
+	t.check("inspection and unlock preserve camera position", movement < 1, movement)
 	local purchased = api("report").demo
 	t.check(
 		"native activation unlocks Spark once",
@@ -112,6 +133,24 @@ local function pointer(t: Live)
 	)
 	t.check("unlock grows the visible tree", purchased.visible > before.visible, purchased)
 
+	if touch then
+		for _ = 1, 3 do
+			local target = find("Skill_flare")
+			local center = view.AbsolutePosition + view.AbsoluteWindowSize / 2
+			local delta = center - target.AbsolutePosition - target.AbsoluteSize / 2
+			local limit = view.AbsoluteWindowSize * 0.35
+			delta = Vector2.new(math.clamp(delta.X, -limit.X, limit.X), math.clamp(delta.Y, -limit.Y, limit.Y))
+			local from = center + offset
+			virtual:SendMousePosition(from)
+			virtual:SendMouseButton(from, Enum.UserInputType.MouseButton1, true)
+			for n = 1, 12 do
+				virtual:SendMousePosition(from + delta * (n / 12))
+				t.settle(1)
+			end
+			virtual:SendMouseButton(from + delta, Enum.UserInputType.MouseButton1, false)
+			t.settle(20)
+		end
+	end
 	tap("Skill_flare")
 	t.check("tile inspection does not spend points", api("report").demo.points == purchased.points)
 	t.check("tile inspection selects Flare", api("report").demo.selected == "flare", api("report"))
@@ -124,7 +163,6 @@ local function pointer(t: Live)
 	for _ = 1, 4 do
 		tap("ZoomIn")
 	end
-	local view = find("SkillMap") :: ScrollingFrame
 	local pan = view.CanvasPosition
 	local point = view.AbsolutePosition + view.AbsoluteSize * Vector2.new(0.65, 0.72) + offset
 	virtual:SendMousePosition(point)
