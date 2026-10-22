@@ -460,6 +460,42 @@ return function(verifyHarness: Verify.Harness)
 	verifyHarness:suite("app.presentToast", function()
 		local Facet = require("../src") :: any
 		local engineLib = require("./lib/native_engine")
+		verifyHarness:case("parents imperative passive toasts to their edge stack", {
+			id = "native_toast_schedule::app.presentToast::parents imperative passive toasts to their edge stack",
+			run = function()
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local target = engine.new("PlayerGui")
+				local app =
+					Facet.app({ runtime = runtime, types = engine.types, parent = target, motionLevel = "none" })
+				local live = 0
+				for _, edge in { "top", "bottom" } do
+					for index = 1, 2 do
+						app.presentToast(function(UI: FacetControls)
+							live += 1
+							Compose.cleanup(function()
+								live -= 1
+							end)
+							return UI.Text { text = `{edge} {index}` }
+						end, { position = edge, width = "hug", duration = 20 })
+					end
+				end
+				expect(live):toBe(4)
+				local slots = overlay.findAll(target, "ToastSlot")
+				expect(#slots):toBe(4)
+				for _, slot in slots do
+					local stack = slot.Parent
+					expect(stack.Name):toBe("ToastStack")
+					local label = stack:FindFirstChildWhichIsA("TextLabel", true)
+					local edge = if string.sub(label.Text, 1, 3) == "top" then "Top" else "Bottom"
+					expect(stack:FindFirstChildWhichIsA("UIListLayout").VerticalAlignment.Name):toBe(edge)
+				end
+				app.dispose()
+				expect(live):toBe(0)
+				expect(#target:GetChildren()):toBe(0)
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("owns its body, returns an id and dismiss, and releases the layer when it retires", {
 			id = "native_toast_schedule::app.presentToast::owns its body, returns an id and dismiss, and releases the layer when it retires",
 			run = function()
