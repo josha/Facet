@@ -17,6 +17,7 @@ export type Declared = {
 	sizes: { { x: number, y: number } },
 }
 export type Shift = { top: number, bottom: number }
+export type Rows = { top: number, bottom: number }
 type Stacked = { top: boolean, bottom: boolean }
 
 local CELLS: { [string]: { number } } = {
@@ -31,6 +32,10 @@ local CELLS: { [string]: { number } } = {
 	bottomRight = { 3, 3 },
 	topbar = { 2, 1 },
 }
+
+type Extent = { x: number, y: number }
+
+local FLOWS: { [number]: number } = { [9] = 1, [11] = 3 }
 
 local function cellOf(zone: string, riding: boolean): (number, number)
 	if zone == "topbar" and riding then
@@ -47,17 +52,18 @@ local function resolve(
 	regions: { Declared },
 	strip: { x: number, y: number }?,
 	stacked: Stacked?
-): ({ number }, { boolean }, Shift, { number })
+): ({ number }, { boolean }, Shift, { number }, Rows)
 	local forms = table.create(#regions, 1)
 	local landed = table.create(#regions, false)
 	local shift: Shift = { top = 0, bottom = 0 }
 	if width <= 0 or height <= 0 then
-		return forms, landed, shift, {}
+		return forms, landed, shift, {}, { top = 0, bottom = 0 }
 	end
 	local stack: Stacked = stacked or { top = false, bottom = false }
 	local lane = (width - 2 * gap) / 3
 	while true do
 		local zoneW: { [number]: number }, zoneH: { [number]: number }, members: { [number]: { number } } = {}, {}, {}
+		local flowItems: { [number]: { Extent } }, landedBlock: { [number]: Extent } = {}, {}
 		for index, region in regions do
 			local column, row = cellOf(region.zone, strip ~= nil and not landed[index])
 			local key = column * 4 + row
@@ -69,10 +75,52 @@ local function resolve(
 				if key == 0 then
 					zoneW[key] = (zoneW[key] or -gap) + gap + size.x
 					zoneH[key] = math.max(zoneH[key] or 0, size.y)
+				elseif FLOWS[key] then
+					local items = flowItems[key] or {}
+					flowItems[key] = items
+					if region.zone == "topbar" then
+						local block = landedBlock[key]
+						if block == nil then
+							block = { x = 0, y = -gap }
+							landedBlock[key] = block
+							table.insert(items, 1, block)
+						end
+						block.x = math.max(block.x, size.x)
+						block.y += gap + size.y
+					else
+						table.insert(items, { x = size.x, y = size.y })
+					end
 				else
 					zoneW[key] = math.max(zoneW[key] or 0, size.x)
 					zoneH[key] = (zoneH[key] or -gap) + gap + size.y
 				end
+			end
+		end
+		for key, row in FLOWS do
+			local items = flowItems[key]
+			if items then
+				local edge = if row == 1 then "top" else "bottom"
+				local side = math.max(zoneW[4 + row] or 0, zoneW[12 + row] or 0)
+				local room = if stack[edge]
+					then width
+					elseif side > 0 then math.max(lane, width - 2 * (side + gap))
+					else width
+				local widest, total, lineW, lineH = 0, -gap, -1, 0
+				for _, item in items do
+					if lineW >= 0 and lineW + gap + item.x <= room then
+						lineW += gap + item.x
+						lineH = math.max(lineH, item.y)
+					else
+						if lineW >= 0 then
+							widest = math.max(widest, lineW)
+							total += gap + lineH
+						end
+						lineW, lineH = item.x, item.y
+					end
+				end
+				widest = math.max(widest, lineW)
+				total += gap + lineH
+				zoneW[key], zoneH[key] = widest, total
 			end
 		end
 		local failing: { [number]: boolean } = {}
@@ -196,7 +244,7 @@ local function resolve(
 				table.insert(overflow, index)
 			end
 			table.sort(overflow)
-			return forms, landed, shift, overflow
+			return forms, landed, shift, overflow, { top = zoneW[9] or 0, bottom = zoneW[11] or 0 }
 		end
 		local region = regions[chosen]
 		if forms[chosen] < #region.sizes then

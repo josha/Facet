@@ -3,7 +3,10 @@
 Region zones, ranking, stacking and stable HUD layout.
 
 - `zone` is required: `topLeft`, `top`, `topRight`, `left`, `center`,
-  `right`, `bottomLeft`, `bottom`, `bottomRight` or `topbar`.
+  `right`, `bottomLeft`, `bottom`, `bottomRight` or `topbar`. Give two
+  readouts that share a sight line, such as level progress and a timed goal,
+  their own regions in one `top` or `bottom` zone. They show side by side
+  when the row has room.
 - `rank` is required: a whole number, 1 or more. Rank 1 is the most
   important region.
 - `mayDrop`: when `true`, the region can hide completely after its last form.

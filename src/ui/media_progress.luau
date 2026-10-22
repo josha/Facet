@@ -175,6 +175,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end
 
 			local measured = Compose.cell(V2.zero)
+			local function spansFill(use: ComposeTypes.Use): boolean
+				local package = read(ctx.config.theme, use)
+				local recipe = if package
+					then ((package.chrome or {}) :: { [string]: Theme.SkinLayer }).barFill
+					else nil
+				return recipe ~= nil and recipe.span == "fill"
+			end
 			local function ornament(slot: string, use: ComposeTypes.Use): (number, number)
 				local package = read(ctx.config.theme, use)
 				local recipe = if package then ((package.chrome or {}) :: { [string]: Theme.SkinLayer })[slot] else nil
@@ -295,6 +302,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					local fillIndex = tonumber(string.match(fill.Name, "%d+$")) :: number
 					skin(fill :: Frame, "barFill", {
 						Size = function(use: ComposeTypes.Use)
+							if spansFill(use) then
+								return D2.fromScale(1, 1)
+							end
 							local fraction = if indeterminate
 								then 0.3
 								else math.clamp(use(progress) * count - (fillIndex - 1), 0, 1)
@@ -302,12 +312,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 							return if vertical(use) then D2.fromScale(1, scale) else D2.fromScale(scale, 1)
 						end,
 						AnchorPoint = function(use: ComposeTypes.Use)
-							return if reversed(use)
+							return if reversed(use) and not spansFill(use)
 								then (if vertical(use) then V2.new(0, 1) else V2.new(1, 0))
 								else V2.new(0, 0)
 						end,
 						Position = function(use: ComposeTypes.Use)
-							return if reversed(use)
+							return if reversed(use) and not spansFill(use)
 								then (if vertical(use) then D2.fromScale(0, 1) else D2.fromScale(1, 0))
 								else D2.fromScale(0, 0)
 						end,

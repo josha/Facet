@@ -1,5 +1,6 @@
 --!strict
 local Types = require("./types")
+local Media = require("./media_types")
 local Engine = require("./engine_types")
 
 export type SpaceStep = Types.SpaceStep
@@ -14,6 +15,7 @@ export type Axis = "x" | "y" | "xy"
 export type StackOptions = {
 	padding: Types.Value<Padding>?,
 	surface: ("surface" | "panel" | "pane")?,
+	status: Types.Value<Media.Status?>?,
 	width: Types.Value<Extent>?,
 	maxWidth: Types.ValueNumber?,
 	height: Types.Value<Extent>?,

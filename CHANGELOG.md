@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- The `top` and `bottom` Composition zones put their regions side by side in
+  rows. A region wraps to a new row only when it does not fit beside the
+  regions before it. Before, every zone stacked its regions vertically, so
+  two short readouts in `top` took two rows on a wide screen.
+- A stack with `surface = "panel"` applies the theme's `chrome.panel` recipe,
+  as Dialog and Alert do. A theme can give HUD panels a shadow with
+  `chrome.panel = { kind = "native", shadow = "raised" }`.
+- Stacks accept `status`. The plate takes the status colour, and text, icons
+  and ProgressView bars inside it take the readable partner colour.
+- A `barFill` recipe accepts `span = "fill"`: the fill art is sized to the
+  filled length instead of the track, so tapered art keeps both ends.
 - A stack with a rounded `surface` keeps its content clear of its corners: when
   both paddings at a corner are less than the theme corner radius, the larger
   grows to the radius. A progress bar in a short pill no longer runs into the

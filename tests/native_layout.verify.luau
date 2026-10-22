@@ -267,6 +267,77 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("stack surface chrome and status", function()
+		type Status = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
+		local styleRules = require("./lib/style_rules")
+
+		verifyHarness:case("gives a panel stack the theme's panel chrome, such as its shadow", {
+			id = "native_layout::stack surface chrome and status::gives a panel stack the theme's panel chrome, such as its shadow",
+			run = function()
+				local package = Facet.themes.neutralPackage()
+				assert(package.chrome).panel = { kind = "native" :: "native", shadow = "raised" }
+				local panel, _, stop = build({ theme = package }, function(UI: FacetControls)
+					return UI.VStack "Card" { surface = "panel", padding = "m", UI.Text { text = "A" } }
+				end)
+				Verify.expect(panel:FindFirstChildWhichIsA("UIShadow") ~= nil):toBe(true)
+				stop()
+				local plain, _, stopPlain = build({ theme = package }, function(UI: FacetControls)
+					return UI.VStack "Plain" { padding = "m", UI.Text { text = "A" } }
+				end)
+				Verify.expect(plain:FindFirstChildWhichIsA("UIShadow")):toBe(nil)
+				stopPlain()
+				local bare, _, stopBare = build(nil, function(UI: FacetControls)
+					return UI.VStack "Bare" { surface = "panel", padding = "m", UI.Text { text = "A" } }
+				end)
+				Verify.expect(bare:FindFirstChildWhichIsA("UIShadow")):toBe(nil)
+				stopBare()
+			end,
+		})
+
+		verifyHarness:case(
+			"tints a status stack and the text, icons and progress inside it, and follows a status change",
+			{
+				id = "native_layout::stack surface chrome and status::tints a status stack and the text, icons and progress inside it, and follows a status change",
+				run = function()
+					local status = Compose.cell("warning" :: Status?)
+					local root, engine, stop, runtime = build(nil, function(UI: FacetControls)
+						return UI.VStack "Tag" {
+							surface = "panel",
+							status = status,
+							padding = "s",
+							UI.VStack "Inner" {
+								UI.Text "Count" { text = "5 / 20" },
+								UI.ProgressView "Bin" { value = 0.5 },
+							},
+						}
+					end)
+					local _, sheet = runtime.mount(function()
+						return Facet.themes.createStyleSheet(
+							runtime,
+							Facet.themes.neutralPackage(),
+							{ types = engine.types }
+						)
+					end, engine.new("Folder"))
+					local count = root:FindFirstChild("Count", true)
+					local fill = root:FindFirstChild("Fill1", true)
+					Verify.expect(root:HasTag("facet-status-surface")):toBe(true)
+					Verify.expect(root:HasTag("facet-status-warning")):toBe(true)
+					Verify.expect(styleRules.resolve(sheet, root, "BackgroundColor3")):toBe("$FacetColor_warning")
+					Verify.expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_onWarning")
+					Verify.expect(styleRules.resolve(sheet, fill, "BackgroundColor3")):toBe("$FacetColor_onWarning")
+					status:set("success")
+					Verify.expect(root:HasTag("facet-status-warning")):toBe(false)
+					Verify.expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_onSuccess")
+					status:set(nil)
+					Verify.expect(root:HasTag("facet-status-surface")):toBe(false)
+					Verify.expect(root:HasTag("facet-status-success")):toBe(false)
+					Verify.expect(styleRules.resolve(sheet, count, "TextColor3")):toBe("$FacetColor_content")
+					stop()
+				end,
+			}
+		)
+	end)
+
 	verifyHarness:suite("phone layout policy", function()
 		verifyHarness:case("reserves a visible horizontal scroll hint below overflowing genre chips", {
 			id = "native_layout::phone layout policy::reserves a visible horizontal scroll hint below overflowing genre chips",

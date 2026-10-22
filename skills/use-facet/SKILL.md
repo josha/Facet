@@ -147,6 +147,15 @@ that same copy and use the returned Facet table throughout the context.
   apply the safe area. Captioned circles suit recognizable icons; labeled buttons
   suit commands that need words. Keep navigation and readouts distinct in one
   Composition. Open `HUD-actions` for sizing and selection.
+- Give each HUD group its own region. Put readouts that share a sight line,
+  such as level progress and a timed goal, in one `top` or `bottom` zone.
+  That zone shows them side by side while the row has room and wraps a region
+  to a new row when it does not. Do not stack two groups in one region.
+- Give HUD panels depth and state through the theme. A theme
+  `chrome.panel = { kind = "native", shadow = "raised" }` gives every
+  `surface = "panel"` stack, Dialog and Alert the shadow. Use
+  `status = "warning"` on a stack for a state, such as a full bag: the plate,
+  its text, icons and bars take the status colours.
 - Give each region forms from the richest to the narrowest. The narrowest
   form must fit a portrait phone, about 320 pixels wide. For example, a row of
   buttons, then the main button over the others, then one column. Let the

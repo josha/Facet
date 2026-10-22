@@ -3,8 +3,14 @@
 Region measurement, authored sizes and layout boundaries.
 
 - A zone is a native Frame with an `AnchorPoint` and a scale `Position` at
-  its edge or corner. It hugs its regions and stacks them
-  in declaration order with a `UIListLayout`.
+  its edge or corner. A corner, side or `center` zone hugs its regions and
+  stacks them in declaration order with a `UIListLayout`.
+- The `top` and `bottom` zones put their regions side by side in declaration
+  order, in rows that are centred. A region goes to a new row only when it
+  does not fit beside the regions before it in the room of the zone. The zone
+  is as wide as its widest row. Its height is the height of its rows and the
+  `gap` between them. A native `UIListLayout` with `Wraps` makes the rows.
+  Landed `topbar` regions are one column at the start of the `top` row.
 - The screen has three lanes of equal width: left, center and right. A side
   zone stays at its edge. In the top and bottom rows, when the center zone of
   that row is empty, a corner zone can use the width that the other corner

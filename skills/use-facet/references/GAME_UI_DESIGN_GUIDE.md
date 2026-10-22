@@ -79,6 +79,8 @@ Reduce decoration, reflow groups, shorten summaries, then move optional detail.
 Never silently lose a task, its terms, the selected object, or an exit.
 
 Use one `Composition` for competing HUD groups and a `Region` for each group.
+The `top` and `bottom` zones put their regions side by side while the row has
+room, so two readouts use a wide screen and wrap or step down on a phone.
 Lower `rank` numbers have priority. Supply measurable forms from richest to
 smallest; rank alone cannot make an oversized form fit. Use a numeric or hug
 width for a region form, not a fill width that depends on the space being

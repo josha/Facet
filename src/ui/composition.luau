@@ -235,8 +235,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		row: number,
 		gap: Types.Value<Types.Space>,
 		children: { Frame },
-		shift: ComposeTypes.Readable<resolver.Shift>
+		shift: ComposeTypes.Readable<resolver.Shift>,
+		rows: ComposeTypes.Readable<resolver.Rows>
 	): Frame
+		local flowing = column == 2 and row ~= 2
 		local fields: Types.FrameNativeProps = {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
@@ -251,10 +253,25 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					else 0
 				return D2.new((column - 1) / 2, 0, (row - 1) / 2, down)
 			end,
-			Size = D2.new(),
-			AutomaticSize = E.AutomaticSize.XY,
+			Size = function(use: ComposeTypes.Use): UDim2
+				local packed = if flowing then (if row == 1 then use(rows).top else use(rows).bottom) else 0
+				return if packed > 0 then D2.fromOffset(math.ceil(packed), 0) else D2.new()
+			end,
+			AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
+				local packed = if flowing then (if row == 1 then use(rows).top else use(rows).bottom) else 0
+				return if packed > 0 then E.AutomaticSize.Y else E.AutomaticSize.XY
+			end,
 			Host.UIListLayout({
 				SortOrder = E.SortOrder.LayoutOrder,
+				FillDirection = if flowing then E.FillDirection.Horizontal else E.FillDirection.Vertical,
+				Wraps = flowing,
+				ItemLineAlignment = if not flowing
+					then E.ItemLineAlignment.Automatic
+					elseif row == 1 then E.ItemLineAlignment.Start
+					else E.ItemLineAlignment.End,
+				VerticalAlignment = if flowing and row == 3
+					then E.VerticalAlignment.Bottom
+					else E.VerticalAlignment.Top,
 				HorizontalAlignment = if column == 1
 					then E.HorizontalAlignment.Left
 					elseif column == 2 then E.HorizontalAlignment.Center
@@ -358,6 +375,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local zones: { [string]: Frame } = {}
 		local placed: { Frame } = {}
 		local shift: ComposeTypes.Cell<resolver.Shift> = Compose.cell({ top = 0, bottom = 0 } :: resolver.Shift)
+		local rows: ComposeTypes.Cell<resolver.Rows> = Compose.cell({ top = 0, bottom = 0 } :: resolver.Rows)
 		for zone, children in members do
 			local cell = resolver.CELLS[zone]
 			local frame = zoneFrame(
@@ -366,7 +384,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				cell[2],
 				gap,
 				if zone == "top" and landedZone then { landedZone :: Frame, table.unpack(children) } else children,
-				shift
+				shift,
+				rows
 			)
 			zones[zone] = frame
 			table.insert(placed, frame)
@@ -721,7 +740,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					y = math.min(strip.Y - ENGINE_MARGIN, ENGINE_BUTTON),
 				}
 				else nil
-			local chosen, down, moved, overflow = resolver.resolve(
+			local chosen, down, moved, overflow, packed = resolver.resolve(
 				extent.X,
 				extent.Y,
 				kit.spacing(gap, use),
@@ -739,6 +758,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local was = shift:peek()
 			if was.top ~= moved.top or was.bottom ~= moved.bottom then
 				shift:set(moved)
+			end
+			local wrapped = rows:peek()
+			if wrapped.top ~= packed.top or wrapped.bottom ~= packed.bottom then
+				rows:set(packed)
 			end
 			local still: { [Frame]: boolean } = {}
 			for _, index in overflow do
