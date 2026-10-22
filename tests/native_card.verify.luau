@@ -621,6 +621,30 @@ return function(verifyHarness: Verify.Harness)
 		})
 
 		verifyHarness:case(
+			"keeps a laid-out card at its rest height while its lift paint is empty or not yet measured",
+			{
+				id = "native_card::native Card::keeps a laid-out card at its rest height while its lift paint is empty or not yet measured",
+				run = function()
+					local world = stacked(Compose.cell(false))
+					local root = world.find("C")
+					hover(root, true)
+					world.engine.heartbeat:Fire(1 / 60)
+					local paint = world.find("FeedbackPaint")
+					Verify.expect(paint ~= nil):toBe(true)
+					paint.AbsoluteSize = world.V2(230, 12)
+					Verify.expect(root.Size.Y.Offset):toBe(137)
+					settle(world, 0.05)
+					Verify.expect(paint.Visible):toBe(true)
+					paint.AbsoluteSize = world.V2(230, 12)
+					Verify.expect(root.Size.Y.Offset):toBe(137)
+					paint.AbsoluteSize = world.V2(230, 160)
+					Verify.expect(root.Size.Y.Offset):toBe(160)
+					world.stop()
+				end,
+			}
+		)
+
+		verifyHarness:case(
 			"keeps a lifted text card's panel and its color on its paint and clears only the parts inside it",
 			{
 				id = "native_card::native Card::keeps a lifted text card's panel and its color on its paint and clears only the parts inside it",

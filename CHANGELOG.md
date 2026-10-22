@@ -13,6 +13,9 @@
   reduced motion turns on, or the pointer crosses cards quickly) returns to its
   hug height. Before, it could keep `AutomaticSize.None` and collapse to zero
   height, so a list of cards overlapped and a hugging Sheet shrank.
+- A Card lifted inside a layout keeps its rest height in the first frames of
+  the lift. Before, it took the height of the still-empty lift paint for a
+  frame, so its action button flashed above and then below the Card.
 
 - Centered Sheets show Close without a grabber or drag resizing. Docked Sheets
   use a grabber by default; explicit Close replaces it. Hidden grabbers reserve
