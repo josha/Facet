@@ -8,12 +8,16 @@ Inside an app mount, set `local UI = app.UI`.
 UI.Sheet "Sheet" { title = "Details", isPresented = Facet.Compose.cell(true), content = function() return UI.Text { text = "Ready" } end }
 ```
 
-Key options: `detents`, `placement`, `actions`, `closeButton`.
+Key options: `detents`, `placement`, `actions`, `onPresentedChange`.
 
-The content factory takes no arguments. Sheet owns scrolling and Back.
+The content factory takes no arguments and runs when the Sheet is built.
+Changing `isPresented` does not rebuild it. Use Compose branches inside the
+content for changing pages; see [State](State.md). Sheet owns scrolling and Back.
+Use `onPresentedChange` to guard an unsaved draft before accepting dismissal.
 
 Related controls: [Controls](Controls.md).
 
 Open:
 
 - [Sheet.reference](Sheet.reference.md)
+- [Sheet.dismissal](Sheet.dismissal.md)

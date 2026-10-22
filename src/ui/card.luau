@@ -7,6 +7,7 @@ local ContentProps = require("./content_props")
 local ControlTypes = require("./control_types")
 local InputProps = require("./input_props")
 local reducedMotion = require("./motion").reduced
+local feedbackPaint = require("./feedback_paint")
 
 local ACTION_KEYS: { [string]: boolean } = { label = true, icon = true, onActivate = true, enabled = true, busy = true }
 local MENU_KEYS: { [string]: boolean } = { items = true, label = true }
@@ -474,7 +475,17 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			plateLayer :: Types.Child,
 			row :: Types.Child,
 		}
-		local liftScale = Host.UIScale({ Name = "Lift", Scale = scale })
+		local function inLayout(): boolean
+			local parent = root and root.Parent
+			return parent ~= nil and parent:FindFirstChildWhichIsA("UIGridStyleLayout") ~= nil
+		end
+		local liftScale = Host.UIScale({
+			Name = "Lift",
+			Scale = function(use: ComposeTypes.Use): number
+				local factor = use(scale)
+				return if inLayout() then 1 else factor
+			end,
+		})
 		local card = Host.Frame(ctx.props(spec, {
 			"image",
 			"artwork",
@@ -521,19 +532,33 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					return D.new(0, if reveal == "always" then ctx.metric("space.s", use) else -tuck(use))
 				end,
 			}) :: Types.Child,
-			liftScale :: Types.Child,
 			body :: Types.Child,
 			plate :: Types.Child,
+			liftScale :: Types.Child,
+			Compose.show(function(use: ComposeTypes.Use): boolean
+				local active = use(lifting) or use(scale) ~= 1
+				return active and not reduced(use) and inLayout()
+			end, function()
+				feedbackPaint(
+					ctx,
+					assert(root),
+					Host.UIScale { Name = "PaintLift", Scale = scale },
+					{ Size = spec.Size, AutomaticSize = spec.AutomaticSize, reflow = true }
+				)
+				return Compose.fragment(function()
+					return {}
+				end)
+			end) :: Types.Child,
 		}))
 		if not media then
 			ctx.styled(card, "panel")
 			card:AddTag("facet-card-text")
 		end
 		root = card
-		local extent = ctx.observe.AbsoluteSize(card)
+		local extent = if spec.onActivate or spec.controls then ctx.observe.AbsoluteSize(card) else nil
 		if spec.onActivate then
 			local bodyExtent = ctx.observe.AbsoluteSize(body)
-			local ringed = if spec.ringTarget == "media" then ctx.observe.AbsoluteSize(artwork) else extent
+			local ringed = if spec.ringTarget == "media" then ctx.observe.AbsoluteSize(artwork) else assert(extent)
 			local ratio = Compose.formula(function(use: ComposeTypes.Use): number
 				local bodyHeight = use(bodyExtent).Y
 				return if bodyHeight > 0 then use(ringed).Y / bodyHeight else 1
@@ -548,15 +573,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 					local factor = math.max(use(scale), 0.001)
 					local anchor = read(spec.AnchorPoint, use) or ctx.types.Vector2.new(0, 0)
 					local growth = (1 - 1 / factor) / 2
-					return anchor + ctx.types.Vector2.new(growth, growth)
+					return if inLayout() then anchor else anchor + ctx.types.Vector2.new(growth, growth)
 				end,
 			})
 		end
-		local revealExtent = Compose.formula(function(use: ComposeTypes.Use): { body: number }
-			return { body = use(extent).Y }
-		end)
 		if spec.controls then
-			spec.controls.revealExtent = revealExtent
+			local measured = assert(extent)
+			spec.controls.revealExtent = Compose.formula(function(use: ComposeTypes.Use): { body: number }
+				return { body = use(measured).Y }
+			end)
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			if not enabled(use) and entered:peek() then

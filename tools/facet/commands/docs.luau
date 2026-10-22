@@ -7,8 +7,8 @@ local Props = require("../lib/docs_props")
 local USAGE = [[usage: lute run tools/facet docs [path] [--outline] [--search TEXT] [--list]
 
 Start with the map and Design.guide. Read the design guide before UI work.
-Open every task recipe that matches a part of the screen,
-then a card or option node for a missing detail. Do not reread a node in context.
+Read a recipe for the main structure and reuse it across similar pages.
+Open another recipe, card or option node for a missing detail. Do not reread a node in context.
 Each response has a 4096-byte limit. --full uses the same limit.
 Multiple paths return query names only. --search returns paths and summaries.
 

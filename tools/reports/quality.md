@@ -36,7 +36,7 @@ Mount includes startup and a wait for stable geometry. The probe waits for one s
 
 Use the configured overhead report for a paired verdict. Do not infer parity
 with plain from a favorable point ratio. See
-[the evaluation report policy](../../eval/REPORT.md).
+[the run's pass requirements](../../eval/README.md#pass-requirements).
 
 ## Validation commands
 

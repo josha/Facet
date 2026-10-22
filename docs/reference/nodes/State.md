@@ -12,6 +12,23 @@ Use `Compose.show(isOpen, Details)` to mount the Details component while a
 readable boolean is true. Compose owns the branch and cleans it up when false.
 Use `Facet.Compose` from the same Facet root as the app.
 
+A content factory constructs children; it is not a reactive property callback.
+Reading `page:peek()` there chooses only the initial page. For changing content,
+put a Compose branch inside the container:
+
+```luau
+local page = Compose.cell("Garage")
+local function Garage() return UI.Text { text = "Garage" } end
+local function Shop() return UI.Text { text = "Shop" } end
+UI.VStack {
+    Compose.show(function(use: Facet.Use) return use(page) == "Garage" end, Garage),
+    Compose.show(function(use: Facet.Use) return use(page) == "Shop" end, Shop),
+}
+```
+
+Keep `page` in the model. Closing and reopening a surface changes presentation,
+not its child structure. Use navigation controls for a page stack with Back.
+
 In strict Luau, `Facet.Cell<T>` types a writable cell, `Facet.Readable<T>`
 types a value that a `use` call reads, and `Facet.Use` types the `use`
 parameter, `<T>(Facet.Readable<T>) -> T`. When the type checker cannot infer a

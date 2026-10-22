@@ -1,3 +1,0 @@
-I want to bring friends into my party from the hub. Show who's online, racing, or offline, and let me search the list and clear my search. I should be able to invite available friends, see that we're waiting for a reply, and then see whether they accepted or declined. Don't send duplicate invites or invite someone who's offline. Put accepted friends in my party and keep that state when I filter or reopen the panel. Make it work nicely on phones and controllers, and keep everything else.
-
-Make it look sci-fi with a neon HUD. Keep the same sci-fi identity across the hub and every panel.

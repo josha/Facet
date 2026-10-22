@@ -24,6 +24,55 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
 end
 
+add("sheet-guarded-dismissal", {}, function(t)
+	local shown = t.Facet.Compose.cell(true)
+	local accepted, requests, builds = false, 0, 0
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return UI.Sheet {
+			title = "Draft",
+			isPresented = shown,
+			detents = { "medium" } :: { SheetDetent },
+			onPresentedChange = function(nextValue: boolean)
+				requests += 1
+				if accepted then
+					shown:set(nextValue)
+				end
+			end,
+			content = function()
+				builds += 1
+				return UI.TextInput "DraftName" { value = t.Facet.Compose.cell("Unsaved design") }
+			end,
+		}
+	end, { frames = 30 })
+	local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
+	local close = t.find(gui, "Close")
+	local draft = t.find(gui, "DraftName")
+	local virtual = UserInputService:CreateVirtualInput()
+	local point = close.AbsolutePosition + close.AbsoluteSize / 2 + GuiService:GetGuiInset()
+	virtual:SendMousePosition(point)
+	t.settle(2)
+	virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
+	t.settle(2)
+	virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
+	t.settle(12)
+	t.check("Close requests dismissal without discarding the draft", requests == 1 and shown:peek())
+	t.check("rejected Close retains the mounted field", builds == 1 and t.find(gui, "DraftName") == draft)
+	local outside = Vector2.new(8, 300) + GuiService:GetGuiInset()
+	virtual:SendMousePosition(outside)
+	virtual:SendMouseButton(outside, Enum.UserInputType.MouseButton1, true)
+	t.settle(2)
+	virtual:SendMouseButton(outside, Enum.UserInputType.MouseButton1, false)
+	t.settle(12)
+	t.check("outside dismissal uses the same guard", requests == 2 and shown:peek())
+	accepted = true
+	virtual:SendMousePosition(point)
+	virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, true)
+	t.settle(2)
+	virtual:SendMouseButton(point, Enum.UserInputType.MouseButton1, false)
+	t.settle(30)
+	t.check("accepting the request closes the sheet", requests == 3 and not shown:peek())
+end)
+
 local function interactive(
 	id: string,
 	contracts: { string },

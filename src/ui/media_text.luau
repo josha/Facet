@@ -201,6 +201,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if spec.wrap ~= nil then
 			defaults.TextWrapped = spec.wrap
 		end
+		if spec.TextWrapped == true or (spec.TextWrapped == nil and spec.wrap == true) then
+			defaults.Size = D2.fromScale(1, 0)
+			defaults.AutomaticSize = E.AutomaticSize.Y
+		end
 		if spec.direction ~= nil then
 			defaults.TextDirection = DIRECTION[spec.direction]
 		end

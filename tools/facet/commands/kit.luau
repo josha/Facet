@@ -4,6 +4,7 @@ local json = require("@std/json")
 local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local DocsIndex = require("../lib/docs_index")
+local Props = require("../lib/docs_props")
 local Files = require("../lib/files")
 local Hash = require("../lib/hash")
 local Json = require("../lib/json")
@@ -23,8 +24,12 @@ agent can run the author commands there:
   tools/vendor/verify/             Verify (MIT), which the play host and audit use
   tools/typecheck/roblox.d.luau    the pinned Roblox definitions for lint --types
   .agents/skills/                  the use-facet and compose skills
+  StudioDocs/                      the same documentation as native StringValues
 
-Map Packages to ReplicatedStorage.Packages in the Rojo project. The kit refuses
+Map Packages to ReplicatedStorage.Packages in the Rojo project. For Studio-only
+authoring, map StudioDocs to ServerStorage.FacetDocs. Its folders follow the
+source paths; read a document's Value through Studio MCP in Edit mode.
+The kit refuses
 to replace a path that exists in DIR unless you give --force. The Roblox
 definitions come from the cache that lute run tools/facet types writes.]]
 
@@ -32,6 +37,7 @@ local AUTHOR_COMMANDS = { "info", "docs", "project", "lint", "preview", "audit",
 local DEFINITIONS_LOCK = "tools/typecheck/roblox.lock.json"
 local DEFINITIONS_CACHE = "artifacts/verify/types/roblox.d.luau"
 local OWNED = {
+	"StudioDocs",
 	"examples/themes",
 	"Packages/Facet",
 	"docs",
@@ -199,6 +205,18 @@ audit and screenshot paths. Use `--static` when Studio is unavailable.
 	definitions(result)
 	tree(result, "skills/use-facet", ".agents/skills/use-facet")
 	tree(result, "skills/compose", ".agents/skills/compose")
+	for _, source in result.copies do
+		if
+			Files.extension(source) == ".md"
+			and (string.sub(source, 1, 5) == "docs/" or string.sub(source, 1, 7) == "skills/")
+		then
+			result.writes[Files.join("StudioDocs", source .. ".txt")] = Files.text(source)
+		end
+	end
+	for name, options in Props.load(".") do
+		result.writes["StudioDocs/docs/reference/nodes/" .. name .. ".props.md.txt"] = Props.render(name, options)
+	end
+	result.writes["StudioDocs/docs/reference/nodes/Icons.names.md.txt"] = Props.icons(".")
 	return result
 end
 
@@ -339,6 +357,29 @@ local function cases(): { Case.Case }
 				end)
 				local again = write(out, plan(), false)
 				local missingReferences: { string } = {}
+				for _, source in
+					{
+						"skills/use-facet/SKILL.md",
+						"skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md",
+						"docs/reference/nodes/Map.md",
+						"docs/reference/nodes/Tasks.hud.md",
+					}
+				do
+					local target = Files.join(out, "StudioDocs", source .. ".txt")
+					if not Files.isFile(target) or Files.text(target) ~= Files.text(source) then
+						table.insert(missingReferences, "StudioDocs/" .. source)
+					end
+				end
+				for name, options in Props.load(".") do
+					local target = Files.join(out, "StudioDocs/docs/reference/nodes/" .. name .. ".props.md.txt")
+					if not Files.isFile(target) or Files.text(target) ~= Props.render(name, options) then
+						table.insert(missingReferences, name .. ".props")
+					end
+				end
+				local icons = Files.join(out, "StudioDocs/docs/reference/nodes/Icons.names.md.txt")
+				if not Files.isFile(icons) or Files.text(icons) ~= Props.icons(".") then
+					table.insert(missingReferences, "Icons.names")
+				end
 				for _, relative in Files.walk("skills/use-facet/references") do
 					local source = Files.join("skills/use-facet/references", relative)
 					local target = Files.join(out, ".agents/skills/use-facet/references", relative)

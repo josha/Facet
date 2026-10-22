@@ -85,6 +85,7 @@ Use `Sheet` for a temporary task that belongs to the current context: filtering 
 - `scrollPolicy = "always"` keeps body content reachable at each height. `"atLargestDetent"` requires expansion before scrolling; use only when that relationship is clear and the expansion route is accessible.
 - `header` should identify the task. A `hero` may scroll or stay pinned; a large sticky image can steal the working area. `contentInset = "none"` is for content intentionally owning its interior spacing, not a shortcut to make an overcrowded form fit.
 - `actions` are pinned task commands; they do **not** automatically close the sheet. Close after accepted completion when appropriate, and keep rejected work available. `actionLayout` must accommodate full labels and the smallest room.
+- `onPresentedChange` guards dismissal. Leave `isPresented` unchanged while asking whether to discard a dirty draft. Route custom Cancel actions and other exits through the same guard. See `Sheet.dismissal` for the state pattern.
 - `interactiveDismissDisabled` also blocks Back and backdrop dismissal. Use it only when the task requires protection and explicit actions provide a usable way out. Do not trap a player while a failed request remains pending.
 
 Choose the visible exit after checking the built-in routes. A visible grabber on

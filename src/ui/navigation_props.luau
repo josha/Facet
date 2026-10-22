@@ -743,6 +743,7 @@ export type SheetSpec = {
 	ref: typeof(frame.ref),
 	transition: typeof(sheet.transition),
 	isPresented: typeof(sheet.isPresented),
+	onPresentedChange: typeof(sheet.onPresentedChange),
 	detent: typeof(sheet.detent),
 	detents: typeof(sheet.detents),
 	title: typeof(sheet.title),

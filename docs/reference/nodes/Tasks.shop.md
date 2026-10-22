@@ -14,7 +14,7 @@ app.mount(function()
   local spec: Facet.KeyedCollectionSpec<Item, string> = {
     from = { { id = "kart", name = "Kart", price = 250 } }, key = "id",
     mode = "all", measure = true, minColumnWidth = env.scaled(220),
-    itemSize = env.scaled(132), gap = env.scaled(16), VerticalScrollBarInset = Enum.ScrollBarInset.Always,
+    itemSize = env.scaled(132), gap = env.scaled(16),
     Size = function(use) return UDim2.new(1, 0, 0, use(height)) end,
     render = function(row: Facet.Readable<Item>, _, key)
       return UI.Card(key) {
@@ -42,7 +42,7 @@ app.mount(function()
       local grid = UI.VirtualGrid(spec)
       local canvas = app.runtime.observe(grid, "CanvasSize")
       C.watch(function(use) height:set((use(canvas) :: UDim2).Y.Offset) end)
-      return grid
+      return UI.VStack "ShopBody" { width = "fill", grid }
     end }
 end)
 ```

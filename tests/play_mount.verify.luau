@@ -119,6 +119,26 @@ return function(harness: Verify.Harness)
 		t:expect(QA.interfaceMounted({ roots = 1 }, false)):toBe(true)
 		t:expect(QA.interfaceMounted(nil, true)):toBe(false)
 	end)
+	harness:case("device simulation dimensions do not establish a rendered viewport", function(t)
+		t:expect(QA.viewportReady({
+			roots = 39,
+			mounted = true,
+			viewport = { width = 1, height = 1, screenWidth = 1919, screenHeight = 1080 },
+		})):toBe(false)
+		t:expect(QA.viewportReady({
+			viewport = { width = 1919, height = 1080, screenWidth = 1919, screenHeight = 1080 },
+		})):toBe(true)
+		t:expect(QA.viewportReady({
+			viewport = { width = 390, height = 844, screenWidth = 390, screenHeight = 844 },
+		})):toBe(true)
+		for _, size in { 0, -1, math.huge, 0 / 0 } do
+			t:expect(QA.viewportReady({
+				viewport = { width = size, height = 844, screenWidth = 390, screenHeight = 844 },
+			})):toBe(false)
+		end
+		t:expect(QA.viewportReady(nil)):toBe(false)
+		t:expect(QA.viewportReady({ viewport = { screenWidth = 1920, screenHeight = 1080 } })):toBe(false)
+	end)
 	harness:case("report queries intersect filters keep capture IDs and page within a byte bound", function(t)
 		local lines = {
 			"screenshot C:/long/path/desktop/2-shop.png",

@@ -18,23 +18,54 @@ Choose from the player's task, information hierarchy and interaction, then map
 the choice to Facet controls and options. Define compact forms and input behavior
 where affected. Keep the work within the user's scope.
 
+Establish one rendered task before spreading its helpers across the game.
+Give the task's object a focal area, its decision a clear comparison, and its
+main action stronger emphasis than navigation. Use recognizable glyphs with
+labels for compact destinations; keep unfamiliar commands in words. A shared
+button helper must preserve icon, appearance, selected and disabled states.
+Use value controls for choices and navigation controls for pages. Review the
+actual wide and compact composition before reusing it; a column of commands
+does not establish the game's visual language.
+
 ## Find implementation details
 
-After the design guide, use `lute run tools/facet docs` for `Map`. Open every task recipe that
-matches a part of the screen. For a HUD with a shop, open `Tasks.hud` and
-`Tasks.shop`. For a panel with child pages, also open `Tasks.sheet`.
-Open a control card or option node only for a missing detail: `docs <path>`.
-Use `docs <Control>.props` for typed options and defaults and `docs Icons.names`
+Use the project's existing authoring path. In a filesystem project, saved
+files are the source of truth. In Studio-only work, edit the persistent scripts
+in the Edit data model with the available Studio tools; Play changes are
+temporary. Locate the installed Facet module before choosing its require path.
+If it is missing, use the project's supported package installation path.
+
+After the design guide, read `docs/reference/nodes/Map.md` from the supplied
+documentation. When the place includes `ServerStorage.FacetDocs`, its folders
+follow these paths and its StringValues hold the document text. Read their
+`Value` through the Studio tools. A reference such as `Tasks.hud` means
+`docs/reference/nodes/Tasks.hud.md`. If the reference is not
+accessible, request access rather than guessing signatures. Read the
+recipe for the main structure, then another only when it supplies a missing
+pattern. For a HUD with a shop, `Tasks.hud` and `Tasks.shop` cover the two
+structures. Reuse those patterns across similar pages. A long feature list
+does not require reading every recipe before building.
+Open a control card or option node only for a missing detail.
+Use `<Control>.card` for a control's entry point,
+`<Control>.props` for typed options and defaults, and `Icons.names`
 for icon names. Learn Facet and its
 tools from the docs, not from their source. Read the source only to diagnose a
 suspected Facet bug, when observed behavior contradicts a doc node. Name that
 behavior and node first, then report the gap.
-Use `docs --search TEXT` to find paths and one-line summaries.
-Never reread a node already in context. Each call returns one bounded node.
-Use `project [directory]` for file discovery. Read one matching starter in
+Never reread a node already in context. Read one bounded node at a time.
+Read one matching starter in
 `examples/blocks/` only if the recipe does not fit.
 
 ## Build
+
+Use one Compose copy and one owned scene tree in each execution context.
+Facet controls and native `Host` objects belong to that tree; branches and
+portals keep their ownership when they render elsewhere. Do not maintain a
+parallel imperative UI tree. The client and server have separate roots.
+Roblox still owns physics, replication and engine-created objects.
+For a new game, use `Facet.Compose` and `Facet.Roblox`. If the game already
+uses Compose, bind Facet once with `Facet.bind(Compose, ComposeRoblox)` from
+that same copy and use the returned Facet table throughout the context.
 
 - Make one `Facet.app({ name, parent })` and one `app.mount(component)`.
   Use `app.UI` for controls. Name `app.runtime.constructors` `Host` for native
@@ -60,7 +91,15 @@ Use `project [directory]` for file discovery. Read one matching starter in
   text card with a title, a caption and a primary action. Do not draw these with native Frames, list
   layouts and fixed sizes: a copy does not get the theme, scaled metrics,
   reduced motion, accessible names or compact forms. Use `Host` objects only
-  for content that no control shows, such as a minimap, a 3D view or art.
+  for content that no control shows, such as a minimap or custom art.
+  When appearance is the decision, show the actual object with `UI.Stage`.
+  Read `Stage.card` for its owned camera and content pattern.
+  Bind the preview's visible properties to the draft;
+  a text summary does not replace a preview of color, shape or decoration.
+  Use `Callout` for guidance attached to a live action, `RadialMenu` for a
+  wheel of quick choices, and `Slider` or `Toggle` for settings. Read their
+  cards when those tasks are required; generic Sheets and buttons do not
+  supply their anchoring, input, or value-editing behavior.
 - When a control does not have an option that the game needs, such as a
   color for each segment, add the option to Facet or a rule to the theme and
   report it. Do not replace the control with native objects. Before you
@@ -71,16 +110,29 @@ Use `project [directory]` for file discovery. Read one matching starter in
   Read cells with `use(cell)` in property functions and `cell:peek()` in
   callbacks. Write with `cell:set(value)` or `cell:update(fn)`.
   Use `function(use: Facet.Use)` when a property reads different cell types.
+  Type shared state and reusable helper arguments before using them across
+  screens. Use `Facet.ValueString`, `Facet.TextRole` and `Facet.Activate`
+  for the corresponding helper arguments. Give collection specs their row
+  and key types. Check these shared pieces before expanding the UI;
+  one untyped helper can produce errors at every call. See `Types.reactive`.
 - Use VirtualList, VirtualGrid or Table for interactive collections. Keep
   durable row state in the model. The server owns game state and validates
-  requests. Show the result that the server returns.
+  requests. Bind accepted values to the current server model, not a copy taken
+  when the panel opened. Keep editable drafts separate. Sending a request is
+  pending; update accepted state and mark the draft saved only after acceptance.
+  Guard dirty Sheet dismissal with `onPresentedChange`, using one decision for
+  Close, Back, outside press, and drag; read `Sheet.dismissal`. Disabling a
+  dismissal route does not implement a discard confirmation.
 - The theme owns paint, type, spacing and motion. Turn the art direction of
   the brief into a theme with `Tasks.theme`: palette roles, readable type and
   surfaces that stay visible over the scene. Use quiet boundaries to group
   items and stronger emphasis for the current action or selection.
   Use `textRole`, `appearance`, `gap` and `padding` tokens. Give a padding
-  table a type first: `local inset: Facet.Sides = { top = "xl" }`. Use `wrap = true` for long text in
-  a stack with `width = "fill"`. Do not set `TextScaled`.
+  table a type first: `local inset: Facet.Sides = { top = "xl" }`.
+  Wrapped text fills its parent width and grows vertically. Give its parent
+  a numeric width, or `width = "fill"` inside a bounded parent. Let short
+  readouts hug their text; do not set `wrap = true` in a helper for every label.
+  Do not set `TextScaled`.
 - Keep core-safe HUD groups in one Composition. Facet warns when two
   Compositions on one screen place regions in the same zone. Use stable
   region widths and smaller forms before you let a region drop. Use
@@ -90,7 +142,9 @@ Use `project [directory]` for file discovery. Read one matching starter in
   zone by hand.
   Add a type role, `scaled(64, "body")`, when the length sits beside text.
 - Use `Tasks.hud` as a starting point. Choose zones from the game's sight lines
-  and controls. Captioned circles suit recognizable icons; labeled buttons
+  and controls. Consider `topRight` below the engine top bar for secondary
+  navigation; preserve its destinations in a compact Menu. Let Composition
+  apply the safe area. Captioned circles suit recognizable icons; labeled buttons
   suit commands that need words. Keep navigation and readouts distinct in one
   Composition. Open `HUD-actions` for sizing and selection.
 - Give each region forms from the richest to the narrowest. The narrowest
@@ -104,7 +158,7 @@ Use `project [directory]` for file discovery. Read one matching starter in
   a `topbar` region. Use `leading = true` to put it beside the Roblox buttons.
   Open `Composition.regions` for options and `Composition.adaptation` for strip
   layout. Open `Composition.layout.step-down` for fallback and fit warnings.
-  Use one `docs <path>` call for each node that you need.
+  Read one referenced node for each missing detail.
 - Let a text box hug its text, or use `textSize = { fit = ... }` in a box of
   fixed size. A label can be twice as long in another language.
 - A bar `ProgressView` fills the width of its container. In a box that hugs
@@ -123,6 +177,10 @@ Use `project [directory]` for file discovery. Read one matching starter in
   `UI.environment().thumbTarget`, not from the screen width.
   Open `Button.appearance` for `target`, `environment.environment` for
   `thumbTarget` or `Themes.metrics` for theme options.
+  Show gameplay commands only in the states where they apply. Core safe
+  insets do not reserve Roblox's movement or Jump controls. Keep secondary
+  navigation above that area and reserve the lower corners for active input.
+  Read `Tasks.safe-layout` before placing readouts or custom controls there.
 - Use native InputAction and InputContext for game commands. Controls own
   their input and selection. Do not bind Escape or the gamepad Start button.
 - Get every string that a player sees from a localization key, fixed words
@@ -140,19 +198,21 @@ Use `project [directory]` for file discovery. Read one matching starter in
 
 ## Check
 
-For the first implementation, run `lute run tools/facet verify --static` and fix
-its errors. Check the first live mount with `verify --device desktop --tap TEXT...`.
-The live command runs strict types, usage lint, a Rojo build, audit and screenshots.
-Give one `--tap` for each control in the path to a screen. Without `--device`,
-it uses one capture session across all five devices. It prints only problems
-and screenshot paths.
-During repairs, use `--device ID` to check the affected device. Run one complete
-final sweep without `--device`. Use the printed `verify --report` queries to
-read findings. Add `--step ID` for one capture. Do not read the full report.
-Inspect those screenshots and fix high and medium findings. Repeat checks only
-after changes or an unresolved problem; separate audit and preview calls are
-not needed for the same screens. Do not read dump files. If Studio is
-unavailable, report that limit once and use `verify --static`.
+Use Script Analysis, Output, Play, device emulation, and
+the input and capture tools available to the assistant. Check the first mount,
+then open and operate each distinct shared pattern before copying it across
+tasks. A successful HUD mount does not test a preview or an unopened panel.
+For each command, check the promised game effect as well as its label: changing
+a setting or selection must change the corresponding sound, view, or game object.
+Complete, cancel, and reopen the affected tasks at wide and compact sizes
+with the supported inputs. Fix errors in the persistent Edit scripts and start
+a fresh Play session to verify them. Confirm that the changes remain after
+Play stops. Report checks the available tools cannot perform; do not claim the
+filesystem verifier ran. Save the place through the project's normal workflow.
+
+For projects with saved source files and shell tools, use the
+[filesystem workflow](references/FILESYSTEM_WORKFLOW.md).
+
 Review the rendered result against the design guide: hierarchy, overlap,
 legibility, compact forms, reachable actions and truthful feedback. Passing
 technical checks alone does not establish design quality.
@@ -160,15 +220,12 @@ For temporary surfaces, list the built-in dismissal routes before adding Close,
 Cancel or Done. Remove duplicate visible exits that add no task value, while
 preserving a discoverable route for each input. Check the grabber's actual
 behavior at every detent; a drag indicator alone does not prove dismissal works.
-The tools remove a UTF-8 BOM from application Luau files before engine tools
-read them. In Windows PowerShell 5.1 use `Set-Content -Encoding utf8`.
 
 ## Keep context small
 
 Read only the affected function or line range after an edit. Keep UI components
 in separate modules so a local change needs a local read. Do not print a whole
-source file to prepare a Studio update. Use the project's sync path when one is
-available. Otherwise transfer each module once, then patch only the changed
+source file to prepare a Studio update. In Studio, patch only the changed
 section through `execute_luau`. Check the match count before changing Source.
 Return a short status, not the updated source.
 

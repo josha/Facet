@@ -2513,7 +2513,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	},
 	Sheet = {
 		family = "overlays",
-		demonstrates = { "isPresented", "transition" },
+		demonstrates = { "isPresented", "transition", "onPresentedChange" },
 		matrix = false,
 		alias = "Sheet (Root · Header · Content · Actions · FullBleed)",
 		purpose = "A draggable panel with detents; bottom, side, centre or adaptive placement.",
@@ -2609,6 +2609,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			return trigger(c, "Show sheet", function(open)
 				p.isPresented = open
+				p.onPresentedChange = function(nextValue: boolean)
+					c.log("presentation requested")(nextValue)
+					open:set(nextValue)
+				end
 				return UI.Sheet(p)
 			end)
 		end,

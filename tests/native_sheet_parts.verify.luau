@@ -75,6 +75,52 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native Sheet: placement, width, title and close", function()
+		verifyHarness:case("lets the model reject and later accept dismissal without rebuilding the draft", {
+			id = "native_sheet_parts::guarded-dismissal",
+			run = function()
+				for _, route in { "Close", "Grabber", "ModalBack", "DismissTarget", "Drag", "SideDrag" } do
+					local shown = Compose.cell(true)
+					local accept, requests = false, 0
+					local w = mount({
+						detents = { "medium" },
+						placement = if route == "SideDrag" then "side" else "bottom",
+						onPresentedChange = function(nextValue: boolean)
+							Verify.expect(nextValue):toBe(false)
+							requests += 1
+							if accept then
+								shown:set(nextValue)
+							end
+						end,
+					}, { shown = shown, motionLevel = "none" })
+					local body = w.find("Copy")
+					local function dismiss()
+						if route == "ModalBack" then
+							w.action(route).Pressed:Fire()
+						elseif route == "Drag" or route == "SideDrag" then
+							w.tick(0.5)
+							local drag = w.find("Grabber"):FindFirstChildWhichIsA("UIDragDetector")
+							drag.DragStart:Fire(w.Vector2.new(0, 0))
+							drag.DragContinue:Fire(
+								if route == "SideDrag" then w.Vector2.new(500, 0) else w.Vector2.new(0, 500)
+							)
+							drag.DragEnd:Fire()
+						else
+							w.find(route).Activated:Fire()
+						end
+					end
+					dismiss()
+					Verify.expect(requests == 1):toBeTrueWith(route .. " should request dismissal once")
+					Verify.expect(shown:peek()):toBe(true)
+					Verify.expect(w.find("Copy")):toBe(body)
+					Verify.expect(w.builds()):toBe(1)
+					accept = true
+					dismiss()
+					Verify.expect(requests):toBe(2)
+					Verify.expect(shown:peek()):toBe(false)
+					w.stop()
+				end
+			end,
+		})
 		verifyHarness:case("keeps background input blocked through a nested Sheet", {
 			id = "native_sheet_parts::nested-modal-native-input",
 			run = function()

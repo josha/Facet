@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "id": "run",
+  "title": "run",
+  "tier": "game",
+  "brief": "brief.md",
+  "starter": "starter",
+  "budgets": {
+    "wallSeconds": 1800
+  },
+  "checks": [
+    {
+      "id": "submission",
+      "kind": "verify",
+      "argv": [
+        "lute",
+        "run",
+        "{task}/../../../tools/facet",
+        "facetbench",
+        "check-submission",
+        "--evidence",
+        "{evidence}",
+        "--report",
+        "{report}",
+        "--run",
+        "{run}"
+      ],
+      "required": true,
+      "deadlineSeconds": 180
+    },
+    {
+      "id": "play",
+      "kind": "verify",
+      "argv": [
+        "lute",
+        "run",
+        "{evidence}/evaluation/player.luau",
+        "--place",
+        "{evidence}/submission/game.rbxl",
+        "--outputs",
+        "{outputs}",
+        "--captures",
+        "{captures}",
+        "--report",
+        "{report}",
+        "--run",
+        "{run}",
+        "--scores",
+        "{scores}",
+        "--devices",
+        "{devices}",
+        "--tier",
+        "universal"
+      ],
+      "after": [
+        "submission"
+      ],
+      "deadlineSeconds": 7200,
+      "scores": true,
+      "required": true
+    },
+    {
+      "id": "submission-unchanged",
+      "kind": "verify",
+      "argv": [
+        "lute",
+        "run",
+        "{task}/../../../tools/facet",
+        "facetbench",
+        "check-submission",
+        "--evidence",
+        "{evidence}",
+        "--report",
+        "{report}",
+        "--run",
+        "{run}"
+      ],
+      "after": [
+        "play"
+      ],
+      "required": true,
+      "deadlineSeconds": 180
+    }
+  ]
+}

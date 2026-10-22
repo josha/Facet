@@ -25,6 +25,16 @@ Give a collection spec `Facet.KeyedCollectionSpec<Item, string>` so the checker
 can report the wrong field. Native properties take native values, cells or
 property callbacks; keep the same value type in every branch.
 
+A reusable helper needs the same argument types as the control. For example,
+use `Facet.ValueString` for reactive text, `Facet.TextRole?` for an optional type
+role, and `Facet.Activate` for a button callback. A plain `string` permits values
+that are not type roles. An untyped collection helper loses its row and key
+types; keep `Facet.KeyedCollectionSpec<Item, string>` at that boundary.
+Define the state record before creating a cell with empty maps or optional
+fields: `local state: Facet.Cell<State> = Facet.Compose.cell(initialState)`.
+Check shared helpers before using them across screens so one inference failure
+does not become errors throughout the application.
+
 Open:
 
 - [Types](Types.md)

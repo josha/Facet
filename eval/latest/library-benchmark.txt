@@ -1,0 +1,19 @@
+Compose: pinned dependency verified 185bc974fc2ba6b153fd6af047419fe7687ebad4
+  billboard-nameplate-storm: p50=0.0569ms p95=0.0708ms norm=0.097 vs-base=0.15x heapNet=-151KB(swing 9372KB)
+  collection-mutation: p50=0.0050ms p95=0.0112ms norm=0.015 heapNet=-3814KB(swing 9378KB)
+  hud-binding-storm: p50=0.2024ms p95=0.2321ms norm=0.319 heapNet=5075KB(swing 26359KB)
+  motion-declarative: p50=0.6317ms p95=0.8791ms norm=1.207 heapNet=22551KB(swing 33752KB)
+  motion-explicit: p50=0.6361ms p95=0.8687ms norm=1.193 heapNet=-5609KB(swing 38660KB)
+  mount-ramp: p50=90.1465ms p95=95.1697ms norm=130.719 heapNet=52083KB(swing 52391KB)
+  mount-ramp-inherited: p50=89.9717ms p95=93.9279ms norm=129.013 heapNet=1684KB(swing 20495KB)
+  mounted-slice-update-storm: p50=0.1042ms p95=0.1140ms norm=0.157 vs-base=0.18x heapNet=13951KB(swing 20507KB)
+  settings-churn: p50=0.0085ms p95=0.0308ms norm=0.042 heapNet=-45783KB(swing 51810KB)
+  sparse-update-under-load: p50=0.0013ms p95=0.0014ms norm=0.002 heapNet=1004KB(swing 1004KB)
+  table-mutation: p50=1.2697ms p95=2.0480ms norm=2.813 vs-base=0.54x heapNet=48514KB(swing 71008KB)
+  table-resize-drag: p50=2.4339ms p95=3.3576ms norm=4.612 vs-base=0.14x heapNet=36592KB(swing 64235KB)
+  textinput-typing-storm: p50=0.0812ms p95=0.1272ms norm=0.175 vs-base=0.23x (p50 gate) heapNet=-69929KB(swing 78346KB)
+  NOTE: on 12/13 scenes the heap SWING exceeds the heap NET. This host
+        cannot force a collection, so a heap number is allocation churn plus
+        collector phase — not retention. Compare nets across runs; never read one sign.
+  zz-yardstick-cpu: 0.7280ms (before 0.7270, after 0.7291, drift 0.3%)
+bench: PASS (artifacts/bench.json)

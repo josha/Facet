@@ -13,7 +13,10 @@ Console preview uses gamepad selection and the ten-foot environment. A preview
 is live engine evidence, not a physical device test.
 
 The command prints the expected duration before the checks start. Wait for
-the verdict. Each device has one capture summary with a project-relative
+the verdict before editing source or starting another live check. If the shell
+returns a running process handle, poll that handle. Concurrent runs compete for
+Studio and can collide in the output directory; a new `--out` does not replace
+waiting. Each device has one capture summary with a project-relative
 directory, such as `desktop: 8 captures in artifacts/facet-verify/live/captures/desktop`.
 Every capture is kept. Audit output groups repeated findings. The verdict is
 `verify: PASS` or `verify: FAIL`.

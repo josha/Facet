@@ -3,8 +3,8 @@
 local Verify = require("../tools/vendor/verify/src/core")
 local Lute = require("../tools/vendor/verify/src/lute")
 local Engine = require("./lib/native_engine")
-local Rules = require("../eval/tasks/racing-hub/starter/src/shared/RaceRules")
-local Opponents = require("../eval/tasks/racing-hub/starter/src/shared/Opponents")
+local Rules = require("../examples/facet-kart/src/shared/RaceRules")
+local Opponents = require("../examples/facet-kart/src/shared/Opponents")
 type RoundService = {
 	start: () -> (),
 	setAutomatic: (boolean) -> (),
@@ -75,14 +75,14 @@ local function roundFixture(): (RoundService, () -> number)
 			return if name == "Players"
 				then players
 				else {
-					Shared = loader.reference("eval/tasks/racing-hub/starter/src/shared"),
+					Shared = loader.reference("examples/facet-kart/src/shared"),
 					WaitForChild = function()
 						return remotes
 					end,
 				}
 		end,
 	}
-	local service = loader.require("eval/tasks/racing-hub/starter/src/server/RoundService") :: RoundService
+	local service = loader.require("examples/facet-kart/src/server/RoundService") :: RoundService
 	service.start()
 	service.setAutomatic(false)
 	return service, function()
@@ -119,10 +119,10 @@ local function world(theme: string?): ({ BasePart }, Lighting)
 		GetService = function(_self: unknown, name: string): unknown
 			return if name == "Lighting"
 				then lighting
-				else { Shared = loader.reference("eval/tasks/racing-hub/starter/src/shared") }
+				else { Shared = loader.reference("examples/facet-kart/src/shared") }
 		end,
 	}
-	local builder = loader.require("eval/tasks/racing-hub/starter/src/server/World") :: { build: () -> () }
+	local builder = loader.require("examples/facet-kart/src/server/World") :: { build: () -> () }
 	builder.build()
 	local parts: { BasePart } = {}
 	for _, object in workspace:GetDescendants() do
@@ -153,7 +153,7 @@ return function(harness: Verify.Harness)
 		local globals: { [string]: unknown } = { Vector3 = Engine.types.Vector3, CFrame = Engine.types.CFrame }
 		local loader = Lute.loader.new({ globals = globals })
 		local track =
-			loader.require("eval/tasks/racing-hub/starter/src/shared/RaceTrack") :: typeof(require("../eval/tasks/racing-hub/starter/src/shared/RaceTrack"))
+			loader.require("examples/facet-kart/src/shared/RaceTrack") :: typeof(require("../examples/facet-kart/src/shared/RaceTrack"))
 		local size = Engine.types.Vector3.new(7.6, 2, 7)
 		local reach = 2 * math.sqrt((size.X / 2) ^ 2 + (size.Z / 2) ^ 2)
 		for _, seed in { 20261015, 17, 923 } do
@@ -391,7 +391,7 @@ return function(harness: Verify.Harness)
 		local globals: { [string]: unknown } = { Vector3 = Engine.types.Vector3, CFrame = Engine.types.CFrame }
 		local loader = Lute.loader.new({ globals = globals })
 		local track =
-			loader.require("eval/tasks/racing-hub/starter/src/shared/RaceTrack.luau") :: typeof(require("../eval/tasks/racing-hub/starter/src/shared/RaceTrack"))
+			loader.require("examples/facet-kart/src/shared/RaceTrack.luau") :: typeof(require("../examples/facet-kart/src/shared/RaceTrack"))
 		local grid = Opponents.create(1, track.seed)
 		t:expect(track.progress(track.frame(grid.progress, grid.lane).Position) < 1 / track.checkpoints):toBe(true)
 		t:expect((track.point(0) - track.point(1)).Magnitude < 0.0001):toBe(true)

@@ -1,3 +1,0 @@
-I've messed around with my settings and want an easy way to put everything back to the defaults. Ask before resetting, and let me cancel without changing anything. Show when changes are saving and when they actually saved, including ordinary edits. If saving fails, tell me instead of pretending it worked. When I come back, show the settings the game really kept. Make the confirmation easy to use on touch and controller and keep everything else working.
-
-Make it look sci-fi with a neon HUD. Keep the same sci-fi identity across the hub and every panel.

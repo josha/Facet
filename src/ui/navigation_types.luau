@@ -295,6 +295,7 @@ export type SheetDetent =
 export type SheetOptions = {
 	transition: Transition | false?,
 	isPresented: ComposeTypes.Cell<boolean>,
+	onPresentedChange: ((boolean) -> ())?,
 	detent: (ComposeTypes.Cell<string> | string)?,
 	detents: { SheetDetent }?,
 	title: Types.ValueString?,

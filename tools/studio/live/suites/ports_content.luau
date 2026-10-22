@@ -10,6 +10,127 @@ local function add(id: string, contracts: { string }, run: (any) -> ())
 	table.insert(cases, { id = id, contracts = contracts, run = run })
 end
 
+add("stage-draft-preview", {}, function(t)
+	local color = t.Facet.Compose.cell(Color3.fromRGB(40, 210, 230))
+	local root = t.mount(function(UI)
+		return UI.Stage "Preview" {
+			Size = UDim2.fromOffset(320, 180),
+			camera = CFrame.lookAt(Vector3.new(4, 3, 6), Vector3.zero),
+			content = function(runtime, world)
+				local Host = runtime.constructors
+				local part = Host.Part "Object" {
+					Anchored = true,
+					Size = Vector3.new(2, 2, 2),
+					Color = color,
+				}
+				part.Parent = world
+				return nil
+			end,
+		}
+	end, { frames = 30 })
+	local preview = t.find(root, "Preview")
+	local camera = preview.CurrentCamera
+	local part = t.find(root, "Object")
+	t.check("stage owns its native camera", camera ~= nil and camera.Parent == preview)
+	t.check("preview object belongs to the world", part ~= nil and part.Parent:IsA("WorldModel"))
+	color:set(Color3.fromRGB(235, 50, 70))
+	t.settle(4)
+	t.check("draft changes update the retained preview", part.Color == color:peek() and t.find(root, "Object") == part)
+end)
+
+add("card-list-lift-keeps-layout-stable", {}, function(t)
+	local width = t.Facet.Compose.cell(420)
+	local caption = t.Facet.Compose.cell("Fast coastal circuit")
+	local votes = 0
+	local stage = t.mount(function(UI)
+		return UI.VStack "TrackVotes" {
+			width = width,
+			gap = "m",
+			UI.Card "Harbor" {
+				title = "Harbor Sprint",
+				caption = caption,
+				primaryAction = {
+					label = "Vote Harbor",
+					onActivate = function()
+						votes += 1
+					end,
+				},
+			},
+			UI.Card "Midnight" {
+				title = "Midnight Circuit",
+				caption = "Technical city circuit",
+				primaryAction = { label = "Vote Midnight", onActivate = function() end },
+			},
+		}
+	end, { size = Vector2.new(900, 600), motionLevel = "normal", frames = 40 })
+	local card = t.find(stage, "Harbor")
+	local neighbor = t.find(stage, "Midnight")
+	local before, neighborBefore = t.rect(card), t.rect(neighbor)
+	GuiService.SelectedObject = t.find(card, "Primary")
+	t.settle(60)
+	local after, neighborAfter = t.rect(card), t.rect(neighbor)
+	t.check("focused card engages the shared lift", card:GetAttribute("FacetLifting") == true)
+	t.note("card before and after lift", { before = before, after = after })
+	t.note("neighbor before and after lift", { before = neighborBefore, after = neighborAfter })
+	t.near("lift preserves the horizontal center", after.x + after.w / 2, before.x + before.w / 2, 0.5)
+	t.near("lift preserves the vertical center", after.y + after.h / 2, before.y + before.h / 2, 0.5)
+	t.near("lift does not move the next card beyond native pixel rounding", neighborAfter.y, neighborBefore.y, 1)
+	local paint = card:FindFirstChild("FeedbackPaint", true) or card
+	local visual = t.rect(paint)
+	t.check("engagement still visually enlarges the card", visual.w > before.w + 1)
+	t.near("lifted paint stays centered horizontally", visual.x + visual.w / 2, before.x + before.w / 2, 0.5)
+	t.near("lifted paint stays centered vertically", visual.y + visual.h / 2, before.y + before.h / 2, 0.5)
+	width:set(320)
+	t.settle(60)
+	t.near("engaged card follows a narrower parent", t.rect(card).w, 320, 0.5)
+	local compact = t.rect(card)
+	caption:set(string.rep("Fast coastal circuit with tight corners. ", 8))
+	t.settle(60)
+	t.check("engaged card grows for longer content", t.rect(card).h > compact.h + 10)
+	caption:set("Fast coastal circuit")
+	t.settle(60)
+	t.near("engaged card shrinks when content returns", t.rect(card).h, compact.h, 1)
+	GuiService.SelectedObject = nil
+	t.settle(60)
+	t.near("card keeps the new width after leaving", t.rect(card).w, 320, 0.5)
+	local virtual = UserInputService:CreateVirtualInput()
+	local inset = GuiService:GetGuiInset()
+	local body = t.find(card, "Body")
+	local rested, nextRested = t.rect(card), t.rect(neighbor)
+	local displacement = 0
+	local watch = game:GetService("RunService").PreRender:Connect(function()
+		displacement = math.max(displacement, math.abs(neighbor.AbsolutePosition.Y - nextRested.y))
+	end)
+	virtual:SendMousePosition(body.AbsolutePosition + body.AbsoluteSize / 2 + inset)
+	t.settle(60)
+	t.check("native pointer hover engages the card", card:GetAttribute("FacetHovered") == true)
+	t.near("hover keeps the layout width", t.rect(card).w, rested.w, 1)
+	t.near("hover keeps the next card in place", t.rect(neighbor).y, nextRested.y, 1)
+	local primary = t.find(card, "Primary")
+	local target = primary.AbsolutePosition + primary.AbsoluteSize / 2 + inset
+	virtual:SendMousePosition(target)
+	virtual:SendMouseButton(target, Enum.UserInputType.MouseButton1, true)
+	t.settle(2)
+	virtual:SendMouseButton(target, Enum.UserInputType.MouseButton1, false)
+	t.settle(8)
+	t.check("lifted primary action accepts one native click", votes == 1, votes)
+	virtual:SendMousePosition(Vector2.new(800, 550) + inset)
+	t.settle(60)
+	watch:Disconnect()
+	t.check("hover animation keeps neighboring layout stable", displacement <= 1, displacement)
+	t.check("native pointer exit releases hover", card:GetAttribute("FacetHovered") == false)
+	t.note("card after pointer exit", {
+		selected = if GuiService.SelectedObject then GuiService.SelectedObject:GetFullName() else "none",
+		engaged = card:GetAttribute("FacetEngaged"),
+		focused = card:GetAttribute("FacetFocusWithin"),
+		lifting = card:GetAttribute("FacetLifting"),
+	})
+	GuiService.SelectedObject = nil
+	t.settle(60)
+	t.check("card leaves engagement after focus clears", card:GetAttribute("FacetEngaged") == false)
+	t.check("idle card releases its temporary paint layer", card:FindFirstChild("FeedbackLayer", true) == nil)
+end)
+
 local function interactive(
 	id: string,
 	contracts: { string },

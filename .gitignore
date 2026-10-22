@@ -55,16 +55,3 @@ examples/facet-lab/evidence/
 
 # Lute and Verify scratch output from local runs
 .lute/
-
-
-# Eval run output (interface dumps, captures and logs) stays local under artifacts/.
-eval/validation/dumps/
-
-/eval/validation/extended.project.json
-/eval/validation/followups/strong/
-/eval/validation/hub-livery-editor/task.json
-/eval/validation/hub-track-vote/task.json
-/eval/validation/hub-quick-chat/task.json
-/eval/validation/hub-upgrades/task.json
-/eval/validation/hub-party-invite/task.json
-/eval/validation/hub-first-time-tutorial/task.json

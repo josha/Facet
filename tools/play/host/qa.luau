@@ -510,6 +510,18 @@ local function create(context: Context, device: Devices.Device): QA
 	return qa
 end
 
+local function viewportReady(value: unknown): boolean
+	local fields = record(value)
+	local viewport = record(fields.viewport)
+	for _, name in { "width", "height", "screenWidth", "screenHeight" } do
+		local size = viewport[name]
+		if type(size) ~= "number" or not (size > 1 and size < math.huge) then
+			return false
+		end
+	end
+	return true
+end
+
 local function interfaceMounted(value: unknown, requireContent: boolean?): boolean
 	if type(value) ~= "table" then
 		return false
@@ -519,6 +531,7 @@ local function interfaceMounted(value: unknown, requireContent: boolean?): boole
 end
 
 return {
+	viewportReady = viewportReady,
 	interfaceMounted = interfaceMounted,
 	create = create,
 	describe = describe,

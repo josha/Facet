@@ -35,4 +35,9 @@ Region zones, ranking, stacking and stable HUD layout.
   is necessary. Give each form a pixel or `hug` size. A form that fills its
   parent has no size of its own.
 
+A smaller form must keep routes to the richer form's tasks. Use passive text
+or an icon for the built-in reveal, or make a button open all omitted choices.
+A button that opens one destination consumes its press and does not open the
+region's reveal Popover.
+
 See [Composition.layout](Composition.layout.md) for layout rules.
