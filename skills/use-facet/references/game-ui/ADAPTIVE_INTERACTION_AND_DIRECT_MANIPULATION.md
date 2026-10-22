@@ -58,6 +58,14 @@ Use hover to preview what is actionable or where a drop will land before commitm
 
 A held preview follows the pointer; after release it may settle, land, or return. Keep painted hover growth separate from the stable hit geometry. Precision can support denser targets, but small hit areas should not erase required access when touch or gamepad is also available.
 
+Keep a spatial view stable during selection and actions. A click that selects,
+opens or buys an object must not also zoom the camera. Reserve camera gestures
+for the background and explicit navigation. Move the view only when requested
+or when a focused object would otherwise be offscreen; do not recenter each
+visible selection. Preserve scale when revealing an offscreen object.
+Keep known canvas bounds stable as content appears; revealing an item should
+not move the surrounding objects by changing centered margins.
+
 ### Keyboard and gamepad: focus, discrete steps, and explicit possession
 
 Make the focus location and current mode unmistakable. Pickup should visibly establish which object is held; navigation should show the destination or insertion point; activation should place it; cancellation should return to a useful state. Use Facet's armed manipulation routes instead of requiring a pointer simulation for every task.

@@ -419,6 +419,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		local lastTap: { at: number, point: Vector2 }? = nil
 		local pressPoint = V2.zero
 		local moved = false
+		local backgroundTap = false
 		local function localPoint(point: Vector2): Vector2
 			return (point - root.AbsolutePosition) / math.max(unit:peek(), 0.001)
 		end
@@ -426,6 +427,34 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			local localAt = localPoint(point)
 			local area = window()
 			return localAt.X >= 0 and localAt.Y >= 0 and localAt.X < area.X and localAt.Y < area.Y
+		end
+		local function ownsPoint(point: Vector2, tap: boolean): boolean
+			local player = root:FindFirstAncestorWhichIsA("PlayerGui")
+			if not player then
+				return true
+			end
+			for _, hit in (player :: PlayerGui):GetGuiObjectsAtPosition(point.X, point.Y) do
+				if hit == root or hit:IsDescendantOf(root) then
+					local node: Instance? = hit
+					while node and node ~= root do
+						if
+							node:IsA("GuiObject")
+							and (
+								node:IsA("ScrollingFrame")
+								or (tap and (node.Active or node:IsA("GuiButton") or node:IsA("TextBox")))
+							)
+						then
+							return false
+						end
+						node = node.Parent
+					end
+					return true
+				end
+				if hit.Active or hit:IsA("GuiButton") or hit:IsA("TextBox") then
+					return false
+				end
+			end
+			return false
 		end
 		local function overMouse(): boolean
 			if pinchActive then
@@ -465,28 +494,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				end
 				at = at.Parent
 			end
-			local player = root:FindFirstAncestorWhichIsA("PlayerGui")
-			if player then
-				local point = mousePoint()
-				local hits = (player :: PlayerGui):GetGuiObjectsAtPosition(point.X, point.Y)
-				for _, hit in hits do
-					if hit == root or hit:IsDescendantOf(root) then
-						local node: Instance? = hit
-						while node and node ~= root do
-							if node:IsA("ScrollingFrame") then
-								return false
-							end
-							node = node.Parent
-						end
-						return true
-					end
-					if hit.Active or hit:IsA("GuiButton") or hit:IsA("TextBox") then
-						return false
-					end
-				end
-				return false
-			end
-			return true
+			return ownsPoint(mousePoint(), false)
 		end
 		local function canWheelPan(delta: Vector2): boolean
 			local size, area, position = extent() * applied, window(), root.CanvasPosition
@@ -512,6 +520,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 					return
 				end
 				press, pressPoint, moved = event, V2.new(event.Position.X, event.Position.Y), false
+				backgroundTap = ownsPoint(pressPoint, true)
 				contacts[event] = true
 				arbiter.begin(event, root, pressPoint, { scroll = event.UserInputType == E.UserInputType.Touch })
 				if event.UserInputType == E.UserInputType.MouseButton1 then
@@ -633,6 +642,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				end
 				if
 					moved
+					or not backgroundTap
 					or kind == "scroll"
 					or kind == "pan"
 					or event.UserInputState == E.UserInputState.Cancel
