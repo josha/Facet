@@ -934,18 +934,19 @@ return function(verifyHarness: Verify.Harness)
 					}
 					return root
 				end, layer)
-				local planet, order = root:FindFirstChild("PlanetFull", true), root:FindFirstChild("OrderFull", true)
+				local planet = assert(root:FindFirstChild("PlanetFull", true))
+				local order = assert(root:FindFirstChild("OrderFull", true))
 				local function lift(node: Instance): number
 					local floor = node:FindFirstChild("Lift") :: UISizeConstraint?
 					return if floor then floor.MinSize.Y else 0
 				end
 				local function size(node: Instance, width: number, inner: number, outer: number)
-					sized(engine, node:FindFirstChildWhichIsA("Frame"), width, inner)
+					sized(engine, assert(node:FindFirstChildWhichIsA("Frame")), width, inner)
 					sized(engine, node, width, outer)
 				end
 				size(planet, 230, 60, 60)
 				size(order, 240, 40, 40)
-				sized(engine, root:FindFirstChild("Zones"), 1280, 720)
+				sized(engine, assert(root:FindFirstChild("Zones")), 1280, 720)
 				Verify.expect(lift(order)):toBe(60)
 				Verify.expect(lift(planet)):toBe(0)
 				size(order, 240, 40, 60)

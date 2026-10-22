@@ -497,12 +497,12 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			then Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 } :: Room)
 			else nil
 		local column = if live(vertical) then nil else read(vertical) == true
-		local across: Shared.Extent? = if column == nil
-			then nil
-			elseif column then read(flow.width) or width or "hug"
-			else read(flow.height) or height or "hug"
+		local across: unknown = if column == nil
+			then false
+			elseif column then read(flow.width) or width
+			else read(flow.height) or height
 		local matched = (flow.align == "stretch" or live(flow.align))
-			and across == "hug"
+			and (across == nil or across == "hug")
 			and not live(if column then flow.width else flow.height)
 		local list = kit.list(flow, vertical, matched)
 		local frame = Host.Frame(kit.assemble(native, properties, { list, kit.insets(flow.padding, room) }, children))
