@@ -571,16 +571,20 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		local function stacked(reduced: FixtureComposeTypes.Cell<boolean>): worlds.World
+		local function stacked(reduced: FixtureComposeTypes.Cell<boolean>, container: string?): worlds.World
 			local spec = cardSpec({})
 			spec.image = nil
 			spec.onActivate = nil
 			local world = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-				return Host.Frame({
+				local stack = Host.Frame({
 					Name = "Stack",
 					Host.UIListLayout({}),
 					UI.Card "C"(spec) :: unknown,
 				})
+				if container then
+					stack:AddTag(container)
+				end
+				return stack
 			end, {
 				motionLevel = Compose.formula(function(use: FixtureComposeTypes.Use): string
 					return if use(reduced) then "none" else "normal"
@@ -617,26 +621,34 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("keeps a lifted text card's panel on its paint and clears only the parts inside it", {
-			id = "native_card::native Card::keeps a lifted text card's panel on its paint and clears only the parts inside it",
-			run = function()
-				local world = stacked(Compose.cell(false))
-				local _, sheet = world.runtime.mount(function()
-					return Facet.themes.createStyleSheet(world.runtime, Facet.themes.neutralPackage(), {
-						types = world.engine.types,
-					})
-				end, world.engine.new("Folder"))
-				hover(world.find("C"), true)
-				settle(world, 0.1)
-				local paint = world.find("FeedbackPaint")
-				Verify.expect(paint ~= nil and paint.Visible):toBe(true)
-				Verify.expect(paint:HasTag("facet-card-text")):toBe(true)
-				Verify.expect(styleRules.resolve(sheet, paint, "BackgroundTransparency")):toBe(0)
-				Verify.expect(styleRules.resolve(sheet, world.find("Body"), "BackgroundTransparency")):toBe(1)
-				Verify.expect(styleRules.resolve(sheet, world.find("Plate"), "BackgroundTransparency")):toBe(1)
-				world.stop()
-			end,
-		})
+		verifyHarness:case(
+			"keeps a lifted text card's panel and its color on its paint and clears only the parts inside it",
+			{
+				id = "native_card::native Card::keeps a lifted text card's panel and its color on its paint and clears only the parts inside it",
+				run = function()
+					for _, container in { "", "facet-sheet", "facet-panel" } do
+						local world = stacked(Compose.cell(false), if container == "" then nil else container)
+						local _, sheet = world.runtime.mount(function()
+							return Facet.themes.createStyleSheet(world.runtime, Facet.themes.neutralPackage(), {
+								types = world.engine.types,
+							})
+						end, world.engine.new("Folder"))
+						local root = world.find("C")
+						local rest = styleRules.resolve(sheet, root, "BackgroundColor3")
+						hover(root, true)
+						settle(world, 0.1)
+						local paint = world.find("FeedbackPaint")
+						Verify.expect(paint ~= nil and paint.Visible):toBe(true)
+						Verify.expect(paint:HasTag("facet-card-text")):toBe(true)
+						Verify.expect(styleRules.resolve(sheet, paint, "BackgroundTransparency")):toBe(0)
+						Verify.expect(styleRules.resolve(sheet, paint, "BackgroundColor3")):toBe(rest)
+						Verify.expect(styleRules.resolve(sheet, world.find("Body"), "BackgroundTransparency")):toBe(1)
+						Verify.expect(styleRules.resolve(sheet, world.find("Plate"), "BackgroundTransparency")):toBe(1)
+						world.stop()
+					end
+				end,
+			}
+		)
 
 		verifyHarness:case("does not lift for touch presses or its menu, and lifts again for gamepad selection", {
 			id = "native_card::native Card::does not lift for touch presses or its menu, and lifts again for gamepad selection",

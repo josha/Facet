@@ -3,10 +3,12 @@
 ## Unreleased
 
 - A stack with a rounded `surface` keeps its content clear of its corners: when
-  both paddings at a corner are less than the corner radius, the larger grows to
-  the radius. A progress bar in a short pill no longer runs into the curve.
-- A text Card lifted inside a layout keeps its panel. The theme rule that clears
-  the Card's inner Body and Plate panels no longer matches the lift paint.
+  both paddings at a corner are less than the theme corner radius, the larger
+  grows to the radius. A progress bar in a short pill no longer runs into the
+  curve. Padded `panel` and `surface` stacks with small padding get wider.
+- A text Card lifted inside a layout keeps its panel and its color. The theme
+  rule that clears the Card's inner Body and Plate panels no longer matches the
+  lift paint. A `panel` stack placed inside a text Card is no longer cleared.
 - A Card whose lift ends while its paint is still scaling (for example when
   reduced motion turns on, or the pointer crosses cards quickly) returns to its
   hug height. Before, it could keep `AutomaticSize.None` and collapse to zero

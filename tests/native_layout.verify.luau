@@ -186,16 +186,18 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("stack surface corners", function()
-		local function insets(make: (FacetControls) -> unknown, width: number?, height: number?): string
-			local root, engine, stop = build(nil, function(UI: FacetControls)
+		local function insets(make: (FacetControls) -> unknown): string
+			local root, _, stop = build(nil, function(UI: FacetControls)
 				return make(UI)
 			end)
-			if width and height then
-				root.AbsoluteSize = engine.types.Vector2.new(width, height)
-			end
 			local padding = child(root, "UIPadding")
+			local function side(value: UDim): string
+				return if value.Scale ~= 0 then tostring(value.Scale) else tostring(value.Offset)
+			end
 			local text = if padding
-				then `{padding.PaddingTop.Offset} {padding.PaddingRight.Offset} {padding.PaddingBottom.Offset} {padding.PaddingLeft.Offset}`
+				then `{side(padding.PaddingTop)} {side(padding.PaddingRight)} {side(padding.PaddingBottom)} {side(
+					padding.PaddingLeft
+				)}`
 				else "none"
 			stop()
 			return text
@@ -210,7 +212,15 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_layout::stack surface corners::widens a rounded surface's longer padding to its corner radius so content clears the curve",
 				run = function()
 					Verify.expect(insets(pill)):toBe("4 12 4 12")
-					Verify.expect(insets(pill, 100, 18)):toBe("4 9 4 9")
+					Verify.expect(insets(function(UI: FacetControls): unknown
+						return UI.HStack "Steps" {
+							surface = "panel",
+							padding = { top = "xs", bottom = "xs", left = "s", right = "s" },
+						}
+					end)):toBe("4 12 4 12")
+					Verify.expect(insets(function(UI: FacetControls): unknown
+						return UI.HStack "Square" { surface = "panel", padding = 6 }
+					end)):toBe("6 12 6 12")
 					Verify.expect(insets(function(UI: FacetControls): unknown
 						return UI.VStack "Tall" {
 							surface = "panel",
@@ -242,6 +252,12 @@ return function(verifyHarness: Verify.Harness)
 					end,
 					["4 4 4 4"] = function(UI: FacetControls): unknown
 						return UI.VStack "Pane" { surface = "pane", padding = 4 }
+					end,
+					["0 0.5 0 0"] = function(UI: FacetControls): unknown
+						return UI.VStack "Scaled" {
+							surface = "panel",
+							padding = { top = 0, bottom = 0, left = 0, right = engineLib.types.UDim.new(0.5, 0) },
+						}
 					end,
 					none = function(UI: FacetControls): unknown
 						return UI.VStack "Bare" { surface = "panel" }

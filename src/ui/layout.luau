@@ -53,11 +53,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end
 	local CORNERS: { [string]: string } = { surface = "radii.control", panel = "radii.panel" }
 	local SIDES: { "top" | "right" | "bottom" | "left" } = { "top", "right", "bottom", "left" }
-	local function clearCorners(
-		padding: Types.Value<Types.Padding>,
-		metric: string,
-		bounds: ComposeTypes.Readable<Vector2>
-	): Types.Value<Types.Padding>
+	local function clearCorners(padding: Types.Value<Types.Padding>, metric: string): Types.Value<Types.Padding>
 		return function(use: ComposeTypes.Use): Types.Padding
 			local value = read(padding, use)
 			local given: { [string]: unknown } = if type(value) == "table"
@@ -76,10 +72,6 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				end
 			end
 			local radius = ctx.metric(metric, use)
-			local box = use(bounds)
-			if box.X > 0 and box.Y > 0 then
-				radius = math.min(radius, box.X / 2, box.Y / 2)
-			end
 			local grown = table.clone(pixels)
 			local reach = math.ceil(radius)
 			for _, corner in { { "top", "left" }, { "top", "right" }, { "bottom", "left" }, { "bottom", "right" } } do
@@ -98,21 +90,14 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		assert(spec.surface == nil or plate ~= nil, "Facet stack: surface must be surface, panel or pane")
 		local properties, children = split(spec, flowKeys)
 		local metric = CORNERS[spec.surface or ""]
-		local bounds = Compose.cell(V2.zero)
 		local flow: Types.Flow = spec
 		if metric and spec.padding ~= nil then
 			flow = table.clone(spec) :: Types.Flow
-			flow.padding = clearCorners(spec.padding, metric, bounds)
+			flow.padding = clearCorners(spec.padding, metric)
 		end
 		local frame = kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, vertical)
 		if plate then
 			frame:AddTag(plate)
-		end
-		if flow ~= spec then
-			local extent = ctx.observe.AbsoluteSize(frame)
-			Compose.watch(function(use: ComposeTypes.Use)
-				bounds:set(use(extent))
-			end)
 		end
 		return frame
 	end
