@@ -9,6 +9,7 @@ local resolver = require("./composition_resolve")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 local presentationReadiness = require("./presentation_readiness")
+local regionPresence = require("./region_presence")
 local reservations = require("./reservations")
 
 type Declared = {
@@ -17,6 +18,7 @@ type Declared = {
 	mayDrop: boolean,
 	sizes: { ComposeTypes.Cell<Vector2> },
 	form: ComposeTypes.Cell<number>,
+	yielding: ComposeTypes.Cell<boolean>,
 	leading: boolean,
 	animate: boolean,
 	reveal: { host: (Instance) -> (), back: () -> () }?,
@@ -75,13 +77,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local rest = ctx.metric("motion.materialize.modal", use)
 			return if reduced(use) then 1 else rest + (1 - rest) * present(use(pop.progress))
 		end)
+		local yielding = Compose.cell(false)
 		local properties = (
 			ctx.props(spec, { "zone", "rank", "mayDrop", "form", "expand", "reveal", "leading" }, {
 				BorderSizePixel = 0,
 				Size = D2.new(),
 				AutomaticSize = E.AutomaticSize.XY,
 				Visible = function(use: ComposeTypes.Use): boolean
-					return use(form) > 0
+					return use(form) > 0 and not use(yielding)
 				end,
 			}) :: unknown
 		) :: Types.FrameNativeProps
@@ -205,6 +208,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end
 		end
 		local node = kit.plain(Host.Frame(properties), spec)
+		regionPresence[node] = Compose.formula(function(use: ComposeTypes.Use): boolean
+			return use(form) > 0
+		end)
 		local shown: number? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local current = use(form)
@@ -220,6 +226,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			mayDrop = spec.mayDrop == true,
 			sizes = sizes,
 			form = form,
+			yielding = yielding,
 			leading = spec.leading == true,
 			animate = false,
 			reveal = if spec.reveal ~= false and spec.mayDrop == true
@@ -786,9 +793,20 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			overflowing = still
 			local resized = last ~= nil and last.X > 0 and last ~= extent
 			last = extent
+			local filled: { [string]: boolean } = {}
+			local empty: { [number]: boolean } = {}
+			for index, entry in list do
+				local size = if chosen[index] > 0 then entry.sizes[chosen[index]] else nil
+				if size and (size.x <= 0 or size.y <= 0) then
+					empty[index] = true
+				elseif size then
+					filled[entry.zone] = true
+				end
+			end
 			for index, region in regions do
 				declared[region].animate = resized
 				declared[region].form:set(chosen[index])
+				declared[region].yielding:set(empty[index] == true and filled[list[index].zone] == true)
 			end
 			placement:set(
 				if extent.X > 0 and extent.Y > 0

@@ -11,6 +11,10 @@ Region measurement, authored sizes and layout boundaries.
   is as wide as its widest row. Its height is the height of its rows and the
   `gap` between them. A native `UIListLayout` with `Wraps` makes the rows.
   Landed `topbar` regions are one column at the start of the `top` row.
+- A region whose content measures zero, such as a scoreboard that shows only
+  in a match, takes no room and no `gap`. When another region of its zone has
+  content, the empty region is hidden. A presented control in it, such as a
+  Sheet, still shows.
 - The screen has three lanes of equal width: left, center and right. A side
   zone stays at its edge. In the top and bottom rows, when the center zone of
   that row is empty, a corner zone can use the width that the other corner

@@ -6,6 +6,10 @@
   rows. A region wraps to a new row only when it does not fit beside the
   regions before it. Before, every zone stacked its regions vertically, so
   two short readouts in `top` took two rows on a wide screen.
+- An empty Composition region no longer takes a `gap` in its zone. The zone
+  hides it while another region of the zone has content, so two readouts with
+  an empty region between them share a row. Before, the hidden gap made the
+  row too wide and the second readout wrapped.
 - A stack with `surface = "panel"` applies the theme's `chrome.panel` recipe,
   as Dialog and Alert do. A theme can give HUD panels a shadow with
   `chrome.panel = { kind = "native", shadow = "raised" }`.

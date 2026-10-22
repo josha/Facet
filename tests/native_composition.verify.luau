@@ -851,6 +851,7 @@ return function(verifyHarness: Verify.Harness)
 							padding = 0,
 							topbar = false,
 							UI.Region { Name = "Planet", zone = "top", rank = 1, Host.Frame { Name = "PlanetFull" } },
+							UI.Region { Name = "Duel", zone = "top", rank = 2, Host.Frame { Name = "DuelFull" } },
 							UI.Region { Name = "Order", zone = "top", rank = 3, Host.Frame { Name = "OrderFull" } },
 							UI.Region { Name = "Wallet", zone = "topLeft", rank = 1, Host.Frame { Name = "WalletFull" } },
 						}
@@ -867,6 +868,13 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(list.Wraps):toBe(true)
 					Verify.expect(top.Size):toBe(T.UDim2.fromOffset(478, 0))
 					Verify.expect(top.AutomaticSize):toBe(T.Enum.AutomaticSize.Y)
+					local duel = top:FindFirstChild("Duel") :: Frame
+					Verify.expect(duel.Visible):toBe(false)
+					Verify.expect((top:FindFirstChild("Planet") :: Frame).Visible):toBe(true)
+					sized(engine, root:FindFirstChild("DuelFull", true), 100, 40)
+					Verify.expect(duel.Visible):toBe(true)
+					sized(engine, root:FindFirstChild("DuelFull", true), 0, 0)
+					Verify.expect(duel.Visible):toBe(false)
 					local left = root:FindFirstChild("TopLeft", true) :: Frame
 					local column = left:FindFirstChildWhichIsA("UIListLayout") :: UIListLayout
 					Verify.expect(column.FillDirection):toBe(T.Enum.FillDirection.Vertical)
