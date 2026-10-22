@@ -4754,6 +4754,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "wrap (narrow)", props = properties { wrap = true, width = 120, height = "hug" }, across = false },
 			{ name = "panel surface", props = properties { surface = "panel", padding = "s" }, across = false },
+			{
+				name = "warning status",
+				props = properties { surface = "panel", status = "warning", padding = "s" },
+				across = false,
+			},
 		},
 	},
 	VStack = {
@@ -4770,6 +4775,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "wrap (short)", props = properties { wrap = true, height = 80, width = "hug" }, across = false },
 			{ name = "panel surface", props = properties { surface = "panel", padding = "s" }, across = false },
+			{
+				name = "success status",
+				props = properties { surface = "panel", status = "success", padding = "s" },
+				across = false,
+			},
 		},
 	},
 	ZStack = {
