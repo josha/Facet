@@ -22,11 +22,17 @@ permissions:
 
 jobs:
   platform:
-    name: Verify (${{ matrix.os }})
+    name: Full suite (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: Linux
+          - os: macos-latest
+            platform: macOS
+          - os: windows-latest
+            platform: Windows
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     defaults:
@@ -119,11 +125,17 @@ jobs:
           fi
 
   paired-perf:
-    name: Paired performance (${{ matrix.os }})
+    name: Paired performance (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: Linux
+          - os: macos-latest
+            platform: macOS
+          - os: windows-latest
+            platform: Windows
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     defaults:
