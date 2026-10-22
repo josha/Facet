@@ -31,6 +31,12 @@ receipts record the subsequent seal. Neither receipt proves the game's
 required player outcomes. Paths in the original results identify the local
 artifact workspace; the preserved places are linked below.
 
+The recorded [Verify comparison](comparison.verify.json) has 2 passing and
+16 failing requirements. Identity and complete usage pass. Efficiency
+fails on measured results; completion, behavior, runtime, and visual gates
+remain failed because the required independent evidence is absent. The
+comparison uses the unchanged original author results, not rewritten passes.
+
 ## What this evidence proves
 
 - Both authors completed one turn within the deadline and reported usage.

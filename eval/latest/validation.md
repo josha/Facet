@@ -1,54 +1,65 @@
 # Checkpoint validation
 
-The final CI repair is under validation. Gate `gate-1792626881-77900-1`
-is running. Do not treat this checkpoint as merge-ready until its result and
-the PR checks are recorded below. The earlier result follows for provenance.
+The local full-tier command finished with no failing producers. It is not a
+complete release gate and does not establish an eval pass. Final mergeability
+also depends on the GitHub checks for the PR head.
 
-The full repository gate did not pass. This checkpoint does not establish
-a clean full gate or an eval pass.
+## Repository checks
 
 `lute run tools/facet gate full` produced
-`gate-1792622570-311127-1`. One producer failed:
+`gate-1792626881-77900-1`: 37 producers passed, two were deferred, and two
+release-only producers were not selected. See the
+[command output](repository-validation.txt).
 
-| Producer | Finding | Checkpoint status |
-| --- | --- | --- |
-| screen-key-bindings | 14 input-policy findings in the preserved Kart example | Open |
+Behavior, maintainer-tool cases, types, formatting, input policy, eval contract,
+standalone builds, resource ceilings, and teardown passed. The prior Kart
+input-policy and clean-checkout eval failures are fixed. No rule or resource
+budget was relaxed. The eval contract case now starts without generated
+artifacts and still rejects an unknown overlay path.
 
-The vendor, behavior suite, tooling suite, types, standalone builds, resource
-ceilings, and teardown checks passed. The previous mapped-file lock did not
-recur. The Kart findings are preserved example debt; this report does not
-claim that the base commit had the same gate failures.
+The gate began on a dirty worktree based on `a86af51a`, containing the CI
+repairs subsequently committed in `30a397a7`. Evidence text and the additional
+missing-overlay assertion were finalized during that run. GitHub CI on the
+final PR head is the authoritative clean-checkout check; this local receipt
+does not attest a clean final commit.
 
-The final focus-cleanup correction and regression assertions were completed
-while this gate ran. Focused Card, input, and collection specs passed in
-`gate-1792622861-947965-1`; the added input focus assertion passed in
-`gate-1792622887-503217-1`. Four changed source/test targets passed strict
-analysis in `artifacts/verify/types/focused-22eaebdb7d.json`. These checks do
-not turn the earlier full gate into final-tree evidence.
+The `bench` and `perf` producers defer reference-host timing evidence. The
+full tier excludes `run-comparison` and `prove-perf-gate`. The separately
+recorded [eval comparison](comparison.verify.json) fails: two requirements
+pass and 16 fail. CI success must not be read as an eval pass.
 
-Live Studio reports in `library-card-lift` cover centered lift, neighboring
-layout, resize, content changes, native click, focus cleanup, temporary-layer
-release, and grid corners. `shared-feedback.verify.json` covers Button pop,
-field rejection, disclosure motion, and idle property writes. Its idle window
-starts only after the disclosure reaches its resting angle, with a two-second
-deadline. A fixed-frame wait previously began before that animation ended.
+## Library and package checks
+
+The separate `lute run tools/facet bench` passed after the full-tier process
+stopped, with 0.3% yardstick drift. See [benchmark output](library-benchmark.txt).
+This native-double benchmark does not establish game frame-time or retained
+memory overhead. Its heap readings include allocation churn and collector
+phase.
+
+`lute run tools/facet package build` and `lute run tools/facet package status`
+completed successfully. The package is unpublished; Studio package verification
+remains pending. The source hash is
+`5bef441d272872040a0df8596867e1af8f7cc2fd07af73d9f838b2760a51a029`.
 
 The resource census stayed within unchanged ceilings: Card uses 15 instances,
 8 connections, and 83 reactive holdings. Teardown counts return to zero.
-The memory check still reports collection-churn connection growth as a trend;
-zero teardown counts do not establish flat retained memory during play.
+Collection-churn connection growth remains a reported trend; zero teardown
+counts do not prove flat retained memory during play.
 
-The final `lute run tools/facet bench` passed with 1.9% yardstick drift after
-the full gate stopped. An earlier overlapping run was rejected for host drift.
-`lute run tools/facet package build` and `lute run tools/facet package status`
-completed successfully. The package is unpublished, and its Studio check is
-pending. The source hash is
-`5bef441d272872040a0df8596867e1af8f7cc2fd07af73d9f838b2760a51a029`.
-These commands do not attest a passing full gate on the final tree.
+## Live engine evidence
 
-Type policy, eval contract, documentation nodes, and strict documentation
-samples also passed. The full gate deferred reference-host performance
-evidence. The benchmark does not establish native retained-memory overhead
-or the eval's frame-time threshold.
+Reports in `library-card-lift` cover centered lift, neighboring layout,
+resize, content changes, native click, focus cleanup, temporary-layer release,
+and grid corners. `shared-feedback.verify.json` covers Button pop, field
+rejection, disclosure motion, and idle property writes. The idle window starts
+only after the disclosure reaches its resting angle, with a two-second
+deadline.
 
-See [the evidence report](README.md) for player and blind-judge results.
+The [Kart input observations](kart-input-observations.md) record a separate
+live test of native Back and settings action integration. Physical-controller
+verification remains pending. Neither these checks nor the Card receipts
+establish the new games' complete five-device player acceptance.
+
+See [latest pair](README.md) for the authored-game verdict and
+[next improvements](next-improvements.md) for the remaining work. No additional
+author run is part of this checkpoint.
