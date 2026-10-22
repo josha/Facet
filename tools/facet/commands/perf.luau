@@ -350,6 +350,10 @@ local function samePath(left: string, right: string): boolean
 	return a == b
 end
 
+local function benchmarkCommand(): { string }
+	return { Run.lute(), "run", Files.absolute("tools/facet"), "bench" }
+end
+
 local function pairedRun(invocation: Cli.Invocation): number
 	local out = Cli.flag(invocation, "out")
 	local trees: { { label: string, tree: string } } = {}
@@ -370,6 +374,7 @@ local function pairedRun(invocation: Cli.Invocation): number
 	local skipBench = Cli.switch(invocation, "skip-bench")
 	local environment = toolEnvironment(rokitDirectories(), false)
 	local runner = Files.absolute("bench/paired_scene.luau")
+	local benchCommand = benchmarkCommand()
 	local log = Files.join(out, "log.txt")
 	local rows = Files.join(out, "scenes.jsonl")
 	if Files.isDirectory(out) and #Files.list(out) > 0 then
@@ -414,10 +419,7 @@ local function pairedRun(invocation: Cli.Invocation): number
 				if Files.isFile(artifact) then
 					Files.remove(artifact)
 				end
-				local bench = Run.capture(
-					{ Run.lute(), "run", "tools/facet", "bench" },
-					{ cwd = entry.tree, env = environment }
-				)
+				local bench = Run.capture(benchCommand, { cwd = entry.tree, env = environment })
 				Files.write(
 					Files.join(out, ("bench-%s-%d.log"):format(entry.label, round)),
 					bench.stdout .. bench.stderr
@@ -779,7 +781,7 @@ local function benchDocument(round: number, label: string, p50: number, p95: num
 		round = round,
 		document = Json.asObject(
 			decode(
-				([[{"yardstickP95Ms": 0.5, "yardstickDriftPct": 1.26, "results": [{"name": "row-build", "p50_ms": %s, "p95_ms": %s}, {"name": "zz-yardstick-cpu", "p50_ms": %s, "p95_ms": %s}, {"name": "skipped", "p50_ms": null}]}]]):format(
+				([[{"yardstickP95Ms": 0.5, "yardstickDriftPct": 1.26, "yardstickMedianDriftPct": 0.4, "results": [{"name": "row-build", "p50_ms": %s, "p95_ms": %s}, {"name": "zz-yardstick-cpu", "p50_ms": %s, "p95_ms": %s}, {"name": "skipped", "p50_ms": null}]}]]):format(
 					tostring(p50),
 					tostring(p95),
 					tostring(p50),
@@ -795,8 +797,8 @@ local function requiredBench(round: number, label: string): Paired.Bench
 		path = `out/bench-{label}-{round}.json`,
 		round = round,
 		document = assert(Json.asObject(decode([[{
-			"schema": "facet-bench/1", "status": "PASS", "proofStatus": "stable-host-trend",
-			"yardstickP95Ms": 0.5, "yardstickDriftPct": 1.2,
+			"schema": "facet-bench/1", "status": "PASS", "proofStatus": "stable-cpu-rate-trend",
+			"yardstickP95Ms": 0.5, "yardstickDriftPct": 1.2, "yardstickMedianDriftPct": 1.2,
 			"results": [{"name": "table-resize-drag", "p50_ms": 1, "p95_ms": 2, "p99_ms": 3, "samples": 1500}]
 		}]]))),
 	}
@@ -1154,6 +1156,95 @@ end
 CASES.paired = function(): { Case.Case }
 	return {
 		{
+			name = "paired: one benchmark command loads each tree's own source",
+			run = function(): string?
+				local root = Files.temporaryDirectory("facet-paired-source-")
+				local command = benchmarkCommand()
+				local ok, failure = pcall(function(): string?
+					for _, label in { "base", "candidate" } do
+						local tree = Files.join(root, label)
+						Files.write(Files.join(tree, "src/init.luau"), `return "{label}"`)
+						Files.write(Files.join(tree, "tools/facet/init.luau"), "return nil")
+						Files.write(
+							Files.join(tree, "bench/scenarios.luau"),
+							[[
+local source = require("../src")
+local function setup() return {} end
+local function run()
+	local total = 0
+	for index = 1, 10000 do total += index % 17 end
+	assert(total > 0)
+end
+return {
+	{ name = "source-" .. source, requirement = "source", samples = 3, warmup = 0, setup = setup, run = run },
+	{ name = "zz-yardstick-cpu", requirement = "source", samples = 8, warmup = 0, setup = setup, run = run },
+}
+]]
+						)
+						local result = Run.capture(command, { cwd = tree, timeout = 30 })
+						local artifact = Files.join(tree, "artifacts/bench.json")
+						if not Files.isFile(artifact) then
+							return "benchmark did not load " .. label .. ": " .. result.stdout .. result.stderr
+						end
+						local document = Json.decode(Files.read(artifact))
+						local rows = assert(Json.arrayField(document, "results"))
+						local problem = Case.first(
+							Case.equal(Json.stringField(rows[1], "name"), "source-" .. label, "loaded source"),
+							Case.expect(
+								Json.numberField(document, "yardstickMedianDriftPct") ~= nil,
+								"target ran its own harness"
+							),
+							Case.expect(result.code == 0 or result.code == 2, "benchmark execution failed")
+						)
+						if problem ~= nil then
+							return problem
+						end
+					end
+					return nil
+				end)
+				Files.remove(root)
+				return if ok then failure else "raised: " .. tostring(failure)
+			end,
+		},
+		{
+			name = "paired: CPU median drift rejects invalid calibration without hiding workload tails",
+			run = function(): string?
+				local old = requiredBench(1, "base").document
+				Json.set(old, "yardstickMedianDriftPct", nil)
+				local boundary = requiredBench(1, "base").document
+				Json.set(boundary, "yardstickMedianDriftPct", 15)
+				local drifted = requiredBench(1, "base").document
+				Json.set(drifted, "yardstickMedianDriftPct", 15.01)
+				local first, second = {}, {}
+				for round = 1, 3 do
+					local base, candidate = requiredBench(round, "base"), requiredBench(round, "cand")
+					for _, bench in { base, candidate } do
+						Json.set(bench.document, "yardstickDriftPct", 80)
+					end
+					local row = assert(Json.asObject(assert(Json.arrayField(candidate.document, "results"))[1]))
+					Json.set(row, "p95_ms", 2.12)
+					table.insert(first, base)
+					table.insert(second, candidate)
+				end
+				local lines = Paired.benchTables(first, second, "base", "cand")
+				return Case.first(
+					Case.expect(#Paired.benchOutcome(0, old) > 0, "missing median calibration accepted"),
+					Case.same(Paired.benchOutcome(0, boundary), {}, "15% boundary"),
+					Case.expect(#Paired.benchOutcome(0, drifted) > 0, "median drift above15% accepted"),
+					Case.same(Paired.benchOutcome(0, second[1].document), {}, "tail-only calibration variation"),
+					expectContains(
+						lines,
+						"| table-resize-drag | 1.0000 | 1.0000 | 1.000 | 1.00-1.00 | 2.0000 | 2.1200 | 1.060 | cand slower (p95) |"
+					),
+					Case.equal(
+						Paired.summary(lines, "base", "cand")[1],
+						"### Paired performance: FAIL",
+						"tail regression"
+					)
+				)
+			end,
+		},
+		{
 			name = "paired: complete expected rounds and measurements pass without changing thresholds",
 			run = function(): string?
 				local scope, entries, first, second = requiredPairs()
@@ -1170,9 +1261,9 @@ CASES.paired = function(): { Case.Case }
 				local failed = requiredBench(1, "base").document
 				Json.set(failed, "status", "FAIL")
 				local unstable = requiredBench(1, "base").document
-				Json.set(unstable, "proofStatus", "unstable-host")
+				Json.set(unstable, "proofStatus", "unstable-cpu-rate")
 				local drifted = requiredBench(1, "base").document
-				Json.set(drifted, "yardstickDriftPct", 16)
+				Json.set(drifted, "yardstickMedianDriftPct", 16)
 				return Case.first(
 					Case.expect(#Paired.benchOutcome(1, successful) > 0, "failed command accepted a leftover report"),
 					Case.expect(#Paired.benchOutcome(2, successful) > 0, "environment failure accepted"),
@@ -1346,8 +1437,8 @@ CASES.paired = function(): { Case.Case }
 						"| zz-yardstick-cpu | 1.0000 | 2.0000 | 2.000 | 2.00-2.00 | 2.0000 | 4.0000 | 2.000 |  |"
 					),
 					Case.expect(not contains(lines, "| skipped |"), "a result without p50_ms was tabled"),
-					Case.equal(lines[#lines - 3], "| base-1 | 0.5000 | 1.3 |", "first bench run"),
-					Case.equal(lines[#lines], "| cand-2 | 0.5000 | 1.3 |", "last bench run"),
+					Case.equal(lines[#lines - 3], "| base-1 | 0.5000 | 1.3 | 0.4 |", "first bench run"),
+					Case.equal(lines[#lines], "| cand-2 | 0.5000 | 1.3 | 0.4 |", "last bench run"),
 					Case.same(Paired.benchTables({}, {}, "base", "cand"), {}, "no benches")
 				)
 			end,

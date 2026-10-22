@@ -21,8 +21,9 @@ it does not prove complete performance coverage. The default scene list is
 `tools/facet/lib/perf_paired.luau`.
 
 The runner copies `bench/paired_scene.luau` into each target tree. Each scene
-runs in a new Lute process. Each round also runs the target tree's
-`lute run tools/facet bench` unless `--skip-bench` is set.
+runs in a new Lute process. Each round also runs the calling tree's benchmark
+command with the target tree as its working directory, unless `--skip-bench`
+is set. Both trees use the same measurement code and load their own source.
 
 Results stay in the output directory. `scenes.jsonl` holds scene rows.
 `bench-<label>-<round>.json` holds benchmark data. `log.txt` records progress.
@@ -36,6 +37,14 @@ macOS and Windows. Each host compares the base and candidate on the same runner.
 The required Verify job accepts only success from every platform. CI
 rechecks the full suite with six rounds only after a statistical slowdown;
 an execution or measurement failure cannot become a narrowed passing recheck.
+
+The CPU yardstick compares its median before and after the benchmarks. A
+change above 15% invalidates the run. This checks typical CPU rate. It does
+not prove stable scheduling or stable tail latency. The artifact retains the
+ordered yardstick samples and its p95 drift for diagnosis. Reports require
+the median calibration field; older artifacts cannot prove this protocol.
+Workload comparisons use raw p50 and p95 with the unchanged 5% slowdown rule.
+The standalone benchmark's historical p95 normalization stays separate.
 
 ## Read the report
 

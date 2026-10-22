@@ -23,12 +23,18 @@ function Paired.benchOutcome(code: number, document: unknown): { string }
 	if
 		Json.field(document, "schema") ~= "facet-bench/1"
 		or Json.field(document, "status") ~= "PASS"
-		or Json.field(document, "proofStatus") ~= "stable-host-trend"
+		or Json.field(document, "proofStatus") ~= "stable-cpu-rate-trend"
 	then
 		table.insert(errors, "benchmark report is missing, failed or unstable")
 	end
-	local drift = Json.numberField(document, "yardstickDriftPct")
-	if not positive(Json.field(document, "yardstickP95Ms")) or drift == nil or drift < 0 or drift > 15 then
+	local drift = Json.numberField(document, "yardstickMedianDriftPct")
+	if
+		not positive(Json.field(document, "yardstickP95Ms"))
+		or drift == nil
+		or drift ~= drift
+		or drift < 0
+		or drift > 15
+	then
 		table.insert(errors, "benchmark yardstick is missing or unstable")
 	end
 	local rows = Json.arrayField(document, "results")
@@ -475,8 +481,8 @@ function Paired.benchTables(
 		)
 	end
 	table.insert(lines, "")
-	table.insert(lines, "| Bench run | Yardstick p95 ms | Yardstick drift % |")
-	table.insert(lines, "|---|---:|---:|")
+	table.insert(lines, "| Bench run | Yardstick p95 ms | Yardstick p95 drift % | CPU median drift % |")
+	table.insert(lines, "|---|---:|---:|---:|")
 	for _, benches in { firstBenches, secondBenches } do
 		local ordered = table.clone(benches)
 		table.sort(ordered, function(a: Bench, b: Bench): boolean
@@ -486,10 +492,11 @@ function Paired.benchTables(
 			local stem = string.match(bench.path, "([^/\\]+)%.json$") or bench.path
 			table.insert(
 				lines,
-				("| %s | %.4f | %.1f |"):format(
+				("| %s | %.4f | %.1f | %.1f |"):format(
 					string.sub(stem, 7),
 					numeric(Json.field(bench.document, "yardstickP95Ms")),
-					numeric(Json.field(bench.document, "yardstickDriftPct"))
+					numeric(Json.field(bench.document, "yardstickDriftPct")),
+					numeric(Json.field(bench.document, "yardstickMedianDriftPct"))
 				)
 			)
 		end
