@@ -10,6 +10,21 @@ local Analyzer = require("../../tools/facet/lib/analyzer")
 local Lute = require("../../tools/vendor/verify/src/lute")
 
 return function(harness: Verify.Harness)
+	harness:case("the gate audits off-reference scenes and preserves reference timing", function()
+		local Policy = require("../../tools/facet/lib/gate")
+		for _, reference in { false, true } do
+			local found = false
+			for _, producer in Policy.draft(reference).producers do
+				if producer.id == "perf" then
+					found = true
+					Verify.expect(producer.env):toEqual({ FACET_PERF_TIMING = tostring(reference) })
+					Verify.expect(producer.argv):toEqual({ "lute", "run", "tools/facet", "perf", "run" })
+					Verify.expect(producer.requires):toBe(nil)
+				end
+			end
+			Verify.expect(found):toBe(true)
+		end
+	end)
 	harness:case("consumer type cache reuses only matching analyzer, definitions and configuration", function(t)
 		local sources: { [string]: string } = {
 			["sample.luau"] = "--!strict\nlocal value: number = 1\n",

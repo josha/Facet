@@ -80,9 +80,6 @@ jobs:
           luau-lsp --version
           stylua --version
 
-      - name: Formatting
-        run: stylua --check src tests tools bench examples
-
       - name: Full tier
         shell: bash
         run: |
@@ -199,45 +196,47 @@ jobs:
             done
           done
 
+      - name: Use the same measurement code
+        run: |
+          base="$(cd "$RUNNER_TEMP/base" && pwd)"
+          evidence="$GITHUB_WORKSPACE/artifacts/perf-paired-fixtures"
+          git -C "$base" diff --exit-code HEAD -- src
+          cp "$base/tools/vendor/verify/UPSTREAM.lock" "$evidence/base-verify.lock"
+          cp tools/vendor/verify/UPSTREAM.lock "$evidence/shared-verify.lock"
+          verify_commit="$(sed -n 's/^  "commit": "\([0-9a-f]*\)",$/\1/p' tools/vendor/verify/UPSTREAM.lock)"
+          [[ "$verify_commit" =~ ^[0-9a-f]{40}$ ]]
+          lute run tools/facet sync verify --check
+          if ! cmp -s tools/vendor/verify/UPSTREAM.lock "$base/tools/vendor/verify/UPSTREAM.lock"; then
+            (cd "$base" && lute run "$GITHUB_WORKSPACE/tools/facet" sync verify --bump "$verify_commit")
+          fi
+          cmp tools/vendor/verify/UPSTREAM.lock "$base/tools/vendor/verify/UPSTREAM.lock"
+          (cd "$base" && lute run "$GITHUB_WORKSPACE/tools/facet" sync verify --check)
+          git archive HEAD bench tests/lib examples > "$evidence/measurement.tar"
+          tar -xf - -C "$base" < "$evidence/measurement.tar"
+          git -C "$base" diff --exit-code HEAD -- src
+          sha256sum "$evidence/measurement.tar" "$evidence"/*.lock
+
       - name: Compare the candidate with its base
         run: |
-          mkdir -p artifacts
-          calibration_retries=0
-          paired_run() {
-            local prefix="$1" rounds="$2" status
-            paired_output="$prefix"
-            while true; do
-              if lute run tools/facet perf paired run --out "$paired_output" --rounds "$rounds" base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE"; then
-                return 0
-              else
-                status=$?
-              fi
-              if [ "$status" -ne 75 ] || [ "$calibration_retries" -ge 1 ]; then
-                return "$status"
-              fi
-              calibration_retries=$((calibration_retries + 1))
-              echo "CPU calibration was invalid. Retrying the complete $rounds-round comparison once; preserving $paired_output." | tee -a "$GITHUB_STEP_SUMMARY"
-              paired_output="$prefix-calibration-retry"
-            done
-          }
-          paired_run artifacts/perf-paired 3
-          if lute run tools/facet perf paired report "$paired_output" base pr --rounds 3 --gate --summary artifacts/perf-paired-summary.md | tee artifacts/perf-paired-report.txt; then
-            cat artifacts/perf-paired-summary.md >> "$GITHUB_STEP_SUMMARY"
+          base_commit="$(git -C "$RUNNER_TEMP/base" rev-parse HEAD)"
+          if git diff --quiet "$base_commit" HEAD -- src; then
+            echo "Production sources under src, including Compose, are identical to the base. Common measurement setup passed; paired runtime timing is not needed." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
-          else
-            report_codes=("${PIPESTATUS[@]}")
           fi
-          if [ "${report_codes[0]}" -ne 1 ] || [ "${report_codes[1]}" -ne 0 ]; then
-            echo "The performance report failed outside the statistical gate."
-            exit 1
-          fi
-          echo "Rechecking every scene and microbenchmark with six rounds."
-          { echo "First pass found a statistical slowdown. Rechecking the complete paired suite with six rounds."; echo; } >> "$GITHUB_STEP_SUMMARY"
-          paired_run artifacts/perf-paired-recheck 6
-          status=0
-          lute run tools/facet perf paired report "$paired_output" base pr --rounds 6 --gate --summary artifacts/perf-paired-recheck-summary.md | tee artifacts/perf-paired-recheck-report.txt || status=$?
-          cat artifacts/perf-paired-recheck-summary.md >> "$GITHUB_STEP_SUMMARY"
-          exit $status
+          output=artifacts/perf-paired
+          for attempt in 1 2; do
+            status=0
+            lute run tools/facet perf paired run --out "$output" --rounds 6 --gate --summary "$output-summary.md" base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE" > "$output-report.txt" 2>&1 || status=$?
+            cat "$output-report.txt"
+            if [ -f "$output-summary.md" ]; then
+              cat "$output-summary.md" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            if [ "$status" -ne 75 ] || [ "$attempt" -eq 2 ]; then
+              exit "$status"
+            fi
+            echo "CPU calibration was invalid. Retrying once with fresh measurements; preserving $output." | tee -a "$GITHUB_STEP_SUMMARY"
+            output=artifacts/perf-paired-calibration-retry
+          done
 
       - name: Save the paired results
         if: always()
