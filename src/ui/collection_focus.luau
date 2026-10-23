@@ -222,8 +222,9 @@ return function<V, K>(
 		view.focusOwned = true
 		local arm = view.armPaging
 		if arm then
-			Compose.sample(function()
+			Compose.sample(function(): boolean
 				arm()
+				return true
 			end)
 		end
 		local currentStatus = status:peek()
