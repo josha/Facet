@@ -56,16 +56,7 @@ local function properties(values: Properties): Properties
 	return values
 end
 
-local function nativeGlyph(c: Context): Properties
-	local function ring(): GuiObject
-		return c.UI.Path "NativeGlyph" {
-			points = c.Facet.pathShapes.ring({ radius = 0.75 }),
-			thickness = 2,
-			closed = true,
-		}
-	end
-	return { glyph = ring }
-end
+local nativeGlyph = require("./native_glyph")
 
 local function implied(choices: { [string]: Source }): { [string]: Source }
 	return choices
@@ -763,6 +754,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "alternatives", props = properties { keys = { { "Ctrl", "S" }, { "F2" } }, separator = " or " } },
 			{ name = "label after", props = properties { label = "Save" } },
 			{ name = "label before", props = properties { label = "Save", labelPosition = "start" } },
+			{ name = "no cap", props = properties { cap = false } },
 		},
 		valid = function(p: Properties)
 			return not (p.action ~= nil and p.keys ~= nil)
@@ -2532,6 +2524,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						gap = "s",
 						c.UI.Toggle({ label = "Only friends", value = c.cell("friends", false) }),
 						c.UI.Slider({
+							Name = "Distance",
 							label = "Distance",
 							value = c.cell("dist", 5),
 							min = 0,
@@ -2571,6 +2564,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 			{ name = "body pans the sheet", props = properties { scrollPolicy = "atLargestDetent" } },
 			{ name = "close button", props = properties { closeButton = true } },
+			{ name = "starts on Distance", props = properties { initialFocus = "Distance" } },
 			{ name = "close label", props = properties { closeButton = "Close" } },
 			{ name = "no content inset", props = properties { contentInset = "none" } },
 			{

@@ -148,8 +148,10 @@ invoke real commands. Do not bind Roblox's Escape or gamepad Start.
 
 Composition is a passive responder. Gameplay keeps the movement stick and
 D-pad. Give each HUD task a gamepad button action with a visible glyph; let
-the task surface take selection when it opens. Test the first stick push
-after spawning with nothing selected, then each HUD task and Back.
+the task surface take selection when it opens, on what the player most likely
+wants (a Sheet's `initialFocus`), never on Close, which B already does. Test
+the first stick push after spawning with nothing selected, then each HUD task
+and Back. The input chapter lists the console conventions.
 
 A page replacing gameplay must own input: disable the game's gameplay
 InputContext, hide custom touch commands and restore them on exit. Use

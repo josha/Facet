@@ -311,6 +311,7 @@ export type ShortcutHintOptions = {
 	controlSize: Value<Shared.ControlSize?>?,
 	label: Shared.ValueString?,
 	labelPosition: ("start" | "end")?,
+	cap: boolean?,
 }
 export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & ShortcutHintOptions & {
 	action: InputAction?,

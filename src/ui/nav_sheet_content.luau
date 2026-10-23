@@ -15,6 +15,7 @@ export type SheetContent = {
 	panelWidth: ComposeTypes.Formula<number>,
 	contentSize: ComposeTypes.Cell<Vector2>,
 	room: parts.Room,
+	entry: () -> GuiObject?,
 }
 
 return function(
@@ -357,7 +358,65 @@ return function(
 				Active = tallest,
 			})
 		end
+		local function usableWithin(node: GuiObject, region: Instance): boolean
+			local at: Instance? = node
+			while at and at ~= region do
+				if at:IsA("GuiObject") and (not at.Visible or not at.Interactable) then
+					return false
+				end
+				at = at.Parent
+			end
+			return at == region
+		end
+		local function firstIn(region: Instance?): GuiObject?
+			if region == nil then
+				return nil
+			end
+			local found = surfaces.firstSelectable(region)
+			if found and found == closeCommand then
+				found = surfaces.firstSelectable(content)
+			end
+			return if found and found ~= closeCommand and usableWithin(found, region) then found else nil
+		end
+		local resolved: string | false | nil = nil
+		local function wantedName(): string?
+			if resolved == nil then
+				local wanted = spec.initialFocus
+				local name = if type(wanted) == "function" then wanted() else wanted
+				assert(
+					name == nil or type(name) == "string",
+					"Facet.Sheet: initialFocus must return a control's name or nil"
+				)
+				resolved = if name then name else false
+			end
+			return if resolved then resolved else nil
+		end
+		local function named(region: Instance?, name: string): GuiObject?
+			if region == nil then
+				return nil
+			end
+			for _, node in region:GetDescendants() do
+				if node.Name == name then
+					local found = surfaces.firstSelectable(node)
+					if found and found ~= closeCommand and usableWithin(found, region) then
+						return found
+					end
+				end
+			end
+			return nil
+		end
+		local function entry(): GuiObject?
+			local name = wantedName()
+			if name then
+				local found = named(body, name) or named(actionRegion, name)
+				if found then
+					return found
+				end
+			end
+			return firstIn(body) or firstIn(actionRegion)
+		end
 		return {
+			entry = entry,
 			plaqued = plaqued,
 			usable = usable,
 			press = press,

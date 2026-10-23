@@ -34,7 +34,8 @@ and Menu own Back and Cancel.
 A Composition is passive: the movement stick and the D-pad drive the game and
 never select a HUD Button. Give each frequent HUD task a game action on a
 gamepad button, and while the gamepad is the input show that action's glyph
-on the Button with `UI.ShortcutHint { action = ... }`. For the other Buttons,
+on the Button with `UI.ShortcutHint { action = ..., cap = false }`, so the
+glyph sits on the Button without a second plate. For the other Buttons,
 set `GuiService.SelectedObject` to one from a game action. With
 `GuiService.AutoSelectGuiEnabled` (the default), the engine's ButtonSelect
 (View) does this too; the virtual cursor does not. ButtonB returns the

@@ -5,7 +5,8 @@ Factory-options.theme option values and behavior.
 - `theme`: a theme package or a readable of one. The controls use it for
   metrics, artwork and icon resolution. At ten feet (`adaptive.isTenFoot`)
   they use `themes.forDistance(theme, "ten-foot")`, so every metric length,
-  the 44 pixel hit floor (66) and the control heights are 1.5 times. A
+  the 44 pixel hit floor (66) and the control heights are 1.5 times, and text
+  keeps the console reading floors ([Themes.definition](Themes.definition.md)). A
   readable `environment` preview of the distance, the display size or the
   pointer makes the ladder follow a change at once. Without one, the controls
   take the distance when `Facet.controls` runs. `Screen` overscan follows the

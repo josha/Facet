@@ -33,6 +33,7 @@ local KEYS = {
 	"contentInset",
 	"scrollPolicy",
 	"transition",
+	"initialFocus",
 }
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -53,6 +54,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		anchor: GuiObject?
 	): Frame
 		transitions.check(spec.transition)
+		assert(
+			spec.initialFocus == nil or type(spec.initialFocus) == "string" or type(spec.initialFocus) == "function",
+			"Facet.Sheet: initialFocus must be a name or a function that returns one"
+		)
 		local gesture = gestureFor(spec, detent, prepared, request, phase, anchor)
 		local placed, edge, ready, toward = gesture.placed, gesture.edge, gesture.ready, gesture.toward
 		local pulled, painted, keyboard, standing = gesture.pulled, gesture.painted, gesture.keyboard, gesture.standing
@@ -206,6 +211,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				interactive("cancel")
 			end
 		end, {
+			entry = sheetBody.entry,
 			canDismiss = function(use: ComposeTypes.Use)
 				return canDismiss(use)
 			end,

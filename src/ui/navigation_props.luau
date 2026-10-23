@@ -760,6 +760,7 @@ export type SheetSpec = {
 	actionLayout: typeof(sheet.actionLayout),
 	contentInset: typeof(sheet.contentInset),
 	scrollPolicy: typeof(sheet.scrollPolicy),
+	initialFocus: typeof(sheet.initialFocus),
 	[number | Engine.EventKey]: Compose.Child,
 }
 export type CalloutSpec = {

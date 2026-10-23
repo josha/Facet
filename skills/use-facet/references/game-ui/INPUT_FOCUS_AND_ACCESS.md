@@ -33,6 +33,41 @@ Use commandScope or adjustable for specialized controls instead of rebuilding
 general focus traversal. A world-space target still needs an accessible command
 route; a moving or occluded anchor is not a reliable place for sustained reading.
 
+## Follow console conventions
+
+These follow the Xbox Accessibility Guidelines (XAG 101, 107, 112, 113),
+Microsoft's gamepad and TV guidance and Roblox's console guidelines. Sony's and
+Nintendo's requirements are not public; their system conventions agree.
+
+A selects and B goes back on every screen. Since the PS5, Cross confirms in
+every region, Japan included, and Roblox reports it as ButtonA: never swap
+them. LB/RB change tabs (TabView binds them) and LT/RT page long content (bind
+them yourself; Facet's collections do not). X and Y are shortcuts for frequent,
+non-critical commands that also have an on-screen route. Roblox keeps Menu;
+ButtonSelect (View) moves the selection into the interface while
+GuiService.AutoSelectGuiEnabled is on. Show the button with ShortcutHint and
+the action, which draws the Xbox or PlayStation glyph the engine reports.
+
+A surface starts on the control the player most likely acts on, never on a
+dismiss control that B performs: a Sheet's first content control or its
+`initialFocus`, such as a recommended item. A confirmation with consequences
+starts on the safe choice, as a Dialog's cancel action does. Focus returns to
+the opener and always stays visible, never on a hidden or off-screen control.
+
+Every menu works with the D-pad and A/B alone, one press at a time: no stick,
+chord, rapid press or long hold, or a toggle where a hold is unavoidable. Keep
+routes short (about six presses to cross a screen) and put commands before or
+beside long lists. At 1080p, text needs a body height of at least 26 pixels
+and scales to 200 percent; Facet's ten-foot text is at least 28 (captions 24)
+and follows the preferred text size. Keep text and controls about 5 percent
+inside each edge; Composition and `overscanInsets` do this. Sound and haptics
+confirm navigation sparingly, and help that appears on a resting selection is
+one short sentence.
+
+Test with the Studio Controller Emulator in the Xbox and PlayStation device
+simulators: the first stick push after spawning, each HUD button, where focus
+lands on every surface, Back from every depth and the return to play.
+
 ## Adapt independently
 
 Screen size, preferred input and viewing distance are different constraints.

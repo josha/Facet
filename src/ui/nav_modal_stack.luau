@@ -271,6 +271,18 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				end
 			end
 		end
+		local function entryTarget(): GuiObject?
+			local chosen = if spec.entry then spec.entry() else nil
+			if chosen and displayed(chosen) then
+				return chosen
+			end
+			return firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+		end
+		local provisional: GuiObject? = nil
+		local function settleEntry(target: GuiObject?)
+			local chosen = if spec.entry and target then spec.entry() else nil
+			provisional = if spec.entry and target and chosen ~= target then target else nil
+		end
 		local landed = false
 		local owned = false
 		local function reclaimable(selected: Instance?): boolean
@@ -360,7 +372,9 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					landed = false
 					owned = false
 					if gui and selected then
-						gui.SelectedObject = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+						local target = entryTarget()
+						gui.SelectedObject = target
+						settleEntry(target)
 					end
 				end
 			end)
@@ -373,6 +387,25 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			back,
 			{ priority = spec.priority or 2000 }
 		)
+		if gui and spec.entry then
+			local guiService: GuiService = gui
+			local entry = spec.entry
+			runtime.connect(panel, "DescendantAdded", function()
+				local held = provisional
+				if held == nil then
+					return
+				end
+				if guiService.SelectedObject ~= held then
+					provisional = nil
+					return
+				end
+				local better = entry()
+				if better and better ~= held and displayed(better) then
+					provisional = nil
+					guiService.SelectedObject = better
+				end
+			end)
+		end
 		if gui then
 			local guiService: GuiService = gui
 			if kit.input then
@@ -413,11 +446,12 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					and focusIn(use)
 					and not within(guiService.SelectedObject, root)
 				then
-					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+					local target = entryTarget()
 					if target and displayed(target) then
 						pcall(function()
 							guiService.SelectedObject = target
 						end)
+						settleEntry(target)
 					end
 				end
 			end)
@@ -425,7 +459,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			local extent = ctx.observe.AbsoluteSize(panel)
 			local landing = runtime.settled({
 				ready = function(): boolean
-					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+					local target = entryTarget()
 					return landed
 						or (
 							target ~= nil
@@ -435,7 +469,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 						)
 				end,
 				sample = function(): Vector2
-					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+					local target = entryTarget()
 					return if target then target.AbsoluteSize else V2.zero
 				end,
 			})
@@ -457,7 +491,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 						and use(panelInteractive)
 						and not (exiting and use(exiting))
 					then
-						gui.SelectedObject = if focusIn(use) then firstSelectable(panel) else nil
+						gui.SelectedObject = if focusIn(use) then entryTarget() else nil
 					end
 					return
 				end
@@ -487,11 +521,12 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				then
 					return
 				end
-				local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+				local target = entryTarget()
 				if target and target.AbsoluteSize.X > 0 and target.AbsoluteSize.Y > 0 and displayed(target) then
 					pcall(function()
 						guiService.SelectedObject = target
 					end)
+					settleEntry(target)
 				end
 			end)
 		end
