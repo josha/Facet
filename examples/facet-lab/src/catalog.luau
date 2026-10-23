@@ -36,6 +36,7 @@ local catalog = {}
 
 catalog.NONE = table.freeze({})
 local NONE = catalog.NONE
+local VIRTUAL_DEMOS = { "selectionFrom", "selectionIndicator", "rowActions", "minColumnWidth", "slots", "slotControls" }
 
 catalog.DEFAULT = "(default)"
 local DEFAULT = catalog.DEFAULT
@@ -3778,14 +3779,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	},
 	VirtualList = {
 		family = "collections",
-		demonstrates = {
-			"selectionFrom",
-			"selectionIndicator",
-			"rowActions",
-			"minColumnWidth",
-			"slots",
-			"slotControls",
-		},
+		demonstrates = VIRTUAL_DEMOS,
 		cellWidth = 280,
 		cellHeight = 220,
 		alias = "List",
@@ -3930,14 +3924,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	},
 	VirtualGrid = {
 		family = "collections",
-		demonstrates = {
-			"selectionFrom",
-			"selectionIndicator",
-			"rowActions",
-			"minColumnWidth",
-			"slots",
-			"slotControls",
-		},
+		demonstrates = VIRTUAL_DEMOS,
 		cellWidth = 460,
 		cellHeight = 220,
 		alias = "Grid (virtualized)",
@@ -3980,19 +3967,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				across = false,
 			},
 			{ name = "cross gap 16", props = properties { crossGap = 16 } },
-			{
-				name = "hug: three items share the width, sized to their rows",
-				props = function(c: Context)
-					return {
-						from = c.cell("three", { ROWS[1], ROWS[2], ROWS[3] }),
-						mode = "all",
-						hug = true,
-						columns = NONE,
-						minColumnWidth = 120,
-						Size = NONE,
-					}
-				end,
-			},
+			{ name = "hug", props = require("./hug_state")(ROWS, NONE) },
 		},
 	},
 	RowActions = {
