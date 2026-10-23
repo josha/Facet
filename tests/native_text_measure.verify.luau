@@ -89,7 +89,9 @@ return function(harness: Verify.Harness)
 			local node = assert(label)
 			local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
 			t:expect(floor.MinSize.X):toBe(56)
-			for _, sample in { { text = "1111", width = 56 }, { text = "9999", width = 64 }, { text = "1011", width = 64 } } do
+			for _, sample in
+				{ { text = "1111", width = 56 }, { text = "9999", width = 64 }, { text = "1011", width = 64 } }
+			do
 				node.Text = sample.text
 				t:expect(floor.MinSize.X):toBe(sample.width)
 				t:expect(floor.MaxSize.X):toBe(sample.width)
