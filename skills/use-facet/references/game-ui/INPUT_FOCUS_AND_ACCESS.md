@@ -55,6 +55,8 @@ dismiss control that B performs: a Sheet's first content control or its
 `initialFocus`, such as a recommended item. A confirmation with consequences
 starts on the safe choice, as a Dialog's cancel action does. Focus returns to
 the opener and always stays visible, never on a hidden or off-screen control.
+A HUD command that opens nothing hands the selection back to the game, so the
+player presses it and keeps playing; Composition does this.
 Visible means visible over the game too: a ring the color of the grass behind
 it is lost. Facet's default ring kind has a contrasting halo
 (`chrome.focus.halo`); give bracket, glow and art looks the same contrast, and

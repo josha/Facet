@@ -39,7 +39,8 @@ glyph sits on the Button without a second plate. For the other Buttons,
 set `GuiService.SelectedObject` to one from a game action. With
 `GuiService.AutoSelectGuiEnabled` (the default), the engine's ButtonSelect
 (View) does this too; the virtual cursor does not. ButtonB returns the
-selection to the game. Test each route in Studio with the Controller Emulator.
+selection to the game, and so does pressing a HUD command that opens no
+surface, so the player can press Boost and keep driving. Test each route in Studio with the Controller Emulator.
 
 Check desktop, both phone orientations, tablet and console in Studio. Check
 every label, icon, touch control and gamepad selection path. Do not infer live

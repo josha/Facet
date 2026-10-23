@@ -14,7 +14,8 @@ export type Selection = {
 	spaceActivates: (Instance) -> (ComposeTypes.Use) -> boolean,
 }
 
-local RESPONDER_KEYS = { passive = true, gameplayGuard = true, traversalWrap = true, engageOnPress = true }
+local RESPONDER_KEYS =
+	{ passive = true, gameplayGuard = true, traversalWrap = true, engageOnPress = true, resignOnActivate = true }
 
 local KEYBOARD_NAVIGATION_DEFAULT = true
 
@@ -740,6 +741,27 @@ return function(ctx: Shared.Context): Selection
 					end
 					if engaged:peek() then
 						resign()
+					end
+				end)
+			end
+			if input and settings.resignOnActivate then
+				runtime.connect(input, "InputEnded", function(event: InputObject)
+					if event.KeyCode ~= E.KeyCode.ButtonA then
+						return
+					end
+					local pressed = gui.SelectedObject
+					if pressed == nil or not inside(pressed) or not pressed:IsA("GuiButton") then
+						return
+					end
+					local function settle()
+						if gui.SelectedObject == pressed and ctx.withinModal(root) then
+							resign()
+						end
+					end
+					if task and task.defer then
+						task.defer(settle)
+					else
+						settle()
 					end
 				end)
 			end
