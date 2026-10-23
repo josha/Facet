@@ -203,7 +203,7 @@ end
 function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 	local warmup = (opts and opts.warmup) or scene.warmup or DEFAULT_WARMUP
 	local samples = (opts and opts.samples) or scene.samples or DEFAULT_SAMPLES
-	local auditing = opts and opts.memory == true
+	local auditing = opts ~= nil and opts.memory == true
 	if auditing then
 		Compose.inspect.start({ maxOwners = math.huge, maxNodes = math.huge })
 	end
@@ -361,6 +361,7 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 			frameWorkMs = blind("headless Lute renders no frame; M1 requires an engine session"),
 			updateMs = {
 				measured = true,
+				instrumented = auditing,
 				p50_ms = phases.total.p50_ms,
 				p95_ms = phases.total.p95_ms,
 				p99_ms = phases.total.p99_ms,
@@ -391,7 +392,7 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 		liveConnections = liveConnections,
 		resources = if auditing
 			then {
-				method = "separate instrumented pass with the scene warmup, sample count, workload and afterRun unchanged",
+				method = "instrumented pass with the scene warmup, sample count, workload and afterRun unchanged",
 				start = resourceStart,
 				iterations = resourceSeries,
 				teardown = resourceEnd,
@@ -413,15 +414,17 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 end
 
 function perf_runner.run(scenes: { any }, profiles: { any }, opts: any?): any
+	local auditOnly = opts and opts.timing == false
+	assert(not auditOnly or opts.memory == true, "an audit-only run requires resource measurements")
 	local runs = {}
 	for _, scene in scenes do
 		for _, profile in profiles do
-			local timing = if opts then table.clone(opts) else nil
-			if timing then
-				timing.memory = nil
+			local settings = if opts then table.clone(opts) else nil
+			if settings and not auditOnly then
+				settings.memory = nil
 			end
-			local row = perf_runner.runScene(scene, profile, timing)
-			if opts and opts.memory then
+			local row = perf_runner.runScene(scene, profile, settings)
+			if opts and opts.memory and not auditOnly then
 				local settings = table.clone(opts)
 				settings.memory = true
 				row.resources = perf_runner.runScene(scene, profile, settings).resources
@@ -465,7 +468,7 @@ function perf_runner.ceilingMsFor(frameTargetHz: number, uiShare: number): numbe
 	return (1000 / frameTargetHz) * uiShare
 end
 
-function perf_runner.checkBudgets(report: any, budgets: any): any
+function perf_runner.checkBudgets(report: any, budgets: any, referenceTiming: boolean?): any
 	local ref = budgets.referenceProfile
 	local violations: {
 		{
@@ -489,10 +492,17 @@ function perf_runner.checkBudgets(report: any, budgets: any): any
 	local byScene: { [string]: any } = {}
 	local displaced: { any } = {}
 	for _, r in report.runs do
+		if referenceTiming == false then
+			continue
+		end
 		if r.device == ref then
 			if DEVICE_CLASSES[r.evidenceClass] == true then
 				table.insert(displaced, { scene = r.scene, evidenceClass = r.evidenceClass })
 			else
+				assert(
+					not (r.metrics and r.metrics.updateMs and r.metrics.updateMs.instrumented == true),
+					"historical timing budgets require uninstrumented scene rows"
+				)
 				byScene[r.scene] = r
 			end
 		end
@@ -512,6 +522,9 @@ function perf_runner.checkBudgets(report: any, budgets: any): any
 		})
 	end
 	for scene, budget in budgets.scenes do
+		if referenceTiming == false then
+			continue
+		end
 		local run = byScene[scene]
 		if run == nil then
 			table.insert(violations, {

@@ -145,6 +145,7 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?, s
 				argv = string.split(assert(entry.run, "a producer needs a command: " .. entry.id), " "),
 				deadlineSeconds = entry.deadlineSeconds,
 				report = entry.report,
+				env = if entry.id == "perf" then { FACET_PERF_TIMING = tostring(referenceHost) } else nil,
 			}
 		end
 		if deferrable and producer.kind ~= "tests" then
@@ -162,7 +163,9 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?, s
 		producer.tier = entry.tier
 		producer.tags = { environment }
 		producer.after = entry.after
-		producer.why = assert(entry.why, "a producer needs a why: " .. entry.id)
+		producer.why = if entry.id == "perf" and not referenceHost
+			then "every scene and profile records its resource counts, work and metric provenance without historical host timing"
+			else assert(entry.why, "a producer needs a why: " .. entry.id)
 		table.insert(producers, producer)
 	end
 	return {

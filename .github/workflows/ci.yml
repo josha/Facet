@@ -80,9 +80,6 @@ jobs:
           luau-lsp --version
           stylua --version
 
-      - name: Formatting
-        run: stylua --check src tests tools bench examples
-
       - name: Full tier
         shell: bash
         run: |

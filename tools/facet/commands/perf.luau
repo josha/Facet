@@ -1622,7 +1622,22 @@ end
 local function noCases(): { Case.Case }
 	return {}
 end
-CASES.run = noCases
+CASES.run = function(): { Case.Case }
+	return {
+		{
+			name = "run: an invalid internal timing policy fails before workloads start",
+			run = function(): string?
+				local environment = Run.environment()
+				environment.FACET_PERF_TIMING = "invalid"
+				local result = Run.capture({ Run.lute(), "run", "tools/facet", "perf", "run" }, { env = environment })
+				return Case.first(
+					Case.equal(result.code, 1, "invalid timing policy"),
+					expectContains({ result.stdout }, "FACET_PERF_TIMING must be true or false")
+				)
+			end,
+		},
+	}
+end
 CASES.baseline = noCases
 CASES["prove-gate"] = noCases
 CASES.memory = noCases
@@ -1724,7 +1739,12 @@ local function run(invocation: Cli.Invocation): number
 	then
 		local PerfRun = require("../lib/perf_run")
 		if subcommand == "run" then
-			local code = PerfRun.run(invocation.positional[2] == "baseline")
+			local timing = Run.env("FACET_PERF_TIMING")
+			if timing ~= nil and timing ~= "true" and timing ~= "false" then
+				print("perf: FACET_PERF_TIMING must be true or false")
+				return 1
+			end
+			local code = PerfRun.run(invocation.positional[2] == "baseline", timing ~= "false")
 			if invocation.positional[2] ~= "baseline" then
 				print("perf budgets")
 				local budgetCode = budgets()
