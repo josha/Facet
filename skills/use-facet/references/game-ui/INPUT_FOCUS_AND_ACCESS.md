@@ -66,15 +66,21 @@ its glyph on that control (`ShortcutHint` with `cap = false`); on the HUD this
 is the only kind of hint. A legend line, such as "A Buy  B Back  LB/RB Tabs",
 is for commands that have no control of their own: those that act on the
 focused item, the bumpers and triggers, and Back on a surface without a
-visible Close. Never list a command twice. A legend is a readout, never a
-stop: it is not selectable, so the selection route and a surface's first
-focus skip it. Follow the input class (`effectiveInput`), not each input
-event: show it for a gamepad, leave it off on touch, and on keyboard and mouse
-only when the game asks, so moving the mouse never makes it flash. Give
-players a setting that hides it. Put it along the bottom edge of the surface that owns input, inside the
-safe area; keep it to about four entries in button order and update it as
-focus moves. An alert hides it and shows its own choices. When a controller
-connects or disconnects, acknowledge it and switch the glyphs at once.
+visible Close. Build it with `UI.ButtonGuide`. Never list a command twice. A
+legend is a readout, never a stop: it is not selectable, so the selection
+route and a surface's first focus skip it. Follow the input class
+(`effectiveInput`), not each input event: show it for a gamepad, leave it off
+on touch, and on keyboard and mouse only when the game asks
+(`inputs = { "Gamepad", "KeyboardAndMouse" }`), so moving the mouse never
+makes it flash. Give players a setting that hides it: bind one settings
+Toggle to the `buttonGuides` app option. Put it along the bottom edge of the
+surface that owns input, inside the safe area; in a Sheet, use its `guide`
+option. Keep it to about four entries in button order. Give bumpers and
+triggers `keyCode` entries so each platform draws its own glyph. An `action`
+entry shows while its native `Enabled` is on and the device binds it, so a
+commandScope action updates the legend as focus moves. An alert
+hides it and shows its own choices. When a controller connects or
+disconnects, acknowledge it and switch the glyphs at once.
 
 Every menu works with the D-pad and A/B alone, one press at a time: no stick,
 chord, rapid press or long hold, or a toggle where a hold is unavoidable. Keep

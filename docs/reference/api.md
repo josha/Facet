@@ -20,3 +20,9 @@ to retained presentation progress. `Facet.Transition` and
 For pointer-driven transitions, bind a nullable Compose cell to
 `Transition.progress`; native drag input holds it and clearing it resumes
 the control's settlement.
+
+Use [ButtonGuide](nodes/ButtonGuide.reference.md) for a console button legend
+of commands that have no control of their own. `Facet.ButtonGuideProps` types
+the control and `Facet.ButtonGuideEntry` types one entry. The Sheet `guide`
+option places one on the sheet's bottom edge, and the `buttonGuides` app
+option lets players hide every guide.

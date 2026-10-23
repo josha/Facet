@@ -21,6 +21,7 @@ export type Settings = {
 	CHOICES: { [string]: { string } },
 	transparency: Readable<number>,
 	hover: Readable<boolean>,
+	buttonGuides: Cell<boolean>,
 	scale: Readable<number>,
 	viewport: Cell<Vector2?>,
 	environment: typeof(require("@repo/tools/typecheck/aliases").ControlOptions.environment),
@@ -143,6 +144,7 @@ function lab_settings.new(ctx: Context, input: UserInputService): Settings
 	end)
 
 	self.scale = ctx.previewScale
+	self.buttonGuides = Compose.cell(true)
 
 	self.viewport = Compose.cell(nil :: Vector2?)
 
@@ -225,6 +227,7 @@ function lab_settings.new(ctx: Context, input: UserInputService): Settings
 			for key in cells do
 				self.set(key, "automatic")
 			end
+			self.buttonGuides:set(true)
 		end)
 	end
 
@@ -278,6 +281,7 @@ function lab_settings.new(ctx: Context, input: UserInputService): Settings
 				then " (automatic)"
 				else " — forced"}`
 		)
+		table.insert(out, `Button guides: {if use(self.buttonGuides) then "on" else "off"}`)
 		return table.concat(out, "\n")
 	end)
 

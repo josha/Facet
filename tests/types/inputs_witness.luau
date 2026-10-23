@@ -81,6 +81,18 @@ return function(UI: InputsControls.Controls, action: InputAction): ()
 			native.Name = "ActionHint"
 		end,
 	})
+	local guideEntries: { Inputs.ButtonGuideEntry } = {
+		{ action = action, label = "Buy" },
+		{ keys = { { "Ctrl", "S" } }, label = "Save" },
+		{ keyCode = { Enum.KeyCode.ButtonL1, Enum.KeyCode.ButtonR1 }, label = "Tabs" },
+		{ keyCode = Enum.KeyCode.ButtonY, label = text },
+	}
+	local guide: Frame = UI.ButtonGuide({
+		entries = guideEntries,
+		inputs = { "Gamepad", "KeyboardAndMouse" },
+		controlSize = "compact",
+		LayoutOrder = 2,
+	})
 	local link: TextButton =
 		UI.Button({ label = "Terms", appearance = "inverse", underline = "hover", textSize = "label" })
 	local plain: TextButton = UI.Toggle({
@@ -104,4 +116,5 @@ return function(UI: InputsControls.Controls, action: InputAction): ()
 	chip.Visible = true
 	keyHint.Visible = true
 	actionHint.Visible = true
+	guide.Visible = true
 end

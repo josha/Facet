@@ -10,5 +10,6 @@ Open:
 - [Sheet.dismissal](Sheet.dismissal.md)
 - [Sheet.drag](Sheet.drag.md)
 - [Sheet.grabber](Sheet.grabber.md)
+- [Sheet.guide](Sheet.guide.md)
 - [Sheet.layout](Sheet.layout.md)
 - [Custom transitions](Custom-transitions.md)

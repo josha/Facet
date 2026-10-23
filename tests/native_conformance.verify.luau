@@ -81,6 +81,9 @@ return function(verifyHarness: Verify.Harness)
 		ShortcutHint = function()
 			return { keys = { { "Ctrl", "K" } } }
 		end,
+		ButtonGuide = function()
+			return { entries = { { keys = { { "E" } }, label = "Use" } } }
+		end,
 		Text = function()
 			return { text = "Text" }
 		end,

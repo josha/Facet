@@ -31,6 +31,7 @@ export type AppOptions = {
 	screen: Engine.ScreenGuiNativeProps?,
 	sheet: ThemeTypes.ThemeOptions?,
 	focusRing: boolean?,
+	buttonGuides: Types.Value<boolean>?,
 }
 export type AnchoredOptions = {
 	source: Overlay.PopoverSource,

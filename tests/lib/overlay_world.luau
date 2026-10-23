@@ -77,6 +77,7 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 		reducedMotion = o.reducedMotion,
 		controlSize = o.controlSize,
 		onError = o.onError,
+		buttonGuides = o.buttonGuides,
 	})
 	local V = engine.types.Vector2
 	local stop, screen: any = runtime.mount(function()

@@ -1007,6 +1007,7 @@ function browser.mount(opts: MountOpts)
 				settingPicker("hover", "Hover paint"),
 				settingPicker("input", "Input"),
 				settingPicker("text", "Text size"),
+				UI.Toggle "Setting_buttonGuides" { label = "Button guides", value = settings.buttonGuides },
 				caption(
 					"A forced input or text size is a preview of Facet's decisions (the controls' environment option); real engine input still arrives and the engine still renders the device text size. For real touch and gamepad use Studio's Device Emulator and Controller Emulator."
 				),

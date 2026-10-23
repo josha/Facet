@@ -190,6 +190,7 @@ local FAMILIES: { Family } = {
 					{ name = "ShortcutHintActionProps", parts = { "Inputs.ShortcutAction" } },
 				},
 			},
+			{ name = "ButtonGuideProps", native = "FrameNativeProps", parts = { "Inputs.ButtonGuideOptions" } },
 			{ name = "DateTimePickerProps", native = "FrameProps", parts = { "Dates.DateTimePickerOptions" } },
 			{ name = "ColorPickerProps", native = "FrameProps", parts = { "Colors.ColorPickerOptions" } },
 		},

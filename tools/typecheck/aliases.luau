@@ -118,6 +118,8 @@ return (nil :: unknown) :: {
 	AvatarProps: Facet.AvatarProps,
 	BadgeProps: Facet.BadgeProps,
 	BadgeValue: Facet.BadgeValue,
+	ButtonGuideEntry: Facet.ButtonGuideEntry,
+	ButtonGuideProps: Facet.ButtonGuideProps,
 	ButtonProps: Facet.ButtonProps,
 	CalloutSpec: Facet.CalloutSpec,
 	CardControls: Facet.CardControls,
