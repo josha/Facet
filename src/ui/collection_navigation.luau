@@ -10,7 +10,7 @@ return function<V, K>(
 	focusScope: ComposeTypes.FocusScope<K>,
 	eligible: (ComposeTypes.Use) -> boolean
 ): ()
-	local read = ctx.read
+	local Compose, read = ctx.Compose, ctx.read
 	local E = ctx.types.Enum
 	local spec, kind, keyOf, horizontal = view.spec, view.kind, view.keyOf, view.horizontal
 	local extendSelection = view.extendSelection
@@ -173,22 +173,32 @@ return function<V, K>(
 			end
 		end
 	end
-	ctx.action(
-		root,
-		"CollectionPageDown",
-		{ E.KeyCode.PageDown, E.KeyCode.ButtonR2 },
-		eligible,
-		page(1),
-		{ priority = 200 }
-	)
-	ctx.action(
-		root,
-		"CollectionPageUp",
-		{ E.KeyCode.PageUp, E.KeyCode.ButtonL2 },
-		eligible,
-		page(-1),
-		{ priority = 200 }
-	)
+	local owner = assert(Compose.currentOwner(), "collection navigation requires a Compose owner")
+	local function armPaging()
+		view.armPaging = nil
+		Compose.withOwner(owner.createChild(), function()
+			ctx.action(
+				root,
+				"CollectionPageDown",
+				{ E.KeyCode.PageDown, E.KeyCode.ButtonR2 },
+				eligible,
+				page(1),
+				{ priority = 200 }
+			)
+			ctx.action(
+				root,
+				"CollectionPageUp",
+				{ E.KeyCode.PageUp, E.KeyCode.ButtonL2 },
+				eligible,
+				page(-1),
+				{ priority = 200 }
+			)
+		end)
+	end
+	view.armPaging = armPaging
+	if focusScope.current:peek() ~= nil then
+		armPaging()
+	end
 	ctx.action(root, "CollectionFirst", { E.KeyCode.Home }, eligible, jump(focusScope.first), { priority = 200 })
 	ctx.action(root, "CollectionLast", { E.KeyCode.End }, eligible, jump(focusScope.last), { priority = 200 })
 end

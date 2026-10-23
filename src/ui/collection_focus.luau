@@ -220,6 +220,12 @@ return function<V, K>(
 			return
 		end
 		view.focusOwned = true
+		local arm = view.armPaging
+		if arm then
+			Compose.sample(function()
+				arm()
+			end)
+		end
 		local currentStatus = status:peek()
 		local index = if currentStatus.total > 0 then assert(controls.indexOfKey)(key) else nil
 		if index then

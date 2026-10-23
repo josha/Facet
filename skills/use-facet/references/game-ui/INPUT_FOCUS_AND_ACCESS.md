@@ -61,11 +61,20 @@ it is lost. Facet's default ring kind has a contrasting halo
 check focus over the busiest and most similar scenery. A slow pulse suits
 tiles and cards, not text buttons, and stops under reduced motion.
 
-A surface that owns input lists its active buttons and what they do in a
-footer, such as "A Buy  B Back  Y Sort". Update the list with the context,
-hide it during an alert, and make each entry a touch target that runs the same
-command. When a controller connects or disconnects, acknowledge it and switch
-the glyphs at once.
+Show a button where its command is. A command with its own control carries
+its glyph on that control (`ShortcutHint` with `cap = false`); on the HUD this
+is the only kind of hint. A legend line, such as "A Buy  B Back  LB/RB Tabs",
+is for commands that have no control of their own: those that act on the
+focused item, the bumpers and triggers, and Back on a surface without a
+visible Close. Never list a command twice. A legend is a readout, never a
+stop: it is not selectable, so the selection route and a surface's first
+focus skip it. Follow the input class (`effectiveInput`), not each input
+event: show it for a gamepad, leave it off on touch, and on keyboard and mouse
+only when the game asks, so moving the mouse never makes it flash. Give
+players a setting that hides it. Put it along the bottom edge of the surface that owns input, inside the
+safe area; keep it to about four entries in button order and update it as
+focus moves. An alert hides it and shows its own choices. When a controller
+connects or disconnects, acknowledge it and switch the glyphs at once.
 
 Every menu works with the D-pad and A/B alone, one press at a time: no stick,
 chord, rapid press or long hold, or a toggle where a hold is unavoidable. Keep
