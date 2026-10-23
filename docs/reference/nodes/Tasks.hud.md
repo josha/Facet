@@ -1,19 +1,17 @@
 # Tasks.hud
 
-Glanceable readouts with a shorter form.
+HUD with destination callbacks.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
-local C = Facet.Compose
-local app = Facet.app({})
-local UI = app.UI
-local coins, xp, left = C.cell(1234567), C.cell(40), C.cell("2:30")
-app.mount(function()
+local function hud(app: Facet.App, open: (string) -> (),
+  coins: Facet.Readable<number>, xp: Facet.Readable<number>, left: Facet.Readable<string>): Frame
+  local UI = app.UI
   local width = UI.environment().scaled(200)
   local captionRoom: Facet.Sides = { bottom = "l" }
   local function action(name: string, icon: string, caption: Facet.ValueString?)
     return UI.Button(name) { icon = icon, shape = "circle", controlSize = "regular",
-      caption = caption or name, onActivate = function() end }
+      caption = caption or name, onActivate = function() open(name) end }
   end
   return UI.Composition "HUD" {
     UI.Region "Actions" { zone = "topRight", rank = 1,
@@ -30,10 +28,10 @@ app.mount(function()
         UI.Text { textRole = "numeral", text = function(use: Facet.Use) return Facet.format.compact(use(coins)) .. " Coins" end },
         UI.Text { textRole = "caption", text = function(use: Facet.Use) return `Level 3 · {use(xp)}/100` end } } },
   }
-end)
+end
 ```
 
-Keep gameplay controls clear: [safe layout](Tasks.safe-layout.md).
-Choose zones and captions: [HUD actions](HUD-actions.md).
+Keep play clear: [safe layout](Tasks.safe-layout.md).
+Bind routes and gamepad hints: [HUD actions](HUD-actions.md).
 Bind [server state](Tasks.state.md).
-Open a [collection](Tasks.collection-detail.md) or [sheet](Tasks.sheet.md).
+Open a [destination](Tasks.pages.md) with [collection/detail](Tasks.collection-detail.md).

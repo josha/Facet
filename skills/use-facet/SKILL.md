@@ -5,12 +5,27 @@ description: Build, change, style or test Roblox game UI and Studio plugin inter
 
 # Use Facet
 
-Read [game UI design](references/GAME_UI_DESIGN_GUIDE.md) once. Then open only
-the task chapter or API node needed for the next decision. Design a complete
-player task, not a control catalog.
+## Design principles
+
+- **Start with the player's intent.** Compose the situation, choice, action and
+  result as one connected task. Choose controls to serve that task.
+- **Make the game recognizable.** Let its world and objects shape the art,
+  framing, type and motion. A palette alone is not an identity.
+- **Direct attention.** Give the subject and next useful action clear priority.
+  Use quieter context, deliberate space and meaningful feedback around them.
+- **Preserve the task across inputs and sizes.** Recompose around available
+  room, reach and viewing distance. Keep identity, consequences and exits usable.
+- **Earn the player's trust.** Distinguish intent from accepted results. Preserve
+  useful state and make navigation, focus and gameplay input return predictably.
+
+Read [game UI design](references/GAME_UI_DESIGN_GUIDE.md) once for how to apply
+these principles. Task chapters explain specific decisions; recipes show
+behavior and ownership; API nodes define exact contracts. Open only the next
+level needed for the current decision.
 
 Prove one complete playable loop before expanding menus. Test the first use
 of each layout or interaction in Play before repeating it across the game.
+Inspect the combined page, body and gameplay context before copying a pattern.
 
 ## Find the contract
 
@@ -26,7 +41,7 @@ in the installed docs and CLI. Use `Map` only when the task has no known route.
 | --- | --- |
 | First mount or existing Compose integration | `Mounting.Facet.app` |
 | Competing gameplay HUD groups | `Tasks.hud`, then `Composition.regions` if needed |
-| Page header, scrolling body and return | `Screen.card`, `NavBar.card`, `ScrollView.card` |
+| Destination from gameplay, input ownership and Back | `Tasks.pages` |
 | Gamepad entry into a passive HUD | `responder` |
 | Collection and selected detail | `Tasks.collection-detail` |
 | Boolean settings or named choices | `Toggle.card`, `Picker.card` |

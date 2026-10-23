@@ -1,8 +1,8 @@
 # Game UI quality verification
 
 Inspect native captures and Verify audit reports for the game workspace under
-test. The headline uses universal screens and excludes low-severity findings.
-Keep spec diagnostics separate from the headline.
+test. Compare equivalent player states under the current evaluation protocol.
+Keep diagnostic subsets separate from complete acceptance results.
 
 ## Capture and inspect
 
