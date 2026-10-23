@@ -1432,17 +1432,20 @@ cases = function(): { Case.Case }
 			name = "preflight rejects missing tools and mismatched pins before expensive checks",
 			run = function(): string?
 				for _, broken in { "rojo", "stylua", "git", "bash", "wrong-version" } do
-					local ok, problem = pcall(prepare, function(argv: { string }, _: Run.Options?): Run.Result
-						return {
-							ok = argv[1] ~= broken,
-							code = if argv[1] == broken then 127 else 0,
-							stdout = if broken == "wrong-version"
-								then "0.0.0"
-								elseif argv[1] == "rojo" then "Rojo 7.7.0"
-								else "stylua 2.5.2",
-							stderr = "missing fixture tool",
-							timedOut = false,
-						}
+					local ok, problem = pcall(function(): boolean
+						prepare(function(argv: { string }, _: Run.Options?): Run.Result
+							return {
+								ok = argv[1] ~= broken,
+								code = if argv[1] == broken then 127 else 0,
+								stdout = if broken == "wrong-version"
+									then "0.0.0"
+									elseif argv[1] == "rojo" then "Rojo 7.7.0"
+									else "stylua 2.5.2",
+								stderr = "missing fixture tool",
+								timedOut = false,
+							}
+						end)
+						return true
 					end)
 					local expected = if broken == "wrong-version" then "differs from pin" else broken
 					if ok or not string.find(tostring(problem), expected, 1, true) then
