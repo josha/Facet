@@ -12,8 +12,8 @@ local buy = assert(game.ReplicatedStorage:FindFirstChild("Purchase")) :: RemoteF
 app.mount(function()
   local env = UI.environment()
   local spec: Facet.KeyedCollectionSpec<Item, string> = {
-    from = { { id = "kart", name = "Kart", price = 250 }, { id = "glider", name = "Glider", price = 400 },
-      { id = "boots", name = "Boots", price = 120 } }, key = "id",
+    from = { { id = "kart", name = "Kart", price = 250 }, { id = "boots", name = "Boots", price = 90 } },
+    key = "id",
     mode = "all", hug = true, measure = true, minColumnWidth = env.scaled(220),
     itemSize = env.scaled(132), gap = env.scaled(16),
     render = function(row: Facet.Readable<Item>, _, key)
@@ -44,6 +44,6 @@ app.mount(function()
 end)
 ```
 
-The items share the sheet's width in as many columns as fit, and wrap into
-rows on a narrow screen. Size the grid, not the cards; see
-[sizing](VirtualList-and-VirtualGrid.sizing.md). [Purchase](Tasks.purchase.md).
+The items share the width and wrap on a narrow screen; size the grid, not
+the cards ([sizing](VirtualList-and-VirtualGrid.sizing.md)).
+[Purchase](Tasks.purchase.md).
