@@ -121,7 +121,7 @@ return function(
 		})
 	end
 	runtime.decorate(container, {
-		Size = function(use)
+		Size = function(use: ComposeTypes.Use)
 			if active and not use(active) then
 				return D2.fromOffset(0, 0)
 			end

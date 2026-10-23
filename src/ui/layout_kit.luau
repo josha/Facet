@@ -31,6 +31,8 @@ export type Kit = {
 	lifter: (GuiObject, "x" | "y") -> (number) -> boolean,
 	follow: (GuiObject, "x" | "y", (ComposeTypes.Use?) -> number) -> () -> boolean,
 	match: (Frame, boolean, (ComposeTypes.Use?) -> boolean) -> (),
+	frameless: () -> boolean,
+	nextFrame: (() -> ()) -> () -> (),
 }
 
 local layoutKit = {}

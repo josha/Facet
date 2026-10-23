@@ -539,7 +539,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("follows its anchor on screen and clamps to the edge with an arrow off screen", {
 			id = "native_layout::world marker::follows its anchor on screen and clamps to the edge with an arrow off screen",
 			run = function()
-				local point = Compose.cell({ visible = true, x = 400, y = 300, onscreen = true })
+				type Point = { visible: boolean, x: number?, y: number?, onscreen: boolean? }
+				local point = Compose.cell({ visible = true, x = 400, y = 300, onscreen = true } :: Point)
 				local edge = Compose.cell("clamp" :: "clamp" | "hide")
 				local margin = Compose.cell(10 :: number | { top: number })
 				local holder, engine, stop = build(nil, function(UI, Host)
