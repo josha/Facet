@@ -4,6 +4,13 @@ Run `lute run tools/facet bench` from the repository root. The command runs
 microbenchmarks with Verify sampling and compares them with `baseline.json`.
 Run `lute run tools/facet perf run` for the performance scene matrix.
 
+The full gate audits every scene and profile for resources, work and metric
+provenance. Away from the reference host, it runs only the instrumented pass
+and records historical timing as unchecked. `gate full --reference-host` also
+runs the separate timing pass and checks the historical budgets. The required
+paired CI comparisons keep their separate timing passes on all three platforms.
+Physical-device budgets remain enforced when their captures are supplied.
+
 ## Scope
 
 Headless durations include Compose reconciliation, bindings, control policy,

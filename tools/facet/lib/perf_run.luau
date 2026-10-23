@@ -283,12 +283,13 @@ local function ingest(report: { runs: { unknown }, [string]: unknown })
 	end
 end
 
-function PerfRun.run(baseline: boolean): number
+function PerfRun.run(baseline: boolean, timing: boolean?): number
 	loadBench()
+	local checkTiming = timing ~= false or baseline
 	local list = profiles()
 	local scenes, injectScene, injectFactor = injected()
 	print(`perf: {#scenes} scenes × {#list} profiles (reference = {perf_profiles.REFERENCE})`)
-	local report = perf_runner.run(scenes, list, { memory = true })
+	local report = perf_runner.run(scenes, list, { memory = true, timing = checkTiming })
 	report.referenceProfile = perf_profiles.REFERENCE
 	if injectScene ~= nil then
 		report.injectedRegression = {
@@ -317,13 +318,16 @@ function PerfRun.run(baseline: boolean): number
 	for _, entry in report.evidenceClasses :: { { id: string, rows: number } } do
 		entry.rows = present[entry.id] or 0
 	end
-	local result = perf_runner.checkBudgets(report, budgets) :: Check
+	local result = perf_runner.checkBudgets(report, budgets, checkTiming) :: Check
 	local memoryErrors = Memory.check(report)
 	local memoryGrowth = Memory.growth(report)
 	report.memory = { ok = #memoryErrors == 0, errors = memoryErrors, growth = memoryGrowth }
 	report.status = if result.ok and #memoryErrors == 0 then "PASS" else "FAIL"
 	report.budget = {
-		checked = true,
+		checked = checkTiming,
+		reason = if checkTiming
+			then nil
+			else "historical timing requires the reference host; physical-device budgets remain enforced",
 		referenceProfile = budgets.referenceProfile,
 		multiplier = budgets.multiplier,
 		frameCeiling = budgets.frameCeiling,
@@ -331,26 +335,30 @@ function PerfRun.run(baseline: boolean): number
 		skippedDeviceBudgets = result.skipped,
 	}
 	PerfRun.writeJson(ARTIFACT_PATH, report)
-	local referenceProfile = perf_profiles.get(perf_profiles.REFERENCE)
-	print("")
-	print(
-		string.format(
-			"  %-28s %8s %10s %10s   %s",
-			"scene",
-			"p95(ms)",
-			"trend(ms)",
-			"ceil(ms)",
-			`result   (reference: {perf_profiles.REFERENCE} @ {referenceProfile.frameTargetHz}Hz)`
+	if not checkTiming then
+		print("perf: historical timing unchecked; the full scene/profile resource and work audit is recorded")
+	else
+		local referenceProfile = perf_profiles.get(perf_profiles.REFERENCE)
+		print("")
+		print(
+			string.format(
+				"  %-28s %8s %10s %10s   %s",
+				"scene",
+				"p95(ms)",
+				"trend(ms)",
+				"ceil(ms)",
+				`result   (reference: {perf_profiles.REFERENCE} @ {referenceProfile.frameTargetHz}Hz)`
+			)
 		)
-	)
-	for _, r in report.runs :: { Row } do
-		if r.device == perf_profiles.REFERENCE then
-			local b = budgets.scenes[r.scene]
-			local budgetMs = if b then b.total_p95_ms else math.huge
-			local ceil = if b and b.ceilingMs then b.ceilingMs else math.huge
-			local p95 = r.phases.total.p95_ms
-			local verdict = if p95 > budgetMs then "OVER-TREND" elseif p95 > ceil then "OVER-CEILING" else "ok"
-			print(string.format("  %-28s %8.4f %10.3f %10.3f   %s", r.scene, p95, budgetMs, ceil, verdict))
+		for _, r in report.runs :: { Row } do
+			if r.device == perf_profiles.REFERENCE then
+				local b = budgets.scenes[r.scene]
+				local budgetMs = if b then b.total_p95_ms else math.huge
+				local ceil = if b and b.ceilingMs then b.ceilingMs else math.huge
+				local p95 = r.phases.total.p95_ms
+				local verdict = if p95 > budgetMs then "OVER-TREND" elseif p95 > ceil then "OVER-CEILING" else "ok"
+				print(string.format("  %-28s %8.4f %10.3f %10.3f   %s", r.scene, p95, budgetMs, ceil, verdict))
+			end
 		end
 	end
 	print("")
@@ -375,7 +383,7 @@ function PerfRun.run(baseline: boolean): number
 	end
 	if not result.ok then
 		print(
-			`perf: FAIL_ENVIRONMENT — {#result.violations} host timing budget violation(s) [artifact: {ARTIFACT_PATH}]`
+			`perf: {if checkTiming then "FAIL_ENVIRONMENT" else "FAIL"} — {#result.violations} budget violation(s) [artifact: {ARTIFACT_PATH}]`
 		)
 		for _, v in result.violations do
 			print(
@@ -391,10 +399,14 @@ function PerfRun.run(baseline: boolean): number
 				)
 			)
 		end
-		return 2
+		return if checkTiming then 2 else 1
 	end
 	print(`perf: PASS ({#report.runs} runs, {#scenes} scenes) [artifact: {ARTIFACT_PATH}]`)
-	print("perf: headless trend numbers only — device measurement is authoritative (§14.3)")
+	print(
+		if checkTiming
+			then "perf: headless trend numbers only — device measurement is authoritative (§14.3)"
+			else "perf: resource inspection timings are not a historical performance comparison"
+	)
 	return 0
 end
 

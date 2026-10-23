@@ -33,8 +33,9 @@ subcommands:
   prove-memory-gate             plant native and Compose leaks and prove that the teardown gate fails
   scenes [--themes]             check that each production (or theme-swap) scene did its work
   place [--no-build]            build examples/performance.project.json and check the place
-  paired run --out DIR [--rounds N] [--scenes a,b] [--skip-bench] LABEL=WORKTREE...
+  paired run --out DIR [--rounds N] [--scenes a,b] [--skip-bench] [--gate] [--summary FILE] LABEL=WORKTREE...
                                 run the paired scenes and the bench in each worktree, round by round
+                                --gate requires two arms and six full rounds; pass after three or continue all measurements through six; invalid evidence exits 2, invalid CPU calibration exits 75
   paired report DIR FIRST SECOND --rounds N [--scenes a,b] [--skip-bench] [--gate] [--summary FILE]
                                 require complete measurements for the expected scope; invalid evidence exits 2; --gate exits 1 when SECOND is consistently slower; --summary appends the summary and tables as Markdown
   aggregate [--all] [--layout] DUMP.html...
@@ -354,101 +355,6 @@ local function benchmarkCommand(): { string }
 	return { Run.lute(), "run", Files.absolute("tools/facet"), "bench" }
 end
 
-local function pairedRun(invocation: Cli.Invocation): number
-	local out = Cli.flag(invocation, "out")
-	local trees: { { label: string, tree: string } } = {}
-	for index = 3, #invocation.positional do
-		local pair = invocation.positional[index]
-		local label, tree = string.match(pair, "^([^=]*)=(.*)$")
-		table.insert(trees, { label = label or pair, tree = Files.absolute(tree or "") })
-	end
-	local rounds = tonumber(Cli.flag(invocation, "rounds") or "5")
-	if out == nil or #trees < 2 or rounds == nil or rounds < 1 or rounds == math.huge or rounds % 1 ~= 0 then
-		print(USAGE)
-		return 2
-	end
-	local selected = Cli.flag(invocation, "scenes")
-	local sceneList: { string } = if selected ~= nil and selected ~= ""
-		then string.split(selected, ",")
-		else Paired.SCENES
-	local skipBench = Cli.switch(invocation, "skip-bench")
-	local environment = toolEnvironment(rokitDirectories(), false)
-	local runner = Files.absolute("bench/paired_scene.luau")
-	local benchCommand = benchmarkCommand()
-	local log = Files.join(out, "log.txt")
-	local rows = Files.join(out, "scenes.jsonl")
-	if Files.isDirectory(out) and #Files.list(out) > 0 then
-		print("paired run: output directory must be empty")
-		return 2
-	end
-	Files.makeDirectory(out)
-	for round = 1, rounds do
-		for position = 1, #trees do
-			local entry = trees[Paired.armIndex(round, position, #trees)]
-			local target = Files.join(entry.tree, "bench/paired_scene.luau")
-			if not samePath(target, runner) then
-				Files.write(target, Files.read(runner))
-			end
-			append(
-				log,
-				("round %d %s start %s load %s\n"):format(round, entry.label, os.date("%H:%M:%S"), loadAverage())
-			)
-			for _, scene in sceneList do
-				local result = Run.capture(
-					{ Run.lute(), "run", "bench/paired_scene.luau", scene },
-					{ cwd = entry.tree, env = environment }
-				)
-				local row = Paired.sceneRow(result.stdout)
-				if row == nil then
-					local crashed = Json.object()
-					Json.set(crashed, "scene", scene)
-					Json.set(crashed, "status", "crashed")
-					row = crashed
-				end
-				local record = Json.object()
-				Json.set(record, "label", entry.label)
-				Json.set(record, "round", round)
-				Json.set(record, "row", row)
-				append(rows, Json.encode(record) .. "\n")
-				if not result.ok or Json.field(row, "status") ~= "ok" then
-					print(`paired run: {entry.label} scene {scene} failed or was unavailable`)
-					return 2
-				end
-			end
-			if not skipBench then
-				local artifact = Files.join(entry.tree, "artifacts", "bench.json")
-				if Files.isFile(artifact) then
-					Files.remove(artifact)
-				end
-				local bench = Run.capture(benchCommand, { cwd = entry.tree, env = environment })
-				Files.write(
-					Files.join(out, ("bench-%s-%d.log"):format(entry.label, round)),
-					bench.stdout .. bench.stderr
-				)
-				local document: unknown = nil
-				if Files.isFile(artifact) then
-					local bytes = Files.read(artifact)
-					Files.write(Files.join(out, ("bench-%s-%d.json"):format(entry.label, round)), bytes)
-					local valid, decoded = pcall(Json.decode, bytes)
-					if valid then
-						document = decoded
-					end
-				end
-				local errors, calibration = Paired.benchOutcome(bench.code, document)
-				if #errors > 0 then
-					for _, detail in errors do
-						print(`paired run: {entry.label} round {round}: {detail}`)
-					end
-					return if calibration then 75 else 2
-				end
-			end
-			append(log, ("round %d %s end %s\n"):format(round, entry.label, os.date("%H:%M:%S")))
-		end
-	end
-	append(log, "DONE\n")
-	return 0
-end
-
 local function benchesFor(out: string, label: string): { Paired.Bench }
 	local benches: { Paired.Bench } = {}
 	for _, entry in Files.list(out) do
@@ -543,6 +449,122 @@ local function pairedReport(invocation: Cli.Invocation): number
 		print(("paired gate: FAIL - %s is consistently slower in %s"):format(second, table.concat(slower, ", ")))
 		return 1
 	end
+	return 0
+end
+
+local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): number
+	local out = Cli.flag(invocation, "out")
+	local trees: { { label: string, tree: string } } = {}
+	for index = 3, #invocation.positional do
+		local pair = invocation.positional[index]
+		local label, tree = string.match(pair, "^([^=]*)=(.*)$")
+		table.insert(trees, { label = label or pair, tree = Files.absolute(tree or "") })
+	end
+	local rounds = tonumber(Cli.flag(invocation, "rounds") or "5")
+	if out == nil or #trees < 2 or rounds == nil or rounds < 1 or rounds == math.huge or rounds % 1 ~= 0 then
+		print(USAGE)
+		return 2
+	end
+	local selected = Cli.flag(invocation, "scenes")
+	local sceneList: { string } = if selected ~= nil and selected ~= ""
+		then string.split(selected, ",")
+		else Paired.SCENES
+	local skipBench = Cli.switch(invocation, "skip-bench")
+	local gate = Cli.switch(invocation, "gate")
+	if gate and (#trees ~= 2 or trees[1].label == trees[2].label or rounds ~= 6 or selected ~= nil or skipBench) then
+		print("paired run: --gate requires two distinct arms, --rounds 6, every scene and the bench")
+		return 2
+	end
+	local execute = capture or Run.capture
+	local environment = toolEnvironment(rokitDirectories(), false)
+	local runner = Files.absolute("bench/paired_scene.luau")
+	local benchCommand = benchmarkCommand()
+	local log = Files.join(out, "log.txt")
+	local rows = Files.join(out, "scenes.jsonl")
+	if Files.isDirectory(out) and #Files.list(out) > 0 then
+		print("paired run: output directory must be empty")
+		return 2
+	end
+	Files.makeDirectory(out)
+	for round = 1, rounds do
+		for position = 1, #trees do
+			local entry = trees[Paired.armIndex(round, position, #trees)]
+			local target = Files.join(entry.tree, "bench/paired_scene.luau")
+			if not samePath(target, runner) then
+				Files.write(target, Files.read(runner))
+			end
+			append(
+				log,
+				("round %d %s start %s load %s\n"):format(round, entry.label, os.date("%H:%M:%S"), loadAverage())
+			)
+			for _, scene in sceneList do
+				local result = execute(
+					{ Run.lute(), "run", "bench/paired_scene.luau", scene },
+					{ cwd = entry.tree, env = environment }
+				)
+				local row = Paired.sceneRow(result.stdout)
+				if row == nil then
+					local crashed = Json.object()
+					Json.set(crashed, "scene", scene)
+					Json.set(crashed, "status", "crashed")
+					row = crashed
+				end
+				local record = Json.object()
+				Json.set(record, "label", entry.label)
+				Json.set(record, "round", round)
+				Json.set(record, "row", row)
+				append(rows, Json.encode(record) .. "\n")
+				if not result.ok or Json.field(row, "status") ~= "ok" then
+					print(`paired run: {entry.label} scene {scene} failed or was unavailable`)
+					return 2
+				end
+			end
+			if not skipBench then
+				local artifact = Files.join(entry.tree, "artifacts", "bench.json")
+				if Files.isFile(artifact) then
+					Files.remove(artifact)
+				end
+				local bench = execute(benchCommand, { cwd = entry.tree, env = environment })
+				Files.write(
+					Files.join(out, ("bench-%s-%d.log"):format(entry.label, round)),
+					bench.stdout .. bench.stderr
+				)
+				local document: unknown = nil
+				if Files.isFile(artifact) then
+					local bytes = Files.read(artifact)
+					Files.write(Files.join(out, ("bench-%s-%d.json"):format(entry.label, round)), bytes)
+					local valid, decoded = pcall(Json.decode, bytes)
+					if valid then
+						document = decoded
+					end
+				end
+				local errors, calibration = Paired.benchOutcome(bench.code, document)
+				if #errors > 0 then
+					for _, detail in errors do
+						print(`paired run: {entry.label} round {round}: {detail}`)
+					end
+					return if calibration then 75 else 2
+				end
+			end
+			append(log, ("round %d %s end %s\n"):format(round, entry.label, os.date("%H:%M:%S")))
+		end
+		if gate and (round == 3 or round == rounds) then
+			local report = table.clone(invocation)
+			report.positional = { "paired", "report", out, trees[1].label, trees[2].label }
+			report.flags = table.clone(invocation.flags)
+			report.flags.rounds = tostring(round)
+			local status = pairedReport(report)
+			if status ~= 1 or round == rounds then
+				append(log, if status == 0 then "DONE\n" else `GATE FAILED {status}\n`)
+				return status
+			end
+			append(
+				log,
+				"Statistical slowdown after three rounds; retaining every measurement and continuing through six.\n"
+			)
+		end
+	end
+	append(log, "DONE\n")
 	return 0
 end
 
@@ -828,6 +850,85 @@ local function requiredPairs(): (Paired.Scope, { Json.Object }, { Paired.Bench }
 		table.insert(second, requiredBench(round, "cand"))
 	end
 	return { rounds = 2, scenes = { "dense-hud" }, bench = true }, entries, first, second
+end
+
+local function pairedRunFixture(mode: string): string?
+	local root = Files.temporaryDirectory("facet-paired-checkpoint-")
+	local ok, failure = pcall(function(): string?
+		local out = Files.join(root, "out")
+		local counts: { [string]: number } = { base = 0, cand = 0 }
+		local arms: { string } = {}
+		local summary = Files.join(root, "summary.md")
+		local arguments = { "perf", "paired", "run", "--out", out, "--rounds", "6", "--summary", summary }
+		if mode ~= "manual" then
+			table.insert(arguments, "--gate")
+		end
+		for _, label in { "base", "cand" } do
+			table.insert(arguments, label .. "=" .. Files.join(root, label))
+		end
+		local status = pairedRun(
+			Cli.parse(arguments, { "out", "rounds", "summary" }),
+			function(argv, options): Run.Result
+				local tree = assert(options and options.cwd)
+				local label = if tree == Files.join(root, "base") then "base" else "cand"
+				local round = counts[label] + 1
+				local output = ""
+				if argv[3] == "bench/paired_scene.luau" then
+					local row = Json.object()
+					Json.set(row, "scene", argv[4])
+					Json.set(row, "status", "ok")
+					local slower = label == "cand" and (mode == "fail" or (mode == "continue" and round <= 3))
+					Json.set(row, "p50", if slower then 2 else 1)
+					Json.set(row, "p95", if slower then 4 else 2)
+					if mode == "invalid" and label == "cand" and round == 3 then
+						Json.set(row, "scene", "unselected-scene")
+					end
+					output = "@@" .. Json.encode(row)
+				else
+					counts[label] = round
+					table.insert(arms, label)
+					local document = requiredBench(round, label).document
+					if mode == "calibration" then
+						Json.set(document, "status", "FAIL")
+						Json.set(document, "proofStatus", "unstable-cpu-rate")
+						Json.set(document, "failureKind", "calibration")
+						Json.set(document, "expectedMeasurements", 1)
+						Json.set(document, "yardstickMedianDriftPct", 20)
+					end
+					Files.write(Files.join(tree, "artifacts/bench.json"), Json.encode(document))
+				end
+				local code = if mode == "calibration" and output == "" then 2 else 0
+				return { ok = code == 0, code = code, stdout = output, stderr = "", timedOut = false }
+			end
+		)
+		local rounds = if mode == "continue" or mode == "fail" or mode == "manual" then 6 else 3
+		if mode == "calibration" then
+			return Case.first(Case.equal(status, 75, "calibration status"), Case.equal(#arms, 1, "stopped immediately"))
+		end
+		local entries = pairedEntries(Files.lines(Files.read(Files.join(out, "scenes.jsonl"))))
+		local expected = if rounds == 6
+			then "base,cand,cand,base,base,cand,cand,base,base,cand,cand,base"
+			else "base,cand,cand,base,base,cand"
+		local summaryCount = 0
+		if Files.isFile(summary) then
+			for _ in string.gmatch(Files.read(summary), "### Paired performance:") do
+				summaryCount += 1
+			end
+		end
+		return Case.first(
+			Case.equal(status, if mode == "invalid" then 2 elseif mode == "fail" then 1 else 0, "verdict"),
+			Case.equal(
+				summaryCount,
+				if mode == "manual" or mode == "invalid" then 0 elseif rounds == 6 then 2 else 1,
+				"checkpoint summaries"
+			),
+			Case.equal(table.concat(arms, ","), expected, "counterbalanced arms"),
+			Case.equal(#entries, rounds * 2 * #Paired.SCENES, "every scene retained"),
+			Case.equal(#benchesFor(out, "base") + #benchesFor(out, "cand"), rounds * 2, "every benchmark retained")
+		)
+	end)
+	Files.remove(root)
+	return if ok then failure else "raised: " .. tostring(failure)
 end
 
 local CASES: { [string]: () -> { Case.Case } } = {}
@@ -1156,6 +1257,42 @@ end
 
 CASES.paired = function(): { Case.Case }
 	return {
+		{
+			name = "paired: a valid full-scope pass ends after three rounds",
+			run = function(): string?
+				return pairedRunFixture("pass")
+			end,
+		},
+		{
+			name = "paired: a statistical slowdown retains all six counterbalanced rounds",
+			run = function(): string?
+				return pairedRunFixture("continue")
+			end,
+		},
+		{
+			name = "paired: invalid checkpoint evidence cannot pass or continue",
+			run = function(): string?
+				return pairedRunFixture("invalid")
+			end,
+		},
+		{
+			name = "paired: a persistent slowdown fails after every six-round measurement",
+			run = function(): string?
+				return pairedRunFixture("fail")
+			end,
+		},
+		{
+			name = "paired: invalid calibration stops before the checkpoint",
+			run = function(): string?
+				return pairedRunFixture("calibration")
+			end,
+		},
+		{
+			name = "paired: an ungated manual run keeps its requested six rounds",
+			run = function(): string?
+				return pairedRunFixture("manual")
+			end,
+		},
 		{
 			name = "paired: consecutive rounds counterbalance every arm without dropping measurements",
 			run = function(): string?
@@ -1622,7 +1759,22 @@ end
 local function noCases(): { Case.Case }
 	return {}
 end
-CASES.run = noCases
+CASES.run = function(): { Case.Case }
+	return {
+		{
+			name = "run: an invalid internal timing policy fails before workloads start",
+			run = function(): string?
+				local environment = Run.environment()
+				environment.FACET_PERF_TIMING = "invalid"
+				local result = Run.capture({ Run.lute(), "run", "tools/facet", "perf", "run" }, { env = environment })
+				return Case.first(
+					Case.equal(result.code, 1, "invalid timing policy"),
+					expectContains({ result.stdout }, "FACET_PERF_TIMING must be true or false")
+				)
+			end,
+		},
+	}
+end
 CASES.baseline = noCases
 CASES["prove-gate"] = noCases
 CASES.memory = noCases
@@ -1724,7 +1876,12 @@ local function run(invocation: Cli.Invocation): number
 	then
 		local PerfRun = require("../lib/perf_run")
 		if subcommand == "run" then
-			local code = PerfRun.run(invocation.positional[2] == "baseline")
+			local timing = Run.env("FACET_PERF_TIMING")
+			if timing ~= nil and timing ~= "true" and timing ~= "false" then
+				print("perf: FACET_PERF_TIMING must be true or false")
+				return 1
+			end
+			local code = PerfRun.run(invocation.positional[2] == "baseline", timing ~= "false")
 			if invocation.positional[2] ~= "baseline" then
 				print("perf budgets")
 				local budgetCode = budgets()

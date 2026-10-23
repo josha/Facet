@@ -32,7 +32,9 @@ A setup failure does not consume a paid author attempt.
 
 Check the native camera viewport as well as the simulated screen dimensions.
 A responding Studio with a 1-by-1 camera viewport is not ready. Wake rendering
-and confirm actual frames before starting the author clock.
+and confirm actual frames before starting the author clock. Verify that a native
+Studio menu opens and closes, then test input delivery in Play and return to Edit.
+If input fails, restore and maximize the window and repeat these checks.
 
 ## Deadline and submission
 

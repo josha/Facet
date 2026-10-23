@@ -11,6 +11,8 @@ return function(verifyHarness: Verify.Harness)
 	local perf_profiles = require("../bench/perf_profiles")
 	local Compose = require("../src/vendor/compose/core")
 	local Memory = require("../tools/facet/checks/perf_memory")
+	local Engine = require("./lib/native_engine")
+	local Evidence = require("../tools/facet/lib/perf_evidence")
 
 	verifyHarness:suite("exact performance resource gates", function()
 		verifyHarness:case("rejects each teardown leak and malformed count and reports churn growth", {
@@ -192,6 +194,62 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("perf runner — budget enforcement (§16.1)", function()
+		verifyHarness:case("audit-only budgets enforce measured physical devices and retain missing capture failures", {
+			id = "native_perf_runner::budgets::audit-only physical devices",
+			run = function()
+				local physical = {
+					scene = "hud",
+					device = "phone",
+					evidenceClass = "phone-physical",
+					metrics = {
+						frameWorkMs = { measured = true, p95_ms = 2 },
+						updateMs = { instrumented = true },
+					},
+				}
+				local headless = {
+					scene = "hud",
+					device = "floorAndroid",
+					evidenceClass = "lute",
+					metrics = { updateMs = { instrumented = true } },
+					phases = { total = { p95_ms = 100 } },
+				}
+				local report: { runs: { unknown } } = {
+					runs = {
+						headless,
+						physical,
+					},
+				}
+				local budget = {
+					referenceProfile = "floorAndroid",
+					scenes = { hud = { total_p95_ms = 1 } },
+					deviceBudgets = { ["phone-physical"] = { measured = true, budgetMs = 1 } },
+				}
+				local failed = perf_runner.checkBudgets(report, budget, false)
+				expect(failed.ok):toBe(false)
+				expect(#failed.violations):toBe(1)
+				expect(failed.violations[1].kind):toBe("device")
+				headless.metrics.updateMs.instrumented = false
+				headless.phases.total.p95_ms = 0.5
+				local historical = perf_runner.checkBudgets(report, budget)
+				expect(historical.ok):toBe(false)
+				expect(historical.violations[1].kind):toBe("device")
+				physical.metrics.frameWorkMs.p95_ms = 0.5
+				expect(perf_runner.checkBudgets(report, budget, false).ok):toBe(true)
+				physical.metrics.frameWorkMs.measured = false
+				local unmeasured = perf_runner.checkBudgets(report, budget, false)
+				expect(unmeasured.ok):toBe(false)
+				expect(unmeasured.violations[1].kind):toBe("unmeasured-device-row")
+				physical.metrics.frameWorkMs.measured = true
+				local absent = perf_runner.checkBudgets({ runs = {} }, budget, false)
+				expect(absent.ok):toBe(false)
+				expect(absent.violations[1].kind):toBe("class-mismatch")
+				budget.deviceBudgets["phone-physical"].measured = false
+				local pending = perf_runner.checkBudgets(report, budget, false)
+				expect(pending.ok):toBe(true)
+				expect(#pending.skipped):toBe(1)
+				expect(pending.skipped[1].class):toBe("phone-physical")
+			end,
+		})
 		local function report(p95: number)
 			return {
 				schema = "facet-perf/1",
@@ -251,6 +309,132 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("perf runner — shape determinism (§15.2)", function()
+		verifyHarness:case("audit-only runs retain every profile, sample and work record in one pass", {
+			id = "native_perf_runner::shape::audit-only matrix",
+			run = function()
+				local setups, steps, settles, teardowns = 0, 0, 0, 0
+				local template = tinyScene("dense-hud")
+				local scene = {
+					name = template.name,
+					requirement = template.requirement,
+					dataset = template.dataset,
+					setup = function(profile)
+						setups += 1
+						local state = template.setup(profile)
+						return {
+							core = state.core,
+							s = state.s,
+							n = state.n,
+							engine = Engine.new({ recordCreated = false }),
+						}
+					end,
+					run = function(state)
+						steps += 1
+						return template.run(state)
+					end,
+					afterRun = function()
+						settles += 1
+					end,
+					extras = function(state)
+						return { activationCount = state.n, activationText = `Boost x{state.n}` }
+					end,
+					teardown = function(state)
+						teardowns += 1
+						template.teardown(state)
+					end,
+				}
+				local profiles = {}
+				for _, name in perf_profiles.list() do
+					table.insert(profiles, perf_profiles.get(name))
+				end
+				for _, timing in { false, true } do
+					setups, steps, settles, teardowns = 0, 0, 0, 0
+					local report = perf_runner.run(
+						{ scene },
+						profiles,
+						{ warmup = 2, samples = 3, memory = true, timing = timing }
+					)
+					local passes = if timing then 2 else 1
+					expect({ setups, steps, settles, teardowns }):toEqual({
+						5 * passes,
+						25 * passes,
+						25 * passes,
+						5 * passes,
+					})
+					expect(#report.runs):toBe(5)
+					expect(Memory.check(report)):toEqual({})
+					local accepted, reason =
+						pcall(perf_runner.checkBudgets, report, { referenceProfile = "floorAndroid", scenes = {} })
+					expect(accepted):toBe(timing)
+					if not timing then
+						expect(string.find(tostring(reason), "require uninstrumented scene rows", 1, true) ~= nil):toBe(
+							true
+						)
+					end
+					for index, row in report.runs do
+						expect(row.device):toBe(profiles[index].name)
+						expect(row.warmup):toBe(2)
+						expect(row.samples):toBe(3)
+						expect(row.phases.total.samples):toBe(3)
+						expect(row.metrics.updateMs.instrumented):toBe(not timing)
+						expect(#row.resources.iterations):toBe(3)
+						expect(Evidence.PRODUCTION["dense-hud"](row.extras)):toBe(nil)
+						row.extras.activationCount = 0
+						expect(Evidence.PRODUCTION["dense-hud"](row.extras) ~= nil):toBe(true)
+					end
+				end
+			end,
+		})
+		verifyHarness:case("audit-only execution rejects leaked native resources", {
+			id = "native_perf_runner::shape::audit-only leak",
+			run = function(context)
+				local scene = tinyScene()
+				local setup = scene.setup
+				local engine = Engine.new({ recordCreated = false })
+				local leaked = engine.new("Folder")
+				context:defer(function()
+					leaked:Destroy()
+				end)
+				scene.setup = function(profile)
+					local state = setup(profile)
+					return { core = state.core, s = state.s, n = state.n, engine = engine }
+				end
+				local report = perf_runner.run(
+					{ scene },
+					{ perf_profiles.get("phone") },
+					{ warmup = 1, samples = 2, memory = true, timing = false }
+				)
+				expect(Memory.check(report)):toEqual({ "tiny@phone: teardown retains 1 instances; expected zero" })
+				local accepted = pcall(perf_runner.run, { scene }, {}, { timing = false })
+				expect(accepted):toBe(false)
+			end,
+		})
+		verifyHarness:case("audit-only workload records retain metric provenance checks", {
+			id = "native_perf_runner::shape::audit-only provenance",
+			run = function()
+				local scenes = require("../bench/perf_scenes")
+				local function audit(scene: unknown)
+					return perf_runner.run(
+						{ scene },
+						{ perf_profiles.get("floorAndroid") },
+						{ warmup = 1, samples = 2, memory = true, timing = false }
+					)
+				end
+				local found = false
+				for _, scene in scenes do
+					if scene.name ~= "dense-hud" then
+						continue
+					end
+					found = true
+					local report = audit(scene)
+					expect(Memory.check(report)):toEqual({})
+					expect(Evidence.metrics(report).errors):toEqual({})
+					report.runs[1].authoritative = true
+					expect(#Evidence.metrics(report).errors > 0):toBe(true)
+				end
+				expect(found):toBe(true)
+			end,
+		})
 		verifyHarness:case("records the same field set and phase set across two runs", {
 			id = "native_perf_runner::perf runner — shape determinism (§15.2)::records the same field set and phase set across two runs",
 			run = function()
