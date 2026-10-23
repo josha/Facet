@@ -1,0 +1,14 @@
+{
+  "scope": "author self-report; not independent acceptance evidence",
+  "messages": [
+    "I’m using the use-facet skill to build a neon racing world with a playable race loop and server-owned progression, then I’ll test it in Studio and fix the most important issues.\n",
+    "The game’s identity is “ION Circuit”: luminous cyan racing rails, violet industrial towers, and a warm amber pit hub. I’m building the driving and reward loop first, with local rivals and two voteable circuits, then connecting the garage and economy to that same server state.\n",
+    "The circuits, hub terminals, kart models, local racers, and server economy are in place. Purchases, rentals, crates, daily rewards, upgrades, and race payouts all use the same authoritative wallet. I’m now wiring the Facet interface and controls, including live standings and a real kart preview.\n",
+    "The first Play pass exposed two interface contract issues; those are fixed and the HUD is now rendering cleanly. I’m testing actual navigation and driving next, then tightening the world lighting and compact-screen layout.\n",
+    "The kart now accelerates and steers on the actual circuit, with a magnetic lane assist to make the orbit comfortable on keyboard and touch. I also added pit lighting, service gantries, floor markings, and the mechanic character. The next pass checks a complete finish and the purchase/save flows.\n",
+    "A full two-lap race has now finished in Play, with ordered CPU results and exactly one payout. I also verified purchase cancellation leaves the wallet unchanged, a confirmed purchase deducts the correct amount, and a duplicate purchase is rejected without spending again.\n",
+    "The economy checks passed for free-crate consumption, duplicate daily claims, rental purchase, per-kart upgrades, and livery saving. Compact portrait content also remains usable with scrolling and a visible Close route. I’m finishing the last layout and return-to-hub fixes now; full controller and device-emulator coverage remains limited.\n",
+    "The restarted build completed another race and awarded first place correctly. Garage sorting now uses a keyed collection, and the short landscape layout keeps navigation accessible. I’m preserving the last results after the automatic hub return and making the final quick-chat adjustment before leaving the place in Edit mode.\n",
+    "Built **ION Circuit** in the persistent Edit model.\n\nWorking: two circuits, driving/boost, CPU races, voting, payouts, garage, shop, equipment, rentals, livery, upgrades, rewards, codes, quests, and demo parties.\n\nTested full races and key economy/save paths. Progress is session-only.\n\nIncomplete: full controller/device verification, localization, and wheel presentation—quick chat currently uses Facet’s list fallback. Studio remains open in Edit mode."
+  ]
+}
