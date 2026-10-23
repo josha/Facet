@@ -8,7 +8,7 @@ Inside an app mount, set `local UI = app.UI`.
 UI.Card "Card" { title = "Kart", image = "rbxassetid://0" }
 ```
 
-Key options: `title`, `image`, `onActivate`, `actions`.
+Key options: `title`, `image`, `onActivate`, `primaryAction`, `menu`.
 
 Keep durable item state in the model.
 
