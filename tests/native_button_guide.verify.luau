@@ -164,9 +164,9 @@ return function(verifyHarness: Verify.Harness)
 				local A, L1, R1 = KeyCode.ButtonA, KeyCode.ButtonL1, KeyCode.ButtonR1
 				Verify.expect(build({ entries = { { keyCode = A, label = "Buy" }, { keyCode = A, label = "Sell" } } }))
 					:toThrow("a key appears twice; list each command once")
-				Verify.expect(build({
-					entries = { { keyCode = { L1, R1 }, label = "Tabs" }, { keyCode = R1, label = "Next" } },
-				})):toThrow("a key appears twice; list each command once")
+				local overlapping: { ButtonGuideEntry } =
+					{ { keyCode = { L1, R1 }, label = "Tabs" }, { keyCode = R1, label = "Next" } }
+				Verify.expect(build({ entries = overlapping })):toThrow("a key appears twice; list each command once")
 				Verify.expect(build({
 					entries = { { keys = { { "E" } }, label = "Use" }, { keys = { { "E" } }, label = "Use" } },
 				})):toThrow("an entry appears twice")
@@ -269,13 +269,14 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_button_guide::readout",
 			run = function()
 				local w = guideWorld(function(UI: FacetControls, _, engine: Engine)
+					local entries: { ButtonGuideEntry } = {
+						{ action = boundAction(engine, "Buy", "ButtonA"), label = "Buy" },
+						{ keys = { { "Esc" } }, label = "Back" },
+					}
 					return UI.ButtonGuide "Guide" {
 						inputs = { "Gamepad", "KeyboardAndMouse" },
 						Selectable = true,
-						entries = {
-							{ action = boundAction(engine, "Buy", "ButtonA"), label = "Buy" },
-							{ keys = { { "Esc" } }, label = "Back" },
-						},
+						entries = entries,
 					}
 				end)
 				for _, input in { "Gamepad", "KeyboardAndMouse" } do
@@ -296,6 +297,8 @@ return function(verifyHarness: Verify.Harness)
 				local buy: InputAction
 				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, engine: Engine)
 					buy = boundAction(engine, "Buy", "ButtonA")
+					local guideEntries: { ButtonGuideEntry } =
+						{ { action = buy, label = "Buy" }, { keys = { { "LB" } }, label = "Tabs" } }
 					return UI.Sheet "Shop" {
 						isPresented = shown,
 						placement = "center",
@@ -309,7 +312,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 						actions = { { id = "Done", label = "Done", onActivate = function() end } },
 						guide = {
-							entries = { { action = buy, label = "Buy" }, { keys = { { "LB" } }, label = "Tabs" } },
+							entries = guideEntries,
 						},
 					}
 				end, { motionLevel = "none" })

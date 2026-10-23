@@ -5,7 +5,7 @@ Show a console button legend for commands without a control of their own.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-UI.ButtonGuide "ButtonGuide" { entries = { { keyCode = { Enum.KeyCode.ButtonL1, Enum.KeyCode.ButtonR1 }, label = "Tabs" } } }
+UI.ButtonGuide { entries = { { keyCode = { Enum.KeyCode.ButtonL1, Enum.KeyCode.ButtonR1 }, label = "Tabs" } } }
 ```
 
 Key options: `entries` (each with `action`, `keyCode` or `keys`), `inputs`.
