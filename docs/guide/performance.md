@@ -50,6 +50,28 @@ failed attempt. A second calibration failure fails the job.
 Use the current workflow and producer catalog for exact CI commands and
 required scenes. A selected local run is not complete CI evidence.
 
+## Measure runner noise
+
+Run the CI workflow manually with `diagnostic` set to `true`. Set `base` and
+`candidate` to the same full commit SHA. This runs three independent A/A samples
+on each platform, even when the source trees match. Each sample uses the normal
+complete performance gate, including its three-round checkpoint and six-round
+continuation. The diagnostic does not retry failed samples or replace the
+required Verify check.
+
+Keep every sample and its exit status. Exit 0 is a valid pass. Exit 1 is a
+complete false positive because both arms contain the same source. Exit 75
+means invalid CPU calibration; exit 2 or a setup failure means unusable evidence.
+Count false positives over valid samples and report unusable samples separately.
+Keep platforms separate. Three samples per platform are a pilot, not a precise
+estimate of the failure rate.
+
+Inspect absolute times and p50 and p95 separately before changing the gate.
+The median CPU calibration does not prove stable tail latency. Do not infer
+an absolute timing floor from one noisy run. Any proposed threshold must also
+reject a planted slowdown in the affected workload. Retain the first failure;
+a passing rerun alone does not prove that a slowdown was noise.
+
 ## Interpret results
 
 A ratio below 1 means the candidate takes less time. Keep workload differences,

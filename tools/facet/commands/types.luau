@@ -18,6 +18,7 @@ local Json = require("../lib/json")
 local Run = require("../lib/run")
 
 local USAGE = [[usage: lute run tools/facet types [--solver old|new|both] [--flag KEY=VALUE]... [--source-only]
+       lute run tools/facet types prepare
        lute run tools/facet types [--solver ...] --files FILE [FILE...]
        lute run tools/facet types selftest [--solver old|new|both]
        lute run tools/facet types engine [--check] [--definitions PATH] [--creator-docs PATH]
@@ -815,6 +816,31 @@ local function analyzerVersion()
 	end
 end
 
+local function prepare(capture: typeof(Run.capture)?)
+	local execute = capture or Run.capture
+	local rokit = Files.read("rokit.toml")
+	for _, tool in { "rojo", "stylua" } do
+		local pin = assert(string.match(rokit, "\n" .. tool .. '%s*=%s*"[^"@]*@([^"]+)"'))
+		local result = execute({ tool, "--version" })
+		local version = string.match(result.stdout, "%d+%.%d+%.%d+")
+		if not result.ok or version ~= pin then
+			fail(`{tool} {tostring(version)} differs from pin {pin}; run rokit install`)
+		end
+		print(stringext.trim(result.stdout))
+	end
+	for _, tool in { "git", "bash" } do
+		local result = execute({ tool, "--version" })
+		if not result.ok then
+			fail(`{tool} is missing from PATH: {result.stderr}`)
+		end
+	end
+	analyzerVersion()
+	prepareLuteTypes()
+	definitions(LOCK)
+	definitions(PLUGIN_LOCK)
+	print("preflight: pinned tools, Lute typedefs and both Roblox definition locks are ready")
+end
+
 local function probeContext(
 	file: string,
 	contents: string,
@@ -957,6 +983,14 @@ local function run(invocation: Cli.Invocation): number
 	local subcommand = invocation.positional[1]
 	Files.makeDirectory(ARTIFACTS)
 	local ok, code = pcall(function(): number
+		if subcommand == "prepare" then
+			if #invocation.positional ~= 1 or next(invocation.flags) ~= nil then
+				print(USAGE)
+				return 2
+			end
+			prepare()
+			return 0
+		end
 		if subcommand == "engine" then
 			return engine(invocation)
 		end
@@ -1395,6 +1429,30 @@ cases = function(): { Case.Case }
 			end,
 		},
 		{
+			name = "preflight rejects missing tools and mismatched pins before expensive checks",
+			run = function(): string?
+				for _, broken in { "rojo", "stylua", "git", "bash", "wrong-version" } do
+					local ok, problem = pcall(prepare, function(argv: { string }, _: Run.Options?): Run.Result
+						return {
+							ok = argv[1] ~= broken,
+							code = if argv[1] == broken then 127 else 0,
+							stdout = if broken == "wrong-version"
+								then "0.0.0"
+								elseif argv[1] == "rojo" then "Rojo 7.7.0"
+								else "stylua 2.5.2",
+							stderr = "missing fixture tool",
+							timedOut = false,
+						}
+					end)
+					local expected = if broken == "wrong-version" then "differs from pin" else broken
+					if ok or not string.find(tostring(problem), expected, 1, true) then
+						return `preflight accepted {broken}: {tostring(problem)}`
+					end
+				end
+				return nil
+			end,
+		},
+		{
 			name = "Lute accepts the pinned nightly and base version reports",
 			run = function(): string?
 				local pin, base = "1.0.1-nightly.20261006", "1.0.1"
@@ -1556,8 +1614,7 @@ local command: Cli.Command = {
 		table.insert(list, {
 			name = "the analyzers accept native and Lute types and reject planted scalar faults",
 			run = function(): string?
-				analyzerVersion()
-				prepareLuteTypes()
+				prepare()
 				local code = 0
 				for _, solver in { "old", "new" } do
 					code = math.max(code, liveSelftest(flagsFor(solver, {})))
