@@ -18,7 +18,7 @@ on:
         default: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.diagnostic || false }}
+  group: ${{ github.workflow }}-${{ inputs.diagnostic && github.run_id || github.ref }}-${{ inputs.diagnostic || false }}
   cancel-in-progress: true
 
 permissions:

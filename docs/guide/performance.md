@@ -37,8 +37,11 @@ at each recorded revision.
 
 Missing rounds, failed commands, unstable calibration and unavailable samples
 fail as incomplete evidence. A consistent slowdown is a separate failure.
-The report requires a ratio above 1.05 and every paired ratio above 1 to flag
-a slowdown. p50 and p95 are medians of per-run percentiles.
+The report requires the median ratio and every paired ratio to be above 1.05
+to flag a slowdown. p50 and p95 are medians of per-run percentiles. A round
+within the 5% tolerance does not confirm a regression. This rule rejects a
+stable slowdown above 5%; a variable slowdown can remain unflagged. Inspect
+the full measurements when investigating such a change.
 
 CI compares complete scenes and microbenchmarks on Linux, macOS and Windows.
 The required Verify check rolls them up. A statistical slowdown gets a complete
