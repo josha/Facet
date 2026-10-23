@@ -198,7 +198,7 @@ jobs:
 
       - name: Use the same measurement code
         run: |
-          base="$RUNNER_TEMP/base"
+          base="$(cd "$RUNNER_TEMP/base" && pwd)"
           evidence="$GITHUB_WORKSPACE/artifacts/perf-paired-fixtures"
           git -C "$base" diff --exit-code HEAD -- src
           cp "$base/tools/vendor/verify/UPSTREAM.lock" "$evidence/base-verify.lock"
