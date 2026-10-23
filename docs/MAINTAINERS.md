@@ -126,7 +126,7 @@ directories that `.gitignore` excludes.
 | `assets/` | The icon images and the theme art. The generators in `tools/facet/art/` make them, and the package build includes them. | `lute run tools/facet art all --check` |
 | `package/` | The Roblox Package configuration and the publish receipts. See [the package interface](../package/README.md). | `lute run tools/facet package status` |
 | `skills/` | The agent skills for Compose and for Facet. | None. A reviewer reads them with the guide. |
-| `eval/` | The ten-minute blank-project game run, its author setups and acceptance requirements. See [the run](../eval/README.md). | `lute run tools/facet check facetbench` |
+| `eval/` | The thirty-minute blank-project game run, its author setups and acceptance requirements. See [the run](../eval/README.md). | `lute run tools/facet check facetbench` |
 
 ## Quick answers
 

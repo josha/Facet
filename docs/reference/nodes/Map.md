@@ -18,7 +18,8 @@ With shell access, use `lute run tools/facet docs <path>` or `docs --search TEXT
 | --- | --- |
 | Read currency and use HUD actions | [Tasks.hud](Tasks.hud.md) |
 | Browse objects and selected detail | [Tasks.collection-detail](Tasks.collection-detail.md) |
-| Open modal details with dismissal and child-page Back | [Tasks.sheet](Tasks.sheet.md) |
+| Open a destination from gameplay and return | [Tasks.pages](Tasks.pages.md) |
+| Open a short contextual task | [Tasks.sheet](Tasks.sheet.md) |
 | Change pages or segmented choices | [Tasks.tabs](Tasks.tabs.md) |
 | Set the game theme | [Tasks.theme](Tasks.theme.md) |
 | Read progress and timers | [Tasks.progress](Tasks.progress.md) |
@@ -31,6 +32,5 @@ With shell access, use `lute run tools/facet docs <path>` or `docs --search TEXT
 Browse [Tasks](Tasks.md), [Controls](Controls.md),
 [Reference](Reference.md) or [Themes.index](Themes.index.md).
 Control cards show small calls. Reference links lead to complete option groups.
-Read `Sheet.card`, then `Sheet.detents` only if that detail is missing.
 Check with Studio Play, input, Output, and captures. Filesystem projects can
 also use [Tools.verify](Tools.verify.md). Wait for a check to finish.

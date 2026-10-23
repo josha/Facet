@@ -14,6 +14,13 @@ the supported measurement option for varying content. Artwork should identify
 the object, not decorate a repeated text button. Keep useful identity and
 comparison visible in compact forms.
 
+Keep browsing quieter than the selected object's inspection area. Match camera
+angle, lighting and scale across comparable objects; frame each silhouette with
+room for its extremes. Use a different view when inspection needs detail that
+the collection thumbnail cannot show. A decorative image repeated across every
+item does not establish identity. Show the selected object's name and status
+beside its action, and distinguish that selection from the equipped object.
+
 A growing spatial map or skill tree needs spatial relationships, not an
 Outline merely because its data is hierarchical. Use SpatialGrid or ZoomView
 where those relationships matter.

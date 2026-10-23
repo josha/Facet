@@ -47,21 +47,11 @@ cancelled or skipped required job
 fails Verify. The manual CI dispatch uses its base and candidate revisions for
 the performance comparison and checks the candidate on each platform.
 
-A [fresh hosted Windows probe](https://github.com/josha/Facet/actions/runs/39839446426)
-on 2026-10-22 installed Studio and confirmed an interactive desktop. Studio's
-RunScript task then waited at a login dialog and produced no script output.
-This probe did not supply authentication. It does not establish that authenticated
-hosted execution is unavailable. Hosted Studio work is deferred by maintainer
-decision while headless coverage improves. Native Studio checks currently remain
-outside hosted CI. The portable gate records that deferral; a successful Verify
-job does not establish complete native coverage.
-
-To revisit hosted Studio, first create a dedicated test account and provision its
-session as the `ROBLOX_STUDIO_CI_COOKIE` Actions secret. The isolated
-`codex/hosted-studio-readiness` branch contains an authenticated probe. It validates
-the supplied session from the runner, initializes Studio's credential entries,
-then checks edit and client execution. That authenticated path has not run.
-Session renewal and acceptance across fresh hosted runners must also be verified.
+Native Studio checks remain outside hosted CI. The portable gate records that
+deferral; a successful Verify job does not establish complete native coverage.
+A native host requires an authenticated Studio session, working rendering, and
+the input capabilities required by each suite. Verify these capabilities before
+running the complete native gate.
 
 Headless CI uses Verify's engine double. Add shared engine mechanisms in Verify,
 with native conformance cases, then re-pin them here. Keep the original case
@@ -81,6 +71,4 @@ command reports these gaps; it does not establish that the full device matrix
 passes.
 
 Open Cloud can run native server code and TextService measurements. It does not
-provide the original client lifecycle or virtual input. A current-source cloud
-probe also found different TextLabel bounds for the original Callout case. Cloud
-results do not replace the Studio producer.
+provide the original client lifecycle or virtual input. Cloud results do not replace the Studio producer.

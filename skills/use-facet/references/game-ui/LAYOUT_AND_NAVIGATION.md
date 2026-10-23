@@ -43,6 +43,11 @@ NavBar arranges navigation chrome but does not own history. Hiding built-in
 chrome requires a complete visible return route. A root page has no Back.
 Do not turn every small setting adjustment into another page.
 
+When a destination contains compact split navigation, use Close to return to
+gameplay and label the inner Back with its collection name. Two controls named
+Back must not lead to different places. Test the composed page and body together;
+their headers and safe margins consume the same limited height.
+
 PageView suits a short inspectable sequence; expose an alternative to swiping.
 Pagination suits genuinely bounded result pages. StepIndicator describes task
 stages, not destinations. ZoomView preserves spatial relationships in a map or

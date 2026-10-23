@@ -153,7 +153,7 @@ It starts with the design guide, then routes to the relevant controls and checks
 | [`docs/reference/constitution.md`](docs/reference/constitution.md) | The rules anything added to this repository follows. |
 | [`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) | Where a change goes, and what proves it. |
 | [`docs/extending/`](docs/extending/) | One playbook for each kind of addition. |
-| [`CHANGELOG.md`](CHANGELOG.md) | What changed in each version. |
+| [`CHANGELOG.md`](CHANGELOG.md) | Current package and verification references. |
 | [`AGENTS.md`](AGENTS.md) | The routing table for an automated coding agent. |
 
 ## Development
@@ -195,7 +195,7 @@ share one reactive graph.
 `Facet.VERSION` reports the version defined in `src/init.luau`. Before 1.0, a
 minor version may change public behavior. The
 [versioning policy](CONTRIBUTING.md#versioning) sets the rules,
-and the [changelog](CHANGELOG.md) records each change.
+and the [current package notes](CHANGELOG.md) link its contracts and verification scope.
 
 ## Contributing, security, and license
 
