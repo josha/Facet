@@ -31,6 +31,15 @@ control. A separate Text below the circle is not part of the Button. Set
 `SelectionGroup` on the row. Keep activation in `onActivate`. Sheet, Dialog
 and Menu own Back and Cancel.
 
+A Composition is passive: the movement stick and the D-pad drive the game and
+never select a HUD Button. Give each frequent HUD task a game action on a
+gamepad button, and while the gamepad is the input show that action's glyph
+on the Button with `UI.ShortcutHint { action = ... }`. For the other Buttons,
+set `GuiService.SelectedObject` to one from a game action. With
+`GuiService.AutoSelectGuiEnabled` (the default), the engine's ButtonSelect
+(View) does this too; the virtual cursor does not. ButtonB returns the
+selection to the game. Test each route in Studio with the Controller Emulator.
+
 Check desktop, both phone orientations, tablet and console in Studio. Check
 every label, icon, touch control and gamepad selection path. Do not infer live
 engine behavior from a native engine double.

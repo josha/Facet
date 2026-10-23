@@ -157,6 +157,15 @@ a fill-width child inside a hugging stack does not establish the available
 width. Use hugging stacks for short readouts and command groups inside that
 bounded task body.
 
+Lay out peer items, such as upgrade cards or shop tiles, as a grid that owns
+the width: a VirtualGrid with `minColumnWidth`, `mode = "all"` and `hug = true`.
+The surface width sets the columns, the items share the row with no empty
+column, they wrap on a narrow screen, and the grid takes the height of its
+rows. Do not size items from the viewport or clamp them to a fixed width
+range: a surface wider than the items leaves dead space beside them, and a
+narrower one stacks them in a lone column. Match the surface to its content:
+a wide surface needs content that uses the width.
+
 Do not place several full-width fields in a hugging horizontal stack. Arrange
 them vertically or allocate their share of a bounded row. Keep secondary
 filters compact so the objects being chosen remain the focal area.
@@ -179,6 +188,12 @@ device name. An input hint can change without rearranging the whole screen.
 - Gamepad: make focus visible, traversal predictable, and Back reliable.
   Preserve the selected object and restore focus on return. Provide digital
   routes for required operations, including alternatives to analog dragging.
+  During play, gameplay owns the movement stick and the D-pad: a HUD must not
+  take the selection when the player starts to move. `Composition` is a
+  passive responder for this reason. Give every HUD task a game action on a
+  button (and show its glyph), and let a task surface take the selection only
+  when it opens. Test the first stick push after spawning, every HUD task and
+  Back, with nothing else selected.
 - Distance and accessibility: use readable type, safe margins, clear focus,
   preferred text size, localization, and reduced motion. Reflow longer content.
   Do not make color, sound, vibration, animation, or a precise gesture the only

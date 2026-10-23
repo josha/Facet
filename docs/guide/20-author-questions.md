@@ -174,7 +174,9 @@ See `docs Text`, `docs "Text fit"` and `docs "Layout options"`.
 - `app.mount` adds the focus ring. The ring is the PlayerGui
   `SelectionImageObject`. It shows after keyboard or gamepad input and hides
   after mouse or touch input.
-- The first D-pad press selects the first control of the active screen.
+- The first D-pad press selects the first control of the active screen. A
+  passive responder at rest, such as a `Composition` HUD, is skipped, so the
+  stick and the D-pad keep driving the game.
 - Do not set `Selectable = false` on a control that a player uses. Do not set
   `NextSelection` links by hand, except to fix one specific move.
 - Use `SelectionGroup = true` on a container to keep the arrows inside it.

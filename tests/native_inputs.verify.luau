@@ -1490,6 +1490,33 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case(
+			"inks a platform glyph with the cap text color, so a white console glyph reads on a light cap",
+			{
+				id = "native_inputs::native input controls::inks a platform glyph with the cap text color, so a white console glyph reads on a light cap",
+				run = function()
+					local node, stop = world(function(UI: FacetControls, engine)
+						local action, binding = engine.new("InputAction"), engine.new("InputBinding")
+						binding.KeyCode = engine.types.Enum.KeyCode.ButtonY
+						action.PreferredBinding = binding
+						return UI.ShortcutHint({ action = action })
+					end, function(engine)
+						local input = engine.new("UserInputService")
+						input.GetImageForKeyCode = function(_self: unknown, code: EnumItem): string
+							return if code.Name == "ButtonY"
+								then "rbxasset://textures/ui/Controls/XboxController/ButtonY@2x.png"
+								else ""
+						end
+						return { services = { UserInputService = input } }
+					end)
+					local glyph = find(node, "Glyph")
+					Verify.expect(glyph.Image):toBe("rbxasset://textures/ui/Controls/XboxController/ButtonY@2x.png")
+					Verify.expect(glyph:HasTag("facet-shortcut-glyph")):toBe(true)
+					stop()
+				end,
+			}
+		)
+
 		verifyHarness:case("keeps an authored circle axis dominant instead of fitting inside a zero box", {
 			id = "native_inputs::native input controls::keeps an authored circle axis dominant instead of fitting inside a zero box",
 			run = function()

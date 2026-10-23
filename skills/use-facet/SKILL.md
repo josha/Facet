@@ -74,30 +74,31 @@ distinct in smaller forms. Use panel surfaces, theme chrome and semantic status 
 state. See `Composition.layout` for row sizing and `Tasks.theme` for the visual system.
 
 Bound task width before fill collections or wrapped text; let wrapped text grow vertically. Let
-short readouts hug. Do not set `TextScaled`. Use one Composition for competing core-safe HUD
-groups, with measurable forms from richest to narrowest. Keep Region nodes stable and put
-`Compose.show` inside a form. Preserve every required destination and action in the smallest form,
-including a portrait phone about 320 pixels wide. Let Composition choose forms from available
-room; do not add device switches. Fix fit warnings. Use environment-scaled lengths and text roles
-where relevant. See `Composition.regions`, `HUD-actions` and `ProgressView.reference` for form
-sizing.
+short readouts hug. Put peer items (cards, tiles) in a VirtualGrid with `minColumnWidth`, `mode =
+"all"` and `hug = true` so the width sets the columns; never size items from the viewport. Do not
+set `TextScaled`. Use one Composition for competing core-safe HUD groups, with measurable forms from
+richest to narrowest. Keep Region nodes stable and put `Compose.show` inside a form. Preserve every
+required destination and action in the smallest form, including a portrait phone about 320 pixels
+wide. Let Composition choose forms from available room; do not add device switches. Fix fit
+warnings. Use environment-scaled lengths and text roles where relevant. See `Composition.regions`,
+`HUD-actions` and `ProgressView.reference` for form sizing.
 
 Use the free top-bar strip for compact navigation or readouts instead of pushing every group
 below it. Give strip regions a form 44 pixels tall and let Composition handle the changing
 `GuiService.TopbarInset` and fallback. See `Composition.adaptation` for strip layout.
 
-Protect the camera's focus area, including from UI attached to the avatar, and keep what the
-player watches outside the area covered by a held thumb. Only critical information about the
-interaction with the world, such as a marker on the goal the player looks for (`UI.WorldMarker`),
-can cover part of it while it applies. Check both phone orientations.
-Protect device/TV safe areas and native movement controls. Give primary thumb
-gameplay actions `target = "thumb"` and size their art from `UI.environment().thumbTarget`. Show
-gameplay commands only in applicable states. Use native InputAction/InputContext for game
-commands; controls own their input and selection. Do not bind Escape or gamepad Start. Make
-keyboard/pointer, touch and gamepad paths complete, with readable focus and reliable Back/return.
-Support localization, larger text and reduced motion. Choose Sheet placement and exits
-deliberately; check every dismissal route and detent. Hover, press and focus must not resize
-hugging surfaces or move targets.
+Protect the camera's focus area, including from UI attached to the avatar, and keep what the player
+watches outside the area covered by a held thumb. Only critical information about the interaction
+with the world, such as a marker on the goal the player looks for (`UI.WorldMarker`), can cover part
+of it while it applies. Check both phone orientations. Protect device/TV safe areas and native
+movement controls. Give primary thumb gameplay actions `target = "thumb"` and size their art from
+`UI.environment().thumbTarget`. Show gameplay commands only in applicable states. Use native
+InputAction/InputContext for game commands; controls own their input and selection. Gameplay owns
+the movement stick and D-pad; Composition is a passive HUD they never enter, so give each HUD task a
+gamepad button action. Do not bind Escape or gamepad Start. Make keyboard/pointer, touch and gamepad
+paths complete, with readable focus and reliable Back/return. Support localization, larger text and
+reduced motion. Choose Sheet placement and exits deliberately; check every dismissal route and
+detent. Hover, press and focus must not resize hugging surfaces or move targets.
 
 ## Find only the missing detail
 

@@ -326,7 +326,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	end
 
 	UI.Composition = ctx.construct("Composition", function(spec: LayoutProps.CompositionProps): Frame
-		local properties = (ctx.props(spec, { "gap", "padding", "topbar", "rows" }) :: unknown) :: Types.FrameNativeProps
+		local properties = (
+			ctx.props(spec, { "gap", "padding", "topbar", "rows", "passive" }) :: unknown
+		) :: Types.FrameNativeProps
 		local regions: { Frame } = {}
 		local helpers: { Instance } = {}
 		for index = 1, #properties do
@@ -1040,6 +1042,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				reservations.clearZones(claimed, root)
 			end
 		end)
+		assert(spec.passive == nil or type(spec.passive) == "boolean", "Facet Composition passive must be a boolean")
+		if spec.passive ~= false then
+			local options = { passive = true, gameplayGuard = false, engageOnPress = false }
+			ctx.responder(root, options)
+			if stripGui then
+				ctx.responder(stripGui, options)
+			end
+		end
 		return root
 	end)
 end

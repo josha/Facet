@@ -123,5 +123,6 @@ export type CompositionOptions = {
 	padding: Padding?,
 	topbar: Engine.ValueBoolean?,
 	rows: Engine.Value<CompositionRows>?,
+	passive: boolean?,
 }
 return {}

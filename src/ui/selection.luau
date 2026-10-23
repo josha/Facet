@@ -14,7 +14,7 @@ export type Selection = {
 	spaceActivates: (Instance) -> (ComposeTypes.Use) -> boolean,
 }
 
-local RESPONDER_KEYS = { passive = true, gameplayGuard = true, traversalWrap = true }
+local RESPONDER_KEYS = { passive = true, gameplayGuard = true, traversalWrap = true, engageOnPress = true }
 
 local KEYBOARD_NAVIGATION_DEFAULT = true
 
@@ -67,6 +67,20 @@ return function(ctx: Shared.Context): Selection
 			end
 			if at:IsA("LayerCollector") then
 				return at.Enabled
+			end
+			at = at.Parent
+		end
+		return false
+	end
+
+	local function hidden(node: Instance): boolean
+		local at: Instance? = node
+		while at do
+			if at:IsA("GuiObject") and at.Visible == false then
+				return true
+			end
+			if at:IsA("LayerCollector") then
+				return at.Enabled == false
 			end
 			at = at.Parent
 		end
@@ -280,6 +294,10 @@ return function(ctx: Shared.Context): Selection
 	end
 
 	local function resting(node: Instance): boolean
+		local modal = topModal()
+		if modal and (node == modal or node:IsDescendantOf(modal)) then
+			return false
+		end
 		for _, record in responders:peek() do
 			if record.passive and not record.engaged:peek() and node:IsDescendantOf(record.root) then
 				return true
@@ -301,6 +319,17 @@ return function(ctx: Shared.Context): Selection
 			if not resting(candidate) then
 				gui.SelectedObject = candidate
 				return
+			end
+		end
+		if topModal() then
+			return
+		end
+		for _, screen in screens() do
+			for _, candidate in candidates(screen) do
+				if not resting(candidate) then
+					gui.SelectedObject = candidate
+					return
+				end
 			end
 		end
 	end
@@ -548,10 +577,10 @@ return function(ctx: Shared.Context): Selection
 				end
 				local resting = false
 				for _, record in use(responders) do
-					if record.passive then
-						if use(record.engaged) then
-							return true
-						end
+					if not record.passive or use(record.engaged) then
+						return true
+					end
+					if not hidden(record.root) then
 						resting = true
 					end
 				end
@@ -679,6 +708,9 @@ return function(ctx: Shared.Context): Selection
 				runtime.connect(input, "InputBegan", function(event: InputObject)
 					local kind = event.UserInputType
 					if kind ~= E.UserInputType.MouseButton1 and kind ~= E.UserInputType.Touch then
+						return
+					end
+					if settings.engageOnPress == false and not engaged:peek() then
 						return
 					end
 					local collector = if root:IsA("LayerCollector") then root else collectorOf(root)

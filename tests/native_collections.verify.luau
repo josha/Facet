@@ -6541,6 +6541,109 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("hug sizes an all-rows grid to its rows, so it lays out in a panel without measuring", {
+			id = "native_collections::container presentation and shared cells::hug sizes an all-rows grid to its rows, so it lays out in a panel without measuring",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local D2, V2 = engine.types.UDim2, engine.types.Vector2
+				local stop = runtime.mount(function()
+					local props: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> = {
+						from = records(6),
+						key = key,
+						mode = "all" :: "all",
+						hug = true,
+						minColumnWidth = 150,
+						gap = 10,
+						itemSize = 80,
+						Name = "Hugged",
+						render = function(): GuiObject
+							return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+						end,
+					}
+					return UI.VirtualGrid(props)
+				end, target)
+				local grid = target:FindFirstChild("Hugged", true)
+				grid.AbsoluteSize = V2.new(500, 300)
+				grid.AbsoluteWindowSize = V2.new(500, 300)
+				local wide = grid.CanvasSize.Y.Offset
+				Verify.expect(wide > 0):toBe(true)
+				Verify.expect(grid.Size):toBe(D2.new(1, 0, 0, wide))
+				grid.AbsoluteSize = V2.new(320, 300)
+				grid.AbsoluteWindowSize = V2.new(320, 300)
+				local narrow = grid.CanvasSize.Y.Offset
+				Verify.expect(narrow > wide):toBe(true)
+				Verify.expect(grid.Size):toBe(D2.new(1, 0, 0, narrow))
+				stop()
+			end,
+		})
+
+		verifyHarness:case("hug leaves no empty columns: a few peer items share the whole width", {
+			id = "native_collections::container presentation and shared cells::hug leaves no empty columns: a few peer items share the whole width",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local V2 = engine.types.Vector2
+				local stops = {}
+				local function grid(hug: boolean): (number) -> FixtureComposeTypes.Placement
+					local controls: FixtureComposeTypes.OrderedCollectionControls<number> = {}
+					local name = if hug then "Fitted" else "Filled"
+					local stop = runtime.mount(function()
+						local props: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> =
+							{
+								from = records(3),
+								key = key,
+								mode = "all" :: "all",
+								hug = hug,
+								minColumnWidth = 150,
+								itemSize = 80,
+								controls = controls,
+								Name = name,
+								render = function(): GuiObject
+									return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+								end,
+							}
+						return UI.VirtualGrid(props)
+					end, target)
+					table.insert(stops, stop)
+					local node = target:FindFirstChild(name, true)
+					node.AbsoluteSize = V2.new(800, 300)
+					node.AbsoluteWindowSize = V2.new(800, 300)
+					return assert(controls.placementOf)
+				end
+				local fitted, filled = grid(true), grid(false)
+				Verify.expect(fitted(3).offset):toBe(0)
+				Verify.expect(fitted(1).crossSize > 250):toBe(true)
+				Verify.expect(filled(1).crossSize < 170):toBe(true)
+				for _, stop in stops do
+					stop()
+				end
+			end,
+		})
+
+		verifyHarness:case("hug needs every row: a windowed collection rejects it", {
+			id = "native_collections::container presentation and shared cells::hug needs every row: a windowed collection rejects it",
+			run = function()
+				local _, runtime, UI, target = setup()
+				local ok, problem = pcall(function()
+					local stop = runtime.mount(function()
+						local props: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> =
+							{
+								from = records(3),
+								key = key,
+								hug = true,
+								itemSize = 40,
+								render = function(): GuiObject
+									return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({})
+								end,
+							}
+						return UI.VirtualList(props)
+					end, target)
+					stop()
+				end)
+				Verify.expect(ok):toBe(false)
+				Verify.expect(string.find(tostring(problem), "hug needs mode", 1, true) ~= nil):toBe(true)
+			end,
+		})
+
 		verifyHarness:case("keeps grid edit controls above full-width content and measures their height", {
 			id = "native_collections::container presentation and shared cells::keeps grid edit controls above full-width content and measures their height",
 			run = function()
