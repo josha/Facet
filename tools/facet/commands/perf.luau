@@ -1563,6 +1563,20 @@ return {
 			end,
 		},
 		{
+			name = "paired: within-tolerance rounds cannot confirm a noisy tail, while a stable six-percent slowdown fails",
+			run = function(): string?
+				return Case.first(
+					Case.equal(
+						Paired.consistentSlower(1.087, { 1.028123, 1.385600, 1.016810, 1.031591, 1.141473, 1.071815 }),
+						false,
+						"identical-source macOS table-resize-drag tail"
+					),
+					Case.equal(Paired.consistentSlower(1.06, { 1.06, 1.06, 1.06, 1.06, 1.06, 1.06 }), true, "stable 6%"),
+					Case.equal(Paired.consistentSlower(1.2, { 1.05, 1.3 }), false, "tolerance boundary")
+				)
+			end,
+		},
+		{
 			name = "paired: medians, formatting and the consistent-slower rule",
 			run = function(): string?
 				return Case.first(

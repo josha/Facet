@@ -82,6 +82,9 @@ and the task chapters before choosing controls or layouts.
   Studio evidence. A native engine double does not prove engine behavior.
 - Before you propose a completed change, run `lute run tools/facet gate full`,
   `lute run tools/facet bench`, `lute run tools/facet package build` and `lute run tools/facet package status`.
+- Before the full gate, run `rokit install --no-trust-check` and
+  `lute run tools/facet types prepare`. Fix missing tools, network access or
+  typedef write access before running the gate. Do not leave these checks to CI.
 - Report baseline failures separately from regressions. Do not call a targeted
   run full evidence.
 - The current suite is the evidence. A passing run proves only the selected cases. Read the
