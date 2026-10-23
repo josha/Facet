@@ -99,9 +99,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Build the distributable model
-        run: lute run tools/facet build model
-
       - name: The model is the library alone
         run: lute run tools/facet check library-purity
 

@@ -24,6 +24,7 @@ export type Entry = {
 	producer: Gate.ProducerDraft?,
 	deadlineSeconds: number?,
 	timing: boolean?,
+	exclusive: boolean?,
 }
 
 type Unit = { id: string, locator: string, requires: { string }? }
@@ -136,12 +137,15 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?, s
 		local producer: Gate.ProducerDraft
 		if entry.producer then
 			producer = entry.producer
+			producer.exclusive = entry.exclusive ~= false
 		elseif entry.plan then
 			producer = tests(entry.id, planned(entry, claimed))
+			producer.exclusive = entry.exclusive ~= false
 		else
 			producer = {
 				id = entry.id,
 				kind = entry.kind or "command",
+				exclusive = entry.exclusive ~= false,
 				argv = string.split(assert(entry.run, "a producer needs a command: " .. entry.id), " "),
 				deadlineSeconds = entry.deadlineSeconds,
 				report = entry.report,
@@ -171,7 +175,7 @@ local function define(entries: { Entry }, referenceHost: boolean, id: string?, s
 	return {
 		id = id or "facet",
 		producers = producers,
-		policy = { concurrency = 1, commandDeadlineSeconds = 1800, deferrals = deferrals },
+		policy = { concurrency = 2, commandDeadlineSeconds = 1800, deferrals = deferrals },
 	}
 end
 

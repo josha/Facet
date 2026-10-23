@@ -594,9 +594,54 @@ harness:suite("Facet gate through Verify", function()
 		task.wait(4)
 		context:expect(fs.exists(marker)):toBe(false)
 	end)
+	harness:case("overlaps independent checks before starting an exclusive producer", function(context)
+		local entries: { gate.Entry } = {}
+		for _, id in { "types", "suite" } do
+			local other = if id == "types" then "suite" else "types"
+			local path = source(
+				"parallel-" .. id,
+				table.concat({
+					'local fs = require("@std/fs")',
+					'local task = require("@std/task")',
+					`fs.writeStringToFile("{directory}/{id}.started", "started")`,
+					"local deadline = os.clock() + 30",
+					`while not fs.exists("{directory}/{other}.started") and os.clock() < deadline do task.wait(0.01) end`,
+					`assert(fs.exists("{directory}/{other}.started"), "the independent producer did not start")`,
+					`fs.writeStringToFile("{directory}/{id}.done", "done")`,
+				}, "\n")
+			)
+			local entry: gate.Entry = {
+				id = id,
+				tier = "fast",
+				why = "independent producer concurrency",
+				exclusive = false,
+				producer = { id = id, kind = "command", argv = { LUTE, "run", path } },
+			}
+			table.insert(entries, entry)
+		end
+		local path = source(
+			"exclusive",
+			table.concat({
+				'local fs = require("@std/fs")',
+				`assert(fs.exists("{directory}/types.done"), "types is still running")`,
+				`assert(fs.exists("{directory}/suite.done"), "suite is still running")`,
+			}, "\n")
+		)
+		local exclusive: gate.Entry = {
+			id = "exclusive",
+			tier = "fast",
+			why = "exclusive producer isolation",
+			producer = { id = "exclusive", kind = "command", argv = { LUTE, "run", path } },
+		}
+		table.insert(entries, exclusive)
+		local outcome = runGate(entries)
+		for _, id in { "types", "suite", "exclusive" } do
+			context:expect(status(outcome, id)):toBe("passed")
+		end
+	end)
 	harness:case("declares every committed producer once with its tier and suite plan", function(context)
 		local tiers = { fast = 0, full = 0, release = 0 }
-		local seen = {}
+		local seen: { [string]: Gate.ProducerDraft } = {}
 		local definition = gate.draft(false)
 		for _, producer in definition.producers do
 			context:expect(seen[producer.id]):toBeNil()
@@ -618,7 +663,11 @@ harness:suite("Facet gate through Verify", function()
 			order[producer.id] = index
 		end
 		context:expect(order["perf"] < order["perf-memory"]):toBe(true)
-		context:expect(assert(definition.policy).concurrency):toBe(1)
+		context:expect(assert(definition.policy).concurrency):toBe(2)
+		context:expect(order["types"] + 1):toBe(order["suite"])
+		for id, producer in seen do
+			context:expect(producer.exclusive):toBe(id ~= "suite" and id ~= "types")
+		end
 		for _, removed in
 			{
 				"types-selftest",
