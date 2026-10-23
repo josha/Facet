@@ -1157,7 +1157,7 @@ return function(verifyHarness: Verify.Harness)
 							asset = "arrow",
 							size = { w = values[1] :: number, h = values[2] :: number },
 							overhang = values[3] :: number,
-							margin = values[5] :: number?,
+							margin = if type(values[5]) == "number" then values[5] else nil,
 						},
 					}
 					Verify.expect(select(2, themes.define(package)).ok):toBe(values[4])
