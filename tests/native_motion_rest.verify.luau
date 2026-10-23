@@ -304,7 +304,11 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect((fadeKit.of(borderFade))):toBe(fadeKit.of(panel))
 						local group = panel:FindFirstChild("Fade")
 						Verify.expect(scale):toBe(1)
-						Verify.expect(group.Parent):toBe(panel)
+						if group then
+							Verify.expect(group.Parent):toBe(panel)
+						else
+							Verify.expect(fadeKit.of(panel)):toBe(0)
+						end
 						Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBeNil()
 					end
 					Verify.expect((fadeKit.of(borderFade))):toBe(1)

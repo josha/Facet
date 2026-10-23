@@ -365,6 +365,28 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			end
 		end
 		for slot, recipe in chrome do
+			if slot == "panelTail" and recipe.kind ~= "native" and recipe.kind ~= "none" then
+				local size, depth = recipe.size, recipe.overhang
+				if
+					recipe.kind ~= "fill"
+					or type(size) ~= "table"
+					or type(size.w) ~= "number"
+					or type(size.h) ~= "number"
+					or not (size.w > 0 and size.w < math.huge and size.h > 0 and size.h < math.huge)
+					or type(depth) ~= "number"
+					or not (depth > 0 and depth <= size.h)
+					or recipe.asset == nil
+					or (
+						recipe.margin ~= nil
+						and (type(recipe.margin) ~= "number" or not (recipe.margin >= 0 and recipe.margin < math.huge))
+					)
+				then
+					table.insert(errors, {
+						field = "chrome.panelTail",
+						message = "Panel tail needs kind fill, an asset, positive finite size w/h, overhang in (0, size.h], and a nonnegative finite margin",
+					})
+				end
+			end
 			local shadow = recipe.shadow
 			if type(shadow) == "string" and shadows[shadow] == nil and shadowPresets[shadow] == nil then
 				table.insert(

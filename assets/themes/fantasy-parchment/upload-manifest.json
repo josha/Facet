@@ -4,6 +4,16 @@
  "uploaded": "2026-07-24 (core) / 2026-07-25 (value-control + badge extras)",
  "method": "Studio MCP upload_image (local HTTP serve of the repository PNGs)",
  "assets": {
+    "parchment_panel_tail": {
+      "file": "parchment_panel_tail.png",
+      "contentId": "rbxassetid://136962298125184",
+      "size": "32x28",
+      "sliceBorder": 0,
+      "slot": "panelTail",
+      "uploaded": "2026-10-23",
+      "method": "Studio MCP upload_image from localhost",
+      "note": "Upward arrow with 16px overhang and overlapping frame join; the theme reserves corner clearance"
+    },
   "parchment_panel": {
    "file": "parchment_panel.png",
    "contentId": "rbxassetid://78012779616687",

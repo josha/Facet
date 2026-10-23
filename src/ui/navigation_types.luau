@@ -325,7 +325,7 @@ export type CalloutOptions = {
 	actions: { Overlay.Action }?,
 	closeButton: boolean?,
 	dismissLabel: Types.ValueString?,
-	edge: Value<"top" | "bottom">?,
+	edge: Value<"top" | "bottom" | "leading" | "trailing">?,
 	align: Value<"leading" | "center" | "trailing">?,
 	tail: boolean | "none"?,
 	priority: number?,
