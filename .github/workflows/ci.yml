@@ -12,9 +12,13 @@ on:
       candidate:
         description: Candidate commit for the paired performance comparison
         required: true
+      diagnostic:
+        description: Measure A/A noise with three independent samples per platform (base and candidate must be the same commit)
+        type: boolean
+        default: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.diagnostic && github.run_id || github.ref }}-${{ inputs.diagnostic || false }}
   cancel-in-progress: true
 
 permissions:
@@ -22,6 +26,7 @@ permissions:
 
 jobs:
   platform:
+    if: ${{ !inputs.diagnostic }}
     name: Full suite (${{ matrix.platform }})
     strategy:
       fail-fast: false
@@ -80,6 +85,9 @@ jobs:
           luau-lsp --version
           stylua --version
 
+      - name: Prepare all local gate dependencies
+        run: lute run tools/facet types prepare
+
       - name: Full tier
         shell: bash
         run: |
@@ -103,7 +111,7 @@ jobs:
         run: lute run tools/facet check library-purity
 
   verify:
-    name: Verify
+    name: ${{ inputs.diagnostic && 'A/A diagnostic' || 'Verify' }}
     needs: [platform, paired-perf]
     if: always()
     runs-on: ubuntu-latest
@@ -112,24 +120,23 @@ jobs:
         env:
           PLATFORM_RESULT: ${{ needs.platform.result }}
           PERFORMANCE_RESULT: ${{ needs.paired-perf.result }}
+          DIAGNOSTIC: ${{ inputs.diagnostic || false }}
         run: |
+          if [ "$DIAGNOSTIC" = "true" ] && [ "$PLATFORM_RESULT" = "skipped" ]; then
+            PLATFORM_RESULT=success
+          fi
           if [ "$PLATFORM_RESULT" != "success" ] || [ "$PERFORMANCE_RESULT" != "success" ]; then
             echo "Platform: $PLATFORM_RESULT; paired performance: $PERFORMANCE_RESULT"
             exit 1
           fi
 
   paired-perf:
-    name: Paired performance (${{ matrix.platform }})
+    name: Paired performance (${{ matrix.os }}, sample ${{ matrix.sample }})
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            platform: Linux
-          - os: macos-latest
-            platform: macOS
-          - os: windows-latest
-            platform: Windows
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        sample: ${{ inputs.diagnostic && fromJSON('[1,2,3]') || fromJSON('[1]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     defaults:
@@ -214,9 +221,17 @@ jobs:
           sha256sum "$evidence/measurement.tar" "$evidence"/*.lock
 
       - name: Compare the candidate with its base
+        env:
+          DIAGNOSTIC: ${{ inputs.diagnostic || false }}
         run: |
           base_commit="$(git -C "$RUNNER_TEMP/base" rev-parse HEAD)"
-          if git diff --quiet "$base_commit" HEAD -- src; then
+          if [ "$DIAGNOSTIC" = "true" ]; then
+            if [ "$base_commit" != "$(git rev-parse HEAD)" ]; then
+              echo "A/A diagnostics require the same commit in both arms."
+              exit 2
+            fi
+            echo "A/A diagnostic sample ${{ matrix.sample }} on ${{ matrix.os }}: $base_commit. No retries; a complete slowdown is a false positive, while exit 75 is invalid calibration and other failures are unusable evidence." | tee -a "$GITHUB_STEP_SUMMARY"
+          elif git diff --quiet "$base_commit" HEAD -- src; then
             echo "Production sources under src, including Compose, are identical to the base. Common measurement setup passed; paired runtime timing is not needed." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -227,6 +242,10 @@ jobs:
             cat "$output-report.txt"
             if [ -f "$output-summary.md" ]; then
               cat "$output-summary.md" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            echo "Sample ${{ matrix.sample }} exit status: $status" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$DIAGNOSTIC" = "true" ]; then
+              exit "$status"
             fi
             if [ "$status" -ne 75 ] || [ "$attempt" -eq 2 ]; then
               exit "$status"
@@ -239,7 +258,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: paired-performance-${{ matrix.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: paired-performance-${{ matrix.os }}-${{ matrix.sample }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/perf-paired*
           if-no-files-found: warn
           retention-days: 7

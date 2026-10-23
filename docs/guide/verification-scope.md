@@ -30,6 +30,21 @@ or device memory pressure. See [device verification](device-verification.md).
 
 ## Gate
 
+Prepare the same dependencies used by CI before the full local run:
+
+```sh
+rokit install --no-trust-check
+lute run tools/facet types prepare
+lute run tools/facet gate full
+```
+
+The preparation command checks pinned tools, Git and Bash, generates Lute
+typedefs and downloads both pinned Roblox definition files. It needs network
+access for missing files and write access to the Lute typedef directory.
+It fails before the expensive suite if these dependencies are unavailable.
+A successful preparation is not verification evidence. Run the full gate
+and fix its failures before publishing a completed change.
+
 The Verify gate records selection, failure, unsupported work and deferral.
 The release tier requires complete evidence with no deferrals. Running every
 selected command does not establish fresh Studio evidence for every control.
