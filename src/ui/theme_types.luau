@@ -213,6 +213,7 @@ export type SkinLayer = {
 	outset: number?,
 	sliceScale: number?,
 	pulse: boolean?,
+	halo: boolean | RGB?,
 	span: ("track" | "fill")?,
 }
 export type SkinLayerPatch = {
@@ -248,6 +249,7 @@ export type SkinLayerPatch = {
 	outset: number?,
 	sliceScale: number?,
 	pulse: boolean?,
+	halo: boolean | RGB?,
 	span: ("track" | "fill")?,
 }
 export type StyleValue =

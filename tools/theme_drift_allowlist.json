@@ -125,6 +125,27 @@
       "match": "return D.new(0.5, 0)",
       "status": "structural",
       "reason": "A pill or circle focus look: half the smaller side is a shape, not a theme corner size."
+    },
+    {
+      "path": "src/ui/environment.luau",
+      "rule": "paint-color",
+      "match": "return ctx.types.Color3.new(wanted.r, wanted.g, wanted.b)",
+      "status": "structural",
+      "reason": "The focus halo colour is the theme recipe's own chrome.focus.halo RGB, converted to a Color3; it is theme data, not a hard-coded colour."
+    },
+    {
+      "path": "src/ui/environment.luau",
+      "rule": "paint-color",
+      "match": "local black, white = ctx.types.Color3.new(0, 0, 0), ctx.types.Color3.new(1, 1, 1)",
+      "status": "structural",
+      "reason": "The default focus halo is pure black or pure white, whichever contrasts more with the theme's ring colour, so the ring reads over any scene; the extremes are the point, not a palette role."
+    },
+    {
+      "path": "src/ui/environment.luau",
+      "rule": "stroke",
+      "match": "return math.max(1, math.round(thickness(use) / 2))",
+      "status": "structural",
+      "reason": "The focus halo is half the themed ring thickness with a 1 px floor, so it scales with the ring and its ten-foot size."
     }
   ]
 }

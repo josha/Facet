@@ -1316,19 +1316,58 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(stroke.Transparency):toBe(0)
 				Verify.expect(template:FindFirstChild("Glow").Enabled):toBe(false)
 				Verify.expect(template.ImageTransparency):toBe(1)
-				Verify.expect(#template:GetChildren()):toBe(3)
+				Verify.expect(#template:GetChildren()):toBe(4)
+				local halo = template:FindFirstChild("Halo")
+				Verify.expect(halo.Enabled):toBe(true)
+				Verify.expect(halo.Thickness):toBe(1)
 				for _, child in template:GetDescendants() do
 					Verify.expect((child:IsA("GuiObject"))):toBe(false)
 				end
 				Verify.expect(template.Size):toBe(w.engine.types.UDim2.new(1, 4, 1, 4))
 				distance:set("ten-foot")
 				Verify.expect(stroke.Thickness):toBe(4)
+				Verify.expect(halo.Thickness):toBe(2)
 				Verify.expect(template.Size):toBe(w.engine.types.UDim2.new(1, 14, 1, 14))
 				Verify.expect(template.Position):toBe(w.engine.types.UDim2.fromOffset(-7, -7))
 				stop()
 				Verify.expect(w ~= nil):toBe(true)
 			end,
 		})
+
+		verifyHarness:case("edges the ring with a contrasting halo so it reads over any scene", function(t)
+			local w = world(nil, { environment = { preferredInput = "Gamepad" } })
+			local playerGui = w.engine.new("PlayerGui")
+			local paint: Frame? = nil
+			local stop = owned(w.runtime, function()
+				paint = w.UI.focusRing(playerGui)
+			end)
+			t:defer(function()
+				stop()
+				w.stop()
+			end)
+			local template = playerGui.SelectionImageObject
+			local halo = template:FindFirstChild("Halo")
+			local C = w.engine.types.Color3
+			t:expect(halo:IsA("UIStroke")):toBe(true)
+			t:expect(halo.BorderStrokePosition):toBe(w.engine.types.Enum.BorderStrokePosition.Outer)
+			t:expect(halo.ZIndex < template:FindFirstChildWhichIsA("UIStroke").ZIndex):toBe(true)
+			local probe = assert(paint)
+			probe.BackgroundColor3 = C.new(0.55, 0.85, 0.35)
+			t:expect(halo.Color):toBe(C.new(0, 0, 0))
+			probe.BackgroundColor3 = C.new(0.1, 0.1, 0.3)
+			t:expect(halo.Color):toBe(C.new(1, 1, 1))
+			local _, chosen, stopChosen =
+				ring(define({ halo = { r = 1, g = 0.5, b = 0 } }), { preferredInput = "Gamepad" })
+			t:defer(stopChosen)
+			t:expect(chosen:FindFirstChild("Halo").Color):toBe(C.new(1, 0.5, 0))
+			local _, bare, stopBare = ring(define({ halo = false }), { preferredInput = "Gamepad" })
+			t:defer(stopBare)
+			t:expect(bare:FindFirstChild("Halo").Enabled):toBe(false)
+			local _, brackets, stopBrackets =
+				ring(define({ kind = "brackets" :: "brackets" }), { preferredInput = "Gamepad" })
+			t:defer(stopBrackets)
+			t:expect(brackets:FindFirstChild("Halo").Enabled):toBe(false)
+		end)
 
 		verifyHarness:case("paints focus glow outside the selected control instead of over its glyphs", {
 			id = "native_environment::focus ring: the engine draws the theme's focus look::paints focus glow outside the selected control instead of over its glyphs",
