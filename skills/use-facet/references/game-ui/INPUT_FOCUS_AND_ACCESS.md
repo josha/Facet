@@ -2,6 +2,39 @@
 
 Part of [game UI design](../GAME_UI_DESIGN_GUIDE.md).
 
+Preserve the player's task across inputs. Entry, understanding, action,
+correction and return must all work with the input the player uses. A shortcut
+can make a route faster; it must not be the only way to discover a required
+command. Make accessibility settings reachable before they are needed to
+complete a difficult interaction.
+
+## Separate the adaptation decisions
+
+| Constraint | Evidence | Design response |
+| --- | --- | --- |
+| Available room | Container bounds, width and height classes, safe insets | Reflow groups, bound scrolling and retain the decision and its action |
+| Physical readability | Display size, viewing distance, player text preference and device testing | Use readable type roles, contrast and an appropriate density |
+| Available input | `interactionClasses` capabilities | Keep useful alternatives available |
+| Current input | `effectiveInput` | Show relevant commands, glyphs and interaction feedback |
+| Reach and precision | Held thumbs, pointer accuracy, focus traversal | Give targets space and offer discrete alternatives to gestures |
+
+Use `UI.environment` for engine facts and device observation for physical
+readability and reach. Read `environment.environment` and
+`environment.viewingDistanceSource` for the exact sources and overrides.
+A gamepad does not imply a television. A high-resolution handheld can have
+many pixels but little physical reading space. A desktop player with a
+gamepad still needs useful comparison detail. Choose from actual constraints,
+not a device-name branch. Check a handheld such as a ROG Ally at its normal
+holding distance; a resized desktop window cannot prove readability there.
+
+Keep selection, drafts, scroll position and route identity when input changes.
+A new glyph alone does not need a new screen. If a layout must change, keep
+the selected object and next action recognizable. Read `effectiveInput`
+instead of switching on every raw input event. Capabilities say what is
+available; Roblox's `PreferredInput` estimates what the player is using.
+Neither should disable another valid input.
+[Roblox input reference](https://create.roblox.com/docs/reference/engine/classes/UserInputService#PreferredInput).
+
 ## Own input by task
 
 Distinguish gameplay, UI navigation, text editing, manipulation and modal
@@ -10,113 +43,149 @@ InputAction/InputContext for game commands and Facet's input mechanisms for
 controls. Do not bind Roblox's Escape or gamepad Start.
 
 A Composition is already passive, with `gameplayGuard = false` and
-`engageOnPress = false`. Do not add a second responder. Use `passive = false`
-only for a dedicated interface. For other HUD roots, use UI.responder with an
-authored entry command; engage and resign make that transition explicit.
-`engageOnPress = false` permits activation without taking the keyboard.
-A fullscreen page disables the game's gameplay context and custom touch actions,
-and restores them on exit. Restore the previous GuiService.TouchControlsEnabled
-value when changing native movement controls.
+`engageOnPress = false`. Do not add a second responder. Give each HUD task an
+authored gamepad command and a visible hint. Use `passive = false` for a
+dedicated interface. For other HUD roots, use `UI.responder`; `engage` and
+`resign` make the transition explicit. `engageOnPress = false` permits a press
+to activate a control without taking the keyboard.
+
+A page that replaces gameplay disables the game's gameplay InputContext and
+custom touch actions. If it hides native movement controls, save and restore
+the previous `GuiService.TouchControlsEnabled` value. Register restoration
+with `Compose.cleanup` in the owning page, as in `Tasks.pages`. Close a child
+surface without restoring gameplay while its parent still owns input. A
+visible overlay does not pause the world; the game owns that decision.
+
+Native InputContext priority and `Sink` resolve competing action bindings;
+disabling the gameplay context makes its ownership explicit. The responder's
+Space guard is not a general suspension of game commands.
+[Roblox InputContext reference](https://create.roblox.com/docs/reference/engine/classes/InputContext).
 
 ## Make focus a useful route
 
-Show focus on the actual actionable boundary. Keep it distinct from persistent
-selection and accepted equipment. Let the control own its focus treatment;
-do not add a competing second selection system.
+Focus identifies the target of the next command. Keep it distinct from
+persistent selection, equipped state and pending work. Show focus on the
+actual actionable boundary. Let the control own its treatment; do not add a
+second selection system. Check contrast over bright, busy and similar-colored
+gameplay. Facet's default ring has a contrasting `chrome.focus.halo`; custom
+bracket, glow and art treatments need equally visible boundaries.
+[XAG 113: focus handling](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/113).
 
-Set sensible entry and return focus. When an opener disappears, choose a useful
-remaining target. Back returns along the actual task path. Scroll focused
-content into view without continuously fighting the player's reading position.
-Use scrollToVisible for an event such as revealing an invalid field.
+Choose entry focus from the likely next action and the cost of an accidental
+activation. When a Sheet takes selection, it uses `initialFocus`, then its
+first available content control, then a pinned action, then Close or the
+grabber. A Dialog prefers
+Cancel, then a non-destructive action. A read-only result may need Close as
+its useful action. Keep this judgment separate from the visual emphasis of
+the primary action. Read `Selection.SelectedObject` for the exact behavior.
 
-Use commandScope or adjustable for specialized controls instead of rebuilding
-general focus traversal. A world-space target still needs an accessible command
-route; a moving or occluded anchor is not a reliable place for sustained reading.
-
-## Follow console conventions
-
-These follow the Xbox Accessibility Guidelines (XAG 101, 107, 112, 113),
-Microsoft's gamepad and TV guidance and Roblox's console guidelines. Sony's and
-Nintendo's requirements are not public; their system conventions agree.
-
-A selects and B goes back on every screen. Since the PS5, Cross confirms in
-every region, Japan included, and Roblox reports it as ButtonA: never swap
-them. LB/RB change tabs (TabView binds them) and LT/RT page long content
-(VirtualList, VirtualGrid, Table and Outline bind them while they hold
-focus). X and Y
-are shortcuts for frequent, non-critical commands that also have an on-screen
-route. Roblox keeps Menu;
-ButtonSelect (View) moves the selection into the interface while
-GuiService.AutoSelectGuiEnabled is on. Show the button with ShortcutHint and
-the action, which draws the Xbox or PlayStation glyph the engine reports.
-
-A surface starts on the control the player most likely acts on, never on a
-dismiss control that B performs: a Sheet's first content control or its
-`initialFocus`, such as a recommended item. A confirmation with consequences
-starts on the safe choice, as a Dialog's cancel action does. Focus returns to
-the opener and always stays visible, never on a hidden or off-screen control.
+Make directional movement agree with the visible arrangement and keyboard
+order agree with the reading and action order. Put frequent commands near
+their related content; do not require a walk through a long collection to
+reach them. Preserve logical item identity when rows recycle. Restore focus
+to the opener on return, or to a useful remaining target when it disappears.
 A HUD command that opens nothing hands the selection back to the game, so the
-player presses it and keeps playing; Composition does this.
-Visible means visible over the game too: a ring the color of the grass behind
-it is lost. Facet's default ring kind has a contrasting halo
-(`chrome.focus.halo`); give bracket, glow and art looks the same contrast, and
-check focus over the busiest and most similar scenery. A slow pulse suits
-tiles and cards, not text buttons, and stops under reduced motion.
+player presses it and keeps playing; Composition does this
+(`resignOnActivate` in `responder`).
+Back follows the actual task path. Show why an action is unavailable in
+reachable text even when its disabled control is skipped.
+[XAG 112: UI navigation](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/112).
 
-Show a button where its command is. A command with its own control carries
-its glyph on that control (`ShortcutHint` with `cap = false`); on the HUD this
-is the only kind of hint. A legend line, such as "A Buy  B Back  LB/RB Tabs",
-is for commands that have no control of their own: those that act on the
-focused item, the bumpers and triggers, and Back on a surface without a
-visible Close. Build it with `UI.ButtonGuide`. Never list a command twice. A
-legend is a readout, never a stop: it is not selectable, so the selection
-route and a surface's first focus skip it. Follow the input class
-(`effectiveInput`), not each input event: show it for a gamepad, leave it off
-on touch, and on keyboard and mouse only when the game asks
-(`inputs = { "Gamepad", "KeyboardAndMouse" }`), so moving the mouse never
-makes it flash. Give players a setting that hides it: bind one settings
-Toggle to the `buttonGuides` app option. Put it along the bottom edge of the
-surface that owns input, inside the safe area; in a Sheet, use its `guide`
-option. Keep it to about four entries in button order. Give bumpers and
-triggers `keyCode` entries so each platform draws its own glyph. An `action`
-entry shows while its native `Enabled` is on and the device binds it, so a
-commandScope action updates the legend as focus moves. An alert
-hides it and shows its own choices. When a controller connects or
-disconnects, acknowledge it and switch the glyphs at once.
+Focused content must remain visible, including inside nested scroll regions.
+Use `scrollToVisible` for an event such as revealing an invalid field; do not
+continuously recenter and fight the player's reading position. Use
+`commandScope` for commands on native selected targets and `adjustable` for
+specialized value controls. `commandScope` does not provide directional
+navigation. A world-space target also needs a reachable command route; a
+moving or occluded anchor is not a reliable place for sustained reading.
 
-Every menu works with the D-pad and A/B alone, one press at a time: no stick,
-chord, rapid press or long hold, or a toggle where a hold is unavoidable. Keep
-routes short (about six presses to cross a screen) and put commands before or
-beside long lists. At 1080p, text needs a body height of at least 26 pixels
-and scales to 200 percent; Facet's ten-foot text is at least 28 (captions 24)
-and follows the preferred text size. Keep text and controls about 5 percent
-inside each edge; Composition and `overscanInsets` do this. Sound and haptics
-confirm navigation sparingly: a soft tick for a focus move, and distinct
-sounds for confirm, back, refusal and reward, so each one reads by ear. Help
-that appears on a resting selection is one short sentence.
+For world-space or VR work, read `Native-targets-and-boundaries` before choosing
+interaction. Facet's world surfaces are flat UI; it supplies no ray, hand,
+gaze input or VR layout mode. Plan and verify the required native input and
+comfort behavior explicitly rather than assuming a screen layout proves it.
 
-Test with the Studio Controller Emulator in the Xbox and PlayStation device
-simulators: the first stick push after spawning, each HUD button, where focus
-lands on every surface, Back from every depth and the return to play.
+## Make commands discoverable
 
-## Adapt independently
+Use Facet's Roblox bindings consistently: ButtonA activates and ButtonB goes
+back. TabView provides shoulder navigation. VirtualList, VirtualGrid, Table
+and Outline provide trigger paging while they hold focus. The selected
+control can own a more specific adjustment command; check its contract before
+assigning the same button. Roblox keeps Menu; ButtonSelect enters native GUI
+selection when `GuiService.AutoSelectGuiEnabled` is enabled.
 
-Screen size, preferred input and viewing distance are different constraints.
-Keep layouts stable when only a hint changes. Touch cannot depend on hover;
-gamepad cannot depend on a pointer or drag. Larger text and localization must
-reflow rather than hide required information.
+Use `ShortcutHint` with an InputAction where available. It reads the native
+preferred binding, including its display image or name. The hint describes
+a binding; it does not create it. Use the engine's reported glyph instead of
+assuming a controller brand. Keep the action name clear, such as "Equip"
+rather than just "A".
 
-With the on-screen keyboard open, keep the active field, validation and the
-completion or cancellation route visible and reachable.
+A control can carry its own glyph with `cap = false`. Use `UI.ButtonGuide`
+for contextual commands that have no visible control, such as paging or an
+action on the focused item. List each command once. Prioritize useful commands
+rather than filling a fixed quota. The guide is a noninteractive readout;
+native selection and the surface's entry focus skip it.
 
-Read-only and unavailable are different: a read-only value can still need
-selection, copying and full contrast. Test viewing distance independently of
-input; a gamepad does not imply oversized tiles or reduced comparison detail.
+Use an `action` entry for a native InputAction. It shows while the action's
+native `Enabled` is on and the device has a binding. Use actions from
+`commandScope`, or update their native `Enabled`, to follow the current focus.
+Use `keyCode` for platform glyphs, including bumper and trigger pairs. Its
+entry stays visible; update the entries when the command becomes unavailable.
+`keys` uses written names that stay the same on every platform. A hint does
+not create a command or its binding. Read `ButtonGuide.reference` for exact options.
 
-Combine visual, sound and haptic feedback where useful, but never make one
-sensory channel the only indication of an essential result. Respect reduced
-motion without removing the result.
+The guide follows `effectiveInput` and shows for Gamepad by default. Add
+`KeyboardAndMouse` to `inputs` when useful; Touch is not supported. Bind the
+`buttonGuides` app or controls option to a readable player setting so players
+can hide persistent hints. Keep the guide inside the owning surface's safe
+area. In a Sheet, use `guide`: it stays outside every scroller and takes room
+from the body while visible. Check short layouts with it shown. A guide hides
+when a modal that does not contain it opens. Read `Sheet.guide` for placement.
 
-Test entering a passive HUD, opening and closing each task, scrolling, nested
-Back, text entry, input-device changes, disabled and removed targets, and return
-to gameplay. Native simulation is not proof of physical-device performance.
+Test device changes during a task, including controller disconnection. Keep
+the draft and a usable exit; update hints without committing or restarting
+the task. Keep valid pointer and controller inputs usable together; an event
+from one must not lock out the other.
+[Valve input guidance](https://partner.steamgames.com/doc/steamhardware/recommendations).
+
+## Remove unnecessary access barriers
+
+Provide a menu route with single digital presses. Do not require a pointer,
+analog precision, a chord, rapid repeats or a sustained hold to configure and
+use the interface. If a gesture improves the task, provide an equivalent
+command. Make the alternative preserve the same eligibility, result and
+recovery. Shortcuts supplement that route.
+[XAG 107: input](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/107).
+
+Touch needs adequate target size, spacing and clearance from held thumbs and
+native movement controls. Test the active hit area, not only the drawn icon.
+Required information cannot depend on hover. Keep the active text field,
+validation and completion or cancellation route reachable with the on-screen
+keyboard open. Use native text editing and IME; keyboard dismissal must not
+silently commit a consequential action.
+
+Use semantic text roles and let larger text and localization reflow. Facet's
+text follows `GuiService.PreferredTextSize`; do not use TextScaled to squeeze
+it into a fixed box. Check the largest preference with real content. Keep
+icons that convey text readable too. Facet's ten-foot theme and `overscanInsets`
+provide a starting point, not proof of readability on every screen.
+[Roblox text-size reference](https://create.roblox.com/docs/reference/engine/classes/GuiService#PreferredTextSize).
+
+XAG 101 recommends a rendered text body height of at least 26 pixels at 1080p
+for console use, with an option to double it. Body height includes ascenders,
+the main letter body and descenders. These are viewing-context
+guidelines, not universal Roblox TextSize values or a guarantee that Facet's
+preference steps provide 200 percent scaling. Verify rendered text at the
+intended distance and the actual range the game offers.
+[XAG 101: text display](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/101).
+
+Name icon-only actions. Distinguish states with labels, shapes or patterns as
+well as color. A read-only value can still need selection, copying and full
+contrast. Combine visual, sound and haptic feedback where useful, with no
+essential result available in only one sensory channel. Keep navigation
+feedback quiet enough for repeated use. Reduced motion preserves the same
+meaning and result without requiring a pulse or animation to understand it.
+
+Verify the complete route: first HUD entry, action, correction, nested Back
+and return to gameplay. Include removed targets, input changes and settings
+changes while the task is open. Use Studio's controller emulation for native
+behavior and physical devices for reach, readability and hardware claims.

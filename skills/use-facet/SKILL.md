@@ -8,24 +8,31 @@ description: Build, change, style or test Roblox game UI and Studio plugin inter
 ## Design principles
 
 - **Start with the player's intent.** Compose the situation, choice, action and
-  result as one connected task. Choose controls to serve that task.
+  result as one connected task. Preserve the game's intended challenge; remove
+  accidental difficulty in understanding or operating the UI.
 - **Make the game recognizable.** Let its world and objects shape the art,
   framing, type and motion. A palette alone is not an identity.
 - **Direct attention.** Give the subject and next useful action clear priority.
   Use quieter context, deliberate space and meaningful feedback around them.
 - **Preserve the task across inputs and sizes.** Recompose around available
-  room, reach and viewing distance. Keep identity, consequences and exits usable.
+  room, reach and viewing distance. Input, screen space and text size are separate
+  decisions. Keep identity, consequences and exits usable.
 - **Earn the player's trust.** Distinguish intent from accepted results. Preserve
   useful state and make navigation, focus and gameplay input return predictably.
 
 Read [game UI design](references/GAME_UI_DESIGN_GUIDE.md) once for how to apply
-these principles. Task chapters explain specific decisions; recipes show
+these principles. Before a new flow, identify the player's goal, play context,
+information priority, action, accepted result and return path. Infer these from
+the brief and existing game; ask only when a missing decision changes the work.
+Task chapters explain specific decisions; recipes show
 behavior and ownership; API nodes define exact contracts. Open only the next
 level needed for the current decision.
 
 Prove one complete playable loop before expanding menus. Test the first use
 of each layout or interaction in Play before repeating it across the game.
 Inspect the combined page, body and gameplay context before copying a pattern.
+Use representative content and the most constrained supported context early.
+Observe whether a player can find, predict and complete the task without coaching.
 
 ## Find the contract
 
@@ -43,6 +50,7 @@ in the installed docs and CLI. Use `Map` only when the task has no known route.
 | Competing gameplay HUD groups | `Tasks.hud`, then `Composition.regions` if needed |
 | Destination from gameplay, input ownership and Back | `Tasks.pages` |
 | Gamepad entry into a passive HUD | `responder` |
+| Mixed input, text size or viewing distance | Input design chapter, then `environment` |
 | Collection and selected detail | `Tasks.collection-detail` |
 | Boolean settings or named choices | `Toggle.card`, `Picker.card` |
 | Object identity, art and selection | `Card.card`, `Stage.card` |
@@ -93,8 +101,8 @@ Read the [Compose skill](../compose/SKILL.md) only for an operation outside this
 The theme owns paint, typography, spacing and motion. Use semantic roles and
 tokens. Use Stage when the player needs to inspect a 3D object; frame the actual
 subject. Use stable model keys in VirtualList, VirtualGrid and Table.
-For a small content-sized grid of peer cards, use `minColumnWidth`, `mode = "all"`
-and `hug = true`. Let the collection width set columns, not the viewport.
+Choose collection density from what players must recognize or compare.
+The layout chapter covers bounded scrolling and grids that fit their content.
 
 Use `UI.fill()` for remaining space beside siblings; `width = "fill"` spans
 the parent's width. Give layout intent with hug, stretch and zones. Bound
@@ -121,7 +129,9 @@ cancellation, rejection, return, gamepad focus, touch clearance and an open
 viewport change. Elapsed time or a changed label does not prove a game effect.
 
 Review gameplay and UI together for hierarchy, clipping, truthful state and
-visual coherence. Fix persistent scripts, restart Play and confirm the changes
+visual coherence. Check whether the player can predict an action and identify
+its result, not only whether the control responds. Fix persistent scripts,
+restart Play and confirm the changes
 survive. Save through the normal project workflow. Keep reads and patches bounded;
 check match counts when replacing Studio Source. Report tested paths and limits,
 without treating a screenshot or a targeted check as complete evidence.
