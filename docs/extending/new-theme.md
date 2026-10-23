@@ -26,7 +26,7 @@ StyleSheet rules. Do not make default control paint an explicit override.
 
 Use `themes.checkCoverage` for the concrete needs of a custom control. Check
 the colors, typography and artwork of each palette. Apply the theme package as
-[custom themes](../guide/09-custom-themes.md#apply-and-switch) describes.
+[custom themes](../guide/themes.md#apply-and-switch) describes.
 
 Exercise the theme package in the actual gallery and in the reference
 applications. Examine:

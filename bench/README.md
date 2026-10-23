@@ -31,6 +31,6 @@ the same 5 percent rule. Heap samples depend on collector phase. Use determinist
 workload cases to check sampling, state changes, image ownership, and teardown.
 Read the recorded baseline metric and regression factor before comparing rows.
 
-Use [paired performance](../docs/guide/19-paired-performance.md) to compare two
+Use [paired performance](../docs/guide/performance.md) to compare two
 source trees. Engine geometry, frame pacing, and physical device costs need
 separate live evidence. A passing benchmark does not replace that evidence.

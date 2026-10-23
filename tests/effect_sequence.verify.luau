@@ -141,7 +141,9 @@ return function(harness: Verify.Harness)
 	end)
 
 	harness:case("flash samples native overlay bounds without changing target paint", function(t)
-		local native = engineLib.new()
+		local native, fixture = engineLib.new()
+		local tracking = fixture.track()
+		t:defer(tracking.stop)
 		local runtime = Facet.Roblox.createRuntime(native)
 		local C = Facet.Compose
 		local Host = (runtime.constructors :: unknown) :: Shared.Host
@@ -161,13 +163,13 @@ return function(harness: Verify.Harness)
 			runtime:dispose()
 		end)
 		local paint: Frame? = nil
-		for _, node in native.made do
+		for _, node in tracking.created do
 			if node.Name == "FlashPaint" then
-				paint = node :: Frame
+				paint = (node :: unknown) :: Frame
 			end
 		end
 		local flash = assert(paint)
-		local count = #native.made
+		local count = #tracking.created
 		local color, transparency = target.BackgroundColor3, target.BackgroundTransparency
 		for frame = 0, 60 do
 			local p = frame / 60
@@ -179,7 +181,7 @@ return function(harness: Verify.Harness)
 		end
 		t:expect(target.BackgroundColor3):toBe(color)
 		t:expect(target.BackgroundTransparency):toBe(transparency)
-		t:expect(#native.made):toBe(count)
+		t:expect(#tracking.created):toBe(count)
 		reduced:set("none")
 		progress:set(0.5)
 		t:expect(flash.Visible):toBe(false)

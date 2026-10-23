@@ -8,7 +8,7 @@ local Reactor = require "../reactive/reactor"
 
 local sharedResource = require "../async/shared"
 
-export type Options = { frame: boolean?, poll: boolean? }
+export type Options = { frame: boolean?, poll: boolean?, styled: boolean? }
 type Entry = { live: boolean, read: () -> unknown, value: Types.Cell<unknown> }
 
 return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reactor.Reactor)
@@ -60,11 +60,32 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 	return function(node: Host.Node, property: string, options: Options?): Types.Readable<unknown>
 		ownerOf "observe"
 		local observation = assert(host.observation, "Compose observe requires host.observation")
+		local styled = options ~= nil and options.styled == true
+		if styled then
+			assert(
+				observation.readStyledProperty,
+				"Compose styled observation requires host.observation.readStyledProperty"
+			)
+		end
+		local function read(target: Host.Node, key: string): unknown
+			if styled then
+				return assert(observation.readStyledProperty)(target, key)
+			end
+			return observation.readProperty(target, key)
+		end
+		local subscribe: (Host.Node, string, () -> ()) -> Host.Unsubscribe = if styled
+			then assert(
+				observation.observeStyledProperty,
+				"Compose styled observation requires host.observation.observeStyledProperty"
+			)
+			else observation.observeProperty
 		local framed = options ~= nil and options.frame == true
 		local poll = options ~= nil and options.poll == true
 		assert(not poll or framed, "Compose polling observation requires frame = true")
 		assert(not framed or host.frames ~= nil, "Compose frame observation requires host.frames")
-		local key = property .. (if poll then "\0poll" elseif framed then "\0frame" else "")
+		local key = property
+			.. (if styled then "\0styled" else "")
+			.. (if poll then "\0poll" elseif framed then "\0frame" else "")
 		local properties = entries[node]
 		if properties == nil then
 			properties = {}
@@ -80,12 +101,12 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 						entries[node] = nil
 					end
 				end)
-				local value = Cell.cell(observation.readProperty(node, property))
+				local value = Cell.cell(read(node, property))
 				if framed then
 					local entry: Entry = {
 						live = true,
 						read = function()
-							return observation.readProperty(node, property)
+							return read(node, property)
 						end,
 						value = value,
 					}
@@ -94,7 +115,7 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 						pending[entry], polling[entry] = nil, nil
 						idle()
 					end)
-					local release = observation.observeProperty(node, property, function()
+					local release = subscribe(node, property, function()
 						if entry.live then
 							pending[entry] = true
 							schedule()
@@ -108,10 +129,9 @@ return function(host: Host.Host, ownerOf: (string) -> Owner.Owner, reactor: Reac
 					schedule()
 					return value, nil
 				end
-				return value,
-					observation.observeProperty(node, property, function()
-						value:set(observation.readProperty(node, property))
-					end)
+				return value, subscribe(node, property, function()
+					value:set(read(node, property))
+				end)
 			end)
 			properties[key] = assert(acquire)
 		end

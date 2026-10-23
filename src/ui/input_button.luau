@@ -546,7 +546,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						end, function()
 							local words = ctx.observe.Text(node)
 							local fits, box = ctx.observe.TextFits(node), ctx.observe.AbsoluteSize(node)
-							local points, face = ctx.observeStyled.TextSize(node), ctx.observeStyled.FontFace(node)
 							local measured: string? = nil
 							Compose.watch(function(use: ComposeTypes.Use)
 								if use(words) == "" then
@@ -556,6 +555,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 								use(box)
 								use(fits)
 								local width, whole = node.AbsoluteSize.X, node.TextFits and use(captionFits)
+								if not node:HasTag("facet-button-tight") and (whole or width <= 0) then
+									return
+								end
+								local points, face = ctx.observeStyled.TextSize(node), ctx.observeStyled.FontFace(node)
 								local metrics = `{width}|{use(words)}|{use(points)}|{use(face)}`
 								if metrics ~= measured and node:HasTag("facet-button-tight") then
 									measured = metrics

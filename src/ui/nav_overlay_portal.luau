@@ -162,7 +162,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 					table.insert(descendants, surface)
 					filled = filled or (surface.AbsoluteSize.X > 0 and surface.AbsoluteSize.Y > 0)
 					for _, child in descendants do
-						measured = measured and textMeasure.ready(child)
+						measured = measured and not textMeasure.pending(child)
 						if child:IsA("GuiObject") then
 							filled = filled or (child.Visible and child.AbsoluteSize.X > 0 and child.AbsoluteSize.Y > 0)
 							local value = `{child.AbsolutePosition}:{child.AbsoluteSize}:{child.Visible}`

@@ -9,7 +9,7 @@ copy.
 ## Compose
 
 **Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
-`185bc974fc2ba6b153fd6af047419fe7687ebad4`,
+`c872f38ad12a73087175caccd3025d2fc9e18393`,
 `src/core` and `src/roblox`.
 
 **Distribution.** `src/vendor/compose` is a generated, read-only snapshot of that
@@ -347,7 +347,7 @@ and answered.
 ## 4. Quoted documentation
 
 **Applies to:**
-[`docs/guide/14-choosing-a-ui-library.md`](docs/guide/14-choosing-a-ui-library.md).
+[`docs/guide/choosing-facet.md`](docs/guide/choosing-facet.md).
 
 Earlier versions of that chapter cited other Roblox UI libraries through short,
 attributed quotations. The current chapter describes Facet’s abstraction boundary

@@ -67,6 +67,7 @@ export type Menu<V> = {
 
 return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: RadialProps.RadialMenuSpec<V>): Menu<V>
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local typeOf: (unknown) -> string = runtime.host.typeNameOf or typeof
 	local E, D2 = ctx.types.Enum, ctx.types.UDim2
 	local input = surfaces.service("UserInputService")
 	local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
@@ -199,7 +200,7 @@ return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: Radi
 			return
 		end
 		local anchor = read(spec.anchor)
-		if type(anchor) == "table" and anchor.visible == false then
+		if typeOf(anchor) ~= "Instance" and type(anchor) == "table" and anchor.visible == false then
 			return
 		end
 		opened:set(true)

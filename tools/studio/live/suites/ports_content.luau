@@ -18,12 +18,12 @@ add("stage-draft-preview", {}, function(t)
 			camera = CFrame.lookAt(Vector3.new(4, 3, 6), Vector3.zero),
 			content = function(runtime, world)
 				local Host = runtime.constructors
-				local part = Host.Part "Object" {
+				Host.Part "Object" {
+					Parent = t.Facet.Compose.static(world),
 					Anchored = true,
 					Size = Vector3.new(2, 2, 2),
 					Color = color,
 				}
-				part.Parent = world
 				return nil
 			end,
 		}
@@ -36,6 +36,30 @@ add("stage-draft-preview", {}, function(t)
 	color:set(Color3.fromRGB(235, 50, 70))
 	t.settle(4)
 	t.check("draft changes update the retained preview", part.Color == color:peek() and t.find(root, "Object") == part)
+end)
+
+add("screen-header-and-scroll-share-height", {}, function(t)
+	for _, size in { Vector2.new(900, 650), Vector2.new(390, 700), Vector2.new(740, 300) } do
+		local root = t.mount(function(UI)
+			return UI.Screen "Inventory" {
+				UI.NavBar "Header" {
+					title = "Inventory and equipment customization",
+					onBack = function() end,
+				},
+				UI.ScrollView "Body" {
+					UI.fill(),
+					UI.Text { text = string.rep("Choose an item. ", 200), wrap = true },
+				},
+			}
+		end, { size = size, frames = 40 })
+		local page = t.rect(t.find(root, "Inventory"))
+		local header = t.rect(t.find(root, "Header"))
+		local body = t.rect(t.find(root, "Body"))
+		t.note("page geometry", { size = size, page = page, header = header, body = body })
+		t.check("header stays inside page width", header.x >= page.x and header.x + header.w <= page.x + page.w + 1)
+		t.check("scroll body starts below header", body.y >= header.y + header.h - 1)
+		t.check("scroll body fits remaining height", body.h > 0 and body.y + body.h <= page.y + page.h + 1)
+	end
 end)
 
 add("card-list-lift-keeps-layout-stable", {}, function(t)
@@ -253,6 +277,82 @@ local function windowRect(frame: any): any
 	local at = window.AbsolutePosition
 	local size = if window:IsA("ScrollingFrame") then window.AbsoluteWindowSize else window.AbsoluteSize
 	return { x = at.X, y = at.Y, w = size.X, h = size.Y, r = at.X + size.X, b = at.Y + size.Y }
+end
+
+for _, direction in { "vertical", "horizontal" } do
+	add(`card-virtual-list-{direction}-lift-containment`, {}, function(t)
+		local horizontal = direction == "horizontal"
+		local stage = t.mount(function(UI)
+			return UI.VirtualList "Cards" {
+				Position = UDim2.fromOffset(40, 40),
+				Size = UDim2.fromOffset(620, 220),
+				from = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 },
+				key = function(value: number): number
+					return value
+				end,
+				mode = "all",
+				direction = direction,
+				itemSize = if horizontal then 240 else 140,
+				gap = 20,
+				render = function(current: Readable<number>)
+					return UI.Card(`Card{current:peek()}`) {
+						title = `Vehicle {current:peek()}`,
+						caption = "Compare handling and speed",
+						primaryAction = { label = "Inspect", onActivate = function() end },
+					}
+				end,
+			}
+		end, { size = Vector2.new(900, 600), motionLevel = "normal", frames = 40 })
+		local list = t.find(stage, "Cards")
+		local virtual = UserInputService:CreateVirtualInput()
+		local inset = GuiService:GetGuiInset()
+		GuiService.SelectedObject = nil
+		for _, index in { 1, 12 } do
+			virtual:SendMousePosition(Vector2.new(850, 550) + inset)
+			list.CanvasPosition = if index == 1
+				then Vector2.zero
+				else Vector2.new(
+					if horizontal then math.max(0, list.AbsoluteCanvasSize.X - list.AbsoluteWindowSize.X) else 0,
+					if horizontal then 0 else math.max(0, list.AbsoluteCanvasSize.Y - list.AbsoluteWindowSize.Y)
+				)
+			t.stable(list, 12, 600)
+			local card = t.find(list, `Card{index}`)
+			local group = card:FindFirstAncestor("Content")
+			local row = group.Parent
+			local before, rowBefore, groupBefore = t.rect(card), t.rect(row), t.rect(group)
+			local canvasBefore = list.AbsoluteCanvasSize
+			local body = t.find(card, "Body")
+			virtual:SendMousePosition(body.AbsolutePosition + body.AbsoluteSize / 2 + inset)
+			local deadline = os.clock() + 3
+			repeat
+				t.settle(1)
+			until card:GetAttribute("FacetHovered") == true or os.clock() >= deadline
+			t.stable(card, 12, 600)
+			t.check(`{index} native pointer engages lift`, card:GetAttribute("FacetHovered") == true)
+			local paint = card:FindFirstChild("FeedbackPaint", true) or card
+			t.check(`{index} hover visibly enlarges the card`, t.rect(paint).w > before.w + 1)
+			t.inside(`{index} hovered paint stays inside CanvasGroup`, paint, group, 0.5)
+			t.inside(`{index} hovered paint stays inside viewport`, t.rect(paint), windowRect(list), 0.5)
+			for _, pair in { { row, rowBefore }, { group, groupBefore } } do
+				local actual, rest = t.rect(pair[1]), pair[2]
+				for _, axis in { "x", "y", "w", "h" } do
+					t.near(`{index} hover preserves {pair[1].Name}.{axis}`, actual[axis], rest[axis], 1)
+				end
+			end
+			t.check(`{index} hover preserves canvas extent`, list.AbsoluteCanvasSize == canvasBefore)
+			virtual:SendMousePosition(Vector2.new(850, 550) + inset)
+			deadline = os.clock() + 3
+			repeat
+				t.settle(1)
+			until card:GetAttribute("FacetHovered") == false or os.clock() >= deadline
+			t.stable(card, 12, 600)
+			t.check(`{index} native pointer releases hover`, card:GetAttribute("FacetHovered") == false)
+			for _, axis in { "x", "y", "w", "h" } do
+				t.near(`{index} exit restores card.{axis}`, t.rect(card)[axis], before[axis], 1)
+			end
+			t.note(`{index} containment`, { rest = before, hoveredClip = t.rect(group), viewport = windowRect(list) })
+		end
+	end)
 end
 
 local function scenario(t: any, name: string, options: { [string]: any }?): (any, any)

@@ -6,7 +6,7 @@ Facet supplies UI controls.
 - Roblox owns layout, input routing, focus, scrolling, styling and the scene.
 
 Every example uses the entry path from
-[Getting started](../docs/guide/03-getting-started.md):
+[Getting started](../docs/guide/getting-started.md):
 
 1. Make an app with `Facet.app({ theme = package })`. The theme is optional.
 2. Get the controls from `app.UI`.

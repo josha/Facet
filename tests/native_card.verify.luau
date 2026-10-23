@@ -59,7 +59,7 @@ return function(verifyHarness: Verify.Harness)
 			})
 		end, options or { motionLevel = "none" })
 		if touch then
-			world.input.TouchEnabled = true
+			world.engine.environment.poke(world.input, "TouchEnabled", true)
 		end
 		return world, world.find("C"), controls
 	end
@@ -81,7 +81,7 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function hover(root: any, inside: boolean)
-		root:_fireSignal(if inside then "MouseEnter" else "MouseLeave")
+		root[if inside then "MouseEnter" else "MouseLeave"]:Fire()
 	end
 
 	local function settle(world: any, seconds: number)
@@ -178,7 +178,7 @@ return function(verifyHarness: Verify.Harness)
 		end, { motionLevel = if reduced ~= false then "none" else "normal" })
 		for _, name in (if twoGrids then { "A", "B" } else { "A" }) :: { string } do
 			local node = world.find(name)
-			node.AbsoluteWindowSize = world.V2(900, 600)
+			world.engine.environment.poke(node, "AbsoluteWindowSize", world.V2(900, 600))
 		end
 		return {
 			world = world,
@@ -268,7 +268,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(artwork.Image):toBe("")
 				Verify.expect(live ~= nil):toBe(true)
 				Verify.expect(live.Size):toBe(UDim2.fromScale(1, 1))
-				world.find("C").AbsoluteSize = world.V2(320, 260)
+				world.engine.environment.poke(world.find("C"), "AbsoluteSize", world.V2(320, 260))
 				Verify.expect(artwork.Size):toBe(UDim2.new(1, 0, 0, 100000))
 				local press = { UserInputType = "MouseButton1" }
 				world.find("Body").Activated:Fire(press)
@@ -317,9 +317,9 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(artwork.Size.Y.Offset > 0):toBe(true)
 					Verify.expect(world.find("Preview").Size):toBe(UDim2.fromScale(1, 1))
 					local authored = artwork.Size
-					world.find("C").AbsoluteSize = world.V2(340, 320)
+					world.engine.environment.poke(world.find("C"), "AbsoluteSize", world.V2(340, 320))
 					Verify.expect(artwork.Size):toBe(authored)
-					world.find("C").AbsoluteSize = world.V2(321.25, 320)
+					world.engine.environment.poke(world.find("C"), "AbsoluteSize", world.V2(321.25, 320))
 					Verify.expect(artwork.Size):toBe(authored)
 					Verify.expect(artwork:FindFirstChildWhichIsA("UIAspectRatioConstraint")):toBe(constraint)
 					world.stop()
@@ -448,11 +448,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local world, root = mount(cardSpec({}))
 				hover(root, true)
-				primary(world).GuiState = world.engine.types.Enum.GuiState.Press
+				world.engine.environment.poke(primary(world), "GuiState", world.engine.types.Enum.GuiState.Press)
 				hover(root, false)
 				Verify.expect((attr(root, "Pressing"))):toBe(true)
 				Verify.expect((attr(root, "Revealed"))):toBe(true)
-				primary(world).GuiState = world.engine.types.Enum.GuiState.Idle
+				world.engine.environment.poke(primary(world), "GuiState", world.engine.types.Enum.GuiState.Idle)
 				Verify.expect((attr(root, "Revealed"))):toBe(false)
 				world.stop()
 				local held, heldRoot = mount(cardSpec({}))
@@ -460,9 +460,9 @@ return function(verifyHarness: Verify.Harness)
 				local button = primary(held)
 				hover(heldRoot, true)
 				button.InputBegan:Fire({ UserInputType = Enum.UserInputType.MouseButton1 })
-				button.GuiState = Enum.GuiState.Press
+				world.engine.environment.poke(button, "GuiState", Enum.GuiState.Press)
 				hover(heldRoot, false)
-				button.GuiState = Enum.GuiState.Idle
+				world.engine.environment.poke(button, "GuiState", Enum.GuiState.Idle)
 				Verify.expect((attr(heldRoot, "Revealed"))):toBe(true)
 				button.InputEnded:Fire({ UserInputType = Enum.UserInputType.MouseButton1 })
 				Verify.expect((attr(heldRoot, "Revealed"))):toBe(false)
@@ -478,9 +478,13 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((attr(root, "Revealed"))):toBe(true)
 				world.find("Body").Activated:Fire()
 				Verify.expect((table.concat(log, ","))):toBe("body")
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+				)
 				Verify.expect((attr(root, "Revealed"))):toBe(true)
-				world.input.TouchEnabled = false
+				world.engine.environment.poke(world.input, "TouchEnabled", false)
 				Verify.expect((attr(root, "Revealed"))):toBe(false)
 				world.stop()
 			end,
@@ -495,9 +499,9 @@ return function(verifyHarness: Verify.Harness)
 				primary(world).Activated:Fire()
 				Verify.expect(#log):toBe(0)
 				hover(root, true)
-				primary(world).GuiState = world.engine.types.Enum.GuiState.Press
+				world.engine.environment.poke(primary(world), "GuiState", world.engine.types.Enum.GuiState.Press)
 				enabled:set(false)
-				primary(world).GuiState = world.engine.types.Enum.GuiState.Idle
+				world.engine.environment.poke(primary(world), "GuiState", world.engine.types.Enum.GuiState.Idle)
 				primary(world).Activated:Fire()
 				Verify.expect(#log):toBe(0)
 				world.stop()
@@ -508,11 +512,11 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_card::native Card::grows a lifted card evenly around its centre",
 			run = function()
 				local world, root = mount(cardSpec({}), { motionLevel = "normal" })
-				root.AbsoluteSize = world.engine.types.Vector2.new(300, 200)
+				world.engine.environment.poke(root, "AbsoluteSize", world.engine.types.Vector2.new(300, 200))
 				Verify.expect(root.Position):toBe(world.engine.types.UDim2.fromOffset(0, 0))
 				hover(root, true)
 				settle(world, 1)
-				root.AbsoluteSize = world.engine.types.Vector2.new(312, 208)
+				world.engine.environment.poke(root, "AbsoluteSize", world.engine.types.Vector2.new(312, 208))
 				Verify.expect(root.Position):toBe(world.engine.types.UDim2.fromOffset(0, 0))
 				Verify.expect(root.AnchorPoint.X * root.AbsoluteSize.X):toBeCloseTo(6, 0.00001)
 				Verify.expect(root.AnchorPoint.Y * root.AbsoluteSize.Y):toBeCloseTo(4, 0.00001)
@@ -590,7 +594,7 @@ return function(verifyHarness: Verify.Harness)
 			if container then
 				world.find("Stack"):AddTag(container)
 			end
-			world.find("C").AbsoluteSize = world.V2(230, 137)
+			world.engine.environment.poke(world.find("C"), "AbsoluteSize", world.V2(230, 137))
 			return world
 		end
 
@@ -632,13 +636,13 @@ return function(verifyHarness: Verify.Harness)
 					world.engine.heartbeat:Fire(1 / 60)
 					local paint = world.find("FeedbackPaint")
 					Verify.expect(paint ~= nil):toBe(true)
-					paint.AbsoluteSize = world.V2(230, 12)
+					world.engine.environment.poke(paint, "AbsoluteSize", world.V2(230, 12))
 					Verify.expect(root.Size.Y.Offset):toBe(137)
 					settle(world, 0.05)
 					Verify.expect(paint.Visible):toBe(true)
-					paint.AbsoluteSize = world.V2(230, 12)
+					world.engine.environment.poke(paint, "AbsoluteSize", world.V2(230, 12))
 					Verify.expect(root.Size.Y.Offset):toBe(137)
-					paint.AbsoluteSize = world.V2(230, 160)
+					world.engine.environment.poke(paint, "AbsoluteSize", world.V2(230, 160))
 					Verify.expect(root.Size.Y.Offset):toBe(160)
 					world.stop()
 				end,
@@ -650,7 +654,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local world = stacked(Compose.cell(false))
 				local root = world.find("C")
-				root.AbsoluteSize = world.V2(230, 137.4)
+				world.engine.environment.poke(root, "AbsoluteSize", world.V2(230, 137.4))
 				hover(root, true)
 				settle(world, 0.1)
 				Verify.expect(root.Size.Y.Offset >= 137.4):toBe(true)
@@ -694,7 +698,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local world, root, controls = mount(cardSpec({}), { motionLevel = "normal" }, true)
 				local Enum = world.engine.types.Enum
-				world.input.PreferredInput = Enum.PreferredInput.Touch
+				world.engine.environment.poke(world.input, "PreferredInput", Enum.PreferredInput.Touch)
 				local body = world.find("Body")
 				body.InputBegan:Fire({ UserInputType = Enum.UserInputType.Touch })
 				settle(world, 1)
@@ -703,18 +707,18 @@ return function(verifyHarness: Verify.Harness)
 				hover(root, true)
 				settle(world, 1)
 				Verify.expect((lift(root))):toBe("scale 1 shadow false")
-				primary(world).GuiState = Enum.GuiState.Press
+				world.engine.environment.poke(primary(world), "GuiState", Enum.GuiState.Press)
 				settle(world, 1)
 				Verify.expect((lift(root))):toBe("scale 1 shadow false")
-				primary(world).GuiState = Enum.GuiState.Idle
-				more(world).GuiState = Enum.GuiState.Press
+				world.engine.environment.poke(primary(world), "GuiState", Enum.GuiState.Idle)
+				world.engine.environment.poke(more(world), "GuiState", Enum.GuiState.Press)
 				settle(world, 1)
 				Verify.expect((lift(root))):toBe("scale 1 shadow false")
 				Verify.expect((controls.engaged:peek())):toBe(true)
 				Verify.expect((controls.revealed:peek())):toBe(true)
-				more(world).GuiState = Enum.GuiState.Idle
+				world.engine.environment.poke(more(world), "GuiState", Enum.GuiState.Idle)
 				hover(root, false)
-				world.input.PreferredInput = Enum.PreferredInput.Gamepad
+				world.engine.environment.poke(world.input, "PreferredInput", Enum.PreferredInput.Gamepad)
 				world.gui.SelectedObject = body
 				settle(world, 1)
 				Verify.expect((lift(root))):toBe("scale 1.04 shadow true")
@@ -802,7 +806,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(g.controls.A.i1):toBeNil()
 				Verify.expect((g.world.action("CardCancel"))):toBeNil()
 				local selected = g.world.gui.SelectedObject
-				Verify.expect(selected == nil or not selected:isDestroyed()):toBe(true)
+				Verify.expect(selected == nil or g.world.engine.environment.isAlive(selected)):toBe(true)
 				local again = table.clone(rest)
 				table.insert(again, 1, { id = "i1", title = "Back" })
 				g.sources.A:set(again)
@@ -822,7 +826,7 @@ return function(verifyHarness: Verify.Harness)
 				g.world.find("A").CanvasPosition = g.world.V2(0, 4000)
 				Verify.expect(g.controls.A.i1):toBeNil()
 				local selected = g.world.gui.SelectedObject
-				Verify.expect(selected == nil or not selected:isDestroyed()):toBe(true)
+				Verify.expect(selected == nil or g.world.engine.environment.isAlive(selected)):toBe(true)
 				g.world.stop()
 			end,
 		})
@@ -857,7 +861,7 @@ return function(verifyHarness: Verify.Harness)
 					return built.screen()
 				end, { motionLevel = "none" })
 				local grid = world.find("Games")
-				grid.AbsoluteWindowSize = world.V2(1248, 640)
+				world.engine.environment.poke(grid, "AbsoluteWindowSize", world.V2(1248, 640))
 				local columns, crossGap, gap =
 					4, math.max(16, math.ceil(312 * 1.04) - 312), math.max(16, math.ceil(320 * 1.04) - 320)
 				local padding = grid:FindFirstChild("Items"):FindFirstChildWhichIsA("UIPadding")

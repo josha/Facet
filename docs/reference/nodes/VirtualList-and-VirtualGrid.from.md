@@ -3,7 +3,7 @@
 Use these controls for data rows or tiles that need selection, reordering or
 collection focus, even when the data is small. They also window large or
 unbounded collections. A Button may supply row content while the collection
-owns the interaction. See [choosing collections](../../guide/14-choosing-controls.md#interactive-collections)
+owns the interaction. See [choosing collections](../../guide/choosing-controls.md#interactive-collections)
 and the shared [editable collection contract](Editable-collections.md).
 
 Required: `from` (an array, readable or body) and
@@ -26,4 +26,4 @@ cells. Do not change keys when a filter changes. Empty the array for no
 matches, show a clear result message and keep a route to clear the filter.
 Test empty and refill on the same mounted collection. For a small collection
 inside a Sheet, use the [content-sized pattern](VirtualList-and-VirtualGrid.sizing.md);
-for direct card actions, use the [shop recipe](Tasks.shop.md).
+for direct card actions, use [Card.browseTarget](Card.browseTarget.md).

@@ -2,7 +2,7 @@
 
 This page tells you where a change goes and what proves it. The
 [API reference](reference/api.md) holds each public name, property and default.
-The [architecture](guide/02-architecture.md) tells you why each boundary
+The [architecture](guide/architecture.md) tells you why each boundary
 exists. This page does not repeat them.
 
 A check compares each table on this page with the tree. See
@@ -122,7 +122,7 @@ directories that `.gitignore` excludes.
 | `examples/` | The starter blocks in `examples/blocks`, the gallery, the Facet Lab, the consumer project, the reference apps, the virtual monitors, the example themes and the performance lab. | `lute run tools/facet check scenario-requires` |
 | `bench/` | The benchmark scenes, profiles and baselines. | `lute run tools/facet bench` |
 | `tools/` | The Verify gate runner, the Lute maintainer commands and checks, the native engine double programs and the Studio tools. | `lute run tools/facet check --all` |
-| `docs/` | The guide, the extension playbooks, the reference, this map and the proposals. | `lute run tools/facet check doc-style` |
+| `docs/` | The guides, extension playbooks, reference and this map. | `lute run tools/facet check doc-style` |
 | `assets/` | The icon images and the theme art. The generators in `tools/facet/art/` make them, and the package build includes them. | `lute run tools/facet art all --check` |
 | `package/` | The Roblox Package configuration and the publish receipts. See [the package interface](../package/README.md). | `lute run tools/facet package status` |
 | `skills/` | The agent skills for Compose and for Facet. | None. A reviewer reads them with the guide. |
@@ -135,9 +135,9 @@ directories that `.gitignore` excludes.
 | Question | Answer | Read |
 |---|---|---|
 | Where does a new control go? | In the area of its family, under `src/ui/`. | [Adding a control](extending/new-control.md) |
-| How do I change the look? | Change or derive a theme package. Do not change a control. | [Custom themes](guide/09-custom-themes.md) |
+| How do I change the look? | Change or derive a theme package. Do not change a control. | [Custom themes](guide/themes.md) |
 | How do I change Compose? | Change Compose upstream. Then update the pinned snapshot. | [Adopting an engine feature](extending/new-engine-feature.md) |
-| What does a passing native run prove? | Only that the selected commands passed. | [Verification scope](guide/18-verification-scope.md) |
+| What does a passing native run prove? | Only that the selected commands passed. | [Verification scope](guide/verification-scope.md) |
 | How do I release? | The maintainer publishes. A change only builds the package locally. | [The package interface](../package/README.md) |
 
 ## Controls
@@ -182,7 +182,7 @@ Hand-written observations do not replace those reports. The `plan` producer
 checks that `tests/plan.json` lists each spec file on disk exactly once. When
 you retire tests of removed mechanisms, keep the behavior coverage of each control family.
 The current suite is the evidence. A passing run proves only the selected cases. The
-[verification scope](guide/18-verification-scope.md) describes the checks and
+[verification scope](guide/verification-scope.md) describes the checks and
 their limits.
 
 Read the [contributor workflow](../CONTRIBUTING.md), the

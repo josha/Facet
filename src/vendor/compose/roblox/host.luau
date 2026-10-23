@@ -6,6 +6,36 @@ local Engine = require "./engine"
 type Node = Compose.Node
 
 type DefaultCache = { [string]: unknown }
+type StyledNode = {
+	GetStyled: (self: StyledNode, property: string) -> unknown,
+	StyledPropertiesChanged: Engine.Signal<()>,
+}
+type Subscriber = { live: boolean, listener: () -> (), stopRaw: Compose.Unsubscribe? }
+type StyledEntry = {
+	live: boolean,
+	subscribers: { [Subscriber]: boolean },
+	stopStyled: Compose.Unsubscribe?,
+}
+
+local function raiseFailures(failures: { unknown })
+	if #failures == 1 then
+		error(failures[1], 0)
+	elseif #failures > 1 then
+		local messages: { string } = {}
+		for _, failure in failures do
+			table.insert(messages, tostring(failure))
+		end
+		error(table.concat(messages, "\n"), 0)
+	end
+end
+
+local function attempt(callback: () -> ()): (boolean, unknown)
+	local ok, failure = pcall(function(): unknown
+		callback()
+		return nil
+	end)
+	return ok, if not ok and failure == nil then "ComposeRoblox styled observation raised nil" else failure
+end
 
 local function connect<Args...>(signal: Engine.Signal<Args...>, handler: (Args...) -> ()): Compose.Unsubscribe
 	local connection = signal:Connect(handler)
@@ -21,6 +51,7 @@ end
 local function createHost(engine: Engine.Engine): Compose.Host
 	local defaults: DefaultCache = {}
 	local unsampleable: { [string]: true } = {}
+	local styledEntries: { [Node]: StyledEntry } = {}
 
 	local classified: { [string]: { [string]: Compose.KeyKind } } = {}
 
@@ -170,6 +201,106 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		return connect(engine.propertyChanged(node, key), listener)
 	end
 
+	local function publish(entry: StyledEntry)
+		if not entry.live then
+			return
+		end
+		local queued: { Subscriber } = {}
+		for subscriber in entry.subscribers do
+			table.insert(queued, subscriber)
+		end
+		local failures: { unknown } = {}
+		for _, subscriber in queued do
+			if subscriber.live then
+				local ok, failure = attempt(subscriber.listener)
+				if not ok then
+					table.insert(failures, failure)
+				end
+			end
+		end
+		raiseFailures(failures)
+	end
+
+	local function closeStyled(node: Node, entry: StyledEntry)
+		entry.live = false
+		styledEntries[node] = nil
+		local stop = entry.stopStyled
+		entry.stopStyled = nil
+		if stop then
+			stop()
+		end
+	end
+
+	local function observeStyledProperty(node: Node, key: string, listener: () -> ()): Compose.Unsubscribe
+		local native = node :: StyledNode
+		local entry = styledEntries[node]
+		if entry == nil then
+			local created: StyledEntry = { live = true, subscribers = {} }
+			styledEntries[node] = created
+			local ok, failure = attempt(function()
+				created.stopStyled = connect(native.StyledPropertiesChanged, function()
+					publish(created)
+				end)
+			end)
+			if not ok then
+				local failures = { failure }
+				local closed, cleanupFailure = attempt(function()
+					closeStyled(node, created)
+				end)
+				if not closed then
+					table.insert(failures, cleanupFailure)
+				end
+				raiseFailures(failures)
+			end
+			entry = created
+		end
+		local current = entry :: StyledEntry
+		local subscriber: Subscriber = { live = true, listener = listener }
+		current.subscribers[subscriber] = true
+		local function release()
+			if not subscriber.live then
+				return
+			end
+			subscriber.live = false
+			current.subscribers[subscriber] = nil
+			local failures: { unknown } = {}
+			if subscriber.stopRaw then
+				local ok, failure = attempt(subscriber.stopRaw)
+				if not ok then
+					table.insert(failures, failure)
+				end
+				subscriber.stopRaw = nil
+			end
+			if next(current.subscribers) == nil then
+				local ok, failure = attempt(function()
+					closeStyled(node, current)
+				end)
+				if not ok then
+					table.insert(failures, failure)
+				end
+			end
+			raiseFailures(failures)
+		end
+		do
+			local ok, failure = attempt(function()
+				subscriber.stopRaw = observeProperty(node, key, function()
+					if subscriber.live then
+						listener()
+					end
+				end)
+			end)
+			if not ok then
+				local failures = { failure }
+				local closed, cleanupFailure = attempt(release)
+				if not closed then
+					table.insert(failures, cleanupFailure)
+				end
+				raiseFailures(failures)
+			end
+		end
+		return release
+	end
+
 	local function onFrame(listener: (delta: number) -> ()): Compose.Unsubscribe
 		return connect(engine.heartbeat, listener)
 	end
@@ -192,6 +323,10 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		observation = {
 			readProperty = readMember,
 			observeProperty = observeProperty,
+			readStyledProperty = function(node: Node, key: string): unknown
+				return (node :: StyledNode):GetStyled(key)
+			end,
+			observeStyledProperty = observeStyledProperty,
 		},
 		naming = {
 			setName = function(node: Node, label: string)

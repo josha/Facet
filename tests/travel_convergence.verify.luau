@@ -8,7 +8,9 @@ local context = require("../src/ui/context")
 
 return function(harness: Verify.Harness)
 	harness:case("Travel owns style links added after the portal mounts", function(t)
-		local native = engineLib.new()
+		local native, fixture = engineLib.new()
+		local tracking = fixture.track()
+		t:defer(tracking.stop)
 		local runtime = Facet.Roblox.createRuntime(native)
 		local screen = native.new("ScreenGui")
 		screen.Parent = native.new("Folder")
@@ -33,9 +35,9 @@ return function(harness: Verify.Harness)
 			runtime:dispose()
 		end)
 		local holder: Folder? = nil
-		for _, node in native.made do
+		for _, node in tracking.created do
 			if node.Name == "TravelPortal" then
-				holder = node
+				holder = (node :: unknown) :: Folder
 			end
 		end
 		local source = native.new("StyleLink")
@@ -170,7 +172,9 @@ return function(harness: Verify.Harness)
 		end
 	end)
 	harness:case("64 spring carriers share one clock and preserve interruption velocity", function(t)
-		local native = engineLib.new()
+		local native, fixture = engineLib.new()
+		local tracking = fixture.track()
+		t:defer(tracking.stop)
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
 		local Host = (runtime.constructors :: unknown) :: Shared.Host
@@ -205,7 +209,7 @@ return function(harness: Verify.Harness)
 			runtime:dispose()
 		end)
 		t:expect(engineLib.connections(native.heartbeat)):toBe(1)
-		local count = #native.made
+		local count = #tracking.created
 		for _ = 1, 6 do
 			local previous = table.clone(positions)
 			native.heartbeat:Fire(1 / 120)
@@ -225,11 +229,13 @@ return function(harness: Verify.Harness)
 		for index = 1, 64 do
 			t:expect(positions[index]):toBe(targets[index])
 		end
-		t:expect(#native.made):toBe(count)
+		t:expect(#tracking.created):toBe(count)
 	end)
 
 	harness:case("64 slots move in place without overlay parents or move allocations", function(t)
-		local native = engineLib.new()
+		local native, fixture = engineLib.new()
+		local tracking = fixture.track()
+		t:defer(tracking.stop)
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
 		local Host = (runtime.constructors :: unknown) :: Shared.Host
@@ -266,7 +272,7 @@ return function(harness: Verify.Harness)
 			stop()
 			runtime:dispose()
 		end)
-		local count = #native.made
+		local count = #tracking.created
 		for index = 1, 64 do
 			t:expect(nodes[index].Parent == board):toBe(true)
 			cells[index]:set(slots[index + 64])
@@ -282,10 +288,12 @@ return function(harness: Verify.Harness)
 				t:expect(nodes[index].Position.X.Offset >= previous[index]):toBe(true)
 			end
 		end
-		t:expect(#native.made):toBe(count)
+		t:expect(#tracking.created):toBe(count)
 	end)
 	harness:case("seven shuffled slots stagger arcs and lift and retarget without allocations", function(t)
-		local native = engineLib.new()
+		local native, fixture = engineLib.new()
+		local tracking = fixture.track()
+		t:defer(tracking.stop)
 		local C = Facet.Compose
 		local runtime = Facet.Roblox.createRuntime(native)
 		local Host = (runtime.constructors :: unknown) :: Shared.Host
@@ -338,7 +346,7 @@ return function(harness: Verify.Harness)
 			stop()
 			runtime:dispose()
 		end)
-		local count = #native.made
+		local count = #tracking.created
 		local function shuffle(offset: number)
 			for index = 1, 7 do
 				cells[index]:set(slots[(index - 1 + offset) % 7 + 1])
@@ -397,7 +405,7 @@ return function(harness: Verify.Harness)
 			t:expect(lifted[index] and arced[index]):toBe(true)
 		end
 		t:expect(lands):toBe(14)
-		t:expect(#native.made):toBe(count)
+		t:expect(#tracking.created):toBe(count)
 		reduced:set("none")
 		shuffle(0)
 		t:expect(lands):toBe(21)

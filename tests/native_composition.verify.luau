@@ -15,12 +15,15 @@ return function(verifyHarness: Verify.Harness)
 	local function make(options: { [string]: any }?): (any, any, any, any)
 		local engine: any = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-		local gui = engine.new("GuiService")
+		local gui = (engine.new("GuiService") :: unknown) :: GuiService
 		local T = engine.types
-		gui.GetGuiInset = function()
+		engine.environment.fakeOn(gui, "GetGuiInset", function()
 			return T.Vector2.new(0, 58), T.Vector2.zero
-		end
-		gui.TopbarInset = T.Rect.new(0, 0, 0, 0)
+		end)
+		engine.environment.fakeOn(gui, "GetInsetArea", function()
+			return T.Rect.new(0, 0, 1280, 720)
+		end)
+		engine.environment.poke(gui, "TopbarInset", T.Rect.new(0, 0, 0, 0))
 		local config: { [string]: any } = { types = T, guiService = gui, services = { GuiService = gui } }
 		for key, value in (options or {}) :: { [string]: any } do
 			config[key] = value
@@ -29,7 +32,7 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function sized(engine: any, node: any, width: number, height: number)
-		node.AbsoluteSize = engine.types.Vector2.new(width, height)
+		engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(width, height))
 	end
 
 	local function form(Host: any, name: string): any
@@ -149,7 +152,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(region.Parent.Name):toBe("Landed")
 					Verify.expect(region.Parent.Parent.Name):toBe("Top")
 					Verify.expect(region.Parent.LayoutOrder):toBe(0)
-					gui.TopbarInset = T.Rect.new(164, 0, 844, 58)
+					engine.environment.poke(gui, "TopbarInset", T.Rect.new(164, 0, 844, 58))
 					Verify.expect(region.Parent.Name):toBe("Middle")
 					local strip = region:FindFirstAncestorWhichIsA("ScreenGui")
 					Verify.expect(strip.Name):toBe("CompositionTopbar")
@@ -187,7 +190,7 @@ return function(verifyHarness: Verify.Harness)
 					local root, engine, forms, gui, stop = mount(nil, true)
 					local T = engine.types
 					local region = root:FindFirstChild("Strip", true)
-					gui.TopbarInset = T.Rect.new(250, 0, 350, 58)
+					engine.environment.poke(gui, "TopbarInset", T.Rect.new(250, 0, 350, 58))
 					local strip = region:FindFirstAncestorWhichIsA("ScreenGui")
 					Verify.expect(strip.Name):toBe("CompositionTopbar")
 					sized(engine, strip, 100, 58)
@@ -249,7 +252,7 @@ return function(verifyHarness: Verify.Harness)
 					}
 					return UI.Composition { gap = 8, padding = 0, lead, middle, trail }
 				end, layer)
-				gui.TopbarInset = T.Rect.new(164, 0, 844, 58)
+				engine.environment.poke(gui, "TopbarInset", T.Rect.new(164, 0, 844, 58))
 				Verify.expect(lead.Parent.Name):toBe("Leading")
 				Verify.expect(middle.Parent.Name):toBe("Middle")
 				Verify.expect(trail.Parent.Name):toBe("Trailing")
@@ -288,7 +291,7 @@ return function(verifyHarness: Verify.Harness)
 						},
 					}
 				end, layer)
-				gui.TopbarInset = T.Rect.new(164, 0, 844, 58)
+				engine.environment.poke(gui, "TopbarInset", T.Rect.new(164, 0, 844, 58))
 				open:set(true)
 				local panel = layer:FindFirstChild("OptionsPanel", true)
 				Verify.expect(panel ~= nil):toBe(true)

@@ -23,6 +23,7 @@ export type Arrangement<V> = {
 
 return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Arrangement<V>
 	local Compose, runtime, read = ctx.Compose, ctx.runtime, ctx.read
+	local typeOf: (unknown) -> string = runtime.host.typeNameOf or typeof
 	local V2 = ctx.types.Vector2
 	local spec: RadialProps.RadialMenuSpec<V> = menu.spec
 	local session = menu.session
@@ -65,7 +66,7 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 		local inner =
 			math.max(24, if type(read(spec.clearance, use)) == "number" then read(spec.clearance, use) else 40)
 		local focal = read(spec.anchor, use)
-		if type(focal) == "table" and type(focal.clearance) == "number" then
+		if typeOf(focal) ~= "Instance" and type(focal) == "table" and type(focal.clearance) == "number" then
 			inner = math.max(inner, focal.clearance)
 		end
 		if anchorSize then

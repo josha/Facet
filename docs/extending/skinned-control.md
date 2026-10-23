@@ -30,4 +30,4 @@ Do not add a separate skin renderer, a game-local event handler or a cleanup
 registry. Test state transitions, theme switching, missing art, clipping and
 owner removal. In Studio, verify the actual control at different sizes and with
 keyboard and gamepad selection. Record the supported skin contract in the API
-reference and in the [rich skinning guide](../guide/10-rich-skinning.md).
+reference and in the [rich skinning guide](../guide/skinning.md).

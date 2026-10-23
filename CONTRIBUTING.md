@@ -1,7 +1,7 @@
 # Contributing to Facet
 
 Install the pinned toolchain with `rokit install`. Read [AGENTS.md](AGENTS.md)
-and [the architecture](docs/guide/02-architecture.md) before you change the
+and [the architecture](docs/guide/architecture.md) before you change the
 library.
 
 A change must keep one runtime path:
@@ -83,7 +83,7 @@ dependency and is not part of the Facet model. Run
 mechanisms in `voidmeld/verify`, then update the pin. The consumer guide is
 [Verify's skill](tools/vendor/verify/.agents/skills/verify/SKILL.md).
 
-The [verification scope](docs/guide/18-verification-scope.md) describes the
+The [verification scope](docs/guide/verification-scope.md) describes the
 current evidence. The current suite does not claim to equal the tests that
 existed before the native cutover.
 

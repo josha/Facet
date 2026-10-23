@@ -62,5 +62,5 @@ local grid = UI.VirtualGrid(spec)
 ```
 
 `games` supplies the item records; `art`, `play` and `hide` belong to the game.
-See the complete [shop recipe](Tasks.shop.md). Check entering actions, unavailable actions,
+For separate item detail, use the [collection-detail recipe](Tasks.collection-detail.md). Check entering actions, unavailable actions,
 Back, filtering the focused item out and returning after a purchase.

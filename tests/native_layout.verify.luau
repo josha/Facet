@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -15,10 +16,16 @@ return function(verifyHarness: Verify.Harness)
 	local cells = require("./lib/cells")
 	local Compose: ComposeModule = Facet.Compose
 
-	local function make(options: { [string]: any }?, engineOptions: engineLib.Options?): (any, any, any)
-		local engine: any = engineLib.new(engineOptions)
+	local function make(
+		options: { [string]: any }?,
+		engineOptions: engineLib.Options?
+	): (any, any, any, VerifyRoblox.FixtureBridge)
+		local engine, fixture = engineLib.new(engineOptions)
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-		local gui = engine.new("GuiService")
+		local gui = (engine.new("GuiService") :: unknown) :: GuiService
+		engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetGuiInset", function()
+			return engine.types.Vector2.zero, engine.types.Vector2.zero
+		end)
 		local config: { [string]: any } = { types = engine.types, guiService = gui, services = { GuiService = gui } }
 		if engineOptions then
 			config.services = { GuiService = gui, RunService = { Heartbeat = engine.heartbeat } }
@@ -26,7 +33,7 @@ return function(verifyHarness: Verify.Harness)
 		for key, value in (options or {}) :: { [string]: any } do
 			config[key] = value
 		end
-		return engine, runtime, Facet.controls(runtime, config :: any)
+		return engine, runtime, Facet.controls(runtime, config :: any), fixture
 	end
 
 	local function build(
@@ -102,17 +109,17 @@ return function(verifyHarness: Verify.Harness)
 				local region = root:FindFirstChild("Health", true)
 				local full, compact = region:FindFirstChild("Full", true), region:FindFirstChild("Compact", true)
 				local V2 = engine.types.Vector2
-				full.AbsoluteSize = V2.new(147, 26)
-				compact.AbsoluteSize = V2.new(32, 20)
-				root:FindFirstChild("Zones").AbsoluteSize = V2.new(80, 200)
+				engine.environment.poke(full, "AbsoluteSize", V2.new(147, 26))
+				engine.environment.poke(compact, "AbsoluteSize", V2.new(32, 20))
+				engine.environment.poke(root:FindFirstChild("Zones"), "AbsoluteSize", V2.new(80, 200))
 				Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
-				compact.AbsoluteSize = V2.new(39, 26)
+				engine.environment.poke(compact, "AbsoluteSize", V2.new(39, 26))
 				Verify.expect(region.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
 				Verify.expect(region.Size):toBe(engine.types.UDim2.fromOffset(44, 44))
 				local trigger = region:FindFirstChildWhichIsA("TextButton", true)
 				Verify.expect(trigger.Size):toBe(engine.types.UDim2.fromScale(1, 1))
-				root:FindFirstChild("Zones").AbsoluteSize = V2.new(1079, 745)
-				root:FindFirstChild("Zones").AbsoluteSize = V2.new(80, 200)
+				engine.environment.poke(root:FindFirstChild("Zones"), "AbsoluteSize", V2.new(1079, 745))
+				engine.environment.poke(root:FindFirstChild("Zones"), "AbsoluteSize", V2.new(80, 200))
 				Verify.expect(region.Size):toBe(engine.types.UDim2.fromOffset(44, 44))
 				stop()
 			end,
@@ -133,22 +140,27 @@ return function(verifyHarness: Verify.Harness)
 				local region = root:FindFirstChild("Health", true)
 				local full, compact = region:FindFirstChild("Full", true), region:FindFirstChild("Compact", true)
 				local V2 = engine.types.Vector2
-				root:FindFirstChild("Zones"):FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(100, 1)
-				full.AbsoluteSize, compact.AbsoluteSize = V2.new(90, 35), V2.new(41.5, 35)
-				root:FindFirstChild("Zones").AbsoluteSize = V2.new(80, 200)
+				engine.environment.poke(
+					root:FindFirstChild("Zones"):FindFirstChild("LayoutUnit"),
+					"AbsoluteSize",
+					V2.new(100, 1)
+				)
+				engine.environment.poke(full, "AbsoluteSize", V2.new(90, 35))
+				engine.environment.poke(compact, "AbsoluteSize", V2.new(41.5, 35))
+				engine.environment.poke(root:FindFirstChild("Zones"), "AbsoluteSize", V2.new(80, 200))
 				Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
 				local trigger = region:FindFirstChildWhichIsA("TextButton", true)
 				local initial = trigger.Size
 				for _, unit in { 0.94, 0.5, 1 } do
 					local a, b = full:FindFirstChild("LayoutUnit"), compact:FindFirstChild("LayoutUnit")
 					if a then
-						a.AbsoluteSize = V2.new(100 * unit, unit)
+						engine.environment.poke(a, "AbsoluteSize", V2.new(100 * unit, unit))
 					end
 					if b then
-						b.AbsoluteSize = V2.new(100 * unit, unit)
+						engine.environment.poke(b, "AbsoluteSize", V2.new(100 * unit, unit))
 					end
-					full.AbsoluteSize = V2.new(90 * unit, 35 * unit)
-					compact.AbsoluteSize = V2.new(41.5 * unit, 35 * unit)
+					engine.environment.poke(full, "AbsoluteSize", V2.new(90 * unit, 35 * unit))
+					engine.environment.poke(compact, "AbsoluteSize", V2.new(41.5 * unit, 35 * unit))
 					Verify.expect(region:GetAttribute("FacetForm")):toBe(2)
 					Verify.expect(trigger.Size):toBe(initial)
 				end
@@ -208,14 +220,14 @@ return function(verifyHarness: Verify.Harness)
 				local function place(node: Instance, width: number)
 					local holder = (node :: unknown) :: { AbsoluteSize: Vector2 }
 					if holder.AbsoluteSize.X ~= width then
-						holder.AbsoluteSize = V.new(width, 20)
+						engine.environment.poke(node, "AbsoluteSize", V.new(width, 20))
 					end
 				end
 				local function size(node: Instance, inner: number, outer: number)
 					local holder = node :: Frame
 					local content = holder:FindFirstChildWhichIsA("Frame") :: Frame
-					inners[node] = inner;
-					((content :: unknown) :: { AbsoluteSize: Vector2 }).AbsoluteSize = V.new(inner, 20)
+					inners[node] = inner
+					engine.environment.poke(content, "AbsoluteSize", V.new(inner, 20))
 					place(node, outer)
 				end
 				local function settle()
@@ -495,8 +507,12 @@ return function(verifyHarness: Verify.Harness)
 							UI.Chip { label = "Adventure", selected = Compose.cell(false) },
 						}
 					end)
-					root.AbsoluteWindowSize = engine.types.Vector2.new(width, 36)
-					root:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = engine.types.Vector2.new(750, 36)
+					engine.environment.poke(root, "AbsoluteWindowSize", engine.types.Vector2.new(width, 36))
+					engine.environment.poke(
+						root:FindFirstChildWhichIsA("UIListLayout"),
+						"AbsoluteContentSize",
+						engine.types.Vector2.new(750, 36)
+					)
 					local hint = root:FindFirstChild("ScrollBarRoom")
 					Verify.expect(hint ~= nil):toBe(true)
 					Verify.expect(hint.MinSize.Y):toBe(38)
@@ -520,13 +536,13 @@ return function(verifyHarness: Verify.Harness)
 							UI.HStack { Visible = visible, UI.Button { label = "Spatial mode" } },
 						}
 					end)
-					root.AbsoluteSize = engine.types.Vector2.new(width, 44)
+					engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(width, 44))
 					local candidate = root:FindFirstChildWhichIsA("Frame")
 					local initiallyHidden = candidate.Visible == false
 					visible:set(true)
 					Verify.expect(candidate.Visible):toBe(true)
 					visible:set(false)
-					root.AbsoluteSize = engine.types.Vector2.new(width - 1, 44)
+					engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(width - 1, 44))
 					table.insert(outcomes, `{width}:{initiallyHidden and candidate.Visible == false}`)
 					stop()
 				end
@@ -618,7 +634,7 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
 				Verify.expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)
-				root.TextBounds = engine.types.Vector2.new(80, 20)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(80, 20))
 				root.TextWrapped = false
 				Verify.expect(root:FindFirstChild("TextBoundsFloor").MinSize):toBe(engine.types.Vector2.new(80, 20))
 				root.TextTruncate = engine.types.Enum.TextTruncate.AtEnd
@@ -643,7 +659,7 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				Verify.expect(root:FindFirstChild("TextBoundsFloor")):toBe(nil)
 				Verify.expect(root:FindFirstChild("TextBoundsUnit")):toBe(nil)
-				root.TextBounds = engine.types.Vector2.new(60, 20)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(60, 20))
 				mode:set(engine.types.Enum.AutomaticSize.XY)
 				local floor = root:FindFirstChild("TextBoundsFloor")
 				Verify.expect(floor ~= nil):toBe(true)
@@ -667,7 +683,7 @@ return function(verifyHarness: Verify.Harness)
 				local floor = label:FindFirstChild("TextBoundsFloor")
 				for _, sample in { { 0, 8 }, { 50, 16 }, { 55.08, 36 }, { 100, 24 } } do
 					value:set(sample[1])
-					label.TextBounds = engine.types.Vector2.new(sample[2], 16)
+					engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(sample[2], 16))
 					Verify.expect(floor.MaxSize.X):toBe(44)
 				end
 				label.Size = engine.types.UDim2.fromOffset(60, 0)
@@ -686,10 +702,10 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local label = root:FindFirstChild("Value", true)
 				local floor = label:FindFirstChild("TextBoundsFloor")
-				label.TextBounds = engine.types.Vector2.new(8, 16)
+				engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(8, 16))
 				Verify.expect(floor.MaxSize.X):toBe(40)
 				value:set(10)
-				label.TextBounds = engine.types.Vector2.new(13, 16)
+				engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(13, 16))
 				Verify.expect(floor.MaxSize.X):toBe(40)
 				stop()
 			end,
@@ -722,16 +738,24 @@ return function(verifyHarness: Verify.Harness)
 				local root, engine, stop = build(nil, function(UI)
 					return UI.ShortcutHint { keys = { { "K" } } }
 				end)
-				root.TextBounds = engine.types.Vector2.new(6, 12)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(6, 12))
 				local before = root.Size.Y.Offset
-				root.TextBounds = engine.types.Vector2.new(13, 26)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(13, 26))
 				Verify.expect(root.Size.Y.Offset > before):toBe(true)
 				Verify.expect(root.Size.X.Offset):toBe(root.Size.Y.Offset)
 				Verify.expect(root.Size.Y.Offset >= 34):toBe(true)
 				Verify.expect(root.Size.Y.Offset < 44):toBe(true)
-				root:FindFirstChild("TextBoundsUnit").AbsoluteSize = engine.types.Vector2.new(50, 0.5)
-				root:FindFirstChild("CapUnit").AbsoluteSize = engine.types.Vector2.new(50, 0.5)
-				root.TextBounds = engine.types.Vector2.new(6.5, 13)
+				engine.environment.poke(
+					root:FindFirstChild("TextBoundsUnit"),
+					"AbsoluteSize",
+					engine.types.Vector2.new(50, 0.5)
+				)
+				engine.environment.poke(
+					root:FindFirstChild("CapUnit"),
+					"AbsoluteSize",
+					engine.types.Vector2.new(50, 0.5)
+				)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(6.5, 13))
 				Verify.expect(root.Size.Y.Offset):toBe(34)
 				stop()
 			end,
@@ -743,9 +767,9 @@ return function(verifyHarness: Verify.Harness)
 					return UI.ShortcutHint { keys = { { "K" } } }
 				end)
 				local floor = root:FindFirstChild("TextBoundsFloor")
-				root.TextBounds = engine.types.Vector2.new(6, 12)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(6, 12))
 				Verify.expect(floor.MaxSize):toBe(engine.types.Vector2.new(root.Size.X.Offset, root.Size.Y.Offset))
-				root.TextBounds = engine.types.Vector2.new(60, 26)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(60, 26))
 				Verify.expect(floor.MaxSize.X):toBe(60)
 				Verify.expect(floor.MaxSize.Y):toBe(math.max(26, root.Size.Y.Offset))
 				local padding = root:FindFirstChildWhichIsA("UIPadding")
@@ -763,7 +787,7 @@ return function(verifyHarness: Verify.Harness)
 				local root, engine, stop = build(nil, function(UI: FacetControls)
 					return UI.Text { text = "A long label" }
 				end)
-				root.TextBounds = engine.types.Vector2.new(300, 18)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(300, 18))
 				Verify.expect(root:FindFirstChild("TextBoundsFloor").MinSize.X):toBe(300)
 				local cap = engine.new("UISizeConstraint")
 				cap.MaxSize = engine.types.Vector2.new(100, math.huge)
@@ -802,11 +826,11 @@ return function(verifyHarness: Verify.Harness)
 						and value == engine.types.Enum.AutomaticSize.XY
 					then
 						pulse += 1
-						label.AbsoluteSize = label.TextBounds
+						engine.environment.poke(label, "AbsoluteSize", label.TextBounds)
 					end
 				end)
-				label.AbsoluteSize = engine.types.Vector2.new(44, 12)
-				label.TextBounds = engine.types.Vector2.new(15, 13)
+				engine.environment.poke(label, "AbsoluteSize", engine.types.Vector2.new(44, 12))
+				engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(15, 13))
 				Verify.expect(pulse):toBe(0)
 				engine.heartbeat:Fire(1 / 60)
 				Verify.expect(pulse):toBe(1)
@@ -814,7 +838,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
 				engine.heartbeat:Fire(1 / 60)
 				Verify.expect(pulse):toBe(1)
-				label.AbsoluteSize = engine.types.Vector2.new(44, 12)
+				engine.environment.poke(label, "AbsoluteSize", engine.types.Vector2.new(44, 12))
 				stop()
 				runtime:dispose()
 				engine.heartbeat:Fire(1 / 60)
@@ -832,18 +856,14 @@ return function(verifyHarness: Verify.Harness)
 				engine.new = function(className)
 					local node = original(className)
 					if className == "TextLabel" then
-						local defaults = { FontFace = node.FontFace, TextSize = node.TextSize }
-						node.GetStyled = function(self, property)
+						engine.environment.fakeOn(node, "GetStyled", function(self, property)
 							if property == "FontFace" then
 								return face
 							elseif property == "TextSize" then
 								return points
 							end
 							return self[property]
-						end
-						node.ResetPropertyToDefault = function(self, property)
-							self[property] = defaults[property]
-						end
+						end)
 					end
 					return node
 				end
@@ -928,9 +948,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(#measured > settled):toBe(true)
 				Verify.expect(measured[#measured]):toBe(16)
 				Verify.expect(label.TextSize == 16):toBe(false)
-				label.AbsoluteSize = Vector2.new(168, 19)
+				engine.environment.poke(label, "AbsoluteSize", Vector2.new(168, 19))
 				local before = #measured
-				label.TextBounds = Vector2.new(160, 38)
+				engine.environment.poke(label, "TextBounds", Vector2.new(160, 38))
 				engine.heartbeat:Fire(1 / 60)
 				Verify.expect(#measured > before):toBe(true)
 				stop()
@@ -950,7 +970,7 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 				local line = Compose.cell("Use your Soda Rocket: tap ITEM")
-				local label, _, stop = build({ services = { TextService = textService } }, function(UI)
+				local label, engine, stop = build({ services = { TextService = textService } }, function(UI)
 					return UI.Text "Line" {
 						text = line,
 						wrap = true,
@@ -962,7 +982,7 @@ return function(verifyHarness: Verify.Harness)
 						return node[property]
 					end,
 				})
-				label.AbsoluteSize = Vector2.new(300, 27)
+				engine.environment.poke(label, "AbsoluteSize", Vector2.new(300, 27))
 				local floor = label:FindFirstChild("TextBoundsFloor")
 				Verify.expect(#asked > 0):toBe(true)
 				Verify.expect(asked[#asked]):toBe(300)
@@ -1186,17 +1206,17 @@ return function(verifyHarness: Verify.Harness)
 
 		verifyHarness:suite("Screen", function()
 			verifyHarness:case("unmounts a screen while overscan remains active", function()
-				local engine, runtime, UI = make({ environment = { viewingDistance = "ten-foot" } }, {
-					recordCreated = true,
-				})
+				local engine, runtime, UI, fixture = make({ environment = { viewingDistance = "ten-foot" } }, {})
+				local tracking = fixture.track()
 				local layer = engine.new("ScreenGui")
-				layer.AbsoluteSize = engine.types.Vector2.new(1920, 1080)
+				engine.environment.poke(layer, "AbsoluteSize", engine.types.Vector2.new(1920, 1080))
 				local stop = runtime.mount(function()
 					return UI.Screen { padding = 0 }
 				end, layer)
-				local before = #engine.made
+				local before = #tracking.created
 				stop()
-				Verify.expect(#engine.made):toBe(before)
+				Verify.expect(#tracking.created):toBe(before)
+				tracking.stop()
 				runtime:dispose()
 			end)
 			verifyHarness:case("fills its parent, pads the content by the m step and stacks vertically", {
@@ -1227,13 +1247,13 @@ return function(verifyHarness: Verify.Harness)
 					for _, ignoresInset in { true, false } do
 						local engine: any = engineLib.new()
 						local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-						local gui = engine.new("GuiService")
+						local gui = (engine.new("GuiService") :: unknown) :: GuiService
 						local T = engine.types
 						local insetTop = if ignoresInset then 58 else 36
-						gui.GetGuiInset = function()
+						engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetGuiInset", function()
 							return T.Vector2.new(0, insetTop), T.Vector2.zero
-						end
-						gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
+						end)
+						engine.environment.poke(gui, "TopbarInset", T.Rect.new(104, 0, 1000, 58))
 						local UI = Facet.controls(
 							runtime,
 							{ types = T, guiService = gui, services = { GuiService = gui } } :: any
@@ -1245,16 +1265,20 @@ return function(verifyHarness: Verify.Harness)
 							root = UI.Screen { UI.Text { text = "A" } }
 							return root
 						end, layer)
-						root.AbsolutePosition = T.Vector2.new(0, if ignoresInset then -58 else 0)
+						engine.environment.poke(
+							root,
+							"AbsolutePosition",
+							T.Vector2.new(0, if ignoresInset then -58 else 0)
+						)
 						local padding = child(root, "UIPadding")
 						Verify.expect(padding.PaddingTop)
 							:toBe(T.UDim.new(0, 16 + 58 - insetTop - root.AbsolutePosition.Y))
 						Verify.expect(padding.PaddingLeft):toBe(T.UDim.new(0, 16))
 						Verify.expect(root.Size):toBe(T.UDim2.fromScale(1, 1))
-						gui.TopbarInset = T.Rect.new(0, 0, 0, 0)
+						engine.environment.poke(gui, "TopbarInset", T.Rect.new(0, 0, 0, 0))
 						Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
-						gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
-						root.AbsolutePosition = T.Vector2.new(0, 200)
+						engine.environment.poke(gui, "TopbarInset", T.Rect.new(104, 0, 1000, 58))
+						engine.environment.poke(root, "AbsolutePosition", T.Vector2.new(0, 200))
 						Verify.expect(padding.PaddingTop):toBe(T.UDim.new(0, 16))
 						runtime:dispose()
 					end
@@ -1266,13 +1290,13 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local engine: any = engineLib.new()
 					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-					local gui = engine.new("GuiService")
+					local gui = (engine.new("GuiService") :: unknown) :: GuiService
 					local T = engine.types
 					local inset = 30
-					gui.GetGuiInset = function()
+					engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetGuiInset", function()
 						return T.Vector2.new(0, inset), T.Vector2.zero
-					end
-					gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
+					end)
+					engine.environment.poke(gui, "TopbarInset", T.Rect.new(104, 0, 1000, 58))
 					local UI = Facet.controls(
 						runtime,
 						{
@@ -1303,14 +1327,21 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local engine: any = engineLib.new()
 					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-					local gui = engine.new("GuiService")
-					local input = engine.new("UserInputService")
+					local gui = (engine.new("GuiService") :: unknown) :: GuiService
+					local input = (engine.new("UserInputService") :: unknown) :: UserInputService
 					local T = engine.types
-					gui.GetGuiInset = function()
+					engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetGuiInset", function()
 						return T.Vector2.new(0, 58), T.Vector2.zero
-					end
-					gui.TopbarInset = T.Rect.new(104, 0, 1000, 58)
-					gui.ViewportDisplaySize = T.Enum.DisplaySize.Large
+					end)
+					engine.environment.fakeOn(
+						(input :: unknown) :: VerifyRoblox.Instance,
+						"GetLastInputType",
+						function()
+							return T.Enum.UserInputType.Keyboard
+						end
+					)
+					engine.environment.poke(gui, "TopbarInset", T.Rect.new(104, 0, 1000, 58))
+					engine.environment.poke(gui, "ViewportDisplaySize", T.Enum.DisplaySize.Large)
 					local UI = Facet.controls(
 						runtime,
 						{
@@ -1328,7 +1359,7 @@ return function(verifyHarness: Verify.Harness)
 							roots[chrome] = UI.Screen { chrome = chrome :: "band" | "device" | "edge" }
 							return roots[chrome]
 						end, layer)
-						roots[chrome].AbsolutePosition = T.Vector2.new(0, -58)
+						engine.environment.poke(roots[chrome], "AbsolutePosition", T.Vector2.new(0, -58))
 					end
 					local function top(chrome: string): any
 						return child(roots[chrome], "UIPadding").PaddingTop
@@ -1359,21 +1390,33 @@ return function(verifyHarness: Verify.Harness)
 						environment = { viewingDistance = distance, overscanInsets = margins },
 					})
 					local layer = engine.new("ScreenGui")
-					layer.AbsoluteSize = T.Vector2.new(1920, 1080)
+					engine.environment.poke(layer, "AbsoluteSize", T.Vector2.new(1920, 1080))
 					local nested
 					local stop, root: any = runtime.mount(function()
 						nested = UI.Screen { padding = 0 }
 						return UI.Screen { padding = 0, nested :: unknown }
 					end, layer)
-					root.AbsoluteSize = layer.AbsoluteSize
-					nested.AbsoluteSize = T.Vector2.new(1700, 900)
-					nested.AbsolutePosition = T.Vector2.new(100, 100)
+					engine.environment.poke(root, "AbsoluteSize", layer.AbsoluteSize)
+					engine.environment.poke(
+						(nested :: unknown) :: VerifyRoblox.Instance,
+						"AbsoluteSize",
+						T.Vector2.new(1700, 900)
+					)
+					engine.environment.poke(
+						(nested :: unknown) :: VerifyRoblox.Instance,
+						"AbsolutePosition",
+						T.Vector2.new(100, 100)
+					)
 					local outer, inner = child(root, "UIPadding"), child(nested, "UIPadding")
 					Verify.expect(outer.PaddingTop):toBe(T.UDim.new(0, 60))
 					Verify.expect(outer.PaddingLeft):toBe(T.UDim.new(0, 90))
 					Verify.expect(inner.PaddingTop):toBe(T.UDim.new(0, 0))
 					Verify.expect(inner.PaddingLeft):toBe(T.UDim.new(0, 0))
-					nested.AbsolutePosition = T.Vector2.new(30, 20)
+					engine.environment.poke(
+						(nested :: unknown) :: VerifyRoblox.Instance,
+						"AbsolutePosition",
+						T.Vector2.new(30, 20)
+					)
 					Verify.expect(inner.PaddingTop):toBe(T.UDim.new(0, 40))
 					Verify.expect(inner.PaddingLeft):toBe(T.UDim.new(0, 60))
 					margins:set({ top = 30, left = 40, bottom = 30, right = 40 })
@@ -1404,12 +1447,12 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local V2, D2 = engine.types.Vector2, engine.types.UDim2
 					local card, dot = root:FindFirstChild("Card"), root:FindFirstChild("Dot")
-					card.AbsoluteSize = V2.new(60, 40)
-					dot.AbsoluteSize = V2.new(16, 16)
+					engine.environment.poke(card, "AbsoluteSize", V2.new(60, 40))
+					engine.environment.poke(dot, "AbsoluteSize", V2.new(16, 16))
 					Verify.expect(dot.AnchorPoint):toBe(V2.new(1, 0))
 					Verify.expect(dot.Position):toBe(D2.new(1, 0, 0, 24))
 					Verify.expect(card.Position):toBe(D2.new(1, 0, 0, 0))
-					dot.AbsoluteSize = V2.new(16, 50)
+					engine.environment.poke(dot, "AbsoluteSize", V2.new(16, 50))
 					Verify.expect(card.Position):toBe(D2.new(1, 0, 0, 10))
 					Verify.expect(dot.Position):toBe(D2.new(1, 0, 0, 0))
 					stop()
@@ -1427,16 +1470,16 @@ return function(verifyHarness: Verify.Harness)
 							return UI.ScrollView({ axis = "x" :: "x", padding = { left = 4, right = 6 } })
 						end)
 						local V2 = engine.types.Vector2
-						root.AbsoluteWindowSize = V2.new(353, 44)
-						child(root, "UIListLayout").AbsoluteContentSize = V2.new(376, 40)
+						engine.environment.poke(root, "AbsoluteWindowSize", V2.new(353, 44))
+						engine.environment.poke(child(root, "UIListLayout"), "AbsoluteContentSize", V2.new(376, 40))
 						Verify.expect(root.AutomaticCanvasSize):toBe(engine.types.Enum.AutomaticSize.X)
 						Verify.expect(root.CanvasSize.X.Offset):toBe(386)
-						root:FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(200, 2)
-						root.AbsoluteWindowSize = V2.new(706, 88)
-						child(root, "UIListLayout").AbsoluteContentSize = V2.new(752, 80)
+						engine.environment.poke(root:FindFirstChild("LayoutUnit"), "AbsoluteSize", V2.new(200, 2))
+						engine.environment.poke(root, "AbsoluteWindowSize", V2.new(706, 88))
+						engine.environment.poke(child(root, "UIListLayout"), "AbsoluteContentSize", V2.new(752, 80))
 						Verify.expect(root.CanvasSize.X.Offset):toBe(386)
-						root:FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(100, 1)
-						child(root, "UIListLayout").AbsoluteContentSize = V2.new(250, 40)
+						engine.environment.poke(root:FindFirstChild("LayoutUnit"), "AbsoluteSize", V2.new(100, 1))
+						engine.environment.poke(child(root, "UIListLayout"), "AbsoluteContentSize", V2.new(250, 40))
 						Verify.expect(root.CanvasSize.X.Offset):toBe(260)
 						stop()
 						root, engine, stop = build(nil, function(UI: FacetControls)
@@ -1445,7 +1488,11 @@ return function(verifyHarness: Verify.Harness)
 								CanvasSize = engine.types.UDim2.fromOffset(500, 0),
 							})
 						end)
-						child(root, "UIListLayout").AbsoluteContentSize = engine.types.Vector2.new(700, 40)
+						engine.environment.poke(
+							child(root, "UIListLayout"),
+							"AbsoluteContentSize",
+							engine.types.Vector2.new(700, 40)
+						)
 						Verify.expect(root.CanvasSize.X.Offset):toBe(500)
 						stop()
 					end,
@@ -1465,12 +1512,12 @@ return function(verifyHarness: Verify.Harness)
 						end)
 						local V2 = engine.types.Vector2
 						frame.CanvasPosition = V2.zero
-						frame.AbsoluteWindowSize = V2.new(365, 220)
+						engine.environment.poke(frame, "AbsoluteWindowSize", V2.new(365, 220))
 						Verify.expect(frame.CanvasPosition):toBe(V2.zero)
-						frame.AbsoluteCanvasSize = V2.new(624, 220)
+						engine.environment.poke(frame, "AbsoluteCanvasSize", V2.new(624, 220))
 						Verify.expect(frame.CanvasPosition):toBe(V2.new(130, 0))
 						frame.CanvasPosition = V2.new(20, 0)
-						frame.AbsoluteCanvasSize = V2.new(800, 220)
+						engine.environment.poke(frame, "AbsoluteCanvasSize", V2.new(800, 220))
 						Verify.expect(frame.CanvasPosition):toBe(V2.new(20, 0))
 						stop()
 						frame, engine, stop = build(nil, function(UI)
@@ -1478,8 +1525,8 @@ return function(verifyHarness: Verify.Harness)
 						end)
 						frame.CanvasPosition = V2.zero
 						frame.InputBegan:Fire({ UserInputType = engine.types.Enum.UserInputType.Touch })
-						frame.AbsoluteWindowSize = V2.new(365, 220)
-						frame.AbsoluteCanvasSize = V2.new(624, 220)
+						engine.environment.poke(frame, "AbsoluteWindowSize", V2.new(365, 220))
+						engine.environment.poke(frame, "AbsoluteCanvasSize", V2.new(624, 220))
 						Verify.expect(frame.CanvasPosition):toBe(V2.zero)
 						stop()
 					end,
@@ -1503,7 +1550,7 @@ return function(verifyHarness: Verify.Harness)
 					local V2 = engine.types.Vector2
 					local body = root:FindFirstChild("Body")
 					Verify.expect(body.Size):toBe(engine.types.UDim2.new(1, 0, 0, 0))
-					root.AbsoluteSize = V2.new(389, 648)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(389, 648))
 					Verify.expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(0, 616))
 					stop()
 				end,
@@ -1535,7 +1582,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(page.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
 					Verify.expect(page:FindFirstChildWhichIsA("UIFlexItem").FlexMode)
 						:toBe(engine.types.Enum.UIFlexMode.Grow)
-					root.AbsoluteSize = engine.types.Vector2.new(390, 600)
+					engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(390, 600))
 					Verify.expect(page:FindFirstChildWhichIsA("UISizeConstraint").MinSize.Y):toBe(600)
 					stop()
 				end,
@@ -1547,7 +1594,7 @@ return function(verifyHarness: Verify.Harness)
 					local roblox = require("./lib/native_engine").types
 					local engine: any = engineLib.new()
 					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-					local gui = engine.new("GuiService")
+					local gui = (engine.new("GuiService") :: unknown) :: GuiService
 					local UI = Facet.controls(
 						runtime,
 						{
@@ -1570,16 +1617,16 @@ return function(verifyHarness: Verify.Harness)
 					end, engine.new("ScreenGui"))
 					local V2, E = engine.types.Vector2, engine.types.Enum
 					local body = root:FindFirstChild("Body")
-					root.AbsoluteSize = V2.new(389, 648)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(389, 648))
 					Verify.expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(0, 616))
-					root.AbsoluteSize = V2.new(749, 300)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(749, 300))
 					Verify.expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(0, 268))
 					Verify.expect(body.AutomaticSize):toBe(E.AutomaticSize.None)
 					Verify.expect(body.Size.Y.Offset):toBe(268)
 					engine.heartbeat:Fire(1 / 60)
 					Verify.expect(body.AutomaticSize):toBe(E.AutomaticSize.Y)
 					Verify.expect(body.Size):toBe(engine.types.UDim2.new(1, 0, 0, 0))
-					root.AbsoluteSize = V2.new(389, 648)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(389, 648))
 					Verify.expect(body.AutomaticSize):toBe(E.AutomaticSize.Y)
 					runtime:dispose()
 				end,
@@ -1619,13 +1666,13 @@ return function(verifyHarness: Verify.Harness)
 							end
 						end
 						Verify.expect(constraints):toBe(1)
-						root.AbsoluteSize = V2.new(389, 648)
+						engine.environment.poke(root, "AbsoluteSize", V2.new(389, 648))
 						Verify.expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(10, 700))
-						root.AbsoluteSize = V2.new(389, 1000)
+						engine.environment.poke(root, "AbsoluteSize", V2.new(389, 1000))
 						Verify.expect(child(body, "UISizeConstraint").MinSize):toBe(V2.new(10, 968))
 						height:set(120)
 						root.CanvasPosition = V2.new(0, 200)
-						root.AbsoluteSize = V2.new(749, 300)
+						engine.environment.poke(root, "AbsoluteSize", V2.new(749, 300))
 						Verify.expect(bound.AutomaticSize):toBe(E.AutomaticSize.Y)
 						Verify.expect(bound.Size.Y.Offset):toBe(120)
 						Verify.expect(body.AutomaticSize):toBe(E.AutomaticSize.None)

@@ -7,7 +7,7 @@ All maintained examples use the same entry path:
 - `UI = Facet.controls(runtime)`.
 
 Example components return native Instances. The caller mounts them. Read the
-[working screen](03-getting-started.md) before you examine a larger application.
+[working screen](getting-started.md) before you examine a larger application.
 
 ## Gallery
 

@@ -32,7 +32,6 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.Readable
 						at = at.Parent
 					end
 					if visible then
-						measured = measured and textMeasure.ready(node)
 						table.insert(parts, `{node.AbsolutePosition}:{node.AbsoluteSize}:{node.TextBounds}:{node.Text}`)
 					end
 				end

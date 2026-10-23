@@ -33,6 +33,8 @@ export type Events = {
 export type Observation = {
 	readProperty: (node: Node, key: string) -> unknown,
 	observeProperty: (node: Node, key: string, listener: () -> ()) -> Unsubscribe,
+	readStyledProperty: ((node: Node, key: string) -> unknown)?,
+	observeStyledProperty: ((node: Node, key: string, listener: () -> ()) -> Unsubscribe)?,
 }
 
 export type Naming = {
@@ -129,6 +131,20 @@ local function validate(host: Host)
 					fix = "either implement both or omit host.observation entirely",
 				}
 			)
+		end
+		if observation.readStyledProperty ~= nil or observation.observeStyledProperty ~= nil then
+			if
+				type(observation.readStyledProperty) ~= "function"
+				or type(observation.observeStyledProperty) ~= "function"
+			then
+				Diagnostics.raise(
+					"host/incomplete-styled-observation",
+					"styled observation requires both host methods",
+					{
+						contract = "readStyledProperty and observeStyledProperty must be supplied together",
+					}
+				)
+			end
 		end
 	end
 

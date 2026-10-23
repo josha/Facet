@@ -14,9 +14,17 @@ return function(verifyHarness: Verify.Harness)
 
 	local function context()
 		local engine = engineLib.new()
+		local hapticCapture = engine.environment.onCreate(function(effect)
+			if effect:IsA("HapticEffect") then
+				for _, method in { "Play", "Stop", "SetWaveformKeys" } do
+					engine.environment.fakeOn(effect, method, function() end)
+				end
+			end
+		end)
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local problems: { string } = {}
 		local ctx: any = {
+			hapticCapture = hapticCapture,
 			Facet = Facet,
 			Compose = Compose,
 			runtime = runtime,
@@ -132,6 +140,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(pressed >= 0):toBe(true)
 				stop()
 				ctx.runtime:dispose()
+				ctx.hapticCapture:Disconnect()
 			end,
 		})
 	end

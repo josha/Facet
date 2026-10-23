@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local Facet = require("../src")
 local context = require("../src/ui/context")
 local measure = require("../src/ui/text_measure")
@@ -156,8 +157,16 @@ return function(harness: Verify.Harness)
 			end
 		end)
 		node.Text = "Coins 101"
-		node.AbsoluteSize = engine.types.Vector2.new(216, 24)
-		node.TextBounds = engine.types.Vector2.new(9000, 999)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(216, 24)
+		)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"TextBounds",
+			engine.types.Vector2.new(9000, 999)
+		)
 		engine.heartbeat:Fire(1 / 60)
 		t:expect(writes):toBe(0)
 		t:expect((assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint).MinSize.X):toBe(216)
@@ -204,7 +213,11 @@ return function(harness: Verify.Harness)
 						then engine.types.Enum.AutomaticSize.Y
 						else engine.types.Enum.AutomaticSize.XY,
 				}
-				label.AbsoluteSize = engine.types.Vector2.new(120, 32)
+				engine.environment.poke(
+					(label :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteSize",
+					engine.types.Vector2.new(120, 32)
+				)
 				table.insert(labels, label)
 			end
 			return Host.Frame { table.unpack(labels) }
@@ -260,7 +273,11 @@ return function(harness: Verify.Harness)
 			return node
 		end, engine.new("ScreenGui"))
 		local node = assert(mounted)
-		node.AbsoluteSize = engine.types.Vector2.new(120, height)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(120, height)
+		)
 		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
 		t:expect(floor.MinSize.Y):toBe(engine.types.Vector2.new(0, height).Y)
 		height = 19.2
@@ -336,12 +353,12 @@ return function(harness: Verify.Harness)
 		local engine = engineLib.new()
 		local label = engine.new("TextLabel")
 		local first, second = measure.hold(label), measure.hold(label)
-		t:expect(measure.ready(label)):toBe(false)
+		t:expect(measure.pending(label)):toBe(true)
 		first()
 		first()
-		t:expect(measure.ready(label)):toBe(false)
+		t:expect(measure.pending(label)):toBe(true)
 		second()
-		t:expect(measure.ready(label)):toBe(true)
+		t:expect(measure.pending(label)):toBe(false)
 	end)
 	harness:case("glyph constraints use font metrics while rendered bounds and the unit probe lag", function(t)
 		local engine = engineLib.new()
@@ -369,8 +386,16 @@ return function(harness: Verify.Harness)
 		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
 		local unit = assert(node:FindFirstChild("TextBoundsUnit")) :: Frame
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(80, 16))
-		node.TextBounds = engine.types.Vector2.new(9000, 999)
-		unit.AbsoluteSize = engine.types.Vector2.new(50, 0.5)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"TextBounds",
+			engine.types.Vector2.new(9000, 999)
+		)
+		engine.environment.poke(
+			(unit :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(50, 0.5)
+		)
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(80, 16))
 		t:expect(floor.MaxSize):toEqual(engine.types.Vector2.new(80, 16))
 		node.TextSize = 24
@@ -410,7 +435,11 @@ return function(harness: Verify.Harness)
 			return label
 		end, engine.new("ScreenGui"))
 		local node = assert(label)
-		node.AbsoluteSize = engine.types.Vector2.new(228, 20)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(228, 20)
+		)
 		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
 		t:expect(floor.MinSize.Y):toBe(506)
 		stop()
@@ -429,7 +458,7 @@ return function(harness: Verify.Harness)
 					return engine.types.Vector2.new(#params.Text * params.Size, params.Size)
 				end
 				calls += 1
-				if label and not measure.ready(label) then
+				if label and measure.pending(label) then
 					blocked += 1
 				end
 				t:expect(params.Width > 0):toBe(true)
@@ -454,49 +483,88 @@ return function(harness: Verify.Harness)
 			return label
 		end, engine.new("ScreenGui"))
 		local node = assert(label)
-		node.TextFits = false
-		node.AbsoluteSize = engine.types.Vector2.new(100, 20)
+		engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "TextFits", false)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(100, 20)
+		)
 		t:expect(calls > 0):toBe(true)
 		t:expect(blocked):toBe(calls)
-		t:expect(measure.ready(node)):toBe(false)
-		node.AbsoluteSize = engine.types.Vector2.new(100, 144)
-		node.TextFits = true
-		t:expect(measure.ready(node)):toBe(true)
+		t:expect(measure.pending(node)):toBe(false)
+		t:expect(node.TextFits):toBe(false)
+		t:expect((assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint).MinSize.Y):toBe(144)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(100, 144)
+		)
+		engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "TextFits", true)
+		t:expect(measure.pending(node)):toBe(false)
 		stop()
 		runtime:dispose()
 	end)
 
-	harness:case("completed wrapped measurements tolerate a stale native fit flag", function(t)
+	harness:case("completed wrapped measurements stay complete through native fit and geometry changes", function(t)
 		local engine = engineLib.new()
 		local node = engine.new("TextLabel")
 		node.Text = "Saved"
 		node.TextWrapped = true
 		node.AutomaticSize = engine.types.Enum.AutomaticSize.Y
-		node.TextFits = false
-		node.TextBounds = engine.types.Vector2.new(90, 14)
-		node.AbsoluteSize = engine.types.Vector2.new(100, 14)
-		t:expect(measure.ready(node)):toBe(false)
+		engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "TextFits", false)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"TextBounds",
+			engine.types.Vector2.new(90, 14)
+		)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(100, 14)
+		)
+		t:expect(measure.pending(node)):toBe(false)
 		local floor = engine.new("UISizeConstraint")
 		floor.Name = "TextBoundsFloor"
 		floor.MinSize = engine.types.Vector2.new(0, 14)
 		floor.Parent = node
-		t:expect(measure.ready(node)):toBe(true)
+		t:expect(measure.pending(node)):toBe(false)
 		local release = measure.hold(node)
-		t:expect(measure.ready(node)):toBe(false)
+		t:expect(measure.pending(node)):toBe(true)
 		release()
-		node.AbsoluteSize = engine.types.Vector2.new(100, 13)
-		t:expect(measure.ready(node)):toBe(false)
-		node.AbsoluteSize = engine.types.Vector2.new(80, 14)
-		t:expect(measure.ready(node)):toBe(false)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(100, 13)
+		)
+		t:expect(measure.pending(node)):toBe(false)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(80, 14)
+		)
+		t:expect(measure.pending(node)):toBe(false)
 		local unit = engine.new("Frame")
 		unit.Name = "TextBoundsUnit"
-		unit.AbsoluteSize = engine.types.Vector2.new(200, 2)
+		engine.environment.poke(
+			(unit :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(200, 2)
+		)
 		unit.Parent = node
-		node.TextBounds = engine.types.Vector2.new(180, 28)
-		node.AbsoluteSize = engine.types.Vector2.new(200, 28)
-		t:expect(measure.ready(node)):toBe(true)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"TextBounds",
+			engine.types.Vector2.new(180, 28)
+		)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(200, 28)
+		)
+		t:expect(measure.pending(node)):toBe(false)
 		floor.MinSize = engine.types.Vector2.new(0, 28)
-		t:expect(measure.ready(node)):toBe(false)
+		t:expect(measure.pending(node)):toBe(false)
+		t:expect(node.TextFits):toBe(false)
 	end)
 	harness:case("natural text metrics use native font inputs and ignore rendered geometry", function(t)
 		local engine = engineLib.new()
@@ -506,7 +574,7 @@ return function(harness: Verify.Harness)
 		local service = {
 			GetTextBoundsAsync = function(_self: unknown, params: GetTextBoundsParams): Vector2
 				calls += 1
-				if label and not measure.ready(label) then
+				if label and measure.pending(label) then
 					blocked += 1
 				end
 				t:expect(params.Width):toBe(0)
@@ -534,16 +602,24 @@ return function(harness: Verify.Harness)
 		local metrics = assert(result)
 		t:expect(metrics:peek().X):toBe(80)
 		t:expect(blocked):toBe(calls)
-		t:expect(measure.ready(node)):toBe(true)
+		t:expect(measure.pending(node)):toBe(false)
 		local before = calls
-		node.TextBounds = engine.types.Vector2.new(9000, 999)
-		node.AbsoluteSize = engine.types.Vector2.new(200, 50)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"TextBounds",
+			engine.types.Vector2.new(9000, 999)
+		)
+		engine.environment.poke(
+			(node :: unknown) :: VerifyRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(200, 50)
+		)
 		t:expect(calls):toBe(before)
 		t:expect(metrics:peek().X):toBe(80)
 		node.Text = "Updated"
 		t:expect(metrics:peek().X):toBe(112)
 		stop()
 		runtime:dispose()
-		t:expect(measure.ready(node)):toBe(true)
+		t:expect(measure.pending(node)):toBe(false)
 	end)
 end

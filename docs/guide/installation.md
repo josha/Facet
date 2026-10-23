@@ -5,7 +5,7 @@
 3. Set `Workspace.PlayerScriptsUseInputActionSystem` to true. The native action
    controls need it.
 4. Put a LocalScript in StarterPlayerScripts. Follow
-   [Getting started](03-getting-started.md).
+   [Getting started](getting-started.md).
 
 Keep the full module tree together. Facet contains its pinned Compose snapshot
 and the license notice. Do not copy selected private implementation files into

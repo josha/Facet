@@ -11,8 +11,8 @@ local SCANNED_FILES = { "README.md", "docs/MAINTAINERS.md" }
 local GUIDE = "docs/guide/"
 
 local ARCHAEOLOGY_EXEMPT: { [string]: boolean } = {
-	["docs/guide/14-choosing-a-ui-library.md"] = true,
-	["docs/guide/11-device-verification.md"] = true,
+	["docs/guide/choosing-facet.md"] = true,
+	["docs/guide/device-verification.md"] = true,
 }
 
 type Archaeology = { pattern: string, folded: boolean, reason: string }
@@ -626,7 +626,7 @@ local function cases(): { Rule.Case }
 			name = "archaeology outside the guide and in an exempt chapter passes",
 			run = function()
 				return passes("The default flipped on 2026-08-21.\n", "docs/extending/probe.md")
-					or passes("The default flipped on 2026-08-21.\n", "docs/guide/11-device-verification.md")
+					or passes("The default flipped on 2026-08-21.\n", "docs/guide/device-verification.md")
 			end,
 		},
 		{

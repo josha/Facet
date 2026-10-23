@@ -168,6 +168,8 @@ separately from evaluation cost. Preserve enough evidence to reproduce the lates
 comparison without committing a history of generated games.
 
 Open the PR after the failing run is addressed and a new author attempt is
-evaluated. Keep only the latest author result in [latest](latest/README.md). The existing
+evaluated. Commit only the latest [Plain place](latest/plain/game.rbxl) and
+[Facet place](latest/facet/game.rbxl). Put the verdict and gaps in the PR description.
+Keep generated reports and captures in the artifact directory. The existing
 [Kart example](../examples/facet-kart/README.md) remains a game example; it is not
 an author starter or a new benchmark result.

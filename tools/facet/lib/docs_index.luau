@@ -37,10 +37,7 @@ function DocsIndex.budget(kind: string): number?
 end
 
 function DocsIndex.consumerGuide(name: string): boolean
-	return name ~= "11-device-verification.md"
-		and name ~= "12-performance-lab.md"
-		and name ~= "19-paired-performance.md"
-		and string.match(name, "%d%d%d%d%-%d%d%-%d%d") == nil
+	return name ~= "device-verification.md" and name ~= "performance.md"
 end
 
 local function kind(path: string, body: string): string

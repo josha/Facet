@@ -182,15 +182,13 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 		return (runtime.observe(node, property) :: unknown) :: ComposeTypes.Cell<unknown>
 	end)
 	local function observeStyled(node: Instance, property: string): ComposeTypes.Cell<unknown>
-		local initial: unknown = node:GetStyled(property)
-		local value = Compose.cell(initial)
-		local connection = node:GetStyledPropertyChangedSignal(property):Connect(function()
-			local nextValue: unknown = node:GetStyled(property)
-			value:set(nextValue)
-		end)
-		Compose.cleanup(function()
-			connection:Disconnect()
-		end)
+		local observation = assert(runtime.host.observation)
+		local readStyled = assert(observation.readStyledProperty)
+		local observeStyled = assert(observation.observeStyledProperty)
+		local value = Compose.cell(readStyled(node, property))
+		Compose.cleanup(observeStyled(node, property, function()
+			value:set(readStyled(node, property))
+		end))
 		return value
 	end
 	ctx.observeStyled = observers(observeStyled)
