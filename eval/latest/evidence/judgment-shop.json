@@ -1,0 +1,72 @@
+{
+    "a": "facet",
+    "presentations": [
+        {
+            "raw": "{\"reasons\":[\"The first explains permanent parts, slot limits, affordability and exact purchase prices more clearly.\",\"The second gives purchase buttons stronger visual emphasis and retains visible game context.\",\"The first groups each item's details and purchase action within one card; the second separates them.\",\"The second has clipped navigation and conflicting Race/Garage emphasis while the shop is open.\"],\"confidence\":0.88,\"criteria\":{\"fitness\":\"first\",\"hierarchy\":\"second\",\"clarity\":\"first\",\"device_fit\":\"tie\",\"consistency\":\"first\",\"polish\":\"first\"},\"overall\":\"first\"}",
+            "model": "gpt-6.1-sol",
+            "verdict": {
+                "reasons": [
+                    "The first explains permanent parts, slot limits, affordability and exact purchase prices more clearly.",
+                    "The second gives purchase buttons stronger visual emphasis and retains visible game context.",
+                    "The first groups each item's details and purchase action within one card; the second separates them.",
+                    "The second has clipped navigation and conflicting Race/Garage emphasis while the shop is open."
+                ],
+                "confidence": 0.88,
+                "criteria": {
+                    "fitness": "first",
+                    "hierarchy": "second",
+                    "clarity": "first",
+                    "device_fit": "tie",
+                    "consistency": "first",
+                    "polish": "first"
+                },
+                "overall": "first"
+            },
+            "first": "a",
+            "attempts": 1
+        },
+        {
+            "raw": "{\"reasons\":[\"Second groups each item's stats, price, affordability and purchase button within one card.\",\"Second explains permanent parts and equipment limits, labels currencies, and provides direct inventory access.\",\"First has competing navigation highlights, clipped sidebar content and purchase buttons detached from item cards.\",\"First preserves more racing context and emphasizes purchases with cyan, but second presents a clearer shop overall.\"],\"confidence\":0.91,\"criteria\":{\"fitness\":\"second\",\"hierarchy\":\"second\",\"clarity\":\"second\",\"device_fit\":\"tie\",\"consistency\":\"second\",\"polish\":\"second\"},\"overall\":\"second\"}",
+            "model": "gpt-6.1-sol",
+            "verdict": {
+                "reasons": [
+                    "Second groups each item's stats, price, affordability and purchase button within one card.",
+                    "Second explains permanent parts and equipment limits, labels currencies, and provides direct inventory access.",
+                    "First has competing navigation highlights, clipped sidebar content and purchase buttons detached from item cards.",
+                    "First preserves more racing context and emphasizes purchases with cyan, but second presents a clearer shop overall."
+                ],
+                "confidence": 0.91,
+                "criteria": {
+                    "fitness": "second",
+                    "hierarchy": "second",
+                    "clarity": "second",
+                    "device_fit": "tie",
+                    "consistency": "second",
+                    "polish": "second"
+                },
+                "overall": "second"
+            },
+            "first": "b",
+            "attempts": 1
+        }
+    ],
+    "b": "plain",
+    "id": "reference-desktop-shop",
+    "consistent": true,
+    "winner": "facet",
+    "scoreA": 1,
+    "order": "a-first",
+    "criteria": {
+        "fitness": 1,
+        "hierarchy": 0.5,
+        "clarity": 1,
+        "device_fit": 0.5,
+        "consistency": 1,
+        "polish": 1
+    },
+    "seed": 1,
+    "status": "judged",
+    "agent": "codex-astra",
+    "task": "Thirty-minute racing game",
+    "device": "desktop"
+}

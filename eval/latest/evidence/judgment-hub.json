@@ -1,0 +1,73 @@
+{
+    "a": "facet",
+    "presentations": [
+        {
+            "raw": "{\"reasons\":[\"First gives onboarding a direct Garage action and keeps the player and arena clearly visible.\",\"Second competes for attention between the Race selection, Garage highlight, race CTA and tutorial.\",\"First uses more readable supporting text and fits its controls without clipping; second cuts off the Boosts entry.\",\"Second has a more cohesive visual identity and stronger typography and button styling.\",\"Only hub states are visible, so garage, shop and livery functionality cannot be assessed.\"],\"confidence\":0.86,\"criteria\":{\"fitness\":\"first\",\"hierarchy\":\"first\",\"clarity\":\"first\",\"device_fit\":\"first\",\"consistency\":\"second\",\"polish\":\"first\"},\"overall\":\"first\"}",
+            "model": "gpt-6.1-sol",
+            "verdict": {
+                "reasons": [
+                    "First gives onboarding a direct Garage action and keeps the player and arena clearly visible.",
+                    "Second competes for attention between the Race selection, Garage highlight, race CTA and tutorial.",
+                    "First uses more readable supporting text and fits its controls without clipping; second cuts off the Boosts entry.",
+                    "Second has a more cohesive visual identity and stronger typography and button styling.",
+                    "Only hub states are visible, so garage, shop and livery functionality cannot be assessed."
+                ],
+                "confidence": 0.86,
+                "criteria": {
+                    "fitness": "first",
+                    "hierarchy": "first",
+                    "clarity": "first",
+                    "device_fit": "first",
+                    "consistency": "second",
+                    "polish": "first"
+                },
+                "overall": "first"
+            },
+            "first": "a",
+            "attempts": 1
+        },
+        {
+            "raw": "{\"reasons\":[\"Second gives onboarding a clear objective and a direct Garage action; first splits attention between racing, the highlighted Garage tab and a detached tutorial.\",\"Second preserves the central game view and groups status, guidance and shortcuts around the edges.\",\"First clips the lower navigation and has large background lettering competing with foreground content.\",\"Both use coherent neon colors and dark panels, but second has more readable guidance and a cleaner desktop layout.\"],\"confidence\":0.91,\"criteria\":{\"fitness\":\"second\",\"hierarchy\":\"second\",\"clarity\":\"second\",\"device_fit\":\"second\",\"consistency\":\"tie\",\"polish\":\"second\"},\"overall\":\"second\"}",
+            "model": "gpt-6.1-sol",
+            "verdict": {
+                "reasons": [
+                    "Second gives onboarding a clear objective and a direct Garage action; first splits attention between racing, the highlighted Garage tab and a detached tutorial.",
+                    "Second preserves the central game view and groups status, guidance and shortcuts around the edges.",
+                    "First clips the lower navigation and has large background lettering competing with foreground content.",
+                    "Both use coherent neon colors and dark panels, but second has more readable guidance and a cleaner desktop layout."
+                ],
+                "confidence": 0.91,
+                "criteria": {
+                    "fitness": "second",
+                    "hierarchy": "second",
+                    "clarity": "second",
+                    "device_fit": "second",
+                    "consistency": "tie",
+                    "polish": "second"
+                },
+                "overall": "second"
+            },
+            "first": "b",
+            "attempts": 1
+        }
+    ],
+    "b": "plain",
+    "id": "reference-desktop-hub",
+    "consistent": true,
+    "winner": "facet",
+    "scoreA": 1,
+    "order": "a-first",
+    "criteria": {
+        "fitness": 1,
+        "hierarchy": 1,
+        "clarity": 1,
+        "device_fit": 1,
+        "consistency": 0.25,
+        "polish": 1
+    },
+    "seed": 1,
+    "status": "judged",
+    "agent": "codex-astra",
+    "task": "Thirty-minute racing game",
+    "device": "desktop"
+}

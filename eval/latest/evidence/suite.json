@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "id": "facetbench-astra-medium",
+  "tasks": [
+    "eval/tasks/run"
+  ],
+  "arms": [
+    {
+      "id": "plain",
+      "overlay": [
+        "artifacts/facetbench/astra-medium/inputs",
+        "eval/arms/plain"
+      ],
+      "instructions": "eval/arms/plain/AGENTS.md",
+      "mcp": "scoped Studio instance for plain"
+    },
+    {
+      "id": "facet",
+      "overlay": [
+        "artifacts/facetbench/astra-medium/inputs",
+        "eval/arms/facet",
+        "artifacts/facetbench/astra-medium/kit"
+      ],
+      "instructions": "artifacts/facetbench/astra-medium/facet-instructions.md",
+      "mcp": "scoped Studio instance for facet"
+    }
+  ],
+  "agents": [
+    {
+      "id": "codex-astra",
+      "adapter": "codex",
+      "model": "gpt-6-astra",
+      "options": {
+        "effort": "medium",
+        "persistSession": true,
+        "arguments": [
+          "--ignore-user-config",
+          "--disable",
+          "shell_tool",
+          "--disable",
+          "view_image",
+          "--disable",
+          "apps",
+          "--disable",
+          "image_generation",
+          "--disable",
+          "multi_agent",
+          "--disable",
+          "computer_use",
+          "--disable",
+          "browser_use",
+          "--disable",
+          "plugins",
+          "--disable",
+          "goals",
+          "--disable",
+          "sleep_tool",
+          "--disable",
+          "tool_suggest"
+        ],
+        "sandbox": "read-only",
+        "config": [
+          "web_search=\"disabled\"",
+          "model_catalog_json=\".codex-model-catalog.json\"",
+          "mcp_servers.studio.default_tools_approval_mode=\"approve\""
+        ]
+      }
+    }
+  ],
+  "seeds": [
+    1
+  ],
+  "parallelism": 2,
+  "evidence": "local evaluation output",
+  "budgets": {
+    "wallSeconds": 1800
+  },
+  "devices": [
+    {
+      "id": "desktop",
+      "width": 1920,
+      "height": 1080,
+      "scale": 1,
+      "input": [
+        "mouse",
+        "keyboard"
+      ]
+    },
+    {
+      "id": "phone-portrait",
+      "width": 390,
+      "height": 844,
+      "scale": 1,
+      "input": [
+        "touch"
+      ]
+    },
+    {
+      "id": "phone-landscape",
+      "width": 844,
+      "height": 390,
+      "scale": 1,
+      "input": [
+        "touch"
+      ]
+    },
+    {
+      "id": "tablet",
+      "width": 1180,
+      "height": 820,
+      "scale": 1,
+      "input": [
+        "touch"
+      ]
+    },
+    {
+      "id": "console",
+      "width": 1920,
+      "height": 1080,
+      "scale": 1,
+      "input": [
+        "gamepad"
+      ]
+    }
+  ],
+  "judge": {
+    "provider": "openai",
+    "transport": "cli",
+    "model": "gpt-6.1-sol",
+    "seed": 20261014
+  }
+}

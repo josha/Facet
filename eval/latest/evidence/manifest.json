@@ -1,0 +1,160 @@
+{
+  "sourceRevision": "b956c8c9fa2a3a9b121b5e24799c485ebf468023",
+  "date": "2026-10-23",
+  "scope": "Astra Medium fresh pair; four desktop visual states; incomplete benchmark",
+  "inputs": [
+    {
+      "path": "skills/use-facet/SKILL.md",
+      "sha256": "4ff5d4be8c2696395a24327c9c7e6e06bfeded412d507e3225c7af81476a2c5c"
+    },
+    {
+      "path": "skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md",
+      "sha256": "e454619d79b183d722eb3a68acf2a7f12334f8ef8f56b6b331a47f730dd4d8f8"
+    },
+    {
+      "path": "eval/tasks/run/brief.md",
+      "sha256": "4fa697cafb4370c784ffb01ce8eb8296a6e786e7fda2dd30f77dc1242dc3be08"
+    },
+    {
+      "path": "eval/acceptance.md",
+      "sha256": "144ee7bcaa289557c5bde8c1c423d7c4c3f1b3aa87649b8d1fc65f4d3006f588"
+    }
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 7272,
+      "sha256": "d9fcbba305c0afe67dd3e1f74f76885c55947bb99b17ce01d0df8db7aaaafaf0"
+    },
+    {
+      "path": "evidence/author-usage.json",
+      "bytes": 1211,
+      "sha256": "75abd8e687f40794c5d2b330fa314aea6f4a7b199631ac24b37c9fd64616b1b8"
+    },
+    {
+      "path": "evidence/captures/facet-garage.jpg",
+      "bytes": 88449,
+      "sha256": "0508381ab44f6e82a433f0fa4d4eef053297a403ccb72d75cb8bfd493f67b3e5"
+    },
+    {
+      "path": "evidence/captures/facet-hub.jpg",
+      "bytes": 237126,
+      "sha256": "bbf6b22234e5524fda84adf0c9473b4036fe757bebf15e04b50e869345ebf0f2"
+    },
+    {
+      "path": "evidence/captures/facet-livery.jpg",
+      "bytes": 73799,
+      "sha256": "9a756cd5c5a861c398a384fb9107027e6ccbb526fc9e7f35df330c08720fbc65"
+    },
+    {
+      "path": "evidence/captures/facet-purchase-confirm.jpg",
+      "bytes": 66545,
+      "sha256": "4971dd945471861f164e316e59517d6663d333458c47469104d0d5c7f62eabb2"
+    },
+    {
+      "path": "evidence/captures/facet-shop.jpg",
+      "bytes": 67253,
+      "sha256": "8d556a3ff2b1e880ca29b9de98ab74b08839b1ce45f65adb3c51c10ee23f5370"
+    },
+    {
+      "path": "evidence/captures/plain-garage.jpg",
+      "bytes": 135673,
+      "sha256": "bd693bdd84aeed45221b9bb8f168b85aa0997f6d3744bcfa65691182061a20b8"
+    },
+    {
+      "path": "evidence/captures/plain-hub.jpg",
+      "bytes": 198332,
+      "sha256": "afbf98177396d152fa8ff4278cc86fd87ce8eff0879784dd72183cc08d4db8fd"
+    },
+    {
+      "path": "evidence/captures/plain-livery.jpg",
+      "bytes": 139197,
+      "sha256": "4d03acebc1254cb8bc0ce531c6ac12bbc9c13488328a1ea74f4b970c4b957ebe"
+    },
+    {
+      "path": "evidence/captures/plain-purchase-confirm.jpg",
+      "bytes": 108699,
+      "sha256": "950d9851532b0c0e73c0e25c8f8023b00bdcfa269b2de3f68c4bb9d5c478474b"
+    },
+    {
+      "path": "evidence/captures/plain-shop.jpg",
+      "bytes": 136430,
+      "sha256": "9327fbbc577698dba52d5fde93c3d6a3208e110f6ec8c7feead3c20be2cfe930"
+    },
+    {
+      "path": "evidence/facet-author-report.json",
+      "bytes": 2869,
+      "sha256": "4bd8346d633a55397a28d859c0de8396a3e3a8c2c6274117761b403583036cb6"
+    },
+    {
+      "path": "evidence/judge-source.luau.txt",
+      "bytes": 1796,
+      "sha256": "08eb80a0cac9d0a5473400844fad10ba98219d18c506e7e2cb1c3f732252269a"
+    },
+    {
+      "path": "evidence/judgment-garage.json",
+      "bytes": 4119,
+      "sha256": "31509c01d81b0a34b942eec0554c0ca3632b04e4497825b80916d6626c5c60f7"
+    },
+    {
+      "path": "evidence/judgment-hub.json",
+      "bytes": 4265,
+      "sha256": "41a44a9c5d0964cad2ab89aec2409529521a77812c251515d12f17709a03749e"
+    },
+    {
+      "path": "evidence/judgment-livery.json",
+      "bytes": 4184,
+      "sha256": "862e226d37b28d995924b3d3df4e8fdc83b067eca0bbba385069a99d57dea7d5"
+    },
+    {
+      "path": "evidence/judgment-shop.json",
+      "bytes": 3958,
+      "sha256": "af903048db21f23c49752957319b8275744ed8505024aed21a0ac061cf985803"
+    },
+    {
+      "path": "evidence/plain-author-report.json",
+      "bytes": 2079,
+      "sha256": "d05058b5197cd22a141cb1d1e1a3b7e926d4cbde8b17a81f1eeef877bf948070"
+    },
+    {
+      "path": "evidence/player-observations.json",
+      "bytes": 1305,
+      "sha256": "b8d6cfe93531788faac3dc9e8cb0eff32bcf945189272e631090d27504fff568"
+    },
+    {
+      "path": "evidence/reports/facet-post-evaluation-integrity.verify.json",
+      "bytes": 807,
+      "sha256": "29fbd669143c5f75898735ebb87bccd0f039d06f00122438ddc3c788a5933bc5"
+    },
+    {
+      "path": "evidence/reports/facet-submission-integrity.verify.json",
+      "bytes": 802,
+      "sha256": "cead02fa9733320fca1a6b3843384a282e2fd0d5c38d5494bd4e003533c8ac1d"
+    },
+    {
+      "path": "evidence/reports/plain-post-evaluation-integrity.verify.json",
+      "bytes": 807,
+      "sha256": "41939c0de8f4b5d97b446b93ae348b7346a44c3397beffc5fd9bc0b3533573ff"
+    },
+    {
+      "path": "evidence/reports/plain-submission-integrity.verify.json",
+      "bytes": 802,
+      "sha256": "31f5eec6cc88d108723cba30c2310aaf72c232e3df3ef29c3093fe2efdb46e81"
+    },
+    {
+      "path": "evidence/suite.json",
+      "bytes": 2672,
+      "sha256": "a2702ab4a7e20f1003ded12c88a27f8ada6d3d05ac94323aafcad947e7d3bd72"
+    },
+    {
+      "path": "facet/game.rbxl",
+      "bytes": 862795,
+      "sha256": "100afb01507469b3074fed79ec952a83fa3fb8486b7548d525f6119f0eadc2be"
+    },
+    {
+      "path": "plain/game.rbxl",
+      "bytes": 112591,
+      "sha256": "90bb241c48785b2b7b2a96039049df142cd73af8e5c0539c72c4eda5e1e81926"
+    }
+  ]
+}

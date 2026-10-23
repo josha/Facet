@@ -1,0 +1,72 @@
+{
+    "a": "facet",
+    "presentations": [
+        {
+            "raw": "{\"reasons\":[\"The second clearly groups body and accent paint, with both palettes fully visible; the first hides the accent choices below the visible area.\",\"The second provides a larger kart preview and more readable headings and labels.\",\"The second uses consistent spacing and compact swatch controls, while the first has clipped navigation and competing navigation highlights.\",\"The second offers a clearly labeled keyboard close shortcut and fits the desktop viewport more cleanly.\"],\"confidence\":0.96,\"criteria\":{\"fitness\":\"second\",\"hierarchy\":\"second\",\"clarity\":\"second\",\"device_fit\":\"second\",\"consistency\":\"second\",\"polish\":\"second\"},\"overall\":\"second\"}",
+            "model": "gpt-6.1-sol",
+            "verdict": {
+                "reasons": [
+                    "The second clearly groups body and accent paint, with both palettes fully visible; the first hides the accent choices below the visible area.",
+                    "The second provides a larger kart preview and more readable headings and labels.",
+                    "The second uses consistent spacing and compact swatch controls, while the first has clipped navigation and competing navigation highlights.",
+                    "The second offers a clearly labeled keyboard close shortcut and fits the desktop viewport more cleanly."
+                ],
+                "confidence": 0.96,
+                "criteria": {
+                    "fitness": "second",
+                    "hierarchy": "second",
+                    "clarity": "second",
+                    "device_fit": "second",
+                    "consistency": "second",
+                    "polish": "second"
+                },
+                "overall": "second"
+            },
+            "first": "b",
+            "attempts": 1
+        },
+        {
+            "raw": "{\"reasons\":[\"The first interface shows both body and accent palettes together; the second shows only the accent label, leaving its choices out of view.\",\"The first has a cleaner hierarchy and more readable labels, with less competition from background scenery and navigation.\",\"The second makes the selected body color clearer with a checkmark and explicit color name.\",\"The first uses desktop space more effectively; the second has oversized color buttons and clipped sidebar content.\"],\"confidence\":0.93,\"criteria\":{\"fitness\":\"first\",\"hierarchy\":\"first\",\"clarity\":\"first\",\"device_fit\":\"first\",\"consistency\":\"first\",\"polish\":\"first\"},\"overall\":\"first\"}",
+            "model": "gpt-6.1-sol",
+            "verdict": {
+                "reasons": [
+                    "The first interface shows both body and accent palettes together; the second shows only the accent label, leaving its choices out of view.",
+                    "The first has a cleaner hierarchy and more readable labels, with less competition from background scenery and navigation.",
+                    "The second makes the selected body color clearer with a checkmark and explicit color name.",
+                    "The first uses desktop space more effectively; the second has oversized color buttons and clipped sidebar content."
+                ],
+                "confidence": 0.93,
+                "criteria": {
+                    "fitness": "first",
+                    "hierarchy": "first",
+                    "clarity": "first",
+                    "device_fit": "first",
+                    "consistency": "first",
+                    "polish": "first"
+                },
+                "overall": "first"
+            },
+            "first": "a",
+            "attempts": 1
+        }
+    ],
+    "b": "plain",
+    "id": "reference-desktop-livery",
+    "consistent": true,
+    "winner": "facet",
+    "scoreA": 1,
+    "order": "b-first",
+    "criteria": {
+        "fitness": 1,
+        "hierarchy": 1,
+        "clarity": 1,
+        "device_fit": 1,
+        "consistency": 1,
+        "polish": 1
+    },
+    "seed": 1,
+    "status": "judged",
+    "agent": "codex-astra",
+    "task": "Thirty-minute racing game",
+    "device": "desktop"
+}
