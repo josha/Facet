@@ -161,7 +161,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			if action then
 				local enabled, binding = ctx.observe.Enabled(action), ctx.observe.PreferredBinding(action)
 				live = Compose.formula(function(use: ComposeTypes.Use): boolean
-					return use(enabled) ~= false and use(binding) ~= nil
+					return use(enabled) ~= false and (use(binding) :: unknown) ~= nil
 				end)
 			end
 			local token = {}
