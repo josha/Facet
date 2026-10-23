@@ -98,7 +98,7 @@ return function(): number
 		if row == nil then
 			return nil
 		end
-		local floor = { limit = REGRESSION_FLOOR_MS, metric = "p95" :: "p95", recorded = row.p95_ms }
+		local floor: Benchmark.Floor = { limit = REGRESSION_FLOOR_MS, metric = "p95", recorded = row.p95_ms }
 		if not baselineHasNorm or row.p95_norm == nil then
 			return {
 				identity = BASELINE,
@@ -194,7 +194,7 @@ return function(): number
 			samples = yardstick.samples or SAMPLES,
 			maxSpread = UNGATED,
 			maxDrift = DRIFT_LIMIT,
-			driftStatistic = "p95",
+			driftStatistic = "median",
 			driftBase = "mean",
 		},
 	})
@@ -231,6 +231,8 @@ return function(): number
 		return 1
 	end
 	local yardstickDriftPct = math.abs(yardAfter.p95_ms - yardBefore.p95_ms) / yardstickP95 * 100
+	local yardstickMedian = (yardBefore.p50_ms + yardAfter.p50_ms) / 2
+	local yardstickMedianDriftPct = math.abs(yardAfter.p50_ms - yardBefore.p50_ms) / yardstickMedian * 100
 
 	local results: { Entry } = {}
 	local failed = false
@@ -305,7 +307,8 @@ return function(): number
 	table.insert(results, yardAfter)
 	print(
 		`  {YARDSTICK}: {string.format("%.4f", yardstickP95)}ms (before {string.format("%.4f", yardBefore.p95_ms)}, `
-			.. `after {string.format("%.4f", yardAfter.p95_ms)}, drift {string.format("%.1f", yardstickDriftPct)}%)`
+			.. `after {string.format("%.4f", yardAfter.p95_ms)}, p95 drift {string.format("%.1f", yardstickDriftPct)}%, `
+			.. `CPU median drift {string.format("%.1f", yardstickMedianDriftPct)}%)`
 	)
 	if not baselineHasNorm then
 		print("  NOTE: bench/baseline.json has no normalized values — falling back to the")
@@ -320,7 +323,9 @@ return function(): number
 	if drifted then
 		failed = true
 		print("")
-		print(`  ⚠ UNTRUSTWORTHY RUN: the yardstick moved {string.format("%.1f", yardstickDriftPct)}% between the`)
+		print(
+			`  ⚠ UNTRUSTWORTHY RUN: the yardstick median moved {string.format("%.1f", yardstickMedianDriftPct)}% between the`
+		)
 		print(`    before and after readings (warn above {DRIFT_LIMIT * 100}%), so the machine was changing`)
 		print("    speed while the scenes were measured. Ratios from this run are noise in")
 		print("    both directions — a regression reported here may be load, and a real one")
@@ -332,6 +337,12 @@ return function(): number
 	Files.write(ARTIFACT, Json.encode({
 		schema = "facet-bench/1",
 		status = if errored or failed then "FAIL" else "PASS",
+		failureKind = if errored
+			then "execution"
+			elseif drifted then "calibration"
+			elseif failed then "regression"
+			else nil,
+		expectedMeasurements = #subjects + 2,
 		environment = "lute-headless (trend screening only; device authoritative per design §14.3)",
 		warmup = WARMUP,
 		samples = SAMPLES,
@@ -339,7 +350,10 @@ return function(): number
 		normalizedBy = YARDSTICK,
 		yardstickP95Ms = yardstickP95,
 		yardstickDriftPct = yardstickDriftPct,
-		proofStatus = if drifted then "unstable-host" else "stable-host-trend",
+		yardstickMedianDriftPct = yardstickMedianDriftPct,
+		yardstickBefore = collected.yardstickBefore,
+		yardstickAfter = collected.yardstickAfter,
+		proofStatus = if drifted then "unstable-cpu-rate" else "stable-cpu-rate-trend",
 		comparisonMode = if baselineHasNorm then "normalized" else "raw-legacy",
 		results = results,
 	}, { indent = 2, sortKeys = true, ascii = false }) .. "\n")

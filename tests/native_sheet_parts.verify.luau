@@ -9,6 +9,7 @@ return function(verifyHarness: Verify.Harness)
 	type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNativeProps)
 
 	local Compose = require("../src/vendor/compose/core")
+	local Facet = require("../src")
 	local overlay = require("./lib/overlay_world")
 	local release = require("../src/ui/sheet_release")
 	local Vector2 = require("./lib/native_engine").types.Vector2
@@ -565,12 +566,39 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::native Sheet: parts::contentInset none drops only the body padding",
 			run = function()
 				local w = mount()
-				Verify.expect(w.find("SheetFlow"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Offset):toBe(8)
+				local padding = w.find("SheetFlow"):FindFirstChildWhichIsA("UIPadding")
+				Verify.expect(padding.PaddingLeft.Scale > 0):toBe(true)
+				Verify.expect(padding.PaddingTop.Offset):toBe(8)
+				Verify.expect(padding.PaddingBottom.Offset):toBe(8)
 				w.stop()
 				local none = mount({ contentInset = "none" })
 				Verify.expect(none.find("SheetFlow"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Offset):toBe(0)
+				Verify.expect(none.find("SheetFlow"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Scale):toBe(0)
 				Verify.expect(sheetInsets(none).left):toBe(16)
 				none.stop()
+			end,
+		})
+
+		verifyHarness:case("updates horizontal feedback clearance with the theme while keeping its minimum inset", {
+			id = "native_sheet_parts::native Sheet: parts::updates horizontal feedback clearance with the theme while keeping its minimum inset",
+			run = function()
+				local theme = Compose.cell(Facet.themes.neutralPackage())
+				local w = mount({ width = "wide" }, { theme = theme })
+				local padding = w.find("SheetFlow"):FindFirstChildWhichIsA("UIPadding")
+				Verify.expect(padding.PaddingLeft.Scale):toBeCloseTo(0.04, 0.0001)
+				local stronger = Facet.themes.neutralPackage()
+				assert(stronger.metrics.motion.materialize).lift = 1.12
+				theme:set(stronger)
+				Verify.expect(padding.PaddingLeft.Scale):toBeCloseTo(0.12, 0.0001)
+				Verify.expect(padding.PaddingRight.Scale):toBe(padding.PaddingLeft.Scale)
+				local still = Facet.themes.neutralPackage()
+				assert(still.metrics.motion.materialize).lift = 1
+				theme:set(still)
+				Verify.expect(padding.PaddingLeft.Scale):toBe(0)
+				Verify.expect(padding.PaddingLeft.Offset):toBe(8)
+				Verify.expect(padding.PaddingTop.Offset):toBe(8)
+				Verify.expect(padding.PaddingBottom.Offset):toBe(8)
+				w.stop()
 			end,
 		})
 
@@ -782,7 +810,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(hero.Parent):toBe(body)
 				Verify.expect((body:FindFirstChildWhichIsA("UIPadding"))):toBeNil()
 				Verify.expect(w.find("Copy").Parent.Name):toBe("Inset")
-				Verify.expect(w.find("Inset"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Offset):toBe(8)
+				Verify.expect(w.find("Inset"):FindFirstChildWhichIsA("UIPadding").PaddingLeft.Scale > 0):toBe(true)
 				Verify.expect(hero.Size.X.Scale):toBe(1)
 				local ratio = hero:FindFirstChildWhichIsA("UIAspectRatioConstraint")
 				Verify.expect(ratio.AspectRatio):toBe(16 / 9)

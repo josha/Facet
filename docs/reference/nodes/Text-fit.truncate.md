@@ -16,20 +16,4 @@ such as a file name, a path or an id.
   `FontFace` changes. It does not measure on other changes. Before the label
   has a width, it shows all of the value.
 
-`textSize = "fit"` sets `TextScaled` and adds a `UITextSizeConstraint`. The
-engine then paints the largest size that fits the box of the label. The
-default box fills its parent. `textSize = { fit = { cap = size, floor = size } }`
-sets the band. A size is a pixel number or a type role name. The default `cap`
-is the `textRole` of the label, or `body`. The default `floor` is `caption`.
-Role sizes come from the theme package and follow a theme change. Another
-`textSize` value, or another key in `fit`, causes an error.
-If the box cannot hold the text at the floor, the engine keeps the floor.
-The text can then clip.
-
-The AsyncImage loader receives `(source, resolve, reject)`. It can return a
-cancellation. A superseded result cannot replace the current image. Loading and
-failure stay observable. The control does not invent successful assets.
-`resource` is a function that returns an `ImageResource`. The resource contains
-`value` and either `state` or `status`. The function can register cleanup with
-`Compose.cleanup`. A Compose shared resource acquire function also fits this
-contract. Resource lifetime uses Compose ownership.
+For a fitted font size in a fixed box, see [Text-fit](Text-fit.md).

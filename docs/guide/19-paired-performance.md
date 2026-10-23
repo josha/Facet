@@ -11,20 +11,56 @@ heavy processes. Run from the repository root:
 
 ```sh
 lute run tools/facet perf paired run --out artifacts/paired --rounds 5 base=<base-tree> candidate=<candidate-tree>
-lute run tools/facet perf paired report artifacts/paired base candidate
+lute run tools/facet perf paired report artifacts/paired base candidate --rounds 5 --gate
 ```
 
-Use `--scenes dense-hud,screen-lifecycle-churn` to select scenes. Use
-`--skip-bench` to omit the microbenchmarks. The default scene list is
+Use `--scenes dense-hud,screen-lifecycle-churn` to select scenes. Pass the same
+selection to `run` and `report`. Use `--skip-bench` on both commands only when
+microbenchmarks are outside the selected scope. The report names that omission;
+it does not prove complete performance coverage. The default scene list is
 `tools/facet/lib/perf_paired.luau`.
 
 The runner copies `bench/paired_scene.luau` into each target tree. Each scene
-runs in a new Lute process. Each round also runs the target tree's
-`lute run tools/facet bench` unless `--skip-bench` is set.
+runs in a new Lute process. Each round also runs the calling tree's benchmark
+command with the target tree as its working directory, unless `--skip-bench`
+is set. Both trees use the same measurement code and load their own source.
+
+CI also gives both trees the candidate's engine reflection snapshot. This is
+test-engine data, not Facet source. CI saves the original base snapshot and
+the shared snapshot in `artifacts/perf-paired-fixtures` and logs their hashes.
+Only the temporary base checkout is changed. Facet and Compose source remain
+at their respective revisions. For local comparisons, prepare isolated trees
+with the same reflection snapshot before running the command.
 
 Results stay in the output directory. `scenes.jsonl` holds scene rows.
 `bench-<label>-<round>.json` holds benchmark data. `log.txt` records progress.
 Use an empty output directory for a new comparison.
+
+The report requires the expected round count. Missing rounds, failed commands,
+unstable benchmark reports and unavailable measurements fail with exit 2.
+Only complete measurements can reach the relative slowdown gate, which exits 1
+for a consistent slowdown. CI requires all scenes and microbenchmarks on Linux,
+macOS and Windows. Each host compares the base and candidate on the same runner.
+The required Verify job accepts only success from every platform. CI
+rechecks the full suite with six rounds only after a statistical slowdown;
+an execution or measurement failure cannot become a narrowed passing recheck.
+
+Invalid CPU calibration exits 75 only when all benchmark measurements exist
+and no scenario failed. CI permits one calibration retry per job. It repeats
+the same complete round count in a new directory and retains the first attempt.
+A second invalid calibration fails the job. This retry does not apply to a
+valid slowdown, a scenario error or missing evidence.
+
+Each round reverses the arm order. The six-round comparison runs each arm
+first three times, so one arm does not always follow the other's workload.
+
+The CPU yardstick compares its median before and after the benchmarks. A
+change above 15% invalidates the run. This checks typical CPU rate. It does
+not prove stable scheduling or stable tail latency. The artifact retains the
+ordered yardstick samples and its p95 drift for diagnosis. Reports require
+the median calibration field; older artifacts cannot prove this protocol.
+Workload comparisons use raw p50 and p95 with the unchanged 5% slowdown rule.
+The standalone benchmark's historical p95 normalization stays separate.
 
 ## Read the report
 

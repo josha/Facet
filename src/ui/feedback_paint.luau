@@ -13,6 +13,7 @@ return function(
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local size, automatic = node.Size, node.AutomaticSize
 	local measured = ctx.layoutSize(node, ctx.layoutUnit(node, "FeedbackUnit"))
+	local measurement = node:FindFirstChild("FeedbackUnit")
 	local factor = ctx.observe.Scale(scale)
 	local natural = Compose.cell(V2.zero)
 	local painted: ComposeTypes.Readable<Vector2>? = nil
@@ -39,16 +40,16 @@ return function(
 			end
 			local rest = use(natural)
 			if not geometry.reflow then
-				return D2.fromOffset(rest.X, rest.Y)
+				return D2.fromOffset(math.ceil(rest.X), math.ceil(rest.Y))
 			end
 			local observed = if painted and use(dressed) then use(painted) else rest
 			local extent = V2.new(math.max(observed.X, rest.X), math.max(observed.Y, rest.Y))
 			local x, y = axes(use)
 			return D2.new(
 				if x then 0 else base.X.Scale,
-				if x then math.max(base.X.Offset, extent.X) else base.X.Offset,
+				if x then math.ceil(math.max(base.X.Offset, extent.X)) else base.X.Offset,
 				if y then 0 else base.Y.Scale,
-				if y then math.max(base.Y.Offset, extent.Y) else base.Y.Offset
+				if y then math.ceil(math.max(base.Y.Offset, extent.Y)) else base.Y.Offset
 			)
 		end,
 		AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
@@ -107,7 +108,7 @@ return function(
 	if geometry.reflow then
 		painted = ctx.layoutSize(paint)
 	end
-	local boundary = decoration(Compose, runtime, ctx.types, node, paint)
+	local boundary = decoration(Compose, runtime, ctx.types, node, paint, { immediate = true })
 	runtime.mount(function()
 		return if geometry.reflow then Host.Folder "FeedbackLayer" { boundary } else boundary
 	end, node)
@@ -146,6 +147,7 @@ return function(
 						for _, child in children do
 							if
 								child ~= boundary
+								and child ~= measurement
 								and (
 									child:IsA("GuiObject")
 									or child:IsA("UIGridStyleLayout")

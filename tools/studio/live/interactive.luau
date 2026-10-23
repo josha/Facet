@@ -8,6 +8,25 @@ local HttpService = game:GetService("HttpService")
 local Verify = (require :: any)(game.ReplicatedStorage:WaitForChild("FacetVerify"):WaitForChild("core"))
 
 return function(live: any, suite: string, options: { [string]: any }): any
+	local automaticReport = nil
+	if options.complete and suite ~= "haptics_pair" then
+		local ids = {}
+		local hasInteractive = false
+		for _, case in live.cases(suite) do
+			if case.run then
+				table.insert(ids, case.id)
+			end
+			hasInteractive = hasInteractive or case.setup ~= nil
+		end
+		if #ids > 0 then
+			local selected = table.clone(options)
+			selected.ids = ids
+			automaticReport = Verify.decode(live.report(suite, selected))
+		end
+		if not hasInteractive then
+			return assert(automaticReport, "the live suite registers no cases")
+		end
+	end
 	if not options.registerOnly and suite ~= "haptics_pair" then
 		local interactive = false
 		for _, case in live.cases(suite) do
@@ -1210,6 +1229,9 @@ return function(live: any, suite: string, options: { [string]: any }): any
 		table.insert(capabilities, "input-gamepad")
 	end
 	local reports = {}
+	if automaticReport then
+		table.insert(reports, automaticReport)
+	end
 	if suite == "haptics_pair" then
 		live.release()
 		table.insert(reports, Verify.decode(live.report("haptics_setup", { device = options.device or "none" })))

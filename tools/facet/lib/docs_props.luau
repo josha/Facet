@@ -249,7 +249,7 @@ function Props.icons(root: string): string
 		.. "Names for `icon` on Button, Label, Badge, Notice, Chip and the other controls with an icon option. "
 		.. "`NAME.fill` uses NAME when no filled art exists. "
 		.. "A theme package or the `icons` factory option can add a name or replace its art. "
-		.. "An unknown name shows no icon, so take each name from this list.\n"
+		.. "An unknown name causes an error, so take each name from this list or register it in your icons map.\n"
 		.. table.concat(names, ", ")
 end
 

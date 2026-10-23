@@ -35,8 +35,8 @@ subcommands:
   place [--no-build]            build examples/performance.project.json and check the place
   paired run --out DIR [--rounds N] [--scenes a,b] [--skip-bench] LABEL=WORKTREE...
                                 run the paired scenes and the bench in each worktree, round by round
-  paired report DIR FIRST SECOND [--gate] [--summary FILE]
-                                print a results summary and the paired scene and microbenchmark tables; --gate exits 1 when SECOND is consistently slower; --summary appends the summary and tables as Markdown
+  paired report DIR FIRST SECOND --rounds N [--scenes a,b] [--skip-bench] [--gate] [--summary FILE]
+                                require complete measurements for the expected scope; invalid evidence exits 2; --gate exits 1 when SECOND is consistently slower; --summary appends the summary and tables as Markdown
   aggregate [--all] [--layout] DUMP.html...
                                 read a MicroProfiler HTML dump's aggregate timer table
   spec-timings [OUTCOME.json] [OUTPUT.tsv]
@@ -350,6 +350,10 @@ local function samePath(left: string, right: string): boolean
 	return a == b
 end
 
+local function benchmarkCommand(): { string }
+	return { Run.lute(), "run", Files.absolute("tools/facet"), "bench" }
+end
+
 local function pairedRun(invocation: Cli.Invocation): number
 	local out = Cli.flag(invocation, "out")
 	local trees: { { label: string, tree: string } } = {}
@@ -359,7 +363,7 @@ local function pairedRun(invocation: Cli.Invocation): number
 		table.insert(trees, { label = label or pair, tree = Files.absolute(tree or "") })
 	end
 	local rounds = tonumber(Cli.flag(invocation, "rounds") or "5")
-	if out == nil or #trees == 0 or rounds == nil then
+	if out == nil or #trees < 2 or rounds == nil or rounds < 1 or rounds == math.huge or rounds % 1 ~= 0 then
 		print(USAGE)
 		return 2
 	end
@@ -370,11 +374,17 @@ local function pairedRun(invocation: Cli.Invocation): number
 	local skipBench = Cli.switch(invocation, "skip-bench")
 	local environment = toolEnvironment(rokitDirectories(), false)
 	local runner = Files.absolute("bench/paired_scene.luau")
+	local benchCommand = benchmarkCommand()
 	local log = Files.join(out, "log.txt")
 	local rows = Files.join(out, "scenes.jsonl")
+	if Files.isDirectory(out) and #Files.list(out) > 0 then
+		print("paired run: output directory must be empty")
+		return 2
+	end
 	Files.makeDirectory(out)
 	for round = 1, rounds do
-		for _, entry in trees do
+		for position = 1, #trees do
+			local entry = trees[Paired.armIndex(round, position, #trees)]
 			local target = Files.join(entry.tree, "bench/paired_scene.luau")
 			if not samePath(target, runner) then
 				Files.write(target, Files.read(runner))
@@ -400,20 +410,37 @@ local function pairedRun(invocation: Cli.Invocation): number
 				Json.set(record, "round", round)
 				Json.set(record, "row", row)
 				append(rows, Json.encode(record) .. "\n")
+				if not result.ok or Json.field(row, "status") ~= "ok" then
+					print(`paired run: {entry.label} scene {scene} failed or was unavailable`)
+					return 2
+				end
 			end
 			if not skipBench then
-				local bench = Run.capture(
-					{ Run.lute(), "run", "tools/facet", "bench" },
-					{ cwd = entry.tree, env = environment }
-				)
+				local artifact = Files.join(entry.tree, "artifacts", "bench.json")
+				if Files.isFile(artifact) then
+					Files.remove(artifact)
+				end
+				local bench = Run.capture(benchCommand, { cwd = entry.tree, env = environment })
 				Files.write(
 					Files.join(out, ("bench-%s-%d.log"):format(entry.label, round)),
 					bench.stdout .. bench.stderr
 				)
-				Files.write(
-					Files.join(out, ("bench-%s-%d.json"):format(entry.label, round)),
-					Files.read(Files.join(entry.tree, "artifacts", "bench.json"))
-				)
+				local document: unknown = nil
+				if Files.isFile(artifact) then
+					local bytes = Files.read(artifact)
+					Files.write(Files.join(out, ("bench-%s-%d.json"):format(entry.label, round)), bytes)
+					local valid, decoded = pcall(Json.decode, bytes)
+					if valid then
+						document = decoded
+					end
+				end
+				local errors, calibration = Paired.benchOutcome(bench.code, document)
+				if #errors > 0 then
+					for _, detail in errors do
+						print(`paired run: {entry.label} round {round}: {detail}`)
+					end
+					return if calibration then 75 else 2
+				end
 			end
 			append(log, ("round %d %s end %s\n"):format(round, entry.label, os.date("%H:%M:%S")))
 		end
@@ -439,18 +466,52 @@ end
 
 local function pairedReport(invocation: Cli.Invocation): number
 	local out, first, second = invocation.positional[3], invocation.positional[4], invocation.positional[5]
-	if out == nil or first == nil or second == nil then
+	local rounds = tonumber(Cli.flag(invocation, "rounds") or "")
+	if
+		out == nil
+		or first == nil
+		or second == nil
+		or first == second
+		or rounds == nil
+		or rounds < 1
+		or rounds == math.huge
+		or rounds % 1 ~= 0
+	then
 		print(USAGE)
 		return 2
 	end
-	local entries: { Json.Object } = {}
-	for _, line in Files.lines(Files.read(Files.join(out, "scenes.jsonl"))) do
-		if string.find(line, "%S") ~= nil then
-			table.insert(entries, Json.asObject(Json.decode(line)) or Json.object())
+	local valid, loaded = pcall(function()
+		local entries: { Json.Object } = {}
+		for _, line in Files.lines(Files.read(Files.join(out, "scenes.jsonl"))) do
+			if string.find(line, "%S") ~= nil then
+				table.insert(entries, Json.asObject(Json.decode(line)) or Json.object())
+			end
 		end
+		return { entries = entries, first = benchesFor(out, first), second = benchesFor(out, second) }
+	end)
+	if not valid then
+		print("paired report: evidence is unreadable: " .. tostring(loaded))
+		return 2
 	end
+	local selected = Cli.flag(invocation, "scenes")
+	local sceneList = if selected ~= nil and selected ~= "" then string.split(selected, ",") else Paired.SCENES
+	local scope: Paired.Scope =
+		{ rounds = rounds, scenes = sceneList, bench = not Cli.switch(invocation, "skip-bench") }
+	local errors = Paired.validate(scope, loaded.entries, loaded.first, loaded.second, first, second)
+	print(
+		`paired scope: {rounds} rounds, {#sceneList} scenes; microbenchmarks {if scope.bench
+			then "required"
+			else "unselected"}`
+	)
+	if #errors > 0 then
+		for _, detail in errors do
+			print("paired report: invalid evidence: " .. detail)
+		end
+		return 2
+	end
+	local entries = loaded.entries
 	local lines = Paired.sceneTable(entries, first, second)
-	for _, line in Paired.benchTables(benchesFor(out, first), benchesFor(out, second), first, second) do
+	for _, line in Paired.benchTables(loaded.first, loaded.second, first, second) do
 		table.insert(lines, line)
 	end
 	local summary = Paired.summary(lines, first, second)
@@ -721,7 +782,7 @@ local function benchDocument(round: number, label: string, p50: number, p95: num
 		round = round,
 		document = Json.asObject(
 			decode(
-				([[{"yardstickP95Ms": 0.5, "yardstickDriftPct": 1.26, "results": [{"name": "row-build", "p50_ms": %s, "p95_ms": %s}, {"name": "zz-yardstick-cpu", "p50_ms": %s, "p95_ms": %s}, {"name": "skipped", "p50_ms": null}]}]]):format(
+				([[{"yardstickP95Ms": 0.5, "yardstickDriftPct": 1.26, "yardstickMedianDriftPct": 0.4, "results": [{"name": "row-build", "p50_ms": %s, "p95_ms": %s}, {"name": "zz-yardstick-cpu", "p50_ms": %s, "p95_ms": %s}, {"name": "skipped", "p50_ms": null}]}]]):format(
 					tostring(p50),
 					tostring(p95),
 					tostring(p50),
@@ -730,6 +791,43 @@ local function benchDocument(round: number, label: string, p50: number, p95: num
 			)
 		) or Json.object(),
 	}
+end
+
+local function requiredBench(round: number, label: string): Paired.Bench
+	return {
+		path = `out/bench-{label}-{round}.json`,
+		round = round,
+		document = assert(Json.asObject(decode([[{
+			"schema": "facet-bench/1", "status": "PASS", "proofStatus": "stable-cpu-rate-trend",
+			"yardstickP95Ms": 0.5, "yardstickDriftPct": 1.2, "yardstickMedianDriftPct": 1.2,
+			"results": [{"name": "table-resize-drag", "p50_ms": 1, "p95_ms": 2, "p99_ms": 3, "samples": 1500}]
+		}]]))),
+	}
+end
+
+local function requiredPairs(): (Paired.Scope, { Json.Object }, { Paired.Bench }, { Paired.Bench })
+	local entries: { Json.Object } = {}
+	local first, second = {}, {}
+	for round = 1, 2 do
+		for _, label in { "base", "cand" } do
+			table.insert(
+				entries,
+				assert(
+					Json.asObject(
+						decode(
+							([[{"label":"%s","round":%d,"row":{"scene":"dense-hud","status":"ok","p50":1,"p95":2}}]]):format(
+								label,
+								round
+							)
+						)
+					)
+				)
+			)
+		end
+		table.insert(first, requiredBench(round, "base"))
+		table.insert(second, requiredBench(round, "cand"))
+	end
+	return { rounds = 2, scenes = { "dense-hud" }, bench = true }, entries, first, second
 end
 
 local CASES: { [string]: () -> { Case.Case } } = {}
@@ -1059,6 +1157,230 @@ end
 CASES.paired = function(): { Case.Case }
 	return {
 		{
+			name = "paired: consecutive rounds counterbalance every arm without dropping measurements",
+			run = function(): string?
+				local sequence = {}
+				for round = 1, 6 do
+					for position = 1, 2 do
+						table.insert(sequence, tostring(Paired.armIndex(round, position, 2)))
+					end
+				end
+				return Case.expect(
+					table.concat(sequence) == "122112211221",
+					"paired arms must alternate AB/BA for all six rounds"
+				)
+			end,
+		},
+		{
+			name = "paired: only complete calibration failures permit an infrastructure retry",
+			run = function(): string?
+				local document = requiredBench(1, "base").document
+				Json.set(document, "status", "FAIL")
+				Json.set(document, "proofStatus", "unstable-cpu-rate")
+				Json.set(document, "failureKind", "calibration")
+				Json.set(document, "expectedMeasurements", 1)
+				Json.set(document, "yardstickMedianDriftPct", 16)
+				local errors, retry = Paired.benchOutcome(2, document)
+				local _, crashed = Paired.benchOutcome(1, document)
+				Json.set(document, "failureKind", "execution")
+				local _, execution = Paired.benchOutcome(2, document)
+				Json.set(document, "failureKind", "regression")
+				local _, regression = Paired.benchOutcome(2, document)
+				Json.set(document, "failureKind", "calibration")
+				Json.set(document, "expectedMeasurements", 2)
+				local _, incomplete = Paired.benchOutcome(2, document)
+				Json.set(document, "expectedMeasurements", 1)
+				local rows = assert(Json.arrayField(document, "results"))
+				Json.set(assert(Json.asObject(rows[1])), "p95_ms", 0)
+				local _, malformed = Paired.benchOutcome(2, document)
+				return Case.first(
+					Case.expect(#errors > 0 and retry, "calibration failure must remain invalid and retryable"),
+					Case.expect(not crashed and not execution and not regression, "non-calibration failure retried"),
+					Case.expect(not incomplete and not malformed, "invalid measurements retried")
+				)
+			end,
+		},
+		{
+			name = "paired: one benchmark command loads each tree's own source",
+			run = function(): string?
+				local root = Files.temporaryDirectory("facet-paired-source-")
+				local command = benchmarkCommand()
+				local ok, failure = pcall(function(): string?
+					for _, label in { "base", "candidate" } do
+						local tree = Files.join(root, label)
+						Files.write(Files.join(tree, "src/init.luau"), `return "{label}"`)
+						Files.write(Files.join(tree, "tools/facet/init.luau"), "return nil")
+						Files.write(
+							Files.join(tree, "bench/scenarios.luau"),
+							[[
+local source = require("../src")
+local function setup() return {} end
+local function run()
+	local total = 0
+	for index = 1, 10000 do total += index % 17 end
+	assert(total > 0)
+end
+return {
+	{ name = "source-" .. source, requirement = "source", samples = 3, warmup = 0, setup = setup, run = run },
+	{ name = "zz-yardstick-cpu", requirement = "source", samples = 8, warmup = 0, setup = setup, run = run },
+}
+]]
+						)
+						local result = Run.capture(command, { cwd = tree, timeout = 30 })
+						local artifact = Files.join(tree, "artifacts/bench.json")
+						if not Files.isFile(artifact) then
+							return "benchmark did not load " .. label .. ": " .. result.stdout .. result.stderr
+						end
+						local document = Json.decode(Files.read(artifact))
+						local rows = assert(Json.arrayField(document, "results"))
+						local problem = Case.first(
+							Case.equal(Json.stringField(rows[1], "name"), "source-" .. label, "loaded source"),
+							Case.expect(
+								Json.numberField(document, "yardstickMedianDriftPct") ~= nil,
+								"target ran its own harness"
+							),
+							Case.expect(result.code == 0 or result.code == 2, "benchmark execution failed")
+						)
+						if problem ~= nil then
+							return problem
+						end
+					end
+					return nil
+				end)
+				Files.remove(root)
+				return if ok then failure else "raised: " .. tostring(failure)
+			end,
+		},
+		{
+			name = "paired: CPU median drift rejects invalid calibration without hiding workload tails",
+			run = function(): string?
+				local old = requiredBench(1, "base").document
+				Json.set(old, "yardstickMedianDriftPct", nil)
+				local boundary = requiredBench(1, "base").document
+				Json.set(boundary, "yardstickMedianDriftPct", 15)
+				local drifted = requiredBench(1, "base").document
+				Json.set(drifted, "yardstickMedianDriftPct", 15.01)
+				local first, second = {}, {}
+				for round = 1, 3 do
+					local base, candidate = requiredBench(round, "base"), requiredBench(round, "cand")
+					for _, bench in { base, candidate } do
+						Json.set(bench.document, "yardstickDriftPct", 80)
+					end
+					local row = assert(Json.asObject(assert(Json.arrayField(candidate.document, "results"))[1]))
+					Json.set(row, "p95_ms", 2.12)
+					table.insert(first, base)
+					table.insert(second, candidate)
+				end
+				local lines = Paired.benchTables(first, second, "base", "cand")
+				return Case.first(
+					Case.expect(#Paired.benchOutcome(0, old) > 0, "missing median calibration accepted"),
+					Case.same(Paired.benchOutcome(0, boundary), {}, "15% boundary"),
+					Case.expect(#Paired.benchOutcome(0, drifted) > 0, "median drift above15% accepted"),
+					Case.same(Paired.benchOutcome(0, second[1].document), {}, "tail-only calibration variation"),
+					expectContains(
+						lines,
+						"| table-resize-drag | 1.0000 | 1.0000 | 1.000 | 1.00-1.00 | 2.0000 | 2.1200 | 1.060 | cand slower (p95) |"
+					),
+					Case.equal(
+						Paired.summary(lines, "base", "cand")[1],
+						"### Paired performance: FAIL",
+						"tail regression"
+					)
+				)
+			end,
+		},
+		{
+			name = "paired: complete expected rounds and measurements pass without changing thresholds",
+			run = function(): string?
+				local scope, entries, first, second = requiredPairs()
+				return Case.first(
+					Case.same(Paired.validate(scope, entries, first, second, "base", "cand"), {}, "complete comparison"),
+					Case.same(Paired.benchOutcome(0, first[1].document), {}, "successful command")
+				)
+			end,
+		},
+		{
+			name = "paired: failed commands and missing or unstable benchmark reports cannot pass",
+			run = function(): string?
+				local successful = requiredBench(1, "base").document
+				local failed = requiredBench(1, "base").document
+				Json.set(failed, "status", "FAIL")
+				local unstable = requiredBench(1, "base").document
+				Json.set(unstable, "proofStatus", "unstable-cpu-rate")
+				local drifted = requiredBench(1, "base").document
+				Json.set(drifted, "yardstickMedianDriftPct", 16)
+				return Case.first(
+					Case.expect(#Paired.benchOutcome(1, successful) > 0, "failed command accepted a leftover report"),
+					Case.expect(#Paired.benchOutcome(2, successful) > 0, "environment failure accepted"),
+					Case.expect(#Paired.benchOutcome(0, nil) > 0, "missing report accepted"),
+					Case.expect(#Paired.benchOutcome(0, failed) > 0, "failed report accepted"),
+					Case.expect(#Paired.benchOutcome(0, unstable) > 0, "unstable report accepted"),
+					Case.expect(#Paired.benchOutcome(0, drifted) > 0, "invalid yardstick accepted")
+				)
+			end,
+		},
+		{
+			name = "paired: missing final rounds and individual benchmark measurements cannot disappear from coverage",
+			run = function(): string?
+				local scope, entries, first, second = requiredPairs()
+				local missing = Paired.validate(scope, entries, { first[1] }, { second[1] }, "base", "cand")
+				Json.set(second[2].document, "results", Json.array())
+				local empty = Paired.validate(scope, entries, first, second, "base", "cand")
+				second[2] = requiredBench(2, "cand")
+				local row = assert(Json.arrayField(second[2].document, "results"))[1]
+				Json.set(assert(Json.asObject(row)), "name", "other-workload")
+				return Case.first(
+					expectContains(missing, "base benchmark round 2 is missing"),
+					expectContains(missing, "cand benchmark round 2 is missing"),
+					Case.expect(#empty > 0, "empty measurements accepted"),
+					Case.expect(
+						#Paired.validate(scope, entries, first, second, "base", "cand") > 0,
+						"mismatched measurements accepted"
+					)
+				)
+			end,
+		},
+		{
+			name = "paired: nonempty incomplete and malformed measurements cannot masquerade as a faster run",
+			run = function(): string?
+				local scope, entries, first, second = requiredPairs()
+				for _, benches in { first, second } do
+					for _, bench in benches do
+						local rows = assert(Json.arrayField(bench.document, "results"))
+						local extra = table.clone(assert(Json.asObject(rows[1])))
+						Json.set(extra, "name", "other-workload")
+						table.insert(rows, extra)
+					end
+				end
+				table.remove(assert(Json.arrayField(second[2].document, "results")), 1)
+				local incomplete = Paired.validate(scope, entries, first, second, "base", "cand")
+				local malformed = requiredBench(1, "base").document
+				local row = assert(Json.asObject(assert(Json.arrayField(malformed, "results"))[1]))
+				Json.set(row, "p95_ms", 0)
+				return Case.first(
+					expectContains(incomplete, "cand round 2: benchmark table-resize-drag is missing"),
+					Case.expect(#Paired.benchOutcome(0, malformed) > 0, "invalid percentile accepted")
+				)
+			end,
+		},
+		{
+			name = "paired: unavailable and missing scene rounds are failures even without statistical slowdowns",
+			run = function(): string?
+				local scope, entries, first, second = requiredPairs()
+				local row = assert(Json.asObject(Json.field(entries[1], "row")))
+				Json.set(row, "status", "missing")
+				local unavailable = Paired.validate(scope, entries, first, second, "base", "cand")
+				table.remove(entries, 4)
+				table.remove(entries, 3)
+				local missing = Paired.validate(scope, entries, first, second, "base", "cand")
+				return Case.first(
+					Case.expect(#unavailable > 0, "unavailable scene accepted"),
+					expectContains(missing, "base round 2 scene dense-hud is missing"),
+					expectContains(missing, "cand round 2 scene dense-hud is missing")
+				)
+			end,
+		},
+		{
 			name = "paired: medians, formatting and the consistent-slower rule",
 			run = function(): string?
 				return Case.first(
@@ -1160,8 +1482,8 @@ CASES.paired = function(): { Case.Case }
 						"| zz-yardstick-cpu | 1.0000 | 2.0000 | 2.000 | 2.00-2.00 | 2.0000 | 4.0000 | 2.000 |  |"
 					),
 					Case.expect(not contains(lines, "| skipped |"), "a result without p50_ms was tabled"),
-					Case.equal(lines[#lines - 3], "| base-1 | 0.5000 | 1.3 |", "first bench run"),
-					Case.equal(lines[#lines], "| cand-2 | 0.5000 | 1.3 |", "last bench run"),
+					Case.equal(lines[#lines - 3], "| base-1 | 0.5000 | 1.3 | 0.4 |", "first bench run"),
+					Case.equal(lines[#lines], "| cand-2 | 0.5000 | 1.3 | 0.4 |", "last bench run"),
 					Case.same(Paired.benchTables({}, {}, "base", "cand"), {}, "no benches")
 				)
 			end,
@@ -1458,7 +1780,7 @@ local function run(invocation: Cli.Invocation): number
 	end)
 	if not ok then
 		print(("facet perf %s: FAIL - %s"):format(subcommand, tostring(code)))
-		return 1
+		return if subcommand == "paired" then 2 else 1
 	end
 	return code :: number
 end

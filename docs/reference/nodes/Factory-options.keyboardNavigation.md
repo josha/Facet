@@ -33,6 +33,12 @@ Factory-options.keyboardNavigation option values and behavior.
     translated parts with `..`: word order changes between languages. Set
     `AutoLocalize = false` on a label that shows a player name or other text
     that players write.
+  - Keep the game's English source in one keyed table that builds its
+    `LocalizationTable`. Get every player-facing string from a key, fixed
+    labels too. Check that each code key exists in the table. Call
+    `FormatByKey` in a readable and pass string arguments, such as
+    `tostring(count)`. Set `AutoLocalize = false` for already translated text.
+    Reuse this translator and source table across task components.
 - `services`, `guiService`, `userInputService` and `types`: native dependencies.
 - `inputParent` and `overlayParent`: placement targets. Presented controls
   mount inside `overlayParent` when you set it. They measure its live bounds

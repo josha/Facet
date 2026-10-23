@@ -258,11 +258,14 @@ local function attachLayout(
 											"PaddingBottom"
 										) :: UDim).Offset
 										else 0
-									wrappedHeight:set(
-										measured.Y
-											+ math.ceil((lineCount - 1) * points * (math.max(spacing, 1) - 1))
-											+ vertical
-									)
+									local height = measured.Y
+										+ math.ceil((lineCount - 1) * points * (math.max(spacing, 1) - 1))
+										+ vertical
+									local shrinking = height < wrappedHeight:peek()
+									wrappedHeight:set(height)
+									if shrinking then
+										deferReflow()
+									end
 								end
 								if ticket == serial then
 									finish()

@@ -35,6 +35,9 @@ fields: `local state: Facet.Cell<State> = Facet.Compose.cell(initialState)`.
 Check shared helpers before using them across screens so one inference failure
 does not become errors throughout the application.
 
+Give a padding table its public type before passing it to a control:
+`local inset: Facet.Sides = { top = "xl" }`.
+
 Open:
 
 - [Types](Types.md)

@@ -1,16 +1,17 @@
 # Facet documentation
 
-Before UI work, open [Design.guide](Design.guide.md) and read the required
-design foundations and relevant chapters in the use-facet skill.
+Before UI work, read [Design.guide](Design.guide.md) and the relevant use-facet
+design chapters.
 
-Read the recipe for the main structure. Add another recipe only for a missing
-pattern, then reuse it across similar pages. For a HUD with a shop, start with
-Tasks.hud and Tasks.shop. Open a card or option node only for a missing detail.
+Read the main recipe and reuse it across pages. Add a recipe, card or option only
+for missing detail. A HUD with a shop starts with Tasks.hud and Tasks.shop.
 Never reread a node already in context.
 
 In Studio, read `ServerStorage.FacetDocs.docs.reference.nodes["<path>.md"].Value`
 in Edit mode. A control starts at `<Control>.card`; its options are
-`<Control>.props`. Link labels below are paths. Read one node at a time.
+`<Control>.props`. Link labels below are paths. Batch independent, already
+identified nodes in one bounded, labeled read. Follow dependent links only for
+the missing detail.
 With shell access, use `lute run tools/facet docs <path>` or `docs --search TEXT`.
 
 | Player task | Recipe |

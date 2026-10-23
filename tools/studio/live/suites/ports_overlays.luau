@@ -8,6 +8,7 @@ type OverlayAction = typeof(require("@repo/tools/typecheck/aliases").OverlayActi
 type SheetDetent = typeof(require("@repo/tools/typecheck/aliases").SheetDetent)
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
+local Verify = require(game:GetService("ReplicatedStorage").FacetVerify.core)
 local geometry = require(game:GetService("ReplicatedStorage").FacetLive.overlay_geometry)
 
 type Case = {
@@ -411,6 +412,55 @@ add("callout-tour-rich-parts", {}, function(t)
 	end
 end)
 
+add("callout-fixed-width-content-containment", {}, function(t)
+	for _, theme in { t.themes[1], t.themes[#t.themes] } do
+		local size = t.Facet.Compose.cell(Vector2.new(1280, 720))
+		local message = t.Facet.Compose.cell("Open the garage to choose a vehicle and review its upgrades.")
+		local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+			local anchor = UI.Button "Garage" { label = "Garage" }
+			return Host.Frame {
+				Size = UDim2.fromScale(1, 1),
+				anchor :: Instance,
+				UI.Callout {
+					anchor = anchor,
+					title = "Open garage",
+					content = function()
+						return Host.Frame "HelpText" {
+							BackgroundTransparency = 1,
+							Size = UDim2.fromOffset(260, 0),
+							AutomaticSize = Enum.AutomaticSize.Y,
+							UI.Text "Instruction" { text = message, wrap = true },
+						}
+					end,
+					onRetire = function() end,
+				},
+			}
+		end, { size = size, theme = theme.package, frames = 30 })
+		for _, width in { 1280, 320 } do
+			size:set(Vector2.new(width, 720))
+			message:set(
+				if width == 320
+					then "Open the garage to compare every vehicle, review the upgrades you have unlocked, and choose your vehicle before the next race."
+					else "Open the garage to choose a vehicle and review its upgrades."
+			)
+			t.settle(30)
+			local panel = t.find(layerOf(stage), "CalloutPanel")
+			local content, body, text =
+				t.find(panel, "CalloutContent"), t.find(panel, "HelpText"), t.find(panel, "Instruction")
+			local padding = content:FindFirstChildWhichIsA("UIPadding")
+			local left, right = padding:GetStyled("PaddingLeft"), padding:GetStyled("PaddingRight")
+			local available = content.AbsoluteSize.X * (1 - left.Scale - right.Scale) - left.Offset - right.Offset
+			local where = theme.name .. "/" .. tostring(width)
+			t.stable(panel)
+			t.near(where .. " custom body fills the padded content width", body.AbsoluteSize.X, available, 1)
+			t.inside(where .. " custom body stays inside the plate", body, panel, 1)
+			t.inside(where .. " instruction stays inside the plate", text, panel, 1)
+			t.check(where .. " full instruction fits", t.fits(text), { text.TextBounds, text.AbsoluteSize })
+		end
+		t.cleanup()
+	end
+end)
+
 interactive(
 	"dialog-body-pad-scrolls-then-moves",
 	{},
@@ -670,8 +720,21 @@ add("help-plate-edges-and-shrinking-window", {}, function(t)
 	t.note("not checked", "hover with a mouse; the plate is armed through gamepad selection, the same armed path")
 	local function plateFor(name: string): any
 		GuiService.SelectedObject = buttons[name]
-		t.settle(50)
-		local plate = visibleNamed(t, stage, "Help")
+		local started = os.clock()
+		local plate = Verify.awaitValue(
+			function()
+				return visibleNamed(t, stage, "Help")
+			end,
+			2,
+			1 / 60,
+			{
+				now = os.clock,
+				sleep = function(seconds: number)
+					task.wait(seconds)
+				end,
+			}
+		)
+		t.note(name .. " help appearance seconds", os.clock() - started)
 		if plate then
 			t.stable(plate)
 		end
@@ -1377,9 +1440,22 @@ add("snackbar-paint-order", {}, function(t)
 	t.check("the action toast row shows", row ~= nil)
 	calloutOn:set(true)
 	GuiService.SelectedObject = trigger
-	t.settle(50)
+	local started = os.clock()
+	local plate = Verify.awaitValue(
+		function()
+			return visibleNamed(t, gui, "Help")
+		end,
+		2,
+		1 / 60,
+		{
+			now = os.clock,
+			sleep = function(seconds: number)
+				task.wait(seconds)
+			end,
+		}
+	)
+	t.note("help appearance seconds", os.clock() - started)
 	local callout = visibleNamed(t, gui, "CalloutPanel")
-	local plate = visibleNamed(t, gui, "Help")
 	t.check("the callout shows", callout ~= nil)
 	t.check("the help plate shows", plate ~= nil)
 	if row and callout then
@@ -1986,6 +2062,24 @@ add("sheet-hug-follows-live-copy", {}, function(t)
 	t.settle(20)
 	t.stable(panel)
 	t.near("shorter copy shrinks it back", panel.AbsoluteSize.Y, short, 0.5)
+	for cycle = 1, 2 do
+		copy:set(string.rep("Longer copy that wraps onto several lines. ", 8))
+		t.settle(20)
+		t.stable(panel)
+		t.near(`growth cycle {cycle} restores the tall height`, panel.AbsoluteSize.Y, tall, 0.5)
+		copy:set("Two short lines.")
+		t.settle(20)
+		t.stable(panel)
+		t.near(`shrink cycle {cycle} restores the short height`, panel.AbsoluteSize.Y, short, 0.5)
+	end
+	local text = t.find(panel, "Copy") :: TextLabel
+	local idleReflows = 0
+	local idleWatch = text:GetPropertyChangedSignal("AutomaticSize"):Connect(function()
+		idleReflows += 1
+	end)
+	t.settle(60)
+	idleWatch:Disconnect()
+	t.check("resting copy does not reflow again", idleReflows == 0, idleReflows)
 	copy:set(string.rep("Longer copy that wraps onto several lines. ", 8))
 	t.settle(20)
 	t.stable(panel)

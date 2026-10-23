@@ -8029,6 +8029,89 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
+			verifyHarness:case("publishes collapsed columns only when membership changes during resizing", {
+				id = "native_collections::Table narrow column policy::publishes collapsed columns only when membership changes during resizing",
+				run = function()
+					local createMetrics = require("../src/ui/collection_table_metrics")
+					local createColumns = require("../src/ui/collection_table_columns")
+					local engine, runtime, _, target, _, ctx = setup()
+					local widths: FixtureComposeTypes.Cell<{ [string]: number }> = Compose.cell({ name = 120 })
+					local definitions: { FixtureCollectionTypes.TableColumn<string, string> } = {
+						{ id = "name", minWidth = 80 },
+						{ id = "artist", width = 100, priority = 1 },
+						{ id = "rating", width = 100, priority = 2 },
+					}
+					local columns = Compose.cell(definitions)
+					local spec: FixtureCollectionTypes.TableShape<string, string> = { from = {}, columns = columns }
+					local changes = 0
+					local prepared: createColumns.Columns<string, string>? = nil
+					local stop = runtime.mount(function()
+						local unitScale = Compose.cell(1)
+						local metrics = createMetrics(ctx, spec, false, unitScale, Compose.cell({}))
+						local layout = createColumns(
+							ctx,
+							spec,
+							widths,
+							Compose.cell({}),
+							metrics,
+							Compose.cell({}),
+							function(item: string)
+								return item
+							end,
+							function()
+								return nil
+							end,
+							unitScale
+						)
+						prepared = layout
+						Compose.watch(function(use)
+							use(layout.collapsed)
+							changes += 1
+						end)
+						return metrics.textInsets
+					end, target)
+					local layout = assert(prepared)
+					layout.viewportWidth:set(400)
+					for _, width in { 160, 200 } do
+						widths:set({ name = width })
+						Verify.expect((next(layout.collapsed:peek()))):toBeNil()
+						Verify.expect(changes):toBe(1)
+					end
+					widths:set({ name = 220 })
+					local previous = layout.collapsed:peek()
+					Verify.expect(previous.rating):toBe(true)
+					Verify.expect(previous.artist):toBeNil()
+					Verify.expect(changes):toBe(2)
+					widths:set({ name = 230 })
+					Verify.expect(changes):toBe(2)
+					columns:set({
+						{ id = "name", minWidth = 80 },
+						{ id = "artist", width = 100, priority = 2 },
+						{ id = "rating", width = 100, priority = 1 },
+					})
+					Verify.expect(layout.collapsed:peek().artist):toBe(true)
+					Verify.expect(layout.collapsed:peek().rating):toBeNil()
+					Verify.expect(changes):toBe(3)
+					Verify.expect(previous.rating):toBe(true)
+					Verify.expect(previous.artist):toBeNil()
+					layout.viewportWidth:set(800)
+					Verify.expect((next(layout.collapsed:peek()))):toBeNil()
+					Verify.expect(changes):toBe(4)
+					layout.viewportWidth:set(250)
+					Verify.expect(layout.collapsed:peek().artist):toBe(true)
+					Verify.expect(layout.collapsed:peek().rating):toBe(true)
+					Verify.expect(changes):toBe(5)
+					layout.viewportWidth:set(260)
+					Verify.expect(changes):toBe(5)
+					layout.viewportWidth:set(800)
+					Verify.expect((next(layout.collapsed:peek()))):toBeNil()
+					Verify.expect(changes):toBe(6)
+					stop()
+					runtime:dispose()
+					Verify.expect(engine.census().connections):toBe(0)
+				end,
+			})
+
 			verifyHarness:case("bounds fixed and controlled widths through reactive column limits", {
 				id = "native_collections::Table narrow column policy::bounds fixed and controlled widths through reactive column limits",
 				run = function()
