@@ -244,6 +244,71 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
+		verifyHarness:case("gamepad entry skips hidden targets and hero Close, and waits for late content", {
+			id = "native_sheet_parts::gamepad-entry-edges",
+			run = function()
+				local calls = 0
+				local hidden = mount({
+					placement = "center",
+					closeButton = true,
+					initialFocus = function(): string?
+						calls += 1
+						return "Secret"
+					end,
+					content = built(function(UI, Host: RobloxHost)
+						return Host.Frame {
+							Host.Frame "Folded" { Visible = false, UI.Button "Secret" { label = "Secret" } } :: unknown,
+							UI.Button "Visible" { label = "Visible" },
+						}
+					end),
+				}, { shown = Compose.cell(false), motionLevel = "none" })
+				hidden.input.PreferredInput = hidden.Enum.PreferredInput.Gamepad
+				hidden.shown:set(true)
+				hidden.advance(1 / 60, 30)
+				Verify.expect(if hidden.gui.SelectedObject then hidden.gui.SelectedObject.Name else "nil")
+					:toBe("Visible")
+				Verify.expect(calls):toBe(1)
+				hidden.stop()
+
+				local hero = mount({
+					placement = "center",
+					closeButton = true,
+					header = false,
+					hero = built(function(_, Host: RobloxHost)
+						return { height = 120, content = Host.TextLabel "Banner" { Text = "Lobby" } }
+					end),
+					content = built(function(UI)
+						return UI.Button "Continue" { label = "Continue" }
+					end),
+				}, { shown = Compose.cell(false), motionLevel = "none" })
+				hero.input.PreferredInput = hero.Enum.PreferredInput.Gamepad
+				hero.shown:set(true)
+				hero.advance(1 / 60, 3)
+				Verify.expect(if hero.gui.SelectedObject then hero.gui.SelectedObject.Name else "nil"):toBe("Continue")
+				hero.stop()
+
+				local ready = Compose.cell(false)
+				local late = mount({
+					placement = "center",
+					closeButton = true,
+					content = built(function(UI, Host: RobloxHost)
+						return Host.Frame {
+							Compose.show(ready, function()
+								return UI.Button "Row" { label = "Row" }
+							end),
+						}
+					end),
+				}, { shown = Compose.cell(false), motionLevel = "none" })
+				late.input.PreferredInput = late.Enum.PreferredInput.Gamepad
+				late.shown:set(true)
+				late.advance(1 / 60, 3)
+				Verify.expect(if late.gui.SelectedObject then late.gui.SelectedObject.Name else "nil"):toBe("Close")
+				ready:set(true)
+				late.advance(1 / 60, 3)
+				Verify.expect(if late.gui.SelectedObject then late.gui.SelectedObject.Name else "nil"):toBe("Row")
+				late.stop()
+			end,
+		})
 		verifyHarness:case("a gamepad still lands on Close when the sheet has nothing else to act on", {
 			id = "native_sheet_parts::gamepad-entry-close-fallback",
 			run = function()

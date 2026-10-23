@@ -273,7 +273,15 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 		end
 		local function entryTarget(): GuiObject?
 			local chosen = if spec.entry then spec.entry() else nil
-			return chosen or firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+			if chosen and displayed(chosen) then
+				return chosen
+			end
+			return firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+		end
+		local provisional: GuiObject? = nil
+		local function settleEntry(target: GuiObject?)
+			local chosen = if spec.entry and target then spec.entry() else nil
+			provisional = if spec.entry and target and chosen ~= target then target else nil
 		end
 		local landed = false
 		local owned = false
@@ -364,7 +372,9 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					landed = false
 					owned = false
 					if gui and selected then
-						gui.SelectedObject = entryTarget()
+						local target = entryTarget()
+						gui.SelectedObject = target
+						settleEntry(target)
 					end
 				end
 			end)
@@ -377,6 +387,25 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			back,
 			{ priority = spec.priority or 2000 }
 		)
+		if gui and spec.entry then
+			local guiService: GuiService = gui
+			local entry = spec.entry
+			runtime.connect(panel, "DescendantAdded", function()
+				local held = provisional
+				if held == nil then
+					return
+				end
+				if guiService.SelectedObject ~= held then
+					provisional = nil
+					return
+				end
+				local better = entry()
+				if better and better ~= held and displayed(better) then
+					provisional = nil
+					guiService.SelectedObject = better
+				end
+			end)
+		end
 		if gui then
 			local guiService: GuiService = gui
 			if kit.input then
@@ -422,6 +451,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 						pcall(function()
 							guiService.SelectedObject = target
 						end)
+						settleEntry(target)
 					end
 				end
 			end)
@@ -496,6 +526,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					pcall(function()
 						guiService.SelectedObject = target
 					end)
+					settleEntry(target)
 				end
 			end)
 		end

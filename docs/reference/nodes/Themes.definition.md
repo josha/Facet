@@ -35,9 +35,10 @@ For a complete typed definition, open [Tasks.theme](Tasks.theme.md).
   package whose lengths are 1.5 times (`adaptive.TEN_FOOT_SCALE`): `space`,
   `targetSizes` (a 44 pixel target is 66), `iconSizes`, `strokes`, every
   `controlSizes` field, `radii` (rounded to whole pixels) and each type role
-  size. Text never goes below the console reading floors: 24 pixels for
-  `caption` and 28 for every other role (the Xbox Accessibility Guidelines ask
-  for text 26 pixels tall at 1080p), so a 16 pixel `body` is 28, not 24. A
+  size. Text never goes below the console reading floors: 24 pixels for the
+  smallest size and 28 for every other (the Xbox Accessibility Guidelines ask
+  for text 26 pixels tall at 1080p), and larger roles stay larger, so the
+  neutral `body` is 29 rather than 24. A
   `metrics.controls` value scales unless
   its name ends in `TextSize`, `Lines`, `Count`, `Duration`, `Seconds`,
   `Ratio`, `Fraction`, `Scale`, `Opacity` or `Weight`. Motion, colors, chrome

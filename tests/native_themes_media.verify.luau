@@ -72,11 +72,21 @@ return function(verifyHarness: Verify.Harness)
 				local package = assert(themes.define({ name = "Floors" }))
 				local far = themes.forDistance(package, "ten-foot").metrics.typography
 				local near = package.metrics.typography
-				Verify.expect(far.caption.size):toBe(math.max(24, math.floor(near.caption.size * 1.5 + 0.5)))
-				Verify.expect(far.body.size):toBe(math.max(28, math.floor(near.body.size * 1.5 + 0.5)))
-				Verify.expect(far.title.size):toBe(math.max(28, math.floor(near.title.size * 1.5 + 0.5)))
+				local smallest = math.huge
+				for _, entry in near do
+					smallest = math.min(smallest, entry.size)
+				end
 				for role, entry in far do
-					Verify.expect(entry.size >= (if role == "caption" then 24 else 28)):toBe(true)
+					local size = near[role].size
+					Verify.expect(entry.size >= (if size == smallest then 24 else 28)):toBe(true)
+					Verify.expect(entry.size >= math.floor(size * 1.5 + 0.5)):toBe(true)
+					for other, peer in far do
+						if near[other].size < size then
+							Verify.expect(peer.size < entry.size):toBe(true)
+						elseif near[other].size == size then
+							Verify.expect(peer.size):toBe(entry.size)
+						end
+					end
 				end
 			end,
 		})
