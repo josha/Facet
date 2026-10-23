@@ -8,6 +8,16 @@
   "method": "Studio MCP upload_image over a local http.server on 127.0.0.1:8643 serving this directory (build package P4, pixel mode; P5 added pixel_blank for the selected-only ornament layer)",
   "note": "Slice geometry: SliceCenter = Rect(border, border, W-border, H-border), SliceScale = 1 (integer, R5). EVERY image rule for this package must carry ResampleMode = Pixelated. Every sliced source is 2*border+1 design pixels on each sliced axis, so the stretched centre is one uniform design pixel.",
   "assets": {
+    "pixel_panel_tail": {
+      "file": "pixel_panel_tail.png",
+      "contentId": "rbxassetid://108316352884584",
+      "size": "32x28",
+      "sliceBorder": 0,
+      "slot": "panelTail",
+      "uploaded": "2026-10-23",
+      "method": "Studio MCP upload_image from localhost",
+      "note": "Upward arrow with 20px overhang and overlapping frame join; the theme reserves corner clearance"
+    },
     "pixel_bar_cap_heart": {
       "file": "pixel_bar_cap_heart.png",
       "contentId": "rbxassetid://100115790671157",

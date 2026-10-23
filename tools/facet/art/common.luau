@@ -38,6 +38,28 @@ export type Mask = {
 
 local Common = {}
 
+function Common.panelTail(panel: Image, width: number, depth: number, overlap: number, unit: number?): Image
+	local step = unit or 1
+	local height = depth + overlap
+	local out = Image.new(width, height, 4)
+	for y = 0, height - 1 do
+		for x = 0, width - 1 do
+			local across = math.floor(x / step) * step + step / 2
+			local lift = math.floor(depth * math.max(0, 1 - math.abs(across - width / 2) / (width / 2)) / step) * step
+			local row = y - depth + lift
+			if row < 0 then
+				continue
+			end
+			local source = (math.min(row, overlap - 1) * panel.width + panel.width // 2) * 4
+			local target = (y * width + x) * 4
+			buffer.copy(out.data, target, panel.data, source, 4)
+			local fade = math.clamp((height - y - 1) / 2, 0, 1)
+			buffer.writeu8(out.data, target + 3, math.floor(buffer.readu8(out.data, target + 3) * fade))
+		end
+	end
+	return out
+end
+
 function Common.rgb(r: number, g: number, b: number): Color
 	return { r / 255.0, g / 255.0, b / 255.0 }
 end

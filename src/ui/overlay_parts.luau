@@ -1,11 +1,13 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
+local ThemeTypes = require("./theme_types")
 local Overlay = require("./overlay_types")
 local measuredScroll = require("./measured_scroll")
 local scrollLock = require("./scroll_lock")
 local freeze = require("./freeze")
 local InputProps = require("./input_props")
+local decoration = require("./native_decoration")
 
 type ButtonFactory = Types.Constructor<InputProps.ButtonProps, TextButton>
 type UIControls = { Button: ButtonFactory }
@@ -599,6 +601,22 @@ function parts.tailSize(ctx: Types.Context, use: ComposeTypes.Use?): number
 	return ctx.metric("space.m", use)
 end
 
+local function tailArt(ctx: Types.Context, use: ComposeTypes.Use?): ThemeTypes.SkinLayer?
+	local package = ctx.read(ctx.config.theme, use)
+	local recipe = package and package.chrome and package.chrome.panelTail
+	return if recipe and recipe.kind == "fill" then recipe else nil
+end
+
+function parts.tailWidth(ctx: Types.Context, use: ComposeTypes.Use?): number
+	local art = tailArt(ctx, use)
+	return if art and type(art.size) == "table" then art.size.w else parts.tailSize(ctx, use) * math.sqrt(2)
+end
+
+function parts.tailDepth(ctx: Types.Context, use: ComposeTypes.Use?): number
+	local art = tailArt(ctx, use)
+	return if art then art.overhang or 0 else parts.tailWidth(ctx, use) / 2
+end
+
 export type TailPanel = {
 	node: GuiObject,
 	scale: (ComposeTypes.Use) -> number,
@@ -616,15 +634,18 @@ local function outlinePoints(
 	r: number,
 	edge: string?,
 	t: number,
-	d: number
+	d: number,
+	tailOnly: boolean?
 ): { { x: number, y: number, inX: number, inY: number, outX: number, outY: number } }
 	local out = {}
 	local function add(x: number, y: number, inX: number?, inY: number?, outX: number?, outY: number?)
 		table.insert(out, { x = x, y = y, inX = inX or 0, inY = inY or 0, outX = outX or 0, outY = outY or 0 })
 	end
 	local k = ARC * r
+	local tailStart = 0
 	local function tail(side: string, a: number, b: number, c: number, e: number, f: number, g: number)
 		if edge == side then
+			tailStart = #out + 1
 			add(a, b)
 			add(c, e)
 			add(f, g)
@@ -642,6 +663,9 @@ local function outlinePoints(
 	add(0, h - r, 0, k, 0, 0)
 	tail("right", 0, t + d, -d, t, 0, t - d)
 	add(0, r, 0, 0, 0, -k)
+	if tailOnly then
+		return if tailStart > 0 then { out[tailStart], out[tailStart + 1], out[tailStart + 2] } else {}
+	end
 	return out
 end
 parts.outlinePoints = outlinePoints
@@ -656,11 +680,19 @@ function parts.tail(
 ): { Frame }
 	local Compose, Host, D2, V2 = ctx.Compose, ctx.Host, ctx.types.UDim2, ctx.types.Vector2
 	local anchor = ctx.observe.AnchorPoint(panel.node)
+	local function art(use: ComposeTypes.Use): ThemeTypes.SkinLayer?
+		return if panel.role == "floating" then tailArt(ctx, use) else nil
+	end
+	local function skinned(use: ComposeTypes.Use): boolean
+		local package = ctx.read(ctx.config.theme, use)
+		local recipe = package and package.chrome and package.chrome.panel
+		return panel.role == "floating" and recipe ~= nil and recipe.kind ~= "native" and recipe.kind ~= "none"
+	end
 	local function geometry(use: ComposeTypes.Use): (Vector2?, string, number, number, number)
 		local box = use(panel.size) :: Vector2
 		local point, edge = at(use)
 		local r = math.min(panel.radius(use), box.X / 2, box.Y / 2)
-		local d = parts.tailSize(ctx, use) * math.sqrt(2) / 2
+		local d = (if art(use) then parts.tailWidth(ctx, use) else parts.tailSize(ctx, use) * math.sqrt(2)) / 2
 		if point == nil then
 			return nil, edge, r, d, 0
 		end
@@ -668,27 +700,57 @@ function parts.tail(
 		local across = edge == "left" or edge == "right"
 		local along = if across then box.Y else box.X
 		local t = if across then point.Y - corner.Y else point.X - corner.X
-		d = math.min(d, math.max(0, along / 2 - r))
-		local reach = r + d + math.min(d, math.max(0, along / 2 - r - d))
+		local recipe = art(use)
+		local clearance = if recipe then math.max(r, recipe.margin or 0) else r
+		d = math.min(d, math.max(0, along / 2 - clearance))
+		local reach = if recipe then clearance + d else r + d + math.min(d, math.max(0, along / 2 - r - d))
 		t = math.clamp(t, reach, math.max(reach, along - reach))
 		local placed = if across then V2.new(point.X, corner.Y + t) else V2.new(corner.X + t, point.Y)
 		return placed, edge, r, d, t
 	end
+	local function rotation(use: ComposeTypes.Use): number
+		local _, edge = geometry(use)
+		return if not art(use)
+			then 45
+			elseif edge == "bottom" then 0
+			elseif edge == "left" then 90
+			elseif edge == "top" then 180
+			else -90
+	end
 	local wedge = ctx.styled(
-		Host.Frame(name)({
+		ctx.fade({
+			Name = name,
 			Size = function(use: ComposeTypes.Use)
 				local point, _, _, d = geometry(use)
+				local recipe = art(use)
+				if recipe and type(recipe.size) == "table" then
+					local scale = if point and d > 0 then panel.scale(use) else 0
+					return D2.fromOffset(d * 2 * scale, recipe.size.h * scale)
+				end
 				local side = if point then d * math.sqrt(2) * panel.scale(use) else 0
 				return D2.fromOffset(side, side)
 			end,
 			AnchorPoint = V2.new(0.5, 0.5),
-			Rotation = 45,
+			Rotation = rotation,
 			BorderSizePixel = 0,
 			ZIndex = function(use: ComposeTypes.Use)
 				return z(use) - 1
 			end,
+			BackgroundTransparency = function(use: ComposeTypes.Use)
+				return if art(use) then 1 else 0
+			end,
 			Position = function(use: ComposeTypes.Use): UDim2
-				local point = geometry(use) or V2.zero
+				local position, edge = geometry(use)
+				local point = position or V2.zero
+				local recipe = art(use)
+				if recipe and type(recipe.size) == "table" then
+					local inward = recipe.size.h / 2 - (recipe.overhang or 0)
+					point += if edge == "bottom"
+						then V2.new(0, inward)
+						elseif edge == "left" then V2.new(-inward, 0)
+						elseif edge == "top" then V2.new(0, -inward)
+						else V2.new(inward, 0)
+				end
 				local corner = panel.corner(use)
 				local box = use(panel.size)
 				local at = use(anchor)
@@ -696,19 +758,84 @@ function parts.tail(
 				local placed = pivot + (point - pivot) * panel.scale(use)
 				return D2.fromOffset(placed.X, placed.Y)
 			end,
-			Host.UIGradient "PresentationFade" {
-				Transparency = function(use: ComposeTypes.Use)
-					return ctx.types.NumberSequence.new(1 - amount(use))
-				end,
-			},
+			GroupTransparency = function(use: ComposeTypes.Use)
+				return 1 - amount(use)
+			end,
 		}),
 		"tail"
 	)
-	panel.node:AddTag("facet-outlined")
-	local outline = ctx.styled(Host.Path2D "Outline" { Closed = true, ZIndex = z }, "outline")
-	if panel.role == "tooltip" then
-		outline:AddTag("facet-outline-tooltip")
+	ctx.styled(wedge, "tail-" .. panel.role)
+	if panel.role == "floating" then
+		local shown = ctx.observe.Visible(wedge)
+		ctx.runtime.mountFragment(function()
+			return {
+				Compose.show(function(use: ComposeTypes.Use): boolean
+					return art(use) ~= nil
+				end, function()
+					local graphic = ctx.fade {
+						Name = name .. "Artwork",
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						ZIndex = 0,
+						AnchorPoint = V2.new(0.5, 0.5),
+						Visible = function(use: ComposeTypes.Use)
+							local point, _, _, d = geometry(use)
+							return use(shown) and point ~= nil and d > 0
+						end,
+						Size = function(use: ComposeTypes.Use)
+							local _, _, _, d = geometry(use)
+							local recipe = art(use)
+							return if recipe and type(recipe.size) == "table"
+								then D2.fromOffset(d * 2, recipe.size.h)
+								else D2.fromOffset(0, 0)
+						end,
+						Position = function(use: ComposeTypes.Use)
+							local _, edge, _, _, t = geometry(use)
+							local recipe = art(use)
+							local box = use(panel.size)
+							local inward = if recipe and type(recipe.size) == "table"
+								then recipe.size.h / 2 - (recipe.overhang or 0)
+								else 0
+							return if edge == "bottom"
+								then D2.fromOffset(t, inward)
+								elseif edge == "top" then D2.fromOffset(t, box.Y - inward)
+								elseif edge == "left" then D2.fromOffset(box.X - inward, t)
+								else D2.fromOffset(inward, t)
+						end,
+						Rotation = rotation,
+						GroupTransparency = function(use: ComposeTypes.Use)
+							return 1 - amount(use)
+						end,
+					}
+					ctx.skin(graphic, "panelTail")
+					local chrome = Host.Frame(name .. "Chrome") {
+						Size = D2.fromScale(1, 1),
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+						ZIndex = 0,
+						graphic,
+					}
+					local boundary = decoration(Compose, ctx.runtime, ctx.types, panel.node, chrome)
+					boundary:AddTag("facet-independent-fade")
+					return boundary
+				end),
+			}
+		end, panel.node)
 	end
+	panel.node:AddTag("facet-outlined")
+	local outline = ctx.styled(
+		Host.Path2D "Outline" {
+			Closed = function(use: ComposeTypes.Use): boolean
+				return not skinned(use)
+			end,
+			Visible = function(use: ComposeTypes.Use): boolean
+				return not (skinned(use) and art(use) ~= nil)
+			end,
+			ZIndex = z,
+		},
+		"outline"
+	)
+	ctx.styled(outline, "outline-" .. panel.role)
 	Compose.watch(function(use: ComposeTypes.Use)
 		local box = use(panel.size) :: Vector2
 		if box.X <= 0 or box.Y <= 0 then
@@ -716,7 +843,7 @@ function parts.tail(
 		end
 		local point, edge, r, d, t = geometry(use)
 		local native: { Path2DControlPoint } = {}
-		for _, p in outlinePoints(box.X, box.Y, r, if point then edge else nil, t, d) do
+		for _, p in outlinePoints(box.X, box.Y, r, if point and not art(use) then edge else nil, t, d, skinned(use)) do
 			table.insert(
 				native,
 				ctx.types.Path2DControlPoint.new(

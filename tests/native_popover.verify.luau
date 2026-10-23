@@ -530,7 +530,7 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(1 / 60, 3)
 				local fade = panel:FindFirstChild("FadePaint")
 				Verify.expect(fade == nil or fade.Transparency.Keypoints[1].Value == 0):toBe(true)
-				Verify.expect(panel:FindFirstChild("Fade").GroupTransparency):toBe(0)
+				Verify.expect(panel:FindFirstChild("Fade")):toBeNil()
 				w.stop()
 			end,
 		})
