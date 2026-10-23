@@ -171,7 +171,9 @@ add("callout-themed-arrows-follow-edges-and-clamps", {}, function(t)
 			end, { theme = package, size = size, frames = 20 })
 			local panel, arrow = t.find(stage.Parent, "CalloutPanel"), t.find(stage.Parent, "Arrow")
 			assert(panel and arrow, "callout must mount")
-			local image = arrow:FindFirstChildWhichIsA("ImageLabel", true)
+			local artwork = t.find(panel, "ArrowArtwork")
+			assert(artwork, "arrow artwork must belong to the panel")
+			local image = artwork:FindFirstChildWhichIsA("ImageLabel", true)
 			assert(image, "arrow artwork must mount")
 			game:GetService("ContentProvider"):PreloadAsync({ image })
 			t.check(key .. " arrow image loads", image.IsLoaded)
@@ -201,9 +203,12 @@ add("callout-themed-arrows-follow-edges-and-clamps", {}, function(t)
 						if vertical then cx else cy, if vertical then p.x else p.y, if vertical then p.r else p.b
 					t.check(
 						label .. " artwork clears both corners",
-						along - a.w / 2 >= first - 1 and along + a.w / 2 <= last + 1
+						along - a.w / 2 >= first + recipe.margin - 1 and along + a.w / 2 <= last - recipe.margin + 1
 					)
-					t.check(label .. " artwork covers the frame join", arrow.ZIndex > panel.ZIndex)
+					t.check(
+						label .. " artwork stays beneath content",
+						artwork.ZIndex == 0 and artwork:IsDescendantOf(panel)
+					)
 					for _, node in stage.Parent:GetDescendants() do
 						if node:IsA("Path2D") and node.Name == "Outline" then
 							t.check(label .. " has no extra native border", not node.Visible)
@@ -239,6 +244,16 @@ add("popover-themed-arrows-keep-the-frame-unclipped", {}, function(t)
 				t.check("the settled frame has no clipping fade container", panel:FindFirstChild("Fade") == nil)
 				local skin = panel:FindFirstChild("SkinBoundary", true)
 				t.check("the complete panel artwork remains mounted", skin ~= nil and t.visible(skin))
+				local join = panel:FindFirstChild("TailChromeBoundary")
+				local body = panel:FindFirstChild("Body", true)
+				t.check(
+					"the arrow join paints above the frame and below text",
+					skin ~= nil
+						and join ~= nil
+						and body ~= nil
+						and skin.ZIndex < join.ZIndex
+						and join.ZIndex < body.ZIndex
+				)
 			end
 			t.check("the themed arrow remains mounted", arrow ~= nil and t.visible(arrow))
 			t.cleanup()

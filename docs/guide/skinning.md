@@ -50,16 +50,20 @@ selected behavior. Native rules still style the content and the engine
 properties.
 
 Callout and Popover can use theme arrow artwork. Declare `chrome.panelTail`
-with `kind = "fill"`, an `asset`, `size = { w = 64, h = 64 }`, and
-`overhang = 24`. The image points up. `overhang` is its depth outside the
+with `kind = "fill"`, an `asset`, `size = { w = 32, h = 20 }`,
+`overhang = 12`, and `margin = 30`. The image points up. `overhang` is its depth outside the
 panel; the rest overlaps the frame to cover the join. Draw the join into the
 image, with the same edge bands and fill as the panel. Leave the outer area
 transparent. Do not use a nine-slice asset for this slot.
 
 Facet rotates the complete image onto each panel edge. It uses its width
 when it clamps the arrow away from corners and its depth for anchor spacing.
-The image follows panel scale and fade. On a short edge, it scales down
-without changing its proportions. It receives the panel's `artTint` and the
+The image follows panel scale and fade. It sits in the panel decoration layer
+below text and controls. `margin` reserves space for the
+corner artwork at both ends of the edge. On a short edge, only the arrow's
+width narrows. Its depth and overlap stay fixed so the frame bands still
+meet at their original thickness. If the corners leave no room, the arrow
+is hidden. It receives the panel's `artTint` and the
 theme's pixel rendering mode. Theme and palette changes update it live.
 Fantasy Ornate, Fantasy Parchment and Pixel Quest include this artwork.
 The arrow supplies its own border, so no native tail outline is drawn.

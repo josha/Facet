@@ -10,13 +10,13 @@
   "assets": {
     "pixel_panel_tail": {
       "file": "pixel_panel_tail.png",
-      "contentId": "rbxassetid://114575070553959",
-      "size": "64x56",
+      "contentId": "rbxassetid://108316352884584",
+      "size": "32x28",
       "sliceBorder": 0,
       "slot": "panelTail",
       "uploaded": "2026-10-23",
       "method": "Studio MCP upload_image from localhost",
-      "note": "Upward arrow with 24px overhang and overlapping frame join"
+      "note": "Upward arrow with 20px overhang and overlapping frame join; the theme reserves corner clearance"
     },
     "pixel_bar_cap_heart": {
       "file": "pixel_bar_cap_heart.png",

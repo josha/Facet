@@ -38,9 +38,9 @@ export type Mask = {
 
 local Common = {}
 
-function Common.panelTail(panel: Image, width: number, depth: number, border: number, unit: number?): Image
+function Common.panelTail(panel: Image, width: number, depth: number, overlap: number, unit: number?): Image
 	local step = unit or 1
-	local height = depth + border + 8
+	local height = depth + overlap
 	local out = Image.new(width, height, 4)
 	for y = 0, height - 1 do
 		for x = 0, width - 1 do
@@ -50,10 +50,10 @@ function Common.panelTail(panel: Image, width: number, depth: number, border: nu
 			if row < 0 then
 				continue
 			end
-			local source = (math.min(row, panel.height // 2) * panel.width + panel.width // 2) * 4
+			local source = (math.min(row, overlap - 1) * panel.width + panel.width // 2) * 4
 			local target = (y * width + x) * 4
 			buffer.copy(out.data, target, panel.data, source, 4)
-			local fade = math.clamp((height - y - 1) / 8, 0, 1)
+			local fade = math.clamp((height - y - 1) / 2, 0, 1)
 			buffer.writeu8(out.data, target + 3, math.floor(buffer.readu8(out.data, target + 3) * fade))
 		end
 	end

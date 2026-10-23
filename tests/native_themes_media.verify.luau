@@ -1143,6 +1143,10 @@ return function(verifyHarness: Verify.Harness)
 						{ 64, 64, 0, false },
 						{ 64, 64, 65, false },
 						{ 64, 64, 0 / 0, false },
+						{ 32, 20, 12, true, 30 },
+						{ 32, 20, 12, false, -1 },
+						{ 32, 20, 12, false, math.huge },
+						{ 32, 20, 12, false, 0 / 0 },
 					} :: { { number | boolean } }
 				do
 					local package = themes.neutralPackage()
@@ -1153,6 +1157,7 @@ return function(verifyHarness: Verify.Harness)
 							asset = "arrow",
 							size = { w = values[1] :: number, h = values[2] :: number },
 							overhang = values[3] :: number,
+							margin = values[5] :: number?,
 						},
 					}
 					Verify.expect(select(2, themes.define(package)).ok):toBe(values[4])

@@ -34,7 +34,7 @@ local function typography(): { [string]: { [string]: unknown } }
 end
 
 local ASSETS = {
-	pixel_panel_tail = { content = "rbxassetid://114575070553959", preload = "install", fallback = "native" },
+	pixel_panel_tail = { content = "rbxassetid://108316352884584", preload = "install", fallback = "native" },
 	pixel_panel = {
 		content = "rbxassetid://122249249524085",
 		sliceCenter = { x0 = 24, y0 = 24, x1 = 28, y1 = 28 },
@@ -241,7 +241,13 @@ function pixel_quest.definition(themes: any): any
 			},
 		},
 		chrome = {
-			panelTail = { kind = "fill", asset = "pixel_panel_tail", size = { w = 64, h = 56 }, overhang = 24 },
+			panelTail = {
+				kind = "fill",
+				asset = "pixel_panel_tail",
+				size = { w = 32, h = 28 },
+				overhang = 20,
+				margin = 20,
+			},
 			focus = { kind = "brackets", corner = "square", size = 12, thickness = 4, outset = 2 },
 			panel = {
 				kind = "nineSlice",

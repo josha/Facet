@@ -8,13 +8,13 @@
   "assets": {
     "ornate_panel_tail": {
       "file": "ornate_panel_tail.png",
-      "contentId": "rbxassetid://118890302915593",
-      "size": "64x64",
+      "contentId": "rbxassetid://70885878191900",
+      "size": "32x20",
       "sliceBorder": 0,
       "slot": "panelTail",
       "uploaded": "2026-10-23",
       "method": "Studio MCP upload_image from localhost",
-      "note": "Upward arrow with 24px overhang and overlapping frame join"
+      "note": "Upward arrow with 12px overhang and overlapping frame join; the theme reserves corner clearance"
     },
     "ornate_panel_fill": {
       "file": "ornate_panel_fill.png",

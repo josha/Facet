@@ -710,7 +710,7 @@ function FantasyOrnate.generate(): { Common.Output }
 	add("ornate_panel_frame.png", panelFrame(), 40, { { 180, 140 }, { 330, 210 }, { 470, 150 } })
 	local joined = Common.nineSlice(panelFill(r(1)), 32, 160, 160)
 	Image.alphaComposite(joined, panelFrame())
-	add("ornate_panel_tail.png", Common.panelTail(joined, 64, 24, 32))
+	add("ornate_panel_tail.png", Common.panelTail(joined, 32, 12, 8))
 	local topLeft = cornerOrnament()
 	add("ornate_corner_tl.png", topLeft)
 	add("ornate_corner_tr.png", Image.flipLeftRight(topLeft))

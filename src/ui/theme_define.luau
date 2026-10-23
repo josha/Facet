@@ -376,10 +376,14 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 					or type(depth) ~= "number"
 					or not (depth > 0 and depth <= size.h)
 					or recipe.asset == nil
+					or (
+						recipe.margin ~= nil
+						and (type(recipe.margin) ~= "number" or not (recipe.margin >= 0 and recipe.margin < math.huge))
+					)
 				then
 					table.insert(errors, {
 						field = "chrome.panelTail",
-						message = "Panel tail needs kind fill, an asset, positive finite size w/h and overhang greater than zero and at most size.h",
+						message = "Panel tail needs kind fill, an asset, positive finite size w/h, overhang in (0, size.h], and a nonnegative finite margin",
 					})
 				end
 			end
