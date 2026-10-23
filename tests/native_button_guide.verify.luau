@@ -96,12 +96,12 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = guideWorld(function(UI: FacetControls)
 					return UI.ButtonGuide "Guide" {
-						inputs = { "KeyboardAndMouse" },
 						entries = { { keys = { { "E" } }, label = "Buy" } },
 					}
 				end)
 				local P = w.Enum.PreferredInput
-				w.input.PreferredInput = P.KeyboardAndMouse
+				w.engine.environment.poke((w.input :: unknown) :: VerifyRoblox.Instance, "MouseEnabled", true)
+				w.input.PreferredInput = P.Gamepad
 				local guide = w.find("Guide")
 				local entry = overlay.find(guide, "Entry")
 				Verify.expect(guide.Visible):toBe(true)
@@ -111,16 +111,15 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				for _ = 1, 3 do
 					w.input.InputChanged:Fire({ UserInputType = w.Enum.UserInputType.MouseMovement }, false)
-					w.input.InputBegan:Fire({
-						UserInputType = w.Enum.UserInputType.Keyboard,
-						KeyCode = w.Enum.KeyCode.W,
-					}, false)
-					w.input.PreferredInput = P.KeyboardAndMouse
+					w.input.InputBegan:Fire({ UserInputType = w.Enum.UserInputType.MouseButton1 }, false)
 					w.advance(1 / 60)
 				end
 				Verify.expect(changes):toBe(0)
 				Verify.expect(guide.Visible):toBe(true)
 				Verify.expect(overlay.find(guide, "Entry")):toBe(entry)
+				w.input.PreferredInput = P.KeyboardAndMouse
+				Verify.expect(guide.Visible):toBe(false)
+				Verify.expect(changes):toBe(1)
 				w.stop()
 			end,
 		})
@@ -128,13 +127,18 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("refuses Touch and malformed entries", {
 			id = "native_button_guide::refusals",
 			run = function()
-				local function build(spec: unknown): () -> ()
+				local function buildWith(make: (Engine) -> unknown): () -> ()
 					return function()
-						local w = guideWorld(function(UI: FacetControls)
-							return UI.ButtonGuide(spec :: ButtonGuideProps)
+						local w = guideWorld(function(UI: FacetControls, _, engine: Engine)
+							return UI.ButtonGuide(make(engine) :: ButtonGuideProps)
 						end)
 						w.stop()
 					end
+				end
+				local function build(spec: unknown): () -> ()
+					return buildWith(function()
+						return spec
+					end)
 				end
 				local entries = { { keys = { { "E" } }, label = "Buy" } }
 				Verify.expect(build({ inputs = { "Touch" }, entries = entries })):toThrow("never shows on touch")
@@ -143,10 +147,29 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(build({ inputs = { "Mouse" }, entries = entries })):toThrow("inputs takes")
 				Verify.expect(build({ inputs = {}, entries = entries })):toThrow("nonempty")
 				Verify.expect(build({})):toThrow("entries is required")
-				Verify.expect(build({ entries = { { label = "Buy" } } })):toThrow("action or keys")
+				Verify.expect(build({ entries = { { label = "Buy" } } })):toThrow("one of action, keyCode or keys")
+				Verify.expect(build({ entries = { { keys = { { "E" } }, keyCode = "E", label = "Buy" } } }))
+					:toThrow("one of action, keyCode or keys")
+				Verify.expect(build({ entries = { { keyCode = "ButtonA", label = "Buy" } } }))
+					:toThrow("keyCode must be")
+				Verify.expect(build({ entries = { { keyCode = {}, label = "Buy" } } })):toThrow("keyCode must be")
 				Verify.expect(build({ entries = { { keys = { { "E" } } } } })):toThrow("needs a label")
 				Verify.expect(build({ entries = { { action = {}, label = "Buy" } } })):toThrow("native InputAction")
 				Verify.expect(build({ entries = entries, label = "Buy" })):toThrow("unknown option 'label'")
+				Verify.expect(buildWith(function(engine: Engine)
+					local buy = engine.new("InputAction")
+					return { entries = { { action = buy, label = "Buy" }, { action = buy, label = "Sell" } } }
+				end)):toThrow("an action appears twice; list each command once")
+				local KeyCode = engines.types.Enum.KeyCode
+				local A, L1, R1 = KeyCode.ButtonA, KeyCode.ButtonL1, KeyCode.ButtonR1
+				Verify.expect(build({ entries = { { keyCode = A, label = "Buy" }, { keyCode = A, label = "Sell" } } }))
+					:toThrow("a key appears twice; list each command once")
+				Verify.expect(build({
+					entries = { { keyCode = { L1, R1 }, label = "Tabs" }, { keyCode = R1, label = "Next" } },
+				})):toThrow("a key appears twice; list each command once")
+				Verify.expect(build({
+					entries = { { keys = { { "E" } }, label = "Use" }, { keys = { { "E" } }, label = "Use" } },
+				})):toThrow("an entry appears twice")
 			end,
 		})
 
@@ -293,13 +316,18 @@ return function(verifyHarness: Verify.Harness)
 				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 				shown:set(true)
 				w.advance(1 / 60, 3)
-				local guide, room, body = w.find("ButtonGuide"), w.find("Room"), w.find("SheetContent")
+				local guide, room = w.find("ButtonGuide"), w.find("Room")
 				local region = guide.Parent
 				Verify.expect(region.Name):toBe("Guide")
-				Verify.expect(region.Parent):toBe(room)
-				Verify.expect((guide:IsDescendantOf(body))):toBe(false)
-				Verify.expect(region.LayoutOrder > w.find("Actions").LayoutOrder):toBe(true)
+				Verify.expect(region.Parent):toBe(room.Parent)
+				Verify.expect((region:IsDescendantOf(room))):toBe(false)
+				Verify.expect(region:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment)
+					:toBe(w.Enum.HorizontalAlignment.Right)
 				Verify.expect(region.Visible):toBe(true)
+				w.size(region, 500, 40)
+				w.advance(1 / 60)
+				Verify.expect(region.AnchorPoint.Y):toBe(1)
+				Verify.expect(region.Position.Y.Offset):toBe(room.Position.Y.Offset + room.Size.Y.Offset + 8 + 40)
 				Verify.expect(guide.Visible):toBe(true)
 				Verify.expect(table.concat(selectables(region), ", ")):toBe("")
 				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Blade")
@@ -315,6 +343,154 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(region.Visible):toBe(true)
 				buy.Enabled = false
 				Verify.expect(labels(guide)):toBe("Tabs")
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("guideAlignment start puts the Sheet guide on the leading edge", {
+			id = "native_button_guide::sheet-alignment",
+			run = function()
+				local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Sheet "Shop" {
+						isPresented = Compose.cell(true),
+						title = "Shop",
+						content = function(): Instance
+							return Host.TextLabel "Copy" { Text = "Pick a part." }
+						end,
+						guide = { entries = { { keys = { { "LB" } }, label = "Tabs" } } },
+						guideAlignment = "start",
+					}
+				end, { motionLevel = "none" })
+				Verify.expect(w.find("Guide"):FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment)
+					:toBe(w.Enum.HorizontalAlignment.Left)
+				w.stop()
+				local failures: { string } = {}
+				overlay
+					.new(function(UI: FacetControls, Host: RobloxHost)
+						return UI.Sheet {
+							isPresented = Compose.cell(true),
+							content = function(): Instance
+								return Host.Frame {}
+							end,
+							guide = { entries = {} },
+							guideAlignment = ("middle" :: unknown) :: "start",
+						}
+					end, {
+						onError = function(failure: unknown)
+							table.insert(failures, tostring(failure))
+						end,
+					})
+					.stop()
+				Verify.expect(#failures):toBe(1)
+				Verify.expect((string.find(failures[1], "guideAlignment must be start or end", 1, true)) ~= nil)
+					:toBe(true)
+			end,
+		})
+
+		verifyHarness:case("an action entry shows only while the device has a binding for it", {
+			id = "native_button_guide::binding",
+			run = function()
+				local buy: InputAction, binding: InputBinding
+				local w = guideWorld(function(UI: FacetControls, _, engine: Engine)
+					buy, binding = engine.new("InputAction"), engine.new("InputBinding")
+					binding.KeyCode = engine.types.Enum.KeyCode.ButtonA
+					return UI.ButtonGuide "Guide" { entries = { { action = buy, label = "Buy" } } }
+				end)
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				local guide = w.find("Guide")
+				Verify.expect(guide.Visible):toBe(false)
+				Verify.expect(labels(guide)):toBe("")
+				w.engine.environment.poke((buy :: unknown) :: VerifyRoblox.Instance, "PreferredBinding", binding)
+				Verify.expect(guide.Visible):toBe(true)
+				Verify.expect(labels(guide)):toBe("Buy")
+				w.engine.environment.poke((buy :: unknown) :: VerifyRoblox.Instance, "PreferredBinding", nil)
+				Verify.expect(guide.Visible):toBe(false)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("a keyCode entry draws the platform glyph, else the platform key name", {
+			id = "native_button_guide::key-code",
+			run = function()
+				local entries = Compose.cell({} :: { ButtonGuideEntry })
+				local w = guideWorld(function(UI: FacetControls)
+					return UI.ButtonGuide "Guide" { entries = entries }
+				end)
+				w.engine.environment.fakeOn(
+					w.input,
+					"GetImageForKeyCode",
+					function(_self: unknown, code: EnumItem): string
+						return if code.Name == "ButtonA" then "rbxasset://glyph/cross.png" else ""
+					end
+				)
+				w.engine.environment.fakeOn(
+					w.input,
+					"GetStringForKeyCode",
+					function(_self: unknown, code: EnumItem): string
+						return if code.Name == "ButtonL1" then "L1" elseif code.Name == "ButtonR1" then "R1" else ""
+					end
+				)
+				local KeyCode = w.Enum.KeyCode
+				entries:set({
+					{ keyCode = KeyCode.ButtonA, label = "Buy" },
+					{ keyCode = { KeyCode.ButtonL1, KeyCode.ButtonR1 }, label = "Tabs" },
+				})
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				local guide = w.find("Guide")
+				Verify.expect(labels(guide)):toBe("Buy Tabs")
+				local entryNodes: { GuiObject } = {}
+				for _, node in guide:GetDescendants() do
+					if node.Name == "Entry" then
+						table.insert(entryNodes, node :: GuiObject)
+					end
+				end
+				table.sort(entryNodes, function(a, b)
+					return a.LayoutOrder < b.LayoutOrder
+				end)
+				local buy, tabs = entryNodes[1], entryNodes[2]
+				Verify.expect(overlay.find(buy, "Glyph").Image):toBe("rbxasset://glyph/cross.png")
+				local keys = overlay.find(tabs, "Keys")
+				Verify.expect(keys:HasTag("facet-shortcut-hint-bare")):toBe(true)
+				local names: { string } = {}
+				for _, node in keys:GetDescendants() do
+					if node.Name == "Key" then
+						table.insert(names, node.Text)
+					end
+				end
+				table.sort(names)
+				Verify.expect(table.concat(names, " ")):toBe("L1 R1")
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("recomputed entries keep their hints when the commands are the same", {
+			id = "native_button_guide::stable-keys",
+			run = function()
+				local tick = Compose.cell(0)
+				local w = guideWorld(function(UI: FacetControls)
+					return UI.ButtonGuide "Guide" {
+						entries = function(use)
+							use(tick)
+							return {
+								{ keys = { { "E" } }, label = "Use" },
+								{ keyCode = engines.types.Enum.KeyCode.ButtonY, label = "Map" },
+							}
+						end,
+					}
+				end)
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				local guide = w.find("Guide")
+				local before: { Instance } = {}
+				for _, node in guide:GetDescendants() do
+					if node.Name == "Entry" then
+						table.insert(before, node)
+					end
+				end
+				Verify.expect(#before):toBe(2)
+				tick:set(1)
+				for _, node in before do
+					Verify.expect(node:IsDescendantOf(guide)):toBe(true)
+				end
 				w.stop()
 			end,
 		})

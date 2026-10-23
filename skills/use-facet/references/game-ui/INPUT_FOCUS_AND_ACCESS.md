@@ -75,8 +75,10 @@ on touch, and on keyboard and mouse only when the game asks
 makes it flash. Give players a setting that hides it: bind one settings
 Toggle to the `buttonGuides` app option. Put it along the bottom edge of the
 surface that owns input, inside the safe area; in a Sheet, use its `guide`
-option. Keep it to about four entries in button order. An `action` entry
-follows its native `Enabled`, so the legend updates as focus moves. An alert
+option. Keep it to about four entries in button order. Give bumpers and
+triggers `keyCode` entries so each platform draws its own glyph. An `action`
+entry shows while its native `Enabled` is on and the device binds it, so a
+commandScope action updates the legend as focus moves. An alert
 hides it and shows its own choices. When a controller connects or
 disconnects, acknowledge it and switch the glyphs at once.
 

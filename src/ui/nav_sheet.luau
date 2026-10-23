@@ -35,6 +35,7 @@ local KEYS = {
 	"transition",
 	"initialFocus",
 	"guide",
+	"guideAlignment",
 }
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -126,7 +127,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			[Compose.group({ "Position", "Size" })] = function(use: ComposeTypes.Use): (UDim2, UDim2)
 				local left, top, right, bottom =
 					pad("left", use), pad("top", use), pad("right", use), pad("bottom", use)
-				return D2.fromOffset(left, top), D2.new(1, -left - right, 0, math.max(0, standing(use) - top - bottom))
+				local height = standing(use) - top - bottom - sheetBody.guideReserve(use)
+				return D2.fromOffset(left, top), D2.new(1, -left - right, 0, math.max(0, height))
 			end,
 		})
 		local panelProps: Types.CanvasGroupNativeProps = {
@@ -157,6 +159,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		}
 		for _, child in { handle, room.frame, ctx.corner(), detector("PanelDrag", "panel") } :: { Instance } do
 			panelProps[#panelProps + 1] = child
+		end
+		if sheetBody.guide then
+			panelProps[#panelProps + 1] = sheetBody.guide
 		end
 		local panel = ctx.fade(panelProps, true)
 		local presentation: GuiObject = panel

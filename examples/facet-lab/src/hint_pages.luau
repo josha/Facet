@@ -15,19 +15,11 @@ local function properties(values: Properties): Properties
 	return values
 end
 
-local function action(c: Context, name: string, key: Enum.KeyCode, enabled: boolean): InputAction
-	return c.Host.InputAction({
-		Name = name,
-		Enabled = enabled,
-		c.Host.InputBinding({ KeyCode = key }),
-	})
-end
-
-local function entries(c: Context, buyEnabled: boolean): { Properties }
+local function entries(): { Properties }
 	return {
-		{ action = action(c, "LabGuideBuy", Enum.KeyCode.ButtonA, buyEnabled), label = "Buy" },
-		{ action = action(c, "LabGuideBack", Enum.KeyCode.ButtonB, true), label = "Back" },
-		{ keys = { { "LB" }, { "RB" } }, label = "Tabs" },
+		{ keyCode = Enum.KeyCode.ButtonA, label = "Buy" },
+		{ keyCode = Enum.KeyCode.ButtonB, label = "Back" },
+		{ keyCode = { Enum.KeyCode.ButtonL1, Enum.KeyCode.ButtonR1 }, label = "Tabs" },
 	}
 end
 
@@ -71,21 +63,27 @@ return function(shared: Shared): Pages
 		alternatives = "ShortcutHint with cap = false on a control that carries its own command.",
 		snippet = 'UI.ButtonGuide { entries = { { action = buy, label = "Buy" } } }',
 		base = function(c: Context)
-			return { inputs = { "Gamepad", "KeyboardAndMouse" }, entries = entries(c, true) }
+			return { inputs = { "Gamepad", "KeyboardAndMouse" }, entries = entries() }
 		end,
 		axes = { shared.sizes },
 		states = {
 			{ name = "gamepad only (the default)", props = properties { inputs = NONE } },
 			{
-				name = "Buy disabled: the entry hides",
+				name = "a disabled action hides",
 				props = function(c: Context)
-					return { entries = entries(c, false) }
+					local list = entries()
+					list[1] = { action = c.Host.InputAction({ Name = "LabGuideBuy", Enabled = false }), label = "Buy" }
+					return { entries = list }
 				end,
+			},
+			{
+				name = "written keys",
+				props = properties { entries = { { keys = { { "Ctrl", "S" } }, label = "Save" } } },
 			},
 		},
 	}
-	local function sheetGuide(c: Context): Properties
-		return { guide = { inputs = { "Gamepad", "KeyboardAndMouse" }, entries = entries(c, true) } }
+	local function sheetGuide(): Properties
+		return { guide = { inputs = { "Gamepad", "KeyboardAndMouse" }, entries = entries() }, guideAlignment = "start" }
 	end
 	return { ShortcutHint = ShortcutHint, ButtonGuide = ButtonGuide, sheetGuide = sheetGuide }
 end

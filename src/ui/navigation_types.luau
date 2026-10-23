@@ -314,6 +314,7 @@ export type SheetOptions = {
 	scrollPolicy: ("always" | "atLargestDetent")?,
 	initialFocus: (string | () -> string?)?,
 	guide: Inputs.ButtonGuideOptions?,
+	guideAlignment: ("start" | "end")?,
 }
 export type SheetRequest = (string) -> boolean
 export type CalloutRetirement = "featureUsed" | "seen" | "dismissed" | "tapAway" | "action"

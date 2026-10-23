@@ -67,5 +67,5 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 	inputLevel(ctx, UI, kit)
 	inputChip(ctx, UI, kit)
 	inputShortcutHint(ctx, UI, kit)
-	inputButtonGuide(ctx, UI)
+	inputButtonGuide(ctx, UI, kit)
 end

@@ -5,10 +5,10 @@ Show a console button legend for commands without a control of their own.
 Inside an app mount, set `local UI = app.UI`.
 
 ```luau
-UI.ButtonGuide "ButtonGuide" { entries = { { keys = { { "LB" }, { "RB" } }, label = "Tabs" } } }
+UI.ButtonGuide "ButtonGuide" { entries = { { keyCode = { Enum.KeyCode.ButtonL1, Enum.KeyCode.ButtonR1 }, label = "Tabs" } } }
 ```
 
-Key options: `entries`, `inputs`.
+Key options: `entries` (each with `action`, `keyCode` or `keys`), `inputs`.
 
 A guide is a readout, never a focus stop. It shows for a gamepad by default.
 Keep it to about four entries in button order.

@@ -762,6 +762,7 @@ export type SheetSpec = {
 	scrollPolicy: typeof(sheet.scrollPolicy),
 	initialFocus: typeof(sheet.initialFocus),
 	guide: typeof(sheet.guide),
+	guideAlignment: typeof(sheet.guideAlignment),
 	[number | Engine.EventKey]: Compose.Child,
 }
 export type CalloutSpec = {

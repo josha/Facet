@@ -83,7 +83,9 @@ return function(UI: InputsControls.Controls, action: InputAction): ()
 	})
 	local guideEntries: { Inputs.ButtonGuideEntry } = {
 		{ action = action, label = "Buy" },
-		{ keys = { { "LB" }, { "RB" } }, label = "Tabs" },
+		{ keys = { { "Ctrl", "S" } }, label = "Save" },
+		{ keyCode = { Enum.KeyCode.ButtonL1, Enum.KeyCode.ButtonR1 }, label = "Tabs" },
+		{ keyCode = Enum.KeyCode.ButtonY, label = text },
 	}
 	local guide: Frame = UI.ButtonGuide({
 		entries = guideEntries,

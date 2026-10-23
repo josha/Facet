@@ -1,5 +1,6 @@
 --!strict
 local inputKit = require("./input_kit")
+local keyGlyph = require("./input_key_glyph")
 local InputTypes = require("./input_types")
 local Shared = require("./types")
 local ControlTypes = require("./control_types")
@@ -10,6 +11,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 	local runtime, Host, Compose = ctx.runtime, ctx.Host, ctx.Compose
 	local read, props = ctx.read, ctx.props
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
+	local glyph = keyGlyph(ctx, kit.noKey)
 	UI.ShortcutHint = ctx.construct(
 		"ShortcutHint",
 		function(spec: InputTypes.ShortcutHintImplementationProps): TextLabel | Frame
@@ -119,20 +121,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				"Facet.ShortcutHint: action must be a native InputAction"
 			)
 			local binding = ctx.observe.PreferredBinding(action)
-			local keyNames: { [string]: string } = {
-				Return = "Enter",
-				KeypadEnter = "Enter",
-				Escape = "Esc",
-				Space = "Space",
-				Backspace = "Delete",
-				Tab = "Tab",
-				LeftShift = "Shift",
-				RightShift = "Shift",
-				LeftControl = "Ctrl",
-				RightControl = "Ctrl",
-				LeftAlt = "Alt",
-				RightAlt = "Alt",
-			}
 			local p = props(spec :: Shared.GuiObjectNativeProps, semantic, {
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
@@ -145,89 +133,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					return list
 				end,
 				render = function(_, _, current: InputBinding)
-					local name, key = ctx.observe.DisplayName(current), ctx.observe.KeyCode(current)
-					local primary, secondary =
-						ctx.observe.PrimaryModifier(current), ctx.observe.SecondaryModifier(current)
-					local image = ctx.observe.DisplayImage(current)
-					local input = ctx.config.services.UserInputService
-					local nativeImage = Compose.formula(function(use: ComposeTypes.Use): Content | string | nil
-						local content = use(image)
-						if content and content.SourceType and content.SourceType.Name ~= "None" then
-							return content
-						end
-						if input and input.GetImageForKeyCode then
-							local ok, asset = pcall(input.GetImageForKeyCode, input, use(key))
-							if ok and type(asset) == "string" and asset ~= "" then
-								return asset
-							end
-						end
-						return nil
-					end)
-					return Host.Frame "PreferredBinding" {
-						Size = D2.fromOffset(0, 0),
-						AutomaticSize = E.AutomaticSize.XY,
-						BackgroundTransparency = 1,
-						Compose.keyed({
-							from = function(use: ComposeTypes.Use)
-								local asset = use(nativeImage)
-								return {
-									if asset == nil
-										then "text"
-										elseif type(asset) == "string" then "Image"
-										else "ImageContent",
-								}
-							end,
-							render = function(_, _, kind: string): GuiObject
-								if kind ~= "text" then
-									local native: Shared.ImageLabelNativeProps = {
-										Name = "Glyph",
-										BackgroundTransparency = 1,
-										Size = function(use: ComposeTypes.Use)
-											local size = ctx.controlSize(spec.controlSize, "iconSize", use)
-											return D2.fromOffset(size, size)
-										end,
-									}
-									if kind ~= "Image" then
-										native.ImageContent = function(use: ComposeTypes.Use): Content
-											return use(nativeImage) :: Content
-										end
-										return Host.ImageLabel(native)
-									end
-									native.Image = function(use: ComposeTypes.Use): string
-										return use(nativeImage) :: string
-									end
-									return ctx.styled(Host.ImageLabel(native), "shortcut-glyph")
-								end
-								return ctx.text({
-									Name = "Key",
-									Text = function(use: ComposeTypes.Use): string
-										local custom = use(name)
-										if custom and custom ~= "" then
-											return custom
-										end
-										local keys: { string } = {}
-										local service = input
-										for _, code in { use(primary), use(secondary), use(key) } do
-											if code and code ~= kit.noKey then
-												local ok, found = true, keyNames[code.Name] or ""
-												if found == "" and service and service.GetStringForKeyCode then
-													ok, found = pcall(function(): string
-														return service:GetStringForKeyCode(code)
-													end)
-												end
-												local text = if ok and type(found) == "string" then found else ""
-												if string.match(text, "^%s*$") then
-													text = keyNames[code.Name] or code.Name
-												end
-												table.insert(keys, text)
-											end
-										end
-										return table.concat(keys, "+")
-									end,
-								})
-							end,
-						}),
-					}
+					return glyph("PreferredBinding", spec.controlSize, {
+						key = (ctx.observe.KeyCode(current) :: unknown) :: ComposeTypes.Readable<Enum.KeyCode?>,
+						name = (ctx.observe.DisplayName(current) :: unknown) :: ComposeTypes.Readable<string?>,
+						primary = (
+								ctx.observe.PrimaryModifier(current) :: unknown
+							) :: ComposeTypes.Readable<Enum.KeyCode?>,
+						secondary = (
+								ctx.observe.SecondaryModifier(current) :: unknown
+							) :: ComposeTypes.Readable<Enum.KeyCode?>,
+						image = (ctx.observe.DisplayImage(current) :: unknown) :: ComposeTypes.Readable<Content?>,
+					})
 				end,
 			})
 			return capped(Host.Frame(p :: Shared.FrameNativeProps))

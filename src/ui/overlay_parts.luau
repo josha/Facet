@@ -359,29 +359,22 @@ function parts.room(
 	natural: (ComposeTypes.Use) -> number,
 	maximum: (ComposeTypes.Use) -> number,
 	fill: boolean,
-	unit: ComposeTypes.Readable<number>?,
-	shown: { [GuiObject]: ComposeTypes.Readable<boolean> }?
+	unit: ComposeTypes.Readable<number>?
 ): Room
 	local Compose, Host, E, D2 = ctx.Compose, ctx.Host, ctx.types.Enum, ctx.types.UDim2
 	local gap = 8
-	local sizes: { { size: ComposeTypes.Readable<Vector2>, shown: ComposeTypes.Readable<boolean>? } } = {}
-	local fixed = 0
+	local sizes: { ComposeTypes.Readable<Vector2> } = {}
 	for _, region in regions do
-		if region == body then
-			fixed += 1
-		else
-			table.insert(sizes, { size = ctx.layoutSize(region, unit), shown = if shown then shown[region] else nil })
+		if region ~= body then
+			table.insert(sizes, ctx.layoutSize(region, unit))
 		end
 	end
 	local pinned = Compose.formula(function(use: ComposeTypes.Use): number
-		local count, total = fixed, 0
-		for _, entry in sizes do
-			if entry.shown == nil or use(entry.shown) then
-				count += 1
-				total += use(entry.size).Y
-			end
+		local total = math.max(0, #regions - 1) * gap
+		for _, size in sizes do
+			total += use(size).Y
 		end
-		return total + math.max(0, count - 1) * gap
+		return total
 	end)
 	local tight = Compose.formula(function(use: ComposeTypes.Use): boolean
 		local limit = maximum(use)

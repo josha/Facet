@@ -318,9 +318,16 @@ export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & Shor
 	keys: Value<{ { string } }>?,
 }
 export type ButtonGuideInput = "Gamepad" | "KeyboardAndMouse"
-export type ButtonGuideActionEntry = { action: InputAction, keys: nil?, label: Shared.ValueString }
-export type ButtonGuideKeysEntry = { keys: Value<{ { string } }>, action: nil?, label: Shared.ValueString }
-export type ButtonGuideEntry = ButtonGuideActionEntry | ButtonGuideKeysEntry
+export type ButtonGuideActionEntry = { action: InputAction, keyCode: nil?, keys: nil?, label: Shared.ValueString }
+export type ButtonGuideKeyCodeEntry = {
+	keyCode: Enum.KeyCode | { Enum.KeyCode },
+	action: nil?,
+	keys: nil?,
+	label: Shared.ValueString,
+}
+export type ButtonGuideKeysEntry =
+	{ keys: Value<{ { string } }>, action: nil?, keyCode: nil?, label: Shared.ValueString }
+export type ButtonGuideEntry = ButtonGuideActionEntry | ButtonGuideKeyCodeEntry | ButtonGuideKeysEntry
 export type ButtonGuideOptions = {
 	ref: ((Frame) -> ())?,
 	entries: Value<{ ButtonGuideEntry }>,
