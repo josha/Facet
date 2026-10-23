@@ -49,7 +49,7 @@ local function createNatural(
 	local points = if revision then nil else ctx.observeStyled.TextSize(label)
 	local serial, alive = 0, true
 	local last: string? = nil
-	local metrics, widest, tallest = "", 0, 0
+	local metrics, widest, tallest, heldLength = "", 0, 0, -1
 	local thread: thread? = nil
 	local release: (() -> ())? = nil
 	local function cancel()
@@ -96,8 +96,9 @@ local function createNatural(
 			if alive and ticket == serial then
 				if ok then
 					if stable then
-						if geometry ~= metrics then
-							metrics, widest, tallest = geometry, 0, 0
+						local length = utf8.len(words) or #words
+						if geometry ~= metrics or length ~= heldLength then
+							metrics, widest, tallest, heldLength = geometry, 0, 0, length
 						end
 						widest, tallest = math.max(widest, value.X), math.max(tallest, value.Y)
 						value = ctx.types.Vector2.new(widest, tallest)

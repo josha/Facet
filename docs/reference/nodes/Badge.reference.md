@@ -2,7 +2,7 @@
 
 Badge.reference option values and behavior.
 
-An unwrapped label with automatic size keeps its largest measured box while mounted.
+An unwrapped label with automatic size keeps its largest measured box while its text keeps the same length, as Text does.
 
 | Control | Main contract |
 |---|---|

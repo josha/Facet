@@ -551,6 +551,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-drag-held >> .facet-icon", { ImageTransparency = 1 })
 	rule(".facet-accent", { BackgroundColor3 = c("accent"), TextColor3 = c("onAccent") })
 	rule(".facet-fill", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0, BorderSizePixel = 0 })
+	rule(".facet-track >> .facet-fill::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
 	rule(".facet-level-segment", { BackgroundColor3 = c("control"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-level-on", { BackgroundColor3 = c("accent") })
 	rule(".facet-progress-ring-track", { Color3 = c("control") })

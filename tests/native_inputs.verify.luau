@@ -3212,6 +3212,27 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 			)
+			verifyHarness:case("gives native chrome no box that holds the control's automatic size", {
+				id = "native_inputs::native parity weaker actions::gives native chrome no box that holds the control's automatic size",
+				run = function()
+					for _, live in { false, true } do
+						local package = Facet.themes.neutralPackage()
+						assert(package.chrome).control = { kind = "native" :: "native", shadow = "raised" }
+						local world = setup(function(UI: FacetControls, Host: RobloxHost)
+							return Host.Frame "Card" {
+								UI.Button "Plain" { label = "Plain", onActivate = function() end },
+							}
+						end, { theme = if live then Facet.Compose.cell(package) else package })
+						local node = find(world.node, "Plain")
+						Verify.expect(find(node, "ChromeShadow").ClassName):toBe("UIShadow")
+						local boundary = node:FindFirstChild("SkinBoundary", true) :: Frame?
+						if boundary then
+							Verify.expect(boundary.Visible):toBe(false)
+						end
+						world.stop()
+					end
+				end,
+			})
 			verifyHarness:case("keeps a native shadow at the opacity of the fill that casts it", {
 				id = "native_inputs::native parity weaker actions::keeps a native shadow at the opacity of the fill that casts it",
 				run = function()

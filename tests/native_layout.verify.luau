@@ -204,61 +204,118 @@ return function(verifyHarness: Verify.Harness)
 					local match = node:FindFirstChild("Lift") :: UISizeConstraint?
 					return if match then match.MinSize.X else 0
 				end
+				local inners: { [Instance]: number } = {}
+				local function place(node: Instance, width: number)
+					local holder = (node :: unknown) :: { AbsoluteSize: Vector2 }
+					if holder.AbsoluteSize.X ~= width then
+						holder.AbsoluteSize = V.new(width, 20)
+					end
+				end
 				local function size(node: Instance, inner: number, outer: number)
 					local holder = node :: Frame
 					local content = holder:FindFirstChildWhichIsA("Frame") :: Frame
-					((content :: unknown) :: { AbsoluteSize: Vector2 }).AbsoluteSize = V.new(inner, 20);
-					((holder :: unknown) :: { AbsoluteSize: Vector2 }).AbsoluteSize = V.new(outer, 20)
+					inners[node] = inner;
+					((content :: unknown) :: { AbsoluteSize: Vector2 }).AbsoluteSize = V.new(inner, 20)
+					place(node, outer)
+				end
+				local function settle()
+					for _ = 1, 8 do
+						engine.heartbeat:Fire(1 / 60)
+						for node, inner in inners do
+							place(node, math.max(inner, floor(node)))
+						end
+					end
 				end
 				Verify.expect(list.HorizontalFlex):toBe(E.UIFlexAlignment.None)
 				size(row, 80, 80)
 				size(other, 50, 50)
-				engine.heartbeat:Fire(1 / 60)
+				settle()
 				Verify.expect(floor(other)):toBe(80)
 				Verify.expect(floor(row)):toBe(0)
 				size(other, 50, 80)
-				engine.heartbeat:Fire(1 / 60)
+				settle()
 				Verify.expect(floor(other)):toBe(80)
 				size(row, 30, 30)
-				engine.heartbeat:Fire(1 / 60)
+				settle()
 				Verify.expect(floor(row)):toBe(50)
 				Verify.expect(floor(other)):toBe(0)
 				stop()
 			end,
 		})
-		verifyHarness:case("learns a lifted child's overshoot and follows growth and shrinking", {
-			id = "native_layout::stack stretch matching::learns a lifted child's overshoot and follows growth and shrinking",
+		verifyHarness:case("matches lifted children from settled readings through growth and shrinking", {
+			id = "native_layout::stack stretch matching::matches lifted children from settled readings through growth and shrinking",
+			run = function()
+				local extentMatch = require("../src/ui/extent_match")
+				type Member = { content: number, padding: number, overshoot: number, lift: number, shown: number }
+				local function layout(m: Member): number
+					return math.max(m.content + m.padding, if m.lift > 0 then m.lift + m.overshoot else 0)
+				end
+				local state = extentMatch.new()
+				local coin: Member = { content = 91, padding = 0, overshoot = 36, lift = 0, shown = 91 }
+				local button: Member = { content = 87.5, padding = 16, overshoot = 16, lift = 0, shown = 40 }
+				local padding = button.padding
+				button.padding = -15.5
+				local members = { coin, button }
+				local widest = 0
+				local function settle(): number
+					for frame = 1, 80 do
+						local measured: { [unknown]: number } = {}
+						local content: { [unknown]: number } = {}
+						for _, m in members do
+							measured[m] = m.shown
+							content[m] = m.content
+						end
+						local mins, settled = extentMatch.step(state, members, measured, content)
+						for _, m in members do
+							m.shown = layout(m)
+							m.lift = mins[m] or 0
+							widest = math.max(widest, m.shown)
+						end
+						if settled and frame > 4 then
+							return frame
+						end
+					end
+					return math.huge
+				end
+				Verify.expect(settle() < 80):toBe(true)
+				button.padding = padding
+				Verify.expect(settle() < 80):toBe(true)
+				Verify.expect(layout(coin)):toBe(103.5)
+				Verify.expect(layout(button)):toBe(103.5)
+				coin.content = 178
+				Verify.expect(settle() < 80):toBe(true)
+				Verify.expect(layout(coin)):toBe(178)
+				Verify.expect(layout(button)):toBe(178)
+				Verify.expect(widest < 200):toBe(true)
+				coin.content = 30
+				Verify.expect(settle() < 80):toBe(true)
+				Verify.expect(layout(coin)):toBe(103.5)
+				Verify.expect(layout(button)):toBe(103.5)
+				button.content = 140
+				Verify.expect(settle() < 80):toBe(true)
+				Verify.expect(layout(coin)):toBe(156)
+				Verify.expect(layout(button)):toBe(156)
+				Verify.expect(widest < 200):toBe(true)
+			end,
+		})
+		verifyHarness:case("matches the steady children while another one keeps changing", {
+			id = "native_layout::stack stretch matching::matches the steady children while another one keeps changing",
 			run = function()
 				local extentMatch = require("../src/ui/extent_match")
 				local state = extentMatch.new()
-				local coin, button = {}, {}
-				local members = { coin, button }
-				local function step(a: number, b: number, naturalA: number, naturalB: number): (number, number)
+				local narrow, wide, pulsing = {}, {}, {}
+				local members = { narrow, wide, pulsing }
+				local lift = 0
+				for frame = 1, 40 do
 					local mins = extentMatch.step(
 						state,
 						members,
-						{ [coin] = a, [button] = b },
-						{ [coin] = naturalA, [button] = naturalB }
+						{ [narrow] = math.max(50, lift), [wide] = 80, [pulsing] = 10 + frame % 2 },
+						{ [narrow] = 50, [wide] = 80, [pulsing] = 10 + frame % 2 }
 					)
-					return mins[coin] or 0, mins[button] or 0
+					lift = mins[narrow] or 0
 				end
-				local a, b = step(91, 103.5, 91, 103.5)
-				Verify.expect(a):toBe(103.5)
-				Verify.expect(b):toBe(0)
-				a = step(139.5, 103.5, 91, 103.5)
-				Verify.expect(a):toBe(67.5)
-				a = step(103.5, 103.5, 91, 103.5)
-				Verify.expect(a):toBe(67.5)
-				a, b = step(162.5, 103.5, 162.5, 103.5)
-				Verify.expect(a):toBe(0)
-				Verify.expect(b):toBe(162.5)
-				a, b = step(162.5, 178.5, 162.5, 103.5)
-				Verify.expect(b):toBe(146.5)
-				a, b = step(162.5, 162.5, 162.5, 103.5)
-				Verify.expect(b):toBe(146.5)
-				a, b = step(91, 162.5, 91, 103.5)
-				Verify.expect(b):toBe(0)
-				Verify.expect(a):toBe(67.5)
+				Verify.expect(lift):toBe(80)
 			end,
 		})
 		verifyHarness:case("stretches a fixed-width stack natively", {
@@ -478,6 +535,76 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("world marker", function()
+		verifyHarness:case("follows its anchor on screen and clamps to the edge with an arrow off screen", {
+			id = "native_layout::world marker::follows its anchor on screen and clamps to the edge with an arrow off screen",
+			run = function()
+				type Point = { visible: boolean, x: number?, y: number?, onscreen: boolean? }
+				local point = Compose.cell({ visible = true, x = 400, y = 300, onscreen = true } :: Point)
+				local edge = Compose.cell("clamp" :: "clamp" | "hide")
+				local margin = Compose.cell(10 :: number | { top: number })
+				local holder, engine, stop = build(nil, function(UI, Host)
+					return Host.Frame {
+						Name = "Holder",
+						UI.WorldMarker "Marker" {
+							anchor = point,
+							edge = edge,
+							margin = margin,
+							Host.Frame { Name = "Pin" },
+						},
+					}
+				end)
+				local V = engine.types.Vector2
+				holder.AbsoluteSize = V.new(800, 600)
+				local marker = holder:FindFirstChild("Marker")
+				local arrow = marker:FindFirstChild("Arrow", true)
+				marker.AbsoluteSize = V.new(40, 20)
+				local function at(): (number, number)
+					return marker.Position.X.Offset, marker.Position.Y.Offset
+				end
+				local x, y = at()
+				Verify.expect(marker.Visible):toBe(true)
+				Verify.expect(x):toBe(400)
+				Verify.expect(y):toBe(300)
+				Verify.expect(marker:GetAttribute("Clamped")):toBe(false)
+				Verify.expect(arrow.Visible):toBe(false)
+				point:set({ visible = true, x = 400.4, y = 300.3, onscreen = true })
+				x, y = at()
+				Verify.expect(x):toBe(400)
+				Verify.expect(y):toBe(300)
+				point:set({ visible = true, x = 1600, y = 300, onscreen = false })
+				x, y = at()
+				Verify.expect(x):toBe(770)
+				Verify.expect(y):toBe(300)
+				Verify.expect(marker:GetAttribute("Clamped")):toBe(true)
+				Verify.expect(arrow.Visible):toBe(true)
+				Verify.expect(arrow.Rotation):toBe(0)
+				point:set({ visible = true, x = 1600, y = 310, onscreen = false })
+				Verify.expect(arrow.Rotation):toBe(0)
+				point:set({ visible = true, x = 400, y = -900, onscreen = false })
+				x, y = at()
+				Verify.expect(x):toBe(400)
+				Verify.expect(y):toBe(20)
+				Verify.expect(arrow.Rotation):toBe(-90)
+				point:set({ visible = true, x = 795, y = 300, onscreen = true })
+				x = at()
+				Verify.expect(x):toBe(770)
+				Verify.expect(marker:GetAttribute("Clamped")):toBe(true)
+				margin:set({ top = 60 })
+				point:set({ visible = true, x = 400, y = -900, onscreen = false })
+				x, y = at()
+				Verify.expect(y):toBe(70)
+				edge:set("hide")
+				Verify.expect(marker.Visible):toBe(false)
+				point:set({ visible = true, x = 300, y = 200, onscreen = true })
+				Verify.expect(marker.Visible):toBe(true)
+				point:set({ visible = false })
+				Verify.expect(marker.Visible):toBe(false)
+				stop()
+			end,
+		})
+	end)
+
 	verifyHarness:suite("native text layout", function()
 		verifyHarness:case("owns a glyph floor only while text can grow without wrapping or truncation", {
 			id = "native_layout::native text layout::owns a glyph floor only while text can grow without wrapping or truncation",
@@ -564,6 +691,28 @@ return function(verifyHarness: Verify.Harness)
 				value:set(10)
 				label.TextBounds = engine.types.Vector2.new(13, 16)
 				Verify.expect(floor.MaxSize.X):toBe(40)
+				stop()
+			end,
+		})
+		verifyHarness:case("holds a counting Text at its widest and fits it again when its length changes", {
+			id = "native_layout::native text layout::holds a counting Text at its widest and fits it again when its length changes",
+			run = function()
+				local text = Compose.cell("1,000,000")
+				local root, engine, stop = build(nil, function(UI)
+					return UI.Text { text = text }
+				end)
+				local floor = root:FindFirstChild("TextBoundsFloor")
+				root.TextBounds = engine.types.Vector2.new(100, 20)
+				Verify.expect(floor.MinSize.X):toBe(100)
+				text:set("1,000,001")
+				root.TextBounds = engine.types.Vector2.new(96, 20)
+				Verify.expect(floor.MinSize.X):toBe(100)
+				text:set("12")
+				root.TextBounds = engine.types.Vector2.new(14, 20)
+				Verify.expect(floor.MinSize.X):toBe(14)
+				text:set("19")
+				root.TextBounds = engine.types.Vector2.new(13, 20)
+				Verify.expect(floor.MinSize.X):toBe(14)
 				stop()
 			end,
 		})

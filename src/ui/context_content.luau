@@ -281,6 +281,8 @@ local function attachLayout(
 					local constraint = Host.UISizeConstraint "TextBoundsFloor" {}
 					local widest, tallest, metrics = 0, 0, ""
 					local previousText, updated = label.Text, false
+					local previousLength = utf8.len(previousText) or #previousText
+					local lastX, lastY = 0, 0
 					floor = constraint
 					Compose.cleanup(function()
 						floor = nil
@@ -310,21 +312,27 @@ local function attachLayout(
 								)}|{label:GetStyled("LineHeight")}|{label.RichText}|{mode.Name}|{free}`
 								if key ~= metrics then
 									widest, tallest, metrics = 0, 0, key
+									lastX, lastY = 0, 0
 									updated = false
 								end
 								if previousText ~= label.Text then
-									previousText, updated = label.Text, true
+									local length = utf8.len(label.Text) or #label.Text
+									if length == previousLength then
+										widest, tallest = math.max(widest, lastX), math.max(tallest, lastY)
+									else
+										widest, tallest = 0, 0
+									end
+									previousText, previousLength, updated = label.Text, length, true
 								end
 								if not updated then
 									widest, tallest = 0, 0
 								end
+								lastX, lastY = x, y
 								if freeX then
-									widest = math.max(widest, x)
-									x = widest
+									x = math.max(widest, x)
 								end
 								if freeY then
-									tallest = math.max(tallest, y)
-									y = tallest
+									y = math.max(tallest, y)
 								end
 							end
 							local padding = label:FindFirstChildWhichIsA("UIPadding")

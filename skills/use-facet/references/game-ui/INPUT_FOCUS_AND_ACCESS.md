@@ -71,7 +71,7 @@ Use `UI.adjustable(node, options)` for a genuinely custom adjustable control whe
 
 Use `UI.worldAnchor` when information or contextual actions belong to a world target. It supplies a projected anchor for a marker or RadialMenu; it does not itself draw the marker, validate proximity, or authorize the action.
 
-Choose `target` and stable identity. `padding` adds clearance around the projected object. Default `offscreen = "hide"` is appropriate when a context should disappear with its visible target. `"retain"` preserves projected direction for an authored offscreen marker; it does not automatically draw or clamp an edge arrow. `occlusion = true` hides an anchor blocked from the camera, useful where showing through walls would mislead or reveal unintended information.
+Choose `target` and stable identity. `padding` adds clearance around the projected object. Default `offscreen = "hide"` is appropriate when a context should disappear with its visible target. `"retain"` preserves projected direction for an offscreen marker. Pass the retained anchor to `UI.WorldMarker`: it follows the target on screen and clamps to the screen edge with an arrow toward the target when the target is off screen or behind the camera. `occlusion = true` hides an anchor blocked from the camera, useful where showing through walls would mislead or reveal unintended information.
 
 Use a stable portrait/detail area when a moving anchor would make reading or selection difficult. If the anchor becomes invalid, an attached open radial closes. Give critical information a reliable HUD alternative when occlusion/offscreen loss must not erase it. Keep the binding in an owned lifecycle and dispose it when no longer needed.
 

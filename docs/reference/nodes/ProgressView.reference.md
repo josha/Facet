@@ -2,7 +2,7 @@
 
 ProgressView.reference option values and behavior.
 
-The unwrapped value and end label keep their largest measured boxes while mounted.
+The unwrapped value and end label keep their largest measured boxes while their text keeps the same length, as Text does.
 
 A bar fills its container's width. Inside a hugging stack or Region form,
 give the bar an explicit environment-scaled width with

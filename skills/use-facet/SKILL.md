@@ -87,7 +87,9 @@ below it. Give strip regions a form 44 pixels tall and let Composition handle th
 `GuiService.TopbarInset` and fallback. See `Composition.adaptation` for strip layout.
 
 Protect the camera's focus area, including from UI attached to the avatar, and keep what the
-player watches outside the area covered by a held thumb. Check both phone orientations.
+player watches outside the area covered by a held thumb. Only critical information about the
+interaction with the world, such as a marker on the goal the player looks for (`UI.WorldMarker`),
+can cover part of it while it applies. Check both phone orientations.
 Protect device/TV safe areas and native movement controls. Give primary thumb
 gameplay actions `target = "thumb"` and size their art from `UI.environment().thumbTarget`. Show
 gameplay commands only in applicable states. Use native InputAction/InputContext for game

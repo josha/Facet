@@ -38,6 +38,7 @@ local FAMILIES: { Family } = {
 		modules = { Hud = "./hud_types", Media = "./media_types" },
 		recipes = {
 			{ name = "TimerProps", native = "TextLabelNativeProps", parts = { "Hud.TimerOptions" } },
+			{ name = "WorldMarkerProps", native = "FrameProps", parts = { "Hud.WorldMarkerOptions" } },
 			{
 				name = "TypewriterProps",
 				native = "TextLabelNativeProps",

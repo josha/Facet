@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- Native chrome (a `native` or `none` recipe, such as a theme fill with a
+  shadow) adds no box to a hugging control: a static theme mounts no
+  decoration frame, and a live theme hides the frame while it draws nothing,
+  only on a control with automatic size, so other controls pay nothing for
+  it. Before, a decoration frame covered the padded control at the control's
+  last size. A hugging panel grew past a `MinSize` by its own padding and
+  never shrank back, so matched widths overshot and stayed wide.
+- `UI.WorldMarker` holds still: it moves in whole pixels and ignores motion
+  under one pixel and turns under about 1.5 degrees, so a still camera gives a
+  still marker.
+- A bar ProgressView rounds its fill with the same radius as its track, so
+  the fill no longer ends square inside a rounded track.
+- `UI.WorldMarker` shows its children at a world target from a `worldAnchor`
+  binding. When the target is off screen or behind the camera, the marker
+  stays at the edge of its parent with an arrow toward the target, or hides
+  with `edge = "hide"`.
+- Stack and Composition row matching learn only from settled readings. A
+  child's size and content must stay the same for two frames before the match
+  learns from it or changes a constraint, and a lifted child that stays wider
+  than the target after one correction is released and measured again.
+  Before, a reading that lagged one frame behind a change was taken as final:
+  the widths of a coin readout and a button could flip every frame, grow
+  without limit or stay unmatched.
+- A text readout (`UI.Text`, badges) keeps its widest width only while its
+  text keeps the same length, and fits again when the length changes. A
+  counting number still does not jitter. Before, the width never shrank, so a
+  wallet that fell from 1,000,000 to 12 coins kept its widest plate.
+
 - The `top` and `bottom` Composition zones put their regions side by side in
   rows. A region wraps to a new row only when it does not fit beside the
   regions before it. Before, every zone stacked its regions vertically, so
