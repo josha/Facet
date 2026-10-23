@@ -66,6 +66,21 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native themes and media", function()
+		verifyHarness:case("ten-foot text never drops below the console reading floors", {
+			id = "native_themes_media::ten-foot-text-floors",
+			run = function()
+				local package = assert(themes.define({ name = "Floors" }))
+				local far = themes.forDistance(package, "ten-foot").metrics.typography
+				local near = package.metrics.typography
+				Verify.expect(far.caption.size):toBe(math.max(24, math.floor(near.caption.size * 1.5 + 0.5)))
+				Verify.expect(far.body.size):toBe(math.max(28, math.floor(near.body.size * 1.5 + 0.5)))
+				Verify.expect(far.title.size):toBe(math.max(28, math.floor(near.title.size * 1.5 + 0.5)))
+				for role, entry in far do
+					Verify.expect(entry.size >= (if role == "caption" then 24 else 28)):toBe(true)
+				end
+			end,
+		})
+
 		verifyHarness:case("keeps each fade stroke presence selector on its theme motion token", {
 			id = "native_themes_media::native themes and media::keeps each fade stroke presence selector on its theme motion token",
 			run = function()

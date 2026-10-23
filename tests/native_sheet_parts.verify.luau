@@ -200,6 +200,57 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+		verifyHarness:case("a gamepad lands on the task, not Close; initialFocus names where", {
+			id = "native_sheet_parts::gamepad-entry-skips-close",
+			run = function()
+				type Case = { initialFocus: (string | () -> string?)?, expect: string }
+				local cases: { Case } = {
+					{ expect = "Blade" },
+					{ initialFocus = "Speed", expect = "Speed" },
+					{
+						initialFocus = function(): string?
+							return "Storage"
+						end,
+						expect = "Storage",
+					},
+					{ initialFocus = "Missing", expect = "Blade" },
+				}
+				for _, case in cases do
+					local w = mount({
+						placement = "center",
+						closeButton = true,
+						initialFocus = case.initialFocus,
+						content = built(function(UI, Host: RobloxHost)
+							return Host.Frame {
+								UI.Button "Blade" { label = "Blade" } :: unknown,
+								Host.Frame "Speed" { UI.Button "Buy" { label = "Buy speed" } },
+								UI.Button "Storage" { label = "Storage" },
+							}
+						end),
+					}, { shown = Compose.cell(false), motionLevel = "none" })
+					w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+					w.shown:set(true)
+					w.advance(1 / 60, 3)
+					local selected = w.gui.SelectedObject
+					local name = if selected
+						then (if selected.Name == "Buy" then selected.Parent.Name else selected.Name)
+						else "nil"
+					Verify.expect(name):toBe(case.expect)
+					w.stop()
+				end
+			end,
+		})
+		verifyHarness:case("a gamepad still lands on Close when the sheet has nothing else to act on", {
+			id = "native_sheet_parts::gamepad-entry-close-fallback",
+			run = function()
+				local w = mount({ placement = "center", closeButton = true }, { shown = Compose.cell(false) })
+				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.shown:set(true)
+				w.advance(1 / 60, 3)
+				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Close")
+				w.stop()
+			end,
+		})
 		verifyHarness:case("routes Close to footer actions when the body has only text", {
 			id = "native_sheet_parts::text-body-footer-selection",
 			run = function()

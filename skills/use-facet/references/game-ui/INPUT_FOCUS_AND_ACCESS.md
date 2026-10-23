@@ -59,6 +59,21 @@ For every new surface, check entry, traversal, access to scrollable content, Bac
 
 Use `UI.scrollToVisible` for an event that must reveal relevant content, such as taking the player to an invalid field. It moves ancestor scroll areas only as needed. Use `UI.scrollTo` for an explicit top/bottom/location command. Do not fight a player's reading position by calling either continuously. `animated = false` suits an immediate correction, and reduced motion also removes the interpolation.
 
+## Follow console conventions
+
+Console players expect the same few conventions in every game. They come from the Xbox Accessibility Guidelines (XAG 101, 107, 112 and 113), Microsoft's gamepad and TV design guidance, and Roblox's console guidelines; Sony's and Nintendo's requirements are not public, but their system conventions match these.
+
+- **Buttons:** A selects and B goes back, on every screen. Since the PS5, Cross confirms in every region, Japan included, and Roblox maps Cross to `ButtonA`, so do not swap them. LB/RB move between tabs (TabView binds them) and LT/RT page through long content (bind them yourself on a long list; Facet's collections do not yet). X and Y are shortcuts for frequent but non-critical commands; every command they run also needs an on-screen route. Roblox keeps the Menu button for its own menu; the View button (`ButtonSelect`) moves the selection into the interface while `GuiService.AutoSelectGuiEnabled` is on.
+- **During play:** the movement stick and the D-pad belong to gameplay. Open each frequent HUD task with its own button and show that button's glyph (`ShortcutHint` with the action shows the Xbox or PlayStation glyph the engine reports, `InputActionLabel` does the same for a bare action). Do not make the player navigate onto the HUD.
+- **Where focus starts:** on the element the player is most likely to act on, never on a dismiss control that B already performs. A Sheet starts on its first content control, or on the one its `initialFocus` names (the recommended item, the cheapest affordable upgrade). A confirmation with consequences starts on the safe choice; a Dialog starts on its cancel action. Focus returns to where the player was when the surface closes.
+- **Focus is always visible and on screen:** one indicator, readable on every background, that never rests on a hidden, disabled or off-screen control.
+- **Digital and single presses:** every UI works with the D-pad and A/B alone, one press at a time. Do not require the stick, two buttons at once, rapid presses or long holds to use a menu; offer a toggle where a hold is unavoidable.
+- **Short routes:** a player should cross a screen in about six presses. Put commands above or beside a long list rather than after it, and keep frequent actions within one or two presses of where focus starts.
+- **Reading at a distance:** at 1080p, text needs a body height of at least 26 pixels (XAG 101) and players must be able to scale it to 200 percent. Facet's ten-foot ladder keeps text at 28 pixels or more (24 for captions) and follows the preferred text size. Keep text and controls inside the TV-safe area, about 5 percent from each edge; `Composition` and `UI.environment().overscanInsets` handle it.
+- **Feedback:** confirm navigation and selection with sound or haptics sparingly (`UI.feedback`, Button `haptic`); constant vibration is unpleasant. Help that appears when the selection rests should be short, since it can cover nearby targets.
+
+Check each surface with the Studio Controller Emulator and the Xbox and PlayStation device simulators: the first stick push after spawning, each HUD button, opening every surface (where focus lands), Back from every depth, and the return to play.
+
 ## Scope specialized commands instead of reinventing navigation
 
 Use `UI.commandScope(root, spec)` for a custom board or work area whose commands act on the currently focused keyed target. Give `targets` stable keys/nodes and `commands` clear meanings, bindings, and eligibility. The handle's `current` identifies the target; `focus(key)` requests a valid target; `actions` can drive `ShortcutHint`.

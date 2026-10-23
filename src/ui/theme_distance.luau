@@ -7,6 +7,9 @@ local UNSCALED =
 local LENGTHS: { "space" | "strokes" | "targetSizes" | "iconSizes" } =
 	{ "space", "strokes", "targetSizes", "iconSizes" }
 
+local TEXT_FLOOR = 28
+local CAPTION_FLOOR = 24
+
 local scaledFrom = setmetatable({} :: { [ThemeTypes.ThemePackage]: ThemeTypes.ThemePackage }, { __mode = "k" })
 local cache = setmetatable({} :: { [ThemeTypes.ThemePackage]: ThemeTypes.ThemePackage }, { __mode = "k" })
 
@@ -77,7 +80,8 @@ local function tenFoot(
 	end
 	for role, entry in typography do
 		local copy = table.clone(entry)
-		copy.size = math.floor(entry.size * factor + 0.5)
+		local floor = if role == "caption" then CAPTION_FLOOR else TEXT_FLOOR
+		copy.size = math.max(math.floor(entry.size * factor + 0.5), floor)
 		typography[role] = copy
 	end
 	scaled.typography = typography

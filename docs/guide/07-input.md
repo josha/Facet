@@ -14,6 +14,16 @@ Compose owns their Instances and subscriptions. Facet supplies the control
 eligibility and the interaction policy. Input contexts are siblings under a
 native host. Do not nest them.
 
+## Console conventions
+
+A selects and B goes back. LB/RB change tabs and LT/RT page. X and Y are
+shortcuts with an on-screen route as well. Roblox keeps the Menu button;
+`ButtonSelect` (View) moves the selection into the interface. During play the
+movement stick and the D-pad belong to the game. A surface that opens starts
+on the element the player is most likely to act on. See the use-facet skill's
+input chapter (`game-ui/INPUT_FOCUS_AND_ACCESS.md`, "Follow console
+conventions") for the full list and its sources.
+
 ## Selection rules
 
 The engine moves the selection. Facet adds these rules, which the focus graph
@@ -70,7 +80,9 @@ the focus atlases in `tests/fixtures/focus_atlas`.
 A modal control:
 
 - traps all native selection directions,
-- selects an enabled initial item,
+- selects an enabled initial item when it opens for a keyboard or gamepad
+  player: a Sheet's first content control (or its `initialFocus`), never its
+  Close while there is something else to act on; a Dialog's cancel action,
 - owns the Back input,
 - restores the previous selection if that object still exists.
 

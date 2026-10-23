@@ -192,8 +192,10 @@ device name. An input hint can change without rearranging the whole screen.
   take the selection when the player starts to move. `Composition` is a
   passive responder for this reason. Give every HUD task a game action on a
   button (and show its glyph), and let a task surface take the selection only
-  when it opens. Test the first stick push after spawning, every HUD task and
-  Back, with nothing else selected.
+  when it opens. Start a surface on what the player most likely wants (a
+  Sheet's `initialFocus`), never on its Close, which B already does. Test the
+  first stick push after spawning, every HUD task and Back, with nothing else
+  selected. The input chapter's console conventions list the rest.
 - Distance and accessibility: use readable type, safe margins, clear focus,
   preferred text size, localization, and reduced motion. Reflow longer content.
   Do not make color, sound, vibration, animation, or a precise gesture the only

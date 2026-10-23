@@ -15,6 +15,7 @@ export type SheetContent = {
 	panelWidth: ComposeTypes.Formula<number>,
 	contentSize: ComposeTypes.Cell<Vector2>,
 	room: parts.Room,
+	entry: () -> GuiObject?,
 }
 
 return function(
@@ -357,7 +358,22 @@ return function(
 				Active = tallest,
 			})
 		end
+		local function entry(): GuiObject?
+			local wanted = spec.initialFocus
+			local name = if type(wanted) == "function" then wanted() else wanted
+			if name then
+				local node = body:FindFirstChild(name, true)
+					or (if actionRegion then actionRegion:FindFirstChild(name, true) else nil)
+				local found = if node then surfaces.firstSelectable(node) else nil
+				if found then
+					return found
+				end
+			end
+			return surfaces.firstSelectable(body)
+				or (if actionRegion then surfaces.firstSelectable(actionRegion) else nil)
+		end
 		return {
+			entry = entry,
 			plaqued = plaqued,
 			usable = usable,
 			press = press,

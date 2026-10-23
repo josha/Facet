@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- A Sheet opened for a keyboard or gamepad player selects its first body
+  control, then its first action, and its Close or grabber only when there is
+  nothing else to act on; B already closes it. Before, it selected the header
+  Close first. New `initialFocus` (a name, or a function that returns one)
+  starts it on a chosen control instead.
+- Ten-foot text keeps console reading sizes: at least 28 pixels (24 for
+  `caption`) after the 1.5 times scale, so ten-foot `body` is 28 rather than 24.
+  The Xbox Accessibility Guidelines ask for text 26 pixels tall at 1080p.
+- The use-facet input chapter gains console conventions from the Xbox
+  Accessibility Guidelines, Microsoft's gamepad and TV guidance and Roblox's
+  console guidelines: button roles, where focus starts, digital-only
+  operation, short routes, reading distance and the TV-safe area.
+
 - A `Composition` is a passive responder (`gameplayGuard = false`,
   `engageOnPress = false`): a HUD over live gameplay. The first stick push or
   D-pad press no longer selects a HUD button, so a gamepad player who starts

@@ -33,6 +33,7 @@ local KEYS = {
 	"contentInset",
 	"scrollPolicy",
 	"transition",
+	"initialFocus",
 }
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
@@ -61,6 +62,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local unit, extent = gesture.unit, gesture.extent
 		local sheetBody = contentFor(spec, gesture)
 		local room, plaqued, usable, press = sheetBody.room, sheetBody.plaqued, sheetBody.usable, sheetBody.press
+		assert(
+			spec.initialFocus == nil or type(spec.initialFocus) == "string" or type(spec.initialFocus) == "function",
+			"Facet.Sheet: initialFocus must be a name or a function that returns one"
+		)
 		local panelWidth, contentSize = sheetBody.panelWidth, sheetBody.contentSize
 		local function anchors(use: ComposeTypes.Use): (number, number)
 			local placement = use(placed)
@@ -206,6 +211,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				interactive("cancel")
 			end
 		end, {
+			entry = sheetBody.entry,
 			canDismiss = function(use: ComposeTypes.Use)
 				return canDismiss(use)
 			end,

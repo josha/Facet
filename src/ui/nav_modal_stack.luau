@@ -271,6 +271,10 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				end
 			end
 		end
+		local function entryTarget(): GuiObject?
+			local chosen = if spec.entry then spec.entry() else nil
+			return chosen or firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+		end
 		local landed = false
 		local owned = false
 		local function reclaimable(selected: Instance?): boolean
@@ -360,7 +364,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					landed = false
 					owned = false
 					if gui and selected then
-						gui.SelectedObject = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+						gui.SelectedObject = entryTarget()
 					end
 				end
 			end)
@@ -413,7 +417,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					and focusIn(use)
 					and not within(guiService.SelectedObject, root)
 				then
-					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+					local target = entryTarget()
 					if target and displayed(target) then
 						pcall(function()
 							guiService.SelectedObject = target
@@ -425,7 +429,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			local extent = ctx.observe.AbsoluteSize(panel)
 			local landing = runtime.settled({
 				ready = function(): boolean
-					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+					local target = entryTarget()
 					return landed
 						or (
 							target ~= nil
@@ -435,7 +439,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 						)
 				end,
 				sample = function(): Vector2
-					local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+					local target = entryTarget()
 					return if target then target.AbsoluteSize else V2.zero
 				end,
 			})
@@ -457,7 +461,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 						and use(panelInteractive)
 						and not (exiting and use(exiting))
 					then
-						gui.SelectedObject = if focusIn(use) then firstSelectable(panel) else nil
+						gui.SelectedObject = if focusIn(use) then entryTarget() else nil
 					end
 					return
 				end
@@ -487,7 +491,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				then
 					return
 				end
-				local target = firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
+				local target = entryTarget()
 				if target and target.AbsoluteSize.X > 0 and target.AbsoluteSize.Y > 0 and displayed(target) then
 					pcall(function()
 						guiService.SelectedObject = target
