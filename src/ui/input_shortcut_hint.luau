@@ -15,7 +15,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		function(spec: InputTypes.ShortcutHintImplementationProps): TextLabel | Frame
 			assert((spec.action == nil) ~= (spec.keys == nil), "Facet.ShortcutHint: supply action or keys")
 			assert(spec.action == nil or spec.separator == nil, "Facet.ShortcutHint: separator applies only to keys")
-			local semantic = { "action", "keys", "separator", "controlSize" }
+			assert(spec.cap == nil or type(spec.cap) == "boolean", "Facet.ShortcutHint: cap must be a boolean")
+			local semantic = { "action", "keys", "separator", "controlSize", "cap" }
+			local function capped<N>(node: N & Instance): N & Instance
+				local styled = ctx.styled(node, "shortcut-hint")
+				if spec.cap == false then
+					ctx.styled(styled, "shortcut-hint-bare")
+				end
+				return styled
+			end
 			if spec.label ~= nil then
 				assert(
 					spec.labelPosition == nil or spec.labelPosition == "start" or spec.labelPosition == "end",
@@ -28,6 +36,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					keys = spec.keys,
 					separator = spec.separator,
 					controlSize = spec.controlSize,
+					cap = spec.cap,
 				} :: unknown) :: InputProps.ShortcutHintProps)
 				local caption = ctx.styled(
 					ctx.text({ Name = "Label", Text = spec.label, AutomaticSize = E.AutomaticSize.XY }),
@@ -37,7 +46,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					if spec.labelPosition == "start" then { caption, hint } else { hint, caption },
 					props(
 						spec :: Shared.GuiObjectNativeProps,
-						{ "action", "keys", "separator", "controlSize", "label", "labelPosition" },
+						{ "action", "keys", "separator", "controlSize", "label", "labelPosition", "cap" },
 						{
 							Name = "ShortcutHint",
 							Size = D2.fromOffset(0, 0),
@@ -48,53 +57,50 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				)
 			end
 			if spec.keys then
-				local cap = ctx.styled(
-					ctx.styled(
-						Host.TextLabel(props(spec, semantic, {
-							Text = function(use: ComposeTypes.Use)
-								local chords: { { string } } = read(assert(spec.keys), use)
+				local cap = capped(ctx.styled(
+					Host.TextLabel(props(spec, semantic, {
+						Text = function(use: ComposeTypes.Use)
+							local chords: { { string } } = read(assert(spec.keys), use)
+							assert(
+								type(chords) == "table" and #chords > 0,
+								"Facet.ShortcutHint: keys must be a nonempty list of chords"
+							)
+							local parts: { string } = {}
+							for _, chord in chords do
 								assert(
-									type(chords) == "table" and #chords > 0,
-									"Facet.ShortcutHint: keys must be a nonempty list of chords"
+									type(chord) == "table" and #chord > 0,
+									"Facet.ShortcutHint: chords cannot be empty"
 								)
-								local parts: { string } = {}
-								for _, chord in chords do
+								for _, key in chord do
 									assert(
-										type(chord) == "table" and #chord > 0,
-										"Facet.ShortcutHint: chords cannot be empty"
+										type(key) == "string" and key ~= "",
+										"Facet.ShortcutHint: key names must be nonempty strings"
 									)
-									for _, key in chord do
-										assert(
-											type(key) == "string" and key ~= "",
-											"Facet.ShortcutHint: key names must be nonempty strings"
-										)
-									end
-									table.insert(parts, table.concat(chord, "+"))
 								end
-								local separator = read(spec.separator, use) or " / "
-								assert(
-									type(separator) == "string" and separator ~= "",
-									"Facet.ShortcutHint: separator must be a nonempty string"
-								)
-								if string.find(separator, "^%a+$") then
-									separator = ` {separator} `
-								end
-								return table.concat(parts, separator)
-							end,
-							Size = function(use: ComposeTypes.Use)
-								local side = ctx.controlSize(spec.controlSize, "iconSize", use) + 8
-								return D2.fromOffset(side, side)
-							end,
-							AutomaticSize = E.AutomaticSize.XY,
-							BackgroundTransparency = 0,
-							BorderSizePixel = 0,
-							TextXAlignment = E.TextXAlignment.Center,
-							Host.UIPadding({}),
-						})),
-						"Text"
-					),
-					"shortcut-hint"
-				)
+								table.insert(parts, table.concat(chord, "+"))
+							end
+							local separator = read(spec.separator, use) or " / "
+							assert(
+								type(separator) == "string" and separator ~= "",
+								"Facet.ShortcutHint: separator must be a nonempty string"
+							)
+							if string.find(separator, "^%a+$") then
+								separator = ` {separator} `
+							end
+							return table.concat(parts, separator)
+						end,
+						Size = function(use: ComposeTypes.Use)
+							local side = ctx.controlSize(spec.controlSize, "iconSize", use) + 8
+							return D2.fromOffset(side, side)
+						end,
+						AutomaticSize = E.AutomaticSize.XY,
+						BackgroundTransparency = if spec.cap == false then 1 else 0,
+						BorderSizePixel = 0,
+						TextXAlignment = E.TextXAlignment.Center,
+						Host.UIPadding({}),
+					})),
+					"Text"
+				))
 				ctx.textLayout(cap, nil, true)
 				if spec.Size == nil then
 					local bounds = ctx.layoutBounds(cap, ctx.layoutUnit(cap, "CapUnit"))
@@ -127,11 +133,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				LeftAlt = "Alt",
 				RightAlt = "Alt",
 			}
-			local p = props(
-				spec :: Shared.GuiObjectNativeProps,
-				semantic,
-				{ Size = D2.fromOffset(0, 0), AutomaticSize = E.AutomaticSize.XY, BackgroundTransparency = 0 }
-			)
+			local p = props(spec :: Shared.GuiObjectNativeProps, semantic, {
+				Size = D2.fromOffset(0, 0),
+				AutomaticSize = E.AutomaticSize.XY,
+				BackgroundTransparency = if spec.cap == false then 1 else 0,
+			})
 			p[#p + 1] = Compose.keyed({
 				from = function(use: ComposeTypes.Use)
 					local value = use(binding)
@@ -224,7 +230,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					}
 				end,
 			})
-			return ctx.styled(Host.Frame(p :: Shared.FrameNativeProps), "shortcut-hint")
+			return capped(Host.Frame(p :: Shared.FrameNativeProps))
 		end
 	)
 end

@@ -754,6 +754,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "alternatives", props = properties { keys = { { "Ctrl", "S" }, { "F2" } }, separator = " or " } },
 			{ name = "label after", props = properties { label = "Save" } },
 			{ name = "label before", props = properties { label = "Save", labelPosition = "start" } },
+			{ name = "no cap", props = properties { cap = false } },
 		},
 		valid = function(p: Properties)
 			return not (p.action ~= nil and p.keys ~= nil)

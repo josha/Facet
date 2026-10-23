@@ -12,9 +12,10 @@ Top-bar strip layout, fallback and overlays.
   The other regions stay centred in the remaining space.
   Regions step down when their total width with the gaps does not fit the strip,
   or when a region is taller than the strip row.
-- When `topbar` is `false`, when `GuiService.TopbarInset` has no width, or
-  when the composition is not in a ScreenGui, these regions come first in the
-  `top` zone.
+- When `topbar` is `false`, when `GuiService.TopbarInset` has no width (a
+  console has no Roblox top bar), or when the composition is not in a
+  ScreenGui, these regions come first in the `top` zone. A trailing region
+  goes first in the `topRight` zone instead, so a menu button keeps its corner.
 - When the strip cannot hold a region at its last form, that region moves to
   the start of the `top` zone in its richest form. The highest rank moves first.
   With equal ranks, the later region moves first. The other regions stay in
@@ -34,4 +35,5 @@ Top-bar strip layout, fallback and overlays.
 - In the strip, the `Topbar` Frame holds a `Leading` row for leading regions.
   Its `Middle` row centres the other regions, and its `Trailing` row holds the
   trailing regions at the end.
-  In the `top` zone, a `Landed` Frame holds the regions that moved.
+  In the `top` zone, a `Landed` Frame holds the regions that moved; in the
+  `topRight` zone, `LandedTrailing` holds the trailing ones.

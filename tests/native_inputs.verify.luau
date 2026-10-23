@@ -1626,6 +1626,33 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case("cap = false draws the keys or the platform glyph without the key cap", {
+			id = "native_inputs::native input controls::cap = false draws the keys or the platform glyph without the key cap",
+			run = function()
+				local keys, stopKeys = world(function(UI: FacetControls)
+					return UI.ShortcutHint({ keys = { { "E" } }, cap = false })
+				end)
+				Verify.expect(keys.BackgroundTransparency):toBe(1)
+				Verify.expect(keys:HasTag("facet-shortcut-hint-bare")):toBe(true)
+				stopKeys()
+				local glyph, stopGlyph = world(function(UI: FacetControls, engine)
+					local action, binding = engine.new("InputAction"), engine.new("InputBinding")
+					binding.KeyCode = engine.types.Enum.KeyCode.ButtonY
+					action.PreferredBinding = binding
+					return UI.ShortcutHint({ action = action, cap = false })
+				end)
+				Verify.expect(glyph.BackgroundTransparency):toBe(1)
+				Verify.expect(glyph:HasTag("facet-shortcut-hint-bare")):toBe(true)
+				stopGlyph()
+				local capped, stopCapped = world(function(UI: FacetControls)
+					return UI.ShortcutHint({ keys = { { "E" } } })
+				end)
+				Verify.expect(capped.BackgroundTransparency):toBe(0)
+				Verify.expect(capped:HasTag("facet-shortcut-hint-bare")):toBe(false)
+				stopCapped()
+			end,
+		})
+
 		verifyHarness:case("keeps an authored circle axis dominant instead of fitting inside a zero box", {
 			id = "native_inputs::native input controls::keeps an authored circle axis dominant instead of fitting inside a zero box",
 			run = function()

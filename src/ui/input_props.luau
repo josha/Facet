@@ -1326,6 +1326,7 @@ type ShortcutHintShape<KeysField, ActionField> = {
 	controlSize: typeof(shortcutHint.controlSize),
 	label: typeof(shortcutHint.label),
 	labelPosition: typeof(shortcutHint.labelPosition),
+	cap: typeof(shortcutHint.cap),
 	keys: KeysField,
 	action: ActionField,
 	[number | Engine.EventKey]: Compose.Child,

@@ -676,6 +676,11 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		PaddingLeft = types.UDim.new(0, 8),
 		PaddingRight = types.UDim.new(0, 8),
 	})
+	rule(".facet-shortcut-hint.facet-shortcut-hint-bare::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+	})
+	rule(".facet-shortcut-hint.facet-shortcut-hint-bare::UIStroke", { Transparency = 1 })
 	rule(".facet-toggle-row", { BackgroundTransparency = 1 })
 	rule(".facet-toggle-row:Hover", { BackgroundTransparency = 1 })
 	rule(".facet-toggle-row:Press", { BackgroundTransparency = 1 })
