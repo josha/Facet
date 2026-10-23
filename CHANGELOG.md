@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Hugging stretch stacks refresh automatic size when a learned minimum size
+  decreases or clears. A hidden Composition form now shrinks with its content
+  and keeps that width when shown. Before, the engine kept the old size after
+  a lift decreased, so matching learned the stale width as natural content.
 - Native chrome (a `native` or `none` recipe, such as a theme fill with a
   shadow) adds no box to a hugging control: a static theme mounts no
   decoration frame, and a live theme hides the frame while it draws nothing,
