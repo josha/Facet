@@ -245,6 +245,10 @@ function FantasyParchment.generate(): { Common.Output }
 	end
 	return {
 		{ path = `{DIRECTORY}/parchment_panel.png`, image = compose(1, 144, 40, 7.0, "panel") },
+		{
+			path = `{DIRECTORY}/parchment_panel_tail.png`,
+			image = Common.panelTail(compose(1, 144, 40, 7.0, "panel"), 32, 16, 12),
+		},
 		{ path = `{DIRECTORY}/parchment_button.png`, image = compose(2, 64, 16, 2.5, "button") },
 		{ path = `{DIRECTORY}/parchment_field.png`, image = compose(3, 64, 16, 2.0, "field") },
 		{ path = `{DIRECTORY}/parchment_slider_track.png`, image = sliderTrack(r(4)) },

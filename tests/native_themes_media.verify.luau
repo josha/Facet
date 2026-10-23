@@ -1131,6 +1131,40 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("validates the dimensions and overlap of panel arrow artwork", {
+			id = "native_themes_media::panel-tail-validation",
+			run = function()
+				for _, values in
+					{
+						{ 64, 64, 24, true },
+						{ 0, 64, 24, false },
+						{ math.huge, 64, 24, false },
+						{ 64, 0, 24, false },
+						{ 64, 64, 0, false },
+						{ 64, 64, 65, false },
+						{ 64, 64, 0 / 0, false },
+						{ 32, 20, 12, true, 30 },
+						{ 32, 20, 12, false, -1 },
+						{ 32, 20, 12, false, math.huge },
+						{ 32, 20, 12, false, 0 / 0 },
+					} :: { { number | boolean } }
+				do
+					local package = themes.neutralPackage()
+					package.assets = { arrow = { content = "rbxassetid://123" } }
+					package.chrome = {
+						panelTail = {
+							kind = "fill",
+							asset = "arrow",
+							size = { w = values[1] :: number, h = values[2] :: number },
+							overhang = values[3] :: number,
+							margin = if type(values[5]) == "number" then values[5] else nil,
+						},
+					}
+					Verify.expect(select(2, themes.define(package)).ok):toBe(values[4])
+				end
+			end,
+		})
+
 		verifyHarness:case("keeps compiled theme data immutable and rejects callbacks or malformed values", {
 			id = "native_themes_media::native themes and media::keeps compiled theme data immutable and rejects callbacks or malformed values",
 			run = function()

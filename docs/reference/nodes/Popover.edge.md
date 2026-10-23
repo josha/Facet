@@ -13,11 +13,21 @@ source before any clamp. `maxWidth` and `maxHeight` bound the whole panel,
 chrome included, inside the live safe box. The body scrolls. `tail = false`
 removes the arrow.
 
-The tail of a Popover, a Callout and a Button `help` plate is one shape: a
+Callout and Popover use `chrome.panelTail` when the theme provides it.
+The upward image rotates onto the chosen edge. Its `size` sets the footprint;
+`overhang` sets the depth outside the panel. The rest overlaps the frame to
+cover the join. The image follows panel scale, fade and theme changes.
+See [arrow artwork](../../guide/skinning.md) for the recipe.
+
+Without arrow artwork, a Popover, Callout or Button `help` plate uses a
 `space.m` square turned 45 degrees under the panel (`facet-tail`), with no
-stroke of its own. One closed native `Path2D` named `Outline` draws the
-panel corners and the two outer sides of the tail as one border. It has the
-`facet-outline` tag. A help plate also uses `facet-outline-tooltip`.
+stroke of its own. One native `Path2D` named `Outline` draws the border.
+For a native panel, it is closed and draws the panel corners and the two
+outer sides of the tail. For a skinned panel, it is open and draws only the
+two outer tail edges; the artwork supplies the panel frame.
+It has the `facet-outline` tag. Callout and Popover use
+`facet-tail-floating` and `facet-outline-floating` for theme rules that match
+the panel artwork. Help uses `facet-tail-tooltip` and `facet-outline-tooltip`.
 The border sits in a separate `OutlineBoundary` Frame beside the panel.
 Thus the content padding and the fade container cannot move or clip the border.
 A separate `OutlineFade` Frame contains the border bounds.

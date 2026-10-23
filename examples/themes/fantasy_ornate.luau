@@ -108,6 +108,7 @@ local CRYPT = {
 }
 
 local ASSETS = {
+	ornate_panel_tail = { content = "rbxassetid://70885878191900", preload = "install", fallback = "native" },
 
 	ornate_velvet_tile = { content = "rbxassetid://117354814510719", preload = "install", fallback = "native" },
 	ornate_panel_fill = {
@@ -396,6 +397,13 @@ function fantasy_ornate.definition(themes: any): any
 			},
 		},
 		chrome = {
+			panelTail = {
+				kind = "fill",
+				asset = "ornate_panel_tail",
+				size = { w = 32, h = 20 },
+				overhang = 12,
+				margin = 30,
+			},
 
 			navigation = {
 				kind = "nineSlice",

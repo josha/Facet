@@ -299,7 +299,7 @@ return function(
 				end
 				local tailed = spec.tail ~= false and spec.tail ~= "none"
 				local function lift(use: ComposeTypes.Use): number
-					return 8 + (if tailed then parts.tailSize(ctx, use) * math.sqrt(2) / 2 else 0)
+					return 8 + (if tailed then parts.tailDepth(ctx, use) else 0)
 				end
 				local function above(use: ComposeTypes.Use, floor: number): number
 					use(position)
@@ -334,7 +334,7 @@ return function(
 						edge = edge,
 						align = if align == "leading" then "start" elseif align == "trailing" then "end" else "center",
 						gap = lift(use),
-						tail = if tailed then parts.tailSize(ctx, use) * math.sqrt(2) else 0,
+						tail = if tailed then parts.tailWidth(ctx, use) else 0,
 						tailInset = ctx.metric("radii.panel", use),
 					})
 					return {

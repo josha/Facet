@@ -1034,7 +1034,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-calendar-chosen-end", { TextColor3 = c("surface") })
 	rule(".facet-skinned", { BackgroundTransparency = 1 })
 
-	for _, slot in { "control", "field", "panel" } do
+	for _, slot in { "control", "field", "panel", "panelTail" } do
 		rule(".facet-skin-art-" .. slot, if extra.artTint then { ImageColor3 = c("artTint") } else {})
 	end
 	for status, role in statusRoles do
