@@ -142,8 +142,8 @@ return UI.Popover {
 }
 ```
 
-Keep the trigger in the HUD's responder. A passive responder does not enter
-from a D-pad press while at rest. Give gamepad players an explicit menu entry:
+Keep the trigger in the HUD's responder; a `Composition` is one already. A
+passive responder does not enter from a D-pad press while at rest. Give gamepad players an explicit menu entry:
 engage the responder and set `GuiService.SelectedObject` to the settings
 trigger when the game opens its menu. Once a sibling is selected, native
 selection moves between eligible controls. Use `NextSelectionDown` and the

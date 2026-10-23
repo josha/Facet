@@ -181,16 +181,16 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 											return D2.fromOffset(size, size)
 										end,
 									}
-									if kind == "Image" then
-										native.Image = function(use: ComposeTypes.Use): string
-											return use(nativeImage) :: string
-										end
-									else
+									if kind ~= "Image" then
 										native.ImageContent = function(use: ComposeTypes.Use): Content
 											return use(nativeImage) :: Content
 										end
+										return Host.ImageLabel(native)
 									end
-									return Host.ImageLabel(native)
+									native.Image = function(use: ComposeTypes.Use): string
+										return use(nativeImage) :: string
+									end
+									return ctx.styled(Host.ImageLabel(native), "shortcut-glyph")
 								end
 								return ctx.text({
 									Name = "Key",

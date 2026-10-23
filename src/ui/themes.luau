@@ -656,6 +656,7 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 		TextColor3 = c("contentStrong"),
 		TextSize = package.metrics.typography.caption.size,
 	})
+	rule(".facet-shortcut-glyph", { ImageColor3 = c("contentStrong") })
 	rule(
 		".facet-shortcut-hint::UICorner",
 		{ CornerRadius = types.UDim.new(0, math.min(6, package.metrics.radii.control)) }

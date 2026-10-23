@@ -213,7 +213,12 @@ export type SkinStateOptions = {
 	label: Engine.ValueString?,
 	onCaption: ((boolean) -> ())?,
 }
-export type ResponderOptions = { passive: boolean?, gameplayGuard: boolean?, traversalWrap: boolean? }
+export type ResponderOptions = {
+	passive: boolean?,
+	gameplayGuard: boolean?,
+	traversalWrap: boolean?,
+	engageOnPress: boolean?,
+}
 export type ResponderState = "passive" | "engaged"
 export type Responder = { state: Readable<ResponderState>, engage: () -> (), resign: () -> () }
 export type Context = {

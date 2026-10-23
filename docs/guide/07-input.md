@@ -21,6 +21,8 @@ on main also had:
 
 - The first D-pad press selects the first control on an engaged surface when
   nothing is selected. A passive responder at rest does not enter this way.
+  Every `Composition` is one, so gameplay keeps the movement stick and the
+  D-pad; open HUD tasks with game actions.
 - Tab and Shift+Tab walk the controls in layout order and wrap.
 - A removed control gives the selection to its nearest neighbour.
 - A scroll container is not a selection stop.

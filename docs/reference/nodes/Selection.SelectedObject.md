@@ -2,9 +2,12 @@
 
 Selection.SelectedObject option values and behavior.
 
-- Entry. When nothing is selected, the first D-pad press selects the first
-  control of the active screen in layout order. An open modal is the active
-  screen. The press does not move a selection that already exists.
+- Entry. When nothing is selected, the first D-pad press or left-stick push
+  selects the first control of the active screen in layout order. An open
+  modal is the active screen. The press does not move a selection that
+  already exists. It skips a passive [responder](responder.md) at rest,
+  such as a `Composition` HUD, so the stick and the D-pad keep driving the
+  game.
 - Presentation. A modal presented while a control is selected, or while a
   gamepad is the preferred input, selects its first control. It waits until
   the surface is shown, so it never selects a hidden control.

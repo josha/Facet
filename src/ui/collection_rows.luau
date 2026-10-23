@@ -107,10 +107,13 @@ return function<V, K>(
 						kind == "grid" and spec.columns == nil and minimum > 0 and minimum < math.huge,
 						"Facet minColumnWidth needs a grid, a positive width and no columns"
 					)
-					columns = adaptive.columnsFor(
-						math.max(0, use(cross) - 2 * crossEdge(use)),
-						minimum,
-						read(spec.crossGap or spec.gap or 0, use)
+					columns = view.fitColumns(
+						use,
+						adaptive.columnsFor(
+							math.max(0, use(cross) - 2 * crossEdge(use)),
+							minimum,
+							read(spec.crossGap or spec.gap or 0, use)
+						)
 					)
 				end
 				local gap: number = read(spec.gap or 0, use)

@@ -937,6 +937,7 @@ export type CompositionProps = {
 	padding: typeof(composition.padding),
 	topbar: typeof(composition.topbar),
 	rows: typeof(composition.rows),
+	passive: typeof(composition.passive),
 	[number | Engine.EventKey]: Compose.Child,
 }
 

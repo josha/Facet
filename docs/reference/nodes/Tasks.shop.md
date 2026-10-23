@@ -10,12 +10,12 @@ type Item = { id: string, name: string, price: number }
 local coins, owned = C.cell(300), C.cell({} :: { [string]: boolean })
 local buy = assert(game.ReplicatedStorage:FindFirstChild("Purchase")) :: RemoteFunction
 app.mount(function()
-  local height, env = C.cell(1), UI.environment()
+  local env = UI.environment()
   local spec: Facet.KeyedCollectionSpec<Item, string> = {
-    from = { { id = "kart", name = "Kart", price = 250 } }, key = "id",
-    mode = "all", measure = true, minColumnWidth = env.scaled(220),
+    from = { { id = "kart", name = "Kart", price = 250 }, { id = "glider", name = "Glider", price = 400 },
+      { id = "boots", name = "Boots", price = 120 } }, key = "id",
+    mode = "all", hug = true, measure = true, minColumnWidth = env.scaled(220),
     itemSize = env.scaled(132), gap = env.scaled(16),
-    Size = function(use) return UDim2.new(1, 0, 0, use(height)) end,
     render = function(row: Facet.Readable<Item>, _, key)
       return UI.Card(key) {
         title = function(use) return use(row).name end,
@@ -39,12 +39,11 @@ app.mount(function()
   }
   return UI.Sheet { title = "Shop", width = "wide", isPresented = C.cell(true), detents = { "hug" },
     content = function()
-      local grid = UI.VirtualGrid(spec)
-      local canvas = app.runtime.observe(grid, "CanvasSize")
-      C.watch(function(use) height:set((use(canvas) :: UDim2).Y.Offset) end)
-      return UI.VStack "ShopBody" { width = "fill", grid }
+      return UI.VStack "ShopBody" { width = "fill", UI.VirtualGrid(spec) }
     end }
 end)
 ```
 
-[Purchase](Tasks.purchase.md).
+The items share the sheet's width in as many columns as fit, and wrap into
+rows on a narrow screen. Size the grid, not the cards; see
+[sizing](VirtualList-and-VirtualGrid.sizing.md). [Purchase](Tasks.purchase.md).

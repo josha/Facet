@@ -56,6 +56,7 @@ export type View<V, K> = {
 	pool: ComposeTypes.Pool<PooledRow>,
 	mainEdge: (ComposeTypes.Use?) -> number,
 	crossEdge: (ComposeTypes.Use?) -> number,
+	fitColumns: (ComposeTypes.Use?, number) -> number,
 	cardLayout: (ComposeTypes.Use?) -> (number, number),
 	fullSizes: (ComposeTypes.Use) -> { [K]: number },
 }
@@ -238,6 +239,15 @@ local function create<V, K>(
 		end
 		return math.max(edge, math.ceil(extent * math.max(0, ctx.metric("motion.materialize.lift", use) - 1)))
 	end
+	local function fitColumns(use: ComposeTypes.Use?, columns: number): number
+		if not spec.hug or spec.minColumnWidth == nil or spec.slots ~= nil then
+			return columns
+		end
+		local items = source(use or function<T>(readable: ComposeTypes.Readable<T>): T
+			return readable:peek()
+		end)
+		return math.min(columns, math.max(1, #items))
+	end
 	local function crossEdge(use: ComposeTypes.Use?): number
 		local edge = edgeOf(spec.crossGap or spec.gap, use)
 		if kind ~= "grid" or not readSource(containsCards, use) then
@@ -245,10 +255,13 @@ local function create<V, K>(
 		end
 		local available = readSource(cross, use)
 		local columns = if spec.minColumnWidth ~= nil
-			then adaptive.columnsFor(
-				available,
-				read(spec.minColumnWidth, use),
-				read(spec.crossGap or spec.gap or 0, use)
+			then fitColumns(
+				use,
+				adaptive.columnsFor(
+					available,
+					read(spec.minColumnWidth, use),
+					read(spec.crossGap or spec.gap or 0, use)
+				)
 			)
 			else math.max(1, math.floor(read(spec.columns or 1, use)))
 		return math.max(
@@ -320,6 +333,7 @@ local function create<V, K>(
 		pool = pool,
 		mainEdge = mainEdge,
 		crossEdge = crossEdge,
+		fitColumns = fitColumns,
 		cardLayout = cardLayout,
 		fullSizes = fullSizes,
 	}

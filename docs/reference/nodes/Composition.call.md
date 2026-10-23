@@ -11,6 +11,12 @@ keeps it inside the device safe area. When the composition reaches into the
 `GuiService.TopbarInset` band, it adds the covered height to its top padding,
 as `Screen` does.
 
+A composition is a HUD over live gameplay, so it is a passive
+[responder](responder.md): a stick push or a D-pad press never selects a HUD
+control, Space reaches the game, and a click does not take the keyboard. Open
+HUD tasks for a gamepad with game actions, or set `GuiService.SelectedObject`
+to a HUD control from a game action.
+
 ```luau
 local hidden = Compose.cell(1)
 return UI.Composition "Hud" {
@@ -39,6 +45,10 @@ Composition options:
   so a set of HUD readouts reads as one row. `"fit"` keeps each region at its
   own height. A region whose content has its own `UISizeConstraint` keeps its
   height.
+- `passive`: a boolean. The default is `true`, a passive responder as above.
+  `false` registers no responder, so the D-pad enters the composition like
+  any screen. Use it for a dedicated screen laid out with regions, not for a
+  HUD over play.
 - The children are `UI.Region` nodes. A `UI.fill()` child is also allowed, so
   the composition can take the free height of a stack.
 

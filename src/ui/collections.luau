@@ -43,6 +43,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		"selectionFrom",
 		"selectionIndicator",
 		"minColumnWidth",
+		"hug",
 		"rowActions",
 		"key",
 		"render",
@@ -108,6 +109,9 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 			"Facet collection snap must be none or item"
 		)
 		assert(type(spec.render) == "function", "Facet collection requires render(current, placement, key)")
+		assert(spec.hug == nil or type(spec.hug) == "boolean", "Facet collection hug must be a boolean")
+		assert(not spec.hug or spec.mode == "all", 'Facet collection hug needs mode = "all": it sizes to every row')
+		assert(not spec.hug or spec.itemSize ~= "cards", 'Facet collection hug cannot size "cards" from its own extent')
 		tree = tree or (if spec.children then createTree(ctx, UI, spec, keyOf) else nil)
 		if tree then
 			assert(kind == "list" and spec.direction ~= "horizontal", "Facet hierarchy needs a vertical list")
@@ -196,7 +200,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 		local native = ctx.props(spec, behavior, {
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			Size = D2.fromScale(1, 1),
+			Size = if spec.hug
+				then function(use: ComposeTypes.Use): UDim2
+					local extent = use(contentExtent)
+					return if horizontal then D2.new(0, extent, 1, 0) else D2.new(1, 0, 0, extent)
+				end
+				else D2.fromScale(1, 1),
 			AutomaticCanvasSize = E.AutomaticSize.None,
 			ScrollingDirection = if horizontal then E.ScrollingDirection.X else E.ScrollingDirection.Y,
 			VerticalScrollBarInset = if horizontal then E.ScrollBarInset.ScrollBar else nil,

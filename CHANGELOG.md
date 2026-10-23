@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- A `Composition` is a passive responder (`gameplayGuard = false`,
+  `engageOnPress = false`): a HUD over live gameplay. The first stick push or
+  D-pad press no longer selects a HUD button, so a gamepad player who starts
+  to drive is not stuck on the first button; Space reaches the game; a click
+  on a HUD button does not take the keyboard. Before, the first push selected
+  the HUD's first button and the stick moved the selection instead of the
+  player. Open HUD tasks with game actions, or put the selection in the HUD
+  from a menu action.
+- A ShortcutHint for an action inks a platform glyph image
+  (`GetImageForKeyCode`) with the cap's text color (`contentStrong`). Roblox's
+  console glyphs are white discs, so on a light key cap they were invisible. A
+  binding's own `DisplayImage` keeps its colors.
+- `UI.responder` takes `engageOnPress = false`: a press on a surface at rest
+  activates its control and leaves the surface at rest.
+- `UI.Composition` takes `passive = false` for a dedicated screen laid out
+  with regions; it then registers no responder.
+- D-pad entry tries every screen for a control that is not resting, and a
+  modal presented in a resting HUD's layer still takes the first press. Tab
+  stays bound while an always-engaged (`passive = false`) surface is
+  mounted, and a hidden passive surface no longer unbinds it.
+- VirtualList and VirtualGrid take `hug = true` with `mode = "all"`: the
+  collection takes the height of its rows (the width on a horizontal list)
+  and does not scroll, so a short collection lays out as content in a hugging
+  Sheet without observing `CanvasSize`. A `minColumnWidth` grid with `hug`
+  makes no more columns than items, so a few peer cards share a wide panel
+  with no empty column. The shop recipe and the design guide use it, and the
+  guide now says to let the grid own the width instead of sizing items from
+  the viewport.
 - Native chrome (a `native` or `none` recipe, such as a theme fill with a
   shadow) adds no box to a hugging control: a static theme mounts no
   decoration frame, and a live theme hides the frame while it draws nothing,

@@ -71,6 +71,7 @@ export type CollectionOptions<V, K> = {
 	crossGap: Types.ValueNumber?,
 	columns: Types.ValueNumber?,
 	minColumnWidth: Types.ValueNumber?,
+	hug: boolean?,
 	rowActions: ((current: ComposeTypes.Readable<V>, key: K) -> RowActionsShape?)?,
 	overscan: number?,
 	measured: Types.Value<{ [K]: number }>?,

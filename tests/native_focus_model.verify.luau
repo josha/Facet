@@ -547,6 +547,134 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("a passive HUD (Composition)", function()
+		local function hud(passive: boolean?)
+			return setup(function(UI: FacetControls)
+				return UI.Screen "Page" {
+					UI.Composition "Hud" {
+						passive = passive,
+						UI.Region "Wallet" {
+							zone = "topLeft",
+							rank = 1,
+							UI.Button "Shop" { label = "Shop" },
+						},
+					},
+				}
+			end)
+		end
+		verifyHarness:case("engageOnPress = false: a tap on the surface leaves it at rest and selects nothing", {
+			id = "native_focus_model::a passive HUD (Composition)::engageOnPress = false: a tap on the surface leaves it at rest and selects nothing",
+			run = function()
+				local state = function(): string
+					return "none"
+				end
+				local w = setup(function(UI: FacetControls)
+					local surface = UI.Screen "Hud" {
+						UI.Button "One" { label = "One" } :: unknown,
+						UI.Button "Two" { label = "Two" },
+					}
+					local responder = UI.responder(surface, { engageOnPress = false })
+					state = function(): string
+						return responder.state:peek()
+					end
+					return surface
+				end)
+				w.parent.GetGuiObjectsAtPosition = function()
+					return { w.find("One") }
+				end
+				local E = w.engine.types.Enum
+				w.input.InputBegan:Fire({
+					UserInputType = E.UserInputType.MouseButton1,
+					KeyCode = E.KeyCode:FromValue(0),
+					Position = w.engine.types.Vector3.new(10, 10, 0),
+				}, true)
+				Verify.expect(state()):toBe("passive")
+				Verify.expect((w.selected())):toBe("nil")
+				w.gui.SelectedObject = w.find("One")
+				Verify.expect(state()):toBe("engaged")
+				w.parent.GetGuiObjectsAtPosition = function()
+					return { w.find("Two") }
+				end
+				w.input.InputBegan:Fire({
+					UserInputType = E.UserInputType.MouseButton1,
+					KeyCode = E.KeyCode:FromValue(0),
+					Position = w.engine.types.Vector3.new(10, 10, 0),
+				}, true)
+				Verify.expect((w.selected())):toBe("Two")
+				w.stop()
+			end,
+		})
+		verifyHarness:case("the movement stick and the D-pad drive the game: neither enters a Composition HUD", {
+			id = "native_focus_model::a passive HUD (Composition)::the movement stick and the D-pad drive the game: neither enters a Composition HUD",
+			run = function()
+				local w = hud()
+				local E = w.engine.types.Enum
+				w.input.InputBegan:Fire(
+					{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.DPadDown },
+					false
+				)
+				Verify.expect((w.selected())):toBe("nil")
+				w.find("FacetEntry", w.parent)
+					:FindFirstChild("Enter").StateChanged
+					:Fire(w.engine.types.Vector2.new(0, -1))
+				Verify.expect((w.selected())):toBe("nil")
+				Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(false)
+				w.stop()
+			end,
+		})
+		verifyHarness:case("passive = false makes a Composition an ordinary screen the D-pad enters", {
+			id = "native_focus_model::a passive HUD (Composition)::passive = false makes a Composition an ordinary screen the D-pad enters",
+			run = function()
+				local w = hud(false)
+				local E = w.engine.types.Enum
+				w.input.InputBegan:Fire(
+					{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.DPadDown },
+					false
+				)
+				Verify.expect((w.selected())):toBe("Shop")
+				w.stop()
+			end,
+		})
+		verifyHarness:case(
+			"a resting HUD beside an always-engaged screen keeps Tab, and the D-pad enters that screen",
+			{
+				id = "native_focus_model::a passive HUD (Composition)::a resting HUD beside an always-engaged screen keeps Tab, and the D-pad enters that screen",
+				run = function()
+					local w = setup(function(UI: FacetControls)
+						local page = UI.Screen "Page" {
+							UI.Composition "Hud" {
+								UI.Region "Wallet" { zone = "topLeft", rank = 1, UI.Button "Shop" { label = "Shop" } },
+							},
+							UI.Button "Play" { label = "Play" },
+						}
+						UI.responder(page, { passive = false })
+						return page
+					end)
+					Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
+					local E = w.engine.types.Enum
+					w.input.InputBegan:Fire(
+						{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.DPadDown },
+						false
+					)
+					Verify.expect((w.selected())):toBe("Play")
+					w.stop()
+				end,
+			}
+		)
+		verifyHarness:case("the game puts the selection in a Composition HUD; Space still reaches the game", {
+			id = "native_focus_model::a passive HUD (Composition)::the game puts the selection in a Composition HUD; Space still reaches the game",
+			run = function()
+				local w = hud()
+				w.gui.SelectedObject = w.find("Shop")
+				Verify.expect(w.find("FacetTraversal", w.parent).Enabled):toBe(true)
+				Verify.expect((w.activateKeys())):toEqual({ "Return" })
+				local guard = w.find("FacetGameplayGuard", w.parent)
+				Verify.expect(guard == nil or not guard.Enabled):toBe(true)
+				w.stop()
+			end,
+		})
+	end)
+
 	verifyHarness:suite("traversalWrap (DK-3)", function()
 		verifyHarness:case("traversalWrap = false stops Tab at the last control and Shift+Tab at the first", {
 			id = "native_focus_model::traversalWrap (DK-3)::traversalWrap = false stops Tab at the last control and Shift+Tab at the first",
