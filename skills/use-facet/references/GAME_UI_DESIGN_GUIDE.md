@@ -16,9 +16,11 @@ Keep related content closer than separate groups and align comparable facts.
 Test text over busy gameplay and bright effects; add a backing surface when
 the world cannot provide reliable contrast.
 
-Give objects meaningful artwork or well-framed Stage previews. Show a color as
-a swatch and a pattern as a preview. Use recognizable glyphs with labels for
-destinations. Reserve strong accent for the important action or state; repeating
+Give objects meaningful artwork or well-framed Stage previews. Make the subject
+large enough to inspect its distinguishing details. Frame the chosen object
+beside the facts and action it informs. Show a color as a swatch and a pattern
+as a preview. Use recognizable glyphs with labels for destinations and object
+types. Reserve strong accent for the important action or state; repeating
 bright buttons everywhere destroys emphasis. Distinguish focus, selection,
 equipped, pending and unavailable beyond color.
 
@@ -68,6 +70,14 @@ Choose the surface before its controls. Persistent destinations usually need
 pages or in-world stations; Sheet is not the default for every task. A settings
 value is not a navigation tab. Focus or selection must not silently commit a
 purchase, equip change or destructive action.
+Let a dedicated page replace unrelated HUD groups. Keep only the context it
+needs, such as the balance beside a cost. On short screens, reduce introductory
+copy and decorative headers before reducing the usable decision area.
+
+Use controls that expose the decision: Toggle for an on/off state, Picker for
+named alternatives, and cards with artwork for visually identified objects.
+Keep available choices and the current value visible. A button that cycles
+through hidden values makes comparison and correction harder.
 
 Every menu, focus move and confirmation costs attention. Add a step when it
 improves understanding or prevents a meaningful error. Keep frequent safe
@@ -78,6 +88,12 @@ useful context. On narrow screens use a complete detail step where necessary.
 On short screens let art and secondary content yield before required actions.
 Keep the main action outside a long scrolling collection when it applies to
 the selected object.
+
+Use wide space for simultaneous browsing and detail, then a complete detail
+page in compact space. Size a surface for its content and task; short decisions
+should not leave a large empty panel, and long catalogs should not push the
+selected object's action below the viewport. Verify this with real content
+before repeating the layout across destinations.
 
 ## Adapt the task, not just its size
 

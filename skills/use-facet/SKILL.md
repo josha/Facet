@@ -29,6 +29,8 @@ in the installed docs and CLI. Use `Map` only when the task has no known route.
 | Page header, scrolling body and return | `Screen.card`, `NavBar.card`, `ScrollView.card` |
 | Gamepad entry into a passive HUD | `responder` |
 | Collection and selected detail | `Tasks.collection-detail` |
+| Boolean settings or named choices | `Toggle.card`, `Picker.card` |
+| Object identity, art and selection | `Card.card`, `Stage.card` |
 | A bounded interruption or dirty dismissal | `Tasks.sheet`, `Sheet.dismissal` |
 | Visual system | `Tasks.theme` |
 | Server-accepted state | `Tasks.state` |
@@ -59,6 +61,9 @@ Compose owns state, branching, motion and cleanup. Read cells with `use` in
 property functions and `peek` in callbacks; write with `set` or `update`.
 Create branch-owned reactive values inside the branch. Keep durable row state,
 selection and drafts in the model.
+Separate rapidly changing gameplay readouts from inventory and settings state.
+Update only changed values; a timer tick should not rebuild a page or refresh
+every record. Reuse small components and data-driven artwork across objects.
 
 Use strict Luau, concrete shared types and named constructors. Native properties
 keep Roblox names; Facet options use lower camel case. Do not cast through `any`.
