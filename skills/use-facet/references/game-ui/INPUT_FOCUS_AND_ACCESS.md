@@ -41,9 +41,11 @@ Nintendo's requirements are not public; their system conventions agree.
 
 A selects and B goes back on every screen. Since the PS5, Cross confirms in
 every region, Japan included, and Roblox reports it as ButtonA: never swap
-them. LB/RB change tabs (TabView binds them) and LT/RT page long content (bind
-them yourself; Facet's collections do not). X and Y are shortcuts for frequent,
-non-critical commands that also have an on-screen route. Roblox keeps Menu;
+them. LB/RB change tabs (TabView binds them) and LT/RT page long content
+(VirtualList, VirtualGrid, Table and Outline bind them while they hold
+focus). X and Y
+are shortcuts for frequent, non-critical commands that also have an on-screen
+route. Roblox keeps Menu;
 ButtonSelect (View) moves the selection into the interface while
 GuiService.AutoSelectGuiEnabled is on. Show the button with ShortcutHint and
 the action, which draws the Xbox or PlayStation glyph the engine reports.
@@ -53,6 +55,17 @@ dismiss control that B performs: a Sheet's first content control or its
 `initialFocus`, such as a recommended item. A confirmation with consequences
 starts on the safe choice, as a Dialog's cancel action does. Focus returns to
 the opener and always stays visible, never on a hidden or off-screen control.
+Visible means visible over the game too: a ring the color of the grass behind
+it is lost. Facet's default ring kind has a contrasting halo
+(`chrome.focus.halo`); give bracket, glow and art looks the same contrast, and
+check focus over the busiest and most similar scenery. A slow pulse suits
+tiles and cards, not text buttons, and stops under reduced motion.
+
+A surface that owns input lists its active buttons and what they do in a
+footer, such as "A Buy  B Back  Y Sort". Update the list with the context,
+hide it during an alert, and make each entry a touch target that runs the same
+command. When a controller connects or disconnects, acknowledge it and switch
+the glyphs at once.
 
 Every menu works with the D-pad and A/B alone, one press at a time: no stick,
 chord, rapid press or long hold, or a toggle where a hold is unavoidable. Keep
@@ -61,8 +74,9 @@ beside long lists. At 1080p, text needs a body height of at least 26 pixels
 and scales to 200 percent; Facet's ten-foot text is at least 28 (captions 24)
 and follows the preferred text size. Keep text and controls about 5 percent
 inside each edge; Composition and `overscanInsets` do this. Sound and haptics
-confirm navigation sparingly, and help that appears on a resting selection is
-one short sentence.
+confirm navigation sparingly: a soft tick for a focus move, and distinct
+sounds for confirm, back, refusal and reward, so each one reads by ear. Help
+that appears on a resting selection is one short sentence.
 
 Test with the Studio Controller Emulator in the Xbox and PlayStation device
 simulators: the first stick push after spawning, each HUD button, where focus

@@ -6196,6 +6196,150 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
+		verifyHarness:case("pages a list by the viewport with the triggers and skips disabled rows", {
+			id = "native_collections::Compose native collections::pages a list by the viewport with the triggers and skips disabled rows",
+			run = function()
+				local engine, runtime, UI, target, gui = setup()
+				local stop, node: any = runtime.mount(function()
+					return UI.VirtualList({
+						from = records(12),
+						key = key,
+						itemSize = 20,
+						overscan = 0,
+						disabled = function(item)
+							return item.id == 5
+						end,
+						render = function(current): GuiObject
+							return button(UI, current)
+						end,
+					})
+				end, target)
+				engine.environment.poke(
+					(node :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteWindowSize",
+					engine.types.Vector2.new(200, 100)
+				)
+				local first = node:FindFirstChild("1", true):FindFirstChild("Action", true)
+				gui.SelectedObject = first
+				first.SelectionGained:Fire()
+				local function press(name: string)
+					target:FindFirstChild("Facet" .. name):FindFirstChild(name).Pressed:Fire()
+				end
+				local function selected(): string
+					return (assert(gui.SelectedObject) :: TextLabel).Text
+				end
+				local pageDown = target:FindFirstChild("FacetCollectionPageDown")
+				Verify.expect(pageDown ~= nil):toBe(true)
+				press("CollectionPageDown")
+				Verify.expect(selected()):toBe("4")
+				press("CollectionPageDown")
+				Verify.expect(selected()):toBe("8")
+				press("CollectionPageDown")
+				Verify.expect(selected()):toBe("12")
+				press("CollectionPageDown")
+				Verify.expect(selected()):toBe("12")
+				press("CollectionPageUp")
+				Verify.expect(selected()):toBe("8")
+				press("CollectionPageUp")
+				Verify.expect(selected()):toBe("4")
+				stop()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("pages an outline through its visible children", {
+			id = "native_collections::Compose native collections::pages an outline through its visible children",
+			run = function()
+				local engine, runtime, UI, target, gui = setup()
+				local kids = {}
+				for index = 1, 10 do
+					table.insert(kids, { id = 100 + index, label = `{100 + index}` })
+				end
+				local roots = { { id = 1, label = "1" }, { id = 2, label = "2" }, { id = 3, label = "3" } }
+				local stop, node: any = runtime.mount(function()
+					return UI.Outline({
+						from = roots,
+						key = key,
+						itemSize = 20,
+						overscan = 0,
+						expanded = Compose.cell({ [1] = true }),
+						children = function(item)
+							return if item.id == 1 then kids else nil
+						end,
+						render = function(current): GuiObject
+							return button(UI, current)
+						end,
+					})
+				end, target)
+				engine.environment.poke(
+					(node :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteWindowSize",
+					engine.types.Vector2.new(200, 100)
+				)
+				local first = node:FindFirstChild("1", true):FindFirstChild("Action", true)
+				gui.SelectedObject = first
+				first.SelectionGained:Fire()
+				local function press(name: string)
+					target:FindFirstChild("Facet" .. name):FindFirstChild(name).Pressed:Fire()
+				end
+				local function selected(): string
+					return (assert(gui.SelectedObject) :: TextLabel).Text
+				end
+				press("CollectionPageDown")
+				Verify.expect(selected()):toBe("104")
+				press("CollectionPageDown")
+				Verify.expect(selected()):toBe("108")
+				press("CollectionPageDown")
+				Verify.expect(selected()):toBe("3")
+				press("CollectionPageUp")
+				Verify.expect(selected()):toBe("108")
+				stop()
+				runtime:dispose()
+			end,
+		})
+		verifyHarness:case("pages a grid within its column and reaches a short last row", {
+			id = "native_collections::Compose native collections::pages a grid within its column and reaches a short last row",
+			run = function()
+				local engine, runtime, UI, target, gui = setup()
+				local stop, node: any = runtime.mount(function()
+					return UI.VirtualGrid({
+						from = records(20),
+						key = key,
+						columns = 3,
+						itemSize = 20,
+						overscan = 0,
+						render = function(current): GuiObject
+							return button(UI, current)
+						end,
+					})
+				end, target)
+				engine.environment.poke(
+					(node :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteWindowSize",
+					engine.types.Vector2.new(60, 60)
+				)
+				local third = node:FindFirstChild("3", true):FindFirstChild("Action", true)
+				gui.SelectedObject = third
+				third.SelectionGained:Fire()
+				local function press(name: string)
+					target:FindFirstChild("Facet" .. name):FindFirstChild(name).Pressed:Fire()
+				end
+				local function selected(): string
+					return (assert(gui.SelectedObject) :: TextLabel).Text
+				end
+				press("CollectionPageDown")
+				Verify.expect(selected()):toBe("9")
+				press("CollectionPageDown")
+				Verify.expect(selected()):toBe("15")
+				press("CollectionPageDown")
+				Verify.expect(selected()):toBe("18")
+				press("CollectionPageDown")
+				Verify.expect(selected()):toBe("20")
+				press("CollectionPageUp")
+				Verify.expect(selected()):toBe("14")
+				stop()
+				runtime:dispose()
+			end,
+		})
 	end)
 
 	verifyHarness:suite("Table compact width", function()

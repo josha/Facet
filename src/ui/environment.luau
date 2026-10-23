@@ -6,6 +6,7 @@ local ThemeTypes = require("./theme_types")
 local adaptive = require("./adaptive")
 local motion = require("./motion")
 local freeze = require("./freeze")
+local support = require("./theme_support")
 
 type Point = { X: number, Y: number, Z: number }
 type Projector = {
@@ -345,6 +346,33 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 						})
 					end,
 				}) :: ComposeTypes.Child,
+			}),
+			Host.UIStroke({
+				Name = "Halo",
+				ApplyStrokeMode = E.ApplyStrokeMode.Border,
+				BorderStrokePosition = E.BorderStrokePosition.Outer,
+				ZIndex = 0,
+				LineJoinMode = function(use: ComposeTypes.Use): Enum.LineJoinMode
+					return if layer(use).corner == "square" then E.LineJoinMode.Miter else E.LineJoinMode.Round
+				end,
+				Color = function(use: ComposeTypes.Use): Color3
+					local wanted = layer(use).halo
+					if type(wanted) == "table" then
+						return ctx.types.Color3.new(wanted.r, wanted.g, wanted.b)
+					end
+					local ink = use(color) :: Color3
+					local black, white = ctx.types.Color3.new(0, 0, 0), ctx.types.Color3.new(1, 1, 1)
+					return if support.contrast(ink, black) >= support.contrast(ink, white) then black else white
+				end,
+				Enabled = function(use: ComposeTypes.Use): boolean
+					return layer(use).kind == "ring" and layer(use).halo ~= false
+				end,
+				Thickness = function(use: ComposeTypes.Use): number
+					return math.max(1, math.round(thickness(use) / 2))
+				end,
+				Transparency = function(use: ComposeTypes.Use): number
+					return fade(use, 0.35)
+				end,
 			}),
 			Host.UIShadow((function()
 				local properties = table.clone(glowProperties)
