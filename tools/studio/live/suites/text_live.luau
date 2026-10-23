@@ -212,6 +212,61 @@ add("wrapped-region-readouts-use-the-offered-column-width", {}, function(t)
 	end
 end)
 
+add("hidden-wallet-form-shrinks-before-reveal", {}, function(t)
+	local Facet: typeof(require("@repo/tools/typecheck/aliases").FacetModule) = t.Facet
+	local coins = Facet.Compose.cell("12")
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return UI.Composition "HUD" {
+			UI.Region "Wallet" {
+				zone = "topLeft",
+				rank = 1,
+				reveal = false,
+				UI.Text "Full" { text = coins, Size = UDim2.fromOffset(600, 40) },
+				UI.VStack "Compact" {
+					align = "stretch",
+					gap = "xs",
+					UI.HStack "CoinRow" {
+						surface = "panel",
+						padding = "s",
+						gap = "s",
+						Host.Frame "Coin" { Size = UDim2.fromOffset(26, 26) },
+						UI.Text "Coins" { text = coins, textRole = "strong" },
+					},
+					UI.Button "Upgrades" { label = "Upgrades", controlSize = "compact" },
+				},
+			},
+		}
+	end, { size = Vector2.new(800, 600) })
+	t.settle(60)
+	local wallet = t.find(stage, "Wallet") :: Frame
+	local compact = t.find(wallet, "Compact") :: Frame
+	local row = t.find(compact, "CoinRow") :: Frame
+	local button = t.find(compact, "Upgrades") :: GuiObject
+	local width = compact.AbsoluteSize.X
+	t.check("the compact form starts hidden", wallet:GetAttribute("FacetForm") == 1)
+	t.near("the initial readout matches the button", row.AbsoluteSize.X, button.AbsoluteSize.X, 1)
+	for cycle = 1, 2 do
+		coins:set("1,000,000")
+		t.settle(60)
+		t.check(
+			`cycle {cycle}: the hidden wallet grows`,
+			compact.AbsoluteSize.X > width + 20,
+			{ width, compact.AbsoluteSize.X }
+		)
+		coins:set("12")
+		t.settle(60)
+		t.check(`cycle {cycle}: the compact form stays hidden`, wallet:GetAttribute("FacetForm") == 1)
+		t.near(`cycle {cycle}: the hidden wallet shrinks`, compact.AbsoluteSize.X, width, 1)
+		t.near(`cycle {cycle}: the hidden readout matches the button`, row.AbsoluteSize.X, button.AbsoluteSize.X, 1)
+	end
+	stage.Size = UDim2.fromOffset(320, 600)
+	t.settle(60)
+	t.check("the compact form is selected", wallet:GetAttribute("FacetForm") == 2)
+	t.near("the revealed wallet keeps its natural width", compact.AbsoluteSize.X, width, 1)
+	t.near("the revealed readout matches the button", row.AbsoluteSize.X, button.AbsoluteSize.X, 1)
+	t.check("the readout retains automatic sizing", row.AutomaticSize == Enum.AutomaticSize.XY)
+end)
+
 add("wrapped-text-resizes-and-keeps-explicit-sizing", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls)
 		return UI.VStack "Column" {

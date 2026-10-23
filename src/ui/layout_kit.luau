@@ -626,6 +626,15 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	function kit.lifter(source: GuiObject, axis: "x" | "y"): (number) -> boolean
 		local owner = assert(Compose.currentOwner(), "Facet lift needs an owner")
 		local target: GuiObject? = nil
+		local function apply(node: GuiObject, floor: sizeFloor.Floor, value: number)
+			local shrinking = value < floor[axis]:peek()
+			floor[axis]:set(value)
+			if shrinking then
+				local automatic = node.AutomaticSize
+				node.AutomaticSize = Enum.AutomaticSize.None
+				node.AutomaticSize = automatic
+			end
+		end
 		local function aimed(value: number): GuiObject?
 			if value <= 0 or owner.isDisposed() then
 				return nil
@@ -642,8 +651,8 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		local function release()
 			local held = if target then sizeFloor.peek(target) else nil
-			if held then
-				held[axis]:set(0)
+			if held and target then
+				apply(target, held, 0)
 			end
 			target = nil
 		end
@@ -658,7 +667,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				return false
 			end
 			target = aim
-			floor[axis]:set(value)
+			apply(aim, floor, value)
 			return true
 		end
 	end
