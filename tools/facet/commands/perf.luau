@@ -370,7 +370,7 @@ local function benchesFor(out: string, label: string): { Paired.Bench }
 	return benches
 end
 
-local function pairedReport(invocation: Cli.Invocation): number
+local function pairedReport(invocation: Cli.Invocation, canContinue: boolean?): number
 	local out, first, second = invocation.positional[3], invocation.positional[4], invocation.positional[5]
 	local rounds = tonumber(Cli.flag(invocation, "rounds") or "")
 	if
@@ -420,17 +420,25 @@ local function pairedReport(invocation: Cli.Invocation): number
 	for _, line in Paired.benchTables(loaded.first, loaded.second, first, second) do
 		table.insert(lines, line)
 	end
+	local slower: { string } = {}
+	for _, line in lines do
+		if string.find(line, second .. " slower (", 1, true) then
+			table.insert(slower, (string.match(line, "^| ([^|]+) |") or line))
+		end
+	end
 	local summary = Paired.summary(lines, first, second)
+	summary[1] ..= ` ({rounds} rounds{if canContinue == true
+			and Cli.switch(invocation, "gate")
+			and #slower > 0
+		then ", provisional; continuing"
+		elseif canContinue ~= nil then ", final"
+		else ""})`
 	for _, line in summary do
 		print(line)
 	end
 	print("")
-	local slower: { string } = {}
 	for _, line in lines do
 		print(line)
-		if string.find(line, second .. " slower (", 1, true) then
-			table.insert(slower, (string.match(line, "^| ([^|]+) |") or line))
-		end
 	end
 	local target = Cli.flag(invocation, "summary")
 	if target ~= nil then
@@ -486,18 +494,17 @@ local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture
 		return 2
 	end
 	Files.makeDirectory(out)
+	for _, entry in trees do
+		local target = Files.join(entry.tree, "bench/paired_scene.luau")
+		if not samePath(target, runner) then
+			Files.write(target, Files.read(runner))
+		end
+	end
 	for round = 1, rounds do
-		for position = 1, #trees do
-			local entry = trees[Paired.armIndex(round, position, #trees)]
-			local target = Files.join(entry.tree, "bench/paired_scene.luau")
-			if not samePath(target, runner) then
-				Files.write(target, Files.read(runner))
-			end
-			append(
-				log,
-				("round %d %s start %s load %s\n"):format(round, entry.label, os.date("%H:%M:%S"), loadAverage())
-			)
-			for _, scene in sceneList do
+		append(log, ("round %d start %s load %s\n"):format(round, os.date("%H:%M:%S"), loadAverage()))
+		for _, scene in sceneList do
+			for position = 1, #trees do
+				local entry = trees[Paired.armIndex(round, position, #trees)]
 				local result = execute(
 					{ Run.lute(), "run", "bench/paired_scene.luau", scene },
 					{ cwd = entry.tree, env = environment }
@@ -519,7 +526,11 @@ local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture
 					return 2
 				end
 			end
-			if not skipBench then
+		end
+		if not skipBench then
+			for position = 1, #trees do
+				local entry = trees[Paired.armIndex(round, position, #trees)]
+				append(log, ("round %d %s bench start %s\n"):format(round, entry.label, os.date("%H:%M:%S")))
 				local artifact = Files.join(entry.tree, "artifacts", "bench.json")
 				if Files.isFile(artifact) then
 					Files.remove(artifact)
@@ -545,15 +556,16 @@ local function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture
 					end
 					return if calibration then 75 else 2
 				end
+				append(log, ("round %d %s bench end %s\n"):format(round, entry.label, os.date("%H:%M:%S")))
 			end
-			append(log, ("round %d %s end %s\n"):format(round, entry.label, os.date("%H:%M:%S")))
 		end
+		append(log, ("round %d end %s\n"):format(round, os.date("%H:%M:%S")))
 		if gate and (round == 3 or round == rounds) then
 			local report = table.clone(invocation)
 			report.positional = { "paired", "report", out, trees[1].label, trees[2].label }
 			report.flags = table.clone(invocation.flags)
 			report.flags.rounds = tostring(round)
-			local status = pairedReport(report)
+			local status = pairedReport(report, round < rounds)
 			if status ~= 1 or round == rounds then
 				append(log, if status == 0 then "DONE\n" else `GATE FAILED {status}\n`)
 				return status
@@ -858,6 +870,7 @@ local function pairedRunFixture(mode: string): string?
 		local out = Files.join(root, "out")
 		local counts: { [string]: number } = { base = 0, cand = 0 }
 		local arms: { string } = {}
+		local calls: { string } = {}
 		local summary = Files.join(root, "summary.md")
 		local arguments = { "perf", "paired", "run", "--out", out, "--rounds", "6", "--summary", summary }
 		if mode ~= "manual" then
@@ -874,6 +887,7 @@ local function pairedRunFixture(mode: string): string?
 				local round = counts[label] + 1
 				local output = ""
 				if argv[3] == "bench/paired_scene.luau" then
+					table.insert(calls, label .. ":" .. argv[4])
 					local row = Json.object()
 					Json.set(row, "scene", argv[4])
 					Json.set(row, "status", "ok")
@@ -885,6 +899,7 @@ local function pairedRunFixture(mode: string): string?
 					end
 					output = "@@" .. Json.encode(row)
 				else
+					table.insert(calls, label .. ":bench")
 					counts[label] = round
 					table.insert(arms, label)
 					local document = requiredBench(round, label).document
@@ -909,12 +924,27 @@ local function pairedRunFixture(mode: string): string?
 		local expected = if rounds == 6
 			then "base,cand,cand,base,base,cand,cand,base,base,cand,cand,base"
 			else "base,cand,cand,base,base,cand"
+		local order = string.split(expected, ",")
+		local expectedCalls: { string } = {}
+		for round = 1, rounds do
+			for _, scene in Paired.SCENES do
+				for position = 1, 2 do
+					table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":" .. scene)
+				end
+			end
+			for position = 1, 2 do
+				table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":bench")
+			end
+		end
 		local summaryCount = 0
+		local summaryText = ""
 		if Files.isFile(summary) then
-			for _ in string.gmatch(Files.read(summary), "### Paired performance:") do
+			summaryText = Files.read(summary)
+			for _ in string.gmatch(summaryText, "### Paired performance:") do
 				summaryCount += 1
 			end
 		end
+		local final = if mode == "fail" then "FAIL" else "PASS"
 		return Case.first(
 			Case.equal(status, if mode == "invalid" then 2 elseif mode == "fail" then 1 else 0, "verdict"),
 			Case.equal(
@@ -923,6 +953,21 @@ local function pairedRunFixture(mode: string): string?
 				"checkpoint summaries"
 			),
 			Case.equal(table.concat(arms, ","), expected, "counterbalanced arms"),
+			Case.same(calls, expectedCalls, "adjacent scene pairs before the benchmark arms"),
+			if summaryCount > 0
+				then Case.equal(
+					string.find(summaryText, `{final} ({rounds} rounds, final)`, 1, true) ~= nil,
+					true,
+					"final summary identifies its round count"
+				)
+				else nil,
+			if summaryCount == 2
+				then Case.equal(
+					string.find(summaryText, "FAIL (3 rounds, provisional; continuing)", 1, true) ~= nil,
+					true,
+					"the earlier checkpoint is provisional"
+				)
+				else nil,
 			Case.equal(#entries, rounds * 2 * #Paired.SCENES, "every scene retained"),
 			Case.equal(#benchesFor(out, "base") + #benchesFor(out, "cand"), rounds * 2, "every benchmark retained")
 		)
