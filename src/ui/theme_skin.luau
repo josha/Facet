@@ -505,7 +505,7 @@ return function(
 	Compose.watch(function(use: ComposeTypes.Use)
 		local active = buildLayers(use)
 		activeLayers = active
-		if boundary then
+		if boundary and boundary.Visible ~= (#active > 0) then
 			boundary.Visible = #active > 0
 		end
 		local previousSlots = slots:peek()
@@ -599,9 +599,12 @@ return function(
 		}
 	end, settings.target or root)
 	local decorated = decoration(Compose, runtime, types, settings.target, root)
-	if settings.target ~= nil then
+	local target = settings.target
+	if target ~= nil and target.AutomaticSize ~= types.Enum.AutomaticSize.None then
 		boundary = decorated
-		decorated.Visible = #activeLayers > 0
+		if #activeLayers == 0 then
+			decorated.Visible = false
+		end
 	end
 	return decorated :: Frame
 end
