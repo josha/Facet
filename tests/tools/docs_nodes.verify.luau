@@ -237,13 +237,22 @@ return function(harness: Verify.Harness)
 		local nodes = Index.load(".")
 		local map = assert(Index.find(nodes, "Map"))
 		for _, recipe in
-			{ "Tasks.hud", "Tasks.collection-detail", "Tasks.sheet", "Tasks.settings", "Tasks.safe-layout" }
+			{
+				"Tasks.hud",
+				"Tasks.pages",
+				"Tasks.collection-detail",
+				"Tasks.sheet",
+				"Tasks.settings",
+				"Tasks.safe-layout",
+			}
 		do
 			t:expect(table.find(map.children, recipe) ~= nil):toBe(true)
 		end
 		local hud = assert(Index.find(nodes, "Tasks.hud"))
 		t:expect(table.find(hud.children, "Tasks.collection-detail") ~= nil):toBe(true)
-		t:expect(table.find(hud.children, "Tasks.sheet") ~= nil):toBe(true)
+		t:expect(table.find(hud.children, "Tasks.pages") ~= nil):toBe(true)
+		local pages = assert(Index.find(nodes, "Tasks.pages"))
+		t:expect(table.find(pages.children, "Tasks.sheet") ~= nil):toBe(true)
 		local shop = assert(Index.find(nodes, "Tasks.collection-detail"))
 		for _, name in { "UI.NavigationSplitView", "UI.VirtualGrid", "UI.Card", "artwork", "terms", "onActivate" } do
 			t:expect(string.find(shop.body, name, 1, true) ~= nil):toBe(true)

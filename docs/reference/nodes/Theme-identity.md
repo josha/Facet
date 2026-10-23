@@ -27,10 +27,10 @@ Turn the art direction of a game into a theme that reads over its world.
 - Keep selection, ownership and purchase emphasis distinct. A quiet Owned
   state must not compete with Buy. Preserve the words as well as any color
   difference. Use stable icons or category marks when they help identify items.
-- Fit short tasks to their content. A large empty panel makes a small decision
-  harder to scan and hides the game world. Use a content-sized Sheet for a
-  short offer; use a bounded viewport when the player needs to browse a large
-  collection. See [Sheet.detents](Sheet.detents.md).
+- Choose a surface for the task. Give recurring destinations a readable
+  [page](Tasks.pages.md), with art and comparison space. Use a content-sized
+  Sheet for a short interruption. A large empty panel makes a small decision
+  harder to scan; a small scrolling window hides a collection's useful choices.
 - Use quiet boundaries when they help separate items from their container.
   Reserve strong outlines for the current selection or action; equal bright
   strokes on every nested panel erase that hierarchy.

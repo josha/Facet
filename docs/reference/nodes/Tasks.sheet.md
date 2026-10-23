@@ -1,32 +1,23 @@
 # Tasks.sheet
 
-Modal pages with Back.
+Open a short contextual task and return to its source.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
-local Compose = Facet.Compose
+local C = Facet.Compose
 local app = Facet.app({ name = "Game" })
 local UI = app.UI
-local open = Compose.cell(false)
-type Route = { id: string, value: string }
-local path = Compose.cell({} :: { Route })
+local open, captions = C.cell(false), C.cell(true)
 app.mount(function()
   return UI.Screen "Root" {
-    UI.Button "Open" { label = "Details", onActivate = function() open:set(true) end },
-    UI.Sheet "Panel" {
-      title = "Details", isPresented = open,
-      detents = { "medium" },
+    UI.Button { label = "Audio options", onActivate = function() open:set(true) end },
+    UI.Sheet {
+      title = "Audio options", isPresented = open,
+      placement = "center", detents = { "hug" },
       content = function()
-        return UI.NavigationStack "Pages" {
-          path = path,
-          root = { title = "Home", content = function()
-            return UI.Button "More" { label = "More", onActivate = function()
-              path:set({ { id = "more", value = "Ready" } })
-            end }
-          end },
-          destinations = { more = { title = "More", content = function(entry)
-            return UI.Text "Body" { text = entry.value }
-          end } },
+        return UI.VStack "Options" { width = "fill", gap = "s",
+          UI.Text { text = "Show captions for spoken dialogue.", wrap = true },
+          UI.Toggle { label = "Dialogue captions", value = captions },
         }
       end,
     },
@@ -35,21 +26,17 @@ end)
 script.Destroying:Connect(app.dispose)
 ```
 
-Sheet owns dismissal and scrolling; NavigationStack owns child-page Back.
-Sheet content runs at construction. Reading a route with `peek()` there does
-not switch pages. Use NavigationStack or [Compose branches](State.md).
-The root has no Back. The one-detent grabber closes on tap/click,
-Return or gamepad A. When placement centers the sheet, Close replaces the
-grabber. Leave `closeButton` absent to keep that adaptation. Read
-[Sheet.layout](Sheet.layout.md) and test each input's exit and return focus.
+The game applies the value. Close returns to the opener. Leave closeButton
+absent so the visible exit follows placement. Dock when dragging between
+useful task heights helps the player. Test exit and focus return with each input.
 
-NavigationStack fills its viewport; use a bounded detent. `hug` needs an
-intrinsically sized short body. Keep large collections in bounded viewports.
-Use Popover for anchored actions and DisclosureGroup for inline facts.
+Use [pages](Tasks.pages.md) for recurring destinations and deep browsing,
+[Popover](Popover.card.md) for an anchored choice, or DisclosureGroup for
+optional inline facts. A short task hugs its content; a large collection needs
+a bounded viewport. NavigationStack fills its viewport and cannot hug.
 
-Match the panel's words to its trigger. Modals hide native touch controls and
-restore them on exit; the game owns custom touch actions.
-
-Open:
-
-- [NavigationStack.reference](NavigationStack.reference.md)
+Content runs at construction. Use [Compose branches](State.md) for changing
+content. Apply [Sheet.dismissal](Sheet.dismissal.md) to every dirty exit.
+Keep pending work open until acceptance; preserve rejected drafts.
+Modals hide native touch controls and restore them on exit. The game owns
+custom touch actions and gameplay input.

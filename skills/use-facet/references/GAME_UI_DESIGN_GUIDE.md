@@ -1,7 +1,8 @@
 # Game UI design
 
-Design for the player's situation, decision, action and visible result. Facet
-supplies reusable behavior; the game supplies meaning and visual character.
+This guide applies the skill's principles: player intent, game identity,
+attention, adaptation and trust. Facet supplies reusable behavior; the game
+supplies meaning and visual character.
 A HUD, contextual choice, planning screen and celebration need different
 compositions. Share a visual language without forcing them into one template.
 
@@ -11,6 +12,27 @@ Choose a coherent palette, type hierarchy, spacing, surfaces, icons and motion.
 Express them through the theme. Establish what should be noticed first, second
 and third in each state. Use scale, alignment and negative space to make that
 order visible; do not surround every fact with a box.
+
+Choose a visual motif from the game's world and repeat it with restraint in
+art, framing and transitions. Design one complete connected sequence: the
+gameplay entry, the decision, its feedback and the return. Give each state a
+clear focal area and retain the object's identity across the sequence.
+A theme is the shared visual language; each task still needs its own composition.
+
+Choose the composition from the subject. Equipment inspection can give the
+selected object most of the space, with a quiet collection beside it. A skill
+tree needs visible connections and a selected-node explanation. A race result
+can lead with placement and the finish moment, then earned gains and standings.
+A workshop can keep the object in view while tools and materials surround it.
+Use these relationships to choose controls; a grid is useful when silhouettes
+help comparison, not as the body of every destination.
+
+Specify the game's visual direction before styling controls: the subject that
+dominates, the framing or material motif, the type contrast, and the role of
+accent. For example, a field journal can use paper, ink and specimen drawings;
+a racing garage can use vehicle silhouettes, technical labels and timing digits.
+Carry that direction through HUD, choices and results. Do not turn every theme
+into dark rounded cards with a different accent color.
 
 Keep related content closer than separate groups and align comparable facts.
 Test text over busy gameplay and bright effects; add a backing surface when
@@ -95,6 +117,13 @@ should not leave a large empty panel, and long catalogs should not push the
 selected object's action below the viewport. Verify this with real content
 before repeating the layout across destinations.
 
+Build the destination with Tasks.pages and its body with the recipe that fits
+the decision. A collection needs recognizable silhouettes and comparable facts;
+an editor needs a useful preview and visible choices; results need an outcome
+and accepted gains. Share headers, spacing and interaction rules without
+forcing those bodies into one universal panel. Review the shortest viewport
+with real labels, art and data before copying the structure.
+
 ## Adapt the task, not just its size
 
 Space, input precision, viewing distance and gameplay pace are separate facts.
@@ -147,6 +176,14 @@ editing, interruption, failure, return and reward. Operate each distinct pattern
 with supported inputs at wide, narrow and short sizes. A technically passing
 screen is not proof of visual quality; a beautiful screen cannot excuse a
 blocked task.
+
+Inspect a capture at its intended viewing size. The first glance should reveal
+the subject, current state and next useful action. If every element has equal
+weight, reduce competing borders, labels and accents before adding decoration.
+Check that art shows the actual object and its distinguishing features, that
+text and art share a deliberate alignment, and that empty space supports the
+focal area. Remove redundant headers and repeated information. Apply feedback
+to the selected object and accepted result, not to every container at once.
 
 ## Read only the relevant detail
 

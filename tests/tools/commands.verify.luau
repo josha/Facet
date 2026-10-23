@@ -319,7 +319,7 @@ return function(harness: Verify.Harness)
 				"Tasks.sheet",
 				"Controls",
 				"Themes.index",
-				"Sheet.detents",
+				"Tasks.pages",
 				"ServerStorage.FacetDocs",
 				"<Control>.card",
 				"<Control>.props",

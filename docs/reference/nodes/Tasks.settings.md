@@ -17,7 +17,7 @@ app.mount(function()
             width = "fill", gap = "s", padding = "m",
             UI.Toggle "Music" { label = "Music", value = music },
             UI.Divider "Rule" {},
-            UI.Slider "Volume" { value = volume, min = 0, max = 1 },
+            UI.Slider "Volume" { row = { title = "Music volume" }, value = volume, min = 0, max = 1 },
         },
     }
 end)

@@ -132,4 +132,4 @@ Do not add Python or Lune programs.
 
 ## Versioning
 
-`src/init.luau` is the only version authority. Use only the current API. Do not add compatibility shims or a second supported architecture. Describe public behavior changes in the changelog.
+`src/init.luau` is the only version authority. Use only the current API. Do not add compatibility shims or a second supported architecture. Keep documentation focused on current contracts. Describe changes in the pull request, and keep only the latest evaluation evidence in the repository.
