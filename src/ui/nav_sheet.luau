@@ -34,6 +34,7 @@ local KEYS = {
 	"scrollPolicy",
 	"transition",
 	"initialFocus",
+	"guide",
 }
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Nav.Surfaces): ()
 	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime

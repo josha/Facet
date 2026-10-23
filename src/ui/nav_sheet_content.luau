@@ -6,6 +6,7 @@ local Overlay = require("./overlay_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local NavigationProps = require("./navigation_props")
+local InputProps = require("./input_props")
 local sheetGesture = require("./nav_sheet_gesture")
 
 export type SheetContent = {
@@ -326,6 +327,38 @@ return function(
 			actionRegion = region
 			table.insert(regions, region)
 		end
+		local shown: { [GuiObject]: ComposeTypes.Readable<boolean> } = {}
+		if spec.guide ~= nil then
+			assert(type(spec.guide) == "table", "Facet.Sheet: guide takes ButtonGuide options")
+			local options = (table.clone(spec.guide) :: unknown) :: { [unknown]: unknown }
+			for key in options do
+				assert(
+					type(key) ~= "string" or string.match(key, "^%u") == nil,
+					"Facet.Sheet: guide takes ButtonGuide options; the Sheet places the guide"
+				)
+			end
+			options.Name = "ButtonGuide"
+			local guide = UI.ButtonGuide((options :: unknown) :: InputProps.ButtonGuideProps)
+			local visible = ctx.observe.Visible(guide) :: ComposeTypes.Readable<unknown>
+			local present = Compose.formula(function(use: ComposeTypes.Use): boolean
+				return use(visible) == true
+			end)
+			local region = Host.Frame "Guide" {
+				BackgroundTransparency = 1,
+				Selectable = false,
+				Size = D2.new(1, 0, 0, 0),
+				AutomaticSize = E.AutomaticSize.Y,
+				Visible = present,
+				Host.UIListLayout({
+					FillDirection = E.FillDirection.Horizontal,
+					HorizontalAlignment = E.HorizontalAlignment.Right,
+					SortOrder = E.SortOrder.LayoutOrder,
+				}),
+				guide,
+			}
+			shown[region] = present
+			table.insert(regions, region)
+		end
 		linkDismissal()
 		local contentSize = ctx.observe.AbsoluteContentSize(bodyLayout)
 		local extra = if hero == nil or sticky then inset * 2 else 0
@@ -337,7 +370,7 @@ return function(
 		end
 		local room = parts.room(ctx, regions, body, natural, function(use: ComposeTypes.Use): number
 			return math.max(0, standing(use) - chrome(use))
-		end, true, unit)
+		end, true, unit, shown)
 		runtime.decorate(flex, {
 			FlexMode = function(use: ComposeTypes.Use)
 				return if use(room.tight) then E.UIFlexMode.None else E.UIFlexMode.Fill

@@ -39,6 +39,9 @@ Factory-options.keyboardNavigation option values and behavior.
     `FormatByKey` in a readable and pass string arguments, such as
     `tostring(count)`. Set `AutoLocalize = false` for already translated text.
     Reuse this translator and source table across task components.
+- `buttonGuides`: a boolean or a readable boolean, `true` by default. `false`
+  hides every [ButtonGuide](ButtonGuide.reference.md). Bind one player
+  settings Toggle to it.
 - `services`, `guiService`, `userInputService` and `types`: native dependencies.
 - `inputParent` and `overlayParent`: placement targets. Presented controls
   mount inside `overlayParent` when you set it. They measure its live bounds

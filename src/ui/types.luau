@@ -162,6 +162,7 @@ export type Config = {
 	environment: EnvironmentPreview?,
 	keyboardNavigation: boolean?,
 	translator: Value<Translator?>?,
+	buttonGuides: Value<boolean>?,
 }
 export type EnvironmentPreview = {
 	preferredInput: Value<(Enum.PreferredInput | string)?>?,

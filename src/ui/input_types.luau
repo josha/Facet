@@ -317,6 +317,17 @@ export type ShortcutHintImplementationProps = Shared.TextLabelNativeProps & Shor
 	action: InputAction?,
 	keys: Value<{ { string } }>?,
 }
+export type ButtonGuideInput = "Gamepad" | "KeyboardAndMouse"
+export type ButtonGuideActionEntry = { action: InputAction, keys: nil?, label: Shared.ValueString }
+export type ButtonGuideKeysEntry = { keys: Value<{ { string } }>, action: nil?, label: Shared.ValueString }
+export type ButtonGuideEntry = ButtonGuideActionEntry | ButtonGuideKeysEntry
+export type ButtonGuideOptions = {
+	ref: ((Frame) -> ())?,
+	entries: Value<{ ButtonGuideEntry }>,
+	inputs: { ButtonGuideInput }?,
+	controlSize: Value<Shared.ControlSize?>?,
+}
+export type ButtonGuideImplementationProps = Shared.FrameNativeProps & ButtonGuideOptions
 export type HapticKind = Shared.HapticKind
 export type AdjustmentState = { value: Shared.ValueNumber, onChange: ((number) -> ())? } | AdjustableOptions
 export type AdjustableOptions = {

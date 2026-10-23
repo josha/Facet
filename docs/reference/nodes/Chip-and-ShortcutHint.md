@@ -44,3 +44,7 @@ on touch. Without a name the hint shows no words for that binding.
 color, such as `label = "Interact"`. `labelPosition` is `end` (the default,
 after the keys) or `start`. With a label, ShortcutHint returns a row Frame that
 holds the keys, named `Keys`, and the `Label`.
+
+For a legend line of commands that have no control of their own, use
+[ButtonGuide](ButtonGuide.reference.md). It draws one ShortcutHint for each
+live command and shows by input class.

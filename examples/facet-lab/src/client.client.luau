@@ -101,6 +101,7 @@ local owner = Compose.createRootOwner(function()
 		name = "Facet_Lab",
 		theme = ctx.theme,
 		motionLevel = ctx.motionPreference,
+		buttonGuides = settings.buttonGuides,
 
 		environment = settings.environment,
 		overlayParent = ctx.overlayParent,

@@ -9,6 +9,7 @@ Open one card.
 - [AvatarGroup.card](AvatarGroup.card.md)
 - [Badge.card](Badge.card.md)
 - [Button.card](Button.card.md)
+- [ButtonGuide.card](ButtonGuide.card.md)
 - [Callout.card](Callout.card.md)
 - [Card.card](Card.card.md)
 - [CellEditor.card](CellEditor.card.md)

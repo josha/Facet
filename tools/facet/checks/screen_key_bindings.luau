@@ -60,9 +60,9 @@ local READ_ONLY_PROBES: { [string]: string } = {
 
 local PINS: { Pin } = {
 	{
-		path = "examples/facet-lab/src/catalog.luau",
-		count = 1,
-		reason = "the ShortcutHint variant describes one native F2 InputBinding on a detached InputAction; it does not capture screen input",
+		path = "examples/facet-lab/src/hint_pages.luau",
+		count = 2,
+		reason = "the ShortcutHint and ButtonGuide lab pages describe native InputBindings on detached InputActions; they do not capture screen input",
 	},
 	{
 		path = "examples/gallery/examples/05_word_game.luau",
