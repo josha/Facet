@@ -95,7 +95,7 @@ return function(harness: Verify.Harness)
 			"# Map\r\n\r\nStart here. Another sentence.\r\n\r\n[Tasks](Tasks.md) [Card](Button.card.md#call) [Tasks again](./Tasks.md)\r\n[Outside](../api.md) [External](https://example.com/X.md)\r\n```luau\r\n[Fake](Fake.md)\r\n```\r\n"
 		)
 		write("Tasks", "# Tasks\n\nChoose a task.\n")
-		write("Tasks.shop", "# Shop\n\nBuy items.\n")
+		write("Tasks.collection-detail", "# Shop\n\nBuy items.\n")
 		write("Button.card", "# Button\n\nPress an action.\n\n<!-- aliases: push button | push -->\n")
 		write("Text.card", "# Text\n\nRead a value.\n")
 		write("Themes.index", "# Themes\n\nChoose a theme.\n")
@@ -112,7 +112,7 @@ return function(harness: Verify.Harness)
 			{
 				{ "Map", "map" },
 				{ "Tasks", "index" },
-				{ "Tasks.shop", "recipe" },
+				{ "Tasks.collection-detail", "recipe" },
 				{ "Button.card", "card" },
 				{ "Themes.index", "index" },
 				{ "Themes.neutral.tokens", "index" },
@@ -236,15 +236,18 @@ return function(harness: Verify.Harness)
 	harness:case("the map and HUD route each screen task to its recipe", function(t)
 		local nodes = Index.load(".")
 		local map = assert(Index.find(nodes, "Map"))
-		for _, recipe in { "Tasks.hud", "Tasks.shop", "Tasks.sheet", "Tasks.settings", "Tasks.safe-layout" } do
+		for _, recipe in
+			{ "Tasks.hud", "Tasks.collection-detail", "Tasks.sheet", "Tasks.settings", "Tasks.safe-layout" }
+		do
 			t:expect(table.find(map.children, recipe) ~= nil):toBe(true)
 		end
 		local hud = assert(Index.find(nodes, "Tasks.hud"))
-		t:expect(table.find(hud.children, "Tasks.shop") ~= nil):toBe(true)
+		t:expect(table.find(hud.children, "Tasks.collection-detail") ~= nil):toBe(true)
 		t:expect(table.find(hud.children, "Tasks.sheet") ~= nil):toBe(true)
-		local shop = assert(Index.find(nodes, "Tasks.shop"))
-		for _, name in { "UI.Sheet", "UI.VirtualGrid", "UI.Card", "owned", "Coins", "Need", "onActivate" } do
+		local shop = assert(Index.find(nodes, "Tasks.collection-detail"))
+		for _, name in { "UI.NavigationSplitView", "UI.VirtualGrid", "UI.Card", "artwork", "terms", "onActivate" } do
 			t:expect(string.find(shop.body, name, 1, true) ~= nil):toBe(true)
 		end
+		t:expect(table.find(shop.children, "Tasks.purchase") ~= nil):toBe(true)
 	end)
 end

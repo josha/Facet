@@ -174,7 +174,9 @@ return function(harness: Verify.Harness)
 		end)
 
 		harness:case("applies pinch and pointer pan in input callbacks and freezes child drag", function(t)
-			local engine = engineLib.new({ lenientProperties = true })
+			local engine, fixture = engineLib.new({ lenientProperties = true })
+			local tracking = fixture.track()
+			t:defer(tracking.stop)
 			local C = Facet.Compose
 			local runtime = Facet.Roblox.createRuntime(engine)
 			local Host = (runtime.constructors :: unknown) :: Shared.Host
@@ -212,7 +214,7 @@ return function(harness: Verify.Harness)
 				resets += 1
 			end
 			engine.heartbeat:Fire(0.016)
-			local count = #engine.made
+			local count = #tracking.created
 			local canvas = view:FindFirstChild("ZoomContent") :: Frame
 			local scale = canvas:FindFirstChild("ZoomScale") :: UIScale
 			assert(controls.zoomTo)({ x = 400, y = 400, w = 200, h = 200 })
@@ -224,7 +226,7 @@ return function(harness: Verify.Harness)
 				previous = scale.Scale
 			end
 			t:expect(scale.Scale):toBe(2)
-			t:expect(#engine.made):toBe(count)
+			t:expect(#tracking.created):toBe(count)
 			local V2, E = engine.types.Vector2, engine.types.Enum
 			input.TouchPinch:Fire({ V2.new(150, 150), V2.new(250, 250) }, 1, 0, E.UserInputState.Begin, false)
 			input.TouchPinch:Fire({ V2.new(150, 150), V2.new(250, 250) }, 1.25, 0, E.UserInputState.Change, false)
@@ -269,11 +271,11 @@ return function(harness: Verify.Harness)
 			end
 			t:expect(scale.Scale):toBe(3)
 			t:expect(resets):toBe(2)
-			t:expect(#engine.made):toBe(count + 1)
+			t:expect(#tracking.created):toBe(count + 1)
 			gui.SelectedObject = view
-			for _, node in engine.made do
+			for _, node in tracking.created do
 				if node.Name == "ZoomOut" and node:IsA("InputAction") then
-					node.Pressed:Fire()
+					engine.environment.fire(node, "Pressed")
 				end
 			end
 			for _ = 1, 20 do
@@ -956,7 +958,9 @@ return function(harness: Verify.Harness)
 		end)
 
 		harness:case("retargets travel from its sampled position and hands off the same carrier", function(t)
-			local engine = engineLib.new()
+			local engine, fixture = engineLib.new()
+			local tracking = fixture.track()
+			t:defer(tracking.stop)
 			local C = Facet.Compose
 			local runtime = Facet.Roblox.createRuntime(engine)
 			local Host = (runtime.constructors :: unknown) :: Shared.Host
@@ -1009,7 +1013,7 @@ return function(harness: Verify.Harness)
 			t:expect(carrier.Parent == first):toBe(true)
 			t:expect(landed):toBe(1)
 			carrier.AbsolutePosition, carrier.AbsoluteSize = first.AbsolutePosition, first.AbsoluteSize
-			local count = #engine.made
+			local count = #tracking.created
 			destination:set(second)
 			local previous = carrier.Position.X.Offset
 			for _ = 1, 6 do
@@ -1028,7 +1032,7 @@ return function(harness: Verify.Harness)
 			t:expect(carrier.Parent == first):toBe(true)
 			t:expect(carrier.Visible):toBe(true)
 			t:expect(landed):toBe(2)
-			t:expect(#engine.made):toBe(count)
+			t:expect(#tracking.created):toBe(count)
 			reduced:set("limited")
 			destination:set(second)
 			t:expect(carrier.Parent == second):toBe(true)

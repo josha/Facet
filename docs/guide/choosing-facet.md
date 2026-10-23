@@ -29,5 +29,5 @@ Facet does not supply:
 If you need one of these, make an explicit architecture decision outside this
 package.
 
-See [architecture](02-architecture.md), [the public contract](../reference/api.md)
-and [choosing controls](14-choosing-controls.md).
+See [architecture](architecture.md), [the public contract](../reference/api.md)
+and [choosing controls](choosing-controls.md).

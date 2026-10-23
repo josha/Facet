@@ -1,5 +1,4 @@
 --!strict
-local NativeEngine = require("../tests/lib/native_engine")
 local Compose = require("../src").Compose
 
 local system = require("@std/system")
@@ -277,9 +276,11 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 	local liveConnections: any = registrations
 	if state.engine and state.target then
 		instances = #state.target:GetDescendants()
-		local connections = NativeEngine.connections(state.engine.heartbeat) + state.target:connectionCount()
+		local environment = state.engine.environment
+		local connections = environment.connectionsOf(state.engine.heartbeat)
+			+ environment.connectionsOfInstance(state.target)
 		for _, node in state.target:GetDescendants() do
-			connections += node:connectionCount()
+			connections += environment.connectionsOfInstance(node)
 		end
 		liveConnections = connections
 	end

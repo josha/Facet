@@ -14,6 +14,42 @@ return function(verifyHarness: Verify.Harness)
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 	local Vector2 = require("./lib/native_engine").types.Vector2
+	local textMeasure = require("../src/ui/text_measure")
+
+	verifyHarness:case("presents settled text overflow without hiding unrelated HUD controls", {
+		id = "native_presentation_motion::settled text overflow does not hide the HUD",
+		run = function(context)
+			local w = overlay.new(function(UI)
+				return UI.Composition "HUD" {
+					UI.Region "Commands" {
+						zone = "topRight",
+						rank = 1,
+						UI.Button "Open" { label = "Open", onActivate = function() end },
+					},
+					UI.Region "Readout" {
+						zone = "topLeft",
+						rank = 2,
+						UI.Text "Overflow" { text = "A constrained readout", wrap = true },
+					},
+				}
+			end, { runService = true, preRender = true, motionLevel = "none" })
+			context:defer(w.stop)
+			w.size(w.find("Commands"), 120, 44)
+			w.size(w.find("Readout"), 16, 44)
+			local label = w.find("Overflow")
+			w.size(label, 0, 18)
+			label.TextFits = false
+			local release = textMeasure.hold(label)
+			context:defer(release)
+			w.advance(0.1, 6)
+			Verify.expect(w.find("HUD"):GetAttribute("FacetPreparing")):toBe(true)
+			release()
+			w.advance(0.1, 6)
+			Verify.expect(label.TextFits):toBe(false)
+			Verify.expect(w.find("HUD"):GetAttribute("FacetPreparing")):toBe(false)
+			Verify.expect(fadeKit.of(w.find("HUD"))):toBe(0)
+		end,
+	})
 
 	verifyHarness:case("uses native core safe insets without fullscreen content expansion", {
 		id = "native_presentation_motion::native app safe screen defaults",
@@ -1075,6 +1111,36 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 	verifyHarness:suite("presentation motion: Menu measurement", function()
+		verifyHarness:case("reveals a menu with settled overflowing text after measurement completes", {
+			id = "native_presentation_motion::menu overflow does not block presentation",
+			run = function(context)
+				local w = overlay.new(function(UI)
+					return UI.Menu "Commands" {
+						label = "Actions",
+						items = { { id = "save", label = "Save", onSelect = function() end } },
+					}
+				end, { runService = true, preRender = true })
+				context:defer(w.stop)
+				w.find("Trigger").Activated:Fire()
+				local panel, row = w.find("MenuPanel"), w.find("save")
+				w.size(w.find("Modal"), 800, 600)
+				w.size(panel, 220, 104)
+				w.size(w.find("MenuRows"), 220, 104)
+				w.size(row, 0, 44)
+				row.AutomaticSize = w.Enum.AutomaticSize.Y
+				row.TextWrapped = true
+				row.TextFits = false
+				local group = w.find("MenuGroup")
+				local release = textMeasure.hold(row)
+				context:defer(release)
+				w.advance(1, 60)
+				Verify.expect(fadeKit.of(group)):toBe(1)
+				release()
+				w.advance(1, 60)
+				Verify.expect(row.TextFits):toBe(false)
+				Verify.expect(fadeKit.of(group)):toBe(0)
+			end,
+		})
 		verifyHarness:case("holds panel height through a one-frame row measurement handoff and accepts stable reflow", {
 			id = "native_presentation_motion::presentation motion: Menu measurement::holds panel height through a one-frame row measurement handoff and accepts stable reflow",
 			run = function()

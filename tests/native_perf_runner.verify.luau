@@ -325,7 +325,7 @@ return function(verifyHarness: Verify.Harness)
 							core = state.core,
 							s = state.s,
 							n = state.n,
-							engine = Engine.new({ recordCreated = false }),
+							engine = Engine.new(),
 						}
 					end,
 					run = function(state)
@@ -390,7 +390,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function(context)
 				local scene = tinyScene()
 				local setup = scene.setup
-				local engine = Engine.new({ recordCreated = false })
+				local engine = Engine.new()
 				local leaked = engine.new("Folder")
 				context:defer(function()
 					leaked:Destroy()

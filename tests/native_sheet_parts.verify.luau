@@ -43,7 +43,7 @@ return function(verifyHarness: Verify.Harness)
 		end
 		local modal = w.find("Modal")
 		if modal then
-			modal.AbsoluteSize = o.room or Vector2.new(800, 600)
+			w.engine.environment.poke(modal, "AbsoluteSize", o.room or Vector2.new(800, 600))
 		end
 		if not o.unsettled then
 			w.advance(1 / 300, 2)
@@ -53,7 +53,11 @@ return function(verifyHarness: Verify.Harness)
 
 	local function content(w: any, height: number)
 		local flow = w.find("SheetFlow")
-		flow:FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = Vector2.new(500, height - 16)
+		w.engine.environment.poke(
+			flow:FindFirstChildWhichIsA("UIListLayout"),
+			"AbsoluteContentSize",
+			Vector2.new(500, height - 16)
+		)
 	end
 	local function sheetInsets(
 		w: { find: (string) -> GuiObject }
@@ -229,8 +233,8 @@ return function(verifyHarness: Verify.Harness)
 					w.shown:set(false)
 					w.advance(2, 60)
 					Verify.expect(w.find("OverlayArrival") == nil):toBe(true)
-					local retained = (assert(banner) :: unknown) :: { isDestroyed: (unknown) -> boolean }
-					Verify.expect(retained:isDestroyed()):toBe(false)
+					local retained = assert(banner)
+					Verify.expect(not w.engine.environment.isAlive(retained)):toBe(false)
 					w.shown:set(true)
 					w.advance(1 / 30, 2)
 					Verify.expect(assert(banner):IsDescendantOf(w.find("Hero"))):toBe(true)
@@ -279,7 +283,11 @@ return function(verifyHarness: Verify.Harness)
 				end
 				w.size(w.find("Header"), 250, 22)
 				w.size(w.find("Actions"), 250, 22)
-				w.find("SheetFlow"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = Vector2.new(250, 142)
+				w.engine.environment.poke(
+					w.find("SheetFlow"):FindFirstChildWhichIsA("UIListLayout"),
+					"AbsoluteContentSize",
+					Vector2.new(250, 142)
+				)
 				Verify.expect(w.find("SheetPanel").Size.Y.Offset):toBe(464)
 				Verify.expect(w.find("SheetContent").Size.Y.Offset):toBe(308)
 				w.stop()
@@ -676,8 +684,8 @@ return function(verifyHarness: Verify.Harness)
 				local one, three = overlay.find(w.find("Actions"), "One"), overlay.find(w.find("Actions"), "Three")
 				w.at(room, 0, 200)
 				w.size(room, 500, 150)
-				room.AbsoluteWindowSize = Vector2.new(500, 150)
-				room.AbsoluteCanvasSize = Vector2.new(500, 1200)
+				w.engine.environment.poke(room, "AbsoluteWindowSize", Vector2.new(500, 150))
+				w.engine.environment.poke(room, "AbsoluteCanvasSize", Vector2.new(500, 1200))
 				for _, node in { overlay.find(w.find("Actions"), "Two"), one, three } do
 					w.size(node, 500, 44)
 				end
@@ -695,7 +703,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(room.CanvasPosition.Y):toBe(1100 + 44 - 350)
 				w.detent:set("large")
 				w.advance(0.5, 5)
-				w.find("Modal").AbsoluteSize = Vector2.new(800, 900)
+				w.engine.environment.poke(w.find("Modal"), "AbsoluteSize", Vector2.new(800, 900))
 				Verify.expect(room.ScrollingEnabled):toBe(false)
 				Verify.expect(body.ScrollingEnabled):toBe(true)
 				Verify.expect(body:FindFirstChildWhichIsA("UIFlexItem").FlexMode):toBe(w.Enum.UIFlexMode.Fill)
@@ -763,7 +771,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((banner:IsDescendantOf(w.find("Hero")))):toBe(true)
 					w.shown:set(false)
 					w.advance(1 / 30, 60)
-					Verify.expect((banner:isDestroyed())):toBe(false)
+					Verify.expect((not w.engine.environment.isAlive(banner))):toBe(false)
 					w.shown:set(true)
 					w.advance(1 / 300, 2)
 					Verify.expect((w.shown:peek())):toBe(true)
@@ -792,8 +800,8 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((w.find("Head"))):toBe(head)
 					w.shown:set(false)
 					w.advance(1 / 30, 60)
-					Verify.expect((copy:isDestroyed())):toBe(false)
-					Verify.expect((head:isDestroyed())):toBe(false)
+					Verify.expect((not w.engine.environment.isAlive(copy))):toBe(false)
+					Verify.expect((not w.engine.environment.isAlive(head))):toBe(false)
 					w.shown:set(true)
 					w.advance(1 / 300, 2)
 					Verify.expect((w.shown:peek())):toBe(true)
@@ -829,13 +837,13 @@ return function(verifyHarness: Verify.Harness)
 				}, { detent = "large", motionLevel = "none" })
 				local panel = w.find("SheetPanel")
 				local tall = panel.Size.Y.Offset
-				w.input.OnScreenKeyboardSize = Vector2.new(800, 250)
-				w.input.OnScreenKeyboardVisible = true
+				w.engine.environment.poke(w.input, "OnScreenKeyboardSize", Vector2.new(800, 250))
+				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", true)
 				Verify.expect(panel.Size.Y.Offset):toBe(math.floor(350 * 0.95))
 				Verify.expect(panel.Position.Y.Offset):toBe(-250)
 				Verify.expect(panel.Size.Y.Offset < tall):toBe(true)
 				Verify.expect((w.find("Actions"):IsDescendantOf(panel))):toBe(true)
-				w.input.OnScreenKeyboardVisible = false
+				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", false)
 				Verify.expect(panel.Size.Y.Offset):toBe(tall)
 				w.stop()
 			end,
@@ -858,23 +866,27 @@ return function(verifyHarness: Verify.Harness)
 							end),
 						}, { detent = "large", motionLevel = "none" })
 						local panel, field = w.find("SheetPanel"), w.find("Field")
-						w.input.OnScreenKeyboardSize = Vector2.new(800, 250)
-						w.input.OnScreenKeyboardVisible = true
+						w.engine.environment.poke(w.input, "OnScreenKeyboardSize", Vector2.new(800, 250))
+						w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", true)
 						local connections = w.engine.census().connections
 						local press = w.engine.new("InputObject")
-						press.UserInputType = w.engine.types.Enum.UserInputType[kind]
-						press.UserInputState = w.engine.types.Enum.UserInputState.Begin
+						w.engine.environment.poke(press, "UserInputType", w.engine.types.Enum.UserInputType[kind])
+						w.engine.environment.poke(press, "UserInputState", w.engine.types.Enum.UserInputState.Begin)
 						field.FocusLost:Fire(false, press)
-						w.input.OnScreenKeyboardSize = Vector2.new(0, 0)
+						w.engine.environment.poke(w.input, "OnScreenKeyboardSize", Vector2.new(0, 0))
 						Verify.expect(panel.Position.Y.Offset):toBe(-250)
-						w.input.OnScreenKeyboardVisible = false
+						w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", false)
 						Verify.expect(panel.Position.Y.Offset):toBe(-250)
 						if ending == "Destroy" then
 							w.stop()
-							press.UserInputState = w.engine.types.Enum.UserInputState.End
+							w.engine.environment.poke(press, "UserInputState", w.engine.types.Enum.UserInputState.End)
 							w.advance(1 / 60, 2)
 						else
-							press.UserInputState = w.engine.types.Enum.UserInputState[ending]
+							w.engine.environment.poke(
+								press,
+								"UserInputState",
+								w.engine.types.Enum.UserInputState[ending]
+							)
 							Verify.expect(panel.Position.Y.Offset):toBe(-250)
 							w.advance(1 / 60, 2)
 							Verify.expect(panel.Position.Y.Offset):toBe(0)
@@ -898,15 +910,15 @@ return function(verifyHarness: Verify.Harness)
 						return Composer
 					end),
 				}, { detent = "large", motionLevel = "none" })
-				w.input.OnScreenKeyboardSize = Vector2.new(800, 250)
-				w.input.OnScreenKeyboardVisible = true
+				w.engine.environment.poke(w.input, "OnScreenKeyboardSize", Vector2.new(800, 250))
+				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", true)
 				local press = w.engine.new("InputObject")
-				press.UserInputType = w.engine.types.Enum.UserInputType.Keyboard
-				press.KeyCode = w.engine.types.Enum.KeyCode.Return
-				press.UserInputState = w.engine.types.Enum.UserInputState.End
+				w.engine.environment.poke(press, "UserInputType", w.engine.types.Enum.UserInputType.Keyboard)
+				w.engine.environment.poke(press, "KeyCode", w.engine.types.Enum.KeyCode.Return)
+				w.engine.environment.poke(press, "UserInputState", w.engine.types.Enum.UserInputState.End)
 				w.find("Message").FocusLost:Fire(true, press)
-				w.input.OnScreenKeyboardSize = Vector2.new(0, 0)
-				w.input.OnScreenKeyboardVisible = false
+				w.engine.environment.poke(w.input, "OnScreenKeyboardSize", Vector2.new(0, 0))
+				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", false)
 				Verify.expect(w.find("SheetPanel").Position.Y.Offset):toBe(0)
 				w.stop()
 			end,
@@ -982,7 +994,11 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(1, 30)
 				local settled = panel.Size.Y.Offset
 				for _ = 1, 20 do
-					body.AbsoluteCanvasSize = Vector2.new(500, math.max(body.Size.Y.Offset, 120) + 40)
+					w.engine.environment.poke(
+						body,
+						"AbsoluteCanvasSize",
+						Vector2.new(500, math.max(body.Size.Y.Offset, 120) + 40)
+					)
 					w.advance(1 / 60)
 					Verify.expect(panel.Size.Y.Offset):toBe(settled)
 				end
@@ -1024,7 +1040,7 @@ return function(verifyHarness: Verify.Harness)
 					local w = mount(nil, { unsettled = true })
 					local panel, title = w.find("SheetPanel"), w.find("Title")
 					for width = 1, 2 do
-						title.TextBounds = Vector2.new(width * 75, 25)
+						w.engine.environment.poke(title, "TextBounds", Vector2.new(width * 75, 25))
 						w.advance(preparationDelta)
 						Verify.expect(panel.Position.Y.Offset):toBe(panel.Size.Y.Offset)
 					end
@@ -1106,11 +1122,19 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 				runtime:dispose()
 			end)
-			screen.AbsoluteSize = Vector2.new(800, 600)
+			engine.environment.poke(
+				(screen :: unknown) :: typeof(engine.new("ScreenGui")),
+				"AbsoluteSize",
+				Vector2.new(800, 600)
+			)
 			local sheet = assert(overlay.find(screen, "Sheet"))
 			t:expect(sheet:GetAttribute("FacetError")):toBe(nil)
 			local modal = assert(overlay.find(screen, "Modal")) :: Frame
-			modal.AbsoluteSize = Vector2.new(800, 600)
+			engine.environment.poke(
+				(modal :: unknown) :: typeof(engine.new("Frame")),
+				"AbsoluteSize",
+				Vector2.new(800, 600)
+			)
 			local panel = assert(overlay.find(screen, "SheetPanel")) :: Frame
 			local function advance()
 				now += 1 / 60
@@ -1146,9 +1170,9 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = mount(nil, { unsettled = true })
 				local panel, title = w.find("SheetPanel"), w.find("Title")
-				title.TextBounds = Vector2.new(75, 12)
+				w.engine.environment.poke(title, "TextBounds", Vector2.new(75, 12))
 				w.advance(1 / 60)
-				title.TextBounds = Vector2.new(143, 25)
+				w.engine.environment.poke(title, "TextBounds", Vector2.new(143, 25))
 				w.advance(1 / 60)
 				w.advance(1 / 60)
 				Verify.expect(panel.Position.Y.Offset):toBe(panel.Size.Y.Offset)
@@ -1397,7 +1421,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = mount(nil, { motionLevel = "none" })
 				flick(w, { { -150, 0.1 } }, false)
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				Verify.expect(w.find("SheetPanel").Size.Y.Offset):toBe(450)
 				w.stop()
 			end,
@@ -1435,7 +1459,7 @@ return function(verifyHarness: Verify.Harness)
 				w.tick(0.5)
 				detector.DragEnd:Fire()
 				Verify.expect((w.detent:peek())):toBe("large")
-				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 				detector.DragStart:Fire(w.Vector2.new(400, 300))
 				detector.DragContinue:Fire(w.Vector2.new(400, 310))
 				Verify.expect(panel.Size.Y.Offset):toBe(570)
@@ -1464,7 +1488,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w.detent:peek())):toBe("large")
 				w.stop()
 				local touch = mount(nil, { motionLevel = "none" })
-				touch.input.PreferredInput = touch.Enum.PreferredInput.Touch
+				w.engine.environment.poke(touch.input, "PreferredInput", touch.Enum.PreferredInput.Touch)
 				local panel = touch.find("PanelDrag")
 				panel.DragStart:Fire(touch.Vector2.new(400, 300))
 				panel.DragContinue:Fire(touch.Vector2.new(400, 290))
@@ -1473,7 +1497,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(touch.find("SheetPanel").Size.Y.Offset):toBe(300 + 200 - 14)
 				panel.DragEnd:Fire()
 				Verify.expect(panel.Enabled):toBe(true)
-				touch.input.PreferredInput = touch.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(touch.input, "PreferredInput", touch.Enum.PreferredInput.Gamepad)
 				Verify.expect(panel.Enabled):toBe(false)
 				touch.stop()
 			end,
@@ -1608,9 +1632,9 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local shown = Compose.cell(false)
 					local w = mount(nil, { shown = shown })
-					w.gui.ViewportDisplaySize = w.Enum.DisplaySize.Large
-					w.input.MouseEnabled = false
-					w.input.TouchEnabled = false
+					w.engine.environment.poke(w.gui, "ViewportDisplaySize", w.Enum.DisplaySize.Large)
+					w.engine.environment.poke(w.input, "MouseEnabled", false)
+					w.engine.environment.poke(w.input, "TouchEnabled", false)
 					shown:set(true)
 					Verify.expect((w.find("SheetPanel"):GetAttribute("FacetPlacement"))):toBe("center")
 					Verify.expect(w.find("Grabber").Visible or w.find("Grabber").Selectable):toBe(false)
@@ -1618,7 +1642,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(w.find("Grabber"):FindFirstChildWhichIsA("UIDragDetector").Enabled):toBe(false)
 					local centeredInsets = sheetInsets(w)
 					Verify.expect(centeredInsets.top):toBe(centeredInsets.bottom)
-					w.input.MouseEnabled = true
+					w.engine.environment.poke(w.input, "MouseEnabled", true)
 					Verify.expect((w.find("SheetPanel"):GetAttribute("FacetPlacement"))):toBe("bottom")
 					Verify.expect(w.find("Grabber").Visible and w.find("Grabber").Selectable):toBe(true)
 					Verify.expect(w.find("Close").Visible):toBe(false)
@@ -1937,8 +1961,8 @@ return function(verifyHarness: Verify.Harness)
 						{ id = "Apply", label = "Apply", onActivate = noop },
 					},
 				}, { theme = parchment, room = Vector2.new(390, 640) })
-				w.find("Cancel").TextBounds = Vector2.new(150, 20)
-				w.find("Apply").TextBounds = Vector2.new(150, 20)
+				w.engine.environment.poke(w.find("Cancel"), "TextBounds", Vector2.new(150, 20))
+				w.engine.environment.poke(w.find("Apply"), "TextBounds", Vector2.new(150, 20))
 				Verify.expect(w.find("Actions"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
 					:toBe(w.Enum.FillDirection.Vertical)
 				w.stop()
@@ -2057,9 +2081,9 @@ return function(verifyHarness: Verify.Harness)
 				local down = insets.PaddingTop.Offset + insets.PaddingBottom.Offset
 				Verify.expect(art.ScaleType):toBe(w.Enum.ScaleType.Slice)
 				Verify.expect(insets.PaddingTop.Offset >= 13 and insets.PaddingBottom.Offset >= 15):toBe(true)
-				caption.TextBounds = w.Vector2.new(300.4, 38)
+				w.engine.environment.poke(caption, "TextBounds", w.Vector2.new(300.4, 38))
 				Verify.expect(art.Size):toBe(w.engine.types.UDim2.fromOffset(301 + across, 38 + down))
-				caption.TextBounds = w.Vector2.new(20, 10)
+				w.engine.environment.poke(caption, "TextBounds", w.Vector2.new(20, 10))
 				Verify.expect(art.Size):toBe(w.engine.types.UDim2.fromOffset(176, 40))
 				w.stop()
 			end,

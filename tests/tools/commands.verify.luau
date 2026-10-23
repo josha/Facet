@@ -315,7 +315,7 @@ return function(harness: Verify.Harness)
 		Verify.expect(#first.stdout <= 2048):toBe(true)
 		for _, text in
 			{
-				"Tasks.shop",
+				"Tasks.collection-detail",
 				"Tasks.sheet",
 				"Controls",
 				"Themes.index",
@@ -518,7 +518,7 @@ end)
 		local info = Run.capture({ Run.lute(), "run", "tools/facet", "info" })
 		Verify.expect(info.ok):toBe(true)
 		Verify.expect(#info.stdout < 3200):toBe(true)
-		local recipes = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "Tasks.shop" })
+		local recipes = Run.capture({ Run.lute(), "run", "tools/facet", "docs", "Tasks.collection-detail" })
 		Verify.expect(recipes.ok):toBe(true)
 		Verify.expect(#recipes.stdout <= 2048):toBe(true)
 		Verify.expect(string.find(recipes.stdout, "Facet.Readable<Item>", 1, true) ~= nil):toBe(true)

@@ -33,5 +33,5 @@ StyleSheet rules own ordinary paint. Explicit Instance properties override
 native styling intentionally. Give the same theme package readable to
 `Facet.controls(runtime, { theme = package })` and to
 `createStyleSheet(runtime, package)`. Mount the resulting sheet and a native
-StyleLink in the target tree. See [custom themes](../../guide/09-custom-themes.md)
-and [skins](../../guide/10-rich-skinning.md).
+StyleLink in the target tree. See [custom themes](../../guide/themes.md)
+and [skins](../../guide/skinning.md).

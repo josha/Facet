@@ -771,7 +771,9 @@ end)
 harness:suite("Native fixture", function()
 	harness:case("delegates native fixture hierarchy, clone and UI storage to Verify", function(context)
 		local NativeEngine = require("../../tests/lib/native_engine")
-		local engine = NativeEngine.new()
+		local engine, bridge = NativeEngine.new()
+		local tracking = bridge.track()
+		context:defer(tracking.stop)
 		local model = engine.new("Model")
 		local part = engine.new("Part")
 		part.Parent = model
@@ -814,7 +816,7 @@ harness:suite("Native fixture", function()
 		local viewport = engine.new("ViewportFrame")
 		viewport.CurrentCamera = engine.new("Camera")
 		context:expect(assert(viewport:Clone()).CurrentCamera):toBe(nil)
-		for _, node in engine.made do
+		for _, node in tracking.created do
 			node:Destroy()
 		end
 		context:expect(engine.census().connections):toBe(0)

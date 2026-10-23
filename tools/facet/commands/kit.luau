@@ -294,7 +294,10 @@ local function cases(): { Case.Case }
 						chosen.copies["docs/reference/nodes/Sheet.detents.md"] ~= nil,
 						"an option node is missing"
 					),
-					Case.expect(chosen.copies["docs/reference/nodes/Tasks.shop.md"] ~= nil, "a task recipe is missing"),
+					Case.expect(
+						chosen.copies["docs/reference/nodes/Tasks.collection-detail.md"] ~= nil,
+						"a task recipe is missing"
+					),
 					Case.expect(
 						chosen.copies["tools/facet/commands/gate.luau"] == nil,
 						"a maintainer command leaked in"

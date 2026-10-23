@@ -82,7 +82,7 @@ local function presence<T>(condition: Types.Source<T>, builder: Builder, options
 				end
 				current = Block.mountBlock(mountPoint, owner, function(): { Host.Node }
 					local produced = build(phase)
-					if type(produced) == "table" and (produced :: { Host.Node })[1] ~= nil then
+					if type(produced) == "table" and rawget(produced :: { [unknown]: unknown }, 1) ~= nil then
 						return produced :: { Host.Node }
 					end
 					return { produced }

@@ -59,7 +59,7 @@ Out of scope, because it describes how Roblox works rather than a defect in Face
 
 - A player editing values on their own client. Every Roblox client is under its
   owner's control, which is why the server owns the truth. See
-  [guide 6](docs/guide/06-client-server.md).
+  [client and server guide](docs/guide/state.md).
 - A game that trusts a client-side Facet value instead of validating it on the
   server. That is a defect in the game, and guide 6 is the page that says so.
 - A report that Facet cannot stop a player from seeing data the game already

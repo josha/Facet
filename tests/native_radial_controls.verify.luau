@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -31,10 +32,28 @@ return function(verifyHarness: Verify.Harness)
 	): World
 		local engine, now = engines.new(), 0
 		local actual: RadialProps.RadialMenuSpec<any> = if type(spec) == "function" then spec(engine) else spec
-		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
-		input.GetFocusedTextBox = function()
-			return nil
+		local gui, input =
+			(engine.new("GuiService") :: unknown) :: GuiService,
+			(engine.new("UserInputService") :: unknown) :: UserInputService
+		engine.environment.fakeOn((input :: unknown) :: VerifyRoblox.Instance, "GetLastInputType", function()
+			return engine.types.Enum.UserInputType.Keyboard
+		end)
+		for _, method in { "IsKeyDown", "IsGamepadButtonDown" } do
+			engine.environment.fakeOn((input :: unknown) :: VerifyRoblox.Instance, method, function()
+				return false
+			end)
 		end
+		for _, method in { "GetNavigationGamepads", "GetKeysPressed", "GetGamepadState" } do
+			engine.environment.fakeOn((input :: unknown) :: VerifyRoblox.Instance, method, function()
+				return {}
+			end)
+		end
+		gui.GuiNavigationEnabled = true
+		gui.AutoSelectGuiEnabled = true
+		gui.TouchControlsEnabled = true
+		engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetInsetArea", function()
+			return engine.types.Rect.new(0, 0, 1280, 720)
+		end)
 		engine.clock = function()
 			return now
 		end
@@ -47,9 +66,19 @@ return function(verifyHarness: Verify.Harness)
 		})
 		local opened = actual.isPresented or Compose.cell(true)
 		actual.isPresented = opened
+		local stopInitialBounds = engine.environment.onCreate(function(node)
+			if node:IsA("ScreenGui") then
+				engine.environment.poke(
+					(node :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteSize",
+					engine.types.Vector2.zero
+				)
+			end
+		end)
 		local stop, screen: any = runtime.mount(function()
 			return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({ UI.RadialMenu(actual) })
 		end, engine.new("Folder"))
+		stopInitialBounds:Disconnect()
 		return {
 			engine = engine,
 			gui = gui,
@@ -105,7 +134,11 @@ return function(verifyHarness: Verify.Harness)
 						{ id = "harvest", label = "Harvest", selected = selected, value = "harvest" },
 					},
 				})
-				world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(180, 180)
+				world.engine.environment.poke(
+					world.find("Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(180, 180)
+				)
 				Verify.expect(world.find("RadialPanel"):GetAttribute("Presentation")):toBe("list")
 				for _, name in { "plow", "plant", "harvest" } do
 					Verify.expect(world.find(name).BackgroundTransparency):toBe(0)
@@ -117,7 +150,11 @@ return function(verifyHarness: Verify.Harness)
 					world.step(1 / 60)
 					Verify.expect(world.find("plow").BackgroundTransparency):toBe(0)
 				end
-				world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(1280, 720)
+				world.engine.environment.poke(
+					world.find("Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(1280, 720)
+				)
 				Verify.expect(world.find("RadialPanel"):GetAttribute("Presentation")):toBe("radial")
 				Verify.expect(world.find("plow").BackgroundTransparency):toBe(1)
 				Verify.expect(world.find("plow"):HasTag("facet-radial-row")):toBe(false)
@@ -137,7 +174,11 @@ return function(verifyHarness: Verify.Harness)
 				local w = setup(spec)
 				for _, name in { "sage", "clay" } do
 					local button = w.find(name)
-					button:FindFirstChild("CaptionMeasure").TextBounds = w.engine.types.Vector2.new(36, 16)
+					w.engine.environment.poke(
+						button:FindFirstChild("CaptionMeasure"),
+						"TextBounds",
+						w.engine.types.Vector2.new(36, 16)
+					)
 					Verify.expect(button.TextWrapped):toBe(false)
 					Verify.expect(button.Size.X.Offset >= 36 + 24):toBe(true)
 					Verify.expect(button.TextScaled):toBe(false)
@@ -160,7 +201,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 					local launcher = world.find("Launcher")
 					local root = launcher.Parent
-					root.AbsoluteSize = world.engine.types.Vector2.new(140, 44)
+					world.engine.environment.poke(root, "AbsoluteSize", world.engine.types.Vector2.new(140, 44))
 					local size, automatic = root.Size, root.AutomaticSize
 					for _ = 1, 3 do
 						launcher.Activated:Fire()
@@ -190,7 +231,11 @@ return function(verifyHarness: Verify.Harness)
 					},
 				})
 				for _, id in { "plant", "harvest", "plow" } do
-					world.find(id):FindFirstChild("CaptionMeasure").TextBounds = world.engine.types.Vector2.new(36, 16)
+					world.engine.environment.poke(
+						world.find(id):FindFirstChild("CaptionMeasure"),
+						"TextBounds",
+						world.engine.types.Vector2.new(36, 16)
+					)
 				end
 				world.step(1)
 				for _, id in { "plant", "harvest", "plow" } do
@@ -214,11 +259,16 @@ return function(verifyHarness: Verify.Harness)
 					},
 				})
 				local V2 = world.engine.types.Vector2
-				world.screen.AbsoluteSize = V2.new(390, 844)
+				world.engine.environment.poke(world.screen, "AbsoluteSize", V2.new(390, 844))
 				local launcher = world.find("Launcher")
-				launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(16, 350), V2.new(50, 44)
+				world.engine.environment.poke(launcher, "AbsolutePosition", V2.new(16, 350))
+				world.engine.environment.poke(launcher, "AbsoluteSize", V2.new(50, 44))
 				for _, id in { "plant", "harvest", "plow" } do
-					world.find(id):FindFirstChild("CaptionMeasure").TextBounds = V2.new(60, 16)
+					world.engine.environment.poke(
+						world.find(id):FindFirstChild("CaptionMeasure"),
+						"TextBounds",
+						V2.new(60, 16)
+					)
 				end
 				world.step(1)
 				for _, id in { "plant", "harvest", "plow" } do
@@ -246,7 +296,11 @@ return function(verifyHarness: Verify.Harness)
 					padding.Parent = button
 					padding.PaddingLeft, padding.PaddingRight =
 						world.engine.types.UDim.new(0, 0), world.engine.types.UDim.new(0, 0)
-					button:FindFirstChild("CaptionMeasure").TextBounds = world.engine.types.Vector2.new(12, 16)
+					world.engine.environment.poke(
+						button:FindFirstChild("CaptionMeasure"),
+						"TextBounds",
+						world.engine.types.Vector2.new(12, 16)
+					)
 				end
 				world.step(1)
 				for _, id in { "N", "E", "S", "W" } do
@@ -266,23 +320,27 @@ return function(verifyHarness: Verify.Harness)
 					table.insert(items, { id = id, label = id, icon = id, onSelect = function() end })
 				end
 				local world = setup({ items = items })
-				world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(390, 760)
+				world.engine.environment.poke(
+					world.find("Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(390, 760)
+				)
 				local button = world.find("settings")
 				local title = button:FindFirstChild("Title", true) or button
-				title.TextBounds = world.engine.types.Vector2.new(32, 16)
+				world.engine.environment.poke(title, "TextBounds", world.engine.types.Vector2.new(32, 16))
 				local measure = assert(button:FindFirstChild("CaptionMeasure"))
 				local points = title.TextSize
 				title.TextSize = points + 2
 				Verify.expect(measure.TextSize):toBe(points + 2)
 				title.TextSize = points
-				measure.TextBounds = world.engine.types.Vector2.new(48, 16)
+				world.engine.environment.poke(measure, "TextBounds", world.engine.types.Vector2.new(48, 16))
 				Verify.expect(measure.Text):toBe("settings")
 				Verify.expect(measure.TextTruncate.Name):toBe("None")
 				Verify.expect(measure.TextTransparency):toBe(1)
 				Verify.expect(measure.Interactable):toBe(false)
 				Verify.expect(title.Text):toBe("settings")
 				Verify.expect(button.Size.X.Offset >= 48 + 24):toBe(true)
-				measure.TextBounds = world.engine.types.Vector2.new(104, 16)
+				world.engine.environment.poke(measure, "TextBounds", world.engine.types.Vector2.new(104, 16))
 				Verify.expect(title.Text):toBe("")
 				Verify.expect(button:FindFirstChild("LeadingIcon", true).Visible):toBe(true)
 				world.step(1)
@@ -290,8 +348,12 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(title.Text):toBe("")
 				local person = world.find("person")
 				local personTitle = person:FindFirstChild("Title", true) or person
-				personTitle.TextBounds = world.engine.types.Vector2.new(36, 16)
-				person:FindFirstChild("CaptionMeasure").TextBounds = world.engine.types.Vector2.new(43, 16)
+				world.engine.environment.poke(personTitle, "TextBounds", world.engine.types.Vector2.new(36, 16))
+				world.engine.environment.poke(
+					person:FindFirstChild("CaptionMeasure"),
+					"TextBounds",
+					world.engine.types.Vector2.new(43, 16)
+				)
 				Verify.expect(personTitle.Text == "" or person.Size.X.Offset >= 43):toBe(true)
 				world.stop()
 			end,
@@ -306,7 +368,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, id in { "N", "E", "S", "W" } do
 					local button = world.find(id)
 					local title = button:FindFirstChild("Title", true) or button
-					title.TextBounds = world.engine.types.Vector2.new(8, 16)
+					world.engine.environment.poke(title, "TextBounds", world.engine.types.Vector2.new(8, 16))
 				end
 				world.step(1)
 				for _, id in { "N", "E", "S", "W" } do
@@ -330,19 +392,19 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local world = setup({ isPresented = Compose.cell(false), items = compass(function() end) }, true)
 				local V2 = world.engine.types.Vector2
-				world.screen.AbsolutePosition = V2.new(0, 60)
-				world.screen.AbsoluteSize = V2.new(390, 780)
+				world.engine.environment.poke(world.screen, "AbsolutePosition", V2.new(0, 60))
+				world.engine.environment.poke(world.screen, "AbsoluteSize", V2.new(390, 780))
 				local launcher = world.find("Launcher")
-				launcher.AbsolutePosition = V2.new(24, 360)
-				launcher.AbsoluteSize = V2.new(120, 44)
+				world.engine.environment.poke(launcher, "AbsolutePosition", V2.new(24, 360))
+				world.engine.environment.poke(launcher, "AbsoluteSize", V2.new(120, 44))
 				local touch = pointer(world, 80, 380)
 				launcher.InputBegan:Fire(touch)
 				local center = world.find("Center")
 				local original = center.Position
 				Verify.expect(original.Y.Offset):toBe(322)
 				local modal = center.Parent
-				modal.AbsolutePosition = world.screen.AbsolutePosition
-				modal.AbsoluteSize = world.screen.AbsoluteSize
+				world.engine.environment.poke(modal, "AbsolutePosition", world.screen.AbsolutePosition)
+				world.engine.environment.poke(modal, "AbsoluteSize", world.screen.AbsoluteSize)
 				world.step(0.25)
 				Verify.expect(center.Position):toBe(original)
 				world.input.InputEnded:Fire(touch)
@@ -399,9 +461,9 @@ return function(verifyHarness: Verify.Harness)
 							}
 						end)
 						local E = world.engine.types.Enum
-						world.input.GetLastInputType = function()
+						world.engine.environment.fakeOn(world.input, "GetLastInputType", function()
 							return assert(E.UserInputType:FromName(last))
-						end
+						end)
 						world.gui.SelectedObject = world.find("Launcher")
 						world.opened:set(true)
 						world.step(0.5)
@@ -543,8 +605,8 @@ return function(verifyHarness: Verify.Harness)
 				})
 				local launcher = world.find("Launcher")
 				local root = launcher.Parent
-				launcher.AbsoluteSize = world.engine.types.Vector2.new(44, 44)
-				root.AbsoluteSize = world.engine.types.Vector2.new(44, 44)
+				world.engine.environment.poke(launcher, "AbsoluteSize", world.engine.types.Vector2.new(44, 44))
+				world.engine.environment.poke(root, "AbsoluteSize", world.engine.types.Vector2.new(44, 44))
 				world.opened:set(true)
 				world.step(0.5)
 				Verify.expect(launcher.Visible):toBe(false)
@@ -572,9 +634,9 @@ return function(verifyHarness: Verify.Harness)
 				local V2 = world.engine.types.Vector2
 				local launcher = world.find("Launcher")
 				local root = launcher.Parent
-				root:FindFirstChild("LayoutUnit").AbsoluteSize = V2.new(62, 0.62)
-				launcher.AbsoluteSize = V2.new(27.28, 27.28)
-				root.AbsoluteSize = V2.new(37.2, 27.28)
+				world.engine.environment.poke(root:FindFirstChild("LayoutUnit"), "AbsoluteSize", V2.new(62, 0.62))
+				world.engine.environment.poke(launcher, "AbsoluteSize", V2.new(27.28, 27.28))
+				world.engine.environment.poke(root, "AbsoluteSize", V2.new(37.2, 27.28))
 				world.opened:set(true)
 				world.step(0.5)
 				Verify.expect(`{root.AutomaticSize.Name} {root.Size.X.Offset}x{root.Size.Y.Offset}`):toBe("None 60x44")
@@ -597,9 +659,9 @@ return function(verifyHarness: Verify.Harness)
 					},
 				})
 				world.step(0.5)
-				world.input.GetLastInputType = function()
+				world.engine.environment.fakeOn(world.input, "GetLastInputType", function()
 					return world.engine.types.Enum.UserInputType.MouseMovement
-				end
+				end)
 				for _, id in { "look", "wave" } do
 					local button = world.find(id)
 					button.MouseEnter:Fire()
@@ -629,9 +691,9 @@ return function(verifyHarness: Verify.Harness)
 					return world.find("Sector-" .. id):FindFirstChild("Paint").Visible
 				end
 				Verify.expect(`{shown("wear")} {shown("tools")}`):toBe("false false")
-				world.find("wear").TextBounds = world.engine.types.Vector2.new(34, 16)
+				world.engine.environment.poke(world.find("wear"), "TextBounds", world.engine.types.Vector2.new(34, 16))
 				Verify.expect(`{shown("wear")} {shown("tools")}`):toBe("false false")
-				world.find("tools").TextBounds = world.engine.types.Vector2.new(38, 16)
+				world.engine.environment.poke(world.find("tools"), "TextBounds", world.engine.types.Vector2.new(38, 16))
 				Verify.expect(`{shown("wear")} {shown("tools")}`):toBe("true true")
 				world.stop()
 			end,
@@ -769,7 +831,11 @@ return function(verifyHarness: Verify.Harness)
 					},
 				})
 				world.find("Branch").Activated:Fire()
-				world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(180, 180)
+				world.engine.environment.poke(
+					world.find("Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(180, 180)
+				)
 				local panel = world.find("RadialPanel")
 				Verify.expect((panel:GetAttribute("Presentation"))):toBe("list")
 				Verify.expect(panel.ScrollingEnabled):toBe(true)
@@ -856,7 +922,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(panel.Interactable):toBe(false)
 				world.step(0.3)
 				Verify.expect((world.find("RadialPanel"))):toBe(nil)
-				Verify.expect((panel:isDestroyed())):toBe(true)
+				Verify.expect((not world.engine.environment.isAlive(panel))):toBe(true)
 				world.stop()
 			end,
 		})
@@ -892,9 +958,9 @@ return function(verifyHarness: Verify.Harness)
 					},
 				})
 				world.find("Branch").Activated:Fire()
-				world.input.GetLastInputType = function()
+				world.engine.environment.fakeOn(world.input, "GetLastInputType", function()
 					return world.engine.types.Enum.UserInputType.MouseMovement
-				end
+				end)
 				world.find("Action").MouseEnter:Fire()
 				Verify.expect(world.find("SelectionPreview").Text):toBe("Long readable action")
 				world.find("$navigation").Activated:Fire()
@@ -907,6 +973,16 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine = engines.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+				local gui = (engine.new("GuiService") :: unknown) :: GuiService
+				gui.GuiNavigationEnabled = true
+				gui.AutoSelectGuiEnabled = true
+				gui.TouchControlsEnabled = true
+				engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetGuiInset", function()
+					return engine.types.Vector2.zero, engine.types.Vector2.zero
+				end)
+				engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetInsetArea", function()
+					return engine.types.Rect.new(0, 0, 1280, 720)
+				end)
 				local ctx: any = {
 					Compose = Compose,
 					runtime = runtime,
@@ -915,7 +991,9 @@ return function(verifyHarness: Verify.Harness)
 					viewport = Compose.cell({ width = 1280, height = 720 }),
 					UI = controls(Compose, runtime, {
 						types = engine.types,
-						services = { GuiService = engine.new("GuiService") },
+						services = {
+							GuiService = (gui :: unknown) :: GuiService,
+						},
 						motionLevel = "none",
 					}),
 				}
@@ -936,7 +1014,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(assert(assert(built).report().world).taken):toBe(true)
 				Verify.expect(stage.Visible):toBe(false)
 				stop()
-				Verify.expect((stage:isDestroyed())):toBe(true)
+				Verify.expect((not engine.environment.isAlive(stage))):toBe(true)
 				runtime:dispose()
 			end,
 		})
@@ -952,7 +1030,11 @@ return function(verifyHarness: Verify.Harness)
 					end),
 				})
 				local launcher, touch = world.find("Launcher"), pointer(world, 320, 110)
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.Touch
+				)
 				launcher.InputBegan:Fire(touch)
 				local function unselected()
 					for _, node in world.screen:GetDescendants() do
@@ -1023,7 +1105,7 @@ return function(verifyHarness: Verify.Harness)
 					local child = world.find("Sector-Leaf")
 					Verify.expect(child ~= nil):toBe(true)
 					if animated then
-						Verify.expect((parent:isDestroyed())):toBe(false)
+						Verify.expect((not world.engine.environment.isAlive(parent))):toBe(false)
 						Verify.expect(parent.Parent.Interactable):toBe(false)
 						world.step(0.04)
 						Verify.expect(fadeKit.of(parent) > 0 and fadeKit.of(parent) < 1):toBe(true)
@@ -1033,9 +1115,9 @@ return function(verifyHarness: Verify.Harness)
 						world.find("Branch").Activated:Fire()
 						world.step(0.3)
 					end
-					Verify.expect((parent:isDestroyed())):toBe(true)
+					Verify.expect((not world.engine.environment.isAlive(parent))):toBe(true)
 					world.stop()
-					Verify.expect((child:isDestroyed())):toBe(true)
+					Verify.expect((not world.engine.environment.isAlive(child))):toBe(true)
 				end
 			end,
 		})
@@ -1054,7 +1136,7 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 					local modal, panel = world.find("Modal"), world.find("RadialPanel")
-					modal.AbsoluteSize = world.engine.types.Vector2.new(920, 640)
+					world.engine.environment.poke(modal, "AbsoluteSize", world.engine.types.Vector2.new(920, 640))
 					local button = world.find("iris")
 					local corner = button:FindFirstChildWhichIsA("UICorner")
 					Verify.expect((panel:GetAttribute("Presentation"))):toBe("radial")
@@ -1065,7 +1147,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(corner.CornerRadius.Scale):toBe(1)
 					Verify.expect(corner.CornerRadius.Offset):toBe(0)
 					Verify.expect(world.find("Sector-iris"):FindFirstChild("Paint").Visible):toBe(false)
-					modal.AbsoluteSize = world.engine.types.Vector2.new(180, 180)
+					world.engine.environment.poke(modal, "AbsoluteSize", world.engine.types.Vector2.new(180, 180))
 					Verify.expect((world.find("iris"))):toBe(button)
 					Verify.expect((panel:GetAttribute("Presentation"))):toBe("list")
 					Verify.expect(button.Size.X.Scale):toBe(1)
@@ -1074,7 +1156,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((button:FindFirstChildWhichIsA("UIAspectRatioConstraint"))):toBe(nil)
 					button.Activated:Fire()
 					Verify.expect((selected:peek())):toBe("iris")
-					modal.AbsoluteSize = world.engine.types.Vector2.new(920, 640)
+					world.engine.environment.poke(modal, "AbsoluteSize", world.engine.types.Vector2.new(920, 640))
 					Verify.expect((world.find("iris"))):toBe(button)
 					Verify.expect(button.Size.X.Offset):toBe(button.Size.Y.Offset)
 					Verify.expect((button:FindFirstChildWhichIsA("UICorner"))):toBe(corner)
@@ -1127,7 +1209,8 @@ return function(verifyHarness: Verify.Harness)
 				local V2 = world.engine.types.Vector2
 				local launcher = world.find("Launcher")
 				local function centre(x, y)
-					launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(x, y), V2.new(40, 40)
+					world.engine.environment.poke(launcher, "AbsolutePosition", V2.new(x, y))
+					world.engine.environment.poke(launcher, "AbsoluteSize", V2.new(40, 40))
 					world.opened:set(true)
 					local at = world.find("Center").Position
 					world.opened:set(false)
@@ -1165,7 +1248,7 @@ return function(verifyHarness: Verify.Harness)
 					for round = 1, 3 do
 						for _, node in world.screen:GetDescendants() do
 							if node:IsA("TextLabel") or node:IsA("TextButton") then
-								node.TextBounds = V2.new(40 * round, 10 * round)
+								world.engine.environment.poke(node, "TextBounds", V2.new(40 * round, 10 * round))
 							end
 						end
 						Verify.expect(math.abs(reach() - expected) <= 1)
@@ -1258,9 +1341,9 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(centre:FindFirstChild("LeadingIcon", true) ~= nil):toBe(true)
 						Verify.expect((centre:GetAttribute("label"))):toBe(if label then label else "Close")
 						local preview = world.find("SelectionPreview")
-						world.input.GetLastInputType = function()
+						world.engine.environment.fakeOn(world.input, "GetLastInputType", function()
 							return world.engine.types.Enum.UserInputType.MouseMovement
-						end
+						end)
 						world.find("N").MouseEnter:Fire()
 						Verify.expect(preview.Text):toBe("")
 						world.stop()
@@ -1301,16 +1384,17 @@ return function(verifyHarness: Verify.Harness)
 				})
 				local V2 = world.engine.types.Vector2
 				local launcher = world.find("Launcher")
-				launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(20, 420), V2.new(40, 40)
+				world.engine.environment.poke(launcher, "AbsolutePosition", V2.new(20, 420))
+				world.engine.environment.poke(launcher, "AbsoluteSize", V2.new(40, 40))
 				world.opened:set(true)
 				Verify.expect((world.find("Sector-$navigation"))):toBeNil()
 				local centre = world.find("Center")
 				Verify.expect(centre.Position.X.Offset):toBe(40)
 				Verify.expect(centre.Position.Y.Offset):toBe(440)
 				Verify.expect(centre.Visible):toBe(true)
-				world.input.GetLastInputType = function()
+				world.engine.environment.fakeOn(world.input, "GetLastInputType", function()
 					return world.engine.types.Enum.UserInputType.MouseMovement
-				end
+				end)
 				world.find("pack").MouseEnter:Fire()
 				local preview = world.find("SelectionPreview")
 				Verify.expect(preview.Text):toBe("pack")
@@ -1338,9 +1422,10 @@ return function(verifyHarness: Verify.Harness)
 						items = compass(function() end),
 					}, true)
 					local V2 = world.engine.types.Vector2
-					world.screen.AbsoluteSize = V2.new(1600, 900)
+					world.engine.environment.poke(world.screen, "AbsoluteSize", V2.new(1600, 900))
 					local launcher = world.find("Launcher")
-					launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(1380, 680), V2.new(40, 40)
+					world.engine.environment.poke(launcher, "AbsolutePosition", V2.new(1380, 680))
+					world.engine.environment.poke(launcher, "AbsoluteSize", V2.new(40, 40))
 					world.opened:set(true)
 					local function offset(name)
 						local at = world.find(name).Position
@@ -1419,8 +1504,9 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local V2 = world.engine.types.Vector2
-				anchor.AbsolutePosition, anchor.AbsoluteSize = V2.new(300, 200), V2.new(80, 120)
-				world.find("RadialMenu").AbsolutePosition = V2.new(20, 400)
+				world.engine.environment.poke(anchor, "AbsolutePosition", V2.new(300, 200))
+				world.engine.environment.poke(anchor, "AbsoluteSize", V2.new(80, 120))
+				world.engine.environment.poke(world.find("RadialMenu"), "AbsolutePosition", V2.new(20, 400))
 				local launcher = world.find("Launcher")
 				Verify.expect(launcher.AnchorPoint):toBe(V2.new(0.5, 0.5))
 				Verify.expect(launcher.Position.X.Offset):toBe(320)
@@ -1499,7 +1585,8 @@ return function(verifyHarness: Verify.Harness)
 					})
 					local V2 = world.engine.types.Vector2
 					local launcher = world.find("Launcher")
-					launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(20, 420), V2.new(40, 40)
+					world.engine.environment.poke(launcher, "AbsolutePosition", V2.new(20, 420))
+					world.engine.environment.poke(launcher, "AbsoluteSize", V2.new(40, 40))
 					world.opened:set(true)
 					Verify.expect((world.find("$navigation"))):toBeNil()
 					local centre = visibleCenter(world)
@@ -1523,7 +1610,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for _, center in { "empty", "back", "root", "close", "content" } do
 					local world = setup({ center = center :: "empty" | "content" | "root" | "close", items = nested() })
-					world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(180, 180)
+					world.engine.environment.poke(
+						world.find("Modal"),
+						"AbsoluteSize",
+						world.engine.types.Vector2.new(180, 180)
+					)
 					Verify.expect((world.find("RadialPanel"):GetAttribute("Presentation"))):toBe("list")
 					Verify.expect(`{center}: {world.find("$navigation") == nil}`):toBe(`{center}: true`)
 					local centre = visibleCenter(world)
@@ -1573,7 +1664,11 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_radial_controls::RadialMenu centre and corner controls (restored from 0.11)::the ring's full-screen panel takes no panel padding, so a themed inset cannot shift the ring",
 				run = function()
 					local world = setup({ items = nested() })
-					world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(800, 600)
+					world.engine.environment.poke(
+						world.find("Modal"),
+						"AbsoluteSize",
+						world.engine.types.Vector2.new(800, 600)
+					)
 					local panel = world.find("RadialPanel")
 					Verify.expect((panel:GetAttribute("Presentation"))):toBe("radial")
 					Verify.expect((panel:HasTag("facet-panel"))):toBe(false)
@@ -1585,7 +1680,11 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_radial_controls::RadialMenu centre and corner controls (restored from 0.11)::the list fallback heads its opaque panel with the path, clear of the page below",
 			run = function()
 				local world = setup({ items = nested() })
-				world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(180, 180)
+				world.engine.environment.poke(
+					world.find("Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(180, 180)
+				)
 				local preview = world.find("SelectionPreview")
 				Verify.expect(preview.AnchorPoint):toBe(world.engine.types.Vector2.new(0, 1))
 				Verify.expect(preview.Position.Y.Scale):toBe(0)
@@ -1634,9 +1733,10 @@ return function(verifyHarness: Verify.Harness)
 					items = nested(),
 				}, true)
 				local V2 = world.engine.types.Vector2
-				world.screen.AbsoluteSize = V2.new(640, 480)
+				world.engine.environment.poke(world.screen, "AbsoluteSize", V2.new(640, 480))
 				local launcher = world.find("Launcher")
-				launcher.AbsolutePosition, launcher.AbsoluteSize = V2.new(20, 420), V2.new(40, 40)
+				world.engine.environment.poke(launcher, "AbsolutePosition", V2.new(20, 420))
+				world.engine.environment.poke(launcher, "AbsoluteSize", V2.new(40, 40))
 				world.opened:set(true)
 				local function state(): (any, any, any, any)
 					local centre = world.find("Center")
@@ -1968,7 +2068,11 @@ return function(verifyHarness: Verify.Harness)
 						} :: Radial.RadialItem<any>,
 					},
 				})
-				world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(390, 760)
+				world.engine.environment.poke(
+					world.find("Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(390, 760)
+				)
 				local preview, east = world.find("SelectionPreview"), world.find("E")
 				local hold = pointer(world, east.Position.X.Offset, east.Position.Y.Offset)
 				world.find("RadialPanel").InputBegan:Fire(hold)
@@ -2016,7 +2120,11 @@ return function(verifyHarness: Verify.Harness)
 						} :: Radial.RadialItem<any>,
 					},
 				})
-				world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(360, 240)
+				world.engine.environment.poke(
+					world.find("Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(360, 240)
+				)
 				world.find("gear").Activated:Fire()
 				world.find("tools").Activated:Fire()
 				Verify.expect((world.find("RadialPanel"):GetAttribute("Presentation"))):toBe("radial")
@@ -2074,9 +2182,11 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end)
 					local V2 = world.engine.types.Vector2
-					world.find("Modal").AbsoluteSize = V2.new(390, 760)
-					scene.AbsolutePosition, scene.AbsoluteSize = V2.new(16, 200), V2.new(358, 260)
-					anchor.AbsolutePosition, anchor.AbsoluteSize = V2.new(157, 275), V2.new(76, 110)
+					world.engine.environment.poke(world.find("Modal"), "AbsoluteSize", V2.new(390, 760))
+					world.engine.environment.poke(scene, "AbsolutePosition", V2.new(16, 200))
+					world.engine.environment.poke(scene, "AbsoluteSize", V2.new(358, 260))
+					world.engine.environment.poke(anchor, "AbsolutePosition", V2.new(157, 275))
+					world.engine.environment.poke(anchor, "AbsoluteSize", V2.new(76, 110))
 					world.find("gear").Activated:Fire()
 					world.find("tools").Activated:Fire()
 					Verify.expect((world.find("RadialPanel"):GetAttribute("Presentation"))):toBe("radial")
@@ -2110,13 +2220,13 @@ return function(verifyHarness: Verify.Harness)
 					},
 				})
 				local V2 = world.engine.types.Vector2
-				world.find("Modal").AbsoluteSize = V2.new(390, 760)
+				world.engine.environment.poke(world.find("Modal"), "AbsoluteSize", V2.new(390, 760))
 				local function title(id: string): any
 					local button = world.find(id)
 					return button:FindFirstChild("Title", true) or button
 				end
 				for _, id in { "lantern", "stow", "go" } do
-					title(id).TextBounds = V2.new(400, 16)
+					world.engine.environment.poke(title(id), "TextBounds", V2.new(400, 16))
 				end
 				Verify.expect(title("lantern").Text):toBe("")
 				Verify.expect(world.find("lantern"):FindFirstChild("LeadingIcon", true).Visible):toBe(true)
@@ -2149,15 +2259,15 @@ return function(verifyHarness: Verify.Harness)
 					})
 					local V2, V3, E = world.engine.types.Vector2, world.engine.types.Vector3, world.engine.types.Enum
 					local modal = world.find("Modal")
-					modal.AbsoluteSize = V2.new(390, 760)
-					modal.AbsolutePosition = V2.new(50, 80)
+					world.engine.environment.poke(modal, "AbsoluteSize", V2.new(390, 760))
+					world.engine.environment.poke(modal, "AbsolutePosition", V2.new(50, 80))
 					local item, preview, plate =
 						world.find("S"), world.find("SelectionPreview"), world.find("SelectionPlate")
 					Verify.expect(plate.Visible):toBe(false)
 					local held = pointer(world, 50 + item.Position.X.Offset, 80 + item.Position.Y.Offset)
 					world.find("RadialPanel").InputBegan:Fire(held)
 					world.step(0.5)
-					preview.AbsoluteSize = V2.new(236, 60)
+					world.engine.environment.poke(preview, "AbsoluteSize", V2.new(236, 60))
 					Verify.expect(preview.Text):toBe("Workshop · Restore power")
 					Verify.expect(plate:HasTag("facet-tooltip") and plate.Visible):toBe(true)
 					Verify.expect(preview.TextWrapped):toBe(true)
@@ -2197,8 +2307,12 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 					local V2 = world.engine.types.Vector2
-					world.find("Modal").AbsoluteSize = V2.new(390, 760)
-					world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+					world.engine.environment.poke(world.find("Modal"), "AbsoluteSize", V2.new(390, 760))
+					world.engine.environment.poke(
+						world.input,
+						"PreferredInput",
+						world.engine.types.Enum.PreferredInput.Touch
+					)
 					local item, preview = world.find(slot), world.find("SelectionPreview")
 					local x, y = item.Position.X.Offset, item.Position.Y.Offset
 					local held = pointer(world, x, y)
@@ -2212,10 +2326,14 @@ return function(verifyHarness: Verify.Harness)
 						- preview.AnchorPoint.X * world.find("SelectionPlate").Size.X.Offset
 					Verify.expect(left >= 8 and left + world.find("SelectionPlate").Size.X.Offset <= 382):toBe(true)
 					world.input.InputEnded:Fire(held)
-					world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
-					world.input.GetLastInputType = function()
+					world.engine.environment.poke(
+						world.input,
+						"PreferredInput",
+						world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+					)
+					world.engine.environment.fakeOn(world.input, "GetLastInputType", function()
 						return world.engine.types.Enum.UserInputType.MouseMovement
-					end
+					end)
 					item.MouseEnter:Fire()
 					if slot == "S" then
 						Verify.expect(preview.Position.Y.Offset > y):toBe(true)
@@ -2240,12 +2358,16 @@ return function(verifyHarness: Verify.Harness)
 					},
 				}, false, { preferredInput = "Touch" } :: Shared.EnvironmentPreview)
 				local V2 = world.engine.types.Vector2
-				world.screen.AbsoluteSize = V2.new(390, 740)
-				world.find("Modal").AbsoluteSize = V2.new(390, 740)
+				world.engine.environment.poke(world.screen, "AbsoluteSize", V2.new(390, 740))
+				world.engine.environment.poke(world.find("Modal"), "AbsoluteSize", V2.new(390, 740))
 				Verify.expect(world.find("gear").Size.X.Scale):toBe(1)
 				local before = world.find("Center").Position
 				for _, id in { "gear", "edit", "flag", "trash" } do
-					world.find(id):FindFirstChild("CaptionMeasure").TextBounds = V2.new(60, 16)
+					world.engine.environment.poke(
+						world.find(id):FindFirstChild("CaptionMeasure"),
+						"TextBounds",
+						V2.new(60, 16)
+					)
 					Verify.expect(world.find("gear").Size.X.Scale):toBe(1)
 					Verify.expect(world.find("Center").Position):toBe(before)
 				end
@@ -2270,8 +2392,16 @@ return function(verifyHarness: Verify.Harness)
 						} :: Radial.RadialItem<any>,
 					},
 				})
-				world.find("Modal").AbsoluteSize = world.engine.types.Vector2.new(390, 760)
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				world.engine.environment.poke(
+					world.find("Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(390, 760)
+				)
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.Touch
+				)
 				local item, preview = world.find("N"), world.find("SelectionPreview")
 				local held = pointer(world, item.Position.X.Offset, item.Position.Y.Offset)
 				world.find("RadialPanel").InputBegan:Fire(held)

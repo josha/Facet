@@ -227,7 +227,7 @@ local function create<V, K>(
 	end
 	local function mainEdge(use: ComposeTypes.Use?): number
 		local edge = edgeOf(spec.gap, use)
-		if kind ~= "grid" or not readSource(containsCards, use) then
+		if not readSource(containsCards, use) then
 			return edge
 		end
 		local extent = read(spec.itemSize or 40, use) :: number
@@ -250,12 +250,13 @@ local function create<V, K>(
 	end
 	local function crossEdge(use: ComposeTypes.Use?): number
 		local edge = edgeOf(spec.crossGap or spec.gap, use)
-		if kind ~= "grid" or not readSource(containsCards, use) then
+		if not readSource(containsCards, use) then
 			return edge
 		end
 		local available = readSource(cross, use)
-		local columns = if spec.minColumnWidth ~= nil
-			then fitColumns(
+		local columns = if kind ~= "grid"
+			then 1
+			elseif spec.minColumnWidth ~= nil then fitColumns(
 				use,
 				adaptive.columnsFor(
 					available,

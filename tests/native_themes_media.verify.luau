@@ -923,6 +923,9 @@ return function(verifyHarness: Verify.Harness)
 					stage = UI.Stage({
 						content = function(sceneRuntime: FixtureComposeTypes.Runtime, world: WorldModel): (() -> ())?
 							local Host = (sceneRuntime.constructors :: unknown) :: RobloxHost
+							Host.Part "Direct" {
+								Parent = Compose.static(world),
+							}
 							local stop = sceneRuntime.mount(function(): Part
 								return Host.Part "Model" {}
 							end, world)
@@ -949,7 +952,10 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(badge.Text):toBe("3")
 				local model: any = stage:FindFirstChild("Model", true)
 				Verify.expect(model.ClassName):toBe("Part")
+				local direct = assert(stage:FindFirstChild("Direct", true))
+				Verify.expect(direct.Parent):toBe(model.Parent)
 				stop()
+				Verify.expect(direct.Parent):toBe(nil)
 				Verify.expect((model:isDestroyed())):toBe(true)
 				Verify.expect(released):toBe(1)
 				runtime:dispose()

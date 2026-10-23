@@ -22,7 +22,7 @@ export type State = {
 }
 return function(options: any?): State
 	local opts = options or {}
-	local engine = engineLib.new({ recordCreated = false })
+	local engine = engineLib.new()
 	local elapsed = 0
 	engine.clock = function()
 		return elapsed

@@ -73,10 +73,10 @@ return function(verifyHarness: Verify.Harness)
 
 	local function lay(world: any, panel: any, at: Vector2, size: Vector2, panelSize: Vector2)
 		local trigger = world.find("Trigger")
-		trigger.AbsolutePosition = at
-		trigger.AbsoluteSize = size
-		modalOf(world, panel).AbsoluteSize = Vector2.new(800, 600)
-		panel.AbsoluteSize = panelSize
+		world.engine.environment.poke(trigger, "AbsolutePosition", at)
+		world.engine.environment.poke(trigger, "AbsoluteSize", size)
+		world.engine.environment.poke(modalOf(world, panel), "AbsoluteSize", Vector2.new(800, 600))
+		world.engine.environment.poke(panel, "AbsoluteSize", panelSize)
 	end
 
 	local function open(world: any): any
@@ -111,9 +111,9 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(checked:peek()):toBe(true)
 				Verify.expect(mark.Visible):toBe(true)
 				Verify.expect(mark.Image):toBe("rbxassetid://4")
-				row.GuiState = world.engine.types.Enum.GuiState.Hover
+				world.engine.environment.poke(row, "GuiState", world.engine.types.Enum.GuiState.Hover)
 				Verify.expect(mark.Image):toBe("rbxassetid://2")
-				row.GuiState = world.engine.types.Enum.GuiState.Press
+				world.engine.environment.poke(row, "GuiState", world.engine.types.Enum.GuiState.Press)
 				Verify.expect(mark.Image):toBe("rbxassetid://3")
 				enabled:set(false)
 				Verify.expect(mark.Image):toBe("rbxassetid://5")
@@ -122,7 +122,7 @@ return function(verifyHarness: Verify.Harness)
 				checked:set(false)
 				Verify.expect(mark.Visible):toBe(false)
 				world.stop()
-				Verify.expect(mark:isDestroyed()):toBe(true)
+				Verify.expect(not world.engine.environment.isAlive(mark)):toBe(true)
 			end,
 		})
 		verifyHarness:case("keeps live labels and actions when a plain row gains and loses a description", {
@@ -273,14 +273,14 @@ return function(verifyHarness: Verify.Harness)
 						world.action("ModalBack").Pressed:Fire()
 					end
 					Verify.expect(shown:peek()):toBe(false)
-					Verify.expect(panel:isDestroyed()):toBe(false)
+					Verify.expect(not world.engine.environment.isAlive(panel)):toBe(false)
 					for _ = 1, 30 do
-						if not panel:isDestroyed() then
+						if world.engine.environment.isAlive(panel) then
 							Verify.expect(materialize.position(panel)):toBe(UDim2.fromOffset(240, 180))
 						end
 						world.engine.heartbeat:Fire(FRAME)
 					end
-					Verify.expect(panel:isDestroyed()):toBe(true)
+					Verify.expect(not world.engine.environment.isAlive(panel)):toBe(true)
 					enabled:set(true)
 					panel = open(world)
 					lay(world, panel, Vector2.new(20, 30), Vector2.new(500, 40), Vector2.new(280, 100))
@@ -430,10 +430,10 @@ return function(verifyHarness: Verify.Harness)
 					end, { motionLevel = "none" })
 					world.find("Opener").Activated:Fire()
 					local panel = panelOf(world)
-					world.find("Opener").AbsolutePosition = Vector2.new(100, 100)
-					world.find("Opener").AbsoluteSize = Vector2.new(200, 40)
-					modalOf(world, panel).AbsoluteSize = Vector2.new(800, 600)
-					panel.AbsoluteSize = Vector2.new(220, 140)
+					world.engine.environment.poke(world.find("Opener"), "AbsolutePosition", Vector2.new(100, 100))
+					world.engine.environment.poke(world.find("Opener"), "AbsoluteSize", Vector2.new(200, 40))
+					world.engine.environment.poke(modalOf(world, panel), "AbsoluteSize", Vector2.new(800, 600))
+					world.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(220, 140))
 					world.engine.heartbeat:Fire(FRAME)
 					world.engine.heartbeat:Fire(FRAME)
 					local catcher = world.find("Scrim")
@@ -545,7 +545,7 @@ return function(verifyHarness: Verify.Harness)
 						local panel = open(world)
 						lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
 						local rows = panel:FindFirstChild("MenuRows", true)
-						rows.AbsoluteSize = Vector2.new(220, count * 44)
+						world.engine.environment.poke(rows, "AbsoluteSize", Vector2.new(220, count * 44))
 						local padding = panel:FindFirstChildWhichIsA("UIPadding")
 						Verify.expect(
 							`{padding.PaddingLeft.Offset} {padding.PaddingTop.Offset} {padding.PaddingRight.Offset} {padding.PaddingBottom.Offset}`
@@ -579,7 +579,7 @@ return function(verifyHarness: Verify.Harness)
 						local panel = open(world)
 						lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
 						local rows = panel:FindFirstChild("MenuRows", true)
-						rows.AbsoluteSize = Vector2.new(220, count * 44 + 16)
+						world.engine.environment.poke(rows, "AbsoluteSize", Vector2.new(220, count * 44 + 16))
 						local padding = panel:FindFirstChildWhichIsA("UIPadding")
 						local vertical = if padding then padding.PaddingTop.Offset + padding.PaddingBottom.Offset else 0
 						local horizontal = if padding
@@ -675,7 +675,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(scale.Scale):toBe(1)
 				world.find("DismissTarget", world.screen.Parent).Activated:Fire()
 				local exit, cleared = 0, 0
-				while not panel:isDestroyed() and exit < 60 do
+				while world.engine.environment.isAlive(panel) and exit < 60 do
 					world.engine.heartbeat:Fire(FRAME)
 					exit += 1
 					if cleared == 0 and fadeKit.of(group) >= 0.95 then
@@ -691,7 +691,7 @@ return function(verifyHarness: Verify.Harness)
 				for _ = 1, 30 do
 					world.engine.heartbeat:Fire(FRAME)
 				end
-				Verify.expect((panel:isDestroyed())):toBe(true)
+				Verify.expect((not world.engine.environment.isAlive(panel))):toBe(true)
 				world.stop()
 			end,
 		})
@@ -776,9 +776,9 @@ return function(verifyHarness: Verify.Harness)
 				local panel = open(world)
 				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
 				Verify.expect((materialize.position(panel))):toBe(UDim2.fromOffset(100, 144))
-				world.find("Trigger").AbsolutePosition = Vector2.new(260, 180)
+				world.engine.environment.poke(world.find("Trigger"), "AbsolutePosition", Vector2.new(260, 180))
 				Verify.expect((materialize.position(panel))):toBe(UDim2.fromOffset(260, 224))
-				world.find("Trigger").AbsolutePosition = Vector2.new(260, 500)
+				world.engine.environment.poke(world.find("Trigger"), "AbsolutePosition", Vector2.new(260, 500))
 				Verify.expect((materialize.position(panel))):toBe(UDim2.fromOffset(260, 296))
 				world.stop()
 			end,
@@ -791,7 +791,7 @@ return function(verifyHarness: Verify.Harness)
 					local world = labelled({ edge = "bottom", align = align, items = items(12) })
 					local panel = open(world)
 					lay(world, panel, Vector2.new(496, 187), Vector2.new(220, 40), Vector2.new(220, 536))
-					modalOf(world, panel).AbsoluteSize = Vector2.new(1914, 701)
+					world.engine.environment.poke(modalOf(world, panel), "AbsoluteSize", Vector2.new(1914, 701))
 					local position = materialize.position(panel)
 					Verify.expect(position.Y.Offset >= 8):toBe(true)
 					Verify.expect(position.Y.Offset + 536 <= 701 - 8):toBe(true)
@@ -806,21 +806,21 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local world = labelled({ edge = "top" :: "top", items = items(3) })
 				world.screen.IgnoreGuiInset = true
-				world.gui.GetGuiInset = function()
+				world.engine.environment.fakeOn(world.gui, "GetGuiInset", function()
 					return Vector2.new(40, 58), Vector2.new(24, 34)
-				end
+				end)
 				local panel = open(world)
 				lay(world, panel, Vector2.new(10, 20), Vector2.new(60, 40), Vector2.new(220, 200))
 				Verify.expect((materialize.position(panel))):toBe(UDim2.fromOffset(48, 66))
 				lay(world, panel, Vector2.new(700, 400), Vector2.new(60, 40), Vector2.new(220, 200))
 				Verify.expect((materialize.position(panel))):toBe(UDim2.fromOffset(800 - 24 - 8 - 220, 196))
-				world.find("Trigger").AbsolutePosition = Vector2.new(300, 560)
+				world.engine.environment.poke(world.find("Trigger"), "AbsolutePosition", Vector2.new(300, 560))
 				Verify.expect(materialize.position(panel).Y.Offset + 200 <= 600 - 34 - 8):toBe(true)
 				world.stop()
 				local plain = labelled({ edge = "top" :: "top", items = items(3) })
-				plain.gui.GetGuiInset = function()
+				plain.engine.environment.fakeOn(plain.gui, "GetGuiInset", function()
 					return Vector2.new(40, 58), Vector2.new(24, 34)
-				end
+				end)
 				local inside = open(plain)
 				lay(plain, inside, Vector2.new(10, 20), Vector2.new(60, 40), Vector2.new(220, 200))
 				Verify.expect((materialize.position(inside))):toBe(UDim2.fromOffset(10, 64))
@@ -884,7 +884,11 @@ return function(verifyHarness: Verify.Harness)
 					world.engine.heartbeat:Fire(FRAME)
 				end
 				local adjust = world.find("adjust", panel)
-				adjust.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 44)
+				world.engine.environment.poke(
+					adjust,
+					"AbsolutePosition",
+					Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 44)
+				)
 				adjust.Activated:Fire()
 				for _ = 1, 3 do
 					world.engine.heartbeat:Fire(FRAME)
@@ -945,11 +949,19 @@ return function(verifyHarness: Verify.Harness)
 						more = node
 					end
 				end
-				more.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 10)
+				world.engine.environment.poke(
+					more,
+					"AbsolutePosition",
+					Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 10)
+				)
 				more.Activated:Fire()
 				settle()
 				local b = world.find("b", panel)
-				b.AbsolutePosition = Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 120)
+				world.engine.environment.poke(
+					b,
+					"AbsolutePosition",
+					Vector2.new(panel.AbsolutePosition.X, panel.AbsolutePosition.Y + 120)
+				)
 				b.Activated:Fire()
 				settle()
 				world.action("MenuLeft").Pressed:Fire()
@@ -1016,9 +1028,9 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local world = labelled({ presentation = "sheet" :: "sheet", items = items(3) })
 				world.screen.IgnoreGuiInset = true
-				world.gui.GetGuiInset = function()
+				world.engine.environment.fakeOn(world.gui, "GetGuiInset", function()
 					return Vector2.new(40, 58), Vector2.new(24, 34)
-				end
+				end)
 				local panel = open(world)
 				lay(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(736, 200))
 				world.engine.heartbeat:Fire(FRAME)

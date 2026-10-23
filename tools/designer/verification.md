@@ -41,4 +41,4 @@ Native geometry and input need Studio. Device simulation does not prove
 physical touch input or the on-screen keyboard. Test long editing sessions,
 real devices, and published cloud saves separately. See
 [workflow review](workflow-review.md) and
-[verification scope](../../docs/guide/18-verification-scope.md).
+[verification scope](../../docs/guide/verification-scope.md).

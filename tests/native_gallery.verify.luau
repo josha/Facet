@@ -350,30 +350,52 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("requests native haptics and releases effects when the screen closes", {
 			id = "native_gallery::native gallery::requests native haptics and releases effects when the screen closes",
 			run = function()
-				local ctx, _, target = nativeContext()
+				local ctx, engine, target = nativeContext()
+				local waveforms: { [unknown]: { FloatCurveKey } } = {}
+				engine.environment.onCreate(function(effect)
+					if effect:IsA("HapticEffect") then
+						engine.environment.fakeOn(effect, "SetWaveformKeys", function(_, keys: { FloatCurveKey })
+							waveforms[effect] = keys
+						end)
+					end
+				end)
 				local built
 				local stop, node: any = ctx.runtime.mount(function()
 					built = load("fixture", "sensory_feedback").build(ctx)
 					return built.screen()
 				end, target)
+				local plays: { [unknown]: number } = {}
+				local stops: { [unknown]: number } = {}
+				for _, effect in built.effects do
+					engine.environment.fakeOn(effect, "Play", function()
+						plays[effect] = (plays[effect] or 0) + 1
+					end)
+					engine.environment.fakeOn(effect, "Stop", function()
+						stops[effect] = (stops[effect] or 0) + 1
+					end)
+				end
 				Verify.expect(find(node, "Press").PressHapticEffect):toBe(built.effects.press)
 				find(node, "Release").Activated:Fire()
-				Verify.expect(built.effects.release.PlayCount):toBe(1)
+				Verify.expect(plays[built.effects.release]):toBe(1)
 				Verify.expect((built.requests:peek())):toBe(1)
 				find(node, "Selection").Activated:Fire()
-				Verify.expect(built.effects.selection.PlayCount):toBe(1)
+				Verify.expect(plays[built.effects.selection]):toBe(1)
 				find(node, "Custom").Activated:Fire()
-				Verify.expect(built.effects.custom.PlayCount):toBe(1)
-				Verify.expect(#built.effects.custom.WaveformKeys):toBe(5)
+				Verify.expect(plays[built.effects.custom]):toBe(1)
+				Verify.expect(#waveforms[built.effects.custom]):toBe(5)
 				Verify.expect((built.requests:peek())):toBe(3)
 				built.playHaptics:set(false)
+				for _, effect in built.effects do
+					Verify.expect(stops[effect]):toBe(1)
+				end
 				Verify.expect(find(node, "Press").PressHapticEffect):toBe(nil)
 				find(node, "Release").Activated:Fire()
-				Verify.expect(built.effects.release.PlayCount):toBe(1)
+				Verify.expect(plays[built.effects.release]):toBe(1)
 				Verify.expect((built.requests:peek())):toBe(3)
 				Verify.expect(built.report().motorConfirmed):toBe(false)
 				stop()
 				for _, effect in built.effects do
+					Verify.expect(stops[effect]):toBe(2)
 					Verify.expect((effect:isDestroyed())):toBe(true)
 				end
 				ctx.runtime:dispose()
