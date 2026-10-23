@@ -479,7 +479,7 @@ return function(
 		end
 	end
 	local activeLayers: { ImageLayer } = {}
-	local drawn = Compose.cell(false)
+	local boundary: GuiObject? = nil
 	local slots: ComposeTypes.Cell<{ number }> = Compose.cell({})
 	local mounted: { [number]: MountedImage } = {}
 	local root = Host.Frame "Skin" {
@@ -505,8 +505,8 @@ return function(
 	Compose.watch(function(use: ComposeTypes.Use)
 		local active = buildLayers(use)
 		activeLayers = active
-		if drawn:peek() ~= (#active > 0) then
-			drawn:set(#active > 0)
+		if boundary then
+			boundary.Visible = #active > 0
 		end
 		local previousSlots = slots:peek()
 		local count = math.max(#active, math.min(#previousSlots, 16))
@@ -598,5 +598,10 @@ return function(
 			end),
 		}
 	end, settings.target or root)
-	return decoration(Compose, runtime, types, settings.target, root, { active = drawn }) :: Frame
+	local decorated = decoration(Compose, runtime, types, settings.target, root)
+	if settings.target ~= nil then
+		boundary = decorated
+		decorated.Visible = #activeLayers > 0
+	end
+	return decorated :: Frame
 end

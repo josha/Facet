@@ -3225,10 +3225,9 @@ return function(verifyHarness: Verify.Harness)
 						end, { theme = if live then Facet.Compose.cell(package) else package })
 						local node = find(world.node, "Plain")
 						Verify.expect(find(node, "ChromeShadow").ClassName):toBe("UIShadow")
-						local bounds = node:FindFirstChild("SkinBounds", true) :: Frame?
-						if bounds then
-							-- hidden: an invisible child doesn't count toward the host's automatic size
-							Verify.expect(bounds.Visible):toBe(false)
+						local boundary = node:FindFirstChild("SkinBoundary", true) :: Frame?
+						if boundary then
+							Verify.expect(boundary.Visible):toBe(false)
 						end
 						world.stop()
 					end

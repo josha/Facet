@@ -9,13 +9,12 @@ return function(
 	types: Engine.RobloxTypes,
 	target: GuiObject?,
 	node: GuiObject,
-	options: { inset: boolean?, immediate: boolean?, active: ComposeTypes.Readable<boolean>? }?
+	options: { inset: boolean?, immediate: boolean? }?
 ): GuiObject
 	if target == nil then
 		return node
 	end
-	local settings: { inset: boolean?, immediate: boolean?, active: ComposeTypes.Readable<boolean>? } = options or {}
-	local active = settings.active
+	local settings: { inset: boolean?, immediate: boolean? } = options or {}
 	local Host = (runtime.constructors :: unknown) :: Engine.Host
 	local D2 = types.UDim2
 	local frame: ComposeTypes.ObserveOptions? = if not settings.immediate and getfenv(0).game
@@ -123,12 +122,7 @@ return function(
 		})
 	end
 	runtime.decorate(container, {
-		-- with nothing to draw the chrome is hidden: an invisible child doesn't count toward the host's automatic size,
-		-- so it can't hold a hugging control at its last size, and hiding is cheaper than collapsing it on every swap
-		Visible = function(use: ComposeTypes.Use): boolean
-			return active == nil or use(active)
-		end,
-		Size = function(use: ComposeTypes.Use)
+		Size = function(use)
 			local box: { width: number, height: number } = use(bounds)
 			return if settings.inset
 				then D2.fromOffset(math.ceil(box.width - 1e-3), math.ceil(box.height - 1e-3))
