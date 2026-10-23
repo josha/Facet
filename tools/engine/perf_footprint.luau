@@ -4,6 +4,7 @@ local process = require("@std/process")
 local Loader = require("../../tests/lib/loader")
 local Json = require("../facet/lib/json")
 local Files = require("../facet/lib/files")
+local VerifyRoblox = require("../vendor/verify/src/roblox")
 
 local loader = Loader.new()
 local nativeApp = loader.require("bench/native_app.luau") :: typeof(require("../../bench/native_app"))
@@ -77,10 +78,13 @@ local function measure(name: string, build: (State) -> Instance, activate: ((Ins
 	local tree: { string } = {}
 	for _, child in screen:GetDescendants() do
 		classes[child.ClassName] = (classes[child.ClassName] or 0) + 1
-		local probe = (child :: unknown) :: { connectionCount: (Instance) -> number }
 		table.insert(
 			tree,
-			child:GetFullName() .. " (" .. child.ClassName .. ") " .. tostring(probe.connectionCount(child))
+			child:GetFullName()
+				.. " ("
+				.. child.ClassName
+				.. ") "
+				.. tostring(state.engine.environment.connectionsOfInstance(child))
 		)
 	end
 	stop()
@@ -218,9 +222,9 @@ for count = 1, 2 do
 				return state.UI.Button({ label = current:peek().label, onActivate = function() end })
 			end,
 		})
-		local geometry = (node :: unknown) :: { AbsoluteSize: Vector2, AbsoluteWindowSize: Vector2 }
-		geometry.AbsoluteSize = state.types.Vector2.new(300, 200)
-		geometry.AbsoluteWindowSize = state.types.Vector2.new(300, 200)
+		local geometry = (node :: unknown) :: VerifyRoblox.Instance
+		state.engine.environment.poke(geometry, "AbsoluteSize", state.types.Vector2.new(300, 200))
+		state.engine.environment.poke(geometry, "AbsoluteWindowSize", state.types.Vector2.new(300, 200))
 		return node
 	end)
 end

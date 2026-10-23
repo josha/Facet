@@ -120,7 +120,7 @@ return function(ctx: Types.Context): Presence
 					filled = filled or (size.X > 0 and size.Y > 0)
 				end
 				for _, node in descendants do
-					measured = measured and textMeasure.ready(node)
+					measured = measured and not textMeasure.pending(node)
 					if node:IsA("GuiObject") then
 						local value = `{node.AbsolutePosition - origin}:{node.AbsoluteSize}:{node.Visible}`
 						if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then

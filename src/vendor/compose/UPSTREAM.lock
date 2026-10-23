@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "185bc974fc2ba6b153fd6af047419fe7687ebad4",
+  "commit": "c872f38ad12a73087175caccd3025d2fc9e18393",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -26,7 +26,7 @@
     "core/focus-scope.luau": "b8102d0dd9cc88d1cd85fb9b430da9aa8b46b33d28912dc6b1c1cc7ca7085d2b",
     "core/frames.luau": "f5150b120e9ff1399f0b789afa0655b2fdb48b159bf7b14f25a627147fb3b111",
     "core/geometry.luau": "2ff2290214177aab2e4ea759f7ee60a9468860913f5e24207bb6dd1404b9a603",
-    "core/host.luau": "dd8dc0050a9f2e83d7e525047f82a4bf63c7ed94398d976655d76df428eedf4d",
+    "core/host.luau": "1eb0527921b777ce22b7a6ba00dbf94c481f235e820aed6a406cbd11c651d195",
     "core/init.luau": "da88cb4740cd4d20e7f6137149f36c5b97a6d5c0ede7e114b16e71d2b1af5a21",
     "core/keyed-cache.luau": "9c2c0c3e02116592d189e6f2c2a33396d95c8fdb4b98896ae9e3e7673be85929",
     "core/ownership/active.luau": "4341c7a77a235841ecc8a4fabcbaf645db6d9411a6ee3c2c7fa7b5c577b16ed9",
@@ -55,8 +55,8 @@
     "core/runtime/children.luau": "6ff5b60fba7a516b30dcb1532373537054c79139f0a260f58078c22dd4d869af",
     "core/runtime/clock.luau": "ecde70fd5f617b26cf07d25a5c2a8a02705bc29cdc9357fb847bee371c10797f",
     "core/runtime/init.luau": "5df5adb8c61f743c7455c4dfe07843eadb58ed1d8b4ee19fb7c82f18b52c8b84",
-    "core/runtime/keys.luau": "81e0cde861d2f321171a8a9f4d9fb9bb55187d4f5f3f19cbdfd68c6123f7f6bf",
-    "core/runtime/observe.luau": "166533fe651718a89896bffc589523b28a9ee0fda1d5a2cf95dece3b1d4ca7fa",
+    "core/runtime/keys.luau": "734f24edc5eb48e799132294196c9a7daa62c8ef40c52b518efd2012e4c5fb55",
+    "core/runtime/observe.luau": "1ba1af6c1a3e90fcc1248a5e5bded7f5245f9b4ac444127354cdd1c8784ebbb0",
     "core/runtime/props.luau": "7ecec5575121f00ef2afa5b0574bd1a1d07c54a8f3313a70ead2752a2cae9e82",
     "core/runtime/sequence.luau": "1258043680e89945c5daad79937bab1e3e74e7960be18262075ff237e6d2b79d",
     "core/runtime/settled.luau": "bab870a9fdc192c624b1df3d828ac08eb532e8d38c92ce4d42cfec50fe43f98b",
@@ -70,7 +70,7 @@
     "core/structure/mount-budget.luau": "bf592eeef578d9a2f615a14f52e1423de602177dec1221b1ade636d020f03f61",
     "core/structure/ordered-collection.luau": "988757efc528808cbf6c509e1479333184932097fa0a8505291df061bc6c6895",
     "core/structure/portal.luau": "b0b79c3fa736f0d74013c6e94ba275d8b96142a3208b44f7635357fd9ea28b40",
-    "core/structure/presence.luau": "1bf5f16190f7aa0f55a1a2e59d1fc6ec7a28c81ee3f8b57f279a45d3d8965b3d",
+    "core/structure/presence.luau": "49d8601aa587632f909b9395299e54088ffe07c86446c5d91082d8a85b47f7d5",
     "core/structure/show.luau": "25cf27daafd144766ab77cf96f062eb7a88049748f6cc7d195c5700e6036dfce",
     "core/structure/spatial-collection.luau": "44593d0f21493a63ab6b16e545f917f0dc1a6cc719137bcc2a09463d0dd279e0",
     "core/structure/support.luau": "546f2acb4698aecf8e6d9a90654aaf3cb56f3dd1f77608791d47f622272996ad",
@@ -81,7 +81,7 @@
     "roblox/cleanup.luau": "506fbbc882f9cccd6d82835ff54aaeac31ca4bee8c66240cb0fd34ea34e97366",
     "roblox/codecs.luau": "aa08c6971ddd501f831ccfa87c07d8bec1d3691ba924e7880c4d24c45cced08c",
     "roblox/engine.luau": "f1fec8e858398c0647d3f6ab0395e14927144f372ed36161d8823c36c316df3d",
-    "roblox/host.luau": "1dff37955bd57bbdf03a9fe2ac7492e06390ee44db4c0f33ef126e19a6d68373",
+    "roblox/host.luau": "0d1e9274ed0231e88706716e550579e79c481ae1d6058de1824d3e0ad80642b3",
     "roblox/init.luau": "3d7b18ca588b2dcf9b109dc12219c673dabfb7f6928e162917014379c6fc3909",
     "roblox/input.luau": "96ba143057df0e55e429535ab59ed0e82ed9d83e96f4d88aa40900c40bf74e8b",
     "roblox/preferred-input.luau": "3262fe2ad84df92738bf3d046dd47b128027a22bf13bba4c22ebaa98481ec4d5",
@@ -89,8 +89,8 @@
   },
   "docs": {
     "SKILL.md": "5b00d1daf8a47f8d97e5af9ab3044aca442fa027064015c8e7ffb584b074c7f1",
-    "references/api.md": "efe758b3ebedc0714526450b092d8cf6f156b68f3ecaefb276e3df6293a22443",
-    "references/consumer-guides.md": "fcce2d4d2498abdfe4c1024620609deb1b3c11f560c5df9bb6e9e096abee05e2",
-    "references/ownership.md": "b050bd1ce6fa18448d09fed03b66ac5a1013ac8300c17f33423e008009ed304f"
+    "references/api.md": "a8b917ab1e04c85e3e6db4d9a0d3ec93957b58469153642915c2225852b482cb",
+    "references/consumer-guides.md": "6b30006bc70784531d7cacbc5e249f8f195c1364d0a8ee1902324065212fc5f8",
+    "references/ownership.md": "6145fb291ba56f0ac3b4cf972c136f3ae8d150a31388366a83f27444be83352c"
   }
 }

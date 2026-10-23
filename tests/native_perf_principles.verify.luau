@@ -15,7 +15,7 @@ return function(verifyHarness: Verify.Harness)
 	local context = require("../src/ui/context")
 	local Compose: ComposeModule = Facet.Compose
 	local function world(count)
-		local engine = engineLib.new({ recordCreated = false })
+		local engine = engineLib.new()
 		local metrics = { writes = 0, creates = 0, destroys = 0, nodes = {} }
 		local make, destroy = engine.new, engine.destroy
 		engine.onWrite(function(self, key, value)

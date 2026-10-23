@@ -42,7 +42,7 @@ ID. Show its price and missing funds beside Buy. Keep Buy enabled when the
 displayed balance is low; let the server return the result. Do not spend local
 coins or grant ownership before acceptance. Update the wallet from server state.
 
-Use this action policy in [Tasks.shop](Tasks.shop.md). Keep pending and accepted
+Use this action policy in [Tasks.collection-detail](Tasks.collection-detail.md). Keep pending and accepted
 state in the item model, outside recycled rows. Block duplicate requests for
 the same item. Localize labels and transport failures. The game owns the request;
 the disposed mount ignores its response.

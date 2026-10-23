@@ -32,7 +32,7 @@ return function(verifyHarness: Verify.Harness)
 					.. "native documentation"
 					.. "::"
 					.. `executes {entry.file} snippet {entry.index}`,
-				run = function()
+				run = function(t)
 					if string.find(entry.code, 'require("./lib/native_engine")', 1, true) then
 						local modules: { [string]: unknown } =
 							{ ["../src"] = Facet, ["./lib/native_engine"] = engineLib }
@@ -45,6 +45,17 @@ return function(verifyHarness: Verify.Harness)
 						return
 					end
 					local engine = engineLib.new()
+					local hapticPlays = 0
+					local hapticCapture = engine.environment.onCreate(function(effect)
+						if effect:IsA("HapticEffect") then
+							engine.environment.fakeOn(effect, "Play", function()
+								hapticPlays += 1
+							end)
+						end
+					end)
+					t:defer(function()
+						hapticCapture:Disconnect()
+					end)
 					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 					local Compose: ComposeModule, Host = Facet.Compose, runtime.constructors
 					local UI = Facet.controls(runtime, { types = engine.types })
@@ -159,12 +170,9 @@ return function(verifyHarness: Verify.Harness)
 					for key in env do
 						table.insert(bindings, `local {key}=env[{string.format("%q", key)}]`)
 					end
-					local suffix = if entry.file == "docs/guide/06-client-server.md"
+					local suffix = if entry.file == "docs/guide/state.md"
 						then "\nreturn Purchase()"
-						elseif entry.file == "docs/guide/01-concepts.md" then "\nreturn Preferences()"
-						elseif
-							entry.file == "docs/guide/09-custom-themes.md" and entry.index == 2
-						then "\nreturn Screen()"
+						elseif entry.file == "docs/guide/themes.md" and entry.index == 2 then "\nreturn Screen()"
 						else ""
 					do
 						assert(Lute.chunk.check(entry.code, entry.file))
@@ -197,6 +205,9 @@ return function(verifyHarness: Verify.Harness)
 						end
 						stop()
 						runtime:dispose()
+						if entry.file == "docs/reference/nodes/feedback.md" then
+							Verify.expect(hapticPlays):toBe(1)
+						end
 					end
 				end,
 			})

@@ -1,25 +1,3 @@
-# Facet toolchain pin.
-#
-# WHY THIS FILE EXISTS (2026-08-15). Facet had no rokit.toml, so `rokit`'s shim
-# fell back to a global default when run from here — Rojo 7.7.0-rc.1 (Nov 2025)
-# — while a consumer project that pins resolved 7.7.0 (Jul 2026). The two builds
-# of the same source used toolchains seven months apart and nothing said so.
-#
-# It cost a real thing: 7.7.0-rc.1's reflection database does not know
-# `Workspace.PlayerScriptsUseInputActionSystem`, the property that puts Roblox's
-# own player scripts on the Input Action System. Facet REQUIRES it (without it
-# the engine camera keeps the arrow keys and any surface binding them is
-# silently dead — docs/guide/03-getting-started.md §3.4). Declaring it in a
-# project file failed the build outright with "Unknown property", so it was
-# documented as a manual post-build step that a rebuild silently undoes. On
-# 7.7.0 it simply builds.
-#
-# LUNE AND STYLUA JOINED THE PIN (2026-08-30), for the same reason and one more.
-# Both were installed per-machine and neither was declared anywhere, so a
-# contributor and a continuous-integration runner could disagree about the
-# formatter that gates every change and about the runtime that runs the suite —
-# with nothing to say so, exactly as Rojo did above. `rokit install` now gets all
-# four, which is also what makes `.github/workflows/ci.yml` a two-line setup.
 [tools]
 rojo = "rojo-rbx/rojo@7.7.0"
 luau-lsp = "JohnnyMorganz/luau-lsp@1.69.0"

@@ -1,5 +1,7 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local FixtureBridge = require("../tools/vendor/verify/src/roblox/fixture-bridge")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -20,11 +22,14 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 
-	local function world(build: (SharedTypes.Controls, any, Compose.Runtime) -> unknown, configure: ((any) -> any)?)
-		local engine = engineLib.new()
+	local function world(
+		build: (SharedTypes.Controls, any, Compose.Runtime) -> unknown,
+		configure: ((any, FixtureBridge.Bridge) -> any)?
+	)
+		local engine, fixture = engineLib.new()
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI = ({} :: unknown) :: SharedTypes.Controls
-		local options: SharedTypes.Config = if configure then configure(engine) else {}
+		local options: SharedTypes.Config = if configure then configure(engine, fixture) else {}
 		options.types = engine.types
 		local ctx = context(Compose, runtime, options)
 		register(ctx, UI)
@@ -62,7 +67,7 @@ return function(verifyHarness: Verify.Harness)
 	verifyHarness:suite("native input controls", function()
 		verifyHarness:case("inline targets keep touch height while compacting adjacent choices", function()
 			local input: UserInputService
-			local node, stop = world(function(UI, engine)
+			local node, stop, engine = world(function(UI, engine)
 				return UI.Button {
 					name = "Page one",
 					target = "inline",
@@ -70,17 +75,17 @@ return function(verifyHarness: Verify.Harness)
 					AutomaticSize = engine.types.Enum.AutomaticSize.None,
 				}
 			end, function(engine)
-				input = engine.new("UserInputService")
-				input.TouchEnabled = true
-				input.GamepadEnabled = false
+				input = (engine.new("UserInputService") :: unknown) :: UserInputService
+				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
+				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "GamepadEnabled", false)
 				return { services = { UserInputService = input } }
 			end)
 			local floor = node:FindFirstChild("TargetFloor")
 			Verify.expect(floor.MinSize.X):toBe(24)
 			Verify.expect(floor.MinSize.Y):toBe(44)
-			input.TouchEnabled = false
+			engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
 			Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
-			input.GamepadEnabled = true
+			engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "GamepadEnabled", true)
 			Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(24)
 			Verify.expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
 			stop()
@@ -91,7 +96,7 @@ return function(verifyHarness: Verify.Harness)
 			activation.consume(press)
 			local input
 			local calls = 0
-			local node, stop = world(function(UI: FacetControls)
+			local node, stop, engine = world(function(UI: FacetControls)
 				return UI.Button({
 					label = "Next",
 					onActivate = function()
@@ -99,12 +104,12 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				})
 			end, function(engine)
-				input = engine.new("UserInputService")
+				input = (engine.new("UserInputService") :: unknown) :: UserInputService
 				return { services = { UserInputService = input } }
 			end)
 			node.Activated:Fire(press)
 			Verify.expect(calls):toBe(0)
-			input.InputBegan:Fire(press)
+			engine.environment.fire((input :: unknown) :: VerifyRoblox.Instance, "InputBegan", press)
 			node.Activated:Fire(press)
 			Verify.expect(calls):toBe(1)
 			activation.release(press)
@@ -114,21 +119,21 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_inputs::native input controls::floors default button widths on touch and releases the idle constraint",
 			run = function()
 				local input: UserInputService
-				local node, stop = world(function(UI: FacetControls)
+				local node, stop, engine = world(function(UI: FacetControls)
 					return UI.Button({ label = "All" })
 				end, function(engine)
-					input = engine.new("UserInputService")
-					input.TouchEnabled = false
-					input.GamepadEnabled = false
+					input = (engine.new("UserInputService") :: unknown) :: UserInputService
+					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
+					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "GamepadEnabled", false)
 					return { services = { UserInputService = input } }
 				end)
 				Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
-				input.TouchEnabled = true
+				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
 				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(44)
 				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
-				input.TouchEnabled = false
+				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
 				Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
-				input.GamepadEnabled = true
+				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "GamepadEnabled", true)
 				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(44)
 				stop()
 			end,
@@ -168,12 +173,16 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("installs text editing contexts once on first focus", {
 			id = "native_inputs::native input controls::installs text editing contexts once on first focus",
 			run = function()
+				local tracking: FixtureBridge.Tracking
 				local node, stop, engine = world(function(UI: FacetControls)
 					return UI.TextInput({ value = Compose.cell("Player") })
+				end, function(_, fixture)
+					tracking = fixture.track()
+					return {}
 				end)
 				local function contexts(): number
 					local count = 0
-					for _, instance in engine.made do
+					for _, instance in tracking.created do
 						if instance.ClassName == "InputContext" then
 							count += 1
 						end
@@ -188,6 +197,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(contexts()):toBe(2)
 				node:ReleaseFocus(false)
 				stop()
+				tracking.stop()
 				Verify.expect(engine.census().connections):toBe(0)
 			end,
 		})
@@ -220,7 +230,7 @@ return function(verifyHarness: Verify.Harness)
 				node.Text = "Released"
 				Verify.expect(second:peek()):toBe("Second")
 				for _, property in { "AbsoluteSize", "SelectedObject" } do
-					local gui = engine.new("GuiService")
+					local gui = (engine.new("GuiService") :: unknown) :: GuiService
 					local target: Instance = if property == "AbsoluteSize" then node else gui
 					local function observe(): Compose.Readable<unknown>
 						return if property == "AbsoluteSize"
@@ -234,8 +244,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(engine.census().connections):toBe(baseline + 1)
 					a.dispose()
 					local value: unknown = if property == "AbsoluteSize" then engine.types.Vector2.new(80, 40) else node
-					local properties = (target :: unknown) :: { [string]: unknown }
-					properties[property] = value
+					engine.environment.poke((target :: unknown) :: VerifyRoblox.Instance, property, value)
 					Verify.expect(right:peek()):toBe(value)
 					Verify.expect(engine.census().connections):toBe(baseline + 1)
 					b.dispose()
@@ -254,14 +263,71 @@ return function(verifyHarness: Verify.Harness)
 						AutomaticSize = engine.types.Enum.AutomaticSize.None,
 					}
 				end)
-				node.AbsoluteSize = engine.types.Vector2.new(44, 44)
-				node.TextFits = false
+				engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(44, 44))
+				engine.environment.poke(node, "TextFits", false)
 				Verify.expect(node:HasTag("facet-button-tight")):toBe(false)
 				node.Text = "Saved"
 				Verify.expect(node:HasTag("facet-button-tight")):toBe(true)
 				node.Text = ""
 				Verify.expect(node:HasTag("facet-button-tight")):toBe(false)
 				stop()
+			end,
+		})
+
+		verifyHarness:case("owns font observations only when a bounded caption needs overflow measurement", {
+			id = "native_inputs::native input controls::owns font observations only when a bounded caption needs overflow measurement",
+			run = function()
+				local node, stop, engine, runtime = world(function(UI: FacetControls, engine)
+					return UI.Button {
+						Size = engine.types.UDim2.fromOffset(44, 44),
+						AutomaticSize = engine.types.Enum.AutomaticSize.None,
+					}
+				end)
+				local environment, V2 = engine.environment, engine.types.Vector2
+				local function fontConnections(): number
+					return environment.connectionsOf(node:GetPropertyChangedSignal("FontFace"))
+						+ environment.connectionsOf(node:GetPropertyChangedSignal("TextSize"))
+				end
+				environment.poke(node, "TextFits", false)
+				Verify.expect(fontConnections()):toBe(0)
+				node.Text = "Saved"
+				Verify.expect(fontConnections()):toBe(0)
+				Verify.expect(node:HasTag("facet-button-tight")):toBe(false)
+				environment.poke(node, "AbsoluteSize", V2.new(44, 44))
+				Verify.expect(node:HasTag("facet-button-tight")):toBe(true)
+				Verify.expect(fontConnections()):toBe(2)
+				local style = { size = node.TextSize, face = node.FontFace }
+				local reads = 0
+				environment.fakeOn(node, "GetStyled", function(object, property)
+					if property == "TextSize" then
+						reads += 1
+						return style.size
+					elseif property == "FontFace" then
+						reads += 1
+						return style.face
+					end
+					return environment.propertyOf(object, property)
+				end)
+				style.size += 4
+				style.face = engine.types.Font.new("rbxasset://fonts/families/GothamSSm.json")
+				environment.fire(node, "StyledPropertiesChanged")
+				Verify.expect(reads >= 2):toBe(true)
+				Verify.expect(fontConnections()):toBe(2)
+				Verify.expect(node:HasTag("facet-button-tight")):toBe(true)
+				environment.poke(node, "TextBounds", V2.new(20, 14))
+				environment.poke(node, "TextFits", true)
+				environment.poke(node, "AbsoluteSize", V2.new(300, 44))
+				Verify.expect(node:HasTag("facet-button-tight")):toBe(false)
+				node.Text = ""
+				Verify.expect(fontConnections()):toBe(0)
+				node.Text = "Again"
+				Verify.expect(fontConnections()):toBe(0)
+				environment.poke(node, "TextFits", false)
+				Verify.expect(node:HasTag("facet-button-tight")):toBe(true)
+				Verify.expect(fontConnections()):toBe(2)
+				stop()
+				runtime:dispose()
+				Verify.expect(fontConnections()):toBe(0)
 			end,
 		})
 
@@ -657,8 +723,8 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local track, drag = find(node, "Track"), find(node, "Drag")
 				node.SelectionGained:Fire()
-				track.AbsoluteSize = engine.types.Vector2.new(200, 44)
-				track.AbsolutePosition = engine.types.Vector2.new(20, 0)
+				engine.environment.poke(track, "AbsoluteSize", engine.types.Vector2.new(200, 44))
+				engine.environment.poke(track, "AbsolutePosition", engine.types.Vector2.new(20, 0))
 				drag.DragStart:Fire(engine.types.Vector2.new(164, 0))
 				Verify.expect((value:peek())):toBe(75)
 				drag.DragContinue:Fire(engine.types.Vector2.new(500, 0))
@@ -681,7 +747,7 @@ return function(verifyHarness: Verify.Harness)
 				local node, stop, engine = world(function(UI: FacetControls)
 					return UI.Rating({ value = value })
 				end)
-				node.AbsoluteSize = engine.types.Vector2.new(100, 44)
+				engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(100, 44))
 				node.Activated:Fire({ Position = engine.types.Vector2.new(50, 0) })
 				Verify.expect((value:peek())):toBe(0)
 				node.Activated:Fire({ Position = engine.types.Vector2.new(90, 0) })
@@ -840,8 +906,8 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end, function(engine)
-					gui = engine.new("GuiService")
-					gui.ReducedMotionEnabled = true
+					gui = (engine.new("GuiService") :: unknown) :: GuiService
+					engine.environment.poke((gui :: unknown) :: VerifyRoblox.Instance, "ReducedMotionEnabled", true)
 					return { guiService = gui, services = { GuiService = gui } }
 				end)
 				local button, field = find(root, "Pop"), find(root, "Amount")
@@ -858,7 +924,7 @@ return function(verifyHarness: Verify.Harness)
 				engine.heartbeat:Fire(0.3)
 				Verify.expect(find(button, "Dot1").BackgroundTransparency):toBe(0)
 				busy:set(false)
-				gui.ReducedMotionEnabled = false
+				engine.environment.poke((gui :: unknown) :: VerifyRoblox.Instance, "ReducedMotionEnabled", false)
 				button.Activated:Fire()
 				engine.heartbeat:Fire(0.1)
 				Verify.expect(scale.Scale > 1):toBe(true)
@@ -1027,12 +1093,12 @@ return function(verifyHarness: Verify.Harness)
 						UI.TextInput "Field" { value = Compose.cell("abc"), invalid = invalid },
 					}
 				end, function(engine)
-					gui = engine.new("GuiService")
+					gui = (engine.new("GuiService") :: unknown) :: GuiService
 					return { services = { GuiService = gui } }
 				end)
 				local button, field = find(node, "Pop"), find(node, "Field")
-				button.AbsoluteSize = engine.types.Vector2.new(80, 44)
-				field.AbsoluteSize = engine.types.Vector2.new(120, 44)
+				engine.environment.poke(button, "AbsoluteSize", engine.types.Vector2.new(80, 44))
+				engine.environment.poke(field, "AbsoluteSize", engine.types.Vector2.new(120, 44))
 				local beforeButton, beforeField = button.Size, field.Size
 				gui.SelectedObject = button
 				button.Activated:Fire()
@@ -1064,7 +1130,7 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local button = find(node, "Pop")
-				button.AbsoluteSize = engine.types.Vector2.new(80, 44)
+				engine.environment.poke(button, "AbsoluteSize", engine.types.Vector2.new(80, 44))
 				button:AddTag("game-round")
 				local paint = find(button, "FeedbackPaint")
 				Verify.expect(paint:HasTag("facet-button")):toBe(false)
@@ -1130,12 +1196,12 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local sort = find(node, "Sort")
 				local measure = find(sort, "FullLabelMeasure")
-				measure.TextBounds = engine.types.Vector2.new(45, 18)
-				sort.AbsoluteSize = engine.types.Vector2.new(43, 44)
+				engine.environment.poke(measure, "TextBounds", engine.types.Vector2.new(45, 18))
+				engine.environment.poke(sort, "AbsoluteSize", engine.types.Vector2.new(43, 44))
 				for _ = 1, 3 do
-					node.AbsoluteSize = engine.types.Vector2.new(60, 44)
+					engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(60, 44))
 					Verify.expect(sort.Text):toBe("Srt")
-					node.AbsoluteSize = engine.types.Vector2.new(300, 44)
+					engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(300, 44))
 					Verify.expect(sort.Text):toBe("Sorting")
 					Verify.expect(sort.AbsoluteSize.X):toBe(43)
 				end
@@ -1149,10 +1215,11 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Button({ label = "Continue to checkout", compactLabel = "Continue" })
 				end)
 				local measure = find(node, "FullLabelMeasure")
-				measure.TextBounds = engine.types.Vector2.new(180, 20)
-				node.AbsoluteSize = engine.types.Vector2.new(110, 44)
+				engine.environment.poke(node.Parent, "AbsoluteSize", engine.types.Vector2.zero)
+				engine.environment.poke(measure, "TextBounds", engine.types.Vector2.new(180, 20))
+				engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(110, 44))
 				Verify.expect(node.Text):toBe("Continue")
-				node.AbsoluteSize = engine.types.Vector2.new(240, 44)
+				engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(240, 44))
 				Verify.expect(node.Text):toBe("Continue to checkout")
 				stop()
 			end,
@@ -1183,14 +1250,30 @@ return function(verifyHarness: Verify.Harness)
 			end, engine.new("ScreenGui"))
 			local node = assert(button)
 			local measure = assert(node:FindFirstChild("FullLabelMeasure"))
-			local glyphs = (measure :: unknown) :: { TextBounds: Vector2 }
-			local box = (node :: unknown) :: { AbsoluteSize: Vector2 }
-			glyphs.TextBounds = engine.types.Vector2.new(180, 20)
-			box.AbsoluteSize = engine.types.Vector2.new(110, 44)
+			local glyphs = measure
+			local box = node
+			engine.environment.poke(
+				(glyphs :: unknown) :: VerifyRoblox.Instance,
+				"TextBounds",
+				engine.types.Vector2.new(180, 20)
+			)
+			engine.environment.poke(
+				(box :: unknown) :: VerifyRoblox.Instance,
+				"AbsoluteSize",
+				engine.types.Vector2.new(110, 44)
+			)
 			t:expect(node.Text):toBe("Continue")
-			box.AbsoluteSize = engine.types.Vector2.new(240, 44)
+			engine.environment.poke(
+				(box :: unknown) :: VerifyRoblox.Instance,
+				"AbsoluteSize",
+				engine.types.Vector2.new(240, 44)
+			)
 			t:expect(node.Text):toBe("Continue to checkout")
-			glyphs.TextBounds = engine.types.Vector2.new(300, 20)
+			engine.environment.poke(
+				(glyphs :: unknown) :: VerifyRoblox.Instance,
+				"TextBounds",
+				engine.types.Vector2.new(300, 20)
+			)
 			t:expect(node.Text):toBe("Continue")
 			stop()
 			runtime:dispose()
@@ -1211,10 +1294,22 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					})
 				end, function(engine)
-					local input = engine.new("UserInputService")
-					input.GetFocusedTextBox = function()
+					local input = (engine.new("UserInputService") :: unknown) :: UserInputService
+					engine.environment.fakeOn(input, "GetLastInputType", function()
+						return engine.types.Enum.UserInputType.MouseMovement
+					end)
+					engine.environment.fakeOn(input, "IsGamepadButtonDown", function()
+						return false
+					end)
+					engine.environment.fakeOn(input, "IsKeyDown", function()
+						return false
+					end)
+					engine.environment.fakeOn(input, "GetNavigationGamepads", function()
+						return {}
+					end)
+					engine.environment.fakeOn(input, "GetFocusedTextBox", function()
 						return if editing then {} else nil
-					end
+					end)
 					return {
 						services = {
 							UserInputService = input,
@@ -1283,10 +1378,10 @@ return function(verifyHarness: Verify.Harness)
 				local aspect = glyph:FindFirstChildWhichIsA("UIAspectRatioConstraint")
 				Verify.expect(aspect.AspectRatio):toBe(1)
 				Verify.expect(aspect.AspectType):toBe(engine.types.Enum.AspectType.ScaleWithParentSize)
-				content.AbsoluteSize = engine.types.Vector2.new(4, 6)
+				engine.environment.poke(content, "AbsoluteSize", engine.types.Vector2.new(4, 6))
 				Verify.expect(limit.MinSize.X):toBe(1)
 				Verify.expect(limit.MinSize.Y):toBe(1)
-				content.AbsoluteSize = engine.types.Vector2.new(0, 0)
+				engine.environment.poke(content, "AbsoluteSize", engine.types.Vector2.new(0, 0))
 				Verify.expect(limit.MinSize.X):toBe(1)
 				Verify.expect(content.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
 				Verify.expect((find(find(node, "Free"), "LeadingIcon"):FindFirstChildWhichIsA("UISizeConstraint")))
@@ -1363,9 +1458,11 @@ return function(verifyHarness: Verify.Harness)
 					return UI.LevelPicker({ value = value, count = 3, allowZero = true })
 				end)
 				local V = engine.types.Vector2
-				node.AbsolutePosition, node.AbsoluteSize = V.new(709, 0), V.new(156, 44)
+				engine.environment.poke(node, "AbsolutePosition", V.new(709, 0))
+				engine.environment.poke(node, "AbsoluteSize", V.new(156, 44))
 				local marks = find(node, "Marks")
-				marks.AbsolutePosition, marks.AbsoluteSize = V.new(755, 0), V.new(64, 20)
+				engine.environment.poke(marks, "AbsolutePosition", V.new(755, 0))
+				engine.environment.poke(marks, "AbsoluteSize", V.new(64, 20))
 				local detector = find(node, "Scrub")
 				detector.DragStart:Fire(V.new(765, 0))
 				detector.DragEnd:Fire(V.new(765, 0))
@@ -1389,7 +1486,7 @@ return function(verifyHarness: Verify.Harness)
 				local node, stop, engine = world(function(UI: FacetControls)
 					return UI.LevelPicker({ value = value, count = 5 })
 				end)
-				node.AbsoluteSize = engine.types.Vector2.new(100, 44)
+				engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(100, 44))
 				local selectable = if node.Selectable then 1 else 0
 				for _, child in node:GetDescendants() do
 					if child:IsA("GuiObject") and child.Selectable then
@@ -1414,9 +1511,13 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("updates explicit shortcut alternatives without owning input bindings", {
 			id = "native_inputs::native input controls::updates explicit shortcut alternatives without owning input bindings",
 			run = function()
+				local tracking: FixtureBridge.Tracking
 				local separator, chords = Compose.cell(" or "), Compose.cell({ { "Ctrl", "K" }, { "F1" } })
 				local node, stop, engine = world(function(UI: FacetControls)
 					return UI.ShortcutHint({ keys = chords, separator = separator })
+				end, function(_, fixture)
+					tracking = fixture.track()
+					return {}
 				end)
 				Verify.expect(node.Text):toBe("Ctrl+K or F1")
 				separator:set("ou")
@@ -1424,10 +1525,11 @@ return function(verifyHarness: Verify.Harness)
 				separator:set(" / ")
 				chords:set({ { "Shift", "P" } })
 				Verify.expect(node.Text):toBe("Shift+P")
-				for _, instance in engine.made do
+				for _, instance in tracking.created do
 					Verify.expect(instance.ClassName == "InputAction" or instance.ClassName == "InputContext")
 						:toBe(false)
 				end
+				tracking.stop()
 				stop()
 				Verify.expect(function()
 					world(function(UI: FacetControls)
@@ -1446,20 +1548,20 @@ return function(verifyHarness: Verify.Harness)
 						engine.new("InputAction"), engine.new("InputBinding"), engine.new("InputBinding")
 					first.KeyCode, first.DisplayName = engine.types.Enum.KeyCode.F, ""
 					second.KeyCode, second.DisplayName = engine.types.Enum.KeyCode.ButtonX, "Interact"
-					action.PreferredBinding = first
+					engine.environment.poke(action, "PreferredBinding", first)
 					return UI.ShortcutHint({ action = action })
 				end)
 				Verify.expect(find(node, "Key").Text):toBe("F")
 				first.DisplayName = "Use"
 				Verify.expect(find(node, "Key").Text):toBe("Use")
-				action.PreferredBinding = second
+				engine.environment.poke(action, "PreferredBinding", second)
 				Verify.expect(find(node, "Key").Text):toBe("Interact")
 				Verify.expect((engineLib.connections(first:GetPropertyChangedSignal("DisplayName")))):toBe(0)
-				action.PreferredBinding = nil
+				engine.environment.poke(action, "PreferredBinding", nil)
 				Verify.expect((find(node, "Key"))):toBe(nil)
 				Verify.expect((engineLib.connections(second:GetPropertyChangedSignal("DisplayName")))):toBe(0)
 				stop()
-				Verify.expect((action:isDestroyed())):toBe(false)
+				Verify.expect(engine.environment.isAlive(action)):toBe(true)
 				Verify.expect((engineLib.connections(action:GetPropertyChangedSignal("PreferredBinding")))):toBe(0)
 			end,
 		})
@@ -1468,17 +1570,24 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_inputs::native input controls::names whitespace and named keys instead of showing the layout character",
 			run = function()
 				local action, binding, keyCodes
-				local node, stop = world(function(UI: FacetControls, engine)
+				local node, stop, engine = world(function(UI: FacetControls, engine)
 					action, binding = engine.new("InputAction"), engine.new("InputBinding")
 					keyCodes = engine.types.Enum.KeyCode
 					binding.KeyCode, binding.DisplayName = keyCodes.Space, ""
-					action.PreferredBinding = binding
+					engine.environment.poke(action, "PreferredBinding", binding)
 					return UI.ShortcutHint({ action = action })
 				end, function(engine)
-					local input = engine.new("UserInputService")
-					input.GetStringForKeyCode = function(_self: unknown, code: EnumItem): string
-						return if code.Name == "Space" then " " elseif code.Name == "Q" then "A" else ""
-					end
+					local input = (engine.new("UserInputService") :: unknown) :: UserInputService
+					engine.environment.fakeOn(input, "GetImageForKeyCode", function()
+						return ""
+					end)
+					engine.environment.fakeOn(
+						input,
+						"GetStringForKeyCode",
+						function(_self: unknown, code: EnumItem): string
+							return if code.Name == "Space" then " " elseif code.Name == "Q" then "A" else ""
+						end
+					)
 					return { services = { UserInputService = input } }
 				end)
 				Verify.expect(find(node, "Key").Text):toBe("Space")
@@ -1599,9 +1708,9 @@ return function(verifyHarness: Verify.Harness)
 						end) :: unknown) :: MotionLevel,
 					}
 				end)
-				node.TextBounds = engine.types.Vector2.new(20, 20)
+				engine.environment.poke(node, "TextBounds", engine.types.Vector2.new(20, 20))
 				local label = find(node, "ValidationMessage")
-				label.TextBounds = engine.types.Vector2.new(200, 18)
+				engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(200, 18))
 				node:CaptureFocus()
 				node.Text = "1.2.3"
 				node:ReleaseFocus(true)
@@ -1720,7 +1829,7 @@ return function(verifyHarness: Verify.Harness)
 						}),
 					})
 				end, function(engine)
-					gui = engine.new("GuiService")
+					gui = (engine.new("GuiService") :: unknown) :: GuiService
 					return { services = { GuiService = gui } }
 				end)
 				local function remove(id)
@@ -1757,7 +1866,7 @@ return function(verifyHarness: Verify.Harness)
 						end),
 					})
 				end, function(engine)
-					gui = engine.new("GuiService")
+					gui = (engine.new("GuiService") :: unknown) :: GuiService
 					return { services = { GuiService = gui } }
 				end)
 				local remove = find(node, "Delayed")
@@ -1851,6 +1960,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local kind = Compose.cell("error" :: "error" | "impact" | "selection" | "success" | "warning" | boolean)
 				local UIref
+				local waveforms: { [unknown]: { FloatCurveKey } } = {}
 				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					UIref = UI
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
@@ -1861,18 +1971,29 @@ return function(verifyHarness: Verify.Harness)
 						UI.Button "Plain" { label = "Go", haptic = true },
 						UI.Toggle "Sound" { value = Compose.cell(true), label = "Sound" },
 					})
-				end, function()
+				end, function(engine)
+					engine.environment.onCreate(function(effect)
+						if effect:IsA("HapticEffect") then
+							engine.environment.fakeOn(effect, "SetWaveformKeys", function(_, keys: { FloatCurveKey })
+								waveforms[effect] = keys
+							end)
+						end
+					end)
 					return { pressHaptic = "selection" }
 				end)
 				local E = engine.types.Enum
 				local saved = find(node, "Saved").PressHapticEffect
+				local plays = 0
+				engine.environment.fakeOn(saved, "Play", function()
+					plays += 1
+				end)
 				Verify.expect(saved.ClassName):toBe("HapticEffect")
 				Verify.expect(saved.Type):toBe(E.HapticEffectType.UINotification)
 				Verify.expect(find(node, "Again").PressHapticEffect):toBe(saved)
 				local warning = find(node, "Careful").PressHapticEffect
 				Verify.expect(warning.Type):toBe(E.HapticEffectType.Custom)
-				Verify.expect(#warning.WaveformKeys >= 4):toBe(true)
-				for _, key in warning.WaveformKeys do
+				Verify.expect(#waveforms[warning] >= 4):toBe(true)
+				for _, key in waveforms[warning] do
 					Verify.expect(key.Value == 0 or key.Value >= 0.3):toBe(true)
 				end
 				local live = find(node, "Live")
@@ -1885,7 +2006,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(node, "Plain").PressHapticEffect.Type):toBe(E.HapticEffectType.UIClick)
 				Verify.expect(find(node, "Sound").PressHapticEffect):toBe(find(node, "Plain").PressHapticEffect)
 				UIref.feedback("success")
-				Verify.expect(saved.PlayCount):toBe(1)
+				Verify.expect(plays):toBe(1)
 				Verify.expect(function()
 					UIref.feedback("boom" :: any)
 				end):toThrow()
@@ -1922,8 +2043,8 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local V = engine.types.Vector2
 				local track, drag = find(find(node, "Stepped"), "Track"), find(find(node, "Stepped"), "Drag")
-				track.AbsoluteSize = V.new(200, 44)
-				track.AbsolutePosition = V.new(0, 0)
+				engine.environment.poke(track, "AbsoluteSize", V.new(200, 44))
+				engine.environment.poke(track, "AbsolutePosition", V.new(0, 0))
 				drag.DragStart:Fire(V.new(50, 0))
 				Verify.expect((stepped:peek())):toBe(25)
 				Verify.expect(plays):toBe(0)
@@ -1934,8 +2055,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(plays):toBe(2)
 				drag.DragEnd:Fire()
 				local free, freeDrag = find(find(node, "Continuous"), "Track"), find(find(node, "Continuous"), "Drag")
-				free.AbsoluteSize = V.new(200, 44)
-				free.AbsolutePosition = V.new(0, 0)
+				engine.environment.poke(free, "AbsoluteSize", V.new(200, 44))
+				engine.environment.poke(free, "AbsolutePosition", V.new(0, 0))
 				freeDrag.DragStart:Fire(V.new(10, 0))
 				for x = 11, 190 do
 					freeDrag.DragContinue:Fire(V.new(x, 0))
@@ -1964,8 +2085,8 @@ return function(verifyHarness: Verify.Harness)
 				local caption = find(node, "Label")
 				Verify.expect(caption.TextXAlignment):toBe(node.TextXAlignment)
 				Verify.expect(caption.TextYAlignment):toBe(node.TextYAlignment)
-				node.AbsoluteSize = engine.types.Vector2.new(67, 44)
-				caption.Parent.Parent.AbsoluteSize = engine.types.Vector2.new(1, 1)
+				engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(67, 44))
+				engine.environment.poke(caption.Parent.Parent, "AbsoluteSize", engine.types.Vector2.new(1, 1))
 				Verify.expect(caption.Parent.Size):toBe(engine.types.UDim2.fromOffset(67, 44))
 				Verify.expect(caption.Parent.Parent.Size):toBe(engine.types.UDim2.fromOffset(1, 1))
 				Verify.expect(caption.Parent.Parent.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
@@ -2044,30 +2165,39 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("gives native dialog contexts ordered sink priority and live eligibility", {
 			id = "native_inputs::native input controls::gives native dialog contexts ordered sink priority and live eligibility",
 			run = function()
+				local tracking: FixtureBridge.Tracking
 				local firstEnabled = Compose.cell(false)
 				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 						UI.Button "First" { dialogAction = "default" :: "default", enabled = firstEnabled } :: unknown,
 						UI.Button "Second" { dialogAction = "default" :: "default" },
 					})
+				end, function(_, fixture)
+					tracking = fixture.track()
+					return {}
 				end)
 				local contexts = {}
-				for _, instance in engine.made do
+				for _, instance in tracking.created do
 					if instance.ClassName == "InputContext" then
 						table.insert(contexts, instance)
 					end
 				end
+				tracking.stop()
 				Verify.expect(#contexts):toBe(2)
-				Verify.expect(contexts[1].Priority > contexts[2].Priority):toBe(true)
-				Verify.expect(contexts[1].Sink):toBe(true)
-				Verify.expect(contexts[1].Enabled):toBe(false)
-				Verify.expect(contexts[2].Enabled):toBe(true)
+				local firstPriority, secondPriority =
+					engine.environment.propertyOf(contexts[1], "Priority"),
+					engine.environment.propertyOf(contexts[2], "Priority")
+				assert(type(firstPriority) == "number" and type(secondPriority) == "number")
+				Verify.expect(firstPriority > secondPriority):toBe(true)
+				Verify.expect(engine.environment.propertyOf(contexts[1], "Sink")):toBe(true)
+				Verify.expect(engine.environment.propertyOf(contexts[1], "Enabled")):toBe(false)
+				Verify.expect(engine.environment.propertyOf(contexts[2], "Enabled")):toBe(true)
 				firstEnabled:set(true)
-				Verify.expect(contexts[1].Enabled):toBe(true)
+				Verify.expect(engine.environment.propertyOf(contexts[1], "Enabled")):toBe(true)
 				find(node, "First").Visible = false
-				Verify.expect(contexts[1].Enabled):toBe(false)
+				Verify.expect(engine.environment.propertyOf(contexts[1], "Enabled")):toBe(false)
 				stop()
-				Verify.expect((contexts[1]:isDestroyed())):toBe(true)
+				Verify.expect(engine.environment.isAlive(contexts[1])):toBe(false)
 			end,
 		})
 		verifyHarness:case("a held arrow repeats up to the bound and releases the axis at the bound", {
@@ -2078,17 +2208,22 @@ return function(verifyHarness: Verify.Harness)
 				local node, stop, engine = world(function(UI: FacetControls)
 					return UI.Slider({ value = value, min = 0, max = 100, step = 1 })
 				end, function(engine)
-					gui = engine.new("GuiService")
+					gui = (engine.new("GuiService") :: unknown) :: GuiService
 					return { services = { GuiService = gui }, guiService = gui }
 				end)
 				gui.SelectedObject = node
 				local increase = enabledAction(node.Parent, "IncreaseArrow")
+				local held = true
+				engine.environment.fakeOn(increase, "GetState", function()
+					return held
+				end)
 				increase.Pressed:Fire()
 				for _ = 1, 20 do
 					engine.heartbeat:Fire(0.1)
 				end
 				Verify.expect((value:peek())):toBe(100)
 				Verify.expect(increase.Parent.Enabled):toBe(false)
+				held = false
 				increase.Released:Fire()
 				Verify.expect(increase.Parent.Enabled):toBe(false)
 				Verify.expect(enabledAction(node.Parent, "DecreaseArrow").Parent.Enabled):toBe(true)
@@ -2102,7 +2237,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_inputs::native input controls::releases the axis at value bounds and rearms on focus return",
 			run = function()
 				local value = Compose.cell(4)
-				local node, stop = world(function(UI: FacetControls)
+				local node, stop, engine = world(function(UI: FacetControls)
 					return UI.Rating({ value = value })
 				end)
 				Verify.expect((find(node.Parent, "IncreaseArrow"))):toBe(nil)
@@ -2110,22 +2245,33 @@ return function(verifyHarness: Verify.Harness)
 				local increase = find(node.Parent, "IncreaseArrow")
 				local decrease = find(node.Parent, "DecreaseArrow")
 				local bumper = find(node.Parent, "Increase")
+				local held = true
+				for _, action in { increase, decrease } do
+					engine.environment.fakeOn(action, "GetState", function()
+						return held
+					end)
+				end
 				Verify.expect(increase.Parent.Enabled):toBe(true)
 				increase.Pressed:Fire()
 				Verify.expect((value:peek())):toBe(5)
 				Verify.expect(increase.Parent.Enabled):toBe(false)
+				held = false
 				increase.Released:Fire()
 				Verify.expect(increase.Parent.Enabled):toBe(false)
 				Verify.expect(bumper.Parent.Enabled):toBe(true)
 				Verify.expect(decrease.Parent.Enabled):toBe(true)
+				held = true
 				decrease.Pressed:Fire()
 				Verify.expect((value:peek())):toBe(4)
 				Verify.expect(increase.Parent.Enabled):toBe(true)
 				node.SelectionLost:Fire()
-				Verify.expect((increase:isDestroyed())):toBe(true)
+				Verify.expect(engine.environment.isAlive(increase)):toBe(false)
 				Verify.expect((find(node.Parent, "IncreaseArrow"))):toBe(nil)
 				node.SelectionGained:Fire()
 				local rearmed = find(node.Parent, "IncreaseArrow")
+				engine.environment.fakeOn(rearmed, "GetState", function()
+					return held
+				end)
 				Verify.expect(rearmed ~= increase):toBe(true)
 				Verify.expect(rearmed.Parent.Enabled):toBe(true)
 				rearmed.Pressed:Fire()
@@ -2148,17 +2294,24 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					})
 				end, function(engine)
-					input = engine.new("UserInputService")
+					input = (engine.new("UserInputService") :: unknown) :: UserInputService
+					engine.environment.fakeOn(input, "GetLastInputType", function()
+						return engine.types.Enum.UserInputType.MouseMovement
+					end)
 					return { services = { UserInputService = input } }
 				end)
 				local track, detector = find(node, "Track"), find(node, "Drag")
-				track.AbsoluteSize = engine.types.Vector2.new(100, 44)
+				engine.environment.poke(track, "AbsoluteSize", engine.types.Vector2.new(100, 44))
 				detector.DragStart:Fire(engine.types.Vector2.new(80, 0))
 				Verify.expect((value:peek())):toBe(0.5)
 				detector.DragContinue:Fire(engine.types.Vector2.new(80.4, 0))
 				Verify.expect((value:peek())):toBeCloseTo(0.9, 1e-4)
 				Verify.expect((node:GetAttribute("semanticValue"))):toBe("0.9 of 0 to 1")
-				input.PreferredInput = engine.types.Enum.PreferredInput.Gamepad
+				engine.environment.poke(
+					(input :: unknown) :: VerifyRoblox.Instance,
+					"PreferredInput",
+					engine.types.Enum.PreferredInput.Gamepad
+				)
 				Verify.expect((value:peek())):toBe(0.5)
 				detector.DragEnd:Fire()
 				Verify.expect(commits):toBe(0)
@@ -2226,7 +2379,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(measure.Text):toBe("a\nb\n ")
 				Verify.expect(field.Size.Y.Offset):toBe(96)
 				Verify.expect(measure.Visible):toBe(false)
-				measure.TextBounds = engine.types.Vector2.new(280, 300)
+				engine.environment.poke(measure, "TextBounds", engine.types.Vector2.new(280, 300))
 				Verify.expect(field.Size.Y.Offset):toBe(316)
 				stop()
 			end,
@@ -2236,7 +2389,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_inputs::native input controls::commits a touch edit when touch leaves with no keyboard and carries it otherwise",
 			run = function()
 				local value, reasons, input = Compose.cell("seed"), {}, nil
-				local node, stop = world(function(UI: FacetControls, _, runtime)
+				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 						UI.TextInput "Name" {
 							value = value,
@@ -2246,24 +2399,36 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end, function(engine)
-					input = engine.new("UserInputService")
-					input.TouchEnabled = true
-					input.KeyboardEnabled = false
+					input = (engine.new("UserInputService") :: unknown) :: UserInputService
+					engine.environment.fakeOn(input, "GetLastInputType", function()
+						return engine.types.Enum.UserInputType.MouseMovement
+					end)
+					engine.environment.fakeOn(input, "IsGamepadButtonDown", function()
+						return false
+					end)
+					engine.environment.fakeOn(input, "GetNavigationGamepads", function()
+						return {}
+					end)
+					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
+					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "KeyboardEnabled", false)
+					engine.environment.fakeOn(input, "IsKeyDown", function()
+						return false
+					end)
 					return { services = { UserInputService = input } }
 				end)
 				local field = find(node, "Name")
 				field:CaptureFocus()
 				field.Text = "hi"
-				input.GamepadEnabled = true
+				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "GamepadEnabled", true)
 				Verify.expect((field:IsFocused())):toBe(true)
-				input.KeyboardEnabled = true
-				input.TouchEnabled = false
+				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "KeyboardEnabled", true)
+				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
 				Verify.expect((field:IsFocused())):toBe(true)
 				Verify.expect(#reasons):toBe(0)
-				input.TouchEnabled = true
-				input.KeyboardEnabled = false
+				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
+				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "KeyboardEnabled", false)
 				Verify.expect((field:IsFocused())):toBe(true)
-				input.TouchEnabled = false
+				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
 				Verify.expect((field:IsFocused())):toBe(false)
 				Verify.expect(reasons):toEqual({ "focusLost" })
 				Verify.expect((value:peek())):toBe("hi")
@@ -2302,7 +2467,7 @@ return function(verifyHarness: Verify.Harness)
 				action.Pressed:Fire()
 				Verify.expect(activated):toBe(1)
 				first.SelectionLost:Fire()
-				Verify.expect((action:isDestroyed())):toBe(false)
+				Verify.expect(engine.environment.isAlive(action)):toBe(true)
 				Verify.expect(action.Parent.Enabled):toBe(false)
 				action.Pressed:Fire()
 				Verify.expect(activated):toBe(1)
@@ -2330,8 +2495,8 @@ return function(verifyHarness: Verify.Harness)
 				secondAction.Pressed:Fire()
 				Verify.expect(activated):toBe(12)
 				stop()
-				Verify.expect((action:isDestroyed())):toBe(true)
-				Verify.expect((secondAction:isDestroyed())):toBe(true)
+				Verify.expect(engine.environment.isAlive(action)):toBe(false)
+				Verify.expect(engine.environment.isAlive(secondAction)):toBe(false)
 				action.Pressed:Fire()
 				secondAction.Pressed:Fire()
 				Verify.expect(activated):toBe(12)
@@ -2342,7 +2507,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_inputs::native input controls::activates programmatically selected buttons through the native GuiService property",
 			run = function()
 				local gui, firstCalls, secondCalls = nil, 0, 0
-				local node, stop = world(function(UI: FacetControls, _, runtime)
+				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 						UI.Button "First" {
 							label = "First",
@@ -2358,7 +2523,7 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end, function(engine)
-					gui = engine.new("GuiService")
+					gui = (engine.new("GuiService") :: unknown) :: GuiService
 					return { services = { GuiService = gui } }
 				end)
 				local first, second = find(node, "First"), find(node, "Second")
@@ -2370,7 +2535,7 @@ return function(verifyHarness: Verify.Harness)
 				action.Pressed:Fire()
 				Verify.expect(firstCalls):toBe(1)
 				gui.SelectedObject = second
-				Verify.expect((action:isDestroyed())):toBe(false)
+				Verify.expect(engine.environment.isAlive(action)):toBe(true)
 				Verify.expect(action.Parent.Enabled):toBe(false)
 				local secondAction = enabledAction(node.Parent, "Activate")
 				Verify.expect(secondAction ~= action):toBe(true)
@@ -2390,8 +2555,8 @@ return function(verifyHarness: Verify.Harness)
 				action.Pressed:Fire()
 				Verify.expect(firstCalls):toBe(2)
 				stop()
-				Verify.expect((action:isDestroyed())):toBe(true)
-				Verify.expect((secondAction:isDestroyed())):toBe(true)
+				Verify.expect(engine.environment.isAlive(action)):toBe(false)
+				Verify.expect(engine.environment.isAlive(secondAction)):toBe(false)
 				Verify.expect((engineLib.connections(gui:GetPropertyChangedSignal("SelectedObject")))):toBe(0)
 			end,
 		})
@@ -2399,6 +2564,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("allocates mirrored captions only while a reactive native theme has control artwork", {
 			id = "native_inputs::native input controls::allocates mirrored captions only while a reactive native theme has control artwork",
 			run = function()
+				local tracking: FixtureBridge.Tracking
 				local neutral = { identity = {}, chrome = {} }
 				local artwork = {
 					identity = {},
@@ -2408,7 +2574,8 @@ return function(verifyHarness: Verify.Harness)
 				local theme = Compose.cell(neutral)
 				local node, stop, engine = world(function(UI: FacetControls)
 					return UI.Button({ label = "Caption" })
-				end, function()
+				end, function(_, fixture)
+					tracking = fixture.track()
 					return { theme = theme }
 				end)
 				Verify.expect((find(node, "Label"))):toBe(nil)
@@ -2419,13 +2586,13 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(label.Text):toBe("Caption")
 				Verify.expect((node:HasTag("facet-button-captioned"))):toBe(true)
 				theme:set(neutral)
-				Verify.expect((label:isDestroyed())):toBe(false)
+				Verify.expect(engine.environment.isAlive(label)):toBe(true)
 				Verify.expect(boundary.Visible):toBe(false)
 				Verify.expect((node:HasTag("facet-button-captioned"))):toBe(false)
 				node.Text = "Retained caption"
 				node.TextSize = 22
-				node.AbsoluteSize = engine.types.Vector2.new(80, 44)
-				boundary.AbsoluteSize = engine.types.Vector2.new(2, 2)
+				engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(80, 44))
+				engine.environment.poke(boundary, "AbsoluteSize", engine.types.Vector2.new(2, 2))
 				for _ = 1, 100 do
 					theme:set(artwork)
 					Verify.expect((find(node, "Label"))):toBe(label)
@@ -2440,16 +2607,18 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(label.TextSize):toBe(22)
 				Verify.expect(bounds.Size):toBe(engine.types.UDim2.fromOffset(40, 22))
 				local created = 0
-				for _, item in engine.made do
-					if item.Name == "Label" or item.Name == "LabelBounds" or item.Name == "LabelBoundary" then
+				for _, item in tracking.created do
+					local name = engine.environment.propertyOf(item, "Name")
+					if name == "Label" or name == "LabelBounds" or name == "LabelBoundary" then
 						created += 1
 					end
 				end
 				Verify.expect(created):toBe(3)
 				stop()
-				Verify.expect((label:isDestroyed())):toBe(true)
-				Verify.expect((bounds:isDestroyed())):toBe(true)
-				Verify.expect((boundary:isDestroyed())):toBe(true)
+				tracking.stop()
+				Verify.expect(engine.environment.isAlive(label)):toBe(false)
+				Verify.expect(engine.environment.isAlive(bounds)):toBe(false)
+				Verify.expect(engine.environment.isAlive(boundary)):toBe(false)
 				Verify.expect((engineLib.connections(node:GetPropertyChangedSignal("FontFace")))):toBe(0)
 			end,
 		})
@@ -2465,7 +2634,7 @@ return function(verifyHarness: Verify.Harness)
 						UI.Slider "Slider" { value = sliderValue },
 					})
 				end, function(engine)
-					gui = engine.new("GuiService")
+					gui = (engine.new("GuiService") :: unknown) :: GuiService
 					return { services = { GuiService = gui } }
 				end)
 				local function activeContextCount()
@@ -2481,26 +2650,33 @@ return function(verifyHarness: Verify.Harness)
 				gui.SelectedObject = find(node, "Slider")
 				Verify.expect((activeContextCount())):toBe(5)
 				local sliderAction = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
+				local held = true
+				engine.environment.fakeOn(sliderAction, "GetState", function()
+					return held
+				end)
 				sliderAction.Pressed:Fire()
 				Verify.expect((sliderValue:peek())):toBe(0.51)
 				local stepper = find(node, "Stepper")
 				gui.SelectedObject = stepper
 				Verify.expect((activeContextCount())):toBe(4)
-				Verify.expect((sliderAction:isDestroyed())):toBe(true)
+				Verify.expect(engine.environment.isAlive(sliderAction)):toBe(false)
 				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				local action = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
+				engine.environment.fakeOn(action, "GetState", function()
+					return held
+				end)
 				action.Pressed:Fire()
 				Verify.expect((stepperValue:peek())):toBe(4)
 				enabled:set(false)
 				Verify.expect((activeContextCount())):toBe(0)
-				Verify.expect((action:isDestroyed())):toBe(true)
+				Verify.expect(engine.environment.isAlive(action)):toBe(false)
 				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				enabled:set(true)
 				Verify.expect((activeContextCount())):toBe(4)
 				gui.SelectedObject = nil
 				Verify.expect((activeContextCount())):toBe(0)
 				stop()
-				local initial, initialStop = world(function(UI: FacetControls)
+				local initial, initialStop, initialEngine = world(function(UI: FacetControls)
 					return UI.Stepper({
 						value = stepperValue,
 						max = 10,
@@ -2509,15 +2685,18 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					})
 				end, function(engine)
-					gui = engine.new("GuiService")
+					gui = (engine.new("GuiService") :: unknown) :: GuiService
 					return { services = { GuiService = gui } }
 				end)
 				local initialAction = find(initial.Parent, "FacetIncrease"):FindFirstChild("Increase")
+				initialEngine.environment.fakeOn(initialAction, "GetState", function()
+					return held
+				end)
 				Verify.expect(initialAction.Parent.Enabled):toBe(true)
 				initialAction.Pressed:Fire()
 				Verify.expect((stepperValue:peek())):toBe(5)
 				initialStop()
-				Verify.expect((initialAction:isDestroyed())):toBe(true)
+				Verify.expect(initialEngine.environment.isAlive(initialAction)):toBe(false)
 			end,
 		})
 
@@ -2575,27 +2754,43 @@ return function(verifyHarness: Verify.Harness)
 					})
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({ dial :: unknown, knob })
 				end, function(engine)
-					gui = engine.new("GuiService")
+					gui = (engine.new("GuiService") :: unknown) :: GuiService
 					return { services = { GuiService = gui }, guiService = gui }
 				end)
 				local dial, knob, screen = find(node, "Dial"), find(node, "Knob"), node.Parent
 				Verify.expect((enabledAction(screen, "IncreaseArrow"))):toBe(nil)
 				gui.SelectedObject = dial
 				local up = enabledAction(screen, "IncreaseArrow")
+				local held = true
+				engine.environment.fakeOn(up, "GetState", function()
+					return held
+				end)
 				Verify.expect(up ~= nil):toBe(true)
 				Verify.expect(up:FindFirstChildWhichIsA("InputBinding").KeyCode):toBe(engine.types.Enum.KeyCode.Up)
 				up.Pressed:Fire()
 				Verify.expect(steps[1]):toBe(1)
 				engine.heartbeat:Fire(0.4)
 				Verify.expect(steps[2]):toBe(1)
+				held = false
 				up.Released:Fire()
 				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
-				enabledAction(screen, "Decrease").Pressed:Fire()
+				local decrease = enabledAction(screen, "Decrease")
+				engine.environment.fakeOn(decrease, "GetState", function()
+					return held
+				end)
+				held = true
+				decrease.Pressed:Fire()
+				held = false
 				Verify.expect(steps[3]):toBe(-1)
 				gui.SelectedObject = knob
 				Verify.expect((enabledAction(screen, "IncreaseArrow"))):toBe(nil)
 				local shoulder = enabledAction(screen, "Increase")
+				engine.environment.fakeOn(shoulder, "GetState", function()
+					return held
+				end)
+				held = true
 				shoulder.Pressed:Fire()
+				held = false
 				Verify.expect(steps[4]):toBe(10)
 				engine.heartbeat:Fire(1)
 				Verify.expect(#steps):toBe(4)
@@ -2610,13 +2805,13 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local value = Compose.cell(0.5)
 				local gui
-				local node, stop = world(function(UI: FacetControls, _, runtime)
+				local node, stop, engine = world(function(UI: FacetControls, _, runtime)
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
 						UI.Slider "Volume" { value = value, step = 0.1 } :: unknown,
 						UI.Slider "Hidden" { value = Compose.cell(0.5), thumb = "auto" :: "auto" },
 					})
 				end, function(engine)
-					gui = engine.new("GuiService")
+					gui = (engine.new("GuiService") :: unknown) :: GuiService
 					return { services = { GuiService = gui }, guiService = gui }
 				end)
 				local volume = find(node, "Volume")
@@ -2628,7 +2823,12 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(find(node, "Hidden"), "Track").Selectable):toBe(false)
 				Verify.expect((find(node, "Hidden"):GetAttribute("FacetFocusPart"))):toBe("Track")
 				gui.SelectedObject = volume
-				enabledAction(node.Parent, "IncreaseArrow").Pressed:Fire()
+				local increase = enabledAction(node.Parent, "IncreaseArrow")
+				local held = true
+				engine.environment.fakeOn(increase, "GetState", function()
+					return held
+				end)
+				increase.Pressed:Fire()
 				Verify.expect(math.abs(value:peek() - 0.6) < 1e-9):toBe(true)
 				stop()
 			end,
@@ -2644,6 +2844,10 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
 				node.SelectionGained:Fire()
 				local increase = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
+				local held = true
+				engine.environment.fakeOn(increase, "GetState", function()
+					return held
+				end)
 				increase.Pressed:Fire()
 				Verify.expect((value:peek())):toBe(1)
 				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(1)
@@ -2653,8 +2857,10 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((value:peek())):toBe(4)
 				engine.heartbeat:Fire(20)
 				Verify.expect((value:peek())):toBe(9)
+				held = false
 				increase.Released:Fire()
 				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
+				held = true
 				increase.Pressed:Fire()
 				node.SelectionLost:Fire()
 				Verify.expect((engineLib.connections(engine.heartbeat))):toBe(0)
@@ -2673,6 +2879,10 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					node.SelectionGained:Fire()
 					local increase = find(node.Parent, "FacetIncrease"):FindFirstChild("Increase")
+					local held = true
+					engine.environment.fakeOn(increase, "GetState", function()
+						return held
+					end)
 					increase.Pressed:Fire()
 					engine.heartbeat:Fire(0.9)
 					Verify.expect((value:peek())):toBe(1)
@@ -2680,6 +2890,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((value:peek())):toBe(2)
 					engine.heartbeat:Fire(0.5)
 					Verify.expect((value:peek())):toBe(3)
+					held = false
 					increase.Released:Fire()
 					local button
 					for _, child in node:GetDescendants() do
@@ -2712,7 +2923,7 @@ return function(verifyHarness: Verify.Harness)
 						return { theme = theme }
 					end)
 					local nativeSize, automaticSize = node.Size, node.AutomaticSize
-					node.AbsoluteSize = engine.types.Vector2.new(67, 44)
+					engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(67, 44))
 					theme:set({
 						identity = {},
 						chrome = { control = { kind = "nineSlice" :: "nineSlice", asset = "control" } },
@@ -2724,7 +2935,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(skinHost.Size):toBe(engine.types.UDim2.fromOffset(0, 0))
 					Verify.expect(skinHost.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
 					for _, decoration in { skin, label } do
-						decoration.Parent.AbsoluteSize = engine.types.Vector2.new(1, 1)
+						engine.environment.poke(decoration.Parent, "AbsoluteSize", engine.types.Vector2.new(1, 1))
 						Verify.expect(decoration.Parent.Parent):toBe(if decoration == skin then skinHost else node)
 						Verify.expect(decoration.Parent.Size):toBe(engine.types.UDim2.fromOffset(1, 1))
 						Verify.expect(decoration.Parent.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
@@ -2736,8 +2947,8 @@ return function(verifyHarness: Verify.Harness)
 					padding.PaddingTop = engine.types.UDim.new(0, 3)
 					padding.PaddingBottom = engine.types.UDim.new(0, 4)
 					padding.Parent = node
-					skin.Parent.AbsolutePosition = engine.types.Vector2.new(61, 39)
-					label.Parent.AbsolutePosition = engine.types.Vector2.new(61, 39)
+					engine.environment.poke(skin.Parent, "AbsolutePosition", engine.types.Vector2.new(61, 39))
+					engine.environment.poke(label.Parent, "AbsolutePosition", engine.types.Vector2.new(61, 39))
 					Verify.expect(skin.Size):toBe(engine.types.UDim2.fromOffset(67, 44))
 					Verify.expect(skin.Position):toBe(engine.types.UDim2.fromOffset(6, 5))
 					Verify.expect(skin.AnchorPoint):toBe(engine.types.Vector2.new(1, 1))
@@ -2748,13 +2959,13 @@ return function(verifyHarness: Verify.Harness)
 					padding.PaddingLeft = engine.types.UDim.new(0, 12)
 					Verify.expect(skin.Position.X.Offset):toBe(6)
 					Verify.expect(label.Size.X.Offset):toBe(50)
-					node.AbsoluteSize = engine.types.Vector2.new(80, 50)
+					engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(80, 50))
 					Verify.expect(skin.Size):toBe(engine.types.UDim2.fromOffset(80, 50))
 					Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(63, 43))
 					Verify.expect(node.Size):toBe(nativeSize)
 					Verify.expect(node.AutomaticSize):toBe(automaticSize)
 					padding.Parent = nil
-					skin.Parent.AbsolutePosition = engine.types.Vector2.new(79, 49)
+					engine.environment.poke(skin.Parent, "AbsolutePosition", engine.types.Vector2.new(79, 49))
 					Verify.expect(skin.Position):toBe(engine.types.UDim2.fromOffset(1, 1))
 					Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(80, 50))
 					Verify.expect((engineLib.connections(padding:GetPropertyChangedSignal("PaddingLeft")))):toBe(0)
@@ -2781,13 +2992,17 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local skin, label = find(node, "SkinBounds"), find(node, "LabelBounds")
-				node.AbsoluteSize = engine.types.Vector2.new(100, 55)
+				engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(100, 55))
 				Verify.expect(skin.Size):toBe(engine.types.UDim2.fromOffset(0, 0))
 				Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(0, 0))
 				for _, scale in { 1.25, 0.5, 2, 0.75, 1.25, 1 } do
-					node.AbsoluteSize = engine.types.Vector2.new(80.25 * scale, 44.5 * scale)
+					engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(80.25 * scale, 44.5 * scale))
 					for _, decoration in { skin, label } do
-						decoration.Parent.AbsoluteSize = engine.types.Vector2.new(scale, scale)
+						engine.environment.poke(
+							decoration.Parent,
+							"AbsoluteSize",
+							engine.types.Vector2.new(scale, scale)
+						)
 						Verify.expect(decoration.Size):toBe(
 							if decoration == skin
 								then engine.types.UDim2.fromOffset(80.25, 44.5)
@@ -2800,11 +3015,11 @@ return function(verifyHarness: Verify.Harness)
 				padding.PaddingLeft = engine.types.UDim.new(0, 12)
 				padding.PaddingRight = engine.types.UDim.new(0, 8)
 				padding.Parent = node
-				node.AbsoluteSize = engine.types.Vector2.new(100, 55)
-				skin.Parent.AbsoluteSize = engine.types.Vector2.new(1.25, 1.25)
-				label.Parent.AbsoluteSize = engine.types.Vector2.new(1.25, 1.25)
-				skin.Parent.AbsolutePosition = engine.types.Vector2.new(88.75, 53.75)
-				label.Parent.AbsolutePosition = engine.types.Vector2.new(88.75, 53.75)
+				engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(100, 55))
+				engine.environment.poke(skin.Parent, "AbsoluteSize", engine.types.Vector2.new(1.25, 1.25))
+				engine.environment.poke(label.Parent, "AbsoluteSize", engine.types.Vector2.new(1.25, 1.25))
+				engine.environment.poke(skin.Parent, "AbsolutePosition", engine.types.Vector2.new(88.75, 53.75))
+				engine.environment.poke(label.Parent, "AbsolutePosition", engine.types.Vector2.new(88.75, 53.75))
 				Verify.expect(skin.Size):toBe(engine.types.UDim2.fromOffset(80, 44))
 				Verify.expect(skin.Position):toBe(engine.types.UDim2.fromOffset(9, 1))
 				Verify.expect(label.Size):toBe(engine.types.UDim2.fromOffset(60, 44))
@@ -2826,9 +3041,9 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local V = engine.types.Vector2
-				root.AbsoluteSize = V.new(353, 44)
+				engine.environment.poke(root, "AbsoluteSize", V.new(353, 44))
 				local node, marks = find(root, "Stars"), find(root, "Marks")
-				node.AbsoluteSize = V.new(353, 44)
+				engine.environment.poke(node, "AbsoluteSize", V.new(353, 44))
 				local spacing = marks:FindFirstChildWhichIsA("UIListLayout").Padding.Offset
 				local width = 0
 				for index = 1, 10 do
@@ -2840,8 +3055,8 @@ return function(verifyHarness: Verify.Harness)
 				end
 				width += 9 * spacing
 				Verify.expect(width <= 353):toBe(true)
-				marks.AbsolutePosition = V.new(10, 10)
-				marks.AbsoluteSize = V.new(width, 36)
+				engine.environment.poke(marks, "AbsolutePosition", V.new(10, 10))
+				engine.environment.poke(marks, "AbsoluteSize", V.new(width, 36))
 				local detector = find(node, "Scrub")
 				detector.DragStart:Fire(V.new(10 + width - 1, 20))
 				detector.DragEnd:Fire()
@@ -2861,21 +3076,21 @@ return function(verifyHarness: Verify.Harness)
 						UI.Rating "Stars" { value = Compose.cell(3) },
 					})
 				end, function(engine)
-					input = engine.new("UserInputService")
-					input.TouchEnabled = true
+					input = (engine.new("UserInputService") :: unknown) :: UserInputService
+					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
 					return { services = { UserInputService = input } }
 				end)
 				local V = engine.types.Vector2
 				local node = find(root, "Stars")
 				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 24)
 				local mark = find(node, "Marks"):FindFirstChildWhichIsA("GuiObject")
-				mark.AbsoluteSize = V.new(20, 20)
-				root.AbsoluteSize = V.new(144, 44)
+				engine.environment.poke(mark, "AbsoluteSize", V.new(20, 20))
+				engine.environment.poke(root, "AbsoluteSize", V.new(144, 44))
 				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 11)
-				mark.AbsoluteSize = V.new(40, 40)
-				find(node, "LayoutUnit").AbsoluteSize = V.new(200, 2)
+				engine.environment.poke(mark, "AbsoluteSize", V.new(40, 40))
+				engine.environment.poke(find(node, "LayoutUnit"), "AbsoluteSize", V.new(200, 2))
 				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 2)
-				root.AbsoluteSize = V.new(800, 88)
+				engine.environment.poke(root, "AbsoluteSize", V.new(800, 88))
 				Verify.expect(node.Size.X.Offset):toBe(5 * 20 + 4 * 24)
 				stop()
 			end,
@@ -2894,8 +3109,8 @@ return function(verifyHarness: Verify.Harness)
 							UI.LevelPicker "Bars" { value = Compose.cell(2), count = 10 },
 						})
 					end, function(engine)
-						input = engine.new("UserInputService")
-						input.TouchEnabled = true
+						input = (engine.new("UserInputService") :: unknown) :: UserInputService
+						engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
 						return { services = { UserInputService = input } }
 					end)
 					local V = engine.types.Vector2
@@ -2904,12 +3119,12 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(flex and flex.FlexMode):toBe(engine.types.Enum.UIFlexMode.Shrink)
 					local mark = find(node, "Marks"):FindFirstChildWhichIsA("GuiObject")
 					local spacing = find(node, "Marks"):FindFirstChildWhichIsA("UIListLayout")
-					mark.AbsoluteSize = V.new(20, 20)
-					root.AbsoluteSize = V.new(337, 44)
+					engine.environment.poke(mark, "AbsoluteSize", V.new(20, 20))
+					engine.environment.poke(root, "AbsoluteSize", V.new(337, 44))
 					Verify.expect(node.Size.X.Offset):toBe(10 * 20 + 9 * 15)
-					node.AbsoluteSize = V.new(10 * 20 + 9 * 15, 44)
+					engine.environment.poke(node, "AbsoluteSize", V.new(10 * 20 + 9 * 15, 44))
 					Verify.expect(spacing.Padding.Offset):toBe(15)
-					node.AbsoluteSize = V.new(10 * 20 + 9 * 6, 44)
+					engine.environment.poke(node, "AbsoluteSize", V.new(10 * 20 + 9 * 6, 44))
 					Verify.expect(spacing.Padding.Offset):toBe(6)
 					stop()
 				end,
@@ -2940,11 +3155,11 @@ return function(verifyHarness: Verify.Harness)
 		local function harness(options: { [string]: any }?): Harness
 			local engine: any = engineLib.new()
 			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-			local gui = engine.new("GuiService")
-			local input = engine.new("UserInputService")
-			input.GetFocusedTextBox = function()
-				return nil
-			end
+			local gui = (engine.new("GuiService") :: unknown) :: GuiService
+			local input = (engine.new("UserInputService") :: unknown) :: UserInputService
+			engine.environment.fakeOn(input, "GetLastInputType", function()
+				return engine.types.Enum.UserInputType.MouseMovement
+			end)
 			local config: { [string]: any } =
 				{ types = engine.types, guiService = gui, services = { GuiService = gui, UserInputService = input } }
 			for key, value in (options or {}) :: { [string]: any } do
@@ -2989,8 +3204,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local viewport = Compose.cell(engineLib.new().types.Vector2.new(359, 718))
 				local h = harness({ environment = { viewportSize = viewport } })
-				h.input.TouchEnabled = true
-				h.input.KeyboardEnabled = false
+				h.engine.environment.poke(h.input, "TouchEnabled", true)
+				h.engine.environment.poke(h.input, "KeyboardEnabled", false)
 				local root, stop = mount(h, function()
 					return h.UI.Button "Drift" {
 						label = "DRIFT",
@@ -3005,8 +3220,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(floor.MinSize):toBe(V2.new(70, 70))
 				viewport:set(V2.new(1024, 768))
 				Verify.expect(floor.MinSize):toBe(V2.new(120, 120))
-				h.input.TouchEnabled = false
-				h.input.KeyboardEnabled = true
+				h.engine.environment.poke(h.input, "TouchEnabled", false)
+				h.engine.environment.poke(h.input, "KeyboardEnabled", true)
 				Verify.expect(find(root, "Drift"):FindFirstChild("TargetFloor")):toBe(nil)
 				stop()
 				h.dispose()
@@ -3077,17 +3292,20 @@ return function(verifyHarness: Verify.Harness)
 					local skin, label = find(plate, "SkinBounds"), find(plate, "LabelBounds")
 					local UDim = h.engine.types.UDim
 					local hostX, hostWidth = 10, 83
-					plate.AbsoluteSize = h.engine.types.Vector2.new(hostWidth, 28)
-					plate.AbsolutePosition = h.engine.types.Vector2.new(hostX, 0)
+					h.engine.environment.poke(plate, "AbsoluteSize", h.engine.types.Vector2.new(hostWidth, 28))
+					h.engine.environment.poke(plate, "AbsolutePosition", h.engine.types.Vector2.new(hostX, 0))
 					for _, bounds in { skin, label } do
-						bounds.Parent.AbsoluteSize = h.engine.types.Vector2.new(1, 1)
+						h.engine.environment.poke(bounds.Parent, "AbsoluteSize", h.engine.types.Vector2.new(1, 1))
 					end
 					local padding = plate:FindFirstChildWhichIsA("UIPadding")
 					local function painted(bounds: any): (number, number)
 						local right = padding.PaddingRight.Offset
 						local boundaryLeft = hostX + hostWidth - right - 1
-						bounds.Parent.AbsolutePosition =
+						h.engine.environment.poke(
+							bounds.Parent,
+							"AbsolutePosition",
 							h.engine.types.Vector2.new(boundaryLeft, 28 - padding.PaddingBottom.Offset - 1)
+						)
 						local rightEdge = boundaryLeft + bounds.Position.X.Offset
 						return rightEdge - bounds.Size.X.Offset, rightEdge
 					end
@@ -3137,14 +3355,14 @@ return function(verifyHarness: Verify.Harness)
 		local function setup(build: (any, any, any, any) -> any, options: { [string]: any }?): World
 			local engine: any = engineLib.new()
 			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
-			local gui = engine.new("GuiService")
-			local input = engine.new("UserInputService")
-			input.GetFocusedTextBox = function()
-				return nil
-			end
-			input.IsKeyDown = function()
+			local gui = (engine.new("GuiService") :: unknown) :: GuiService
+			local input = (engine.new("UserInputService") :: unknown) :: UserInputService
+			engine.environment.fakeOn(input, "GetLastInputType", function()
+				return engine.types.Enum.UserInputType.MouseMovement
+			end)
+			engine.environment.fakeOn(input, "IsKeyDown", function()
 				return false
-			end
+			end)
 			local root = engine.new("ScreenGui")
 			local config: { [string]: any } = {
 				types = engine.types,
@@ -3221,21 +3439,21 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(shadow.ClassName):toBe("UIShadow")
 						Verify.expect(shadow.Enabled):toBe(true)
 						Verify.expect(pop.Scale):toBe(1)
-						node.GuiState = E.GuiState.Press
+						world.engine.environment.poke(node, "GuiState", E.GuiState.Press)
 						node.Activated:Fire()
 						world.engine.heartbeat:Fire(0.1)
 						Verify.expect(pop.Scale > 1):toBe(true)
 						Verify.expect((find(node, "ChromeShadow"))):toBe(shadow)
 						Verify.expect(shadow.Enabled):toBe(true)
-						node.GuiState = E.GuiState.Idle
+						world.engine.environment.poke(node, "GuiState", E.GuiState.Idle)
 						world.engine.heartbeat:Fire(1)
 						Verify.expect(pop.Scale):toBe(1)
 						Verify.expect(authored.Scale):toBe(0.8)
 						Verify.expect((find(node, "ChromeShadow"))):toBe(shadow)
 						Verify.expect(shadow.Enabled):toBe(true)
-						Verify.expect((shadow:isDestroyed())):toBe(false)
+						Verify.expect(world.engine.environment.isAlive(shadow)):toBe(true)
 						world.stop()
-						Verify.expect((shadow:isDestroyed())):toBe(true)
+						Verify.expect(world.engine.environment.isAlive(shadow)):toBe(false)
 					end,
 				}
 			)

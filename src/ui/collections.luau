@@ -227,8 +227,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 				Attributes = { FacetDocumentOrder = true } :: EngineTypes.Attributes,
 				directive,
 			}
-			if kind == "grid" then
-				nativeProps[#nativeProps + 1] = Host.UIPadding({
+			local function padding(): UIPadding
+				return Host.UIPadding({
 					PaddingLeft = function(use: ComposeTypes.Use)
 						return ctx.types.UDim.new(0, if horizontal then mainEdge(use) else crossEdge(use))
 					end,
@@ -241,8 +241,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): BuildList
 					PaddingBottom = function(use: ComposeTypes.Use)
 						return ctx.types.UDim.new(0, if horizontal then crossEdge(use) else 0)
 					end,
-				}) :: Types.Child
+				})
 			end
+			nativeProps[#nativeProps + 1] = if kind == "grid"
+				then padding()
+				else Compose.show(function(use: ComposeTypes.Use): boolean
+					return use(view.containsCards)
+				end, padding) :: Types.Child
 			return Host.Frame(nativeProps)
 		end)
 		table.insert(native, view.unit)

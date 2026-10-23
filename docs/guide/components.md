@@ -26,7 +26,7 @@ again.
 | Teardown | `Compose.cleanup` |
 
 This component uses the `Compose` and `UI` setup from
-[Getting started](03-getting-started.md):
+[Getting started](getting-started.md):
 
 ```luau
 local function Settings()
@@ -86,7 +86,7 @@ For interactive data collections, including short editable lists, use Facet
 or [Table](../reference/nodes/Table.reference.md) for columns. These controls also accept a
 field name as the key: `key = "id"`. Choose the interaction contract first.
 Then choose windowing or `mode = "all"` according to the collection size and
-lifetime requirements. See [interactive collections](14-choosing-controls.md#interactive-collections).
+lifetime requirements. See [interactive collections](choosing-controls.md#interactive-collections).
 Keep durable row edits and selections in the model, outside the windowed row
 owners. Compose `OrderedCollection` and `Pool` supply the collection mechanisms
 for those controls. Screens do not need their own windowing.
@@ -205,5 +205,5 @@ control that changes a state or a value, for example a Toggle or a Stepper
 step. To make a game-specific Button play it, set `haptic = true`.
 
 See the [native API contract](../reference/nodes/Constructor-contract.md),
-[adaptive composition](15-adaptive-recipes.md) and
-[practical recipes](17-recipes.md).
+[adaptive composition](../../skills/use-facet/references/game-ui/LAYOUT_AND_NAVIGATION.md) and
+[task recipes](../reference/nodes/Map.md).

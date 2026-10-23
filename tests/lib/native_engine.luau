@@ -8,6 +8,7 @@ export type Signal<A... = ...unknown> = ComposeRoblox.Signal<A...> & {
 	Fire: (self: any, A...) -> (),
 }
 export type Engine = {
+	environment: VerifyRoblox.Environment,
 	new: (string) -> any,
 	clock: () -> number,
 	typeName: (any) -> string,
@@ -17,7 +18,6 @@ export type Engine = {
 	readCFrame: typeof(((nil :: unknown) :: ComposeRoblox.Engine).readCFrame),
 	heartbeat: Signal<number>,
 	types: Shared.RobloxTypes,
-	made: { any },
 	rejectedSelections: () -> { any },
 	census: () -> { live: number, connections: number },
 	onWrite: ((any, string, any) -> ()) -> any,
@@ -29,7 +29,6 @@ export type Options = {
 	styleOnlySignals: boolean?,
 	selectionNeedsPlayerGui: boolean?,
 	lenientProperties: boolean?,
-	recordCreated: boolean?,
 }
 
 local SNAPSHOT = "tests/fixtures/roblox-reflection.json"
@@ -117,20 +116,6 @@ local doubles: { [string]: any } = {
 			return not environment.isAlive(object)
 		end)
 	end,
-	connectionCount = function(object)
-		return owner(function(environment)
-			return environment.connectionsOfInstance(object)
-		end)
-	end,
-	_fireSignal = function(object, name, ...)
-		object[name]:Fire(...)
-	end,
-	Play = function(object)
-		object.PlayCount = (object.PlayCount or 0) + 1
-	end,
-	Stop = function(object)
-		object.StopCount = (object.StopCount or 0) + 1
-	end,
 	GetMouseLocation = function()
 		return Vector2.new(-1, -1)
 	end,
@@ -142,9 +127,6 @@ local doubles: { [string]: any } = {
 	end,
 	GetGuiObjectsAtPosition = function()
 		return {}
-	end,
-	SetWaveformKeys = function(object, keys)
-		object.WaveformKeys = keys
 	end,
 }
 local metadata: { [string]: any } = {}
@@ -185,9 +167,6 @@ for _, name in names do
 	end
 	for _, key in
 		{
-			"PlayCount",
-			"StopCount",
-			"WaveformKeys",
 			"ControlPoints",
 			"PrimaryModifier",
 			"SecondaryModifier",
@@ -242,7 +221,7 @@ local function connections(signal: any): number
 	end)
 end
 
-local function new(options: Options?): Engine
+local function new(options: Options?): (Engine, VerifyRoblox.FixtureBridge)
 	local settings: Options = options or {}
 	local environment: VerifyRoblox.Environment
 	local computed: { [string]: any } = {}
@@ -287,12 +266,6 @@ local function new(options: Options?): Engine
 	})
 	environment = bridge.environment
 	environments[environment] = true
-	local made: { any } = {}
-	if settings.recordCreated ~= false then
-		environment.onCreate(function(object)
-			table.insert(made, object)
-		end)
-	end
 	environment.onClone(function(_, copy)
 		if copy:IsA("ViewportFrame") then
 			environment.poke(copy, "CurrentCamera", nil)
@@ -300,11 +273,11 @@ local function new(options: Options?): Engine
 	end)
 
 	local engine: any = bridge.engine
+	engine.environment = environment
 	engine.census = function()
 		local accounting = bridge.accounting()
 		return { live = accounting.objects, connections = accounting.connections }
 	end
-	engine.made = made
 	engine.rejectedSelections = function(): { any }
 		local targets = {}
 		for _, rejection in assert(bridge.ui).rejectedSelections() do
@@ -320,6 +293,6 @@ local function new(options: Options?): Engine
 		end)
 	end
 	engine.types = table.clone(types)
-	return engine :: Engine
+	return engine :: Engine, bridge
 end
 return { new = new, connections = connections, types = types }

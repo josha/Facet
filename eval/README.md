@@ -64,8 +64,7 @@ do not infer complete usage from an incomplete event or from tool counts.
 
 Evaluate the frozen game against the [acceptance requirements](acceptance.md).
 Keep the author absent. Discover routes from the submitted interface; do not
-require an internal module name, catalog, exact wording, or admin hook from
-the old starter. Use normal input to complete player tasks. Read server state
+require an internal module name, catalog, exact wording, or admin hook. Use normal input to complete player tasks. Read server state
 and source when needed to verify authority, persistence, and effects. A source
 review alone does not prove that the player can perform the action.
 
@@ -148,11 +147,9 @@ The comparison consumes Verify's recorded results. It does not establish place
 custody or prove that an incorrectly written player check is meaningful. Verify
 the frozen place and calibrate the player checks before accepting the report.
 
-This is a paired game result. The old multi-task confidence rules do not apply
-to one game. Do not count screens, requirements, devices, or repeated judgments
+This is a paired game result. Do not count screens, requirements, devices, or repeated judgments
 as independent authored games, and do not claim a population confidence interval
-from a single pair. Preserve the old numeric cost targets; discard the obsolete
-multi-task scoring model rather than manufacturing extra tasks.
+from a single pair.
 
 ## Iteration
 
@@ -167,7 +164,10 @@ and Verify reports together under `artifacts/facetbench/run`. Report author cost
 separately from evaluation cost. Preserve enough evidence to reproduce the latest
 comparison without committing a history of generated games.
 
-Open the PR after the failing run is addressed and a new author attempt is
-evaluated. Keep only the latest author result in [latest](latest/README.md). The existing
+Keep reusable design changes separate from evaluation results. Open the design
+PR before the author run. Record the evaluated source revision with the result.
+Commit only the latest [Plain place](latest/plain/game.rbxl) and
+[Facet place](latest/facet/game.rbxl). Put the verdict and gaps in the PR description.
+Keep generated reports and captures in the artifact directory. The existing
 [Kart example](../examples/facet-kart/README.md) remains a game example; it is not
 an author starter or a new benchmark result.

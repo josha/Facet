@@ -11,7 +11,6 @@
 | Shelf | Furniture_Bookshelf_A |
 
 Source creator: Roblox. Source asset ID: `10847897579`.
-The Creator Store listed this asset as free when it was retrieved on 2026-10-02.
 The source pack describes these models as reusable furniture with PBR surfaces.
 
 The checked-in subset keeps geometry and surface maps. It removes scripts,

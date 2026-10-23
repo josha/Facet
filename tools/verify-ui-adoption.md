@@ -18,4 +18,4 @@ bindings and cleanup. Motion values belong to theme tokens.
 
 Run `lute run tools/facet gate full` for the committed plan and integration
 checks. Use live Studio reports for geometry and input. See
-[verification scope](../docs/guide/18-verification-scope.md) for evidence limits.
+[verification scope](../docs/guide/verification-scope.md) for evidence limits.

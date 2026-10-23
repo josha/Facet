@@ -83,18 +83,12 @@ The selftest cases of `tools/facet/checks/architecture.luau` and
 ## Limits
 
 The current suite is the evidence. A passing run proves only the selected cases. Read the
-[verification scope](../docs/guide/18-verification-scope.md).
+[verification scope](../docs/guide/verification-scope.md).
 
 Live results come from Verify reports for the build and device that ran.
 The gamepad suites need the Controller Emulator. Use `--studio ID` to attach
 to a Studio with the emulator on. See
-[device verification](../docs/guide/11-device-verification.md) for the commands.
+[device verification](../docs/guide/device-verification.md) for the commands.
 
-The focus walk recorded atlases for the six Showcase pages, with the D-pad Up
-pass. The headless case reads engine moves in each atlas.
-
-`native_mechanisms_input`, `needs_live_input` and `weak3_pointer` have only
-interactive cases.
-
-A Studio that Verify started and an attached Studio write the progress file.
-`tools/lute/focus_up.luau` reads it and supplies D-pad Up for the focus walk.
+Interactive cases require the input capabilities declared by their suites.
+A headless pass does not establish focus, controller, or touch behavior.

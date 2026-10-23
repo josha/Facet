@@ -2,7 +2,7 @@
 
 <!-- aliases: themePackage | ThemeDefinition | custom theme | theme definition | visual identity | art direction -->
 
-Set the game's palette, font, plates and strokes.
+Define paint here; layout and game art establish the focal area.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -32,10 +32,6 @@ local definition: Facet.ThemeDefinition = {
      } },
   } },
   metrics = { typography = typography },
-  rules = {
-    { selector = ".facet-sheet::UIStroke",
-     properties = { Color = { role = "accent" }, Transparency = 0.5, Thickness = 1 } },
-  },
 }
 local theme, report = Facet.themes.define(definition)
 assert(report.ok and theme, "Invalid game theme")
@@ -43,4 +39,8 @@ local app = Facet.app({ name = "Game", theme = theme })
 script.Destroying:Connect(app.dispose)
 ```
 
+Choose a palette and type hierarchy for the game. Use accent for commitment,
+quiet surfaces for comparison, and object art for recognition. Theme paint does
+not supply composition: give the selected object a focal area, keep its terms
+beside its action, and let decoration yield on short screens.
 Next: [Theme-identity](Theme-identity.md), [Themes.tokens](Themes.tokens.md).

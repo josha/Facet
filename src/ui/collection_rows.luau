@@ -260,7 +260,10 @@ return function<V, K>(
 								rendered = tree.wrap(rendered, current, key)
 							end
 							measuredNode = rendered
-							if kind == "grid" and rendered:GetAttribute("FacetBody") ~= nil then
+							if
+								rendered:GetAttribute("FacetBody") ~= nil
+								and (kind == "grid" or read(spec.contentOverflow) ~= "clip")
+							then
 								containsCards:set(true)
 							end
 							cellEdits[key] = {}
@@ -371,8 +374,7 @@ return function<V, K>(
 							local groupProperties = (children :: unknown) :: Types.CanvasGroupNativeProps
 							local surface: Frame? = nil
 							if
-								kind == "grid"
-								and tree == nil
+								tree == nil
 								and rendered:GetAttribute("FacetBody") ~= nil
 								and read(spec.contentOverflow) ~= "clip"
 							then
@@ -384,9 +386,12 @@ return function<V, K>(
 										return 0, 0
 									end
 									local unit = math.max(use(view.unitSize).X * (if lift then use(lift) else 1), 0.001)
-									local height = use(cardSize).Y / unit
+									local size = use(cardSize)
+									local length = (if horizontal then size.X else size.Y) / unit
 									local growth = math.max(0, ctx.metric("motion.materialize.lift", use) - 1)
-									return crossEdge(use), math.max(view.mainEdge(use), math.ceil(height * growth))
+									local main = math.max(view.mainEdge(use), math.ceil(length * growth))
+									return if horizontal then main else crossEdge(use),
+										if horizontal then crossEdge(use) else main
 								end
 								children.Name = "Surface"
 								children.Attributes = nil

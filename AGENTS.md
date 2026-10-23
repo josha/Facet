@@ -2,7 +2,7 @@
 
 Facet is a library of Roblox UI controls. The controls use Compose and the
 Roblox engine. Read [the API reference](docs/reference/api.md) and
-[the architecture](docs/guide/02-architecture.md) before you change a public
+[the architecture](docs/guide/architecture.md) before you change a public
 contract.
 
 For UI design, implementation, examples or review, use the
@@ -85,7 +85,7 @@ and the task chapters before choosing controls or layouts.
 - Report baseline failures separately from regressions. Do not call a targeted
   run full evidence.
 - The current suite is the evidence. A passing run proves only the selected cases. Read the
-  [verification scope](docs/guide/18-verification-scope.md).
+  [verification scope](docs/guide/verification-scope.md).
 
 ## Internal showcase review
 
@@ -113,6 +113,6 @@ Keep API names unchanged. Use one term for each technical concept.
 ## Where to read next
 
 - [Maintainers](docs/MAINTAINERS.md)
-- [Choosing controls](docs/guide/14-choosing-controls.md)
-- [Components](docs/guide/15-components.md)
-- [Device verification](docs/guide/11-device-verification.md)
+- [Choosing controls](docs/guide/choosing-controls.md)
+- [Components](docs/guide/components.md)
+- [Device verification](docs/guide/device-verification.md)

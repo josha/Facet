@@ -33,6 +33,13 @@ return function(verifyHarness: Verify.Harness)
 
 	local function fixture(build)
 		local engine = engineLib.new()
+		local hapticCapture = engine.environment.onCreate(function(effect)
+			if effect:IsA("HapticEffect") then
+				for _, method in { "Play", "Stop", "SetWaveformKeys" } do
+					engine.environment.fakeOn(effect, method, function() end)
+				end
+			end
+		end)
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target, gui = engine.new("Folder"), engine.new("GuiService")
 		local input = engine.new("UserInputService")
@@ -74,6 +81,7 @@ return function(verifyHarness: Verify.Harness)
 		return ctx, root, function()
 			stop()
 			runtime:dispose()
+			hapticCapture:Disconnect()
 		end
 	end
 

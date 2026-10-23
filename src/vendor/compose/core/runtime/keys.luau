@@ -78,14 +78,14 @@ local function readKey(key: unknown): Marker?
 	if type(key) ~= "table" then
 		return nil
 	end
-	local marker = key :: { composeKey: unknown, name: unknown, names: unknown }
-	local kind = marker.composeKey
+	local marker = key :: { [string]: unknown }
+	local kind = rawget(marker, "composeKey")
 	if kind == "event" then
-		return { kind = "event", name = tostring(marker.name) }
+		return { kind = "event", name = tostring(rawget(marker, "name")) }
 	elseif kind == "property" then
-		return { kind = "property", name = tostring(marker.name) }
+		return { kind = "property", name = tostring(rawget(marker, "name")) }
 	elseif kind == "group" then
-		local names = marker.names :: { string }
+		local names = rawget(marker, "names") :: { string }
 		return { kind = "group", name = table.concat(names, "+"), names = names }
 	end
 	return nil
@@ -95,11 +95,11 @@ local function readStatic(value: unknown): (unknown, boolean)
 	if type(value) ~= "table" then
 		return nil, false
 	end
-	local marker = value :: { composeValue: unknown, value: unknown }
-	if marker.composeValue ~= "static" then
+	local marker = value :: { [string]: unknown }
+	if rawget(marker, "composeValue") ~= "static" then
 		return nil, false
 	end
-	return marker.value, true
+	return rawget(marker, "value"), true
 end
 
 return {

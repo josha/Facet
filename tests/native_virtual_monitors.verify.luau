@@ -49,14 +49,14 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function engage(card)
-		card:_fireSignal("MouseEnter")
+		card.MouseEnter:Fire()
 		return card
 	end
 
 	local function saveCard(card)
 		engage(card)
 		find(card, "Primary").Activated:Fire()
-		card:_fireSignal("MouseLeave")
+		card.MouseLeave:Fire()
 	end
 
 	local function rate(node, value: number, types)
@@ -69,6 +69,13 @@ return function(verifyHarness: Verify.Harness)
 	local function withScreens(body: (any) -> (), options: { [string]: any }?)
 		local Facet = require("../src")
 		local engine = engineModule.new()
+		local hapticCapture = engine.environment.onCreate(function(effect)
+			if effect:IsA("HapticEffect") then
+				for _, method in { "Play", "Stop" } do
+					engine.environment.fakeOn(effect, method, function() end)
+				end
+			end
+		end)
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local target = engine.new("ScreenGui")
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
@@ -80,6 +87,9 @@ return function(verifyHarness: Verify.Harness)
 			return false
 		end
 		local lifetime = Compose.createRootOwner(function()
+			Compose.cleanup(function()
+				hapticCapture:Disconnect()
+			end)
 			local model = modelModule.new(Compose)
 			Compose.cleanup(model.dispose)
 			local config: { [string]: any } = {

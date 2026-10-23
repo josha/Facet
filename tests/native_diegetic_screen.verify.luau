@@ -5,7 +5,8 @@ return function(harness: Verify.Harness)
 	local engines = require("./lib/native_engine")
 	local Geometry = require("../src/ui/diegetic_geometry")
 	local function fixture(vr: boolean?)
-		local engine = engines.new()
+		local engine, bridge = engines.new()
+		local tracking = bridge.track()
 		local types = engine.types
 		local gui = engine.new("GuiService")
 		gui.GetInsetArea = function(_self: GuiService, inset: Enum.ScreenInsets): Rect
@@ -85,9 +86,10 @@ return function(harness: Verify.Harness)
 		local function close()
 			stop()
 			runtime:dispose()
-			for _, instance in engine.made do
+			for _, instance in tracking.created do
 				engine.destroy(instance)
 			end
+			tracking.stop()
 			Verify.expect(engine.census().connections):toBe(0)
 		end
 		return {

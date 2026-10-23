@@ -303,7 +303,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_perf::native benchmark workload contract::preserves subscribed ancestry ordering and cleanup after unobserved moves",
 			run = function()
 				for _, recordCreated in { false, true } do
-					local engine = require("./lib/native_engine").new({ recordCreated = recordCreated })
+					local engine, fixture = require("./lib/native_engine").new()
+					local tracking = if recordCreated then fixture.track() else nil
 					local first, second, root: any, child, leaf =
 						engine.new("Folder"),
 						engine.new("Folder"),
@@ -364,6 +365,9 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(#log):toBe(0)
 					first:Destroy()
 					second:Destroy()
+					if tracking then
+						tracking.stop()
+					end
 				end
 			end,
 		})
@@ -371,7 +375,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("keeps cached reflection defaults independent across native fixture instances", {
 			id = "native_perf::native benchmark workload contract::keeps cached reflection defaults independent across native fixture instances",
 			run = function()
-				local engine = require("./lib/native_engine").new({ recordCreated = false })
+				local engine = require("./lib/native_engine").new()
 				local first, second = engine.new("TextLabel"), engine.new("TextLabel")
 				local initial = second.Text
 				first.Text = "Changed"
@@ -385,7 +389,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((second:isDestroyed())):toBe(false)
 				second:Destroy()
 				third:Destroy()
-				Verify.expect(#engine.made):toBe(0)
+				Verify.expect(engine.census().live):toBe(0)
 			end,
 		})
 

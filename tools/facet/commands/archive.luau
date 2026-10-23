@@ -797,7 +797,7 @@ local function cases(): { Case.Case }
 						"",
 					}, "\r\n")
 					Files.write(Files.join(root, "docs/guide/one.md"), guide)
-					Files.write(Files.join(root, "docs/guide/clean.md"), "[ok](02-architecture.md)\n")
+					Files.write(Files.join(root, "docs/guide/clean.md"), "[ok](architecture.md)\n")
 					Files.write(Files.join(root, "docs/reference/internal.md"), "[x](../plans/p.md)\n")
 					local lines, say = collector()
 					local checked = relink(root, "check", say)

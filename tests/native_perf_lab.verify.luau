@@ -14,6 +14,22 @@ return function(verifyHarness: Verify.Harness)
 	}
 	local function fixture()
 		local world = nativeApp()
+		local hapticCalls: { [string]: number } = {}
+		local hapticCapture = world.engine.environment.onCreate(function(effect)
+			if effect:IsA("HapticEffect") then
+				for _, method in { "Play", "Stop" } do
+					world.engine.environment.fakeOn(effect, method, function()
+						hapticCalls[method] = (hapticCalls[method] or 0) + 1
+					end)
+				end
+			end
+		end)
+		world.hapticCalls = hapticCalls
+		local dispose = world.dispose
+		world.dispose = function()
+			hapticCapture:Disconnect()
+			dispose()
+		end
 		local probe
 		world.heartbeat = world.engine.heartbeat
 		world.captureFacts = function()
@@ -211,6 +227,8 @@ return function(verifyHarness: Verify.Harness)
 				active.step()
 				Verify.expect(active.counters.built):toBe(121)
 				Verify.expect(active.counters.requests):toBe(16)
+				Verify.expect(world.hapticCalls.Play):toBe(16)
+				Verify.expect(world.hapticCalls.Stop):toBe(121)
 				for _, arm in active.counters.arms do
 					Verify.expect(arm.rows):toBe(120)
 					Verify.expect(arm.pressesDriven):toBe(8)

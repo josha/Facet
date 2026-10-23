@@ -250,10 +250,10 @@ local function tableState(resizing)
 		world.tableNode = tableNode
 		return world.Host.ScreenGui({ tableNode :: unknown })
 	end, world.target)
-	world.tableNode.AbsoluteSize = world.types.Vector2.new(800, 600)
+	world.engine.environment.poke(world.tableNode, "AbsoluteSize", world.types.Vector2.new(800, 600))
 	for _, child in world.tableNode:GetChildren() do
 		if child.Name == "Body" then
-			child.AbsoluteWindowSize = world.types.Vector2.new(800, 600)
+			world.engine.environment.poke(child, "AbsoluteWindowSize", world.types.Vector2.new(800, 600))
 		end
 	end
 	world.frame()
@@ -290,13 +290,13 @@ end
 add("table-resize-drag", function()
 	local world = tableState(true)
 	world.drag = assert(descendant(world.tableNode, "UIDragDetector"), "Table resize detector is missing")
-	world.drag.Parent.Parent.AbsoluteSize = world.types.Vector2.new(600, 40)
+	world.engine.environment.poke(world.drag.Parent.Parent, "AbsoluteSize", world.types.Vector2.new(600, 40))
 	return world
 end, function(state)
 	state.n += 1
 	local direction = if state.n % 2 == 0 then 1 else -1
 	local initialWidth = state.widths:peek().name
-	state.drag.Parent.Parent.AbsoluteSize = state.types.Vector2.new(initialWidth, 40)
+	state.engine.environment.poke(state.drag.Parent.Parent, "AbsoluteSize", state.types.Vector2.new(initialWidth, 40))
 	state.drag.DragStart:Fire(state.types.Vector2.new(600, 10))
 	for index = 1, 8 do
 		state.drag.DragContinue:Fire(state.types.Vector2.new(600 + direction * index * 5, 10))

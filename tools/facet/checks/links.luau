@@ -251,8 +251,8 @@ local function cases(): { Rule.Case }
 			name = "a dead link is reported on its own line",
 			run = function()
 				return expectFindings({
-					["AGENTS.md"] = "# Agents\n\n[a file that is not there](docs/guide/00-does-not-exist.md)\n",
-				}, { "AGENTS.md:3: dead link " .. EM_DASH .. " docs/guide/00-does-not-exist.md" })
+					["AGENTS.md"] = "# Agents\n\n[a file that is not there](docs/guide/does-not-exist.md)\n",
+				}, { "AGENTS.md:3: dead link " .. EM_DASH .. " docs/guide/does-not-exist.md" })
 			end,
 		},
 		{
@@ -302,8 +302,8 @@ local function cases(): { Rule.Case }
 			name = "a dead link in a document widened by the allowlist is reported",
 			run = function()
 				return expectFindings(
-					{ ["docs/MAINTAINERS.md"] = "# Maintainers\n\n[a page](guide/00-no-such-chapter.md)\n" },
-					{ "docs/MAINTAINERS.md:3: dead link " .. EM_DASH .. " guide/00-no-such-chapter.md" }
+					{ ["docs/MAINTAINERS.md"] = "# Maintainers\n\n[a page](guide/no-such-topic.md)\n" },
+					{ "docs/MAINTAINERS.md:3: dead link " .. EM_DASH .. " guide/no-such-topic.md" }
 				)
 			end,
 		},

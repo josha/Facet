@@ -16,19 +16,13 @@ and starter block list.]]
 
 local MOUNT = [[local Facet = require(game:GetService("ReplicatedStorage").Packages.Facet)
 local Compose = Facet.Compose
-local app = Facet.app({ name = "Shop", parent = playerGui })
+local app = Facet.app({ name = "Counter", parent = playerGui })
 local UI = app.UI
-local open = Compose.cell(false)
 app.mount(function()
-	return UI.Screen "Shop" {
-		UI.Button "Open" { label = "Shop", onActivate = function() open:set(true) end },
-		UI.Sheet "Panel" {
-			title = "Shop",
-			isPresented = open,
-			content = function()
-				return UI.Text "Hello" { text = "Hello" }
-			end,
-		},
+	local count = Compose.cell(0)
+	return UI.Screen "Counter" {
+		UI.Text "Count" { text = function(use) return tostring(use(count)) end },
+		UI.Button "Add" { label = "Add one", onActivate = function() count:update(function(n) return n + 1 end) end },
 	}
 end)]]
 
@@ -81,7 +75,7 @@ end
 type Facts = { version: string, tokens: number, hasTasks: boolean }
 
 local function report(full: boolean?): (string, Facts)
-	local tasks = Files.read("docs/guide/14-choosing-controls.md")
+	local tasks = Files.read("docs/guide/choosing-controls.md")
 	local blocks = Files.read("examples/blocks/README.md")
 	if not full then
 		local text = table.concat({
@@ -96,8 +90,8 @@ local function report(full: boolean?): (string, Facts)
 			"Compose.cleanup releases resources; Compose.show owns branches. Keep durable row state in the model.",
 			"",
 			"Task -> controls -> short recipe (lute run tools/facet docs NAME):",
-			"  HUD, panels -> Composition, Region, Sheet -> Tasks.hud",
-			"  Lists, tiles, filters -> VirtualList, VirtualGrid, Table -> Tasks.shop",
+			"  Gameplay HUD -> Composition, Region -> Tasks.hud",
+			"  Lists, tiles, filters -> VirtualList, VirtualGrid, Table -> Tasks.collection-detail",
 			"  Child pages -> NavigationStack; tabs -> TabView; confirmation -> Alert",
 			"  Settings -> Toggle, Slider, Picker; text entry -> TextInput",
 			"  Text fit -> Text-fit; type errors -> Types",

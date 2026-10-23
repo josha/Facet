@@ -40,7 +40,7 @@ script.Destroying:Connect(app.dispose)
   [Layout](../reference/nodes/Layout.md).
 - `app.dispose` stops the mounts and disposes the runtime.
 - To use a theme package, give it one time: `Facet.app({ theme = package })`.
-  The controls and the StyleSheet both use it. See [Styling](05-styling.md).
+  The controls and the StyleSheet both use it. See [Styling](styling.md).
 
 `Facet.app` uses only public pieces: `Facet.Roblox.createRuntime`,
 `Facet.controls`, `Facet.themes.createStyleSheet`, `runtime.mount` and a
@@ -176,4 +176,4 @@ fields of the app use a dot: `app.mount`, `app.dispose`. See
 [Call style](../reference/nodes/Call-style.md).
 
 You can make persistent model cells outside the mounted component. See
-[Components](15-components.md) for state and ownership.
+[Components](components.md) for state and ownership.

@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
@@ -60,9 +61,28 @@ return function(verifyHarness: Verify.Harness)
 	)
 		local engine = engines.new()
 		local gui = engine.new("GuiService")
+		gui.GuiNavigationEnabled = true
+		gui.AutoSelectGuiEnabled = true
+		gui.TouchControlsEnabled = true
+		engine.environment.fakeOn(gui, "GetInsetArea", function()
+			return engine.types.Rect.new(0, 0, 1280, 720)
+		end)
+		engine.environment.fakeOn(gui, "GetGuiInset", function()
+			return engine.types.Vector2.zero, engine.types.Vector2.zero
+		end)
 		local input = engine.new("UserInputService")
-		input.GetFocusedTextBox = function()
-			return nil
+		engine.environment.fakeOn(input, "GetLastInputType", function()
+			return engine.types.Enum.UserInputType.Keyboard
+		end)
+		for _, method in { "IsKeyDown", "IsGamepadButtonDown" } do
+			engine.environment.fakeOn(input, method, function()
+				return false
+			end)
+		end
+		for _, method in { "GetNavigationGamepads", "GetKeysPressed", "GetMouseButtonsPressed", "GetGamepadState" } do
+			engine.environment.fakeOn(input, method, function()
+				return {}
+			end)
 		end
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local runService = if options and (options.runService or options.preRender)
@@ -71,8 +91,8 @@ return function(verifyHarness: Verify.Harness)
 		local UI = controls(Compose, runtime, {
 			types = engine.types,
 			services = {
-				GuiService = gui,
-				UserInputService = input,
+				GuiService = (gui :: unknown) :: GuiService,
+				UserInputService = (input :: unknown) :: UserInputService,
 				RunService = (runService :: unknown) :: RunService?,
 			},
 			theme = options and options.theme,
@@ -87,7 +107,7 @@ return function(verifyHarness: Verify.Harness)
 		end, target)
 		return {
 			engine = engine,
-			gui = gui,
+			gui = (gui :: unknown) :: GuiService,
 			input = input,
 			runtime = runtime,
 			screen = screen,
@@ -126,7 +146,7 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(dots.AnchorPoint.Y):toBe(1)
 			Verify.expect(dots.Position.Y.Scale):toBe(1)
 			Verify.expect(footer.Size.Y.Offset):toBe(0)
-			world.input.TouchEnabled = true
+			world.engine.environment.poke(world.input, "TouchEnabled", true)
 			for _, id in { "one", "two" } do
 				local button = find(dots, id)
 				Verify.expect(button.Size.X.Offset):toBe(24)
@@ -150,15 +170,17 @@ return function(verifyHarness: Verify.Harness)
 				}
 			end)
 			local pages, V2, E = find(world.screen, "Pages"), world.engine.types.Vector2, world.engine.types.Enum
-			pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(960, 160)
+			world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(320, 160))
+			world.engine.environment.poke(pages, "AbsoluteCanvasSize", V2.new(960, 160))
 			world.gui.SelectedObject = find(world.screen, "FirstCard")
 			for index = 1, 2 do
 				local input = world.engine.new("InputObject")
-				input.KeyCode, input.UserInputType = E.KeyCode.Right, E.UserInputType.Keyboard
-				world.input.InputBegan:Fire(input)
-				world.input.InputEnded:Fire(input)
+				world.engine.environment.poke(input, "KeyCode", E.KeyCode.Right)
+				world.engine.environment.poke(input, "UserInputType", E.UserInputType.Keyboard)
+				world.engine.environment.fire(world.input, "InputBegan", input)
+				world.engine.environment.fire(world.input, "InputEnded", input)
 				Verify.expect(chosen:peek()):toBe(if index == 1 then "two" else "three")
-				Verify.expect(world.gui.SelectedObject.Name):toBe(if index == 1 then "two" else "LastCard")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe(if index == 1 then "two" else "LastCard")
 			end
 			world.stop()
 		end)
@@ -233,8 +255,8 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local pages = find(world.screen, "Pages")
-				pages.AbsoluteWindowSize = world.engine.types.Vector2.new(320, 160)
-				pages.AbsoluteCanvasSize = world.engine.types.Vector2.new(640, 160)
+				world.engine.environment.poke(pages, "AbsoluteWindowSize", world.engine.types.Vector2.new(320, 160))
+				world.engine.environment.poke(pages, "AbsoluteCanvasSize", world.engine.types.Vector2.new(640, 160))
 				Verify.expect(pages.CanvasPosition.X):toBe(320)
 				shown:set(false)
 				chosen:set("one")
@@ -374,23 +396,39 @@ return function(verifyHarness: Verify.Harness)
 					return primary
 				end)
 				local primary = find(world.screen, "Primary")
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.Touch
+				)
 				local touch = world.engine.new("InputObject")
-				touch.UserInputType = world.engine.types.Enum.UserInputType.Touch
+				world.engine.environment.poke(touch, "UserInputType", world.engine.types.Enum.UserInputType.Touch)
 				primary.InputBegan:Fire(touch)
 				world.settle()
 				Verify.expect(world.gui.SelectedObject):toBe(nil)
 				world.gui.SelectedObject = primary
 				world.settle()
 				Verify.expect(world.gui.SelectedObject):toBe(nil)
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+				)
 				world.gui.SelectedObject = primary
 				world.settle()
 				Verify.expect(world.gui.SelectedObject):toBe(primary)
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.Touch
+				)
 				world.settle()
 				Verify.expect(world.gui.SelectedObject):toBe(nil)
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.Gamepad
+				)
 				world.gui.SelectedObject = primary
 				world.settle()
 				Verify.expect(world.gui.SelectedObject):toBe(primary)
@@ -436,7 +474,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(stack, "Back")):toBeNil()
 				world.gui.SelectedObject = find(stack, "HomeAction")
 				for _, size in { Vector2.new(320, 640), Vector2.new(390, 844), Vector2.new(844, 390) } do
-					stack.AbsoluteSize = size
+					world.engine.environment.poke((stack :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", size)
 					path:set({ { id = "owned", value = 1 } })
 					world.settle()
 					local page = find(stack, "owned")
@@ -516,12 +554,12 @@ return function(verifyHarness: Verify.Harness)
 				end
 				world.settle()
 				path:set({})
-				Verify.expect(page:isDestroyed()):toBe(false)
+				Verify.expect(not world.engine.environment.isAlive(page)):toBe(false)
 				Verify.expect(page.Interactable):toBe(false)
 				world.engine.heartbeat:Fire(1 / 60)
 				Verify.expect(page.Position.X.Scale > 0):toBe(true)
 				world.settle()
-				Verify.expect(page:isDestroyed()):toBe(true)
+				Verify.expect(not world.engine.environment.isAlive(page)):toBe(true)
 				Verify.expect(world.gui.SelectedObject):toBe(find(stack, "RootAction"))
 				world.stop()
 			end,
@@ -566,7 +604,7 @@ return function(verifyHarness: Verify.Harness)
 				local root = find(world.screen, "Floating") :: Frame
 				local Vector2, UDim2 = world.engine.types.Vector2, world.engine.types.UDim2
 				for _, size in { Vector2.new(320, 640), Vector2.new(390, 844) } do
-					root.AbsoluteSize = size
+					world.engine.environment.poke((root :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", size)
 					local track, tabs = find(root, "Track"), find(root, "Tabs")
 					Verify.expect(track.Visible):toBe(true)
 					Verify.expect(track.Position):toBe(UDim2.new(0, 16, 1, -76))
@@ -588,7 +626,11 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((assert(root:FindFirstChild("Content")) :: Frame).Size.Y.Offset):toBe(-84)
 				end
 				placement:set("sidebar")
-				root.AbsoluteSize = Vector2.new(844, 390)
+				world.engine.environment.poke(
+					(root :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteSize",
+					Vector2.new(844, 390)
+				)
 				local track = find(root, "Track")
 				Verify.expect(track.Position):toBe(UDim2.fromOffset(8, 8))
 				Verify.expect(track.Size):toBe(UDim2.new(0, 124, 1, -16))
@@ -640,7 +682,7 @@ return function(verifyHarness: Verify.Harness)
 				local root = find(world.screen, "ThemedTabs")
 				local D2, V2 = world.engine.types.UDim2, world.engine.types.Vector2
 				for _, size in { V2.new(320, 640), V2.new(390, 844), V2.new(844, 390) } do
-					root.AbsoluteSize = size
+					world.engine.environment.poke((root :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", size)
 					local plate = find(root, "Track")
 					Verify.expect(plate.Position):toBe(D2.new(0, 20, 1, -114))
 					Verify.expect(plate.Size):toBe(D2.new(1, -40, 0, 96))
@@ -702,9 +744,13 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end)
 					local bar = find(world.screen, "Tabs")
-					bar.AbsoluteSize = world.engine.types.Vector2.new(width, 70)
+					world.engine.environment.poke(bar, "AbsoluteSize", world.engine.types.Vector2.new(width, 70))
 					local button = find(bar, "Discover")
-					button.AbsoluteSize = world.engine.types.Vector2.new(width / 4 - 4, 44)
+					world.engine.environment.poke(
+						button,
+						"AbsoluteSize",
+						world.engine.types.Vector2.new(width / 4 - 4, 44)
+					)
 					local title = find(button, "Title")
 					Verify.expect(title.Size.X.Scale):toBe(1)
 					Verify.expect(title.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.None)
@@ -740,7 +786,7 @@ return function(verifyHarness: Verify.Harness)
 					return UI.TabView(props)
 				end)
 				local bar = find(world.screen, "Tabs")
-				bar.AbsoluteSize = world.engine.types.Vector2.new(389, 80)
+				world.engine.environment.poke(bar, "AbsoluteSize", world.engine.types.Vector2.new(389, 80))
 				for _, id in { "games", "profile", "settings" } do
 					local button = find(bar, id)
 					Verify.expect(button.Size.X.Scale):toBe(world.engine.types.UDim.new(1 / 3, 0).Scale)
@@ -772,14 +818,26 @@ return function(verifyHarness: Verify.Harness)
 					end
 					return UI.Menu({ isPresented = opened, items = items })
 				end)
-				world.screen.AbsoluteSize = world.engine.types.Vector2.new(389, 704)
-				world.input.TouchEnabled = true
-				world.input.MouseEnabled = false
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				world.engine.environment.poke(world.screen, "AbsoluteSize", world.engine.types.Vector2.new(389, 704))
+				world.engine.environment.poke(world.input, "TouchEnabled", true)
+				world.engine.environment.poke(world.input, "MouseEnabled", false)
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.Touch
+				)
 				local panel = find(world.screen, "MenuPanel")
-				panel.Parent.AbsoluteSize = world.engine.types.Vector2.new(389, 704)
-				find(panel, "MenuRows").AbsoluteSize = world.engine.types.Vector2.new(349, 320)
-				panel.AbsoluteSize = world.engine.types.Vector2.new(365, panel.Size.Y.Offset)
+				world.engine.environment.poke(panel.Parent, "AbsoluteSize", world.engine.types.Vector2.new(389, 704))
+				world.engine.environment.poke(
+					find(panel, "MenuRows"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(349, 320)
+				)
+				world.engine.environment.poke(
+					panel,
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(365, panel.Size.Y.Offset)
+				)
 				Verify.expect(panel.Size.Y.Offset):toBeLessThanOrEqual(704 - 24)
 				Verify.expect(panel.Size.X.Scale):toBe(1)
 				Verify.expect(find(panel, "CloseCommand") ~= nil):toBe(true)
@@ -800,7 +858,11 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local command = find(world.screen, "CloseCommand")
 				Verify.expect(command == nil or not command.Visible):toBe(true)
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.Touch
+				)
 				command = find(world.screen, "CloseCommand")
 				Verify.expect(command ~= nil):toBe(true)
 				Verify.expect(command.Visible):toBe(true)
@@ -820,7 +882,11 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local close = find(explicit.screen, "CloseCommand")
 					Verify.expect(close ~= nil and close.Visible):toBe(override)
-					explicit.input.PreferredInput = explicit.engine.types.Enum.PreferredInput.Touch
+					explicit.engine.environment.poke(
+						explicit.input,
+						"PreferredInput",
+						explicit.engine.types.Enum.PreferredInput.Touch
+					)
 					close = find(explicit.screen, "CloseCommand")
 					Verify.expect(close ~= nil and close.Visible):toBe(override)
 					explicit.stop()
@@ -905,18 +971,26 @@ return function(verifyHarness: Verify.Harness)
 							end,
 						}
 					end, { motionLevel = level :: "normal" | "limited" | "none" })
-					world.screen.AbsoluteSize = world.engine.types.Vector2.new(960, 720)
-					find(world.screen, "Summary").AbsoluteSize = world.engine.types.Vector2.new(240, 44)
+					world.engine.environment.poke(
+						world.screen,
+						"AbsoluteSize",
+						world.engine.types.Vector2.new(960, 720)
+					)
+					world.engine.environment.poke(
+						find(world.screen, "Summary"),
+						"AbsoluteSize",
+						world.engine.types.Vector2.new(240, 44)
+					)
 					expanded:set(true)
 					local panel, fade = find(world.screen, "Expanded"), find(world.screen, "ExpandedFade")
 					local content = find(panel, "ContentBox")
 					local V2 = world.engine.types.Vector2.new
-					panel.AbsoluteSize = V2(360, 200)
-					content.AbsoluteSize = V2(360, 200)
+					world.engine.environment.poke(panel, "AbsoluteSize", V2(360, 200))
+					world.engine.environment.poke(content, "AbsoluteSize", V2(360, 200))
 					Verify.expect(fadeKit.of(panel)):toBe(1)
 					world.engine.heartbeat:Fire(1 / 60)
-					content.AbsoluteSize = V2(328, 168)
-					find(panel, "Copy").AbsoluteSize = V2(296, 48)
+					world.engine.environment.poke(content, "AbsoluteSize", V2(328, 168))
+					world.engine.environment.poke(find(panel, "Copy"), "AbsoluteSize", V2(296, 48))
 					world.engine.heartbeat:Fire(1 / 60)
 					Verify.expect(fadeKit.of(panel)):toBe(1)
 					for _ = 1, 6 do
@@ -1093,15 +1167,15 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(panel["SelectionBehavior" .. direction])
 						:toBe(world.engine.types.Enum.SelectionBehavior.Stop)
 				end
-				Verify.expect(world.gui.SelectedObject.Name):toBe("Cancel")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Cancel")
 				local back = find(world.screen, "ModalBack")
 				Verify.expect(back.Parent.Parent):toBe(world.screen)
 				back.Pressed:Fire()
 				Verify.expect((presented:peek())):toBe(false)
 				Verify.expect(cancelled):toBe(1)
-				Verify.expect(world.gui.SelectedObject.Name):toBe("Original")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Original")
 				world.settle()
-				Verify.expect((back:isDestroyed())):toBe(true)
+				Verify.expect((not world.engine.environment.isAlive(back))):toBe(true)
 				world.stop()
 			end,
 		})
@@ -1178,7 +1252,7 @@ return function(verifyHarness: Verify.Harness)
 					local old = checkOrder()
 					expanded:set(false)
 					Verify.expect(caret.Image):toBe(closedIcon)
-					Verify.expect((old:isDestroyed())):toBe(true)
+					Verify.expect((not world.engine.environment.isAlive(old))):toBe(true)
 					Verify.expect(disposed):toBe(1)
 					expanded:set(true)
 					Verify.expect(checkOrder() ~= old):toBe(true)
@@ -1266,8 +1340,8 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local pages = find(world.screen, "Pages")
-				pages.AbsoluteWindowSize = world.engine.types.Vector2.new(320, 160)
-				pages.AbsoluteCanvasSize = world.engine.types.Vector2.new(640, 160)
+				world.engine.environment.poke(pages, "AbsoluteWindowSize", world.engine.types.Vector2.new(320, 160))
+				world.engine.environment.poke(pages, "AbsoluteCanvasSize", world.engine.types.Vector2.new(640, 160))
 				find(world.screen, "Next").Activated:Fire()
 				Verify.expect((selection:peek())):toBe("two")
 				Verify.expect(pages.CanvasPosition.X):toBe(320)
@@ -1291,11 +1365,11 @@ return function(verifyHarness: Verify.Harness)
 				}
 			end)
 			local pages = find(world.screen, "Pages")
-			pages.AbsoluteWindowSize = world.engine.types.Vector2.new(320, 160)
+			world.engine.environment.poke(pages, "AbsoluteWindowSize", world.engine.types.Vector2.new(320, 160))
 			local row = find(pages, "Items"):FindFirstChild("one")
 			Verify.expect(row.Size.X.Offset):toBe(320)
 			Verify.expect(find(world.screen, "PreparingPage").Interactable):toBe(false)
-			pages.AbsoluteWindowSize = world.engine.types.Vector2.new(480, 160)
+			world.engine.environment.poke(pages, "AbsoluteWindowSize", world.engine.types.Vector2.new(480, 160))
 			Verify.expect(row.Size.X.Offset):toBe(480)
 			world.stop()
 			Verify.expect(world.engine.census().connections):toBe(0)
@@ -1317,8 +1391,8 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local V = world.engine.types.Vector2
-				find(world.screen, "BodyOne").AbsoluteSize = V.new(300, 180)
-				find(world.screen, "BodyTwo").AbsoluteSize = V.new(300, 212.5)
+				world.engine.environment.poke(find(world.screen, "BodyOne"), "AbsoluteSize", V.new(300, 180))
+				world.engine.environment.poke(find(world.screen, "BodyTwo"), "AbsoluteSize", V.new(300, 212.5))
 				local pages, footer = find(world.screen, "Pages"), find(world.screen, "Footer")
 				Verify.expect(pages.Size):toBe(world.engine.types.UDim2.new(1, 0, 0, 213))
 				Verify.expect(footer.Position):toBe(world.engine.types.UDim2.fromOffset(0, 213))
@@ -1345,9 +1419,11 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local pages = find(world.screen, "Pages")
 					local V2, E = world.engine.types.Vector2, world.engine.types.Enum
-					pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(640, 160)
+					world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(320, 160))
+					world.engine.environment.poke(pages, "AbsoluteCanvasSize", V2.new(640, 160))
 					local first, second = world.engine.new("InputObject"), world.engine.new("InputObject")
-					first.UserInputType, second.UserInputType = E.UserInputType.Touch, E.UserInputType.Touch
+					world.engine.environment.poke(first, "UserInputType", E.UserInputType.Touch)
+					world.engine.environment.poke(second, "UserInputType", E.UserInputType.Touch)
 					local artwork = world.engine.new("Frame")
 					artwork.Name = "LateArtwork"
 					artwork.Parent = find(world.screen, "CardOne")
@@ -1357,10 +1433,10 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(pages.CanvasPosition.X):toBe(120)
 					Verify.expect(selection:peek()):toBe("one")
 					find(world.screen, "CardOne").InputBegan:Fire(second)
-					world.input.InputEnded:Fire(first)
+					world.engine.environment.fire(world.input, "InputEnded", first)
 					world.engine.heartbeat:Fire(1)
 					Verify.expect(pages.CanvasPosition.X):toBe(120)
-					world.input.InputEnded:Fire(second)
+					world.engine.environment.fire(world.input, "InputEnded", second)
 					for _ = 1, 120 do
 						world.engine.heartbeat:Fire(0.016)
 					end
@@ -1385,9 +1461,11 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local pages = find(world.screen, "Pages")
 				local V2 = world.engine.types.Vector2
-				pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(640, 160)
+				world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(320, 160))
+				world.engine.environment.poke(pages, "AbsoluteCanvasSize", V2.new(640, 160))
 				Verify.expect(pages.CanvasPosition.X):toBe(320)
-				pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(640, 240), V2.new(1280, 240)
+				world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(640, 240))
+				world.engine.environment.poke(pages, "AbsoluteCanvasSize", V2.new(1280, 240))
 				Verify.expect(pages.CanvasPosition.X):toBe(640)
 				world.stop()
 			end,
@@ -1417,20 +1495,24 @@ return function(verifyHarness: Verify.Harness)
 				local Enum = world.engine.types.Enum
 				local play = find(world.screen, "PlayOne")
 				local pages = find(world.screen, "Pages")
-				pages.AbsoluteWindowSize = world.engine.types.Vector2.new(320, 160)
-				pages.AbsoluteCanvasSize = world.engine.types.Vector2.new(640, 160)
+				world.engine.environment.poke(pages, "AbsoluteWindowSize", world.engine.types.Vector2.new(320, 160))
+				world.engine.environment.poke(pages, "AbsoluteCanvasSize", world.engine.types.Vector2.new(640, 160))
 				world.gui.SelectedObject = play
 				Verify.expect(play.NextSelectionRight):toBe(play)
-				world.input.InputBegan:Fire({
+				world.engine.environment.fire(world.input, "InputBegan", {
 					KeyCode = Enum.KeyCode.DPadRight,
 					UserInputType = Enum.UserInputType.Gamepad1,
 				})
 				Verify.expect((selection:peek())):toBe("two")
 				Verify.expect(world.gui.SelectedObject):toBe(find(world.screen, "PlayTwo"))
-				world.input.InputBegan:Fire({ KeyCode = Enum.KeyCode.Left, UserInputType = Enum.UserInputType.Keyboard })
+				world.engine.environment.fire(
+					world.input,
+					"InputBegan",
+					{ KeyCode = Enum.KeyCode.Left, UserInputType = Enum.UserInputType.Keyboard }
+				)
 				Verify.expect((selection:peek())):toBe("one")
 				world.gui.SelectedObject = find(world.screen, "Next")
-				world.input.InputBegan:Fire({
+				world.engine.environment.fire(world.input, "InputBegan", {
 					KeyCode = Enum.KeyCode.Right,
 					UserInputType = Enum.UserInputType.Keyboard,
 				})
@@ -1566,7 +1648,7 @@ return function(verifyHarness: Verify.Harness)
 				editor:CaptureFocus()
 				editor.Text = "al"
 				find(world.screen, "ComboSuggestions").Pressed:Fire()
-				Verify.expect(world.gui.SelectedObject.Name):toBe("a")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("a")
 				find(world.screen, "ComboCancel").Pressed:Fire()
 				Verify.expect((text:peek())):toBe("Beta")
 				Verify.expect((value:peek())):toBe("b")
@@ -1599,7 +1681,7 @@ return function(verifyHarness: Verify.Harness)
 				editor:ReleaseFocus(false)
 				Verify.expect((value:peek())):toBe("a")
 				Verify.expect((text:peek())):toBe("Custom")
-				world.input.InputBegan:Fire({
+				world.engine.environment.fire(world.input, "InputBegan", {
 					UserInputType = world.engine.types.Enum.UserInputType.MouseButton1,
 					Position = world.engine.types.Vector3.new(1000, 1000, 0),
 				})
@@ -1688,9 +1770,9 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end)
 					local editor = find(world.screen, "Editor")
-					world.input.GetFocusedTextBox = function()
+					world.engine.environment.fakeOn(world.input, "GetFocusedTextBox", function()
 						return if editor:IsFocused() then editor else nil
-					end
+					end)
 					for index, choice in { "Circuit", "Forest", "Circuit" } do
 						editor:CaptureFocus()
 						Verify.expect((editor:IsFocused())):toBe(true)
@@ -1885,11 +1967,15 @@ return function(verifyHarness: Verify.Harness)
 					inside = Host.TextLabel "Inside" { Text = "Inside" }
 					return UI.DisclosureGroup({ expanded = expanded, label = "Details", content = inside })
 				end)
-				world.gui.ReducedMotionEnabled = true
+				world.engine.environment.poke(
+					(world.gui :: unknown) :: VerifyRoblox.Instance,
+					"ReducedMotionEnabled",
+					true
+				)
 				Verify.expect((inside:IsDescendantOf(world.screen))):toBe(true)
 				expanded:set(false)
 				world.engine.heartbeat:Fire(1)
-				Verify.expect((inside:isDestroyed())):toBe(false)
+				Verify.expect((not world.engine.environment.isAlive(inside))):toBe(false)
 				expanded:set(true)
 				Verify.expect((inside:IsDescendantOf(world.screen))):toBe(true)
 				world.stop()
@@ -1905,11 +1991,15 @@ return function(verifyHarness: Verify.Harness)
 					inside = Host.TextLabel "Inside" { Text = "Inside" }
 					return UI.CollapsibleView({ expanded = expanded, label = "Summary", content = inside })
 				end)
-				world.gui.ReducedMotionEnabled = true
+				world.engine.environment.poke(
+					(world.gui :: unknown) :: VerifyRoblox.Instance,
+					"ReducedMotionEnabled",
+					true
+				)
 				Verify.expect((inside:IsDescendantOf(world.screen))):toBe(true)
 				expanded:set(false)
 				world.engine.heartbeat:Fire(1)
-				Verify.expect((inside:isDestroyed())):toBe(false)
+				Verify.expect((not world.engine.environment.isAlive(inside))):toBe(false)
 				expanded:set(true)
 				Verify.expect((inside:IsDescendantOf(world.screen))):toBe(true)
 				world.stop()
@@ -1931,7 +2021,7 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				world.gui.SelectedObject = find(world.screen, "Inside")
 				expanded:set(false)
-				Verify.expect(world.gui.SelectedObject.Name):toBe("Header")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Header")
 				world.stop()
 			end,
 		})
@@ -1961,7 +2051,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local modal = find(world.screen, "Modal")
-				modal.AbsoluteSize = world.engine.types.Vector2.new(1000, 720)
+				world.engine.environment.poke(modal, "AbsoluteSize", world.engine.types.Vector2.new(1000, 720))
 				find(world.screen, "Parent").Activated:Fire()
 				local ancestor = find(world.screen, "AncestorMenu")
 				Verify.expect(ancestor ~= nil):toBe(true)
@@ -2008,13 +2098,13 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local V2 = world.engine.types.Vector2
-				find(world.screen, "Modal").AbsoluteSize = V2.new(920, 640)
-				find(world.screen, "Cascade").AbsolutePosition = V2.new(760, 100)
-				find(world.screen, "Cascade").AbsoluteSize = V2.new(0, 40)
+				world.engine.environment.poke(find(world.screen, "Modal"), "AbsoluteSize", V2.new(920, 640))
+				world.engine.environment.poke(find(world.screen, "Cascade"), "AbsolutePosition", V2.new(760, 100))
+				world.engine.environment.poke(find(world.screen, "Cascade"), "AbsoluteSize", V2.new(0, 40))
 				find(world.screen, "Parent").Activated:Fire()
 				local panel, ancestor = find(world.screen, "MenuPanel"), find(world.screen, "AncestorMenu")
-				panel.AbsoluteSize = V2.new(220, 96)
-				ancestor.AbsoluteSize = V2.new(280, 141)
+				world.engine.environment.poke(panel, "AbsoluteSize", V2.new(220, 96))
+				world.engine.environment.poke(ancestor, "AbsoluteSize", V2.new(280, 141))
 				world.settle()
 				local x = corner(panel)
 				Verify.expect(ancestor.Position.X.Offset):toBeGreaterThanOrEqual(8)
@@ -2042,10 +2132,10 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local modal = find(world.screen, "Modal")
-				modal.AbsoluteSize = world.engine.types.Vector2.new(1000, 720)
+				world.engine.environment.poke(modal, "AbsoluteSize", world.engine.types.Vector2.new(1000, 720))
 				find(world.screen, "Parent").Activated:Fire()
 				Verify.expect(find(world.screen, "AncestorMenu") ~= nil):toBe(true)
-				modal.AbsoluteSize = world.engine.types.Vector2.new(360, 640)
+				world.engine.environment.poke(modal, "AbsoluteSize", world.engine.types.Vector2.new(360, 640))
 				Verify.expect((find(world.screen, "AncestorMenu"))):toBe(nil)
 				Verify.expect(find(world.screen, "Leaf") ~= nil):toBe(true)
 				find(world.screen, "Back").Activated:Fire()
@@ -2110,15 +2200,23 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local root = find(world.screen, "TabView")
 				Verify.expect(find(root, "Tabs").ZIndex > find(root, "Content").ZIndex):toBe(true)
-				root.AbsoluteSize = world.engine.types.Vector2.new(1200, 800)
+				world.engine.environment.poke(
+					(root :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(1200, 800)
+				)
 				Verify.expect(find(world.screen, "Accessory-head") ~= nil):toBe(true)
 				Verify.expect((find(world.screen, "Accessory-trailing"))):toBe(nil)
 				local foot = find(world.screen, "Accessory-foot")
 				Verify.expect(foot.AnchorPoint.Y):toBe(1)
 				local footPosition = foot.Position
-				foot.AbsoluteSize = world.engine.types.Vector2.new(180, 52)
+				world.engine.environment.poke(foot, "AbsoluteSize", world.engine.types.Vector2.new(180, 52))
 				Verify.expect(foot.Position):toBe(footPosition)
-				find(world.screen, "Accessory-head").AbsoluteSize = world.engine.types.Vector2.new(180, 52)
+				world.engine.environment.poke(
+					find(world.screen, "Accessory-head"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(180, 52)
+				)
 				Verify.expect(find(world.screen, "TabBand").Position.Y.Offset):toBe(52)
 				preference:set("topBar")
 				Verify.expect((find(world.screen, "Accessory-head"))):toBe(nil)
@@ -2126,9 +2224,13 @@ return function(verifyHarness: Verify.Harness)
 				local trailing = find(world.screen, "Accessory-trailing")
 				Verify.expect(trailing.AnchorPoint.X):toBe(1)
 				local trailingPosition = trailing.Position
-				trailing.AbsoluteSize = world.engine.types.Vector2.new(75, 44)
+				world.engine.environment.poke(trailing, "AbsoluteSize", world.engine.types.Vector2.new(75, 44))
 				Verify.expect(trailing.Position):toBe(trailingPosition)
-				root.AbsoluteSize = world.engine.types.Vector2.new(401, 777)
+				world.engine.environment.poke(
+					(root :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(401, 777)
+				)
 				Verify.expect((find(world.screen, "Accessory-head"))):toBe(nil)
 				Verify.expect(find(world.screen, "Accessory-aboveBar") ~= nil):toBe(true)
 				Verify.expect(find(world.screen, "TabBand").Position.Y.Scale):toBe(1)
@@ -2139,7 +2241,11 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(world.screen, "Accessory-trailing") ~= nil):toBe(true)
 				Verify.expect((find(world.screen, "Accessory-aboveBar"))):toBe(nil)
 				placement:set("automatic")
-				root.AbsoluteSize = world.engine.types.Vector2.new(1200, 800)
+				world.engine.environment.poke(
+					(root :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(1200, 800)
+				)
 				Verify.expect(find(world.screen, "Accessory-head") ~= nil):toBe(true)
 				world.stop()
 				Verify.expect(retired):toBe(built)
@@ -2176,7 +2282,11 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local root = find(world.screen, "TabView")
-				root.AbsoluteSize = world.engine.types.Vector2.new(844, 332)
+				world.engine.environment.poke(
+					(root :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(844, 332)
+				)
 				local T = world.engine.types
 				Verify.expect(find(root, "Tabs").Visible):toBe(false)
 				Verify.expect(find(root, "Content").Position):toBe(T.UDim2.fromOffset(0, 0))
@@ -2224,18 +2334,18 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local plus = find(world.screen, "Plus")
 				local Enum = world.engine.types.Enum
-				world.input.PreferredInput = Enum.PreferredInput.KeyboardAndMouse
-				plus.GuiState = Enum.GuiState.Hover
+				world.engine.environment.poke(world.input, "PreferredInput", Enum.PreferredInput.KeyboardAndMouse)
+				world.engine.environment.poke(plus, "GuiState", Enum.GuiState.Hover)
 				Verify.expect((find(world.screen, "HelpText"))):toBe(nil)
 				world.engine.heartbeat:Fire(0.3)
 				Verify.expect((find(world.screen, "HelpText"))):toBe(nil)
 				world.engine.heartbeat:Fire(0.3)
 				Verify.expect(find(world.screen, "HelpText").Text):toBe("Posts this avatar")
-				plus.GuiState = Enum.GuiState.Idle
+				world.engine.environment.poke(plus, "GuiState", Enum.GuiState.Idle)
 				world.settle()
 				Verify.expect((find(world.screen, "HelpText"))):toBe(nil)
-				world.input.PreferredInput = Enum.PreferredInput.Touch
-				plus.GuiState = Enum.GuiState.Hover
+				world.engine.environment.poke(world.input, "PreferredInput", Enum.PreferredInput.Touch)
+				world.engine.environment.poke(plus, "GuiState", Enum.GuiState.Hover)
 				world.engine.heartbeat:Fire(0.6)
 				Verify.expect((find(world.screen, "HelpText"))):toBe(nil)
 				world.stop()
@@ -2263,13 +2373,17 @@ return function(verifyHarness: Verify.Harness)
 				presented:set(false)
 				world.gui.SelectedObject = find(world.screen, "Opener")
 				presented:set(true)
-				Verify.expect(world.gui.SelectedObject.Name):toBe("stay")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("stay")
 				presented:set(false)
-				Verify.expect(world.gui.SelectedObject.Name):toBe("Opener")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Opener")
 				world.gui.SelectedObject = nil
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.Gamepad
+				)
 				presented:set(true)
-				Verify.expect(world.gui.SelectedObject.Name):toBe("stay")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("stay")
 				world.stop()
 			end,
 		})
@@ -2289,9 +2403,9 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				world.gui.SelectedObject = find(world.screen, "Opener")
-				world.input.GetLastInputType = function()
+				world.engine.environment.fakeOn(world.input, "GetLastInputType", function()
 					return world.engine.types.Enum.UserInputType.MouseMovement
-				end
+				end)
 				presented:set(true)
 				Verify.expect(world.gui.SelectedObject):toBeNil()
 				world.settle()
@@ -2316,9 +2430,9 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				world.gui.SelectedObject = find(world.screen, "OneAction")
 				selection:set("two")
-				Verify.expect(world.gui.SelectedObject.Name):toBe("TwoAction")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("TwoAction")
 				selection:set("one")
-				Verify.expect(world.gui.SelectedObject.Name):toBe("OneAction")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("OneAction")
 				Verify.expect(#world.engine.rejectedSelections()):toBe(0)
 				world.stop()
 			end,
@@ -2349,17 +2463,21 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local nested = find(world.screen, "Inner")
 				local strip = find(nested, "Tabs")
-				nested.AbsoluteSize = world.engine.types.Vector2.new(705, 200)
+				world.engine.environment.poke(nested, "AbsoluteSize", world.engine.types.Vector2.new(705, 200))
 				Verify.expect(strip.Visible):toBe(false)
 				Verify.expect(find(nested, "TabsMenu") ~= nil):toBe(true)
-				nested.AbsoluteSize = world.engine.types.Vector2.new(705, 600)
+				world.engine.environment.poke(nested, "AbsoluteSize", world.engine.types.Vector2.new(705, 600))
 				Verify.expect(strip.Visible):toBe(true)
 				Verify.expect((find(nested, "TabsMenu"))):toBe(nil)
-				nested:FindFirstChild("LayoutUnit").AbsoluteSize = world.engine.types.Vector2.new(60, 0.6)
-				nested.AbsoluteSize = world.engine.types.Vector2.new(423, 360)
+				world.engine.environment.poke(
+					nested:FindFirstChild("LayoutUnit"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(60, 0.6)
+				)
+				world.engine.environment.poke(nested, "AbsoluteSize", world.engine.types.Vector2.new(423, 360))
 				Verify.expect(strip.Visible):toBe(true)
 				Verify.expect((find(nested, "TabsMenu"))):toBe(nil)
-				nested.AbsoluteSize = world.engine.types.Vector2.new(423, 240)
+				world.engine.environment.poke(nested, "AbsoluteSize", world.engine.types.Vector2.new(423, 240))
 				Verify.expect(strip.Visible):toBe(false)
 				world.stop()
 			end,
@@ -2487,7 +2605,11 @@ return function(verifyHarness: Verify.Harness)
 				local body = find(world.screen, "SheetContent")
 				Verify.expect(body.ClassName):toBe("ScrollingFrame")
 				Verify.expect(body.AutomaticCanvasSize):toBe(world.engine.types.Enum.AutomaticSize.None)
-				find(world.screen, "SheetFlow").AbsoluteSize = world.engine.types.Vector2.new(400, 1800)
+				world.engine.environment.poke(
+					find(world.screen, "SheetFlow"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(400, 1800)
+				)
 				Verify.expect(body.CanvasSize.Y.Offset):toBe(1800)
 				Verify.expect(find(body, "UIListLayout") ~= nil):toBe(true)
 				Verify.expect(find(find(world.screen, "SheetContent"), "UIFlexItem").FlexMode)
@@ -2548,9 +2670,21 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end)
-				find(world.screen, "AlertModal").AbsoluteSize = world.engine.types.Vector2.new(360, 240)
-				find(world.screen, "Actions").AbsoluteSize = world.engine.types.Vector2.new(320, 96)
-				find(world.screen, "AlertContent").AbsoluteSize = world.engine.types.Vector2.new(320, 1000)
+				world.engine.environment.poke(
+					find(world.screen, "AlertModal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(360, 240)
+				)
+				world.engine.environment.poke(
+					find(world.screen, "Actions"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(320, 96)
+				)
+				world.engine.environment.poke(
+					find(world.screen, "AlertContent"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(320, 1000)
+				)
 				Verify.expect(find(find(world.screen, "Actions"), "UIListLayout").FillDirection)
 					:toBe(world.engine.types.Enum.FillDirection.Vertical)
 				Verify.expect(find(world.screen, "Cancel").LayoutOrder > find(world.screen, "Accept").LayoutOrder)
@@ -2580,9 +2714,9 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, { theme = assert(themes.define(package)) })
 				local V2 = world.engine.types.Vector2.new
-				find(world.screen, "AlertModal").AbsoluteSize = V2(667, 375)
-				find(world.screen, "Actions").AbsoluteSize = V2(400, 148)
-				find(world.screen, "AlertContent").Parent.AbsoluteSize = V2(400, 1000)
+				world.engine.environment.poke(find(world.screen, "AlertModal"), "AbsoluteSize", V2(667, 375))
+				world.engine.environment.poke(find(world.screen, "Actions"), "AbsoluteSize", V2(400, 148))
+				world.engine.environment.poke(find(world.screen, "AlertContent").Parent, "AbsoluteSize", V2(400, 1000))
 				local message = find(world.screen, "AlertMessage")
 				local card = message.Size.Y.Offset + 148 + 20 * 2 + 8 + 18 * 2
 				Verify.expect(message.Size.Y.Offset):toBe(375 - 148 - (20 * 2 + 8 + 18 * 2) - 32)
@@ -2613,15 +2747,19 @@ return function(verifyHarness: Verify.Harness)
 					end, { theme = assert(themes.define(package)) })
 					local V2 = world.engine.types.Vector2.new
 					local picker = find(world.screen, "Picker")
-					find(find(world.screen, "a"), "Label").TextBounds = V2(56, 31)
+					world.engine.environment.poke(find(find(world.screen, "a"), "Label"), "TextBounds", V2(56, 31))
 					Verify.expect(picker.Size.Y.Offset):toBe(31 + 20 + 6)
-					find(find(world.screen, "a"), "Label").TextBounds = V2(48, 16)
-					world.gui.PreferredTextSize = world.engine.types.Enum.PreferredTextSize.Largest
+					world.engine.environment.poke(find(find(world.screen, "a"), "Label"), "TextBounds", V2(48, 16))
+					world.engine.environment.poke(
+						(world.gui :: unknown) :: VerifyRoblox.Instance,
+						"PreferredTextSize",
+						world.engine.types.Enum.PreferredTextSize.Largest
+					)
 					Verify.expect(picker.Size.Y.Offset):toBe(50)
-					find(find(world.screen, "a"), "Label").TextBounds = V2(56, 31)
-					find(find(world.screen, "b"), "Label").TextBounds = V2(48, 29)
+					world.engine.environment.poke(find(find(world.screen, "a"), "Label"), "TextBounds", V2(56, 31))
+					world.engine.environment.poke(find(find(world.screen, "b"), "Label"), "TextBounds", V2(48, 29))
 					Verify.expect(picker.Size.Y.Offset):toBe(31 + 20 + 6)
-					find(find(world.screen, "a"), "Label").TextBounds = V2(56, 20)
+					world.engine.environment.poke(find(find(world.screen, "a"), "Label"), "TextBounds", V2(56, 20))
 					Verify.expect(picker.Size.Y.Offset):toBe(29 + 20 + 6)
 					world.stop()
 				end,
@@ -2644,7 +2782,7 @@ return function(verifyHarness: Verify.Harness)
 				local picker, button = find(world.screen, "Motion"), find(world.screen, "normal")
 				local floor = button:FindFirstChildWhichIsA("UISizeConstraint")
 				local minimum = floor.MinSize
-				button.TextBounds = world.engine.types.Vector2.new(54, 16)
+				world.engine.environment.poke(button, "TextBounds", world.engine.types.Vector2.new(54, 16))
 				Verify.expect(button.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.X)
 				Verify.expect(floor.MinSize):toBe(minimum)
 				Verify.expect(picker:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(true)
@@ -2671,12 +2809,28 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end, { theme = assert(themes.define(package)) })
 				local picker = find(world.screen, "Laps")
-				find(find(picker, "3"), "Label").TextBounds = world.engine.types.Vector2.new(8, 13)
-				find(find(picker, "10"), "Label").TextBounds = world.engine.types.Vector2.new(16, 13)
+				world.engine.environment.poke(
+					find(find(picker, "3"), "Label"),
+					"TextBounds",
+					world.engine.types.Vector2.new(8, 13)
+				)
+				world.engine.environment.poke(
+					find(find(picker, "10"), "Label"),
+					"TextBounds",
+					world.engine.types.Vector2.new(16, 13)
+				)
 				Verify.expect(picker.Size.Y.Offset):toBe(13 + 4 + 6)
-				find(find(picker, "10"), "Label").TextBounds = world.engine.types.Vector2.new(16, 18)
+				world.engine.environment.poke(
+					find(find(picker, "10"), "Label"),
+					"TextBounds",
+					world.engine.types.Vector2.new(16, 18)
+				)
 				Verify.expect(picker.Size.Y.Offset):toBe(18 + 4 + 6)
-				find(find(picker, "10"), "Label").TextBounds = world.engine.types.Vector2.new(16, 13)
+				world.engine.environment.poke(
+					find(find(picker, "10"), "Label"),
+					"TextBounds",
+					world.engine.types.Vector2.new(16, 13)
+				)
 				Verify.expect(picker.Size.Y.Offset):toBe(13 + 4 + 6)
 				world.stop()
 			end,
@@ -2710,7 +2864,11 @@ return function(verifyHarness: Verify.Harness)
 				local chevron = find(world.screen, "Alternatives")
 				Verify.expect((chevron:HasTag("facet-button"))):toBe(true)
 				Verify.expect((chevron:FindFirstChildWhichIsA("UISizeConstraint"))):toBe(nil)
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.Touch
+				)
 				local trigger = find(world.screen, "Primary")
 				Verify.expect(trigger.Size):toBe(world.engine.types.UDim2.fromScale(1, 1))
 				Verify.expect(trigger.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.None)
@@ -2784,8 +2942,8 @@ return function(verifyHarness: Verify.Harness)
 				local screen = (mounted :: unknown) :: ScreenGui
 				local bar = assert(screen:FindFirstChild("NavigationBar", true)) :: Frame
 				local title = assert(bar:FindFirstChild("Title")) :: TextLabel
-				local geometry = (bar :: unknown) :: { AbsoluteSize: Vector2 }
-				geometry.AbsoluteSize = engine.types.Vector2.new(1024, 44)
+				local geometry = (bar :: unknown) :: VerifyRoblox.Instance
+				engine.environment.poke(geometry, "AbsoluteSize", engine.types.Vector2.new(1024, 44))
 				Verify.expect(title:HasTag("facet-type-title")):toBe(true)
 				Verify.expect(title:HasTag("facet-type-heading")):toBe(false)
 				Verify.expect(stale:peek()):toBe(engine.types.Vector2.zero)
@@ -2822,10 +2980,25 @@ return function(verifyHarness: Verify.Harness)
 					local engine = engines.new()
 					local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 					local input = engine.new("UserInputService")
-					input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+					engine.environment.fakeOn(input, "GetLastInputType", function()
+						return engine.types.Enum.UserInputType.Keyboard
+					end)
+					for _, method in { "IsKeyDown", "IsGamepadButtonDown" } do
+						engine.environment.fakeOn(input, method, function()
+							return false
+						end)
+					end
+					for _, method in
+						{ "GetNavigationGamepads", "GetKeysPressed", "GetMouseButtonsPressed", "GetGamepadState" }
+					do
+						engine.environment.fakeOn(input, method, function()
+							return {}
+						end)
+					end
+					engine.environment.poke(input, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
 					local ctx = require("../src/ui/context")(Compose, runtime, {
 						types = engine.types,
-						services = { UserInputService = input },
+						services = { UserInputService = (input :: unknown) :: UserInputService },
 					})
 					local UI = ({} :: unknown) :: SharedTypes.Controls
 					require("../src/ui/layout")(ctx, UI)
@@ -2847,14 +3020,14 @@ return function(verifyHarness: Verify.Harness)
 					end, engine.new("ScreenGui"))
 					local picker = (mounted :: unknown) :: Frame
 					local measure = assert(picker:FindFirstChild("LabelMeasure")) :: TextLabel
-					local geometry = (picker :: unknown) :: { AbsoluteSize: Vector2 }
-					local metrics = (measure :: unknown) :: { TextBounds: Vector2 }
-					geometry.AbsoluteSize = engine.types.Vector2.new(120, 44)
-					metrics.TextBounds = engine.types.Vector2.new(500, 18)
+					local geometry = (picker :: unknown) :: VerifyRoblox.Instance
+					local metrics = (measure :: unknown) :: VerifyRoblox.Instance
+					engine.environment.poke(geometry, "AbsoluteSize", engine.types.Vector2.new(120, 44))
+					engine.environment.poke(metrics, "TextBounds", engine.types.Vector2.new(500, 18))
 					Verify.expect(picker:FindFirstChild("Trigger", true) ~= nil):toBe(true)
-					geometry.AbsoluteSize = engine.types.Vector2.new(1000, 44)
+					engine.environment.poke(geometry, "AbsoluteSize", engine.types.Vector2.new(1000, 44))
 					Verify.expect(picker:FindFirstChild("Trigger", true) == nil):toBe(true)
-					metrics.TextBounds = engine.types.Vector2.new(1200, 18)
+					engine.environment.poke(metrics, "TextBounds", engine.types.Vector2.new(1200, 18))
 					Verify.expect(picker:FindFirstChild("Trigger", true) ~= nil):toBe(true)
 					Verify.expect(stale:peek()):toBe(engine.types.Vector2.zero)
 					stop()
@@ -2897,27 +3070,39 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(hidden.Interactable):toBe(false)
 				hidden.Activated:Fire()
 				Verify.expect(selected:peek()):toBe("a")
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
-				picker.AbsoluteSize = world.engine.types.Vector2.new(120, 44)
-				find(picker, "LabelMeasure").TextBounds = world.engine.types.Vector2.new(500, 18)
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+				)
+				world.engine.environment.poke(picker, "AbsoluteSize", world.engine.types.Vector2.new(120, 44))
+				world.engine.environment.poke(
+					find(picker, "LabelMeasure"),
+					"TextBounds",
+					world.engine.types.Vector2.new(500, 18)
+				)
 				Verify.expect(menu.Visible):toBe(true)
 				Verify.expect(segmented.Visible):toBe(false)
 				find(menu, "Trigger").Activated:Fire()
 				Verify.expect(opened:peek()):toBe(true)
-				picker.AbsoluteSize = world.engine.types.Vector2.new(1000, 44)
+				world.engine.environment.poke(picker, "AbsoluteSize", world.engine.types.Vector2.new(1000, 44))
 				Verify.expect(segmented.Visible):toBe(true)
 				Verify.expect(menu.Visible):toBe(false)
 				Verify.expect(opened:peek()):toBe(false)
-				picker.AbsoluteSize = world.engine.types.Vector2.new(120, 44)
+				world.engine.environment.poke(picker, "AbsoluteSize", world.engine.types.Vector2.new(120, 44))
 				find(menu, "Trigger").Activated:Fire()
 				Verify.expect(opened:peek()):toBe(true)
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.Gamepad
+				)
 				Verify.expect(inline.Visible):toBe(true)
 				Verify.expect(menu.Visible):toBe(false)
 				Verify.expect(opened:peek()):toBe(false)
 				hidden.Activated:Fire()
 				Verify.expect(selected:peek()):toBe("b")
-				picker.AbsoluteSize = world.engine.types.Vector2.new(1000, 44)
+				world.engine.environment.poke(picker, "AbsoluteSize", world.engine.types.Vector2.new(1000, 44))
 				Verify.expect(segmented.Visible):toBe(true)
 				Verify.expect(segmented.Parent):toBe(picker)
 				Verify.expect(hidden.Interactable):toBe(false)
@@ -2953,21 +3138,21 @@ return function(verifyHarness: Verify.Harness)
 				end, { runService = true })
 				local bar = find(world.screen, "NavigationBar") :: Frame
 				local title = assert(bar:FindFirstChild("Title")) :: TextLabel
-				local box = (bar :: unknown) :: { AbsoluteSize: Vector2 }
-				local text = (title :: unknown) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
-				box.AbsoluteSize = world.engine.types.Vector2.new(1024, 44)
-				text.AbsoluteSize = box.AbsoluteSize
+				local box = (bar :: unknown) :: VerifyRoblox.Instance
+				local text = (title :: unknown) :: VerifyRoblox.Instance
+				world.engine.environment.poke(box, "AbsoluteSize", world.engine.types.Vector2.new(1024, 44))
+				world.engine.environment.poke(text, "AbsoluteSize", bar.AbsoluteSize)
 				Verify.expect(title.Visible):toBe(false)
-				text.TextBounds = world.engine.types.Vector2.new(100, 20)
+				world.engine.environment.poke(text, "TextBounds", world.engine.types.Vector2.new(100, 20))
 				world.engine.heartbeat:Fire(1 / 60)
-				text.TextBounds = world.engine.types.Vector2.new(120, 24)
+				world.engine.environment.poke(text, "TextBounds", world.engine.types.Vector2.new(120, 24))
 				world.engine.heartbeat:Fire(1 / 60)
 				Verify.expect(title.Visible):toBe(false)
 				for _ = 1, 4 do
 					world.engine.heartbeat:Fire(1 / 60)
 				end
 				Verify.expect(title.Visible):toBe(true)
-				box.AbsoluteSize = world.engine.types.Vector2.new(390, 44)
+				world.engine.environment.poke(box, "AbsoluteSize", world.engine.types.Vector2.new(390, 44))
 				Verify.expect(title.Visible):toBe(true)
 				world.stop()
 			end,
@@ -2997,10 +3182,10 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local bar = find(world.screen, "NavigationBar")
 				local title = find(bar, "Title")
-				bar.AbsoluteSize = world.engine.types.Vector2.new(390, 44)
+				world.engine.environment.poke(bar, "AbsoluteSize", world.engine.types.Vector2.new(390, 44))
 				Verify.expect((title:HasTag("facet-type-heading"))):toBe(true)
 				Verify.expect((title:HasTag("facet-type-title"))):toBe(false)
-				bar.AbsoluteSize = world.engine.types.Vector2.new(1024, 44)
+				world.engine.environment.poke(bar, "AbsoluteSize", world.engine.types.Vector2.new(1024, 44))
 				Verify.expect((title:HasTag("facet-type-title"))):toBe(true)
 				Verify.expect((title:HasTag("facet-type-heading"))):toBe(false)
 				local inset = title:FindFirstChildWhichIsA("UIPadding")
@@ -3033,10 +3218,10 @@ return function(verifyHarness: Verify.Harness)
 				world.gui.SelectedObject = find(world.screen, "RootAction")
 				path:set({ { id = "detail" } })
 				world.settle()
-				Verify.expect(world.gui.SelectedObject.Name):toBe("Back")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Back")
 				path:set({})
 				world.settle()
-				Verify.expect(world.gui.SelectedObject.Name):toBe("RootAction")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("RootAction")
 				world.stop()
 				local selection = Compose.cell("one")
 				local pager = setup(function(UI: FacetControls)
@@ -3049,11 +3234,11 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local pages = find(pager.screen, "Pages")
-				pages.AbsoluteWindowSize = pager.engine.types.Vector2.new(320, 160)
-				pages.AbsoluteCanvasSize = pager.engine.types.Vector2.new(640, 160)
+				pager.engine.environment.poke(pages, "AbsoluteWindowSize", pager.engine.types.Vector2.new(320, 160))
+				pager.engine.environment.poke(pages, "AbsoluteCanvasSize", pager.engine.types.Vector2.new(640, 160))
 				pager.gui.SelectedObject = find(pager.screen, "PageOne")
 				selection:set("two")
-				Verify.expect(pager.gui.SelectedObject.Name):toBe("PageTwo")
+				Verify.expect(assert(pager.gui.SelectedObject).Name):toBe("PageTwo")
 				pager.stop()
 			end,
 		})
@@ -3068,8 +3253,12 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Menu({ isPresented = shown, items = items })
 				end)
 				local panel = find(world.screen, "MenuPanel")
-				panel.Parent.AbsoluteSize = world.engine.types.Vector2.new(700, 300)
-				find(world.screen, "MenuRows").AbsoluteSize = world.engine.types.Vector2.new(280, 1000)
+				world.engine.environment.poke(panel.Parent, "AbsoluteSize", world.engine.types.Vector2.new(700, 300))
+				world.engine.environment.poke(
+					find(world.screen, "MenuRows"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(280, 1000)
+				)
 				Verify.expect(find(panel, "MenuScroll").ClassName):toBe("ScrollingFrame")
 				Verify.expect(panel.Size.Y.Offset):toBe(276)
 				find(world.screen, "branch").Activated:Fire()
@@ -3175,11 +3364,23 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(segments:FindFirstChildWhichIsA("UIListLayout").FillDirection)
 						:toBe(world.engine.types.Enum.FillDirection.Vertical)
 
-					find(automatic, "LabelMeasure").TextBounds = world.engine.types.Vector2.new(100, 18)
-					automatic.AbsoluteSize = world.engine.types.Vector2.new(120, 44)
-					world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+					world.engine.environment.poke(
+						find(automatic, "LabelMeasure"),
+						"TextBounds",
+						world.engine.types.Vector2.new(100, 18)
+					)
+					world.engine.environment.poke(automatic, "AbsoluteSize", world.engine.types.Vector2.new(120, 44))
+					world.engine.environment.poke(
+						world.input,
+						"PreferredInput",
+						world.engine.types.Enum.PreferredInput.Touch
+					)
 					Verify.expect(find(find(world.screen, "Auto"), "Trigger") ~= nil):toBe(true)
-					world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+					world.engine.environment.poke(
+						world.input,
+						"PreferredInput",
+						world.engine.types.Enum.PreferredInput.Gamepad
+					)
 					Verify.expect(find(find(world.screen, "Auto"), "b") ~= nil):toBe(true)
 					Verify.expect((find(world.screen, "Auto"))):toBe(automatic)
 					Verify.expect((find(automatic, "AuthoredCorner"))):toBe(decoration)
@@ -3488,17 +3689,19 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local V = world.engine.types.Vector2
-				world.screen.AbsoluteSize = V.new(320, 400)
+				world.engine.environment.poke(world.screen, "AbsoluteSize", V.new(320, 400))
 				local anchor, panel = find(world.screen, "Anchor"), find(world.screen, "CalloutPanel")
-				anchor.AbsolutePosition = V.new(280, 20)
-				anchor.AbsoluteSize = V.new(32, 44)
-				panel.AbsoluteSize = V.new(280, 100)
+				world.engine.environment.poke(anchor, "AbsolutePosition", V.new(280, 20))
+				world.engine.environment.poke(anchor, "AbsoluteSize", V.new(32, 44))
+				world.engine.environment.poke(panel, "AbsoluteSize", V.new(280, 100))
 				world.settle()
 				Verify.expect((near((corner(panel)), 32))):toBe(true)
 				Verify.expect(world.gui.SelectedObject):toBe(anchor)
 				anchor.Activated:Fire()
 				Verify.expect(presses):toBe(1)
-				world.input.InputBegan:Fire(
+				world.engine.environment.fire(
+					world.input,
+					"InputBegan",
 					{ UserInputType = world.engine.types.Enum.UserInputType.MouseButton1, Position = V.new(10, 350) },
 					false
 				)
@@ -3515,15 +3718,39 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine = engines.new()
 				local gui = engine.new("GuiService")
+				gui.GuiNavigationEnabled = true
+				gui.AutoSelectGuiEnabled = true
+				gui.TouchControlsEnabled = true
+				engine.environment.fakeOn(gui, "GetInsetArea", function()
+					return engine.types.Rect.new(0, 0, 1280, 720)
+				end)
+				engine.environment.fakeOn(gui, "GetGuiInset", function()
+					return engine.types.Vector2.zero, engine.types.Vector2.zero
+				end)
 				local input = engine.new("UserInputService")
-				input.GetFocusedTextBox = function()
-					return nil
+				engine.environment.fakeOn(input, "GetLastInputType", function()
+					return engine.types.Enum.UserInputType.Keyboard
+				end)
+				for _, method in { "IsKeyDown", "IsGamepadButtonDown" } do
+					engine.environment.fakeOn(input, method, function()
+						return false
+					end)
+				end
+				for _, method in
+					{ "GetNavigationGamepads", "GetKeysPressed", "GetMouseButtonsPressed", "GetGamepadState" }
+				do
+					engine.environment.fakeOn(input, method, function()
+						return {}
+					end)
 				end
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 				local overlay = engine.new("Frame")
 				local UI = controls(Compose, runtime, {
 					types = engine.types,
-					services = { GuiService = gui, UserInputService = input },
+					services = {
+						GuiService = (gui :: unknown) :: GuiService,
+						UserInputService = (input :: unknown) :: UserInputService,
+					},
 					overlayParent = overlay,
 				})
 				local stop, screen: any = runtime.mount(function()
@@ -3544,20 +3771,20 @@ return function(verifyHarness: Verify.Harness)
 				end, engine.new("Folder"))
 				overlay.Parent = screen
 				local V = engine.types.Vector2
-				screen.AbsoluteSize = V.new(1920, 1080)
-				overlay.AbsolutePosition = V.new(100, 50)
-				overlay.AbsoluteSize = V.new(320, 400)
+				engine.environment.poke(screen, "AbsoluteSize", V.new(1920, 1080))
+				engine.environment.poke(overlay, "AbsolutePosition", V.new(100, 50))
+				engine.environment.poke(overlay, "AbsoluteSize", V.new(320, 400))
 				local anchor, panel = find(screen, "Anchor"), find(screen, "CalloutPanel")
 				Verify.expect((panel:IsDescendantOf(overlay))):toBe(true)
-				anchor.AbsolutePosition = V.new(380, 70)
-				anchor.AbsoluteSize = V.new(32, 44)
-				panel.AbsoluteSize = V.new(280, 100)
+				engine.environment.poke(anchor, "AbsolutePosition", V.new(380, 70))
+				engine.environment.poke(anchor, "AbsoluteSize", V.new(32, 44))
+				engine.environment.poke(panel, "AbsoluteSize", V.new(280, 100))
 				for _ = 1, 60 do
 					engine.heartbeat:Fire(1 / 60)
 				end
 				Verify.expect((near((corner(panel)), 32))):toBe(true)
 				Verify.expect(panel.Size.X.Offset):toBe(280)
-				overlay.AbsoluteSize = V.new(200, 400)
+				engine.environment.poke(overlay, "AbsoluteSize", V.new(200, 400))
 				for _ = 1, 60 do
 					engine.heartbeat:Fire(1 / 60)
 				end
@@ -3580,7 +3807,11 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					})
 				end)
-				find(world.screen, "Modal").AbsoluteSize = world.engine.types.Vector2.new(800, 720)
+				world.engine.environment.poke(
+					find(world.screen, "Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(800, 720)
+				)
 				world.engine.heartbeat:Fire(1 / 600)
 				world.engine.heartbeat:Fire(1 / 600)
 				local panel, content = find(world.screen, "SheetPanel"), find(world.screen, "KeptContent")
@@ -3589,7 +3820,11 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(panel.Size.Y.Offset):toBe(before)
 				world.engine.heartbeat:Fire(0.1)
 				Verify.expect(panel.Size.Y.Offset > before):toBe(true)
-				world.gui.ReducedMotionEnabled = true
+				world.engine.environment.poke(
+					(world.gui :: unknown) :: VerifyRoblox.Instance,
+					"ReducedMotionEnabled",
+					true
+				)
 				Verify.expect(panel.Size.Y.Offset):toBe(684)
 				Verify.expect((find(world.screen, "KeptContent"))):toBe(content)
 				world.stop()
@@ -3623,10 +3858,10 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local bar = find(world.screen, "Tabs")
 				Verify.expect(find(world.screen, "Content").Position.Y.Offset > bar.Size.Y.Offset):toBe(true)
-				bar.AbsoluteSize = world.engine.types.Vector2.new(100, 44)
+				world.engine.environment.poke(bar, "AbsoluteSize", world.engine.types.Vector2.new(100, 44))
 				local b = find(bar, "b")
-				b.AbsolutePosition = world.engine.types.Vector2.new(160, 0)
-				b.AbsoluteSize = world.engine.types.Vector2.new(80, 44)
+				world.engine.environment.poke(b, "AbsolutePosition", world.engine.types.Vector2.new(160, 0))
+				world.engine.environment.poke(b, "AbsoluteSize", world.engine.types.Vector2.new(80, 44))
 				selected:set("b")
 				Verify.expect(bar.CanvasPosition.X):toBe(140)
 				local panel = fadeKit.layer(find(world.screen, "BContent"))
@@ -3635,7 +3870,11 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((fadeKit.of(panel))):toBe(0)
 				selected:set("a")
 				Verify.expect(panel.Interactable):toBe(false)
-				world.gui.ReducedMotionEnabled = true
+				world.engine.environment.poke(
+					(world.gui :: unknown) :: VerifyRoblox.Instance,
+					"ReducedMotionEnabled",
+					true
+				)
 				world.engine.heartbeat:Fire(0.2)
 				Verify.expect((fadeKit.of(fadeKit.layer(find(world.screen, "AContent"))))):toBe(0)
 				world.stop()
@@ -3671,10 +3910,15 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				find(world.screen, "ModalBack").Pressed:Fire()
 				Verify.expect((errorValue:peek())):toBe(nil)
-				world.gui.ReducedMotionEnabled = true
+				world.engine.environment.poke(
+					(world.gui :: unknown) :: VerifyRoblox.Instance,
+					"ReducedMotionEnabled",
+					true
+				)
 				local pages = find(world.screen, "Pages")
 				local V2 = world.engine.types.Vector2
-				pages.AbsoluteWindowSize, pages.AbsoluteCanvasSize = V2.new(320, 160), V2.new(640, 160)
+				world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(320, 160))
+				world.engine.environment.poke(pages, "AbsoluteCanvasSize", V2.new(640, 160))
 				page:set("b")
 				Verify.expect(pages.CanvasPosition.X):toBe(320)
 				world.stop()
@@ -3699,10 +3943,12 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local V = world.engine.types.Vector2
-				world.screen.AbsoluteSize = V.new(960, 720)
+				world.engine.environment.poke(world.screen, "AbsoluteSize", V.new(960, 720))
 				local anchor, panel = find(world.screen, "Anchor"), find(world.screen, "CalloutPanel")
-				anchor.AbsolutePosition, anchor.AbsoluteSize = V.new(100, 100), V.new(200, 44)
-				panel.AbsolutePosition, panel.AbsoluteSize = V.new(100, 160), V.new(280, 120)
+				world.engine.environment.poke(anchor, "AbsolutePosition", V.new(100, 100))
+				world.engine.environment.poke(anchor, "AbsoluteSize", V.new(200, 44))
+				world.engine.environment.poke(panel, "AbsolutePosition", V.new(100, 160))
+				world.engine.environment.poke(panel, "AbsoluteSize", V.new(280, 120))
 				world.settle()
 				local dismiss = find(world.screen, "Dismiss")
 				world.gui.SelectedObject = anchor
@@ -3750,15 +3996,17 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local V = world.engine.types.Vector2
-				world.screen.AbsoluteSize = V.new(960, 720)
+				world.engine.environment.poke(world.screen, "AbsoluteSize", V.new(960, 720))
 				local anchor, panel = find(world.screen, "Anchor"), find(world.screen, "CalloutPanel")
 				local own = find(world.screen, "Own")
-				anchor.AbsolutePosition, anchor.AbsoluteSize = V.new(100, 300), V.new(200, 44)
-				panel.AbsolutePosition, panel.AbsoluteSize = V.new(100, 360), V.new(280, 120)
+				world.engine.environment.poke(anchor, "AbsolutePosition", V.new(100, 300))
+				world.engine.environment.poke(anchor, "AbsoluteSize", V.new(200, 44))
+				world.engine.environment.poke(panel, "AbsolutePosition", V.new(100, 360))
+				world.engine.environment.poke(panel, "AbsoluteSize", V.new(280, 120))
 				world.settle()
 				Verify.expect(anchor.NextSelectionDown):toBe(find(world.screen, "Dismiss"))
 				anchor.NextSelectionDown = own
-				panel.AbsolutePosition = V.new(100, 160)
+				world.engine.environment.poke(panel, "AbsolutePosition", V.new(100, 160))
 				world.settle()
 				Verify.expect(anchor.NextSelectionDown):toBe(own)
 				Verify.expect(anchor.NextSelectionUp):toBe(find(world.screen, "Dismiss"))
@@ -3801,11 +4049,11 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local V = world.engine.types.Vector2
-				world.screen.AbsoluteSize = V.new(960, 720)
+				world.engine.environment.poke(world.screen, "AbsoluteSize", V.new(960, 720))
 				local anchor, panel, arrow =
 					find(world.screen, "Anchor"), find(world.screen, "CalloutPanel"), find(world.screen, "Arrow")
-				anchor.AbsolutePosition = V.new(160, 560)
-				anchor.AbsoluteSize = V.new(240, 44)
+				world.engine.environment.poke(anchor, "AbsolutePosition", V.new(160, 560))
+				world.engine.environment.poke(anchor, "AbsoluteSize", V.new(240, 44))
 				Verify.expect(panel.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.Y)
 				Verify.expect(panel.Size.Y.Scale):toBe(0)
 				Verify.expect(panel.Size.Y.Offset):toBe(0)
@@ -3824,7 +4072,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((panel:HasTag("facet-outlined"))):toBe(true)
 				world.settle()
 				for _, height in { 96, 128, 96 } do
-					panel.AbsoluteSize = V.new(280, height)
+					world.engine.environment.poke(panel, "AbsoluteSize", V.new(280, height))
 					local _, top = corner(panel)
 					Verify.expect((near(top, 560 - height - 8 - LIFT))):toBe(true)
 					Verify.expect((near(arrow.Position.Y.Offset, 560 - 8 - LIFT))):toBe(true)
@@ -3836,7 +4084,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					Verify.expect((near(lowest, height + arrow.Size.X.Offset * math.sqrt(2) / 2))):toBe(true)
 				end
-				panel.AbsoluteSize = V.new(30, 96)
+				world.engine.environment.poke(panel, "AbsoluteSize", V.new(30, 96))
 				local previous = math.huge
 				for _, point in outline:GetControlPoints() do
 					if point.Position.Y.Scale * 96 >= 96 - 0.01 then
@@ -3848,9 +4096,9 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local first = outline:GetControlPoints()[1]
 				Verify.expect(math.abs(first.Position.X.Scale * 30 - 12) < 0.01):toBe(true)
-				panel.AbsoluteSize = V.new(280, 96)
-				anchor.AbsolutePosition = V.new(0, 560)
-				anchor.AbsoluteSize = V.new(8, 44)
+				world.engine.environment.poke(panel, "AbsoluteSize", V.new(280, 96))
+				world.engine.environment.poke(anchor, "AbsolutePosition", V.new(0, 560))
+				world.engine.environment.poke(anchor, "AbsoluteSize", V.new(8, 44))
 				local points = outline:GetControlPoints()
 				local radius = points[1].Position.X.Scale * 280
 				local tip, depth = 0, 0
@@ -3888,20 +4136,20 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local V = world.engine.types.Vector2
-				world.screen.AbsoluteSize = V.new(844, 311)
+				world.engine.environment.poke(world.screen, "AbsoluteSize", V.new(844, 311))
 				local anchor, panel, arrow =
 					find(world.screen, "Anchor"), find(world.screen, "CalloutPanel"), find(world.screen, "Arrow")
-				anchor.AbsolutePosition = V.new(8, 18)
-				anchor.AbsoluteSize = V.new(109, 44)
-				panel.AbsoluteSize = V.new(280, 106)
+				world.engine.environment.poke(anchor, "AbsolutePosition", V.new(8, 18))
+				world.engine.environment.poke(anchor, "AbsoluteSize", V.new(109, 44))
+				world.engine.environment.poke(panel, "AbsoluteSize", V.new(280, 106))
 				world.settle()
 				Verify.expect(materialize.of(panel).Scale):toBe(1)
 				Verify.expect((near(select(2, corner(panel)), 18 + 44 + 8 + LIFT))):toBe(true)
 				Verify.expect((near(arrow.Position.Y.Offset, 18 + 44 + 8 + LIFT))):toBe(true)
-				anchor.AbsolutePosition = V.new(8, 200)
+				world.engine.environment.poke(anchor, "AbsolutePosition", V.new(8, 200))
 				Verify.expect((near(select(2, corner(panel)), 200 - 106 - 8 - LIFT))):toBe(true)
-				anchor.AbsolutePosition = V.new(8, 100)
-				panel.AbsoluteSize = V.new(280, 250)
+				world.engine.environment.poke(anchor, "AbsolutePosition", V.new(8, 100))
+				world.engine.environment.poke(panel, "AbsoluteSize", V.new(280, 250))
 				Verify.expect((near(select(2, corner(panel)), 8))):toBe(true)
 				world.stop()
 			end,
@@ -3942,7 +4190,11 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(find(summary, "Image").Image):toBe("rbxassetid://2")
 					summary.Activated:Fire()
 					Verify.expect((find(world.screen, "Close"))):toBe(nil)
-					world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Gamepad
+					world.engine.environment.poke(
+						world.input,
+						"PreferredInput",
+						world.engine.types.Enum.PreferredInput.Gamepad
+					)
 					Verify.expect(find(world.screen, "Close") ~= nil):toBe(true)
 					find(world.screen, "Close").Activated:Fire()
 					Verify.expect((expanded:peek())):toBe(false)
@@ -4077,7 +4329,7 @@ return function(verifyHarness: Verify.Harness)
 				world.settle()
 				panel = find(world.screen, "SheetPanel")
 				Verify.expect(panel.BackgroundTransparency):toBe(0)
-				Verify.expect((alertArt:isDestroyed())):toBe(true)
+				Verify.expect((not world.engine.environment.isAlive(alertArt))):toBe(true)
 				local skin, boundary = find(panel, "Skin"), find(panel, "SkinBoundary")
 				local bounds, art = skin.Parent, find(skin, "panel1")
 				Verify.expect(art.Image):toBe("rbxassetid://42")
@@ -4090,16 +4342,16 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(boundary.Position.X.Scale):toBe(1)
 				Verify.expect(boundary.Position.Y.Scale):toBe(1)
 				Verify.expect(bounds.AnchorPoint):toBe(world.engine.types.Vector2.new(1, 1))
-				panel.AbsoluteSize = world.engine.types.Vector2.new(360, 240)
-				boundary.AbsoluteSize = world.engine.types.Vector2.new(2, 2)
+				world.engine.environment.poke(panel, "AbsoluteSize", world.engine.types.Vector2.new(360, 240))
+				world.engine.environment.poke(boundary, "AbsoluteSize", world.engine.types.Vector2.new(2, 2))
 				Verify.expect(bounds.Size.X.Offset):toBe(180)
 				Verify.expect(bounds.Size.Y.Offset):toBe(120)
-				panel.AbsoluteSize = world.engine.types.Vector2.new(200, 120)
+				world.engine.environment.poke(panel, "AbsoluteSize", world.engine.types.Vector2.new(200, 120))
 				Verify.expect(bounds.Size.X.Offset):toBe(100)
 				Verify.expect(bounds.Size.Y.Offset):toBe(60)
 				world.stop()
-				Verify.expect((art:isDestroyed())):toBe(true)
-				Verify.expect((boundary:isDestroyed())):toBe(true)
+				Verify.expect((not world.engine.environment.isAlive(art))):toBe(true)
+				Verify.expect((not world.engine.environment.isAlive(boundary))):toBe(true)
 			end,
 		})
 
@@ -4119,14 +4371,18 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local source = find(world.screen, "Source")
-				source.AbsolutePosition = world.engine.types.Vector2.new(20, 30)
-				source.AbsoluteSize = world.engine.types.Vector2.new(100, 60)
+				world.engine.environment.poke(source, "AbsolutePosition", world.engine.types.Vector2.new(20, 30))
+				world.engine.environment.poke(source, "AbsoluteSize", world.engine.types.Vector2.new(100, 60))
 				shown:set(true)
 				local panel = find(world.screen, "AlertPanel")
 				Verify.expect(panel.Position.X.Offset):toBe(70)
 				Verify.expect(panel.Position.Y.Offset):toBe(60)
 				Verify.expect((fadeKit.of(panel))):toBe(1)
-				find(world.screen, "AlertModal").AbsoluteSize = world.engine.types.Vector2.new(800, 600)
+				world.engine.environment.poke(
+					find(world.screen, "AlertModal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(800, 600)
+				)
 				world.engine.heartbeat:Fire(0.2)
 				Verify.expect(panel.Position.X.Offset):toBe(400)
 				Verify.expect((find(panel, "PresentationScale"))):toBeNil()
@@ -4177,8 +4433,8 @@ return function(verifyHarness: Verify.Harness)
 				local V2 = world.engine.types.Vector2
 				local source = find(world.screen, "Card")
 				local originalParent = source.Parent
-				source.AbsolutePosition = V2.new(20, 30)
-				source.AbsoluteSize = V2.new(120, 80)
+				world.engine.environment.poke(source, "AbsolutePosition", V2.new(20, 30))
+				world.engine.environment.poke(source, "AbsoluteSize", V2.new(120, 80))
 				shown:set(true)
 				local panel = find(world.screen, "AlertPanel")
 				local modal = find(world.screen, "AlertModal")
@@ -4189,8 +4445,8 @@ return function(verifyHarness: Verify.Harness)
 						end
 					end
 				end
-				modal.AbsolutePosition = V2.new(10, 10)
-				modal.AbsoluteSize = V2.new(800, 600)
+				world.engine.environment.poke(modal, "AbsolutePosition", V2.new(10, 10))
+				world.engine.environment.poke(modal, "AbsoluteSize", V2.new(800, 600))
 				Verify.expect(panel:HasTag("facet-pane")):toBe(true)
 				Verify.expect(panel:HasTag("facet-panel")):toBe(false)
 				local snapshot = find(panel, "SourceSnapshot")
@@ -4238,12 +4494,12 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(source.Parent):toBe(originalParent)
 				shown:set(false)
 				world.engine.heartbeat:Fire(0.4)
-				Verify.expect((snapshot:isDestroyed())):toBe(true)
+				Verify.expect((not world.engine.environment.isAlive(snapshot))):toBe(true)
 				Verify.expect((find(world.screen, "AlertPanel"))):toBe(nil)
 				Verify.expect(source.Parent):toBe(originalParent)
-				Verify.expect((source:isDestroyed())):toBe(false)
+				Verify.expect((not world.engine.environment.isAlive(source))):toBe(false)
 				Verify.expect(find(source, "Scene").CurrentCamera.Parent):toBe(find(source, "Scene"))
-				Verify.expect((find(world.screen, "ExternalCamera"):isDestroyed())):toBe(false)
+				Verify.expect((not world.engine.environment.isAlive(find(world.screen, "ExternalCamera")))):toBe(false)
 				world.stop()
 			end,
 		})
@@ -4265,12 +4521,12 @@ return function(verifyHarness: Verify.Harness)
 				end, { preRender = true })
 				local V2 = world.engine.types.Vector2
 				local source = find(world.screen, "Card")
-				source.AbsoluteSize = V2.new(120, 80)
+				world.engine.environment.poke(source, "AbsoluteSize", V2.new(120, 80))
 				shown:set(true)
 				local panel = find(world.screen, "AlertPanel")
 				local modal = find(world.screen, "AlertModal")
 				local wrapper = find(world.screen, "OverlayArrival")
-				modal.AbsoluteSize = V2.new(800, 600)
+				world.engine.environment.poke(modal, "AbsoluteSize", V2.new(800, 600))
 				local release = require("../src/ui/text_measure").hold(find(panel, "OK"))
 				for _ = 1, 8 do
 					world.engine.heartbeat:Fire(0.1)
@@ -4279,7 +4535,7 @@ return function(verifyHarness: Verify.Harness)
 				release()
 				for _, node in world.screen:GetDescendants() do
 					if node:IsA("TextLabel") or node:IsA("TextButton") then
-						node.TextBounds = V2.new(40, 20)
+						world.engine.environment.poke(node, "TextBounds", V2.new(40, 20))
 					end
 				end
 				for _ = 1, 20 do
@@ -4310,7 +4566,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local shown = Compose.cell(false)
 				local world = setup(function(UI: FacetControls, Host: RobloxHost, engine, gui)
-					gui.ReducedMotionEnabled = true
+					engine.environment.poke(gui, "ReducedMotionEnabled", true)
 					local source = UI.Button "Card" { label = "Card" }
 					return Host.Frame({
 						source :: unknown,
@@ -4323,7 +4579,11 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				shown:set(true)
 				local panel = find(world.screen, "AlertPanel")
-				find(world.screen, "AlertModal").AbsoluteSize = world.engine.types.Vector2.new(390, 720)
+				world.engine.environment.poke(
+					find(world.screen, "AlertModal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(390, 720)
+				)
 				Verify.expect(panel.Size.X.Offset):toBe(390)
 				Verify.expect(panel.Size.Y.Offset):toBe(720)
 				Verify.expect(panel.Position.X.Offset):toBe(0)
@@ -4432,8 +4692,8 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local panel = find(world.screen, "SheetPanel")
-				panel.AbsolutePosition = world.engine.types.Vector2.new(100, 100)
-				panel.AbsoluteSize = world.engine.types.Vector2.new(200, 200)
+				world.engine.environment.poke(panel, "AbsolutePosition", world.engine.types.Vector2.new(100, 100))
+				world.engine.environment.poke(panel, "AbsoluteSize", world.engine.types.Vector2.new(200, 200))
 				local backdrop = find(world.screen, "DismissTarget")
 				backdrop.Activated:Fire({ Position = world.engine.types.Vector2.new(90, 150) })
 				Verify.expect((outer:peek())):toBe(true)
@@ -4490,7 +4750,11 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, { motionLevel = if mode == "none" then "none" else "normal" })
 					if mode == "limited" then
-						world.gui.ReducedMotionEnabled = true
+						world.engine.environment.poke(
+							(world.gui :: unknown) :: VerifyRoblox.Instance,
+							"ReducedMotionEnabled",
+							true
+						)
 					end
 					local stack = find(world.screen, "NavigationStack")
 					local root = find(stack, "@root")
@@ -4503,7 +4767,7 @@ return function(verifyHarness: Verify.Harness)
 							outside += 1
 						end
 					end)
-					local function watch(panel)
+					local function watch(panel: GuiObject)
 						return panel:GetPropertyChangedSignal("Interactable"):Connect(function()
 							local selected = world.gui.SelectedObject
 							if not panel.Interactable and selected and selected:IsDescendantOf(panel) then
@@ -4515,7 +4779,7 @@ return function(verifyHarness: Verify.Harness)
 					path:set({ { id = "detail" } })
 					world.settle()
 					local detail = find(stack, "detail")
-					Verify.expect((world.gui.SelectedObject:IsDescendantOf(detail))):toBe(true)
+					Verify.expect((assert(world.gui.SelectedObject):IsDescendantOf(detail))):toBe(true)
 					local detailWatch = watch(detail)
 					path:set({})
 					world.settle()
@@ -4586,7 +4850,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(previous < 0.01):toBe(true)
 				world.settle()
 				Verify.expect(detail.Position.X.Scale):toBe(0)
-				Verify.expect((world.gui.SelectedObject:IsDescendantOf(detail))):toBe(true)
+				Verify.expect((assert(world.gui.SelectedObject):IsDescendantOf(detail))):toBe(true)
 				Verify.expect(root.Visible):toBe(false)
 				Verify.expect((find(root, "Dim"))):toBe(nil)
 				Verify.expect(stack.ClipsDescendants):toBe(false)
@@ -4594,7 +4858,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(stack.ClipsDescendants):toBe(true)
 				Verify.expect(detail.Position.X.Scale):toBe(0)
 				Verify.expect(root.Visible):toBe(true)
-				Verify.expect((detail:isDestroyed())):toBe(false)
+				Verify.expect((not world.engine.environment.isAlive(detail))):toBe(false)
 				Verify.expect(detail.Interactable):toBe(false)
 				Verify.expect(root.Interactable):toBe(true)
 				Verify.expect(world.gui.SelectedObject):toBe(nil)
@@ -4604,15 +4868,13 @@ return function(verifyHarness: Verify.Harness)
 					local front = detail.Position.X.Scale
 					Verify.expect(front > previous):toBe(true)
 					Verify.expect(root.Position.X.Scale):toBeCloseTo(-0.3 * (1 - front), 1e-6)
-					Verify.expect(
-						world.gui.SelectedObject == nil or not world.gui.SelectedObject:IsDescendantOf(detail)
-					)
+					Verify.expect(not world.gui.SelectedObject or not world.gui.SelectedObject:IsDescendantOf(detail))
 						:toBe(true)
 					previous = front
 				end
 				world.settle()
-				Verify.expect((detail:isDestroyed())):toBe(true)
-				Verify.expect(world.gui.SelectedObject.Name):toBe("RootAction")
+				Verify.expect((not world.engine.environment.isAlive(detail))):toBe(true)
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("RootAction")
 				Verify.expect(root.Position.X.Scale):toBe(0)
 				Verify.expect(root.Visible):toBe(true)
 				world.stop()
@@ -4636,7 +4898,11 @@ return function(verifyHarness: Verify.Harness)
 								},
 							})
 						end)
-						world.gui.ReducedMotionEnabled = mode == "reduced"
+						world.engine.environment.poke(
+							(world.gui :: unknown) :: VerifyRoblox.Instance,
+							"ReducedMotionEnabled",
+							mode == "reduced"
+						)
 						local stack = find(world.screen, "NavigationStack")
 						local root = find(stack, "@root")
 						path:set({ { id = "detail" } })
@@ -4651,7 +4917,7 @@ return function(verifyHarness: Verify.Harness)
 						end
 						Verify.expect((engines.connections(world.engine.heartbeat))):toBe(0)
 						path:set({})
-						Verify.expect((detail:isDestroyed())):toBe(true)
+						Verify.expect((not world.engine.environment.isAlive(detail))):toBe(true)
 						Verify.expect(root.Visible):toBe(true)
 						world.stop()
 					end
@@ -4694,7 +4960,11 @@ return function(verifyHarness: Verify.Harness)
 				end
 				Verify.expect((fadeKit.of(two))):toBe(0)
 				Verify.expect(one.Visible):toBe(false)
-				world.gui.ReducedMotionEnabled = true
+				world.engine.environment.poke(
+					(world.gui :: unknown) :: VerifyRoblox.Instance,
+					"ReducedMotionEnabled",
+					true
+				)
 				selection:set("one")
 				Verify.expect(one.Visible):toBe(true)
 				world.engine.heartbeat:Fire(0.16)
@@ -4723,7 +4993,11 @@ return function(verifyHarness: Verify.Harness)
 				shown:set(true)
 				local panel = find(world.screen, "SheetPanel")
 				local fade = find(world.screen, "ScrimFade")
-				find(world.screen, "Modal").AbsoluteSize = world.engine.types.Vector2.new(800, 720)
+				world.engine.environment.poke(
+					find(world.screen, "Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(800, 720)
+				)
 				local hidden = panel.Position.Y.Offset
 				Verify.expect(fade.Transparency.Keypoints[1].Value):toBe(1)
 				world.engine.heartbeat:Fire(1 / 60)
@@ -4743,25 +5017,33 @@ return function(verifyHarness: Verify.Harness)
 				shown:set(false)
 				local modal = find(world.screen, "Modal")
 				Verify.expect(modal.Interactable):toBe(false)
-				Verify.expect(world.gui.SelectedObject.Name):toBe("Opener")
+				Verify.expect(assert(world.gui.SelectedObject).Name):toBe("Opener")
 				world.engine.heartbeat:Fire(0.1)
 				Verify.expect(panel.Position.Y.Offset > 0):toBe(true)
 				Verify.expect(find(world.screen, "ScrimFade").Transparency.Keypoints[1].Value > 0):toBe(true)
 				world.engine.heartbeat:Fire(0.11)
-				Verify.expect((panel:isDestroyed())):toBe(true)
-				world.gui.ReducedMotionEnabled = true
+				Verify.expect((not world.engine.environment.isAlive(panel))):toBe(true)
+				world.engine.environment.poke(
+					(world.gui :: unknown) :: VerifyRoblox.Instance,
+					"ReducedMotionEnabled",
+					true
+				)
 				shown:set(true)
 				panel = find(world.screen, "SheetPanel")
-				find(world.screen, "Modal").AbsoluteSize = world.engine.types.Vector2.new(800, 720)
+				world.engine.environment.poke(
+					find(world.screen, "Modal"),
+					"AbsoluteSize",
+					world.engine.types.Vector2.new(800, 720)
+				)
 				Verify.expect(panel.Position.Y.Offset > 0):toBe(true)
 				world.engine.heartbeat:Fire(1 / 600)
 				world.engine.heartbeat:Fire(1 / 600)
 				Verify.expect(panel.Position):toBe(world.engine.types.UDim2.fromScale(0.5, 1))
 				shown:set(false)
-				Verify.expect((panel:isDestroyed())):toBe(false)
+				Verify.expect((not world.engine.environment.isAlive(panel))):toBe(false)
 				Verify.expect(panel.Position):toBe(world.engine.types.UDim2.fromScale(0.5, 1))
 				world.engine.heartbeat:Fire(0.16)
-				Verify.expect((panel:isDestroyed())):toBe(true)
+				Verify.expect((not world.engine.environment.isAlive(panel))):toBe(true)
 				world.stop()
 			end,
 		})
@@ -4782,9 +5064,9 @@ return function(verifyHarness: Verify.Harness)
 				shown:set(true)
 				local panel = find(world.screen, "AlertPanel")
 				local V = world.engine.types.Vector2
-				panel.AbsoluteSize = V.new(440, 176)
+				world.engine.environment.poke(panel, "AbsoluteSize", V.new(440, 176))
 				local layout = find(panel, "AlertLayout")
-				find(panel, "AlertContent").Parent.AbsoluteSize = V.new(300, 60)
+				world.engine.environment.poke(find(panel, "AlertContent").Parent, "AbsoluteSize", V.new(300, 60))
 				world.engine.heartbeat:Fire(0)
 				world.engine.heartbeat:Fire(0)
 				local parent, size = layout.Parent, panel.Size
@@ -4803,10 +5085,10 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((fadeKit.of(panel))):toBe(0)
 				shown:set(false)
 				world.engine.heartbeat:Fire(0.1)
-				Verify.expect((panel:isDestroyed())):toBe(false)
+				Verify.expect((not world.engine.environment.isAlive(panel))):toBe(false)
 				Verify.expect(fadeKit.of(panel) > 0):toBe(true)
 				world.engine.heartbeat:Fire(0.06)
-				Verify.expect((panel:isDestroyed())):toBe(true)
+				Verify.expect((not world.engine.environment.isAlive(panel))):toBe(true)
 				world.stop()
 			end,
 		})
@@ -4834,12 +5116,12 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local V = world.engine.types.Vector2
-				world.screen.AbsoluteSize = V.new(960, 720)
+				world.engine.environment.poke(world.screen, "AbsoluteSize", V.new(960, 720))
 				local anchor = find(world.screen, "Anchor")
-				anchor.AbsolutePosition = V.new(160, 100)
-				anchor.AbsoluteSize = V.new(240, 44)
+				world.engine.environment.poke(anchor, "AbsolutePosition", V.new(160, 100))
+				world.engine.environment.poke(anchor, "AbsoluteSize", V.new(240, 44))
 				local callout = find(world.screen, "CalloutPanel")
-				callout.AbsoluteSize = V.new(280, 100)
+				world.engine.environment.poke(callout, "AbsoluteSize", V.new(280, 100))
 				local scale = materialize.of(callout)
 				world.engine.heartbeat:Fire(1 / 60)
 				Verify.expect(scale.Scale):toBe(1)
@@ -4856,16 +5138,20 @@ return function(verifyHarness: Verify.Harness)
 				local left, top = corner(callout)
 				Verify.expect(left == 140 and near(top, 152 + LIFT)):toBe(true)
 				local plus = find(world.screen, "Plus")
-				world.input.PreferredInput = world.engine.types.Enum.PreferredInput.KeyboardAndMouse
-				plus.GuiState = world.engine.types.Enum.GuiState.Hover
+				world.engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+				)
+				world.engine.environment.poke(plus, "GuiState", world.engine.types.Enum.GuiState.Hover)
 				world.engine.heartbeat:Fire(0.5)
 				local help = find(world.screen, "Help")
 				Verify.expect(help.ClassName):toBe("Frame")
-				help.AbsoluteSize = V.new(80, 30)
+				world.engine.environment.poke(help, "AbsoluteSize", V.new(80, 30))
 				local text = find(help, "HelpText")
-				text.AbsolutePosition = help.AbsolutePosition + V.new(8, 6)
-				text.AbsoluteSize = V.new(64, 18)
-				text.TextBounds = V.new(56, 16)
+				world.engine.environment.poke(text, "AbsolutePosition", help.AbsolutePosition + V.new(8, 6))
+				world.engine.environment.poke(text, "AbsoluteSize", V.new(64, 18))
+				world.engine.environment.poke(text, "TextBounds", V.new(56, 16))
 				world.engine.heartbeat:Fire(1 / 60)
 				world.engine.heartbeat:Fire(1 / 60)
 				Verify.expect(materialize.of(help).Scale):toBe(1)
@@ -4894,18 +5180,18 @@ return function(verifyHarness: Verify.Harness)
 				world.settle()
 				Verify.expect(materialize.of(help).Scale):toBe(1)
 				Verify.expect((fadeKit.of(help))):toBe(0)
-				plus.GuiState = world.engine.types.Enum.GuiState.Idle
+				world.engine.environment.poke(plus, "GuiState", world.engine.types.Enum.GuiState.Idle)
 				world.engine.heartbeat:Fire(0.06)
-				Verify.expect((help:isDestroyed())):toBe(false)
+				Verify.expect((not world.engine.environment.isAlive(help))):toBe(false)
 				world.engine.heartbeat:Fire(0.06)
-				Verify.expect((help:isDestroyed())):toBe(true)
+				Verify.expect((not world.engine.environment.isAlive(help))):toBe(true)
 				opened:set(true)
 				local menu = find(world.screen, "MenuPanel")
 				local group = find(menu, "MenuGroup")
 				Verify.expect((fadeKit.of(group))):toBe(1)
 				Verify.expect(find(menu, "PresentationFade").Transparency.Keypoints[1].Value):toBe(1)
 				Verify.expect(materialize.of(menu).Scale):toBe(1)
-				menu.AbsoluteSize = V.new(220, 60)
+				world.engine.environment.poke(menu, "AbsoluteSize", V.new(220, 60))
 				world.engine.heartbeat:Fire(1 / 60)
 				world.engine.heartbeat:Fire(1 / 60)
 				local growing = materialize.of(menu).Scale
@@ -4917,7 +5203,7 @@ return function(verifyHarness: Verify.Harness)
 				find(menu, "Run").Activated:Fire()
 				Verify.expect(find(world.screen, "Modal").Interactable):toBe(false)
 				world.engine.heartbeat:Fire(0.11)
-				Verify.expect((menu:isDestroyed())):toBe(true)
+				Verify.expect((not world.engine.environment.isAlive(menu))):toBe(true)
 				world.stop()
 			end,
 		})
@@ -4952,17 +5238,39 @@ return function(verifyHarness: Verify.Harness)
 			local engine: any = engineLib.new()
 			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
+			gui.GuiNavigationEnabled = true
+			gui.AutoSelectGuiEnabled = true
+			gui.TouchControlsEnabled = true
+			engine.environment.fakeOn(gui, "GetInsetArea", function()
+				return engine.types.Rect.new(0, 0, 1280, 720)
+			end)
+			engine.environment.fakeOn(gui, "GetGuiInset", function()
+				return engine.types.Vector2.zero, engine.types.Vector2.zero
+			end)
 			local input = engine.new("UserInputService")
-			input.GetFocusedTextBox = function()
-				return nil
+			engine.environment.fakeOn(input, "GetLastInputType", function()
+				return engine.types.Enum.UserInputType.Keyboard
+			end)
+			for _, method in { "IsKeyDown", "IsGamepadButtonDown" } do
+				engine.environment.fakeOn(input, method, function()
+					return false
+				end)
 			end
-			input.IsKeyDown = function()
+			for _, method in { "GetNavigationGamepads", "GetKeysPressed", "GetMouseButtonsPressed", "GetGamepadState" } do
+				engine.environment.fakeOn(input, method, function()
+					return {}
+				end)
+			end
+			engine.environment.fakeOn(input, "IsKeyDown", function()
 				return false
-			end
+			end)
 			local config: { [string]: any } = {
 				types = engine.types,
 				guiService = gui,
-				services = { GuiService = gui, UserInputService = input },
+				services = {
+					GuiService = (gui :: unknown) :: GuiService,
+					UserInputService = (input :: unknown) :: UserInputService,
+				},
 			}
 			for key, value in (options or {}) :: { [string]: any } do
 				config[key] = value
@@ -4975,7 +5283,7 @@ return function(verifyHarness: Verify.Harness)
 			return {
 				engine = engine,
 				runtime = runtime,
-				gui = gui,
+				gui = (gui :: unknown) :: GuiService,
 				input = input,
 				screen = screen,
 				stop = function()
@@ -5011,6 +5319,15 @@ return function(verifyHarness: Verify.Harness)
 			local engine: any = engineLib.new()
 			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
+			gui.GuiNavigationEnabled = true
+			gui.AutoSelectGuiEnabled = true
+			gui.TouchControlsEnabled = true
+			engine.environment.fakeOn(gui, "GetInsetArea", function()
+				return engine.types.Rect.new(0, 0, 1280, 720)
+			end)
+			engine.environment.fakeOn(gui, "GetGuiInset", function()
+				return engine.types.Vector2.zero, engine.types.Vector2.zero
+			end)
 			local UI = Facet.controls(
 				runtime,
 				{ types = engine.types, guiService = gui, services = { GuiService = gui } } :: any
@@ -5149,18 +5466,40 @@ return function(verifyHarness: Verify.Harness)
 			end
 			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
+			gui.GuiNavigationEnabled = true
+			gui.AutoSelectGuiEnabled = true
+			gui.TouchControlsEnabled = true
+			engine.environment.fakeOn(gui, "GetInsetArea", function()
+				return engine.types.Rect.new(0, 0, 1280, 720)
+			end)
+			engine.environment.fakeOn(gui, "GetGuiInset", function()
+				return engine.types.Vector2.zero, engine.types.Vector2.zero
+			end)
 			local input = engine.new("UserInputService")
-			input.GetFocusedTextBox = function()
-				return nil
+			engine.environment.fakeOn(input, "GetLastInputType", function()
+				return engine.types.Enum.UserInputType.Keyboard
+			end)
+			for _, method in { "IsKeyDown", "IsGamepadButtonDown" } do
+				engine.environment.fakeOn(input, method, function()
+					return false
+				end)
 			end
-			input.IsKeyDown = function()
+			for _, method in { "GetNavigationGamepads", "GetKeysPressed", "GetMouseButtonsPressed", "GetGamepadState" } do
+				engine.environment.fakeOn(input, method, function()
+					return {}
+				end)
+			end
+			engine.environment.fakeOn(input, "IsKeyDown", function()
 				return false
-			end
+			end)
 			local root = engine.new("ScreenGui")
 			local config: { [string]: any } = {
 				types = engine.types,
 				guiService = gui,
-				services = { GuiService = gui, UserInputService = input },
+				services = {
+					GuiService = (gui :: unknown) :: GuiService,
+					UserInputService = (input :: unknown) :: UserInputService,
+				},
 				inputParent = root,
 				motionLevel = "none",
 			}
@@ -5180,7 +5519,7 @@ return function(verifyHarness: Verify.Harness)
 			return {
 				engine = engine,
 				runtime = runtime,
-				gui = gui,
+				gui = (gui :: unknown) :: GuiService,
 				input = input,
 				root = root,
 				now = function()
@@ -5225,6 +5564,15 @@ return function(verifyHarness: Verify.Harness)
 			local engine: any = engineLib.new()
 			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
+			gui.GuiNavigationEnabled = true
+			gui.AutoSelectGuiEnabled = true
+			gui.TouchControlsEnabled = true
+			engine.environment.fakeOn(gui, "GetInsetArea", function()
+				return engine.types.Rect.new(0, 0, 1280, 720)
+			end)
+			engine.environment.fakeOn(gui, "GetGuiInset", function()
+				return engine.types.Vector2.zero, engine.types.Vector2.zero
+			end)
 			local UI = Facet.controls(
 				runtime,
 				{ types = engine.types, guiService = gui, services = { GuiService = gui } } :: any
@@ -5250,8 +5598,8 @@ return function(verifyHarness: Verify.Harness)
 				for _, node in root:GetDescendants() do
 					if node:IsA("TextLabel") or node:IsA("TextButton") then
 						local fits = node.TextFits
-						node.TextFits = not fits
-						node.TextFits = fits
+						world.engine.environment.poke(node, "TextFits", not fits)
+						world.engine.environment.poke(node, "TextFits", fits)
 					end
 				end
 				world.step(0.25)
@@ -5317,9 +5665,9 @@ return function(verifyHarness: Verify.Harness)
 							end
 						end
 						Verify.expect(constraints):toBe(1)
-						row.AbsoluteSize = V2(world, 390, 100)
+						world.engine.environment.poke(row, "AbsoluteSize", V2(world, 390, 100))
 						Verify.expect(floor.MaxSize.X):toBe(390)
-						row.AbsoluteSize = V2(world, 1280, 100)
+						world.engine.environment.poke(row, "AbsoluteSize", V2(world, 1280, 100))
 						Verify.expect(floor.MaxSize.X):toBe(1280)
 						world.stop()
 					end,
@@ -5339,9 +5687,13 @@ return function(verifyHarness: Verify.Harness)
 								options = { { value = "a", label = "Device" }, { value = "b", label = "Theme" } },
 							}
 						end)
-						world.input.PreferredInput = if touch
-							then world.engine.types.Enum.PreferredInput.Touch
-							else world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+						world.engine.environment.poke(
+							world.input,
+							"PreferredInput",
+							if touch
+								then world.engine.types.Enum.PreferredInput.Touch
+								else world.engine.types.Enum.PreferredInput.KeyboardAndMouse
+						)
 						local picker, segment = find(world.root, "Mode"), find(world.root, "a")
 						Verify.expect(picker.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.None)
 						Verify.expect(picker.Size.Y.Offset):toBe(segment.Size.Y.Offset + 6)
@@ -5376,14 +5728,14 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(opacity(paint)):toBe(1)
 					for _, node in options:GetDescendants() do
 						if node:IsA("GuiObject") then
-							node.AbsoluteSize = V2(world, 70, 44)
+							world.engine.environment.poke(node, "AbsoluteSize", V2(world, 70, 44))
 						end
 					end
-					options.AbsoluteSize = V2(world, 160, 50)
+					world.engine.environment.poke(options, "AbsoluteSize", V2(world, 160, 50))
 					world.step(0.05)
 					Verify.expect(opacity(paint)):toBe(1)
-					paint.AbsoluteSize = V2(world, 44, 16)
-					paint.TextBounds = V2(world, 44, 16)
+					world.engine.environment.poke(paint, "AbsoluteSize", V2(world, 44, 16))
+					world.engine.environment.poke(paint, "TextBounds", V2(world, 44, 16))
 					world.step(0.1)
 					Verify.expect(opacity(paint)):toBe(opacity(options))
 					Verify.expect(opacity(paint)):toBe(0)
@@ -5402,7 +5754,11 @@ return function(verifyHarness: Verify.Harness)
 							AutomaticSize = engine.types.Enum.AutomaticSize.X,
 						}
 					end)
-					world.input.PreferredInput = world.engine.types.Enum.PreferredInput.Touch
+					world.engine.environment.poke(
+						world.input,
+						"PreferredInput",
+						world.engine.types.Enum.PreferredInput.Touch
+					)
 					local picker, segment = find(world.root, "Format"), find(world.root, "rgb")
 					Verify.expect(segment.Size.Y.Offset >= 44):toBe(true)
 					Verify.expect(picker:FindFirstChild("TargetFloor").MinSize.Y >= segment.Size.Y.Offset + 6)
@@ -5444,8 +5800,8 @@ return function(verifyHarness: Verify.Harness)
 						for _, name in { "3", "5", "10" } do
 							local segment = find(picker, name)
 							local caption = assert(segment:FindFirstChild("Label", true))
-							segment.TextBounds = V2(world, 11, sample.base)
-							caption.TextBounds = V2(world, 11, sample.painted)
+							world.engine.environment.poke(segment, "TextBounds", V2(world, 11, sample.base))
+							world.engine.environment.poke(caption, "TextBounds", V2(world, 11, sample.painted))
 							Verify.expect(segment.Size.Y.Offset >= sample.painted + sample.chrome):toBe(true)
 							Verify.expect(picker.Size.Y.Offset >= sample.painted + sample.chrome + 6):toBe(true)
 						end
@@ -5473,7 +5829,7 @@ return function(verifyHarness: Verify.Harness)
 					local padding = segment:FindFirstChildWhichIsA("UIPadding")
 					local floor = segment:FindFirstChildWhichIsA("UISizeConstraint")
 					local minimum = floor.MinSize
-					segment.TextBounds = V2(world, 68, 16)
+					world.engine.environment.poke(segment, "TextBounds", V2(world, 68, 16))
 					Verify.expect(segment.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.X)
 					Verify.expect(padding.PaddingLeft.Offset + padding.PaddingRight.Offset):toBe(36)
 					Verify.expect(floor.MinSize):toBe(minimum)
@@ -5496,17 +5852,17 @@ return function(verifyHarness: Verify.Harness)
 					local picker, segment = find(world.root, "Mode"), find(world.root, "a")
 					for _, node in picker:GetDescendants() do
 						if node.Name == "LayoutUnit" then
-							node.AbsoluteSize = V2(world, 200, 2)
+							world.engine.environment.poke(node, "AbsoluteSize", V2(world, 200, 2))
 						end
 					end
 					local caption = segment:FindFirstChild("Title", true)
 						or segment:FindFirstChild("Label", true)
 						or segment
-					caption.TextBounds = V2(world, 136, 80)
+					world.engine.environment.poke(caption, "TextBounds", V2(world, 136, 80))
 					Verify.expect(picker.Size.Y.Offset):toBe(62)
 					local height = picker.Size.Y.Offset
 					for frame = 1, 30 do
-						segment.AbsoluteSize = V2(world, 140, 80 + frame * 10)
+						world.engine.environment.poke(segment, "AbsoluteSize", V2(world, 140, 80 + frame * 10))
 						world.step(1 / 30)
 						Verify.expect(picker.Size.Y.Offset):toBe(height)
 					end

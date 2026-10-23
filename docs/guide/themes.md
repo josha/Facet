@@ -82,7 +82,7 @@ Give the same theme package readable to the controls and to the StyleSheet.
 `controls` uses it for metrics, icons and artwork. The StyleSheet supplies the
 native paint. `Facet.app({ theme = selectedPackage })` gives it to both. When
 you also select a palette, make and parent the sheet inside the screen owner,
-as [Styling](05-styling.md) describes.
+as [Styling](styling.md) describes.
 
 ```luau
 local selectedPackage = Compose.cell(package)
@@ -173,5 +173,16 @@ declaration does not prove ownership or successful loading. Keep the asset
 provenance with the theme package. Verify the images at native scale in the
 running application.
 
-See [rich skinning](10-rich-skinning.md) for artwork and the
-[theme catalog](13-theme-catalog.md) for the maintained theme packages.
+See [rich skinning](skinning.md) for artwork.
+
+## Maintained packages
+
+`Facet.themes.neutralPackage()` supplies the built-in neutral package. Game-owned
+packages live in `examples/themes`: Classic Desktop, Glossy Mobile, Fantasy
+Parchment, Pixel Quest and Sci-fi HUD provide different visual systems.
+Choose one for the game's character, then inspect its semantic states and art
+in the running experience.
+
+A package derived from Facet Neutral receives its Dark palette. Declare other
+palettes explicitly. Check each module's builder contract before using it;
+offline validation does not prove that its assets load in the experience.

@@ -260,7 +260,7 @@ return function(
 							ready = function(): boolean
 								return navigationBar.AbsoluteSize.X > 0
 									and fontsReady()
-									and textMeasure.ready(title)
+									and not textMeasure.pending(title)
 									and (title.Text == "" or title.TextBounds.X > 0 and title.TextBounds.Y > 0)
 							end,
 							sample = function(): string

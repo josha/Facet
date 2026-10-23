@@ -48,14 +48,14 @@ updates when it changes. `Facet.app` sets up the controls and the theme, and
 and releases what they own. `UI.environment()` supplies adaptive facts such as
 the size class and the preferred input.
 
-[Getting started](docs/guide/03-getting-started.md) explains this script.
+[Getting started](docs/guide/getting-started.md) explains this script.
 
 ## What it runs on
 
 Facet draws client-side user interface on native Roblox targets. Mount into:
 
 - **a screen**: a `ScreenGui` on the player's display. `Facet.app` makes one,
-  and every guide chapter assumes it;
+  and the getting-started example uses it;
 - **a billboard**: a `BillboardGui` that follows an object in the world;
 - **a world-fixed surface**: a flat `SurfaceGui` on a part, which a player walks
   up to and uses.
@@ -78,7 +78,7 @@ controls create Instances only when a client mounts them.
   Instances, engine layout, selection and input on the host that ran them. They
   cannot see a low-end processor, memory pressure, thermals or battery.
 
-[The verification scope](docs/guide/18-verification-scope.md) states what a run
+[The verification scope](docs/guide/verification-scope.md) states what a run
 covers. The current suite is the evidence. A passing run proves only the selected cases.
 
 ## Installing
@@ -119,7 +119,7 @@ Record `Facet.VERSION` where you will see it.
 
 `build/Facet.rbxm` is the whole library as one `ModuleScript`. In Studio,
 right-click `ReplicatedStorage` and choose **Insert from File**. Build it with
-`lute run tools/facet build model`. [Installing without Rojo](docs/guide/08-without-rojo.md)
+`lute run tools/facet build model`. [Installing without Rojo](docs/guide/installation.md)
 covers this route.
 
 ## Examples
@@ -146,14 +146,14 @@ It starts with the design guide, then routes to the relevant controls and checks
 | Document | What it is |
 |---|---|
 | [Designing game interfaces with Facet](skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md) | Design principles, game flows, control choices, adaptive interaction and review. |
-| [`docs/guide/README.md`](docs/guide/README.md) | **Start here.** The guide in reading order, with the capability catalog. |
-| [`docs/guide/14-choosing-a-ui-library.md`](docs/guide/14-choosing-a-ui-library.md) | A comparison of Facet with other Roblox UI libraries. |
+| [`docs/guide/README.md`](docs/guide/README.md) | Task-based routes to installation, implementation and verification. |
+| [`docs/guide/choosing-facet.md`](docs/guide/choosing-facet.md) | A comparison of Facet with other Roblox UI libraries. |
 | [`tools/designer/README.md`](tools/designer/README.md) | Facet Design: visual editing, code sync, and human/agent design workflows. |
 | [`docs/reference/api.md`](docs/reference/api.md) | Every property, default, callback and return value. |
 | [`docs/reference/constitution.md`](docs/reference/constitution.md) | The rules anything added to this repository follows. |
 | [`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) | Where a change goes, and what proves it. |
 | [`docs/extending/`](docs/extending/) | One playbook for each kind of addition. |
-| [`CHANGELOG.md`](CHANGELOG.md) | What changed in each version. |
+| [`CHANGELOG.md`](CHANGELOG.md) | Current package and verification references. |
 | [`AGENTS.md`](AGENTS.md) | The routing table for an automated coding agent. |
 
 ## Development
@@ -195,7 +195,7 @@ share one reactive graph.
 `Facet.VERSION` reports the version defined in `src/init.luau`. Before 1.0, a
 minor version may change public behavior. The
 [versioning policy](CONTRIBUTING.md#versioning) sets the rules,
-and the [changelog](CHANGELOG.md) records each change.
+and the [current package notes](CHANGELOG.md) link its contracts and verification scope.
 
 ## Contributing, security, and license
 

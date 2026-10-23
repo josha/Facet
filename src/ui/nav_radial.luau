@@ -16,6 +16,7 @@ local createPresence = require("./nav_overlay_presence")
 
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: Navigation.Surfaces)
 	local Host, Compose, runtime, read = ctx.Host, ctx.Compose, ctx.runtime, ctx.read
+	local typeOf: (unknown) -> string = runtime.host.typeNameOf or typeof
 	local lists = layoutKit.of(ctx)
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	local build = function<V>(spec: RadialProps.RadialMenuSpec<V>): Frame
@@ -258,7 +259,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			if not use(opened) then
 				cancel()
 			end
-			if read(spec.enabled, use) == false or (type(anchor) == "table" and anchor.visible == false) then
+			if
+				read(spec.enabled, use) == false
+				or (typeOf(anchor) ~= "Instance" and type(anchor) == "table" and anchor.visible == false)
+			then
 				close()
 			end
 		end)
