@@ -3227,8 +3227,8 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(find(node, "ChromeShadow").ClassName):toBe("UIShadow")
 						local bounds = node:FindFirstChild("SkinBounds", true) :: Frame?
 						if bounds then
-							Verify.expect(bounds.Size.X.Offset):toBe(0)
-							Verify.expect(bounds.Size.Y.Offset):toBe(0)
+							-- hidden: an invisible child doesn't count toward the host's automatic size
+							Verify.expect(bounds.Visible):toBe(false)
 						end
 						world.stop()
 					end

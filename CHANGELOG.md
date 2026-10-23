@@ -3,10 +3,12 @@
 ## Unreleased
 
 - Native chrome (a `native` or `none` recipe, such as a theme fill with a
-  shadow) gives its control no extra box. Before, a decoration frame covered
-  the padded control at the control's last size. A hugging panel grew past a
-  `MinSize` by its own padding and never shrank back, so matched widths
-  overshot and stayed wide.
+  shadow) adds no box to its control: a static theme mounts no decoration
+  frame, and a live theme hides it while it draws nothing (hiding, not
+  collapsing, keeps theme swaps as cheap as before). Before, a decoration
+  frame covered the padded control at the control's last size. A hugging
+  panel grew past a `MinSize` by its own padding and never shrank back, so
+  matched widths overshot and stayed wide.
 - `UI.WorldMarker` holds still: it moves in whole pixels and ignores motion
   under one pixel and turns under about 1.5 degrees, so a still camera gives a
   still marker.

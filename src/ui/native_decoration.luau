@@ -123,10 +123,12 @@ return function(
 		})
 	end
 	runtime.decorate(container, {
+		-- with nothing to draw the chrome is hidden: an invisible child doesn't count toward the host's automatic size,
+		-- so it can't hold a hugging control at its last size, and hiding is cheaper than collapsing it on every swap
+		Visible = function(use: ComposeTypes.Use): boolean
+			return active == nil or use(active)
+		end,
 		Size = function(use: ComposeTypes.Use)
-			if active and not use(active) then
-				return D2.fromOffset(0, 0)
-			end
 			local box: { width: number, height: number } = use(bounds)
 			return if settings.inset
 				then D2.fromOffset(math.ceil(box.width - 1e-3), math.ceil(box.height - 1e-3))
