@@ -2738,7 +2738,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		demonstrates = { "anchor" },
 		axes = {
-			{ key = "edge", values = { "bottom", "top" } },
+			{ key = "edge", values = { "bottom", "top", "leading", "trailing" } },
 			{ key = "align", values = { "leading", "center", "trailing" } },
 		},
 		states = {

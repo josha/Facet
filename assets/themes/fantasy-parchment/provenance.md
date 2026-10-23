@@ -5,6 +5,10 @@ repository [license](../../../LICENSE). Its source is
 [`fantasy_parchment.luau`](../../../tools/facet/art/fantasy_parchment.luau).
 It contains no external imagery.
 
+The panel arrow uses the panel's centre edge strip. The generator bends its
+bands into an upward point and blends the lower overlap into the panel fill.
+The runtime rotates the complete arrow and join onto the selected edge.
+
 Regenerate or check the committed art from the repository root:
 
 ```sh

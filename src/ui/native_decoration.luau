@@ -49,6 +49,7 @@ return function(
 	local scale = (runtime.observe(boundary, "AbsoluteSize", poll) :: unknown) :: ComposeTypes.Cell<Vector2>
 	local size = (runtime.observe(target, "AbsoluteSize", poll) :: unknown) :: ComposeTypes.Cell<Vector2>
 	local at = (runtime.observe(target, "AbsolutePosition", frame) :: unknown) :: ComposeTypes.Cell<Vector2>
+	local rotation = (runtime.observe(target, "AbsoluteRotation", frame) :: unknown) :: ComposeTypes.Cell<number>
 	local boundaryAt = (runtime.observe(boundary, "AbsolutePosition", frame) :: unknown) :: ComposeTypes.Cell<Vector2>
 	local insets = Compose.cell({} :: Insets)
 	local padding = Compose.cell(target:FindFirstChildWhichIsA("UIPadding"))
@@ -82,8 +83,13 @@ return function(
 			return { x = 0, y = 0, width = 0, height = 0 }
 		end
 		local pixels = types.Vector2.new(rendered.X / factor.X, rendered.Y / factor.Y)
-		local distance = use(at) - use(boundaryAt)
-		local offset = types.Vector2.new(distance.X / factor.X, distance.Y / factor.Y)
+		local distance = use(at) + rendered / 2 - use(boundaryAt) - factor / 2
+		local angle = math.rad(use(rotation))
+		local cosine, sine = math.cos(angle), math.sin(angle)
+		local offset = types.Vector2.new(
+			(distance.X * cosine + distance.Y * sine) / factor.X - pixels.X / 2 + 0.5,
+			(distance.Y * cosine - distance.X * sine) / factor.Y - pixels.Y / 2 + 0.5
+		)
 		local function inset(side: string, length: number): number
 			local value = padding[side]
 			return if value then value.Scale * length + value.Offset else 0

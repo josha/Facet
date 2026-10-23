@@ -427,7 +427,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					ZIndex = 2,
 					body :: Instance,
 					ctx.padding(PADDING, PADDING),
-				}, true),
+				}),
 				"popover"
 			)
 			ctx.styled(panel, "panel")
@@ -447,16 +447,15 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						h = use(sourceSize).Y,
 					}
 				local size = use(measured)
-				local side = if tailed then parts.tailSize(ctx, use) else 0
 				return placement.solve({
 					source = source,
 					size = { w = size.X, h = size.Y },
 					safe = safe(use),
 					edge = spec.edge or (if preferred and use(preferred) == E.PreferredInput.Touch then "top" else nil),
 					align = spec.align,
-					gap = (spec.gap or 8) + side * math.sqrt(2) / 2,
+					gap = (spec.gap or 8) + (if tailed then parts.tailDepth(ctx, use) else 0),
 					crossOffset = spec.crossOffset,
-					tail = side * math.sqrt(2),
+					tail = if tailed then parts.tailWidth(ctx, use) else 0,
 					tailInset = 8,
 				})
 			end)

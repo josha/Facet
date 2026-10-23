@@ -696,6 +696,50 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("native Callout: the plate and its tail arrive together", function()
+		verifyHarness:case("uses theme arrow artwork on every edge and restores native paint on theme switches", {
+			id = "native_callout_help::skinned-tail-outline-theme-switch",
+			run = function()
+				local neutral = themes.neutralPackage()
+				local ornate = require("../examples/themes/fantasy_ornate").build(themes)
+				local withoutArrow = require("../examples/themes/fantasy_ornate").definition(themes)
+				withoutArrow.chrome.panelTail = nil
+				local framed = assert(themes.define(withoutArrow))
+				local selected = Compose.cell(neutral)
+				local edge = Compose.cell("bottom")
+				local w = mount(function()
+					return { title = "Start here", edge = edge }
+				end, { theme = selected, motionLevel = "none" })
+				w.find("Plus").AbsolutePosition = w.Vector2.new(320, 240)
+				w.find("Plus").AbsoluteSize = w.Vector2.new(80, 44)
+				w.find("CalloutPanel").AbsoluteSize = w.Vector2.new(280, 120)
+				local outline = w.find("Outline")
+				for _, side in { "bottom", "top", "leading", "trailing" } do
+					edge:set(side)
+					Verify.expect(outline.Closed):toBe(true)
+					Verify.expect(#outline:GetControlPoints()):toBe(11)
+					selected:set(ornate)
+					Verify.expect(outline.Closed):toBe(false)
+					Verify.expect(#outline:GetControlPoints()):toBe(0)
+					Verify.expect(outline.Visible):toBe(false)
+					local arrow = w.find("Arrow")
+					Verify.expect(arrow.Size.X.Offset):toBe(64)
+					Verify.expect(arrow.Size.Y.Offset):toBe(64)
+					Verify.expect(arrow.Rotation):toBe(({ bottom = 0, top = 180, leading = 90, trailing = -90 })[side])
+					Verify.expect(arrow:FindFirstChildWhichIsA("ImageLabel", true).Image)
+						:toBe("rbxassetid://118890302915593")
+					selected:set(framed)
+					Verify.expect(outline.Visible):toBe(true)
+					Verify.expect(outline.Closed):toBe(false)
+					Verify.expect(#outline:GetControlPoints()):toBe(3)
+					selected:set(neutral)
+					Verify.expect(outline.Visible):toBe(true)
+					Verify.expect(arrow.Rotation):toBe(45)
+				end
+				Verify.expect(outline.Closed):toBe(true)
+				Verify.expect(#outline:GetControlPoints()):toBe(11)
+				w.stop()
+			end,
+		})
 		verifyHarness:case(
 			"the panel and the tail both wait for the first styled frame and fade over the short duration",
 			{
