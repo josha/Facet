@@ -31,7 +31,7 @@ local function browse(app: Facet.App, items: { Item },
       local preview: Facet.ZStackProps = { width = "fill", height = "fill", UI.fill(), artwork(chosen) }
       local detail: Facet.StackProps = {
       width = "fill", height = "fill", gap = "s", padding = "m",
-      UI.Text { textRole = "heading", text = function(use) return use(chosen).name end },
+      UI.Text { textRole = "heading", wrap = true, text = function(use) return use(chosen).name end },
       UI.ZStack(preview),
       UI.Text { wrap = true, text = function(use) return use(chosen).terms end },
       UI.Button { label = action, appearance = "emphasis",
