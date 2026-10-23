@@ -3980,6 +3980,19 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				across = false,
 			},
 			{ name = "cross gap 16", props = properties { crossGap = 16 } },
+			{
+				name = "hug: three items share the width, sized to their rows",
+				props = function(c: Context)
+					return {
+						from = c.cell("three", { ROWS[1], ROWS[2], ROWS[3] }),
+						mode = "all",
+						hug = true,
+						columns = NONE,
+						minColumnWidth = 120,
+						Size = NONE,
+					}
+				end,
+			},
 		},
 	},
 	RowActions = {
@@ -5045,7 +5058,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		cellWidth = 380,
 		cellHeight = 300,
 		base = function()
-			return { topbar = false }
+			return { topbar = false, passive = false }
 		end,
 		axes = {
 			{ key = "room", values = { "fill", 300, 200 } },

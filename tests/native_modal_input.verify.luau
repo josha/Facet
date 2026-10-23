@@ -55,10 +55,13 @@ return function(verifyHarness: Verify.Harness)
 		end)
 		verifyHarness:case("a D-pad press enters a modal presented in the layer of a resting passive HUD", function()
 			local open = Compose.cell(false)
-			local responder: { resign: () -> (), state: { peek: (unknown) -> string } }? = nil
+			local resign: () -> () = function() end
+			local state: () -> string = function(): string
+				return "none"
+			end
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				local hud = Host.ScreenGui({
-					UI.Button "Map" { label = "Map" },
+					UI.Button "Map" { label = "Map" } :: unknown,
 					UI.Dialog {
 						isPresented = open,
 						title = "Shop",
@@ -68,13 +71,17 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					},
 				})
-				responder = UI.responder(hud)
+				local responder = UI.responder(hud)
+				resign = responder.resign
+				state = function(): string
+					return responder.state:peek()
+				end
 				return hud
 			end, { motionLevel = "none" })
 			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
 			open:set(true)
-			assert(responder).resign()
-			Verify.expect(assert(responder).state:peek()):toBe("passive")
+			resign()
+			Verify.expect(state()):toBe("passive")
 			Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("nil")
 			w.input.InputBegan:Fire(
 				{ UserInputType = w.Enum.UserInputType.Gamepad1, KeyCode = w.Enum.KeyCode.DPadDown },
