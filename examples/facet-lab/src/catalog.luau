@@ -5087,6 +5087,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		purpose = "A HUD with ranked regions. Narrow the plate: higher ranks give way first. "
 			.. "The caption names each form; tap a short form to expand it.",
 		note = "Room sets the plate width; gap and padding set spacing. Enable topbar for the real Roblox strip. "
+			.. "In the captioned bottom row, captioned circles and the Race Button share one baseline. "
 			.. "The leading Settings button opens a popup. Resize Studio to see strip regions land in the top zone. "
 			.. "With topbar, a trailing badge keeps the padding from the screen edge.",
 		alternatives = "A Screen with stacks when nothing competes for the same edge.",
@@ -5105,10 +5106,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 
 			{ key = "topbar", values = { false, true }, matrix = false },
 		},
-		states = {},
+		states = { { name = "captioned bottom row", props = properties { captions = true } } },
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
 			local room = p.room or "fill"
-			p.room = nil
+			local captions = p.captions == true
+			p.room, p.captions = nil, nil
 			local forms, names = {}, {}
 			local function region(name: string, zone, rank, mayDrop, ...)
 				local form = c.cell("form" .. name, 1)
@@ -5161,11 +5163,20 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			for _, strip in require("./topbar_demo")(c, p.topbar == true) do
 				table.insert(p, strip)
 			end
-			table.insert(
-				p,
-				region("Ready", "bottom", 1, false, UI.Button({ label = "Ready up", appearance = "emphasis" }))
-			)
-			table.insert(p, region("Fps", "bottomRight", 4, true, UI.Text({ text = "60 FPS", textRole = "caption" })))
+			if captions then
+				for _, item in require("./caption_row_demo")(UI) do
+					table.insert(p, item)
+				end
+			else
+				table.insert(
+					p,
+					region("Ready", "bottom", 1, false, UI.Button({ label = "Ready up", appearance = "emphasis" }))
+				)
+				table.insert(
+					p,
+					region("Fps", "bottomRight", 4, true, UI.Text({ text = "60 FPS", textRole = "caption" }))
+				)
+			end
 			local composition = UI.Composition(p)
 			local plate = UI.VStack({ width = room, height = "fill", composition :: unknown })
 			plate:AddTag("facet-panel")

@@ -119,6 +119,72 @@ return function(verifyHarness: Verify.Harness)
 		end
 	end
 
+	type RowOptions = {
+		captions: boolean,
+		padding: { bottom: string }?,
+		mayDrop: boolean?,
+		reveal: boolean?,
+		form: typeof(require("@repo/tools/typecheck/aliases").NumberCell)?,
+		shown: typeof(require("@repo/tools/typecheck/aliases").BooleanCell)?,
+	}
+
+	local function actionRow(options: RowOptions)
+		local engine, runtime, UI = make()
+		local layer = engine.new("ScreenGui")
+		layer.Parent = engine.new("Folder")
+		local root: Frame
+		runtime.mount(function()
+			local function circle(name: string)
+				return UI.Button(name) {
+					name = name,
+					icon = "view.grid",
+					shape = "circle",
+					caption = if options.captions then name else nil,
+					controlSize = "regular",
+				}
+			end
+			root = UI.Composition "Hud" {
+				gap = 8,
+				padding = 0,
+				topbar = false,
+				UI.Region "Actions" {
+					zone = "bottomLeft",
+					rank = 2,
+					mayDrop = options.mayDrop,
+					reveal = options.reveal,
+					form = options.form,
+					Visible = options.shown,
+					UI.HStack "Circles" {
+						gap = 12,
+						padding = options.padding,
+						circle("Shop"),
+						circle("Garage"),
+						circle("Pass"),
+					},
+				},
+				UI.Region "Go" { zone = "bottomRight", rank = 1, UI.Button "Race" { label = "Race" } },
+			}
+			return root
+		end, layer)
+		local V2 = engine.types.Vector2
+		local tall = if options.padding then 64 else 44
+		local row = root:FindFirstChild("Circles", true)
+		engine.environment.poke(row, "AbsolutePosition", V2.new(0, 700 - tall))
+		sized(engine, row, 156, tall)
+		sized(engine, root:FindFirstChild("Race", true), 80, 44)
+		for index, name in { "Shop", "Garage", "Pass" } do
+			local caption = (root:FindFirstChild(name, true) :: TextButton):FindFirstChild("Caption")
+			if caption then
+				engine.environment.poke(caption, "AbsolutePosition", V2.new(56 * index - 54, 748 - tall))
+				sized(engine, caption, 40, 14)
+			end
+		end
+		sized(engine, root:FindFirstChild("Zones"), 390, 700)
+		return root, engine, function()
+			runtime:dispose()
+		end
+	end
+
 	verifyHarness:suite("Composition", function()
 		verifyHarness:case("keeps every zone inside the TV safe area when it is the screen root", {
 			id = "native_composition::Composition::keeps every zone inside the TV safe area when it is the screen root",
@@ -1312,5 +1378,114 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			}
 		)
+
+		verifyHarness:case("lifts the bottom zones by the caption overhang so the row shares one baseline", function(t)
+			local root, engine, stop = actionRow({ captions = true })
+			local T = engine.types
+			local left = root:FindFirstChild("BottomLeft", true) :: Frame
+			local right = root:FindFirstChild("BottomRight", true) :: Frame
+			t:expect(left.Position):toBe(T.UDim2.new(0, 0, 1, -18))
+			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
+			local function centre(zone: Frame): number
+				return 700 * zone.Position.Y.Scale + zone.Position.Y.Offset - 44 * zone.AnchorPoint.Y + 22
+			end
+			t:expect(centre(left)):toBe(centre(right))
+			t:expect(centre(left)):toBe(660)
+			sized(engine, (root:FindFirstChild("Garage", true) :: TextButton):FindFirstChild("Caption"), 52, 20)
+			t:expect(left.Position):toBe(T.UDim2.new(0, 0, 1, -24))
+			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -24))
+			stop()
+			root, engine, stop = actionRow({ captions = false })
+			T = engine.types
+			t:expect((root:FindFirstChild("BottomLeft", true) :: Frame).Position):toBe(T.UDim2.new(0, 0, 1, 0))
+			t:expect((root:FindFirstChild("BottomRight", true) :: Frame).Position):toBe(T.UDim2.new(1, 0, 1, 0))
+			stop()
+		end)
+
+		verifyHarness:case("drops the caption overhang of a bottom region that its author hides", function(t)
+			local shown = Compose.cell(true)
+			local root, engine, stop = actionRow({ captions = true, shown = shown })
+			local T = engine.types
+			local left = root:FindFirstChild("BottomLeft", true) :: Frame
+			local right = root:FindFirstChild("BottomRight", true) :: Frame
+			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
+			shown:set(false)
+			t:expect(left.Position):toBe(T.UDim2.new(0, 0, 1, 0))
+			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, 0))
+			shown:set(true)
+			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
+			stop()
+		end)
+
+		verifyHarness:case("drops the caption overhang of a bottom region that gives way", function(t)
+			local form = Compose.cell(1)
+			local root, engine, stop = actionRow({ captions = true, mayDrop = true, reveal = false, form = form })
+			local T = engine.types
+			local right = root:FindFirstChild("BottomRight", true) :: Frame
+			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
+			sized(engine, root:FindFirstChild("Zones"), 240, 700)
+			t:expect(form:peek()):toBe(0)
+			t:expect(right.Position.Y.Offset):toBe(0)
+			sized(engine, root:FindFirstChild("Zones"), 390, 700)
+			t:expect(form:peek()):toBe(1)
+			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
+			stop()
+		end)
+
+		verifyHarness:case("drops the overhang of a caption that leaves the row or hides with its Button", function(t)
+			local root, engine, stop = actionRow({ captions = true })
+			local T = engine.types
+			local right = root:FindFirstChild("BottomRight", true) :: Frame
+			local caption = (root:FindFirstChild("Pass", true) :: TextButton):FindFirstChild("Caption") :: TextLabel
+			caption.Parent = nil
+			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
+			local shop = root:FindFirstChild("Shop", true) :: TextButton
+			shop.Visible = false
+			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
+			local garage = root:FindFirstChild("Garage", true) :: TextButton
+			garage.Visible = false
+			t:expect(garage.Visible):toBe(false)
+			t:expect(right.Position.Y.Offset):toBe(0)
+			stop()
+		end)
+
+		verifyHarness:case("adds no room under a row whose own bottom padding already holds the captions", function(t)
+			local root, engine, stop = actionRow({ captions = true, padding = { bottom = "l" } })
+			local T = engine.types
+			t:expect((root:FindFirstChild("BottomLeft", true) :: Frame).Position):toBe(T.UDim2.new(0, 0, 1, 0))
+			t:expect((root:FindFirstChild("BottomRight", true) :: Frame).Position):toBe(T.UDim2.new(1, 0, 1, 0))
+			local caption = (root:FindFirstChild("Shop", true) :: TextButton):FindFirstChild("Caption") :: TextLabel
+			t:expect(caption.AbsolutePosition.Y + caption.AbsoluteSize.Y <= 700):toBe(true)
+			stop()
+		end)
+
+		verifyHarness:case("counts the caption overhang when it fits the bottom row under the zone above", function(t)
+			local resolver = require("../src/ui/composition_resolve")
+			type Declared = resolver.Declared
+			local status: Declared =
+				{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { { x = 100, y = 44 } } }
+			local actions: Declared = {
+				zone = "bottomLeft" :: "bottomLeft",
+				rank = 2,
+				mayDrop = false,
+				sizes = { { x = 156, y = 44 }, { x = 44, y = 44 } },
+				hangs = { 18, 0 },
+			}
+			local race: Declared =
+				{ zone = "bottomRight" :: "bottomRight", rank = 1, mayDrop = false, sizes = { { x = 80, y = 44 } } }
+			local forms, _, shift = resolver.resolve(390, 120, 8, { status, actions, race })
+			t:expect(forms[2]):toBe(1)
+			t:expect(shift.hang):toBe(18)
+			forms, _, shift = resolver.resolve(390, 110, 8, { status, actions, race })
+			t:expect(forms[2]):toBe(2)
+			t:expect(shift.hang):toBe(0)
+			actions.hangs = nil
+			forms, _, shift = resolver.resolve(390, 110, 8, { status, actions, race })
+			t:expect(forms[2]):toBe(1)
+			t:expect(shift.hang):toBe(0)
+			forms, _, shift = resolver.resolve(390, 110, 8, { status, race })
+			t:expect(shift.hang):toBe(0)
+			t:expect(shift.bottom):toBe(0)
+		end)
 	end)
 end

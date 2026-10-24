@@ -51,6 +51,9 @@ button opens a popup outside the strip. Resize the Studio viewport to test
 regions landing below the strip. The **room** option changes only the framed
 HUD, not Roblox's real top bar. In **Layout → Region**, select the **topbar**
 zone and compare its default centred position with **leading top bar**.
+The **captioned bottom row** state puts captioned circles in `bottomLeft` and
+a Race Button in `bottomRight`. Check that they share one baseline and that
+the captions stay above the bottom padding.
 The **Environment** page reports `thumbTarget` and compares `scaled(48)` with
 `scaled(48, "body")` as the preview text size changes.
 

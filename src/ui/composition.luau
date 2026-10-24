@@ -21,6 +21,8 @@ type Declared = {
 	form: ComposeTypes.Cell<number>,
 	yielding: ComposeTypes.Cell<boolean>,
 	lift: ComposeTypes.Cell<number>,
+	hangs: { ComposeTypes.Cell<number> },
+	authored: Types.Value<boolean>?,
 	floors: { () -> boolean },
 	contents: { GuiObject },
 	leading: boolean,
@@ -34,6 +36,14 @@ local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 local ENGINE_BUTTON = 44
 local ENGINE_MARGIN = 2
 local SETTLE_PASSES = 30
+local OUTSIDE = "facet-button-outside"
+
+local function lowered(moved: resolver.Shift, column: number, row: number): number
+	return if row == 3
+		then -moved.hang - (if column == 2 then moved.bottom else 0)
+		elseif row == 1 and column == 2 then moved.top
+		else 0
+end
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
@@ -46,6 +56,118 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		return Compose.formula(function(use: ComposeTypes.Use): Vector2
 			return use(size) / use(unit)
 		end)
+	end
+	local function overhang(content: GuiObject, unit: ComposeTypes.Readable<number>): ComposeTypes.Readable<number>
+		local reach = Compose.cell(0)
+		local owner = assert(Compose.currentOwner())
+		local outside: { [Instance]: boolean } = {}
+		local scope: ComposeTypes.Owner? = nil
+		local pending: (() -> ())? = nil
+		local function measure()
+			pending = nil
+			if owner.isDisposed() then
+				return
+			end
+			local edge = content.AbsolutePosition.Y + content.AbsoluteSize.Y
+			local most = 0
+			for item in outside do
+				local node = item :: GuiObject
+				local shown = node.AbsoluteSize.Y > 0
+				local at: Instance? = node
+				while shown and at and at ~= content do
+					if at:IsA("GuiObject") and not at.Visible then
+						shown = false
+					end
+					at = at.Parent
+				end
+				if shown then
+					most = math.max(most, node.AbsolutePosition.Y + node.AbsoluteSize.Y - edge)
+				end
+			end
+			reach:set(most / unit:peek())
+		end
+		local function settle()
+			if kit.frameless() then
+				measure()
+			elseif pending == nil then
+				pending = kit.nextFrame(measure)
+			end
+		end
+		local function track()
+			if owner.isDisposed() then
+				return
+			end
+			if scope then
+				scope.dispose()
+				scope = nil
+			end
+			if next(outside) == nil then
+				reach:set(0)
+				return
+			end
+			local watching = owner.createChild()
+			scope = watching
+			Compose.withOwner(watching, function()
+				local places: { ComposeTypes.Readable<Vector2> } = {}
+				local shown: { ComposeTypes.Readable<boolean> } = {}
+				local function observe(node: GuiObject)
+					table.insert(places, ctx.observeNative.AbsolutePosition(node))
+					table.insert(places, ctx.observeNative.AbsoluteSize(node))
+				end
+				observe(content)
+				for item in outside do
+					local node = item :: GuiObject
+					observe(node)
+					local at: Instance? = node
+					while at and at ~= content do
+						if at:IsA("GuiObject") then
+							table.insert(shown, ctx.observe.Visible(at))
+						end
+						at = at.Parent
+					end
+					runtime.connect(node, "AncestryChanged", function(changed: Instance)
+						if changed:IsDescendantOf(content) then
+							track()
+						end
+					end)
+				end
+				Compose.watch(function(use: ComposeTypes.Use)
+					use(unit)
+					for _, place in places do
+						use(place)
+					end
+					for _, visible in shown do
+						use(visible)
+					end
+					settle()
+				end)
+			end)
+		end
+		for _, node in content:GetDescendants() do
+			if node:IsA("GuiObject") and node:HasTag(OUTSIDE) then
+				outside[node] = true
+			end
+		end
+		runtime.connect(content, "DescendantAdded", function(added: Instance)
+			if not outside[added] and added:IsA("GuiObject") and added:HasTag(OUTSIDE) then
+				outside[added] = true
+				track()
+			end
+		end)
+		runtime.connect(content, "DescendantRemoving", function(removed: Instance)
+			if outside[removed] then
+				outside[removed] = nil
+				track()
+			end
+		end)
+		Compose.cleanup(function()
+			if pending then
+				pending()
+				pending = nil
+			end
+		end)
+		track()
+		return reach
 	end
 
 	UI.Region = ctx.construct("Region", function(spec: LayoutProps.RegionProps): Frame
@@ -121,8 +243,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			)
 		end
 		local sizes: { ComposeTypes.Cell<Vector2> } = {}
+		local hangs: { ComposeTypes.Cell<number> } = {}
 		local floors: { () -> boolean } = {}
 		local contents: { GuiObject } = {}
+		local below = resolver.CELLS[zone][2] == 3
 		for index = 1, #properties do
 			local child = properties[index] :: GuiObject
 			contents[index] = child
@@ -137,7 +261,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local away = if use then use(hosted) else hosted:peek()
 				return if away and index == 1 then 0 else raised
 			end)
-			local observed, settled = layoutSize(child), Compose.cell(V2.zero)
+			local unit = ctx.layoutUnit(child)
+			local observed, settled = layoutSize(child, unit), Compose.cell(V2.zero)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size = use(observed)
 				if use(scale) == 1 and not (index == 1 and use(hosted)) then
@@ -145,6 +270,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				end
 			end)
 			sizes[index] = settled
+			local hang = Compose.cell(0)
+			if below then
+				local reach = overhang(child, unit)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local value = use(reach)
+					if use(scale) == 1 and not (index == 1 and use(hosted)) then
+						hang:set(value)
+					end
+				end)
+			end
+			hangs[index] = hang
 			properties[index] = Host.Frame("Form" .. index)({
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -234,9 +370,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end
 		end
 		local node = kit.plain(Host.Frame(properties), spec)
+		local authored = ((spec :: unknown) :: { Visible: Types.Value<boolean>? }).Visible
 		regionPresence[node] = Compose.formula(function(use: ComposeTypes.Use): boolean
-			return use(form) > 0
-				and read(((spec :: unknown) :: { Visible: Types.Value<boolean>? }).Visible, use) ~= false
+			return use(form) > 0 and read(authored, use) ~= false
 		end)
 		local shown: number? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -255,6 +391,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			form = form,
 			yielding = yielding,
 			lift = lift,
+			hangs = hangs,
+			authored = authored,
 			floors = floors,
 			contents = contents,
 			leading = spec.leading == true,
@@ -283,13 +421,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			AnchorPoint = V2.new((column - 1) / 2, (row - 1) / 2),
 			ZIndex = if column == 2 then 2 else 1,
 			Position = function(use: ComposeTypes.Use): UDim2
-				local moved = use(shift)
-				local down = if column ~= 2
-					then 0
-					elseif row == 1 then moved.top
-					elseif row == 3 then -moved.bottom
-					else 0
-				return D2.new((column - 1) / 2, 0, (row - 1) / 2, down)
+				return D2.new((column - 1) / 2, 0, (row - 1) / 2, lowered(use(shift), column, row))
 			end,
 			Size = function(use: ComposeTypes.Use): UDim2
 				local packed = if flowing then (if row == 1 then use(rows).top else use(rows).bottom) else 0
@@ -437,7 +569,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		local zones: { [string]: Frame } = {}
 		local placed: { Frame } = {}
-		local shift: ComposeTypes.Cell<resolver.Shift> = Compose.cell({ top = 0, bottom = 0 } :: resolver.Shift)
+		local resting: resolver.Shift = { top = 0, bottom = 0, hang = 0 }
+		local shift: ComposeTypes.Cell<resolver.Shift> = Compose.cell(resting)
 		local rows: ComposeTypes.Cell<resolver.Rows> = Compose.cell({ top = 0, bottom = 0 } :: resolver.Rows)
 		for zone, children in members do
 			local cell = resolver.CELLS[zone]
@@ -703,12 +836,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local function place(use: ComposeTypes.Use): (UDim2, Vector2)
 				local unit, space = use(safeUnit), kit.spacing(gap, use)
 				local size = use(zoneSize) / unit
-				local moved = use(shift)
-				local at = (use(safeBox) - size) * anchor
-					+ V2.new(
-						0,
-						if column ~= 2 then 0 elseif row == 1 then moved.top elseif row == 3 then -moved.bottom else 0
-					)
+				local at = (use(safeBox) - size) * anchor + V2.new(0, lowered(use(shift), column, row))
 				if column == 2 then
 					return if row == 3
 						then D2.fromOffset(at.X + size.X / 2, at.Y - space)
@@ -825,16 +953,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local list: { resolver.Declared } = {}
 			for index, region in regions do
 				local entry = declared[region]
-				local measured = {}
+				local measured, hangs, hanging = {}, {}, false
 				for form, observed in entry.sizes do
 					local value = use(observed)
 					measured[form] = { x = value.X, y = value.Y }
+					hangs[form] = use(entry.hangs[form])
+					hanging = hanging or hangs[form] > 0
 				end
 				list[index] = {
 					zone = entry.zone,
 					rank = entry.rank,
 					mayDrop = entry.mayDrop,
 					sizes = measured,
+					hangs = if hanging and read(entry.authored, use) ~= false then hangs else nil,
 					leading = entry.leading,
 					trailing = entry.trailing,
 				}
@@ -867,7 +998,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				landed:set(down)
 			end
 			local was = shift:peek()
-			if was.top ~= moved.top or was.bottom ~= moved.bottom then
+			if was.top ~= moved.top or was.bottom ~= moved.bottom or was.hang ~= moved.hang then
 				shift:set(moved)
 			end
 			local wrapped = rows:peek()

@@ -15,11 +15,12 @@ export type Declared = {
 	rank: number,
 	mayDrop: boolean,
 	sizes: { { x: number, y: number } },
+	hangs: { number }?,
 	leading: boolean?,
 	trailing: boolean?,
 }
 export type Strip = { x: number, y: number, lanes: number? }
-export type Shift = { top: number, bottom: number }
+export type Shift = { top: number, bottom: number, hang: number }
 export type Rows = { top: number, bottom: number }
 type Stacked = { top: boolean, bottom: boolean }
 
@@ -39,6 +40,7 @@ local CELLS: { [string]: { number } } = {
 type Extent = { x: number, y: number }
 
 local FLOWS: { [number]: number } = { [9] = 1, [11] = 3 }
+local BOTTOM: { number } = { 7, 11, 15 }
 
 local function cellOf(zone: string, riding: boolean, trailing: boolean?): (number, number)
 	if zone == "topbar" and riding then
@@ -58,7 +60,7 @@ local function resolve(
 ): ({ number }, { boolean }, Shift, { number }, Rows)
 	local forms = table.create(#regions, 1)
 	local landed = table.create(#regions, false)
-	local shift: Shift = { top = 0, bottom = 0 }
+	local shift: Shift = { top = 0, bottom = 0, hang = 0 }
 	if width <= 0 or height <= 0 then
 		return forms, landed, shift, {}, { top = 0, bottom = 0 }
 	end
@@ -67,6 +69,7 @@ local function resolve(
 	while true do
 		local zoneW: { [number]: number }, zoneH: { [number]: number }, members: { [number]: { number } } = {}, {}, {}
 		local flowItems: { [number]: { Extent } }, landedBlock: { [number]: Extent } = {}, {}
+		local hang = 0
 		for index, region in regions do
 			local column, row = cellOf(region.zone, strip ~= nil and not landed[index], region.trailing)
 			local key = column * 4 + row
@@ -75,6 +78,9 @@ local function resolve(
 			local form = forms[index]
 			local size = if form > 0 then region.sizes[form] else nil
 			if size and size.x > 0 and size.y > 0 then
+				if row == 3 and region.hangs then
+					hang = math.max(hang, region.hangs[form] or 0)
+				end
 				if key == 0 then
 					zoneW[key] = (zoneW[key] or -gap) + gap + size.x
 					zoneH[key] = math.max(zoneH[key] or 0, size.y)
@@ -124,6 +130,11 @@ local function resolve(
 				widest = math.max(widest, lineW)
 				total += gap + lineH
 				zoneW[key], zoneH[key] = widest, total
+			end
+		end
+		for _, key in BOTTOM do
+			if (zoneH[key] or 0) > 0 then
+				zoneH[key] += hang
 			end
 		end
 		local failing: { [number]: boolean } = {}
@@ -259,6 +270,7 @@ local function resolve(
 			end
 			shift.top = if stack.top and (zoneW[9] or 0) > 0 then corner.top + gap else 0
 			shift.bottom = if stack.bottom and (zoneW[11] or 0) > 0 then corner.bottom + gap else 0
+			shift.hang = hang
 			local overflow: { number } = {}
 			for index in failing do
 				table.insert(overflow, index)

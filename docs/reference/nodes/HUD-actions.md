@@ -15,11 +15,10 @@ ScreenGui for the HUD.
 
 Give primary navigation circles `controlSize = "regular"`. Reserve `compact`
 for secondary actions. Size primary thumb actions from
-`UI.environment().thumbTarget`. Give the row a bottom
-padding, such as `padding = captionRoom` with
-`local captionRoom: Facet.Sides = { bottom = "l" }`. A caption takes no space
-in the layout, so this padding keeps it clear of the readouts below. Set the
-row `gap` to at least the widest caption minus the circle width.
+`UI.environment().thumbTarget`. A caption takes no space in the layout.
+Facet reserves room for captions under the bottom row of a Composition, so
+all bottom regions share one baseline. Do not pad the row for captions. Set
+the row `gap` to at least the widest caption minus the circle width.
 
 Use theme colors with at least 3:1 icon contrast against the circle. Keep the
 centre of the 3D view open.
