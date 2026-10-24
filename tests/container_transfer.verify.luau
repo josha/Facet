@@ -286,6 +286,122 @@ return function(harness: Verify.Harness)
 			stop()
 			runtime:dispose()
 		end)
+		harness:case("unreserved collections retain dense output from sparse sources", {
+			id = "container_transfer::unreserved collections retain dense output from sparse sources",
+			run = function(t)
+				local engine = engineLib.new()
+				local C = Facet.Compose
+				local runtime = Facet.Roblox.createRuntime(engine)
+				t:defer(function()
+					runtime:dispose()
+				end)
+				local Host = runtime.constructors
+				local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
+				type Row = { id: number, name: string }
+				local rows = C.cell({ [1] = { id = 1, name = "First" }, [3] = { id = 3, name = "Third" } } :: { Row })
+				local controls: ComposeTypes.OrderedCollectionControls<number> = {}
+				local labels: { [number]: TextLabel } = {}
+				local stop = runtime.mount(function()
+					local spec: Facet.KeyedCollectionSpec<Row, number> = {
+						from = rows,
+						key = function(item: Row): number
+							return item.id
+						end,
+						mode = "all",
+						itemSize = 40,
+						controls = controls,
+						render = function(current, _placement, key)
+							local label = Host.TextLabel({
+								Text = function(use: Facet.Use): string
+									return use(current).name
+								end,
+							}) :: TextLabel
+							labels[key] = label
+							return label
+						end,
+					}
+					return UI.VirtualList(spec)
+				end, engine.new("ScreenGui"))
+				t:expect(assert(controls.indexOfKey)(1)):toBe(1)
+				t:expect(assert(controls.indexOfKey)(3)):toBe(2)
+				t:expect(labels[3].Text):toBe("Third")
+				rows:set({ [1] = { id = 3, name = "Changed" }, [4] = { id = 1, name = "First" } })
+				t:expect(assert(controls.indexOfKey)(3)):toBe(1)
+				t:expect(assert(controls.indexOfKey)(1)):toBe(2)
+				t:expect(labels[3].Text):toBe("Changed")
+				stop()
+			end,
+		})
+		harness:case("reserved slots share item lookup and retain live row records", {
+			id = "container_transfer::reserved slots share item lookup and retain live row records",
+			run = function(t)
+				local engine = engineLib.new()
+				local C = Facet.Compose
+				local runtime = Facet.Roblox.createRuntime(engine)
+				t:defer(function()
+					runtime:dispose()
+				end)
+				local Host = runtime.constructors
+				local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
+				type Row = { id: number, name: string }
+				local initial: { Row } = {}
+				local slots: { number } = {}
+				for index = 1, 64 do
+					initial[index] = { id = index, name = `Row {index}` }
+					slots[index] = index
+				end
+				local rows = C.cell(initial)
+				local labels: { [number]: TextLabel } = {}
+				local calls, builds = 0, 0
+				local anchors: Facet.SlotControls<number> = {}
+				local stop = runtime.mount(function()
+					local spec: Facet.KeyedCollectionSpec<Row, number> = {
+						from = rows,
+						key = function(item: Row): number
+							calls += 1
+							return item.id
+						end,
+						slots = slots,
+						slotControls = anchors,
+						mode = "all",
+						itemSize = 40,
+						render = function(current, _placement, key)
+							builds += 1
+							local label = Host.TextLabel({
+								Text = function(use: Facet.Use): string
+									return use(current).name
+								end,
+							}) :: TextLabel
+							labels[key] = label
+							return label
+						end,
+					}
+					return UI.VirtualList(spec)
+				end, engine.new("ScreenGui"))
+				local label = labels[64]
+				local anchor = assert(anchors.nodeOfKey)(64)
+				calls = 0
+				local updated = table.clone(initial)
+				updated[64] = { id = 64, name = "Changed" }
+				rows:set(updated)
+				t:expect(label.Text):toBe("Changed")
+				t:expect(labels[64]):toBe(label)
+				t:expect(builds):toBe(64)
+				t:expect(calls < #initial * 10):toBe(true)
+				table.remove(updated, 64)
+				rows:set(table.clone(updated))
+				local recess = assert(anchor):FindFirstChild("ReservedSlot") :: Frame
+				t:expect(recess.Visible):toBe(true)
+				table.insert(updated, 1, { id = 64, name = "Recalled" })
+				rows:set(table.clone(updated))
+				t:expect(labels[64].Text):toBe("Recalled")
+				t:expect(recess.Visible):toBe(false)
+				t:expect(assert(anchors.nodeOfKey)(64)):toBe(anchor)
+				t:expect(labels[1].Text):toBe("Row 1")
+				stop()
+				t:expect(anchors.nodeOfKey):toBe(nil)
+			end,
+		})
 		harness:case("F-026 reserved collection keys retain gaps, recall and release", function()
 			local engine = engineLib.new()
 			local C = Facet.Compose
