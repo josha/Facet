@@ -1,4 +1,5 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
 local Files = require("../lib/files")
@@ -391,284 +392,281 @@ local function importList(context: Rule.Context, relative: string): string
 	return table.concat(imports({ context = context, sources = {}, imports = {}, resolutions = {} }, relative), ", ")
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "init self aliases resolve and a missing import is rejected",
-			run = function()
-				return Rule.within(
-					tree({
-						["src/init.luau"] = 'return require("@self/ui")',
-						["src/ui/init.luau"] = 'return require("@self/control")',
-						["src/ui/control.luau"] = "return {}",
-					}),
-					function(context)
-						if #dependencies(context, "src/init.luau") ~= 0 then
-							return "clean imports: " .. Rule.describe(dependencies(context, "src/init.luau"))
-						end
-						Files.write(context.path("src/ui/control.luau"), 'return require("./gone")')
-						return Rule.expect(
-							Rule.contains(dependencies(context, "src/init.luau"), "./gone"),
-							"the missing import was not reported"
-						)
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "init self aliases resolve and a missing import is rejected", {
+		id = prefix .. "init self aliases resolve and a missing import is rejected",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
+				tree({
+					["src/init.luau"] = 'return require("@self/ui")',
+					["src/ui/init.luau"] = 'return require("@self/control")',
+					["src/ui/control.luau"] = "return {}",
+				}),
+				function(context)
+					if #dependencies(context, "src/init.luau") ~= 0 then
+						error("clean imports: " .. Rule.describe(dependencies(context, "src/init.luau")), 0)
 					end
-				)
-			end,
-		},
-		{
-			name = "a dynamic data prefix that exists passes and a missing prefix fails",
-			run = function()
-				return Rule.within(
-					tree({
-						["tests/data.verify.luau"] = 'return require("../examples/words/len" .. tostring(5))',
-						["examples/words/len5.luau"] = "return {}",
-					}),
-					function(context)
-						if #dependencies(context, "tests/data.verify.luau") ~= 0 then
-							return "an existing prefix failed"
-						end
-						Files.write(
-							context.path("tests/data.verify.luau"),
-							'return require("../examples/missing/len" .. tostring(5))'
-						)
-						return Rule.expect(
-							#dependencies(context, "tests/data.verify.luau") > 0,
-							"a missing prefix passed"
-						)
+					Files.write(context.path("src/ui/control.luau"), 'return require("./gone")')
+					Verify.expect(Rule.contains(dependencies(context, "src/init.luau"), "./gone"))
+						:toBeTrueWith("the missing import was not reported")
+				end
+			)
+		end,
+	})
+	harness:case(prefix .. "a dynamic data prefix that exists passes and a missing prefix fails", {
+		id = prefix .. "a dynamic data prefix that exists passes and a missing prefix fails",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
+				tree({
+					["tests/data.verify.luau"] = 'return require("../examples/words/len" .. tostring(5))',
+					["examples/words/len5.luau"] = "return {}",
+				}),
+				function(context)
+					if #dependencies(context, "tests/data.verify.luau") ~= 0 then
+						error("an existing prefix failed", 0)
 					end
-				)
-			end,
-		},
-		{
-			name = "require text in comments and literals is not a dependency",
-			run = function()
-				return Rule.within(
-					tree({
-						["tests/probe.verify.luau"] = table.concat({
-							'-- require("./removed")',
-							"local example = 'require(\"./removed\")'",
-							'local text = `example require("./removed"): {require("./actual")}`',
-							'return require("./actual")',
-						}, "\n"),
-						["tests/actual.luau"] = "return {}",
-					}),
-					function(context)
-						local listed = importList(context, "tests/probe.verify.luau")
-						if listed ~= "./actual, ./actual" then
-							return "imports: " .. listed
-						end
-						return Rule.expect(
-							#dependencies(context, "tests/probe.verify.luau") == 0,
-							"a literal was resolved"
-						)
+					Files.write(
+						context.path("tests/data.verify.luau"),
+						'return require("../examples/missing/len" .. tostring(5))'
+					)
+					Verify.expect(#dependencies(context, "tests/data.verify.luau") > 0)
+						:toBeTrueWith("a missing prefix passed")
+				end
+			)
+		end,
+	})
+	harness:case(prefix .. "require text in comments and literals is not a dependency", {
+		id = prefix .. "require text in comments and literals is not a dependency",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
+				tree({
+					["tests/probe.verify.luau"] = table.concat({
+						'-- require("./removed")',
+						"local example = 'require(\"./removed\")'",
+						'local text = `example require("./removed"): {require("./actual")}`',
+						'return require("./actual")',
+					}, "\n"),
+					["tests/actual.luau"] = "return {}",
+				}),
+				function(context)
+					local listed = importList(context, "tests/probe.verify.luau")
+					if listed ~= "./actual, ./actual" then
+						error("imports: " .. listed, 0)
 					end
-				)
-			end,
-		},
-		{
-			name = "typeof type imports are erased and runtime imports stay checked",
-			run = function()
-				return Rule.within(
-					tree({
-						["tests/probe.verify.luau"] = table.concat({
-							'type Props = typeof(require("@repo/missing")("("))',
-							'local value: typeof(require("./missing")) = nil :: never',
-							'local text = "typeof(require(\\"./missing\\"))"',
-							'local runtimeKind = typeof(require("./actual"))',
-							'return typeof(require("./actual"))',
-						}, "\n"),
-						["tests/actual.luau"] = "return {}",
-					}),
-					function(context)
-						local listed = importList(context, "tests/probe.verify.luau")
-						if listed ~= "./actual, ./actual" then
-							return "imports: " .. listed
-						end
-						if #dependencies(context, "tests/probe.verify.luau") ~= 0 then
-							return "an erased type import was checked"
-						end
-						Files.write(context.path("tests/probe.verify.luau"), 'return require("@repo/missing")')
-						return Rule.expect(
-							#dependencies(context, "tests/probe.verify.luau") > 0,
-							"a runtime alias passed"
-						)
+					Verify.expect(#dependencies(context, "tests/probe.verify.luau") == 0)
+						:toBeTrueWith("a literal was resolved")
+				end
+			)
+		end,
+	})
+	harness:case(prefix .. "typeof type imports are erased and runtime imports stay checked", {
+		id = prefix .. "typeof type imports are erased and runtime imports stay checked",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
+				tree({
+					["tests/probe.verify.luau"] = table.concat({
+						'type Props = typeof(require("@repo/missing")("("))',
+						'local value: typeof(require("./missing")) = nil :: never',
+						'local text = "typeof(require(\\"./missing\\"))"',
+						'local runtimeKind = typeof(require("./actual"))',
+						'return typeof(require("./actual"))',
+					}, "\n"),
+					["tests/actual.luau"] = "return {}",
+				}),
+				function(context)
+					local listed = importList(context, "tests/probe.verify.luau")
+					if listed ~= "./actual, ./actual" then
+						error("imports: " .. listed, 0)
 					end
-				)
-			end,
-		},
-		{
-			name = "a typed require alias keeps dynamic dependency checks",
-			run = function()
-				return Rule.within(
-					tree({
-						["tests/probe.verify.luau"] = 'local requireDynamic = require :: (unknown) -> unknown\nreturn requireDynamic("../examples/words/len" .. tostring(5))',
-						["examples/words/len5.luau"] = "return {}",
-					}),
-					function(context)
-						local listed = importList(context, "tests/probe.verify.luau")
-						if listed ~= "dynamic:../examples/words/len" then
-							return "imports: " .. listed
-						end
-						if #dependencies(context, "tests/probe.verify.luau") ~= 0 then
-							return "an existing dynamic prefix failed"
-						end
-						Files.write(
-							context.path("tests/probe.verify.luau"),
-							'local load = require :: (unknown) -> unknown; return load("./missing")'
-						)
-						return Rule.expect(
-							#dependencies(context, "tests/probe.verify.luau") > 0,
-							"a missing alias import passed"
-						)
+					if #dependencies(context, "tests/probe.verify.luau") ~= 0 then
+						error("an erased type import was checked", 0)
 					end
-				)
-			end,
-		},
-		{
-			name = "examples cannot import private modules and extra vendors are rejected",
-			run = function()
-				return Rule.within(
-					tree({
-						["src/ui/private.luau"] = "return {}",
-						["examples/screen.luau"] = 'return require("../src/ui/private")',
-						["src/vendor/other/init.luau"] = "return {}",
-					}),
-					function(context)
-						local findings = check(context)
-						if not Rule.contains(findings, "private Facet module") then
-							return "the private import passed: " .. Rule.describe(findings)
+					Files.write(context.path("tests/probe.verify.luau"), 'return require("@repo/missing")')
+					Verify.expect(#dependencies(context, "tests/probe.verify.luau") > 0)
+						:toBeTrueWith("a runtime alias passed")
+				end
+			)
+		end,
+	})
+	harness:case(prefix .. "a typed require alias keeps dynamic dependency checks", {
+		id = prefix .. "a typed require alias keeps dynamic dependency checks",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
+				tree({
+					["tests/probe.verify.luau"] = 'local requireDynamic = require :: (unknown) -> unknown\nreturn requireDynamic("../examples/words/len" .. tostring(5))',
+					["examples/words/len5.luau"] = "return {}",
+				}),
+				function(context)
+					local listed = importList(context, "tests/probe.verify.luau")
+					if listed ~= "dynamic:../examples/words/len" then
+						error("imports: " .. listed, 0)
+					end
+					if #dependencies(context, "tests/probe.verify.luau") ~= 0 then
+						error("an existing dynamic prefix failed", 0)
+					end
+					Files.write(
+						context.path("tests/probe.verify.luau"),
+						'local load = require :: (unknown) -> unknown; return load("./missing")'
+					)
+					Verify.expect(#dependencies(context, "tests/probe.verify.luau") > 0)
+						:toBeTrueWith("a missing alias import passed")
+				end
+			)
+		end,
+	})
+	harness:case(prefix .. "examples cannot import private modules and extra vendors are rejected", {
+		id = prefix .. "examples cannot import private modules and extra vendors are rejected",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
+				tree({
+					["src/ui/private.luau"] = "return {}",
+					["examples/screen.luau"] = 'return require("../src/ui/private")',
+					["src/vendor/other/init.luau"] = "return {}",
+				}),
+				function(context)
+					local findings = check(context)
+					if not Rule.contains(findings, "private Facet module") then
+						error("the private import passed: " .. Rule.describe(findings), 0)
+					end
+					Verify.expect(Rule.contains(findings, "unapproved vendor")):toBeTrueWith(Rule.describe(findings))
+				end
+			)
+		end,
+	})
+	harness:case(prefix .. "the old API and the abandoned renderer are rejected", {
+		id = prefix .. "the old API and the abandoned renderer are rejected",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
+				tree({
+					["src/render/renderer.luau"] = "return {}",
+					["examples/screen.luau"] = "local app = Facet.new()",
+				}),
+				function(context)
+					local findings = check(context)
+					if not Rule.contains(findings, "renderer.luau") then
+						error("the renderer passed: " .. Rule.describe(findings), 0)
+					end
+					Verify.expect(Rule.contains(findings, "removed Facet scaffolding API"))
+						:toBeTrueWith(Rule.describe(findings))
+				end
+			)
+		end,
+	})
+	harness:case(prefix .. "a short constructor alias is rejected and Host passes", {
+		id = prefix .. "a short constructor alias is rejected and Host passes",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
+				tree({
+					["examples/bad.luau"] = "local H = runtime.constructors\nreturn H",
+					["examples/good.luau"] = "local Host = runtime.constructors\nreturn Host",
+				}),
+				function(context)
+					local findings = check(context)
+					if not Rule.contains(findings, "examples/bad.luau: use Host") then
+						error("the short alias passed: " .. Rule.describe(findings), 0)
+					end
+					Verify.expect(not Rule.contains(findings, "examples/good.luau"))
+						:toBeTrueWith(Rule.describe(findings))
+				end
+			)
+		end,
+	})
+	harness:case(prefix .. "a Fusion dependency is forbidden and the word confusion is not", {
+		id = prefix .. "a Fusion dependency is forbidden and the word confusion is not",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
+				tree({
+					["tests/vendored.luau"] = 'local F = require("../../vendor/Fusion")\nreturn F',
+					["tools/facet/shim.luau"] = 'local shim = require("../lib/fusion_shim")\nreturn shim',
+					["examples/value.luau"] = "local value = Fusion.Value(0)\nreturn value",
+					["examples/clean.luau"] = '-- the confusion this fixture does not report\nlocal text = "Fusion"\nreturn text',
+				}),
+				function(context)
+					local findings = check(context)
+					for _, expected in
+						{
+							"tests/vendored.luau:1: requires ../../vendor/Fusion",
+							"tools/facet/shim.luau:1: requires ../lib/fusion_shim",
+							"examples/value.luau:1: names Fusion",
+						}
+					do
+						if not Rule.contains(findings, expected) then
+							error("missing " .. expected .. ": " .. Rule.describe(findings), 0)
 						end
-						return Rule.expect(Rule.contains(findings, "unapproved vendor"), Rule.describe(findings))
 					end
-				)
-			end,
-		},
-		{
-			name = "the old API and the abandoned renderer are rejected",
-			run = function()
-				return Rule.within(
-					tree({
-						["src/render/renderer.luau"] = "return {}",
-						["examples/screen.luau"] = "local app = Facet.new()",
-					}),
-					function(context)
-						local findings = check(context)
-						if not Rule.contains(findings, "renderer.luau") then
-							return "the renderer passed: " .. Rule.describe(findings)
-						end
-						return Rule.expect(
-							Rule.contains(findings, "removed Facet scaffolding API"),
-							Rule.describe(findings)
-						)
+					Verify.expect(not Rule.contains(findings, "examples/clean.luau:"))
+						:toBeTrueWith(Rule.describe(findings))
+				end
+			)
+		end,
+	})
+	harness:case(prefix .. "a vendor directory is found by name outside the approved pins", {
+		id = prefix .. "a vendor directory is found by name outside the approved pins",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
+				tree({
+					["nested/vendor/x.luau"] = "return {}",
+					["artifacts/verify/tmp/case/src/vendor/x.luau"] = "return {}",
+					["artifacts/shipped/vendor/x.luau"] = "return {}",
+					["tools/vendor/verify/x.luau"] = "return {}",
+				}),
+				function(context)
+					local findings = check(context)
+					if
+						not Rule.contains(findings, "nested/vendor: unexpected")
+						or not Rule.contains(findings, "artifacts/shipped/vendor: unexpected")
+					then
+						Verify.expect(Rule.describe(findings)):toBeNil()
+						return
 					end
-				)
-			end,
-		},
-		{
-			name = "a short constructor alias is rejected and Host passes",
-			run = function()
-				return Rule.within(
-					tree({
-						["examples/bad.luau"] = "local H = runtime.constructors\nreturn H",
-						["examples/good.luau"] = "local Host = runtime.constructors\nreturn Host",
-					}),
-					function(context)
-						local findings = check(context)
-						if not Rule.contains(findings, "examples/bad.luau: use Host") then
-							return "the short alias passed: " .. Rule.describe(findings)
-						end
-						return Rule.expect(not Rule.contains(findings, "examples/good.luau"), Rule.describe(findings))
-					end
-				)
-			end,
-		},
-		{
-			name = "a Fusion dependency is forbidden and the word confusion is not",
-			run = function()
-				return Rule.within(
-					tree({
-						["tests/vendored.luau"] = 'local F = require("../../vendor/Fusion")\nreturn F',
-						["tools/facet/shim.luau"] = 'local shim = require("../lib/fusion_shim")\nreturn shim',
-						["examples/value.luau"] = "local value = Fusion.Value(0)\nreturn value",
-						["examples/clean.luau"] = '-- the confusion this fixture does not report\nlocal text = "Fusion"\nreturn text',
-					}),
-					function(context)
-						local findings = check(context)
-						for _, expected in
-							{
-								"tests/vendored.luau:1: requires ../../vendor/Fusion",
-								"tools/facet/shim.luau:1: requires ../lib/fusion_shim",
-								"examples/value.luau:1: names Fusion",
-							}
-						do
-							if not Rule.contains(findings, expected) then
-								return "missing " .. expected .. ": " .. Rule.describe(findings)
-							end
-						end
-						return Rule.expect(not Rule.contains(findings, "examples/clean.luau:"), Rule.describe(findings))
-					end
-				)
-			end,
-		},
-		{
-			name = "a vendor directory is found by name outside the approved pins",
-			run = function()
-				return Rule.within(
-					tree({
-						["nested/vendor/x.luau"] = "return {}",
-						["artifacts/verify/tmp/case/src/vendor/x.luau"] = "return {}",
-						["artifacts/shipped/vendor/x.luau"] = "return {}",
-						["tools/vendor/verify/x.luau"] = "return {}",
-					}),
-					function(context)
-						local findings = check(context)
-						if
-							not Rule.contains(findings, "nested/vendor: unexpected")
-							or not Rule.contains(findings, "artifacts/shipped/vendor: unexpected")
-						then
-							return Rule.describe(findings)
-						end
-						return Rule.expect(
-							not Rule.contains(findings, "artifacts/verify/tmp")
-								and not Rule.contains(findings, "tools/vendor:"),
-							Rule.describe(findings)
-						)
-					end
-				)
-			end,
-		},
-		{
-			name = "a lab project that maps a source outside Facet is a finding",
-			run = function()
-				return Rule.within(
-					tree({
-						["examples/facet-lab/default.project.json"] = '{"name": "Lab", "tree": {"$path": "../../../outside"}}',
-					}),
-					function(context)
-						return Rule.expect(
-							Rule.contains(check(context), "lab boundary: "),
-							Rule.describe(check(context))
-						)
-					end
-				)
-			end,
-		},
-		{
-			name = "an unparsable source is a finding",
-			run = function()
-				return Rule.within(tree({ ["src/broken.luau"] = "local x = 'unfinished" }), function(context)
-					return Rule.expect(Rule.contains(check(context), "src/broken.luau: cannot parse"), "parsed")
-				end)
-			end,
-		},
-	}
+					Verify.expect(
+						not Rule.contains(findings, "artifacts/verify/tmp")
+							and not Rule.contains(findings, "tools/vendor:")
+					):toBeTrueWith(Rule.describe(findings))
+				end
+			)
+		end,
+	})
+	harness:case(prefix .. "a lab project that maps a source outside Facet is a finding", {
+		id = prefix .. "a lab project that maps a source outside Facet is a finding",
+		run = function(test: Verify.Context)
+			Rule.within(
+				test,
+				tree({
+					["examples/facet-lab/default.project.json"] = '{"name": "Lab", "tree": {"$path": "../../../outside"}}',
+				}),
+				function(context)
+					Verify.expect(Rule.contains(check(context), "lab boundary: "))
+						:toBeTrueWith(Rule.describe(check(context)))
+				end
+			)
+		end,
+	})
+	harness:case(prefix .. "an unparsable source is a finding", {
+		id = prefix .. "an unparsable source is a finding",
+		run = function(test: Verify.Context)
+			Rule.within(test, tree({ ["src/broken.luau"] = "local x = 'unfinished" }), function(context)
+				Verify.expect(Rule.contains(check(context), "src/broken.luau: cannot parse")):toBeTrueWith("parsed")
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "architecture",
 	summary = "Imports resolve, examples use only the public root, and no removed API, renderer, Fusion or extra vendor exists.",
 	check = check,
-	cases = cases,
+	register = register,
 }
 
 return rule

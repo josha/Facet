@@ -1,4 +1,5 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local Eval = require("../../vendor/verify/src/agent-eval")
 local Files = require("../lib/files")
@@ -130,78 +131,75 @@ local function check(context: Rule.Context): { string }
 	return findings
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "rejects mutable evaluation paths and an extended author deadline",
-			run = function()
-				local files: { [string]: string } = {}
-				for _, relative in
-					{
-						"eval/run.json",
-						"eval/authoring.md",
-						"eval/tasks/run/task.json",
-						"eval/tasks/run/brief.md",
-						"eval/arms/plain/AGENTS.md",
-						"eval/arms/facet/AGENTS.md",
-						"skills/use-facet/SKILL.md",
-					}
-				do
-					files[relative] = Files.read(relative)
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "rejects mutable evaluation paths and an extended author deadline", {
+		id = prefix .. "rejects mutable evaluation paths and an extended author deadline",
+		run = function(test: Verify.Context)
+			local files: { [string]: string } = {}
+			for _, relative in
+				{
+					"eval/run.json",
+					"eval/authoring.md",
+					"eval/tasks/run/task.json",
+					"eval/tasks/run/brief.md",
+					"eval/arms/plain/AGENTS.md",
+					"eval/arms/facet/AGENTS.md",
+					"skills/use-facet/SKILL.md",
+				}
+			do
+				files[relative] = Files.read(relative)
+			end
+			files["eval/tasks/run/starter/.gitkeep"] = ""
+			Rule.within(test, files, function(context)
+				local initial = check(context)
+				if #initial ~= 0 then
+					Verify.expect(Rule.describe(initial)):toBeNil()
+					return
 				end
-				files["eval/tasks/run/starter/.gitkeep"] = ""
-				return Rule.within(files, function(context)
-					local initial = check(context)
-					if #initial ~= 0 then
-						return Rule.describe(initial)
-					end
-					local suitePath = context.path("eval/run.json")
-					local suiteSource = Files.read(suitePath)
-					Files.write(
-						suitePath,
-						(
-							string.gsub(
-								suiteSource,
-								"artifacts/facetbench/run%-inputs",
-								"artifacts/facetbench/missing-inputs"
-							)
+				local suitePath = context.path("eval/run.json")
+				local suiteSource = Files.read(suitePath)
+				Files.write(
+					suitePath,
+					(
+						string.gsub(
+							suiteSource,
+							"artifacts/facetbench/run%-inputs",
+							"artifacts/facetbench/missing-inputs"
 						)
 					)
-					if not Rule.contains(check(context), "names a missing path") then
-						return "an unknown generated input path was accepted"
-					end
-					Files.write(suitePath, (string.gsub(suiteSource, '"shell_tool"', '"unused_feature"')))
-					if not Rule.contains(check(context), "must disable shell_tool") then
-						return "filesystem tools were accepted"
-					end
-					Files.write(suitePath, suiteSource)
-					Files.write(context.path("eval/tasks/run/starter/solution.rbxlx"), "asset")
-					if not Rule.contains(check(context), "contains an author asset") then
-						return "a prebuilt starter asset was accepted"
-					end
-					Files.remove(context.path("eval/tasks/run/starter/solution.rbxlx"))
-					local path = context.path("eval/tasks/run/task.json")
-					local original = Files.read(path)
-					Files.write(path, (string.gsub(original, "{evidence}/submission/game.rbxl", "{workspace}")))
-					if not Rule.contains(check(context), "evaluates mutable author files") then
-						return "mutable author files were accepted"
-					end
-					Files.write(path, (string.gsub(original, '"wallSeconds": 1800', '"wallSeconds": 1801')))
-					return Rule.expect(
-						Rule.contains(check(context), "deadline must be 1800"),
-						"an extended deadline was accepted"
-					)
-				end)
-			end,
-		},
-	}
+				)
+				if not Rule.contains(check(context), "names a missing path") then
+					error("an unknown generated input path was accepted", 0)
+				end
+				Files.write(suitePath, (string.gsub(suiteSource, '"shell_tool"', '"unused_feature"')))
+				if not Rule.contains(check(context), "must disable shell_tool") then
+					error("filesystem tools were accepted", 0)
+				end
+				Files.write(suitePath, suiteSource)
+				Files.write(context.path("eval/tasks/run/starter/solution.rbxlx"), "asset")
+				if not Rule.contains(check(context), "contains an author asset") then
+					error("a prebuilt starter asset was accepted", 0)
+				end
+				Files.remove(context.path("eval/tasks/run/starter/solution.rbxlx"))
+				local path = context.path("eval/tasks/run/task.json")
+				local original = Files.read(path)
+				Files.write(path, (string.gsub(original, "{evidence}/submission/game.rbxl", "{workspace}")))
+				if not Rule.contains(check(context), "evaluates mutable author files") then
+					error("mutable author files were accepted", 0)
+				end
+				Files.write(path, (string.gsub(original, '"wallSeconds": 1800', '"wallSeconds": 1801')))
+				Verify.expect(Rule.contains(check(context), "deadline must be 1800"))
+					:toBeTrueWith("an extended deadline was accepted")
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "facetbench",
 	summary = "Check the single blank-project run and its required independent evaluation.",
 	check = check,
-	cases = cases,
+	register = register,
 }
 
 return rule

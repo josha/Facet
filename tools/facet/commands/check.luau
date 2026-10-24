@@ -2,6 +2,7 @@
 
 local Cli = require("../lib/cli")
 local Rule = require("../lib/rule")
+local Gate = require("../lib/gate")
 local rules = require("../checks")
 
 local USAGE = [[usage: lute run tools/facet check <rule>... [--selftest] [--root DIR] [--<action>]
@@ -43,20 +44,22 @@ local function list(): number
 end
 
 local function runAll(invocation: Cli.Invocation, context: Rule.Context): number
-	local selftest = Cli.switch(invocation, "selftest")
+	if Cli.switch(invocation, "selftest") then
+		return Gate.selftest("tools/rules", "tools/rules::")
+	end
 	local failed: { string } = {}
 	for _, rule in rules do
-		local code = if selftest then Rule.selftest(rule) else Rule.report(rule, Rule.safeCheck(rule, context))
+		local code = Rule.report(rule, Rule.safeCheck(rule, context))
 		if code ~= 0 then
 			table.insert(failed, rule.name)
 		end
 	end
 	print("")
 	if #failed == 0 then
-		print(("check --all%s: PASS (%d rules)"):format(if selftest then " --selftest" else "", #rules))
+		print(("check --all: PASS (%d rules)"):format(#rules))
 		return 0
 	end
-	print(("check --all%s: FAIL (%s)"):format(if selftest then " --selftest" else "", table.concat(failed, ", ")))
+	print(("check --all: FAIL (%s)"):format(table.concat(failed, ", ")))
 	return 1
 end
 
@@ -94,7 +97,7 @@ local function run(invocation: Cli.Invocation): number
 		end
 		if not acted then
 			local result = if Cli.switch(invocation, "selftest")
-				then Rule.selftest(rule)
+				then Gate.selftest("tools/rules", "tools/rules::" .. rule.name .. "::")
 				else Rule.report(rule, Rule.safeCheck(rule, context))
 			code = math.max(code, result)
 		end

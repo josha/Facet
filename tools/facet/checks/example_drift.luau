@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
-local Case = require("../lib/case")
 local Files = require("../lib/files")
 local Luau = require("../lib/luau")
 local Rule = require("../lib/rule")
@@ -445,149 +445,129 @@ end
 local THEMES_FIXTURE =
 	'local themes = {}\nthemes.TYPE_ROLES = table.freeze({ "caption", "label", "title" })\nreturn themes\n'
 
-local function planted(source: string, allowlist: { Entry }?): { string }
+local function planted(test: Verify.Context, source: string, allowlist: { Entry }?): { string }
 	local findings: { string } = {}
-	local failure = Rule.within({
+	Rule.within(test, {
 		[THEMES] = THEMES_FIXTURE,
 		["examples/gallery/examples/plant.luau"] = source,
 		["examples/gallery/examples/words/skipped.luau"] = 'local s = Instance.new("Frame")\n',
 		["examples/reference/plant.verify.luau"] = 'local s = Instance.new("Frame")\n',
 	}, function(context)
 		findings = inspect(context, allowlist or {})
-		return nil
+		return
 	end)
-	if failure ~= nil then
-		error(failure)
-	end
 	return findings
 end
 
-local function fires(source: string, fragment: string): string?
-	local findings = planted(source)
-	if Rule.contains(findings, fragment) then
-		return nil
-	end
-	return ("expected a finding with '%s', got %s"):format(fragment, Rule.describe(findings))
+local function fires(test: Verify.Context, source: string, fragment: string)
+	Verify.expect(table.concat(planted(test, source), "\n")):toContain(fragment)
 end
 
-local function silent(source: string, allowlist: { Entry }?): string?
-	return Case.same(planted(source, allowlist), {})
+local function silent(test: Verify.Context, source: string, allowlist: { Entry }?): ()
+	Verify.expect(planted(test, source, allowlist)):toEqual({})
 end
 
 local PLANT = "examples/gallery/examples/plant.luau"
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "a literal TextSize is reported",
-			run = function()
-				return fires("local a = { TextSize = 18 }\n", PLANT .. ":1: [R1] a literal TextSize")
-			end,
-		},
-		{
-			name = "a literal paint colour and a literal font are reported",
-			run = function()
-				return Case.first(
-					fires(
-						"local a = { TextColor3 = ctx.types.Color3.fromRGB(1, 2, 3) }\n",
-						"[R1] a literal paint colour"
-					),
-					fires("frame.FontFace = Font.new('x')\n", "[R1] a literal font"),
-					fires("local a = { Font = Enum.Font.Gotham }\n", "[R1] a literal font")
-				)
-			end,
-		},
-		{
-			name = "an unknown textRole is reported",
-			run = function()
-				return fires(
-					'local b = UI.Label { textRole = "banner" }\n',
-					"[R2] an unknown textRole 'banner'; the roles are caption, label, title"
-				)
-			end,
-		},
-		{
-			name = "a raw colour is reported, even across lines",
-			run = function()
-				return Case.first(
-					fires("local c = Color3.fromRGB(1, 2, 3)\n", PLANT .. ":1: [R3] a raw colour"),
-					fires("local c = C3.fromHex('#fff')\n", "[R3] a raw colour"),
-					fires("local c = Color3.new(\n\t-1,\n\t0,\n\t0\n)\n", PLANT .. ":1: [R3] a raw colour")
-				)
-			end,
-		},
-		{
-			name = "an engine reach-around is reported",
-			run = function()
-				return Case.first(
-					fires('local d = Instance.new("Frame")\n', "[R4] an engine reach-around; use the Host"),
-					fires('local s = game:GetService("RunService")\n', "[R4] an engine reach-around; receive")
-				)
-			end,
-		},
-		{
-			name = "computed values, comments and strings are not reported",
-			run = function()
-				return silent(
-					'--!strict\n-- Instance.new("Frame")\nlocal a = { TextSize = size or 16, TextColor3 = Color3.new(r, g, b) }\nlocal t = "Instance.new(1)"\nlocal c = Color3.fromHSV(index / 7, 0.5, 0.8)\nreturn { a, t, c }\n'
-				)
-			end,
-		},
-		{
-			name = "an allowlisted line passes and its entry is used",
-			run = function()
-				return silent("local e = Color3.new(1, 1, 1)\n", {
-					{ file = PLANT, match = "Color3.new(1, 1, 1)", why = "test" },
-				})
-			end,
-		},
-		{
-			name = "an allowlist entry never reaches an unknown textRole on its line",
-			run = function()
-				local findings = planted('local e = { TextSize = 12, textRole = "banner" }\n', {
-					{ file = PLANT, match = "TextSize = 12", why = "test" },
-				})
-				return Case.expect(
-					Rule.contains(findings, "[R1] a literal TextSize") and Rule.contains(findings, "[R2]"),
-					"expected both findings, got " .. Rule.describe(findings)
-				)
-			end,
-		},
-		{
-			name = "a stale allowlist entry is reported",
-			run = function()
-				local findings =
-					planted("return nil\n", { { file = PLANT, match = "Color3.new(1, 1, 1)", why = "test" } })
-				return Case.same(findings, { PLANT .. ": allowlist entry 'Color3.new(1, 1, 1)' matches nothing" })
-			end,
-		},
-		{
-			name = "a known textRole and CRLF line endings pass",
-			run = function()
-				return silent('local f = UI.Label {\r\n\ttextRole = "title",\r\n}\r\nreturn f\r\n')
-			end,
-		},
-		{
-			name = "an example that does not parse and a missing TYPE_ROLES are reported",
-			run = function()
-				return Case.first(
-					fires("local = 1\n", PLANT .. ": cannot parse the example"),
-					Rule.within({
-						[THEMES] = "return {}\n",
-					}, function(context)
-						return Case.same(check(context), { "cannot read TYPE_ROLES from " .. THEMES })
-					end)
-				)
-			end,
-		},
-	}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "a literal TextSize is reported", {
+		id = prefix .. "a literal TextSize is reported",
+		run = function(test: Verify.Context)
+			fires(test, "local a = { TextSize = 18 }\n", PLANT .. ":1: [R1] a literal TextSize")
+		end,
+	})
+	harness:case(prefix .. "a literal paint colour and a literal font are reported", {
+		id = prefix .. "a literal paint colour and a literal font are reported",
+		run = function(test: Verify.Context)
+			fires(test, "local a = { TextColor3 = ctx.types.Color3.fromRGB(1, 2, 3) }\n", "[R1] a literal paint colour")
+			fires(test, "frame.FontFace = Font.new('x')\n", "[R1] a literal font")
+			fires(test, "local a = { Font = Enum.Font.Gotham }\n", "[R1] a literal font")
+		end,
+	})
+	harness:case(prefix .. "an unknown textRole is reported", {
+		id = prefix .. "an unknown textRole is reported",
+		run = function(test: Verify.Context)
+			fires(
+				test,
+				'local b = UI.Label { textRole = "banner" }\n',
+				"[R2] an unknown textRole 'banner'; the roles are caption, label, title"
+			)
+		end,
+	})
+	harness:case(prefix .. "a raw colour is reported, even across lines", {
+		id = prefix .. "a raw colour is reported, even across lines",
+		run = function(test: Verify.Context)
+			fires(test, "local c = Color3.fromRGB(1, 2, 3)\n", PLANT .. ":1: [R3] a raw colour")
+			fires(test, "local c = C3.fromHex('#fff')\n", "[R3] a raw colour")
+			fires(test, "local c = Color3.new(\n\t-1,\n\t0,\n\t0\n)\n", PLANT .. ":1: [R3] a raw colour")
+		end,
+	})
+	harness:case(prefix .. "an engine reach-around is reported", {
+		id = prefix .. "an engine reach-around is reported",
+		run = function(test: Verify.Context)
+			fires(test, 'local d = Instance.new("Frame")\n', "[R4] an engine reach-around; use the Host")
+			fires(test, 'local s = game:GetService("RunService")\n', "[R4] an engine reach-around; receive")
+		end,
+	})
+	harness:case(prefix .. "computed values, comments and strings are not reported", {
+		id = prefix .. "computed values, comments and strings are not reported",
+		run = function(test: Verify.Context)
+			silent(
+				test,
+				'--!strict\n-- Instance.new("Frame")\nlocal a = { TextSize = size or 16, TextColor3 = Color3.new(r, g, b) }\nlocal t = "Instance.new(1)"\nlocal c = Color3.fromHSV(index / 7, 0.5, 0.8)\nreturn { a, t, c }\n'
+			)
+		end,
+	})
+	harness:case(prefix .. "an allowlisted line passes and its entry is used", {
+		id = prefix .. "an allowlisted line passes and its entry is used",
+		run = function(test: Verify.Context)
+			silent(test, "local e = Color3.new(1, 1, 1)\n", {
+				{ file = PLANT, match = "Color3.new(1, 1, 1)", why = "test" },
+			})
+		end,
+	})
+	harness:case(prefix .. "an allowlist entry never reaches an unknown textRole on its line", {
+		id = prefix .. "an allowlist entry never reaches an unknown textRole on its line",
+		run = function(test: Verify.Context)
+			local findings = planted(test, 'local e = { TextSize = 12, textRole = "banner" }\n', {
+				{ file = PLANT, match = "TextSize = 12", why = "test" },
+			})
+			Verify.expect(Rule.contains(findings, "[R1] a literal TextSize") and Rule.contains(findings, "[R2]"))
+				:toBeTrueWith("expected both findings, got " .. Rule.describe(findings))
+		end,
+	})
+	harness:case(prefix .. "a stale allowlist entry is reported", {
+		id = prefix .. "a stale allowlist entry is reported",
+		run = function(test: Verify.Context)
+			local findings =
+				planted(test, "return nil\n", { { file = PLANT, match = "Color3.new(1, 1, 1)", why = "test" } })
+			Verify.expect(findings):toEqual({ PLANT .. ": allowlist entry 'Color3.new(1, 1, 1)' matches nothing" })
+		end,
+	})
+	harness:case(prefix .. "a known textRole and CRLF line endings pass", {
+		id = prefix .. "a known textRole and CRLF line endings pass",
+		run = function(test: Verify.Context)
+			silent(test, 'local f = UI.Label {\r\n\ttextRole = "title",\r\n}\r\nreturn f\r\n')
+		end,
+	})
+	harness:case(prefix .. "an example that does not parse and a missing TYPE_ROLES are reported", {
+		id = prefix .. "an example that does not parse and a missing TYPE_ROLES are reported",
+		run = function(test: Verify.Context)
+			fires(test, "local = 1\n", PLANT .. ": cannot parse the example")
+			Rule.within(test, {
+				[THEMES] = "return {}\n",
+			}, function(context)
+				Verify.expect(check(context)):toEqual({ "cannot read TYPE_ROLES from " .. THEMES })
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "example-drift",
 	summary = "Examples use theme roles, Host constructors and context services, not literal paint or engine reach-arounds.",
 	check = check,
-	cases = cases,
+	register = register,
 }
 
 return rule

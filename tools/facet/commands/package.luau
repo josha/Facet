@@ -1,8 +1,9 @@
 --!strict
+local Gate = require("../lib/gate")
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
 local Assets = require("../lib/assets")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Hash = require("../lib/hash")
@@ -1850,11 +1851,11 @@ local function releaseArguments(invocation: Cli.Invocation): (Arguments?, string
 		nil
 end
 
-local cases: () -> { Case.Case }
+local register: (Verify.Harness, string) -> ()
 
 local function run(invocation: Cli.Invocation): number
 	if Cli.switch(invocation, "selftest") then
-		return Case.report("package", cases)
+		return Gate.selftest("tools/commands", "tools/commands::package::")
 	end
 	local subcommand = invocation.positional[1]
 	if subcommand == nil then
@@ -2318,8 +2319,11 @@ local function noRefusals(_facts: Facts): Verdict
 	return { refusals = {}, evaluated = {} }
 end
 
-local function workspace(script: { Assets.Canned }, decider: Decide): Work
+local function workspace(test: Verify.Context, script: { Assets.Canned }, decider: Decide): Work
 	local directory = Files.temporaryDirectory("facet-package-selftest-")
+	test:defer(function()
+		Files.remove(directory)
+	end)
 	local output: { string } = {}
 	local fake = Assets.fake(script)
 	local model = Files.join(directory, "Facet.rbxm")
@@ -2394,25 +2398,16 @@ local function argumentsFor(route: string, baseline: string?): Arguments
 	}
 end
 
-local function within(work: Work, body: () -> string?): string?
+local function within(test: Verify.Context, work: Work, body: () -> ())
 	local before = Files.read(DEFAULT_CONFIG)
-	local ok, result = pcall(body)
-	Files.remove(work.directory)
-	if not ok then
-		return "raised: " .. tostring(result)
-	end
-	if result ~= nil then
-		return result .. "\n" .. table.concat(work.output, "\n")
-	end
-	if Files.read(DEFAULT_CONFIG) ~= before then
-		return "the selftest wrote into the real " .. DEFAULT_CONFIG
-	end
-	for _, line in work.output do
-		if string.find(line, SELFTEST_KEY, 1, true) ~= nil then
-			return "the API key reached the output: " .. line
+	test:defer(function()
+		Verify.expect(Files.read(DEFAULT_CONFIG)):toBe(before)
+		for _, line in work.output do
+			Verify.expect(string.find(line, SELFTEST_KEY, 1, true) == nil)
+				:toBeTrueWith("the API key reached the output: " .. line)
 		end
-	end
-	return nil
+	end)
+	body()
 end
 
 local function invoke(work: Work, command: (Environment, Arguments) -> number, arguments: Arguments): number
@@ -2449,20 +2444,27 @@ local function versionsPage(number: number): unknown
 	}
 end
 
-local function studioCase(script: { Assets.Canned }, baseline: string?, expectCode: number, revision: string?): string?
-	local work = workspace(script, noRefusals)
-	return within(work, function(): string?
+local function studioCase(
+	test: Verify.Context,
+	script: { Assets.Canned },
+	baseline: string?,
+	expectCode: number,
+	revision: string?
+): ()
+	local work = workspace(test, script, noRefusals)
+	within(test, work, function(): ()
 		saveConfig(work.env.config, baseConfig(424242, "studio"))
 		Files.write(work.env.gate, Json.pretty(gateDocument()))
 		local code = invoke(work, cmdPublish, argumentsFor("studio", baseline))
 		local written = storedReceipts(work, nil)
 		if code ~= expectCode then
-			return ("exit %d, expected %d"):format(code, expectCode)
+			error(("exit %d, expected %d"):format(code, expectCode), 0)
 		end
 		if revision == nil then
-			return Case.expect(#written == 0, ("expected no receipt, found %d"):format(#written))
+			Verify.expect(#written == 0):toBeTrueWith(("expected no receipt, found %d"):format(#written))
+			return
 		end
-		return Case.equal(revisionOf(written[#written]), revision, "recorded revision")
+		Verify.expect(revisionOf(written[#written])):toBe(revision)
 	end)
 end
 
@@ -2470,9 +2472,12 @@ type Reading = { tier: string, status: string, treeDirty: boolean }
 
 type Reader = { label: string, document: () -> string?, want: Reading? }
 
-local function readEvidence(document: string?, want: Reading?): string?
+local function readEvidence(test: Verify.Context, document: string?, want: Reading?): ()
 	local facts = real()
 	local directory = Files.temporaryDirectory("facet-package-gate-")
+	test:defer(function()
+		Files.remove(directory)
+	end)
 	local path = Files.join(directory, "evidence.json")
 	if document ~= nil then
 		Files.write(path, document)
@@ -2480,62 +2485,61 @@ local function readEvidence(document: string?, want: Reading?): string?
 	local ok, got = pcall(readGateEvidence, path)
 	Files.remove(directory)
 	if not ok then
-		return "raised: " .. tostring(got)
+		error("raised: " .. tostring(got), 0)
 	end
 	if want == nil then
-		return Case.expect(got == nil, "expected no evidence, got " .. (if got then str(got.status) else "none"))
+		Verify.expect(got == nil)
+			:toBeTrueWith("expected no evidence, got " .. (if got then str(got.status) else "none"))
+		return
 	end
 	if got == nil then
-		return "expected evidence, got none"
+		error("expected evidence, got none", 0)
 	end
 	if got.tier ~= want.tier or got.status ~= want.status or got.treeDirty ~= want.treeDirty then
-		return ("read %s/%s/%s"):format(str(got.tier), str(got.status), str(got.treeDirty))
+		error(("read %s/%s/%s"):format(str(got.tier), str(got.status), str(got.treeDirty)), 0)
 	end
 	if got.schema ~= GATE_SCHEMA or got.commit ~= facts.commit or got.sourceHash ~= facts.sourceHash then
-		return ("the evidence binding reads %s %s %s"):format(str(got.schema), str(got.commit), str(got.sourceHash))
+		error(("the evidence binding reads %s %s %s"):format(str(got.schema), str(got.commit), str(got.sourceHash)), 0)
 	end
-	return nil
 end
 
-cases = function(): { Case.Case }
-	local list: { Case.Case } = {}
+register = function(harness: Verify.Harness, prefix: string): ()
 	for _, op in { "create", "publish" } do
-		table.insert(list, {
-			name = ("the all-good %s facts produce no refusal"):format(op),
-			run = function(): string?
+		harness:case(prefix .. (("the all-good %s facts produce no refusal"):format(op)), {
+			id = prefix .. (("the all-good %s facts produce no refusal"):format(op)),
+			run = function(test: Verify.Context): ()
 				local codes = codesOf(decide(goodFacts(op)))
-				return Case.same(codes, {}, op)
+				Verify.expect(codes):toEqual({})
 			end,
 		})
 	end
 	for _, refusal in REFUSAL_CASES do
-		table.insert(list, {
-			name = ("%s bites %s on %s"):format(refusal.op, refusal.code, refusal.label),
-			run = function(): string?
+		harness:case(prefix .. (("%s bites %s on %s"):format(refusal.op, refusal.code, refusal.label)), {
+			id = prefix .. (("%s bites %s on %s"):format(refusal.op, refusal.code, refusal.label)),
+			run = function(test: Verify.Context): ()
 				local facts = goodFacts(refusal.op)
 				refusal.change(facts)
-				return Case.same(codesOf(decide(facts)), { refusal.code }, refusal.op)
+				Verify.expect(codesOf(decide(facts))):toEqual({ refusal.code })
 			end,
 		})
 	end
-	table.insert(list, {
-		name = "every guard has a refusal case",
-		run = function(): string?
+	harness:case(prefix .. "every guard has a refusal case", {
+		id = prefix .. "every guard has a refusal case",
+		run = function(test: Verify.Context): ()
 			local covered: { [string]: boolean } = {}
 			for _, refusal in REFUSAL_CASES do
 				covered[refusal.code] = true
 			end
 			for _, guard in GUARDS do
 				if not covered[guard[2]] then
-					return "no case exercises " .. guard[2]
+					error("no case exercises " .. guard[2], 0)
 				end
 			end
-			return nil
 		end,
 	})
-	table.insert(list, {
-		name = "the guard table prints every verdict",
-		run = function(): string?
+	harness:case(prefix .. "the guard table prints every verdict", {
+		id = prefix .. "the guard table prints every verdict",
+		run = function(test: Verify.Context): ()
 			local lines: { string } = {}
 			local facts = goodFacts("create")
 			facts.gitDirty = true
@@ -2543,12 +2547,11 @@ cases = function(): { Case.Case }
 				table.insert(lines, line)
 			end, decide(facts))
 			local text = table.concat(lines, "\n")
-			return Case.first(
-				Case.expect(string.find(text, "  [REFUSE] working tree clean", 1, true) ~= nil, text),
-				Case.expect(string.find(text, "  [  ok  ] api key present (environment only)", 1, true) ~= nil, text),
-				Case.expect(string.find(text, "  [ n/a  ] moderation approved", 1, true) ~= nil, text),
-				Case.expect(string.find(text, "REFUSALS (1)", 1, true) ~= nil, text)
-			)
+			Verify.expect(string.find(text, "  [REFUSE] working tree clean", 1, true) ~= nil):toBeTrueWith(text)
+			Verify.expect(string.find(text, "  [  ok  ] api key present (environment only)", 1, true) ~= nil)
+				:toBeTrueWith(text)
+			Verify.expect(string.find(text, "  [ n/a  ] moderation approved", 1, true) ~= nil):toBeTrueWith(text)
+			Verify.expect(string.find(text, "REFUSALS (1)", 1, true) ~= nil):toBeTrueWith(text)
 		end,
 	})
 	local function variant(overrides: () -> { { unknown } }): () -> string?
@@ -2605,18 +2608,21 @@ cases = function(): { Case.Case }
 		},
 	}
 	for _, reader in readers do
-		table.insert(list, {
-			name = "the gate evidence reader reads " .. reader.label,
-			run = function(): string?
-				return readEvidence(reader.document(), reader.want)
+		harness:case(prefix .. ("the gate evidence reader reads " .. reader.label), {
+			id = prefix .. ("the gate evidence reader reads " .. reader.label),
+			run = function(test: Verify.Context): ()
+				readEvidence(test, reader.document(), reader.want)
 			end,
 		})
 	end
-	table.insert(list, {
-		name = "real gate evidence clears every gate check",
-		run = function(): string?
+	harness:case(prefix .. "real gate evidence clears every gate check", {
+		id = prefix .. "real gate evidence clears every gate check",
+		run = function(test: Verify.Context): ()
 			local facts = real()
 			local directory = Files.temporaryDirectory("facet-package-gate-")
+			test:defer(function()
+				Files.remove(directory)
+			end)
 			local path = Files.join(directory, "evidence.json")
 			Files.write(path, Json.pretty(gateDocument()))
 			local publish = goodFacts("publish")
@@ -2631,24 +2637,25 @@ cases = function(): { Case.Case }
 					table.insert(gateCodes, code)
 				end
 			end
-			return Case.same(gateCodes, {}, "gate refusals")
+			Verify.expect(gateCodes):toEqual({})
 		end,
 	})
-	table.insert(list, {
-		name = "create --confirm under the real guards refuses with no transport call",
-		run = function(): string?
-			local work = workspace({}, decide)
-			return within(work, function(): string?
+	harness:case(prefix .. "create --confirm under the real guards refuses with no transport call", {
+		id = prefix .. "create --confirm under the real guards refuses with no transport call",
+		run = function(test: Verify.Context): ()
+			local work = workspace(test, {}, decide)
+			within(test, work, function(): ()
 				saveConfig(work.env.config, baseConfig(nil, "open-cloud"))
 				local code = invoke(work, cmdCreate, argumentsFor("open-cloud", nil))
-				return Case.first(Case.equal(code, 1, "exit code"), Case.equal(#work.fake.calls, 0, "transport calls"))
+				Verify.expect(code):toBe(1)
+				Verify.expect(#work.fake.calls):toBe(0)
 			end)
 		end,
 	})
-	table.insert(list, {
-		name = "create against the fake records the asset id and one version",
-		run = function(): string?
-			local work = workspace({
+	harness:case(prefix .. "create against the fake records the asset id and one version", {
+		id = prefix .. "create against the fake records the asset id and one version",
+		run = function(test: Verify.Context): ()
+			local work = workspace(test, {
 				{
 					method = "POST",
 					fragment = "/v1/assets",
@@ -2668,7 +2675,7 @@ cases = function(): { Case.Case }
 					payload = { path = "operations/op-create", done = true, response = CREATED_ASSET },
 				},
 			}, noRefusals)
-			return within(work, function(): string?
+			within(test, work, function(): ()
 				saveConfig(work.env.config, baseConfig(nil, "open-cloud"))
 				Files.write(work.env.gate, Json.pretty(gateDocument()))
 				local code = invoke(work, cmdCreate, argumentsFor("open-cloud", nil))
@@ -2681,27 +2688,23 @@ cases = function(): { Case.Case }
 				end
 				local versions = Json.arrayField(config, "versions") or {}
 				local uploaded = work.fake.calls[1]
-				return Case.first(
-					Case.equal(code, 0, "exit code"),
-					Case.equal(raw(config, "assetId"), 424242, "recorded assetId"),
-					Case.equal(polls, 2, "operation polls"),
-					Case.equal(#versions, 1, "versions entries"),
-					Case.equal(Json.stringField(versions[1], "version"), real().version, "versions entry"),
-					Case.expect(
-						uploaded ~= nil and uploaded.bodyBytes > Files.size(work.env.model),
-						"the POST did not carry the model file"
-					)
-				)
+				Verify.expect(code):toBe(0)
+				Verify.expect(raw(config, "assetId")):toBe(424242)
+				Verify.expect(polls):toBe(2)
+				Verify.expect(#versions):toBe(1)
+				Verify.expect(Json.stringField(versions[1], "version")):toBe(real().version)
+				Verify.expect(uploaded ~= nil and uploaded.bodyBytes > Files.size(work.env.model))
+					:toBeTrueWith("the POST did not carry the model file")
 			end)
 		end,
 	})
-	table.insert(list, {
-		name = "publish against the fake writes a receipt bound to its gate evidence",
-		run = function(): string?
+	harness:case(prefix .. "publish against the fake writes a receipt bound to its gate evidence", {
+		id = prefix .. "publish against the fake writes a receipt bound to its gate evidence",
+		run = function(test: Verify.Context): ()
 			local published = table.clone(CREATED_ASSET)
 			published.revisionId = "2"
 			published.revisionCreateTime = "2026-08-30T01:00:00Z"
-			local work = workspace({
+			local work = workspace(test, {
 				{ method = "GET", fragment = "/v1/assets/424242", status = 200, payload = CREATED_ASSET },
 				{
 					method = "PATCH",
@@ -2716,7 +2719,7 @@ cases = function(): { Case.Case }
 					payload = { path = "operations/op-publish", done = true, response = published },
 				},
 			}, noRefusals)
-			return within(work, function(): string?
+			within(test, work, function(): ()
 				local facts = real()
 				saveConfig(work.env.config, baseConfig(424242, "open-cloud"))
 				Files.write(work.env.gate, Json.pretty(gateDocument()))
@@ -2735,43 +2738,37 @@ cases = function(): { Case.Case }
 				local written = storedReceipts(work, facts.version)
 				local latest = written[#written]
 				if code ~= 0 or latest == nil then
-					return ("exit %d with %d receipts for %s"):format(code, #written, facts.version)
+					error(("exit %d with %d receipts for %s"):format(code, #written, facts.version), 0)
 				end
 				local gateRun = Json.field(latest.receipt, "gateRun")
-				return Case.first(
-					Case.equal(revisionOf(latest), "2", "recorded revision"),
-					Case.equal(Json.stringField(gateRun, "status"), "PASS", "gateRun status"),
-					Case.equal(Json.stringField(gateRun, "commit"), facts.commit, "gateRun commit"),
-					Case.expect(
-						string.find(Files.read(latest.path), SELFTEST_KEY, 1, true) == nil,
-						"the API key reached a receipt"
-					)
-				)
+				Verify.expect(revisionOf(latest)):toBe("2")
+				Verify.expect(Json.stringField(gateRun, "status")):toBe("PASS")
+				Verify.expect(Json.stringField(gateRun, "commit")):toBe(facts.commit)
+				Verify.expect(string.find(Files.read(latest.path), SELFTEST_KEY, 1, true) == nil)
+					:toBeTrueWith("the API key reached a receipt")
 			end)
 		end,
 	})
 	local asset: Assets.Canned =
 		{ method = "GET", fragment = "/v1/assets/424242", status = 200, payload = CREATED_ASSET }
-	table.insert(list, {
-		name = "studio create records an asset id only after reading it back",
-		run = function(): string?
-			local work = workspace({ asset }, noRefusals)
-			return within(work, function(): string?
+	harness:case(prefix .. "studio create records an asset id only after reading it back", {
+		id = prefix .. "studio create records an asset id only after reading it back",
+		run = function(test: Verify.Context): ()
+			local work = workspace(test, { asset }, noRefusals)
+			within(test, work, function(): ()
 				saveConfig(work.env.config, baseConfig(nil, "studio"))
 				local arguments = argumentsFor("studio", nil)
 				arguments.assetId = "424242"
 				local code = invoke(work, cmdCreate, arguments)
-				return Case.first(
-					Case.equal(code, 0, "exit code"),
-					Case.equal(raw(loadConfig(work.env.config), "assetId"), 424242, "recorded assetId"),
-					Case.equal(#work.fake.calls, 1, "transport calls")
-				)
+				Verify.expect(code):toBe(0)
+				Verify.expect(raw(loadConfig(work.env.config), "assetId")):toBe(424242)
+				Verify.expect(#work.fake.calls):toBe(1)
 			end)
 		end,
 	})
-	table.insert(list, {
-		name = "studio publish treats a pre-existing version as no publish",
-		run = function(): string?
+	harness:case(prefix .. "studio publish treats a pre-existing version as no publish", {
+		id = prefix .. "studio publish treats a pre-existing version as no publish",
+		run = function(test: Verify.Context): ()
 			local script: { Assets.Canned } = { asset }
 			for _ = 1, 6 do
 				table.insert(
@@ -2779,40 +2776,40 @@ cases = function(): { Case.Case }
 					{ method = "GET", fragment = "/versions", status = 200, payload = versionsPage(5) }
 				)
 			end
-			return studioCase(script, nil, 1, nil)
+			studioCase(test, script, nil, 1, nil)
 		end,
 	})
-	table.insert(list, {
-		name = "studio publish records the edge from 5 to 6",
-		run = function(): string?
-			return studioCase({
+	harness:case(prefix .. "studio publish records the edge from 5 to 6", {
+		id = prefix .. "studio publish records the edge from 5 to 6",
+		run = function(test: Verify.Context): ()
+			studioCase(test, {
 				asset,
 				{ method = "GET", fragment = "/versions", status = 200, payload = versionsPage(5) },
 				{ method = "GET", fragment = "/versions", status = 200, payload = versionsPage(6) },
 			}, nil, 0, "6")
 		end,
 	})
-	table.insert(list, {
-		name = "studio publish refuses an unreadable version list",
-		run = function(): string?
-			return studioCase({
+	harness:case(prefix .. "studio publish refuses an unreadable version list", {
+		id = prefix .. "studio publish refuses an unreadable version list",
+		run = function(test: Verify.Context): ()
+			studioCase(test, {
 				asset,
 				{ method = "GET", fragment = "/versions", status = 500, payload = { message = "boom" } },
 			}, nil, 1, nil)
 		end,
 	})
-	table.insert(list, {
-		name = "studio publish uses --baseline-revision",
-		run = function(): string?
-			return studioCase({
+	harness:case(prefix .. "studio publish uses --baseline-revision", {
+		id = prefix .. "studio publish uses --baseline-revision",
+		run = function(test: Verify.Context): ()
+			studioCase(test, {
 				asset,
 				{ method = "GET", fragment = "/versions", status = 200, payload = versionsPage(9) },
 			}, "8", 0, "9")
 		end,
 	})
-	table.insert(list, {
-		name = "the multipart body carries the model bytes unchanged",
-		run = function(): string?
+	harness:case(prefix .. "the multipart body carries the model bytes unchanged", {
+		id = prefix .. "the multipart body carries the model bytes unchanged",
+		run = function(test: Verify.Context): ()
 			local payload = "\0\1\2\255\r\n--not-a-boundary\r\n"
 			local body, contentType = Assets.form({
 				{ name = "request", value = '{"assetType": "Model"}' },
@@ -2823,35 +2820,31 @@ cases = function(): { Case.Case }
 				.. "Content-Type: model/x-rbxm\r\n\r\n"
 				.. payload
 				.. "\r\n--B--\r\n"
-			return Case.first(
-				Case.equal(contentType, "multipart/form-data; boundary=B", "content type"),
-				Case.expect(body == expected, "the multipart body differs from the expected bytes")
-			)
+			Verify.expect(contentType):toBe("multipart/form-data; boundary=B")
+			Verify.expect(body == expected):toBeTrueWith("the multipart body differs from the expected bytes")
 		end,
 	})
-	table.insert(list, {
-		name = "the source hash uses slash paths and LF bodies",
-		run = function(): string?
-			return Rule.within({
+	harness:case(prefix .. "the source hash uses slash paths and LF bodies", {
+		id = prefix .. "the source hash uses slash paths and LF bodies",
+		run = function(test: Verify.Context): ()
+			Rule.within(test, {
 				["src/init.luau"] = 'local VERSION = "1.2.3"\r\nreturn VERSION\r\n',
 				["src/ui/button.luau"] = "return {}\n",
 				["src/ui/button.verify.luau"] = "return nil\n",
 				["src/ui/notes.md"] = "not a module\n",
-			}, function(context: Rule.Context): string?
+			}, function(context: Rule.Context): ()
 				local expected = Hash.sha256(
 					'src/init.luau\nlocal VERSION = "1.2.3"\nreturn VERSION\nsrc/ui/button.luau\nreturn {}\n'
 				)
-				return Case.first(
-					Case.same(Model.sourceFiles(context.root), { "src/init.luau", "src/ui/button.luau" }, "sources"),
-					Case.equal(Model.sourceHash(context.root), expected, "source hash"),
-					Case.equal(Model.readVersion(context.root), "1.2.3", "version")
-				)
+				Verify.expect(Model.sourceFiles(context.root)):toEqual({ "src/init.luau", "src/ui/button.luau" })
+				Verify.expect(Model.sourceHash(context.root)):toBe(expected)
+				Verify.expect(Model.readVersion(context.root)):toBe("1.2.3")
 			end)
 		end,
 	})
-	table.insert(list, {
-		name = "the manifest body hash matches the canonical instance list",
-		run = function(): string?
+	harness:case(prefix .. "the manifest body hash matches the canonical instance list", {
+		id = prefix .. "the manifest body hash matches the canonical instance list",
+		run = function(test: Verify.Context): ()
 			local instances = Model.walkText(table.concat({
 				"<roblox>",
 				'<Item class="ModuleScript"><Properties><string name="Name">Facet</string>',
@@ -2865,24 +2858,16 @@ cases = function(): { Case.Case }
 			for _, instance in instances do
 				table.insert(paths, instance.path)
 			end
-			return Case.first(
-				Case.same(paths, { "Facet", "Facet/StringValue", "Facet/b & c" }, "paths"),
-				Case.equal(
-					instances[1].sourceSha256,
-					"fb807541a393a9812f90a3151246f6e0c5ff9fa53e3a0a7a45210c6f46bae803",
-					"source hash"
-				),
-				Case.equal(
-					Model.bodyHash(instances),
-					"9abb63495b372f6883b1eb5a89fc99228a7deebe21f624f350d5d00c18860220",
-					"body hash"
-				)
-			)
+			Verify.expect(paths):toEqual({ "Facet", "Facet/StringValue", "Facet/b & c" })
+			Verify.expect(instances[1].sourceSha256)
+				:toBe("fb807541a393a9812f90a3151246f6e0c5ff9fa53e3a0a7a45210c6f46bae803")
+			Verify.expect(Model.bodyHash(instances))
+				:toBe("9abb63495b372f6883b1eb5a89fc99228a7deebe21f624f350d5d00c18860220")
 		end,
 	})
-	table.insert(list, {
-		name = "the tree inspection accepts the declared tree and names strays",
-		run = function(): string?
+	harness:case(prefix .. "the tree inspection accepts the declared tree and names strays", {
+		id = prefix .. "the tree inspection accepts the declared tree and names strays",
+		run = function(test: Verify.Context): ()
 			local instances: { Model.Instance } = {}
 			local modules, folders = expectedTree(".")
 			for path in modules do
@@ -2909,16 +2894,13 @@ cases = function(): { Case.Case }
 			local clean = inspectTree(".", manifest)
 			table.insert(instances, { path = "Facet/tests/helper", className = "ModuleScript" })
 			local dirty = inspectTree(".", manifest)
-			return Case.first(
-				Case.same(clean, {}, "declared tree"),
-				Case.same(dirty, {
-					"UNEXPECTED instance in the model: Facet/tests/helper (ModuleScript)",
-					"FORBIDDEN in the distribution: Facet/tests/helper (segment 'tests')",
-				}, "stray module")
-			)
+			Verify.expect(clean):toEqual({})
+			Verify.expect(dirty):toEqual({
+				"UNEXPECTED instance in the model: Facet/tests/helper (ModuleScript)",
+				"FORBIDDEN in the distribution: Facet/tests/helper (segment 'tests')",
+			})
 		end,
 	})
-	return list
 end
 
 local command: Cli.Command = {
@@ -2926,7 +2908,7 @@ local command: Cli.Command = {
 	summary = "Build, inspect and release Facet's Roblox Package (create and publish are dry runs).",
 	usage = USAGE,
 	values = VALUES,
-	cases = cases,
+	register = register,
 	run = run,
 }
 

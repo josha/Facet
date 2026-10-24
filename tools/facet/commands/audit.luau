@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local json = require("@std/json")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Audit = require("../../vendor/verify/src/roblox/ui-audit")
 local Look = require("../lib/look")
@@ -183,58 +183,49 @@ local function run(invocation: Cli.Invocation): number
 	return if failed then 1 else 0
 end
 
-local function cases(): { Case.Case }
-	return {
-		{
-			name = "repeated audit rules keep their findings and scores but print their fix once",
-			run = function()
-				local fixes: { [string]: boolean } = {}
-				local loaded = Look.decode(Look.sample(true))
-				local first, firstHigh, firstScore = report("desktop", "first", loaded, true, fixes)
-				local second, secondHigh, secondScore = report("desktop", "second", loaded, true, fixes)
-				local _, rules = string.gsub(first, "\n  [a-z]+ [a-z%-]+ %(%d+%)", "")
-				local _, repeated = string.gsub(second, "\n  [a-z]+ [a-z%-]+ %(%d+%)", "")
-				return Case.first(
-					Case.expect(rules > 0 and rules == repeated, "findings were lost"),
-					Case.equal(firstHigh, secondHigh, "high severity"),
-					Case.equal(firstScore, secondScore, "score"),
-					Case.expect(#second < #first, "the fixes were repeated")
-				)
-			end,
-		},
-		{
-			name = "a saved dump is audited for its device without Studio",
-			run = function()
-				local text, _, score = report("desktop", "shop", Look.decode(Look.sample(false)), true)
-				return Case.first(
-					Case.expect(string.find(text, "desktop shop: score", 1, true) ~= nil, "the header is missing"),
-					Case.expect(score >= 0 and score <= 100, "the score is out of range")
-				)
-			end,
-		},
-		{
-			name = "the weak reference reports findings that the strong reference does not",
-			run = function()
-				local _, _, strong = report("desktop", "shop", Look.decode(Look.sample(false)), true)
-				local weakText, _, weak = report("desktop", "shop", Look.decode(Look.sample(true)), true)
-				return Case.first(
-					Case.expect(weak < strong, ("weak %d is not below strong %d"):format(weak, strong)),
-					Case.expect(
-						string.find(weakText, "no finding", 1, true) == nil,
-						"the weak reference has no finding"
-					)
-				)
-			end,
-		},
-		{
-			name = "low findings are hidden unless --all is given",
-			run = function()
-				local quiet = report("desktop", "shop", Look.decode(Look.sample(true)), false)
-				local loud = report("desktop", "shop", Look.decode(Look.sample(true)), true)
-				return Case.expect(#loud >= #quiet, "the full report is shorter than the quiet one")
-			end,
-		},
-	}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "repeated audit rules keep their findings and scores but print their fix once", {
+		id = prefix .. "repeated audit rules keep their findings and scores but print their fix once",
+		run = function(test: Verify.Context)
+			local fixes: { [string]: boolean } = {}
+			local loaded = Look.decode(Look.sample(true))
+			local first, firstHigh, firstScore = report("desktop", "first", loaded, true, fixes)
+			local second, secondHigh, secondScore = report("desktop", "second", loaded, true, fixes)
+			local _, rules = string.gsub(first, "\n  [a-z]+ [a-z%-]+ %(%d+%)", "")
+			local _, repeated = string.gsub(second, "\n  [a-z]+ [a-z%-]+ %(%d+%)", "")
+			Verify.expect(rules > 0 and rules == repeated):toBeTrueWith("findings were lost")
+			Verify.expect(firstHigh):toBe(secondHigh)
+			Verify.expect(firstScore):toBe(secondScore)
+			Verify.expect(#second < #first):toBeTrueWith("the fixes were repeated")
+		end,
+	})
+	harness:case(prefix .. "a saved dump is audited for its device without Studio", {
+		id = prefix .. "a saved dump is audited for its device without Studio",
+		run = function(test: Verify.Context)
+			local text, _, score = report("desktop", "shop", Look.decode(Look.sample(false)), true)
+			Verify.expect(string.find(text, "desktop shop: score", 1, true) ~= nil)
+				:toBeTrueWith("the header is missing")
+			Verify.expect(score >= 0 and score <= 100):toBeTrueWith("the score is out of range")
+		end,
+	})
+	harness:case(prefix .. "the weak reference reports findings that the strong reference does not", {
+		id = prefix .. "the weak reference reports findings that the strong reference does not",
+		run = function(test: Verify.Context)
+			local _, _, strong = report("desktop", "shop", Look.decode(Look.sample(false)), true)
+			local weakText, _, weak = report("desktop", "shop", Look.decode(Look.sample(true)), true)
+			Verify.expect(weak < strong):toBeTrueWith(("weak %d is not below strong %d"):format(weak, strong))
+			Verify.expect(string.find(weakText, "no finding", 1, true) == nil)
+				:toBeTrueWith("the weak reference has no finding")
+		end,
+	})
+	harness:case(prefix .. "low findings are hidden unless --all is given", {
+		id = prefix .. "low findings are hidden unless --all is given",
+		run = function(test: Verify.Context)
+			local quiet = report("desktop", "shop", Look.decode(Look.sample(true)), false)
+			local loud = report("desktop", "shop", Look.decode(Look.sample(true)), true)
+			Verify.expect(#loud >= #quiet):toBeTrueWith("the full report is shorter than the quiet one")
+		end,
+	})
 end
 
 local command: Cli.Command = {
@@ -242,7 +233,7 @@ local command: Cli.Command = {
 	summary = "Play the place in Studio on each device and report interface problems on each screen.",
 	usage = USAGE,
 	values = { "device", "tap", "wait", "project", "out", "dump" },
-	cases = cases,
+	register = register,
 	run = run,
 }
 

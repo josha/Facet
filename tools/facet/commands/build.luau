@@ -1,6 +1,6 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Hash = require("../lib/hash")
@@ -413,124 +413,101 @@ local function invocation(arguments: { string }): Cli.Invocation
 	return Cli.parse(forwarded)
 end
 
-local function cases(): { Case.Case }
-	local list: { Case.Case } = {
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "the content hash lists sorted slash paths with their sha256", {
+		id = prefix .. "the content hash lists sorted slash paths with their sha256",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["b/z.luau"] = "z",
+				["b/a/y.luau"] = "y\r\n",
+				["a.json"] = "{}",
+			}, function(context: Rule.Context): ()
+				local lines = {
+					`{Hash.sha256("{}")}  a.json`,
+					`{Hash.sha256("y\r\n")}  b/a/y.luau`,
+					`{Hash.sha256("z")}  b/z.luau`,
+				}
+				local expected = string.sub(Hash.sha256(table.concat(lines, "\n") .. "\n"), 1, 12)
+				Verify.expect(Rojo.contentFiles(context.root, { "b", "a.json", "missing" }))
+					:toEqual({ "a.json", "b/a/y.luau", "b/z.luau" })
+				Verify.expect(Rojo.contentHash(context.root, { "b", "a.json" }, 12)):toBe(expected)
+			end)
+		end,
+	})
+	harness:case(
+		prefix .. "a generated place keeps StarterPlayer an object and maps the server only for the showcase",
 		{
-			name = "the content hash lists sorted slash paths with their sha256",
-			run = function()
-				return Rule.within({
-					["b/z.luau"] = "z",
-					["b/a/y.luau"] = "y\r\n",
-					["a.json"] = "{}",
-				}, function(context: Rule.Context): string?
-					local lines = {
-						`{Hash.sha256("{}")}  a.json`,
-						`{Hash.sha256("y\r\n")}  b/a/y.luau`,
-						`{Hash.sha256("z")}  b/z.luau`,
-					}
-					local expected = string.sub(Hash.sha256(table.concat(lines, "\n") .. "\n"), 1, 12)
-					return Case.first(
-						Case.same(
-							Rojo.contentFiles(context.root, { "b", "a.json", "missing" }),
-							{ "a.json", "b/a/y.luau", "b/z.luau" }
-						),
-						Case.equal(Rojo.contentHash(context.root, { "b", "a.json" }, 12), expected, "hash")
-					)
-				end)
-			end,
-		},
-		{
-			name = "a generated place keeps StarterPlayer an object and maps the server only for the showcase",
-			run = function()
+			id = prefix .. "a generated place keeps StarterPlayer an object and maps the server only for the showcase",
+			run = function(test: Verify.Context)
 				local plain = Json.encode(world("Plain", { Facet_Example = 0 }, GALLERY))
 				local showcase = Json.encode(world("Showcase", { Facet_Showcase = true }, SHOWCASE, true))
-				return Case.first(
-					Case.expect(string.find(plain, '"StarterPlayer": {}', 1, true) ~= nil, "StarterPlayer is not {}"),
-					Case.expect(
-						string.find(plain, "ServerScriptService", 1, true) == nil,
-						"a plain place maps a server"
-					),
-					Case.expect(
-						string.find(showcase, '"Outpost": {"$path": "gallery/server"}', 1, true) ~= nil,
-						"the showcase does not map gallery/server"
-					),
-					Case.expect(
-						string.find(plain, '"Facet": {"$path": "../src"}', 1, true) ~= nil,
-						"the gallery does not map the library"
-					)
-				)
+				Verify.expect(string.find(plain, '"StarterPlayer": {}', 1, true) ~= nil)
+					:toBeTrueWith("StarterPlayer is not {}")
+				Verify.expect(string.find(plain, "ServerScriptService", 1, true) == nil)
+					:toBeTrueWith("a plain place maps a server")
+				Verify.expect(string.find(showcase, '"Outpost": {"$path": "gallery/server"}', 1, true) ~= nil)
+					:toBeTrueWith("the showcase does not map gallery/server")
+				Verify.expect(string.find(plain, '"Facet": {"$path": "../src"}', 1, true) ~= nil)
+					:toBeTrueWith("the gallery does not map the library")
 			end,
-		},
-		{
-			name = "an unknown target, a stray flag and a malformed --one are usage errors",
-			run = function()
-				local function refuses(arguments: { string }, fragment: string): string?
-					local refused = refusal(invocation(arguments))
-					if refused == nil then
-						return `build {table.concat(arguments, " ")} was accepted`
-					end
-					return Case.expect(
-						string.find(refused, fragment, 1, true) ~= nil,
-						`build {table.concat(arguments, " ")} refused with '{refused}'`
-					)
+		}
+	)
+	harness:case(prefix .. "an unknown target, a stray flag and a malformed --one are usage errors", {
+		id = prefix .. "an unknown target, a stray flag and a malformed --one are usage errors",
+		run = function(test: Verify.Context)
+			local function refuses(arguments: { string }, fragment: string): ()
+				local refused = refusal(invocation(arguments))
+				if refused == nil then
+					error(`build {table.concat(arguments, " ")} was accepted`, 0)
 				end
-				local function accepts(arguments: { string }): string?
-					local refused = refusal(invocation(arguments))
-					return Case.expect(refused == nil, `build {table.concat(arguments, " ")} was refused: {refused}`)
-				end
-				return Case.first(
-					refuses({}, "usage: lute run tools/facet build <target>"),
-					refuses({ "everything" }, "usage: lute run tools/facet build <target>"),
-					refuses({ "lab", "--publisher" }, "unknown flags --publisher"),
-					refuses({ "home", "extra" }, "unexpected argument 'extra'"),
-					refuses({ "themes", "--one", "a.luau" }, "--one <source.luau> <Name> <output.rbxm>"),
-					refuses({ "themes", "extra" }, "expected no arguments, or --one"),
-					refuses({ "model", "build/Facet.zip" }, "must end in .rbxm or .rbxmx"),
-					refuses({ "model", "a.rbxm", "b.rbxm" }, "build model [output] [--publisher]"),
-					accepts({ "themes" }),
-					accepts({ "themes", "--one", "a.luau", "A", "a.rbxm" }),
-					accepts({ "model" }),
-					accepts({ "model", "build/Other.rbxmx", "--publisher" })
-				)
-			end,
-		},
-		{
-			name = "a missing theme module is refused before rojo runs",
-			run = function()
-				local outcome = ThemeBuilds.one(".", "examples/themes/does_not_exist.luau", "Missing", "build/x.rbxm")
-				return Case.first(
-					Case.expect(not outcome.ok, "the missing module was accepted"),
-					Case.expect(
-						string.find(outcome.message, "no such theme module", 1, true) ~= nil,
-						"the refusal does not name the module"
-					)
-				)
-			end,
-		},
-		{
-			name = "the theme enumerator listing parses module and artifact columns",
-			run = function()
-				local listed =
-					ThemeBuilds.parseListing("classic_desktop\tClassicDesktop\r\nnoise\n\nscifi_hud\tScifiHud\n")
-				return Case.first(
-					Case.equal(#listed, 2, "entries"),
-					Case.equal(listed[1] and listed[1].artifact, "ClassicDesktop", "first"),
-					Case.equal(listed[2] and listed[2].module, "scifi_hud", "second")
-				)
-			end,
-		},
-	}
-	for _, case in LabBoundary.cases() do
-		table.insert(list, { name = "lab boundary: " .. case.name, run = case.run })
-	end
-	return list
+				Verify.expect(string.find(refused, fragment, 1, true) ~= nil)
+					:toBeTrueWith(`build {table.concat(arguments, " ")} refused with '{refused}'`)
+			end
+			local function accepts(arguments: { string }): ()
+				local refused = refusal(invocation(arguments))
+				Verify.expect(refused == nil)
+					:toBeTrueWith(`build {table.concat(arguments, " ")} was refused: {refused}`)
+			end
+			refuses({}, "usage: lute run tools/facet build <target>")
+			refuses({ "everything" }, "usage: lute run tools/facet build <target>")
+			refuses({ "lab", "--publisher" }, "unknown flags --publisher")
+			refuses({ "home", "extra" }, "unexpected argument 'extra'")
+			refuses({ "themes", "--one", "a.luau" }, "--one <source.luau> <Name> <output.rbxm>")
+			refuses({ "themes", "extra" }, "expected no arguments, or --one")
+			refuses({ "model", "build/Facet.zip" }, "must end in .rbxm or .rbxmx")
+			refuses({ "model", "a.rbxm", "b.rbxm" }, "build model [output] [--publisher]")
+			accepts({ "themes" })
+			accepts({ "themes", "--one", "a.luau", "A", "a.rbxm" })
+			accepts({ "model" })
+			accepts({ "model", "build/Other.rbxmx", "--publisher" })
+		end,
+	})
+	harness:case(prefix .. "a missing theme module is refused before rojo runs", {
+		id = prefix .. "a missing theme module is refused before rojo runs",
+		run = function(test: Verify.Context)
+			local outcome = ThemeBuilds.one(".", "examples/themes/does_not_exist.luau", "Missing", "build/x.rbxm")
+			Verify.expect(not outcome.ok):toBeTrueWith("the missing module was accepted")
+			Verify.expect(string.find(outcome.message, "no such theme module", 1, true) ~= nil)
+				:toBeTrueWith("the refusal does not name the module")
+		end,
+	})
+	harness:case(prefix .. "the theme enumerator listing parses module and artifact columns", {
+		id = prefix .. "the theme enumerator listing parses module and artifact columns",
+		run = function(test: Verify.Context)
+			local listed = ThemeBuilds.parseListing("classic_desktop\tClassicDesktop\r\nnoise\n\nscifi_hud\tScifiHud\n")
+			Verify.expect(#listed):toBe(2)
+			Verify.expect(listed[1] and listed[1].artifact):toBe("ClassicDesktop")
+			Verify.expect(listed[2] and listed[2].module):toBe("scifi_hud")
+		end,
+	})
+	LabBoundary.register(harness, prefix .. "lab boundary: ")
 end
 
 local command: Cli.Command = {
 	name = "build",
 	summary = "Build places, reference places, themes, the model, the lab, home, or the designer.",
 	usage = USAGE,
-	cases = cases,
+	register = register,
 	run = run,
 }
 

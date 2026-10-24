@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Rule = require("../lib/rule")
@@ -528,157 +528,139 @@ local function check(context: Rule.Context): { string }
 	return inspect(context).failures
 end
 
-local function probe(body: string, path: string?): Report
+local function probe(test: Verify.Context, body: string, path: string?): Report
 	local relative = path or "docs/guide/style_probe_tmp.md"
 	local report: Report = { failures = {}, warnings = {} }
-	local failure = Rule.within({ [relative] = "# Probe\n\n" .. body }, function(context)
+	Rule.within(test, { [relative] = "# Probe\n\n" .. body }, function(context)
 		report = inspect(context)
-		return nil
+		return
 	end)
-	if failure ~= nil then
-		error(failure)
-	end
 	return report
 end
 
-local function reports(body: string, fragment: string, path: string?): string?
-	local failures = probe(body, path).failures
-	if Rule.contains(failures, fragment) then
-		return nil
-	end
-	return ("expected a finding with '%s', got %s"):format(fragment, Rule.describe(failures))
+local function reports(test: Verify.Context, body: string, fragment: string, path: string?)
+	Verify.expect(table.concat(probe(test, body, path).failures, "\n")):toContain(fragment)
 end
 
-local function passes(body: string, path: string?): string?
-	local failures = probe(body, path).failures
-	if #failures == 0 then
-		return nil
-	end
-	return "expected no findings, got " .. Rule.describe(failures)
+local function passes(test: Verify.Context, body: string, path: string?)
+	Verify.expect(probe(test, body, path).failures):toEqual({})
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "an over-long numbered step is reported",
-			run = function()
-				return reports(
-					"1. Open the place file, then find the client script, then read the mount call, then change the theme name, then save it and publish.\n",
-					"numbered step is"
-				)
-			end,
-		},
-		{
-			name = "an unexpanded acronym is reported",
-			run = function()
-				return reports("Turn on IAS before you mount anything.\n", "acronym 'IAS'")
-			end,
-		},
-		{
-			name = "an acronym expanded at its first use passes",
-			run = function()
-				return passes("Turn on the Input Action System (IAS) first. Then IAS reads each binding.\n")
-			end,
-		},
-		{
-			name = "an acronym expanded only after its first use is reported",
-			run = function()
-				return reports(
-					"Turn on IAS first.\n\nThe Input Action System (IAS) reads each binding.\n",
-					"probe_tmp.md:3: acronym 'IAS'"
-				)
-			end,
-		},
-		{
-			name = "a bare artifact row ID is reported",
-			run = function()
-				return reports(
-					"This behaviour is pinned by row TP-A12 in the ledger.\n",
-					"'TP-A12' is internal shorthand"
-				)
-			end,
-		},
-		{
-			name = "a bare contract ID is reported",
-			run = function()
-				return reports("The contract themes-P5-41 still fails.\n", "'P5' is internal shorthand")
-			end,
-		},
-		{
-			name = "a date literal in a guide chapter is reported",
-			run = function()
-				return reports(
-					"The default flipped on 2026-08-21 and has stayed that way.\n",
-					"'2026-08-21' " .. EM_DASH .. " a date literal dates the page"
-				)
-			end,
-		},
-		{
-			name = "an internal reviewer named in a guide chapter is reported",
-			run = function()
-				return reports(
-					"The Director asked for the taller row, so the theme grew one.\n",
-					"'Director' " .. EM_DASH .. " names an internal reviewer"
-				)
-			end,
-		},
-		{
-			name = "archaeology outside the guide and in an exempt chapter passes",
-			run = function()
-				return passes("The default flipped on 2026-08-21.\n", "docs/extending/probe.md")
-					or passes("The default flipped on 2026-08-21.\n", "docs/guide/device-verification.md")
-			end,
-		},
-		{
-			name = "an identifier in inline code passes",
-			run = function()
-				return passes("The contract `themes-P5-41` and the blocker `B1` still fail.\n")
-			end,
-		},
-		{
-			name = "a standard text encoding and an allowed key name pass",
-			run = function()
-				return passes("The tool reads each file as UTF-8 text. Press L1 or F10.\n")
-			end,
-		},
-		{
-			name = "text in a code fence, a link target and a comment passes",
-			run = function()
-				return passes(
-					"```\nTurn on IAS at 2026-01-01 with TP-A12.\n```\n\nRead [the page](docs/TP-A12.md). <!-- IAS -->\n"
-				)
-			end,
-		},
-		{
-			name = "an over-long sentence and passive voice are warnings, not findings",
-			run = function()
-				local long = string.rep("word ", 30) .. "end."
-				local report = probe(long .. " The value is quickly computed. It was used.\n")
-				return Case.first(
-					Case.expect(#report.failures == 0, "expected no findings, got " .. Rule.describe(report.failures)),
-					Case.expect(
-						Rule.contains(report.warnings, "probe_tmp.md:3: sentence is 31 words"),
-						"the long sentence was not a warning: " .. Rule.describe(report.warnings)
-					),
-					Case.expect(
-						Rule.contains(report.warnings, "likely passive voice: 'is quickly computed'"),
-						"the passive phrase was not a warning: " .. Rule.describe(report.warnings)
-					),
-					Case.expect(
-						not Rule.contains(report.warnings, "'was used'"),
-						"a skipped participle was a warning: " .. Rule.describe(report.warnings)
-					)
-				)
-			end,
-		},
-		{
-			name = "CRLF line endings report the same lines as LF",
-			run = function()
-				local body = "Line one.\r\n\r\nTurn on IAS before you mount anything.\r\n"
-				return reports(body, "probe_tmp.md:5: acronym 'IAS'")
-			end,
-		},
-	}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "an over-long numbered step is reported", {
+		id = prefix .. "an over-long numbered step is reported",
+		run = function(test: Verify.Context)
+			reports(
+				test,
+				"1. Open the place file, then find the client script, then read the mount call, then change the theme name, then save it and publish.\n",
+				"numbered step is"
+			)
+		end,
+	})
+	harness:case(prefix .. "an unexpanded acronym is reported", {
+		id = prefix .. "an unexpanded acronym is reported",
+		run = function(test: Verify.Context)
+			reports(test, "Turn on IAS before you mount anything.\n", "acronym 'IAS'")
+		end,
+	})
+	harness:case(prefix .. "an acronym expanded at its first use passes", {
+		id = prefix .. "an acronym expanded at its first use passes",
+		run = function(test: Verify.Context)
+			passes(test, "Turn on the Input Action System (IAS) first. Then IAS reads each binding.\n")
+		end,
+	})
+	harness:case(prefix .. "an acronym expanded only after its first use is reported", {
+		id = prefix .. "an acronym expanded only after its first use is reported",
+		run = function(test: Verify.Context)
+			reports(
+				test,
+				"Turn on IAS first.\n\nThe Input Action System (IAS) reads each binding.\n",
+				"probe_tmp.md:3: acronym 'IAS'"
+			)
+		end,
+	})
+	harness:case(prefix .. "a bare artifact row ID is reported", {
+		id = prefix .. "a bare artifact row ID is reported",
+		run = function(test: Verify.Context)
+			reports(test, "This behaviour is pinned by row TP-A12 in the ledger.\n", "'TP-A12' is internal shorthand")
+		end,
+	})
+	harness:case(prefix .. "a bare contract ID is reported", {
+		id = prefix .. "a bare contract ID is reported",
+		run = function(test: Verify.Context)
+			reports(test, "The contract themes-P5-41 still fails.\n", "'P5' is internal shorthand")
+		end,
+	})
+	harness:case(prefix .. "a date literal in a guide chapter is reported", {
+		id = prefix .. "a date literal in a guide chapter is reported",
+		run = function(test: Verify.Context)
+			reports(
+				test,
+				"The default flipped on 2026-08-21 and has stayed that way.\n",
+				"'2026-08-21' " .. EM_DASH .. " a date literal dates the page"
+			)
+		end,
+	})
+	harness:case(prefix .. "an internal reviewer named in a guide chapter is reported", {
+		id = prefix .. "an internal reviewer named in a guide chapter is reported",
+		run = function(test: Verify.Context)
+			reports(
+				test,
+				"The Director asked for the taller row, so the theme grew one.\n",
+				"'Director' " .. EM_DASH .. " names an internal reviewer"
+			)
+		end,
+	})
+	harness:case(prefix .. "archaeology outside the guide and in an exempt chapter passes", {
+		id = prefix .. "archaeology outside the guide and in an exempt chapter passes",
+		run = function(test: Verify.Context)
+			passes(test, "The default flipped on 2026-08-21.\n", "docs/extending/probe.md")
+			passes(test, "The default flipped on 2026-08-21.\n", "docs/guide/device-verification.md")
+		end,
+	})
+	harness:case(prefix .. "an identifier in inline code passes", {
+		id = prefix .. "an identifier in inline code passes",
+		run = function(test: Verify.Context)
+			passes(test, "The contract `themes-P5-41` and the blocker `B1` still fail.\n")
+		end,
+	})
+	harness:case(prefix .. "a standard text encoding and an allowed key name pass", {
+		id = prefix .. "a standard text encoding and an allowed key name pass",
+		run = function(test: Verify.Context)
+			passes(test, "The tool reads each file as UTF-8 text. Press L1 or F10.\n")
+		end,
+	})
+	harness:case(prefix .. "text in a code fence, a link target and a comment passes", {
+		id = prefix .. "text in a code fence, a link target and a comment passes",
+		run = function(test: Verify.Context)
+			passes(
+				test,
+				"```\nTurn on IAS at 2026-01-01 with TP-A12.\n```\n\nRead [the page](docs/TP-A12.md). <!-- IAS -->\n"
+			)
+		end,
+	})
+	harness:case(prefix .. "an over-long sentence and passive voice are warnings, not findings", {
+		id = prefix .. "an over-long sentence and passive voice are warnings, not findings",
+		run = function(test: Verify.Context)
+			local long = string.rep("word ", 30) .. "end."
+			local report = probe(test, long .. " The value is quickly computed. It was used.\n")
+			Verify.expect(#report.failures == 0)
+				:toBeTrueWith("expected no findings, got " .. Rule.describe(report.failures))
+			Verify.expect(Rule.contains(report.warnings, "probe_tmp.md:3: sentence is 31 words"))
+				:toBeTrueWith("the long sentence was not a warning: " .. Rule.describe(report.warnings))
+			Verify.expect(Rule.contains(report.warnings, "likely passive voice: 'is quickly computed'"))
+				:toBeTrueWith("the passive phrase was not a warning: " .. Rule.describe(report.warnings))
+			Verify.expect(not Rule.contains(report.warnings, "'was used'"))
+				:toBeTrueWith("a skipped participle was a warning: " .. Rule.describe(report.warnings))
+		end,
+	})
+	harness:case(prefix .. "CRLF line endings report the same lines as LF", {
+		id = prefix .. "CRLF line endings report the same lines as LF",
+		run = function(test: Verify.Context)
+			local body = "Line one.\r\n\r\nTurn on IAS before you mount anything.\r\n"
+			reports(test, body, "probe_tmp.md:5: acronym 'IAS'")
+		end,
+	})
 end
 
 local actions: { [string]: Rule.Action } = {}
@@ -687,7 +669,7 @@ local rule: Rule.Rule = {
 	name = "doc-style",
 	summary = "The guide, playbooks, README and maintainer map follow the documentation style rules.",
 	check = check,
-	cases = cases,
+	register = register,
 	actions = actions,
 }
 

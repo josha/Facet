@@ -1,6 +1,6 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
-local Case = require("../lib/case")
 local Files = require("../lib/files")
 local Rule = require("../lib/rule")
 local ScenarioRequires = require("../lib/scenario_requires")
@@ -53,128 +53,121 @@ local function fixture(): { [string]: string }
 	}
 end
 
-local function within(edit: (({ [string]: string }) -> ())?, body: (Rule.Context) -> string?): string?
+local function within(test: Verify.Context, edit: (({ [string]: string }) -> ())?, body: (Rule.Context) -> ()): ()
 	local files = fixture()
 	if edit ~= nil then
 		edit(files)
 	end
-	return Rule.within(files, body)
+	Rule.within(test, files, body)
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "the clean fixture passes and counts each relative module-scope require",
-			run = function()
-				return within(nil, function(context)
-					local result = inspect(context)
-					return Case.first(
-						Case.same(check(context), {}),
-						Case.equal(result.counts.files, 12, "files"),
-						Case.equal(result.counts.requiresChecked, 6, "requires")
-					)
-				end)
-			end,
-		},
-		{
-			name = "an injected line is scanned once per require",
-			run = function()
-				return within(nil, function(context)
-					local base = inspect(context).counts.requiresChecked
-					local injected = inspect(context, {
-						injectFile = SCENARIO,
-						injectLine = 'local first = require("./common")\nlocal second = require("./common")',
-					})
-					return Case.first(
-						Case.equal(injected.counts.requiresChecked, base + 2, "requires"),
-						Case.expect(injected.ok, "the injected requires resolve")
-					)
-				end)
-			end,
-		},
-		{
-			name = "a module-scope escape above the instance root is reported",
-			run = function()
-				return within(nil, function(context)
-					local result = inspect(context, {
-						injectFile = SCENARIO,
-						injectLine = 'local mutationProbe = require("../../../src/tokens/chrome_slots")',
-					})
-					local found = false
-					for _, violation in result.violations do
-						if violation.file == SCENARIO and violation.require == "../../../src/tokens/chrome_slots" then
-							found = string.find(violation.reason, "could not get parent", 1, true) ~= nil
-						end
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "the clean fixture passes and counts each relative module-scope require", {
+		id = prefix .. "the clean fixture passes and counts each relative module-scope require",
+		run = function(test: Verify.Context)
+			within(test, nil, function(context)
+				local result = inspect(context)
+				Verify.expect(check(context)):toEqual({})
+				Verify.expect(result.counts.files):toBe(12)
+				Verify.expect(result.counts.requiresChecked):toBe(6)
+			end)
+		end,
+	})
+	harness:case(prefix .. "an injected line is scanned once per require", {
+		id = prefix .. "an injected line is scanned once per require",
+		run = function(test: Verify.Context)
+			within(test, nil, function(context)
+				local base = inspect(context).counts.requiresChecked
+				local injected = inspect(context, {
+					injectFile = SCENARIO,
+					injectLine = 'local first = require("./common")\nlocal second = require("./common")',
+				})
+				Verify.expect(injected.counts.requiresChecked):toBe(base + 2)
+				Verify.expect(injected.ok):toBeTrueWith("the injected requires resolve")
+			end)
+		end,
+	})
+	harness:case(prefix .. "a module-scope escape above the instance root is reported", {
+		id = prefix .. "a module-scope escape above the instance root is reported",
+		run = function(test: Verify.Context)
+			within(test, nil, function(context)
+				local result = inspect(context, {
+					injectFile = SCENARIO,
+					injectLine = 'local mutationProbe = require("../../../src/tokens/chrome_slots")',
+				})
+				local found = false
+				for _, violation in result.violations do
+					if violation.file == SCENARIO and violation.require == "../../../src/tokens/chrome_slots" then
+						found = string.find(violation.reason, "could not get parent", 1, true) ~= nil
 					end
-					return Case.expect(not result.ok and found, "the escape was not reported")
-				end)
-			end,
-		},
-		{
-			name = "a relative require to a missing instance is reported",
-			run = function()
-				return within(function(files)
-					files[SCENARIO] = 'local gone = require("./gone")\nreturn gone\n'
-				end, function(context)
-					return Case.same(check(context), {
-						SCENARIO
-							.. " (ReplicatedStorage.FacetScenarios.adaptive_controls): require(\"./gone\") \u{2014} resolves to 'ReplicatedStorage.FacetScenarios.gone', which does not exist in the Studio instance tree",
-					})
-				end)
-			end,
-		},
-		{
-			name = "the dual-route idiom inside a function is not reported",
-			run = function()
-				return within(nil, function(context)
-					local result = inspect(context, {
-						injectFile = SCENARIO,
-						injectLine = 'local function mutationProbe()\n\tlocal ok, mod = pcall(function()\n\t\treturn require("../../../src/tokens/chrome_slots")\n\tend)\n\treturn ok and mod or nil\nend',
-					})
-					return Case.expect(result.ok, "the indented require was reported")
-				end)
-			end,
-		},
-		{
-			name = "a require with no relative path component is never flagged",
-			run = function()
-				return within(nil, function(context)
-					local result = inspect(context, {
-						injectFile = SCENARIO,
-						injectLine = 'local mutationProbe = require(game:GetService("ReplicatedStorage").Facet.tokens.chrome_slots)',
-					})
-					return Case.expect(result.ok, "a non-relative require was reported")
-				end)
-			end,
-		},
-		{
-			name = "CRLF line endings and a missing mapped file are handled",
-			run = function()
-				return within(function(files)
-					files[SCENARIO] = 'local gone = require("./gone")\r\nreturn gone\r\n'
-					files["examples/consumer/src/screen.luau"] = nil
-				end, function(context)
-					local findings = check(context)
-					return Case.expect(
-						#findings == 2
-							and Rule.contains(findings, "which does not exist in the Studio instance tree")
-							and Rule.contains(
-								findings,
-								"examples/consumer/src/screen.luau (ReplicatedStorage.FacetConsumerScreen)"
-							),
-						"expected the dead require and the missing file, got " .. Rule.describe(findings)
-					)
-				end)
-			end,
-		},
-	}
+				end
+				Verify.expect(not result.ok and found):toBeTrueWith("the escape was not reported")
+			end)
+		end,
+	})
+	harness:case(prefix .. "a relative require to a missing instance is reported", {
+		id = prefix .. "a relative require to a missing instance is reported",
+		run = function(test: Verify.Context)
+			within(test, function(files)
+				files[SCENARIO] = 'local gone = require("./gone")\nreturn gone\n'
+			end, function(context)
+				Verify.expect(check(context)):toEqual({
+					SCENARIO
+						.. " (ReplicatedStorage.FacetScenarios.adaptive_controls): require(\"./gone\") \u{2014} resolves to 'ReplicatedStorage.FacetScenarios.gone', which does not exist in the Studio instance tree",
+				})
+			end)
+		end,
+	})
+	harness:case(prefix .. "the dual-route idiom inside a function is not reported", {
+		id = prefix .. "the dual-route idiom inside a function is not reported",
+		run = function(test: Verify.Context)
+			within(test, nil, function(context)
+				local result = inspect(context, {
+					injectFile = SCENARIO,
+					injectLine = 'local function mutationProbe()\n\tlocal ok, mod = pcall(function()\n\t\treturn require("../../../src/tokens/chrome_slots")\n\tend)\n\treturn ok and mod or nil\nend',
+				})
+				Verify.expect(result.ok):toBeTrueWith("the indented require was reported")
+			end)
+		end,
+	})
+	harness:case(prefix .. "a require with no relative path component is never flagged", {
+		id = prefix .. "a require with no relative path component is never flagged",
+		run = function(test: Verify.Context)
+			within(test, nil, function(context)
+				local result = inspect(context, {
+					injectFile = SCENARIO,
+					injectLine = 'local mutationProbe = require(game:GetService("ReplicatedStorage").Facet.tokens.chrome_slots)',
+				})
+				Verify.expect(result.ok):toBeTrueWith("a non-relative require was reported")
+			end)
+		end,
+	})
+	harness:case(prefix .. "CRLF line endings and a missing mapped file are handled", {
+		id = prefix .. "CRLF line endings and a missing mapped file are handled",
+		run = function(test: Verify.Context)
+			within(test, function(files)
+				files[SCENARIO] = 'local gone = require("./gone")\r\nreturn gone\r\n'
+				files["examples/consumer/src/screen.luau"] = nil
+			end, function(context)
+				local findings = check(context)
+				Verify.expect(
+					#findings == 2
+						and Rule.contains(findings, "which does not exist in the Studio instance tree")
+						and Rule.contains(
+							findings,
+							"examples/consumer/src/screen.luau (ReplicatedStorage.FacetConsumerScreen)"
+						)
+				):toBeTrueWith("expected the dead require and the missing file, got " .. Rule.describe(findings))
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "scenario-requires",
 	summary = "Every module-scope relative require in the gallery, scenarios and reference apps resolves in the Studio tree.",
 	check = check,
-	cases = cases,
+	register = register,
 }
 
 return rule

@@ -1,6 +1,6 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Luau = require("../lib/luau")
@@ -828,140 +828,127 @@ local BASELINE_PINS: { Pin } = {
 	{ path = "examples/gallery/scenarios/keys.luau", count = 1, reason = "the fixture owns one Return binding" },
 }
 
-local function cases(): { Rule.Case }
-	local built: { Rule.Case } = {}
+local function register(harness: Verify.Harness, prefix: string): ()
 	for _, expectation in LEXER_CASES do
-		table.insert(built, {
-			name = "lexer: " .. expectation.name,
-			run = function()
+		harness:case(prefix .. ("lexer: " .. expectation.name), {
+			id = prefix .. ("lexer: " .. expectation.name),
+			run = function(test: Verify.Context)
 				local blanked = blankComments(expectation.source)
 				local _, sourceLines = string.gsub(expectation.source, "\n", "")
 				local _, blankedLines = string.gsub(blanked, "\n", "")
-				return Case.first(
-					Case.equal(serviceSeen(expectation.source, true), expectation.expected, "the text scan"),
-					Case.equal(serviceSeen(expectation.source), expectation.expected, "the parse-or-scan path"),
-					Case.equal(#blanked, #expectation.source, "the blanked length"),
-					Case.equal(blankedLines, sourceLines, "the blanked line count")
-				)
+				Verify.expect(serviceSeen(expectation.source, true)):toBe(expectation.expected)
+				Verify.expect(serviceSeen(expectation.source)):toBe(expectation.expected)
+				Verify.expect(#blanked):toBe(#expectation.source)
+				Verify.expect(blankedLines):toBe(sourceLines)
 			end,
 		})
 	end
 	for _, expectation in RULE_CASES do
-		table.insert(built, {
-			name = "rule: " .. expectation.name,
-			run = function()
+		harness:case(prefix .. ("rule: " .. expectation.name), {
+			id = prefix .. ("rule: " .. expectation.name),
+			run = function(test: Verify.Context)
 				local parsed = Luau.parse(expectation.source)
-				return Case.first(
-					Rule.expect(parsed ~= nil, "the case source must parse"),
-					Case.equal(red(expectation.source), expectation.expected, "the syntax tree"),
-					Case.equal(red(expectation.source, true), expectation.expected, "the text scan")
-				)
+				Verify.expect(parsed ~= nil):toBeTrueWith("the case source must parse")
+				Verify.expect(red(expectation.source)):toBe(expectation.expected)
+				Verify.expect(red(expectation.source, true)):toBe(expectation.expected)
 			end,
 		})
 	end
 	for _, expectation in SITE_CASES do
-		table.insert(built, {
-			name = "site: " .. expectation.name,
-			run = function()
-				return Case.first(
-					Case.equal(detect(expectation.source, true).sites, expectation.expected, "the syntax tree"),
-					Case.equal(detect(expectation.source, true, true).sites, expectation.expected, "the text scan")
-				)
+		harness:case(prefix .. ("site: " .. expectation.name), {
+			id = prefix .. ("site: " .. expectation.name),
+			run = function(test: Verify.Context)
+				Verify.expect(detect(expectation.source, true).sites):toBe(expectation.expected)
+				Verify.expect(detect(expectation.source, true, true).sites):toBe(expectation.expected)
 			end,
 		})
 	end
-	table.insert(built, {
-		name = "the read-only probe may name the service but not bind",
-		run = function()
-			return Rule.within({
+	harness:case(prefix .. "the read-only probe may name the service but not bind", {
+		id = prefix .. "the read-only probe may name the service but not bind",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
 				["src/ui/gamepad_contention.luau"] = '--!strict\nlocal cas = game:GetService("ContextActionService")\ncas:BindAction("x", f, false)\nreturn cas\n',
 			}, function(context)
-				return Case.same(scan(context, {}), {
+				Verify.expect(scan(context, {})):toEqual({
 					"src/ui/gamepad_contention.luau:3: BindAction `:BindAction(` (ContextActionService binding is a second input system)",
 				})
 			end)
 		end,
 	})
-	table.insert(built, {
-		name = "Facet sources may read key codes but not create input Instances",
-		run = function()
-			return Rule.within({
+	harness:case(prefix .. "Facet sources may read key codes but not create input Instances", {
+		id = prefix .. "Facet sources may read key codes but not create input Instances",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
 				["src/ui/field.luau"] = '--!strict\nlocal k = input.KeyCode\nlocal b = types.Instance.new("InputContext")\n',
 			}, function(context)
-				return Case.same(scan(context, {}), {
+				Verify.expect(scan(context, {})):toEqual({
 					'src/ui/field.luau:3: raw input Instance `Instance.new("InputContext")` (Compose owns input Instances through the host constructors)',
 				})
 			end)
 		end,
 	})
-	table.insert(built, {
-		name = "snippet labels and lines point at the Markdown line",
-		run = function()
-			return Rule.within({
+	harness:case(prefix .. "snippet labels and lines point at the Markdown line", {
+		id = prefix .. "snippet labels and lines point at the Markdown line",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
 				["docs/guide/keys.md"] = "# Keys\n\n```luau\n\nlocal a = 1\nlocal k = input.KeyCode\n```\n\n```lua\nif input.KeyCode then\n```\n",
 			}, function(context)
-				return Case.same(scan(context, {}), {
+				Verify.expect(scan(context, {})):toEqual({
 					"docs/guide/keys.md+3:3: key read `input.KeyCode` (a screen inspects raw key codes itself)",
 					"docs/guide/keys.md+8:2: key read `input.KeyCode` (a screen inspects raw key codes itself)",
 				})
 			end)
 		end,
 	})
-	table.insert(built, {
-		name = "the fixture baseline is clean",
-		run = function()
-			return Rule.within(BASELINE, function(context)
-				return Case.same(scan(context, BASELINE_PINS), {})
+	harness:case(prefix .. "the fixture baseline is clean", {
+		id = prefix .. "the fixture baseline is clean",
+		run = function(test: Verify.Context)
+			Rule.within(test, BASELINE, function(context)
+				Verify.expect(scan(context, BASELINE_PINS)):toEqual({})
 			end)
 		end,
 	})
 	for _, plant in PLANTS do
-		table.insert(built, {
-			name = "plant: " .. plant.name,
-			run = function()
+		harness:case(prefix .. ("plant: " .. plant.name), {
+			id = prefix .. ("plant: " .. plant.name),
+			run = function(test: Verify.Context)
 				local files = table.clone(BASELINE)
 				files[plant.path] = plant.content
-				return Rule.within(files, function(context)
+				Rule.within(test, files, function(context)
 					local findings = scan(context, BASELINE_PINS)
-					return Rule.expect(
-						Rule.contains(findings, plant.path),
-						("the plant stayed green: %s"):format(Rule.describe(findings))
-					)
+					Verify.expect(Rule.contains(findings, plant.path))
+						:toBeTrueWith(("the plant stayed green: %s"):format(Rule.describe(findings)))
 				end)
 			end,
 		})
 	end
-	table.insert(built, {
-		name = "pins must match their sites",
-		run = function()
-			return Rule.within(BASELINE, function(context)
-				return Case.same(
-					scan(context, {
-						{ path = "examples/gallery/scenarios/keys.luau", count = 2, reason = "two bindings" },
-						{ path = "examples/gone.luau", count = 1, reason = "a removed screen" },
-						{ path = "examples/empty.luau", count = 0, reason = " " },
-					}),
-					{
-						"examples/gallery/scenarios/keys.luau: 1 InputBinding declaration site(s); the pin records 2",
-						"examples/empty.luau: pinned InputBinding sites are gone; remove the stale pin",
-						"examples/gone.luau: pinned InputBinding sites are gone; remove the stale pin",
-						"examples/empty.luau: every pin needs a positive count and a reason",
-					}
-				)
+	harness:case(prefix .. "pins must match their sites", {
+		id = prefix .. "pins must match their sites",
+		run = function(test: Verify.Context)
+			Rule.within(test, BASELINE, function(context)
+				Verify.expect(scan(context, {
+					{ path = "examples/gallery/scenarios/keys.luau", count = 2, reason = "two bindings" },
+					{ path = "examples/gone.luau", count = 1, reason = "a removed screen" },
+					{ path = "examples/empty.luau", count = 0, reason = " " },
+				})):toEqual({
+					"examples/gallery/scenarios/keys.luau: 1 InputBinding declaration site(s); the pin records 2",
+					"examples/empty.luau: pinned InputBinding sites are gone; remove the stale pin",
+					"examples/gone.luau: pinned InputBinding sites are gone; remove the stale pin",
+					"examples/empty.luau: every pin needs a positive count and a reason",
+				})
 			end)
 		end,
 	})
-	table.insert(built, {
-		name = "an unpinned site is reported with its count",
-		run = function()
-			return Rule.within(BASELINE, function(context)
-				return Case.same(scan(context, {}), {
+	harness:case(prefix .. "an unpinned site is reported with its count", {
+		id = prefix .. "an unpinned site is reported with its count",
+		run = function(test: Verify.Context)
+			Rule.within(test, BASELINE, function(context)
+				Verify.expect(scan(context, {})):toEqual({
 					"examples/gallery/scenarios/keys.luau: 1 unpinned InputBinding declaration site(s); a screen claims keys without an approved pin",
 				})
 			end)
 		end,
 	})
-	return built
 end
 
 local function report(context: Rule.Context, _invocation: Cli.Invocation): number
@@ -984,7 +971,7 @@ local rule: Rule.Rule = {
 	name = "screen-key-bindings",
 	summary = "Screens reach keys only through Facet controls or a pinned native InputContext declaration.",
 	check = check,
-	cases = cases,
+	register = register,
 	actions = {
 		snippets = {
 			summary = "Count the teaching snippets that parse and the ones that use the text scan.",

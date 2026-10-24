@@ -1,8 +1,8 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local ConsumerTypes = require("../lib/consumer_types")
 local Analyzer = require("../lib/analyzer")
-local Case = require("../lib/case")
 local DocsIndex = require("../lib/docs_index")
 local Files = require("../lib/files")
 local Json = require("../lib/json")
@@ -87,34 +87,33 @@ return {
 	name = "docs-samples",
 	summary = "Type-check every recipe and control card sample with the consumer verifier settings.",
 	check = check,
-	cases = function(): { Rule.Case }
-		return {
+	register = function(harness: Verify.Harness, prefix: string): ()
+		harness:case(
+			prefix .. "the consumer analyzer accepts a typed sample and rejects a scalar fault at its Markdown line",
 			{
-				name = "the consumer analyzer accepts a typed sample and rejects a scalar fault at its Markdown line",
-				run = function(): string?
-					return Rule.within({
+				id = prefix
+					.. "the consumer analyzer accepts a typed sample and rejects a scalar fault at its Markdown line",
+				run = function(test: Verify.Context): ()
+					Rule.within(test, {
 						["src/init.luau"] = "--!strict\nreturn {}\n",
 						["docs/reference/nodes/Tasks.sample.md"] = "# Sample\n\nA typed value.\n\n```luau\nlocal value: number = 1\nprint(value)\n```\n",
 					}, function(context)
 						local valid = check(context)
 						if #valid > 0 then
-							return table.concat(valid, "\n")
+							Verify.expect(table.concat(valid, "\n")):toBeNil()
+							return
 						end
 						Files.write(
 							context.path("docs/reference/nodes/Tasks.sample.md"),
 							'# Sample\n\nA typed value.\n\n```luau\nlocal value: number = "wrong"\nprint(value)\n```\n'
 						)
 						local invalid = check(context)
-						return Case.first(
-							Case.equal(#invalid, 1, "scalar fault"),
-							Case.expect(
-								string.find(invalid[1] or "", "Tasks.sample.md:6:", 1, true) ~= nil,
-								"Markdown source location"
-							)
-						)
+						Verify.expect(#invalid):toBe(1)
+						Verify.expect(string.find(invalid[1] or "", "Tasks.sample.md:6:", 1, true) ~= nil)
+							:toBeTrueWith("Markdown source location")
 					end)
 				end,
-			},
-		}
+			}
+		)
 	end,
 } :: Rule.Rule

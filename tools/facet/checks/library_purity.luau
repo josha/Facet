@@ -1,4 +1,5 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
@@ -300,23 +301,17 @@ local function syntheticModel(themesSource: string, stamp: boolean): string
 	}, "\n")
 end
 
-local function withSourceCopy(plant: (string) -> string, body: ({ string }) -> string?): string?
+local function withSourceCopy(test: Verify.Context, plant: (string) -> string, body: ({ string }) -> ())
 	local work = Files.temporaryDirectory("facet-purity-selftest-")
-	local ok, result = pcall(function(): string?
-		local copy = Files.join(work, "src")
-		Files.copyTree("src", copy)
-		local target = Files.join(copy, PLANT_TARGET)
-		if not Files.isFile(target) then
-			return ("the plant target src/%s does not exist"):format(PLANT_TARGET)
-		end
-		Files.write(target, plant(Files.read(target)))
-		return body(inspect({ root = ".", source = copy, themes = "examples/themes", build = false }))
+	test:defer(function()
+		Files.remove(work)
 	end)
-	Files.remove(work)
-	if not ok then
-		return "raised: " .. tostring(result)
-	end
-	return result
+	local copy = Files.join(work, "src")
+	Files.copyTree("src", copy)
+	local target = Files.join(copy, PLANT_TARGET)
+	Verify.expect(Files.isFile(target)):toBeTrueWith("the plant target src/" .. PLANT_TARGET .. " does not exist")
+	Files.write(target, plant(Files.read(target)))
+	body(inspect({ root = ".", source = copy, themes = "examples/themes", build = false }))
 end
 
 local function matching(problems: { string }, fragment: string): { string }
@@ -329,19 +324,12 @@ local function matching(problems: { string }, fragment: string): { string }
 	return found
 end
 
-local function bites(problems: { string }, fragment: string): string?
-	if #matching(problems, fragment) > 0 then
-		return nil
-	end
-	return ("expected a finding with %q, got: %s"):format(fragment, Rule.describe(problems))
+local function bites(problems: { string }, fragment: string)
+	Verify.expect(table.concat(problems, "\n")):toContain(fragment)
 end
 
-local function exempt(problems: { string }, fragment: string): string?
-	local found = matching(problems, fragment)
-	if #found == 0 then
-		return nil
-	end
-	return "the exemption fired: " .. found[1]
+local function exempt(problems: { string }, fragment: string)
+	Verify.expect(matching(problems, fragment)):toEqual({})
 end
 
 local function afterFirstLine(source: string, line: string): string
@@ -356,119 +344,120 @@ local function themesText(): string
 	return Files.text(Files.join("src", PLANT_TARGET))
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "the library sources are clean",
-			tags = FULL,
-			run = function(): string?
-				local problems = inspect({ root = ".", source = "src", themes = "examples/themes", build = false })
-				return Rule.expect(#problems == 0, "src/ is already red: " .. Rule.describe(problems))
-			end,
-		},
-		{
-			name = "a require of a reference package in src/ bites",
-			tags = FULL,
-			run = function(): string?
-				return withSourceCopy(function(source: string): string
-					return 'local ornate = require("../../examples/themes/fantasy_ornate")\n' .. source
-				end, function(problems: { string }): string?
-					return bites(problems, "names 'fantasy_ornate' in CODE")
-				end)
-			end,
-		},
-		{
-			name = "a package id inside a diagnostic string bites",
-			tags = FULL,
-			run = function(): string?
-				return withSourceCopy(function(source: string): string
-					return afterFirstLine(source, 'local HINT = "copy the pixel-quest package and edit it"')
-				end, function(problems: { string }): string?
-					return bites(problems, "names 'pixel-quest' in CODE")
-				end)
-			end,
-		},
-		{
-			name = "a package id inside a comment is exempt",
-			tags = FULL,
-			run = function(): string?
-				return withSourceCopy(function(source: string): string
-					return "-- measured live under fantasy-ornate at 1.5x: the frame did not move\n" .. source
-				end, function(problems: { string }): string?
-					return exempt(problems, "fantasy-ornate")
-				end)
-			end,
-		},
-		{
-			name = "the pristine model carries only the neutral stamp",
-			run = function(): string?
-				local problems = inspect({
-					root = ".",
-					themes = "examples/themes",
-					model = syntheticModel(themesText(), true),
-					build = false,
-				})
-				return Rule.expect(#problems == 0, "the pristine model is red: " .. Rule.describe(problems))
-			end,
-		},
-		{
-			name = "a second package stamp in the built model bites",
-			run = function(): string?
-				local model = syntheticModel(themesText(), true)
-				local anchor = '<string name="Source">'
-				local start, finish = string.find(model, anchor, 1, true)
-				if start == nil or finish == nil then
-					return "the synthetic model has no Source property"
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "the library sources are clean", {
+		id = prefix .. "the library sources are clean",
+		run = function(test: Verify.Context): ()
+			local problems = inspect({ root = ".", source = "src", themes = "examples/themes", build = false })
+			Verify.expect(#problems == 0):toBeTrueWith("src/ is already red: " .. Rule.describe(problems))
+		end,
+		tags = FULL,
+	})
+	harness:case(prefix .. "a require of a reference package in src/ bites", {
+		id = prefix .. "a require of a reference package in src/ bites",
+		run = function(test: Verify.Context): ()
+			withSourceCopy(test, function(source: string): string
+				return 'local ornate = require("../../examples/themes/fantasy_ornate")\n' .. source
+			end, function(problems: { string }): ()
+				bites(problems, "names 'fantasy_ornate' in CODE")
+				return
+			end)
+		end,
+		tags = FULL,
+	})
+	harness:case(prefix .. "a package id inside a diagnostic string bites", {
+		id = prefix .. "a package id inside a diagnostic string bites",
+		run = function(test: Verify.Context): ()
+			withSourceCopy(test, function(source: string): string
+				return afterFirstLine(source, 'local HINT = "copy the pixel-quest package and edit it"')
+			end, function(problems: { string }): ()
+				bites(problems, "names 'pixel-quest' in CODE")
+				return
+			end)
+		end,
+		tags = FULL,
+	})
+	harness:case(prefix .. "a package id inside a comment is exempt", {
+		id = prefix .. "a package id inside a comment is exempt",
+		run = function(test: Verify.Context): ()
+			withSourceCopy(test, function(source: string): string
+				return "-- measured live under fantasy-ornate at 1.5x: the frame did not move\n" .. source
+			end, function(problems: { string }): ()
+				exempt(problems, "fantasy-ornate")
+				return
+			end)
+		end,
+		tags = FULL,
+	})
+	harness:case(prefix .. "the pristine model carries only the neutral stamp", {
+		id = prefix .. "the pristine model carries only the neutral stamp",
+		run = function(test: Verify.Context): ()
+			local problems = inspect({
+				root = ".",
+				themes = "examples/themes",
+				model = syntheticModel(themesText(), true),
+				build = false,
+			})
+			Verify.expect(#problems == 0):toBeTrueWith("the pristine model is red: " .. Rule.describe(problems))
+		end,
+	})
+	harness:case(prefix .. "a second package stamp in the built model bites", {
+		id = prefix .. "a second package stamp in the built model bites",
+		run = function(test: Verify.Context): ()
+			local model = syntheticModel(themesText(), true)
+			local anchor = '<string name="Source">'
+			local start, finish = string.find(model, anchor, 1, true)
+			if start == nil or finish == nil then
+				error("the synthetic model has no Source property", 0)
+			end
+			local planted = string.sub(model, 1, finish)
+				.. 'local bundled = { identity = { id = "another-shipped-theme" } }\n'
+				.. string.sub(model, finish + 1)
+			local problems = inspect({
+				root = ".",
+				themes = "examples/themes",
+				model = planted,
+				build = false,
+			})
+			bites(problems, "stamps a second package, 'another-shipped-theme'")
+		end,
+	})
+	harness:case(prefix .. "a model without the neutral stamp is refused", {
+		id = prefix .. "a model without the neutral stamp is refused",
+		run = function(test: Verify.Context): ()
+			local problems = inspect({
+				root = ".",
+				themes = "examples/themes",
+				model = syntheticModel("", false),
+				build = false,
+			})
+			bites(problems, "carries no 'facet-neutral' package stamp")
+		end,
+	})
+	harness:case(prefix .. "the vocabulary is each module with its id and display name", {
+		id = prefix .. "the vocabulary is each module with its id and display name",
+		run = function(test: Verify.Context): ()
+			Rule.within(test, {
+				["examples/themes/sample_theme.luau"] = 'local package = {}\npackage.id = "sample-theme"\npackage.displayName = "Sample Theme"\nreturn package\n',
+				["examples/themes/notes.md"] = "sample_theme\n",
+				["src/init.luau"] = 'local label = "Sample Theme"\n-- sample-theme in a comment\nreturn label\n',
+			}, function(context: Rule.Context): ()
+				local themes = vocabulary(context.path("examples/themes"))
+				if #themes ~= 1 then
+					error(("expected one theme, got %d"):format(#themes), 0)
 				end
-				local planted = string.sub(model, 1, finish)
-					.. 'local bundled = { identity = { id = "another-shipped-theme" } }\n'
-					.. string.sub(model, finish + 1)
-				local problems = inspect({
-					root = ".",
-					themes = "examples/themes",
-					model = planted,
-					build = false,
-				})
-				return bites(problems, "stamps a second package, 'another-shipped-theme'")
-			end,
-		},
-		{
-			name = "a model without the neutral stamp is refused",
-			run = function(): string?
-				local problems = inspect({
-					root = ".",
-					themes = "examples/themes",
-					model = syntheticModel("", false),
-					build = false,
-				})
-				return bites(problems, "carries no 'facet-neutral' package stamp")
-			end,
-		},
-		{
-			name = "the vocabulary is each module with its id and display name",
-			run = function(): string?
-				return Rule.within({
-					["examples/themes/sample_theme.luau"] = 'local package = {}\npackage.id = "sample-theme"\npackage.displayName = "Sample Theme"\nreturn package\n',
-					["examples/themes/notes.md"] = "sample_theme\n",
-					["src/init.luau"] = 'local label = "Sample Theme"\n-- sample-theme in a comment\nreturn label\n',
-				}, function(context: Rule.Context): string?
-					local themes = vocabulary(context.path("examples/themes"))
-					if #themes ~= 1 then
-						return ("expected one theme, got %d"):format(#themes)
-					end
-					local names = table.concat(themes[1].names, " | ")
-					if names ~= "Sample Theme | sample-theme | sample_theme" then
-						return "the vocabulary reads " .. names
-					end
-					local problems = inspect(inspection(context, false))
-					if #problems ~= 1 or string.find(problems[1], "src/init.luau:1:", 1, true) == nil then
-						return "expected exactly the line 1 string finding, got: " .. Rule.describe(problems)
-					end
-					return nil
-				end)
-			end,
-		},
-	}
+				local names = table.concat(themes[1].names, " | ")
+				if names ~= "Sample Theme | sample-theme | sample_theme" then
+					error("the vocabulary reads " .. names, 0)
+				end
+				local problems = inspect(inspection(context, false))
+				if #problems ~= 1 or string.find(problems[1], "src/init.luau:1:", 1, true) == nil then
+					error("expected exactly the line 1 string finding, got: " .. Rule.describe(problems), 0)
+				end
+				return
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
@@ -477,7 +466,7 @@ local rule: Rule.Rule = {
 	check = function(context: Rule.Context): { string }
 		return inspect(inspection(context, true))
 	end,
-	cases = cases,
+	register = register,
 }
 
 local actions: { [string]: Rule.Action } = {

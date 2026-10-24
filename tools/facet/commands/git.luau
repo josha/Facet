@@ -1,8 +1,9 @@
 --!strict
+local Gate = require("../lib/gate")
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
 local task = require("@std/task")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Run = require("../lib/run")
@@ -475,8 +476,11 @@ local function parseOptions(invocation: Cli.Invocation): (Options?, string?, boo
 	return options, nil, false
 end
 
-local function makeRepository(): string
+local function makeRepository(test: Verify.Context): string
 	local root = Files.temporaryDirectory("facet-commit-isolated-case-")
+	test:defer(function()
+		Files.remove(root)
+	end)
 	local function setup(arguments: { string })
 		local result = Run.git(arguments, root)
 		if not result.ok then
@@ -512,8 +516,11 @@ local function numberedLines(first: number, last: number, changed: { [number]: s
 	return table.concat(lines, "\n") .. "\n"
 end
 
-local function inRepository(body: (root: string, run: (Options) -> (number, { string })) -> string?): string?
-	local root = makeRepository()
+local function inRepository(
+	test: Verify.Context,
+	body: (root: string, run: (Options) -> (number, { string })) -> ()
+): ()
+	local root = makeRepository(test)
 	local function invoke(options: Options): (number, { string })
 		local said: { string } = {}
 		local session: Session = {
@@ -524,12 +531,7 @@ local function inRepository(body: (root: string, run: (Options) -> (number, { st
 		}
 		return commitIsolated(session, options), said
 	end
-	local ok, result = pcall(body, root, invoke)
-	Files.remove(root)
-	if not ok then
-		return "raised: " .. tostring(result)
-	end
-	return result
+	body(root, invoke)
 end
 
 local function headText(root: string, path: string): string?
@@ -555,175 +557,156 @@ local function options(messageFile: string?, specs: { string }, dryRun: boolean?
 	return { messageFile = messageFile, specs = specs, dryRun = dryRun == true, repair = repair == true }
 end
 
-local function cases(): { Case.Case }
-	return {
-		{
-			name = "a deletion commits and the shared index agrees",
-			run = function(): string?
-				return inRepository(function(root: string, invoke: (Options) -> (number, { string })): string?
-					Files.write(Files.join(root, "keep.txt"), "keep\n")
-					Files.write(Files.join(root, "gone.txt"), "gone\n")
-					commitAll(root, { "keep.txt", "gone.txt" }, "two files")
-					Files.remove(Files.join(root, "gone.txt"))
-					Files.write(Files.join(root, "message.txt"), "the deletion commits\r\n\r\nBody.\r\n")
-					local code, lines = invoke(options("message.txt", { "gone.txt" }))
-					local tree = stringext.trim(Run.git({ "ls-tree", "HEAD", "--", "gone.txt" }, root).stdout)
-					local message = Run.git({ "log", "-1", "--format=%B" }, root).stdout
-					return Case.first(
-						Case.equal(code, 0, "exit code (" .. table.concat(lines, " / ") .. ")"),
-						Case.expect(said(lines, "  DEL    gone.txt"), "no DEL line"),
-						Case.equal(tree, "", "gone.txt in HEAD"),
-						Case.equal(porcelain(root), "?? message.txt", "shared index"),
-						Case.equal(message, "the deletion commits\n\nBody.\n\n", "message")
-					)
-				end)
-			end,
-		},
-		{
-			name = "markers keep only the matching hunks and leave the working tree alone",
-			run = function(): string?
-				return inRepository(function(root: string, invoke: (Options) -> (number, { string })): string?
-					local file = Files.join(root, "shared.txt")
-					Files.write(file, numberedLines(1, 20))
-					commitAll(root, { "shared.txt" }, "base")
-					local edited = numberedLines(1, 20, { [3] = "line 3 MINE", [15] = "line 15 THEIRS" })
-					Files.write(file, edited)
-					Files.write(Files.join(root, "message.txt"), "mine only\n")
-					local code, lines = invoke(options("message.txt", { "shared.txt:MINE" }))
-					return Case.first(
-						Case.equal(code, 0, "exit code (" .. table.concat(lines, " / ") .. ")"),
-						Case.expect(said(lines, "  KEEP   shared.txt  @@ -2,3 +2,3 @@"), "no KEEP line"),
-						Case.expect(said(lines, "  drop   shared.txt  @@ -14,3 +14,3 @@"), "no drop line"),
-						Case.equal(headText(root, "shared.txt"), numberedLines(1, 20, { [3] = "line 3 MINE" }), "HEAD"),
-						Case.equal(Files.read(file), edited, "working tree"),
-						Case.equal(porcelain(root), " M shared.txt\n?? message.txt", "status")
-					)
-				end)
-			end,
-		},
-		{
-			name = "an untracked file commits whole and another agent's staging is reported",
-			run = function(): string?
-				return inRepository(function(root: string, invoke: (Options) -> (number, { string })): string?
-					Files.write(Files.join(root, "other.txt"), "base\n")
-					commitAll(root, { "other.txt" }, "base")
-					Files.write(Files.join(root, "other.txt"), "theirs\n")
-					Run.git({ "add", "other.txt" }, root)
-					Files.write(Files.join(root, "other.txt"), "mine\n")
-					Files.write(Files.join(root, "new.txt"), "fresh\n")
-					Files.write(Files.join(root, "message.txt"), "new file\n")
-					local code, lines = invoke(options("message.txt", { "new.txt", "other.txt" }))
-					return Case.first(
-						Case.equal(code, 0, "exit code (" .. table.concat(lines, " / ") .. ")"),
-						Case.expect(said(lines, "  NEW    new.txt"), "no NEW line"),
-						Case.expect(said(lines, "NOTE  other.txt had ANOTHER AGENT'S"), "no NOTE line"),
-						Case.equal(headText(root, "new.txt"), "fresh\n", "new.txt in HEAD"),
-						Case.equal(headText(root, "other.txt"), "mine\n", "other.txt in HEAD"),
-						Case.equal(porcelain(root), "?? message.txt", "status"),
-						Case.expect(said(lines, "index: republished 2 path(s)"), "no republish line")
-					)
-				end)
-			end,
-		},
-		{
-			name = "refusals keep their exit codes and commit nothing",
-			run = function(): string?
-				return inRepository(function(root: string, invoke: (Options) -> (number, { string })): string?
-					Files.write(Files.join(root, "same.txt"), "same\n")
-					Files.write(Files.join(root, "picture.bin"), "\0\1\2\3")
-					commitAll(root, { "same.txt", "picture.bin" }, "base")
-					Files.write(Files.join(root, "picture.bin"), "\0\1\2\4\5")
-					Files.write(Files.join(root, "message.txt"), "refused\n")
-					local head = stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout)
-					local unchanged = invoke(options("message.txt", { "same.txt" }))
-					Files.write(Files.join(root, "same.txt"), "changed\n")
-					local unmatched, unmatchedLines = invoke(options("message.txt", { "same.txt:NOPE" }))
-					local absent = invoke(options("message.txt", { "nowhere.txt" }))
-					local binary, binaryLines = invoke(options("message.txt", { "picture.bin:MARK" }))
-					local noMessage = invoke(options(nil, { "same.txt" }))
-					return Case.first(
-						Case.equal(unchanged, 2, "no change"),
-						Case.equal(unmatched, 2, "unmatched marker"),
-						Case.expect(said(unmatchedLines, "contains any of ['NOPE']"), "no marker message"),
-						Case.equal(absent, 1, "neither on disk nor in HEAD"),
-						Case.equal(binary, 2, "binary with a marker"),
-						Case.expect(said(binaryLines, "is BINARY"), "no binary message"),
-						Case.equal(noMessage, 1, "no message file"),
-						Case.equal(stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout), head, "HEAD moved")
-					)
-				end)
-			end,
-		},
-		{
-			name = "a binary file commits whole and --dry-run commits nothing",
-			run = function(): string?
-				return inRepository(function(root: string, invoke: (Options) -> (number, { string })): string?
-					Files.write(Files.join(root, "picture.bin"), "\0\1\2\3")
-					commitAll(root, { "picture.bin" }, "base")
-					Files.write(Files.join(root, "picture.bin"), "\0\1\2\4\5")
-					Files.write(Files.join(root, "message.txt"), "binary\n")
-					local head = stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout)
-					local dry, dryLines = invoke(options("message.txt", { "picture.bin" }, true))
-					local after = stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout)
-					local code, lines = invoke(options("message.txt", { "picture.bin" }))
-					return Case.first(
-						Case.equal(dry, 0, "dry run"),
-						Case.expect(said(dryLines, "--dry-run, nothing committed"), "no dry-run line"),
-						Case.equal(after, head, "HEAD after the dry run"),
-						Case.equal(code, 0, "exit code (" .. table.concat(lines, " / ") .. ")"),
-						Case.expect(said(lines, "  BINARY picture.bin"), "no BINARY line"),
-						Case.equal(headText(root, "picture.bin"), "\0\1\2\4\5", "HEAD content")
-					)
-				end)
-			end,
-		},
-		{
-			name = "--repair makes the shared index agree with HEAD",
-			run = function(): string?
-				return inRepository(function(root: string, invoke: (Options) -> (number, { string })): string?
-					Files.write(Files.join(root, "keep.txt"), "keep\n")
-					commitAll(root, { "keep.txt" }, "base")
-					Run.git({ "update-index", "--force-remove", "keep.txt" }, root)
-					local phantom = porcelain(root)
-					local code, lines = invoke(options(nil, { "keep.txt" }, false, true))
-					return Case.first(
-						Case.equal(phantom, "D  keep.txt\n?? keep.txt", "phantom deletion"),
-						Case.equal(code, 0, "exit code"),
-						Case.expect(said(lines, "index: republished 1 path(s) from HEAD"), "no repair line"),
-						Case.equal(porcelain(root), "", "status")
-					)
-				end)
-			end,
-		},
-		{
-			name = "the command line accepts -m, --message-file and refuses unknown options",
-			run = function(): string?
-				local short = parseOptions(Cli.parse({ "git", "commit-isolated", "-m", "msg.txt", "a.txt", "b.txt:X" }))
-				local long = parseOptions(
-					Cli.parse(
-						{ "git", "commit-isolated", "--message-file", "m.txt", "--dry-run", "a" },
-						{ "message-file" }
-					)
-				)
-				local _, refusal = parseOptions(Cli.parse({ "git", "commit-isolated", "-x", "a" }))
-				local _, missing = parseOptions(Cli.parse({ "git", "commit-isolated", "a", "-m" }))
-				return Case.first(
-					Case.equal(short and short.messageFile, "msg.txt", "-m"),
-					Case.same(if short then short.specs else {}, { "a.txt", "b.txt:X" }, "specs"),
-					Case.equal(long and long.messageFile, "m.txt", "--message-file"),
-					Case.equal(long and long.dryRun, true, "--dry-run"),
-					Case.equal(refusal, "unrecognized argument -x", "unknown option"),
-					Case.equal(missing, "argument -m/--message-file: expected one argument", "missing value")
-				)
-			end,
-		},
-	}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "a deletion commits and the shared index agrees", {
+		id = prefix .. "a deletion commits and the shared index agrees",
+		run = function(test: Verify.Context): ()
+			inRepository(test, function(root: string, invoke: (Options) -> (number, { string })): ()
+				Files.write(Files.join(root, "keep.txt"), "keep\n")
+				Files.write(Files.join(root, "gone.txt"), "gone\n")
+				commitAll(root, { "keep.txt", "gone.txt" }, "two files")
+				Files.remove(Files.join(root, "gone.txt"))
+				Files.write(Files.join(root, "message.txt"), "the deletion commits\r\n\r\nBody.\r\n")
+				local code, lines = invoke(options("message.txt", { "gone.txt" }))
+				local tree = stringext.trim(Run.git({ "ls-tree", "HEAD", "--", "gone.txt" }, root).stdout)
+				local message = Run.git({ "log", "-1", "--format=%B" }, root).stdout
+				Verify.expect(code):toBe(0)
+				Verify.expect(said(lines, "  DEL    gone.txt")):toBeTrueWith("no DEL line")
+				Verify.expect(tree):toBe("")
+				Verify.expect(porcelain(root)):toBe("?? message.txt")
+				Verify.expect(message):toBe("the deletion commits\n\nBody.\n\n")
+			end)
+		end,
+	})
+	harness:case(prefix .. "markers keep only the matching hunks and leave the working tree alone", {
+		id = prefix .. "markers keep only the matching hunks and leave the working tree alone",
+		run = function(test: Verify.Context): ()
+			inRepository(test, function(root: string, invoke: (Options) -> (number, { string })): ()
+				local file = Files.join(root, "shared.txt")
+				Files.write(file, numberedLines(1, 20))
+				commitAll(root, { "shared.txt" }, "base")
+				local edited = numberedLines(1, 20, { [3] = "line 3 MINE", [15] = "line 15 THEIRS" })
+				Files.write(file, edited)
+				Files.write(Files.join(root, "message.txt"), "mine only\n")
+				local code, lines = invoke(options("message.txt", { "shared.txt:MINE" }))
+				Verify.expect(code):toBe(0)
+				Verify.expect(said(lines, "  KEEP   shared.txt  @@ -2,3 +2,3 @@")):toBeTrueWith("no KEEP line")
+				Verify.expect(said(lines, "  drop   shared.txt  @@ -14,3 +14,3 @@")):toBeTrueWith("no drop line")
+				Verify.expect(headText(root, "shared.txt")):toBe(numberedLines(1, 20, { [3] = "line 3 MINE" }))
+				Verify.expect(Files.read(file)):toBe(edited)
+				Verify.expect(porcelain(root)):toBe(" M shared.txt\n?? message.txt")
+			end)
+		end,
+	})
+	harness:case(prefix .. "an untracked file commits whole and another agent's staging is reported", {
+		id = prefix .. "an untracked file commits whole and another agent's staging is reported",
+		run = function(test: Verify.Context): ()
+			inRepository(test, function(root: string, invoke: (Options) -> (number, { string })): ()
+				Files.write(Files.join(root, "other.txt"), "base\n")
+				commitAll(root, { "other.txt" }, "base")
+				Files.write(Files.join(root, "other.txt"), "theirs\n")
+				Run.git({ "add", "other.txt" }, root)
+				Files.write(Files.join(root, "other.txt"), "mine\n")
+				Files.write(Files.join(root, "new.txt"), "fresh\n")
+				Files.write(Files.join(root, "message.txt"), "new file\n")
+				local code, lines = invoke(options("message.txt", { "new.txt", "other.txt" }))
+				Verify.expect(code):toBe(0)
+				Verify.expect(said(lines, "  NEW    new.txt")):toBeTrueWith("no NEW line")
+				Verify.expect(said(lines, "NOTE  other.txt had ANOTHER AGENT'S")):toBeTrueWith("no NOTE line")
+				Verify.expect(headText(root, "new.txt")):toBe("fresh\n")
+				Verify.expect(headText(root, "other.txt")):toBe("mine\n")
+				Verify.expect(porcelain(root)):toBe("?? message.txt")
+				Verify.expect(said(lines, "index: republished 2 path(s)")):toBeTrueWith("no republish line")
+			end)
+		end,
+	})
+	harness:case(prefix .. "refusals keep their exit codes and commit nothing", {
+		id = prefix .. "refusals keep their exit codes and commit nothing",
+		run = function(test: Verify.Context): ()
+			inRepository(test, function(root: string, invoke: (Options) -> (number, { string })): ()
+				Files.write(Files.join(root, "same.txt"), "same\n")
+				Files.write(Files.join(root, "picture.bin"), "\0\1\2\3")
+				commitAll(root, { "same.txt", "picture.bin" }, "base")
+				Files.write(Files.join(root, "picture.bin"), "\0\1\2\4\5")
+				Files.write(Files.join(root, "message.txt"), "refused\n")
+				local head = stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout)
+				local unchanged = invoke(options("message.txt", { "same.txt" }))
+				Files.write(Files.join(root, "same.txt"), "changed\n")
+				local unmatched, unmatchedLines = invoke(options("message.txt", { "same.txt:NOPE" }))
+				local absent = invoke(options("message.txt", { "nowhere.txt" }))
+				local binary, binaryLines = invoke(options("message.txt", { "picture.bin:MARK" }))
+				local noMessage = invoke(options(nil, { "same.txt" }))
+				Verify.expect(unchanged):toBe(2)
+				Verify.expect(unmatched):toBe(2)
+				Verify.expect(said(unmatchedLines, "contains any of ['NOPE']")):toBeTrueWith("no marker message")
+				Verify.expect(absent):toBe(1)
+				Verify.expect(binary):toBe(2)
+				Verify.expect(said(binaryLines, "is BINARY")):toBeTrueWith("no binary message")
+				Verify.expect(noMessage):toBe(1)
+				Verify.expect(stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout)):toBe(head)
+			end)
+		end,
+	})
+	harness:case(prefix .. "a binary file commits whole and --dry-run commits nothing", {
+		id = prefix .. "a binary file commits whole and --dry-run commits nothing",
+		run = function(test: Verify.Context): ()
+			inRepository(test, function(root: string, invoke: (Options) -> (number, { string })): ()
+				Files.write(Files.join(root, "picture.bin"), "\0\1\2\3")
+				commitAll(root, { "picture.bin" }, "base")
+				Files.write(Files.join(root, "picture.bin"), "\0\1\2\4\5")
+				Files.write(Files.join(root, "message.txt"), "binary\n")
+				local head = stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout)
+				local dry, dryLines = invoke(options("message.txt", { "picture.bin" }, true))
+				local after = stringext.trim(Run.git({ "rev-parse", "HEAD" }, root).stdout)
+				local code, lines = invoke(options("message.txt", { "picture.bin" }))
+				Verify.expect(dry):toBe(0)
+				Verify.expect(said(dryLines, "--dry-run, nothing committed")):toBeTrueWith("no dry-run line")
+				Verify.expect(after):toBe(head)
+				Verify.expect(code):toBe(0)
+				Verify.expect(said(lines, "  BINARY picture.bin")):toBeTrueWith("no BINARY line")
+				Verify.expect(headText(root, "picture.bin")):toBe("\0\1\2\4\5")
+			end)
+		end,
+	})
+	harness:case(prefix .. "--repair makes the shared index agree with HEAD", {
+		id = prefix .. "--repair makes the shared index agree with HEAD",
+		run = function(test: Verify.Context): ()
+			inRepository(test, function(root: string, invoke: (Options) -> (number, { string })): ()
+				Files.write(Files.join(root, "keep.txt"), "keep\n")
+				commitAll(root, { "keep.txt" }, "base")
+				Run.git({ "update-index", "--force-remove", "keep.txt" }, root)
+				local phantom = porcelain(root)
+				local code, lines = invoke(options(nil, { "keep.txt" }, false, true))
+				Verify.expect(phantom):toBe("D  keep.txt\n?? keep.txt")
+				Verify.expect(code):toBe(0)
+				Verify.expect(said(lines, "index: republished 1 path(s) from HEAD")):toBeTrueWith("no repair line")
+				Verify.expect(porcelain(root)):toBe("")
+			end)
+		end,
+	})
+	harness:case(prefix .. "the command line accepts -m, --message-file and refuses unknown options", {
+		id = prefix .. "the command line accepts -m, --message-file and refuses unknown options",
+		run = function(test: Verify.Context): ()
+			local short = parseOptions(Cli.parse({ "git", "commit-isolated", "-m", "msg.txt", "a.txt", "b.txt:X" }))
+			local long = parseOptions(
+				Cli.parse({ "git", "commit-isolated", "--message-file", "m.txt", "--dry-run", "a" }, { "message-file" })
+			)
+			local _, refusal = parseOptions(Cli.parse({ "git", "commit-isolated", "-x", "a" }))
+			local _, missing = parseOptions(Cli.parse({ "git", "commit-isolated", "a", "-m" }))
+			Verify.expect(short and short.messageFile):toBe("msg.txt")
+			Verify.expect(if short then short.specs else {}):toEqual({ "a.txt", "b.txt:X" })
+			Verify.expect(long and long.messageFile):toBe("m.txt")
+			Verify.expect(long and long.dryRun):toBe(true)
+			Verify.expect(refusal):toBe("unrecognized argument -x")
+			Verify.expect(missing):toBe("argument -m/--message-file: expected one argument")
+		end,
+	})
 end
 
 local function run(invocation: Cli.Invocation): number
 	local subcommand = invocation.positional[1]
 	if Cli.switch(invocation, "selftest") then
-		return Case.report("git", cases)
+		return Gate.selftest("tools/commands", "tools/commands::git::")
 	end
 	if subcommand ~= "commit-isolated" then
 		print(USAGE)
@@ -755,7 +738,7 @@ local command: Cli.Command = {
 	summary = "Commit only your own hunks through a private index (commit-isolated).",
 	usage = USAGE,
 	values = { "message-file" },
-	cases = cases,
+	register = register,
 	run = run,
 }
 

@@ -9,7 +9,7 @@ local rule: Rule.Rule = {
 	check = function(context: Rule.Context): { string }
 		return WordLists.findings(context.root)
 	end,
-	cases = WordLists.cases,
+	register = WordLists.register,
 }
 
 return rule

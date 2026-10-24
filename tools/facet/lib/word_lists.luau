@@ -1,6 +1,6 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
-local Case = require("./case")
 local Files = require("./files")
 local Hash = require("./hash")
 
@@ -91,17 +91,15 @@ function WordLists.findings(root: string): { string }
 	return findings
 end
 
-local function fixture(files: { [string]: string }, body: (root: string) -> string?): string?
+local function fixture(test: Verify.Context, files: { [string]: string }, body: (root: string) -> ())
 	local root = Files.temporaryDirectory("facet-word-data-")
+	test:defer(function()
+		Files.remove(root)
+	end)
 	for relative, contents in files do
 		Files.write(Files.join(root, WordLists.OUT_DIR, relative), contents)
 	end
-	local ok, result = pcall(body, root)
-	Files.remove(root)
-	if not ok then
-		return "raised: " .. tostring(result)
-	end
-	return result
+	body(root)
 end
 
 local function manifestFor(files: { [string]: string }): string
@@ -119,80 +117,68 @@ local function manifestFor(files: { [string]: string }): string
 	return table.concat(lines, "\n") .. "\n"
 end
 
-function WordLists.cases(): { Case.Case }
-	return {
-		{
-			name = "word data: a file whose hash does not match is refused",
-			run = function(): string?
-				return fixture({
-					["manifest.luau"] = 'return { files = { ["len5.luau"] = "' .. string.rep("0", 64) .. '" } }\n',
-					["len5.luau"] = "return {}\n",
-				}, function(root: string): string?
-					local verification = WordLists.verify(root)
-					return Case.first(
-						Case.equal(#verification.mismatches, 1, "mismatches"),
-						Case.expect(#WordLists.findings(root) == 1, "the rule reported no finding")
-					)
-				end)
-			end,
-		},
-		{
-			name = "word data: a manifest recording nothing is refused",
-			run = function(): string?
-				return fixture({ ["manifest.luau"] = "return { files = {} }\n" }, function(root: string): string?
-					local verification = WordLists.verify(root)
-					return Case.first(
-						Case.expect(verification.refusal ~= nil, "an empty manifest passed"),
-						Case.expect(#WordLists.findings(root) == 1, "the rule reported no finding")
-					)
-				end)
-			end,
-		},
-		{
-			name = "word data: a missing manifest is refused",
-			run = function(): string?
-				return fixture({ ["len5.luau"] = "return {}\n" }, function(root: string): string?
-					local findings = WordLists.findings(root)
-					return Case.expect(
-						#findings == 1 and string.find(findings[1], "is missing", 1, true) ~= nil,
-						"a missing manifest passed"
-					)
-				end)
-			end,
-		},
-		{
-			name = "word data: a missing generated file is refused",
-			run = function(): string?
-				local files = { ["len5.luau"] = "return {}\n" }
-				return fixture({ ["manifest.luau"] = manifestFor(files) }, function(root: string): string?
-					local verification = WordLists.verify(root)
-					return Case.first(
-						Case.equal(#verification.mismatches, 1, "mismatches"),
-						Case.equal(verification.mismatches[1] and verification.mismatches[1].problem, "missing")
-					)
-				end)
-			end,
-		},
-		{
-			name = "word data: matching files pass and CRLF hashes as LF",
-			run = function(): string?
-				local files = { ["len2.luau"] = "--!strict\nreturn {}\n", ["solutions.luau"] = "return {\n}\n" }
-				return fixture({
-					["manifest.luau"] = manifestFor(files),
-					["len2.luau"] = "--!strict\r\nreturn {}\r\n",
-					["solutions.luau"] = files["solutions.luau"],
-				}, function(root: string): string?
-					local verification = WordLists.verify(root)
-					return Case.first(
-						Case.equal(verification.refusal, nil, "refusal"),
-						Case.equal(verification.recorded, 2, "recorded"),
-						Case.equal(#verification.mismatches, 0, "mismatches"),
-						Case.same(WordLists.findings(root), {}, "findings")
-					)
-				end)
-			end,
-		},
-	}
+function WordLists.register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "word data: a file whose hash does not match is refused", {
+		id = prefix .. "word data: a file whose hash does not match is refused",
+		run = function(test: Verify.Context): ()
+			fixture(test, {
+				["manifest.luau"] = 'return { files = { ["len5.luau"] = "' .. string.rep("0", 64) .. '" } }\n',
+				["len5.luau"] = "return {}\n",
+			}, function(root: string): ()
+				local verification = WordLists.verify(root)
+				Verify.expect(#verification.mismatches):toBe(1)
+				Verify.expect(#WordLists.findings(root) == 1):toBeTrueWith("the rule reported no finding")
+			end)
+		end,
+	})
+	harness:case(prefix .. "word data: a manifest recording nothing is refused", {
+		id = prefix .. "word data: a manifest recording nothing is refused",
+		run = function(test: Verify.Context): ()
+			fixture(test, { ["manifest.luau"] = "return { files = {} }\n" }, function(root: string): ()
+				local verification = WordLists.verify(root)
+				Verify.expect(verification.refusal ~= nil):toBeTrueWith("an empty manifest passed")
+				Verify.expect(#WordLists.findings(root) == 1):toBeTrueWith("the rule reported no finding")
+			end)
+		end,
+	})
+	harness:case(prefix .. "word data: a missing manifest is refused", {
+		id = prefix .. "word data: a missing manifest is refused",
+		run = function(test: Verify.Context): ()
+			fixture(test, { ["len5.luau"] = "return {}\n" }, function(root: string): ()
+				local findings = WordLists.findings(root)
+				Verify.expect(#findings == 1 and string.find(findings[1], "is missing", 1, true) ~= nil)
+					:toBeTrueWith("a missing manifest passed")
+			end)
+		end,
+	})
+	harness:case(prefix .. "word data: a missing generated file is refused", {
+		id = prefix .. "word data: a missing generated file is refused",
+		run = function(test: Verify.Context): ()
+			local files = { ["len5.luau"] = "return {}\n" }
+			fixture(test, { ["manifest.luau"] = manifestFor(files) }, function(root: string): ()
+				local verification = WordLists.verify(root)
+				Verify.expect(#verification.mismatches):toBe(1)
+				Verify.expect(verification.mismatches[1] and verification.mismatches[1].problem):toBe("missing")
+			end)
+		end,
+	})
+	harness:case(prefix .. "word data: matching files pass and CRLF hashes as LF", {
+		id = prefix .. "word data: matching files pass and CRLF hashes as LF",
+		run = function(test: Verify.Context): ()
+			local files = { ["len2.luau"] = "--!strict\nreturn {}\n", ["solutions.luau"] = "return {\n}\n" }
+			fixture(test, {
+				["manifest.luau"] = manifestFor(files),
+				["len2.luau"] = "--!strict\r\nreturn {}\r\n",
+				["solutions.luau"] = files["solutions.luau"],
+			}, function(root: string): ()
+				local verification = WordLists.verify(root)
+				Verify.expect(verification.refusal):toBe(nil)
+				Verify.expect(verification.recorded):toBe(2)
+				Verify.expect(#verification.mismatches):toBe(0)
+				Verify.expect(WordLists.findings(root)):toEqual({})
+			end)
+		end,
+	})
 end
 
 return table.freeze(WordLists)
