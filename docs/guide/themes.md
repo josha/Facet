@@ -46,6 +46,8 @@ Each palette has `name`, `colors` and `extra`.
 - The main color roles include surfaces, content, accent, and the semantic
   success, warning and danger pairs.
 - The extras hold the hover, pressed, selected and secondary-content values.
+  When a palette sets `control` and not `controlHover` or `controlPressed`,
+  `define` makes the missing values from `control`.
 - Optional extras change nothing until you declare them. `selection` and
   `onSelection` paint an on or chosen mark: the switch, the checked box, the
   slider fill and the underline, and a chosen Chip and a selected link Button.

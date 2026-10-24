@@ -31,6 +31,45 @@ local derivedTypeRoles: { [string]: { base: string, weight: string } } = {
 	numeral = { base = "control", weight = "Bold" },
 }
 
+local function linear(channel: number): number
+	return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
+end
+
+local function luminance(value: ThemeTypes.RGB): number
+	return 0.2126 * linear(value.r) + 0.7152 * linear(value.g) + 0.0722 * linear(value.b)
+end
+
+local function polarity(colors: { [string]: ThemeTypes.RGB }): string
+	return if luminance(colors.surface) < luminance(colors.content) then "dark" else "light"
+end
+
+local function isColor(value: unknown): boolean
+	if type(value) ~= "table" then
+		return false
+	end
+	for _, channel in { "r", "g", "b" } do
+		local component = (value :: { [string]: unknown })[channel]
+		if type(component) ~= "number" or not ((component :: number) >= 0 and (component :: number) <= 1) then
+			return false
+		end
+	end
+	return true
+end
+
+local function contrastStep(from: ThemeTypes.RGB, to: ThemeTypes.RGB): number
+	return (luminance(to) + 0.05) / (luminance(from) + 0.05)
+end
+
+local function shade(value: ThemeTypes.RGB, step: number): ThemeTypes.RGB
+	local current = luminance(value)
+	local target = (current + 0.05) * step - 0.05
+	local function channel(component: number): number
+		local level = math.clamp(if current > 0 then linear(component) * target / current else target, 0, 1)
+		return if level <= 0.0031308 then level * 12.92 else 1.055 * level ^ (1 / 2.4) - 0.055
+	end
+	return { r = channel(value.r), g = channel(value.g), b = channel(value.b) }
+end
+
 local function checkCoverage(
 	package: ThemeTypes.ThemePackage,
 	needs: { ThemeTypes.CoverageNeed }
@@ -71,6 +110,15 @@ local function checkCoverage(
 end
 
 return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { string }): Definitions
+	local steps: { [string]: { hover: number, pressed: number } } = {}
+	for _, palette in neutral.style.themes do
+		local extra: ThemeTypes.PaletteExtra = palette.extra or {}
+		local control, hover, pressed = extra.control, extra.controlHover, extra.controlPressed
+		local key = polarity(palette.colors)
+		if control and hover and pressed and steps[key] == nil then
+			steps[key] = { hover = contrastStep(control, hover), pressed = contrastStep(control, pressed) }
+		end
+	end
 	local function define(
 		inputDefinition: ThemeTypes.ThemeDefinition | ThemeTypes.ThemePackage
 	): (ThemeTypes.ThemePackage?, ThemeTypes.ThemeReport)
@@ -401,12 +449,6 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		end
 		package.schema = schema
 		local contrast: { ThemeTypes.ContrastResult } = {}
-		local function luminance(value: ThemeTypes.RGB): number
-			local function linear(channel: number): number
-				return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
-			end
-			return 0.2126 * linear(value.r) + 0.7152 * linear(value.g) + 0.0722 * linear(value.b)
-		end
 		for _, palette in package.style.themes do
 			if
 				type(palette) ~= "table"
@@ -422,21 +464,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			local colors = merge(neutral.style.themes[1].colors, palette.colors)
 			local valid = true
 			for role, value in colors do
-				if
-					type(value) ~= "table"
-					or type(value.r) ~= "number"
-					or type(value.g) ~= "number"
-					or type(value.b) ~= "number"
-					or value.r < 0
-					or value.r ~= value.r
-					or value.g ~= value.g
-					or value.b ~= value.b
-					or value.r > 1
-					or value.g < 0
-					or value.g > 1
-					or value.b < 0
-					or value.b > 1
-				then
+				if not isColor(value) then
 					valid = false
 					table.insert(
 						errors,
@@ -445,6 +473,16 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				end
 			end
 			if valid then
+				local declared, step = palette.extra, steps[polarity(colors)]
+				if type(declared) == "table" and step ~= nil and isColor(declared.control) then
+					local control = declared.control :: ThemeTypes.RGB
+					if declared.controlHover == nil then
+						declared.controlHover = shade(control, step.hover)
+					end
+					if declared.controlPressed == nil then
+						declared.controlPressed = shade(control, step.pressed)
+					end
+				end
 				for _, pair in
 					{
 						{ "content", "surface" },
