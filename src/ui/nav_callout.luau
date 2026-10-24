@@ -243,6 +243,7 @@ return function(
 							Name = action.id,
 							label = action.label,
 							role = action.role,
+							appearance = if action.role == "default" then "emphasis" else nil,
 							enabled = action.enabled,
 							busy = action.busy,
 							LayoutOrder = index,

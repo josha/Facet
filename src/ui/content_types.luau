@@ -2,6 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local Nav = require("./navigation_types")
+local Media = require("./media_types")
 
 type Value<T> = Types.Value<T>
 
@@ -86,5 +87,6 @@ export type CardOptions = {
 	ringTarget: ("card" | "media")?,
 }
 export type BadgeValue = string | number | boolean
-export type Badged = (GuiObject, Value<BadgeValue?>, ("ltr" | "rtl")?) -> Frame
+export type BadgedOptions = { direction: ("ltr" | "rtl")?, status: Value<Media.Status>? }
+export type Badged = (GuiObject, Value<BadgeValue?>, BadgedOptions?) -> Frame
 return {}
