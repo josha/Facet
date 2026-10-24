@@ -4993,7 +4993,8 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		purpose = "A HUD with ranked regions. Narrow the plate: higher ranks give way first. "
 			.. "The caption names each form; tap a short form to expand it.",
 		note = "Room sets the plate width; gap and padding set spacing. Enable topbar for the real Roblox strip. "
-			.. "The leading Settings button opens a popup. Resize Studio to see strip regions land in the top zone.",
+			.. "The leading Settings button opens a popup. Resize Studio to see strip regions land in the top zone. "
+			.. "With topbar, a trailing badge keeps the padding from the screen edge.",
 		alternatives = "A Screen with stacks when nothing competes for the same edge.",
 		scenarios = { "hud", "radial_menu" },
 		snippet = 'UI.Composition { UI.Region { zone = "topLeft", rank = 1, full, short }, … }',
@@ -5063,7 +5064,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				)
 			)
 			table.insert(p, region("Strip", "topbar", 5, true, UI.Badge({ label = "Top bar strip" })))
-			table.insert(p, require("./topbar_demo")(c))
+			for _, strip in require("./topbar_demo")(c, p.topbar == true) do
+				table.insert(p, strip)
+			end
 			table.insert(
 				p,
 				region("Ready", "bottom", 1, false, UI.Button({ label = "Ready up", appearance = "emphasis" }))

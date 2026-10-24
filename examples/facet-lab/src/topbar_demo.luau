@@ -4,10 +4,10 @@ type Context = {
 	cell: typeof(require("@repo/tools/typecheck/aliases").CellFactory),
 }
 
-return function(c: Context): Instance
+return function(c: Context, trailing: boolean): { Instance }
 	local UI = c.UI
 	local open = c.cell("stripSettingsOpen", false)
-	return UI.Region "StripSettings" {
+	local settings = UI.Region "StripSettings" {
 		zone = "topbar",
 		rank = 1,
 		leading = true,
@@ -36,4 +36,9 @@ return function(c: Context): Instance
 			end,
 		},
 	}
+	if not trailing then
+		return { settings }
+	end
+	local badge = UI.Badge { label = "Trailing" }
+	return { settings, UI.Region "StripTrailing" { zone = "topbar", rank = 4, trailing = true, badge } }
 end
