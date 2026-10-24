@@ -6,6 +6,7 @@ local Media = require("./media_types")
 local ComposeTypes = require("../vendor/compose/core")
 
 local DOT_STATUS: Media.Status = "error"
+local COUNT_STATUS: Media.Status = "neutral"
 
 return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 	local Host, Compose, read = ctx.Host, ctx.Compose, ctx.read
@@ -45,6 +46,11 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 			"Facet UI.badged: direction must be ltr or rtl"
 		)
 		assert(Compose.currentOwner() ~= nil, "Facet UI.badged: build a badged host inside runtime.mount")
+		local function tone(fallback: Media.Status): (ComposeTypes.Use) -> Media.Status
+			return function(use: ComposeTypes.Use): Media.Status
+				return ((read(status, use) :: unknown) :: Media.Status?) or fallback
+			end
+		end
 		words(read(value))
 		local text = function(use: ComposeTypes.Use): string
 			return words(read(value, use))
@@ -74,9 +80,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						return UI.StatusIndicator({
 							Name = "CornerDot",
 							form = "dot",
-							status = function(use: ComposeTypes.Use): Media.Status
-								return read(status, use) or DOT_STATUS
-							end,
+							status = tone(DOT_STATUS),
 							AnchorPoint = V2.new(0.5, 0.5),
 							Position = D2.fromScale(0, 0),
 							ZIndex = host.ZIndex + 2,
@@ -88,7 +92,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 						return UI.Badge({
 							Name = "CornerBadge",
 							label = text,
-							status = status,
+							status = if status == nil then nil else tone(COUNT_STATUS),
 							AnchorPoint = V2.new(0.5, 0.5),
 							Position = D2.fromScale(0, 0),
 							ZIndex = host.ZIndex + 2,
