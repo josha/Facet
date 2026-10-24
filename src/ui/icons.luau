@@ -200,7 +200,7 @@ standard_icons.ART = table.freeze({
 	}),
 	["coin"] = table.freeze({
 		assetName = "facet_icon_coin",
-		contentId = "",
+		contentId = "rbxassetid://96906906975801",
 		tintRole = "content",
 	}),
 	["gem"] = table.freeze({

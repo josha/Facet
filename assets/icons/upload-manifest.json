@@ -183,10 +183,10 @@
       "slot": "icons.coin",
       "state": "default",
       "file": "facet_icon_coin.png",
-      "contentId": "",
+      "contentId": "rbxassetid://96906906975801",
       "size": "128x128",
       "moderation": "Reviewing",
-      "sha256": "8027b79bf954ba315c9246f9ccc22b302025fff58095e4dd8ff4518e2bbd0858"
+      "sha256": "055eee7dd23917de2ff966b9600c7b2a7c40f7a0d4814b8a3e707850cae83623"
     },
     "facet_icon_crown": {
       "sliceBorder": 0,
