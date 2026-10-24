@@ -93,11 +93,18 @@ return function(
 	function ctx.fadeTo(node: Instance, value: Shared.Value<number>): ()
 		assert(fades[node], "Facet: fadeTo needs a node made by ctx.fade").source:set({ value })
 	end
-	function ctx.fade(properties: Shared.CanvasGroupNativeProps, persistent: boolean?, chrome: boolean?): Frame
+	function ctx.fade(
+		properties: Shared.CanvasGroupNativeProps,
+		persistent: boolean?,
+		chrome: boolean?,
+		scrolls: boolean?
+	): Frame
 		local fields = (properties :: unknown) :: { [unknown]: unknown }
 		local source = Compose.cell({ (fields.GroupTransparency or 0) :: Shared.Value<number> })
 		fields.GroupTransparency = nil
-		local node = Host.Frame((properties :: unknown) :: Shared.FrameNativeProps)
+		local node = if scrolls
+			then (Host.ScrollingFrame((properties :: unknown) :: Shared.ScrollingFrameNativeProps) :: unknown) :: Frame
+			else Host.Frame((properties :: unknown) :: Shared.FrameNativeProps)
 		local function amount(use: ComposeTypes.Use): number
 			return read(use(source)[1] :: Shared.Value<number>, use) or 0
 		end

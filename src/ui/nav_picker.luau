@@ -238,6 +238,7 @@ return function(
 			})
 			measure:AddTag("facet-type-control")
 			local labelBounds = ctx.observeNative.TextBounds(measure)
+			local stripSpills = Compose.cell(false)
 
 			local resolved = Compose.formula(function(use: ComposeTypes.Use): Nav.PickerStyle
 				if spec.query then
@@ -253,7 +254,8 @@ return function(
 					end
 				end
 				local needed = use(labelBounds).X + count * 24 + math.max(0, count - 1) * 4 + 6
-				if count <= 4 and not described and (available == 0 or needed <= available) then
+				local fits = (available == 0 or needed <= available) and not use(stripSpills)
+				if count <= 4 and not described and fits then
 					return "segmented"
 				end
 				local kind = use(preferred)
@@ -271,6 +273,23 @@ return function(
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 			})
+			local function presented(node: GuiObject, presentation: Nav.PickerStyle): GuiObject
+				if retained and presentation == "segmented" then
+					local function sync()
+						stripSpills:set(node:GetAttribute("FacetOverflow") == true)
+					end
+					sync()
+					runtime.connect(node, "AttributeChanged", function(name: string)
+						if name == "FacetOverflow" then
+							sync()
+						end
+					end)
+					Compose.cleanup(function()
+						stripSpills:set(false)
+					end)
+				end
+				return node
+			end
 			props[#props + 1] = Compose.keyed({
 				from = function(use: ComposeTypes.Use)
 					local chosen = use(resolved)
@@ -351,7 +370,7 @@ return function(
 							onChanging = spec.onChanging,
 							onChange = spec.onChange,
 						}
-						return UI.Picker(child)
+						return presented(UI.Picker(child), presentation)
 					else
 						local child: NavigationProps.SinglePickerSpec<V> = {
 							options = spec.options,
@@ -396,7 +415,7 @@ return function(
 							onChanging = spec.onChanging,
 							onChange = spec.onChange,
 						}
-						return UI.Picker(child)
+						return presented(UI.Picker(child), presentation)
 					end
 				end,
 			})

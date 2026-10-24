@@ -12,7 +12,9 @@ A keyboard or gamepad selection inside a ScrollingFrame scrolls it so the
 selected control and some room on each side are in view, so the engine can
 always reach the next control (the pre-0.12 keep-visible rule). The room is
 the control's height, but never more than half the space the control leaves in
-the window, so a tall control stays fully in view. Facet does this for every
+the window, so a tall control stays fully in view. In a ScrollingFrame that
+scrolls only on X, such as a segmented Picker strip, the same rule also keeps
+room on the left and the right, from the control's width. Facet does this for every
 app that observes the selection, with or without `focusRing`; it reads
 `UserInputService:GetLastInputType()`, so a mouse or touch selection does not
 scroll.

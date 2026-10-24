@@ -656,10 +656,20 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		node: GuiObject,
 		sizes: { [GuiObject]: ComposeTypes.Cell<Vector2> },
 		parents: { [GuiObject]: ComposeTypes.Cell<Instance?> },
-		members: ComposeTypes.Cell<number>
+		members: ComposeTypes.Cell<number>,
+		spills: { [GuiObject]: ComposeTypes.Cell<boolean> }?
 	)
 		sizes[node] = ctx.observe.AbsoluteSize(node)
 		parents[node] = ctx.observe.Parent(node)
+		if spills then
+			local spilling = Compose.cell(node:GetAttribute("FacetOverflow") == true)
+			runtime.connect(node, "AttributeChanged", function(name: string)
+				if name == "FacetOverflow" then
+					spilling:set(node:GetAttribute("FacetOverflow") == true)
+				end
+			end)
+			spills[node] = spilling
+		end
 		members:update(function(count: number): number
 			return count + 1
 		end)
@@ -763,6 +773,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		assert(#children > 0, "Facet ViewThatFits needs at least one candidate")
 		local sizes = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Vector2> }
 		local parents = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<Instance?> }
+		local spills = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [GuiObject]: ComposeTypes.Cell<boolean> }
 		local members = Compose.cell(0)
 		local box: Types.Box = { width = spec.width, height = spec.height }
 		local size, automatic = kit.extent(box, "fill", "hug")
@@ -773,7 +784,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		}
 		local node = kit.plain(
 			Host.Frame(kit.assemble(native, properties, { kit.list({}, true) }, children, function(child)
-				tracked(child, sizes, parents, members)
+				tracked(child, sizes, parents, members, spills)
 			end)),
 			properties
 		)
@@ -799,7 +810,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			local winner = candidates[#candidates]
 			for _, child in candidates do
 				local extent = use(sizes[child])
-				if (openX or extent.X <= offer.X) and (openY or extent.Y <= offer.Y) then
+				local wide = extent.X <= offer.X and not use(spills[child])
+				if (openX or wide) and (openY or extent.Y <= offer.Y) then
 					winner = child
 					break
 				end
