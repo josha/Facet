@@ -135,7 +135,7 @@ return function(
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
 			ClipsDescendants = function(use: ComposeTypes.Use): boolean
-				return use(moving) and not (root ~= nil and glass.fills(root))
+				return use(moving) and not (root and glass.fills(root))
 			end,
 			Compose.LayerStack({
 				from = displayed,
