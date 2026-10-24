@@ -108,6 +108,7 @@ return function(
 					or { { id = "OK", label = "OK" } }
 				assert(#actions > 0, "Alert requires at least one action")
 				local cancel: Nav.AlertAction<P>?
+				local primary: Nav.AlertAction<P>?
 				local initial: string?
 				local identities: { [string]: boolean } = {}
 				for _, action in actions do
@@ -119,6 +120,10 @@ return function(
 					if action.role == "cancel" or action.shortcut == "cancelAction" then
 						assert(cancel == nil, "Alert accepts one cancel action")
 						cancel = action
+					end
+					if action.role == "default" then
+						assert(primary == nil, "Alert accepts one default action")
+						primary = action
 					end
 					if
 						read(action.enabled) ~= false
@@ -228,6 +233,7 @@ return function(
 						label = action.label,
 						enabled = action.enabled,
 						role = action.role,
+						appearance = if action.role == "default" then "emphasis" else nil,
 						haptic = action.role == "destructive" or action.shortcut == "defaultAction",
 						shortcut = if action.shortcut == "defaultAction"
 							then { keyCode = "Return" }

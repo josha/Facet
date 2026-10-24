@@ -775,6 +775,29 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("the default action has the emphasis appearance, as in a Dialog", {
+			id = "native_sheet_parts::native Sheet: parts::the default action has the emphasis appearance, as in a Dialog",
+			run = function()
+				local function act(id: string, role: ("default" | "cancel" | "destructive")?): OverlayAction
+					return { id = id, label = id, role = role, onActivate = noop }
+				end
+				local list = { act("Skip", "cancel"), act("Reset", "destructive"), act("Map"), act("Join", "default") }
+				local w = mount({ actions = list })
+				local actions = w.find("Actions")
+				local appearances = {}
+				for _, id in { "Skip", "Reset", "Map", "Join" } do
+					local button = overlay.find(actions, id)
+					table.insert(appearances, `{id}={button:GetAttribute("appearance")}`)
+				end
+				local expected = "Skip=standard,Reset=standard,Map=standard,Join=emphasis"
+				Verify.expect((table.concat(appearances, ","))):toBe(expected)
+				Verify.expect((overlay.find(actions, "Join"):HasTag("facet-accent"))):toBe(true)
+				Verify.expect((overlay.find(actions, "Reset"):HasTag("facet-role-destructive"))):toBe(true)
+				Verify.expect((overlay.find(actions, "Skip"):HasTag("facet-role-cancel"))):toBe(true)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("a room too small for the pinned regions unpins them into one scroller", {
 			id = "native_sheet_parts::native Sheet: parts::a room too small for the pinned regions unpins them into one scroller",
 			run = function()
