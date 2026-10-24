@@ -334,6 +334,84 @@ add("collapsible-safe-edges", {}, function(t)
 	end
 end)
 
+add("navigation-gameplay-lifetime", {}, function(t)
+	for _, initiallyEnabled in { true, false } do
+		local gameplay = Instance.new("InputContext")
+		gameplay.Name = "NavigationGameplayLifetime"
+		gameplay.Enabled = initiallyEnabled
+		gameplay.Parent = Players.LocalPlayer.PlayerGui
+		local acquired, released = 0, 0
+		local disposed: { [string]: boolean } = {}
+		local path
+		t.mount(function(UI: FacetControls, _, Compose: ComposeModule)
+			path = Compose.cell({} :: { NavigationEntry })
+			local hasPage = Compose.formula(function(use: Use): boolean
+				return #use(path) > 0
+			end)
+			Compose.watch(function(use: Use)
+				if use(hasPage) then
+					local previous = gameplay.Enabled
+					gameplay.Enabled = false
+					acquired += 1
+					Compose.cleanup(function()
+						gameplay.Enabled = previous
+						released += 1
+					end)
+				end
+			end)
+			local function destination(name: string): Destination
+				return {
+					content = function(): Instance
+						Compose.cleanup(function()
+							disposed[name] = true
+						end)
+						return UI.Button { label = name }
+					end,
+				}
+			end
+			return UI.NavigationStack {
+				path = path,
+				chrome = "hidden",
+				root = {
+					content = function(): Instance
+						return UI.Button { label = "Gameplay" }
+					end,
+				},
+				destinations = { first = destination("first"), second = destination("second") },
+			}
+		end, { size = Vector2.new(800, 600), frames = 10, motionLevel = "normal" })
+		path:set({ { id = "first" } })
+		t.settle(60)
+		t.check("opening a page suspends native gameplay input", not gameplay.Enabled)
+		path:set({ { id = "second" } })
+		t.check("the replaced page remains owned during departure", disposed.first == nil)
+		local deadline = os.clock() + 3
+		while not disposed.first and os.clock() < deadline do
+			t.settle(1)
+		end
+		t.check("departure releases the replaced page", disposed.first == true)
+		t.check(
+			"replacement keeps one uninterrupted input suspension",
+			not gameplay.Enabled and acquired == 1 and released == 0
+		)
+		path:set({})
+		t.check(
+			"returning to root restores the prior input state",
+			gameplay.Enabled == initiallyEnabled and released == 1
+		)
+		deadline = os.clock() + 3
+		while not disposed.second and os.clock() < deadline do
+			t.settle(1)
+		end
+		t.check("the last page releases after departure", disposed.second == true)
+		path:set({ { id = "first" } })
+		t.check("reopening acquires a new input suspension", not gameplay.Enabled and acquired == 2)
+		t.cleanup()
+		t.check("unmount restores the prior input state", gameplay.Enabled == initiallyEnabled and released == 2)
+		gameplay:Destroy()
+	end
+end)
+
 interactive("navigation-back-pointer", {}, function(t)
 	local value = {}
 	local stage = t.mount(function(UI: FacetControls, _, Compose: ComposeModule)

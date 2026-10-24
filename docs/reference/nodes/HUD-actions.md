@@ -2,17 +2,18 @@
 
 Group related HUD actions and protect the game view.
 
-The example in [Tasks.hud](Tasks.hud.md) uses circle Buttons with icon captions
-and readouts in `topRight` regions of one Composition. This is one arrangement.
-Choose zones from the player's task and the sight lines that must stay clear.
-Use labeled Buttons when an icon would be ambiguous. Keep related navigation
-in one selection group and distinguish it from passive readouts.
+The example in [Tasks.hud](Tasks.hud.md) puts an active objective, progress and
+primary command together, with a resource in the opposite corner. Its short
+form keeps the same command and meaningful progress. Choose zones from the
+task and the sight lines that must stay clear. Use labeled Buttons when an
+icon would be ambiguous. Keep related navigation in one selection group and
+distinguish it from passive readouts.
 Composition protects core UI and TV safe areas. Do not make a second
 ScreenGui for the HUD.
 
 ## Size and position
 
-Use `controlSize = "regular"` for primary navigation circles. Reserve
+When using icon circles, use `controlSize = "regular"` for primary navigation. Reserve
 `compact` for secondary actions. Size primary thumb actions from
 `UI.environment().thumbTarget`. Give the row a bottom
 padding, such as `padding = captionRoom` with
@@ -25,7 +26,8 @@ Use theme colors with at least 3:1 icon contrast against the circle. Keep the
 
 ## Selection and input
 
-Make only Buttons selectable. Give each Button its name with `caption`. The
+Make only interactive controls selectable. Give each Button a label. For a circle,
+use `caption`. The
 caption is a label inside the Button, so the name and the action stay one
 control. A separate Text below the circle is not part of the Button. Set
 `SelectionGroup` on the row. Keep activation in `onActivate`. Sheet, Dialog
