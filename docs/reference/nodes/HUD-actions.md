@@ -14,8 +14,8 @@ ScreenGui for the HUD.
 ## Size and position
 
 Use `controlSize = "regular"` for primary navigation circles. Reserve
-`compact` for secondary actions and the top bar strip, where it matches
-Roblox's 44 pixel buttons. Size primary thumb actions from
+`compact` for secondary actions. In the top bar strip, `regular` matches
+Roblox's 44 pixel buttons with every input. Size primary thumb actions from
 `UI.environment().thumbTarget`. Give the row a bottom
 padding, such as `padding = captionRoom` with
 `local captionRoom: Facet.Sides = { bottom = "l" }`. A caption takes no space

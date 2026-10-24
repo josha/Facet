@@ -11,12 +11,12 @@ local function hud(app: Facet.App, open: (string) -> (), coins: Facet.Readable<n
   local edge: Facet.Sides = { left = "m", right = "m" }
   return UI.Composition "HUD" { padding = "m",
     UI.Region "Garage" { zone = "topbar", trailing = true, rank = 1,
-      UI.Button "Garage" { label = "Garage", icon = "view.grid", controlSize = "compact",
+      UI.Button "Garage" { label = "Garage", icon = "view.grid", controlSize = "regular",
         corners = "pill", onActivate = garage },
       UI.Button "GarageIcon" { icon = "view.grid", name = "Garage", shape = "circle",
-        controlSize = "compact", onActivate = garage } },
+        controlSize = "regular", onActivate = garage } },
     UI.Region "Wallet" { zone = "topbar", leading = true, rank = 2,
-      UI.Button "Wallet" { controlSize = "compact", corners = "pill",
+      UI.Button "Wallet" { controlSize = "regular", corners = "pill",
         label = function(use: Facet.Use) return Facet.format.compact(use(coins)) .. " Coins" end,
         onActivate = function() open("Shop") end } },
     UI.Region "Race" { zone = "topLeft", rank = 3,
@@ -27,7 +27,7 @@ local function hud(app: Facet.App, open: (string) -> (), coins: Facet.Readable<n
 end
 ```
 
-Strip items join Roblox's row, so they match its buttons: `compact` controls 44 pixels tall, centered on its line, round like its pills and flat.  The race plate takes the same height and no shadow, and `padding = "m"` lines the HUD up under Roblox's first button.  Garage ranks first, so the wallet moves below the bar before Garage leaves the strip.
+Strip items join Roblox's row, so they match its buttons: `regular` controls are 44 pixels tall with every input, centered on its line, round like its pills and flat.  The race plate takes the same height and no shadow, and `padding = "m"` lines the HUD up under Roblox's first button.  Garage ranks first, so the wallet moves below the bar before Garage leaves the strip.
 Keep play clear: [safe layout](Tasks.safe-layout.md).
 Bind routes and gamepad hints: [HUD actions](HUD-actions.md).
 Bind [server state](Tasks.state.md).
