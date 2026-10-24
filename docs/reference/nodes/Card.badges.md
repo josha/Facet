@@ -20,13 +20,14 @@ Do not put Badges in `artwork` with ZStack, Position or ZIndex. Give the item
 state to `badges`:
 
 ```luau
-UI.Card "Kart" {
-    title = kart.name,
-    artwork = function() return kartArt(kart) end,
+local owned = Compose.cell({ coast = true })
+local card = UI.Card "Kart" {
+    title = "Coast Racer",
+    image = "rbxassetid://0",
     badges = {
-        leading = { label = kart.rarity, status = "accent" },
+        leading = { label = "Rare", status = "accent" },
         trailing = {
-            label = function(use) return if use(owned)[kart.id] then "Owned" else nil end,
+            label = function(use) return if use(owned).coast then "Owned" else nil end,
             status = "success",
             icon = "checkmark",
         },
@@ -34,4 +35,4 @@ UI.Card "Kart" {
 }
 ```
 
-`kart`, `kartArt` and `owned` belong to the game.
+Keep the item state in the game model. Here `owned` holds it.

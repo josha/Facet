@@ -303,8 +303,10 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls): ()
 				AspectType = E.AspectType.FitWithinMaxSize,
 				DominantAxis = E.DominantAxis.Width,
 			},
-			badgeLayer :: Types.Child,
 		})
+		if badgeLayer then
+			badgeLayer.Parent = artwork
+		end
 		if spec.artwork then
 			local build = spec.artwork
 			runtime.mount(function()
