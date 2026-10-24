@@ -15,8 +15,10 @@ export type Declared = {
 	rank: number,
 	mayDrop: boolean,
 	sizes: { { x: number, y: number } },
+	leading: boolean?,
 	trailing: boolean?,
 }
+export type Strip = { x: number, y: number, lanes: number? }
 export type Shift = { top: number, bottom: number }
 export type Rows = { top: number, bottom: number }
 type Stacked = { top: boolean, bottom: boolean }
@@ -51,7 +53,7 @@ local function resolve(
 	height: number,
 	gap: number,
 	regions: { Declared },
-	strip: { x: number, y: number }?,
+	strip: Strip?,
 	stacked: Stacked?
 ): ({ number }, { boolean }, Shift, { number }, Rows)
 	local forms = table.create(#regions, 1)
@@ -142,7 +144,24 @@ local function resolve(
 			end
 		end
 		if strip then
-			if (zoneW[0] or 0) > strip.x then
+			local filled: { [string]: boolean } = {}
+			local lanes = 0
+			for _, index in members[0] or ({} :: { number }) do
+				local form = forms[index]
+				local size = if form > 0 then regions[index].sizes[form] else nil
+				if size and size.x > 0 and size.y > 0 then
+					local lane = if regions[index].leading
+						then "leading"
+						elseif regions[index].trailing then "trailing"
+						else "middle"
+					if not filled[lane] then
+						filled[lane] = true
+						lanes += 1
+					end
+				end
+			end
+			local empty = if lanes > 0 then math.max(0, (strip.lanes or 1) - lanes) else 0
+			if (zoneW[0] or 0) + empty * gap > strip.x then
 				fail(0)
 			elseif (zoneH[0] or 0) > strip.y then
 				for _, index in members[0] or ({} :: { number }) do

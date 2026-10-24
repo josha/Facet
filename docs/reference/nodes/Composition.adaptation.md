@@ -11,7 +11,8 @@ Top-bar strip layout, fallback and overlays.
   (`trailing = true`) sit at the far end of the strip, such as a menu button.
   The other regions stay centred in the remaining space.
   Regions step down when their total width with the gaps does not fit the strip,
-  or when a region is taller than the strip row.
+  or when a region is taller than the strip row. The middle lane, and a leading
+  or trailing lane that a region declares, keeps its `gap` even when empty.
 - When `topbar` is `false`, when `GuiService.TopbarInset` has no width (a
   console has no Roblox top bar), or when the composition is not in a
   ScreenGui, these regions come first in the `top` zone. A trailing region
@@ -27,7 +28,8 @@ Top-bar strip layout, fallback and overlays.
   2 pixels above the bottom of the band. Regions centre on the Roblox buttons.
   A region taller than 44 pixels does not fit the strip.
   The leading row starts one `gap` after the Roblox buttons.
-  The strip keeps one `gap` from the screen edge.
+  The strip's far end keeps the composition's own edge `padding`, or one `gap` when
+  the padding is smaller, so trailing regions line up with the zones below.
   Give a button beside the Roblox buttons a 44 pixel height.
   A `compact` circle in the neutral theme has this height.
 - A Popover, Menu or other overlay from a strip region shows in the composition's

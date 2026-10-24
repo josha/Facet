@@ -269,6 +269,68 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("counts the gap beside an empty strip lane when it fits top bar regions", {
+			id = "native_composition::Composition::counts the gap beside an empty strip lane when it fits top bar regions",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local wallet: Declared = {
+					zone = "topbar" :: "topbar",
+					rank = 2,
+					mayDrop = false,
+					leading = true,
+					sizes = { { x = 44, y = 44 } },
+				}
+				local menu: Declared = {
+					zone = "topbar" :: "topbar",
+					rank = 1,
+					mayDrop = false,
+					trailing = true,
+					sizes = { { x = 44, y = 44 } },
+				}
+				local _, landed = resolver.resolve(673, 290, 8, { wallet, menu }, { x = 100, y = 44 })
+				Verify.expect(landed[1]):toBe(false)
+				Verify.expect(landed[2]):toBe(false)
+				_, landed = resolver.resolve(673, 290, 8, { wallet, menu }, { x = 100, y = 44, lanes = 3 })
+				Verify.expect(landed[1]):toBe(true)
+				Verify.expect(landed[2]):toBe(false)
+				_, landed = resolver.resolve(673, 290, 8, { wallet, menu }, { x = 104, y = 44, lanes = 3 })
+				Verify.expect(landed[1]):toBe(false)
+				Verify.expect(landed[2]):toBe(false)
+			end,
+		})
+
+		verifyHarness:case("ends the top bar strip at the composition's own edge padding", {
+			id = "native_composition::Composition::ends the top bar strip at the composition's own edge padding",
+			run = function()
+				for _, case in { { padding = 16, right = 16 }, { padding = 0, right = 8 } } do
+					local engine, runtime, UI, gui = make()
+					local T = engine.types
+					local layer = engine.new("ScreenGui")
+					layer.Parent = engine.new("Folder")
+					local menu
+					runtime.mount(function()
+						local Host = runtime.constructors
+						menu = UI.Region {
+							Name = "Menu",
+							zone = "topbar",
+							rank = 1,
+							trailing = true,
+							Host.Frame { Name = "MenuFull" },
+						}
+						return UI.Composition { gap = 8, padding = case.padding, menu }
+					end, layer)
+					engine.environment.poke(gui, "TopbarInset", T.Rect.new(164, 0, 844, 58))
+					local strip = menu:FindFirstAncestorWhichIsA("ScreenGui")
+					Verify.expect(strip.Name):toBe("CompositionTopbar")
+					local row = strip:FindFirstChild("Topbar"):FindFirstChildWhichIsA("UIPadding")
+					Verify.expect(row.PaddingLeft):toBe(T.UDim.new(0, 8))
+					Verify.expect(row.PaddingRight):toBe(T.UDim.new(0, case.right))
+					runtime:dispose()
+				end
+			end,
+		})
+
 		verifyHarness:case("opens an overlay from a top bar region in the composition's ScreenGui", {
 			id = "native_composition::Composition::opens an overlay from a top bar region in the composition's ScreenGui",
 			run = function()
