@@ -424,6 +424,157 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("stack corners option", function()
+		type Corners = number | "pill" | "square" | "control" | "panel"
+		local function measure(root: Instance): string
+			local found = child(root, "UICorner")
+			local padding = child(root, "UIPadding")
+			local parts = { if found then `{found.CornerRadius.Scale},{found.CornerRadius.Offset}` else "theme" }
+			for _, side in { "PaddingTop", "PaddingRight", "PaddingBottom", "PaddingLeft" } do
+				table.insert(parts, if padding then tostring(padding[side].Offset) else "-")
+			end
+			return table.concat(parts, " ")
+		end
+		local function shaped(make: (FacetControls) -> unknown): string
+			local root, _, stop = build(nil, function(UI: FacetControls)
+				return make(UI)
+			end)
+			local text = measure(root)
+			stop()
+			return text
+		end
+
+		verifyHarness:case("rounds a pill plate and grows its long sides to half its short side", {
+			id = "native_layout::stack corners option::rounds a pill plate and grows its long sides to half its short side",
+			run = function()
+				local root, engine, stop = build(nil, function(UI: FacetControls)
+					return UI.HStack "Readout" {
+						surface = "panel",
+						corners = "pill",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)
+				local V2 = engine.types.Vector2
+				Verify.expect(measure(root)):toBe("1,0 4 8 4 8")
+				engine.environment.poke(root, "AbsoluteSize", V2.new(96, 28))
+				Verify.expect(measure(root)):toBe("1,0 4 14 4 14")
+				engine.environment.poke(root, "AbsoluteSize", V2.new(28, 96))
+				Verify.expect(measure(root)):toBe("1,0 14 8 14 8")
+				stop()
+			end,
+		})
+
+		verifyHarness:case("keeps a pill plate as round as a pill Button when the theme has square pills", {
+			id = "native_layout::stack corners option::keeps a pill plate as round as a pill Button when the theme has square pills",
+			run = function()
+				local square = Facet.themes.neutralPackage()
+				square.metrics.radii.pill = 0
+				local root, engine, stop = build({ theme = square }, function(UI: FacetControls)
+					return UI.HStack "Row" {
+						surface = "panel",
+						corners = "pill",
+						UI.Button "Boost" { label = "Boost", corners = "pill" },
+					}
+				end)
+				local plate = child(root, "UICorner")
+				local button = child(root:FindFirstChild("Boost"), "UICorner")
+				Verify.expect(plate.CornerRadius):toBe(engine.types.UDim.new(1, 0))
+				Verify.expect(plate.CornerRadius):toBe(button.CornerRadius)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("takes a theme radius name or a pixel radius and clears content from it", {
+			id = "native_layout::stack corners option::takes a theme radius name or a pixel radius and clears content from it",
+			run = function()
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.HStack "Wide" {
+						surface = "surface",
+						corners = "panel",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)):toBe("0,12 4 12 4 12")
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.HStack "Tight" {
+						surface = "panel",
+						corners = "control",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)):toBe("0,8 4 8 4 8")
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.HStack "Tile" { surface = "pane", corners = 10, padding = 4 }
+				end)):toBe("0,10 4 10 4 10")
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.HStack "Flat" {
+						surface = "panel",
+						corners = "square",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)):toBe("0,0 4 8 4 8")
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.VStack "Bare" { surface = "panel", corners = 6 }
+				end)):toBe("0,6 - - - -")
+			end,
+		})
+
+		verifyHarness:case("keeps the theme corner and padding of a stack without corners", {
+			id = "native_layout::stack corners option::keeps the theme corner and padding of a stack without corners",
+			run = function()
+				local root, _, stop = build(nil, function(UI: FacetControls)
+					return UI.HStack "Steps" {
+						surface = "panel",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)
+				Verify.expect(measure(root)):toBe("theme 4 12 4 12")
+				Verify.expect(root:FindFirstChild("CornerUnit")):toBe(nil)
+				stop()
+				Verify.expect(shaped(function(UI: FacetControls): unknown
+					return UI.VStack "Pane" { surface = "pane", padding = 4 }
+				end)):toBe("theme 4 4 4 4")
+			end,
+		})
+
+		verifyHarness:case("follows a corners cell with the corner and the padding", {
+			id = "native_layout::stack corners option::follows a corners cell with the corner and the padding",
+			run = function()
+				local corners = Compose.cell("panel" :: Corners)
+				local root, engine, stop = build(nil, function(UI: FacetControls)
+					return UI.HStack "Live" {
+						surface = "panel",
+						corners = corners,
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)
+				Verify.expect(measure(root)):toBe("0,12 4 12 4 12")
+				corners:set("square")
+				Verify.expect(measure(root)):toBe("0,0 4 8 4 8")
+				engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(96, 30))
+				corners:set("pill")
+				Verify.expect(measure(root)):toBe("1,0 4 15 4 15")
+				stop()
+			end,
+		})
+
+		verifyHarness:case("refuses corners without a surface and an unknown corner value", {
+			id = "native_layout::stack corners option::refuses corners without a surface and an unknown corner value",
+			run = function()
+				local bare = refusal(function(UI: FacetControls): unknown
+					return UI.VStack "Bare" { corners = "pill" }
+				end)
+				Verify.expect(mentions(bare, "corners need a surface")):toBe(true)
+				local odd = refusal(function(UI: FacetControls): unknown
+					return UI.VStack "Odd" { surface = "panel", corners = ("round" :: unknown) :: number }
+				end)
+				Verify.expect(mentions(odd, "corners must be pill, square, control, panel")):toBe(true)
+				local negative = refusal(function(UI: FacetControls): unknown
+					return UI.VStack "Negative" { surface = "panel", corners = -2 }
+				end)
+				Verify.expect(mentions(negative, "corners must be pill, square, control, panel")):toBe(true)
+			end,
+		})
+	end)
+
 	verifyHarness:suite("stack surface chrome and status", function()
 		type Status = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"
 		local styleRules = require("./lib/style_rules")
