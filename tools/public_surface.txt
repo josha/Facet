@@ -255,6 +255,7 @@ type AvatarMember
 type AvatarProps
 type BadgeProps
 type BadgeValue
+type BadgedOptions
 type ButtonGuideEntry
 type ButtonGuideProps
 type ButtonProps

@@ -13,6 +13,7 @@ whole count (above 99 shows "99+"), `true` for a dot (a `StatusIndicator` named 
 `nil`, `false`, `0` and `""` show nothing. A TabView tab or a segmented Picker
 option with an `icon` shows its `badge` on the corner of the icon. A text tab or
 option keeps the count in its words.
+`Facet.BadgedOptions` types `options`.
 `options.status` is a status or a readable of one. It sets the color of the dot
 and of the count. Without it, the seal uses `error`, the danger color of the
 theme, so it shows on sky, on terrain and on a Button that has the color of the

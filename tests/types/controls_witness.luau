@@ -157,7 +157,8 @@ local cardProps: Facet.CardSpec = {
 }
 local card: Frame = UI.Card(cardProps)
 local sealed: Frame = UI.badged(UI.Button({ label = "Inbox" }), 3)
-local dotted: Frame = UI.badged(UI.Button({ label = "Daily" }), true, { direction = "rtl", status = "accent" })
+local sealOptions: Facet.BadgedOptions = { direction = "rtl", status = "accent" }
+local dotted: Frame = UI.badged(UI.Button({ label = "Daily" }), true, sealOptions)
 local firstRace: Facet.CivilDate? = { year = 2026, month = 10, day = 4 }
 local raceDay = Compose.cell(firstRace)
 local datePicker: GuiObject = UI.DateTimePicker({
