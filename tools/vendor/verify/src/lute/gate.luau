@@ -22,6 +22,7 @@ export type Options = {
 	name: string?,
 	logBytes: number?,
 	pollSeconds: number?,
+	processLimit: number?,
 	observe: ((record: Gate.Record) -> ())?,
 	command: { string }?,
 	now: (() -> number)?,
@@ -94,6 +95,28 @@ local function create(runtime: Runtime): Gate
 		local now = options.now or runtime.time.clock
 		local wait = options.wait or runtime.time.wait
 		files.ensureDirectory(directory)
+		local limit = options.processLimit or math.huge
+		assert(
+			limit >= 1 and (options.processLimit == nil or (limit < math.huge and limit % 1 == 0)),
+			"processLimit must be a positive integer"
+		)
+		local active = 0
+		local waitingCommands = 0
+
+		local function acquire(deadline: number, command: boolean): boolean
+			while active >= limit or (options.processLimit ~= nil and not command and waitingCommands > 0) do
+				local remaining = deadline - runtime.time.clock()
+				if remaining <= 0 then
+					return false
+				end
+				runtime.time.wait(math.min(0.005, remaining))
+			end
+			if runtime.time.clock() >= deadline then
+				return false
+			end
+			active += 1
+			return true
+		end
 
 		local function start(job: Gate.Job): Gate.Task
 			local stem = ("%s/%s"):format(directory, safeName(job.id))
@@ -118,13 +141,29 @@ local function create(runtime: Runtime): Gate
 				local reports: { Verify.Report } = {}
 				local runBatch = host.runBatch
 				host.runBatch = function(batch)
+					local deadline = started + job.deadlineSeconds
+					if not acquire(deadline, false) then
+						return {
+							status = "timed_out",
+							detail = "not started: the producer deadline elapsed while waiting for a process slot",
+						}
+					end
 					local remaining = job.deadlineSeconds - (runtime.time.clock() - started)
 					if remaining <= 0 then
+						active -= 1
 						return { status = "timed_out", detail = "not started: the producer deadline elapsed" }
 					end
 					local bounded = table.clone(batch)
 					bounded.deadlineSeconds = math.min(remaining, batch.deadlineSeconds or remaining)
-					local outcome = runBatch(bounded)
+					local returned: Verify.BatchOutcome? = nil
+					local ran, problem = pcall(function()
+						returned = runBatch(bounded)
+					end)
+					active -= 1
+					if not ran then
+						error(problem, 0)
+					end
+					local outcome = assert(returned)
 					if job.isolate and outcome.status == "returned" and outcome.report ~= nil then
 						table.insert(reports, Verify.decode(outcome.report))
 					end
@@ -169,14 +208,31 @@ local function create(runtime: Runtime): Gate
 			files.removeIfPresent(reportPath)
 			files.removeIfPresent(logPath)
 			local argv = substitute(job.argv, reportPath, job)
+			local deadline = runtime.time.clock() + job.deadlineSeconds
+			waitingCommands += 1
 			runtime.time.spawn(function()
-				local ran = Bounded.runWith(
-					argv,
-					job.deadlineSeconds,
-					runtime.process.run,
-					{ env = job.env, cwd = job.cwd },
-					runtime.bounded
-				)
+				local acquired = acquire(deadline, true)
+				waitingCommands -= 1
+				local ran: Bounded.Result
+				if acquired then
+					ran = Bounded.runWith(
+						argv,
+						math.max(0.001, deadline - runtime.time.clock()),
+						runtime.process.run,
+						{ env = job.env, cwd = job.cwd },
+						runtime.bounded
+					)
+					active -= 1
+				else
+					ran = {
+						ok = false,
+						exitcode = -1,
+						stdout = "",
+						stderr = "the producer deadline elapsed while waiting for a process slot",
+						timedOut = true,
+						unsupported = false,
+					}
+				end
 				local started = ran.exitcode ~= -1 or ran.stderr == ""
 				local document: unknown = nil
 				local detail: string? = if started then nil else ran.stderr

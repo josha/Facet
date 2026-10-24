@@ -1256,6 +1256,11 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		end
 		return defaultOf(state.className, state.class, key)
 	end
+	environment.defaultClassProperty = function(className: string, key: string): unknown
+		local class = resolve(className)
+		assert(class ~= nil and class.properties[key] ~= nil, "unknown class property: " .. className .. "." .. key)
+		return defaultOf(className, class, key)
+	end
 	environment.tagsOf = function(object: Instance): { string }
 		local tags: { string } = {}
 		for tag in stateOf(object).tags do
