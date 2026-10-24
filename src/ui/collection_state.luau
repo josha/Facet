@@ -247,11 +247,8 @@ local function create<V, K>(
 		if spec.minColumnWidth == nil then
 			return math.max(1, math.floor(read(spec.columns or 1, use)))
 		end
-		local fitted = adaptive.columnsFor(
-			available,
-			read(spec.minColumnWidth, use),
-			read(spec.crossGap or spec.gap or 0, use)
-		)
+		local fitted =
+			adaptive.columnsFor(available, read(spec.minColumnWidth, use), read(spec.crossGap or spec.gap or 0, use))
 		local columns = math.max(fitted, read(spec.minColumns or 1, use))
 		if not spec.hug or spec.slots ~= nil then
 			return columns
