@@ -2,9 +2,14 @@
 
 local Environment = require "./environment"
 local Values = require "./ui-values"
+local Style = require "./ui-style"
 local Enum = require "./datatypes/enum"
 
 type Instance = Environment.Instance
+local function weaken<V>(values: { [Instance]: V })
+	setmetatable(values, { __mode = "k" })
+end
+
 export type Options = {
 	measureText: (((text: string, size: number, font: Enum.EnumItem, bounds: Values.Vector) -> unknown) | false)?,
 	measureBounds: (((parameters: Values.TextParameters) -> unknown) | false)?,
@@ -17,6 +22,7 @@ export type Rejection = { target: Instance, reason: string }
 export type Controller = {
 	focused: () -> Instance?,
 	styled: (Instance, string) -> unknown,
+	component: (Instance, string, string) -> unknown,
 	step: () -> (),
 	rejectedSelections: () -> { Rejection },
 	close: () -> (),
@@ -218,10 +224,14 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 			end
 		)
 	end
-	local properties = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [string]: unknown } }
-	local transitions = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [string]: unknown } }
-	local defaults = setmetatable({} :: { [Instance]: unknown }, { __mode = "k" })
-	local derives = setmetatable({} :: { [Instance]: { Instance } }, { __mode = "k" })
+	local properties: Style.Properties = {}
+	local transitions: Style.Properties = {}
+	local defaults: { [Instance]: unknown } = {}
+	local derives: { [Instance]: { Instance } } = {}
+	weaken(properties)
+	weaken(transitions)
+	weaken(defaults)
+	weaken(derives)
 	local function mapMethods(
 		prefix: string,
 		store: { [Instance]: { [string]: unknown } },
@@ -326,170 +336,23 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 			points[copy] = table.clone(points[source])
 		end
 	end)
-	type Watch = { signal: Environment.Signal<()>, sheet: Instance?, value: unknown }
-	local watches = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [string]: Watch } }
-	local function unsupported(detail: string)
-		error("unsupported_ui_style: " .. detail, 0)
-	end
-	local function scope(object: Instance): Instance?
-		local current: Instance? = object
-		while current do
-			local link: Instance? = nil
-			for _, child in current:GetChildren() do
-				if child:IsA "StyleLink" then
-					if link then
-						unsupported "multiple StyleLinks"
-					end
-					link = child
-				end
-			end
-			if link then
-				local sheet = env.propertyOf(link, "StyleSheet")
-				if sheet ~= nil then
-					assert(
-						Environment.isInstance(sheet) and (sheet :: Instance):IsA "StyleSheet",
-						"StyleLink requires a StyleSheet"
-					)
-					return sheet :: Instance
-				end
-			end
-			current = current.Parent
-		end
-		return nil
-	end
-	local function token(sheet: Instance, value: unknown): unknown
-		local seen: { [string]: boolean } = {}
-		while type(value) == "string" and value:sub(1, 1) == "$" do
-			local name = value:sub(2)
-			if seen[name] then
-				unsupported("cyclic token " .. name)
-			end
-			seen[name] = true
-			value = sheet:GetAttribute(name)
-			if value == nil then
-				unsupported("missing token " .. name)
-			end
-		end
-		return value
-	end
-	local function underlying(object: Instance, property: string): (Instance?, unknown)
-		local fallback = env.defaultPropertyOf(object, property)
-		local sheet = scope(object)
-		if sheet == nil then
-			return nil, fallback
-		end
-		if #(derives[sheet] or {}) > 0 then
-			unsupported "StyleSheet derives"
-		end
-		local winning: number? = nil
-		local result = fallback
-		for _, candidate in sheet:GetChildren() do
-			if candidate:IsA "StyleRule" then
-				local value = (properties[candidate] or {})[property]
-				local relevant = value ~= nil
-				for _, descendant in candidate:GetDescendants() do
-					if descendant:IsA "StyleRule" and (properties[descendant] or {})[property] ~= nil then
-						relevant = true
-					end
-				end
-				if not relevant then
-					continue
-				end
-				if #candidate:GetChildren() > 0 then
-					unsupported "nested StyleRules"
-				end
-				local selector = env.propertyOf(candidate, "Selector")
-				assert(type(selector) == "string", "StyleRule.Selector requires a string")
-				local matches = false
-				for _, branch in string.split(selector, ",") do
-					local trimmed = branch:match "^%s*(.-)%s*$" :: string
-					local className = trimmed:match "^([%a_][%w_]*)"
-					local rest = if className then trimmed:sub(#className + 1) else trimmed
-					local branchMatches = className == nil or object:IsA(className)
-					local tags = 0
-					while rest ~= "" do
-						local tag = rest:match "^%.([%a_][%w_%-]*)"
-						if tag == nil then
-							unsupported("selector " .. selector)
-						end
-						local name = tag :: string
-						tags += 1
-						branchMatches = branchMatches and table.find(env.tagsOf(object), name) ~= nil
-						rest = rest:sub(#name + 2)
-					end
-					if className == nil and tags == 0 then
-						unsupported("selector " .. selector)
-					end
-					if branchMatches then
-						matches = true
-					end
-				end
-				if matches and value ~= nil then
-					local priority = env.propertyOf(candidate, "Priority")
-					assert(type(priority) == "number", "StyleRule.Priority requires a number")
-					if winning == priority then
-						unsupported("equal-priority property " .. property)
-					end
-					if winning == nil or priority > winning then
-						local transition = (transitions[candidate] or {})[property] or defaults[candidate]
-						if transition ~= nil then
-							transition = token(sheet, transition)
-							local info = transition :: { Time: number }
-							if info.Time ~= 0 then
-								unsupported "nonzero property transition"
-							end
-						end
-						winning, result = priority, token(sheet, value)
-					end
-				end
-			end
-		end
-		return sheet, result
-	end
-	local function styled(object: Instance, property: string): unknown
-		local _, value = underlying(object, property)
-		return if object:IsPropertyModified(property) then env.propertyOf(object, property) else value
-	end
-	local function step()
-		for object, entries in watches do
-			if not env.isAlive(object) then
-				for _, watch in entries do
-					watch.signal:DisconnectAll()
-				end
-				watches[object] = nil
-			else
-				for property, watch in entries do
-					local sheet, value = underlying(object, property)
-					if sheet ~= watch.sheet or value ~= watch.value then
-						watch.sheet, watch.value = sheet, value
-						watch.signal:Fire()
-					end
-				end
-			end
-		end
-	end
+	local style = Style.create(env, properties, transitions, defaults, derives)
 	env.fake("Instance.GetStyled", function(object: Instance, property: string, selector: unknown): unknown
-		if selector ~= nil then
-			unsupported "GetStyled selector argument"
+		if selector == nil then
+			return style.styled(object, property)
 		end
-		return styled(object, property)
+		assert(type(selector) == "string", "GetStyled selector requires a string")
+		return style.styled(object, property, selector)
 	end)
-	env.fake("Instance.GetStyledPropertyChangedSignal", function(object: Instance, property: string): unknown
-		local entries = watches[object] or {}
-		watches[object] = entries
-		if entries[property] == nil then
-			local sheet, value = underlying(object, property)
-			entries[property] = { signal = env.newSignal(), sheet = sheet, value = value }
-		end
-		return entries[property].signal
-	end)
+	env.fake("Instance.GetStyledPropertyChangedSignal", style.signal)
 	local methods: { [string]: Environment.Method } = settings.methods or {}
 	for member, handler in methods do
 		env.fake(member, handler)
 	end
 	return {
-		styled = styled,
-		step = step,
+		styled = style.styled,
+		component = style.component,
+		step = style.step,
 		focused = function(): Instance?
 			return focused
 		end,
@@ -498,12 +361,7 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		end,
 		close = function()
 			release(false)
-			for _, entries in watches do
-				for _, watch in entries do
-					watch.signal:DisconnectAll()
-				end
-			end
-			table.clear(watches)
+			style.close()
 		end,
 	}
 end

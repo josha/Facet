@@ -122,6 +122,16 @@ Each worker resolves its own `require` paths relative to its script.
 The result is one plan and one `Core.Report`. No second scheduler and no second record exist.
 Another host calls `Gate.run(gate, executor, { runId, ... })` with an injected `{ now, wait, start }`.
 
+`Lute.gate.run` accepts `options.processLimit`, a positive integer that limits
+concurrent command process trees and test worker process trees across the run.
+Each command and each running test batch uses one slot. Pending commands take
+the next free slots before test batches. Tests can use a command's slot as soon
+as the command exits. Producer concurrency and test `workers` limits still apply.
+Waiting for a slot counts toward the producer deadline. A queued test's source
+deadline starts when it gets a slot. With no `processLimit`, process concurrency
+keeps the limits of the gate definition. The limit counts process trees, not the
+threads or child processes that a command starts.
+
 | Producer | Fields | Runs |
 | --- | --- | --- |
 | `tests` | `worker`, `locators`, `command?`, `silent?`, `isolate?`, `workers?`, `sourceDeadlineSeconds?`, `args?`, `cases?` | Ordinary spec modules in one [Lute worker](#lute-workers) process. `command` replaces the worker command of the gate. With `isolate`, one worker process runs per locator, `workers` at a time. The gate accounts them as this one producer. |

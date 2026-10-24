@@ -155,6 +155,7 @@ export type Environment = {
 	parentOf: (object: Instance) -> Instance?,
 	propertyOf: (object: Object, key: string) -> unknown,
 	defaultPropertyOf: (object: Instance, key: string) -> unknown,
+	defaultClassProperty: (className: string, key: string) -> unknown,
 	tagsOf: (object: Instance) -> { string },
 	setTag: (object: Instance, tag: string, present: boolean) -> (),
 	attributeOf: (object: Instance, name: string) -> unknown,

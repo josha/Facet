@@ -18,6 +18,7 @@ export type Options = {
 	viewport: () -> Vector,
 	origin: (() -> Vector)?,
 	read: ((Instance, string) -> unknown)?,
+	component: ((Instance, string, string) -> unknown)?,
 	vector: ((number, number) -> unknown)?,
 	measureBounds: ((Values.TextParameters) -> unknown)?,
 }
@@ -45,6 +46,13 @@ local function attach(environment: Environment.Environment, options: Options): C
 	end
 	local function dimension(unit: Values.Dimension, extent: number, scale: number): number
 		return unit.Scale * extent + unit.Offset * scale
+	end
+	local function paddingValue(object: Instance, property: string): unknown
+		if options.component then
+			return options.component(object, "UIPadding", property)
+		end
+		local padding = object:FindFirstChildWhichIsA "UIPadding"
+		return if padding then read(padding, property) else nil
 	end
 	local function unsupported(object: Instance, mechanism: string)
 		error("unsupported_ui_layout: " .. object:GetFullName() .. " requires " .. mechanism, 0)
@@ -92,14 +100,16 @@ local function attach(environment: Environment.Environment, options: Options): C
 		end
 	end
 	local function inset(object: Instance, rectangle: Rectangle): Rectangle
-		local padding = object:FindFirstChildWhichIsA "UIPadding"
+		local padding = paddingValue(object, "PaddingLeft")
 		if padding == nil then
 			return rectangle
 		end
-		local left = dimension(Values.dimension(read(padding, "PaddingLeft")), rectangle.width, rectangle.scale)
-		local right = dimension(Values.dimension(read(padding, "PaddingRight")), rectangle.width, rectangle.scale)
-		local top = dimension(Values.dimension(read(padding, "PaddingTop")), rectangle.height, rectangle.scale)
-		local bottom = dimension(Values.dimension(read(padding, "PaddingBottom")), rectangle.height, rectangle.scale)
+		local left = dimension(Values.dimension(padding), rectangle.width, rectangle.scale)
+		local right =
+			dimension(Values.dimension(paddingValue(object, "PaddingRight")), rectangle.width, rectangle.scale)
+		local top = dimension(Values.dimension(paddingValue(object, "PaddingTop")), rectangle.height, rectangle.scale)
+		local bottom =
+			dimension(Values.dimension(paddingValue(object, "PaddingBottom")), rectangle.height, rectangle.scale)
 		return {
 			x = rectangle.x + left,
 			y = rectangle.y + top,
@@ -231,22 +241,21 @@ local function attach(environment: Environment.Environment, options: Options): C
 			return rectangle
 		end
 		local autoX, autoY = automatic == "X" or automatic == "XY", automatic == "Y" or automatic == "XY"
-		local padding = object:FindFirstChildWhichIsA "UIPadding"
+		local padding = paddingValue(object, "PaddingLeft")
 		local paddingX, paddingY = 0, 0
 		if padding then
 			for _, property in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do
-				local unit = Values.dimension(read(padding, property))
+				local unit = Values.dimension(paddingValue(object, property))
 				if unit.Scale ~= 0 then
 					unsupported(object, "AutomaticSize with scaled padding")
 				end
 			end
 			paddingX = (
-				(Values.dimension(read(padding, "PaddingLeft"))).Offset
-				+ (Values.dimension(read(padding, "PaddingRight"))).Offset
+				(Values.dimension(padding)).Offset + (Values.dimension(paddingValue(object, "PaddingRight"))).Offset
 			) * scale
 			paddingY = (
-				(Values.dimension(read(padding, "PaddingTop"))).Offset
-				+ (Values.dimension(read(padding, "PaddingBottom"))).Offset
+				(Values.dimension(paddingValue(object, "PaddingTop"))).Offset
+				+ (Values.dimension(paddingValue(object, "PaddingBottom"))).Offset
 			) * scale
 		end
 		local content = inset(object, rectangle)
