@@ -96,6 +96,14 @@ Show the actual object.  Match camera angle, lighting and scale across comparabl
 | Motion character | `metrics.motion` durations, easing and springs |
 | Anything else | `rules` with `{ role = ... }` and `{ metric = ... }` values |
 
+### Techniques without art
+
+Most of a theme's character needs no images.  Square or soft `radii`, heavier `strokes`, a `chromeGradient` wash on panels and controls in the palette's `extra`, and a colored panel `shadow` set the material.  A focus look (`ring`, `glow` or `brackets`), type families with their `lineHeight`, the `space` scale and quick or slow `motion` finish it.  The Sci-fi HUD example builds its whole look this way.
+
+### Techniques with art
+
+Nine-slice art gives panels and controls a material, such as parchment, wood or gel.  A `layered` recipe stacks a tiled center, a fill, a frame, edges, corners and a title plaque.  Selected art turned over with `rotation = 180` and a `tint` reads as pressed in.  `artTint` lets one art set serve a light and a dark palette.  `panelTail` draws callout arrows in the same material, and a `barFill` with `span = "fill"` keeps tapered ends at every value.  Fantasy Parchment, Fantasy Ornate, Pixel Quest and Glossy Touch show these techniques.
+
 `Facet.themes.define` returns a report.  Check `report.ok`: it refuses main color pairs below 4.5:1.  Chrome art needs image assets that the experience can use.  Without them, express material through the palette, radii, strokes, type and motion; do not leave a broken image in its place.
 
 The repository's example themes show how far a package can go.  Fantasy Ornate frames its panels and Fantasy Parchment uses paper.  Pixel Quest draws pixel art and Sci-fi HUD draws instruments.  Glossy Touch uses large touch plates, and Classic Desktop serves dense tools.  Their builders are game-owned examples in the Facet repository, not part of the installed package; read them for technique when you have the repository.
