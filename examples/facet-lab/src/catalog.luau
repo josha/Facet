@@ -4852,6 +4852,9 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			end
 			table.insert(p, UI.Text(merged(plain, { text = "Screen title (first child)", textRole = "heading" })))
 			table.insert(p, UI.Text(merged(plain, { text = facts, textRole = "caption" })))
+			if p.surface then
+				table.insert(p, require("./full_bleed_demo")(c))
+			end
 			table.insert(p, UI.ScrollView(rows))
 			table.insert(p, UI.Button({ label = "Continue (last child, stays pinned)", appearance = "emphasis" }))
 			local screen = UI.Screen(p)

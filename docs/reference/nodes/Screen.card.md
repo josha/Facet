@@ -17,14 +17,15 @@ UI.Screen "Inventory" {
 
 Key options: `padding`, `gap`, `surface`.
 
-With `surface`, Facet paints the page plate to every edge of the glass and
-keeps the content in the safe area. Do not change ScreenInsets for this.
+With `surface`, the plate reaches the glass and the content stays safe. Keep
+the app's ScreenInsets. Use it when a store or garage is a new mode that
+replaces play for a while. Use a [Sheet](Sheet.card.md) for temporary, modal
+focus over the game: a confirm, a quick pick or a short glance.
 
 Use one app and one mounted root.
-On a child page, give NavBar an `onBack` callback that returns to the previous
-task. A root page has no Back command.
-The header keeps its height; `UI.fill()` gives the scroll viewport the remaining
-height. A full-height body beside a header would extend past the page.
+On a child page, give NavBar an `onBack`. A root page has no Back command.
+`UI.fill()` gives the scroll viewport the height below the header; a
+full-height body would extend past the page.
 
 Related controls: [Controls](Controls.md).
 
