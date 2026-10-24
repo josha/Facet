@@ -3,6 +3,25 @@
 local Core = require("../tools/vendor/verify/src/core")
 local Eval = require("../tools/vendor/verify/src/agent-eval")
 
+export type Identity = {
+	suite: string,
+	task: string,
+	agent: string,
+	model: string,
+	seed: number,
+	judgeModel: string,
+}
+
+local DEFAULT_IDENTITY: Identity = {
+	suite = "facetbench-run",
+	task = "run",
+	agent = "codex-sol",
+	model = "gpt-6.1-sol",
+	seed = 1,
+	judgeModel = "gpt-6.1-sol",
+}
+table.freeze(DEFAULT_IDENTITY)
+
 local devices = { "desktop", "phone-portrait", "phone-landscape", "tablet", "console" }
 local outcomes = {
 	"hub",
@@ -42,7 +61,8 @@ local function positive(value: number?): number
 	return value
 end
 
-local function cases(results: { Eval.RunResult }, judgments: { Eval.Judgment }): { Core.NamedCase }
+local function cases(results: { Eval.RunResult }, judgments: { Eval.Judgment }, identity: Identity?): { Core.NamedCase }
+	local expected = identity or DEFAULT_IDENTITY
 	local collection: { Core.NamedCase } = {}
 	local function add(id: string, body: (Core.Context) -> ())
 		table.insert(collection, { id = id, name = id, timeoutSeconds = 30, run = body })
@@ -62,12 +82,12 @@ local function cases(results: { Eval.RunResult }, judgments: { Eval.Judgment }):
 		t:expect(#results):toBe(2)
 		for _, id in { "plain", "facet" } do
 			local run = arm(id)
-			t:expect(run.suite):toBe("facetbench-run")
-			t:expect(run.task):toBe("run")
-			t:expect(run.agent):toBe("codex-sol")
+			t:expect(run.suite):toBe(expected.suite)
+			t:expect(run.task):toBe(expected.task)
+			t:expect(run.agent):toBe(expected.agent)
 			t:expect(run.adapter):toBe("codex")
-			t:expect(run.model):toBe("gpt-6.1-sol")
-			t:expect(run.seed):toBe(1)
+			t:expect(run.model):toBe(expected.model)
+			t:expect(run.seed):toBe(expected.seed)
 			t:expect(run.parent):toBe(nil)
 		end
 	end)
@@ -191,7 +211,7 @@ local function cases(results: { Eval.RunResult }, judgments: { Eval.Judgment }):
 		local scores: { [string]: number } = {}
 		for _, judgment in judgments do
 			assert(
-				judgment.task == "run" and judgment.agent == "codex-sol" and judgment.seed == 1,
+				judgment.task == expected.task and judgment.agent == expected.agent and judgment.seed == expected.seed,
 				"wrong judgment identity"
 			)
 			assert(scores[judgment.device] == nil, "duplicate device judgment")
@@ -203,7 +223,10 @@ local function cases(results: { Eval.RunResult }, judgments: { Eval.Judgment }):
 			)
 			local observed = 0
 			for _, presentation in judgment.presentations do
-				assert(presentation.model == "gpt-6.1-sol" and presentation.verdict ~= nil, "missing Sol judgment")
+				assert(
+					presentation.model == expected.judgeModel and presentation.verdict ~= nil,
+					"wrong or missing judge model"
+				)
 				local choice = presentation.verdict.overall
 				observed += if choice == "tie"
 					then 0.5
@@ -234,4 +257,4 @@ local function cases(results: { Eval.RunResult }, judgments: { Eval.Judgment }):
 	return collection
 end
 
-return { cases = cases }
+return { DEFAULT_IDENTITY = DEFAULT_IDENTITY, cases = cases }

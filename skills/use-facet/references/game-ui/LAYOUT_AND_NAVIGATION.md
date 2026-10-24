@@ -9,9 +9,25 @@ facts used in one decision together. Separate unrelated tasks before adding
 panels. The same task can use a different arrangement when space changes,
 but its identity, commitment and return route must remain clear.
 
-Use VStack for reading order, HStack for one compact unit, Grid for a small
-static arrangement, and Table for shared-attribute comparison. A results
-page can contain a bounded Table inside a VStack; they solve different needs.
+Choose the body from the decision before writing a shared page helper:
+
+| Player task | Body relationship | Starting controls |
+| --- | --- | --- |
+| Inspect one object | Prominent subject beside decisive facts and action | Stage, bounded stacks |
+| Browse and inspect | Candidates beside selected detail, then a detail step when compact | NavigationSplitView, VirtualList or VirtualGrid |
+| Compare shared attributes | Aligned values with a clear selected candidate | Table |
+| Edit related values | Labeled groups with current values, consequences and save state | VStack, the appropriate input controls |
+| Review a result | Personal outcome first, accepted gains next, comparison after | Stacks, a bounded Table when needed |
+
+Share navigation, input lifetime and visual roles. Let the body choose its own
+layout and scrolling boundary. Do not make a helper wrap every destination in
+the same scrolling text column. A short choice can fit its content; an inspector
+can use available room for the subject. On a wide surface, extra room should
+support comparison or inspection, or remain deliberate space around a bounded task.
+
+Use VStack for reading order, HStack for one compact unit and Grid for a small
+static arrangement. These containers arrange a chosen relationship; they do not
+choose the relationship for the player.
 
 Screen arranges a vertical page with safe margins. It is not an overlay layer.
 Mount Composition directly for a HUD. Ordinary interactive screens use device
@@ -23,8 +39,11 @@ text and controls.
 ## Fit without losing the task
 
 Stacks hug by default. Bound the task before fill collections or wrapped text.
-Use `width = "fill"` for the parent's width and `UI.fill()` for remaining
-space beside siblings. Use `maxWidth` to keep a reading or decision area
+On a container, `width = "fill"` spans the parent. A `UI.fill()` child shares
+remaining space along its parent stack's main axis. Text and Button do not take
+container options such as `width`; use parent stretch or explicit native sizing.
+Read `Layout-options` and `Text.card` before sharing a sizing helper.
+Use `maxWidth` to keep a reading or decision area
 comfortable in a wide viewport. Use a wrapping HStack (`wrap = true`) when
 peer items can use several rows. Use AdaptiveStack when one group should
 change between a row and a column. It keeps the same children mounted.

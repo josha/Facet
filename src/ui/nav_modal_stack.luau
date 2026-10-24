@@ -226,13 +226,14 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			end
 			return firstSelectable(panel, spec.initialFocus) or firstSelectable(panel)
 		end
-		local provisional: GuiObject? = nil
+		local provisional = Compose.cell(nil :: GuiObject?)
 		local function settleEntry(target: GuiObject?)
 			local chosen = if spec.entry and target then spec.entry() else nil
-			provisional = if spec.entry and target and chosen ~= target then target else nil
+			provisional:set(if spec.entry and target and chosen ~= target then target else nil)
 		end
 		local landed = false
 		local owned = false
+		local lastSelection: Instance? = nil
 		local function reclaimable(selected: Instance?): boolean
 			if selected == nil or selected.Parent == nil or within(selected, root) then
 				return true
@@ -338,19 +339,41 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 		if gui and spec.entry then
 			local guiService: GuiService = gui
 			local entry = spec.entry
+			local descendants = Compose.cell(0)
+			local selection = ctx.observe.SelectedObject(guiService)
 			runtime.connect(panel, "DescendantAdded", function()
-				local held = provisional
+				descendants:set(descendants:peek() + 1)
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(descendants)
+				use(selection)
+				local held = use(provisional)
 				if held == nil then
 					return
 				end
 				if guiService.SelectedObject ~= held then
-					provisional = nil
+					provisional:set(nil)
+					return
+				end
+				local scopes = use(ctx.modalScopes)
+				if
+					scopes[#scopes] ~= root
+					or (exiting and use(exiting))
+					or not use(ctx.observe.Interactable(root))
+					or not use(ctx.observe.Interactable(panel))
+				then
 					return
 				end
 				local better = entry()
-				if better and better ~= held and displayed(better) then
-					provisional = nil
-					guiService.SelectedObject = better
+				if better and better ~= held then
+					local size = use(ctx.observe.AbsoluteSize(better))
+					local parent = use(ctx.observe.Parent(better))
+					if parent and size.X > 0 and size.Y > 0 and displayed(better) then
+						guiService.SelectedObject = better
+						if guiService.SelectedObject == better then
+							provisional:set(nil)
+						end
+					end
 				end
 			end)
 		end
@@ -364,6 +387,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 						or value == E.UserInputType.Touch
 					then
 						if within(guiService.SelectedObject, root) then
+							lastSelection = nil
 							guiService.SelectedObject = nil
 						end
 					end
@@ -426,14 +450,33 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				use(extent)
 				use(landing)
 				local scopes = use(ctx.modalScopes)
+				local usable = true
+				local at = selected or lastSelection
+				while at and at ~= root do
+					if at:IsA("GuiObject") then
+						local visible = use(ctx.observe.Visible(at))
+						local interactable = use(ctx.observe.Interactable(at))
+						usable = usable and visible and interactable
+					end
+					at = use(ctx.observe.Parent(at)) :: Instance?
+				end
 				if within(selected, root) then
+					local replaced = lastSelection ~= nil and lastSelection ~= selected and not displayed(lastSelection)
 					landed = true
 					owned = true
-					local target = selected :: GuiObject
-					local interactable = use(ctx.observe.Interactable(target))
-					local visible = use(ctx.observe.Visible(target))
+					lastSelection = selected
 					if
-						not (interactable and visible)
+						replaced
+						and scopes[#scopes] == root
+						and use(rootInteractive)
+						and use(panelInteractive)
+						and not (exiting and use(exiting))
+						and focusIn(use)
+					then
+						settleEntry(selected :: GuiObject)
+					end
+					if
+						not usable
 						and scopes[#scopes] == root
 						and use(rootInteractive)
 						and use(panelInteractive)
@@ -443,6 +486,9 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					end
 					return
 				end
+				local lost = if selected
+					then not displayed(selected)
+					else lastSelection ~= nil and not displayed(lastSelection)
 				if
 					selected ~= nil
 					and scopes[#scopes] == root
@@ -458,7 +504,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 					owned = false
 				end
 				if
-					landed
+					(landed and not lost)
 					or scopes[#scopes] ~= root
 					or not use(mounted)
 					or not use(rootVisible)

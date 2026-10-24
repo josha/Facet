@@ -38,6 +38,11 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 		return previous[#b]
 	end
 	local function unknownOption(key: string, known: { [string]: boolean }): string
+		if key == "width" or key == "height" then
+			return `Facet UI.{building or "control"}: unknown option '{key}'. `
+				.. "Use native Size and AutomaticSize on this control, or size its layout container. "
+				.. "Read Layout-options for leaf sizing."
+		end
 		local best: string? = nil
 		local bestDistance = 3
 		for name in known do
