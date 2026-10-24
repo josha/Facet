@@ -25,6 +25,8 @@ these principles. Before a new flow, identify the player's goal, play context,
 information priority, action, accepted result and return path. Infer these from
 the brief and existing game; ask only when a missing decision changes the work.
 Read the matching task chapter before choosing its controls or layout.
+Include Input for mixed input or accessibility, and Adaptive manipulation for
+gestures or value adjustment. Read the chapter text, not only its name.
 Recipes show behavior and ownership; API nodes define exact contracts.
 Open only the next level needed for the current decision.
 
@@ -34,14 +36,15 @@ gameplay and `Tasks.collection-detail` when browsing and inspection belong
 together. A Sheet is a bounded interruption. Its scrolling body does not supply
 a page hierarchy or a collection/detail arrangement.
 
-Prove one complete playable loop before expanding menus. Test the first use
-of each layout or interaction in Play before repeating it across the game.
-Inspect the combined page, body and gameplay context before copying a pattern.
-Use representative content and the most constrained supported context early.
-Observe whether a player can find, predict and complete the task without coaching.
-Keep this first implementation small enough to inspect and revise. Obtain a
-working native Play capture before repeating its structure. If capture fails,
-resolve that feedback failure; instance bounds alone do not show visual hierarchy.
+Build one small playable loop before expanding menus: enter, act through normal
+input, observe the actual game effect and accepted result, then return.
+Check Client and Server errors. Restart Play from persistent Edit scripts and
+repeat before copying the pattern. Use representative content in the most
+constrained supported context. Check whether a player can find, predict and
+complete the task without coaching. Obtain a native Play capture of the combined
+page and gameplay before repeating its structure. If capture is unavailable,
+keep visual review unverified and continue useful functional checks and repairs;
+instance bounds alone do not show visual hierarchy.
 
 ## Find the contract
 
@@ -60,6 +63,7 @@ in the installed docs and CLI. Use `Map` only when the task has no known route.
 | Destination from gameplay, input ownership and Back | [Layout](references/game-ui/LAYOUT_AND_NAVIGATION.md), then `Tasks.pages` |
 | Gamepad entry into a passive HUD | `responder` |
 | Mixed input, text size or viewing distance | [Input](references/game-ui/INPUT_FOCUS_AND_ACCESS.md), then `environment` |
+| Gestures or value adjustment across inputs | [Adaptive manipulation](references/game-ui/ADAPTIVE_INTERACTION_AND_DIRECT_MANIPULATION.md), then the control's input contract |
 | Collection and selected detail | [Collections](references/game-ui/COLLECTIONS_AND_ACTIONS.md), then `Tasks.collection-detail` |
 | Boolean settings or named choices | [Choices](references/game-ui/CHOICES_AND_INPUT.md), then `Toggle.card`, `Picker.card` |
 | Object identity, art and selection | `Card.card`, `Stage.card` |
@@ -99,6 +103,9 @@ every record. Reuse small components and data-driven artwork across objects.
 
 Use strict Luau, concrete shared types and named constructors. Native properties
 keep Roblox names; Facet options use lower camel case. Do not cast through `any`.
+Check unfamiliar native constructors, datatype operations and members with a
+small native probe before sharing that code. Use the intended data model and
+inspect the result or error; a strict directive does not execute the path.
 
 ## Apply the library
 

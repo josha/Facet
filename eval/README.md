@@ -32,11 +32,24 @@ that it renders and that scoped MCP tools can access it. Resolve the pinned
 toolchain before launch. Setup time is recorded separately from author time.
 A setup failure does not consume a paid author attempt.
 
+Use the common [authoring protocol](authoring.md) for both arms. Record the
+suite, author model, reasoning effort and source revision before launch.
+Use `lute run tools/facet facetbench prepare --suite PATH` to prepare the
+restricted model catalog for that suite's authors. Without `--suite`, prepare
+uses the canonical Sol suite.
+
 Check the native camera viewport as well as the simulated screen dimensions.
 A responding Studio with a 1-by-1 camera viewport is not ready. Wake rendering
 and confirm actual frames before starting the author clock. Verify that a native
 Studio menu opens and closes, then test input delivery in Play and return to Edit.
 If input fails, restore and maximize the window and repeat these checks.
+
+Hold the display and system awake through a passive OS power request during
+setup and authoring. Record its acknowledgment and release. Do not send player
+input to keep the display awake. Verify a capture after a repeated Play cycle
+and through a fresh scoped connection. For concurrent arms, check both native
+renderers while both Studios are open. Close each preflight transport and verify
+that its owned process exited before handing the Studio to the author.
 
 ## Deadline and submission
 
@@ -98,15 +111,57 @@ as passed, failed, or unverified, with the action and observed result.
 Unverified requirements cannot contribute a pass. An evaluator problem is
 reported separately from a game defect; it does not excuse missing evidence.
 
+Calibrate locators against a retained UI dump before a multi-device run.
+A card can have an empty button label and a title in a sibling object. Use a
+scoped query such as `{ role = "button", near = "Item title" }` and confirm
+the returned target. Do not assume that the title is the button's text.
+Scope duplicate commands to the open task. Parse the complete wallet token;
+for example, the Luau pattern `cr%f[%W]` does not match the word `credits`.
+Check all matching balances before an action, not only the first number.
+
+`qa:tap` requires full reveal. Keep that check when the task requires the
+whole target to be visible. If a partly visible button is the intended
+target, `qa:tapVisible(query)` checks native reachability and requires an
+activation. It returns the native hit bounds as its third value. Retain
+those bounds and the capture. This action does not prove full visibility.
+It supports pointer and simulated touch, not console selection. Do not
+use it as an automatic fallback for an ambiguous or unmatched query.
+
+Give each `context:attach` call a unique name within its case, including
+repeated route entries. Use a phase or sequence in the name. Check reopening
+in the setup fixture so a duplicate attachment cannot stop a later task.
+Use Verify's duplicate-name error; do not replace its attachment mechanism.
+Retain the failed report when correcting an evaluator error, then run only
+the affected cases. Keep partial diagnostic cases separate from full rows.
+
 Check desktop, portrait phone, landscape phone, tablet, and console input.
 Also resize and rotate an open task. Native Studio simulation does not prove
 behavior on physical phones or physical controllers; state that limit.
 Keep every owned Studio maximized and record actual viewport dimensions.
+Record the observed input flags as well as the intended device preset.
+A simulated console can report `GamepadEnabled` without physical controller
+events. Arrow keys and Return test engine selection; they do not prove L3,
+other controller bindings, or physical controller behavior.
 
 Judge equivalent player states with anonymous A/B captures in both orders.
-Use the Sol 6.1 Medium judge separately from any other judge. Assess hierarchy,
+The canonical suite uses the Sol 6.1 Medium judge. Assess hierarchy,
 legibility, composition, coherent art direction, compact layouts, and feedback.
 A beautiful screenshot does not override a broken interaction.
+
+The canonical suite uses Sol. For an Astra evaluation, record
+`gpt-6-astra` and `medium` explicitly. The [judge policy](judge.luau) passes
+these values to public `AgentEval.judge.codexCli`; public
+`AgentEval.judge.compare` still owns both presentation orders and the verdict.
+Create each neutral parent directory before parallel comparison groups start.
+Keep each group's directory unique and outside the source tree. Keep the
+command arguments with the evidence. The judgment records the model; it does
+not record reasoning effort, so do not infer effort from the verdict.
+
+Pass the matching `Compare.Identity` to `Compare.cases`: suite, task, agent,
+model, seed and judge model. Omission keeps the canonical Sol identity.
+Do not rename earlier Sol results as Astra results to satisfy this check.
+Different model pairs can support a descriptive comparison, but cannot pass
+the same-model pair check.
 
 ## Pass requirements
 
@@ -142,6 +197,10 @@ return. The [comparison cases](compare.luau) check these measurements, complete
 player-outcome coverage, author cost, capture coverage, and both judgment orders.
 Run them on the recorded pair with `lute run tools/facet facetbench compare`.
 Use `--evidence PATH` to select a different pair directory.
+Use `facetbench compare --suite PATH` to check that suite's author and judge
+identity and use its evidence directory. Without `--suite`, comparison keeps
+the canonical Sol identity. A comparison with different author models does
+not pass the same-model requirement.
 The command writes the standard Verify report to
 `artifacts/facetbench/run/comparison.verify.json`. A missing pair fails.
 
@@ -166,8 +225,9 @@ and Verify reports together under `artifacts/facetbench/run`. Report author cost
 separately from evaluation cost. Preserve enough evidence to reproduce the latest
 comparison without committing a history of generated games.
 
-Keep reusable design changes separate from evaluation results. Open the design
-PR before the author run. Record the evaluated source revision with the result.
+Keep reusable design changes separate from evaluation results. Follow the
+experiment's declared publication timing. Record the evaluated source revision
+with the result.
 Commit only the latest [Plain place](latest/plain/game.rbxl) and
 [Facet place](latest/facet/game.rbxl). Put the verdict and gaps in the PR description.
 Keep generated reports and captures in the artifact directory. The existing
