@@ -49,9 +49,7 @@ local page: CatalogTypes.PageDefinition = {
 				`input {ic.primary} (pointer {tostring(ic.pointer)}, touch {tostring(ic.touch)}, gamepad {tostring(
 					ic.gamepad
 				)}, keyboard {tostring(ic.keyboard)}) · effective {use(env.effectiveInput)}`,
-				`display {use(env.displaySize)} · text {use(env.preferredTextSize)} · motion {use(
-					env.motionLevel
-				)}`,
+				`display {use(env.displaySize)} · text {use(env.preferredTextSize)} · motion {use(env.motionLevel)}`,
 				`safe insets t{inset.top} l{inset.left} b{inset.bottom} r{inset.right}`,
 				`topbar {topbar.Width}×{topbar.Height} at {topbar.Min.X},{topbar.Min.Y}`,
 				`topbar control diameter {use(env.topbarControlDiameter)}`,

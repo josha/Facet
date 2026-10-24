@@ -1608,7 +1608,7 @@ return function(verifyHarness: Verify.Harness)
 					strip.ScrollingDirection = w.Enum.ScrollingDirection.X
 					w.engine.environment.poke(strip, "AbsolutePosition", V.new(0, 0))
 					w.engine.environment.poke(strip, "AbsoluteWindowSize", V.new(400, 50))
-					strip.AbsoluteCanvasSize = V.new(700, 50)
+					w.engine.environment.poke(strip, "AbsoluteCanvasSize", V.new(700, 50))
 					local segment = w.engine.new("TextButton")
 					segment.Parent = strip
 					w.engine.environment.poke(segment, "AbsolutePosition", V.new(320, 3))
