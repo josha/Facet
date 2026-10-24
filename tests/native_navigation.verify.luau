@@ -2873,8 +2873,8 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
-		verifyHarness:case("reserves segmented caption width and wraps rows instead of clipping whole words", {
-			id = "native_navigation::native navigation controls::reserves segmented caption width and wraps rows instead of clipping whole words",
+		verifyHarness:case("reserves segmented caption width and keeps one row instead of clipping whole words", {
+			id = "native_navigation::native navigation controls::reserves segmented caption width and keeps one row instead of clipping whole words",
 			run = function()
 				local world = setup(function(UI: FacetControls)
 					return UI.Picker "Motion" {
@@ -2892,7 +2892,7 @@ return function(verifyHarness: Verify.Harness)
 				world.engine.environment.poke(button, "TextBounds", world.engine.types.Vector2.new(54, 16))
 				Verify.expect(button.AutomaticSize):toBe(world.engine.types.Enum.AutomaticSize.X)
 				Verify.expect(floor.MinSize):toBe(minimum)
-				Verify.expect(picker:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(true)
+				Verify.expect(picker:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(false)
 				world.stop()
 			end,
 		})
@@ -3227,6 +3227,49 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(count):toBe(1)
 				Verify.expect(menu.Parent):toBe(picker)
 				Verify.expect(menu.Visible):toBe(true)
+				world.stop()
+				Verify.expect(world.engine.census().connections):toBe(0)
+			end,
+		})
+		verifyHarness:case("shows a menu when the automatic segmented strip would scroll", {
+			id = "native_navigation::native navigation controls::shows a menu when the automatic segmented strip would scroll",
+			run = function()
+				local world = setup(function(UI: FacetControls)
+					return UI.Picker "Auto" {
+						selected = Compose.cell("a"),
+						options = {
+							{ value = "a", label = "Alpha" } :: Navigation.PickerOption<string>,
+							{ value = "b", label = "Beta" } :: Navigation.PickerOption<string>,
+							{ value = "c", label = "Gamma" } :: Navigation.PickerOption<string>,
+						},
+					}
+				end, { runService = true })
+				local Vector2 = world.engine.types.Vector2
+				local poke = world.engine.environment.poke
+				local picker = find(world.screen, "Auto")
+				local segmented, menu
+				for _, child in picker:GetChildren() do
+					if child.Name == "Presentation" then
+						if child:HasTag("facet-segmented") then
+							segmented = child
+						elseif find(child, "Trigger") then
+							menu = child
+						end
+					end
+				end
+				poke(world.input, "PreferredInput", world.engine.types.Enum.PreferredInput.Touch)
+				poke(picker, "AbsoluteSize", Vector2.new(401, 60))
+				Verify.expect(segmented.Visible):toBe(true)
+				Verify.expect(menu.Visible):toBe(false)
+				local layout = segmented:FindFirstChildWhichIsA("UIListLayout")
+				poke(segmented, "AbsoluteWindowSize", Vector2.new(401, 50))
+				poke(layout, "AbsoluteContentSize", Vector2.new(470, 44))
+				Verify.expect(segmented:GetAttribute("FacetOverflow")):toBe(true)
+				Verify.expect(segmented.Visible):toBe(false)
+				Verify.expect(menu.Visible):toBe(true)
+				poke(layout, "AbsoluteContentSize", Vector2.new(300, 44))
+				Verify.expect(segmented.Visible):toBe(true)
+				Verify.expect(menu.Visible):toBe(false)
 				world.stop()
 				Verify.expect(world.engine.census().connections):toBe(0)
 			end,
@@ -5840,7 +5883,8 @@ return function(verifyHarness: Verify.Harness)
 						local row = find(world.root, "Handling")
 						local options = find(row, "Options")
 
-						Verify.expect(options:FindFirstChildWhichIsA("UIListLayout", true).Wraps):toBe(true)
+						Verify.expect(options.ClassName):toBe("ScrollingFrame")
+						Verify.expect(options:FindFirstChildWhichIsA("UIListLayout", true).Wraps):toBe(false)
 						local floor = options:FindFirstChild("TargetFloor")
 						Verify.expect(floor.MinSize.Y):toBe(50)
 						local constraints = 0
@@ -6051,6 +6095,159 @@ return function(verifyHarness: Verify.Harness)
 						world.step(1 / 30)
 						Verify.expect(picker.Size.Y.Offset):toBe(height)
 					end
+					world.stop()
+				end,
+			})
+		end)
+		verifyHarness:suite("Segmented Picker overflow", function()
+			local categories = {
+				{ value = "all", label = "All" },
+				{ value = "motors", label = "Motors" },
+				{ value = "boosts", label = "Boosts" },
+				{ value = "wheels", label = "Wheels" },
+				{ value = "cosmetics", label = "Cosmetics" },
+			}
+			verifyHarness:case("scrolls a strip that does not fit on one row and keeps the chosen segment in view", {
+				id = "native_navigation::Segmented Picker overflow::scrolls a strip that does not fit on one row and keeps the chosen segment in view",
+				run = function()
+					local selected = Compose.cell("all")
+					local world = setup(function(UI)
+						return UI.Picker "Category" {
+							style = "segmented",
+							selected = selected,
+							options = categories,
+						}
+					end)
+					local types = world.engine.types
+					local poke = world.engine.environment.poke
+					local picker = find(world.root, "Category")
+					local layout = picker:FindFirstChildWhichIsA("UIListLayout")
+					Verify.expect(picker.ClassName):toBe("ScrollingFrame")
+					Verify.expect(picker:HasTag("facet-segmented")):toBe(true)
+					Verify.expect(layout.Wraps):toBe(false)
+					Verify.expect(picker.ScrollingDirection):toBe(types.Enum.ScrollingDirection.X)
+					Verify.expect(picker.Selectable):toBe(false)
+					Verify.expect(picker.ScrollBarThickness):toBe(0)
+					Verify.expect(find(picker, "cosmetics"):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
+						:toBe(types.Enum.UIFlexMode.Grow)
+					local function place(shift: number)
+						for index, option in categories do
+							local segment = find(picker, option.value)
+							poke(segment, "AbsolutePosition", V2(world, 3 + (index - 1) * 94 - shift, 3))
+							poke(segment, "AbsoluteSize", V2(world, 90, 44))
+						end
+					end
+					place(0)
+					poke(picker, "AbsoluteSize", V2(world, 401, 50))
+					poke(picker, "AbsoluteWindowSize", V2(world, 401, 50))
+					poke(picker, "AbsoluteCanvasSize", V2(world, 472, 50))
+					poke(layout, "AbsoluteContentSize", V2(world, 395, 44))
+					Verify.expect(picker.ScrollingEnabled):toBe(false)
+					Verify.expect(picker.ClipsDescendants):toBe(false)
+					Verify.expect(picker.CanvasSize):toBe(types.UDim2.fromScale(1, 1))
+					Verify.expect(picker:GetAttribute("FacetOverflow")):toBe(nil)
+					poke(layout, "AbsoluteContentSize", V2(world, 466, 44))
+					Verify.expect(picker.ScrollingEnabled):toBe(true)
+					Verify.expect(picker.ClipsDescendants):toBe(true)
+					Verify.expect(picker.CanvasSize):toBe(types.UDim2.new(0, 472, 1, 0))
+					Verify.expect(picker:GetAttribute("FacetOverflow")):toBe(true)
+					Verify.expect(picker.CanvasPosition.X):toBe(0)
+					selected:set("cosmetics")
+					Verify.expect(picker.CanvasPosition.X):toBe(71)
+					place(71)
+					Verify.expect(picker.CanvasPosition.X):toBe(71)
+					selected:set("all")
+					Verify.expect(picker.CanvasPosition.X):toBe(0)
+					place(0)
+					selected:set("cosmetics")
+					Verify.expect(picker.CanvasPosition.X):toBe(71)
+					poke(picker, "AbsoluteWindowSize", V2(world, 600, 50))
+					Verify.expect(picker.CanvasPosition.X):toBe(0)
+					Verify.expect(picker.ScrollingEnabled):toBe(false)
+					Verify.expect(picker.CanvasSize):toBe(types.UDim2.fromScale(1, 1))
+					Verify.expect(picker:GetAttribute("FacetOverflow")):toBe(nil)
+					world.stop()
+				end,
+			})
+			verifyHarness:case("keeps hugging segments at their natural widths", {
+				id = "native_navigation::Segmented Picker overflow::keeps hugging segments at their natural widths",
+				run = function()
+					local sizing = Compose.cell("fill")
+					local world = setup(function(UI)
+						return UI.Picker "Category" {
+							style = "segmented",
+							sizing = sizing,
+							selected = Compose.cell("all"),
+							options = categories,
+						}
+					end)
+					local Enum = world.engine.types.Enum
+					local grow = find(find(world.root, "Category"), "all"):FindFirstChildWhichIsA("UIFlexItem")
+					Verify.expect(grow.FlexMode):toBe(Enum.UIFlexMode.Grow)
+					sizing:set("hug")
+					Verify.expect(grow.FlexMode):toBe(Enum.UIFlexMode.None)
+					world.stop()
+				end,
+			})
+			verifyHarness:case("lets ViewThatFits show the next candidate while the strip scrolls", {
+				id = "native_navigation::Segmented Picker overflow::lets ViewThatFits show the next candidate while the strip scrolls",
+				run = function()
+					local selected = Compose.cell("all")
+					local world = setup(function(UI)
+						return UI.ViewThatFits "Categories" {
+							UI.Picker "Tabs" { style = "segmented", selected = selected, options = categories },
+							UI.Picker "Dropdown" { style = "menu", selected = selected, options = categories },
+						}
+					end)
+					local poke = world.engine.environment.poke
+					local fits = find(world.root, "Categories")
+					local tabs, menu = find(fits, "Tabs"), find(fits, "Dropdown")
+					poke(fits, "AbsoluteSize", V2(world, 401, 60))
+					poke(tabs, "AbsoluteSize", V2(world, 401, 50))
+					poke(menu, "AbsoluteSize", V2(world, 160, 44))
+					Verify.expect(tabs.Visible):toBe(true)
+					Verify.expect(menu.Visible):toBe(false)
+					poke(tabs, "AbsoluteWindowSize", V2(world, 401, 50))
+					poke(tabs:FindFirstChildWhichIsA("UIListLayout"), "AbsoluteContentSize", V2(world, 466, 44))
+					Verify.expect(tabs.Visible):toBe(false)
+					Verify.expect(menu.Visible):toBe(true)
+					poke(tabs, "AbsoluteWindowSize", V2(world, 600, 50))
+					Verify.expect(tabs.Visible):toBe(true)
+					Verify.expect(menu.Visible):toBe(false)
+					world.stop()
+				end,
+			})
+			verifyHarness:case("marks the row of a labelled strip while its options scroll", {
+				id = "native_navigation::Segmented Picker overflow::marks the row of a labelled strip while its options scroll",
+				run = function()
+					local world = setup(function(UI)
+						return UI.Picker "Handling" {
+							label = "Handling",
+							style = "segmented",
+							selected = Compose.cell("a"),
+							options = {
+								{ value = "a", label = "Arcade handling" },
+								{ value = "b", label = "Simulation handling" },
+								{ value = "c", label = "Drift assist" },
+								{ value = "d", label = "Rally gravel" },
+							},
+						}
+					end)
+					local poke = world.engine.environment.poke
+					local row = find(world.root, "Handling")
+					local options = find(row, "Options")
+					Verify.expect(options.ClassName):toBe("ScrollingFrame")
+					Verify.expect(options:HasTag("facet-segmented")):toBe(true)
+					Verify.expect(row:GetAttribute("FacetOverflow")):toBe(nil)
+					local layout = options:FindFirstChildWhichIsA("UIListLayout", true)
+					poke(options, "AbsoluteWindowSize", V2(world, 390, 50))
+					poke(layout, "AbsoluteContentSize", V2(world, 600, 44))
+					Verify.expect(options.ScrollingEnabled):toBe(true)
+					Verify.expect(row:GetAttribute("FacetOverflow")):toBe(true)
+					Verify.expect(options:GetAttribute("FacetOverflow")):toBe(nil)
+					poke(options, "AbsoluteWindowSize", V2(world, 640, 50))
+					Verify.expect(options.ScrollingEnabled):toBe(false)
+					Verify.expect(row:GetAttribute("FacetOverflow")):toBe(nil)
 					world.stop()
 				end,
 			})

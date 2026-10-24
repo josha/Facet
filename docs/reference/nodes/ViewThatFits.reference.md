@@ -14,6 +14,10 @@ shows when none fits. It needs at least one candidate. Options: `width` and
   sets `Visible`.
 - Give the candidates a `hug` or a pixel width. A candidate that fills the
   width always fits.
+- A candidate with the `FacetOverflow` attribute set to `true` does not fit
+  when the width is tested. A segmented Picker sets it while its strip scrolls,
+  so `ViewThatFits { segmented, menu }` shows the menu when the segments do not
+  fit on one row.
 - The container fills the width and hugs the height by default. An axis that
   hugs is unbounded, so only the width is tested. With a bounded `height`, the
   height is tested too. Directly in a `ScrollView`, the scroll axis is

@@ -19,7 +19,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 	local pickerKeys, derive = shared.keys, shared.derive
 	local layoutWidth, sideChrome, wrapCaptions = shared.layoutWidth, shared.sideChrome, shared.wrapCaptions
 	local function slideSelection(
-		picker: Frame,
+		picker: GuiObject,
 		boxes: {
 			[GuiObject]: {
 				order: ComposeTypes.Readable<number>,
@@ -137,7 +137,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			},
 		} =
 			{}
-		local currentOrder = Compose.cell(0)
+		local currentOrder, chosenOrder = Compose.cell(0), Compose.cell(0)
 		local captionHeights: { [Instance]: number } = {}
 		local tallestCaption = Compose.cell(0)
 		local function measureCaptions(): ()
@@ -189,7 +189,6 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						else E.FillDirection.Horizontal
 				end, spec.axis),
 				SortOrder = E.SortOrder.LayoutOrder,
-				Wraps = style == "segmented" and not vertical,
 				Padding = D.new(0, 4),
 				HorizontalFlex = derive(function(use: ComposeTypes.Use?)
 					return if style == "segmented"
@@ -461,6 +460,18 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 							end)
 							else nil,
 					})
+					if style == "segmented" and not vertical then
+						surfaces.attach(button, {
+							Host.UIFlexItem({
+								FlexMode = function(use: ComposeTypes.Use): Enum.UIFlexMode
+									return if read(spec.sizing, use) == "hug"
+										then E.UIFlexMode.None
+										elseif across(use) then E.UIFlexMode.Grow
+										else E.UIFlexMode.Fill
+								end,
+							}),
+						})
+					end
 					if fixed and not (Compose.isReadable(current.label) or type(current.label) == "function") then
 						button:SetAttribute("FacetLabel", current.label)
 					else
@@ -510,7 +521,8 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 					end
 					Compose.watch(function(use: ComposeTypes.Use)
 						local indicator = read(spec.indicator, use)
-						local current = selected(use)
+						local chosen = selected(use)
+						local current = chosen
 							and indicator ~= "underline"
 							and (indicator ~= "none" or style == "segmented")
 						if current then
@@ -521,7 +533,13 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						local order = use(index)
 						if style ~= "segmented" then
 							return
-						elseif current then
+						end
+						if chosen then
+							chosenOrder:set(order)
+						elseif chosenOrder:peek() == order then
+							chosenOrder:set(0)
+						end
+						if current then
 							currentOrder:set(order)
 						elseif currentOrder:peek() == order then
 							currentOrder:set(0)
@@ -608,15 +626,30 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		for _, child in children do
 			table.insert((p :: unknown) :: { unknown }, child)
 		end
+		local scrolls = style == "segmented" and not vertical
+		if scrolls then
+			local scrollable: Types.ScrollingFrameNativeProps = {
+				ScrollingDirection = E.ScrollingDirection.X,
+				ScrollBarThickness = 0,
+				Selectable = false,
+				AutomaticCanvasSize = E.AutomaticSize.None,
+			}
+			local fields = (p :: unknown) :: { [string]: unknown }
+			for key, value in (scrollable :: unknown) :: { [string]: unknown } do
+				if fields[key] == nil then
+					fields[key] = value
+				end
+			end
+		end
 		local ready = Compose.cell(false)
 		local fieldLabel: TextLabel? = nil
-		local picker: Frame
+		local picker: GuiObject
 		if style == "segmented" and labelled then
 			local fading = (p :: unknown) :: Types.CanvasGroupNativeProps
 			fading.GroupTransparency = function(use: ComposeTypes.Use): number
 				return if use(ready) then 0 else 1
 			end
-			picker = ctx.fade(fading)
+			picker = ctx.fade(fading, nil, nil, true)
 			local complete = false
 			local settled = ctx.runtime.settled {
 				sample = function(): string
@@ -649,22 +682,39 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			Compose.watch(function(use: ComposeTypes.Use)
 				ready:set(use(settled))
 			end)
+		elseif scrolls then
+			picker = Host.ScrollingFrame((p :: unknown) :: Types.ScrollingFrameNativeProps)
 		else
 			picker = Host.Frame(p)
 		end
-		if style == "segmented" and not vertical then
+		local overflows: ComposeTypes.Readable<boolean>? = nil
+		if scrolls then
+			local scroller = (picker :: unknown) :: ScrollingFrame
 			local layout = assert(picker:FindFirstChildWhichIsA("UIListLayout", true))
 			local extent = ctx.observe.AbsoluteContentSize(layout)
 			local unit = ctx.layoutUnit(picker)
+			local window = ctx.observe.AbsoluteWindowSize(scroller)
 			local base = p.Size
-			runtime.decorate(picker, {
+			local function scaleOf(use: ComposeTypes.Use): number
+				local scale = use(unit)
+				return if scale > 0 then scale else 1
+			end
+			local spills = Compose.formula(function(use: ComposeTypes.Use): boolean
+				if not across(use) then
+					return false
+				end
+				local room = use(window).X - 2 * segmentMetrics.inset * scaleOf(use)
+				return room > 0 and use(extent).X > room + 1
+			end)
+			overflows = spills
+			local fields = (p :: unknown) :: { [string]: unknown }
+			local scrolling: { [string]: unknown } = {
 				Size = function(use: ComposeTypes.Use): UDim2
 					local size = read(base, use) or D2.new(1, 0, 0, stripHeight(use))
 					if not across(use) then
 						return size
 					end
-					local scale = use(unit)
-					local height = use(extent).Y / (if scale > 0 then scale else 1)
+					local height = use(extent).Y / scaleOf(use)
 					return D2.new(
 						size.X.Scale,
 						size.X.Offset,
@@ -672,7 +722,70 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 						math.max(size.Y.Offset, height + 2 * segmentMetrics.inset)
 					)
 				end,
-			})
+			}
+			if fields.CanvasSize == nil then
+				scrolling.CanvasSize = function(use: ComposeTypes.Use): UDim2
+					if not use(spills) then
+						return D2.fromScale(1, 1)
+					end
+					return D2.new(0, math.ceil(use(extent).X / scaleOf(use)) + 2 * segmentMetrics.inset, 1, 0)
+				end
+			end
+			if fields.ScrollingEnabled == nil then
+				scrolling.ScrollingEnabled = function(use: ComposeTypes.Use): boolean
+					return use(spills)
+				end
+			end
+			if fields.ClipsDescendants == nil then
+				scrolling.ClipsDescendants = function(use: ComposeTypes.Use): boolean
+					return use(spills)
+				end
+			end
+			runtime.decorate(picker, scrolling)
+			local revealed: string? = nil
+			local shownOrder = 0
+			Compose.watch(function(use: ComposeTypes.Use)
+				local order, view = use(chosenOrder), use(window).X
+				if not use(spills) then
+					revealed = nil
+					if scroller.CanvasPosition.X ~= 0 then
+						scroller.CanvasPosition = V2.new(0, scroller.CanvasPosition.Y)
+					end
+					return
+				elseif order <= 0 or view <= 0 then
+					return
+				end
+				local chosen: GuiObject? = nil
+				for button, box in segmentBoxes do
+					if use(box.order) == order then
+						chosen = button
+						use(box.at)
+						use(box.size)
+					end
+				end
+				local key = `{order}:{view}:{use(extent).X}`
+				if chosen == nil or chosen.AbsoluteSize.X <= 0 or key == revealed then
+					return
+				end
+				local animated = revealed ~= nil and order ~= shownOrder
+				revealed, shownOrder = key, order
+				local inset = segmentMetrics.inset * scaleOf(use)
+				local start = chosen.AbsolutePosition.X - scroller.AbsolutePosition.X - inset
+				local length = chosen.AbsoluteSize.X + 2 * inset
+				local delta = if start < 0 then start elseif start + length > view then start + length - view else 0
+				if delta ~= 0 then
+					UI.scrollTo(scroller, { x = scroller.CanvasPosition.X + delta }, { animated = animated })
+				end
+			end)
+		end
+		local function marked(root: GuiObject): GuiObject
+			local signal = overflows
+			if signal then
+				Compose.watch(function(use: ComposeTypes.Use)
+					root:SetAttribute("FacetOverflow", if use(signal) then true else nil)
+				end)
+			end
+			return root
 		end
 		if not labelled then
 			local width = layoutWidth(picker)
@@ -729,7 +842,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			end
 		end
 		if spec.label == nil then
-			return picker
+			return marked(picker)
 		end
 		picker.Name = "Options"
 		local label = ctx.text({
@@ -783,7 +896,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		else
 			surfaces.attach(picker, { Host.UISizeConstraint({ MaxSize = maxSize }) })
 		end
-		return row
+		return marked(row)
 	end
 	return optionsStyle
 end
