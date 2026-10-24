@@ -25,7 +25,8 @@ Placement, width, header, hero, pinned actions, body padding, scroll policy and 
   as an `inverse` button, so it reads on any art. Hero `content` is inset 16
   pixels from the sides and 12 from the bottom.
 - `actions`: a list of `{ id, label, role?, enabled?, busy?, onActivate }`.
-  They stay pinned below the body and never close the sheet. `actionLayout`
+  They stay pinned below the body and never close the sheet. The `default`
+  action has the `emphasis` appearance. `actionLayout`
   is `automatic`, `row` or `stacked`. Cancel runs an enabled `role = "cancel"`
   action first.
 - `contentInset`: `standard` or `none`. Standard body padding is 8 pixels

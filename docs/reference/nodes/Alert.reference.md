@@ -9,7 +9,9 @@ callback factories. `title` and `message` accept a string, a readable string,
 a string formula, or a callback that returns a string for the item payload.
 
 Actions have `id`, `label` and `role`, and an optional `enabled`, `shortcut` and
-`onActivate(payload)`. Dismissal occurs before the action callback.
+`onActivate(payload)`. Dismissal occurs before the action callback. One action
+can have `role = "default"`, and it has the `emphasis` appearance. One action
+can have `role = "cancel"`.
 
 The control owns the initial selection, selection containment, Back and cancel,
 and restoration to the previous selection if that object still exists.

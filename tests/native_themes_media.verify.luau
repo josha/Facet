@@ -1348,6 +1348,59 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("hides a Badge while its bound label is empty and refuses a fixed empty label", {
+			id = "native_themes_media::native themes and media::hides a Badge while its bound label is empty and refuses a fixed empty label",
+			run = function()
+				local function refused(spec: FixtureMediaProps.BadgeProps): boolean
+					local engine, runtime, UI = setup()
+					local ok = pcall(function()
+						runtime.mount(function()
+							return UI.Badge(spec)
+						end, engine.new("Folder"))
+					end)
+					runtime:dispose()
+					return not ok
+				end
+				Verify.expect(refused({ label = "" })):toBe(true)
+				Verify.expect(refused({})):toBe(true)
+				Verify.expect(refused({ icon = "checkmark", label = "" })):toBe(true)
+				Verify.expect(refused({ label = "New" })):toBe(false)
+				local engine, runtime, UI = setup()
+				local caption = Compose.cell(nil :: string?)
+				local shown = Compose.cell(true)
+				local sale: GuiObject?, owned: GuiObject?, verified: GuiObject?
+				local stop = runtime.mount(function()
+					sale = UI.Badge({ label = caption, Visible = shown })
+					owned = UI.Badge({
+						label = function(): string?
+							return nil
+						end,
+					})
+					verified = UI.Badge({ icon = "checkmark", name = "Verified", label = caption })
+					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
+						sale :: unknown,
+						owned,
+						verified,
+					})
+				end, engine.new("Folder"))
+				local badge, empty, named = assert(sale), assert(owned), assert(verified)
+				Verify.expect(badge.Visible):toBe(false)
+				Verify.expect(empty.Visible):toBe(false)
+				Verify.expect(named.Visible):toBe(true)
+				caption:set("Sale")
+				Verify.expect(badge.Visible):toBe(true)
+				Verify.expect((badge :: TextLabel).Text):toBe("Sale")
+				shown:set(false)
+				Verify.expect(badge.Visible):toBe(false)
+				shown:set(true)
+				caption:set("")
+				Verify.expect(badge.Visible):toBe(false)
+				Verify.expect(named.Visible):toBe(true)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("preserves full size progress art endcaps centers and fill direction", {
 			id = "native_themes_media::native themes and media::preserves full size progress art endcaps centers and fill direction",
 			run = function()

@@ -1813,13 +1813,16 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "value", values = { 3, 120, "New", true, 0 } },
 			{ key = "host", values = { "icon button", "button", "avatar" } },
 		},
-		states = { { name = "right to left", props = properties { direction = "rtl" } } },
+		states = {
+			{ name = "right to left", props = properties { direction = "rtl" } },
+			{ name = "accent status", props = properties { status = "accent" } },
+		},
 		make = function(UI: FacetControls, p: Properties): Instance
 			local host = if p.host == "button"
 				then UI.Button({ label = "Inbox" })
 				elseif p.host == "avatar" then UI.Avatar({ name = "Ada Quill" })
 				else UI.Button({ label = "Inbox", icon = "flag", shape = "circle" })
-			return UI.badged(host, p.value, p.direction)
+			return UI.badged(host, p.value, { direction = p.direction, status = p.status })
 		end,
 	},
 	StatusIndicator = {

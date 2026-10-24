@@ -647,6 +647,40 @@ return function(verifyHarness: Verify.Harness)
 				w2.stop()
 			end,
 		})
+
+		verifyHarness:case("the default action has the emphasis appearance; cancel and destructive keep their paint", {
+			id = "native_dialog::native Dialog: the caller's fact decides::the default action has the emphasis appearance; cancel and destructive keep their paint",
+			run = function()
+				local function act(id: string, role: ("default" | "cancel" | "destructive")?): DialogAction
+					return { id = id, label = id, role = role, onActivate = function() end }
+				end
+				local open, log, change = caller()
+				local list = { act("Stay", "cancel"), act("Sell", "destructive"), act("Later"), act("Buy", "default") }
+				local w = mount(standard(open, log, change, { actions = list }))
+				local buy, stay = actionButton(w, "Buy"), actionButton(w, "Stay")
+				local sell, later = actionButton(w, "Sell"), actionButton(w, "Later")
+				Verify.expect((buy:GetAttribute("appearance"))):toBe("emphasis")
+				Verify.expect((buy:HasTag("facet-accent"))):toBe(true)
+				Verify.expect((buy:HasTag("facet-role-default"))):toBe(true)
+				Verify.expect((stay:GetAttribute("appearance"))):toBe("standard")
+				Verify.expect((stay:HasTag("facet-accent"))):toBe(false)
+				Verify.expect((stay:HasTag("facet-role-cancel"))):toBe(true)
+				Verify.expect((sell:GetAttribute("appearance"))):toBe("standard")
+				Verify.expect((sell:HasTag("facet-accent"))):toBe(false)
+				Verify.expect((sell:HasTag("facet-role-destructive"))):toBe(true)
+				Verify.expect((later:GetAttribute("appearance"))):toBe("standard")
+				Verify.expect((later:HasTag("facet-accent"))):toBe(false)
+				w.action("Shortcut").Pressed:Fire()
+				Verify.expect((open:peek())):toBe(false)
+				w.stop()
+				local plainOpen, plainLog, plainChange = caller()
+				local unranked = { act("Retry"), act("Leave") }
+				local plain = mount(standard(plainOpen, plainLog, plainChange, { actions = unranked }))
+				Verify.expect((actionButton(plain, "Retry"):GetAttribute("appearance"))):toBe("standard")
+				Verify.expect((actionButton(plain, "Leave"):GetAttribute("appearance"))):toBe("standard")
+				plain.stop()
+			end,
+		})
 	end)
 
 	verifyHarness:suite("native Dialog: composition, layout and the height budget", function()

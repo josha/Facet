@@ -47,18 +47,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			spec.iconPosition == nil or spec.iconPosition == "leading" or spec.iconPosition == "trailing",
 			"Facet Badge invalid iconPosition"
 		)
-		local function caption(use: ComposeTypes.Use): string
+		local named = spec.icon ~= nil and type(spec.name) == "string" and spec.name ~= ""
+		local function caption(use: ComposeTypes.Use?): string
 			local value = read(spec.label, use)
 			assert(value == nil or type(value) == "string", "Facet Badge label must be a string")
-			assert(
-				(value ~= nil and value ~= "") or (spec.icon ~= nil and type(spec.name) == "string" and spec.name ~= ""),
-				"Facet Badge requires meaningful text or a named icon"
-			)
 			return value or ""
 		end
+		assert(
+			named or type(spec.label) == "function" or Compose.isReadable(spec.label) or caption() ~= "",
+			"Facet Badge requires meaningful text or a named icon"
+		)
 		local native = ctx.props(
 			spec,
-			{ "label", "status", "icon", "iconPosition", "name", "appearance", "corners", "controlSize" },
+			{ "label", "status", "icon", "iconPosition", "name", "appearance", "corners", "controlSize", "Visible" },
 			{
 				Text = caption,
 				Attributes = { AccessibleLabel = spec.name or caption },
@@ -98,6 +99,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				node :: ComposeTypes.Child,
 			})
 		end
+		runtime.decorate(pill, {
+			Visible = function(use: ComposeTypes.Use): boolean
+				return read(spec.Visible, use) ~= false and (named or caption(use) ~= "")
+			end,
+		})
 		ctx.styled(pill, "badge")
 		if spec.status ~= nil then
 			statusTag(pill, spec.status)

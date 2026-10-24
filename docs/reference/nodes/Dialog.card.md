@@ -13,6 +13,9 @@ Key options: `isPresented`, `title`, `content`, `actions`.
 
 Actions must update game state or presentation explicitly.
 
+Facet gives the `role = "default"` action the `emphasis` appearance, so do not
+style the commit action yourself.
+
 Related controls: [Controls](Controls.md).
 
 Open:
