@@ -210,6 +210,7 @@ return function(c: any, kind: string)
 		spec.render = cell
 		if kind == "VirtualGrid" then
 			spec.minColumnWidth = 140
+			spec.minColumns = 2
 		end
 	end
 	return UI.VStack "EditingDemo" {

@@ -31,6 +31,7 @@ return function(Facet: FacetModule, UI: FacetControls, model: Model): Instance
 		selection = selection,
 		selectionMode = "single",
 		minColumnWidth = 180,
+		minColumns = 2,
 		itemSize = 80,
 		render = function(current: Readable<Item>): GuiObject
 			return UI.Text "ItemName" {

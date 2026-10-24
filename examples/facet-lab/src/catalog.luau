@@ -36,7 +36,15 @@ local catalog = {}
 
 catalog.NONE = table.freeze({})
 local NONE = catalog.NONE
-local VIRTUAL_DEMOS = { "selectionFrom", "selectionIndicator", "rowActions", "minColumnWidth", "slots", "slotControls" }
+local VIRTUAL_DEMOS = {
+	"selectionFrom",
+	"selectionIndicator",
+	"rowActions",
+	"minColumnWidth",
+	"minColumns",
+	"slots",
+	"slotControls",
+}
 
 catalog.DEFAULT = "(default)"
 local DEFAULT = catalog.DEFAULT
@@ -3962,6 +3970,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "cross gap 16", props = properties { crossGap = 16 } },
 			{ name = "hug", props = require("./hug_state")(ROWS, NONE) },
 			{ name = "selected cards", props = require("./card_selection_state")(ART) },
+			{
+				name = "minColumns 2",
+				props = properties { columns = NONE, minColumnWidth = 260, minColumns = 2 },
+				across = false,
+			},
 		},
 	},
 	RowActions = {
