@@ -2,13 +2,19 @@
 
 local fs = require "@std/fs"
 
-local Paths = require "../codec/path"
+local Paths = require "../core/path"
 local Chunk = require "./chunk"
 local Datatypes = require "../roblox/datatypes"
 
 export type Environment = { [string]: unknown }
 
+export type Files = {
+	exists: (path: string) -> boolean,
+	readFile: (path: string) -> string,
+}
+
 export type Options = {
+	files: Files?,
 	aliases: { [string]: string }?,
 	hostPaths: { string }?,
 	requireHost: ((module: string) -> unknown)?,
@@ -37,14 +43,14 @@ local function normalize(path: string): string
 	return (string.gsub(Paths.collapse(path, "a module path leaves the working directory: " .. path), "^/", ""))
 end
 
-local function locate(module: string): string
+local function locate(module: string, exists: (string) -> boolean): string
 	if string.sub(module, -5) == ".luau" then
-		if fs.exists(module) then
+		if exists(module) then
 			return module
 		end
-	elseif fs.exists(module .. ".luau") then
+	elseif exists(module .. ".luau") then
 		return module .. ".luau"
-	elseif fs.exists(module .. "/init.luau") then
+	elseif exists(module .. "/init.luau") then
 		return module .. "/init.luau"
 	end
 	error("no module at " .. module, 0)
@@ -66,6 +72,7 @@ end
 
 local function new(options: Options?): Loader
 	local settings: Options = options or {}
+	local files: Files = settings.files or { exists = fs.exists, readFile = fs.readFileToString }
 	local aliases: { [string]: string } = settings.aliases or {}
 	local hostPaths: { string } = settings.hostPaths or {}
 	local resolved: { [string]: string } = {}
@@ -92,7 +99,7 @@ local function new(options: Options?): Loader
 	local function file(module: string): string
 		local known = resolved[module]
 		if known == nil then
-			known = locate(module)
+			known = locate(module, files.exists)
 			resolved[module] = known
 		end
 		return known
@@ -155,7 +162,7 @@ local function new(options: Options?): Loader
 		end
 		loading[path] = true
 		local ok, value = pcall(function(): unknown
-			local source = fs.readFileToString(path)
+			local source = files.readFile(path)
 			local transform = settings.transform
 			if transform ~= nil then
 				source = transform(path, source)

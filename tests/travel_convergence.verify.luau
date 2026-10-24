@@ -36,7 +36,7 @@ return function(harness: Verify.Harness)
 		end)
 		local holder: Folder? = nil
 		for _, node in tracking.created do
-			if node.Name == "TravelPortal" then
+			if node:IsA("Folder") and ((node :: unknown) :: Folder).Name == "TravelPortal" then
 				holder = (node :: unknown) :: Folder
 			end
 		end

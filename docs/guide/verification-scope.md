@@ -14,6 +14,12 @@ ownership. Reflection metadata describes engine classes; it does not supply
 native behavior. Read the selected assertions rather than treating case count
 as coverage.
 
+The `native_live_primitives` spec also runs three original Studio geometry
+cases with Verify's computed layout. It checks Screen/VStack padding and gap,
+ZStack alignment and stack distribution. A planted gap regression must fail
+the original assertion. These cases prove the selected model behavior. They
+do not replace Studio evidence. See [the live CI scope](../../tools/studio/CI.md).
+
 ## Live
 
 Native geometry, text editing, scrolling, selection, hit testing and input need
