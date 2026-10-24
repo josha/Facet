@@ -36,7 +36,15 @@ local catalog = {}
 
 catalog.NONE = table.freeze({})
 local NONE = catalog.NONE
-local VIRTUAL_DEMOS = { "selectionFrom", "selectionIndicator", "rowActions", "minColumnWidth", "slots", "slotControls" }
+local VIRTUAL_DEMOS = {
+	"selectionFrom",
+	"selectionIndicator",
+	"rowActions",
+	"minColumnWidth",
+	"minColumns",
+	"slots",
+	"slotControls",
+}
 
 catalog.DEFAULT = "(default)"
 local DEFAULT = catalog.DEFAULT

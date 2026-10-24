@@ -57,7 +57,7 @@ export type View<V, K> = {
 	pool: ComposeTypes.Pool<PooledRow>,
 	mainEdge: (ComposeTypes.Use?) -> number,
 	crossEdge: (ComposeTypes.Use?) -> number,
-	fitColumns: (ComposeTypes.Use?, number) -> number,
+	gridColumns: (ComposeTypes.Use?, number) -> number,
 	cardLayout: (ComposeTypes.Use?) -> (number, number),
 	fullSizes: (ComposeTypes.Use) -> { [K]: number },
 }
@@ -240,8 +240,20 @@ local function create<V, K>(
 		end
 		return math.max(edge, math.ceil(extent * math.max(0, ctx.metric("motion.materialize.lift", use) - 1)))
 	end
-	local function fitColumns(use: ComposeTypes.Use?, columns: number): number
-		if not spec.hug or spec.minColumnWidth == nil or spec.slots ~= nil then
+	local function gridColumns(use: ComposeTypes.Use?, available: number): number
+		if kind ~= "grid" then
+			return 1
+		end
+		if spec.minColumnWidth == nil then
+			return math.max(1, math.floor(read(spec.columns or 1, use)))
+		end
+		local fitted = adaptive.columnsFor(
+			available,
+			read(spec.minColumnWidth, use),
+			read(spec.crossGap or spec.gap or 0, use)
+		)
+		local columns = math.max(fitted, read(spec.minColumns or 1, use))
+		if not spec.hug or spec.slots ~= nil then
 			return columns
 		end
 		local items = source(use or function<T>(readable: ComposeTypes.Readable<T>): T
@@ -255,17 +267,7 @@ local function create<V, K>(
 			return edge
 		end
 		local available = readSource(cross, use)
-		local columns = if kind ~= "grid"
-			then 1
-			elseif spec.minColumnWidth ~= nil then fitColumns(
-				use,
-				adaptive.columnsFor(
-					available,
-					read(spec.minColumnWidth, use),
-					read(spec.crossGap or spec.gap or 0, use)
-				)
-			)
-			else math.max(1, math.floor(read(spec.columns or 1, use)))
+		local columns = gridColumns(use, available)
 		return math.max(
 			edge,
 			math.ceil(available / columns * math.max(0, ctx.metric("motion.materialize.lift", use) - 1))
@@ -336,7 +338,7 @@ local function create<V, K>(
 		pool = pool,
 		mainEdge = mainEdge,
 		crossEdge = crossEdge,
-		fitColumns = fitColumns,
+		gridColumns = gridColumns,
 		cardLayout = cardLayout,
 		fullSizes = fullSizes,
 	}
