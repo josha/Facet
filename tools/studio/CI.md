@@ -58,6 +58,33 @@ with native conformance cases, then re-pin them here. Keep the original case
 assertions and reject unsupported behavior. A double result proves only the
 modeled behavior; it does not replace native rendering or input evidence.
 
+The `native_live_primitives` spec runs the original live Screen/VStack,
+ZStack and stack distribution cases in the double. It mounts the Facet and
+live suite source trees with Verify's place runtime. The cases use the same
+live context and assertions as Studio. The fixture supplies an 800 by 600
+viewport and zero GUI insets. Verify supplies the layout, StyleSheets,
+Instances, services and frame events. The fixture keeps the strict reflected
+property and method rules.
+
+The control policy fixture in `tests/lib/native_engine.luau` configures the same
+Verify engine. It allows writable geometry, raw style reads and configured
+service methods so tests can supply their own conditions. The live double host
+uses strict reflection and computed layout. Keep engine mechanisms in Verify.
+Move policy cases to the strict fixture when they no longer need those supplied
+conditions.
+
+The test module loader reads source files before it runs a case. It supplies
+those files to Verify's loader in memory. A signal callback can then require a
+module without waiting for host filesystem operations.
+
+Run this selection with `lute run tools/facet gate spec native_live_primitives`.
+The spec also plants a gap regression and checks that the original geometry
+assertion fails. It is part of the committed test plan and the existing
+`tool-specs` producer. This selection does not cover the full live primitives
+suite. Grid layout, weighted flex, text measurement and native input remain
+outside this selection. Unsupported mechanisms must fail; do not fill geometry
+properties with expected results to make a live assertion pass.
+
 Push comparisons use the previous commit from the push event. A manual dispatch
 requires an explicit base and candidate. An absent base or an initial push with
 no previous commit fails the comparison; it does not report a performance pass.

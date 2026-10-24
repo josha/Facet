@@ -19,6 +19,12 @@ the raw property, and its styled property signal uses the property change
 signal. Individual tests can supply specific styled values or inset behavior.
 These fixtures do not prove StyleSheet resolution or native safe areas.
 
+The `native_live_primitives` spec also runs three original Studio geometry
+cases with Verify's computed layout. It checks Screen/VStack padding and gap,
+ZStack alignment and stack distribution. A planted gap regression must fail
+the original assertion. These cases prove the selected model behavior. They
+do not replace Studio evidence. See [the live CI scope](../../tools/studio/CI.md).
+
 ## Live
 
 Native geometry, text editing, scrolling, selection, hit testing and input need
@@ -34,21 +40,6 @@ Studio simulation does not prove physical haptic output, thermals, battery
 or device memory pressure. See [device verification](device-verification.md).
 
 ## Gate
-
-Prepare the same dependencies used by CI before the full local run:
-
-```sh
-rokit install --no-trust-check
-lute run tools/facet types prepare
-lute run tools/facet gate full
-```
-
-The preparation command checks pinned tools, Git and Bash, generates Lute
-typedefs and downloads both pinned Roblox definition files. It needs network
-access for missing files and write access to the Lute typedef directory.
-It fails before the expensive suite if these dependencies are unavailable.
-A successful preparation is not verification evidence. Run the full gate
-and fix its failures before publishing a completed change.
 
 The Verify gate records selection, failure, unsupported work and deferral.
 The release tier requires complete evidence with no deferrals. Running every

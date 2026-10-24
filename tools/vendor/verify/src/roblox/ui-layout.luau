@@ -72,8 +72,21 @@ local function attach(environment: Environment.Environment, options: Options): C
 				unsupported(object, "UIListLayout.Wraps")
 			end
 			for _, property in { "HorizontalFlex", "VerticalFlex" } do
-				if enum(object, property, "None") ~= "None" then
+				local flex = enum(object, property, "None")
+				local main = (property == "HorizontalFlex")
+					== (enum(object, "FillDirection", "Vertical") == "Horizontal")
+				local spacing = flex == "SpaceBetween" or flex == "SpaceAround" or flex == "SpaceEvenly"
+				if flex ~= "None" and not (main and spacing) then
 					unsupported(object, "UIListLayout." .. property)
+				end
+				if spacing and main then
+					local alignmentProperty = if property == "HorizontalFlex"
+						then "HorizontalAlignment"
+						else "VerticalAlignment"
+					local leading = if property == "HorizontalFlex" then "Left" else "Top"
+					if enum(object, alignmentProperty, leading) ~= leading then
+						unsupported(object, "list spacing with non-leading alignment")
+					end
 				end
 			end
 		elseif object:IsA "UIGridLayout" or object:IsA "UITableLayout" or object:IsA "UIPageLayout" then
@@ -224,6 +237,23 @@ local function attach(environment: Environment.Environment, options: Options): C
 		measureTree = function(object: Instance, parent: Rectangle)
 			local rectangle = if object:IsA "GuiObject" then size(object, parent) else parent
 			local content = inset(object, rectangle)
+			local list = object:FindFirstChildWhichIsA "UIListLayout"
+			if list then
+				local horizontal = enum(list, "FillDirection", "Vertical") == "Horizontal"
+				local flex = enum(list, if horizontal then "HorizontalFlex" else "VerticalFlex", "None")
+				if flex ~= "None" then
+					local occupied = 0
+					for _, child in object:GetChildren() do
+						if child:IsA "GuiObject" and optional(child, "Visible") ~= false then
+							local bounds = size(child, content)
+							occupied += if horizontal then bounds.width else bounds.height
+						end
+					end
+					if occupied > (if horizontal then content.width else content.height) then
+						unsupported(list, "overflowing list spacing")
+					end
+				end
+			end
 			for _, child in object:GetChildren() do
 				measureTree(child, content)
 			end
@@ -299,6 +329,18 @@ local function attach(environment: Environment.Environment, options: Options): C
 					if horizontal then content.width else content.height,
 					main
 				)
+				local flex = enum(list, if horizontal then "HorizontalFlex" else "VerticalFlex", "None")
+				local available = if horizontal then content.width else content.height
+				local extra = math.max(0, available - main + math.max(0, #items - 1) * gap)
+				if #items > 0 and flex ~= "None" then
+					local spaces = if flex == "SpaceBetween"
+						then #items - 1
+						elseif flex == "SpaceAround" then #items
+						else #items + 1
+					local spacing = if spaces > 0 then extra / spaces else 0
+					cursor = if flex == "SpaceAround" then spacing / 2 elseif flex == "SpaceEvenly" then spacing else 0
+					gap = spacing
+				end
 				for _, item in items do
 					local result = item.rectangle
 					result.x = content.x
