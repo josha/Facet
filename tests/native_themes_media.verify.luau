@@ -2473,6 +2473,103 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 			)
+
+			verifyHarness:case("derives control hover and pressed plates from the palette's own control", {
+				id = "native_themes_media::native parity paint::derives control hover and pressed plates from the palette's own control",
+				run = function()
+					type Plates = { control: ThemeTypes.RGB, hover: ThemeTypes.RGB, pressed: ThemeTypes.RGB }
+					local function rgb(r: number, g: number, b: number): ThemeTypes.RGB
+						return { r = r / 255, g = g / 255, b = b / 255 }
+					end
+					local function plates(extra: ThemeTypes.PaletteExtra?): Plates
+						local resolved = assert(extra)
+						return {
+							control = assert(resolved.control),
+							hover = assert(resolved.controlHover),
+							pressed = assert(resolved.controlPressed),
+						}
+					end
+					local function step(from: ThemeTypes.RGB, to: ThemeTypes.RGB): number
+						return (luminance(to) + 0.05) / (luminance(from) + 0.05)
+					end
+					local function follows(derived: Plates, reference: Plates)
+						local hover = step(reference.control, reference.hover)
+						local pressed = step(reference.control, reference.pressed)
+						Verify.expect(step(derived.control, derived.hover)):toBeCloseTo(hover)
+						Verify.expect(step(derived.control, derived.pressed)):toBeCloseTo(pressed)
+						for _, plate in { derived.hover, derived.pressed } do
+							Verify.expect(plate.r > plate.g and plate.g > plate.b):toBe(true)
+						end
+					end
+					local h = harness()
+					local function paint(package: ThemeTypes.ThemePackage?, selector: string): unknown
+						local sheet, stop = sheetFor(h, package)
+						local value = style(sheet, selector).BackgroundColor3
+						stop()
+						return value
+					end
+					local neutral = themes.neutralPackage()
+					local neutralDark = plates(neutral.style.themes[1].extra)
+					local neutralLight = plates(neutral.style.themes[2].extra)
+
+					local definition: ThemeTypes.ThemeDefinition = {
+						base = themes.neutralPackage(),
+						identity = { id = "derived-control-states" },
+						style = {
+							defaultTheme = "Game",
+							themes = { { name = "Game", extra = { control = rgb(168, 114, 47) } } },
+						},
+					}
+					local game, report = themes.define(definition)
+					Verify.expect(report.ok):toBe(true)
+					Verify.expect(#report.contrast):toBeGreaterThan(0)
+					local dark = plates(assert(game).style.themes[1].extra)
+					Verify.expect(luminance(dark.hover)):toBeGreaterThan(luminance(dark.control))
+					Verify.expect(luminance(dark.pressed)):toBeLessThan(luminance(dark.control))
+					follows(dark, neutralDark)
+					Verify.expect(neutralDark.hover.b > neutralDark.hover.r):toBe(true)
+					Verify.expect(paint(game, ".facet-button:Hover")):toBe(color(h.engine, dark.hover))
+					Verify.expect(paint(game, ".facet-button:Press")):toBe(color(h.engine, dark.pressed))
+
+					local package = themes.neutralPackage()
+					local parchment = assert(package.style.themes[2].extra)
+					parchment.control = rgb(214, 194, 156)
+					parchment.controlHover = nil
+					parchment.controlPressed = nil
+					local light = plates(assert((themes.define(package))).style.themes[2].extra)
+					Verify.expect(luminance(light.hover)):toBeLessThan(luminance(light.control))
+					Verify.expect(luminance(light.pressed)):toBeLessThan(luminance(light.hover))
+					follows(light, neutralLight)
+
+					local explicit = themes.neutralPackage()
+					local partial = assert(explicit.style.themes[1].extra)
+					partial.control = rgb(168, 114, 47)
+					partial.controlHover = rgb(200, 40, 40)
+					partial.controlPressed = nil
+					local resolved = assert((themes.define(explicit)))
+					local kept = plates(resolved.style.themes[1].extra)
+					Verify.expect(kept.hover):toEqual(rgb(200, 40, 40))
+					Verify.expect(kept.pressed):toEqual(dark.pressed)
+					Verify.expect(plates(resolved.style.themes[2].extra)):toEqual(neutralLight)
+
+					local plain: ThemeTypes.ThemeDefinition = {
+						base = themes.neutralPackage(),
+						identity = { id = "plain-control-states" },
+						style = {
+							defaultTheme = "Game",
+							themes = { { name = "Game", extra = { contentSecondary = rgb(150, 160, 170) } } },
+						},
+					}
+					local untouched, plainReport = themes.define(plain)
+					Verify.expect(plainReport.ok):toBe(true)
+					local unset = assert(assert(untouched).style.themes[1].extra)
+					Verify.expect(unset.controlHover):toBeNil()
+					Verify.expect(unset.controlPressed):toBeNil()
+					Verify.expect(paint(untouched, ".facet-button:Hover")):toBe(color(h.engine, neutralDark.hover))
+					Verify.expect(paint(untouched, ".facet-button:Press")):toBe(color(h.engine, neutralDark.pressed))
+					h.dispose()
+				end,
+			})
 		end)
 	end)(verifyHarness)
 end
