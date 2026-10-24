@@ -74,15 +74,17 @@ local function attach(environment: Environment.Environment, options: Options): C
 		if object:IsA "StyleLink" and options.read == nil then
 			unsupported(object, "StyleLink without a styled property reader")
 		end
-		if object:IsA "UIListLayout" then
-			if optional(object, "Wraps") == true then
-				unsupported(object, "UIListLayout.Wraps")
-			end
-		elseif object:IsA "UITableLayout" or object:IsA "UIPageLayout" then
+		if object:IsA "UITableLayout" or object:IsA "UIPageLayout" then
 			unsupported(object, object.ClassName)
-		elseif object:IsA "UIAspectRatioConstraint" then
-			if object.Parent == nil or not object.Parent:IsA "UIGridLayout" then
-				unsupported(object, object.ClassName)
+		end
+		if object:IsA "UIAspectRatioConstraint" then
+			local ratio = number(object, "AspectRatio", 1)
+			if ratio <= 0 or ratio >= math.huge or ratio ~= ratio then
+				unsupported(object, "invalid aspect ratio")
+			end
+			local parent = object.Parent
+			if parent and parent:IsA "GuiObject" and enum(parent, "AutomaticSize", "None") ~= "None" then
+				unsupported(parent, "aspect constraint with automatic size")
 			end
 		end
 		for _, child in object:GetChildren() do
@@ -207,6 +209,23 @@ local function attach(environment: Environment.Environment, options: Options): C
 		if widthOverride ~= nil then
 			rectangle.width = widthOverride
 		end
+		local aspect = object:FindFirstChildWhichIsA "UIAspectRatioConstraint"
+		if aspect then
+			local ratio = number(aspect, "AspectRatio", 1)
+			if ratio <= 0 or ratio >= math.huge then
+				unsupported(aspect, "invalid aspect ratio")
+			end
+			if enum(aspect, "AspectType", "FitWithinMaxSize") == "FitWithinMaxSize" then
+				rectangle.width = math.min(rectangle.width, rectangle.height * ratio)
+				rectangle.height = rectangle.width / ratio
+			elseif enum(aspect, "DominantAxis", "Width") == "Width" then
+				rectangle.width = math.min(rectangle.width, parent.width * factor, parent.height * ratio * factor)
+				rectangle.height = rectangle.width / ratio
+			else
+				rectangle.height = math.min(rectangle.height, parent.height * factor, parent.width / ratio * factor)
+				rectangle.width = rectangle.height * ratio
+			end
+		end
 		local automatic = enum(object, "AutomaticSize", "None")
 		if automatic == "None" then
 			return rectangle
@@ -248,6 +267,24 @@ local function attach(environment: Environment.Environment, options: Options): C
 		end
 		local list = object:FindFirstChildWhichIsA "UIListLayout"
 		local horizontal = list ~= nil and enum(list, "FillDirection", "Vertical") == "Horizontal"
+		if list and optional(list, "Wraps") == true and not (if horizontal then autoX else autoY) then
+			for _, child in object:GetChildren() do
+				if child:IsA "GuiObject" and optional(child, "Visible") ~= false then
+					local authoredChild = Values.dimensions(read(child, "Size"))
+					if (autoX and authoredChild.X.Scale ~= 0) or (autoY and authoredChild.Y.Scale ~= 0) then
+						unsupported(child, "size relative to an automatic parent axis")
+					end
+				end
+			end
+			local measured = List.measure(list, content, read, size, size)
+			if autoX then
+				rectangle.width = math.max(rectangle.width, measured.width + paddingX)
+			end
+			if autoY then
+				rectangle.height = math.max(rectangle.height, measured.height + paddingY)
+			end
+			return rectangle
+		end
 		local gap = 0
 		if list then
 			local unit = Values.dimension(read(list, "Padding"))
@@ -333,6 +370,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 			then
 				local list = if object.Parent then object.Parent:FindFirstChildWhichIsA "UIListLayout" else nil
 				local reflowed = list ~= nil
+					and optional(list, "Wraps") ~= true
 					and enum(list, "FillDirection", "Vertical") == "Vertical"
 					and enum(list, "HorizontalFlex", "None") == "Fill"
 				if not reflowed and placed.width ~= size(object, parent).width then
