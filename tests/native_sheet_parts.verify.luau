@@ -2026,13 +2026,18 @@ return function(verifyHarness: Verify.Harness)
 		type Bands = { width: number, height: number, top: number, left: number, bottom: number, right: number }
 		local PORTRAIT: Bands = { width = 390, height = 844, top = 106, left = 0, bottom = 34, right = 0 }
 		local LANDSCAPE: Bands = { width = 844, height = 390, top = 58, left = 47, bottom = 21, right = 47 }
+		type GlassSpec = { width: string?, placement: string?, motionLevel: string?, unsettled: boolean? }
 		local RADIUS = 12
 
-		local function glassSheet(bands: Bands, extra: { [string]: unknown }?, options: { [string]: unknown }?)
-			local o: { [string]: unknown } = table.clone(options or {})
+		local function glassSheet(bands: Bands, spec: GlassSpec)
 			local safe = Vector2.new(bands.width - bands.left - bands.right, bands.height - bands.top - bands.bottom)
-			o.size, o.shown = safe, Compose.cell(false)
-			local w = mount(extra, o)
+			local options = {
+				size = safe,
+				shown = Compose.cell(false),
+				motionLevel = spec.motionLevel,
+				unsettled = spec.unsettled,
+			}
+			local w = mount({ width = spec.width, placement = spec.placement }, options)
 			local T = w.engine.types
 			w.engine.environment.fakeOn(w.gui, "GetInsetArea", function(_self: unknown, inset: unknown): unknown
 				if inset == T.Enum.ScreenInsets.None then
@@ -2045,7 +2050,7 @@ return function(verifyHarness: Verify.Harness)
 			w.screen.ClipToDeviceSafeArea = true
 			w.shown:set(true)
 			w.engine.environment.poke(w.find("Modal"), "AbsoluteSize", safe)
-			if not o.unsettled then
+			if not spec.unsettled then
 				w.advance(1 / 300, 2)
 			end
 			return w
@@ -2064,7 +2069,7 @@ return function(verifyHarness: Verify.Harness)
 				local grip = box(plain.find("Grabber"))
 				Verify.expect(box(plain.find("SheetPanel"))):toEqual({ 0, 0, 390, 352 })
 				plain.stop()
-				local w = glassSheet(PORTRAIT, nil, { motionLevel = "none" })
+				local w = glassSheet(PORTRAIT, { motionLevel = "none" })
 				local band = 34 + RADIUS
 				Verify.expect(box(w.find("SheetPanel"))):toEqual({ 0, band, 390, 352 + band })
 				Verify.expect(box(w.find("Room"))):toEqual(room)
@@ -2082,7 +2087,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("the plate shares the device clipping lease with the scrim and returns it", {
 			id = "native_sheet_parts::native Sheet: a bottom sheet's plate reaches the glass::the plate shares the device clipping lease with the scrim and returns it",
 			run = function()
-				local w = glassSheet(PORTRAIT, nil, { motionLevel = "none" })
+				local w = glassSheet(PORTRAIT, { motionLevel = "none" })
 				local scrim = w.find("Scrim")
 				Verify.expect(scrim.Position.Y.Offset):toBe(-106)
 				Verify.expect(scrim.Size.Y.Offset):toBe(106 + 34)
@@ -2119,7 +2124,7 @@ return function(verifyHarness: Verify.Harness)
 						right = side.right,
 					}
 					local band = 21 + RADIUS
-					local w = glassSheet(bands, { width = "wide" }, { motionLevel = "none" })
+					local w = glassSheet(bands, { width = "wide", motionLevel = "none" })
 					local panel, room = w.find("SheetPanel"), w.find("Room")
 					Verify.expect(panel.Size.X.Offset):toBe(844)
 					Verify.expect(panel.Position.X.Offset):toBe((side.right - side.left) / 2)
@@ -2128,7 +2133,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(room.Size.X.Offset):toBe(-32 - side.left - side.right)
 					Verify.expect(w.find("Grabber").Position.X.Offset):toBe((side.left - side.right) / 2)
 					w.stop()
-					local narrow = glassSheet(bands, nil, { motionLevel = "none" })
+					local narrow = glassSheet(bands, { motionLevel = "none" })
 					Verify.expect(box(narrow.find("SheetPanel"))[1]):toBe(0)
 					Verify.expect(box(narrow.find("SheetPanel"))[2]):toBe(band)
 					Verify.expect(box(narrow.find("SheetPanel"))[3]):toBe(560)
@@ -2146,7 +2151,7 @@ return function(verifyHarness: Verify.Harness)
 					local plain = mount({ placement = placement }, { size = safe, room = safe, motionLevel = "none" })
 					local panel, room = box(plain.find("SheetPanel")), box(plain.find("Room"))
 					plain.stop()
-					local w = glassSheet(LANDSCAPE, { placement = placement }, { motionLevel = "none" })
+					local w = glassSheet(LANDSCAPE, { placement = placement, motionLevel = "none" })
 					Verify.expect(box(w.find("SheetPanel"))):toEqual(panel)
 					Verify.expect(box(w.find("Room"))):toEqual(room)
 					Verify.expect(w.screen.ClipToDeviceSafeArea):toBe(false)
@@ -2161,7 +2166,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("the plate moves with the panel past the glass and through a drag", {
 			id = "native_sheet_parts::native Sheet: a bottom sheet's plate reaches the glass::the plate moves with the panel past the glass and through a drag",
 			run = function()
-				local w = glassSheet(PORTRAIT, nil, { unsettled = true })
+				local w = glassSheet(PORTRAIT, { unsettled = true })
 				local panel = w.find("SheetPanel")
 				local band = 34 + RADIUS
 				Verify.expect(panel.Size.Y.Offset):toBe(352 + band)

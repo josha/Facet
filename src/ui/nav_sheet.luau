@@ -247,7 +247,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local reached = gesture.reached
 		if reached then
 			local cell = reached
-			local docked = glass.reach(ctx, overlay)
+			local docked = glass.reach(ctx, overlay, false)
 			Compose.watch(function(use: ComposeTypes.Use)
 				cell:set(use(docked))
 			end)
