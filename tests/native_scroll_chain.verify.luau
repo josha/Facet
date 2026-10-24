@@ -24,8 +24,8 @@ return function(verifyHarness: Verify.Harness)
 		local middle = root:FindFirstChild("Middle")
 		local inner = middle:FindFirstChild("Inner")
 		for _, frame in { root, middle, inner } do
-			frame.AbsoluteWindowSize = engine.types.Vector2.new(100, 100)
-			frame.AbsoluteCanvasSize = engine.types.Vector2.new(100, 300)
+			engine.environment.poke(frame, "AbsoluteWindowSize", engine.types.Vector2.new(100, 100))
+			engine.environment.poke(frame, "AbsoluteCanvasSize", engine.types.Vector2.new(100, 300))
 			frame.CanvasPosition = engine.types.Vector2.new(0, 100)
 		end
 		local tile = engine.new("TextButton")
@@ -105,7 +105,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = world()
 				w.root.ScrollingDirection = w.engine.types.Enum.ScrollingDirection.X
-				w.root.AbsoluteCanvasSize = w.engine.types.Vector2.new(300, 100)
+				w.engine.environment.poke(w.root, "AbsoluteCanvasSize", w.engine.types.Vector2.new(300, 100))
 				w.root.CanvasPosition = w.engine.types.Vector2.new(100, 0)
 				local touch = w.begin()
 				w.move(touch, 20, 50)
@@ -124,7 +124,7 @@ return function(verifyHarness: Verify.Harness)
 				for _, frame in { w.inner, w.middle, w.root } do
 					frame.CanvasPosition = w.engine.types.Vector2.zero
 				end
-				w.inner.AbsoluteCanvasSize = w.inner.AbsoluteWindowSize
+				w.engine.environment.poke(w.inner, "AbsoluteCanvasSize", w.inner.AbsoluteWindowSize)
 				local touch = w.begin()
 				w.move(touch, 50, 80)
 				Verify.expect(w.inner.ScrollingEnabled and w.middle.ScrollingEnabled):toBe(true)

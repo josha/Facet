@@ -31,7 +31,7 @@ return function(harness: Verify.Harness)
 		end)
 		for _, node in parent:GetDescendants() do
 			if node:IsA("ScrollingFrame") then
-				node.AbsoluteWindowSize = engine.types.Vector2.new(1280, 500)
+				engine.environment.poke(node, "AbsoluteWindowSize", engine.types.Vector2.new(1280, 500))
 			end
 		end
 		engine.heartbeat:Fire(1 / 60)

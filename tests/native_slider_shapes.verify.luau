@@ -32,7 +32,7 @@ return function(verifyHarness: Verify.Harness)
 		local UI: any = {}
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		local E = engine.types.Enum
-		input.PreferredInput = o.preferred or E.PreferredInput.KeyboardAndMouse
+		engine.environment.poke(input, "PreferredInput", o.preferred or E.PreferredInput.KeyboardAndMouse)
 		input.GetLastInputType = function()
 			return E.UserInputType.MouseMovement
 		end
@@ -98,9 +98,12 @@ return function(verifyHarness: Verify.Harness)
 		end, screen)
 		w.node = find(screen, "Vol")
 		w.track = find(w.node, "Track")
-		w.track.AbsoluteSize =
+		w.engine.environment.poke(
+			w.track,
+			"AbsoluteSize",
 			engine.types.Vector2.new(if merged.axis == "y" then 44 else 200, if merged.axis == "y" then 200 else 44)
-		w.track.AbsolutePosition = engine.types.Vector2.new(0, 0)
+		)
+		w.engine.environment.poke(w.track, "AbsolutePosition", engine.types.Vector2.new(0, 0))
 		return w
 	end
 
@@ -277,7 +280,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_slider_shapes::native Slider rotation::a press on a scrolled track reads the painted position",
 			run = function()
 				local w = world({ rotation = 90, step = 25, value = Compose.cell(0) })
-				w.track.AbsolutePosition = v(w, 40, -260)
+				w.engine.environment.poke(w.track, "AbsolutePosition", v(w, 40, -260))
 				pressAt(w, 90, 0.25)
 				expect((w.value:peek())):toBe(25)
 				w.stop()
@@ -429,7 +432,7 @@ return function(verifyHarness: Verify.Harness)
 					detector.DragStart:Fire(v(w, 40, 22))
 					detector.DragContinue:Fire(v(w, 0, 22))
 					expect(w.value:peek().lower):toBe(0)
-					w.input.PreferredInput = w.E.PreferredInput.Gamepad
+					w.engine.environment.poke(w.input, "PreferredInput", w.E.PreferredInput.Gamepad)
 					expect((pair(w))):toBe("20/60")
 					detector.DragContinue:Fire(v(w, 80, 22))
 					detector.DragEnd:Fire()
@@ -510,9 +513,9 @@ return function(verifyHarness: Verify.Harness)
 				expect(thumb.Visible):toBe(true)
 				w.gui.SelectedObject = nil
 				expect(thumb.Visible):toBe(false)
-				w.track.GuiState = w.E.GuiState.Hover
+				w.engine.environment.poke(w.track, "GuiState", w.E.GuiState.Hover)
 				expect(thumb.Visible):toBe(true)
-				w.track.GuiState = w.E.GuiState.Idle
+				w.engine.environment.poke(w.track, "GuiState", w.E.GuiState.Idle)
 				expect(thumb.Visible):toBe(false)
 				local detector = w.track:FindFirstChildWhichIsA("UIDragDetector")
 				detector.DragStart:Fire(v(w, 20, 22))
@@ -623,7 +626,7 @@ return function(verifyHarness: Verify.Harness)
 						local art = engine.new("Frame")
 						local side = sides[info.thumb]
 						art.Name = "Art_" .. info.thumb
-						art.AbsoluteSize = engine.types.Vector2.new(side, side)
+						engine.environment.poke(art, "AbsoluteSize", engine.types.Vector2.new(side, side))
 						return art
 					end,
 				}, { engine = engine })

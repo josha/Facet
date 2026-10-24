@@ -71,7 +71,7 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end
 		local input = engine.new("UserInputService")
-		input.PreferredInput = o.preferred or E.PreferredInput.KeyboardAndMouse
+		engine.environment.poke(input, "PreferredInput", o.preferred or E.PreferredInput.KeyboardAndMouse)
 		local proxy = setmetatable({
 			IsKeyDown = function()
 				return false
@@ -166,8 +166,8 @@ return function(verifyHarness: Verify.Harness)
 			return pressed
 		end
 		function w.size(node: any, width: number, height: number, x: number?, y: number?)
-			node.AbsoluteSize = V2(width, height)
-			node.AbsolutePosition = V2(x or 0, y or 0)
+			w.engine.environment.poke(node, "AbsoluteSize", V2(width, height))
+			w.engine.environment.poke(node, "AbsolutePosition", V2(x or 0, y or 0))
 		end
 		function w.typeInto(field: any, text: string)
 			field:CaptureFocus()
@@ -271,12 +271,12 @@ return function(verifyHarness: Verify.Harness)
 				w.open()
 				expect(w.attr("columns")):toBe(7)
 				local first = w.cells()[2]
-				w.find("Body").AbsoluteWindowSize = V2(342, 264)
+				w.engine.environment.poke(w.find("Body"), "AbsoluteWindowSize", V2(342, 264))
 				expect(w.cells()[2]):toBe(first)
-				w.find("Body").AbsoluteWindowSize = V2(0, 0)
+				w.engine.environment.poke(w.find("Body"), "AbsoluteWindowSize", V2(0, 0))
 				expect(w.attr("columns")):toBe(7)
 				expect(w.cells()[2]):toBe(first)
-				w.find("Body").AbsoluteWindowSize = V2(300, 264)
+				w.engine.environment.poke(w.find("Body"), "AbsoluteWindowSize", V2(300, 264))
 				expect(w.attr("columns")):toBe(6)
 				expect(#w.cells()):toBe(36)
 				w.stop()
@@ -435,7 +435,7 @@ return function(verifyHarness: Verify.Harness)
 						expect(node.LayoutOrder):toBe(index)
 						expect(node.Selectable):toBe(true)
 					end
-					w.find("Body").AbsoluteWindowSize = V2(300, 0)
+					w.engine.environment.poke(w.find("Body"), "AbsoluteWindowSize", V2(300, 0))
 					expect((w.attr("columns"))):toBe(6)
 					expect(#w.cells()):toBe(36)
 					w.stop()
@@ -657,7 +657,7 @@ return function(verifyHarness: Verify.Harness)
 					four.size(four.find("Modes"), 300, 44)
 					expect(four.find("Modes") ~= nil):toBe(true)
 					expect(four.find("Modes/brick") ~= nil):toBe(true)
-					four.find("Modes/LabelMeasure").TextBounds = V2(220, 18)
+					four.engine.environment.poke(four.find("Modes/LabelMeasure"), "TextBounds", V2(220, 18))
 					expect((four.find("Modes/brick"))):toBeNil()
 					four.stop()
 					local tv = world(
@@ -789,7 +789,7 @@ return function(verifyHarness: Verify.Harness)
 				local drag = w.find("Plane/Surface"):FindFirstChildWhichIsA("UIDragDetector")
 				drag.DragStart:Fire(V2(5, 5))
 				expect(hex(cell:peek()) ~= before):toBe(true)
-				w.input.PreferredInput = w.E.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.E.PreferredInput.Gamepad)
 				expect((hex(cell:peek()))):toBe(before)
 				drag.DragContinue:Fire(V2(100, 100))
 				drag.DragEnd:Fire()
@@ -846,7 +846,7 @@ return function(verifyHarness: Verify.Harness)
 						drag.DragEnd:Fire()
 					end
 					drag.DragStart:Fire(V2(5, 170))
-					w.input.PreferredInput = E.PreferredInput.Gamepad
+					w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
 					expect((w.screen:FindFirstChild("Bubble"))):toBe(nil)
 					w.stop()
 					local h = spectrum({ preferred = E.PreferredInput.Touch })
@@ -1288,14 +1288,14 @@ return function(verifyHarness: Verify.Harness)
 				w.open()
 				local body = w.find("Body")
 				expect(body.VerticalScrollBarInset):toBe(w.E.ScrollBarInset.ScrollBar)
-				body.AbsoluteWindowSize = V2(376, 300)
+				w.engine.environment.poke(body, "AbsoluteWindowSize", V2(376, 300))
 				local size = w.find("Technique").Size
 				expect(`{size.X.Scale} {size.X.Offset}`):toBe("0 376")
 				local probe = assert(w.find("Technique"):FindFirstChild("LayoutUnit"))
-				probe.AbsoluteSize = V2(50, 0.5)
+				w.engine.environment.poke(probe, "AbsoluteSize", V2(50, 0.5))
 				size = w.find("Technique").Size
 				expect(`under a 0.5 UIScale {size.X.Scale} {size.X.Offset}`):toBe("under a 0.5 UIScale 0 752")
-				body.AbsoluteWindowSize = V2(340, 300)
+				w.engine.environment.poke(body, "AbsoluteWindowSize", V2(340, 300))
 				expect(w.find("Technique").Size.X.Offset):toBe(680)
 				w.stop()
 			end,
@@ -1309,7 +1309,7 @@ return function(verifyHarness: Verify.Harness)
 					world({ value = cell, onChange = change, style = "inline" :: "inline", modes = { "sliders" } })
 				local widths: { [string]: number } = { Hue = 24, Saturation = 70, Brightness = 76 }
 				for name, width in widths do
-					w.find(`Sliders/{name}/Label`).TextBounds = V2(width, 18)
+					w.engine.environment.poke(w.find(`Sliders/{name}/Label`), "TextBounds", V2(width, 18))
 				end
 				for name in widths do
 					local label = w.find(`Sliders/{name}/Label`)
@@ -1329,7 +1329,7 @@ return function(verifyHarness: Verify.Harness)
 					{ value = value, style = "inline" :: "inline", modes = { "swatches" } },
 					{ tenFoot = true }
 				)
-				w.input.GamepadEnabled = true
+				w.engine.environment.poke(w.input, "GamepadEnabled", true)
 				w.size(w.find("Body"), 556, 400)
 				expect(w.cells()[1].Size.X.Offset):toBe(66)
 				expect(w.cells()[1].Size.Y.Offset):toBe(66)
@@ -1338,7 +1338,7 @@ return function(verifyHarness: Verify.Harness)
 				w.size(w.find("Body"), 276, 400)
 				expect(w.find("Swatches").Size.X.Offset):toBe(276)
 				expect(#w.cells()):toBe(24)
-				w.input.GamepadEnabled = false
+				w.engine.environment.poke(w.input, "GamepadEnabled", false)
 				expect(w.cells()[1].Size.X.Offset):toBe(44)
 				expect(w.find("Swatches").Size.X.Offset):toBe(236)
 				expect(#w.cells()):toBe(30)

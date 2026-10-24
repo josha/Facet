@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -138,8 +139,10 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local V = w.engine.types.Vector2
 				local a, b = w.find("A"), w.find("B")
-				a.AbsolutePosition, a.AbsoluteSize = V.new(0, 0), V.new(200, 44)
-				b.AbsolutePosition, b.AbsoluteSize = V.new(220, 0), V.new(200, 44)
+				w.engine.environment.poke(((a) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V.new(0, 0))
+				w.engine.environment.poke(((a) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V.new(200, 44))
+				w.engine.environment.poke(((b) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V.new(220, 0))
+				w.engine.environment.poke(((b) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V.new(200, 44))
 				w.gui.SelectedObject = a
 				w.stick(1, 0)
 				Verify.expect((left:peek())):toBe(9)
@@ -170,8 +173,10 @@ return function(verifyHarness: Verify.Harness)
 		local function pair(w: any, extra: any?): (any, any)
 			local V = w.engine.types.Vector2
 			local a, b = w.find("A"), w.find("B")
-			a.AbsolutePosition, a.AbsoluteSize = V.new(0, 0), V.new(200, 44)
-			b.AbsolutePosition, b.AbsoluteSize = V.new(220, 0), V.new(200, 44)
+			w.engine.environment.poke(((a) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V.new(0, 0))
+			w.engine.environment.poke(((a) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V.new(200, 44))
+			w.engine.environment.poke(((b) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V.new(220, 0))
+			w.engine.environment.poke(((b) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V.new(200, 44))
 			return a, b
 		end
 
@@ -212,8 +217,16 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local a = pair(w)
 					local c = w.find("C")
-					c.AbsolutePosition, c.AbsoluteSize =
-						w.engine.types.Vector2.new(0, 300), w.engine.types.Vector2.new(200, 44)
+					w.engine.environment.poke(
+						((c) :: unknown) :: FixtureRoblox.Instance,
+						"AbsolutePosition",
+						w.engine.types.Vector2.new(0, 300)
+					)
+					w.engine.environment.poke(
+						((c) :: unknown) :: FixtureRoblox.Instance,
+						"AbsoluteSize",
+						w.engine.types.Vector2.new(200, 44)
+					)
 					a.NextSelectionRight = c
 					w.gui.SelectedObject = a
 					Verify.expect(a.NextSelectionRight):toBe(c)
@@ -504,12 +517,12 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local E, V = w.engine.types.Enum, w.engine.types.Vector2
-				w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
-				w.screen:GetChildren()[1].AbsoluteSize = V.new(400, 44)
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
+				w.engine.environment.poke(w.screen:GetChildren()[1], "AbsoluteSize", V.new(400, 44))
 				local detector = w.screen:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
 				detector.DragStart:Fire(V.new(300, 10))
 				detector.DragContinue:Fire(V.new(100, 10))
-				w.input.PreferredInput = E.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
 				detector.DragEnd:Fire()
 				Verify.expect(w.find("DismissTray").Visible):toBe(false)
 				w.stop()
@@ -540,10 +553,10 @@ return function(verifyHarness: Verify.Harness)
 				local w, playerGui, stopRing = ringWorld(false)
 				local V2 = w.engine.types.Vector2
 				local row, knob = w.find("Row"), w.find("Knob")
-				row.AbsolutePosition = V2.new(100, 100)
-				row.AbsoluteSize = V2.new(600, 60)
-				knob.AbsolutePosition = V2.new(300, 110)
-				knob.AbsoluteSize = V2.new(44, 44)
+				w.engine.environment.poke(row, "AbsolutePosition", V2.new(100, 100))
+				w.engine.environment.poke(row, "AbsoluteSize", V2.new(600, 60))
+				w.engine.environment.poke(knob, "AbsolutePosition", V2.new(300, 110))
+				w.engine.environment.poke(knob, "AbsoluteSize", V2.new(44, 44))
 				row:SetAttribute("FacetFocusPart", "Track/Knob")
 				w.gui.SelectedObject = row
 				local image = playerGui.SelectionImageObject
@@ -551,7 +564,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(image.Position.X.Offset):toBe(-2)
 				Verify.expect(image.Size.X.Scale * 600):toBeCloseTo(44, 1e-4)
 				Verify.expect(image.Size.X.Offset):toBe(4)
-				knob.AbsolutePosition = V2.new(320, 110)
+				w.engine.environment.poke(knob, "AbsolutePosition", V2.new(320, 110))
 				Verify.expect(image.Position.X.Scale * 600):toBeCloseTo(220, 1e-4)
 				stopRing()
 				w.stop()
@@ -564,10 +577,10 @@ return function(verifyHarness: Verify.Harness)
 				local w, playerGui, stopRing = ringWorld(false)
 				local V2 = w.engine.types.Vector2
 				local row, knob = w.find("Row"), w.find("Knob")
-				row.AbsolutePosition = V2.new(100, 100)
-				row.AbsoluteSize = V2.new(600, 60)
-				knob.AbsolutePosition = V2.new(300, 110)
-				knob.AbsoluteSize = V2.new(44, 44)
+				w.engine.environment.poke(row, "AbsolutePosition", V2.new(100, 100))
+				w.engine.environment.poke(row, "AbsoluteSize", V2.new(600, 60))
+				w.engine.environment.poke(knob, "AbsolutePosition", V2.new(300, 110))
+				w.engine.environment.poke(knob, "AbsoluteSize", V2.new(44, 44))
 				knob.Selectable = true
 				knob:SetAttribute("FacetFocusPart", "../..")
 				w.gui.SelectedObject = knob
@@ -613,10 +626,10 @@ return function(verifyHarness: Verify.Harness)
 					local w, playerGui, stopRing = ringWorld(true)
 					local V2 = w.engine.types.Vector2
 					local row, knob = w.find("Row"), w.find("Knob")
-					row.AbsolutePosition = V2.new(50, 50)
-					row.AbsoluteSize = V2.new(300, 30)
-					knob.AbsolutePosition = V2.new(150, 55)
-					knob.AbsoluteSize = V2.new(22, 22)
+					w.engine.environment.poke(row, "AbsolutePosition", V2.new(50, 50))
+					w.engine.environment.poke(row, "AbsoluteSize", V2.new(300, 30))
+					w.engine.environment.poke(knob, "AbsolutePosition", V2.new(150, 55))
+					w.engine.environment.poke(knob, "AbsoluteSize", V2.new(22, 22))
 					row:SetAttribute("FacetFocusPart", "Track/Knob")
 					w.gui.SelectedObject = row
 					local image = playerGui.SelectionImageObject

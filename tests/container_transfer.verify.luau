@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 local Facet = require("../src")
 local context = require("../src/ui/context")
@@ -56,9 +57,11 @@ return function(harness: Verify.Harness)
 		end)
 		local E, V2, V3 = w.engine.types.Enum, w.engine.types.Vector2, w.engine.types.Vector3
 		local source = w.find("EmptySlot")
-		source.AbsolutePosition, source.AbsoluteSize = V2.new(20, 200), V2.new(52, 52)
+		w.engine.environment.poke(((source) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.new(20, 200))
+		w.engine.environment.poke(((source) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(52, 52))
 		local body = w.find("Rack")
-		body.AbsoluteWindowSize, body.AbsoluteSize = V2.new(390, 52), V2.new(390, 52)
+		w.engine.environment.poke(((body) :: unknown) :: FixtureRoblox.Instance, "AbsoluteWindowSize", V2.new(390, 52))
+		w.engine.environment.poke(((body) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(390, 52))
 		local pointer = w.engine.new("InputObject")
 		local painted = w.find("PaintedTile")
 		pointer.UserInputType, pointer.UserInputState = E.UserInputType.Touch, E.UserInputState.Begin
@@ -111,7 +114,8 @@ return function(harness: Verify.Harness)
 		end)
 		local tile = w.find("Tile")
 		local E, V2, V3 = w.engine.types.Enum, w.engine.types.Vector2, w.engine.types.Vector3
-		tile.AbsolutePosition, tile.AbsoluteSize = V2.new(20, 200), V2.new(52, 52)
+		w.engine.environment.poke(((tile) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.new(20, 200))
+		w.engine.environment.poke(((tile) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(52, 52))
 		local detector = tile:FindFirstChildWhichIsA("UIDragDetector")
 		local pointer = w.engine.new("InputObject")
 		pointer.UserInputType, pointer.UserInputState = E.UserInputType.MouseButton1, E.UserInputState.Begin
@@ -130,10 +134,26 @@ return function(harness: Verify.Harness)
 		screen.Parent = playerGui
 		local source, target = engine.new("TextButton"), engine.new("TextButton")
 		source.Parent, target.Parent = screen, screen
-		source.AbsolutePosition, source.AbsoluteSize =
-			engine.types.Vector2.new(20, 50), engine.types.Vector2.new(80, 60)
-		target.AbsolutePosition, target.AbsoluteSize =
-			engine.types.Vector2.new(240, 160), engine.types.Vector2.new(60, 60)
+		engine.environment.poke(
+			((source) :: unknown) :: FixtureRoblox.Instance,
+			"AbsolutePosition",
+			engine.types.Vector2.new(20, 50)
+		)
+		engine.environment.poke(
+			((source) :: unknown) :: FixtureRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(80, 60)
+		)
+		engine.environment.poke(
+			((target) :: unknown) :: FixtureRoblox.Instance,
+			"AbsolutePosition",
+			engine.types.Vector2.new(240, 160)
+		)
+		engine.environment.poke(
+			((target) :: unknown) :: FixtureRoblox.Instance,
+			"AbsoluteSize",
+			engine.types.Vector2.new(60, 60)
+		)
 		local hits = { target }
 		playerGui.GetGuiObjectsAtPosition = function()
 			return hits
@@ -237,14 +257,25 @@ return function(harness: Verify.Harness)
 				}
 			end, screen)
 			local rack = mounted :: ScrollingFrame
-			rack.AbsoluteSize, rack.AbsoluteWindowSize = V2.new(300, 80), V2.new(300, 80)
+			engine.environment.poke(((rack) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(300, 80))
+			engine.environment.poke(
+				((rack) :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteWindowSize",
+				V2.new(300, 80)
+			)
 			local second = assert(rack:FindFirstChild("2", true)) :: GuiObject
 			for _ = 1, 240 do
 				engine.heartbeat:Fire(1 / 60)
 			end
 			local initial = second.Position.X.Offset
 			local source = engine.new("TextButton")
-			source.Parent, source.AbsolutePosition, source.AbsoluteSize = screen, V2.new(400, 100), V2.new(40, 40)
+			source.Parent = screen
+			engine.environment.poke(
+				((source) :: unknown) :: FixtureRoblox.Instance,
+				"AbsolutePosition",
+				V2.new(400, 100)
+			)
+			engine.environment.poke(((source) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(40, 40))
 			playerGui.GetGuiObjectsAtPosition = function()
 				return { rack }
 			end
@@ -370,7 +401,8 @@ return function(harness: Verify.Harness)
 				}
 			end, screen)
 			local anchor = assert((assert(anchors.nodeOfKey)(1)))
-			anchor.AbsolutePosition, anchor.AbsoluteSize = V2.new(20, 20), V2.new(40, 40)
+			engine.environment.poke(((anchor) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.new(20, 20))
+			engine.environment.poke(((anchor) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(40, 40))
 			local stopTravel = runtime.mount(function()
 				return UI.Travel {
 					destination = anchor,
@@ -435,14 +467,21 @@ return function(harness: Verify.Harness)
 				}
 			end, screen)
 			local rack = mounted :: ScrollingFrame
-			rack.AbsoluteSize, rack.AbsoluteWindowSize = V2.new(300, 80), V2.new(300, 80)
+			engine.environment.poke(((rack) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(300, 80))
+			engine.environment.poke(
+				((rack) :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteWindowSize",
+				V2.new(300, 80)
+			)
 			local items = assert(rack:FindFirstChild("Items")) :: Frame
-			items.AbsolutePosition = V2.new(100, 200)
+			engine.environment.poke((items :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.new(100, 200))
 			local unit = assert(rack:FindFirstChild("LayoutUnit")) :: Frame
-			unit.AbsoluteSize = V2.new(2, 2)
+			engine.environment.poke((unit :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(2, 2))
 			rack.CanvasPosition = V2.new(40, 20)
 			local source: GuiObject = engine.new("TextButton")
-			source.Parent, source.AbsolutePosition, source.AbsoluteSize = screen, V2.new(10, 10), V2.new(40, 40)
+			source.Parent = screen
+			engine.environment.poke(((source) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.new(10, 10))
+			engine.environment.poke(((source) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(40, 40))
 			local session = sessionOf(ctx)
 			session.begin(
 				source,
@@ -513,8 +552,16 @@ return function(harness: Verify.Harness)
 				}
 			end, engine.new("ScreenGui"))
 			local list = mounted :: ScrollingFrame
-			list.AbsoluteWindowSize, list.AbsoluteSize =
-				engine.types.Vector2.new(100, 80), engine.types.Vector2.new(100, 80)
+			engine.environment.poke(
+				((list) :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteWindowSize",
+				engine.types.Vector2.new(100, 80)
+			)
+			engine.environment.poke(
+				((list) :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteSize",
+				engine.types.Vector2.new(100, 80)
+			)
 			Verify.expect(list.CanvasSize.Y.Offset):toBe(1000)
 			Verify.expect(rendered):toBe(0)
 			list.CanvasPosition = engine.types.Vector2.new(0, 800)
@@ -527,7 +574,7 @@ return function(harness: Verify.Harness)
 			local C, V2, V3, E = Facet.Compose, engine.types.Vector2, engine.types.Vector3, engine.types.Enum
 			local runtime = Facet.Roblox.createRuntime(engine)
 			local input = engine.new("UserInputService")
-			input.PreferredInput = E.PreferredInput.Touch
+			engine.environment.poke(input, "PreferredInput", E.PreferredInput.Touch)
 			local playerGui, screen = engine.new("PlayerGui"), engine.new("ScreenGui")
 			screen.Parent = playerGui
 			screen.Enabled = true
@@ -557,10 +604,11 @@ return function(harness: Verify.Harness)
 			end, screen)
 			local root = mounted :: GuiObject
 			local board = assert(root:FindFirstChild("BoardSlot1", true)) :: GuiObject
-			board.AbsolutePosition, board.AbsoluteSize = V2.new(240, 50), V2.new(52, 52)
+			engine.environment.poke(((board) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.new(240, 50))
+			engine.environment.poke(((board) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(52, 52))
 			local rack = assert(root:FindFirstChild("TransferRack", true)) :: ScrollingFrame
 			local tile = assert(rack:FindFirstChild("Reorderable", true)) :: Frame
-			tile.AbsoluteSize = V2.new(52, 52)
+			engine.environment.poke((tile :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(52, 52))
 			local hit = assert(tile:FindFirstChildWhichIsA("TextButton", true)) :: GuiObject
 			local pointer = (
 				{
@@ -593,7 +641,16 @@ return function(harness: Verify.Harness)
 			end
 			Verify.expect(board:GetAttribute("label")):toBe("A")
 			Verify.expect(assert(recess).Visible):toBe(true)
-			assert(recess).AbsolutePosition, assert(recess).AbsoluteSize = V2.new(20, 200), V2.new(52, 52)
+			engine.environment.poke(
+				((assert(recess)) :: unknown) :: FixtureRoblox.Instance,
+				"AbsolutePosition",
+				V2.new(20, 200)
+			)
+			engine.environment.poke(
+				((assert(recess)) :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteSize",
+				V2.new(52, 52)
+			)
 			engine.heartbeat:Fire(1 / 60)
 			local pressed = (assert(recall).Activated :: unknown) :: { Fire: (unknown) -> () }
 			pressed:Fire()
@@ -631,7 +688,7 @@ return function(harness: Verify.Harness)
 			local C, V2, V3, E = Facet.Compose, engine.types.Vector2, engine.types.Vector3, engine.types.Enum
 			local runtime = Facet.Roblox.createRuntime(engine)
 			local input = engine.new("UserInputService")
-			input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+			engine.environment.poke(input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
 			local playerGui, screen = engine.new("PlayerGui"), engine.new("ScreenGui")
 			screen.Parent = playerGui
 			local rack: ScrollingFrame?
@@ -673,10 +730,16 @@ return function(harness: Verify.Harness)
 			end, screen)
 			rack = mounted :: ScrollingFrame
 			local body = assert(rack)
-			body.AbsoluteSize, body.AbsoluteWindowSize = V2.new(120, 60), V2.new(120, 60)
+			engine.environment.poke(((body) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(120, 60))
+			engine.environment.poke(
+				((body) :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteWindowSize",
+				V2.new(120, 60)
+			)
 			local cell = assert(body:FindFirstChild("2", true))
 			local row = assert(cell:FindFirstChild("Reorderable", true)) :: Frame
-			row.AbsolutePosition, row.AbsoluteSize = V2.new(40, 0), V2.new(40, 40)
+			engine.environment.poke(((row) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.new(40, 0))
+			engine.environment.poke(((row) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(40, 40))
 			local tile = assert(row:FindFirstChild("Tile", true)) :: GuiObject
 			local detector = assert(row:FindFirstChild("FacetCollectionDrag", true))
 			local pointer = (
@@ -714,7 +777,7 @@ return function(harness: Verify.Harness)
 			local C, V2, V3, E = Facet.Compose, engine.types.Vector2, engine.types.Vector3, engine.types.Enum
 			local runtime = Facet.Roblox.createRuntime(engine)
 			local input = engine.new("UserInputService")
-			input.PreferredInput = E.PreferredInput.Touch
+			engine.environment.poke(input, "PreferredInput", E.PreferredInput.Touch)
 			local playerGui, screen = engine.new("PlayerGui"), engine.new("ScreenGui")
 			screen.Parent = playerGui
 			local hits: { GuiObject } = {}
@@ -762,7 +825,7 @@ return function(harness: Verify.Harness)
 			end, screen)
 			local body = rack :: ScrollingFrame
 			local row = assert(body:FindFirstChild("Reorderable", true)) :: Frame
-			row.AbsoluteSize = V2.new(40, 40)
+			engine.environment.poke((row :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(40, 40))
 			local hit = assert(row:FindFirstChild("Tile", true)) :: GuiObject
 			local pointer = (
 				{
@@ -793,7 +856,7 @@ return function(harness: Verify.Harness)
 			local C, V2, V3, E = Facet.Compose, engine.types.Vector2, engine.types.Vector3, engine.types.Enum
 			local runtime = Facet.Roblox.createRuntime(engine)
 			local input = engine.new("UserInputService")
-			input.PreferredInput = E.PreferredInput.Touch
+			engine.environment.poke(input, "PreferredInput", E.PreferredInput.Touch)
 			local playerGui, screen = engine.new("PlayerGui"), engine.new("ScreenGui")
 			screen.Parent = playerGui
 			local hits: { GuiObject } = {}
@@ -838,10 +901,15 @@ return function(harness: Verify.Harness)
 				}
 			end, screen)
 			local body = rack :: ScrollingFrame
-			body.AbsoluteWindowSize, body.AbsoluteSize = V2.new(120, 80), V2.new(120, 80)
+			engine.environment.poke(
+				((body) :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteWindowSize",
+				V2.new(120, 80)
+			)
+			engine.environment.poke(((body) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(120, 80))
 			local cell = assert(body:FindFirstChild("1", true))
 			local row = assert(cell:FindFirstChild("Reorderable", true)) :: Frame
-			row.AbsoluteSize = V2.new(40, 40)
+			engine.environment.poke((row :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(40, 40))
 			local hit = assert(row:FindFirstChild("Tile", true)) :: GuiObject
 			local pointer = (
 				{
@@ -980,8 +1048,12 @@ return function(harness: Verify.Harness)
 			local V2 = w.engine.types.Vector2
 			local second: GuiObject = w.engine.new("TextButton")
 			second.Parent = w.screen
-			second.AbsoluteSize = V2.new(60, 60)
-			second.AbsolutePosition = V2.new(400, 160)
+			w.engine.environment.poke((second :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(60, 60))
+			w.engine.environment.poke(
+				(second :: unknown) :: FixtureRoblox.Instance,
+				"AbsolutePosition",
+				V2.new(400, 160)
+			)
 			local placed: Instance? = nil
 			w.register({
 				onDrop = function()
@@ -1004,15 +1076,23 @@ return function(harness: Verify.Harness)
 			})
 			w.service.update(V2.new(270, 180))
 			for frame = 1, 60 do
-				w.target.AbsolutePosition = V2.new(240 - frame, 160)
-				second.AbsolutePosition = V2.new(380 - frame * 2, 160)
+				w.engine.environment.poke(w.target, "AbsolutePosition", V2.new(240 - frame, 160))
+				w.engine.environment.poke(
+					(second :: unknown) :: FixtureRoblox.Instance,
+					"AbsolutePosition",
+					V2.new(380 - frame * 2, 160)
+				)
 				w.engine.heartbeat:Fire(1 / 120)
 				local expected = if frame < 30 then w.target elseif frame < 55 then nil else second
 				Verify.expect(assert(w.service.state:peek()).target):toBe(expected)
 				Verify.expect(w.arbiter.claimCamera(w.source)):toBe(false)
 			end
-			second.AbsolutePosition = V2.new(400, 160)
-			w.target.AbsolutePosition = V2.new(240, 160)
+			w.engine.environment.poke(
+				(second :: unknown) :: FixtureRoblox.Instance,
+				"AbsolutePosition",
+				V2.new(400, 160)
+			)
+			w.engine.environment.poke(w.target, "AbsolutePosition", V2.new(240, 160))
 			w.service.commit(nil)
 			Verify.expect(placed):toBe(w.target)
 			w.stop()
@@ -1101,8 +1181,8 @@ return function(harness: Verify.Harness)
 			local w = fixture()
 			local hit = w.engine.new("Frame")
 			hit.Parent = w.source
-			hit.AbsolutePosition = w.engine.types.Vector2.new(20, 50)
-			hit.AbsoluteSize = w.engine.types.Vector2.new(40, 60)
+			w.engine.environment.poke(hit, "AbsolutePosition", w.engine.types.Vector2.new(20, 50))
+			w.engine.environment.poke(hit, "AbsoluteSize", w.engine.types.Vector2.new(40, 60))
 			w.bind({ payload = "tile", hitArea = hit })
 			local at = w.engine.types.Vector2.new(60, 95)
 			w.source.InputBegan:Fire({
@@ -1212,7 +1292,7 @@ return function(harness: Verify.Harness)
 			local w = fixture()
 			local scale = w.engine.new("UIScale")
 			scale.Scale, scale.Parent = 0.75, w.screen
-			w.screen.AbsolutePosition = w.engine.types.Vector2.new(4, 18)
+			w.engine.environment.poke(w.screen, "AbsolutePosition", w.engine.types.Vector2.new(4, 18))
 			local scroll = w.engine.new("ScrollingFrame")
 			scroll.Parent, w.source.Parent = w.screen, scroll
 			w.begin()
@@ -1234,7 +1314,7 @@ return function(harness: Verify.Harness)
 			zoom.Parent, w.source.Parent = w.screen, zoom
 			local sourceScale = w.engine.new("UIScale")
 			sourceScale.Scale, sourceScale.Parent = 3, zoom
-			w.source.AbsoluteSize = w.engine.types.Vector2.new(240, 180)
+			w.engine.environment.poke(w.source, "AbsoluteSize", w.engine.types.Vector2.new(240, 180))
 			local commits = 0
 			w.register({
 				travel = true,

@@ -221,7 +221,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("keeps Basics settings and numeric layout order across viewport changes", {
 			id = "native_gallery_workflows::native gallery workflows::keeps Basics settings and numeric layout order across viewport changes",
 			run = function()
-				local built, node, stop, ctx = mount("adaptive_controls")
+				local built, node, stop, ctx, engine = mount("adaptive_controls")
 				local volume = find(node, "Volume")
 				find(volume, "Increase").Activated:Fire()
 				local current = built.report().volume
@@ -275,12 +275,16 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("reflows one recipe action set and preserves controlled checks and keyed chips", {
 			id = "native_gallery_workflows::native gallery workflows::reflows one recipe action set and preserves controlled checks and keyed chips",
 			run = function()
-				local built, node, stop, ctx = mount("recipes_common")
+				local built, node, stop, ctx, engine = mount("recipes_common")
 				local actions = find(node, "Actions")
 				local save = find(actions, "Save")
-				actions.AbsoluteSize = ctx.types.Vector2.new(700, 44)
+				engine.environment.poke(actions, "AbsoluteSize", ctx.types.Vector2.new(700, 44))
 				for name, width in { Cancel = 48, Save = 200, Delete = 80 } :: { [string]: number } do
-					find(find(actions, name), "NaturalWidth").TextBounds = ctx.types.Vector2.new(width, 20)
+					engine.environment.poke(
+						find(find(actions, name), "NaturalWidth"),
+						"TextBounds",
+						ctx.types.Vector2.new(width, 20)
+					)
 				end
 				for _, form in { "column", "row", "column" } :: { "column" | "row" } do
 					if form == "column" then
@@ -299,19 +303,19 @@ return function(verifyHarness: Verify.Harness)
 				end
 				Verify.expect(built.report().activations):toBe(3)
 				built.steps.wideActions()
-				actions.AbsoluteSize = ctx.types.Vector2.new(309, 44)
-				find(save, "NaturalWidth").TextBounds = ctx.types.Vector2.new(324, 32)
+				engine.environment.poke(actions, "AbsoluteSize", ctx.types.Vector2.new(309, 44))
+				engine.environment.poke(find(save, "NaturalWidth"), "TextBounds", ctx.types.Vector2.new(324, 32))
 				Verify.expect(built.report().actionsForm):toBe("column")
 				Verify.expect(save.Size.X.Scale):toBe(1)
 				Verify.expect(save.Size.X.Offset):toBe(0)
 				Verify.expect(save.AutomaticSize):toBe(ctx.types.Enum.AutomaticSize.Y)
 				Verify.expect(save.TextWrapped):toBe(true)
 				Verify.expect(save.Text):toBe("Save changes to this profile")
-				actions.AbsoluteSize = ctx.types.Vector2.new(700, 44)
+				engine.environment.poke(actions, "AbsoluteSize", ctx.types.Vector2.new(700, 44))
 				Verify.expect(built.report().actionsForm):toBe("row")
-				find(save, "NaturalWidth").TextBounds = ctx.types.Vector2.new(700, 32)
+				engine.environment.poke(find(save, "NaturalWidth"), "TextBounds", ctx.types.Vector2.new(700, 32))
 				Verify.expect(built.report().actionsForm):toBe("column")
-				find(save, "NaturalWidth").TextBounds = ctx.types.Vector2.new(200, 20)
+				engine.environment.poke(find(save, "NaturalWidth"), "TextBounds", ctx.types.Vector2.new(200, 20))
 				Verify.expect(built.report().actionsForm):toBe("row")
 				Verify.expect((find(actions, "Save"))):toBe(save)
 				local fuel = find(find(node, "CheckboxGroup"), "fuel")
@@ -346,7 +350,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("opens one recipe accordion body at a time and restores its header focus", {
 			id = "native_gallery_workflows::native gallery workflows::opens one recipe accordion body at a time and restores its header focus",
 			run = function()
-				local built, node, stop, ctx = mount("recipes_common")
+				local built, node, stop, ctx, engine = mount("recipes_common")
 				local accordion = find(node, "Accordion")
 				local names = { "Rules", "Setup", "Rewards" }
 				local text = {
@@ -447,9 +451,9 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("moves and hides native map markers without remounting their controls", {
 			id = "native_gallery_workflows::native gallery workflows::moves and hides native map markers without remounting their controls",
 			run = function()
-				local built, node, stop, ctx = mount("world_markers")
+				local built, node, stop, ctx, engine = mount("world_markers")
 				local map = find(node, "Map")
-				map.AbsoluteSize = ctx.types.Vector2.new(309, 360)
+				engine.environment.poke(map, "AbsoluteSize", ctx.types.Vector2.new(309, 360))
 				local objective, supplies = find(map, "A"), find(map, "C")
 				objective.Activated:Fire()
 				Verify.expect(built.report().selected):toBe("Objective")
@@ -470,9 +474,9 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("swipes the native mail list and deletes exactly the chosen message", {
 			id = "native_gallery_workflows::native gallery workflows::swipes the native mail list and deletes exactly the chosen message",
 			run = function()
-				local _, node, stop, ctx = mount("row_actions")
+				local _, node, stop, ctx, engine = mount("row_actions")
 				local row = find(node, "Row_m1")
-				row.AbsoluteSize = ctx.types.Vector2.new(300, 64)
+				engine.environment.poke(row, "AbsoluteSize", ctx.types.Vector2.new(300, 64))
 				local detector = row:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
 				detector.DragStart:Fire(ctx.types.Vector2.new(250, 20))
 				detector.DragContinue:Fire(ctx.types.Vector2.new(10, 20))
@@ -485,9 +489,9 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("honors locked selection pinned movement and protected deletion in RunSheet", {
 			id = "native_gallery_workflows::native gallery workflows::honors locked selection pinned movement and protected deletion in RunSheet",
 			run = function()
-				local built, node, stop, ctx = mount("row_capabilities")
+				local built, node, stop, ctx, engine = mount("row_capabilities")
 				local body = find(find(node, "RunSheet"), "Body")
-				body.AbsoluteWindowSize = ctx.types.Vector2.new(500, 400)
+				engine.environment.poke(body, "AbsoluteWindowSize", ctx.types.Vector2.new(500, 400))
 				find(find(body, "warmup"), "RowHit").Activated:Fire()
 				Verify.expect(built.report().selection.warmup):toBe(true)
 				find(find(body, "notes"), "RowHit").Activated:Fire()

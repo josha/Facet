@@ -96,10 +96,10 @@ local function new(build: (any, any, any) -> any, options: { [string]: any }?): 
 			return engine.types.Vector2.new(x, y)
 		end,
 		resize = function(node: any, x: number, y: number)
-			node.AbsoluteSize = engine.types.Vector2.new(x, y)
+			engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(x, y))
 		end,
 		bounds = function(node: any, x: number, y: number?)
-			node.TextBounds = engine.types.Vector2.new(x, y or 20)
+			engine.environment.poke(node, "TextBounds", engine.types.Vector2.new(x, y or 20))
 		end,
 	}
 	return world

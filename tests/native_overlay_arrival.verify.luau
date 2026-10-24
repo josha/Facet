@@ -61,7 +61,7 @@ return function(verifyHarness: Verify.Harness)
 		return screen, frames, function()
 			stop()
 			runtime:dispose()
-		end
+		end, engine
 	end
 
 	local function hidden(screen: any, name: string): boolean?
@@ -104,13 +104,13 @@ return function(verifyHarness: Verify.Harness)
 		end)
 
 		verifyHarness:case("prepares a sliding row while its automatic layout slot has zero height", function()
-			local screen, frames, stop = world(function(UI: FacetControls)
+			local screen, frames, stop, engine = world(function(UI: FacetControls)
 				return UI.Toast { message = "Saved", duration = 10 }
 			end, true)
 			local row = screen:FindFirstChild("ToastRow", true)
 			local slot = screen:FindFirstChild("ToastSlot", true)
 			Verify.expect(slot.AbsoluteSize.Y):toBe(0)
-			row.AbsoluteSize = engineLib.types.Vector2.new(210, 40)
+			engine.environment.poke(row, "AbsoluteSize", engineLib.types.Vector2.new(210, 40))
 			local render = assert(frames.PreRender)
 			for _ = 1, 4 do
 				render:Fire()
@@ -120,7 +120,7 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(render.count()):toBe(0)
 		end)
 		verifyHarness:case("waits for deferred geometry before the first painted frame", function()
-			local screen, frames, stop = world(function(UI: FacetControls)
+			local screen, frames, stop, engine = world(function(UI: FacetControls)
 				return UI.Alert {
 					title = "Stable crop",
 					isPresented = Compose.cell(true),
@@ -137,13 +137,17 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(require("./lib/fade").of(group)):toBe(1)
 			for _, node in group:GetDescendants() do
 				if node:IsA("GuiObject") then
-					node.AbsoluteSize = engineLib.types.Vector2.new(210, 40)
+					engine.environment.poke(node, "AbsoluteSize", engineLib.types.Vector2.new(210, 40))
 				end
 			end
 			local render = assert(frames.PreRender)
 			render:Fire()
 			Verify.expect(require("./lib/fade").of(group)):toBe(1)
-			group:FindFirstChild("AlertModal", true).AbsoluteSize = engineLib.types.Vector2.new(236, 40)
+			engine.environment.poke(
+				group:FindFirstChild("AlertModal", true),
+				"AbsoluteSize",
+				engineLib.types.Vector2.new(236, 40)
+			)
 			render:Fire()
 			Verify.expect(require("./lib/fade").of(group)):toBe(1)
 			for _ = 1, 4 do
@@ -161,7 +165,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for _, kind in { "Sheet", "Alert" } :: { "Alert" | "Sheet" } do
 					local open = Compose.cell(false)
-					local screen, frames, stop = world(function(UI: FacetControls)
+					local screen, frames, stop, engine = world(function(UI: FacetControls)
 						if kind == "Sheet" then
 							return UI.Sheet "Market" {
 								title = "Seeds",

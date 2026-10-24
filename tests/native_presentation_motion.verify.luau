@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -38,7 +39,7 @@ return function(verifyHarness: Verify.Harness)
 			w.size(w.find("Readout"), 16, 44)
 			local label = w.find("Overflow")
 			w.size(label, 0, 18)
-			label.TextFits = false
+			w.engine.environment.poke(label, "TextFits", false)
 			local release = textMeasure.hold(label)
 			context:defer(release)
 			w.advance(0.1, 6)
@@ -81,7 +82,7 @@ return function(verifyHarness: Verify.Harness)
 			for _, top in { 58, 106 } do
 				local w = overlay.new(function(UI, _, engine, gui)
 					local T = engine.types
-					gui.TopbarInset = T.Rect.new(164, 0, 800, top)
+					engine.environment.poke(gui, "TopbarInset", T.Rect.new(164, 0, 800, top))
 					gui.GetGuiInset = function()
 						return T.Vector2.new(0, top), T.Vector2.new(0, 34)
 					end
@@ -141,8 +142,8 @@ return function(verifyHarness: Verify.Harness)
 					},
 				}
 			end, { motionLevel = "none" })
-			w.find("PlanetFull").AbsoluteSize = w.engine.types.Vector2.new(200, 40)
-			w.find("Zones").AbsoluteSize = w.engine.types.Vector2.new(800, 600)
+			w.engine.environment.poke(w.find("PlanetFull"), "AbsoluteSize", w.engine.types.Vector2.new(200, 40))
+			w.engine.environment.poke(w.find("Zones"), "AbsoluteSize", w.engine.types.Vector2.new(800, 600))
 			w.advance(0.1)
 			Verify.expect(w.find("Shop").Visible):toBe(false)
 			Verify.expect(w.find("Planet").Visible):toBe(true)
@@ -244,7 +245,7 @@ return function(verifyHarness: Verify.Harness)
 							},
 						}
 					end, { motionLevel = level, size = Vector2.new(389, 762) })
-					w.input.PreferredInput = w.Enum.PreferredInput.Touch
+					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 					w.find("Open").Activated:Fire()
 					local surface = w.find("CalendarSurface")
 					local function scrimOpacity(): number
@@ -328,7 +329,7 @@ return function(verifyHarness: Verify.Harness)
 				local scale = materialize.of(panel)
 				Verify.expect(panel.ClassName):toBe("Frame")
 				Verify.expect(scale.Scale):toBe(1)
-				panel.AbsoluteSize = Vector2.new(560, 300)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(560, 300))
 				w.advance(FRAME)
 				w.advance(FRAME)
 				Verify.expect(scale.Scale):toBe(1)
@@ -357,7 +358,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_presentation_motion::presentation motion: Dialog and CollapsibleView::clears background selection while a modal prepares for pointer input",
 			run = function()
 				local w, open = dialogWorld()
-				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 				w.input.GetLastInputType = function()
 					return w.Enum.UserInputType.Touch
 				end
@@ -468,7 +469,7 @@ return function(verifyHarness: Verify.Harness)
 				local w, open = dialogWorld({ motionLevel = "none" })
 				open:set(true)
 				local panel = w.find("Panel")
-				panel.AbsoluteSize = Vector2.new(560, 300)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(560, 300))
 				w.advance(FRAME, 2)
 				Verify.expect(materialize.of(panel).Scale):toBe(1)
 				Verify.expect((fadeKit.of(panel))):toBe(0)
@@ -494,7 +495,7 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 			end, { runService = true, preRender = true, inputs = true })
-			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			expanded:set(true)
 			local panel, first = w.find("Expanded"), w.find("First")
 			w.size(panel, 360, 200)
@@ -506,10 +507,10 @@ return function(verifyHarness: Verify.Harness)
 			for _ = 1, 6 do
 				for _, node in panel:GetDescendants() do
 					if node:IsA("GuiObject") then
-						node.AbsolutePosition += w.Vector2.new(0, 1)
+						w.engine.environment.poke(node, "AbsolutePosition", node.AbsolutePosition + w.Vector2.new(0, 1))
 					end
 				end
-				panel.AbsolutePosition += w.Vector2.new(0, 1)
+				w.engine.environment.poke(panel, "AbsolutePosition", panel.AbsolutePosition + w.Vector2.new(0, 1))
 				w.advance(1 / 60, 1)
 			end
 			w.gui.SelectedObject = first
@@ -554,8 +555,8 @@ return function(verifyHarness: Verify.Harness)
 				local w, expanded = tipsWorld({ theme = package })
 				expanded:set(true)
 				local fade = w.find("Expanded")
-				w.find("ExpandedBody").AbsoluteSize = w.Vector2.new(360, 200)
-				fade.AbsoluteSize = w.Vector2.new(360, 200)
+				w.engine.environment.poke(w.find("ExpandedBody"), "AbsoluteSize", w.Vector2.new(360, 200))
+				w.engine.environment.poke(fade, "AbsoluteSize", w.Vector2.new(360, 200))
 				Verify.expect((fadeKit.of(fade))):toBe(1)
 				w.advance(FRAME * 2, 2)
 				w.advance(0.15, 9)
@@ -573,11 +574,20 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local w, expanded = tipsWorld({ motionLevel = "none" })
 					local trigger = w.find("Tips")
-					trigger.AbsolutePosition, trigger.AbsoluteSize = w.Vector2.new(700, 500), w.Vector2.new(120, 44)
+					w.engine.environment.poke(
+						((trigger) :: unknown) :: FixtureRoblox.Instance,
+						"AbsolutePosition",
+						w.Vector2.new(700, 500)
+					)
+					w.engine.environment.poke(
+						((trigger) :: unknown) :: FixtureRoblox.Instance,
+						"AbsoluteSize",
+						w.Vector2.new(120, 44)
+					)
 					trigger.Activated:Fire()
 					Verify.expect((expanded:peek())):toBe(true)
 					local plate = w.find("Expanded")
-					w.find("ExpandedBody").AbsoluteSize = w.Vector2.new(360, 200)
+					w.engine.environment.poke(w.find("ExpandedBody"), "AbsoluteSize", w.Vector2.new(360, 200))
 					Verify.expect((within(plate, trigger))):toBe(false)
 					Verify.expect((within(w.find("Detail"), plate))):toBe(true)
 					Verify.expect((within(w.gui.SelectedObject, plate))):toBe(true)
@@ -623,8 +633,8 @@ return function(verifyHarness: Verify.Harness)
 					local w, expanded = tipsWorld({ motionLevel = "none" })
 					w.find("Tips").Activated:Fire()
 					local plate = w.find("Expanded")
-					plate.AbsolutePosition = w.Vector2.new(100, 100)
-					plate.AbsoluteSize = w.Vector2.new(360, 200)
+					w.engine.environment.poke(plate, "AbsolutePosition", w.Vector2.new(100, 100))
+					w.engine.environment.poke(plate, "AbsoluteSize", w.Vector2.new(360, 200))
 					local catcher = w.find("DismissTarget")
 					catcher.Activated:Fire({
 						UserInputType = w.engine.types.Enum.UserInputType[kind],
@@ -676,11 +686,20 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w, expanded = tipsWorld()
 				local trigger = w.find("Tips")
-				trigger.AbsolutePosition, trigger.AbsoluteSize = w.Vector2.new(100, 100), w.Vector2.new(120, 44)
+				w.engine.environment.poke(
+					((trigger) :: unknown) :: FixtureRoblox.Instance,
+					"AbsolutePosition",
+					w.Vector2.new(100, 100)
+				)
+				w.engine.environment.poke(
+					((trigger) :: unknown) :: FixtureRoblox.Instance,
+					"AbsoluteSize",
+					w.Vector2.new(120, 44)
+				)
 				expanded:set(true)
 				local plate, fade = w.find("Expanded"), w.find("ExpandedFade")
-				w.find("ExpandedBody").AbsoluteSize = w.Vector2.new(360, 200)
-				plate.AbsoluteSize = w.Vector2.new(360, 200)
+				w.engine.environment.poke(w.find("ExpandedBody"), "AbsoluteSize", w.Vector2.new(360, 200))
+				w.engine.environment.poke(plate, "AbsoluteSize", w.Vector2.new(360, 200))
 				Verify.expect(plate.ClipsDescendants):toBe(true)
 				Verify.expect(plate.Size):toBe(w.engine.types.UDim2.fromOffset(360, 200))
 				Verify.expect((fadeKit.of(plate))):toBe(1)
@@ -716,8 +735,8 @@ return function(verifyHarness: Verify.Harness)
 				local w, expanded = tipsWorld({ motionLevel = "none" })
 				expanded:set(true)
 				local plate = w.find("Expanded")
-				w.find("ExpandedBody").AbsoluteSize = w.Vector2.new(360, 200)
-				plate.AbsoluteSize = w.Vector2.new(360, 200)
+				w.engine.environment.poke(w.find("ExpandedBody"), "AbsoluteSize", w.Vector2.new(360, 200))
+				w.engine.environment.poke(plate, "AbsoluteSize", w.Vector2.new(360, 200))
 				Verify.expect((fadeKit.of(plate))):toBe(1)
 				w.advance(FRAME * 2, 2)
 				Verify.expect((fadeKit.of(plate))):toBe(0)
@@ -754,7 +773,7 @@ return function(verifyHarness: Verify.Harness)
 					expanded:set(true)
 					local reveal, fade = w.find("Reveal"), w.find("RevealFade")
 					Verify.expect(fade:FindFirstChild("FadeStroke")):toBeNil()
-					fade.AbsoluteSize = Vector2.new(300, 120)
+					w.engine.environment.poke(fade, "AbsoluteSize", Vector2.new(300, 120))
 					Verify.expect(reveal.ClipsDescendants):toBe(true)
 					Verify.expect(reveal.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
 					Verify.expect(reveal.Size.Y.Offset):toBe(0)
@@ -786,7 +805,7 @@ return function(verifyHarness: Verify.Harness)
 				expanded:set(true)
 				w.advance(0.3, 18)
 				local reveal, fade = w.find("Reveal"), w.find("RevealFade")
-				fade.AbsoluteSize = Vector2.new(300, 120)
+				w.engine.environment.poke(fade, "AbsoluteSize", Vector2.new(300, 120))
 				local palette = w.find("Palette")
 				w.gui.SelectedObject = palette
 				expanded:set(false)
@@ -825,7 +844,7 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				shown:set(true)
 				local row = w.find("Snack")
-				row.AbsoluteSize = Vector2.new(300, 48)
+				w.engine.environment.poke(row, "AbsoluteSize", Vector2.new(300, 48))
 				Verify.expect(row.ClassName):toBe("Frame")
 				Verify.expect((fadeKit.of(row))):toBe(1)
 				local function top(): number
@@ -874,7 +893,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = noticeWorld()
 				local notice = w.find("Offline")
-				w.find("Body").AbsoluteSize = Vector2.new(300, 40)
+				w.engine.environment.poke(w.find("Body"), "AbsoluteSize", Vector2.new(300, 40))
 				Verify.expect(notice.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
 				Verify.expect(notice.ClipsDescendants):toBe(true)
 				Verify.expect(notice.Size.Y.Offset):toBe(0)
@@ -899,7 +918,7 @@ return function(verifyHarness: Verify.Harness)
 				local w, shown, closes = noticeWorld()
 				w.advance(0.3, 18)
 				local notice = w.find("Offline")
-				w.find("Body").AbsoluteSize = Vector2.new(300, 40)
+				w.engine.environment.poke(w.find("Body"), "AbsoluteSize", Vector2.new(300, 40))
 				local close = overlay.find(notice, "Close")
 				w.gui.SelectedObject = close
 				close.Activated:Fire()
@@ -978,8 +997,8 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end)
-				w.input.PreferredInput = w.Enum.PreferredInput.Touch
-				w.screen.AbsoluteSize = Vector2.new(390, 800)
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
+				w.engine.environment.poke(w.screen, "AbsoluteSize", Vector2.new(390, 800))
 				open:set(true)
 				local panel = w.find("SheetPanel")
 				Verify.expect(panel ~= nil):toBe(true)
@@ -990,7 +1009,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(panel.Size.Y.Offset < 400):toBe(true)
 				local modal = w.find("Modal")
 				if modal then
-					modal.AbsoluteSize = Vector2.new(390, 800)
+					w.engine.environment.poke(modal, "AbsoluteSize", Vector2.new(390, 800))
 				end
 				w.advance(FRAME)
 				w.advance(FRAME)
@@ -1021,8 +1040,8 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end)
-				w.input.PreferredInput = w.Enum.PreferredInput.Touch
-				w.screen.AbsoluteSize = Vector2.new(390, 800)
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
+				w.engine.environment.poke(w.screen, "AbsoluteSize", Vector2.new(390, 800))
 				local header = overlay.find(w.find("SheetPanel"), "Header")
 				Verify.expect(overlay.find(header, "Title").Text):toBe("")
 				w.stop()
@@ -1129,7 +1148,7 @@ return function(verifyHarness: Verify.Harness)
 				w.size(row, 0, 44)
 				row.AutomaticSize = w.Enum.AutomaticSize.Y
 				row.TextWrapped = true
-				row.TextFits = false
+				w.engine.environment.poke(row, "TextFits", false)
 				local group = w.find("MenuGroup")
 				local release = textMeasure.hold(row)
 				context:defer(release)

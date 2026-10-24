@@ -164,7 +164,7 @@ return function(verifyHarness: Verify.Harness)
 							end,
 						})
 					end, root)
-					node.AbsoluteWindowSize = engine.types.Vector2.new(300, 100)
+					engine.environment.poke(node, "AbsoluteWindowSize", engine.types.Vector2.new(300, 100))
 					local baseline = engine.census()
 					for cycle = 1, 100 do
 						source:set({ initial[2], initial[3], { id = `new{cycle}` } })
@@ -224,7 +224,7 @@ return function(verifyHarness: Verify.Harness)
 						end
 						source:set(rows)
 						local visible = rng(1, 12)
-						node.AbsoluteWindowSize = engine.types.Vector2.new(300, visible * 20)
+						engine.environment.poke(node, "AbsoluteWindowSize", engine.types.Vector2.new(300, visible * 20))
 						node.CanvasPosition = engine.types.Vector2.new(0, rng(0, #rows - visible) * 20)
 						local snapshot = status:peek()
 						assert(snapshot.total == #rows, `seed={seed} step={step}: total`)
@@ -337,11 +337,11 @@ return function(verifyHarness: Verify.Harness)
 						local choice = inputs[rng(1, #inputs)]
 						if rng(1, 10) <= 3 then
 							gui.SelectedObject = a
-							input.PreferredInput = choice
+							engine.environment.poke(input, "PreferredInput", choice)
 							a.Activated:Fire()
 							pressed += 1
 						else
-							input.PreferredInput = choice
+							engine.environment.poke(input, "PreferredInput", choice)
 						end
 						assert(builds == 1, `seed={seed} step={step}: the input switch rebuilt the screen`)
 						assert(
@@ -356,7 +356,7 @@ return function(verifyHarness: Verify.Harness)
 					else
 						assert(gui.SelectedObject == b, `seed={seed}: selection is lost after the storm`)
 					end
-					input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+					engine.environment.poke(input, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
 					gui.SelectedObject = b
 					assert(gui.SelectedObject == b, `seed={seed}: keyboard selection is lost after the storm`)
 					stop()

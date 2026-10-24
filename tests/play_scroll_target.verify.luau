@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 
 local Verify = require("../tools/vendor/verify/src/core")
 local engineLib = require("./lib/native_engine")
@@ -27,14 +28,42 @@ return function(harness: Verify.Harness)
 		local outerGeometry = (outer :: unknown) :: Geometry
 		local innerGeometry = (inner :: unknown) :: Geometry
 		local cellGeometry = (cell :: unknown) :: Geometry
-		outerGeometry.AbsolutePosition = V2.new(16, 100)
-		outerGeometry.AbsoluteWindowSize = V2.new(350, 550)
-		outerGeometry.AbsoluteCanvasSize = V2.new(350, 100000)
-		innerGeometry.AbsolutePosition = V2.new(32, 160)
-		innerGeometry.AbsoluteWindowSize = V2.new(314, 99920)
-		innerGeometry.AbsoluteCanvasSize = V2.new(314, 99920)
-		cellGeometry.AbsolutePosition = V2.new(56, 2000)
-		cellGeometry.AbsoluteSize = V2.new(266, 44)
+		engine.environment.poke(
+			(outerGeometry :: unknown) :: FixtureRoblox.Instance,
+			"AbsolutePosition",
+			V2.new(16, 100)
+		)
+		engine.environment.poke(
+			(outerGeometry :: unknown) :: FixtureRoblox.Instance,
+			"AbsoluteWindowSize",
+			V2.new(350, 550)
+		)
+		engine.environment.poke(
+			(outerGeometry :: unknown) :: FixtureRoblox.Instance,
+			"AbsoluteCanvasSize",
+			V2.new(350, 100000)
+		)
+		engine.environment.poke(
+			(innerGeometry :: unknown) :: FixtureRoblox.Instance,
+			"AbsolutePosition",
+			V2.new(32, 160)
+		)
+		engine.environment.poke(
+			(innerGeometry :: unknown) :: FixtureRoblox.Instance,
+			"AbsoluteWindowSize",
+			V2.new(314, 99920)
+		)
+		engine.environment.poke(
+			(innerGeometry :: unknown) :: FixtureRoblox.Instance,
+			"AbsoluteCanvasSize",
+			V2.new(314, 99920)
+		)
+		engine.environment.poke(
+			(cellGeometry :: unknown) :: FixtureRoblox.Instance,
+			"AbsolutePosition",
+			V2.new(56, 2000)
+		)
+		engine.environment.poke((cellGeometry :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(266, 44))
 		local target, dx, dy = scrollTarget(cell, true)
 		t:expect(target):toBe(outer)
 		t:expect(dx):toBe(0)
@@ -43,7 +72,11 @@ return function(harness: Verify.Harness)
 		t:expect(target == inner):toBe(true)
 		t:expect(dx):toBe(0)
 		t:expect(dy):toBe(0)
-		innerGeometry.AbsoluteWindowSize = V2.new(314, 400)
+		engine.environment.poke(
+			(innerGeometry :: unknown) :: FixtureRoblox.Instance,
+			"AbsoluteWindowSize",
+			V2.new(314, 400)
+		)
 		target, dx, dy = scrollTarget(cell, true)
 		t:expect(target):toBe(inner)
 		t:expect(dx):toBe(0)

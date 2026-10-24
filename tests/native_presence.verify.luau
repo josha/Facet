@@ -25,7 +25,7 @@ return function(verifyHarness: Verify.Harness)
 		end, options)
 		local panel = w.find("Panel")
 		if panel and not unsized then
-			panel.AbsoluteSize = w.Vector2.new(560, 441)
+			w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(560, 441))
 		end
 		return w
 	end
@@ -101,7 +101,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end, { motionLevel = "limited" })
-				w.find("Modal").AbsoluteSize = w.Vector2.new(800, 600)
+				w.engine.environment.poke(w.find("Modal"), "AbsoluteSize", w.Vector2.new(800, 600))
 				local panel = w.find("SheetPanel")
 				local at = nil
 				local sawFading = false
@@ -152,7 +152,7 @@ return function(verifyHarness: Verify.Harness)
 				end, LIMITED)
 				expanded:set(true)
 				local reveal, fade = w.find("Reveal"), w.find("RevealFade")
-				fade.AbsoluteSize = w.Vector2.new(300, 120)
+				w.engine.environment.poke(fade, "AbsoluteSize", w.Vector2.new(300, 120))
 				w.advance(1 / 60)
 				Verify.expect(reveal.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
 				local frames = fadesOver(w, fade, 1, 0)
@@ -174,11 +174,11 @@ return function(verifyHarness: Verify.Harness)
 					local w = dialog(shown, { motionLevel = level }, true)
 					local panel = w.find("Panel")
 					local scale = materialize.of(panel)
-					panel.AbsoluteSize = w.Vector2.new(560, 420)
+					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(560, 420))
 					w.advance(1 / 60)
 					Verify.expect((fadeKit.of(panel))):toBe(1)
 					Verify.expect(scale.Scale):toBe(1)
-					panel.AbsoluteSize = w.Vector2.new(560, 441)
+					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(560, 441))
 					w.advance(1 / 60)
 					Verify.expect((fadeKit.of(panel))):toBe(1)
 					local seen = false

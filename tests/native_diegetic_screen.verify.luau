@@ -15,14 +15,14 @@ return function(harness: Verify.Harness)
 				else types.Rect.new(0, 0, 1280, 662)
 		end
 		local input = engine.new("UserInputService")
-		input.VREnabled = vr == true
+		engine.environment.poke(input, "VREnabled", vr == true)
 		input.GetFocusedTextBox = function(): nil
 			return nil
 		end
 		local workspace = engine.new("Workspace")
 		local original = engine.new("Camera")
 		original.Parent = workspace
-		original.ViewportSize = types.Vector2.new(1280, 720)
+		engine.environment.poke(original, "ViewportSize", types.Vector2.new(1280, 720))
 		workspace.CurrentCamera = original
 		local otherCamera = engine.new("Camera")
 		otherCamera.Parent = workspace
@@ -77,7 +77,7 @@ return function(harness: Verify.Harness)
 		local function step(frames: number)
 			local current = workspace.CurrentCamera
 			if current then
-				current.ViewportSize = types.Vector2.new(1280, 720)
+				engine.environment.poke(current, "ViewportSize", types.Vector2.new(1280, 720))
 			end
 			for _ = 1, frames do
 				engine.heartbeat:Fire(1 / 60)
@@ -223,7 +223,7 @@ return function(harness: Verify.Harness)
 		context:defer(world.close)
 		world.presented:set(true)
 		world.step(120)
-		world.workspace.CurrentCamera.ViewportSize = world.types.Vector2.new(720, 1280)
+		world.engine.environment.poke(world.workspace.CurrentCamera, "ViewportSize", world.types.Vector2.new(720, 1280))
 		Verify.expect(world.presented:peek()):toBe(false)
 		Verify.expect(world.workspace.CurrentCamera):toBe(world.original)
 	end)

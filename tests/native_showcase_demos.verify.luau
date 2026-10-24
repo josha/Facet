@@ -95,9 +95,9 @@ return function(verifyHarness: Verify.Harness)
 						local console = ctx.worldTarget:FindFirstChild("ShowcaseConsole")
 						local surface = ctx.inputTarget:FindFirstChild("OutpostSurface")
 						for _, size in { V2.new(390, 844), V2.new(844, 390), V2.new(1280, 720), V2.new(390, 844) } do
-							camera.ViewportSize = size
-							bounds.AbsolutePosition = V2.new(16, 180)
-							bounds.AbsoluteSize = V2.new(size.X - 32, size.Y - 250)
+							engine.environment.poke(camera, "ViewportSize", size)
+							engine.environment.poke(bounds, "AbsolutePosition", V2.new(16, 180))
+							engine.environment.poke(bounds, "AbsoluteSize", V2.new(size.X - 32, size.Y - 250))
 							Verify.expect(surface.CanvasSize.X):toBe(math.min(720, bounds.AbsoluteSize.X))
 							Verify.expect(surface.CanvasSize.Y):toBe(math.min(520, bounds.AbsoluteSize.Y))
 							for _, x in { -1, 1 } do
@@ -132,7 +132,7 @@ return function(verifyHarness: Verify.Harness)
 						camera = engine.new("Camera")
 						camera.Parent = ctx.worldTarget
 						ctx.worldTarget.CurrentCamera = camera
-						camera.ViewportSize = engine.types.Vector2.new(1280, 720)
+						engine.environment.poke(camera, "ViewportSize", engine.types.Vector2.new(1280, 720))
 						camera.ScreenPointToRay = function(self: any, x: number, y: number)
 							local size = self.ViewportSize
 							local tangent = math.tan(math.rad(self.FieldOfView / 2))

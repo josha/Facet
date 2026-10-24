@@ -44,7 +44,7 @@ return function(verifyHarness: Verify.Harness)
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target, gui = engine.new("Folder"), engine.new("GuiService")
 		local input = engine.new("UserInputService")
-		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		engine.environment.poke(input, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
 		function input:GetFocusedTextBox()
 			return nil
 		end
@@ -83,7 +83,7 @@ return function(verifyHarness: Verify.Harness)
 			stop()
 			runtime:dispose()
 			hapticCapture:Disconnect()
-		end
+		end, engine
 	end
 
 	local function scenarioGroup(scenario: any, name: string): boolean
@@ -129,7 +129,7 @@ return function(verifyHarness: Verify.Harness)
 						},
 					}
 				end
-				local ctx, root, stop = fixture(function(context)
+				local ctx, root, stop, engine = fixture(function(context)
 					context.pageVisible = Compose.cell(true)
 					built = demoTabs(context, "TabsTest", {
 						{ id = "group", label = "Group", tabs = { entry("a"), entry("b") } },
@@ -160,7 +160,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("toggles the combined menu with one bumper and keeps the chosen section", {
 			id = "native_gallery_shell::native gallery shell parity::toggles the combined menu with one bumper and keeps the chosen section",
 			run = function()
-				local ctx, root, stop = fixture(function(context)
+				local ctx, root, stop, engine = fixture(function(context)
 					context.demos =
 						{ { id = "first", title = "First", kind = "fixture" :: "fixture", module = "first" } }
 					context.load = function()
@@ -199,7 +199,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					return gallery.build(context)
 				end)
-				find(root, "Categories").AbsoluteSize = ctx.types.Vector2.new(1200, 640)
+				engine.environment.poke(find(root, "Categories"), "AbsoluteSize", ctx.types.Vector2.new(1200, 640))
 				local toolbar = find(root, "Toolbar")
 				local lb = find(toolbar, "MenuHint")
 				Verify.expect(lb.Text):toBe("LB")
@@ -285,7 +285,7 @@ return function(verifyHarness: Verify.Harness)
 					for _, name in { "all_controls", "collections", "motion_layout" } do
 						local scenario = require("../examples/gallery/scenarios/" .. name) :: any
 						local built
-						local ctx, root, stop = fixture(function(context)
+						local ctx, root, stop, engine = fixture(function(context)
 							context.pageVisible = Compose.cell(true)
 							built = scenario.build(context)
 							return built.screen()

@@ -22,7 +22,7 @@ return function(verifyHarness: Verify.Harness)
 		input.IsKeyDown = function()
 			return false
 		end
-		input.KeyboardEnabled = true
+		engine.environment.poke(input, "KeyboardEnabled", true)
 		local parent = engine.new("Folder")
 		local config: { [string]: any } = {
 			types = engine.types,
@@ -182,9 +182,9 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local context = w.find("FacetTraversal", w.parent)
 				Verify.expect(context.Enabled):toBe(true)
-				w.input.KeyboardEnabled = false
+				w.engine.environment.poke(w.input, "KeyboardEnabled", false)
 				Verify.expect(context.Enabled):toBe(false)
-				w.input.KeyboardEnabled = true
+				w.engine.environment.poke(w.input, "KeyboardEnabled", true)
 				Verify.expect(context.Enabled):toBe(true)
 				w.stop()
 				local off = setup(function(UI: FacetControls)
@@ -236,18 +236,18 @@ return function(verifyHarness: Verify.Harness)
 					w.input.GetLastInputType = function()
 						return last
 					end
-					w.input.PreferredInput = E.PreferredInput.Gamepad
+					w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
 					w.find("FacetEntry", w.parent)
 						:FindFirstChild("Enter").StateChanged
 						:Fire(w.engine.types.Vector2.new(0, -1))
 					Verify.expect((w.selected())):toBe("Q")
-					w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+					w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
 					Verify.expect((w.selected())):toBe("nil")
 					last = E.UserInputType.Keyboard
 					w.tab()
 					Verify.expect((w.selected())):toBe("Q")
-					w.input.PreferredInput = E.PreferredInput.Gamepad
-					w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+					w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
+					w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
 					Verify.expect((w.selected())):toBe("Q")
 					w.stop()
 				end,
@@ -267,10 +267,10 @@ return function(verifyHarness: Verify.Harness)
 				w.input.GetLastInputType = function()
 					return E.UserInputType.Keyboard
 				end
-				w.input.PreferredInput = E.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
 				w.tab()
 				Verify.expect((w.selected())):toBe("Q")
-				w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
 				Verify.expect((w.selected())):toBe("Q")
 				w.stop()
 			end,
@@ -292,9 +292,9 @@ return function(verifyHarness: Verify.Harness)
 				w.input.GetLastInputType = function()
 					return E.UserInputType.Gamepad1
 				end
-				w.input.PreferredInput = E.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
 				w.gui.SelectedObject = own
-				w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
 				Verify.expect((w.selected())):toBe("GameMenu")
 				w.stop()
 			end,

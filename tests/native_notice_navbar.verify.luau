@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -46,7 +47,11 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Notice "Banner" { placement = "affixed", message = "Saved" }
 				end, screen)
 				local banner = (node :: unknown) :: { AbsoluteSize: Vector2 }
-				banner.AbsoluteSize = Vector2.new(800, 96)
+				frameEngine.environment.poke(
+					(banner :: unknown) :: FixtureRoblox.Instance,
+					"AbsoluteSize",
+					Vector2.new(800, 96)
+				)
 				Verify.expect(screen:GetAttribute("FacetInsetTop")):toBe(0)
 				frames:Fire(1 / 60)
 				Verify.expect(screen:GetAttribute("FacetInsetTop")):toBe(96)
@@ -70,10 +75,10 @@ return function(verifyHarness: Verify.Harness)
 					local layout = trailing:FindFirstChildWhichIsA("UIListLayout")
 					local padding = header:FindFirstChildWhichIsA("UIPadding").PaddingRight.Offset
 					for _, offered in { 1280, width, 1280, width } do
-						header.AbsoluteSize = Vector2.new(offered - 38, 116)
-						trailing.AbsoluteSize = Vector2.new(4, 48)
-						trailing.AbsoluteCanvasSize = Vector2.new(87, 44)
-						layout.AbsoluteContentSize = Vector2.new(83, 44)
+						w.engine.environment.poke(header, "AbsoluteSize", Vector2.new(offered - 38, 116))
+						w.engine.environment.poke(trailing, "AbsoluteSize", Vector2.new(4, 48))
+						w.engine.environment.poke(trailing, "AbsoluteCanvasSize", Vector2.new(87, 44))
+						w.engine.environment.poke(layout, "AbsoluteContentSize", Vector2.new(83, 44))
 						Verify.expect(trailing.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
 						Verify.expect(trailing.Size.X.Scale):toBe(0)
 						Verify.expect(trailing.Size.X.Offset):toBe(83)
@@ -104,10 +109,10 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end)
 					local header, trailing = w.find("Header"), w.find("Trailing")
-					header.AbsoluteSize = Vector2.new(width - 32, 80)
+					w.engine.environment.poke(header, "AbsoluteSize", Vector2.new(width - 32, 80))
 					Verify.expect(trailing:IsA("ScrollingFrame")):toBe(true)
 					local content = trailing:FindFirstChildWhichIsA("UIListLayout")
-					content.AbsoluteContentSize = Vector2.new(720, 36)
+					w.engine.environment.poke(content, "AbsoluteContentSize", Vector2.new(720, 36))
 					Verify.expect(trailing.Size.Y.Offset):toBe(36 + trailing.ScrollBarThickness)
 					Verify.expect(trailing.ScrollBarThickness):toBe(0)
 
@@ -141,7 +146,7 @@ return function(verifyHarness: Verify.Harness)
 			end, engine.new("ScreenGui"))
 			local message = overlay.find(node, "Message")
 			for _, width in { 200, 953 + 1 / 3, 100 } do
-				message.AbsoluteSize = Vector2.new(width, 16)
+				engine.environment.poke(message, "AbsoluteSize", Vector2.new(width, 16))
 				content:set(`Saved at {width}`)
 				local floor = message:FindFirstChild("TextBoundsFloor")
 				t:expect(message.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
@@ -210,14 +215,18 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local notice = w.find("Sync")
 					local layout = overlay.find(notice, "Body"):FindFirstChildWhichIsA("UIListLayout")
-					overlay.find(notice, "MessageMeasure").TextBounds = Vector2.new(220, 18)
-					overlay.find(notice, "Accessories").AbsoluteSize = Vector2.new(160, 44)
-					notice.AbsoluteSize = Vector2.new(800, 60)
+					w.engine.environment.poke(
+						overlay.find(notice, "MessageMeasure"),
+						"TextBounds",
+						Vector2.new(220, 18)
+					)
+					w.engine.environment.poke(overlay.find(notice, "Accessories"), "AbsoluteSize", Vector2.new(160, 44))
+					w.engine.environment.poke(notice, "AbsoluteSize", Vector2.new(800, 60))
 					Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Horizontal)
 					Verify.expect(overlay.find(notice, "Copy"):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
 						:toBe(w.Enum.UIFlexMode.Fill)
 					Verify.expect((notice:GetAttribute("NoticeAccessories"))):toBe("beside")
-					notice.AbsoluteSize = Vector2.new(390, 110)
+					w.engine.environment.poke(notice, "AbsoluteSize", Vector2.new(390, 110))
 					Verify.expect(layout.FillDirection):toBe(w.Enum.FillDirection.Vertical)
 					Verify.expect(overlay.find(notice, "Copy"):FindFirstChildWhichIsA("UIFlexItem").FlexMode)
 						:toBe(w.Enum.UIFlexMode.None)
@@ -351,8 +360,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(banner.Size.X.Scale):toBe(1)
 				w.advance(0.3, 18)
 				Verify.expect(banner.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
-				banner.AbsolutePosition = Vector2.new(0, 0)
-				banner.AbsoluteSize = Vector2.new(800, 52)
+				w.engine.environment.poke(banner, "AbsolutePosition", Vector2.new(0, 0))
+				w.engine.environment.poke(banner, "AbsoluteSize", Vector2.new(800, 52))
 				Verify.expect((inset())):toBe(52)
 				shown:set(false)
 				Verify.expect((inset())):toBe(0)
@@ -374,11 +383,38 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Notice "Banner" { placement = "affixed" :: "affixed", message = "Elsewhere" }
 				end)
 				local first, second = w.find("Banner"), w.find("Banner2")
-				first.AbsolutePosition, first.AbsoluteSize = Vector2.new(0, 0), Vector2.new(800, 40)
-				second.AbsolutePosition, second.AbsoluteSize = Vector2.new(0, 48), Vector2.new(800, 40)
+				w.engine.environment.poke(
+					((first) :: unknown) :: FixtureRoblox.Instance,
+					"AbsolutePosition",
+					Vector2.new(0, 0)
+				)
+				w.engine.environment.poke(
+					((first) :: unknown) :: FixtureRoblox.Instance,
+					"AbsoluteSize",
+					Vector2.new(800, 40)
+				)
+				w.engine.environment.poke(
+					((second) :: unknown) :: FixtureRoblox.Instance,
+					"AbsolutePosition",
+					Vector2.new(0, 48)
+				)
+				w.engine.environment.poke(
+					((second) :: unknown) :: FixtureRoblox.Instance,
+					"AbsoluteSize",
+					Vector2.new(800, 40)
+				)
 				Verify.expect((w.screen:GetAttribute("FacetInsetTop"))):toBe(88)
 				local far = other.find("Banner")
-				far.AbsolutePosition, far.AbsoluteSize = Vector2.new(0, 0), Vector2.new(800, 30)
+				other.engine.environment.poke(
+					((far) :: unknown) :: FixtureRoblox.Instance,
+					"AbsolutePosition",
+					Vector2.new(0, 0)
+				)
+				other.engine.environment.poke(
+					((far) :: unknown) :: FixtureRoblox.Instance,
+					"AbsoluteSize",
+					Vector2.new(800, 30)
+				)
 				Verify.expect((other.screen:GetAttribute("FacetInsetTop"))):toBe(30)
 				Verify.expect((w.screen:GetAttribute("FacetInsetTop"))):toBe(88)
 				local token = {}
@@ -405,11 +441,11 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				})
 				local banner = w.find("Banner")
-				banner.AbsoluteSize = Vector2.new(800, 40)
+				w.engine.environment.poke(banner, "AbsoluteSize", Vector2.new(800, 40))
 				w.advance(1 / 60)
-				banner.AbsoluteSize = Vector2.new(800, 64)
+				w.engine.environment.poke(banner, "AbsoluteSize", Vector2.new(800, 64))
 				w.advance(1 / 60)
-				banner.AbsoluteSize = Vector2.new(800, 96)
+				w.engine.environment.poke(banner, "AbsoluteSize", Vector2.new(800, 96))
 				w.advance(1 / 60, 2)
 				Verify.expect((table.concat(problems, "\n"))):toBe("")
 				Verify.expect((w.screen:GetAttribute("FacetInsetTop"))):toBe(96)
@@ -425,10 +461,10 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Notice "Banner" { placement = "affixed" :: "affixed", message = message }
 				end)
 				local banner = w.find("Banner")
-				banner.AbsoluteSize = Vector2.new(800, 40)
+				w.engine.environment.poke(banner, "AbsoluteSize", Vector2.new(800, 40))
 				Verify.expect((w.screen:GetAttribute("FacetInsetTop"))):toBe(40)
 				message:set(string.rep("A much longer message. ", 10))
-				banner.AbsoluteSize = Vector2.new(800, 96)
+				w.engine.environment.poke(banner, "AbsoluteSize", Vector2.new(800, 96))
 				Verify.expect((w.screen:GetAttribute("FacetInsetTop"))):toBe(96)
 				w.stop()
 			end,
@@ -451,15 +487,15 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local back = w.find("Back")
 				back.Activated:Fire()
-				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 				back.Activated:Fire()
 				w.gui.SelectedObject = back
 				Verify.expect(w.gui.SelectedObject):toBeNil()
-				w.input.PreferredInput = w.Enum.PreferredInput.KeyboardAndMouse
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.KeyboardAndMouse)
 				w.gui.SelectedObject = back
 				w.action("Activate").Pressed:Fire()
 				Verify.expect(backs):toBe(3)
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.gui.SelectedObject = back
 				w.action("Activate").Pressed:Fire()
 				Verify.expect(backs):toBe(4)
@@ -480,7 +516,7 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end)
 					local layout = w.find("Top"):FindFirstChildWhichIsA("UIListLayout")
-					w.find("TitleMeasure").TextBounds = w.Vector2.new(70, 24)
+					w.engine.environment.poke(w.find("TitleMeasure"), "TextBounds", w.Vector2.new(70, 24))
 					w.size(w.find("Trailing"), 40, 40)
 					w.size(w.find("Primary"), 640, 24)
 					w.size(w.find("Center"), 0, 0)

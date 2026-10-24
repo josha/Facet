@@ -1,4 +1,5 @@
 --!strict
+local VerifyRoblox = require("../../tools/vendor/verify/src/roblox")
 local active: any = nil
 local api = {}
 
@@ -52,16 +53,16 @@ function api.finish(input: any, value: any)
 	input.InputEnded:Fire(value)
 end
 
-function api.measure(node: any)
+function api.measure(node: any, environment: VerifyRoblox.Environment)
 	local size = if node:IsA("ScrollingFrame") then node.AbsoluteWindowSize else node.AbsoluteSize
 	local position = node.AbsolutePosition
 	local parent = node.Parent
 	while parent and not parent:IsA("LayerCollector") do
 		if parent:IsA("GuiObject") then
-			parent.AbsolutePosition = position
-			parent.AbsoluteSize = size
+			environment.poke(parent, "AbsolutePosition", position)
+			environment.poke(parent, "AbsoluteSize", size)
 			if parent:IsA("ScrollingFrame") then
-				parent.AbsoluteWindowSize = size
+				environment.poke(parent, "AbsoluteWindowSize", size)
 			end
 		end
 		parent = parent.Parent

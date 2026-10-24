@@ -232,7 +232,7 @@ return function(verifyHarness: Verify.Harness)
 							}
 						end),
 					}, { shown = Compose.cell(false), motionLevel = "none" })
-					w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 					w.shown:set(true)
 					w.advance(1 / 60, 3)
 					local selected = w.gui.SelectedObject
@@ -262,7 +262,7 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end),
 				}, { shown = Compose.cell(false), motionLevel = "none" })
-				hidden.input.PreferredInput = hidden.Enum.PreferredInput.Gamepad
+				hidden.engine.environment.poke(hidden.input, "PreferredInput", hidden.Enum.PreferredInput.Gamepad)
 				hidden.shown:set(true)
 				hidden.advance(1 / 60, 30)
 				Verify.expect(if hidden.gui.SelectedObject then hidden.gui.SelectedObject.Name else "nil")
@@ -281,7 +281,7 @@ return function(verifyHarness: Verify.Harness)
 						return UI.Button "Continue" { label = "Continue" }
 					end),
 				}, { shown = Compose.cell(false), motionLevel = "none" })
-				hero.input.PreferredInput = hero.Enum.PreferredInput.Gamepad
+				hero.engine.environment.poke(hero.input, "PreferredInput", hero.Enum.PreferredInput.Gamepad)
 				hero.shown:set(true)
 				hero.advance(1 / 60, 3)
 				Verify.expect(if hero.gui.SelectedObject then hero.gui.SelectedObject.Name else "nil"):toBe("Continue")
@@ -299,7 +299,7 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end),
 				}, { shown = Compose.cell(false), motionLevel = "none" })
-				late.input.PreferredInput = late.Enum.PreferredInput.Gamepad
+				late.engine.environment.poke(late.input, "PreferredInput", late.Enum.PreferredInput.Gamepad)
 				late.shown:set(true)
 				late.advance(1 / 60, 3)
 				Verify.expect(if late.gui.SelectedObject then late.gui.SelectedObject.Name else "nil"):toBe("Close")
@@ -316,7 +316,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::gamepad-entry-close-fallback",
 			run = function()
 				local w = mount({ placement = "center", closeButton = true }, { shown = Compose.cell(false) })
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.shown:set(true)
 				w.advance(1 / 60, 3)
 				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Close")

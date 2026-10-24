@@ -1607,7 +1607,7 @@ return function(verifyHarness: Verify.Harness)
 					local node, stop = world(function(UI: FacetControls, engine)
 						local action, binding = engine.new("InputAction"), engine.new("InputBinding")
 						binding.KeyCode = engine.types.Enum.KeyCode.ButtonY
-						action.PreferredBinding = binding
+						engine.environment.poke(action, "PreferredBinding", binding)
 						return UI.ShortcutHint({ action = action })
 					end, function(engine)
 						local input = engine.new("UserInputService")
@@ -1638,7 +1638,7 @@ return function(verifyHarness: Verify.Harness)
 				local glyph, stopGlyph = world(function(UI: FacetControls, engine)
 					local action, binding = engine.new("InputAction"), engine.new("InputBinding")
 					binding.KeyCode = engine.types.Enum.KeyCode.ButtonY
-					action.PreferredBinding = binding
+					engine.environment.poke(action, "PreferredBinding", binding)
 					return UI.ShortcutHint({ action = action, cap = false })
 				end)
 				Verify.expect(glyph.BackgroundTransparency):toBe(1)

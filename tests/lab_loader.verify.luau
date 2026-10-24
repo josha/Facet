@@ -25,7 +25,7 @@ return function(harness: Verify.Harness)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		local world = engine.new("Workspace")
 		local camera = engine.new("Camera")
-		camera.ViewportSize = engine.types.Vector2.new(1440, 900)
+		engine.environment.poke(camera, "ViewportSize", engine.types.Vector2.new(1440, 900))
 		camera.WorldToViewportPoint = function(_self: unknown, point: Vector3): (Vector3, boolean)
 			return engine.types.Vector3.new(720 + point.X, 450 - point.Y, 20), true
 		end

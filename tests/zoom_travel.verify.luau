@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local Facet = require("../src")
@@ -49,9 +50,10 @@ local function inputWorld()
 	player.GetGuiObjectsAtPosition = function()
 		return { view:FindFirstChild("ZoomContent"), view, outer }
 	end
-	outer.AbsolutePosition, outer.AbsoluteSize = V2.zero, V2.new(600, 600)
-	view.AbsolutePosition = V2.new(20, 30)
-	view.AbsoluteWindowSize = V2.new(400, 400)
+	engine.environment.poke(((outer) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.zero)
+	engine.environment.poke(((outer) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(600, 600))
+	engine.environment.poke((view :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.new(20, 30))
+	engine.environment.poke((view :: unknown) :: FixtureRoblox.Instance, "AbsoluteWindowSize", V2.new(400, 400))
 	view.ResetScrollVelocity = function() end
 	outer.ResetScrollVelocity = function() end
 	engine.heartbeat:Fire(0.016)
@@ -130,12 +132,20 @@ return function(harness: Verify.Harness)
 			t:defer(world.stop)
 			local V2 = world.engine.types.Vector2
 			for _, bounds in { V2.zero, V2.new(0, 400), V2.new(400, 0) } do
-				world.view.AbsoluteWindowSize = bounds
+				world.engine.environment.poke(
+					(world.view :: unknown) :: FixtureRoblox.Instance,
+					"AbsoluteWindowSize",
+					bounds
+				)
 				t:expect(assert(world.controls.fit)()):toBe(false)
 				t:expect(assert(world.controls.zoomTo)({ x = 400, y = 400, w = 200, h = 200 })):toBe(false)
 				t:expect(world.zoom:peek()):toBe(2)
 			end
-			world.view.AbsoluteWindowSize = V2.new(400, 400)
+			world.engine.environment.poke(
+				(world.view :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteWindowSize",
+				V2.new(400, 400)
+			)
 			t:expect(assert(world.controls.fit)()):toBe(true)
 			t:expect(world.zoom:peek()):toBe(0.4)
 			t:expect(assert(world.controls.zoomTo)({ x = 400, y = 400, w = 200, h = 200 })):toBe(true)
@@ -207,7 +217,11 @@ return function(harness: Verify.Harness)
 				stop()
 				runtime:dispose()
 			end)
-			view.AbsoluteWindowSize = engine.types.Vector2.new(400, 400)
+			engine.environment.poke(
+				(view :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteWindowSize",
+				engine.types.Vector2.new(400, 400)
+			)
 			local resets = 0
 			local nativeMethods = (view :: unknown) :: { ResetScrollVelocity: () -> () }
 			nativeMethods.ResetScrollVelocity = function()
@@ -459,7 +473,12 @@ return function(harness: Verify.Harness)
 			w.engine.heartbeat:Fire(0.016)
 			t:expect(w.outer.ScrollingEnabled):toBe(false)
 			w.outer.ClipsDescendants = true
-			w.outer.AbsolutePosition, w.outer.AbsoluteSize = V2.zero, V2.new(100, 100)
+			w.engine.environment.poke(((w.outer) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.zero)
+			w.engine.environment.poke(
+				((w.outer) :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteSize",
+				V2.new(100, 100)
+			)
 			w.engine.heartbeat:Fire(0.016)
 			t:expect(w.outer.ScrollingEnabled):toBe(true)
 			w.outer.ClipsDescendants = false
@@ -473,7 +492,7 @@ return function(harness: Verify.Harness)
 			local w = inputWorld()
 			t:defer(w.stop)
 			t:expect(w.view.ScrollingEnabled):toBe(false)
-			w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Touch
+			w.engine.environment.poke(w.input, "PreferredInput", w.engine.types.Enum.PreferredInput.Touch)
 			w.engine.heartbeat:Fire(0.016)
 			t:expect(w.view.ScrollingEnabled):toBe(true)
 			t:expect(w.outer.ScrollingEnabled):toBe(true)
@@ -488,7 +507,7 @@ return function(harness: Verify.Harness)
 				true
 			)
 			t:expect(w.outer.ScrollingEnabled):toBe(false)
-			w.input.PreferredInput = E.PreferredInput.Touch
+			w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Touch)
 			w.input.TouchPinch:Fire({ V2.new(170, 186), V2.new(270, 286) }, 0, 0, E.UserInputState.Begin, true)
 			w.input.TouchPinch:Fire({ V2.new(170, 186), V2.new(270, 286) }, 1.25, 0, E.UserInputState.Change, true)
 			t:expect(w.view.ScrollingEnabled):toBe(false)
@@ -502,7 +521,7 @@ return function(harness: Verify.Harness)
 			local w = inputWorld()
 			t:defer(w.stop)
 			local V2, E = w.engine.types.Vector2, w.engine.types.Enum
-			w.input.PreferredInput = E.PreferredInput.Touch
+			w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Touch)
 			local before = w.scale.Scale
 			for _ = 1, 2 do
 				local touch = w.event(E.UserInputType.Touch, V2.new(220, 236), E.UserInputState.Begin)
@@ -601,9 +620,10 @@ return function(harness: Verify.Harness)
 				runtime:dispose()
 			end)
 			local V2, E = engine.types.Vector2, engine.types.Enum
-			view.AbsoluteWindowSize = V2.new(360, 320)
+			engine.environment.poke((view :: unknown) :: FixtureRoblox.Instance, "AbsoluteWindowSize", V2.new(360, 320))
 			view.ResetScrollVelocity = function() end
-			tile.AbsolutePosition, tile.AbsoluteSize = V2.new(150, 130), V2.new(60, 60)
+			engine.environment.poke(((tile) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.new(150, 130))
+			engine.environment.poke(((tile) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(60, 60))
 			engine.heartbeat:Fire(1 / 60)
 			local pointer = engine.new("InputObject")
 			pointer.UserInputType, pointer.UserInputState = E.UserInputType.MouseButton1, E.UserInputState.Begin
@@ -670,7 +690,11 @@ return function(harness: Verify.Harness)
 				stop()
 				runtime:dispose()
 			end)
-			view.AbsoluteWindowSize = engine.types.Vector2.new(400, 400)
+			engine.environment.poke(
+				(view :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteWindowSize",
+				engine.types.Vector2.new(400, 400)
+			)
 			local methods = (view :: unknown) :: { ResetScrollVelocity: () -> () }
 			methods.ResetScrollVelocity = function() end
 			engine.heartbeat:Fire(0.016)
@@ -754,16 +778,29 @@ return function(harness: Verify.Harness)
 				runtime:dispose()
 			end)
 			a.Parent, b.Parent = view, view
-			view.AbsoluteWindowSize = engine.types.Vector2.new(400, 400)
+			engine.environment.poke(
+				(view :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteWindowSize",
+				engine.types.Vector2.new(400, 400)
+			)
 			local methods = (view :: unknown) :: { ResetScrollVelocity: () -> () }
 			methods.ResetScrollVelocity = function() end
 			run.PreRender:Fire(0)
 			local scale = view:FindFirstChild("ZoomScale", true) :: UIScale
 			local V2 = engine.types.Vector2
 			local function measure()
-				a.AbsolutePosition = V2.new(600, 550) * scale.Scale - view.CanvasPosition
-				b.AbsolutePosition = V2.new(500, 550) * scale.Scale - view.CanvasPosition
-				a.AbsoluteSize, b.AbsoluteSize = V2.new(50, 50) * scale.Scale, V2.new(30, 50) * scale.Scale
+				engine.environment.poke(a, "AbsolutePosition", V2.new(600, 550) * scale.Scale - view.CanvasPosition)
+				engine.environment.poke(b, "AbsolutePosition", V2.new(500, 550) * scale.Scale - view.CanvasPosition)
+				engine.environment.poke(
+					((a) :: unknown) :: FixtureRoblox.Instance,
+					"AbsoluteSize",
+					V2.new(50, 50) * scale.Scale
+				)
+				engine.environment.poke(
+					((b) :: unknown) :: FixtureRoblox.Instance,
+					"AbsoluteSize",
+					V2.new(30, 50) * scale.Scale
+				)
 			end
 			measure()
 			view.Changed:Connect(function(property: string)
@@ -781,7 +818,8 @@ return function(harness: Verify.Harness)
 				end
 				return hits
 			end
-			tile.AbsolutePosition, tile.AbsoluteSize = V2.new(170, 200), V2.new(44, 44)
+			engine.environment.poke(((tile) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.new(170, 200))
+			engine.environment.poke(((tile) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(44, 44))
 			local point = V2.new(190, 220)
 			drag.begin(tile, {
 				payload = "tile",
@@ -879,12 +917,13 @@ return function(harness: Verify.Harness)
 				stop()
 				runtime:dispose()
 			end)
-			view.AbsoluteWindowSize = V2.new(400, 400)
+			native.environment.poke((view :: unknown) :: FixtureRoblox.Instance, "AbsoluteWindowSize", V2.new(400, 400))
 			local viewMethods = (view :: unknown) :: { ResetScrollVelocity: () -> () }
 			viewMethods.ResetScrollVelocity = function() end
-			rack.AbsoluteWindowSize = V2.new(400, 60)
+			native.environment.poke((rack :: unknown) :: FixtureRoblox.Instance, "AbsoluteWindowSize", V2.new(400, 60))
 			local row = assert(rack:FindFirstChild("RackTile", true)) :: GuiObject
-			row.AbsolutePosition, row.AbsoluteSize = V2.new(20, 440), V2.new(60, 60)
+			native.environment.poke(((row) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V2.new(20, 440))
+			native.environment.poke(((row) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(60, 60))
 			local detector = assert(row:FindFirstChildWhichIsA("UIDragDetector"))
 			local signals = (detector :: unknown) :: {
 				DragStart: engineLib.Signal<Vector2>,
@@ -938,7 +977,11 @@ return function(harness: Verify.Harness)
 				stop()
 				runtime:dispose()
 			end)
-			view.AbsoluteWindowSize = engine.types.Vector2.new(400, 400)
+			engine.environment.poke(
+				(view :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteWindowSize",
+				engine.types.Vector2.new(400, 400)
+			)
 			run.PreRender:Fire(0)
 			local scale = view:FindFirstChild("ZoomScale", true) :: UIScale
 			zoom:set(2)
@@ -971,14 +1014,31 @@ return function(harness: Verify.Harness)
 			local screen = engine.new("ScreenGui")
 			screen.Parent = engine.new("Folder")
 			overlay.Parent = screen
-			overlay.AbsolutePosition = engine.types.Vector2.zero
-			overlay.AbsoluteSize = engine.types.Vector2.new(600, 400)
+			engine.environment.poke(overlay, "AbsolutePosition", engine.types.Vector2.zero)
+			engine.environment.poke(overlay, "AbsoluteSize", engine.types.Vector2.new(600, 400))
 			local first, second = engine.new("Frame"), engine.new("Frame")
 			first.Parent, second.Parent = overlay, overlay
 			first.ClipsDescendants, second.ClipsDescendants = true, true
-			first.AbsolutePosition, second.AbsolutePosition =
-				engine.types.Vector2.new(20, 20), engine.types.Vector2.new(420, 220)
-			first.AbsoluteSize, second.AbsoluteSize = engine.types.Vector2.new(60, 60), engine.types.Vector2.new(80, 80)
+			engine.environment.poke(
+				((first) :: unknown) :: FixtureRoblox.Instance,
+				"AbsolutePosition",
+				engine.types.Vector2.new(20, 20)
+			)
+			engine.environment.poke(
+				((second) :: unknown) :: FixtureRoblox.Instance,
+				"AbsolutePosition",
+				engine.types.Vector2.new(420, 220)
+			)
+			engine.environment.poke(
+				((first) :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteSize",
+				engine.types.Vector2.new(60, 60)
+			)
+			engine.environment.poke(
+				((second) :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteSize",
+				engine.types.Vector2.new(80, 80)
+			)
 			local UI = Facet.controls(runtime, { types = engine.types, overlayParent = overlay })
 			local destination: Facet.Cell<GuiObject>
 			local reduced: Facet.Cell<Shared.MotionLevel>
@@ -1015,7 +1075,16 @@ return function(harness: Verify.Harness)
 			local carrier = content
 			t:expect(carrier.Parent == first):toBe(true)
 			t:expect(landed):toBe(1)
-			carrier.AbsolutePosition, carrier.AbsoluteSize = first.AbsolutePosition, first.AbsoluteSize
+			engine.environment.poke(
+				((carrier) :: unknown) :: FixtureRoblox.Instance,
+				"AbsolutePosition",
+				first.AbsolutePosition
+			)
+			engine.environment.poke(
+				((carrier) :: unknown) :: FixtureRoblox.Instance,
+				"AbsoluteSize",
+				first.AbsoluteSize
+			)
 			local count = #tracking.created
 			destination:set(second)
 			local previous = carrier.Position.X.Offset

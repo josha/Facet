@@ -571,10 +571,10 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local V = engine.types.Vector2
-				holder.AbsoluteSize = V.new(800, 600)
+				engine.environment.poke(holder, "AbsoluteSize", V.new(800, 600))
 				local marker = holder:FindFirstChild("Marker")
 				local arrow = marker:FindFirstChild("Arrow", true)
-				marker.AbsoluteSize = V.new(40, 20)
+				engine.environment.poke(marker, "AbsoluteSize", V.new(40, 20))
 				local function at(): (number, number)
 					return marker.Position.X.Offset, marker.Position.Y.Offset
 				end
@@ -718,16 +718,16 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Text { text = text }
 				end)
 				local floor = root:FindFirstChild("TextBoundsFloor")
-				root.TextBounds = engine.types.Vector2.new(100, 20)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(100, 20))
 				Verify.expect(floor.MinSize.X):toBe(100)
 				text:set("1,000,001")
-				root.TextBounds = engine.types.Vector2.new(96, 20)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(96, 20))
 				Verify.expect(floor.MinSize.X):toBe(100)
 				text:set("12")
-				root.TextBounds = engine.types.Vector2.new(14, 20)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(14, 20))
 				Verify.expect(floor.MinSize.X):toBe(14)
 				text:set("19")
-				root.TextBounds = engine.types.Vector2.new(13, 20)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(13, 20))
 				Verify.expect(floor.MinSize.X):toBe(14)
 				stop()
 			end,
