@@ -953,21 +953,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local list: { resolver.Declared } = {}
 			for index, region in regions do
 				local entry = declared[region]
-				local measured = {}
+				local measured, hangs, hanging = {}, {}, false
 				for form, observed in entry.sizes do
 					local value = use(observed)
-					local hang = use(entry.hangs[form])
-					measured[form] = {
-						x = value.X,
-						y = value.Y,
-						hang = if hang > 0 and read(entry.authored, use) ~= false then hang else 0,
-					}
+					measured[form] = { x = value.X, y = value.Y }
+					hangs[form] = use(entry.hangs[form])
+					hanging = hanging or hangs[form] > 0
 				end
 				list[index] = {
 					zone = entry.zone,
 					rank = entry.rank,
 					mayDrop = entry.mayDrop,
 					sizes = measured,
+					hangs = if hanging and read(entry.authored, use) ~= false then hangs else nil,
 					leading = entry.leading,
 					trailing = entry.trailing,
 				}

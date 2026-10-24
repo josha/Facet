@@ -1402,37 +1402,50 @@ return function(verifyHarness: Verify.Harness)
 			stop()
 		end)
 
-		verifyHarness:case("drops the caption overhang of a hidden or dropped bottom region", function(t)
+		verifyHarness:case("drops the caption overhang of a bottom region that its author hides", function(t)
 			local shown = Compose.cell(true)
 			local root, engine, stop = actionRow({ captions = true, shown = shown })
 			local T = engine.types
+			local left = root:FindFirstChild("BottomLeft", true) :: Frame
 			local right = root:FindFirstChild("BottomRight", true) :: Frame
 			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
 			shown:set(false)
+			t:expect(left.Position):toBe(T.UDim2.new(0, 0, 1, 0))
 			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, 0))
-			t:expect((root:FindFirstChild("BottomLeft", true) :: Frame).Position):toBe(T.UDim2.new(0, 0, 1, 0))
 			shown:set(true)
 			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
 			stop()
+		end)
+
+		verifyHarness:case("drops the caption overhang of a bottom region that gives way", function(t)
 			local form = Compose.cell(1)
-			root, engine, stop = actionRow({ captions = true, mayDrop = true, reveal = false, form = form })
-			T = engine.types
-			right = root:FindFirstChild("BottomRight", true) :: Frame
+			local root, engine, stop = actionRow({ captions = true, mayDrop = true, reveal = false, form = form })
+			local T = engine.types
+			local right = root:FindFirstChild("BottomRight", true) :: Frame
 			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
 			sized(engine, root:FindFirstChild("Zones"), 240, 700)
 			t:expect(form:peek()):toBe(0)
-			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, 0))
+			t:expect(right.Position.Y.Offset):toBe(0)
 			sized(engine, root:FindFirstChild("Zones"), 390, 700)
 			t:expect(form:peek()):toBe(1)
 			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
+			stop()
+		end)
+
+		verifyHarness:case("drops the overhang of a caption that leaves the row or hides with its Button", function(t)
+			local root, engine, stop = actionRow({ captions = true })
+			local T = engine.types
+			local right = root:FindFirstChild("BottomRight", true) :: Frame
 			local caption = (root:FindFirstChild("Pass", true) :: TextButton):FindFirstChild("Caption") :: TextLabel
 			caption.Parent = nil
 			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
-			for _, name in { "Shop", "Garage" } do
-				local button = root:FindFirstChild(name, true) :: TextButton
-				button.Visible = false
-			end
-			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, 0))
+			local shop = root:FindFirstChild("Shop", true) :: TextButton
+			shop.Visible = false
+			t:expect(right.Position):toBe(T.UDim2.new(1, 0, 1, -18))
+			local garage = root:FindFirstChild("Garage", true) :: TextButton
+			garage.Visible = false
+			t:expect(garage.Visible):toBe(false)
+			t:expect(right.Position.Y.Offset):toBe(0)
 			stop()
 		end)
 
@@ -1455,7 +1468,8 @@ return function(verifyHarness: Verify.Harness)
 				zone = "bottomLeft" :: "bottomLeft",
 				rank = 2,
 				mayDrop = false,
-				sizes = { { x = 156, y = 44, hang = 18 }, { x = 44, y = 44 } },
+				sizes = { { x = 156, y = 44 }, { x = 44, y = 44 } },
+				hangs = { 18, 0 },
 			}
 			local race: Declared =
 				{ zone = "bottomRight" :: "bottomRight", rank = 1, mayDrop = false, sizes = { { x = 80, y = 44 } } }
@@ -1465,7 +1479,7 @@ return function(verifyHarness: Verify.Harness)
 			forms, _, shift = resolver.resolve(390, 110, 8, { status, actions, race })
 			t:expect(forms[2]):toBe(2)
 			t:expect(shift.hang):toBe(0)
-			actions.sizes[1].hang = nil
+			actions.hangs = nil
 			forms, _, shift = resolver.resolve(390, 110, 8, { status, actions, race })
 			t:expect(forms[2]):toBe(1)
 			t:expect(shift.hang):toBe(0)

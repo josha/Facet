@@ -14,7 +14,8 @@ export type Declared = {
 	zone: Zone,
 	rank: number,
 	mayDrop: boolean,
-	sizes: { { x: number, y: number, hang: number? } },
+	sizes: { { x: number, y: number } },
+	hangs: { number }?,
 	leading: boolean?,
 	trailing: boolean?,
 }
@@ -77,8 +78,8 @@ local function resolve(
 			local form = forms[index]
 			local size = if form > 0 then region.sizes[form] else nil
 			if size and size.x > 0 and size.y > 0 then
-				if row == 3 then
-					hang = math.max(hang, size.hang or 0)
+				if row == 3 and region.hangs then
+					hang = math.max(hang, region.hangs[form] or 0)
 				end
 				if key == 0 then
 					zoneW[key] = (zoneW[key] or -gap) + gap + size.x
