@@ -208,12 +208,44 @@ jobs:
           fi
           cmp tools/vendor/verify/UPSTREAM.lock "$base/tools/vendor/verify/UPSTREAM.lock"
           (cd "$base" && lute run "$GITHUB_WORKSPACE/tools/facet" sync verify --check)
-          git archive HEAD bench tests/lib examples > "$evidence/measurement.tar"
+          git archive HEAD bench tests examples tools > "$evidence/measurement.tar"
           tar -xf - -C "$base" < "$evidence/measurement.tar"
           git -C "$base" diff --exit-code HEAD -- src
           sha256sum "$evidence/measurement.tar" "$evidence"/*.lock
 
+      - name: Select paired performance inputs
+        id: paired-inputs
+        env:
+          DIAGNOSTIC: ${{ inputs.diagnostic || false }}
+        run: |
+          if [ "$DIAGNOSTIC" = "true" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          status=0
+          lute run tools/facet perf affected "$(git -C "$RUNNER_TEMP/base" rev-parse HEAD)" > artifacts/perf-paired-inputs.log 2>&1 || status=$?
+          cat artifacts/perf-paired-inputs.log
+          if [ "$status" -eq 0 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ "$status" -eq 3 ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Paired performance inputs are unchanged. Common measurement setup passed." >> "$GITHUB_STEP_SUMMARY"
+          else
+            exit "$status"
+          fi
+
+      - name: Validate retained memory measurements
+        if: steps.paired-inputs.outputs.run == 'true'
+        run: |
+          base_commit="$(git -C "$RUNNER_TEMP/base" rev-parse HEAD)"
+          if git diff --quiet "$base_commit" HEAD -- bench/paired_scene.luau bench/paired_workload.luau tools/facet/lib/perf_retained.luau tools/engine/retained_memory_proof.luau tools/vendor/verify/src/lute/memory.luau; then
+            echo "The retained heap collector, scene adapter and comparison policy are unchanged."
+            exit 0
+          fi
+          lute run tools/facet perf prove-retained-memory --out artifacts/perf-paired-retained-calibration
+
       - name: Compare the candidate with its base
+        if: steps.paired-inputs.outputs.run == 'true'
         env:
           DIAGNOSTIC: ${{ inputs.diagnostic || false }}
         run: |
@@ -224,9 +256,6 @@ jobs:
               exit 2
             fi
             echo "A/A diagnostic sample ${{ matrix.sample }} on ${{ matrix.os }}: $base_commit. No retries; a complete slowdown is a false positive, while exit 75 is invalid calibration and other failures are unusable evidence." | tee -a "$GITHUB_STEP_SUMMARY"
-          elif git diff --quiet "$base_commit" HEAD -- src; then
-            echo "Production sources under src, including Compose, are identical to the base. Common measurement setup passed; paired runtime timing is not needed." | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 0
           fi
           output=artifacts/perf-paired
           for attempt in 1 2; do

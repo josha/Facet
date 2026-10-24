@@ -212,6 +212,20 @@ Run `lute run tools/facet perf profile SCENE` for a Lute sampling trace of
 the unchanged scene. Profiles include setup and warmup. Use paired runs
 for timing claims.
 
+Paired performance also checks retained Luau heap while each scene is mounted
+and after teardown. It uses Verify's bounded heap estimator in a separate pass,
+with eight collection witness cycles at each endpoint.
+The heap comparison requires growth above 5% and 64 KiB in every paired round
+and in the median. Run `lute run tools/facet perf prove-retained-memory` to check
+unchanged scenes and a retained allocation of 4 MiB. This proof covers every
+paired scene and keeps its raw measurements in the output directory.
+The `prove-retained-memory` producer belongs to the release tier. CI also runs
+the proof when the collector, scene adapter or comparison policy changes.
+
+`lute run tools/facet perf affected BASE` checks paired performance inputs.
+It covers code, workload data, fixtures, the toolchain and the CI workflow.
+Exit 0 requires paired measurements. Exit 3 means that these inputs did not change.
+
 ## How this page stays true
 
 Run `lute run tools/facet check maintainer-map`. It reads the tree and this

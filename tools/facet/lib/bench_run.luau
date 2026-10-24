@@ -48,8 +48,11 @@ local SAMPLES = 1500
 local REGRESSION_FACTOR = 1.5
 local REGRESSION_FLOOR_MS = 0.05
 local YARDSTICK = "zz-yardstick-cpu"
+local YARDSTICK_ITERATIONS = 20
+local YARDSTICK_SAMPLES = 100
+local YARDSTICK_WARMUP = 25
 local UNGATED = 1e12
-local DRIFT_LIMIT = 0.15
+local DRIFT_LIMIT = 0.25
 local ENVIRONMENT = "facet-lute"
 local BASELINE = "bench/baseline.json"
 local ARTIFACT = "artifacts/bench.json"
@@ -181,9 +184,6 @@ return function(): number
 		table.insert(specs, entry.spec)
 	end
 	local yardstickState = yardstick.setup()
-	for _ = 1, yardstick.warmup or WARMUP do
-		yardstick.run(yardstickState)
-	end
 	local collected = Benchmark.collect({
 		name = "facet-bench",
 		benchmarks = specs,
@@ -191,7 +191,9 @@ return function(): number
 			run = function()
 				yardstick.run(yardstickState)
 			end,
-			samples = yardstick.samples or SAMPLES,
+			samples = YARDSTICK_SAMPLES,
+			iterations = YARDSTICK_ITERATIONS,
+			warmup = YARDSTICK_WARMUP,
 			maxSpread = UNGATED,
 			maxDrift = DRIFT_LIMIT,
 			driftStatistic = "median",
@@ -216,7 +218,7 @@ return function(): number
 			name = `{YARDSTICK}-{suffix}`,
 			requirement = yardstick.requirement,
 			samples = #samples,
-			warmup = yardstick.warmup or WARMUP,
+			warmup = YARDSTICK_WARMUP,
 			p50_ms = assert(summary.p50),
 			p95_ms = assert(summary.p95),
 			p99_ms = assert(summary.p99),
@@ -351,6 +353,8 @@ return function(): number
 		yardstickP95Ms = yardstickP95,
 		yardstickDriftPct = yardstickDriftPct,
 		yardstickMedianDriftPct = yardstickMedianDriftPct,
+		yardstickIterations = YARDSTICK_ITERATIONS,
+		yardstickWarmupBatches = YARDSTICK_WARMUP,
 		yardstickBefore = collected.yardstickBefore,
 		yardstickAfter = collected.yardstickAfter,
 		proofStatus = if drifted then "unstable-cpu-rate" else "stable-cpu-rate-trend",

@@ -47,6 +47,17 @@ cancelled or skipped required job
 fails Verify. The manual CI dispatch uses its base and candidate revisions for
 the performance comparison and checks the candidate on each platform.
 
+Paired performance runs when its code, workload data, fixtures, toolchain or
+workflow changes. `lute run tools/facet perf affected BASE` owns this selection.
+The retained heap comparison runs in the same job and report as latency.
+It uses a separate measurement pass for mounted and teardown heap estimates.
+When its collector, scene adapter or policy changes, each platform first checks
+unchanged scenes and a retained allocation of 4 MiB across three paired rounds.
+The proof records all measurements and uses Verify to judge the cases.
+Both arms use the same benchmark code, workloads, fixtures, maintainer tooling
+and Verify snapshot. The workflow records the shared archive hash and checks
+that neither arm's production source changes during measurement setup.
+
 Native Studio checks remain outside hosted CI. The portable gate records that
 deferral; a successful Verify job does not establish complete native coverage.
 A native host requires an authenticated Studio session, working rendering, and

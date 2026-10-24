@@ -17,6 +17,8 @@ export type Budget = {
 export type Yardstick = {
 	run: () -> (),
 	samples: number,
+	iterations: number?,
+	warmup: number?,
 	maxSpread: number,
 	maxDrift: number,
 	driftStatistic: YardstickStatistic?,
