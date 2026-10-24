@@ -1,13 +1,14 @@
 # Stage.card
 
-Show a native 3D viewport.
+Inspect a 3D object in a bounded area.
 
-Inside an app mount, set `local UI = app.UI`.
+Inside an app mount, set `local UI = app.UI`. The parent must bound both axes.
 
 ```luau
 UI.Stage "Preview" {
-    Size = UDim2.new(1, 0, 0, 180),
+    Size = UDim2.fromScale(1, 1),
     camera = CFrame.lookAt(Vector3.new(4, 3, 6), Vector3.zero),
+    fieldOfView = 40,
     content = function(runtime, world)
         local Host = runtime.constructors
         Host.Part "Object" {
@@ -21,13 +22,11 @@ UI.Stage "Preview" {
 }
 ```
 
-Key options: `camera`, `content`, `lazy`.
-
-Stage owns the native viewport, camera, and WorldModel. Its content callback
-runs in the same Compose owner. Create the object's parts with the supplied
-runtime. Use `Compose.static(world)` for the root's `Parent` property because
-the WorldModel is Compose-owned. Bind their properties to the selected
-object or editable draft. The containing task must establish the fill width.
+Compose owns scene parts built through the supplied runtime. Use
+`Compose.static(world)` for their `Parent`. Bind them to selection or a draft.
+This camera frames the sample cube. Adjust `camera` and `fieldOfView` for
+the real subject and aspect ratio. Card sizes thumbnails; inspection art
+must fill its bounded parent.
 
 Open:
 

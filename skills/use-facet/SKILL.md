@@ -24,15 +24,24 @@ Read [game UI design](references/GAME_UI_DESIGN_GUIDE.md) once for how to apply
 these principles. Before a new flow, identify the player's goal, play context,
 information priority, action, accepted result and return path. Infer these from
 the brief and existing game; ask only when a missing decision changes the work.
-Task chapters explain specific decisions; recipes show
-behavior and ownership; API nodes define exact contracts. Open only the next
-level needed for the current decision.
+Read the matching task chapter before choosing its controls or layout.
+Recipes show behavior and ownership; API nodes define exact contracts.
+Open only the next level needed for the current decision.
+
+Choose the task surface before writing shared page helpers. Mount Composition
+directly for gameplay HUDs. Use `Tasks.pages` for a destination that replaces
+gameplay and `Tasks.collection-detail` when browsing and inspection belong
+together. A Sheet is a bounded interruption. Its scrolling body does not supply
+a page hierarchy or a collection/detail arrangement.
 
 Prove one complete playable loop before expanding menus. Test the first use
 of each layout or interaction in Play before repeating it across the game.
 Inspect the combined page, body and gameplay context before copying a pattern.
 Use representative content and the most constrained supported context early.
 Observe whether a player can find, predict and complete the task without coaching.
+Keep this first implementation small enough to inspect and revise. Obtain a
+working native Play capture before repeating its structure. If capture fails,
+resolve that feedback failure; instance bounds alone do not show visual hierarchy.
 
 ## Find the contract
 
@@ -47,14 +56,14 @@ in the installed docs and CLI. Use `Map` only when the task has no known route.
 | Need | Read |
 | --- | --- |
 | First mount or existing Compose integration | `Mounting.Facet.app` |
-| Competing gameplay HUD groups | `Tasks.hud`, then `Composition.regions` if needed |
-| Destination from gameplay, input ownership and Back | `Tasks.pages` |
+| Competing gameplay HUD groups | [Game flows](references/game-ui/GAME_FLOWS_AND_INFORMATION.md), then `Tasks.hud` |
+| Destination from gameplay, input ownership and Back | [Layout](references/game-ui/LAYOUT_AND_NAVIGATION.md), then `Tasks.pages` |
 | Gamepad entry into a passive HUD | `responder` |
-| Mixed input, text size or viewing distance | Input design chapter, then `environment` |
-| Collection and selected detail | `Tasks.collection-detail` |
-| Boolean settings or named choices | `Toggle.card`, `Picker.card` |
+| Mixed input, text size or viewing distance | [Input](references/game-ui/INPUT_FOCUS_AND_ACCESS.md), then `environment` |
+| Collection and selected detail | [Collections](references/game-ui/COLLECTIONS_AND_ACTIONS.md), then `Tasks.collection-detail` |
+| Boolean settings or named choices | [Choices](references/game-ui/CHOICES_AND_INPUT.md), then `Toggle.card`, `Picker.card` |
 | Object identity, art and selection | `Card.card`, `Stage.card` |
-| A bounded interruption or dirty dismissal | `Tasks.sheet`, `Sheet.dismissal` |
+| A bounded interruption or dirty dismissal | [Surfaces](references/game-ui/SURFACES_INFORMATION_AND_FEEDBACK.md), then `Tasks.sheet`, `Sheet.dismissal` |
 | Visual system | `Tasks.theme` |
 | Server-accepted state | `Tasks.state` |
 | Reactive types or collection signatures | `Types.reactive` |
@@ -103,6 +112,9 @@ tokens. Use Stage when the player needs to inspect a 3D object; frame the actual
 subject. Use stable model keys in VirtualList, VirtualGrid and Table.
 Choose collection density from what players must recognize or compare.
 The layout chapter covers bounded scrolling and grids that fit their content.
+Treat sample sizes and cameras as dimensions for the sample's subject. Give
+inspection artwork its own room and framing; do not reuse a thumbnail's fixed
+height inside a larger detail area.
 
 Use `UI.fill()` for remaining space beside siblings; `width = "fill"` spans
 the parent's width. Give layout intent with hug, stretch and zones. Bound

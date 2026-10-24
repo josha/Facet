@@ -1,6 +1,6 @@
 # Tasks.collection-detail
 
-Supply loaded items and one selected key.
+Use loaded items and one selected key. [Art](Stage.reference.md) fills its parent.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
