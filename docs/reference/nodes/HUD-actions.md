@@ -3,7 +3,7 @@
 Group related HUD actions and protect the game view.
 
 The example in [Tasks.hud](Tasks.hud.md) uses circle Buttons with icon captions
-and readouts in `topRight` regions of one Composition. This is one arrangement.
+in a `topRight` region and a wallet in the top bar strip, in one Composition. This is one arrangement.
 Choose zones from the player's task and the sight lines that must stay clear.
 Use labeled Buttons when an icon would be ambiguous. Keep related navigation
 in one selection group and distinguish it from passive readouts.

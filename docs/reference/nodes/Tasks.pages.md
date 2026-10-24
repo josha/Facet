@@ -36,10 +36,14 @@ restoration. Close returns to gameplay; the body owns Back within the task.
 
 suspendGameplay disables the game's InputContext and custom touch commands,
 and sets GuiService.TouchControlsEnabled to false. Its returned function
-restores their previous values on disposal. This changes input, not the game
-clock. Keep saved values, filters and selection in the model outside the page.
+restores them on disposal. It changes input, not the game clock. Keep saved
+values, filters and selection in the model outside the page.
+
+Create the app with `screen = { ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets }`
+so the surface fills behind the Roblox top bar. Screen keeps the page content
+below it, and Composition keeps the HUD clear of it.
 
 Use [collection/detail](Tasks.collection-detail.md) or a
 [scrolling form](ScrollView.card.md) as the body. Keep commitment outside long
-scrolling content. Test compact fit and input return. Use [Sheet](Tasks.sheet.md) for a bounded
-interruption; [TabView](Tasks.tabs.md) switches peer destinations.
+scrolling content. Use [Sheet](Tasks.sheet.md) for a bounded interruption;
+[TabView](Tasks.tabs.md) switches peer destinations.
