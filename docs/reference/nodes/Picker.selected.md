@@ -31,7 +31,8 @@ A horizontal strip is a native `ScrollingFrame` and never wraps to a second
 row. When the segments do not fit in its width, they keep their natural widths
 and the strip scrolls horizontally. The strip then clips its segments and keeps
 the chosen segment in view. A gamepad or keyboard selection scrolls the strip
-to the selected segment. While the strip scrolls, the Picker has the
+to the selected segment. A vertical touch drag that starts on the strip
+scrolls the page around it. While the strip scrolls, the Picker has the
 `FacetOverflow` attribute, so a `ViewThatFits` shows its next candidate. Use
 `ViewThatFits { segmentedPicker, menuPicker }` to show a menu when the segments
 do not fit. The strip reserves the native `AbsoluteContentSize` height and its

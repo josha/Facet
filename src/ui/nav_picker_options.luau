@@ -6,6 +6,7 @@ local Nav = require("./navigation_types")
 local Media = require("./media_types")
 local Content = require("./content_types")
 local reducedMotion = require("./motion").reduced
+local scrollLock = require("./scroll_lock")
 local ComposeTypes = require("../vendor/compose/core")
 local MediaProps = require("./media_props")
 local NavigationProps = require("./navigation_props")
@@ -690,6 +691,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local overflows: ComposeTypes.Readable<boolean>? = nil
 		if scrolls then
 			local scroller = (picker :: unknown) :: ScrollingFrame
+			scrollLock.own(scroller, ctx)
 			local layout = assert(picker:FindFirstChildWhichIsA("UIListLayout", true))
 			local extent = ctx.observe.AbsoluteContentSize(layout)
 			local unit = ctx.layoutUnit(picker)

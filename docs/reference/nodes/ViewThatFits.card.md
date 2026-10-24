@@ -10,7 +10,8 @@ UI.ViewThatFits "ViewThatFits" { UI.Text { text = "Ready" } }
 
 Key options: `width`, `height`, numeric children.
 
-Put the smallest form last.
+Put the smallest form last. A segmented Picker does not fit while its strip
+scrolls, so `ViewThatFits { segmented, menu }` shows the menu on a phone.
 
 Related controls: [Controls](Controls.md).
 

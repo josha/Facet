@@ -12,9 +12,9 @@ UI.Picker "Mode" { selected = selected, options = options, style = "segmented" }
 
 Key options: `selected`, `options`, `style`, `query`.
 
-A segmented picker cannot take query. A segmented strip never wraps: when
-it does not fit, it scrolls with the chosen segment in view, and
-`ViewThatFits { segmented, menu }` shows the menu.
+A segmented picker cannot take query. Its strip never wraps: when it does not
+fit, it scrolls to the chosen segment, and `ViewThatFits { segmented, menu }`
+shows the menu.
 
 The default picker fills its parent width. Put form fields in a bounded
 VStack, or allocate each field's width when sharing a row. Segmented options

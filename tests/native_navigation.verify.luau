@@ -6066,6 +6066,44 @@ return function(verifyHarness: Verify.Harness)
 					world.stop()
 				end,
 			})
+			verifyHarness:case("hands a vertical touch drag on a scrolling strip to the page around it", {
+				id = "native_navigation::Segmented Picker overflow::hands a vertical touch drag on a scrolling strip to the page around it",
+				run = function()
+					local world = setup(function(UI)
+						return UI.ScrollView "Page" {
+							UI.Picker "Category" {
+								style = "segmented",
+								selected = Compose.cell("all"),
+								options = categories,
+							},
+						}
+					end)
+					local types = world.engine.types
+					local poke = world.engine.environment.poke
+					local page = find(world.root, "Page")
+					local strip = find(page, "Category")
+					poke(page, "AbsoluteWindowSize", V2(world, 401, 300))
+					poke(page, "AbsoluteCanvasSize", V2(world, 401, 900))
+					page.CanvasPosition = V2(world, 0, 100)
+					poke(strip, "AbsoluteWindowSize", V2(world, 401, 50))
+					poke(strip:FindFirstChildWhichIsA("UIListLayout"), "AbsoluteContentSize", V2(world, 466, 44))
+					Verify.expect(strip.ScrollingEnabled):toBe(true)
+					local touch = {
+						UserInputType = types.Enum.UserInputType.Touch,
+						UserInputState = types.Enum.UserInputState.Begin,
+						Position = types.Vector3.new(50, 20, 0),
+					}
+					strip.InputBegan:Fire(touch)
+					touch.UserInputState = types.Enum.UserInputState.Change
+					touch.Position = types.Vector3.new(50, 60, 0)
+					world.input.InputChanged:Fire(touch)
+					Verify.expect(strip.ScrollingEnabled):toBe(false)
+					Verify.expect(page.ScrollingEnabled):toBe(true)
+					world.input.InputEnded:Fire(touch)
+					Verify.expect(strip.ScrollingEnabled):toBe(true)
+					world.stop()
+				end,
+			})
 		end)
 	end)(verifyHarness)
 end

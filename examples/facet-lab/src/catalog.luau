@@ -181,6 +181,7 @@ local CORNERS: Axis = { key = "corners", values = { DEFAULT, "pill", "square" } 
 local FIELD_APPEARANCE: Axis = { key = "appearance", values = { "standard", "contrast", "utility" } }
 local DISABLED: State = { name = "disabled", props = properties { enabled = false } }
 local hintPages = require("./hint_pages")({ sizes = SIZES, none = NONE })
+local strips = require("./strip_overflow")(NONE)
 local function fixed(w: number, h: number?): Properties
 	return {
 		Size = UDim2.fromOffset(w, h or 0),
@@ -1627,6 +1628,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 			{ name = "vertical", props = properties { axis = "y" } },
 			{ name = "hug", props = properties { sizing = "hug" } },
+			{ name = "strip scrolls", props = strips.scrolls, across = false },
 			{
 				name = "icon only",
 				props = properties {
@@ -4984,7 +4986,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			}
 		end,
 		axes = { { key = "width", values = { "fill", 360, 200, 110 } } },
-		states = { { name = "height 32 (too short for any)", props = properties { height = 32 } } },
+		states = {
+			{ name = "height 32 (too short for any)", props = properties { height = 32 } },
+			{ name = "segmented, then menu", props = strips.fallback },
+		},
 	},
 	Composition = {
 		family = "layout",
