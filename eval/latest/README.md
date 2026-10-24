@@ -1,58 +1,49 @@
-# Latest Astra Medium comparison
+# Astra Medium evaluation
 
-This run evaluates Facet source `b7a2c8f1`. Both authors ran concurrently with
-Astra Medium, the same brief, a 30-minute limit, and Studio MCP only.
-The complete submitted games are frozen and unchanged:
-[Facet](facet/game.rbxlx) and [Plain](plain/game.rbxlx).
+The proposed changes improve modal focus recovery, author guidance, native
+Studio readiness, and concurrent evaluation startup. Evaluated source: `b7a2c8f1`.
 
-Astra Medium preferred **Facet in both presentation orders** for one diagnostic
-comparison of three desktop states: Hub, Garage, and first-use Tutorial.
-The judge favored Facet's clearer Garage layout and tutorial actions. It also
-noted Plain's stronger Hub presentation. See the [judgment](evidence/judging/judgment.json),
-[configuration and image provenance](evidence/judging/provenance.json), and
-[unchanged captures](evidence/judging/captures).
+Both authors used Astra Medium, Studio MCP only, the same brief, and a
+30-minute limit. They started less than one second apart. The complete games
+are frozen: [Facet](facet/game.rbxlx) and [Plain](plain/game.rbxlx).
 
-This is a three-state diagnostic result. Shop, Livery, Race, Results and the
-other device presets are outside this judgment. The full seven-state,
-five-device visual target is not established.
+## Visual judging
 
-| Author result | Plain | Facet |
+Astra Medium preferred **Facet in both presentation orders** for the desktop
+Hub, Garage, and first-use Tutorial. It favored Facet's clearer Garage layout
+and tutorial actions, while noting Plain's stronger Hub presentation.
+
+| Device | Available result |
+| --- | --- |
+| Desktop | Facet preferred in both orders; three-state diagnostic |
+| Phone portrait | Pending |
+| Phone landscape | Pending |
+| Tablet | Pending |
+| Console | Pending |
+
+[Selected captures](captures) show the exact images used. The remaining device
+judgments and input observations are in progress. This is not yet a completed
+five-device result or a full game-acceptance pass.
+
+## Author usage
+
+| Author | Wall time | Tokens, including cached input |
 | --- | ---: | ---: |
-| Wall time | 23.14 min | 27.71 min |
-| Total tokens, including cached input | 2,392,800 | 12,499,681 |
-| Completion | Completed | Completed |
+| Plain | 23.14 min | 2,392,800 |
+| Facet | 27.71 min | 12,499,681 |
 
-Facet used 5.224 times the tokens and 1.197 times the wall time. It did not meet
-the fixed efficiency targets. Recorded completed-turn latency was also higher.
-Cost is unknown; token counters are not billing receipts.
+Facet did not meet the efficiency targets: it used 5.224 times the tokens and
+1.197 times the wall time. Cost is unknown; token counters are not billing receipts.
 
-The published coverage is limited. Native discovery and
-selected calibration checks are retained. Broad gameplay, five-device
-acceptance, and performance overhead remain unverified. The complete benchmark
-has not passed. Source reviews identify concrete missing behavior separately
-from native observations; no diagnostic subset is treated as a complete-row pass.
-
-## Improvements and evidence
-
-The proposed changes improve modal focus recovery, consumer design guidance,
-Studio readiness checks, and concurrent author startup. Facet and Compose main
-are integrated. The Verify pin has the same tree as the integrated Verify main.
+## Validation and evidence
 
 The evaluated source passed 38 runnable full-tier producers, including 2377
-behavioral cases and 561 tool cases. Two producers were deferred and two release
-producers were excluded. Separate benchmark, package build, and package status
-passed. This is selected evidence and is not a release certification.
+behavioral cases and 561 tool cases. Benchmark, package build, and package status
+passed. Two producers were deferred and two release producers excluded.
+The modal fix has 95 focused checks and three native selection checks.
 
-- [Source validation and launch setup](evidence/setup/README.md)
-- [Author usage](evidence/author/summary.json)
-- [Frozen-game custody](evidence/custody/summary.sanitized.json)
-- [Native discovery](evidence/discovery/summary.sanitized.json)
-- [Untouched console focus](evidence/focus/summary.sanitized.json)
-- [Facet source findings](evidence/source/facet-audit.json)
-- [Plain source findings](evidence/source/plain-audit.md)
-- [Facet coverage](evidence/source/facet-coverage.json) and [Plain coverage](evidence/source/plain-coverage.json)
-- [Place privacy review](evidence/privacy/review.json)
-
-Earlier results used a Sol judge and are not relabeled as this Astra judgment.
-The previous latest bundle remains in Git history. Raw author and judge session
-logs, local account paths, and private process receipts are not published.
+The [evidence archive](evidence.zip) contains reviewed reports, model and effort
+attestation, judgment details, hashes, native observations, and source findings.
+It excludes raw author/judge session logs and private process records. The
+frozen games are unchanged. Broad game acceptance and performance overhead
+remain unverified. Earlier Sol judgments are not relabeled as Astra results.

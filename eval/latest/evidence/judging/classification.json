@@ -1,5 +1,0 @@
-{
-    "group": "desktop-three-states",
-    "kind": "diagnostic",
-    "reason": "User requested immediate judging and publication after evaluation expanded too far. Only three equivalent desktop states are available for both arms. This subset is excluded from the full seven-state primary comparison and does not establish the five-device visual threshold."
-}
