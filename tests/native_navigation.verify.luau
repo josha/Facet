@@ -4954,6 +4954,50 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps a stack that fills its ScreenGui unclipped while its pages move", {
+			id = "native_navigation::native navigation controls::keeps a stack that fills its ScreenGui unclipped while its pages move",
+			run = function()
+				local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<string> })
+				local world = setup(function(UI: FacetControls)
+					return UI.NavigationStack({
+						path = path,
+						root = {
+							title = "Root",
+							content = function(): Instance
+								return UI.Button "RootAction" { label = "Root" }
+							end,
+						} :: NavigationFixtures.NavigationDestination<string>,
+						destinations = {
+							detail = {
+								title = "Detail",
+								content = function(): Instance
+									return UI.Button "DetailAction" { label = "Detail" }
+								end,
+							} :: NavigationFixtures.NavigationDestination<string>,
+						},
+					})
+				end)
+				local V2 = world.engine.types.Vector2
+				local stack = find(world.screen, "NavigationStack")
+				world.engine.environment.poke(world.screen, "AbsoluteSize", V2.new(1280, 720))
+				world.engine.environment.poke(stack, "AbsoluteSize", V2.new(1280, 720))
+				path:set({ { id = "detail" } })
+				Verify.expect(find(stack, "detail").Position.X.Scale):toBe(1)
+				Verify.expect(stack.ClipsDescendants):toBe(false)
+				world.settle()
+				path:set({})
+				Verify.expect(find(stack, "detail").Position.X.Scale):toBe(0)
+				Verify.expect(stack.ClipsDescendants):toBe(false)
+				world.settle()
+				world.engine.environment.poke(stack, "AbsoluteSize", V2.new(640, 720))
+				path:set({ { id = "detail" } })
+				Verify.expect(stack.ClipsDescendants):toBe(true)
+				world.settle()
+				Verify.expect(stack.ClipsDescendants):toBe(false)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case(
 			"pushes and pops without travel under reduced motion (a fade) or a false transition (none)",
 			{

@@ -21,7 +21,7 @@ add a native UISizeConstraint child with MaxSize. Name the constructor table
 |---|---|---|
 | `gap` | a spacing step or a number of pixels | `UIListLayout.Padding` |
 | `padding` | a spacing step, a number, or `{ top?, right?, bottom?, left? }` | a `UIPadding` child |
-| `surface` | `"surface"`, `"panel"` or `"pane"` (VStack and HStack) | the theme plate: paint, corner and inner padding of that role, for example a backing behind HUD readouts |
+| `surface` | `"surface"`, `"panel"` or `"pane"` (VStack, HStack and Screen) | the theme plate: paint, corner and inner padding of that role, for example a backing behind HUD readouts. On a Screen the plate reaches the glass at the safe edges |
 | `width`, `height` | `"fill"`, `"hug"` or a number of pixels | `Size` and `AutomaticSize` |
 | `maxWidth` | a finite number of pixels, 0 or more | `UISizeConstraint.MaxSize.X` |
 | `align` | `start`, `center`, `end` or `stretch` | cross-axis alignment, `ItemLineAlignment` and the cross-axis flex |
