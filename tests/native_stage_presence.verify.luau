@@ -9,16 +9,18 @@ return function(verifyHarness: Verify.Harness)
 
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
+	local Types = require("../src/ui/types")
 
 	verifyHarness:suite("collection media preparation", function()
 		verifyHarness:case("keeps a surface placeholder until media is ready and fades through the theme token", {
 			id = "native_stage_presence::collection media preparation::keeps a surface placeholder until media is ready and fades through the theme token",
 			run = function()
 				local asset = Compose.cell("rbxassetid://1")
+				local attributes: Types.Attributes = { FacetCollectionRow = true }
 				local w = overlay.new(function(UI, Host, engine)
 					return Host.Frame "Cell" {
 						BackgroundColor3 = engine.types.Color3.new(0.2, 0.3, 0.4),
-						Attributes = { FacetCollectionRow = true },
+						Attributes = attributes,
 						UI.Image "Picture" {
 							image = asset,
 							BackgroundColor3 = engine.types.Color3.new(0.7, 0.2, 0.1),
@@ -26,13 +28,15 @@ return function(verifyHarness: Verify.Harness)
 						UI.Stage "Scene" {
 							content = function(runtime, world)
 								local part = runtime.constructors.Part "Complete" {}
+								assert(typeof(part) == "Instance")
 								part.Parent = world
+								return nil
 							end,
 						},
 					}
 				end, { motionLevel = "normal" })
 				local image, stage = w.find("Picture"), w.find("Scene")
-				image.IsLoaded = false
+				w.engine.environment.poke(image, "IsLoaded", false)
 				Verify.expect(image.ImageTransparency):toBe(1)
 				Verify.expect(image.BackgroundTransparency):toBe(0)
 				Verify.expect(image.BackgroundColor3):toBe(w.engine.types.Color3.new(0.2, 0.3, 0.4))
@@ -42,7 +46,7 @@ return function(verifyHarness: Verify.Harness)
 				w.size(stage, 120, 80)
 				w.advance(0.05, 3)
 				Verify.expect(image.ImageTransparency):toBe(1)
-				image.IsLoaded = true
+				w.engine.environment.poke(image, "IsLoaded", true)
 				local intermediate = false
 				local last = image.ImageTransparency
 				for _ = 1, 30 do
@@ -61,7 +65,7 @@ return function(verifyHarness: Verify.Harness)
 				asset:set("rbxassetid://2")
 				Verify.expect(image.ImageTransparency):toBe(1)
 				Verify.expect(image.BackgroundTransparency):toBe(0)
-				image.IsLoaded = false
+				w.engine.environment.poke(image, "IsLoaded", false)
 				asset:set("")
 				w.advance(0.4, 24)
 				Verify.expect(image:GetAttribute("FacetMediaReady")):toBe(true)
@@ -116,12 +120,12 @@ return function(verifyHarness: Verify.Harness)
 		end)
 		local V = w.Vector2
 		local feed = w.find("Feed")
-		feed.AbsolutePosition = V.new(0, 0)
-		feed.AbsoluteWindowSize = V.new(400, 300)
+		w.engine.environment.poke(feed, "AbsolutePosition", V.new(0, 0))
+		w.engine.environment.poke(feed, "AbsoluteWindowSize", V.new(400, 300))
 		for index = 1, o.count or 1 do
 			local stage = w.find("Stage" .. index)
-			stage.AbsoluteSize = V.new(200, 100)
-			stage.AbsolutePosition = V.new(0, (index - 1) * 110)
+			w.engine.environment.poke(stage, "AbsoluteSize", V.new(200, 100))
+			w.engine.environment.poke(stage, "AbsolutePosition", V.new(0, (index - 1) * 110))
 		end
 		w.log = log
 		return w
@@ -145,6 +149,7 @@ return function(verifyHarness: Verify.Harness)
 										lazy = true,
 										content = function()
 											retired += 1
+											return nil
 										end,
 									})
 								)
@@ -158,6 +163,7 @@ return function(verifyHarness: Verify.Harness)
 								lazy = true,
 								content = function()
 									replacement += 1
+									return nil
 								end,
 							}
 						end),
@@ -179,11 +185,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = scene()
 				local stage = w.find("Stage1")
-				stage.AbsolutePosition = w.Vector2.new(0, 260)
+				w.engine.environment.poke(stage, "AbsolutePosition", w.Vector2.new(0, 260))
 				Verify.expect((w.log.lives[1]:peek())):toBe(false)
-				stage.AbsolutePosition = w.Vector2.new(0, 220)
+				w.engine.environment.poke(stage, "AbsolutePosition", w.Vector2.new(0, 220))
 				Verify.expect((w.log.lives[1]:peek())):toBe(true)
-				stage.AbsolutePosition = w.Vector2.new(0, 400)
+				w.engine.environment.poke(stage, "AbsolutePosition", w.Vector2.new(0, 400))
 				Verify.expect((w.log.lives[1]:peek())):toBe(false)
 				w.stop()
 			end,
@@ -206,7 +212,7 @@ return function(verifyHarness: Verify.Harness)
 				w.advance(0.3, 18)
 				local rested = w.log.writes
 				Verify.expect(rested > before + 1):toBe(true)
-				w.find("Stage1").AbsolutePosition = w.Vector2.new(0, 500)
+				w.engine.environment.poke(w.find("Stage1"), "AbsolutePosition", w.Vector2.new(0, 500))
 				local hidden = w.log.writes
 				w.advance(0.5, 30)
 				Verify.expect(w.log.writes - hidden <= 1):toBe(true)
@@ -218,7 +224,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_stage_presence::native Stage presence::builds lazy content ahead of the scroll window so a card never scrolls in blank",
 			run = function()
 				local w = scene({ lazy = true })
-				w.find("Stage1").AbsolutePosition = w.Vector2.new(0, 360)
+				w.engine.environment.poke(w.find("Stage1"), "AbsolutePosition", w.Vector2.new(0, 360))
 				w.advance(1 / 60)
 				Verify.expect(w.log.builds):toBe(1)
 				Verify.expect((w.find("Stage1"):GetAttribute("FacetLive"))):toBe(false)
@@ -230,10 +236,10 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_stage_presence::native Stage presence::does not build lazy content that stays out of the scroll window",
 			run = function()
 				local w = scene({ lazy = true })
-				w.find("Stage1").AbsolutePosition = w.Vector2.new(0, 500)
+				w.engine.environment.poke(w.find("Stage1"), "AbsolutePosition", w.Vector2.new(0, 500))
 				w.advance(0.3, 18)
 				Verify.expect(w.log.builds):toBe(0)
-				w.find("Stage1").AbsolutePosition = w.Vector2.new(0, 100)
+				w.engine.environment.poke(w.find("Stage1"), "AbsolutePosition", w.Vector2.new(0, 100))
 				w.advance(1 / 60)
 				Verify.expect(w.log.builds):toBe(1)
 				w.stop()
@@ -269,12 +275,12 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local V = w.Vector2
 				local feed = w.find("Feed")
-				feed.AbsolutePosition = V.new(0, 0)
-				feed.AbsoluteWindowSize = V.new(400, 300)
+				w.engine.environment.poke(feed, "AbsolutePosition", V.new(0, 0))
+				w.engine.environment.poke(feed, "AbsoluteWindowSize", V.new(400, 300))
 				for index = 1, 3 do
 					local stage = w.find("Stage" .. index)
-					stage.AbsoluteSize = V.new(200, 100)
-					stage.AbsolutePosition = V.new(0, (index - 1) * 110)
+					w.engine.environment.poke(stage, "AbsoluteSize", V.new(200, 100))
+					w.engine.environment.poke(stage, "AbsolutePosition", V.new(0, (index - 1) * 110))
 				end
 				gate:set(false)
 				local ok, problem = pcall(function()

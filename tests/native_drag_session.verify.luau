@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -89,10 +90,12 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("a separate carried visual keeps the logical pickup geometry", function()
 			local w = fixture()
 			local V2 = w.engine.types.Vector2
-			w.source.AbsolutePosition, w.source.AbsoluteSize = V2.new(20, 30), V2.new(52, 52)
+			w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsolutePosition", V2.new(20, 30))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsoluteSize", V2.new(52, 52))
 			local face = w.engine.new("TextLabel")
 			face.Parent, face.Text = w.screen, "E"
-			face.AbsolutePosition, face.AbsoluteSize = V2.new(400, 300), V2.new(52, 52)
+			w.engine.environment.poke(FixtureRoblox.assertInstance(face), "AbsolutePosition", V2.new(400, 300))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(face), "AbsoluteSize", V2.new(52, 52))
 			w.session.begin(w.source, { payload = "tile", preview = face, previewScale = 1.9 }, "pointer")
 			local ghost = assert(w.screen:FindFirstChild("DragGhost"))
 			Verify.expect(ghost.Text):toBe("E")
@@ -106,7 +109,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = fixture()
 				local V2 = w.engine.types.Vector2
-				w.source.AbsolutePosition, w.source.AbsoluteSize = V2.new(20, 30), V2.new(50, 60)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsolutePosition", V2.new(20, 30))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsoluteSize", V2.new(50, 60))
 				w.session.begin(w.source, { payload = "A", previewScale = 1.3, returnTravel = true }, "pointer")
 				local ghost = w.screen:FindFirstChild("DragGhost")
 				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
@@ -135,7 +139,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = fixture()
 				local V2 = w.engine.types.Vector2
-				w.source.AbsolutePosition, w.source.AbsoluteSize = V2.new(20, 30), V2.new(50, 60)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsolutePosition", V2.new(20, 30))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsoluteSize", V2.new(50, 60))
 				local pickup = V2.new(30, 75)
 				w.session.begin(
 					w.source,
@@ -168,9 +173,19 @@ return function(verifyHarness: Verify.Harness)
 							w.engine.new("Frame"), w.engine.new("ScrollingFrame"), w.engine.new("Frame")
 						body.Parent, row.Parent = w.screen, body
 						local unit = w.engine.new("Frame")
-						unit.Name, unit.Parent, unit.AbsoluteSize = "LayoutUnit", body, V2.new(scale, scale)
-						row.AbsolutePosition, row.AbsoluteSize =
-							V2.new(20, 50), V2.new(frontSize[1], frontSize[2]) * scale
+						unit.Name = "LayoutUnit"
+						unit.Parent = body
+						w.engine.environment.poke(
+							FixtureRoblox.assertInstance(unit),
+							"AbsoluteSize",
+							V2.new(scale, scale)
+						)
+						w.engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsolutePosition", V2.new(20, 50))
+						w.engine.environment.poke(
+							FixtureRoblox.assertInstance(row),
+							"AbsoluteSize",
+							V2.new(frontSize[1], frontSize[2]) * scale
+						)
 						local pickup = row.AbsolutePosition + V2.new(frontSize[1] * 0.1, frontSize[2] * 0.75) * scale
 						w.session.begin(
 							body,
@@ -202,8 +217,8 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_drag_session::shared drop sessions::keeps an armed preview visible and updates controller hints from owned native input observations",
 				run = function()
 					local w = fixture()
-					w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Gamepad
-					w.source.AbsoluteSize = w.engine.types.Vector2.new(120, 80)
+					w.engine.environment.poke(w.input, "PreferredInput", w.engine.types.Enum.PreferredInput.Gamepad)
+					w.engine.environment.poke(w.source, "AbsoluteSize", w.engine.types.Vector2.new(120, 80))
 					w.session.begin(w.source, { payload = "card" }, "armed", nil, nil)
 					local ghost = w.screen:FindFirstChild("DragGhost")
 					local text = w.screen:FindFirstChild("DragStatusText", true)
@@ -211,7 +226,11 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(ghost.Interactable):toBe(false)
 					Verify.expect(string.find(text.Text, "A: drop", 1, true) ~= nil):toBe(true)
 					Verify.expect(text.Parent.Visible):toBe(true)
-					w.input.PreferredInput = w.engine.types.Enum.PreferredInput.KeyboardAndMouse
+					w.engine.environment.poke(
+						w.input,
+						"PreferredInput",
+						w.engine.types.Enum.PreferredInput.KeyboardAndMouse
+					)
 					w.engine.heartbeat:Fire(1 / 60)
 					Verify.expect(string.find(text.Text, "Enter: drop", 1, true) ~= nil):toBe(true)
 					w.session.finish(false)

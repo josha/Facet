@@ -82,7 +82,7 @@ sample("VirtualGrid-part-row", function(state)
 		end,
 	}
 	local geometry = (node :: unknown) :: { AbsoluteSize: Vector2, AbsoluteWindowSize: Vector2 }
-	geometry.AbsoluteSize = state.types.Vector2.new(315, 340)
-	geometry.AbsoluteWindowSize = state.types.Vector2.new(309, 340)
+	state.engine.environment.poke(geometry, "AbsoluteSize", state.types.Vector2.new(315, 340))
+	state.engine.environment.poke(geometry, "AbsoluteWindowSize", state.types.Vector2.new(309, 340))
 	return node
 end)

@@ -11,6 +11,10 @@ type Use = <T>(Readable<T>) -> T
 local motion = {}
 
 function motion.create(ctx: Context, name: string, _dataset)
+	local poke = if ctx.engine
+		then ((ctx.engine :: unknown) :: { environment: { poke: (unknown, string, unknown) -> () } }).environment.poke
+		else nil
+
 	local Compose: ComposeModule, runtime, Host, UI, types = ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
 	local D2, E = types.UDim2, types.Enum
 	local state = {
@@ -149,9 +153,9 @@ function motion.create(ctx: Context, name: string, _dataset)
 					end, 15, "Name")
 				end,
 			}
-			if ctx.engine then
-				state.list.AbsoluteSize = types.Vector2.new(ctx.viewport.w, height)
-				state.list.AbsoluteWindowSize = types.Vector2.new(ctx.viewport.w, height)
+			if poke then
+				poke(state.list, "AbsoluteSize", types.Vector2.new(ctx.viewport.w, height))
+				poke(state.list, "AbsoluteWindowSize", types.Vector2.new(ctx.viewport.w, height))
 			end
 			return screen({ label(state.banner, 18, "Banner"), Host.Frame(chips), state.list })
 		end

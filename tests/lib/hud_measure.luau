@@ -33,11 +33,11 @@ local function measure(root: any, engine: any, box: { number })
 				and node.Parent.Parent
 				and node.Parent.Parent:GetAttribute("FacetForm") ~= nil
 			then
-				node.AbsoluteSize = V2.new(size[1], size[2])
+				engine.environment.poke(node, "AbsoluteSize", V2.new(size[1], size[2]))
 			end
 		end
 	end
-	root:FindFirstChild("Zones", true).AbsoluteSize = V2.new(box[1], box[2])
+	engine.environment.poke(root:FindFirstChild("Zones", true), "AbsoluteSize", V2.new(box[1], box[2]))
 end
 
 return { MEASURED = MEASURED, LANDSCAPE = LANDSCAPE, PORTRAIT = PORTRAIT, TINY = TINY, measure = measure }

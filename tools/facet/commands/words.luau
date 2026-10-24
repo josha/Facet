@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local net = require("@std/net")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Hash = require("../lib/hash")
@@ -842,161 +842,147 @@ local function archiveOf(files: { { name: string, data: string } }): string
 	return buffer.tostring(Zlib.gzip(buffer.fromstring(tarball), { stored = true }))
 end
 
-local function refusal(failure: string?, fragment: string): string?
-	if failure == nil then
-		return ("the refusal containing '%s' did not fire"):format(fragment)
-	end
-	if string.find(failure, fragment, 1, true) == nil then
-		return ("expected a refusal containing '%s', got '%s'"):format(fragment, failure)
-	end
-	return nil
+local function refusal(failure: string?, fragment: string)
+	Verify.expect(failure):toContain(fragment)
 end
 
-local function cases(): { Case.Case }
-	local list: { Case.Case } = {
-		{
-			name = "the per-length floor fires on a one-word set",
-			run = function(): string?
-				return refusal(checkSets({ [5] = setOf({ "aaaaa" }) }, setOf({ "aaaaa" })), "accepted words of length")
-			end,
-		},
-		{
-			name = "the solution floor fires",
-			run = function(): string?
-				return refusal(checkSets(floorsMet(), setOf({ "zzzzz" })), "solutions; the floor is")
-			end,
-		},
-		{
-			name = "the solution-is-an-accepted-guess rule fires",
-			run = function(): string?
-				local byLength = floorsMet()
-				byLength[SOLUTION_LEN] = numbered(SOLUTION_LEN, MIN_ACCEPTED[SOLUTION_LEN - 1].floor + 1)
-				local solutions = numbered(SOLUTION_LEN, MIN_SOLUTIONS)
-				solutions.zzzzzz = true
-				return Case.first(
-					refusal(checkSets(byLength, solutions), "1 solution(s) are not accepted guesses, e.g. ['zzzzzz']"),
-					Case.equal(checkSets(byLength, numbered(SOLUTION_LEN, MIN_SOLUTIONS)), nil, "accepted solutions")
-				)
-			end,
-		},
-		{
-			name = "the Source character cap fires",
-			run = function(): string?
-				local _, failure = packedModule(7, numbered(7, 40000))
-				return refusal(failure, "over the\n  180000 cap")
-			end,
-		},
-		{
-			name = "a packed module has the generated layout",
-			run = function(): string?
-				local moduleText = packedModule(2, setOf({ "of", "an", "to" }))
-				local expected = LUAU_HEADER:gsub("\n\n\n", "\n\n")
-					.. '\nlocal CHUNKS = {\n\t"anofto",\n}\n\nreturn table.freeze({\n'
-					.. "\tlength = 2,\n\tcount = 3,\n\tpacked = table.concat(CHUNKS),\n})\n"
-				return Case.equal(moduleText, expected, "module")
-			end,
-		},
-		{
-			name = "a manifest module is written in insertion order",
-			run = function(): string?
-				local moduleText = manifestModule(map({
-					{ key = "schema", value = text('a "quoted" \\ value') },
-					{ key = "version", value = text(nil) },
-					{ key = "lengths", value = { kind = "list", items = { number(2), number(7) } } },
-				}))
-				local expected = '--!strict\n\nreturn table.freeze({\n\t["schema"] = "a \\"quoted\\" \\\\ value",\n'
-					.. '\t["version"] = nil,\n\t["lengths"] = {\n\t\t2,\n\t\t7,\n\t},\n})\n'
-				return Case.equal(moduleText, expected, "manifest")
-			end,
-		},
-		{
-			name = "counts are grouped by thousands",
-			run = function(): string?
-				return Case.first(
-					Case.equal(grouped(94), "94"),
-					Case.equal(grouped(3258), "3,258"),
-					Case.equal(grouped(1234567), "1,234,567")
-				)
-			end,
-		},
-		{
-			name = "an archive without a Copyright file is refused",
-			run = function(): string?
-				local _, failure = readSource(archiveOf({
-					{ name = SOURCE_ROOT .. "/final/english-words.10", data = "cat\n" },
-				}))
-				return refusal(failure, "carries no Copyright file")
-			end,
-		},
-		{
-			name = "the source reader keeps the listed dialects, tiers and plain words",
-			run = function(): string?
-				local source, failure = readSource(archiveOf({
-					{ name = SOURCE_ROOT .. "/Copyright", data = "Copyright \xa9 Kevin\n\xa0\n" },
-					{ name = SOURCE_ROOT .. "/VERSION", data = " 2020.12.07\n" },
-					{ name = SOURCE_ROOT .. "/final/english-words.10", data = "cat\r\n dog \nCaps\ncan't\ncaf\xe9\n" },
-					{ name = SOURCE_ROOT .. "/final/british-words.20", data = "colour\x85grey\xa0\n" },
-					{ name = SOURCE_ROOT .. "/final/english-words.15", data = "untiered\n" },
-					{ name = SOURCE_ROOT .. "/final/english-proper-names.10", data = "london\n" },
-					{ name = SOURCE_ROOT .. "/final/special-words.10", data = "special\n" },
-				}))
-				if source == nil then
-					return failure or "the reader refused a valid archive"
-				end
-				return Case.first(
-					Case.same(sortedWords(source.byTier[10]), { "cat", "dog" }, "tier 10"),
-					Case.same(sortedWords(source.byTier[20]), { "colour", "grey" }, "tier 20"),
-					Case.same(sortedWords(source.solutionByTier[10]), { "cat", "dog" }, "solutions at tier 10"),
-					Case.same(sortedWords(source.solutionByTier[20]), {}, "solutions at tier 20"),
-					Case.equal(source.version, "2020.12.07", "version"),
-					Case.equal(latin1(trimEnd(source.copyright)), "Copyright \u{a9} Kevin", "copyright")
-				)
-			end,
-		},
-		{
-			name = "a cached archive with the wrong hash is removed and --offline refuses",
-			run = function(): string?
-				local root = Files.temporaryDirectory("facet-words-")
-				local cached = Files.join(root, CACHE_DIR, Files.name(SOURCE_URL))
-				Files.write(cached, "not the pinned archive")
-				local said: { string } = {}
-				local archive, failure = fetchSource(root, true, function(line: string)
-					table.insert(said, line)
-				end)
-				local removed = not Files.exists(cached)
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "the per-length floor fires on a one-word set", {
+		id = prefix .. "the per-length floor fires on a one-word set",
+		run = function(test: Verify.Context): ()
+			refusal(checkSets({ [5] = setOf({ "aaaaa" }) }, setOf({ "aaaaa" })), "accepted words of length")
+		end,
+	})
+	harness:case(prefix .. "the solution floor fires", {
+		id = prefix .. "the solution floor fires",
+		run = function(test: Verify.Context): ()
+			refusal(checkSets(floorsMet(), setOf({ "zzzzz" })), "solutions; the floor is")
+		end,
+	})
+	harness:case(prefix .. "the solution-is-an-accepted-guess rule fires", {
+		id = prefix .. "the solution-is-an-accepted-guess rule fires",
+		run = function(test: Verify.Context): ()
+			local byLength = floorsMet()
+			byLength[SOLUTION_LEN] = numbered(SOLUTION_LEN, MIN_ACCEPTED[SOLUTION_LEN - 1].floor + 1)
+			local solutions = numbered(SOLUTION_LEN, MIN_SOLUTIONS)
+			solutions.zzzzzz = true
+			refusal(checkSets(byLength, solutions), "1 solution(s) are not accepted guesses, e.g. ['zzzzzz']")
+			Verify.expect(checkSets(byLength, numbered(SOLUTION_LEN, MIN_SOLUTIONS))):toBe(nil)
+		end,
+	})
+	harness:case(prefix .. "the Source character cap fires", {
+		id = prefix .. "the Source character cap fires",
+		run = function(test: Verify.Context): ()
+			local _, failure = packedModule(7, numbered(7, 40000))
+			refusal(failure, "over the\n  180000 cap")
+		end,
+	})
+	harness:case(prefix .. "a packed module has the generated layout", {
+		id = prefix .. "a packed module has the generated layout",
+		run = function(test: Verify.Context): ()
+			local moduleText = packedModule(2, setOf({ "of", "an", "to" }))
+			local expected = LUAU_HEADER:gsub("\n\n\n", "\n\n")
+				.. '\nlocal CHUNKS = {\n\t"anofto",\n}\n\nreturn table.freeze({\n'
+				.. "\tlength = 2,\n\tcount = 3,\n\tpacked = table.concat(CHUNKS),\n})\n"
+			Verify.expect(moduleText):toBe(expected)
+		end,
+	})
+	harness:case(prefix .. "a manifest module is written in insertion order", {
+		id = prefix .. "a manifest module is written in insertion order",
+		run = function(test: Verify.Context): ()
+			local moduleText = manifestModule(map({
+				{ key = "schema", value = text('a "quoted" \\ value') },
+				{ key = "version", value = text(nil) },
+				{ key = "lengths", value = { kind = "list", items = { number(2), number(7) } } },
+			}))
+			local expected = '--!strict\n\nreturn table.freeze({\n\t["schema"] = "a \\"quoted\\" \\\\ value",\n'
+				.. '\t["version"] = nil,\n\t["lengths"] = {\n\t\t2,\n\t\t7,\n\t},\n})\n'
+			Verify.expect(moduleText):toBe(expected)
+		end,
+	})
+	harness:case(prefix .. "counts are grouped by thousands", {
+		id = prefix .. "counts are grouped by thousands",
+		run = function(test: Verify.Context): ()
+			Verify.expect(grouped(94)):toBe("94")
+			Verify.expect(grouped(3258)):toBe("3,258")
+			Verify.expect(grouped(1234567)):toBe("1,234,567")
+		end,
+	})
+	harness:case(prefix .. "an archive without a Copyright file is refused", {
+		id = prefix .. "an archive without a Copyright file is refused",
+		run = function(test: Verify.Context): ()
+			local _, failure = readSource(archiveOf({
+				{ name = SOURCE_ROOT .. "/final/english-words.10", data = "cat\n" },
+			}))
+			refusal(failure, "carries no Copyright file")
+		end,
+	})
+	harness:case(prefix .. "the source reader keeps the listed dialects, tiers and plain words", {
+		id = prefix .. "the source reader keeps the listed dialects, tiers and plain words",
+		run = function(test: Verify.Context): ()
+			local source, failure = readSource(archiveOf({
+				{ name = SOURCE_ROOT .. "/Copyright", data = "Copyright \xa9 Kevin\n\xa0\n" },
+				{ name = SOURCE_ROOT .. "/VERSION", data = " 2020.12.07\n" },
+				{ name = SOURCE_ROOT .. "/final/english-words.10", data = "cat\r\n dog \nCaps\ncan't\ncaf\xe9\n" },
+				{ name = SOURCE_ROOT .. "/final/british-words.20", data = "colour\x85grey\xa0\n" },
+				{ name = SOURCE_ROOT .. "/final/english-words.15", data = "untiered\n" },
+				{ name = SOURCE_ROOT .. "/final/english-proper-names.10", data = "london\n" },
+				{ name = SOURCE_ROOT .. "/final/special-words.10", data = "special\n" },
+			}))
+			if source == nil then
+				Verify.expect(failure or "the reader refused a valid archive"):toBeNil()
+				return
+			end
+			Verify.expect(sortedWords(source.byTier[10])):toEqual({ "cat", "dog" })
+			Verify.expect(sortedWords(source.byTier[20])):toEqual({ "colour", "grey" })
+			Verify.expect(sortedWords(source.solutionByTier[10])):toEqual({ "cat", "dog" })
+			Verify.expect(sortedWords(source.solutionByTier[20])):toEqual({})
+			Verify.expect(source.version):toBe("2020.12.07")
+			Verify.expect(latin1(trimEnd(source.copyright))):toBe("Copyright \u{a9} Kevin")
+		end,
+	})
+	harness:case(prefix .. "a cached archive with the wrong hash is removed and --offline refuses", {
+		id = prefix .. "a cached archive with the wrong hash is removed and --offline refuses",
+		run = function(test: Verify.Context): ()
+			local root = Files.temporaryDirectory("facet-words-")
+			test:defer(function()
 				Files.remove(root)
-				return Case.first(
-					Case.equal(archive, nil, "archive"),
-					refusal(failure, "--offline was given"),
-					Case.expect(removed, "the mismatched cache was kept"),
-					refusal(said[1], "refetching")
-				)
-			end,
-		},
-		{
-			name = "an unchanged file is not rewritten across line endings",
-			run = function(): string?
-				local root = Files.temporaryDirectory("facet-words-")
-				local path = Files.join(root, "same.luau")
-				Files.write(path, "--!strict\r\nreturn {}\r\n")
-				local rewrote = writeIfChanged(path, "--!strict\nreturn {}\n")
-				local kept = Files.read(path)
-				local changed = writeIfChanged(path, "--!strict\nreturn { 1 }\n")
-				local after = Files.read(path)
+			end)
+			local cached = Files.join(root, CACHE_DIR, Files.name(SOURCE_URL))
+			Files.write(cached, "not the pinned archive")
+			local said: { string } = {}
+			local archive, failure = fetchSource(root, true, function(line: string)
+				table.insert(said, line)
+			end)
+			local removed = not Files.exists(cached)
+			Files.remove(root)
+			Verify.expect(archive):toBe(nil)
+			refusal(failure, "--offline was given")
+			Verify.expect(removed):toBeTrueWith("the mismatched cache was kept")
+			refusal(said[1], "refetching")
+		end,
+	})
+	harness:case(prefix .. "an unchanged file is not rewritten across line endings", {
+		id = prefix .. "an unchanged file is not rewritten across line endings",
+		run = function(test: Verify.Context): ()
+			local root = Files.temporaryDirectory("facet-words-")
+			test:defer(function()
 				Files.remove(root)
-				return Case.first(
-					Case.equal(rewrote, false, "rewrote"),
-					Case.equal(kept, "--!strict\r\nreturn {}\r\n", "kept"),
-					Case.equal(changed, true, "changed"),
-					Case.equal(after, "--!strict\nreturn { 1 }\n", "after")
-				)
-			end,
-		},
-	}
-	for _, case in WordLists.cases() do
-		table.insert(list, case)
-	end
-	return list
+			end)
+			local path = Files.join(root, "same.luau")
+			Files.write(path, "--!strict\r\nreturn {}\r\n")
+			local rewrote = writeIfChanged(path, "--!strict\nreturn {}\n")
+			local kept = Files.read(path)
+			local changed = writeIfChanged(path, "--!strict\nreturn { 1 }\n")
+			local after = Files.read(path)
+			Files.remove(root)
+			Verify.expect(rewrote):toBe(false)
+			Verify.expect(kept):toBe("--!strict\r\nreturn {}\r\n")
+			Verify.expect(changed):toBe(true)
+			Verify.expect(after):toBe("--!strict\nreturn { 1 }\n")
+		end,
+	})
+	WordLists.register(harness, prefix)
 end
 
 local command: Cli.Command = {
@@ -1004,7 +990,7 @@ local command: Cli.Command = {
 	summary = "Generate the example word data from the pinned SCOWL archive, or --check it.",
 	usage = USAGE,
 	values = { "root" },
-	cases = cases,
+	register = register,
 	run = run,
 }
 

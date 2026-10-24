@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -72,8 +73,8 @@ return function(verifyHarness: Verify.Harness)
 			})
 			return Host.ScreenGui({ list :: unknown })
 		end, target)
-		list.AbsoluteSize = V2.new(480, 640)
-		list.AbsoluteWindowSize = V2.new(480, 640)
+		engine.environment.poke(FixtureRoblox.assertInstance(list), "AbsoluteSize", V2.new(480, 640))
+		engine.environment.poke(FixtureRoblox.assertInstance(list), "AbsoluteWindowSize", V2.new(480, 640))
 		local function delta(action)
 			metrics.writes, metrics.creates, metrics.destroys, metrics.nodes = 0, 0, 0, {}
 			action()

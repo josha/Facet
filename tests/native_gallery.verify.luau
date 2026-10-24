@@ -116,7 +116,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("styles a route load failure with the theme text role", {
 			id = "native_gallery::native gallery::styles a route load failure with the theme text role",
 			run = function()
-				local ctx, _, target = nativeContext()
+				local ctx, engine, target = nativeContext()
 				ctx.selection = Compose.cell("broken")
 				ctx.demos = { { id = "broken", title = "Missing demo", kind = "example", module = "missing" } }
 				ctx.theme = Compose.cell(Facet.themes.neutralPackage())
@@ -245,7 +245,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("places and undoes a crossword rack tile without losing the rack", {
 			id = "native_gallery::native gallery::places and undoes a crossword rack tile without losing the rack",
 			run = function()
-				local built, node, stop, ctx = mountExample("06_tile_game")
+				local built, node, stop, ctx, engine = mountExample("06_tile_game")
 				local letter = built.rackLetter(1)
 				find(node, "rt1").Activated:Fire()
 				find(find(node, "cell4_4"), "tap").Activated:Fire()
@@ -284,7 +284,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("retains optimistic settings and rolls back rejected server data", {
 			id = "native_gallery::native gallery::retains optimistic settings and rolls back rejected server data",
 			run = function()
-				local built, node, stop, ctx = mountExample("03_settings_sync")
+				local built, node, stop, ctx, engine = mountExample("03_settings_sync")
 				find(node, "Music").Activated:Fire()
 				Verify.expect(built.report().draft.music):toBe(true)
 				Verify.expect(built.report().server.music):toBe(false)
@@ -303,8 +303,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("selects a playlist row on one click and plays it on a double click or Return", {
 			id = "native_gallery::native gallery::selects a playlist row on one click and plays it on a double click or Return",
 			run = function()
-				local built, node, stop, ctx = mountExample("02_playlist_table")
-				find(node, "Body").AbsoluteWindowSize = ctx.types.Vector2.new(600, 400)
+				local built, node, stop, ctx, engine = mountExample("02_playlist_table")
+				engine.environment.poke(find(node, "Body"), "AbsoluteWindowSize", ctx.types.Vector2.new(600, 400))
 				local hit = find(node, "RowHit")
 				local row = find(hit.Parent, "Row")
 				local E = ctx.types.Enum
@@ -331,7 +331,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("updates and removes the standalone consumer through its controls", {
 			id = "native_gallery::native gallery::updates and removes the standalone consumer through its controls",
 			run = function()
-				local ctx, _, target = nativeContext()
+				local ctx, engine, target = nativeContext()
 				local app =
 					Facet.app({ runtime = ctx.runtime, types = ctx.types, parent = target, name = "FacetConsumer" })
 				local stop, node: any = app.mount(function()
@@ -435,7 +435,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("selects a nested all-controls tab by path through the showcase API", {
 			id = "native_gallery::native gallery::selects a nested all-controls tab by path through the showcase API",
 			run = function()
-				local ctx, _, target = nativeContext()
+				local ctx, engine, target = nativeContext()
 				local built
 				local stop = ctx.runtime.mount(function()
 					built = load("fixture", "all_controls").build(ctx)
@@ -452,7 +452,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("reserves the measured shell toolbar height above the demos", {
 			id = "native_gallery::native gallery::reserves the measured shell toolbar height above the demos",
 			run = function()
-				local ctx, _, target = nativeContext()
+				local ctx, engine, target = nativeContext()
 				ctx.selection = Compose.cell("garage")
 				ctx.themeMode = Compose.cell("light")
 				ctx.theme = Compose.cell(Facet.themes.neutralPackage())
@@ -467,11 +467,11 @@ return function(verifyHarness: Verify.Harness)
 				local toolbar, demos = root:FindFirstChild("Toolbar"), root:FindFirstChild("Demos")
 				local row = find(toolbar, "Row")
 				Verify.expect(demos.Position.Y.Offset):toBe(56)
-				row.AbsoluteSize = ctx.types.Vector2.new(390, 68)
+				engine.environment.poke(row, "AbsoluteSize", ctx.types.Vector2.new(390, 68))
 				Verify.expect(demos.Position.Y.Offset):toBe(80)
 				Verify.expect(demos.Size.Y.Offset):toBe(-80)
 				Verify.expect(toolbar.Size.Y.Offset):toBe(80)
-				row.AbsoluteSize = ctx.types.Vector2.new(390, 28)
+				engine.environment.poke(row, "AbsoluteSize", ctx.types.Vector2.new(390, 28))
 				Verify.expect(demos.Position.Y.Offset):toBe(56)
 				stop()
 				ctx.runtime:dispose()

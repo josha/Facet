@@ -1,4 +1,5 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local Files = require("../lib/files")
 local Json = require("../lib/json")
@@ -99,129 +100,131 @@ local function same(actual: { string }, expected: { string }): string?
 	return nil
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "live source additions and removals must update the committed plan",
-			run = function()
-				return Rule.within({
-					["tools/studio/live/suites/added.luau"] = "return {}",
-					["tools/studio/live/plan.json"] = plan({
-						{ id = "removed", locator = "tools/studio/live/suites/removed.luau" },
-					}),
-				}, function(context)
-					return same(
-						checkPlan(context, "tools/studio/live/plan.json", "tools/studio/live/suites", ".luau"),
-						{
-							"Verify plan spec is not on disk: removed",
-							"spec is missing from the Verify plan: added",
-						}
-					)
-				end)
-			end,
-		},
-		{
-			name = "every nested Verify file is accepted once",
-			run = function()
-				return Rule.within({
-					["tests/native.verify.luau"] = "return {}",
-					["tests/nested/control.verify.luau"] = "return {}",
-					["tests/lib/helper.luau"] = "return {}",
-					["tests/plan.json"] = plan({
-						{ id = "native", locator = "tests/native.verify.luau" },
-						{ id = "nested/control", locator = "tests/nested/control.verify.luau" },
-					}),
-				}, function(context)
-					return same(check(context), {})
-				end)
-			end,
-		},
-		{
-			name = "a missing source and an undeclared spec are rejected",
-			run = function()
-				return Rule.within({
-					["tests/added.verify.luau"] = "return {}",
-					["tests/plan.json"] = plan({ { id = "removed", locator = "tests/removed.verify.luau" } }),
-				}, function(context)
-					return same(check(context), {
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "live source additions and removals must update the committed plan", {
+		id = prefix .. "live source additions and removals must update the committed plan",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["tools/studio/live/suites/added.luau"] = "return {}",
+				["tools/studio/live/plan.json"] = plan({
+					{ id = "removed", locator = "tools/studio/live/suites/removed.luau" },
+				}),
+			}, function(context)
+				Verify.expect(
+					same(checkPlan(context, "tools/studio/live/plan.json", "tools/studio/live/suites", ".luau"), {
 						"Verify plan spec is not on disk: removed",
 						"spec is missing from the Verify plan: added",
 					})
-				end)
-			end,
-		},
-		{
-			name = "duplicate IDs and locators are rejected",
-			run = function()
-				local unit = { id = "native", locator = "tests/native.verify.luau" }
-				return Rule.within({
-					["tests/native.verify.luau"] = "return {}",
-					["tests/plan.json"] = plan({ unit, unit }),
-				}, function(context)
-					return same(check(context), {
-						"duplicate Verify plan ID: native",
-						"duplicate Verify plan locator: tests/native.verify.luau",
-					})
-				end)
-			end,
-		},
-		{
-			name = "a locator that does not match its source ID is rejected",
-			run = function()
-				return Rule.within({
-					["tests/native.verify.luau"] = "return {}",
-					["tests/plan.json"] = plan({ { id = "native", locator = "tests/other.verify.luau" } }),
-				}, function(context)
-					return same(check(context), { "Verify plan locator for native must be tests/native.verify.luau" })
-				end)
-			end,
-		},
-		{
-			name = "unreadable, malformed and incomplete plans are rejected",
-			run = function()
-				return Rule.within({ ["tests/keep.txt"] = "" }, function(context)
-					local absent = check(context)[1] or ""
-					if string.find(absent, "cannot read tests/plan.json", 1, true) == nil then
-						return "an absent plan: " .. absent
-					end
-					Files.write(context.path("tests/plan.json"), "{")
-					local broken = check(context)[1] or ""
-					if string.find(broken, "cannot read tests/plan.json", 1, true) == nil then
-						return "a malformed plan: " .. broken
-					end
-					Files.write(context.path("tests/plan.json"), "[]")
-					local shapeless = same(check(context), { "Verify plan must contain a units list" })
-					if shapeless ~= nil then
-						return shapeless
-					end
-					Files.write(context.path("tests/plan.json"), '{"units": [null, {"id": "native"}]}')
-					return same(check(context), {
-						"Verify plan unit 1 needs a nonempty ID",
-						"Verify plan unit native needs a locator",
-					})
-				end)
-			end,
-		},
-		{
-			name = "a file with the old spec suffix is not a Verify file",
-			run = function()
-				return Rule.within({
-					["tests/native.verify.luau"] = "return {}",
-					["tests/old.spec.luau"] = "return {}",
-					["tests/plan.json"] = plan({ { id = "native", locator = "tests/native.verify.luau" } }),
-				}, function(context)
-					return same(check(context), {})
-				end)
-			end,
-		},
-	}
+				)
+					:toBeNil()
+			end)
+		end,
+	})
+	harness:case(prefix .. "every nested Verify file is accepted once", {
+		id = prefix .. "every nested Verify file is accepted once",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["tests/native.verify.luau"] = "return {}",
+				["tests/nested/control.verify.luau"] = "return {}",
+				["tests/lib/helper.luau"] = "return {}",
+				["tests/plan.json"] = plan({
+					{ id = "native", locator = "tests/native.verify.luau" },
+					{ id = "nested/control", locator = "tests/nested/control.verify.luau" },
+				}),
+			}, function(context)
+				Verify.expect(same(check(context), {})):toBeNil()
+			end)
+		end,
+	})
+	harness:case(prefix .. "a missing source and an undeclared spec are rejected", {
+		id = prefix .. "a missing source and an undeclared spec are rejected",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["tests/added.verify.luau"] = "return {}",
+				["tests/plan.json"] = plan({ { id = "removed", locator = "tests/removed.verify.luau" } }),
+			}, function(context)
+				Verify.expect(same(check(context), {
+					"Verify plan spec is not on disk: removed",
+					"spec is missing from the Verify plan: added",
+				})):toBeNil()
+			end)
+		end,
+	})
+	harness:case(prefix .. "duplicate IDs and locators are rejected", {
+		id = prefix .. "duplicate IDs and locators are rejected",
+		run = function(test: Verify.Context)
+			local unit = { id = "native", locator = "tests/native.verify.luau" }
+			Rule.within(test, {
+				["tests/native.verify.luau"] = "return {}",
+				["tests/plan.json"] = plan({ unit, unit }),
+			}, function(context)
+				Verify.expect(same(check(context), {
+					"duplicate Verify plan ID: native",
+					"duplicate Verify plan locator: tests/native.verify.luau",
+				})):toBeNil()
+			end)
+		end,
+	})
+	harness:case(prefix .. "a locator that does not match its source ID is rejected", {
+		id = prefix .. "a locator that does not match its source ID is rejected",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["tests/native.verify.luau"] = "return {}",
+				["tests/plan.json"] = plan({ { id = "native", locator = "tests/other.verify.luau" } }),
+			}, function(context)
+				Verify.expect(
+					same(check(context), { "Verify plan locator for native must be tests/native.verify.luau" })
+				)
+					:toBeNil()
+			end)
+		end,
+	})
+	harness:case(prefix .. "unreadable, malformed and incomplete plans are rejected", {
+		id = prefix .. "unreadable, malformed and incomplete plans are rejected",
+		run = function(test: Verify.Context)
+			Rule.within(test, { ["tests/keep.txt"] = "" }, function(context)
+				local absent = check(context)[1] or ""
+				if string.find(absent, "cannot read tests/plan.json", 1, true) == nil then
+					error("an absent plan: " .. absent, 0)
+				end
+				Files.write(context.path("tests/plan.json"), "{")
+				local broken = check(context)[1] or ""
+				if string.find(broken, "cannot read tests/plan.json", 1, true) == nil then
+					error("a malformed plan: " .. broken, 0)
+				end
+				Files.write(context.path("tests/plan.json"), "[]")
+				local shapeless = same(check(context), { "Verify plan must contain a units list" })
+				if shapeless ~= nil then
+					Verify.expect(shapeless):toBeNil()
+					return
+				end
+				Files.write(context.path("tests/plan.json"), '{"units": [null, {"id": "native"}]}')
+				Verify.expect(same(check(context), {
+					"Verify plan unit 1 needs a nonempty ID",
+					"Verify plan unit native needs a locator",
+				})):toBeNil()
+			end)
+		end,
+	})
+	harness:case(prefix .. "a file with the old spec suffix is not a Verify file", {
+		id = prefix .. "a file with the old spec suffix is not a Verify file",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["tests/native.verify.luau"] = "return {}",
+				["tests/old.spec.luau"] = "return {}",
+				["tests/plan.json"] = plan({ { id = "native", locator = "tests/native.verify.luau" } }),
+			}, function(context)
+				Verify.expect(same(check(context), {})):toBeNil()
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "plan",
 	summary = "The committed Verify plans list each test and live suite source exactly once.",
 	check = check,
-	cases = cases,
+	register = register,
 }
 
 return rule

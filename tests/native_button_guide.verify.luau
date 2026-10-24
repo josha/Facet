@@ -47,7 +47,7 @@ return function(verifyHarness: Verify.Harness)
 		local action: InputAction, binding: InputBinding = engine.new("InputAction"), engine.new("InputBinding")
 		action.Name = name
 		binding.KeyCode = ((engine.types.Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[key]
-		engine.environment.poke((action :: unknown) :: VerifyRoblox.Instance, "PreferredBinding", binding)
+		engine.environment.poke(VerifyRoblox.assertInstance(action), "PreferredBinding", binding)
 		return action
 	end
 
@@ -62,13 +62,13 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local guide = w.find("Guide")
 				local P = w.Enum.PreferredInput
-				w.input.PreferredInput = P.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", P.Gamepad)
 				Verify.expect(guide.Visible):toBe(true)
 				Verify.expect(labels(guide)):toBe("Buy Back")
 				Verify.expect(overlay.find(guide, "Keys"):HasTag("facet-shortcut-hint-bare")):toBe(true)
-				w.input.PreferredInput = P.KeyboardAndMouse
+				w.engine.environment.poke(w.input, "PreferredInput", P.KeyboardAndMouse)
 				Verify.expect(guide.Visible):toBe(false)
-				w.input.PreferredInput = P.Touch
+				w.engine.environment.poke(w.input, "PreferredInput", P.Touch)
 				Verify.expect(guide.Visible):toBe(false)
 				w.stop()
 
@@ -79,12 +79,12 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local shown = both.find("Guide")
-				both.input.PreferredInput = P.KeyboardAndMouse
+				both.engine.environment.poke(both.input, "PreferredInput", P.KeyboardAndMouse)
 				Verify.expect(shown.Visible):toBe(true)
 				Verify.expect(overlay.find(shown, "Keys"):HasTag("facet-shortcut-hint-bare")):toBe(false)
-				both.input.PreferredInput = P.Touch
+				both.engine.environment.poke(both.input, "PreferredInput", P.Touch)
 				Verify.expect(shown.Visible):toBe(false)
-				both.input.PreferredInput = P.Gamepad
+				both.engine.environment.poke(both.input, "PreferredInput", P.Gamepad)
 				Verify.expect(shown.Visible):toBe(true)
 				Verify.expect(overlay.find(shown, "Keys"):HasTag("facet-shortcut-hint-bare")):toBe(true)
 				both.stop()
@@ -100,8 +100,8 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local P = w.Enum.PreferredInput
-				w.engine.environment.poke((w.input :: unknown) :: VerifyRoblox.Instance, "MouseEnabled", true)
-				w.input.PreferredInput = P.Gamepad
+				w.engine.environment.poke(VerifyRoblox.assertInstance(w.input), "MouseEnabled", true)
+				w.engine.environment.poke(w.input, "PreferredInput", P.Gamepad)
 				local guide = w.find("Guide")
 				local entry = overlay.find(guide, "Entry")
 				Verify.expect(guide.Visible):toBe(true)
@@ -117,7 +117,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(changes):toBe(0)
 				Verify.expect(guide.Visible):toBe(true)
 				Verify.expect(overlay.find(guide, "Entry")):toBe(entry)
-				w.input.PreferredInput = P.KeyboardAndMouse
+				w.engine.environment.poke(w.input, "PreferredInput", P.KeyboardAndMouse)
 				Verify.expect(guide.Visible):toBe(false)
 				Verify.expect(changes):toBe(1)
 				w.stop()
@@ -182,7 +182,7 @@ return function(verifyHarness: Verify.Harness)
 						entries = { { keys = { { "E" } }, label = "Buy" } },
 					}
 				end, { buttonGuides = setting })
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				local guide = w.find("Guide")
 				Verify.expect(guide.Visible):toBe(true)
 				setting:set(false)
@@ -196,7 +196,7 @@ return function(verifyHarness: Verify.Harness)
 						entries = { { keys = { { "E" } }, label = "Buy" } },
 					}
 				end, { buttonGuides = false })
-				off.input.PreferredInput = off.Enum.PreferredInput.Gamepad
+				off.engine.environment.poke(off.input, "PreferredInput", off.Enum.PreferredInput.Gamepad)
 				Verify.expect(off.find("Guide").Visible):toBe(false)
 				off.stop()
 			end,
@@ -217,7 +217,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 					return UI.ButtonGuide "Guide" { entries = entries }
 				end)
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				local guide = w.find("Guide")
 				Verify.expect(labels(guide)):toBe("Buy Back Tabs")
 				buy.Enabled = false
@@ -252,7 +252,7 @@ return function(verifyHarness: Verify.Harness)
 						},
 					}
 				end, { motionLevel = "none" })
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				local guide = w.find("HudGuide")
 				Verify.expect(guide.Visible):toBe(true)
 				alert:set(true)
@@ -280,7 +280,7 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				for _, input in { "Gamepad", "KeyboardAndMouse" } do
-					w.input.PreferredInput = w.Enum.PreferredInput[input]
+					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput[input])
 					local guide = w.find("Guide")
 					Verify.expect(guide.Visible):toBe(true)
 					Verify.expect(guide.Active):toBe(false)
@@ -316,7 +316,7 @@ return function(verifyHarness: Verify.Harness)
 						},
 					}
 				end, { motionLevel = "none" })
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				shown:set(true)
 				w.advance(1 / 60, 3)
 				local guide, room = w.find("ButtonGuide"), w.find("Room")
@@ -340,9 +340,9 @@ return function(verifyHarness: Verify.Harness)
 					local selected = w.gui.SelectedObject
 					Verify.expect(selected == nil or not selected:IsDescendantOf(region)):toBe(true)
 				end
-				w.input.PreferredInput = w.Enum.PreferredInput.KeyboardAndMouse
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.KeyboardAndMouse)
 				Verify.expect(region.Visible):toBe(false)
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				Verify.expect(region.Visible):toBe(true)
 				buy.Enabled = false
 				Verify.expect(labels(guide)):toBe("Tabs")
@@ -399,14 +399,14 @@ return function(verifyHarness: Verify.Harness)
 					binding.KeyCode = engine.types.Enum.KeyCode.ButtonA
 					return UI.ButtonGuide "Guide" { entries = { { action = buy, label = "Buy" } } }
 				end)
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				local guide = w.find("Guide")
 				Verify.expect(guide.Visible):toBe(false)
 				Verify.expect(labels(guide)):toBe("")
-				w.engine.environment.poke((buy :: unknown) :: VerifyRoblox.Instance, "PreferredBinding", binding)
+				w.engine.environment.poke(VerifyRoblox.assertInstance(buy), "PreferredBinding", binding)
 				Verify.expect(guide.Visible):toBe(true)
 				Verify.expect(labels(guide)):toBe("Buy")
-				w.engine.environment.poke((buy :: unknown) :: VerifyRoblox.Instance, "PreferredBinding", nil)
+				w.engine.environment.poke(VerifyRoblox.assertInstance(buy), "PreferredBinding", nil)
 				Verify.expect(guide.Visible):toBe(false)
 				w.stop()
 			end,
@@ -438,7 +438,7 @@ return function(verifyHarness: Verify.Harness)
 					{ keyCode = KeyCode.ButtonA, label = "Buy" },
 					{ keyCode = { KeyCode.ButtonL1, KeyCode.ButtonR1 }, label = "Tabs" },
 				})
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				local guide = w.find("Guide")
 				Verify.expect(labels(guide)):toBe("Buy Tabs")
 				local entryNodes: { GuiObject } = {}
@@ -481,7 +481,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end)
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				local guide = w.find("Guide")
 				local before: { Instance } = {}
 				for _, node in guide:GetDescendants() do
@@ -514,14 +514,14 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end, { motionLevel = "none" })
 				w.engine.environment.poke(w.find("Modal"), "AbsoluteSize", w.Vector2.new(800, 600))
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.advance(1 / 300, 2)
 				local region, body = w.find("Guide"), w.find("SheetContent")
 				w.size(w.find("Header"), 500, 44)
 				w.size(region, 500, 40)
 				w.advance(1 / 60)
 				local withGuide = body.Size.Y.Offset
-				w.input.PreferredInput = w.Enum.PreferredInput.KeyboardAndMouse
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.KeyboardAndMouse)
 				w.advance(1 / 60)
 				Verify.expect(region.Visible):toBe(false)
 				Verify.expect(body.Size.Y.Offset):toBe(withGuide + 40 + 8)

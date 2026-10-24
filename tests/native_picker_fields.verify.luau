@@ -53,7 +53,11 @@ return function(verifyHarness: Verify.Harness)
 		input.GetFocusedTextBox = function()
 			return nil
 		end
-		input.PreferredInput = engine.types.Enum.PreferredInput[preferred or "KeyboardAndMouse"]
+		engine.environment.poke(
+			input,
+			"PreferredInput",
+			engine.types.Enum.PreferredInput[preferred or "KeyboardAndMouse"]
+		)
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI: any = controls(Compose, runtime, {
 			types = engine.types,
@@ -127,7 +131,11 @@ return function(verifyHarness: Verify.Harness)
 					world({ style = "menu" :: "menu", options = LONG, maxHeight = 96, selected = Compose.cell("v1") })
 				open(w)
 				local panel = find(w.screen, "MenuPanel")
-				find(panel, "MenuRows").AbsoluteSize = w.engine.types.Vector2.new(280, 30 * 44)
+				w.engine.environment.poke(
+					find(panel, "MenuRows"),
+					"AbsoluteSize",
+					w.engine.types.Vector2.new(280, 30 * 44)
+				)
 				expect(panel.Size.Y.Offset <= 96):toBe(true)
 				w.stop()
 				local searchable = world({
@@ -137,17 +145,29 @@ return function(verifyHarness: Verify.Harness)
 					maxHeight = 96,
 					selected = Compose.cell("v1"),
 				})
-				searchable.screen.AbsoluteSize = searchable.engine.types.Vector2.new(800, 600)
+				searchable.engine.environment.poke(
+					searchable.screen,
+					"AbsoluteSize",
+					searchable.engine.types.Vector2.new(800, 600)
+				)
 				find(searchable.screen, "P").Activated:Fire()
 				local body = find(find(searchable.screen, "PopoverModal"), "Body")
 				expect(find(body, "Choices") ~= nil):toBe(true)
-				find(body, "Flow").AbsoluteSize = searchable.engine.types.Vector2.new(400, 1320)
+				searchable.engine.environment.poke(
+					find(body, "Flow"),
+					"AbsoluteSize",
+					searchable.engine.types.Vector2.new(400, 1320)
+				)
 				expect(body.Size.Y.Offset):toBe(96 - 16)
 				searchable.stop()
 				local tiny = world({ style = "menu" :: "menu", options = LONG, maxHeight = 10 })
 				open(tiny)
 				local tinyPanel = find(tiny.screen, "MenuPanel")
-				find(tinyPanel, "MenuRows").AbsoluteSize = tiny.engine.types.Vector2.new(280, 30 * 44)
+				tiny.engine.environment.poke(
+					find(tinyPanel, "MenuRows"),
+					"AbsoluteSize",
+					tiny.engine.types.Vector2.new(280, 30 * 44)
+				)
 				expect(tinyPanel.Size.Y.Offset >= 44):toBe(true)
 				tiny.stop()
 				for _, bad in { 0, math.huge, 0 / 0, "96" } :: { any } do
@@ -165,6 +185,9 @@ return function(verifyHarness: Verify.Harness)
 						{ style = "menu" :: "menu", options = LONG, maxHeight = 200, selected = Compose.cell("v25") },
 						preferred
 					)
+					w.input.GetLastInputType = function()
+						return w.engine.types.Enum.UserInputType.Keyboard
+					end
 					w.gui.SelectedObject = find(w.screen, "Trigger")
 					open(w)
 					local target = w.gui.SelectedObject
@@ -224,8 +247,12 @@ return function(verifyHarness: Verify.Harness)
 						{ value = "hard", label = "Hard", sectionTitle = "Ranked", badge = "New" } :: PickerOption,
 					},
 				})
-				find(w.screen, "LabelMeasure").TextBounds = w.engine.types.Vector2.new(190, 18)
-				find(w.screen, "P").AbsoluteSize = w.engine.types.Vector2.new(200, 44)
+				w.engine.environment.poke(
+					find(w.screen, "LabelMeasure"),
+					"TextBounds",
+					w.engine.types.Vector2.new(190, 18)
+				)
+				w.engine.environment.poke(find(w.screen, "P"), "AbsoluteSize", w.engine.types.Vector2.new(200, 44))
 				open(w)
 				expect(find(find(find(w.screen, "normal"), "Accessories"), "Count").Text):toBe("3")
 				expect(find(find(w.screen, "normal"), "Meta").Text):toBe("Crew")
@@ -246,12 +273,16 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_picker_fields::native Picker segmented vocabulary and the radio mark::an automatic picker keeps its appearance intent across a live family switch",
 			run = function()
 				local w = world({ appearance = "contrast" }, "KeyboardAndMouse")
-				find(w.screen, "LabelMeasure").TextBounds = w.engine.types.Vector2.new(190, 18)
-				find(w.screen, "P").AbsoluteSize = w.engine.types.Vector2.new(200, 44)
+				w.engine.environment.poke(
+					find(w.screen, "LabelMeasure"),
+					"TextBounds",
+					w.engine.types.Vector2.new(190, 18)
+				)
+				w.engine.environment.poke(find(w.screen, "P"), "AbsoluteSize", w.engine.types.Vector2.new(200, 44))
 				local presentation = find(w.screen, "Presentation")
 				local trigger = find(presentation, "Trigger")
 				expect(trigger ~= nil and trigger:HasTag("facet-accent")):toBe(true)
-				find(w.screen, "P").AbsoluteSize = w.engine.types.Vector2.new(800, 44)
+				w.engine.environment.poke(find(w.screen, "P"), "AbsoluteSize", w.engine.types.Vector2.new(800, 44))
 				local strip = find(w.screen, "Presentation")
 				expect((strip:HasTag("facet-segmented-stroke"))):toBe(true)
 				w.stop()
@@ -273,22 +304,22 @@ return function(verifyHarness: Verify.Harness)
 						selected = Compose.cell("swatches"),
 					}, "Touch")
 					local picker, measure = find(w.screen, "P"), find(w.screen, "LabelMeasure")
-					measure.TextBounds = w.engine.types.Vector2.new(220, 18)
-					picker.AbsoluteSize = w.engine.types.Vector2.new(341, 44)
+					w.engine.environment.poke(measure, "TextBounds", w.engine.types.Vector2.new(220, 18))
+					w.engine.environment.poke(picker, "AbsoluteSize", w.engine.types.Vector2.new(341, 44))
 					expect((find(w.screen, "Presentation"):HasTag("facet-segmented"))):toBe(true)
 					find(w.screen, "spectrum").Activated:Fire()
 					expect((w.selected:peek())):toBe("spectrum")
-					picker.AbsoluteSize = w.engine.types.Vector2.new(330, 44)
+					w.engine.environment.poke(picker, "AbsoluteSize", w.engine.types.Vector2.new(330, 44))
 					expect(find(w.screen, "Trigger").Text):toBe("Spectrum")
 					local trigger = find(w.screen, "Trigger")
-					picker.AbsoluteSize = w.engine.types.Vector2.zero
+					w.engine.environment.poke(picker, "AbsoluteSize", w.engine.types.Vector2.zero)
 					expect(find(w.screen, "Trigger")):toBe(trigger)
-					picker.AbsoluteSize = w.engine.types.Vector2.new(330, 44)
+					w.engine.environment.poke(picker, "AbsoluteSize", w.engine.types.Vector2.new(330, 44))
 					expect(find(w.screen, "Trigger")):toBe(trigger)
-					picker.AbsoluteSize = w.engine.types.Vector2.new(341, 44)
-					measure.TextBounds = w.engine.types.Vector2.new(300, 24)
+					w.engine.environment.poke(picker, "AbsoluteSize", w.engine.types.Vector2.new(341, 44))
+					w.engine.environment.poke(measure, "TextBounds", w.engine.types.Vector2.new(300, 24))
 					expect(find(w.screen, "Trigger").Text):toBe("Spectrum")
-					measure.TextBounds = w.engine.types.Vector2.new(220, 18)
+					w.engine.environment.poke(measure, "TextBounds", w.engine.types.Vector2.new(220, 18))
 					expect((find(w.screen, "Presentation"):HasTag("facet-segmented"))):toBe(true)
 					expect((w.selected:peek())):toBe("spectrum")
 					w.stop()
@@ -391,7 +422,7 @@ return function(verifyHarness: Verify.Harness)
 						world({ style = style :: "cards" | "radioGroup", options = LONG, selected = Compose.cell("b") })
 					local button = find(w.screen, if style == "cards" then "Card-a" else "a")
 					local box = if style == "cards" then button else find(w.screen, "P")
-					box.AbsoluteSize = w.engine.types.Vector2.new(300, 44)
+					w.engine.environment.poke(box, "AbsoluteSize", w.engine.types.Vector2.new(300, 44))
 					local title = find(button, "Title")
 					expect(`{style} {title.TextWrapped}`):toBe(`{style} true`)
 					local limit = title:FindFirstChildWhichIsA("UISizeConstraint")
@@ -424,7 +455,7 @@ return function(verifyHarness: Verify.Harness)
 				table.insert(five, { value = "expert", label = "Expert" })
 				table.insert(five, { value = "master", label = "Master" })
 				local near = world({ options = five }, "KeyboardAndMouse")
-				near.screen.AbsoluteSize = near.engine.types.Vector2.new(300, 600)
+				near.engine.environment.poke(near.screen, "AbsoluteSize", near.engine.types.Vector2.new(300, 600))
 				expect(find(near.screen, "Trigger") ~= nil):toBe(true)
 				near.stop()
 				local far = world({ options = five }, "KeyboardAndMouse", true)
@@ -439,10 +470,10 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_picker_fields::native Picker option indicator and search rows::a navigation link opens its list in a panel attached to the control, without dimming the page",
 				run = function()
 					local w = world({ label = "Track", style = "navigationLink" :: "navigationLink" })
-					w.screen.AbsoluteSize = w.engine.types.Vector2.new(800, 600)
+					w.engine.environment.poke(w.screen, "AbsoluteSize", w.engine.types.Vector2.new(800, 600))
 					local trigger = find(w.screen, "P")
-					trigger.AbsolutePosition = w.engine.types.Vector2.new(100, 100)
-					trigger.AbsoluteSize = w.engine.types.Vector2.new(300, 44)
+					w.engine.environment.poke(trigger, "AbsolutePosition", w.engine.types.Vector2.new(100, 100))
+					w.engine.environment.poke(trigger, "AbsoluteSize", w.engine.types.Vector2.new(300, 44))
 					trigger.Activated:Fire()
 					local modal = find(w.screen, "PopoverModal")
 					expect(modal ~= nil):toBe(true)
@@ -451,7 +482,7 @@ return function(verifyHarness: Verify.Harness)
 					expect((backdrop:HasTag("facet-scrim"))):toBe(false)
 					local panel = find(modal, "Panel")
 					expect((panel:HasTag("facet-panel"))):toBe(true)
-					panel.AbsoluteSize = w.engine.types.Vector2.new(344, 200)
+					w.engine.environment.poke(panel, "AbsoluteSize", w.engine.types.Vector2.new(344, 200))
 					local left = panel.Position.X.Offset - panel.AnchorPoint.X * 344
 					local top = panel.Position.Y.Offset - panel.AnchorPoint.Y * 200
 					expect(math.abs(left + 344 - 400) < 1):toBe(true)

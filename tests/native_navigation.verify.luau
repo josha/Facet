@@ -474,7 +474,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(stack, "Back")):toBeNil()
 				world.gui.SelectedObject = find(stack, "HomeAction")
 				for _, size in { Vector2.new(320, 640), Vector2.new(390, 844), Vector2.new(844, 390) } do
-					world.engine.environment.poke((stack :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", size)
+					world.engine.environment.poke(VerifyRoblox.assertInstance(stack), "AbsoluteSize", size)
 					path:set({ { id = "owned", value = 1 } })
 					world.settle()
 					local page = find(stack, "owned")
@@ -677,7 +677,7 @@ return function(verifyHarness: Verify.Harness)
 				local root = find(world.screen, "Floating") :: Frame
 				local Vector2, UDim2 = world.engine.types.Vector2, world.engine.types.UDim2
 				for _, size in { Vector2.new(320, 640), Vector2.new(390, 844) } do
-					world.engine.environment.poke((root :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", size)
+					world.engine.environment.poke(VerifyRoblox.assertInstance(root), "AbsoluteSize", size)
 					local track, tabs = find(root, "Track"), find(root, "Tabs")
 					Verify.expect(track.Visible):toBe(true)
 					Verify.expect(track.Position):toBe(UDim2.new(0, 16, 1, -76))
@@ -699,11 +699,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((assert(root:FindFirstChild("Content")) :: Frame).Size.Y.Offset):toBe(-84)
 				end
 				placement:set("sidebar")
-				world.engine.environment.poke(
-					(root :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteSize",
-					Vector2.new(844, 390)
-				)
+				world.engine.environment.poke(VerifyRoblox.assertInstance(root), "AbsoluteSize", Vector2.new(844, 390))
 				local track = find(root, "Track")
 				Verify.expect(track.Position):toBe(UDim2.fromOffset(8, 8))
 				Verify.expect(track.Size):toBe(UDim2.new(0, 124, 1, -16))
@@ -755,7 +751,7 @@ return function(verifyHarness: Verify.Harness)
 				local root = find(world.screen, "ThemedTabs")
 				local D2, V2 = world.engine.types.UDim2, world.engine.types.Vector2
 				for _, size in { V2.new(320, 640), V2.new(390, 844), V2.new(844, 390) } do
-					world.engine.environment.poke((root :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", size)
+					world.engine.environment.poke(VerifyRoblox.assertInstance(root), "AbsoluteSize", size)
 					local plate = find(root, "Track")
 					Verify.expect(plate.Position):toBe(D2.new(0, 20, 1, -114))
 					Verify.expect(plate.Size):toBe(D2.new(1, -40, 0, 96))
@@ -2040,11 +2036,7 @@ return function(verifyHarness: Verify.Harness)
 					inside = Host.TextLabel "Inside" { Text = "Inside" }
 					return UI.DisclosureGroup({ expanded = expanded, label = "Details", content = inside })
 				end)
-				world.engine.environment.poke(
-					(world.gui :: unknown) :: VerifyRoblox.Instance,
-					"ReducedMotionEnabled",
-					true
-				)
+				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
 				Verify.expect((inside:IsDescendantOf(world.screen))):toBe(true)
 				expanded:set(false)
 				world.engine.heartbeat:Fire(1)
@@ -2064,11 +2056,7 @@ return function(verifyHarness: Verify.Harness)
 					inside = Host.TextLabel "Inside" { Text = "Inside" }
 					return UI.CollapsibleView({ expanded = expanded, label = "Summary", content = inside })
 				end)
-				world.engine.environment.poke(
-					(world.gui :: unknown) :: VerifyRoblox.Instance,
-					"ReducedMotionEnabled",
-					true
-				)
+				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
 				Verify.expect((inside:IsDescendantOf(world.screen))):toBe(true)
 				expanded:set(false)
 				world.engine.heartbeat:Fire(1)
@@ -2274,7 +2262,7 @@ return function(verifyHarness: Verify.Harness)
 				local root = find(world.screen, "TabView")
 				Verify.expect(find(root, "Tabs").ZIndex > find(root, "Content").ZIndex):toBe(true)
 				world.engine.environment.poke(
-					(root :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(root),
 					"AbsoluteSize",
 					world.engine.types.Vector2.new(1200, 800)
 				)
@@ -2300,7 +2288,7 @@ return function(verifyHarness: Verify.Harness)
 				world.engine.environment.poke(trailing, "AbsoluteSize", world.engine.types.Vector2.new(75, 44))
 				Verify.expect(trailing.Position):toBe(trailingPosition)
 				world.engine.environment.poke(
-					(root :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(root),
 					"AbsoluteSize",
 					world.engine.types.Vector2.new(401, 777)
 				)
@@ -2315,7 +2303,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((find(world.screen, "Accessory-aboveBar"))):toBe(nil)
 				placement:set("automatic")
 				world.engine.environment.poke(
-					(root :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(root),
 					"AbsoluteSize",
 					world.engine.types.Vector2.new(1200, 800)
 				)
@@ -2356,7 +2344,7 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local root = find(world.screen, "TabView")
 				world.engine.environment.poke(
-					(root :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(root),
 					"AbsoluteSize",
 					world.engine.types.Vector2.new(844, 332)
 				)
@@ -2824,7 +2812,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(picker.Size.Y.Offset):toBe(31 + 20 + 6)
 					world.engine.environment.poke(find(find(world.screen, "a"), "Label"), "TextBounds", V2(48, 16))
 					world.engine.environment.poke(
-						(world.gui :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(world.gui),
 						"PreferredTextSize",
 						world.engine.types.Enum.PreferredTextSize.Largest
 					)
@@ -3015,7 +3003,7 @@ return function(verifyHarness: Verify.Harness)
 				local screen = (mounted :: unknown) :: ScreenGui
 				local bar = assert(screen:FindFirstChild("NavigationBar", true)) :: Frame
 				local title = assert(bar:FindFirstChild("Title")) :: TextLabel
-				local geometry = (bar :: unknown) :: VerifyRoblox.Instance
+				local geometry = VerifyRoblox.assertInstance(bar)
 				engine.environment.poke(geometry, "AbsoluteSize", engine.types.Vector2.new(1024, 44))
 				Verify.expect(title:HasTag("facet-type-title")):toBe(true)
 				Verify.expect(title:HasTag("facet-type-heading")):toBe(false)
@@ -3093,8 +3081,8 @@ return function(verifyHarness: Verify.Harness)
 					end, engine.new("ScreenGui"))
 					local picker = (mounted :: unknown) :: Frame
 					local measure = assert(picker:FindFirstChild("LabelMeasure")) :: TextLabel
-					local geometry = (picker :: unknown) :: VerifyRoblox.Instance
-					local metrics = (measure :: unknown) :: VerifyRoblox.Instance
+					local geometry = VerifyRoblox.assertInstance(picker)
+					local metrics = VerifyRoblox.assertInstance(measure)
 					engine.environment.poke(geometry, "AbsoluteSize", engine.types.Vector2.new(120, 44))
 					engine.environment.poke(metrics, "TextBounds", engine.types.Vector2.new(500, 18))
 					Verify.expect(picker:FindFirstChild("Trigger", true) ~= nil):toBe(true)
@@ -3211,8 +3199,8 @@ return function(verifyHarness: Verify.Harness)
 				end, { runService = true })
 				local bar = find(world.screen, "NavigationBar") :: Frame
 				local title = assert(bar:FindFirstChild("Title")) :: TextLabel
-				local box = (bar :: unknown) :: VerifyRoblox.Instance
-				local text = (title :: unknown) :: VerifyRoblox.Instance
+				local box = VerifyRoblox.assertInstance(bar)
+				local text = VerifyRoblox.assertInstance(title)
 				world.engine.environment.poke(box, "AbsoluteSize", world.engine.types.Vector2.new(1024, 44))
 				world.engine.environment.poke(text, "AbsoluteSize", bar.AbsoluteSize)
 				Verify.expect(title.Visible):toBe(false)
@@ -3893,11 +3881,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(panel.Size.Y.Offset):toBe(before)
 				world.engine.heartbeat:Fire(0.1)
 				Verify.expect(panel.Size.Y.Offset > before):toBe(true)
-				world.engine.environment.poke(
-					(world.gui :: unknown) :: VerifyRoblox.Instance,
-					"ReducedMotionEnabled",
-					true
-				)
+				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
 				Verify.expect(panel.Size.Y.Offset):toBe(684)
 				Verify.expect((find(world.screen, "KeptContent"))):toBe(content)
 				world.stop()
@@ -3943,11 +3927,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((fadeKit.of(panel))):toBe(0)
 				selected:set("a")
 				Verify.expect(panel.Interactable):toBe(false)
-				world.engine.environment.poke(
-					(world.gui :: unknown) :: VerifyRoblox.Instance,
-					"ReducedMotionEnabled",
-					true
-				)
+				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
 				world.engine.heartbeat:Fire(0.2)
 				Verify.expect((fadeKit.of(fadeKit.layer(find(world.screen, "AContent"))))):toBe(0)
 				world.stop()
@@ -3983,11 +3963,7 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				find(world.screen, "ModalBack").Pressed:Fire()
 				Verify.expect((errorValue:peek())):toBe(nil)
-				world.engine.environment.poke(
-					(world.gui :: unknown) :: VerifyRoblox.Instance,
-					"ReducedMotionEnabled",
-					true
-				)
+				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
 				local pages = find(world.screen, "Pages")
 				local V2 = world.engine.types.Vector2
 				world.engine.environment.poke(pages, "AbsoluteWindowSize", V2.new(320, 160))
@@ -4824,7 +4800,7 @@ return function(verifyHarness: Verify.Harness)
 					end, { motionLevel = if mode == "none" then "none" else "normal" })
 					if mode == "limited" then
 						world.engine.environment.poke(
-							(world.gui :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(world.gui),
 							"ReducedMotionEnabled",
 							true
 						)
@@ -5016,7 +4992,7 @@ return function(verifyHarness: Verify.Harness)
 							})
 						end)
 						world.engine.environment.poke(
-							(world.gui :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(world.gui),
 							"ReducedMotionEnabled",
 							mode == "reduced"
 						)
@@ -5077,11 +5053,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 				Verify.expect((fadeKit.of(two))):toBe(0)
 				Verify.expect(one.Visible):toBe(false)
-				world.engine.environment.poke(
-					(world.gui :: unknown) :: VerifyRoblox.Instance,
-					"ReducedMotionEnabled",
-					true
-				)
+				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
 				selection:set("one")
 				Verify.expect(one.Visible):toBe(true)
 				world.engine.heartbeat:Fire(0.16)
@@ -5140,11 +5112,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(world.screen, "ScrimFade").Transparency.Keypoints[1].Value > 0):toBe(true)
 				world.engine.heartbeat:Fire(0.11)
 				Verify.expect((not world.engine.environment.isAlive(panel))):toBe(true)
-				world.engine.environment.poke(
-					(world.gui :: unknown) :: VerifyRoblox.Instance,
-					"ReducedMotionEnabled",
-					true
-				)
+				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
 				shown:set(true)
 				panel = find(world.screen, "SheetPanel")
 				world.engine.environment.poke(

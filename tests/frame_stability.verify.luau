@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 local stability = require("../tools/studio/live/frame_stability")
 local clipping = require("../tools/studio/live/text_clipping")
@@ -19,27 +20,27 @@ return function(harness: Verify.Harness)
 			local engine = engineLib.new()
 			local clipping = inspector(engine)
 			local root = engine.new("Frame")
-			root.AbsoluteSize = engine.types.Vector2.new(100, 100)
+			engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(100, 100))
 			root.ClipsDescendants = true
 			local field = engine.new("TextBox")
 			field.Parent = root
 			field.Text = "A draft longer than its editing viewport"
-			field.AbsoluteSize = engine.types.Vector2.new(80, 20)
-			field.TextBounds = engine.types.Vector2.new(200, 20)
-			field.TextFits = false
+			engine.environment.poke(field, "AbsoluteSize", engine.types.Vector2.new(80, 20))
+			engine.environment.poke(field, "TextBounds", engine.types.Vector2.new(200, 20))
+			engine.environment.poke(field, "TextFits", false)
 			field.TextTruncate = engine.types.Enum.TextTruncate.None
 			t:expect(#clipping.inspect(root)):toBe(0)
-			field.AbsolutePosition = engine.types.Vector2.new(40, 0)
+			engine.environment.poke(field, "AbsolutePosition", engine.types.Vector2.new(40, 0))
 			local faults = clipping.inspect(root)
 			t:expect(#faults):toBe(1)
 			t:expect(faults[1].ancestor):toBe(root:GetFullName())
-			field.AbsolutePosition = engine.types.Vector2.zero
+			engine.environment.poke(field, "AbsolutePosition", engine.types.Vector2.zero)
 			local label = engine.new("TextLabel")
 			label.Parent = root
 			label.Text = field.Text
-			label.AbsoluteSize = field.AbsoluteSize
-			label.TextBounds = field.TextBounds
-			label.TextFits = false
+			engine.environment.poke(label, "AbsoluteSize", field.AbsoluteSize)
+			engine.environment.poke(label, "TextBounds", field.TextBounds)
+			engine.environment.poke(label, "TextFits", false)
 			label.TextTruncate = engine.types.Enum.TextTruncate.None
 			faults = clipping.inspect(root)
 			t:expect(#faults):toBe(1)
@@ -52,20 +53,20 @@ return function(harness: Verify.Harness)
 		local engine = engineLib.new()
 		local clipping = inspector(engine)
 		local root = engine.new("Frame")
-		root.AbsoluteSize = engine.types.Vector2.new(100, 100)
+		engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(100, 100))
 		root.ClipsDescendants = true
 		local label = engine.new("TextLabel")
 		label.Parent = root
 		label.Text = "Deliberately truncated caption"
-		label.AbsoluteSize = engine.types.Vector2.new(80, 20)
-		label.TextBounds = engine.types.Vector2.new(200, 20)
-		label.TextFits = false
+		engine.environment.poke(label, "AbsoluteSize", engine.types.Vector2.new(80, 20))
+		engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(200, 20))
+		engine.environment.poke(label, "TextFits", false)
 		label.TextTruncate = engine.types.Enum.TextTruncate.AtEnd
 		t:expect(#clipping.inspect(root)):toBe(0)
 		label.TextTruncate = engine.types.Enum.TextTruncate.None
 		t:expect(clipping.inspect(root)[1].reason):toBe("TextFits is false")
 		label.TextTruncate = engine.types.Enum.TextTruncate.AtEnd
-		label.AbsolutePosition = engine.types.Vector2.new(40, 0)
+		engine.environment.poke(label, "AbsolutePosition", engine.types.Vector2.new(40, 0))
 		local faults = clipping.inspect(root)
 		t:expect(#faults):toBe(1)
 		t:expect(faults[1].ancestor):toBe(root:GetFullName())
@@ -75,32 +76,32 @@ return function(harness: Verify.Harness)
 		local engine = engineLib.new()
 		local clipping = inspector(engine)
 		local root = engine.new("Frame")
-		root.AbsoluteSize = engine.types.Vector2.new(200, 200)
+		engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(200, 200))
 		root.ClipsDescendants = true
 		local scroll = engine.new("ScrollingFrame")
 		scroll.Parent = root
-		scroll.AbsoluteSize = engine.types.Vector2.new(100, 100)
+		engine.environment.poke(scroll, "AbsoluteSize", engine.types.Vector2.new(100, 100))
 		scroll.ClipsDescendants = true
 		local group = engine.new("CanvasGroup")
 		group.Parent = scroll
-		group.AbsoluteSize = engine.types.Vector2.new(200, 200)
+		engine.environment.poke(group, "AbsoluteSize", engine.types.Vector2.new(200, 200))
 		local label = engine.new("TextLabel")
 		label.Parent = group
 		label.Text = "Partly visible row"
-		label.TextFits = true
-		label.AbsolutePosition = engine.types.Vector2.new(0, 90)
-		label.AbsoluteSize = engine.types.Vector2.new(80, 20)
+		engine.environment.poke(label, "TextFits", true)
+		engine.environment.poke(label, "AbsolutePosition", engine.types.Vector2.new(0, 90))
+		engine.environment.poke(label, "AbsoluteSize", engine.types.Vector2.new(80, 20))
 		t:expect(#clipping.inspect(root)):toBe(0)
-		label.TextFits = false
+		engine.environment.poke(label, "TextFits", false)
 		t:expect(clipping.inspect(root)[1].reason):toBe("TextFits is false")
-		label.TextFits = true
-		root.AbsoluteSize = engine.types.Vector2.new(100, 100)
+		engine.environment.poke(label, "TextFits", true)
+		engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(100, 100))
 		t:expect(#clipping.inspect(root)):toBe(0)
-		group.AbsoluteSize = engine.types.Vector2.new(100, 100)
+		engine.environment.poke(group, "AbsoluteSize", engine.types.Vector2.new(100, 100))
 		t:expect(#clipping.inspect(root)):toBe(0)
-		group.AbsoluteSize = engine.types.Vector2.new(100, 95)
+		engine.environment.poke(group, "AbsoluteSize", engine.types.Vector2.new(100, 95))
 		t:expect(clipping.inspect(root)[1].ancestor):toBe(group:GetFullName())
-		root.AbsoluteSize = engine.types.Vector2.new(100, 95)
+		engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(100, 95))
 		local faults = clipping.inspect(root)
 		t:expect(#faults):toBe(2)
 		t:expect(faults[1].ancestor):toBe(group:GetFullName())
@@ -111,9 +112,10 @@ return function(harness: Verify.Harness)
 		local engine = engineLib.new()
 		local clipping = inspector(engine)
 		local label = engine.new("TextButton")
-		label.Text, label.TextFits = "A padded caption", false
-		label.AbsoluteSize = engine.types.Vector2.new(100, 30)
-		label.TextBounds = engine.types.Vector2.new(75, 20)
+		label.Text = "A padded caption"
+		engine.environment.poke(FixtureRoblox.assertInstance(label), "TextFits", false)
+		engine.environment.poke(label, "AbsoluteSize", engine.types.Vector2.new(100, 30))
+		engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(75, 20))
 		local padding = engine.new("UIPadding")
 		padding.PaddingLeft, padding.PaddingRight = engine.types.UDim.new(0, 10), engine.types.UDim.new(0, 10)
 		padding.Parent = label
@@ -126,8 +128,8 @@ return function(harness: Verify.Harness)
 		label.TextWrapped = false
 		local scale = engine.new("UIScale")
 		scale.Scale, scale.Parent = 2, label
-		label.AbsoluteSize = engine.types.Vector2.new(200, 60)
-		label.TextBounds = engine.types.Vector2.new(150, 40)
+		engine.environment.poke(label, "AbsoluteSize", engine.types.Vector2.new(200, 60))
+		engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(150, 40))
 		t:expect(#clipping.inspect(label)):toBe(0)
 		padding.PaddingRight = engine.types.UDim.new(0.1, 16)
 		t:expect(clipping.inspect(label)[1].reason):toBe("TextFits is false")

@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -89,7 +90,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = world()
 				local screen = w.engine.new("ScreenGui")
-				screen.AbsoluteSize = Roblox.Vector2.new(390, 844)
+				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(390, 844))
 				local env: any
 				local reads = 0
 				local stop = owned(w.runtime, function()
@@ -106,7 +107,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((env.isLandscape:peek())):toBe(false)
 				Verify.expect((env.heightClass:peek())):toBe("medium")
 				Verify.expect((env.axis:peek())):toBe("y")
-				screen.AbsoluteSize = Roblox.Vector2.new(1280, 720)
+				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(1280, 720))
 				Verify.expect((env.viewportWidth:peek())):toBe(1280)
 				Verify.expect((env.sizeClass:peek())):toBe("wide")
 				Verify.expect((env.isWide:peek())):toBe(true)
@@ -116,7 +117,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((env.orientation:peek())):toBe("landscape")
 				Verify.expect((env.axis:peek())):toBe("x")
 				local before = reads
-				screen.AbsoluteSize = Roblox.Vector2.new(1300, 700)
+				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(1300, 700))
 				Verify.expect(reads):toBe(before)
 				Verify.expect((pcall(env.atLeast, "huge"))):toBe(false)
 				stop()
@@ -129,7 +130,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = world()
 				local screen = w.engine.new("ScreenGui")
-				screen.AbsoluteSize = Roblox.Vector2.new(390, 844)
+				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(390, 844))
 				local nativeConsole = false
 				w.gui.IsTenFootInterface = function()
 					return nativeConsole
@@ -145,19 +146,19 @@ return function(verifyHarness: Verify.Harness)
 					end)
 				end)
 				local facts = assert(env)
-				w.gui.TopbarInset = Roblox.Rect.new(164, 0, 390, 58)
+				w.engine.environment.poke(w.gui, "TopbarInset", Roblox.Rect.new(164, 0, 390, 58))
 				local inset = facts.topbarInset:peek()
 				Verify.expect(inset.Min.X):toBe(164)
 				Verify.expect(inset.Height):toBe(58)
 				Verify.expect(facts.topbarControlDiameter:peek()):toBe(44)
 				nativeConsole = true
-				w.gui.TopbarInset = Roblox.Rect.new(193, 0, 1920, 87)
+				w.engine.environment.poke(w.gui, "TopbarInset", Roblox.Rect.new(193, 0, 1920, 87))
 				Verify.expect(facts.topbarControlDiameter:peek()):toBe(44)
 				nativeConsole = false
 				local initialReads = reads
-				w.gui.TopbarInset = Roblox.Rect.new(200, 24, 844, 96)
-				w.input.GamepadEnabled = true
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.gui, "TopbarInset", Roblox.Rect.new(200, 24, 844, 96))
+				w.engine.environment.poke(w.input, "GamepadEnabled", true)
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				inset = facts.topbarInset:peek()
 				Verify.expect(inset.Min.Y):toBe(24)
 				Verify.expect(inset.Height):toBe(72)
@@ -165,7 +166,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(reads > initialReads):toBe(true)
 				local before = reads
 				stop()
-				w.gui.TopbarInset = Roblox.Rect.new()
+				w.engine.environment.poke(w.gui, "TopbarInset", Roblox.Rect.new())
 				Verify.expect(reads):toBe(before)
 				w.stop()
 			end,
@@ -200,7 +201,7 @@ return function(verifyHarness: Verify.Harness)
 					return topLeft, bottomRight
 				end
 				local screen = w.engine.new("ScreenGui")
-				screen.AbsoluteSize = Roblox.Vector2.new(844, 390)
+				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(844, 390))
 				local env: any
 				local stop = owned(w.runtime, function()
 					env = w.UI.environment(screen)
@@ -209,7 +210,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(insets.top):toBe(58)
 				Verify.expect(insets.left):toBe(0)
 				topLeft, bottomRight = Roblox.Vector2.new(47, 0), Roblox.Vector2.new(47, 21)
-				screen.AbsoluteSize = Roblox.Vector2.new(852, 393)
+				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(852, 393))
 				insets = env.safeInsets:peek()
 				Verify.expect(insets.left):toBe(47)
 				Verify.expect(insets.right):toBe(47)
@@ -218,24 +219,24 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((env.displaySize:peek())):toBe("Medium")
 				Verify.expect((env.isTenFoot:peek())):toBe(false)
 				Verify.expect((env.navPlacement:peek())):toBe("bottomBarCompact")
-				w.gui.ViewportDisplaySize = E.DisplaySize.Large
-				w.input.MouseEnabled = false
-				w.input.GamepadEnabled = true
-				w.input.PreferredInput = E.PreferredInput.Gamepad
+				w.engine.environment.poke(w.gui, "ViewportDisplaySize", E.DisplaySize.Large)
+				w.engine.environment.poke(w.input, "MouseEnabled", false)
+				w.engine.environment.poke(w.input, "GamepadEnabled", true)
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
 				Verify.expect((env.isTenFoot:peek())):toBe(true)
 				Verify.expect((env.navPlacement:peek())):toBe("topBar")
-				screen.AbsoluteSize = Roblox.Vector2.new(1920, 1080)
+				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(1920, 1080))
 				Verify.expect((env.sizeClass:peek())):toBe("regular")
 				Verify.expect((env.heightClass:peek())):toBe("medium")
-				w.input.MouseEnabled = true
+				w.engine.environment.poke(w.input, "MouseEnabled", true)
 				Verify.expect((env.isTenFoot:peek())):toBe(false)
 				Verify.expect((env.sizeClass:peek())):toBe("wide")
 				Verify.expect((env.heightClass:peek())):toBe("tall")
 				Verify.expect((env.preferredTextSize:peek())):toBe("Medium")
-				w.gui.PreferredTextSize = E.PreferredTextSize.Largest
+				w.engine.environment.poke(w.gui, "PreferredTextSize", E.PreferredTextSize.Largest)
 				Verify.expect((env.preferredTextSize:peek())):toBe("Largest")
 				Verify.expect((env.reducedMotion:peek())):toBe(false)
-				w.gui.ReducedMotionEnabled = true
+				w.engine.environment.poke(w.gui, "ReducedMotionEnabled", true)
 				Verify.expect((env.reducedMotion:peek())):toBe(true)
 				stop()
 				w.stop()
@@ -247,13 +248,13 @@ return function(verifyHarness: Verify.Harness)
 				local w = world()
 				Verify.expect((pcall(w.UI.environment))):toBe(false)
 				local screen = w.engine.new("ScreenGui")
-				screen.AbsoluteSize = Roblox.Vector2.new(400, 800)
+				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(400, 800))
 				local env: any
 				local stop = owned(w.runtime, function()
 					env = w.UI.environment(screen)
 				end)
 				stop()
-				screen.AbsoluteSize = Roblox.Vector2.new(1400, 800)
+				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(1400, 800))
 				Verify.expect((pcall(function()
 					return env.viewportWidth:peek()
 				end))):toBe(false)
@@ -266,13 +267,13 @@ return function(verifyHarness: Verify.Harness)
 		local function console(options: { [string]: any }?, touch: boolean?): (any, any, any, any)
 			local w = world(nil, options)
 			local E = w.Enum
-			w.gui.ViewportDisplaySize = E.DisplaySize.Large
-			w.input.MouseEnabled = false
-			w.input.TouchEnabled = touch == true
-			w.input.GamepadEnabled = true
-			w.input.PreferredInput = E.PreferredInput.Gamepad
+			w.engine.environment.poke(w.gui, "ViewportDisplaySize", E.DisplaySize.Large)
+			w.engine.environment.poke(w.input, "MouseEnabled", false)
+			w.engine.environment.poke(w.input, "TouchEnabled", touch == true)
+			w.engine.environment.poke(w.input, "GamepadEnabled", true)
+			w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.Gamepad)
 			local screen = w.engine.new("ScreenGui")
-			screen.AbsoluteSize = Roblox.Vector2.new(1920, 1080)
+			w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(1920, 1080))
 			local env: any
 			local stop = owned(w.runtime, function()
 				env = w.UI.environment(screen)
@@ -309,7 +310,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local authored = Compose.cell(nil :: any)
 				local _, env, stop, screen = console({ environment = { overscanInsets = authored } })
-				screen.AbsoluteSize = Roblox.Vector2.new(1280, 720)
+				_.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(1280, 720))
 				Verify.expect((env.overscanInsets:peek())):toEqual({ top = 40, left = 60, bottom = 40, right = 60 })
 				authored:set({ top = 10, left = 20, bottom = 10, right = 20 })
 				Verify.expect((env.overscanInsets:peek())):toEqual({ top = 10, left = 20, bottom = 10, right = 20 })
@@ -354,10 +355,10 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((env.metricScale:peek())):toBe(1.5)
 					local distant = height:peek()
 					local connections = w.engine.census().connections
-					w.input.MouseEnabled = true
+					w.engine.environment.poke(w.input, "MouseEnabled", true)
 					Verify.expect((env.metricScale:peek())):toBe(1)
 					Verify.expect((height:peek())):toBe(distant / 1.5)
-					w.input.MouseEnabled = false
+					w.engine.environment.poke(w.input, "MouseEnabled", false)
 					Verify.expect((env.metricScale:peek())):toBe(1.5)
 					Verify.expect((height:peek())):toBe(distant)
 					Verify.expect(w.engine.census().connections):toBe(connections)
@@ -388,7 +389,7 @@ return function(verifyHarness: Verify.Harness)
 				local face, plain = made[1], made[2]
 				Verify.expect((face:peek())):toBe(64)
 				boost = 1.5
-				w.gui.PreferredTextSize = w.Enum.PreferredTextSize.Largest
+				w.engine.environment.poke(w.gui, "PreferredTextSize", w.Enum.PreferredTextSize.Largest)
 				Verify.expect((face:peek())):toBe(96)
 				Verify.expect((plain:peek())):toBe(64)
 				Verify.expect(refused):toBe(true)
@@ -424,8 +425,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((env.viewingDistanceSource:peek())):toBe("authored")
 				Verify.expect(env.overscanInsets:peek().left):toBe(0)
 				distance:set("ten-foot")
-				w.input.MouseEnabled = true
-				w.gui.ViewportDisplaySize = w.Enum.DisplaySize.Medium
+				w.engine.environment.poke(w.input, "MouseEnabled", true)
+				w.engine.environment.poke(w.gui, "ViewportDisplaySize", w.Enum.DisplaySize.Medium)
 				Verify.expect((env.isTenFoot:peek())):toBe(true)
 				Verify.expect((env.metricScale:peek())):toBe(1.5)
 				Verify.expect((env.navPlacement:peek())):toBe("topBar")
@@ -627,8 +628,8 @@ return function(verifyHarness: Verify.Harness)
 
 	local function box(w: any, parent: any, position: Vector2, size: Vector2): any
 		local node = w.engine.new("Frame")
-		node.AbsolutePosition = position
-		node.AbsoluteSize = size
+		w.engine.environment.poke(node, "AbsolutePosition", position)
+		w.engine.environment.poke(node, "AbsoluteSize", size)
 		node.Parent = parent
 		return node
 	end
@@ -644,8 +645,8 @@ return function(verifyHarness: Verify.Harness)
 					node = UI.ScrollView "Feed" { UI.VStack "Rows" {} }
 					return node
 				end, w.engine.new("Folder"))
-				root.AbsoluteWindowSize = Roblox.Vector2.new(100, 100)
-				root.AbsoluteCanvasSize = Roblox.Vector2.new(100, 500)
+				w.engine.environment.poke(root, "AbsoluteWindowSize", Roblox.Vector2.new(100, 100))
+				w.engine.environment.poke(root, "AbsoluteCanvasSize", Roblox.Vector2.new(100, 500))
 				Verify.expect((UI.scrollTo(node, "bottom"))):toBe(true)
 				Verify.expect(root.CanvasPosition.Y):toBe(400)
 				stop()
@@ -702,11 +703,12 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_environment::draggable and dropTarget::uses the same touch coordinates at long press and movement",
 			run = function()
 				local w = world()
-				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 				local screen, card = w.engine.new("ScreenGui"), w.engine.new("TextButton")
 				local V2, V3 = w.engine.types.Vector2, w.engine.types.Vector3
 				card.Parent = screen
-				card.AbsolutePosition, card.AbsoluteSize = V2.new(0, 64), V2.new(56, 64)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(card), "AbsolutePosition", V2.new(0, 64))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(card), "AbsoluteSize", V2.new(56, 64))
 				local stop = owned(w.runtime, function()
 					w.UI.draggable(card, { payload = 1 })
 				end)
@@ -731,13 +733,14 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				for _, scrolling in { false, true } do
 					local w = world()
-					w.input.PreferredInput = w.Enum.PreferredInput.Touch
+					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 					local screen, scroll, card =
 						w.engine.new("ScreenGui"), w.engine.new("ScrollingFrame"), w.engine.new("TextButton")
 					local V2, V3 = w.engine.types.Vector2, w.engine.types.Vector3
 					scroll.Parent, card.Parent = screen, scroll
 					scroll.ScrollingEnabled = true
-					card.AbsolutePosition, card.AbsoluteSize = V2.new(0, 64), V2.new(56, 64)
+					w.engine.environment.poke(FixtureRoblox.assertInstance(card), "AbsolutePosition", V2.new(0, 64))
+					w.engine.environment.poke(FixtureRoblox.assertInstance(card), "AbsoluteSize", V2.new(56, 64))
 					local stop = owned(w.runtime, function()
 						w.UI.draggable(
 							card,
@@ -784,8 +787,16 @@ return function(verifyHarness: Verify.Harness)
 			local function box(name: string, y: number): any
 				local node = w.engine.new("TextButton")
 				node.Name, node.Selectable, node.Parent = name, true, screen
-				node.AbsolutePosition, node.AbsoluteSize =
-					w.engine.types.Vector2.new(0, y), w.engine.types.Vector2.new(100, 40)
+				w.engine.environment.poke(
+					FixtureRoblox.assertInstance(node),
+					"AbsolutePosition",
+					w.engine.types.Vector2.new(0, y)
+				)
+				w.engine.environment.poke(
+					FixtureRoblox.assertInstance(node),
+					"AbsoluteSize",
+					w.engine.types.Vector2.new(100, 40)
+				)
 				return node
 			end
 			local card, open, closed = box("Card", 0), box("Open", 100), box("Closed", 200)
@@ -847,7 +858,7 @@ return function(verifyHarness: Verify.Harness)
 					local ghost = screen:FindFirstChild("DragGhost")
 					Verify.expect(ghost ~= nil):toBe(true)
 					Verify.expect(ghost.Position.Y.Offset):toBe(120)
-					screen.AbsolutePosition = w.engine.types.Vector2.new(0, -58)
+					w.engine.environment.poke(screen, "AbsolutePosition", w.engine.types.Vector2.new(0, -58))
 					nativeDrag.move(w.input, pointer(w, "MouseMovement", 121))
 
 					Verify.expect(ghost.Position.Y.Offset):toBe(121 + 58)
@@ -882,7 +893,12 @@ return function(verifyHarness: Verify.Harness)
 				local outer, inner = w.engine.new("ScrollingFrame"), w.engine.new("ScrollingFrame")
 				outer.Parent, inner.Parent, open.Parent = screen, outer, inner
 				for _, node in { outer, inner } do
-					node.AbsolutePosition, node.AbsoluteWindowSize = V2.zero, V2.new(300, 300)
+					w.engine.environment.poke(FixtureRoblox.assertInstance(node), "AbsolutePosition", V2.zero)
+					w.engine.environment.poke(
+						FixtureRoblox.assertInstance(node),
+						"AbsoluteWindowSize",
+						V2.new(300, 300)
+					)
 				end
 				local detector = card:FindFirstChild("FacetDragDetector")
 				detector.DragStart:Fire(V2.new(50, 20))
@@ -1020,10 +1036,12 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, screen)
 					local card, slot = root:FindFirstChild("Card"), root:FindFirstChild("Slot")
-					root.AbsoluteWindowSize = V2.new(100, 200)
-					root.AbsoluteSize = V2.new(100, 200)
-					card.AbsolutePosition, card.AbsoluteSize = V2.new(0, 0), V2.new(100, 40)
-					slot.AbsolutePosition, slot.AbsoluteSize = V2.new(0, 100), V2.new(100, 40)
+					w.engine.environment.poke(root, "AbsoluteWindowSize", V2.new(100, 200))
+					w.engine.environment.poke(root, "AbsoluteSize", V2.new(100, 200))
+					w.engine.environment.poke(FixtureRoblox.assertInstance(card), "AbsolutePosition", V2.new(0, 0))
+					w.engine.environment.poke(FixtureRoblox.assertInstance(card), "AbsoluteSize", V2.new(100, 40))
+					w.engine.environment.poke(FixtureRoblox.assertInstance(slot), "AbsolutePosition", V2.new(0, 100))
+					w.engine.environment.poke(FixtureRoblox.assertInstance(slot), "AbsoluteSize", V2.new(100, 40))
 					local function finger(y: number): any
 						local value = w.engine.new("InputObject")
 						value.UserInputType = w.Enum.UserInputType.Touch
@@ -1461,7 +1479,7 @@ return function(verifyHarness: Verify.Harness)
 					local screen = w.engine.new("ScreenGui")
 					local button = w.engine.new("TextButton")
 					button.Parent = screen
-					button.AbsoluteSize = w.engine.types.Vector2.new(100, 44)
+					w.engine.environment.poke(button, "AbsoluteSize", w.engine.types.Vector2.new(100, 44))
 					w.gui.SelectedObject = button
 					local stroke = template:FindFirstChildWhichIsA("UIStroke")
 					local mask = stroke:FindFirstChild("Brackets")
@@ -1471,9 +1489,9 @@ return function(verifyHarness: Verify.Harness)
 					local keys = mask.Transparency.Keypoints
 					Verify.expect(keys[1].Value == 0 and keys[3].Value == 1 and keys[#keys].Value == 0):toBe(true)
 					Verify.expect(math.abs(keys[2].Time - 12 / 112) < 0.001):toBe(true)
-					button.AbsoluteSize = w.engine.types.Vector2.new(200, 44)
+					w.engine.environment.poke(button, "AbsoluteSize", w.engine.types.Vector2.new(200, 44))
 					Verify.expect(math.abs(mask.Transparency.Keypoints[2].Time - 12 / 212) < 0.001):toBe(true)
-					button.AbsoluteSize = w.engine.types.Vector2.new(100, 44)
+					w.engine.environment.poke(button, "AbsoluteSize", w.engine.types.Vector2.new(100, 44))
 					Verify.expect(template:FindFirstChildWhichIsA("UICorner").CornerRadius)
 						:toBe(w.engine.types.UDim.new(0, 0))
 					Verify.expect(template.Size):toBe(U.new(1, 12, 1, 12))
@@ -1560,11 +1578,13 @@ return function(verifyHarness: Verify.Harness)
 					local screen = w.engine.new("ScreenGui")
 					local list = w.engine.new("ScrollingFrame")
 					list.Parent = screen
-					list.AbsolutePosition, list.AbsoluteWindowSize = V.new(0, 0), V.new(300, 200)
-					list.AbsoluteCanvasSize = V.new(300, 1000)
+					w.engine.environment.poke(FixtureRoblox.assertInstance(list), "AbsolutePosition", V.new(0, 0))
+					w.engine.environment.poke(FixtureRoblox.assertInstance(list), "AbsoluteWindowSize", V.new(300, 200))
+					w.engine.environment.poke(list, "AbsoluteCanvasSize", V.new(300, 1000))
 					local row = w.engine.new("TextButton")
 					row.Parent = list
-					row.AbsolutePosition, row.AbsoluteSize = V.new(0, 150), V.new(300, 44)
+					w.engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsolutePosition", V.new(0, 150))
+					w.engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsoluteSize", V.new(300, 44))
 					w.gui.SelectedObject = row
 					Verify.expect(list.CanvasPosition.Y):toBe(38)
 					stop()
@@ -1583,12 +1603,14 @@ return function(verifyHarness: Verify.Harness)
 				local screen = w.engine.new("ScreenGui")
 				local list = w.engine.new("ScrollingFrame")
 				list.Parent = screen
-				list.AbsolutePosition, list.AbsoluteWindowSize = V.new(0, 0), V.new(300, 200)
-				list.AbsoluteCanvasSize = V.new(300, 2000)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(list), "AbsolutePosition", V.new(0, 0))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(list), "AbsoluteWindowSize", V.new(300, 200))
+				w.engine.environment.poke(list, "AbsoluteCanvasSize", V.new(300, 2000))
 				list.CanvasPosition = V.new(0, 300)
 				local card = w.engine.new("TextButton")
 				card.Parent = list
-				card.AbsolutePosition, card.AbsoluteSize = V.new(0, 100), V.new(300, 160)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(card), "AbsolutePosition", V.new(0, 100))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(card), "AbsoluteSize", V.new(300, 160))
 				w.gui.SelectedObject = card
 				local top = 100 - (list.CanvasPosition.Y - 300)
 				Verify.expect(top >= 0 and top + 160 <= 200):toBe(true)
@@ -1607,11 +1629,13 @@ return function(verifyHarness: Verify.Harness)
 				local screen = w.engine.new("ScreenGui")
 				local list = w.engine.new("ScrollingFrame")
 				list.Parent = screen
-				list.AbsolutePosition, list.AbsoluteWindowSize = V.zero, V.new(300, 200)
-				list.AbsoluteCanvasSize = V.new(300, 2000)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(list), "AbsolutePosition", V.zero)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(list), "AbsoluteWindowSize", V.new(300, 200))
+				w.engine.environment.poke(list, "AbsoluteCanvasSize", V.new(300, 2000))
 				local row = w.engine.new("TextButton")
 				row.Parent = list
-				row.AbsolutePosition, row.AbsoluteSize = V.new(0, 800), V.new(300, 44)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsolutePosition", V.new(0, 800))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsoluteSize", V.new(300, 44))
 				w.runtime.reactor:batch(function()
 					w.gui.SelectedObject = row
 					list.CanvasPosition = V.new(0, 644)
@@ -1689,8 +1713,16 @@ return function(verifyHarness: Verify.Harness)
 						w.UI.draggable(node, { payload = "asset" })
 						return node
 					end, screen)
-					source.AbsolutePosition, source.AbsoluteSize =
-						Roblox.Vector2.new(20, 30), Roblox.Vector2.new(80, 40)
+					w.engine.environment.poke(
+						FixtureRoblox.assertInstance(source),
+						"AbsolutePosition",
+						Roblox.Vector2.new(20, 30)
+					)
+					w.engine.environment.poke(
+						FixtureRoblox.assertInstance(source),
+						"AbsoluteSize",
+						Roblox.Vector2.new(80, 40)
+					)
 					local function fail()
 						local press = {
 							UserInputType = w.Enum.UserInputType.MouseButton1,
@@ -1729,8 +1761,8 @@ return function(verifyHarness: Verify.Harness)
 						})
 						return node
 					end, screen)
-					destination.AbsolutePosition = Roblox.Vector2.new(280, 380)
-					destination.AbsoluteSize = Roblox.Vector2.new(80, 80)
+					w.engine.environment.poke(destination, "AbsolutePosition", Roblox.Vector2.new(280, 380))
+					w.engine.environment.poke(destination, "AbsoluteSize", Roblox.Vector2.new(80, 80))
 					fail()
 					Verify.expect(dropped):toBe(1)
 					local acceptedGhost = assert(screen:FindFirstChild("DragGhost")) :: GuiObject
@@ -1744,10 +1776,10 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(scale.Scale):toBe(0)
 					Verify.expect(screen:FindFirstChild("DragGhost")):toBe(nil)
 					stopTarget()
-					w.gui.ReducedMotionEnabled = true
+					w.engine.environment.poke(w.gui, "ReducedMotionEnabled", true)
 					fail()
 					Verify.expect((screen:FindFirstChild("DragGhost"))):toBe(nil)
-					w.gui.ReducedMotionEnabled = false
+					w.engine.environment.poke(w.gui, "ReducedMotionEnabled", false)
 					fail()
 					stop()
 					Verify.expect((screen:FindFirstChild("DragGhost"))):toBe(nil)

@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local process = require("@std/process")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Json = require("../lib/json")
@@ -299,140 +299,121 @@ local function ready(): Facts
 	}
 end
 
-local function refusedWith(changes: (Facts) -> (), fragment: string): string?
+local function refusedWith(changes: (Facts) -> (), fragment: string)
 	local facts = ready()
 	changes(facts)
-	local refusal = Release.guard(facts)
-	if refusal == nil then
-		return "the guard accepted facts that need the refusal '" .. fragment .. "'"
-	end
-	return Case.expect(
-		string.find(refusal, fragment, 1, true) ~= nil,
-		`expected a refusal naming '{fragment}', got '{refusal}'`
-	)
+	Verify.expect(Release.guard(facts)):toContain(fragment)
 end
 
-local function cases(): { Case.Case }
-	return {
-		{
-			name = "clean facts pass the guard",
-			run = function()
-				return Case.equal(Release.guard(ready()), nil, "refusal")
-			end,
-		},
-		{
-			name = "an unknown commit is refused before the tree is inspected",
-			run = function()
-				return refusedWith(function(facts: Facts)
-					facts.commitKnown = false
-					facts.dirty = " M src/init.luau"
-					facts.apiKey = nil
-				end, "'abc1234' is not an object in this repository")
-			end,
-		},
-		{
-			name = "a dirty tree is refused before the key is read",
-			run = function()
-				return refusedWith(function(facts: Facts)
-					facts.dirty = "?? stray.txt"
-					facts.apiKey = nil
-				end, "the working tree is dirty")
-			end,
-		},
-		{
-			name = "a missing or empty ROBLOX_API_KEY is refused",
-			run = function()
-				return Case.first(
-					refusedWith(function(facts: Facts)
-						facts.apiKey = nil
-					end, "ROBLOX_API_KEY is not set"),
-					refusedWith(function(facts: Facts)
-						facts.apiKey = ""
-					end, "ROBLOX_API_KEY is not set")
-				)
-			end,
-		},
-		{
-			name = "an unreadable config and a config without an asset id are refused",
-			run = function()
-				return Case.first(
-					refusedWith(function(facts: Facts)
-						facts.configProblem = "the file does not exist"
-						facts.assetId = nil
-					end, "cannot read package/facet-package.json"),
-					refusedWith(function(facts: Facts)
-						facts.assetId = nil
-					end, "records no assetId")
-				)
-			end,
-		},
-		{
-			name = "asset ids are read from numbers and nonempty strings only",
-			run = function()
-				return Case.first(
-					Case.equal(Release.assetId(123456789012), "123456789012", "number"),
-					Case.equal(Release.assetId("987"), "987", "string"),
-					Case.equal(Release.assetId(""), nil, "empty"),
-					Case.equal(Release.assetId(Json.null), nil, "null"),
-					Case.equal(Release.assetId(nil), nil, "missing")
-				)
-			end,
-		},
-		{
-			name = "the version, the commit and the extra flags are split verbatim",
-			run = function()
-				local raw = Release.tail(
-					{ "tools/facet", "release", "1.2.0", "abc", "--route", "open-cloud", "--allow-route-override" },
-					"release"
-				)
-				local version, commit, extra = Release.split(raw or {})
-				local short = Release.split({ "1.2.0" })
-				return Case.first(
-					Case.equal(version, "1.2.0", "version"),
-					Case.equal(commit, "abc", "commit"),
-					Case.same(extra, { "--route", "open-cloud", "--allow-route-override" }, "extra"),
-					Case.equal(short, nil, "a single argument"),
-					Case.equal(Release.tail({ "tools/facet", "check" }, "release"), nil, "another command")
-				)
-			end,
-		},
-		{
-			name = "only receipts published at or after the start are copied back",
-			run = function()
-				local fresh = Release.fresh({
-					{ name = "old.json", body = '{"publishedAt": "2026-01-01T00:00:00Z"}' },
-					{ name = "same.json", body = '{"publishedAt": "2026-02-02T10:00:00Z"}' },
-					{ name = "new.json", body = '{"publishedAt": "2026-02-02T10:00:01Z"}' },
-					{ name = "notes.txt", body = '{"publishedAt": "2027-01-01T00:00:00Z"}' },
-					{ name = "unstamped.json", body = "{}" },
-				}, "2026-02-02T10:00:00Z")
-				local names: { string } = {}
-				for _, receipt in fresh do
-					table.insert(names, receipt.name)
-				end
-				return Case.same(names, { "same.json", "new.json" })
-			end,
-		},
-		{
-			name = "the config is copied back only when assetId and versions alone moved",
-			run = function()
-				local mine = Json.decode('{"assetId": 1, "versions": [], "route": "studio", "creator": {"id": 2}}')
-				local same = Json.decode('{"creator": {"id": 2}, "route": "studio", "assetId": 1, "versions": [1]}')
-				local moved = Json.decode('{"assetId": 1, "versions": [], "route": "open-cloud", "extra": true}')
-				return Case.first(
-					Case.same(Release.moved(mine, same), {}, "assetId and versions"),
-					Case.same(Release.moved(mine, moved), { "creator", "extra", "route" }, "other keys")
-				)
-			end,
-		},
-	}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "clean facts pass the guard", {
+		id = prefix .. "clean facts pass the guard",
+		run = function(test: Verify.Context)
+			Verify.expect(Release.guard(ready())):toBe(nil)
+		end,
+	})
+	harness:case(prefix .. "an unknown commit is refused before the tree is inspected", {
+		id = prefix .. "an unknown commit is refused before the tree is inspected",
+		run = function(test: Verify.Context)
+			refusedWith(function(facts: Facts)
+				facts.commitKnown = false
+				facts.dirty = " M src/init.luau"
+				facts.apiKey = nil
+			end, "'abc1234' is not an object in this repository")
+		end,
+	})
+	harness:case(prefix .. "a dirty tree is refused before the key is read", {
+		id = prefix .. "a dirty tree is refused before the key is read",
+		run = function(test: Verify.Context)
+			refusedWith(function(facts: Facts)
+				facts.dirty = "?? stray.txt"
+				facts.apiKey = nil
+			end, "the working tree is dirty")
+		end,
+	})
+	harness:case(prefix .. "a missing or empty ROBLOX_API_KEY is refused", {
+		id = prefix .. "a missing or empty ROBLOX_API_KEY is refused",
+		run = function(test: Verify.Context)
+			refusedWith(function(facts: Facts)
+				facts.apiKey = nil
+			end, "ROBLOX_API_KEY is not set")
+			refusedWith(function(facts: Facts)
+				facts.apiKey = ""
+			end, "ROBLOX_API_KEY is not set")
+		end,
+	})
+	harness:case(prefix .. "an unreadable config and a config without an asset id are refused", {
+		id = prefix .. "an unreadable config and a config without an asset id are refused",
+		run = function(test: Verify.Context)
+			refusedWith(function(facts: Facts)
+				facts.configProblem = "the file does not exist"
+				facts.assetId = nil
+			end, "cannot read package/facet-package.json")
+			refusedWith(function(facts: Facts)
+				facts.assetId = nil
+			end, "records no assetId")
+		end,
+	})
+	harness:case(prefix .. "asset ids are read from numbers and nonempty strings only", {
+		id = prefix .. "asset ids are read from numbers and nonempty strings only",
+		run = function(test: Verify.Context)
+			Verify.expect(Release.assetId(123456789012)):toBe("123456789012")
+			Verify.expect(Release.assetId("987")):toBe("987")
+			Verify.expect(Release.assetId("")):toBe(nil)
+			Verify.expect(Release.assetId(Json.null)):toBe(nil)
+			Verify.expect(Release.assetId(nil)):toBe(nil)
+		end,
+	})
+	harness:case(prefix .. "the version, the commit and the extra flags are split verbatim", {
+		id = prefix .. "the version, the commit and the extra flags are split verbatim",
+		run = function(test: Verify.Context)
+			local raw = Release.tail(
+				{ "tools/facet", "release", "1.2.0", "abc", "--route", "open-cloud", "--allow-route-override" },
+				"release"
+			)
+			local version, commit, extra = Release.split(raw or {})
+			local short = Release.split({ "1.2.0" })
+			Verify.expect(version):toBe("1.2.0")
+			Verify.expect(commit):toBe("abc")
+			Verify.expect(extra):toEqual({ "--route", "open-cloud", "--allow-route-override" })
+			Verify.expect(short):toBe(nil)
+			Verify.expect(Release.tail({ "tools/facet", "check" }, "release")):toBe(nil)
+		end,
+	})
+	harness:case(prefix .. "only receipts published at or after the start are copied back", {
+		id = prefix .. "only receipts published at or after the start are copied back",
+		run = function(test: Verify.Context)
+			local fresh = Release.fresh({
+				{ name = "old.json", body = '{"publishedAt": "2026-01-01T00:00:00Z"}' },
+				{ name = "same.json", body = '{"publishedAt": "2026-02-02T10:00:00Z"}' },
+				{ name = "new.json", body = '{"publishedAt": "2026-02-02T10:00:01Z"}' },
+				{ name = "notes.txt", body = '{"publishedAt": "2027-01-01T00:00:00Z"}' },
+				{ name = "unstamped.json", body = "{}" },
+			}, "2026-02-02T10:00:00Z")
+			local names: { string } = {}
+			for _, receipt in fresh do
+				table.insert(names, receipt.name)
+			end
+			Verify.expect(names):toEqual({ "same.json", "new.json" })
+		end,
+	})
+	harness:case(prefix .. "the config is copied back only when assetId and versions alone moved", {
+		id = prefix .. "the config is copied back only when assetId and versions alone moved",
+		run = function(test: Verify.Context)
+			local mine = Json.decode('{"assetId": 1, "versions": [], "route": "studio", "creator": {"id": 2}}')
+			local same = Json.decode('{"creator": {"id": 2}, "route": "studio", "assetId": 1, "versions": [1]}')
+			local moved = Json.decode('{"assetId": 1, "versions": [], "route": "open-cloud", "extra": true}')
+			Verify.expect(Release.moved(mine, same)):toEqual({})
+			Verify.expect(Release.moved(mine, moved)):toEqual({ "creator", "extra", "route" })
+		end,
+	})
 end
 
 local command: Cli.Command = {
 	name = "release",
 	summary = "Gate, build and publish a release from a commit in a temporary worktree.",
 	usage = USAGE,
-	cases = cases,
+	register = register,
 	run = run,
 }
 

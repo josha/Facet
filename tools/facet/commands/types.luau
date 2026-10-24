@@ -1,4 +1,6 @@
 --!strict
+local Gate = require("../lib/gate")
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
 local luau = require("@lute/luau")
@@ -7,7 +9,6 @@ local process = require("@std/process")
 local system = require("@std/system")
 local time = require("@std/time")
 local Analyzer = require("../lib/analyzer")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local ControlProps = require("../lib/control_props")
 local Definitions = require("../lib/definitions")
@@ -33,13 +34,13 @@ negative probe. Every selected solver must pass.
 
 --files checks only the named targets and records dependency diagnostics separately.
 --source-only checks Facet-owned source without the public probes.
-selftest runs the checker cases, then proves that the analyzer accepts a native UDim2
+selftest selects the checker cases, then proves that the analyzer accepts a native UDim2
 and a Lute standard library type and rejects an incompatible scalar in each context.
 engine checks or regenerates src/ui/engine_types.luau from the pinned declarations
 and tools/typecheck/engine_members.json; --creator-docs refreshes that metadata.
 props checks or regenerates the flat control property types in src/ui/*_props.luau
 from the option tables in src/ui/*_types.luau.
---selftest runs only the checker cases.]]
+--selftest selects all checker and analyzer cases.]]
 
 local ARTIFACTS = "artifacts/verify/types"
 local LOCK = "tools/typecheck/roblox.lock.json"
@@ -431,7 +432,7 @@ local NEGATIVE_PROBES: { { string } } = {
 
 local PROBE_HEADER = {
 	"--!strict",
-	'local Facet = require("../../src")',
+	'local Facet = require("@repo/src")',
 	"local runtime = Facet.Roblox.createRuntime()",
 	"local UI = Facet.controls(runtime)",
 	"local nullableText: Facet.Cell<string?> = Facet.Compose.cell(nil :: string?)",
@@ -492,7 +493,7 @@ end
 
 local function negativeProbes(flags: { string }): Probes
 	local source, expected, count = probeSource(Analyzer.publicNames(publicSource()))
-	local file = Files.join("tests/types", uniqueName("_negative_") .. ".luau")
+	local file = Files.join(ARTIFACTS, uniqueName("_negative_") .. ".luau")
 	return withProbe(file, source, function(): Probes
 		local diagnostics, log = analyze({ file }, "negative", {}, "roblox", LOCK, flags)
 		local rejected: { [number]: boolean } = {}
@@ -866,7 +867,7 @@ end
 local function liveSelftest(flags: { string }): number
 	local solver = if isNewSolver(flags) then "new" else "old"
 	local robloxOk, robloxLog = probeContext(
-		Files.join("tests/types", uniqueName("_checker_") .. ".luau"),
+		Files.join(ARTIFACTS, uniqueName("_checker_") .. ".luau"),
 		"--!strict\nlocal valid: UDim2 = UDim2.fromOffset(24, 24)\nlocal invalid: string = 42\nreturn valid, invalid\n",
 		"selftest",
 		"roblox",
@@ -898,7 +899,7 @@ local function liveSelftest(flags: { string }): number
 	return if robloxOk and luteOk then 0 else 1
 end
 
-local cases: () -> { Case.Case }
+local register: (Verify.Harness, string) -> ()
 
 local function parseOptions(invocation: Cli.Invocation, offset: number): (Options?, string?)
 	local solver: string = Cli.flag(invocation, "solver") or "old"
@@ -931,14 +932,12 @@ local function solversOf(options: Options): { string }
 end
 
 local function selftest(options: Options): number
-	local code = Case.report("types", cases)
+	local code = Gate.selftest("tools/commands", "tools/commands::types::checker::")
 	if code ~= 0 then
 		return code
 	end
-	analyzerVersion()
-	prepareLuteTypes()
 	for _, solver in solversOf(options) do
-		code = math.max(code, liveSelftest(flagsFor(solver, options.flags)))
+		code = math.max(code, Gate.selftest("tools/commands", "tools/commands::types::analyzer " .. solver .. "::"))
 	end
 	return code
 end
@@ -1082,530 +1081,433 @@ local function fileList(diagnostics: { Analyzer.Diagnostic }): { string }
 	return list
 end
 
-cases = function(): { Case.Case }
-	return {
-		{
-			name = "control option origins retain native hooks, binding variants and aliases",
-			run = function(): string?
-				local origins = ControlProps.optionOrigins(".")
-				return Case.first(
-					Case.equal(origins.ButtonProps.ref, "TextButtonProps", "native hook"),
-					Case.equal(origins.ToggleCellProps.value, "CellBinding", "cell binding"),
-					Case.equal(origins.ToggleRequestProps.value, "RequestBinding", "request binding"),
-					Case.equal(origins.SliderCellProps.range, "SliderCellBinding", "cell variant"),
-					Case.equal(origins.SliderRangeProps.range, "SliderRangeBinding", "range variant"),
-					Case.equal(origins.CollectionSpec.from, origins.KeyedCollectionSpec.from, "collection alias"),
-					Case.equal(origins.KeyedCollectionSpec.rowActions, nil, "direct override")
+register = function(harness: Verify.Harness, prefix: string): ()
+	local idPrefix = prefix
+	prefix ..= "checker::"
+	harness:case(prefix .. "control option origins retain native hooks, binding variants and aliases", {
+		id = idPrefix .. "control option origins retain native hooks, binding variants and aliases",
+		run = function(test: Verify.Context): ()
+			local origins = ControlProps.optionOrigins(".")
+			Verify.expect(origins.ButtonProps.ref):toBe("TextButtonProps")
+			Verify.expect(origins.ToggleCellProps.value):toBe("CellBinding")
+			Verify.expect(origins.ToggleRequestProps.value):toBe("RequestBinding")
+			Verify.expect(origins.SliderCellProps.range):toBe("SliderCellBinding")
+			Verify.expect(origins.SliderRangeProps.range):toBe("SliderRangeBinding")
+			Verify.expect(origins.CollectionSpec.from):toBe(origins.KeyedCollectionSpec.from)
+			Verify.expect(origins.KeyedCollectionSpec.rowActions):toBe(nil)
+		end,
+	})
+	harness:case(prefix .. "inventory includes each repository area and untracked files", {
+		id = idPrefix .. "inventory includes each repository area and untracked files",
+		run = function(test: Verify.Context): ()
+			local existing: { [string]: boolean } = {}
+			for _, file in FIXTURE_FILES do
+				existing[file] = true
+			end
+			existing["examples/new.luau"] = true
+			local listing = table.concat(FIXTURE_FILES, "\0") .. "\0examples/new.luau\0src/deleted.luau\0src/a.luau\0"
+			local expected = table.clone(FIXTURE_FILES)
+			table.insert(expected, "examples/new.luau")
+			table.sort(expected)
+			Verify.expect(Analyzer.inventory(listing, function(file: string): boolean
+				return existing[file] == true
+			end)):toEqual(expected)
+			Verify.expect(table.find(INVENTORY, "--others") ~= nil):toBeTrueWith("the inventory omits untracked files")
+			Verify.expect(table.find(INVENTORY, "--cached") ~= nil):toBeTrueWith("the inventory omits tracked files")
+		end,
+	})
+	harness:case(prefix .. "complete check blocks dependency errors", {
+		id = idPrefix .. "complete check blocks dependency errors",
+		run = function(test: Verify.Context): ()
+			local report = fixtureReport({ diagnostic("src/vendor/dependency.luau") })
+			Verify.expect(report.ok):toBe(false)
+			Verify.expect(fileList(report.owned)):toEqual({ "src/vendor/dependency.luau:2" })
+			Verify.expect(fileList(report.external)):toEqual({})
+			Verify.expect(Json.strings(report.document.targets) or {}):toEqual(FIXTURE_FILES)
+			Verify.expect(Json.field(report.document, "mode")):toBe("full")
+		end,
+	})
+	harness:case(prefix .. "analyzer report keeps the type mismatch details", {
+		id = idPrefix .. "analyzer report keeps the type mismatch details",
+		run = function(test: Verify.Context): ()
+			local output =
+				"tests/a.luau(2,1): TypeError: Expected this to be\n\t'string'\nbut got\n\t'number'\ntests/a.luau(3,1): SyntaxError: missing end\n"
+			local diagnostics = Analyzer.parse(output, "/repo")
+			Verify.expect(#diagnostics):toBe(2)
+			Verify.expect(
+				diagnostics[1] ~= nil and string.find(diagnostics[1].message, "but got\n\t'number'", 1, true) ~= nil
+			)
+				:toBeTrueWith("the first message lost its detail")
+			Verify.expect(diagnostics[2] and diagnostics[2].message):toBe("missing end")
+			Verify.expect(diagnostics[1] and diagnostics[1].file):toBe("tests/a.luau")
+		end,
+	})
+	harness:case(prefix .. "focused check records dependencies separately", {
+		id = idPrefix .. "focused check records dependencies separately",
+		run = function(test: Verify.Context): ()
+			local report = fixtureReport({ diagnostic("src/vendor/dependency.luau") }, { "src/a.luau" })
+			Verify.expect(report.ok):toBe(true)
+			Verify.expect(fileList(report.external)):toEqual({ "src/vendor/dependency.luau:2" })
+			Verify.expect(Json.field(report.document, "mode")):toBe("focused")
+			Verify.expect(Json.isNull(report.document.publicProbes)):toBe(true)
+		end,
+	})
+	harness:case(prefix .. "strict cannot be disabled later in a file", {
+		id = idPrefix .. "strict cannot be disabled later in a file",
+		run = function(test: Verify.Context): ()
+			local report = fixtureReport({}, nil, nil, { "bench/a.luau" })
+			Verify.expect(Analyzer.missingStrict("--!strict\n--!nocheck\nreturn {}\n")):toBe(true)
+			Verify.expect(Analyzer.missingStrict("--!strict\n--!nonstrict\nreturn {}\n")):toBe(true)
+			Verify.expect(Analyzer.missingStrict("--!nonstrict\nreturn {}\n")):toBe(true)
+			Verify.expect(Analyzer.missingStrict("--!strict\r\nreturn {}\r\n")):toBe(false)
+			Verify.expect(Analyzer.missingStrict("--!strict\n--!nocheckers\nreturn {}\n")):toBe(false)
+			Verify.expect(Analyzer.missingStrict("--!strict")):toBe(true)
+			Verify.expect(report.ok):toBe(false)
+			Verify.expect(Json.strings(report.document.missingStrict) or {}):toEqual({ "bench/a.luau" })
+		end,
+	})
+	harness:case(prefix .. "new solver has no diagnostic allowance", {
+		id = idPrefix .. "new solver has no diagnostic allowance",
+		run = function(test: Verify.Context): ()
+			local report = fixtureReport({ diagnostic("tests/a.luau") }, nil, "new")
+			Verify.expect(report.ok):toBe(false)
+			Verify.expect(Json.strings(report.document.flags) or {}):toEqual({
+				"LuauTarjanChildLimit=100000",
+				"LuauSolverV2=true",
+			})
+		end,
+	})
+	harness:case(prefix .. "projects cover mapped and unmapped files in both security contexts", {
+		id = idPrefix .. "projects cover mapped and unmapped files in both security contexts",
+		run = function(test: Verify.Context): ()
+			local runs = Analyzer.plan(FIXTURE_FILES, {
+				{
+					project = "default.project.json",
+					name = "project-abc",
+					sourcemap = "artifacts/verify/types/project-abc.sourcemap.json",
+					mapped = { "src/a.luau", "tools/designer/a.luau", "elsewhere/b.luau" },
+				},
+			})
+			local covered: { string } = {}
+			local contexts: { string } = {}
+			for _, planned in runs do
+				table.move(planned.targets, 1, #planned.targets, #covered + 1, covered)
+				table.insert(
+					contexts,
+					("%s/%s"):format(tostring(planned.project), if planned.plugin then "plugin" else "game")
 				)
-			end,
-		},
-		{
-			name = "inventory includes each repository area and untracked files",
-			run = function(): string?
-				local existing: { [string]: boolean } = {}
-				for _, file in FIXTURE_FILES do
-					existing[file] = true
-				end
-				existing["examples/new.luau"] = true
-				local listing = table.concat(FIXTURE_FILES, "\0")
-					.. "\0examples/new.luau\0src/deleted.luau\0src/a.luau\0"
-				local expected = table.clone(FIXTURE_FILES)
-				table.insert(expected, "examples/new.luau")
-				table.sort(expected)
-				return Case.first(
-					Case.same(
-						Analyzer.inventory(listing, function(file: string): boolean
-							return existing[file] == true
-						end),
-						expected,
-						"inventory"
-					),
-					Case.expect(table.find(INVENTORY, "--others") ~= nil, "the inventory omits untracked files"),
-					Case.expect(table.find(INVENTORY, "--cached") ~= nil, "the inventory omits tracked files")
-				)
-			end,
-		},
-		{
-			name = "complete check blocks dependency errors",
-			run = function(): string?
-				local report = fixtureReport({ diagnostic("src/vendor/dependency.luau") })
-				return Case.first(
-					Case.equal(report.ok, false, "ok"),
-					Case.same(fileList(report.owned), { "src/vendor/dependency.luau:2" }, "diagnostics"),
-					Case.same(fileList(report.external), {}, "dependency diagnostics"),
-					Case.same(Json.strings(report.document.targets) or {}, FIXTURE_FILES, "targets"),
-					Case.equal(Json.field(report.document, "mode"), "full", "mode")
-				)
-			end,
-		},
-		{
-			name = "analyzer report keeps the type mismatch details",
-			run = function(): string?
-				local output =
-					"tests/a.luau(2,1): TypeError: Expected this to be\n\t'string'\nbut got\n\t'number'\ntests/a.luau(3,1): SyntaxError: missing end\n"
-				local diagnostics = Analyzer.parse(output, "/repo")
-				return Case.first(
-					Case.equal(#diagnostics, 2, "count"),
-					Case.expect(
-						diagnostics[1] ~= nil
-							and string.find(diagnostics[1].message, "but got\n\t'number'", 1, true) ~= nil,
-						"the first message lost its detail"
-					),
-					Case.equal(diagnostics[2] and diagnostics[2].message, "missing end", "second message"),
-					Case.equal(diagnostics[1] and diagnostics[1].file, "tests/a.luau", "file")
-				)
-			end,
-		},
-		{
-			name = "focused check records dependencies separately",
-			run = function(): string?
-				local report = fixtureReport({ diagnostic("src/vendor/dependency.luau") }, { "src/a.luau" })
-				return Case.first(
-					Case.equal(report.ok, true, "ok"),
-					Case.same(fileList(report.external), { "src/vendor/dependency.luau:2" }, "dependency diagnostics"),
-					Case.equal(Json.field(report.document, "mode"), "focused", "mode"),
-					Case.equal(Json.isNull(report.document.publicProbes), true, "focused runs have no probes")
-				)
-			end,
-		},
-		{
-			name = "strict cannot be disabled later in a file",
-			run = function(): string?
-				local report = fixtureReport({}, nil, nil, { "bench/a.luau" })
-				return Case.first(
-					Case.equal(Analyzer.missingStrict("--!strict\n--!nocheck\nreturn {}\n"), true, "nocheck"),
-					Case.equal(Analyzer.missingStrict("--!strict\n--!nonstrict\nreturn {}\n"), true, "nonstrict"),
-					Case.equal(Analyzer.missingStrict("--!nonstrict\nreturn {}\n"), true, "first line"),
-					Case.equal(Analyzer.missingStrict("--!strict\r\nreturn {}\r\n"), false, "CRLF"),
-					Case.equal(Analyzer.missingStrict("--!strict\n--!nocheckers\nreturn {}\n"), false, "word boundary"),
-					Case.equal(Analyzer.missingStrict("--!strict"), true, "no newline"),
-					Case.equal(report.ok, false, "ok"),
-					Case.same(Json.strings(report.document.missingStrict) or {}, { "bench/a.luau" }, "missingStrict")
-				)
-			end,
-		},
-		{
-			name = "new solver has no diagnostic allowance",
-			run = function(): string?
-				local report = fixtureReport({ diagnostic("tests/a.luau") }, nil, "new")
-				return Case.first(
-					Case.equal(report.ok, false, "ok"),
-					Case.same(Json.strings(report.document.flags) or {}, {
-						"LuauTarjanChildLimit=100000",
-						"LuauSolverV2=true",
-					}, "flags")
-				)
-			end,
-		},
-		{
-			name = "projects cover mapped and unmapped files in both security contexts",
-			run = function(): string?
-				local runs = Analyzer.plan(FIXTURE_FILES, {
-					{
-						project = "default.project.json",
-						name = "project-abc",
-						sourcemap = "artifacts/verify/types/project-abc.sourcemap.json",
-						mapped = { "src/a.luau", "tools/designer/a.luau", "elsewhere/b.luau" },
-					},
-				})
-				local covered: { string } = {}
-				local contexts: { string } = {}
-				for _, planned in runs do
-					table.move(planned.targets, 1, #planned.targets, #covered + 1, covered)
-					table.insert(
-						contexts,
-						("%s/%s"):format(tostring(planned.project), if planned.plugin then "plugin" else "game")
-					)
-				end
-				table.sort(covered)
-				local expected = table.clone(FIXTURE_FILES)
-				table.sort(expected)
-				return Case.first(
-					Case.same(covered, expected, "covered"),
-					Case.same(
-						contexts,
-						{ "default.project.json/game", "default.project.json/plugin", "nil/game" },
-						"contexts"
-					),
-					Case.equal(
-						runs[1] and runs[1].extra[1],
-						"--sourcemap=artifacts/verify/types/project-abc.sourcemap.json"
-					)
-				)
-			end,
-		},
-		{
-			name = "Lute runtime files are analyzed in their own context",
-			run = function(): string?
-				local roblox, lute = Analyzer.partition({
-					"src/a.luau",
-					"tools/facet/init.luau",
-					"tests/lute/worker.luau",
-					"tests/a.verify.luau",
-					"tools/facet/commands/studio.luau",
-					"bench/perf_runner.luau",
-					"tools/vendor/verify/src/lute/host.luau",
-					"tools/vendor/verify/src/core/init.luau",
-					"tools/vendor/verify/tools/studio-worker.luau",
-				})
-				return Case.first(
-					Case.same(roblox, {
-						"src/a.luau",
-						"tests/a.verify.luau",
-						"bench/perf_runner.luau",
-						"tools/vendor/verify/src/core/init.luau",
-					}, "roblox"),
-					Case.same(lute, {
-						"tools/facet/init.luau",
-						"tests/lute/worker.luau",
-						"tools/facet/commands/studio.luau",
-						"tools/vendor/verify/src/lute/host.luau",
-						"tools/vendor/verify/tools/studio-worker.luau",
-					}, "lute")
-				)
-			end,
-		},
-		{
-			name = "the Lute context blocks only first-party diagnostics",
-			run = function(): string?
-				local lute = luteRun({ "tools/facet/init.luau", "tools/vendor/verify/src/lute/host.luau" })
-				local diagnostics = {
-					diagnostic("tools/facet/init.luau"),
-					diagnostic("tools/vendor/verify/src/lute/host.luau"),
-					diagnostic("tools/vendor/verify/src/core/execution.luau"),
-					diagnostic("C:/Users/someone/.lute/typedefs/1.0.1/std/path/win32/init.luau"),
-					diagnostic("/home/runner/.lute/typedefs/1.0.1/lute/time.luau"),
-				}
-				local public = Analyzer.classify(lute, diagnostics, true, {})
-				local focused =
-					Analyzer.classify(lute, diagnostics, false, { ["tools/vendor/verify/src/lute/host.luau"] = true })
-				local robloxPublic = Analyzer.classify(robloxRun({}), {
-					diagnostic("src/vendor/x.luau"),
-					diagnostic("C:/Users/someone/.lute/typedefs/1.0.1/std/path/win32/init.luau"),
-				}, true, {})
-				return Case.first(
-					Case.same(fileList(public.owned), { "tools/facet/init.luau:2" }, "public owned"),
-					Case.equal(#public.external, 4, "public external"),
-					Case.same(fileList(focused.owned), { "tools/vendor/verify/src/lute/host.luau:2" }, "focused owned"),
-					Case.equal(#robloxPublic.owned, 1, "the Roblox contexts keep the complete policy"),
-					Case.equal(#robloxPublic.external, 1, "the Roblox contexts do not block the Lute declarations")
-				)
-			end,
-		},
-		{
-			name = "a diagnostic owned in one context is not also a dependency diagnostic",
-			run = function(): string?
-				local shared = diagnostic("tools/vendor/verify/src/core/execution.luau")
-				local merged = Analyzer.merge({
-					{ owned = {}, external = { shared, diagnostic("C:/x.luau") } },
-					{ owned = { shared, shared }, external = {} },
-				})
-				return Case.first(
-					Case.same(fileList(merged.owned), { "tools/vendor/verify/src/core/execution.luau:2" }, "owned"),
-					Case.same(fileList(merged.external), { "C:/x.luau:2" }, "external")
-				)
-			end,
-		},
-		{
-			name = "analyzer paths normalize to repository-relative forward slashes",
-			run = function(): string?
-				local root = "C:/git/Facet/worktree"
-				return Case.first(
-					Case.equal(
-						Analyzer.relative("tools\\facet\\init.luau", root),
-						"tools/facet/init.luau",
-						"backslashes"
-					),
-					Case.equal(
-						Analyzer.relative("c:\\git\\Facet\\worktree\\src\\a.luau", root),
-						"src/a.luau",
-						"drive case"
-					),
-					Case.equal(
-						Analyzer.relative("\\\\?\\C:\\git\\Facet\\worktree\\src\\a.luau", root),
-						"src/a.luau",
-						"verbatim"
-					),
-					Case.equal(
-						Analyzer.relative("../../../Users/bacon/.lute/typedefs/1.0.1/std/fs.luau", root),
-						"C:/Users/bacon/.lute/typedefs/1.0.1/std/fs.luau",
-						"outside"
-					),
-					Case.equal(
-						Analyzer.relative("../../../../t:/fixture/samples/a.luau", root),
-						"t:/fixture/samples/a.luau",
-						"another drive"
-					),
-					Case.equal(Analyzer.relative("/repo/src/a.luau", "/repo"), "src/a.luau", "posix"),
-					Case.equal(
-						Analyzer.relative("/Repo/src/a.luau", "/repo"),
-						"/Repo/src/a.luau",
-						"posix is case sensitive"
-					),
-					Case.equal(
-						Analyzer.withoutVerbatimPrefix("\\\\?\\C:\\repo\\src\\init.luau"),
-						"C:\\repo\\src\\init.luau",
-						"rojo verbatim path"
-					),
-					Case.equal(
-						Analyzer.withoutVerbatimPrefix("/repo/src/init.luau"),
-						"/repo/src/init.luau",
-						"posix path"
-					),
-					Case.equal(Analyzer.isFirstParty("C:/Users/bacon/x.luau"), false, "absolute"),
-					Case.equal(Analyzer.isFirstParty("tools/facet/x.luau"), true, "first party")
-				)
-			end,
-		},
-		{
-			name = "analyzer output with CRLF, log lines, project labels and lint kinds parses",
-			run = function(): string?
-				local output = table.concat({
-					"[WARN] No definitions file provided by client",
-					"tools/facet/a.luau(4,2): TypeError: Expected this to be",
-					"\t'string'",
-					"[INFO] Loading Luau configuration from c:\\repo\\.luaurc",
-					"but got 'number'",
-					"src/b.luau [game](7,3): SyntaxError: Expected identifier",
-					"src/c.luau(1,1): LocalUnused: Variable 'x' is never used",
-					"\tdetail",
-					"src/d.lua(9,9): TypeError: legacy extension",
-					"src/d.lua(9,9): TypeError: legacy extension",
-					"",
-				}, "\r\n")
-				local diagnostics = Analyzer.parse(output, "/repo")
-				return Case.first(
-					Case.same(fileList(diagnostics), { "tools/facet/a.luau:4", "src/b.luau:7", "src/d.lua:9" }, "files"),
-					Case.equal(
-						diagnostics[1] and diagnostics[1].message,
-						"Expected this to be\n\t'string'\nbut got 'number'",
-						"message"
-					),
-					Case.equal(diagnostics[2] and diagnostics[2].kind, "SyntaxError", "kind"),
-					Case.equal(diagnostics[2] and diagnostics[2].column, 3, "column")
-				)
-			end,
-		},
-		{
-			name = "long target lists split under the argument budget",
-			run = function(): string?
-				local chunks = Analyzer.chunks({ "aaaa", "bbbb", "cccc", "dddd", "e" }, 15)
-				local shapes: { string } = {}
-				for _, chunk in chunks do
-					table.insert(shapes, table.concat(chunk, ","))
-				end
-				return Case.first(
-					Case.same(shapes, { "aaaa,bbbb", "cccc,dddd", "e" }, "chunks"),
-					Case.equal(#Analyzer.chunks({}, 10), 0, "empty"),
-					Case.same(Analyzer.chunks({ string.rep("x", 40) }, 10)[1], { string.rep("x", 40) }, "oversized")
-				)
-			end,
-		},
-		{
-			name = "public probes cover every exported control in both constructor forms",
-			run = function(): string?
-				local names = Analyzer.publicNames(
-					"UI.Button = make\nlocal UI = {}\nUI.Badge=1\nXUI.Hidden = 1\nUI.helper = 2\nUI.Button = again\nif UI.Label == nil then end"
-				)
-				local source, expected, count = probeSource({ "Badge", "Button", "helper" })
-				local lines = string.split(source, "\n")
-				return Case.first(
-					Case.same(names, { "Badge", "Button", "Label", "helper" }, "names"),
-					Case.equal(lines[6], "UI.Badge(42)", "first probe"),
-					Case.equal(expected[6], "Badge: table required", "first label"),
-					Case.equal(expected[7], "Button: table required", "second label"),
-					Case.equal(lines[8], "UI.Button({ label = 42 })", "listed probe"),
-					Case.equal(count, #lines - 6, "count"),
-					Case.equal(
-						Analyzer.named('local wrong: number = UI.Button({ label = "Save" })'),
-						'local wrong: number = UI.Button("Typed")({ label = "Save" })',
-						"named"
-					),
-					Case.expect(
-						string.find(source, 'UI.ThisControlDoesNotExist("Typed")', 1, true) == nil,
-						"the unknown control gained a named form"
-					),
-					Case.expect(string.find(source, 'UI.Badge("Typed")', 1, true) ~= nil, "Badge has no named form")
-				)
-			end,
-		},
-		{
-			name = "preflight rejects missing tools and mismatched pins before expensive checks",
-			run = function(): string?
-				for _, broken in { "rojo", "stylua", "git", "bash", "wrong-version" } do
-					local ok, problem = pcall(function(): boolean
-						prepare(function(argv: { string }, _: Run.Options?): Run.Result
-							return {
-								ok = argv[1] ~= broken,
-								code = if argv[1] == broken then 127 else 0,
-								stdout = if broken == "wrong-version"
-									then "0.0.0"
-									elseif argv[1] == "rojo" then "Rojo 7.7.0"
-									else "stylua 2.5.2",
-								stderr = "missing fixture tool",
-								timedOut = false,
-							}
-						end)
-						return true
+			end
+			table.sort(covered)
+			local expected = table.clone(FIXTURE_FILES)
+			table.sort(expected)
+			Verify.expect(covered):toEqual(expected)
+			Verify.expect(contexts):toEqual({ "default.project.json/game", "default.project.json/plugin", "nil/game" })
+			Verify.expect(runs[1] and runs[1].extra[1])
+				:toBe("--sourcemap=artifacts/verify/types/project-abc.sourcemap.json")
+		end,
+	})
+	harness:case(prefix .. "Lute runtime files are analyzed in their own context", {
+		id = idPrefix .. "Lute runtime files are analyzed in their own context",
+		run = function(test: Verify.Context): ()
+			local roblox, lute = Analyzer.partition({
+				"src/a.luau",
+				"tools/facet/init.luau",
+				"tests/lute/worker.luau",
+				"tests/a.verify.luau",
+				"tools/facet/commands/studio.luau",
+				"bench/perf_runner.luau",
+				"tools/vendor/verify/src/lute/host.luau",
+				"tools/vendor/verify/src/core/init.luau",
+				"tools/vendor/verify/tools/studio-worker.luau",
+			})
+			Verify.expect(roblox):toEqual({
+				"src/a.luau",
+				"tests/a.verify.luau",
+				"bench/perf_runner.luau",
+				"tools/vendor/verify/src/core/init.luau",
+			})
+			Verify.expect(lute):toEqual({
+				"tools/facet/init.luau",
+				"tests/lute/worker.luau",
+				"tools/facet/commands/studio.luau",
+				"tools/vendor/verify/src/lute/host.luau",
+				"tools/vendor/verify/tools/studio-worker.luau",
+			})
+		end,
+	})
+	harness:case(prefix .. "the Lute context blocks only first-party diagnostics", {
+		id = idPrefix .. "the Lute context blocks only first-party diagnostics",
+		run = function(test: Verify.Context): ()
+			local lute = luteRun({ "tools/facet/init.luau", "tools/vendor/verify/src/lute/host.luau" })
+			local diagnostics = {
+				diagnostic("tools/facet/init.luau"),
+				diagnostic("tools/vendor/verify/src/lute/host.luau"),
+				diagnostic("tools/vendor/verify/src/core/execution.luau"),
+				diagnostic("C:/Users/someone/.lute/typedefs/1.0.1/std/path/win32/init.luau"),
+				diagnostic("/home/runner/.lute/typedefs/1.0.1/lute/time.luau"),
+			}
+			local public = Analyzer.classify(lute, diagnostics, true, {})
+			local focused =
+				Analyzer.classify(lute, diagnostics, false, { ["tools/vendor/verify/src/lute/host.luau"] = true })
+			local robloxPublic = Analyzer.classify(robloxRun({}), {
+				diagnostic("src/vendor/x.luau"),
+				diagnostic("C:/Users/someone/.lute/typedefs/1.0.1/std/path/win32/init.luau"),
+			}, true, {})
+			Verify.expect(fileList(public.owned)):toEqual({ "tools/facet/init.luau:2" })
+			Verify.expect(#public.external):toBe(4)
+			Verify.expect(fileList(focused.owned)):toEqual({ "tools/vendor/verify/src/lute/host.luau:2" })
+			Verify.expect(#robloxPublic.owned):toBe(1)
+			Verify.expect(#robloxPublic.external):toBe(1)
+		end,
+	})
+	harness:case(prefix .. "a diagnostic owned in one context is not also a dependency diagnostic", {
+		id = idPrefix .. "a diagnostic owned in one context is not also a dependency diagnostic",
+		run = function(test: Verify.Context): ()
+			local shared = diagnostic("tools/vendor/verify/src/core/execution.luau")
+			local merged = Analyzer.merge({
+				{ owned = {}, external = { shared, diagnostic("C:/x.luau") } },
+				{ owned = { shared, shared }, external = {} },
+			})
+			Verify.expect(fileList(merged.owned)):toEqual({ "tools/vendor/verify/src/core/execution.luau:2" })
+			Verify.expect(fileList(merged.external)):toEqual({ "C:/x.luau:2" })
+		end,
+	})
+	harness:case(prefix .. "analyzer paths normalize to repository-relative forward slashes", {
+		id = idPrefix .. "analyzer paths normalize to repository-relative forward slashes",
+		run = function(test: Verify.Context): ()
+			local root = "C:/git/Facet/worktree"
+			Verify.expect(Analyzer.relative("tools\\facet\\init.luau", root)):toBe("tools/facet/init.luau")
+			Verify.expect(Analyzer.relative("c:\\git\\Facet\\worktree\\src\\a.luau", root)):toBe("src/a.luau")
+			Verify.expect(Analyzer.relative("\\\\?\\C:\\git\\Facet\\worktree\\src\\a.luau", root)):toBe("src/a.luau")
+			Verify.expect(Analyzer.relative("../../../Users/bacon/.lute/typedefs/1.0.1/std/fs.luau", root))
+				:toBe("C:/Users/bacon/.lute/typedefs/1.0.1/std/fs.luau")
+			Verify.expect(Analyzer.relative("../../../../t:/fixture/samples/a.luau", root))
+				:toBe("t:/fixture/samples/a.luau")
+			Verify.expect(Analyzer.relative("/repo/src/a.luau", "/repo")):toBe("src/a.luau")
+			Verify.expect(Analyzer.relative("/Repo/src/a.luau", "/repo")):toBe("/Repo/src/a.luau")
+			Verify.expect(Analyzer.withoutVerbatimPrefix("\\\\?\\C:\\repo\\src\\init.luau"))
+				:toBe("C:\\repo\\src\\init.luau")
+			Verify.expect(Analyzer.withoutVerbatimPrefix("/repo/src/init.luau")):toBe("/repo/src/init.luau")
+			Verify.expect(Analyzer.isFirstParty("C:/Users/bacon/x.luau")):toBe(false)
+			Verify.expect(Analyzer.isFirstParty("tools/facet/x.luau")):toBe(true)
+		end,
+	})
+	harness:case(prefix .. "analyzer output with CRLF, log lines, project labels and lint kinds parses", {
+		id = idPrefix .. "analyzer output with CRLF, log lines, project labels and lint kinds parses",
+		run = function(test: Verify.Context): ()
+			local output = table.concat({
+				"[WARN] No definitions file provided by client",
+				"tools/facet/a.luau(4,2): TypeError: Expected this to be",
+				"\t'string'",
+				"[INFO] Loading Luau configuration from c:\\repo\\.luaurc",
+				"but got 'number'",
+				"src/b.luau [game](7,3): SyntaxError: Expected identifier",
+				"src/c.luau(1,1): LocalUnused: Variable 'x' is never used",
+				"\tdetail",
+				"src/d.lua(9,9): TypeError: legacy extension",
+				"src/d.lua(9,9): TypeError: legacy extension",
+				"",
+			}, "\r\n")
+			local diagnostics = Analyzer.parse(output, "/repo")
+			Verify.expect(fileList(diagnostics)):toEqual({ "tools/facet/a.luau:4", "src/b.luau:7", "src/d.lua:9" })
+			Verify.expect(diagnostics[1] and diagnostics[1].message)
+				:toBe("Expected this to be\n\t'string'\nbut got 'number'")
+			Verify.expect(diagnostics[2] and diagnostics[2].kind):toBe("SyntaxError")
+			Verify.expect(diagnostics[2] and diagnostics[2].column):toBe(3)
+		end,
+	})
+	harness:case(prefix .. "long target lists split under the argument budget", {
+		id = idPrefix .. "long target lists split under the argument budget",
+		run = function(test: Verify.Context): ()
+			local chunks = Analyzer.chunks({ "aaaa", "bbbb", "cccc", "dddd", "e" }, 15)
+			local shapes: { string } = {}
+			for _, chunk in chunks do
+				table.insert(shapes, table.concat(chunk, ","))
+			end
+			Verify.expect(shapes):toEqual({ "aaaa,bbbb", "cccc,dddd", "e" })
+			Verify.expect(#Analyzer.chunks({}, 10)):toBe(0)
+			Verify.expect(Analyzer.chunks({ string.rep("x", 40) }, 10)[1]):toEqual({ string.rep("x", 40) })
+		end,
+	})
+	harness:case(prefix .. "public probes cover every exported control in both constructor forms", {
+		id = idPrefix .. "public probes cover every exported control in both constructor forms",
+		run = function(test: Verify.Context): ()
+			local names = Analyzer.publicNames(
+				"UI.Button = make\nlocal UI = {}\nUI.Badge=1\nXUI.Hidden = 1\nUI.helper = 2\nUI.Button = again\nif UI.Label == nil then end"
+			)
+			local source, expected, count = probeSource({ "Badge", "Button", "helper" })
+			local lines = string.split(source, "\n")
+			Verify.expect(names):toEqual({ "Badge", "Button", "Label", "helper" })
+			Verify.expect(lines[6]):toBe("UI.Badge(42)")
+			Verify.expect(expected[6]):toBe("Badge: table required")
+			Verify.expect(expected[7]):toBe("Button: table required")
+			Verify.expect(lines[8]):toBe("UI.Button({ label = 42 })")
+			Verify.expect(count):toBe(#lines - 6)
+			Verify.expect(Analyzer.named('local wrong: number = UI.Button({ label = "Save" })'))
+				:toBe('local wrong: number = UI.Button("Typed")({ label = "Save" })')
+			Verify.expect(string.find(source, 'UI.ThisControlDoesNotExist("Typed")', 1, true) == nil)
+				:toBeTrueWith("the unknown control gained a named form")
+			Verify.expect(string.find(source, 'UI.Badge("Typed")', 1, true) ~= nil)
+				:toBeTrueWith("Badge has no named form")
+		end,
+	})
+	harness:case(prefix .. "preflight rejects missing tools and mismatched pins before expensive checks", {
+		id = idPrefix .. "preflight rejects missing tools and mismatched pins before expensive checks",
+		run = function(test: Verify.Context): ()
+			for _, broken in { "rojo", "stylua", "git", "bash", "wrong-version" } do
+				local ok, problem = pcall(function(): boolean
+					prepare(function(argv: { string }, _: Run.Options?): Run.Result
+						return {
+							ok = argv[1] ~= broken,
+							code = if argv[1] == broken then 127 else 0,
+							stdout = if broken == "wrong-version"
+								then "0.0.0"
+								elseif argv[1] == "rojo" then "Rojo 7.7.0"
+								else "stylua 2.5.2",
+							stderr = "missing fixture tool",
+							timedOut = false,
+						}
 					end)
-					local expected = if broken == "wrong-version" then "differs from pin" else broken
-					if ok or not string.find(tostring(problem), expected, 1, true) then
-						return `preflight accepted {broken}: {tostring(problem)}`
-					end
+					return true
+				end)
+				local expected = if broken == "wrong-version" then "differs from pin" else broken
+				if ok or not string.find(tostring(problem), expected, 1, true) then
+					error(`preflight accepted {broken}: {tostring(problem)}`, 0)
 				end
-				return nil
-			end,
-		},
-		{
-			name = "Lute accepts the pinned nightly and base version reports",
-			run = function(): string?
-				local pin, base = "1.0.1-nightly.20261006", "1.0.1"
-				return Case.first(
-					Case.expect(matchesLutePin(pin, pin, base), "the pinned nightly was refused"),
-					Case.expect(matchesLutePin(base, pin, base), "the base version was refused"),
-					Case.expect(not matchesLutePin("1.0.0", pin, base), "a different base version was accepted"),
-					Case.expect(
-						not matchesLutePin("1.0.1-nightly.20261007", pin, base),
-						"a different nightly was accepted"
-					)
-				)
-			end,
-		},
-		{
-			name = "the Lute typedef pin follows rokit.toml and .luaurc",
-			run = function(): string?
-				local pin, base =
-					lutePin('[tools]\nrojo = "rojo-rbx/rojo@7.7.0"\nlute = "luau-lang/lute@1.0.1-nightly.20261006"\n')
-				return Case.first(
-					Case.equal(pin, "1.0.1-nightly.20261006", "pin"),
-					Case.equal(base, "1.0.1", "base"),
-					Case.equal(
-						aliasProblem(
-							Json.decode(
-								'{"aliases": {"std": "~/.lute/typedefs/1.0.1/std", "lute": "~/.lute/typedefs/1.0.1/lute"}}'
-							),
-							"1.0.1"
-						),
-						nil,
-						"aliases"
+			end
+		end,
+	})
+	harness:case(prefix .. "Lute accepts the pinned nightly and base version reports", {
+		id = idPrefix .. "Lute accepts the pinned nightly and base version reports",
+		run = function(test: Verify.Context): ()
+			local pin, base = "1.0.1-nightly.20261006", "1.0.1"
+			Verify.expect(matchesLutePin(pin, pin, base)):toBeTrueWith("the pinned nightly was refused")
+			Verify.expect(matchesLutePin(base, pin, base)):toBeTrueWith("the base version was refused")
+			Verify.expect(not matchesLutePin("1.0.0", pin, base)):toBeTrueWith("a different base version was accepted")
+			Verify.expect(not matchesLutePin("1.0.1-nightly.20261007", pin, base))
+				:toBeTrueWith("a different nightly was accepted")
+		end,
+	})
+	harness:case(prefix .. "the Lute typedef pin follows rokit.toml and .luaurc", {
+		id = idPrefix .. "the Lute typedef pin follows rokit.toml and .luaurc",
+		run = function(test: Verify.Context): ()
+			local pin, base =
+				lutePin('[tools]\nrojo = "rojo-rbx/rojo@7.7.0"\nlute = "luau-lang/lute@1.0.1-nightly.20261006"\n')
+			Verify.expect(pin):toBe("1.0.1-nightly.20261006")
+			Verify.expect(base):toBe("1.0.1")
+			Verify.expect(
+				aliasProblem(
+					Json.decode(
+						'{"aliases": {"std": "~/.lute/typedefs/1.0.1/std", "lute": "~/.lute/typedefs/1.0.1/lute"}}'
 					),
-					Case.expect(
-						aliasProblem(Json.decode('{"aliases": {"std": "~/.lute/typedefs/1.0.0/std"}}'), "1.0.1") ~= nil,
-						"a stale alias was accepted"
-					)
+					"1.0.1"
 				)
-			end,
-		},
-		{
-			name = "engine types map Enum, ContentId and any",
-			run = function(): string?
-				return Case.first(
-					Case.equal(Generator.nativeType("EnumFont"), "Enum.Font", "enum"),
-					Case.equal(Generator.nativeType("EnumItem"), "EnumItem", "EnumItem"),
-					Case.equal(Generator.nativeType("{ EnumKeyCode }?"), "{ Enum.KeyCode }?", "nested"),
-					Case.equal(Generator.nativeType("ContentId | any"), "string | unknown", "content and any"),
-					Case.equal(Generator.nativeType("anything | Enumerate"), "anything | Enumerate", "word boundaries")
-				)
-			end,
-		},
-		{
-			name = "engine types generate props, signals, aliases, observers and the host",
-			run = function(): string?
-				local definitions = table.concat({
-					"declare extern type Instance with",
-					"\tName: string",
-					"\tParent: Instance?",
-					"\tChanged: RBXScriptSignal<(string)>",
-					"end",
-					"declare extern type GuiObject extends Instance with",
-					"\tVisible: boolean",
-					"\tSize: UDim2",
-					"\tSize: UDim2",
-					"\tAbsoluteSize: Vector2",
-					"\tInputBegan: RBXScriptSignal<(InputObject, EnumUserInputState, any)>",
-					"end",
-					"declare extern type Frame extends GuiObject with",
-					"\tStyle: EnumFrameStyle",
-					"end",
-					"",
-				}, "\n")
-				local schema: Generator.Schema = {
-					Instance = { writable = { "Name", "Parent" } },
-					GuiObject = { writable = { "Visible", "Size" } },
-					Frame = { writable = { "Style" } },
-				}
-				local text, ordered = Generator.generate(definitions, schema, { "Frame", "GuiObject" })
-				local lines = string.split(text, "\n")
-				local function has(line: string): string?
-					return Case.expect(table.find(lines, line) ~= nil, "missing line: " .. line)
-				end
-				return Case.first(
-					Case.same(ordered, { "Instance", "GuiObject", "Frame" }, "order"),
-					has("export type ValueBoolean = Value<boolean>"),
-					has("export type ValueInstanceOptional = Value<Instance?>"),
-					has("export type ValueEnumFrameStyle = Value<Enum.FrameStyle>"),
-					has("\tParent: (ValueInstanceOptional | StaticValue)?,"),
-					has("\tChanged: ((string) -> ())?,"),
-					has("\tInputBegan: ((InputObject, Enum.UserInputState, unknown) -> ())?,"),
-					has("\tAttributes: Attributes?,"),
-					has("\tref: ((Frame) -> ())?,"),
-					has("\tFrame: Constructor<FrameNativeProps, Frame>,"),
-					has("\tAbsoluteSize: ((GuiObject) -> Compose.Cell<Vector2>),"),
-					has("\tParent: ((Instance) -> Compose.Cell<Instance?>),"),
-					Case.expect(
-						table.find(lines, "export type InstanceNativeProps = {") == nil,
-						"an unselected class was exported"
-					),
-					Case.expect(
-						table.find(lines, "\tGuiObject: Constructor<GuiObjectNativeProps, GuiObject>,") == nil,
-						"the abstract GuiObject gained a constructor"
-					),
-					Case.equal(lines[#lines - 1], "return {}", "tail")
-				)
-			end,
-		},
-		{
-			name = "creator-docs metadata keeps writable, non-read-only properties",
-			run = function(): string?
-				local yaml = table.concat({
-					"name: Frame",
-					"properties:",
-					"  - name: Frame.Style",
-					"    security:",
-					"      read: None",
-					"      write: None",
-					"",
-					"  - name: Frame.Locked",
-					"    security:",
-					"      write: PluginSecurity",
-					"  - name: Frame.Absolute",
-					"    tags:",
-					"      - ReadOnly",
-					"    security:",
-					"      write: None",
-					"  - name: Frame.Alpha  ",
-					"      write: None",
-					"methods:",
-					"  - name: Frame.Later",
-					"      write: None",
-					"",
-				}, "\r\n")
-				local directory = Files.join(ARTIFACTS, uniqueName("creator-docs-"))
-				local file = Files.join(directory, "content/en-us/reference/engine/classes/Frame.yaml")
-				Files.write(file, yaml)
-				local ok, metadata = pcall(Generator.metadata, directory, { "Frame" })
-				Files.remove(directory)
-				if not ok then
-					return tostring(metadata)
-				end
-				local frame = Json.field(metadata, "Frame")
-				return Case.first(
-					Case.same(Json.strings(Json.field(frame, "writable")) or {}, { "Alpha", "Style" }, "writable"),
-					Case.equal(Json.stringField(frame, "sha256"), Hash.sha256(yaml), "sha256")
-				)
-			end,
-		},
-	}
+			):toBe(nil)
+			Verify.expect(
+				aliasProblem(Json.decode('{"aliases": {"std": "~/.lute/typedefs/1.0.0/std"}}'), "1.0.1") ~= nil
+			)
+				:toBeTrueWith("a stale alias was accepted")
+		end,
+	})
+	harness:case(prefix .. "engine types map Enum, ContentId and any", {
+		id = idPrefix .. "engine types map Enum, ContentId and any",
+		run = function(test: Verify.Context): ()
+			Verify.expect(Generator.nativeType("EnumFont")):toBe("Enum.Font")
+			Verify.expect(Generator.nativeType("EnumItem")):toBe("EnumItem")
+			Verify.expect(Generator.nativeType("{ EnumKeyCode }?")):toBe("{ Enum.KeyCode }?")
+			Verify.expect(Generator.nativeType("ContentId | any")):toBe("string | unknown")
+			Verify.expect(Generator.nativeType("anything | Enumerate")):toBe("anything | Enumerate")
+		end,
+	})
+	harness:case(prefix .. "engine types generate props, signals, aliases, observers and the host", {
+		id = idPrefix .. "engine types generate props, signals, aliases, observers and the host",
+		run = function(test: Verify.Context): ()
+			local definitions = table.concat({
+				"declare extern type Instance with",
+				"\tName: string",
+				"\tParent: Instance?",
+				"\tChanged: RBXScriptSignal<(string)>",
+				"end",
+				"declare extern type GuiObject extends Instance with",
+				"\tVisible: boolean",
+				"\tSize: UDim2",
+				"\tSize: UDim2",
+				"\tAbsoluteSize: Vector2",
+				"\tInputBegan: RBXScriptSignal<(InputObject, EnumUserInputState, any)>",
+				"end",
+				"declare extern type Frame extends GuiObject with",
+				"\tStyle: EnumFrameStyle",
+				"end",
+				"",
+			}, "\n")
+			local schema: Generator.Schema = {
+				Instance = { writable = { "Name", "Parent" } },
+				GuiObject = { writable = { "Visible", "Size" } },
+				Frame = { writable = { "Style" } },
+			}
+			local text, ordered = Generator.generate(definitions, schema, { "Frame", "GuiObject" })
+			local lines = string.split(text, "\n")
+			local function has(line: string): ()
+				Verify.expect(table.find(lines, line) ~= nil):toBeTrueWith("missing line: " .. line)
+			end
+			Verify.expect(ordered):toEqual({ "Instance", "GuiObject", "Frame" })
+			has("export type ValueBoolean = Value<boolean>")
+			has("export type ValueInstanceOptional = Value<Instance?>")
+			has("export type ValueEnumFrameStyle = Value<Enum.FrameStyle>")
+			has("\tParent: (ValueInstanceOptional | StaticValue)?,")
+			has("\tChanged: ((string) -> ())?,")
+			has("\tInputBegan: ((InputObject, Enum.UserInputState, unknown) -> ())?,")
+			has("\tAttributes: Attributes?,")
+			has("\tref: ((Frame) -> ())?,")
+			has("\tFrame: Constructor<FrameNativeProps, Frame>,")
+			has("\tAbsoluteSize: ((GuiObject) -> Compose.Cell<Vector2>),")
+			has("\tParent: ((Instance) -> Compose.Cell<Instance?>),")
+			Verify.expect(table.find(lines, "export type InstanceNativeProps = {") == nil)
+				:toBeTrueWith("an unselected class was exported")
+			Verify.expect(table.find(lines, "\tGuiObject: Constructor<GuiObjectNativeProps, GuiObject>,") == nil)
+				:toBeTrueWith("the abstract GuiObject gained a constructor")
+			Verify.expect(lines[#lines - 1]):toBe("return {}")
+		end,
+	})
+	harness:case(prefix .. "creator-docs metadata keeps writable, non-read-only properties", {
+		id = idPrefix .. "creator-docs metadata keeps writable, non-read-only properties",
+		run = function(test: Verify.Context): ()
+			local yaml = table.concat({
+				"name: Frame",
+				"properties:",
+				"  - name: Frame.Style",
+				"    security:",
+				"      read: None",
+				"      write: None",
+				"",
+				"  - name: Frame.Locked",
+				"    security:",
+				"      write: PluginSecurity",
+				"  - name: Frame.Absolute",
+				"    tags:",
+				"      - ReadOnly",
+				"    security:",
+				"      write: None",
+				"  - name: Frame.Alpha  ",
+				"      write: None",
+				"methods:",
+				"  - name: Frame.Later",
+				"      write: None",
+				"",
+			}, "\r\n")
+			local directory = Files.join(ARTIFACTS, uniqueName("creator-docs-"))
+			local file = Files.join(directory, "content/en-us/reference/engine/classes/Frame.yaml")
+			Files.write(file, yaml)
+			local ok, metadata = pcall(Generator.metadata, directory, { "Frame" })
+			Files.remove(directory)
+			if not ok then
+				error(tostring(metadata), 0)
+			end
+			local frame = Json.field(metadata, "Frame")
+			Verify.expect(Json.strings(Json.field(frame, "writable")) or {}):toEqual({ "Alpha", "Style" })
+			Verify.expect(Json.stringField(frame, "sha256")):toBe(Hash.sha256(yaml))
+		end,
+	})
 end
 
 local command: Cli.Command = {
@@ -1613,20 +1515,18 @@ local command: Cli.Command = {
 	summary = "Type check every Luau context with the pinned analyzer, or check the engine type generation.",
 	usage = USAGE,
 	values = { "solver", "files", "flag", "definitions", "creator-docs" },
-	cases = function(): { Case.Case }
-		local list = cases()
-		table.insert(list, {
-			name = "the analyzers accept native and Lute types and reject planted scalar faults",
-			run = function(): string?
-				prepare()
-				local code = 0
-				for _, solver in { "old", "new" } do
-					code = math.max(code, liveSelftest(flagsFor(solver, {})))
-				end
-				return Case.equal(code, 0, "types selftest")
-			end,
-		})
-		return list
+	register = function(harness: Verify.Harness, prefix: string)
+		register(harness, prefix)
+		local name = "the analyzers accept native and Lute types and reject planted scalar faults"
+		for _, solver in { "old", "new" } do
+			harness:case(prefix .. "analyzer " .. solver .. "::" .. name, {
+				id = prefix .. name .. (if solver == "old" then "" else " (new solver)"),
+				run = function()
+					prepare()
+					Verify.expect(liveSelftest(flagsFor(solver, {}))):toBe(0)
+				end,
+			})
+		end
 	end,
 	run = run,
 }

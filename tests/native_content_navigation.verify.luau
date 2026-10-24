@@ -29,6 +29,9 @@ return function(verifyHarness: Verify.Harness)
 	local function openMenu(world: any, select: boolean?)
 		local trigger = world.find("Trigger")
 		if select then
+			world.input.GetLastInputType = function()
+				return world.engine.types.Enum.UserInputType.Keyboard
+			end
 			world.gui.SelectedObject = trigger
 		end
 		trigger.Activated:Fire()
@@ -52,14 +55,14 @@ return function(verifyHarness: Verify.Harness)
 
 	local function place(world: any, panel: any, triggerAt: Vector2, triggerSize: Vector2, panelSize: Vector2)
 		local trigger = world.find("Trigger")
-		trigger.AbsolutePosition = triggerAt
-		trigger.AbsoluteSize = triggerSize
+		world.engine.environment.poke(trigger, "AbsolutePosition", triggerAt)
+		world.engine.environment.poke(trigger, "AbsoluteSize", triggerSize)
 		local modal = panel.Parent
 		while modal and modal.Parent and modal.Parent ~= world.screen and modal.Parent.ClassName ~= "ScreenGui" do
 			modal = modal.Parent
 		end
-		modal.AbsoluteSize = world.V2(800, 600)
-		panel.AbsoluteSize = panelSize
+		world.engine.environment.poke(modal, "AbsoluteSize", world.V2(800, 600))
+		world.engine.environment.poke(panel, "AbsoluteSize", panelSize)
 	end
 
 	verifyHarness:suite("native content navigation deltas", function()
@@ -91,7 +94,7 @@ return function(verifyHarness: Verify.Harness)
 				local panel = openMenu(world)
 				place(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 400))
 				local rows = panel:FindFirstChild("MenuRows", true)
-				rows.AbsoluteSize = Vector2.new(220, 201 * 44)
+				world.engine.environment.poke(rows, "AbsoluteSize", Vector2.new(220, 201 * 44))
 				Verify.expect((panel:FindFirstChild("MenuScroll", true):IsA("ScrollingFrame"))):toBe(true)
 				Verify.expect(panel.Size.Y.Offset <= 600 - 24):toBe(true)
 				Verify.expect(world.find("y201", panel) ~= nil):toBe(true)
@@ -115,13 +118,13 @@ return function(verifyHarness: Verify.Harness)
 				local pitch = 44 + rows:FindFirstChildWhichIsA("UIListLayout").Padding.Offset
 				for _, row in rows:GetChildren() do
 					if row:IsA("GuiObject") then
-						row.AbsoluteSize = Vector2.new(220, 44)
+						world.engine.environment.poke(row, "AbsoluteSize", Vector2.new(220, 44))
 					end
 				end
-				rows.AbsoluteSize = Vector2.new(220, 201 * pitch)
+				world.engine.environment.poke(rows, "AbsoluteSize", Vector2.new(220, 201 * pitch))
 				local scroller = panel:FindFirstChild("MenuScroll", true)
-				panel.AbsoluteSize = Vector2.new(220, 400)
-				scroller.AbsoluteSize = Vector2.new(220, 400)
+				world.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(220, 400))
+				world.engine.environment.poke(scroller, "AbsoluteSize", Vector2.new(220, 400))
 				local center = scroller.CanvasPosition.Y + 400 / 2
 				local inset = rows:FindFirstChildWhichIsA("UIPadding")
 				local top = if inset then inset.PaddingTop.Offset else 0
@@ -156,21 +159,21 @@ return function(verifyHarness: Verify.Harness)
 				local layout = rows:FindFirstChildWhichIsA("UIListLayout")
 				local gap = layout.Padding.Offset
 				local pitch = 44 + gap
-				chosen.AbsoluteSize = Vector2.new(220, 44)
-				rows.AbsoluteSize = Vector2.new(220, 201 * pitch)
+				world.engine.environment.poke(chosen, "AbsoluteSize", Vector2.new(220, 44))
+				world.engine.environment.poke(rows, "AbsoluteSize", Vector2.new(220, 201 * pitch))
 				local scroller = panel:FindFirstChild("MenuScroll", true)
-				panel.AbsoluteSize = Vector2.new(220, 400)
-				scroller.AbsoluteSize = Vector2.new(220, 400)
+				world.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(220, 400))
+				world.engine.environment.poke(scroller, "AbsoluteSize", Vector2.new(220, 400))
 				local inset = rows:FindFirstChildWhichIsA("UIPadding")
 				local pad = if inset then inset.PaddingTop.Offset else 0
 				Verify.expect(scroller.CanvasPosition.Y):toBe(math.max(0, pad + 100 * gap + 22 - 200))
-				rows.AbsolutePosition = Vector2.new(0, -scroller.CanvasPosition.Y)
+				world.engine.environment.poke(rows, "AbsolutePosition", Vector2.new(0, -scroller.CanvasPosition.Y))
 				for _, row in rows:GetChildren() do
 					if row:IsA("GuiObject") then
-						row.AbsoluteSize = Vector2.new(220, 44)
+						world.engine.environment.poke(row, "AbsoluteSize", Vector2.new(220, 44))
 					end
 				end
-				layout.AbsoluteContentSize = Vector2.new(220, 201 * pitch)
+				world.engine.environment.poke(layout, "AbsoluteContentSize", Vector2.new(220, 201 * pitch))
 				local center = scroller.CanvasPosition.Y + 400 / 2
 				local inset = rows:FindFirstChildWhichIsA("UIPadding")
 				local top = if inset then inset.PaddingTop.Offset else 0
@@ -196,7 +199,11 @@ return function(verifyHarness: Verify.Harness)
 				})
 				local panel = openMenu(world)
 				place(world, panel, Vector2.new(100, 100), Vector2.new(200, 40), Vector2.new(220, 200))
-				panel:FindFirstChild("MenuRows", true).AbsoluteSize = Vector2.new(220, 20 * 44)
+				world.engine.environment.poke(
+					panel:FindFirstChild("MenuRows", true),
+					"AbsoluteSize",
+					Vector2.new(220, 20 * 44)
+				)
 				Verify.expect(panel.Size.Y.Offset <= 200):toBe(true)
 				local last = world.find("row20", panel)
 				Verify.expect(last ~= nil):toBe(true)
@@ -464,11 +471,11 @@ return function(verifyHarness: Verify.Harness)
 				size = feed.TextSize
 				Verify.expect(size):toBe(17)
 				Verify.expect(feed:HasTag("facet-button-tight")):toBe(true)
-				feed.TextFits = false
-				feed.TextBounds = Vector2.new(99, 16)
+				world.engine.environment.poke(feed, "TextFits", false)
+				world.engine.environment.poke(feed, "TextBounds", Vector2.new(99, 16))
 				Verify.expect(feed.TextSize):toBe(size - 1)
-				feed.TextFits = true
-				feed.TextBounds = Vector2.new(98, 15)
+				world.engine.environment.poke(feed, "TextFits", true)
+				world.engine.environment.poke(feed, "TextBounds", Vector2.new(98, 15))
 				Verify.expect(feed.TextSize):toBe(size - 1)
 				world.resize(feed, 400, 44)
 				Verify.expect(feed.TextSize):toBe(18)
@@ -546,10 +553,10 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, { motionLevel = "none" })
 				local tabs = world.find("Tabs")
-				tabs.AbsoluteWindowSize = Vector2.new(300, 44)
-				tabs.AbsoluteCanvasSize = Vector2.new(300, 44)
+				world.engine.environment.poke(tabs, "AbsoluteWindowSize", Vector2.new(300, 44))
+				world.engine.environment.poke(tabs, "AbsoluteCanvasSize", Vector2.new(300, 44))
 				Verify.expect(tabs.ClipsDescendants):toBe(false)
-				tabs.AbsoluteCanvasSize = Vector2.new(420, 44)
+				world.engine.environment.poke(tabs, "AbsoluteCanvasSize", Vector2.new(420, 44))
 				Verify.expect(tabs.ClipsDescendants):toBe(true)
 				world.stop()
 			end,
@@ -607,10 +614,10 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, { motionLevel = "none" })
 				local outer = world.find("Outer")
-				outer.AbsoluteSize = Vector2.new(390, 800)
+				world.engine.environment.poke(outer, "AbsoluteSize", Vector2.new(390, 800))
 				shown:set(true)
 				local innerView = world.find("Inner")
-				innerView.AbsoluteSize = Vector2.new(390, 700)
+				world.engine.environment.poke(innerView, "AbsoluteSize", Vector2.new(390, 700))
 				local innerTabs = innerView:FindFirstChild("TabBand")
 				Verify.expect(innerTabs.Position.Y.Scale):toBe(0)
 				Verify.expect(innerTabs.Position.Y.Offset):toBe(0)

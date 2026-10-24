@@ -1,4 +1,6 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -12,9 +14,9 @@ return function(verifyHarness: Verify.Harness)
 
 	local LONG = "Coastal circuit, reverse layout, lap fourteen"
 
-	local function place(node: any)
-		node.AbsolutePosition = Vector2.new(300, 200)
-		node.AbsoluteSize = Vector2.new(80, 44)
+	local function place(node: any, environment: VerifyRoblox.Environment)
+		environment.poke(node, "AbsolutePosition", Vector2.new(300, 200))
+		environment.poke(node, "AbsoluteSize", Vector2.new(80, 44))
 	end
 
 	local function longPress(w: any, node: any)
@@ -42,7 +44,7 @@ return function(verifyHarness: Verify.Harness)
 					},
 				})
 			end, { motionLevel = "none" })
-			place(w.find("Post"))
+			place(w.find("Post"), w.engine.environment)
 			return w, count
 		end
 
@@ -50,7 +52,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_overlay_reach::help reachability: every input class can open every help::a keyboard selection lands on the button",
 			run = function()
 				local w = helped()
-				w.input.PreferredInput = w.Enum.PreferredInput.KeyboardAndMouse
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.KeyboardAndMouse)
 				w.gui.SelectedObject = w.find("Post")
 				w.advance(0.5)
 				Verify.expect(w.find("HelpText") ~= nil):toBe(true)
@@ -62,9 +64,9 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_overlay_reach::help reachability: every input class can open every help::a touch long-press opens it at once, and the next tap closes it",
 			run = function()
 				local w, count = helped()
-				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 				local post = w.find("Post")
-				post.GuiState = w.Enum.GuiState.Hover
+				w.engine.environment.poke(post, "GuiState", w.Enum.GuiState.Hover)
 				w.advance(0.5)
 				Verify.expect((w.find("HelpText"))):toBeNil()
 				longPress(w, post)
@@ -86,7 +88,7 @@ return function(verifyHarness: Verify.Harness)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({ Name = "Screen", UI.Text "Name"(spec) })
 			end, { motionLevel = "none" })
-			place(w.find("Name"))
+			place(w.find("Name"), w.engine.environment)
 			return w
 		end
 
@@ -96,9 +98,9 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_overlay_reach::full-value disclosure of truncated text::touch long-press on a truncated label shows it until the next tap (the label is not Active, so the engine long-press is hit-tested)",
 				run = function()
 					local w = label({ text = LONG, truncate = "end" :: "end", disclose = true })
-					w.input.PreferredInput = w.Enum.PreferredInput.Touch
+					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 					local name = w.find("Name")
-					name.TextFits = false
+					w.engine.environment.poke(name, "TextFits", false)
 					longPress(w, name)
 					Verify.expect((w.find("Disclosure"))):toBeNil()
 					w.input.TouchLongPress:Fire({ Vector2.new(500, 500) }, w.Enum.UserInputState.Begin, false)
@@ -126,9 +128,9 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end, { motionLevel = "none" })
-				place(w.find("Name"))
-				w.find("Name").TextFits = false
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				place(w.find("Name"), w.engine.environment)
+				w.engine.environment.poke(w.find("Name"), "TextFits", false)
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.gui.SelectedObject = w.find("Row")
 				w.advance(0.5)
 				Verify.expect(w.find("HelpText").Text):toBe(LONG)
@@ -146,8 +148,8 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, { motionLevel = "none" })
 				local post = w.find("Post")
-				place(post)
-				post.TextFits = false
+				place(post, w.engine.environment)
+				w.engine.environment.poke(post, "TextFits", false)
 				w.gui.SelectedObject = post
 				w.advance(0.5)
 				local texts = {}
@@ -155,7 +157,7 @@ return function(verifyHarness: Verify.Harness)
 					table.insert(texts, node.Text)
 				end
 				Verify.expect(texts):toEqual({ LONG })
-				post.TextFits = true
+				w.engine.environment.poke(post, "TextFits", true)
 				w.advance(0.5)
 				texts = {}
 				for _, node in w.findAll("HelpText") do
@@ -186,13 +188,13 @@ return function(verifyHarness: Verify.Harness)
 							})
 						end, { motionLevel = "none" })
 						local music = w.find("Music")
-						place(music)
+						place(music, w.engine.environment)
 						local title = music:FindFirstChild("Title", true)
-						music.TextFits = title ~= nil
+						w.engine.environment.poke(music, "TextFits", title ~= nil)
 						if title then
-							title.TextFits = false
+							w.engine.environment.poke(title, "TextFits", false)
 						end
-						w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+						w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 						w.gui.SelectedObject = music
 						w.advance(0.5)
 						local help = w.find("HelpText")
@@ -217,8 +219,8 @@ return function(verifyHarness: Verify.Harness)
 			end, { motionLevel = if reduced then "none" else "normal" })
 			for index = 1, count do
 				local name = w.find("Name" .. index)
-				place(name)
-				name.TextFits = false
+				place(name, w.engine.environment)
+				w.engine.environment.poke(name, "TextFits", false)
 			end
 			return w
 		end
@@ -239,7 +241,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(full.Text):toBe(LONG)
 				Verify.expect(full.Size.Y.Scale == 1 and full.AutomaticSize == w.Enum.AutomaticSize.X):toBe(true)
 				Verify.expect(name:FindFirstChild("RevealHold") ~= nil):toBe(true)
-				window.AbsoluteSize, full.AbsoluteSize = Vector2.new(80, 20), Vector2.new(320, 20)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(window), "AbsoluteSize", Vector2.new(80, 20))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(full), "AbsoluteSize", Vector2.new(320, 20))
 				w.advance(1, 60)
 				Verify.expect(full.Position.X.Scale < 0):toBe(true)
 				w.advance(10.5, 630)
@@ -261,13 +264,17 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((reduced.find("Reveal"))):toBeNil()
 					reduced.stop()
 					local fits = revealing(1, false)
-					fits.find("Name1").TextFits = true
+					fits.engine.environment.poke(fits.find("Name1"), "TextFits", true)
 					fits.advance(2, 120)
 					Verify.expect((fits.find("Reveal"))):toBeNil()
 					fits.stop()
 					local plate = revealing(1, false)
-					plate.input.PreferredInput = plate.Enum.PreferredInput.KeyboardAndMouse
-					plate.find("Name1").GuiState = plate.Enum.GuiState.Hover
+					plate.engine.environment.poke(
+						plate.input,
+						"PreferredInput",
+						plate.Enum.PreferredInput.KeyboardAndMouse
+					)
+					plate.engine.environment.poke(plate.find("Name1"), "GuiState", plate.Enum.GuiState.Hover)
 					plate.advance(2, 120)
 					Verify.expect(plate.find("HelpText").Text):toBe(LONG)
 					Verify.expect((plate.find("Reveal"))):toBeNil()

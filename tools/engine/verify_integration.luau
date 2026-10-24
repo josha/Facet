@@ -328,7 +328,8 @@ harness:suite("Facet live CI policy", function()
 				return { status = "returned", report = report }
 			end,
 		}
-		local environment: { [string]: unknown } = {
+		local environment: { [string]: unknown }
+		environment = {
 			print = function() end,
 			require = function(module: string): unknown
 				if module == "@std/fs" then
@@ -362,6 +363,10 @@ harness:suite("Facet live CI policy", function()
 					return native
 				elseif module == "../../vendor/verify/src/core" then
 					return Verify
+				elseif module == "../lib/live_project" then
+					return Lute.chunk.load(fs.readFileToString("tools/facet/lib/live_project.luau"), {
+						environment = environment,
+					})()
 				elseif module == "../../studio/live/attachment_limits" then
 					return {}
 				end

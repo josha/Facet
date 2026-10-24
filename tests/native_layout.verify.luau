@@ -24,7 +24,7 @@ return function(verifyHarness: Verify.Harness)
 		local engine, fixture = engineLib.new(engineOptions)
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = (engine.new("GuiService") :: unknown) :: GuiService
-		engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetGuiInset", function()
+		engine.environment.fakeOn(VerifyRoblox.assertInstance(gui), "GetGuiInset", function()
 			return engine.types.Vector2.zero, engine.types.Vector2.zero
 		end)
 		local config: { [string]: any } = { types = engine.types, guiService = gui, services = { GuiService = gui } }
@@ -572,10 +572,10 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local V = engine.types.Vector2
-				holder.AbsoluteSize = V.new(800, 600)
+				engine.environment.poke(holder, "AbsoluteSize", V.new(800, 600))
 				local marker = holder:FindFirstChild("Marker")
 				local arrow = marker:FindFirstChild("Arrow", true)
-				marker.AbsoluteSize = V.new(40, 20)
+				engine.environment.poke(marker, "AbsoluteSize", V.new(40, 20))
 				local function at(): (number, number)
 					return marker.Position.X.Offset, marker.Position.Y.Offset
 				end
@@ -719,16 +719,16 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Text { text = text }
 				end)
 				local floor = root:FindFirstChild("TextBoundsFloor")
-				root.TextBounds = engine.types.Vector2.new(100, 20)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(100, 20))
 				Verify.expect(floor.MinSize.X):toBe(100)
 				text:set("1,000,001")
-				root.TextBounds = engine.types.Vector2.new(96, 20)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(96, 20))
 				Verify.expect(floor.MinSize.X):toBe(100)
 				text:set("12")
-				root.TextBounds = engine.types.Vector2.new(14, 20)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(14, 20))
 				Verify.expect(floor.MinSize.X):toBe(14)
 				text:set("19")
-				root.TextBounds = engine.types.Vector2.new(13, 20)
+				engine.environment.poke(root, "TextBounds", engine.types.Vector2.new(13, 20))
 				Verify.expect(floor.MinSize.X):toBe(14)
 				stop()
 			end,
@@ -1251,7 +1251,7 @@ return function(verifyHarness: Verify.Harness)
 						local gui = (engine.new("GuiService") :: unknown) :: GuiService
 						local T = engine.types
 						local insetTop = if ignoresInset then 58 else 36
-						engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetGuiInset", function()
+						engine.environment.fakeOn(VerifyRoblox.assertInstance(gui), "GetGuiInset", function()
 							return T.Vector2.new(0, insetTop), T.Vector2.zero
 						end)
 						engine.environment.poke(gui, "TopbarInset", T.Rect.new(104, 0, 1000, 58))
@@ -1294,7 +1294,7 @@ return function(verifyHarness: Verify.Harness)
 					local gui = (engine.new("GuiService") :: unknown) :: GuiService
 					local T = engine.types
 					local inset = 30
-					engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetGuiInset", function()
+					engine.environment.fakeOn(VerifyRoblox.assertInstance(gui), "GetGuiInset", function()
 						return T.Vector2.new(0, inset), T.Vector2.zero
 					end)
 					engine.environment.poke(gui, "TopbarInset", T.Rect.new(104, 0, 1000, 58))
@@ -1331,16 +1331,12 @@ return function(verifyHarness: Verify.Harness)
 					local gui = (engine.new("GuiService") :: unknown) :: GuiService
 					local input = (engine.new("UserInputService") :: unknown) :: UserInputService
 					local T = engine.types
-					engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetGuiInset", function()
+					engine.environment.fakeOn(VerifyRoblox.assertInstance(gui), "GetGuiInset", function()
 						return T.Vector2.new(0, 58), T.Vector2.zero
 					end)
-					engine.environment.fakeOn(
-						(input :: unknown) :: VerifyRoblox.Instance,
-						"GetLastInputType",
-						function()
-							return T.Enum.UserInputType.Keyboard
-						end
-					)
+					engine.environment.fakeOn(VerifyRoblox.assertInstance(input), "GetLastInputType", function()
+						return T.Enum.UserInputType.Keyboard
+					end)
 					engine.environment.poke(gui, "TopbarInset", T.Rect.new(104, 0, 1000, 58))
 					engine.environment.poke(gui, "ViewportDisplaySize", T.Enum.DisplaySize.Large)
 					local UI = Facet.controls(
@@ -1399,12 +1395,12 @@ return function(verifyHarness: Verify.Harness)
 					end, layer)
 					engine.environment.poke(root, "AbsoluteSize", layer.AbsoluteSize)
 					engine.environment.poke(
-						(nested :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(nested),
 						"AbsoluteSize",
 						T.Vector2.new(1700, 900)
 					)
 					engine.environment.poke(
-						(nested :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(nested),
 						"AbsolutePosition",
 						T.Vector2.new(100, 100)
 					)
@@ -1414,7 +1410,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(inner.PaddingTop):toBe(T.UDim.new(0, 0))
 					Verify.expect(inner.PaddingLeft):toBe(T.UDim.new(0, 0))
 					engine.environment.poke(
-						(nested :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(nested),
 						"AbsolutePosition",
 						T.Vector2.new(30, 20)
 					)

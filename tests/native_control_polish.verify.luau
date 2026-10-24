@@ -292,8 +292,8 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local row = find(w.screen, "P")
-				find(row, "Unit").AbsoluteSize = w.V2.new(1.25, 1.25)
-				row.AbsoluteSize = w.V2.new(375, 60)
+				w.engine.environment.poke(find(row, "Unit"), "AbsoluteSize", w.V2.new(1.25, 1.25))
+				w.engine.environment.poke(row, "AbsoluteSize", w.V2.new(375, 60))
 				local options = find(row, "Options")
 				local segment = find(options, "easy"):FindFirstChildWhichIsA("UISizeConstraint")
 				expect(segment.MaxSize.X):toBe(300 - 6)
@@ -406,18 +406,18 @@ return function(verifyHarness: Verify.Harness)
 					return styleRules.resolve(sheet, key, "PaddingLeft", "UIPadding").Offset
 				end
 				expect((inset())):toBe(12)
-				key.AbsoluteSize = w.V2.new(31, 44)
-				key.TextFits = false
+				w.engine.environment.poke(key, "AbsoluteSize", w.V2.new(31, 44))
+				w.engine.environment.poke(key, "TextFits", false)
 				expect((key:HasTag("facet-button-tight"))):toBe(true)
 				expect((inset())):toBe(0)
-				key.TextFits = true
+				w.engine.environment.poke(key, "TextFits", true)
 				expect((key:HasTag("facet-button-tight"))):toBe(true)
-				key.AbsoluteSize = w.V2.new(120, 44)
+				w.engine.environment.poke(key, "AbsoluteSize", w.V2.new(120, 44))
 				expect((key:HasTag("facet-button-tight"))):toBe(false)
-				key.AbsoluteSize = w.V2.new(30, 44)
-				key.TextFits = false
+				w.engine.environment.poke(key, "AbsoluteSize", w.V2.new(30, 44))
+				w.engine.environment.poke(key, "TextFits", false)
 				expect((key:HasTag("facet-button-tight"))):toBe(true)
-				key.TextFits = true
+				w.engine.environment.poke(key, "TextFits", true)
 				for _, arrive in
 					{
 						function()
@@ -433,18 +433,18 @@ return function(verifyHarness: Verify.Harness)
 				do
 					arrive()
 					expect((key:HasTag("facet-button-tight"))):toBe(true)
-					key.AbsoluteSize = w.V2.new(120, 44)
+					w.engine.environment.poke(key, "AbsoluteSize", w.V2.new(120, 44))
 					expect((key:HasTag("facet-button-tight"))):toBe(false)
-					key.AbsoluteSize = w.V2.new(30, 44)
-					key.TextFits = false
+					w.engine.environment.poke(key, "AbsoluteSize", w.V2.new(30, 44))
+					w.engine.environment.poke(key, "TextFits", false)
 					expect((key:HasTag("facet-button-tight"))):toBe(true)
-					key.TextFits = true
+					w.engine.environment.poke(key, "TextFits", true)
 				end
-				key.TextFits = false
+				w.engine.environment.poke(key, "TextFits", false)
 				key.AutomaticSize = w.E.AutomaticSize.X
 				expect((key:HasTag("facet-button-tight"))):toBe(false)
-				key.TextFits = true
-				key.TextFits = false
+				w.engine.environment.poke(key, "TextFits", true)
+				w.engine.environment.poke(key, "TextFits", false)
 				expect((key:HasTag("facet-button-tight"))):toBe(false)
 				w.stop()
 			end,
@@ -464,12 +464,12 @@ return function(verifyHarness: Verify.Harness)
 				end, { theme = selectedTheme })
 				local key = find(w.screen, "Key")
 				local label = find(key, "Label")
-				key.AbsoluteSize = w.V2.new(31, 44)
-				key.TextFits = true
-				label.TextFits = false
+				w.engine.environment.poke(key, "AbsoluteSize", w.V2.new(31, 44))
+				w.engine.environment.poke(key, "TextFits", true)
+				w.engine.environment.poke(label, "TextFits", false)
 				expect(key:HasTag("facet-button-tight")):toBe(true)
-				label.TextFits = true
-				key.AbsoluteSize = w.V2.new(120, 44)
+				w.engine.environment.poke(label, "TextFits", true)
+				w.engine.environment.poke(key, "AbsoluteSize", w.V2.new(120, 44))
 				expect(key:HasTag("facet-button-tight")):toBe(false)
 				w.stop()
 			end,
@@ -491,16 +491,16 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				})
 				local tab = find(w.screen, "Tab")
-				tab.AbsoluteSize = w.V2.new(44, 44)
-				tab.TextFits = false
+				w.engine.environment.poke(tab, "AbsoluteSize", w.V2.new(44, 44))
+				w.engine.environment.poke(tab, "TextFits", false)
 				expect((tab:HasTag("facet-button-tight"))):toBe(true)
 				live = true
-				tab.AbsoluteSize = w.V2.new(94, 44)
+				w.engine.environment.poke(tab, "AbsoluteSize", w.V2.new(94, 44))
 				tab.TextSize = 18
 				expect((tab:HasTag("facet-button-tight"))):toBe(false)
 				live = nil
-				tab.TextFits = true
-				tab.TextFits = false
+				w.engine.environment.poke(tab, "TextFits", true)
+				w.engine.environment.poke(tab, "TextFits", false)
 				expect((tab:HasTag("facet-button-tight"))):toBe(true)
 				tab.FontFace = w.engine.types.Font.fromName("Gotham")
 				expect((tab:HasTag("facet-button-tight"))):toBe(true)

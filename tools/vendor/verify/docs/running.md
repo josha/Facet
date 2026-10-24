@@ -382,3 +382,9 @@ These defaults depend on the platform:
 | Studio MCP executable | `/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP` | `StudioMCP.exe` in the same directory | `mcpExecutable` |
 | Player launcher | `/Applications/Roblox.app`, `/usr/bin/open`, `/usr/bin/pgrep`, `/bin/ps`, `/usr/sbin/lsof` | None | `backend` |
 | Run directories | `/tmp/verify-studio`, `/tmp/verify-studio-attach`, `/tmp/verify-studio-launch` | `verify-studio`, `verify-studio-attach` and `verify-studio-launch` in the system temporary directory | `directory` |
+
+## Capture native text metrics
+
+Run `lute run tools/capture-text-metrics.luau <out.json> <font-family> [weight] [style]` with a native Studio host. Use a complete font family URL, such as `rbxasset://fonts/families/BuilderSans.json`. The command records all supported sizes and checks unseen text against the native service. It writes `<out.json>.report.json` for the run. It writes font facts only when the comparisons pass.
+
+The default Lute fixture reads committed facts from `src/lute/fixtures/text`. Keep font source files out of that directory. `lute run tools/gate.luau --native` compares every committed face with the current native service. It also runs the same text layout assertions under Studio that the headless suite runs under the double. These comparisons cover the declared text grammar and layout cases.

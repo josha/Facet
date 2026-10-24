@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 local styleProperties = require("./lib/style_properties")
 
@@ -59,10 +60,11 @@ return function(verifyHarness: Verify.Harness)
 		card.MouseLeave:Fire()
 	end
 
-	local function rate(node, value: number, types)
+	local function rate(node, value: number, engine: engineModule.Engine)
+		local types = engine.types
 		local control = find(node, "Stars")
-		control.AbsolutePosition = types.Vector2.new(0, 0)
-		control.AbsoluteSize = types.Vector2.new(220, 44)
+		engine.environment.poke(control, "AbsolutePosition", types.Vector2.new(0, 0))
+		engine.environment.poke(control, "AbsoluteSize", types.Vector2.new(220, 44))
 		control.Activated:Fire({ Position = types.Vector3.new((value - 0.5) * 44, 20, 0) })
 	end
 
@@ -100,7 +102,7 @@ return function(verifyHarness: Verify.Harness)
 			}
 			if size then
 				local workspace, camera = engine.new("Workspace"), engine.new("Camera")
-				camera.ViewportSize = engine.types.Vector2.new(size[1], size[2])
+				engine.environment.poke(camera, "ViewportSize", engine.types.Vector2.new(size[1], size[2]))
 				workspace.CurrentCamera = camera
 				config.services.Workspace = workspace
 			end
@@ -279,7 +281,7 @@ return function(verifyHarness: Verify.Harness)
 					find(find(discovery, "Search"), "Editor").Text = "Circuit"
 					Verify.expect((model.query:peek())):toBe("Circuit")
 					local grid = find(discovery, "Games")
-					grid.AbsoluteWindowSize = engine.types.Vector2.new(850, 260)
+					engine.environment.poke(grid, "AbsoluteWindowSize", engine.types.Vector2.new(850, 260))
 					Verify.expect(find(discovery, "Game_2") ~= nil):toBe(true)
 					Verify.expect((find(find(discovery, "Game_2"), "Body"):HasTag("facet-panel"))):toBe(true)
 					Verify.expect((find(find(discovery, "Game_2"), "Caption"):HasTag("facet-secondary"))):toBe(true)
@@ -313,7 +315,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					private.Activated:Fire()
 					Verify.expect(model.launch:peek().mode):toBe("Starting a private server")
-					rate(target, 3, engine.types)
+					rate(target, 3, engine)
 					Verify.expect(model.ratings:peek()["2"]):toBe(3)
 					find(find(target, "DetailSection"), "similar").Activated:Fire()
 					find(target, "Similar_8").Activated:Fire()
@@ -322,7 +324,11 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((model.selectedGame:peek())):toBe(nil)
 					find(discovery, "Saved").Activated:Fire()
 					local saved = find(discovery, "SavedGames")
-					find(saved, "Body").AbsoluteWindowSize = engine.types.Vector2.new(850, 260)
+					engine.environment.poke(
+						find(saved, "Body"),
+						"AbsoluteWindowSize",
+						engine.types.Vector2.new(850, 260)
+					)
 					Verify.expect(find(find(saved, "Header"), "genre") ~= nil):toBe(true)
 					local note = find(saved, "Note_2")
 					note:CaptureFocus()
@@ -361,7 +367,11 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect((model.focused:peek())):toBe("Overview")
 						Verify.expect(find(node, "Focus").Text):toBe("Focus")
 					end
-					find(discover, "Games").AbsoluteWindowSize = world.types.Vector2.new(820, 260)
+					world.engine.environment.poke(
+						find(discover, "Games"),
+						"AbsoluteWindowSize",
+						world.types.Vector2.new(820, 260)
+					)
 					saveCard(find(discover, "Game_1"))
 					Verify.expect((next(model.saved:peek()))):toBe(nil)
 					find(discover, "WakeMonitor").Activated:Fire()
@@ -385,7 +395,7 @@ return function(verifyHarness: Verify.Harness)
 					local body, rotation = find(avatar, "AvatarBody"), find(avatar, "Rotation")
 					local preview, settings = find(avatar, "PreviewPanel"), find(avatar, "AvatarSettings")
 					for _, width in { 920, 760, 759, 393, 360, 320, 920 } do
-						body.AbsoluteSize = types.Vector2.new(width, 610)
+						world.engine.environment.poke(body, "AbsoluteSize", types.Vector2.new(width, 610))
 						Verify.expect((find(avatar, "Rotation"))):toBe(rotation)
 						Verify.expect(find(avatar, "SettingsPage").ScrollingDirection)
 							:toBe(types.Enum.ScrollingDirection.Y)
@@ -419,7 +429,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					Verify.expect((settings:HasTag("facet-panel"))):toBe(true)
 					Verify.expect((preview:HasTag("facet-panel"))):toBe(true)
-					body.AbsoluteSize = types.Vector2.new(393, 610)
+					world.engine.environment.poke(body, "AbsoluteSize", types.Vector2.new(393, 610))
 					model.palette:set("iris")
 					model.hat:set(false)
 					model.turnStep:set(45)
@@ -480,7 +490,7 @@ return function(verifyHarness: Verify.Harness)
 				withScreens(function(world)
 					local discover, model, types = world.Discover, world.model, world.types
 					local body = find(discover, "DiscoverBody")
-					body.AbsoluteSize = types.Vector2.new(1000, 800)
+					world.engine.environment.poke(body, "AbsoluteSize", types.Vector2.new(1000, 800))
 					local featured = find(discover, "Featured")
 					local pages = find(featured, "Pages")
 					Verify.expect(pages.ClassName):toBe("ScrollingFrame")
@@ -493,7 +503,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(model.selectedGame:peek().id):toBe("2")
 					find(world.target, "close").Activated:Fire()
 					local search = find(discover, "Search")
-					body.AbsoluteSize = types.Vector2.new(390, 410)
+					world.engine.environment.poke(body, "AbsoluteSize", types.Vector2.new(390, 410))
 					Verify.expect((find(discover, "Featured"))):toBe(nil)
 					Verify.expect((find(discover, "Search"))):toBe(search)
 					Verify.expect(search.Size.Y.Offset):toBe(44)
@@ -529,7 +539,7 @@ return function(verifyHarness: Verify.Harness)
 					find(find(world.target, "MenuPanel"), "2").Activated:Fire()
 					Verify.expect(model.selectedGame:peek().id):toBe("2")
 					find(world.target, "close").Activated:Fire()
-					discover.AbsoluteSize = types.Vector2.new(393, 690)
+					world.engine.environment.poke(discover, "AbsoluteSize", types.Vector2.new(393, 690))
 					Verify.expect(find(discover, "Chrome").Visible):toBe(false)
 					local more = find(discover, "ActionsMenu")
 					Verify.expect((more:GetAttribute("label"))):toBe("Menu")
@@ -557,8 +567,8 @@ return function(verifyHarness: Verify.Harness)
 						local header, genres = find(discover, "Header"), find(discover, "Genres")
 						local controls, shelves = find(discover, "SearchControls"), find(discover, "Shelves")
 						Verify.expect(shelves.Parent):toBe(controls)
-						discover.AbsoluteSize = types.Vector2.new(574, 369)
-						body.AbsoluteSize = types.Vector2.new(542, 300)
+						world.engine.environment.poke(discover, "AbsoluteSize", types.Vector2.new(574, 369))
+						world.engine.environment.poke(body, "AbsoluteSize", types.Vector2.new(542, 300))
 						Verify.expect(find(controls, "Search").Size.X.Scale):toBe(0)
 						Verify.expect(find(controls, "Sort").Size):toBe(types.UDim2.fromOffset(150, 44))
 						Verify.expect(shelves.Size.X.Scale):toBe(0)
@@ -566,7 +576,7 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(find(shelves, "Count").Visible):toBe(false)
 						Verify.expect(header.Visible):toBe(true)
 						local grid = find(discover, "Games")
-						grid.AbsoluteWindowSize = types.Vector2.new(542, 180)
+						world.engine.environment.poke(grid, "AbsoluteWindowSize", types.Vector2.new(542, 180))
 						grid.CanvasPosition = types.Vector2.new(0, 30)
 						Verify.expect(header.Visible):toBe(true)
 						grid.CanvasPosition = types.Vector2.new(0, 120)
@@ -583,15 +593,15 @@ return function(verifyHarness: Verify.Harness)
 						model.shelf:set("saved")
 						Verify.expect(header.Visible):toBe(true)
 						model.shelf:set("browse")
-						discover.AbsoluteSize = types.Vector2.new(390, 780)
-						body.AbsoluteSize = types.Vector2.new(358, 640)
+						world.engine.environment.poke(discover, "AbsoluteSize", types.Vector2.new(390, 780))
+						world.engine.environment.poke(body, "AbsoluteSize", types.Vector2.new(358, 640))
 						Verify.expect(header.Visible):toBe(true)
 						Verify.expect(find(controls, "Search").Size.X.Scale):toBe(1)
 						Verify.expect(find(controls, "Sort").Size.X.Scale):toBe(1)
 						Verify.expect(shelves.Size.X.Scale):toBe(1)
 						Verify.expect(find(shelves, "Count").Visible):toBe(true)
 						local tall = find(discover, "Games")
-						tall.AbsoluteWindowSize = types.Vector2.new(358, 420)
+						world.engine.environment.poke(tall, "AbsoluteWindowSize", types.Vector2.new(358, 420))
 						tall.CanvasPosition = types.Vector2.new(0, 400)
 						Verify.expect(header.Visible):toBe(true)
 						Verify.expect(genres.Visible):toBe(true)
@@ -607,7 +617,11 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					withScreens(function(world)
 						local discover, model, types = world.Discover, world.model, world.types
-						find(discover, "Games").AbsoluteWindowSize = types.Vector2.new(820, 260)
+						world.engine.environment.poke(
+							find(discover, "Games"),
+							"AbsoluteWindowSize",
+							types.Vector2.new(820, 260)
+						)
 						for _ = 1, 4 do
 							world.engine.heartbeat:Fire(1 / 60)
 						end
@@ -673,7 +687,11 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					withScreens(function(world)
 						local discover, model, types = world.Discover, world.model, world.types
-						find(discover, "Games").AbsoluteWindowSize = types.Vector2.new(820, 260)
+						world.engine.environment.poke(
+							find(discover, "Games"),
+							"AbsoluteWindowSize",
+							types.Vector2.new(820, 260)
+						)
 						local card = engage(find(discover, "Game_3"))
 						find(card, "More").Activated:Fire()
 						local panel = find(world.target, "MenuPanel")
@@ -804,7 +822,11 @@ return function(verifyHarness: Verify.Harness)
 					local first, second = model.catalog.items:peek()[1], model.catalog.items:peek()[2]
 					model.dark:set(false)
 					model.dark:set(true)
-					find(world.Discover, "Games").AbsoluteWindowSize = world.types.Vector2.new(850, 260)
+					world.engine.environment.poke(
+						find(world.Discover, "Games"),
+						"AbsoluteWindowSize",
+						world.types.Vector2.new(850, 260)
+					)
 					find(find(world.Discover, "Game_" .. first.id), "Body").Activated:Fire()
 					Verify.expect((find(world.Discover, "GameDetail"):GetAttribute("FacetError"))):toBe(nil)
 					Verify.expect(find(world.target, "AlertModal") ~= nil):toBe(true)
@@ -864,11 +886,23 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				withScreens(function(world)
 					local discover, model, types = world.Discover, world.model, world.types
-					find(discover, "Games").AbsoluteWindowSize = types.Vector2.new(820, 260)
+					world.engine.environment.poke(
+						find(discover, "Games"),
+						"AbsoluteWindowSize",
+						types.Vector2.new(820, 260)
+					)
 					local shelves = find(discover, "Shelves")
-					shelves.AbsolutePosition, shelves.AbsoluteSize =
-						types.Vector2.new(20, 80), types.Vector2.new(600, 40)
-					nativeDrag.measure(shelves)
+					world.engine.environment.poke(
+						FixtureRoblox.assertInstance(shelves),
+						"AbsolutePosition",
+						types.Vector2.new(20, 80)
+					)
+					world.engine.environment.poke(
+						FixtureRoblox.assertInstance(shelves),
+						"AbsoluteSize",
+						types.Vector2.new(600, 40)
+					)
+					nativeDrag.measure(shelves, world.engine.environment)
 					local card = find(discover, "Game_1")
 					local body, preview = find(card, "Body"), find(card, "Preview")
 					local function dragTo(y: number)
@@ -910,11 +944,23 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				withScreens(function(world)
 					local types, model, input = world.types, world.model, world.input
-					find(world.Discover, "Games").AbsoluteWindowSize = types.Vector2.new(820, 260)
+					world.engine.environment.poke(
+						find(world.Discover, "Games"),
+						"AbsoluteWindowSize",
+						types.Vector2.new(820, 260)
+					)
 					local shelves = find(world.Discover, "Shelves")
-					shelves.AbsolutePosition, shelves.AbsoluteSize =
-						types.Vector2.new(20, 80), types.Vector2.new(600, 40)
-					nativeDrag.measure(shelves)
+					world.engine.environment.poke(
+						FixtureRoblox.assertInstance(shelves),
+						"AbsolutePosition",
+						types.Vector2.new(20, 80)
+					)
+					world.engine.environment.poke(
+						FixtureRoblox.assertInstance(shelves),
+						"AbsoluteSize",
+						types.Vector2.new(600, 40)
+					)
+					nativeDrag.measure(shelves, world.engine.environment)
 					local card = find(world.Discover, "Game_1")
 					local body, preview = find(card, "Body"), find(card, "Preview")
 					local opened, selectGame = 0, model.selectGame
@@ -986,12 +1032,20 @@ return function(verifyHarness: Verify.Harness)
 						local types, model, input = world.types, world.model, world.input
 						local states = types.Enum.UserInputState
 						local games = find(world.Discover, "Games")
-						games.AbsoluteWindowSize = types.Vector2.new(820, 260)
+						world.engine.environment.poke(games, "AbsoluteWindowSize", types.Vector2.new(820, 260))
 						games.ScrollingEnabled = true
 						local shelves = find(world.Discover, "Shelves")
-						shelves.AbsolutePosition, shelves.AbsoluteSize =
-							types.Vector2.new(20, 80), types.Vector2.new(600, 40)
-						nativeDrag.measure(shelves)
+						world.engine.environment.poke(
+							FixtureRoblox.assertInstance(shelves),
+							"AbsolutePosition",
+							types.Vector2.new(20, 80)
+						)
+						world.engine.environment.poke(
+							FixtureRoblox.assertInstance(shelves),
+							"AbsoluteSize",
+							types.Vector2.new(600, 40)
+						)
+						nativeDrag.measure(shelves, world.engine.environment)
 						local card = find(world.Discover, "Game_1")
 						local body, preview = find(card, "Body"), find(card, "Preview")
 						local scroller = preview:FindFirstAncestorWhichIsA("ScrollingFrame")
@@ -1064,11 +1118,11 @@ return function(verifyHarness: Verify.Harness)
 				withScreens(function(world)
 					find(find(world.Avatar, "QuickPalette"), "Launcher").Activated:Fire()
 					local modal = find(world.target, "Modal")
-					modal.AbsoluteSize = world.types.Vector2.new(920, 640)
+					world.engine.environment.poke(modal, "AbsoluteSize", world.types.Vector2.new(920, 640))
 					local panel = find(world.target, "RadialPanel")
 					Verify.expect(find(find(panel, "Sector-iris"), "Paint").Visible):toBe(false)
 					Verify.expect(find(panel, "iris").ClassName):toBe("TextButton")
-					modal.AbsoluteSize = world.types.Vector2.new(320, 420)
+					world.engine.environment.poke(modal, "AbsoluteSize", world.types.Vector2.new(320, 420))
 					Verify.expect(panel.ClassName):toBe("ScrollingFrame")
 					find(panel, "iris").Activated:Fire()
 					Verify.expect((world.model.palette:peek())):toBe("iris")
@@ -1123,7 +1177,7 @@ return function(verifyHarness: Verify.Harness)
 				withScreens(function(world)
 					world.model.selectGame(world.model.catalog.items:peek()[1])
 					Verify.expect(find(world.target, "DetailSceneUnavailable").Text):toBe("Preview unavailable")
-					rate(world.target, 2, world.types)
+					rate(world.target, 2, world.engine)
 					Verify.expect(world.model.ratings:peek()["1"]):toBe(2)
 					find(world.target, "close").Activated:Fire()
 					Verify.expect((world.model.selectedGame:peek())):toBe(nil)
@@ -1153,7 +1207,7 @@ return function(verifyHarness: Verify.Harness)
 					send.Activated:Fire()
 					Verify.expect((send:GetAttribute("label"))):toBe("Stop")
 					local messages = find(chat, "Messages")
-					messages.AbsoluteWindowSize = world.types.Vector2.new(850, 300)
+					world.engine.environment.poke(messages, "AbsoluteWindowSize", world.types.Vector2.new(850, 300))
 					Verify.expect(find(find(chat, "Message_2"), "Thinking") ~= nil):toBe(true)
 					Verify.expect((find(find(chat, "Message_2"), "MessageTools"))):toBe(nil)
 					model.step(0.1, false)
@@ -1230,7 +1284,11 @@ return function(verifyHarness: Verify.Harness)
 					find(chat, "Send").Activated:Fire()
 					find(chat, "Send").Activated:Fire()
 					Verify.expect(#model.chat.messages:peek()):toBe(4)
-					find(chat, "Messages").AbsoluteWindowSize = world.types.Vector2.new(850, 600)
+					world.engine.environment.poke(
+						find(chat, "Messages"),
+						"AbsoluteWindowSize",
+						world.types.Vector2.new(850, 600)
+					)
 					local second = find(chat, "MessageActions_3")
 					second.TouchLongPress:Fire({}, world.types.Enum.UserInputState.Begin)
 					find(world.target, "trailing:EditMessage").Activated:Fire()
@@ -1272,14 +1330,14 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(find(disclaimer, "Message").Text)
 							:toBe("Simulated responses · No messages leave this device")
 						Verify.expect(disclaimer.LayoutOrder < thread.LayoutOrder):toBe(true)
-						body.AbsoluteSize = types.Vector2.new(320, 240)
+						world.engine.environment.poke(body, "AbsoluteSize", types.Vector2.new(320, 240))
 						Verify.expect(prompts.Visible):toBe(false)
 						Verify.expect(disclaimer.Visible):toBe(false)
 						Verify.expect(prompts:FindFirstChildWhichIsA("UIGridLayout").FillDirectionMaxCells):toBe(1)
 						Verify.expect((find(find(chat, "Welcome"), "AssistantIcon"))):toBe(nil)
 						Verify.expect((find(find(chat, "Welcome"), "Hint"))):toBe(nil)
 						Verify.expect(find(chat, "WelcomeQuestion").TextSize):toBe(20)
-						body.AbsoluteSize = types.Vector2.new(1400, 700)
+						world.engine.environment.poke(body, "AbsoluteSize", types.Vector2.new(1400, 700))
 						Verify.expect(prompts.Visible):toBe(true)
 						Verify.expect(disclaimer.Visible):toBe(true)
 						find(chat, "BuildSomething").Activated:Fire()
@@ -1331,7 +1389,7 @@ return function(verifyHarness: Verify.Harness)
 				withScreens(function(world)
 					local model, discover, types = world.model, world.Discover, world.types
 					local grid = find(discover, "Games")
-					grid.AbsoluteWindowSize = types.Vector2.new(850, 260)
+					world.engine.environment.poke(grid, "AbsoluteWindowSize", types.Vector2.new(850, 260))
 					grid.CanvasPosition = types.Vector2.new(0, 2200)
 					model.step(0.1, false)
 					Verify.expect(#model.catalog.items:peek()):toBe(72)
@@ -1348,8 +1406,8 @@ return function(verifyHarness: Verify.Harness)
 					find(discover, "Saved").Activated:Fire()
 					local saved = find(discover, "SavedGames")
 					local body, header = find(saved, "Body"), find(saved, "Header")
-					body.AbsoluteWindowSize = types.Vector2.new(900, 300)
-					nativeDrag.measure(body)
+					world.engine.environment.poke(body, "AbsoluteWindowSize", types.Vector2.new(900, 300))
+					nativeDrag.measure(body, world.engine.environment)
 					for _, column in { "title", "genre", "rating" } do
 						find(find(header, column), "Sort").Activated:Fire()
 						Verify.expect(model.savedSort:peek().column):toBe(column)
@@ -1377,8 +1435,8 @@ return function(verifyHarness: Verify.Harness)
 					find(discover, "Saved").Activated:Fire()
 					saved = find(discover, "SavedGames")
 					body = find(saved, "Body")
-					body.AbsoluteWindowSize = types.Vector2.new(900, 300)
-					nativeDrag.measure(body)
+					world.engine.environment.poke(body, "AbsoluteWindowSize", types.Vector2.new(900, 300))
+					nativeDrag.measure(body, world.engine.environment)
 					Verify.expect(find(saved, "Note_2").Text):toBe("Play Friday")
 					find(find(body, "2"), "RowHit").Activated:Fire()
 					Verify.expect(model.savedSelection:peek()["2"]):toBe(true)
@@ -1400,7 +1458,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					world.model.chat.messages:set(history)
 					local feed = find(world.Chat, "Messages")
-					feed.AbsoluteWindowSize = world.types.Vector2.new(850, 260)
+					world.engine.environment.poke(feed, "AbsoluteWindowSize", world.types.Vector2.new(850, 260))
 					local initial = feed.CanvasPosition.Y
 					Verify.expect(initial > 0):toBe(true)
 					local nextHistory = table.clone(history)
@@ -1409,7 +1467,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(feed.CanvasPosition.Y > initial):toBe(true)
 					local row = find(feed, "MessageRow_25")
 					local previous = feed.CanvasPosition.Y
-					row.AbsoluteSize = world.types.Vector2.new(800, 400)
+					world.engine.environment.poke(row, "AbsoluteSize", world.types.Vector2.new(800, 400))
 					Verify.expect(feed.CanvasPosition.Y > previous):toBe(true)
 					feed.CanvasPosition = world.types.Vector2.new(0, 120)
 					local appended = table.clone(nextHistory)
@@ -1425,27 +1483,38 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				withScreens(function(world)
 					local grid = find(world.Discover, "Games")
-					grid.AbsoluteSize = world.types.Vector2.new(390, 500)
-					grid.AbsoluteWindowSize = world.types.Vector2.new(390, 500)
+					world.engine.environment.poke(grid, "AbsoluteSize", world.types.Vector2.new(390, 500))
+					world.engine.environment.poke(grid, "AbsoluteWindowSize", world.types.Vector2.new(390, 500))
 					for _, genre in { "Adventure", "all", "Racing", "all" } do
 						local chip = find(world.Discover, "Genre_" .. genre)
 						chip.Activated:Fire()
 						Verify.expect(`chip {genre} selected {chip:HasTag("facet-selected")}`)
 							:toBe(`chip {genre} selected true`)
-						world.target.AbsoluteSize = world.types.Vector2.new(390, 500)
+						world.engine.environment.poke(world.target, "AbsoluteSize", world.types.Vector2.new(390, 500))
 						local exposed = 0
 						for _ = 1, 12 do
 							for _, node in world.Discover:GetDescendants() do
 								if node:IsA("GuiObject") then
-									node.AbsoluteSize = if node.Name == "LayoutUnit"
-											or node.Name == "MeasurementUnit"
-										then world.types.Vector2.new(1, 1)
-										else world.types.Vector2.new(100, 44)
+									world.engine.environment.poke(
+										node,
+										"AbsoluteSize",
+										if node.Name == "LayoutUnit" or node.Name == "MeasurementUnit"
+											then world.types.Vector2.new(1, 1)
+											else world.types.Vector2.new(100, 44)
+									)
 									if node:IsA("ScrollingFrame") then
-										node.AbsoluteWindowSize = world.types.Vector2.new(390, 500)
+										world.engine.environment.poke(
+											node,
+											"AbsoluteWindowSize",
+											world.types.Vector2.new(390, 500)
+										)
 									end
 									if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-										node.TextBounds = world.types.Vector2.new(#node.Text * 7, 16)
+										world.engine.environment.poke(
+											node,
+											"TextBounds",
+											world.types.Vector2.new(#node.Text * 7, 16)
+										)
 									end
 								end
 							end
@@ -1521,7 +1590,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				withScreens(function(world)
 					local grid = find(world.Discover, "Games")
-					grid.AbsoluteWindowSize = world.types.Vector2.new(390, 500)
+					world.engine.environment.poke(grid, "AbsoluteWindowSize", world.types.Vector2.new(390, 500))
 					local retained = find(grid, "Game_1")
 					local artwork = find(retained, "Artwork")
 					for _, genre in { "Adventure", "all", "Racing", "all" } do
@@ -1543,11 +1612,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				withScreens(function(world)
 					local grid = find(world.Discover, "Games")
-					grid.AbsoluteWindowSize = world.types.Vector2.new(390, 500)
+					world.engine.environment.poke(grid, "AbsoluteWindowSize", world.types.Vector2.new(390, 500))
 					grid.CanvasPosition = world.types.Vector2.new(0, 472)
 					world.model.query:set("Circuit")
 					local filtered = find(world.Discover, "Games")
-					filtered.AbsoluteWindowSize = world.types.Vector2.new(390, 500)
+					world.engine.environment.poke(filtered, "AbsoluteWindowSize", world.types.Vector2.new(390, 500))
 					Verify.expect(filtered == grid):toBe(true)
 					Verify.expect(grid.Parent ~= nil):toBe(true)
 					Verify.expect(filtered.CanvasPosition.Y):toBe(0)
@@ -1562,14 +1631,14 @@ return function(verifyHarness: Verify.Harness)
 				withScreens(function(world)
 					local types = world.types
 					local grid = find(world.Discover, "Games")
-					grid.AbsoluteWindowSize = types.Vector2.new(850, 260)
+					world.engine.environment.poke(grid, "AbsoluteWindowSize", types.Vector2.new(850, 260))
 					grid.CanvasPosition = types.Vector2.new(0, 800)
 					Verify.expect((world.model.discoveryScroll:peek())):toBe(800)
 					world.stops.Discover()
 					world.model.toggleMode()
 					local _, nextDiscover = world.runtime.mount(world.views.Discover, world.target)
 					local restored = find(nextDiscover, "Games")
-					restored.AbsoluteWindowSize = types.Vector2.new(600, 260)
+					world.engine.environment.poke(restored, "AbsoluteWindowSize", types.Vector2.new(600, 260))
 					Verify.expect(restored.CanvasPosition.Y):toBe(800)
 					local history = {}
 					for index = 1, 24 do
@@ -1580,13 +1649,13 @@ return function(verifyHarness: Verify.Harness)
 					end
 					world.model.chat.messages:set(history)
 					local feed = find(world.Chat, "Messages")
-					feed.AbsoluteWindowSize = types.Vector2.new(850, 260)
+					world.engine.environment.poke(feed, "AbsoluteWindowSize", types.Vector2.new(850, 260))
 					feed.CanvasPosition = types.Vector2.new(0, 240)
 					world.stops.Chat()
 					world.model.toggleMode()
 					local _, nextChat = world.runtime.mount(world.views.Chat, world.target)
 					local restoredFeed = find(nextChat, "Messages")
-					restoredFeed.AbsoluteWindowSize = types.Vector2.new(600, 260)
+					world.engine.environment.poke(restoredFeed, "AbsoluteWindowSize", types.Vector2.new(600, 260))
 					Verify.expect(restoredFeed.CanvasPosition.Y):toBe(240)
 				end)
 			end,
@@ -1596,7 +1665,14 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control",
 			run = function()
 				withScreens(function(world)
-					find(world.Discover, "Games").AbsoluteWindowSize = world.types.Vector2.new(850, 260)
+					world.input.GetLastInputType = function()
+						return world.types.Enum.UserInputType.Keyboard
+					end
+					world.engine.environment.poke(
+						find(world.Discover, "Games"),
+						"AbsoluteWindowSize",
+						world.types.Vector2.new(850, 260)
+					)
 					find(world.Avatar, "MotionRow").Activated:Fire()
 					local open = find(find(world.Discover, "Game_1"), "Body")
 					world.gui.SelectedObject = open
@@ -1617,19 +1693,23 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				withScreens(function(world)
 					local grid = find(world.Discover, "Games")
-					grid.AbsoluteWindowSize = world.types.Vector2.new(850, 260)
+					world.engine.environment.poke(grid, "AbsoluteWindowSize", world.types.Vector2.new(850, 260))
 					grid.CanvasPosition = world.types.Vector2.new(0, 236)
 					local position = grid.CanvasPosition
 					local card = find(world.Discover, "Game_1")
 					local open = find(card, "Body")
 					local sourceParent = card.Parent
-					card.AbsolutePosition = world.types.Vector2.new(100, 190)
-					card.AbsoluteSize = world.types.Vector2.new(270, 224)
+					world.engine.environment.poke(card, "AbsolutePosition", world.types.Vector2.new(100, 190))
+					world.engine.environment.poke(card, "AbsoluteSize", world.types.Vector2.new(270, 224))
 					world.gui.SelectedObject = open
 					open.Activated:Fire()
 					local selected = world.model.selectedGame:peek()
 					local panel = find(world.target, "AlertPanel")
-					find(world.target, "AlertModal").AbsoluteSize = world.types.Vector2.new(920, 640)
+					world.engine.environment.poke(
+						find(world.target, "AlertModal"),
+						"AbsoluteSize",
+						world.types.Vector2.new(920, 640)
+					)
 					local detail = find(panel, "GameDetails")
 					local snapshot = find(panel, "SourceSnapshot")
 					Verify.expect(panel.Size.X.Offset):toBe(270)
@@ -1783,7 +1863,7 @@ return function(verifyHarness: Verify.Harness)
 				withScreens(function(world)
 					local model, types = world.model, world.types
 					local spatial = find(world.Discover, "Games")
-					spatial.AbsoluteWindowSize = types.Vector2.new(820, 260)
+					world.engine.environment.poke(spatial, "AbsoluteWindowSize", types.Vector2.new(820, 260))
 					spatial.CanvasPosition = types.Vector2.new(0, 800)
 					local views = screens.create(
 						require("../src"),
@@ -1792,7 +1872,7 @@ return function(verifyHarness: Verify.Harness)
 					)
 					local stop, desktop = world.runtime.mount(views.Discover, world.target)
 					local flat = find(desktop, "Games")
-					flat.AbsoluteWindowSize = types.Vector2.new(600, 400)
+					world.engine.environment.poke(flat, "AbsoluteWindowSize", types.Vector2.new(600, 400))
 					flat.CanvasPosition = types.Vector2.new(0, 120)
 					Verify.expect((model.discoveryScroll:peek())):toBe(800)
 					model.mode:set("Screen")

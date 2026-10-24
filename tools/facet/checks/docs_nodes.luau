@@ -1,5 +1,5 @@
 --!strict
-local Case = require("../lib/case")
+local Verify = require("../../vendor/verify/src/core")
 local Index = require("../lib/docs_index")
 local Rule = require("../lib/rule")
 
@@ -11,16 +11,14 @@ local rule: Rule.Rule = {
 	name = "docs-nodes",
 	summary = "Documentation nodes fit byte budgets and are reachable through links from the map.",
 	check = check,
-	cases = function(): { Case.Case }
-		return {
-			{
-				name = "the reference is bounded and reachable",
-				run = function()
-					local findings = check(Rule.context("."))
-					return if #findings == 0 then nil else table.concat(findings, "\n")
-				end,
-			},
-		}
+	register = function(harness: Verify.Harness, prefix: string): ()
+		harness:case(prefix .. "the reference is bounded and reachable", {
+			id = prefix .. "the reference is bounded and reachable",
+			run = function(test: Verify.Context)
+				local findings = check(Rule.context("."))
+				Verify.expect(if #findings == 0 then nil else table.concat(findings, "\n")):toBeNil()
+			end,
+		})
 	end,
 }
 

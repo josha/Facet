@@ -1,6 +1,6 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
-local Case = require("../lib/case")
 local Files = require("../lib/files")
 local Rule = require("../lib/rule")
 
@@ -94,45 +94,43 @@ local function check(context: Rule.Context): { string }
 	return findings
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "a line encoded twice is found and correct non-ASCII text passes",
-			run = function()
-				return Rule.within({
-					["CHANGELOG.md"] = "# Changes\n\n- Facet\u{E2}\u{20AC}\u{2122}s default\n- Facet\u{2019}s default \u{2212} 0 \u{2192} 90, \u{3B6}1.0, caf\u{E9}\n",
-					["docs/notes.md"] = "A \u{2013} B\n",
-					["src/vendor/upstream.md"] = "Facet\u{E2}\u{20AC}\u{2122}s\n",
-					["artifacts/run.json"] = '"\u{C3}\u{A9}"\n',
-				}, function(context)
-					return Case.same(check(context), {
-						"CHANGELOG.md:3: the text is UTF-8 encoded twice; restore the original characters",
-					})
-				end)
-			end,
-		},
-		{
-			name = "an arrow, a minus sign and a Greek letter encoded twice are found",
-			run = function()
-				return Rule.within({
-					["notes.md"] = "0 \u{E2}\u{2020}\u{2019} 90\nx \u{E2}\u{2C6}\u{2019} y\n\u{CE}\u{B6}1.0\n",
-				}, function(context)
-					return Case.same(check(context), {
-						"notes.md:1: the text is UTF-8 encoded twice; restore the original characters",
-						"notes.md:2: the text is UTF-8 encoded twice; restore the original characters",
-						"notes.md:3: the text is UTF-8 encoded twice; restore the original characters",
-					})
-				end)
-			end,
-		},
-	}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "a line encoded twice is found and correct non-ASCII text passes", {
+		id = prefix .. "a line encoded twice is found and correct non-ASCII text passes",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["CHANGELOG.md"] = "# Changes\n\n- Facet\u{E2}\u{20AC}\u{2122}s default\n- Facet\u{2019}s default \u{2212} 0 \u{2192} 90, \u{3B6}1.0, caf\u{E9}\n",
+				["docs/notes.md"] = "A \u{2013} B\n",
+				["src/vendor/upstream.md"] = "Facet\u{E2}\u{20AC}\u{2122}s\n",
+				["artifacts/run.json"] = '"\u{C3}\u{A9}"\n',
+			}, function(context)
+				Verify.expect(check(context)):toEqual({
+					"CHANGELOG.md:3: the text is UTF-8 encoded twice; restore the original characters",
+				})
+			end)
+		end,
+	})
+	harness:case(prefix .. "an arrow, a minus sign and a Greek letter encoded twice are found", {
+		id = prefix .. "an arrow, a minus sign and a Greek letter encoded twice are found",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["notes.md"] = "0 \u{E2}\u{2020}\u{2019} 90\nx \u{E2}\u{2C6}\u{2019} y\n\u{CE}\u{B6}1.0\n",
+			}, function(context)
+				Verify.expect(check(context)):toEqual({
+					"notes.md:1: the text is UTF-8 encoded twice; restore the original characters",
+					"notes.md:2: the text is UTF-8 encoded twice; restore the original characters",
+					"notes.md:3: the text is UTF-8 encoded twice; restore the original characters",
+				})
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "text-encoding",
 	summary = "Find tracked text whose UTF-8 bytes were decoded as Windows-1252 and encoded again.",
 	check = check,
-	cases = cases,
+	register = register,
 }
 
 return rule

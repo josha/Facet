@@ -165,6 +165,7 @@ return {
 	testEnvironment = Environment.create,
 	datatypes = Datatypes,
 	isInstance = Environment.isInstance,
+	assertInstance = Environment.assertInstance,
 	typeName = Environment.typeName,
 	uiAudit = {
 		SCHEMA_VERSION = UiAudit.SCHEMA_VERSION,

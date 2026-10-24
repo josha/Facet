@@ -76,16 +76,16 @@ return function(verifyHarness: Verify.Harness)
 				}
 			end, function(engine)
 				input = (engine.new("UserInputService") :: unknown) :: UserInputService
-				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
-				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "GamepadEnabled", false)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", true)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", false)
 				return { services = { UserInputService = input } }
 			end)
 			local floor = node:FindFirstChild("TargetFloor")
 			Verify.expect(floor.MinSize.X):toBe(24)
 			Verify.expect(floor.MinSize.Y):toBe(44)
-			engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
+			engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
 			Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
-			engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "GamepadEnabled", true)
+			engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", true)
 			Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(24)
 			Verify.expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
 			stop()
@@ -109,7 +109,7 @@ return function(verifyHarness: Verify.Harness)
 			end)
 			node.Activated:Fire(press)
 			Verify.expect(calls):toBe(0)
-			engine.environment.fire((input :: unknown) :: VerifyRoblox.Instance, "InputBegan", press)
+			engine.environment.fire(VerifyRoblox.assertInstance(input), "InputBegan", press)
 			node.Activated:Fire(press)
 			Verify.expect(calls):toBe(1)
 			activation.release(press)
@@ -123,17 +123,17 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Button({ label = "All" })
 				end, function(engine)
 					input = (engine.new("UserInputService") :: unknown) :: UserInputService
-					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
-					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "GamepadEnabled", false)
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", false)
 					return { services = { UserInputService = input } }
 				end)
 				Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
-				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", true)
 				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(44)
 				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
-				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
 				Verify.expect(node:FindFirstChild("TargetFloor")):toBe(nil)
-				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "GamepadEnabled", true)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", true)
 				Verify.expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(44)
 				stop()
 			end,
@@ -244,7 +244,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(engine.census().connections):toBe(baseline + 1)
 					a.dispose()
 					local value: unknown = if property == "AbsoluteSize" then engine.types.Vector2.new(80, 40) else node
-					engine.environment.poke((target :: unknown) :: VerifyRoblox.Instance, property, value)
+					engine.environment.poke(VerifyRoblox.assertInstance(target), property, value)
 					Verify.expect(right:peek()):toBe(value)
 					Verify.expect(engine.census().connections):toBe(baseline + 1)
 					b.dispose()
@@ -907,7 +907,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, function(engine)
 					gui = (engine.new("GuiService") :: unknown) :: GuiService
-					engine.environment.poke((gui :: unknown) :: VerifyRoblox.Instance, "ReducedMotionEnabled", true)
+					engine.environment.poke(VerifyRoblox.assertInstance(gui), "ReducedMotionEnabled", true)
 					return { guiService = gui, services = { GuiService = gui } }
 				end)
 				local button, field = find(root, "Pop"), find(root, "Amount")
@@ -924,7 +924,7 @@ return function(verifyHarness: Verify.Harness)
 				engine.heartbeat:Fire(0.3)
 				Verify.expect(find(button, "Dot1").BackgroundTransparency):toBe(0)
 				busy:set(false)
-				engine.environment.poke((gui :: unknown) :: VerifyRoblox.Instance, "ReducedMotionEnabled", false)
+				engine.environment.poke(VerifyRoblox.assertInstance(gui), "ReducedMotionEnabled", false)
 				button.Activated:Fire()
 				engine.heartbeat:Fire(0.1)
 				Verify.expect(scale.Scale > 1):toBe(true)
@@ -1253,24 +1253,16 @@ return function(verifyHarness: Verify.Harness)
 			local glyphs = measure
 			local box = node
 			engine.environment.poke(
-				(glyphs :: unknown) :: VerifyRoblox.Instance,
+				VerifyRoblox.assertInstance(glyphs),
 				"TextBounds",
 				engine.types.Vector2.new(180, 20)
 			)
-			engine.environment.poke(
-				(box :: unknown) :: VerifyRoblox.Instance,
-				"AbsoluteSize",
-				engine.types.Vector2.new(110, 44)
-			)
+			engine.environment.poke(VerifyRoblox.assertInstance(box), "AbsoluteSize", engine.types.Vector2.new(110, 44))
 			t:expect(node.Text):toBe("Continue")
-			engine.environment.poke(
-				(box :: unknown) :: VerifyRoblox.Instance,
-				"AbsoluteSize",
-				engine.types.Vector2.new(240, 44)
-			)
+			engine.environment.poke(VerifyRoblox.assertInstance(box), "AbsoluteSize", engine.types.Vector2.new(240, 44))
 			t:expect(node.Text):toBe("Continue to checkout")
 			engine.environment.poke(
-				(glyphs :: unknown) :: VerifyRoblox.Instance,
+				VerifyRoblox.assertInstance(glyphs),
 				"TextBounds",
 				engine.types.Vector2.new(300, 20)
 			)
@@ -1607,7 +1599,7 @@ return function(verifyHarness: Verify.Harness)
 					local node, stop = world(function(UI: FacetControls, engine)
 						local action, binding = engine.new("InputAction"), engine.new("InputBinding")
 						binding.KeyCode = engine.types.Enum.KeyCode.ButtonY
-						action.PreferredBinding = binding
+						engine.environment.poke(action, "PreferredBinding", binding)
 						return UI.ShortcutHint({ action = action })
 					end, function(engine)
 						local input = engine.new("UserInputService")
@@ -1638,7 +1630,7 @@ return function(verifyHarness: Verify.Harness)
 				local glyph, stopGlyph = world(function(UI: FacetControls, engine)
 					local action, binding = engine.new("InputAction"), engine.new("InputBinding")
 					binding.KeyCode = engine.types.Enum.KeyCode.ButtonY
-					action.PreferredBinding = binding
+					engine.environment.poke(action, "PreferredBinding", binding)
 					return UI.ShortcutHint({ action = action, cap = false })
 				end)
 				Verify.expect(glyph.BackgroundTransparency):toBe(1)
@@ -2335,7 +2327,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((value:peek())):toBeCloseTo(0.9, 1e-4)
 				Verify.expect((node:GetAttribute("semanticValue"))):toBe("0.9 of 0 to 1")
 				engine.environment.poke(
-					(input :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(input),
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.Gamepad
 				)
@@ -2436,8 +2428,8 @@ return function(verifyHarness: Verify.Harness)
 					engine.environment.fakeOn(input, "GetNavigationGamepads", function()
 						return {}
 					end)
-					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
-					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "KeyboardEnabled", false)
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", true)
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "KeyboardEnabled", false)
 					engine.environment.fakeOn(input, "IsKeyDown", function()
 						return false
 					end)
@@ -2446,16 +2438,16 @@ return function(verifyHarness: Verify.Harness)
 				local field = find(node, "Name")
 				field:CaptureFocus()
 				field.Text = "hi"
-				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "GamepadEnabled", true)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", true)
 				Verify.expect((field:IsFocused())):toBe(true)
-				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "KeyboardEnabled", true)
-				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "KeyboardEnabled", true)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
 				Verify.expect((field:IsFocused())):toBe(true)
 				Verify.expect(#reasons):toBe(0)
-				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
-				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "KeyboardEnabled", false)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", true)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "KeyboardEnabled", false)
 				Verify.expect((field:IsFocused())):toBe(true)
-				engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
 				Verify.expect((field:IsFocused())):toBe(false)
 				Verify.expect(reasons):toEqual({ "focusLost" })
 				Verify.expect((value:peek())):toBe("hi")
@@ -3104,7 +3096,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, function(engine)
 					input = (engine.new("UserInputService") :: unknown) :: UserInputService
-					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", true)
 					return { services = { UserInputService = input } }
 				end)
 				local V = engine.types.Vector2
@@ -3137,7 +3129,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, function(engine)
 						input = (engine.new("UserInputService") :: unknown) :: UserInputService
-						engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", true)
+						engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", true)
 						return { services = { UserInputService = input } }
 					end)
 					local V = engine.types.Vector2

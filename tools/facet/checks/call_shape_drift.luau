@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local stringext = require("@std/stringext")
-local Case = require("../lib/case")
 local Files = require("../lib/files")
 local Luau = require("../lib/luau")
 local Rule = require("../lib/rule")
@@ -529,139 +529,115 @@ local SURFACE_FIXTURE: { [string]: string } = {
 	[FACET_INIT] = 'local freeze = table.freeze\nexport type Facet = { controls: unknown }\nlocal function bind()\n\tlocal surface\n\tsurface = freeze({\n\t\tVERSION = "1",\n\t\tcontrols = function() end,\n\t\tthemes = {},\n\t})\n\treturn surface\nend\nreturn bind()\n',
 }
 
-local function scanned(files: { [string]: string }): { string }
+local function scanned(test: Verify.Context, files: { [string]: string }): { string }
 	local fixture = table.clone(SURFACE_FIXTURE)
 	for path, contents in files do
 		fixture[path] = contents
 	end
 	local findings: { string } = {}
-	local failure = Rule.within(fixture, function(context)
+	Rule.within(test, fixture, function(context)
 		findings = inspect(context, Files.walk(context.root))
-		return nil
+		return
 	end)
-	if failure ~= nil then
-		error(failure)
-	end
 	return findings
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "the public constructors and members are read from source",
-			run = function()
-				return Rule.within(SURFACE_FIXTURE, function(context)
-					local surface = surfaceOf(context)
-					if surface == nil then
-						return "the surface was not read"
-					end
-					return Case.expect(
-						surface.controls.Button == true
-							and surface.controls.Scene == nil
-							and surface.members.controls == true
-							and surface.members.Facet == true
-							and surface.members.new == nil,
-						"the public constructor sets were not read from source"
-					)
-				end)
-			end,
-		},
-		{
-			name = "a removed constructor is reported and a public one is not",
-			run = function()
-				return Case.same(
-					scanned({
-						["examples/probe.luau"] = 'local UI = Facet.controls(runtime)\nreturn UI.Scene("Column")({\n\tUI.Button({ label = "Go" }),\n\tctx.UI.Label({}),\n})\n',
-					}),
-					{ "examples/probe.luau:2: `UI.Scene` is not a constructor on Facet.controls(runtime)" }
-				)
-			end,
-		},
-		{
-			name = "a removed Facet member and an application member are reported",
-			run = function()
-				return Case.same(
-					scanned({
-						["bench/probe.luau"] = "local app = Facet.new()\nreturn app\n",
-						["tests/probe.luau"] = "app.presentModal(function() end)\nlocal ok = app.presentation\nreturn nil\n",
-					}),
-					{
-						"bench/probe.luau:1: `Facet.new` is not exported by src/init.luau",
-						"tests/probe.luau:1: `app.presentModal` belongs to the removed Facet application object",
-					}
-				)
-			end,
-		},
-		{
-			name = "a wrapped flat builder, a colon builder and scaffolding are reported",
-			run = function()
-				return Case.same(
-					scanned({
-						["examples/probe.luau"] = "local x = Facet.newTable(\n\tFacet,\n\tcore,\n\t{}\n)\nlocal y = view:newButton({})\nlocal z = newCore ()\nlocal h = Roblox.createHost(engine)\nreturn x, y, z, h\n",
-					}),
-					{
-						"examples/probe.luau:1: `Facet.newTable` is not exported by src/init.luau",
-						"examples/probe.luau:7: `newCore(` is removed Facet scaffolding",
-						"examples/probe.luau:1: flat builder `Facet.newTable(Facet, ...)` was removed",
-						"examples/probe.luau:6: colon builder `:new<Name>(` was removed",
-					}
-				)
-			end,
-		},
-		{
-			name = "only lua and luau fences in documents are scanned",
-			run = function()
-				return Case.same(
-					scanned({
-						["docs/probe.md"] = "# Probe\n\n`UI.Scene` in prose is not code.\n\n```luau\nlocal row = UI.Scene({})\n```\n\n```text\nUI.Scene\n```\n",
-						["docs/plans/old.md"] = "```luau\nlocal row = UI.Scene({})\n```\n",
-						["docs/probe.txt"] = "UI.Scene\n",
-					}),
-					{ "docs/probe.md:6: `UI.Scene` is not a constructor on Facet.controls(runtime)" }
-				)
-			end,
-		},
-		{
-			name = "an allowlist pattern covers only its own line",
-			run = function()
-				return Case.same(
-					scanned({
-						["tests/native_public_surface.verify.luau"] = "expect(Facet.new).toBeNil()\nlocal row = UI.Scene({})\n",
-					}),
-					{
-						"tests/native_public_surface.verify.luau:2: `UI.Scene` is not a constructor on Facet.controls(runtime)",
-					}
-				)
-			end,
-		},
-		{
-			name = "CRLF line endings report the same lines as LF",
-			run = function()
-				return Case.same(
-					scanned({ ["examples/probe.luau"] = "local a = 1\r\nlocal b = UI.Scene({})\r\n" }),
-					{ "examples/probe.luau:2: `UI.Scene` is not a constructor on Facet.controls(runtime)" }
-				)
-			end,
-		},
-		{
-			name = "a missing Controls type is reported",
-			run = function()
-				return Rule.within({ [CONTROL_TYPES] = "return nil\n" }, function(context)
-					return Case.same(
-						inspect(context, {}),
-						{ "cannot read the public constructors: no Controls table type in " .. CONTROL_TYPES }
-					)
-				end)
-			end,
-		},
-	}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "the public constructors and members are read from source", {
+		id = prefix .. "the public constructors and members are read from source",
+		run = function(test: Verify.Context)
+			Rule.within(test, SURFACE_FIXTURE, function(context)
+				local surface = surfaceOf(context)
+				if surface == nil then
+					error("the surface was not read", 0)
+				end
+				Verify.expect(
+					surface.controls.Button == true
+						and surface.controls.Scene == nil
+						and surface.members.controls == true
+						and surface.members.Facet == true
+						and surface.members.new == nil
+				):toBeTrueWith("the public constructor sets were not read from source")
+			end)
+		end,
+	})
+	harness:case(prefix .. "a removed constructor is reported and a public one is not", {
+		id = prefix .. "a removed constructor is reported and a public one is not",
+		run = function(test: Verify.Context)
+			Verify.expect(scanned(test, {
+				["examples/probe.luau"] = 'local UI = Facet.controls(runtime)\nreturn UI.Scene("Column")({\n\tUI.Button({ label = "Go" }),\n\tctx.UI.Label({}),\n})\n',
+			})):toEqual({ "examples/probe.luau:2: `UI.Scene` is not a constructor on Facet.controls(runtime)" })
+		end,
+	})
+	harness:case(prefix .. "a removed Facet member and an application member are reported", {
+		id = prefix .. "a removed Facet member and an application member are reported",
+		run = function(test: Verify.Context)
+			Verify.expect(scanned(test, {
+				["bench/probe.luau"] = "local app = Facet.new()\nreturn app\n",
+				["tests/probe.luau"] = "app.presentModal(function() end)\nlocal ok = app.presentation\nreturn nil\n",
+			})):toEqual({
+				"bench/probe.luau:1: `Facet.new` is not exported by src/init.luau",
+				"tests/probe.luau:1: `app.presentModal` belongs to the removed Facet application object",
+			})
+		end,
+	})
+	harness:case(prefix .. "a wrapped flat builder, a colon builder and scaffolding are reported", {
+		id = prefix .. "a wrapped flat builder, a colon builder and scaffolding are reported",
+		run = function(test: Verify.Context)
+			Verify.expect(scanned(test, {
+				["examples/probe.luau"] = "local x = Facet.newTable(\n\tFacet,\n\tcore,\n\t{}\n)\nlocal y = view:newButton({})\nlocal z = newCore ()\nlocal h = Roblox.createHost(engine)\nreturn x, y, z, h\n",
+			})):toEqual({
+				"examples/probe.luau:1: `Facet.newTable` is not exported by src/init.luau",
+				"examples/probe.luau:7: `newCore(` is removed Facet scaffolding",
+				"examples/probe.luau:1: flat builder `Facet.newTable(Facet, ...)` was removed",
+				"examples/probe.luau:6: colon builder `:new<Name>(` was removed",
+			})
+		end,
+	})
+	harness:case(prefix .. "only lua and luau fences in documents are scanned", {
+		id = prefix .. "only lua and luau fences in documents are scanned",
+		run = function(test: Verify.Context)
+			Verify.expect(scanned(test, {
+				["docs/probe.md"] = "# Probe\n\n`UI.Scene` in prose is not code.\n\n```luau\nlocal row = UI.Scene({})\n```\n\n```text\nUI.Scene\n```\n",
+				["docs/plans/old.md"] = "```luau\nlocal row = UI.Scene({})\n```\n",
+				["docs/probe.txt"] = "UI.Scene\n",
+			})):toEqual({ "docs/probe.md:6: `UI.Scene` is not a constructor on Facet.controls(runtime)" })
+		end,
+	})
+	harness:case(prefix .. "an allowlist pattern covers only its own line", {
+		id = prefix .. "an allowlist pattern covers only its own line",
+		run = function(test: Verify.Context)
+			Verify.expect(scanned(test, {
+				["tests/native_public_surface.verify.luau"] = "expect(Facet.new).toBeNil()\nlocal row = UI.Scene({})\n",
+			})):toEqual({
+				"tests/native_public_surface.verify.luau:2: `UI.Scene` is not a constructor on Facet.controls(runtime)",
+			})
+		end,
+	})
+	harness:case(prefix .. "CRLF line endings report the same lines as LF", {
+		id = prefix .. "CRLF line endings report the same lines as LF",
+		run = function(test: Verify.Context)
+			Verify.expect(scanned(test, { ["examples/probe.luau"] = "local a = 1\r\nlocal b = UI.Scene({})\r\n" }))
+				:toEqual({ "examples/probe.luau:2: `UI.Scene` is not a constructor on Facet.controls(runtime)" })
+		end,
+	})
+	harness:case(prefix .. "a missing Controls type is reported", {
+		id = prefix .. "a missing Controls type is reported",
+		run = function(test: Verify.Context)
+			Rule.within(test, { [CONTROL_TYPES] = "return nil\n" }, function(context)
+				Verify.expect(inspect(context, {})):toEqual({
+					"cannot read the public constructors: no Controls table type in " .. CONTROL_TYPES,
+				})
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "call-shape-drift",
 	summary = "Examples, bench, tests and docs code call only current constructors and exported Facet members.",
 	check = check,
-	cases = cases,
+	register = register,
 }
 
 return rule

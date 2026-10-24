@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -38,7 +39,11 @@ return function(verifyHarness: Verify.Harness)
 				return panel
 			end, engine.new("ScreenGui"))
 			local geometry = (mounted :: unknown) :: { AbsoluteSize: Vector2 }
-			geometry.AbsoluteSize = engine.types.Vector2.new(280, 140)
+			engine.environment.poke(
+				FixtureRoblox.assertInstance(geometry),
+				"AbsoluteSize",
+				engine.types.Vector2.new(280, 140)
+			)
 			for _ = 1, 3 do
 				engine.heartbeat:Fire(1 / 60)
 			end
@@ -48,7 +53,11 @@ return function(verifyHarness: Verify.Harness)
 			progress = 1
 			cached:set(engine.types.Vector2.new(270, 130))
 			Verify.expect(assert(held):peek()):toBe(engine.types.Vector2.new(280, 140))
-			geometry.AbsoluteSize = engine.types.Vector2.new(280, 160)
+			engine.environment.poke(
+				FixtureRoblox.assertInstance(geometry),
+				"AbsoluteSize",
+				engine.types.Vector2.new(280, 160)
+			)
 			Verify.expect(assert(held):peek()):toBe(engine.types.Vector2.new(280, 160))
 			cached:set(engine.types.Vector2.new(280, 160))
 			Verify.expect(assert(held):peek()):toBe(engine.types.Vector2.new(280, 160))

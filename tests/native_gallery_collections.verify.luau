@@ -31,7 +31,7 @@ return function(verifyHarness: Verify.Harness)
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local target, guiService = engine.new("Folder"), engine.new("GuiService")
 		local inputService = engine.new("UserInputService")
-		inputService.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		engine.environment.poke(inputService, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
 		local keys = {}
 		inputService.GetFocusedTextBox = function()
 			return nil
@@ -115,12 +115,12 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	local function viewport(node, engine, width, height)
-		node.AbsoluteSize = engine.types.Vector2.new(width, height)
-		node.AbsoluteWindowSize = engine.types.Vector2.new(width, height)
+		engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(width, height))
+		engine.environment.poke(node, "AbsoluteWindowSize", engine.types.Vector2.new(width, height))
 	end
 
-	local function swipe(row, engine, startX, endX)
-		row.AbsoluteSize = engine.types.Vector2.new(320, 112)
+	local function swipe(row: any, engine: engineLib.Engine, startX: number, endX: number)
+		engine.environment.poke(row, "AbsoluteSize", engine.types.Vector2.new(320, 112))
 		local detector = row:FindFirstChildWhichIsA("UIDragDetector", true)
 		detector.DragStart:Fire(engine.types.Vector2.new(startX, 20))
 		detector.DragContinue:Fire(engine.types.Vector2.new(endX, 20))
@@ -144,9 +144,9 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local built, node, stop, engine, world = mount("table_virtualized")
 				local tableNode, body = find(node, "Collection"), find(node, "Body")
-				tableNode.AbsoluteSize = engine.types.Vector2.new(800, 440)
+				engine.environment.poke(tableNode, "AbsoluteSize", engine.types.Vector2.new(800, 440))
 				viewport(body, engine, 800, 400)
-				nativeDrag.measure(body)
+				nativeDrag.measure(body, engine.environment)
 				Verify.expect(built.report().count):toBe(2000)
 				Verify.expect(built.report().status.retained < 30):toBe(true)
 				Verify.expect(contains(node, "Entrant") and contains(node, "Team") and contains(node, "Best lap"))
@@ -170,7 +170,7 @@ return function(verifyHarness: Verify.Harness)
 				)
 					:toBe(true)
 				Verify.expect((find(node, "Edit"))):toBeNil()
-				world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+				engine.environment.poke(world.input, "PreferredInput", engine.types.Enum.PreferredInput.Touch)
 				find(node, "Edit").Activated:Fire()
 				Verify.expect(find(find(body, "e1500"), "Move").Visible):toBe(true)
 				Verify.expect(built.report().selectedCount):toBe(201)
@@ -243,9 +243,9 @@ return function(verifyHarness: Verify.Harness)
 				find(node, "table").Activated:Fire()
 				local page = find(node, "Mail_table")
 				local tableNode, body = find(page, "Collection"), find(page, "Body")
-				tableNode.AbsoluteSize = engine.types.Vector2.new(800, 440)
+				engine.environment.poke(tableNode, "AbsoluteSize", engine.types.Vector2.new(800, 440))
 				viewport(body, engine, 800, 400)
-				nativeDrag.measure(body)
+				nativeDrag.measure(body, engine.environment)
 				Verify.expect(contains(page, "From") and contains(page, "Subject")):toBe(true)
 				Verify.expect((contains(find(body, "m1"), "Ari Foyer"))):toBe(true)
 				find(find(body, "m1"), "RowHit").Activated:Fire()
@@ -255,7 +255,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(find(body, "m2"), "Subject").Text):toBe("Order confirmed")
 				Verify.expect((find(find(body, "m1"), "Move"))):toBeNil()
 				Verify.expect((find(page, "Edit"))):toBeNil()
-				world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+				engine.environment.poke(world.input, "PreferredInput", engine.types.Enum.PreferredInput.Touch)
 				find(page, "Edit").Activated:Fire()
 				local handle = find(find(body, "m1"), "Move")
 				Verify.expect(handle.Visible):toBe(true)
@@ -314,7 +314,11 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(find(body, "PostBody").TextSize):toBe(13 + offset)
 						if name == "measured_extents" then
 							local post = find(body, "Post_" .. first)
-							post.AbsoluteSize = engine.types.Vector2.new(600, 100 + offset * 4)
+							engine.environment.poke(
+								post,
+								"AbsoluteSize",
+								engine.types.Vector2.new(600, 100 + offset * 4)
+							)
 						end
 						Verify.expect(built.report().status.first):toBe(first)
 						Verify.expect(built.report().status.retained < 20):toBe(true)
@@ -345,13 +349,13 @@ return function(verifyHarness: Verify.Harness)
 				local layout = page:FindFirstChildWhichIsA("UIListLayout")
 				local collection = find(page, "Collection")
 				Verify.expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Vertical)
-				page.AbsoluteSize = engine.types.Vector2.new(644, 213)
+				engine.environment.poke(page, "AbsoluteSize", engine.types.Vector2.new(644, 213))
 				Verify.expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Horizontal)
 				Verify.expect(math.abs(scroll.Size.X.Scale - 0.4) < 1e-6):toBe(true)
 				Verify.expect(scroll.Size.Y.Scale):toBe(1)
 				Verify.expect(scroll.AutomaticCanvasSize):toBe(engine.types.Enum.AutomaticSize.Y)
 				Verify.expect(collection.Size.Y.Scale):toBe(1)
-				page.AbsoluteSize = engine.types.Vector2.new(401, 560)
+				engine.environment.poke(page, "AbsoluteSize", engine.types.Vector2.new(401, 560))
 				Verify.expect(layout.FillDirection):toBe(engine.types.Enum.FillDirection.Vertical)
 				Verify.expect(scroll.Size.X.Scale):toBe(1)
 				Verify.expect(scroll.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
@@ -393,7 +397,7 @@ return function(verifyHarness: Verify.Harness)
 				local list = find(node, "Mail_list")
 				viewport(find(list, "Collection"), engine, 700, 240)
 				local row = find(list, "Row_m1")
-				row.AbsoluteSize = engine.types.Vector2.new(700, 112)
+				engine.environment.poke(row, "AbsoluteSize", engine.types.Vector2.new(700, 112))
 				local content = find(row, "Item_m1")
 				Verify.expect((action(world.target, "RowActionsToggle"))):toBeNil()
 				world.gui.SelectedObject = content
@@ -432,11 +436,11 @@ return function(verifyHarness: Verify.Harness)
 				find(node, "table").Activated:Fire()
 				local page = find(node, "Mail_table")
 				local tableNode, body = find(page, "Collection"), find(page, "Body")
-				tableNode.AbsoluteSize = engine.types.Vector2.new(800, 440)
+				engine.environment.poke(tableNode, "AbsoluteSize", engine.types.Vector2.new(800, 440))
 				viewport(body, engine, 800, 400)
-				nativeDrag.measure(body)
+				nativeDrag.measure(body, engine.environment)
 				Verify.expect(find(find(body, "m2"), "SelectMark").Visible):toBe(false)
-				world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+				engine.environment.poke(world.input, "PreferredInput", engine.types.Enum.PreferredInput.Touch)
 				find(page, "Edit").Activated:Fire()
 				Verify.expect(find(find(body, "m2"), "SelectMark").Visible):toBe(true)
 				find(find(body, "m2"), "RowHit").Activated:Fire(
@@ -451,14 +455,18 @@ return function(verifyHarness: Verify.Harness)
 				end
 				Verify.expect((find(body, "m2"))):toBeNil()
 				find(page, "Edit").Activated:Fire()
-				world.input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+				engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					engine.types.Enum.PreferredInput.KeyboardAndMouse
+				)
 				local order = {}
 				for index, item in built.report().surfaces.table.rows do
 					order[index] = item.id
 				end
 				local row = find(find(body, "m1"), "Row_m1")
 				Verify.expect(find(row, "trailing").Visible):toBe(false)
-				row.AbsoluteSize = engine.types.Vector2.new(800, 100)
+				engine.environment.poke(row, "AbsoluteSize", engine.types.Vector2.new(800, 100))
 				local detector = row:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
 				detector.DragStart:Fire(engine.types.Vector2.new(700, 50))
 				detector.DragContinue:Fire(engine.types.Vector2.new(520, 50))
@@ -494,7 +502,7 @@ return function(verifyHarness: Verify.Harness)
 					viewport(body, engine, 700, 480)
 					Verify.expect(built.report().surfaces.virtual.count):toBe(6)
 					local row = find(page, "Row_m1")
-					row.AbsoluteSize = engine.types.Vector2.new(700, 112)
+					engine.environment.poke(row, "AbsoluteSize", engine.types.Vector2.new(700, 112))
 					local detector = row:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
 					detector.DragStart:Fire(engine.types.Vector2.new(650, 50))
 					detector.DragContinue:Fire(engine.types.Vector2.new(520, 50))
@@ -529,7 +537,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(find(panel, "leading:read") ~= nil and find(panel, "trailing:flag") ~= nil):toBe(true)
 					Verify.expect(built.report().surfaces.virtual.count):toBe(4)
 					local held = find(page, "Row_m5")
-					held.AbsoluteSize = engine.types.Vector2.new(700, 112)
+					engine.environment.poke(held, "AbsoluteSize", engine.types.Vector2.new(700, 112))
 					local heldDetector = held:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
 					heldDetector.DragStart:Fire(engine.types.Vector2.new(650, 50))
 					heldDetector.DragContinue:Fire(engine.types.Vector2.new(560, 50))
@@ -585,11 +593,15 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local built, node, stop, engine, world = mount("collection_workbench")
 					for _, input in { "KeyboardAndMouse", "Touch", "Gamepad" } do
-						world.input.PreferredInput = (engine.types.Enum.PreferredInput :: any)[input]
+						engine.environment.poke(
+							world.input,
+							"PreferredInput",
+							(engine.types.Enum.PreferredInput :: any)[input]
+						)
 						for _, mode in { "icons", "list", "details" } do
 							find(find(node, "ViewMode"), mode).Activated:Fire()
 							local collection = find(node, "primary")
-							collection.AbsoluteSize = engine.types.Vector2.new(800, 400)
+							engine.environment.poke(collection, "AbsoluteSize", engine.types.Vector2.new(800, 400))
 							viewport(
 								if mode == "details" then find(collection, "Body") else collection,
 								engine,
@@ -640,7 +652,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_gallery_collections::file library workbench::keeps compact icons in multiple columns and binds the grid size slider",
 			run = function()
 				local built, node, stop, engine, world = mount("collection_workbench", { width = 390, height = 844 })
-				world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+				engine.environment.poke(world.input, "PreferredInput", engine.types.Enum.PreferredInput.Touch)
 				local grid = find(node, "primary")
 				viewport(grid, engine, 350, 400)
 				local first, second = find(grid, "1"), find(grid, "2")
@@ -651,7 +663,11 @@ return function(verifyHarness: Verify.Harness)
 				find(node, "ShowFilters").Activated:Fire()
 				world.gui.SelectedObject = find(world.target, "GridSize")
 				Verify.expect(world.gui.SelectedObject):toBeNil()
-				world.input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+				engine.environment.poke(
+					world.input,
+					"PreferredInput",
+					engine.types.Enum.PreferredInput.KeyboardAndMouse
+				)
 				world.gui.SelectedObject = find(world.target, "GridSize")
 				local increase = action(world.target, "Increase")
 				Verify.expect(increase ~= nil):toBe(true)
@@ -675,19 +691,19 @@ return function(verifyHarness: Verify.Harness)
 				local body = find(node, "primary")
 				viewport(body, engine, 700, 1200)
 				viewport(find(node, "FileViewport"), engine, 700, 1200)
-				nativeDrag.measure(body)
+				nativeDrag.measure(body, engine.environment)
 				for _, child in body:GetDescendants() do
 					if child:IsA("GuiObject") then
-						child.AbsoluteSize = engine.types.Vector2.new(700, 44)
+						engine.environment.poke(child, "AbsoluteSize", engine.types.Vector2.new(700, 44))
 						if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
-							child.TextBounds = engine.types.Vector2.new(#child.Text * 7, 14)
+							engine.environment.poke(child, "TextBounds", engine.types.Vector2.new(#child.Text * 7, 14))
 						end
 					end
 				end
 				for _ = 1, 6 do
 					engine.heartbeat:Fire(1 / 60)
 				end
-				world.input.PreferredInput = engine.types.Enum.PreferredInput.Touch
+				engine.environment.poke(world.input, "PreferredInput", engine.types.Enum.PreferredInput.Touch)
 				find(node, "Edit").Activated:Fire()
 				model.selection:set({ ["1"] = true, ["2"] = true })
 				local detector = find(find(body, "1"), "Move"):FindFirstChildWhichIsA("UIDragDetector")
@@ -854,8 +870,8 @@ return function(verifyHarness: Verify.Harness)
 				local views, primary = find(node, "Views"), find(node, "PrimaryViews")
 				built.model.linked:set(true)
 				built.model.transfers:set(true)
-				views.AbsoluteSize = engine.types.Vector2.new(1280, 600)
-				primary.AbsoluteSize = engine.types.Vector2.new(760, 600)
+				engine.environment.poke(views, "AbsoluteSize", engine.types.Vector2.new(1280, 600))
+				engine.environment.poke(primary, "AbsoluteSize", engine.types.Vector2.new(760, 600))
 				Verify.expect(views:FindFirstChild("Resize").Visible and primary:FindFirstChild("Resize").Visible)
 					:toBe(true)
 				Verify.expect(views:FindFirstChild("Sidebar").Size.X.Offset):toBe(760)
@@ -867,8 +883,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(views:FindFirstChild("Sidebar").Size.X.Offset):toBe(760)
 				local files, inbox, linked =
 					find(node, "PrimaryView"), find(node, "InboxView"), find(node, "LinkedView")
-				views.AbsoluteSize = engine.types.Vector2.new(390, 700)
-				primary.AbsoluteSize = engine.types.Vector2.new(390, 660)
+				engine.environment.poke(views, "AbsoluteSize", engine.types.Vector2.new(390, 700))
+				engine.environment.poke(primary, "AbsoluteSize", engine.types.Vector2.new(390, 660))
 				Verify.expect(views:FindFirstChild("Resize").Visible or primary:FindFirstChild("Resize").Visible)
 					:toBe(false)
 				Verify.expect(views:FindFirstChild("Sidebar").Visible and primary:FindFirstChild("Sidebar").Visible)
@@ -968,7 +984,7 @@ return function(verifyHarness: Verify.Harness)
 			local engine: any = engineLib.new()
 			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 			local gui = engine.new("GuiService")
-			gui.ReducedMotionEnabled = settings.reducedMotion == true
+			engine.environment.poke(gui, "ReducedMotionEnabled", settings.reducedMotion == true)
 			local input = engine.new("UserInputService")
 			input.GetFocusedTextBox = function()
 				return nil
@@ -1179,8 +1195,12 @@ return function(verifyHarness: Verify.Harness)
 				verifyHarness:suite("Playlist example", function()
 					local function prepare(world: any): any
 						local body = find(world.node, "Body")
-						body.AbsoluteSize = vector(world.engine, 900, 288)
-						body.AbsoluteWindowSize = vector(world.engine, 900 - body.ScrollBarThickness, 288)
+						world.engine.environment.poke(body, "AbsoluteSize", vector(world.engine, 900, 288))
+						world.engine.environment.poke(
+							body,
+							"AbsoluteWindowSize",
+							vector(world.engine, 900 - body.ScrollBarThickness, 288)
+						)
 						return body
 					end
 
@@ -1233,6 +1253,12 @@ return function(verifyHarness: Verify.Harness)
 						run = function()
 							local world = mountGallery(playlistExample)
 							local body = prepare(world)
+							for _, label in body:GetDescendants() do
+								if label:IsA("TextLabel") then
+									world.engine.environment.poke(label, "TextFits", true)
+								end
+							end
+
 							local header = find(world.node, "Header")
 							local row = find(body, "neon")
 							local cells = find(row, "Row")

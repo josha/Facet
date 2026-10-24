@@ -1,7 +1,7 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local json = require("@std/json")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local DocsIndex = require("../lib/docs_index")
 local Props = require("../lib/docs_props")
@@ -265,85 +265,69 @@ local function run(invocation: Cli.Invocation): number
 	return if ok then 0 else 1
 end
 
-local function cases(): { Case.Case }
-	return {
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(
+		prefix .. "the plan holds the library, the author commands and their libraries, and no maintainer command",
 		{
-			name = "the plan holds the library, the author commands and their libraries, and no maintainer command",
-			run = function()
+			id = prefix
+				.. "the plan holds the library, the author commands and their libraries, and no maintainer command",
+			run = function(test: Verify.Context)
 				local chosen = plan()
 				local init = chosen.writes["tools/facet/commands/init.luau"]
 				local block = chosen.writes["examples/blocks/item_store.luau"] or ""
-				return Case.first(
-					Case.expect(string.find(block, "@repo", 1, true) == nil, "a block needs private type aliases"),
-					Case.expect(
-						string.find(block, "FacetTypes.Use", 1, true) ~= nil,
-						"the block has no public Use type"
-					),
-					Case.expect(
-						chosen.copies["Packages/Facet/init.luau"] == "src/init.luau",
-						"the library entry is missing"
-					),
-					Case.expect(chosen.copies["tools/facet/commands/docs.luau"] ~= nil, "the docs command is missing"),
-					Case.expect(chosen.copies["tools/facet/lib/docs_index.luau"] ~= nil, "a command library is missing"),
-					Case.expect(chosen.copies["docs/reference/nodes/Map.md"] ~= nil, "the documentation map is missing"),
-					Case.expect(
-						chosen.copies["tools/facet/lib/markdown.luau"] ~= nil,
-						"the node link parser is missing"
-					),
-					Case.expect(
-						chosen.copies["docs/reference/nodes/Sheet.detents.md"] ~= nil,
-						"an option node is missing"
-					),
-					Case.expect(
-						chosen.copies["docs/reference/nodes/Tasks.collection-detail.md"] ~= nil,
-						"a task recipe is missing"
-					),
-					Case.expect(
-						chosen.copies["tools/facet/commands/gate.luau"] == nil,
-						"a maintainer command leaked in"
-					),
-					Case.expect(string.find(init, '"@self/lint"', 1, true) ~= nil, "lint is not registered"),
-					Case.expect(string.find(init, '"@self/gate"', 1, true) == nil, "gate is registered"),
-					Case.expect(chosen.copies[".agents/skills/use-facet/SKILL.md"] ~= nil, "the skill is missing"),
-					Case.expect(
-						string.find(chosen.writes["tools/facet/kit.json"] or "", "commit", 1, true) ~= nil,
-						"the kit has no source stamp"
-					)
-				)
+				Verify.expect(string.find(block, "@repo", 1, true) == nil)
+					:toBeTrueWith("a block needs private type aliases")
+				Verify.expect(string.find(block, "FacetTypes.Use", 1, true) ~= nil)
+					:toBeTrueWith("the block has no public Use type")
+				Verify.expect(chosen.copies["Packages/Facet/init.luau"] == "src/init.luau")
+					:toBeTrueWith("the library entry is missing")
+				Verify.expect(chosen.copies["tools/facet/commands/docs.luau"] ~= nil)
+					:toBeTrueWith("the docs command is missing")
+				Verify.expect(chosen.copies["tools/facet/lib/docs_index.luau"] ~= nil)
+					:toBeTrueWith("a command library is missing")
+				Verify.expect(chosen.copies["docs/reference/nodes/Map.md"] ~= nil)
+					:toBeTrueWith("the documentation map is missing")
+				Verify.expect(chosen.copies["tools/facet/lib/markdown.luau"] ~= nil)
+					:toBeTrueWith("the node link parser is missing")
+				Verify.expect(chosen.copies["docs/reference/nodes/Sheet.detents.md"] ~= nil)
+					:toBeTrueWith("an option node is missing")
+				Verify.expect(chosen.copies["docs/reference/nodes/Tasks.collection-detail.md"] ~= nil)
+					:toBeTrueWith("a task recipe is missing")
+				Verify.expect(chosen.copies["tools/facet/commands/gate.luau"] == nil)
+					:toBeTrueWith("a maintainer command leaked in")
+				Verify.expect(string.find(init, '"@self/lint"', 1, true) ~= nil):toBeTrueWith("lint is not registered")
+				Verify.expect(string.find(init, '"@self/gate"', 1, true) == nil):toBeTrueWith("gate is registered")
+				Verify.expect(chosen.copies[".agents/skills/use-facet/SKILL.md"] ~= nil)
+					:toBeTrueWith("the skill is missing")
+				Verify.expect(string.find(chosen.writes["tools/facet/kit.json"] or "", "commit", 1, true) ~= nil)
+					:toBeTrueWith("the kit has no source stamp")
 			end,
-		},
+		}
+	)
+	harness:case(prefix .. "a relative require from an init module resolves from its parent directory", {
+		id = prefix .. "a relative require from an init module resolves from its parent directory",
+		run = function(test: Verify.Context)
+			Verify.expect(resolve("tools/facet/commands/init.luau", "./lib/cli")):toBe("tools/facet/lib/cli.luau")
+			Verify.expect(resolve("tools/facet/commands/docs.luau", "../lib/cli")):toBe("tools/facet/lib/cli.luau")
+			Verify.expect(resolve("tools/facet/init.luau", "@self/commands")):toBe("tools/facet/commands/init.luau")
+		end,
+	})
+	harness:case(
+		prefix .. "a written kit runs the author commands on its own and refuses a second write without --force",
 		{
-			name = "a relative require from an init module resolves from its parent directory",
-			run = function()
-				return Case.first(
-					Case.equal(
-						resolve("tools/facet/commands/init.luau", "./lib/cli"),
-						"tools/facet/lib/cli.luau",
-						"init"
-					),
-					Case.equal(
-						resolve("tools/facet/commands/docs.luau", "../lib/cli"),
-						"tools/facet/lib/cli.luau",
-						"leaf"
-					),
-					Case.equal(
-						resolve("tools/facet/init.luau", "@self/commands"),
-						"tools/facet/commands/init.luau",
-						"self"
-					)
-				)
-			end,
-		},
-		{
-			name = "a written kit runs the author commands on its own and refuses a second write without --force",
-			run = function()
+			id = prefix
+				.. "a written kit runs the author commands on its own and refuses a second write without --force",
+			run = function(test: Verify.Context)
 				local out = Files.temporaryDirectory("facet-kit")
+				test:defer(function()
+					Files.remove(out)
+				end)
 				local chosen = plan()
 				chosen.problems = {}
 				local ok, lines = write(out, chosen, false)
 				if not ok then
 					Files.remove(out)
-					return "the kit was not written: " .. table.concat(lines, "; ")
+					error("the kit was not written: " .. table.concat(lines, "; "), 0)
 				end
 				local docs = Run.capture(
 					{ Run.lute(), "run", "tools/facet", "docs", "Button" },
@@ -391,24 +375,20 @@ local function cases(): { Case.Case }
 					end
 				end
 				Files.remove(out)
-				return Case.first(
-					Case.expect(
-						#missingReferences == 0,
-						"skill references missing or changed: " .. table.concat(missingReferences, ", ")
-					),
-					Case.expect(docs.ok, "docs failed in the kit: " .. docs.stderr .. docs.stdout),
-					Case.expect(probeOk, "the standalone kit cannot bundle its play probe: " .. tostring(probeProblem)),
-					Case.expect(
-						string.find(docs.stdout, "# Button.card", 1, true) ~= nil,
-						"docs did not print the Button card"
-					),
-					Case.expect(string.find(help.stdout, "lint", 1, true) ~= nil, "help does not list lint"),
-					Case.expect(string.find(help.stdout, "gate", 1, true) == nil, "help lists a maintainer command"),
-					Case.expect(not again, "a second write replaced the kit without --force")
-				)
+				Verify.expect(#missingReferences == 0)
+					:toBeTrueWith("skill references missing or changed: " .. table.concat(missingReferences, ", "))
+				Verify.expect(docs.ok):toBeTrueWith("docs failed in the kit: " .. docs.stderr .. docs.stdout)
+				Verify.expect(probeOk)
+					:toBeTrueWith("the standalone kit cannot bundle its play probe: " .. tostring(probeProblem))
+				Verify.expect(string.find(docs.stdout, "# Button.card", 1, true) ~= nil)
+					:toBeTrueWith("docs did not print the Button card")
+				Verify.expect(string.find(help.stdout, "lint", 1, true) ~= nil):toBeTrueWith("help does not list lint")
+				Verify.expect(string.find(help.stdout, "gate", 1, true) == nil)
+					:toBeTrueWith("help lists a maintainer command")
+				Verify.expect(not again):toBeTrueWith("a second write replaced the kit without --force")
 			end,
-		},
-	}
+		}
+	)
 end
 
 local command: Cli.Command = {
@@ -416,7 +396,7 @@ local command: Cli.Command = {
 	summary = "Write the Facet author kit (library, author commands, docs, skills) into a game project.",
 	usage = USAGE,
 	values = { "out" },
-	cases = cases,
+	register = register,
 	run = run,
 }
 

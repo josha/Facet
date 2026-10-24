@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 local Facet = require("../src")
 local context = require("../src/ui/context")
@@ -70,7 +71,7 @@ local function fixture()
 		return assert((root :: Instance):FindFirstChild(name, true)) :: GuiObject
 	end
 	local source = find("A")
-	source.AbsoluteSize = engine.types.Vector2.new(100, 100)
+	engine.environment.poke(FixtureRoblox.assertInstance(source), "AbsoluteSize", engine.types.Vector2.new(100, 100))
 	return {
 		engine = engine,
 		runtime = runtime,
@@ -246,8 +247,12 @@ return function(h: Verify.Harness)
 	h:case("maps a pointer using the pickup anchor and the native scale", function()
 		local w = fixture()
 		local grid = w.find("SpatialGrid")
-		grid.AbsoluteSize = w.engine.types.Vector2.new(256, 204)
-		w.find("Cells").AbsoluteSize = grid.AbsoluteSize
+		w.engine.environment.poke(
+			FixtureRoblox.assertInstance(grid),
+			"AbsoluteSize",
+			w.engine.types.Vector2.new(256, 204)
+		)
+		w.engine.environment.poke(FixtureRoblox.assertInstance(w.find("Cells")), "AbsoluteSize", grid.AbsoluteSize)
 		w.begin("pointer")
 		w.service.update(w.engine.types.Vector2.new(102, 102))
 		Verify.expect(w.service.commit(grid)):toBe(true)

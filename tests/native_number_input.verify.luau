@@ -36,7 +36,7 @@ return function(verifyHarness: Verify.Harness)
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI: any = {}
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
-		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		engine.environment.poke(input, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
 		local ctx = context(Compose, runtime, {
 			types = engine.types,
 			services = { GuiService = gui, UserInputService = input },
@@ -448,7 +448,7 @@ return function(verifyHarness: Verify.Harness)
 								UserInputType = w.E.UserInputType.Gamepad1,
 							})
 						elseif how == "class" then
-							w.input.PreferredInput = w.E.PreferredInput.Gamepad
+							w.engine.environment.poke(w.input, "PreferredInput", w.E.PreferredInput.Gamepad)
 						elseif how == "off" then
 							on:set(false)
 						else

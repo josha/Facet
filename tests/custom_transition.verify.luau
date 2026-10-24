@@ -247,7 +247,7 @@ return function(h: Verify.Harness)
 		end)
 		selection:set("b")
 		w.engine.heartbeat:Fire(0.05)
-		w.gui.ReducedMotionEnabled = true
+		w.engine.environment.poke(w.gui, "ReducedMotionEnabled", true)
 		Verify.expect(assert(phase).progress:peek()):toBe(1)
 		local opacity = fade.of(w.find("B"):FindFirstAncestor("b"))
 		Verify.expect(opacity > 0 and opacity < 1):toBe(true)
@@ -274,7 +274,7 @@ return function(h: Verify.Harness)
 				end,
 			}
 		end)
-		w.find("Modal").AbsoluteSize = w.engine.types.Vector2.new(800, 720)
+		w.engine.environment.poke(w.find("Modal"), "AbsoluteSize", w.engine.types.Vector2.new(800, 720))
 		for _ = 1, 90 do
 			w.engine.heartbeat:Fire(1 / 60)
 		end

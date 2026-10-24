@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 local Shared = require("../src/ui/types")
 
@@ -448,7 +449,7 @@ return function(verifyHarness: Verify.Harness)
 				local artwork = Host.ImageLabel { Image = "rbxassetid://10" }
 				image = artwork
 				local loading = (artwork :: unknown) :: { IsLoaded: boolean }
-				loading.IsLoaded = false
+				native.environment.poke(FixtureRoblox.assertInstance(loading), "IsLoaded", false)
 				prepare(ctx, artwork)
 				artwork.Parent = row
 				return row
@@ -459,7 +460,11 @@ return function(verifyHarness: Verify.Harness)
 			end)
 			local artwork = assert(image)
 			local geometry = (artwork :: unknown) :: { AbsoluteSize: Vector2 }
-			geometry.AbsoluteSize = native.types.Vector2.new(240, 180)
+			native.environment.poke(
+				FixtureRoblox.assertInstance(geometry),
+				"AbsoluteSize",
+				native.types.Vector2.new(240, 180)
+			)
 			t:expect(#pending > 0):toBe(true)
 			local function flush()
 				for _, queued in pending do
@@ -524,7 +529,11 @@ return function(verifyHarness: Verify.Harness)
 					end
 					resolved:set(themed)
 					local geometry = (node :: unknown) :: { AbsoluteSize: Vector2 }
-					geometry.AbsoluteSize = engine.types.Vector2.new(240, 180)
+					engine.environment.poke(
+						FixtureRoblox.assertInstance(geometry),
+						"AbsoluteSize",
+						engine.types.Vector2.new(240, 180)
+					)
 					for _ = 1, 30 do
 						now += 1 / 60
 						engine.heartbeat:Fire(1 / 60)
@@ -639,12 +648,20 @@ return function(verifyHarness: Verify.Harness)
 					return boundary
 				end, target)
 				assert(boundary)
-				target.AbsolutePosition = engine.types.Vector2.new(1744, 104)
-				target.AbsoluteSize = engine.types.Vector2.new(65, 38)
-				boundary.AbsoluteSize = engine.types.Vector2.new(1, 1)
-				boundary.AbsolutePosition = engine.types.Vector2.new(1809, 131)
+				engine.environment.poke(target, "AbsolutePosition", engine.types.Vector2.new(1744, 104))
+				engine.environment.poke(target, "AbsoluteSize", engine.types.Vector2.new(65, 38))
+				engine.environment.poke(
+					FixtureRoblox.assertInstance(boundary),
+					"AbsoluteSize",
+					engine.types.Vector2.new(1, 1)
+				)
+				engine.environment.poke(
+					FixtureRoblox.assertInstance(boundary),
+					"AbsolutePosition",
+					engine.types.Vector2.new(1809, 131)
+				)
 				local bounds: any = boundary:FindFirstChild("SkinBounds")
-				bounds.AbsoluteSize = engine.types.Vector2.new(65, 38)
+				engine.environment.poke(bounds, "AbsoluteSize", engine.types.Vector2.new(65, 38))
 				local origin = boundary.AbsolutePosition
 					+ engine.types.Vector2.new(bounds.Position.X.Offset, bounds.Position.Y.Offset)
 					- bounds.AbsoluteSize
@@ -1379,8 +1396,12 @@ return function(verifyHarness: Verify.Harness)
 				local fill = root:FindFirstChild("Fill1", true)
 				Verify.expect(fill.AnchorPoint.X):toBe(1)
 				Verify.expect(fill.Size.X.Scale):toBe(0.25)
-				fill.AbsoluteSize = engine.types.Vector2.new(25, 6)
-				fill:FindFirstChild("SkinBoundary").AbsoluteSize = engine.types.Vector2.new(1, 1)
+				engine.environment.poke(fill, "AbsoluteSize", engine.types.Vector2.new(25, 6))
+				engine.environment.poke(
+					fill:FindFirstChild("SkinBoundary"),
+					"AbsoluteSize",
+					engine.types.Vector2.new(1, 1)
+				)
 				Verify.expect(fill:FindFirstChild("SkinBoundary").Size):toBe(engine.types.UDim2.fromOffset(1, 1))
 				Verify.expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(4)
 				Verify.expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(25)
@@ -1388,7 +1409,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(root:FindFirstChild("barCap-end", true).Image):toBe("rbxassetid://3")
 				Verify.expect(root:FindFirstChild("barCenter", true).Size.X.Offset):toBe(36)
 				value:set(0.5)
-				fill.AbsoluteSize = engine.types.Vector2.new(50, 6)
+				engine.environment.poke(fill, "AbsoluteSize", engine.types.Vector2.new(50, 6))
 				Verify.expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(2)
 				Verify.expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(50)
 				local nextPackage = table.clone(package)
@@ -1420,12 +1441,16 @@ return function(verifyHarness: Verify.Harness)
 				end, holder)
 				local fill = holder:FindFirstChild("Fill1", true)
 				Verify.expect(fill.Size.X.Scale):toBe(0.25)
-				fill.AbsoluteSize = engine.types.Vector2.new(25, 6)
-				fill:FindFirstChild("SkinBoundary").AbsoluteSize = engine.types.Vector2.new(1, 1)
+				engine.environment.poke(fill, "AbsoluteSize", engine.types.Vector2.new(25, 6))
+				engine.environment.poke(
+					fill:FindFirstChild("SkinBoundary"),
+					"AbsoluteSize",
+					engine.types.Vector2.new(1, 1)
+				)
 				Verify.expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(1)
 				Verify.expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(25)
 				value:set(0.5)
-				fill.AbsoluteSize = engine.types.Vector2.new(50, 6)
+				engine.environment.poke(fill, "AbsoluteSize", engine.types.Vector2.new(50, 6))
 				Verify.expect(fill:FindFirstChild("Skin", true).Size.X.Scale):toBe(1)
 				Verify.expect(fill:FindFirstChild("SkinBounds", true).Size.X.Offset):toBe(50)
 				stop()
@@ -1709,7 +1734,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, engine.new("Folder"))
 				local readout, gauge = meter:FindFirstChild("Value", true), meter:FindFirstChild("Gauge", true)
-				readout.TextBounds = engine.types.Vector2.new(38, 20)
+				engine.environment.poke(readout, "TextBounds", engine.types.Vector2.new(38, 20))
 				Verify.expect(readout.Text):toBe("75%")
 				Verify.expect(readout.Parent):toBe(gauge)
 				Verify.expect(readout.Position):toBe(engine.types.UDim2.new(0.5, 0, 0, 60))
@@ -1797,14 +1822,14 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, engine.new("Folder"))
 				local readout, gauge = meter:FindFirstChild("Value", true), meter:FindFirstChild("Gauge", true)
-				readout.TextBounds = engine.types.Vector2.new(190, 32)
+				engine.environment.poke(readout, "TextBounds", engine.types.Vector2.new(190, 32))
 				Verify.expect(readout.Text):toBe("10000 / 10000")
 				Verify.expect(readout.Position):toBe(engine.types.UDim2.new(0.5, 0, 0, 88))
 				Verify.expect(readout.AnchorPoint):toBe(engine.types.Vector2.new(0.5, 0))
 				Verify.expect(readout.TextWrapped):toBe(false)
 				Verify.expect(readout.TextXAlignment):toBe(engine.types.Enum.TextXAlignment.Center)
 				Verify.expect(gauge.Size):toBe(engine.types.UDim2.fromOffset(190, 120))
-				readout.TextBounds = engine.types.Vector2.new(40, 18)
+				engine.environment.poke(readout, "TextBounds", engine.types.Vector2.new(40, 18))
 				Verify.expect(readout.Position.Y.Offset):toBe(40)
 				Verify.expect(gauge.Size):toBe(engine.types.UDim2.fromOffset(80, 80))
 				stop()
@@ -2059,11 +2084,19 @@ return function(verifyHarness: Verify.Harness)
 					boundary = decorate(Compose, runtime, engine.types, host, Host.Frame({ Name = "Skin" }))
 					return boundary
 				end, host)
-				host.AbsoluteSize = engine.types.Vector2.new(200, 100)
-				boundary.AbsoluteSize = engine.types.Vector2.new(1, 1)
+				engine.environment.poke(host, "AbsoluteSize", engine.types.Vector2.new(200, 100))
+				engine.environment.poke(
+					FixtureRoblox.assertInstance(boundary),
+					"AbsoluteSize",
+					engine.types.Vector2.new(1, 1)
+				)
 				host:FindFirstChildWhichIsA("UIPadding").PaddingRight = engine.types.UDim.new(0, 24)
 				host:FindFirstChildWhichIsA("UIPadding").PaddingBottom = engine.types.UDim.new(0, 24)
-				boundary.AbsolutePosition = engine.types.Vector2.new(175, 75)
+				engine.environment.poke(
+					FixtureRoblox.assertInstance(boundary),
+					"AbsolutePosition",
+					engine.types.Vector2.new(175, 75)
+				)
 				local bounds: any = boundary:FindFirstChild("SkinBounds")
 				Verify.expect(`{bounds.Position.X.Offset} {bounds.Position.Y.Offset}`):toBe("25 25")
 				stop()
@@ -2086,8 +2119,12 @@ return function(verifyHarness: Verify.Harness)
 					boundary = decorate(Compose, runtime, engine.types, host, Host.Frame({ Name = "Skin" }))
 					return boundary
 				end, host)
-				host.AbsoluteSize = engine.types.Vector2.new(300, 400)
-				boundary.AbsoluteSize = engine.types.Vector2.new(1, 1)
+				engine.environment.poke(host, "AbsoluteSize", engine.types.Vector2.new(300, 400))
+				engine.environment.poke(
+					FixtureRoblox.assertInstance(boundary),
+					"AbsoluteSize",
+					engine.types.Vector2.new(1, 1)
+				)
 				host.CanvasPosition = engine.types.Vector2.new(0, 48)
 				Verify.expect(`{boundary.Position.X.Offset} {boundary.Position.Y.Offset} {boundary.Position.Y.Scale}`)
 					:toBe("300 448 0")
@@ -2102,8 +2139,8 @@ return function(verifyHarness: Verify.Harness)
 			local engine = engineLib.new()
 			local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 			local gui, input = engine.new("GuiService"), engine.new("UserInputService")
-			input.TouchEnabled = touch
-			input.MouseEnabled = not touch
+			engine.environment.poke(input, "TouchEnabled", touch)
+			engine.environment.poke(input, "MouseEnabled", not touch)
 			local UI = controls(Compose, runtime, {
 				types = engine.types,
 				guiService = gui,
@@ -2143,7 +2180,7 @@ return function(verifyHarness: Verify.Harness)
 				local adaRing, boRing = find(ada, "HoverRing"), find(bo, "HoverRing")
 				Verify.expect((adaRing:HasTag("facet-avatar-hover"))):toBe(true)
 				Verify.expect(adaRing.Transparency):toBe(1)
-				ada.GuiState = engine.types.Enum.GuiState.Hover
+				engine.environment.poke(ada, "GuiState", engine.types.Enum.GuiState.Hover)
 				Verify.expect(adaRing.Transparency):toBe(0)
 				Verify.expect(boRing.Transparency):toBe(1)
 				Verify.expect((find(passive, "HoverRing"))):toBe(nil)

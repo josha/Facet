@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 local Compose = require("../src/vendor/compose/core")
 local Roblox = require("../src/vendor/compose/roblox")
@@ -39,7 +40,7 @@ return function(harness: Verify.Harness)
 		run = function()
 			local rows = Compose.cell({ "a", "b", "c", "d", "e", "f", "g", "h" })
 			local world = overlay.new(function(UI, Host)
-				return UI.VirtualList {
+				local spec: Facet.KeyedCollectionSpec<string, string> = {
 					Name = "Feed",
 					from = rows,
 					key = function(value)
@@ -53,9 +54,10 @@ return function(harness: Verify.Harness)
 						return Host.Frame { Name = current:peek() }
 					end,
 				}
+				return UI.VirtualList(spec)
 			end)
 			local feed = overlay.find(world.screen, "Feed")
-			feed.AbsoluteWindowSize = world.Vector2.new(389, 100)
+			world.engine.environment.poke(feed, "AbsoluteWindowSize", world.Vector2.new(389, 100))
 			world.advance(0.1, 6)
 			rows:set({ "h", "g", "f", "e", "d", "c", "b", "a" })
 			world.advance(0.1, 6)
@@ -86,7 +88,11 @@ return function(harness: Verify.Harness)
 				)
 				local stop, mounted = runtime.mount(views.Discover, target)
 				local node = mounted :: Frame
-				node.AbsoluteSize = engine.types.Vector2.new(389, 271)
+				engine.environment.poke(
+					FixtureRoblox.assertInstance(node),
+					"AbsoluteSize",
+					engine.types.Vector2.new(389, 271)
+				)
 				model.discoveryScroll:set(200)
 				Verify.expect((node:FindFirstChild("Header", true) :: GuiObject).Visible):toBe(true)
 				stop()
@@ -101,7 +107,7 @@ return function(harness: Verify.Harness)
 			local rows = Compose.cell({ "a", "b", "c", "d", "e", "f" })
 			local request = Compose.cell(0)
 			local world = overlay.new(function(UI, Host)
-				return UI.VirtualList {
+				local spec: Facet.IdentityCollectionSpec<string> = {
 					Name = "Feed",
 					from = rows,
 					itemSize = 100,
@@ -113,9 +119,10 @@ return function(harness: Verify.Harness)
 						return Host.Frame {}
 					end,
 				}
+				return UI.VirtualList(spec)
 			end)
 			local feed = overlay.find(world.screen, "Feed")
-			feed.AbsoluteWindowSize = world.Vector2.new(389, 200)
+			world.engine.environment.poke(feed, "AbsoluteWindowSize", world.Vector2.new(389, 200))
 			world.advance(0.1, 6)
 			feed.CanvasPosition = world.Vector2.new(0, 200)
 			rows:set({ "f", "e", "d", "c", "b", "a" })
@@ -155,9 +162,9 @@ return function(harness: Verify.Harness)
 				}
 			end)
 			local artwork = overlay.find(world.screen, "FacetDragDetector").Parent
-			artwork.AbsolutePosition = world.Vector2.zero
-			artwork.AbsoluteSize = world.Vector2.new(100, 100)
-			nativeDrag.measure(artwork)
+			world.engine.environment.poke(artwork, "AbsolutePosition", world.Vector2.zero)
+			world.engine.environment.poke(artwork, "AbsoluteSize", world.Vector2.new(100, 100))
+			nativeDrag.measure(artwork, world.engine.environment)
 			local press = {
 				UserInputType = world.Enum.UserInputType.MouseButton1,
 				UserInputState = world.Enum.UserInputState.Begin,
@@ -207,7 +214,11 @@ return function(harness: Verify.Harness)
 					screens.create(Facet, runtime, { model = model, types = engine.types, motionLevel = "none" })
 				local stop, node = runtime.mount(views.Discover, target)
 				local grid = (node :: Instance):FindFirstChild("Games", true) :: ScrollingFrame
-				grid.AbsoluteWindowSize = engine.types.Vector2.new(389, 350)
+				engine.environment.poke(
+					FixtureRoblox.assertInstance(grid),
+					"AbsoluteWindowSize",
+					engine.types.Vector2.new(389, 350)
+				)
 				model.step(1 / 60, false)
 				model.sort:set("rating")
 				for _ = 1, 10 do

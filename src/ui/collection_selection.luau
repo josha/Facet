@@ -26,26 +26,35 @@ return function<V, K>(
 			selection:set(value)
 		end
 	end
+	local function validKeys(use: ComposeTypes.Use): { [K]: boolean }
+		local valid: { [K]: boolean } = {}
+		for index, item in read(spec.selectionFrom or source, use) do
+			valid[keyOf(item, index)] = true
+		end
+		return valid
+	end
+	local membership = if mode ~= "none"
+			or spec.selection ~= nil
+			or spec.onSelectionChange ~= nil
+		then Compose.formula(validKeys)
+		else nil
 	Compose.watch(function(use: ComposeTypes.Use)
 		local existing = use(selection)
 		if next(existing) == nil then
 			return
 		end
-		local valid: { [K]: boolean } = {}
-		for index, item in read(spec.selectionFrom or source, use) do
-			valid[keyOf(item, index)] = true
-		end
-		local pruned: CollectionTypes.Selection<K> = {}
-		local changed = false
+		local valid = if membership then use(membership) else validKeys(use)
 		for key, value in existing do
-			if value and valid[key] then
-				pruned[key] = true
-			else
-				changed = true
+			if not value or not valid[key] then
+				local pruned: CollectionTypes.Selection<K> = {}
+				for selectedKey, selected in existing do
+					if selected and valid[selectedKey] then
+						pruned[selectedKey] = true
+					end
+				end
+				publish(pruned)
+				return
 			end
-		end
-		if changed then
-			publish(pruned)
 		end
 	end)
 	local base: CollectionTypes.Selection<K> = {}

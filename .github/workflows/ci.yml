@@ -131,7 +131,7 @@ jobs:
           fi
 
   paired-perf:
-    name: Paired performance (${{ matrix.os }}, sample ${{ matrix.sample }})
+    name: ${{ inputs.diagnostic && format('Paired performance ({0}, sample {1})', matrix.os, matrix.sample) || format('Paired performance ({0})', matrix.os) }}
     strategy:
       fail-fast: false
       matrix:
@@ -162,14 +162,6 @@ jobs:
             git fetch --no-tags origin "$BASE_REF"
           fi
           git worktree add "$RUNNER_TEMP/base" "$BASE_REF"
-
-      - name: Use the same engine reflection data
-        run: |
-          mkdir -p artifacts/perf-paired-fixtures
-          cp "$RUNNER_TEMP/base/tests/fixtures/roblox-reflection.json" artifacts/perf-paired-fixtures/base-original.json
-          cp tests/fixtures/roblox-reflection.json artifacts/perf-paired-fixtures/shared.json
-          cp artifacts/perf-paired-fixtures/shared.json "$RUNNER_TEMP/base/tests/fixtures/roblox-reflection.json"
-          sha256sum artifacts/perf-paired-fixtures/*.json
 
       - name: Install Rokit
         env:
@@ -204,6 +196,7 @@ jobs:
         run: |
           base="$(cd "$RUNNER_TEMP/base" && pwd)"
           evidence="$GITHUB_WORKSPACE/artifacts/perf-paired-fixtures"
+          mkdir -p "$evidence"
           git -C "$base" diff --exit-code HEAD -- src
           cp "$base/tools/vendor/verify/UPSTREAM.lock" "$evidence/base-verify.lock"
           cp tools/vendor/verify/UPSTREAM.lock "$evidence/shared-verify.lock"

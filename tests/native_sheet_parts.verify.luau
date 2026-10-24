@@ -17,7 +17,7 @@ return function(verifyHarness: Verify.Harness)
 	local LONG = string.rep("A long line of body copy that wraps across the sheet. ", 40)
 	local noop = function() end
 
-	local function mount(extra: { [string]: any }?, options: any?): any
+	local function mount(extra: { [string]: any }?, options: any?, setup: overlay.Setup?): any
 		local o = options or {}
 		local detent = Compose.cell(o.detent or "medium")
 		local shown = o.shown or Compose.cell(true)
@@ -36,7 +36,7 @@ return function(verifyHarness: Verify.Harness)
 				spec[key] = if type(value) == "table" and value.__build then value.__build(UI, Host) else value
 			end
 			return UI.Sheet "Sheet"(spec)
-		end, o)
+		end, o, setup)
 		w.detent, w.shown = detent, shown
 		w.builds = function()
 			return builds
@@ -232,7 +232,7 @@ return function(verifyHarness: Verify.Harness)
 							}
 						end),
 					}, { shown = Compose.cell(false), motionLevel = "none" })
-					w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 					w.shown:set(true)
 					w.advance(1 / 60, 3)
 					local selected = w.gui.SelectedObject
@@ -262,7 +262,7 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end),
 				}, { shown = Compose.cell(false), motionLevel = "none" })
-				hidden.input.PreferredInput = hidden.Enum.PreferredInput.Gamepad
+				hidden.engine.environment.poke(hidden.input, "PreferredInput", hidden.Enum.PreferredInput.Gamepad)
 				hidden.shown:set(true)
 				hidden.advance(1 / 60, 30)
 				Verify.expect(if hidden.gui.SelectedObject then hidden.gui.SelectedObject.Name else "nil")
@@ -281,7 +281,7 @@ return function(verifyHarness: Verify.Harness)
 						return UI.Button "Continue" { label = "Continue" }
 					end),
 				}, { shown = Compose.cell(false), motionLevel = "none" })
-				hero.input.PreferredInput = hero.Enum.PreferredInput.Gamepad
+				hero.engine.environment.poke(hero.input, "PreferredInput", hero.Enum.PreferredInput.Gamepad)
 				hero.shown:set(true)
 				hero.advance(1 / 60, 3)
 				Verify.expect(if hero.gui.SelectedObject then hero.gui.SelectedObject.Name else "nil"):toBe("Continue")
@@ -299,7 +299,7 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end),
 				}, { shown = Compose.cell(false), motionLevel = "none" })
-				late.input.PreferredInput = late.Enum.PreferredInput.Gamepad
+				late.engine.environment.poke(late.input, "PreferredInput", late.Enum.PreferredInput.Gamepad)
 				late.shown:set(true)
 				late.advance(1 / 60, 3)
 				Verify.expect(if late.gui.SelectedObject then late.gui.SelectedObject.Name else "nil"):toBe("Close")
@@ -316,7 +316,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_sheet_parts::gamepad-entry-close-fallback",
 			run = function()
 				local w = mount({ placement = "center", closeButton = true }, { shown = Compose.cell(false) })
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.shown:set(true)
 				w.advance(1 / 60, 3)
 				Verify.expect(if w.gui.SelectedObject then w.gui.SelectedObject.Name else "nil"):toBe("Close")
@@ -346,7 +346,7 @@ return function(verifyHarness: Verify.Harness)
 						banner = Host.TextLabel "Banner" { Text = "Lobby" }
 						return { height = 140, content = banner }
 					end),
-				}, { runService = true, preRender = true, motionLevel = "none" })
+				}, { motionLevel = "none" }, { runService = true, preRender = true })
 				for _ = 1, 3 do
 					Verify.expect(w.find("OverlayArrival") ~= nil):toBe(true)
 					w.shown:set(false)
@@ -471,7 +471,7 @@ return function(verifyHarness: Verify.Harness)
 								return Host.Frame "PolicyBody" {}
 							end,
 						}
-					end, { size = Vector2.new(policy.width, policy.height) })
+					end, nil, { size = Vector2.new(policy.width, policy.height) })
 					w.size(w.find("PolicyBody"), policy.bodyWidth, policy.bodyHeight)
 					local command = w.find("CloseCommand")
 					Verify.expect(command ~= nil and command.Visible):toBe(policy.expected)

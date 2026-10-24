@@ -157,16 +157,8 @@ return function(harness: Verify.Harness)
 			end
 		end)
 		node.Text = "Coins 101"
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"AbsoluteSize",
-			engine.types.Vector2.new(216, 24)
-		)
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"TextBounds",
-			engine.types.Vector2.new(9000, 999)
-		)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.new(216, 24))
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "TextBounds", engine.types.Vector2.new(9000, 999))
 		engine.heartbeat:Fire(1 / 60)
 		t:expect(writes):toBe(0)
 		t:expect((assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint).MinSize.X):toBe(216)
@@ -214,7 +206,7 @@ return function(harness: Verify.Harness)
 						else engine.types.Enum.AutomaticSize.XY,
 				}
 				engine.environment.poke(
-					(label :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(label),
 					"AbsoluteSize",
 					engine.types.Vector2.new(120, 32)
 				)
@@ -274,7 +266,7 @@ return function(harness: Verify.Harness)
 		end, engine.new("ScreenGui"))
 		local node = assert(mounted)
 		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
+			VerifyRoblox.assertInstance(node),
 			"AbsoluteSize",
 			engine.types.Vector2.new(120, height)
 		)
@@ -386,16 +378,8 @@ return function(harness: Verify.Harness)
 		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
 		local unit = assert(node:FindFirstChild("TextBoundsUnit")) :: Frame
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(80, 16))
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"TextBounds",
-			engine.types.Vector2.new(9000, 999)
-		)
-		engine.environment.poke(
-			(unit :: unknown) :: VerifyRoblox.Instance,
-			"AbsoluteSize",
-			engine.types.Vector2.new(50, 0.5)
-		)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "TextBounds", engine.types.Vector2.new(9000, 999))
+		engine.environment.poke(VerifyRoblox.assertInstance(unit), "AbsoluteSize", engine.types.Vector2.new(50, 0.5))
 		t:expect(floor.MinSize):toEqual(engine.types.Vector2.new(80, 16))
 		t:expect(floor.MaxSize):toEqual(engine.types.Vector2.new(80, 16))
 		node.TextSize = 24
@@ -435,11 +419,7 @@ return function(harness: Verify.Harness)
 			return label
 		end, engine.new("ScreenGui"))
 		local node = assert(label)
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"AbsoluteSize",
-			engine.types.Vector2.new(228, 20)
-		)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.new(228, 20))
 		local floor = assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint
 		t:expect(floor.MinSize.Y):toBe(506)
 		stop()
@@ -483,23 +463,15 @@ return function(harness: Verify.Harness)
 			return label
 		end, engine.new("ScreenGui"))
 		local node = assert(label)
-		engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "TextFits", false)
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"AbsoluteSize",
-			engine.types.Vector2.new(100, 20)
-		)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "TextFits", false)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.new(100, 20))
 		t:expect(calls > 0):toBe(true)
 		t:expect(blocked):toBe(calls)
 		t:expect(measure.pending(node)):toBe(false)
 		t:expect(node.TextFits):toBe(false)
 		t:expect((assert(node:FindFirstChild("TextBoundsFloor")) :: UISizeConstraint).MinSize.Y):toBe(144)
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"AbsoluteSize",
-			engine.types.Vector2.new(100, 144)
-		)
-		engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "TextFits", true)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.new(100, 144))
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "TextFits", true)
 		t:expect(measure.pending(node)):toBe(false)
 		stop()
 		runtime:dispose()
@@ -511,17 +483,9 @@ return function(harness: Verify.Harness)
 		node.Text = "Saved"
 		node.TextWrapped = true
 		node.AutomaticSize = engine.types.Enum.AutomaticSize.Y
-		engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "TextFits", false)
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"TextBounds",
-			engine.types.Vector2.new(90, 14)
-		)
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"AbsoluteSize",
-			engine.types.Vector2.new(100, 14)
-		)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "TextFits", false)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "TextBounds", engine.types.Vector2.new(90, 14))
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.new(100, 14))
 		t:expect(measure.pending(node)):toBe(false)
 		local floor = engine.new("UISizeConstraint")
 		floor.Name = "TextBoundsFloor"
@@ -531,36 +495,16 @@ return function(harness: Verify.Harness)
 		local release = measure.hold(node)
 		t:expect(measure.pending(node)):toBe(true)
 		release()
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"AbsoluteSize",
-			engine.types.Vector2.new(100, 13)
-		)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.new(100, 13))
 		t:expect(measure.pending(node)):toBe(false)
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"AbsoluteSize",
-			engine.types.Vector2.new(80, 14)
-		)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.new(80, 14))
 		t:expect(measure.pending(node)):toBe(false)
 		local unit = engine.new("Frame")
 		unit.Name = "TextBoundsUnit"
-		engine.environment.poke(
-			(unit :: unknown) :: VerifyRoblox.Instance,
-			"AbsoluteSize",
-			engine.types.Vector2.new(200, 2)
-		)
+		engine.environment.poke(VerifyRoblox.assertInstance(unit), "AbsoluteSize", engine.types.Vector2.new(200, 2))
 		unit.Parent = node
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"TextBounds",
-			engine.types.Vector2.new(180, 28)
-		)
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"AbsoluteSize",
-			engine.types.Vector2.new(200, 28)
-		)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "TextBounds", engine.types.Vector2.new(180, 28))
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.new(200, 28))
 		t:expect(measure.pending(node)):toBe(false)
 		floor.MinSize = engine.types.Vector2.new(0, 28)
 		t:expect(measure.pending(node)):toBe(false)
@@ -604,16 +548,8 @@ return function(harness: Verify.Harness)
 		t:expect(blocked):toBe(calls)
 		t:expect(measure.pending(node)):toBe(false)
 		local before = calls
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"TextBounds",
-			engine.types.Vector2.new(9000, 999)
-		)
-		engine.environment.poke(
-			(node :: unknown) :: VerifyRoblox.Instance,
-			"AbsoluteSize",
-			engine.types.Vector2.new(200, 50)
-		)
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "TextBounds", engine.types.Vector2.new(9000, 999))
+		engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.new(200, 50))
 		t:expect(calls):toBe(before)
 		t:expect(metrics:peek().X):toBe(80)
 		node.Text = "Updated"

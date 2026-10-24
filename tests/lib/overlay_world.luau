@@ -1,11 +1,21 @@
 --!strict
 
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-type ScreenGuiConstructor = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiConstructor)
+type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
+type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local Compose = require("../../src/vendor/compose/core")
 local Roblox = require("../../src/vendor/compose/roblox")
 local controls = require("../../src/ui")
 local engines = require("./native_engine")
+local Shared = require("../../src/ui/types")
+
+export type Setup = {
+	inputs: boolean?,
+	runService: boolean?,
+	preRender: boolean?,
+	lastInputType: Enum.UserInputType?,
+	size: Vector2?,
+}
 
 local world = {}
 
@@ -48,45 +58,52 @@ function world.action(root: any, name: string): any
 	return nil
 end
 
-function world.new(build: (any, any, any, any, any) -> any, options: any?): any
-	local o = options or {}
-	local engine = engines.new()
+function world.new(
+	build: (FacetControls, RobloxHost, engines.Engine, any, ComposeRuntime) -> Shared.Child,
+	options: Shared.Config?,
+	setup: Setup?
+): any
+	local o: Setup = setup or {}
+	local engine: engines.Engine = engines.new()
 	local now = 0
 	engine.clock = function()
 		return now
 	end
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
+	local lastInputType: Enum.UserInputType? = o.lastInputType
+	if lastInputType then
+		input.GetLastInputType = function()
+			return lastInputType
+		end
+	end
 	input.GetFocusedTextBox = function()
 		return nil
 	end
 	local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 	local target = engine.new("Folder")
-	local UI = controls(Compose, runtime, {
-		types = engine.types,
-		inputParent = if o.inputs then target else nil,
-		services = {
-			GuiService = gui,
-			UserInputService = input,
-			RunService = if o.runService
-				then { Heartbeat = engine.heartbeat, PreRender = if o.preRender then engine.heartbeat else nil } :: any
-				else nil,
-		},
-		theme = o.theme,
-		motionLevel = o.motionLevel,
-		reducedMotion = o.reducedMotion,
-		controlSize = o.controlSize,
-		onError = o.onError,
-		buttonGuides = o.buttonGuides,
-	})
+	local config: Shared.Config = options or {}
+	config = table.clone(config)
+	config.types = engine.types
+	config.inputParent = if o.inputs then target else nil
+	config.services = {
+		GuiService = gui,
+		UserInputService = input,
+		RunService = if o.runService
+			then { Heartbeat = engine.heartbeat, PreRender = if o.preRender then engine.heartbeat else nil } :: any
+			else nil,
+	}
+	local UI = controls(Compose, runtime, config)
 	local V = engine.types.Vector2
+	local Host: RobloxHost = (runtime.constructors :: unknown) :: RobloxHost
 	local stop, screen: any = runtime.mount(function()
-		return ((runtime.constructors.ScreenGui :: unknown) :: ScreenGuiConstructor)({
-			build(UI, runtime.constructors, engine, gui, runtime),
-		})
+		local props: Shared.ScreenGuiNativeProps = {
+			build(UI, Host, engine, gui, runtime),
+		}
+		return Host.ScreenGui(props)
 	end, target)
 	local size = o.size or V.new(800, 600)
-	screen.AbsoluteSize = size
+	engine.environment.poke(screen, "AbsoluteSize", size)
 	local self: any = {
 		engine = engine,
 		gui = gui,
@@ -107,10 +124,10 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 		return world.action(screen, name)
 	end
 	function self.size(node: any, x: number, y: number)
-		node.AbsoluteSize = V.new(x, y)
+		self.engine.environment.poke(node, "AbsoluteSize", V.new(x, y))
 	end
 	function self.at(node: any, x: number, y: number)
-		node.AbsolutePosition = V.new(x, y)
+		self.engine.environment.poke(node, "AbsolutePosition", V.new(x, y))
 	end
 	function self.advance(seconds: number, steps: number?)
 		local count = steps or 1

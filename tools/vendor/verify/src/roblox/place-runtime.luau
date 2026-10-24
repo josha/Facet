@@ -251,7 +251,10 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 		end
 		local walk = base
 		for segment in string.gmatch(rest :: string, "[^/]+") do
-			local child = walk:FindFirstChild(segment)
+			local child = if segment == ".."
+				then walk.Parent
+				elseif segment == "." then walk
+				else walk:FindFirstChild(segment)
 			if child == nil then
 				error(
 					("place runtime cannot resolve require(%q) from %s"):format(target, scriptInstance:GetFullName()),
@@ -573,7 +576,7 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 				return "{" .. body .. "}"
 			end,
 			JSONEncode = function(_service: Instance, value: unknown): string
-				return host.encodeJson(value)
+				return if value == nil then "null" else host.encodeJson(value)
 			end,
 			JSONDecode = function(_service: Instance, text: string): unknown
 				return host.decodeJson(text)

@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -23,7 +24,7 @@ return function(verifyHarness: Verify.Harness)
 						UI.Button "Post" { label = "Post", help = { body = "Posts it", title = "Posting" } },
 					}
 				end)
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.gui.SelectedObject = w.find("Post")
 				w.advance(0.5, 10)
 				local panel, title = w.find("Help"), w.find("HelpTitle")
@@ -46,8 +47,9 @@ return function(verifyHarness: Verify.Harness)
 				})
 			end)
 			local post = w.find("Post")
-			post.AbsolutePosition, post.AbsoluteSize = Vector2.new(300, 200), Vector2.new(80, 44)
-			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+			w.engine.environment.poke(FixtureRoblox.assertInstance(post), "AbsolutePosition", Vector2.new(300, 200))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(post), "AbsoluteSize", Vector2.new(80, 44))
+			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			w.gui.SelectedObject = post
 			w.advance(0.5, 10)
 			return w
@@ -78,7 +80,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = hovered()
 				local panel = w.find("Help")
 				local scale = materialize.of(panel)
-				panel.AbsoluteSize = Vector2.new(120, 30)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(120, 30))
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect((fadeKit.of(panel))):toBe(1)
 				w.advance(FRAME)
@@ -96,7 +98,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = hovered()
 				local panel = w.find("Help")
 				panel.Visible = false
-				panel.AbsoluteSize = Vector2.new(120, 30)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(120, 30))
 				w.advance(0.5, 30)
 				Verify.expect(fadeKit.of(panel)):toBe(1)
 				Verify.expect(materialize.of(panel).Scale):toBe(1)
@@ -113,13 +115,13 @@ return function(verifyHarness: Verify.Harness)
 				local w = hovered()
 				local panel = w.find("Help")
 				local scale = materialize.of(panel)
-				panel.AbsoluteSize = Vector2.new(120, 30)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(120, 30))
 				w.advance(FRAME, 1)
 				w.advance(FRAME, 1)
 				w.advance(FRAME, 1)
 				local x, y = panel.Position.X.Offset, panel.Position.Y.Offset
 				local ax, ay = panel.AnchorPoint.X, panel.AnchorPoint.Y
-				panel.AbsoluteSize = Vector2.new(120 * scale.Scale, 30 * scale.Scale)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(120 * scale.Scale, 30 * scale.Scale))
 				w.advance(FRAME, 1)
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
@@ -138,7 +140,7 @@ return function(verifyHarness: Verify.Harness)
 				local w = hovered()
 				local panel = w.find("Help")
 				local scale = materialize.of(panel)
-				panel.AbsoluteSize = Vector2.new(137.5, 63.2)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(137.5, 63.2))
 				w.advance(FRAME)
 				w.advance(FRAME)
 				w.advance(FRAME)
@@ -175,9 +177,10 @@ return function(verifyHarness: Verify.Harness)
 						onRetire = function() end,
 					},
 				})
-			end, { runService = true })
+			end, nil, { runService = true })
 			local plus = w.find("Plus")
-			plus.AbsolutePosition, plus.AbsoluteSize = Vector2.new(300, 300), Vector2.new(44, 44)
+			w.engine.environment.poke(FixtureRoblox.assertInstance(plus), "AbsolutePosition", Vector2.new(300, 300))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(plus), "AbsoluteSize", Vector2.new(44, 44))
 			return w
 		end
 
@@ -186,7 +189,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = presented()
 				local panel, arrow = w.find("CalloutPanel"), w.find("Arrow")
-				panel.AbsoluteSize = Vector2.new(280, 120)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(280, 120))
 				w.advance(FRAME, 1)
 				w.advance(FRAME, 1)
 				w.advance(FRAME, 1)
@@ -194,7 +197,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(scale.Scale < 1):toBe(true)
 				local x, y = panel.Position.X.Offset, panel.Position.Y.Offset
 				local tx, ty = arrow.Position.X.Offset, arrow.Position.Y.Offset
-				panel.AbsoluteSize = Vector2.new(280 * scale.Scale, 120 * scale.Scale)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(280 * scale.Scale, 120 * scale.Scale))
 				w.advance(FRAME, 1)
 				Verify.expect(scale.Scale < 1):toBe(true)
 				Verify.expect(panel.Position.X.Offset):toBe(x)
@@ -258,7 +261,7 @@ return function(verifyHarness: Verify.Harness)
 								end,
 							},
 						}
-					end, { runService = true })
+					end, nil, { runService = true })
 					w.at(w.find("Anchor"), 350, 250)
 					w.size(w.find("Anchor"), 40, 40)
 					local panel, border, tail = w.find("Panel"), w.find("OutlineBoundary"), w.find("Tail")
@@ -348,8 +351,8 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end)
-				w.find("Panel").AbsoluteSize = Vector2.new(200, 100.95)
-				w.find("Flow").AbsoluteSize = Vector2.new(184, 84.95)
+				w.engine.environment.poke(w.find("Panel"), "AbsoluteSize", Vector2.new(200, 100.95))
+				w.engine.environment.poke(w.find("Flow"), "AbsoluteSize", Vector2.new(184, 84.95))
 				w.advance(FRAME, 3)
 				local panel, flow = w.find("Panel"), w.find("Flow")
 				local position = panel.Position
@@ -380,15 +383,15 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local panel = w.find("Panel")
-				panel.AbsoluteSize = Vector2.new(200, 100)
-				w.find("Flow").AbsoluteSize = Vector2.new(184, 84)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(200, 100))
+				w.engine.environment.poke(w.find("Flow"), "AbsoluteSize", Vector2.new(184, 84))
 				w.advance(FRAME, 1)
 				w.advance(FRAME, 1)
 				w.advance(FRAME, 1)
 				local scale = materialize.of(panel)
 				Verify.expect(scale.Scale):toBe(1)
 				local x, y = panel.Position.X.Offset, panel.Position.Y.Offset
-				panel.AbsoluteSize = Vector2.new(200 * scale.Scale, 100 * scale.Scale)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(200 * scale.Scale, 100 * scale.Scale))
 				Verify.expect(panel.Position.X.Offset):toBe(x)
 				Verify.expect(panel.Position.Y.Offset):toBe(y)
 				w.stop()
@@ -410,7 +413,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end, { motionLevel = "none" })
-				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 				w.size(w.screen, 400 * 0.513, 800 * 0.513)
 				local modal = w.find("Modal")
 				Verify.expect(modal:GetAttribute("FacetRoute")):toBe("sheet")
@@ -528,13 +531,13 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, { motionLevel = "none" })
 				local post = w.find("Post")
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.gui.SelectedObject = post
 				w.advance(0.5, 10)
 				local panel = w.find("Help")
-				panel.AbsoluteSize = Vector2.new(120, 30)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(120, 30))
 				w.advance(FRAME)
-				panel.AbsoluteSize = Vector2.new(130, 30)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(130, 30))
 				w.advance(FRAME)
 				Verify.expect((fadeKit.of(panel))):toBe(1)
 				w.advance(FRAME)
@@ -556,14 +559,14 @@ return function(verifyHarness: Verify.Harness)
 							UI.Button "Post" { label = "Post", help = "Posts it" },
 						})
 					end)
-					w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 					w.gui.SelectedObject = w.find("Post")
 					w.advance(0.5, 10)
 					local panel = w.find("Help")
 					w.advance(FRAME)
 					Verify.expect((fadeKit.of(panel))):toBe(1)
-					w.gui.ReducedMotionEnabled = true
-					panel.AbsoluteSize = Vector2.new(120, 30)
+					w.engine.environment.poke(w.gui, "ReducedMotionEnabled", true)
+					w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(120, 30))
 					w.advance(FRAME, 3)
 					Verify.expect(fadeKit.of(panel) < 1):toBe(true)
 					Verify.expect(materialize.of(panel).Scale):toBe(1)
@@ -583,13 +586,13 @@ return function(verifyHarness: Verify.Harness)
 						UI.Button "Post" { label = "Post", help = "Posts it" },
 					})
 				end)
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.gui.SelectedObject = w.find("Post")
 				w.advance(0.5, 10)
 				local panel = w.find("Help")
 				local scale = materialize.of(panel)
 				for index = 1, 5 do
-					panel.AbsoluteSize = Vector2.new(100 + index, 30)
+					w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(100 + index, 30))
 					w.advance(FRAME)
 					Verify.expect(scale.Scale):toBe(1)
 				end
@@ -610,12 +613,12 @@ return function(verifyHarness: Verify.Harness)
 						UI.Button "Post" { label = "Post", help = "Posts it" },
 					})
 				end)
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.gui.SelectedObject = w.find("Post")
 				w.advance(0.5, 10)
 				local panel = w.find("Help")
 				for index = 1, 20 do
-					panel.AbsoluteSize = Vector2.new(100 + index, 30)
+					w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(100 + index, 30))
 					w.advance(FRAME)
 				end
 				Verify.expect(fadeKit.of(panel) < 1):toBe(true)
@@ -649,14 +652,15 @@ return function(verifyHarness: Verify.Harness)
 
 	local function lay(world: any, panel: any, size: Vector2)
 		local trigger = world.find("Trigger")
-		trigger.AbsolutePosition, trigger.AbsoluteSize = Vector2.new(300, 300), Vector2.new(200, 40)
+		world.engine.environment.poke(FixtureRoblox.assertInstance(trigger), "AbsolutePosition", Vector2.new(300, 300))
+		world.engine.environment.poke(FixtureRoblox.assertInstance(trigger), "AbsoluteSize", Vector2.new(200, 40))
 		local modal = panel.Parent
 		while modal and modal.Parent and modal.Parent.ClassName ~= "ScreenGui" do
 			modal = modal.Parent
 		end
-		modal.AbsoluteSize = Vector2.new(800, 600)
-		panel.AbsoluteSize = size
-		world.find("MenuRows", panel).AbsoluteSize = Vector2.new(size.X, size.Y)
+		world.engine.environment.poke(modal, "AbsoluteSize", Vector2.new(800, 600))
+		world.engine.environment.poke(panel, "AbsoluteSize", size)
+		world.engine.environment.poke(world.find("MenuRows", panel), "AbsoluteSize", Vector2.new(size.X, size.Y))
 	end
 
 	verifyHarness:suite("present at rest: menu", function()
@@ -695,7 +699,7 @@ return function(verifyHarness: Verify.Harness)
 				world.engine.heartbeat:Fire(FRAME)
 				Verify.expect(scale.Scale):toBe(1)
 				local shrink = 1 - scale.Scale
-				panel.AbsoluteSize = Vector2.new(220 * scale.Scale, 200 * scale.Scale)
+				world.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(220 * scale.Scale, 200 * scale.Scale))
 				Verify.expect(materialize.position(panel).X.Offset):toBeCloseTo(280 + 220 * shrink, 1)
 				Verify.expect(materialize.position(panel).Y.Offset):toBeCloseTo(96 + 200 * shrink, 2)
 				world.stop()
@@ -734,16 +738,20 @@ return function(verifyHarness: Verify.Harness)
 				local scale = materialize.of(panel)
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect((fadeKit.of(world.find("MenuGroup", panel)))):toBe(1)
-				world.find("MenuRows", panel).AbsoluteSize = Vector2.new(220, 90)
-				panel.AbsoluteSize = Vector2.new(220, 90)
+				world.engine.environment.poke(world.find("MenuRows", panel), "AbsoluteSize", Vector2.new(220, 90))
+				world.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(220, 90))
 				world.engine.heartbeat:Fire(FRAME)
 				world.engine.heartbeat:Fire(FRAME)
 				world.engine.heartbeat:Fire(FRAME)
 				Verify.expect(scale.Scale):toBe(1)
 				Verify.expect(panel.Size.Y.Offset):toBe(90)
 				Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBeNil()
-				panel.AbsoluteSize = Vector2.new(220 * scale.Scale, 90 * scale.Scale)
-				world.find("MenuRows", panel).AbsoluteSize = Vector2.new(220 * scale.Scale, 90 * scale.Scale)
+				world.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(220 * scale.Scale, 90 * scale.Scale))
+				world.engine.environment.poke(
+					world.find("MenuRows", panel),
+					"AbsoluteSize",
+					Vector2.new(220 * scale.Scale, 90 * scale.Scale)
+				)
 				Verify.expect(panel.Size.Y.Offset):toBe(90)
 				Verify.expect(panel:FindFirstChild("PresentationPaint", true)):toBeNil()
 				world.stop()
@@ -760,8 +768,8 @@ return function(verifyHarness: Verify.Harness)
 						value = Compose.cell(require("./lib/native_engine").types.Color3.new(1, 0, 0)),
 						onChange = function() end,
 					}
-				end, { runService = true })
-				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				end, nil, { runService = true })
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 				w.size(w.screen, 390, 844)
 				w.find("Well").Activated:Fire()
 				local panel, technique = w.find("Panel"), w.find("Technique")

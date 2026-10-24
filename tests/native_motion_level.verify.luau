@@ -41,18 +41,18 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local w, env = levelWorld({ motionLevel = "none" })
 					Verify.expect((env.motionLevel:peek())):toBe("none")
-					w.gui.ReducedMotionEnabled = true
+					w.engine.environment.poke(w.gui, "ReducedMotionEnabled", true)
 					Verify.expect((env.motionLevel:peek())):toBe("none")
 					w.stop()
 					local chosen = Compose.cell("normal")
 					local w2, env2 = levelWorld({ motionLevel = chosen })
 					Verify.expect((env2.motionLevel:peek())):toBe("normal")
-					w2.gui.ReducedMotionEnabled = true
+					w2.engine.environment.poke(w2.gui, "ReducedMotionEnabled", true)
 					Verify.expect((env2.motionLevel:peek())):toBe("limited")
 					Verify.expect((env2.reducedMotion:peek())):toBe(true)
 					chosen:set("none")
 					Verify.expect((env2.motionLevel:peek())):toBe("none")
-					w2.gui.ReducedMotionEnabled = false
+					w2.engine.environment.poke(w2.gui, "ReducedMotionEnabled", false)
 					chosen:set("limited")
 					Verify.expect((env2.motionLevel:peek())):toBe("limited")
 					w2.stop()
@@ -66,7 +66,7 @@ return function(verifyHarness: Verify.Harness)
 				local w, shown = alertWorld({ motionLevel = "none" })
 				shown:set(true)
 				local panel = w.find("AlertPanel")
-				w.find("AlertContent").Parent.AbsoluteSize = w.Vector2.new(300, 60)
+				w.engine.environment.poke(w.find("AlertContent").Parent, "AbsoluteSize", w.Vector2.new(300, 60))
 				w.advance(1 / 60, 2)
 				Verify.expect((panel:FindFirstChild("PresentationContent", true))):toBeNil()
 				Verify.expect((fadeKit.of(panel))):toBe(0)
@@ -74,8 +74,8 @@ return function(verifyHarness: Verify.Harness)
 				local w2, shown2 = alertWorld({ motionLevel = "normal" })
 				shown2:set(true)
 				local panel2 = w2.find("AlertPanel")
-				panel2.AbsoluteSize = w2.Vector2.new(440, 176)
-				w2.find("AlertContent").Parent.AbsoluteSize = w2.Vector2.new(300, 60)
+				w2.engine.environment.poke(panel2, "AbsoluteSize", w2.Vector2.new(440, 176))
+				w2.engine.environment.poke(w2.find("AlertContent").Parent, "AbsoluteSize", w2.Vector2.new(300, 60))
 				w2.advance(1 / 60, 3)
 				Verify.expect(panel2.AbsoluteSize):toBe(w2.Vector2.new(440, 176))
 				Verify.expect(w2.find("PresentationPaint")):toBeNil()
@@ -106,7 +106,10 @@ return function(verifyHarness: Verify.Harness)
 
 		verifyHarness:suite("native parity media", function()
 			verifyHarness:suite("controls", function()
-				local function session(build: (any, any) -> any, prepare: ((any, any) -> ())?): { [string]: any }
+				local function session(
+					build: (any, any) -> any,
+					prepare: ((any, any, engineLib.Engine) -> ())?
+				): { [string]: any }
 					local engine: any = engineLib.new()
 					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 					local gui = engine.new("GuiService")
@@ -118,7 +121,7 @@ return function(verifyHarness: Verify.Harness)
 						return false
 					end
 					if prepare then
-						prepare(gui, input)
+						prepare(gui, input, engine)
 					end
 					local UI = Facet.controls(
 						runtime,
@@ -225,8 +228,8 @@ return function(verifyHarness: Verify.Harness)
 										max = 10,
 									},
 								})
-							end, function(gui)
-								gui.ReducedMotionEnabled = reduced
+							end, function(gui, _, engine)
+								engine.environment.poke(gui, "ReducedMotionEnabled", reduced)
 							end)
 							local button = w.find("Pop")
 							button.Activated:Fire()
@@ -252,7 +255,7 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(full.pulse):toBeLessThan(1)
 						Verify.expect(full.dotBefore > 0):toBe(true)
 						Verify.expect(full.dotAfter ~= full.dotBefore):toBe(true)
-						full.w.gui.ReducedMotionEnabled = true
+						full.w.engine.environment.poke(full.w.gui, "ReducedMotionEnabled", true)
 						Verify.expect(full.w.find("Pop"):FindFirstChild("Pop", true).Scale):toBe(1)
 						Verify.expect(full.w.find("Field"):FindFirstChild("ValidationPulse", true).Scale):toBe(1)
 						Verify.expect(full.w.find("Busy"):FindFirstChild("Dot1", true).BackgroundTransparency):toBe(0)
@@ -263,7 +266,7 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(reduced.pulse):toBe(1)
 						Verify.expect(reduced.dotBefore):toBe(0)
 						Verify.expect(reduced.dotAfter):toBe(0)
-						reduced.w.gui.ReducedMotionEnabled = false
+						reduced.w.engine.environment.poke(reduced.w.gui, "ReducedMotionEnabled", false)
 						reduced.w.find("Pop").Activated:Fire()
 						reduced.w.engine.heartbeat:Fire(0.1)
 						Verify.expect(reduced.w.find("Pop"):FindFirstChild("Pop", true).Scale):toBeGreaterThan(1)

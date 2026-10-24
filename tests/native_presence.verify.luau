@@ -9,8 +9,9 @@ return function(verifyHarness: Verify.Harness)
 	local fadeKit = require("./lib/fade")
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
+	local Types = require("../src/ui/types")
 
-	local function dialog(shown: any, options: any?, unsized: boolean?): any
+	local function dialog(shown: any, options: Types.Config?, unsized: boolean?): any
 		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.Dialog "D" {
 				isPresented = shown,
@@ -25,7 +26,7 @@ return function(verifyHarness: Verify.Harness)
 		end, options)
 		local panel = w.find("Panel")
 		if panel and not unsized then
-			panel.AbsoluteSize = w.Vector2.new(560, 441)
+			w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(560, 441))
 		end
 		return w
 	end
@@ -101,7 +102,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end, { motionLevel = "limited" })
-				w.find("Modal").AbsoluteSize = w.Vector2.new(800, 600)
+				w.engine.environment.poke(w.find("Modal"), "AbsoluteSize", w.Vector2.new(800, 600))
 				local panel = w.find("SheetPanel")
 				local at = nil
 				local sawFading = false
@@ -123,7 +124,7 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("presence: limited cross-fades the toast, tabs, stack and disclosure", function()
-		local LIMITED = { motionLevel = "limited" }
+		local LIMITED: Types.Config = { motionLevel = "limited" }
 
 		local function fadesOver(w: any, node: any, from: number, to: number): number
 			local frames = 0
@@ -152,7 +153,7 @@ return function(verifyHarness: Verify.Harness)
 				end, LIMITED)
 				expanded:set(true)
 				local reveal, fade = w.find("Reveal"), w.find("RevealFade")
-				fade.AbsoluteSize = w.Vector2.new(300, 120)
+				w.engine.environment.poke(fade, "AbsoluteSize", w.Vector2.new(300, 120))
 				w.advance(1 / 60)
 				Verify.expect(reveal.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
 				local frames = fadesOver(w, fade, 1, 0)
@@ -163,7 +164,12 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("presence: a Dialog is measured at rest", function()
-		for _, level in { "normal", "none" } do
+		local configurations: { Types.Config } = {
+			{ motionLevel = "normal" },
+			{ motionLevel = "none" },
+		}
+		for _, config in configurations do
+			local level = config.motionLevel
 			verifyHarness:case(`a Dialog waits for its size to hold, then never grows after it shows ({level})`, {
 				id = "native_presence::"
 					.. "presence: a Dialog is measured at rest"
@@ -171,14 +177,14 @@ return function(verifyHarness: Verify.Harness)
 					.. `a Dialog waits for its size to hold, then never grows after it shows ({level})`,
 				run = function()
 					local shown = Compose.cell(true)
-					local w = dialog(shown, { motionLevel = level }, true)
+					local w = dialog(shown, config, true)
 					local panel = w.find("Panel")
 					local scale = materialize.of(panel)
-					panel.AbsoluteSize = w.Vector2.new(560, 420)
+					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(560, 420))
 					w.advance(1 / 60)
 					Verify.expect((fadeKit.of(panel))):toBe(1)
 					Verify.expect(scale.Scale):toBe(1)
-					panel.AbsoluteSize = w.Vector2.new(560, 441)
+					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(560, 441))
 					w.advance(1 / 60)
 					Verify.expect((fadeKit.of(panel))):toBe(1)
 					local seen = false

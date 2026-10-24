@@ -82,6 +82,10 @@ workloads.DATASETS = {
 }
 
 local function createStandard(ctx: Context, name: string, dataset: DatasetModule)
+	local poke = if ctx.engine
+		then ((ctx.engine :: unknown) :: { environment: { poke: (unknown, string, unknown) -> () } }).environment.poke
+		else nil
+
 	assert(workloads.DATASETS[name], `unknown performance workload {name}`)
 	local Compose: ComposeModule, runtime, Host, UI, types = ctx.Facet.Compose, ctx.runtime, ctx.Host, ctx.UI, ctx.types
 	local D2, V2, E, C3 = types.UDim2, types.Vector2, types.Enum, types.Color3
@@ -178,11 +182,10 @@ local function createStandard(ctx: Context, name: string, dataset: DatasetModule
 		return cell
 	end
 	local function viewport<T>(node: T): T
-		if ctx.engine then
-			((node :: unknown) :: GuiObject).AbsoluteSize = V2.new(ctx.viewport.w, ctx.viewport.h)
+		if poke then
+			poke(node, "AbsoluteSize", V2.new(ctx.viewport.w, ctx.viewport.h))
 			if ((node :: unknown) :: Instance).ClassName == "ScrollingFrame" then
-				((node :: unknown) :: ScrollingFrame).AbsoluteWindowSize =
-					V2.new(ctx.viewport.w, math.max(120, ctx.viewport.h - 80))
+				poke(node, "AbsoluteWindowSize", V2.new(ctx.viewport.w, math.max(120, ctx.viewport.h - 80)))
 			end
 		end
 		return node

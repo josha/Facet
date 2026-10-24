@@ -561,6 +561,9 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 	return t
 end
 
+live.context = newCase
+live.themes = themeModules
+
 function live.cases(suite: string): { any }
 	local module = script:WaitForChild("suites"):FindFirstChild(suite)
 	assert(module and module:IsA("ModuleScript"), "unknown live suite " .. suite)

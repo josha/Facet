@@ -1,10 +1,45 @@
 --!strict
 local Lute = require("../../tools/vendor/verify/src/lute")
+local fs = require("@std/fs")
 
 local requireHost = (require :: unknown) :: (string) -> unknown
+local ROOTS: { [string]: boolean } = { src = true, examples = true, tests = true, bench = true, tools = true }
+local sources: { [string]: string }? = nil
+
+local function sourceFiles(): { [string]: string }
+	if sources then
+		return sources
+	end
+	local loaded: { [string]: string } = {}
+	for root in ROOTS do
+		if fs.exists(root) then
+			for _, path in
+				Lute.corpus.discover({
+					listDir = fs.listDirectory,
+					rules = { { root = root, pattern = "%.luau$" } },
+				})
+			do
+				local hosted = string.sub(path, 1, 13) == "tools/vendor/" or string.sub(path, 1, 12) == "tools/facet/"
+				loaded[path] = if hosted then "" else fs.readFileToString(path)
+			end
+		end
+	end
+	sources = loaded
+	return loaded
+end
 
 local function new(): Lute.Loader
+	local files = sourceFiles()
 	return Lute.loader.new({
+		files = {
+			exists = function(path: string): boolean
+				local root = string.gsub(string.match(path, "^[^/]+") or path, "%.luau$", "")
+				return files[path] ~= nil or (not ROOTS[root] and fs.exists(path))
+			end,
+			readFile = function(path: string): string
+				return files[path] or fs.readFileToString(path)
+			end,
+		},
 		aliases = { repo = "" },
 		hostPaths = { "tools/vendor/", "tools/facet/" },
 		requireHost = function(module: string): unknown

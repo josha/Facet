@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 local Facet = require("../src")
 local Shared = require("../src/ui/types")
@@ -16,7 +17,7 @@ return function(harness: Verify.Harness)
 		screen.Parent = native.new("Folder")
 		local slot = native.new("Frame")
 		slot.Parent = screen
-		slot.AbsoluteSize = native.types.Vector2.new(60, 60)
+		native.environment.poke(slot, "AbsoluteSize", native.types.Vector2.new(60, 60))
 		local visual: Frame? = nil
 		local stop = runtime.mount(function()
 			local UI = Facet.controls(runtime, { types = native.types, overlayParent = screen })
@@ -68,10 +69,26 @@ return function(harness: Verify.Harness)
 			first.Parent, second.Parent = items, items
 			rack.ClipsDescendants = clipAt == "rack"
 			items.ClipsDescendants = clipAt == "items"
-			first.AbsolutePosition = native.types.Vector2.new(20, 70)
-			second.AbsolutePosition = native.types.Vector2.new(180, 70)
-			first.AbsoluteSize = native.types.Vector2.new(44, 44)
-			second.AbsoluteSize = native.types.Vector2.new(44, 44)
+			native.environment.poke(
+				FixtureRoblox.assertInstance(first),
+				"AbsolutePosition",
+				native.types.Vector2.new(20, 70)
+			)
+			native.environment.poke(
+				FixtureRoblox.assertInstance(second),
+				"AbsolutePosition",
+				native.types.Vector2.new(180, 70)
+			)
+			native.environment.poke(
+				FixtureRoblox.assertInstance(first),
+				"AbsoluteSize",
+				native.types.Vector2.new(44, 44)
+			)
+			native.environment.poke(
+				FixtureRoblox.assertInstance(second),
+				"AbsoluteSize",
+				native.types.Vector2.new(44, 44)
+			)
 			local destination = Facet.Compose.cell(first)
 			local visual: GuiObject? = nil
 			local starts = 0
@@ -118,8 +135,9 @@ return function(harness: Verify.Harness)
 		local screen = native.new("ScreenGui")
 		local first, second = native.new("Frame"), native.new("Frame")
 		first.Parent, second.Parent = screen, screen
-		first.AbsoluteSize, second.AbsoluteSize = native.types.Vector2.new(48, 48), native.types.Vector2.new(64, 64)
-		second.AbsolutePosition = native.types.Vector2.new(200, 100)
+		native.environment.poke(FixtureRoblox.assertInstance(first), "AbsoluteSize", native.types.Vector2.new(48, 48))
+		native.environment.poke(FixtureRoblox.assertInstance(second), "AbsoluteSize", native.types.Vector2.new(64, 64))
+		native.environment.poke(second, "AbsolutePosition", native.types.Vector2.new(200, 100))
 		local destination = Facet.Compose.cell(first :: GuiObject)
 		local visual: GuiObject? = nil
 		local stop = runtime.mount(function()
@@ -169,7 +187,11 @@ return function(harness: Verify.Harness)
 		local layout = assert(picker:FindFirstChildWhichIsA("UIListLayout")) :: UIListLayout
 		local measured = (layout :: unknown) :: { AbsoluteContentSize: Vector2 }
 		for _, height in { 92, 140, 44 } do
-			measured.AbsoluteContentSize = native.types.Vector2.new(341, height)
+			native.environment.poke(
+				FixtureRoblox.assertInstance(measured),
+				"AbsoluteContentSize",
+				native.types.Vector2.new(341, height)
+			)
 			t:expect(picker.Size.Y.Offset >= height):toBe(true)
 			t:expect(picker.Size.Y.Offset < height + 20):toBe(true)
 		end
@@ -249,8 +271,8 @@ return function(harness: Verify.Harness)
 		for index = 1, 128 do
 			local slot = native.new("Frame")
 			slot.Parent = board
-			slot.AbsolutePosition = native.types.Vector2.new((index - 1) * 20, 0)
-			slot.AbsoluteSize = native.types.Vector2.new(16, 16)
+			native.environment.poke(slot, "AbsolutePosition", native.types.Vector2.new((index - 1) * 20, 0))
+			native.environment.poke(slot, "AbsoluteSize", native.types.Vector2.new(16, 16))
 			slots[index] = slot
 		end
 		local cells: { Facet.Cell<GuiObject> } = {}
@@ -313,8 +335,16 @@ return function(harness: Verify.Harness)
 		for index = 1, 7 do
 			slots[index] = native.new("Frame")
 			slots[index].Parent = row
-			slots[index].AbsolutePosition = native.types.Vector2.new((index - 1) * 56, 70)
-			slots[index].AbsoluteSize = native.types.Vector2.new(44, 44)
+			native.environment.poke(
+				FixtureRoblox.assertInstance(slots[index]),
+				"AbsolutePosition",
+				native.types.Vector2.new((index - 1) * 56, 70)
+			)
+			native.environment.poke(
+				FixtureRoblox.assertInstance(slots[index]),
+				"AbsoluteSize",
+				native.types.Vector2.new(44, 44)
+			)
 		end
 		local step = 0
 		local stop = runtime.mount(function()
@@ -422,7 +452,7 @@ return function(harness: Verify.Harness)
 		local Host = (runtime.constructors :: unknown) :: Shared.Host
 		local screen, board, slot = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
 		screen.Parent, board.Parent, slot.Parent = native.new("Folder"), screen, board
-		slot.AbsoluteSize = native.types.Vector2.new(44, 44)
+		native.environment.poke(slot, "AbsoluteSize", native.types.Vector2.new(44, 44))
 		local button = native.new("TextButton")
 		button.Parent, button.ZIndex = slot, 2
 		local node: TextLabel
@@ -461,9 +491,18 @@ return function(harness: Verify.Harness)
 		local screen, source, target = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
 		screen.Parent, source.Parent, target.Parent = native.new("Folder"), screen, screen
 		source.ClipsDescendants, target.ClipsDescendants = true, true
-		source.AbsolutePosition, target.AbsolutePosition =
-			native.types.Vector2.new(20, 30), native.types.Vector2.new(143, 539)
-		source.AbsoluteSize, target.AbsoluteSize = native.types.Vector2.new(44, 44), native.types.Vector2.new(44, 44)
+		native.environment.poke(
+			FixtureRoblox.assertInstance(source),
+			"AbsolutePosition",
+			native.types.Vector2.new(20, 30)
+		)
+		native.environment.poke(
+			FixtureRoblox.assertInstance(target),
+			"AbsolutePosition",
+			native.types.Vector2.new(143, 539)
+		)
+		native.environment.poke(FixtureRoblox.assertInstance(source), "AbsoluteSize", native.types.Vector2.new(44, 44))
+		native.environment.poke(FixtureRoblox.assertInstance(target), "AbsoluteSize", native.types.Vector2.new(44, 44))
 		local padding = native.new("UIPadding")
 		padding.Parent = target
 		local stroke = native.new("UIStroke")
@@ -584,8 +623,16 @@ return function(harness: Verify.Harness)
 				render = function(current: Shared.Readable<number>): GuiObject
 					local id = current:peek()
 					local slot = Host.Frame { Name = `Target{id}`, ClipsDescendants = true }
-					slot.AbsolutePosition = native.types.Vector2.new(id * 60, 60)
-					slot.AbsoluteSize = native.types.Vector2.new(44, 44)
+					native.environment.poke(
+						FixtureRoblox.assertInstance(slot),
+						"AbsolutePosition",
+						native.types.Vector2.new(id * 60, 60)
+					)
+					native.environment.poke(
+						FixtureRoblox.assertInstance(slot),
+						"AbsoluteSize",
+						native.types.Vector2.new(44, 44)
+					)
 					slots[id] = slot
 					return slot
 				end,
@@ -677,8 +724,9 @@ return function(harness: Verify.Harness)
 		local screen, source, target = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
 		screen.Parent, source.Parent, target.Parent = native.new("Folder"), screen, screen
 		source.ClipsDescendants, target.ClipsDescendants = true, true
-		source.AbsoluteSize, target.AbsoluteSize = native.types.Vector2.new(44, 44), native.types.Vector2.new(44, 44)
-		target.AbsolutePosition = native.types.Vector2.new(200, 200)
+		native.environment.poke(FixtureRoblox.assertInstance(source), "AbsoluteSize", native.types.Vector2.new(44, 44))
+		native.environment.poke(FixtureRoblox.assertInstance(target), "AbsoluteSize", native.types.Vector2.new(44, 44))
+		native.environment.poke(target, "AbsolutePosition", native.types.Vector2.new(200, 200))
 		local destination: Facet.Cell<GuiObject>
 		local node: Frame
 		local stop = runtime.mount(function()
@@ -714,8 +762,10 @@ return function(harness: Verify.Harness)
 		local screen = native.new("ScreenGui")
 		local a, b = native.new("Frame"), native.new("Frame")
 		a.Parent, b.Parent = screen, screen
-		a.AbsolutePosition, b.AbsolutePosition = native.types.Vector2.new(100, 50), native.types.Vector2.new(20, 200)
-		a.AbsoluteSize, b.AbsoluteSize = native.types.Vector2.new(52, 52), native.types.Vector2.new(52, 52)
+		native.environment.poke(FixtureRoblox.assertInstance(a), "AbsolutePosition", native.types.Vector2.new(100, 50))
+		native.environment.poke(FixtureRoblox.assertInstance(b), "AbsolutePosition", native.types.Vector2.new(20, 200))
+		native.environment.poke(FixtureRoblox.assertInstance(a), "AbsoluteSize", native.types.Vector2.new(52, 52))
+		native.environment.poke(FixtureRoblox.assertInstance(b), "AbsoluteSize", native.types.Vector2.new(52, 52))
 		a.ClipsDescendants, b.ClipsDescendants = true, true
 		local destination = C.cell(a :: GuiObject)
 		local anchor: Frame

@@ -222,7 +222,7 @@ for count = 1, 2 do
 				return state.UI.Button({ label = current:peek().label, onActivate = function() end })
 			end,
 		})
-		local geometry = (node :: unknown) :: VerifyRoblox.Instance
+		local geometry = VerifyRoblox.assertInstance(node)
 		state.engine.environment.poke(geometry, "AbsoluteSize", state.types.Vector2.new(300, 200))
 		state.engine.environment.poke(geometry, "AbsoluteWindowSize", state.types.Vector2.new(300, 200))
 		return node

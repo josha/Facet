@@ -1,9 +1,10 @@
 --!strict
+local Gate = require("../lib/gate")
+local Verify = require("../../vendor/verify/src/core")
 
 local fs = require("@std/fs")
 local system = require("@std/system")
 local Base64 = require("../../vendor/verify/src/codec/base64")
-local Case = require("../lib/case")
 local Cli = require("../lib/cli")
 local Evidence = require("../lib/perf_evidence")
 local Files = require("../lib/files")
@@ -698,11 +699,8 @@ local function contains(list: { string }, fragment: string): boolean
 	return false
 end
 
-local function expectContains(list: { string }, fragment: string): string?
-	if contains(list, fragment) then
-		return nil
-	end
-	return ("expected a line containing '%s', got: %s"):format(fragment, table.concat(list, " | "))
+local function expectContains(list: { string }, fragment: string)
+	Verify.expect(table.concat(list, "\n")):toContain(fragment)
 end
 
 local HEADLESS_METRICS = [[{
@@ -864,537 +862,467 @@ local function requiredPairs(): (Paired.Scope, { Json.Object }, { Paired.Bench }
 	return { rounds = 2, scenes = { "dense-hud" }, bench = true }, entries, first, second
 end
 
-local function pairedRunFixture(mode: string): string?
+local function pairedRunFixture(test: Verify.Context, mode: string): ()
 	local root = Files.temporaryDirectory("facet-paired-checkpoint-")
-	local ok, failure = pcall(function(): string?
-		local out = Files.join(root, "out")
-		local counts: { [string]: number } = { base = 0, cand = 0 }
-		local arms: { string } = {}
-		local calls: { string } = {}
-		local summary = Files.join(root, "summary.md")
-		local arguments = { "perf", "paired", "run", "--out", out, "--rounds", "6", "--summary", summary }
-		if mode ~= "manual" then
-			table.insert(arguments, "--gate")
-		end
-		for _, label in { "base", "cand" } do
-			table.insert(arguments, label .. "=" .. Files.join(root, label))
-		end
-		local status = pairedRun(
-			Cli.parse(arguments, { "out", "rounds", "summary" }),
-			function(argv, options): Run.Result
-				local tree = assert(options and options.cwd)
-				local label = if tree == Files.join(root, "base") then "base" else "cand"
-				local round = counts[label] + 1
-				local output = ""
-				if argv[3] == "bench/paired_scene.luau" then
-					table.insert(calls, label .. ":" .. argv[4])
-					local row = Json.object()
-					Json.set(row, "scene", argv[4])
-					Json.set(row, "status", "ok")
-					local slower = label == "cand" and (mode == "fail" or (mode == "continue" and round <= 3))
-					Json.set(row, "p50", if slower then 2 else 1)
-					Json.set(row, "p95", if slower then 4 else 2)
-					if mode == "invalid" and label == "cand" and round == 3 then
-						Json.set(row, "scene", "unselected-scene")
-					end
-					output = "@@" .. Json.encode(row)
-				else
-					table.insert(calls, label .. ":bench")
-					counts[label] = round
-					table.insert(arms, label)
-					local document = requiredBench(round, label).document
-					if mode == "calibration" then
-						Json.set(document, "status", "FAIL")
-						Json.set(document, "proofStatus", "unstable-cpu-rate")
-						Json.set(document, "failureKind", "calibration")
-						Json.set(document, "expectedMeasurements", 1)
-						Json.set(document, "yardstickMedianDriftPct", 20)
-					end
-					Files.write(Files.join(tree, "artifacts/bench.json"), Json.encode(document))
-				end
-				local code = if mode == "calibration" and output == "" then 2 else 0
-				return { ok = code == 0, code = code, stdout = output, stderr = "", timedOut = false }
-			end
-		)
-		local rounds = if mode == "continue" or mode == "fail" or mode == "manual" then 6 else 3
-		if mode == "calibration" then
-			return Case.first(Case.equal(status, 75, "calibration status"), Case.equal(#arms, 1, "stopped immediately"))
-		end
-		local entries = pairedEntries(Files.lines(Files.read(Files.join(out, "scenes.jsonl"))))
-		local expected = if rounds == 6
-			then "base,cand,cand,base,base,cand,cand,base,base,cand,cand,base"
-			else "base,cand,cand,base,base,cand"
-		local order = string.split(expected, ",")
-		local expectedCalls: { string } = {}
-		for round = 1, rounds do
-			for _, scene in Paired.SCENES do
-				for position = 1, 2 do
-					table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":" .. scene)
-				end
-			end
-			for position = 1, 2 do
-				table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":bench")
-			end
-		end
-		local summaryCount = 0
-		local summaryText = ""
-		if Files.isFile(summary) then
-			summaryText = Files.read(summary)
-			for _ in string.gmatch(summaryText, "### Paired performance:") do
-				summaryCount += 1
-			end
-		end
-		local final = if mode == "fail" then "FAIL" else "PASS"
-		return Case.first(
-			Case.equal(status, if mode == "invalid" then 2 elseif mode == "fail" then 1 else 0, "verdict"),
-			Case.equal(
-				summaryCount,
-				if mode == "manual" or mode == "invalid" then 0 elseif rounds == 6 then 2 else 1,
-				"checkpoint summaries"
-			),
-			Case.equal(table.concat(arms, ","), expected, "counterbalanced arms"),
-			Case.same(calls, expectedCalls, "adjacent scene pairs before the benchmark arms"),
-			if summaryCount > 0
-				then Case.equal(
-					string.find(summaryText, `{final} ({rounds} rounds, final)`, 1, true) ~= nil,
-					true,
-					"final summary identifies its round count"
-				)
-				else nil,
-			if summaryCount == 2
-				then Case.equal(
-					string.find(summaryText, "FAIL (3 rounds, provisional; continuing)", 1, true) ~= nil,
-					true,
-					"the earlier checkpoint is provisional"
-				)
-				else nil,
-			Case.equal(#entries, rounds * 2 * #Paired.SCENES, "every scene retained"),
-			Case.equal(#benchesFor(out, "base") + #benchesFor(out, "cand"), rounds * 2, "every benchmark retained")
-		)
+	test:defer(function()
+		Files.remove(root)
 	end)
-	Files.remove(root)
-	return if ok then failure else "raised: " .. tostring(failure)
-end
-
-local CASES: { [string]: () -> { Case.Case } } = {}
-
-CASES.budgets = function(): { Case.Case }
-	return {
-		{
-			name = "budgets: a complete budget file passes while the run did not check device budgets",
-			run = function(): string?
-				local outcome = Evidence.budgets(decode(budgetFixture()), decode("{}"), noRows)
-				return Case.first(
-					Case.same(outcome.errors, {}, "errors"),
-					Case.equal(
-						outcome.summary,
-						"perf budgets ok: 15 scene budgets carry baseline+frame target; 3 device budget(s) declared and unmeasured (PENDING_PHYSICAL: console-physical, desktop-retail, phone-physical)",
-						"summary"
-					)
-				)
-			end,
-		},
-		{
-			name = "budgets: a measured device budget without a stored capture is a fabricated claim",
-			run = function(): string?
-				local fixture = string.gsub(
-					budgetFixture(),
-					'"phone%-physical": {"budgetMs": 8.3, "frameTargetHz": 30, "measured": false}',
-					'"phone-physical": {"budgetMs": 8.3, "frameTargetHz": 30, "measured": true}'
-				)
-				local refused = Evidence.budgets(decode(fixture), decode("{}"), noRows)
-				local counted = Evidence.budgets(
-					decode(fixture),
-					decode("{}"),
-					Evidence.deviceRowCounter({ decode([[{"evidenceClass": "phone-physical", "rows": [{}, {}]}]]) })
-				)
-				return Case.first(
-					expectContains(refused.errors, "device budget phone-physical claims measured=true"),
-					Case.same(counted.errors, {}, "with a capture"),
-					expectContains({ counted.summary }, "1 MEASURED and enforced (phone-physical)")
-				)
-			end,
-		},
-		{
-			name = "budgets: an unreported device-budget skip in the last run fails",
-			run = function(): string?
-				local report =
-					decode([[{"budget": {"checked": true, "skippedDeviceBudgets": [{"class": "phone-physical"}]}}]])
-				local outcome = Evidence.budgets(decode(budgetFixture()), report, noRows)
-				return expectContains(
-					outcome.errors,
-					"the last perf run recorded skipped device budgets ['phone-physical'] but ['console-physical', 'desktop-retail', 'phone-physical'] are declared unmeasured"
-				)
-			end,
-		},
-		{
-			name = "budgets: schema, ceiling, scene and device faults are each reported",
-			run = function(): string?
-				local outcome = Evidence.budgets(
-					decode(
-						[[{"schema": "facet-perf-budgets/1", "frameCeiling": {"uiShare": 2}, "scenes": {"a": {"ceilingMs": 0}}, "deviceBudgets": {"phone-physical": {"measured": "yes", "budgetMs": 0}}}]]
-					),
-					decode("{}"),
-					noRows
-				)
-				return Case.first(
-					expectContains(outcome.errors, "unexpected schema 'facet-perf-budgets/1'"),
-					expectContains(outcome.errors, "the scene budgets must be labelled"),
-					expectContains(outcome.errors, "frameCeiling.uiShare is not a fraction: 2"),
-					expectContains(outcome.errors, "frameCeiling must declare its one-way directionality"),
-					expectContains(outcome.errors, "only 1 scene budgets"),
-					expectContains(outcome.errors, "a: non-positive frame ceiling"),
-					expectContains(outcome.errors, "a: no actionable hint"),
-					expectContains(outcome.errors, "device budgets missing for ['console-physical', 'desktop-retail']"),
-					expectContains(
-						outcome.errors,
-						"device budget phone-physical: measured must be true or false, not 'yes'"
-					),
-					expectContains(outcome.errors, "device budget phone-physical: no positive budgetMs")
-				)
-			end,
-		},
-	}
-end
-
-CASES.metrics = function(): { Case.Case }
-	return {
-		{
-			name = "metrics: a headless record with all metric rows passes",
-			run = function(): string?
-				local outcome = Evidence.metrics(decode(metricsReport(headlessRun("dense-hud"))))
-				return Case.first(
-					Case.same(outcome.errors, {}, "errors"),
-					Case.equal(
-						outcome.summary,
-						"perf metrics ok: 1 headless record(s) carry all 7 metric rows; 0 ingested device rows; M6 measured in 1 scene(s)",
-						"summary"
-					)
-				)
-			end,
-		},
-		{
-			name = "metrics: absent, unexplained and unblinded metrics fail",
-			run = function(): string?
-				local metricsText =
-					[[{"frameWorkMs": {"measured": true}, "updateMs": {"measured": false}, "connections": {"measured": false}, "memoryKb": {"measured": true}}]]
-				local outcome = Evidence.metrics(
-					decode(metricsReport(headlessRun("dense-hud", metricsText), [[, "injectedRegression": "x"]]))
-				)
-				return Case.first(
-					expectContains(outcome.errors, "injectedRegression stamp"),
-					expectContains(outcome.errors, "dense-hud@floorAndroid: metric instances missing entirely"),
-					expectContains(
-						outcome.errors,
-						"dense-hud@floorAndroid: metric updateMs is unmeasured but gives no reason"
-					),
-					expectContains(outcome.errors, "frameWorkMs must be explicitly blind"),
-					expectContains(outcome.errors, "updateMs must be measured"),
-					expectContains(outcome.errors, "connections require a measurement"),
-					expectContains(outcome.errors, "no scene measures input-to-visible latency (M6)")
-				)
-			end,
-		},
-		{
-			name = "metrics: a device row is held to the device contract",
-			run = function(): string?
-				local device =
-					[[{"scene": "dense-hud", "device": {"name": "Pixel 4a", "live": {"deviceId": "sim", "scalingMode": "DeviceSimulator"}}, "evidenceClass": "phone-physical", "evidenceLevel": "E1", "identity": {"studioVersion": "0.700"}, "metrics": {"frameWorkMs": {"measured": true, "p95_ms": -1}}, "provenance": {"isStudio": true, "clientKind": "studio", "instrument": "MicroProfiler", "deviceModel": "Pixel 7", "capturedAt": "2026-10-01", "attestedBy": ""}}]]
-				local outcome = Evidence.metrics(
-					decode(
-						metricsReport(
-							headlessRun("dense-hud") .. ", " .. device,
-							[=[, "rejectedDeviceRows": [{"scene": "a", "fileClass": "x", "rowClass": "y"}]]=]
-						)
-					)
-				)
-				return Case.first(
-					expectContains(outcome.notes, "NOTE rejected row a: file 'x' vs row 'y'"),
-					expectContains(outcome.errors, "a phone-physical row must carry E4, not 'E1'"),
-					expectContains(outcome.errors, "M1 p95_ms is -1"),
-					expectContains(outcome.errors, "is missing metric memoryKb"),
-					expectContains(outcome.errors, "carries identity.studioVersion"),
-					expectContains(outcome.errors, "carries a Studio device-simulator preset id"),
-					expectContains(outcome.errors, "carries a Studio device-simulator scaling mode"),
-					expectContains(outcome.errors, "provenance.isStudio must be the boolean false"),
-					expectContains(outcome.errors, "provenance.clientKind is 'studio', expected 'retail'"),
-					expectContains(outcome.errors, "provenance.attestedBy is missing or empty"),
-					expectContains(
-						outcome.errors,
-						"provenance.deviceModel 'Pixel 7' disagrees with device.name 'Pixel 4a'"
-					),
-					expectContains(outcome.errors, "dense-hud@{'name': 'Pixel 4a', 'live':")
-				)
-			end,
-		},
-		{
-			name = "metrics: device-class rows must have been ingested",
-			run = function(): string?
-				local classes = [=[[
-					{"id": "desktop-retail", "level": "E4", "instrument": "i", "proves": "p", "cannotProve": "c", "rows": 3},
-					{"id": "phone-physical", "level": "E4", "instrument": "i", "proves": "p", "cannotProve": "c", "rows": 2},
-					{"id": "console-physical", "level": "E4", "instrument": "i", "proves": "p", "cannotProve": "c"}
-				]]=]
-				local report = ([[{"evidenceClasses": %s, "ingestedDeviceRows": ["phone-physical:capture.json#1"], "runs": [%s]}]]):format(
-					classes,
-					headlessRun("dense-hud")
-				)
-				local outcome = Evidence.metrics(decode(report))
-				return Case.first(
-					expectContains(outcome.errors, "class desktop-retail claims 3 rows that were never ingested"),
-					Case.expect(not contains(outcome.errors, "phone-physical claims"), "an ingested class was refused"),
-					Case.expect(
-						not contains(outcome.errors, "console-physical claims"),
-						"an absent row count was refused"
-					)
-				)
-			end,
-		},
-	}
-end
-
-CASES.scenes = function(): { Case.Case }
-	return {
-		{
-			name = "scenes: every production scene doing its work passes",
-			run = function(): string?
-				local outcome = Evidence.scenes(decode(scenesReport()), false)
-				return Case.first(
-					Case.same(outcome.errors, {}, "errors"),
-					Case.equal(outcome.summary, "perf scenes ok: 12 production scenes did their work at floorAndroid")
-				)
-			end,
-		},
-		{
-			name = "scenes: idle production workloads fail with their recorded extras",
-			run = function(): string?
-				local outcome = Evidence.scenes(
-					decode(scenesReport({
-						["virtual-list-scroll"] = [[{"logicalRows": 10, "windowedRows": 10}]],
-						["dense-hud"] = [[{"activationCount": 5, "activationText": "Boost x4"}]],
-					})),
-					false
-				)
-				return Case.first(
-					expectContains(
-						outcome.errors,
-						"virtual-list-scroll: windowing looks wrong: {'logicalRows': 10, 'windowedRows': 10} (expect a small window over >=1000 rows)"
-					),
-					expectContains(outcome.errors, "dense-hud: the activate chain did not reach the mounted text"),
-					expectContains(
-						outcome.notes,
-						"note: read artifacts/phase-4/perf.json, recorded 2026-10-14T09:00:00Z"
-					)
-				)
-			end,
-		},
-		{
-			name = "scenes: theme swaps must retain controls and change the right rules",
-			run = function(): string?
-				local passing = Evidence.scenes(decode(scenesReport()), true)
-				local failing = Evidence.scenes(
-					decode(scenesReport({
-						["theme-swap-flat"] = [[{"themeSwap": {"measured": true, "controlsRetained": false, "metricChanges": 1, "imageChanges": 0, "paintChanges": 9}}]],
-						["theme-swap-assets"] = [[{}]],
-					})),
-					true
-				)
-				return Case.first(
-					Case.same(passing.errors, {}, "passing"),
-					Case.equal(passing.summary, "perf scenes ok: 3 theme-swap scenes did their work at floorAndroid"),
-					expectContains(failing.errors, "theme-swap-flat: the swap rebuilt the mounted controls"),
-					expectContains(failing.errors, "theme-swap-flat: a palette-only swap must change paint rules"),
-					expectContains(failing.errors, "theme-swap-assets: no measured themeSwap in extras ({})")
-				)
-			end,
-		},
-		{
-			name = "scenes: the schema, the console profile and async completion are required",
-			run = function(): string?
-				local outcome = Evidence.scenes(
-					decode(
-						[[{"schema": "facet-perf/1", "runs": [{"scene": "async-image-grid", "device": "floorAndroid", "evidenceClass": "lute", "dataset": "d", "extras": {}, "async": {"completed": 0}}]}]]
-					),
-					false
-				)
-				return Case.first(
-					expectContains(outcome.errors, "unexpected schema 'facet-perf/1'; expected facet-perf/2"),
-					expectContains(outcome.errors, "no consoleTenFoot runs"),
-					expectContains(outcome.errors, "dense-hud: no floorAndroid run recorded"),
-					expectContains(
-						outcome.errors,
-						"async-image-grid: the provider completed nothing ({'completed': 0})"
-					),
-					expectContains(outcome.notes, "recorded unknown")
-				)
-			end,
-		},
-	}
-end
-
-CASES.place = function(): { Case.Case }
-	return {
-		{
-			name = "place: the built place index joins names and reads protected sources",
-			run = function(): string?
-				local tree, order = Place.index(Lute.model.read(PLACE_XML))
-				local dataset = tree["ReplicatedStorage/FacetScenarios/dataset"]
-				return Case.first(
-					Case.same(order, {
-						"ReplicatedStorage",
-						"ReplicatedStorage/FacetScenarios",
-						"ReplicatedStorage/FacetScenarios/dataset",
-						"ReplicatedStorage/FacetScenarios/rows",
-					}, "paths"),
-					Case.equal(dataset and dataset.class, "ModuleScript", "class"),
-					Case.expect(
-						dataset ~= nil
-							and string.find(dataset.source, 'dataset.VERSION = "perf-dataset/', 1, true) ~= nil,
-						"the dataset source lost its version marker"
-					)
-				)
-			end,
-		},
-		{
-			name = "place: missing instances, wrong classes, drifted workloads and plugin use fail",
-			run = function(): string?
-				local tree, order = Place.index(Lute.model.read(PLACE_XML))
-				local problems, notes = Place.inspectTree(tree, order, function(module: string): string?
-					if module == "dataset" then
-						return '\nlocal dataset = {}\ndataset.VERSION = "perf-dataset/3"\nreturn dataset\n\n'
-					end
-					return nil
-				end)
-				return Case.first(
-					expectContains(problems, "the built place has no ReplicatedStorage/Facet/ui"),
-					expectContains(problems, "ReplicatedStorage/FacetScenarios/rows is a Script, expected ModuleScript"),
-					expectContains(
-						problems,
-						"FacetScenarios/workloads differs from examples/performance/lab/workloads.luau"
-					),
-					Case.expect(
-						not contains(problems, "FacetScenarios/dataset differs"),
-						"surrounding whitespace made the dataset differ"
-					),
-					expectContains(problems, "does not carry the version marker 'VERSION = \"native-perf-rows/'"),
-					expectContains(problems, "the built place source contains 'plugin:'"),
-					expectContains(notes, "4 workload modules are byte-identical")
-				)
-			end,
-		},
-		{
-			name = "place: the built binary must carry the Roblox magic and a plausible size",
-			run = function(): string?
-				local missing = Place.inspectBuilt("place.rbxl", nil, nil)
-				local wrong = Place.inspectBuilt("place.rbxl", 12, "<roblox ")
-				local good, goodNotes = Place.inspectBuilt("place.rbxl", 300000, "<roblox!")
-				return Case.first(
-					Case.same(missing, { "missing built place place.rbxl" }, "missing"),
-					expectContains(wrong, "is not a Roblox binary place"),
-					expectContains(wrong, "is only 12 bytes"),
-					Case.same(good, {}, "good"),
-					Case.same(goodNotes, { "place.rbxl: 300000 bytes, binary place" }, "notes")
-				)
-			end,
-		},
-	}
-end
-
-CASES.paired = function(): { Case.Case }
-	return {
-		{
-			name = "paired: a valid full-scope pass ends after three rounds",
-			run = function(): string?
-				return pairedRunFixture("pass")
-			end,
-		},
-		{
-			name = "paired: a statistical slowdown retains all six counterbalanced rounds",
-			run = function(): string?
-				return pairedRunFixture("continue")
-			end,
-		},
-		{
-			name = "paired: invalid checkpoint evidence cannot pass or continue",
-			run = function(): string?
-				return pairedRunFixture("invalid")
-			end,
-		},
-		{
-			name = "paired: a persistent slowdown fails after every six-round measurement",
-			run = function(): string?
-				return pairedRunFixture("fail")
-			end,
-		},
-		{
-			name = "paired: invalid calibration stops before the checkpoint",
-			run = function(): string?
-				return pairedRunFixture("calibration")
-			end,
-		},
-		{
-			name = "paired: an ungated manual run keeps its requested six rounds",
-			run = function(): string?
-				return pairedRunFixture("manual")
-			end,
-		},
-		{
-			name = "paired: consecutive rounds counterbalance every arm without dropping measurements",
-			run = function(): string?
-				local sequence = {}
-				for round = 1, 6 do
-					for position = 1, 2 do
-						table.insert(sequence, tostring(Paired.armIndex(round, position, 2)))
-					end
-				end
-				return Case.expect(
-					table.concat(sequence) == "122112211221",
-					"paired arms must alternate AB/BA for all six rounds"
-				)
-			end,
-		},
-		{
-			name = "paired: only complete calibration failures permit an infrastructure retry",
-			run = function(): string?
-				local document = requiredBench(1, "base").document
+	local out = Files.join(root, "out")
+	local counts: { [string]: number } = { base = 0, cand = 0 }
+	local arms: { string } = {}
+	local calls: { string } = {}
+	local summary = Files.join(root, "summary.md")
+	local arguments = { "perf", "paired", "run", "--out", out, "--rounds", "6", "--summary", summary }
+	if mode ~= "manual" then
+		table.insert(arguments, "--gate")
+	end
+	for _, label in { "base", "cand" } do
+		table.insert(arguments, label .. "=" .. Files.join(root, label))
+	end
+	local status = pairedRun(Cli.parse(arguments, { "out", "rounds", "summary" }), function(argv, options): Run.Result
+		local tree = assert(options and options.cwd)
+		local label = if tree == Files.join(root, "base") then "base" else "cand"
+		local round = counts[label] + 1
+		local output = ""
+		if argv[3] == "bench/paired_scene.luau" then
+			table.insert(calls, label .. ":" .. argv[4])
+			local row = Json.object()
+			Json.set(row, "scene", argv[4])
+			Json.set(row, "status", "ok")
+			local slower = label == "cand" and (mode == "fail" or (mode == "continue" and round <= 3))
+			Json.set(row, "p50", if slower then 2 else 1)
+			Json.set(row, "p95", if slower then 4 else 2)
+			if mode == "invalid" and label == "cand" and round == 3 then
+				Json.set(row, "scene", "unselected-scene")
+			end
+			output = "@@" .. Json.encode(row)
+		else
+			table.insert(calls, label .. ":bench")
+			counts[label] = round
+			table.insert(arms, label)
+			local document = requiredBench(round, label).document
+			if mode == "calibration" then
 				Json.set(document, "status", "FAIL")
 				Json.set(document, "proofStatus", "unstable-cpu-rate")
 				Json.set(document, "failureKind", "calibration")
 				Json.set(document, "expectedMeasurements", 1)
-				Json.set(document, "yardstickMedianDriftPct", 16)
-				local errors, retry = Paired.benchOutcome(2, document)
-				local _, crashed = Paired.benchOutcome(1, document)
-				Json.set(document, "failureKind", "execution")
-				local _, execution = Paired.benchOutcome(2, document)
-				Json.set(document, "failureKind", "regression")
-				local _, regression = Paired.benchOutcome(2, document)
-				Json.set(document, "failureKind", "calibration")
-				Json.set(document, "expectedMeasurements", 2)
-				local _, incomplete = Paired.benchOutcome(2, document)
-				Json.set(document, "expectedMeasurements", 1)
-				local rows = assert(Json.arrayField(document, "results"))
-				Json.set(assert(Json.asObject(rows[1])), "p95_ms", 0)
-				local _, malformed = Paired.benchOutcome(2, document)
-				return Case.first(
-					Case.expect(#errors > 0 and retry, "calibration failure must remain invalid and retryable"),
-					Case.expect(not crashed and not execution and not regression, "non-calibration failure retried"),
-					Case.expect(not incomplete and not malformed, "invalid measurements retried")
+				Json.set(document, "yardstickMedianDriftPct", 20)
+			end
+			Files.write(Files.join(tree, "artifacts/bench.json"), Json.encode(document))
+		end
+		local code = if mode == "calibration" and output == "" then 2 else 0
+		return { ok = code == 0, code = code, stdout = output, stderr = "", timedOut = false }
+	end)
+	local rounds = if mode == "continue" or mode == "fail" or mode == "manual" then 6 else 3
+	if mode == "calibration" then
+		Verify.expect(status):toBe(75)
+		Verify.expect(#arms):toBe(1)
+		return
+	end
+	local entries = pairedEntries(Files.lines(Files.read(Files.join(out, "scenes.jsonl"))))
+	local expected = if rounds == 6
+		then "base,cand,cand,base,base,cand,cand,base,base,cand,cand,base"
+		else "base,cand,cand,base,base,cand"
+	local order = string.split(expected, ",")
+	local expectedCalls: { string } = {}
+	for round = 1, rounds do
+		for _, scene in Paired.SCENES do
+			for position = 1, 2 do
+				table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":" .. scene)
+			end
+		end
+		for position = 1, 2 do
+			table.insert(expectedCalls, order[(round - 1) * 2 + position] .. ":bench")
+		end
+	end
+	local summaryCount = 0
+	local summaryText = ""
+	if Files.isFile(summary) then
+		summaryText = Files.read(summary)
+		for _ in string.gmatch(summaryText, "### Paired performance:") do
+			summaryCount += 1
+		end
+	end
+	local final = if mode == "fail" then "FAIL" else "PASS"
+	Verify.expect(status):toBe(if mode == "invalid" then 2 elseif mode == "fail" then 1 else 0)
+	Verify.expect(summaryCount):toBe(if mode == "manual" or mode == "invalid" then 0 elseif rounds == 6 then 2 else 1)
+	Verify.expect(table.concat(arms, ",")):toBe(expected)
+	Verify.expect(calls):toEqual(expectedCalls)
+	if summaryCount > 0 then
+		Verify.expect(string.find(summaryText, `{final} ({rounds} rounds, final)`, 1, true) ~= nil):toBe(true)
+	end
+	if summaryCount == 2 then
+		Verify.expect(string.find(summaryText, "FAIL (3 rounds, provisional; continuing)", 1, true) ~= nil):toBe(true)
+	end
+	Verify.expect(#entries):toBe(rounds * 2 * #Paired.SCENES)
+	Verify.expect(#benchesFor(out, "base") + #benchesFor(out, "cand")):toBe(rounds * 2)
+end
+
+local REGISTRATIONS: { [string]: (Verify.Harness, string) -> () } = {}
+
+REGISTRATIONS.budgets = function(harness: Verify.Harness, prefix: string): ()
+	local idPrefix = prefix
+	prefix ..= "budgets::"
+	harness:case(prefix .. "budgets: a complete budget file passes while the run did not check device budgets", {
+		id = idPrefix .. "budgets: a complete budget file passes while the run did not check device budgets",
+		run = function(test: Verify.Context): ()
+			local outcome = Evidence.budgets(decode(budgetFixture()), decode("{}"), noRows)
+			Verify.expect(outcome.errors):toEqual({})
+			Verify.expect(outcome.summary):toBe(
+				"perf budgets ok: 15 scene budgets carry baseline+frame target; 3 device budget(s) declared and unmeasured (PENDING_PHYSICAL: console-physical, desktop-retail, phone-physical)"
+			)
+		end,
+	})
+	harness:case(prefix .. "budgets: a measured device budget without a stored capture is a fabricated claim", {
+		id = idPrefix .. "budgets: a measured device budget without a stored capture is a fabricated claim",
+		run = function(test: Verify.Context): ()
+			local fixture = string.gsub(
+				budgetFixture(),
+				'"phone%-physical": {"budgetMs": 8.3, "frameTargetHz": 30, "measured": false}',
+				'"phone-physical": {"budgetMs": 8.3, "frameTargetHz": 30, "measured": true}'
+			)
+			local refused = Evidence.budgets(decode(fixture), decode("{}"), noRows)
+			local counted = Evidence.budgets(
+				decode(fixture),
+				decode("{}"),
+				Evidence.deviceRowCounter({ decode([[{"evidenceClass": "phone-physical", "rows": [{}, {}]}]]) })
+			)
+			expectContains(refused.errors, "device budget phone-physical claims measured=true")
+			Verify.expect(counted.errors):toEqual({})
+			expectContains({ counted.summary }, "1 MEASURED and enforced (phone-physical)")
+		end,
+	})
+	harness:case(prefix .. "budgets: an unreported device-budget skip in the last run fails", {
+		id = idPrefix .. "budgets: an unreported device-budget skip in the last run fails",
+		run = function(test: Verify.Context): ()
+			local report =
+				decode([[{"budget": {"checked": true, "skippedDeviceBudgets": [{"class": "phone-physical"}]}}]])
+			local outcome = Evidence.budgets(decode(budgetFixture()), report, noRows)
+			expectContains(
+				outcome.errors,
+				"the last perf run recorded skipped device budgets ['phone-physical'] but ['console-physical', 'desktop-retail', 'phone-physical'] are declared unmeasured"
+			)
+		end,
+	})
+	harness:case(prefix .. "budgets: schema, ceiling, scene and device faults are each reported", {
+		id = idPrefix .. "budgets: schema, ceiling, scene and device faults are each reported",
+		run = function(test: Verify.Context): ()
+			local outcome = Evidence.budgets(
+				decode(
+					[[{"schema": "facet-perf-budgets/1", "frameCeiling": {"uiShare": 2}, "scenes": {"a": {"ceilingMs": 0}}, "deviceBudgets": {"phone-physical": {"measured": "yes", "budgetMs": 0}}}]]
+				),
+				decode("{}"),
+				noRows
+			)
+			expectContains(outcome.errors, "unexpected schema 'facet-perf-budgets/1'")
+			expectContains(outcome.errors, "the scene budgets must be labelled")
+			expectContains(outcome.errors, "frameCeiling.uiShare is not a fraction: 2")
+			expectContains(outcome.errors, "frameCeiling must declare its one-way directionality")
+			expectContains(outcome.errors, "only 1 scene budgets")
+			expectContains(outcome.errors, "a: non-positive frame ceiling")
+			expectContains(outcome.errors, "a: no actionable hint")
+			expectContains(outcome.errors, "device budgets missing for ['console-physical', 'desktop-retail']")
+			expectContains(outcome.errors, "device budget phone-physical: measured must be true or false, not 'yes'")
+			expectContains(outcome.errors, "device budget phone-physical: no positive budgetMs")
+		end,
+	})
+end
+
+REGISTRATIONS.metrics = function(harness: Verify.Harness, prefix: string): ()
+	local idPrefix = prefix
+	prefix ..= "metrics::"
+	harness:case(prefix .. "metrics: a headless record with all metric rows passes", {
+		id = idPrefix .. "metrics: a headless record with all metric rows passes",
+		run = function(test: Verify.Context): ()
+			local outcome = Evidence.metrics(decode(metricsReport(headlessRun("dense-hud"))))
+			Verify.expect(outcome.errors):toEqual({})
+			Verify.expect(outcome.summary):toBe(
+				"perf metrics ok: 1 headless record(s) carry all 7 metric rows; 0 ingested device rows; M6 measured in 1 scene(s)"
+			)
+		end,
+	})
+	harness:case(prefix .. "metrics: absent, unexplained and unblinded metrics fail", {
+		id = idPrefix .. "metrics: absent, unexplained and unblinded metrics fail",
+		run = function(test: Verify.Context): ()
+			local metricsText =
+				[[{"frameWorkMs": {"measured": true}, "updateMs": {"measured": false}, "connections": {"measured": false}, "memoryKb": {"measured": true}}]]
+			local outcome = Evidence.metrics(
+				decode(metricsReport(headlessRun("dense-hud", metricsText), [[, "injectedRegression": "x"]]))
+			)
+			expectContains(outcome.errors, "injectedRegression stamp")
+			expectContains(outcome.errors, "dense-hud@floorAndroid: metric instances missing entirely")
+			expectContains(outcome.errors, "dense-hud@floorAndroid: metric updateMs is unmeasured but gives no reason")
+			expectContains(outcome.errors, "frameWorkMs must be explicitly blind")
+			expectContains(outcome.errors, "updateMs must be measured")
+			expectContains(outcome.errors, "connections require a measurement")
+			expectContains(outcome.errors, "no scene measures input-to-visible latency (M6)")
+		end,
+	})
+	harness:case(prefix .. "metrics: a device row is held to the device contract", {
+		id = idPrefix .. "metrics: a device row is held to the device contract",
+		run = function(test: Verify.Context): ()
+			local device =
+				[[{"scene": "dense-hud", "device": {"name": "Pixel 4a", "live": {"deviceId": "sim", "scalingMode": "DeviceSimulator"}}, "evidenceClass": "phone-physical", "evidenceLevel": "E1", "identity": {"studioVersion": "0.700"}, "metrics": {"frameWorkMs": {"measured": true, "p95_ms": -1}}, "provenance": {"isStudio": true, "clientKind": "studio", "instrument": "MicroProfiler", "deviceModel": "Pixel 7", "capturedAt": "2026-10-01", "attestedBy": ""}}]]
+			local outcome = Evidence.metrics(
+				decode(
+					metricsReport(
+						headlessRun("dense-hud") .. ", " .. device,
+						[=[, "rejectedDeviceRows": [{"scene": "a", "fileClass": "x", "rowClass": "y"}]]=]
+					)
 				)
-			end,
-		},
-		{
-			name = "paired: one benchmark command loads each tree's own source",
-			run = function(): string?
-				local root = Files.temporaryDirectory("facet-paired-source-")
-				local command = benchmarkCommand()
-				local ok, failure = pcall(function(): string?
-					for _, label in { "base", "candidate" } do
-						local tree = Files.join(root, label)
-						Files.write(Files.join(tree, "src/init.luau"), `return "{label}"`)
-						Files.write(Files.join(tree, "tools/facet/init.luau"), "return nil")
-						Files.write(
-							Files.join(tree, "bench/scenarios.luau"),
-							[[
+			)
+			expectContains(outcome.notes, "NOTE rejected row a: file 'x' vs row 'y'")
+			expectContains(outcome.errors, "a phone-physical row must carry E4, not 'E1'")
+			expectContains(outcome.errors, "M1 p95_ms is -1")
+			expectContains(outcome.errors, "is missing metric memoryKb")
+			expectContains(outcome.errors, "carries identity.studioVersion")
+			expectContains(outcome.errors, "carries a Studio device-simulator preset id")
+			expectContains(outcome.errors, "carries a Studio device-simulator scaling mode")
+			expectContains(outcome.errors, "provenance.isStudio must be the boolean false")
+			expectContains(outcome.errors, "provenance.clientKind is 'studio', expected 'retail'")
+			expectContains(outcome.errors, "provenance.attestedBy is missing or empty")
+			expectContains(outcome.errors, "provenance.deviceModel 'Pixel 7' disagrees with device.name 'Pixel 4a'")
+			expectContains(outcome.errors, "dense-hud@{'name': 'Pixel 4a', 'live':")
+		end,
+	})
+	harness:case(prefix .. "metrics: device-class rows must have been ingested", {
+		id = idPrefix .. "metrics: device-class rows must have been ingested",
+		run = function(test: Verify.Context): ()
+			local classes = [=[[
+					{"id": "desktop-retail", "level": "E4", "instrument": "i", "proves": "p", "cannotProve": "c", "rows": 3},
+					{"id": "phone-physical", "level": "E4", "instrument": "i", "proves": "p", "cannotProve": "c", "rows": 2},
+					{"id": "console-physical", "level": "E4", "instrument": "i", "proves": "p", "cannotProve": "c"}
+				]]=]
+			local report = ([[{"evidenceClasses": %s, "ingestedDeviceRows": ["phone-physical:capture.json#1"], "runs": [%s]}]]):format(
+				classes,
+				headlessRun("dense-hud")
+			)
+			local outcome = Evidence.metrics(decode(report))
+			expectContains(outcome.errors, "class desktop-retail claims 3 rows that were never ingested")
+			Verify.expect(not contains(outcome.errors, "phone-physical claims"))
+				:toBeTrueWith("an ingested class was refused")
+			Verify.expect(not contains(outcome.errors, "console-physical claims"))
+				:toBeTrueWith("an absent row count was refused")
+		end,
+	})
+end
+
+REGISTRATIONS.scenes = function(harness: Verify.Harness, prefix: string): ()
+	local idPrefix = prefix
+	prefix ..= "scenes::"
+	harness:case(prefix .. "scenes: every production scene doing its work passes", {
+		id = idPrefix .. "scenes: every production scene doing its work passes",
+		run = function(test: Verify.Context): ()
+			local outcome = Evidence.scenes(decode(scenesReport()), false)
+			Verify.expect(outcome.errors):toEqual({})
+			Verify.expect(outcome.summary):toBe("perf scenes ok: 12 production scenes did their work at floorAndroid")
+		end,
+	})
+	harness:case(prefix .. "scenes: idle production workloads fail with their recorded extras", {
+		id = idPrefix .. "scenes: idle production workloads fail with their recorded extras",
+		run = function(test: Verify.Context): ()
+			local outcome = Evidence.scenes(
+				decode(scenesReport({
+					["virtual-list-scroll"] = [[{"logicalRows": 10, "windowedRows": 10}]],
+					["dense-hud"] = [[{"activationCount": 5, "activationText": "Boost x4"}]],
+				})),
+				false
+			)
+			expectContains(
+				outcome.errors,
+				"virtual-list-scroll: windowing looks wrong: {'logicalRows': 10, 'windowedRows': 10} (expect a small window over >=1000 rows)"
+			)
+			expectContains(outcome.errors, "dense-hud: the activate chain did not reach the mounted text")
+			expectContains(outcome.notes, "note: read artifacts/phase-4/perf.json, recorded 2026-10-14T09:00:00Z")
+		end,
+	})
+	harness:case(prefix .. "scenes: theme swaps must retain controls and change the right rules", {
+		id = idPrefix .. "scenes: theme swaps must retain controls and change the right rules",
+		run = function(test: Verify.Context): ()
+			local passing = Evidence.scenes(decode(scenesReport()), true)
+			local failing = Evidence.scenes(
+				decode(scenesReport({
+					["theme-swap-flat"] = [[{"themeSwap": {"measured": true, "controlsRetained": false, "metricChanges": 1, "imageChanges": 0, "paintChanges": 9}}]],
+					["theme-swap-assets"] = [[{}]],
+				})),
+				true
+			)
+			Verify.expect(passing.errors):toEqual({})
+			Verify.expect(passing.summary):toBe("perf scenes ok: 3 theme-swap scenes did their work at floorAndroid")
+			expectContains(failing.errors, "theme-swap-flat: the swap rebuilt the mounted controls")
+			expectContains(failing.errors, "theme-swap-flat: a palette-only swap must change paint rules")
+			expectContains(failing.errors, "theme-swap-assets: no measured themeSwap in extras ({})")
+		end,
+	})
+	harness:case(prefix .. "scenes: the schema, the console profile and async completion are required", {
+		id = idPrefix .. "scenes: the schema, the console profile and async completion are required",
+		run = function(test: Verify.Context): ()
+			local outcome = Evidence.scenes(
+				decode(
+					[[{"schema": "facet-perf/1", "runs": [{"scene": "async-image-grid", "device": "floorAndroid", "evidenceClass": "lute", "dataset": "d", "extras": {}, "async": {"completed": 0}}]}]]
+				),
+				false
+			)
+			expectContains(outcome.errors, "unexpected schema 'facet-perf/1'; expected facet-perf/2")
+			expectContains(outcome.errors, "no consoleTenFoot runs")
+			expectContains(outcome.errors, "dense-hud: no floorAndroid run recorded")
+			expectContains(outcome.errors, "async-image-grid: the provider completed nothing ({'completed': 0})")
+			expectContains(outcome.notes, "recorded unknown")
+		end,
+	})
+end
+
+REGISTRATIONS.place = function(harness: Verify.Harness, prefix: string): ()
+	local idPrefix = prefix
+	prefix ..= "place::"
+	harness:case(prefix .. "place: the built place index joins names and reads protected sources", {
+		id = idPrefix .. "place: the built place index joins names and reads protected sources",
+		run = function(test: Verify.Context): ()
+			local tree, order = Place.index(Lute.model.read(PLACE_XML))
+			local dataset = tree["ReplicatedStorage/FacetScenarios/dataset"]
+			Verify.expect(order):toEqual({
+				"ReplicatedStorage",
+				"ReplicatedStorage/FacetScenarios",
+				"ReplicatedStorage/FacetScenarios/dataset",
+				"ReplicatedStorage/FacetScenarios/rows",
+			})
+			Verify.expect(dataset and dataset.class):toBe("ModuleScript")
+			Verify.expect(
+				dataset ~= nil and string.find(dataset.source, 'dataset.VERSION = "perf-dataset/', 1, true) ~= nil
+			)
+				:toBeTrueWith("the dataset source lost its version marker")
+		end,
+	})
+	harness:case(prefix .. "place: missing instances, wrong classes, drifted workloads and plugin use fail", {
+		id = idPrefix .. "place: missing instances, wrong classes, drifted workloads and plugin use fail",
+		run = function(test: Verify.Context): ()
+			local tree, order = Place.index(Lute.model.read(PLACE_XML))
+			local problems, notes = Place.inspectTree(tree, order, function(module: string): string?
+				if module == "dataset" then
+					return '\nlocal dataset = {}\ndataset.VERSION = "perf-dataset/3"\nreturn dataset\n\n'
+				end
+				return nil
+			end)
+			expectContains(problems, "the built place has no ReplicatedStorage/Facet/ui")
+			expectContains(problems, "ReplicatedStorage/FacetScenarios/rows is a Script, expected ModuleScript")
+			expectContains(problems, "FacetScenarios/workloads differs from examples/performance/lab/workloads.luau")
+			Verify.expect(not contains(problems, "FacetScenarios/dataset differs"))
+				:toBeTrueWith("surrounding whitespace made the dataset differ")
+			expectContains(problems, "does not carry the version marker 'VERSION = \"native-perf-rows/'")
+			expectContains(problems, "the built place source contains 'plugin:'")
+			expectContains(notes, "4 workload modules are byte-identical")
+		end,
+	})
+	harness:case(prefix .. "place: the built binary must carry the Roblox magic and a plausible size", {
+		id = idPrefix .. "place: the built binary must carry the Roblox magic and a plausible size",
+		run = function(test: Verify.Context): ()
+			local missing = Place.inspectBuilt("place.rbxl", nil, nil)
+			local wrong = Place.inspectBuilt("place.rbxl", 12, "<roblox ")
+			local good, goodNotes = Place.inspectBuilt("place.rbxl", 300000, "<roblox!")
+			Verify.expect(missing):toEqual({ "missing built place place.rbxl" })
+			expectContains(wrong, "is not a Roblox binary place")
+			expectContains(wrong, "is only 12 bytes")
+			Verify.expect(good):toEqual({})
+			Verify.expect(goodNotes):toEqual({ "place.rbxl: 300000 bytes, binary place" })
+		end,
+	})
+end
+
+REGISTRATIONS.paired = function(harness: Verify.Harness, prefix: string): ()
+	local idPrefix = prefix
+	prefix ..= "paired::"
+	harness:case(prefix .. "paired: a valid full-scope pass ends after three rounds", {
+		id = idPrefix .. "paired: a valid full-scope pass ends after three rounds",
+		run = function(test: Verify.Context): ()
+			pairedRunFixture(test, "pass")
+		end,
+	})
+	harness:case(prefix .. "paired: a statistical slowdown retains all six counterbalanced rounds", {
+		id = idPrefix .. "paired: a statistical slowdown retains all six counterbalanced rounds",
+		run = function(test: Verify.Context): ()
+			pairedRunFixture(test, "continue")
+		end,
+	})
+	harness:case(prefix .. "paired: invalid checkpoint evidence cannot pass or continue", {
+		id = idPrefix .. "paired: invalid checkpoint evidence cannot pass or continue",
+		run = function(test: Verify.Context): ()
+			pairedRunFixture(test, "invalid")
+		end,
+	})
+	harness:case(prefix .. "paired: a persistent slowdown fails after every six-round measurement", {
+		id = idPrefix .. "paired: a persistent slowdown fails after every six-round measurement",
+		run = function(test: Verify.Context): ()
+			pairedRunFixture(test, "fail")
+		end,
+	})
+	harness:case(prefix .. "paired: invalid calibration stops before the checkpoint", {
+		id = idPrefix .. "paired: invalid calibration stops before the checkpoint",
+		run = function(test: Verify.Context): ()
+			pairedRunFixture(test, "calibration")
+		end,
+	})
+	harness:case(prefix .. "paired: an ungated manual run keeps its requested six rounds", {
+		id = idPrefix .. "paired: an ungated manual run keeps its requested six rounds",
+		run = function(test: Verify.Context): ()
+			pairedRunFixture(test, "manual")
+		end,
+	})
+	harness:case(prefix .. "paired: consecutive rounds counterbalance every arm without dropping measurements", {
+		id = idPrefix .. "paired: consecutive rounds counterbalance every arm without dropping measurements",
+		run = function(test: Verify.Context): ()
+			local sequence = {}
+			for round = 1, 6 do
+				for position = 1, 2 do
+					table.insert(sequence, tostring(Paired.armIndex(round, position, 2)))
+				end
+			end
+			Verify.expect(table.concat(sequence) == "122112211221")
+				:toBeTrueWith("paired arms must alternate AB/BA for all six rounds")
+		end,
+	})
+	harness:case(prefix .. "paired: only complete calibration failures permit an infrastructure retry", {
+		id = idPrefix .. "paired: only complete calibration failures permit an infrastructure retry",
+		run = function(test: Verify.Context): ()
+			local document = requiredBench(1, "base").document
+			Json.set(document, "status", "FAIL")
+			Json.set(document, "proofStatus", "unstable-cpu-rate")
+			Json.set(document, "failureKind", "calibration")
+			Json.set(document, "expectedMeasurements", 1)
+			Json.set(document, "yardstickMedianDriftPct", 16)
+			local errors, retry = Paired.benchOutcome(2, document)
+			local _, crashed = Paired.benchOutcome(1, document)
+			Json.set(document, "failureKind", "execution")
+			local _, execution = Paired.benchOutcome(2, document)
+			Json.set(document, "failureKind", "regression")
+			local _, regression = Paired.benchOutcome(2, document)
+			Json.set(document, "failureKind", "calibration")
+			Json.set(document, "expectedMeasurements", 2)
+			local _, incomplete = Paired.benchOutcome(2, document)
+			Json.set(document, "expectedMeasurements", 1)
+			local rows = assert(Json.arrayField(document, "results"))
+			Json.set(assert(Json.asObject(rows[1])), "p95_ms", 0)
+			local _, malformed = Paired.benchOutcome(2, document)
+			Verify.expect(#errors > 0 and retry):toBeTrueWith("calibration failure must remain invalid and retryable")
+			Verify.expect(not crashed and not execution and not regression)
+				:toBeTrueWith("non-calibration failure retried")
+			Verify.expect(not incomplete and not malformed):toBeTrueWith("invalid measurements retried")
+		end,
+	})
+	harness:case(prefix .. "paired: one benchmark command loads each tree's own source", {
+		id = idPrefix .. "paired: one benchmark command loads each tree's own source",
+		run = function(test: Verify.Context): ()
+			local root = Files.temporaryDirectory("facet-paired-source-")
+			test:defer(function()
+				Files.remove(root)
+			end)
+			local command = benchmarkCommand()
+			for _, label in { "base", "candidate" } do
+				local tree = Files.join(root, label)
+				Files.write(Files.join(tree, "src/init.luau"), `return "{label}"`)
+				Files.write(Files.join(tree, "tools/facet/init.luau"), "return nil")
+				Files.write(
+					Files.join(tree, "bench/scenarios.luau"),
+					[[
 local source = require("../src")
 local function setup() return {} end
 local function run()
@@ -1407,103 +1335,86 @@ return {
 	{ name = "zz-yardstick-cpu", requirement = "source", samples = 8, warmup = 0, setup = setup, run = run },
 }
 ]]
-						)
-						local result = Run.capture(command, { cwd = tree, timeout = 30 })
-						local artifact = Files.join(tree, "artifacts/bench.json")
-						if not Files.isFile(artifact) then
-							return "benchmark did not load " .. label .. ": " .. result.stdout .. result.stderr
-						end
-						local document = Json.decode(Files.read(artifact))
-						local rows = assert(Json.arrayField(document, "results"))
-						local problem = Case.first(
-							Case.equal(Json.stringField(rows[1], "name"), "source-" .. label, "loaded source"),
-							Case.expect(
-								Json.numberField(document, "yardstickMedianDriftPct") ~= nil,
-								"target ran its own harness"
-							),
-							Case.expect(result.code == 0 or result.code == 2, "benchmark execution failed")
-						)
-						if problem ~= nil then
-							return problem
-						end
-					end
-					return nil
-				end)
-				Files.remove(root)
-				return if ok then failure else "raised: " .. tostring(failure)
-			end,
-		},
-		{
-			name = "paired: CPU median drift rejects invalid calibration without hiding workload tails",
-			run = function(): string?
-				local old = requiredBench(1, "base").document
-				Json.set(old, "yardstickMedianDriftPct", nil)
-				local boundary = requiredBench(1, "base").document
-				Json.set(boundary, "yardstickMedianDriftPct", 15)
-				local drifted = requiredBench(1, "base").document
-				Json.set(drifted, "yardstickMedianDriftPct", 15.01)
-				local first, second = {}, {}
-				for round = 1, 3 do
-					local base, candidate = requiredBench(round, "base"), requiredBench(round, "cand")
-					for _, bench in { base, candidate } do
-						Json.set(bench.document, "yardstickDriftPct", 80)
-					end
-					local row = assert(Json.asObject(assert(Json.arrayField(candidate.document, "results"))[1]))
-					Json.set(row, "p95_ms", 2.12)
-					table.insert(first, base)
-					table.insert(second, candidate)
+				)
+				local result = Run.capture(command, { cwd = tree, timeout = 30 })
+				local artifact = Files.join(tree, "artifacts/bench.json")
+				if not Files.isFile(artifact) then
+					error("benchmark did not load " .. label .. ": " .. result.stdout .. result.stderr, 0)
 				end
-				local lines = Paired.benchTables(first, second, "base", "cand")
-				return Case.first(
-					Case.expect(#Paired.benchOutcome(0, old) > 0, "missing median calibration accepted"),
-					Case.same(Paired.benchOutcome(0, boundary), {}, "15% boundary"),
-					Case.expect(#Paired.benchOutcome(0, drifted) > 0, "median drift above15% accepted"),
-					Case.same(Paired.benchOutcome(0, second[1].document), {}, "tail-only calibration variation"),
-					expectContains(
-						lines,
-						"| table-resize-drag | 1.0000 | 1.0000 | 1.000 | 1.00-1.00 | 2.0000 | 2.1200 | 1.060 | cand slower (p95) |"
-					),
-					Case.equal(
-						Paired.summary(lines, "base", "cand")[1],
-						"### Paired performance: FAIL",
-						"tail regression"
-					)
-				)
-			end,
-		},
+				local document = Json.decode(Files.read(artifact))
+				local rows = assert(Json.arrayField(document, "results"))
+				Verify.expect(Json.stringField(rows[1], "name")):toBe("source-" .. label)
+				Verify.expect(Json.numberField(document, "yardstickMedianDriftPct") ~= nil)
+					:toBeTrueWith("target ran its own harness")
+				Verify.expect(result.code == 0 or result.code == 2):toBeTrueWith("benchmark execution failed")
+			end
+		end,
+	})
+	harness:case(prefix .. "paired: CPU median drift rejects invalid calibration without hiding workload tails", {
+		id = idPrefix .. "paired: CPU median drift rejects invalid calibration without hiding workload tails",
+		run = function(test: Verify.Context): ()
+			local old = requiredBench(1, "base").document
+			Json.set(old, "yardstickMedianDriftPct", nil)
+			local boundary = requiredBench(1, "base").document
+			Json.set(boundary, "yardstickMedianDriftPct", 15)
+			local drifted = requiredBench(1, "base").document
+			Json.set(drifted, "yardstickMedianDriftPct", 15.01)
+			local first, second = {}, {}
+			for round = 1, 3 do
+				local base, candidate = requiredBench(round, "base"), requiredBench(round, "cand")
+				for _, bench in { base, candidate } do
+					Json.set(bench.document, "yardstickDriftPct", 80)
+				end
+				local row = assert(Json.asObject(assert(Json.arrayField(candidate.document, "results"))[1]))
+				Json.set(row, "p95_ms", 2.12)
+				table.insert(first, base)
+				table.insert(second, candidate)
+			end
+			local lines = Paired.benchTables(first, second, "base", "cand")
+			Verify.expect(#Paired.benchOutcome(0, old) > 0):toBeTrueWith("missing median calibration accepted")
+			Verify.expect((Paired.benchOutcome(0, boundary))):toEqual({})
+			Verify.expect(#Paired.benchOutcome(0, drifted) > 0):toBeTrueWith("median drift above15% accepted")
+			Verify.expect((Paired.benchOutcome(0, second[1].document))):toEqual({})
+			expectContains(
+				lines,
+				"| table-resize-drag | 1.0000 | 1.0000 | 1.000 | 1.00-1.00 | 2.0000 | 2.1200 | 1.060 | cand slower (p95) |"
+			)
+			Verify.expect(Paired.summary(lines, "base", "cand")[1]):toBe("### Paired performance: FAIL")
+		end,
+	})
+	harness:case(prefix .. "paired: complete expected rounds and measurements pass without changing thresholds", {
+		id = idPrefix .. "paired: complete expected rounds and measurements pass without changing thresholds",
+		run = function(test: Verify.Context): ()
+			local scope, entries, first, second = requiredPairs()
+			Verify.expect(Paired.validate(scope, entries, first, second, "base", "cand")):toEqual({})
+			Verify.expect((Paired.benchOutcome(0, first[1].document))):toEqual({})
+		end,
+	})
+	harness:case(prefix .. "paired: failed commands and missing or unstable benchmark reports cannot pass", {
+		id = idPrefix .. "paired: failed commands and missing or unstable benchmark reports cannot pass",
+		run = function(test: Verify.Context): ()
+			local successful = requiredBench(1, "base").document
+			local failed = requiredBench(1, "base").document
+			Json.set(failed, "status", "FAIL")
+			local unstable = requiredBench(1, "base").document
+			Json.set(unstable, "proofStatus", "unstable-cpu-rate")
+			local drifted = requiredBench(1, "base").document
+			Json.set(drifted, "yardstickMedianDriftPct", 16)
+			Verify.expect(#Paired.benchOutcome(1, successful) > 0)
+				:toBeTrueWith("failed command accepted a leftover report")
+			Verify.expect(#Paired.benchOutcome(2, successful) > 0):toBeTrueWith("environment failure accepted")
+			Verify.expect(#Paired.benchOutcome(0, nil) > 0):toBeTrueWith("missing report accepted")
+			Verify.expect(#Paired.benchOutcome(0, failed) > 0):toBeTrueWith("failed report accepted")
+			Verify.expect(#Paired.benchOutcome(0, unstable) > 0):toBeTrueWith("unstable report accepted")
+			Verify.expect(#Paired.benchOutcome(0, drifted) > 0):toBeTrueWith("invalid yardstick accepted")
+		end,
+	})
+	harness:case(
+		prefix .. "paired: missing final rounds and individual benchmark measurements cannot disappear from coverage",
 		{
-			name = "paired: complete expected rounds and measurements pass without changing thresholds",
-			run = function(): string?
-				local scope, entries, first, second = requiredPairs()
-				return Case.first(
-					Case.same(Paired.validate(scope, entries, first, second, "base", "cand"), {}, "complete comparison"),
-					Case.same(Paired.benchOutcome(0, first[1].document), {}, "successful command")
-				)
-			end,
-		},
-		{
-			name = "paired: failed commands and missing or unstable benchmark reports cannot pass",
-			run = function(): string?
-				local successful = requiredBench(1, "base").document
-				local failed = requiredBench(1, "base").document
-				Json.set(failed, "status", "FAIL")
-				local unstable = requiredBench(1, "base").document
-				Json.set(unstable, "proofStatus", "unstable-cpu-rate")
-				local drifted = requiredBench(1, "base").document
-				Json.set(drifted, "yardstickMedianDriftPct", 16)
-				return Case.first(
-					Case.expect(#Paired.benchOutcome(1, successful) > 0, "failed command accepted a leftover report"),
-					Case.expect(#Paired.benchOutcome(2, successful) > 0, "environment failure accepted"),
-					Case.expect(#Paired.benchOutcome(0, nil) > 0, "missing report accepted"),
-					Case.expect(#Paired.benchOutcome(0, failed) > 0, "failed report accepted"),
-					Case.expect(#Paired.benchOutcome(0, unstable) > 0, "unstable report accepted"),
-					Case.expect(#Paired.benchOutcome(0, drifted) > 0, "invalid yardstick accepted")
-				)
-			end,
-		},
-		{
-			name = "paired: missing final rounds and individual benchmark measurements cannot disappear from coverage",
-			run = function(): string?
+			id = idPrefix
+				.. "paired: missing final rounds and individual benchmark measurements cannot disappear from coverage",
+			run = function(test: Verify.Context): ()
 				local scope, entries, first, second = requiredPairs()
 				local missing = Paired.validate(scope, entries, { first[1] }, { second[1] }, "base", "cand")
 				Json.set(second[2].document, "results", Json.array())
@@ -1511,43 +1422,41 @@ return {
 				second[2] = requiredBench(2, "cand")
 				local row = assert(Json.arrayField(second[2].document, "results"))[1]
 				Json.set(assert(Json.asObject(row)), "name", "other-workload")
-				return Case.first(
-					expectContains(missing, "base benchmark round 2 is missing"),
-					expectContains(missing, "cand benchmark round 2 is missing"),
-					Case.expect(#empty > 0, "empty measurements accepted"),
-					Case.expect(
-						#Paired.validate(scope, entries, first, second, "base", "cand") > 0,
-						"mismatched measurements accepted"
-					)
-				)
+				expectContains(missing, "base benchmark round 2 is missing")
+				expectContains(missing, "cand benchmark round 2 is missing")
+				Verify.expect(#empty > 0):toBeTrueWith("empty measurements accepted")
+				Verify.expect(#Paired.validate(scope, entries, first, second, "base", "cand") > 0)
+					:toBeTrueWith("mismatched measurements accepted")
 			end,
-		},
-		{
-			name = "paired: nonempty incomplete and malformed measurements cannot masquerade as a faster run",
-			run = function(): string?
-				local scope, entries, first, second = requiredPairs()
-				for _, benches in { first, second } do
-					for _, bench in benches do
-						local rows = assert(Json.arrayField(bench.document, "results"))
-						local extra = table.clone(assert(Json.asObject(rows[1])))
-						Json.set(extra, "name", "other-workload")
-						table.insert(rows, extra)
-					end
+		}
+	)
+	harness:case(prefix .. "paired: nonempty incomplete and malformed measurements cannot masquerade as a faster run", {
+		id = idPrefix .. "paired: nonempty incomplete and malformed measurements cannot masquerade as a faster run",
+		run = function(test: Verify.Context): ()
+			local scope, entries, first, second = requiredPairs()
+			for _, benches in { first, second } do
+				for _, bench in benches do
+					local rows = assert(Json.arrayField(bench.document, "results"))
+					local extra = table.clone(assert(Json.asObject(rows[1])))
+					Json.set(extra, "name", "other-workload")
+					table.insert(rows, extra)
 				end
-				table.remove(assert(Json.arrayField(second[2].document, "results")), 1)
-				local incomplete = Paired.validate(scope, entries, first, second, "base", "cand")
-				local malformed = requiredBench(1, "base").document
-				local row = assert(Json.asObject(assert(Json.arrayField(malformed, "results"))[1]))
-				Json.set(row, "p95_ms", 0)
-				return Case.first(
-					expectContains(incomplete, "cand round 2: benchmark table-resize-drag is missing"),
-					Case.expect(#Paired.benchOutcome(0, malformed) > 0, "invalid percentile accepted")
-				)
-			end,
-		},
+			end
+			table.remove(assert(Json.arrayField(second[2].document, "results")), 1)
+			local incomplete = Paired.validate(scope, entries, first, second, "base", "cand")
+			local malformed = requiredBench(1, "base").document
+			local row = assert(Json.asObject(assert(Json.arrayField(malformed, "results"))[1]))
+			Json.set(row, "p95_ms", 0)
+			expectContains(incomplete, "cand round 2: benchmark table-resize-drag is missing")
+			Verify.expect(#Paired.benchOutcome(0, malformed) > 0):toBeTrueWith("invalid percentile accepted")
+		end,
+	})
+	harness:case(
+		prefix .. "paired: unavailable and missing scene rounds are failures even without statistical slowdowns",
 		{
-			name = "paired: unavailable and missing scene rounds are failures even without statistical slowdowns",
-			run = function(): string?
+			id = idPrefix
+				.. "paired: unavailable and missing scene rounds are failures even without statistical slowdowns",
+			run = function(test: Verify.Context): ()
 				local scope, entries, first, second = requiredPairs()
 				local row = assert(Json.asObject(Json.field(entries[1], "row")))
 				Json.set(row, "status", "missing")
@@ -1555,290 +1464,254 @@ return {
 				table.remove(entries, 4)
 				table.remove(entries, 3)
 				local missing = Paired.validate(scope, entries, first, second, "base", "cand")
-				return Case.first(
-					Case.expect(#unavailable > 0, "unavailable scene accepted"),
-					expectContains(missing, "base round 2 scene dense-hud is missing"),
-					expectContains(missing, "cand round 2 scene dense-hud is missing")
-				)
+				Verify.expect(#unavailable > 0):toBeTrueWith("unavailable scene accepted")
+				expectContains(missing, "base round 2 scene dense-hud is missing")
+				expectContains(missing, "cand round 2 scene dense-hud is missing")
 			end,
-		},
+		}
+	)
+	harness:case(
+		prefix
+			.. "paired: within-tolerance rounds cannot confirm a noisy tail, while a stable six-percent slowdown fails",
 		{
-			name = "paired: within-tolerance rounds cannot confirm a noisy tail, while a stable six-percent slowdown fails",
-			run = function(): string?
-				return Case.first(
-					Case.equal(
-						Paired.consistentSlower(1.087, { 1.028123, 1.385600, 1.016810, 1.031591, 1.141473, 1.071815 }),
-						false,
-						"identical-source macOS table-resize-drag tail"
-					),
-					Case.equal(Paired.consistentSlower(1.06, { 1.06, 1.06, 1.06, 1.06, 1.06, 1.06 }), true, "stable 6%"),
-					Case.equal(Paired.consistentSlower(1.2, { 1.05, 1.3 }), false, "tolerance boundary")
+			id = idPrefix
+				.. "paired: within-tolerance rounds cannot confirm a noisy tail, while a stable six-percent slowdown fails",
+			run = function(test: Verify.Context): ()
+				Verify.expect(
+					Paired.consistentSlower(1.087, { 1.028123, 1.385600, 1.016810, 1.031591, 1.141473, 1.071815 })
 				)
+					:toBe(false)
+				Verify.expect(Paired.consistentSlower(1.06, { 1.06, 1.06, 1.06, 1.06, 1.06, 1.06 })):toBe(true)
+				Verify.expect(Paired.consistentSlower(1.2, { 1.05, 1.3 })):toBe(false)
 			end,
-		},
-		{
-			name = "paired: medians, formatting and the consistent-slower rule",
-			run = function(): string?
-				return Case.first(
-					Case.equal(Paired.median({ 3, 1, 2 }), 2, "odd median"),
-					Case.equal(Paired.median({ 4, 1, 3, 2 }), 2.5, "even median"),
-					Case.equal(Paired.median({}), nil, "empty median"),
-					Case.equal(Paired.number(nil), "n/a", "missing"),
-					Case.equal(Paired.number(1 / 3, 3), "0.333", "digits"),
-					Case.equal(Paired.consistentSlower(1.2, { 1.1, 1.3 }), true, "slower"),
-					Case.equal(Paired.consistentSlower(1.2, { 0.9, 1.3 }), false, "one round faster"),
-					Case.equal(Paired.consistentSlower(1.04, { 1.1 }), false, "within noise"),
-					Case.equal(Paired.consistentSlower(1.2, {}), false, "no pairs")
-				)
-			end,
-		},
-		{
-			name = "paired: the scene runner's marked row is read from its output",
-			run = function(): string?
-				local row = Paired.sceneRow('loading\r\n@@{"scene": "dense-hud", "status": "ok", "p50": 0.5}\r\n')
-				return Case.first(
-					Case.equal(row and Json.field(row, "status"), "ok", "status"),
-					Case.equal(Paired.sceneRow("no marker\n"), nil, "unmarked"),
-					Case.equal(Paired.benchRound("bench-base-12.json", "base"), 12, "round"),
-					Case.equal(Paired.benchRound("bench-cand-1.json", "base"), nil, "other label"),
-					Case.equal(Paired.benchRound("bench-base-1.log", "base"), nil, "log")
-				)
-			end,
-		},
-		{
-			name = "paired: the scene table flags consistent slowdowns and unavailable trees",
-			run = function(): string?
-				local entries = pairedEntries({
-					[[{"label": "base", "round": 1, "row": {"scene": "dense-hud", "status": "ok", "p50": 1.0, "p95": 2.0}}]],
-					[[{"label": "cand", "round": 1, "row": {"scene": "dense-hud", "status": "ok", "p50": 1.5, "p95": 2.0}}]],
-					[[{"label": "base", "round": 2, "row": {"scene": "dense-hud", "status": "ok", "p50": 1.0, "p95": 2.2}}]],
-					[[{"label": "cand", "round": 2, "row": {"scene": "dense-hud", "status": "ok", "p50": 1.25, "p95": 2.2}}]],
-					[[{"label": "base", "round": 1, "row": {"scene": "shadow-storm", "status": "missing"}}]],
-					[[{"label": "base", "round": 2, "row": {"scene": "shadow-storm", "status": "crashed"}}]],
-					[[{"label": "cand", "round": 1, "row": {"scene": "shadow-storm", "status": "ok", "p50": 1, "p95": 1}}]],
-				})
-				local lines = Paired.sceneTable(entries, "base", "cand")
-				return Case.first(
-					Case.equal(#lines, 4, "rows"),
-					Case.equal(
-						lines[3],
-						"| dense-hud | 1.0000 | 1.3750 | 1.375 | 1.25-1.50 | 2.1000 | 2.1000 | 1.000 | 1.00-1.00 | 2.0000-2.2000 | 2.0000-2.2000 | cand slower (p50) |",
-						"dense-hud"
-					),
-					Case.equal(
-						lines[4],
-						"| shadow-storm | n/a | 1.0000 | n/a | n/a | n/a | 1.0000 | n/a | n/a | n/a | 1.0000-1.0000 | base unavailable (crashed/missing) |",
-						"shadow-storm"
-					)
-				)
-			end,
-		},
-		{
-			name = "paired: the summary states the verdict and lists slower scenes as percent changes",
-			run = function(): string?
-				local lines = {
-					"| Scene | base p50 | cand p50 | p50 ratio | p50 paired range | base p95 | cand p95 | p95 ratio | p95 paired range | base p95 spread | cand p95 spread | Flag |",
-					"|---|---:|---:|---:|---|---:|---:|---:|---|---|---|---|",
-					"| dense-hud | 1.0000 | 1.3750 | 1.375 | 1.25-1.50 | 2.1000 | 2.1000 | 1.000 | 1.00-1.00 | 2.0000-2.2000 | 2.0000-2.2000 | cand slower (p50) |",
-					"| calm | 1.0000 | 0.9000 | 0.900 | 0.85-0.95 | 2.0000 | 1.9000 | 0.950 | 0.90-1.00 | 2.0000-2.0000 | 1.9000-1.9000 |  |",
-					"| shadow-storm | n/a | 1.0000 | n/a | n/a | n/a | 1.0000 | n/a | n/a | n/a | 1.0000-1.0000 | base unavailable (crashed) |",
-				}
-				local failing = Paired.summary(lines, "base", "cand")
-				local passing = Paired.summary({ lines[1], lines[2], lines[4] }, "base", "cand")
-				return Case.first(
-					Case.equal(failing[1], "### Paired performance: FAIL", "fail verdict"),
-					Case.equal(failing[3], "cand is consistently slower than base in 1 of 3 scenes.", "fail count"),
-					Case.equal(failing[7], "| dense-hud | +37.5% | +0.0% | p50 |", "slower row"),
-					Case.equal(failing[9], "1 measurements were unavailable; see the full table.", "unavailable"),
-					Case.equal(passing[1], "### Paired performance: PASS", "pass verdict"),
-					Case.equal(
-						passing[3],
-						"cand is not consistently slower than base in any of 1 scenes.",
-						"pass count"
-					)
-				)
-			end,
-		},
-		{
-			name = "paired: the microbenchmark table skips the yardstick flag and lists each bench run",
-			run = function(): string?
-				local lines = Paired.benchTables(
-					{ benchDocument(2, "base", 1, 2), benchDocument(1, "base", 1, 2) },
-					{ benchDocument(1, "cand", 2, 4), benchDocument(2, "cand", 2, 4) },
-					"base",
-					"cand"
-				)
-				return Case.first(
-					expectContains(
-						lines,
-						"| row-build | 1.0000 | 2.0000 | 2.000 | 2.00-2.00 | 2.0000 | 4.0000 | 2.000 | cand slower (p50, p95) |"
-					),
-					expectContains(
-						lines,
-						"| zz-yardstick-cpu | 1.0000 | 2.0000 | 2.000 | 2.00-2.00 | 2.0000 | 4.0000 | 2.000 |  |"
-					),
-					Case.expect(not contains(lines, "| skipped |"), "a result without p50_ms was tabled"),
-					Case.equal(lines[#lines - 3], "| base-1 | 0.5000 | 1.3 | 0.4 |", "first bench run"),
-					Case.equal(lines[#lines], "| cand-2 | 0.5000 | 1.3 | 0.4 |", "last bench run"),
-					Case.same(Paired.benchTables({}, {}, "base", "cand"), {}, "no benches")
-				)
-			end,
-		},
-	}
+		}
+	)
+	harness:case(prefix .. "paired: medians, formatting and the consistent-slower rule", {
+		id = idPrefix .. "paired: medians, formatting and the consistent-slower rule",
+		run = function(test: Verify.Context): ()
+			Verify.expect(Paired.median({ 3, 1, 2 })):toBe(2)
+			Verify.expect(Paired.median({ 4, 1, 3, 2 })):toBe(2.5)
+			Verify.expect(Paired.median({})):toBe(nil)
+			Verify.expect(Paired.number(nil)):toBe("n/a")
+			Verify.expect(Paired.number(1 / 3, 3)):toBe("0.333")
+			Verify.expect(Paired.consistentSlower(1.2, { 1.1, 1.3 })):toBe(true)
+			Verify.expect(Paired.consistentSlower(1.2, { 0.9, 1.3 })):toBe(false)
+			Verify.expect(Paired.consistentSlower(1.04, { 1.1 })):toBe(false)
+			Verify.expect(Paired.consistentSlower(1.2, {})):toBe(false)
+		end,
+	})
+	harness:case(prefix .. "paired: the scene runner's marked row is read from its output", {
+		id = idPrefix .. "paired: the scene runner's marked row is read from its output",
+		run = function(test: Verify.Context): ()
+			local row = Paired.sceneRow('loading\r\n@@{"scene": "dense-hud", "status": "ok", "p50": 0.5}\r\n')
+			Verify.expect(row and Json.field(row, "status")):toBe("ok")
+			Verify.expect(Paired.sceneRow("no marker\n")):toBe(nil)
+			Verify.expect(Paired.benchRound("bench-base-12.json", "base")):toBe(12)
+			Verify.expect(Paired.benchRound("bench-cand-1.json", "base")):toBe(nil)
+			Verify.expect(Paired.benchRound("bench-base-1.log", "base")):toBe(nil)
+		end,
+	})
+	harness:case(prefix .. "paired: the scene table flags consistent slowdowns and unavailable trees", {
+		id = idPrefix .. "paired: the scene table flags consistent slowdowns and unavailable trees",
+		run = function(test: Verify.Context): ()
+			local entries = pairedEntries({
+				[[{"label": "base", "round": 1, "row": {"scene": "dense-hud", "status": "ok", "p50": 1.0, "p95": 2.0}}]],
+				[[{"label": "cand", "round": 1, "row": {"scene": "dense-hud", "status": "ok", "p50": 1.5, "p95": 2.0}}]],
+				[[{"label": "base", "round": 2, "row": {"scene": "dense-hud", "status": "ok", "p50": 1.0, "p95": 2.2}}]],
+				[[{"label": "cand", "round": 2, "row": {"scene": "dense-hud", "status": "ok", "p50": 1.25, "p95": 2.2}}]],
+				[[{"label": "base", "round": 1, "row": {"scene": "shadow-storm", "status": "missing"}}]],
+				[[{"label": "base", "round": 2, "row": {"scene": "shadow-storm", "status": "crashed"}}]],
+				[[{"label": "cand", "round": 1, "row": {"scene": "shadow-storm", "status": "ok", "p50": 1, "p95": 1}}]],
+			})
+			local lines = Paired.sceneTable(entries, "base", "cand")
+			Verify.expect(#lines):toBe(4)
+			Verify.expect(lines[3]):toBe(
+				"| dense-hud | 1.0000 | 1.3750 | 1.375 | 1.25-1.50 | 2.1000 | 2.1000 | 1.000 | 1.00-1.00 | 2.0000-2.2000 | 2.0000-2.2000 | cand slower (p50) |"
+			)
+			Verify.expect(lines[4]):toBe(
+				"| shadow-storm | n/a | 1.0000 | n/a | n/a | n/a | 1.0000 | n/a | n/a | n/a | 1.0000-1.0000 | base unavailable (crashed/missing) |"
+			)
+		end,
+	})
+	harness:case(prefix .. "paired: the summary states the verdict and lists slower scenes as percent changes", {
+		id = idPrefix .. "paired: the summary states the verdict and lists slower scenes as percent changes",
+		run = function(test: Verify.Context): ()
+			local lines = {
+				"| Scene | base p50 | cand p50 | p50 ratio | p50 paired range | base p95 | cand p95 | p95 ratio | p95 paired range | base p95 spread | cand p95 spread | Flag |",
+				"|---|---:|---:|---:|---|---:|---:|---:|---|---|---|---|",
+				"| dense-hud | 1.0000 | 1.3750 | 1.375 | 1.25-1.50 | 2.1000 | 2.1000 | 1.000 | 1.00-1.00 | 2.0000-2.2000 | 2.0000-2.2000 | cand slower (p50) |",
+				"| calm | 1.0000 | 0.9000 | 0.900 | 0.85-0.95 | 2.0000 | 1.9000 | 0.950 | 0.90-1.00 | 2.0000-2.0000 | 1.9000-1.9000 |  |",
+				"| shadow-storm | n/a | 1.0000 | n/a | n/a | n/a | 1.0000 | n/a | n/a | n/a | 1.0000-1.0000 | base unavailable (crashed) |",
+			}
+			local failing = Paired.summary(lines, "base", "cand")
+			local passing = Paired.summary({ lines[1], lines[2], lines[4] }, "base", "cand")
+			Verify.expect(failing[1]):toBe("### Paired performance: FAIL")
+			Verify.expect(failing[3]):toBe("cand is consistently slower than base in 1 of 3 scenes.")
+			Verify.expect(failing[7]):toBe("| dense-hud | +37.5% | +0.0% | p50 |")
+			Verify.expect(failing[9]):toBe("1 measurements were unavailable; see the full table.")
+			Verify.expect(passing[1]):toBe("### Paired performance: PASS")
+			Verify.expect(passing[3]):toBe("cand is not consistently slower than base in any of 1 scenes.")
+		end,
+	})
+	harness:case(prefix .. "paired: the microbenchmark table skips the yardstick flag and lists each bench run", {
+		id = idPrefix .. "paired: the microbenchmark table skips the yardstick flag and lists each bench run",
+		run = function(test: Verify.Context): ()
+			local lines = Paired.benchTables(
+				{ benchDocument(2, "base", 1, 2), benchDocument(1, "base", 1, 2) },
+				{ benchDocument(1, "cand", 2, 4), benchDocument(2, "cand", 2, 4) },
+				"base",
+				"cand"
+			)
+			expectContains(
+				lines,
+				"| row-build | 1.0000 | 2.0000 | 2.000 | 2.00-2.00 | 2.0000 | 4.0000 | 2.000 | cand slower (p50, p95) |"
+			)
+			expectContains(
+				lines,
+				"| zz-yardstick-cpu | 1.0000 | 2.0000 | 2.000 | 2.00-2.00 | 2.0000 | 4.0000 | 2.000 |  |"
+			)
+			Verify.expect(not contains(lines, "| skipped |")):toBeTrueWith("a result without p50_ms was tabled")
+			Verify.expect(lines[#lines - 3]):toBe("| base-1 | 0.5000 | 1.3 | 0.4 |")
+			Verify.expect(lines[#lines]):toBe("| cand-2 | 0.5000 | 1.3 | 0.4 |")
+			Verify.expect(Paired.benchTables({}, {}, "base", "cand")):toEqual({})
+		end,
+	})
 end
 
-CASES.aggregate = function(): { Case.Case }
-	return {
-		{
-			name = "aggregate: a dump whose base64 wraps across lines still loads",
-			run = function(): string?
-				local packed = Microprofiler.pack("payload")
-				local close = string.find(packed, "-->", 5, true) :: number
-				local encoded = string.sub(packed, 5, close - 1)
-				local wrapped = string.gsub(encoded, "(" .. string.rep(".", 8) .. ")", "%1\r\n")
-				local raw = "<!--" .. wrapped .. string.sub(packed, close)
-				return Case.equal(Microprofiler.load("wrapped.html", raw), "payload", "wrapped dump")
-			end,
-		},
-		{
-			name = "aggregate: the synthetic dump decodes its container, header, records and layout record",
-			run = function(): string?
-				local body = Microprofiler.load("synthetic.html", Microprofiler.pack(Microprofiler.synthetic()))
-				local dump = Microprofiler.parse(body)
-				local byName: { [string]: Microprofiler.Row } = {}
-				for _, row in dump.rows do
-					byName[row.name] = row
+REGISTRATIONS.aggregate = function(harness: Verify.Harness, prefix: string): ()
+	local idPrefix = prefix
+	prefix ..= "aggregate::"
+	harness:case(prefix .. "aggregate: a dump whose base64 wraps across lines still loads", {
+		id = idPrefix .. "aggregate: a dump whose base64 wraps across lines still loads",
+		run = function(test: Verify.Context): ()
+			local packed = Microprofiler.pack("payload")
+			local close = string.find(packed, "-->", 5, true) :: number
+			local encoded = string.sub(packed, 5, close - 1)
+			local wrapped = string.gsub(encoded, "(" .. string.rep(".", 8) .. ")", "%1\r\n")
+			local raw = "<!--" .. wrapped .. string.sub(packed, close)
+			Verify.expect(Microprofiler.load("wrapped.html", raw)):toBe("payload")
+		end,
+	})
+	harness:case(prefix .. "aggregate: the synthetic dump decodes its container, header, records and layout record", {
+		id = idPrefix .. "aggregate: the synthetic dump decodes its container, header, records and layout record",
+		run = function(test: Verify.Context): ()
+			local body = Microprofiler.load("synthetic.html", Microprofiler.pack(Microprofiler.synthetic()))
+			local dump = Microprofiler.parse(body)
+			local byName: { [string]: Microprofiler.Row } = {}
+			for _, row in dump.rows do
+				byName[row.name] = row
+			end
+			local kept: { string } = {}
+			for _, row in dump.rows do
+				if Microprofiler.isFramework(row.name) then
+					table.insert(kept, row.name)
 				end
-				local kept: { string } = {}
-				for _, row in dump.rows do
-					if Microprofiler.isFramework(row.name) then
-						table.insert(kept, row.name)
-					end
-				end
-				table.sort(kept)
-				local records = Microprofiler.layoutRecords(dump.raw)
-				return Case.first(
-					Case.equal(dump.frames, 2, "frame window"),
-					Case.equal(dump.frequency, 1000000000, "frequency"),
-					Case.equal(#dump.rows, 3, "records"),
-					Case.equal(byName["Facet/tick"] and byName["Facet/tick"].count, 2, "Facet/tick count"),
-					Case.equal(
-						byName["LuauUI/arrange"] and byName["LuauUI/arrange"].total,
-						20000000,
-						"LuauUI/arrange total"
-					),
-					Case.expect(byName.Sleep ~= nil, "the decoder lost the scope Sleep"),
-					Case.same(kept, { "Facet/tick", "LuauUI/arrange" }, "framework filter"),
-					Case.equal(#records, 1, "layout records"),
-					Case.equal(records[1] and records[1].relayouts, 3, "relayouts"),
-					Case.equal(records[1] and records[1].resizes, 5, "resizes")
-				)
-			end,
-		},
-		{
-			name = "aggregate: the report prints the tick cross-check, the legacy note and the layout total",
-			run = function(): string?
-				local dump = Microprofiler.parse(Microprofiler.synthetic())
-				local lines = Microprofiler.render("synthetic.html", dump, { all = false, layout = true })
-				local all = Microprofiler.render("synthetic.html", dump, { all = true, layout = false })
-				return Case.first(
-					Case.equal(lines[2], "=== synthetic.html ===", "title"),
-					Case.equal(lines[3], "  window=2 frames  freq=1000000000  tick==2 (OK)", "window"),
-					expectContains(lines, "NOTE: 1 of these scopes carry the pre-rename `LuauUI/` prefix"),
-					Case.equal(
-						lines[6],
-						"  LuauUI/arrange                  6    3.00      20.00   3.3333    10.000   12.000",
-						"first scope"
-					),
-					expectContains(
-						lines,
-						"  TOTAL                                                          3        4        5"
-					),
-					Case.expect(not contains(lines, "Sleep"), "a non-framework scope was printed"),
-					expectContains(all, "  Sleep ")
-				)
-			end,
-		},
-		{
-			name = "aggregate: an empty aggregate window is announced",
-			run = function(): string?
-				local dump = Microprofiler.parse(Microprofiler.synthetic())
-				dump.frames = 0
-				local lines = Microprofiler.render("empty.html", dump, { all = false, layout = false })
-				return Case.equal(lines[3], "  WINDOW=0 - NO AGGREGATE, THIS CAPTURE HAS NO TIMINGS.", "window")
-			end,
-		},
-		{
-			name = "aggregate: files that are not MicroProfiler dumps are refused",
-			run = function(): string?
-				local function refusal(raw: string): string
-					local ok, failure = pcall(Microprofiler.load, "dump.html", raw)
-					return if ok then "decoded" else tostring(failure)
-				end
-				local packed = Microprofiler.pack("payload")
-				local damaged = "<!--"
-					.. Base64.encode("GAK\7\0\0\0\0\0\0\0" .. "\x78\x01\x01\x07\x00\xf8\xffpayload\0\0\0\0")
-					.. "-->"
-				return Case.first(
-					expectContains({ refusal("<html></html>") }, "no leading HTML comment"),
-					expectContains({ refusal("<!--" .. Base64.encode("ZIP0000000000") .. "-->") }, "bad magic"),
-					expectContains({ refusal(damaged) }, "Adler-32 checksum does not match"),
-					expectContains({ refusal(packed) }, "decoded")
-				)
-			end,
-		},
-	}
+			end
+			table.sort(kept)
+			local records = Microprofiler.layoutRecords(dump.raw)
+			Verify.expect(dump.frames):toBe(2)
+			Verify.expect(dump.frequency):toBe(1000000000)
+			Verify.expect(#dump.rows):toBe(3)
+			Verify.expect(byName["Facet/tick"] and byName["Facet/tick"].count):toBe(2)
+			Verify.expect(byName["LuauUI/arrange"] and byName["LuauUI/arrange"].total):toBe(20000000)
+			Verify.expect(byName.Sleep ~= nil):toBeTrueWith("the decoder lost the scope Sleep")
+			Verify.expect(kept):toEqual({ "Facet/tick", "LuauUI/arrange" })
+			Verify.expect(#records):toBe(1)
+			Verify.expect(records[1] and records[1].relayouts):toBe(3)
+			Verify.expect(records[1] and records[1].resizes):toBe(5)
+		end,
+	})
+	harness:case(prefix .. "aggregate: the report prints the tick cross-check, the legacy note and the layout total", {
+		id = idPrefix .. "aggregate: the report prints the tick cross-check, the legacy note and the layout total",
+		run = function(test: Verify.Context): ()
+			local dump = Microprofiler.parse(Microprofiler.synthetic())
+			local lines = Microprofiler.render("synthetic.html", dump, { all = false, layout = true })
+			local all = Microprofiler.render("synthetic.html", dump, { all = true, layout = false })
+			Verify.expect(lines[2]):toBe("=== synthetic.html ===")
+			Verify.expect(lines[3]):toBe("  window=2 frames  freq=1000000000  tick==2 (OK)")
+			expectContains(lines, "NOTE: 1 of these scopes carry the pre-rename `LuauUI/` prefix")
+			Verify.expect(lines[6])
+				:toBe("  LuauUI/arrange                  6    3.00      20.00   3.3333    10.000   12.000")
+			expectContains(
+				lines,
+				"  TOTAL                                                          3        4        5"
+			)
+			Verify.expect(not contains(lines, "Sleep")):toBeTrueWith("a non-framework scope was printed")
+			expectContains(all, "  Sleep ")
+		end,
+	})
+	harness:case(prefix .. "aggregate: an empty aggregate window is announced", {
+		id = idPrefix .. "aggregate: an empty aggregate window is announced",
+		run = function(test: Verify.Context): ()
+			local dump = Microprofiler.parse(Microprofiler.synthetic())
+			dump.frames = 0
+			local lines = Microprofiler.render("empty.html", dump, { all = false, layout = false })
+			Verify.expect(lines[3]):toBe("  WINDOW=0 - NO AGGREGATE, THIS CAPTURE HAS NO TIMINGS.")
+		end,
+	})
+	harness:case(prefix .. "aggregate: files that are not MicroProfiler dumps are refused", {
+		id = idPrefix .. "aggregate: files that are not MicroProfiler dumps are refused",
+		run = function(test: Verify.Context): ()
+			local function refusal(raw: string): string
+				local ok, failure = pcall(Microprofiler.load, "dump.html", raw)
+				return if ok then "decoded" else tostring(failure)
+			end
+			local packed = Microprofiler.pack("payload")
+			local damaged = "<!--"
+				.. Base64.encode("GAK\7\0\0\0\0\0\0\0" .. "\x78\x01\x01\x07\x00\xf8\xffpayload\0\0\0\0")
+				.. "-->"
+			expectContains({ refusal("<html></html>") }, "no leading HTML comment")
+			expectContains({ refusal("<!--" .. Base64.encode("ZIP0000000000") .. "-->") }, "bad magic")
+			expectContains({ refusal(damaged) }, "Adler-32 checksum does not match")
+			expectContains({ refusal(packed) }, "decoded")
+		end,
+	})
 end
 
-CASES["spec-timings"] = function(): { Case.Case }
-	return {
-		{
-			name = "spec-timings: cases are grouped by spec in first-seen order",
-			run = function(): string?
-				local outcome = decode(
-					[[{"execution": {"report": {"results": [{"source": "tests/a.verify.luau", "durationMicros": 1500}, {"source": null, "durationMicros": 10}, {"source": "tests/a.verify.luau", "durationMicros": 500}]}}}]]
-				)
-				return Case.equal(
-					specTable(specRows(outcome)),
-					"spec\tcases\tcases_ms\ntests/a.verify.luau\t2\t2\nunknown\t1\t0.01\n",
-					"table"
-				)
-			end,
-		},
-		{
-			name = "spec-timings: an outcome without results is refused",
-			run = function(): string?
-				local ok = pcall(specRows, decode([[{"execution": {}}]]))
-				return Case.expect(not ok, "an outcome without results was accepted")
-			end,
-		},
-	}
+REGISTRATIONS["spec-timings"] = function(harness: Verify.Harness, prefix: string): ()
+	local idPrefix = prefix
+	prefix ..= "spec-timings::"
+	harness:case(prefix .. "spec-timings: cases are grouped by spec in first-seen order", {
+		id = idPrefix .. "spec-timings: cases are grouped by spec in first-seen order",
+		run = function(test: Verify.Context): ()
+			local outcome = decode(
+				[[{"execution": {"report": {"results": [{"source": "tests/a.verify.luau", "durationMicros": 1500}, {"source": null, "durationMicros": 10}, {"source": "tests/a.verify.luau", "durationMicros": 500}]}}}]]
+			)
+			Verify.expect(specTable(specRows(outcome)))
+				:toBe("spec\tcases\tcases_ms\ntests/a.verify.luau\t2\t2\nunknown\t1\t0.01\n")
+		end,
+	})
+	harness:case(prefix .. "spec-timings: an outcome without results is refused", {
+		id = idPrefix .. "spec-timings: an outcome without results is refused",
+		run = function(test: Verify.Context): ()
+			local ok = pcall(specRows, decode([[{"execution": {}}]]))
+			Verify.expect(not ok):toBeTrueWith("an outcome without results was accepted")
+		end,
+	})
 end
 
-local function noCases(): { Case.Case }
-	return {}
+local function registerNone(harness: Verify.Harness, prefix: string): () end
+REGISTRATIONS.run = function(harness: Verify.Harness, prefix: string): ()
+	local idPrefix = prefix
+	prefix ..= "run::"
+	harness:case(prefix .. "run: an invalid internal timing policy fails before workloads start", {
+		id = idPrefix .. "run: an invalid internal timing policy fails before workloads start",
+		run = function(test: Verify.Context): ()
+			local environment = Run.environment()
+			environment.FACET_PERF_TIMING = "invalid"
+			local result = Run.capture({ Run.lute(), "run", "tools/facet", "perf", "run" }, { env = environment })
+			Verify.expect(result.code):toBe(1)
+			expectContains({ result.stdout }, "FACET_PERF_TIMING must be true or false")
+		end,
+	})
 end
-CASES.run = function(): { Case.Case }
-	return {
-		{
-			name = "run: an invalid internal timing policy fails before workloads start",
-			run = function(): string?
-				local environment = Run.environment()
-				environment.FACET_PERF_TIMING = "invalid"
-				local result = Run.capture({ Run.lute(), "run", "tools/facet", "perf", "run" }, { env = environment })
-				return Case.first(
-					Case.equal(result.code, 1, "invalid timing policy"),
-					expectContains({ result.stdout }, "FACET_PERF_TIMING must be true or false")
-				)
-			end,
-		},
-	}
-end
-CASES.baseline = noCases
-CASES["prove-gate"] = noCases
-CASES.memory = noCases
-CASES.profile = noCases
-CASES.footprint = function(): { Case.Case }
+REGISTRATIONS.baseline = registerNone
+REGISTRATIONS["prove-gate"] = registerNone
+REGISTRATIONS.memory = registerNone
+REGISTRATIONS.profile = registerNone
+REGISTRATIONS.footprint = function(harness: Verify.Harness, prefix: string): ()
+	local idPrefix = prefix
+	prefix ..= "footprint::"
 	local counts = [[{"instances":1,"connections":2,"holdings":3}]]
 	local report = Json.decode(
 		[[{"schema":"facet-perf-footprint/1","samples":[{"name":"Button","idle":]]
@@ -1847,48 +1720,36 @@ CASES.footprint = function(): { Case.Case }
 			.. counts
 			.. [[,"teardown":{"instances":0,"connections":0,"holdings":0}}]}]]
 	)
-	return {
-		{
-			name = "footprint: counts must be complete, bounded and released",
-			run = function(): string?
-				return Case.first(
-					Case.same(Footprint.check(report, Json.decode([[{"Button":]] .. counts .. "}")), {}, "valid census"),
-					Case.expect(
-						#Footprint.check(
-								report,
-								Json.decode([[{"Button":{"instances":0,"connections":2,"holdings":3}}]])
-							) > 0,
-						"resource growth passed"
-					),
-					Case.expect(
-						#Footprint.check(report, Json.decode([[{"Missing":]] .. counts .. "}")) > 0,
-						"missing control passed"
-					),
-					Case.expect(#Footprint.check(Json.decode("{}"), Json.decode("{}")) > 0, "empty report passed")
-				)
-			end,
-		},
-	}
+	harness:case(prefix .. "footprint: counts must be complete, bounded and released", {
+		id = idPrefix .. "footprint: counts must be complete, bounded and released",
+		run = function(test: Verify.Context): ()
+			Verify.expect(Footprint.check(report, Json.decode([[{"Button":]] .. counts .. "}"))):toEqual({})
+			Verify.expect(
+				#Footprint.check(report, Json.decode([[{"Button":{"instances":0,"connections":2,"holdings":3}}]])) > 0
+			)
+				:toBeTrueWith("resource growth passed")
+			Verify.expect(#Footprint.check(report, Json.decode([[{"Missing":]] .. counts .. "}")) > 0)
+				:toBeTrueWith("missing control passed")
+			Verify.expect(#Footprint.check(Json.decode("{}"), Json.decode("{}")) > 0)
+				:toBeTrueWith("empty report passed")
+		end,
+	})
 end
-CASES["prove-memory-gate"] = noCases
+REGISTRATIONS["prove-memory-gate"] = registerNone
 
-local ORDER = { "budgets", "metrics", "scenes", "place", "paired", "aggregate", "spec-timings", "footprint" }
+local ORDER = { "budgets", "metrics", "scenes", "place", "paired", "aggregate", "spec-timings", "footprint", "run" }
 
-local function allCases(): { Case.Case }
-	local cases: { Case.Case } = {}
-	table.insert(cases, {
-		name = "the memory gate rejects planted native and Compose leaks",
-		run = function(): string?
+local function registerAll(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "the memory gate rejects planted native and Compose leaks", {
+		id = prefix .. "the memory gate rejects planted native and Compose leaks",
+		run = function(test: Verify.Context): ()
 			local PerfRun = require("../lib/perf_run")
-			return Case.equal(PerfRun.proveMemoryGate(), 0, "prove-memory-gate")
+			Verify.expect(PerfRun.proveMemoryGate()):toBe(0)
 		end,
 	})
 	for _, name in ORDER do
-		for _, case in CASES[name]() do
-			table.insert(cases, case)
-		end
+		REGISTRATIONS[name](harness, prefix)
 	end
-	return cases
 end
 
 local VALUES = { "out", "rounds", "scenes", "workspace", "devices", "tap", "summary" }
@@ -1912,7 +1773,7 @@ local KNOWN = {
 
 local function run(invocation: Cli.Invocation): number
 	local subcommand = invocation.positional[1]
-	if subcommand == nil or (CASES[subcommand] == nil and subcommand ~= "capture") then
+	if subcommand == nil or (REGISTRATIONS[subcommand] == nil and subcommand ~= "capture") then
 		print(USAGE)
 		return 2
 	end
@@ -1925,7 +1786,7 @@ local function run(invocation: Cli.Invocation): number
 		return require("./perf_capture")(invocation)
 	end
 	if Cli.switch(invocation, "selftest") then
-		return Case.report("perf " .. subcommand, CASES[subcommand])
+		return Gate.selftest("tools/commands", "tools/commands::perf::" .. subcommand .. "::")
 	end
 	if
 		subcommand == "run"
@@ -2006,7 +1867,7 @@ local command: Cli.Command = {
 	summary = "Check perf budgets, metrics, scenes and the place; run paired perf; read MicroProfiler dumps.",
 	usage = USAGE,
 	values = VALUES,
-	cases = allCases,
+	register = registerAll,
 	run = run,
 }
 

@@ -14,10 +14,36 @@ ownership. Reflection metadata describes engine classes; it does not supply
 native behavior. Read the selected assertions rather than treating case count
 as coverage.
 
+The unit fixture loads Verify's bundled reflection capture. The Verify pin fixes
+its version. Events and methods keep their captured class ownership. Normal
+writes keep the captured property types and access restrictions. Cases supply
+engine-owned values with `engine.environment.poke`. Unit GUI roots start with
+zero geometry until a case supplies measurements. This fixture does not run
+layout or text measurement. Input starts with no history, held keys or connected
+gamepads. Cases supply the input history that their focus assertions require.
+
 The Facet unit fixture supplies zero GUI insets. Its `GetStyled` fake reads
 the raw property, and its styled property signal uses the property change
 signal. Individual tests can supply specific styled values or inset behavior.
 These fixtures do not prove StyleSheet resolution or native safe areas.
+
+The `native_live_primitives` spec also runs five original Studio geometry
+cases with Verify's computed layout. It checks Screen/VStack padding and gap,
+grid cells and gaps, ZStack alignment, stack distribution and weighted fill.
+The `native_live_contracts` spec adds 27 original live cases for text geometry,
+frame stability, lifecycle, styles, grids and content. Together these specs
+run 32 original live cases. They use Verify's bounded text model: 18 captured
+font faces, integer sizes 1–100, Latin letters, digits, spaces and newlines.
+Unsupported shaping and text modes raise errors. Upstream Verify checks
+348 shared text layout configurations against Studio.
+
+The primitive spec also loads every committed live source and registers its
+cases in the double.
+Registration does not prove case behavior. A planted gap regression must fail
+the original assertion. These cases prove the selected model behavior. They
+do not replace Studio evidence. Scrolling canvas/window geometry and the
+remaining input, device and style mechanisms are outside this selection.
+See [the live CI scope](../../tools/studio/CI.md).
 
 ## Live
 
@@ -34,21 +60,6 @@ Studio simulation does not prove physical haptic output, thermals, battery
 or device memory pressure. See [device verification](device-verification.md).
 
 ## Gate
-
-Prepare the same dependencies used by CI before the full local run:
-
-```sh
-rokit install --no-trust-check
-lute run tools/facet types prepare
-lute run tools/facet gate full
-```
-
-The preparation command checks pinned tools, Git and Bash, generates Lute
-typedefs and downloads both pinned Roblox definition files. It needs network
-access for missing files and write access to the Lute typedef directory.
-It fails before the expensive suite if these dependencies are unavailable.
-A successful preparation is not verification evidence. Run the full gate
-and fix its failures before publishing a completed change.
 
 The Verify gate records selection, failure, unsupported work and deferral.
 The release tier requires complete evidence with no deferrals. Running every

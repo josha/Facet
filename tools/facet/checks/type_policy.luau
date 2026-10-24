@@ -1,4 +1,5 @@
 --!strict
+local Verify = require("../../vendor/verify/src/core")
 
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
@@ -205,138 +206,126 @@ local function count(source: string): number
 	return if lines then #lines else -1
 end
 
-local function cases(): { Rule.Case }
-	return {
-		{
-			name = "annotations, casts and nested types count",
-			run = function()
-				return Rule.expect(
-					count("local x: any = y :: any; type T = (any) -> {any}") == 4,
-					"expected 4 uses, got " .. count("local x: any = y :: any; type T = (any) -> {any}")
-				)
-			end,
-		},
-		{
-			name = "strings, comments and identifiers do not count",
-			run = function()
-				local first = count('local many = "any"; local s = [=[any]=] -- any\n--[==[any]==]')
-				local second = count("local s = 'escaped \\' any'")
-				return Rule.expect(
-					first == 0 and second == 0,
-					("expected 0 and 0, got %d and %d"):format(first, second)
-				)
-			end,
-		},
-		{
-			name = "interpolation expressions count",
-			run = function()
-				local inside = count("local s = `any {x :: any} {`any {y :: any}`}`")
-				local escaped = count("local s = `any \\{any\\}`")
-				return Rule.expect(
-					inside == 2 and escaped == 0,
-					("expected 2 and 0, got %d and %d"):format(inside, escaped)
-				)
-			end,
-		},
-		{
-			name = "budgets fail when exceeded and src fails at one use",
-			run = function()
-				local counts: Counts = { src = 0, examples = 0, tools = 0, tests = 0, bench = 0 }
-				local budget: Budget = { examples = 0, tools = 0, tests = 0, bench = 0 }
-				if #violations(counts, budget) ~= 0 then
-					return "a clean inventory failed"
-				end
-				counts.examples = 1
-				if #violations(counts, budget) ~= 1 then
-					return "an exceeded budget did not fail once"
-				end
-				counts.src = 1
-				return Rule.expect(#violations(counts, budget) == 2, "a src use did not fail")
-			end,
-		},
-		{
-			name = "budgets only decrease and a pending tests budget can be set",
-			run = function()
-				local counts: Counts = { src = 2, examples = 2, tools = 2, tests = 2, bench = 2 }
-				local budget: Budget = { examples = 3, tools = 3, bench = 3 }
-				local written = lowered(counts, budget)
-				if written == nil or written.tests ~= 2 then
-					return "the pending tests budget was not set"
-				end
-				counts.tools = 4
-				local raised = lowered(counts, budget)
-				return Rule.expect(raised == nil, "a raised budget was accepted")
-			end,
-		},
-		{
-			name = "an invalid source fails",
-			run = function()
-				local lines = uses("local value: any = 'unfinished")
-				return Rule.expect(lines == nil, "an unfinished string parsed")
-			end,
-		},
-		{
-			name = "the inventory excludes vendor and counts each directory",
-			run = function()
-				local files: { [string]: string } = {}
+local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "annotations, casts and nested types count", {
+		id = prefix .. "annotations, casts and nested types count",
+		run = function(test: Verify.Context)
+			Verify.expect(count("local x: any = y :: any; type T = (any) -> {any}") == 4)
+				:toBeTrueWith("expected 4 uses, got " .. count("local x: any = y :: any; type T = (any) -> {any}"))
+		end,
+	})
+	harness:case(prefix .. "strings, comments and identifiers do not count", {
+		id = prefix .. "strings, comments and identifiers do not count",
+		run = function(test: Verify.Context)
+			local first = count('local many = "any"; local s = [=[any]=] -- any\n--[==[any]==]')
+			local second = count("local s = 'escaped \\' any'")
+			Verify.expect(first == 0 and second == 0)
+				:toBeTrueWith(("expected 0 and 0, got %d and %d"):format(first, second))
+		end,
+	})
+	harness:case(prefix .. "interpolation expressions count", {
+		id = prefix .. "interpolation expressions count",
+		run = function(test: Verify.Context)
+			local inside = count("local s = `any {x :: any} {`any {y :: any}`}`")
+			local escaped = count("local s = `any \\{any\\}`")
+			Verify.expect(inside == 2 and escaped == 0)
+				:toBeTrueWith(("expected 2 and 0, got %d and %d"):format(inside, escaped))
+		end,
+	})
+	harness:case(prefix .. "budgets fail when exceeded and src fails at one use", {
+		id = prefix .. "budgets fail when exceeded and src fails at one use",
+		run = function(test: Verify.Context)
+			local counts: Counts = { src = 0, examples = 0, tools = 0, tests = 0, bench = 0 }
+			local budget: Budget = { examples = 0, tools = 0, tests = 0, bench = 0 }
+			if #violations(counts, budget) ~= 0 then
+				error("a clean inventory failed", 0)
+			end
+			counts.examples = 1
+			if #violations(counts, budget) ~= 1 then
+				error("an exceeded budget did not fail once", 0)
+			end
+			counts.src = 1
+			Verify.expect(#violations(counts, budget) == 2):toBeTrueWith("a src use did not fail")
+		end,
+	})
+	harness:case(prefix .. "budgets only decrease and a pending tests budget can be set", {
+		id = prefix .. "budgets only decrease and a pending tests budget can be set",
+		run = function(test: Verify.Context)
+			local counts: Counts = { src = 2, examples = 2, tools = 2, tests = 2, bench = 2 }
+			local budget: Budget = { examples = 3, tools = 3, bench = 3 }
+			local written = lowered(counts, budget)
+			if written == nil or written.tests ~= 2 then
+				error("the pending tests budget was not set", 0)
+			end
+			counts.tools = 4
+			local raised = lowered(counts, budget)
+			Verify.expect(raised == nil):toBeTrueWith("a raised budget was accepted")
+		end,
+	})
+	harness:case(prefix .. "an invalid source fails", {
+		id = prefix .. "an invalid source fails",
+		run = function(test: Verify.Context)
+			local lines = uses("local value: any = 'unfinished")
+			Verify.expect(lines == nil):toBeTrueWith("an unfinished string parsed")
+		end,
+	})
+	harness:case(prefix .. "the inventory excludes vendor and counts each directory", {
+		id = prefix .. "the inventory excludes vendor and counts each directory",
+		run = function(test: Verify.Context)
+			local files: { [string]: string } = {}
+			for _, directory in DIRECTORIES do
+				files[directory .. "/main.luau"] = "local value: any = 'any'"
+				files[directory .. "/vendor/dependency.luau"] = "type Value = any | any"
+			end
+			Rule.within(test, files, function(context)
+				local found = inventory(context, DIRECTORIES)
 				for _, directory in DIRECTORIES do
-					files[directory .. "/main.luau"] = "local value: any = 'any'"
-					files[directory .. "/vendor/dependency.luau"] = "type Value = any | any"
+					if found.counts[directory] ~= 1 then
+						error(("%s counted %s"):format(directory, tostring(found.counts[directory])), 0)
+					end
 				end
-				return Rule.within(files, function(context)
-					local found = inventory(context, DIRECTORIES)
-					for _, directory in DIRECTORIES do
-						if found.counts[directory] ~= 1 then
-							return ("%s counted %s"):format(directory, tostring(found.counts[directory]))
-						end
-					end
-					return Rule.expect(
-						#found.locations == 1 and found.locations[1] == "src/main.luau:1",
-						"locations: " .. table.concat(found.locations, ", ")
-					)
-				end)
-			end,
-		},
-		{
-			name = "UTF-8 sources and CRLF line endings are read",
-			run = function()
-				return Rule.within({
-					["src/main.luau"] = 'local text = "\u{e9}\u{1F600}"\r\nlocal value: number = 1\r\n',
-					["examples/main.luau"] = 'local label = "\u{2014}"\r\nlocal value: any = 1\r\n',
-					[BUDGET] = Json.encode({ examples = 1, tools = 0, tests = 0, bench = 0 }),
-				}, function(context)
-					local errors = findings(context)
-					return Rule.expect(#errors == 0, Rule.describe(errors))
-				end)
-			end,
-		},
-		{
-			name = "lowering the budgets rewrites the budget file",
-			run = function()
-				return Rule.within({
-					["examples/main.luau"] = "local value: any = 1",
-					[BUDGET] = Json.encode({ examples = 5, tools = 0, tests = Json.null, bench = 0 }),
-				}, function(context)
-					local code = lowerBudgets(context, Cli.parse({}))
-					local written = Json.decode(Files.read(context.path(BUDGET)))
-					if code ~= 0 then
-						return "lowering failed"
-					end
-					return Rule.expect(
-						Json.numberField(written, "examples") == 1 and Json.numberField(written, "tests") == 0,
-						Json.encode(written)
-					)
-				end)
-			end,
-		},
-	}
+				Verify.expect(#found.locations == 1 and found.locations[1] == "src/main.luau:1")
+					:toBeTrueWith("locations: " .. table.concat(found.locations, ", "))
+			end)
+		end,
+	})
+	harness:case(prefix .. "UTF-8 sources and CRLF line endings are read", {
+		id = prefix .. "UTF-8 sources and CRLF line endings are read",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["src/main.luau"] = 'local text = "\u{e9}\u{1F600}"\r\nlocal value: number = 1\r\n',
+				["examples/main.luau"] = 'local label = "\u{2014}"\r\nlocal value: any = 1\r\n',
+				[BUDGET] = Json.encode({ examples = 1, tools = 0, tests = 0, bench = 0 }),
+			}, function(context)
+				local errors = findings(context)
+				Verify.expect(#errors == 0):toBeTrueWith(Rule.describe(errors))
+			end)
+		end,
+	})
+	harness:case(prefix .. "lowering the budgets rewrites the budget file", {
+		id = prefix .. "lowering the budgets rewrites the budget file",
+		run = function(test: Verify.Context)
+			Rule.within(test, {
+				["examples/main.luau"] = "local value: any = 1",
+				[BUDGET] = Json.encode({ examples = 5, tools = 0, tests = Json.null, bench = 0 }),
+			}, function(context)
+				local code = lowerBudgets(context, Cli.parse({}))
+				local written = Json.decode(Files.read(context.path(BUDGET)))
+				if code ~= 0 then
+					error("lowering failed", 0)
+				end
+				Verify.expect(Json.numberField(written, "examples") == 1 and Json.numberField(written, "tests") == 0)
+					:toBeTrueWith(Json.encode(written))
+			end)
+		end,
+	})
 end
 
 local rule: Rule.Rule = {
 	name = "type-policy",
 	summary = "src has no any type; examples, tools, tests and bench stay within tools/typecheck/any_budget.json.",
 	check = check,
-	cases = cases,
+	register = register,
 	actions = {
 		counts = { summary = "print the current any counts", run = printCounts },
 		["lower-budgets"] = { summary = "lower the budgets to the current counts; never raises", run = lowerBudgets },
