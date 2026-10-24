@@ -931,7 +931,7 @@ function browser.mount(opts: MountOpts)
 				{ label = "derived pressed", role = "controlPressed", derived = true },
 			}
 		do
-			states[#states + 1] = UI.VStack({
+			local swatch: StackProps = {
 				gap = "xs",
 				Host.Frame({
 					Name = item.label,
@@ -943,7 +943,8 @@ function browser.mount(opts: MountOpts)
 					end,
 				}),
 				UI.Text({ text = item.label, textRole = "caption" }),
-			})
+			}
+			states[#states + 1] = UI.VStack(swatch)
 		end
 		local ramp: StackProps = { Name = "Type", gap = "xs", width = "fill" }
 		for _, role in Facet.themes.TYPE_ROLES do
