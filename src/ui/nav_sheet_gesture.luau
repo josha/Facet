@@ -148,10 +148,13 @@ return function(
 				end
 				local scale = math.max(use(unit), 0.001)
 				local spans = parts.width(ctx, spec.width, use) >= use(extent).X
-				local bottom = value.glass.bottom / scale
+				local left = if spans then math.ceil(value.glass.left / scale) else 0
+				local right = if spans then math.ceil(value.glass.right / scale) else 0
+				local uneven = (right - left) % 2
+				local bottom = math.ceil(value.glass.bottom / scale)
 				return {
-					left = if spans then value.glass.left / scale else 0,
-					right = if spans then value.glass.right / scale else 0,
+					left = left + (if left < right then uneven else 0),
+					right = right + (if left < right then 0 else uneven),
 					bottom = if bottom > 0 then bottom + ctx.metric("radii.panel", use) else 0,
 				}
 			end)

@@ -2114,7 +2114,13 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("a sheet as wide as the screen also reaches the side cutouts", {
 			id = "native_sheet_parts::native Sheet: a bottom sheet's plate reaches the glass::a sheet as wide as the screen also reaches the side cutouts",
 			run = function()
-				for _, side in { { left = 47, right = 47 }, { left = 0, right = 48 } } do
+				for _, side in
+					{
+						{ left = 47, right = 47, past = 47 },
+						{ left = 0, right = 48, past = 0 },
+						{ left = 0, right = 47, past = 1 },
+					}
+				do
 					local bands: Bands = {
 						width = 844,
 						height = 390,
@@ -2126,12 +2132,12 @@ return function(verifyHarness: Verify.Harness)
 					local band = 21 + RADIUS
 					local w = glassSheet(bands, { width = "wide", motionLevel = "none" })
 					local panel, room = w.find("SheetPanel"), w.find("Room")
-					Verify.expect(panel.Size.X.Offset):toBe(844)
-					Verify.expect(panel.Position.X.Offset):toBe((side.right - side.left) / 2)
+					Verify.expect(panel.Size.X.Offset):toBe(844 - side.left + side.past)
+					Verify.expect(panel.Position.X.Offset):toBe((side.right - side.past) / 2)
 					Verify.expect(panel.Position.Y.Offset):toBe(band)
-					Verify.expect(room.Position.X.Offset):toBe(16 + side.left)
-					Verify.expect(room.Size.X.Offset):toBe(-32 - side.left - side.right)
-					Verify.expect(w.find("Grabber").Position.X.Offset):toBe((side.left - side.right) / 2)
+					Verify.expect(room.Position.X.Offset):toBe(16 + side.past)
+					Verify.expect(room.Size.X.Offset):toBe(-32 - side.past - side.right)
+					Verify.expect(w.find("Grabber").Position.X.Offset):toBe((side.past - side.right) / 2)
 					w.stop()
 					local narrow = glassSheet(bands, { motionLevel = "none" })
 					Verify.expect(box(narrow.find("SheetPanel"))[1]):toBe(0)
