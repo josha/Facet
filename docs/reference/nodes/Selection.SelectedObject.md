@@ -15,7 +15,9 @@ Selection.SelectedObject option values and behavior.
   else can be acted on (Back already closes it). A Dialog selects its cancel
   action, else its first action that is not destructive. Other modals select
   their first control. It waits until the surface is shown, so it never
-  selects a hidden control.
+  selects a hidden control. A NavigationStack page selects the control that
+  its `initialFocus` names, else its first content control, and the stack
+  Back only when nothing else can be acted on.
 - Leaving. A Facet presenter hands the selection back to its anchor or opener
   as it starts to leave. A game's own panel is not a presenter: when its
   buttons stop being selectable before it is gone, the engine moves the

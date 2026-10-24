@@ -65,6 +65,7 @@ local function properties(values: Properties): Properties
 end
 
 local nativeGlyph = require("./native_glyph")
+local splitBack = require("./split_back_demo")
 
 local function implied(choices: { [string]: Source }): { [string]: Source }
 	return choices
@@ -2957,7 +2958,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "resizable", values = { true, false } },
 			{ key = "alwaysShowResizeHandle", values = { true, false } },
 		},
-		states = {},
+		states = {
+			{ name = "compact: Files opens detail, no Show detail row", cellWidth = 380, props = splitBack(false) },
+			{ name = "compact: the detail NavBar owns Back (compactBack)", cellWidth = 380, props = splitBack(true) },
+		},
 	},
 
 	NavigationStack = {
@@ -2991,7 +2995,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 					car = {
 						title = "Car",
 						content = function(entry): Instance
-							return c.UI.Text({ text = `Car details: {entry and entry.value or "?"}` })
+							return c.UI.Button({ label = `Drive {entry and entry.value or "?"}` })
 						end,
 					},
 				},
@@ -3012,6 +3016,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						destinations = {
 							car = {
 								chrome = "hidden",
+								initialFocus = "Drive",
 								content = function(): Instance
 									return c.UI.VStack {
 										width = "fill",
@@ -3023,6 +3028,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 												path:set({})
 											end,
 										},
+										c.UI.Button "Drive" { label = "Drive (initialFocus selects it)" },
 										c.UI.Text {
 											text = "This page uses the whole stack rectangle. Back also uses Escape, B or a right swipe from the left edge.",
 											TextWrapped = true,
@@ -3059,6 +3065,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "wide gap + padding", props = properties { gap = 24, padding = 16 } },
 			{ name = "long title", props = properties { title = LONG } },
 			{ name = "no back", props = properties { onBack = NONE } },
+			{
+				name = "back from a cell",
+				props = function(c: Context)
+					return { onBack = c.cell("navBack", true) }
+				end,
+			},
 			{
 				name = "leading slot",
 				props = function(c: Context)

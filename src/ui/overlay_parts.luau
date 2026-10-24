@@ -11,7 +11,13 @@ local decoration = require("./native_decoration")
 
 type ButtonFactory = Types.Constructor<InputProps.ButtonProps, TextButton>
 type UIControls = { Button: ButtonFactory }
-type BackPlace = { AnchorPoint: Vector2?, Position: UDim2?, Size: UDim2?, LayoutOrder: number? }
+type BackPlace = {
+	AnchorPoint: Vector2?,
+	Position: UDim2?,
+	Size: UDim2?,
+	LayoutOrder: number?,
+	Visible: Types.ValueBoolean?,
+}
 
 local parts = {}
 
@@ -584,6 +590,7 @@ function parts.back(
 		Position = at.Position,
 		Size = at.Size,
 		LayoutOrder = at.LayoutOrder,
+		Visible = at.Visible,
 	}
 	local button = UI.Button(props)
 	local row = button:FindFirstChildWhichIsA("UIListLayout", true)

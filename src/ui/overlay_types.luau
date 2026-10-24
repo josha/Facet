@@ -98,7 +98,7 @@ export type NoticeOptions = {
 }
 
 export type NavBarOptions = {
-	onBack: (() -> ())?,
+	onBack: ((() -> ()) | Types.Cell<boolean>)?,
 	backLabel: string?,
 	title: Types.ValueString?,
 	titleSize: string?,

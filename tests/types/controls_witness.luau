@@ -227,6 +227,8 @@ local noticeProps: Facet.NoticeSpec = {
 local notice: Frame = UI.Notice(noticeProps)
 local navBarProps: Facet.NavBarSpec = { title = text, onBack = nothing, backLabel = "Back" }
 local navBar: Frame = UI.NavBar(navBarProps)
+local handedBack = Compose.cell(false)
+local handedNavBar: Frame = UI.NavBar({ title = text, onBack = handedBack, backLabel = "Parts" })
 local snackOpen = Compose.cell(false)
 local snackbarProps: Facet.ToastSpec = {
 	isPresented = snackOpen,
@@ -279,11 +281,21 @@ local split: GuiObject = UI.NavigationSplitView({
 	detail = content,
 	preferredCompactColumn = Compose.cell(startColumn),
 	sidebarWidth = Compose.cell(360),
+	detailLabel = false,
+	compactBack = handedBack,
 })
 local stack: GuiObject = UI.NavigationStack({
 	path = entries,
 	root = { title = "Home", content = content },
-	destinations = {},
+	destinations = {
+		named = { title = "Named", initialFocus = "Body", content = content },
+		chosen = {
+			initialFocus = function(): string?
+				return "Body"
+			end,
+			content = content,
+		},
+	},
 })
 local radial: GuiObject = UI.RadialMenu({ items = items, holdAction = Instance.new("InputAction") })
 local nestedRadial: GuiObject = UI.RadialMenu({ items = require("./radial_witness") })
@@ -452,6 +464,7 @@ local mounted: { GuiObject } = {
 	popover,
 	notice,
 	navBar,
+	handedNavBar,
 	snackbar,
 	toast,
 	menu,
