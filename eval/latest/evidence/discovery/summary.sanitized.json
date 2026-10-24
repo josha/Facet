@@ -1,0 +1,181 @@
+{
+  "scope": "Initial desktop and portrait observation only; no navigation or game outcome established",
+  "visualFindings": [
+    {
+      "device": "desktop",
+      "arm": "plain",
+      "observation": "Home and Pilot Orientation 1/3 visible with route buttons and a central kart preview"
+    },
+    {
+      "device": "phone-portrait",
+      "arm": "plain",
+      "observation": "Tutorial and home actions visible; native thumbstick and jump controls overlap the lower Garage/Inventory navigation region; input reachability not yet tested"
+    },
+    {
+      "device": "desktop",
+      "arm": "facet",
+      "observation": "Hub world and avatar visible with Flight School1/3, main route buttons, and utility controls"
+    },
+    {
+      "device": "phone-portrait",
+      "arm": "facet",
+      "observation": "Menu/X and Race tools visible; two compact ellipsis controls at left; bottom welcome/instruction toast overlaps native touch-control regions; no claim that compact content is unreachable"
+    }
+  ],
+  "limits": [
+    "Each desktop/portrait report passed build plus two diagnostic observations, not complete acceptance rows",
+    "Actual native viewports are1919x1080 and389x843; returned image dimensions are recorded separately",
+    "Remaining devices and normal input routes require later evidence",
+    "No physical controller, IME or multitouch behavior established"
+  ],
+  "records": [
+    {
+      "arm": "plain",
+      "device": "desktop",
+      "caseId": "desktop/diagnostic/initial-observation",
+      "diagnosticStatus": "passed",
+      "completeAcceptanceRow": false,
+      "viewport": {
+        "screenWidth": 1919,
+        "height": 1080,
+        "screenHeight": 1080,
+        "width": 1919
+      },
+      "inputs": {
+        "tenFoot": false,
+        "touch": false,
+        "keyboard": true,
+        "mouse": true,
+        "gamepad": false
+      },
+      "nativeErrors": [],
+      "imagePixels": [
+        1919,
+        1080
+      ],
+      "imageSha256": "32f887acefc13ec25e381e8b04f376af856fe0a43621bc6f72ddf4d0606b352d",
+      "imageViewed": true,
+      "firstUseTutorialDismissed": false,
+      "dumpIncludedHere": false,
+      "imageIncludedHere": false,
+      "transportClosure": [
+        {
+          "close": true,
+          "exited": true,
+          "present": false
+        }
+      ]
+    },
+    {
+      "arm": "plain",
+      "device": "phone-portrait",
+      "caseId": "phone-portrait/diagnostic/initial-observation",
+      "diagnosticStatus": "passed",
+      "completeAcceptanceRow": false,
+      "viewport": {
+        "screenWidth": 389,
+        "height": 762,
+        "screenHeight": 843,
+        "width": 389
+      },
+      "inputs": {
+        "tenFoot": false,
+        "touch": true,
+        "keyboard": true,
+        "mouse": true,
+        "gamepad": false
+      },
+      "nativeErrors": [],
+      "imagePixels": [
+        498,
+        1080
+      ],
+      "imageSha256": "94ed500019c4ce63bb5cff5e6e2e20b85628a7ab74b3c3fe8ea9e58533b22866",
+      "imageViewed": true,
+      "firstUseTutorialDismissed": false,
+      "dumpIncludedHere": false,
+      "imageIncludedHere": false,
+      "transportClosure": [
+        {
+          "close": true,
+          "exited": true,
+          "present": false
+        }
+      ]
+    },
+    {
+      "arm": "facet",
+      "device": "desktop",
+      "caseId": "desktop/diagnostic/initial-observation",
+      "diagnosticStatus": "passed",
+      "completeAcceptanceRow": false,
+      "viewport": {
+        "screenWidth": 1919,
+        "height": 1080,
+        "screenHeight": 1080,
+        "width": 1919
+      },
+      "inputs": {
+        "tenFoot": false,
+        "touch": false,
+        "keyboard": true,
+        "mouse": true,
+        "gamepad": false
+      },
+      "nativeErrors": [],
+      "imagePixels": [
+        1919,
+        1080
+      ],
+      "imageSha256": "2bcfe396a13f41e5334cb45a2045b33d176155fe2d5cfeaf587435ff9234ba82",
+      "imageViewed": true,
+      "firstUseTutorialDismissed": false,
+      "dumpIncludedHere": false,
+      "imageIncludedHere": false,
+      "transportClosure": [
+        {
+          "close": true,
+          "exited": true,
+          "present": false
+        }
+      ]
+    },
+    {
+      "arm": "facet",
+      "device": "phone-portrait",
+      "caseId": "phone-portrait/diagnostic/initial-observation",
+      "diagnosticStatus": "passed",
+      "completeAcceptanceRow": false,
+      "viewport": {
+        "screenWidth": 389,
+        "height": 762,
+        "screenHeight": 843,
+        "width": 389
+      },
+      "inputs": {
+        "tenFoot": false,
+        "touch": true,
+        "keyboard": true,
+        "mouse": true,
+        "gamepad": false
+      },
+      "nativeErrors": [],
+      "imagePixels": [
+        498,
+        1080
+      ],
+      "imageSha256": "ba3cdf09f8b722789cbfa64a1d7df21abb2feece1a2aad712314bd6f0848df37",
+      "imageViewed": true,
+      "firstUseTutorialDismissed": false,
+      "dumpIncludedHere": false,
+      "imageIncludedHere": false,
+      "transportClosure": [
+        {
+          "close": true,
+          "exited": true,
+          "present": false
+        }
+      ]
+    }
+  ]
+}

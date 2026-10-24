@@ -1,0 +1,74 @@
+{
+  "observedUtc": "2026-10-24T04:31:32.2541519Z",
+  "scope": "Initial console-preset observation only, before QA host auto-selection or any native input",
+  "limits": [
+    "Both observations have PreferredInput.Gamepad, gamepadEnabled=true, tenFoot=true and LastInputType.Focus",
+    "SelectedObject is nil in all three samples in both arms; this is recorded without assigning a complete acceptance-row verdict",
+    "Physical controller access, button prompts and navigation remain unverified",
+    "Captures preserve initial tutorial state; neither game was repaired"
+  ],
+  "caseReport": "report.sanitized.json",
+  "checkedOwnedProcessCount": 4,
+  "publicImageReview": "Both original JPEGs independently viewed for privacy. Game/tutorial UI and avatar are visible; no account text, local paths or session identifiers observed. Images unchanged.",
+  "remainingOwnedProcessCount": 0,
+  "samples": [
+    {
+      "arm": "plain",
+      "inputFlags": {
+        "mouseEnabled": true,
+        "playerGuiChildren": 3,
+        "gamepadEnabled": true,
+        "viewport": [
+          1919,
+          1080
+        ],
+        "tenFoot": true,
+        "lastInputType": "Enum.UserInputType.Focus",
+        "hasSelection": false,
+        "keyboardEnabled": true,
+        "preferredInput": "Enum.PreferredInput.Gamepad",
+        "touchEnabled": false
+      },
+      "sampleCount": 3,
+      "hasSelection": [
+        false,
+        false,
+        false
+      ],
+      "imageViewed": true,
+      "imageSha256": "7f4a8fc0810ab39c8ea156c6380f9bddc75f0df870d58e05cfe1147bbfe4ca30",
+      "closeMarker": true,
+      "exitedMarker": true,
+      "image": "plain-untouched-console.jpg"
+    },
+    {
+      "arm": "facet",
+      "inputFlags": {
+        "mouseEnabled": true,
+        "playerGuiChildren": 8,
+        "gamepadEnabled": true,
+        "viewport": [
+          1919,
+          1080
+        ],
+        "tenFoot": true,
+        "lastInputType": "Enum.UserInputType.Focus",
+        "hasSelection": false,
+        "keyboardEnabled": true,
+        "preferredInput": "Enum.PreferredInput.Gamepad",
+        "touchEnabled": false
+      },
+      "sampleCount": 3,
+      "hasSelection": [
+        false,
+        false,
+        false
+      ],
+      "imageViewed": true,
+      "imageSha256": "82410eabe2ec700a984c379048e7fc01f8b62a7dc7bfb5e6cb90f5baf0054216",
+      "closeMarker": true,
+      "exitedMarker": true,
+      "image": "facet-untouched-console.jpg"
+    }
+  ]
+}

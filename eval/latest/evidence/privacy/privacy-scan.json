@@ -1,0 +1,91 @@
+{
+  "files": [
+    {
+      "arm": "plain",
+      "base64UnitsDecodedAndScanned": 1463,
+      "base64UnitsNotDecoded": 0,
+      "bytes": 5062852,
+      "candidateCountsByRule": {
+        "bearerValues": 0,
+        "credentialPrefixes": 0,
+        "emailAddresses": 0,
+        "knownOperatorAccountOrHost": 0,
+        "literalSensitiveAssignments": 0,
+        "localAbsolutePaths": 0,
+        "privateHostUrls": 0,
+        "webhooks": 0
+      },
+      "decodedSourceBytes": 65814,
+      "engineIdentityPropertyCounts": {
+        "HistoryId": 1452,
+        "ScriptGuid": 3,
+        "UniqueId": 1452
+      },
+      "file": "plain.rbxlx",
+      "instances": 1452,
+      "nondefaultSourceAssetIds": 0,
+      "serializedAttributeBlobs": [
+        {
+          "bytes": 89,
+          "sha256": "eb1de193ab744146c15f86d6525d86a71b67d7e6df03b1a96076096313f2b0a4"
+        }
+      ],
+      "sha256After": "3783a2f70b147d87bbe81e1dd070e0d04a65cb086d2bb0b150d7db7f574c6549",
+      "sha256Before": "3783a2f70b147d87bbe81e1dd070e0d04a65cb086d2bb0b150d7db7f574c6549",
+      "sourceProperties": 3,
+      "textAndAttributeUnitsScanned": 211104,
+      "totalCandidateMatches": 0
+    },
+    {
+      "arm": "facet",
+      "base64UnitsDecodedAndScanned": 1595,
+      "base64UnitsNotDecoded": 0,
+      "bytes": 7022418,
+      "candidateCountsByRule": {
+        "bearerValues": 0,
+        "credentialPrefixes": 1,
+        "emailAddresses": 0,
+        "knownOperatorAccountOrHost": 0,
+        "literalSensitiveAssignments": 0,
+        "localAbsolutePaths": 0,
+        "privateHostUrls": 0,
+        "webhooks": 0
+      },
+      "decodedSourceBytes": 3214675,
+      "engineIdentityPropertyCounts": {
+        "HistoryId": 1584,
+        "ScriptGuid": 338,
+        "UniqueId": 1584
+      },
+      "file": "facet.rbxlx",
+      "instances": 1584,
+      "nondefaultSourceAssetIds": 0,
+      "serializedAttributeBlobs": [
+        {
+          "bytes": 89,
+          "sha256": "eb1de193ab744146c15f86d6525d86a71b67d7e6df03b1a96076096313f2b0a4"
+        }
+      ],
+      "sha256After": "eb9629ad42c1adfecd61193f9f58fdda5911393ea190a6d9f5af29a6d5f709c5",
+      "sha256Before": "eb9629ad42c1adfecd61193f9f58fdda5911393ea190a6d9f5af29a6d5f709c5",
+      "sourceProperties": 338,
+      "textAndAttributeUnitsScanned": 110129,
+      "totalCandidateMatches": 1
+    }
+  ],
+  "limits": [
+    "Pattern and metadata review can miss unknown or encoded secrets. This is not a proof that arbitrary opaque engine binary data contains no sensitive value.",
+    "The scan does not assess game safety, quality, ownership rights, gameplay, acceptance or whether external public references remain available.",
+    "Native captures, later reports and publication metadata require separate privacy review. No screenshot privacy claim is made here.",
+    "No original was sanitized. Any later derivative must retain the original private bytes and disclose its own hash and changes."
+  ],
+  "parser": "Public Verify Lute.model.read/descendants and documented XML/base64 codecs.",
+  "reviewedMetadata": [
+    "All SourceAssetId properties have the default -1 value in both files.",
+    "The only nonempty AttributesSerialize property in each file is the same 89-byte engine lighting migration record, SHA256 eb1de193ab744146c15f86d6525d86a71b67d7e6df03b1a96076096313f2b0a4.",
+    "HistoryId, UniqueId and ScriptGuid are intrinsic serialized instance identities, not author account or active Studio session IDs; no values are published in this report.",
+    "Plain contains no HTTP URLs. Facet HTTP hosts are public design/reference documentation: animex.tees.ac.uk, celiahodent.com, create.roblox.com, github.com, learn.microsoft.com, partner.steamgames.com and www.lostincult.co.uk."
+  ],
+  "schemaVersion": 1,
+  "scope": "Publication privacy review of both complete sealed XML places, decoded source/property text, XML attributes and decoded base64 property text. No private author reasoning, source modification or native execution."
+}

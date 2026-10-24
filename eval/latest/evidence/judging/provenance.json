@@ -1,0 +1,102 @@
+{
+  "captures": [
+    {
+      "pixels": "unchanged",
+      "state": "hub",
+      "sha256": "7f1ef3b1119eb276b4ae86b181c081ef640693d9dc583d944b1b7765342c3678",
+      "viewport": {
+        "width": 1919,
+        "height": 1080
+      },
+      "arm": "facet",
+      "originalArtifact": "facet-calibration-1/output/raw-captures/desktop-state-hub-1.jpg",
+      "path": "captures/facet-hub.jpg"
+    },
+    {
+      "pixels": "unchanged",
+      "state": "garage",
+      "sha256": "b2cd2eecc1c9e37bac4eeb9bf829958d2ac760cf87a346d127f5c36261e08e97",
+      "viewport": {
+        "width": 1919,
+        "height": 1080
+      },
+      "arm": "facet",
+      "originalArtifact": "facet-calibration-2/output/raw-captures/desktop-state-garage-1.jpg",
+      "path": "captures/facet-garage.jpg"
+    },
+    {
+      "pixels": "unchanged",
+      "state": "tutorial",
+      "sha256": "7ea499bd9135b18f917feeefe47cdb11a61e1f0d2983b6e55e396a5c5bbc45d1",
+      "viewport": {
+        "width": 1919,
+        "height": 1080
+      },
+      "arm": "facet",
+      "originalArtifact": "facet-calibration-1/output/raw-captures/desktop-initial-tutorial-1.jpg",
+      "path": "captures/facet-tutorial.jpg"
+    },
+    {
+      "pixels": "unchanged",
+      "state": "hub",
+      "sha256": "e450f34b63d56316a4148de365df637cb1c00c901f312cca613e4305a12c5f8d",
+      "viewport": {
+        "width": 1919,
+        "height": 1080
+      },
+      "arm": "plain",
+      "originalArtifact": "plain-calibration-2/output/raw-captures/desktop-hub-initial-1.jpg",
+      "path": "captures/plain-hub.jpg"
+    },
+    {
+      "pixels": "unchanged",
+      "state": "garage",
+      "sha256": "b282b3a3742abc6e179664bdf4bf924ea076bd0eb3037a077bc9a8961bbf8916",
+      "viewport": {
+        "width": 1919,
+        "height": 1080
+      },
+      "arm": "plain",
+      "originalArtifact": "plain-calibration-2/output/raw-captures/desktop-garage-initial-1.jpg",
+      "path": "captures/plain-garage.jpg"
+    },
+    {
+      "pixels": "unchanged",
+      "state": "tutorial",
+      "sha256": "89629ee5cfa5f68fbe2f33f1f10cd514b41abb2b85d9aeaa426011ef738ce5c7",
+      "viewport": {
+        "width": 1919,
+        "height": 1080
+      },
+      "arm": "plain",
+      "originalArtifact": "plain-calibration-2/output/raw-captures/desktop-tutorial-first-use-1.jpg",
+      "path": "captures/plain-tutorial.jpg"
+    }
+  ],
+  "rawRequests": "Withheld local paths; SHA-256 and selected configuration fields are retained here.",
+  "scope": "One diagnostic desktop comparison of three equivalent states, judged in both orders. No seven-state primary comparison or five-device visual threshold claim.",
+  "requests": [
+    {
+      "model": "gpt-6-astra",
+      "order": 1,
+      "effort": "medium",
+      "deadlineSeconds": 180,
+      "effortArgumentPresent": true,
+      "readOnly": true,
+      "modelArgumentPresent": true,
+      "ignoreUserConfig": true,
+      "requestSha256": "01e31cd5bc62a524eb8d2787c7bb787044dc7c9639d98d0c82c7ed3761385846"
+    },
+    {
+      "model": "gpt-6-astra",
+      "order": 2,
+      "effort": "medium",
+      "deadlineSeconds": 180,
+      "effortArgumentPresent": true,
+      "readOnly": true,
+      "modelArgumentPresent": true,
+      "ignoreUserConfig": true,
+      "requestSha256": "adba49e5261da9decfdf5f33b8cfacd486a01f5a4536a2417a0cc07e8b07548f"
+    }
+  ]
+}

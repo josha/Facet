@@ -1,0 +1,74 @@
+{
+  "state": "both-native-edit-places-sealed-and-owners-released",
+  "observedUtc": "2026-10-24T04:24:28.7438700Z",
+  "explicitEditReport": "stop.verify.json",
+  "sourceCustodyReport": "source-custody.verify.json",
+  "displayHoldAlive": true,
+  "limits": [
+    "Full persistent Edit saves made by operator after author exit; save interval is recorded",
+    "Both native IsRunning=false checks preceded save; owner close receipt alone is not final mode evidence",
+    "The supplied-source audit proves exact source/docs rows, not game behavior",
+    "Author MCP processes were already absent without graceful close/exited markers; no graceful acknowledgment claimed",
+    "Only recorded owned processes were checked; no global zero-MCP claim"
+  ],
+  "arms": [
+    {
+      "arm": "plain",
+      "runId": "run/plain/codex-astra/1",
+      "authorFinishedAtUnix": 1792815117,
+      "savedXml": "plain.rbxlx",
+      "bytes": 5062852,
+      "sha256": "3783a2f70b147d87bbe81e1dd070e0d04a65cb086d2bb0b150d7db7f574c6549",
+      "savedAtUtc": "2026-10-24T04:20:01.6957373Z",
+      "secondsAfterAuthorFinished": 484.6957373,
+      "integrityReport": "plain-custody.verify.json",
+      "ownerClose": {
+        "session": {
+          "acknowledged": true,
+          "mode": "edit",
+          "restored": true
+        },
+        "survivorCount": 0,
+        "terminatedOwnedCount": 2
+      }
+    },
+    {
+      "arm": "facet",
+      "runId": "run/facet/codex-astra/1",
+      "authorFinishedAtUnix": 1792815392,
+      "savedXml": "facet.rbxlx",
+      "bytes": 7022418,
+      "sha256": "eb9629ad42c1adfecd61193f9f58fdda5911393ea190a6d9f5af29a6d5f709c5",
+      "savedAtUtc": "2026-10-24T04:21:45.6837393Z",
+      "secondsAfterAuthorFinished": 313.6837393,
+      "integrityReport": "facet-custody.verify.json",
+      "ownerClose": {
+        "session": {
+          "acknowledged": true,
+          "mode": "edit",
+          "restored": true
+        },
+        "survivorCount": 0,
+        "terminatedOwnedCount": 2
+      }
+    }
+  ],
+  "authorTransportScope": "Author MCP processes were absent without graceful close/exited markers. No acknowledgment is claimed. Private transport receipt remains withheld.",
+  "checkedOwnedProcessCount": 6,
+  "custodyTransports": [
+    {
+      "arm": "plain",
+      "closeMarker": true,
+      "exitedMarker": true,
+      "present": false
+    },
+    {
+      "arm": "facet",
+      "closeMarker": true,
+      "exitedMarker": true,
+      "present": false
+    }
+  ],
+  "placeBytesIncludedHere": false,
+  "remainingOwnedProcessCount": 0
+}

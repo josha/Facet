@@ -1,0 +1,28 @@
+{
+  "arm": "facet",
+  "placeSha256": "eb9629ad42c1adfecd61193f9f58fdda5911393ea190a6d9f5af29a6d5f709c5",
+  "scope": "Read-only authored-source extraction for cited line references, not a place reconstruction or game acceptance report.",
+  "sources": [
+    {
+      "bytes": 47728,
+      "path": "StarterPlayer/StarterPlayerScripts/AstraClient",
+      "className": "LocalScript",
+      "file": "001.luau",
+      "sha256": "ba04ea9d17cee09bfe8678b5e995252edbc238a4cda787978fa84c50989453e4"
+    },
+    {
+      "bytes": 3504,
+      "path": "ReplicatedStorage/Astra/Data",
+      "className": "ModuleScript",
+      "file": "002.luau",
+      "sha256": "5f5e17859193a4c66adb9d3ebf36903e30dfed2d8848036848d1e2af6eccc496"
+    },
+    {
+      "bytes": 19178,
+      "path": "ServerScriptService/AstraServer",
+      "className": "Script",
+      "file": "003.luau",
+      "sha256": "44e4ec3925608263ebeb793431ddce30992bfbc2d6de185f7bab1bcc447b4ff3"
+    }
+  ]
+}

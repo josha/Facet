@@ -1,0 +1,82 @@
+{
+  "files": [
+    {
+      "bytes": 4924,
+      "path": "README.md",
+      "sha256": "3f6e20f998457890c9866d5e657576a58afa0dd979770c20bac6c7b016bee06f"
+    },
+    {
+      "bytes": 22437,
+      "path": "agent-eval-focused.outcome.json",
+      "sha256": "5029c01b3b39034a7975ca10d1670db6cadf6465feafcc0b12eb1e2561a8ef22"
+    },
+    {
+      "bytes": 2384,
+      "path": "author-launch-summary.json",
+      "sha256": "8ae731b0a08e46f0725d5dbb671282535d0d369051a671a0d4201391c911e9a3"
+    },
+    {
+      "bytes": 16908,
+      "path": "bounded-focused.outcome.json",
+      "sha256": "12548c3015e1b8e31d333d8c463ba8eb24da4eb7bf23a8de88bc33bdc07e0a63"
+    },
+    {
+      "bytes": 121630,
+      "path": "facet-cycle-1.jpg",
+      "sha256": "3145560ea9f00724c979c1ebe1d1027b903885f0379ff02557ab6a1536684034"
+    },
+    {
+      "bytes": 153125,
+      "path": "facet-cycle-2.jpg",
+      "sha256": "e989d7a1dff56466227d0046d0e70b7b5cadc765691655e37152bef7282ec7d5"
+    },
+    {
+      "bytes": 557786,
+      "path": "frozen-inputs.json",
+      "sha256": "787fca333a27d1b9e474a09cedcad62ce29a8cc73d3e84ce803dc33fa726ed37"
+    },
+    {
+      "bytes": 10917,
+      "path": "native-readiness-summary.json",
+      "sha256": "2bb3a5e289ff216c7255b6685cbe1989573ecad6d33dd94395604f23202a3631"
+    },
+    {
+      "bytes": 1609,
+      "path": "native-readiness.verify.json",
+      "sha256": "ea86dbabcab3be0e301f92afcd783d34e8d6323c5775663a8be69fb780be0bb8"
+    },
+    {
+      "bytes": 950,
+      "path": "official-main.json",
+      "sha256": "6f02ce1d014fb0ccd2c5491b225577b760f0fd156517a4f038ccd8bc4f1c90c2"
+    },
+    {
+      "bytes": 151395,
+      "path": "plain-cycle-1.jpg",
+      "sha256": "8ec86c7d151769be3aeddca9e204d837c7e2c1cfa5b1ff8139cac47b0c174da4"
+    },
+    {
+      "bytes": 153418,
+      "path": "plain-cycle-2.jpg",
+      "sha256": "84f135cf36a6740b10cb1691bd0ef31f5dc425f745fcb3694ccf6cec40a7d632"
+    },
+    {
+      "bytes": 573,
+      "path": "runner-source-hashes.json",
+      "sha256": "44db3a95c40b727223c95c0df46d049ab8a859c06063ae1e8fb26b4b33fdeb4c"
+    },
+    {
+      "bytes": 6904,
+      "path": "runner-validation.json",
+      "sha256": "47e48424145b9eecb11acff5b28f4397248ec957650ea693e644d3dbef38baf3"
+    },
+    {
+      "bytes": 1457,
+      "path": "source-validation.json",
+      "sha256": "0dbb5d2455ae05d48e08556beb18de849b7919b94a796346d946cd40422d1177"
+    }
+  ],
+  "schemaVersion": 1,
+  "scope": "Unpublished setup evidence candidate; selected setup diagnostics and metadata, not a paired game outcome.",
+  "selfExcluded": "manifest.json"
+}

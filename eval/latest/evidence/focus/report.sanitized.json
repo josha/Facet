@@ -1,0 +1,114 @@
+{
+  "runId": "initial-focus-1",
+  "report": {
+    "capabilities": [],
+    "executor": "native-studio",
+    "skipped": 0,
+    "total": 2,
+    "passed": 2,
+    "durationMicros": 37229951,
+    "unsupported": 0,
+    "sources": [
+      {
+        "capabilities": [],
+        "executor": "native-studio",
+        "environment": {
+          "scope": "untouched-console-initial-focus-diagnostic",
+          "availableCases": "2",
+          "caseSelection": "all",
+          "physicalGamepad": "unverified"
+        }
+      }
+    ],
+    "timedOut": 0,
+    "environment": {
+      "scope": "untouched-console-initial-focus-diagnostic",
+      "caseSelection": "all",
+      "availableCases": "2",
+      "physicalGamepad": "unverified"
+    },
+    "schemaVersion": 1,
+    "cancelled": 0,
+    "failed": 0,
+    "results": [
+      {
+        "path": [],
+        "origin": {
+          "capabilities": [],
+          "executor": "native-studio",
+          "environment": {
+            "scope": "untouched-console-initial-focus-diagnostic",
+            "availableCases": "2",
+            "caseSelection": "all",
+            "physicalGamepad": "unverified"
+          }
+        },
+        "steps": [],
+        "durationMicros": 19318971,
+        "id": "plain/diagnostic/untouched-console-focus",
+        "artifacts": [
+          {
+            "mediaType": "image/jpeg",
+            "name": "untouched-console-image",
+            "reference": "private-artifact/artifacts/facetbench/final-astra-medium-parallel/evaluation/initial-focus-1/plain/untouched-console.jpg"
+          },
+          {
+            "mediaType": "application/json",
+            "name": "untouched-console-observation",
+            "reference": "private-artifact/artifacts/facetbench/final-astra-medium-parallel/evaluation/initial-focus-1/plain/observation.json"
+          }
+        ],
+        "name": "Observe console-preset focus before player host auto-selection or input",
+        "status": "passed",
+        "missingCapabilities": [],
+        "failures": [],
+        "evidence": {
+          "reviews": [],
+          "observations": [],
+          "checkpoints": [],
+          "measurements": []
+        },
+        "limitations": []
+      },
+      {
+        "path": [],
+        "origin": {
+          "capabilities": [],
+          "executor": "native-studio",
+          "environment": {
+            "scope": "untouched-console-initial-focus-diagnostic",
+            "availableCases": "2",
+            "caseSelection": "all",
+            "physicalGamepad": "unverified"
+          }
+        },
+        "steps": [],
+        "durationMicros": 17910965,
+        "id": "facet/diagnostic/untouched-console-focus",
+        "artifacts": [
+          {
+            "mediaType": "image/jpeg",
+            "name": "untouched-console-image",
+            "reference": "private-artifact/artifacts/facetbench/final-astra-medium-parallel/evaluation/initial-focus-1/facet/untouched-console.jpg"
+          },
+          {
+            "mediaType": "application/json",
+            "name": "untouched-console-observation",
+            "reference": "private-artifact/artifacts/facetbench/final-astra-medium-parallel/evaluation/initial-focus-1/facet/observation.json"
+          }
+        ],
+        "name": "Observe console-preset focus before player host auto-selection or input",
+        "status": "passed",
+        "missingCapabilities": [],
+        "failures": [],
+        "evidence": {
+          "reviews": [],
+          "observations": [],
+          "checkpoints": [],
+          "measurements": []
+        },
+        "limitations": []
+      }
+    ]
+  }
+}

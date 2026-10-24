@@ -1,109 +1,58 @@
-# Latest evaluation
+# Latest Astra Medium comparison
 
-**Facet wins the four sampled desktop visual comparisons. The full eval does not pass.**
-Both authors used **Astra Medium (`gpt-6-astra`)** with the same racing-game brief
-and 1,800-second limit. The runs overlapped on this machine. This directory
-replaces the previous Sol attempt and saved Plain reference with this fresh pair.
-Keep only the current evidence here. Design guidance remains separate.
+This run evaluates Facet source `b7a2c8f1`. Both authors ran concurrently with
+Astra Medium, the same brief, a 30-minute limit, and Studio MCP only.
+The complete submitted games are frozen and unchanged:
+[Facet](facet/game.rbxlx) and [Plain](plain/game.rbxlx).
 
-## Readout
+Astra Medium preferred **Facet in both presentation orders** for one diagnostic
+comparison of three desktop states: Hub, Garage, and first-use Tutorial.
+The judge favored Facet's clearer Garage layout and tutorial actions. It also
+noted Plain's stronger Hub presentation. See the [judgment](evidence/judging/judgment.json),
+[configuration and image provenance](evidence/judging/provenance.json), and
+[unchanged captures](evidence/judging/captures).
 
-| Measure | Plain | Facet | Pass requirement and result |
-| --- | --- | --- | --- |
-| Observed author duration | 1,796.412 seconds to last event; no final turn event | 1,479.315 seconds to completed turn | Facet is about 82.3% of Plain, not the required ≤60%. Target missed on observed timing; final runner receipts are missing. |
-| Total tokens, including cached input | 3,657,332 | 6,126,395 | Facet uses about 167.5% of Plain, not the required ≤50%. Target missed on observed counters. |
-| Visual quality | No overall preference in the sampled pairs | Preferred in hub, garage, shop and livery, in both orders | Strong desktop subset result. Required states and five device configurations remain incomplete. |
-| Player outcomes | Desktop navigation and purchase Cancel/Confirm checked | Desktop navigation and purchase Cancel/Confirm checked | Full acceptance matrix unverified. |
-| Runtime overhead | No valid paired measurements | No valid paired measurements | <5% frame-time and retained-memory overhead unverified. |
+This is a three-state diagnostic result. Shop, Livery, Race, Results and the
+other device presets are outside this judgment. The full seven-state,
+five-device visual target is not established.
 
-Do not treat four screens from one pair of games as four independent author runs.
-The 4/4 desktop result does not establish the required whole-game preference rate.
-Neither repository benchmarks nor author claims prove authored-game performance.
-Median turn latency is not established by these single-turn attempts.
+| Author result | Plain | Facet |
+| --- | ---: | ---: |
+| Wall time | 23.14 min | 27.71 min |
+| Total tokens, including cached input | 2,392,800 | 12,499,681 |
+| Completion | Completed | Completed |
 
-## Visual judgment
+Facet used 5.224 times the tokens and 1.197 times the wall time. It did not meet
+the fixed efficiency targets. Recorded completed-turn latency was also higher.
+Cost is unknown; token counters are not billing receipts.
 
-The judge is **Sol 6.1 (`gpt-6.1-sol`), medium reasoning**. Verify's public
-`Eval.judge.compare` API presents anonymous image pairs in both orders, using
-the same six-criterion rubric as the previous review. The authors used Astra;
-the judge did not. Each capture is 1914 × 737. Native mouse input opened the
-initial task views. Onboarding remains where the game shows it. No game code
-was repaired, and no screenshot was edited.
+The published coverage is limited. Native discovery and
+selected calibration checks are retained. Broad gameplay, five-device
+acceptance, and performance overhead remain unverified. The complete benchmark
+has not passed. Source reviews identify concrete missing behavior separately
+from native observations; no diagnostic subset is treated as a complete-row pass.
 
-| State | Result | Evidence |
-| --- | --- | --- |
-| Hub | Facet, both orders | [Judgment](evidence/judgment-hub.json), [Facet](evidence/captures/facet-hub.jpg), [Plain](evidence/captures/plain-hub.jpg) |
-| Garage | Facet, both orders | [Judgment](evidence/judgment-garage.json), [Facet](evidence/captures/facet-garage.jpg), [Plain](evidence/captures/plain-garage.jpg) |
-| Shop | Facet, both orders | [Judgment](evidence/judgment-shop.json), [Facet](evidence/captures/facet-shop.jpg), [Plain](evidence/captures/plain-shop.jpg) |
-| Livery | Facet, both orders | [Judgment](evidence/judgment-livery.json), [Facet](evidence/captures/facet-livery.jpg), [Plain](evidence/captures/plain-livery.jpg) |
+## Improvements and evidence
 
-Facet gives onboarding a direct Garage action and keeps the central game view
-clear. Its garage shows the complete kart, readable statistics and selection
-actions together. Its shop groups details, price and purchase action within each
-item. Its livery shows both body and accent palettes in the initial view.
+The proposed changes improve modal focus recovery, consumer design guidance,
+Studio readiness checks, and concurrent author startup. Facet and Compose main
+are integrated. The Verify pin has the same tree as the integrated Verify main.
 
-There are still concrete design improvements to make. The garage collection
-requires scrolling, and its filters occupy much of the available height.
-The shop uses large stacked cards with limited visible inventory. Facet's selected
-livery color is less explicit than Plain's checkmark and named selection. Plain
-also has stronger typography and visual identity in one hub judgment, and gives
-purchase buttons stronger emphasis. These are useful directions for the next
-iteration; they do not erase Facet's observed visual advantage.
+The evaluated source passed 38 runnable full-tier producers, including 2377
+behavioral cases and 561 tool cases. Two producers were deferred and two release
+producers were excluded. Separate benchmark, package build, and package status
+passed. This is selected evidence and is not a release certification.
 
-## Independent player checks
+- [Source validation and launch setup](evidence/setup/README.md)
+- [Author usage](evidence/author/summary.json)
+- [Frozen-game custody](evidence/custody/summary.sanitized.json)
+- [Native discovery](evidence/discovery/summary.sanitized.json)
+- [Untouched console focus](evidence/focus/summary.sanitized.json)
+- [Facet source findings](evidence/source/facet-audit.json)
+- [Plain source findings](evidence/source/plain-audit.md)
+- [Facet coverage](evidence/source/facet-coverage.json) and [Plain coverage](evidence/source/plain-coverage.json)
+- [Place privacy review](evidence/privacy/review.json)
 
-[Desktop observations](evidence/player-observations.json) record a diagnostic
-subset, not complete acceptance rows:
-
-- Plain's frozen binary was copied, reopened and started. Facet's saved persistent
-  Edit model was started. Both mounted their interfaces.
-- Native mouse input opened Garage, Livery and Shop in each game. Facet also
-  returned through Close and its Menu. The captures show the resulting states.
-- Facet's Flux motor cost 350 credits. Cancel retained 1,800; Confirm left 1,450
-  and displayed `Purchased Flux motor`.
-- Plain's Flux motor cost 700 credits. Cancel retained 2,400; Confirm left 1,700
-  and displayed `Owned`.
-- Facet exposed no `FacetError` attributes in the inspected Shop state.
-- Both frozen submissions passed integrity checks before and after evaluation.
-
-Both authors report completed races and economy checks. Their
-[Plain](evidence/plain-author-report.json) and
-[Facet](evidence/facet-author-report.json) reports are retained as self-reports,
-not independent proof. Facet explicitly reports session-only progress and
-incomplete controller/device verification, localization and radial quick chat.
-
-The authors' compact checks resized UI roots: Plain used 390 × 650 and 844 × 390;
-Facet used 390 × 650. These are layout probes, not full device emulation or
-physical touch/controller evidence. This new pair does not inherit the previous
-Sol submission's portrait and console reports.
-
-Still required: independent full race and return loop, every acceptance row and
-rejection path, all five device configurations, physical-input coverage, race
-and results visual comparisons, and matched runtime measurements. See the fixed
-[acceptance requirements](../acceptance.md). No whole-game or all-device pass is claimed.
-
-## Run identity and limitations
-
-- Source revision: `b956c8c9` on main base `be08a98d`. The Facet kit was regenerated
-  from the current library, skill, design guide and recipes before launch.
-- Plain started `2026-10-23T15:53:45.837Z`; Facet started
-  `2026-10-23T15:53:47.361Z`. Each used a separate runner and scoped Studio place.
-- A brief initial Plain startup was stopped when the runner serialized the arms.
-  It had made no game implementation. Both fresh author sessions then started
-  concurrently. The abandoned startup is excluded from the paired counters.
-- Facet emitted a final answer and `turn.completed` at 1,479.315 seconds. Plain's
-  final recorded edit was at 1,796.412 seconds, with no final turn event.
-  Neither runner emitted a standard final result/index. Do not infer a completed
-  benchmark record or an exact termination cause from missing output.
-- [Usage](evidence/author-usage.json) contains the last observed cumulative
-  counters and transcript hashes. Cached input is already included in input;
-  reasoning output is already included in output. These are not billing receipts.
-- Author access ended before saving. Persistent Edit models were saved and frozen;
-  evaluation made no persistent game repairs. Full transcripts remain local
-  because they contain account/session metadata.
-- [Manifest](evidence/manifest.json) records input and artifact hashes. The runtime
-  suite snapshot records the Astra override; the default suite remains Sol.
-
-The next iteration should retain Facet's clearer task layouts while reducing
-reference-reading and tool overhead, then prove the full device and gameplay
-matrix. Faster completion alone did not meet this eval's efficiency thresholds.
+Earlier results used a Sol judge and are not relabeled as this Astra judgment.
+The previous latest bundle remains in Git history. Raw author and judge session
+logs, local account paths, and private process receipts are not published.

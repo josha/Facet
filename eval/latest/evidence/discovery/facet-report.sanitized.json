@@ -1,0 +1,174 @@
+{
+  "runId": "discovery-facet-1",
+  "report": {
+    "capabilities": [],
+    "executor": "play",
+    "skipped": 0,
+    "total": 3,
+    "passed": 3,
+    "durationMicros": 35972749,
+    "unsupported": 0,
+    "sources": [
+      {
+        "capabilities": [],
+        "executor": "play",
+        "environment": {
+          "task": "final-astra-medium-parallel",
+          "workspace": "private-artifact/artifacts/facetbench/final-astra-medium-parallel/run-evidence/runs/run/facet/codex-astra/seed-1/submission"
+        }
+      }
+    ],
+    "timedOut": 0,
+    "environment": {
+      "task": "final-astra-medium-parallel",
+      "workspace": "private-artifact/artifacts/facetbench/final-astra-medium-parallel/run-evidence/runs/run/facet/codex-astra/seed-1/submission"
+    },
+    "schemaVersion": 1,
+    "cancelled": 0,
+    "failed": 0,
+    "results": [
+      {
+        "path": [
+          "final-astra-medium-parallel"
+        ],
+        "origin": {
+          "capabilities": [],
+          "executor": "play",
+          "environment": {
+            "task": "final-astra-medium-parallel",
+            "workspace": "private-artifact/artifacts/facetbench/final-astra-medium-parallel/run-evidence/runs/run/facet/codex-astra/seed-1/submission"
+          }
+        },
+        "steps": [],
+        "durationMicros": 832662,
+        "id": "workspace/builds",
+        "artifacts": [],
+        "name": "workspace/builds",
+        "status": "passed",
+        "missingCapabilities": [],
+        "failures": [],
+        "evidence": {
+          "reviews": [],
+          "observations": [],
+          "checkpoints": [],
+          "measurements": []
+        },
+        "limitations": []
+      },
+      {
+        "path": [
+          "final-astra-medium-parallel"
+        ],
+        "origin": {
+          "capabilities": [],
+          "executor": "play",
+          "environment": {
+            "task": "final-astra-medium-parallel",
+            "workspace": "private-artifact/artifacts/facetbench/final-astra-medium-parallel/run-evidence/runs/run/facet/codex-astra/seed-1/submission"
+          }
+        },
+        "steps": [],
+        "durationMicros": 22250096,
+        "id": "desktop/diagnostic/initial-observation",
+        "artifacts": [
+          {
+            "mediaType": "application/json",
+            "reference": "attachment:scope",
+            "name": "scope",
+            "content": "{\n    \"arm\": \"facet\",\n    \"device\": \"desktop\",\n    \"frozenPlaceSha256\": \"eb9629ad42c1adfecd61193f9f58fdda5911393ea190a6d9f5af29a6d5f709c5\",\n    \"completeAcceptanceRow\": false,\n    \"claim\": \"Native observation and capture only. No game outcome, navigation or input is established.\",\n    \"input\": \"The Studio Device Simulator preset hd_1080 sets the 1920 x 1080 viewport. Clicks and keys are engine VirtualInput events.\",\n    \"limitations\": \"The Studio window scales the view to fit, so the capture can be smaller than 1920 x 1080.\"\n}"
+          },
+          {
+            "mediaType": "application/json",
+            "reference": "attachment:observed-device",
+            "name": "observed-device",
+            "content": "{\n    \"mounted\": true,\n    \"inputs\": {\n        \"tenFoot\": false,\n        \"touch\": false,\n        \"keyboard\": true,\n        \"mouse\": true,\n        \"gamepad\": false\n    },\n    \"gui\": \"Players.voidmeld_agent.PlayerGui\",\n    \"errors\": [],\n    \"loaded\": true,\n    \"roots\": 1,\n    \"viewport\": {\n        \"screenWidth\": 1919,\n        \"height\": 1080,\n        \"screenHeight\": 1080,\n        \"width\": 1919\n    },\n    \"ready\": true\n}"
+          },
+          {
+            "mediaType": "application/json",
+            "reference": "attachment:initial-texts",
+            "name": "initial-texts",
+            "content": "[\n    \"WELCOME TO THE PADDOCK\",\n    \"RACE  /  X\",\n    \"A S T R A\",\n    \"NEON CIRCUIT  /  SEASON 01\",\n    \"Garage\",\n    \"Prepare. Race. Evolve.\",\n    \"1800 CR   /   30 \u25c8\",\n    \"LV 1  \u2022  XP 0/300  \u2022  0 races\",\n    \"Market\",\n    \"Rewards \u2022 READY\",\n    \"More / Settings\",\n    \"Grid / Tab\",\n    \"Chat / Q / Y\",\n    \"Recover / R\",\n    \"Exit drive\",\n    \"FLIGHT SCHOOL  1/3\",\n    \"\u2193 Inspect and choose a kart.\",\n    \"OPEN GARAGE\",\n    \"Back\",\n    \"Next\",\n    \"Skip\",\n    \"Welcome to ASTRA. Your progress is kept for this server session.\",\n    \"W / RT accelerate  \u2022  S / LT brake  \u2022  A D steer  \u2022  Space / RB boost\"\n]"
+          },
+          {
+            "mediaType": "image/png",
+            "name": "initial-image",
+            "reference": "artifacts/facetbench/final-astra-medium-parallel/evaluation/discovery-facet-1/captures/desktop/initial-observation.png"
+          },
+          {
+            "mediaType": "application/json",
+            "name": "initial-ui",
+            "reference": "artifacts/facetbench/final-astra-medium-parallel/evaluation/discovery-facet-1/output/dumps/desktop/initial-observation.json"
+          }
+        ],
+        "name": "desktop/diagnostic/initial-observation",
+        "status": "passed",
+        "missingCapabilities": [],
+        "failures": [],
+        "evidence": {
+          "reviews": [],
+          "observations": [],
+          "checkpoints": [],
+          "measurements": []
+        },
+        "limitations": []
+      },
+      {
+        "path": [
+          "final-astra-medium-parallel"
+        ],
+        "origin": {
+          "capabilities": [],
+          "executor": "play",
+          "environment": {
+            "task": "final-astra-medium-parallel",
+            "workspace": "private-artifact/artifacts/facetbench/final-astra-medium-parallel/run-evidence/runs/run/facet/codex-astra/seed-1/submission"
+          }
+        },
+        "steps": [],
+        "durationMicros": 12889965,
+        "id": "phone-portrait/diagnostic/initial-observation",
+        "artifacts": [
+          {
+            "mediaType": "application/json",
+            "reference": "attachment:scope",
+            "name": "scope",
+            "content": "{\n    \"arm\": \"facet\",\n    \"device\": \"phone-portrait\",\n    \"frozenPlaceSha256\": \"eb9629ad42c1adfecd61193f9f58fdda5911393ea190a6d9f5af29a6d5f709c5\",\n    \"completeAcceptanceRow\": false,\n    \"claim\": \"Native observation and capture only. No game outcome, navigation or input is established.\",\n    \"input\": \"The preset iphone_14 in portrait sets the screen size, the notch and home indicator insets and TouchEnabled. The simulator turns VirtualInput mouse events into Touch input.\",\n    \"limitations\": \"A tap is a mouse press that the simulator converts. A swipe is a mouse drag. There is no multi-touch, IME or on-screen keyboard.\"\n}"
+          },
+          {
+            "mediaType": "application/json",
+            "reference": "attachment:observed-device",
+            "name": "observed-device",
+            "content": "{\n    \"mounted\": true,\n    \"inputs\": {\n        \"tenFoot\": false,\n        \"touch\": true,\n        \"keyboard\": true,\n        \"mouse\": true,\n        \"gamepad\": false\n    },\n    \"gui\": \"Players.voidmeld_agent.PlayerGui\",\n    \"errors\": [],\n    \"loaded\": true,\n    \"roots\": 1,\n    \"viewport\": {\n        \"screenWidth\": 389,\n        \"height\": 762,\n        \"screenHeight\": 843,\n        \"width\": 389\n    },\n    \"ready\": true\n}"
+          },
+          {
+            "mediaType": "application/json",
+            "reference": "attachment:initial-texts",
+            "name": "initial-texts",
+            "content": "[\n    \"Menu / X\",\n    \"1800 CR/n30 \u25c8  /  L1\",\n    \"ASTRA/nNEON CIRCUIT\",\n    \"Race tools\",\n    \"Welcome to ASTRA. Your progress is kept for this server session.\",\n    \"W / RT accelerate  \u2022  S / LT brake  \u2022  A D steer  \u2022  Space / RB boost\"\n]"
+          },
+          {
+            "mediaType": "image/png",
+            "name": "initial-image",
+            "reference": "artifacts/facetbench/final-astra-medium-parallel/evaluation/discovery-facet-1/captures/phone-portrait/initial-observation.png"
+          },
+          {
+            "mediaType": "application/json",
+            "name": "initial-ui",
+            "reference": "artifacts/facetbench/final-astra-medium-parallel/evaluation/discovery-facet-1/output/dumps/phone-portrait/initial-observation.json"
+          }
+        ],
+        "name": "phone-portrait/diagnostic/initial-observation",
+        "status": "passed",
+        "missingCapabilities": [],
+        "failures": [],
+        "evidence": {
+          "reviews": [],
+          "observations": [],
+          "checkpoints": [],
+          "measurements": []
+        },
+        "limitations": []
+      }
+    ]
+  }
+}

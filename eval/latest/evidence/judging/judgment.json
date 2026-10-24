@@ -1,0 +1,73 @@
+{
+    "a": "facet",
+    "presentations": [
+        {
+            "raw": "{\"reasons\":[\"The first garage provides labeled filters, a kart preview, explicit equipped status, and more visible choices.\",\"The first tutorial names and highlights “Open Garage”; the second emphasizes Next and uses the vague “Use action.”\",\"The second hub has stronger visual hierarchy, a prominent kart showcase, and more consistent button sizing.\",\"The second garage has ambiguous “All” filters and a save banner overlapping lower card actions.\",\"The first better uses the desktop viewport for browsing and inspecting karts, despite smaller text and some list clipping.\"],\"confidence\":0.86,\"criteria\":{\"fitness\":\"first\",\"hierarchy\":\"second\",\"clarity\":\"first\",\"device_fit\":\"first\",\"consistency\":\"second\",\"polish\":\"first\"},\"overall\":\"first\"}",
+            "model": "gpt-6-astra",
+            "verdict": {
+                "reasons": [
+                    "The first garage provides labeled filters, a kart preview, explicit equipped status, and more visible choices.",
+                    "The first tutorial names and highlights “Open Garage”; the second emphasizes Next and uses the vague “Use action.”",
+                    "The second hub has stronger visual hierarchy, a prominent kart showcase, and more consistent button sizing.",
+                    "The second garage has ambiguous “All” filters and a save banner overlapping lower card actions.",
+                    "The first better uses the desktop viewport for browsing and inspecting karts, despite smaller text and some list clipping."
+                ],
+                "confidence": 0.86,
+                "criteria": {
+                    "fitness": "first",
+                    "hierarchy": "second",
+                    "clarity": "first",
+                    "device_fit": "first",
+                    "consistency": "second",
+                    "polish": "first"
+                },
+                "overall": "first"
+            },
+            "first": "a",
+            "attempts": 1
+        },
+        {
+            "raw": "{\"reasons\":[\"The second garage groups labeled filters, selection, kart preview, statistics, and actions clearly; the first has two unexplained “All” filters and no visible kart preview.\",\"The second tutorial highlights “Open Garage”; the first emphasizes Next and uses the vague label “Use action.”\",\"The first garage has a save banner covering lower card actions and a bright Help focus outline outside the dimmed modal.\",\"The first hub has stronger visual presentation, but the second uses desktop space more effectively for garage browsing and keeps hub navigation compact.\"],\"confidence\":0.88,\"criteria\":{\"fitness\":\"second\",\"hierarchy\":\"second\",\"clarity\":\"second\",\"device_fit\":\"second\",\"consistency\":\"tie\",\"polish\":\"second\"},\"overall\":\"second\"}",
+            "model": "gpt-6-astra",
+            "verdict": {
+                "reasons": [
+                    "The second garage groups labeled filters, selection, kart preview, statistics, and actions clearly; the first has two unexplained “All” filters and no visible kart preview.",
+                    "The second tutorial highlights “Open Garage”; the first emphasizes Next and uses the vague label “Use action.”",
+                    "The first garage has a save banner covering lower card actions and a bright Help focus outline outside the dimmed modal.",
+                    "The first hub has stronger visual presentation, but the second uses desktop space more effectively for garage browsing and keeps hub navigation compact."
+                ],
+                "confidence": 0.88,
+                "criteria": {
+                    "fitness": "second",
+                    "hierarchy": "second",
+                    "clarity": "second",
+                    "device_fit": "second",
+                    "consistency": "tie",
+                    "polish": "second"
+                },
+                "overall": "second"
+            },
+            "first": "b",
+            "attempts": 1
+        }
+    ],
+    "b": "plain",
+    "id": "desktop-three-states",
+    "consistent": true,
+    "winner": "facet",
+    "scoreA": 1,
+    "order": "a-first",
+    "criteria": {
+        "fitness": 1,
+        "hierarchy": 0.5,
+        "clarity": 1,
+        "device_fit": 1,
+        "consistency": 0.25,
+        "polish": 1
+    },
+    "seed": 1,
+    "status": "judged",
+    "agent": "codex-astra",
+    "task": "run",
+    "device": "desktop"
+}

@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "verifyCommit": "334391cb0990cfc8e72ffd3ca8477429ba541a2c",
+  "verifyPullRequest": "https://github.com/voidmeld/verify/pull/33",
+  "consumerCommit": "b7a2c8f1d0035e3d98e2018fa5778961cfecf8b8",
+  "runtime": "luau-lang/lute@1.0.1-nightly.20261006",
+  "fix": "Agent-evaluation file binding now uses existing Files.ensureDirectory; early run failures use existing Result serialization.",
+  "rootCause": "Concurrent recursive directory creation on an absent shared parent can raise file already exists. Runtime.process.run and the stamped bridge were observed overlapping local children.",
+  "scope": "Local paid-free process/barrier/deadline and native Verify host checks. No game acceptance, model access, or author quality claim.",
+  "reports": [
+    {
+      "sha256": "5029c01b3b39034a7975ca10d1670db6cadf6465feafcc0b12eb1e2561a8ef22",
+      "runId": "gate-1792812504-106213-1",
+      "total": 16,
+      "passed": 16,
+      "failed": 0,
+      "timedOut": 0,
+      "unsupported": 0,
+      "relevantCases": [
+        {
+          "id": "tests/agent-eval-lute.lute.verify.luau::agent evaluation Lute binding > starts both arms on fresh evidence and workspace trees before either child exits",
+          "status": "passed"
+        },
+        {
+          "id": "tests/agent-eval-runner.lute.verify.luau::keeps an early provisioning failure when its evidence directory can be created afterward",
+          "status": "passed"
+        },
+        {
+          "id": "tests/agent-eval-runner.lute.verify.luau::reports the original setup fault when its failed result cannot be persisted",
+          "status": "passed"
+        }
+      ],
+      "reportedCountScope": "Standard report rows, including producer wrappers; not an inferred behavioral case count.",
+      "publicReport": "agent-eval-focused.outcome.json"
+    },
+    {
+      "sha256": "12548c3015e1b8e31d333d8c463ba8eb24da4eb7bf23a8de88bc33bdc07e0a63",
+      "runId": "gate-1792812405-177-1",
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "timedOut": 0,
+      "unsupported": 0,
+      "relevantCases": [
+        {
+          "id": "tests/bounded.lute.verify.luau::bounded host commands > stops a command and its children at the limit and reports a timeout",
+          "status": "passed"
+        },
+        {
+          "id": "tests/bounded.lute.verify.luau::bounded host commands > kills the descendants of a timed out command through the tree watchdog",
+          "status": "passed"
+        }
+      ],
+      "reportedCountScope": "Standard report rows, including producer wrappers; not an inferred behavioral case count.",
+      "publicReport": "bounded-focused.outcome.json"
+    },
+    {
+      "sha256": "c6bca6188bb3350a6b09e2347ba340c89c78182ad3bb75b10a8aad3b021dad22",
+      "runId": "gate-1792812525-308102-1",
+      "total": 1003,
+      "passed": 1001,
+      "failed": 0,
+      "timedOut": 0,
+      "unsupported": 2,
+      "relevantCases": [
+        {
+          "id": "tests/agent-eval-lute.lute.verify.luau::agent evaluation Lute binding > starts both arms on fresh evidence and workspace trees before either child exits",
+          "status": "passed"
+        },
+        {
+          "id": "tests/agent-eval-runner.lute.verify.luau::keeps an early provisioning failure when its evidence directory can be created afterward",
+          "status": "passed"
+        },
+        {
+          "id": "tests/agent-eval-runner.lute.verify.luau::reports the original setup fault when its failed result cannot be persisted",
+          "status": "passed"
+        },
+        {
+          "id": "tests/bounded.lute.verify.luau::bounded host commands > stops a command and its children at the limit and reports a timeout",
+          "status": "passed"
+        },
+        {
+          "id": "tests/bounded.lute.verify.luau::bounded host commands > kills the descendants of a timed out command through the tree watchdog",
+          "status": "passed"
+        }
+      ],
+      "reportedCountScope": "Standard report rows, including producer wrappers; not an inferred behavioral case count.",
+      "publicReport": null,
+      "privateOriginalRetained": true
+    },
+    {
+      "sha256": "3689ff293e92045b55187ef23af3fbe5192f1e8c307bffd3ae948a901cf00de6",
+      "runId": "gate-1792812649-800820-1",
+      "total": 1003,
+      "passed": 1003,
+      "failed": 0,
+      "timedOut": 0,
+      "unsupported": 0,
+      "relevantCases": [
+        {
+          "id": "tests/agent-eval-lute.lute.verify.luau::agent evaluation Lute binding > starts both arms on fresh evidence and workspace trees before either child exits",
+          "status": "passed"
+        },
+        {
+          "id": "tests/agent-eval-runner.lute.verify.luau::keeps an early provisioning failure when its evidence directory can be created afterward",
+          "status": "passed"
+        },
+        {
+          "id": "tests/agent-eval-runner.lute.verify.luau::reports the original setup fault when its failed result cannot be persisted",
+          "status": "passed"
+        },
+        {
+          "id": "tests/bounded.lute.verify.luau::bounded host commands > stops a command and its children at the limit and reports a timeout",
+          "status": "passed"
+        },
+        {
+          "id": "tests/bounded.lute.verify.luau::bounded host commands > kills the descendants of a timed out command through the tree watchdog",
+          "status": "passed"
+        }
+      ],
+      "reportedCountScope": "Standard report rows, including producer wrappers; not an inferred behavioral case count.",
+      "publicReport": null,
+      "privateOriginalRetained": true
+    }
+  ],
+  "nativeGateAcceptance": {
+    "releasable": true,
+    "passed": [
+      "type-policy",
+      "format",
+      "lint",
+      "types",
+      "test-bootstrap",
+      "specs",
+      "example-experience",
+      "example-attachments",
+      "example-quickstart",
+      "example-evidence",
+      "example-multiplayer",
+      "example-benchmark",
+      "example-gate",
+      "example-agent-eval",
+      "consumer-diagnostics",
+      "boundary",
+      "dependencies",
+      "provenance",
+      "comments",
+      "native-conformance",
+      "native-multiplayer"
+    ],
+    "complete": true,
+    "verdict": "release",
+    "deselected": [],
+    "reasons": [],
+    "notSelected": [],
+    "deferred": [],
+    "reused": [],
+    "failed": [],
+    "skippedByTier": []
+  },
+  "cleanup": {
+    "aliveOwnedCount": 0,
+    "limit": "Four unrelated connector StudioMCP processes were observed and left untouched. The deliberately wedged Studio timeout fixture has no graceful close markers; its recorded MCP PID is absent.",
+    "observedAtUtc": "2026-10-24T03:37:33.5480793Z",
+    "originalSha256": "99dc8180e62466efe12c023c78c2ae292a7e482cbd4617e78d4720a2eaffeebc",
+    "ownedRecordedCount": 34,
+    "studioCount": 0
+  },
+  "originalValidationSha256": "5b49276449b7f5df061e56afafcdc4d7b14f2053a5898a61461770dfeed7b36d"
+}

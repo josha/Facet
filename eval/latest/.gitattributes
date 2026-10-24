@@ -1,1 +1,3 @@
-*.rbxl -text -diff
+* -text
+*.rbxlx -diff
+*.jpg -diff
