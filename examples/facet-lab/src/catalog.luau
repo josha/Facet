@@ -4861,6 +4861,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		states = {
 			{ name = "chrome band", props = properties { chrome = "band" } },
 			{ name = "chrome edge", props = properties { chrome = "edge" } },
+			{ name = "surface (reaches the glass at safe edges)", props = properties { surface = "surface" } },
 			{ name = "gap l", props = properties { gap = "l" } },
 			{ name = "fixed 300×200 (width/height)", props = properties { width = 300, height = 200 } },
 		},

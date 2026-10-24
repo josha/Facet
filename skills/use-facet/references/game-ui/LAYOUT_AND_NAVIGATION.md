@@ -31,7 +31,10 @@ choose the relationship for the player.
 
 Screen arranges a vertical page with safe margins. It is not an overlay layer.
 Mount Composition directly for a HUD. Ordinary interactive screens use device
-chrome; edge-reaching artwork still needs safe text and controls.
+chrome. Give a page that replaces gameplay `surface = "surface"` on its Screen.
+The plate then reaches every edge of the glass, and the text and controls stay
+safe. Keep the app's ScreenInsets. Other edge-reaching artwork still needs safe
+text and controls.
 
 ## Fit without losing the task
 
