@@ -15,6 +15,7 @@ return function(verifyHarness: Verify.Harness)
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 	local Vector2 = require("./lib/native_engine").types.Vector2
+	local UserInputType = require("./lib/native_engine").types.Enum.UserInputType
 	local textMeasure = require("../src/ui/text_measure")
 
 	verifyHarness:case("presents settled text overflow without hiding unrelated HUD controls", {
@@ -439,7 +440,7 @@ return function(verifyHarness: Verify.Harness)
 			{
 				id = "native_presentation_motion::presentation motion: Dialog and CollapsibleView::a dismissed dialog reverses faster, stops taking input and hands the selection back at once",
 				run = function()
-					local w, open = dialogWorld()
+					local w, open = dialogWorld({ lastInputType = UserInputType.Keyboard })
 					open:set(true)
 					w.advance(0.25, 15)
 					local panel = w.find("Panel")
@@ -572,7 +573,7 @@ return function(verifyHarness: Verify.Harness)
 			{
 				id = "native_presentation_motion::CollapsibleView in place::expands from its trigger into a panel over the page, inside the safe area, without a page dim",
 				run = function()
-					local w, expanded = tipsWorld({ motionLevel = "none" })
+					local w, expanded = tipsWorld({ motionLevel = "none", lastInputType = UserInputType.Keyboard })
 					local trigger = w.find("Tips")
 					w.engine.environment.poke(
 						((trigger) :: unknown) :: FixtureRoblox.Instance,
@@ -606,7 +607,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("collapses by an outside tap, Cancel and the trigger, and hands focus back", {
 			id = "native_presentation_motion::CollapsibleView in place::collapses by an outside tap, Cancel and the trigger, and hands focus back",
 			run = function()
-				local w, expanded = tipsWorld({ motionLevel = "none" })
+				local w, expanded = tipsWorld({ motionLevel = "none", lastInputType = UserInputType.Keyboard })
 				local trigger = w.find("Tips")
 				trigger.Activated:Fire()
 				w.find("DismissTarget").Activated:Fire()

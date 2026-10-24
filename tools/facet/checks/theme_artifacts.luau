@@ -31,7 +31,6 @@ local COPIED_FILES = {
 	"rokit.toml",
 	"tests/lib/native_engine.luau",
 	"tests/lib/loader.luau",
-	"tests/fixtures/roblox-reflection.json",
 	"tools/engine/theme_artifact_probe.luau",
 }
 local PROBE = { "lute", "run", "tools/engine/theme_artifact_probe.luau" }

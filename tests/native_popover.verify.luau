@@ -268,6 +268,9 @@ return function(verifyHarness: Verify.Harness)
 					local open, log, change = caller()
 					local w = mount(standard(open, log, change))
 					local trigger = w.find("Open")
+					w.input.GetLastInputType = function()
+						return w.Enum.UserInputType.Keyboard
+					end
 					w.gui.SelectedObject = trigger
 					w.action("Activate").Pressed:Fire()
 					Verify.expect((open:peek())):toBe(true)

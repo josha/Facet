@@ -732,12 +732,11 @@ return function(harness: Verify.Harness)
 		end)
 
 		harness:case("capture camera keeps overlay contact and releases onto the drawn target", function(t)
-			local engine = engineLib.new({ lenientProperties = true })
+			local engine = engineLib.new()
 			local C = Facet.Compose
 			local runtime = Facet.Roblox.createRuntime(engine)
 			local Host = (runtime.constructors :: unknown) :: Shared.Host
 			local input, run = engine.new("UserInputService"), engine.new("RunService")
-			run.PreRender = VerifyRoblox.testEnvironment().newSignal()
 			local player, screen = engine.new("PlayerGui"), engine.new("ScreenGui")
 			screen.Parent = player
 			local config = { types = engine.types, userInputService = input, services = { RunService = run } }
@@ -953,12 +952,11 @@ return function(harness: Verify.Harness)
 		end)
 
 		harness:case("measures the render sample before and after the Compose clock step", function(t)
-			local engine = engineLib.new({ lenientProperties = true })
+			local engine = engineLib.new()
 			local C = Facet.Compose
 			local runtime = Facet.Roblox.createRuntime(engine)
 			local Host = (runtime.constructors :: unknown) :: Shared.Host
 			local run = engine.new("RunService")
-			run.PreRender = VerifyRoblox.testEnvironment().newSignal()
 			local UI = Facet.controls(runtime, { types = engine.types, services = { RunService = run } })
 			local zoom: Facet.Cell<number>
 			local view: ScrollingFrame

@@ -57,6 +57,12 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 	end
 	local gui = engine.new("GuiService")
 	local input = engine.new("UserInputService")
+	local lastInputType: Enum.UserInputType? = o.lastInputType
+	if lastInputType then
+		input.GetLastInputType = function()
+			return lastInputType
+		end
+	end
 	input.GetFocusedTextBox = function()
 		return nil
 	end

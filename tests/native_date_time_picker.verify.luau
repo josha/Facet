@@ -471,6 +471,9 @@ return function(verifyHarness: Verify.Harness)
 						{ input = "pad" }
 					)
 					w.engine.environment.poke(w.input, "PreferredInput", w.E.PreferredInput.KeyboardAndMouse)
+					w.input.GetLastInputType = function()
+						return w.E.UserInputType.Keyboard
+					end
 					w.select(w.opener())
 					w.open()
 					expect((w.selected())):toBe(w.cellOf(D(2026, 9, 16)))

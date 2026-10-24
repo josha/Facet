@@ -185,6 +185,9 @@ return function(verifyHarness: Verify.Harness)
 						{ style = "menu" :: "menu", options = LONG, maxHeight = 200, selected = Compose.cell("v25") },
 						preferred
 					)
+					w.input.GetLastInputType = function()
+						return w.engine.types.Enum.UserInputType.Keyboard
+					end
 					w.gui.SelectedObject = find(w.screen, "Trigger")
 					open(w)
 					local target = w.gui.SelectedObject

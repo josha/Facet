@@ -405,7 +405,10 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("keeps the top modal active and selected when a covered modal dismisses, 50 times", {
 			id = "native_stress::native stress invariants::keeps the top modal active and selected when a covered modal dismisses, 50 times",
 			run = function()
-				local engine, runtime, root, UI, _, gui, before = world()
+				local engine, runtime, root, UI, input, gui, before = world()
+				input.GetLastInputType = function()
+					return engine.types.Enum.UserInputType.Keyboard
+				end
 				local sheet, alert = Compose.cell(false), Compose.cell(false)
 				local stop = runtime.mount(function()
 					return ((runtime.constructors.Frame :: unknown) :: FrameConstructor)({
