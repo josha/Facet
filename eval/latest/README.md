@@ -9,21 +9,61 @@ are frozen: [Facet](facet/game.rbxlx) and [Plain](plain/game.rbxlx).
 
 ## Visual judging
 
-Astra Medium preferred **Facet in both presentation orders** for the desktop
-Hub, Garage, and first-use Tutorial. It favored Facet's clearer Garage layout
-and tutorial actions, while noting Plain's stronger Hub presentation.
+Astra Medium judged the available valid states in both presentation orders.
+The expanded comparisons favor Plain on desktop, both phone orientations,
+and the available console states. Tablet produced a split result. Each order
+used one attempt: ten judgments across five device presets.
 
-| Device | Available result |
-| --- | --- |
-| Desktop | Facet preferred in both orders; three-state diagnostic |
-| Phone portrait | Pending |
-| Phone landscape | Pending |
-| Tablet | Pending |
-| Console | Pending |
+| Device | Result | Valid states compared |
+| --- | --- | --- |
+| Desktop | Plain in both orders | Hub, Shop, Garage, Livery, Race, Tutorial (6/7) |
+| Phone portrait | Plain in both orders | Hub, Shop, Garage, Livery, Race, Tutorial (6/7) |
+| Phone landscape | Plain in both orders | Hub, Garage, Livery, Tutorial (4/7) |
+| Tablet | Split between orders | All seven states, including Results |
+| Console | Plain in both orders | Hub and Tutorial (2/7) |
 
-[Selected captures](captures) show the exact images used. The remaining device
-judgments and input observations are in progress. This is not yet a completed
-five-device result or a full game-acceptance pass.
+Only tablet has the complete seven-state comparison. The other comparisons
+are diagnostics of the listed states. Failed routes were not substituted for
+the requested panels. Plain's tablet Results image came from a failed return
+check; it shows Results but does not prove that Return works.
+Console panel captures that remained on Hub were excluded. The controller
+Race captures contain different overlays and were kept as input observations.
+Console Hub/Tutorial captures used the Xbox preset with keyboard-driven
+selection. Actual Controller Emulator input was checked in a separate pass.
+
+The earlier desktop Hub/Garage/Tutorial comparison favored Facet in both
+orders. It remains in the archive as preliminary evidence. The expanded
+comparisons above are the main result.
+
+[Selected captures](captures) provide a small preview. The archive contains
+the exact images used for every judgment.
+
+## Native input checks
+
+The frozen games were checked with desktop mouse and keyboard, simulated
+touch on both phone orientations and tablet, and Studio's Controller Emulator.
+These are native Studio checks; they do not claim physical-device coverage or
+complete acceptance of every interaction.
+
+The five-device capture reports recorded 23 passed and 3 failed checks for
+Facet; Plain recorded 10 passed, 9 failed, and 2 unsupported. Each report
+includes one build check. The drivers selected different diagnostics, so
+these counts are not comparative scores.
+Failures and evaluator limits remain in the reports. For example, portrait
+touch controls obstructed Plain's acceleration/help targets, and a reserved
+Tab injection prevented Facet's desktop Results capture.
+
+The Controller Emulator delivered actual `Gamepad1` ButtonA, ButtonR2, and
+Thumbstick1 events in both games. Facet's ButtonX also opened its race terminal.
+Queue entry used a pointer fallback, so this was a mixed-input route.
+Plain moved under the trigger/stick hold; Facet remained at 0 km/h with an
+unchanged camera. The final captures show Facet's race terminal and Plain's
+Leave Drive confirmation over their races. The check did not isolate why
+those overlays appeared or prove complete controller-only gameplay.
+
+The two controller cases passed event-delivery assertions, not gameplay
+acceptance. All owned Studio processes closed, the display wake hold was
+released, and both frozen game hashes remained unchanged.
 
 ## Author usage
 
