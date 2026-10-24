@@ -534,6 +534,59 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("resignOnActivate gives the selection back to the game after an A press on a button", {
+			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::resignOnActivate gives the selection back to the game after an A press on a button",
+			run = function()
+				local E
+				for _, wanted in { false, true } do
+					local w = form(if wanted then { resignOnActivate = true } else nil)
+					E = w.engine.types.Enum
+					w.gui.SelectedObject = w.find("Two")
+					w.input.InputEnded:Fire(
+						{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonX },
+						true
+					)
+					Verify.expect((w.selected())):toBe("Two")
+					w.input.InputEnded:Fire(
+						{ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA },
+						true
+					)
+					Verify.expect((w.selected())):toBe(if wanted then "nil" else "Two")
+					Verify.expect((w.responder.state:peek())):toBe(if wanted then "passive" else "engaged")
+					w.stop()
+				end
+			end,
+		})
+		verifyHarness:case("a Composition HUD button returns the selection to the game after A", {
+			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::a Composition HUD button returns the selection to the game after A",
+			run = function()
+				local boosts = 0
+				local w = setup(function(UI: FacetControls)
+					return UI.Composition "Hud" {
+						UI.Region "Boost" {
+							zone = "bottomRight",
+							rank = 1,
+							UI.Button "Boost" {
+								label = "Boost",
+								onActivate = function()
+									boosts += 1
+								end,
+							},
+						},
+					}
+				end)
+				local E = w.engine.types.Enum
+				local boost = w.find("Boost", w.find("Hud"))
+				while boost and not boost:IsA("GuiButton") do
+					boost = boost:FindFirstChild("Boost", true)
+				end
+				w.gui.SelectedObject = boost
+				w.input.InputEnded:Fire({ UserInputType = E.UserInputType.Gamepad1, KeyCode = E.KeyCode.ButtonA }, true)
+				Verify.expect(w.gui.SelectedObject):toBeNil()
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("gameplayGuard = false binds neither the guard nor Space on its buttons", {
 			id = "native_focus_model::responder: engage, resign and the gameplay guard (DK-13/DK-15)::gameplayGuard = false binds neither the guard nor Space on its buttons",
 			run = function()

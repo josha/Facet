@@ -1069,7 +1069,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end)
 		assert(spec.passive == nil or type(spec.passive) == "boolean", "Facet Composition passive must be a boolean")
 		if spec.passive ~= false then
-			local options = { passive = true, gameplayGuard = false, engageOnPress = false }
+			local options = { passive = true, gameplayGuard = false, engageOnPress = false, resignOnActivate = true }
 			ctx.responder(root, options)
 			if stripGui then
 				ctx.responder(stripGui, options)

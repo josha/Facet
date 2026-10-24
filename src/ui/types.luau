@@ -219,6 +219,7 @@ export type ResponderOptions = {
 	gameplayGuard: boolean?,
 	traversalWrap: boolean?,
 	engageOnPress: boolean?,
+	resignOnActivate: boolean?,
 }
 export type ResponderState = "passive" | "engaged"
 export type Responder = { state: Readable<ResponderState>, engage: () -> (), resign: () -> () }

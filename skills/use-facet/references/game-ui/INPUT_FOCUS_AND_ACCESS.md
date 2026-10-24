@@ -84,6 +84,9 @@ order agree with the reading and action order. Put frequent commands near
 their related content; do not require a walk through a long collection to
 reach them. Preserve logical item identity when rows recycle. Restore focus
 to the opener on return, or to a useful remaining target when it disappears.
+A HUD command that opens nothing hands the selection back to the game, so the
+player presses it and keeps playing; Composition does this
+(`resignOnActivate` in `responder`).
 Back follows the actual task path. Show why an action is unavailable in
 reachable text even when its disabled control is skipped.
 [XAG 112: UI navigation](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/112).
