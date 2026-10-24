@@ -30,7 +30,14 @@ Authors must not read other submissions, earlier evidence, or hidden checks.
 Provision and maximize each owned Studio before the author starts. Verify
 that it renders and that scoped MCP tools can access it. Resolve the pinned
 toolchain before launch. Setup time is recorded separately from author time.
-A setup failure does not consume a paid author attempt.
+Keep setup failures separate from author results. If a failure occurs after a
+model starts, retain the partial usage and submission.
+
+Before a paired launch, verify the public runner on a fresh evidence directory
+with two local fixture processes. Both must start before either can finish.
+Also verify the deadline and child-process cleanup. This check uses no model.
+After the paid launch, confirm both author processes started and record their
+actual overlap. A parallelism setting alone does not prove concurrent execution.
 
 Use the common [authoring protocol](authoring.md) for both arms. Record the
 suite, author model, reasoning effort and source revision before launch.

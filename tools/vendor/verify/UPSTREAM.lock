@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "45d4082e86b5d157933b8f3f5a1d40abeaad7494",
+  "commit": "334391cb0990cfc8e72ffd3ca8477429ba541a2c",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "2e08694bef737336852a6331bc12685fd83477cb9277abc8cd5561b418f13c61",
@@ -20,11 +20,11 @@
     "src/agent-eval/init.luau": "a900f4ef60911fd2603207a289a5b7ba2ea6c66de081488f3a67796aef68e98d",
     "src/agent-eval/judge.luau": "67f823d9ff1e1b3ac8e1cf25837fc5ee7b9bc0ea4e4e6297ef00f0b9b3df1226",
     "src/agent-eval/judging.luau": "1b1171a775ee436944780a4cf7d7f0b085bdc70a9d30d85672abe0fcd5810028",
-    "src/agent-eval/lute.luau": "6d69d5ec25a2e4fce54b63e077e723ca4adec8512f7b4d25d06b53bf123bd6a7",
+    "src/agent-eval/lute.luau": "90d1938730b246b08098884d91336b08553869fe7ef7faa6b994594cf494348d",
     "src/agent-eval/model.luau": "047f4e5516cc9f623c34b4b0aac01ea47860b4bb388676bd150c42b80f92bd3a",
     "src/agent-eval/report.luau": "8f8b52c518049aeae902aced7868ed4a54ec935eb3657664c13e0763b585b1fe",
     "src/agent-eval/result.luau": "6686968de7729ffcc968cbfc669f6262cc16573eba24fcdd855b3867d67b65b5",
-    "src/agent-eval/runner.luau": "f381a012dd1b2b6096dd4fee0873142c888c13ba17122b382c7f84fbd8269193",
+    "src/agent-eval/runner.luau": "6fa980cb93d6a51aaf22964efc0e8eb1a244bebeeebb23834c8899242f7f28cb",
     "src/agent-eval/schema.luau": "2f9fc56fa02415d83dff8d1d527cc537d90aec9ca1ff236c6fb4d9336723f045",
     "src/agent-eval/scoped-mcp.luau": "c7027e4f96fddcd3e279419843cb839396dea14353cfa153780777b2778a771e",
     "src/agent-eval/services.luau": "9333484e5791d93159f5168098166dc1845b029834334fdcb0225fc73b739b07",
