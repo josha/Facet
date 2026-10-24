@@ -154,7 +154,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		end
 		local height, window = target.AbsoluteSize.Y, scroller.AbsoluteWindowSize.Y
 		local room = math.clamp((window - height) / 2, 0, height)
-		UI.scrollToVisible(target, { x = 0, y = -room, w = target.AbsoluteSize.X, h = height + 2 * room }, {
+		local width = target.AbsoluteSize.X
+		local side = if scroller.ScrollingDirection == E.ScrollingDirection.X
+			then math.clamp((scroller.AbsoluteWindowSize.X - width) / 2, 0, width)
+			else 0
+		UI.scrollToVisible(target, { x = -side, y = -room, w = width + 2 * side, h = height + 2 * room }, {
 			animated = false,
 		})
 	end)
