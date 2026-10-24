@@ -120,7 +120,9 @@ Roblox does the layout.
   equal, the side padding grows. A pill with
   `padding = { top = "xs", bottom = "xs", left = "s", right = "s" }` gets side
   padding equal to the radius when the radius is more than `s`. Padding of 0
-  on both sides of a corner stays 0.
+  on both sides of a corner stays 0. `corners` replaces the theme radius, and
+  `corners = "pill"` grows the padding on the long sides to half of the short
+  side.
 - `status` on a stack paints its plate in a status colour, such as
   `status = "warning"`. Text, icons and bars inside the stack take the
   readable colour for that status. The value can be a cell.

@@ -13,9 +13,10 @@ export type LayoutControls = ControlTypes.Controls
 return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTypes.Controls
 	local Host, read, Compose, runtime = ctx.Host, ctx.read, ctx.Compose, ctx.runtime
 	local kit = layoutKit.of(ctx)
-	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
+	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local UI: ControlTypes.Controls = controls or ({} :: ControlTypes.Controls)
-	local flowKeys = { "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface", "status" }
+	local flowKeys =
+		{ "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface", "status", "corners" }
 	local PLATES: { [string]: string } = { surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" }
 	local function containerProps(spec: unknown, keys: { string }): { [unknown]: unknown }
 		local maxWidth = (spec :: { maxWidth: Types.ValueNumber? }).maxWidth
@@ -53,7 +54,10 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end
 	local CORNERS: { [string]: string } = { surface = "radii.control", panel = "radii.panel" }
 	local SIDES: { "top" | "right" | "bottom" | "left" } = { "top", "right", "bottom", "left" }
-	local function clearCorners(padding: Types.Value<Types.Padding>, metric: string): Types.Value<Types.Padding>
+	local function clearCorners(
+		padding: Types.Value<Types.Padding>,
+		bend: (ComposeTypes.Use) -> (number, boolean?)
+	): Types.Value<Types.Padding>
 		return function(use: ComposeTypes.Use): Types.Padding
 			local value = read(padding, use)
 			local given: { [string]: unknown } = if type(value) == "table"
@@ -71,14 +75,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					pixels[name] = kit.spacing(side :: Types.Space?, use)
 				end
 			end
-			local radius = ctx.metric(metric, use)
+			local radius, wide = bend(use)
 			local grown = table.clone(pixels)
 			local reach = math.ceil(radius)
 			for _, corner in { { "top", "left" }, { "top", "right" }, { "bottom", "left" }, { "bottom", "right" } } do
 				local vertical, horizontal = corner[1], corner[2]
 				local bleed = pixels[vertical] == 0 and pixels[horizontal] == 0
 				if not bleed and pixels[vertical] < radius and pixels[horizontal] < radius then
-					local grow = if pixels[horizontal] >= pixels[vertical] then horizontal else vertical
+					local across = if wide == nil then pixels[horizontal] >= pixels[vertical] else wide
+					local grow = if across then horizontal else vertical
 					grown[grow] = math.max(grown[grow], reach)
 				end
 			end
@@ -88,14 +93,55 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	local function stack(spec: LayoutProps.StackProps, vertical: boolean): Frame
 		local plate = PLATES[spec.surface or ""]
 		assert(spec.surface == nil or plate ~= nil, "Facet stack: surface must be surface, panel or pane")
+		local corners = spec.corners
+		assert(corners == nil or plate ~= nil, "Facet stack: corners need a surface")
 		local properties, children = split(spec, flowKeys)
 		local metric = CORNERS[spec.surface or ""]
+		local function shape(use: ComposeTypes.Use?): UDim
+			local value = read(corners, use)
+			if value == "pill" then
+				return D.new(1, 0)
+			elseif value == "square" then
+				return D.new(0, 0)
+			elseif value == "control" or value == "panel" then
+				return D.new(0, ctx.metric(if value == "panel" then "radii.panel" else "radii.control", use))
+			end
+			assert(
+				type(value) == "number" and value >= 0 and value < math.huge,
+				"Facet stack: corners must be pill, square, control, panel or a finite number of pixels, 0 or more"
+			)
+			return D.new(0, value)
+		end
+		local fixed = type(corners) == "string" or type(corners) == "number"
+		local measures = spec.padding ~= nil and (corners == "pill" or (corners ~= nil and not fixed))
+		local box = if measures then Compose.cell(V2.zero) else nil
+		local function bend(use: ComposeTypes.Use): (number, boolean?)
+			if corners == nil then
+				return ctx.metric(assert(metric), use), nil
+			end
+			local radius = shape(use)
+			if radius.Scale == 0 then
+				return radius.Offset, nil
+			end
+			local extent = if box then use(box) else V2.zero
+			return math.min(extent.X, extent.Y) / 2, extent.X >= extent.Y
+		end
+		if corners ~= nil then
+			local constant = fixed and corners ~= "control" and corners ~= "panel"
+			properties[#properties + 1] = Host.UICorner({ CornerRadius = if constant then shape() else shape })
+		end
 		local flow: Types.Flow = spec
-		if metric and spec.padding ~= nil then
+		if (metric ~= nil or corners ~= nil) and spec.padding ~= nil then
 			flow = table.clone(spec) :: Types.Flow
-			flow.padding = clearCorners(spec.padding, metric)
+			flow.padding = clearCorners(spec.padding, bend)
 		end
 		local frame = kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, vertical)
+		if box then
+			local measured, size = box, ctx.layoutSize(frame, ctx.layoutUnit(frame, "CornerUnit"))
+			Compose.watch(function(use: ComposeTypes.Use)
+				measured:set(use(size))
+			end)
+		end
 		if plate then
 			frame:AddTag(plate)
 		end

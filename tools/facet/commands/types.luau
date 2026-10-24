@@ -404,6 +404,7 @@ local NEGATIVE_PROBES: { { string } } = {
 	{ "HStack align", 'UI.HStack({ align = "middle" })' },
 	{ "VStack distribute", 'UI.VStack({ distribute = "around" })' },
 	{ "VStack maximum width", 'UI.VStack({ maxWidth = "fill" })' },
+	{ "HStack corners", 'UI.HStack({ surface = "panel", corners = "round" })' },
 	{ "VStack width", 'UI.VStack({ width = "stretch" })' },
 	{ "VStack native size", "UI.VStack({ Size = 42 })" },
 	{ "Screen gap", "UI.Screen({ gap = false })" },
