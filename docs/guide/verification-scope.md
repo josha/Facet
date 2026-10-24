@@ -14,6 +14,11 @@ ownership. Reflection metadata describes engine classes; it does not supply
 native behavior. Read the selected assertions rather than treating case count
 as coverage.
 
+The Facet unit fixture supplies zero GUI insets. Its `GetStyled` fake reads
+the raw property, and its styled property signal uses the property change
+signal. Individual tests can supply specific styled values or inset behavior.
+These fixtures do not prove StyleSheet resolution or native safe areas.
+
 ## Live
 
 Native geometry, text editing, scrolling, selection, hit testing and input need
