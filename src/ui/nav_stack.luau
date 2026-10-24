@@ -13,6 +13,7 @@ local pageLayers = require("./nav_page_layers")
 local fontReadiness = require("./font_readiness")
 local textMeasure = require("./text_measure")
 local presentationReadiness = require("./presentation_readiness")
+local glass = require("./glass")
 
 return function(
 	ctx: Types.Context,
@@ -133,7 +134,9 @@ return function(
 			Name = "NavigationStack",
 			BackgroundTransparency = 1,
 			Size = D2.fromScale(1, 1),
-			ClipsDescendants = moving,
+			ClipsDescendants = function(use: ComposeTypes.Use): boolean
+				return use(moving) and not (root ~= nil and glass.fills(root))
+			end,
 			Compose.LayerStack({
 				from = displayed,
 				retention = "all",

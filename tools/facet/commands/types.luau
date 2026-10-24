@@ -406,6 +406,7 @@ local NEGATIVE_PROBES: { { string } } = {
 	{ "VStack width", 'UI.VStack({ width = "stretch" })' },
 	{ "VStack native size", "UI.VStack({ Size = 42 })" },
 	{ "Screen gap", "UI.Screen({ gap = false })" },
+	{ "Screen surface", 'UI.Screen({ surface = "card" })' },
 	{ "ZStack alignment", 'UI.ZStack({ alignH = "stretch" })' },
 	{ "ScrollView axis", 'UI.ScrollView({ axis = "z" })' },
 	{ "ScrollView native canvas", "UI.ScrollView({ CanvasSize = 3 })" },

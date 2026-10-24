@@ -11,7 +11,10 @@ and these fields:
 - `name`: the ScreenGui name. The default is `Facet`.
 - `screen`: native ScreenGui properties, such as `DisplayOrder`,
   `ScreenInsets` or a reactive `Enabled`. They replace the defaults
-  (`Name` from `name`, `ResetOnSpawn = false`, `ZIndexBehavior = Sibling`).
+  (`Name` from `name`, `ScreenInsets = CoreUISafeInsets`,
+  `SafeAreaCompatibility = None`, `ResetOnSpawn = false`,
+  `ZIndexBehavior = Sibling`). A [Screen](Screen.reference.md) `surface`
+  reaches the glass with these defaults, so a page needs no other value.
 - `sheet`: `createStyleSheet` options, such as `theme` for the palette or
   `transition`. The app adds `types` and `motionLevel` when you do not set
   them.

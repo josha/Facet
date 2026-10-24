@@ -6,6 +6,7 @@ local Layout = require("./layout_types")
 local layoutKit = require("./layout_kit")
 local scrollLock = require("./scroll_lock")
 local initialScroll = require("./scroll_initial")
+local glass = require("./glass")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 export type LayoutControls = ControlTypes.Controls
@@ -135,12 +136,14 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 
 	UI.Screen = ctx.construct("Screen", function(spec: LayoutProps.ScreenProps): Frame
 		local properties, children =
-			split(spec, { "gap", "padding", "align", "distribute", "width", "height", "chrome" })
+			split(spec, { "gap", "padding", "align", "distribute", "width", "height", "chrome", "surface" })
 		local chrome = spec.chrome or "device"
 		assert(
 			chrome == "device" or chrome == "band" or chrome == "edge",
 			"Facet UI.Screen: chrome must be device, band or edge"
 		)
+		local plate = PLATES[spec.surface or ""]
+		assert(spec.surface == nil or plate ~= nil, "Facet UI.Screen: surface must be surface, panel or pane")
 		local base: Types.Value<Types.Padding> = if spec.padding == nil then "m" else spec.padding
 		local under = Compose.cell(0)
 		local clearance: ComposeTypes.Cell<{ [string]: number }?> = Compose.cell(nil :: { [string]: number }?)
@@ -188,6 +191,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local frame =
 			kit.stack(children, (properties :: unknown) :: Engine.FrameNativeProps, flow, true, "fill", "fill")
 		kit.underTopbar(frame, under)
+		if plate then
+			glass.backdrop(ctx, frame, plate, CORNERS[spec.surface or ""], spec.surface == "panel")
+		end
 		local owner = assert(Compose.currentOwner())
 		local observing: ComposeTypes.Owner? = nil
 		local function locate()

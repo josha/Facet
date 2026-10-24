@@ -5,9 +5,9 @@ local ComposeTypes = require("../vendor/compose/core")
 local scrollLock = require("./scroll_lock")
 local surfaceKit = require("./nav_surface_kit")
 local modalInput = require("./nav_modal_input")
+local glass = require("./glass")
 
 export type Modal = (() -> GuiObject, (string?) -> (), Nav.ModalOptions?) -> Frame
-local screens = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ScreenGui]: { count: number, clipped: boolean } }
 local touchControls = (
 	setmetatable({}, { __mode = "k" }) :: unknown
 ) :: { [GuiService]: { count: number, enabled: boolean } }
@@ -137,39 +137,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			end
 		end
 		root = Host.Frame(props)
-		local heldScreen: ScreenGui? = nil
-		local function releaseScreen()
-			local screen = heldScreen
-			heldScreen = nil
-			local lease = if screen then screens[screen] else nil
-			if screen and lease then
-				lease.count -= 1
-				if lease.count == 0 then
-					screens[screen] = nil
-					screen.ClipToDeviceSafeArea = lease.clipped
-				end
-			end
-		end
-		local function acquireScreen()
-			local screen = root:FindFirstAncestorWhichIsA("ScreenGui")
-			if screen == heldScreen then
-				return
-			end
-			releaseScreen()
-			if screen then
-				local lease = screens[screen]
-				if lease == nil then
-					lease = { count = 0, clipped = screen.ClipToDeviceSafeArea == true }
-					screens[screen] = lease
-				end
-				lease.count += 1
-				heldScreen = screen
-				screen.ClipToDeviceSafeArea = false
-			end
-		end
-		runtime.connect(root, "AncestryChanged", acquireScreen)
-		acquireScreen()
-		Compose.cleanup(releaseScreen)
+		glass.hold(ctx, root)
 		local catcher = root:FindFirstChild("Scrim")
 		if spec.backgroundTransparency == nil and catcher then
 			catcher:AddTag("facet-scrim")
@@ -202,27 +170,7 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 				local screen = root:FindFirstAncestorWhichIsA("ScreenGui")
 				local near, far = V2.zero, V2.zero
 				if screen then
-					local measured = false
-					if service.GetInsetArea then
-						local ok, full, content = pcall(function(): (Rect, Rect)
-							return service:GetInsetArea(E.ScreenInsets.None), service:GetInsetArea(screen.ScreenInsets)
-						end)
-						if ok then
-							near, far = content.Min - full.Min, full.Max - content.Max
-							measured = true
-						end
-					end
-					if
-						not measured
-						and not screen.IgnoreGuiInset
-						and screen.ScreenInsets == E.ScreenInsets.CoreUISafeInsets
-					then
-						local ok, topLeft, bottomRight = pcall(service.GetGuiInset, service)
-						if ok and typeof(topLeft) == "Vector2" then
-							near = topLeft
-							far = if typeof(bottomRight) == "Vector2" then bottomRight else V2.zero
-						end
-					end
+					near, far = glass.bands(ctx, service, screen)
 				end
 				expansion:set({ near = near, far = far, scale = scale })
 			end)
