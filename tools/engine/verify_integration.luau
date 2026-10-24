@@ -817,7 +817,9 @@ harness:suite("Native fixture", function()
 		viewport.CurrentCamera = engine.new("Camera")
 		context:expect(assert(viewport:Clone()).CurrentCamera):toBe(nil)
 		for _, node in tracking.created do
-			node:Destroy()
+			if node:IsA("Instance") then
+				((node :: unknown) :: Instance):Destroy()
+			end
 		end
 		context:expect(engine.census().connections):toBe(0)
 	end)

@@ -22,7 +22,7 @@
         "../artifacts/facetbench/run-inputs",
         "arms/plain"
       ],
-      "instructions": "arms/plain/AGENTS.md"
+      "instructions": "../artifacts/facetbench/plain-instructions.md"
     },
     {
       "id": "facet",

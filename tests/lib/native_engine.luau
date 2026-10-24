@@ -197,7 +197,9 @@ for _, name in names do
 	end
 	local methods = table.clone(doubles)
 	for member, method in (if ui and ui.methods then ui.methods else {}) :: { [string]: any } do
-		methods[member] = method
+		if method ~= true or methods[member] == nil then
+			methods[member] = method
+		end
 	end
 	classes[name] = { creatable = true, properties = properties, events = events, methods = methods }
 	metadata[name] = class
@@ -234,6 +236,12 @@ local function new(options: Options?): (Engine, VerifyRoblox.FixtureBridge)
 		end
 	end
 	local methods: { [string]: any } = {
+		["Instance.GetStyled"] = function(object: VerifyRoblox.Instance, property: string): unknown
+			return object[property]
+		end,
+		["Instance.GetStyledPropertyChangedSignal"] = function(object: VerifyRoblox.Instance, property: string)
+			return object:GetPropertyChangedSignal(property)
+		end,
 		["UIPageLayout.JumpTo"] = function(object, page)
 			environment.poke(object, "CurrentPage", page)
 		end,

@@ -12,6 +12,7 @@ Open:
 - [Tasks.safe-layout](Tasks.safe-layout.md)
 - [Tasks.settings](Tasks.settings.md)
 - [Tasks.collection-detail](Tasks.collection-detail.md)
+- [Tasks.inspect](Tasks.inspect.md)
 - [Tasks.sheet](Tasks.sheet.md)
 - [Tasks.tabs](Tasks.tabs.md)
 - [Tasks.theme](Tasks.theme.md)

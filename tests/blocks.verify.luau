@@ -185,10 +185,12 @@ return function(harness: Verify.Harness)
 
 		harness:case("disables empty and busy redemption and shows rewards", function(t)
 			local requested = ""
+			local request: thread? = nil
 			local parent = mount(t, function(F, UI)
 				return redeem(F, UI, {
 					redeem = function(code)
 						requested = code
+						request = coroutine.running()
 						coroutine.yield()
 						return { ok = true, rewards = { "10 Coins", "Hat" } }
 					end,
@@ -201,13 +203,10 @@ return function(harness: Verify.Harness)
 			local field = find(parent, "Field") :: TextBox
 			field:CaptureFocus()
 			field.Text = "GIFT"
-			local request = coroutine.create(function()
-				activate(button)
-			end)
-			t:expect(coroutine.resume(request)):toBe(true)
+			activate(button)
 			t:expect(requested):toBe("GIFT")
 			t:expect(button.Interactable):toBe(false)
-			t:expect(coroutine.resume(request)):toBe(true)
+			t:expect(coroutine.resume(assert(request))):toBe(true)
 			t:expect(text(parent, "Result")):toBe("Received: 10 Coins, Hat")
 			t:expect(button.Interactable):toBe(true)
 		end)

@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local task = require("@std/task")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -315,7 +316,12 @@ return function(verifyHarness: Verify.Harness)
 							Verify.expect((labelOf(category))):toBe(group.label)
 							category.Activated:Fire()
 							Verify.expect(built.report().selected.Categories):toBe(group.id)
-							local bar = find(categories, group.id, "Frame")
+							local bar = assert(
+								Verify.awaitValue(function()
+									return find(categories, group.id, "Frame")
+								end, 5, 0.01, { now = os.clock, sleep = task.wait }),
+								`Missing {name} group {group.id}`
+							)
 							for _, tab in group.tabs do
 								local button = find(bar, tab.id, "TextButton")
 								Verify.expect(`{tab.id} on the {group.id} bar: {tabViewOf(button) == bar}`)

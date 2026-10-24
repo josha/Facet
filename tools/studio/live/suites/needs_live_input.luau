@@ -725,6 +725,193 @@ table.insert(cases, {
 	end,
 })
 
+for _, scenario in { "replacement", "ancestor-detached", "nested" } do
+	table.insert(cases, {
+		id = "sheet-content-" .. scenario,
+		contracts = {},
+		keepGallery = false,
+		run = function(t)
+			t.device({ device = "xbox", input = Enum.PreferredInput.Gamepad })
+			local Compose: ComposeModule = t.Facet.Compose
+			local opened, child, detail, ready =
+				Compose.cell(false), Compose.cell(false), Compose.cell(false), Compose.cell(true)
+			local tracked: GuiObject? = nil
+			local history: { { selected: string, formerParent: string, size: Vector2 } } = {}
+			local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+				local connection = GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(function()
+					local selected = GuiService.SelectedObject
+					table.insert(history, {
+						selected = if selected then selected:GetFullName() else "nil",
+						formerParent = if tracked and tracked.Parent then tracked.Parent:GetFullName() else "nil",
+						size = if selected then selected.AbsoluteSize else Vector2.zero,
+					})
+				end)
+				Compose.cleanup(function()
+					connection:Disconnect()
+				end)
+				return Host.Frame "Base" {
+					Size = UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					UI.Button "Opener" { label = "Open equipment" } :: unknown,
+					UI.Sheet {
+						isPresented = opened,
+						title = "Equipment",
+						placement = "center",
+						content = function()
+							return Host.Frame "Body" {
+								Size = UDim2.new(1, 0, 0, 0),
+								AutomaticSize = Enum.AutomaticSize.Y,
+								BackgroundTransparency = 1,
+								Host.UIListLayout { SortOrder = Enum.SortOrder.LayoutOrder } :: unknown,
+								Compose.show(ready, function()
+									return Compose.show(detail, function()
+										return UI.Button "Equip" { label = "Equip" }
+									end, function()
+										return Host.Frame "Branch" {
+											Size = UDim2.new(1, 0, 0, 44),
+											BackgroundTransparency = 1,
+											UI.Button "Inspect" { label = "Inspect", Size = UDim2.fromScale(1, 1) },
+										}
+									end)
+								end),
+								Compose.show(function()
+									return scenario == "ancestor-detached"
+								end, function()
+									return UI.Button "Spare" { label = "Spare", LayoutOrder = 2 }
+								end),
+								UI.Sheet {
+									isPresented = child,
+									title = "Details",
+									placement = "center",
+									content = function()
+										return UI.Button "ChildAction" { label = "Continue" }
+									end,
+								},
+							}
+						end,
+					},
+				}
+			end)
+			local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
+			local opener = t.find(stage, "Opener")
+			GuiService.SelectedObject = opener
+			opened:set(true)
+			t.settle(20)
+			local panel = t.find(gui, "SheetPanel")
+			local errors: { string } = {}
+			for _, node in stage:GetDescendants() do
+				local problem = node:GetAttribute("FacetError")
+				if problem then
+					table.insert(errors, `{node:GetFullName()}: {tostring(problem)}`)
+				end
+			end
+			t.check("the parent panel is mounted", panel ~= nil, errors)
+			if not panel then
+				return
+			end
+			local removed = t.find(panel, "Inspect")
+			tracked = removed
+			GuiService.SelectedObject = removed
+			t.settle(2)
+			t.note("before replacement", {
+				selected = GuiService.SelectedObject,
+				parent = removed.Parent,
+				panel = panel,
+				bounds = t.rect(removed),
+			})
+			t.check(
+				"the original target is selected in the retained panel",
+				GuiService.SelectedObject == removed and within(removed, panel)
+			)
+			local nested: GuiObject? = nil
+			if scenario == "nested" then
+				child:set(true)
+				t.settle(20)
+				nested = t.find(gui, "ChildAction")
+				t.check(
+					"the child owns selection",
+					GuiService.SelectedObject == nested and nested ~= nil,
+					selectedName()
+				)
+			end
+			if scenario == "ancestor-detached" then
+				local branch = removed.Parent
+				branch.Parent = nil
+				t.check(
+					"the selected control stays parented to its detached ancestor",
+					removed.Parent == branch and branch.Parent == nil
+				)
+			else
+				detail:set(true)
+				t.check("the selected branch is disposed", removed.Parent == nil)
+			end
+			t.settle(20)
+			local candidate = t.find(panel, "Equip")
+			t.note("replacement candidate", {
+				candidate = candidate,
+				bounds = candidate and t.rect(candidate),
+				selectable = candidate and candidate.Selectable,
+				interactable = candidate and candidate.Interactable,
+				visible = candidate and t_visible(candidate),
+			})
+			t.note("selection history", history)
+			t.note("after replacement", {
+				selected = GuiService.SelectedObject,
+				removedParent = removed.Parent,
+				retainedPanel = panel.Parent ~= nil,
+			})
+			if scenario == "nested" then
+				t.check(
+					"parent content replacement does not steal child focus",
+					GuiService.SelectedObject == nested,
+					selectedName()
+				)
+				child:set(false)
+				t.settle(20)
+			end
+			local expected = if scenario == "ancestor-detached" then "Spare" else "Equip"
+			local selected = GuiService.SelectedObject
+			t.note(
+				"recovered selection",
+				{ selected = selected, parent = selected and selected.Parent, bounds = selected and t.rect(selected) }
+			)
+			t.check("the same parent panel is retained", t.find(gui, "SheetPanel") == panel)
+			t.check(
+				"selection reaches the available body action",
+				selected ~= nil and selected.Name == expected,
+				selectedName()
+			)
+			t.check(
+				"the recovered target belongs to the panel and has native bounds",
+				selected ~= nil
+					and within(selected, panel)
+					and selected.Selectable
+					and selected.Interactable
+					and t_visible(selected)
+					and selected.AbsoluteSize.X > 0
+					and selected.AbsoluteSize.Y > 0
+			)
+			if scenario == "replacement" then
+				ready:set(false)
+				t.settle(20)
+				t.check("an empty body falls back to Close", selectedName() == "Close", selectedName())
+				ready:set(true)
+				t.settle(20)
+				t.check(
+					"late content replaces the provisional Close selection",
+					selectedName() == "Equip",
+					selectedName()
+				)
+			end
+			opened:set(false)
+			t.settle(20)
+			t.note("after close", { selected = GuiService.SelectedObject, opener = opener })
+			t.check("closing restores the original opener", GuiService.SelectedObject == opener, selectedName())
+			GuiService.SelectedObject = nil
+		end,
+	})
+end
+
 table.insert(cases, {
 	id = "demo-strip-native-selection-axis",
 	contracts = {},

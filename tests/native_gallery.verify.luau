@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local task = require("@std/task")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -193,9 +194,13 @@ return function(verifyHarness: Verify.Harness)
 					end
 					for _, demo in catalogue.list() do
 						pick(demo.id)
+						Verify.awaitValue(function()
+							return if ctx.active:peek() == demo.id or ctx.errorMessage:peek() ~= nil then true else nil
+						end, 5, 0.01, { now = os.clock, sleep = task.wait })
 						engine.heartbeat:Fire(1 / 60)
-						Verify.expect((ctx.selection:peek())):toBe(demo.id)
-						Verify.expect((ctx.active:peek())):toBe(demo.id)
+						Verify.expect(`selected {ctx.selection:peek()}`):toBe(`selected {demo.id}`)
+						Verify.expect(`active {ctx.active:peek()}; error {ctx.errorMessage:peek()}`)
+							:toBe(`active {demo.id}; error nil`)
 						Verify.expect((ctx.errorMessage:peek())):toBe(nil)
 					end
 					pick("garage")
