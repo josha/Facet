@@ -2574,7 +2574,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			return p.edge == nil or p.placement == "side" or p.placement == "adaptive"
 		end,
 		make = function(UI: FacetControls, p: Properties, c: Context): Instance
-			return trigger(c, "Show sheet", function(open)
+			local shown = trigger(c, "Show sheet", function(open)
 				p.isPresented = open
 				p.onPresentedChange = function(nextValue: boolean)
 					c.log("presentation requested")(nextValue)
@@ -2582,6 +2582,10 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end
 				return UI.Sheet(p)
 			end)
+			if p.placement == "bottom" then
+				return UI.VStack(stacked({ gap = "xs", shown, require("./sheet_glass_demo")(c) }))
+			end
+			return shown
 		end,
 	},
 	Popover = {

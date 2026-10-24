@@ -38,8 +38,12 @@ return function(ctx: Types.Context, kit: surfaceKit.Kit): Modal
 			local margin = spec.outsideMargin or 24
 			local boxes: { GuiObject } = { panel }
 			if root and root.AbsoluteSize.X > 0 then
-				local full = panel.AbsoluteSize.X >= root.AbsoluteSize.X - 1
-					and panel.AbsoluteSize.Y >= root.AbsoluteSize.Y - 1
+				local at, size = panel.AbsolutePosition, panel.AbsoluteSize
+				local start, bounds = root.AbsolutePosition, root.AbsoluteSize
+				local full = at.X <= start.X + 1
+					and at.Y <= start.Y + 1
+					and at.X + size.X >= start.X + bounds.X - 1
+					and at.Y + size.Y >= start.Y + bounds.Y - 1
 				if full then
 					boxes = {}
 					for _, child in panel:GetChildren() do

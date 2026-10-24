@@ -10,6 +10,7 @@ local sheetGesture = require("./nav_sheet_gesture")
 local sheetContent = require("./nav_sheet_content")
 local transitions = require("./transition")
 local arrival = require("./overlay_arrival")
+local glass = require("./glass")
 
 type Prepared = sheetDetents.Prepared
 
@@ -65,7 +66,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		local pulled, painted, keyboard, standing = gesture.pulled, gesture.painted, gesture.keyboard, gesture.standing
 		local level, handle, detector, pad = gesture.level, gesture.handle, gesture.detector, gesture.pad
 		local canDismiss, interactive, lowest = gesture.canDismiss, gesture.interactive, gesture.lowest
-		local unit, extent = gesture.unit, gesture.extent
+		local unit, extent, outset = gesture.unit, gesture.extent, gesture.outset
 		local sheetBody = contentFor(spec, gesture)
 		local room, plaqued, usable, press = sheetBody.room, sheetBody.plaqued, sheetBody.usable, sheetBody.press
 		local panelWidth, contentSize = sheetBody.panelWidth, sheetBody.contentSize
@@ -121,7 +122,7 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 			if placement == "center" then
 				return 0, 0
 			end
-			return 0, math.ceil(painted(use) * rest)
+			return 0, math.ceil((painted(use) + outset("bottom", use)) * rest)
 		end
 		runtime.decorate(room.frame, {
 			[Compose.group({ "Position", "Size" })] = function(use: ComposeTypes.Use): (UDim2, UDim2)
@@ -143,11 +144,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 				local anchorX, anchorY = anchors(use)
 				local y = (if anchorY == 1 then -keyboard(use) else -keyboard(use) / 2) + standing(use) - painted(use)
 				local dx, dy = travel(use)
-				return D2.new(anchorX, dx, anchorY, y + dy)
+				local shift = (outset("right", use) - outset("left", use)) / 2
+				return D2.new(anchorX, dx + shift, anchorY, y + dy + outset("bottom", use))
 			end,
 			AutomaticSize = E.AutomaticSize.None,
 			Size = function(use: ComposeTypes.Use)
-				return D2.fromOffset(use(panelWidth), standing(use))
+				return D2.fromOffset(use(panelWidth), standing(use) + outset("bottom", use))
 			end,
 			GroupTransparency = function(use: ComposeTypes.Use)
 				return if moving
@@ -242,6 +244,18 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, surfaces: 
 		Compose.watch(function(use: ComposeTypes.Use)
 			unit:set(use(scale))
 		end)
+		local reached = gesture.reached
+		if reached then
+			local cell = reached
+			local docked = glass.reach(ctx, overlay)
+			Compose.watch(function(use: ComposeTypes.Use)
+				cell:set(use(docked))
+			end)
+			local reaching = Compose.formula(function(use: ComposeTypes.Use): boolean
+				return outset("left", use) + outset("right", use) + outset("bottom", use) > 0
+			end)
+			glass.hold(ctx, panel, reaching)
+		end
 		local size = ctx.layoutSize(overlay, unit)
 		local measured = Compose.cell(false)
 		Compose.watch(function(use: ComposeTypes.Use)

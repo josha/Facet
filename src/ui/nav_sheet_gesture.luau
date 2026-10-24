@@ -11,6 +11,7 @@ local reducedMotion = motion.reduced
 local NavigationProps = require("./navigation_props")
 local sheetDetents = require("./nav_sheet_detents")
 local keyboardInset = require("./keyboard_inset")
+local glass = require("./glass")
 
 type Detent = sheetDetents.Detent
 type Prepared = sheetDetents.Prepared
@@ -35,6 +36,8 @@ export type Gesture = {
 	showGrabber: (ComposeTypes.Use?) -> boolean,
 	reserve: (string, ComposeTypes.Use?) -> number,
 	pad: (string, ComposeTypes.Use?) -> number,
+	outset: (string, ComposeTypes.Use?) -> number,
+	reached: ComposeTypes.Cell<glass.Reach?>?,
 	hugHeight: ComposeTypes.Cell<number?>,
 	ready: ComposeTypes.Cell<boolean>,
 	painted: (ComposeTypes.Use?) -> number,
@@ -53,6 +56,7 @@ export type Gesture = {
 
 local HANDLE = 20
 local HELD_PULL = 0.2
+local FLUSH: { [string]: number } = { left = 0, right = 0, bottom = 0 }
 
 return function(
 	ctx: Types.Context,
@@ -132,12 +136,36 @@ return function(
 		local BASE: { [string]: number } = { top = 12, bottom = 12, left = 16, right = 16 }
 		local RESERVED: { [string]: string } = { bottom = "top", right = "left", left = "right" }
 		local safeInsets: ComposeTypes.Readable<{ [string]: number }>?
+		local reached: ComposeTypes.Cell<glass.Reach?>? = nil
+		local outsets: ComposeTypes.Readable<{ [string]: number }>? = nil
+		if ctx.config.guiService then
+			local measured: ComposeTypes.Cell<glass.Reach?> = Compose.cell(nil :: glass.Reach?)
+			reached = measured
+			outsets = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
+				local value = use(measured)
+				if value == nil or use(placed) ~= "bottom" or keyboard(use) > 0 then
+					return FLUSH
+				end
+				local scale = math.max(use(unit), 0.001)
+				local spans = parts.width(ctx, spec.width, use) >= use(extent).X
+				local bottom = value.glass.bottom / scale
+				return {
+					left = if spans then value.glass.left / scale else 0,
+					right = if spans then value.glass.right / scale else 0,
+					bottom = if bottom > 0 then bottom + ctx.metric("radii.panel", use) else 0,
+				}
+			end)
+		end
+		local function outset(side: string, use: ComposeTypes.Use?): number
+			return if outsets then readSource(outsets, use)[side] or 0 else 0
+		end
 		local function reserve(side: string, use: ComposeTypes.Use?): number
 			return BASE[side] + (if showGrabber(use) and RESERVED[from(use)] == side then HANDLE + 8 else 0)
 		end
 		local function pad(side: string, use: ComposeTypes.Use?): number
 			local safe = if safeInsets then readSource(safeInsets, use)[side] or 0 else 0
-			return surfaces.inset(0, side, nil, use) + reserve(side, use) + safe
+			local band = if side == "bottom" then 0 else outset(side, use)
+			return surfaces.inset(0, side, nil, use) + reserve(side, use) + safe + band
 		end
 		local function available(use: ComposeTypes.Use?): number
 			local get: ComposeTypes.Use = use
@@ -555,7 +583,7 @@ return function(
 				local side = from(use)
 				local offset = surfaces.inset(0, RESERVED[side], nil, use) + HANDLE / 2
 				return if side == "bottom"
-					then D2.new(0.5, 0, 0, offset)
+					then D2.new(0.5, (outset("left", use) - outset("right", use)) / 2, 0, offset)
 					elseif side == "left" then D2.new(1, -offset, 0.5, 0)
 					else D2.new(0, offset, 0.5, 0)
 			end,
@@ -654,6 +682,8 @@ return function(
 			showGrabber = showGrabber,
 			reserve = reserve,
 			pad = pad,
+			outset = outset,
+			reached = reached,
 			hugHeight = hugHeight,
 			ready = ready,
 			painted = painted,

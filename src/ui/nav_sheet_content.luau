@@ -192,7 +192,8 @@ return function(
 		end
 		local inset = if spec.contentInset == "none" then 0 else 8
 		local panelWidth = Compose.formula(function(use: ComposeTypes.Use): number
-			return math.max(0, math.min(parts.width(ctx, spec.width, use), use(extent).X))
+			local band = gesture.outset("left", use) + gesture.outset("right", use)
+			return math.max(0, math.min(parts.width(ctx, spec.width, use), use(extent).X)) + band
 		end)
 		local function contentPadding(): UIPadding
 			local function horizontal(use: ComposeTypes.Use): UDim
