@@ -1,89 +1,109 @@
-# Astra Medium evaluation
+# Better first-attempt game UI with Facet
 
-The proposed changes improve modal focus recovery, author guidance, native
-Studio readiness, and concurrent evaluation startup. Evaluated source: `b7a2c8f1`.
+This work improves the skill and design guides so an author can build a useful,
+distinctive game UI on the first attempt. Principles lead to the current task,
+then to Facet and Compose examples and a capture-and-revise loop. The guide
+connects player intent, visual identity and interaction hierarchy to concrete
+HUD, inspection, collection and page patterns.
 
-Both authors used Astra Medium, Studio MCP only, the same brief, and a
-30-minute limit. They started less than one second apart. The complete games
-are frozen: [Facet](facet/game.rbxlx) and [Plain](plain/game.rbxlx).
+**The latest Facet game wins the complete seven-state desktop and tablet visual
+comparisons in both Astra Medium presentation orders.** Judges favored labeled
+filters, collection and preview together, visible livery actions and useful
+information density. Phone layout and console input remain the next targets.
 
-## Visual judging
+## Latest comparison
 
-Astra Medium judged the available valid states in both presentation orders.
-The expanded comparisons favor Plain on desktop, both phone orientations,
-and the available console states. Tablet produced a split result. Each order
-used one attempt: ten judgments across five device presets.
+A fresh Astra Medium (`gpt-6-astra`, medium effort) Facet author used source
+`107beff5`. The brief, acceptance requirements, seed, Studio MCP-only author
+tools and 30-minute limit were unchanged. Plain is the retained original Astra
+Medium game. Neither frozen game was repaired during evaluation.
 
-| Device | Result | Valid states compared |
-| --- | --- | --- |
-| Desktop | Plain in both orders | Hub, Shop, Garage, Livery, Race, Tutorial (6/7) |
-| Phone portrait | Plain in both orders | Hub, Shop, Garage, Livery, Race, Tutorial (6/7) |
-| Phone landscape | Plain in both orders | Hub, Garage, Livery, Tutorial (4/7) |
-| Tablet | Split between orders | All seven states, including Results |
-| Console | Plain in both orders | Hub and Tutorial (2/7) |
+Astra Medium judged all five device groups in both presentation orders: ten
+requests, one attempt per order, with no retries. The exact 64 images and all
+five public judgment files are in [the evidence archive](evidence.zip).
 
-Only tablet has the complete seven-state comparison. The other comparisons
-are diagnostics of the listed states. Failed routes were not substituted for
-the requested panels. Plain's tablet Results image came from a failed return
-check; it shows Results but does not prove that Return works.
-Console panel captures that remained on Hub were excluded. The controller
-Race captures contain different overlays and were kept as input observations.
-Console Hub/Tutorial captures used the Xbox preset with keyboard-driven
-selection. Actual Controller Emulator input was checked in a separate pass.
+| Device | Matched states | Result across both orders |
+| --- | ---: | --- |
+| Desktop | 7/7 | Facet wins both |
+| Phone portrait | 6/7 | Plain wins both |
+| Phone landscape | 6/7 | Plain wins both |
+| Tablet | 7/7 | Facet wins both |
+| Console | 6/7 | Split: one win for each arm |
 
-The earlier desktop Hub/Garage/Tutorial comparison favored Facet in both
-orders. It remains in the archive as preliminary evidence. The expanded
-comparisons above are the main result.
+The states are Hub, Shop, Garage, Livery, Race, Results and Tutorial. Results
+is absent from both phone comparisons because Plain's native ACCEL checks
+failed. It is absent from console because the new Facet input route did not
+reach Results. Console orders disagreed; this is not a consistent tie verdict.
 
-[Selected captures](captures) provide a small preview. The archive contains
-the exact images used for every judgment.
+This readout compares only the most recent Plain and Facet author runs.
+Visual wins do not establish complete game acceptance, physical-device
+coverage or a controlled estimate of one source change's effect.
 
-## Native input checks
+## A concrete path to the remaining requirements
 
-The frozen games were checked with desktop mouse and keyboard, simulated
-touch on both phone orientations and tablet, and Studio's Controller Emulator.
-These are native Studio checks; they do not claim physical-device coverage or
-complete acceptance of every interaction.
+1. **Preserve the decision on compact screens.** Phone judgments identify
+   dominant filters, clipped headings and tutorial content, and crowded race
+   information. Retain the subject, essential facts and action; let secondary
+   controls scroll. Check all seven states, including short landscape screens.
+2. **Keep HUD sizing intrinsic where the parent hugs content.** The generated
+   game's text helper wraps text with a scale width inside a hugging row. This
+   is consistent with its offscreen Menu. The public HUD example uses intrinsic
+   sizing. Confirm the cause in a focused native check, then require visible,
+   reachable Menu, readouts and actions in compact previews.
+3. **Resolve controller focus and cursor interaction.** The emulator delivered
+   Gamepad1 events, but a pointer event also reopened Menu and disabled driving.
+   Isolate that sequence, then complete queue, drive, finish and return with
+   controller input alone and visible focus throughout.
 
-The five-device capture reports recorded 23 passed and 3 failed checks for
-Facet; Plain recorded 10 passed, 9 failed, and 2 unsupported. Each report
-includes one build check. The drivers selected different diagnostics, so
-these counts are not comparative scores.
-Failures and evaluator limits remain in the reports. For example, portrait
-touch controls obstructed Plain's acceleration/help targets, and a reserved
-Tab injection prevented Facet's desktop Results capture.
+These targets retain the desktop and tablet strengths and address observed
+failures. They define the next checks; they do not guarantee an overall pass.
 
-The Controller Emulator delivered actual `Gamepad1` ButtonA, ButtonR2, and
-Thumbstick1 events in both games. Facet's ButtonX also opened its race terminal.
-Queue entry used a pointer fallback, so this was a mixed-input route.
-Plain moved under the trigger/stick hold; Facet remained at 0 km/h with an
-unchanged camera. The final captures show Facet's race terminal and Plain's
-Leave Drive confirmation over their races. The check did not isolate why
-those overlays appeared or prove complete controller-only gameplay.
+## Native input evidence
 
-The two controller cases passed event-delivery assertions, not gameplay
-acceptance. All owned Studio processes closed, the display wake hold was
-released, and both frozen game hashes remained unchanged.
+The new Facet game moved its kart with actual desktop mouse/keyboard input and
+native simulated Touch on both phone orientations and tablet. Results were
+observed on all four presets; return to Hub was checked on desktop. Portrait
+panels needed a keyboard Menu fallback
+because Menu was offscreen. Tablet race entry used Menu because native Jump
+overlapped the HUD Join target. Those alternatives do not prove the blocked
+touch actions work.
+
+The separate console check recorded Gamepad1 R1, A, R2 and Thumbstick1 events,
+plus MouseButton1. Menu reopened, driving became disabled and movement stayed
+at zero. This mixed sequence does not establish a pure R2 defect or successful
+controller-only gameplay. Plain's console panels were recovered through pointer
+routes after evaluator selection errors were corrected. Both Plain
+phone Race routes passed after normal tutorial Skip, but ACCEL activation and
+Results did not pass. Original reports and failures remain in the archive.
 
 ## Author usage
 
-| Author | Wall time | Tokens, including cached input |
+| Author | Wall time | Total tokens, including cached input |
 | --- | ---: | ---: |
-| Plain | 23.14 min | 2,392,800 |
-| Facet | 27.71 min | 12,499,681 |
+| Latest Plain | 23.14 min | 2,392,800 |
+| Latest Facet | 24.55 min | 8,941,988 |
 
-Facet did not meet the efficiency targets: it used 5.224 times the tokens and
-1.197 times the wall time. Cost is unknown; token counters are not billing receipts.
+Facet used 3.74 times Plain's total tokens and 1.06 times its wall time.
+Uncached input was 254,222 for Facet and 87,777 for Plain. These counters are
+not billing receipts. The Facet transcript shows repeated large Source writes
+as a cost target. The archive includes the analysis and its limits.
 
-## Validation and evidence
+## Source validation and files
 
-The evaluated source passed 38 runnable full-tier producers, including 2377
-behavioral cases and 561 tool cases. Benchmark, package build, and package status
-passed. Two producers were deferred and two release producers excluded.
-The modal fix has 95 focused checks and three native selection checks.
+All 38 runnable full-tier producers passed on clean source `107beff5`, including
+package build and package status. The reference-host benchmark producer and
+full Studio producer were deferred; two release producers were not selected.
+Verify records a selected, narrowed result. A separate benchmark passed. Native
+navigation input ownership passed all 17 reported steps. Garage Save was
+checked on desktop and both phone orientations; desktop save, change and reload
+also passed. These selected checks are not the full Studio suite.
 
-The [evidence archive](evidence.zip) contains reviewed reports, model and effort
-attestation, judgment details, hashes, native observations, and source findings.
-It excludes raw author/judge session logs and private process records. The
-frozen games are unchanged. Broad game acceptance and performance overhead
-remain unverified. Earlier Sol judgments are not relabeled as Astra results.
+- [Latest frozen Facet game](facet/game.rbxlx).
+- [Latest frozen Plain game](plain/game.rbxlx).
+- [Evidence](evidence.zip): exact judge images and results, native
+  observations, source validation, usage, source findings and hash manifest.
+
+The automatic post-author check ran before the complete submission was sealed
+and failed. Its original result is preserved alongside the later passing
+submission check. Raw model sessions and private process records are excluded.
+Broad game acceptance and performance overhead remain unverified.
