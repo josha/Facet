@@ -40,7 +40,7 @@ return function(harness: Verify.Harness)
 		run = function()
 			local rows = Compose.cell({ "a", "b", "c", "d", "e", "f", "g", "h" })
 			local world = overlay.new(function(UI, Host)
-				return UI.VirtualList {
+				local spec: Facet.KeyedCollectionSpec<string, string> = {
 					Name = "Feed",
 					from = rows,
 					key = function(value)
@@ -54,6 +54,7 @@ return function(harness: Verify.Harness)
 						return Host.Frame { Name = current:peek() }
 					end,
 				}
+				return UI.VirtualList(spec)
 			end)
 			local feed = overlay.find(world.screen, "Feed")
 			world.engine.environment.poke(feed, "AbsoluteWindowSize", world.Vector2.new(389, 100))
@@ -88,7 +89,7 @@ return function(harness: Verify.Harness)
 				local stop, mounted = runtime.mount(views.Discover, target)
 				local node = mounted :: Frame
 				engine.environment.poke(
-					(node :: unknown) :: FixtureRoblox.Instance,
+					FixtureRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(389, 271)
 				)
@@ -106,7 +107,7 @@ return function(harness: Verify.Harness)
 			local rows = Compose.cell({ "a", "b", "c", "d", "e", "f" })
 			local request = Compose.cell(0)
 			local world = overlay.new(function(UI, Host)
-				return UI.VirtualList {
+				local spec: Facet.IdentityCollectionSpec<string> = {
 					Name = "Feed",
 					from = rows,
 					itemSize = 100,
@@ -118,6 +119,7 @@ return function(harness: Verify.Harness)
 						return Host.Frame {}
 					end,
 				}
+				return UI.VirtualList(spec)
 			end)
 			local feed = overlay.find(world.screen, "Feed")
 			world.engine.environment.poke(feed, "AbsoluteWindowSize", world.Vector2.new(389, 200))
@@ -213,7 +215,7 @@ return function(harness: Verify.Harness)
 				local stop, node = runtime.mount(views.Discover, target)
 				local grid = (node :: Instance):FindFirstChild("Games", true) :: ScrollingFrame
 				engine.environment.poke(
-					(grid :: unknown) :: FixtureRoblox.Instance,
+					FixtureRoblox.assertInstance(grid),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(389, 350)
 				)

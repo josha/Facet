@@ -175,7 +175,7 @@ return function(verifyHarness: Verify.Harness)
 						{ inputParent = parent, keyboardNavigation = false, guiService = gui, types = engine.types }
 					)
 					engine.environment.poke(
-						(view.root :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(view.root),
 						"AbsoluteSize",
 						engine.types.Vector2.new(size[1], size[2])
 					)

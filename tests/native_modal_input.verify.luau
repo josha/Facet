@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -70,7 +71,7 @@ return function(verifyHarness: Verify.Harness)
 										Compose.show(detail, function()
 											local control = UI.Button "Equip" { label = "Equip" }
 											engine.environment.poke(
-												control,
+												VerifyRoblox.assertInstance(control),
 												"AbsoluteSize",
 												engine.types.Vector2.new(120, 44)
 											)
@@ -237,7 +238,7 @@ return function(verifyHarness: Verify.Harness)
 									Compose.show(detail, function()
 										local control = UI.Button "Equip" { label = "Equip" }
 										engine.environment.poke(
-											control,
+											VerifyRoblox.assertInstance(control),
 											"AbsoluteSize",
 											engine.types.Vector2.new(120, 44)
 										)

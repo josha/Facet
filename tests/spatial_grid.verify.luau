@@ -71,11 +71,7 @@ local function fixture()
 		return assert((root :: Instance):FindFirstChild(name, true)) :: GuiObject
 	end
 	local source = find("A")
-	engine.environment.poke(
-		(source :: unknown) :: FixtureRoblox.Instance,
-		"AbsoluteSize",
-		engine.types.Vector2.new(100, 100)
-	)
+	engine.environment.poke(FixtureRoblox.assertInstance(source), "AbsoluteSize", engine.types.Vector2.new(100, 100))
 	return {
 		engine = engine,
 		runtime = runtime,
@@ -252,15 +248,11 @@ return function(h: Verify.Harness)
 		local w = fixture()
 		local grid = w.find("SpatialGrid")
 		w.engine.environment.poke(
-			(grid :: unknown) :: FixtureRoblox.Instance,
+			FixtureRoblox.assertInstance(grid),
 			"AbsoluteSize",
 			w.engine.types.Vector2.new(256, 204)
 		)
-		w.engine.environment.poke(
-			(w.find("Cells") :: unknown) :: FixtureRoblox.Instance,
-			"AbsoluteSize",
-			grid.AbsoluteSize
-		)
+		w.engine.environment.poke(FixtureRoblox.assertInstance(w.find("Cells")), "AbsoluteSize", grid.AbsoluteSize)
 		w.begin("pointer")
 		w.service.update(w.engine.types.Vector2.new(102, 102))
 		Verify.expect(w.service.commit(grid)):toBe(true)

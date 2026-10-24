@@ -9,16 +9,18 @@ return function(verifyHarness: Verify.Harness)
 
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
+	local Types = require("../src/ui/types")
 
 	verifyHarness:suite("collection media preparation", function()
 		verifyHarness:case("keeps a surface placeholder until media is ready and fades through the theme token", {
 			id = "native_stage_presence::collection media preparation::keeps a surface placeholder until media is ready and fades through the theme token",
 			run = function()
 				local asset = Compose.cell("rbxassetid://1")
+				local attributes: Types.Attributes = { FacetCollectionRow = true }
 				local w = overlay.new(function(UI, Host, engine)
 					return Host.Frame "Cell" {
 						BackgroundColor3 = engine.types.Color3.new(0.2, 0.3, 0.4),
-						Attributes = { FacetCollectionRow = true },
+						Attributes = attributes,
 						UI.Image "Picture" {
 							image = asset,
 							BackgroundColor3 = engine.types.Color3.new(0.7, 0.2, 0.1),
@@ -26,7 +28,9 @@ return function(verifyHarness: Verify.Harness)
 						UI.Stage "Scene" {
 							content = function(runtime, world)
 								local part = runtime.constructors.Part "Complete" {}
+								assert(typeof(part) == "Instance")
 								part.Parent = world
+								return nil
 							end,
 						},
 					}
@@ -145,6 +149,7 @@ return function(verifyHarness: Verify.Harness)
 										lazy = true,
 										content = function()
 											retired += 1
+											return nil
 										end,
 									})
 								)
@@ -158,6 +163,7 @@ return function(verifyHarness: Verify.Harness)
 								lazy = true,
 								content = function()
 									replacement += 1
+									return nil
 								end,
 							}
 						end),

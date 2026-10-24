@@ -241,16 +241,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(full.Text):toBe(LONG)
 				Verify.expect(full.Size.Y.Scale == 1 and full.AutomaticSize == w.Enum.AutomaticSize.X):toBe(true)
 				Verify.expect(name:FindFirstChild("RevealHold") ~= nil):toBe(true)
-				w.engine.environment.poke(
-					((window) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					Vector2.new(80, 20)
-				)
-				w.engine.environment.poke(
-					((full) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					Vector2.new(320, 20)
-				)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(window), "AbsoluteSize", Vector2.new(80, 20))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(full), "AbsoluteSize", Vector2.new(320, 20))
 				w.advance(1, 60)
 				Verify.expect(full.Position.X.Scale < 0):toBe(true)
 				w.advance(10.5, 630)

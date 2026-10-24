@@ -30,14 +30,14 @@ return function(verifyHarness: Verify.Harness)
 	local engineLib = require("./lib/native_engine")
 	local function idleInput(engine: engineLib.Engine, input: VerifyRoblox.Instance)
 		for _, name in { "GetKeysPressed", "GetMouseButtonsPressed", "GetGamepadState", "GetNavigationGamepads" } do
-			engine.environment.fakeOn((input :: unknown) :: VerifyRoblox.Instance, name, function()
+			engine.environment.fakeOn(VerifyRoblox.assertInstance(input), name, function()
 				return {}
 			end)
 		end
-		engine.environment.fakeOn((input :: unknown) :: VerifyRoblox.Instance, "IsGamepadButtonDown", function()
+		engine.environment.fakeOn(VerifyRoblox.assertInstance(input), "IsGamepadButtonDown", function()
 			return false
 		end)
-		engine.environment.fakeOn((input :: unknown) :: VerifyRoblox.Instance, "GetLastInputType", function()
+		engine.environment.fakeOn(VerifyRoblox.assertInstance(input), "GetLastInputType", function()
 			local E = engine.types.Enum
 			return if input.PreferredInput == E.PreferredInput.Touch
 				then E.UserInputType.Touch
@@ -55,7 +55,7 @@ return function(verifyHarness: Verify.Harness)
 		local gui = (engine.new("GuiService") :: unknown) :: GuiService
 		gui.TouchControlsEnabled = true
 		local root = engine.new("ScreenGui")
-		engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetInsetArea", function()
+		engine.environment.fakeOn(VerifyRoblox.assertInstance(gui), "GetInsetArea", function()
 			return engine.types.Rect.new(0, 0, 800, 600)
 		end)
 		local config: { [string]: any } = {
@@ -319,14 +319,14 @@ return function(verifyHarness: Verify.Harness)
 				local body = assert(node:FindFirstChild("Body")) :: ScrollingFrame
 				local geometry = (body :: unknown) :: { AbsoluteWindowSize: Vector2 }
 				engine.environment.poke(
-					(geometry :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(geometry),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 95)
 				)
 				local function expectTop(key: number)
 					for _, height in { 96, 95 } do
 						engine.environment.poke(
-							(geometry :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(geometry),
 							"AbsoluteWindowSize",
 							engine.types.Vector2.new(200, height)
 						)
@@ -369,7 +369,7 @@ return function(verifyHarness: Verify.Harness)
 				local list = (mountedList :: unknown) :: ScrollingFrame
 				local listGeometry = (list :: unknown) :: { AbsoluteWindowSize: Vector2 }
 				engine.environment.poke(
-					(listGeometry :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(listGeometry),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 95)
 				)
@@ -404,7 +404,7 @@ return function(verifyHarness: Verify.Harness)
 				local list = (mounted :: unknown) :: ScrollingFrame
 				local geometry = (list :: unknown) :: { AbsoluteWindowSize: Vector2 }
 				engine.environment.poke(
-					(geometry :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(geometry),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 95)
 				)
@@ -419,7 +419,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(list.CanvasPosition.Y):toBe(0)
 				for _, height in { 96, 95 } do
 					engine.environment.poke(
-						(geometry :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(geometry),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(200, height)
 					)
@@ -468,7 +468,7 @@ return function(verifyHarness: Verify.Harness)
 				local grid = (mounted :: unknown) :: ScrollingFrame
 				local geometry = (grid :: unknown) :: { AbsoluteWindowSize: Vector2 }
 				engine.environment.poke(
-					(geometry :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(geometry),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(1242, 648)
 				)
@@ -517,12 +517,8 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(assert(settled):peek()):toBe(false)
 				engine.heartbeat:Fire(0)
 				Verify.expect(assert(settled):peek()):toBe(true)
-				engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "TextBounds", derived.TextBounds)
-				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteSize",
-					derived.AbsoluteSize
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "TextBounds", derived.TextBounds)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", derived.AbsoluteSize)
 				Verify.expect(assert(glyphs):peek()):toBe(V2.new(87, 12))
 				Verify.expect(assert(box):peek()):toBe(V2.new(40, 20))
 				stop()
@@ -534,7 +530,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, _, target = setup()
 				local node = engine.new("Frame")
 				local V2 = engine.types.Vector2
-				engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(390, 200))
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(390, 200))
 				node.Parent = target
 
 				local beforePaint = engine.heartbeat
@@ -545,7 +541,7 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local observed = assert(size)
 				Verify.expect(observed:peek()):toBe(V2.new(390, 200))
-				engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(320, 160))
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(320, 160))
 				Verify.expect(observed:peek()):toBe(V2.new(320, 160))
 				beforePaint:Fire(0)
 				Verify.expect(observed:peek()):toBe(V2.new(320, 160))
@@ -591,19 +587,15 @@ return function(verifyHarness: Verify.Harness)
 			local layout = assert(strip:FindFirstChildWhichIsA("UIListLayout"))
 			local scroll = bar:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
 				engine.environment.poke(
-					(button :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(button),
 					"AbsolutePosition",
 					V2.new(160 - bar.CanvasPosition.X, 0)
 				)
 			end)
-			engine.environment.poke((bar :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(100, 44))
-			engine.environment.poke((button :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(80, 44))
-			engine.environment.poke((button :: unknown) :: VerifyRoblox.Instance, "AbsolutePosition", V2.new(160, 0))
-			engine.environment.poke(
-				(layout :: unknown) :: VerifyRoblox.Instance,
-				"AbsoluteContentSize",
-				V2.new(240, 44)
-			)
+			engine.environment.poke(VerifyRoblox.assertInstance(bar), "AbsoluteSize", V2.new(100, 44))
+			engine.environment.poke(VerifyRoblox.assertInstance(button), "AbsoluteSize", V2.new(80, 44))
+			engine.environment.poke(VerifyRoblox.assertInstance(button), "AbsolutePosition", V2.new(160, 0))
+			engine.environment.poke(VerifyRoblox.assertInstance(layout), "AbsoluteContentSize", V2.new(240, 44))
 			t:expect(bar.CanvasPosition.X):toBe(140)
 			t:expect(selected:peek()):toBe("b")
 			scroll:Disconnect()
@@ -632,13 +624,13 @@ return function(verifyHarness: Verify.Harness)
 				return list
 			end, target)
 			local node = assert(list)
-			engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteWindowSize", V2.new(200, 100))
+			engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(200, 100))
 			stale:set(V2.new(200, 120))
 			local row = assert(assert(node:FindFirstChild("Items")):FindFirstChild("one")) :: Frame
 			t:expect(row.Size.X.Offset):toBe(200)
-			engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteWindowSize", V2.new(194, 100))
+			engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(194, 100))
 			t:expect(row.Size.X.Offset):toBe(194)
-			engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteWindowSize", V2.new(200, 100))
+			engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(200, 100))
 			t:expect(row.Size.X.Offset):toBe(200)
 			stop()
 			runtime:dispose()
@@ -685,24 +677,12 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local stop = runtime.mount(Conversation, target)
 				local node = assert(list)
-				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(200, 600)
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(200, 600))
 				observedSize:set(V2.new(200, 600))
-				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(200, 60)
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(200, 60))
 				observedSize:set(V2.new(200, 60))
 				Verify.expect(node.CanvasPosition.Y):toBe(440)
-				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(200, 380)
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(200, 380))
 				node.CanvasPosition = V2.new(0, 120)
 				Verify.expect(status:peek().following):toBe(true)
 				observedSize:set(V2.new(200, 380))
@@ -724,10 +704,10 @@ return function(verifyHarness: Verify.Harness)
 				local node = engine.new("Frame")
 				local text = engine.new("TextLabel")
 				text.Text = "Measured caption"
-				engine.environment.poke((text :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(200, 24))
-				engine.environment.poke((text :: unknown) :: VerifyRoblox.Instance, "TextBounds", V2.new(180, 20))
+				engine.environment.poke(VerifyRoblox.assertInstance(text), "AbsoluteSize", V2.new(200, 24))
+				engine.environment.poke(VerifyRoblox.assertInstance(text), "TextBounds", V2.new(180, 20))
 				text.Parent = node
-				engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.zero)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.zero)
 				node.Parent = target
 				local ready: FixtureComposeTypes.Readable<boolean>? = nil
 				local stop = runtime.mount(function()
@@ -741,9 +721,9 @@ return function(verifyHarness: Verify.Harness)
 						table.insert(painted, node.AbsoluteSize.Y)
 					end
 				end
-				engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(240, 40))
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(240, 40))
 				frame()
-				engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(240, 44))
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(240, 44))
 				for _ = 1, 4 do
 					frame()
 				end
@@ -762,20 +742,20 @@ return function(verifyHarness: Verify.Harness)
 				local node = engine.new("Frame")
 				local text = engine.new("TextLabel")
 				text.Text = "Measured caption"
-				engine.environment.poke((text :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(200, 24))
-				engine.environment.poke((text :: unknown) :: VerifyRoblox.Instance, "TextBounds", V2.new(180, 20))
+				engine.environment.poke(VerifyRoblox.assertInstance(text), "AbsoluteSize", V2.new(200, 24))
+				engine.environment.poke(VerifyRoblox.assertInstance(text), "TextBounds", V2.new(180, 20))
 				text.Parent = node
-				engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.zero)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.zero)
 				node.Parent = target
 				local ready: FixtureComposeTypes.Readable<boolean>? = nil
 				local stop = runtime.mount(function()
 					ready = require("../src/ui/collection_paint")(ctx, node, nil, true)
 					return nil
 				end, target)
-				engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(240, 44))
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(240, 44))
 				for index = 1, 4 do
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsolutePosition",
 						V2.new(0, -index * 20)
 					)
@@ -794,20 +774,20 @@ return function(verifyHarness: Verify.Harness)
 				text.Text = "Measured caption"
 				text.TextWrapped = true
 				text.AutomaticSize = engine.types.Enum.AutomaticSize.Y
-				engine.environment.poke((text :: unknown) :: VerifyRoblox.Instance, "TextFits", false)
+				engine.environment.poke(VerifyRoblox.assertInstance(text), "TextFits", false)
 				engine.environment.poke(
-					(text :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(text),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 24)
 				)
 				engine.environment.poke(
-					(text :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(text),
 					"TextBounds",
 					engine.types.Vector2.new(180, 20)
 				)
 				text.Parent = node
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(240, 44)
 				)
@@ -829,18 +809,18 @@ return function(verifyHarness: Verify.Harness)
 				local text = engine.new("TextLabel")
 				text.Text = "Measured caption"
 				engine.environment.poke(
-					(text :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(text),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 24)
 				)
 				engine.environment.poke(
-					(text :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(text),
 					"TextBounds",
 					engine.types.Vector2.new(180, 20)
 				)
 				text.Parent = node
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(240, 44)
 				)
@@ -866,18 +846,18 @@ return function(verifyHarness: Verify.Harness)
 				local text = engine.new("TextLabel")
 				text.Text = "Measured caption"
 				engine.environment.poke(
-					(text :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(text),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 24)
 				)
 				engine.environment.poke(
-					(text :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(text),
 					"TextBounds",
 					engine.types.Vector2.new(180, 20)
 				)
 				text.Parent = node
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(240, 44)
 				)
@@ -916,7 +896,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(assert(ready):peek()):toBe(false)
 				local geometry = (node :: unknown) :: { AbsoluteSize: Vector2 }
 				engine.environment.poke(
-					(geometry :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(geometry),
 					"AbsoluteSize",
 					engine.types.Vector2.new(390, 44)
 				)
@@ -924,12 +904,12 @@ return function(verifyHarness: Verify.Harness)
 					assert(node:FindFirstChild("Name")) :: unknown
 				) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
 				engine.environment.poke(
-					(text :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(text),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 44)
 				)
 				engine.environment.poke(
-					(text :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(text),
 					"TextBounds",
 					engine.types.Vector2.new(100, 20)
 				)
@@ -948,7 +928,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target = setup()
 				local container = engine.new("Frame")
 				engine.environment.poke(
-					(container :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(container),
 					"AbsoluteSize",
 					engine.types.Vector2.new(390, 200)
 				)
@@ -1010,13 +990,13 @@ return function(verifyHarness: Verify.Harness)
 						if node:IsA("GuiObject") then
 							local geometry = (node :: unknown) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
 							engine.environment.poke(
-								(geometry :: unknown) :: VerifyRoblox.Instance,
+								VerifyRoblox.assertInstance(geometry),
 								"AbsoluteSize",
 								engine.types.Vector2.new(math.max(1, node.Size.X.Offset), 44)
 							)
 							if node:IsA("TextLabel") or node:IsA("TextButton") then
 								engine.environment.poke(
-									(geometry :: unknown) :: VerifyRoblox.Instance,
+									VerifyRoblox.assertInstance(geometry),
 									"TextBounds",
 									engine.types.Vector2.new(40, 20)
 								)
@@ -1061,7 +1041,7 @@ return function(verifyHarness: Verify.Harness)
 				local button = assert((node :: Instance):FindFirstChild("Category", true))
 				local geometry = (button :: unknown) :: { AbsoluteSize: Vector2 }
 				engine.environment.poke(
-					(geometry :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(geometry),
 					"AbsoluteSize",
 					engine.types.Vector2.new(90, 66)
 				)
@@ -1100,13 +1080,13 @@ return function(verifyHarness: Verify.Harness)
 					local row = assert((node :: Instance):FindFirstChild("Row", true)) :: GuiObject
 					local geometry = (row :: unknown) :: { AbsoluteSize: Vector2 }
 					engine.environment.poke(
-						(geometry :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(geometry),
 						"AbsoluteSize",
 						engine.types.Vector2.new(300, 140)
 					)
 					Verify.expect(assert(controls.placementOf)(2).offset):toBe(if measure == "fixed" then 64 else 140)
 					engine.environment.poke(
-						(geometry :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(geometry),
 						"AbsoluteSize",
 						engine.types.Vector2.new(300, 32)
 					)
@@ -1122,11 +1102,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target = setup()
 				local V2 = engine.types.Vector2
 				local container = engine.new("Frame")
-				engine.environment.poke(
-					(container :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteSize",
-					V2.new(390, 200)
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(container), "AbsoluteSize", V2.new(390, 200))
 				container.Parent = target
 				local Host = (runtime.constructors :: unknown) :: FixtureEngineTypes.Host
 				local mode = Compose.cell("grid")
@@ -1196,20 +1172,20 @@ return function(verifyHarness: Verify.Harness)
 						for _, node in nodes do
 							if node:IsA("GuiObject") then
 								engine.environment.poke(
-									(node :: unknown) :: VerifyRoblox.Instance,
+									VerifyRoblox.assertInstance(node),
 									"AbsoluteSize",
 									engine.types.Vector2.new(390, 200)
 								)
 								if node:IsA("ScrollingFrame") then
 									engine.environment.poke(
-										(node :: unknown) :: VerifyRoblox.Instance,
+										VerifyRoblox.assertInstance(node),
 										"AbsoluteWindowSize",
 										engine.types.Vector2.new(390, 200)
 									)
 								end
 								if node:IsA("TextLabel") or node:IsA("TextButton") then
 									engine.environment.poke(
-										(node :: unknown) :: VerifyRoblox.Instance,
+										VerifyRoblox.assertInstance(node),
 										"TextBounds",
 										engine.types.Vector2.new(60, 20)
 									)
@@ -1368,13 +1344,13 @@ return function(verifyHarness: Verify.Harness)
 						if node:IsA("GuiObject") then
 							local geometry = (node :: unknown) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
 							engine.environment.poke(
-								(geometry :: unknown) :: VerifyRoblox.Instance,
+								VerifyRoblox.assertInstance(geometry),
 								"AbsoluteSize",
 								V2.new(100, 44)
 							)
 							if node:IsA("TextLabel") then
 								engine.environment.poke(
-									(geometry :: unknown) :: VerifyRoblox.Instance,
+									VerifyRoblox.assertInstance(geometry),
 									"TextBounds",
 									V2.new(60, 20)
 								)
@@ -1436,13 +1412,13 @@ return function(verifyHarness: Verify.Harness)
 							if node:IsA("GuiObject") then
 								local geometry = (node :: unknown) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
 								engine.environment.poke(
-									(geometry :: unknown) :: VerifyRoblox.Instance,
+									VerifyRoblox.assertInstance(geometry),
 									"AbsoluteSize",
 									V2.new(100, 44)
 								)
 								if node:IsA("TextLabel") then
 									engine.environment.poke(
-										(geometry :: unknown) :: VerifyRoblox.Instance,
+										VerifyRoblox.assertInstance(geometry),
 										"TextBounds",
 										V2.new(60, 20)
 									)
@@ -1507,14 +1483,10 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					local V2 = engine.types.Vector2
 					local function layout(late: boolean)
-						engine.environment.poke(
-							(root :: unknown) :: VerifyRoblox.Instance,
-							"AbsoluteSize",
-							V2.new(390, 500)
-						)
+						engine.environment.poke(VerifyRoblox.assertInstance(root), "AbsoluteSize", V2.new(390, 500))
 						if root:IsA("ScrollingFrame") then
 							engine.environment.poke(
-								(root :: unknown) :: VerifyRoblox.Instance,
+								VerifyRoblox.assertInstance(root),
 								"AbsoluteWindowSize",
 								V2.new(390, 500)
 							)
@@ -1526,7 +1498,7 @@ return function(verifyHarness: Verify.Harness)
 									row = row.Parent
 								end
 								engine.environment.poke(
-									(node :: unknown) :: VerifyRoblox.Instance,
+									VerifyRoblox.assertInstance(node),
 									"AbsoluteSize",
 									if late
 											and node.Name == "Caption"
@@ -1537,7 +1509,7 @@ return function(verifyHarness: Verify.Harness)
 								)
 								if node:IsA("TextLabel") then
 									engine.environment.poke(
-										(node :: unknown) :: VerifyRoblox.Instance,
+										VerifyRoblox.assertInstance(node),
 										"TextBounds",
 										V2.new(60, 20)
 									)
@@ -1741,16 +1713,8 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, root)
 				grid.CanvasPosition = V2.zero
-				engine.environment.poke(
-					(grid :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(624, 205)
-				)
-				engine.environment.poke(
-					(grid :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteCanvasSize",
-					V2.new(624, 598)
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(grid), "AbsoluteWindowSize", V2.new(624, 205))
+				engine.environment.poke(VerifyRoblox.assertInstance(grid), "AbsoluteCanvasSize", V2.new(624, 598))
 				Verify.expect(grid.CanvasPosition):toBe(V2.new(0, 200))
 				stop()
 				runtime:dispose()
@@ -1855,7 +1819,7 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(state.mode):toBe("armed")
 						Verify.expect((state.payload :: { id: number }).id):toBe(1)
 						engine.environment.poke(
-							(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 							"TouchEnabled",
 							false
 						)
@@ -1888,7 +1852,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(200, 80)
 					)
@@ -1959,7 +1923,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
 				local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
-				engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetGuiInset", function()
+				engine.environment.fakeOn(VerifyRoblox.assertInstance(gui), "GetGuiInset", function()
 					return V2.new(0, 58), V2.zero
 				end)
 				local moved = {}
@@ -1979,27 +1943,19 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end, target)
-				engine.environment.poke((list :: unknown) :: VerifyRoblox.Instance, "AbsolutePosition", V2.new(20, 200))
+				engine.environment.poke(VerifyRoblox.assertInstance(list), "AbsolutePosition", V2.new(20, 200))
+				engine.environment.poke(VerifyRoblox.assertInstance(list), "AbsoluteWindowSize", V2.new(320, 264))
 				engine.environment.poke(
-					(list :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(320, 264)
-				)
-				engine.environment.poke(
-					(list:FindFirstChild("LayoutUnit") :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(list:FindFirstChild("LayoutUnit")),
 					"AbsoluteSize",
 					V2.new(1, 1)
 				)
 				local row = list:FindFirstChild("2", true):FindFirstChild("Reorderable", true)
-				engine.environment.poke((row :: unknown) :: VerifyRoblox.Instance, "AbsolutePosition", V2.new(20, 244))
-				engine.environment.poke((row :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(314, 44))
+				engine.environment.poke(VerifyRoblox.assertInstance(row), "AbsolutePosition", V2.new(20, 244))
+				engine.environment.poke(VerifyRoblox.assertInstance(row), "AbsoluteSize", V2.new(314, 44))
 				local handle = row:FindFirstChild("Move")
-				engine.environment.poke(
-					(handle :: unknown) :: VerifyRoblox.Instance,
-					"AbsolutePosition",
-					V2.new(290, 244)
-				)
-				engine.environment.poke((handle :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(44, 44))
+				engine.environment.poke(VerifyRoblox.assertInstance(handle), "AbsolutePosition", V2.new(290, 244))
+				engine.environment.poke(VerifyRoblox.assertInstance(handle), "AbsoluteSize", V2.new(44, 44))
 				local input = assert(ctx.config.userInputService)
 				nativeDrag.press(handle, {
 					UserInputType = E.UserInputType.MouseButton1,
@@ -2029,7 +1985,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 				local E, V2 = engine.types.Enum, engine.types.Vector2
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					E.PreferredInput.KeyboardAndMouse
 				)
@@ -2051,11 +2007,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end, target)
-				engine.environment.poke(
-					(list :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(200, 120)
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(list), "AbsoluteWindowSize", V2.new(200, 120))
 				local row = list:FindFirstChild("1", true):FindFirstChild("Action", true)
 				local V3 = engine.types.Vector3
 				local press = {
@@ -2127,7 +2079,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -2166,8 +2118,8 @@ return function(verifyHarness: Verify.Harness)
 					if
 						VerifyRoblox.isInstance(made)
 						and (
-							(made :: VerifyRoblox.Instance).Name == "Content"
-							or (made :: VerifyRoblox.Instance).Name == "Action"
+							(VerifyRoblox.assertInstance(made)).Name == "Content"
+							or (VerifyRoblox.assertInstance(made)).Name == "Action"
 						)
 					then
 						Verify.expect(engine.environment.isAlive(made)):toBe(false)
@@ -2196,7 +2148,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(list :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(list),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -2219,7 +2171,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(tableNode:FindFirstChild("Body") :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(tableNode:FindFirstChild("Body")),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -2274,7 +2226,7 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					Verify.expect(gui.SelectedObject):toBeNil()
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(200, 100)
 					)
@@ -2313,7 +2265,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(200, 100)
 					)
@@ -2372,7 +2324,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(200, 100)
 					)
@@ -2434,13 +2386,13 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				local content = node:FindFirstChild("1", true):FindFirstChild("Measured", true)
 				engine.environment.poke(
-					(content :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(content),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 60)
 				)
@@ -2492,13 +2444,13 @@ return function(verifyHarness: Verify.Harness)
 					return UI.VirtualList(props)
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				local content = node:FindFirstChild("1", true):FindFirstChild("Measured", true)
 				engine.environment.poke(
-					(content :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(content),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 60)
 				)
@@ -2553,59 +2505,59 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				local slot = node:FindFirstChild("1", true)
 				local content = slot:FindFirstChild("Measured", true)
 				engine.environment.poke(
-					(content :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(content),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 60)
 				)
 				engine.environment.poke(
-					(slot :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(slot),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 60)
 				)
 				Verify.expect(status:peek().extent):toBe(140)
 				lift:set(1.5)
 				engine.environment.poke(
-					(content :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(content),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 90)
 				)
 				Verify.expect(status:peek().extent):toBe(140)
 				Verify.expect(slot.Size.Y.Offset):toBe(60)
 				engine.environment.poke(
-					(content :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(content),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 90.6)
 				)
 				Verify.expect(slot.Size.Y.Offset):toBe(60)
 				engine.environment.poke(
-					(content :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(content),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 135)
 				)
 				Verify.expect(slot.Size.Y.Offset):toBe(90)
 				Verify.expect(status:peek().extent):toBe(170)
 				engine.environment.poke(
-					(content :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(content),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 90)
 				)
 				Verify.expect(slot.Size.Y.Offset):toBe(60)
 				engine.environment.poke(
-					(slot :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(slot),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 60)
 				)
 				Verify.expect(status:peek().extent):toBe(140)
 				lift:set(1)
 				engine.environment.poke(
-					(content :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(content),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 60)
 				)
@@ -2640,7 +2592,7 @@ return function(verifyHarness: Verify.Harness)
 					local list = (mounted :: unknown) :: ScrollingFrame
 					local horizontal = direction == "horizontal"
 					engine.environment.poke(
-						(list :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(list),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(if horizontal then 280 else 700, if horizontal then 700 else 280)
 					)
@@ -2754,14 +2706,14 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local grid = (mounted :: unknown) :: ScrollingFrame
 				engine.environment.poke(
-					(grid :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(grid),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(320, 280)
 				)
 				local card = assert(grid:FindFirstChild("Card", true)) :: Frame
 				(assert(card:FindFirstChild("Lift")) :: UIScale).Scale = 1.04
 				engine.environment.poke(
-					(card :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(card),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 520)
 				)
@@ -2820,7 +2772,7 @@ return function(verifyHarness: Verify.Harness)
 				local grid = (mounted :: unknown) :: ScrollingFrame
 				local geometry = (grid :: unknown) :: { AbsoluteWindowSize: Vector2 }
 				engine.environment.poke(
-					(geometry :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(geometry),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(1242, 648)
 				)
@@ -2831,7 +2783,7 @@ return function(verifyHarness: Verify.Harness)
 					if card then
 						local unit = (card:FindFirstChild("LayoutUnit") :: unknown) :: { AbsoluteSize: Vector2 }
 						engine.environment.poke(
-							(unit :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(unit),
 							"AbsoluteSize",
 							engine.types.Vector2.new(1.06, 1.06)
 						)
@@ -2842,7 +2794,7 @@ return function(verifyHarness: Verify.Harness)
 							elseif index <= 8 then 282 * 1.06
 							else 280 * 1.06
 						engine.environment.poke(
-							(bounds :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(bounds),
 							"AbsoluteSize",
 							engine.types.Vector2.new(311.88, height)
 						)
@@ -2893,12 +2845,12 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				engine.environment.poke(
-					(node:FindFirstChild("LayoutUnit") :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node:FindFirstChild("LayoutUnit")),
 					"AbsoluteSize",
 					engine.types.Vector2.new(1.25, 1.25)
 				)
@@ -2911,8 +2863,8 @@ return function(verifyHarness: Verify.Harness)
 						return
 					end
 					local size = engine.types.Vector2.new(200 * 1.25, slot.Size.Y.Offset * 1.25)
-					engine.environment.poke((slot :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", size)
-					engine.environment.poke((fill :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", size)
+					engine.environment.poke(VerifyRoblox.assertInstance(slot), "AbsoluteSize", size)
+					engine.environment.poke(VerifyRoblox.assertInstance(fill), "AbsoluteSize", size)
 				end
 				slot:GetPropertyChangedSignal("Size"):Connect(relayout)
 				relayout()
@@ -2941,7 +2893,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -3007,7 +2959,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -3031,12 +2983,12 @@ return function(verifyHarness: Verify.Harness)
 				clip.Parent = target
 				clip.ClipsDescendants = true
 				engine.environment.poke(
-					(clip :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(clip),
 					"AbsolutePosition",
 					engine.types.Vector2.zero
 				)
 				engine.environment.poke(
-					(clip :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(clip),
 					"AbsoluteSize",
 					engine.types.Vector2.new(430, 874)
 				)
@@ -3054,12 +3006,12 @@ return function(verifyHarness: Verify.Harness)
 				end, clip)
 				local node = mounted :: ScrollingFrame
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(280, 204)
 				)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(280, 204)
 				)
@@ -3068,12 +3020,12 @@ return function(verifyHarness: Verify.Harness)
 				assert(focus.clear)()
 				gui.SelectedObject = nil
 				engine.environment.poke(
-					(row :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(row),
 					"AbsolutePosition",
 					engine.types.Vector2.new(-113, 5873.6)
 				)
 				engine.environment.poke(
-					(row :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(row),
 					"AbsoluteSize",
 					engine.types.Vector2.new(61, 44)
 				)
@@ -3081,24 +3033,20 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(gui.SelectedObject):toBeNil()
 				Verify.expect(assert(focus.current):peek()):toBe(2)
 				engine.environment.poke(
-					(row :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(row),
 					"AbsolutePosition",
 					engine.types.Vector2.new(32, 100)
 				)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.zero)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteSize",
-					engine.types.Vector2.zero
-				)
-				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsolutePosition",
 					engine.types.Vector2.new(16, 80)
 				)
 				engine.heartbeat:Fire(1 / 60)
 				Verify.expect(gui.SelectedObject):toBeNil()
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(280, 204)
 				)
@@ -3128,7 +3076,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -3140,7 +3088,7 @@ return function(verifyHarness: Verify.Harness)
 					if not VerifyRoblox.isInstance(object) then
 						continue
 					end
-					local native = object :: VerifyRoblox.Instance
+					local native = VerifyRoblox.assertInstance(object)
 					local parent = native.Parent
 					if
 						native.Name == "Activate"
@@ -3182,7 +3130,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -3230,12 +3178,12 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body, header = node:FindFirstChild("Body"), node:FindFirstChild("Header")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -3245,7 +3193,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((sort:peek())):toEqual({ column = "label", direction = "ascending" :: "ascending" })
 				Verify.expect((body:FindFirstChild("1", true):FindFirstChild("Action", true))):toBe(original)
 				engine.environment.poke(
-					(column :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(column),
 					"AbsoluteSize",
 					engine.types.Vector2.new(100, 40)
 				)
@@ -3255,14 +3203,14 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(grip.Size.X.Offset):toBe(12)
 				Verify.expect(header.Size.Y.Offset):toBe(40)
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.Touch
 				)
 				Verify.expect(grip.Size.X.Offset):toBe(44)
 				Verify.expect(header.Size.Y.Offset):toBe(44)
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.KeyboardAndMouse
 				)
@@ -3273,12 +3221,12 @@ return function(verifyHarness: Verify.Harness)
 				detector.DragContinue:Fire(engine.types.Vector2.new(180, 10))
 				Verify.expect(widths:peek().label):toBe(160)
 				engine.environment.poke(
-					(column:FindFirstChild("LayoutUnit") :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(column:FindFirstChild("LayoutUnit")),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 2)
 				)
 				engine.environment.poke(
-					(column :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(column),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 80)
 				)
@@ -3314,7 +3262,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(200, 100)
 					)
@@ -3349,12 +3297,12 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node:FindFirstChild("LayoutUnit") :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node:FindFirstChild("LayoutUnit")),
 					"AbsoluteSize",
 					engine.types.Vector2.new(0.8, 0.8)
 				)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(160, 80)
 				)
@@ -3377,7 +3325,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 					local E, V2 = engine.types.Enum, engine.types.Vector2
 					engine.environment.poke(
-						(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"PreferredInput",
 						E.PreferredInput.KeyboardAndMouse
 					)
@@ -3395,11 +3343,7 @@ return function(verifyHarness: Verify.Harness)
 							end,
 						})
 					end, target)
-					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
-						"AbsoluteWindowSize",
-						V2.new(1000, 200)
-					)
+					engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(1000, 200))
 					Verify.expect(node:FindFirstChild("1", true).Size.X.Offset):toBe(244)
 					distance:set("ten-foot")
 					Verify.expect(distant()):toBe(true)
@@ -3407,15 +3351,11 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(node:FindFirstChild("2", true).Position.X.Offset):toBe(252)
 					distance:set("near")
 					engine.environment.poke(
-						(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"PreferredInput",
 						E.PreferredInput.Touch
 					)
-					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
-						"AbsoluteWindowSize",
-						V2.new(400, 200)
-					)
+					engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(400, 200))
 					Verify.expect(node:FindFirstChild("1", true).Size.X.Offset):toBe(352)
 					Verify.expect(node:FindFirstChild("2", true).Position.X.Offset):toBe(360)
 					stop()
@@ -3460,12 +3400,12 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					local body = node:FindFirstChild("Body")
 					engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(300, 100)
 					)
 					engine.environment.poke(
-						(body.Parent :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body.Parent),
 						"AbsoluteSize",
 						body.AbsoluteWindowSize
 					)
@@ -3486,16 +3426,12 @@ return function(verifyHarness: Verify.Harness)
 				local E = engine.types.Enum
 				local input: any = assert(ctx.config.userInputService)
 				local pressed = {}
-				engine.environment.fakeOn((input :: unknown) :: VerifyRoblox.Instance, "GetKeysPressed", function()
+				engine.environment.fakeOn(VerifyRoblox.assertInstance(input), "GetKeysPressed", function()
 					return pressed
 				end)
-				engine.environment.fakeOn(
-					(input :: unknown) :: VerifyRoblox.Instance,
-					"GetMouseButtonsPressed",
-					function()
-						return {}
-					end
-				)
+				engine.environment.fakeOn(VerifyRoblox.assertInstance(input), "GetMouseButtonsPressed", function()
+					return {}
+				end)
 				engine.environment.poke(input, "PreferredInput", E.PreferredInput.Touch)
 				engine.environment.poke(input, "TouchEnabled", true)
 				engine.environment.poke(input, "MouseEnabled", true)
@@ -3518,21 +3454,21 @@ return function(verifyHarness: Verify.Harness)
 					pressed = { { KeyCode = modifier } }
 					input.InputBegan:Fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = modifier })
 					engine.environment.poke(
-						(input :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(input),
 						"PreferredInput",
 						E.PreferredInput.KeyboardAndMouse
 					)
 					Verify.expect((shown())):toBe(true)
 					pressed = {}
 					engine.environment.poke(
-						(input :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(input),
 						"PreferredInput",
 						E.PreferredInput.Touch
 					)
 				end
 				pressed = { { KeyCode = E.KeyCode.LeftSuper } }
 				engine.environment.poke(
-					(input :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(input),
 					"PreferredInput",
 					E.PreferredInput.KeyboardAndMouse
 				)
@@ -3541,28 +3477,20 @@ return function(verifyHarness: Verify.Harness)
 				input.InputBegan:Fire({ UserInputType = E.UserInputType.Keyboard, KeyCode = E.KeyCode.C })
 				Verify.expect((shown())):toBe(false)
 				pressed = {}
-				engine.environment.poke(
-					(input :: unknown) :: VerifyRoblox.Instance,
-					"PreferredInput",
-					E.PreferredInput.Touch
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "PreferredInput", E.PreferredInput.Touch)
 				Verify.expect((shown())):toBe(true)
 				pressed = { { KeyCode = E.KeyCode.A } }
 				engine.environment.poke(
-					(input :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(input),
 					"PreferredInput",
 					E.PreferredInput.KeyboardAndMouse
 				)
 				Verify.expect((shown())):toBe(false)
 				pressed = {}
-				engine.environment.poke(
-					(input :: unknown) :: VerifyRoblox.Instance,
-					"PreferredInput",
-					E.PreferredInput.Touch
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "PreferredInput", E.PreferredInput.Touch)
 				pressed = { { KeyCode = E.KeyCode.LeftShift } }
 				engine.environment.poke(
-					(input :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(input),
 					"PreferredInput",
 					E.PreferredInput.KeyboardAndMouse
 				)
@@ -3597,7 +3525,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node:FindFirstChild("Body") :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node:FindFirstChild("Body")),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(347, 240)
 					)
@@ -3639,7 +3567,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node:FindFirstChild("Body") :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node:FindFirstChild("Body")),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(300, 200)
 				)
@@ -3661,14 +3589,14 @@ return function(verifyHarness: Verify.Harness)
 					local E = engine.types.Enum
 					local input: any = assert(ctx.config.userInputService)
 					engine.environment.poke(
-						(input :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(input),
 						"PreferredInput",
 						E.PreferredInput.Gamepad
 					)
-					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "MouseEnabled", false)
-					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "MouseEnabled", false)
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
 					engine.environment.poke(
-						(gui :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(gui),
 						"ViewportDisplaySize",
 						E.DisplaySize.Large
 					)
@@ -3682,7 +3610,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node:FindFirstChild("Body") :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node:FindFirstChild("Body")),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(300, 400)
 					)
@@ -3694,13 +3622,13 @@ return function(verifyHarness: Verify.Harness)
 					end
 					for _, label in node:GetDescendants() do
 						if label.Name == "LongestWord" then
-							engine.environment.poke((label :: unknown) :: VerifyRoblox.Instance, "TextFits", true)
+							engine.environment.poke(VerifyRoblox.assertInstance(label), "TextFits", true)
 						end
 					end
 					Verify.expect((height())):toBe(84)
 					Verify.expect((wraps())):toBe(false)
 					engine.environment.poke(
-						(gui :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(gui),
 						"ViewportDisplaySize",
 						E.DisplaySize.Medium
 					)
@@ -3710,12 +3638,12 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((height())):toBe(56)
 					Verify.expect((wraps())):toBe(true)
 					engine.environment.poke(
-						(input :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(input),
 						"PreferredInput",
 						E.PreferredInput.KeyboardAndMouse
 					)
-					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "MouseEnabled", true)
-					engine.environment.poke((input :: unknown) :: VerifyRoblox.Instance, "TouchEnabled", false)
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "MouseEnabled", true)
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
 					Verify.expect((height())):toBe(44)
 					Verify.expect((wraps())):toBe(false)
 					stop()
@@ -3742,7 +3670,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node:FindFirstChild("Body") :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node:FindFirstChild("Body")),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(300, 400)
 				)
@@ -3787,7 +3715,7 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local column = node:FindFirstChild("Header"):FindFirstChild("label")
 				engine.environment.poke(
-					(column :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(column),
 					"AbsoluteSize",
 					engine.types.Vector2.new(100, 40)
 				)
@@ -3824,7 +3752,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 				local E, V2 = engine.types.Enum, engine.types.Vector2
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					E.PreferredInput.Touch
 				)
@@ -3842,7 +3770,7 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local header = node:FindFirstChild("Header")
 				local column = header:FindFirstChild("label")
-				engine.environment.poke((column :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(180, 44))
+				engine.environment.poke(VerifyRoblox.assertInstance(column), "AbsoluteSize", V2.new(180, 44))
 				local detector = column:FindFirstChild("Resize"):FindFirstChildWhichIsA("UIDragDetector")
 				Verify.expect(column.ZIndex > header:FindFirstChild("kind").ZIndex):toBe(true)
 				detector.DragStart:Fire(V2.new(180, 0))
@@ -3872,7 +3800,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(200, 200)
 					)
@@ -3913,7 +3841,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(200, 120)
 					)
@@ -3961,7 +3889,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(200, 120)
 					)
@@ -4016,7 +3944,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(200, 100)
 					)
@@ -4044,16 +3972,8 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, _, _, ctx = setup({ userInputService = {} })
 				local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
 				local page = engine.new("ScrollingFrame")
-				engine.environment.poke(
-					(page :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(200, 110)
-				)
-				engine.environment.poke(
-					(page :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteCanvasSize",
-					V2.new(200, 600)
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(page), "AbsoluteWindowSize", V2.new(200, 110))
+				engine.environment.poke(VerifyRoblox.assertInstance(page), "AbsoluteCanvasSize", V2.new(200, 600))
 				local stop, node: any = runtime.mount(function()
 					return UI.VirtualList({
 						from = records(20),
@@ -4066,11 +3986,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					})
 				end, page)
-				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(200, 100)
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(200, 100))
 				nativeDrag.press(node:FindFirstChild("1", true):FindFirstChild("Action", true), {
 					UserInputType = E.UserInputType.MouseButton1,
 					Position = V3.new(50, 10, 0),
@@ -4107,12 +4023,8 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					})
 				end, target)
-				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(300, 100)
-				)
-				engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(300, 100))
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(300, 100))
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(300, 100))
 				local input: any = assert(ctx.config.userInputService)
 				local function mouse(kind, x)
 					return { UserInputType = kind, Position = V3.new(x, 50, 0) }
@@ -4158,12 +4070,8 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					})
 				end, target)
-				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(300, 100)
-				)
-				engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(300, 100))
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(300, 100))
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(300, 100))
 				local input: any = assert(ctx.config.userInputService)
 				local function mouse(kind, x)
 					return { UserInputType = kind, Position = V3.new(x, 50, 0) }
@@ -4229,15 +4137,11 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node:FindFirstChild("LayoutUnit") :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node:FindFirstChild("LayoutUnit")),
 						"AbsoluteSize",
 						V2.new(2, 2)
 					)
-					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
-						"AbsoluteWindowSize",
-						V2.new(400, 400)
-					)
+					engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(400, 400))
 					local input: any = assert(ctx.config.userInputService)
 					nativeDrag.press(node:FindFirstChild("1", true):FindFirstChild("Action", true), {
 						UserInputType = E.UserInputType.MouseButton1,
@@ -4290,18 +4194,14 @@ return function(verifyHarness: Verify.Harness)
 						>)
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteSize",
 						if horizontal then V2.new(300, 330) else V2.new(330, 300)
 					)
-					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
-						"AbsoluteWindowSize",
-						node.AbsoluteSize
-					)
+					engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", node.AbsoluteSize)
 					local row = node:FindFirstChild("1", true)
 					engine.environment.poke(
-						(row:FindFirstChild("Reorderable", true) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(row:FindFirstChild("Reorderable", true)),
 						"AbsoluteSize",
 						if horizontal then V2.new(80, 100) else V2.new(100, 80)
 					)
@@ -4371,14 +4271,14 @@ return function(verifyHarness: Verify.Harness)
 							})
 						end, target)
 						engine.environment.poke(
-							(node :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(node),
 							"AbsoluteWindowSize",
 							engine.types.Vector2.new(200, 120)
 						)
 						local row = node:FindFirstChild("1", true)
 						local reorderable = row:FindFirstChild("Reorderable", true)
 						engine.environment.poke(
-							(reorderable :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(reorderable),
 							"AbsoluteSize",
 							engine.types.Vector2.new(200, 20)
 						)
@@ -4439,7 +4339,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 40)
 				)
@@ -4497,7 +4397,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 40)
 				)
@@ -4539,7 +4439,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 40)
 				)
@@ -4598,12 +4498,12 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end, target)
-				engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(300, 40))
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(300, 40))
 				local grip = node:FindFirstChild("SwipeGrip", true)
 				local detector = grip:FindFirstChildWhichIsA("UIDragDetector")
 				Verify.expect(detector.Enabled):toBe(true)
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					E.PreferredInput.Touch
 				)
@@ -4647,7 +4547,7 @@ return function(verifyHarness: Verify.Harness)
 					local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 					local E, V2 = engine.types.Enum, engine.types.Vector2
 					engine.environment.poke(
-						(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"PreferredInput",
 						E.PreferredInput.Touch
 					)
@@ -4670,7 +4570,7 @@ return function(verifyHarness: Verify.Harness)
 							},
 						})
 					end, target)
-					engine.environment.poke((node :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(300, 44))
+					engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(300, 44))
 					local grip = node:FindFirstChild("SwipeGrip", true)
 					grip.TouchPan:Fire({ V2.new(280, 20) }, V2.new(-20, 0), V2.zero, E.UserInputState.Begin)
 					grip.TouchPan:Fire({ V2.new(220, 20) }, V2.new(-80, 0), V2.zero, E.UserInputState.Change)
@@ -4699,7 +4599,7 @@ return function(verifyHarness: Verify.Harness)
 					local E = engine.types.Enum
 					local V2 = engine.types.Vector2
 					engine.environment.poke(
-						(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"PreferredInput",
 						E.PreferredInput.Touch
 					)
@@ -4723,7 +4623,7 @@ return function(verifyHarness: Verify.Harness)
 					local body = page:FindFirstChild("Body")
 					scrollLock.own(body)
 					local row = body:FindFirstChild("Row")
-					engine.environment.poke((row :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(300, 40))
+					engine.environment.poke(VerifyRoblox.assertInstance(row), "AbsoluteSize", V2.new(300, 40))
 					local grip = row:FindFirstChild("SwipeGrip", true)
 					local function pan(to: any, from: any, state: any)
 						grip.TouchPan:Fire({ to }, to - from, V2.zero, state)
@@ -4795,12 +4695,12 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 60)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -4844,12 +4744,12 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -4907,7 +4807,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
 				local E, V2, V3 = engine.types.Enum, engine.types.Vector2, engine.types.Vector3
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					E.PreferredInput.Touch
 				)
@@ -4928,13 +4828,9 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end, target)
 				local body = node:FindFirstChild("Body")
+				engine.environment.poke(VerifyRoblox.assertInstance(body), "AbsoluteWindowSize", V2.new(200, 100))
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(200, 100)
-				)
-				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -4982,12 +4878,12 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -5043,7 +4939,7 @@ return function(verifyHarness: Verify.Harness)
 					local root = (node :: unknown) :: Frame
 					local geometry = (root :: unknown) :: { AbsoluteSize: Vector2 }
 					engine.environment.poke(
-						(geometry :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(geometry),
 						"AbsoluteSize",
 						engine.types.Vector2.new(300, 40)
 					)
@@ -5095,7 +4991,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local stop, node: any = mount()
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 40)
 				)
@@ -5112,7 +5008,7 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 				local cancel, pending: any = mount()
 				engine.environment.poke(
-					(pending :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(pending),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 40)
 				)
@@ -5181,7 +5077,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 40)
 				)
@@ -5227,7 +5123,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 40)
 				)
@@ -5341,12 +5237,12 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -5401,12 +5297,12 @@ return function(verifyHarness: Verify.Harness)
 					local row = body:FindFirstChild("1", true)
 					local cell = row:FindFirstChild("third", true)
 					engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(250, 40)
 					)
 					engine.environment.poke(
-						(body.Parent :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body.Parent),
 						"AbsoluteSize",
 						body.AbsoluteWindowSize
 					)
@@ -5416,12 +5312,12 @@ return function(verifyHarness: Verify.Harness)
 					local fullValue = target:FindFirstChild("Popup", true):FindFirstChild("third", true)
 					Verify.expect(fullValue ~= nil):toBe(true)
 					engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(400, 40)
 					)
 					engine.environment.poke(
-						(body.Parent :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body.Parent),
 						"AbsoluteSize",
 						body.AbsoluteWindowSize
 					)
@@ -5452,7 +5348,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -5513,13 +5409,13 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				local row = node:FindFirstChild("1", true):FindFirstChild("Content"):GetChildren()[1]
 				engine.environment.poke(
-					(row :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(row),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 60)
 				)
@@ -5567,7 +5463,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 40)
 				)
@@ -5634,7 +5530,7 @@ return function(verifyHarness: Verify.Harness)
 				local node = (mounted :: unknown) :: Frame
 				local body = (assert(node:FindFirstChild("Body")) :: unknown) :: { AbsoluteWindowSize: Vector2 }
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 200)
 				)
@@ -5643,7 +5539,7 @@ return function(verifyHarness: Verify.Harness)
 					assert(node:FindFirstChild("DelayedHeight", true)) :: unknown
 				) :: { AbsoluteSize: Vector2 }
 				engine.environment.poke(
-					(measured :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(measured),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 60)
 				)
@@ -5652,7 +5548,7 @@ return function(verifyHarness: Verify.Harness)
 				observed:set(engine.types.Vector2.zero)
 				Verify.expect(assert(controls.placementOf)(2).offset):toBe(76)
 				engine.environment.poke(
-					(measured :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(measured),
 					"AbsoluteSize",
 					engine.types.Vector2.zero
 				)
@@ -5685,32 +5581,32 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
 				local row = body:FindFirstChild("1", true)
 				Verify.expect(assert(controls.placementOf)(2).offset):toBe(40)
 				engine.environment.poke(
-					(row:FindFirstChild("Value", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(row:FindFirstChild("Value", true)),
 					"TextBounds",
 					engine.types.Vector2.new(100, 60)
 				)
 				Verify.expect(assert(controls.placementOf)(2).offset):toBe(76)
 				engine.environment.poke(
-					(node:FindFirstChild("Sort", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node:FindFirstChild("Sort", true)),
 					"TextBounds",
 					engine.types.Vector2.new(100, 70)
 				)
 				Verify.expect(body.Position.Y.Offset):toBe(86)
 
 				engine.environment.poke(
-					(node:FindFirstChild("LayoutUnit") :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node:FindFirstChild("LayoutUnit")),
 					"AbsoluteSize",
 					engine.types.Vector2.new(2, 2)
 				)
@@ -5718,13 +5614,13 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(assert(controls.placementOf)(2).offset):toBe(46)
 				local header = node:FindFirstChild("Header")
 				engine.environment.poke(
-					(header:FindFirstChildWhichIsA("UIListLayout") :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(header:FindFirstChildWhichIsA("UIListLayout")),
 					"AbsoluteContentSize",
 					engine.types.Vector2.new(800, 102)
 				)
 				for _, label in node:GetDescendants() do
 					if label.Name == "Undisclosed" then
-						engine.environment.poke((label :: unknown) :: VerifyRoblox.Instance, "TextFits", true)
+						engine.environment.poke(VerifyRoblox.assertInstance(label), "TextFits", true)
 					end
 				end
 				Verify.expect(body.CanvasSize.X.Offset):toBe(400)
@@ -5737,46 +5633,42 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(body.CanvasPosition.X):toBe(60)
 				body.CanvasPosition = engine.types.Vector2.zero
 				engine.environment.poke(
-					(node:FindFirstChild("LayoutUnit") :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node:FindFirstChild("LayoutUnit")),
 					"AbsoluteSize",
 					engine.types.Vector2.one
 				)
 
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.Touch
 				)
 				engine.environment.poke(
-					(row:FindFirstChild("Value", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(row:FindFirstChild("Value", true)),
 					"TextBounds",
 					engine.types.Vector2.new(100, 8)
 				)
 				Verify.expect(assert(controls.placementOf)(2).offset):toBe(56)
 				engine.environment.poke(
-					(row:FindFirstChild("Value", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(row:FindFirstChild("Value", true)),
 					"TextBounds",
 					engine.types.Vector2.new(100, 60)
 				)
 				Verify.expect(assert(controls.placementOf)(2).offset):toBe(76)
 				Verify.expect((body:FindFirstChild("1", true))):toBe(row)
 				engine.environment.poke(
-					(node:FindFirstChild("Sort", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node:FindFirstChild("Sort", true)),
 					"TextBounds",
 					engine.types.Vector2.new(100, 20)
 				)
 				Verify.expect(body.Position.Y.Offset):toBe(44)
 				local value = row:FindFirstChild("Value", true)
 				value.Text = ""
-				engine.environment.poke(
-					(value :: unknown) :: VerifyRoblox.Instance,
-					"TextBounds",
-					engine.types.Vector2.zero
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(value), "TextBounds", engine.types.Vector2.zero)
 				Verify.expect(assert(controls.placementOf)(2).offset):toBe(56)
 				value.Text = "Restored"
 				engine.environment.poke(
-					(value :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(value),
 					"TextBounds",
 					engine.types.Vector2.new(100, 60)
 				)
@@ -5806,24 +5698,24 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(actions :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(actions),
 					"AbsoluteSize",
 					engine.types.Vector2.new(500, 40)
 				)
 				engine.environment.poke(
-					(actions:FindFirstChild("Remove", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(actions:FindFirstChild("Remove", true)),
 					"TextBounds",
 					engine.types.Vector2.new(210.667, 20)
 				)
 				Verify.expect(actions:FindFirstChild("trailing").Size.X.Offset):toBe(243)
 				engine.environment.poke(
-					(actions:FindFirstChild("Delete", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(actions:FindFirstChild("Delete", true)),
 					"TextBounds",
 					engine.types.Vector2.new(190.667, 20)
 				)
 				Verify.expect(actions:FindFirstChild("Content").Position.X.Offset):toBe(-20)
 				engine.environment.poke(
-					(actions:FindFirstChild("Remove", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(actions:FindFirstChild("Remove", true)),
 					"TextBounds",
 					engine.types.Vector2.new(30, 20)
 				)
@@ -5841,24 +5733,24 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(250, 100)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
 				local row = body:FindFirstChild("1", true)
 				engine.environment.poke(
-					(row:FindFirstChild("Undisclosed", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(row:FindFirstChild("Undisclosed", true)),
 					"TextFits",
 					true
 				)
 				Verify.expect((row:FindFirstChild("Details", true))):toBeNil()
 				engine.environment.poke(
-					(row:FindFirstChild("Undisclosed", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(row:FindFirstChild("Undisclosed", true)),
 					"TextFits",
 					false
 				)
@@ -5869,7 +5761,7 @@ return function(verifyHarness: Verify.Harness)
 				source:set({ { id = 1, label = "Updated entire value" } })
 				Verify.expect(expanded:FindFirstChild("FullValue", true).Text):toBe("Updated entire value")
 				engine.environment.poke(
-					(row:FindFirstChild("Undisclosed", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(row:FindFirstChild("Undisclosed", true)),
 					"TextFits",
 					true
 				)
@@ -5902,12 +5794,12 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -5966,11 +5858,7 @@ return function(verifyHarness: Verify.Harness)
 				detector = handle:FindFirstChildWhichIsA("UIDragDetector")
 				handle.InputBegan:Fire(input)
 				detector.DragStart:Fire(engine.types.Vector2.new(10, 10))
-				engine.environment.poke(
-					(ctx.config.userInputService :: unknown) :: VerifyRoblox.Instance,
-					"MouseEnabled",
-					false
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(ctx.config.userInputService), "MouseEnabled", false)
 				Verify.expect((node:FindFirstChild("DropLine", true))):toBeNil()
 				local injectedInputEnded = assert(ctx.config.userInputService).InputEnded :: any
 				injectedInputEnded:Fire(input)
@@ -6015,7 +5903,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -6069,7 +5957,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -6100,7 +5988,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(measured :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(measured),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -6124,7 +6012,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(grid :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(grid),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(100, 200)
 				)
@@ -6148,7 +6036,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(large :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(large),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -6170,12 +6058,12 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteCanvasSize",
 					engine.types.Vector2.new(200, 800)
 				)
@@ -6214,7 +6102,7 @@ return function(verifyHarness: Verify.Harness)
 						})
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(200, 100)
 					)
@@ -6252,7 +6140,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -6302,7 +6190,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 40)
 				)
@@ -6366,7 +6254,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -6404,7 +6292,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -6460,7 +6348,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -6502,7 +6390,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(60, 60)
 				)
@@ -6547,7 +6435,7 @@ return function(verifyHarness: Verify.Harness)
 				local node = (mounted :: unknown) :: Frame
 				local geometry = (node :: unknown) :: { AbsoluteSize: Vector2 }
 				engine.environment.poke(
-					(geometry :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(geometry),
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 200)
 				)
@@ -6556,13 +6444,13 @@ return function(verifyHarness: Verify.Harness)
 					if child:IsA("GuiObject") then
 						local box = (child :: unknown) :: { AbsoluteSize: Vector2, TextBounds: Vector2 }
 						engine.environment.poke(
-							(box :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(box),
 							"AbsoluteSize",
 							engine.types.Vector2.new(100, 20)
 						)
 						if child:IsA("TextLabel") or child:IsA("TextButton") then
 							engine.environment.poke(
-								(box :: unknown) :: VerifyRoblox.Instance,
+								VerifyRoblox.assertInstance(box),
 								"TextBounds",
 								engine.types.Vector2.new(50, 16)
 							)
@@ -6573,7 +6461,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(node:FindFirstChild("FadePaint") ~= nil):toBe(true)
 				local columns = (header :: unknown) :: { AbsoluteSize: Vector2 }
 				engine.environment.poke(
-					(columns :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(columns),
 					"AbsoluteSize",
 					engine.types.Vector2.new(200, 20)
 				)
@@ -6607,12 +6495,12 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(300, 200)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -6629,7 +6517,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((band:HasTag("facet-tablehead"))):toBe(true)
 				Verify.expect(node:FindFirstChild("Header").BackgroundTransparency):toBe(1)
 				engine.environment.poke(
-					(row:FindFirstChild("Undisclosed", true) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(row:FindFirstChild("Undisclosed", true)),
 					"TextFits",
 					false
 				)
@@ -6666,23 +6554,23 @@ return function(verifyHarness: Verify.Harness)
 				local unit = node:FindFirstChild("LayoutUnit")
 				Verify.expect(unit ~= nil):toBe(true)
 				engine.environment.poke(
-					(unit :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(unit),
 					"AbsoluteSize",
 					engine.types.Vector2.new(0.8, 0.8)
 				)
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(800, 200)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
 				for _, label in node:GetDescendants() do
 					if label.Name == "Undisclosed" then
-						engine.environment.poke((label :: unknown) :: VerifyRoblox.Instance, "TextFits", true)
+						engine.environment.poke(VerifyRoblox.assertInstance(label), "TextFits", true)
 					end
 				end
 				Verify.expect(node:FindFirstChild("Header").Size.X.Offset):toBe(1000)
@@ -6715,28 +6603,20 @@ return function(verifyHarness: Verify.Harness)
 				local header = assert(node:FindFirstChild("Header")) :: GuiObject
 				body.ScrollBarThickness = 6
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteSize",
 					engine.types.Vector2.new(180, 200)
 				)
-				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					body.AbsoluteSize
-				)
-				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteSize",
-					body.AbsoluteSize
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(body), "AbsoluteWindowSize", body.AbsoluteSize)
+				engine.environment.poke(VerifyRoblox.assertInstance(body.Parent), "AbsoluteSize", body.AbsoluteSize)
 				for _, label in node:GetDescendants() do
 					if label.Name == "Undisclosed" then
-						engine.environment.poke((label :: unknown) :: VerifyRoblox.Instance, "TextFits", true)
+						engine.environment.poke(VerifyRoblox.assertInstance(label), "TextFits", true)
 					end
 				end
 				Verify.expect(header.Size.X.Offset):toBe(180)
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(174, 200)
 				)
@@ -6790,12 +6670,12 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(400, 200)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -6846,20 +6726,16 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				local body = node:FindFirstChild("Body")
+				engine.environment.poke(VerifyRoblox.assertInstance(body), "AbsoluteWindowSize", V2.new(400, 200))
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(400, 200)
-				)
-				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
 				local row = body:FindFirstChild("Items"):FindFirstChild("1")
 				local grip = row:FindFirstChild("SwipeGrip", true)
 				engine.environment.poke(
-					(grip.Parent.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(grip.Parent.Parent),
 					"AbsoluteSize",
 					V2.new(400, 40)
 				)
@@ -6877,7 +6753,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(node:FindFirstChild("DragImage", true)):toBeNil()
 				nativeDrag.finish(assert(ctx.config.userInputService), press)
 				engine.environment.poke(
-					(ctx.config.userInputService :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(ctx.config.userInputService),
 					"PreferredInput",
 					E.PreferredInput.Touch
 				)
@@ -6916,12 +6792,12 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(400, 200)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -6929,7 +6805,7 @@ return function(verifyHarness: Verify.Harness)
 				local grip = rowNode:FindFirstChild("SwipeGrip", true)
 				local content = grip.Parent
 				engine.environment.poke(
-					(content.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(content.Parent),
 					"AbsoluteSize",
 					engine.types.Vector2.new(400, 40)
 				)
@@ -6994,13 +6870,9 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				local body = node:FindFirstChild("Body")
+				engine.environment.poke(VerifyRoblox.assertInstance(body), "AbsoluteWindowSize", V2.new(400, 200))
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(400, 200)
-				)
-				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -7070,12 +6942,12 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(400, 300)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -7112,7 +6984,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(actions :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(actions),
 					"AbsoluteSize",
 					engine.types.Vector2.new(500, 40)
 				)
@@ -7131,7 +7003,7 @@ return function(verifyHarness: Verify.Harness)
 			local engine, runtime, UI, target, gui, ctx = setup({ userInputService = {} })
 			local service: any = assert(ctx.config.userInputService)
 			engine.environment.poke(
-				(service :: unknown) :: VerifyRoblox.Instance,
+				VerifyRoblox.assertInstance(service),
 				"PreferredInput",
 				engine.types.Enum.PreferredInput:FromName(input)
 			)
@@ -7167,15 +7039,11 @@ return function(verifyHarness: Verify.Harness)
 			end, target)
 			local body = if list then node else node:FindFirstChild("Body")
 			engine.environment.poke(
-				(body :: unknown) :: VerifyRoblox.Instance,
+				VerifyRoblox.assertInstance(body),
 				"AbsoluteWindowSize",
 				engine.types.Vector2.new(300, 200)
 			)
-			engine.environment.poke(
-				(body.Parent :: unknown) :: VerifyRoblox.Instance,
-				"AbsoluteSize",
-				body.AbsoluteWindowSize
-			)
+			engine.environment.poke(VerifyRoblox.assertInstance(body.Parent), "AbsoluteSize", body.AbsoluteWindowSize)
 			local function pressed(name: string)
 				target:FindFirstChild("Facet" .. name):FindFirstChild(name).Pressed:Fire()
 			end
@@ -7458,7 +7326,7 @@ return function(verifyHarness: Verify.Harness)
 					delete.Activated:Fire({ UserInputType = w.engine.types.Enum.UserInputType.Touch })
 					Verify.expect(w.deletes):toEqual({})
 					w.engine.environment.poke(
-						(w.service :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(w.service),
 						"PreferredInput",
 						w.engine.types.Enum.PreferredInput.KeyboardAndMouse
 					)
@@ -7597,7 +7465,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 				local V2 = engine.types.Vector2
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.Touch
 				)
@@ -7618,20 +7486,16 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				local body = node:FindFirstChild("Body")
+				engine.environment.poke(VerifyRoblox.assertInstance(body), "AbsoluteWindowSize", V2.new(359, 200))
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(359, 200)
-				)
-				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
 				local header = node:FindFirstChild("Header")
 				for _, label in node:GetDescendants() do
 					if label.Name == "Undisclosed" then
-						engine.environment.poke((label :: unknown) :: VerifyRoblox.Instance, "TextFits", true)
+						engine.environment.poke(VerifyRoblox.assertInstance(label), "TextFits", true)
 					end
 				end
 				Verify.expect(header.Size.X.Offset):toBe(359)
@@ -7640,13 +7504,13 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(header:FindFirstChild("name"):FindFirstChildWhichIsA("UISizeConstraint").MinSize.X)
 					:toBe(90)
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.KeyboardAndMouse
 				)
 				Verify.expect(header.Size.X.Offset):toBe(271)
 				engine.environment.poke(
-					(header:FindFirstChildWhichIsA("UIListLayout") :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(header:FindFirstChildWhichIsA("UIListLayout")),
 					"AbsoluteContentSize",
 					V2.new(306, 44)
 				)
@@ -7673,7 +7537,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.Touch
 				)
@@ -7686,12 +7550,12 @@ return function(verifyHarness: Verify.Harness)
 				end, target)
 				local body = node:FindFirstChild("Body")
 				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(300, 200)
 				)
 				engine.environment.poke(
-					(body.Parent :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(body.Parent),
 					"AbsoluteSize",
 					body.AbsoluteWindowSize
 				)
@@ -7701,16 +7565,16 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(word.TextWrapped):toBe(false)
 				Verify.expect(word.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
 				Verify.expect(value.TextTruncate):toBe(engine.types.Enum.TextTruncate.AtEnd)
-				engine.environment.poke((word :: unknown) :: VerifyRoblox.Instance, "TextFits", true)
+				engine.environment.poke(VerifyRoblox.assertInstance(word), "TextFits", true)
 				Verify.expect(value.TextWrapped):toBe(true)
-				engine.environment.poke((word :: unknown) :: VerifyRoblox.Instance, "TextFits", false)
+				engine.environment.poke(VerifyRoblox.assertInstance(word), "TextFits", false)
 				Verify.expect(value.TextWrapped):toBe(false)
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.KeyboardAndMouse
 				)
-				engine.environment.poke((word :: unknown) :: VerifyRoblox.Instance, "TextFits", true)
+				engine.environment.poke(VerifyRoblox.assertInstance(word), "TextFits", true)
 				Verify.expect(value.TextWrapped):toBe(false)
 				stop()
 				runtime:dispose()
@@ -7725,7 +7589,7 @@ return function(verifyHarness: Verify.Harness)
 					local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 					local V2 = engine.types.Vector2
 					engine.environment.poke(
-						(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"PreferredInput",
 						engine.types.Enum.PreferredInput.Touch
 					)
@@ -7737,19 +7601,19 @@ return function(verifyHarness: Verify.Harness)
 						return UI.Table({ from = records(3), key = key, itemSize = 44, columns = columns })
 					end, target)
 					engine.environment.poke(
-						(node:FindFirstChild("Body") :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node:FindFirstChild("Body")),
 						"AbsoluteWindowSize",
 						V2.new(200, 200)
 					)
 					local header = node:FindFirstChild("Header")
 					for _, label in node:GetDescendants() do
 						if label.Name == "Undisclosed" then
-							engine.environment.poke((label :: unknown) :: VerifyRoblox.Instance, "TextFits", true)
+							engine.environment.poke(VerifyRoblox.assertInstance(label), "TextFits", true)
 						end
 					end
 					Verify.expect(header.Size.X.Offset):toBe(200)
 					engine.environment.poke(
-						(header:FindFirstChildWhichIsA("UIListLayout") :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(header:FindFirstChildWhichIsA("UIListLayout")),
 						"AbsoluteContentSize",
 						V2.new(6 * 48, 44)
 					)
@@ -7822,7 +7686,7 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					local body = if kind == "Table" then node:FindFirstChild("Body") else node
 					engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(300, 200)
 					)
@@ -7923,12 +7787,12 @@ return function(verifyHarness: Verify.Harness)
 				clip.Parent = target
 				clip.ClipsDescendants = true
 				engine.environment.poke(
-					(clip :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(clip),
 					"AbsolutePosition",
 					engine.types.Vector2.zero
 				)
 				engine.environment.poke(
-					(clip :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(clip),
 					"AbsoluteSize",
 					engine.types.Vector2.new(430, 874)
 				)
@@ -7947,12 +7811,12 @@ return function(verifyHarness: Verify.Harness)
 				editing:set(false)
 				gui.SelectedObject = nil
 				engine.environment.poke(
-					(field :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(field),
 					"AbsolutePosition",
 					engine.types.Vector2.new(-121.67, 837)
 				)
 				engine.environment.poke(
-					(field :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(field),
 					"AbsoluteSize",
 					engine.types.Vector2.new(20, 30)
 				)
@@ -7960,7 +7824,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(field:IsFocused()):toBe(false)
 				Verify.expect(gui.SelectedObject):toBeNil()
 				engine.environment.poke(
-					(field :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(field),
 					"AbsolutePosition",
 					engine.types.Vector2.new(32, 100)
 				)
@@ -7969,12 +7833,12 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(gui.SelectedObject):toBe(field)
 				local hit = assert(node:FindFirstChild("EditLabel", true)) :: TextButton
 				engine.environment.poke(
-					(hit :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(hit),
 					"AbsolutePosition",
 					engine.types.Vector2.new(32, 100)
 				)
 				engine.environment.poke(
-					(hit :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(hit),
 					"AbsoluteSize",
 					engine.types.Vector2.new(61, 44)
 				)
@@ -7982,12 +7846,12 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(gui.SelectedObject):toBe(hit)
 				editing:set(true)
 				engine.environment.poke(
-					(field :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(field),
 					"AbsolutePosition",
 					engine.types.Vector2.new(-121.67, 837)
 				)
 				engine.environment.poke(
-					(hit :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(hit),
 					"AbsolutePosition",
 					engine.types.Vector2.new(-121.67, 837)
 				)
@@ -8017,19 +7881,19 @@ return function(verifyHarness: Verify.Harness)
 				local input = assert(ctx.config.userInputService)
 				Verify.expect(compactHeight < 44):toBe(true)
 				engine.environment.poke(
-					(input :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(input),
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.Touch
 				)
 				Verify.expect(hit.Size.Y.Offset >= 44):toBe(true)
 				engine.environment.poke(
-					(input :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(input),
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.Gamepad
 				)
 				Verify.expect(hit.Size.Y.Offset >= 44):toBe(true)
 				engine.environment.poke(
-					(input :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(input),
 					"PreferredInput",
 					engine.types.Enum.PreferredInput.KeyboardAndMouse
 				)
@@ -8131,24 +7995,24 @@ return function(verifyHarness: Verify.Harness)
 					return UI.VirtualGrid(props)
 				end, target)
 				engine.environment.poke(
-					(grid :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(grid),
 					"AbsoluteSize",
 					engine.types.Vector2.new(500, 300)
 				)
 				engine.environment.poke(
-					(grid :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(grid),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(500, 300)
 				)
 				Verify.expect(controls.placementOf(3).offset):toBe(0)
 				Verify.expect(controls.placementOf(4).offset > 0):toBe(true)
 				engine.environment.poke(
-					(grid :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(grid),
 					"AbsoluteSize",
 					engine.types.Vector2.new(320, 300)
 				)
 				engine.environment.poke(
-					(grid :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(grid),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(320, 300)
 				)
@@ -8271,7 +8135,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target, _, ctx = setup({ userInputService = {} })
 				local E, V2, D2 = engine.types.Enum, engine.types.Vector2, engine.types.UDim2
 				engine.environment.poke(
-					(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 					"PreferredInput",
 					E.PreferredInput.Touch
 				)
@@ -8295,15 +8159,11 @@ return function(verifyHarness: Verify.Harness)
 					}
 					return UI.VirtualGrid(props)
 				end, target)
-				engine.environment.poke((grid :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(320, 300))
-				engine.environment.poke(
-					(grid :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(320, 300)
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(grid), "AbsoluteSize", V2.new(320, 300))
+				engine.environment.poke(VerifyRoblox.assertInstance(grid), "AbsoluteWindowSize", V2.new(320, 300))
 				local row = grid:FindFirstChild("1", true)
 				local tile = row:FindFirstChild("Tile", true)
-				engine.environment.poke((tile :: unknown) :: VerifyRoblox.Instance, "AbsoluteSize", V2.new(160, 80))
+				engine.environment.poke(VerifyRoblox.assertInstance(tile), "AbsoluteSize", V2.new(160, 80))
 				local cells = row:FindFirstChild("Cells", true)
 				Verify.expect(cells.Position):toBe(D2.fromOffset(0, 44))
 				Verify.expect(cells.Size):toBe(D2.new(1, 0, 1, -44))
@@ -8487,15 +8347,11 @@ return function(verifyHarness: Verify.Harness)
 						return UI.VirtualGrid(props)
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(300, 300)
 					)
-					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
-						"AbsoluteSize",
-						node.AbsoluteWindowSize
-					)
+					engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", node.AbsoluteWindowSize)
 					local function press(name)
 						local action = target:FindFirstChild("Facet" .. name)
 						Verify.expect(action.Enabled):toBe(true)
@@ -8503,7 +8359,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					local handle = node:FindFirstChild("1", true):FindFirstChild("Move", true)
 					engine.environment.poke(
-						(handle.Parent :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(handle.Parent),
 						"AbsoluteSize",
 						engine.types.Vector2.new(100, 40)
 					)
@@ -8562,15 +8418,11 @@ return function(verifyHarness: Verify.Harness)
 						return UI.VirtualGrid(props)
 					end, target)
 					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(node),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(300, 300)
 					)
-					engine.environment.poke(
-						(node :: unknown) :: VerifyRoblox.Instance,
-						"AbsoluteSize",
-						node.AbsoluteWindowSize
-					)
+					engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", node.AbsoluteWindowSize)
 					local function press(name)
 						target:FindFirstChild("Facet" .. name):FindFirstChild(name).Pressed:Fire()
 					end
@@ -8640,7 +8492,7 @@ return function(verifyHarness: Verify.Harness)
 					return UI.VirtualGrid(props)
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 100)
 				)
@@ -8686,7 +8538,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 200)
 				)
@@ -8743,7 +8595,7 @@ return function(verifyHarness: Verify.Harness)
 					return UI.VirtualList(props)
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 200)
 				)
@@ -8829,19 +8681,19 @@ return function(verifyHarness: Verify.Harness)
 					card.InputBegan:Fire(press)
 					local detector = card:FindFirstChild("FacetCollectionDrag")
 					engine.environment.poke(
-						(input :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(input),
 						"PreferredInput",
 						E.PreferredInput.Gamepad
 					)
 					Verify.expect(detector.Enabled):toBe(false)
 					engine.environment.poke(
-						(input :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(input),
 						"PreferredInput",
 						E.PreferredInput.Touch
 					)
 					Verify.expect(detector.Enabled):toBe(false)
 					engine.environment.poke(
-						(input :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(input),
 						"PreferredInput",
 						E.PreferredInput.KeyboardAndMouse
 					)
@@ -8894,11 +8746,7 @@ return function(verifyHarness: Verify.Harness)
 							end,
 						}
 					end, target)
-					engine.environment.poke(
-						(list :: unknown) :: VerifyRoblox.Instance,
-						"AbsoluteWindowSize",
-						V2.new(200, 100)
-					)
+					engine.environment.poke(VerifyRoblox.assertInstance(list), "AbsoluteWindowSize", V2.new(200, 100))
 					local input: any = assert(ctx.config.userInputService)
 					local row = list:FindFirstChild("2", true):FindFirstChild("Action", true)
 					local detector = row:FindFirstChild("FacetCollectionDrag")
@@ -8951,11 +8799,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end, target)
-				engine.environment.poke(
-					(list :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(200, 100)
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(list), "AbsoluteWindowSize", V2.new(200, 100))
 				local input: any = assert(ctx.config.userInputService)
 				local handle = list:FindFirstChild("2", true):FindFirstChild("Move", true)
 				local detector = handle:FindFirstChildWhichIsA("UIDragDetector")
@@ -9044,7 +8888,7 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					local body = node:FindFirstChild("Body")
 					engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(400, 200)
 					)
@@ -9116,12 +8960,12 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					local body = if kind == "Table" then node:FindFirstChild("Body") else node
 					engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteSize",
 						engine.types.Vector2.new(400, 300)
 					)
 					engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						engine.types.Vector2.new(400, 300)
 					)
@@ -9146,7 +8990,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((editing:peek())):toBe(true)
 					editing:set(false)
 					engine.environment.fakeOn(
-						(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"IsKeyDown",
 						function(_, code)
 							return code == E.KeyCode.LeftControl
@@ -9155,7 +8999,7 @@ return function(verifyHarness: Verify.Harness)
 					click(E.UserInputType.MouseButton1)
 					Verify.expect((editing:peek())):toBe(false)
 					engine.environment.fakeOn(
-						(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"IsKeyDown",
 						function()
 							return false
@@ -9174,7 +9018,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((editing:peek())):toBe(true)
 					editing:set(false)
 					engine.environment.poke(
-						(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"PreferredInput",
 						E.PreferredInput.Gamepad
 					)
@@ -9186,7 +9030,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((editing:peek())):toBe(false)
 					Verify.expect(gui.SelectedObject):toBe(row:FindFirstChild("RowHit", true))
 					engine.environment.poke(
-						(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"PreferredInput",
 						E.PreferredInput.Touch
 					)
@@ -9208,14 +9052,14 @@ return function(verifyHarness: Verify.Harness)
 					edits[1].onActivate()
 					Verify.expect((editing:peek())):toBe(false)
 					engine.environment.poke(
-						(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"PreferredInput",
 						E.PreferredInput.Touch
 					)
 					Verify.expect(row:FindFirstChild("CellActions", true).Visible):toBe(true)
 					local actions = row:FindFirstChild("CellActions", true)
 					engine.environment.poke(
-						(actions :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(actions),
 						"AbsoluteSize",
 						engine.types.Vector2.new(70, 46)
 					)
@@ -9227,7 +9071,7 @@ return function(verifyHarness: Verify.Harness)
 
 					Verify.expect(row:FindFirstChild("SwipeGrip", true).Visible):toBe(false)
 					engine.environment.poke(
-						(assert(ctx.config.userInputService) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"PreferredInput",
 						E.PreferredInput.KeyboardAndMouse
 					)
@@ -9340,7 +9184,7 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end, target)
 				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
+					VerifyRoblox.assertInstance(node),
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(400, 240)
 				)
@@ -9486,39 +9330,19 @@ return function(verifyHarness: Verify.Harness)
 						local root = node :: any
 						local body = if kind == "Table" then root:FindFirstChild("Body") else root
 						local V2 = engine.types.Vector2
+						engine.environment.poke(VerifyRoblox.assertInstance(body), "AbsolutePosition", V2.new(0, 0))
 						engine.environment.poke(
-							(body :: unknown) :: VerifyRoblox.Instance,
-							"AbsolutePosition",
-							V2.new(0, 0)
-						)
-						engine.environment.poke(
-							(body :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(body),
 							"AbsoluteWindowSize",
 							V2.new(300, 240)
 						)
 						nativeDrag.measure(body, engine.environment)
 						local outer = body:FindFirstChild("2", true)
-						engine.environment.poke(
-							(outer :: unknown) :: VerifyRoblox.Instance,
-							"AbsolutePosition",
-							V2.new(0, 60)
-						)
-						engine.environment.poke(
-							(outer :: unknown) :: VerifyRoblox.Instance,
-							"AbsoluteSize",
-							V2.new(300, 60)
-						)
+						engine.environment.poke(VerifyRoblox.assertInstance(outer), "AbsolutePosition", V2.new(0, 60))
+						engine.environment.poke(VerifyRoblox.assertInstance(outer), "AbsoluteSize", V2.new(300, 60))
 						local row = outer:FindFirstChild("Content")
-						engine.environment.poke(
-							(row :: unknown) :: VerifyRoblox.Instance,
-							"AbsolutePosition",
-							V2.new(0, 60)
-						)
-						engine.environment.poke(
-							(row :: unknown) :: VerifyRoblox.Instance,
-							"AbsoluteSize",
-							V2.new(300, 60)
-						)
+						engine.environment.poke(VerifyRoblox.assertInstance(row), "AbsolutePosition", V2.new(0, 60))
+						engine.environment.poke(VerifyRoblox.assertInstance(row), "AbsoluteSize", V2.new(300, 60))
 						local session = require("../src/ui/drag_session")(ctx)
 						local source = engine.new("TextButton")
 						source.Parent = target
@@ -9593,14 +9417,14 @@ return function(verifyHarness: Verify.Harness)
 		local function services(engine: any): (any, any)
 			local gui = (engine.new("GuiService") :: unknown) :: GuiService
 			gui.TouchControlsEnabled = true
-			engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetInsetArea", function()
+			engine.environment.fakeOn(VerifyRoblox.assertInstance(gui), "GetInsetArea", function()
 				return engine.types.Rect.new(0, 0, 800, 600)
 			end)
 			local input = (engine.new("UserInputService") :: unknown) :: UserInputService
-			engine.environment.fakeOn((input :: unknown) :: VerifyRoblox.Instance, "IsKeyDown", function()
+			engine.environment.fakeOn(VerifyRoblox.assertInstance(input), "IsKeyDown", function()
 				return false
 			end)
-			idleInput(engine, (input :: unknown) :: VerifyRoblox.Instance)
+			idleInput(engine, VerifyRoblox.assertInstance(input))
 			return gui, input
 		end
 
@@ -9790,13 +9614,13 @@ return function(verifyHarness: Verify.Harness)
 							return now
 						end)
 						w.engine.environment.poke(
-							(w.input :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(w.input),
 							"PreferredInput",
 							w.engine.types.Enum.PreferredInput.Touch
 						)
 						local body = w.node:FindFirstChild("Body")
 						w.engine.environment.poke(
-							(body :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(body),
 							"AbsoluteWindowSize",
 							w.engine.types.Vector2.new(width, 240)
 						)
@@ -9804,7 +9628,7 @@ return function(verifyHarness: Verify.Harness)
 						row.Size = w.engine.types.UDim2.fromOffset(width, 44)
 						for _, label in row:GetDescendants() do
 							if label.Name == "Undisclosed" then
-								w.engine.environment.poke((label :: unknown) :: VerifyRoblox.Instance, "TextFits", true)
+								w.engine.environment.poke(VerifyRoblox.assertInstance(label), "TextFits", true)
 							end
 						end
 						local function sample()
@@ -9880,15 +9704,15 @@ return function(verifyHarness: Verify.Harness)
 						end)
 						local body = w.node:FindFirstChild("Body")
 						w.engine.environment.poke(
-							(body :: unknown) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(body),
 							"AbsoluteWindowSize",
 							w.engine.types.Vector2.new(1000, 240)
 						)
 						local cells = cellRow(body:FindFirstChild("Items"):FindFirstChild("row"))
 						w.engine.environment.poke(
-							(
-									cells:FindFirstChild("name"):FindFirstChild("Undisclosed", true) :: unknown
-								) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(
+								cells:FindFirstChild("name"):FindFirstChild("Undisclosed", true)
+							),
 							"TextBounds",
 							w.engine.types.Vector2.new(2000, 16)
 						)
@@ -10003,7 +9827,7 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local body = w.node:FindFirstChild("Body")
 					w.engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						w.engine.types.Vector2.new(1000, 240)
 					)
@@ -10020,7 +9844,7 @@ return function(verifyHarness: Verify.Harness)
 						expectSameColumns(header, cells, { "name" })
 					end
 					w.engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						w.engine.types.Vector2.new(1000, 240)
 					)
@@ -10034,7 +9858,7 @@ return function(verifyHarness: Verify.Harness)
 					columns:set({ { id = "name", width = 300, minWidth = 80, maxWidth = 96 } })
 					sample(80)
 					w.engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						w.engine.types.Vector2.new(0, 240)
 					)
@@ -10078,13 +9902,13 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end)
 					w.engine.environment.poke(
-						(w.input :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(w.input),
 						"PreferredInput",
 						w.engine.types.Enum.PreferredInput.Touch
 					)
 					local body = w.node:FindFirstChild("Body")
 					w.engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						w.engine.types.Vector2.new(390, 240)
 					)
@@ -10092,7 +9916,7 @@ return function(verifyHarness: Verify.Harness)
 					local cells, header = cellRow(row), w.node:FindFirstChild("Header")
 					local primary = cells:FindFirstChild("name")
 					w.engine.environment.poke(
-						(primary:FindFirstChild("Undisclosed", true) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(primary:FindFirstChild("Undisclosed", true)),
 						"TextBounds",
 						w.engine.types.Vector2.new(172, 16)
 					)
@@ -10103,7 +9927,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(cells:FindFirstChild("artist"):FindFirstChild("Value", true).TextWrapped):toBe(false)
 					local rating = cells:FindFirstChild("rating"):FindFirstChild("LocalRating", true)
 					w.engine.environment.poke(
-						(rating :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(rating),
 						"AbsoluteSize",
 						w.engine.types.Vector2.new(144, 100)
 					)
@@ -10116,7 +9940,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(detailChanges):toBe(1)
 					Verify.expect(builds):toBe(1)
 					w.engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						w.engine.types.Vector2.new(800, 240)
 					)
@@ -10146,32 +9970,32 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end)
 					w.engine.environment.poke(
-						(w.input :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(w.input),
 						"PreferredInput",
 						w.engine.types.Enum.PreferredInput.Touch
 					)
 					local body = w.node:FindFirstChild("Body")
 					w.engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						w.engine.types.Vector2.new(353, 240)
 					)
 					local cells = cellRow(body:FindFirstChild("Items"):FindFirstChild("neon"))
 					local primary = cells:FindFirstChild("name")
 					w.engine.environment.poke(
-						(primary:FindFirstChild("Undisclosed", true) :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(primary:FindFirstChild("Undisclosed", true)),
 						"TextBounds",
 						w.engine.types.Vector2.new(116, 16)
 					)
 					local inset = assert(w.node:FindFirstChild("CellTextInsets"))
 					w.engine.environment.poke(
-						(inset :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(inset),
 						"AbsoluteSize",
 						w.engine.types.Vector2.new(24, 16)
 					)
 					Verify.expect(primary.Size.X.Offset >= 140):toBe(true)
 					w.engine.environment.poke(
-						(inset :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(inset),
 						"AbsoluteSize",
 						w.engine.types.Vector2.new(40, 16)
 					)
@@ -10201,16 +10025,16 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local body = w.node:FindFirstChild("Body")
 					w.engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						w.engine.types.Vector2.new(400, 40)
 					)
 					local items = body:FindFirstChild("Items")
 					local row = assert(items:FindFirstChild("wide"))
 					w.engine.environment.poke(
-						(
-								cellRow(row):FindFirstChild("name"):FindFirstChild("Undisclosed", true) :: unknown
-							) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(
+							cellRow(row):FindFirstChild("name"):FindFirstChild("Undisclosed", true)
+						),
 						"TextBounds",
 						w.engine.types.Vector2.new(200, 16)
 					)
@@ -10241,7 +10065,7 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local body = w.node:FindFirstChild("Body")
 					w.engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						w.engine.types.Vector2.new(400, 240)
 					)
@@ -10251,7 +10075,7 @@ return function(verifyHarness: Verify.Harness)
 							:FindFirstChild("Undisclosed", true)
 					end
 					w.engine.environment.poke(
-						(label() :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(label()),
 						"TextBounds",
 						w.engine.types.Vector2.new(200, 16)
 					)
@@ -10262,7 +10086,7 @@ return function(verifyHarness: Verify.Harness)
 					rows:set({ wide })
 					Verify.expect(header.Size.X.Offset):toBe(width)
 					w.engine.environment.poke(
-						(label() :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(label()),
 						"TextBounds",
 						w.engine.types.Vector2.zero
 					)
@@ -10295,16 +10119,16 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local body = w.node:FindFirstChild("Body")
 					w.engine.environment.poke(
-						(body :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(body),
 						"AbsoluteWindowSize",
 						w.engine.types.Vector2.new(400, 240)
 					)
 					for _, key in { "wide", "twin", "short" } do
 						local row = body:FindFirstChild("Items"):FindFirstChild(key)
 						w.engine.environment.poke(
-							(
-									cellRow(row):FindFirstChild("name"):FindFirstChild("Undisclosed", true) :: unknown
-								) :: VerifyRoblox.Instance,
+							VerifyRoblox.assertInstance(
+								cellRow(row):FindFirstChild("name"):FindFirstChild("Undisclosed", true)
+							),
 							"TextBounds",
 							w.engine.types.Vector2.new(if key == "short" then 100 else 200, 16)
 						)
@@ -10336,7 +10160,7 @@ return function(verifyHarness: Verify.Harness)
 						return now
 					end)
 					w.engine.environment.poke(
-						(w.input :: unknown) :: VerifyRoblox.Instance,
+						VerifyRoblox.assertInstance(w.input),
 						"PreferredInput",
 						w.engine.types.Enum.PreferredInput.Touch
 					)

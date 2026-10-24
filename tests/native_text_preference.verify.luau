@@ -50,7 +50,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end, world.target)
 				world.engine.environment.poke(
-					(list :: unknown) :: FixtureRoblox.Instance,
+					FixtureRoblox.assertInstance(list),
 					"AbsoluteWindowSize",
 					T.Vector2.new(320, 400)
 				)

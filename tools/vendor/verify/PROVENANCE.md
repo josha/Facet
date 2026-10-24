@@ -19,6 +19,7 @@ These files are generated. They are not authored.
 | --- | --- | --- |
 | `tests/fixtures/reflection-snapshot.json` | The reflection database of Lune 0.10.5 for the classes `Part`, `TextLabel`, `Frame`, `Model` and `Folder`. It is frozen. Verify no longer runs Lune. | None. Export the same classes from Studio to replace it. |
 | `tests/fixtures/studio-reflection.json` | Roblox Studio through its official MCP: reflection, defaults of new instances, enums, brick colors and fonts. | `lute run tools/export-studio-reflection.luau tests/fixtures/studio-reflection.json --studio-name <place> --classes Folder,Model,Part,Frame,TextLabel,TextButton,ScrollingFrame,UICorner,UIListLayout,ScreenGui,GuiService --enums NormalId,Axis` |
+| `src/lute/fixtures/text/*.json` | Native `TextService.GetTextBoundsAsync` measurements for the recorded font face and engine version. These facts contain no font source or outlines. | `lute run tools/capture-text-metrics.luau <out.json> <font-family> [weight] [style]` |
 | `tests/fixtures/datatype-probes.json` | The results of the probes in `tests/fixtures/datatype-probes.luau`, run in Roblox Studio. | `lute run tools/export-studio-probes.luau tests/fixtures/datatype-probes.json --studio-name <place>` |
 
 The Lune fixture does not change. The tests use it as a second, smaller database.

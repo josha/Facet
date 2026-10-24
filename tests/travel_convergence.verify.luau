@@ -70,22 +70,22 @@ return function(harness: Verify.Harness)
 			rack.ClipsDescendants = clipAt == "rack"
 			items.ClipsDescendants = clipAt == "items"
 			native.environment.poke(
-				(first :: unknown) :: FixtureRoblox.Instance,
+				FixtureRoblox.assertInstance(first),
 				"AbsolutePosition",
 				native.types.Vector2.new(20, 70)
 			)
 			native.environment.poke(
-				(second :: unknown) :: FixtureRoblox.Instance,
+				FixtureRoblox.assertInstance(second),
 				"AbsolutePosition",
 				native.types.Vector2.new(180, 70)
 			)
 			native.environment.poke(
-				(first :: unknown) :: FixtureRoblox.Instance,
+				FixtureRoblox.assertInstance(first),
 				"AbsoluteSize",
 				native.types.Vector2.new(44, 44)
 			)
 			native.environment.poke(
-				(second :: unknown) :: FixtureRoblox.Instance,
+				FixtureRoblox.assertInstance(second),
 				"AbsoluteSize",
 				native.types.Vector2.new(44, 44)
 			)
@@ -135,16 +135,8 @@ return function(harness: Verify.Harness)
 		local screen = native.new("ScreenGui")
 		local first, second = native.new("Frame"), native.new("Frame")
 		first.Parent, second.Parent = screen, screen
-		native.environment.poke(
-			((first) :: unknown) :: FixtureRoblox.Instance,
-			"AbsoluteSize",
-			native.types.Vector2.new(48, 48)
-		)
-		native.environment.poke(
-			((second) :: unknown) :: FixtureRoblox.Instance,
-			"AbsoluteSize",
-			native.types.Vector2.new(64, 64)
-		)
+		native.environment.poke(FixtureRoblox.assertInstance(first), "AbsoluteSize", native.types.Vector2.new(48, 48))
+		native.environment.poke(FixtureRoblox.assertInstance(second), "AbsoluteSize", native.types.Vector2.new(64, 64))
 		native.environment.poke(second, "AbsolutePosition", native.types.Vector2.new(200, 100))
 		local destination = Facet.Compose.cell(first :: GuiObject)
 		local visual: GuiObject? = nil
@@ -196,7 +188,7 @@ return function(harness: Verify.Harness)
 		local measured = (layout :: unknown) :: { AbsoluteContentSize: Vector2 }
 		for _, height in { 92, 140, 44 } do
 			native.environment.poke(
-				(measured :: unknown) :: FixtureRoblox.Instance,
+				FixtureRoblox.assertInstance(measured),
 				"AbsoluteContentSize",
 				native.types.Vector2.new(341, height)
 			)
@@ -344,12 +336,12 @@ return function(harness: Verify.Harness)
 			slots[index] = native.new("Frame")
 			slots[index].Parent = row
 			native.environment.poke(
-				(slots[index] :: unknown) :: FixtureRoblox.Instance,
+				FixtureRoblox.assertInstance(slots[index]),
 				"AbsolutePosition",
 				native.types.Vector2.new((index - 1) * 56, 70)
 			)
 			native.environment.poke(
-				(slots[index] :: unknown) :: FixtureRoblox.Instance,
+				FixtureRoblox.assertInstance(slots[index]),
 				"AbsoluteSize",
 				native.types.Vector2.new(44, 44)
 			)
@@ -500,25 +492,17 @@ return function(harness: Verify.Harness)
 		screen.Parent, source.Parent, target.Parent = native.new("Folder"), screen, screen
 		source.ClipsDescendants, target.ClipsDescendants = true, true
 		native.environment.poke(
-			((source) :: unknown) :: FixtureRoblox.Instance,
+			FixtureRoblox.assertInstance(source),
 			"AbsolutePosition",
 			native.types.Vector2.new(20, 30)
 		)
 		native.environment.poke(
-			((target) :: unknown) :: FixtureRoblox.Instance,
+			FixtureRoblox.assertInstance(target),
 			"AbsolutePosition",
 			native.types.Vector2.new(143, 539)
 		)
-		native.environment.poke(
-			((source) :: unknown) :: FixtureRoblox.Instance,
-			"AbsoluteSize",
-			native.types.Vector2.new(44, 44)
-		)
-		native.environment.poke(
-			((target) :: unknown) :: FixtureRoblox.Instance,
-			"AbsoluteSize",
-			native.types.Vector2.new(44, 44)
-		)
+		native.environment.poke(FixtureRoblox.assertInstance(source), "AbsoluteSize", native.types.Vector2.new(44, 44))
+		native.environment.poke(FixtureRoblox.assertInstance(target), "AbsoluteSize", native.types.Vector2.new(44, 44))
 		local padding = native.new("UIPadding")
 		padding.Parent = target
 		local stroke = native.new("UIStroke")
@@ -640,12 +624,12 @@ return function(harness: Verify.Harness)
 					local id = current:peek()
 					local slot = Host.Frame { Name = `Target{id}`, ClipsDescendants = true }
 					native.environment.poke(
-						(slot :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(slot),
 						"AbsolutePosition",
 						native.types.Vector2.new(id * 60, 60)
 					)
 					native.environment.poke(
-						(slot :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(slot),
 						"AbsoluteSize",
 						native.types.Vector2.new(44, 44)
 					)
@@ -740,16 +724,8 @@ return function(harness: Verify.Harness)
 		local screen, source, target = native.new("ScreenGui"), native.new("Frame"), native.new("Frame")
 		screen.Parent, source.Parent, target.Parent = native.new("Folder"), screen, screen
 		source.ClipsDescendants, target.ClipsDescendants = true, true
-		native.environment.poke(
-			((source) :: unknown) :: FixtureRoblox.Instance,
-			"AbsoluteSize",
-			native.types.Vector2.new(44, 44)
-		)
-		native.environment.poke(
-			((target) :: unknown) :: FixtureRoblox.Instance,
-			"AbsoluteSize",
-			native.types.Vector2.new(44, 44)
-		)
+		native.environment.poke(FixtureRoblox.assertInstance(source), "AbsoluteSize", native.types.Vector2.new(44, 44))
+		native.environment.poke(FixtureRoblox.assertInstance(target), "AbsoluteSize", native.types.Vector2.new(44, 44))
 		native.environment.poke(target, "AbsolutePosition", native.types.Vector2.new(200, 200))
 		local destination: Facet.Cell<GuiObject>
 		local node: Frame
@@ -786,26 +762,10 @@ return function(harness: Verify.Harness)
 		local screen = native.new("ScreenGui")
 		local a, b = native.new("Frame"), native.new("Frame")
 		a.Parent, b.Parent = screen, screen
-		native.environment.poke(
-			((a) :: unknown) :: FixtureRoblox.Instance,
-			"AbsolutePosition",
-			native.types.Vector2.new(100, 50)
-		)
-		native.environment.poke(
-			((b) :: unknown) :: FixtureRoblox.Instance,
-			"AbsolutePosition",
-			native.types.Vector2.new(20, 200)
-		)
-		native.environment.poke(
-			((a) :: unknown) :: FixtureRoblox.Instance,
-			"AbsoluteSize",
-			native.types.Vector2.new(52, 52)
-		)
-		native.environment.poke(
-			((b) :: unknown) :: FixtureRoblox.Instance,
-			"AbsoluteSize",
-			native.types.Vector2.new(52, 52)
-		)
+		native.environment.poke(FixtureRoblox.assertInstance(a), "AbsolutePosition", native.types.Vector2.new(100, 50))
+		native.environment.poke(FixtureRoblox.assertInstance(b), "AbsolutePosition", native.types.Vector2.new(20, 200))
+		native.environment.poke(FixtureRoblox.assertInstance(a), "AbsoluteSize", native.types.Vector2.new(52, 52))
+		native.environment.poke(FixtureRoblox.assertInstance(b), "AbsoluteSize", native.types.Vector2.new(52, 52))
 		a.ClipsDescendants, b.ClipsDescendants = true, true
 		local destination = C.cell(a :: GuiObject)
 		local anchor: Frame

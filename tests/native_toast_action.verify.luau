@@ -72,7 +72,8 @@ return function(verifyHarness: Verify.Harness)
 					end),
 				})
 			end,
-			{ size = o.size or Vector2.new(390, 844), motionLevel = o.motionLevel or "none", runService = o.runService }
+			{ motionLevel = o.motionLevel or "none" },
+			{ size = o.size or Vector2.new(390, 844), runService = o.runService }
 		)
 		w.gate = gate
 		w.rows = function(): number

@@ -35,23 +35,23 @@ return function(verifyHarness: Verify.Harness)
 		local gui, input =
 			(engine.new("GuiService") :: unknown) :: GuiService,
 			(engine.new("UserInputService") :: unknown) :: UserInputService
-		engine.environment.fakeOn((input :: unknown) :: VerifyRoblox.Instance, "GetLastInputType", function()
+		engine.environment.fakeOn(VerifyRoblox.assertInstance(input), "GetLastInputType", function()
 			return engine.types.Enum.UserInputType.Keyboard
 		end)
 		for _, method in { "IsKeyDown", "IsGamepadButtonDown" } do
-			engine.environment.fakeOn((input :: unknown) :: VerifyRoblox.Instance, method, function()
+			engine.environment.fakeOn(VerifyRoblox.assertInstance(input), method, function()
 				return false
 			end)
 		end
 		for _, method in { "GetNavigationGamepads", "GetKeysPressed", "GetGamepadState" } do
-			engine.environment.fakeOn((input :: unknown) :: VerifyRoblox.Instance, method, function()
+			engine.environment.fakeOn(VerifyRoblox.assertInstance(input), method, function()
 				return {}
 			end)
 		end
 		gui.GuiNavigationEnabled = true
 		gui.AutoSelectGuiEnabled = true
 		gui.TouchControlsEnabled = true
-		engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetInsetArea", function()
+		engine.environment.fakeOn(VerifyRoblox.assertInstance(gui), "GetInsetArea", function()
 			return engine.types.Rect.new(0, 0, 1280, 720)
 		end)
 		engine.clock = function()
@@ -68,11 +68,7 @@ return function(verifyHarness: Verify.Harness)
 		actual.isPresented = opened
 		local stopInitialBounds = engine.environment.onCreate(function(node)
 			if node:IsA("ScreenGui") then
-				engine.environment.poke(
-					(node :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteSize",
-					engine.types.Vector2.zero
-				)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.zero)
 			end
 		end)
 		local stop, screen: any = runtime.mount(function()
@@ -977,10 +973,10 @@ return function(verifyHarness: Verify.Harness)
 				gui.GuiNavigationEnabled = true
 				gui.AutoSelectGuiEnabled = true
 				gui.TouchControlsEnabled = true
-				engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetGuiInset", function()
+				engine.environment.fakeOn(VerifyRoblox.assertInstance(gui), "GetGuiInset", function()
 					return engine.types.Vector2.zero, engine.types.Vector2.zero
 				end)
-				engine.environment.fakeOn((gui :: unknown) :: VerifyRoblox.Instance, "GetInsetArea", function()
+				engine.environment.fakeOn(VerifyRoblox.assertInstance(gui), "GetInsetArea", function()
 					return engine.types.Rect.new(0, 0, 1280, 720)
 				end)
 				local ctx: any = {

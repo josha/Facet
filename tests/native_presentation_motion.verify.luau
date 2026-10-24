@@ -12,6 +12,7 @@ return function(verifyHarness: Verify.Harness)
 	local materialize = require("./lib/materialize")
 	local fadeKit = require("./lib/fade")
 	local Facet = require("../src")
+	local Types = require("../src/ui/types")
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 	local Vector2 = require("./lib/native_engine").types.Vector2
@@ -34,7 +35,7 @@ return function(verifyHarness: Verify.Harness)
 						UI.Text "Overflow" { text = "A constrained readout", wrap = true },
 					},
 				}
-			end, { runService = true, preRender = true, motionLevel = "none" })
+			end, { motionLevel = "none" }, { runService = true, preRender = true })
 			context:defer(w.stop)
 			w.size(w.find("Commands"), 120, 44)
 			w.size(w.find("Readout"), 16, 44)
@@ -164,7 +165,7 @@ return function(verifyHarness: Verify.Harness)
 						selected = Compose.cell("a"),
 						options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
 					}
-				end, { runService = true })
+				end, nil, { runService = true })
 				local picker = w.find("Fade").Parent
 				local late = w.engine.new("Folder")
 				late.Name = "LateSlide"
@@ -189,7 +190,7 @@ return function(verifyHarness: Verify.Harness)
 		return false
 	end
 
-	local function dialogWorld(options: any?): (any, any)
+	local function dialogWorld(options: Types.Config?, setup: overlay.Setup?): (any, any)
 		local open = Compose.cell(false)
 		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 			local opener = UI.Button "Opener" { label = "About" }
@@ -217,7 +218,7 @@ return function(verifyHarness: Verify.Harness)
 					},
 				},
 			})
-		end, options)
+		end, options, setup)
 		return w, open
 	end
 
@@ -227,11 +228,18 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("presentation motion: Calendar", function()
-		for _, level in { "normal", "limited", "none" } do
+		local dateCell: (Facet.CivilDate?) -> Compose.Cell<Facet.CivilDate?> = Compose.cell
+		local configurations: { Types.Config } = {
+			{ motionLevel = "normal" },
+			{ motionLevel = "limited" },
+			{ motionLevel = "none" },
+		}
+		for _, config in configurations do
+			local level = config.motionLevel
 			verifyHarness:case(`prepares calendar layout and masks panel and scrim together in {level} motion`, {
 				id = `native_presentation_motion::presentation motion: Calendar::prepares calendar layout and masks panel and scrim together in {level} motion`,
 				run = function()
-					local value = Compose.cell({ year = 2026, month = 10, day = 7, hour = 9, minute = 0 })
+					local value = dateCell({ year = 2026, month = 10, day = 7, hour = 9, minute = 0 })
 					local w = overlay.new(function(UI, Host, engine, _, _)
 						return Host.Frame {
 							UI.DateTimePicker "Session" {
@@ -245,7 +253,7 @@ return function(verifyHarness: Verify.Harness)
 								end,
 							},
 						}
-					end, { motionLevel = level, size = Vector2.new(389, 762) })
+					end, config, { size = Vector2.new(389, 762) })
 					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 					w.find("Open").Activated:Fire()
 					local surface = w.find("CalendarSurface")
@@ -440,7 +448,7 @@ return function(verifyHarness: Verify.Harness)
 			{
 				id = "native_presentation_motion::presentation motion: Dialog and CollapsibleView::a dismissed dialog reverses faster, stops taking input and hands the selection back at once",
 				run = function()
-					local w, open = dialogWorld({ lastInputType = UserInputType.Keyboard })
+					local w, open = dialogWorld(nil, { lastInputType = UserInputType.Keyboard })
 					open:set(true)
 					w.advance(0.25, 15)
 					local panel = w.find("Panel")
@@ -495,7 +503,7 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end,
 				}
-			end, { runService = true, preRender = true, inputs = true })
+			end, nil, { runService = true, preRender = true, inputs = true })
 			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			expanded:set(true)
 			local panel, first = w.find("Expanded"), w.find("First")
@@ -530,7 +538,11 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(expanded:peek()):toBe(false)
 			w.stop()
 		end)
-		local function tipsWorld(options: any?, outsideDismiss: boolean | Compose.Readable<boolean>?): (any, any)
+		local function tipsWorld(
+			options: Types.Config?,
+			outsideDismiss: boolean | Compose.Readable<boolean>?,
+			setup: overlay.Setup?
+		): (any, any)
 			local expanded = Compose.cell(false)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 				local view = UI.CollapsibleView "Tips" {
@@ -543,7 +555,7 @@ return function(verifyHarness: Verify.Harness)
 				}
 				gui.SelectedObject = view
 				return Host.Frame({ view :: unknown, UI.Button "Other" { label = "Other" } })
-			end, options)
+			end, options, setup)
 			return w, expanded
 		end
 
@@ -573,15 +585,19 @@ return function(verifyHarness: Verify.Harness)
 			{
 				id = "native_presentation_motion::CollapsibleView in place::expands from its trigger into a panel over the page, inside the safe area, without a page dim",
 				run = function()
-					local w, expanded = tipsWorld({ motionLevel = "none", lastInputType = UserInputType.Keyboard })
+					local w, expanded = tipsWorld(
+						{ motionLevel = "none" },
+						nil,
+						{ lastInputType = UserInputType.Keyboard }
+					)
 					local trigger = w.find("Tips")
 					w.engine.environment.poke(
-						((trigger) :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(trigger),
 						"AbsolutePosition",
 						w.Vector2.new(700, 500)
 					)
 					w.engine.environment.poke(
-						((trigger) :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(trigger),
 						"AbsoluteSize",
 						w.Vector2.new(120, 44)
 					)
@@ -607,7 +623,7 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("collapses by an outside tap, Cancel and the trigger, and hands focus back", {
 			id = "native_presentation_motion::CollapsibleView in place::collapses by an outside tap, Cancel and the trigger, and hands focus back",
 			run = function()
-				local w, expanded = tipsWorld({ motionLevel = "none", lastInputType = UserInputType.Keyboard })
+				local w, expanded = tipsWorld({ motionLevel = "none" }, nil, { lastInputType = UserInputType.Keyboard })
 				local trigger = w.find("Tips")
 				trigger.Activated:Fire()
 				w.find("DismissTarget").Activated:Fire()
@@ -688,15 +704,11 @@ return function(verifyHarness: Verify.Harness)
 				local w, expanded = tipsWorld()
 				local trigger = w.find("Tips")
 				w.engine.environment.poke(
-					((trigger) :: unknown) :: FixtureRoblox.Instance,
+					FixtureRoblox.assertInstance(trigger),
 					"AbsolutePosition",
 					w.Vector2.new(100, 100)
 				)
-				w.engine.environment.poke(
-					((trigger) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					w.Vector2.new(120, 44)
-				)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(trigger), "AbsoluteSize", w.Vector2.new(120, 44))
 				expanded:set(true)
 				local plate, fade = w.find("Expanded"), w.find("ExpandedFade")
 				w.engine.environment.poke(w.find("ExpandedBody"), "AbsoluteSize", w.Vector2.new(360, 200))
@@ -1139,7 +1151,7 @@ return function(verifyHarness: Verify.Harness)
 						label = "Actions",
 						items = { { id = "save", label = "Save", onSelect = function() end } },
 					}
-				end, { runService = true, preRender = true })
+				end, nil, { runService = true, preRender = true })
 				context:defer(w.stop)
 				w.find("Trigger").Activated:Fire()
 				local panel, row = w.find("MenuPanel"), w.find("save")

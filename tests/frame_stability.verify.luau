@@ -113,7 +113,7 @@ return function(harness: Verify.Harness)
 		local clipping = inspector(engine)
 		local label = engine.new("TextButton")
 		label.Text = "A padded caption"
-		engine.environment.poke(((label) :: unknown) :: FixtureRoblox.Instance, "TextFits", false)
+		engine.environment.poke(FixtureRoblox.assertInstance(label), "TextFits", false)
 		engine.environment.poke(label, "AbsoluteSize", engine.types.Vector2.new(100, 30))
 		engine.environment.poke(label, "TextBounds", engine.types.Vector2.new(75, 20))
 		local padding = engine.new("UIPadding")

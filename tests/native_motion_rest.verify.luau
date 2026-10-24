@@ -47,16 +47,8 @@ return function(verifyHarness: Verify.Harness)
 				})
 			end)
 			local post = w.find("Post")
-			w.engine.environment.poke(
-				((post) :: unknown) :: FixtureRoblox.Instance,
-				"AbsolutePosition",
-				Vector2.new(300, 200)
-			)
-			w.engine.environment.poke(
-				((post) :: unknown) :: FixtureRoblox.Instance,
-				"AbsoluteSize",
-				Vector2.new(80, 44)
-			)
+			w.engine.environment.poke(FixtureRoblox.assertInstance(post), "AbsolutePosition", Vector2.new(300, 200))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(post), "AbsoluteSize", Vector2.new(80, 44))
 			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			w.gui.SelectedObject = post
 			w.advance(0.5, 10)
@@ -185,18 +177,10 @@ return function(verifyHarness: Verify.Harness)
 						onRetire = function() end,
 					},
 				})
-			end, { runService = true })
+			end, nil, { runService = true })
 			local plus = w.find("Plus")
-			w.engine.environment.poke(
-				((plus) :: unknown) :: FixtureRoblox.Instance,
-				"AbsolutePosition",
-				Vector2.new(300, 300)
-			)
-			w.engine.environment.poke(
-				((plus) :: unknown) :: FixtureRoblox.Instance,
-				"AbsoluteSize",
-				Vector2.new(44, 44)
-			)
+			w.engine.environment.poke(FixtureRoblox.assertInstance(plus), "AbsolutePosition", Vector2.new(300, 300))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(plus), "AbsoluteSize", Vector2.new(44, 44))
 			return w
 		end
 
@@ -277,7 +261,7 @@ return function(verifyHarness: Verify.Harness)
 								end,
 							},
 						}
-					end, { runService = true })
+					end, nil, { runService = true })
 					w.at(w.find("Anchor"), 350, 250)
 					w.size(w.find("Anchor"), 40, 40)
 					local panel, border, tail = w.find("Panel"), w.find("OutlineBoundary"), w.find("Tail")
@@ -668,16 +652,8 @@ return function(verifyHarness: Verify.Harness)
 
 	local function lay(world: any, panel: any, size: Vector2)
 		local trigger = world.find("Trigger")
-		world.engine.environment.poke(
-			((trigger) :: unknown) :: FixtureRoblox.Instance,
-			"AbsolutePosition",
-			Vector2.new(300, 300)
-		)
-		world.engine.environment.poke(
-			((trigger) :: unknown) :: FixtureRoblox.Instance,
-			"AbsoluteSize",
-			Vector2.new(200, 40)
-		)
+		world.engine.environment.poke(FixtureRoblox.assertInstance(trigger), "AbsolutePosition", Vector2.new(300, 300))
+		world.engine.environment.poke(FixtureRoblox.assertInstance(trigger), "AbsoluteSize", Vector2.new(200, 40))
 		local modal = panel.Parent
 		while modal and modal.Parent and modal.Parent.ClassName ~= "ScreenGui" do
 			modal = modal.Parent
@@ -792,7 +768,7 @@ return function(verifyHarness: Verify.Harness)
 						value = Compose.cell(require("./lib/native_engine").types.Color3.new(1, 0, 0)),
 						onChange = function() end,
 					}
-				end, { runService = true })
+				end, nil, { runService = true })
 				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 				w.size(w.screen, 390, 844)
 				w.find("Well").Activated:Fire()

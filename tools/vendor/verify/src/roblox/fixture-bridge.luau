@@ -164,6 +164,14 @@ local function create<V2, V3, C3, U1, U2, CF>(options: Options<V2, V3, C3, U1, U
 	if layoutOptions and controller and layoutOptions.read == nil then
 		layoutOptions.read = controller.styled
 	end
+	if
+		layoutOptions
+		and layoutOptions.measureBounds == nil
+		and type(ui) == "table"
+		and type(ui.measureBounds) == "function"
+	then
+		layoutOptions.measureBounds = ui.measureBounds
+	end
 	local layout = if layoutOptions then UiLayout.attach(environment, layoutOptions) else nil
 	if layout and controller then
 		local step = layout.step

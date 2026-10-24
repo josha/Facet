@@ -893,12 +893,12 @@ return function(verifyHarness: Verify.Harness)
 					)
 					local shelves = find(discover, "Shelves")
 					world.engine.environment.poke(
-						((shelves) :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(shelves),
 						"AbsolutePosition",
 						types.Vector2.new(20, 80)
 					)
 					world.engine.environment.poke(
-						((shelves) :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(shelves),
 						"AbsoluteSize",
 						types.Vector2.new(600, 40)
 					)
@@ -951,12 +951,12 @@ return function(verifyHarness: Verify.Harness)
 					)
 					local shelves = find(world.Discover, "Shelves")
 					world.engine.environment.poke(
-						((shelves) :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(shelves),
 						"AbsolutePosition",
 						types.Vector2.new(20, 80)
 					)
 					world.engine.environment.poke(
-						((shelves) :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(shelves),
 						"AbsoluteSize",
 						types.Vector2.new(600, 40)
 					)
@@ -1036,12 +1036,12 @@ return function(verifyHarness: Verify.Harness)
 						games.ScrollingEnabled = true
 						local shelves = find(world.Discover, "Shelves")
 						world.engine.environment.poke(
-							((shelves) :: unknown) :: FixtureRoblox.Instance,
+							FixtureRoblox.assertInstance(shelves),
 							"AbsolutePosition",
 							types.Vector2.new(20, 80)
 						)
 						world.engine.environment.poke(
-							((shelves) :: unknown) :: FixtureRoblox.Instance,
+							FixtureRoblox.assertInstance(shelves),
 							"AbsoluteSize",
 							types.Vector2.new(600, 40)
 						)
