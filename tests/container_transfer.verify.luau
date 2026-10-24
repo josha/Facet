@@ -286,6 +286,52 @@ return function(harness: Verify.Harness)
 			stop()
 			runtime:dispose()
 		end)
+		harness:case("unreserved collections retain dense output from sparse sources", {
+			id = "container_transfer::unreserved collections retain dense output from sparse sources",
+			run = function(t)
+				local engine = engineLib.new()
+				local C = Facet.Compose
+				local runtime = Facet.Roblox.createRuntime(engine)
+				t:defer(function()
+					runtime:dispose()
+				end)
+				local Host = runtime.constructors
+				local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
+				type Row = { id: number, name: string }
+				local rows = C.cell({ [1] = { id = 1, name = "First" }, [3] = { id = 3, name = "Third" } } :: { Row })
+				local controls: { indexOfKey: ((number) -> number?)? } = {}
+				local labels: { [number]: TextLabel } = {}
+				local stop = runtime.mount(function()
+					local spec: Facet.KeyedCollectionSpec<Row, number> = {
+						from = rows,
+						key = function(item: Row): number
+							return item.id
+						end,
+						mode = "all",
+						itemSize = 40,
+						controls = controls,
+						render = function(current, _placement, key)
+							local label = Host.TextLabel({
+								Text = function(use: Facet.Use): string
+									return use(current).name
+								end,
+							}) :: TextLabel
+							labels[key] = label
+							return label
+						end,
+					}
+					return UI.VirtualList(spec)
+				end, engine.new("ScreenGui"))
+				t:expect(assert(controls.indexOfKey)(1)):toBe(1)
+				t:expect(assert(controls.indexOfKey)(3)):toBe(2)
+				t:expect(labels[3].Text):toBe("Third")
+				rows:set({ [1] = { id = 3, name = "Changed" }, [4] = { id = 1, name = "First" } })
+				t:expect(assert(controls.indexOfKey)(3)):toBe(1)
+				t:expect(assert(controls.indexOfKey)(1)):toBe(2)
+				t:expect(labels[3].Text):toBe("Changed")
+				stop()
+			end,
+		})
 		harness:case("reserved slots share item lookup and retain live row records", {
 			id = "container_transfer::reserved slots share item lookup and retain live row records",
 			run = function(t)

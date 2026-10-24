@@ -41,7 +41,7 @@ return function<V, K>(ctx: Types.Context, view: State.View<V, K>): Slots<V, K>
 		local rows = source(use)
 		if itemsByKey == nil then
 			for index, item in rows do
-				result[index] = { key = keyOf(item, index), item = item }
+				table.insert(result, { key = keyOf(item, index), item = item })
 			end
 			return result
 		end
