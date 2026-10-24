@@ -107,6 +107,57 @@ return function(verifyHarness: Verify.Harness)
 		end
 		return values
 	end
+	verifyHarness:case("selection changes reuse membership until its reactive source changes", {
+		id = "native_collections::selection changes reuse membership until its reactive source changes",
+		run = function(t)
+			local createSelection = require("../src/ui/collection_selection")
+			local engine, runtime, _, target, _, ctx = setup()
+			t:defer(function()
+				runtime:dispose()
+			end)
+			type Row = { id: number }
+			local initial: { Row } = {}
+			for index = 1, 128 do
+				initial[index] = { id = index }
+			end
+			local all = Compose.cell(initial, function(): boolean
+				return false
+			end)
+			local visible = Compose.cell({ initial[1] })
+			local selected = Compose.cell({ [2] = true } :: FixtureCollectionTypes.Selection<number>)
+			local calls = 0
+			local stop = runtime.mount(function()
+				local spec: FixtureCollectionTypes.SelectionOptions<Row, number> = { selectionFrom = all }
+				local controls: FixtureComposeTypes.OrderedCollectionControls<number> = {}
+				createSelection(ctx, spec, visible, function(item: Row): number
+					calls += 1
+					return item.id
+				end, controls, selected, "multiple")
+				return ctx.Host.Frame({})
+			end, target)
+			calls = 0
+			selected:set({ [3] = true, [128] = true })
+			t:expect(selected:peek()):toEqual({ [3] = true, [128] = true })
+			t:expect(calls):toBe(0)
+			all:set({ initial[1], initial[128] })
+			t:expect(selected:peek()):toEqual({ [128] = true })
+			t:expect(calls):toBe(2)
+			calls = 0
+			selected:set({ [128] = true, [99] = false })
+			t:expect(selected:peek()):toEqual({ [128] = true })
+			t:expect(calls):toBe(0)
+			local same = all:peek()
+			table.remove(same, 2)
+			all:set(same)
+			t:expect(selected:peek()):toEqual({})
+			t:expect(calls):toBe(1)
+			stop()
+			calls = 0
+			all:set({ initial[5] })
+			selected:set({ [5] = true })
+			t:expect(calls):toBe(0)
+		end,
+	})
 	verifyHarness:suite("Table sort scrolling", function()
 		verifyHarness:case("resets sorting and reveals a selected row without changing list anchoring", {
 			id = "native_collections::Table sort scrolling::resets sorting and reveals a selected row without changing list anchoring",

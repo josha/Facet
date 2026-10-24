@@ -129,6 +129,41 @@ end, function(state)
 	state.apply(keys)
 end, { requirement = "UI-RUNTIME-002" })
 
+add("collection-selection-update", function()
+	local world = nativeApp()
+	local items: { BenchRow } = {}
+	for index = 1, 2048 do
+		items[index] = { id = `r{index}`, name = `Row {index}` }
+	end
+	local selection = Compose.cell({ r1 = true } :: { [string]: boolean })
+	local Host = world.runtime.constructors
+	world.runtime.mount(function()
+		local spec: Facet.KeyedCollectionSpec<BenchRow, string> = {
+			from = items,
+			key = "id",
+			selection = selection,
+			selectionMode = "single",
+			itemSize = 40,
+			render = function(current)
+				return Host.TextLabel({
+					Text = function(use: Use): string
+						return use(current).name
+					end,
+				}) :: TextLabel
+			end,
+		}
+		return world.UI.VirtualList(spec)
+	end, world.target)
+	world.frame()
+	return { selection = selection, n = 0, frame = world.frame, dispose = world.dispose }
+end, function(state)
+	state.n += 1
+	local key = `r{(state.n - 1) % 2048 + 1}`
+	state.selection:set({ [key] = true })
+	state.frame()
+	assert(state.selection:peek()[key] == true, "valid selection was pruned")
+end, { requirement = "UI-RUNTIME-002", samples = 500, warmup = 50 })
+
 add("sparse-update-under-load", function()
 	return reactive(function(state)
 		state.signals, state.n = {}, 0
