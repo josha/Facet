@@ -276,22 +276,129 @@ local function attach(environment: Environment.Environment, options: Options): C
 		end
 		local list = object:FindFirstChildWhichIsA "UIListLayout"
 		local horizontal = list ~= nil and enum(list, "FillDirection", "Vertical") == "Horizontal"
-		if list and optional(list, "Wraps") == true and not (if horizontal then autoX else autoY) then
-			for _, child in object:GetChildren() do
-				if child:IsA "GuiObject" and optional(child, "Visible") ~= false then
-					local authoredChild = Values.dimensions(read(child, "Size"))
-					if (autoX and authoredChild.X.Scale ~= 0) or (autoY and authoredChild.Y.Scale ~= 0) then
-						unsupported(child, "size relative to an automatic parent axis")
+		local relativeX: Instance? = nil
+		local relativeY: Instance? = nil
+		local measurements: { [Instance]: Rectangle } = {}
+		for _, child in object:GetChildren() do
+			if child:IsA "GuiObject" and optional(child, "Visible") ~= false then
+				local authoredChild = Values.dimensions(read(child, "Size"))
+				local position = Values.dimensions(read(child, "Position"))
+				local anchor = Values.vector(read(child, "AnchorPoint"))
+				if
+					list == nil
+					and (
+						(autoX and paddingX ~= 0 and (position.X.Scale ~= 0 or anchor.X ~= 0))
+						or (autoY and paddingY ~= 0 and (position.Y.Scale ~= 0 or anchor.Y ~= 0))
+					)
+				then
+					unsupported(child, "position relative to a padded automatic parent axis")
+				end
+				if
+					autoX and (authoredChild.X.Scale ~= 0 or (list == nil and (position.X.Scale ~= 0 or anchor.X ~= 0)))
+				then
+					relativeX = child
+				end
+				if
+					autoY and (authoredChild.Y.Scale ~= 0 or (list == nil and (position.Y.Scale ~= 0 or anchor.Y ~= 0)))
+				then
+					relativeY = child
+				end
+			end
+		end
+		if constraint and (relativeX or relativeY) then
+			unsupported(object, "relative children with automatic size constraints")
+		end
+		local function childExtent(child: Instance, measured: Rectangle, horizontal: boolean, extent: number): number
+			local dimensions = Values.dimensions(read(child, "Size"))
+			local unit = if horizontal then dimensions.X else dimensions.Y
+			if unit.Scale == 0 then
+				return if horizontal then measured.width else measured.height
+			end
+			local automatic = enum(child, "AutomaticSize", "None")
+			if automatic == "XY" or automatic == (if horizontal then "X" else "Y") then
+				unsupported(child, "relative automatic child size")
+			end
+			if child:FindFirstChildWhichIsA "UIAspectRatioConstraint" then
+				unsupported(child, "relative aspect child size")
+			end
+			local value = dimension(unit, extent, scale)
+			local limit = child:FindFirstChildWhichIsA "UISizeConstraint"
+			if limit then
+				local minimum = Values.vector(read(limit, "MinSize"))
+				local maximum = Values.vector(read(limit, "MaxSize"))
+				value = math.clamp(
+					value,
+					(if horizontal then minimum.X else minimum.Y) * scale,
+					(if horizontal then maximum.X else maximum.Y) * scale
+				)
+			end
+			return value * (if scale == 0 then 0 else measured.scale / scale)
+		end
+		local function requireStable(width: number, height: number)
+			if autoX and relativeX and Float.f32(width) > Float.f32(rectangle.width) then
+				unsupported(relativeX, "size relative to a growing automatic parent X axis")
+			end
+			if autoY and relativeY and Float.f32(height) > Float.f32(rectangle.height) then
+				unsupported(relativeY, "size relative to a growing automatic parent Y axis")
+			end
+		end
+		local function grow(width: number, height: number)
+			if list then
+				requireStable(width, height)
+			else
+				local proposed = table.clone(rectangle)
+				if autoX then
+					proposed.width = math.max(rectangle.width, width)
+				end
+				if autoY then
+					proposed.height = math.max(rectangle.height, height)
+				end
+				local bounds = inset(object, proposed)
+				local changed = proposed.width ~= rectangle.width or proposed.height ~= rectangle.height
+				if relativeX or relativeY then
+					for _, child in object:GetChildren() do
+						if not child:IsA "GuiObject" or optional(child, "Visible") == false then
+							continue
+						end
+						local measured = if not changed
+							then measurements[child] or size(child, bounds)
+							else size(child, bounds)
+						local position = Values.dimensions(read(child, "Position"))
+						local anchor = Values.vector(read(child, "AnchorPoint"))
+						local x = dimension(position.X, bounds.width, scale) - anchor.X * measured.width
+						local y = dimension(position.Y, bounds.height, scale) - anchor.Y * measured.height
+						if autoX and (x < 0 or Float.f32(x + measured.width) > Float.f32(bounds.width)) then
+							unsupported(child, "size relative to a growing automatic parent X axis")
+						end
+						if autoY and (y < 0 or Float.f32(y + measured.height) > Float.f32(bounds.height)) then
+							unsupported(child, "size relative to a growing automatic parent Y axis")
+						end
 					end
 				end
 			end
+			if autoX and (list == nil or relativeX == nil) then
+				rectangle.width = math.max(rectangle.width, width)
+			end
+			if autoY and (list == nil or relativeY == nil) then
+				rectangle.height = math.max(rectangle.height, height)
+			end
+		end
+		if list then
+			local projected = table.clone(rectangle)
+			if autoX and relativeX then
+				projected.width = math.max(projected.width, parent.width * factor)
+			end
+			if autoY and relativeY then
+				projected.height = math.max(projected.height, parent.height * factor)
+			end
+			if projected.width ~= rectangle.width or projected.height ~= rectangle.height then
+				local measured = List.measure(list, inset(object, projected), read, size, size)
+				requireStable(measured.width + paddingX, measured.height + paddingY)
+			end
+		end
+		if list and optional(list, "Wraps") == true and not (if horizontal then autoX else autoY) then
 			local measured = List.measure(list, content, read, size, size)
-			if autoX then
-				rectangle.width = math.max(rectangle.width, measured.width + paddingX)
-			end
-			if autoY then
-				rectangle.height = math.max(rectangle.height, measured.height + paddingY)
-			end
+			grow(measured.width + paddingX, measured.height + paddingY)
 			return rectangle
 		end
 		local gap = 0
@@ -310,24 +417,36 @@ local function attach(environment: Environment.Environment, options: Options): C
 			if bounds then bounds.intrinsicX else 0,
 			if bounds then (if widthOverride ~= nil and autoY then bounds.intrinsicY else bounds.Y) else 0,
 			0
+		local baseWidth = math.max(0, authored.X.Offset * scale, intrinsicWidth)
+		local baseHeight = math.max(0, authored.Y.Offset * scale, intrinsicHeight)
+		if list == nil and (relativeX or relativeY) then
+			for _, child in object:GetChildren() do
+				if child:IsA "GuiObject" and optional(child, "Visible") ~= false then
+					local measured = size(child, content)
+					measurements[child] = measured
+					local position = Values.dimensions(read(child, "Position"))
+					local anchor = Values.vector(read(child, "AnchorPoint"))
+					if relativeX then
+						baseWidth = math.max(
+							baseWidth,
+							position.X.Offset * scale + (1 - anchor.X) * childExtent(child, measured, true, 0)
+						)
+					end
+					if relativeY then
+						baseHeight = math.max(
+							baseHeight,
+							position.Y.Offset * scale + (1 - anchor.Y) * childExtent(child, measured, false, 0)
+						)
+					end
+				end
+			end
+		end
 		for _, child in object:GetChildren() do
 			if child:IsA "GuiObject" and optional(child, "Visible") ~= false then
-				local authoredChild = Values.dimensions(read(child, "Size"))
 				local position = Values.dimensions(read(child, "Position"))
 				local anchor = Values.vector(read(child, "AnchorPoint"))
-				if (autoX and authoredChild.X.Scale ~= 0) or (autoY and authoredChild.Y.Scale ~= 0) then
-					unsupported(child, "size relative to an automatic parent axis")
-				end
-				if
-					list == nil
-					and (
-						(autoX and (position.X.Scale ~= 0 or anchor.X ~= 0))
-						or (autoY and (position.Y.Scale ~= 0 or anchor.Y ~= 0))
-					)
-				then
-					unsupported(child, "position relative to an automatic parent axis")
-				end
-				local childSize = size(child, content)
+				local childSize = measurements[child] or size(child, content)
+				measurements[child] = childSize
 				if list then
 					intrinsicWidth = if horizontal
 						then intrinsicWidth + childSize.width
@@ -336,8 +455,15 @@ local function attach(environment: Environment.Environment, options: Options): C
 						then math.max(intrinsicHeight, childSize.height)
 						else intrinsicHeight + childSize.height
 				else
-					intrinsicWidth = math.max(intrinsicWidth, position.X.Offset * scale + childSize.width)
-					intrinsicHeight = math.max(intrinsicHeight, position.Y.Offset * scale + childSize.height)
+					local childWidth = if relativeX
+						then childExtent(child, childSize, true, baseWidth)
+						else childSize.width
+					local childHeight = if relativeY
+						then childExtent(child, childSize, false, baseHeight)
+						else childSize.height
+					intrinsicWidth = math.max(intrinsicWidth, position.X.Offset * scale + (1 - anchor.X) * childWidth)
+					intrinsicHeight =
+						math.max(intrinsicHeight, position.Y.Offset * scale + (1 - anchor.Y) * childHeight)
 				end
 				count += 1
 			end
@@ -349,11 +475,8 @@ local function attach(environment: Environment.Environment, options: Options): C
 				intrinsicHeight += math.max(0, count - 1) * gap
 			end
 		end
-		if autoX then
-			rectangle.width = math.max(rectangle.width, intrinsicWidth + paddingX)
-		end
+		grow(intrinsicWidth + paddingX, intrinsicHeight + paddingY)
 		if autoY then
-			rectangle.height = math.max(rectangle.height, intrinsicHeight + paddingY)
 			if widthOverride ~= nil and isText(object) and constraint then
 				rectangle.height = math.min(rectangle.height, (Values.vector(read(constraint, "MaxSize"))).Y * scale)
 			end

@@ -4,6 +4,9 @@ local Double = require("./lib/live_double")
 
 return function(harness: Verify.Harness)
 	local suites: { { id: string, cases: { string } } } = {
+		{ id = "classb_keyboard", cases = {
+			"clear-button-trailing-and-centred",
+		} },
 		{
 			id = "classb_themes",
 			cases = {
@@ -40,6 +43,12 @@ return function(harness: Verify.Harness)
 				"ring-geometry-only-on-real-change",
 			},
 		},
+		{ id = "layout_geometry", cases = {
+			"circle-button-authored-axes",
+		} },
+		{ id = "mobile_regressions", cases = {
+			"segmented-opening-layout",
+		} },
 		{ id = "motion_continuity", cases = {
 			"clipping-checker-rejects-label-and-canvasgroup-overflow",
 		} },
@@ -55,6 +64,10 @@ return function(harness: Verify.Harness)
 		} },
 		{ id = "ports_foundation", cases = {
 			"strong-divider-and-pane",
+			"utility-stroke",
+		} },
+		{ id = "ports_pickers", cases = {
+			"fields-accessories",
 		} },
 		{ id = "text_live", cases = {
 			"padded-text-draws-inside-its-inset",

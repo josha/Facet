@@ -115,6 +115,33 @@ If no mechanism works, the run does not start the command. It returns `unsupport
 `src/lute/runtime.luau` selects `tree` on Windows and the POSIX mechanism elsewhere.
 Each worker resolves its own `require` paths relative to its script.
 
+## Retained heap estimates on Lute
+
+`Lute.memory.measure({ setup, run, teardown, iterations, warmup?, afterRun? }, options?)`
+performs a separate workload pass. It reads the baseline heap, runs setup and
+the declared iterations, reads the mounted heap, runs teardown, drops the local
+state scope, and reads the heap again. Cleanup runs after a workload failure.
+The result includes raw readings and nonnegative mounted and teardown deltas
+from the baseline, in KiB. Call it outside timed measurements.
+
+`Lute.memory.settle(options?)` estimates the heap low-water mark after collection
+progress. Lute does not expose forced collection. Weak-reference witnesses mark
+collection progress while small temporary allocations drive the collector.
+The first witness cycle is excluded; later cycles sample the lowest observed
+heap. The method is `gc-witness-low-water/1`. It estimates retained Luau heap,
+not exact reachable bytes, process RSS or Roblox engine memory.
+
+Options are `cycles` (default 4, at least 2), `maxAllocations` (default 1000000)
+and `deadlineSeconds` (default 5). Invalid readings and incomplete collection
+progress raise an error. They do not produce a passing measurement.
+Each endpoint has its own allocation and time bounds. Each pressure allocation
+is one 64-entry table. `Lute.memory.create({ now, heap, witness, pressure })`
+injects the host operations. `witness()` returns a weak table with a `token`
+field that becomes nil after its object is collected.
+
+The consumer owns comparison thresholds and unchanged-versus-unchanged noise
+validation. A small heap difference alone does not establish a regression.
+
 ## Declarative gates
 
 `Gate.define({ id, producers, policy? })` declares what a run must produce.
