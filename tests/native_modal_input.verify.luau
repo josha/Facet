@@ -84,6 +84,9 @@ return function(verifyHarness: Verify.Harness)
 						}
 					end, { motionLevel = "none" })
 					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput[preferred])
+					w.input.GetLastInputType = function()
+						return w.Enum.UserInputType.Keyboard
+					end
 					w.gui.SelectedObject = w.find("Opener")
 					open:set(true)
 					w.advance(1 / 60, 3)

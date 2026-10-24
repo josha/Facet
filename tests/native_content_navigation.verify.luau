@@ -29,6 +29,9 @@ return function(verifyHarness: Verify.Harness)
 	local function openMenu(world: any, select: boolean?)
 		local trigger = world.find("Trigger")
 		if select then
+			world.input.GetLastInputType = function()
+				return world.engine.types.Enum.UserInputType.Keyboard
+			end
 			world.gui.SelectedObject = trigger
 		end
 		trigger.Activated:Fire()

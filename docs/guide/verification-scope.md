@@ -14,11 +14,13 @@ ownership. Reflection metadata describes engine classes; it does not supply
 native behavior. Read the selected assertions rather than treating case count
 as coverage.
 
-The unit fixture loads the captured reflection metadata through Verify. Normal
+The unit fixture loads Verify's bundled reflection capture. The Verify pin fixes
+its version. Events and methods keep their captured class ownership. Normal
 writes keep the captured property types and access restrictions. Cases supply
 engine-owned values with `engine.environment.poke`. Unit GUI roots start with
 zero geometry until a case supplies measurements. This fixture does not run
-layout or text measurement.
+layout or text measurement. Input starts with no history, held keys or connected
+gamepads. Cases supply the input history that their focus assertions require.
 
 The Facet unit fixture supplies zero GUI insets. Its `GetStyled` fake reads
 the raw property, and its styled property signal uses the property change

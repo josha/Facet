@@ -1665,6 +1665,9 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_virtual_monitors::native virtual monitors::NVM-12 native modals capture selection and restore the launching control",
 			run = function()
 				withScreens(function(world)
+					world.input.GetLastInputType = function()
+						return world.types.Enum.UserInputType.Keyboard
+					end
 					world.engine.environment.poke(
 						find(world.Discover, "Games"),
 						"AbsoluteWindowSize",

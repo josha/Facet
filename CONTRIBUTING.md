@@ -76,9 +76,10 @@ The worker `tests/worker.luau` loads each spec through `tests/lib/loader.luau`.
 The loader gives the code under test the Roblox globals that Lute does not have:
 `warn`, `getfenv` and a `typeof` that names the Verify datatypes. The native
 engine double `tests/lib/native_engine.luau` reads class metadata, defaults,
-enums, brick colors and fonts from `tests/fixtures/roblox-reflection.json`.
-Export that snapshot again from Studio after a Roblox API update:
-`lute run tools/vendor/verify/tools/export-studio-reflection.luau tests/fixtures/roblox-reflection.json --studio-name <name>`.
+enums, brick colors and fonts from Verify's bundled Studio capture through
+`Lute.fixture.load()`. The Verify pin fixes the capture version. Update Verify
+to adopt a new capture. Keep Facet-specific service defaults and method doubles
+in the fixture.
 
 Verify is pinned under `tools/vendor/verify`. It is a generated, read-only test
 dependency and is not part of the Facet model. Run

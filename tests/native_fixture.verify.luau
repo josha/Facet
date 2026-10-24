@@ -3,6 +3,32 @@ local Verify = require("../tools/vendor/verify/src/core")
 local Native = require("./lib/native_engine")
 
 return function(harness: Verify.Harness)
+	harness:case("the unit fixture uses captured event and method ownership", {
+		id = "native_fixture::member ownership",
+		run = function(test)
+			local engine, fixture = Native.new()
+			test:defer(function()
+				fixture.close()
+			end)
+			local folder = engine.new("Folder")
+			Verify.expect(folder.Activated):toBeNil()
+			Verify.expect(folder.InputBegan):toBeNil()
+			Verify.expect(folder.GetMouseLocation):toBeNil()
+			Verify.expect(folder.SetEntries):toBeNil()
+			local button = engine.new("TextButton")
+			local activations = 0
+			button.Activated:Connect(function()
+				activations += 1
+			end)
+			button.Activated:Fire()
+			Verify.expect(activations):toBe(1)
+			local input = engine.new("UserInputService")
+			Verify.expect(input:GetLastInputType()):toBe(engine.types.Enum.UserInputType.None)
+			Verify.expect(function()
+				input:CreateVirtualInput()
+			end):toThrow("unsupported_method")
+		end,
+	})
 	harness:case("the unit fixture preserves reflected properties and access restrictions", {
 		id = "native_fixture::reflection",
 		run = function(test)

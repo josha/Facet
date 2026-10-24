@@ -11,9 +11,9 @@ export type Engine = {
 	environment: VerifyRoblox.Environment,
 	new: (string) -> any,
 	clock: () -> number,
-	typeName: (any) -> string,
-	destroy: (any) -> (),
-	propertyChanged: (any, string) -> Signal<()>,
+	typeName: (unknown) -> string,
+	destroy: (unknown) -> (),
+	propertyChanged: (unknown, string) -> Signal<()>,
 	datatypes: typeof(((nil :: unknown) :: ComposeRoblox.Engine).datatypes),
 	readCFrame: typeof(((nil :: unknown) :: ComposeRoblox.Engine).readCFrame),
 	heartbeat: Signal<number>,
@@ -31,9 +31,7 @@ export type Options = {
 	lenientProperties: boolean?,
 }
 
-local SNAPSHOT = "tests/fixtures/roblox-reflection.json"
-
-local snapshot = Lute.fixture.load(SNAPSHOT)
+local snapshot = Lute.fixture.load()
 local library = VerifyRoblox.reflectionSnapshot.library(snapshot)
 local typeName = VerifyRoblox.typeName
 local datatypes: { [string]: unknown } = table.clone((library :: unknown) :: { [string]: unknown })
@@ -41,41 +39,10 @@ datatypes.typeof = typeName
 local types = (table.freeze(datatypes) :: unknown) :: Shared.RobloxTypes
 local Vector2 = library.Vector2
 
-local eventNames = {
-	"StyledPropertiesChanged",
-	"Activated",
-	"Focused",
-	"ReturnPressedFromOnScreenKeyboard",
-	"Pressed",
-	"Released",
-	"StateChanged",
-	"TouchLongPress",
-	"TouchPan",
-	"TouchSwipe",
-	"TouchPinch",
-	"TextBoxFocused",
-	"TextBoxFocusReleased",
-	"FocusLost",
-	"InputBegan",
-	"InputChanged",
-	"InputEnded",
-	"LastInputTypeChanged",
-	"WindowFocusReleased",
-	"WindowFocused",
-	"DragStart",
-	"DragContinue",
-	"DragEnd",
-	"MouseEnter",
-	"MouseLeave",
-	"MouseMoved",
-	"MouseButton1Down",
-	"SelectionGained",
-	"SelectionLost",
-	"OnClientEvent",
-}
-local environments: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
-local function owner(probe: (any) -> any): any
-	for environment in environments do
+local environments: { [VerifyRoblox.Environment]: boolean } = {}
+setmetatable(environments, { __mode = "k" })
+local function owner<T>(probe: (VerifyRoblox.Environment) -> T): T
+	for environment in pairs(environments) do
 		local ok, value = pcall(probe, environment)
 		if ok then
 			return value
@@ -85,7 +52,7 @@ local function owner(probe: (any) -> any): any
 end
 local localization: { [unknown]: { { Key: string, Source: string, Values: { [string]: string } } } } = {}
 setmetatable(localization, { __mode = "k" })
-local doubles: { [string]: any } = {
+local localizationMethods: { [string]: unknown } = {
 	SetEntries = function(object: unknown, entries: { { Key: string, Source: string, Values: { [string]: string } } })
 		localization[object] = entries
 	end,
@@ -109,39 +76,66 @@ local doubles: { [string]: any } = {
 			end,
 		}
 	end,
-
-	isDestroyed = function(object)
+}
+local function emptyResults(): { unknown }
+	return {}
+end
+local function unpressed(): boolean
+	return false
+end
+local instanceMethods: { [string]: unknown } = {
+	isDestroyed = function(object: VerifyRoblox.Instance)
 		return owner(function(environment)
 			return not environment.isAlive(object)
 		end)
 	end,
+}
+local inputMethods: { [string]: unknown } = {
 	GetMouseLocation = function()
 		return Vector2.new(-1, -1)
 	end,
+	IsKeyDown = unpressed,
+	IsMouseButtonPressed = unpressed,
+	IsGamepadButtonDown = unpressed,
+	GetKeysPressed = emptyResults,
+	GetMouseButtonsPressed = emptyResults,
+	GetNavigationGamepads = emptyResults,
+	GetConnectedGamepads = emptyResults,
+	GetGamepadState = emptyResults,
+	GetImageForKeyCode = function()
+		return ""
+	end,
+	GetStringForKeyCode = function()
+		return ""
+	end,
+	GetLastInputType = function()
+		return library.Enum.UserInputType.None
+	end,
+}
+local actionMethods: { [string]: unknown } = { GetState = unpressed }
+local hitMethods: { [string]: unknown } = { GetGuiObjectsAtPosition = emptyResults }
+local guiProperties: { [string]: unknown } = {
+	PreferredTransparency = 1,
+	GuiNavigationEnabled = true,
+	AutoSelectGuiEnabled = true,
+	TouchControlsEnabled = true,
+}
+local guiMethods: { [string]: unknown } = {
 	GetGuiInset = function()
 		return Vector2.zero, Vector2.zero
 	end,
-	IsKeyDown = function()
-		return false
-	end,
-	GetGuiObjectsAtPosition = function()
-		return {}
+	GetInsetArea = function()
+		error("the unit fixture has no measured inset area", 0)
 	end,
 }
-local instanceMethods = table.clone(assert(VerifyRoblox.uiFakes.classes.Instance.methods))
-for name, method in doubles do
-	instanceMethods[name] = method
-end
-local classes: { [string]: VerifyRoblox.EnvironmentClass } = {}
-classes.Instance = { events = eventNames, methods = instanceMethods }
-classes.GuiService = {
-	properties = {
-		PreferredTransparency = 1,
-		GuiNavigationEnabled = true,
-		AutoSelectGuiEnabled = true,
-		TouchControlsEnabled = true,
-	} :: { [string]: unknown },
-	methods = { GetGuiInset = doubles.GetGuiInset, GetGuiObjectsAtPosition = doubles.GetGuiObjectsAtPosition },
+local classes: { [string]: VerifyRoblox.EnvironmentClass } = {
+	Instance = { methods = instanceMethods },
+	LocalizationTable = { methods = localizationMethods },
+	UserInputService = { methods = inputMethods },
+	InputAction = { methods = actionMethods },
+	BasePlayerGui = { methods = hitMethods },
+	LayerCollector = { methods = hitMethods },
+	GuiService = { properties = guiProperties, methods = guiMethods },
 }
 local function defaultProperty(_className: string, key: string): unknown
 	return if key == "AbsoluteSize"

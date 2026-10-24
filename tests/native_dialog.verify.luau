@@ -13,6 +13,7 @@ return function(verifyHarness: Verify.Harness)
 	local parts = require("../src/ui/overlay_parts")
 	local controls = require("../src/ui")
 	local Vector2 = require("./lib/native_engine").types.Vector2
+	local UserInputType = require("./lib/native_engine").types.Enum.UserInputType
 
 	type Log = { changes: { boolean }, dismissed: { string }, pressed: { string } }
 
@@ -187,7 +188,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::a Tab the engine keeps from input actions still walks the dialog, one step per press",
 			run = function()
 				local open, log, change = caller()
-				local w = mount(standard(open, log, change), { inputs = true })
+				local w = mount(standard(open, log, change), { inputs = true, lastInputType = UserInputType.Keyboard })
 				w.engine.environment.poke(w.input, "KeyboardEnabled", true)
 				local first = w.gui.SelectedObject
 				Verify.expect(first ~= nil):toBe(true)
@@ -353,7 +354,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: the caller's fact decides::keeps the claimed selection and parent when the entry fade completes",
 			run = function()
 				local open, log, change = caller()
-				local w = mount(standard(open, log, change))
+				local w = mount(standard(open, log, change), { lastInputType = UserInputType.Keyboard })
 				local stay = actionButton(w, "Stay")
 				Verify.expect(w.find("Fade") ~= nil and stay:IsDescendantOf(w.find("Fade"))):toBe(true)
 				Verify.expect(w.gui.SelectedObject):toBe(stay)
@@ -407,7 +408,10 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_dialog::native Dialog: the caller's fact decides::the close button proposes: refused keeps the same surface and focus, accepted reports close",
 				run = function()
 					local open, log, change = caller(false)
-					local w = mount(standard(open, log, change, { closeButton = true }))
+					local w = mount(
+						standard(open, log, change, { closeButton = true }),
+						{ lastInputType = UserInputType.Keyboard }
+					)
 					local panel = w.find("Panel")
 					local close = w.find("Close")
 					w.gui.SelectedObject = close
@@ -418,7 +422,10 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(#log.dismissed):toBe(0)
 					w.stop()
 					local open2, log2, change2 = caller()
-					local w2 = mount(standard(open2, log2, change2, { closeButton = true }))
+					local w2 = mount(
+						standard(open2, log2, change2, { closeButton = true }),
+						{ lastInputType = UserInputType.Keyboard }
+					)
 					Verify.expect(w2.gui.SelectedObject):toBe(actionButton(w2, "Stay"))
 					w2.find("Close").Activated:Fire()
 					Verify.expect((w2.find("Panel"))):toBe(nil)
