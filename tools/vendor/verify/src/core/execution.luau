@@ -30,6 +30,7 @@ export type Host = {
 	runBatch: (batch: PlanBatch) -> BatchOutcome,
 
 	runBatches: ((batches: { PlanBatch }, deliver: (index: number, outcome: BatchOutcome) -> ()) -> ())?,
+	runQueue: ((parallel: number, take: () -> PlanBatch?, deliver: (index: number, outcome: BatchOutcome) -> ()) -> ())?,
 
 	artifact: ((unitId: string, artifact: Artifact) -> Artifact)?,
 
@@ -52,6 +53,7 @@ export type Options = {
 }
 
 local FAILING_FACTS: { [string]: boolean } = {
+	["unexpected-batch-outcome"] = true,
 	["fixture-setup-failed"] = true,
 	["fixture-cleanup-failed"] = true,
 	["attempt-disagreement"] = true,
@@ -220,9 +222,13 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 		fact(
 			"fail-fast-granularity",
 			selected.id,
-			("fail-fast is evaluated between dispatch chunks of %d batch(es), so batches already in flight when a failure appeared still ran"):format(
-				parallel
-			)
+			if adapter.runQueue ~= nil
+				then ("fail-fast stops new dispatch after a reported failure; up to %d batch(es) already in flight still finish"):format(
+					parallel
+				)
+				else ("fail-fast is evaluated between dispatch chunks of %d batch(es), so batches already in flight when a failure appeared still ran"):format(
+					parallel
+				)
 		)
 	end
 
@@ -395,6 +401,86 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 		return report.failed + report.timedOut + report.cancelled > 0
 	end
 
+	local function runQueued(chunk: { PlanBatch }, attempt: number)
+		local dispatch = adapter.runQueue
+		assert(dispatch ~= nil)
+		local cursor = 1
+		local started: { [number]: number } = {}
+		local outcomes: { [number]: { outcome: BatchOutcome, elapsed: number } } = {}
+		local duplicates: { string } = {}
+		local function take(): PlanBatch?
+			if stopped ~= nil or cursor > #chunk then
+				return nil
+			end
+			stopped = shouldStop()
+			if stopped ~= nil then
+				return nil
+			end
+			local batch = table.clone(chunk[cursor])
+			cursor += 1
+			started[batch.index] = adapter.now()
+			local deadline = policy.runDeadlineSeconds
+			if deadline ~= nil then
+				local remaining = math.max(0, deadline - runElapsed())
+				batch.deadlineSeconds = math.min(batch.deadlineSeconds or remaining, remaining)
+			end
+			return batch
+		end
+		local function deliver(index: number, outcome: BatchOutcome)
+			local began = started[index]
+			if began == nil then
+				fact(
+					"unexpected-batch-outcome",
+					tostring(index),
+					"the host returned a batch it did not take from the queue"
+				)
+				return
+			end
+			if outcomes[index] ~= nil then
+				table.insert(duplicates, tostring(index))
+			end
+			outcomes[index] = { outcome = outcome, elapsed = adapter.now() - began }
+			if policy.failFast and stopped == nil and outcome.status == "returned" and outcome.report ~= nil then
+				pcall(function()
+					local report = ReportModel.decode(outcome.report)
+					if hasFailure(report) then
+						stopKind = "fail-fast"
+						stopped = ("fail-fast stopped the run after batch-%d"):format(index)
+					end
+				end)
+			end
+		end
+		local ok, thrown = pcall(function(): boolean
+			dispatch(math.min(parallel, #chunk), take, deliver)
+			return true
+		end)
+		if #duplicates > 0 then
+			fact(
+				"duplicate-batch-outcome",
+				table.concat(duplicates, ","),
+				"the host delivered more than one outcome for a batch; the last one was kept"
+			)
+		end
+		for _, batch in chunk do
+			local result = outcomes[batch.index]
+			local began = started[batch.index]
+			if result ~= nil then
+				recordAttempt(batch, attempt, result.outcome, result.elapsed)
+			elseif began ~= nil or stopped == nil then
+				local reason = if ok
+					then "the host delivered no outcome for this batch"
+					else "the host raised during queued dispatch: " .. tostring(thrown)
+				fact("missing-batch-outcome", batch.id, reason)
+				recordAttempt(
+					batch,
+					attempt,
+					{ status = "faulted", detail = reason },
+					if began then adapter.now() - began else 0
+				)
+			end
+		end
+	end
+
 	local queue: { number } = {}
 	for _, batch in batches do
 		if #batch.units > 0 then
@@ -412,11 +498,16 @@ local function execute(planDraft: PlanDraft, host: Host, options: Options?): Exe
 				break
 			end
 			local chunk: { PlanBatch } = {}
-			while cursor <= #queue and #chunk < parallel do
+			local queued = adapter.runQueue ~= nil and parallel > 1
+			while cursor <= #queue and (queued or #chunk < parallel) do
 				table.insert(chunk, batches[queue[cursor]])
 				cursor += 1
 			end
-			runChunk(chunk, attempt)
+			if queued then
+				runQueued(chunk, attempt)
+			else
+				runChunk(chunk, attempt)
+			end
 			for _, batch in chunk do
 				local status = lastStatus[batch.index]
 				local report = adopted[batch.index]

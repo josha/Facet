@@ -313,7 +313,8 @@ return function(harness: Verify.Harness)
 				local Host = runtime.constructors
 				local UI = Facet.controls(runtime, { types = engine.types, motionLevel = "none" })
 				type Row = { id: number, name: string }
-				local rows = C.cell({ [1] = { id = 1, name = "First" }, [3] = { id = 3, name = "Third" } } :: { Row })
+				local initial: { Row } = { [1] = { id = 1, name = "First" }, [3] = { id = 3, name = "Third" } }
+				local rows = C.cell(initial)
 				local controls: ComposeTypes.OrderedCollectionControls<number> = {}
 				local labels: { [number]: TextLabel } = {}
 				local stop = runtime.mount(function()
@@ -330,7 +331,8 @@ return function(harness: Verify.Harness)
 								Text = function(use: Facet.Use): string
 									return use(current).name
 								end,
-							}) :: TextLabel
+							})
+							assert(typeof(label) == "Instance" and label:IsA("TextLabel"))
 							labels[key] = label
 							return label
 						end,
@@ -386,7 +388,8 @@ return function(harness: Verify.Harness)
 								Text = function(use: Facet.Use): string
 									return use(current).name
 								end,
-							}) :: TextLabel
+							})
+							assert(typeof(label) == "Instance" and label:IsA("TextLabel"))
 							labels[key] = label
 							return label
 						end,
@@ -405,7 +408,8 @@ return function(harness: Verify.Harness)
 				t:expect(calls < #initial * 10):toBe(true)
 				table.remove(updated, 64)
 				rows:set(table.clone(updated))
-				local recess = assert(anchor):FindFirstChild("ReservedSlot") :: Frame
+				local recess = assert(anchor):FindFirstChild("ReservedSlot")
+				assert(recess ~= nil and recess:IsA("Frame"))
 				t:expect(recess.Visible):toBe(true)
 				table.insert(updated, 1, { id = 64, name = "Recalled" })
 				rows:set(table.clone(updated))
