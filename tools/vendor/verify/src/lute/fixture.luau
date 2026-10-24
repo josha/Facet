@@ -12,6 +12,7 @@ local Wire = require "./wire"
 local TextMetrics = require "./text-metrics"
 local UiFakes = require "../roblox/ui-fakes"
 local Enum = require "../roblox/datatypes/enum"
+local Values = require "../roblox/ui-values"
 
 export type Options = Snapshot.Options
 export type Snapshot = Snapshot.Snapshot
@@ -65,15 +66,20 @@ local function bridge(snapshot: (string | Snapshot.Snapshot)?, options: Options?
 		if ui.measureText == nil then
 			local measure = TextMetrics.create()
 			local library = Snapshot.library(captured)
-			ui.measureText = function(text: string, size: number, value: unknown, bounds: unknown): unknown
-				local measured = measure {
+			ui.measureText = function(text: string, size: number, value: Enum.EnumItem, bounds: Values.Vector): unknown
+				local measured = Values.vector(measure {
 					Text = text,
 					Size = size,
-					Font = library.Font.fromEnum(value :: Enum.EnumItem),
-					Width = (bounds :: { X: number }).X,
-				} :: { X: number, Y: number }
-				local lineSize = math.clamp(math.floor(size), 1, 100)
-				local height = math.max(1, math.floor((bounds :: { Y: number }).Y / lineSize)) * lineSize
+					Font = Values.font(library.Font.fromEnum(value)),
+					Width = bounds.X,
+				})
+				local lineSize = Values.vector(measure {
+					Text = "",
+					Size = size,
+					Font = Values.font(library.Font.fromEnum(value)),
+					Width = 0,
+				}).Y
+				local height = math.max(1, math.floor(bounds.Y / lineSize)) * lineSize
 				return library.Vector2.new(measured.X, math.min(measured.Y, height))
 			end
 		end

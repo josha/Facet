@@ -1,11 +1,13 @@
 --!strict
 
 local Environment = require "./environment"
+local Values = require "./ui-values"
+local Enum = require "./datatypes/enum"
 
 type Instance = Environment.Instance
 export type Options = {
-	measureText: (((text: string, size: number, font: unknown, bounds: unknown) -> unknown) | false)?,
-	measureBounds: (((parameters: unknown) -> unknown) | false)?,
+	measureText: (((text: string, size: number, font: Enum.EnumItem, bounds: Values.Vector) -> unknown) | false)?,
+	measureBounds: (((parameters: Values.TextParameters) -> unknown) | false)?,
 	methods: { [string]: Environment.Method }?,
 	validate: (((className: string, property: string) -> boolean) | false)?,
 	selection: ("raise" | "ignore")?,
@@ -202,16 +204,19 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		local measure = settings.measureText
 		env.fake(
 			"TextService.GetTextSize",
-			function(_object: Instance, text: string, size: number, font: unknown, bounds: unknown): unknown
+			function(_object: Instance, text: string, size: number, font: Enum.EnumItem, bounds: Values.Vector): unknown
 				return measure(text, size, font, bounds)
 			end
 		)
 	end
 	if settings.measureBounds then
 		local measure = settings.measureBounds
-		env.fake("TextService.GetTextBoundsAsync", function(_object: Instance, parameters: unknown): unknown
-			return measure(parameters)
-		end)
+		env.fake(
+			"TextService.GetTextBoundsAsync",
+			function(_object: Instance, parameters: Values.TextParameters): unknown
+				return measure(parameters)
+			end
+		)
 	end
 	local properties = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [string]: unknown } }
 	local transitions = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [Instance]: { [string]: unknown } }

@@ -84,12 +84,26 @@ module without waiting for host filesystem operations. The live fixture shares
 Verify's source and bytecode cache across isolated runtime environments. A
 planted source change uses a separate cache.
 
-Run this selection with `lute run tools/facet gate spec native_live_primitives`.
+The `native_live_contracts` spec adds 27 original cases. These cover padded
+text geometry, stable indeterminate progress, state changes, late resize
+detection, clipping detection, lifecycle, style properties, grid sizing and
+content. Together the two specs run 32 original cases. Diagnostic probes
+are not included in that count.
+
+Verify supplies bounded text measurement from 18 captured font faces. The
+model supports Latin letters, digits, spaces and newlines at integer rendered
+sizes 1–100. It covers automatic size constraints, wrapped visible-line limits
+and stretched vertical lists. Unsupported shaping and text modes raise errors.
+Verify checks 348 shared text layout configurations against Studio and the
+double. This checks the selected model behavior, not arbitrary text rendering.
+
+Run the contract cases with `lute run tools/facet gate spec native_live_contracts`.
+Run the primitive selection with `lute run tools/facet gate spec native_live_primitives`.
 The spec also plants a gap regression and checks that the original geometry
 assertion fails. It is part of the committed test plan and the existing
 `tool-specs` producer. This selection does not cover the full live primitives
-suite. Text measurement, scrolling and native input remain
-outside this selection. Unsupported mechanisms must fail; do not fill geometry
+suite. Scrolling canvas/window geometry and native input remain outside this
+selection. Unsupported mechanisms must fail; do not fill geometry
 properties with expected results to make a live assertion pass.
 
 Push comparisons use the previous commit from the push event. A manual dispatch

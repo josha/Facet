@@ -8,6 +8,7 @@
   "units": [
     { "id": "native_fixture", "locator": "tests/native_fixture.verify.luau", "requires": ["local-luau"] },
     { "id": "native_live_primitives", "locator": "tests/native_live_primitives.verify.luau", "requires": ["lute"] },
+    { "id": "native_live_contracts", "locator": "tests/native_live_contracts.verify.luau", "requires": ["lute"] },
     { "id": "ascent", "locator": "tests/ascent.verify.luau", "requires": ["local-luau"] },
     { "id": "custom_transition", "locator": "tests/custom_transition.verify.luau", "requires": ["local-luau"] },
     { "id": "spatial_grid", "locator": "tests/spatial_grid.verify.luau", "requires": ["local-luau"] },
