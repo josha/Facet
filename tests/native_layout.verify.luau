@@ -556,6 +556,27 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("follows the theme radius of a corners name when the theme changes", {
+			id = "native_layout::stack corners option::follows the theme radius of a corners name when the theme changes",
+			run = function()
+				local theme = Compose.cell(Facet.themes.neutralPackage())
+				local root, _, stop = build({ theme = theme }, function(UI: FacetControls)
+					return UI.HStack "Themed" {
+						surface = "surface",
+						corners = "panel",
+						padding = { top = 4, bottom = 4, left = 8, right = 8 },
+					}
+				end)
+				Verify.expect(measure(root)):toBe("0,12 4 12 4 12")
+				local rounder = Facet.themes.neutralPackage()
+				rounder.metrics.radii.panel = 20
+				theme:set(rounder)
+				Verify.expect(measure(root)):toBe("0,20 4 20 4 20")
+				Verify.expect(root:FindFirstChild("CornerUnit")):toBe(nil)
+				stop()
+			end,
+		})
+
 		verifyHarness:case("refuses corners without a surface and an unknown corner value", {
 			id = "native_layout::stack corners option::refuses corners without a surface and an unknown corner value",
 			run = function()

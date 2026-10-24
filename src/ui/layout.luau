@@ -127,7 +127,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			return math.min(extent.X, extent.Y) / 2, extent.X >= extent.Y
 		end
 		if corners ~= nil then
-			properties[#properties + 1] = Host.UICorner({ CornerRadius = if fixed then shape() else shape })
+			local constant = fixed and corners ~= "control" and corners ~= "panel"
+			properties[#properties + 1] = Host.UICorner({ CornerRadius = if constant then shape() else shape })
 		end
 		local flow: Types.Flow = spec
 		if (metric ~= nil or corners ~= nil) and spec.padding ~= nil then

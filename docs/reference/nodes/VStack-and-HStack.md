@@ -22,6 +22,7 @@ shadows take no room. A stack without `padding` is not changed.
 
 A stack with `surface` can set `corners` to `"pill"`, `"square"`, the theme
 radius `"control"` or `"panel"`, or a number of pixels; `corners` without
-`surface` causes an error.  A pill is fully round at each height, as on a
+`surface` causes an error. A pill is fully round at each height, as on a
 Button with `corners = "pill"`, and the padding on its long sides grows to
-half of its short side.
+half of its short side. `"control"` and `"panel"` follow a theme change. When
+the theme draws the `panel` plate with art, the art keeps its shape.
