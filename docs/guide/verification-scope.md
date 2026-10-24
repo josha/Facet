@@ -25,9 +25,11 @@ the raw property, and its styled property signal uses the property change
 signal. Individual tests can supply specific styled values or inset behavior.
 These fixtures do not prove StyleSheet resolution or native safe areas.
 
-The `native_live_primitives` spec also runs three original Studio geometry
+The `native_live_primitives` spec also runs five original Studio geometry
 cases with Verify's computed layout. It checks Screen/VStack padding and gap,
-ZStack alignment and stack distribution. A planted gap regression must fail
+grid cells and gaps, ZStack alignment, stack distribution and weighted fill.
+It also loads every committed live source and registers its cases in the double.
+Registration does not prove case behavior. A planted gap regression must fail
 the original assertion. These cases prove the selected model behavior. They
 do not replace Studio evidence. See [the live CI scope](../../tools/studio/CI.md).
 
