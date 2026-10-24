@@ -19,9 +19,9 @@ return function(verifyHarness: Verify.Harness)
 		gui.GetGuiInset = function()
 			return T.Vector2.zero, T.Vector2.zero
 		end
-		input.MouseEnabled = not distant
+		engine.environment.poke(input, "MouseEnabled", not distant)
 		if distant then
-			gui.ViewportDisplaySize = T.Enum.DisplaySize.Large
+			engine.environment.poke(gui, "ViewportDisplaySize", T.Enum.DisplaySize.Large)
 		end
 		local config: { [string]: any } = {
 			types = T,
@@ -34,8 +34,12 @@ return function(verifyHarness: Verify.Harness)
 		end
 		local UI = Facet.controls(runtime, config)
 		local function dock(distant: boolean)
-			gui.ViewportDisplaySize = if distant then T.Enum.DisplaySize.Large else T.Enum.DisplaySize.Medium
-			input.MouseEnabled = not distant
+			engine.environment.poke(
+				gui,
+				"ViewportDisplaySize",
+				if distant then T.Enum.DisplaySize.Large else T.Enum.DisplaySize.Medium
+			)
+			engine.environment.poke(input, "MouseEnabled", not distant)
 		end
 		local function mount(body: () -> any): any
 			local root: any

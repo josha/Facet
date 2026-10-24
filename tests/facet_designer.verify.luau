@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -34,7 +35,7 @@ return function(verifyHarness: Verify.Harness)
 	local function fixture(render, width: number?, height: number?)
 		local engine = engines.new()
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
-		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		engine.environment.poke(input, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
 		input.GetFocusedTextBox = function()
 			return nil
 		end
@@ -173,7 +174,11 @@ return function(verifyHarness: Verify.Harness)
 						actions,
 						{ inputParent = parent, keyboardNavigation = false, guiService = gui, types = engine.types }
 					)
-					view.root.AbsoluteSize = engine.types.Vector2.new(size[1], size[2])
+					engine.environment.poke(
+						(view.root :: unknown) :: FixtureRoblox.Instance,
+						"AbsoluteSize",
+						engine.types.Vector2.new(size[1], size[2])
+					)
 					Verify.expect(view.root.Name):toBe("FacetDesign")
 					Verify.expect(model:peek().compact):toBe(size[1] < 980)
 					local offered = size[1] * view.canvas.Size.X.Scale + view.canvas.Size.X.Offset
@@ -217,7 +222,7 @@ return function(verifyHarness: Verify.Harness)
 				gui.GetGuiInset = function()
 					return near, far
 				end
-				input.PreferredInput = E.PreferredInput.KeyboardAndMouse
+				engine.environment.poke(input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
 				local runtime = Facet.Roblox.createRuntime(engine)
 				local Host: any = runtime.constructors
 				local parent = engine.new("ScreenGui")
@@ -260,7 +265,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(scrim.Size):toBe(D2.new(1, 0, 1, 58))
 				near = V2.new(8, 64)
 				far = V2.new(4, 3)
-				gui.TopbarInset = engine.types.Rect.new(0, 0, 10, 64)
+				engine.environment.poke(gui, "TopbarInset", engine.types.Rect.new(0, 0, 10, 64))
 				Verify.expect(scrim.Position):toBe(D2.fromOffset(-8, -64))
 				Verify.expect(scrim.Size):toBe(D2.new(1, 12, 1, 67))
 				gui.SelectedObject = trigger

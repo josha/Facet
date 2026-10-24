@@ -11,7 +11,7 @@ return function(verifyHarness: Verify.Harness)
 		local engine = engines.new()
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		local gamepad = engine.new("GamepadService")
-		gamepad.GamepadCursorEnabled = false
+		engine.environment.poke(gamepad, "GamepadCursorEnabled", false)
 		input.GetFocusedTextBox = function()
 			return nil
 		end
@@ -50,7 +50,7 @@ return function(verifyHarness: Verify.Harness)
 			}
 			return root
 		end, screen)
-		root.AbsoluteSize = engine.types.Vector2.new(1000, 600)
+		engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(1000, 600))
 		return {
 			root = root,
 			gui = gui,
@@ -123,15 +123,19 @@ return function(verifyHarness: Verify.Harness)
 					.. " only when pane minimums and the input divider cannot fit",
 				run = function()
 					local w = world(nil, axis :: "x" | "y")
-					w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Touch
+					w.engine.environment.poke(w.input, "PreferredInput", w.engine.types.Enum.PreferredInput.Touch)
 					local minimum = if axis == "x" then 560 else 240
 					local divider = find(w.root, "Resize").Size
 					local gutter = if axis == "x" then divider.X.Offset else divider.Y.Offset
 					Verify.expect(gutter >= 28):toBe(true)
 					local function size(value: number)
-						w.root.AbsoluteSize = w.engine.types.Vector2.new(
-							if axis == "x" then value else 390,
-							if axis == "y" then value else 360
+						w.engine.environment.poke(
+							w.root,
+							"AbsoluteSize",
+							w.engine.types.Vector2.new(
+								if axis == "x" then value else 390,
+								if axis == "y" then value else 360
+							)
 						)
 					end
 					size(minimum + gutter)
@@ -146,9 +150,17 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect((w.root:GetAttribute("FacetSplitCollapsed"))):toBe(true)
 					w.stop()
 					local explicit = world(nil, axis :: "x" | "y", 800)
-					explicit.root.AbsoluteSize = explicit.engine.types.Vector2.new(799, 799)
+					explicit.engine.environment.poke(
+						explicit.root,
+						"AbsoluteSize",
+						explicit.engine.types.Vector2.new(799, 799)
+					)
 					Verify.expect((explicit.root:GetAttribute("FacetSplitCollapsed"))):toBe(true)
-					explicit.root.AbsoluteSize = explicit.engine.types.Vector2.new(800, 800)
+					explicit.engine.environment.poke(
+						explicit.root,
+						"AbsoluteSize",
+						explicit.engine.types.Vector2.new(800, 800)
+					)
 					Verify.expect((explicit.root:GetAttribute("FacetSplitCollapsed"))):toBe(false)
 					explicit.stop()
 				end,
@@ -190,15 +202,15 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w.width:peek())):toBe(468)
 				detector.DragContinue:Fire(w.engine.types.Vector2.new(500, -10000))
 				Verify.expect((w.width:peek())):toBe(120)
-				w.root.AbsoluteSize = w.engine.types.Vector2.new(390, 700)
+				w.engine.environment.poke(w.root, "AbsoluteSize", w.engine.types.Vector2.new(390, 700))
 				Verify.expect((w.root:GetAttribute("FacetSplitCollapsed"))):toBe(false)
 				w.column:set("detail")
-				w.root.AbsoluteSize = w.engine.types.Vector2.new(700, 230)
+				w.engine.environment.poke(w.root, "AbsoluteSize", w.engine.types.Vector2.new(700, 230))
 				Verify.expect((w.root:GetAttribute("FacetSplitCollapsed"))):toBe(true)
 				Verify.expect(sidebar.Visible):toBe(false)
 				find(w.root, "Back").Activated:Fire()
 				Verify.expect(sidebar.Visible):toBe(true)
-				w.root.AbsoluteSize = w.engine.types.Vector2.new(390, 700)
+				w.engine.environment.poke(w.root, "AbsoluteSize", w.engine.types.Vector2.new(390, 700))
 				Verify.expect(w.builds.sidebar + w.builds.detail):toBe(2)
 				w.distance:set("ten-foot")
 				Verify.expect(find(w.root, "Resize").Visible):toBe(false)
@@ -222,7 +234,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(find(resize, "Line").Size):toBe(w.engine.types.UDim2.new(1, 0, 0, 1))
 				local detector = find(resize, "UIDragDetector")
 				Verify.expect(detector.CursorIcon):toBe("rbxasset://SystemCursors/SizeNS")
-				w.gamepad.GamepadCursorEnabled = true
+				w.engine.environment.poke(w.gamepad, "GamepadCursorEnabled", true)
 				detector.DragStart:Fire(w.engine.types.Vector2.new(200, 360))
 				detector.DragEnd:Fire(w.engine.types.Vector2.new(200, 420))
 				Verify.expect((w.width:peek())):toBe(420)
@@ -240,7 +252,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w.root:GetAttribute("FacetSplitCollapsed"))):toBe(false)
 				Verify.expect(sidebar.Size.X.Offset):toBe(360)
 				w.column:set("detail")
-				w.root.AbsoluteSize = w.engine.types.Vector2.new(390, 700)
+				w.engine.environment.poke(w.root, "AbsoluteSize", w.engine.types.Vector2.new(390, 700))
 				Verify.expect(sidebar.Visible):toBe(false)
 				Verify.expect(detail.Visible):toBe(true)
 				find(w.root, "Back").Activated:Fire()
@@ -249,7 +261,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(detail.Visible):toBe(false)
 				find(w.root, "ShowDetail").Activated:Fire()
 				Verify.expect((w.column:peek())):toBe("detail")
-				w.root.AbsoluteSize = w.engine.types.Vector2.new(1000, 600)
+				w.engine.environment.poke(w.root, "AbsoluteSize", w.engine.types.Vector2.new(1000, 600))
 				Verify.expect(sidebar.Visible and detail.Visible):toBe(true)
 				Verify.expect(w.builds.sidebar + w.builds.detail):toBe(2)
 				w.stop()
@@ -266,7 +278,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(w.gui.SelectedObject):toBe(find(w.root, "Resize"))
 				w.gui.SelectedObject = inspector
 				w.column:set("detail")
-				w.root.AbsoluteSize = w.engine.types.Vector2.new(390, 700)
+				w.engine.environment.poke(w.root, "AbsoluteSize", w.engine.types.Vector2.new(390, 700))
 				w.column:set("sidebar")
 				Verify.expect(w.gui.SelectedObject):toBe(file)
 				w.stop()
@@ -283,7 +295,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w.width:peek())):toBe(600)
 				detector.DragContinue:Fire(w.engine.types.Vector2.new(-10000, 200))
 				Verify.expect((w.width:peek())):toBe(240)
-				w.root.AbsoluteSize = w.engine.types.Vector2.new(390, 700)
+				w.engine.environment.poke(w.root, "AbsoluteSize", w.engine.types.Vector2.new(390, 700))
 				detector.DragContinue:Fire(w.engine.types.Vector2.new(10000, 200))
 				Verify.expect((w.width:peek())):toBe(240)
 				w.stop()
@@ -293,9 +305,9 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_navigation_split_view::native split navigation::applies the final virtual cursor drag position without a continue event",
 			run = function()
 				local w = world()
-				w.input.PreferredInput = w.engine.types.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.engine.types.Enum.PreferredInput.Gamepad)
 				w.gui.SelectedObject = find(w.root, "File")
-				w.gamepad.GamepadCursorEnabled = true
+				w.engine.environment.poke(w.gamepad, "GamepadCursorEnabled", true)
 				local detector = find(w.root, "UIDragDetector")
 				Verify.expect(detector.Enabled):toBe(true)
 				Verify.expect(w.gui.SelectedObject):toBe(nil)

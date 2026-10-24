@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
@@ -48,7 +49,11 @@ return function(verifyHarness: Verify.Harness)
 						list,
 					})
 				end, world.target)
-				list.AbsoluteWindowSize = T.Vector2.new(320, 400)
+				world.engine.environment.poke(
+					(list :: unknown) :: FixtureRoblox.Instance,
+					"AbsoluteWindowSize",
+					T.Vector2.new(320, 400)
+				)
 				list.CanvasPosition = T.Vector2.new(0, 137)
 				field:CaptureFocus()
 				field.Text = "Typed and uncommitted"

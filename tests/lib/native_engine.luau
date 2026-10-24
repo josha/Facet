@@ -35,7 +35,6 @@ local SNAPSHOT = "tests/fixtures/roblox-reflection.json"
 
 local snapshot = Lute.fixture.load(SNAPSHOT)
 local library = VerifyRoblox.reflectionSnapshot.library(snapshot)
-local reflection = VerifyRoblox.reflectionSnapshot.database(snapshot)
 local typeName = VerifyRoblox.typeName
 local datatypes: { [string]: unknown } = table.clone((library :: unknown) :: { [string]: unknown })
 datatypes.typeof = typeName
@@ -129,92 +128,27 @@ local doubles: { [string]: any } = {
 		return {}
 	end,
 }
-local metadata: { [string]: any } = {}
-local classes: { [string]: any } = {}
-local names = reflection:GetClassNames()
-for _, name in names do
-	local original = assert(reflection:GetClass(name))
-	local class: any = { Name = name, Superclass = original.Superclass, Tags = original.Tags }
-	class.Properties = {}
-	for key, property in original.Properties do
-		local opaque = property.Datatype == "ContentId" or property.Datatype == "BinaryString"
-		class.Properties[key] = {
-			Name = property.Name,
-			Datatype = if opaque then "String" else property.Datatype,
-			Scriptability = "ReadWrite",
-			Tags = {},
-		}
-	end
-	class.DefaultProperties = table.clone(original.DefaultProperties)
-	local properties: { [string]: any } = {}
-	if class.Properties.TextFits then
-		class.Properties.TextFits = nil
-		properties.TextFits = false
-	end
-	for _, key in
-		{
-			"AbsoluteSize",
-			"TextBounds",
-			"AbsoluteContentSize",
-			"AbsolutePosition",
-			"AbsoluteWindowSize",
-			"AbsoluteCanvasSize",
-			"CanvasPosition",
-		}
-	do
-		properties[key] = Vector2.zero
-		class.DefaultProperties[key] = Vector2.zero
-	end
-	for _, key in
-		{
-			"ControlPoints",
-			"PrimaryModifier",
-			"SecondaryModifier",
-			"DisplayName",
-			"DisplayImage",
-			"PreferredBinding",
-		}
-	do
-		properties[key] = false
-	end
-	if name == "GuiService" then
-		class.Properties.PreferredTransparency = nil
-		class.DefaultProperties.PreferredTransparency = nil
-		properties.PreferredTransparency = 1
-		properties.GuiNavigationEnabled = true
-		properties.AutoSelectGuiEnabled = true
-		properties.TouchControlsEnabled = true
-		class.DefaultProperties.GuiNavigationEnabled = true
-		class.DefaultProperties.AutoSelectGuiEnabled = true
-		class.DefaultProperties.TouchControlsEnabled = true
-	end
-	local ui = VerifyRoblox.uiFakes.classes[name]
-	local events = table.clone(eventNames)
-	if ui and ui.events then
-		for _, event in ui.events do
-			table.insert(events, event)
-		end
-	end
-	local methods = table.clone(doubles)
-	for member, method in (if ui and ui.methods then ui.methods else {}) :: { [string]: any } do
-		if method ~= true or methods[member] == nil then
-			methods[member] = method
-		end
-	end
-	classes[name] = { creatable = true, properties = properties, events = events, methods = methods }
-	metadata[name] = class
+local instanceMethods = table.clone(assert(VerifyRoblox.uiFakes.classes.Instance.methods))
+for name, method in doubles do
+	instanceMethods[name] = method
 end
-local database = {
-	GetClassNames = function()
-		return names
-	end,
-	GetClass = function(_, name)
-		return metadata[name]
-	end,
+local classes: { [string]: VerifyRoblox.EnvironmentClass } = {}
+classes.Instance = { events = eventNames, methods = instanceMethods }
+classes.GuiService = {
+	properties = {
+		PreferredTransparency = 1,
+		GuiNavigationEnabled = true,
+		AutoSelectGuiEnabled = true,
+		TouchControlsEnabled = true,
+	} :: { [string]: unknown },
+	methods = { GetGuiInset = doubles.GetGuiInset, GetGuiObjectsAtPosition = doubles.GetGuiObjectsAtPosition },
 }
-local function defaultProperty(className: string, key: string): any
-	local injected = classes[className].properties[key]
-	return if injected == false then nil else injected
+local function defaultProperty(_className: string, key: string): unknown
+	return if key == "AbsoluteSize"
+			or key == "AbsolutePosition"
+			or key == "AbsoluteContentSize"
+		then Vector2.zero
+		else nil
 end
 
 local function connections(signal: any): number
@@ -254,12 +188,8 @@ local function new(options: Options?): (Engine, VerifyRoblox.FixtureBridge)
 			return environment.newSignal()
 		end
 	end
-	local bridge = VerifyRoblox.fixtureBridge({
-		database = database,
-		typeName = typeName,
-		enumType = library.enumType,
+	local bridge = Lute.fixture.bridge(snapshot, {
 		classes = classes,
-		library = VerifyRoblox.reflectionSnapshot.engineLibrary(library),
 		defaultProperty = defaultProperty,
 		handlerErrors = "raise",
 		functionDoubles = true,
@@ -281,6 +211,14 @@ local function new(options: Options?): (Engine, VerifyRoblox.FixtureBridge)
 	end)
 
 	local engine: any = bridge.engine
+	engine.new = function(className: string)
+		local object = environment.createEngineInstance(className)
+		if object:IsA("GuiBase2d") then
+			environment.poke(object, "AbsoluteSize", Vector2.zero)
+			environment.poke(object, "AbsolutePosition", Vector2.zero)
+		end
+		return object
+	end
 	engine.environment = environment
 	engine.census = function()
 		local accounting = bridge.accounting()

@@ -46,7 +46,7 @@ return function(verifyHarness: Verify.Harness)
 					end,
 				}
 			end, { motionLevel = "none" })
-			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			open:set(true)
 			w.gui.SelectedObject = w.find("Next")
 			enabled:set(false)
@@ -83,7 +83,7 @@ return function(verifyHarness: Verify.Harness)
 							},
 						}
 					end, { motionLevel = "none" })
-					w.input.PreferredInput = w.Enum.PreferredInput[preferred]
+					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput[preferred])
 					w.gui.SelectedObject = w.find("Opener")
 					open:set(true)
 					w.advance(1 / 60, 3)
@@ -120,7 +120,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end, { motionLevel = "none" })
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				open:set(true)
 				w.advance(1 / 60, 3)
 				local branch, removed, replacement = w.find("Branch"), w.find("Inspect"), w.find("Equip")
@@ -162,7 +162,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end, { motionLevel = "none" })
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				open:set(true)
 				w.advance(1 / 60, 3)
 				w.size(w.find("Close"), 44, 44)
@@ -200,7 +200,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end, { motionLevel = "none" })
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				open:set(true)
 				w.advance(1 / 60, 3)
 				w.size(w.find("Close"), 44, 44)
@@ -254,7 +254,7 @@ return function(verifyHarness: Verify.Harness)
 						},
 					}
 				end, { motionLevel = "none" })
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				w.gui.SelectedObject = w.find("Opener")
 				open:set(true)
 				w.advance(1 / 60, 3)
@@ -292,7 +292,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end, { motionLevel = "none" })
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				open:set(true)
 				w.advance(1 / 60, 3)
 				w.size(w.find("Equip"), 120, 44)
@@ -332,7 +332,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 				return hud
 			end, { motionLevel = "none" })
-			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			open:set(true)
 			resign()
 			Verify.expect(state()):toBe("passive")
@@ -349,7 +349,7 @@ return function(verifyHarness: Verify.Harness)
 			local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 				return Host.Frame({ dialog(UI, Host, "About", open) })
 			end)
-			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			open:set(true)
 			local target = w.find("DismissTarget")
 			Verify.expect(target.Interactable):toBe(true)
@@ -599,15 +599,15 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(scrim.Position):toBe(w.engine.types.UDim2.fromOffset(0, -87))
 				Verify.expect(scrim.Size):toBe(w.engine.types.UDim2.new(1, 0, 1, 87))
 				near, far = w.Vector2.new(12, 60), w.Vector2.new(8, 20)
-				w.gui.TopbarInset = w.engine.types.Rect.new(0, 0, 100, 60)
+				w.engine.environment.poke(w.gui, "TopbarInset", w.engine.types.Rect.new(0, 0, 100, 60))
 				Verify.expect(scrim.Position):toBe(w.engine.types.UDim2.fromOffset(-12, -60))
 				Verify.expect(scrim.Size):toBe(w.engine.types.UDim2.new(1, 20, 1, 80))
 				Verify.expect(target.Position):toBe(w.engine.types.UDim2.new())
 				Verify.expect(target.Size):toBe(w.engine.types.UDim2.fromScale(1, 1))
-				w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 				Verify.expect(target.Interactable):toBe(true)
 				Verify.expect(target.Selectable):toBe(false)
-				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 				Verify.expect(target.Interactable):toBe(true)
 				w.stop()
 			end,

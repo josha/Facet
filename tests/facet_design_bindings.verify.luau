@@ -27,7 +27,7 @@ return function(verifyHarness: Verify.Harness)
 	local function fixture(value: document.Document, setup: (any) -> ()): (any, any)
 		local engine = engineFactory.new()
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
-		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		engine.environment.poke(input, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
 		input.GetFocusedTextBox = function()
 			return nil
 		end
@@ -80,9 +80,17 @@ return function(verifyHarness: Verify.Harness)
 					ctx.data = { Rows = rows }
 				end)
 				local tableRoot = mounted.content:FindFirstChild("Table", true)
-				tableRoot.AbsoluteSize = engine.types.Vector2.new(640, 240)
-				tableRoot:FindFirstChild("Body").AbsoluteSize = engine.types.Vector2.new(640, 200)
-				tableRoot:FindFirstChild("Body").AbsoluteWindowSize = engine.types.Vector2.new(640, 200)
+				engine.environment.poke(tableRoot, "AbsoluteSize", engine.types.Vector2.new(640, 240))
+				engine.environment.poke(
+					tableRoot:FindFirstChild("Body"),
+					"AbsoluteSize",
+					engine.types.Vector2.new(640, 200)
+				)
+				engine.environment.poke(
+					tableRoot:FindFirstChild("Body"),
+					"AbsoluteWindowSize",
+					engine.types.Vector2.new(640, 200)
+				)
 				Verify.expect((table.concat(texts(mounted.content, "CellValue"), ","))):toBe("Desk,Lamp")
 				rows:set({ { id = "b", label = "Lantern", score = 0 }, { id = "a", label = "Table", score = 3 } })
 				Verify.expect((table.concat(texts(mounted.content, "CellValue"), ","))):toBe("Lantern,Table")

@@ -20,7 +20,7 @@ return function(verifyHarness: Verify.Harness)
 	local function scaleProbes(world: any, factor: number)
 		for _, node in world.screen:GetDescendants() do
 			if node.Name == "LayoutUnit" then
-				node.AbsoluteSize = world.V2(100 * factor, factor)
+				world.engine.environment.poke(node, "AbsoluteSize", world.V2(100 * factor, factor))
 			end
 		end
 	end
@@ -57,7 +57,7 @@ return function(verifyHarness: Verify.Harness)
 						end)
 						local nested = world.find("Inner")
 						scaleProbes(world, factor)
-						nested.AbsoluteSize = world.V2(705 * factor, height * factor)
+						world.engine.environment.poke(nested, "AbsoluteSize", world.V2(705 * factor, height * factor))
 						local out = `menu {world.find("TabsMenu", nested) ~= nil}`
 						world.stop()
 						return out
@@ -81,7 +81,11 @@ return function(verifyHarness: Verify.Harness)
 							return frame
 						end)
 						scaleProbes(world, factor)
-						world.find("Region").AbsoluteSize = world.V2(width * factor, 800 * factor)
+						world.engine.environment.poke(
+							world.find("Region"),
+							"AbsoluteSize",
+							world.V2(width * factor, 800 * factor)
+						)
 						local out = class
 						world.stop()
 						return out
@@ -105,12 +109,20 @@ return function(verifyHarness: Verify.Harness)
 						end, { size = Vector2.new(390 * factor, 844 * factor), motionLevel = "none" })
 						for _, node in w.screen:GetDescendants() do
 							if node.Name == "LayoutUnit" then
-								node.AbsoluteSize = w.Vector2.new(100 * factor, factor)
+								w.engine.environment.poke(node, "AbsoluteSize", w.Vector2.new(100 * factor, factor))
 							end
 						end
 						local row = w.find("Snack")
-						overlay.find(row, "Action").AbsoluteSize = w.Vector2.new(100 * factor, 44 * factor)
-						overlay.find(row, "MessageMeasure").TextBounds = w.Vector2.new(copy * factor, 18 * factor)
+						w.engine.environment.poke(
+							overlay.find(row, "Action"),
+							"AbsoluteSize",
+							w.Vector2.new(100 * factor, 44 * factor)
+						)
+						w.engine.environment.poke(
+							overlay.find(row, "MessageMeasure"),
+							"TextBounds",
+							w.Vector2.new(copy * factor, 18 * factor)
+						)
 						local out =
 							tostring(overlay.find(row, "Body"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
 						w.stop()

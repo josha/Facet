@@ -338,7 +338,7 @@ function lab.build(ctx: { [string]: any }, modules: Modules)
 						if item.workload == "variable-extents" then workload.disclosure() else nil :: unknown,
 					})
 					if ctx.engine then
-						node.AbsoluteWindowSize = T.Vector2.new(800, 400)
+						ctx.engine.environment.poke(node, "AbsoluteWindowSize", T.Vector2.new(800, 400))
 					end
 					workload.list, workload.status, workload.extents, workload.values = node, status, extents, values
 					workload.step = function()

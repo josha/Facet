@@ -1036,7 +1036,7 @@ return function(verifyHarness: Verify.Harness)
 		}
 		local function newGame(board: { { string } }?, reduced: boolean?)
 			local ctx = makeWorld()
-			ctx.guiService.ReducedMotionEnabled = reduced == true
+			ctx.engine.environment.poke(ctx.guiService, "ReducedMotionEnabled", reduced == true)
 			local game = mountGame(ctx, match3)
 			game.debugSetBoard(board or swapBoard)
 			return game, ctx
@@ -1172,7 +1172,7 @@ return function(verifyHarness: Verify.Harness)
 						local moving = tile(ctx, game.tileIdAt(1, 3))
 						game.swap(1, 3, 2, 3)
 						ctx.engine.heartbeat:Fire(0.03)
-						ctx.guiService.ReducedMotionEnabled = true
+						ctx.engine.environment.poke(ctx.guiService, "ReducedMotionEnabled", true)
 						expect(moving.Position.Y.Offset):toBe(48)
 						game.dispose()
 						expect((engineLib.connections(ctx.guiService:GetPropertyChangedSignal("ReducedMotionEnabled")))):toBe(
@@ -1211,8 +1211,8 @@ return function(verifyHarness: Verify.Harness)
 					local first = find(tile(ctx, game.tileIdAt(1, 3)), "hit")
 					local second = find(tile(ctx, game.tileIdAt(2, 3)), "hit")
 					for _, hit in { first, second } do
-						hit.AbsolutePosition = ctx.types.Vector2.new(100, 100)
-						hit.AbsoluteSize = ctx.types.Vector2.new(44, 44)
+						ctx.engine.environment.poke(hit, "AbsolutePosition", ctx.types.Vector2.new(100, 100))
+						ctx.engine.environment.poke(hit, "AbsoluteSize", ctx.types.Vector2.new(44, 44))
 					end
 					local origin = ctx.types.Vector2.new(120, 120)
 					local mouse = { UserInputType = ctx.types.Enum.UserInputType.MouseButton1 }
@@ -1271,8 +1271,8 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local game, ctx = newGame()
 					local first = find(tile(ctx, game.tileIdAt(1, 1)), "hit")
-					first.AbsolutePosition = ctx.types.Vector2.new(100, 100)
-					first.AbsoluteSize = ctx.types.Vector2.new(44, 44)
+					ctx.engine.environment.poke(first, "AbsolutePosition", ctx.types.Vector2.new(100, 100))
+					ctx.engine.environment.poke(first, "AbsoluteSize", ctx.types.Vector2.new(44, 44))
 					local drag = find(first, "SwapDrag")
 					local origin = ctx.types.Vector2.new(140, 120)
 					drag.DragEnd:Fire(origin)

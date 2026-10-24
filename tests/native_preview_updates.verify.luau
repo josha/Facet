@@ -17,7 +17,7 @@ return function(verifyHarness: Verify.Harness)
 		local engine = engines.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
-		input.PreferredInput = engine.types.Enum.PreferredInput.KeyboardAndMouse
+		engine.environment.poke(input, "PreferredInput", engine.types.Enum.PreferredInput.KeyboardAndMouse)
 		input.GetFocusedTextBox = function()
 			return nil
 		end
@@ -43,10 +43,11 @@ return function(verifyHarness: Verify.Harness)
 			})
 			return ctx.Host.ScreenGui { ctx.overlayParent :: unknown, build(UI, ctx.Host, engine.types) }
 		end, engine.new("Folder"))
-		root.AbsoluteSize = engine.types.Vector2.new(1440, 900)
-		ctx.overlayParent.AbsoluteSize = engine.types.Vector2.new(389, 762)
-		ctx.overlayParent.AbsolutePosition = engine.types.Vector2.new(400, 50)
+		engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(1440, 900))
+		engine.environment.poke(ctx.overlayParent, "AbsoluteSize", engine.types.Vector2.new(389, 762))
+		engine.environment.poke(ctx.overlayParent, "AbsolutePosition", engine.types.Vector2.new(400, 50))
 		return {
+			engine = engine,
 			ctx = ctx,
 			settings = settings,
 			root = root,
@@ -116,15 +117,19 @@ return function(verifyHarness: Verify.Harness)
 						w.settings.set("platform", "phone")
 						local T = w.ctx.types
 						local anchor = w.find(if kind == "color" then "Well" else "Field")
-						anchor.AbsolutePosition = T.Vector2.new(430, 800)
-						anchor.AbsoluteSize = T.Vector2.new(300, 44)
+						w.engine.environment.poke(anchor, "AbsolutePosition", T.Vector2.new(430, 800))
+						w.engine.environment.poke(anchor, "AbsoluteSize", T.Vector2.new(300, 44))
 						if kind == "color" then
-							w.find("ShowSpectrum").AbsoluteSize = T.Vector2.new(340, 500)
+							w.engine.environment.poke(w.find("ShowSpectrum"), "AbsoluteSize", T.Vector2.new(340, 500))
 						else
-							w.find("Calendar").AbsoluteSize = T.Vector2.new(340, 500)
+							w.engine.environment.poke(w.find("Calendar"), "AbsoluteSize", T.Vector2.new(340, 500))
 						end
-						w.ctx.overlayParent.AbsoluteSize = T.Vector2.new(844, 390)
-						panel.AbsoluteSize = T.Vector2.new(panel.Size.X.Offset, panel.Size.Y.Offset)
+						w.engine.environment.poke(w.ctx.overlayParent, "AbsoluteSize", T.Vector2.new(844, 390))
+						w.engine.environment.poke(
+							panel,
+							"AbsoluteSize",
+							T.Vector2.new(panel.Size.X.Offset, panel.Size.Y.Offset)
+						)
 						Verify.expect(panel.Position.Y.Offset >= 0):toBe(true)
 						Verify.expect(panel.Position.Y.Offset + panel.Size.Y.Offset <= 390):toBe(true)
 						Verify.expect((w.find(panelName))):toBe(panel)
@@ -154,7 +159,7 @@ return function(verifyHarness: Verify.Harness)
 				local panel = w.find("Panel")
 				Verify.expect((panel:IsDescendantOf(w.ctx.overlayParent))):toBe(true)
 				Verify.expect(panel.Size.X.Offset <= 389):toBe(true)
-				w.ctx.overlayParent.AbsoluteSize = w.ctx.types.Vector2.new(300, 500)
+				w.engine.environment.poke(w.ctx.overlayParent, "AbsoluteSize", w.ctx.types.Vector2.new(300, 500))
 				Verify.expect(panel.Size.X.Offset <= 300):toBe(true)
 				Verify.expect((w.find("Panel"))):toBe(panel)
 				w.stop()

@@ -89,11 +89,11 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}, 900, { motionLevel = "none" })
 					local strip = world.find("Strip")
-					strip.AbsolutePosition = world.V2(10, 0)
+					world.engine.environment.poke(strip, "AbsolutePosition", world.V2(10, 0))
 					world.resize(strip, 900, 80)
 					local positions: { [string]: number } = { cart = 10, ship = 200, pay = 400, done = 600 }
 					for id, x in positions do
-						cell(world, id).AbsolutePosition = world.V2(x, 0)
+						world.engine.environment.poke(cell(world, id), "AbsolutePosition", world.V2(x, 0))
 						world.resize(cell(world, id), 150, 60)
 					end
 					local function under(id: string): boolean
@@ -123,9 +123,9 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local world = mount({ steps = workflow(), current = "ship" }, 1200, { motionLevel = "none" })
 				local strip = world.find("Strip")
-				strip.AbsolutePosition = world.V2(12, 0)
+				world.engine.environment.poke(strip, "AbsolutePosition", world.V2(12, 0))
 				world.resize(strip, 1204.7, 96)
-				cell(world, "ship").AbsolutePosition = world.V2(695.1, 0)
+				world.engine.environment.poke(cell(world, "ship"), "AbsolutePosition", world.V2(695.1, 0))
 				world.resize(cell(world, "ship"), 269, 72)
 				Verify.expect((drawn(world, 1.2047))):toBe("695.1 269")
 				world.stop()
@@ -176,7 +176,11 @@ return function(verifyHarness: Verify.Harness)
 				for _, sizing in { "fill", "hug" } do
 					local world, root = mount({ steps = workflow(), current = "ship", sizing = sizing }, 150)
 					measureAll(world, root, 60)
-					world.find("Row"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = world.V2(600, 60)
+					world.engine.environment.poke(
+						world.find("Row"):FindFirstChildWhichIsA("UIListLayout"),
+						"AbsoluteContentSize",
+						world.V2(600, 60)
+					)
 					Verify.expect(`{sizing} {root:GetAttribute("FacetForm")}`):toBe(`{sizing} summary`)
 					world.resize(root, 950, 80)
 					Verify.expect(`{sizing} {root:GetAttribute("FacetForm")}`):toBe(`{sizing} row`)
@@ -193,7 +197,11 @@ return function(verifyHarness: Verify.Harness)
 						end
 					end
 				end
-				hug.find("Row"):FindFirstChildWhichIsA("UIListLayout").AbsoluteContentSize = hug.V2(600, 60)
+				hug.engine.environment.poke(
+					hug.find("Row"):FindFirstChildWhichIsA("UIListLayout"),
+					"AbsoluteContentSize",
+					hug.V2(600, 60)
+				)
 				Verify.expect((fillRoot:GetAttribute("FacetForm"))):toBe("summary")
 				Verify.expect((hugRoot:GetAttribute("FacetForm"))):toBe("row")
 				fill.stop()
@@ -210,9 +218,9 @@ return function(verifyHarness: Verify.Harness)
 				)
 				measureAll(world, root, 10)
 				local layout = world.find("Row"):FindFirstChildWhichIsA("UIListLayout")
-				layout.AbsoluteContentSize = world.V2(520, 60)
+				world.engine.environment.poke(layout, "AbsoluteContentSize", world.V2(520, 60))
 				Verify.expect((root:GetAttribute("FacetForm"))):toBe("summary")
-				layout.AbsoluteContentSize = world.V2(380, 60)
+				world.engine.environment.poke(layout, "AbsoluteContentSize", world.V2(380, 60))
 				Verify.expect((root:GetAttribute("FacetForm"))):toBe("row")
 				world.stop()
 			end,

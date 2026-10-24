@@ -123,6 +123,8 @@ installs Lute. Run `lute run tools/facet help` to list the commands.
   registrations in the Lute worker `tests/lute/worker.luau`. CLI selftests select
   the same registrations through the Verify gate. Use Verify assertions and
   `test:defer` for fixture cleanup.
+  In a native fixture, use `engine.environment.poke` to supply engine-owned
+  geometry and service state. Normal assignments keep reflection restrictions.
   The `tool-specs` producer runs each plan unit that requires `lute`. The
   `suite` producer runs the other plan units in the engine worker
   `tests/worker.luau`.

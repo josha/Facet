@@ -1,4 +1,5 @@
 --!strict
+local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
 local Verify = require("../tools/vendor/verify/src/core")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
@@ -2453,8 +2454,11 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					local list = (mounted :: unknown) :: ScrollingFrame
 					local horizontal = direction == "horizontal"
-					((list :: unknown) :: { AbsoluteWindowSize: Vector2 }).AbsoluteWindowSize =
+					engine.environment.poke(
+						(list :: unknown) :: FixtureRoblox.Instance,
+						"AbsoluteWindowSize",
 						engine.types.Vector2.new(if horizontal then 280 else 700, if horizontal then 700 else 280)
+					)
 					local items = assert(list:FindFirstChild("Items"))
 					local padding = assert(items:FindFirstChildWhichIsA("UIPadding")) :: UIPadding
 					local crossEdge = if horizontal then padding.PaddingTop.Offset else padding.PaddingLeft.Offset
@@ -7995,13 +7999,13 @@ return function(verifyHarness: Verify.Harness)
 					return UI.VirtualGrid(props)
 				end, target)
 				local grid = target:FindFirstChild("Hugged", true)
-				grid.AbsoluteSize = V2.new(500, 300)
-				grid.AbsoluteWindowSize = V2.new(500, 300)
+				engine.environment.poke(grid, "AbsoluteSize", V2.new(500, 300))
+				engine.environment.poke(grid, "AbsoluteWindowSize", V2.new(500, 300))
 				local wide = grid.CanvasSize.Y.Offset
 				Verify.expect(wide > 0):toBe(true)
 				Verify.expect(grid.Size):toBe(D2.new(1, 0, 0, wide))
-				grid.AbsoluteSize = V2.new(320, 300)
-				grid.AbsoluteWindowSize = V2.new(320, 300)
+				engine.environment.poke(grid, "AbsoluteSize", V2.new(320, 300))
+				engine.environment.poke(grid, "AbsoluteWindowSize", V2.new(320, 300))
 				local narrow = grid.CanvasSize.Y.Offset
 				Verify.expect(narrow > wide):toBe(true)
 				Verify.expect(grid.Size):toBe(D2.new(1, 0, 0, narrow))
@@ -8037,8 +8041,8 @@ return function(verifyHarness: Verify.Harness)
 					end, target)
 					table.insert(stops, stop)
 					local node = target:FindFirstChild(name, true)
-					node.AbsoluteSize = V2.new(800, 300)
-					node.AbsoluteWindowSize = V2.new(800, 300)
+					engine.environment.poke(node, "AbsoluteSize", V2.new(800, 300))
+					engine.environment.poke(node, "AbsoluteWindowSize", V2.new(800, 300))
 					return assert(controls.placementOf)
 				end
 				local fitted, filled = grid(true), grid(false)
@@ -8501,7 +8505,7 @@ return function(verifyHarness: Verify.Harness)
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 200)
 				)
-				nativeDrag.measure(node)
+				nativeDrag.measure(node, engine.environment)
 				local queries = 0
 				local placement = assert(controls.placementOf)
 				controls.placementOf = function(index)
@@ -8558,7 +8562,7 @@ return function(verifyHarness: Verify.Harness)
 					"AbsoluteWindowSize",
 					engine.types.Vector2.new(200, 200)
 				)
-				nativeDrag.measure(node)
+				nativeDrag.measure(node, engine.environment)
 				local session = require("../src/ui/drag_session")(ctx)
 				local source = engine.new("TextButton")
 				source.Parent = target
@@ -9307,7 +9311,7 @@ return function(verifyHarness: Verify.Harness)
 							"AbsoluteWindowSize",
 							V2.new(300, 240)
 						)
-						nativeDrag.measure(body)
+						nativeDrag.measure(body, engine.environment)
 						local outer = body:FindFirstChild("2", true)
 						engine.environment.poke(
 							(outer :: unknown) :: VerifyRoblox.Instance,

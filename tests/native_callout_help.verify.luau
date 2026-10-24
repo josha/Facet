@@ -478,9 +478,9 @@ return function(verifyHarness: Verify.Harness)
 				return Host.Frame({ Name = "Screen", UI.Button "Post" { label = "Post", help = value } })
 			end, { motionLevel = "none" })
 			local post = w.find("Post")
-			post.AbsolutePosition = Vector2.new(300, 200)
-			post.AbsoluteSize = Vector2.new(80, 44)
-			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+			w.engine.environment.poke(post, "AbsolutePosition", Vector2.new(300, 200))
+			w.engine.environment.poke(post, "AbsoluteSize", Vector2.new(80, 44))
+			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			w.gui.SelectedObject = post
 			w.advance(0.5)
 			return w
@@ -496,7 +496,7 @@ return function(verifyHarness: Verify.Harness)
 					})
 				end)
 				local post = before.find("Post")
-				before.input.PreferredInput = before.Enum.PreferredInput.Gamepad
+				before.engine.environment.poke(before.input, "PreferredInput", before.Enum.PreferredInput.Gamepad)
 				before.gui.SelectedObject = post
 				before.advance(0.5)
 				local contexts = 0
@@ -527,7 +527,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = helped({ body = "Posts it", edge = "trailing" :: "trailing", align = "end" :: "end" })
 				local panel = w.find("Help")
-				panel.AbsoluteSize = Vector2.new(120, 30)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(120, 30))
 				local expected = placement.solve({
 					source = { x = 300, y = 200, w = 80, h = 44 },
 					size = { w = 120, h = 30 },
@@ -552,7 +552,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((w.find("HelpShortcut"))):toBeNil()
 				Verify.expect(w.find("HelpText").Text):toBe("Posts this avatar")
 				local panel = w.find("Help")
-				panel.AbsoluteSize = Vector2.new(100, 30)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(100, 30))
 				local x, y = corner(panel)
 				Verify.expect((near(y, 200 - 30 - 6 - LIFT))):toBe(true)
 				Verify.expect((near(x, 300 + 40 - 50))):toBe(true)
@@ -595,9 +595,9 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = helped({ body = "Posts it", edge = "trailing" :: "trailing" })
 				local panel = w.find("Help")
-				panel.AbsoluteSize = Vector2.new(200, 30)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(200, 30))
 				Verify.expect((near((corner(panel)), 386 + LIFT))):toBe(true)
-				w.screen.AbsoluteSize = Vector2.new(500, 600)
+				w.engine.environment.poke(w.screen, "AbsoluteSize", Vector2.new(500, 600))
 				Verify.expect((corner(panel)) + 200 <= 500 - 8 + 0.5):toBe(true)
 				w.stop()
 			end,
@@ -620,7 +620,7 @@ return function(verifyHarness: Verify.Harness)
 					},
 				})
 			end, options)
-			w.input.PreferredInput = w.Enum.PreferredInput.Gamepad
+			w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Gamepad)
 			w.gui.SelectedObject = w.find("Post")
 			w.advance(0.45)
 			return w
@@ -638,12 +638,12 @@ return function(verifyHarness: Verify.Harness)
 					assert(package.metrics.motion.easing).present = if duration == 0.2 then "outCubic" else "outQuad"
 					local w = hovered({ theme = assert(themes.define(package)) })
 					local panel = w.find("Help")
-					panel.AbsoluteSize = w.Vector2.new(120, 60)
+					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(120, 60))
 					local labels = { w.find("HelpTitle"), w.find("HelpText"), w.find("HelpShortcut") }
 					for index, label in labels do
-						label.AbsolutePosition = w.Vector2.new(8, 6 + (index - 1) * 16)
-						label.AbsoluteSize = w.Vector2.new(104, 16)
-						label.TextBounds = w.Vector2.new(80, 16)
+						w.engine.environment.poke(label, "AbsolutePosition", w.Vector2.new(8, 6 + (index - 1) * 16))
+						w.engine.environment.poke(label, "AbsoluteSize", w.Vector2.new(104, 16))
+						w.engine.environment.poke(label, "TextBounds", w.Vector2.new(80, 16))
 					end
 					w.advance(0, 2)
 					Verify.expect(fadeKit.of(panel)):toBe(1)
@@ -686,7 +686,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = hovered({ motionLevel = "none" })
 				local panel = w.find("Help")
-				panel.AbsoluteSize = w.Vector2.new(120, 40)
+				w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(120, 40))
 				w.advance(1 / 60, 2)
 				Verify.expect((fadeKit.of(panel))):toBe(0)
 				Verify.expect(materialize.of(panel).Scale):toBe(1)
@@ -709,9 +709,9 @@ return function(verifyHarness: Verify.Harness)
 				local w = mount(function()
 					return { title = "Start here", edge = edge }
 				end, { theme = selected, motionLevel = "none" })
-				w.find("Plus").AbsolutePosition = w.Vector2.new(320, 240)
-				w.find("Plus").AbsoluteSize = w.Vector2.new(80, 44)
-				w.find("CalloutPanel").AbsoluteSize = w.Vector2.new(280, 120)
+				w.engine.environment.poke(w.find("Plus"), "AbsolutePosition", w.Vector2.new(320, 240))
+				w.engine.environment.poke(w.find("Plus"), "AbsoluteSize", w.Vector2.new(80, 44))
+				w.engine.environment.poke(w.find("CalloutPanel"), "AbsoluteSize", w.Vector2.new(280, 120))
 				local outline = w.find("Outline")
 				for _, side in { "bottom", "top", "leading", "trailing" } do
 					edge:set(side)
@@ -766,7 +766,7 @@ return function(verifyHarness: Verify.Harness)
 					local contentSize, contentAutomatic = content.Size, content.AutomaticSize
 					Verify.expect(panel.Visible):toBe(false)
 					Verify.expect(arrow.Visible):toBe(false)
-					panel.AbsoluteSize = w.Vector2.new(280, 120)
+					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(280, 120))
 					w.advance(1 / 60, 2)
 					Verify.expect(fadeKit.of(panel)):toBe(1)
 					Verify.expect(panel.Visible):toBe(true)
@@ -810,7 +810,7 @@ return function(verifyHarness: Verify.Harness)
 					end, { runService = true })
 					local panel = w.find("CalloutPanel")
 					Verify.expect(panel.Visible):toBe(false)
-					panel.AbsoluteSize = w.Vector2.new(280, 120)
+					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(280, 120))
 					w.advance(0.01)
 					local group = panel:FindFirstChild("Fade")
 					Verify.expect(group ~= nil and group:IsA("CanvasGroup")):toBe(true)
@@ -838,16 +838,16 @@ return function(verifyHarness: Verify.Harness)
 						return { content = tip(Host), edge = if edge == "default" then nil else edge }
 					end, { motionLevel = "none" })
 					local anchor, panel = w.find("Plus"), w.find("CalloutPanel")
-					anchor.AbsolutePosition = Vector2.new(300, 250)
-					anchor.AbsoluteSize = Vector2.new(80, 44)
-					panel.AbsoluteSize = Vector2.new(280, 100)
-					w.input.PreferredInput = w.Enum.PreferredInput.Touch
+					w.engine.environment.poke(anchor, "AbsolutePosition", Vector2.new(300, 250))
+					w.engine.environment.poke(anchor, "AbsoluteSize", Vector2.new(80, 44))
+					w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(280, 100))
+					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 					local _, y = corner(panel)
 					Verify.expect(if edge == "default" then y + 100 < 250 else y > 294):toBe(true)
-					anchor.AbsolutePosition = Vector2.new(300, 8)
+					w.engine.environment.poke(anchor, "AbsolutePosition", Vector2.new(300, 8))
 					Verify.expect(select(2, corner(panel)) > 52):toBe(true)
-					anchor.AbsolutePosition = Vector2.new(300, 250)
-					w.input.PreferredInput = w.Enum.PreferredInput.KeyboardAndMouse
+					w.engine.environment.poke(anchor, "AbsolutePosition", Vector2.new(300, 250))
+					w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.KeyboardAndMouse)
 					Verify.expect(select(2, corner(panel)) > 294):toBe(true)
 					w.stop()
 				end
@@ -861,14 +861,14 @@ return function(verifyHarness: Verify.Harness)
 					return Host.Frame { UI.Button "HelpAnchor" { label = "Help", help = "Full action name" } }
 				end, { motionLevel = "none" })
 				local anchor = w.find("HelpAnchor")
-				anchor.AbsolutePosition = Vector2.new(300, 200)
-				anchor.AbsoluteSize = Vector2.new(80, 44)
-				w.input.PreferredInput = w.Enum.PreferredInput.Touch
+				w.engine.environment.poke(anchor, "AbsolutePosition", Vector2.new(300, 200))
+				w.engine.environment.poke(anchor, "AbsoluteSize", Vector2.new(80, 44))
+				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 				anchor.TouchLongPress:Fire({ Vector2.new(320, 220) }, w.Enum.UserInputState.Begin)
 				local panel = w.find("Help")
-				panel.AbsoluteSize = Vector2.new(160, 32)
+				w.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(160, 32))
 				Verify.expect(select(2, corner(panel)) + 32 < 200):toBe(true)
-				anchor.AbsolutePosition = Vector2.new(300, 8)
+				w.engine.environment.poke(anchor, "AbsolutePosition", Vector2.new(300, 8))
 				local x, y = corner(panel)
 				Verify.expect(x >= 320 + 44 or x + 160 <= 320 - 44 or y >= 28 + 44):toBe(true)
 				w.stop()
@@ -887,8 +887,8 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end, { motionLevel = "none" })
 				local E = w.Enum
-				w.input.PreferredInput = E.PreferredInput.KeyboardAndMouse
-				w.find("First").GuiState = E.GuiState.Hover
+				w.engine.environment.poke(w.input, "PreferredInput", E.PreferredInput.KeyboardAndMouse)
+				w.engine.environment.poke(w.find("First"), "GuiState", E.GuiState.Hover)
 				w.advance(0.3)
 				for _ = 1, 4 do
 					w.input.InputChanged:Fire({ UserInputType = E.UserInputType.MouseMovement })
@@ -900,8 +900,8 @@ return function(verifyHarness: Verify.Harness)
 				w.input.InputChanged:Fire({ UserInputType = E.UserInputType.MouseWheel })
 				Verify.expect((w.find("Help"))):toBeNil()
 				w.input.InputBegan:Fire({ UserInputType = E.UserInputType.MouseButton1 })
-				w.find("First").GuiState = E.GuiState.Idle
-				w.find("Second").GuiState = E.GuiState.Hover
+				w.engine.environment.poke(w.find("First"), "GuiState", E.GuiState.Idle)
+				w.engine.environment.poke(w.find("Second"), "GuiState", E.GuiState.Hover)
 				w.advance(1)
 				Verify.expect((w.find("Help"))):toBeNil()
 				w.input.InputBegan:Fire({ UserInputType = E.UserInputType.MouseButton2 })
@@ -928,7 +928,7 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end, { motionLevel = "none" })
 				local first, second, E = w.find("First"), w.find("Second"), w.Enum
-				first.GuiState = E.GuiState.Hover
+				w.engine.environment.poke(first, "GuiState", E.GuiState.Hover)
 				for _ = 1, 4 do
 					first.MouseMoved:Fire(10, 10)
 					w.advance(0.3)
@@ -936,8 +936,8 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local button = { UserInputType = E.UserInputType.MouseButton1 }
 				first.InputBegan:Fire(button)
-				first.GuiState = E.GuiState.Idle
-				second.GuiState = E.GuiState.Hover
+				w.engine.environment.poke(first, "GuiState", E.GuiState.Idle)
+				w.engine.environment.poke(second, "GuiState", E.GuiState.Hover)
 				w.advance(1)
 				Verify.expect((w.find("Help"))):toBeNil()
 				first.InputEnded:Fire(button)

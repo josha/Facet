@@ -32,7 +32,7 @@ return function(verifyHarness: Verify.Harness)
 						},
 					})
 				end, { motionLevel = "none", theme = parchment })
-				world.find("Body").AbsoluteWindowSize = world.V2(400, 300)
+				world.engine.environment.poke(world.find("Body"), "AbsoluteWindowSize", world.V2(400, 300))
 				local rows = {}
 				for _, node in world.screen:GetDescendants() do
 					if node:HasTag("facet-tablerow") then

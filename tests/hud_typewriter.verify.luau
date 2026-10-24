@@ -49,8 +49,7 @@ return function(harness: Verify.Harness)
 		}
 		native.onWrite(function(object, key, value)
 			if key == "Text" and type(value) == "string" then
-				local fields = (object :: unknown) :: { [string]: unknown }
-				fields.ContentText = content[value] or value
+				native.environment.poke(object, "ContentText", content[value] or value)
 			end
 		end)
 		local controls: Facet.TypewriterControls = {}

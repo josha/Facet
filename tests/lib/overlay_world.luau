@@ -86,7 +86,7 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 		})
 	end, target)
 	local size = o.size or V.new(800, 600)
-	screen.AbsoluteSize = size
+	engine.environment.poke(screen, "AbsoluteSize", size)
 	local self: any = {
 		engine = engine,
 		gui = gui,
@@ -107,10 +107,10 @@ function world.new(build: (any, any, any, any, any) -> any, options: any?): any
 		return world.action(screen, name)
 	end
 	function self.size(node: any, x: number, y: number)
-		node.AbsoluteSize = V.new(x, y)
+		self.engine.environment.poke(node, "AbsoluteSize", V.new(x, y))
 	end
 	function self.at(node: any, x: number, y: number)
-		node.AbsolutePosition = V.new(x, y)
+		self.engine.environment.poke(node, "AbsolutePosition", V.new(x, y))
 	end
 	function self.advance(seconds: number, steps: number?)
 		local count = steps or 1
