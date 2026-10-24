@@ -16,8 +16,8 @@ Types.ToggleCellProps option values and behavior.
 - The spec shapes `SinglePickerSpec`, `MultiplePickerSpec`,
   `KeyedOutlineSpec`, `IdentityOutlineSpec` and `FocusControls`.
 - The action and overlay parts `DialogAction`, `ActionRole`, `ToastAction`,
-  `CardAction`, `CardMenu`, `PopoverSource`, `OverlayRect` and
-  `CollectionPlacement`.
+  `CardAction`, `CardMenu`, `CardBadge`, `CardBadges`, `PopoverSource`,
+  `OverlayRect` and `CollectionPlacement`.
 - The value types `ButtonRole`, `TextCommitReason`, `CommitReason`,
   `ClearButtonMode`, `ControlSize`, `Status`, `TextRole`, `Presence`,
   `ImageScaleMode`, `ImageLoader`, `VoteValue`, `StepState`,

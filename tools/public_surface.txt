@@ -261,6 +261,8 @@ type ButtonProps
 type ButtonRole
 type CalloutSpec
 type CardAction
+type CardBadge
+type CardBadges
 type CardControls
 type CardMenu
 type CardSpec
