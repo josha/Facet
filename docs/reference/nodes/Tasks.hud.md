@@ -1,37 +1,40 @@
 # Tasks.hud
 
-HUD with destination callbacks.
+Mount directly. Supply accepted progress with its subject ("Beacons 2/4")
+and a bound InputAction.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
-local function hud(app: Facet.App, open: (string) -> (),
-  coins: Facet.Readable<number>, xp: Facet.Readable<number>, left: Facet.Readable<string>): Frame
+local function hud(app: Facet.App, goal: Facet.Readable<string>,
+  progress: Facet.Readable<string>, resource: Facet.Readable<string>,
+  label: string, command: InputAction, activate: () -> ()): Frame
   local UI = app.UI
-  local width = UI.environment().scaled(200)
-  local captionRoom: Facet.Sides = { bottom = "l" }
-  local function action(name: string, icon: string, caption: Facet.ValueString?)
-    return UI.Button(name) { icon = icon, shape = "circle", controlSize = "regular",
-      caption = caption or name, onActivate = function() open(name) end }
+  local width = UI.environment().scaled(260)
+  local pressed = command.Pressed:Connect(activate)
+  Facet.Compose.cleanup(function() pressed:Disconnect() end)
+  local function action()
+    local hint: Facet.ShortcutHintActionProps = { action = command, cap = false }
+    local hintControl: (Facet.ShortcutHintProps) -> (Frame | TextLabel) = UI.ShortcutHint
+    return UI.Button "Command" { label = label, appearance = "emphasis",
+      onActivate = function() activate() end, hintControl(hint) }
   end
   return UI.Composition "HUD" {
-    UI.Region "Actions" { zone = "topRight", rank = 1,
-      UI.HStack "Row" { gap = "m", padding = captionRoom, SelectionGroup = true,
-        action("Shop", "view.grid"), action("Quests", "check"),
-        action("Offer", "clock", function(use) return "Offer " .. use(left) end) } },
-    UI.Region "Wallet" { zone = "topRight", rank = 2, reveal = false,
-      UI.VStack "Readouts" { surface = "panel", padding = "m", gap = "s",
-        UI.Text { textRole = "caption", role = "secondary", text = "Coins" },
-        UI.Text { textRole = "numeral", text = function(use: Facet.Use) return Facet.format.compact(use(coins)) end },
-        UI.ProgressView "XP" { label = "Level 3", value = xp, max = 100,
-          Size = function(use: Facet.Use) return UDim2.fromOffset(use(width), 0) end } },
-      UI.HStack "CompactReadouts" { surface = "panel", padding = "s", gap = "m",
-        UI.Text { textRole = "numeral", text = function(use: Facet.Use) return Facet.format.compact(use(coins)) .. " Coins" end },
-        UI.Text { textRole = "caption", text = function(use: Facet.Use) return `Level 3 · {use(xp)}/100` end } } },
+    UI.Region "Objective" { zone = "topLeft", rank = 1,
+      UI.VStack "Full" { width = width, surface = "panel", padding = "m", gap = "s",
+        UI.Text { text = goal, textRole = "heading", wrap = true },
+        UI.Text { text = progress, textRole = "caption" }, action() },
+      UI.HStack "Short" { surface = "panel", padding = "s", gap = "s",
+        UI.Text { text = progress }, action() } },
+    UI.Region "Resource" { zone = "topRight", rank = 2, reveal = false,
+      UI.HStack "Counter" { surface = "panel", padding = "s",
+        UI.Text { text = resource, textRole = "numeral" } } },
   }
 end
 ```
 
-Keep play clear: [safe layout](Tasks.safe-layout.md).
-Bind routes and gamepad hints: [HUD actions](HUD-actions.md).
-Bind [server state](Tasks.state.md).
-Open a [destination](Tasks.pages.md) with [collection/detail](Tasks.collection-detail.md).
+Both forms and the bound action call activate. The game owns its InputContext;
+activate can act in the world or open a [destination](Tasks.pages.md).
+Keep the center and movement controls clear. Test short and narrow room with real text.
+
+[Safe layout](Tasks.safe-layout.md), [HUD actions](HUD-actions.md),
+[server state](Tasks.state.md), [collection/detail](Tasks.collection-detail.md).

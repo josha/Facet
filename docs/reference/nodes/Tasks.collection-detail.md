@@ -1,6 +1,6 @@
 # Tasks.collection-detail
 
-Supply loaded items and one selected key.
+Select one key. [Art](Stage.reference.md) fills its parent.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -31,7 +31,7 @@ local function browse(app: Facet.App, items: { Item }, selected: Facet.Cell<{ [s
 	}
 	return UI.NavigationSplitView {
 		preferredCompactColumn = column, resizable = false,
-		backLabel = "Collection", detailLabel = "Inspect selection",
+		backLabel = "Items", detailLabel = "Inspect",
 		sidebar = function() return UI.VirtualGrid(spec) end,
 		detail = function()
 			return UI.VStack({
@@ -47,4 +47,4 @@ local function browse(app: Facet.App, items: { Item }, selected: Facet.Cell<{ [s
 end
 ```
 
-[Purchase state](Tasks.purchase.md).
+[Purchase](Tasks.purchase.md).

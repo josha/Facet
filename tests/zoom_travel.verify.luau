@@ -274,8 +274,11 @@ return function(harness: Verify.Harness)
 			t:expect(#tracking.created):toBe(count + 1)
 			gui.SelectedObject = view
 			for _, node in tracking.created do
-				if node.Name == "ZoomOut" and node:IsA("InputAction") then
-					engine.environment.fire(node, "Pressed")
+				if node:IsA("InputAction") then
+					local action = (node :: unknown) :: VerifyRoblox.Instance
+					if action.Name == "ZoomOut" then
+						engine.environment.fire(action, "Pressed")
+					end
 				end
 			end
 			for _ = 1, 20 do
