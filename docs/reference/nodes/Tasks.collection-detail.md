@@ -10,15 +10,13 @@ local function browse(app: Facet.App, items: { Item }, selected: Facet.Cell<{ [s
 	local C, UI = Facet.Compose, app.UI
 	local column = C.cell("sidebar" :: "sidebar" | "detail")
 	local chosen = C.formula(function(use: Facet.Use): Item
-		for _, item in items do
-			if use(selected)[item.id] then return item end
-		end
-		error("Select an item")
+		for _, item in items do if use(selected)[item.id] then return item end end
+		error("No item")
 	end)
 	local env = UI.environment()
 	local spec: Facet.KeyedCollectionSpec<Item, string> = {
 		from = items, key = "id", selection = selected,
-		minColumnWidth = env.scaled(160), itemSize = env.scaled(190),
+		minColumnWidth = env.scaled(160), minColumns = 2, itemSize = env.scaled(190),
 		measure = true, gap = env.scaled(16), Size = UDim2.fromScale(1, 1),
 		onActivate = function() column:set("detail") end,
 		render = function(row)

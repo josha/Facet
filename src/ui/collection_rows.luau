@@ -1,7 +1,6 @@
 --!strict
 local ControlTypes = require("./control_types")
 local activation = require("./activation")
-local adaptive = require("./adaptive")
 local preparePaint = require("./collection_paint")
 local reorder = require("./collection_reorder")
 local policy = require("./collection_policy")
@@ -100,22 +99,21 @@ return function<V, K>(
 			follow = follow,
 			followThreshold = spec.followThreshold,
 			layout = function(use: ComposeTypes.Use)
-				local columns = if kind == "grid" then math.max(1, math.floor(read(spec.columns or 1, use))) else 1
+				if spec.minColumns ~= nil then
+					local least = read(spec.minColumns, use)
+					assert(
+						spec.minColumnWidth ~= nil and spec.columns == nil and least >= 1 and least % 1 == 0,
+						"Facet minColumns needs minColumnWidth, a positive whole number and no columns"
+					)
+				end
 				if spec.minColumnWidth ~= nil then
 					local minimum = read(spec.minColumnWidth, use)
 					assert(
 						kind == "grid" and spec.columns == nil and minimum > 0 and minimum < math.huge,
 						"Facet minColumnWidth needs a grid, a positive width and no columns"
 					)
-					columns = view.fitColumns(
-						use,
-						adaptive.columnsFor(
-							math.max(0, use(cross) - 2 * crossEdge(use)),
-							minimum,
-							read(spec.crossGap or spec.gap or 0, use)
-						)
-					)
 				end
+				local columns = view.gridColumns(use, math.max(0, use(cross) - 2 * crossEdge(use)))
 				local gap: number = read(spec.gap or 0, use)
 				local crossGap: number = read(spec.crossGap or gap, use)
 				return {

@@ -38,4 +38,5 @@ the slot, so a live standings list does not walk the gamepad focus up and down.
 It moves focus to the item that now holds the slot, or the last slot when the
 list shrank, and leaves focus alone while a row is being dragged. With `wrapFocus = true`, `focus.next()`,
 `focus.previous()` and the arrow and D-pad actions wrap at the two ends of the
-collection. A list wraps only along its scrolling axis.
+collection. A list wraps only along its scrolling axis. A grid wraps in its row
+and its column, with the column count that its layout uses.
