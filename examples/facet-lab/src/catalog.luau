@@ -4710,6 +4710,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "wrap (narrow)", props = properties { wrap = true, width = 120, height = "hug" }, across = false },
 			{ name = "panel surface", props = properties { surface = "panel", padding = "s" }, across = false },
 			{
+				name = "pill surface",
+				props = properties { surface = "panel", corners = "pill", padding = "s" },
+				across = false,
+			},
+			{
 				name = "warning status",
 				props = properties { surface = "panel", status = "warning", padding = "s" },
 				across = false,

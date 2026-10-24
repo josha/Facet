@@ -12,9 +12,11 @@ export type Align = Types.Align
 export type Distribute = Types.Distribute
 export type Edge = Types.Edge
 export type Axis = "x" | "y" | "xy"
+export type StackCorners = number | "pill" | "square" | "control" | "panel"
 export type StackOptions = {
 	padding: Types.Value<Padding>?,
 	surface: ("surface" | "panel" | "pane")?,
+	corners: Types.Value<StackCorners>?,
 	status: Types.Value<Media.Status?>?,
 	width: Types.Value<Extent>?,
 	maxWidth: Types.ValueNumber?,
