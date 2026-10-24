@@ -1,0 +1,37 @@
+# Card.badges
+
+Card `badges` show item states, such as Owned, Rare or Locked, on the top
+corners of the art.
+
+- `badges` is a table with the optional fields `leading` and `trailing`.
+- Each badge takes the Badge options `label`, `status`, `icon` and `name`.
+  Each option can be a value or a readable. The badge is a
+  [Badge](Badge.card.md), so it follows the theme.
+- The `leading` badge is at the top-left corner of the art. The `trailing`
+  badge is at the top-right corner.
+- A frame named `Badges` covers the art, above the artwork. Its padding keeps
+  both badges `space.s` from the edges of the art.
+- A badge with a `label` shows only while the label is a nonempty string. A
+  badge without a `label` needs `icon` and `name`, and it always shows.
+- A text card, without `image` or `artwork`, does not accept `badges`.
+- Keep the labels short, so that the two badges do not touch.
+
+Do not put Badges in `artwork` with ZStack, Position or ZIndex. Give the item
+state to `badges`:
+
+```luau
+UI.Card "Kart" {
+    title = kart.name,
+    artwork = function() return kartArt(kart) end,
+    badges = {
+        leading = { label = kart.rarity, status = "accent" },
+        trailing = {
+            label = function(use) return if use(owned)[kart.id] then "Owned" else nil end,
+            status = "success",
+            icon = "checkmark",
+        },
+    },
+}
+```
+
+`kart`, `kartArt` and `owned` belong to the game.

@@ -156,6 +156,19 @@ local cardProps: Facet.CardSpec = {
 	controls = cardControls,
 }
 local card: Frame = UI.Card(cardProps)
+local owned = Compose.cell(true)
+local cardBadges: Facet.CardBadges = {
+	leading = { label = "Rare", status = "accent" },
+	trailing = {
+		label = function(use: Use): string?
+			return if use(owned) then "Owned" else nil
+		end,
+		status = "success",
+		icon = "checkmark",
+	},
+}
+local badgedProps: Facet.CardSpec = { image = "rbxassetid://1", title = text, badges = cardBadges }
+local badgedCard: Frame = UI.Card(badgedProps)
 local sealed: Frame = UI.badged(UI.Button({ label = "Inbox" }), 3)
 local firstRace: Facet.CivilDate? = { year = 2026, month = 10, day = 4 }
 local raceDay = Compose.cell(firstRace)
@@ -428,6 +441,7 @@ local mounted: { GuiObject } = {
 	stepIndicator,
 	vote,
 	card,
+	badgedCard,
 	sealed,
 	datePicker,
 	colorPicker,

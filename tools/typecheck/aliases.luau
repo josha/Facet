@@ -131,6 +131,8 @@ return (nil :: unknown) :: {
 	CollectionPlacement: Facet.CollectionPlacement,
 	CardAction: Facet.CardAction,
 	CardMenu: Facet.CardMenu,
+	CardBadge: Facet.CardBadge,
+	CardBadges: Facet.CardBadges,
 	CellDraft: Facet.CellDraft,
 	CellEditorSpec: Facet.CellEditorSpec,
 	Child: Facet.Child,

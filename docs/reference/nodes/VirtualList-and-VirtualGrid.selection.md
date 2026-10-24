@@ -11,6 +11,9 @@ VirtualList-and-VirtualGrid.selection option values and behavior.
   double click, Return, a gamepad press or a touch tap runs `onActivate`. A
   double click keeps the selection. When the mode is `none`, each activation
   runs `onActivate`. Table rows follow the same rule.
+- A selected row paints the theme's selected color. A [Card](Card.title.md)
+  row shows it on the card's own plate, and the collection paints no plate
+  under the card.
 - `selectable(item)`, `reorderable`, `movable(item)`, `dragLabel` and
   `onReorder(keys, insertionSlot)` use the same zero-based insertion contract
   among the remaining rows as Table.

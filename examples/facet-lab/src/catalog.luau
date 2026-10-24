@@ -3332,6 +3332,15 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "fit framing", props = properties { imageFraming = "fit" } },
 			{ name = "informational (no body action)", props = properties { onActivate = NONE } },
 			{
+				name = "badges",
+				props = properties {
+					badges = {
+						leading = { label = "Rare", status = "accent" },
+						trailing = { label = "Owned", status = "success", icon = "checkmark" },
+					},
+				},
+			},
+			{
 				name = "3D artwork",
 				props = function(c: Context)
 					return {
