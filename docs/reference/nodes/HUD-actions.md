@@ -2,8 +2,9 @@
 
 Group related HUD actions and protect the game view.
 
-The example in [Tasks.hud](Tasks.hud.md) uses circle Buttons with icon captions
-and readouts in `topRight` regions of one Composition. This is one arrangement.
+The example in [Tasks.hud](Tasks.hud.md) puts a wallet and a Garage Button in
+the top bar strip and a race readout in `topLeft`, in one Composition. This is
+one arrangement.
 Choose zones from the player's task and the sight lines that must stay clear.
 Use labeled Buttons when an icon would be ambiguous. Keep related navigation
 in one selection group and distinguish it from passive readouts.
@@ -13,7 +14,8 @@ ScreenGui for the HUD.
 ## Size and position
 
 Use `controlSize = "regular"` for primary navigation circles. Reserve
-`compact` for secondary actions. Size primary thumb actions from
+`compact` for secondary actions. In the top bar strip, `regular` matches
+Roblox's 44 pixel buttons with every input. Size primary thumb actions from
 `UI.environment().thumbTarget`. Give the row a bottom
 padding, such as `padding = captionRoom` with
 `local captionRoom: Facet.Sides = { bottom = "l" }`. A caption takes no space
@@ -49,6 +51,8 @@ engine behavior from a native engine double.
 ## Readouts
 
 Put readouts on a stack with `surface = "panel"`, so they read over any scene.
+Give a readout the height of the Buttons beside it and the same elevation:
+all flat, or all with one shadow.
 Give the main resource value `textRole = "numeral"`; use `caption` for its
 currency label, rate or explanation. Keep the number separate from secondary
 progress and status. Check that the value and action labels remain legible at the

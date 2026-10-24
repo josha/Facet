@@ -1,258 +1,313 @@
 # Game UI design
 
-Facet supplies reusable behavior. The game supplies purpose and visual character.
-Start with the player experience, then choose interaction, composition and controls.
-A HUD, contextual choice, planning screen and celebration need different compositions.
-Share a visual language without forcing them into one template.
+Game UI is a conversation between the game and the player.  The player acts and the game answers with information.  Art makes both belong to one world.  Facet supplies the behavior of that conversation: controls, focus, layout, input, adaptation and motion.  The game supplies what it means and how it looks.
+
+Read this guide once before you design.  It moves from principles to the whole game, then to one surface, one element and one moment.  The chapters at the end apply it to kinds of task.  API nodes give the exact contracts.
 
 ## Principles
 
-- **Serve the player's intent.** Make the situation, choices, action and result understandable. Preserve deliberate game challenge; remove accidental interface difficulty.
-- **Direct attention.** Show what changes the next decision. Let urgency, relevance and frequency set priority in the current state.
-- **Make the game recognizable.** Use its world, objects and tone to shape art, framing, type and motion.
-- **Preserve continuity.** Keep identity, location, useful state and return paths clear as the task changes.
-- **Support equivalent tasks.** Adapt to room, reach, input and viewing distance without losing decisions, consequences or exits.
-- **Earn trust.** Show what the game accepted. Make commitment, failure, cancellation and recovery predictable.
+1. **Serve play.**  Players came to play the game, not to operate its interface.  Keep the challenge the game intends and remove every difficulty the UI adds by accident.
+2. **Speak a language players already know.**  Use the conventions of the genre and the platform: a vertical pause list, confirm on A and back on B, a loadout with the character among its slots.  Depart from a convention only when the player gains something they can feel.
+3. **Direct attention.**  Each state has one focal point and one likely next action.  Contrast, size, color and motion are a budget.  When everything stands out, nothing does.
+4. **Function before flourish.**  Layout, flow, type, icons and contrast must work before decoration counts, and they win when the two conflict.  Hierarchy comes from lightness, size and space, so it holds without color.  The flourish of color, shape, pattern and material then makes it unmistakably this game's.
+5. **Design every state.**  Game UI changes constantly.  Design full and empty, the first visit and the hundredth, the longest translation, a slow network and a refused request.  One polished screenshot is not a design.
+6. **Answer every input and tell the truth.**  Acknowledge each input at once.  Show progress honestly and show only results the game accepted.  Make cancellation, failure and recovery predictable.
+7. **Fit every way of playing.**  Room, physical readability, input and access needs vary independently.  Design for the most constrained case first.  Roomier and more precise contexts add to that route; they never replace it.
+8. **Keep the player oriented.**  Players know where they are, what changed and how to get back.  Return them to play with their state intact.
 
-These principles guide tradeoffs. A calm planning screen can support detailed
-comparison; an urgent gameplay decision needs a short glance and direct action.
-Consistency means familiar meanings and behavior, not identical layouts everywhere.
+When principles compete, the player's immediate task wins.  An urgent hazard outranks a reward.  A readable label outranks a decorative font.  A reachable exit outranks a cleaner layout.
 
-## Frame the player task
+Consistency means familiar meanings and behavior, not identical layouts.  A HUD, a quick choice, a planning screen and a celebration share one visual language and one set of conventions.  Each still gets the composition its task needs.
 
-Before choosing controls, identify the intended experience from the brief and game:
+## What Roblox changes
 
-| Decision | What the design must establish |
+- **Every device plays together.**  Phones, tablets, desktops, consoles, handheld PCs and VR headsets join the same servers.  There is no separate build per platform: one interface adapts to each player.
+- **Roblox owns part of the screen.**  Its top bar holds the Roblox menu and chat, plus voice and camera controls when they are on.  Touch players get native movement controls, and chat and captions can appear over the game.  Work around them, and use the free space they leave.
+- **Roblox owns some input.**  Escape and the gamepad Start (Menu) button are reserved.  Gamepad navigation uses the engine's native selection (`GuiService.SelectedObject`).  Game commands use InputAction and InputContext, and `UserInputService.PreferredInput` reports the input in use.
+- **Players set preferences that the UI follows.**  `GuiService.PreferredTextSize` and `GuiService.ReducedMotionEnabled` apply to every experience, and Facet follows both.
+- **The server owns the truth.**  Clients ask, the server decides, and the UI shows what the server accepted.  Latency is normal, so pending is a real state.
+- **Text has rules.**  Show other players' text only after Roblox's text filter.  Translate through a LocalizationTable, and keep player text out of AutoLocalize.
+- **Console conventions apply.**  A confirms and B goes back.  On PlayStation, Cross confirms in every region, Japan included, and Roblox reports it as ButtonA: never swap them.
+- **Studio can simulate, not prove.**  The device simulators and the Controller Emulator test layout and input routes.  Physical devices prove reach, readability and performance.
+
+## Declare intent and let Facet adapt
+
+Facet is declarative.  You describe what each element means and what it needs.  Facet and the engine measure the real screen and choose how it appears on each device.  The same tree can become a sidebar on a desktop, a bottom bar on a phone and a ten-foot layout on a television.
+
+Declare four things:
+
+- **Meaning.**  Choose the control by the decision, and give text a type role, color a palette role and each Button an appearance.
+- **Priority.**  Rank HUD Regions, order forms from richest to smallest and mark what may drop.
+- **Needs.**  Hug or fill, minimum column and pane widths, `maxWidth`, and fixed sizes only where the content is fixed.
+- **Alternatives.**  Smaller Region forms, ViewThatFits candidates, an AdaptiveStack axis and compact presentations.
+
+Facet decides from measured facts: room, safe insets, the top bar, the input in use, display size, viewing distance, text size and motion preference.  Much adapts without code.  TabView places its navigation for the room and input, and a Sheet with `placement = "adaptive"` chooses its edge.  Popover becomes a sheet in narrow touch room, and Menu becomes a sheet for touch, a gamepad or narrow room.  Picker chooses its style, VirtualGrid fits columns to `minColumnWidth` and NavigationSplitView collapses to one pane.  Composition swaps forms and places `topbar` Regions in the strip.  The ten-foot ladder, overscan, hit floors and gamepad glyphs follow the device.
+
+Never compute positions or sizes from the viewport, branch on a device name, scale text to fit or add a measurement loop.  When the result is wrong, change what you declared.  When the declaration is right and the result is still wrong, fix the cause in Facet or report it.  Do not work around it in the game.  The [control map](CONTROL_MAP.md) lists every control, when to use it and the options that shape it.
+
+## Work from the outside in
+
+Game UI has levels.  Each level sets the limits of the next one.
+
+| Level | Question | Section |
+| --- | --- | --- |
+| Flow | Which places exist, how do they connect and how does play resume? | [Map the flow](#map-the-flow) |
+| Surface | Where does this task appear, and how much attention does it take? | [Choose the attention level](#choose-the-attention-level) |
+| Group | What belongs together, and what comes first? | [Compose the surface](#compose-the-surface) |
+| Element | Which control or readout expresses this decision? | [Choose elements by the decision](#choose-elements-by-the-decision) |
+| State | How does each element look and behave in every condition? | [Design every state](#design-every-state) |
+| Response | What confirms each input and each result? | [Make it feel alive](#make-it-feel-alive) |
+
+Decide the levels in this order.  Review them in reverse: an element that works alone can still break its group, its surface or the flow.  A large heading cannot repair a confusing route, and a prominent action still needs a reachable focus path.  The [visual language](#build-the-visual-language), the [ways of playing](#know-every-way-of-playing) and each [input's conventions](#follow-each-inputs-conventions) apply at every level.
+
+### Frame the task first
+
+Establish the intended experience from the brief and the game before you choose anything:
+
+| Question | What to establish |
 | --- | --- |
 | Player | Prior knowledge, likely goal and access needs |
-| Context | Gameplay pace, competing demands, available input and whether the world continues |
+| Context | Pace, competing demands, available input, and whether the world continues |
 | Decision | The facts and alternatives the player needs now |
-| Action | Frequency, consequence, reversibility and expected effort |
-| Outcome | Visible accepted result, failure response and next useful action |
-| Return | Where the player resumes and which state remains |
+| Action | Frequency, consequence, reversibility and effort |
+| Outcome | The accepted result, the failure response and the next useful action |
+| Return | Where play resumes and which state remains |
 
-Keep this brief proportional to the work. Reuse established decisions for a small
-change. Ask about missing intent only when it changes the design. Do not invent
-extra game systems to fill a screen.
+Keep this proportional to the work, and reuse established decisions for a small change.  Infer it from the brief and the existing game, and ask only when a missing decision changes the design.  Do not invent game systems to fill a screen.
 
-Trace one connected task: entry, orientation, choice, commitment, feedback and
-return. Include cancellation and rejection. For example, preparing equipment
-starts with a reason to change it and ends with the accepted equipment in play.
-Opening a collection alone does not complete that task.
+Study references with a similar task, pace and input.  Break each one into its building blocks: the large shapes, the route between screens, which icons have labels, how type creates hierarchy and how contrast marks the cursor.  Transfer the relationship that helps the decision, not the screenshot.
 
-Choose references with a similar task, pace, input and viewing context. Identify
-why their grouping, preview or navigation helps the decision. Transfer that
-relationship to the game; do not copy a screenshot without its context.
+### Know every way of playing
 
-## Organize interaction
+Treat each constraint separately.  One label such as "console" or "mobile" never decides them all.
 
-Keep these hierarchies distinct and make them support each other:
+| Constraint | Design response |
+| --- | --- |
+| Room | Reflow and disclose; keep the decision and its action |
+| Physical readability | Readable type roles, contrast and density for the real screen and distance |
+| Available input | Keep every valid input usable |
+| Input in use | Show matching prompts, glyphs and feedback |
+| Reach and precision | Spaced targets and discrete alternatives to gestures |
+| Access | Reflow, calm motion and redundant signals |
 
-| Hierarchy | Design question | Visible result |
+Design for the most constrained context first.  Every task has a single-press digital route: a game action for a HUD task and directional focus inside a surface.  Lay out each surface for the shortest supported room first.  Pointer and touch then add speed, and wider room adds richness.
+
+These play contexts show how the constraints combine:
+
+| Context | What it combines | What it needs |
 | --- | --- | --- |
-| Task and navigation | Where am I, what can I do, and how do I return? | Clear destinations, peer groups and deeper steps |
-| Information and attention | What matters first in this state? | A focal area, supporting facts and quieter optional detail |
-| Input and focus | What receives this action, and what is next? | Visible focus, predictable movement and a reliable exit |
+| Desktop with mouse and keyboard | Wide room, near view, precise pointer | Dense comparison; hover only adds; shortcuts shown with their keys |
+| Desktop with a gamepad | Wide room, near view, directional focus | The desktop layout with a visible focus route and gamepad glyphs, not television-sized type |
+| Phone, landscape | Short room; thumbs cover the lower corners | Short forms; primary actions within thumb reach; nothing important under thumbs |
+| Phone, portrait | Narrow room | One column and a complete detail step |
+| Tablet | Roomy touch, sometimes a keyboard | Two panes where they fit, with touch-sized targets |
+| Console on a television | Far view, overscan, gamepad only | Ten-foot type and safe margins, fewer items per view, no pointer assumptions |
+| Handheld PC, such as a ROG Ally or Steam Deck | Many pixels on a 7 or 8 inch screen at about 30 cm; gamepad first, with touch also live | The gamepad route of a desktop with the physical readability of a small screen; touch still works |
 
-A large heading cannot repair a confusing route. A visually prominent action
-still needs a reachable focus path. Focus, selection and commitment have distinct
-meanings; moving through options must not silently purchase or equip them.
+Readability is physical.  Valve's handheld rules are a useful reference, not a Roblox requirement.  For Steam Deck Verified, Valve requires the smallest character to be at least 9 pixels tall at 1280×800, read from 30 cm, and recommends 12.  That is about 1.1 to 1.4 mm.  On a 7 inch 1080p screen the same heights are about 13 and 18 pixels.  A Roblox TextSize is larger than the letters it draws, so measure the letters in a capture instead of matching numbers.
 
-Choose how much attention the task needs before choosing its surface:
+## Map the flow
 
-| Player relationship | Starting point |
+Write the flow down before you build a screen.  List the places the player goes: play, preparation, shared decisions, results, learning and settings.  For each place, note its entry, its exit and the inputs that connect it to the others.
+
+- A **linear** flow moves through fixed steps, such as choose, confirm, play and results.  Each step has one obvious next action and a way back.
+- A **hub** offers several destinations from one place.  Peer destinations that players revisit become tabs.  Launch points become a list or tiles.  A destination can hold a hub of its own.
+- In Roblox the world is often the hub.  A garage door, a vendor or a pad can open a destination.  A world station and a HUD button for the same task open the same destination.
+
+Every place needs an entry the player can find and an exit that returns where they came from.  Count the presses from play to each frequent task, and keep the most frequent tasks one or two presses away.  A root has no Back.  Close returns to play.
+
+A destination that replaces play owns input until it returns.  It replaces unrelated HUD groups and keeps only the context its decision needs, such as the balance beside a cost.  Opening it does not pause the world; the game decides that, and the surface says so when it matters.
+
+Facet: `Tasks.pages` opens a destination from play and registers the game's own input suspension, so gameplay input comes back on return.  NavigationStack owns depth and Back, TabView owns peer destinations and NavigationSplitView owns a collection beside its detail.  The [layout and navigation chapter](game-ui/LAYOUT_AND_NAVIGATION.md) has the details.
+
+## Choose the attention level
+
+Each task takes some of the player's attention.  Order the options by cost and use the lowest level that keeps the decision clear.
+
+| Level | The player | Facet starting point |
+| --- | --- | --- |
+| World | Reads the scene itself | World cues, `WorldMarker`, SurfaceGui or BillboardGui, `DiegeticScreen` |
+| Glance | Monitors status while playing | Composition Regions with ProgressView, Timer, Badge and readouts |
+| Prompt | Gets a command when it applies | An InputAction shown with `ShortcutHint` or `ButtonGuide`; Callout to teach it |
+| In place | Makes a quick choice at its source | Popover, Menu, RadialMenu, DisclosureGroup |
+| Interruption | Completes a bounded task that holds focus | Sheet, Dialog, Alert |
+| Destination | Leaves play for a sustained task | `Tasks.pages` with NavigationStack, TabView or NavigationSplitView |
+
+A Sheet is not the default surface: a destination players return to is a page or a station in the world.  Frequency moves a task down the list: make it direct.  Consequence moves it up: make it deliberate.  A boost used in every race needs a visible button and a binding.  A graphics setting changed once can live two levels deep.  A purchase needs its full terms in view before commitment, not three confirmations.
+
+Every press, focus move, menu and confirmation spends attention.  Add a step only when it improves understanding or prevents a meaningful mistake.  A confirmation cannot repair an unclear label or targets placed too close together.
+
+### Protect play
+
+The game owns the center of the screen, where the camera frames the action, and the areas that held thumbs cover.  Glance-level UI sits at the edges in a few coherent groups, including the free strip of the top bar.  The safe top-right corner suits secondary navigation.  It shows only what changes the next action.  It ends commands and notices when their context ends.  A marker can enter the center when finding that target is the immediate task.
+
+### Decide where information lives
+
+Information can sit in the world or on the screen, and inside or outside the fiction:
+
+- **Diegetic**: in the world and the fiction, such as a speedometer on the dashboard.
+- **Spatial**: in the world but outside the fiction, such as a marker above a checkpoint.
+- **Meta**: in the fiction but on the screen, such as rain on the lens when the player is hurt.
+- **Non-diegetic**: on the screen and outside the fiction, such as a lap counter.
+
+World forms are immersive, but distance, lighting, occlusion and camera motion affect them.  Use the most immersive form that the player can still read in time.  Give essential status a screen form when the world cue cannot be read.
+
+## Compose the surface
+
+### Start from the building blocks
+
+Players already know the shapes of common screens.  A pause menu is a vertical list.  A loadout puts the character or vehicle among its slots, with its stats beside it.  A shop item shows the object, its price and Buy together.  A result leads with placement.  Start with the expected blocks and arrange them as large shapes.  Add detail after the shapes work.
+
+### Give each state a focal area
+
+Decide what the player notices first, second and third.  The subject (the object, the outcome or the hazard) gets the most space and contrast.  The next action sits beside it.  Context and optional detail are quieter.  A capture passes when a first glance shows the subject, its state and the next action.
+
+### Group, align and balance
+
+Put related facts close together, and separate groups with space before you add boxes.  Remove headers and facts that repeat what the player already sees.  Align comparable values so the eye compares them along one line.  Use one spacing scale everywhere: the theme's space tokens.  Balance the margins so opposing margins match.  Check them from the measured bounds of the groups, not by eye alone.  Strong outlines mark the selection or the action, not every container.
+
+Treat plates as one family.  Plates that sit side by side share a height, a center line and a corner style, and every plate in one layer shares one elevation: all flat, or all lifted by the same shadow.  A mismatch in any of these reads as a mistake, not as emphasis.
+
+### Rank the actions
+
+One action per state is primary: the one most players take next.  It gets the emphasis appearance.  During play, several immediate controls can share that weight when the game needs them at once.  Secondary actions are quieter, and rare actions go in a menu.  A destructive action is never primary and never takes focus first.  Keep commands in the same order wherever they appear, so players can use what they learned.
+
+### Match density to the task
+
+Comparison needs several candidates and their deciding facts in view.  Action during play needs a brief glance.  Celebration can give art the room.  Keep the decision, its terms and its commitment visible together.  Never push the commitment below the visible area or inside a long scrolling list.
+
+### Recompose for the room
+
+Wide room can show browsing and detail together.  Compact room shows a complete detail step.  Short room drops decoration, introductions, large filter panels and secondary art before it drops legibility, consequences or exits.  Compact forms still keep the object's identity and the facts that compare it.  Do not shrink the whole interface to fit a design made for more room.
+
+### Use the whole screen
+
+The screen has three layers.  The glass is the whole display.  The device safe area leaves out the notch or Dynamic Island, the rounded corners and the home indicator.  Roblox's top bar holds its own buttons: the Roblox menu and chat at the start, and voice and camera controls when they are on.  These areas say where text and controls cannot go.  They do not make the rest of the screen off limits.
+
+- **Fill the glass.**  Backgrounds, art, scrims and the world reach every edge, so a safe area never shows as an empty bar.
+- **Keep text and controls safe.**  In landscape the notch sits on one side, so the side insets differ.  Center content on the usable area, not on the glass.
+- **Use the free strip.**  The strip of the top bar beside Roblox's buttons sits at the top of the player's sight line.  On a landscape phone it is a large share of the height.  It suits compact, glanceable items: a currency, a timer, an objective or a menu button.
+- **Join the row.**  An item in the strip sits beside Roblox's buttons, so match them: the same 44 pixel height, the same center line, a pill or circle shape and no shadow.  Line the HUD's edge up with Roblox's first button.  The game's color, type and icons still say whose item it is.
+- **Expect the strip to change.**  It is wide in landscape, narrow in portrait and absent on a console.  It shrinks when voice or camera controls appear or the player opens Roblox's menu.  Give each strip item a compact form and a place to go when it does not fit.
+
+Facet: VStack, HStack, Grid and ZStack express reading order and layering.  AdaptiveStack turns a row into a column.  ViewThatFits chooses among complete alternatives.  `UI.fill()` takes the remaining room, and `maxWidth` keeps a reading area comfortable.  Composition and Region rank competing HUD groups and swap in their smaller forms.  A Region with `zone = "topbar"` sits in the free strip, level with Roblox's buttons.  It moves to the `top` zone when the strip cannot hold it.  Screen's `chrome` sets how a page meets the safe area and the top bar.  Read `Layout-options` for sizing and the [layout chapter](game-ui/LAYOUT_AND_NAVIGATION.md#use-the-whole-screen) for the screen edges.
+
+## Build the visual language
+
+Decide the whole look before the first screen, then build in full color.  Write the direction, define the complete theme from it, and build every surface on that theme.  The theme is data: a change to it restyles every surface at once, so a gray draft is wasted work.
+
+The look has two layers.  The functional layer makes surfaces usable, and the flourish layer makes them belong to this game.  When the two conflict, the functional layer wins.
+
+The functional layer:
+
+1. **Values.**  Make the theme's plates and content a ladder of four to six clearly separate lightness steps, from the background to the strongest content.  Only the focal content and the focus indicator reach the extremes.  Lightness, size and space carry the hierarchy; hue only reinforces it.
+2. **Type.**  Use one plain, readable family for body text.  A display face can carry personality in titles and large numbers.  Use a few sizes and keep the meaning of each across the whole game.
+3. **Icons.**  Use one family: Facet's built-in glyphs or the theme's own set.  Icons that navigate or command must be familiar or labeled.  Decorative icons can be expressive.  Check each icon at the size it appears.
+
+The flourish layer:
+
+4. **Accent.**  Choose one accent color, at most two, for focus, the primary action and the current selection.  It becomes the game's signature.  Tint the value ladder toward the world's palette and keep each step's lightness.  Keep danger, success and warning distinct from the accent, and never let color alone carry a state.
+5. **Shape, pattern and material.**  Take them from the game's setting, era and tone: chunky rounded plastic for a toy racer, cut corners and scan lines for a cockpit, parchment and ink for an expedition.  Apply them to frames, corners, headers, backgrounds and transitions.  Never put a pattern under text at a contrast that hurts reading.
+6. **Motion character.**  Tune timing to the world: bouncy for a toy box, crisp for an instrument panel.
+
+UI over gameplay sits on a scene that moves and changes brightness.  Protect it with a backing panel, a stroke, a shadow under light marks or a container.  Test it over the brightest and the darkest places in the game.
+
+A theme does not compose a screen: each surface still needs its own focal area and arrangement.  A palette alone is not an identity.  Two racing games should not look alike: they differ in shape, type, material and motion, not only in hue.  If a screen could belong to another game, the flourish is missing.
+
+Facet: the theme owns paint, type, spacing, shape and motion.  `Facet.themes.define` takes palette roles, typography per role, metrics such as radii and strokes, chrome art for panels, controls, bars and focus, and extra StyleSheet rules.  Read the [visual language chapter](game-ui/VISUAL_LANGUAGE.md), then `Tasks.theme` and `Theme-identity`.
+
+## Choose elements by the decision
+
+Choose each control for what the decision means.  Then adapt its presentation to the room and the input.
+
+- A Toggle sets something on or off.  A Picker chooses among named alternatives.  A Slider or Stepper sets an amount.  A Button runs a command.
+- Cards with art present objects that players recognize by sight.  A list presents descriptions, and a Table compares shared attributes.  A grid helps when silhouettes matter; it is not the body of every destination.
+- Tabs move between destinations; they never edit a value.  A button that cycles through hidden values prevents comparison and correction.
+
+Keep four intentions separate.  **Focus** is where the next input goes.  **Selection** is what the player is considering.  **Activation** opens or operates it.  **Commitment** buys, equips or deletes.  Moving through options never commits.
+
+Prefer recognition to recall.  Show the choices, the current value and the effect before the player acts.  Show the actual object with its silhouette and distinguishing details, a color as a swatch and a pattern as a preview.  Use the game's vocabulary and explicit verbs, such as "Equip Comet" rather than "OK".  Show the change a choice makes: the current and new values side by side, with the difference marked by sign as well as color.  State the consequence before commitment, and put the reason beside an unavailable action.
+
+The [collections](game-ui/COLLECTIONS_AND_ACTIONS.md) and [choices](game-ui/CHOICES_AND_INPUT.md) chapters map decisions to controls.
+
+## Design every state
+
+Give every element a complete set of states.  Make each state distinct beyond color, with shape, label, icon or position.
+
+- **Interaction**: available, focused, pressed, selected, current or equipped, unavailable with a reason, and locked with a route forward.
+- **Content extremes**: empty, one, many and full; the shortest and longest names; the longest translation, which can be a third longer than English; the largest number; missing art; the largest text setting.
+- **Data**: loading, no items, no matches, offline, failed and stale.  Each one offers its next step: create, clear filters, wait, retry or explain.
+- **Urgency**: normal, low and critical.  When alerts compete, the immediate hazard wins, and routine gains wait or combine.
+- **Authority**: draft, pending, accepted and rejected.  Sending is not saving, and the server owns game rules and accepted progression.  An incoming accepted value never silently overwrites the player's active draft.  One dismissal policy covers every exit from unsaved work.
+- **Waiting**: long loads, matchmaking and teleports.  Show what is happening, how long it takes when that is known, and what the player can do meanwhile.  Never show a frozen screen.
+
+Return players to the state they left: the same query, selection, scroll position and draft.
+
+Facet: Compose cells and formulas bind state without rebuilding pages.  `Tasks.state` and `Tasks.purchase` show accepted results, and `Sheet.dismissal` guards unsaved work.  Skeleton, Notice, Toast and ErrorBoundary cover waiting, persistent state, acknowledgement and recovery.
+
+## Make it feel alive
+
+Feel is the sum of small, immediate answers.
+
+- **Respond at once.**  Every press shows its pressed state in the same frame, even when the result waits for the server.
+- **Scale feedback to significance.**  A focus move is a quiet tick.  A confirmation is crisp.  A rare accepted reward earns anticipation, a reveal and a settle.  Routine gains combine, and danger interrupts.
+- **Use more than one channel.**  Motion, sound and haptics reinforce each other.  No single channel carries an essential result alone.  Give UI sounds one family, with a distinct sound for focus, confirm, back, error and reward.
+- **Explain where things went.**  Pages arrive from the direction of travel.  An item travels to where it is stored.  A value counts to the accepted number.
+- **Never make players wait for motion.**  Input stays available, Skip reaches the end state, and reduced motion gives the same result.
+- **Keep targets still.**  Hover and focus never move neighbors, and changing numbers reserve their width.
+
+Facet: theme motion tokens drive control transitions through native StyleSheets.  Travel moves an object between slots, `UI.sequence` orders a reveal, Flash marks a target, and `UI.feedback` or a Button's `haptic` plays haptics.  The game plays its own sounds from the same events.  See the [motion chapter](game-ui/MOTION_AND_FEEDBACK.md), `Effect-sequences` and `Haptics`.
+
+## Follow each input's conventions
+
+Each input has conventions that make an interface feel native.  Follow them on every surface:
+
+- **Gamepad.**  A confirms and B goes back on every surface; Roblox reports Cross and Circle as ButtonA and ButtonB.  Bumpers change peer tabs, triggers page long content, and X and Y are shortcuts for frequent actions that also have a visible route.  Focus is always visible and moves the way the layout looks.  It starts where the player most likely acts, or on the safe choice when a mistake would cost something.  It never starts on a Close that B already performs.  Follow each surface's documented focus policy instead of forcing one rule everywhere.  Roblox reserves Escape and the gamepad Start (Menu) button; never bind them.
+- **Divide the gamepad.**  Gameplay keeps the buttons that play needs.  The most frequent HUD tasks get the remaining buttons.  Players reach the other HUD tasks by entering HUD selection with ButtonSelect (View) or one game action.
+- **Pointer.**  Hover can preview, but it never holds required information.  Show keyboard shortcuts with their keys, and make each shortcut run the same command as its visible control.
+- **Touch.**  Size primary thumb actions from `UI.environment().thumbTarget`, and keep every target at least the theme's minimum size.  Put game-owned touch controls, such as a boost button, in Regions of the HUD's Composition so other groups stay clear of them.  Give every gesture a visible alternative, and keep the active field visible above the on-screen keyboard.
+- **Mixed input.**  Prompts follow the input in use.  Every valid input keeps working, and a change of input keeps the task and its state.
+
+Make settings for text size, motion and controls reachable before a task demands them.  Every route works with single digital presses: it needs no pointer, analog precision, chord, rapid repeat or long hold.
+
+Facet: `UI.environment` reports room, input, display size, viewing distance, safe and overscan insets, text preference and reduced motion.  Composition keeps the movement stick and D-pad with gameplay.  ShortcutHint and ButtonGuide show the engine's glyphs for real bindings.  Read `environment` for the exact fields.  The [input, focus and access chapter](game-ui/INPUT_FOCUS_AND_ACCESS.md) covers input ownership, focus routes and access.
+
+## Use Facet's mechanisms
+
+Each section above names the Facet mechanism for its level.  Use the native engine first, then Compose, then Facet.  Do not rebuild focus traversal, text editing, layout, scrolling or animation scheduling.  A recipe shows a working structure and its ownership; adapt its content, density and look to the game, because its sample values are not a style.  Read a control's card first, then only the options you still need.
+
+## Verify like a player
+
+1. **Build one connected task first.**  Use real labels, art and data.  Go from the entry through the decision, commitment and feedback to the return, including cancellation and rejection.  Test its most constrained context before you repeat the pattern.
+2. **Look at it.**  Inspect captures at the intended viewing size.  The first glance shows the subject, its state and the next action.  Judge the hierarchy by lightness and size, ignoring hue; with an image tool, desaturate the capture to confirm.  Check alignment, clipping and text over the brightest and darkest scenes.
+3. **Operate it.**  Use pointer, touch and gamepad at wide, narrow and short sizes.  Rotate a landscape phone both ways, and turn voice and camera controls on and off.  Change the input and the viewport while the task is open.  Try the largest text setting and reduced motion.  Return to play and check input and focus.
+4. **Play it cold.**  Start from play with real input and no prior knowledge of the route.  At each step, the next action must be visible and its result clear.  A reviewer with fresh context finds what the author no longer sees.  When a player can test it, watch for hesitation, wrong turns, repeated input and missed feedback, then fix the cause and test again.  An agent's walkthrough finds gaps, but only players show what they prefer.
+5. **Report the evidence.**  Keep technical checks, visual review, input tests and player observations separate.  A passing check does not prove visual quality, and a beautiful screen cannot excuse a blocked task.  Name the build, device, inputs and paths you tested.  A capture proves appearance, not reachability, and a simulated size does not prove readability on a physical handheld.
+
+Fix a shared layout or control cause before you copy the pattern elsewhere.
+
+## Chapters
+
+Read the chapter for the task at hand.  The first six run from whole moments of play down to single interactions.  The last three apply at every level.
+
+| Topic | Chapter |
 | --- | --- |
-| Monitor while playing | Passive Composition Regions and brief readouts |
-| Inspect optional context | DisclosureGroup, Callout or Popover |
-| Choose a nearby command | Menu or Popover |
-| Revisit peer destinations | TabView |
-| Go deeper and return | NavigationStack |
-| Browse and inspect one object | NavigationSplitView |
-| Complete a bounded interruption | Sheet or Dialog |
-| Review a brief consequential commitment | Alert |
+| Play, preparation, shared decisions, results and learning | [Moments of play](game-ui/GAME_FLOWS_AND_INFORMATION.md) |
+| Page structure, fitting and navigation | [Layout and navigation](game-ui/LAYOUT_AND_NAVIGATION.md) |
+| Interruptions, messages and recovery | [Surfaces and feedback](game-ui/SURFACES_INFORMATION_AND_FEEDBACK.md) |
+| Browsing, selection and commands | [Collections and actions](game-ui/COLLECTIONS_AND_ACTIONS.md) |
+| Values, text and drafts | [Choices and input](game-ui/CHOICES_AND_INPUT.md) |
+| Drag, drop and their alternatives | [Direct manipulation](game-ui/ADAPTIVE_INTERACTION_AND_DIRECT_MANIPULATION.md) |
+| Value, type, icons, color, shape and material | [Visual language](game-ui/VISUAL_LANGUAGE.md) |
+| Feedback layers, transitions, reveals and sound | [Motion and feel](game-ui/MOTION_AND_FEEDBACK.md) |
+| Input ownership, focus, conventions and access | [Input, focus and access](game-ui/INPUT_FOCUS_AND_ACCESS.md) |
+| Every control, when to use it and its key options | [Control map](CONTROL_MAP.md) |
 
-These are starting points, not fixed screen templates. A persistent destination
-usually needs a page or in-world station. Keep a short choice near its source
-when it fits; give a sustained task enough room and a clear return path.
-Let a dedicated page replace unrelated HUD groups. Keep context needed for its
-decision, such as balance beside cost.
+## Sources
 
-Every focus move, menu and confirmation costs attention. Keep frequent safe
-actions direct. Add review, deliberate activation or recovery in proportion to
-consequence. Disclose optional detail without hiding the terms of commitment.
-Avoid using confirmations to compensate for ambiguous labels or adjacent targets.
-
-## Direct attention and express the game
-
-Establish what should be noticed first, second and third in each state.
-During play, an immediate hazard can outrank routine gains. During preparation,
-object differences can lead. Do not give every message the same visual weight.
-Keep required facts visible together instead of making players remember them
-across steps. Reduce competing borders and accents before adding decoration.
-
-Choose a coherent palette, type hierarchy, spacing, surfaces, icons and motion.
-Express shared values through the theme. Choose the subject that dominates,
-a framing or material motif, type contrast and the role of accent.
-A field journal might use paper, ink and specimen drawings; a racing garage
-might use vehicle silhouettes, technical labels and timing digits.
-Carry the visual language through HUD, decisions and results.
-
-Choose composition from the decision. Equipment inspection benefits from a
-large object beside comparable facts. A skill tree needs visible connections.
-Results can lead with the personal outcome, then gains and standings.
-Use a grid when silhouettes help recognition, a list when descriptions matter,
-and a table when shared attributes need comparison.
-
-Keep related content close and align comparable facts. Use negative space to
-separate groups without surrounding every fact with a box. Reserve strong accent
-for the important action or state. Keep stable meanings for color and icons.
-Distinguish focus, selection, equipped, pending and unavailable beyond color.
-
-Give objects meaningful artwork or well-framed Stage previews. Show the actual
-subject and its distinguishing details. Show a color as a swatch and a pattern
-as a preview. Pair unfamiliar glyphs with labels. Test text over busy gameplay
-and bright effects; use a backing surface when contrast otherwise fails.
-
-Choose density for the task. Comparison needs enough candidates and facts in
-view; action needs brief glances; celebration can give artwork room.
-Keep identity, decisive facts and commitment together. Avoid large introductions
-or filters that consume the decision area on short screens. Put the selected
-object's main action outside a long scrolling collection when appropriate.
-
-Polish includes stable targets and responsive feedback. Hover and focus must
-not move neighbors or clip the emphasized object. Motion explains a change and
-must preserve the result when reduced or skipped.
-
-## Protect play
-
-Keep the camera's focus area and space covered by a held thumb clear.
-Show glanceable information that changes the next action. Put coherent HUD
-groups in Composition Regions, with smaller forms and explicit priority.
-Keep Region nodes stable; branch inside their forms. A compact form must retain
-access to every required task it replaces.
-
-Use safe edges without crowding native controls. Let Composition handle
-TopbarInset and its fallback. A world marker can occupy the focus area when
-locating that target is the immediate task. Routine status should stay quieter.
-End commands and notices when their context ends.
-
-Composition is passive. Gameplay keeps the movement stick and D-pad.
-Give HUD tasks explicit gamepad actions and visible input hints. Let the opened
-task surface own selection. Choose a useful, safe initial target for that task;
-use the control's documented focus policy rather than forcing one rule everywhere.
-
-A page replacing gameplay must own input. Disable the game's gameplay
-InputContext and hide custom touch commands while appropriate. Save and restore
-GuiService.TouchControlsEnabled for native movement controls. Opening an overlay
-does not pause the world. Restore prior input state when the task ends.
-
-## Adapt the task
-
-Available room, physical readability, reach, input precision and gameplay pace
-are separate constraints. A high-resolution handheld can need large readable
-text and controller navigation in a short layout. A desktop can use a gamepad;
-a touch device can have a keyboard. Do not infer all constraints from one label.
-
-Choose layout from usable container bounds, including height and insets.
-Choose prompts from the active input and actual bindings. Apply text and access
-preferences independently. Keep selection, drafts and location through a resize
-or input change. The input chapter maps these decisions to `UI.environment`.
-
-On wide surfaces, show useful browsing and detail together. When they no longer
-fit, provide a complete detail step. Reduce decoration, reflow groups and disclose
-optional facts before reducing legibility, consequences or exits.
-Do not shrink the whole interface to fit an oversized design.
-
-Bound task width before wrapped text or fill collections. Keep short readouts
-unwrapped; let explanatory text grow. Test long labels, larger text and missing
-artwork. Size short decisions to their content and bound large collections for
-scrolling. The layout chapter covers grids that fit their content.
-
-Touch needs reachable targets and movement clearance. Pointer hover cannot hold
-required information. Gamepad needs visible entry, predictable focus, scroll
-access and Back. Provide digital alternatives to precision gestures.
-A displayed shortcut must invoke the same command as its visible control.
-Do not bind Roblox's reserved Escape or gamepad Start in game commands.
-
-## Connect design to implementation
-
-Use exact contracts from installed API nodes. Keep one owned tree and use the
-nearest existing runtime. Native mechanisms come first, then Compose ownership
-and composition, then Facet's task-specific control policy.
-
-| Design responsibility | Mechanism and contract route |
-| --- | --- |
-| State changes without rebuilding the page | Compose cells and property bindings; `State`, `Types.reactive` |
-| Conditional content, stable identity and cleanup | `Compose.show`, `Compose.keyed`, `Compose.cleanup`; Compose consumer skill |
-| Overlay ownership | Facet surfaces use Compose lifetime and native input; `Tasks.sheet`, `Sheet.dismissal` |
-| Entry, navigation and return | `Tasks.pages`, then the selected navigation control's card |
-| Competing HUD groups | Composition and Region; `Tasks.hud`, `Composition.regions` |
-| Collection identity and selection | Stable model keys; collection card and `VirtualList-and-VirtualGrid.selection` |
-| Game identity and motion | Theme tokens, native StyleSheets and Compose motion; `Tasks.theme`, `Custom-transitions` |
-| Accepted game effects | Game/server state bound through Compose; `Tasks.state`, `Tasks.purchase` |
-
-Use controls for their supported behavior. Use Host objects for game art and
-scene content. Do not recreate a focus graph, text editor, layout engine or
-animation scheduler. Read the control's card, then only the missing options.
-A recipe shows a working structure; adapt its content and density to the task.
-
-## Make outcomes truthful
-
-Acknowledge input promptly and distinguish pending, accepted and rejected work.
-Sending is not saving. The server owns game rules and accepted progression.
-Keep drafts recoverable and use one dirty-dismissal policy for all exit routes.
-Preserve query, selection and useful scroll position on return.
-
-Distinguish no items, no matches, loading, unavailable and failed requests.
-Offer the matching next step: create, clear filters, wait, explain eligibility
-or retry. Pair constraints with their reason and a route forward when one exists.
-Test stale data, disconnection and interruption without false success.
-
-Keep important results available after transient feedback ends. Use sound or
-haptics to reinforce information, with an equivalent visible signal.
-Lead results with personal outcome and accepted gains, then comparison and the
-next action. Teach through the actual visible action with Skip and replay.
-Do not grant progress because time elapsed or an animation finished.
-
-## Verify the experience early
-
-Build one complete task with representative labels, art and data. Test its most
-constrained supported context before repeating the pattern. Include active play,
-choice, interruption, failure and return. Read the relevant task chapter below.
-
-Have an unfamiliar player locate the task, predict the action, complete it and
-explain the result without coaching. Observe hesitation, wrong turns, repeated
-input and missed feedback. Fix the cause, then repeat the affected task.
-An agent walkthrough can find gaps; it does not establish player preference.
-
-Inspect captures at intended viewing size for focal order, readable text,
-recognizable art and deliberate alignment. Operate the same task with supported
-inputs at wide, narrow and short sizes. Change input or viewport while it is open.
-Check completion, cancellation, rejection and restoration of input and focus.
-
-Separate technical checks, visual review, input tests and player observations.
-Screenshots do not prove reachability; simulated dimensions do not prove handheld
-readability. Record the actual build, device, inputs and paths tested.
-Fix shared layout or control causes before copying the pattern elsewhere.
-
-## Read only the relevant detail
-
-| Task | Chapter |
-| --- | --- |
-| HUD, lobby, objectives, results, onboarding | [Game flows](game-ui/GAME_FLOWS_AND_INFORMATION.md) |
-| Compact layout and page navigation | [Layout](game-ui/LAYOUT_AND_NAVIGATION.md) |
-| Browsing, selection and actions | [Collections](game-ui/COLLECTIONS_AND_ACTIONS.md) |
-| Values and editing | [Choices](game-ui/CHOICES_AND_INPUT.md) |
-| Interruption and feedback | [Surfaces](game-ui/SURFACES_INFORMATION_AND_FEEDBACK.md) |
-| Drag, resize and input alternatives | [Manipulation](game-ui/ADAPTIVE_INTERACTION_AND_DIRECT_MANIPULATION.md) |
-| Focus, input ownership and accessibility | [Input](game-ui/INPUT_FOCUS_AND_ACCESS.md) |
-| Transitions and reward motion | [Motion](game-ui/MOTION_AND_FEEDBACK.md) |
-
-## Design sources
-
-These sources explain the reasoning. Use the Facet API nodes for implementation.
-
-- Celia Hodent's [game UX practice](https://celiahodent.com/ux-practices-epic-games/) distinguishes intended challenge from interface difficulty. Her [cognitive psychology guide](https://celiahodent.com/cognitive-psychology-applied-to-user-experience-in-video-games/) explains attention, memory and player testing.
-- Edd Coates's [Animex talk abstract](https://animex.tees.ac.uk/speaker_page.cfm?speaker=950&year=32) explains why reference analysis must identify design rationale. His [The Game UI Bible](https://www.lostincult.co.uk/shop/p/gameui) is further reading.
-- Xbox Accessibility Guidelines cover [navigation](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/112) and [context and consequences](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/114). Apply the principles without treating Xbox button labels as universal.
-- Valve's [handheld recommendations](https://partner.steamgames.com/doc/steamhardware/recommendations) and [compatibility guidance](https://partner.steamgames.com/doc/steamhardware/compat) separate controller access and physical readability from resolution. They inform cross-platform review; they are not Roblox requirements.
+- Edd Coates, [The Principles of Game UI/UX](https://www.youtube.com/watch?v=5GiH6th_Za4), the [Game UI Database](https://www.gameuidatabase.com) and [The Game UI Bible](https://www.lostincult.co.uk/shop/p/gameui)
+- Celia Hodent, [game UX practice](https://celiahodent.com/ux-practices-epic-games/) and [cognitive psychology for game UX](https://celiahodent.com/cognitive-psychology-applied-to-user-experience-in-video-games/)
+- Fagerholt and Lorentzon, [Beyond the HUD](https://odr.chalmers.se/handle/20.500.12380/111921)
+- Xbox Accessibility Guidelines on [navigation](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/112) and [context and consequences](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/114); the [Game Accessibility Guidelines](https://gameaccessibilityguidelines.com)
+- Valve, handheld [compatibility](https://partner.steamgames.com/doc/steamhardware/compat) and [recommendations](https://partner.steamgames.com/doc/steamhardware/recommendations)
+- Roblox, [ViewportDisplaySize](https://devforum.roblox.com/t/full-release-build-cross-platform-ui-with-the-viewportdisplaysize-api/3880384)

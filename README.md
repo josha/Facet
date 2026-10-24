@@ -145,7 +145,7 @@ It starts with the design guide, then routes to the relevant controls and checks
 
 | Document | What it is |
 |---|---|
-| [Designing game interfaces with Facet](skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md) | Design principles, game flows, control choices, adaptive interaction and review. |
+| [Designing game interfaces with Facet](skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md) | Design principles, the hierarchy of interaction, visual language, states, feel, play contexts and review. |
 | [`docs/guide/README.md`](docs/guide/README.md) | Task-based routes to installation, implementation and verification. |
 | [`docs/guide/choosing-facet.md`](docs/guide/choosing-facet.md) | A comparison of Facet with other Roblox UI libraries. |
 | [`tools/designer/README.md`](tools/designer/README.md) | Facet Design: visual editing, code sync, and human/agent design workflows. |

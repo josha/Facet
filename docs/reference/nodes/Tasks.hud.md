@@ -1,36 +1,33 @@
 # Tasks.hud
 
-HUD with destination callbacks.
+A race HUD with a wallet and a Garage button in the top bar strip.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
-local function hud(app: Facet.App, open: (string) -> (),
-  coins: Facet.Readable<number>, xp: Facet.Readable<number>, left: Facet.Readable<string>): Frame
+local function hud(app: Facet.App, open: (string) -> (), coins: Facet.Readable<number>,
+  standing: Facet.Readable<string>, lap: Facet.Readable<string>): Frame
   local UI = app.UI
-  local width = UI.environment().scaled(200)
-  local captionRoom: Facet.Sides = { bottom = "l" }
-  local function action(name: string, icon: string, caption: Facet.ValueString?)
-    return UI.Button(name) { icon = icon, shape = "circle", controlSize = "regular",
-      caption = caption or name, onActivate = function() open(name) end }
-  end
-  return UI.Composition "HUD" {
-    UI.Region "Actions" { zone = "topRight", rank = 1,
-      UI.HStack "Row" { gap = "m", padding = captionRoom, SelectionGroup = true,
-        action("Shop", "view.grid"), action("Quests", "check"),
-        action("Offer", "clock", function(use) return "Offer " .. use(left) end) } },
-    UI.Region "Wallet" { zone = "topRight", rank = 2, reveal = false,
-      UI.VStack "Readouts" { surface = "panel", padding = "m", gap = "s",
-        UI.Text { textRole = "caption", role = "secondary", text = "Coins" },
-        UI.Text { textRole = "numeral", text = function(use: Facet.Use) return Facet.format.compact(use(coins)) end },
-        UI.ProgressView "XP" { label = "Level 3", value = xp, max = 100,
-          Size = function(use: Facet.Use) return UDim2.fromOffset(use(width), 0) end } },
-      UI.HStack "CompactReadouts" { surface = "panel", padding = "s", gap = "m",
-        UI.Text { textRole = "numeral", text = function(use: Facet.Use) return Facet.format.compact(use(coins)) .. " Coins" end },
-        UI.Text { textRole = "caption", text = function(use: Facet.Use) return `Level 3 · {use(xp)}/100` end } } },
+  local function garage() open("Garage") end
+  local edge: Facet.Sides = { left = "m", right = "m" }
+  return UI.Composition "HUD" { padding = "m",
+    UI.Region "Garage" { zone = "topbar", trailing = true, rank = 1,
+      UI.Button "Garage" { label = "Garage", icon = "view.grid", controlSize = "regular",
+        corners = "pill", onActivate = garage },
+      UI.Button "GarageIcon" { icon = "view.grid", name = "Garage", shape = "circle",
+        controlSize = "regular", onActivate = garage } },
+    UI.Region "Wallet" { zone = "topbar", leading = true, rank = 2,
+      UI.Button "Wallet" { controlSize = "regular", corners = "pill",
+        label = function(use: Facet.Use) return Facet.format.compact(use(coins)) .. " Coins" end,
+        onActivate = function() open("Shop") end } },
+    UI.Region "Race" { zone = "topLeft", rank = 3,
+      UI.HStack "Race" { surface = "panel", height = 44, padding = edge, gap = "s", align = "center",
+        UI.Text { textRole = "numeral", text = standing },
+        UI.Text { textRole = "caption", role = "secondary", text = lap } } },
   }
 end
 ```
 
+Strip items join Roblox's row, so they match its buttons: `regular` controls are 44 pixels tall with every input, centered on its line, round like its pills and flat.  The race plate takes the same height and no shadow, and `padding = "m"` lines the HUD up under Roblox's first button.  Garage ranks first, so the wallet moves below the bar before Garage leaves the strip.
 Keep play clear: [safe layout](Tasks.safe-layout.md).
 Bind routes and gamepad hints: [HUD actions](HUD-actions.md).
 Bind [server state](Tasks.state.md).
