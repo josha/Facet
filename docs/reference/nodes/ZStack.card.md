@@ -8,7 +8,7 @@ Inside an app mount, set `local UI = app.UI`.
 UI.ZStack "ZStack" { UI.Text { text = "Ready" } }
 ```
 
-Key options: `alignment`.
+Key options: `alignH`, `alignV`.
 
 Compose owns child lifetimes.
 

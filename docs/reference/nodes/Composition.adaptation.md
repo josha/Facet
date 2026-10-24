@@ -33,7 +33,8 @@ Top-bar strip layout, fallback and overlays.
   The strip's far end keeps the composition's own edge `padding`, or one `gap` when
   the padding is smaller, so trailing regions line up with the zones below.
   Give a button beside the Roblox buttons a 44 pixel height.
-  A `compact` circle in the neutral theme has this height.
+  A `regular` Button in the neutral theme has this height with every input;
+  a `compact` Button is 36 pixels with a pointer.
 - A Popover, Menu or other overlay from a strip region shows in the composition's
   ScreenGui. Thus the narrow strip does not clip it.
 - In the strip, the `Topbar` Frame holds a `Leading` row for leading regions.

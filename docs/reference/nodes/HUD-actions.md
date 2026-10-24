@@ -24,6 +24,12 @@ row `gap` to at least the widest caption minus the circle width.
 Use theme colors with at least 3:1 icon contrast against the circle. Keep the
 3D view clear: the corner zones hold the HUD and the centre stays open.
 
+In the top bar strip (`zone = "topbar"`), match Roblox's row of icon buttons:
+use an icon circle with a familiar glyph and a `name`, or an icon with a short
+value. `controlSize = "regular"` is 44 pixels tall with every input, as Roblox's
+buttons are; `compact` is 36 pixels with a pointer. Composition `padding = "m"`
+(16 pixels) lines the HUD edge up with Roblox's first button.
+
 ## Selection and input
 
 Make only interactive controls selectable. Give each Button a label. For a circle,
