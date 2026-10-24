@@ -4,8 +4,8 @@ local Environment = require "./environment"
 
 type Instance = Environment.Instance
 export type Options = {
-	measureText: ((text: string, size: number, font: unknown, bounds: unknown) -> unknown)?,
-	measureBounds: ((parameters: unknown) -> unknown)?,
+	measureText: (((text: string, size: number, font: unknown, bounds: unknown) -> unknown) | false)?,
+	measureBounds: (((parameters: unknown) -> unknown) | false)?,
 	methods: { [string]: Environment.Method }?,
 	validate: (((className: string, property: string) -> boolean) | false)?,
 	selection: ("raise" | "ignore")?,

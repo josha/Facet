@@ -640,15 +640,11 @@ return function(verifyHarness: Verify.Harness)
 				open:set(true)
 				local panel = w.find("Panel")
 				w.engine.environment.poke(
-					((panel) :: unknown) :: FixtureRoblox.Instance,
+					FixtureRoblox.assertInstance(panel),
 					"AbsolutePosition",
 					Vector2.new(100, 100)
 				)
-				w.engine.environment.poke(
-					((panel) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					Vector2.new(200, 150)
-				)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(panel), "AbsoluteSize", Vector2.new(200, 150))
 				w.engine.environment.poke(w.input, "PreferredInput", w.Enum.PreferredInput.Touch)
 				Verify.expect(w.find("SheetPanel") ~= nil):toBe(true)
 				local touch = {

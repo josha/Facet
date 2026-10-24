@@ -916,26 +916,10 @@ return function(verifyHarness: Verify.Harness)
 				local V2 = w.engine.types.Vector2
 				local page, field = w.find("SheetContent"), w.find("Filter")
 				w.engine.environment.poke(page, "AbsolutePosition", V2.new(0, 181))
-				w.engine.environment.poke(
-					((page) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(320, 280)
-				)
-				w.engine.environment.poke(
-					((page) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteCanvasSize",
-					V2.new(320, 600)
-				)
-				w.engine.environment.poke(
-					((field) :: unknown) :: FixtureRoblox.Instance,
-					"AbsolutePosition",
-					V2.new(20, 350)
-				)
-				w.engine.environment.poke(
-					((field) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					V2.new(180, 44)
-				)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(page), "AbsoluteWindowSize", V2.new(320, 280))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(page), "AbsoluteCanvasSize", V2.new(320, 600))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(field), "AbsolutePosition", V2.new(20, 350))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(field), "AbsoluteSize", V2.new(180, 44))
 				w.engine.environment.poke(w.input, "OnScreenKeyboardPosition", V2.new(0, 500))
 				field.Focused:Fire()
 				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", true)
@@ -965,26 +949,10 @@ return function(verifyHarness: Verify.Harness)
 				local V2 = w.engine.types.Vector2
 				local page, field = w.find("SheetContent"), w.find("Filter")
 				w.engine.environment.poke(page, "AbsolutePosition", V2.new(0, 181))
-				w.engine.environment.poke(
-					((page) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(320, 232)
-				)
-				w.engine.environment.poke(
-					((page) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteCanvasSize",
-					V2.new(320, 600)
-				)
-				w.engine.environment.poke(
-					((field) :: unknown) :: FixtureRoblox.Instance,
-					"AbsolutePosition",
-					V2.new(20, 395)
-				)
-				w.engine.environment.poke(
-					((field) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					V2.new(180, 44)
-				)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(page), "AbsoluteWindowSize", V2.new(320, 232))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(page), "AbsoluteCanvasSize", V2.new(320, 600))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(field), "AbsolutePosition", V2.new(20, 395))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(field), "AbsoluteSize", V2.new(180, 44))
 				w.engine.environment.poke(w.input, "OnScreenKeyboardPosition", V2.new(0, 400))
 				field.Focused:Fire()
 				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", true)
@@ -1007,31 +975,11 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local V2 = w.engine.types.Vector2
 				local page, field = w.find("Page"), w.find("Name")
-				w.engine.environment.poke(
-					((page) :: unknown) :: FixtureRoblox.Instance,
-					"AbsolutePosition",
-					V2.new(0, 0)
-				)
-				w.engine.environment.poke(
-					((page) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteWindowSize",
-					V2.new(400, 800)
-				)
-				w.engine.environment.poke(
-					((page) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteCanvasSize",
-					V2.new(400, 1400)
-				)
-				w.engine.environment.poke(
-					((field) :: unknown) :: FixtureRoblox.Instance,
-					"AbsolutePosition",
-					V2.new(0, 700)
-				)
-				w.engine.environment.poke(
-					((field) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					V2.new(400, 44)
-				)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(page), "AbsolutePosition", V2.new(0, 0))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(page), "AbsoluteWindowSize", V2.new(400, 800))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(page), "AbsoluteCanvasSize", V2.new(400, 1400))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(field), "AbsolutePosition", V2.new(0, 700))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(field), "AbsoluteSize", V2.new(400, 44))
 				w.engine.environment.poke(w.input, "OnScreenKeyboardPosition", V2.new(0, 500))
 				field.Focused:Fire()
 				expect(page.CanvasPosition.Y):toBe(0)

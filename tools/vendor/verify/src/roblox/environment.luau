@@ -48,6 +48,8 @@ local UNIVERSAL_EVENTS: { string } = {
 }
 
 local BASIC_CLASSES = Classes
+local instances: { [unknown]: Instance } = {}
+setmetatable(instances, { __mode = "kv" })
 
 local function create<P, M, F>(options: Options<P, M, F>?): Environment
 	local settings: Options = ((options or {}) :: unknown) :: Options
@@ -1074,6 +1076,9 @@ local function create<P, M, F>(options: Options<P, M, F>?): Environment
 		end
 		local object = (setmetatable({} :: { [string]: unknown }, objectMetatable) :: unknown) :: Instance
 		Names.register(object, if class.instance then "Instance" else "Object")
+		if class.instance then
+			instances[object] = object
+		end
 		rawset(
 			object,
 			"__state",
@@ -1480,6 +1485,12 @@ local function isInstance(value: unknown): boolean
 	return Names.registered(value) == "Instance"
 end
 
+local function assertInstance(value: unknown): Instance
+	local instance = instances[value]
+	assert(instance ~= nil, "expected a simulated Instance")
+	return instance
+end
+
 local function typeName(value: unknown): string
 	return Names.kind(value)
 end
@@ -1487,6 +1498,7 @@ end
 return {
 	create = create,
 	isInstance = isInstance,
+	assertInstance = assertInstance,
 	typeName = typeName,
 	BASIC_CLASSES = BASIC_CLASSES,
 }

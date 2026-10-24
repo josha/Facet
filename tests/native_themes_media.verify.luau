@@ -449,7 +449,7 @@ return function(verifyHarness: Verify.Harness)
 				local artwork = Host.ImageLabel { Image = "rbxassetid://10" }
 				image = artwork
 				local loading = (artwork :: unknown) :: { IsLoaded: boolean }
-				native.environment.poke((loading :: unknown) :: FixtureRoblox.Instance, "IsLoaded", false)
+				native.environment.poke(FixtureRoblox.assertInstance(loading), "IsLoaded", false)
 				prepare(ctx, artwork)
 				artwork.Parent = row
 				return row
@@ -461,7 +461,7 @@ return function(verifyHarness: Verify.Harness)
 			local artwork = assert(image)
 			local geometry = (artwork :: unknown) :: { AbsoluteSize: Vector2 }
 			native.environment.poke(
-				(geometry :: unknown) :: FixtureRoblox.Instance,
+				FixtureRoblox.assertInstance(geometry),
 				"AbsoluteSize",
 				native.types.Vector2.new(240, 180)
 			)
@@ -530,7 +530,7 @@ return function(verifyHarness: Verify.Harness)
 					resolved:set(themed)
 					local geometry = (node :: unknown) :: { AbsoluteSize: Vector2 }
 					engine.environment.poke(
-						(geometry :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(geometry),
 						"AbsoluteSize",
 						engine.types.Vector2.new(240, 180)
 					)
@@ -651,12 +651,12 @@ return function(verifyHarness: Verify.Harness)
 				engine.environment.poke(target, "AbsolutePosition", engine.types.Vector2.new(1744, 104))
 				engine.environment.poke(target, "AbsoluteSize", engine.types.Vector2.new(65, 38))
 				engine.environment.poke(
-					(boundary :: unknown) :: FixtureRoblox.Instance,
+					FixtureRoblox.assertInstance(boundary),
 					"AbsoluteSize",
 					engine.types.Vector2.new(1, 1)
 				)
 				engine.environment.poke(
-					(boundary :: unknown) :: FixtureRoblox.Instance,
+					FixtureRoblox.assertInstance(boundary),
 					"AbsolutePosition",
 					engine.types.Vector2.new(1809, 131)
 				)
@@ -2086,14 +2086,14 @@ return function(verifyHarness: Verify.Harness)
 				end, host)
 				engine.environment.poke(host, "AbsoluteSize", engine.types.Vector2.new(200, 100))
 				engine.environment.poke(
-					(boundary :: unknown) :: FixtureRoblox.Instance,
+					FixtureRoblox.assertInstance(boundary),
 					"AbsoluteSize",
 					engine.types.Vector2.new(1, 1)
 				)
 				host:FindFirstChildWhichIsA("UIPadding").PaddingRight = engine.types.UDim.new(0, 24)
 				host:FindFirstChildWhichIsA("UIPadding").PaddingBottom = engine.types.UDim.new(0, 24)
 				engine.environment.poke(
-					(boundary :: unknown) :: FixtureRoblox.Instance,
+					FixtureRoblox.assertInstance(boundary),
 					"AbsolutePosition",
 					engine.types.Vector2.new(175, 75)
 				)
@@ -2121,7 +2121,7 @@ return function(verifyHarness: Verify.Harness)
 				end, host)
 				engine.environment.poke(host, "AbsoluteSize", engine.types.Vector2.new(300, 400))
 				engine.environment.poke(
-					(boundary :: unknown) :: FixtureRoblox.Instance,
+					FixtureRoblox.assertInstance(boundary),
 					"AbsoluteSize",
 					engine.types.Vector2.new(1, 1)
 				)

@@ -4,6 +4,7 @@ local Environment = require "./environment"
 local Datatypes = require "./datatypes"
 local Grid = require "./ui-grid-layout"
 local List = require "./ui-list-layout"
+local Float = require "./datatypes/float"
 
 type Instance = Environment.Instance
 type Vector = { X: number, Y: number }
@@ -16,6 +17,7 @@ export type Options = {
 	origin: (() -> Vector)?,
 	read: ((Instance, string) -> unknown)?,
 	vector: ((number, number) -> unknown)?,
+	measureBounds: ((unknown) -> unknown)?,
 }
 export type Controller = {
 	step: () -> (),
@@ -46,14 +48,19 @@ local function attach(environment: Environment.Environment, options: Options): C
 	local function unsupported(object: Instance, mechanism: string)
 		error("unsupported_ui_layout: " .. object:GetFullName() .. " requires " .. mechanism, 0)
 	end
+	local function isText(object: Instance): boolean
+		return object:IsA "TextLabel" or object:IsA "TextButton" or object:IsA "TextBox"
+	end
 	local function validate(object: Instance)
 		if object:IsA "LayerCollector" and not object:IsA "ScreenGui" then
 			unsupported(object, object.ClassName)
 		end
 		if object:IsA "GuiObject" then
 			if enum(object, "AutomaticSize", "None") ~= "None" then
-				if object:IsA "TextLabel" or object:IsA "TextButton" or object:IsA "TextBox" then
-					unsupported(object, "AutomaticSize text measurement")
+				if isText(object) then
+					if options.measureBounds == nil then
+						unsupported(object, "AutomaticSize text measurement")
+					end
 				end
 				if object:FindFirstChildWhichIsA "UISizeConstraint" then
 					unsupported(object, "AutomaticSize with UISizeConstraint")
@@ -100,6 +107,37 @@ local function attach(environment: Environment.Environment, options: Options): C
 			height = math.max(0, rectangle.height - top - bottom),
 			scale = rectangle.scale,
 		}
+	end
+	local function textBounds(object: Instance, rectangle: Rectangle, intrinsic: boolean?): Vector?
+		if options.measureBounds == nil or not (isText(object)) then
+			return nil
+		end
+		if optional(object, "TextScaled") == true then
+			unsupported(object, "TextScaled")
+		end
+		if enum(object, "TextTruncate", "None") ~= "None" then
+			unsupported(object, "TextTruncate")
+		end
+		local size = number(object, "TextSize", 14)
+		local rendered = size * rectangle.scale
+		if size ~= math.floor(size) or rendered ~= math.floor(rendered) or rendered < 1 or rendered > 100 then
+			unsupported(object, "fractional or out-of-range rendered text size")
+		end
+		local content = inset(object, rectangle)
+		local measured = options.measureBounds {
+			Text = read(object, "Text"),
+			Font = read(object, "FontFace"),
+			Size = rendered,
+			Width = if optional(object, "TextWrapped") == true then content.width else 0,
+			RichText = read(object, "RichText"),
+		} :: Vector
+		local lines = measured.Y / rendered
+		local step = Float.f32(Float.f32(number(object, "LineHeight", 1)) * size)
+		local height = Float.f32(size + Float.f32(step * (lines - 1))) * rectangle.scale
+		if not intrinsic and lines > 1 and height > content.height then
+			unsupported(object, "text clipped by available height")
+		end
+		return { X = measured.X, Y = height }
 	end
 	local size: (Instance, Rectangle) -> Rectangle
 	size = function(object: Instance, parent: Rectangle): Rectangle
@@ -173,7 +211,11 @@ local function attach(environment: Environment.Environment, options: Options): C
 			end
 			gap = unit.Offset * scale
 		end
-		local intrinsicWidth, intrinsicHeight, count = 0, 0, 0
+		local bounds = textBounds(object, rectangle, true)
+		if bounds and autoX and optional(object, "TextWrapped") == true then
+			unsupported(object, "wrapped text on an automatic width axis")
+		end
+		local intrinsicWidth, intrinsicHeight, count = if bounds then bounds.X else 0, if bounds then bounds.Y else 0, 0
 		for _, child in object:GetChildren() do
 			if child:IsA "GuiObject" and optional(child, "Visible") ~= false then
 				local authoredChild = read(child, "Size") :: Dimensions
@@ -229,26 +271,47 @@ local function attach(environment: Environment.Environment, options: Options): C
 		local viewport = options.viewport()
 		local origin = if options.origin then options.origin() else { X = 0, Y = 0 }
 		local screen: Rectangle = { x = origin.X, y = origin.Y, width = viewport.X, height = viewport.Y, scale = 1 }
-		local measureTree: (Instance, Rectangle) -> ()
-		measureTree = function(object: Instance, parent: Rectangle)
-			local rectangle = if object:IsA "GuiObject" then size(object, parent) else parent
-			local content = inset(object, rectangle)
-			local grid = object:FindFirstChildWhichIsA "UIGridLayout"
-			if grid then
-				Grid.measure(grid, content, read)
+		local measureTree: (Instance, Rectangle, Rectangle?) -> ()
+		measureTree = function(object: Instance, parent: Rectangle, placed: Rectangle?)
+			local rectangle = if object:IsA "GuiObject" then placed or size(object, parent) else parent
+			if
+				placed
+				and (isText(object))
+				and optional(object, "TextWrapped") == true
+				and enum(object, "AutomaticSize", "None") ~= "None"
+			then
+				if placed.width ~= size(object, parent).width then
+					unsupported(object, "wrapped automatic text with a flexed width")
+				end
 			end
+			textBounds(object, rectangle)
+			local content = inset(object, rectangle)
+			local placements: { [Instance]: Rectangle } = {}
+			local grid = object:FindFirstChildWhichIsA "UIGridLayout"
 			local list = object:FindFirstChildWhichIsA "UIListLayout"
-			if list then
-				List.measure(list, content, read, size)
+			if grid then
+				for _, item in Grid.measure(grid, content, read).items do
+					placements[item.object] = item.rectangle
+				end
+			elseif list then
+				for _, item in List.measure(list, content, read, size).items do
+					placements[item.object] = item.rectangle
+				end
 			end
 			for _, child in object:GetChildren() do
-				measureTree(child, content)
+				measureTree(child, content, placements[child])
 			end
 		end
 		for _, root in roots do
-			measureTree(root, screen)
+			measureTree(root, screen, nil)
 		end
 		local function publish(object: Instance, rectangle: Rectangle)
+			local bounds = textBounds(object, rectangle)
+			if bounds then
+				local content = inset(object, rectangle)
+				environment.poke(object, "TextBounds", vector(bounds.X, bounds.Y))
+				environment.poke(object, "TextFits", bounds.X <= content.width and bounds.Y <= content.height)
+			end
 			environment.poke(object, "AbsolutePosition", vector(rectangle.x, rectangle.y))
 			environment.poke(object, "AbsoluteSize", vector(rectangle.width, rectangle.height))
 		end

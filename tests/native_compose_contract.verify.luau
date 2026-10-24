@@ -40,7 +40,7 @@ return function(verifyHarness: Verify.Harness)
 			end, engine.new("ScreenGui"))
 			local geometry = (mounted :: unknown) :: { AbsoluteSize: Vector2 }
 			engine.environment.poke(
-				(geometry :: unknown) :: FixtureRoblox.Instance,
+				FixtureRoblox.assertInstance(geometry),
 				"AbsoluteSize",
 				engine.types.Vector2.new(280, 140)
 			)
@@ -54,7 +54,7 @@ return function(verifyHarness: Verify.Harness)
 			cached:set(engine.types.Vector2.new(270, 130))
 			Verify.expect(assert(held):peek()):toBe(engine.types.Vector2.new(280, 140))
 			engine.environment.poke(
-				(geometry :: unknown) :: FixtureRoblox.Instance,
+				FixtureRoblox.assertInstance(geometry),
 				"AbsoluteSize",
 				engine.types.Vector2.new(280, 160)
 			)

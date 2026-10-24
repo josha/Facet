@@ -47,7 +47,7 @@ return function(verifyHarness: Verify.Harness)
 		local action: InputAction, binding: InputBinding = engine.new("InputAction"), engine.new("InputBinding")
 		action.Name = name
 		binding.KeyCode = ((engine.types.Enum.KeyCode :: unknown) :: { [string]: Enum.KeyCode })[key]
-		engine.environment.poke((action :: unknown) :: VerifyRoblox.Instance, "PreferredBinding", binding)
+		engine.environment.poke(VerifyRoblox.assertInstance(action), "PreferredBinding", binding)
 		return action
 	end
 
@@ -100,7 +100,7 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local P = w.Enum.PreferredInput
-				w.engine.environment.poke((w.input :: unknown) :: VerifyRoblox.Instance, "MouseEnabled", true)
+				w.engine.environment.poke(VerifyRoblox.assertInstance(w.input), "MouseEnabled", true)
 				w.engine.environment.poke(w.input, "PreferredInput", P.Gamepad)
 				local guide = w.find("Guide")
 				local entry = overlay.find(guide, "Entry")
@@ -403,10 +403,10 @@ return function(verifyHarness: Verify.Harness)
 				local guide = w.find("Guide")
 				Verify.expect(guide.Visible):toBe(false)
 				Verify.expect(labels(guide)):toBe("")
-				w.engine.environment.poke((buy :: unknown) :: VerifyRoblox.Instance, "PreferredBinding", binding)
+				w.engine.environment.poke(VerifyRoblox.assertInstance(buy), "PreferredBinding", binding)
 				Verify.expect(guide.Visible):toBe(true)
 				Verify.expect(labels(guide)):toBe("Buy")
-				w.engine.environment.poke((buy :: unknown) :: VerifyRoblox.Instance, "PreferredBinding", nil)
+				w.engine.environment.poke(VerifyRoblox.assertInstance(buy), "PreferredBinding", nil)
 				Verify.expect(guide.Visible):toBe(false)
 				w.stop()
 			end,

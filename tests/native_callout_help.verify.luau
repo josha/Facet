@@ -760,7 +760,7 @@ return function(verifyHarness: Verify.Harness)
 								onRetire = function() end,
 							},
 						})
-					end, { runService = true })
+					end, nil, { runService = true })
 					local panel, arrow = w.find("CalloutPanel"), w.find("Arrow")
 					local content = w.find("CalloutContent")
 					local contentSize, contentAutomatic = content.Size, content.AutomaticSize
@@ -807,7 +807,7 @@ return function(verifyHarness: Verify.Harness)
 								onRetire = function() end,
 							},
 						})
-					end, { runService = true })
+					end, nil, { runService = true })
 					local panel = w.find("CalloutPanel")
 					Verify.expect(panel.Visible):toBe(false)
 					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(280, 120))

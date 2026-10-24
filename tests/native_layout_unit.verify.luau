@@ -106,7 +106,7 @@ return function(verifyHarness: Verify.Harness)
 								message = "Saved to garage",
 								action = { label = "Undo", onActivate = function() end },
 							}
-						end, { size = Vector2.new(390 * factor, 844 * factor), motionLevel = "none" })
+						end, { motionLevel = "none" }, { size = Vector2.new(390 * factor, 844 * factor) })
 						for _, node in w.screen:GetDescendants() do
 							if node.Name == "LayoutUnit" then
 								w.engine.environment.poke(node, "AbsoluteSize", w.Vector2.new(100 * factor, factor))

@@ -9,15 +9,16 @@ return function(verifyHarness: Verify.Harness)
 
 	local Compose = require("../src/vendor/compose/core")
 	local Facet = require("../src")
+	local Types = require("../src/ui/types")
 	local engineLib = require("./lib/native_engine")
 	local overlay = require("./lib/overlay_world")
 	local reservations = require("../src/ui/reservations")
 	local Vector2 = require("./lib/native_engine").types.Vector2
 
-	local function mount(build: (any, any) -> any, options: any?): any
+	local function mount(build: (any, any) -> any, options: Types.Config?, setup: overlay.Setup?): any
 		return overlay.new(function(UI: FacetControls, Host: RobloxHost, engine, gui)
 			return Host.Frame({ Name = "Page", build(UI, Host) })
-		end, options)
+		end, options, setup)
 	end
 
 	verifyHarness:suite("native NavBar overflow", function()
@@ -47,11 +48,7 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Notice "Banner" { placement = "affixed", message = "Saved" }
 				end, screen)
 				local banner = (node :: unknown) :: { AbsoluteSize: Vector2 }
-				frameEngine.environment.poke(
-					(banner :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					Vector2.new(800, 96)
-				)
+				frameEngine.environment.poke(FixtureRoblox.assertInstance(banner), "AbsoluteSize", Vector2.new(800, 96))
 				Verify.expect(screen:GetAttribute("FacetInsetTop")):toBe(0)
 				frames:Fire(1 / 60)
 				Verify.expect(screen:GetAttribute("FacetInsetTop")):toBe(96)
@@ -383,38 +380,14 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Notice "Banner" { placement = "affixed" :: "affixed", message = "Elsewhere" }
 				end)
 				local first, second = w.find("Banner"), w.find("Banner2")
-				w.engine.environment.poke(
-					((first) :: unknown) :: FixtureRoblox.Instance,
-					"AbsolutePosition",
-					Vector2.new(0, 0)
-				)
-				w.engine.environment.poke(
-					((first) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					Vector2.new(800, 40)
-				)
-				w.engine.environment.poke(
-					((second) :: unknown) :: FixtureRoblox.Instance,
-					"AbsolutePosition",
-					Vector2.new(0, 48)
-				)
-				w.engine.environment.poke(
-					((second) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					Vector2.new(800, 40)
-				)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(first), "AbsolutePosition", Vector2.new(0, 0))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(first), "AbsoluteSize", Vector2.new(800, 40))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(second), "AbsolutePosition", Vector2.new(0, 48))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(second), "AbsoluteSize", Vector2.new(800, 40))
 				Verify.expect((w.screen:GetAttribute("FacetInsetTop"))):toBe(88)
 				local far = other.find("Banner")
-				other.engine.environment.poke(
-					((far) :: unknown) :: FixtureRoblox.Instance,
-					"AbsolutePosition",
-					Vector2.new(0, 0)
-				)
-				other.engine.environment.poke(
-					((far) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					Vector2.new(800, 30)
-				)
+				other.engine.environment.poke(FixtureRoblox.assertInstance(far), "AbsolutePosition", Vector2.new(0, 0))
+				other.engine.environment.poke(FixtureRoblox.assertInstance(far), "AbsoluteSize", Vector2.new(800, 30))
 				Verify.expect((other.screen:GetAttribute("FacetInsetTop"))):toBe(30)
 				Verify.expect((w.screen:GetAttribute("FacetInsetTop"))):toBe(88)
 				local token = {}
@@ -435,11 +408,10 @@ return function(verifyHarness: Verify.Harness)
 				local w = mount(function(UI: FacetControls)
 					return UI.Notice "Banner" { placement = "affixed" :: "affixed", message = message }
 				end, {
-					runService = true,
 					onError = function(problem: unknown)
 						table.insert(problems, tostring(problem))
 					end,
-				})
+				}, { runService = true })
 				local banner = w.find("Banner")
 				w.engine.environment.poke(banner, "AbsoluteSize", Vector2.new(800, 40))
 				w.advance(1 / 60)

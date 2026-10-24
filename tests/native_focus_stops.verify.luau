@@ -139,10 +139,10 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local V = w.engine.types.Vector2
 				local a, b = w.find("A"), w.find("B")
-				w.engine.environment.poke(((a) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V.new(0, 0))
-				w.engine.environment.poke(((a) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V.new(200, 44))
-				w.engine.environment.poke(((b) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V.new(220, 0))
-				w.engine.environment.poke(((b) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V.new(200, 44))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(a), "AbsolutePosition", V.new(0, 0))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(a), "AbsoluteSize", V.new(200, 44))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(b), "AbsolutePosition", V.new(220, 0))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(b), "AbsoluteSize", V.new(200, 44))
 				w.gui.SelectedObject = a
 				w.stick(1, 0)
 				Verify.expect((left:peek())):toBe(9)
@@ -173,10 +173,10 @@ return function(verifyHarness: Verify.Harness)
 		local function pair(w: any, extra: any?): (any, any)
 			local V = w.engine.types.Vector2
 			local a, b = w.find("A"), w.find("B")
-			w.engine.environment.poke(((a) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V.new(0, 0))
-			w.engine.environment.poke(((a) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V.new(200, 44))
-			w.engine.environment.poke(((b) :: unknown) :: FixtureRoblox.Instance, "AbsolutePosition", V.new(220, 0))
-			w.engine.environment.poke(((b) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V.new(200, 44))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(a), "AbsolutePosition", V.new(0, 0))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(a), "AbsoluteSize", V.new(200, 44))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(b), "AbsolutePosition", V.new(220, 0))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(b), "AbsoluteSize", V.new(200, 44))
 			return a, b
 		end
 
@@ -218,12 +218,12 @@ return function(verifyHarness: Verify.Harness)
 					local a = pair(w)
 					local c = w.find("C")
 					w.engine.environment.poke(
-						((c) :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(c),
 						"AbsolutePosition",
 						w.engine.types.Vector2.new(0, 300)
 					)
 					w.engine.environment.poke(
-						((c) :: unknown) :: FixtureRoblox.Instance,
+						FixtureRoblox.assertInstance(c),
 						"AbsoluteSize",
 						w.engine.types.Vector2.new(200, 44)
 					)

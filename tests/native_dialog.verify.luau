@@ -12,6 +12,7 @@ return function(verifyHarness: Verify.Harness)
 	local fadeKit = require("./lib/fade")
 	local parts = require("../src/ui/overlay_parts")
 	local controls = require("../src/ui")
+	local Types = require("../src/ui/types")
 	local Vector2 = require("./lib/native_engine").types.Vector2
 	local UserInputType = require("./lib/native_engine").types.Enum.UserInputType
 
@@ -68,12 +69,12 @@ return function(verifyHarness: Verify.Harness)
 		end
 	end
 
-	local function mount(specOf: (any, any) -> any, options: any?): any
+	local function mount(specOf: (any, any) -> any, options: Types.Config?, setup: overlay.Setup?): any
 		return overlay.new(function(UI: FacetControls, Host: RobloxHost, _, gui)
 			local opener = UI.Button "Opener" { label = "Open" }
 			gui.SelectedObject = opener
 			return Host.Frame({ opener :: unknown, UI.Dialog "Confirm"(specOf(UI, Host)) })
-		end, options)
+		end, options, setup)
 	end
 
 	local function actionButton(w: any, id: string): any
@@ -85,7 +86,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: one Back press closes one modal::restores content after the fade shell ends before materialization",
 			run = function()
 				local shown, log, change = caller()
-				local w = mount(standard(shown, log, change), { runService = true })
+				local w = mount(standard(shown, log, change), nil, { runService = true })
 				local panel, line = w.find("Panel"), w.find("Line")
 				w.size(panel, 560, 200)
 				w.advance(1, 60)
@@ -98,7 +99,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: one Back press closes one modal::fully masks the native preparation frame",
 			run = function()
 				local shown, log, change = caller()
-				local w = mount(standard(shown, log, change), { runService = true })
+				local w = mount(standard(shown, log, change), nil, { runService = true })
 				Verify.expect(w.find("Fade").GroupTransparency):toBe(1)
 				w.size(w.find("Panel"), 560, 200)
 				w.advance(1, 60)
@@ -188,7 +189,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::a Tab the engine keeps from input actions still walks the dialog, one step per press",
 			run = function()
 				local open, log, change = caller()
-				local w = mount(standard(open, log, change), { inputs = true, lastInputType = UserInputType.Keyboard })
+				local w =
+					mount(standard(open, log, change), nil, { inputs = true, lastInputType = UserInputType.Keyboard })
 				w.engine.environment.poke(w.input, "KeyboardEnabled", true)
 				local first = w.gui.SelectedObject
 				Verify.expect(first ~= nil):toBe(true)
@@ -225,7 +227,7 @@ return function(verifyHarness: Verify.Harness)
 						UI.Dialog "Outer"(standard(outerOpen, outerLog, outerChange)(UI, Host)),
 						UI.Dialog "Inner"(standard(innerOpen, innerLog, innerChange)(UI, Host)),
 					})
-				end, { inputs = true, motionLevel = "none" })
+				end, { motionLevel = "none" }, { inputs = true })
 				w.advance(0.1)
 				key(w, "Escape", true)
 				key(w, "Escape", false)
@@ -238,7 +240,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::an Escape while the Roblox menu is open closes nothing",
 			run = function()
 				local open, log, change = caller()
-				local w = mount(standard(open, log, change), { inputs = true, motionLevel = "none" })
+				local w = mount(standard(open, log, change), { motionLevel = "none" }, { inputs = true })
 				w.advance(0.1)
 				w.engine.environment.poke(w.gui, "MenuIsOpen", true)
 				key(w, "Escape", true)
@@ -257,7 +259,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local firstOpen, firstLog, firstChange = caller()
 				local secondOpen, secondLog, secondChange = caller()
-				local w = mount(standard(firstOpen, firstLog, firstChange), { inputs = true, motionLevel = "none" })
+				local w = mount(standard(firstOpen, firstLog, firstChange), { motionLevel = "none" }, { inputs = true })
 				local target = w.engine.new("Folder")
 				local other = controls(Compose, w.runtime, {
 					types = w.engine.types,
@@ -287,7 +289,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::Tab leaves only a Facet text field, and never with Ctrl, Alt or Meta held",
 			run = function()
 				local open, log, change = caller()
-				local w = mount(standard(open, log, change), { inputs = true })
+				local w = mount(standard(open, log, change), nil, { inputs = true })
 				w.engine.environment.poke(w.input, "KeyboardEnabled", true)
 				local start = w.gui.SelectedObject
 				local foreign = w.engine.new("TextBox")
@@ -324,7 +326,7 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_dialog::native Dialog: Tab and Escape arrive through UserInputService::an Escape the engine keeps from input actions closes the dialog once, and not while typing",
 				run = function()
 					local open, log, change = caller()
-					local w = mount(standard(open, log, change), { inputs = true, motionLevel = "none" })
+					local w = mount(standard(open, log, change), { motionLevel = "none" }, { inputs = true })
 					w.advance(0.1)
 					w.input.GetFocusedTextBox = function()
 						return w.engine.new("TextBox")
@@ -354,7 +356,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: the caller's fact decides::keeps the claimed selection and parent when the entry fade completes",
 			run = function()
 				local open, log, change = caller()
-				local w = mount(standard(open, log, change), { lastInputType = UserInputType.Keyboard })
+				local w = mount(standard(open, log, change), nil, { lastInputType = UserInputType.Keyboard })
 				local stay = actionButton(w, "Stay")
 				Verify.expect(w.find("Fade") ~= nil and stay:IsDescendantOf(w.find("Fade"))):toBe(true)
 				Verify.expect(w.gui.SelectedObject):toBe(stay)
@@ -410,6 +412,7 @@ return function(verifyHarness: Verify.Harness)
 					local open, log, change = caller(false)
 					local w = mount(
 						standard(open, log, change, { closeButton = true }),
+						nil,
 						{ lastInputType = UserInputType.Keyboard }
 					)
 					local panel = w.find("Panel")
@@ -424,6 +427,7 @@ return function(verifyHarness: Verify.Harness)
 					local open2, log2, change2 = caller()
 					local w2 = mount(
 						standard(open2, log2, change2, { closeButton = true }),
+						nil,
 						{ lastInputType = UserInputType.Keyboard }
 					)
 					Verify.expect(w2.gui.SelectedObject):toBe(actionButton(w2, "Stay"))
@@ -712,9 +716,11 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: composition, layout and the height budget::a tiny room unpins every region into one scroller: the last action is reachable",
 			run = function()
 				local open, log, change = caller()
-				local w = mount(standard(open, log, change, { actionLabel = "Leaving forfeits this heat." }), {
-					size = Vector2.new(320, 160),
-				})
+				local w = mount(
+					standard(open, log, change, { actionLabel = "Leaving forfeits this heat." }),
+					nil,
+					{ size = Vector2.new(320, 160) }
+				)
 				sized(w, 400)
 				local body, room = w.find("Body"), w.find("Room")
 				Verify.expect(room.ScrollingEnabled):toBe(true)
@@ -769,7 +775,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: composition, layout and the height budget::a phone dialog hugs its content and rows two actions that fit",
 			run = function()
 				local open, log, change = caller()
-				local w = mount(standard(open, log, change), { size = Vector2.new(390, 844) })
+				local w = mount(standard(open, log, change), nil, { size = Vector2.new(390, 844) })
 				sized(w, 60)
 				Verify.expect(w.find("Body").Size.Y.Offset):toBe(60)
 				Verify.expect(w.find("Panel").Size.X.Offset):toBe(390 - 32)
@@ -787,7 +793,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: composition, layout and the height budget::stacks two actions when the longer label does not fit its equal share of the row",
 			run = function()
 				local open, log, change = caller()
-				local w = mount(standard(open, log, change), { size = Vector2.new(390, 844) })
+				local w = mount(standard(open, log, change), nil, { size = Vector2.new(390, 844) })
 				sized(w, 60)
 				local list = w.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
 				w.engine.environment.poke(actionButton(w, "Stay"), "TextBounds", Vector2.new(40, 20))
@@ -820,6 +826,7 @@ return function(verifyHarness: Verify.Harness)
 					local open2, log2, change2 = caller()
 					local w2 = mount(
 						standard(open2, log2, change2, { actionLayout = "row" }),
+						nil,
 						{ size = Vector2.new(390, 844) }
 					)
 					local list2 = w2.find("Actions"):FindFirstChildWhichIsA("UIListLayout")
@@ -834,6 +841,7 @@ return function(verifyHarness: Verify.Harness)
 					local open4, log4, change4 = caller()
 					local w4 = mount(
 						standard(open4, log4, change4, { actions = three(), actionLayout = "row", width = "wide" }),
+						nil,
 						{ size = Vector2.new(844, 390) }
 					)
 					Verify.expect(w4.find("Actions"):FindFirstChildWhichIsA("UIListLayout").FillDirection)
@@ -912,7 +920,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_dialog::native Dialog: a plain overflowing body is one pad stop that scrolls::Tab and Shift+Tab stop on the overflowing body",
 			run = function()
 				local open, log, change = caller()
-				local w = mount(standard(open, log, change), { inputs = true })
+				local w = mount(standard(open, log, change), nil, { inputs = true })
 				w.size(w.find("Header"), 400, 44)
 				w.size(w.find("Actions"), 400, 44)
 				local body = w.find("Body")

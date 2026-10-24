@@ -9,8 +9,9 @@ return function(verifyHarness: Verify.Harness)
 	local fadeKit = require("./lib/fade")
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
+	local Types = require("../src/ui/types")
 
-	local function dialog(shown: any, options: any?, unsized: boolean?): any
+	local function dialog(shown: any, options: Types.Config?, unsized: boolean?): any
 		local w = overlay.new(function(UI: FacetControls, Host: RobloxHost)
 			return UI.Dialog "D" {
 				isPresented = shown,
@@ -123,7 +124,7 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("presence: limited cross-fades the toast, tabs, stack and disclosure", function()
-		local LIMITED = { motionLevel = "limited" }
+		local LIMITED: Types.Config = { motionLevel = "limited" }
 
 		local function fadesOver(w: any, node: any, from: number, to: number): number
 			local frames = 0
@@ -163,7 +164,12 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("presence: a Dialog is measured at rest", function()
-		for _, level in { "normal", "none" } do
+		local configurations: { Types.Config } = {
+			{ motionLevel = "normal" },
+			{ motionLevel = "none" },
+		}
+		for _, config in configurations do
+			local level = config.motionLevel
 			verifyHarness:case(`a Dialog waits for its size to hold, then never grows after it shows ({level})`, {
 				id = "native_presence::"
 					.. "presence: a Dialog is measured at rest"
@@ -171,7 +177,7 @@ return function(verifyHarness: Verify.Harness)
 					.. `a Dialog waits for its size to hold, then never grows after it shows ({level})`,
 				run = function()
 					local shown = Compose.cell(true)
-					local w = dialog(shown, { motionLevel = level }, true)
+					local w = dialog(shown, config, true)
 					local panel = w.find("Panel")
 					local scale = materialize.of(panel)
 					w.engine.environment.poke(panel, "AbsoluteSize", w.Vector2.new(560, 420))

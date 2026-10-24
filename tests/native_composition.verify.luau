@@ -668,7 +668,7 @@ return function(verifyHarness: Verify.Harness)
 							Host.Frame { Name = "TasksChip" },
 						},
 					}
-				end, { motionLevel = "normal", runService = true })
+				end, { motionLevel = "normal" }, { runService = true })
 				local full = w.find("TasksFull")
 				local home = full.Parent
 				w.size(full, 240, 130)

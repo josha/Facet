@@ -90,20 +90,12 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("a separate carried visual keeps the logical pickup geometry", function()
 			local w = fixture()
 			local V2 = w.engine.types.Vector2
-			w.engine.environment.poke(
-				((w.source) :: unknown) :: FixtureRoblox.Instance,
-				"AbsolutePosition",
-				V2.new(20, 30)
-			)
-			w.engine.environment.poke(((w.source) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(52, 52))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsolutePosition", V2.new(20, 30))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsoluteSize", V2.new(52, 52))
 			local face = w.engine.new("TextLabel")
 			face.Parent, face.Text = w.screen, "E"
-			w.engine.environment.poke(
-				((face) :: unknown) :: FixtureRoblox.Instance,
-				"AbsolutePosition",
-				V2.new(400, 300)
-			)
-			w.engine.environment.poke(((face) :: unknown) :: FixtureRoblox.Instance, "AbsoluteSize", V2.new(52, 52))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(face), "AbsolutePosition", V2.new(400, 300))
+			w.engine.environment.poke(FixtureRoblox.assertInstance(face), "AbsoluteSize", V2.new(52, 52))
 			w.session.begin(w.source, { payload = "tile", preview = face, previewScale = 1.9 }, "pointer")
 			local ghost = assert(w.screen:FindFirstChild("DragGhost"))
 			Verify.expect(ghost.Text):toBe("E")
@@ -117,16 +109,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = fixture()
 				local V2 = w.engine.types.Vector2
-				w.engine.environment.poke(
-					((w.source) :: unknown) :: FixtureRoblox.Instance,
-					"AbsolutePosition",
-					V2.new(20, 30)
-				)
-				w.engine.environment.poke(
-					((w.source) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					V2.new(50, 60)
-				)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsolutePosition", V2.new(20, 30))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsoluteSize", V2.new(50, 60))
 				w.session.begin(w.source, { payload = "A", previewScale = 1.3, returnTravel = true }, "pointer")
 				local ghost = w.screen:FindFirstChild("DragGhost")
 				local scaler = ghost:FindFirstChildWhichIsA("UIScale")
@@ -155,16 +139,8 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w = fixture()
 				local V2 = w.engine.types.Vector2
-				w.engine.environment.poke(
-					((w.source) :: unknown) :: FixtureRoblox.Instance,
-					"AbsolutePosition",
-					V2.new(20, 30)
-				)
-				w.engine.environment.poke(
-					((w.source) :: unknown) :: FixtureRoblox.Instance,
-					"AbsoluteSize",
-					V2.new(50, 60)
-				)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsolutePosition", V2.new(20, 30))
+				w.engine.environment.poke(FixtureRoblox.assertInstance(w.source), "AbsoluteSize", V2.new(50, 60))
 				local pickup = V2.new(30, 75)
 				w.session.begin(
 					w.source,
@@ -200,17 +176,13 @@ return function(verifyHarness: Verify.Harness)
 						unit.Name = "LayoutUnit"
 						unit.Parent = body
 						w.engine.environment.poke(
-							((unit) :: unknown) :: FixtureRoblox.Instance,
+							FixtureRoblox.assertInstance(unit),
 							"AbsoluteSize",
 							V2.new(scale, scale)
 						)
+						w.engine.environment.poke(FixtureRoblox.assertInstance(row), "AbsolutePosition", V2.new(20, 50))
 						w.engine.environment.poke(
-							((row) :: unknown) :: FixtureRoblox.Instance,
-							"AbsolutePosition",
-							V2.new(20, 50)
-						)
-						w.engine.environment.poke(
-							((row) :: unknown) :: FixtureRoblox.Instance,
+							FixtureRoblox.assertInstance(row),
 							"AbsoluteSize",
 							V2.new(frontSize[1], frontSize[2]) * scale
 						)
