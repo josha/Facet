@@ -8201,6 +8201,69 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("grid focus wraps by the columns that minColumnWidth and minColumns fit", {
+			id = "native_collections::container presentation and shared cells::grid focus wraps by the columns that minColumnWidth and minColumns fit",
+			run = function()
+				local closers = {}
+				local function grid(width: number, columns: number?, minimum: number?, least: number?)
+					local engine, runtime, UI, target = setup()
+					local focus: FixtureCollectionTypes.FocusControls<number> = {}
+					local props: FixtureCollectionProps.KeyedCollectionSpec<{ id: number, label: string }, number> = {
+						from = records(6),
+						key = key,
+						columns = columns,
+						minColumnWidth = minimum,
+						minColumns = least,
+						gap = 10,
+						itemSize = 40,
+						focus = focus,
+						wrapFocus = true,
+						Name = "Wrapped",
+						render = function(current): GuiObject
+							return button(UI, current)
+						end,
+					}
+					local stop = runtime.mount(function()
+						return UI.VirtualGrid(props)
+					end, target)
+					engine.environment.poke(
+						(target:FindFirstChild("Wrapped", true) :: unknown) :: VerifyRoblox.Instance,
+						"AbsoluteWindowSize",
+						engine.types.Vector2.new(width, 300)
+					)
+					table.insert(closers, function()
+						stop()
+						runtime:dispose()
+					end)
+					return function(from: number, direction: string): number?
+						assert(focus.focus)(from)
+						local context = target:FindFirstChild("FacetCollection" .. direction)
+						context:FindFirstChild("Collection" .. direction).Pressed:Fire()
+						return assert(focus.current):peek()
+					end
+				end
+				local fitted = grid(800, nil, 180, nil)
+				Verify.expect(fitted(4, "Right")):toBe(1)
+				Verify.expect(fitted(5, "Left")):toBe(6)
+				Verify.expect(fitted(1, "Up")):toBe(5)
+				Verify.expect(fitted(6, "Down")):toBe(2)
+				local paired = grid(360, nil, 180, 2)
+				Verify.expect(paired(2, "Right")):toBe(1)
+				Verify.expect(paired(3, "Left")):toBe(4)
+				Verify.expect(paired(1, "Up")):toBe(5)
+				Verify.expect(paired(6, "Down")):toBe(2)
+				local single = grid(360, nil, 180, nil)
+				Verify.expect(single(2, "Right")):toBe(2)
+				Verify.expect(single(6, "Down")):toBe(1)
+				local fixed = grid(800, 3, nil, nil)
+				Verify.expect(fixed(3, "Right")):toBe(1)
+				Verify.expect(fixed(6, "Down")):toBe(3)
+				for _, close in closers do
+					close()
+				end
+			end,
+		})
+
 		verifyHarness:case("hug needs every row: a windowed collection rejects it", {
 			id = "native_collections::container presentation and shared cells::hug needs every row: a windowed collection rejects it",
 			run = function()

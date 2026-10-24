@@ -10,7 +10,7 @@ return function<V, K>(
 	focusScope: ComposeTypes.FocusScope<K>,
 	eligible: (ComposeTypes.Use) -> boolean
 ): ()
-	local Compose, read = ctx.Compose, ctx.read
+	local Compose = ctx.Compose
 	local E = ctx.types.Enum
 	local spec, kind, keyOf, horizontal = view.spec, view.kind, view.keyOf, view.horizontal
 	local extendSelection = view.extendSelection
@@ -71,7 +71,7 @@ return function<V, K>(
 			local after = focusScope.move(binding.direction)
 			if kind == "grid" and spec.wrapFocus and before ~= nil and after == before then
 				local rows = current()
-				local columns = math.max(1, math.floor(read(spec.columns or 1)))
+				local columns = view.gridColumns(nil, math.max(0, view.cross:peek() - 2 * view.crossEdge()))
 				local at: number? = nil
 				for index, item in rows do
 					if keyOf(item, index) == before then

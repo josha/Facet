@@ -17,8 +17,7 @@ UI.VStack "Browser" { height = "fill", gap = "s",
 }
 ```
 
-With `minColumns = 2`, a grid of objects that players compare keeps at least
-two columns on a phone.
+`minColumns = 2` keeps at least two columns of compared objects on a phone.
 
 Put [fill](fill.md) in the grid spec, not `render`, to use the height left after
 headers and gaps.
