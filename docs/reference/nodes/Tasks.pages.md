@@ -2,7 +2,7 @@
 
 Open a destination from gameplay, with a readable surface, Close and return focus.
 
-Call inside the app mount. Supply the HUD and body as components.
+Call inside the app mount; the HUD and body are components.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -30,16 +30,19 @@ local function pages(app: Facet.App, title: string,
 end
 ```
 
-Use [Composition](Tasks.hud.md) for the HUD. Its visible opener and gamepad
-command call the same callback. NavigationStack owns motion, Back and focus
+Build the HUD as in [Tasks.hud](Tasks.hud.md); its opener and gamepad command
+call one callback. NavigationStack owns motion, Back and focus
 restoration. Close returns to gameplay; the body owns Back within the task.
 
-suspendGameplay disables the game's InputContext and custom touch commands,
-and sets GuiService.TouchControlsEnabled to false. Its returned function
-restores their previous values on disposal. This changes input, not the game
-clock. Keep saved values, filters and selection in the model outside the page.
+suspendGameplay turns off the game's InputContext, custom touch commands and
+GuiService.TouchControlsEnabled, and returns a function that restores them. It
+changes input, not the game clock. Keep values, filters and selection in the
+model, outside the page.
 
-Use [collection/detail](Tasks.collection-detail.md) or a
-[scrolling form](ScrollView.card.md) as the body. Keep commitment outside long
-scrolling content. Test compact fit and input return. Use [Sheet](Tasks.sheet.md) for a bounded
-interruption; [TabView](Tasks.tabs.md) switches peer destinations.
+With `screen = { ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets }` on the
+app, the surface fills behind the Roblox top bar and content stays below it.
+
+The body can be [collection/detail](Tasks.collection-detail.md) or a
+[scrolling form](ScrollView.card.md), with commitment outside the scrolling.
+Use [Sheet](Tasks.sheet.md) for a bounded interruption; [TabView](Tasks.tabs.md)
+switches peer destinations.

@@ -166,6 +166,8 @@ Decide what the player notices first, second and third.  The subject (the object
 
 Put related facts close together, and separate groups with space before you add boxes.  Remove headers and facts that repeat what the player already sees.  Align comparable values so the eye compares them along one line.  Use one spacing scale everywhere: the theme's space tokens.  Balance the margins so opposing margins match.  Check them from the measured bounds of the groups, not by eye alone.  Strong outlines mark the selection or the action, not every container.
 
+Treat plates as one family.  Plates that sit side by side share a height, a center line and a corner style, and every plate in one layer shares one elevation: all flat, or all lifted by the same shadow.  A mismatch in any of these reads as a mistake, not as emphasis.
+
 ### Rank the actions
 
 One action per state is primary: the one most players take next.  It gets the emphasis appearance.  During play, several immediate controls can share that weight when the game needs them at once.  Secondary actions are quieter, and rare actions go in a menu.  A destructive action is never primary and never takes focus first.  Keep commands in the same order wherever they appear, so players can use what they learned.
@@ -185,6 +187,7 @@ The screen has three layers.  The glass is the whole display.  The device safe a
 - **Fill the glass.**  Backgrounds, art, scrims and the world reach every edge, so a safe area never shows as an empty bar.
 - **Keep text and controls safe.**  In landscape the notch sits on one side, so the side insets differ.  Center content on the usable area, not on the glass.
 - **Use the free strip.**  The strip of the top bar beside Roblox's buttons sits at the top of the player's sight line.  On a landscape phone it is a large share of the height.  It suits compact, glanceable items: a currency, a timer, an objective or a menu button.
+- **Join the row.**  An item in the strip sits beside Roblox's buttons, so match them: the same 44 pixel height, the same center line, a pill or circle shape and no shadow.  Line the HUD's edge up with Roblox's first button.  The game's color, type and icons still say whose item it is.
 - **Expect the strip to change.**  It is wide in landscape, narrow in portrait and absent on a console.  It shrinks when voice or camera controls appear or the player opens Roblox's menu.  Give each strip item a compact form and a place to go when it does not fit.
 
 Facet: VStack, HStack, Grid and ZStack express reading order and layering.  AdaptiveStack turns a row into a column.  ViewThatFits chooses among complete alternatives.  `UI.fill()` takes the remaining room, and `maxWidth` keeps a reading area comfortable.  Composition and Region rank competing HUD groups and swap in their smaller forms.  A Region with `zone = "topbar"` sits in the free strip, level with Roblox's buttons.  It moves to the `top` zone when the strip cannot hold it.  Screen's `chrome` sets how a page meets the safe area and the top bar.  Read `Layout-options` for sizing and the [layout chapter](game-ui/LAYOUT_AND_NAVIGATION.md#use-the-whole-screen) for the screen edges.

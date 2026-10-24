@@ -24,7 +24,7 @@ local definition: Facet.ThemeDefinition = {
   } } },
   metrics = { typography = typography, radii = { control = 3, panel = 4 },
     strokes = { hairline = 2 }, motion = { fast = 0.1, normal = 0.18 } },
-  chrome = { panel = { kind = "native", shadow = "raised" }, focus = { kind = "brackets", corner = "square" } },
+  chrome = { focus = { kind = "brackets", corner = "square" } },
 }
 local theme, report = Facet.themes.define(definition)
 assert(report.ok and theme, "Invalid game theme")
@@ -32,5 +32,5 @@ local app = Facet.app({ name = "Game", theme = theme })
 script.Destroying:Connect(app.dispose)
 ```
 
-A dusk rally: tight corners, a wide face, bracket focus, quick motion.  Derive yours with [Theme-identity](Theme-identity.md).
+A dusk rally: tight corners, a wide face, bracket focus, quick motion, flat plates.  Derive yours with [Theme-identity](Theme-identity.md).
 Next: [Themes.metrics](Themes.metrics.md), [Themes.chrome](Themes.chrome.md).

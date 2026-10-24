@@ -29,6 +29,10 @@ Compose with four to six values: the backdrop, the surface, a raised plate or co
 
 Keep body text at 4.5:1 or more against its plate, and large text and essential marks at 3:1 or more.  Check the ladder in numbers before you look at a capture: the theme report lists the contrast of each text pair, and adjacent plates need clearly different lightness.
 
+### Elevation
+
+Elevation is part of the system, not a per-element effect.  Choose it per layer: HUD plates usually sit flat on the world, a page sits on its own surface, and an overlay rises above the page.  Every plate in one layer gets the same treatment.  A shadow on panels but not on the buttons beside them reads as an accident.  When the theme lifts panels, it lifts controls with the matching shadow; otherwise keep both flat and separate them by value.
+
 ### Type
 
 Give each type role one meaning and keep it across the game.  `title` and `heading` name places and sections.  `strong` names an item.  `body` explains, and `caption` supports.  `numeral` shows a balance, cost, score or time.  `label` and `control` sit on controls.  About four visible sizes per surface is enough.
@@ -98,7 +102,7 @@ Show the actual object.  Match camera angle, lighting and scale across comparabl
 
 ### Techniques without art
 
-Most of a theme's character needs no images.  Square or soft `radii`, heavier `strokes`, a `chromeGradient` wash on panels and controls in the palette's `extra`, and a colored panel `shadow` set the material.  A focus look (`ring`, `glow` or `brackets`), type families with their `lineHeight`, the `space` scale and quick or slow `motion` finish it.  The Sci-fi HUD example builds its whole look this way.
+Most of a theme's character needs no images.  Square or soft `radii`, heavier `strokes`, a `chromeGradient` wash on panels and controls in the palette's `extra`, and a colored `shadow` on panels and controls alike set the material.  A focus look (`ring`, `glow` or `brackets`), type families with their `lineHeight`, the `space` scale and quick or slow `motion` finish it.  The Sci-fi HUD example builds its whole look this way.
 
 ### Techniques with art
 
