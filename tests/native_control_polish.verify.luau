@@ -459,6 +459,8 @@ return function(verifyHarness: Verify.Harness)
 					local binding = engine.new("InputBinding")
 					binding.KeyCode = engine.types.Enum.KeyCode.E
 					engine.environment.poke(boost, "PreferredBinding", binding)
+					local plate = UI.HStack "Plate" { UI.ShortcutHint "Cap" { action = boost } }
+					plate:AddTag("facet-accent")
 					return UI.HStack {
 						UI.Button "Race" {
 							icon = "flag",
@@ -468,6 +470,9 @@ return function(verifyHarness: Verify.Harness)
 							shortcutHint = boost,
 						},
 						UI.Button "Boost" { label = "Boost", appearance = "emphasis", shortcutHint = boost },
+						UI.Button "Sell" { label = "Sell", role = "destructive", shortcutHint = boost },
+						UI.Button "Ghost" { label = "Ghost", appearance = "inverse", shortcutHint = boost },
+						plate,
 					}
 				end)
 				local sheet: StyleSheet? = nil
@@ -496,6 +501,9 @@ return function(verifyHarness: Verify.Harness)
 					{
 						{ hint = find(boost, "ShortcutHint"), ink = "$FacetColor_onAccent" },
 						{ hint = find(race, "ShortcutHint"), ink = "$FacetColor_contentStrong" },
+						{ hint = find(find(w.screen, "Sell"), "ShortcutHint"), ink = "$FacetColor_onDanger" },
+						{ hint = find(find(w.screen, "Ghost"), "ShortcutHint"), ink = "$FacetColor_onInverse" },
+						{ hint = find(w.screen, "Cap"), ink = "$FacetColor_contentStrong" },
 					}
 				do
 					local glyph = w.engine.new("ImageLabel")

@@ -1721,11 +1721,20 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local input: UserInputService
 				local action: InputAction
+				local PAD = "rbxasset://textures/ui/Controls/XboxController/ButtonX@2x.png"
+				local function image(_self: unknown, code: EnumItem): string
+					return if code.Name == "ButtonX" then PAD else ""
+				end
+				local function text(_self: unknown, code: EnumItem): string
+					return if code.Name == "B" then "B" else ""
+				end
 				local node, stop, engine = world(function(UI: FacetControls, engine)
 					action = (engine.new("InputAction") :: unknown) :: InputAction
 					return UI.Button({ label = "Boost", icon = "flag", shortcutHint = action })
 				end, function(engine)
 					input = (engine.new("UserInputService") :: unknown) :: UserInputService
+					engine.environment.fakeOn(input, "GetImageForKeyCode", image)
+					engine.environment.fakeOn(input, "GetStringForKeyCode", text)
 					return { services = { UserInputService = input } }
 				end)
 				local P = engine.types.Enum.PreferredInput
@@ -1751,6 +1760,15 @@ return function(verifyHarness: Verify.Harness)
 				end
 				prefer(P.Gamepad)
 				Verify.expect(hint.Visible):toBe(true)
+				Verify.expect(find(hint, "Glyph").Image):toBe(PAD)
+				local key = engine.new("InputBinding")
+				key.KeyCode = engine.types.Enum.KeyCode.B
+				prefer(P.KeyboardAndMouse)
+				bind(key)
+				Verify.expect(hint.Visible):toBe(true)
+				Verify.expect(find(hint, "Key").Text):toBe("B")
+				Verify.expect(find(hint, "Glyph")):toBeNil()
+				bind(binding)
 				prefer(P.Touch)
 				Verify.expect(hint.Visible):toBe(false)
 				prefer(P.Gamepad)

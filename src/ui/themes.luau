@@ -1004,7 +1004,10 @@ local function rulesFor(package: ThemeTypes.ThemePackage, selected: string?, typ
 	rule(".facet-segment-current >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-accent >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-accent >> .facet-icon", { ImageColor3 = c("onAccent") })
-	rule(".facet-accent >> .facet-shortcut-glyph", { ImageColor3 = c("onAccent") })
+	local bareGlyph = " >> .facet-shortcut-hint-bare >> .facet-shortcut-glyph"
+	rule(".facet-role-destructive" .. bareGlyph, { ImageColor3 = c("onDanger") })
+	rule(".facet-appearance-inverse" .. bareGlyph, { ImageColor3 = c("onInverse") })
+	rule(".facet-accent" .. bareGlyph, { ImageColor3 = c("onAccent") })
 	local buttonFamily: { [string]: number } = families.button or {}
 	local captionStroke = buttonFamily.captionStroke or 1.5
 	if captionStroke > 0 then

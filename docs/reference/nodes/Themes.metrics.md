@@ -28,6 +28,9 @@ Optional theme metrics for tabs, control sizes, targets and shortcuts.
 - `controls.shortcutHint.capGap`: a number of pixels. `define` accepts it for
   packages that also target main. The native ShortcutHint draws each chord as
   one label, so it has no gap between caps to set.
+- `controls.button.captionStroke`: a number of pixels for the outline of a
+  Button `caption` and of the rim hint of a circle Button. Without it, the
+  outline is 1.5 pixels. A value of 0 draws no outline.
 
 StyleSheet rules own ordinary paint. Explicit Instance properties override
 native styling intentionally. Give the same theme package readable to

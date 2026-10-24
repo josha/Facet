@@ -40,7 +40,9 @@ the input is not touch. A hidden hint takes no space. On a rect Button, the
 hint is the last part of the content row. On a `circle` Button, it sits on the
 lower right of the rim, one `controlSize` smaller, with the caption colors and
 outline. It can show with `icon`, `glyph` and `label`. The hint does not bind
-the action.
+the action. To bind a key to the Button, use `shortcut`. With
+`appearance = "emphasis"` or `"inverse"`, or with `role = "destructive"`, the
+gamepad glyph uses the ink of the plate.
 
 `glyph = function(): GuiObject` supplies a native leading visual instead of
 `icon`. It runs once in the Button's Compose owner. The native content row
