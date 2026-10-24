@@ -11,7 +11,9 @@ Button.appearance option values and behavior.
   a theme's `control` chrome art paints only the other appearances. A Button
   whose `BackgroundTransparency` is 1 has no plate art either, so a
   transparent hit target never covers the content beneath it. A bound
-  `nil` appearance restores `standard`.
+  `nil` appearance restores `standard`. Over gameplay, use `standard` or
+  `emphasis`: `soft` is a translucent accent wash and `utility` and `link` have
+  no plate, so over a bright scene they read as disabled.
   A destructive or `emphasis` Button keeps its role on skinned art. When the
   label (`onDanger` or `onAccent`) is lighter than the fill (`danger` or
   `accent`), the art is tinted with the fill. When `onAccent` is darker than

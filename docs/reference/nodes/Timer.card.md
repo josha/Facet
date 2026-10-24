@@ -10,7 +10,10 @@ UI.Timer "Timer" { deadline = os.clock() + 60, now = os.clock }
 
 Key options: `deadline`, `start`, `now`, `onComplete`.
 
-Use the same clock for deadline and now.
+Use the same clock for deadline and now. `start` counts up and `deadline`
+counts down; both update without a loop. For a time inside another label, such
+as "Offer 4:51", read `app.runtime.clock { deadline = t, interval = 1 }`, a
+readable of the seconds left in `os.clock` time.
 
 Related controls: [Controls](Controls.md).
 
