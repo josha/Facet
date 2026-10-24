@@ -29,5 +29,5 @@ values. Resolution uses the effective package after `forDistance`, so a stroke
 metric of 3 becomes 4.5 at ten feet. Literal numbers stay unchanged. Motion
 metrics retain their existing distance policy and do not scale.
 
-These `extra` entries are optional. A palette that does not declare them paints
-as before:
+These `extra` entries are optional. A palette that does not declare them keeps
+the base paint:
