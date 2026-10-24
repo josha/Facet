@@ -178,6 +178,76 @@ standard_icons.ART = table.freeze({
 		contentId = "rbxassetid://124199778383157",
 		tintRole = "content",
 	}),
+	["star"] = table.freeze({
+		assetName = "facet_icon_star",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["heart"] = table.freeze({
+		assetName = "facet_icon_heart",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["chat"] = table.freeze({
+		assetName = "facet_icon_chat",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["gift"] = table.freeze({
+		assetName = "facet_icon_gift",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["coin"] = table.freeze({
+		assetName = "facet_icon_coin",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["gem"] = table.freeze({
+		assetName = "facet_icon_gem",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["bag"] = table.freeze({
+		assetName = "facet_icon_bag",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["trophy"] = table.freeze({
+		assetName = "facet_icon_trophy",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["crown"] = table.freeze({
+		assetName = "facet_icon_crown",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["lock"] = table.freeze({
+		assetName = "facet_icon_lock",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["bolt"] = table.freeze({
+		assetName = "facet_icon_bolt",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["wrench"] = table.freeze({
+		assetName = "facet_icon_wrench",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["timer"] = table.freeze({
+		assetName = "facet_icon_timer",
+		contentId = "",
+		tintRole = "content",
+	}),
+	["car"] = table.freeze({
+		assetName = "facet_icon_car",
+		contentId = "",
+		tintRole = "content",
+	}),
 }) :: { [string]: IconArt }
 
 standard_icons.BUILTIN = table.freeze({

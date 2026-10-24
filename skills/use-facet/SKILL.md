@@ -29,8 +29,9 @@ Folders follow repository paths: `Tasks.hud` is
 `docs/reference/nodes/Tasks.hud.md`. With filesystem access, use
 `lute run tools/facet docs <node>` or `docs --search TEXT`.
 Read `<Control>.card` for the entry point, then follow its props or reference
-link for exact options. `Icons.names` lists glyphs. These nodes are available
-in the installed docs and CLI. Use `Map` only when the task has no known route.
+link for exact options. `Icons.names` lists each built-in glyph, for example
+`coin`, `gem`, `star`, `gift` and `chat`. These nodes are available in the
+installed docs and CLI. Use `Map` only when the task has no known route.
 
 | Need | Read |
 | --- | --- |
@@ -47,6 +48,7 @@ in the installed docs and CLI. Use `Map` only when the task has no known route.
 | Container and text sizing | `Layout-options`, `Text.card`, `fill` |
 | A bounded interruption or dirty dismissal | [Surfaces](references/game-ui/SURFACES_INFORMATION_AND_FEEDBACK.md), then `Tasks.sheet`, `Sheet.dismissal` |
 | Visual system | `Tasks.theme` |
+| Glyphs for currency, rewards, shop, chat or vehicles | `Icons.names` |
 | Transitions and reward motion | [Motion](references/game-ui/MOTION_AND_FEEDBACK.md), then `Custom-transitions` |
 | Server-accepted state | `Tasks.state` |
 | Reactive types or collection signatures | `Types.reactive` |

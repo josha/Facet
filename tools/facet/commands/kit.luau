@@ -216,7 +216,6 @@ audit and screenshot paths. Use `--static` when Studio is unavailable.
 	for name, options in Props.load(".") do
 		result.writes["StudioDocs/docs/reference/nodes/" .. name .. ".props.md.txt"] = Props.render(name, options)
 	end
-	result.writes["StudioDocs/docs/reference/nodes/Icons.names.md.txt"] = Props.icons(".")
 	return result
 end
 

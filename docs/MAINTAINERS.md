@@ -30,6 +30,9 @@ selects the shortest path.
 `docs-nodes` checks titles, kinds, summaries, source byte budgets and
 reachability from `Map`. Marker lines count toward the source byte budget.
 Queries omit marker lines and keep the response byte limit.
+It also compares `docs/reference/nodes/Icons.names.md` with the icon registry
+and the glyph uses in `tools/facet/lib/docs_props.luau`. Run
+`lute run tools/facet check docs-nodes --write` to write the node again.
 
 `docs <Control>.props` derives option names and types from the public property
 types. It works in the repository and in an author kit. Lowercase fields are
