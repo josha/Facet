@@ -117,7 +117,7 @@ local function hold(ctx: Types.Context, node: Instance, wanted: ComposeTypes.Rea
 	Compose.cleanup(release)
 end
 
-local function reach(ctx: Types.Context, frame: GuiObject): ComposeTypes.Readable<Reach>
+local function reach(ctx: Types.Context, frame: GuiObject, poll: boolean?): ComposeTypes.Readable<Reach>
 	local Compose, runtime = ctx.Compose, ctx.runtime
 	local service = ctx.config.guiService
 	local result: ComposeTypes.Cell<Reach> = Compose.cell(apart())
@@ -151,7 +151,7 @@ local function reach(ctx: Types.Context, frame: GuiObject): ComposeTypes.Readabl
 	end)
 	runtime.connect(frame, "AncestryChanged", measure)
 	local frames = ctx.config.services.RunService
-	if frames then
+	if frames and poll ~= false then
 		runtime.connect(frames, "Heartbeat", measure)
 	end
 	return result
