@@ -1185,6 +1185,7 @@ export type NavigationSplitViewProps = {
 	compactWidth: typeof(navigationSplitView.compactWidth),
 	backLabel: typeof(navigationSplitView.backLabel),
 	detailLabel: typeof(navigationSplitView.detailLabel),
+	compactBack: typeof(navigationSplitView.compactBack),
 	[number | Engine.EventKey]: Compose.Child,
 }
 

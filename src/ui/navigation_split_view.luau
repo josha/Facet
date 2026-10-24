@@ -43,6 +43,8 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			then spec.sidebarHeight or Compose.cell(240)
 			else spec.sidebarWidth or Compose.cell(360)
 		assert(column.set and extent.set, "NavigationSplitView column and pane size require writable cells")
+		local detailLabel, compactBack = spec.detailLabel, spec.compactBack
+		assert(compactBack == nil or compactBack.set, "NavigationSplitView.compactBack requires a writable cell")
 		local root = Host.Frame(ctx.props(spec, {
 			"sidebar",
 			"detail",
@@ -63,6 +65,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			"compactWidth",
 			"backLabel",
 			"detailLabel",
+			"compactBack",
 		}, { Name = "NavigationSplitView", Size = D2.fromScale(1, 1), BackgroundTransparency = 1 }))
 		local size, unit = ctx.layoutSize(root), ctx.layoutUnit(root)
 		local input, tenFoot, hitFloor = ctx.effectiveInput(), ctx.tenFoot(), ctx.hitFloor()
@@ -109,8 +112,14 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		local function canResize(use: Shared.Use): boolean
 			return split(use) and use(resizable)
 		end
+		local function bar(use: Shared.Use): boolean
+			if not use(compact) or not use(shown) then
+				return false
+			end
+			return if use(selectedColumn) == "detail" then compactBack == nil else detailLabel ~= false
+		end
 		local function chrome(use: Shared.Use): number
-			return if use(compact) and use(shown) then ctx.metric("targetSizes.minimum", use) else 0
+			return if bar(use) then ctx.metric("targetSizes.minimum", use) else 0
 		end
 		local sidebar: Frame
 		local detail: Frame
@@ -190,20 +199,21 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			Host.Frame {
 				Name = "NavigationBar",
 				BackgroundTransparency = 1,
-				Visible = function(use: Shared.Use): boolean
-					return use(compact) and use(shown)
-				end,
+				Visible = bar,
 				Size = function(use: Shared.Use)
 					return D2.new(1, 0, 0, chrome(use))
 				end,
 				Compose.show(function(use: Shared.Use)
-					return use(selectedColumn) == "detail"
+					return compactBack == nil and use(selectedColumn) == "detail"
 				end, function()
 					return parts.back(ctx, UI, spec.backLabel, back)
+				end),
+				Compose.show(function(use: Shared.Use)
+					return detailLabel ~= false and use(selectedColumn) == "sidebar"
 				end, function()
 					return UI.Button {
 						Name = "ShowDetail",
-						label = spec.detailLabel or "Show detail",
+						label = (detailLabel :: Shared.ValueString?) or "Show detail",
 						appearance = "utility",
 						onActivate = function()
 							column:set("detail")
@@ -363,6 +373,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		end)
 		local previousCompact, previousColumn, previousShown = compact:peek(), selectedColumn:peek(), shown:peek()
 		local pendingFocus = false
+		local handing = false
 		local sidebarVisibility = ctx.observe.Visible(sidebar)
 		Compose.watch(function(use: Shared.Use)
 			local collapsed, current, visible = use(compact), use(selectedColumn), use(shown)
@@ -382,7 +393,8 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			previousCompact, previousColumn, previousShown = collapsed, current, visible
 			if changed then
 				pendingFocus = gui ~= nil
-					and (surfaces.within(gui.SelectedObject, root) or (not use(cursor) and selecting(use)))
+					and (handing or surfaces.within(gui.SelectedObject, root) or (not use(cursor) and selecting(use)))
+				handing = false
 			end
 			if pendingFocus and gui and ctx.available(root, use) then
 				if not collapsed and gui.SelectedObject ~= resize and ctx.available(gui.SelectedObject or root) then
@@ -406,6 +418,24 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			end
 		end)
 		local drag = dragSession(ctx)
+		if compactBack then
+			local handed = compactBack
+			local released = false
+			Compose.watch(function(use: Shared.Use)
+				handed:set(use(compact) and use(shown) and use(selectedColumn) == "detail")
+			end)
+			Compose.watch(function(use: Shared.Use)
+				local requested = use(handed) == false and not released
+				if requested and compact:peek() and shown:peek() and selectedColumn:peek() == "detail" then
+					handing = gui ~= nil and gui.SelectedObject ~= nil
+					back()
+				end
+			end)
+			Compose.cleanup(function()
+				released = true
+				handed:set(false)
+			end)
+		end
 		root:SetAttribute("FacetNavigationStack", true)
 		local _, actionContext = ctx.action(
 			root,

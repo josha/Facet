@@ -394,6 +394,7 @@ export type NavigationEntry<P = unknown> = { id: string, value: P? }
 export type NavigationDestination<P = unknown> = {
 	title: Types.ValueString?,
 	chrome: Value<"automatic" | "hidden">?,
+	initialFocus: (string | () -> string?)?,
 	content: Instance | ((NavigationEntry<P>?) -> Instance),
 }
 export type NavigationStackOptions<P = unknown> = {
@@ -503,6 +504,7 @@ export type NavigationSplitViewOptions = {
 	minDetailWidth: number?,
 	compactWidth: number?,
 	backLabel: Types.ValueString?,
-	detailLabel: Types.ValueString?,
+	detailLabel: (Types.ValueString | false)?,
+	compactBack: ComposeTypes.Cell<boolean>?,
 }
 return {}

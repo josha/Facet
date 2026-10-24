@@ -14,6 +14,8 @@ Key options: `path`, `root`, `destinations`, `backLabel`.
 
 The root has no Back command.
 
+A new page selects its first content control, not Back; set `initialFocus` on a destination to start on another control, such as the body under a NavBar with Close.
+
 Related controls: [Controls](Controls.md).
 
 Open:

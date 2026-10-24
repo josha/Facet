@@ -7,7 +7,7 @@ return function(verifyHarness: Verify.Harness)
 	local controls = require("../src/ui")
 	local engines = require("./lib/native_engine")
 	type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
-	local function world(preferredInput: string?, axis: ("x" | "y")?, compact: number?)
+	local function world(preferredInput: string?, axis: ("x" | "y")?, compact: number?, handoff: ("label" | "page")?)
 		local engine = engines.new()
 		local gui, input = engine.new("GuiService"), engine.new("UserInputService")
 		local gamepad = engine.new("GamepadService")
@@ -28,8 +28,21 @@ return function(verifyHarness: Verify.Harness)
 		local screen = engine.new("ScreenGui")
 		local root: any
 		local builds = { sidebar = 0, detail = 0 }
-		local stop = runtime.mount(function()
+		local back = Compose.cell(false)
+		local noLabel: false? = nil
+		if handoff then
+			noLabel = false
+		end
+		local stopPage: (() -> ())? = nil
+		if handoff == "page" then
+			stopPage = runtime.mount(function()
+				return UI.NavBar "Page" { title = "Shop", backLabel = "Parts", onBack = back }
+			end, screen)
+		end
+		local stopSplit = runtime.mount(function()
 			root = UI.NavigationSplitView {
+				detailLabel = noLabel,
+				compactBack = if handoff == "page" then back else nil,
 				axis = axis,
 				compactWidth = compact,
 				compactHeight = compact,
@@ -50,6 +63,12 @@ return function(verifyHarness: Verify.Harness)
 			}
 			return root
 		end, screen)
+		local function stop()
+			stopSplit()
+			if stopPage then
+				stopPage()
+			end
+		end
 		root.AbsoluteSize = engine.types.Vector2.new(1000, 600)
 		return {
 			root = root,
@@ -65,6 +84,7 @@ return function(verifyHarness: Verify.Harness)
 			column = column,
 			distance = distance,
 			builds = builds,
+			back = back,
 			stop = stop,
 		}
 	end
@@ -253,6 +273,82 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(sidebar.Visible and detail.Visible):toBe(true)
 				Verify.expect(w.builds.sidebar + w.builds.detail):toBe(2)
 				w.stop()
+			end,
+		})
+
+		verifyHarness:case("drops the compact Show detail row and keeps the detail Back row", {
+			id = "native_navigation_split_view::native split navigation::drops the compact Show detail row and keeps the detail Back row",
+			run = function()
+				local w = world(nil, nil, nil, "label")
+				local sidebar, detail = find(w.root, "Sidebar"), find(w.root, "Detail")
+				local bar = find(w.root, "NavigationBar")
+				w.root.AbsoluteSize = w.engine.types.Vector2.new(390, 700)
+				Verify.expect((w.root:GetAttribute("FacetSplitCollapsed"))):toBe(true)
+				Verify.expect(find(w.root, "ShowDetail")):toBeNil()
+				Verify.expect(bar.Visible):toBe(false)
+				Verify.expect(sidebar.Position.Y.Offset):toBe(0)
+				Verify.expect(sidebar.Size.Y.Offset):toBe(0)
+				w.column:set("detail")
+				Verify.expect(bar.Visible):toBe(true)
+				Verify.expect(detail.Position.Y.Offset > 0):toBe(true)
+				Verify.expect(detail.Position.Y.Offset):toBe(bar.Size.Y.Offset)
+				find(w.root, "Back").Activated:Fire()
+				Verify.expect((w.column:peek())):toBe("sidebar")
+				Verify.expect(sidebar.Visible):toBe(true)
+				Verify.expect(bar.Visible):toBe(false)
+				Verify.expect((w.back:peek())):toBe(false)
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("hands compact Back to the page NavBar and keeps B and focus return", {
+			id = "native_navigation_split_view::native split navigation::hands compact Back to the page NavBar and keeps B and focus return",
+			run = function()
+				local w = world(nil, nil, nil, "page")
+				local detail, bar = find(w.root, "Detail"), find(w.root, "NavigationBar")
+				local file, inspector = find(w.root, "File"), find(w.root, "Inspector")
+				local pageBack = find(find(w.screen, "Page"), "Back")
+				Verify.expect(pageBack.Visible):toBe(false)
+				w.column:set("detail")
+				Verify.expect((w.back:peek())):toBe(false)
+				Verify.expect(pageBack.Visible):toBe(false)
+				w.column:set("sidebar")
+				w.root.AbsoluteSize = w.engine.types.Vector2.new(390, 700)
+				Verify.expect(bar.Visible):toBe(false)
+				w.gui.SelectedObject = file
+				w.column:set("detail")
+				Verify.expect(w.gui.SelectedObject):toBe(inspector)
+				Verify.expect(bar.Visible):toBe(false)
+				Verify.expect(find(w.root, "Back")):toBeNil()
+				Verify.expect(detail.Position.Y.Offset):toBe(0)
+				Verify.expect((w.back:peek())):toBe(true)
+				Verify.expect(pageBack.Visible):toBe(true)
+				w.gui.SelectedObject = pageBack
+				pageBack.Activated:Fire()
+				Verify.expect((w.column:peek())):toBe("sidebar")
+				Verify.expect((w.back:peek())):toBe(false)
+				Verify.expect(pageBack.Visible):toBe(false)
+				Verify.expect(w.gui.SelectedObject):toBe(file)
+				w.column:set("detail")
+				Verify.expect(w.gui.SelectedObject):toBe(inspector)
+				find(w.screen, "SplitBack").Pressed:Fire()
+				find(w.screen, "SplitBack").Released:Fire()
+				Verify.expect((w.column:peek())):toBe("sidebar")
+				Verify.expect((w.back:peek())):toBe(false)
+				Verify.expect(w.gui.SelectedObject):toBe(file)
+				w.back:set(true)
+				w.back:set(false)
+				Verify.expect((w.column:peek())):toBe("sidebar")
+				w.column:set("detail")
+				Verify.expect((w.back:peek())):toBe(true)
+				w.root.AbsoluteSize = w.engine.types.Vector2.new(1000, 600)
+				Verify.expect((w.back:peek())):toBe(false)
+				Verify.expect((w.column:peek())):toBe("detail")
+				w.root.AbsoluteSize = w.engine.types.Vector2.new(390, 700)
+				Verify.expect((w.back:peek())):toBe(true)
+				w.stop()
+				Verify.expect((w.back:peek())):toBe(false)
+				Verify.expect((w.column:peek())):toBe("detail")
 			end,
 		})
 
