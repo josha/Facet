@@ -8,7 +8,7 @@ Inside an app mount, set `local UI = app.UI`.
 UI.ScrollView "ScrollView" { UI.Text { text = "Ready" } }
 ```
 
-Key options: `axis`, `scrollBar`.
+Key options: `axis`, `gap`, `padding`.
 
 Give the viewport a bounded parent.
 

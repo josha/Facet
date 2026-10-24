@@ -4,7 +4,9 @@ Turn the art direction of a game into a theme that reads over its world.
 
 - Map the art direction to roles. A brief such as "dark metal, cyan and
   violet neon" becomes a dark `surface`, a cyan `accent`, a violet
-  `controlSelected` and a cyan `hairline`.
+  `controlSelected` and a cyan `hairline`. Give `controlHover` and
+  `controlPressed` the hue of `control`. An extra that you omit keeps the
+  blue-gray value of the dark Neutral palette.
 - Keep plates visible over the scene: `control` and `surfaceStrong` must be
   clearly lighter than a dark world, and `content` pale. Faint text and plates
   that vanish into the scene read as unfinished.
@@ -34,6 +36,10 @@ Turn the art direction of a game into a theme that reads over its world.
 - Use quiet boundaries when they help separate items from their container.
   Reserve strong outlines for the current selection or action; equal bright
   strokes on every nested panel erase that hierarchy.
+- Choose elevation for the whole theme, not per element. Neutral plates are
+  flat. When `chrome.panel.shadow` lifts panels, give `chrome.control.shadow` a
+  matching shadow, or keep both flat and separate plates by value. A shadow on
+  panels but not on the Buttons beside them reads as an error.
 - `rules` add native StyleSheet rules. `{ role = "accent" }` and
   `{ metric = "..." }` follow palette and distance changes.
 - Check `report` before you pass the package to the app.
