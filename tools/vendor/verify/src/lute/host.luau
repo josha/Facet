@@ -117,6 +117,42 @@ local function create(options: Options, runtime: Runtime?): Verify.Host
 	host.maxParallelBatches = options.maxParallelBatches
 	host.runBatch = runBatch
 	host.cancelled = options.cancelled
+	host.runQueue = function(parallel: number, take: () -> PlanBatch?, deliver: (number, BatchOutcome) -> ())
+		local finished = 0
+		local errors: { string } = {}
+		for _ = 1, parallel do
+			services.time.spawn(function()
+				local ran, thrown = pcall(function()
+					while true do
+						local batch = take()
+						if batch == nil then
+							break
+						end
+						local outcome: BatchOutcome? = nil
+						local _, reason = pcall(function()
+							outcome = host.runBatch(batch)
+						end)
+						local result: BatchOutcome = outcome
+							or {
+								status = "faulted",
+								detail = "the host raised while running a batch: " .. tostring(reason),
+							}
+						deliver(batch.index, result)
+					end
+				end)
+				if not ran then
+					table.insert(errors, tostring(thrown))
+				end
+				finished += 1
+			end)
+		end
+		while finished < parallel do
+			services.time.wait(0.005)
+		end
+		if #errors > 0 then
+			error(table.concat(errors, "\n"), 0)
+		end
+	end
 
 	host.runBatches = function(pending: { PlanBatch }, deliver: (number, BatchOutcome) -> ())
 		local outcomes: { [number]: BatchOutcome } = {}

@@ -8,6 +8,7 @@ return function(harness: Verify.Harness)
 			id = "classb_themes",
 			cases = {
 				"authored-metric-native-stroke",
+				"status-round-containment",
 				"skeleton-circle-round-sweep",
 				"skeleton-band-contained",
 				"skeleton-parent-alignment",

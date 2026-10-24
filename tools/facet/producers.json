@@ -10,7 +10,7 @@
     {"id": "comments", "tier": "fast", "run": "lute run tools/facet check comments", "why": "source has only tool directives and required notices, no explanatory comments"},
     {"id": "format", "tier": "fast", "run": "stylua --check src tests tools bench examples eval", "why": "Luau source is formatted exactly as stylua.toml specifies"},
     {"id": "types", "tier": "full", "exclusive": false, "run": "lute run tools/facet types", "why": "src, tests, examples and tools type-check strictly in both solvers"},
-    {"id": "suite", "tier": "fast", "exclusive": false, "kind": "tests", "worker": "tests/worker.luau", "plan": "tests/plan.json", "workers": 4, "deadlineSeconds": 3600, "sourceDeadlineSeconds": 600, "why": "every behavioral spec in the plan passes on the engine double"},
+    {"id": "suite", "tier": "fast", "exclusive": false, "kind": "tests", "worker": "tests/worker.luau", "plan": "tests/plan.json", "deadlineSeconds": 3600, "sourceDeadlineSeconds": 600, "why": "every behavioral spec in the plan passes on the engine double"},
     {"id": "art", "tier": "fast", "run": "lute run tools/facet art all --check", "why": "every generated icon and theme image matches its committed pixels"},
     {"id": "tool-specs", "tier": "fast", "kind": "tests", "plan": "tests/plan.json", "requires": "lute", "why": "every maintainer command and check passes its own cases"},
     {"id": "screen-key-bindings", "tier": "fast", "run": "lute run tools/facet check screen-key-bindings", "why": "screens do not bind keys directly; key input goes through commands"},

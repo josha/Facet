@@ -30,12 +30,17 @@ These fixtures do not prove StyleSheet resolution or native safe areas.
 The `native_live_primitives` spec also runs five original Studio geometry
 cases with Verify's computed layout. It checks Screen/VStack padding and gap,
 grid cells and gaps, ZStack alignment, stack distribution and weighted fill.
-The `native_live_contracts` spec adds 27 original live cases for text geometry,
+The `native_live_contracts` spec adds 28 original live cases for text geometry,
 frame stability, lifecycle, styles, grids and content. Together these specs
-run 32 original live cases. They use Verify's bounded text model: 18 captured
+run 33 original live cases. They use Verify's bounded text model: 18 captured
 font faces, integer sizes 1–100, Latin letters, digits, spaces and newlines.
 Unsupported shaping and text modes raise errors. Upstream Verify checks
 348 shared text layout configurations against Studio.
+
+The Verify pin also models wrapped lists and fixed-size GUI aspect constraints.
+Upstream checks 1,164 shared layout configurations and a mutation sequence
+against Studio and the double. Automatic-size objects with aspect constraints
+and individual aspect-constrained grid cells remain unsupported.
 
 The primitive spec also loads every committed live source and registers its
 cases in the double.

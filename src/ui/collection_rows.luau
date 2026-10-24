@@ -296,12 +296,16 @@ return function<V, K>(
 								Name = "Content",
 								Size = if tree
 									then function(use: ComposeTypes.Use): UDim2
-										return D2.new(
-											1,
-											0,
-											0,
-											math.max(read(spec.itemSize or 40, use) :: number, fullSizes(use)[key] or 0)
-										)
+										local minimum = read(spec.itemSize or 40, use)
+										assert(type(minimum) == "number", "Facet.Outline requires a numeric itemSize")
+										local extent = use(measured)[key]
+										if spec.measured ~= nil then
+											local external = read(spec.measured, use)[key]
+											if external ~= nil then
+												extent = external
+											end
+										end
+										return D2.new(1, 0, 0, math.max(minimum, extent or 0))
 									end
 									else D2.fromScale(1, 1),
 								BackgroundTransparency = 1,

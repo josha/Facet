@@ -125,7 +125,8 @@ return function(verifyHarness: Verify.Harness)
 				return false
 			end)
 			local visible = Compose.cell({ initial[1] })
-			local selected = Compose.cell({ [2] = true } :: FixtureCollectionTypes.Selection<number>)
+			local selected: FixtureComposeTypes.Cell<FixtureCollectionTypes.Selection<number>> =
+				Compose.cell({ [2] = true })
 			local calls = 0
 			local stop = runtime.mount(function()
 				local spec: FixtureCollectionTypes.SelectionOptions<Row, number> = { selectionFrom = all }
@@ -162,7 +163,8 @@ return function(verifyHarness: Verify.Harness)
 	verifyHarness:case("Table data updates skip key validation for an empty height cache", {
 		id = "native_collections::Table data updates skip key validation for an empty height cache",
 		run = function(t)
-			local engine, runtime, UI, target = setup()
+			local engine, runtime, UI, target, _, ctx = setup()
+			local fixtureTarget: VerifyRoblox.Instance = target
 			t:defer(function()
 				runtime:dispose()
 			end)
@@ -170,50 +172,36 @@ return function(verifyHarness: Verify.Harness)
 			local rows = records(128)
 			local source = Compose.cell(rows)
 			local calls = 0
-			local content: Frame? = nil
 			local controls: FixtureComposeTypes.OrderedCollectionControls<number> = {}
-			local Host = runtime.constructors
-			local _, mounted = runtime.mount(function()
+			local Host = ctx.Host
+			local column: FixtureCollectionTypes.TableColumn<Row, number> = {
+				id = "label",
+				render = function(_current, _placement, key): Frame
+					return Host.Frame({ Name = `HeightProbe{key}`, Size = engine.types.UDim2.fromOffset(100, 0) })
+				end,
+			}
+			runtime.mount(function()
 				local spec: FixtureCollectionProps.KeyedTableSpec<Row, number> = {
 					from = source,
 					key = function(item: Row): number
 						calls += 1
 						return item.id
 					end,
-					columns = {
-						{
-							id = "label",
-							render = function(
-								_current: FixtureComposeTypes.Readable<Row>,
-								_placement: FixtureComposeTypes.Readable<FixtureComposeTypes.Placement>,
-								key: number
-							): Frame
-								local frame = (
-									Host.Frame({ Size = engine.types.UDim2.fromOffset(100, 0) }) :: unknown
-								) :: Frame
-								if key == 1 then
-									content = frame
-								end
-								return frame
-							end,
-						} :: FixtureCollectionTypes.TableColumn<Row, number>,
-					},
+					columns = { column },
+					Name = "MeasuredTable",
 					itemSize = 20,
 					controls = controls,
 				}
 				return UI.Table(spec)
 			end, target)
-			local body = assert(((mounted :: unknown) :: Frame):FindFirstChild("Body"))
-			engine.environment.poke(
-				(body :: unknown) :: VerifyRoblox.Instance,
-				"AbsoluteWindowSize",
-				engine.types.Vector2.new(200, 100)
-			)
+			local tableNode = assert(fixtureTarget:FindFirstChild("MeasuredTable"))
+			local body = assert(tableNode:FindFirstChild("Body"))
+			engine.environment.poke(body, "AbsoluteWindowSize", engine.types.Vector2.new(200, 100))
 			calls = 0
 			source:set(table.clone(rows))
 			t:expect(calls):toBe(256)
 			engine.environment.poke(
-				(assert(content) :: unknown) :: VerifyRoblox.Instance,
+				assert(tableNode:FindFirstChild("HeightProbe1", true)),
 				"AbsoluteSize",
 				engine.types.Vector2.new(100, 60)
 			)
@@ -229,7 +217,8 @@ return function(verifyHarness: Verify.Harness)
 		verifyHarness:case("extracts sort values once per row while preserving stable ties", {
 			id = "native_collections::Table sort scrolling::extracts sort values once per row while preserving stable ties",
 			run = function(t)
-				local engine, runtime, UI, target = setup()
+				local engine, runtime, UI, target, _, ctx = setup()
+				local fixtureTarget: VerifyRoblox.Instance = target
 				t:defer(function()
 					runtime:dispose()
 				end)
@@ -239,40 +228,39 @@ return function(verifyHarness: Verify.Harness)
 					rows[index] = { id = index, rank = if index % 4 == 0 then nil else index % 4 }
 				end
 				local source = Compose.cell(rows)
-				local sort = Compose.cell(nil :: FixtureCollectionTypes.Sort?)
+				local createSort: (FixtureCollectionTypes.Sort?) -> FixtureComposeTypes.Cell<FixtureCollectionTypes.Sort?> =
+					Compose.cell
+				local sort = createSort(nil)
 				local controls: FixtureComposeTypes.OrderedCollectionControls<number> = {}
 				local calls = 0
-				local Host = runtime.constructors
-				local _, mounted = runtime.mount(function()
+				local Host = ctx.Host
+				local column: FixtureCollectionTypes.TableColumn<Row, number> = {
+					id = "rank",
+					value = function(item: Row): number?
+						calls += 1
+						return item.rank
+					end,
+					render = function(): Frame
+						return Host.Frame({})
+					end,
+				}
+				runtime.mount(function()
 					local spec: FixtureCollectionProps.KeyedTableSpec<Row, number> = {
 						from = source,
 						key = function(item: Row): number
 							return item.id
 						end,
-						columns = {
-							{
-								id = "rank",
-								value = function(item: Row): number?
-									calls += 1
-									return item.rank
-								end,
-								render = function(): Frame
-									return (Host.Frame({}) :: unknown) :: Frame
-								end,
-							} :: FixtureCollectionTypes.TableColumn<Row, number>,
-						},
+						columns = { column },
+						Name = "MeasuredTable",
 						itemSize = 20,
 						sort = sort,
 						controls = controls,
 					}
 					return UI.Table(spec)
 				end, target)
-				local body = assert(((mounted :: unknown) :: Frame):FindFirstChild("Body"))
-				engine.environment.poke(
-					(body :: unknown) :: VerifyRoblox.Instance,
-					"AbsoluteWindowSize",
-					engine.types.Vector2.new(200, 100)
-				)
+				local tableNode = assert(fixtureTarget:FindFirstChild("MeasuredTable"))
+				local body = assert(tableNode:FindFirstChild("Body"))
+				engine.environment.poke(body, "AbsoluteWindowSize", engine.types.Vector2.new(200, 100))
 				calls = 0
 				sort:set({ column = "rank", direction = "ascending" })
 				t:expect(calls):toBe(128)
@@ -9298,6 +9286,57 @@ return function(verifyHarness: Verify.Harness)
 	type OutlineRecord = { id: string, label: string?, children: { OutlineRecord }? }
 
 	verifyHarness:suite("outline collections", function()
+		verifyHarness:case("resolves content height from external overrides observed sizes and the minimum", {
+			id = "native_collections::outline collections::resolves content height from external overrides observed sizes and the minimum",
+			run = function(t)
+				local engine, runtime, UI, target, _, ctx = setup()
+				local fixtureTarget: VerifyRoblox.Instance = target
+				t:defer(function()
+					runtime:dispose()
+				end)
+				local external: FixtureComposeTypes.Cell<{ [string]: number }> = Compose.cell({ child = 90 })
+				local minimum = Compose.cell(20)
+				local Host = ctx.Host
+				runtime.mount(function()
+					local spec: FixtureCollectionProps.KeyedOutlineSpec<OutlineRecord, string> = {
+						Name = "MeasuredOutline",
+						from = { { id = "folder", children = { { id = "child" } } } },
+						key = "id",
+						children = "children",
+						expanded = Compose.cell({ folder = true }),
+						mode = "all",
+						itemSize = minimum,
+						measure = true,
+						measured = external,
+						render = function(): Frame
+							return Host.Frame({ Size = engine.types.UDim2.fromOffset(100, 35) })
+						end,
+					}
+					return UI.Outline(spec)
+				end, target)
+				local root = assert(fixtureTarget:FindFirstChild("MeasuredOutline"))
+				local row = assert(root:FindFirstChild("child", true))
+				local content = assert(row:FindFirstChild("Content"))
+				local function height(): number
+					local size = content.Size
+					assert(typeof(size) == "UDim2")
+					return size.Y.Offset
+				end
+				local observed = assert(row:FindFirstChild("OutlineRow", true))
+				t:expect(height()):toBe(90)
+				engine.environment.poke(observed, "AbsoluteSize", engine.types.Vector2.new(100, 70))
+				t:expect(height()):toBe(90)
+				external:set({ child = 0 })
+				t:expect(height()):toBe(20)
+				external:set({})
+				t:expect(height()):toBe(70)
+				minimum:set(80)
+				t:expect(height()):toBe(80)
+				external:set({ child = 100 })
+				t:expect(height()):toBe(100)
+				t:expect(root:FindFirstChild("child", true) == row):toBe(true)
+			end,
+		})
 		verifyHarness:case("shares hierarchy, selection and controlled expansion across lists and tables", {
 			id = "native_collections::outline collections::shares hierarchy, selection and controlled expansion across lists and tables",
 			run = function()

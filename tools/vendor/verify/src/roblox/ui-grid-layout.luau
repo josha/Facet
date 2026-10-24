@@ -2,6 +2,7 @@
 
 local Environment = require "./environment"
 local Float = require "./datatypes/float"
+local Values = require "./ui-values"
 
 type Instance = Environment.Instance
 type Dimension = { Scale: number, Offset: number }
@@ -29,13 +30,13 @@ local function measure(grid: Instance, content: Rectangle, read: (Instance, stri
 	local function dimension(unit: Dimension, extent: number): number
 		return Float.f32(Float.f32(unit.Scale * extent) + Float.f32(unit.Offset * content.scale))
 	end
-	local authored = read(grid, "CellSize") :: Dimensions
-	local padding = read(grid, "CellPadding") :: Dimensions
+	local authored = Values.dimensions(read(grid, "CellSize"))
+	local padding = Values.dimensions(read(grid, "CellPadding"))
 	local cellWidth, cellHeight = dimension(authored.X, content.width), dimension(authored.Y, content.height)
 	local gapX, gapY = dimension(padding.X, content.width), dimension(padding.Y, content.height)
 	local aspect = grid:FindFirstChildWhichIsA "UIAspectRatioConstraint"
 	if aspect then
-		local ratio = read(aspect, "AspectRatio") :: number
+		local ratio = Values.number(read(aspect, "AspectRatio"))
 		if ratio <= 0 or ratio >= math.huge then
 			unsupported "invalid grid aspect ratio"
 		end
@@ -65,13 +66,16 @@ local function measure(grid: Instance, content: Rectangle, read: (Instance, stri
 				/ (if horizontal then cellWidth + gapX else cellHeight + gapY)
 		)
 	)
-	local limit = read(grid, "FillDirectionMaxCells") :: number
+	local limit = Values.number(read(grid, "FillDirectionMaxCells"))
 	if limit > 0 then
 		capacity = math.min(capacity, limit)
 	end
 	local items: { Item } = {}
 	for index, child in assert(grid.Parent):GetChildren() do
 		if child:IsA "GuiObject" and read(child, "Visible") ~= false then
+			if child:FindFirstChildWhichIsA "UIAspectRatioConstraint" then
+				unsupported "aspect-constrained grid cells"
+			end
 			if child:FindFirstChildWhichIsA "UISizeConstraint" or child:FindFirstChildWhichIsA "UIScale" then
 				unsupported "constrained or scaled grid cells"
 			end
@@ -85,7 +89,8 @@ local function measure(grid: Instance, content: Rectangle, read: (Instance, stri
 	local order = enum("SortOrder", "Name")
 	table.sort(items, function(left, right): boolean
 		if order == "LayoutOrder" then
-			local a, b = read(left.object, "LayoutOrder") :: number, read(right.object, "LayoutOrder") :: number
+			local a, b =
+				Values.number(read(left.object, "LayoutOrder")), Values.number(read(right.object, "LayoutOrder"))
 			return if a == b then left.index < right.index else a < b
 		end
 		local a, b = tostring(left.object.Name), tostring(right.object.Name)
