@@ -515,6 +515,53 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("hides the root page's top bar strip while a destination covers the page", {
+			id = "native_navigation::native navigation controls::hides the root page's top bar strip while a destination covers the page",
+			run = function()
+				local path = Compose.cell({} :: { Navigation.NavigationEntry<number> })
+				local wallet: Frame? = nil
+				local world = setup(function(UI: FacetControls, _, engine, gui)
+					engine.environment.poke(gui, "TopbarInset", engine.types.Rect.new(164, 0, 844, 58))
+					local spec: NavigationProps.NavigationStackSpec<number> = {
+						path = path,
+						transition = false :: false,
+						root = {
+							title = "Home",
+							content = function()
+								local region = UI.Region "Wallet" {
+									zone = "topbar" :: "topbar",
+									rank = 1,
+									UI.Text { text = "12.4K Credits" },
+								}
+								wallet = region
+								return UI.Composition "Hud" { region }
+							end,
+						} :: Navigation.NavigationDestination<number>,
+						destinations = {
+							shop = {
+								title = "Shop",
+								content = function()
+									return UI.Button "Buy" { label = "Buy" }
+								end,
+							} :: Navigation.NavigationDestination<number>,
+						},
+					}
+					return UI.NavigationStack "Stack"(spec)
+				end, { motionLevel = "none" })
+				local strip = assert(wallet):FindFirstAncestorWhichIsA("ScreenGui") :: ScreenGui
+				Verify.expect(strip.Name):toBe("CompositionTopbar")
+				Verify.expect(strip.Enabled):toBe(true)
+				path:set({ { id = "shop", value = 1 } })
+				world.settle()
+				Verify.expect(find(world.screen, "@root").Visible):toBe(false)
+				Verify.expect(strip.Enabled):toBe(false)
+				path:set({})
+				world.settle()
+				Verify.expect(strip.Enabled):toBe(true)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("moves the whole owned-header page and retains it through departure", {
 			id = "native_navigation::native navigation controls::moves the whole owned-header page and retains it through departure",
 			run = function()

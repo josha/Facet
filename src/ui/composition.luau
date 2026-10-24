@@ -495,8 +495,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local screen: ComposeTypes.Cell<ScreenGui?> = Compose.cell(nil :: ScreenGui?)
 			local holder: ComposeTypes.Cell<Instance?> = Compose.cell(nil :: Instance?)
 			local enabled = Compose.cell(true)
-			local watched: RBXScriptConnection? = nil
+			local owner = assert(Compose.currentOwner())
+			local chain: ComposeTypes.Owner? = nil
 			local function locate()
+				if owner.isDisposed() then
+					return
+				end
 				local host = root:FindFirstAncestorWhichIsA("ScreenGui")
 				if not host then
 					local surface = root:FindFirstAncestorWhichIsA("SurfaceGui")
@@ -505,28 +509,37 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						host = source
 					end
 				end
-				if host ~= screen:peek() then
-					if watched then
-						watched:Disconnect()
-						watched = nil
+				if chain then
+					chain.dispose()
+				end
+				local watching = owner.createChild()
+				chain = watching
+				Compose.withOwner(watching, function()
+					local sources: { ComposeTypes.Readable<boolean> } = {}
+					local at: Instance? = root
+					while at and not at:IsA("LayerCollector") do
+						if at:IsA("GuiObject") then
+							table.insert(sources, ctx.observe.Visible(at))
+						end
+						at = at.Parent
 					end
 					if host then
-						local current = host
-						watched = current:GetPropertyChangedSignal("Enabled"):Connect(function()
-							enabled:set(current.Enabled)
-						end)
-						enabled:set(current.Enabled)
+						table.insert(sources, ctx.observe.Enabled(host))
 					end
-				end
+					Compose.watch(function(use: ComposeTypes.Use)
+						local shown = true
+						for _, source in sources do
+							if use(source) == false then
+								shown = false
+							end
+						end
+						enabled:set(shown)
+					end)
+				end)
 				screen:set(host)
 				holder:set(if host then host.Parent else nil)
 			end
 			runtime.connect(root, "AncestryChanged", locate)
-			Compose.cleanup(function()
-				if watched then
-					watched:Disconnect()
-				end
-			end)
 			locate()
 			local band = topbarBand
 			riding = function(use: ComposeTypes.Use): boolean

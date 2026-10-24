@@ -306,6 +306,58 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("hides its top bar strip while the composition or one of its ancestors is hidden", {
+			id = "native_composition::Composition::hides its top bar strip while the composition or one of its ancestors is hidden",
+			run = function()
+				local engine, runtime, UI, gui = make()
+				local T = engine.types
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local page = engine.new("Frame")
+				page.Parent = layer
+				local root, wallet
+				runtime.mount(function()
+					local Host = runtime.constructors
+					wallet = UI.Region {
+						Name = "Wallet",
+						zone = "topbar",
+						rank = 1,
+						Host.Frame { Name = "WalletFull" },
+					}
+					root = UI.Composition { gap = 8, padding = 0, wallet }
+					return root
+				end, page)
+				engine.environment.poke(gui, "TopbarInset", T.Rect.new(164, 0, 844, 58))
+				local strip = wallet:FindFirstAncestorWhichIsA("ScreenGui")
+				Verify.expect(strip.Name):toBe("CompositionTopbar")
+				Verify.expect(strip.Enabled):toBe(true)
+				page.Visible = false
+				Verify.expect(strip.Enabled):toBe(false)
+				page.Visible = true
+				Verify.expect(strip.Enabled):toBe(true)
+				root.Visible = false
+				Verify.expect(strip.Enabled):toBe(false)
+				root.Visible = true
+				Verify.expect(strip.Enabled):toBe(true)
+				layer.Enabled = false
+				Verify.expect(strip.Enabled):toBe(false)
+				layer.Enabled = true
+				Verify.expect(strip.Enabled):toBe(true)
+				local closed = engine.new("Frame")
+				closed.Visible = false
+				closed.Parent = layer
+				page.Parent = closed
+				Verify.expect(strip.Enabled):toBe(false)
+				Verify.expect(wallet:FindFirstAncestorWhichIsA("ScreenGui")):toBe(strip)
+				page.Parent = layer
+				Verify.expect(strip.Enabled):toBe(true)
+				closed.Visible = true
+				closed.Visible = false
+				Verify.expect(strip.Enabled):toBe(true)
+				runtime:dispose()
+			end,
+		})
+
 		verifyHarness:case("stacks a center-lane zone under its corners when no region can give way", {
 			id = "native_composition::Composition::stacks a center-lane zone under its corners when no region can give way",
 			run = function()
