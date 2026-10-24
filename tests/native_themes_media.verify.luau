@@ -24,6 +24,45 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 	end)
+	verifyHarness:suite("game glyph catalog", function()
+		verifyHarness:case("registers game glyphs as standard art below theme icons", {
+			id = "native_themes_media::game glyph catalog::registers game glyphs as standard art below theme icons",
+			run = function()
+				local icons = require("../src/ui/icons")
+				local themes = require("../src").themes
+				local ThemeTypes = require("../src/ui/theme_types")
+				for _, name in
+					{
+						"star",
+						"heart",
+						"chat",
+						"gift",
+						"coin",
+						"gem",
+						"bag",
+						"trophy",
+						"crown",
+						"lock",
+						"bolt",
+						"wrench",
+						"timer",
+						"car",
+					}
+				do
+					local art = assert(icons.ART[name], name)
+					Verify.expect(art.assetName):toBe("facet_icon_" .. name)
+					Verify.expect(art.tintRole):toBe("content")
+					Verify.expect(themes.resolveIcon({}, name)):toBe(art.contentId)
+					Verify.expect(themes.resolveIcon({}, name .. ".fill")):toBe(art.contentId)
+					local catalog: { [string]: ThemeTypes.IconEntry } = { [name] = "rbxassetid://7" }
+					local themed: ThemeTypes.IconRegistry = { icons = catalog }
+					Verify.expect(themes.resolveIcon(themed, name)):toBe("rbxassetid://7")
+				end
+				Verify.expect(themes.resolveIcon({}, "person")):toBe(icons.ART.person.contentId)
+				Verify.expect(themes.resolveIcon({}, "kart")):toBe(nil)
+			end,
+		})
+	end)
 	type FixtureShadow = typeof(require("@repo/tools/typecheck/aliases").FixtureShadow)
 
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
