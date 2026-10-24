@@ -131,7 +131,7 @@ jobs:
           fi
 
   paired-perf:
-    name: Paired performance (${{ matrix.os }}, sample ${{ matrix.sample }})
+    name: ${{ inputs.diagnostic && format('Paired performance ({0}, sample {1})', matrix.os, matrix.sample) || format('Paired performance ({0})', matrix.os) }}
     strategy:
       fail-fast: false
       matrix:

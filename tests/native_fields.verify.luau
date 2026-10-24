@@ -23,7 +23,8 @@ return function(verifyHarness: Verify.Harness)
 		id = "native_fields::fade lifetime::collects late content on the configured native frame",
 		run = function()
 			local engine = engineLib.new()
-			local frames = engineLib.new().heartbeat
+			local frameEngine = engineLib.new()
+			local frames = frameEngine.heartbeat
 			local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 			local late: Frame? = nil
 			local stop, mounted = runtime.mount(function()
@@ -46,7 +47,7 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(child.Parent == panel:FindFirstChild("Fade")):toBe(true)
 			stop()
 			runtime:dispose()
-			Verify.expect(engineLib.connections(frames)):toBe(0)
+			Verify.expect(frameEngine.census().connections):toBe(0)
 			Verify.expect(engineLib.connections(engine.heartbeat)):toBe(0)
 		end,
 	})

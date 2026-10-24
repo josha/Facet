@@ -36,6 +36,8 @@ return function(ctx: Shared.Context, UI: Controls.Controls)
 			local clock = runtime.clock(
 				if spec.now then {} elseif spec.deadline ~= nil then { deadline = target } else { start = target }
 			)
+			local shownSeconds: number? = nil
+			local shownHours: boolean? = nil
 			C.watch(function(read: Shared.Use)
 				if read(completed) then
 					return
@@ -45,7 +47,12 @@ return function(ctx: Shared.Context, UI: Controls.Controls)
 				assert(at == nil or (at == at and math.abs(at) < math.huge), "Facet Timer clock must be finite")
 				local delta = if at ~= nil then (if spec.deadline ~= nil then target - at else at - target) else elapsed
 				local seconds = math.max(0, if spec.deadline ~= nil then math.ceil(delta) else math.floor(delta))
-				text:set(format.duration(seconds, { hours = spec.hours }))
+				local hours = spec.hours
+				if seconds ~= shownSeconds or hours ~= shownHours then
+					text:set(format.duration(seconds, { hours = hours }))
+					shownSeconds = seconds
+					shownHours = hours
+				end
 				if spec.deadline ~= nil and delta <= 0 then
 					completed:set(true)
 					if spec.onComplete then

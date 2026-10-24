@@ -2,9 +2,12 @@
 
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
+type ScreenGuiNativeProps = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiNativeProps)
+type OrderedControls = typeof(require("@repo/tools/typecheck/aliases").OrderedControls)
 type Readable<T> = { peek: (Readable<T>) -> T }
 type Use = <T>(Readable<T>) -> T
 local Facet = require("../src")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local Compose: ComposeModule = Facet.Compose
 local nativeApp = require("./native_app")
 local authoringMotion = require("./authoring_motion")
@@ -129,6 +132,41 @@ end, function(state)
 	state.apply(keys)
 end, { requirement = "UI-RUNTIME-002" })
 
+add("collection-selection-update", function()
+	local world = nativeApp()
+	local items: { BenchRow } = {}
+	for index = 1, 2048 do
+		items[index] = { id = `r{index}`, name = `Row {index}` }
+	end
+	local selection = Compose.cell({ r1 = true } :: { [string]: boolean })
+	local Host = world.runtime.constructors
+	world.runtime.mount(function()
+		local spec: Facet.KeyedCollectionSpec<BenchRow, string> = {
+			from = items,
+			key = "id",
+			selection = selection,
+			selectionMode = "single",
+			itemSize = 40,
+			render = function(current)
+				return Host.TextLabel({
+					Text = function(use: Use): string
+						return use(current).name
+					end,
+				}) :: TextLabel
+			end,
+		}
+		return world.UI.VirtualList(spec)
+	end, world.target)
+	world.frame()
+	return { selection = selection, n = 0, frame = world.frame, dispose = world.dispose }
+end, function(state)
+	state.n += 1
+	local key = `r{(state.n - 1) % 2048 + 1}`
+	state.selection:set({ [key] = true })
+	state.frame()
+	assert(state.selection:peek()[key] == true, "valid selection was pruned")
+end, { requirement = "UI-RUNTIME-002", samples = 500, warmup = 50 })
+
 add("sparse-update-under-load", function()
 	return reactive(function(state)
 		state.signals, state.n = {}, 0
@@ -145,6 +183,50 @@ end, function(state)
 	state.n += 1
 	state.signals[1]:set(1000 + state.n)
 end)
+
+add("reserved-slot-record-update", function()
+	local world = nativeApp()
+	local items: { BenchRow } = {}
+	local slots: { string } = {}
+	for index = 1, 128 do
+		items[index] = { id = `r{index}`, name = `Row {index}` }
+		slots[index] = items[index].id
+	end
+	local rows = Compose.cell(items)
+	local labels: { [string]: TextLabel } = {}
+	local Host = world.runtime.constructors
+	world.runtime.mount(function()
+		local spec: Facet.KeyedCollectionSpec<BenchRow, string> = {
+			from = rows,
+			key = "id",
+			slots = slots,
+			mode = "all",
+			itemSize = 40,
+			render = function(current, _placement, key)
+				local label = Host.TextLabel({
+					Text = function(use: Use): string
+						return use(current).name
+					end,
+				}) :: TextLabel
+				labels[key] = label
+				return label
+			end,
+		}
+		return world.UI.VirtualList(spec)
+	end, world.target)
+	world.frame()
+	return { rows = rows, labels = labels, n = 0, frame = world.frame, dispose = world.dispose }
+end, function(state)
+	state.n += 1
+	local rows = table.clone(state.rows:peek())
+	local index = (state.n - 1) % #rows + 1
+	local previous = rows[index]
+	local name = `Updated {state.n}`
+	rows[index] = { id = previous.id, name = name }
+	state.rows:set(rows)
+	state.frame()
+	assert(state.labels[previous.id].Text == name, "reserved slot did not publish its updated record")
+end, { requirement = "UI-RUNTIME-002", samples = 200, warmup = 20 })
 
 add("mounted-slice-update-storm", function()
 	local world = nativeApp()
@@ -275,6 +357,83 @@ end, function(state)
 	state.frame()
 end)
 
+local function sortableTable()
+	local world = nativeApp()
+	local items: { BenchRow } = {}
+	for index = 1, 512 do
+		items[index] = { id = `r{index}`, name = string.format("Racer %04d", index) }
+	end
+	local sort = Compose.cell(nil :: { column: string, direction: "ascending" | "descending" }?)
+	local rows = Compose.cell(items)
+	local controls: OrderedControls = {}
+	local label: TextLabel? = nil
+	local Host = world.runtime.constructors
+	local _, mounted = world.runtime.mount(function()
+		return world.UI.Table({
+			from = rows,
+			key = function(item: BenchRow): string
+				return item.id
+			end,
+			columns = {
+				{
+					id = "name",
+					value = function(item: BenchRow): string
+						return string.lower(item.name)
+					end,
+					render = function(current: Readable<BenchRow>): GuiObject
+						local node = Host.TextLabel({
+							Text = function(use: Use): string
+								return use(current).name
+							end,
+						}) :: TextLabel
+						if current:peek().id == "r1" then
+							label = node
+						end
+						return node
+					end,
+				},
+			},
+			itemSize = 40,
+			sort = sort,
+			controls = controls,
+		})
+	end, world.target)
+	local tableNode = (mounted :: unknown) :: Frame
+	world.engine.environment.poke(
+		(assert(tableNode:FindFirstChild("Body")) :: unknown) :: VerifyRoblox.Instance,
+		"AbsoluteWindowSize",
+		world.types.Vector2.new(800, 160)
+	)
+	world.frame()
+	return {
+		rows = rows,
+		sort = sort,
+		controls = controls,
+		label = assert(label),
+		n = 0,
+		frame = world.frame,
+		dispose = world.dispose,
+	}
+end
+
+add("table-sort-values", sortableTable, function(state)
+	state.n += 1
+	local descending = state.n % 2 == 0
+	state.sort:set({ column = "name", direction = if descending then "descending" else "ascending" })
+	state.frame()
+	assert(state.controls.indexOfKey("r1") == (if descending then 512 else 1), "table sort lost its row order")
+end, { requirement = "UI-RUNTIME-002", samples = 500, warmup = 50 })
+
+add("table-source-refresh", sortableTable, function(state)
+	state.n += 1
+	local rows = table.clone(state.rows:peek())
+	local name = `Racer {state.n}`
+	rows[1] = { id = "r1", name = name }
+	state.rows:set(rows)
+	state.frame()
+	assert(state.label.Text == name and state.controls.indexOfKey("r1") == 1, "table refresh lost its updated row")
+end, { requirement = "UI-RUNTIME-002", samples = 500, warmup = 50 })
+
 local function descendant(node, className)
 	for _, child in node:GetChildren() do
 		if child.ClassName == className then
@@ -352,6 +511,34 @@ end, function(state)
 	state.value:set("")
 	state.frame()
 end)
+
+add("timer-readout-storm", function()
+	local world = nativeApp()
+	local label: TextLabel? = nil
+	world.runtime.mount(function()
+		local children: ScreenGuiNativeProps = {}
+		for index = 1, 64 do
+			local timer = world.UI.Timer({ start = 0 })
+			children[index] = timer
+			if index == 1 then
+				label = timer
+			end
+		end
+		return world.Host.ScreenGui(children)
+	end, world.target)
+	world.frame()
+	return {
+		frame = world.frame,
+		now = assert(world.runtime.host.frames).now,
+		label = assert(label),
+		dispose = world.dispose,
+	}
+end, function(state)
+	for _ = 1, 6 do
+		state.frame(1 / 60)
+	end
+	assert(state.label.Text == Facet.format.duration(state.now()), "timer readout did not follow its clock")
+end, { requirement = "UI-PERF-001", samples = 500, warmup = 50 })
 
 add("zz-yardstick-cpu", function()
 	return { buf = table.create(256, 0), dispose = function() end }

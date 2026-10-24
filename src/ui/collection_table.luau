@@ -153,13 +153,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			if column == nil then
 				return rows
 			end
-			local indexed: { { item: V, index: number } } = table.create(#rows)
+			local indexed: { { item: V, index: number, value: unknown } } = table.create(#rows)
 			for index, item in rows do
-				indexed[index] = { item = item, index = index }
+				indexed[index] = { item = item, index = index, value = field(item, column) }
 			end
 			table.sort(indexed, function(a, b)
-				local left = field(a.item, assert(column))
-				local right = field(b.item, assert(column))
+				local left, right = a.value, b.value
 				if left == right then
 					return a.index < b.index
 				end
@@ -192,8 +191,12 @@ return function(ctx: Types.Context, UI: ControlTypes.BuilderControls, buildList:
 			end)
 		local layout = createColumns(ctx, spec, widths, truncatedRows, metrics, ordered, keyOf, field, unitScale)
 		Compose.watch(function(use: ComposeTypes.Use)
+			local rows = read(if tree then tree.all else spec.from, use)
+			if next(rowMeasures:peek()) == nil then
+				return
+			end
 			local valid: { [K]: boolean } = {}
-			for index, item in read(if tree then tree.all else spec.from, use) do
+			for index, item in rows do
 				valid[keyOf(item, index)] = true
 			end
 			local sizes: { [K]: number } = {}

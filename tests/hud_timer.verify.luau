@@ -6,6 +6,70 @@ local Hud = require("../src/ui/hud_types")
 local engineLib = require("./lib/native_engine")
 
 return function(harness: Verify.Harness)
+	harness:case("timer preserves fractional completion cycles and clock validation", {
+		id = "hud_timer::timer preserves fractional completion cycles and clock validation",
+		run = function(t)
+			local native = engineLib.new()
+			local at, calls, refs = 0, 0, 0
+			native.clock = function(): number
+				return at
+			end
+			local runtime = Facet.Roblox.createRuntime((native :: unknown) :: Roblox.Engine)
+			local deadline = Facet.Compose.cell(0.25)
+			local controls: Hud.TimerControls = {}
+			local stop, node = runtime.mount(function()
+				local UI = Facet.controls(runtime, { types = native.types })
+				return UI.Timer({
+					deadline = deadline,
+					now = function(): number
+						return at
+					end,
+					controls = controls,
+					ref = function()
+						refs += 1
+					end,
+					onComplete = function()
+						calls += 1
+					end,
+				})
+			end, native.new("Folder"))
+			t:defer(function()
+				stop()
+				runtime:dispose()
+			end)
+			local label = node :: TextLabel
+			local function step(value: number)
+				local elapsed = value - at
+				at = value
+				native.heartbeat:Fire(elapsed)
+			end
+			t:expect(label.Text):toBe("0:01")
+			step(0.2)
+			t:expect(label.Text):toBe("0:01")
+			t:expect(calls):toBe(0)
+			step(0.25)
+			t:expect(label.Text):toBe("0:00")
+			t:expect(calls):toBe(1)
+			deadline:set(0.24)
+			t:expect(label.Text):toBe("0:00")
+			t:expect(calls):toBe(2)
+			deadline:set(1.25)
+			t:expect(assert(controls.completed):peek()):toBe(false)
+			step(0.75)
+			t:expect(label.Text):toBe("0:01")
+			t:expect(calls):toBe(2)
+			step(1.25)
+			t:expect(label.Text):toBe("0:00")
+			t:expect(calls):toBe(3)
+			t:expect(refs):toBe(1)
+			t:expect(engineLib.connections(native.heartbeat)):toBe(0)
+			deadline:set(at + 1)
+			at = math.huge
+			t:expect(function()
+				native.heartbeat:Fire(0.01)
+			end):toThrow("clock must be finite")
+		end,
+	})
 	harness:case("timer ticks at displayed seconds retargets and releases its clock", function(t)
 		local native = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime((native :: unknown) :: Roblox.Engine)

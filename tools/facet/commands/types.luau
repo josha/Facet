@@ -431,7 +431,7 @@ local NEGATIVE_PROBES: { { string } } = {
 
 local PROBE_HEADER = {
 	"--!strict",
-	'local Facet = require("../../src")',
+	'local Facet = require("@repo/src")',
 	"local runtime = Facet.Roblox.createRuntime()",
 	"local UI = Facet.controls(runtime)",
 	"local nullableText: Facet.Cell<string?> = Facet.Compose.cell(nil :: string?)",
@@ -492,7 +492,7 @@ end
 
 local function negativeProbes(flags: { string }): Probes
 	local source, expected, count = probeSource(Analyzer.publicNames(publicSource()))
-	local file = Files.join("tests/types", uniqueName("_negative_") .. ".luau")
+	local file = Files.join(ARTIFACTS, uniqueName("_negative_") .. ".luau")
 	return withProbe(file, source, function(): Probes
 		local diagnostics, log = analyze({ file }, "negative", {}, "roblox", LOCK, flags)
 		local rejected: { [number]: boolean } = {}
@@ -866,7 +866,7 @@ end
 local function liveSelftest(flags: { string }): number
 	local solver = if isNewSolver(flags) then "new" else "old"
 	local robloxOk, robloxLog = probeContext(
-		Files.join("tests/types", uniqueName("_checker_") .. ".luau"),
+		Files.join(ARTIFACTS, uniqueName("_checker_") .. ".luau"),
 		"--!strict\nlocal valid: UDim2 = UDim2.fromOffset(24, 24)\nlocal invalid: string = 42\nreturn valid, invalid\n",
 		"selftest",
 		"roblox",

@@ -108,7 +108,192 @@ return function(verifyHarness: Verify.Harness)
 		end
 		return values
 	end
+	verifyHarness:case("selection changes reuse membership until its reactive source changes", {
+		id = "native_collections::selection changes reuse membership until its reactive source changes",
+		run = function(t)
+			local createSelection = require("../src/ui/collection_selection")
+			local engine, runtime, _, target, _, ctx = setup()
+			t:defer(function()
+				runtime:dispose()
+			end)
+			type Row = { id: number }
+			local initial: { Row } = {}
+			for index = 1, 128 do
+				initial[index] = { id = index }
+			end
+			local all = Compose.cell(initial, function(): boolean
+				return false
+			end)
+			local visible = Compose.cell({ initial[1] })
+			local selected = Compose.cell({ [2] = true } :: FixtureCollectionTypes.Selection<number>)
+			local calls = 0
+			local stop = runtime.mount(function()
+				local spec: FixtureCollectionTypes.SelectionOptions<Row, number> = { selectionFrom = all }
+				local controls: FixtureComposeTypes.OrderedCollectionControls<number> = {}
+				createSelection(ctx, spec, visible, function(item: Row): number
+					calls += 1
+					return item.id
+				end, controls, selected, "multiple")
+				return ctx.Host.Frame({})
+			end, target)
+			calls = 0
+			selected:set({ [3] = true, [128] = true })
+			t:expect(selected:peek()):toEqual({ [3] = true, [128] = true })
+			t:expect(calls):toBe(0)
+			all:set({ initial[1], initial[128] })
+			t:expect(selected:peek()):toEqual({ [128] = true })
+			t:expect(calls):toBe(2)
+			calls = 0
+			selected:set({ [128] = true, [99] = false })
+			t:expect(selected:peek()):toEqual({ [128] = true })
+			t:expect(calls):toBe(0)
+			local same = all:peek()
+			table.remove(same, 2)
+			all:set(same)
+			t:expect(selected:peek()):toEqual({})
+			t:expect(calls):toBe(1)
+			stop()
+			calls = 0
+			all:set({ initial[5] })
+			selected:set({ [5] = true })
+			t:expect(calls):toBe(0)
+		end,
+	})
+	verifyHarness:case("Table data updates skip key validation for an empty height cache", {
+		id = "native_collections::Table data updates skip key validation for an empty height cache",
+		run = function(t)
+			local engine, runtime, UI, target = setup()
+			t:defer(function()
+				runtime:dispose()
+			end)
+			type Row = { id: number, label: string }
+			local rows = records(128)
+			local source = Compose.cell(rows)
+			local calls = 0
+			local content: Frame? = nil
+			local controls: FixtureComposeTypes.OrderedCollectionControls<number> = {}
+			local Host = runtime.constructors
+			local _, mounted = runtime.mount(function()
+				local spec: FixtureCollectionProps.KeyedTableSpec<Row, number> = {
+					from = source,
+					key = function(item: Row): number
+						calls += 1
+						return item.id
+					end,
+					columns = {
+						{
+							id = "label",
+							render = function(
+								_current: FixtureComposeTypes.Readable<Row>,
+								_placement: FixtureComposeTypes.Readable<FixtureComposeTypes.Placement>,
+								key: number
+							): Frame
+								local frame = (
+									Host.Frame({ Size = engine.types.UDim2.fromOffset(100, 0) }) :: unknown
+								) :: Frame
+								if key == 1 then
+									content = frame
+								end
+								return frame
+							end,
+						} :: FixtureCollectionTypes.TableColumn<Row, number>,
+					},
+					itemSize = 20,
+					controls = controls,
+				}
+				return UI.Table(spec)
+			end, target)
+			local body = assert(((mounted :: unknown) :: Frame):FindFirstChild("Body"))
+			engine.environment.poke(
+				(body :: unknown) :: VerifyRoblox.Instance,
+				"AbsoluteWindowSize",
+				engine.types.Vector2.new(200, 100)
+			)
+			calls = 0
+			source:set(table.clone(rows))
+			t:expect(calls):toBe(256)
+			engine.environment.poke(
+				(assert(content) :: unknown) :: VerifyRoblox.Instance,
+				"AbsoluteSize",
+				engine.types.Vector2.new(100, 60)
+			)
+			t:expect(assert(controls.placementOf)(2).offset):toBe(76)
+			local remaining = table.clone(rows)
+			table.remove(remaining, 1)
+			source:set(remaining)
+			source:set(rows)
+			t:expect(assert(controls.placementOf)(2).offset):toBe(20)
+		end,
+	})
 	verifyHarness:suite("Table sort scrolling", function()
+		verifyHarness:case("extracts sort values once per row while preserving stable ties", {
+			id = "native_collections::Table sort scrolling::extracts sort values once per row while preserving stable ties",
+			run = function(t)
+				local engine, runtime, UI, target = setup()
+				t:defer(function()
+					runtime:dispose()
+				end)
+				type Row = { id: number, rank: number? }
+				local rows: { Row } = {}
+				for index = 1, 128 do
+					rows[index] = { id = index, rank = if index % 4 == 0 then nil else index % 4 }
+				end
+				local source = Compose.cell(rows)
+				local sort = Compose.cell(nil :: FixtureCollectionTypes.Sort?)
+				local controls: FixtureComposeTypes.OrderedCollectionControls<number> = {}
+				local calls = 0
+				local Host = runtime.constructors
+				local _, mounted = runtime.mount(function()
+					local spec: FixtureCollectionProps.KeyedTableSpec<Row, number> = {
+						from = source,
+						key = function(item: Row): number
+							return item.id
+						end,
+						columns = {
+							{
+								id = "rank",
+								value = function(item: Row): number?
+									calls += 1
+									return item.rank
+								end,
+								render = function(): Frame
+									return (Host.Frame({}) :: unknown) :: Frame
+								end,
+							} :: FixtureCollectionTypes.TableColumn<Row, number>,
+						},
+						itemSize = 20,
+						sort = sort,
+						controls = controls,
+					}
+					return UI.Table(spec)
+				end, target)
+				local body = assert(((mounted :: unknown) :: Frame):FindFirstChild("Body"))
+				engine.environment.poke(
+					(body :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteWindowSize",
+					engine.types.Vector2.new(200, 100)
+				)
+				calls = 0
+				sort:set({ column = "rank", direction = "ascending" })
+				t:expect(calls):toBe(128)
+				t:expect(assert(controls.indexOfKey)(4)):toBe(1)
+				t:expect(assert(controls.indexOfKey)(8)):toBe(2)
+				t:expect(assert(controls.indexOfKey)(1)):toBe(33)
+				calls = 0
+				sort:set({ column = "rank", direction = "descending" })
+				t:expect(calls):toBe(128)
+				t:expect(assert(controls.indexOfKey)(3)):toBe(1)
+				t:expect(assert(controls.indexOfKey)(7)):toBe(2)
+				t:expect(assert(controls.indexOfKey)(4)):toBe(97)
+				local changed = table.clone(rows)
+				changed[1] = { id = 1, rank = 9 }
+				calls = 0
+				source:set(changed)
+				t:expect(calls):toBe(128)
+				t:expect(assert(controls.indexOfKey)(1)):toBe(1)
+				t:expect(assert(controls.indexOfKey)(3)):toBe(2)
+			end,
+		})
 		verifyHarness:case("resets sorting and reveals a selected row without changing list anchoring", {
 			id = "native_collections::Table sort scrolling::resets sorting and reveals a selected row without changing list anchoring",
 			run = function()
