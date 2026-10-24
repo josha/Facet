@@ -183,6 +183,7 @@ export type ButtonProps = {
 	target: typeof(buttonInput.target),
 	caption: typeof(button.caption),
 	glyph: typeof(button.glyph),
+	shortcutHint: typeof(button.shortcutHint),
 	selected: typeof(button.selected),
 	onActivate: typeof(button.onActivate),
 	[number | Engine.EventKey]: Compose.Child,
