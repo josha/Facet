@@ -377,6 +377,7 @@ The consumer supplies discovery, the meaning of each locator and an authorized h
 | `Core.execute(plan, host, options?)` | Validate, select and batch the plan, then execute the batches with lifecycle, capability and failure accounting. |
 | `Gate.define`, `run`, `format`, `testCases`, `rerun`, `explain`, `list` (package `src/gate`); `Lute.gate` (`run`, `last`, `cli`, `writeReport`) | Declare producers and execute them as one accounted plan with an acceptance verdict. See [declarative gates](execution.md#declarative-gates). |
 | `Benchmark.case`, `run`, `collection`, `collect`, `store`, `storeReport`, `decode`, `compare`, `spread` (`src/benchmark.luau`) | Warm up, sample and check baselines and stability. Report the result as an ordinary case. Store, compare and summarize runs. See [benchmarks](experience.md#benchmarks). |
+| `Lute.memory.measure`, `settle`, `create` | Estimate retained Luau heap in a separate lifecycle pass with bounded collection progress. See [retained heap estimates](execution.md#retained-heap-estimates-on-lute). |
 
 [Execution](execution.md) describes fixtures, deadlines, retries and Lute workers.
 The [fake host](../tests/fake-host.luau) of the tests injects missing, duplicate, reordered, failed and cancelled deliveries without external effects.
@@ -863,7 +864,25 @@ Layout supports UDim2 dimensions, anchors, scale, fixed padding, size constraint
 
 Wrapped lists form lines in either fill direction. Each line distributes its flexible items independently. Cross-axis flex distributes or stretches the lines. Scaled padding uses the corresponding parent axis. Fixed-child lists support an automatic main axis or cross axis, including resize, visibility, sorting, removal and wrapping changes. Individual GUI aspect constraints support both aspect types and dominant axes, scaling, size limits and list flex. The same 1,164 native-observed wrapping and aspect configurations, plus reflow mutations, run under both hosts.
 
-Non-leading or overflowing distributed spacing in unwrapped lists, table and page layouts, aspect constraints on automatic-size GUI objects or individual grid cells, rotation, intrinsic scale dependencies and LayerCollectors other than ScreenGui raise `unsupported_ui_layout` before geometry is published. A `StyleLink` requires an effective-property `read(instance, property)` provider; the bridge supplies its UI style reader by default. Supplied reader errors propagate. `vector(x, y)` selects the output datatype constructor. These mechanisms are simulated and do not establish native rendering or input coverage.
+Relative children under automatic parents support bounded measurement. Lists
+require the authored minimum to contain the children under both ancestor and
+final bounds. Free layouts measure natural child bounds first, then relative
+dimensions, then final padded bounds. Unpadded relative positions and anchors
+are supported when the final children fit. The same 444 configurations and a
+resize, minimum-size, visibility, insertion, removal and padding mutation sequence
+run under Studio and the double.
+
+Unresolved relative growth, padded relative positions, relative children under
+constrained automatic parents, and relative intrinsic child sizes with their own
+automatic axis or aspect constraint remain unsupported. Non-leading or
+overflowing distributed spacing in unwrapped lists, table and page layouts,
+aspect constraints on automatic-size GUI objects or individual grid cells,
+rotation and LayerCollectors other than ScreenGui also raise
+`unsupported_ui_layout` before geometry is published. A `StyleLink` requires an
+effective-property `read(instance, property)` provider; the bridge supplies its UI
+style reader by default. Supplied reader errors propagate. `vector(x, y)` selects
+the output datatype constructor. These mechanisms are simulated and do not
+establish native rendering or input coverage.
 
 `Lute.fixture.bridge` installs captured text measurements by default. `TextService.GetTextBoundsAsync` and `TextService.GetTextSize` use native-observed font advances, pair adjustments and boundary corrections. The facts record the native engine version and font face. They cover ASCII letters, digits, spaces and hard newlines at integer sizes 1–100. The committed faces are Builder Sans, Nunito, Fondamento and Michroma in Regular, Medium, SemiBold and Bold, plus Source Sans Pro Regular and Legacy Arial Regular. All use Normal style. Word wrapping supports words that fit within the available width. An unknown font, punctuation, other Unicode, rich text or a word that needs splitting raises `unsupported_text_metrics`. The double does not approximate these inputs. `GetTextSize` limits its returned height to whole lines within `frameSize.Y`, with at least one line; width includes all lines.
 

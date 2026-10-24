@@ -84,10 +84,10 @@ module without waiting for host filesystem operations. The live fixture shares
 Verify's source and bytecode cache across isolated runtime environments. A
 planted source change uses a separate cache.
 
-The `native_live_contracts` spec adds 28 original cases. These cover padded
+The `native_live_contracts` spec adds 33 original cases. These cover padded
 text geometry, stable indeterminate progress, state changes, late resize
 detection, clipping detection, lifecycle, style properties, grid sizing and
-content and round status containment. Together the two specs run 33 original cases. Diagnostic probes
+content and round status containment. Together the two specs run 38 original cases. Diagnostic probes
 are not included in that count.
 
 Verify supplies bounded text measurement from 18 captured font faces. The
@@ -97,20 +97,29 @@ and stretched vertical lists. Unsupported shaping and text modes raise errors.
 Verify checks 348 shared text layout configurations against Studio and the
 double. This checks the selected model behavior, not arbitrary text rendering.
 
-The 2026-10-24 full live-source audit with Verify commit
-`de873199d012866009dbdbddee8bb5556530c2d4` reports 35 passed, 899 failed and
-108 unsupported out of 1,042 cases. Two passes are diagnostic probes. The
-33 original passing cases are selected in the committed headless specs.
-The previous audit had 34 passes, 899 failures and 108 unsupported cases
-out of 1,041 cases. The current audit includes the new Outline measurement case.
-`classb_themes/status-round-containment` now passes. No passing case regressed.
-This audit reports remaining gaps; it is not a passing full live gate.
+The 2026-10-24 full live-source audit uses the engine model from Verify commit
+`4d0b46de7c8fb97ea2e4a21f4d8c99086ea7d325`. It
+reports 40 passed, 894 failed and 108 unsupported out of 1,042 cases. Two passes
+are diagnostic probes. The 38 original passing cases are selected in the
+committed headless specs. No previous passing case regressed. This audit
+reports remaining gaps; it is not a passing full live gate.
+
+Hierarchy selectors and phantom modifiers added five original passing cases:
+clear-button placement, circular button axes, segmented opening layout,
+utility strokes and field accessories. The bounded automatic-parent model
+added no complete passing cases. It moved 278 cases from relative sizing to
+unsupported `TextTruncate`. There are now 326 cases whose first blocker is
+`TextTruncate`. A first blocker does not describe every missing mechanism in
+a case.
 
 Verify checks wrapped lists and fixed-size GUI aspect constraints with 1,164
-shared Studio/double layout configurations and a mutation sequence. Aspect
-constraints on automatic-size objects and individual grid cells remain
-unsupported. Style selectors and phantom modifiers, scrolling geometry,
-advanced text modes, input delivery and device services still block live cases.
+shared Studio/double layout configurations and a mutation sequence. The bounded
+automatic-parent model adds 444 shared configurations and an eight-stage
+mutation sequence. Growing sizing feedback, padded relative positions and
+constrained automatic parents with relative children remain unsupported.
+Aspect constraints on automatic-size objects and individual grid cells also
+remain unsupported. Advanced text modes, scrolling geometry, input delivery,
+device services and the remaining style mechanisms still block live cases.
 
 Run the contract cases with `lute run tools/facet gate spec native_live_contracts`.
 Run the primitive selection with `lute run tools/facet gate spec native_live_primitives`.
