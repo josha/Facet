@@ -1,4 +1,6 @@
 --!strict
+type ScreenProps = typeof(require("@repo/tools/typecheck/aliases").ScreenProps)
+
 local CatalogTypes = require("./catalog_types")
 
 return function(c: CatalogTypes.Context): Instance
@@ -12,23 +14,26 @@ return function(c: CatalogTypes.Context): Instance
 		end
 	end
 	c.Compose.cleanup(close)
-	return UI.Button "OpenFullBleed" {
+	return UI.Button {
+		Name = "OpenFullBleed",
 		label = "Open a full-bleed garage page",
 		onActivate = function()
 			close()
 			local release, screen = c.app.mount(function()
-				return UI.Screen "FullBleed" {
+				local page: ScreenProps = {
+					Name = "FullBleed",
 					surface = "surface",
 					Active = true,
 					UI.NavBar {
 						title = "Garage",
 						trailing = UI.Button { label = "Close", appearance = "utility", onActivate = close },
 					},
-					UI.Text {
-						text = "The plate reaches the glass. Text and Close stay in the safe area.",
-						wrap = true,
-					},
 				}
+				page[#page + 1] = UI.Text {
+					text = "The plate reaches the glass. Text and Close stay in the safe area.",
+					wrap = true,
+				}
+				return UI.Screen(page)
 			end)
 			screen.DisplayOrder = 1000
 			stop = release
