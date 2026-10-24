@@ -20,14 +20,12 @@ return function(c: CatalogTypes.Context): Instance
 		onActivate = function()
 			close()
 			local release, screen = c.app.mount(function()
+				local closer: GuiObject = UI.Button { label = "Close", appearance = "utility", onActivate = close }
 				local page: ScreenProps = {
 					Name = "FullBleed",
 					surface = "surface",
 					Active = true,
-					UI.NavBar {
-						title = "Garage",
-						trailing = UI.Button { label = "Close", appearance = "utility", onActivate = close },
-					},
+					UI.NavBar { title = "Garage", trailing = closer },
 				}
 				page[#page + 1] = UI.Text {
 					text = "The plate reaches the glass. Text and Close stay in the safe area.",
